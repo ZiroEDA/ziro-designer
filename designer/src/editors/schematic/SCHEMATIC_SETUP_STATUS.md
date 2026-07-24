@@ -113,6 +113,14 @@ Ground truth for every mapping below is the KiCad source
   `SEG::Intersect`'s integer parametric test and `CalcArcCenter` in
   `libs/kimath/src/trigo.ts`); arc radius = default line width ×
   `hopover_size_mult_list[choice]`; screen, print and plot.
+- **Embedded Files, write side** (PR #134) — add/remove/export are live:
+  `CompressAndEncode`/`DecompressAndDecode` ports in
+  `eeschema/src/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
+  76-column `|`-delimited base64, MurmurHash3 x64_128 checksum with the V1
+  tail and legacy SHA-256 fallbacks — `libs/kimath/src/mmh3_hash.ts`);
+  AddFile's extension→type table and name-sorted collection; the panel adds
+  via multi-file picker, exports all files as downloads, and OK applies to
+  the document (undoable source swap).
 - **Inter-sheet references** (PR #134) — Formatting's show flag draws the
   implicit "Intersheet References" field beside global labels:
   `RecomputeIntersheetRefs` map build + `ResolveTextVar` INTERSHEET_REFS
@@ -133,9 +141,7 @@ Ground truth for every mapping below is the KiCad source
 
 ### 🔴 Not implemented (deliberate)
 
-- **Embedded Files, write side** — add/remove/export need a browser zstd
-  codec (KiCad compresses blobs with zstd + base64); the page is read-only
-  until then, and in-session panel edits reset on reopen.
+(nothing — every page short of the simulator-bound OPO fields is live)
 
 ## Gotchas encoded in the serializer (don't rediscover these)
 
@@ -153,8 +159,6 @@ Ground truth for every mapping below is the KiCad source
 ## Remaining work (phases A–H1 in PRs #113–#123; buses #124–#126; quick-wins
 ## #127; net chains + hop-overs + inter-sheet refs #134)
 
-1. Embedded-file **write side** — browser zstd codec, add/remove/export
-   (awaiting a decision on adding a zstd WASM dependency).
-2. Committed net chains — `.kicad_sch` `signal` nodes + `PASSTHROUGH_MODE`
+1. Committed net chains — `.kicad_sch` `signal` nodes + `PASSTHROUGH_MODE`
    attribute (detection already live).
-3. OPO fields — blocked on a simulator.
+2. OPO fields — blocked on a simulator.
