@@ -113,6 +113,13 @@ Ground truth for every mapping below is the KiCad source
   `SEG::Intersect`'s integer parametric test and `CalcArcCenter` in
   `libs/kimath/src/trigo.ts`); arc radius = default line width ×
   `hopover_size_mult_list[choice]`; screen, print and plot.
+- **Inter-sheet references** (PR #134) — Formatting's show flag draws the
+  implicit "Intersheet References" field beside global labels:
+  `RecomputeIntersheetRefs` map build + `ResolveTextVar` INTERSHEET_REFS
+  ports (`eeschema/src/tools/intersheet_refs.ts`), autoplaced past the flag
+  tail per `AutoplaceFields` or at the stored field position; own-page /
+  abbreviated / prefix / suffix options all live; per-sheet virtual page on
+  screen, print and plot.
 - **Embedded Files, read side** (PR #123) — the page lists the document's
   real `embedded_files` section (names, types, `kicad-embed://` references)
   and the `embedded_fonts` flag via `listEmbeddedFiles`
@@ -121,9 +128,8 @@ Ground truth for every mapping below is the KiCad source
 
 ### 🟡 Persisted correctly, not consumed yet
 
-- **Formatting leftovers blocked on missing features**: inter-sheet refs
-  (needs multi-sheet reference tracking), operating-point overlay fields
-  (needs simulator).
+- **Formatting leftovers blocked on missing features**: operating-point
+  overlay fields (needs simulator).
 
 ### 🔴 Not implemented (deliberate)
 
@@ -145,12 +151,10 @@ Ground truth for every mapping below is the KiCad source
   `[` / `]`, `reuse_designators` defaults **true**.
 
 ## Remaining work (phases A–H1 in PRs #113–#123; buses #124–#126; quick-wins
-## #127; net chains + hop-overs #134)
+## #127; net chains + hop-overs + inter-sheet refs #134)
 
 1. Embedded-file **write side** — browser zstd codec, add/remove/export
    (awaiting a decision on adding a zstd WASM dependency).
-2. Inter-sheet references — needs multi-sheet reference tracking in the
-   renderer (multi-sheet printing infrastructure now exists).
-3. Committed net chains — `.kicad_sch` `signal` nodes + `PASSTHROUGH_MODE`
+2. Committed net chains — `.kicad_sch` `signal` nodes + `PASSTHROUGH_MODE`
    attribute (detection already live).
-4. OPO fields — blocked on a simulator.
+3. OPO fields — blocked on a simulator.
