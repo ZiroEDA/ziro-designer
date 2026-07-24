@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bokuweb/zstd-wasm": "^0.0.27",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/sexpr": "workspace:*"

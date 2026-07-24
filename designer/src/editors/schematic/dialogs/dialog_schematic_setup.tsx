@@ -35,7 +35,7 @@ import { PanelBomPresets } from './panels/panel_bom_presets.js';
 import { PanelSetupBuses } from './panels/panel_setup_buses.js';
 import { PanelSetupNetChains } from './panels/panel_setup_net_chains.js';
 import { PanelSetupNetclasses } from './panels/panel_setup_netclasses.js';
-import { PanelEmbeddedFiles } from './panels/panel_embedded_files.js';
+import { PanelEmbeddedFiles, type EmbeddedFile } from './panels/panel_embedded_files.js';
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.
@@ -59,10 +59,18 @@ interface Props {
   /** Page to open on (ShowSchematicSetupDialog's aInitialPage). */
   initialPage?: PageId;
   onOk: (next: SchematicSetup) => void;
+  /** Export embedded files (threaded to PanelEmbeddedFiles). */
+  onExportEmbedded?: (files: EmbeddedFile[]) => void;
   onCancel: () => void;
 }
 
-export function DialogSchematicSetup({ value, initialPage, onOk, onCancel }: Props): JSX.Element {
+export function DialogSchematicSetup({
+  value,
+  initialPage,
+  onOk,
+  onCancel,
+  onExportEmbedded,
+}: Props): JSX.Element {
   // A working copy: edits apply on OK, discard on Cancel (KiCad's TransferData).
   const [s, setS] = useState<SchematicSetup>(() => ({
     erc: { severities: { ...value.erc.severities }, pinMap: value.erc.pinMap.map((r) => [...r]) },
@@ -258,6 +266,7 @@ export function DialogSchematicSetup({ value, initialPage, onOk, onCancel }: Pro
             <PanelEmbeddedFiles
               value={s.embeddedFiles}
               onChange={(embeddedFiles) => setS((cur) => ({ ...cur, embeddedFiles }))}
+              onExport={onExportEmbedded}
             />
           ),
         },

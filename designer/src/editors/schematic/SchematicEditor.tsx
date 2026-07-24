@@ -143,7 +143,12 @@ import {
   detectNetChains,
   expandTextVars,
   intersheetRefsText,
+  addEmbeddedFile,
+  embeddedFilesCommand,
+  getEmbeddedFileData,
   listEmbeddedFiles,
+  removeEmbeddedFile,
+  setEmbedFonts,
   schematicTextVarResolver,
   type IntersheetRefsConfig,
   type IntersheetSheet,
@@ -154,7 +159,14 @@ import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symb
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
 import { DialogPlot, type PlotFormat } from './dialogs/dialog_plot.js';
-import { printSheet, plotPng, plotSvg, plotPdf, type PlotOpts } from './render/plot.js';
+import {
+  downloadBlob,
+  printSheet,
+  plotPng,
+  plotSvg,
+  plotPdf,
+  type PlotOpts,
+} from './render/plot.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
@@ -3227,9 +3239,43 @@ export function SchematicEditor({
               value={setup}
               onOk={(next) => {
                 commitSetup(next);
+                // The Embedded Files page edits the document itself
+                // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
+                // compress added files, drop removed ones, set the fonts flag.
+                if (doc) {
+                  const cur = listEmbeddedFiles(doc);
+                  const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
+                  const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
+                  const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
+                  const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
+                  if (removed.length || added.length || fontsChanged) {
+                    const base = doc;
+                    void (async () => {
+                      let after = base;
+                      for (const name of removed) after = removeEmbeddedFile(after, name);
+                      for (const f of added)
+                        after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
+                      if (fontsChanged) after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
+                      runCommand(embeddedFilesCommand(after));
+                    })();
+                  }
+                }
                 setSetupOpen(false);
               }}
               onCancel={() => setSetupOpen(false)}
+              onExportEmbedded={(files) => {
+                // onExportFiles: write every embedded file out — here as
+                // downloads; pending rows export their picked bytes directly.
+                const base = doc;
+                if (!base) return;
+                void (async () => {
+                  for (const f of files) {
+                    const bytes =
+                      f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
+                    if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
+                  }
+                })();
+              }}
             />
           )}
           {bomOpen && (

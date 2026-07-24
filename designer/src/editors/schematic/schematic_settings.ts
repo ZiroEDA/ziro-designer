@@ -526,6 +526,9 @@ export function resolveEffectiveNetClass(netName: string, data: NetClassesData):
 export interface EmbeddedFile {
   name: string;
   reference: string;
+  /** Raw content of a file added in this dialog session, not yet compressed
+   *  into the document (EMBEDDED_FILES::AddFile happens on OK). */
+  pendingBytes?: Uint8Array;
 }
 export interface EmbeddedFilesData {
   files: EmbeddedFile[];
