@@ -19,7 +19,7 @@ const sch = (body: string) =>
 // A right-reading global label anchored at (100, 100) mm.
 const DOC = sch('(global_label "CLK" (shape input) (at 100 100 0) (uuid "g1"))');
 
-const BASE: PlotOpts = { showDrawingSheet: false };
+const BASE: PlotOpts = { color: true, drawingSheet: false, background: false };
 
 const paths = (svg: string): string[] => svg.match(/<path [^>]*>/g) ?? [];
 
