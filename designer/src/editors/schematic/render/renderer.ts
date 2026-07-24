@@ -23,6 +23,8 @@ import {
 import {
   buildWireWithHopShape,
   expandTextVars,
+  intersheetRefsAutoplaced,
+  intersheetRefsField,
   refId,
   symbolBodyBBox,
   danglingPinPositions,
@@ -215,6 +217,11 @@ export interface RenderOpts {
   /** Wire hop-over arc radius in IU (default line width ×
    *  SCHEMATIC_SETTINGS::GetHopOverScale). Unset or 0 = no hop-overs. */
   hopOverRadiusIU?: number;
+  /** Inter-sheet references (m_IntersheetRefsShow on): resolves a global
+   *  label's implicit "Intersheet References" field text from its resolved
+   *  label text (SCH_GLOBALLABEL::ResolveTextVar `INTERSHEET_REFS` branch).
+   *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
+  intersheetRefs?: { text: (resolvedLabel: string) => string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
    *  GetEffectiveLineStyle, SCH_JUNCTION::getEffectiveShape): applied only
    *  where the item carries no stroke of its own. */
@@ -278,6 +285,8 @@ let g_textOffsetRatio = 0.15;
 let g_labelSizeRatio = 0.375; // DEFAULT_LABEL_SIZE_RATIO (box expansion)
 let g_pinSymbolSize = 0.635 * MM; // m_PinSymbolSize (25 mil); 0 = per-pin fallback
 let g_hopOverRadius = 0; // hop-over arc radius (IU); 0 = hop-overs off
+// Inter-sheet reference resolver for the current render (unset = hidden).
+let g_intersheetRefs: RenderOpts['intersheetRefs'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
@@ -397,6 +406,7 @@ export function renderSchematic(
       ? opts.pinSymbolSizeIU
       : PIN_SYMBOL_SIZE;
   g_hopOverRadius = opts.hopOverRadiusIU && opts.hopOverRadiusIU > 0 ? opts.hopOverRadiusIU : 0;
+  g_intersheetRefs = opts.intersheetRefs;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
@@ -1418,6 +1428,51 @@ function drawLabel(
       // Centre the text in the box (box centre is at -symbLen/2 along the reading axis).
       const c = spinRotate({ x: -x / 2 + xoff, y: 0 }, spin);
       if (!shadow) drawText(ctx, l.text, { x: l.at.x + c.x, y: l.at.y + c.y }, h, color);
+      // The implicit "Intersheet References" field (${INTERSHEET_REFS}), when
+      // Formatting shows the layer. Colour: LAYER_INTERSHEET_REFS aliases
+      // LAYER_GLOBLABEL (render_settings.h GetLayerColor).
+      if (g_intersheetRefs && !shadow) {
+        const field = intersheetRefsField(l);
+        const refText = g_intersheetRefs.text(l.text);
+        const fh = field?.effects?.fontSize?.[0] ?? 1.27 * MM;
+        if (intersheetRefsAutoplaced(l, field)) {
+          // SCH_LABEL_BASE::AutoplaceFields: the refs sit past the flag's tail
+          // — offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
+          // back toward the label, rotated with the spin.
+          const margin = 2 * Math.round(g_textOffsetRatio * h);
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = -Infinity,
+            maxY = -Infinity;
+          for (const p of pts) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+          }
+          const off = Math.max(maxX - minX, maxY - minY) + margin;
+          if (spin === SPIN.LEFT)
+            drawText(ctx, refText, { x: l.at.x - off, y: l.at.y }, fh, color, ['right']);
+          else if (spin === SPIN.UP)
+            drawText(ctx, refText, { x: l.at.x, y: l.at.y - off }, fh, color, ['left'], 90);
+          else if (spin === SPIN.RIGHT)
+            drawText(ctx, refText, { x: l.at.x + off, y: l.at.y }, fh, color, ['left']);
+          else drawText(ctx, refText, { x: l.at.x, y: l.at.y + off }, fh, color, ['right'], 90);
+        } else if (field?.at) {
+          // A user-placed field keeps its stored position/effects.
+          drawText(
+            ctx,
+            refText,
+            field.at,
+            fh,
+            color,
+            field.effects?.justify,
+            field.angle % 180 === 90 ? 90 : 0,
+            field.effects?.bold ?? false,
+            field.effects?.italic ?? false,
+          );
+        }
+      }
     }
     return;
   }

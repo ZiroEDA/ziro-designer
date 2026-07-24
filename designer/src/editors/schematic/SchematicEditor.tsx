@@ -139,9 +139,14 @@ import {
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
+  buildPageRefsMap,
   detectNetChains,
+  expandTextVars,
+  intersheetRefsText,
   listEmbeddedFiles,
   schematicTextVarResolver,
+  type IntersheetRefsConfig,
+  type IntersheetSheet,
 } from '@ziroeda/eeschema';
 import { DialogExportBom } from './dialogs/dialog_export_bom.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
@@ -1068,6 +1073,67 @@ export function SchematicEditor({
     [setup],
   );
 
+  // Inter-sheet references (SCHEMATIC::RecomputeIntersheetRefs): resolved
+  // global-label text -> virtual pages across the hierarchy, plus each virtual
+  // page's page-number string, rebuilt when the hierarchy or settings change.
+  const intersheetRefsBase = useMemo(() => {
+    if (!setup.formatting.intersheetRefsShow) return undefined;
+    const docs = liveDocs();
+    const sheets: IntersheetSheet[] = [];
+    const virtualPageToPages = new Map<number, string>();
+    flatSheets.forEach((s, i) => {
+      const sch = docs.get(s.file);
+      const page = pageNumberOf(s.path) || String(i + 1);
+      virtualPageToPages.set(i + 1, page);
+      if (sch) {
+        const resolver = resolverForDoc(sch, s.file, s.path);
+        sheets.push({
+          sch,
+          virtualPage: i + 1,
+          pageString: page,
+          resolve: (t) => expandTextVars(t, resolver),
+        });
+      }
+    });
+    // No hierarchy yet (fresh document): the on-screen sheet is page 1.
+    if (sheets.length === 0 && doc) {
+      virtualPageToPages.set(1, pageNumberOf('/') || '1');
+      const resolver = resolverForDoc(doc, currentFile);
+      sheets.push({
+        sch: doc,
+        virtualPage: 1,
+        pageString: '1',
+        resolve: (t) => expandTextVars(t, resolver),
+      });
+    }
+    return { pageRefsMap: buildPageRefsMap(sheets), virtualPageToPages };
+  }, [setup, liveDocs, flatSheets, pageNumberOf, doc, currentFile, resolverForDoc]);
+
+  // ${INTERSHEET_REFS} resolver for the sheet shown as `currentVirtualPage`
+  // (SCH_GLOBALLABEL::ResolveTextVar reads CurrentSheet()'s virtual page).
+  const intersheetRefsFor = useCallback(
+    (currentVirtualPage: number): RenderOpts['intersheetRefs'] => {
+      if (!intersheetRefsBase) return undefined;
+      const cfg: IntersheetRefsConfig = {
+        pageRefsMap: intersheetRefsBase.pageRefsMap,
+        virtualPageToPages: intersheetRefsBase.virtualPageToPages,
+        currentVirtualPage,
+        listOwnPage: setup.formatting.intersheetRefsOwnPage,
+        formatShort: setup.formatting.intersheetRefsAbbreviated,
+        prefix: setup.formatting.intersheetRefsPrefix,
+        suffix: setup.formatting.intersheetRefsSuffix,
+      };
+      return { text: (resolvedLabel) => intersheetRefsText(resolvedLabel, cfg) };
+    },
+    [intersheetRefsBase, setup],
+  );
+
+  // The on-screen sheet's resolver (CurrentSheet().GetVirtualPageNumber()).
+  const intersheetRefs = useMemo(() => {
+    const idx = flatSheets.findIndex((s) => s.path === currentPath);
+    return intersheetRefsFor(idx === -1 ? 1 : idx + 1);
+  }, [intersheetRefsFor, flatSheets, currentPath]);
+
   // Print (DIALOG_PRINT): render the current sheet and open the browser print
   // flow, optionally with a different colour theme (m_useColorTheme choice).
   const doPrint = useCallback(
@@ -1081,12 +1147,22 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(netOverrides ? { netOverrides } : {}),
         ...(resolveTextVar ? { resolveTextVar } : {}),
+        ...(intersheetRefs ? { intersheetRefs } : {}),
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
       if (doc) printSheet(doc, printTheme, o, outputBaseName());
       setPrintOpen(false);
     },
-    [doc, theme, outputBaseName, activeSheet, drawingDefaults, netOverrides, resolveTextVar],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      activeSheet,
+      drawingDefaults,
+      netOverrides,
+      resolveTextVar,
+      intersheetRefs,
+    ],
   );
 
   // Print Preview (DIALOG_PRINT's Apply / OnPrintPreview): render into a new tab
@@ -1100,11 +1176,21 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(netOverrides ? { netOverrides } : {}),
         ...(resolveTextVar ? { resolveTextVar } : {}),
+        ...(intersheetRefs ? { intersheetRefs } : {}),
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
       if (doc) printSheet(doc, printTheme, o, outputBaseName(), true);
     },
-    [doc, theme, outputBaseName, activeSheet, drawingDefaults, netOverrides, resolveTextVar],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      activeSheet,
+      drawingDefaults,
+      netOverrides,
+      resolveTextVar,
+      intersheetRefs,
+    ],
   );
 
   // Bulk Edit Symbol Fields: apply the changed cells per sheet — the current
@@ -1148,7 +1234,7 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
-      const one = (d: Schematic, name: string): void => {
+      const one = (d: Schematic, name: string, file: string): void => {
         // Netclass visuals and text variables resolve per sheet.
         const nov = computeNetClassOverrides(
           d,
@@ -1159,6 +1245,11 @@ export function SchematicEditor({
           ...o,
           ...(nov ? { netOverrides: nov } : {}),
           resolveTextVar: resolverForDoc(d, name),
+          ...((): Partial<PlotOpts> => {
+            const idx = flatSheets.findIndex((s) => s.file === file);
+            const r = intersheetRefsFor(idx === -1 ? 1 : idx + 1);
+            return r ? { intersheetRefs: r } : {};
+          })(),
         };
         if (format === 'svg') plotSvg(d, plotTheme, od, name);
         else if (format === 'png') void plotPng(d, plotTheme, od, name);
@@ -1166,11 +1257,23 @@ export function SchematicEditor({
       };
       if (allPages) {
         for (const [file, d] of liveDocs())
-          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName());
-      } else if (doc) one(doc, outputBaseName());
+          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+      } else if (doc) one(doc, outputBaseName(), currentFile);
       setPlotOpen(false);
     },
-    [doc, theme, outputBaseName, liveDocs, activeSheet, drawingDefaults, setup, resolverForDoc],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      liveDocs,
+      activeSheet,
+      drawingDefaults,
+      setup,
+      resolverForDoc,
+      intersheetRefsFor,
+      flatSheets,
+      currentFile,
+    ],
   );
   useEffect(() => {
     // Changed search settings restart the scan (upstream m_foundItemHighlight reset).
@@ -1780,6 +1883,8 @@ export function SchematicEditor({
       ...(netOverrides ? { netOverrides } : {}),
       // ${VAR} expansion in labels/text/fields (GetShownText).
       ...(resolveTextVar ? { resolveTextVar } : {}),
+      // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
+      ...(intersheetRefs ? { intersheetRefs } : {}),
       selectionThicknessMils: es.selection.thickness,
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
@@ -1805,7 +1910,7 @@ export function SchematicEditor({
         },
       },
     }),
-    [es, activeSheet, setup, drawingDefaults, netOverrides, resolveTextVar],
+    [es, activeSheet, setup, drawingDefaults, netOverrides, resolveTextVar, intersheetRefs],
   );
 
   const inputPrefs = useMemo<InputPrefs>(
