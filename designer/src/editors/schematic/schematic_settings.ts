@@ -346,16 +346,23 @@ export interface NetChain {
   chainClass: string;
   netClass: string;
   color: string;
+  /** The committed chain's name at dialog-open time; renames diff against it
+   *  (PANEL_SETUP_NET_CHAINS CHAIN_ROW::origName). Unset = not committed. */
+  origName?: string;
+  /** Terminal end pins, carried through edits for the `.kicad_sch` writer. */
+  from?: { ref: string; pin: string };
+  to?: { ref: string; pin: string };
 }
 export interface NetChainClass {
   name: string;
   members: number;
 }
 export interface NetChainsData {
+  /** Committed chains — the dialog grid rows (loadFromModel lists only the
+   *  committed set; potentials become committed via the editor tools). */
   chains: NetChain[];
   classes: NetChainClass[];
-  /** The persisted chain -> class map (net_settings.net_chain_classes); the
-   *  chains themselves are engine-detected and not stored in the project. */
+  /** The persisted chain -> class map (net_settings.net_chain_classes). */
   classByChain: Record<string, string>;
 }
 
@@ -475,14 +482,21 @@ export function netClassPatternMatches(pattern: string, netName: string): boolea
  * Default class completes any missing parameters; an empty net name resolves
  * straight to Default.
  */
-export function resolveEffectiveNetClass(netName: string, data: NetClassesData): EffectiveNetClass {
+export function resolveEffectiveNetClass(
+  netName: string,
+  data: NetClassesData,
+  chainAssignments?: readonly { pattern: string; netClass: string }[],
+): EffectiveNetClass {
   const dflt = data.classes[0] ?? blankNetClass('Default');
   // Priority = grid position (the serializer writes it that way); Default last.
   const priorityOf = (c: NetClass): number =>
     c === dflt ? Number.MAX_SAFE_INTEGER : data.classes.indexOf(c) - 1;
   const matched: NetClass[] = [];
   if (netName) {
-    for (const a of data.assignments) {
+    // User pattern assignments first, then chain-derived ones — the same two
+    // applyPatternList calls in NET_SETTINGS::GetEffectiveNetClass; chain
+    // netclasses must exist (ApplyNetChainNetclasses' HasNetclass gate).
+    for (const a of [...data.assignments, ...(chainAssignments ?? [])]) {
       if (!a.netClass) continue;
       const cls = data.classes.find((c) => c.name === a.netClass);
       if (!cls || matched.includes(cls)) continue;

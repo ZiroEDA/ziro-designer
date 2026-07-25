@@ -62,8 +62,9 @@ export function computeNetClassOverrides(
   libById: Map<string, LibSymbol>,
   setup: SchematicSetup,
   netlist?: Netlist | null,
+  chainAssignments?: readonly { pattern: string; netClass: string }[],
 ): NetClassOverrides | undefined {
-  if (nothingToApply(setup)) return undefined;
+  if (nothingToApply(setup) && !chainAssignments?.length) return undefined;
   const nl = netlist ?? computeNetlist(sch, libById);
 
   // refId -> line kind, for wire-vs-bus width selection.
@@ -79,7 +80,7 @@ export function computeNetClassOverrides(
   const junctions = new Map<string, number>();
 
   for (const net of nl.nets) {
-    const eff = resolveEffectiveNetClass(net.name, setup.netClasses);
+    const eff = resolveEffectiveNetClass(net.name, setup.netClasses, chainAssignments);
     const dash = DASH_TOKENS[eff.lineStyle];
     const wireIU = eff.wireWidthMils !== undefined ? eff.wireWidthMils * IU_PER_MILS : undefined;
     const busIU = eff.busWidthMils !== undefined ? eff.busWidthMils * IU_PER_MILS : undefined;

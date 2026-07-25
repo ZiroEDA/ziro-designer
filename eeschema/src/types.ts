@@ -187,6 +187,9 @@ export interface SchSymbol {
   readonly dnp: boolean;
   /** `(locked yes)` — the symbol is protected from moves/edits (SCH_ITEM::IsLocked). */
   readonly locked?: boolean;
+  /** `(passthrough block|force)` — net-chain bridge participation
+   *  (SCH_SYMBOL::PASSTHROUGH_MODE); undefined = DEFAULT (omitted in files). */
+  readonly passthrough?: 'block' | 'force';
   /** `(exclude_from_sim yes)`; undefined when the token is absent (pre-7.0 files). */
   readonly excludedFromSim?: boolean;
   readonly uuid?: string;

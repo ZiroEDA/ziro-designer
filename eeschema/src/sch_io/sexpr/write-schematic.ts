@@ -280,6 +280,7 @@ const SYMBOL_CHILD_ORDER = [
   'in_bom',
   'on_board',
   'dnp',
+  'passthrough',
   'locked',
   'fields_autoplaced',
   'uuid',
@@ -318,6 +319,21 @@ function patchSymbolBool(node: SList, name: string, value: boolean, dflt: boolea
   return insertCanonical(node, list(atom(name), atom(value ? 'yes' : 'no')));
 }
 
+/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token —
+ *  the writer omits it "to avoid file churn" (saveSymbol). */
+function patchPassthrough(node: SList, mode: 'block' | 'force' | undefined): SList {
+  const child = childNamed(node, 'passthrough');
+  if (!mode) {
+    if (!child) return node;
+    return { kind: 'list', items: node.items.filter((it) => it !== child) };
+  }
+  if (child) {
+    if (child.items[1]?.kind === 'atom' && child.items[1].value === mode) return node;
+    return mapChild(node, 'passthrough', () => list(atom('passthrough'), atom(mode)));
+  }
+  return insertCanonical(node, list(atom('passthrough'), atom(mode)));
+}
+
 /** Patch `(unit N)`; insert canonically when absent and not unit 1. */
 function patchUnit(node: SList, unit: number): SList {
   const child = childNamed(node, 'unit');
@@ -339,6 +355,7 @@ function writeSymbol(sym: SchSymbol): SList {
   node = patchSymbolBool(node, 'in_bom', sym.inBom, true);
   node = patchSymbolBool(node, 'on_board', sym.onBoard, true);
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
+  node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
 
   // Rewrite the property block from the model's field list (order preserved), so

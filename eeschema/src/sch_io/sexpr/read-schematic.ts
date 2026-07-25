@@ -387,6 +387,10 @@ function readSymbol(node: SList): SchSymbol {
   };
   if (mirror === 'x' || mirror === 'y') sym.mirror = mirror;
   if (boolField(node, 'locked', false)) sym.locked = true;
+  // (passthrough default|block|force) — case-insensitive; DEFAULT stays unset.
+  const passthroughNode = childNamed(node, 'passthrough');
+  const passthrough = passthroughNode ? arg(passthroughNode, 0)?.toLowerCase() : undefined;
+  if (passthrough === 'block' || passthrough === 'force') sym.passthrough = passthrough;
   // Keep "token absent" distinct from "no": older files have no exclude_from_sim.
   if (childNamed(node, 'exclude_from_sim'))
     sym.excludedFromSim = boolField(node, 'exclude_from_sim', false);

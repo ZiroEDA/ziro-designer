@@ -140,7 +140,12 @@ import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
   buildPageRefsMap,
+  chainPatternAssignments,
   detectNetChains,
+  netChainsCommand,
+  readNetChains,
+  restoreCommittedNetChains,
+  writeNetChains,
   expandTextVars,
   intersheetRefsText,
   addEmbeddedFile,
@@ -1011,10 +1016,28 @@ export function SchematicEditor({
   // Per-item netclass render fallbacks (wire colour/width/style, junction
   // clamp) for the current sheet — reuses the connectivity memo; undefined
   // when no class carries a visual parameter.
-  const netOverrides = useMemo(
-    () => (doc ? computeNetClassOverrides(doc, libById, setup, netlist) : undefined),
-    [doc, libById, setup, netlist],
-  );
+  // Committed-chain netclass overrides join the per-net resolution
+  // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
+  // pattern assignments) so member nets draw with the chain's netclass.
+  const netOverrides = useMemo(() => {
+    if (!doc) return undefined;
+    const committed = netlist
+      ? restoreCommittedNetChains(
+          doc,
+          libById,
+          netlist,
+          detectNetChains(doc, libById, netlist),
+          readNetChains(doc),
+        )
+      : readNetChains(doc);
+    return computeNetClassOverrides(
+      doc,
+      libById,
+      setup,
+      netlist,
+      chainPatternAssignments(committed),
+    );
+  }, [doc, libById, setup, netlist]);
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
   // > Text Variables) + the sheet's title block + sheet/file tokens, per
@@ -2249,12 +2272,21 @@ export function SchematicEditor({
             },
             netChains: {
               ...prev.netChains,
-              chains: detected.map((c) => ({
+              // The grid lists committed chains (PANEL_SETUP_NET_CHAINS::
+              // loadFromModel): persisted (net_chain …) nodes restored against
+              // this run's potentials (RebuildNetChains passes 2a/2b).
+              chains: (netlist
+                ? restoreCommittedNetChains(doc, libById, netlist, detected, readNetChains(doc))
+                : readNetChains(doc)
+              ).map((c) => ({
+                origName: c.name,
                 name: c.name,
-                members: c.nets,
+                members: [...c.nets],
                 chainClass: prev.netChains.classByChain[c.name] ?? '',
-                netClass: resolveEffectiveNetClass(c.nets[0] ?? '', prev.netClasses).name,
-                color: '',
+                netClass: c.netClass,
+                color: c.color,
+                from: c.from,
+                to: c.to,
               })),
             },
           }));
@@ -3237,8 +3269,44 @@ export function SchematicEditor({
           {setupOpen && (
             <DialogSchematicSetup
               value={setup}
-              onOk={(next) => {
+              onOk={(nextIn) => {
+                // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
+                // map for renamed rows and drop deleted chains before the
+                // project file persists it.
+                let next = nextIn;
+                if (doc) {
+                  const committedAtOpen = readNetChains(doc).map((c) => c.name);
+                  const rows = next.netChains.chains;
+                  const rowByOrig = new Map(
+                    rows.filter((r) => r.origName).map((r) => [r.origName, r]),
+                  );
+                  const classByChain = { ...next.netChains.classByChain };
+                  for (const name of committedAtOpen) {
+                    const row = rowByOrig.get(name);
+                    if (!row || row.name !== name) delete classByChain[name];
+                  }
+                  for (const row of rows) {
+                    if (row.chainClass) classByChain[row.name] = row.chainClass;
+                    else delete classByChain[row.name];
+                  }
+                  next = { ...next, netChains: { ...next.netChains, classByChain } };
+                }
                 commitSetup(next);
+                // Net-chain renames/edits/deletes write back to the document's
+                // (net_chain …) nodes (they live in .kicad_sch, root sheet).
+                if (doc) {
+                  const before = readNetChains(doc);
+                  const rowByOrig = new Map(
+                    next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
+                  );
+                  const after = before.flatMap((c) => {
+                    const row = rowByOrig.get(c.name);
+                    if (!row) return []; // deleted
+                    return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
+                  });
+                  if (JSON.stringify(after) !== JSON.stringify(before))
+                    runCommand(netChainsCommand(writeNetChains(doc, after)));
+                }
                 // The Embedded Files page edits the document itself
                 // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
                 // compress added files, drop removed ones, set the fonts flag.
