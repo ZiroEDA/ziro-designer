@@ -43,8 +43,19 @@ describe('isSmallTouchDevice', () => {
     expect(isSmallTouchDevice()).toBe(true);
   });
 
+  it('gates a phone that also reports a fine pointer', () => {
+    // Regression: the gate shipped with a `not (any-pointer: fine)` condition,
+    // on the assumption that only a tablet-with-mouse reports `fine`. Plenty of
+    // handsets report it (stylus-capable Android devices among them), so the
+    // predicate collapsed to false and the app opened normally on phones. The
+    // fixtures had encoded the same wrong assumption, so the suite stayed green
+    // while the feature did nothing.
+    asDevice({ width: 390, pointer: 'coarse', anyFine: true });
+    expect(isSmallTouchDevice()).toBe(true);
+  });
+
   it('gates a phone in landscape — still far too small', () => {
-    asDevice({ width: 932, pointer: 'coarse', anyFine: false }); // iPhone 15 Pro Max
+    asDevice({ width: 932, pointer: 'coarse', anyFine: true }); // iPhone 15 Pro Max
     expect(isSmallTouchDevice()).toBe(true);
   });
 
@@ -58,9 +69,12 @@ describe('isSmallTouchDevice', () => {
     expect(isSmallTouchDevice()).toBe(false);
   });
 
-  it('lets a tablet through when a mouse or trackpad is attached', () => {
+  it('gates a portrait tablet even with a mouse attached — the accepted cost', () => {
+    // Dropping the any-pointer condition costs this case. Rare in practice
+    // (keyboard cases hold a tablet in landscape, which passes on width), and
+    // "Continue anyway" is one tap.
     asDevice({ width: 820, pointer: 'coarse', anyFine: true }); // iPad + Magic Keyboard
-    expect(isSmallTouchDevice()).toBe(false);
+    expect(isSmallTouchDevice()).toBe(true);
   });
 
   it('never gates a desktop', () => {
