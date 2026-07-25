@@ -61,7 +61,11 @@ variables are absent, so a clone runs with no configuration at all.
 | `VITE_SUPABASE_ANON_KEY`       | Auth and cloud sync disabled             |
 | `VITE_SUPABASE_STORAGE_BUCKET` | Cloud file storage disabled              |
 | `VITE_SENTRY_DSN`              | Crash reporting disabled                 |
-| `VITE_RELEASE`                 | Crashes are tagged `dev`                 |
+| `VITE_RELEASE`                 | Falls back to the build's git SHA        |
+| `SENTRY_ORG`                   | Source maps not uploaded (see below)     |
+| `SENTRY_PROJECT`               | Source maps not uploaded                 |
+| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded                 |
+| `SENTRY_URL`                   | Defaults to `https://de.sentry.io/`      |
 
 ### Crash reporting
 
@@ -82,10 +86,32 @@ it in the repo means every deploy and preview is configured identically, with
 nothing to forget. Local development stays off unless you set `VITE_SENTRY_DSN`
 yourself, so debugging never pollutes production issues.
 
-The project is on Sentry's **EU (`de`) region**. Anything that talks to Sentry
-from the build (source-map upload, releases) must be pointed at
-`https://de.sentry.io/` via `SENTRY_URL`, with an auth token created there — the
-CLI defaults to the US instance and will otherwise upload into a void.
+The project is on Sentry's **EU (`de`) region**, which `vite.config.ts` already
+defaults to. Note that an auth token must also be created on `de.sentry.io` —
+tokens are region-scoped, and the CLI otherwise talks to the US instance and
+uploads into a void.
+
+#### Source maps
+
+Without them every stack trace arrives minified (`index-a1b2c3.js:1:48291`),
+which is close to useless. Set `SENTRY_ORG`, `SENTRY_PROJECT` and
+`SENTRY_AUTH_TOKEN` (the last one a *secret*, unlike the DSN) and the build
+uploads maps automatically.
+
+Maps are generated as `hidden` and **deleted after upload** — no
+`sourceMappingURL` comment is emitted and no `.map` file is ever deployed, so
+Sentry can symbolicate while the public site never serves our source. Deletion
+happens even when the upload fails, so a bad token cannot leak source.
+
+Upload failures are logged but **do not fail the build**, so an expired token
+degrades symbolication instead of breaking a deploy. That means a silent
+failure mode: if traces come back minified, check the build log rather than
+assuming it is working.
+
+Both the running app and the uploaded maps take their release from the same
+value in `vite.config.ts` (Vercel's commit SHA, else the git SHA). They must
+match exactly — Sentry binds events to maps by release name, and a mismatch
+just silently leaves stacks minified.
 
 ## Repository layout
 
