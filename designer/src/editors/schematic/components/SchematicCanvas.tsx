@@ -22,6 +22,14 @@ import {
   isExplicitJunctionAllowed,
   makeNoConnect,
   makeLabel,
+  makeDirectiveLabel,
+  setLabelFields,
+  labelOrientationForPoint,
+  spinOfAngle,
+  SPIN_ANGLE,
+  type EditedLabelField,
+  type DirectiveShape,
+  type SchLabel,
   startSegments,
   computeBreakPoint,
   switchPosture90,
@@ -274,6 +282,66 @@ export interface PendingLabel {
   bold?: boolean;
   italic?: boolean;
   fontSize?: number;
+  /** Orientation (SPIN_STYLE) as the stored angle. */
+  angle?: number;
+  /** Explicit text colour, if the dialog's swatch was set. */
+  color?: readonly [number, number, number, number];
+  /** The label's own fields (`(property …)`), from the dialog's Fields grid. */
+  fields?: readonly EditedLabelField[];
+  /** "Auto": turn the label to suit what it is dropped on. */
+  autoRotate?: boolean;
+  /** Justification tokens for free text (the H/V alignment buttons). */
+  justify?: readonly string[];
+  /** `(exclude_from_sim yes)` — free text's simulation checkbox. */
+  excludeFromSim?: boolean;
+}
+
+/** A netclass directive label whose shape/netclass are chosen, awaiting a click. */
+export interface PendingDirective {
+  shape: DirectiveShape;
+  pinLength: number;
+  netclass: string;
+  angle: number;
+  fontSize?: number;
+}
+
+/**
+ * The label the dialog described, built at the point it is dropped —
+ * SCH_DRAWING_TOOLS keeps the item it created and just moves it to the cursor,
+ * so everything the dialog set (shape, formatting, colour, fields) is carried
+ * onto the placed label.
+ */
+export function buildPendingLabel(
+  p: PendingLabel,
+  at: Vec2,
+  sch?: Schematic,
+  libById?: ReadonlyMap<string, LibSymbol>,
+): SchLabel {
+  // "Auto" (AutoRotateOnPlacement): the label turns to suit whatever it lands
+  // on — SCH_EDIT_FRAME::AutoRotateItem, run as the item is placed.
+  const spin =
+    p.autoRotate && sch
+      ? labelOrientationForPoint(sch, at, spinOfAngle(p.angle ?? 0), libById)
+      : spinOfAngle(p.angle ?? 0);
+  const label = makeLabel(p.kind, p.text, at, {
+    shape: p.shape,
+    bold: p.bold,
+    italic: p.italic,
+    fontSize: p.fontSize,
+    angle: SPIN_ANGLE[spin],
+  });
+  const withFields = p.fields?.length ? setLabelFields(label, p.fields) : label;
+  const out: { -readonly [K in keyof SchLabel]: SchLabel[K] } = { ...withFields };
+  if (p.color || p.justify) {
+    out.effects = {
+      hidden: false,
+      ...withFields.effects,
+      ...(p.justify ? { justify: p.justify } : {}),
+      ...(p.color ? { color: p.color } : {}),
+    };
+  }
+  if (p.excludeFromSim !== undefined) out.excludedFromSim = p.excludeFromSim;
+  return out;
 }
 
 export interface CanvasController {
@@ -301,6 +369,14 @@ interface Props {
   onSymbolPlaced?: () => void;
   /** A named label that follows the cursor until clicked to place (null = none yet). */
   pendingLabel: PendingLabel | null;
+  /** A netclass directive label following the cursor (SCH_DIRECTIVE_LABEL). */
+  pendingDirective?: PendingDirective | null;
+  /** The pending label was just dropped: take the next one, or stop. */
+  onLabelPlaced?: () => void;
+  /** A label tool clicked with nothing attached — ask for the next label
+   *  (SCH_DRAWING_TOOLS::TwoClickPlace calls createNewLabel on that click).
+   *  The click point lets the editor take the net name off the wire instead. */
+  onLabelPrompt?: (at: Vec2) => void;
   /** Wire ids whose net is highlighted (KiCad's net-highlight overlay). */
   highlight?: ReadonlySet<string>;
   onSelect: (id: string | null, additive: boolean) => void;
@@ -309,21 +385,7 @@ interface Props {
   /** Switch the active tool (used to auto-start a wire from a dangling pin). */
   onRequestTool?: (id: string) => void;
   /** Double-clicked item (KiCad's Properties action, sch_edit_tool.cpp). */
-  onEditItem?: (
-    id: string,
-    kind:
-      | 'symbol'
-      | 'line'
-      | 'junction'
-      | 'noconnect'
-      | 'label'
-      | 'sheet'
-      | 'busentry'
-      | 'image'
-      | 'graphic'
-      | 'textbox'
-      | 'table',
-  ) => void;
+  onEditItem?: (id: string, kind: ItemRef['kind']) => void;
   /** Box-selection result (KiCad SelectMultiple): replace/add/subtract the ids. */
   onSelectBox?: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
   /** Items being pasted: they follow the cursor until clicked to drop (KiCad's paste-then-move). */
@@ -392,6 +454,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     placeUnit = 1,
     onSymbolPlaced,
     pendingLabel,
+    pendingDirective,
+    onLabelPlaced,
+    onLabelPrompt,
     highlight,
     onSelect,
     onHighlight,
@@ -666,14 +731,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // Ghost: the named label follows the cursor (with its flag) until clicked to place.
     if (pendingLabel && cursorRef.current) {
       doc = addItems({
-        labels: [
-          makeLabel(pendingLabel.kind, pendingLabel.text, snap(cursorRef.current), {
-            shape: pendingLabel.shape,
-            bold: pendingLabel.bold,
-            italic: pendingLabel.italic,
-            fontSize: pendingLabel.fontSize,
-          }),
-        ],
+        labels: [buildPendingLabel(pendingLabel, snap(cursorRef.current), schematic, libById)],
       }).apply(doc);
     }
     // Ghost: pasted items follow the cursor until dropped (KiCad's paste-then-move).
@@ -692,6 +750,20 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (activeTool === 'busEntry' && cursorRef.current) {
       doc = addItems({
         busEntries: [makeBusEntry(snap(cursorRef.current), entrySizeRef.current)],
+      }).apply(doc);
+    }
+    // Ghost: the netclass flag rides the cursor until it is dropped.
+    if (activeTool === 'placeClassLabel' && pendingDirective && cursorRef.current) {
+      doc = addItems({
+        directiveLabels: [
+          makeDirectiveLabel(snapConn(cursorRef.current), {
+            shape: pendingDirective.shape,
+            pinLength: pendingDirective.pinLength,
+            netclass: pendingDirective.netclass,
+            angle: pendingDirective.angle,
+            ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
+          }),
+        ],
       }).apply(doc);
     }
     // Ghost: the junction dot and the no-connect X ride the cursor, so you see
@@ -1195,16 +1267,37 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (pendingLabel) {
           onCommand(
             addItems({
-              labels: [
-                makeLabel(pendingLabel.kind, pendingLabel.text, snap(world), {
-                  shape: pendingLabel.shape,
-                  bold: pendingLabel.bold,
-                  italic: pendingLabel.italic,
-                  fontSize: pendingLabel.fontSize,
+              labels: [buildPendingLabel(pendingLabel, snap(world), schematic, libById)],
+            }),
+          );
+          // The placed label is done with; the tool takes the next one of a
+          // multi-label run, or waits for a click to ask for another.
+          onLabelPlaced?.();
+        } else {
+          onLabelPrompt?.(snapConn(world));
+        }
+        return;
+      }
+
+      // Netclass directive label: the dialog names it, a click drops it.
+      if (activeTool === 'placeClassLabel') {
+        if (pendingDirective) {
+          onCommand(
+            addItems({
+              directiveLabels: [
+                makeDirectiveLabel(snapConn(world), {
+                  shape: pendingDirective.shape,
+                  pinLength: pendingDirective.pinLength,
+                  netclass: pendingDirective.netclass,
+                  angle: pendingDirective.angle,
+                  ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
                 }),
               ],
             }),
           );
+          onLabelPlaced?.();
+        } else {
+          onLabelPrompt?.(snapConn(world));
         }
         return;
       }

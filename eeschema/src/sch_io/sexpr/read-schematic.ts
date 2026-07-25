@@ -775,6 +775,9 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   }
   const effects = readEffects(node);
   if (effects) label.effects = effects;
+  if (childNamed(node, 'exclude_from_sim')) {
+    label.excludedFromSim = boolField(node, 'exclude_from_sim', false);
+  }
   const uuid = stringField(node, 'uuid');
   if (uuid) label.uuid = uuid;
   return label;
@@ -791,6 +794,12 @@ function readDirectiveLabel(node: SList): SchDirectiveLabel {
     fields: childrenNamed(node, 'property').map((p) => readField(p)),
     source: node,
   };
+  const shape = stringField(node, 'shape');
+  if (shape === 'dot' || shape === 'round' || shape === 'diamond' || shape === 'rectangle') {
+    label.shape = shape;
+  }
+  const length = childNamed(node, 'length');
+  if (length) label.pinLength = mmToIU(numArg(length, 0) ?? 0);
   const uuid = stringField(node, 'uuid');
   if (uuid) label.uuid = uuid;
   return label;

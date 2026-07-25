@@ -14,6 +14,7 @@ import type {
   SchJunction,
   SchNoConnect,
   SchLabel,
+  SchDirectiveLabel,
   SchSheet,
   SchBusEntry,
   SchImage,
@@ -36,6 +37,8 @@ export interface ItemsBatch {
   junctions?: SchJunction[];
   noConnects?: SchNoConnect[];
   labels?: SchLabel[];
+  /** Netclass directive labels (SCH_DIRECTIVE_LABEL). */
+  directiveLabels?: SchDirectiveLabel[];
   sheets?: SchSheet[];
   busEntries?: SchBusEntry[];
   images?: SchImage[];
@@ -52,6 +55,7 @@ function batchIds(b: ItemsBatch): Set<string> {
   b.junctions?.forEach((j, i) => ids.add(refId('junction', j.uuid, i)));
   b.noConnects?.forEach((nc, i) => ids.add(refId('noconnect', nc.uuid, i)));
   b.labels?.forEach((l, i) => ids.add(refId('label', l.uuid, i)));
+  b.directiveLabels?.forEach((d, i) => ids.add(refId('directive', d.uuid, i)));
   b.sheets?.forEach((s, i) => ids.add(refId('sheet', s.uuid, i)));
   b.busEntries?.forEach((be, i) => ids.add(refId('busentry', be.uuid, i)));
   b.images?.forEach((im, i) => ids.add(refId('image', im.uuid, i)));
@@ -68,6 +72,9 @@ function collectByIds(doc: Schematic, ids: ReadonlySet<string>): ItemsBatch {
     junctions: doc.junctions.filter((j, i) => ids.has(refId('junction', j.uuid, i))),
     noConnects: doc.noConnects.filter((nc, i) => ids.has(refId('noconnect', nc.uuid, i))),
     labels: doc.labels.filter((l, i) => ids.has(refId('label', l.uuid, i))),
+    directiveLabels: (doc.directiveLabels ?? []).filter((d, i) =>
+      ids.has(refId('directive', d.uuid, i)),
+    ),
     sheets: doc.sheets.filter((s, i) => ids.has(refId('sheet', s.uuid, i))),
     busEntries: doc.busEntries.filter((be, i) => ids.has(refId('busentry', be.uuid, i))),
     images: doc.images.filter((im, i) => ids.has(refId('image', im.uuid, i))),
@@ -91,6 +98,9 @@ export function addItems(batch: ItemsBatch): EditCommand {
           ? [...doc.noConnects, ...batch.noConnects]
           : doc.noConnects,
         labels: batch.labels?.length ? [...doc.labels, ...batch.labels] : doc.labels,
+        directiveLabels: batch.directiveLabels?.length
+          ? [...(doc.directiveLabels ?? []), ...batch.directiveLabels]
+          : doc.directiveLabels,
         sheets: batch.sheets?.length ? [...doc.sheets, ...batch.sheets] : doc.sheets,
         busEntries: batch.busEntries?.length
           ? [...doc.busEntries, ...batch.busEntries]
@@ -120,6 +130,9 @@ export function deleteByIds(ids: ReadonlySet<string>): EditCommand {
         junctions: doc.junctions.filter((j, i) => !ids.has(refId('junction', j.uuid, i))),
         noConnects: doc.noConnects.filter((nc, i) => !ids.has(refId('noconnect', nc.uuid, i))),
         labels: doc.labels.filter((l, i) => !ids.has(refId('label', l.uuid, i))),
+        directiveLabels: (doc.directiveLabels ?? []).filter(
+          (d, i) => !ids.has(refId('directive', d.uuid, i)),
+        ),
         sheets: doc.sheets.filter((s, i) => !ids.has(refId('sheet', s.uuid, i))),
         busEntries: doc.busEntries.filter((be, i) => !ids.has(refId('busentry', be.uuid, i))),
         images: doc.images.filter((im, i) => !ids.has(refId('image', im.uuid, i))),
@@ -213,6 +226,22 @@ export function replaceLabel(index: number, next: SchLabel): EditCommand {
     },
     invert(before: Schematic): EditCommand {
       return replaceLabel(index, before.labels[index]!);
+    },
+  };
+}
+
+/** Replace one netclass directive label (Directive Label Properties). */
+export function replaceDirectiveLabel(index: number, next: SchDirectiveLabel): EditCommand {
+  return {
+    label: 'Edit Directive Label',
+    apply(doc: Schematic): Schematic {
+      return {
+        ...doc,
+        directiveLabels: (doc.directiveLabels ?? []).map((d, i) => (i === index ? next : d)),
+      };
+    },
+    invert(before: Schematic): EditCommand {
+      return replaceDirectiveLabel(index, (before.directiveLabels ?? [])[index]!);
     },
   };
 }

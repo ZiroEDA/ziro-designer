@@ -17,6 +17,19 @@ import {
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
+  SPIN_ANGLE,
+  spinOfAngle,
+  wireLabelDriverName,
+  DEFAULT_DIRECTIVE_PIN_LENGTH,
+  directiveNetclassAssignments,
+  type DirectiveShape,
+  labelFields,
+  setLabelFields,
+  type LabelSpin,
+  type TextEffects,
+  type SchLabel,
+  type Stroke,
+  type Fill,
   readSchematic,
   serializeSchematic,
   deleteByIds,
@@ -95,6 +108,7 @@ import {
   replaceTextBox,
   replaceTable,
   replaceLabel,
+  replaceDirectiveLabel,
   replaceLine,
   replaceJunction,
   makeImage,
@@ -127,8 +141,19 @@ import {
   type CanvasController,
   type LineMode,
   type PendingLabel,
+  type PendingDirective,
 } from './components/SchematicCanvas.js';
-import { LabelDialog, type LabelFormat } from './components/LabelDialog.js';
+import {
+  DialogLabelProperties,
+  type LabelPropsKind,
+  type LabelPropsResult,
+} from './dialogs/dialog_label_properties.js';
+import {
+  DialogTextProperties,
+  type HAlign,
+  type TextPropsResult,
+  type VAlign,
+} from './dialogs/dialog_text_properties.js';
 import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
 import { ErcDialog } from './components/ErcDialog.js';
@@ -222,7 +247,6 @@ import {
 } from './render/plot.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
@@ -318,6 +342,26 @@ const LABEL_TOOL_KINDS: Record<string, LabelKind> = {
   placeHierLabel: 'hierarchical_label',
   placeText: 'text',
 };
+
+// The subset served by DIALOG_LABEL_PROPERTIES (free text has its own dialog).
+const LABEL_DIALOG_KINDS: Record<string, 'label' | 'global_label' | 'hierarchical_label'> = {
+  placeLabel: 'label',
+  placeGlobalLabel: 'global_label',
+  placeHierLabel: 'hierarchical_label',
+};
+
+/** `(justify …)` tokens from the text dialog's alignment buttons; centred
+ *  alignment is the default and writes no token (EDA_TEXT::Format). */
+const justifyTokens = (h: HAlign, v: VAlign): string[] => [
+  ...(h === 'center' ? [] : [h]),
+  ...(v === 'center' ? [] : [v]),
+];
+
+const hAlignOf = (justify: readonly string[] | undefined): HAlign =>
+  justify?.includes('left') ? 'left' : justify?.includes('right') ? 'right' : 'center';
+
+const vAlignOf = (justify: readonly string[] | undefined): VAlign =>
+  justify?.includes('top') ? 'top' : justify?.includes('bottom') ? 'bottom' : 'center';
 
 // KiCad's Selection Filter categories, laid out in two columns (row-major).
 // Selection Filter categories, in PANEL_SCH_SELECTION_FILTER order (the
@@ -464,6 +508,51 @@ export function SchematicEditor({
   const [placeUnit, setPlaceUnit] = useState(1);
   const placeFlags = useRef({ keepSymbol: true, placeAllUnits: false, unitCount: 1 });
   const [pendingLabel, setPendingLabel] = useState<PendingLabel | null>(null);
+  // The rest of a "Multiple label input" run: KiCad hands TwoClickPlace a list
+  // and places them one click at a time (itemsToPlace).
+  const [labelQueue, setLabelQueue] = useState<readonly string[]>([]);
+  // Whether the label dialog is up. A label tool asks for its label as soon as
+  // it is picked (common_settings->m_Input.immediate_actions primes the tool),
+  // and again on the next click after one is placed.
+  const [labelPrompt, setLabelPrompt] = useState(false);
+  // SCH_DRAWING_TOOLS' m_last* members: the next label starts from whatever the
+  // previous one was given. Upstream's initial values: Input, RIGHT, no bold /
+  // italic / auto-rotate.
+  const lastLabel = useRef({
+    shape: 'input' as LabelShape,
+    bold: false,
+    italic: false,
+    spin: 'right' as LabelSpin,
+    autoRotate: false,
+  });
+  // The free-text equivalents (m_lastTextHJustify / m_lastTextVJustify /
+  // m_lastTextAngle), which createNewText carries between placements.
+  const lastText = useRef({
+    hAlign: 'center' as HAlign,
+    vAlign: 'center' as VAlign,
+    angle: 0,
+    excludeFromSim: false,
+  });
+  // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
+  const lastSheetPin = useRef({ shape: 'input' as LabelShape });
+  // m_lastNetClassFlagShape: the directive label's flag shape (Circle).
+  const lastDirective = useRef({
+    shape: 'round' as DirectiveShape,
+    pinLength: DEFAULT_DIRECTIVE_PIN_LENGTH,
+    spin: 'right' as LabelSpin,
+  });
+  const [pendingDirective, setPendingDirective] = useState<PendingDirective | null>(null);
+  // The netclass flag whose properties are open (double-click / Properties).
+  const [directiveEdit, setDirectiveEdit] = useState<{ index: number } | null>(null);
+  // immediate_actions (COMMON_SETTINGS::m_Input): picking a label or text tool
+  // primes it, so the properties dialog comes up as soon as the tool is active
+  // — whichever way it was chosen (toolbar, menu or hotkey).
+  useEffect(() => {
+    const isLabelTool = !!LABEL_TOOL_KINDS[activeTool] || activeTool === 'placeClassLabel';
+    setLabelPrompt(isLabelTool);
+    if (!isLabelTool) setLabelQueue([]);
+    if (activeTool !== 'placeClassLabel') setPendingDirective(null);
+  }, [activeTool]);
   // Right-toolbar drawing state: a drawn sheet awaiting its name/file, a sheet-pin
   // click awaiting its name, an image chosen and following the cursor.
   const [sheetDraw, setSheetDraw] = useState<{
@@ -1122,18 +1211,6 @@ export function SchematicEditor({
       })),
     [allFiles],
   );
-  // The tab title (SCH_EDIT_FRAME::UpdateTitle): the open sheet, the project it
-  // belongs to, and the frame's name.
-  const titleDoc = currentFile === DEFAULT_FILE ? '' : currentFile.split('/').pop()!;
-  useDocumentTitle(
-    'schematic',
-    formatTitle(
-      'Schematic Editor',
-      titleDoc && projectName ? `${titleDoc} [${projectName}]` : titleDoc || projectName,
-      dirty,
-    ),
-  );
-
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
@@ -1325,13 +1402,11 @@ export function SchematicEditor({
   const netOverrides = useMemo(
     () =>
       doc
-        ? computeNetClassOverrides(
-            doc,
-            libById,
-            setup,
-            netlist,
-            chainPatternAssignments(committedChains),
-          )
+        ? computeNetClassOverrides(doc, libById, setup, netlist, [
+            ...chainPatternAssignments(committedChains),
+            // Netclass directive labels assign to whatever net they sit on.
+            ...directiveNetclassAssignments(doc, netlist),
+          ])
         : undefined,
     [doc, libById, setup, netlist, committedChains],
   );
@@ -2184,21 +2259,7 @@ export function SchematicEditor({
   // KiCad's Properties action: symbols have a full properties dialog; a text box
   // reopens its text editor (double-click = edit).
   const onEditItem = useCallback(
-    (
-      id: string,
-      kind:
-        | 'symbol'
-        | 'line'
-        | 'junction'
-        | 'noconnect'
-        | 'label'
-        | 'sheet'
-        | 'busentry'
-        | 'image'
-        | 'graphic'
-        | 'textbox'
-        | 'table',
-    ) => {
+    (id: string, kind: ItemRef['kind']) => {
       if (kind === 'symbol') setPropsTarget(id);
       if (kind === 'label' && doc) {
         const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
@@ -2225,6 +2286,12 @@ export function SchematicEditor({
             texts: t.cells.map((c) => c.text),
           });
         }
+      }
+      // A netclass flag opens its Directive Label Properties.
+      if (kind === 'directive' && doc) {
+        const flags = doc.directiveLabels ?? [];
+        const idx = flags.findIndex((d, i) => refId('directive', d.uuid, i) === id);
+        if (idx !== -1) setDirectiveEdit({ index: idx });
       }
       // Double-clicking a sheet enters it (KiCad's Enter Sheet).
       if (kind === 'sheet' && doc) {
@@ -2982,18 +3049,81 @@ export function SchematicEditor({
     setTextBoxDraw({ start, end, text: '' });
   }, []);
 
-  const commitTextBox = useCallback(() => {
-    setTextBoxDraw((tbd) => {
-      if (!tbd?.text.trim()) return tbd;
-      if (tbd.editIndex !== undefined && doc) {
-        const orig = doc.textBoxes[tbd.editIndex];
-        if (orig) runCommand(replaceTextBox(tbd.editIndex, { ...orig, text: tbd.text }));
-      } else {
-        runCommand(addItems({ textBoxes: [makeTextBox(tbd.start, tbd.end, tbd.text)] }));
-      }
-      return null;
-    });
-  }, [doc, runCommand]);
+  /** The text box being edited, if the dialog was opened on an existing one. */
+  const textBoxOrig =
+    textBoxDraw?.editIndex !== undefined ? doc?.textBoxes[textBoxDraw.editIndex] : undefined;
+
+  /**
+   * DIALOG_TEXT_PROPERTIES for a text box: the text and formatting, plus the
+   * border (a negative stroke width is KiCad's "no border") and the fill.
+   */
+  const commitTextBoxProperties = useCallback(
+    (r: TextPropsResult) => {
+      setTextBoxDraw((tbd) => {
+        if (!tbd) return null;
+        const effects: TextEffects = {
+          hidden: false,
+          bold: r.bold || undefined,
+          italic: r.italic || undefined,
+          fontSize: [r.sizeIU, r.sizeIU] as [number, number],
+          justify: justifyTokens(r.hAlign, r.vAlign),
+          ...(r.color ? { color: r.color } : {}),
+        };
+        const stroke: Stroke = {
+          width: r.border ? (r.borderWidthIU ?? 0) : -1,
+          type: r.borderStyle ?? 'default',
+          ...(r.borderColor ? { color: r.borderColor } : {}),
+        };
+        const fill: Fill = r.filled
+          ? { type: 'color', ...(r.fillColor ? { color: r.fillColor } : {}) }
+          : { type: 'none' };
+        if (tbd.editIndex !== undefined && doc) {
+          const orig = doc.textBoxes[tbd.editIndex];
+          if (orig) {
+            runCommand(
+              replaceTextBox(tbd.editIndex, {
+                ...orig,
+                text: r.text,
+                angle: r.angle,
+                excludedFromSim: r.excludeFromSim,
+                effects,
+                stroke,
+                fill,
+              }),
+            );
+          }
+        } else {
+          runCommand(
+            addItems({
+              textBoxes: [makeTextBox(tbd.start, tbd.end, r.text, { effects, stroke, fill })],
+            }),
+          );
+        }
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
+
+  /** DIALOG_LABEL_PROPERTIES for a sheet pin: name, shape and side. */
+  const commitSheetPin = useCallback(
+    (r: LabelPropsResult) => {
+      setSheetPinDraw((spd) => {
+        if (!spd || !doc) return null;
+        const sheet = doc.sheets[spd.index];
+        const name = r.texts[0]?.trim();
+        if (!sheet || !name) return null;
+        lastSheetPin.current = { shape: r.shape as LabelShape };
+        // The orientation buttons choose which border the pin sits on.
+        const side = SPIN_ANGLE[r.spin] as SheetSide;
+        runCommand(
+          replaceSheet(spd.index, addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape)),
+        );
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
 
   const commitTable = useCallback(() => {
     setTableDraw((td) => {
@@ -3019,30 +3149,194 @@ export function SchematicEditor({
     });
   }, [doc, runCommand]);
 
-  const commitLabelEdit = useCallback(
-    (text: string, shape: LabelShape, format: LabelFormat) => {
+  /**
+   * The dialog's result becomes the label(s) attached to the cursor, and the
+   * last-used shape / formatting / orientation for the next one (KiCad's
+   * m_last* members, saved right after the dialog closes in createNewLabel).
+   */
+  const startLabelPlacement = useCallback((kind: LabelKind, r: LabelPropsResult) => {
+    lastLabel.current = {
+      shape: r.shape as LabelShape,
+      bold: r.bold,
+      italic: r.italic,
+      spin: r.spin,
+      autoRotate: r.autoRotate,
+    };
+    const [first, ...rest] = r.texts;
+    if (first === undefined) return;
+    setPendingLabel({
+      kind,
+      text: first,
+      shape: r.shape as LabelShape,
+      bold: r.bold,
+      italic: r.italic,
+      fontSize: r.sizeIU,
+      angle: SPIN_ANGLE[r.spin],
+      autoRotate: r.autoRotate,
+      ...(r.color ? { color: r.color } : {}),
+      fields: r.fields,
+    });
+    setLabelQueue(rest);
+    setLabelPrompt(false);
+  }, []);
+
+  /**
+   * Free text from DIALOG_TEXT_PROPERTIES: attached to the cursor, and its
+   * formatting kept for the next one (m_lastText* in createNewText).
+   */
+  const startTextPlacement = useCallback((r: TextPropsResult) => {
+    lastLabel.current = { ...lastLabel.current, bold: r.bold, italic: r.italic };
+    lastText.current = {
+      hAlign: r.hAlign,
+      vAlign: r.vAlign,
+      angle: r.angle,
+      excludeFromSim: r.excludeFromSim,
+    };
+    setPendingLabel({
+      kind: 'text',
+      text: r.text,
+      shape: 'bidirectional',
+      bold: r.bold,
+      italic: r.italic,
+      fontSize: r.sizeIU,
+      angle: r.angle,
+      justify: justifyTokens(r.hAlign, r.vAlign),
+      excludeFromSim: r.excludeFromSim,
+      ...(r.color ? { color: r.color } : {}),
+    });
+    setLabelPrompt(false);
+  }, []);
+
+  /**
+   * The Directive Label dialog's result: the flag follows the cursor, and its
+   * shape / pin length / orientation seed the next one (m_lastNetClassFlagShape).
+   */
+  const startDirectivePlacement = useCallback((r: LabelPropsResult) => {
+    const shape = r.shape as DirectiveShape;
+    lastDirective.current = { shape, pinLength: r.sizeIU, spin: r.spin };
+    setPendingDirective({
+      shape,
+      pinLength: r.sizeIU,
+      netclass: r.fields.find((f) => f.key === 'Netclass')?.value.trim() ?? '',
+      angle: SPIN_ANGLE[r.spin],
+    });
+    setLabelPrompt(false);
+  }, []);
+
+  /** Apply Directive Label Properties to the flag being edited. */
+  const commitDirectiveProperties = useCallback(
+    (r: LabelPropsResult) => {
+      setDirectiveEdit((de) => {
+        if (!de || !doc) return null;
+        const orig = (doc.directiveLabels ?? [])[de.index];
+        if (!orig) return null;
+        const netclass = r.fields.find((f) => f.key === 'Netclass')?.value ?? '';
+        runCommand(
+          replaceDirectiveLabel(de.index, {
+            ...orig,
+            shape: r.shape as DirectiveShape,
+            pinLength: r.sizeIU,
+            angle: SPIN_ANGLE[r.spin],
+            fields: orig.fields.map((f) => (f.key === 'Netclass' ? { ...f, value: netclass } : f)),
+          }),
+        );
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
+
+  /** Apply DIALOG_TEXT_PROPERTIES to the text item being edited. */
+  const commitTextProperties = useCallback(
+    (r: TextPropsResult) => {
       setLabelEdit((le) => {
         if (!le || !doc) return null;
         const orig = doc.labels[le.index];
         if (!orig) return null;
-        const effects = {
+        const next: SchLabel = {
+          ...orig,
+          text: r.text,
+          angle: r.angle,
+          excludedFromSim: r.excludeFromSim,
+          effects: {
+            hidden: false,
+            ...orig.effects,
+            bold: r.bold || undefined,
+            italic: r.italic || undefined,
+            fontSize: [r.sizeIU, r.sizeIU] as [number, number],
+            justify: justifyTokens(r.hAlign, r.vAlign),
+            ...(r.color ? { color: r.color } : {}),
+          },
+        };
+        runCommand(replaceLabel(le.index, next));
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
+
+  /**
+   * A label tool was clicked with nothing attached. If the wire under the
+   * click already carries a label-driven net, the new label takes that name
+   * and no dialog is shown — createNewLabel's findWireLabelDriverName path.
+   * Otherwise the properties dialog opens.
+   */
+  const onLabelPrompt = useCallback(
+    (at: Vec2) => {
+      const kind = LABEL_DIALOG_KINDS[activeTool];
+      const name =
+        kind && kind !== 'hierarchical_label' && doc ? wireLabelDriverName(doc, netlist, at) : '';
+      if (kind && name) {
+        setPendingLabel({
+          kind,
+          text: name,
+          shape: lastLabel.current.shape,
+          bold: lastLabel.current.bold,
+          italic: lastLabel.current.italic,
+          fontSize: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+          angle: SPIN_ANGLE[lastLabel.current.spin],
+          autoRotate: lastLabel.current.autoRotate,
+        });
+        return;
+      }
+      setLabelPrompt(true);
+    },
+    [activeTool, doc, netlist, setup.formatting.defaultTextSizeMils],
+  );
+
+  /** A label was dropped: take the next of a multi-label run, else stop. */
+  const onLabelPlaced = useCallback(() => {
+    setPendingDirective(null);
+    setLabelQueue((q) => {
+      const [next, ...rest] = q;
+      setPendingLabel((p) => (p && next !== undefined ? { ...p, text: next } : null));
+      return rest;
+    });
+  }, []);
+
+  /** Apply DIALOG_LABEL_PROPERTIES to the label being edited (Properties). */
+  const commitLabelProperties = useCallback(
+    (r: LabelPropsResult) => {
+      setLabelEdit((le) => {
+        if (!le || !doc) return null;
+        const orig = doc.labels[le.index];
+        if (!orig) return null;
+        const effects: TextEffects = {
           hidden: false,
           ...orig.effects,
-          bold: format.bold || undefined,
-          italic: format.italic || undefined,
-          fontSize: [format.sizeIU, format.sizeIU] as [number, number],
+          bold: r.bold || undefined,
+          italic: r.italic || undefined,
+          fontSize: [r.sizeIU, r.sizeIU] as [number, number],
+          ...(r.color ? { color: r.color } : {}),
         };
-        const changed =
-          orig.text !== text ||
-          (le.shape !== undefined && orig.shape !== shape) ||
-          !!orig.effects?.bold !== format.bold ||
-          !!orig.effects?.italic !== format.italic ||
-          (orig.effects?.fontSize?.[0] ?? 12700) !== format.sizeIU;
-        if (changed) {
-          const next =
-            le.shape !== undefined ? { ...orig, text, shape, effects } : { ...orig, text, effects };
-          runCommand(replaceLabel(le.index, next));
-        }
+        const next: SchLabel = {
+          ...orig,
+          text: r.texts[0] ?? orig.text,
+          ...(le.shape !== undefined ? { shape: r.shape as LabelShape } : {}),
+          angle: SPIN_ANGLE[r.spin],
+          effects,
+        };
+        runCommand(replaceLabel(le.index, setLabelFields(next, r.fields)));
         return null;
       });
     },
@@ -3898,12 +4192,19 @@ export function SchematicEditor({
 
   // Existing net/label names for the label dialog's completion list
   // (DIALOG_LABEL_PROPERTIES pre-loads its combo with the sheet's net names).
-  const labelSuggestions = useMemo<string[]>(() => {
-    if (!doc) return [];
-    const names = new Set<string>();
-    for (const l of doc.labels) if (l.kind !== 'text' && l.text) names.add(l.text);
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [doc]);
+  /** The combo is loaded with the existing labels *of the same type* across the
+   *  whole hierarchy, plus the project's bus aliases (TransferDataToWindow). */
+  const labelSuggestionsOf = useCallback(
+    (kind: LabelPropsKind): string[] => {
+      const names = new Set<string>();
+      for (const sheet of liveDocs().values()) {
+        for (const l of sheet.labels) if (l.kind === kind && l.text) names.add(l.text);
+      }
+      for (const alias of setup.busAliases) if (alias.name) names.add(`{${alias.name}}`);
+      return [...names].sort((a, b) => a.localeCompare(b));
+    },
+    [liveDocs, setup.busAliases],
+  );
 
   // Message-panel rows (EDA_MSG_PANEL): exactly one selected item shows its
   // GetMsgPanelInfo; empty and multi-selections clear the panel.
@@ -4147,6 +4448,8 @@ export function SchematicEditor({
             placeUnit={placeUnit}
             onSymbolPlaced={onSymbolPlaced}
             pendingLabel={pendingLabel}
+            onLabelPlaced={onLabelPlaced}
+            onLabelPrompt={onLabelPrompt}
             highlight={highlightWires}
             theme={theme}
             renderOpts={renderOpts}
@@ -4763,45 +5066,145 @@ export function SchematicEditor({
         />
       )}
 
-      {/* Label tools: a properties dialog names the label, then it follows the cursor. */}
-      {LABEL_TOOL_KINDS[activeTool] && !pendingLabel && !labelEdit && (
-        <LabelDialog
-          kind={LABEL_TOOL_KINDS[activeTool]!}
-          // New labels/text default to Schematic Setup > Formatting's text size
-          // (DIALOG_LABEL_PROPERTIES seeds from m_DefaultTextSize).
-          initialFormat={{
-            bold: false,
-            italic: false,
+      {/* Free text (DIALOG_TEXT_PROPERTIES): createNewText opens it before the
+          text is attached to the cursor, seeded from the last one placed. */}
+      {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
+        <DialogTextProperties
+          kind="text"
+          initial={{
+            text: '',
+            bold: lastLabel.current.bold,
+            italic: lastLabel.current.italic,
+            // New text defaults to Schematic Setup > Formatting's text size
+            // (createNewText seeds from m_DefaultTextSize).
             sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+            hAlign: lastText.current.hAlign,
+            vAlign: lastText.current.vAlign,
+            angle: lastText.current.angle,
+            excludeFromSim: lastText.current.excludeFromSim,
           }}
-          suggestions={labelSuggestions}
-          onOk={(text: string, shape: LabelShape, format: LabelFormat) =>
-            setPendingLabel({
-              kind: LABEL_TOOL_KINDS[activeTool]!,
-              text,
-              shape,
-              bold: format.bold,
-              italic: format.italic,
-              fontSize: format.sizeIU,
-            })
-          }
-          onCancel={() => setActiveTool('select')}
+          onOk={(r: TextPropsResult) => startTextPlacement(r)}
+          onCancel={() => setLabelPrompt(false)}
         />
       )}
 
-      {/* Editing an existing label/text (Properties): same dialog, pre-filled. */}
-      {labelEdit && (
-        <LabelDialog
-          kind={labelEdit.kind}
-          initialText={labelEdit.text}
-          initialShape={labelEdit.shape}
-          initialFormat={{
-            bold: !!doc?.labels[labelEdit.index]?.effects?.bold,
-            italic: !!doc?.labels[labelEdit.index]?.effects?.italic,
-            sizeIU: doc?.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
+      {/* Label tools (DIALOG_LABEL_PROPERTIES): the dialog names the label and
+          sets its shape/formatting, then it follows the cursor to be placed. */}
+      {LABEL_DIALOG_KINDS[activeTool] && labelPrompt && !pendingLabel && !labelEdit && (
+        <DialogLabelProperties
+          kind={LABEL_DIALOG_KINDS[activeTool]!}
+          isNew
+          initial={{
+            text: '',
+            shape: lastLabel.current.shape,
+            bold: lastLabel.current.bold,
+            italic: lastLabel.current.italic,
+            // New labels default to Schematic Setup > Formatting's text size
+            // (createNewLabel seeds from m_DefaultTextSize).
+            sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+            spin: lastLabel.current.spin,
+            autoRotate: lastLabel.current.autoRotate,
+            fields: [],
           }}
-          suggestions={labelSuggestions}
-          onOk={commitLabelEdit}
+          suggestions={labelSuggestionsOf(LABEL_DIALOG_KINDS[activeTool]!)}
+          onOk={(r: LabelPropsResult) => startLabelPlacement(LABEL_DIALOG_KINDS[activeTool]!, r)}
+          onCancel={() => setLabelPrompt(false)}
+        />
+      )}
+
+      {/* Netclass directive label (DIALOG_LABEL_PROPERTIES' "Directive Label
+          Properties"): no text of its own — the flag shape, the pin length and
+          the Netclass field. */}
+      {activeTool === 'placeClassLabel' && labelPrompt && !pendingDirective && !labelEdit && (
+        <DialogLabelProperties
+          kind="directive"
+          isNew
+          initial={{
+            text: '',
+            shape: lastDirective.current.shape,
+            bold: false,
+            italic: false,
+            sizeIU: lastDirective.current.pinLength,
+            spin: lastDirective.current.spin,
+            autoRotate: false,
+            fields: [
+              {
+                key: 'Netclass',
+                value: '',
+                angle: 0,
+                effects: { hidden: false },
+              },
+            ],
+          }}
+          onOk={startDirectivePlacement}
+          onCancel={() => setLabelPrompt(false)}
+        />
+      )}
+
+      {/* Editing a netclass flag (Properties): the same dialog, pre-filled. */}
+      {directiveEdit && (doc.directiveLabels ?? [])[directiveEdit.index] && (
+        <DialogLabelProperties
+          kind="directive"
+          isNew={false}
+          initial={{
+            text: '',
+            shape: (doc.directiveLabels ?? [])[directiveEdit.index]!.shape ?? 'round',
+            bold: false,
+            italic: false,
+            sizeIU:
+              (doc.directiveLabels ?? [])[directiveEdit.index]!.pinLength ??
+              DEFAULT_DIRECTIVE_PIN_LENGTH,
+            spin: spinOfAngle((doc.directiveLabels ?? [])[directiveEdit.index]!.angle),
+            autoRotate: false,
+            fields: (doc.directiveLabels ?? [])[directiveEdit.index]!.fields,
+          }}
+          onOk={commitDirectiveProperties}
+          onCancel={() => setDirectiveEdit(null)}
+        />
+      )}
+
+      {/* Editing existing free text (Properties): the same dialog, pre-filled. */}
+      {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
+        <DialogTextProperties
+          kind="text"
+          initial={{
+            text: labelEdit.text,
+            bold: !!doc.labels[labelEdit.index]?.effects?.bold,
+            italic: !!doc.labels[labelEdit.index]?.effects?.italic,
+            sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
+            ...(doc.labels[labelEdit.index]?.effects?.color
+              ? { color: doc.labels[labelEdit.index]!.effects!.color! }
+              : {}),
+            hAlign: hAlignOf(doc.labels[labelEdit.index]!.effects?.justify),
+            vAlign: vAlignOf(doc.labels[labelEdit.index]!.effects?.justify),
+            angle: doc.labels[labelEdit.index]!.angle,
+            excludeFromSim: !!doc.labels[labelEdit.index]?.excludedFromSim,
+          }}
+          onOk={commitTextProperties}
+          onCancel={() => setLabelEdit(null)}
+        />
+      )}
+
+      {/* Editing an existing label (Properties): the same dialog, pre-filled. */}
+      {labelEdit && labelEdit.kind !== 'text' && doc?.labels[labelEdit.index] && (
+        <DialogLabelProperties
+          kind={labelEdit.kind as LabelPropsKind}
+          isNew={false}
+          initial={{
+            text: labelEdit.text,
+            shape: labelEdit.shape ?? lastLabel.current.shape,
+            bold: !!doc.labels[labelEdit.index]?.effects?.bold,
+            italic: !!doc.labels[labelEdit.index]?.effects?.italic,
+            sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
+            ...(doc.labels[labelEdit.index]?.effects?.color
+              ? { color: doc.labels[labelEdit.index]!.effects!.color! }
+              : {}),
+            spin: spinOfAngle(doc.labels[labelEdit.index]!.angle),
+            autoRotate: false,
+            fields: labelFields(doc.labels[labelEdit.index]!),
+          }}
+          suggestions={labelSuggestionsOf(labelEdit.kind as LabelPropsKind)}
+          onOk={commitLabelProperties}
           onCancel={() => setLabelEdit(null)}
         />
       )}
@@ -5008,118 +5411,56 @@ export function SchematicEditor({
         </div>
       )}
 
-      {/* Sheet pin: name the pin clicked onto a sheet border. */}
-      {sheetPinDraw && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setSheetPinDraw(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Sheet Pin
-              <span className="x" title="Cancel" onClick={() => setSheetPinDraw(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-label-dialog-body">
-              <label className="row">
-                <span>Pin name</span>
-                <input
-                  className="ze-search"
-                  autoFocus
-                  value={sheetPinDraw.name}
-                  onChange={(e) => setSheetPinDraw({ ...sheetPinDraw, name: e.target.value })}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter' && sheetPinDraw.name.trim() && doc) {
-                      const sh = doc.sheets[sheetPinDraw.index];
-                      if (sh)
-                        runCommand(
-                          replaceSheet(
-                            sheetPinDraw.index,
-                            addSheetPin(
-                              sh,
-                              sheetPinDraw.name.trim(),
-                              sheetPinDraw.at,
-                              sheetPinDraw.side,
-                            ),
-                          ),
-                        );
-                      setSheetPinDraw(null);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setSheetPinDraw(null)}>
-                Cancel
-              </button>
-              <button
-                className="ze-btn primary"
-                disabled={!sheetPinDraw.name.trim()}
-                onClick={() => {
-                  const sh = doc.sheets[sheetPinDraw.index];
-                  if (sh)
-                    runCommand(
-                      replaceSheet(
-                        sheetPinDraw.index,
-                        addSheetPin(
-                          sh,
-                          sheetPinDraw.name.trim(),
-                          sheetPinDraw.at,
-                          sheetPinDraw.side,
-                        ),
-                      ),
-                    );
-                  setSheetPinDraw(null);
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Text box (DIALOG_TEXT_PROPERTIES' SCH_TEXTBOX variant): the border and
+          fill rows join the text and formatting ones. */}
+      {textBoxDraw && (
+        <DialogTextProperties
+          kind="textbox"
+          initial={{
+            text: textBoxDraw.text,
+            bold: !!textBoxOrig?.effects?.bold,
+            italic: !!textBoxOrig?.effects?.italic,
+            sizeIU:
+              textBoxOrig?.effects?.fontSize?.[0] ??
+              setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+            ...(textBoxOrig?.effects?.color ? { color: textBoxOrig.effects.color } : {}),
+            hAlign: hAlignOf(textBoxOrig?.effects?.justify ?? ['left', 'top']),
+            vAlign: vAlignOf(textBoxOrig?.effects?.justify ?? ['left', 'top']),
+            angle: textBoxOrig?.angle ?? 0,
+            excludeFromSim: !!textBoxOrig?.excludedFromSim,
+            // "Border" is off when the stroke width is negative (KiCad stores
+            // -1 for "no border"); the width row is disabled with it.
+            border: (textBoxOrig?.stroke?.width ?? 0) >= 0,
+            borderWidthIU: Math.max(0, textBoxOrig?.stroke?.width ?? 0),
+            ...(textBoxOrig?.stroke?.color ? { borderColor: textBoxOrig.stroke.color } : {}),
+            borderStyle: textBoxOrig?.stroke?.type ?? 'default',
+            filled: textBoxOrig?.fill?.type === 'color',
+            ...(textBoxOrig?.fill?.color ? { fillColor: textBoxOrig.fill.color } : {}),
+          }}
+          onOk={commitTextBoxProperties}
+          onCancel={() => setTextBoxDraw(null)}
+        />
       )}
 
-      {/* Text box: enter the wrapped text after drawing the rectangle (SCH_TEXTBOX). */}
-      {textBoxDraw && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setTextBoxDraw(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Text Box Properties
-              <span className="x" title="Cancel" onClick={() => setTextBoxDraw(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-label-dialog-body">
-              <label className="row" style={{ alignItems: 'flex-start' }}>
-                <span>Text</span>
-                <textarea
-                  className="ze-search"
-                  autoFocus
-                  rows={4}
-                  style={{ resize: 'vertical', minWidth: 260 }}
-                  value={textBoxDraw.text}
-                  onChange={(e) => setTextBoxDraw({ ...textBoxDraw, text: e.target.value })}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitTextBox();
-                  }}
-                />
-              </label>
-            </div>
-            <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setTextBoxDraw(null)}>
-                Cancel
-              </button>
-              <button
-                className="ze-btn primary"
-                disabled={!textBoxDraw.text.trim()}
-                onClick={commitTextBox}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Sheet pin (DIALOG_LABEL_PROPERTIES' "Hierarchical Sheet Pin
+          Properties"): the pin's name, its flag shape and which side it sits on. */}
+      {sheetPinDraw && (
+        <DialogLabelProperties
+          kind="sheet_pin"
+          isNew
+          initial={{
+            text: sheetPinDraw.name,
+            shape: lastSheetPin.current.shape,
+            bold: false,
+            italic: false,
+            sizeIU: setup.formatting.defaultTextSizeMils * IU_PER_MILS,
+            spin: spinOfAngle(sheetPinDraw.side),
+            autoRotate: false,
+            fields: [],
+          }}
+          onOk={commitSheetPin}
+          onCancel={() => setSheetPinDraw(null)}
+        />
       )}
 
       {/* Table: choose the grid size, then place the table (SCH_TABLE). */}

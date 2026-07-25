@@ -287,6 +287,32 @@ const BITMAP: Record<string, string> = {
   cvpcbFilterPin: 'module_pin_filtered_list',
   cvpcbFilterLib: 'module_library_list',
   cvpcbLibTable: 'library_table',
+  // DIALOG_LABEL_PROPERTIES / DIALOG_TEXT_PROPERTIES (the ids are the bitmap
+  // names, since these are dialog buttons rather than toolbar tools).
+  small_plus: 'small_plus',
+  small_trash: 'small_trash',
+  small_up: 'small_up',
+  small_down: 'small_down',
+  text_bold: 'text_bold',
+  text_italic: 'text_italic',
+  label_align_left: 'label_align_left',
+  label_align_right: 'label_align_right',
+  label_align_bottom: 'label_align_bottom',
+  label_align_top: 'label_align_top',
+  text_align_left: 'text_align_left',
+  text_align_center: 'text_align_center',
+  text_align_right: 'text_align_right',
+  text_align_bottom: 'text_align_bottom',
+  text_align_top: 'text_align_top',
+  text_valign_top: 'text_valign_top',
+  text_valign_center: 'text_valign_center',
+  text_valign_bottom: 'text_valign_bottom',
+  text_horizontal: 'text_horizontal',
+  text_vertical: 'text_vertical',
+  pinorient_up: 'pinorient_up',
+  pinorient_down: 'pinorient_down',
+  pinorient_left: 'pinorient_left',
+  pinorient_right: 'pinorient_right',
 };
 
 /** KiCad icon URL for a toolbar tool id, or undefined if none is mapped. */

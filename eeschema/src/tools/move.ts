@@ -13,6 +13,7 @@ import type {
   SchLine,
   SchJunction,
   SchLabel,
+  SchDirectiveLabel,
   SchNoConnect,
   SchSheet,
   SchField,
@@ -40,6 +41,12 @@ const moveLine = (l: SchLine, d: Vec2): SchLine => ({
 const moveJunction = (j: SchJunction, d: Vec2): SchJunction => ({ ...j, at: add(j.at, d) });
 const moveNoConnect = (nc: SchNoConnect, d: Vec2): SchNoConnect => ({ ...nc, at: add(nc.at, d) });
 const moveLabel = (l: SchLabel, d: Vec2): SchLabel => ({ ...l, at: add(l.at, d) });
+// A directive label's fields ride with it (they are positioned absolutely).
+const moveDirectiveLabel = (l: SchDirectiveLabel, d: Vec2): SchDirectiveLabel => ({
+  ...l,
+  at: add(l.at, d),
+  fields: l.fields.map((f) => (f.at ? { ...f, at: add(f.at, d) } : f)),
+});
 // A sheet moves as one rigid part: rectangle, fields, and pins (all absolute).
 const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
   ...s,
@@ -70,6 +77,9 @@ export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
         ),
         labels: doc.labels.map((l, i) =>
           ids.has(refId('label', l.uuid, i)) ? moveLabel(l, delta) : l,
+        ),
+        directiveLabels: (doc.directiveLabels ?? []).map((d, i) =>
+          ids.has(refId('directive', d.uuid, i)) ? moveDirectiveLabel(d, delta) : d,
         ),
         sheets: doc.sheets.map((s, i) =>
           ids.has(refId('sheet', s.uuid, i)) ? moveSheet(s, delta) : s,

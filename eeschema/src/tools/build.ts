@@ -16,6 +16,8 @@ import type {
   SchSymbol,
   SchField,
   SchLabel,
+  SchDirectiveLabel,
+  DirectiveShape,
   LabelKind,
   LabelShape,
   LibSymbol,
@@ -175,6 +177,75 @@ export function makeNoConnect(at: Vec2): SchNoConnect {
     list(atom('uuid'), str(uuid)),
   );
   return { at, uuid, source };
+}
+
+/** KiCad's default netclass-flag pin length (SCH_DIRECTIVE_LABEL: 1/2 inch grid
+ *  step, i.e. 100 mil) and the fields it is created with. */
+export const DEFAULT_DIRECTIVE_PIN_LENGTH = 25400;
+
+/**
+ * Create a netclass directive label — `(directive_label "" (length ..)
+ * (shape ..) (at ..) (effects ..) (uuid ..) (property "Netclass" ..))`.
+ * Mirrors SCH_DRAWING_TOOLS::createNewLabel's LAYER_NETCLASS_REFS branch: the
+ * flag carries no text of its own, only a "Netclass" field.
+ */
+export function makeDirectiveLabel(
+  at: Vec2,
+  opts: {
+    shape?: DirectiveShape;
+    pinLength?: number;
+    netclass?: string;
+    angle?: number;
+    fontSize?: number;
+  } = {},
+): SchDirectiveLabel {
+  const uuid = newUuid();
+  const angle = opts.angle ?? 0;
+  const shape: DirectiveShape = opts.shape ?? 'round';
+  const pinLength = opts.pinLength ?? DEFAULT_DIRECTIVE_PIN_LENGTH;
+  const sizeIU = opts.fontSize ?? 12700;
+  const fieldAt = { x: at.x, y: at.y };
+  const netclassField = list(
+    atom('property'),
+    str('Netclass'),
+    str(opts.netclass ?? ''),
+    list(atom('at'), atom(mm(fieldAt.x)), atom(mm(fieldAt.y)), atom(String(angle))),
+    list(
+      atom('effects'),
+      list(atom('font'), list(atom('size'), atom(mm(sizeIU)), atom(mm(sizeIU)))),
+    ),
+  );
+  const source = list(
+    atom('directive_label'),
+    str(''),
+    list(atom('length'), atom(mm(pinLength))),
+    list(atom('shape'), atom(shape)),
+    list(atom('at'), atom(mm(at.x)), atom(mm(at.y)), atom(String(angle))),
+    list(
+      atom('effects'),
+      list(atom('font'), list(atom('size'), atom(mm(sizeIU)), atom(mm(sizeIU)))),
+    ),
+    list(atom('uuid'), str(uuid)),
+    netclassField,
+  );
+  return {
+    at,
+    angle,
+    shape,
+    pinLength,
+    fields: [
+      {
+        key: 'Netclass',
+        value: opts.netclass ?? '',
+        at: fieldAt,
+        angle,
+        effects: { hidden: false, fontSize: [sizeIU, sizeIU] },
+        source: netclassField,
+      },
+    ],
+    uuid,
+    source,
+  };
 }
 
 const DEFAULT_FONT = (): SList =>
