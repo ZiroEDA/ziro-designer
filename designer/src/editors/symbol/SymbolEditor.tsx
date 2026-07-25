@@ -55,6 +55,7 @@ import {
   type PinDialogResult,
 } from './components/dialogs.js';
 import '../../ui/shell.css';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -197,6 +198,7 @@ export function SymbolEditor({
   } | null>(null);
   const [shapeDialog, setShapeDialog] = useState<{ editId: string } | null>(null);
   const [newSymbolOpen, setNewSymbolOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [symbolPropsOpen, setSymbolPropsOpen] = useState(false);
   const [pinTableOpen, setPinTableOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -1397,7 +1399,7 @@ export function SymbolEditor({
       },
       {
         label: 'Help',
-        items: [{ label: 'About ZiroEDA', action: () => {} }],
+        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
       },
     ],
     [
@@ -1748,6 +1750,7 @@ export function SymbolEditor({
             />
           );
         })()}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {newSymbolOpen && (
         <NewSymbolDialog
           symbolNames={targetLib ? manager.current.symbolNames(targetLib) : []}

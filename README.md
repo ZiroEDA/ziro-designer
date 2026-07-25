@@ -36,6 +36,13 @@ format-compatibility promise and how we relate to the upstream ecosystem.
 
 GPL-3.0-or-later. See [LICENSE](./LICENSE).
 
+This project reuses a substantial amount of KiCad's work: much of the engine is
+a TypeScript port of KiCad's C++, the icons are KiCad's, and the symbol,
+footprint and 3D model libraries are KiCad's official libraries. Those carry two
+different licences, GPL for the code and icons and CC-BY-SA 4.0 with the KiCad
+library exception for the libraries. See [NOTICE](./NOTICE.md) for the full
+attribution.
+
 ## Tech stack
 
 | Concern                | Choice                                             |

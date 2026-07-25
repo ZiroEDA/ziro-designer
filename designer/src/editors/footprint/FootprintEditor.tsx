@@ -40,6 +40,7 @@ import { FOOTPRINT_LAYERS } from './footprintBoard.js';
 import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -175,6 +176,7 @@ export function FootprintEditor({
   const [newLibName, setNewLibName] = useState<string | null>(null);
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
   const controller = useRef<FootprintCanvasController>(null);
@@ -974,7 +976,10 @@ export function FootprintEditor({
         ],
       },
       { label: 'Preferences', items: [{ label: 'Preferences…', disabled: true }] },
-      { label: 'Help', items: [{ label: 'About ZiroEDA', action: () => {} }] },
+      {
+        label: 'Help',
+        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
+      },
     ],
     [
       save,
@@ -1317,6 +1322,7 @@ export function FootprintEditor({
         />
       )}
 
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}

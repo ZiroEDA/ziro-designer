@@ -127,6 +127,7 @@ import {
   PCB_FILTER_CATS,
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 const MM = 10000;
 
@@ -649,6 +650,7 @@ export function PcbEditor({
   const [contrast, setContrast] = useState<'normal' | 'dim' | 'hide'>('normal');
   // "Flip board view" (PCB_ACTIONS::flipBoard): mirror the view horizontally.
   const [flipView, setFlipView] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   // "Layer Display Options" collapsible pane state (collapsed by default).
   const [layerOptsOpen, setLayerOptsOpen] = useState(false);
   // Layer right-click context menu position (rightClickHandler).
@@ -4301,7 +4303,7 @@ export function PcbEditor({
       label: 'Preferences',
       items: [{ label: 'Preferences…', disabled: dis, shortcut: 'Ctrl+,' }],
     },
-    { label: 'Help', items: [{ label: 'About ZiroEDA', action: () => {} }] },
+    { label: 'Help', items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }] },
   ];
 
   // ----- unit display ---------------------------------------------------------
@@ -5756,6 +5758,7 @@ export function PcbEditor({
       {/* Update PCB from Schematic: the netlist fetch, then DIALOG_UPDATE_PCB.
           A failed fetch shows the same message upstream puts in a
           DisplayErrorMessage box (a missing schematic, or one not annotated). */}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {updatePcbBusy && (
         <div className="ze-modal-backdrop ze-loading-backdrop">
           <div className="ze-loading-card">
