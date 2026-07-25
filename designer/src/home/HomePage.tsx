@@ -646,6 +646,22 @@ export function HomePage({
   // The tree-selected file, when it is a single text document our viewer can show.
   const fileAtPath = (path: string): PickedHomeFile | null =>
     picked?.find((x) => x.name.replace(/\\/g, '/') === stripPrefix + path) ?? null;
+
+  // Download a project file to the browser's local storage (the file manager's
+  // "Download…" action). Binary files use their bytes; text files their text.
+  const downloadFileAtPath = (path: string): void => {
+    const f = fileAtPath(path);
+    if (!f) return;
+    const blob = f.bytes
+      ? new Blob([f.bytes.buffer as ArrayBuffer], { type: 'application/octet-stream' })
+      : new Blob([f.text], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.name.split('/').pop() || 'file';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const selectedTextFile = useMemo<PickedHomeFile | null>(() => {
     if (!picked || selected.size !== 1) return null;
     const [path] = selected;
@@ -849,6 +865,7 @@ export function HomePage({
           onRenamePath={renamePath}
           onDeletePaths={deletePaths}
           onViewTextPath={(path) => setTextView(fileAtPath(path))}
+          onDownloadPath={(path) => downloadFileAtPath(path)}
           rootOpen={rootOpen}
           onToggleRoot={() => setRootOpen((o) => !o)}
           onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}

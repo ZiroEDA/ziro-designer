@@ -27,7 +27,7 @@ const BUS_WITH_TWO_TAPS = (busLabel: string, left: string, right: string) => `
 describe('bus connectivity', () => {
   it('joins same-member nets across a vector bus', () => {
     const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'D0', 'D0')), new Map());
-    const d0 = nl.nets.filter((n) => n.name === 'D0');
+    const d0 = nl.nets.filter((n) => n.name === '/D0');
     expect(d0.length).toBe(1); // one net spanning both taps
     expect(d0[0]!.items).toContain('w1');
     expect(d0[0]!.items).toContain('w2');
@@ -35,14 +35,14 @@ describe('bus connectivity', () => {
 
   it('keeps different members apart', () => {
     const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'D0', 'D1')), new Map());
-    expect(nl.nets.filter((n) => n.name === 'D0').length).toBe(1);
-    expect(nl.nets.filter((n) => n.name === 'D1').length).toBe(1);
+    expect(nl.nets.filter((n) => n.name === '/D0').length).toBe(1);
+    expect(nl.nets.filter((n) => n.name === '/D1').length).toBe(1);
   });
 
   it('does not join a net that is not a member of the bus', () => {
     const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'CLK', 'CLK')), new Map());
     // CLK is no member of D[0..3]: the two taps stay separate nets.
-    expect(nl.nets.filter((n) => n.name === 'CLK').length).toBe(2);
+    expect(nl.nets.filter((n) => n.name === '/CLK').length).toBe(2);
   });
 
   it('exposes the bus subgraph with its expanded members', () => {
@@ -60,12 +60,12 @@ describe('bus connectivity', () => {
       busAliases: aliases,
     });
     expect(nl.buses[0]!.members).toEqual(['D0', 'WE']);
-    expect(nl.nets.filter((n) => n.name === 'WE').length).toBe(1); // joined
+    expect(nl.nets.filter((n) => n.name === '/WE').length).toBe(1); // joined
   });
 
   it('a bus label does not create a stray wire net', () => {
     const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'D0', 'D1')), new Map());
-    expect(nl.nets.some((n) => n.name === 'D[0..3]')).toBe(false);
+    expect(nl.nets.some((n) => n.name === '/D[0..3]')).toBe(false);
   });
 
   it('bus segments joined end-to-end share one subgraph', () => {

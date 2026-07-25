@@ -9,6 +9,7 @@ export * from './snap.js';
 export * from './cleanup.js';
 export * from './junction_helpers.js';
 export * from './sch_collectors.js';
+export * from './sch_get_node.js';
 export * from './sch_properties_panel.js';
 export * from './msg_panel.js';
 export * from './text_vars.js';

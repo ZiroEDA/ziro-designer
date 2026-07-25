@@ -44,13 +44,32 @@ export class LibTreeNode {
   exactMatch = false;
   pinned = false;
 
-  isRoot = false;
+  /** LIB_SYMBOL::IsRoot — a derived symbol's name is italicised in the tree. */
+  isRoot = true;
   isPower = false;
   isRecentlyUsedGroup = false;
   isAlreadyPlacedGroup = false;
 
-  /** Weighted search terms, built by the creator (LIB_SYMBOL::GetSearchTerms). */
+  /** GetChooserFields: the values shown in the optional extra columns, keyed by
+   *  column (field) name. */
+  fields = new Map<string, string>();
+
+  /** Weighted search terms as the item supplies them (LIB_SYMBOL::GetSearchTerms).
+   *  `searchTerms` adds the shown columns' field values on top. */
+  sourceSearchTerms: SearchTerm[] = [];
+  /** Weighted search terms actually scored (LIB_TREE_NODE::m_SearchTerms). */
   searchTerms: SearchTerm[] = [];
+
+  /**
+   * LIB_TREE_NODE::RebuildSearchTerms — the item's own terms plus the value of
+   * every field currently shown as a column (weight 4), so a visible column is
+   * also searchable.
+   */
+  rebuildSearchTerms(shownColumns: readonly string[]): void {
+    this.searchTerms = [...this.sourceSearchTerms];
+    for (const [name, value] of this.fields)
+      if (shownColumns.includes(name)) this.searchTerms.push({ text: value, score: 4 });
+  }
 
   /** LIB_ID as written, e.g. "Device:R", or '' when the node has none. */
   get libId(): string {
@@ -66,7 +85,8 @@ export class LibTreeNode {
    * they tie-break consistently once scores equalise. `presorted` preserves
    * the insertion order (used by the Recently Used group).
    */
-  assignIntrinsicRanks(presorted = false): void {
+  assignIntrinsicRanks(presorted = false, shownColumns: readonly string[] = []): void {
+    for (const child of this.children) child.rebuildSearchTerms(shownColumns);
     if (presorted) {
       const max = this.children.length - 1;
       this.children.forEach((child, i) => {
@@ -181,7 +201,8 @@ export function makeLibraryNode(parent: LibTreeNode, name: string, desc: string)
   node.name = name;
   node.desc = desc;
   node.libNickname = name;
-  node.searchTerms = [{ text: name, score: 8, isName: true }];
+  node.sourceSearchTerms = [{ text: name, score: 8, isName: true }];
+  node.searchTerms = [...node.sourceSearchTerms];
   parent.children.push(node);
   return node;
 }

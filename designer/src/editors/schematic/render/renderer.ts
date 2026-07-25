@@ -39,6 +39,7 @@ import {
   type BBox,
   type Schematic,
   type SchLabel,
+  type SheetPin,
   type LibGraphic,
   type LibSymbol,
   type LibSymbolUnit,
@@ -523,6 +524,42 @@ export function renderSchematic(
       ctx.arc(j.at.x, j.at.y, d / 2, 0, Math.PI * 2);
       ctx.stroke();
     });
+
+    // Every other connectable item on the net is brightened too
+    // (UpdateNetHighlighting walks labels, sheet pins, entries and no-connects,
+    // not just wires): halo here, redrawn in the brightened colour below.
+    sch.busEntries.forEach((be, i) => {
+      if (!hl(refId('busentry', be.uuid, i))) return;
+      const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
+      ctx.lineWidth = base + shadowWidth;
+      strokeLine(ctx, be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y });
+    });
+    sch.noConnects.forEach((nc, i) => {
+      if (!hl(refId('noconnect', nc.uuid, i))) return;
+      const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
+      ctx.lineWidth = g_defaultPen + shadowWidth;
+      strokeLine(
+        ctx,
+        { x: nc.at.x - delta, y: nc.at.y - delta },
+        { x: nc.at.x + delta, y: nc.at.y + delta },
+      );
+      strokeLine(
+        ctx,
+        { x: nc.at.x - delta, y: nc.at.y + delta },
+        { x: nc.at.x + delta, y: nc.at.y - delta },
+      );
+    });
+    sch.labels.forEach((l, i) => {
+      if (l.effects?.hidden || !hl(refId('label', l.uuid, i))) return;
+      drawLabel(ctx, l, theme, { color: HALO_COLOR, width: shadowWidth });
+    });
+    sch.sheets.forEach((sh, si) => {
+      const shId = refId('sheet', sh.uuid, si);
+      sh.pins.forEach((p, k) => {
+        if (!hl(`${shId}:sheetpin${k}`)) return;
+        drawLabel(ctx, sheetPinAsLabel(p), theme, { color: HALO_COLOR, width: shadowWidth });
+      });
+    });
   }
 
   // Wires, buses and graphic polylines. Wires/buses use the theme net colours; a
@@ -616,7 +653,7 @@ export function renderSchematic(
 
   // Wire-to-bus entries: a 45-degree stub from `at` to `at + size`, drawn on the
   // wire layer (SCH_PAINTER::draw(SCH_BUS_ENTRY_BASE): SCH_BUS_WIRE_ENTRY -> LAYER_WIRE).
-  for (const be of sch.busEntries) {
+  sch.busEntries.forEach((be, i) => {
     const ex = be.at.x + be.size.x,
       ey = be.at.y + be.size.y;
     if (
@@ -627,14 +664,14 @@ export function renderSchematic(
         Math.max(be.at.y, ey),
       )
     )
-      continue;
-    ctx.strokeStyle = theme.wire;
+      return;
+    ctx.strokeStyle = hl(refId('busentry', be.uuid, i)) ? theme.netHighlight : theme.wire;
     ctx.lineWidth = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
     ctx.beginPath();
     ctx.moveTo(be.at.x, be.at.y);
     ctx.lineTo(ex, ey);
     ctx.stroke();
-  }
+  });
 
   // Sheet-level graphic shapes (rectangle/circle/arc on the notes layer): the
   // item's own stroke colour/dash, else LAYER_NOTES; colour fills honoured.
@@ -676,18 +713,18 @@ export function renderSchematic(
   // No-connect flags: KiCad's X, spanning DEFAULT_NOCONNECT_SIZE (48 mil) about
   // the point, in the LAYER_NOCONNECT colour (SCH_PAINTER::draw(SCH_NO_CONNECT)).
   if (sch.noConnects.length > 0) {
-    ctx.strokeStyle = theme.noConnect;
     ctx.lineWidth = g_defaultPen;
     const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
-    for (const nc of sch.noConnects) {
-      if (!inView(nc.at.x - delta, nc.at.y - delta, nc.at.x + delta, nc.at.y + delta)) continue;
+    sch.noConnects.forEach((nc, i) => {
+      if (!inView(nc.at.x - delta, nc.at.y - delta, nc.at.x + delta, nc.at.y + delta)) return;
+      ctx.strokeStyle = hl(refId('noconnect', nc.uuid, i)) ? theme.netHighlight : theme.noConnect;
       ctx.beginPath();
       ctx.moveTo(nc.at.x - delta, nc.at.y - delta);
       ctx.lineTo(nc.at.x + delta, nc.at.y + delta);
       ctx.moveTo(nc.at.x - delta, nc.at.y + delta);
       ctx.lineTo(nc.at.x + delta, nc.at.y - delta);
       ctx.stroke();
-    }
+    });
   }
 
   // Placed symbols (culled to the visible rect, including their fields).
@@ -748,16 +785,23 @@ export function renderSchematic(
     // the symbol transform — SCH_FIELD::GetBoundingBox) is computed once per
     // document (cached below) and the text is stroked CENTER/CENTER at the box
     // centre with the draw rotation (GetDrawRotation).
+    // A power symbol's visible REFERENCE / VALUE fields brighten with its net
+    // (UpdateNetHighlighting's `symbol->IsPower()` branch), so a highlighted GND
+    // lights the "GND" text as well as the flag.
+    const powerFieldsLit =
+      !!lib?.isPower && (highlight?.has(`${refId('symbol', sym.uuid, si)}:pin0`) ?? false);
     for (const fd of fieldDraws[si] ?? []) {
       if (!inView(fd.minX, fd.minY, fd.maxX, fd.maxY)) continue;
       const color = fd.hidden
         ? theme.hidden
-        : (fd.cssColor ??
-          (fd.key === 'Reference'
-            ? theme.reference
-            : fd.key === 'Value'
-              ? theme.value
-              : theme.fields));
+        : powerFieldsLit && (fd.key === 'Reference' || fd.key === 'Value')
+          ? theme.netHighlight
+          : (fd.cssColor ??
+            (fd.key === 'Reference'
+              ? theme.reference
+              : fd.key === 'Value'
+                ? theme.value
+                : theme.fields));
       drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic);
     }
     // Locked symbols show a small padlock at the body's top-left corner
@@ -765,23 +809,31 @@ export function renderSchematic(
     if (sym.locked && bodyVisible) drawLockBadge(ctx, bb.minX, bb.minY, theme);
   });
 
-  // Labels and free text (culled).
-  for (const l of sch.labels) {
-    if (l.effects?.hidden) continue;
+  // Labels and free text (culled). A label on the highlighted net draws in the
+  // brightened colour, flag and text alike (SCH_PAINTER::getRenderColor for an
+  // IsBrightened() item).
+  sch.labels.forEach((l, i) => {
+    if (l.effects?.hidden) return;
     const h = l.effects?.fontSize?.[0] ?? 1.27 * MM;
     const span = h * (Math.max(1, l.text.length) + 4);
-    if (!inView(l.at.x - span, l.at.y - span, l.at.x + span, l.at.y + span)) continue;
-    drawLabel(ctx, l, theme);
-  }
+    if (!inView(l.at.x - span, l.at.y - span, l.at.x + span, l.at.y + span)) return;
+    drawLabel(
+      ctx,
+      l,
+      theme,
+      undefined,
+      hl(refId('label', l.uuid, i)) ? theme.netHighlight : undefined,
+    );
+  });
 
   // Hierarchical sheets (SCH_PAINTER::draw(SCH_SHEET)): optional colour fill,
   // border in the sheet's own stroke colour or LAYER_SHEET, the Sheetname /
   // Sheetfile fields, and pins drawn exactly as hierarchical labels (the
   // painter casts SCH_SHEET_PIN to SCH_HIERLABEL) in the LAYER_SHEETLABEL colour.
-  for (const sh of sch.sheets) {
+  sch.sheets.forEach((sh, si) => {
     const pad = 8 * MM; // fields sit just outside the rectangle
     if (!inView(sh.at.x - pad, sh.at.y - pad, sh.at.x + sh.size.w + pad, sh.at.y + sh.size.h + pad))
-      continue;
+      return;
     const border = sh.stroke?.color ? cssColor(sh.stroke.color) : theme.sheetBorder;
     const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
     if (sh.fillColor) {
@@ -817,21 +869,17 @@ export function renderSchematic(
       );
     }
 
-    for (const p of sh.pins) {
-      const fake: SchLabel = {
-        kind: 'hierarchical_label',
-        text: p.name,
-        at: p.at,
-        // Sheet-pin angle encodes the side (0=right, 90=top, 180=left, 270=bottom);
-        // the flag orientation comes from angle + justify like a hier label.
-        angle: p.angle === 90 || p.angle === 270 ? 90 : 0,
-        shape: p.shape,
-        source: p.source,
-        ...(p.effects ? { effects: p.effects } : {}),
-      };
-      drawLabel(ctx, fake, { ...theme, hierLabel: theme.sheetLabel });
-    }
-  }
+    const shId = refId('sheet', sh.uuid, si);
+    sh.pins.forEach((p, k) => {
+      drawLabel(
+        ctx,
+        sheetPinAsLabel(p),
+        { ...theme, hierLabel: theme.sheetLabel },
+        undefined,
+        hl(`${shId}:sheetpin${k}`) ? theme.netHighlight : undefined,
+      );
+    });
+  });
 
   // Dangling-pin targets: KiCad draws an open circle (TARGET_PIN_RADIUS = 15 mil,
   // thickness = penWidth/3, in the pin colour Brightened(0.3)) on every pin with no
@@ -1368,11 +1416,29 @@ function spinRotate(p: Vec2, spin: number): Vec2 {
 }
 
 /** When `shadow` is set, draw only the blue selection underglow (wider strokes, no text). */
+/** A sheet pin drawn as the hierarchical label it is (SCH_SHEET_PIN derives
+ *  from SCH_HIERLABEL, and the painter draws it through that base). */
+function sheetPinAsLabel(p: SheetPin): SchLabel {
+  return {
+    kind: 'hierarchical_label',
+    text: p.name,
+    at: p.at,
+    // Sheet-pin angle encodes the side (0=right, 90=top, 180=left, 270=bottom);
+    // the flag orientation comes from angle + justify like a hier label.
+    angle: p.angle === 90 || p.angle === 270 ? 90 : 0,
+    shape: p.shape,
+    source: p.source,
+    ...(p.effects ? { effects: p.effects } : {}),
+  };
+}
+
 function drawLabel(
   ctx: CanvasRenderingContext2D,
   l: SchLabel,
   theme: Theme,
   shadow?: { color: string; width: number },
+  /** LAYER_BRIGHTENED override for a label on the highlighted net. */
+  brightened?: string,
 ): void {
   // GetShownText: labels and free text expand `${VAR}` before layout, so the
   // flag box and centring use the substituted width.
@@ -1383,15 +1449,17 @@ function drawLabel(
   // (LAYER_NOTES, rgb(0,0,194) in KiCad's default theme) — not the label black.
   const color = shadow
     ? shadow.color
-    : l.kind === 'global_label'
-      ? theme.globalLabel
-      : l.kind === 'hierarchical_label'
-        ? theme.hierLabel
-        : l.kind === 'text'
-          ? l.effects?.color
-            ? cssColor(l.effects.color)
-            : theme.noText
-          : theme.label;
+    : brightened
+      ? brightened
+      : l.kind === 'global_label'
+        ? theme.globalLabel
+        : l.kind === 'hierarchical_label'
+          ? theme.hierLabel
+          : l.kind === 'text'
+            ? l.effects?.color
+              ? cssColor(l.effects.color)
+              : theme.noText
+            : theme.label;
   // SCH_LABEL_BASE::GetSchematicTextOffset: lift the text clear of the wire by
   // m_TextOffsetRatio x text size plus the pen width (sch_label.cpp).
   const dist = Math.round(g_textOffsetRatio * h) + g_defaultPen;
@@ -2454,7 +2522,10 @@ export function renderSymbolPreview(
   height: number,
   theme: Theme,
   unit = 1,
-): void {
+  /** Explicit view (the pane has been zoomed/panned); omitted = fit the item,
+   *  as SYMBOL_PREVIEW_WIDGET::fitOnDrawArea does. Returns the view used. */
+  view?: { scale: number; tx: number; ty: number },
+): { scale: number; tx: number; ty: number } | null {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = theme.background;
   ctx.fillRect(0, 0, width, height);
@@ -2498,15 +2569,21 @@ export function renderSymbolPreview(
     ctx.font = '14px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('No preview', width / 2, height / 2);
-    return;
+    return null;
   }
 
   const bw = maxX - minX || 1,
     bh = maxY - minY || 1;
-  const scale = Math.min(width / (bw * 1.35), height / (bh * 1.35));
   const cx = (minX + maxX) / 2,
     cy = (minY + maxY) / 2;
-  ctx.setTransform(scale, 0, 0, scale, width / 2 - cx * scale, height / 2 - cy * scale);
+  // fitOnDrawArea: the exact fit, then `scale /= 1.2` for a little whitespace.
+  const fitScale = Math.min(width / bw, height / bh) / 1.2;
+  const used = view ?? {
+    scale: fitScale,
+    tx: width / 2 - cx * fitScale,
+    ty: height / 2 - cy * fitScale,
+  };
+  ctx.setTransform(used.scale, 0, 0, used.scale, used.tx, used.ty);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const pins = {
@@ -2545,6 +2622,7 @@ export function renderSymbolPreview(
       false,
       'fg',
     );
+  return used;
 }
 
 /** Compute a viewport that fits the schematic content into the given canvas size. */

@@ -139,6 +139,32 @@ export interface LibSymbolUnit {
   readonly source: SList;
 }
 
+/** `(associated_footprints (footprint "<lib_id>" (map "STD-8")))` — the pin map
+ *  a given footprint binds to (LIB_SYMBOL::GetEffectiveAssociatedFootprints). */
+export interface LibAssociatedFootprint {
+  readonly footprintLibId: string;
+  /** Empty when the association names no map. */
+  readonly mapName: string;
+}
+
+/** PIN_MAP_OVERRIDE_MODE — how a placed symbol resolves its pin map. */
+export type PinMapOverrideMode = 'library_default' | 'named_map' | 'identity' | 'delegate';
+
+/** `(pin_map_override (mode …) (map "…") (edit "<pin>" "<pad>") …)` on a placed
+ *  symbol (PIN_MAP_INSTANCE_OVERRIDE). */
+export interface PinMapOverride {
+  readonly mode: PinMapOverrideMode;
+  readonly mapName: string;
+  readonly edits: readonly { readonly pin: string; readonly pad: string }[];
+}
+
+/** One named pin map: symbol pin number -> footprint pad number(s). */
+export interface LibPinMap {
+  readonly name: string;
+  /** `(entry "<pin>" "<pad>")`; the pad may use stacked-pin notation. */
+  readonly entries: readonly { readonly pin: string; readonly pad: string }[];
+}
+
 /** A symbol definition from the schematic's `(lib_symbols ...)` cache. */
 export interface LibSymbol {
   /** Library id as written, e.g. "Connector_Generic:Conn_01x02". */
@@ -146,6 +172,20 @@ export interface LibSymbol {
   /** Parent symbol name if this is a derived symbol (`extends`); units come from it. */
   readonly extends?: string;
   readonly isPower: boolean;
+  /** `(power local)` — a local power symbol drives only its own sheet
+   *  (SYMBOL::IsLocalPower); `(power)` / `(power global)` is global. */
+  readonly isLocalPower?: boolean;
+  /** `(duplicate_pin_numbers_are_jumpers yes)` — repeated pin numbers on this
+   *  symbol are a jumper, not a fault (LIB_SYMBOL::GetDuplicatePinNumbersAreJumpers). */
+  readonly duplicatePinNumbersAreJumpers?: boolean;
+  /** `(jumper_pin_groups (…))` — pin numbers tied together by a jumper
+   *  (LIB_SYMBOL::JumperPinGroups). */
+  readonly jumperPinGroups?: readonly (readonly string[])[];
+  /** `(pin_maps (pin_map "STD-8" (entry "1" "1") …))` — named symbol-pin to
+   *  footprint-pad maps (LIB_SYMBOL::GetPinMaps). */
+  readonly pinMaps?: readonly LibPinMap[];
+  /** `(associated_footprints …)` — which map each footprint binds to. */
+  readonly associatedFootprints?: readonly LibAssociatedFootprint[];
   /** `(pin_numbers (hide yes))` — hide all pin numbers. */
   readonly pinNumbersHidden: boolean;
   /** `(pin_names (hide yes))` — hide all pin names. */
@@ -169,6 +209,8 @@ export interface SchField {
   readonly effects?: TextEffects;
   /** `(show_name yes)` — render as "Name: Value" (SCH_FIELD::IsNameShown). */
   readonly nameShown?: boolean;
+  /** `(show_in_chooser yes)` — SCH_FIELD::ShowInChooser. */
+  readonly showInChooser?: boolean;
   readonly source: SList;
 }
 
@@ -197,6 +239,8 @@ export interface SchSymbol {
   readonly excludedFromPosFiles?: boolean;
   readonly uuid?: string;
   readonly fields: readonly SchField[];
+  /** `(pin_map_override …)` — this instance's pin-map resolution. */
+  readonly pinMapOverride?: PinMapOverride;
   readonly source: SList;
 }
 
@@ -342,6 +386,22 @@ export interface SchLabel {
   readonly source: SList;
 }
 
+/**
+ * A netclass directive label: `(directive_label …)`, or `(netclass_flag …)` in
+ * files written during 7.0 development. Mirrors KiCad `SCH_DIRECTIVE_LABEL` —
+ * it has no text of its own (the netclass it applies is a "Netclass" field) and
+ * never drives a net: `CONNECTION_SUBGRAPH::GetDriverPriority` has no case for
+ * it, so it falls through to PRIORITY::NONE.
+ */
+export interface SchDirectiveLabel {
+  readonly at: Vec2;
+  readonly angle: number;
+  /** `(property "Netclass" "…")` children, as SCH_LABEL_BASE's fields. */
+  readonly fields: readonly SchField[];
+  readonly uuid?: string;
+  readonly source: SList;
+}
+
 /** A hierarchical sheet pin: the connection port on a sheet's edge. Mirrors KiCad `SCH_SHEET_PIN`. */
 export interface SheetPin {
   readonly name: string;
@@ -443,6 +503,9 @@ export interface Schematic {
   readonly tables: readonly SchTable[];
   /** Item groups (SCH_GROUP): named sets of member item uuids. */
   readonly groups: readonly SchGroup[];
+  /** Netclass directive labels (SCH_DIRECTIVE_LABEL). Kept apart from `labels`
+   *  because they are not net drivers and carry no text of their own. */
+  readonly directiveLabels?: readonly SchDirectiveLabel[];
   /** Document-level `(sheet_instances (path "/" (page "1")))` — the root sheet's
    *  own page number(s), one per project path (no project wrapper). */
   readonly sheetInstances: readonly SheetInstance[];

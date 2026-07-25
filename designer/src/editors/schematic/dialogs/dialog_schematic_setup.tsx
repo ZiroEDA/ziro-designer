@@ -84,6 +84,7 @@ export function DialogSchematicSetup({
     netClasses: structuredClone(value.netClasses),
     embeddedFiles: structuredClone(value.embeddedFiles),
     ercExclusions: [...value.ercExclusions],
+    ercExclusionComments: { ...value.ercExclusionComments },
     usedDesignators: value.usedDesignators,
   }));
   const [importOpen, setImportOpen] = useState(false);

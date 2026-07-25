@@ -64,7 +64,10 @@ describe('computeNetlist', () => {
     }).apply(sch);
     const { nets } = computeNetlist(sch, libMap(sch));
     expect(nets).toHaveLength(1);
-    expect(nets[0]!.name).toBe('CLK');
+    // A local label names a net local to its sheet, so the name carries the
+    // sheet path (SCH_CONNECTION::recacheName).
+    expect(nets[0]!.name).toBe('/CLK');
+    expect(nets[0]!.localName).toBe('CLK');
   });
 
   it('a global label outranks a local label on the same net', () => {
@@ -89,7 +92,7 @@ describe('computeNetlist', () => {
       labels: [makeLabel('label', 'TOP', at(20, -3.81))],
     }).apply(sch);
     const { nets, netByItem } = computeNetlist(sch, libMap(sch));
-    const topNet = nets.find((n) => n.name === 'TOP');
+    const topNet = nets.find((n) => n.name === '/TOP');
     expect(topNet).toBeDefined();
     // The symbol's first pin node should be on the TOP net.
     expect(netByItem.get(`${symId}:pin0`)).toBe(topNet!.code);

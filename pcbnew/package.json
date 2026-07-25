@@ -13,6 +13,7 @@
     "@ziroeda/common": "workspace:*",
     "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/rectpack2d": "workspace:*",
     "@ziroeda/sexpr": "workspace:*"
   }
 }

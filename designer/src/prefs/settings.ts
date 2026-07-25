@@ -208,6 +208,8 @@ export interface EeschemaSettings {
   };
   /** LIB_TREE persisted state (EESCHEMA_SETTINGS m_LibTree). */
   lib_tree: {
+    /** Ordered list of visible columns in the tree ("Item" is always first). */
+    columns: string[];
     open_libs: string[];
   };
   /** Symbol Library Browser state (EESCHEMA_SETTINGS m_LibViewPanel, "lib_view.*").
@@ -338,6 +340,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     show_all_errors: false,
   },
   lib_tree: {
+    columns: [],
     open_libs: [],
   },
   lib_view: {

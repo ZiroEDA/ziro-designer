@@ -624,6 +624,9 @@ export interface SchematicSetup {
   /** ERC exclusion signatures (SCHEMATIC::m_ercExclusions), persisted like the
    *  project file's stored exclusions so an excluded marker stays excluded. */
   ercExclusions: string[];
+  /** The comment stored with each exclusion (MARKER_BASE::GetComment); the
+   *  project file holds `[signature, comment]` pairs. */
+  ercExclusionComments: Record<string, string>;
   /** REFDES_TRACKER state (schematic.used_designators): every designator ever
    *  assigned, so reuse_designators=false never re-issues a freed number. */
   usedDesignators: string;
@@ -642,6 +645,7 @@ export function defaultSchematicSetup(): SchematicSetup {
     netClasses: defaultNetClasses(),
     embeddedFiles: defaultEmbeddedFiles(),
     ercExclusions: [],
+    ercExclusionComments: {},
     usedDesignators: '',
   };
 }

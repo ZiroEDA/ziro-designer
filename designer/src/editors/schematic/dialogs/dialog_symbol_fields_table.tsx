@@ -23,7 +23,6 @@
 import { useCallback, useRef, useState, type JSX } from 'react';
 import {
   buildFieldsReferences,
-  strNumCmp,
   FieldsDataModel,
   generatedFieldDisplayName,
   INDETERMINATE_STATE,
@@ -46,27 +45,6 @@ import {
 
 /** Changed cells, grouped by sheet file then symbol refId. */
 export type FieldsEdits = FieldsTableEdits['fields'];
-
-/** One symbol of the hierarchy, flattened — what Assign Footprints (CVPCB)
- *  lists. The fields table itself works through {@link FieldsDataModel}. */
-export interface FieldsRow {
-  file: string;
-  id: string;
-  reference: string;
-  /** Current field values by name. */
-  values: Record<string, string>;
-}
-
-/** Every non-power symbol of `docs`, in natural reference order. */
-export function buildFieldsRows(docs: ReadonlyMap<string, Schematic>): FieldsRow[] {
-  const rows = buildFieldsReferences(docs).map((ref) => {
-    const values: Record<string, string> = {};
-    for (const f of ref.symbol.fields) values[f.key] = f.value;
-    return { file: ref.file, id: ref.id, reference: ref.ref + ref.refNumber, values };
-  });
-  rows.sort((a, b) => strNumCmp(a.reference, b.reference));
-  return rows;
-}
 
 /** Cross-probe modes (PANEL_SYMBOL_FIELDS_TABLE::selection_mode). */
 export type CrossProbeMode = 'highlight' | 'select' | 'none';

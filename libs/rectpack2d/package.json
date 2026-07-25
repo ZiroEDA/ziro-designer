@@ -1,0 +1,12 @@
+{
+  "name": "@ziroeda/rectpack2d",
+  "version": "0.0.0",
+  "description": "Rectangle bin packing ported from KiCad's thirdparty/rectpack2d: the empty-spaces splitting packer and its best-bin search.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -8,6 +8,7 @@
  * fetches its files verbatim (no renaming — a demo opens as itself).
  */
 import type { PickedHomeFile } from './files.js';
+import { DEMOS_HOST } from '../libraryHosts.js';
 
 export interface DemoMeta {
   id: string;
@@ -17,7 +18,7 @@ export interface DemoMeta {
   files: string[];
 }
 
-const DEMOS_BASE = (import.meta.env.VITE_DEMOS_URL as string | undefined) || '/demos';
+const DEMOS_BASE = DEMOS_HOST;
 
 const dec = new TextDecoder();
 

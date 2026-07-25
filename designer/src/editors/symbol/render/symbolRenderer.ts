@@ -51,6 +51,9 @@ export interface SymbolViewOptions {
   bodyStyle: number;
   /** SCH_ACTIONS::showElectricalTypes. */
   showPinElectricalTypes: boolean;
+  /** SCH_RENDER_SETTINGS::m_ShowPinNumbers (SCH_ACTIONS::showPinNumbers): force
+   *  pin numbers on even for a symbol whose `(pin_numbers (hide yes))` hides them. */
+  forcePinNumbers?: boolean;
   /** SCH_ACTIONS::showHiddenPins. */
   showHiddenPins: boolean;
   /** SCH_ACTIONS::showHiddenFields. */
@@ -818,7 +821,7 @@ export function renderSymbolScene(
 
   const pinSettings: PinDisplaySettings = {
     pinNamesHidden: sym.pinNamesHidden,
-    pinNumbersHidden: sym.pinNumbersHidden,
+    pinNumbersHidden: sym.pinNumbersHidden && !opts.forcePinNumbers,
     pinNameOffset: sym.pinNameOffset,
     showElectricalTypes: opts.showPinElectricalTypes,
     showHiddenPins: opts.showHiddenPins,

@@ -16,6 +16,7 @@ import * as sexpr from '@ziroeda/sexpr';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
+import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
@@ -1543,7 +1544,13 @@ export function SymbolEditor({
                   />
                 </div>
                 <div className="ze-panel-body">
-                  {treeRows.length === 0 && <div className="ze-muted">Loading libraries…</div>}
+                  {treeRows.length === 0 && (
+                    <LibraryLoadingPanel
+                      kind="symbols"
+                      fallback={<div className="ze-muted">No libraries</div>}
+                      label="Loading symbol libraries…"
+                    />
+                  )}
                   {treeRows.map((row) =>
                     row.sym === undefined ? (
                       <div

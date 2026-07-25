@@ -4,6 +4,7 @@ import {
   mmToIU,
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
+  type ReportLine,
   type WksSheet,
 } from '@ziroeda/common';
 import {
@@ -45,6 +46,11 @@ import {
   type SymbolAttrEdit,
   groupItemsCommand,
   ungroupItemsCommand,
+  addToGroupCommand,
+  removeFromGroupCommand,
+  canAddToGroup,
+  canRemoveFromGroup,
+  selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
   applySelectionFilter,
@@ -57,11 +63,23 @@ import {
   findMatches,
   replaceCommand,
   defaultSearchData,
-  annotateCommand,
+  annotateHierarchy,
+  annotationReport,
+  checkAnnotation,
   clearAnnotationCommand,
+  clearAnnotationReport,
+  setSymbolsCommand,
+  subReference,
+  type AnnotateDiff,
+  type AnnotateSheet,
   type SchSearchData,
   type AnnotateOptions,
+  type ErcRunOptions,
+  type ExternalPin,
+  computeHierarchyNetlist,
+  enumeratePins,
   runErc,
+  runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
   buildSheetTree,
@@ -84,6 +102,7 @@ import {
   History,
   type Schematic,
   type LibSymbol,
+  type SchSymbol,
   type EditCommand,
   type SheetSide,
   type TransformOp,
@@ -117,6 +136,13 @@ import {
   type SymbolChooserResult,
 } from './dialogs/dialog_symbol_chooser.js';
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
+import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
+import { libraryUri, loadIndex, loadSymbol } from './symbols/index.js';
+import {
+  projectFpLibTablePath,
+  serializeFpLibTable,
+  type FpLibRow,
+} from '../footprint/fp_lib_table.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
@@ -128,7 +154,7 @@ import {
   type SheetRef,
 } from './sch_navigate_tool.js';
 import { DialogSchematicFind } from './dialogs/dialog_schematic_find.js';
-import { DialogAnnotate } from './dialogs/dialog_annotate.js';
+import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
@@ -154,6 +180,8 @@ import {
   RefDesTracker,
   buildPageRefsMap,
   chainPatternAssignments,
+  connectionName,
+  equivalentBusNames,
   detectNetChains,
   isValidNetChainName,
   netChainsCommand,
@@ -233,6 +261,19 @@ const SETTINGS_TOGGLES = new Set([
 ]);
 const PX_PER_MM_100 = 3.7795;
 
+/** ERC_TESTER::TestDuplicateSheetNames, the guard the highlight tools run
+ *  before picking (sheet names compare case-insensitively upstream). */
+function hasDuplicateSheetNames(sch: Schematic): boolean {
+  const seen = new Set<string>();
+  for (const s of sch.sheets) {
+    const name = (s.fields.find((f) => f.key === 'Sheetname')?.value ?? '').toLowerCase();
+    if (!name) continue;
+    if (seen.has(name)) return true;
+    seen.add(name);
+  }
+  return false;
+}
+
 // The "Current Tool" status-bar field (EDA_DRAW_FRAME::DisplayToolMsg):
 // TOOLS_HOLDER::PushTool shows the active action's FriendlyName; the idle
 // selection tool reads "Select item(s)". Names from sch_actions.cpp /
@@ -291,6 +332,13 @@ const FILTER_CATS: [keyof SelectionFilterOptions, string][] = [
 ];
 
 /** A file picked from disk for a project open. */
+/**
+ * Below this many footprint libraries the served index is a bundled stub, not a
+ * library table — ERC's footprint-link test stands down rather than reporting
+ * every standard KiCad library as missing.
+ */
+const MIN_FOOTPRINT_LIBS = 10;
+
 export interface PickedFile {
   name: string;
   text: string;
@@ -322,6 +370,7 @@ export function SchematicEditor({
   extraSheetFiles,
   projectName,
   rootPro,
+  onCrossProbeNet,
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
@@ -356,6 +405,10 @@ export function SchematicEditor({
    *  holds several projects, this pins which one's root sheet to load, so the
    *  editor matches the launcher tree instead of guessing the first/last pro. */
   rootPro?: string;
+  /** The net the highlight tools are showing, cross-probed to the PCB editor
+   *  (SCH_EDIT_FRAME::SendCrossProbeConnection / SendCrossProbeClearHighlight);
+   *  null when the highlight is cleared. */
+  onCrossProbeNet?: (net: string | null) => void;
 }): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -396,6 +449,9 @@ export function SchematicEditor({
   // m_highlightedConn). Distinct from selection: plain selection is never a net
   // highlight in KiCad; it's the explicit highlight action that brightens a net.
   const [highlightItem, setHighlightItem] = useState<string | null>(null);
+  // SCH_EDITOR_CONTROL::m_highlightBusMembers: re-clicking an already-highlighted
+  // net toggles the members of the bus it rides on into the highlight.
+  const [highlightBusMembers, setHighlightBusMembers] = useState(false);
   const history = useRef(new History());
   const controller = useRef<CanvasController>(null);
   const [activeTool, setActiveTool] = useState('select');
@@ -534,8 +590,17 @@ export function SchematicEditor({
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
   const [pastePending, setPastePending] = useState<PastePayload | null>(null);
-  // ERC results: null = panel closed; a list (possibly empty) = panel open.
+  // ERC markers: null until a run has happened. They live on past the dialog
+  // closing, exactly like the SCH_MARKERs upstream appends to the screen —
+  // only Delete All Markers (or a new run) clears them.
   const [ercResult, setErcResult] = useState<readonly ErcViolation[] | null>(null);
+  // m_cancelled: set by the dialog's Cancel button, read between phases.
+  const ercCancelled = useRef(false);
+  // The marker a heading row put the focus on (FocusOnItem brightens it).
+  const [ercFocusedMarker, setErcFocusedMarker] = useState<string | null>(null);
+  // DIALOG_ERC's visibility, and the phase messages of a run in flight.
+  const [ercOpen, setErcOpen] = useState(false);
+  const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -593,17 +658,41 @@ export function SchematicEditor({
         }
       }
     } else if (netlist && highlightItem !== null) {
-      const code = netlist.netByItem.get(highlightItem);
-      if (code !== undefined) {
-        const net = netlist.nets.find((n) => n.code === code);
-        if (net) {
-          name = net.name;
-          for (const item of net.items) items.add(item);
+      name = connectionName(netlist, highlightItem);
+      if (name !== null) {
+        // UpdateNetHighlighting's connNames set: the net itself, the other
+        // label forms of the same bus (GetEquivalentBusNames), the bus members
+        // when that toggle is on, and every bus carrying the net (GetBusParents)
+        // so a highlighted member lights the bus it rides on too.
+        const connNames = new Set<string>([name]);
+        for (const eq of equivalentBusNames(netlist, name)) connNames.add(eq);
+        if (highlightBusMembers) {
+          for (const b of netlist.buses)
+            if (b.name && connNames.has(b.name)) for (const m of b.members) connNames.add(m);
         }
+        for (const b of netlist.buses)
+          if (b.name && b.members.some((m) => connNames.has(m))) connNames.add(b.name);
+
+        for (const net of netlist.nets)
+          if (connNames.has(net.name)) for (const item of net.items) items.add(item);
+        for (const b of netlist.buses)
+          if (b.name && connNames.has(b.name)) for (const item of b.items) items.add(item);
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem, highlightedChain, committedChains]);
+  }, [netlist, highlightItem, highlightedChain, highlightBusMembers, committedChains]);
+
+  // Cross-probe the highlight to the PCB editor. A highlighted chain probes its
+  // first member net — the PCB side takes one net, as upstream notes when it
+  // cross-probes a chain (sch_editor_control.cpp:1250).
+  const crossProbeNet = useMemo(() => {
+    if (highlightedChain !== null)
+      return committedChains.find((c) => c.name === highlightedChain)?.nets[0] ?? null;
+    return highlightName;
+  }, [highlightedChain, highlightName, committedChains]);
+  useEffect(() => {
+    onCrossProbeNet?.(crossProbeNet);
+  }, [crossProbeNet, onCrossProbeNet]);
 
   // Wire tint while a coloured chain is highlighted (painter chain block).
   const chainHighlight = useMemo(() => {
@@ -635,8 +724,9 @@ export function SchematicEditor({
     docRef.current ? applySelectionFilter(docRef.current, ids, selFilterRef.current) : ids;
 
   const onSelect = useCallback((id: string | null, additive: boolean) => {
-    setHighlightItem(null); // a selection clears any net highlight (KiCad keeps the two exclusive)
-    setHighlightedChain(null);
+    // A selection does *not* clear the net highlight: upstream's highlightNet
+    // never touches the selection and vice versa — the highlight lives until
+    // Esc, `~`, or a highlight-tool click on empty space.
     setSelection((prev) => {
       if (id === null) return additive ? prev : new Set();
       // A filtered-out hit (locked / disabled type) behaves like empty space.
@@ -654,19 +744,67 @@ export function SchematicEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Highlight-Net tool: brighten a net and clear the selection (KiCad's
-  // HighlightNet calls ClearSelection so the whole net shows, not a selection halo).
-  const onHighlight = useCallback((id: string | null) => {
-    setSelection(new Set());
+  // SCH_EDITOR_CONTROL::ClearHighlight — the net, the chain and the bus-member
+  // mode all drop together (`~`, Esc, or a click on empty space).
+  const clearHighlight = useCallback(() => {
+    setHighlightItem(null);
     setHighlightedChain(null);
-    setHighlightItem(id);
+    setHighlightBusMembers(false);
+  }, []);
+
+  // Live values for the highlight callback, kept in refs so the canvas prop
+  // stays stable across renders.
+  const netlistRef = useRef(netlist);
+  netlistRef.current = netlist;
+  const chainsRef = useRef(committedChains);
+  chainsRef.current = committedChains;
+  // GetHighlightedConnection(): empty while a chain is highlighted, since the
+  // two modes are exclusive upstream.
+  const highlightConnRef = useRef<string | null>(null);
+  highlightConnRef.current = highlightedChain !== null ? null : highlightName;
+
+  // Highlight-Net tool — a port of eeschema's static highlightNet()
+  // (sch_editor_control.cpp:1051). The selection is left alone: upstream's
+  // highlight and selection are independent.
+  const onHighlight = useCallback((id: string | null) => {
+    // ERC_TESTER::TestDuplicateSheetNames guard: upstream refuses to highlight
+    // at all while the current sheet has duplicate sub-sheet names.
+    if (id !== null && docRef.current && hasDuplicateSheetNames(docRef.current)) {
+      setError('Error: duplicate sub-sheet names found in current sheet.');
+      return;
+    }
+    const nl = netlistRef.current;
+    const name = id !== null && nl ? connectionName(nl, id) : null;
+    if (name === null) {
+      // No connection under the cursor: clear the net *and* the chain highlight.
+      setHighlightItem(null);
+      setHighlightedChain(null);
+      setHighlightBusMembers(false);
+      return;
+    }
+    if (name !== highlightConnRef.current) {
+      setHighlightBusMembers(false);
+      setHighlightedChain(null);
+      setHighlightItem(id);
+      return;
+    }
+    // Same net re-invoked: expand to the chain that contains it, or fall back
+    // to toggling the bus members in and out of the highlight.
+    const chain = chainsRef.current.find((c) => c.nets.includes(name));
+    if (chain) {
+      setHighlightItem(null);
+      setHighlightBusMembers(false);
+      setHighlightedChain(chain.name);
+    } else {
+      setHighlightBusMembers((v) => !v);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Box-selection result (KiCad SelectMultiple): plain drags replace the
   // selection, shift-drags add, ctrl+shift-drags subtract.
   const onSelectBox = useCallback(
     (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => {
-      setHighlightItem(null);
       setSelection((prev) => {
         // Box/lasso results pass through the Selection Filter before promotion
         // (KiCad narrows the collector), so locked/disabled items never enter.
@@ -1019,12 +1157,55 @@ export function SchematicEditor({
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
   const [assignFpOpen, setAssignFpOpen] = useState(false);
-  const runClearAnnotation = useCallback(
-    (scope: AnnotateOptions['scope']) => {
-      runCommand(clearAnnotationCommand(scope, selection));
-    },
-    [runCommand, selection],
+  // The sheets of THIS design, in hierarchy order — cvpcb is handed the
+  // current schematic's netlist, so sibling projects sharing the folder (and
+  // sheets reached twice) must not add rows.
+  const assignFpFiles = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const s of sheetInstanceRefs) {
+      if (seen.has(s.file)) continue;
+      seen.add(s.file);
+      out.push(s.file);
+    }
+    return out.length > 0 ? out : [currentFile];
+  }, [sheetInstanceRefs, currentFile]);
+  // The project's own `.pretty` libraries (the fp-lib-table's project scope),
+  // which Assign Footprints lists ahead of the global libraries. The table
+  // itself comes along: it holds the library nicknames the FPIDs are written
+  // with ("Footprints:…" for `${KIPRJMOD}/footprints.pretty`).
+  const projectFootprintFiles = useMemo(
+    () =>
+      rawFiles
+        .filter(
+          (f) =>
+            /\.kicad_mod$/i.test(f.name) ||
+            /(^|\/)fp-lib-table$/i.test(f.name) ||
+            /\.kicad_pro$/i.test(f.name),
+        )
+        .map((f) => ({ name: f.name, text: f.text })),
+    [rawFiles],
   );
+  // Manage Footprint Libraries: write the project's `fp-lib-table` (creating it
+  // next to the `.kicad_pro` when the project has none) and keep it in memory,
+  // so a library registered here resolves immediately.
+  const saveProjectFpLibTable = useCallback(
+    (rows: FpLibRow[]) => {
+      const name = projectFpLibTablePath(rawFiles);
+      const text = serializeFpLibTable(rows);
+      setRawFiles((prev) => {
+        const has = prev.some((f) => f.name === name);
+        return has
+          ? prev.map((f) => (f.name === name ? { ...f, text } : f))
+          : [...prev, { name, text }];
+      });
+      onPersistFiles?.([{ name, text }]);
+    },
+    [rawFiles, onPersistFiles],
+  );
+  // The Annotation Messages the last Annotate / Clear Annotation run produced;
+  // the dialog stays open showing them (WX_HTML_REPORT_PANEL).
+  const [annotateMessages, setAnnotateMessages] = useState<readonly ReportLine[]>([]);
 
   // Page Settings (DIALOG_PAGES_SETTINGS::onOK): write paper + title block back
   // through an undoable command; fields with "Export to other sheets" checked
@@ -1168,20 +1349,170 @@ export function SchematicEditor({
     [doc, resolverForDoc, currentFile, currentPath],
   );
 
-  // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): the REFDES_TRACKER is
-  // deserialized from schematic.used_designators, gated by the project's
-  // reuse_designators, and its updated state persists back after the run.
+  // The hierarchy as an annotation pass sees it (SCH_SHEET_LIST + the scope
+  // switch in AnnotateSymbols): every sheet in DFS order carrying its virtual
+  // page number, tagged with how the chosen scope treats it. A file used by
+  // more than one sheet instance appears once — a reference lives on the
+  // symbol here, not per sheet-instance path.
+  const annotateSheets = useCallback(
+    (scope: AnnotateOptions['scope'], recursive: boolean): AnnotateSheet[] => {
+      const docs = liveDocs();
+      // Sub-sheets of the current sheet, and (for a selection) the subtrees of
+      // any selected sheet symbol.
+      const selectedSheetPaths: string[] = [];
+      if (scope === 'selection' && recursive && doc) {
+        doc.sheets.forEach((sh, i) => {
+          if (selection.has(refId('sheet', sh.uuid, i)))
+            selectedSheetPaths.push(`${currentPath}${sh.uuid || `i${i}`}/`);
+        });
+      }
+      const seen = new Set<string>();
+      const sheets: AnnotateSheet[] = [];
+      flatSheets.forEach((s, i) => {
+        const d = docs.get(s.file);
+        if (!d || seen.has(s.file)) return;
+        seen.add(s.file);
+        const isCurrent = s.file === currentFile;
+        const belowCurrent = s.path.startsWith(currentPath) && s.path !== currentPath;
+        const inSelectedSubtree = selectedSheetPaths.some((p) => s.path.startsWith(p));
+        let sheetScope: AnnotateSheet['scope'] = 'out';
+        if (scope === 'all') sheetScope = 'full';
+        else if (isCurrent) sheetScope = scope === 'selection' ? 'selected' : 'full';
+        else if (scope === 'current_sheet' && recursive && belowCurrent) sheetScope = 'full';
+        else if (scope === 'selection' && inSelectedSubtree) sheetScope = 'full';
+        sheets.push({ file: s.file, doc: d, sheetNumber: i + 1, scope: sheetScope });
+      });
+      return sheets;
+    },
+    [liveDocs, flatSheets, currentFile, currentPath, doc, selection],
+  );
+
+  /** Library symbols of every sheet taking part, for unit counts. */
+  const hierarchyLibs = useCallback(
+    (sheets: readonly AnnotateSheet[]): Map<string, LibSymbol> => {
+      const libs = new Map(libById);
+      for (const s of sheets)
+        for (const l of s.doc.libSymbols) if (!libs.has(l.libId)) libs.set(l.libId, l);
+      return libs;
+    },
+    [libById],
+  );
+
+  /** Apply one sheet's new symbol list, on its own undo history when off-screen. */
+  const applySheetSymbols = useCallback(
+    (file: string, symbols: readonly SchSymbol[], label: string, changed: PickedFile[]): void => {
+      const cmd = setSymbolsCommand(symbols, label);
+      if (file === currentFile) {
+        runCommand(cmd);
+        return;
+      }
+      const target = project.current.docs.get(file);
+      if (!target) return;
+      if (!histories.current.has(file)) histories.current.set(file, new History());
+      const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
+      project.current.docs.set(file, next);
+      try {
+        changed.push({ name: file, text: serializeSchematic(next) });
+      } catch {
+        /* skip a bad sheet */
+      }
+    },
+    [currentFile, runCommand, libById],
+  );
+
+  // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
+  // sheets in scope, then the report loop and CheckAnnotate's final control.
+  // The REFDES_TRACKER is deserialized from schematic.used_designators, gated
+  // by the project's reuse_designators, and persists back after the run.
   const runAnnotate = useCallback(
-    (opts: AnnotateOptions) => {
+    (opts: AnnotateRun) => {
       const tracker = new RefDesTracker();
       tracker.deserialize(setup.usedDesignators);
       tracker.reuseRefDes = setup.annotation.allowReuse;
-      runCommand(annotateCommand(libById, { ...opts, tracker }, selection));
+
+      const sheets = annotateSheets(opts.scope, opts.recursive);
+      const libs = hierarchyLibs(sheets);
+      const subRef = (unit: number): string =>
+        subReference(unit, subpartSettings(setup.annotation), false);
+      const updated = annotateHierarchy(sheets, libs, { ...opts, tracker }, selection);
+
+      const changedFiles: PickedFile[] = [];
+      const diffs: AnnotateDiff[] = [];
+      for (const sheet of sheets) {
+        const symbols = updated.get(sheet.file);
+        if (!symbols) continue;
+        applySheetSymbols(sheet.file, symbols, 'Annotate Schematic', changedFiles);
+        diffs.push({ before: sheet.doc, after: { ...sheet.doc, symbols } });
+      }
+      if (changedFiles.length) onProjectChange?.(changedFiles);
+
+      const lines = [...annotationReport(diffs, libs, subRef)];
+      // The final control runs over the sheets that were in scope, as upstream's
+      // CheckAnnotate does, against the post-annotation documents.
+      const checked = sheets
+        .filter((s) => s.scope !== 'out')
+        .map((s) => {
+          const symbols = updated.get(s.file);
+          return symbols ? { ...s.doc, symbols } : s.doc;
+        });
+      const errors = checkAnnotation(checked, libs, subRef);
+      lines.push(...errors);
+      if (errors.length === 0)
+        lines.push({
+          message: 'Annotation complete.',
+          severity: RPT_SEVERITY_ACTION,
+          location: 'tail',
+        });
+      setAnnotateMessages(lines);
+
       const usedDesignators = tracker.serialize();
       if (usedDesignators !== setup.usedDesignators) commitSetup({ ...setup, usedDesignators });
-      setAnnotateOpen(false);
     },
-    [runCommand, libById, selection, setup, commitSetup],
+    [
+      annotateSheets,
+      hierarchyLibs,
+      applySheetSymbols,
+      onProjectChange,
+      selection,
+      setup,
+      commitSetup,
+    ],
+  );
+
+  // Clear Annotation (SCH_EDIT_FRAME::DeleteAnnotation): the same scope walk,
+  // resetting each in-scope symbol's reference to its bare prefix + '?'.
+  const runClearAnnotation = useCallback(
+    (scope: AnnotateOptions['scope'], recursive: boolean) => {
+      const sheets = annotateSheets(scope, recursive);
+      const libs = hierarchyLibs(sheets);
+      const changedFiles: PickedFile[] = [];
+      const diffs: AnnotateDiff[] = [];
+      for (const sheet of sheets) {
+        if (sheet.scope === 'out') continue;
+        const cmd = clearAnnotationCommand(
+          sheet.scope === 'selected' ? 'selection' : 'all',
+          selection,
+        );
+        const next = cmd.apply(sheet.doc);
+        if (next === sheet.doc) continue;
+        applySheetSymbols(sheet.file, next.symbols, 'Clear Annotation', changedFiles);
+        diffs.push({ before: sheet.doc, after: next });
+      }
+      if (changedFiles.length) onProjectChange?.(changedFiles);
+      setAnnotateMessages(
+        clearAnnotationReport(diffs, libs, (unit) =>
+          subReference(unit, subpartSettings(setup.annotation), false),
+        ),
+      );
+    },
+    [
+      annotateSheets,
+      hierarchyLibs,
+      applySheetSymbols,
+      onProjectChange,
+      selection,
+      setup.annotation,
+    ],
   );
 
   // Drawing defaults shared by every output (screen, print, plot), derived
@@ -1351,14 +1682,14 @@ export function SchematicEditor({
     (
       edits: FieldsEdits,
       opts: {
-        /** "Apply, Save Schematic & Continue" writes the sheets straight away. */
         persist?: boolean;
         /** The `${DNP}` / `${EXCLUDE_FROM_…}` columns, applied in the same step. */
         attrs?: ReadonlyMap<string, ReadonlyMap<string, SymbolAttrEdit>>;
       } = {},
     ) => {
       const changedFiles: PickedFile[] = [];
-      for (const file of new Set([...edits.keys(), ...(opts.attrs?.keys() ?? [])])) {
+      const files = new Set([...edits.keys(), ...(opts.attrs?.keys() ?? [])]);
+      for (const file of files) {
         const perSymbol = edits.get(file);
         const perSymbolAttrs = opts.attrs?.get(file);
         const cmds = [
@@ -1369,7 +1700,9 @@ export function SchematicEditor({
         const cmd = cmds.length === 1 ? cmds[0]! : composeCommands('Edit Symbol Fields', cmds);
         if (file === currentFile) {
           runCommand(cmd);
-          // Saving serializes from the same command result runCommand committed.
+          // "Apply, Save Schematic & Continue" (CVPCB) saves right away rather
+          // than waiting for the debounced autosave, so the on-screen sheet is
+          // serialized from the same command result runCommand just committed.
           const cur = docRef.current;
           if (opts.persist && cur) {
             try {
@@ -1526,12 +1859,15 @@ export function SchematicEditor({
   const resetTransient = useCallback(() => {
     setSelection(new Set());
     setHighlightItem(null);
+    setHighlightedChain(null);
+    setHighlightBusMembers(false);
     setPendingLabel(null);
     setActiveTool('select');
     setPlaceLib(null);
     setPlaceUnit(1);
     setPastePending(null);
     setErcResult(null);
+    setErcRunning(null);
     setPropsTarget(null);
   }, []);
 
@@ -2080,26 +2416,378 @@ export function SchematicEditor({
   }, []);
 
   // ----- ERC (Inspect > Electrical Rules Checker) ------------------------------
-  const runErcNow = useCallback(() => {
-    setDoc((d) => {
-      // The ERC severities + pin-conflict map come from Schematic Setup.
-      if (d)
-        setErcResult(
-          runErc(d, new Map(d.libSymbols.map((l) => [l.libId, l])), setup.erc, {
-            // Formatting's connection grid feeds the off-grid endpoint test.
-            connectionGridIU: setup.formatting.connectionGridMils * IU_PER_MILS,
-            busAliases,
+  /** The run's options: the hierarchy, the project settings and the libraries. */
+  const ercOptions = useCallback(
+    (cfg: SchematicSetup): ErcRunOptions => {
+      // The hierarchy feeds the sheet-pin / global-label tests: sub-sheet
+      // documents by file, and the global labels used on every other sheet.
+      const docs = liveDocs();
+      const otherGlobals = new Set<string>();
+      for (const [file, other] of docs) {
+        if (file === currentFile) continue;
+        for (const l of other.labels) if (l.kind === 'global_label') otherGlobals.add(l.text);
+      }
+      return {
+        // Formatting's connection grid feeds the off-grid endpoint test.
+        connectionGridIU: cfg.formatting.connectionGridMils * IU_PER_MILS,
+        busAliases,
+        subSheets: docs,
+        otherSheetGlobalLabels: otherGlobals,
+        resolveTextVar: (name) => resolveTextVar?.(name),
+        // SIM_LIB_MGR::ResolveLibraryPath: a `Sim.Library` path resolves
+        // against the project, so the project's own files are the library set.
+        simLibraryText: (path) => {
+          const wanted =
+            path
+              .replace(/^\$\{KIPRJMOD\}[\\/]/, '')
+              .split(/[\\/]/)
+              .pop() ?? path;
+          return rawFiles.find(
+            (f) => f.name === path || f.name.endsWith(`/${wanted}`) || f.name === wanted,
+          )?.text;
+        },
+        showAllErrors: settings.eeschema.erc_dialog.show_all_errors,
+        // TestMissingNetclasses: a "Netclass" field may only name a class the
+        // project defines (NET_SETTINGS::HasNetclass), or the default one.
+        netclasses: {
+          defaultName: cfg.netClasses.classes[0]?.name ?? 'Default',
+          names: new Set(cfg.netClasses.classes.map((c) => c.name)),
+        },
+        // TestFootprintLinkIssues compares against the *configured* footprint
+        // library table. Ours is whatever the deployment serves, so the test
+        // only runs against a real library set — a bundled stub would report
+        // every standard KiCad library as "not configured".
+        ...(ercFootprintLibs.current && ercFootprintLibs.current.size >= MIN_FOOTPRINT_LIBS
+          ? { footprintLibs: ercFootprintLibs.current }
+          : {}),
+      };
+    },
+    [liveDocs, currentFile, busAliases, resolveTextVar],
+  );
+
+  /** One synchronous ERC pass (used when a severity change re-runs the list). */
+  const runErcWith = useCallback(
+    (cfg: SchematicSetup): ErcViolation[] => {
+      const d = doc;
+      if (!d) return [];
+      return runErc(d, new Map(d.libSymbols.map((l) => [l.libId, l])), cfg.erc, ercOptions(cfg));
+    },
+    [doc, ercOptions],
+  );
+
+  // The footprint library index (nickname -> footprint names) backing
+  // TestFootprintLinkIssues; loaded on the first run, like upstream's
+  // BlockUntilLoaded before the test.
+  const ercFootprintLibs = useRef<Map<string, Set<string>> | null>(null);
+  // The library's copy of each symbol used in the project, for the
+  // ERCE_LIB_SYMBOL_MISMATCH comparison. Cached across runs.
+  const ercLibrarySymbols = useRef<Map<string, LibSymbol>>(new Map());
+  // The symbol library table as TestLibSymbolIssues sees it: nickname -> the
+  // symbol names the library holds.
+  const ercSymbolLibs = useRef<Map<string, Set<string>> | null>(null);
+  // Configured libraries whose file would not load, with the URI they were
+  // looked for at (SYMBOL_LIBRARY_ADAPTER::IsLibraryLoaded / GetFullURI).
+  const ercUnloadedSymbolLibs = useRef<Map<string, string>>(new Map());
+  // Pad numbers of each footprint the project assigns or associates — upstream
+  // fetches these from CvPcb (KIFACE_FOOTPRINT_PAD_NUMBERS) for the pin-map tests.
+  const ercFootprintPads = useRef<Map<string, Set<string>>>(new Map());
+
+  /**
+   * DIALOG_ERC::OnRunERCClick: switch to the "Tests Running…" page, walk the
+   * phases (repainting between them), then show the results.
+   */
+  const runErcNow = useCallback(async () => {
+    const d = doc;
+    if (!d || ercRunning) return;
+    ercCancelled.current = false;
+    // Upstream's running page shows the tester's phases and nothing else: the
+    // library loads DIALOG_ERC does first (BlockUntilLoaded, the CvPcb pad
+    // fetch) happen silently behind its busy cursor.
+    const messages: string[] = [];
+    setErcRunning([...messages]);
+    if (!ercFootprintLibs.current) {
+      try {
+        const index = await loadFootprintIndex();
+        ercFootprintLibs.current = new Map(
+          index.map((lib) => [lib.name, new Set(lib.footprints)] as const),
+        );
+      } catch {
+        ercFootprintLibs.current = new Map();
+      }
+    }
+
+    // Fetch the library copy of every symbol the project places, so the
+    // mismatch test has something to compare against (upstream reads them from
+    // the symbol library table).
+    if (!ercSymbolLibs.current) {
+      try {
+        const index = await loadIndex();
+        ercSymbolLibs.current = new Map(
+          index.map((lib) => [lib.name, new Set(lib.symbols)] as const),
+        );
+      } catch {
+        ercSymbolLibs.current = new Map();
+      }
+    }
+    {
+      const wanted = new Set<string>();
+      for (const d of liveDocs().values()) for (const sym of d.symbols) wanted.add(sym.libId);
+      await Promise.all(
+        [...wanted].map(async (libId) => {
+          if (ercLibrarySymbols.current.has(libId)) return;
+          const sep = libId.indexOf(':');
+          if (sep <= 0) return;
+          const libName = libId.slice(0, sep);
+          try {
+            const fromLib = await loadSymbol(libName, libId.slice(sep + 1));
+            if (fromLib) ercLibrarySymbols.current.set(libId, fromLib);
+            ercUnloadedSymbolLibs.current.delete(libName);
+          } catch {
+            // A library that will not load is TestLibSymbolIssues' second case.
+            ercUnloadedSymbolLibs.current.set(libName, libraryUri(libName));
+          }
+        }),
+      );
+    }
+    // ERC covers the whole hierarchy (SCH_SCREENS), not just the open sheet:
+    // every sheet file is checked in turn and its markers carry its file name.
+    const docs = liveDocs();
+    const sheetFiles: string[] = [];
+    for (const s of flatSheets) if (!sheetFiles.includes(s.file)) sheetFiles.push(s.file);
+    if (sheetFiles.length === 0) sheetFiles.push(currentFile);
+
+    // The pads of every footprint the project assigns, plus those its symbols
+    // associate a pin map with, for the pin-map pad tests.
+    {
+      const wantedFootprints = new Set<string>();
+      for (const d of liveDocs().values()) {
+        const libs = new Map(d.libSymbols.map((l) => [l.libId, l]));
+        for (const sym of d.symbols) {
+          const fp = sym.fields.find((f) => f.key === 'Footprint')?.value ?? '';
+          if (fp.includes(':')) wantedFootprints.add(fp);
+          for (const assoc of libs.get(sym.libId)?.associatedFootprints ?? []) {
+            if (assoc.footprintLibId.includes(':')) wantedFootprints.add(assoc.footprintLibId);
+          }
+        }
+      }
+      if (wantedFootprints.size > 0) {
+        await Promise.all(
+          [...wantedFootprints].map(async (libId) => {
+            if (ercFootprintPads.current.has(libId)) return;
+            try {
+              const fp = await loadFootprint(libId);
+              if (fp)
+                ercFootprintPads.current.set(libId, new Set(fp.pads.map((pad) => pad.number)));
+            } catch {
+              /* an unreachable footprint stands the pad tests down */
+            }
           }),
         );
-      return d;
-    });
-  }, [setup.erc, setup.formatting.connectionGridMils, busAliases]);
+      }
+    }
+
+    // CONNECTION_GRAPH: graph every sheet instance and propagate net names
+    // through the sheet pins, so the net tests below see whole nets rather
+    // than each sheet's slice of them.
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+
+    const hierSheets = flatSheets
+      .map((s) => ({ path: s.path, file: s.file, doc: docs.get(s.file) }))
+      .filter((s): s is { path: string; file: string; doc: Schematic } => !!s.doc);
+    const hier = computeHierarchyNetlist(
+      hierSheets,
+      (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
+      { busAliases },
+    );
+
+    // Every pin of the hierarchy by (propagated) net name, and the net names
+    // that carry a no-connect flag — upstream's merged m_nets entry.
+    const pinsByNet = new Map<string, { file: string; pin: ExternalPin }[]>();
+    const ncNets = new Set<string>();
+    for (const sheet of hierSheets) {
+      const netlist = hier.bySheet.get(sheet.path);
+      if (!netlist) continue;
+      const libs = new Map(sheet.doc.libSymbols.map((l) => [l.libId, l]));
+      const byId = new Map(enumeratePins(sheet.doc, libs).map((p) => [p.id, p]));
+      const nameOf = (id: string): string | undefined => {
+        const code = netlist.netByItem.get(id);
+        return netlist.nets.find((n) => n.code === code)?.name;
+      };
+      for (const [id, p] of byId) {
+        const name = nameOf(id);
+        if (name === undefined) continue;
+        const arr = pinsByNet.get(name) ?? [];
+        arr.push({
+          file: sheet.file,
+          pin: {
+            electricalType: p.electricalType,
+            ref: p.ref,
+            number: p.number,
+            hidden: p.hidden,
+            file: sheet.file,
+          },
+        });
+        pinsByNet.set(name, arr);
+      }
+      sheet.doc.noConnects.forEach((nc, i) => {
+        const name = nameOf(refId('noconnect', nc.uuid, i));
+        if (name !== undefined) ncNets.add(name);
+      });
+    }
+    /**
+     * The human-readable sheet path each file is checked under. ERC re-graphs one
+     * sheet at a time, so it must qualify its net names with the same path the
+     * hierarchy used or the cross-sheet pin lookup above would miss. A file used by
+     * several instances is checked once, under its first instance's path — the same
+     * approximation this file-based loop already makes.
+     */
+    const sheetPathFor = new Map<string, string>();
+    for (const sheet of hierSheets) {
+      if (!sheetPathFor.has(sheet.file))
+        sheetPathFor.set(sheet.file, hier.humanPaths.get(sheet.path) ?? '/');
+    }
+
+    /** The pins of each net that do *not* live on `file`. */
+    const externalPinsFor = (file: string): Map<string, ExternalPin[]> => {
+      const map = new Map<string, ExternalPin[]>();
+      for (const [name, entries] of pinsByNet) {
+        const others = entries.filter((e) => e.file !== file).map((e) => e.pin);
+        if (others.length > 0) map.set(name, others);
+      }
+      return map;
+    };
+
+    const found: ErcViolation[] = [];
+    const frame = (): Promise<void> =>
+      new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+    for (const file of sheetFiles) {
+      const sheetDoc = file === currentFile ? d : docs.get(file);
+      if (!sheetDoc) continue;
+      const steps = runErcSteps(
+        sheetDoc,
+        new Map(sheetDoc.libSymbols.map((l) => [l.libId, l])),
+        setup.erc,
+        {
+          ...ercOptions(setup),
+          sheetFile: file,
+          sheetPath: sheetPathFor.get(file) ?? '/',
+          externalNetPins: externalPinsFor(file),
+          externalNetNoConnects: ncNets,
+          librarySymbols: ercLibrarySymbols.current,
+          footprintPads: ercFootprintPads.current,
+          // Only a real library set is a symbol library table; a failed index
+          // load would otherwise report every library as unconfigured.
+          ...(ercSymbolLibs.current && ercSymbolLibs.current.size > 0
+            ? {
+                symbolLibs: ercSymbolLibs.current,
+                unloadedSymbolLibs: ercUnloadedSymbolLibs.current,
+              }
+            : {}),
+        },
+      );
+      for (;;) {
+        if (ercCancelled.current) break;
+        const step = steps.next();
+        if (step.done) {
+          found.push(...step.value);
+          break;
+        }
+        // One sheet's phases replace the previous sheet's in the message list.
+        const line = step.value;
+        if (!messages.includes(line)) {
+          messages.push(line);
+          setErcRunning([...messages]);
+          await frame();
+        }
+      }
+      if (ercCancelled.current) break;
+    }
+
+    if (ercCancelled.current) {
+      messages.push('-------- ERC cancelled by user.');
+      setErcRunning([...messages]);
+      await new Promise((r) => setTimeout(r, 500));
+      setErcRunning(null);
+      return;
+    }
+
+    // "%d symbol(s) require annotation." — reported as a head line upstream.
+    const notAnnotated = found.filter((v) => v.code === 'unannotated').length;
+    if (notAnnotated > 0) messages.unshift(`${notAnnotated} symbol(s) require annotation.`);
+    messages.push('Done.');
+    setErcRunning([...messages]);
+    // The 500 ms upstream waits before flipping to the results page.
+    await new Promise((r) => setTimeout(r, 500));
+    setErcResult(found);
+    setErcFocusedMarker(null);
+    setErcRunning(null);
+  }, [doc, setup, ercOptions, ercRunning, liveDocs, flatSheets, currentFile]);
 
   // Clicking a violation centres the fault and selects the offending items.
-  const locateViolation = useCallback((v: ErcViolation) => {
-    controller.current?.centerOn(v.at);
-    setSelection(new Set(v.items));
-  }, []);
+  // DIALOG_ERC's cross-probe: select the violation's items, and scroll the
+  // canvas to them only when "Center on Cross-probe" is on.
+  const locateViolation = useCallback(
+    (v: ErcViolation, center = true, itemId?: string) => {
+      // A marker on another sheet: open its sheet first (KiCad's cross-probe
+      // follows the marker's SCH_SHEET_PATH).
+      if (v.file && v.file !== currentFile) {
+        const target = flatSheets.find((s) => s.file === v.file);
+        if (target) switchSheet(target.path, target.file);
+      }
+      // FocusOnItem( ResolveItem( RC_TREE_MODEL::ToUUID( row ) ) ): a heading
+      // row resolves to the *marker*, so it brightens the marker and leaves the
+      // schematic items alone; only an item row focuses that item.
+      if (center) controller.current?.centerOn(v.at);
+      if (itemId) {
+        setErcFocusedMarker(null);
+        setSelection(new Set([itemId]));
+      } else {
+        setSelection(new Set());
+        setErcFocusedMarker(ercExclusionKey(v));
+      }
+    },
+    [currentFile, flatSheets, switchSheet],
+  );
+
+  // RC_TREE_MODEL's child rows: one description line per involved item
+  // (SCH_EDIT_FRAME::ResolveItem + EDA_ITEM::GetItemDescription).
+  const describeErcItem = useCallback(
+    (id: string, file?: string): string => {
+      const target = !file || file === currentFile ? doc : liveDocs().get(file);
+      if (!target) return id;
+      const kinds: ItemRef['kind'][] = [
+        'symbol',
+        'label',
+        'line',
+        'junction',
+        'noconnect',
+        'sheet',
+        'busentry',
+      ];
+      const arrays: readonly (readonly { uuid?: string }[])[] = [
+        target.symbols,
+        target.labels,
+        target.lines,
+        target.junctions,
+        target.noConnects,
+        target.sheets,
+        target.busEntries,
+      ];
+      for (let k = 0; k < kinds.length; k++) {
+        const kind = kinds[k]!;
+        const arr = arrays[k]!;
+        for (let i = 0; i < arr.length; i++) {
+          if (refId(kind, arr[i]!.uuid, i) === id) {
+            const libs = new Map(target.libSymbols.map((l) => [l.libId, l]));
+            return describeItem(target, libs, { kind, id });
+          }
+        }
+      }
+      return id;
+    },
+    [doc, currentFile, liveDocs],
+  );
 
   const lineMode: LineMode =
     es.drawing.line_mode === 0 ? 'free' : es.drawing.line_mode === 2 ? '45' : '90';
@@ -2430,7 +3118,7 @@ export function SchematicEditor({
       else if (id === 'redo') redo();
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
-      else if (id === 'erc') runErcNow();
+      else if (id === 'erc') setErcOpen(true);
       else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
@@ -2466,6 +3154,18 @@ export function SchematicEditor({
       else if (id === 'ungroup')
         setSelection((sel) => {
           if (sel.size > 0) runCommand(ungroupItemsCommand(sel));
+          return sel;
+        });
+      else if (id === 'addToGroup')
+        setSelection((sel) => {
+          const d = docRef.current;
+          if (d && canAddToGroup(d, sel)) runCommand(addToGroupCommand(sel));
+          return sel;
+        });
+      else if (id === 'removeFromGroup')
+        setSelection((sel) => {
+          const d = docRef.current;
+          if (d && canRemoveFromGroup(d, sel)) runCommand(removeFromGroupCommand(sel));
           return sel;
         });
       // Lock / Unlock / Toggle Lock (SCH_EDIT_TOOL): protect symbols from edits.
@@ -2621,9 +3321,22 @@ export function SchematicEditor({
     });
     const items: MenuItem[] = [];
     if (selection.size > 0) {
+      // GROUP_CONTEXT_MENU: all four items always shown, greyed per condition
+      // (GROUP_TOOL::update Enable()). Labels are the actions' FriendlyNames.
       items.push({
         label: 'Grouping',
-        items: [act('Group Items', 'group'), act('Ungroup Items', 'ungroup')],
+        items: [
+          { ...act('Group Items', 'group'), disabled: selection.size < 2 },
+          {
+            ...act('Ungroup Items', 'ungroup'),
+            disabled: !(doc && selectionHasGroup(doc, selection)),
+          },
+          { ...act('Add Items', 'addToGroup'), disabled: !(doc && canAddToGroup(doc, selection)) },
+          {
+            ...act('Remove Items', 'removeFromGroup'),
+            disabled: !(doc && canRemoveFromGroup(doc, selection)),
+          },
+        ],
       });
       // Locking (SCH_SELECTION_TOOL makeLockMenu) — only symbols lock.
       const selSymbols =
@@ -2704,8 +3417,10 @@ export function SchematicEditor({
             {
               label: 'Highlight Net Chain',
               action: () => {
-                setSelection(new Set());
+                // HighlightNetChain: the chain replaces the net highlight; the
+                // selection is untouched.
                 setHighlightItem(null);
+                setHighlightBusMembers(false);
                 setHighlightedChain(hitChain.name);
               },
             },
@@ -2726,10 +3441,10 @@ export function SchematicEditor({
             },
           );
         }
-        if (highlightedChain !== null)
+        if (highlightedChain !== null || highlightItem !== null)
           chainItems.push({
             label: 'Clear Net Highlighting',
-            action: () => setHighlightedChain(null),
+            action: clearHighlight,
           });
         if (chainItems.length > 0) items.push({ sep: true }, ...chainItems);
       }
@@ -2981,7 +3696,7 @@ export function SchematicEditor({
         } else if (selection.size > 0) setSelection(new Set());
         // "<ESC> clears net highlighting": with nothing else pending, the next
         // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
-        else if (settings.eeschema.input.esc_clears_net_highlight) setHighlightItem(null);
+        else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && selection.size > 0) {
         e.preventDefault();
         runCommand(deleteByIds(selection));
@@ -3032,7 +3747,7 @@ export function SchematicEditor({
         }
         if (e.key === '~') {
           e.preventDefault();
-          setHighlightItem(null);
+          clearHighlight();
           return;
         }
         // Space — reset the status bar's relative (dx/dy) origin to the
@@ -3173,6 +3888,11 @@ export function SchematicEditor({
   if (!navTool.current.canGoBack()) navDisabled.add('navBack');
   if (!navTool.current.canGoForward()) navDisabled.add('navFwd');
   if (parentPath(currentPath) === null) navDisabled.add('navUp');
+  // The toolbar's Group / Ungroup grey out when they can't act (GROUP_TOOL::
+  // update): Group needs >= 2 selected items, Ungroup needs a group in the
+  // selection. Add / Remove are right-click-only, gated in the context menu.
+  if (selection.size < 2) navDisabled.add('group');
+  if (!selectionHasGroup(doc, selection)) navDisabled.add('ungroup');
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -3373,13 +4093,20 @@ export function SchematicEditor({
             onSelectBox={onSelectBox}
             pastePending={pastePending}
             onPasteDone={onPasteDone}
-            ercMarkers={ercResult?.filter((v) =>
-              setup.ercExclusions.includes(ercExclusionKey(v))
-                ? es.appearance.show_erc_exclusions
-                : v.severity === 'error'
-                  ? es.appearance.show_erc_errors
-                  : es.appearance.show_erc_warnings,
-            )}
+            ercMarkers={ercResult
+              ?.filter((v) => (v.file ?? currentFile) === currentFile)
+              .map((v) => ({
+                ...v,
+                excluded: setup.ercExclusions.includes(ercExclusionKey(v)),
+                brightened: ercFocusedMarker === ercExclusionKey(v),
+              }))
+              .filter((v) =>
+                v.excluded
+                  ? es.appearance.show_erc_exclusions
+                  : v.severity === 'error'
+                    ? es.appearance.show_erc_errors
+                    : es.appearance.show_erc_warnings,
+              )}
             onCommand={runCommand}
             onCursorMove={setCursor}
             onScaleChange={setScale}
@@ -3406,9 +4133,11 @@ export function SchematicEditor({
               onClose={() => setClarify(null)}
             />
           )}
-          {ercResult !== null && (
+          {ercOpen && (
             <ErcDialog
+              sourceName={currentFile}
               violations={ercResult}
+              running={ercRunning}
               ignoredTests={ERC_ITEMS.filter(
                 (it) => setup.erc.severities[it.code] === 'ignore',
               ).map((it) => it.title)}
@@ -3427,26 +4156,73 @@ export function SchematicEditor({
               unannotated={doc?.symbols.some((s) =>
                 (s.fields.find((f) => f.key === 'Reference')?.value ?? '').endsWith('?'),
               )}
+              options={{
+                crossprobe: es.erc_dialog.crossprobe,
+                scrollOnCrossprobe: es.erc_dialog.scroll_on_crossprobe,
+                showAllErrors: es.erc_dialog.show_all_errors,
+              }}
+              onOptionsChange={(o) =>
+                settings.updateEeschema((s) => {
+                  s.erc_dialog.crossprobe = o.crossprobe;
+                  s.erc_dialog.scroll_on_crossprobe = o.scrollOnCrossprobe;
+                  s.erc_dialog.show_all_errors = o.showAllErrors;
+                })
+              }
               onShowAnnotate={() => setAnnotateOpen(true)}
-              onRun={runErcNow}
+              onRun={() => void runErcNow()}
               onLocate={locateViolation}
+              describeItem={describeErcItem}
+              onSetSeverity={(code, level) => {
+                // OnERCItemRClick's severity commands: change the rule for
+                // every violation of its type, then re-run so the list matches.
+                const next = {
+                  ...setup,
+                  erc: {
+                    ...setup.erc,
+                    severities: { ...setup.erc.severities, [code]: level },
+                  },
+                };
+                commitSetup(next);
+                setErcResult(runErcWith(next));
+              }}
+              onEditPinMap={() => setSetupOpen(true)}
+              onEditConnectionGrid={() => setSetupOpen(true)}
               onDelete={(i) => setErcResult((r) => (r ? r.filter((_, idx) => idx !== i) : r))}
-              onDeleteAll={() => setErcResult([])}
+              onDeleteAll={() => {
+                setErcResult([]);
+                setErcFocusedMarker(null);
+              }}
               excluded={new Set(setup.ercExclusions)}
-              onToggleExclude={(v) => {
+              exclusionComments={new Map(Object.entries(setup.ercExclusionComments))}
+              onCancelRun={() => {
+                ercCancelled.current = true;
+              }}
+              onToggleExclude={(v, comment) => {
                 const key = ercExclusionKey(v);
                 setSetup((cur) => {
                   const has = cur.ercExclusions.includes(key);
+                  // A comment edit keeps the exclusion and only rewrites the note
+                  // (MARKER_BASE::SetComment); otherwise this toggles it.
+                  const keepExcluded = comment !== undefined ? true : !has;
+                  const comments = { ...cur.ercExclusionComments };
+                  if (!keepExcluded) delete comments[key];
+                  else if (comment !== undefined) comments[key] = comment;
                   return {
                     ...cur,
-                    ercExclusions: has
-                      ? cur.ercExclusions.filter((k) => k !== key)
-                      : [...cur.ercExclusions, key],
+                    ercExclusions: keepExcluded
+                      ? has
+                        ? cur.ercExclusions
+                        : [...cur.ercExclusions, key]
+                      : cur.ercExclusions.filter((k) => k !== key),
+                    ercExclusionComments: comments,
                   };
                 });
               }}
               onEditSeverities={() => setSetupOpen(true)}
-              onClose={() => setErcResult(null)}
+              onClose={() => {
+                setErcFocusedMarker(null);
+                setErcOpen(false);
+              }}
             />
           )}
           {findOpen && (
@@ -3478,6 +4254,7 @@ export function SchematicEditor({
                       : 'incremental',
                 startNumber: setup.annotation.firstFreeAfter,
               }}
+              messages={annotateMessages}
               onAnnotate={runAnnotate}
               onClear={runClearAnnotation}
               onClose={(s) => {
@@ -3503,6 +4280,8 @@ export function SchematicEditor({
                     },
                   });
                 }
+                // OnClose destroys the dialog, so its messages go with it.
+                setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
             />
@@ -3582,6 +4361,7 @@ export function SchematicEditor({
                 runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
                 setSelection(new Set());
                 setHighlightItem(null);
+                setHighlightBusMembers(false);
                 setHighlightedChain(chain.name);
               }}
               onClose={() => setCreateChainOpen(false)}
@@ -3756,19 +4536,22 @@ export function SchematicEditor({
               currentPath={currentPath}
               fieldTemplates={setup.fieldTemplates}
               presets={setup.bomPresets}
-              // Saved presets and the current view persist into schematic.bom_*
-              // and list in Schematic Setup > BOM Presets, like upstream.
+              // Saved presets persist into schematic.bom_presets and list in
+              // Schematic Setup > BOM Presets, like upstream.
               onSavePresets={(bomPresets) => commitSetup({ ...setup, bomPresets })}
               defaultBomFileName={`${outputBaseName()}.csv`}
               initialTab={bomOpen ? 'export' : 'edit'}
-              onApply={(tableEdits, opts) =>
-                applyFieldsEdits(tableEdits.fields, { ...opts, attrs: tableEdits.attrs })
+              onApply={(edits, opts) =>
+                applyFieldsEdits(edits.fields, { ...opts, attrs: edits.attrs })
               }
-              onExportFile={(name, text) =>
-                downloadBlob(new Blob([text], { type: 'text/csv' }), name)
-              }
+              // The BOM lands in the project's file manager (the cloud "disk"),
+              // like every other generated output.
+              onExportFile={(name, text) => {
+                if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/csv');
+                else downloadBlob(new Blob([text], { type: 'text/csv' }), name);
+              }}
               // Cross-probe: pick the row's symbols on the canvas (highlight
-              // also brightens the first), as OnTableRangeSelected does.
+              // also centres on the first one), as OnTableRangeSelected does.
               onCrossProbe={(refs, mode) => {
                 const ids = refs.filter((r) => r.file === currentFile).map((r) => r.id);
                 if (ids.length === 0) return;
@@ -3786,10 +4569,15 @@ export function SchematicEditor({
           {assignFpOpen && (
             <DialogAssignFootprints
               docs={liveDocs()}
-              onApply={(edits) => {
-                applyFieldsEdits(edits);
-                setAssignFpOpen(false);
+              // The netlist CVPCB works on is this design's sheets, in
+              // hierarchy order — not every .kicad_sch in the project folder.
+              files={assignFpFiles}
+              projectFootprints={projectFootprintFiles}
+              onApply={(edits, { save, close }) => {
+                applyFieldsEdits(edits, { persist: save });
+                if (close) setAssignFpOpen(false);
               }}
+              onSaveLibTable={saveProjectFpLibTable}
               onClose={() => setAssignFpOpen(false)}
             />
           )}

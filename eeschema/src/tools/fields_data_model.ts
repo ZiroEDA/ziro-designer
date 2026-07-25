@@ -18,6 +18,7 @@
  * against the symbol the way SCH_FIELD::GetShownText does.
  */
 
+import { strNumCmp as baseStrNumCmp } from '@ziroeda/common/src/string_utils.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
 import { refId } from './hittest.js';
@@ -178,33 +179,9 @@ export function buildFieldsReferences(
 // String comparison helpers (common/string_utils.cpp).
 
 /** StrNumCmp — natural order, digit runs compared by value. The fields table
- *  compares references case-insensitively, so that is this port's default. */
+ *  compares references case-insensitively, so that is this wrapper's default. */
 export function strNumCmp(a: string, b: string, ignoreCase = true): number {
-  const fold = (s: string): string => (ignoreCase ? s.toUpperCase() : s);
-  let i = 0;
-  let j = 0;
-  while (i < a.length && j < b.length) {
-    const ca = a[i]!;
-    const cb = b[j]!;
-    if (ca >= '0' && ca <= '9' && cb >= '0' && cb <= '9') {
-      let ei = i;
-      while (ei < a.length && a[ei]! >= '0' && a[ei]! <= '9') ei++;
-      let ej = j;
-      while (ej < b.length && b[ej]! >= '0' && b[ej]! <= '9') ej++;
-      const na = Number(a.slice(i, ei));
-      const nb = Number(b.slice(j, ej));
-      if (na !== nb) return na < nb ? -1 : 1;
-      i = ei;
-      j = ej;
-      continue;
-    }
-    const fa = fold(ca);
-    const fb = fold(cb);
-    if (fa !== fb) return fa < fb ? -1 : 1;
-    i++;
-    j++;
-  }
-  return a.length - i - (b.length - j);
+  return baseStrNumCmp(a, b, ignoreCase);
 }
 
 /** SplitString — trailing text, the digit run before it, and the preamble. */

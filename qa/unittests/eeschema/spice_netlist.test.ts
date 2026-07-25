@@ -118,7 +118,8 @@ describe('generateSpiceNetlist', () => {
     expect(errors).toEqual([]);
     const lines = text.split('\n');
     expect(lines[0]).toBe('.title KiCad schematic');
-    expect(text).toContain('R1 IN OUT 10k');
+    // Node names are the connection names, so a local label carries its sheet path.
+    expect(text).toContain('R1 /IN /OUT 10k');
     expect(lines[lines.length - 2]).toBe('.end');
   });
 

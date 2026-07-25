@@ -333,6 +333,19 @@ export function readFootprintFile(root: SList): PcbFootprint | null {
   return readFootprint(root, true);
 }
 
+/**
+ * A `(footprint …)` node read in BOARD context: children are baked from
+ * footprint-local to board coordinates through the node's `(at …)` placement, the
+ * same path the board reader takes. This is how a library footprint becomes a
+ * board footprint (KiCad's `LoadFootprintFromProject` + `FOOTPRINT::SetPosition`,
+ * used by BOARD_NETLIST_UPDATER::addNewFootprint).
+ */
+export function readBoardFootprint(root: SList): PcbFootprint | null {
+  const h = head(root);
+  if (h !== 'footprint' && h !== 'module') return null;
+  return readFootprint(root, false);
+}
+
 function readFootprint(item: SList, local = false): PcbFootprint | null {
   const lib = arg(item, 0) ?? '';
   const at = childNamed(item, 'at');
@@ -353,6 +366,10 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     tags: stringField(item, 'tags'),
     attributes: attrNode ? args(attrNode) : undefined,
     locked: lockedNode ? arg(lockedNode, 0) !== 'no' : false,
+    path: stringField(item, 'path'),
+    sheetname: stringField(item, 'sheetname'),
+    sheetfile: stringField(item, 'sheetfile'),
+    fields: [],
     pads: [],
     shapes: [],
     texts: [],
@@ -389,6 +406,19 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
         if (tx) fp.texts.push(tx);
         if (key === 'Reference') fp.reference = value;
         else fp.value = value;
+      } else if (key === 'ki_fp_filters') {
+        // FOOTPRINT::SetFilters — a bare property, not a field with text. (8.0.0rc3
+        // wrote it as a field by mistake; either way it is only the filters.)
+        fp.filters = value;
+      } else if (key !== undefined) {
+        // Before PCB fields (file version < 20230620) these reserved keys stood in
+        // for what are now their own tokens (parseFOOTPRINT, T_property). They are
+        // still kept in `fields` so the writer emits them back untouched, but the
+        // typed value is what consumers read — RESERVED_FOOTPRINT_PROPERTIES lists
+        // the names that are therefore *not* user fields.
+        if (key === 'Sheetname' || key === 'Sheet name') fp.sheetname ??= value;
+        else if (key === 'Sheetfile' || key === 'Sheet file') fp.sheetfile ??= value;
+        fp.fields?.push({ name: key, value, source: child });
       }
     }
   }
