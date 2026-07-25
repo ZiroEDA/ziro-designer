@@ -672,10 +672,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     (spec: MoveSpec, delta: Vec2): EditCommand => {
       if (moveKindRef.current === 'move') return moveItems(effSelRef.current, delta);
       return lineMode !== 'free'
-        ? orthoMove(schematic, spec, delta)
+        ? orthoMove(schematic, spec, delta, libById)
         : moveWithConnections(spec, delta);
     },
-    [schematic, lineMode],
+    [schematic, lineMode, libById],
   );
 
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL Move/Drag): the selection

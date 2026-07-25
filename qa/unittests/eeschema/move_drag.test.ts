@@ -19,12 +19,55 @@ import {
 import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
 import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
+import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
+import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { symbolPinPositions } from '@ziroeda/eeschema/src/tools/connect.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));
 const lineId = (sch: Schematic, i: number): string => refId('line', sch.lines[i]!.uuid, i);
+
+const R = readSymbolLib(
+  parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),
+)[0]!;
+
+/**
+ * Two resistors in a row with a horizontal wire between the facing pins: the
+ * right-hand one is the symbol being dragged, the left-hand one is the fixed
+ * attachment the wire's far end sits on. `corner` adds a vertical wire carrying
+ * on from that far end, which is the "a connected line runs along the move"
+ * case.
+ */
+function pinnedWire(opts: { corner?: boolean } = {}): {
+  sch: Schematic;
+  libById: Map<string, LibSymbol>;
+  moving: string;
+} {
+  // R's pins sit 3.81 mm above and below its origin, so a symbol placed at
+  // (0, -3.81) has a pin exactly at the origin.
+  let sch = placeSymbol(R, at(0, -3.81)).apply(EMPTY());
+  sch = placeSymbol(R, at(20, -3.81)).apply(sch);
+  const libById = new Map<string, LibSymbol>(sch.libSymbols.map((l) => [l.libId, l]));
+  const fixedPin = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId)).filter(
+    (p) => p.y === 0,
+  )[0]!;
+  const movingPin = symbolPinPositions(sch.symbols[1]!, libById.get(sch.symbols[1]!.libId)).filter(
+    (p) => p.y === 0,
+  )[0]!;
+  sch = addItems({
+    lines: [
+      makeWire(fixedPin, movingPin),
+      ...(opts.corner ? [makeWire(fixedPin, { x: fixedPin.x, y: fixedPin.y - mmToIU(10) })] : []),
+    ],
+  }).apply(sch);
+  return { sch, libById, moving: refId('symbol', sch.symbols[1]!.uuid, 1) };
+}
 
 describe('planMove drag connectivity', () => {
   it('an unselected no-connect at a moved point joins the drag', () => {
@@ -188,5 +231,47 @@ describe('orthogonal drag (H/V line mode)', () => {
     const spec = planMove(sch, new Map(), new Set([lineId(sch, 1)]));
     const moved = orthoMove(sch, spec, at(5, 0)).apply(sch);
     expect(moved.labels[0]!.at).toEqual(at(10, 0));
+  });
+});
+
+describe('orthoLineDrag: where the bend goes', () => {
+  it('keeps the wire on the moving pin and bends at the far end', () => {
+    // A horizontal wire from a fixed pin to a moving symbol's pin, dragged
+    // straight down. Upstream treats the *unselected* end: the original span
+    // survives as a new segment and a vertical one drops to the pin, so the
+    // wire still meets the pin along its own direction — no bend at the pin.
+    const { sch, libById, moving } = pinnedWire();
+    const spec = planMove(sch, libById, new Set([moving]));
+    const delta = at(0, 10);
+    const moved = withCleanup(orthoMove(sch, spec, delta, libById), libById).apply(sch);
+
+    const wires = moved.lines.filter((l) => l.kind === 'wire');
+    // The collapsed original is cleaned up; what is left is the old route plus
+    // the drop to the pin.
+    expect(wires).toHaveLength(2);
+    const horizontal = wires.find((l) => l.start.y === l.end.y)!;
+    const vertical = wires.find((l) => l.start.x === l.end.x)!;
+    // The old route, end to end, and the drop from it to the pin's new spot.
+    expect(new Set([horizontal.start.x, horizontal.end.x])).toEqual(
+      new Set([at(0, 0).x, at(20, 0).x]),
+    );
+    expect(horizontal.start.y).toBe(0);
+    expect(new Set([vertical.start.y, vertical.end.y])).toEqual(new Set([0, at(0, 10).y]));
+    expect(vertical.start.x).toBe(at(20, 0).x);
+  });
+
+  it('lengthens a connected wire that runs along the move instead of adding one', () => {
+    // The far end is a corner: a vertical wire carries on from it. Dragging the
+    // symbol down runs along that wire, so upstream stretches it and adds
+    // nothing ("If the move is the same angle as a connected line…").
+    const { sch, libById, moving } = pinnedWire({ corner: true });
+    const spec = planMove(sch, libById, new Set([moving]));
+    const before = sch.lines.length;
+    const moved = withCleanup(orthoMove(sch, spec, at(0, 10), libById), libById).apply(sch);
+    expect(moved.lines.filter((l) => l.kind === 'wire').length).toBe(before);
+    // The vertical neighbour absorbed the move; the horizontal wire slid down.
+    const horizontal = moved.lines.find((l) => l.start.y === l.end.y)!;
+    expect(horizontal.start).toEqual(at(0, 10));
+    expect(horizontal.end).toEqual(at(20, 10));
   });
 });

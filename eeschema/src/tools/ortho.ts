@@ -1,20 +1,38 @@
 /**
- * Orthogonal ("rubber-band with bends") move, faithful to KiCad's
- * `SCH_MOVE_TOOL::orthoLineDrag`. In H/V line mode KiCad never lets a dragged
- * wire go diagonal: it keeps the wire on its own axis and adds a 90° bend segment
- * for the perpendicular part of the move.
+ * Orthogonal ("rubber-band with bends") drag, ported from KiCad's
+ * `SCH_MOVE_TOOL::orthoLineDrag` and the loop that drives it
+ * (eeschema/tools/sch_move_tool.cpp).
  *
- * For each wire with a dragged endpoint:
- *   - both ends dragged  -> translate the whole wire by the delta.
- *   - horizontal wire    -> slide the dragged end by Δx (stays horizontal) and add
- *                           a vertical bend of Δy out to the pin.
- *   - vertical wire      -> slide the dragged end by Δy and add a horizontal bend.
- *   - parallel/diagonal  -> just move the endpoint (no bend needed/possible).
+ * Upstream never lets a dragged wire go diagonal in H/V line mode, and the way
+ * it manages that is specific: the move is split into an X step and a Y step,
+ * and for each partially-dragged wire the *unselected* end is what gets special
+ * treatment — the dragged end always follows the cursor exactly, so a wire on a
+ * moving symbol pin stays on that pin with its own direction intact. At the far
+ * end, in order of preference:
+ *
+ *   - a connected wire running along the move is lengthened or shortened, and
+ *     no new segment appears at all;
+ *   - a junction (with no pin) gets one new segment;
+ *   - a pin, sheet pin or anything else gets the two-segment 90° bend, stepped
+ *     one grid further out per wire so parallel drags don't overlap;
+ *   - an unattached wire simply translates.
+ *
+ * Zero-length wires are a working state of the algorithm (upstream keeps them
+ * live during the drag and its cleanup drops them); we drop them at commit.
  */
 
-import type { Schematic, SchLine, SchSymbol, SchJunction, SchLabel, Vec2 } from '../types.js';
+import type {
+  LibSymbol,
+  Schematic,
+  SchLine,
+  SchSymbol,
+  SchJunction,
+  SchLabel,
+  Vec2,
+} from '../types.js';
 import { refId } from './hittest.js';
-import { makeWire, makeWireWithUuid, makeJunctionWithUuid } from './build.js';
+import { makeBus, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
+import { symbolPinPositions } from './connect.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
 
@@ -27,63 +45,310 @@ interface EndAdjust {
   to: Vec2;
 }
 
+/** Which way a segment runs; a zero-length one counts as horizontal, as EDA_ANGLE does. */
+type Axis = 'h' | 'v' | 'd';
+
+function axisOf(a: Vec2, b: Vec2): Axis {
+  if (a.y === b.y) return 'h';
+  if (a.x === b.x) return 'v';
+  return 'd';
+}
+
+const lengthOf = (a: Vec2, b: Vec2): number => Math.hypot(b.x - a.x, b.y - a.y);
+const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+const sign = (n: number): number => (n > 0 ? 1 : n < 0 ? -1 : 0);
+
+/** A wire as the drag works on it: the original ones, plus the segments it adds. */
+interface WorkLine {
+  key: string;
+  uuid: string;
+  isNew: boolean;
+  /** The wire this one was cloned from — its layer and stroke (SetLastResolvedState). */
+  template: SchLine;
+  start: Vec2;
+  end: Vec2;
+  /** STARTPOINT / ENDPOINT: which end the drag carries. */
+  startFlag: boolean;
+  endFlag: boolean;
+  /** The angle the wire had when the drag began (SCH_LINE::StoreAngle). */
+  storedAngle: Axis;
+}
+
+/** One entry of `m_lineConnectionCache`. */
+type Conn = { type: 'line'; key: string } | { type: 'junction' } | { type: 'pin' };
+
+/** The connected-item cache for a dragged wire's endpoints (getConnectedItems). */
+function buildCache(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  work: Map<string, WorkLine>,
+  spec: MoveSpec,
+): Map<string, Conn[]> {
+  const cache = new Map<string, Conn[]>();
+  const lineKeyAt = (p: Vec2, exclude: string): Conn[] => {
+    const out: Conn[] = [];
+    sch.lines.forEach((l, i) => {
+      const key = refId('line', l.uuid, i);
+      if (key === exclude) return;
+      if (l.kind !== 'wire' && l.kind !== 'bus') return;
+      const w = work.get(key);
+      // Only the *unselected* end of another drag wire counts: its dragged end
+      // moves normally and doesn't care about connections.
+      if (w?.startFlag && same(p, l.start)) return;
+      if (w?.endFlag && same(p, l.end)) return;
+      if (same(p, l.start) || same(p, l.end)) out.push({ type: 'line', key });
+    });
+    return out;
+  };
+
+  for (const [key, w] of work) {
+    if (w.isNew) continue;
+    const conns: Conn[] = [];
+    for (const p of [w.start, w.end]) {
+      conns.push(...lineKeyAt(p, key));
+      if (sch.junctions.some((j) => same(j.at, p))) conns.push({ type: 'junction' });
+      let pinHere = false;
+      sch.symbols.forEach((sym, i) => {
+        if (spec.fullIds.has(refId('symbol', sym.uuid, i))) return;
+        if (symbolPinPositions(sym, libById.get(sym.libId)).some((q) => same(q, p))) pinHere = true;
+      });
+      for (const sh of sch.sheets) if (sh.pins.some((q) => same(q.at, p))) pinHere = true;
+      if (pinHere) conns.push({ type: 'pin' });
+    }
+    cache.set(key, conns);
+  }
+  return cache;
+}
+
+/**
+ * One wire, one axis-aligned step of the move — `SCH_MOVE_TOOL::orthoLineDrag`.
+ * `bend` carries the per-drag bend counters upstream keeps in the caller.
+ */
+function orthoLineDrag(
+  line: WorkLine,
+  delta: Vec2,
+  work: Map<string, WorkLine>,
+  cache: Map<string, Conn[]>,
+  bend: { x: number; y: number },
+  gridIU: number,
+  newLine: (at: Vec2, template: SchLine) => WorkLine,
+): void {
+  const deltaAxis: Axis = delta.x !== 0 ? 'h' : 'v';
+  const parallel = (a: Axis): boolean => a === deltaAxis;
+  const lineAxis = axisOf(line.start, line.end);
+  if (parallel(lineAxis) && lengthOf(line.start, line.end) !== 0) return;
+
+  const unselectedEnd = line.startFlag ? line.end : line.start;
+  const selectedEnd = line.startFlag ? line.start : line.end;
+
+  const conns = cache.get(line.key) ?? [];
+  let foundAttachment = conns.length > 0;
+  let foundJunction = false;
+  let foundPin = false;
+  let foundLine: WorkLine | null = null;
+
+  for (const c of conns) {
+    if (c.type === 'junction') {
+      foundJunction = true;
+      continue;
+    }
+    if (c.type === 'pin') {
+      foundPin = true;
+      continue;
+    }
+    const cl = work.get(c.key);
+    if (!cl) continue;
+    const len = lengthOf(cl.start, cl.end);
+    // A matching angle on a non-zero-length wire means lengthen/shorten works.
+    if (parallel(axisOf(cl.start, cl.end)) && len !== 0) foundLine = cl;
+    // A wire this algorithm has already shortened to nothing works too, but a
+    // real segment at the right angle is preferred.
+    if (!foundLine && len === 0) foundLine = cl;
+  }
+
+  // Both the wire and its neighbour collapsed: extend whichever one still runs
+  // along the move (the original, if that is the direction it started in).
+  const preferOriginalLine =
+    !!foundLine &&
+    lengthOf(foundLine.start, foundLine.end) === 0 &&
+    lengthOf(line.start, line.end) === 0 &&
+    parallel(line.storedAngle);
+
+  if (!preferOriginalLine && !foundLine && foundJunction && !foundPin) {
+    // A junction alone is special-cased to a single new segment.
+    const created = newLine(unselectedEnd, line.template);
+    work.set(created.key, created);
+    cache.set(created.key, conns);
+    cache.set(line.key, [{ type: 'line', key: created.key }]);
+    foundLine = created;
+    foundAttachment = true;
+  }
+
+  if (foundLine && !preferOriginalLine) {
+    if (same(foundLine.start, unselectedEnd)) foundLine.start = add(foundLine.start, delta);
+    else if (same(foundLine.end, unselectedEnd)) foundLine.end = add(foundLine.end, delta);
+
+    const foundConns = cache.get(foundLine.key) ?? [];
+    const bendLine =
+      foundConns.length === 1 && foundConns[0]!.type === 'line'
+        ? (work.get((foundConns[0] as { type: 'line'; key: string }).key) ?? null)
+        : null;
+
+    // Re-merge segments this algorithm added when the pair has collapsed.
+    if (foundLine.isNew && lengthOf(foundLine.start, foundLine.end) === 0 && bendLine?.isNew) {
+      if (line.startFlag) line.end = bendLine.end;
+      else line.start = bendLine.end;
+      cache.set(line.key, cache.get(bendLine.key) ?? []);
+      work.delete(bendLine.key);
+      work.delete(foundLine.key);
+      return;
+    }
+    // Otherwise the unselected end follows too.
+    if (line.startFlag) line.end = add(line.end, delta);
+    else line.start = add(line.start, delta);
+    return;
+  }
+
+  if (lengthOf(line.start, line.end) === 0) return; // reuse the collapsed wire
+
+  if (foundAttachment && lineAxis !== 'd') {
+    // A pin (or sheet pin, or anything else): two new segments make the 90°
+    // bend, offset one grid step per wire so parallel drags don't overlap.
+    const xLength = Math.abs(unselectedEnd.x - selectedEnd.x);
+    const yLength = Math.abs(unselectedEnd.y - selectedEnd.y);
+    const xMove = (xLength - bend.x * gridIU) * sign(selectedEnd.x - unselectedEnd.x);
+    const yMove = (yLength - bend.y * gridIU) * sign(selectedEnd.y - unselectedEnd.y);
+
+    const a = newLine(unselectedEnd, line.template);
+    a.start = add(unselectedEnd, { x: xMove, y: yMove });
+    a.end = unselectedEnd;
+    const b = newLine(a.start, line.template);
+    b.start = add(a.start, delta);
+    b.end = a.start;
+    work.set(a.key, a);
+    work.set(b.key, b);
+
+    bend.x += delta.y !== 0 ? 1 : 0;
+    bend.y += delta.x !== 0 ? 1 : 0;
+
+    const shift = { x: delta.x !== 0 ? delta.x : xMove, y: delta.y !== 0 ? delta.y : yMove };
+    if (line.startFlag) line.end = add(line.end, shift);
+    else line.start = add(line.start, shift);
+
+    cache.set(a.key, conns);
+    cache.set(b.key, [{ type: 'line', key: a.key }]);
+    cache.set(line.key, [{ type: 'line', key: b.key }]);
+    return;
+  }
+
+  if (!foundAttachment) {
+    if (line.startFlag) line.end = add(line.end, delta);
+    else line.start = add(line.start, delta);
+  }
+}
+
+/** KiCad's connected-items grid (50 mil), the step bends are offset by. */
+const BEND_GRID_IU = 12700;
+
 function computeOrtho(
   sch: Schematic,
+  libById: Map<string, LibSymbol>,
   spec: MoveSpec,
   delta: Vec2,
 ): { adjust: EndAdjust[]; bends: SchLine[] } {
-  const adjust: EndAdjust[] = [];
-  const bends: SchLine[] = [];
+  const work = new Map<string, WorkLine>();
+  const originals = new Map<string, SchLine>();
 
-  // Rubber-band stubs anchored at a fixed pin/junction (see connect.ts). In H/V
-  // line mode KiCad's orthoLineDrag never leaves a diagonal, so a stub whose drag
-  // is diagonal becomes an orthogonal L-bend: one segment out from the fixed point
-  // and a second turning to reach the dragged point. A pure H or V drag stays a
-  // single segment. (In free mode moveWithConnections draws the straight stub.)
-  for (const w of spec.newWires) {
-    const moved = add(w.fixed, delta);
-    if (delta.x !== 0 && delta.y !== 0) {
-      const corner = { x: moved.x, y: w.fixed.y }; // horizontal-first, like the split X-then-Y move
-      bends.push(makeWireWithUuid(w.fixed, corner, w.uuid));
-      bends.push(makeWire(corner, moved));
-    } else {
-      bends.push(makeWireWithUuid(w.fixed, moved, w.uuid));
+  // Every wire is in the working set, not just the dragged ones: upstream's
+  // connection cache holds real lines, and orthoLineDrag lengthens or shortens
+  // an *unselected* neighbour that runs along the move rather than adding a bend.
+  sch.lines.forEach((l, i) => {
+    if (l.kind !== 'wire' && l.kind !== 'bus') return;
+    const key = refId('line', l.uuid, i);
+    const full = spec.fullIds.has(key);
+    const ds = full || spec.wireStart.has(key);
+    const de = full || spec.wireEnd.has(key);
+    originals.set(key, l);
+    work.set(key, {
+      key,
+      uuid: l.uuid ?? key,
+      isNew: false,
+      template: l,
+      start: l.start,
+      end: l.end,
+      startFlag: ds,
+      endFlag: de,
+      storedAngle: axisOf(l.start, l.end),
+    });
+  });
+
+  const cache = buildCache(sch, libById, work, spec);
+
+  let created = 0;
+  const newLine = (at: Vec2, template: SchLine): WorkLine => {
+    const key = `new:${created++}`;
+    return {
+      key,
+      uuid: newUuid(),
+      isNew: true,
+      template,
+      start: at,
+      end: at,
+      startFlag: false,
+      endFlag: false,
+      storedAngle: 'h',
+    };
+  };
+
+  // Upstream splits the move into an X step and a Y step so nothing ever goes
+  // diagonal, and runs the whole drag for each.
+  const steps: Vec2[] = [
+    { x: delta.x, y: 0 },
+    { x: 0, y: delta.y },
+  ].filter((d) => d.x !== 0 || d.y !== 0);
+  const bend = { x: 0, y: 0 };
+
+  for (const step of steps) {
+    for (const [, w] of [...work]) {
+      if (w.isNew || (w.startFlag && w.endFlag) || (!w.startFlag && !w.endFlag)) continue;
+      orthoLineDrag(w, step, work, cache, bend, BEND_GRID_IU, newLine);
+    }
+    // Then every selected item moves, including the dragged end of a partially
+    // selected wire (the `moveItem` call after orthoLineDrag).
+    for (const [, w] of work) {
+      if (w.isNew) continue;
+      if (w.startFlag) w.start = add(w.start, step);
+      if (w.endFlag) w.end = add(w.end, step);
     }
   }
 
-  sch.lines.forEach((l, i) => {
-    const id = refId('line', l.uuid, i);
-    if (spec.fullIds.has(id)) return;
-    const ds = spec.wireStart.has(id);
-    const de = spec.wireEnd.has(id);
-    if (!ds && !de) return;
-
-    if (ds && de) {
-      adjust.push({ id, which: 'start', from: l.start, to: add(l.start, delta) });
-      adjust.push({ id, which: 'end', from: l.end, to: add(l.end, delta) });
-      return;
-    }
-
-    const which = ds ? 'start' : 'end';
-    const P = ds ? l.start : l.end; // dragged end (on the pin)
-    const F = ds ? l.end : l.start; // fixed end
-    const pin = add(P, delta);
-    const horizontal = P.y === F.y && P.x !== F.x;
-    const vertical = P.x === F.x && P.y !== F.y;
-
-    if (horizontal && delta.y !== 0) {
-      const corner = { x: P.x + delta.x, y: P.y };
-      adjust.push({ id, which, from: P, to: corner });
-      bends.push(makeWire(corner, pin));
-    } else if (vertical && delta.x !== 0) {
-      const corner = { x: P.x, y: P.y + delta.y };
-      adjust.push({ id, which, from: P, to: corner });
-      bends.push(makeWire(corner, pin));
-    } else {
-      adjust.push({ id, which, from: P, to: pin });
-    }
-  });
-
+  // Hand back the endpoint changes and the surviving new segments; a segment
+  // that ended up with no length is dropped, as the post-move cleanup does.
+  const adjust: EndAdjust[] = [];
+  for (const [key, w] of work) {
+    if (w.isNew) continue;
+    const orig = originals.get(key)!;
+    if (spec.fullIds.has(key)) continue; // translated wholesale by applyMove
+    if (!same(orig.start, w.start))
+      adjust.push({ id: key, which: 'start', from: orig.start, to: w.start });
+    if (!same(orig.end, w.end)) adjust.push({ id: key, which: 'end', from: orig.end, to: w.end });
+  }
+  const bends: SchLine[] = [];
+  // Rubber-band stubs from the plan (a fixed pin/junction, or a label dragged
+  // off a wire). Upstream flags them SELECTED_BY_DRAG | IS_NEW, which
+  // orthoLineDrag skips outright — only their start is pinned, so they run
+  // straight to the dragged point in H/V mode too.
+  for (const w of spec.newWires) {
+    bends.push(makeWireWithUuid(w.fixed, add(w.fixed, delta), w.uuid));
+  }
+  for (const [, w] of work) {
+    if (!w.isNew || same(w.start, w.end)) continue;
+    const base =
+      w.template.kind === 'bus'
+        ? makeBus(w.start, w.end)
+        : makeWireWithUuid(w.start, w.end, w.uuid);
+    bends.push(w.template.kind === 'bus' ? { ...base, uuid: w.uuid } : base);
+  }
   return { adjust, bends };
 }
 
@@ -205,7 +470,12 @@ function inverse(spec: MoveSpec, delta: Vec2, adjust: EndAdjust[], bends: SchLin
  * wires orthogonal by sliding their dragged ends along-axis and adding 90° bends.
  * Computed against `sch`; undo is exact (it removes the bends and reverses).
  */
-export function orthoMove(sch: Schematic, spec: MoveSpec, delta: Vec2): EditCommand {
-  const { adjust, bends } = computeOrtho(sch, spec, delta);
+export function orthoMove(
+  sch: Schematic,
+  spec: MoveSpec,
+  delta: Vec2,
+  libById: Map<string, LibSymbol> = new Map(),
+): EditCommand {
+  const { adjust, bends } = computeOrtho(sch, libById, spec, delta);
   return forward(spec, delta, adjust, bends);
 }
