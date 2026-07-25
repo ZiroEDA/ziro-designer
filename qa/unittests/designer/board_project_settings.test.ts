@@ -1,5 +1,5 @@
 /**
- * Board Setup persistence — the `.kicad_pro` side: read/write of
+ * Board Setup persistence, the `.kicad_pro` side: read/write of
  * BOARD_DESIGN_SETTINGS / NET_SETTINGS / COMPONENT_CLASS_SETTINGS /
  * TUNING_PROFILES / text_variables
  * (designer/src/editors/pcb/project_settings.ts).

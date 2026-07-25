@@ -199,7 +199,7 @@ export interface EeschemaSettings {
     method: 0 | 1 | 2; // first free | sheet*100 | sheet*1000
     sort_order: 0 | 1; // by X | by Y
   };
-  /** ERC dialog state (EESCHEMA_SETTINGS m_ERCDialog, "ERC.*") — the three
+  /** ERC dialog state (EESCHEMA_SETTINGS m_ERCDialog, "ERC.*"), the three
    *  toggles behind DIALOG_ERC's config-menu button. */
   erc_dialog: {
     crossprobe: boolean;
@@ -228,7 +228,7 @@ export interface EeschemaSettings {
   };
   /** The APP_SETTINGS_BASE::PRINTING slice eeschema's Print dialog persists
    *  ("printing.*" in eeschema.json; key names + defaults from
-   *  common/settings/app_settings.cpp — monochrome defaults ON). */
+   *  common/settings/app_settings.cpp, monochrome defaults ON). */
   printing: {
     /** Print the background color. */
     background: boolean;
@@ -498,7 +498,7 @@ function deepMerge<T>(defaults: T, stored: unknown): T {
 /**
  * One-time corrections to already-stored settings. Every settings object is
  * persisted whole, so changing a default above never reaches anyone who has
- * used the app before — a default that was simply wrong has to be rewritten
+ * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
 const SETTINGS_VERSION = 1;
@@ -510,7 +510,7 @@ function migrateStored(): void {
     if (from >= SETTINGS_VERSION) return;
 
     // v1: eeschema's crosshair defaulted to full-window lines, drawn on top of
-    // each tool's own cursor bitmap — two cursors at once. KiCad's default is
+    // each tool's own cursor bitmap, two cursors at once. KiCad's default is
     // the small cross.
     if (from < 1) {
       const raw = localStorage.getItem('ziroeda.eeschema');
@@ -526,7 +526,7 @@ function migrateStored(): void {
 
     localStorage.setItem(versionKey, String(SETTINGS_VERSION));
   } catch {
-    /* private mode / unparsable settings — the defaults apply anyway */
+    /* private mode / unparsable settings, the defaults apply anyway */
   }
 }
 
@@ -544,7 +544,7 @@ function store(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* private mode — settings simply don't persist */
+    /* private mode, settings simply don't persist */
   }
 }
 

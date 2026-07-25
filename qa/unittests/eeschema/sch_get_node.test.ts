@@ -1,7 +1,7 @@
 /**
  * The net-highlight pick (counterpart SCH_SELECTION_TOOL::GetNode): connectable
  * types only, exact hits before sloppy ones, and ids that resolve straight
- * through the netlist — plus the connection-name lookup the highlight uses.
+ * through the netlist, plus the connection-name lookup the highlight uses.
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
@@ -32,7 +32,7 @@ const libMap = (sch: Schematic) =>
   new Map<string, LibSymbol>(sch.libSymbols.map((l) => [l.libId, l]));
 
 // A 2-pin part (R): pin 1 tip at (0, -3.81) mm from the placement origin,
-// pin 2 at (0, +3.81) — the body spans ±2.54.
+// pin 2 at (0, +3.81), the body spans ±2.54.
 const R = readSymbolLib(
   parse(readFileSync(fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)), 'utf8')),
 )[0]!;

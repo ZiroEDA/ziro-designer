@@ -1,4 +1,4 @@
-/** @ziroeda/eeschema — schematic engine mirroring KiCad's eeschema/. */
+/** @ziroeda/eeschema, schematic engine mirroring KiCad's eeschema/. */
 export * from './types.js';
 export {
   readSchematic,

@@ -1,10 +1,10 @@
 /**
- * Page Preview Settings — the web counterpart of the page-settings dialog
+ * Page Preview Settings, the web counterpart of the page-settings dialog
  * `pl_editor` opens for its preview data (PL_EDITOR_CONTROL::PageSetup →
  * DIALOG_PAGES_SETTINGS): the preview paper size and orientation plus the
  * title-block fields (issue date, revision, title, company, comments) that
  * the `${…}` text variables resolve against. In the standalone sheet editor
- * these are preview data only — they are not stored in the `.kicad_wks`.
+ * these are preview data only, they are not stored in the `.kicad_wks`.
  */
 
 import { useState, type JSX } from 'react';

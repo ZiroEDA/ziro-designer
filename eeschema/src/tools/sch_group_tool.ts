@@ -1,6 +1,6 @@
 /**
  * Group tool. Counterpart: `eeschema/tools/sch_group_tool.cpp` (SCH_GROUP_TOOL)
- * + `common/tool/group_tool.cpp` (GROUP_TOOL) — Group Items / Ungroup Items:
+ * + `common/tool/group_tool.cpp` (GROUP_TOOL), Group Items / Ungroup Items:
  *
  *  - Group: the groupable selected items (those with uuids) become the members
  *    of a fresh SCH_GROUP; fewer than two groupable items is a no-op, and an
@@ -99,8 +99,8 @@ export function groupItemsCommand(ids: ReadonlySet<string>): EditCommand {
 }
 
 /**
- * Ungroup Items (GROUP_TOOL::Ungroup): every group touched by the selection —
- * selected directly by uuid or through any selected member — is removed;
+ * Ungroup Items (GROUP_TOOL::Ungroup): every group touched by the selection,
+ * selected directly by uuid or through any selected member, is removed;
  * members stay behind.
  */
 export function ungroupItemsCommand(ids: ReadonlySet<string>): EditCommand {
@@ -124,7 +124,7 @@ export function ungroupItemsCommand(ids: ReadonlySet<string>): EditCommand {
 /**
  * Selection promotion: expand `ids` so that touching any member (or a group's
  * own uuid) selects every member of that group, resolving nested groups
- * transitively — the whole-group selection SCH_SELECTION_TOOL produces.
+ * transitively, the whole-group selection SCH_SELECTION_TOOL produces.
  */
 export function expandSelectionToGroups(
   doc: Schematic,
@@ -166,7 +166,7 @@ export function expandSelectionToGroups(
   return out;
 }
 
-/** Whether any selected id belongs to (or is) a group — the Ungroup enable test. */
+/** Whether any selected id belongs to (or is) a group, the Ungroup enable test. */
 export function selectionHasGroup(doc: Schematic, ids: ReadonlySet<string>): boolean {
   return doc.groups.some(
     (g) => (g.uuid !== undefined && ids.has(g.uuid)) || g.members.some((m) => ids.has(m)),
@@ -187,7 +187,7 @@ function ungroupedSelectedItems(doc: Schematic, ids: ReadonlySet<string>): strin
 }
 
 /**
- * Add to Group enable (GROUP_TOOL::update: onlyOneGroup && hasUngroupedItems) —
+ * Add to Group enable (GROUP_TOOL::update: onlyOneGroup && hasUngroupedItems),
  * exactly one group selected plus at least one groupable, ungrouped item.
  */
 export function canAddToGroup(doc: Schematic, ids: ReadonlySet<string>): boolean {

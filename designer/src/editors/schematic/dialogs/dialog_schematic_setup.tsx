@@ -1,6 +1,6 @@
 /**
  * Schematic Setup dialog. Counterpart: `eeschema/dialogs/dialog_schematic_setup.cpp`
- * (DIALOG_SCHEMATIC_SETUP) — a tree of setup pages grouped under General,
+ * (DIALOG_SCHEMATIC_SETUP), a tree of setup pages grouped under General,
  * Electrical Rules, Project and Schematic Data. The pages we model are
  * selectable; upstream pages whose engine data we do not store yet are shown
  * greyed, exactly where KiCad puts them, so the surface matches.
@@ -92,7 +92,7 @@ export function DialogSchematicSetup({
   const setErc = (erc: ErcSettings): void => setS((cur) => ({ ...cur, erc }));
 
   // onAuxiliaryAction: copy the checked slices of another project's settings
-  // into the working state (DIALOG_SCHEMATIC_SETUP::onAuxiliaryAction — each
+  // into the working state (DIALOG_SCHEMATIC_SETUP::onAuxiliaryAction, each
   // panel's ImportSettingsFrom over the other project's loaded settings).
   const importFrom = (proText: string, o: SchImportOptions): void => {
     const other = readSchematicSetupText(proText);
@@ -126,7 +126,7 @@ export function DialogSchematicSetup({
   };
 
   // The upstream page tree (DIALOG_SCHEMATIC_SETUP::DIALOG_SCHEMATIC_SETUP).
-  // Pages whose engine data we do not store yet are `disabled` — greyed in place.
+  // Pages whose engine data we do not store yet are `disabled`, greyed in place.
   const sections: PagedDialogSection[] = [
     {
       label: 'General',

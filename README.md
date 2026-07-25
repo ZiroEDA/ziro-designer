@@ -1,17 +1,17 @@
 # Ziro Designer
 
-**Professional electronics design in a browser tab — zero learning curve, zero
+**Professional electronics design in a browser tab: zero learning curve, zero
 installs.**
 
 Ziro Designer is the flagship design suite from **ZiroEDA**: a browser-native,
 open-source electronics design tool. It speaks the industry's open file formats
-natively — projects made in KiCad open directly with no import step, no
-migration, no retraining — while everything about the product (cloud projects,
+natively: projects made in KiCad open directly with no import step, no
+migration, no retraining, while everything about the product (cloud projects,
 sharing, and the AI-assisted design tools on our roadmap) is built web-first.
 
 The core is free software (GPL-3.0-or-later). The plan is to charge only for
-what a hosted service uniquely adds on top — cloud compute (simulation,
-autorouting, batch DRC), real-time team collaboration, and AI assistance —
+what a hosted service uniquely adds on top: cloud compute (simulation,
+autorouting, batch DRC), real-time team collaboration, and AI assistance,
 never for the editor itself. See **[PHILOSOPHY.md](./PHILOSOPHY.md)** for our
 format-compatibility promise and how we relate to the upstream ecosystem.
 
@@ -21,8 +21,8 @@ format-compatibility promise and how we relate to the upstream ecosystem.
 
 ## Goals
 
-- **Familiar.** Behave like the tools electronics engineers already know —
-  same conventions, same hotkeys, same visual language — so switching costs
+- **Familiar.** Behave like the tools electronics engineers already know:
+  same conventions, same hotkeys, same visual language, so switching costs
   nothing.
 - **Interoperable.** Open formats are the source of truth. Your designs are
   plain files you own, readable by other tools, forever.
@@ -30,7 +30,7 @@ format-compatibility promise and how we relate to the upstream ecosystem.
   (simulation, 3D kernel ops, autorouting) offloads to a server when needed.
 - **Expandable.** A shared engine underpins every editor (schematic, symbol,
   board, footprint today), so capabilities compound rather than being rebuilt
-  per tool — and the coming AI copilot plugs into all of them at once.
+  per tool, and the coming AI copilot plugs into all of them at once.
 
 ## License
 
@@ -64,12 +64,12 @@ variables are absent, so a clone runs with no configuration at all.
 | `VITE_RELEASE`                 | Falls back to the build's git SHA        |
 | `SENTRY_ORG`                   | Source maps not uploaded (set in `vercel.json`) |
 | `SENTRY_PROJECT`               | Source maps not uploaded (set in `vercel.json`) |
-| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded — **secret, dashboard only** |
+| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded (secret, dashboard only) |
 | `SENTRY_URL`                   | Defaults to `https://de.sentry.io/`      |
 
 ### Crash reporting
 
-Reports are **opt-out** — on by default, switched off under
+Reports are **opt-out**: on by default, switched off under
 Preferences → Common → Privacy. Payloads are scrubbed before sending
 (`designer/src/telemetry/scrub.ts`): file names are redacted, URLs lose their
 query strings, console breadcrumbs are dropped, and neither the signed-in
@@ -80,14 +80,14 @@ Tracing, session replay and profiling are all disabled: this collects stack
 traces to fix bugs, not usage analytics.
 
 The deployed DSN lives in `vercel.json` rather than the Vercel dashboard. A
-Sentry DSN is a public, write-only ingest key — it ships inside the client
-bundle by design and can neither read issues nor reach the account — so keeping
+Sentry DSN is a public, write-only ingest key: it ships inside the client
+bundle by design and can neither read issues nor reach the account, so keeping
 it in the repo means every deploy and preview is configured identically, with
 nothing to forget. Local development stays off unless you set `VITE_SENTRY_DSN`
 yourself, so debugging never pollutes production issues.
 
 The project is on Sentry's **EU (`de`) region**, which `vite.config.ts` already
-defaults to. Note that an auth token must also be created on `de.sentry.io` —
+defaults to. Note that an auth token must also be created on `de.sentry.io`:
 tokens are region-scoped, and the CLI otherwise talks to the US instance and
 uploads into a void.
 
@@ -100,11 +100,11 @@ belongs in the Vercel dashboard only. Uploading starts as soon as all three are
 present.
 
 Because the slugs are committed, **renaming the Sentry project changes its slug
-and silently stops symbolication** — the upload 401s, the build still succeeds,
+and silently stops symbolication**: the upload 401s, the build still succeeds,
 and traces quietly go back to being minified. Rename in Sentry and here
 together.
 
-Maps are generated as `hidden` and **deleted after upload** — no
+Maps are generated as `hidden` and **deleted after upload**: no
 `sourceMappingURL` comment is emitted and no `.map` file is ever deployed, so
 Sentry can symbolicate while the public site never serves our source. Deletion
 happens even when the upload fails, so a bad token cannot leak source.
@@ -116,7 +116,7 @@ assuming it is working.
 
 Both the running app and the uploaded maps take their release from the same
 value in `vite.config.ts` (Vercel's commit SHA, else the git SHA). They must
-match exactly — Sentry binds events to maps by release name, and a mismatch
+match exactly: Sentry binds events to maps by release name, and a mismatch
 just silently leaves stacks minified.
 
 ## Repository layout
@@ -137,10 +137,10 @@ ziro-designer/
   qa/            # unit tests (qa/unittests/<module>) + fixtures (qa/data)
 ```
 
-### `@ziroeda/designer` — the app
+### `@ziroeda/designer`: the app
 
-A React + Canvas2D suite with four editors — schematic, symbol, board, and
-footprint (plus a 3D board viewer) — each wrapped in familiar window chrome:
+A React + Canvas2D suite with four editors: schematic, symbol, board, and
+footprint (plus a 3D board viewer), each wrapped in familiar window chrome:
 menu bar, toolbars, panels, and a live status bar. Run it with:
 
 ```bash
@@ -152,14 +152,14 @@ pnpm -C designer build    # typecheck + production build
 
 Two layers, both built for round-trip fidelity:
 
-- **Lossless S-expression layer** — the parser/serializer for the open design
+- **Lossless S-expression layer**: the parser/serializer for the open design
   formats. "Lossless" is a hard requirement: it preserves every node (including
   fields Ziro Designer does not yet model) and the exact source text of numeric
   atoms, so saving a file never silently corrupts data the user cares about.
   Correctness is enforced by round-trip tests against real design files
   (`parse ∘ serialize ∘ parse` is identity over the AST).
 
-- **Typed document models** — typed views over that AST (symbols, pins, wires,
+- **Typed document models**: typed views over that AST (symbols, pins, wires,
   labels, boards, footprints, pads, zones). Coordinates are integer internal
   units (100 nm), not float millimetres, so geometry and equality stay exact.
   Every modelled item keeps its source AST node, so unmodified items round-trip
@@ -173,13 +173,13 @@ pnpm -r typecheck    # typecheck every package
 
 ## Roadmap
 
-1. **Schematic capture** — lossless file io, typed model, faithful rendering,
+1. **Schematic capture**: lossless file io, typed model, faithful rendering,
    editing with undo/redo, symbol placement, save. ✅
-2. **Connectivity + ERC** — net building, dangling detection, rule checks. ✅
-3. **Board + footprint editing** — object model, file io, move/rotate/delete/
+2. **Connectivity + ERC**: net building, dangling detection, rule checks. ✅
+3. **Board + footprint editing**: object model, file io, move/rotate/delete/
    duplicate, 3D viewer. ✅ (in progress: routing tools)
-4. **Cloud projects** — auth, project storage, templates. ✅ (hardening)
-5. **Quality pass** — CI, lint, bug inventory, launcher/editor cleanup. ⟵ *now*
-6. **Collaboration** — sharing, review, multiplayer.
-7. **AI copilot** — assisted placement/routing/review, growing into agentic
+4. **Cloud projects**: auth, project storage, templates. ✅ (hardening)
+5. **Quality pass**: CI, lint, bug inventory, launcher/editor cleanup. ⟵ *now*
+6. **Collaboration**: sharing, review, multiplayer.
+7. **AI copilot**: assisted placement/routing/review, growing into agentic
    design tools.

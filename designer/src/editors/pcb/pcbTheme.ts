@@ -85,19 +85,19 @@ export const PCB_LAYER_COLORS: Record<string, string> = {
 export const PCB_SPECIAL = {
   // pcb_painter.cpp:158 forces LAYER_PAD_PLATEDHOLES to the background color at
   // render time (it isn't theme-able), so a plated drill reads as a real empty
-  // hole — not the theme's 194,194,0. Only via holes / NPTH keep their colors.
+  // hole, not the theme's 194,194,0. Only via holes / NPTH keep their colors.
   padPlatedHole: PCB_BACKGROUND,
   nonPlatedHole: rgba(26, 196, 210),
   viaHole: rgba(227, 183, 46),
   viaHoleWall: rgba(236, 236, 236),
   // pcb_painter.cpp:293 draws pad hole walls in the via "golden copper" hole
-  // color (LAYER_VIA_HOLES) for contrast — an amber plating ring, not gray.
+  // color (LAYER_VIA_HOLES) for contrast, an amber plating ring, not gray.
   padHoleWall: rgba(227, 183, 46),
   ratsnest: rgba(0, 248, 255, 0.35),
   anchor: rgba(255, 38, 226),
   drawingSheet: rgba(200, 114, 171),
   // Pad number / net-name text over the pad copper. pcb_painter.cpp overrides
-  // LAYER_PAD_NETNAMES with the theme's "netnames" color — white at alpha 0.7
+  // LAYER_PAD_NETNAMES with the theme's "netnames" color, white at alpha 0.7
   // (builtin_color_themes.h NETNAMES_LAYER_ID_START), the glassy KiCad look.
   padName: rgba(255, 255, 255, 0.7),
   // DRC marker layers (LAYER_DRC_ERROR / _WARNING / _EXCLUSION /
@@ -113,14 +113,14 @@ export const PCB_SPECIAL = {
 // ---------------------------------------------------------------------------
 // Color themes (COLOR_SETTINGS). KiCad ships two built-ins
 // (color_settings.cpp CreateBuiltinColorSettings): "KiCad Default"
-// (s_defaultTheme — the palette above) and "KiCad Classic" (s_classicTheme).
+// (s_defaultTheme, the palette above) and "KiCad Classic" (s_classicTheme).
 // The print dialog picks among these like KiCad's theme chooser.
 
 /** A complete board palette (COLOR_SETTINGS, pcbnew subset). */
 export interface PcbColorTheme {
-  /** COLOR_SETTINGS::GetFilename() — the identity stored in settings. */
+  /** COLOR_SETTINGS::GetFilename(), the identity stored in settings. */
   filename: string;
-  /** COLOR_SETTINGS::GetName() — shown in theme choosers. */
+  /** COLOR_SETTINGS::GetName(), shown in theme choosers. */
   name: string;
   background: string;
   grid: string;
@@ -131,7 +131,7 @@ export interface PcbColorTheme {
 /**
  * s_classicTheme board colors. The classic theme is written with legacy
  * EDA_COLOR_T names; the RGB values come from common/gal/color4d.cpp
- * colorRefs() — NOTE that table's fields are ordered blue,green,red, so e.g.
+ * colorRefs(), NOTE that table's fields are ordered blue,green,red, so e.g.
  * BLUE={132,0,0} means rgb(0,0,132).
  */
 const C = {
@@ -231,7 +231,7 @@ const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
   drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
   padName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
   // s_classicTheme: PURERED / PUREGREEN at 0.8, WHITE, PUREMAGENTA (color4d.cpp
-  // colorRefs — the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).
+  // colorRefs, the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).
   drcError: rgba(255, 0, 0, 0.8),
   drcWarning: rgba(0, 255, 0, 0.8),
   drcExclusion: rgba(255, 255, 255),

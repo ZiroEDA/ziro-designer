@@ -25,7 +25,7 @@ export const GERBER_LAYER_COLORS: string[] = [
   '#8080E0', // periwinkle
 ];
 
-/** Background and grid colours — GerbView's default theme uses a pure-black
+/** Background and grid colours, GerbView's default theme uses a pure-black
  *  background with a mid-grey grid. */
 export const GERBER_BG_COLOR = '#000000';
 export const GERBER_GRID_COLOR = '#5A5A5A';

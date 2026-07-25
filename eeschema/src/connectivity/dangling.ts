@@ -64,7 +64,7 @@ export function danglingPinPositions(sch: Schematic, libById: Map<string, LibSym
   for (const p of pins) pinCount.set(key(p), (pinCount.get(key(p)) ?? 0) + 1);
 
   // Points occupied by a junction, label anchor, or a wire endpoint (O(1) lookup for
-  // the common case — a pin connects at a wire end far more often than mid-span).
+  // the common case, a pin connects at a wire end far more often than mid-span).
   const nodePoints = new Set<string>();
   for (const j of sch.junctions) nodePoints.add(key(j.at));
   for (const nc of sch.noConnects) nodePoints.add(key(nc.at)); // an NC flag "connects" the pin
@@ -117,7 +117,7 @@ interface EndEntry {
   owner: unknown;
 }
 
-/** All pin points including hidden ones — invisible power pins still connect
+/** All pin points including hidden ones, invisible power pins still connect
  *  (SCH_SYMBOL::GetEndPoints adds every pin). */
 function allPinsWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
   if (!lib) return [];
@@ -169,7 +169,7 @@ export interface DanglingWireEnd {
 }
 
 /**
- * Dangling wire endpoints — where KiCad draws the small square
+ * Dangling wire endpoints, where KiCad draws the small square
  * (drawDanglingIndicator). Per SCH_LINE::UpdateDanglingState, a wire end is
  * connected by any co-located end item except a bus end (or bus-bus entry
  * end); only wires are reported since KiCad never draws bus squares.

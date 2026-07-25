@@ -1,5 +1,5 @@
 /**
- * Faithful port of KiCad's include/core/mirror.h — FLIP_DIRECTION and the MIRROR
+ * Faithful port of KiCad's include/core/mirror.h, FLIP_DIRECTION and the MIRROR
  * helpers used throughout BOARD_ITEM::Flip.
  */
 

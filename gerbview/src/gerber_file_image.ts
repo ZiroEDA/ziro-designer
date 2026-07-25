@@ -1,5 +1,5 @@
 /**
- * GERBER_FILE_IMAGE — the parsed state and graphic contents of a single Gerber
+ * GERBER_FILE_IMAGE, the parsed state and graphic contents of a single Gerber
  * layer, mirroring `gerbview/gerber_file_image.h/.cpp`. It owns the format
  * parameters (FS/MO/OF/MI/SF/IP/IR/AS), the aperture table (D_CODE) and macro
  * table (APERTURE_MACRO), and the resulting GERBER_DRAW_ITEM list. The RS-274X

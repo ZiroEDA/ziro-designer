@@ -39,7 +39,7 @@ describe('vendored cursor bitmaps', () => {
 
 describe('toolCursorName', () => {
   it('gives the single-click placement tools KICURSOR::PLACE', () => {
-    // SCH_DRAWING_TOOLS::SingleClickPlace — junction, no-connect, bus entry.
+    // SCH_DRAWING_TOOLS::SingleClickPlace, junction, no-connect, bus entry.
     expect(toolCursorName('junction')).toBe('place');
     expect(toolCursorName('noConnect')).toBe('place');
     expect(toolCursorName('busEntry')).toBe('place');

@@ -5,8 +5,8 @@
  *
  *   mainSizer (vertical)
  *     topSizer (horizontal): leftSizer (grows) | rightSizer (buttons)
- *       leftGridSizer  — "Search for:" / "Replace with:" label + combo rows
- *       gbSizer2       — 3-column grid-bag of the search options
+ *       leftGridSizer, "Search for:" / "Replace with:" label + combo rows
+ *       gbSizer2 to 3-column grid-bag of the search options
  *     bSizer6: staticline + "Show search panel" link (aligned right)
  *
  * Per the base, the Direction radios (m_radioForward/m_radioBackward) are

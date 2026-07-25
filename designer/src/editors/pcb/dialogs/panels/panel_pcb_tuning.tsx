@@ -1,7 +1,7 @@
 /**
  * Board Setup > Design Rules > Length-tuning Patterns. Counterpart:
  * `pcbnew/dialogs/panel_setup_tuning_patterns_base.cpp` (PANEL_SETUP_TUNING_PATTERNS)
- * — three groups stacked vertically (Single Track Tuning, Differential Pairs,
+ * - three groups stacked vertically (Single Track Tuning, Differential Pairs,
  * Differential Pair Skews), each an illustration + fields: minimum/maximum
  * amplitude, spacing, corner style (chamfer/fillet), radius (% of amplitude),
  * and single-sided. Defaults are PNS::MEANDER_SETTINGS (pns_meander.cpp).
@@ -36,7 +36,7 @@ interface Props {
 
 const legend: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, margin: '2px 0 6px' };
 // Two field columns: (Min amplitude, Spacing, Corner style, Single-sided) on the
-// left; (Max amplitude, Radius) on the right — aligned row-for-row, as upstream.
+// left; (Max amplitude, Radius) on the right, aligned row-for-row, as upstream.
 const grid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'max-content 66px max-content 28px max-content 66px max-content',
@@ -87,7 +87,7 @@ export function PanelPcbTuning({ value, onChange }: Props): JSX.Element {
             {gap}
             {field('Maximum amplitude (A):', 'maxAmplitudeMM', 'mm')}
 
-            {/* Row 2: Spacing | — */}
+            {/* Row 2: Spacing |, */}
             {field('Spacing (s):', 'spacingMM', 'mm')}
             {gap}
             {gap}

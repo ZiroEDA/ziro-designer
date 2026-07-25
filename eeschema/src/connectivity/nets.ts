@@ -15,7 +15,7 @@
  *
  *  - buildItemSubGraphs(): the connected items form subgraphs (nets). Because a wire
  *    is one item present at both of its endpoints, unioning the items at each point
- *    bridges the two endpoints through the wire — so a union-find over items yields
+ *    bridges the two endpoints through the wire, so a union-find over items yields
  *    the nets directly.
  *
  *  - GetDriverPriority()/driverName(): each net is named by its highest-priority
@@ -27,7 +27,7 @@
  *    directly), named by the bus label they carry; a wire-to-bus entry's
  *    bus-side end attaches it to the bus while its wire-side end joins the
  *    ordinary wire graph. Wire nets whose resolved name is a member of the
- *    bus (vector/group expansion incl. bus aliases) connect *across* it —
+ *    bus (vector/group expansion incl. bus aliases) connect *across* it,
  *    two entries labelled D0 on the same D[0..7] bus join into one net.
  *
  * Scope: single-sheet connectivity (no hierarchy yet), enough to tell what is
@@ -63,7 +63,7 @@ interface Node {
   id: string;
   points: Vec2[];
   driver: Driver | null;
-  /** SCH_PIN::GetDefaultNetName for this pin — the name an otherwise unnamed net
+  /** SCH_PIN::GetDefaultNetName for this pin, the name an otherwise unnamed net
    *  takes ("Net-(R1-Pad1)"). */
   autoName?: string;
   /** The same, for a net that carries a no-connect flag ("unconnected-(…)"). */
@@ -73,11 +73,11 @@ interface Node {
 export interface Net {
   /** 1-based net code, stable for a given schematic ordering. */
   code: number;
-  /** SCH_CONNECTION::Name( false ) — qualified with the sheet path when the
+  /** SCH_CONNECTION::Name( false ), qualified with the sheet path when the
    *  driver is sheet-local ("/Child/CLK"). This is the net name everywhere else:
    *  the netlist, the board, ERC messages. */
   name: string;
-  /** SCH_CONNECTION::Name( true ) — the driver's own name, with no sheet path
+  /** SCH_CONNECTION::Name( true ), the driver's own name, with no sheet path
    *  ("CLK"). Compare against label text and bus member tokens with this. */
   localName: string;
   /** Node ids on this net (wire/label/junction refIds and `<symbolRef>:pin<i>` ids). */
@@ -118,7 +118,7 @@ export interface NetlistOptions {
    *  alias name -> member tokens, used when expanding group-bus labels. */
   busAliases?: ReadonlyMap<string, readonly string[]>;
   /**
-   * The sheet path a net name on this sheet is qualified with —
+   * The sheet path a net name on this sheet is qualified with,
    * `SCH_SHEET_PATH::PathHumanReadable( true, false, true )`: "/" for the root,
    * "/Power/" one level down, with each sheet name escaped for net-name use.
    * Only the sheet-dependent drivers take it (see {@link prependsSheetPath}).
@@ -128,7 +128,7 @@ export interface NetlistOptions {
 }
 
 /**
- * SCH_CONNECTION::recacheName — whether a net named by this driver carries its
+ * SCH_CONNECTION::recacheName, whether a net named by this driver carries its
  * sheet path. A local label, a hierarchical label and a sheet pin all name a net
  * that is local to (or enters) one sheet, so two sheets may each have a "CLK"
  * without sharing it; a global label, a global power pin and an ordinary pin's
@@ -148,12 +148,12 @@ function prependsSheetPath(priority: Priority): boolean {
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
 
-/** The `k` of a `<symbolRefId>:pin<k>` node id — the fallback for an unnumbered pin. */
+/** The `k` of a `<symbolRefId>:pin<k>` node id, the fallback for an unnumbered pin. */
 const pinIndexOf = (id: string): number => Number(id.slice(id.lastIndexOf(':pin') + 4));
 
 /** A symbol pin instance in world coordinates, as enumerated for the netlist/ERC. */
 export interface PinNode {
-  /** Node id, `<symbolRefId>:pin<k>` — identical to the ids computeNetlist emits. */
+  /** Node id, `<symbolRefId>:pin<k>`, identical to the ids computeNetlist emits. */
   id: string;
   symId: string;
   ref: string;
@@ -250,7 +250,7 @@ class UnionFind {
 }
 
 /**
- * The connection name carried by a node id — SCH_ITEM::Connection()->Name().
+ * The connection name carried by a node id, SCH_ITEM::Connection()->Name().
  * Wire-graph nodes answer with their net; a bus line/label/entry answers with
  * the bus's name. An unnamed bus has no connection name, like upstream's empty
  * SCH_CONNECTION.
@@ -358,7 +358,7 @@ export function computeNetlist(
   // Hierarchical sheet pins connect like labels at their point (KiCad driver
   // priority SHEET_PIN; the pin name names the net within this sheet). A pin
   // whose name is bus syntax and which sits on a bus joins the *bus* graph
-  // instead — SCH_SHEET_PIN::ConfigureFromLabel makes it a BUS connection.
+  // instead, SCH_SHEET_PIN::ConfigureFromLabel makes it a BUS connection.
   sch.sheets.forEach((sh, si) => {
     const shId = refId('sheet', sh.uuid, si);
     sh.pins.forEach((p, k) => {
@@ -400,7 +400,7 @@ export function computeNetlist(
   }
 
   /**
-   * SCH_PIN::GetDefaultNetName — the name a pin gives a net nothing else names.
+   * SCH_PIN::GetDefaultNetName, the name a pin gives a net nothing else names.
    * `unconnected` is set when the pin is a no-connect type or the net carries a
    * no-connect flag (upstream's aForceNoConnect), which swaps the prefix and forces
    * the pad number into the name.
@@ -434,7 +434,7 @@ export function computeNetlist(
 
   for (const pin of allPins) {
     const node: Node = { id: pin.id, points: [pin.at], driver: null };
-    // GetDriverPriority for a pin: a power *input* pin drives a power net —
+    // GetDriverPriority for a pin: a power *input* pin drives a power net,
     // GLOBAL_POWER_PIN for a global power symbol (or the legacy invisible
     // power-in pin on an ordinary symbol, named after the pin rather than the
     // symbol value, SCH_PIN::GetDefaultNetName), LOCAL_POWER_PIN for a

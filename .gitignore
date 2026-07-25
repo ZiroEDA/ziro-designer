@@ -5,7 +5,7 @@ dist-calc/
 .DS_Store
 coverage/
 
-# Local env files (Supabase keys etc.) — never commit
+# Local env files (Supabase keys etc.), never commit
 .env
 .env.local
 .env.*.local

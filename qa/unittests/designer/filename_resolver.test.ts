@@ -1,6 +1,6 @@
 /**
  * 3D model path resolution (counterpart common/filename_resolver.cpp):
- * KiCad's ResolvePath order adapted for the web — the project's own files
+ * KiCad's ResolvePath order adapted for the web, the project's own files
  * play the project directory, the hosted library plays ${KICAD*_3DMODEL_DIR}.
  */
 import { describe, it, expect } from 'vitest';

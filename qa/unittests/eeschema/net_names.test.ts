@@ -43,7 +43,7 @@ const netNames = (d: Schematic): string[] =>
     .nets.map((n) => n.name)
     .sort();
 
-describe('SCH_CONNECTION::recacheName — the sheet path prefix', () => {
+describe('SCH_CONNECTION::recacheName, the sheet path prefix', () => {
   it('qualifies a local label with its sheet path', () => {
     const d = doc(`${LIB}
       (wire (pts (xy 0 0) (xy 10 0)) (uuid "w1"))
@@ -95,7 +95,7 @@ describe('SCH_CONNECTION::recacheName — the sheet path prefix', () => {
   });
 });
 
-describe('SCH_PIN::GetDefaultNetName — the auto name', () => {
+describe('SCH_PIN::GetDefaultNetName, the auto name', () => {
   const place = (libId: string, ref: string, uuid: string): string =>
     `(symbol (lib_id "${libId}") (at 0 0 0) (unit 1)
       (property "Reference" "${ref}" (at 0 0 0)) (property "Value" "V" (at 0 0 0))

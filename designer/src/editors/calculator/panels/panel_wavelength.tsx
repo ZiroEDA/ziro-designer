@@ -1,5 +1,5 @@
 /**
- * "Wavelength" panel — frequency/period/wavelength conversions in a medium.
+ * "Wavelength" panel, frequency/period/wavelength conversions in a medium.
  * Counterpart: KiCad `calculator_panels/panel_wavelength.cpp`.
  */
 
@@ -75,7 +75,7 @@ export function PanelWavelength(): JSX.Element {
   return (
     <div>
       <h3>Wavelength</h3>
-      <div className="calc-note">Edit any value — the others follow.</div>
+      <div className="calc-note">Edit any value, the others follow.</div>
       <Group title="Values">
         <Field label="Frequency:" value={text.frequency} onChange={onFrequency} unit="GHz" />
         <Field label="Period:" value={text.period} onChange={onPeriod} unit="ns" />

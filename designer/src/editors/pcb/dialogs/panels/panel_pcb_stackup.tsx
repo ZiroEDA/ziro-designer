@@ -1,7 +1,7 @@
 /**
  * Board Setup > Board Stackup > Physical Stackup. Counterpart:
  * `pcbnew/board_stackup_manager/panel_board_stackup.cpp`
- * (PANEL_SETUP_BOARD_STACKUP) — the physical layer stack: a copper-layer
+ * (PANEL_SETUP_BOARD_STACKUP), the physical layer stack: a copper-layer
  * count + impedance-controlled option, a borderless 12-column grid (Layer /
  * Id / Type / Material+browse / Thickness+lock / Color / Epsilon R / Loss Tan
  * / Spec Freq / Dielectric Model) and the board thickness. All four actions
@@ -9,14 +9,14 @@
  *
  *  - Add Dielectric Layer… (onAddDielectricLayer): an EDA_LIST_DIALOG of the
  *    dielectric sublayers in stackup order ("Layer 'Dielectric N'
- *    (sublayer i/n)"), inserting a fresh DIELECTRIC_PRMS — thickness 0,
- *    epsilon 1, loss 0 — after the chosen one.
+ *    (sublayer i/n)"), inserting a fresh DIELECTRIC_PRMS, thickness 0,
+ *    epsilon 1, loss 0, after the chosen one.
  *  - Remove Dielectric Layer… (onRemoveDielectricLayer): lists only the
  *    sublayers of dielectrics that have two or more; the button enables only
  *    when such a dielectric exists (onRemoveDielUI).
  *  - Adjust Dielectric Thickness (onAdjustDielectricThickness +
  *    setDefaultLayerWidths): asks for the target board thickness (min = the
- *    sum of the non-adjustable layers), then distributes — prepregs at a
+ *    sum of the non-adjustable layers), then distributes, prepregs at a
  *    fixed 0.1 mm, cores splitting the remainder, alternating types
  *    (prepreg-outside except on a two-layer board), both shrinking equally
  *    when 0.1 mm cores would not fit; locked layers keep their value.
@@ -74,7 +74,7 @@ const swatchColor = (type: string): string => {
   return 'transparent';
 };
 
-// Predefined substrates (dielectric_material.cpp — names are used in .gbrjob
+// Predefined substrates (dielectric_material.cpp, names are used in .gbrjob
 // files, so they are proper nouns and not translated).
 type Substrate = { name: string; epsilonR: number; lossTan: number };
 const SUBSTRATE_MATERIALS: Substrate[] = [
@@ -250,7 +250,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
         const t = targets[index]!;
         const l = value.layers[t.layer]!;
         // Insert a fresh DIELECTRIC_PRMS after the selected sublayer
-        // (thickness 0, epsilon 1, loss 0 — the C++ default constructor).
+        // (thickness 0, epsilon 1, loss 0, the C++ default constructor).
         const fresh: DielectricSublayer = { material: '', thicknessMM: 0, epsilonR: 1, lossTan: 0 };
         const subs = [...(l.sublayers ?? [])];
         subs.splice(t.sub, 0, fresh); // after main (sub 0) = subs[0]; after sub k = subs[k]

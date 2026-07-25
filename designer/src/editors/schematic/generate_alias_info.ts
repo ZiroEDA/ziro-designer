@@ -2,7 +2,7 @@
  * Generates the HTML for the chooser's details pane from a library symbol.
  * Mirrors kicad/eeschema/generate_alias_info.cpp (GenerateAliasInfo): bold
  * name, "Derived from <parent> (<parent description>)", description, keywords,
- * then an <hr> and the field table — the datasheet (and any hyperlink field)
+ * then an <hr> and the field table, the datasheet (and any hyperlink field)
  * rendered as a truncated link, and a derived symbol's inherited parent fields
  * appended after its own.
  */
@@ -16,7 +16,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** LinkifyHTML — turn bare http(s) URLs in the description into links. */
+/** LinkifyHTML, turn bare http(s) URLs in the description into links. */
 function linkify(escaped: string): string {
   return escaped.replace(
     /https?:\/\/[^\s<]+/g,
@@ -36,7 +36,7 @@ function fieldRow(name: string, valueHtml: string): string {
 const propOf = (symbol: LibSymbol, key: string): string =>
   symbol.properties.find((p) => p.key === key)?.value ?? '';
 
-/** GetHtmlFieldRow — one row of the field table. */
+/** GetHtmlFieldRow, one row of the field table. */
 function htmlFieldRow(
   field: { key: string; value: string },
   unit: number,
@@ -47,7 +47,7 @@ function htmlFieldRow(
       // Showing the value just repeats the name, so that's not much use.
       return '';
     case 'Reference':
-      // SCH_FIELD::GetFullText( unit ) — the unit suffix is part of the shown
+      // SCH_FIELD::GetFullText( unit ), the unit suffix is part of the shown
       // reference for a multi-unit symbol.
       return fieldRow(field.key, escapeHtml(reference || field.value));
     case 'Datasheet': {

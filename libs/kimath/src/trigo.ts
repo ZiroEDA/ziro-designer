@@ -40,7 +40,7 @@ function segSquaredDistance(ref: VECTOR2I, a: VECTOR2I, b: VECTOR2I): number {
 
 /**
  * Whether `aRefPoint` is within `aDist` of segment aStart-aEnd (faithful port of
- * TestSegmentHit in trigo.cpp — bbox rejects, axis-aligned shortcuts, then the
+ * TestSegmentHit in trigo.cpp, bbox rejects, axis-aligned shortcuts, then the
  * general squared-distance test against (aDist+1)^2).
  */
 export function TestSegmentHit(
@@ -132,7 +132,7 @@ export function CalcArcCenter(
     bSlope -= EPS;
   }
 
-  // Prevent divide by zero error — a small value is used;
+  // Prevent divide by zero error, a small value is used;
   // std::numeric_limits<double>::epsilon() is too small and generates false results
   if (aSlope === 0.0) aSlope = 1e-10;
   if (bSlope === 0.0) bSlope = 1e-10;

@@ -1,5 +1,5 @@
 /**
- * Board-file persistence for the Board Setup dialog — the `.kicad_pcb` side.
+ * Board-file persistence for the Board Setup dialog, the `.kicad_pcb` side.
  * Counterparts: `pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp`
  * (formatGeneral / formatBoardLayers / formatSetup) with its parser, and
  * `pcbnew/board_stackup_manager/board_stackup.cpp` (FormatBoardStackup).
@@ -8,7 +8,7 @@
  * `(layers …)` table, and inside `(setup …)` the `(stackup …)` block, the
  * solder-mask/paste clearances, the tenting flags and the two
  * `dashed_line_*_ratio` tokens of `(pcbplotparams …)` (pcbnew's Formatting
- * page stores its ratios in the plot params — everything else in that block
+ * page stores its ratios in the plot params, everything else in that block
  * belongs to the Plot dialog and is preserved verbatim). At the file end it
  * owns `(embedded_fonts …)` and the `(embedded_files …)` list.
  *
@@ -615,11 +615,11 @@ export function writeBoardFileSetup(pcbText: string, s: BoardSetupValues): strin
   const oldSetup = items.find((n): n is SList => isList(n) && head(n) === 'setup');
   replace('setup', buildSetupNode(oldSetup, s));
 
-  // (embedded_fonts yes|no) — always present at the file end in v10 saves.
+  // (embedded_fonts yes|no), always present at the file end in v10 saves.
   replace('embedded_fonts', list(atom('embedded_fonts'), atom(yesNo(s.embeddedFiles.embedFonts))));
 
   // (embedded_files …): keep only the entries still listed by the panel (new
-  // rows can't be added here — file data enters via the Embed button, later).
+  // rows can't be added here, file data enters via the Embed button, later).
   const embeddedIdx = items.findIndex((n) => isList(n) && head(n) === 'embedded_files');
   if (embeddedIdx !== -1) {
     const old = items[embeddedIdx] as SList;

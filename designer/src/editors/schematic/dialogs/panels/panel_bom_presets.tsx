@@ -1,6 +1,6 @@
 /**
  * BOM Presets panel. Counterpart: `eeschema/dialogs/panel_bom_presets_base.cpp`
- * (PANEL_BOM_PRESETS) — two read-only "Name" grids (Bill of Materials Presets and
+ * (PANEL_BOM_PRESETS), two read-only "Name" grids (Bill of Materials Presets and
  * Bill of Materials Formatting Presets), each with a delete button beneath. Presets
  * are created from the Symbol Fields Table / BOM export; here they are only listed
  * and removed.

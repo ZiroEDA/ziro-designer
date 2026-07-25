@@ -1,4 +1,4 @@
--- Ziro Designer — cloud project sync
+-- Ziro Designer, cloud project sync
 -- Run once in the Supabase SQL editor (Dashboard → SQL → New query).
 -- Creates a per-user `projects` table with Row Level Security so each user
 -- can only read/write their own rows. Files are stored gzipped + base64 in a

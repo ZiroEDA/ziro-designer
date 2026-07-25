@@ -1,9 +1,9 @@
 /**
- * Buffered footprint-library manager — the web port of KiCad's
+ * Buffered footprint-library manager, the web port of KiCad's
  * FP_LIB_TABLE-backed editing model used by `FOOTPRINT_EDIT_FRAME`
  * (pcbnew/footprint_libraries_utils.cpp). A footprint library is a `.pretty`
- * directory whose members are one-footprint `.kicad_mod` files, so — unlike a
- * `.kicad_sym` symbol library — each footprint is its own file.
+ * directory whose members are one-footprint `.kicad_mod` files, so, unlike a
+ * `.kicad_sym` symbol library, each footprint is its own file.
  *
  * Libraries come from two places, mirroring KiCad's global/project split:
  *   - bundled global libraries under `public/footprints` (footprint names known
@@ -12,7 +12,7 @@
  *
  * Each library buffers working copies of its footprints; an edit marks the
  * footprint and library modified until saved. "Saving" serializes the footprint
- * with the lossless writer (serializeFootprint) and hands the bytes back — a
+ * with the lossless writer (serializeFootprint) and hands the bytes back, a
  * browser download per `.kicad_mod` file replaces writing to the `.pretty` dir.
  */
 

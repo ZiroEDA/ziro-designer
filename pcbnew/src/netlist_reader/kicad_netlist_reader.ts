@@ -9,10 +9,10 @@
  * shared in-memory model. Sections mirror Parse()'s switch one for one:
  *
  *   (export (version E)
- *     (design …)                 skipped — comments only
+ *     (design …)                 skipped, comments only
  *     (components (comp …) …)     parseComponent
  *     (groups (group …) …)        parseGroup
- *     (libparts (libpart …) …)    parseLibPartList — footprint filters + pin count
+ *     (libparts (libpart …) …)    parseLibPartList, footprint filters + pin count
  *     (libraries …)               skipped
  *     (nets (net …) …)            parseNet
  *
@@ -36,7 +36,7 @@ const field = (node: SList, name: string): string => {
 };
 
 /**
- * KICAD_NETLIST_PARSER::parseComponent — a `(comp …)` section into a COMPONENT.
+ * KICAD_NETLIST_PARSER::parseComponent, a `(comp …)` section into a COMPONENT.
  * Absent data is simply not set, so a partial netlist still loads.
  */
 function parseComponent(netlist: NETLIST, node: SList): void {
@@ -61,7 +61,7 @@ function parseComponent(netlist: NETLIST, node: SList): void {
         break;
 
       case 'property': {
-        // `(property (name "dnp"))` — a valueless property is a flag.
+        // `(property (name "dnp"))`, a valueless property is a flag.
         const propName = field(child, 'name');
         if (propName) properties.set(propName, field(child, 'value'));
         break;
@@ -116,7 +116,7 @@ function parseComponent(netlist: NETLIST, node: SList): void {
 }
 
 /**
- * KICAD_NETLIST_PARSER::parseNet — a `(net (code N) (name …) (node …) …)` section,
+ * KICAD_NETLIST_PARSER::parseNet, a `(net (code N) (name …) (node …) …)` section,
  * adding one COMPONENT_NET per node to the component the node's ref names.
  *
  * A node whose component is missing is skipped: the symbol may be excluded from
@@ -143,7 +143,7 @@ function parseNet(netlist: NETLIST, node: SList): void {
 }
 
 /**
- * KICAD_NETLIST_PARSER::parseGroup — a `(group …)` section. Group and member
+ * KICAD_NETLIST_PARSER::parseGroup, a `(group …)` section. Group and member
  * UUIDs are full instance paths; an instance path collapses to a deterministic
  * UUID (KIID::FromName) so re-reading the same netlist finds the same board group.
  */
@@ -164,7 +164,7 @@ function parseGroup(netlist: NETLIST, node: SList): void {
 }
 
 /**
- * KICAD_NETLIST_PARSER::parseLibPartList — the footprint filters and pin count of
+ * KICAD_NETLIST_PARSER::parseLibPartList, the footprint filters and pin count of
  * one library part, copied onto every component sourced from it (directly or
  * through an alias). Pcbnew itself only needs this for the footprint chooser's
  * filtering; the updater does not read it.
@@ -200,7 +200,7 @@ function parseLibPartList(netlist: NETLIST, node: SList): void {
 }
 
 /**
- * KICAD_NETLIST_PARSER::Parse — walk the netlist's sections in file order.
+ * KICAD_NETLIST_PARSER::Parse, walk the netlist's sections in file order.
  * Components must be read before nets (a net's nodes look their component up by
  * reference) and before libparts, which is the order the exporter writes.
  */
@@ -231,7 +231,7 @@ export function parseKicadNetlist(root: SList, netlist: NETLIST): void {
   netlist.ApplyGroupMembership();
 }
 
-/** KICAD_NETLIST_READER::LoadNetlist — parse netlist text into a fresh NETLIST. */
+/** KICAD_NETLIST_READER::LoadNetlist, parse netlist text into a fresh NETLIST. */
 export function loadKicadNetlist(text: string): NETLIST {
   const netlist = new NETLIST();
   parseKicadNetlist(parse(text), netlist);

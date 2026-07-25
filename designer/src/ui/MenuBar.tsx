@@ -3,14 +3,14 @@ import { toolbarIconUrl } from './toolbarIcons.js';
 
 export interface MenuItem {
   label?: string;
-  /** Tool/action id — its KiCad icon is shown if one is mapped. */
+  /** Tool/action id, its KiCad icon is shown if one is mapped. */
   icon?: string;
   action?: () => void;
   sep?: boolean;
   disabled?: boolean;
   /** Keyboard hint shown right-aligned (e.g. "Ctrl+S"). */
   shortcut?: string;
-  /** ACTION_MENU::CHECK items — shows a checkmark when true. */
+  /** ACTION_MENU::CHECK items, shows a checkmark when true. */
   checked?: boolean;
   /** Nested items rendered as a flyout submenu (KiCad ACTION_MENU submenus:
    *  Import, Export, Attributes, Open Recent…). `items` and `submenu` are
@@ -137,7 +137,7 @@ export function MenuBar({
   menus: Menu[];
   leftSlot?: ReactNode;
   rightSlot?: ReactNode;
-  /** KiCad-style "<project> — <Editor>" shown in the bar (window-title info). */
+  /** KiCad-style "<project>, <Editor>" shown in the bar (window-title info). */
   title?: ReactNode;
 }): JSX.Element {
   const [open, setOpen] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 /**
  * Project-tree domain logic for the launcher: rebuilding the on-disk folder
  * hierarchy from picked files, the archive allow-list, root-file ordering,
- * and small display formatters. Pure functions — no React, fully testable.
+ * and small display formatters. Pure functions, no React, fully testable.
  */
 
 import type { PickedHomeFile } from './files.js';
@@ -64,7 +64,7 @@ export const isHiddenFile = (base: string): boolean =>
   /-backups?$/i.test(base);
 
 // KiCad's PROJECT_ARCHIVER::Archive allow-list (common/project/project_archiver.cpp)
-// with aIncludeExtraFiles=true — the flag the manager passes for "Archive Project"
+// with aIncludeExtraFiles=true, the flag the manager passes for "Archive Project"
 // (kicad/project_tree_pane.cpp). Extension strings from wildcards_and_files_ext.cpp.
 export const ARCHIVE_EXTENSIONS = new Set([
   // always archived
@@ -128,7 +128,7 @@ export const inArchiveAllowList = (name: string): boolean => {
 };
 
 // KiCad marks a file as a project "root file" when its basename matches the
-// project name (or "project-*") — PROJECT_TREE_PANE::addItemToProjectTree, and
+// project name (or "project-*"), PROJECT_TREE_PANE::addItemToProjectTree, and
 // these sort ahead of other files (project_tree.cpp OnCompareItems).
 export const isRootFileName = (name: string, projLower: string): boolean => {
   if (!projLower) return false;
@@ -150,7 +150,7 @@ export const compareTreeNodes = (a: DirNode, b: DirNode, projLower: string): num
 
 /**
  * Reconstruct the on-disk folder hierarchy from the picked files' relative
- * paths so the tree mirrors KiCad's project window — footprint/3D libraries
+ * paths so the tree mirrors KiCad's project window, footprint/3D libraries
  * (CM5IO.pretty, 3d_lib, *.3dshapes) stay inside collapsible folders instead
  * of flooding the list. `stripPrefix` removes the picked folder's own name;
  * `projLower` drives KiCad's root-file-first sort.
@@ -248,7 +248,7 @@ export function deleteTreeEntries(
 }
 
 /** Text documents the in-app viewer can show (View > Open Text Viewer and the
- * tree's "Edit in a Text Viewer" — the web take on upstream's text editor). */
+ * tree's "Edit in a Text Viewer", the web take on upstream's text editor). */
 export const isViewableTextFile = (name: string): boolean =>
   /\.(txt|md|rpt|net|cir|csv|log|pos|gbrjob|kicad_dru)$/i.test(name) ||
   /(^|\/)(fp|sym|design-block)-lib-table$/.test(name);

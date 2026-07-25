@@ -4,7 +4,7 @@
  * The web port of KiCad's DIALOG_PCM. It mirrors the desktop dialog closely:
  * one tab per package type (Plugins, Fabrication, Libraries, Data Sources,
  * Colour Themes) plus Installed and Pending tabs; a repository chooser with
- * add-by-URL; a search box; and — like KiCad — a *queued* action model where
+ * add-by-URL; a search box; and, like KiCad, a *queued* action model where
  * Install / Update / Uninstall accumulate as pending changes that are then
  * applied (or discarded) as a batch.
  *
@@ -216,7 +216,7 @@ export function PluginManagerDialog({ onClose }: { onClose: () => void }): JSX.E
     const state = pcm.getPackageState(pkg);
     const isActiveTheme = pkg.kind === 'colortheme' && activeThemeId === pcmThemeId(pkg.id);
     const latest = latestVersion(pkg);
-    const ver = pcm.installedVersion(pkg.id) ?? latest?.version ?? '—';
+    const ver = pcm.installedVersion(pkg.id) ?? latest?.version ?? '-';
     const open = expanded === pkg.id;
     return (
       <div key={pkg.id} className="ze-pcm-card">
@@ -340,7 +340,7 @@ export function PluginManagerDialog({ onClose }: { onClose: () => void }): JSX.E
         {runtime && (
           <div className="ze-pcm-note">
             {tab === 'plugin'
-              ? 'KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime — a separate piece of work.'
+              ? 'KiCad plugins are native Python scripts. In the browser they need a sandboxed web runtime, a separate piece of work.'
               : tab === 'fab'
                 ? 'Fabrication plugins run generation scripts that need a sandboxed runtime, not available in the browser yet.'
                 : 'Data-source packages connect external database libraries, which need a back end not available in the browser yet.'}{' '}

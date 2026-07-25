@@ -1,5 +1,5 @@
 /**
- * Storage durability — transaction commit semantics, failure classification and
+ * Storage durability, transaction commit semantics, failure classification and
  * live health reporting (designer/src/home/storageHealth.ts).
  *
  * The behaviour under test is the one that silently lost work: IndexedDB
@@ -139,7 +139,7 @@ describe('health reporting', () => {
     off();
   });
 
-  it('stays unhealthy until explicitly cleared — one good write does not undo lost work', async () => {
+  it('stays unhealthy until explicitly cleared, one good write does not undo lost work', async () => {
     reportStorageFailure({ name: 'QuotaExceededError' });
     await settle();
     reportStorageFailure({ name: 'QuotaExceededError' });

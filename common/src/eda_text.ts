@@ -1,12 +1,12 @@
 /**
- * EDA_TEXT — the text geometry shared by pcb and schematic text
+ * EDA_TEXT, the text geometry shared by pcb and schematic text
  * (common/eda_text.{h,cpp}). A mixin in KiCad; composed by PCB_TEXT here.
  * Ports the position/angle/justify accessors the transforms use, plus a
  * bounding-box TextHitTest.
  *
  * Fidelity note: KiCad's EDA_TEXT::TextHitTest builds GetEffectiveTextShape()
  * (the stroked glyph outline) or GetTextBox(); this uses an approximate glyph
- * box (len * size * 0.6) rotated into the text frame — the same as the earlier
+ * box (len * size * 0.6) rotated into the text frame, the same as the earlier
  * board renderer/hit-test used. Marked for a later exact glyph pass.
  */
 

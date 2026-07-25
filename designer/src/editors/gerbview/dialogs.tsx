@@ -1,5 +1,5 @@
 /**
- * Gerber Viewer dialogs: the DCode list (GerbView's "List DCodes" —
+ * Gerber Viewer dialogs: the DCode list (GerbView's "List DCodes",
  * `gerbview/dialogs/dialog_select_one_pcb_layer` sibling `DIALOG_PRINT`… no; this
  * mirrors `gerbview/dialogs/panel_gerbview_display_options` list + the DCODE
  * table shown by GERBVIEW_FRAME::SortLayers/updateDCodeSelectBox) and the item
@@ -36,7 +36,7 @@ function fmtSize(d: D_CODE, unit: 'mm' | 'in' | 'mils'): string {
   return `${toU(d.size.x)} × ${toU(d.size.y)}`;
 }
 
-/** DCode list dialog — the apertures of the active image, with a "used" flag. */
+/** DCode list dialog, the apertures of the active image, with a "used" flag. */
 export function DCodeListDialog({
   image,
   unit,
@@ -105,7 +105,7 @@ export function DCodeListDialog({
   );
 }
 
-/** Item inspector — the message-panel info for a picked graphic item. */
+/** Item inspector, the message-panel info for a picked graphic item. */
 export function ItemInfoPanel({
   item,
   unit,

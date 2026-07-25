@@ -1,10 +1,10 @@
 /**
- * Coplanar waveguide (with and without bottom ground) — faithful port of
+ * Coplanar waveguide (with and without bottom ground), faithful port of
  * KiCad's `transline_calculations/coplanar.cpp`. Quasi-static conformal mapping
  * (Ghione & Naldi) on AGM-based complete elliptic integrals, finite-thickness
  * correction (Gupta et al.), Gevorgian effective-permittivity dispersion,
  * Wheeler incremental-inductance conductor loss, and the optional solder mask
- * overlay correction (Djordjevic–Sarkar dispersion is applied by the caller
+ * overlay correction (Djordjevic-Sarkar dispersion is applied by the caller
  * via `dispersedSubstrate`).
  * Counterpart: KiCad `common/transline_calculations/coplanar.cpp`.
  */

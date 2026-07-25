@@ -1,5 +1,5 @@
 /**
- * Crash recovery — getting a user's work out of a broken session.
+ * Crash recovery, getting a user's work out of a broken session.
  *
  * When a render throws, the editor is gone but the project is still sitting in
  * memory. The error boundary needs a way to hand that back rather than letting
@@ -13,7 +13,7 @@
  * called only once something has already gone wrong.
  *
  * Unlike Archive Project, this deliberately ignores KiCad's archive allow-list
- * and writes *every* file it has — gerbers, backups, plot outputs and all.
+ * and writes *every* file it has, gerbers, backups, plot outputs and all.
  * Recovery is not the moment to be opinionated about what deserves saving.
  */
 
@@ -67,7 +67,7 @@ export function recoveryZip(snap: RecoverySnapshot): Uint8Array {
 
 /**
  * Download the current project as a .zip. Returns false when there was nothing
- * to save or the download itself failed — the caller is on an error path and
+ * to save or the download itself failed, the caller is on an error path and
  * must not assume success.
  */
 export function downloadRecoveryZip(): boolean {

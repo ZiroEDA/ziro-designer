@@ -22,7 +22,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  /** OAuth sign-in (redirect flow) — e.g. "Continue with Google". */
+  /** OAuth sign-in (redirect flow), e.g. "Continue with Google". */
   signInWithGoogle: () => Promise<{ error: string | null }>;
   /** Passwordless: email a 6-digit sign-in code (creates the account if new). */
   sendOtp: (email: string) => Promise<{ error: string | null }>;

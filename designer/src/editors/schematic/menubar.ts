@@ -65,7 +65,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     checked: !!checks[id],
     action: () => h.toggle(id),
   });
-  /** Not implemented yet — greyed out, exactly where upstream puts it. */
+  /** Not implemented yet, greyed out, exactly where upstream puts it. */
   const stub = (label: string, shortcut?: string): MenuItem => ({
     label,
     shortcut,
@@ -78,7 +78,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
   });
 
   return [
-    // File: the project-manager variant (Kiface().IsSingle() == false) — New/
+    // File: the project-manager variant (Kiface().IsSingle() == false), New/
     // Open/Open Recent belong to the launcher, and the menu starts at Save.
     {
       label: 'File',

@@ -1,5 +1,5 @@
 /**
- * "Electrical Spacing" panel — two calculators like KiCad: the IPC-2221
+ * "Electrical Spacing" panel, two calculators like KiCad: the IPC-2221
  * minimum-clearance table and the IEC 60664-1 insulation coordination
  * (clearance / creepage / groove width).
  * Counterparts: KiCad `calculator_panels/panel_electrical_spacing_ipc2221.cpp`

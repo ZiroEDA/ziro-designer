@@ -5,10 +5,10 @@ import { iuToMM, mmToIU } from '@ziroeda/common';
 import { footprintStringChild } from '@ziroeda/pcbnew';
 
 /**
- * Footprint properties — the working subset of KiCad's
+ * Footprint properties, the working subset of KiCad's
  * DIALOG_FOOTPRINT_PROPERTIES (pcbnew/dialogs): Reference, Value, and the
  * library Description / Keywords. (Side/layer flip and per-attribute flags are
- * staged — they need the full change-side geometry transform.)
+ * staged, they need the full change-side geometry transform.)
  */
 export function FootprintPropertiesDialog({
   footprint,
@@ -120,7 +120,7 @@ const layersForType = (type: PcbPad['type']): string[] =>
       : ['*.Cu', '*.Mask'];
 
 /**
- * Pad properties — the working subset of KiCad's DIALOG_PAD_PROPERTIES: number,
+ * Pad properties, the working subset of KiCad's DIALOG_PAD_PROPERTIES: number,
  * type, shape, position, size and drill. Layers follow the pad type. Values are
  * shown/entered in millimetres.
  */

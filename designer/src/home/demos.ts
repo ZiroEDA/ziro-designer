@@ -1,11 +1,11 @@
 /**
- * Demo projects — upstream's File > Open Demo Project (openDemoProject in
+ * Demo projects, upstream's File > Open Demo Project (openDemoProject in
  * kicad/tools/kicad_manager_control.cpp, gated on PATHS::GetStockDemosPath).
  * ecc83 is bundled under /demos as the always-available demo (and the CI
  * compatibility fixture); the full corpus is served from the hosted CDN when
- * VITE_DEMOS_URL points at it (Cloudflare R2 — same pattern as the 3D model
+ * VITE_DEMOS_URL points at it (Cloudflare R2, same pattern as the 3D model
  * library; build the upload tree with tools/demos/build.mjs). Opening a demo
- * fetches its files verbatim (no renaming — a demo opens as itself).
+ * fetches its files verbatim (no renaming, a demo opens as itself).
  */
 import type { PickedHomeFile } from './files.js';
 import { DEMOS_HOST } from '../libraryHosts.js';
@@ -22,7 +22,7 @@ const DEMOS_BASE = DEMOS_HOST;
 
 const dec = new TextDecoder();
 
-/** Load the bundled demo manifest (empty on failure — the menu item disables). */
+/** Load the bundled demo manifest (empty on failure, the menu item disables). */
 export async function loadDemos(): Promise<DemoMeta[]> {
   try {
     const res = await fetch(`${DEMOS_BASE}/index.json`);

@@ -147,7 +147,7 @@ const tileIcon = (id: string): JSX.Element => {
 
 /**
  * KiCad-style project manager: open a project folder, see its files in the
- * tree, then launch an editor on it — the same workflow as the desktop app's
+ * tree, then launch an editor on it, the same workflow as the desktop app's
  * project window. Until a project is opened, the tree shows open/select/drop
  * hints; bundled demos are under File > Open Demo Project.
  */
@@ -206,7 +206,7 @@ export function HomePage({
     try {
       localStorage.setItem('ziro.guestNudgeDismissed', '1');
     } catch {
-      /* storage blocked — dismiss for this session only */
+      /* storage blocked, dismiss for this session only */
     }
   };
   const dirInputRef = useRef<HTMLInputElement>(null);
@@ -214,11 +214,11 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
-  // Saved projects (IndexedDB) — the offline half of cloud persistence.
+  // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // Selected tree row (single click). Double click opens — like KiCad's tree.
+  // Selected tree row (single click). Double click opens, like KiCad's tree.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const selectPath = (path: string, additive: boolean): void =>
     setSelected((prev) => {
@@ -252,7 +252,7 @@ export function HomePage({
     const d = demos.find((x) => x.id === id);
     if (!d) return;
     // Demos open as themselves and are not persisted over an existing store
-    // entry unless the user saves — mirror a plain folder open (persist like
+    // entry unless the user saves, mirror a plain folder open (persist like
     // any opened project so it lands in Recent). The files stream from the
     // hosted CDN, so show a per-file download gauge while they arrive.
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
@@ -261,7 +261,7 @@ export function HomePage({
       files = await openDemo(d, (done, total, file) =>
         setLoading({
           message: `Downloading demo: ${d.title}`,
-          detail: `${file} — ${done} of ${total} files`,
+          detail: `${file}, ${done} of ${total} files`,
           value: done / total,
         }),
       );
@@ -273,7 +273,7 @@ export function HomePage({
   };
   // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
   const [panelWidth, setPanelWidth] = useState(290);
-  // Non-null while opening/saving a project — drives KiCad's "Load Schematic"
+  // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
   // frozen mid-load.
   const [loading, setLoading] = useState<string | ProgressSnapshot | null>(null);
@@ -327,7 +327,7 @@ export function HomePage({
     return basename(src).replace(/\.(kicad_pro|kicad_sch|kicad_pcb)$/i, '');
   };
 
-  // Read the contents of *every* picked file — not just the KiCad documents —
+  // Read the contents of *every* picked file, not just the KiCad documents,
   // so the whole project (footprint/symbol libs, net/report/text files, etc.)
   // survives a save, archive, and reopen instead of collapsing to sch+pcb. The
   // storage layer gzips text ~10x, so keeping the libs is cheap. The project is
@@ -345,7 +345,7 @@ export function HomePage({
         out.push({ name: f.name, text: dec.decode(bytes), bytes });
         setLoading({
           message: 'Reading files…',
-          detail: `${base} — ${i + 1} of ${files.length}`,
+          detail: `${base}, ${i + 1} of ${files.length}`,
           value: (i + 1) / files.length,
         });
       }
@@ -372,7 +372,7 @@ export function HomePage({
               void pushProject(userId, pid).catch((e) => console.warn('Cloud push failed:', e));
           }
         } catch {
-          /* storage disabled (private mode) — the app still works */
+          /* storage disabled (private mode), the app still works */
         }
       }
     } finally {
@@ -381,7 +381,7 @@ export function HomePage({
   };
 
   // File > New Project: create a blank project from scratch (the three files
-  // KiCad writes — .kicad_pro, root .kicad_sch, .kicad_pcb), show it in the
+  // KiCad writes, .kicad_pro, root .kicad_sch, .kicad_pcb), show it in the
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
   const openNewProjectDialog = (): void => {
@@ -390,7 +390,7 @@ export function HomePage({
     setTplOpen(true);
   };
 
-  // Upstream v10 NewProject flow: the template selector creates the project —
+  // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
   // real templates copy their contents (renamed, like CreateProject).
   const createFromTpl = async (): Promise<void> => {
@@ -423,7 +423,7 @@ export function HomePage({
     );
   };
 
-  // Reopen a project straight from IndexedDB — no folder picker needed.
+  // Reopen a project straight from IndexedDB, no folder picker needed.
   const openStored = async (id: string): Promise<void> => {
     setLoading('Opening project…');
     await nextPaint();
@@ -455,8 +455,8 @@ export function HomePage({
   // Open Project: KiCad opens the .kicad_pro and pulls in the whole project.
   // A browser cannot read a file's siblings, so the closest equivalent is the
   // directory picker (File System Access API), which grants the project folder
-  // in one gesture. Chrome refuses that picker for "system" locations — the
-  // Downloads folder, the profile root, Desktop — so anything but a plain user
+  // in one gesture. Chrome refuses that picker for "system" locations, the
+  // Downloads folder, the profile root, Desktop, so anything but a plain user
   // cancel falls back to the classic webkitdirectory input, which has no such
   // blocklist. Multi-file selection and folder drag-and-drop cover the rest.
   const openProjectPicker = async (): Promise<void> => {
@@ -581,8 +581,8 @@ export function HomePage({
   const projLower = projName.toLowerCase();
   // KiCad's getProjects(dir): the basenames of every .kicad_pro in the folder.
   // A folder may hold several projects (e.g. the ecc83 demo's ecc83-pp and
-  // ecc83-pp_v2); the tree shows the root sheet of each, so this set — not just
-  // the active project — decides which .kicad_sch are visible (subsheets hide).
+  // ecc83-pp_v2); the tree shows the root sheet of each, so this set, not just
+  // the active project, decides which .kicad_sch are visible (subsheets hide).
   const projectNames = useMemo<ReadonlySet<string>>(
     () =>
       new Set(
@@ -627,7 +627,7 @@ export function HomePage({
   const stripPrefix = useMemo<string>(() => {
     if (!picked) return '';
     // The project folder is the .kicad_pro's own directory. Strip it so the
-    // tree is flat under the project — robustly, even if some file (e.g. a
+    // tree is flat under the project, robustly, even if some file (e.g. a
     // drawing sheet) doesn't share the prefix (it just shows at the root).
     const pro = proFile?.name.replace(/\\/g, '/');
     if (pro?.includes('/')) return pro.slice(0, pro.lastIndexOf('/') + 1);
@@ -807,7 +807,7 @@ export function HomePage({
         menus={menus}
         title={
           <>
-            <b>{picked && projName ? projName : 'No project'}</b>&nbsp;—&nbsp;Ziro Designer
+            <b>{picked && projName ? projName : 'No project'}</b>&nbsp;-&nbsp;Ziro Designer
           </>
         }
         rightSlot={
@@ -896,7 +896,7 @@ export function HomePage({
               const hasSch = !!picked?.some((f) => /\.kicad_sch$/i.test(f.name));
               const hasPcb = !!picked?.some((f) => /\.kicad_pcb$/i.test(f.name));
               // Schematic/PCB edit a project, so they need one open (like KiCad's
-              // project manager). Symbol Editor is a library editor — standalone.
+              // project manager). Symbol Editor is a library editor, standalone.
               const needsProject = t.id === 'schematic' || t.id === 'pcb';
               const implemented = t.id === 'schematic' || t.id === 'pcb' || !!t.enabled;
               const enabled =
@@ -949,7 +949,7 @@ export function HomePage({
                     key={p.id}
                     className="ze-recent-item"
                     onClick={() => void openStored(p.id)}
-                    title={`Reopen ${p.name} — saved in this browser`}
+                    title={`Reopen ${p.name}, saved in this browser`}
                   >
                     <TreeIcon name="project" />
                     <span className="ze-recent-name">{p.name}</span>
@@ -974,7 +974,7 @@ export function HomePage({
 
       <div className="ze-statusbar">
         <span className="cell grow">
-          {picked ? `Project: ${proFile?.name ?? projName ?? '—'}` : 'No project loaded'}
+          {picked ? `Project: ${proFile?.name ?? projName ?? '-'}` : 'No project loaded'}
         </span>
         <span className="cell">
           {storageAvailable()
@@ -1010,7 +1010,7 @@ export function HomePage({
       {pcmOpen && <PluginManagerDialog onClose={() => setPcmOpen(false)} />}
 
       {/* Guest nudge: once there's real work at stake (a saved project) and no
-          account, offer — never force — signing in so it's backed up. */}
+          account, offer, never force, signing in so it's backed up. */}
       {authEnabled && !session && !guestNudgeDismissed && saved.length > 0 && !signInOpen && (
         <div className="ze-guest-nudge">
           <span>Your projects are saved on this device only.</span>

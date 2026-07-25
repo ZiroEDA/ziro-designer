@@ -9,7 +9,7 @@
  * and no nets, and it carries the `(version)`/`(generator)` header a board
  * footprint must not. So `placeFootprint` builds that envelope and re-reads the
  * node in board context, which is what bakes the children from footprint-local to
- * board coordinates — the same path the board reader takes.
+ * board coordinates, the same path the board reader takes.
  *
  * `exchangeFootprint` then replaces a placed footprint with a fresh copy from the
  * library while carrying over everything the board owns rather than the library:
@@ -76,7 +76,7 @@ export interface PlaceFootprintOptions {
   /** 'F.Cu' or 'B.Cu'. */
   layer?: string;
   uuid?: string;
-  /** `(path …)` — the linked symbol's KIID_PATH. */
+  /** `(path …)`, the linked symbol's KIID_PATH. */
   path?: string;
   sheetname?: string;
   sheetfile?: string;
@@ -126,7 +126,7 @@ export function placeFootprint(
   return readBoardFootprint({ kind: 'list', items });
 }
 
-/** FOOTPRINT::ClearAllNets — drop a pad's `(net …)`, `(pinfunction …)`, `(pintype …)`. */
+/** FOOTPRINT::ClearAllNets, drop a pad's `(net …)`, `(pinfunction …)`, `(pintype …)`. */
 function clearPadNet(pad: SList): SList {
   return {
     kind: 'list',
@@ -145,7 +145,7 @@ function clearPadNet(pad: SList): SList {
  * header is carried over.
  *
  * The one thing this does not reproduce is per-item UUID preservation for graphics,
- * zones and fields — KiCad matches those by geometric similarity, which the typed
+ * zones and fields, KiCad matches those by geometric similarity, which the typed
  * model has no counterpart for. Pads, whose UUIDs and nets do matter, are matched
  * by number.
  */

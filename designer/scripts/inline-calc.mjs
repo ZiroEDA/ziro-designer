@@ -13,7 +13,7 @@ const assetsDir = new URL('./assets/', dir);
 const assets = readdirSync(assetsDir);
 const js = assets.find((f) => f.endsWith('.js'));
 const css = assets.find((f) => f.endsWith('.css'));
-if (!js || !css) throw new Error('build assets not found — run the vite build first');
+if (!js || !css) throw new Error('build assets not found, run the vite build first');
 
 let jsCode = readFileSync(new URL(js, assetsDir), 'utf8');
 const cssCode = readFileSync(new URL(css, assetsDir), 'utf8');

@@ -12,7 +12,7 @@ export interface SheetRef {
   file: string;
 }
 
-/** Depth-first flattening of the hierarchy — KiCad's Schematic().Hierarchy()
+/** Depth-first flattening of the hierarchy, KiCad's Schematic().Hierarchy()
  *  order, which defines the virtual page numbers Previous/Next step through. */
 export function flattenHierarchy(root: SheetTreeNode): SheetRef[] {
   const out: SheetRef[] = [];
@@ -33,7 +33,7 @@ export function parentPath(path: string): string | null {
   return parts.length ? `/${parts.join('/')}/` : '/';
 }
 
-/** The Back/Forward history (m_navHistory + m_navIndex). Paths only — the
+/** The Back/Forward history (m_navHistory + m_navIndex). Paths only, the
  *  file for a path comes from the flattened hierarchy at use time. */
 export class SchNavigateTool {
   private history: string[] = ['/'];

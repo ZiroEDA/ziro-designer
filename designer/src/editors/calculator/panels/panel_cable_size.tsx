@@ -1,5 +1,5 @@
 /**
- * "Cable Size" panel — KiCad's fully-linked wire model: every field (diameter,
+ * "Cable Size" panel, KiCad's fully-linked wire model: every field (diameter,
  * area, linear resistance, 100%-skin-depth frequency, ampacity, DC resistance,
  * voltage drop, dissipated power) can be edited and back-solves the wire
  * radius; everything else recomputes. Includes the conductor material presets

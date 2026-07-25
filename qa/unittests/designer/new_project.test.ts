@@ -1,6 +1,6 @@
 /**
  * File > New Project scaffolding: the generated files must be valid by our
- * own engines — a fresh project that fails to parse would be dead on arrival.
+ * own engines, a fresh project that fails to parse would be dead on arrival.
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';

@@ -1,5 +1,5 @@
 /**
- * "Via Size" panel — electrical, thermal and parasitic characteristics of a
+ * "Via Size" panel, electrical, thermal and parasitic characteristics of a
  * plated through-hole via. Counterpart: KiCad `calculator_panels/panel_via_size.cpp`.
  */
 
@@ -13,7 +13,7 @@ function ViaDrawing(): JSX.Element {
     <svg className="calc-svg" width="260" height="240" viewBox="0 0 260 240">
       <circle cx="130" cy="130" r="86" fill="#e8a33d" stroke="#c07f1f" strokeWidth="1.5" />
       <circle cx="130" cy="130" r="70" fill="#3a3d43" stroke="#c07f1f" strokeWidth="1.5" />
-      {/* D — hole diameter, across the top */}
+      {/* D, hole diameter, across the top */}
       <g stroke="#4a86c5" strokeWidth="1.5" fill="none">
         <line x1="60" y1="44" x2="200" y2="44" />
         <path d="M60 44 l8 -4 M60 44 l8 4" />
@@ -24,7 +24,7 @@ function ViaDrawing(): JSX.Element {
       <text x="126" y="38" fill="#e6e6e6" fontSize="14">
         D
       </text>
-      {/* T — plating thickness, on the left edge */}
+      {/* T, plating thickness, on the left edge */}
       <g stroke="#4a86c5" strokeWidth="1.5" fill="none">
         <line x1="30" y1="130" x2="44" y2="130" />
         <line x1="60" y1="130" x2="44" y2="130" />

@@ -1,5 +1,5 @@
 /**
- * Crash reporting — the front door.
+ * Crash reporting, the front door.
  *
  * Without this the team finds out about a launch-day crash loop from Twitter.
  * The point is not analytics; it is knowing that something is broken, for how
@@ -45,7 +45,7 @@ let installed = false;
 /**
  * A random per-browser id, so reports can be grouped into "how many distinct
  * users hit this" without knowing who any of them are. Not tied to the signed-in
- * account — that would make crash reports identifying, which is the thing the
+ * account, that would make crash reports identifying, which is the thing the
  * scrubber exists to prevent.
  */
 export function installId(): string {
@@ -68,7 +68,7 @@ export const reportingActive = (): boolean => installed && reportingEnabled();
 
 /**
  * Start reporting if it is both configured and permitted. Safe to call more
- * than once. With no DSN the app runs exactly as before — the same
+ * than once. With no DSN the app runs exactly as before, the same
  * env-gated-degrades-to-offline shape as Supabase auth and cloud sync.
  */
 export function initTelemetry(sinkImpl: TelemetrySink): void {
@@ -120,7 +120,7 @@ export function captureError(err: unknown, context?: Record<string, string>): vo
 /**
  * Final scrub, applied by the transport immediately before sending. Exposed
  * here so every sink routes through the same rules. Returning null drops the
- * event — which is what a disabled preference must do even for events already
+ * event, which is what a disabled preference must do even for events already
  * queued inside the transport.
  */
 export function prepareEvent(event: ScrubbableEvent): ScrubbableEvent | null {

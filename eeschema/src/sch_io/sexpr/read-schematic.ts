@@ -158,7 +158,7 @@ export function readField(node: SList, invertY = false): SchField {
   if (effects) field.effects = directHide ? { ...effects, hidden: true } : effects;
   else if (directHide) field.effects = { hidden: true };
   if (boolField(node, 'show_name', false)) field.nameShown = true;
-  // `(show_in_chooser yes)` — the field is offered as a Symbol Chooser column
+  // `(show_in_chooser yes)`, the field is offered as a Symbol Chooser column
   // (SCH_FIELD::ShowInChooser / LIB_SYMBOL::cacheChooserFields).
   if (boolField(node, 'show_in_chooser', false)) field.showInChooser = true;
   return field;
@@ -380,7 +380,7 @@ interface InheritedBase {
  * Resolve derived symbols, faithful to KiCad's `LIB_SYMBOL::Flatten()`: the
  * flattened symbol is a copy of its *parent*, so a symbol with `(extends "Parent")`
  * takes the parent's body (units/pins), power flag, and pin name/number visibility
- * and name offset from the parent chain — keeping only its own text properties
+ * and name offset from the parent chain, keeping only its own text properties
  * (Reference/Value/Footprint/…). Parent and child live in the same library, and a
  * parent may itself be derived, so resolution walks the chain to the root.
  */
@@ -464,7 +464,7 @@ function readSymbol(node: SList): SchSymbol {
     };
   }
   if (boolField(node, 'locked', false)) sym.locked = true;
-  // (passthrough default|block|force) — case-insensitive; DEFAULT stays unset.
+  // (passthrough default|block|force), case-insensitive; DEFAULT stays unset.
   const passthroughNode = childNamed(node, 'passthrough');
   const passthrough = passthroughNode ? arg(passthroughNode, 0)?.toLowerCase() : undefined;
   if (passthrough === 'block' || passthrough === 'force') sym.passthrough = passthrough;
@@ -593,7 +593,7 @@ function readSheet(node: SList): SchSheet {
   return sheet;
 }
 
-/** `(bus_entry (at x y) (size dx dy) (stroke ..) (uuid ..))` — SCH_BUS_WIRE_ENTRY. */
+/** `(bus_entry (at x y) (size dx dy) (stroke ..) (uuid ..))`, SCH_BUS_WIRE_ENTRY. */
 function readBusEntry(node: SList): SchBusEntry {
   const { at } = readAt(node);
   const sizeNode = childNamed(node, 'size');
@@ -612,7 +612,7 @@ function readBusEntry(node: SList): SchBusEntry {
   return entry;
 }
 
-/** `(image (at x y) [(scale s)] (data "b64" "b64" ...))` — SCH_BITMAP, centred at `at`. */
+/** `(image (at x y) [(scale s)] (data "b64" "b64" ...))`, SCH_BITMAP, centred at `at`. */
 function readImage(node: SList): SchImage {
   const { at } = readAt(node);
   const dataNode = childNamed(node, 'data');
@@ -635,7 +635,7 @@ function readImage(node: SList): SchImage {
 
 /**
  * `(text_box "content" (at x y angle) (size w h) (margins l t r b)
- *   (stroke ..) (fill ..) (effects ..) (uuid ..))` — SCH_TEXTBOX.
+ *   (stroke ..) (fill ..) (effects ..) (uuid ..))`, SCH_TEXTBOX.
  * `start` = `(at)`, `end` = start + `(size)`. Legacy 6.99 files used bare
  * `(start ..)`/`(end ..)`; both are honored (sch_io_kicad_sexpr_parser.cpp).
  */
@@ -680,7 +680,7 @@ function readTextBox(node: SList): SchTextBox {
   return tb;
 }
 
-/** `(table_cell "text" (at ..)(size ..)(margins ..)(span c r)(fill)(effects)(uuid))` — SCH_TABLECELL. */
+/** `(table_cell "text" (at ..)(size ..)(margins ..)(span c r)(fill)(effects)(uuid))`, SCH_TABLECELL. */
 function readTableCell(node: SList): SchTableCell {
   const { at } = readAt(node);
   const startNode = childNamed(node, 'start');
@@ -718,7 +718,7 @@ function readTableCell(node: SList): SchTableCell {
   return cell;
 }
 
-/** `(table (column_count N)(border ..)(separators ..)(column_widths ..)(row_heights ..)(uuid)(cells ..))` — SCH_TABLE. */
+/** `(table (column_count N)(border ..)(separators ..)(column_widths ..)(row_heights ..)(uuid)(cells ..))`, SCH_TABLE. */
 function readTable(node: SList): SchTable {
   const colCountNode = childNamed(node, 'column_count');
   const widthsNode = childNamed(node, 'column_widths');
@@ -783,7 +783,7 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   return label;
 }
 
-/** `(directive_label …)` / `(netclass_flag …)` — SCH_DIRECTIVE_LABEL. Only the
+/** `(directive_label …)` / `(netclass_flag …)`, SCH_DIRECTIVE_LABEL. Only the
  *  placement and its fields are modelled: ERC's netclass test reads the
  *  "Netclass" field, and the node itself round-trips from `source`. */
 function readDirectiveLabel(node: SList): SchDirectiveLabel {

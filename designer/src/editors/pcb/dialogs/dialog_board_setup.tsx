@@ -1,6 +1,6 @@
 /**
  * Board Setup dialog. Counterpart: `pcbnew/dialogs/dialog_board_setup.cpp`
- * (DIALOG_BOARD_SETUP) — a PAGED_DIALOG whose tree mirrors pcbnew exactly:
+ * (DIALOG_BOARD_SETUP), a PAGED_DIALOG whose tree mirrors pcbnew exactly:
  *   Board Stackup   : Board Editor Layers, Physical Stackup, Board Finish, Solder Mask/Paste
  *   Text & Graphics : Defaults, Formatting, Text Variables
  *   Design Rules    : Constraints, Pre-defined Sizes, Zones, Teardrops,
@@ -11,7 +11,7 @@
  * Uses the shared PagedDialog shell. Board Setup has no "Reset to Defaults"
  * button (aShowReset=false) and an "Import Settings from Another Board..." aux
  * action, at wxSize(980, 600). Live pages: Constraints, Pre-defined Sizes
- * (PANEL_SETUP_TRACKS_AND_VIAS — Tracks / Vias / Differential Pairs), Net Classes
+ * (PANEL_SETUP_TRACKS_AND_VIAS, Tracks / Vias / Differential Pairs), Net Classes
  * (shared PANEL_SETUP_NETCLASSES) and Text Variables (shared PANEL_TEXT_VARIABLES).
  * Values seed from the project's .kicad_pro and commit on OK.
  */
@@ -21,7 +21,7 @@ import { Icon } from '../../../ui/icons.js';
 
 /**
  * KiCad's own dark-theme constraint icons, vendored under assets/constraints
- * (GPL like this project — same pattern as assets/toolbar). Filenames are the
+ * (GPL like this project, same pattern as assets/toolbar). Filenames are the
  * KiCad BITMAPS enum names assigned in panel_setup_constraints.cpp.
  */
 const CON_ICON_URLS = import.meta.glob('../../../assets/constraints/*.svg', {

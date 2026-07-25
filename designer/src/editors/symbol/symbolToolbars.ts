@@ -5,8 +5,8 @@
  * AddScaledSeparator groups. The unit selector combo box sits between its own
  * separators in the top toolbar (rendered by the frame, not this table).
  *
- * Two vertical-toolbar tools are deliberately absent for now — drawSymbolTextBox
- * and drawBezier — because the document model does not yet represent text boxes
+ * Two vertical-toolbar tools are deliberately absent for now, drawSymbolTextBox
+ * and drawBezier, because the document model does not yet represent text boxes
  * or bezier body items; adding a button that draws nothing would be worse than
  * mirroring the rest faithfully.
  */

@@ -1,7 +1,7 @@
 /**
  * Bulk field edit (Symbol Fields Table edit view): bulkEditFieldsCommand sets
- * field values on many symbols in one undoable commit — updating in place,
- * appending missing fields, removing emptied non-mandatory fields — and
+ * field values on many symbols in one undoable commit, updating in place,
+ * appending missing fields, removing emptied non-mandatory fields, and
  * round-trips through the writer.
  */
 import { describe, it, expect } from 'vitest';

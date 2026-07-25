@@ -1,5 +1,5 @@
 /**
- * PCB_TEXT — board text (pcbnew/pcb_text.{h,cpp}). KiCad derives from BOARD_ITEM
+ * PCB_TEXT, board text (pcbnew/pcb_text.{h,cpp}). KiCad derives from BOARD_ITEM
  * and EDA_TEXT; here it extends BOARD_ITEM and composes an EDA_TEXT (m_eda).
  * Rotate/Mirror/Flip mirror pcb_text.cpp:420/432/453.
  */
@@ -46,7 +46,7 @@ export class PCB_TEXT extends BOARD_ITEM {
     this.m_eda.SetTextAngle(this.m_eda.GetTextAngle().add(aAngle).Normalize());
   }
 
-  /** PCB_TEXT::Mirror — position + justification mirror, text unchanged. */
+  /** PCB_TEXT::Mirror, position + justification mirror, text unchanged. */
   Mirror(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     const pos = this.m_eda.GetTextPos();
     if (aFlipDirection === FLIP_DIRECTION.TOP_BOTTOM) {
@@ -60,7 +60,7 @@ export class PCB_TEXT extends BOARD_ITEM {
     }
   }
 
-  /** PCB_TEXT::Flip — mirror + angle change + FlipLayer + toggle mirrored. */
+  /** PCB_TEXT::Flip, mirror + angle change + FlipLayer + toggle mirrored. */
   Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     const pos = this.m_eda.GetTextPos();
     if (aFlipDirection === FLIP_DIRECTION.LEFT_RIGHT) {

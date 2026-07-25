@@ -9,7 +9,7 @@
  * poly-polygon). This is the web-native mirror of that model.
  *
  * Coordinates here are millimetres (doubles), exactly as `DS_DATA_ITEM` keeps
- * them — the drawing sheet is authored in page millimetres, not schematic IU.
+ * them, the drawing sheet is authored in page millimetres, not schematic IU.
  * Each point carries the page **corner** it is anchored to, so one layout adapts
  * across page sizes (A4/A3/US Letter, portrait/landscape) without breaking. The
  * layout resolver (`layout.ts`) turns anchored millimetres into concrete IU page
@@ -118,7 +118,7 @@ export interface WksBitmap extends WksItemBase {
   /** Uniform scale factor (DS_DATA_ITEM_BITMAP::m_ImageBitmap scale). */
   scale: number;
   /**
-   * PNG bytes, base64-encoded — the payload of the `(data "…" "…")` chunks the
+   * PNG bytes, base64-encoded, the payload of the `(data "…" "…")` chunks the
    * current format stores (files ≥ 20230607). Legacy hex `(pngdata (data …))`
    * payloads are converted to base64 on read. Empty = no image (not saved).
    */

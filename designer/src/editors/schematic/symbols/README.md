@@ -2,7 +2,7 @@
 
 Symbol access for the schematic editor.
 
-- `index.ts` — loads the library index for search and fetches/parses a library's
+- `index.ts`, loads the library index for search and fetches/parses a library's
   symbols on demand when one is placed.
 - The actual symbol data lives under `apps/schematic/public/symbols/` as static
   assets: `index.json` (library + symbol names, loaded up front for search) and

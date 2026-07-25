@@ -1,6 +1,6 @@
 /**
  * Hierarchy-wide connectivity. Counterpart: the sheet-crossing half of
- * `eeschema/connection_graph.cpp` — `CONNECTION_GRAPH::propagateToNeighbors`
+ * `eeschema/connection_graph.cpp`, `CONNECTION_GRAPH::propagateToNeighbors`
  * and the sheet bookkeeping around it.
  *
  * Each sheet instance is graphed on its own (computeNetlist gives us that
@@ -9,7 +9,7 @@
  *
  *  - `visit()`: a subgraph carrying a **sheet pin** looks into the child sheet
  *    that pin belongs to for a strongly-driven subgraph carrying a
- *    **hierarchical label** of the same name — that child is a neighbour; a
+ *    **hierarchical label** of the same name, that child is a neighbour; a
  *    subgraph carrying a hierarchical label looks the other way, at the parent
  *    sheet's subgraphs whose sheet pin (on the sheet symbol we came through)
  *    has the same name.
@@ -63,7 +63,7 @@ export interface HierarchyNetlist {
   /** Each sheet instance's netlist, with hierarchical names propagated. */
   bySheet: Map<string, Netlist>;
   /**
-   * Each sheet instance's human-readable path — the prefix its sheet-local net
+   * Each sheet instance's human-readable path, the prefix its sheet-local net
    * names carry. Anything that re-graphs a single sheet (ERC) must pass the same
    * path so the two agree on net names.
    */
@@ -104,7 +104,7 @@ export function humanReadablePaths(sheets: readonly HierSheet[]): Map<string, st
     const parentPath = parentPathOf(path) ?? '/';
     const parent = byPath.get(parentPath);
     const uuid = lastSheetOf(path);
-    // The sheet symbol in the parent that opens this instance — matched the way
+    // The sheet symbol in the parent that opens this instance, matched the way
     // childPathOf builds the path (uuid, or the index when the sheet has none).
     const symbol = parent?.doc.sheets.find((sh, i) => (sh.uuid || `i${i}`) === uuid);
     const name = symbol ? escapeNetName(sheetName(symbol)) : '';
@@ -220,7 +220,7 @@ export function computeHierarchyNetlist(
           }
         }
 
-        // Up: each hierarchical label answers a sheet pin one level up — on the
+        // Up: each hierarchical label answers a sheet pin one level up, on the
         // very sheet symbol this instance path came through.
         if ((parent.graph.hierPorts.get(parent.code) ?? []).length > 0) {
           const upPath = parentPathOf(parent.graph.sheet.path);
@@ -292,7 +292,7 @@ export function computeHierarchyNetlist(
         }
       }
 
-      // Every subgraph of the chain takes the winning *connection* — both
+      // Every subgraph of the chain takes the winning *connection*, both
       // spellings of its name, as upstream copies the whole SCH_CONNECTION.
       const bestLocalName = netOf(bestDriver).localName;
       for (const sg of visited.values()) {
@@ -315,7 +315,7 @@ export function computeHierarchyNetlist(
 /**
  * `propagate_bus_neighbors` across the hierarchy: a bus-shaped sheet pin and
  * the child sheet's bus port of the same name are one bus, and the bus member
- * connections travel with it — so the child's member nets take the parent's
+ * connections travel with it, so the child's member nets take the parent's
  * member names. Members are matched by **vector index** for a bus vector (the
  * names are allowed to differ) and by **name** inside a bus group, exactly as
  * CONNECTION_GRAPH::matchBusMember does.
@@ -402,7 +402,7 @@ function propagateBuses(graphs: Map<string, SheetGraph>): void {
       }
 
       // The chain's driver: the shallowest sheet's bus wins, then the
-      // alphabetically lower name — the non-bus rules reduced to what a bus
+      // alphabetically lower name, the non-bus rules reduced to what a bus
       // subgraph can carry (a bus is never driven by a power pin).
       let best = start;
       for (const b of visited.values()) {

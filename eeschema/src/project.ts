@@ -1,7 +1,7 @@
 /**
  * Multi-sheet project helpers, mirroring KiCad's SCH_SHEET_LIST hierarchy walk:
  * the root schematic references sub-sheets through their "Sheetfile" field, each
- * of which is another .kicad_sch document. Files are keyed by basename — KiCad
+ * of which is another .kicad_sch document. Files are keyed by basename, KiCad
  * projects normally keep all sheets beside the .kicad_pro, and relative paths
  * resolve to the same basename.
  */
@@ -26,7 +26,7 @@ export interface SheetTreeNode {
   /** Display name: the Sheetname field, or the file for the root. */
   name: string;
   /**
-   * Unique instance path — KiCad's SCH_SHEET_PATH (KIID_PATH): the chain of
+   * Unique instance path, KiCad's SCH_SHEET_PATH (KIID_PATH): the chain of
    * sheet-symbol UUIDs from the root ("/", then "/<uuid>/", "/<uuid>/<uuid>/"…).
    * A file used by several sheet instances (a *complex* hierarchy) appears once
    * per instance with a distinct path, so navigation/highlight can tell them

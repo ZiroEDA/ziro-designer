@@ -1,5 +1,5 @@
 /**
- * The Drawing Sheet Editor canvas — `pl_editor`'s PL_DRAW_PANEL_GAL plus its
+ * The Drawing Sheet Editor canvas, `pl_editor`'s PL_DRAW_PANEL_GAL plus its
  * interactive tools in Canvas 2D. It shows the page as white stationery on the
  * desk, paints the resolved drawing-sheet primitives (wksRender), and drives
  * the tool interactions the way the upstream tools do:

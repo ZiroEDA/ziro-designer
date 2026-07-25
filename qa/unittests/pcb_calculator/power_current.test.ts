@@ -46,7 +46,7 @@ describe('track width (IPC-2221)', () => {
 });
 
 describe('via size', () => {
-  // KiCad panel defaults — results must match its displayed values.
+  // KiCad panel defaults, results must match its displayed values.
   const base = {
     holeDiaM: 0.4e-3,
     platingM: 0.035e-3,

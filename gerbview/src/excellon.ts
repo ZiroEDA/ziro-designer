@@ -214,7 +214,7 @@ export function parseExcellon(text: string, fileName: string): GERBER_FILE_IMAGE
   return img;
 
   function handleCoordLine(line: string): void {
-    // A G85 slot: "X..Y..G85X..Y.." — two coordinate pairs.
+    // A G85 slot: "X..Y..G85X..Y..", two coordinate pairs.
     const slot = line.split('G85');
     const first = parseXY(slot[0]!);
     const start: Vec2 = {

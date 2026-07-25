@@ -53,7 +53,7 @@ export enum GERB_INTERPOL {
   ARC_G03_CCW = 'arc_ccw',
 }
 
-/** Image justification (IJ command) — rarely used but part of RS-274X. */
+/** Image justification (IJ command), rarely used but part of RS-274X. */
 export enum IMAGE_JUSTIFY {
   NO_JUSTIFY = 0,
   CENTER = 1,

@@ -161,7 +161,7 @@ export class ApertureMacro {
 
   /**
    * Resolve the macro into renderable shapes. `callParams` are the numeric
-   * arguments from the D-code (already scaled to IU where they are lengths —
+   * arguments from the D-code (already scaled to IU where they are lengths,
    * we instead scale here using `iuScale`, matching KiCad which keeps macro
    * modifiers in file units and scales at build time). `iuScale` converts a
    * macro length (in the file unit) to IU.

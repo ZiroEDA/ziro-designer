@@ -4,7 +4,7 @@
  * (size, orientation, custom size, export checkbox) over a page preview.
  * Right column: Drawing Sheet file, the sheet tallies, and the Title Block
  * Parameters (issue date with "<<<" picker apply, revision, title, company,
- * nine comment lines) — each with its own "Export to other sheets" checkbox
+ * nine comment lines), each with its own "Export to other sheets" checkbox
  * that copies the field to every other sheet on OK, like upstream.
  */
 
@@ -137,7 +137,7 @@ export function DialogPageSettings({
 
   // Live preview: render the real drawing sheet with the current title-block
   // fields, the way KiCad's DIALOG_PAGES_SETTINGS::UpdateDrawingSheetExample
-  // paints m_PageLayoutExampleBitmap with PrintDrawingSheet — so every field,
+  // paints m_PageLayoutExampleBitmap with PrintDrawingSheet, so every field,
   // comments included, is shown in the actual stroke font instead of a static
   // outline that dropped them.
   const previewRef = useRef<HTMLCanvasElement>(null);

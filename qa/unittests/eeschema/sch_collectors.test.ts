@@ -38,7 +38,7 @@ describe('collectAndGuess', () => {
   });
 
   it('a plain crossing resolves to one wire (the other has area elsewhere)', () => {
-    // The tight box around the closest wire excludes the crossing wire —
+    // The tight box around the closest wire excludes the crossing wire,
     // it has plenty of clickable area elsewhere (upstream drops it too).
     const crossing = addItems({
       lines: [makeWire(at(0, 0), at(20, 0)), makeWire(at(10, -10), at(10, 10))],
@@ -49,7 +49,7 @@ describe('collectAndGuess', () => {
   it("a small item inside the closest item's tight box stays ambiguous", () => {
     // A no-connect flag sitting inside a text box: clicking between the two
     // centres hits both exactly, the text box wins the distance race, and the
-    // flag survives the tight-box trim — Clarify menu with 2 rows.
+    // flag survives the tight-box trim, Clarify menu with 2 rows.
     const base = EMPTY();
     const sch = {
       ...base,

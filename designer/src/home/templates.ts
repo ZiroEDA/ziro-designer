@@ -1,11 +1,11 @@
 /**
- * Project templates — KiCad's "New Project from Template" (project_template.cpp,
+ * Project templates, KiCad's "New Project from Template" (project_template.cpp,
  * kicad_manager_control.cpp). A template is a folder with a .kicad_pro/sch/pcb,
  * footprint libs, and meta/info.html (title + description) + meta/icon.png. We
  * bundle KiCad's standard templates under /templates and describe them in
  * /templates/index.json (built by scripts). Creating a project copies the files
- * and renames those named after the template to the new project name — exactly
- * like PROJECT_TEMPLATE::CreateProject — except drawing sheets and libraries,
+ * and renames those named after the template to the new project name, exactly
+ * like PROJECT_TEMPLATE::CreateProject, except drawing sheets and libraries,
  * which stay put so their references don't break.
  */
 import type { PickedHomeFile } from './files.js';
@@ -21,7 +21,7 @@ export interface TemplateMeta {
 
 const dec = new TextDecoder();
 
-/** Load the bundled template manifest (empty on failure — feature just hides). */
+/** Load the bundled template manifest (empty on failure, feature just hides). */
 export async function loadTemplates(): Promise<TemplateMeta[]> {
   try {
     const res = await fetch('/templates/index.json');
@@ -66,7 +66,7 @@ const encodeRel = (rel: string): string => rel.split('/').map(encodeURIComponent
 /**
  * Build a new project's files from a template: fetch each file, rename it, and
  * nest everything under a folder named for the project (mirrors KiCad's copy).
- * Contents are copied verbatim, like KiCad — only names change.
+ * Contents are copied verbatim, like KiCad, only names change.
  */
 export async function createFromTemplate(
   t: TemplateMeta,

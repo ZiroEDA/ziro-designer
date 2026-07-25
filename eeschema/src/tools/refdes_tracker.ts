@@ -1,6 +1,6 @@
 /**
  * Reference-designator tracker. Counterpart: `eeschema/refdes_tracker.cpp`
- * (REFDES_TRACKER) — remembers every designator ever assigned so that, with
+ * (REFDES_TRACKER), remembers every designator ever assigned so that, with
  * "reuse designators" off, annotation never re-issues a freed number. The
  * state persists as `schematic.used_designators` in the project file via
  * Serialize/Deserialize (compact `R1-R4,R7,U1` ranges with `\`-escaping of
@@ -35,7 +35,7 @@ export class RefDesTracker {
     return [refDes.slice(0, pos), Number.parseInt(refDes.slice(pos), 10)];
   }
 
-  /** REFDES_TRACKER::Insert — false when already present. */
+  /** REFDES_TRACKER::Insert, false when already present. */
   insert(refDes: string): boolean {
     if (this.allRefDes.has(refDes)) return false;
     const [prefix, number] = this.parseRefDes(refDes);
@@ -119,7 +119,7 @@ export class RefDesTracker {
     return result;
   }
 
-  /** REFDES_TRACKER::Serialize — sorted prefixes (std::map order), each with
+  /** REFDES_TRACKER::Serialize, sorted prefixes (std::map order), each with
    *  its consecutive numbers collapsed to `start-end` ranges, prefix-only
    *  entries last per prefix. */
   serialize(): string {
@@ -154,7 +154,7 @@ export class RefDesTracker {
     return parts.join(',');
   }
 
-  /** REFDES_TRACKER::Deserialize — malformed input clears and returns false,
+  /** REFDES_TRACKER::Deserialize, malformed input clears and returns false,
    *  never throws. The prefix regexes anchor on the final non-digit before
    *  the trailing digit run, so prefixes may embed digits (e.g. "U1U2"). */
   deserialize(data: string): boolean {

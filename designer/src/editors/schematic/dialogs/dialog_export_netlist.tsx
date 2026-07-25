@@ -1,6 +1,6 @@
 /**
  * Export Netlist dialog. Counterpart: `eeschema/dialogs/dialog_export_netlist.cpp`
- * (DIALOG_EXPORT_NETLIST) — a notebook with one page per exporter. We ship the
+ * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter. We ship the
  * two built-in formats KiCad generates natively (KiCad generic XML and
  * OrcadPCB2); each page has an Export Netlist button that downloads the file.
  * (Custom command-line generators are a desktop-only feature and omitted.)

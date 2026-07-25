@@ -53,7 +53,7 @@ describe('analyzePoint (JUNCTION_HELPERS::AnalyzePoint)', () => {
   });
 
   it('stacked collinear wire ends are one exit direction, not a junction', () => {
-    // Three wire ends meet at (10,0) but only two distinct directions leave it —
+    // Three wire ends meet at (10,0) but only two distinct directions leave it,
     // the old end-count rule called this a junction; AnalyzePoint does not.
     const sch = addItems({
       lines: [
@@ -83,7 +83,7 @@ describe('analyzePoint (JUNCTION_HELPERS::AnalyzePoint)', () => {
 
   it('bus entries suppress the dot unless the root feeds several wires', () => {
     // A wire ENDING at the entry root: one wire + the entry = two wire exits,
-    // one bus exit — no explicit junction (the entry itself is the joint).
+    // one bus exit, no explicit junction (the entry itself is the joint).
     const base = addItems({ lines: [makeWire(at(0, 0), at(10, 0))] }).apply(EMPTY());
     const entry = {
       ...base,
@@ -95,7 +95,7 @@ describe('analyzePoint (JUNCTION_HELPERS::AnalyzePoint)', () => {
     expect(info.hasBusEntry).toBe(true);
     expect(info.hasBusEntryToMultipleWires).toBe(false);
     expect(isExplicitJunction(entry, undefined, at(10, 0))).toBe(false);
-    // The root tapping the MIDDLE of a wire feeds both directions — that is
+    // The root tapping the MIDDLE of a wire feeds both directions, that is
     // "bus entry to multiple wires" and the dot is legitimate.
     const tapped = {
       ...entry,
@@ -128,7 +128,7 @@ describe('cleanup keeps legitimate junctions (SCH_SCREEN::IsExplicitJunction)', 
       junctions: [makeJunction(at(10, 0))],
     }).apply(doc);
     expect(mergeColinearWires(sch, libById).junctions.length).toBe(1);
-    // The old wire-only rule (no libById) still deletes it — the fix needs pins.
+    // The old wire-only rule (no libById) still deletes it, the fix needs pins.
     expect(mergeColinearWires(sch).junctions.length).toBe(0);
   });
 
@@ -160,7 +160,7 @@ describe('finishWires junctions', () => {
 describe('isExplicitJunctionAllowed (SCH_SCREEN::IsExplicitJunctionAllowed)', () => {
   it('offers a dot where two wires cross, and refuses one mid-wire', () => {
     // Crossing wires: allowed (the analysis breaks crossings), even though no
-    // dot is *needed* there — this is what the junction tool checks.
+    // dot is *needed* there, this is what the junction tool checks.
     const cross = addItems({
       lines: [makeWire(at(0, 0), at(20, 0)), makeWire(at(10, -10), at(10, 10))],
     }).apply(EMPTY());

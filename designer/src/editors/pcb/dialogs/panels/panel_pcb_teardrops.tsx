@@ -1,6 +1,6 @@
 /**
  * Board Setup > Design Rules > Teardrops. Counterpart:
- * `pcbnew/dialogs/panel_setup_teardrops_base.cpp` (PANEL_SETUP_TEARDROPS) — three
+ * `pcbnew/dialogs/panel_setup_teardrops_base.cpp` (PANEL_SETUP_TEARDROPS), three
  * groups stacked vertically (Round Shapes, Rectangular Shapes, Track-to-Track),
  * each an illustration + two field columns: Best/Maximum length & width and
  * Curved edges on the left; span / prefer-zone / track-width-limit on the right.

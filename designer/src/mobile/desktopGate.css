@@ -1,10 +1,10 @@
 /* Desktop-only wall shown on small touch devices. Self-contained: it renders
    instead of the app, so shell.css (and its :root theme vars) is never loaded
-   here — the KiCad dark-chrome colours are repeated literally below. */
+   here, the KiCad dark-chrome colours are repeated literally below. */
 
 .ze-gate {
   /* index.html pins html/body/#root to height:100%, so the page itself never
-     scrolls — the gate has to be its own scroll container or a short landscape
+     scrolls, the gate has to be its own scroll container or a short landscape
      phone would clip the card with no way to reach the rest. Centring is done
      with `margin:auto` on the card rather than `align-items:center`, which
      would make the overflowing top edge unscrollable. */

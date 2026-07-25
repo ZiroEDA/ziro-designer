@@ -1,5 +1,5 @@
 /**
- * The KiCad (s-expression) netlist NETLIST_EXPORTER_KICAD writes and pcbnew reads —
+ * The KiCad (s-expression) netlist NETLIST_EXPORTER_KICAD writes and pcbnew reads,
  * the schematic half of "Update PCB from Schematic". The round trip through
  * loadKicadNetlist is the real assertion: whatever the exporter emits, the board's
  * parser has to see the same components, pads and nets.
@@ -44,7 +44,7 @@ const capacitor = (ref: string, x: number, y: number, uuid: string): string =>
 
 // R1 pin 2 sits at y=103.81 and R2 pin 1 at y=106.19; a wire between exactly those
 // points joins them, and a local label at the wire's end names the result. (A label
-// in the middle of a single wire does not attach — upstream only enforces that when
+// in the middle of a single wire does not attach, upstream only enforces that when
 // two or more lines overlap the label position, see updateItemConnectivity.)
 const doc = readSchematic(
   parse(`(kicad_sch (version 20230121) (generator eeschema)

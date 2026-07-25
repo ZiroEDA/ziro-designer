@@ -2,7 +2,7 @@
   "name": "ziro-designer",
   "version": "0.0.0",
   "private": true,
-  "description": "Ziro Designer — the browser-native, open-source electronics design suite from ZiroEDA.",
+  "description": "Ziro Designer, the browser-native, open-source electronics design suite from ZiroEDA.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {

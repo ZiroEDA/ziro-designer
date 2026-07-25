@@ -2,9 +2,9 @@
  * 3D board viewer on three.js.
  *
  * The board is real geometry (KiCad create_scene.cpp approach): the Edge.Cuts
- * outline extruded to thickness, with each layer — FR4 body, copper (faint under
+ * outline extruded to thickness, with each layer, FR4 body, copper (faint under
  * the mask), soldermask (translucent), exposed copper (gold), silkscreen, and
- * plated hole barrels — as its own triangle mesh stacked just off the face. All
+ * plated hole barrels, as its own triangle mesh stacked just off the face. All
  * geometry comes from boardGeom.ts/boardOutline.ts (see buildBoardGeom); this
  * file only turns those meshes into three.js meshes + materials, lights, and a
  * KiCad-style trackball camera. Component 3D models are added on top of this.
@@ -241,7 +241,7 @@ export function mount3DViewer(
 
   const scene = new THREE.Scene();
   // A soft indoor environment so the PBR metals (copper/gold) catch light
-  // instead of reflecting black — but keep it subtle so it doesn't wash the
+  // instead of reflecting black, but keep it subtle so it doesn't wash the
   // board out (the env alone at full strength made it pale).
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -321,7 +321,7 @@ export function mount3DViewer(
   controls.rotateSpeed = 3.2;
   controls.zoomSpeed = 1.3;
   controls.panSpeed = 0.8;
-  controls.staticMoving = true; // no inertia — precise, KiCad-like
+  controls.staticMoving = true; // no inertia, precise, KiCad-like
   controls.minDistance = half * 0.4;
   controls.maxDistance = half * 20;
   controls.target.set(0, 0, 0);

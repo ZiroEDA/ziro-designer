@@ -1,6 +1,6 @@
 /**
  * Violation Severity panel. Counterpart: `common/dialogs/panel_setup_severities.cpp`
- * (PANEL_SETUP_SEVERITIES) as used by the Schematic Setup dialog — one row per
+ * (PANEL_SETUP_SEVERITIES) as used by the Schematic Setup dialog, one row per
  * ERC rule with an Error / Warning / Ignore choice. The chosen severities feed
  * straight into runErc.
  */

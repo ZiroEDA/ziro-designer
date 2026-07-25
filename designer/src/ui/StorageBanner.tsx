@@ -16,23 +16,23 @@ function explain(status: StorageStatus): { title: string; detail: string } {
   switch (failure) {
     case 'quota':
       return {
-        title: "Your browser's storage is full — edits are no longer being saved.",
+        title: "Your browser's storage is full, edits are no longer being saved.",
         detail: `Using ${fmtMB(status.usage)} of ${fmtMB(status.quota)}. Download your project, then delete old projects from the home screen to free space.`,
       };
     case 'blocked':
       return {
-        title: 'This browser is blocking site storage — edits are not being saved.',
+        title: 'This browser is blocking site storage, edits are not being saved.',
         detail:
           'Allow site data for this page, or download your project before closing the tab. Private-browsing windows often discard storage.',
       };
     case 'unsupported':
       return {
-        title: 'This browser has no local storage — edits are not being saved.',
+        title: 'This browser has no local storage, edits are not being saved.',
         detail: 'Download your project before closing the tab, or switch to a current browser.',
       };
     default:
       return {
-        title: 'Saving failed — recent edits are not being stored.',
+        title: 'Saving failed, recent edits are not being stored.',
         detail: 'Download your project before closing the tab so nothing is lost.',
       };
   }
@@ -44,7 +44,7 @@ function explain(status: StorageStatus): { title: string; detail: string } {
  * Silent failure is the dangerous case: without this, a user edits happily for
  * an hour and only discovers on reload that none of it persisted. So this is
  * loud, sits above every view, and cannot be dismissed while storage is broken
- * — each further edit is more work at risk. Its one action is the one that
+ * - each further edit is more work at risk. Its one action is the one that
  * actually helps: get the project onto the user's disk.
  */
 export function StorageBanner(): JSX.Element | null {
@@ -53,7 +53,7 @@ export function StorageBanner(): JSX.Element | null {
 
   useEffect(() => subscribeStorageHealth(setStatus), []);
   // Storage recovering (space freed, permission granted) makes a prior download
-  // offer stale — reset so a later failure shows a live button again.
+  // offer stale, reset so a later failure shows a live button again.
   useEffect(() => {
     if (status.ok) setSaved(false);
   }, [status.ok]);

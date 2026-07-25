@@ -1,5 +1,5 @@
 /**
- * KIID::FromName — the deterministic name -> UUID mapping the netlist reader uses
+ * KIID::FromName, the deterministic name -> UUID mapping the netlist reader uses
  * to turn a group's instance path into a stable board-group UUID. Checked against
  * Node's SHA-1, so the port cannot drift from RFC 4122 §4.3 (and so from boost's
  * name_generator_sha1, which is what upstream uses).

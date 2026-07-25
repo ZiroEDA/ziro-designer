@@ -1,5 +1,5 @@
 /**
- * "Fusing Current" panel — copper track fuse designer. Pick the unknown
+ * "Fusing Current" panel, copper track fuse designer. Pick the unknown
  * (width, thickness, current or time to fuse) with the radio, fill the rest,
  * and Calculate. Counterpart: KiCad `calculator_panels/panel_fusing_current.cpp`.
  */
@@ -194,7 +194,7 @@ export function PanelFusingCurrent(): JSX.Element {
       <fieldset className="calc-group" style={{ marginTop: 14 }}>
         <legend>Help</legend>
         <div className="calc-note" style={{ lineHeight: 1.6 }}>
-          Checks whether a small track can carry a large current for a short time — a track-fuse
+          Checks whether a small track can carry a large current for a short time, a track-fuse
           design aid, to be used only as an estimate. The model compares the energy needed to heat
           the copper to its melting point (plus the latent heat of fusion) against the energy the
           track dissipates as I²R over the fuse time. Copper only.

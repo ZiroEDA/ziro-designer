@@ -1,5 +1,5 @@
 /**
- * @ziroeda/gerbview — the Gerber/Excellon viewer engine, ported from KiCad's
+ * @ziroeda/gerbview, the Gerber/Excellon viewer engine, ported from KiCad's
  * `gerbview/`. Parses RS-274X Gerber and Excellon drill files into a typed
  * item model (GERBER_DRAW_ITEM) grouped into images (GERBER_FILE_IMAGE) and a
  * layout (GBR_LAYOUT), ready for a Canvas 2D renderer in the app.

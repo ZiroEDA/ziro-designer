@@ -1,6 +1,6 @@
 /**
  * Project ingestion walking: directory-handle recursion, dropped-entry
- * recursion (batched readEntries), depth limits, and unreadable-file skips —
+ * recursion (batched readEntries), depth limits, and unreadable-file skips,
  * exercised with structural fakes for the browser APIs.
  */
 import { describe, it, expect } from 'vitest';

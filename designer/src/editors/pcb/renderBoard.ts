@@ -90,10 +90,10 @@ export interface PcbDrawOptions {
   contrastMode: 'normal' | 'dim' | 'hide';
   /** The active layer, exempt from contrast dimming. */
   activeLayer?: string;
-  /** Paint every layer in this color — the net-color overlay pass
+  /** Paint every layer in this color, the net-color overlay pass
    *  (net colors mode "All": copper items tinted with their net's color). */
   colorOverride?: string;
-  /** Print's drill-marks mode: 'none' hides holes ('small' renders as real —
+  /** Print's drill-marks mode: 'none' hides holes ('small' renders as real,
    *  hole geometry is pre-baked in the scene). Default: real. */
   drillMarks?: 'none' | 'small' | 'real';
   /** Color theme override (COLOR_SETTINGS): the print dialog's "Use a
@@ -158,7 +158,7 @@ export interface BoardScene {
   /** Pad number/name glyphs (thickness → strokes), drawn over the pads in a
    *  contrasting color (KiCad's LAYER_PAD numbers). */
   padText: Map<number, Path2D>;
-  /** Every hole redrawn at the SMALL_DRILL cap (0.35 mm) — print's
+  /** Every hole redrawn at the SMALL_DRILL cap (0.35 mm), print's
    *  "Drill marks: Small mark" (pcbplot.h SMALL_DRILL). */
   holesSmall: Path2D;
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
@@ -346,7 +346,7 @@ function addPadShape(path: Path2D, pad: PcbPad): void {
 }
 
 /**
- * The pad outline inflated by `clr` — the pad-clearance outline KiCad strokes
+ * The pad outline inflated by `clr`, the pad-clearance outline KiCad strokes
  * in the copper color (pcb_painter.cpp draw(PAD) clearance layer): a circle of
  * radius+clr for round pads, otherwise the shape offset outward by clr (which
  * rounds the corners with radius clr).
@@ -494,7 +494,7 @@ function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
   const offX = hAlign === 'left' ? 0 : hAlign === 'right' ? -width : -width / 2;
   const offY = vAlign === 'top' ? size : vAlign === 'bottom' ? 0 : size / 2;
   // PCB_TEXT::GetDrawRotation: footprint text keeps its angle in ]-90°, 90°] so
-  // it stays readable — e.g. a 270° "POWER" field draws at 90°, not upside-down.
+  // it stays readable, e.g. a 270° "POWER" field draws at 90°, not upside-down.
   let drawAngle = t.angle;
   if (t.keepUpright) {
     while (drawAngle > 90) drawAngle -= 180;
@@ -547,7 +547,7 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
 
   const round = pad.shape === 'circle' || pad.shape === 'oval';
   // KiCad works from the pad's AXIS-ALIGNED bounding box (GetBoundingBox), not
-  // the rotated pad frame, and draws with ANGLE_HORIZONTAL — so labels are
+  // the rotated pad frame, and draws with ANGLE_HORIZONTAL, so labels are
   // always upright regardless of pad rotation; only a portrait bbox turns the
   // text -90° to run down the long axis.
   const rot = ((pad.angle ?? 0) * Math.PI) / 180;
@@ -1092,7 +1092,7 @@ export function drawDrawingSheet(
 
 // ----- grid (GAL DrawGrid) ---------------------------------------------------
 
-/** Grid render options — the GAL DOTS grid with KiCad's pcbnew defaults. */
+/** Grid render options, the GAL DOTS grid with KiCad's pcbnew defaults. */
 export interface PcbGridOptions {
   /** Grid spacing in IU (world units). pcbnew default grid = 0.5 mm. */
   size: number;
@@ -1258,7 +1258,7 @@ export function buildDrawSteps(
     if (b.hasZones) {
       ctx.globalAlpha = opts.zoneOpacity * la;
       if (opts.zoneOutline) {
-        // PCB_ACTIONS::zoneDisplayOutline — sketch the fill outlines.
+        // PCB_ACTIONS::zoneDisplayOutline, sketch the fill outlines.
         ctx.strokeStyle = color;
         ctx.lineWidth = 0.05 * MM;
         ctx.stroke(b.zones);
@@ -1268,7 +1268,7 @@ export function buildDrawSteps(
       }
     }
     // Zone boundary border: full opacity (color.WithAlpha(1.0)), min-pen width
-    // (m_outlineWidth = 1 IU), drawn over the fill — the outline KiCad always
+    // (m_outlineWidth = 1 IU), drawn over the fill, the outline KiCad always
     // shows around a filled zone.
     if (b.hasZoneOutlines) {
       ctx.globalAlpha = la;
@@ -1450,7 +1450,7 @@ const MARKER_SCALING_FACTOR = 0.1625 * MM;
 export interface DrcMarkerDraw {
   pos: { x: number; y: number };
   severity: 'error' | 'warning' | 'exclusion';
-  /** Brightened/selected — repaints in LAYER_DRC_HIGHLIGHTED on top with the
+  /** Brightened/selected, repaints in LAYER_DRC_HIGHLIGHTED on top with the
    *  collision 'X' (LAYER_DRC_SHAPES), like the dialog's active violation. */
   active?: boolean;
 }
@@ -1462,7 +1462,7 @@ export interface DrcMarkerDraw {
  * worldScale = screenDPI · worldUnitLength · zoomFactor
  * (graphics_abstraction_layer.h) with worldUnitLength = 1 nm in inches
  * (1e-9 / 0.0254) and worldScale our view.scale in device px per IU
- * (1 IU = 100 nm); screenDPI is the monitor's — 96 CSS px/inch · dpr here.
+ * (1 IU = 100 nm); screenDPI is the monitor's, 96 CSS px/inch · dpr here.
  */
 const markerScaleIU = (view: PcbViewTransform, dpr: number): number => {
   const zoom = (view.scale * MM * 25.4) / (96 * dpr);
@@ -1479,7 +1479,7 @@ const withAlpha = (color: string, a: number): string => {
  * GAL layer order (pcb_draw_panel_gal.cpp, top-first: DRC_HIGHLIGHTED,
  * DRC_ERROR, DRC_WARNING, DRC_EXCLUSION, MARKER_SHADOWS): every marker's
  * shadow first, then exclusion fills, warning fills, error fills, and the
- * active marker last — repainted in the highlighted color with its
+ * active marker last, repainted in the highlighted color with its
  * LAYER_DRC_SHAPES collision 'X' (PCB_MARKER::GetShapes when the path is
  * degenerate). The shadow is a stroked outline in the background color at
  * alpha 0.6 (PCB_RENDER_SETTINGS::GetColor LAYER_MARKER_SHADOWS) with line

@@ -7,7 +7,7 @@
  *
  * The file-history side (KiCad's FILE_HISTORY, surfaced as File → Open Recent)
  * has no path-based equivalent in a browser, so recent images are kept as data
- * URLs — same pattern as the Drawing Sheet Editor's recent files.
+ * URLs, same pattern as the Drawing Sheet Editor's recent files.
  */
 
 export interface Bitmap2CmpSettings {
@@ -50,7 +50,7 @@ export function saveBitmap2CmpSettings(s: Bitmap2CmpSettings): void {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
   } catch {
-    /* private mode — settings simply don't persist */
+    /* private mode, settings simply don't persist */
   }
 }
 
@@ -80,7 +80,7 @@ export function saveRecentImages(list: RecentImage[]): void {
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
   } catch {
-    /* quota exceeded — drop the history rather than the session */
+    /* quota exceeded, drop the history rather than the session */
   }
 }
 

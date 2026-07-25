@@ -1,6 +1,6 @@
 /* Crash screen and storage-failure banner. Self-contained: the boundary
    replaces the app when it fires, so shell.css and its :root vars may never
-   have loaded — the KiCad dark-chrome colours are repeated literally. */
+   have loaded, the KiCad dark-chrome colours are repeated literally. */
 
 .ze-crash {
   height: 100%;

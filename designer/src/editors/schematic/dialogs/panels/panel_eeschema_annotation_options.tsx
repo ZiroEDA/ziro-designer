@@ -1,7 +1,7 @@
 /**
  * Schematic Setup > Annotation. Counterpart:
  * `eeschema/dialogs/panel_eeschema_annotation_options_base.cpp`
- * (PANEL_EESCHEMA_ANNOTATION_OPTIONS) — the annotation defaults, laid out as
+ * (PANEL_EESCHEMA_ANNOTATION_OPTIONS), the annotation defaults, laid out as
  * three underlined sections in a single left column:
  *   Units     : Symbol unit notation dropdown.
  *   Order     : sort symbols by X or Y position (mutually exclusive).

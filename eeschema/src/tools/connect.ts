@@ -11,7 +11,7 @@
  * connection point is a symbol pin or a junction rather than another wire: since
  * those can't stretch, it inserts a brand-new zero-length wire there (`makeNewWire`,
  * flagged `SELECTED_BY_DRAG | STARTPOINT`) with one end anchored at the fixed pin
- * and the other end following the drag — the rubber-band stub that keeps a moved
+ * and the other end following the drag, the rubber-band stub that keeps a moved
  * wire (or symbol) attached to a fixed pin instead of pulling free of it.
  */
 
@@ -135,7 +135,7 @@ export function planMove(
 
   // An unselected junction at a moved point isolates the drag there: the
   // neighbour wires stay put and only a stub to the junction is made
-  // (ptHasUnselectedJunction — the SCH_LINE_T branch breaks early).
+  // (ptHasUnselectedJunction, the SCH_LINE_T branch breaks early).
   const junctionPts = new Set<string>();
   sch.junctions.forEach((j, i) => {
     if (ids.has(refId('junction', j.uuid, i))) return;
@@ -154,7 +154,7 @@ export function planMove(
 
   // Fixed (unselected) symbol pins, junctions and sheet pins at a moved point
   // each get one rubber-band stub (KiCad: `if (test->IsConnected(aPoint) &&
-  // !newWire)` — a single new wire per point, regardless of how many fixed
+  // !newWire)`, a single new wire per point, regardless of how many fixed
   // items touch it there).
   const fixedPoints = new Set<string>(junctionPts);
   sch.symbols.forEach((s, i) => {

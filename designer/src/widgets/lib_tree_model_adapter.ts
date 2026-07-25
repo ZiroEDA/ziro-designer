@@ -36,9 +36,9 @@ export class LibTreeModelAdapter {
   private filter: LibTreeNodeFilter | null = null;
   private searchString = '';
   private preselect: { libId: string; unit: number } | null = null;
-  /** m_shownColumns — ordered, "Item" always first (loadColumnConfig). */
+  /** m_shownColumns, ordered, "Item" always first (loadColumnConfig). */
   private shownColumns: string[] = [...LIB_TREE_COLUMNS];
-  /** m_availableColumns — grows as items contribute chooser fields. */
+  /** m_availableColumns, grows as items contribute chooser fields. */
   private availableColumns: string[] = [...LIB_TREE_COLUMNS];
   /** Details-pane HTML for a node (SYMBOL_TREE_MODEL_ADAPTER::GenerateInfo). */
   generateInfo: (node: LibTreeNode) => string = () => '';
@@ -79,7 +79,7 @@ export class LibTreeModelAdapter {
     for (const lib of this.tree.children) lib.assignIntrinsicRanks(false, this.shownColumns);
   }
 
-  /** addColumnIfNecessary — a field a symbol wants shown in the chooser
+  /** addColumnIfNecessary, a field a symbol wants shown in the chooser
    *  becomes an available column the moment the first symbol offers it. */
   addColumnIfNecessary(header: string): void {
     if (!this.availableColumns.includes(header)) this.availableColumns.push(header);
@@ -119,7 +119,7 @@ export class LibTreeModelAdapter {
   }
 
   /**
-   * LIB_TREE_MODEL_ADAPTER::UpdateSearchString — tokenise the query, score
+   * LIB_TREE_MODEL_ADAPTER::UpdateSearchString, tokenise the query, score
    * every node, resort, and pick the node to select (showResults): an exact
    * match outranks any score, otherwise the higher score wins. With no query,
    * fall back to the preselect node.

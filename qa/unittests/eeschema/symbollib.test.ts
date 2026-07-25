@@ -30,7 +30,7 @@ describe('readSymbolLib (a real Device:R .kicad_sym)', () => {
     expect(rect && rect.kind === 'rectangle').toBe(true);
 
     // Pin 1 is stored at (0, 3.81, 270) length 1.27; inverted it sits at y=-3.81, and
-    // its body end (root = at + length in the orientation direction) is y=-2.54 — exactly
+    // its body end (root = at + length in the orientation direction) is y=-2.54, exactly
     // the rectangle's top edge, so the pin connects with no gap.
     const pin1 = R.units.flatMap((u) => u.pins).find((p) => p.number === '1')!;
     expect(iuToMM(pin1.at.y)).toBeCloseTo(-3.81, 5);

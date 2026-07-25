@@ -2,8 +2,8 @@
  * Payload scrubbing for crash reports.
  *
  * A board is intellectual property. Error text from an EDA tool routinely
- * carries the user's own design in it — file names, and sometimes net or
- * component identifiers quoted into a message — and none of that should leave
+ * carries the user's own design in it, file names, and sometimes net or
+ * component identifiers quoted into a message, and none of that should leave
  * their machine because something threw.
  *
  * The scrubber is deliberately *not* maximal. Redacting every quoted string
@@ -16,7 +16,7 @@
  *   - **URLs keep their path, lose their query and hash**, which is where
  *     project and session identifiers live.
  *   - **Console breadcrumbs are dropped wholesale.** That is where bulk project
- *     data would leak — our own crash log includes a React component stack,
+ *     data would leak, our own crash log includes a React component stack,
  *     which can embed props.
  *   - **Message text is otherwise preserved** and length-capped. A net name may
  *     survive inside a message; that is the accepted cost of reports being
@@ -53,7 +53,7 @@ const EXT =
   'kicad_sch|kicad_pcb|kicad_pro|kicad_prl|kicad_mod|kicad_sym|kicad_wks|kicad_dru|kicad_jobset|net|cir|step|stp|stl|wrl|glb|gbr|gko|pho|drl|zip|csv|bom';
 
 /**
- * A filename inside quotes — how error text usually carries one. Matched first
+ * A filename inside quotes, how error text usually carries one. Matched first
  * and allowed to contain spaces, since the quotes bound it unambiguously.
  */
 const QUOTED_FILE_RE = new RegExp(String.raw`(['"\`])[^'"\`]*?\.(${EXT})\1`, 'gi');
@@ -114,7 +114,7 @@ export function scrubEvent(event: ScrubbableEvent): ScrubbableEvent {
           frames: v.stacktrace.frames?.map((f) => ({
             ...f,
             // Bundle paths are ours and safe, but a frame can name a user file
-            // (a worker blob, an imported model) — scrub both path fields.
+            // (a worker blob, an imported model), scrub both path fields.
             filename: f.filename ? scrubUrl(f.filename) : f.filename,
             abs_path: f.abs_path ? scrubUrl(f.abs_path) : f.abs_path,
           })),

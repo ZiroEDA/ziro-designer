@@ -5,7 +5,7 @@
  * data model (`SCH_*` / `LIB_SYMBOL` classes and the `kicad_sexpr` parser). Two
  * principles, both chosen to avoid corner-cutting that would bite later:
  *
- *  1. Coordinates are integer internal units (100 nm), never float millimetres —
+ *  1. Coordinates are integer internal units (100 nm), never float millimetres,
  *     see units.ts. This keeps geometry/equality exact.
  *
  *  2. Every modelled item retains `source`, the `SList` it was read from. Items we
@@ -139,7 +139,7 @@ export interface LibSymbolUnit {
   readonly source: SList;
 }
 
-/** `(associated_footprints (footprint "<lib_id>" (map "STD-8")))` — the pin map
+/** `(associated_footprints (footprint "<lib_id>" (map "STD-8")))`, the pin map
  *  a given footprint binds to (LIB_SYMBOL::GetEffectiveAssociatedFootprints). */
 export interface LibAssociatedFootprint {
   readonly footprintLibId: string;
@@ -147,7 +147,7 @@ export interface LibAssociatedFootprint {
   readonly mapName: string;
 }
 
-/** PIN_MAP_OVERRIDE_MODE — how a placed symbol resolves its pin map. */
+/** PIN_MAP_OVERRIDE_MODE, how a placed symbol resolves its pin map. */
 export type PinMapOverrideMode = 'library_default' | 'named_map' | 'identity' | 'delegate';
 
 /** `(pin_map_override (mode …) (map "…") (edit "<pin>" "<pad>") …)` on a placed
@@ -172,25 +172,25 @@ export interface LibSymbol {
   /** Parent symbol name if this is a derived symbol (`extends`); units come from it. */
   readonly extends?: string;
   readonly isPower: boolean;
-  /** `(power local)` — a local power symbol drives only its own sheet
+  /** `(power local)`, a local power symbol drives only its own sheet
    *  (SYMBOL::IsLocalPower); `(power)` / `(power global)` is global. */
   readonly isLocalPower?: boolean;
-  /** `(duplicate_pin_numbers_are_jumpers yes)` — repeated pin numbers on this
+  /** `(duplicate_pin_numbers_are_jumpers yes)`, repeated pin numbers on this
    *  symbol are a jumper, not a fault (LIB_SYMBOL::GetDuplicatePinNumbersAreJumpers). */
   readonly duplicatePinNumbersAreJumpers?: boolean;
-  /** `(jumper_pin_groups (…))` — pin numbers tied together by a jumper
+  /** `(jumper_pin_groups (…))`, pin numbers tied together by a jumper
    *  (LIB_SYMBOL::JumperPinGroups). */
   readonly jumperPinGroups?: readonly (readonly string[])[];
-  /** `(pin_maps (pin_map "STD-8" (entry "1" "1") …))` — named symbol-pin to
+  /** `(pin_maps (pin_map "STD-8" (entry "1" "1") …))`, named symbol-pin to
    *  footprint-pad maps (LIB_SYMBOL::GetPinMaps). */
   readonly pinMaps?: readonly LibPinMap[];
-  /** `(associated_footprints …)` — which map each footprint binds to. */
+  /** `(associated_footprints …)`, which map each footprint binds to. */
   readonly associatedFootprints?: readonly LibAssociatedFootprint[];
-  /** `(pin_numbers (hide yes))` — hide all pin numbers. */
+  /** `(pin_numbers (hide yes))`, hide all pin numbers. */
   readonly pinNumbersHidden: boolean;
-  /** `(pin_names (hide yes))` — hide all pin names. */
+  /** `(pin_names (hide yes))`, hide all pin names. */
   readonly pinNamesHidden: boolean;
-  /** `(pin_names (offset X))` — distance pin names sit inside the body, in IU. */
+  /** `(pin_names (offset X))`, distance pin names sit inside the body, in IU. */
   readonly pinNameOffset: number;
   /** Visible/!hidden fields (Reference, Value, Footprint, …) keyed by name. */
   readonly properties: readonly SchField[];
@@ -207,9 +207,9 @@ export interface SchField {
   readonly at?: Vec2;
   readonly angle: number;
   readonly effects?: TextEffects;
-  /** `(show_name yes)` — render as "Name: Value" (SCH_FIELD::IsNameShown). */
+  /** `(show_name yes)`, render as "Name: Value" (SCH_FIELD::IsNameShown). */
   readonly nameShown?: boolean;
-  /** `(show_in_chooser yes)` — SCH_FIELD::ShowInChooser. */
+  /** `(show_in_chooser yes)`, SCH_FIELD::ShowInChooser. */
   readonly showInChooser?: boolean;
   readonly source: SList;
 }
@@ -227,19 +227,19 @@ export interface SchSymbol {
   readonly inBom: boolean;
   readonly onBoard: boolean;
   readonly dnp: boolean;
-  /** `(locked yes)` — the symbol is protected from moves/edits (SCH_ITEM::IsLocked). */
+  /** `(locked yes)`, the symbol is protected from moves/edits (SCH_ITEM::IsLocked). */
   readonly locked?: boolean;
-  /** `(passthrough block|force)` — net-chain bridge participation
+  /** `(passthrough block|force)`, net-chain bridge participation
    *  (SCH_SYMBOL::PASSTHROUGH_MODE); undefined = DEFAULT (omitted in files). */
   readonly passthrough?: 'block' | 'force';
   /** `(exclude_from_sim yes)`; undefined when the token is absent (pre-7.0 files). */
   readonly excludedFromSim?: boolean;
-  /** `(in_pos_files no)` — SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted
+  /** `(in_pos_files no)`, SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted
    *  in the file); undefined when the token is absent (pre-10.0 files). */
   readonly excludedFromPosFiles?: boolean;
   readonly uuid?: string;
   readonly fields: readonly SchField[];
-  /** `(pin_map_override …)` — this instance's pin-map resolution. */
+  /** `(pin_map_override …)`, this instance's pin-map resolution. */
   readonly pinMapOverride?: PinMapOverride;
   readonly source: SList;
 }
@@ -390,7 +390,7 @@ export interface SchLabel {
 
 /**
  * A netclass directive label: `(directive_label …)`, or `(netclass_flag …)` in
- * files written during 7.0 development. Mirrors KiCad `SCH_DIRECTIVE_LABEL` —
+ * files written during 7.0 development. Mirrors KiCad `SCH_DIRECTIVE_LABEL`,
  * it has no text of its own (the netclass it applies is a "Netclass" field) and
  * never drives a net: `CONNECTION_SUBGRAPH::GetDriverPriority` has no case for
  * it, so it falls through to PRIORITY::NONE.
@@ -402,7 +402,7 @@ export interface SchDirectiveLabel {
   readonly angle: number;
   /** `(shape …)`: the flag drawn at the end of the pin line. */
   readonly shape?: DirectiveShape;
-  /** `(length …)` — the pin line from the anchor to the flag, in IU. */
+  /** `(length …)`, the pin line from the anchor to the flag, in IU. */
   readonly pinLength?: number;
   /** `(property "Netclass" "…")` children, as SCH_LABEL_BASE's fields. */
   readonly fields: readonly SchField[];
@@ -449,7 +449,7 @@ export interface SchSheet {
   readonly at: Vec2;
   readonly size: { readonly w: number; readonly h: number };
   readonly stroke?: Stroke;
-  /** `(fill (color r g b a))` — the sheet body colour; absent/alpha-0 = unfilled. */
+  /** `(fill (color r g b a))`, the sheet body colour; absent/alpha-0 = unfilled. */
   readonly fillColor?: readonly [number, number, number, number];
   /** Fields: at least "Sheetname" and "Sheetfile" (KiCad mandatory sheet fields). */
   readonly fields: readonly SchField[];
@@ -514,7 +514,7 @@ export interface Schematic {
   /** Netclass directive labels (SCH_DIRECTIVE_LABEL). Kept apart from `labels`
    *  because they are not net drivers and carry no text of their own. */
   readonly directiveLabels?: readonly SchDirectiveLabel[];
-  /** Document-level `(sheet_instances (path "/" (page "1")))` — the root sheet's
+  /** Document-level `(sheet_instances (path "/" (page "1")))`, the root sheet's
    *  own page number(s), one per project path (no project wrapper). */
   readonly sheetInstances: readonly SheetInstance[];
   /** The root AST node, retained as the lossless source of truth. */

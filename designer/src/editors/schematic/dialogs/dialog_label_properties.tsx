@@ -239,10 +239,10 @@ export function DialogLabelProperties({
   // hierarchical labels and sheet pins get the plain single-line entry.
   const isCombo = kind === 'label' || kind === 'global_label';
   // A sheet pin is owned by its sheet and carries no fields of its own here,
-  // so the Fields grid — which edits a label's `(property …)` children — has
+  // so the Fields grid, which edits a label's `(property …)` children, has
   // nothing to show for it.
   const hasFields = kind !== 'sheet_pin';
-  // A directive label has no text of its own — its netclass lives in a field —
+  // A directive label has no text of its own, its netclass lives in a field,
   // so the text entry, the multi-label box and the syntax help are all hidden,
   // the shape box carries the flag shapes and "Text size" becomes "Pin length".
   const hasText = !isDirective;

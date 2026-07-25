@@ -165,7 +165,7 @@ function layoutRun(run: MarkupRun, size: number, cursorX: number, out?: Vec2[][]
   return cursorX;
 }
 
-/** Total advance width of `text` at glyph height `size` (IU) — no stroke building. */
+/** Total advance width of `text` at glyph height `size` (IU), no stroke building. */
 export function measureText(text: string, size: number): number {
   let w = 0;
   for (const run of parseMarkup(text)) w = layoutRun(run, size, w);
@@ -197,7 +197,7 @@ export function layoutText(text: string, size: number): { strokes: Vec2[][]; wid
 
   const maxWidth = Math.max(0, ...laid.map((l) => l.width));
   // KiCad centres each line horizontally and centres the whole block vertically
-  // for the default (centre) justify — so a short second line sits centred under
+  // for the default (centre) justify, so a short second line sits centred under
   // a long first line, not left-aligned.
   const vShift = -((lines.length - 1) * INTERLINE_PITCH * size) / 2;
   const out: Vec2[][] = [];

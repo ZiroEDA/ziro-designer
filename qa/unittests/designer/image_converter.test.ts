@@ -1,8 +1,8 @@
 /**
  * Image Converter (bitmap2component): trace a 1-bit bitmap and emit KiCad
- * artwork. The traced polygons must round-trip — the footprint parses into a
+ * artwork. The traced polygons must round-trip, the footprint parses into a
  * PcbFootprint with an fp_poly, the symbol into a LibSymbol with a filled
- * polyline — and the geometry must sit centred on the origin at the requested
+ * polyline, and the geometry must sit centred on the origin at the requested
  * DPI, with holes cut out of the fill.
  */
 import { describe, it, expect } from 'vitest';

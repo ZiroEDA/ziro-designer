@@ -1,6 +1,6 @@
 /**
  * The mouse cursor each schematic tool shows. Counterparts: `common/gal/
- * cursors.cpp` (CURSOR_STORE — the XPM/hotspot table) and the
+ * cursors.cpp` (CURSOR_STORE, the XPM/hotspot table) and the
  * `SetCurrentCursor( KICURSOR::… )` calls in `eeschema/tools/
  * sch_drawing_tools.cpp` / `sch_line_wire_bus_tool.cpp`, which decide which
  * one a tool uses.
@@ -31,7 +31,7 @@ export type KiCursor =
   | 'selectLasso'
   | 'moving';
 
-/** Painted cursors, keyed by name — each XPM is rasterised once. */
+/** Painted cursors, keyed by name, each XPM is rasterised once. */
 const cache = new Map<string, string>();
 
 /** Paint an XPM to a data URI and wrap it as a CSS cursor value. */
@@ -72,13 +72,13 @@ export function kiCursor(cursor: KiCursor): string {
  * Which KICURSOR a right-toolbar tool runs with, following the tool that
  * handles it upstream:
  *
- *  - SingleClickPlace (junction, no-connect, bus entry) — KICURSOR::PLACE
- *  - PlaceSymbol / power — KICURSOR::COMPONENT
- *  - TwoClickPlace — TEXT / LABEL_NET / LABEL_GLOBAL / LABEL_HIER, and PENCIL
+ *  - SingleClickPlace (junction, no-connect, bus entry), KICURSOR::PLACE
+ *  - PlaceSymbol / power, KICURSOR::COMPONENT
+ *  - TwoClickPlace, TEXT / LABEL_NET / LABEL_GLOBAL / LABEL_HIER, and PENCIL
  *    for the rest (sheet pins, netclass flags…)
- *  - DrawShape / DrawRuleArea / DrawTable / DrawSheet — KICURSOR::PENCIL
- *  - SCH_LINE_WIRE_BUS_TOOL — LINE_WIRE / LINE_BUS / LINE_GRAPHIC
- *  - selection tools — ARROW, and the lasso its own cursor
+ *  - DrawShape / DrawRuleArea / DrawTable / DrawSheet, KICURSOR::PENCIL
+ *  - SCH_LINE_WIRE_BUS_TOOL, LINE_WIRE / LINE_BUS / LINE_GRAPHIC
+ *  - selection tools, ARROW, and the lasso its own cursor
  */
 export function toolCursorName(tool: string): KiCursor {
   switch (tool) {

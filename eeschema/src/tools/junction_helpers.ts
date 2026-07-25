@@ -7,7 +7,7 @@
  * on the same layer (wires or buses). Everything connectable contributes:
  * wire/bus ends and pass-throughs, symbol pins, sheet pins, bus entries, and
  * labels. Pins and entries get unique direction tokens (a pin at 90° must not
- * merge with a wire at 90° — upstream's `uniqueAngle`). Upstream first merges
+ * merge with a wire at 90°, upstream's `uniqueAngle`). Upstream first merges
  * collinear overlapping lines; collecting *directions* in a set dedups the
  * same cases (two collinear exits share one direction key), so the merge pass
  * is not replicated.
@@ -175,7 +175,7 @@ export function isExplicitJunction(
 /**
  * SCH_SCREEN::IsExplicitJunctionAllowed: whether the user may place a dot at
  * `p`. Unlike the two predicates above this analyzes with crossings broken, so
- * a wire crossing another counts as four exits and a dot is offered there —
+ * a wire crossing another counts as four exits and a dot is offered there,
  * upstream's junction tool refuses the click when this is false ("Junction
  * location contains no joinable wires and/or pins.").
  */

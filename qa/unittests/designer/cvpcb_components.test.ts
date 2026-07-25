@@ -1,7 +1,7 @@
 /**
  * Assign Footprints (cvpcb) component list: the netlist view CVPCB_MAINFRAME
- * is handed — one row per symbol with the units of a multi-unit part merged,
- * power/virtual symbols left out — and the exact row texts of
+ * is handed, one row per symbol with the units of a multi-unit part merged,
+ * power/virtual symbols left out, and the exact row texts of
  * CVPCB_MAINFRAME::formatSymbolDesc / FOOTPRINTS_LISTBOX::SetFootprints.
  */
 import { describe, it, expect } from 'vitest';
@@ -41,7 +41,7 @@ const SHEET_A = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (symbol (lib_id "power:GND") (at 60 60 0) (unit 1) (uuid "gnd1")
     (property "Reference" "#PWR01" (at 0 0 0)) (property "Value" "GND" (at 0 0 0))))`;
 
-// A second design in the same folder — not part of the first one's hierarchy.
+// A second design in the same folder, not part of the first one's hierarchy.
 const SHEET_B = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (lib_symbols
     (symbol "Device:C" (property "Reference" "C" (at 0 0 0))

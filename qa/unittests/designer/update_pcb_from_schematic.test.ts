@@ -1,13 +1,13 @@
 /**
  * "Update PCB from Schematic" over a real project: the Arduino_Uno template, whose
  * schematic and board were both written by KiCad and are in sync. This exercises the
- * whole path the PCB editor's menu item takes — fetchNetlistFromSchematic (annotation
+ * whole path the PCB editor's menu item takes, fetchNetlistFromSchematic (annotation
  * gate, hierarchy walk, netlist export, parse) and then BOARD_NETLIST_UPDATER over
- * the board — against files no test wrote.
+ * the board, against files no test wrote.
  *
  * The board is from KiCad 6 (file version 20221018), which makes it the useful case:
- * an in-sync project must come out structurally untouched — no footprint added,
- * removed or re-linked, and no net re-connected — while the handful of updates a
+ * an in-sync project must come out structurally untouched, no footprint added,
+ * removed or re-linked, and no net re-connected, while the handful of updates a
  * newer KiCad genuinely applies to an older file still appear. The last test pins
  * down exactly which those are.
  */
@@ -53,7 +53,7 @@ const FILES = projectFiles();
  * The footprint loader the PCB editor builds: the project's own `.pretty`
  * directories, plus (in the app) the hosted libraries. Only the project side is
  * available offline, so the connector footprints resolve from the board's own copies
- * — which is exactly what the board already holds, and enough to prove the updater
+ * - which is exactly what the board already holds, and enough to prove the updater
  * leaves an in-sync project alone.
  */
 function footprintLibrary(): Map<string, PcbFootprint> {
@@ -158,7 +158,7 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
       .filter((l) => l.severity === RPT_SEVERITY_ACTION && l.message !== '')
       .map((l) => l.message);
 
-  it('finds every footprint already on the board — nothing added, nothing removed', () => {
+  it('finds every footprint already on the board, nothing added, nothing removed', () => {
     const { board, result } = run(true);
     expect(result.newFootprintCount).toBe(0);
     expect(result.errorCount).toBe(0);
@@ -203,7 +203,7 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
     const actions = actionsOf(reporter);
 
     // Modern KiCad writes the human-readable sheet path as the sheet name, adds the
-    // symbol's footprint filters, and keeps Datasheet/Description as PCB fields —
+    // symbol's footprint filters, and keeps Datasheet/Description as PCB fields,
     // none of which a 20221018 file carries.
     for (const ref of ['J1', 'J2', 'J3', 'J4']) {
       expect(actions).toContain(`Update ${ref} fields.`);
@@ -211,7 +211,7 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
       expect(actions).toContain(`Update ${ref} footprint filters to 'Connector*:*_1x??_*'.`);
     }
 
-    // Net names agree with the board KiCad wrote, so nothing is re-connected — the
+    // Net names agree with the board KiCad wrote, so nothing is re-connected, the
     // one exception being the power net, which KiCad 6 named after the power symbol
     // (+3V3) and KiCad 7+ names after its Value field (+3.3V).
     const netActions = actions.filter(

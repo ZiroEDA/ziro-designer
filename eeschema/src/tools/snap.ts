@@ -2,7 +2,7 @@
  * Connectable-point snapping, the model side of KiCad's EE_GRID_HELPER::BestSnapAnchor
  * with GRID_CONNECTABLE: when drawing or moving, the cursor snaps to nearby
  * connection anchors (symbol pins, wire endpoints, junctions, label anchors) so
- * items land exactly on each other and stay electrically connected — instead of
+ * items land exactly on each other and stay electrically connected, instead of
  * only snapping to the background grid.
  */
 

@@ -1,14 +1,14 @@
 /**
- * PCB_IO_KICAD_SEXPR — the `.kicad_pcb` writer
+ * PCB_IO_KICAD_SEXPR, the `.kicad_pcb` writer
  * (pcbnew/pcb_io/sexpr/pcb_io_sexpr.cpp). Regenerates the file text
- * from the live BOARD object model — KiCad's real approach (no source
+ * from the live BOARD object model, KiCad's real approach (no source
  * preservation): every field the model holds is emitted from the object's
  * current state, so an edit shows up because the object changed.
  *
  * This formats the well-modeled item set (layers, nets, tracks/arcs/vias,
  * footprints with pads/fields/graphics, board graphics/text, zones). Fields the
  * object model does not yet carry (pad chamfers/custom primitives, zone hole
- * geometry, stroke styles, …) are not emitted — losslessness grows with the
+ * geometry, stroke styles, …) are not emitted, losslessness grows with the
  * model, exactly as intended. Uses the shared S-expr builder + serializer.
  */
 
@@ -267,7 +267,7 @@ export function formatBoardNode(board: BOARD): SList {
   return { kind: 'list', items };
 }
 
-/** PCB_IO_KICAD_SEXPR::Format — serialize a BOARD to `.kicad_pcb` text. */
+/** PCB_IO_KICAD_SEXPR::Format, serialize a BOARD to `.kicad_pcb` text. */
 export function formatBoard(board: BOARD): string {
   return serialize(formatBoardNode(board));
 }

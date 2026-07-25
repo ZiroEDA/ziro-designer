@@ -1,5 +1,5 @@
 /**
- * The Drawing Sheet Editor's docked properties panel — the web counterpart of
+ * The Drawing Sheet Editor's docked properties panel, the web counterpart of
  * `pl_editor`'s PROPERTIES_FRAME (pagelayout_editor/dialogs/properties_frame.cpp).
  *
  * Two notebook tabs:

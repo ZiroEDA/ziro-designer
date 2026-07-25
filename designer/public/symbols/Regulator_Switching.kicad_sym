@@ -85268,7 +85268,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, 3.3V Synchronous Step-Down DC-DC Converter, PFM Mode, TDFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, 3.3V Synchronous Step-Down DC-DC Converter, PFM Mode, TDFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -85563,7 +85563,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, 5V Synchronous Step-Down DC-DC Converter, PFM Mode, DFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, 5V Synchronous Step-Down DC-DC Converter, PFM Mode, DFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -85643,7 +85643,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, 3.3V Synchronous Step-Down DC-DC Converter, PWM Mode, DFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, 3.3V Synchronous Step-Down DC-DC Converter, PWM Mode, DFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -85723,7 +85723,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, 5V Synchronous Step-Down DC-DC Converter, PWM Mode, DFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, 5V Synchronous Step-Down DC-DC Converter, PWM Mode, DFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -85807,7 +85807,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, Adjustable Synchronous Step-Down DC-DC Converter, 600KHz, TDFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, Adjustable Synchronous Step-Down DC-DC Converter, 600KHz, TDFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -86101,7 +86101,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60Vin, 500mA, High-Efficiency, Adjustable Synchronous Step-Down DC-DC Converter, 300KHz, DFN-10"
+			(property "Description" "4.5V-60Vin, 500mA, High-Efficiency, Adjustable Synchronous Step-Down DC-DC Converter, 300KHz, DFN-10"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -86185,7 +86185,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60V, 1A, High-Efficiency, Synchronous Step-Down DC-DC Converter with Internal Compensation, DFN-12"
+			(property "Description" "4.5V-60V, 1A, High-Efficiency, Synchronous Step-Down DC-DC Converter with Internal Compensation, DFN-12"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -86519,7 +86519,7 @@
 					)
 				)
 			)
-			(property "Description" "4.5V–60V, 3A, High-Efficiency, Synchronous Step-Down DC-DC Converter with Internal Compensation, QFN-24"
+			(property "Description" "4.5V-60V, 3A, High-Efficiency, Synchronous Step-Down DC-DC Converter with Internal Compensation, QFN-24"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)

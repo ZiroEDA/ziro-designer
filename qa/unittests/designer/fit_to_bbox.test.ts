@@ -16,7 +16,7 @@ describe('fitToBBox', () => {
   it('scales to the tighter axis so the whole box (plus padding) is visible', () => {
     const wide = fitToBBox({ minX: 0, minY: 0, maxX: 1000, maxY: 10 }, 800, 600);
     const tall = fitToBBox({ minX: 0, minY: 0, maxX: 10, maxY: 1000 }, 800, 600);
-    // A wide box is width-limited; a tall box is height-limited — both positive.
+    // A wide box is width-limited; a tall box is height-limited, both positive.
     expect(wide.scale).toBeGreaterThan(0);
     expect(tall.scale).toBeGreaterThan(0);
     // The padded 1000-unit span must fit within the 800 px axis.

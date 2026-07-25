@@ -1,6 +1,6 @@
 /**
  * ERC engine tests: pin-to-pin matrix, driver checks, unconnected pins,
- * no-connect flags, and label checks — against KiCad's documented behaviour
+ * no-connect flags, and label checks, against KiCad's documented behaviour
  * (erc.cpp, erc_settings.cpp, connection_graph.cpp).
  */
 import { describe, it, expect } from 'vitest';
@@ -80,7 +80,7 @@ describe('runErc', () => {
 
   it('a power net needs a power-output driver, not just any output', () => {
     // power_in driven by a plain output: matrix says OK pair, but the power net
-    // is not driven (only PT_POWER_OUT drives power nets — DrivingPowerPinTypes).
+    // is not driven (only PT_POWER_OUT drives power nets, DrivingPowerPinTypes).
     const bad = sch(`
       ${place('PWRIN', 'U1', 10, 10, 'u1')} ${place('OUT', 'U2', 20, 10, 'u2')}
       ${wire(10, 10, 20, 10, 'w1')}`);
@@ -98,7 +98,7 @@ describe('runErc', () => {
     expect(codes(v)).toContain('pin_not_connected');
     expect(v.find((x) => x.code === 'pin_not_connected')!.severity).toBe('error');
     // Note: the lone input pin's net has no driver either, but KiCad suppresses
-    // nothing here — yet with no wires there is no *net* needing a driver check;
+    // nothing here, yet with no wires there is no *net* needing a driver check;
     // the pin subgraph is single-pin so only the unconnected error is expected.
 
     const covered = sch(`${place('IN', 'U1', 10, 10, 'u1')} (no_connect (at 10 10) (uuid "nc1"))`);
@@ -176,9 +176,9 @@ describe('no_connect model round-trip', () => {
  * (erc.cpp ERC_TESTER::Test*, connection_graph.cpp ercCheck*).
  */
 // SCH_PIN::IsGlobalPower: only a power *input* pin names a power net. A power
-// symbol carrying a power_out pin is a PWR_FLAG — it drives the net for ERC
+// symbol carrying a power_out pin is a PWR_FLAG, it drives the net for ERC
 // without renaming it, which is the whole point of placing one.
-describe('runErc — power flags', () => {
+describe('runErc, power flags', () => {
   it('a power flag drives the net it is attached to, and does not rename it', () => {
     const { doc, libById } = sch(`
       ${place('GND', '#PWR01', 10, 10, 'p1')}
@@ -190,7 +190,7 @@ describe('runErc — power flags', () => {
 
   it('the flag drives every subgraph of the same power net', () => {
     // Two GND subgraphs; only the first carries the flag, and the flag's symbol
-    // comes first in the file — so if its power_out pin were allowed to name
+    // comes first in the file, so if its power_out pin were allowed to name
     // the net, that subgraph would become "VOUT" and the second GND subgraph
     // would be left undriven.
     const { doc, libById } = sch(`
@@ -209,7 +209,7 @@ describe('runErc — power flags', () => {
 
   it('marks the power-input pin, not the consuming pin (pinsToMark)', () => {
     // TestPinToPin: for ERCE_POWERPIN_NOT_DRIVEN the marker goes on a
-    // PT_POWER_IN pin — what the message is about — rather than the input pin
+    // PT_POWER_IN pin, what the message is about, rather than the input pin
     // that happens to share the net.
     const { doc, libById } = sch(`
       ${place('IN', 'U1', 10, 10, 'u1')}
@@ -229,7 +229,7 @@ describe('runErc — power flags', () => {
   });
 });
 
-describe('runErc — schematic-wide tests', () => {
+describe('runErc, schematic-wide tests', () => {
   const label = (text: string, x: number, y: number, id: string, kind = 'label'): string =>
     `(${kind === 'label' ? 'label' : kind} "${text}" (at ${x} ${y} 0) (uuid "${id}"))`;
 
@@ -287,7 +287,7 @@ describe('runErc — schematic-wide tests', () => {
       (label "CLOCK" (at 30 10 0) (uuid "l2"))
       ${place('GND', '#PWR01', 10, 50, 'p1')}
       ${place('GND', '#PWR02', 40, 50, 'p2')}`);
-    // Both GND symbols share a value, so they are not "similar" — same text.
+    // Both GND symbols share a value, so they are not "similar", same text.
     const codes1 = codes(runErc(doc, libById));
     expect(codes1).toContain('similar_labels');
 
@@ -402,7 +402,7 @@ describe('runErc — schematic-wide tests', () => {
     const v = runErc(doc, libById).filter((x) => x.code === 'ground_pin_not_ground');
     // Pin 1 sits on the GND net; pin 2 (GNDA) is on the VCC label at its own
     // position. (The label has to actually touch the pin: left dangling, the pin
-    // would take the auto name "Net-(U1-GNDA)", which reads as a ground net —
+    // would take the auto name "Net-(U1-GNDA)", which reads as a ground net,
     // upstream tests the same net name and behaves the same way.)
     expect(v).toHaveLength(1);
     expect(v[0]!.message).toBe('Pin GNDA not connected to ground net');

@@ -1,5 +1,5 @@
 /**
- * PCB_SHAPE — a board graphic (pcbnew/pcb_shape.{h,cpp}). In KiCad it derives
+ * PCB_SHAPE, a board graphic (pcbnew/pcb_shape.{h,cpp}). In KiCad it derives
  * from both BOARD_ITEM and EDA_SHAPE; here it extends BOARD_ITEM and composes an
  * EDA_SHAPE (m_eda), delegating the geometry. Transform/hit-test bodies mirror
  * pcb_shape.cpp: Move→move, Rotate→rotate, Mirror→flip, Flip→flip + FlipLayer.

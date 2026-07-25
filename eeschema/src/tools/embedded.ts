@@ -1,5 +1,5 @@
 /**
- * Embedded files. Counterpart: `common/embedded_files.cpp` (EMBEDDED_FILES) —
+ * Embedded files. Counterpart: `common/embedded_files.cpp` (EMBEDDED_FILES),
  * the `.kicad_sch` `(embedded_files (file (name ..) (type ..) (data ..)
  * (checksum ..)))` section plus the `(embedded_fonts yes|no)` flag.
  *
@@ -30,7 +30,7 @@ import type { Schematic } from '../types.js';
 
 export interface EmbeddedFileInfo {
   name: string;
-  /** `kicad-embed://<name>` — how other fields reference the file. */
+  /** `kicad-embed://<name>`, how other fields reference the file. */
   reference: string;
   /** The `(type ..)` token: font | model | worksheet | datasheet | other. */
   type?: string;
@@ -96,7 +96,7 @@ const base64Decode = (text: string): Uint8Array => {
   return out;
 };
 
-/** EMBEDDED_FILES::CompressAndEncode — zstd level 15, base64, MMH3 checksum. */
+/** EMBEDDED_FILES::CompressAndEncode, zstd level 15, base64, MMH3 checksum. */
 export async function compressAndEncode(
   bytes: Uint8Array,
 ): Promise<{ data: string; checksum: string }> {
@@ -108,7 +108,7 @@ export async function compressAndEncode(
   };
 }
 
-/** EMBEDDED_FILES::DecompressAndDecode — base64, zstd, checksum validation
+/** EMBEDDED_FILES::DecompressAndDecode, base64, zstd, checksum validation
  *  (MMH3, then the V1 tail variant, then 64-char legacy SHA-256). */
 export async function decompressAndDecode(
   data: string,
@@ -218,7 +218,7 @@ function existingFileNodes(sch: Schematic): SList[] {
   return out;
 }
 
-/** EMBEDDED_FILES::AddFile — compress + hash `bytes` and store them under
+/** EMBEDDED_FILES::AddFile, compress + hash `bytes` and store them under
  *  `name` (overwriting any existing entry), returning the new document. */
 export async function addEmbeddedFile(
   sch: Schematic,
@@ -247,7 +247,7 @@ export function removeEmbeddedFile(sch: Schematic, name: string): Schematic {
 
 /** Apply a precomputed embedded-files document update (the zstd work is
  *  async, so the dialog computes `after` first and the command just swaps the
- *  source in — with the inverse restoring the prior source). */
+ *  source in, with the inverse restoring the prior source). */
 export function embeddedFilesCommand(after: Schematic): EditCommand {
   return {
     label: 'Embedded Files',

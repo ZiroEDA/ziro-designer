@@ -668,7 +668,7 @@ export function LibSymbolPropertiesDialog({
         <div className="ze-props-body">
           {error && (
             <div className="ze-props-error" onClick={() => setError(null)}>
-              {error} — click to dismiss
+              {error}, click to dismiss
             </div>
           )}
           <div className="ze-props-grid-wrap">
@@ -1148,7 +1148,7 @@ export function checkLibSymbol(sym: LibSymbol): string[] {
     msgs.push('Warning: reference is empty');
   } else if ('0123456789?'.includes(reference[reference.length - 1]!)) {
     msgs.push(
-      "Warning: reference prefix — a prefix ending in '0123456789?' can create issues if saved in a symbol library",
+      "Warning: reference prefix, a prefix ending in '0123456789?' can create issues if saved in a symbol library",
     );
   }
 
@@ -1178,9 +1178,9 @@ export function checkLibSymbol(sym: LibSymbol): string[] {
     if (pins.length !== 1) msgs.push('A power symbol should have only one pin');
     const pin = pins[0]?.pin;
     if (pin && pin.electricalType !== 'power_in' && pin.electricalType !== 'power_out')
-      msgs.push('Suspicious power symbol — only an input or output power pin has meaning');
+      msgs.push('Suspicious power symbol, only an input or output power pin has meaning');
     if (pin && pin.electricalType === 'power_in' && pin.hidden)
-      msgs.push('Suspicious power symbol — invisible input power pins are no longer required');
+      msgs.push('Suspicious power symbol, invisible input power pins are no longer required');
   }
 
   // Hidden power-input pins + off-grid pins (25-mil minimum grid).

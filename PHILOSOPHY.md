@@ -1,6 +1,6 @@
-# Ziro Designer — Philosophy & Compatibility Promise
+# Ziro Designer: Philosophy & Compatibility Promise
 
-Ziro Designer — the design suite from ZiroEDA — exists for one reason: the world's largest open-source EDA community
+Ziro Designer, the design suite from ZiroEDA, exists for one reason: the world's largest open-source EDA community
 should be able to open a browser tab and be instantly at home. Same UI, same
 hotkeys, same files. **Open a tab, not learn a tool.**
 
@@ -10,8 +10,8 @@ held against us.
 
 ## What Ziro Designer is
 
-- A **browser-native reimplementation of the KiCad workflow** — TypeScript and
-  Canvas/WebGL instead of C++ and wxWidgets — that reads and writes KiCad's
+- A **browser-native reimplementation of the KiCad workflow** (TypeScript and
+  Canvas/WebGL instead of C++ and wxWidgets) that reads and writes KiCad's
   native file formats directly.
 - **A complement to KiCad desktop, not a replacement for it.** KiCad remains
   the deep, mature desktop suite. Ziro Designer is the way you open, share, review,
@@ -24,7 +24,7 @@ held against us.
 
 - **Not a fork of KiCad.** We share no code with KiCad; this is a ground-up
   reimplementation that stays format-compatible (see
-  [README — Why a reimplementation](./README.md)).
+  [README: Why a reimplementation](./README.md)).
 - **Not affiliated with or endorsed by the KiCad project.** "KiCad" is a
   trademark of its respective owners. We describe ourselves as
   *KiCad-compatible*; we do not use the KiCad name or logo as our brand.
@@ -57,13 +57,13 @@ Being commercially built around KiCad's ecosystem creates an obligation:
   corpora.
 - As ZiroEDA earns revenue, a share of it goes to KiCad development (via the
   project's official donation channels). Growing the open ecosystem grows us.
-- We engage in the open — in KiCad community spaces, as ourselves, before
+- We engage in the open, in KiCad community spaces, as ourselves, before
   anyone has to ask who we are.
 
 ## The open-core boundary
 
-The editor — everything needed to open, edit, and save a KiCad project in the
-browser — is free and GPL, forever. What we charge for is what a hosted
+The editor, everything needed to open, edit, and save a KiCad project in the
+browser, is free and GPL, forever. What we charge for is what a hosted
 service uniquely adds on top: cloud compute (simulation, autorouting, batch
 DRC), real-time team collaboration, and AI assistance. If a feature's absence
 would lock your data or break the local workflow, it belongs in the free core.

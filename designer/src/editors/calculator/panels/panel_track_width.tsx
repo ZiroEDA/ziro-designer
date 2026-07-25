@@ -1,5 +1,5 @@
 /**
- * "Track Width" panel — IPC-2221 current capacity for external and internal
+ * "Track Width" panel, IPC-2221 current capacity for external and internal
  * layers. Counterpart: KiCad `calculator_panels/panel_track_width.cpp`.
  */
 
@@ -109,7 +109,7 @@ export function PanelTrackWidth(): JSX.Element {
           internal, temperature rise up to 100 °C and widths up to 400 mils (10 mm).
         </div>
         <div className="calc-formula" style={{ marginTop: 8 }}>
-          I = K · ΔT^0.44 · (W·H)^0.725 — IPC-2221, K = 0.048 external / 0.024 internal (W, H in
+          I = K · ΔT^0.44 · (W·H)^0.725, IPC-2221, K = 0.048 external / 0.024 internal (W, H in
           mils)
         </div>
       </fieldset>

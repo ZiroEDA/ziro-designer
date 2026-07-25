@@ -1,6 +1,6 @@
 /**
  * Import Settings from Another Board. Counterpart:
- * `pcbnew/dialogs/dialog_import_settings.cpp` (DIALOG_IMPORT_SETTINGS) — a
+ * `pcbnew/dialogs/dialog_import_settings.cpp` (DIALOG_IMPORT_SETTINGS), a
  * board-file picker plus one checkbox per importable settings group, in the
  * base dialog's order. KiCad behaviors translated exactly:
  *
@@ -12,7 +12,7 @@
  *  - The chosen path is remembered for the session (static m_filePath).
  *
  * The browse control is a browser file input: KiCad browses for the other
- * `.kicad_pcb` and requires its sibling `.kicad_pro` — on the web both files
+ * `.kicad_pcb` and requires its sibling `.kicad_pro`, on the web both files
  * (plus the optional `.kicad_dru`) are picked together, since there is no
  * path-based sibling lookup.
  *

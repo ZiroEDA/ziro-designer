@@ -25,7 +25,7 @@ export type InsulationType = 'functional' | 'basic' | 'reinforced';
 export type Field = 'inhomogeneous' | 'homogeneous';
 
 export interface Iec60664Params {
-  /** Rated (system) voltage, V — for the rated impulse withstand lookup. */
+  /** Rated (system) voltage, V, for the rated impulse withstand lookup. */
   ratedVoltageV: number;
   overvoltageCategory: OvervoltageCategory;
   pollutionDegree: PollutionDegree;
@@ -61,7 +61,7 @@ function lookup(rows: readonly IecRow[], v: number, pass: (r: IecRow) => boolean
   return -1;
 }
 
-/** Rated impulse withstand voltage (V) — IEC 60664-1 Table F.1. */
+/** Rated impulse withstand voltage (V), IEC 60664-1 Table F.1. */
 export function ratedImpulseWithstandVoltageV(
   ratedVoltageV: number,
   ov: OvervoltageCategory,
@@ -73,7 +73,7 @@ function altitudeCorrection(altitudeM: number): number {
   return lookup(IEC_ALTITUDE, altitudeM, () => true);
 }
 
-/** Clearance to withstand the transient overvoltage (kV) — Table F.2. */
+/** Clearance to withstand the transient overvoltage (kV), Table F.2. */
 function clearanceForTransient(vKv: number, pd: PollutionDegree, field: Field): number {
   return lookup(IEC_TRANSIENT, vKv, (r) => {
     if (r.field !== field) return false;
@@ -83,12 +83,12 @@ function clearanceForTransient(vKv: number, pd: PollutionDegree, field: Field): 
   });
 }
 
-/** Clearance to withstand recurring peak voltage (kV) — Table F.8. */
+/** Clearance to withstand recurring peak voltage (kV), Table F.8. */
 function clearanceForPeaks(vKv: number, field: Field): number {
   return lookup(IEC_PEAKS, vKv, (r) => r.field === field);
 }
 
-/** Basic creepage distance (mm) — Table F.5. */
+/** Basic creepage distance (mm), Table F.5. */
 function basicCreepage(
   rmsVoltageV: number,
   pd: PollutionDegree,
@@ -141,7 +141,7 @@ function computeCreepage(p: Iec60664Params): number {
   return creepage;
 }
 
-/** Minimum groove/trench width — IEC 60664-1 §6.8. */
+/** Minimum groove/trench width, IEC 60664-1 §6.8. */
 function grooveWidth(pd: PollutionDegree, distIso: number): number {
   if (distIso <= 0) return -1;
   if (Math.abs(distIso) < 3) return distIso / 3;

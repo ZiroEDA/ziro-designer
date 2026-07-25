@@ -1,5 +1,5 @@
 /**
- * The netclass directive label's geometry — SCH_DIRECTIVE_LABEL::
+ * The netclass directive label's geometry, SCH_DIRECTIVE_LABEL::
  * CreateGraphicShape (eeschema/sch_label.cpp). The flag is a pin line from the
  * anchor plus a shape at its end: a filled dot, a circle, a diamond or a
  * rectangle. Upstream builds it pointing *up* (negative Y) and then rotates by

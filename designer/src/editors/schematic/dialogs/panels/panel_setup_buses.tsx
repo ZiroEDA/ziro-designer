@@ -1,6 +1,6 @@
 /**
  * Bus Alias Definitions panel. Counterpart:
- * `eeschema/dialogs/panel_setup_buses_base.cpp` (PANEL_SETUP_BUSES) — a two-pane
+ * `eeschema/dialogs/panel_setup_buses_base.cpp` (PANEL_SETUP_BUSES), a two-pane
  * master/detail: on the left an "Alias" grid with add/delete, on the right the
  * "Members of '<alias>'" grid (net or nested-bus names) with add/remove. When no
  * alias is selected the members pane is blank.

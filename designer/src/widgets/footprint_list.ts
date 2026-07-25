@@ -75,7 +75,7 @@ function compileFilter(pattern: string): { withLib: boolean; re: RegExp } | null
 }
 
 /**
- * FOOTPRINT_FILTER::FilterPattern — footprints whose name (or "Lib:Name" for
+ * FOOTPRINT_FILTER::FilterPattern, footprints whose name (or "Lib:Name" for
  * patterns containing a colon) matches ANY of the symbol's fp_filters globs.
  * Results are "Lib:Name" ids, capped at `max` (upstream m_max_items).
  */

@@ -83,7 +83,7 @@ export function makeWire(start: Vec2, end: Vec2): SchLine {
   return makeWireWithUuid(start, end, newUuid());
 }
 
-/** Create a new bus model item — KiCad's `(bus ...)`, same shape as a wire. */
+/** Create a new bus model item, KiCad's `(bus ...)`, same shape as a wire. */
 export function makeBus(start: Vec2, end: Vec2): SchLine {
   const uuid = newUuid();
   const node = list(
@@ -168,7 +168,7 @@ export function makeJunction(at: Vec2): SchJunction {
   return { at, diameter: 0, uuid, source: buildJunctionNode(at, uuid) };
 }
 
-/** Create a new no-connect flag — KiCad's `(no_connect (at ..) (uuid ..))`. */
+/** Create a new no-connect flag, KiCad's `(no_connect (at ..) (uuid ..))`. */
 export function makeNoConnect(at: Vec2): SchNoConnect {
   const uuid = newUuid();
   const source = list(
@@ -184,7 +184,7 @@ export function makeNoConnect(at: Vec2): SchNoConnect {
 export const DEFAULT_DIRECTIVE_PIN_LENGTH = 25400;
 
 /**
- * Create a netclass directive label — `(directive_label "" (length ..)
+ * Create a netclass directive label, `(directive_label "" (length ..)
  * (shape ..) (at ..) (effects ..) (uuid ..) (property "Netclass" ..))`.
  * Mirrors SCH_DRAWING_TOOLS::createNewLabel's LAYER_NETCLASS_REFS branch: the
  * flag carries no text of its own, only a "Netclass" field.

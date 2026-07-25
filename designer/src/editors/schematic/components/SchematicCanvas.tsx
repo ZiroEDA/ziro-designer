@@ -127,14 +127,14 @@ const SMALL_CROSS_PX = 80;
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain
- * grid, so the crosshair is drawn where the click will actually land — KiCad
+ * grid, so the crosshair is drawn where the click will actually land, KiCad
  * calls ForceCursorPosition() with the anchor BestSnapAnchor() picked.
  */
 const CONNECTION_SNAP_TOOLS = new Set(['junction', 'noConnect', 'drawWire', 'drawBus']);
 
 // KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
 // concentric rings with a cross through them, hotspot at the centre. The rest of
-// the tool cursors are KiCad's own bitmaps — see cursors.ts.
+// the tool cursors are KiCad's own bitmaps, see cursors.ts.
 const BULLSEYE_CURSOR = (() => {
   const rings =
     `<circle cx="16" cy="16" r="9" fill="none"/><circle cx="16" cy="16" r="4" fill="none"/>` +
@@ -292,7 +292,7 @@ export interface PendingLabel {
   autoRotate?: boolean;
   /** Justification tokens for free text (the H/V alignment buttons). */
   justify?: readonly string[];
-  /** `(exclude_from_sim yes)` — free text's simulation checkbox. */
+  /** `(exclude_from_sim yes)`, free text's simulation checkbox. */
   excludeFromSim?: boolean;
 }
 
@@ -306,7 +306,7 @@ export interface PendingDirective {
 }
 
 /**
- * The label the dialog described, built at the point it is dropped —
+ * The label the dialog described, built at the point it is dropped,
  * SCH_DRAWING_TOOLS keeps the item it created and just moves it to the cursor,
  * so everything the dialog set (shape, formatting, colour, fields) is carried
  * onto the placed label.
@@ -318,7 +318,7 @@ export function buildPendingLabel(
   libById?: ReadonlyMap<string, LibSymbol>,
 ): SchLabel {
   // "Auto" (AutoRotateOnPlacement): the label turns to suit whatever it lands
-  // on — SCH_EDIT_FRAME::AutoRotateItem, run as the item is placed.
+  // on, SCH_EDIT_FRAME::AutoRotateItem, run as the item is placed.
   const spin =
     p.autoRotate && sch
       ? labelOrientationForPoint(sch, at, spinOfAngle(p.angle ?? 0), libById)
@@ -365,7 +365,7 @@ interface Props {
   placeLib: LibSymbol | null;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
-  /** A symbol was just placed — the editor steps units / reopens the chooser. */
+  /** A symbol was just placed, the editor steps units / reopens the chooser. */
   onSymbolPlaced?: () => void;
   /** A named label that follows the cursor until clicked to place (null = none yet). */
   pendingLabel: PendingLabel | null;
@@ -373,7 +373,7 @@ interface Props {
   pendingDirective?: PendingDirective | null;
   /** The pending label was just dropped: take the next one, or stop. */
   onLabelPlaced?: () => void;
-  /** A label tool clicked with nothing attached — ask for the next label
+  /** A label tool clicked with nothing attached, ask for the next label
    *  (SCH_DRAWING_TOOLS::TwoClickPlace calls createNewLabel on that click).
    *  The click point lets the editor take the net name off the wire instead. */
   onLabelPrompt?: (at: Vec2) => void;
@@ -532,7 +532,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const moveDeltaRef = useRef<Vec2 | null>(null);
   const moveSpecRef = useRef<MoveSpec | null>(null);
   // 'move' leaves connected wires behind (moveItems), 'drag' rubber-bands them
-  // (moveWithConnections/orthoMove) — SCH_MOVE_TOOL's two modes.
+  // (moveWithConnections/orthoMove), SCH_MOVE_TOOL's two modes.
   const moveKindRef = useRef<'move' | 'drag'>('drag');
   // A keyboard-initiated grabbed move follows the cursor with no button held and
   // commits on the next left click (vs a button-drag, committed on pointer-up).
@@ -556,7 +556,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const lassoPointsRef = useRef<Vec2[]>([]);
 
   // Wire-drawing state (SCH_LINE_WIRE_BUS_TOOL): the chain of segments being
-  // drawn (m_wires) — the last two are "live" and follow the cursor — plus the
+  // drawn (m_wires), the last two are "live" and follow the cursor, plus the
   // 45°-mode posture flag (static bool posture) and the mode we last drew with
   // (lastMode, to adjust the chain when line mode changes mid-draw).
   const wiresRef = useRef<WireSeg[]>([]);
@@ -577,7 +577,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const dpr = () => window.devicePixelRatio || 1;
 
-  // Dangling (unconnected) pins — KiCad's clickable wire-start anchors.
+  // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
   const danglingPins = useMemo(
     () => danglingPinPositions(schematic, libById),
     [schematic, libById],
@@ -605,7 +605,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     [anchors],
   );
   /**
-   * Track the cursor with the live segment(s) of the wire chain — the motion
+   * Track the cursor with the live segment(s) of the wire chain, the motion
    * handler of SCH_LINE_WIRE_BUS_TOOL::doDrawSegments, including the
    * adjustment when the H/V/45 mode is switched mid-draw. Returns the
    * possibly-adjusted cursor position (sheet-pin pushes).
@@ -767,7 +767,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }).apply(doc);
     }
     // Ghost: the junction dot and the no-connect X ride the cursor, so you see
-    // the item before you drop it — SingleClickPlace builds the item up front
+    // the item before you drop it, SingleClickPlace builds the item up front
     // and keeps it in the view preview (AddToPreview) for the whole run.
     if (activeTool === 'junction' && cursorRef.current) {
       doc = addItems({ junctions: [makeJunction(snapConn(cursorRef.current))] }).apply(doc);
@@ -798,7 +798,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, vp, theme);
 
     // Box-selection rubber band, in KiCad's colours: the fill shows the mode
-    // (normal/additive/subtractive) and the outline shows the direction —
+    // (normal/additive/subtractive) and the outline shows the direction,
     // dark yellow for a left-to-right "window", blue for right-to-left greedy.
     const bo = boxOriginRef.current;
     const be = boxEndRef.current;
@@ -1242,7 +1242,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       if (activeTool === 'junction') {
         // SCH_DRAWING_TOOLS::SingleClickPlace refuses a dot where nothing joins
-        // — otherwise the schematic cleanup would drop it again straight away,
+        // - otherwise the schematic cleanup would drop it again straight away,
         // which reads as "the tool did nothing".
         const at = snapConn(world);
         if (!isExplicitJunctionAllowed(schematic, libById, at)) {
@@ -1344,7 +1344,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       // Highlight-Net tool (KiCad SCH_EDITOR_CONTROL::HighlightNet): click a
       // connectable item to brighten its net; click empty space to clear it.
-      // The pick is GetNode's — connectable types only, at growing thresholds —
+      // The pick is GetNode's, connectable types only, at growing thresholds,
       // so pins, power flags and sheet pins highlight and a symbol body doesn't
       // swallow the click. The picker also runs unsnapped (SetSnapping(false)).
       if (activeTool === 'highlightNet') {
@@ -1389,7 +1389,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      // select / move — the left-drag semantics follow the "Left button drag"
+      // select / move, the left-drag semantics follow the "Left button drag"
       // preference: SELECT always rubber-bands; DRAG_SELECTED moves only an
       // already-selected item; DRAG_ANY moves whatever is under the cursor.
       (e.target as Element).setPointerCapture(e.pointerId);
@@ -1797,7 +1797,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      // Skip while typing — a focused checkbox/radio (Selection Filter panel)
+      // Skip while typing, a focused checkbox/radio (Selection Filter panel)
       // isn't typing and must not eat the R/X/Y hotkeys.
       const tgt = e.target as HTMLElement | null;
       if (
@@ -1813,7 +1813,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       // R/X/Y here only steer the item attached to the cursor while placing;
       // selection transforms live in the editor's hotkey handler (a second
-      // window listener — handling them in both applied every transform twice).
+      // window listener, handling them in both applied every transform twice).
       const k = e.key.toLowerCase();
       if (k !== 'r' && k !== 'x' && k !== 'y') return;
 
@@ -1831,7 +1831,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if ((activeTool === 'placeSymbol' || activeTool === 'placePower') && placeLib) {
         // Advance the attached symbol's orientation in place. Serialized mirror
         // axis 'y' is KiCad's MirrorHorizontally (hotkey X), 'x' its
-        // MirrorVertically (hotkey Y) — see common/transform.ts.
+        // MirrorVertically (hotkey Y), see common/transform.ts.
         const o = placeOrientRef.current;
         placeOrientRef.current =
           k === 'r'

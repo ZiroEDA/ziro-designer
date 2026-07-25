@@ -67,10 +67,10 @@ export const defaultAnnotateOptions = (): AnnotateOptions => ({
 });
 
 /**
- * One sheet taking part in an annotation pass — a SCH_SHEET_PATH plus its
+ * One sheet taking part in an annotation pass, a SCH_SHEET_PATH plus its
  * screen. `scope` says how the pass treats it: 'full' annotates every symbol
  * (a sheet inside the scope), 'selected' only the selected ones (the current
- * sheet under ANNOTATE_SELECTION), and 'out' none — those symbols only reserve
+ * sheet under ANNOTATE_SELECTION), and 'out' none, those symbols only reserve
  * their numbers, upstream's additionalRefs.
  */
 export interface AnnotateSheet {
@@ -219,7 +219,7 @@ export function annotateHierarchy(
   if (candidates.length === 0) return result;
 
   // Sort by prefix, then sheet number, then position (x-then-y or y-then-x),
-  // then uuid — the SCH_REFERENCE_LIST::sortByXPosition / sortByYPosition
+  // then uuid, the SCH_REFERENCE_LIST::sortByXPosition / sortByYPosition
   // comparators. Unsorted keeps document collection order.
   const ordered = candidates.slice();
   if (opts.order !== 'unsorted') {
@@ -250,7 +250,7 @@ export function annotateHierarchy(
   // REFDES_TRACKER::GetNextRefDesForUnits + areUnitsAvailable: the first
   // number ≥ min that is either unused, or (for a multi-unit symbol) occupied
   // only by units of the same library symbol and value with every required
-  // unit slot still free — so two fresh ECC83 halves become U1A and U1B.
+  // unit slot still free, so two fresh ECC83 halves become U1A and U1B.
   const tracker = opts.tracker;
   const accept = (prefix: string, n: number): boolean => {
     // GetNextRefDesForUnits: a number not currently in use is taken only when
@@ -276,7 +276,7 @@ export function annotateHierarchy(
         cur.every((r) => r.lib === forUnits.lib && r.value === forUnits.value && r.unit !== u),
       );
       // A number already in use by compatible units is shared, not newly
-      // issued — the tracker records it without gating (it is "currently in
+      // issued, the tracker records it without gating (it is "currently in
       // use", the branch upstream takes through areUnitsAvailable).
       if (free) {
         tracker?.insert(`${prefix}${n}`);
@@ -421,7 +421,7 @@ function restoreSymbols(symbols: readonly SchSymbol[]): EditCommand {
   };
 }
 
-/** Replace a sheet's symbols wholesale — the per-sheet half of a hierarchy pass. */
+/** Replace a sheet's symbols wholesale, the per-sheet half of a hierarchy pass. */
 export function setSymbolsCommand(symbols: readonly SchSymbol[], label: string): EditCommand {
   return {
     label,
@@ -436,7 +436,7 @@ export function setSymbolsCommand(symbols: readonly SchSymbol[], label: string):
 
 // ----- reporting (the Annotation Messages panel) -----------------------------
 
-/** SCH_SYMBOL::SubReference — 1 → "A", 2 → "B"… (the default notation). */
+/** SCH_SYMBOL::SubReference, 1 → "A", 2 → "B"… (the default notation). */
 const defaultSubReference = (unit: number): string => {
   let suffix = '';
   let n = unit;
@@ -448,7 +448,7 @@ const defaultSubReference = (unit: number): string => {
   return suffix;
 };
 
-/** SCH_SYMBOL::IsAnnotated — a reference with a number and no '?' placeholder. */
+/** SCH_SYMBOL::IsAnnotated, a reference with a number and no '?' placeholder. */
 function isAnnotated(ref: string): boolean {
   if (ref.includes('?')) return false;
   return splitReference(ref).num !== undefined;
@@ -533,7 +533,7 @@ export function clearAnnotationReport(
 }
 
 /**
- * SCH_REFERENCE_LIST::CheckAnnotation — the final control pass: the first
+ * SCH_REFERENCE_LIST::CheckAnnotation, the final control pass: the first
  * un-annotated symbol or over-range unit, then every duplicated reference,
  * differing unit count and differing value among units of one reference.
  * Power symbols are left out: this build never renumbers them.

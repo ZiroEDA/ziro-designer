@@ -38,7 +38,7 @@ export const SIM_DEVICE_FIELD_VALUES: Readonly<Record<string, string>> = {
 };
 
 /**
- * SIM_MODEL::TypeInfo — every TYPE as the pair ReadTypeFromFields matches on:
+ * SIM_MODEL::TypeInfo, every TYPE as the pair ReadTypeFromFields matches on:
  * the owning device and the `Sim.Type` field value.
  */
 export const SIM_TYPES: readonly (readonly [string, string])[] = [

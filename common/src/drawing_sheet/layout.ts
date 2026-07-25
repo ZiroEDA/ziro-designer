@@ -8,7 +8,7 @@
  *  - corner anchoring: the four page corners are the margin-box corners, and an
  *    item coordinate is measured *inward* from its anchor corner;
  *  - repeats: an item with `repeat > 1` is emitted per repeat, each copy offset
- *    by (incrx, incry) mm — but a repeat other than the first is dropped when it
+ *    by (incrx, incry) mm, but a repeat other than the first is dropped when it
  *    falls outside the margin box (DS_DATA_ITEM::IsInsidePage), which is what
  *    clips the `repeat 100` coordinate-band labels at the page edge;
  *  - per-repeat text labels increment via DS_DATA_ITEM_TEXT::IncrementLabel
@@ -44,11 +44,11 @@ export interface WksPage {
 
 /** Values the `${…}` variables and page-number tokens resolve against. */
 export interface WksResolveContext {
-  /** 1-based sheet ordinal (DS_DRAW_ITEM_LIST m_sheetNumber) — drives the
+  /** 1-based sheet ordinal (DS_DRAW_ITEM_LIST m_sheetNumber), drives the
    *  page1only/notonpage1 item visibility and is the `${#}` fallback. */
   pageNumber?: number;
   /** The page number *string* shown by `${#}` (DS_DRAW_ITEM_LIST
-   *  m_pageNumber / SCH_SHEET_PATH::GetPageNumber — may be "A", "ii", …).
+   *  m_pageNumber / SCH_SHEET_PATH::GetPageNumber, may be "A", "ii", …).
    *  Unset = the ordinal. */
   pageName?: string;
   /** Total number of sheets. */
@@ -188,7 +188,7 @@ export function resolveDrawingSheetText(text: string, ctx: WksResolveContext): s
 
 /**
  * Increment a text label for a repeat, mirroring DS_DATA_ITEM_TEXT::
- * IncrementLabel: only the LAST character is considered — a digit is replaced
+ * IncrementLabel: only the LAST character is considered, a digit is replaced
  * by the integer (digit + incr) (so "9" + 1 → "10"), any other character is
  * shifted by code point ("A" → "B").
  */

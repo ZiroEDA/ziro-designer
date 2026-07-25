@@ -1,5 +1,5 @@
 /**
- * Board Setup persistence — the `.kicad_pcb` side: general thickness, the
+ * Board Setup persistence, the `.kicad_pcb` side: general thickness, the
  * layers table, (setup …) incl. stackup / mask & paste / tenting / dash
  * ratios, and embedded fonts/files
  * (designer/src/editors/pcb/board_file_settings.ts).

@@ -1,5 +1,5 @@
 /**
- * "Color Code" memo panel — resistor band encoder + reference chart.
+ * "Color Code" memo panel, resistor band encoder + reference chart.
  * Counterpart: KiCad `calculator_panels/panel_color_code.cpp`.
  */
 
@@ -111,7 +111,7 @@ export function PanelColorCode(): JSX.Element {
             ))}
           </div>
           <div className="calc-note">
-            {allBands.map((b) => b.name).join(' – ')} → encodes {fmt(r.encodedOhms, 6)} Ω ±
+            {allBands.map((b) => b.name).join(', ')} → encodes {fmt(r.encodedOhms, 6)} Ω ±
             {tolerance} %
           </div>
         </>

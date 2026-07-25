@@ -7,8 +7,8 @@
  * Same window: the File / Edit / Preferences menu bar, the top toolbar (save,
  * view footprint, previous/next unassigned, undo, redo, delete all, then
  * "Footprint Filters:" with the three toggles and the search box), the three
- * monospaced panes — "Footprint Libraries" (20%), "Symbol : Footprint
- * Assignments", "Filtered Footprints" (30%) — the three status lines, and the
+ * monospaced panes, "Footprint Libraries" (20%), "Symbol : Footprint
+ * Assignments", "Filtered Footprints" (30%), the three status lines, and the
  * button row "Apply, Save Schematic & Continue" / Cancel / OK.
  *
  * The rows are formatted exactly as upstream (CVPCB_MAINFRAME::formatSymbolDesc
@@ -16,7 +16,7 @@
  * one-row-per-symbol view (multi-unit parts merged), and a row whose footprint
  * is missing from the libraries gets SYMBOLS_LISTBOX's warning background.
  *
- * Web deltas: KiCad's footprint viewer is a second frame — here it is a panel
+ * Web deltas: KiCad's footprint viewer is a second frame, here it is a panel
  * over the footprint pane using the shared FOOTPRINT_PREVIEW_WIDGET. The
  * ".equ"-file features (Automatically Assign Footprints, Manage Footprint
  * Association Files) and the footprint library table editor are left out
@@ -66,11 +66,11 @@ const PIN_COUNT_SCAN_LIMIT = 800;
 interface Props {
   /** Every sheet of the open project, keyed by file name. */
   docs: ReadonlyMap<string, Schematic>;
-  /** The current schematic's sheets, in hierarchy order — the netlist CVPCB
+  /** The current schematic's sheets, in hierarchy order, the netlist CVPCB
    *  is handed. Other `.kicad_sch` files in the folder are not this design. */
   files?: readonly string[];
   /** The project's own footprint files: every `<dir>.pretty/<fp>.kicad_mod`
-   *  plus its `fp-lib-table` (which names the libraries — the fp-lib-table's
+   *  plus its `fp-lib-table` (which names the libraries, the fp-lib-table's
    *  project scope). */
   projectFootprints?: readonly { name: string; text: string }[];
   /** Write the assignments as Footprint field edits. `save` also persists the
@@ -85,7 +85,7 @@ interface Props {
 /** One undo/redo step: the associations it changed (CVPCB_UNDO_REDO_ENTRIES). */
 type UndoEntry = { reference: string; from: string; to: string }[];
 
-/** A fixed-row-height windowed list — the virtual wxListView the panes use. */
+/** A fixed-row-height windowed list, the virtual wxListView the panes use. */
 function VirtualList({
   count,
   selected,
@@ -102,7 +102,7 @@ function VirtualList({
   onActivate?: (i: number) => void;
   /** Row to scroll into view (EnsureVisible). */
   scrollTo?: number;
-  /** Longest row in characters — ITEMS_LISTBOX_BASE::UpdateWidth, which sizes
+  /** Longest row in characters, ITEMS_LISTBOX_BASE::UpdateWidth, which sizes
    *  the virtual list so long rows scroll horizontally instead of clipping. */
   widthCh?: number;
 }): JSX.Element {
@@ -181,7 +181,7 @@ export function DialogAssignFootprints({
 }: Props): JSX.Element {
   const components = useMemo(() => collectCvpcbComponents(docs, files), [docs, files]);
 
-  // The project's `.pretty` libraries, keyed "Lib:Footprint" -> file text —
+  // The project's `.pretty` libraries, keyed "Lib:Footprint" -> file text,
   // the fp-lib-table's project rows, which list before the global ones. The
   // nickname comes from the table, not the directory: the ECC83 demo's table
   // names `${KIPRJMOD}/footprints.pretty` "Footprints", which is the library
@@ -258,7 +258,7 @@ export function DialogAssignFootprints({
   const [scanning, setScanning] = useState(0);
   /** The pin-count filter needs more footprint downloads than is reasonable. */
   const [scanTooLarge, setScanTooLarge] = useState(false);
-  // Focused pane — the third status line names the library of the focused
+  // Focused pane, the third status line names the library of the focused
   // pane's selection (CVPCB_MAINFRAME::GetFocusedControl).
   const [focus, setFocus] = useState<'library' | 'symbol' | 'footprint'>('symbol');
 
@@ -365,7 +365,7 @@ export function DialogAssignFootprints({
 
   const selectedFootprint = filtered[curFp] ?? '';
 
-  // FOOTPRINTS_LISTBOX::SetSelectedFootprint — selecting a symbol highlights
+  // FOOTPRINTS_LISTBOX::SetSelectedFootprint, selecting a symbol highlights
   // its own footprint in the list when that footprint is among the matches.
   const componentRef = component?.reference;
   const componentFp = component ? footprintOf(component) : '';
@@ -450,7 +450,7 @@ export function DialogAssignFootprints({
     if (component) associate(component.reference, '');
   };
 
-  /** gotoNextNA / gotoPreviousNA — the next symbol with no assignment. */
+  /** gotoNextNA / gotoPreviousNA, the next symbol with no assignment. */
   const gotoNA = (dir: 1 | -1): void => {
     if (components.length === 0) return;
     for (let step = 1; step <= components.length; step++) {
@@ -543,9 +543,9 @@ export function DialogAssignFootprints({
     if (filterText) parts.push(`Search Text (${filterText})`);
     const head = parts.length === 0 ? 'No Filtering' : `Filtered by ${parts.join(', ')}`;
     let tail = '';
-    if (scanning > 0) tail = ` — reading ${scanning} footprints…`;
+    if (scanning > 0) tail = `, reading ${scanning} footprints…`;
     else if (scanTooLarge && filterFlags & FILTER_BY_PIN_COUNT)
-      tail = ' — select a library to filter by pin count';
+      tail = ', select a library to filter by pin count';
     return `${head}: ${filtered.length} matching footprints${tail}`;
   }, [
     filterFlags,
@@ -568,7 +568,7 @@ export function DialogAssignFootprints({
     else if (focus === 'symbol' && component) lib = footprintOf(component).split(':')[0] ?? '';
     else if (focus === 'library') lib = selectedLibrary;
     if (!lib || !libNames.includes(lib)) return '';
-    // LIBRARY_MANAGER::GetFullURI — a project library's own URI, else the
+    // LIBRARY_MANAGER::GetFullURI, a project library's own URI, else the
     // hosted set's.
     const uri = projectLibUris.get(lib);
     return `Library location: ${uri ?? `${footprintsBase()}/${lib}.pretty`}`;
@@ -845,7 +845,7 @@ export function DialogAssignFootprints({
               }}
             />
             {components.length === 0 && (
-              <div className="ze-cvpcb-empty">No symbols — place and annotate symbols first.</div>
+              <div className="ze-cvpcb-empty">No symbols, place and annotate symbols first.</div>
             )}
           </section>
 
@@ -933,7 +933,7 @@ export function DialogAssignFootprints({
   );
 }
 
-/** EDA_PATTERN_MATCH_WILDCARD_ANCHORED — `*` and `?` over the whole name. */
+/** EDA_PATTERN_MATCH_WILDCARD_ANCHORED, `*` and `?` over the whole name. */
 function wildcardToRegExp(pattern: string): RegExp {
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')

@@ -13,7 +13,7 @@
  *   - Default PII off, so IP addresses and the signed-in account are never
  *     attached.
  *   - Every event passes through `prepareEvent`, which both scrubs and enforces
- *     the opt-out — including for events already queued inside the SDK when the
+ *     the opt-out, including for events already queued inside the SDK when the
  *     user flips the setting.
  */
 

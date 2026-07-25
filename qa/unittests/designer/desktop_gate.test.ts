@@ -1,5 +1,5 @@
 /**
- * Desktop gate device matrix — which devices get turned away
+ * Desktop gate device matrix, which devices get turned away
  * (designer/src/mobile/useDesktopGate.ts).
  *
  * The gate is deliberately narrow: it should catch phones (which cannot drive
@@ -13,7 +13,7 @@ import { isSmallTouchDevice } from '@ziroeda/designer/src/mobile/useDesktopGate.
 interface Device {
   /** Viewport width in CSS px. */
   width: number;
-  /** The *primary* pointer — a finger ('coarse') or a mouse/trackpad ('fine'). */
+  /** The *primary* pointer, a finger ('coarse') or a mouse/trackpad ('fine'). */
   pointer: 'coarse' | 'fine';
   /** Whether *any* precise pointer is available (an attached mouse/trackpad). */
   anyFine: boolean;
@@ -54,7 +54,7 @@ describe('isSmallTouchDevice', () => {
     expect(isSmallTouchDevice()).toBe(true);
   });
 
-  it('gates a phone in landscape — still far too small', () => {
+  it('gates a phone in landscape, still far too small', () => {
     asDevice({ width: 932, pointer: 'coarse', anyFine: true }); // iPhone 15 Pro Max
     expect(isSmallTouchDevice()).toBe(true);
   });
@@ -69,7 +69,7 @@ describe('isSmallTouchDevice', () => {
     expect(isSmallTouchDevice()).toBe(false);
   });
 
-  it('gates a portrait tablet even with a mouse attached — the accepted cost', () => {
+  it('gates a portrait tablet even with a mouse attached, the accepted cost', () => {
     // Dropping the any-pointer condition costs this case. Rare in practice
     // (keyboard cases hold a tablet in landscape, which passes on width), and
     // "Continue anyway" is one tap.
@@ -82,12 +82,12 @@ describe('isSmallTouchDevice', () => {
     expect(isSmallTouchDevice()).toBe(false);
   });
 
-  it('never gates a touchscreen laptop — its primary pointer is the trackpad', () => {
+  it('never gates a touchscreen laptop, its primary pointer is the trackpad', () => {
     asDevice({ width: 1440, pointer: 'fine', anyFine: true });
     expect(isSmallTouchDevice()).toBe(false);
   });
 
-  it('never gates a narrow desktop window — cramped is not unusable', () => {
+  it('never gates a narrow desktop window, cramped is not unusable', () => {
     asDevice({ width: 800, pointer: 'fine', anyFine: true });
     expect(isSmallTouchDevice()).toBe(false);
   });

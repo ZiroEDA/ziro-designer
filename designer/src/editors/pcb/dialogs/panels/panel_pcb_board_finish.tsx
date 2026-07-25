@@ -1,6 +1,6 @@
 /**
  * Board Setup > Board Stackup > Board Finish. Counterpart:
- * `pcbnew/board_stackup_manager/panel_board_finish_base.cpp` (PANEL_SETUP_BOARD_FINISH) —
+ * `pcbnew/board_stackup_manager/panel_board_finish_base.cpp` (PANEL_SETUP_BOARD_FINISH),
  * plated-board-edge flag, copper finish (from the predefined list in
  * stackup_predefined_prms.cpp), and edge-card-connector option. Feeds the
  * .gbrjob fabrication file.

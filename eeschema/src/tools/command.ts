@@ -4,7 +4,7 @@
  * Every edit is an `EditCommand` that knows how to apply itself and to produce its
  * inverse against the pre-edit document (KiCad's commit/undo model, expressed
  * functionally). This single mechanism is the spine for undo/redo today and for
- * scripting / AI-driven edits later — they all just submit commands.
+ * scripting / AI-driven edits later, they all just submit commands.
  */
 
 import type { Schematic } from '../types.js';
@@ -18,7 +18,7 @@ export interface EditCommand {
 }
 
 /**
- * Run several commands as one undo step — KiCad's SCH_COMMIT, which collects
+ * Run several commands as one undo step, KiCad's SCH_COMMIT, which collects
  * every change a dialog makes and pushes them under a single label.
  */
 export function composeCommands(label: string, cmds: readonly EditCommand[]): EditCommand {

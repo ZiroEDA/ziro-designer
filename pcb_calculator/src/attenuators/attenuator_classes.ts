@@ -62,7 +62,7 @@ export const ATTENUATORS: readonly AttenuatorInfo[] = [
 export interface AttenuatorResult {
   /** Resistor values, ohms, in the order of `resistorLabels`. */
   resistors: number[];
-  /** Attenuation actually used (dB) — relevant for the splitter. */
+  /** Attenuation actually used (dB), relevant for the splitter. */
   attenuationDb: number;
   /** Minimum realisable attenuation for the given Zin/Zout, dB. */
   minAttenuationDb: number;

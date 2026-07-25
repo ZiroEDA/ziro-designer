@@ -97,7 +97,7 @@ export function ellipticIntegral(arg: number): [number, number] {
 export const ellipticK = (k: number): number => ellipticIntegral(k * k)[0];
 
 // ---------------------------------------------------------------------------
-// Djordjevic–Sarkar causal wideband Debye dielectric model.
+// Djordjevic-Sarkar causal wideband Debye dielectric model.
 // Port of KiCad `common/transline_calculations/dielectric_djordjevic_sarkar.cpp`
 // (Djordjevic et al., IEEE Trans. EMC 43(4):662-667, 2001, eqs. (8)-(11)).
 // ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ export interface DjordjevicSarkarModel {
 
 /**
  * Fit the model to the substrate spec (εr, tan δ at fSpec). Returns null for
- * invalid inputs — KiCad falls back to the constant model in that case.
+ * invalid inputs, KiCad falls back to the constant model in that case.
  */
 export function djordjevicSarkarFit(
   epsRSpec: number,
@@ -163,8 +163,8 @@ export interface DielectricModelParams {
 }
 
 /**
- * The substrate values an analysis should actually use — the constant inputs,
- * or the Djordjevic–Sarkar dispersion of them at the operating frequency
+ * The substrate values an analysis should actually use, the constant inputs,
+ * or the Djordjevic-Sarkar dispersion of them at the operating frequency
  * (KiCad UpdateDielectricModel + GetDispersedEpsilonR/TanDelta; invalid spec
  * frequency falls back to the constant model).
  */

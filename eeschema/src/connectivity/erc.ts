@@ -10,7 +10,7 @@
  *    pin involved in the most conflicts is reported against its nearest
  *    conflicting pin, exactly KiCad's marker-dedup strategy. The same walk
  *    determines whether a net that *needs* a driver (input / power-input pins)
- *    actually has one — power nets accept only power-output drivers
+ *    actually has one, power nets accept only power-output drivers
  *    (ERCE_PIN_NOT_DRIVEN / ERCE_POWERPIN_NOT_DRIVEN); a net carrying a
  *    no-connect flag is exempt;
  *  - ercCheckNoConnects (connection_graph.cpp): a subgraph with a no-connect
@@ -97,7 +97,7 @@ export interface ErcViolation {
 
 /**
  * An exclusion signature for a violation (SCH_MARKER::SerializeToString): the
- * settings key, position, and the involved item ids — enough to recognise the
+ * settings key, position, and the involved item ids, enough to recognise the
  * same marker on a later run so its exclusion persists across ERC runs.
  */
 export function ercExclusionKey(v: Pick<ErcViolation, 'code' | 'at' | 'items' | 'file'>): string {
@@ -137,7 +137,7 @@ const unitLabel = (unit: number): string => {
   return suffix;
 };
 
-/** wxString::Matches — an anchored glob where `*` is any run and `?` one char. */
+/** wxString::Matches, an anchored glob where `*` is any run and `?` one char. */
 function wxMatches(text: string, pattern: string): boolean {
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
@@ -192,14 +192,14 @@ export interface ErcRunOptions {
   /**
    * The sheet's human-readable path (NetlistOptions.sheetPath). ERC names its nets
    * with the same graph the rest of the hierarchy uses, so a caller that resolves
-   * cross-sheet pins by net name must pass the same path here — otherwise a child
+   * cross-sheet pins by net name must pass the same path here, otherwise a child
    * sheet's "/Child/CLK" would be looked up as "/CLK".
    */
   sheetPath?: string;
   /** Sub-sheet documents by file name, for the hierarchical-label test
    *  (ercCheckHierSheets compares a sheet's pins with the child's labels). */
   subSheets?: ReadonlyMap<string, Schematic>;
-  /** Global labels used anywhere else in the hierarchy — a global label is only
+  /** Global labels used anywhere else in the hierarchy, a global label is only
    *  "single" when it appears once project-wide (ercCheckSingleGlobalLabel). */
   otherSheetGlobalLabels?: ReadonlySet<string>;
   /** Resolve a `${VAR}` name; undefined means unresolved (TestTextVars). */
@@ -226,7 +226,7 @@ export interface ErcRunOptions {
   /** The library's copy of each symbol, by LIB_ID, for the mismatch test
    *  (TestLibSymbolIssues' Compare); absent libraries are simply not compared. */
   librarySymbols?: ReadonlyMap<string, LibSymbol>;
-  /** Pad numbers of each footprint, by LIB_ID — upstream's KIFACE pad fetcher.
+  /** Pad numbers of each footprint, by LIB_ID, upstream's KIFACE pad fetcher.
    *  Absent (or an unknown footprint) stands the pad tests down. */
   footprintPads?: ReadonlyMap<string, ReadonlySet<string>>;
   /** The configured symbol libraries: nickname -> the symbol names it holds
@@ -238,14 +238,14 @@ export interface ErcRunOptions {
   unloadedSymbolLibs?: ReadonlyMap<string, string>;
   /** This sheet's position in the hierarchy (SCH_SHEET_LIST order). With the
    *  `external*` lists below it decides which sheet's run owns a marker when a
-   *  fault spans sheets, so each is reported once — upstream never had to ask,
+   *  fault spans sheets, so each is reported once, upstream never had to ask,
    *  since ERC_TESTER walks the whole sheet list in one pass. */
   sheetIndex?: number;
   /** Symbols placed on other sheets: SCH_REFERENCE_LIST spans the hierarchy,
    *  so the reference tests (duplicates, units, values, footprints) do too. */
   externalSymbols?: readonly ExternalSymbol[];
   /** Label texts and power-symbol values on other sheets, for
-   *  TestSimilarLabels — upstream compares across every subgraph of m_nets. */
+   *  TestSimilarLabels, upstream compares across every subgraph of m_nets. */
   externalLabels?: readonly ExternalLabel[];
   /** SPICE library contents by `Sim.Library` path (SIM_LIB_MGR's resolver);
    *  returning undefined is upstream's "library not found". */
@@ -334,7 +334,7 @@ export function* runErcSteps(
   const symbolLibIdById = new Map<string, string>(
     sch.symbols.map((sym, i) => [refId('symbol', sym.uuid, i), sym.libId]),
   );
-  /** A placed symbol's Value, by its refId — a power symbol's net name. */
+  /** A placed symbol's Value, by its refId, a power symbol's net name. */
   const symbolValueById = new Map<string, string>(
     sch.symbols.map((sym, i) => [
       refId('symbol', sym.uuid, i),
@@ -399,7 +399,7 @@ export function* runErcSteps(
   const fieldValue = (s: (typeof sch.symbols)[number], key: string): string =>
     s.fields.find((f) => f.key === key)?.value ?? '';
   /**
-   * The symbols grouped by reference — SCH_REFERENCE_LIST's m_refMap, which
+   * The symbols grouped by reference, SCH_REFERENCE_LIST's m_refMap, which
    * upstream builds over the *whole* hierarchy. Symbols on other sheets come in
    * as `externalSymbols`, so a reference shared across sheets is one group here
    * too; each entry keeps its hierarchy order, and only the sheet that owns the
@@ -453,7 +453,7 @@ export function* runErcSteps(
   /** The id of an entry on this sheet (the only ones a marker can point at). */
   const refItemId = (e: RefEntry): string => refId('symbol', e.sym?.uuid, e.index);
 
-  /** CONNECTION_GRAPH::ercCheckNoConnects — per subgraph. */
+  /** CONNECTION_GRAPH::ercCheckNoConnects, per subgraph. */
   const checkNoConnects = (): void => {
     for (const net of netlist.nets) {
       const netPins = net.items.filter((id) => pinById.has(id)).map((id) => pinById.get(id)!);
@@ -505,7 +505,7 @@ export function* runErcSteps(
     }
   };
 
-  /** CONNECTION_GRAPH::ercCheckLabels — a label needs pins on its net. */
+  /** CONNECTION_GRAPH::ercCheckLabels, a label needs pins on its net. */
   const ercCheckLabels = (): void => {
     for (const group of groups.values()) {
       const gpins = group.pins;
@@ -536,7 +536,7 @@ export function* runErcSteps(
     }
   };
 
-  /** CONNECTION_GRAPH::ercCheckDirectiveLabels — a dangling netclass directive label. */
+  /** CONNECTION_GRAPH::ercCheckDirectiveLabels, a dangling netclass directive label. */
   const ercCheckDirectiveLabels = (): void => {
     for (const [i, label] of (sch.directiveLabels ?? []).entries()) {
       // SCH_LABEL::IsDangling: nothing of the connectivity graph lands on it.
@@ -553,7 +553,7 @@ export function* runErcSteps(
     }
   };
 
-  /** CONNECTION_GRAPH::ercCheckMultipleDrivers — two names on one net. */
+  /** CONNECTION_GRAPH::ercCheckMultipleDrivers, two names on one net. */
   const ercCheckMultipleDrivers = (): void => {
     for (const net of netlist.nets) {
       interface DriverItem {
@@ -576,7 +576,7 @@ export function* runErcSteps(
       }
       if (drivers.length < 2) continue;
       // Both sides are driver names (GetNameForDriver), so neither carries the
-      // sheet path — otherwise "/ALPHA" would read as a conflict with "ALPHA".
+      // sheet path, otherwise "/ALPHA" would read as a conflict with "ALPHA".
       const primary = net.localName;
       for (const d of drivers) {
         if (d.name === primary) continue;
@@ -616,7 +616,7 @@ export function* runErcSteps(
     for (const [lid, l] of labelIds) {
       if (!isBusLabel(l.text)) continue;
       // Bus labels on a bus were routed to the bus graph; one still in the wire
-      // netlist is a bus label attached to net items — but only when the net
+      // netlist is a bus label attached to net items, but only when the net
       // has other items (upstream needs a net item AND a bus item; a floating
       // bus label is just unconnected).
       const code = netlist.netByItem.get(lid);
@@ -830,7 +830,7 @@ export function* runErcSteps(
     // A pin map's entries must name pins the symbol actually has, and two pins
     // may not claim one pad unless a jumper group ties them together. (Pin maps
     // and pin numbers are library-symbol properties, so upstream walks unique
-    // screens rather than sheet paths — one sheet's run is one screen here.)
+    // screens rather than sheet paths, one sheet's run is one screen here.)
     sch.symbols.forEach((sym, i) => {
       const lib = libById.get(sym.libId);
       const maps = lib?.pinMaps ?? [];
@@ -913,7 +913,7 @@ export function* runErcSteps(
           }
         }
 
-        // ERCE_PIN_MAP_UNMAPPED_PIN — only for symbols that bind a footprint.
+        // ERCE_PIN_MAP_UNMAPPED_PIN, only for symbols that bind a footprint.
         if (associations.length === 0) return;
         const fpText = fieldValue(sym, 'Footprint');
         const sep = fpText.indexOf(':');
@@ -937,9 +937,9 @@ export function* runErcSteps(
           if (netlist.netByItem.get(pin.id) === undefined) continue;
           // Instance-local sparse edits win, unless identity is forced.
           if (mode !== 'identity' && override?.edits.some((e) => e.pin === pin.number)) continue;
-          // 1. MAPPED — an explicit entry needs no footprint.
+          // 1. MAPPED, an explicit entry needs no footprint.
           if (map?.entries.some((e) => e.pin === pin.number)) continue;
-          // 2. IDENTITY — the footprint carries a pad of that number.
+          // 2. IDENTITY, the footprint carries a pad of that number.
           if (pads.has(pin.number)) continue;
           // 3. UNMAPPED.
           out.push(
@@ -992,7 +992,7 @@ export function* runErcSteps(
     }
   };
 
-  /** ERC_TESTER::TestPinToPin — the pin conflict matrix and the driver test. */
+  /** ERC_TESTER::TestPinToPin, the pin conflict matrix and the driver test. */
   const testPinToPin = (): void => {
     for (const group of groups.values()) {
       const gpins = group.pins;
@@ -1015,7 +1015,7 @@ export function* runErcSteps(
       const mismatchCounts = new Map<number, number>();
 
       // An off-sheet pin can drive the net, and an off-sheet driven pin can be
-      // the one the error should be reported against — in which case this sheet
+      // the one the error should be reported against, in which case this sheet
       // stays quiet and the sheet that owns the pin reports it (below).
       for (const ext of external) {
         hasDriver ||= (isPowerNet ? DRIVING_POWER : DRIVING).has(ext.electricalType);
@@ -1027,7 +1027,7 @@ export function* runErcSteps(
 
         if (DRIVEN.has(refType)) {
           pinsNeedingDrivers.push(ref);
-          // SCH_PIN::IsPower() — a power pin is a power *input* pin; anything
+          // SCH_PIN::IsPower(), a power pin is a power *input* pin; anything
           // else is "non power" and makes a better anchor for the marker.
           if (!(refType === 'power_in')) nonPowerPinsNeedingDrivers.push(ref);
           if (refType === 'power_in') powerInPinsNeedingDrivers.push(ref);
@@ -1116,7 +1116,7 @@ export function* runErcSteps(
       }
 
       // Report each offending pin once, against its nearest conflicting pin,
-      // consuming its pairs — KiCad's aggregation in TestPinToPin.
+      // consuming its pairs, KiCad's aggregation in TestPinToPin.
       const order = [...mismatchCounts.entries()].sort((a, b) => b[1] - a[1]).map(([idx]) => idx);
       let remaining = mismatches;
       for (const idx of order) {
@@ -1205,7 +1205,7 @@ export function* runErcSteps(
   };
 
   /**
-   * ERC_TESTER::TestSimilarLabels — texts that differ only in case. Upstream
+   * ERC_TESTER::TestSimilarLabels, texts that differ only in case. Upstream
    * walks every subgraph of m_nets, so labels on *different* sheets are
    * compared too; here the other sheets' texts arrive as `externalLabels`.
    * The marker goes on the later of the pair (upstream keeps the first-seen
@@ -1403,7 +1403,7 @@ export function* runErcSteps(
   };
 
   /**
-   * ERC_TESTER::TestLibSymbolIssues — the library a symbol names must be in the
+   * ERC_TESTER::TestLibSymbolIssues, the library a symbol names must be in the
    * configuration and must still hold it, and the schematic's cached copy must
    * match the library's. A symbol with no cached copy at all is skipped, as
    * upstream skips it (`if( !libSymbolInSchematic ) continue`).
@@ -1526,7 +1526,7 @@ export function* runErcSteps(
   /** ERC_TESTER::TestFootprintFilters. */
   const testFootprintFilters = (): void => {
     // The assigned footprint must match one of the library symbol's
-    // `ki_fp_filters` globs — the whole LIB_ID when the filter carries a ':',
+    // `ki_fp_filters` globs, the whole LIB_ID when the filter carries a ':',
     // otherwise the footprint name alone. Everything is compared lower-cased.
     sch.symbols.forEach((sym, i) => {
       const lib = libById.get(sym.libId);
@@ -1535,7 +1535,7 @@ export function* runErcSteps(
         .filter(Boolean);
       if (filters.length === 0) return;
       const lowerId = fieldValue(sym, 'Footprint').toLowerCase();
-      // LIB_ID::Parse( lowerId ) > 0 — an unparsable id is left to the link test.
+      // LIB_ID::Parse( lowerId ) > 0, an unparsable id is left to the link test.
       const sep = lowerId.indexOf(':');
       if (lowerId === '' || sep <= 0) return;
       const lowerItemName = lowerId.slice(sep + 1);
@@ -1783,7 +1783,7 @@ export function* runErcSteps(
         }
         continue;
       }
-      /** SCH_SYMBOL::SubReference — the unit suffix a multi-unit part carries. */
+      /** SCH_SYMBOL::SubReference, the unit suffix a multi-unit part carries. */
       const sub = (g: RefEntry): string => (libUnits > 1 ? unitLabel(g.unit) : '');
 
       // Duplicate reference / extra units: two symbols sharing a reference and
@@ -1844,7 +1844,7 @@ export function* runErcSteps(
       if (ref.includes('?')) continue;
       const lib = libById.get(group[0]!.libId);
       const multiUnit = (lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1) > 1;
-      // GetRef( sheet, true ) — the reference with its unit suffix.
+      // GetRef( sheet, true ), the reference with its unit suffix.
       const name = (g: RefEntry): string => (multiUnit ? `${ref}${unitLabel(g.unit)}` : ref);
       const withFp = group.find((g) => g.footprint !== '');
       if (!withFp) continue;
@@ -1954,7 +1954,7 @@ export function* runErcSteps(
     }
   };
 
-  /** ERC_TESTER::TestMissingNetclasses — a "Netclass" field naming a netclass the project does not define. */
+  /** ERC_TESTER::TestMissingNetclasses, a "Netclass" field naming a netclass the project does not define. */
   const testMissingNetclasses = (): void => {
     const netclasses = opts.netclasses;
     if (!netclasses) return;

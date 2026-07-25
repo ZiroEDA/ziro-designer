@@ -30,7 +30,7 @@ const eq = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
 export const segIsNull = (s: WireSeg): boolean => eq(s.a, s.b);
 
 /**
- * SCH_LINE_WIRE_BUS_TOOL::startSegments — the first click creates one
+ * SCH_LINE_WIRE_BUS_TOOL::startSegments, the first click creates one
  * segment; in the 90°/45° modes a second chained segment is created at once
  * so the pair can bend orthogonally toward the cursor.
  */
@@ -41,7 +41,7 @@ export function startSegments(pos: Vec2, mode: WireLineMode): WireSeg[] {
 }
 
 /**
- * SCH_LINE_WIRE_BUS_TOOL::computeBreakPoint — coerce the live segment pair so
+ * SCH_LINE_WIRE_BUS_TOOL::computeBreakPoint, coerce the live segment pair so
  * both reach `pos` while staying orthogonal (90) or orthogonal+diagonal (45).
  * The existing shape is maintained where possible: a first segment that was
  * vertical stays vertical. Wires starting on a left/right sheet pin are
@@ -164,7 +164,7 @@ export function switchPosture90(segment: WireSeg, nextSegment: WireSeg): void {
   segment.b = { x: segment.a.x + delta2.x, y: segment.a.y + delta2.y };
 }
 
-/** Is `p` on segment a–b (endpoints included)? */
+/** Is `p` on segment a-b (endpoints included)? */
 function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
   const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
   if (cross !== 0) return false;
@@ -193,7 +193,7 @@ function allPinPositions(sch: Schematic, libById: Map<string, LibSymbol>): Vec2[
 }
 
 /**
- * SCH_SCREEN::IsTerminalPoint — should a click here end the wire run?
+ * SCH_SCREEN::IsTerminalPoint, should a click here end the wire run?
  * For wires: a bus entry end, junction, symbol pin, another wire (anywhere
  * along it), a connected label, or a sheet pin. For buses: another bus,
  * a sheet pin, or a connected label.
@@ -244,7 +244,7 @@ export function sheetPinSideAt(sch: Schematic, pos: Vec2): 'left' | 'right' | un
 }
 
 /**
- * SCH_LINE_WIRE_BUS_TOOL::simplifyWireList — drop zero-length segments and
+ * SCH_LINE_WIRE_BUS_TOOL::simplifyWireList, drop zero-length segments and
  * merge consecutive collinear segments, which also removes backtracks
  * (a segment drawn back over the previous one).
  */
@@ -269,7 +269,7 @@ export function simplifyWireList(wires: readonly WireSeg[]): WireSeg[] {
 }
 
 /**
- * SCH_LINE_WIRE_BUS_TOOL::finishSegments — commit the simplified chain as
+ * SCH_LINE_WIRE_BUS_TOOL::finishSegments, commit the simplified chain as
  * wire/bus lines plus the junctions the new connections call for: at each
  * new wire end, and at existing connection points the new wires pass over.
  */

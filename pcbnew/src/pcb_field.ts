@@ -1,5 +1,5 @@
 /**
- * PCB_FIELD — a footprint text field (Reference, Value, Datasheet, or a user
+ * PCB_FIELD, a footprint text field (Reference, Value, Datasheet, or a user
  * field): pcbnew/pcb_field.{h,cpp}. A PCB_TEXT with a field id/name.
  */
 

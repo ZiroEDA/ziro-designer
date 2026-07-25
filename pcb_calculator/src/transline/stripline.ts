@@ -1,5 +1,5 @@
 /**
- * Symmetric stripline — faithful port of KiCad's
+ * Symmetric stripline, faithful port of KiCad's
  * `transline_calculations/stripline.cpp` (Wheeler/Cohn line impedance combined
  * as two parallel half-lines). For the centred strip the offset a = (h−t)/2.
  * Counterpart: KiCad `common/transline_calculations/stripline.cpp`.
@@ -19,7 +19,7 @@ export interface StriplinePhysical {
   lengthM: number;
 }
 
-/** KiCad STRIPLINE::lineImpedance — returns ZL and the conductor loss ac. */
+/** KiCad STRIPLINE::lineImpedance, returns ZL and the conductor loss ac. */
 function lineImpedance(
   aHeight: number,
   w: number,

@@ -3,7 +3,7 @@
  * (SCH_SHEET_PATH::GetPageNumber / SetPageNumber) + `sch_sheet.cpp`
  * (SCH_SHEET::getInstance / AddInstance).
  *
- * A sheet instance is keyed by the KIID path of its *containing* sheet-path —
+ * A sheet instance is keyed by the KIID path of its *containing* sheet-path,
  * the chain of sheet UUIDs from the root document down to, but excluding, the
  * sheet itself (SCH_SHEET_PATH::Path() then pop_back). We build that key from
  * the root document's uuid and the chain of sheet-symbol uuids that identify

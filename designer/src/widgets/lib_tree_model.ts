@@ -5,7 +5,7 @@
  */
 import type { EdaCombinedMatcher, SearchTerm } from '@ziroeda/common';
 
-/** Upstream LIB_TREE_NODE::TYPE — the numeric order matters for sorting. */
+/** Upstream LIB_TREE_NODE::TYPE, the numeric order matters for sorting. */
 export enum LibTreeNodeType {
   ROOT = 0,
   LIBRARY = 1,
@@ -44,7 +44,7 @@ export class LibTreeNode {
   exactMatch = false;
   pinned = false;
 
-  /** LIB_SYMBOL::IsRoot — a derived symbol's name is italicised in the tree. */
+  /** LIB_SYMBOL::IsRoot, a derived symbol's name is italicised in the tree. */
   isRoot = true;
   isPower = false;
   isRecentlyUsedGroup = false;
@@ -61,7 +61,7 @@ export class LibTreeNode {
   searchTerms: SearchTerm[] = [];
 
   /**
-   * LIB_TREE_NODE::RebuildSearchTerms — the item's own terms plus the value of
+   * LIB_TREE_NODE::RebuildSearchTerms, the item's own terms plus the value of
    * every field currently shown as a column (weight 4), so a visible column is
    * also searchable.
    */
@@ -81,7 +81,7 @@ export class LibTreeNode {
   }
 
   /**
-   * LIB_TREE_NODE::AssignIntrinsicRanks — pre-sort children alphabetically so
+   * LIB_TREE_NODE::AssignIntrinsicRanks, pre-sort children alphabetically so
    * they tie-break consistently once scores equalise. `presorted` preserves
    * the insertion order (used by the Recently Used group).
    */
@@ -100,7 +100,7 @@ export class LibTreeNode {
     }
   }
 
-  /** LIB_TREE_NODE_*::UpdateScore — matches propagate scores down the tree. */
+  /** LIB_TREE_NODE_*::UpdateScore, matches propagate scores down the tree. */
   updateScore(matchers: EdaCombinedMatcher[], filter: LibTreeNodeFilter | null): void {
     switch (this.type) {
       case LibTreeNodeType.ROOT:
@@ -167,7 +167,7 @@ export class LibTreeNode {
 }
 
 /**
- * LIB_TREE_NODE::Compare — Recently Used first, then pinned libraries, then
+ * LIB_TREE_NODE::Compare, Recently Used first, then pinned libraries, then
  * exact matches, then score, then the intrinsic (alphabetical) rank.
  */
 export function compareNodes(a: LibTreeNode, b: LibTreeNode, useScores: boolean): boolean {
@@ -193,7 +193,7 @@ export function compareNodes(a: LibTreeNode, b: LibTreeNode, useScores: boolean)
   return a.intrinsicRank > b.intrinsicRank;
 }
 
-/** LIB_TREE_NODE_LIBRARY — one library (or pseudo-library group) row. */
+/** LIB_TREE_NODE_LIBRARY, one library (or pseudo-library group) row. */
 export function makeLibraryNode(parent: LibTreeNode, name: string, desc: string): LibTreeNode {
   const node = new LibTreeNode();
   node.type = LibTreeNodeType.LIBRARY;
@@ -207,7 +207,7 @@ export function makeLibraryNode(parent: LibTreeNode, name: string, desc: string)
   return node;
 }
 
-/** LIB_TREE_NODE_ITEM — one symbol row under a library. */
+/** LIB_TREE_NODE_ITEM, one symbol row under a library. */
 export function makeItemNode(parent: LibTreeNode, libNickname: string, name: string): LibTreeNode {
   const node = new LibTreeNode();
   node.type = LibTreeNodeType.ITEM;
@@ -219,7 +219,7 @@ export function makeItemNode(parent: LibTreeNode, libNickname: string, name: str
   return node;
 }
 
-/** LIB_TREE_NODE_UNIT — "Unit A"… sub-rows of a multi-unit symbol. */
+/** LIB_TREE_NODE_UNIT, "Unit A"… sub-rows of a multi-unit symbol. */
 export function makeUnitNode(parent: LibTreeNode, name: string, unit: number): LibTreeNode {
   const node = new LibTreeNode();
   node.type = LibTreeNodeType.UNIT;

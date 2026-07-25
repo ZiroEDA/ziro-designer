@@ -3,8 +3,8 @@
  *
  * KiCad does not draw a symbol field with its stored justification. Because the
  * parent symbol's transform would make mirrored/rotated justification ambiguous,
- * SCH_PAINTER::draw(SCH_FIELD) computes the field's *bounding box* — text box,
- * rotated by the text angle, mapped through the symbol transform — and then draws
+ * SCH_PAINTER::draw(SCH_FIELD) computes the field's *bounding box*, text box,
+ * rotated by the text angle, mapped through the symbol transform, and then draws
  * the text centre-justified at the box centre (sch_painter.cpp). The properties
  * dialog's H/V-align columns likewise show the *effective* justification derived
  * from that box (SCH_FIELD::GetEffectiveHorizJustify / IsHorizJustifyFlipped).
@@ -199,7 +199,7 @@ function invTransform(t: Transform): Transform {
  * field position and mapped through the parent symbol's transform. This box is in
  * schematic coordinates; the painter draws the text centred inside it.
  *
- * The file's `(at ...)` for a symbol field is SCH_FIELD::GetPosition() — the
+ * The file's `(at ...)` for a symbol field is SCH_FIELD::GetPosition(), the
  * *transformed* position. KiCad's internal GetTextPos() is the pre-transform
  * one (GetPosition applies the parent transform, sch_field.cpp), so the box is
  * built at inverse-transform(at - origin) and mapped forward again.
@@ -232,7 +232,7 @@ export function fieldBoundingBox(
 }
 
 /**
- * SCH_FIELD::GetDrawRotation: the angle the text is actually drawn at — the
+ * SCH_FIELD::GetDrawRotation: the angle the text is actually drawn at, the
  * field's own angle, toggled H<->V when the symbol transform has y1 != 0
  * (i.e. the symbol is rotated 90°/270°).
  */
@@ -285,7 +285,7 @@ export function isVertJustifyFlipped(
 const flipH = (j: HJustify): HJustify => (j === 'left' ? 'right' : j === 'right' ? 'left' : j);
 const flipV = (j: VJustify): VJustify => (j === 'top' ? 'bottom' : j === 'bottom' ? 'top' : j);
 
-/** SCH_FIELD::GetEffectiveHorizJustify — what the dialog's H-Align column shows. */
+/** SCH_FIELD::GetEffectiveHorizJustify, what the dialog's H-Align column shows. */
 export function effectiveHorizJustify(
   field: SchField,
   sym: SchSymbol,
@@ -296,7 +296,7 @@ export function effectiveHorizJustify(
   return j === 'center' ? j : isHorizJustifyFlipped(field, sym, shownText, measure) ? flipH(j) : j;
 }
 
-/** SCH_FIELD::GetEffectiveVertJustify — what the dialog's V-Align column shows. */
+/** SCH_FIELD::GetEffectiveVertJustify, what the dialog's V-Align column shows. */
 export function effectiveVertJustify(
   field: SchField,
   sym: SchSymbol,

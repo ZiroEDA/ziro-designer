@@ -1,5 +1,5 @@
 /**
- * Wire hop-over geometry — SCH_LINE::ShouldHopOver + BuildWireWithHopShape
+ * Wire hop-over geometry, SCH_LINE::ShouldHopOver + BuildWireWithHopShape
  * (eeschema/sch_line.cpp). Each quirk asserted here matches the C++ source:
  * horizontal wires hop over vertical ones, the shallower of two sloped wires
  * hops, endpoint (T-junction) crossings never hop, coincident crossings from

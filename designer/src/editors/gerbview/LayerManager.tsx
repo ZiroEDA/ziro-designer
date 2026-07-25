@@ -1,5 +1,5 @@
 /**
- * The Layers manager panel — GerbView's GERBER_LAYER_WIDGET
+ * The Layers manager panel, GerbView's GERBER_LAYER_WIDGET
  * (`gerbview/widgets/layer_widget.cpp` + `gerbview/widgets/gbr_layer_box_selector`).
  * It lists every loaded layer with a visibility toggle, a colour swatch (click
  * to recolour), the layer/file name, and an active-layer radio (the active
@@ -76,7 +76,7 @@ export function LayerManager({
             key={layer.index}
             className={`ze-gbr-layer-row${layer.index === activeLayer ? ' active' : ''}`}
             onClick={() => onSetActive(layer.index)}
-            title={layer.function ? `${layer.name} — ${layer.function}` : layer.name}
+            title={layer.function ? `${layer.name}, ${layer.function}` : layer.name}
           >
             <input
               type="radio"

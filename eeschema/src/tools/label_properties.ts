@@ -4,8 +4,8 @@
  *
  * Counterpart: `SCH_LABEL_BASE` (eeschema/sch_label.h) plus
  * `DIALOG_LABEL_PROPERTIES::TransferDataFromWindow`. Labels carry fields the
- * same way symbols do — `(property "Netclass" "…")`, the global label's
- * "Intersheetrefs" — so the dialog's Fields grid is the same grid the symbol
+ * same way symbols do, `(property "Netclass" "…")`, the global label's
+ * "Intersheetrefs", so the dialog's Fields grid is the same grid the symbol
  * properties dialog uses, over the label's own `(property …)` children.
  *
  * Fields are read from and written back into the label's `source` node, which
@@ -98,7 +98,7 @@ export function cleanLabelFields(fields: readonly EditedLabelField[]): EditedLab
 }
 
 /**
- * Where a label dropped at `at` should point — SCH_SCREEN::
+ * Where a label dropped at `at` should point, SCH_SCREEN::
  * GetLabelOrientationForPoint, used by SCH_EDIT_FRAME::AutoRotateItem when the
  * label has "Auto" (AutoRotateOnPlacement) set. A wire through the point turns
  * the label away from the wire's body: on a horizontal wire it points right at

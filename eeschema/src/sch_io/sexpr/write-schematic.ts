@@ -212,7 +212,7 @@ export function buildPropertyNode(field: Omit<SchField, 'source'>, invertY = fal
 
 /**
  * Patch a `(property ...)` node to match the typed field, changing only what
- * differs. `invertY` writes Y negated — symbol-*library* fields are stored +Y-up
+ * differs. `invertY` writes Y negated, symbol-*library* fields are stored +Y-up
  * in the file while the model is +Y-down (the mirror of readField's invertY).
  * Exported for the symbol-library writer.
  */
@@ -330,7 +330,7 @@ function patchSymbolBool(node: SList, name: string, value: boolean, dflt: boolea
   return insertCanonical(node, list(atom(name), atom(value ? 'yes' : 'no')));
 }
 
-/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token —
+/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token,
  *  the writer omits it "to avoid file churn" (saveSymbol). */
 function patchPassthrough(node: SList, mode: 'block' | 'force' | undefined): SList {
   const child = childNamed(node, 'passthrough');
@@ -539,7 +539,7 @@ function writeLabel(l: SchLabel): SList {
     const orig = readEffects(l.source);
     node = mapChild(node, 'effects', (e) => patchEffects(e, l.effects!, orig));
   }
-  // `(exclude_from_sim yes|no)` — written only once the model carries it, so a
+  // `(exclude_from_sim yes|no)`, written only once the model carries it, so a
   // file that never had the token keeps not having it.
   if (l.excludedFromSim !== undefined) node = setToken(node, 'exclude_from_sim', l.excludedFromSim);
   return node;
@@ -548,7 +548,7 @@ function writeLabel(l: SchLabel): SList {
 /**
  * Patch a netclass directive label: its position, orientation, flag shape, pin
  * length and its fields (the "Netclass" property the dialog edits). Everything
- * else in the node — effects, uuid, anything we don't model — passes through.
+ * else in the node, effects, uuid, anything we don't model, passes through.
  */
 function writeDirectiveLabel(l: SchDirectiveLabel): SList {
   let node = patchAt(l.source, l.at);

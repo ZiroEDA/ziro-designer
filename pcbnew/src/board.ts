@@ -1,5 +1,5 @@
 /**
- * BOARD — the root container (pcbnew/board.{h,cpp}). Holds the footprints,
+ * BOARD, the root container (pcbnew/board.{h,cpp}). Holds the footprints,
  * tracks/arcs/vias, zones and board-level graphics/text, plus the layer table
  * and net map. KiCad's BOARD is itself a BOARD_ITEM_CONTAINER with a great deal
  * of design-settings/connectivity state; this port starts with the item
@@ -26,7 +26,7 @@ export interface BOARD_LAYER {
 
 export class BOARD {
   protected m_footprints: FOOTPRINT[] = [];
-  /** Tracks, arcs and vias — KiCad keeps them together in m_tracks. */
+  /** Tracks, arcs and vias, KiCad keeps them together in m_tracks. */
   protected m_tracks: PCB_TRACK[] = [];
   protected m_zones: ZONE[] = [];
   /** Board-level graphics + text (KiCad m_drawings). */
@@ -70,12 +70,12 @@ export class BOARD {
     return this.m_nets.get(code) ?? '';
   }
 
-  /** BOARD::FlipLayer — the opposite-side layer (delegates to layer_ids). */
+  /** BOARD::FlipLayer, the opposite-side layer (delegates to layer_ids). */
   FlipLayer(aLayer: PCB_LAYER_ID): PCB_LAYER_ID {
     return flipLayerImpl(aLayer);
   }
 
-  /** BOARD::Add — file the item into the right collection by its class. */
+  /** BOARD::Add, file the item into the right collection by its class. */
   Add(item: BOARD_TOP_ITEM): void {
     if (item instanceof FOOTPRINT) this.m_footprints.push(item);
     else if (item instanceof PCB_TRACK)
@@ -84,7 +84,7 @@ export class BOARD {
     else this.m_drawings.push(item); // PCB_SHAPE | PCB_TEXT
   }
 
-  /** BOARD::Remove — drop the item from its collection (by identity). */
+  /** BOARD::Remove, drop the item from its collection (by identity). */
   Remove(item: BOARD_TOP_ITEM): void {
     const drop = <T>(arr: T[], it: T): void => {
       const i = arr.indexOf(it);
