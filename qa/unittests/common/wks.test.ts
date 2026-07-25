@@ -1,3 +1,8 @@
+import {
+  GENERATOR,
+  GENERATOR_APPLICATION,
+  GENERATOR_VERSION,
+} from '@ziroeda/common/src/generator.js';
 import { describe, it, expect } from 'vitest';
 import {
   parseDrawingSheet,
@@ -259,7 +264,9 @@ describe('format details (upstream parser/writer parity)', () => {
   it('writes bare bold atoms, generator_version, and justify only when non-default', () => {
     const sheet = defaultDrawingSheet();
     const out = serializeDrawingSheet(sheet);
-    expect(out).toContain('(generator_version "10.0"');
+    // We write the file, so it names us, not pl_editor.
+    expect(out).toContain(`(generator "${GENERATOR}"`);
+    expect(out).toContain(`(generator_version "${GENERATOR_VERSION}"`);
     expect(out).toContain('bold');
     expect(out).not.toContain('(bold yes)');
     // default left/center justification is never written
