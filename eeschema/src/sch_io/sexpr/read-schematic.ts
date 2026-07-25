@@ -775,6 +775,9 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   }
   const effects = readEffects(node);
   if (effects) label.effects = effects;
+  if (childNamed(node, 'exclude_from_sim')) {
+    label.excludedFromSim = boolField(node, 'exclude_from_sim', false);
+  }
   const uuid = stringField(node, 'uuid');
   if (uuid) label.uuid = uuid;
   return label;

@@ -382,6 +382,8 @@ export interface SchLabel {
   /** `(shape …)` on global/hierarchical labels; selects the flag outline. */
   readonly shape?: LabelShape;
   readonly effects?: TextEffects;
+  /** `(exclude_from_sim yes)` on free text (SCH_TEXT); undefined when absent. */
+  readonly excludedFromSim?: boolean;
   readonly uuid?: string;
   readonly source: SList;
 }

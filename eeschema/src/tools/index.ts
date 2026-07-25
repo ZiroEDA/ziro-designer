@@ -27,6 +27,7 @@ export * from './sch_line_wire_bus_tool.js';
 export * from './annotate.js';
 export * from './hop_over.js';
 export * from './intersheet_refs.js';
+export * from './label_properties.js';
 export * from './sch_sheet_path.js';
 export * from './page_settings.js';
 export * from './sch_group_tool.js';

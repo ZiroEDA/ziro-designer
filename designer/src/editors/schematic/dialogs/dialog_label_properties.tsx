@@ -37,13 +37,14 @@ import {
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import type { ItemColor } from './dialog_line_properties.js';
 
-/** The label types this dialog serves (SCH_LABEL_T / GLOBAL / HIER). */
-export type LabelPropsKind = 'label' | 'global_label' | 'hierarchical_label';
+/** The label types this dialog serves (SCH_LABEL_T / GLOBAL / HIER / SHEET_PIN). */
+export type LabelPropsKind = 'label' | 'global_label' | 'hierarchical_label' | 'sheet_pin';
 
 const TITLES: Record<LabelPropsKind, string> = {
   label: 'Label Properties',
   global_label: 'Global Label Properties',
   hierarchical_label: 'Hierarchical Label Properties',
+  sheet_pin: 'Hierarchical Sheet Pin Properties',
 };
 
 /** The flag shapes, in the dialog's radio order. */
@@ -202,13 +203,17 @@ export function DialogLabelProperties({
     valueRef.current?.select();
   }, []);
 
-  // Only global and hierarchical labels have a flag shape; only they can
-  // auto-rotate on placement (AutoRotateOnPlacementSupported).
-  const hasShape = kind === 'global_label' || kind === 'hierarchical_label';
-  const hasAutoRotate = hasShape;
+  // Global, hierarchical labels and sheet pins have a flag shape; only the
+  // first two can auto-rotate on placement (AutoRotateOnPlacementSupported).
+  const hasShape = kind === 'global_label' || kind === 'hierarchical_label' || kind === 'sheet_pin';
+  const hasAutoRotate = kind === 'global_label' || kind === 'hierarchical_label';
   // The combo (with the existing labels) is used for local and global labels;
-  // hierarchical labels get the plain single-line entry.
+  // hierarchical labels and sheet pins get the plain single-line entry.
   const isCombo = kind === 'label' || kind === 'global_label';
+  // A sheet pin is owned by its sheet and carries no fields of its own here,
+  // so the Fields grid — which edits a label's `(property …)` children — has
+  // nothing to show for it.
+  const hasFields = kind !== 'sheet_pin';
 
   const sizeIU = (): number => {
     const n = Number(sizeText.trim());
@@ -342,132 +347,134 @@ export function DialogLabelProperties({
           </div>
 
           {/* sbFields: the label's own fields, in the symbol dialog's grid. */}
-          <fieldset className="ze-lp-fields">
-            <legend>Fields</legend>
-            <div className="ze-lp-grid-wrap">
-              <table className="ze-lp-grid">
-                <thead>
-                  <tr>
-                    {COLUMNS.map((c) => (
-                      <th key={c.key} style={{ width: c.width }}>
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {fields.map((f, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
-                    <tr
-                      key={i}
-                      className={selRow === i ? 'sel' : ''}
-                      onMouseDown={() => setSelRow(i)}
-                    >
-                      <td>
-                        <input
-                          value={f.key}
-                          onChange={(e) => patchField(i, { ...f, key: e.target.value })}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          value={f.value}
-                          onChange={(e) => patchField(i, { ...f, value: e.target.value })}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!f.effects?.hidden}
-                          onChange={(e) =>
-                            patchField(i, {
-                              ...f,
-                              effects: { ...f.effects, hidden: !e.target.checked },
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!!f.nameShown}
-                          onChange={(e) => patchField(i, { ...f, nameShown: e.target.checked })}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          value={justifyOf(f, 'h')}
-                          onChange={(e) => patchField(i, withJustify(f, 'h', e.target.value))}
-                        >
-                          {H_ALIGNS.map((a) => (
-                            <option key={a}>{a}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          value={justifyOf(f, 'v')}
-                          onChange={(e) => patchField(i, withJustify(f, 'v', e.target.value))}
-                        >
-                          {V_ALIGNS.map((a) => (
-                            <option key={a}>{a}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!!f.effects?.italic}
-                          onChange={(e) =>
-                            patchField(i, {
-                              ...f,
-                              effects: { hidden: false, ...f.effects, italic: e.target.checked },
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!!f.effects?.bold}
-                          onChange={(e) =>
-                            patchField(i, {
-                              ...f,
-                              effects: { hidden: false, ...f.effects, bold: e.target.checked },
-                            })
-                          }
-                        />
-                      </td>
+          {hasFields && (
+            <fieldset className="ze-lp-fields">
+              <legend>Fields</legend>
+              <div className="ze-lp-grid-wrap">
+                <table className="ze-lp-grid">
+                  <thead>
+                    <tr>
+                      {COLUMNS.map((c) => (
+                        <th key={c.key} style={{ width: c.width }}>
+                          {c.label}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="ze-lp-fieldbtns">
-              <IconButton icon="small_plus" title="Add field" onClick={addField} />
-              <IconButton
-                icon="small_up"
-                title="Move up"
-                disabled={selRow === null || selRow === 0}
-                onClick={() => moveRow(-1)}
-              />
-              <IconButton
-                icon="small_down"
-                title="Move down"
-                disabled={selRow === null || selRow === fields.length - 1}
-                onClick={() => moveRow(1)}
-              />
-              <span className="ze-lp-gap" />
-              <IconButton
-                icon="small_trash"
-                title="Delete field"
-                disabled={selRow === null}
-                onClick={deleteField}
-              />
-            </div>
-          </fieldset>
+                  </thead>
+                  <tbody>
+                    {fields.map((f, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
+                      <tr
+                        key={i}
+                        className={selRow === i ? 'sel' : ''}
+                        onMouseDown={() => setSelRow(i)}
+                      >
+                        <td>
+                          <input
+                            value={f.key}
+                            onChange={(e) => patchField(i, { ...f, key: e.target.value })}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={f.value}
+                            onChange={(e) => patchField(i, { ...f, value: e.target.value })}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!f.effects?.hidden}
+                            onChange={(e) =>
+                              patchField(i, {
+                                ...f,
+                                effects: { ...f.effects, hidden: !e.target.checked },
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!!f.nameShown}
+                            onChange={(e) => patchField(i, { ...f, nameShown: e.target.checked })}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={justifyOf(f, 'h')}
+                            onChange={(e) => patchField(i, withJustify(f, 'h', e.target.value))}
+                          >
+                            {H_ALIGNS.map((a) => (
+                              <option key={a}>{a}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            value={justifyOf(f, 'v')}
+                            onChange={(e) => patchField(i, withJustify(f, 'v', e.target.value))}
+                          >
+                            {V_ALIGNS.map((a) => (
+                              <option key={a}>{a}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!!f.effects?.italic}
+                            onChange={(e) =>
+                              patchField(i, {
+                                ...f,
+                                effects: { hidden: false, ...f.effects, italic: e.target.checked },
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!!f.effects?.bold}
+                            onChange={(e) =>
+                              patchField(i, {
+                                ...f,
+                                effects: { hidden: false, ...f.effects, bold: e.target.checked },
+                              })
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="ze-lp-fieldbtns">
+                <IconButton icon="small_plus" title="Add field" onClick={addField} />
+                <IconButton
+                  icon="small_up"
+                  title="Move up"
+                  disabled={selRow === null || selRow === 0}
+                  onClick={() => moveRow(-1)}
+                />
+                <IconButton
+                  icon="small_down"
+                  title="Move down"
+                  disabled={selRow === null || selRow === fields.length - 1}
+                  onClick={() => moveRow(1)}
+                />
+                <span className="ze-lp-gap" />
+                <IconButton
+                  icon="small_trash"
+                  title="Delete field"
+                  disabled={selRow === null}
+                  onClick={deleteField}
+                />
+              </div>
+            </fieldset>
+          )}
 
           {/* optionsSizer: Shape beside Formatting. */}
           <div className="ze-lp-options">

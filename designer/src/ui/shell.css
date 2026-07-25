@@ -2688,6 +2688,311 @@ body {
   border-color: var(--chrome-active-border);
 }
 
+/* ---------------------------------------------------------------------------
+   Label Properties (dialog_label_properties_base.cpp). The numbers are the
+   base class's: the Fields grid's eight shown columns are 72/84/48/48/70/70/
+   48/48 px with a 22 px column-label band and a 100 px minimum height, the
+   text-entry block has a 12 px margin and 3 px between caption and control,
+   and the Shape / Formatting boxes sit side by side above the buttons. The
+   dialog itself has no fixed size upstream (wxDialog size -1,-1) — it fits
+   its content, which the grid pins to ~530 px. */
+.ze-modal.ze-label-props {
+  width: 552px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-lp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 5px 5px;
+  overflow: auto;
+  font-size: 12.5px;
+}
+/* m_textEntrySizer: caption column + growable value column, 12 px margin. */
+.ze-lp-entry {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 12px 12px 1px;
+}
+.ze-lp-caption {
+  flex: 0 0 auto;
+}
+.ze-lp-value {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font: inherit;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  outline: none;
+}
+.ze-lp-value:focus {
+  border-color: var(--chrome-active-border);
+}
+.ze-lp-multiline {
+  resize: vertical;
+  min-height: 72px;
+}
+.ze-lp-entry-row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 12px 5px;
+}
+.ze-lp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ze-lp-syntax {
+  color: #6fa8ff;
+  text-decoration: none;
+}
+.ze-lp-syntax:hover {
+  text-decoration: underline;
+}
+/* sbFields: the grid plus its add / move / delete buttons. */
+.ze-lp-fields,
+.ze-lp-shape,
+.ze-lp-formatting {
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  margin: 5px;
+  padding: 5px;
+}
+.ze-lp-fields legend,
+.ze-lp-shape legend,
+.ze-lp-formatting legend {
+  padding: 0 4px;
+  color: #8a8c90;
+  font-size: 12px;
+}
+.ze-lp-grid-wrap {
+  min-height: 100px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg2);
+}
+.ze-lp-grid {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+.ze-lp-grid th {
+  height: 22px;
+  text-align: center;
+  font-weight: 500;
+  color: #c7c9cc;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  position: sticky;
+  top: 0;
+}
+.ze-lp-grid td {
+  border: 1px solid var(--chrome-border);
+  padding: 0 2px;
+  text-align: left;
+  vertical-align: middle;
+}
+.ze-lp-grid td.c {
+  text-align: center;
+}
+.ze-lp-grid tr.sel td {
+  background: rgba(45, 108, 223, 0.25);
+}
+.ze-lp-grid input[type="text"],
+.ze-lp-grid input:not([type]),
+.ze-lp-grid select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 2px 3px;
+  background: transparent;
+  color: var(--chrome-fg);
+  border: none;
+  outline: none;
+}
+.ze-lp-grid select {
+  background: var(--chrome-bg2);
+}
+.ze-lp-fieldbtns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 0 0;
+}
+.ze-lp-gap {
+  width: 20px;
+}
+.ze-lp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--chrome-fg);
+  cursor: pointer;
+}
+.ze-lp-iconbtn img {
+  width: 16px;
+  height: 16px;
+}
+.ze-lp-iconbtn:hover:not(:disabled) {
+  background: var(--chrome-bg2);
+  border-color: var(--chrome-border);
+}
+.ze-lp-iconbtn.checked {
+  background: rgba(45, 108, 223, 0.35);
+  border-color: var(--chrome-active-border, #2d6cdf);
+}
+.ze-lp-iconbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* optionsSizer: Shape (natural width) beside a growable Formatting box. */
+.ze-lp-options {
+  display: flex;
+  align-items: stretch;
+}
+.ze-lp-shape {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ze-lp-shape label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 2px;
+}
+.ze-lp-formatting {
+  flex: 1;
+  min-width: 0;
+}
+/* m_formattingGB: label | control | icon bar, then label | size + colour. */
+.ze-lp-fmt-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 3px 5px;
+}
+.ze-lp-fmt-label {
+  white-space: nowrap;
+}
+.ze-lp-font {
+  font: inherit;
+  padding: 3px 4px;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  max-width: 150px;
+}
+.ze-lp-iconbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+}
+.ze-lp-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--chrome-border);
+}
+.ze-lp-auto {
+  margin-left: 5px;
+}
+.ze-lp-sizerow {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.ze-lp-size {
+  width: 70px;
+  font: inherit;
+  padding: 3px 4px;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  outline: none;
+}
+.ze-lp-colorlabel {
+  margin-left: 15px;
+}
+/* COLOR_SWATCH inside its wxBORDER_SIMPLE panel. */
+.ze-lp-swatch-frame {
+  display: inline-flex;
+  border: 1px solid var(--chrome-border);
+  padding: 1px;
+}
+.ze-lp-swatch {
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+}
+.ze-lp-clearcolor {
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* Text / Text Box Properties (dialog_text_properties_base.cpp): the entry grows
+   with the dialog, then a label | control grid for the formatting rows. */
+.ze-modal.ze-text-props {
+  width: 560px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-tp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow: auto;
+  font-size: 12.5px;
+}
+.ze-tp-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+.ze-tp-text {
+  min-height: 96px;
+  resize: vertical;
+  font-family: inherit;
+}
+.ze-tp-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 5px;
+}
+.ze-tp-span {
+  grid-column: 1 / -1;
+  margin-top: 5px;
+}
+/* m_filledCtrl sits to the right of the Border checkbox (wxRIGHT 80). */
+.ze-tp-fill {
+  margin-left: 80px;
+}
+
 /* Symbol Properties dialog (KiCad DIALOG_SYMBOL_PROPERTIES) */
 .ze-modal.ze-props-dialog {
   width: 1060px;

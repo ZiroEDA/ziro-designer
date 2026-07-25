@@ -14,9 +14,13 @@ import {
   cleanLabelFields,
   labelFields,
   labelOrientationForPoint,
+  pinSpinStyle,
   setLabelFields,
   spinOfAngle,
+  wireLabelDriverName,
 } from '@ziroeda/eeschema/src/tools/label_properties.js';
+import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { makeLabel as buildLabel } from '@ziroeda/eeschema/src/tools/build.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
@@ -125,5 +129,56 @@ describe('placed labels', () => {
     const label = makeLabel('global_label', 'VCC', { x: 0, y: 0 }, { angle: SPIN_ANGLE.left });
     expect(label.angle).toBe(180);
     expect(spinOfAngle(label.angle)).toBe('left');
+  });
+});
+
+describe('pin orientation (GetPinSpinStyle)', () => {
+  it('faces the label away from the pin body', () => {
+    // PIN_RIGHT -> LEFT, PIN_LEFT -> RIGHT, PIN_UP -> BOTTOM, PIN_DOWN -> UP.
+    expect(pinSpinStyle(0, 0, undefined)).toBe('left');
+    expect(pinSpinStyle(180, 0, undefined)).toBe('right');
+    expect(pinSpinStyle(90, 0, undefined)).toBe('bottom');
+    expect(pinSpinStyle(270, 0, undefined)).toBe('up');
+  });
+
+  it('follows the symbol rotation and mirroring', () => {
+    expect(pinSpinStyle(0, 90, undefined)).toBe('bottom'); // LEFT rotated 90
+    expect(pinSpinStyle(0, 270, undefined)).toBe('up'); // LEFT rotated 270
+    expect(pinSpinStyle(0, 180, undefined)).toBe('right'); // LEFT flipped
+    expect(pinSpinStyle(0, 0, 'y')).toBe('right'); // mirrored across Y
+    expect(pinSpinStyle(90, 0, 'x')).toBe('up'); // BOTTOM mirrored across X
+  });
+});
+
+describe('naming a label from the wire under it', () => {
+  const at = (x: number, y: number): { x: number; y: number } => ({ x: mmToIU(x), y: mmToIU(y) });
+
+  it('takes the net name when the wire is driven by a label', () => {
+    const base = load();
+    const sch: Schematic = {
+      ...base,
+      labels: [buildLabel('label', 'CLK', at(50, 50))],
+      lines: [makeWire(at(50, 50), at(60, 50))],
+    };
+    const netlist = computeNetlist(sch, new Map());
+    expect(wireLabelDriverName(sch, netlist, at(55, 50))).toBe('CLK');
+  });
+
+  it('asks (returns nothing) where no wire runs, or where none is label-driven', () => {
+    const base = load();
+    const bare: Schematic = { ...base, labels: [], lines: [makeWire(at(50, 50), at(60, 50))] };
+    const netlist = computeNetlist(bare, new Map());
+    expect(wireLabelDriverName(bare, netlist, at(55, 50))).toBe('');
+    expect(wireLabelDriverName(bare, netlist, at(90, 90))).toBe('');
+  });
+});
+
+describe('free text', () => {
+  it('round-trips the exclude-from-simulation flag', () => {
+    const sch = load();
+    const text = { ...buildLabel('text', 'note', { x: 0, y: 0 }), excludedFromSim: true };
+    const out = serializeSchematic({ ...sch, labels: [text] });
+    expect(out).toContain('(exclude_from_sim yes)');
+    expect(readSchematic(parse(out)).labels[0]?.excludedFromSim).toBe(true);
   });
 });
