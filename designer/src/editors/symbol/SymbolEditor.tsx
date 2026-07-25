@@ -16,6 +16,7 @@ import * as sexpr from '@ziroeda/sexpr';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
@@ -1422,12 +1423,10 @@ export function SymbolEditor({
 
   // ----- title (UpdateTitle) -------------------------------------------------------------
   const modified = curLib && curName ? manager.current.isSymbolModified(curLib, curName) : false;
-  const title = curName
-    ? `${modified ? '*' : ''}${curLib}:${curName} — Symbol Editor`
-    : '[no symbol loaded] — Symbol Editor';
-  useEffect(() => {
-    document.title = title;
-  }, [title]);
+  useDocumentTitle(
+    'symbols',
+    formatTitle('Symbol Editor', curName ? `${curLib}:${curName}` : null, modified),
+  );
 
   const unitsLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
   const fmt = (iu: number): string => {

@@ -33,6 +33,7 @@ import {
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { GBR_TOP_TOOLBAR, GBR_LEFT_TOOLBAR, GBR_RIGHT_TOOLBAR } from './gerberToolbars.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
@@ -657,9 +658,10 @@ export function GerberViewer({
   // Grid step: 1 mm metric, 0.1" imperial.
   const gridIU = unit === 'mm' ? IU_PER_MM : IU_PER_MM * 2.54;
 
-  useEffect(() => {
-    document.title = `Gerber Viewer${layers.length ? ` — ${layers.length} layer(s)` : ''}`;
-  }, [layers.length]);
+  useDocumentTitle(
+    'gerber',
+    formatTitle('Gerber Viewer', layers.length ? `${layers.length} layer(s)` : null),
+  );
 
   const onDrop = useCallback(
     (e: ReactDragEvent): void => {

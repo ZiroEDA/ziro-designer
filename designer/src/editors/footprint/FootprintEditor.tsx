@@ -29,6 +29,7 @@ import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { FP_TOP_TOOLBAR, FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from './footprintToolbars.js';
@@ -997,12 +998,10 @@ export function FootprintEditor({
 
   // ----- title (UpdateTitle) ----------------------------------------------------
   const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
-  const title = curName
-    ? `${modified ? '*' : ''}${curLib}:${curName} — Footprint Editor`
-    : '[no footprint loaded] — Footprint Editor';
-  useEffect(() => {
-    document.title = title;
-  }, [title]);
+  useDocumentTitle(
+    'footprints',
+    formatTitle('Footprint Editor', curName ? `${curLib}:${curName}` : null, modified),
+  );
 
   // ----- unit display -----------------------------------------------------------
   const unitLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
