@@ -79,6 +79,8 @@ export {
   gerberProtelExtension,
   plotGerberJob,
   gerberFileFunction,
+  boardAuxOrigin,
+  type GerberPlotOpts,
 } from './plot_gerber.js';
 export {
   serializeBoard,
