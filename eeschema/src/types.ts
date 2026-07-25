@@ -395,9 +395,15 @@ export interface SchLabel {
  * never drives a net: `CONNECTION_SUBGRAPH::GetDriverPriority` has no case for
  * it, so it falls through to PRIORITY::NONE.
  */
+export type DirectiveShape = 'dot' | 'round' | 'diamond' | 'rectangle';
+
 export interface SchDirectiveLabel {
   readonly at: Vec2;
   readonly angle: number;
+  /** `(shape …)`: the flag drawn at the end of the pin line. */
+  readonly shape?: DirectiveShape;
+  /** `(length …)` — the pin line from the anchor to the flag, in IU. */
+  readonly pinLength?: number;
   /** `(property "Netclass" "…")` children, as SCH_LABEL_BASE's fields. */
   readonly fields: readonly SchField[];
   readonly uuid?: string;

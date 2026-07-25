@@ -22,11 +22,13 @@ import {
   isExplicitJunctionAllowed,
   makeNoConnect,
   makeLabel,
+  makeDirectiveLabel,
   setLabelFields,
   labelOrientationForPoint,
   spinOfAngle,
   SPIN_ANGLE,
   type EditedLabelField,
+  type DirectiveShape,
   type SchLabel,
   startSegments,
   computeBreakPoint,
@@ -294,6 +296,15 @@ export interface PendingLabel {
   excludeFromSim?: boolean;
 }
 
+/** A netclass directive label whose shape/netclass are chosen, awaiting a click. */
+export interface PendingDirective {
+  shape: DirectiveShape;
+  pinLength: number;
+  netclass: string;
+  angle: number;
+  fontSize?: number;
+}
+
 /**
  * The label the dialog described, built at the point it is dropped —
  * SCH_DRAWING_TOOLS keeps the item it created and just moves it to the cursor,
@@ -358,6 +369,8 @@ interface Props {
   onSymbolPlaced?: () => void;
   /** A named label that follows the cursor until clicked to place (null = none yet). */
   pendingLabel: PendingLabel | null;
+  /** A netclass directive label following the cursor (SCH_DIRECTIVE_LABEL). */
+  pendingDirective?: PendingDirective | null;
   /** The pending label was just dropped: take the next one, or stop. */
   onLabelPlaced?: () => void;
   /** A label tool clicked with nothing attached — ask for the next label
@@ -372,21 +385,7 @@ interface Props {
   /** Switch the active tool (used to auto-start a wire from a dangling pin). */
   onRequestTool?: (id: string) => void;
   /** Double-clicked item (KiCad's Properties action, sch_edit_tool.cpp). */
-  onEditItem?: (
-    id: string,
-    kind:
-      | 'symbol'
-      | 'line'
-      | 'junction'
-      | 'noconnect'
-      | 'label'
-      | 'sheet'
-      | 'busentry'
-      | 'image'
-      | 'graphic'
-      | 'textbox'
-      | 'table',
-  ) => void;
+  onEditItem?: (id: string, kind: ItemRef['kind']) => void;
   /** Box-selection result (KiCad SelectMultiple): replace/add/subtract the ids. */
   onSelectBox?: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
   /** Items being pasted: they follow the cursor until clicked to drop (KiCad's paste-then-move). */
@@ -455,6 +454,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     placeUnit = 1,
     onSymbolPlaced,
     pendingLabel,
+    pendingDirective,
     onLabelPlaced,
     onLabelPrompt,
     highlight,
@@ -750,6 +750,20 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (activeTool === 'busEntry' && cursorRef.current) {
       doc = addItems({
         busEntries: [makeBusEntry(snap(cursorRef.current), entrySizeRef.current)],
+      }).apply(doc);
+    }
+    // Ghost: the netclass flag rides the cursor until it is dropped.
+    if (activeTool === 'placeClassLabel' && pendingDirective && cursorRef.current) {
+      doc = addItems({
+        directiveLabels: [
+          makeDirectiveLabel(snapConn(cursorRef.current), {
+            shape: pendingDirective.shape,
+            pinLength: pendingDirective.pinLength,
+            netclass: pendingDirective.netclass,
+            angle: pendingDirective.angle,
+            ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
+          }),
+        ],
       }).apply(doc);
     }
     // Ghost: the junction dot and the no-connect X ride the cursor, so you see
@@ -1258,6 +1272,29 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           );
           // The placed label is done with; the tool takes the next one of a
           // multi-label run, or waits for a click to ask for another.
+          onLabelPlaced?.();
+        } else {
+          onLabelPrompt?.(snapConn(world));
+        }
+        return;
+      }
+
+      // Netclass directive label: the dialog names it, a click drops it.
+      if (activeTool === 'placeClassLabel') {
+        if (pendingDirective) {
+          onCommand(
+            addItems({
+              directiveLabels: [
+                makeDirectiveLabel(snapConn(world), {
+                  shape: pendingDirective.shape,
+                  pinLength: pendingDirective.pinLength,
+                  netclass: pendingDirective.netclass,
+                  angle: pendingDirective.angle,
+                  ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
+                }),
+              ],
+            }),
+          );
           onLabelPlaced?.();
         } else {
           onLabelPrompt?.(snapConn(world));

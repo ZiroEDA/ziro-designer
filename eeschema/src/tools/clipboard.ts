@@ -60,6 +60,7 @@ export function copySelectionText(sch: Schematic, ids: ReadonlySet<string>): str
     images: [],
     graphics: [],
     textBoxes: [],
+    directiveLabels: [],
     tables: [],
     libSymbols: libs,
   };
@@ -216,6 +217,7 @@ export function parsePastedText(
       images: [],
       graphics: [],
       textBoxes: [],
+      directiveLabels: [],
       tables: [],
     },
     libs: [],
@@ -291,6 +293,7 @@ export function parsePastedText(
       images: [],
       graphics: [],
       textBoxes: [],
+      directiveLabels: [],
       tables: [],
     },
     libs,
@@ -324,6 +327,7 @@ export function translatePayload(p: PastePayload, delta: Vec2): PastePayload {
       images: [],
       graphics: [],
       textBoxes: [],
+      directiveLabels: [],
       tables: [],
     },
   };

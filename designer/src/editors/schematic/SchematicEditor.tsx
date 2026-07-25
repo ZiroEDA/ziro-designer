@@ -20,6 +20,9 @@ import {
   SPIN_ANGLE,
   spinOfAngle,
   wireLabelDriverName,
+  DEFAULT_DIRECTIVE_PIN_LENGTH,
+  directiveNetclassAssignments,
+  type DirectiveShape,
   labelFields,
   setLabelFields,
   type LabelSpin,
@@ -105,6 +108,7 @@ import {
   replaceTextBox,
   replaceTable,
   replaceLabel,
+  replaceDirectiveLabel,
   replaceLine,
   replaceJunction,
   makeImage,
@@ -137,6 +141,7 @@ import {
   type CanvasController,
   type LineMode,
   type PendingLabel,
+  type PendingDirective,
 } from './components/SchematicCanvas.js';
 import {
   DialogLabelProperties,
@@ -339,7 +344,7 @@ const LABEL_TOOL_KINDS: Record<string, LabelKind> = {
 };
 
 // The subset served by DIALOG_LABEL_PROPERTIES (free text has its own dialog).
-const LABEL_DIALOG_KINDS: Record<string, Exclude<LabelPropsKind, 'sheet_pin'>> = {
+const LABEL_DIALOG_KINDS: Record<string, 'label' | 'global_label' | 'hierarchical_label'> = {
   placeLabel: 'label',
   placeGlobalLabel: 'global_label',
   placeHierLabel: 'hierarchical_label',
@@ -530,12 +535,23 @@ export function SchematicEditor({
   });
   // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
   const lastSheetPin = useRef({ shape: 'input' as LabelShape });
+  // m_lastNetClassFlagShape: the directive label's flag shape (Circle).
+  const lastDirective = useRef({
+    shape: 'round' as DirectiveShape,
+    pinLength: DEFAULT_DIRECTIVE_PIN_LENGTH,
+    spin: 'right' as LabelSpin,
+  });
+  const [pendingDirective, setPendingDirective] = useState<PendingDirective | null>(null);
+  // The netclass flag whose properties are open (double-click / Properties).
+  const [directiveEdit, setDirectiveEdit] = useState<{ index: number } | null>(null);
   // immediate_actions (COMMON_SETTINGS::m_Input): picking a label or text tool
   // primes it, so the properties dialog comes up as soon as the tool is active
   // — whichever way it was chosen (toolbar, menu or hotkey).
   useEffect(() => {
-    setLabelPrompt(!!LABEL_TOOL_KINDS[activeTool]);
-    if (!LABEL_TOOL_KINDS[activeTool]) setLabelQueue([]);
+    const isLabelTool = !!LABEL_TOOL_KINDS[activeTool] || activeTool === 'placeClassLabel';
+    setLabelPrompt(isLabelTool);
+    if (!isLabelTool) setLabelQueue([]);
+    if (activeTool !== 'placeClassLabel') setPendingDirective(null);
   }, [activeTool]);
   // Right-toolbar drawing state: a drawn sheet awaiting its name/file, a sheet-pin
   // click awaiting its name, an image chosen and following the cursor.
@@ -1386,13 +1402,11 @@ export function SchematicEditor({
   const netOverrides = useMemo(
     () =>
       doc
-        ? computeNetClassOverrides(
-            doc,
-            libById,
-            setup,
-            netlist,
-            chainPatternAssignments(committedChains),
-          )
+        ? computeNetClassOverrides(doc, libById, setup, netlist, [
+            ...chainPatternAssignments(committedChains),
+            // Netclass directive labels assign to whatever net they sit on.
+            ...directiveNetclassAssignments(doc, netlist),
+          ])
         : undefined,
     [doc, libById, setup, netlist, committedChains],
   );
@@ -2245,21 +2259,7 @@ export function SchematicEditor({
   // KiCad's Properties action: symbols have a full properties dialog; a text box
   // reopens its text editor (double-click = edit).
   const onEditItem = useCallback(
-    (
-      id: string,
-      kind:
-        | 'symbol'
-        | 'line'
-        | 'junction'
-        | 'noconnect'
-        | 'label'
-        | 'sheet'
-        | 'busentry'
-        | 'image'
-        | 'graphic'
-        | 'textbox'
-        | 'table',
-    ) => {
+    (id: string, kind: ItemRef['kind']) => {
       if (kind === 'symbol') setPropsTarget(id);
       if (kind === 'label' && doc) {
         const idx = doc.labels.findIndex((l, i) => refId('label', l.uuid, i) === id);
@@ -2286,6 +2286,12 @@ export function SchematicEditor({
             texts: t.cells.map((c) => c.text),
           });
         }
+      }
+      // A netclass flag opens its Directive Label Properties.
+      if (kind === 'directive' && doc) {
+        const flags = doc.directiveLabels ?? [];
+        const idx = flags.findIndex((d, i) => refId('directive', d.uuid, i) === id);
+        if (idx !== -1) setDirectiveEdit({ index: idx });
       }
       // Double-clicking a sheet enters it (KiCad's Enter Sheet).
       if (kind === 'sheet' && doc) {
@@ -3107,10 +3113,12 @@ export function SchematicEditor({
         const sheet = doc.sheets[spd.index];
         const name = r.texts[0]?.trim();
         if (!sheet || !name) return null;
-        lastSheetPin.current = { shape: r.shape };
+        lastSheetPin.current = { shape: r.shape as LabelShape };
         // The orientation buttons choose which border the pin sits on.
         const side = SPIN_ANGLE[r.spin] as SheetSide;
-        runCommand(replaceSheet(spd.index, addSheetPin(sheet, name, spd.at, side, r.shape)));
+        runCommand(
+          replaceSheet(spd.index, addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape)),
+        );
         return null;
       });
     },
@@ -3146,34 +3154,31 @@ export function SchematicEditor({
    * last-used shape / formatting / orientation for the next one (KiCad's
    * m_last* members, saved right after the dialog closes in createNewLabel).
    */
-  const startLabelPlacement = useCallback(
-    (kind: Exclude<LabelPropsKind, 'sheet_pin'>, r: LabelPropsResult) => {
-      lastLabel.current = {
-        shape: r.shape,
-        bold: r.bold,
-        italic: r.italic,
-        spin: r.spin,
-        autoRotate: r.autoRotate,
-      };
-      const [first, ...rest] = r.texts;
-      if (first === undefined) return;
-      setPendingLabel({
-        kind,
-        text: first,
-        shape: r.shape,
-        bold: r.bold,
-        italic: r.italic,
-        fontSize: r.sizeIU,
-        angle: SPIN_ANGLE[r.spin],
-        autoRotate: r.autoRotate,
-        ...(r.color ? { color: r.color } : {}),
-        fields: r.fields,
-      });
-      setLabelQueue(rest);
-      setLabelPrompt(false);
-    },
-    [],
-  );
+  const startLabelPlacement = useCallback((kind: LabelKind, r: LabelPropsResult) => {
+    lastLabel.current = {
+      shape: r.shape as LabelShape,
+      bold: r.bold,
+      italic: r.italic,
+      spin: r.spin,
+      autoRotate: r.autoRotate,
+    };
+    const [first, ...rest] = r.texts;
+    if (first === undefined) return;
+    setPendingLabel({
+      kind,
+      text: first,
+      shape: r.shape as LabelShape,
+      bold: r.bold,
+      italic: r.italic,
+      fontSize: r.sizeIU,
+      angle: SPIN_ANGLE[r.spin],
+      autoRotate: r.autoRotate,
+      ...(r.color ? { color: r.color } : {}),
+      fields: r.fields,
+    });
+    setLabelQueue(rest);
+    setLabelPrompt(false);
+  }, []);
 
   /**
    * Free text from DIALOG_TEXT_PROPERTIES: attached to the cursor, and its
@@ -3201,6 +3206,45 @@ export function SchematicEditor({
     });
     setLabelPrompt(false);
   }, []);
+
+  /**
+   * The Directive Label dialog's result: the flag follows the cursor, and its
+   * shape / pin length / orientation seed the next one (m_lastNetClassFlagShape).
+   */
+  const startDirectivePlacement = useCallback((r: LabelPropsResult) => {
+    const shape = r.shape as DirectiveShape;
+    lastDirective.current = { shape, pinLength: r.sizeIU, spin: r.spin };
+    setPendingDirective({
+      shape,
+      pinLength: r.sizeIU,
+      netclass: r.fields.find((f) => f.key === 'Netclass')?.value.trim() ?? '',
+      angle: SPIN_ANGLE[r.spin],
+    });
+    setLabelPrompt(false);
+  }, []);
+
+  /** Apply Directive Label Properties to the flag being edited. */
+  const commitDirectiveProperties = useCallback(
+    (r: LabelPropsResult) => {
+      setDirectiveEdit((de) => {
+        if (!de || !doc) return null;
+        const orig = (doc.directiveLabels ?? [])[de.index];
+        if (!orig) return null;
+        const netclass = r.fields.find((f) => f.key === 'Netclass')?.value ?? '';
+        runCommand(
+          replaceDirectiveLabel(de.index, {
+            ...orig,
+            shape: r.shape as DirectiveShape,
+            pinLength: r.sizeIU,
+            angle: SPIN_ANGLE[r.spin],
+            fields: orig.fields.map((f) => (f.key === 'Netclass' ? { ...f, value: netclass } : f)),
+          }),
+        );
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
 
   /** Apply DIALOG_TEXT_PROPERTIES to the text item being edited. */
   const commitTextProperties = useCallback(
@@ -3262,6 +3306,7 @@ export function SchematicEditor({
 
   /** A label was dropped: take the next of a multi-label run, else stop. */
   const onLabelPlaced = useCallback(() => {
+    setPendingDirective(null);
     setLabelQueue((q) => {
       const [next, ...rest] = q;
       setPendingLabel((p) => (p && next !== undefined ? { ...p, text: next } : null));
@@ -3287,7 +3332,7 @@ export function SchematicEditor({
         const next: SchLabel = {
           ...orig,
           text: r.texts[0] ?? orig.text,
-          ...(le.shape !== undefined ? { shape: r.shape } : {}),
+          ...(le.shape !== undefined ? { shape: r.shape as LabelShape } : {}),
           angle: SPIN_ANGLE[r.spin],
           effects,
         };
@@ -5064,6 +5109,57 @@ export function SchematicEditor({
           suggestions={labelSuggestionsOf(LABEL_DIALOG_KINDS[activeTool]!)}
           onOk={(r: LabelPropsResult) => startLabelPlacement(LABEL_DIALOG_KINDS[activeTool]!, r)}
           onCancel={() => setLabelPrompt(false)}
+        />
+      )}
+
+      {/* Netclass directive label (DIALOG_LABEL_PROPERTIES' "Directive Label
+          Properties"): no text of its own — the flag shape, the pin length and
+          the Netclass field. */}
+      {activeTool === 'placeClassLabel' && labelPrompt && !pendingDirective && !labelEdit && (
+        <DialogLabelProperties
+          kind="directive"
+          isNew
+          initial={{
+            text: '',
+            shape: lastDirective.current.shape,
+            bold: false,
+            italic: false,
+            sizeIU: lastDirective.current.pinLength,
+            spin: lastDirective.current.spin,
+            autoRotate: false,
+            fields: [
+              {
+                key: 'Netclass',
+                value: '',
+                angle: 0,
+                effects: { hidden: false },
+              },
+            ],
+          }}
+          onOk={startDirectivePlacement}
+          onCancel={() => setLabelPrompt(false)}
+        />
+      )}
+
+      {/* Editing a netclass flag (Properties): the same dialog, pre-filled. */}
+      {directiveEdit && (doc.directiveLabels ?? [])[directiveEdit.index] && (
+        <DialogLabelProperties
+          kind="directive"
+          isNew={false}
+          initial={{
+            text: '',
+            shape: (doc.directiveLabels ?? [])[directiveEdit.index]!.shape ?? 'round',
+            bold: false,
+            italic: false,
+            sizeIU:
+              (doc.directiveLabels ?? [])[directiveEdit.index]!.pinLength ??
+              DEFAULT_DIRECTIVE_PIN_LENGTH,
+            spin: spinOfAngle((doc.directiveLabels ?? [])[directiveEdit.index]!.angle),
+            autoRotate: false,
+            fields: (doc.directiveLabels ?? [])[directiveEdit.index]!.fields,
+          }}
+          onOk={commitDirectiveProperties}
+          onCancel={() => setDirectiveEdit(null)}
         />
       )}
 

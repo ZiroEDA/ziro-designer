@@ -24,6 +24,7 @@ import type {
   SchLine,
   SchJunction,
   SchLabel,
+  SchDirectiveLabel,
   SchField,
   SchNoConnect,
   SchSheet,
@@ -544,6 +545,35 @@ function writeLabel(l: SchLabel): SList {
   return node;
 }
 
+/**
+ * Patch a netclass directive label: its position, orientation, flag shape, pin
+ * length and its fields (the "Netclass" property the dialog edits). Everything
+ * else in the node — effects, uuid, anything we don't model — passes through.
+ */
+function writeDirectiveLabel(l: SchDirectiveLabel): SList {
+  let node = patchAt(l.source, l.at);
+  node = mapChild(node, 'at', (at) => setItem(at, 3, atom(String(l.angle))));
+  if (l.shape !== undefined && childNamed(node, 'shape')) {
+    node = mapChild(node, 'shape', () => list(atom('shape'), atom(l.shape!)));
+  }
+  if (l.pinLength !== undefined && childNamed(node, 'length')) {
+    node = mapChild(node, 'length', () => list(atom('length'), atom(mm(l.pinLength!))));
+  }
+  const byKey = new Map(l.fields.map((f) => [f.key, f]));
+  node = {
+    kind: 'list',
+    items: node.items.map((it) => {
+      if (isList(it) && head(it) === 'property') {
+        const key = it.items[1];
+        const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+        return f ? patchProperty(it, f) : it;
+      }
+      return it;
+    }),
+  };
+  return node;
+}
+
 /** Patch a text box: content (item 1), position (`at` = start) and `(size ..)`. */
 function writeTextBox(tb: SchTextBox): SList {
   let node = setItem(tb.source, 1, str(tb.text));
@@ -614,6 +644,8 @@ const ITEM_HEADS = new Set([
   'text_box',
   'table',
   'group',
+  'directive_label',
+  'netclass_flag',
 ]);
 
 /** Rebuild the `(kicad_sch ...)` root list from the current model. */
@@ -634,6 +666,7 @@ export function writeSchematic(sch: Schematic): SList {
     ...sch.noConnects.map(writeNoConnect),
     ...sch.busEntries.map(writeBusEntry),
     ...sch.labels.map(writeLabel),
+    ...(sch.directiveLabels ?? []).map(writeDirectiveLabel),
     ...sch.sheets.map(writeSheet),
     ...sch.textBoxes.map(writeTextBox),
     ...sch.tables.map(writeTable),

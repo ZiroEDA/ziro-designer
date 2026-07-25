@@ -124,6 +124,7 @@ function monochromeTheme(): Theme {
     label: black,
     globalLabel: black,
     hierLabel: black,
+    netclassFlag: black,
     netHighlight: black,
     selectionShadow: none,
     noteLine: black,

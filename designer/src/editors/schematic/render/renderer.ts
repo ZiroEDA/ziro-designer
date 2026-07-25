@@ -43,6 +43,8 @@ import {
   type LibGraphic,
   type LibSymbol,
   type LibSymbolUnit,
+  directiveGraphic,
+  directiveBox,
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
@@ -725,6 +727,52 @@ export function renderSchematic(
       ctx.lineTo(nc.at.x + delta, nc.at.y - delta);
       ctx.stroke();
     });
+  }
+
+  // Netclass directive labels (SCH_PAINTER::draw(SCH_DIRECTIVE_LABEL)): a pin
+  // line from the anchor and the flag shape at its end, in LAYER_NETCLASS_REFS.
+  // The visible fields ("Netclass") are drawn beside it.
+  for (const [i, d] of (sch.directiveLabels ?? []).entries()) {
+    const g = directiveGraphic(d);
+    const box = directiveBox(d);
+    if (!inView(box.minX, box.minY, box.maxX, box.maxY)) continue;
+    const colour = hl(refId('directive', d.uuid, i)) ? theme.netHighlight : theme.netclassFlag;
+    ctx.strokeStyle = colour;
+    ctx.fillStyle = colour;
+    ctx.lineWidth = g_defaultPen;
+    ctx.beginPath();
+    ctx.moveTo(g.line[0].x, g.line[0].y);
+    ctx.lineTo(g.line[1].x, g.line[1].y);
+    ctx.stroke();
+    if (g.circle) {
+      ctx.beginPath();
+      ctx.arc(g.circle.center.x, g.circle.center.y, g.circle.radius, 0, Math.PI * 2);
+      if (g.circle.filled) ctx.fill();
+      else ctx.stroke();
+    }
+    if (g.polygon) {
+      ctx.beginPath();
+      g.polygon.forEach((p, n) => (n === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.stroke();
+    }
+    // The flag's own fields, at the far end of the pin line.
+    for (const f of d.fields) {
+      if (!f.value || f.effects?.hidden) continue;
+      const size = f.effects?.fontSize?.[0] ?? 12700;
+      const anchor = g.circle ? g.circle.center : (g.polygon?.[1] ?? g.line[1]);
+      drawText(
+        ctx,
+        f.value,
+        { x: anchor.x, y: anchor.y },
+        size,
+        colour,
+        f.effects?.justify ?? ['left', 'bottom'],
+        0,
+        !!f.effects?.bold,
+        !!f.effects?.italic,
+      );
+    }
   }
 
   // Placed symbols (culled to the visible rect, including their fields).

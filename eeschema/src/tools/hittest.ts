@@ -7,6 +7,7 @@
 
 import type { Schematic, SchSymbol, LibGraphic, LibSymbol, Vec2 } from '../types.js';
 import { contains, inflate, labelBox, symbolBodyBBox } from './bbox.js';
+import { directiveBox } from './directive_label.js';
 
 /** A reference to a top-level, selectable schematic item. */
 export interface ItemRef {
@@ -21,7 +22,8 @@ export interface ItemRef {
     | 'image'
     | 'graphic'
     | 'textbox'
-    | 'table';
+    | 'table'
+    | 'directive';
   /** Stable identity: the item's uuid, or `idx:<n>` when one is absent. */
   id: string;
 }
@@ -117,6 +119,14 @@ export function hitTest(
     const l = sch.labels[i]!;
     if (contains(inflate(labelBox(l), accuracy), p))
       return { kind: 'label', id: refId('label', l.uuid, i) };
+  }
+
+  // Netclass directive labels: the pin line and its flag (SCH_DIRECTIVE_LABEL).
+  const directives = sch.directiveLabels ?? [];
+  for (let i = 0; i < directives.length; i++) {
+    const d = directives[i]!;
+    if (contains(inflate(directiveBox(d), accuracy), p))
+      return { kind: 'directive', id: refId('directive', d.uuid, i) };
   }
 
   for (let i = 0; i < sch.lines.length; i++) {
@@ -241,6 +251,7 @@ export function itemRefById(sch: Schematic, id: string): ItemRef | null {
     scan('image', sch.images, (t) => t.uuid) ??
     scan('graphic', sch.graphics, () => undefined) ??
     scan('textbox', sch.textBoxes, (t) => t.uuid) ??
-    scan('table', sch.tables, (t) => t.uuid)
+    scan('table', sch.tables, (t) => t.uuid) ??
+    scan('directive', sch.directiveLabels ?? [], (t) => t.uuid)
   );
 }

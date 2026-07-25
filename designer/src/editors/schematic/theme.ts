@@ -23,6 +23,8 @@ export interface Theme {
   label: string;
   globalLabel: string;
   hierLabel: string;
+  /** LAYER_NETCLASS_REFS — netclass directive labels. */
+  netclassFlag: string;
   netHighlight: string;
   selectionShadow: string;
   noteLine: string;
@@ -69,6 +71,7 @@ export const KICAD_DEFAULT: Theme = {
   label: 'rgb(15, 15, 15)',
   globalLabel: 'rgb(132, 0, 0)',
   hierLabel: 'rgb(114, 86, 0)',
+  netclassFlag: 'rgb(72, 72, 72)',
   netHighlight: 'rgb(255, 0, 255)', // LAYER_BRIGHTENED
   selectionShadow: 'rgba(102, 178, 255, 0.8)', // COLOR4D(.4,.7,1.0,0.8)
   noteLine: 'rgb(0, 0, 194)',
@@ -110,6 +113,7 @@ export const KICAD_CLASSIC: Theme = {
   label: 'rgb(0, 0, 0)', // BLACK
   globalLabel: 'rgb(132, 0, 0)',
   hierLabel: 'rgb(132, 132, 0)', // BROWN (legacy)
+  netclassFlag: 'rgb(0, 0, 0)', // BLACK (legacy)
   netHighlight: 'rgb(255, 0, 255)', // PUREMAGENTA
   selectionShadow: 'rgba(102, 178, 255, 0.8)',
   noteLine: 'rgb(0, 0, 194)', // LIGHTBLUE (legacy)

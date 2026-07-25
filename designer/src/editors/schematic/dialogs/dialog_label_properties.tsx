@@ -30,6 +30,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import {
   cleanLabelFields,
+  type DirectiveShape,
   type EditedLabelField,
   type LabelShape,
   type LabelSpin,
@@ -37,18 +38,27 @@ import {
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import type { ItemColor } from './dialog_line_properties.js';
 
+/** A flag shape: a label's electrical one, or a directive label's outline. */
+export type AnyLabelShape = LabelShape | DirectiveShape;
+
 /** The label types this dialog serves (SCH_LABEL_T / GLOBAL / HIER / SHEET_PIN). */
-export type LabelPropsKind = 'label' | 'global_label' | 'hierarchical_label' | 'sheet_pin';
+export type LabelPropsKind =
+  | 'label'
+  | 'global_label'
+  | 'hierarchical_label'
+  | 'sheet_pin'
+  | 'directive';
 
 const TITLES: Record<LabelPropsKind, string> = {
   label: 'Label Properties',
   global_label: 'Global Label Properties',
   hierarchical_label: 'Hierarchical Label Properties',
   sheet_pin: 'Hierarchical Sheet Pin Properties',
+  directive: 'Directive Label Properties',
 };
 
 /** The flag shapes, in the dialog's radio order. */
-const SHAPES: { value: LabelShape; label: string }[] = [
+const SHAPES: { value: AnyLabelShape; label: string }[] = [
   { value: 'input', label: 'Input' },
   { value: 'output', label: 'Output' },
   { value: 'bidirectional', label: 'Bidirectional' },
@@ -62,6 +72,22 @@ const SPINS: { spin: LabelSpin; icon: string; title: string }[] = [
   { spin: 'left', icon: 'label_align_right', title: 'Align left' },
   { spin: 'up', icon: 'label_align_bottom', title: 'Align top' },
   { spin: 'bottom', icon: 'label_align_top', title: 'Align bottom' },
+];
+
+/** A directive label points its pin instead, so it uses the pinorient bitmaps. */
+const DIRECTIVE_SPINS: { spin: LabelSpin; icon: string; title: string }[] = [
+  { spin: 'right', icon: 'pinorient_down', title: 'Point down' },
+  { spin: 'left', icon: 'pinorient_up', title: 'Point up' },
+  { spin: 'up', icon: 'pinorient_right', title: 'Point right' },
+  { spin: 'bottom', icon: 'pinorient_left', title: 'Point left' },
+];
+
+/** The directive label's flag shapes (F_DOT / F_ROUND / F_DIAMOND / F_RECTANGLE). */
+const DIRECTIVE_SHAPES: { value: AnyLabelShape; label: string }[] = [
+  { value: 'dot', label: 'Dot' },
+  { value: 'round', label: 'Circle' },
+  { value: 'diamond', label: 'Diamond' },
+  { value: 'rectangle', label: 'Rectangle' },
 ];
 
 /** WX_GRID column widths from the base class, for the eight shown columns. */
@@ -85,7 +111,7 @@ const V_ALIGNS = ['Top', 'Center', 'Bottom'];
 export interface LabelPropsResult {
   /** One entry per label: several when "Multiple label input" is used. */
   texts: string[];
-  shape: LabelShape;
+  shape: AnyLabelShape;
   bold: boolean;
   italic: boolean;
   sizeIU: number;
@@ -97,7 +123,7 @@ export interface LabelPropsResult {
 
 export interface LabelPropsInitial {
   text: string;
-  shape: LabelShape;
+  shape: AnyLabelShape;
   bold: boolean;
   italic: boolean;
   sizeIU: number;
@@ -185,7 +211,7 @@ export function DialogLabelProperties({
 }: Props): JSX.Element {
   const [text, setText] = useState(initial.text);
   const [multi, setMulti] = useState(false);
-  const [shape, setShape] = useState<LabelShape>(initial.shape);
+  const [shape, setShape] = useState<AnyLabelShape>(initial.shape);
   const [bold, setBold] = useState(initial.bold);
   const [italic, setItalic] = useState(initial.italic);
   const [spin, setSpin] = useState<LabelSpin>(initial.spin);
@@ -205,7 +231,9 @@ export function DialogLabelProperties({
 
   // Global, hierarchical labels and sheet pins have a flag shape; only the
   // first two can auto-rotate on placement (AutoRotateOnPlacementSupported).
-  const hasShape = kind === 'global_label' || kind === 'hierarchical_label' || kind === 'sheet_pin';
+  const isDirective = kind === 'directive';
+  const hasShape =
+    kind === 'global_label' || kind === 'hierarchical_label' || kind === 'sheet_pin' || isDirective;
   const hasAutoRotate = kind === 'global_label' || kind === 'hierarchical_label';
   // The combo (with the existing labels) is used for local and global labels;
   // hierarchical labels and sheet pins get the plain single-line entry.
@@ -214,6 +242,10 @@ export function DialogLabelProperties({
   // so the Fields grid — which edits a label's `(property …)` children — has
   // nothing to show for it.
   const hasFields = kind !== 'sheet_pin';
+  // A directive label has no text of its own — its netclass lives in a field —
+  // so the text entry, the multi-label box and the syntax help are all hidden,
+  // the shape box carries the flag shapes and "Text size" becomes "Pin length".
+  const hasText = !isDirective;
 
   const sizeIU = (): number => {
     const n = Number(sizeText.trim());
@@ -223,7 +255,8 @@ export function DialogLabelProperties({
   const submit = (): void => {
     const source = multi ? (multiRef.current?.value ?? '') : text;
     const texts = (multi ? source.split('\n') : [source]).map((t) => t.trim()).filter(Boolean);
-    if (texts.length === 0) return; // KiCad refuses an empty label
+    // A directive label carries no text of its own (its netclass is a field).
+    if (texts.length === 0 && !isDirective) return; // KiCad refuses an empty label
     onOk({
       texts,
       shape,
@@ -289,62 +322,66 @@ export function DialogLabelProperties({
 
         <div className="ze-modal-body ze-lp-body">
           {/* m_textEntrySizer: the label caption and its value control. */}
-          <div className="ze-lp-entry">
-            <span className="ze-lp-caption">Label:</span>
-            {multi ? (
-              <textarea
-                ref={multiRef}
-                className="ze-lp-value ze-lp-multiline"
-                rows={4}
-                defaultValue={text}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === 'Escape') onCancel();
-                }}
-              />
-            ) : (
-              <input
-                ref={valueRef}
-                className="ze-lp-value"
-                value={text}
-                title="Enter the text to be used within the schematic"
-                list={isCombo && suggestions?.length ? 'ze-label-suggestions' : undefined}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={onKey}
-              />
-            )}
-            {isCombo && suggestions && suggestions.length > 0 && (
-              <datalist id="ze-label-suggestions">
-                {suggestions.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            )}
-          </div>
-
-          <div className="ze-lp-entry-row2">
-            {isNew ? (
-              <label className="ze-lp-check">
-                <input
-                  type="checkbox"
-                  checked={multi}
-                  onChange={(e) => setMulti(e.target.checked)}
+          {hasText && (
+            <div className="ze-lp-entry">
+              <span className="ze-lp-caption">Label:</span>
+              {multi ? (
+                <textarea
+                  ref={multiRef}
+                  className="ze-lp-value ze-lp-multiline"
+                  rows={4}
+                  defaultValue={text}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Escape') onCancel();
+                  }}
                 />
-                Multiple label input
-              </label>
-            ) : (
-              <span />
-            )}
-            <a
-              className="ze-lp-syntax"
-              href="https://docs.kicad.org/GetStarted#labels"
-              target="_blank"
-              rel="noreferrer"
-              title="Show syntax help window"
-            >
-              Syntax help
-            </a>
-          </div>
+              ) : (
+                <input
+                  ref={valueRef}
+                  className="ze-lp-value"
+                  value={text}
+                  title="Enter the text to be used within the schematic"
+                  list={isCombo && suggestions?.length ? 'ze-label-suggestions' : undefined}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={onKey}
+                />
+              )}
+              {isCombo && suggestions && suggestions.length > 0 && (
+                <datalist id="ze-label-suggestions">
+                  {suggestions.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              )}
+            </div>
+          )}
+
+          {hasText && (
+            <div className="ze-lp-entry-row2">
+              {isNew ? (
+                <label className="ze-lp-check">
+                  <input
+                    type="checkbox"
+                    checked={multi}
+                    onChange={(e) => setMulti(e.target.checked)}
+                  />
+                  Multiple label input
+                </label>
+              ) : (
+                <span />
+              )}
+              <a
+                className="ze-lp-syntax"
+                href="https://docs.kicad.org/GetStarted#labels"
+                target="_blank"
+                rel="noreferrer"
+                title="Show syntax help window"
+              >
+                Syntax help
+              </a>
+            </div>
+          )}
 
           {/* sbFields: the label's own fields, in the symbol dialog's grid. */}
           {hasFields && (
@@ -481,7 +518,7 @@ export function DialogLabelProperties({
             {hasShape && (
               <fieldset className="ze-lp-shape">
                 <legend>Shape</legend>
-                {SHAPES.map((s) => (
+                {(isDirective ? DIRECTIVE_SHAPES : SHAPES).map((s) => (
                   <label key={s.value}>
                     <input
                       type="radio"
@@ -498,33 +535,41 @@ export function DialogLabelProperties({
             <fieldset className="ze-lp-formatting">
               <legend>Formatting</legend>
               <div className="ze-lp-fmt-grid">
-                <span className="ze-lp-fmt-label">Font:</span>
-                <select
-                  className="ze-lp-font"
-                  disabled
-                  title="The browser build draws all text with KiCad's own font."
-                  value="Default Font"
-                  onChange={() => undefined}
-                >
-                  <option>Default Font</option>
-                  <option>KiCad Font</option>
-                </select>
+                <span className="ze-lp-fmt-label">{isDirective ? 'Orientation:' : 'Font:'}</span>
+                {isDirective ? (
+                  <span />
+                ) : (
+                  <select
+                    className="ze-lp-font"
+                    disabled
+                    title="The browser build draws all text with KiCad's own font."
+                    value="Default Font"
+                    onChange={() => undefined}
+                  >
+                    <option>Default Font</option>
+                    <option>KiCad Font</option>
+                  </select>
+                )}
                 <div className="ze-lp-iconbar">
                   <span className="ze-lp-sep" />
-                  <IconButton
-                    icon="text_bold"
-                    title="Bold"
-                    checked={bold}
-                    onClick={() => setBold(!bold)}
-                  />
-                  <IconButton
-                    icon="text_italic"
-                    title="Italic"
-                    checked={italic}
-                    onClick={() => setItalic(!italic)}
-                  />
-                  <span className="ze-lp-sep" />
-                  {SPINS.map((s) => (
+                  {!isDirective && (
+                    <>
+                      <IconButton
+                        icon="text_bold"
+                        title="Bold"
+                        checked={bold}
+                        onClick={() => setBold(!bold)}
+                      />
+                      <IconButton
+                        icon="text_italic"
+                        title="Italic"
+                        checked={italic}
+                        onClick={() => setItalic(!italic)}
+                      />
+                      <span className="ze-lp-sep" />
+                    </>
+                  )}
+                  {(isDirective ? DIRECTIVE_SPINS : SPINS).map((s) => (
                     <IconButton
                       key={s.spin}
                       icon={s.icon}
@@ -546,7 +591,9 @@ export function DialogLabelProperties({
                   <span className="ze-lp-sep" />
                 </div>
 
-                <span className="ze-lp-fmt-label">Text size:</span>
+                <span className="ze-lp-fmt-label">
+                  {isDirective ? 'Pin length:' : 'Text size:'}
+                </span>
                 <div className="ze-lp-sizerow">
                   <input
                     className="ze-lp-size"
