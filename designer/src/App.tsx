@@ -11,10 +11,12 @@ import { ImageConverter } from './editors/image/ImageConverter.js';
 import { GerberViewer } from './editors/gerbview/GerberViewer.js';
 import {
   storageAvailable,
+  checkStorageHealth,
   listProjects,
   loadProject,
   updateProjectFiles,
 } from './home/projectStore.js';
+import { setRecoveryProvider } from './home/recovery.js';
 import { saveSession, loadSession } from './home/session.js';
 import './ui/shell.css';
 
@@ -171,17 +173,25 @@ export function App(): JSX.Element {
   // Pending autosave (file name → bytes), coalesced until the timer fires or a
   // flush forces it out.
   const pendingWrite = useRef<Map<string, Uint8Array>>(new Map());
+  // Writes handed to IndexedDB but not yet committed. `pendingWrite` is emptied
+  // synchronously when a write starts, so it alone cannot answer "is any work
+  // still unsaved?" — which is exactly what the unload guard below must know.
+  const inFlight = useRef(0);
   const writePending = useCallback(() => {
     const cur = projectFilesRef.current;
     if (!cur || pendingWrite.current.size === 0 || !storageAvailable()) return;
     const files = [...pendingWrite.current].map(([name, bytes]) => ({ name, bytes }));
     pendingWrite.current = new Map();
+    inFlight.current++;
     void (async () => {
       try {
         const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
         if (rec) await updateProjectFiles(rec.id, files);
       } catch {
-        /* storage disabled */
+        /* Reported to the storage-health layer inside the store, which raises
+           the banner — swallowed here so a failed autosave can't break editing. */
+      } finally {
+        inFlight.current--;
       }
     })();
   }, []);
@@ -213,16 +223,60 @@ export function App(): JSX.Element {
   // from it) reflect them — autosave only writes IndexedDB, which a tree reopen
   // does not re-read. Cleared when a project is (re)opened.
   const liveEdits = useRef<Map<string, string>>(new Map());
-  const flushSaves = useCallback(() => {
+  /** Flush now. Returns whether anything was still unsaved when called. */
+  const flushSaves = useCallback((): boolean => {
     schFlush.current?.(); // push the editor's latest serialized sheets into the queue
     clearTimeout(saveTimer.current);
     for (const [name, bytes] of pendingWrite.current)
       liveEdits.current.set(name, dec.decode(bytes));
+    // Sampled before writePending(), which empties the queue synchronously.
+    const dirty = pendingWrite.current.size > 0;
     writePending();
+    return dirty;
   }, [writePending]);
   useEffect(() => {
     liveEdits.current.clear();
   }, [projectFiles]);
+
+  // Prove persistence actually works, once, at boot. `storageAvailable()` only
+  // says the API exists — this does a real write/read/delete round-trip, so a
+  // blocked or full store surfaces before the user has invested an afternoon.
+  useEffect(() => {
+    void checkStorageHealth();
+  }, []);
+
+  // Hand the current project to the crash screen / storage banner on demand.
+  // A getter, not a copy: projects reach tens of megabytes and this must not
+  // duplicate one on every edit. liveEdits is overlaid so the snapshot includes
+  // work that has been flushed out of the editor but not yet written to disk.
+  useEffect(() => {
+    setRecoveryProvider(() => {
+      const cur = projectFilesRef.current ?? (standalonePcb ? [standalonePcb] : null);
+      if (!cur?.length) return null;
+      const files = cur.map((f) =>
+        liveEdits.current.has(f.name) ? { ...f, text: liveEdits.current.get(f.name)! } : f,
+      );
+      return { name: projectNameOf(files), files: [...files, ...sessionSheets] };
+    });
+    return () => setRecoveryProvider(null);
+  }, [standalonePcb, sessionSheets]);
+
+  // Autosave is debounced by 1.2s, so closing the tab mid-debounce would drop
+  // the last edits. Flush on the way out and, if anything is still queued, let
+  // the browser ask — IndexedDB writes cannot be awaited during unload, so the
+  // prompt is the only reliable protection left at this point.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // flushSaves() reports what was outstanding *before* it emptied the queue;
+      // inFlight covers a write already handed to IndexedDB but not yet committed.
+      const dirty = flushSaves() || inFlight.current > 0;
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = ''; // required by older browsers to trigger the prompt
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [flushSaves]);
 
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
   // used for discrete actions — drawing-sheet reference changes and Save to
