@@ -101,12 +101,18 @@ Ground truth for every mapping below is the KiCad source
   `REFDES_TRACKER` port (serialize/deserialize in
   `schematic.used_designators`), and the dialog's Reset-to-Defaults +
   Import-Settings buttons (exact `DIALOG_SCH_IMPORT_SETTINGS` checkbox set).
-- **Net Chains** (PR #134) — detection is live:
+- **Net Chains** (PR #134) — detection AND the committed store are live:
   `CONNECTION_GRAPH::RebuildNetChains` port
   (`eeschema/src/connectivity/net_chains.ts`) — nets bridged through 2-pin
   passives with collinear wires, power-edge drops, leaf/stub pruning,
-  label-driven naming. The Setup page lists detected chains with their
-  persisted chain-class assignments (`net_settings.net_chain_classes`).
+  label-driven naming, plus `(net_chain …)` node persistence in `.kicad_sch`
+  (parse/write per `parseSchNetChain` / `SCH_IO_KICAD_SEXPR::Format`), the
+  symbol `(passthrough block|force)` attribute with its bridge gates,
+  terminal-pin selection (farthest pin pair), the committed-restore passes
+  (terminal match into a potential, member-net fallback), and chain-netclass
+  application into netclass resolution (`ApplyNetChainNetclasses`). The Setup
+  grid edits committed chains (rename/netclass/colour/delete) with
+  `ApplyEdits`' chain→class rekeying into `net_settings.net_chain_classes`.
 - **Wire hop-overs** (PR #134) — Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
   `BuildWireWithHopShape` ports (`eeschema/src/tools/hop_over.ts`, with
@@ -159,6 +165,7 @@ Ground truth for every mapping below is the KiCad source
 ## Remaining work (phases A–H1 in PRs #113–#123; buses #124–#126; quick-wins
 ## #127; net chains + hop-overs + inter-sheet refs #134)
 
-1. Committed net chains — `.kicad_sch` `signal` nodes + `PASSTHROUGH_MODE`
-   attribute (detection already live).
+1. Net-chain editor tools — createNetChain / nameNetChain /
+   highlightNetChain context actions and the chain-colour highlight tint
+   (persistence + restore + dialog editing already live).
 2. OPO fields — blocked on a simulator.
