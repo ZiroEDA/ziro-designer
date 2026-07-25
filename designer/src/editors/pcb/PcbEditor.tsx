@@ -2587,7 +2587,10 @@ export function PcbEditor({
     for (const id of selection) {
       const r = parseBoardItemId(id);
       if (!r) continue;
-      if (brd) isBoardItemLocked(brd, id) ? (anyLocked = true) : (anyUnlocked = true);
+      if (brd) {
+        if (isBoardItemLocked(brd, id)) anyLocked = true;
+        else anyUnlocked = true;
+      }
       if (r.kind === 'group') {
         groupCount++;
         hasNonPad = true;

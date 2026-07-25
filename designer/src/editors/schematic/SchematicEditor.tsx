@@ -76,6 +76,8 @@ import {
   type AnnotateOptions,
   type ErcRunOptions,
   type ExternalPin,
+  type ExternalSymbol,
+  type ExternalLabel,
   computeHierarchyNetlist,
   enumeratePins,
   runErc,
@@ -137,7 +139,7 @@ import {
 } from './dialogs/dialog_symbol_chooser.js';
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
-import { loadIndex, loadSymbol } from './symbols/index.js';
+import { libraryUri, loadIndex, loadSymbol } from './symbols/index.js';
 import {
   projectFpLibTablePath,
   serializeFpLibTable,
@@ -2485,6 +2487,9 @@ export function SchematicEditor({
   // The symbol library table as TestLibSymbolIssues sees it: nickname -> the
   // symbol names the library holds.
   const ercSymbolLibs = useRef<Map<string, Set<string>> | null>(null);
+  // Configured libraries whose file would not load, with the URI they were
+  // looked for at (SYMBOL_LIBRARY_ADAPTER::IsLibraryLoaded / GetFullURI).
+  const ercUnloadedSymbolLibs = useRef<Map<string, string>>(new Map());
   // Pad numbers of each footprint the project assigns or associates — upstream
   // fetches these from CvPcb (KIFACE_FOOTPRINT_PAD_NUMBERS) for the pin-map tests.
   const ercFootprintPads = useRef<Map<string, Set<string>>>(new Map());
@@ -2534,11 +2539,14 @@ export function SchematicEditor({
           if (ercLibrarySymbols.current.has(libId)) return;
           const sep = libId.indexOf(':');
           if (sep <= 0) return;
+          const libName = libId.slice(0, sep);
           try {
-            const fromLib = await loadSymbol(libId.slice(0, sep), libId.slice(sep + 1));
+            const fromLib = await loadSymbol(libName, libId.slice(sep + 1));
             if (fromLib) ercLibrarySymbols.current.set(libId, fromLib);
+            ercUnloadedSymbolLibs.current.delete(libName);
           } catch {
-            /* a library we cannot reach is simply not compared */
+            // A library that will not load is TestLibSymbolIssues' second case.
+            ercUnloadedSymbolLibs.current.set(libName, libraryUri(libName));
           }
         }),
       );
@@ -2651,6 +2659,47 @@ export function SchematicEditor({
       return map;
     };
 
+    // SCH_REFERENCE_LIST and TestSimilarLabels span the whole hierarchy, so
+    // each sheet's run is told what the other sheets hold. `sheetIndex` is the
+    // sheet's place in the list, which decides who owns a marker that spans two
+    // sheets — upstream never had to ask, walking every sheet in one pass.
+    const sheetIndexOf = new Map(sheetFiles.map((f, i) => [f, i] as const));
+    const allSymbols: (ExternalSymbol & { file: string })[] = [];
+    const allLabels: (ExternalLabel & { file: string })[] = [];
+    for (const file of sheetFiles) {
+      const sheetDoc = file === currentFile ? d : docs.get(file);
+      if (!sheetDoc) continue;
+      const sheetIndex = sheetIndexOf.get(file) ?? 0;
+      const libs = new Map(sheetDoc.libSymbols.map((l) => [l.libId, l]));
+      sheetDoc.symbols.forEach((sym, index) => {
+        const fieldOf = (key: string): string => sym.fields.find((f) => f.key === key)?.value ?? '';
+        allSymbols.push({
+          file,
+          ref: fieldOf('Reference'),
+          unit: sym.unit,
+          libId: sym.libId,
+          value: fieldOf('Value'),
+          footprint: fieldOf('Footprint'),
+          sheetIndex,
+          index,
+        });
+      });
+      let order = 0;
+      for (const l of sheetDoc.labels) {
+        if (l.kind === 'text') continue;
+        allLabels.push({ file, text: l.text, isPin: false, sheetIndex, index: order++ });
+      }
+      // A power symbol's value is the text TestSimilarLabels compares.
+      const seen = new Set<string>();
+      for (const p of enumeratePins(sheetDoc, libs)) {
+        if (p.electricalType !== 'power_in' || !p.isPowerSymbol || seen.has(p.symId)) continue;
+        seen.add(p.symId);
+        const sym = sheetDoc.symbols.find((_, i) => refId('symbol', _.uuid, i) === p.symId);
+        const value = sym?.fields.find((f) => f.key === 'Value')?.value ?? '';
+        if (value) allLabels.push({ file, text: value, isPin: true, sheetIndex, index: order++ });
+      }
+    }
+
     const found: ErcViolation[] = [];
     const frame = (): Promise<void> =>
       new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -2666,6 +2715,9 @@ export function SchematicEditor({
           ...ercOptions(setup),
           sheetFile: file,
           sheetPath: sheetPathFor.get(file) ?? '/',
+          sheetIndex: sheetIndexOf.get(file) ?? 0,
+          externalSymbols: allSymbols.filter((x) => x.file !== file),
+          externalLabels: allLabels.filter((x) => x.file !== file),
           externalNetPins: externalPinsFor(file),
           externalNetNoConnects: ncNets,
           librarySymbols: ercLibrarySymbols.current,
@@ -2673,7 +2725,10 @@ export function SchematicEditor({
           // Only a real library set is a symbol library table; a failed index
           // load would otherwise report every library as unconfigured.
           ...(ercSymbolLibs.current && ercSymbolLibs.current.size > 0
-            ? { symbolLibs: ercSymbolLibs.current }
+            ? {
+                symbolLibs: ercSymbolLibs.current,
+                unloadedSymbolLibs: ercUnloadedSymbolLibs.current,
+              }
             : {}),
         },
       );

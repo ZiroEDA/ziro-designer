@@ -159,6 +159,30 @@ const stacked = (a: PinNode, b: PinNode): boolean =>
 
 /** Options for one ERC run (the parts of SCHEMATIC_SETTINGS / the project the
  *  tests read besides the sheet itself). */
+/**
+ * A symbol placed on another sheet of the hierarchy, as
+ * SCH_REFERENCE_LIST sees it. `sheetIndex` is its sheet's position in the
+ * sheet list; with the symbol's own index it gives the hierarchy-wide order
+ * upstream's sorted reference list has.
+ */
+export interface ExternalSymbol {
+  ref: string;
+  unit: number;
+  libId: string;
+  value: string;
+  footprint: string;
+  sheetIndex: number;
+  index: number;
+}
+
+/** A label (or power-symbol value) on another sheet, for TestSimilarLabels. */
+export interface ExternalLabel {
+  text: string;
+  isPin: boolean;
+  sheetIndex: number;
+  index: number;
+}
+
 export interface ErcRunOptions {
   /** SCHEMATIC_SETTINGS::m_ConnectionGridSize for the off-grid endpoint test
    *  (0/absent disables it, as a degenerate grid would flag everything). */
@@ -209,6 +233,20 @@ export interface ErcRunOptions {
    *  (SYMBOL_LIBRARY_ADAPTER over the symbol library table). Absent stands
    *  TestLibSymbolIssues' library half down. */
   symbolLibs?: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Configured libraries that would not load, by nickname -> their URI
+   *  (`!adapter->IsLibraryLoaded( libName )` with LIBRARY_MANAGER::GetFullURI). */
+  unloadedSymbolLibs?: ReadonlyMap<string, string>;
+  /** This sheet's position in the hierarchy (SCH_SHEET_LIST order). With the
+   *  `external*` lists below it decides which sheet's run owns a marker when a
+   *  fault spans sheets, so each is reported once — upstream never had to ask,
+   *  since ERC_TESTER walks the whole sheet list in one pass. */
+  sheetIndex?: number;
+  /** Symbols placed on other sheets: SCH_REFERENCE_LIST spans the hierarchy,
+   *  so the reference tests (duplicates, units, values, footprints) do too. */
+  externalSymbols?: readonly ExternalSymbol[];
+  /** Label texts and power-symbol values on other sheets, for
+   *  TestSimilarLabels — upstream compares across every subgraph of m_nets. */
+  externalLabels?: readonly ExternalLabel[];
   /** SPICE library contents by `Sim.Library` path (SIM_LIB_MGR's resolver);
    *  returning undefined is upstream's "library not found". */
   simLibraryText?: (path: string) => string | undefined;
@@ -360,16 +398,60 @@ export function* runErcSteps(
     s.fields.find((f) => f.key === 'Reference')?.value ?? '';
   const fieldValue = (s: (typeof sch.symbols)[number], key: string): string =>
     s.fields.find((f) => f.key === key)?.value ?? '';
-  // Group the symbols by reference (SCH_REFERENCE_LIST's m_refMap) for the
-  // annotation, unit and multi-unit tests.
-  const byRef = new Map<string, { sym: (typeof sch.symbols)[number]; index: number }[]>();
+  /**
+   * The symbols grouped by reference — SCH_REFERENCE_LIST's m_refMap, which
+   * upstream builds over the *whole* hierarchy. Symbols on other sheets come in
+   * as `externalSymbols`, so a reference shared across sheets is one group here
+   * too; each entry keeps its hierarchy order, and only the sheet that owns the
+   * entry a fault is reported against raises the marker.
+   */
+  interface RefEntry {
+    unit: number;
+    libId: string;
+    value: string;
+    footprint: string;
+    sheetIndex: number;
+    index: number;
+    /** The placed symbol, when it is on this sheet. */
+    sym?: (typeof sch.symbols)[number];
+  }
+  const byRef = new Map<string, RefEntry[]>();
+  const hereIndex = opts.sheetIndex ?? 0;
   sch.symbols.forEach((sym, index) => {
     const ref = refOf(sym);
     if (!ref || ref.startsWith('#')) return;
     const arr = byRef.get(ref) ?? [];
-    arr.push({ sym, index });
+    arr.push({
+      unit: sym.unit,
+      libId: sym.libId,
+      value: fieldValue(sym, 'Value'),
+      footprint: fieldValue(sym, 'Footprint'),
+      sheetIndex: hereIndex,
+      index,
+      sym,
+    });
     byRef.set(ref, arr);
   });
+  for (const ext of opts.externalSymbols ?? []) {
+    if (!ext.ref || ext.ref.startsWith('#')) continue;
+    const arr = byRef.get(ext.ref) ?? [];
+    arr.push({
+      unit: ext.unit,
+      libId: ext.libId,
+      value: ext.value,
+      footprint: ext.footprint,
+      sheetIndex: ext.sheetIndex,
+      index: ext.index,
+    });
+    byRef.set(ext.ref, arr);
+  }
+  for (const arr of byRef.values()) {
+    arr.sort((a, b) =>
+      a.sheetIndex !== b.sheetIndex ? a.sheetIndex - b.sheetIndex : a.index - b.index,
+    );
+  }
+  /** The id of an entry on this sheet (the only ones a marker can point at). */
+  const refItemId = (e: RefEntry): string => refId('symbol', e.sym?.uuid, e.index);
 
   /** CONNECTION_GRAPH::ercCheckNoConnects — per subgraph. */
   const checkNoConnects = (): void => {
@@ -1122,17 +1204,39 @@ export function* runErcSteps(
     }
   };
 
-  /** ERC_TESTER::TestSimilarLabels. */
+  /**
+   * ERC_TESTER::TestSimilarLabels — texts that differ only in case. Upstream
+   * walks every subgraph of m_nets, so labels on *different* sheets are
+   * compared too; here the other sheets' texts arrive as `externalLabels`.
+   * The marker goes on the later of the pair (upstream keeps the first-seen
+   * item and reports the one that follows it), so each pair is raised once, by
+   * the sheet that owns the later item.
+   */
   const testSimilarLabels = (): void => {
     interface SimilarItem {
       id: string;
       text: string;
       at: Vec2;
       isPin: boolean;
+      /** Hierarchy order: sheet position, then position within the sheet. */
+      sheetIndex: number;
+      index: number;
+      local: boolean;
     }
+    const here = opts.sheetIndex ?? 0;
     const similar: SimilarItem[] = [];
-    for (const [lid, l] of labelIds)
-      similar.push({ id: lid, text: l.text, at: l.at, isPin: false });
+    let order = 0;
+    for (const [lid, l] of labelIds) {
+      similar.push({
+        id: lid,
+        text: l.text,
+        at: l.at,
+        isPin: false,
+        sheetIndex: here,
+        index: order++,
+        local: true,
+      });
+    }
     // A power pin's text is its symbol's value (upstream's GetValue).
     const seenPowerSymbol = new Set<string>();
     for (const p of pins) {
@@ -1140,8 +1244,32 @@ export function* runErcSteps(
       if (seenPowerSymbol.has(p.symId)) continue;
       seenPowerSymbol.add(p.symId);
       const value = symbolValueById.get(p.symId) ?? '';
-      if (value) similar.push({ id: selectableId(p.id), text: value, at: p.at, isPin: true });
+      if (value) {
+        similar.push({
+          id: selectableId(p.id),
+          text: value,
+          at: p.at,
+          isPin: true,
+          sheetIndex: here,
+          index: order++,
+          local: true,
+        });
+      }
     }
+    for (const ext of opts.externalLabels ?? []) {
+      similar.push({
+        id: '',
+        text: ext.text,
+        at: { x: 0, y: 0 },
+        isPin: ext.isPin,
+        sheetIndex: ext.sheetIndex,
+        index: ext.index,
+        local: false,
+      });
+    }
+
+    const before = (a: SimilarItem, b: SimilarItem): boolean =>
+      a.sheetIndex !== b.sheetIndex ? a.sheetIndex < b.sheetIndex : a.index < b.index;
 
     const byLower = new Map<string, SimilarItem[]>();
     for (const item of similar) {
@@ -1151,9 +1279,9 @@ export function* runErcSteps(
       byLower.set(key, arr);
     }
     for (const arr of byLower.values()) {
-      for (let i = 1; i < arr.length; i++) {
-        const item = arr[i]!;
-        const other = arr.find((o, j) => j < i && o.text !== item.text);
+      for (const item of arr) {
+        if (!item.local) continue; // another sheet's run reports its own items
+        const other = arr.find((o) => o.text !== item.text && before(o, item));
         if (!other) continue;
         const code: ErcCode =
           item.isPin && other.isPin
@@ -1163,10 +1291,12 @@ export function* runErcSteps(
               : 'similar_labels';
         // logError sets no message: the tree shows the ERC_ITEM's own title.
         out.push(
-          violation(code, ERC_ITEMS.find((e) => e.code === code)!.title, item.at, [
-            item.id,
-            other.id,
-          ]),
+          violation(
+            code,
+            ERC_ITEMS.find((e) => e.code === code)!.title,
+            item.at,
+            other.local ? [item.id, other.id] : [item.id],
+          ),
         );
       }
     }
@@ -1292,11 +1422,22 @@ export function* runErcSteps(
         if (!libById.has(sym.libId)) return;
         const [libName, symbolName] = splitLibId(sym.libId);
         const library = opts.symbolLibs?.get(libName);
+        const uri = opts.unloadedSymbolLibs?.get(libName);
         if (!library) {
           out.push(
             violation(
               'lib_symbol_issues',
-              `The current configuration does not include the symbol library '${libName}'`,
+              `The current configuration does not include the symbol library '${unescapeString(libName)}'`,
+              sym.at,
+              [refId('symbol', sym.uuid, i)],
+            ),
+          );
+        } else if (uri !== undefined) {
+          // In the table, but the library itself could not be read.
+          out.push(
+            violation(
+              'lib_symbol_issues',
+              `The symbol library '${unescapeString(libName)}' was not found at '${uri}'`,
               sym.at,
               [refId('symbol', sym.uuid, i)],
             ),
@@ -1627,61 +1768,69 @@ export function* runErcSteps(
   const checkAnnotation = (): void => {
     for (const [ref, group] of byRef) {
       const first = group[0]!;
-      const idOf = (g: (typeof group)[number]): string => refId('symbol', g.sym.uuid, g.index);
-      const lib = libById.get(first.sym.libId);
+      const lib = libById.get(first.libId);
       const libUnits = lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1;
       // Unannotated (CheckAnnotation's first pass). The unit number is named
       // only when the library part actually has several units.
       if (ref.includes('?')) {
-        const message =
-          libUnits > 1
-            ? `Item not annotated: ${ref} (unit ${first.sym.unit})`
-            : `Item not annotated: ${ref}`;
-        out.push(violation('unannotated', message, first.sym.at, [idOf(first)]));
+        for (const g of group) {
+          if (!g.sym) continue; // another sheet's run reports its own symbols
+          const message =
+            libUnits > 1
+              ? `Item not annotated: ${ref} (unit ${g.unit})`
+              : `Item not annotated: ${ref}`;
+          out.push(violation('unannotated', message, g.sym.at, [refItemId(g)]));
+        }
         continue;
       }
       /** SCH_SYMBOL::SubReference — the unit suffix a multi-unit part carries. */
-      const sub = (g: (typeof group)[number]): string =>
-        libUnits > 1 ? unitLabel(g.sym.unit) : '';
+      const sub = (g: RefEntry): string => (libUnits > 1 ? unitLabel(g.unit) : '');
 
       // Duplicate reference / extra units: two symbols sharing a reference and
-      // a unit number, or a unit beyond the library part's unit count.
-      const seenUnits = new Map<number, (typeof group)[number]>();
+      // a unit number, or a unit beyond the library part's unit count. The
+      // marker sits on the *first* of the pair (CheckAnnotation passes it as
+      // aItemA, and the handler appends to that item's screen), so the sheet
+      // holding the first one reports it.
+      const seenUnits = new Map<number, RefEntry>();
       for (const g of group) {
-        const dupe = seenUnits.get(g.sym.unit);
+        const dupe = seenUnits.get(g.unit);
         if (dupe) {
-          out.push(
-            violation('duplicate_reference', `Duplicate items ${ref}${sub(g)}\n`, g.sym.at, [
-              idOf(g),
-              idOf(dupe),
-            ]),
-          );
+          if (dupe.sym) {
+            out.push(
+              violation(
+                'duplicate_reference',
+                `Duplicate items ${ref}${sub(dupe)}\n`,
+                dupe.sym.at,
+                [refItemId(dupe), ...(g.sym ? [refItemId(g)] : [])],
+              ),
+            );
+          }
         } else {
-          seenUnits.set(g.sym.unit, g);
+          seenUnits.set(g.unit, g);
         }
-        if (g.sym.unit > libUnits) {
+        if (g.sym && g.unit > libUnits) {
           out.push(
             violation(
               'extra_units',
-              `Error: symbol ${ref} (unit ${g.sym.unit}) exceeds units defined (${libUnits})`,
+              `Error: symbol ${ref} (unit ${g.unit}) exceeds units defined (${libUnits})`,
               g.sym.at,
-              [idOf(g)],
+              [refItemId(g)],
             ),
           );
         }
       }
 
-      // Units of one symbol must share a value and a footprint
-      // (CheckAnnotation's value test / TestMultiunitFootprints).
-      const value = fieldValue(first.sym, 'Value');
+      // Units of one symbol must share a value (CheckAnnotation's value test).
+      // Upstream reports against the first of the pair, as above.
+      if (!first.sym) continue;
       for (const g of group.slice(1)) {
-        if (fieldValue(g.sym, 'Value') !== value) {
+        if (g.value !== first.value) {
           out.push(
             violation(
               'unit_value_mismatch',
-              `Different values for ${ref}${sub(first)} (${value}) and ${ref}${sub(g)} (${fieldValue(g.sym, 'Value')})`,
-              g.sym.at,
-              [idOf(g), idOf(first)],
+              `Different values for ${ref}${sub(first)} (${first.value}) and ${ref}${sub(g)} (${g.value})`,
+              first.sym.at,
+              [refItemId(first), ...(g.sym ? [refItemId(g)] : [])],
             ),
           );
         }
@@ -1693,28 +1842,24 @@ export function* runErcSteps(
   const testMultiunitFootprints = (): void => {
     for (const [ref, group] of byRef) {
       if (ref.includes('?')) continue;
-      const idOf = (g: (typeof group)[number]): string => refId('symbol', g.sym.uuid, g.index);
-      const lib = libById.get(group[0]!.sym.libId);
+      const lib = libById.get(group[0]!.libId);
       const multiUnit = (lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1) > 1;
       // GetRef( sheet, true ) — the reference with its unit suffix.
-      const name = (g: (typeof group)[number]): string =>
-        multiUnit ? `${ref}${unitLabel(g.sym.unit)}` : ref;
-      const withFp = group.find((g) => fieldValue(g.sym, 'Footprint') !== '');
-      if (withFp) {
-        const fp = fieldValue(withFp.sym, 'Footprint');
-        for (const g of group) {
-          const other = fieldValue(g.sym, 'Footprint');
-          if (other !== '' && other !== fp) {
-            out.push(
-              violation(
-                'different_unit_footprint',
-                `Different footprints assigned to ${name(withFp)} and ${name(g)}`,
-                g.sym.at,
-                [idOf(g), idOf(withFp)],
-              ),
-            );
-          }
-        }
+      const name = (g: RefEntry): string => (multiUnit ? `${ref}${unitLabel(g.unit)}` : ref);
+      const withFp = group.find((g) => g.footprint !== '');
+      if (!withFp) continue;
+      for (const g of group) {
+        // The marker is appended to the *second* unit's screen, so the sheet
+        // holding it reports the pair.
+        if (!g.sym || g.footprint === '' || g.footprint === withFp.footprint) continue;
+        out.push(
+          violation(
+            'different_unit_footprint',
+            `Different footprints assigned to ${name(withFp)} and ${name(g)}`,
+            g.sym.at,
+            [refItemId(g), ...(withFp.sym ? [refItemId(withFp)] : [])],
+          ),
+        );
       }
     }
   };
@@ -1723,13 +1868,14 @@ export function* runErcSteps(
   const testMissingUnits = (): void => {
     for (const [ref, group] of byRef) {
       const first = group[0]!;
-      const idOf = (g: (typeof group)[number]): string => refId('symbol', g.sym.uuid, g.index);
       if (ref.includes('?')) continue;
-      const lib = libById.get(first.sym.libId);
+      // The whole hierarchy's placements decide what is missing, but only the
+      // sheet holding the first unit raises the marker.
+      if (!first.sym) continue;
+      const lib = libById.get(first.libId);
       const libUnits = lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1;
-      // TestMissingUnits: units of the library part with no symbol placed.
       if (libUnits > 1 && lib) {
-        const placed = new Set(group.map((g) => g.sym.unit));
+        const placed = new Set(group.map((g) => g.unit));
         const missing: number[] = [];
         for (let u = 1; u <= libUnits; u++) if (!placed.has(u)) missing.push(u);
         if (missing.length > 0) {
@@ -1738,7 +1884,7 @@ export function* runErcSteps(
           } ]`;
           out.push(
             violation('missing_unit', `Symbol ${ref} has unplaced units ${list}`, first.sym.at, [
-              idOf(first),
+              refItemId(first),
             ]),
           );
 
@@ -1760,8 +1906,8 @@ export function* runErcSteps(
               violation(
                 code,
                 `Symbol ${ref} has ${what} in units ${l} that are not placed`,
-                first.sym.at,
-                [idOf(first)],
+                first.sym!.at,
+                [refItemId(first)],
               ),
             );
           };
@@ -1777,14 +1923,15 @@ export function* runErcSteps(
   const testMultUnitPinConflicts = (): void => {
     for (const [ref, group] of byRef) {
       if (ref.includes('?')) continue;
-      const idOf = (g: (typeof group)[number]): string => refId('symbol', g.sym.uuid, g.index);
       // TestMultUnitPinConflicts: a pin number shared by several units of one
-      // symbol must land on the same net in every unit.
+      // symbol must land on the same net in every unit. Units on other sheets
+      // are left to their own run: their pins' nets are not graphed here.
       if (group.length > 1) {
         const netOfPin = new Map<string, { net: string; at: Vec2; id: string }>();
         for (const g of group) {
+          if (!g.sym) continue;
           for (const p of pins) {
-            if (p.symId !== idOf(g)) continue;
+            if (p.symId !== refItemId(g)) continue;
             const code = netlist.netByItem.get(p.id);
             const net = code !== undefined ? (netByCode.get(code)?.name ?? '') : '';
             if (net === '') continue;

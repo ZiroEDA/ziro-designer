@@ -549,6 +549,14 @@ describe('runErc — schematic-wide tests', () => {
       "Symbol 'IN' not found in symbol library 'T'",
     );
 
+    const unloadable = runErc(doc, libById, defaultErcSettings(), {
+      symbolLibs: new Map([['T', new Set(['IN'])]]),
+      unloadedSymbolLibs: new Map([['T', '/libs/T.kicad_sym']]),
+    });
+    expect(unloadable.find((v) => v.code === 'lib_symbol_issues')!.message).toBe(
+      "The symbol library 'T' was not found at '/libs/T.kicad_sym'",
+    );
+
     const ok = runErc(doc, libById, defaultErcSettings(), {
       symbolLibs: new Map([['T', new Set(['IN'])]]),
     });
@@ -629,5 +637,73 @@ describe('runErc — schematic-wide tests', () => {
     const dangling = v.filter((x) => x.code === 'label_dangling');
     expect(dangling).toHaveLength(1);
     expect(dangling[0]!.items).toEqual(['d2']);
+  });
+  it('sees the rest of the hierarchy for the reference and label tests', () => {
+    // SCH_REFERENCE_LIST and TestSimilarLabels span the whole hierarchy
+    // upstream; here the other sheets arrive as externalSymbols/externalLabels
+    // and only the sheet owning the reported item raises the marker.
+    const { doc, libById } = sch(`${place('PAS', 'R1', 10, 10, 'r1')}
+      ${label('GND_A', 40, 10, 'l1')}`);
+
+    // R1 also placed on an earlier sheet: the duplicate belongs to that sheet.
+    const earlier = runErc(doc, libById, defaultErcSettings(), {
+      sheetIndex: 1,
+      externalSymbols: [
+        {
+          ref: 'R1',
+          unit: 1,
+          libId: 'T:PAS',
+          value: 'PAS',
+          footprint: '',
+          sheetIndex: 0,
+          index: 0,
+        },
+      ],
+      externalLabels: [{ text: 'gnd_a', isPin: false, sheetIndex: 0, index: 0 }],
+    });
+    expect(codes(earlier)).not.toContain('duplicate_reference');
+    // …but the label case is ours: we hold the later of the similar pair.
+    expect(codes(earlier)).toContain('similar_labels');
+
+    // The same sheet seen first: now the duplicate is ours to report, and the
+    // similar label belongs to the later sheet.
+    const first = runErc(doc, libById, defaultErcSettings(), {
+      sheetIndex: 0,
+      externalSymbols: [
+        {
+          ref: 'R1',
+          unit: 1,
+          libId: 'T:PAS',
+          value: 'PAS',
+          footprint: '',
+          sheetIndex: 1,
+          index: 0,
+        },
+      ],
+      externalLabels: [{ text: 'gnd_a', isPin: false, sheetIndex: 1, index: 0 }],
+    });
+    expect(codes(first)).toContain('duplicate_reference');
+    expect(codes(first)).not.toContain('similar_labels');
+  });
+
+  it('takes a differing value on another sheet as a unit value mismatch', () => {
+    const { doc, libById } = sch(place('PAS', 'R1', 10, 10, 'r1'));
+    const v = runErc(doc, libById, defaultErcSettings(), {
+      sheetIndex: 0,
+      externalSymbols: [
+        {
+          ref: 'R1',
+          unit: 2,
+          libId: 'T:PAS',
+          value: '10k',
+          footprint: '',
+          sheetIndex: 1,
+          index: 0,
+        },
+      ],
+    });
+    expect(v.find((x) => x.code === 'unit_value_mismatch')!.message).toBe(
+      'Different values for R1 (PAS) and R1 (10k)',
+    );
   });
 });

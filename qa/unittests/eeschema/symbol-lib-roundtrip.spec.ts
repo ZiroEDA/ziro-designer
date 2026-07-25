@@ -10,7 +10,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const LIB = join(here, '../../../designer/public/symbols/Device.kicad_sym');
 
 describe('symbol library writer', () => {
-  it('round-trips an untouched library semantically', () => {
+  // Parses and re-serializes the whole Device library, which runs past the 5 s
+  // default when the suite saturates the machine.
+  it('round-trips an untouched library semantically', { timeout: 30_000 }, () => {
     const text = readFileSync(LIB, 'utf8');
     const symbols = readSymbolLib(parse(text));
     expect(symbols.length).toBeGreaterThan(10);

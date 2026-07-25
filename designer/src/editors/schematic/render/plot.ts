@@ -88,7 +88,10 @@ const PLOT_PAGE_MM: Record<Exclude<PlotPageSize, 'auto'>, [number, number]> = {
  * plotOneSheetPDF/PS): "Schematic size" plots 1:1 on the sheet's own page;
  * A4 / A keep the sheet's orientation and scale by min(scalex, scaley).
  */
-export function plotPageIU(sch: Schematic, opts: PlotOpts): { w: number; h: number; scale: number } {
+export function plotPageIU(
+  sch: Schematic,
+  opts: PlotOpts,
+): { w: number; h: number; scale: number } {
   const actual = pageIU(sch);
   const sel = opts.pageSizeSelect ?? 'auto';
   if (sel === 'auto') return { w: actual.w, h: actual.h, scale: 1 };
@@ -518,11 +521,7 @@ function parseColor(s: string): [number, number, number] {
         parseInt(t[2]! + t[2]!, 16),
         parseInt(t[3]! + t[3]!, 16),
       ];
-    return [
-      parseInt(t.slice(1, 3), 16),
-      parseInt(t.slice(3, 5), 16),
-      parseInt(t.slice(5, 7), 16),
-    ];
+    return [parseInt(t.slice(1, 3), 16), parseInt(t.slice(3, 5), 16), parseInt(t.slice(5, 7), 16)];
   }
   const m = t.match(/rgba?\(([^)]+)\)/);
   if (m) {
@@ -603,7 +602,10 @@ abstract class VectorContext {
     this.subs.push(this.cur);
   }
   lineTo(x: number, y: number): void {
-    if (!this.cur) return this.moveTo(x, y);
+    if (!this.cur) {
+      this.moveTo(x, y);
+      return;
+    }
     this.cur.pts.push([x, y]);
   }
   closePath(): void {
@@ -648,7 +650,12 @@ abstract class VectorContext {
     const w = this.lineWidth * this.ctmScale();
     for (const s of this.subs) {
       if (s.pts.length < 2) continue;
-      this.emitPolyline(s.pts.map((p) => this.apply(p)), w, this.strokeStyle, s.closed);
+      this.emitPolyline(
+        s.pts.map((p) => this.apply(p)),
+        w,
+        this.strokeStyle,
+        s.closed,
+      );
     }
   }
   fill(): void {
@@ -731,14 +738,22 @@ class DxfContext extends VectorContext {
     const [r, g, b] = parseColor(color);
     const h = (this.handle++).toString(16).toUpperCase();
     const e: string[] = [
-      '0', 'LWPOLYLINE',
-      '5', h,
-      '100', 'AcDbEntity',
-      '8', '0',
-      '100', 'AcDbPolyline',
-      '90', String(pts.length),
-      '70', closed ? '1' : '0',
-      '420', String((r << 16) | (g << 8) | b),
+      '0',
+      'LWPOLYLINE',
+      '5',
+      h,
+      '100',
+      'AcDbEntity',
+      '8',
+      '0',
+      '100',
+      'AcDbPolyline',
+      '90',
+      String(pts.length),
+      '70',
+      closed ? '1' : '0',
+      '420',
+      String((r << 16) | (g << 8) | b),
     ];
     if (width > 0) e.push('43', num(width / this.u));
     for (const p of pts) e.push('10', this.X(p[0]), '20', this.Y(p[1]));
@@ -747,18 +762,34 @@ class DxfContext extends VectorContext {
   document(): string {
     const seed = this.handle.toString(16).toUpperCase();
     return [
-      '0', 'SECTION',
-      '2', 'HEADER',
-      '9', '$ACADVER', '1', 'AC1015',
+      '0',
+      'SECTION',
+      '2',
+      'HEADER',
+      '9',
+      '$ACADVER',
+      '1',
+      'AC1015',
       // $INSUNITS: 1 = inches, 4 = millimeters (the "Export units:" choice).
-      '9', '$INSUNITS', '70', this.units === 'mm' ? '4' : '1',
-      '9', '$HANDSEED', '5', seed,
-      '0', 'ENDSEC',
-      '0', 'SECTION',
-      '2', 'ENTITIES',
+      '9',
+      '$INSUNITS',
+      '70',
+      this.units === 'mm' ? '4' : '1',
+      '9',
+      '$HANDSEED',
+      '5',
+      seed,
+      '0',
+      'ENDSEC',
+      '0',
+      'SECTION',
+      '2',
+      'ENTITIES',
       ...this.ents.join('\n').split('\n'),
-      '0', 'ENDSEC',
-      '0', 'EOF',
+      '0',
+      'ENDSEC',
+      '0',
+      'EOF',
       '',
     ].join('\n');
   }

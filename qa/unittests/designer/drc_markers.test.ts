@@ -40,7 +40,7 @@ function recorder(): CanvasRenderingContext2D & { __calls: Call[] } {
 const COLORS = { background: PCB_BACKGROUND, ...PCB_SPECIAL };
 
 // marker_base.cpp MarkerShapeCorners.
-const CORNERS = [
+const CORNERS: [number, number][] = [
   [0, 0],
   [8, 1],
   [4, 3],
