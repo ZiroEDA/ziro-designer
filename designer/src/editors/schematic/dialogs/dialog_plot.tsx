@@ -1,90 +1,147 @@
 /**
- * Plot dialog. Counterpart: `eeschema/dialogs/dialog_plot_schematic_base.cpp`
- * (DIALOG_PLOT_SCHEMATIC). Top: Output directory + Design variant. Middle: a
- * three-column row — the "Output Format" radio box, the "Options" group, and a
- * right column holding the selected format's option group (PDF / PNG / DXF) plus
- * the always-present "Other Options". Footer: Plot Current Page / Close / Plot
- * All Pages.
+ * Plot dialog. Counterpart: `eeschema/dialogs/dialog_plot_schematic_base.cpp` +
+ * `dialog_plot_schematic.cpp` (DIALOG_PLOT_SCHEMATIC). Same layout as upstream:
+ * the output-directory row on top; a three-column row holding the "Output
+ * Format" radio box, the "Options" grid and a right column with the selected
+ * format's group (PDF / DXF / PNG) plus "Other Options"; the Output Messages
+ * report panel; and the std-button row Plot Current Page (Apply) / Close /
+ * Plot All Pages (OK).
  *
- * Formats the browser cannot generate (Postscript, DXF) are greyed in place; the
- * output directory is the browser's download folder, so that field is greyed.
+ * KiCad's enable rules are reproduced exactly (onPlotFormatSelection +
+ * onColorMode): the colour theme follows "Output mode: Color"; the background
+ * colour needs a format that can carry one (Postscript / PDF / SVG / PNG); the
+ * minimum line width is disabled for DXF; PDF and DXF options grey out unless
+ * their format is picked and the PNG group only appears for PNG.
+ *
+ * Web deltas — the browser has no filesystem, so the output directory is a
+ * folder inside the *project* (our cloud file manager) rather than a disk path,
+ * and its browse button lists the project's folders. Everything plotted lands
+ * there; "Download a copy to this computer" additionally streams the file
+ * through the browser's download flow, and "Open file after plot" shows it in a
+ * new tab (upstream opens the system PDF viewer). Controls a browser cannot
+ * honour are left out rather than shown dead: PNG anti-aliasing (canvas always
+ * anti-aliases), and the PDF property-popup / hierarchical-link options (our
+ * PDF writer emits a page image, not annotated vector content).
  */
 
-import { useState, type JSX } from 'react';
-import { mmToIU } from '@ziroeda/common';
-import type { PlotOpts } from '../render/plot.js';
+import { useMemo, useRef, useState, type JSX } from 'react';
+import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
+import type { PlotOpts, PlotPageSize } from '../render/plot.js';
+import { IU_PER_MILS } from '../schematic_settings.js';
 import { BUILTIN_THEMES } from '../theme.js';
+import { settings } from '../../../prefs/settings.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { Icon } from '../../../ui/icons.js';
 
-export type PlotFormat = 'svg' | 'pdf' | 'png';
+export type PlotFormat = 'ps' | 'pdf' | 'svg' | 'dxf' | 'png';
+
+/** One "Plot Current Page" / "Plot All Pages" run. */
+export interface PlotRequest {
+  format: PlotFormat;
+  /** Render options; the editor adds the per-sheet ones (drawing sheet, ...). */
+  opts: PlotOpts;
+  /** OK plots every sheet, Apply just the current one. */
+  allPages: boolean;
+  /** "Color theme:" selection (BUILTIN_THEMES key). */
+  themeId: string;
+  /** Project-relative output folder ('' = the project's own folder). */
+  outputDir: string;
+  /** Fill the PDF document properties from AUTHOR / SUBJECT. */
+  pdfMetadata: boolean;
+  /** Open the plotted file in a new tab (upstream OpenPDF). */
+  openAfter: boolean;
+  /** Also stream the file to the browser's download folder. */
+  downloadCopy: boolean;
+  /** Output Messages sink (the dialog's WX_HTML_REPORT_PANEL reporter). */
+  report: (message: string, severity: number) => void;
+}
 
 interface Props {
   /** The editor's active theme id (the "Color theme:" default selection). */
   themeId?: string;
-  onPlot: (format: PlotFormat, opts: PlotOpts, allPages: boolean, themeId: string) => void;
+  /** Folders that already exist in the project, for the browse button. */
+  projectFolders?: readonly string[];
+  onPlot: (request: PlotRequest) => void;
   onClose: () => void;
 }
 
-const FORMATS: { id: string; label: string; disabled?: boolean }[] = [
-  { id: 'ps', label: 'Postscript', disabled: true },
+const FORMATS: { id: PlotFormat; label: string }[] = [
+  { id: 'ps', label: 'Postscript' },
   { id: 'pdf', label: 'PDF' },
   { id: 'svg', label: 'SVG' },
-  { id: 'dxf', label: 'DXF', disabled: true },
+  { id: 'dxf', label: 'DXF' },
   { id: 'png', label: 'PNG' },
 ];
 
-export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
+/** Formats whose files carry a background colour (DIALOG_PLOT_SCHEMATIC::onColorMode). */
+const BACKGROUND_FORMATS: PlotFormat[] = ['ps', 'pdf', 'svg', 'png'];
+/** Formats a minimum pen width applies to (onPlotFormatSelection). */
+const PEN_WIDTH_FORMATS: PlotFormat[] = ['ps', 'pdf', 'svg', 'png'];
+/** Formats a browser tab can display ("Open file after plot"). */
+const VIEWABLE_FORMATS: PlotFormat[] = ['pdf', 'svg', 'png'];
+
+export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Props): JSX.Element {
   const [format, setFormat] = useState<PlotFormat>('pdf');
+  const [pageSize, setPageSize] = useState<PlotPageSize>('auto');
   const [color, setColor] = useState(true);
   const [drawingSheet, setDrawingSheet] = useState(true);
-  const [background, setBackground] = useState(true);
+  const [background, setBackground] = useState(false);
   const [themeSel, setThemeSel] = useState(
     themeId && BUILTIN_THEMES[themeId] ? themeId : '_builtin_default',
   );
   const [dpi, setDpi] = useState(300);
-  const [minWidthMm, setMinWidthMm] = useState('0.1524');
+  const [dxfUnits, setDxfUnits] = useState<'in' | 'mm'>('in');
+  const [pdfMetadata, setPdfMetadata] = useState(true);
+  // TransferDataToWindow seeds the pen width from the drawing defaults (mils).
+  const [minWidthMm, setMinWidthMm] = useState(() =>
+    String(
+      Math.round(iuToMM(settings.eeschema.drawing.default_line_thickness * IU_PER_MILS) * 10000) /
+        10000,
+    ),
+  );
+  // Output directory: a folder inside the project, '' = the project folder.
+  const [outputDir, setOutputDir] = useState('');
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [openAfter, setOpenAfter] = useState(false);
+  const [downloadCopy, setDownloadCopy] = useState(false);
 
-  // Output Messages report panel (upstream WX_HTML_REPORT_PANEL).
-  type MsgLevel = 'error' | 'warning' | 'action' | 'info';
-  const [messages, setMessages] = useState<{ level: MsgLevel; text: string }[]>([]);
-  const [show, setShow] = useState<Record<MsgLevel, boolean>>({
-    error: true,
-    warning: true,
-    action: true,
-    info: true,
-  });
-  const report = (level: MsgLevel, text: string): void =>
-    setMessages((m) => [...m, { level, text }]);
-  const errorCount = messages.filter((m) => m.level === 'error').length;
-  const warnCount = messages.filter((m) => m.level === 'warning').length;
-  const allOn = show.error && show.warning && show.action && show.info;
+  // Output Messages (WX_HTML_REPORT_PANEL).
+  const [messages, setMessages] = useState<readonly ReportLine[]>([]);
+  const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
+  const report = useRef((message: string, severity: number): void => {
+    setMessages((m) => [...m, { message, severity, location: 'body' as const }]);
+  }).current;
 
-  const opts = (): PlotOpts => ({
-    color,
-    drawingSheet,
-    background,
-    dpi,
-    defaultPenIU: mmToIU(Number(minWidthMm) || 0),
-  });
+  const bgAvailable = color && BACKGROUND_FORMATS.includes(format);
+  const penEnabled = PEN_WIDTH_FORMATS.includes(format);
+  const canOpenAfter = VIEWABLE_FORMATS.includes(format);
 
-  const ext = (): string => (format === 'pdf' ? 'PDF' : format === 'svg' ? 'SVG' : 'PNG');
+  const folders = useMemo(
+    () => [...new Set(projectFolders.filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [projectFolders],
+  );
+
   const doPlot = (allPages: boolean): void => {
-    report('action', `Plotting ${allPages ? 'all pages' : 'current page'} as ${ext()}…`);
-    onPlot(format, opts(), allPages, themeSel);
-    report('info', `Plotted ${allPages ? 'all pages' : 'current page'} (${ext()}).`);
-  };
-  const saveLog = (): void => {
-    const text = messages.map((m) => `[${m.level}] ${m.text}`).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-    a.download = 'plot-messages.txt';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-  const MSG_COLOR: Record<MsgLevel, string> = {
-    error: 'rgb(230, 9, 13)',
-    warning: 'rgb(209, 146, 0)',
-    action: 'var(--chrome-fg)',
-    info: 'var(--ze-muted, #9a9ca0)',
+    const opts: PlotOpts = {
+      color,
+      drawingSheet,
+      background: bgAvailable && background,
+      dpi,
+      defaultPenIU: penEnabled ? mmToIU(Number(minWidthMm) || 0) : 0,
+      pageSizeSelect: pageSize,
+      dxfUnits,
+    };
+    onPlot({
+      format,
+      opts,
+      allPages,
+      themeId: themeSel,
+      outputDir: outputDir.trim().replace(/^\/+|\/+$/g, ''),
+      pdfMetadata: format === 'pdf' && pdfMetadata,
+      openAfter: openAfter && canOpenAfter && !allPages,
+      downloadCopy,
+      report,
+    });
   };
 
   const group: React.CSSProperties = {
@@ -115,6 +172,12 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
     width: '100%',
     boxSizing: 'border-box',
   };
+  const check = (disabled?: boolean): React.CSSProperties => ({
+    display: 'block',
+    margin: '4px 0',
+    fontSize: 12.5,
+    opacity: disabled ? 0.5 : 1,
+  });
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
@@ -133,25 +196,64 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
           className="ze-modal-body"
           style={{ display: 'block', padding: '10px 14px', maxHeight: '78vh', overflow: 'auto' }}
         >
-          {/* Output directory + Design variant (one row, upstream bOutputDir). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          {/* Output directory (upstream bOutputDir): a folder in the project. */}
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
+            onMouseDown={() => setBrowseOpen(false)}
+          >
             <span style={lab}>Output directory:</span>
             <input
               className="ze-search"
               style={{ flex: 1 }}
-              disabled
-              placeholder="Browser downloads folder"
-              title="Plots download through the browser; the target folder is your download setting."
+              value={outputDir}
+              placeholder="Project folder"
+              title="Folder inside the project for the plotted files (relative to the project). Files appear in the file manager, where you can download them."
+              onChange={(e) => setOutputDir(e.target.value)}
             />
-            <span style={lab}>Design variant:</span>
-            <select
-              className="ze-select"
-              disabled
-              value="default"
-              title="Design variants are not supported in the browser yet"
-            >
-              <option value="default">Default</option>
-            </select>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="ze-btn sm"
+                title="Select output directory"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setBrowseOpen((v) => !v);
+                }}
+              >
+                <Icon name="folder" size={14} />
+              </button>
+              {browseOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    zIndex: 20,
+                    minWidth: 180,
+                    marginTop: 2,
+                    background: 'var(--chrome-bg2)',
+                    border: '1px solid var(--chrome-border)',
+                    borderRadius: 3,
+                    fontSize: 12,
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {['', ...folders].map((f) => (
+                    <div
+                      key={f || '.'}
+                      className="ze-menu-item"
+                      style={{ padding: '4px 12px', cursor: 'pointer' }}
+                      onClick={() => {
+                        setOutputDir(f);
+                        setBrowseOpen(false);
+                      }}
+                    >
+                      {f || 'Project folder'}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Three columns (upstream m_optionsSizer): Output Format and Options
@@ -160,22 +262,12 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
             <fieldset style={{ ...group, flex: '0 0 130px' }}>
               <legend style={legend}>Output Format</legend>
               {FORMATS.map((f) => (
-                <label
-                  key={f.id}
-                  style={{
-                    display: 'block',
-                    margin: '4px 0',
-                    fontSize: 12.5,
-                    opacity: f.disabled ? 0.45 : 1,
-                  }}
-                  title={f.disabled ? 'Not supported in the browser yet' : undefined}
-                >
+                <label key={f.id} style={check()}>
                   <input
                     type="radio"
                     name="pfmt"
                     checked={format === f.id}
-                    disabled={f.disabled}
-                    onChange={() => setFormat(f.id as PlotFormat)}
+                    onChange={() => setFormat(f.id)}
                   />{' '}
                   {f.label}
                 </label>
@@ -186,17 +278,21 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
               <legend style={legend}>Options</legend>
               <div style={optGrid}>
                 <span style={lab}>Page size:</span>
-                <select className="ze-select" style={ctrl2} value="schematic" onChange={() => {}}>
-                  <option value="schematic">Schematic size</option>
-                  <option value="a4" disabled title="Not supported in the browser yet">
-                    A4
-                  </option>
-                  <option value="a" disabled title="Not supported in the browser yet">
-                    A
-                  </option>
+                <select
+                  className="ze-select"
+                  style={ctrl2}
+                  value={pageSize}
+                  onChange={(e) => setPageSize(e.target.value as PlotPageSize)}
+                >
+                  <option value="auto">Schematic size</option>
+                  <option value="A4">A4</option>
+                  <option value="A">A</option>
                 </select>
 
-                <label style={{ ...span3, ...row }}>
+                <label
+                  style={{ ...span3, ...row }}
+                  title="Plot the drawing sheet border and title block"
+                >
                   <input
                     type="checkbox"
                     checked={drawingSheet}
@@ -218,12 +314,13 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
                   <option value="bw">Black and White</option>
                 </select>
 
-                <span style={lab}>Color theme:</span>
+                <span style={{ ...lab, opacity: color ? 1 : 0.5 }}>Color theme:</span>
                 <select
                   className="ze-select"
                   style={ctrl2}
                   value={themeSel}
                   disabled={!color}
+                  title="Select the color theme to use for plotting"
                   onChange={(e) => setThemeSel(e.target.value)}
                 >
                   {Object.entries(BUILTIN_THEMES).map(([id, t]) => (
@@ -233,60 +330,78 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
                   ))}
                 </select>
 
-                <label style={{ ...span3, ...row }}>
+                <label
+                  style={{ ...span3, ...row, opacity: bgAvailable ? 1 : 0.5 }}
+                  title="Plot the background color if the output format supports it"
+                >
                   <input
                     type="checkbox"
-                    checked={color && background}
-                    disabled={!color}
+                    checked={bgAvailable && background}
+                    disabled={!bgAvailable}
                     onChange={(e) => setBackground(e.target.checked)}
-                    title="Plot the background color if the output format supports it"
                   />{' '}
                   Plot background color
                 </label>
 
                 <div style={{ ...span3, height: 6 }} />
 
-                <span style={lab}>Minimum line width:</span>
+                <span style={{ ...lab, opacity: penEnabled ? 1 : 0.5 }}>Minimum line width:</span>
                 <input
                   className="ze-search"
                   style={{ width: '100%', boxSizing: 'border-box' }}
                   value={minWidthMm}
+                  disabled={!penEnabled}
                   title="Selection of the default pen thickness used to draw items, when their thickness is set to 0."
                   onChange={(e) => setMinWidthMm(e.target.value)}
                 />
-                <span className="ze-muted" style={{ fontSize: 11 }}>
+                <span className="ze-muted" style={{ fontSize: 11, opacity: penEnabled ? 1 : 0.5 }}>
                   mm
                 </span>
               </div>
             </fieldset>
 
-            {/* Right column: the selected format's group + Other Options. */}
+            {/* Right column: the format groups + Other Options (bOptionsRight). */}
             <div
               style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}
             >
-              {format === 'pdf' && (
-                <fieldset style={group}>
-                  <legend style={legend}>PDF Options</legend>
-                  {[
-                    'Generate property popups',
-                    'Generate clickable links for hierarchical elements',
-                    'Generate metadata from AUTHOR & SUBJECT variables',
-                  ].map((l) => (
-                    <label
-                      key={l}
-                      style={{ display: 'block', margin: '4px 0', fontSize: 12.5, opacity: 0.45 }}
-                      title="Not supported in the browser yet"
-                    >
-                      <input type="checkbox" disabled /> {l}
-                    </label>
-                  ))}
-                </fieldset>
-              )}
+              <fieldset style={group}>
+                <legend style={legend}>PDF Options</legend>
+                <label
+                  style={check(format !== 'pdf')}
+                  title="Generate PDF document properties from AUTHOR and SUBJECT text variables"
+                >
+                  <input
+                    type="checkbox"
+                    checked={pdfMetadata}
+                    disabled={format !== 'pdf'}
+                    onChange={(e) => setPdfMetadata(e.target.checked)}
+                  />{' '}
+                  Generate metadata from AUTHOR &amp; SUBJECT variables
+                </label>
+              </fieldset>
+
+              <fieldset style={group}>
+                <legend style={legend}>DXF Options</legend>
+                <div style={{ ...row, opacity: format === 'dxf' ? 1 : 0.5 }}>
+                  <span style={lab}>Export units:</span>
+                  <select
+                    className="ze-select"
+                    value={dxfUnits}
+                    disabled={format !== 'dxf'}
+                    title="The units to use for the exported DXF file"
+                    onChange={(e) => setDxfUnits(e.target.value as 'in' | 'mm')}
+                  >
+                    <option value="in">Inches</option>
+                    <option value="mm">Millimeters</option>
+                  </select>
+                </div>
+              </fieldset>
+
               {format === 'png' && (
                 <fieldset style={group}>
                   <legend style={legend}>PNG Options</legend>
                   <div style={row}>
-                    <span style={{ fontSize: 12 }}>DPI:</span>
+                    <span style={lab}>DPI:</span>
                     <input
                       className="ze-search"
                       type="number"
@@ -299,122 +414,47 @@ export function DialogPlot({ themeId, onPlot, onClose }: Props): JSX.Element {
                       }
                     />
                   </div>
-                  <label
-                    style={{ display: 'block', margin: '5px 0 0', fontSize: 12.5, opacity: 0.45 }}
-                    title="Always on in the browser"
-                  >
-                    <input type="checkbox" disabled checked readOnly /> Anti-alias
-                  </label>
                 </fieldset>
               )}
 
               <fieldset style={group}>
                 <legend style={legend}>Other Options</legend>
                 <label
-                  style={{ display: 'block', margin: '4px 0', fontSize: 12.5, opacity: 0.45 }}
-                  title="The browser handles downloaded files"
+                  style={check(!canOpenAfter)}
+                  title="Open the plotted file in a new browser tab after a successful plot (current page only)"
                 >
-                  <input type="checkbox" disabled /> Open file after plot
+                  <input
+                    type="checkbox"
+                    checked={openAfter && canOpenAfter}
+                    disabled={!canOpenAfter}
+                    onChange={(e) => setOpenAfter(e.target.checked)}
+                  />{' '}
+                  Open file after plot
+                </label>
+                <label
+                  style={check()}
+                  title="Plots always land in the project's file manager; check this to also download them to this computer."
+                >
+                  <input
+                    type="checkbox"
+                    checked={downloadCopy}
+                    onChange={(e) => setDownloadCopy(e.target.checked)}
+                  />{' '}
+                  Download a copy to this computer
                 </label>
               </fieldset>
             </div>
           </div>
 
-          {/* Output Messages (upstream WX_HTML_REPORT_PANEL). */}
+          {/* Output Messages (WX_HTML_REPORT_PANEL). */}
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12.5, marginBottom: 4 }}>Output Messages</div>
-            <div
-              style={{
-                border: '1px solid var(--chrome-border)',
-                borderRadius: 3,
-                minHeight: 120,
-                maxHeight: 180,
-                overflow: 'auto',
-                padding: '4px 8px',
-                fontSize: 12,
-                fontFamily: 'var(--mono, monospace)',
-                background: 'var(--chrome-bg2)',
-              }}
-            >
-              {messages.filter((m) => show[m.level]).length === 0 ? (
-                <span style={{ color: 'var(--ze-muted, #888)' }}>—</span>
-              ) : (
-                messages
-                  .filter((m) => show[m.level])
-                  .map((m, i) => (
-                    <div key={i} style={{ color: MSG_COLOR[m.level] }}>
-                      {m.text}
-                    </div>
-                  ))
-              )}
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                marginTop: 6,
-                fontSize: 12,
-              }}
-            >
-              <span>Show:</span>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={allOn}
-                  onChange={(e) =>
-                    setShow({
-                      error: e.target.checked,
-                      warning: e.target.checked,
-                      action: e.target.checked,
-                      info: e.target.checked,
-                    })
-                  }
-                />
-                All
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={show.error}
-                  onChange={(e) => setShow((s) => ({ ...s, error: e.target.checked }))}
-                />
-                Errors <span className="ze-count-badge">{errorCount}</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={show.warning}
-                  onChange={(e) => setShow((s) => ({ ...s, warning: e.target.checked }))}
-                />
-                Warnings <span className="ze-count-badge">{warnCount}</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={show.action}
-                  onChange={(e) => setShow((s) => ({ ...s, action: e.target.checked }))}
-                />
-                Actions
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={show.info}
-                  onChange={(e) => setShow((s) => ({ ...s, info: e.target.checked }))}
-                />
-                Infos
-              </label>
-              <span style={{ flex: 1 }} />
-              <button
-                className="ze-btn sm"
-                disabled={messages.length === 0}
-                onClick={saveLog}
-                title="Save the report to a text file"
-              >
-                Save…
-              </button>
-            </div>
+            <HtmlReportPanel
+              lines={messages}
+              fileName="report.txt"
+              minHeight={120}
+              visibleSeverities={severities}
+              onVisibleSeveritiesChange={setSeverities}
+            />
           </div>
         </div>
         <div className="ze-modal-footer">

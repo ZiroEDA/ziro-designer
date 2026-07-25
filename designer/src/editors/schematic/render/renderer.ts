@@ -241,6 +241,17 @@ export interface RenderOpts {
    *  (SCHEMATIC_SETTINGS::SubReference: m_SubpartIdSeparator char code, 0 =
    *  none, and m_SubpartFirstId 'A'/'1'). Unset = plain letters (U1A). */
   subpart?: { separator: number; firstId: number };
+  /** Title-block page context of the rendered sheet instance
+   *  (SCH_SHEET_PATH / DS_DRAW_ITEM_LIST): the page-number *string* shown by
+   *  `${#}` (SetPageNumber — may be "A", "ii", …), the sheet *ordinal*
+   *  (SetSheetNumber — drives page1only/notonpage1 item visibility), the
+   *  hierarchy's sheet count (`${##}`), and the sheet name / human-readable
+   *  path (`${SHEETNAME}` / `${SHEETPATH}`). Unset = standalone sheet. */
+  pageNumber?: string;
+  sheetNumber?: number;
+  sheetCount?: number;
+  sheetName?: string;
+  sheetPath?: string;
   /** selection.thickness (mils). */
   selectionThicknessMils: number;
   /** selection.highlight_thickness (mils). */
@@ -453,7 +464,7 @@ export function renderSchematic(
       ctx.strokeRect(0, 0, page.w, page.h);
     }
   }
-  if (opts.showDrawingSheet !== false) drawDrawingSheet(ctx, sch, theme, opts.drawingSheet);
+  if (opts.showDrawingSheet !== false) drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
 
   const hl = (id: string): boolean => highlight?.has(id) ?? false;
 
@@ -1227,10 +1238,14 @@ const MARKER_SHAPE: readonly (readonly [number, number])[] = [
 ];
 const MARKER_SCALE = 0.15 * MM;
 
-/** An ERC marker to draw: position + severity (colour). */
+/** An ERC marker to draw: position, severity and exclusion state — SCH_MARKER::
+ *  GetColorLayer picks LAYER_ERC_ERR / _WARN / _EXCLUSION from exactly these. */
 export interface MarkerDraw {
   at: Vec2;
   severity: 'error' | 'warning';
+  excluded?: boolean;
+  /** FocusOnItem brightened this marker (the ERC list's heading row). */
+  brightened?: boolean;
 }
 
 /** Draw ERC markers over the schematic (sets its own canvas transform). */
@@ -1242,7 +1257,13 @@ export function drawErcMarkers(
 ): void {
   ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.offsetX, viewport.offsetY);
   for (const m of markers) {
-    ctx.fillStyle = m.severity === 'error' ? theme.ercError : theme.ercWarning;
+    const color = m.excluded
+      ? theme.ercExclusion
+      : m.severity === 'error'
+        ? theme.ercError
+        : theme.ercWarning;
+    // EDA_ITEM::SetBrightened — COLOR4D::Brightened( 0.5 ) at draw time.
+    ctx.fillStyle = m.brightened ? brighten(color, 0.5) : color;
     ctx.beginPath();
     MARKER_SHAPE.forEach(([x, y], i) => {
       const px = m.at.x + x * MARKER_SCALE;
@@ -2315,6 +2336,11 @@ function drawDrawingSheet(
   sch: Schematic,
   theme: Theme,
   sheet?: WksSheet,
+  // Sheet-instance page context (RenderOpts subset) for the title block.
+  opts: Pick<
+    RenderOpts,
+    'pageNumber' | 'sheetNumber' | 'sheetCount' | 'sheetName' | 'sheetPath'
+  > = {},
 ): void {
   const page = paperSizeIU(sch.paper);
   if (!page) return;
@@ -2325,8 +2351,12 @@ function drawDrawingSheet(
   // (it also hardcoded the version, sheet id and path).
   const ps = getPageSettings(sch);
   const resolveCtx: WksResolveContext = {
-    pageNumber: 1,
-    sheetCount: 1,
+    // Page context from the sheet instance (SCH_SHEET_PATH): ordinal for the
+    // page1only visibility, page string for ${#}, count for ${##}, and the
+    // human-readable path for ${SHEETPATH}. A standalone sheet is 1/1 at "/".
+    pageNumber: opts.sheetNumber ?? 1,
+    ...(opts.pageNumber !== undefined ? { pageName: opts.pageNumber } : {}),
+    sheetCount: opts.sheetCount ?? 1,
     title: ps.title,
     rev: ps.rev,
     date: ps.date,
@@ -2334,7 +2364,8 @@ function drawDrawingSheet(
     comments: [...ps.comments],
     paper: ps.paper,
     fileName: sch.fileName ?? '',
-    sheetPath: '/',
+    ...(opts.sheetName !== undefined ? { sheetName: opts.sheetName } : {}),
+    sheetPath: opts.sheetPath ?? '/',
     appVersion: 'ZiroEDA',
   };
   const draws = layoutDrawingSheet(

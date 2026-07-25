@@ -7,6 +7,7 @@ import {
   plotGerberLayer,
   plotExcellonDrill,
   gerberProtelExtension,
+  boardAuxOrigin,
 } from '@ziroeda/pcbnew/src/plot_gerber.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator x)
@@ -54,6 +55,25 @@ describe('Gerber X2 plot (GERBER_PLOTTER / pcbplot.cpp)', () => {
     expect(gerberProtelExtension('F.Cu')).toBe('gtl');
     expect(gerberProtelExtension('B.Mask')).toBe('gbs');
     expect(gerberProtelExtension('Cmts.User')).toBe('gbr');
+  });
+  it('X1 format writes the file attributes as comments instead of %TF blocks', () => {
+    const x1 = plotGerberLayer(board, 'F.Cu', { useX2: false });
+    expect(x1).toContain('G04 #@! TF.FileFunction,Copper,L1,Top*');
+    expect(x1).not.toContain('%TF.FileFunction');
+    // The geometry itself is unchanged.
+    expect(x1).toContain('X10000000Y-10000000D02*');
+  });
+  it('"Use drill/place file origin" plots relative to the aux axis origin', () => {
+    const withOrigin = readBoard(
+      parse(BOARD.replace('(net 0 "")', '(setup (aux_axis_origin 5 5))\n  (net 0 "")')),
+    );
+    expect(boardAuxOrigin(withOrigin)).toEqual({ x: 50000, y: 50000 });
+    const out = plotGerberLayer(withOrigin, 'F.Cu', { origin: boardAuxOrigin(withOrigin) });
+    // The track start (10,10) is 5 mm from the (5,5) origin.
+    expect(out).toContain('X5000000Y-5000000D02*');
+    // The drill file follows the same origin.
+    const drl = plotExcellonDrill(withOrigin, { origin: boardAuxOrigin(withOrigin) });
+    expect(drl).toContain('X15.0Y-5.0'); // via at (20,10)
   });
 });
 

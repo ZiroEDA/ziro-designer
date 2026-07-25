@@ -607,6 +607,7 @@ export function PcbEditor({
   onBoardChange,
   projectName,
   projectFiles,
+  onOutputFile,
 }: {
   fileName: string;
   text: string;
@@ -625,6 +626,9 @@ export function PcbEditor({
   /** The open project's files (name + text) — lets the 3D viewer resolve
    *  ${KIPRJMOD}/relative model references to project-bundled files. */
   projectFiles?: { name: string; text: string }[];
+  /** Write a generated output file (plot / drill) into the project's file
+   *  manager; the path is relative to the project folder. */
+  onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
 }): JSX.Element {
   const [board, setBoard] = useState<Board | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
@@ -800,6 +804,23 @@ export function PcbEditor({
   const [pageDlgOpen, setPageDlgOpen] = useState(false);
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
+  // Folders that already exist in the project, relative to the project's own
+  // folder — the Plot dialog's "Output directory:" choices (the cloud file
+  // manager stands in for upstream's wxDirDialog).
+  const projectFolders = useMemo(() => {
+    const files = projectFiles ?? [];
+    const pro = files.find((f) => /\.kicad_pro$/i.test(f.name))?.name.replace(/\\/g, '/');
+    const prefix = pro?.includes('/') ? pro.slice(0, pro.lastIndexOf('/') + 1) : '';
+    const dirs = new Set<string>();
+    for (const f of files) {
+      const p = f.name.replace(/\\/g, '/');
+      if (prefix && !p.startsWith(prefix)) continue;
+      const rel = p.slice(prefix.length);
+      const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+      if (dir) dirs.add(dir);
+    }
+    return [...dirs];
+  }, [projectFiles]);
   // Board Setup (DIALOG_BOARD_SETUP). Values seed from board_design_settings.h
   // defaults for now; project-file round-trip lands with a later phase.
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
@@ -5084,6 +5105,8 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
+          projectFolders={projectFolders}
+          onOutputFile={onOutputFile}
           onClose={() => setPlotDlgOpen(false)}
         />
       )}

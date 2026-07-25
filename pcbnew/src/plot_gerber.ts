@@ -13,16 +13,20 @@
  */
 
 import type { Board, PcbPad, PcbShape } from './types.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
 let coordDigits = 6;
+/** Plot origin (PCB_PLOT_PARAMS::m_useAuxOrigin — the drill/place file origin);
+ *  every coordinate is written relative to it. */
+let plotOrigin: Vec2 = { x: 0, y: 0 };
 /** IU -> Gerber 4.x integer (mm · 10^digits). */
 const g = (iu: number): string => String(Math.round(iuToMM(iu) * 10 ** coordDigits));
-/** A coordinate pair with KiCad's negated Y. */
-const xy = (p: Vec2): string => `X${g(p.x)}Y${g(-p.y)}`;
+/** A coordinate pair, offset by the plot origin, with KiCad's negated Y. */
+const xy = (p: Vec2): string => `X${g(p.x - plotOrigin.x)}Y${g(-(p.y - plotOrigin.y))}`;
 /** mm with a forced decimal point (aperture definitions). */
 const fmm = (iu: number): string => iuToMM(iu).toFixed(6);
 
@@ -80,13 +84,31 @@ interface Aperture {
   dcode: number;
 }
 
-/** Plot one layer to Gerber X2 text. */
-export function plotGerberLayer(
-  board: Board,
-  layer: string,
-  opts: { creationDate?: string; coordDigits?: 5 | 6 } = {},
-): string {
+/** The board's drill/place file origin (`(setup (aux_axis_origin x y))`), the
+ *  coordinate origin the "Use drill/place file origin" option plots against. */
+export function boardAuxOrigin(board: Board): Vec2 {
+  const setup = childNamed(board.source, 'setup');
+  const aux = setup ? childNamed(setup, 'aux_axis_origin') : undefined;
+  if (!aux) return { x: 0, y: 0 };
+  return { x: mmToIU(numArg(aux, 0) ?? 0), y: mmToIU(numArg(aux, 1) ?? 0) };
+}
+
+/** Gerber writer options (the dialog's Gerber Options + General Options). */
+export interface GerberPlotOpts {
+  creationDate?: string;
+  /** "Coordinate format:" — 4.5 or 4.6, unit mm. */
+  coordDigits?: 5 | 6;
+  /** "Use extended X2 format": X2 writes %TF attributes, X1 writes them as
+   *  comments (GERBER_PLOTTER::m_useX2format). */
+  useX2?: boolean;
+  /** "Use drill/place file origin": plot relative to this point. */
+  origin?: Vec2;
+}
+
+/** Plot one layer to Gerber text (X2 by default, X1 with attributes as comments). */
+export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpts = {}): string {
   coordDigits = opts.coordDigits ?? 6;
+  plotOrigin = opts.origin ?? { x: 0, y: 0 };
   const copperCount = board.layers.filter((l) => /\.Cu$/.test(l.name)).length || 2;
   const apertures = new Map<string, Aperture>();
   let nextD = 10;
@@ -196,11 +218,15 @@ export function plotGerberLayer(
   for (const s of board.shapes) shapePlot(s);
 
   const date = opts.creationDate ?? '';
+  // X2 puts the file attributes in %TF blocks; X1 keeps the same information as
+  // comments (AddGerberX2Header's "G04 #@! TF..." form).
+  const tf = (body: string): string =>
+    opts.useX2 === false ? `G04 #@! TF${body}*` : `%TF${body}*%`;
   const out: string[] = [
-    '%TF.GenerationSoftware,ZiroEDA,Pcbnew,1.0*%',
-    ...(date ? [`%TF.CreationDate,${date}*%`] : []),
-    `%TF.FileFunction,${gerberFileFunction(layer, copperCount)}*%`,
-    `%TF.FilePolarity,${filePolarity(layer)}*%`,
+    tf('.GenerationSoftware,ZiroEDA,Pcbnew,1.0'),
+    ...(date ? [tf(`.CreationDate,${date}`)] : []),
+    tf(`.FileFunction,${gerberFileFunction(layer, copperCount)}`),
+    tf(`.FilePolarity,${filePolarity(layer)}`),
     `%FSLAX4${coordDigits}Y4${coordDigits}*%`,
     `G04 Gerber Fmt 4.${coordDigits}, Leading zero omitted, Abs format (unit mm)*`,
     '%MOMM*%',
@@ -232,7 +258,11 @@ const dmm = (iu: number): string => {
  * Excellon drill file for all plated + non-plated holes (PTH pads and vias),
  * GENDRILL_EXCELLON_WRITER's decimal-metric format.
  */
-export function plotExcellonDrill(board: Board, opts: { creationDate?: string } = {}): string {
+export function plotExcellonDrill(
+  board: Board,
+  opts: { creationDate?: string; origin?: Vec2 } = {},
+): string {
+  const org = opts.origin ?? { x: 0, y: 0 };
   // tool diameter (IU) -> hole positions
   const tools = new Map<number, Vec2[]>();
   const addHole = (d: number, at: Vec2): void => {
@@ -259,7 +289,7 @@ export function plotExcellonDrill(board: Board, opts: { creationDate?: string } 
   ];
   dias.forEach((d, i) => {
     out.push(`T${i + 1}`);
-    for (const at of tools.get(d)!) out.push(`X${dmm(at.x)}Y${dmm(-at.y)}`);
+    for (const at of tools.get(d)!) out.push(`X${dmm(at.x - org.x)}Y${dmm(-(at.y - org.y))}`);
   });
   out.push('M30');
   return `${out.join('\n')}\n`;

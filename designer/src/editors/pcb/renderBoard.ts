@@ -27,7 +27,13 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { PCB_PAINT_ORDER, PCB_SPECIAL, layerColor, PCB_GRID } from './pcbTheme.js';
+import {
+  PCB_PAINT_ORDER,
+  PCB_SPECIAL,
+  layerColor,
+  PCB_GRID,
+  type PcbColorTheme,
+} from './pcbTheme.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 
 const MM = 10000; // IU per mm, matches core units
@@ -90,6 +96,10 @@ export interface PcbDrawOptions {
   /** Print's drill-marks mode: 'none' hides holes ('small' renders as real —
    *  hole geometry is pre-baked in the scene). Default: real. */
   drillMarks?: 'none' | 'small' | 'real';
+  /** Color theme override (COLOR_SETTINGS): the print dialog's "Use a
+   *  different color theme" passes one of PCB_THEMES (or the synthetic B&W
+   *  palette). Absent = the built-in KiCad Default palette. */
+  theme?: PcbColorTheme;
 }
 
 /** KiCad defaults (project_local_settings.cpp + s_objectSettings). */
@@ -998,7 +1008,12 @@ function sheetText(
 
 const DRAWINGSHEET_COLOR = 'rgb(200,114,171)';
 
-export function drawDrawingSheet(ctx: CanvasRenderingContext2D, info: SheetInfo): void {
+export function drawDrawingSheet(
+  ctx: CanvasRenderingContext2D,
+  info: SheetInfo,
+  // LAYER_DRAWINGSHEET from the active theme (print passes the print theme's).
+  color: string = DRAWINGSHEET_COLOR,
+): void {
   const page = paperSizeIU(info.paper);
   if (!page) return;
   const M = 10 * MM;
@@ -1006,7 +1021,6 @@ export function drawDrawingSheet(ctx: CanvasRenderingContext2D, info: SheetInfo)
     T = M,
     R = page.w - M,
     B = page.h - M;
-  const color = DRAWINGSHEET_COLOR;
   ctx.strokeStyle = color;
   ctx.lineWidth = 0.15 * MM;
   ctx.setLineDash([]);
@@ -1205,9 +1219,12 @@ export function buildDrawSteps(
   brighten = 0,
 ): (() => void)[] {
   const steps: (() => void)[] = [];
-  // Per-layer color, brightened toward white for a selection overlay.
+  // Per-layer color from the active theme, brightened toward white for a
+  // selection overlay.
+  const themeColors = opts.theme?.layerColors;
+  const special = opts.theme?.special ?? PCB_SPECIAL;
   const col = (layer: string): string =>
-    opts.colorOverride ?? brightenColor(layerColor(layer), brighten);
+    opts.colorOverride ?? brightenColor(themeColors?.[layer] ?? layerColor(layer), brighten);
   const sp = (c: string): string => brightenColor(c, brighten);
   steps.push(() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1218,8 +1235,9 @@ export function buildDrawSteps(
     ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    // Drawing sheet (page frame + title block) behind the board, like pcbnew.
-    if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet);
+    // Drawing sheet (page frame + title block) behind the board, like pcbnew,
+    // in the theme's LAYER_DRAWINGSHEET color (classic: dark red; B&W: black).
+    if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet, special.drawingSheet);
   });
 
   const minPen = view.scale > 0 ? 1 / view.scale : 0; // 1 device px in IU
@@ -1340,24 +1358,24 @@ export function buildDrawSteps(
     // each hole capped at SMALL_DRILL (0.35 mm) instead of true size.
     if (opts.drillMarks === 'none') return;
     if (opts.drillMarks === 'small') {
-      ctx.fillStyle = sp(PCB_SPECIAL.padPlatedHole);
+      ctx.fillStyle = sp(special.padPlatedHole);
       ctx.fill(scene.holesSmall);
       return;
     }
     if (opts.pads) {
-      ctx.fillStyle = sp(PCB_SPECIAL.padHoleWall);
+      ctx.fillStyle = sp(special.padHoleWall);
       ctx.fill(scene.padHoleWalls);
-      ctx.fillStyle = sp(PCB_SPECIAL.padPlatedHole);
+      ctx.fillStyle = sp(special.padPlatedHole);
       ctx.fill(scene.padHolesPlated);
     }
     if (opts.vias) {
-      ctx.fillStyle = sp(PCB_SPECIAL.viaHoleWall);
+      ctx.fillStyle = sp(special.viaHoleWall);
       ctx.fill(scene.viaHoleWalls);
-      ctx.fillStyle = sp(PCB_SPECIAL.viaHole);
+      ctx.fillStyle = sp(special.viaHole);
       ctx.fill(scene.viaHoles);
     }
     if (opts.pads) {
-      ctx.fillStyle = sp(PCB_SPECIAL.nonPlatedHole);
+      ctx.fillStyle = sp(special.nonPlatedHole);
       ctx.fill(scene.padHolesNP);
     }
   });
@@ -1369,7 +1387,7 @@ export function buildDrawSteps(
   if (opts.pads && scene.padText.size > 0) {
     steps.push(() => {
       ctx.globalAlpha = opts.padOpacity;
-      ctx.strokeStyle = PCB_SPECIAL.padName;
+      ctx.strokeStyle = special.padName;
       strokeAll(ctx, scene.padText, minPen);
       ctx.globalAlpha = 1;
     });
@@ -1403,6 +1421,143 @@ export function drawBoard(
     brighten,
   ))
     step();
+}
+
+// ---------------------------------------------------------------------------
+// DRC markers (PCB_MARKER / MARKER_BASE).
+
+/**
+ * MARKER_BASE MarkerShapeCorners (marker_base.cpp): the marker polygon in
+ * arbitrary units, scaled by MarkerScale() at paint time (the last corner
+ * repeats the first so the polyline reads as closed).
+ */
+const MARKER_SHAPE_CORNERS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [8, 1],
+  [4, 3],
+  [13, 8],
+  [9, 9],
+  [8, 13],
+  [3, 4],
+  [1, 8],
+  [0, 0],
+];
+
+/** PCB_MARKER SCALING_FACTOR = pcbIUScale.mmToIU( 0.1625 ). */
+const MARKER_SCALING_FACTOR = 0.1625 * MM;
+
+/** A marker to paint (severity resolved like PCB_MARKER::GetSeverity). */
+export interface DrcMarkerDraw {
+  pos: { x: number; y: number };
+  severity: 'error' | 'warning' | 'exclusion';
+  /** Brightened/selected — repaints in LAYER_DRC_HIGHLIGHTED on top with the
+   *  collision 'X' (LAYER_DRC_SHAPES), like the dialog's active violation. */
+  active?: boolean;
+}
+
+/**
+ * MarkerScale() in IU. pcb_painter.cpp draw(PCB_MARKER) calls
+ * SetZoom( 1.0 / sqrt( gal->GetZoomFactor() ) ), so the scale is
+ * SCALING_FACTOR / sqrt(zoom). The GAL zoom factor satisfies
+ * worldScale = screenDPI · worldUnitLength · zoomFactor
+ * (graphics_abstraction_layer.h) with worldUnitLength = 1 nm in inches
+ * (1e-9 / 0.0254) and worldScale our view.scale in device px per IU
+ * (1 IU = 100 nm); screenDPI is the monitor's — 96 CSS px/inch · dpr here.
+ */
+const markerScaleIU = (view: PcbViewTransform, dpr: number): number => {
+  const zoom = (view.scale * MM * 25.4) / (96 * dpr);
+  return MARKER_SCALING_FACTOR / Math.sqrt(Math.max(zoom, 1e-9));
+};
+
+const withAlpha = (color: string, a: number): string => {
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
+  return m ? `rgba(${m[1]},${m[2]},${m[3]},${a})` : color;
+};
+
+/**
+ * Paint DRC markers, mirroring pcb_painter.cpp draw(PCB_MARKER*) and the
+ * GAL layer order (pcb_draw_panel_gal.cpp, top-first: DRC_HIGHLIGHTED,
+ * DRC_ERROR, DRC_WARNING, DRC_EXCLUSION, MARKER_SHADOWS): every marker's
+ * shadow first, then exclusion fills, warning fills, error fills, and the
+ * active marker last — repainted in the highlighted color with its
+ * LAYER_DRC_SHAPES collision 'X' (PCB_MARKER::GetShapes when the path is
+ * degenerate). The shadow is a stroked outline in the background color at
+ * alpha 0.6 (PCB_RENDER_SETTINGS::GetColor LAYER_MARKER_SHADOWS) with line
+ * width MarkerScale().
+ */
+export function drawDrcMarkers(
+  ctx: CanvasRenderingContext2D,
+  markers: readonly DrcMarkerDraw[],
+  view: PcbViewTransform,
+  dpr: number,
+  colors: {
+    background: string;
+    drcError: string;
+    drcWarning: string;
+    drcExclusion: string;
+    drcHighlighted: string;
+  },
+): void {
+  if (markers.length === 0) return;
+  const scale = markerScaleIU(view, dpr);
+  const sx = view.flipX ? -view.scale : view.scale;
+
+  const tracePolygon = (m: DrcMarkerDraw): void => {
+    ctx.beginPath();
+    MARKER_SHAPE_CORNERS.forEach(([cx, cy], i) => {
+      const px = (m.pos.x + cx * scale) * sx + view.tx;
+      const py = (m.pos.y + cy * scale) * view.scale + view.ty;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+  };
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // LAYER_MARKER_SHADOWS pass (isShadow: stroke, width MarkerScale()).
+  ctx.strokeStyle = withAlpha(colors.background, 0.6);
+  ctx.lineWidth = scale * view.scale;
+  ctx.lineJoin = 'round';
+  for (const m of markers) {
+    tracePolygon(m);
+    ctx.stroke();
+  }
+
+  // Severity fills, bottom-up: exclusions, warnings, errors.
+  const fillPass = (severity: DrcMarkerDraw['severity'], color: string): void => {
+    ctx.fillStyle = color;
+    for (const m of markers) {
+      if (m.severity !== severity || m.active) continue;
+      tracePolygon(m);
+      ctx.fill();
+    }
+  };
+  fillPass('exclusion', colors.drcExclusion);
+  fillPass('warning', colors.drcWarning);
+  fillPass('error', colors.drcError);
+
+  // LAYER_DRC_HIGHLIGHTED + LAYER_DRC_SHAPES: the active marker lands on top
+  // of any neighbouring inactive markers, in the highlighted color.
+  for (const m of markers) {
+    if (!m.active) continue;
+    tracePolygon(m);
+    ctx.fillStyle = colors.drcHighlighted;
+    ctx.fill();
+    // Collision 'X' at the degenerate path: diagonals of half-length
+    // 2.5·MarkerScale(), hairline stroke width MarkerScale()/2.
+    const len = 2.5 * scale;
+    ctx.strokeStyle = colors.drcHighlighted;
+    ctx.lineWidth = (scale / 2) * view.scale;
+    ctx.beginPath();
+    const seg = (ax: number, ay: number, bx: number, by: number): void => {
+      ctx.moveTo((m.pos.x + ax) * sx + view.tx, (m.pos.y + ay) * view.scale + view.ty);
+      ctx.lineTo((m.pos.x + bx) * sx + view.tx, (m.pos.y + by) * view.scale + view.ty);
+    };
+    seg(-len, -len, len, len);
+    seg(-len, len, len, -len);
+    ctx.stroke();
+  }
 }
 
 export { measureText };

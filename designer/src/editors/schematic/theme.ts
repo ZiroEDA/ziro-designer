@@ -31,6 +31,8 @@ export interface Theme {
   noConnect: string;
   ercError: string;
   ercWarning: string;
+  /** LAYER_ERC_EXCLUSION — the colour of an excluded marker. */
+  ercExclusion: string;
   sheetBorder: string;
   sheetBackground: string;
   sheetName: string;
@@ -75,6 +77,7 @@ export const KICAD_DEFAULT: Theme = {
   noConnect: 'rgb(0, 0, 132)',
   ercError: 'rgba(230, 9, 13, 0.8)',
   ercWarning: 'rgba(209, 146, 0, 0.8)',
+  ercExclusion: 'rgba(194, 194, 194, 0.8)',
   sheetBorder: 'rgb(132, 0, 0)',
   sheetBackground: 'rgba(255, 255, 255, 0)',
   sheetName: 'rgb(0, 100, 100)',
@@ -115,6 +118,7 @@ export const KICAD_CLASSIC: Theme = {
   noConnect: 'rgb(0, 0, 132)',
   ercError: 'rgba(255, 0, 0, 0.8)', // PURERED
   ercWarning: 'rgba(0, 255, 0, 0.8)', // PUREGREEN
+  ercExclusion: 'rgb(211, 211, 211)', // LIGHTGRAY
   sheetBorder: 'rgb(132, 0, 132)', // MAGENTA
   sheetBackground: 'rgba(255, 255, 255, 0)',
   sheetName: 'rgb(0, 132, 132)',

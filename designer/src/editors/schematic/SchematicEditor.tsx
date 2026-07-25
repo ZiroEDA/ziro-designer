@@ -1,5 +1,11 @@
 import type { Vec2 } from '@ziroeda/kimath';
-import { iuToMM, mmToIU, type WksSheet } from '@ziroeda/common';
+import {
+  iuToMM,
+  mmToIU,
+  RPT_SEVERITY_ACTION,
+  RPT_SEVERITY_ERROR,
+  type WksSheet,
+} from '@ziroeda/common';
 import {
   resolveActiveSheet,
   readSheetRef,
@@ -170,14 +176,17 @@ import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
-import { DialogPlot, type PlotFormat } from './dialogs/dialog_plot.js';
+import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot.js';
 import {
   downloadBlob,
-  printSheet,
+  printSheets,
   plotPng,
   plotSvg,
   plotPdf,
+  plotDxf,
+  plotPs,
   type PlotOpts,
+  type PlotSink,
 } from './render/plot.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
@@ -283,6 +292,9 @@ const FILTER_CATS: [keyof SelectionFilterOptions, string][] = [
 export interface PickedFile {
   name: string;
   text: string;
+  /** Binary payload for non-text files (plot outputs: PNG/PDF, …). When set,
+   *  `text` is empty and the file is stored/downloaded from these bytes. */
+  bytes?: Uint8Array;
 }
 
 const DEFAULT_FILE = 'untitled.kicad_sch';
@@ -303,6 +315,7 @@ export function SchematicEditor({
   placeRequest,
   onProjectChange,
   onPersistFiles,
+  onOutputFile,
   registerAutosaveFlush,
   extraSheetFiles,
   projectName,
@@ -325,6 +338,10 @@ export function SchematicEditor({
   /** Persist project files immediately (no debounce) — used for the drawing-sheet
    *  reference in .kicad_pro so it survives a "go back and reopen". */
   onPersistFiles?: (files: PickedFile[]) => void;
+  /** Write a generated output file (plot / export) into the project file
+   *  manager instead of the browser download folder. When absent, outputs fall
+   *  back to a browser download. */
+  onOutputFile?: (name: string, bytes: Uint8Array, mime: string) => void;
   /** Register a flush the host calls before leaving/reopening, so a pending
    *  autosave is written out first (the "edit → home → reopen" case). */
   registerAutosaveFlush?: (fn: (() => void) | null) => void;
@@ -720,6 +737,22 @@ export function SchematicEditor({
     () => (sheetTree ? flattenHierarchy(sheetTree) : []),
     [sheetTree],
   );
+
+  // The same DFS with each instance's sheet name and human-readable path
+  // (SCH_SHEET_PATH::PathHumanReadable) — the title block's ${SHEETNAME} /
+  // ${SHEETPATH} context for the screen and for printed pages.
+  const sheetInstanceRefs = useMemo<
+    { file: string; path: string; name: string; namePath: string }[]
+  >(() => {
+    const refs: { file: string; path: string; name: string; namePath: string }[] = [];
+    const walk = (n: SheetTreeNode, parentNames: string): void => {
+      const namePath = n.path === '/' ? '/' : `${parentNames}${n.name}/`;
+      refs.push({ file: n.file, path: n.path, name: n.name, namePath });
+      for (const c of n.children) walk(c, namePath);
+    };
+    if (sheetTree) walk(sheetTree, '/');
+    return refs;
+  }, [sheetTree]);
   const navTool = useRef(new SchNavigateTool());
   useEffect(() => {
     navTool.current.cleanHistory(new Set(flatSheets.map((s) => s.path)));
@@ -948,6 +981,22 @@ export function SchematicEditor({
   );
   const [printOpen, setPrintOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
+  // Folders that already exist inside the project, relative to the project's
+  // own folder — the Plot dialog's "Output directory:" browse choices (the
+  // cloud file manager stands in for upstream's wxDirDialog).
+  const projectFolders = useMemo(() => {
+    const pro = rawFiles.find((f) => /\.kicad_pro$/i.test(f.name))?.name.replace(/\\/g, '/');
+    const prefix = pro?.includes('/') ? pro.slice(0, pro.lastIndexOf('/') + 1) : '';
+    const dirs = new Set<string>();
+    for (const f of rawFiles) {
+      const p = f.name.replace(/\\/g, '/');
+      if (prefix && !p.startsWith(prefix)) continue;
+      const rel = p.slice(prefix.length);
+      const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+      if (dir) dirs.add(dir);
+    }
+    return [...dirs];
+  }, [rawFiles]);
   // Paste Special (DIALOG_PASTE_SPECIAL): pick the PASTE_MODE before pasting.
   const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
   // Schematic Setup (DIALOG_SCHEMATIC_SETUP): project-scoped settings, incl. the
@@ -1164,7 +1213,7 @@ export function SchematicEditor({
     const docs = liveDocs();
     const sheets: IntersheetSheet[] = [];
     const virtualPageToPages = new Map<number, string>();
-    flatSheets.forEach((s, i) => {
+    sheetInstanceRefs.forEach((s, i) => {
       const sch = docs.get(s.file);
       const page = pageNumberOf(s.path) || String(i + 1);
       virtualPageToPages.set(i + 1, page);
@@ -1190,7 +1239,7 @@ export function SchematicEditor({
       });
     }
     return { pageRefsMap: buildPageRefsMap(sheets), virtualPageToPages };
-  }, [setup, liveDocs, flatSheets, pageNumberOf, doc, currentFile, resolverForDoc]);
+  }, [setup, liveDocs, sheetInstanceRefs, pageNumberOf, doc, currentFile, resolverForDoc]);
 
   // ${INTERSHEET_REFS} resolver for the sheet shown as `currentVirtualPage`
   // (SCH_GLOBALLABEL::ResolveTextVar reads CurrentSheet()'s virtual page).
@@ -1213,16 +1262,17 @@ export function SchematicEditor({
 
   // The on-screen sheet's resolver (CurrentSheet().GetVirtualPageNumber()).
   const intersheetRefs = useMemo(() => {
-    const idx = flatSheets.findIndex((s) => s.path === currentPath);
+    const idx = sheetInstanceRefs.findIndex((s) => s.path === currentPath);
     return intersheetRefsFor(idx === -1 ? 1 : idx + 1);
-  }, [intersheetRefsFor, flatSheets, currentPath]);
+  }, [intersheetRefsFor, sheetInstanceRefs, currentPath]);
 
-  // Print (DIALOG_PRINT): render the current sheet and open the browser print
-  // flow, optionally with a different colour theme (m_useColorTheme choice).
-  const doPrint = useCallback(
-    (opts: PlotOpts, themeId?: string) => {
-      const printTheme =
-        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
+  // Print (DIALOG_PRINT): render every sheet of the hierarchy — one page per
+  // sheet instance in SCH_SHEET_LIST order, like SCH_PRINTOUT (sheet_count =
+  // Root().CountSheets()) — optionally with a different colour theme
+  // (m_useColorTheme choice). NOTE: title-block page-number variables render
+  // per file (the drawing-sheet resolver is not yet instance-aware).
+  const printPages = useCallback(
+    (opts: PlotOpts): { sch: Schematic; opts: PlotOpts }[] => {
       // Junction dots, dash ratios, label offsets and netclass visuals print
       // at their Schematic Setup values, like the screen.
       const o: PlotOpts = {
@@ -1233,19 +1283,52 @@ export function SchematicEditor({
         ...(intersheetRefs ? { intersheetRefs } : {}),
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
-      if (doc) printSheet(doc, printTheme, o, outputBaseName());
-      setPrintOpen(false);
+      const docs = liveDocs();
+      const refs = sheetInstanceRefs;
+      const pages = refs.flatMap((s, i) => {
+        const sch = docs.get(s.file);
+        if (!sch) return [];
+        // Per-instance title-block context (SCH_PRINTOUT sets the printed
+        // sheet's page number/count on the drawing-sheet painter).
+        const pageOpts: PlotOpts = {
+          ...o,
+          pageNumber: pageNumberOf(s.path) || String(i + 1),
+          sheetNumber: i + 1,
+          sheetCount: refs.length,
+          ...(s.path !== '/' ? { sheetName: s.name } : {}),
+          sheetPath: s.namePath,
+          ...((): Partial<PlotOpts> => {
+            const r = intersheetRefsFor(i + 1);
+            return r ? { intersheetRefs: r } : {};
+          })(),
+        };
+        return [{ sch, opts: pageOpts }];
+      });
+      // No hierarchy yet (fresh document): print the on-screen sheet.
+      return pages.length === 0 && doc ? [{ sch: doc, opts: o }] : pages;
     },
     [
       doc,
-      theme,
-      outputBaseName,
       activeSheet,
       drawingDefaults,
       netOverrides,
       resolveTextVar,
+      liveDocs,
+      sheetInstanceRefs,
+      pageNumberOf,
       intersheetRefs,
+      intersheetRefsFor,
     ],
+  );
+
+  const doPrint = useCallback(
+    (opts: PlotOpts, themeId?: string) => {
+      const printTheme =
+        themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
+      printSheets(printPages(opts), printTheme, outputBaseName());
+      setPrintOpen(false);
+    },
+    [theme, outputBaseName, printPages],
   );
 
   // Print Preview (DIALOG_PRINT's Apply / OnPrintPreview): render into a new tab
@@ -1254,26 +1337,9 @@ export function SchematicEditor({
     (opts: PlotOpts, themeId?: string) => {
       const printTheme =
         themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
-      const o: PlotOpts = {
-        ...opts,
-        ...drawingDefaults,
-        ...(netOverrides ? { netOverrides } : {}),
-        ...(resolveTextVar ? { resolveTextVar } : {}),
-        ...(intersheetRefs ? { intersheetRefs } : {}),
-        ...(activeSheet ? { sheet: activeSheet } : {}),
-      };
-      if (doc) printSheet(doc, printTheme, o, outputBaseName(), true);
+      printSheets(printPages(opts), printTheme, outputBaseName(), true);
     },
-    [
-      doc,
-      theme,
-      outputBaseName,
-      activeSheet,
-      drawingDefaults,
-      netOverrides,
-      resolveTextVar,
-      intersheetRefs,
-    ],
+    [theme, outputBaseName, printPages],
   );
 
   // Bulk Edit Symbol Fields: apply the changed cells per sheet — the current
@@ -1305,18 +1371,33 @@ export function SchematicEditor({
     [currentFile, runCommand, onProjectChange, libById],
   );
 
-  // Plot (DIALOG_PLOT_SCHEMATIC): write the chosen file format for download.
-  // "Plot All Pages" (the upstream OK button) plots every sheet file to its
-  // own download; "Plot Current Page" (wxID_APPLY) plots just this sheet.
-  // `themeId` selects the plot colour theme (the "Color theme:" choice).
+  // Plot (DIALOG_PLOT_SCHEMATIC / SCH_PLOTTER::Plot): write the chosen format
+  // into the project's output directory. "Plot All Pages" (the upstream OK
+  // button) plots every sheet file, "Plot Current Page" (wxID_APPLY) just this
+  // one. Each written file is reported to the dialog's Output Messages panel
+  // the way SCH_PLOTTER reports "Plotted to '<path>'.".
   const doPlot = useCallback(
-    (format: PlotFormat, opts: PlotOpts, allPages: boolean, themeId?: string) => {
+    ({
+      format,
+      opts,
+      allPages,
+      themeId,
+      outputDir,
+      pdfMetadata,
+      openAfter,
+      downloadCopy,
+      report,
+    }: PlotRequest) => {
       const plotTheme = themeId && BUILTIN_THEMES[themeId] ? BUILTIN_THEMES[themeId]!.theme : theme;
       const o: PlotOpts = {
         ...opts,
         ...drawingDefaults,
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
+      // "Open file after plot": open the tab now, in the click gesture, so the
+      // browser doesn't block it — the sink navigates it once the file (which
+      // for PNG/PDF is produced asynchronously) is ready. Single page only.
+      const preview = openAfter && !allPages ? window.open('', '_blank') : null;
       const one = (d: Schematic, name: string, file: string): void => {
         // Netclass visuals and text variables resolve per sheet.
         const nov = computeNetClassOverrides(
@@ -1324,25 +1405,68 @@ export function SchematicEditor({
           new Map(d.libSymbols.map((l) => [l.libId, l])),
           setup,
         );
+        const resolve = resolverForDoc(d, name);
         const od: PlotOpts = {
           ...o,
           ...(nov ? { netOverrides: nov } : {}),
-          resolveTextVar: resolverForDoc(d, name),
+          resolveTextVar: resolve,
           ...((): Partial<PlotOpts> => {
-            const idx = flatSheets.findIndex((s) => s.file === file);
+            const idx = sheetInstanceRefs.findIndex((s) => s.file === file);
             const r = intersheetRefsFor(idx === -1 ? 1 : idx + 1);
             return r ? { intersheetRefs: r } : {};
           })(),
+          // "Generate metadata from AUTHOR & SUBJECT variables": the same text
+          // variables SCH_PLOTTER resolves before writing the PDF.
+          ...(pdfMetadata
+            ? {
+                pdfMetadata: {
+                  title: d.titleBlock?.title || name,
+                  author: resolve?.('AUTHOR') ?? '',
+                  subject: resolve?.('SUBJECT') ?? '',
+                },
+              }
+            : {}),
         };
-        if (format === 'svg') plotSvg(d, plotTheme, od, name);
-        else if (format === 'png') void plotPng(d, plotTheme, od, name);
-        else void plotPdf(d, plotTheme, od, name);
+        // Every plot lands in the project's file manager (the cloud "disk");
+        // "Download a copy to this computer" additionally streams it out, and
+        // "Open file after plot" navigates the pre-opened preview tab to it.
+        const sink: PlotSink = (blob, filename) => {
+          const path = outputDir ? `${outputDir}/${filename}` : filename;
+          if (onOutputFile) {
+            void blob.arrayBuffer().then((buf) => {
+              onOutputFile(path, new Uint8Array(buf), blob.type);
+              report(`Plotted to '${path}'.`, RPT_SEVERITY_ACTION);
+            });
+          } else {
+            downloadBlob(blob, filename);
+            report(`Plotted to '${filename}'.`, RPT_SEVERITY_ACTION);
+          }
+          if (downloadCopy && onOutputFile) downloadBlob(blob, filename);
+          if (preview) {
+            // Browsers render PDF/SVG/PNG inline but can't display PostScript or
+            // DXF — those are text, so re-wrap them as text/plain to show the
+            // file content in the tab instead of triggering a download.
+            const viewable = blob.type === 'application/pdf' || blob.type.startsWith('image/');
+            const shown = viewable ? blob : new Blob([blob], { type: 'text/plain' });
+            preview.location.href = URL.createObjectURL(shown);
+          }
+        };
+        if (format === 'svg') plotSvg(d, plotTheme, od, name, sink);
+        else if (format === 'png') void plotPng(d, plotTheme, od, name, sink);
+        else if (format === 'dxf') plotDxf(d, plotTheme, od, name, sink);
+        else if (format === 'ps') plotPs(d, plotTheme, od, name, sink);
+        else void plotPdf(d, plotTheme, od, name, sink);
       };
       if (allPages) {
-        for (const [file, d] of liveDocs())
+        const sheets = [...liveDocs()];
+        // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
+        if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
+        for (const [file, d] of sheets)
           one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
       } else if (doc) one(doc, outputBaseName(), currentFile);
-      setPlotOpen(false);
+      else report('No sheets to plot.', RPT_SEVERITY_ERROR);
+      // The dialog stays open after plotting (like DIALOG_PLOT_SCHEMATIC) so the
+      // Output Messages panel is visible; only the Close button dismisses it.
     },
     [
       doc,
@@ -1354,8 +1478,9 @@ export function SchematicEditor({
       setup,
       resolverForDoc,
       intersheetRefsFor,
-      flatSheets,
+      sheetInstanceRefs,
       currentFile,
+      onOutputFile,
     ],
   );
   useEffect(() => {
@@ -1956,6 +2081,20 @@ export function SchematicEditor({
       showHiddenFields: es.appearance.show_hidden_fields,
       showPageLimits: es.appearance.show_page_limits,
       ...(activeSheet ? { drawingSheet: activeSheet } : {}),
+      // The on-screen title block shows the current instance's real page
+      // number, sheet count and path (SCH_EDIT_FRAME::SetSheetNumberAndCount).
+      ...((): Partial<RenderOpts> => {
+        const idx = sheetInstanceRefs.findIndex((s) => s.path === currentPath);
+        if (idx === -1) return {};
+        const ref = sheetInstanceRefs[idx]!;
+        return {
+          pageNumber: pageNumberOf(currentPath) || String(idx + 1),
+          sheetNumber: idx + 1,
+          sheetCount: sheetInstanceRefs.length,
+          ...(ref.path !== '/' ? { sheetName: ref.name } : {}),
+          sheetPath: ref.namePath,
+        };
+      })(),
       // Default pen for zero-width strokes = Schematic Setup > Formatting's
       // "Default line width" (SCHEMATIC_SETTINGS::m_DefaultLineWidth), mils→IU.
       defaultPenIU: mmToIU((setup.formatting.defaultLineWidthMils * 25.4) / 1000),
@@ -1995,7 +2134,18 @@ export function SchematicEditor({
         },
       },
     }),
-    [es, activeSheet, setup, drawingDefaults, netOverrides, resolveTextVar, intersheetRefs],
+    [
+      es,
+      activeSheet,
+      setup,
+      drawingDefaults,
+      netOverrides,
+      resolveTextVar,
+      intersheetRefs,
+      sheetInstanceRefs,
+      currentPath,
+      pageNumberOf,
+    ],
   );
 
   const inputPrefs = useMemo<InputPrefs>(
@@ -3366,6 +3516,7 @@ export function SchematicEditor({
           {plotOpen && (
             <DialogPlot
               themeId={es.appearance.color_theme}
+              projectFolders={projectFolders}
               onPlot={doPlot}
               onClose={() => setPlotOpen(false)}
             />
