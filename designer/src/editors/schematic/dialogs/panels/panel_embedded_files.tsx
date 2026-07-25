@@ -6,9 +6,9 @@
  * schematic are referenced elsewhere as ${EMBED_...}.
  */
 
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import { Icon } from '../../../../ui/icons.js';
-import type { EmbeddedFilesData } from '../../schematic_settings.js';
+import type { EmbeddedFile, EmbeddedFilesData } from '../../schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -21,15 +21,35 @@ export {
 interface Props {
   value: EmbeddedFilesData;
   onChange: (next: EmbeddedFilesData) => void;
+  /** Export all files to downloads (PANEL_EMBEDDED_FILES::onExportFiles
+   *  exports the whole collection to a chosen directory). */
+  onExport?: (files: EmbeddedFile[]) => void;
 }
 
-export function PanelEmbeddedFiles({ value, onChange }: Props): JSX.Element {
+export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.Element {
   const [sel, setSel] = useState<number | null>(value.files.length ? 0 : null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
   const removeSel = (): void => {
     if (sel === null) return;
     onChange({ ...value, files: value.files.filter((_, j) => j !== sel) });
     setSel(value.files.length - 2 >= 0 ? Math.min(sel, value.files.length - 2) : null);
+  };
+
+  // onAddEmbeddedFiles: multi-select picker; AddFile(name, overwrite=true)
+  // replaces same-name entries and the std::map keeps the list name-sorted.
+  const addFiles = async (picked: FileList | null): Promise<void> => {
+    if (!picked || picked.length === 0) return;
+    const added: EmbeddedFile[] = [];
+    for (const f of Array.from(picked)) {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      added.push({ name: f.name, reference: `kicad-embed://${f.name}`, pendingBytes: bytes });
+    }
+    const names = new Set(added.map((a) => a.name));
+    const files = [...value.files.filter((f) => !names.has(f.name)), ...added].sort((a, b) =>
+      a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+    );
+    onChange({ ...value, files });
   };
 
   return (
@@ -77,7 +97,21 @@ export function PanelEmbeddedFiles({ value, onChange }: Props): JSX.Element {
       </div>
 
       <div className="ze-grid-btns" style={{ alignItems: 'center' }}>
-        <button className="ze-gridbtn" title="Add embedded file">
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            void addFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
+        <button
+          className="ze-gridbtn"
+          title="Add embedded file"
+          onClick={() => fileInput.current?.click()}
+        >
           <Icon name="plus" />
         </button>
         <span style={{ width: 15 }} />
@@ -99,7 +133,12 @@ export function PanelEmbeddedFiles({ value, onChange }: Props): JSX.Element {
           Embed fonts
         </label>
         <span style={{ flex: 1 }} />
-        <button className="ze-btn" title="Export embedded files">
+        <button
+          className="ze-btn"
+          title="Export embedded files"
+          disabled={!onExport || value.files.length === 0}
+          onClick={() => onExport?.(value.files)}
+        >
           Export…
         </button>
       </div>

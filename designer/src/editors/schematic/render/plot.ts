@@ -46,6 +46,10 @@ export interface PlotOpts {
   overbarHeightRatio?: number;
   /** Pin decoration size in IU (m_PinSymbolSize; 0 = per-pin fallback). */
   pinSymbolSizeIU?: number;
+  /** Wire hop-over arc radius in IU (0/unset = hop-overs off). */
+  hopOverRadiusIU?: number;
+  /** Inter-sheet references resolver (RenderOpts shape; unset = hidden). */
+  intersheetRefs?: RenderOpts['intersheetRefs'];
   /** Per-item netclass fallbacks for the plotted sheet (RenderOpts shape). */
   netOverrides?: RenderOpts['netOverrides'];
   /** Text-variable resolver, so `${VAR}` plots expanded like the screen. */
@@ -122,6 +126,8 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     labelSizeRatio: opts.labelSizeRatio,
     overbarHeightRatio: opts.overbarHeightRatio,
     pinSymbolSizeIU: opts.pinSymbolSizeIU,
+    hopOverRadiusIU: opts.hopOverRadiusIU,
+    intersheetRefs: opts.intersheetRefs,
     netOverrides: opts.netOverrides,
     resolveTextVar: opts.resolveTextVar,
     subpart: opts.subpart,

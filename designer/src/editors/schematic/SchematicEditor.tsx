@@ -128,22 +128,57 @@ import {
   defaultSchematicSetup,
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
+import {
+  DialogCreateNetChain,
+  type CreateChainFocusHint,
+} from './dialogs/dialog_create_net_chain.js';
 import { findProjectPro, readSchematicSetup, writeSchematicSetupText } from './project_settings.js';
 import {
   IU_PER_MILS,
+  hopOverArcRadiusIU,
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   subpartSettings,
 } from './schematic_settings.js';
 import { computeNetClassOverrides } from './net_overrides.js';
-import { RefDesTracker, listEmbeddedFiles, schematicTextVarResolver } from '@ziroeda/eeschema';
+import {
+  RefDesTracker,
+  buildPageRefsMap,
+  chainPatternAssignments,
+  detectNetChains,
+  isValidNetChainName,
+  netChainsCommand,
+  readNetChains,
+  removeFromNetChainCommand,
+  restoreCommittedNetChains,
+  writeNetChains,
+  type CommittedNetChain,
+  expandTextVars,
+  intersheetRefsText,
+  addEmbeddedFile,
+  embeddedFilesCommand,
+  getEmbeddedFileData,
+  listEmbeddedFiles,
+  removeEmbeddedFile,
+  setEmbedFonts,
+  schematicTextVarResolver,
+  type IntersheetRefsConfig,
+  type IntersheetSheet,
+} from '@ziroeda/eeschema';
 import { DialogExportBom } from './dialogs/dialog_export_bom.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
 import { DialogPlot, type PlotFormat } from './dialogs/dialog_plot.js';
-import { printSheet, plotPng, plotSvg, plotPdf, type PlotOpts } from './render/plot.js';
+import {
+  downloadBlob,
+  printSheet,
+  plotPng,
+  plotSvg,
+  plotPdf,
+  type PlotOpts,
+} from './render/plot.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
@@ -507,10 +542,38 @@ export function SchematicEditor({
     () => (doc ? computeNetlist(doc, libById, { busAliases }) : null),
     [doc, libById, busAliases],
   );
+  // This run's potential chains (RebuildNetChains) and the committed chains
+  // restored against them — shared by netclass resolution, the highlight
+  // actions and the Create Net Chain dialog.
+  const potentialChains = useMemo(
+    () => (doc && netlist ? detectNetChains(doc, libById, netlist) : []),
+    [doc, libById, netlist],
+  );
+  const committedChains = useMemo(() => {
+    if (!doc) return [];
+    return netlist
+      ? restoreCommittedNetChains(doc, libById, netlist, potentialChains, readNetChains(doc))
+      : readNetChains(doc);
+  }, [doc, libById, netlist, potentialChains]);
+
+  // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
+  // the plain net highlight, like upstream.
+  const [highlightedChain, setHighlightedChain] = useState<string | null>(null);
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
-    if (netlist && highlightItem !== null) {
+    if (netlist && highlightedChain !== null) {
+      // A highlighted chain brightens every member net's items
+      // (UpdateNetHighlighting walks the chain's nets).
+      const chain = committedChains.find((c) => c.name === highlightedChain);
+      if (chain) {
+        name = chain.name;
+        for (const netName of chain.nets) {
+          const net = netlist.nets.find((n) => n.name === netName);
+          if (net) for (const item of net.items) items.add(item);
+        }
+      }
+    } else if (netlist && highlightItem !== null) {
       const code = netlist.netByItem.get(highlightItem);
       if (code !== undefined) {
         const net = netlist.nets.find((n) => n.code === code);
@@ -521,7 +584,20 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem]);
+  }, [netlist, highlightItem, highlightedChain, committedChains]);
+
+  // Wire tint while a coloured chain is highlighted (painter chain block).
+  const chainHighlight = useMemo(() => {
+    if (!netlist || highlightedChain === null) return undefined;
+    const chain = committedChains.find((c) => c.name === highlightedChain);
+    if (!chain || chain.color === '') return undefined;
+    const lineIds = new Set<string>();
+    for (const netName of chain.nets) {
+      const net = netlist.nets.find((n) => n.name === netName);
+      if (net) for (const item of net.items) lineIds.add(item);
+    }
+    return { lineIds, color: chain.color };
+  }, [netlist, highlightedChain, committedChains]);
 
   // The live document for stable callbacks (selection promotion needs groups).
   const docRef = useRef(doc);
@@ -541,6 +617,7 @@ export function SchematicEditor({
 
   const onSelect = useCallback((id: string | null, additive: boolean) => {
     setHighlightItem(null); // a selection clears any net highlight (KiCad keeps the two exclusive)
+    setHighlightedChain(null);
     setSelection((prev) => {
       if (id === null) return additive ? prev : new Set();
       // A filtered-out hit (locked / disabled type) behaves like empty space.
@@ -562,6 +639,7 @@ export function SchematicEditor({
   // HighlightNet calls ClearSelection so the whole net shows, not a selection halo).
   const onHighlight = useCallback((id: string | null) => {
     setSelection(new Set());
+    setHighlightedChain(null);
     setHighlightItem(id);
   }, []);
 
@@ -876,6 +954,10 @@ export function SchematicEditor({
   // ERC severities + pin-conflict map that the ERC checker reads. (The setup
   // state itself is declared above the netlist memo, which consumes it.)
   const [setupOpen, setSetupOpen] = useState(false);
+  // Net-chain tools: the Create Net Chain dialog (ShowCreateNetChain) and the
+  // Name Net Chain prompt (NameNetChain's wxGetTextFromUser).
+  const [createChainOpen, setCreateChainOpen] = useState(false);
+  const [chainRename, setChainRename] = useState<{ orig: string; name: string } | null>(null);
   // Generate Bill of Materials (Symbol Fields Table export) dialog.
   const [bomOpen, setBomOpen] = useState(false);
   // Export Netlist (DIALOG_EXPORT_NETLIST) dialog.
@@ -988,9 +1070,21 @@ export function SchematicEditor({
   // Per-item netclass render fallbacks (wire colour/width/style, junction
   // clamp) for the current sheet — reuses the connectivity memo; undefined
   // when no class carries a visual parameter.
+  // Committed-chain netclass overrides join the per-net resolution
+  // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
+  // pattern assignments) so member nets draw with the chain's netclass.
   const netOverrides = useMemo(
-    () => (doc ? computeNetClassOverrides(doc, libById, setup, netlist) : undefined),
-    [doc, libById, setup, netlist],
+    () =>
+      doc
+        ? computeNetClassOverrides(
+            doc,
+            libById,
+            setup,
+            netlist,
+            chainPatternAssignments(committedChains),
+          )
+        : undefined,
+    [doc, libById, setup, netlist, committedChains],
   );
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
@@ -1054,11 +1148,74 @@ export function SchematicEditor({
       overbarHeightRatio: setup.formatting.overbarOffsetRatio,
       // 0 mils is meaningful: KiCad's per-pin text-size fallback.
       pinSymbolSizeIU: setup.formatting.pinSymbolSizeMils * IU_PER_MILS,
+      // Wire hop-over arc radius (default line width × GetHopOverScale).
+      hopOverRadiusIU: hopOverArcRadiusIU(setup),
       // Multi-unit reference notation (SCHEMATIC_SETTINGS::SubReference).
       subpart: subpartSettings(setup.annotation),
     }),
     [setup],
   );
+
+  // Inter-sheet references (SCHEMATIC::RecomputeIntersheetRefs): resolved
+  // global-label text -> virtual pages across the hierarchy, plus each virtual
+  // page's page-number string, rebuilt when the hierarchy or settings change.
+  const intersheetRefsBase = useMemo(() => {
+    if (!setup.formatting.intersheetRefsShow) return undefined;
+    const docs = liveDocs();
+    const sheets: IntersheetSheet[] = [];
+    const virtualPageToPages = new Map<number, string>();
+    flatSheets.forEach((s, i) => {
+      const sch = docs.get(s.file);
+      const page = pageNumberOf(s.path) || String(i + 1);
+      virtualPageToPages.set(i + 1, page);
+      if (sch) {
+        const resolver = resolverForDoc(sch, s.file, s.path);
+        sheets.push({
+          sch,
+          virtualPage: i + 1,
+          pageString: page,
+          resolve: (t) => expandTextVars(t, resolver),
+        });
+      }
+    });
+    // No hierarchy yet (fresh document): the on-screen sheet is page 1.
+    if (sheets.length === 0 && doc) {
+      virtualPageToPages.set(1, pageNumberOf('/') || '1');
+      const resolver = resolverForDoc(doc, currentFile);
+      sheets.push({
+        sch: doc,
+        virtualPage: 1,
+        pageString: '1',
+        resolve: (t) => expandTextVars(t, resolver),
+      });
+    }
+    return { pageRefsMap: buildPageRefsMap(sheets), virtualPageToPages };
+  }, [setup, liveDocs, flatSheets, pageNumberOf, doc, currentFile, resolverForDoc]);
+
+  // ${INTERSHEET_REFS} resolver for the sheet shown as `currentVirtualPage`
+  // (SCH_GLOBALLABEL::ResolveTextVar reads CurrentSheet()'s virtual page).
+  const intersheetRefsFor = useCallback(
+    (currentVirtualPage: number): RenderOpts['intersheetRefs'] => {
+      if (!intersheetRefsBase) return undefined;
+      const cfg: IntersheetRefsConfig = {
+        pageRefsMap: intersheetRefsBase.pageRefsMap,
+        virtualPageToPages: intersheetRefsBase.virtualPageToPages,
+        currentVirtualPage,
+        listOwnPage: setup.formatting.intersheetRefsOwnPage,
+        formatShort: setup.formatting.intersheetRefsAbbreviated,
+        prefix: setup.formatting.intersheetRefsPrefix,
+        suffix: setup.formatting.intersheetRefsSuffix,
+      };
+      return { text: (resolvedLabel) => intersheetRefsText(resolvedLabel, cfg) };
+    },
+    [intersheetRefsBase, setup],
+  );
+
+  // The on-screen sheet's resolver (CurrentSheet().GetVirtualPageNumber()).
+  const intersheetRefs = useMemo(() => {
+    const idx = flatSheets.findIndex((s) => s.path === currentPath);
+    return intersheetRefsFor(idx === -1 ? 1 : idx + 1);
+  }, [intersheetRefsFor, flatSheets, currentPath]);
 
   // Print (DIALOG_PRINT): render the current sheet and open the browser print
   // flow, optionally with a different colour theme (m_useColorTheme choice).
@@ -1073,12 +1230,22 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(netOverrides ? { netOverrides } : {}),
         ...(resolveTextVar ? { resolveTextVar } : {}),
+        ...(intersheetRefs ? { intersheetRefs } : {}),
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
       if (doc) printSheet(doc, printTheme, o, outputBaseName());
       setPrintOpen(false);
     },
-    [doc, theme, outputBaseName, activeSheet, drawingDefaults, netOverrides, resolveTextVar],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      activeSheet,
+      drawingDefaults,
+      netOverrides,
+      resolveTextVar,
+      intersheetRefs,
+    ],
   );
 
   // Print Preview (DIALOG_PRINT's Apply / OnPrintPreview): render into a new tab
@@ -1092,11 +1259,21 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(netOverrides ? { netOverrides } : {}),
         ...(resolveTextVar ? { resolveTextVar } : {}),
+        ...(intersheetRefs ? { intersheetRefs } : {}),
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
       if (doc) printSheet(doc, printTheme, o, outputBaseName(), true);
     },
-    [doc, theme, outputBaseName, activeSheet, drawingDefaults, netOverrides, resolveTextVar],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      activeSheet,
+      drawingDefaults,
+      netOverrides,
+      resolveTextVar,
+      intersheetRefs,
+    ],
   );
 
   // Bulk Edit Symbol Fields: apply the changed cells per sheet — the current
@@ -1140,7 +1317,7 @@ export function SchematicEditor({
         ...drawingDefaults,
         ...(activeSheet ? { sheet: activeSheet } : {}),
       };
-      const one = (d: Schematic, name: string): void => {
+      const one = (d: Schematic, name: string, file: string): void => {
         // Netclass visuals and text variables resolve per sheet.
         const nov = computeNetClassOverrides(
           d,
@@ -1151,6 +1328,11 @@ export function SchematicEditor({
           ...o,
           ...(nov ? { netOverrides: nov } : {}),
           resolveTextVar: resolverForDoc(d, name),
+          ...((): Partial<PlotOpts> => {
+            const idx = flatSheets.findIndex((s) => s.file === file);
+            const r = intersheetRefsFor(idx === -1 ? 1 : idx + 1);
+            return r ? { intersheetRefs: r } : {};
+          })(),
         };
         if (format === 'svg') plotSvg(d, plotTheme, od, name);
         else if (format === 'png') void plotPng(d, plotTheme, od, name);
@@ -1158,11 +1340,23 @@ export function SchematicEditor({
       };
       if (allPages) {
         for (const [file, d] of liveDocs())
-          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName());
-      } else if (doc) one(doc, outputBaseName());
+          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+      } else if (doc) one(doc, outputBaseName(), currentFile);
       setPlotOpen(false);
     },
-    [doc, theme, outputBaseName, liveDocs, activeSheet, drawingDefaults, setup, resolverForDoc],
+    [
+      doc,
+      theme,
+      outputBaseName,
+      liveDocs,
+      activeSheet,
+      drawingDefaults,
+      setup,
+      resolverForDoc,
+      intersheetRefsFor,
+      flatSheets,
+      currentFile,
+    ],
   );
   useEffect(() => {
     // Changed search settings restart the scan (upstream m_foundItemHighlight reset).
@@ -1772,6 +1966,10 @@ export function SchematicEditor({
       ...(netOverrides ? { netOverrides } : {}),
       // ${VAR} expansion in labels/text/fields (GetShownText).
       ...(resolveTextVar ? { resolveTextVar } : {}),
+      // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
+      ...(intersheetRefs ? { intersheetRefs } : {}),
+      // Highlighted-chain wire tint (SetHighlightedNetChain + chain colour).
+      ...(chainHighlight ? { chainHighlight } : {}),
       selectionThicknessMils: es.selection.thickness,
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
@@ -1797,7 +1995,7 @@ export function SchematicEditor({
         },
       },
     }),
-    [es, activeSheet, setup, drawingDefaults, netOverrides, resolveTextVar],
+    [es, activeSheet, setup, drawingDefaults, netOverrides, resolveTextVar, intersheetRefs],
   );
 
   const inputPrefs = useMemo<InputPrefs>(
@@ -2109,14 +2307,37 @@ export function SchematicEditor({
       else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open —
-        // read-only until the zstd blobs can be decoded.
+        // read-only until the zstd blobs can be decoded — and the Net Chains
+        // page shows the engine's detected (potential) chains
+        // (CONNECTION_GRAPH::RebuildNetChains), each keeping its persisted
+        // chain-class assignment.
         if (doc) {
           const emb = listEmbeddedFiles(doc);
+          const detected = netlist ? detectNetChains(doc, libById, netlist) : [];
           setSetup((prev) => ({
             ...prev,
             embeddedFiles: {
               files: emb.files.map((f) => ({ name: f.name, reference: f.reference })),
               embedFonts: emb.embedFonts,
+            },
+            netChains: {
+              ...prev.netChains,
+              // The grid lists committed chains (PANEL_SETUP_NET_CHAINS::
+              // loadFromModel): persisted (net_chain …) nodes restored against
+              // this run's potentials (RebuildNetChains passes 2a/2b).
+              chains: (netlist
+                ? restoreCommittedNetChains(doc, libById, netlist, detected, readNetChains(doc))
+                : readNetChains(doc)
+              ).map((c) => ({
+                origName: c.name,
+                name: c.name,
+                members: [...c.nets],
+                chainClass: prev.netChains.classByChain[c.name] ?? '',
+                netClass: c.netClass,
+                color: c.color,
+                from: c.from,
+                to: c.to,
+              })),
             },
           }));
         }
@@ -2191,6 +2412,7 @@ export function SchematicEditor({
       currentPath,
       switchSheet,
       doc,
+      netlist,
       selection,
       libById,
       pageNumberOf,
@@ -2276,6 +2498,60 @@ export function SchematicEditor({
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
         );
+      // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
+      // selections; Highlight / Remove-from / Name when the hit item's net
+      // belongs to a committed chain.
+      {
+        const chainItems: MenuItem[] = [];
+        const symbolIds = doc
+          ? new Set(doc.symbols.map((s, i) => refId('symbol', s.uuid, i)))
+          : new Set<string>();
+        const symbolsOnly = selection.size > 0 && [...selection].every((id) => symbolIds.has(id));
+        if (symbolsOnly)
+          chainItems.push({
+            label: 'Create Net Chain...',
+            action: () => setCreateChainOpen(true),
+          });
+        const hitCode = hit && netlist ? netlist.netByItem.get(hit.id) : undefined;
+        const hitNet =
+          hitCode !== undefined
+            ? (netlist?.nets.find((n) => n.code === hitCode)?.name ?? null)
+            : null;
+        const hitChain = hitNet ? committedChains.find((c) => c.nets.includes(hitNet)) : undefined;
+        if (hitChain && hitNet) {
+          chainItems.push(
+            {
+              label: 'Highlight Net Chain',
+              action: () => {
+                setSelection(new Set());
+                setHighlightItem(null);
+                setHighlightedChain(hitChain.name);
+              },
+            },
+            {
+              label: 'Remove from Net Chain',
+              action: () => {
+                // RemoveFromNetChain: block every 2-pin symbol bridging this
+                // net out of its chain, then chains rebuild via the memos.
+                if (doc && netlist) {
+                  const cmd = removeFromNetChainCommand(doc, libById, netlist, hitNet);
+                  if (cmd) runCommand(cmd);
+                }
+              },
+            },
+            {
+              label: 'Name Net Chain...',
+              action: () => setChainRename({ orig: hitChain.name, name: hitChain.name }),
+            },
+          );
+        }
+        if (highlightedChain !== null)
+          chainItems.push({
+            label: 'Clear Net Highlighting',
+            action: () => setHighlightedChain(null),
+          });
+        if (chainItems.length > 0) items.push({ sep: true }, ...chainItems);
+      }
       items.push(
         { sep: true },
         act('Cut', 'cut', 'Ctrl+X'),
@@ -3094,14 +3370,191 @@ export function SchematicEditor({
               onClose={() => setPlotOpen(false)}
             />
           )}
+          {createChainOpen && doc && (
+            <DialogCreateNetChain
+              potentials={potentialChains}
+              committed={committedChains}
+              hint={(() => {
+                // ShowCreateNetChain's FOCUS_HINT from the current selection:
+                // symbol references, or a single wire's net name.
+                const hint: CreateChainFocusHint = {};
+                if (doc) {
+                  const selSymbols = doc.symbols
+                    .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
+                    .filter((e) => selection.has(e.id));
+                  const ref = (sym: (typeof selSymbols)[number]['s']): string =>
+                    sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+                  if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
+                  if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
+                  if (selSymbols.length === 0 && selection.size === 1 && netlist) {
+                    const code = netlist.netByItem.get([...selection][0]!);
+                    const net =
+                      code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
+                    if (net) hint.netName = net.name;
+                  }
+                }
+                return hint;
+              })()}
+              onCreate={(chain) => {
+                // CreateNetChainFromPotential + highlight the new chain.
+                runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
+                setSelection(new Set());
+                setHighlightItem(null);
+                setHighlightedChain(chain.name);
+              }}
+              onClose={() => setCreateChainOpen(false)}
+            />
+          )}
+          {chainRename && doc && (
+            <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
+              <div
+                className="ze-modal"
+                style={{ width: 360 }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="ze-modal-header">
+                  Name Net Chain
+                  <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
+                    ✕
+                  </span>
+                </div>
+                <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Net chain name:
+                    <input
+                      style={{ flex: 1 }}
+                      value={chainRename.name}
+                      autoFocus
+                      onChange={(e) =>
+                        setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="ze-modal-footer">
+                  <button className="ze-btn" onClick={() => setChainRename(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="ze-btn primary"
+                    onClick={() => {
+                      // NameNetChain: rename the committed chain (collisions
+                      // rejected like RenameCommittedNetChain), rekey the
+                      // chain->class map, and keep the chain highlighted.
+                      const { orig, name } = chainRename;
+                      if (
+                        name === orig ||
+                        !isValidNetChainName(name) ||
+                        committedChains.some((c) => c.name === name)
+                      ) {
+                        setChainRename(null);
+                        return;
+                      }
+                      runCommand(
+                        netChainsCommand(
+                          writeNetChains(
+                            doc,
+                            committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
+                          ),
+                        ),
+                      );
+                      const classByChain = { ...setup.netChains.classByChain };
+                      if (classByChain[orig] !== undefined) {
+                        classByChain[name] = classByChain[orig];
+                        delete classByChain[orig];
+                        commitSetup({
+                          ...setup,
+                          netChains: { ...setup.netChains, classByChain },
+                        });
+                      }
+                      if (highlightedChain === orig) setHighlightedChain(name);
+                      setChainRename(null);
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {setupOpen && (
             <DialogSchematicSetup
               value={setup}
-              onOk={(next) => {
+              onOk={(nextIn) => {
+                // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
+                // map for renamed rows and drop deleted chains before the
+                // project file persists it.
+                let next = nextIn;
+                if (doc) {
+                  const committedAtOpen = readNetChains(doc).map((c) => c.name);
+                  const rows = next.netChains.chains;
+                  const rowByOrig = new Map(
+                    rows.filter((r) => r.origName).map((r) => [r.origName, r]),
+                  );
+                  const classByChain = { ...next.netChains.classByChain };
+                  for (const name of committedAtOpen) {
+                    const row = rowByOrig.get(name);
+                    if (!row || row.name !== name) delete classByChain[name];
+                  }
+                  for (const row of rows) {
+                    if (row.chainClass) classByChain[row.name] = row.chainClass;
+                    else delete classByChain[row.name];
+                  }
+                  next = { ...next, netChains: { ...next.netChains, classByChain } };
+                }
                 commitSetup(next);
+                // Net-chain renames/edits/deletes write back to the document's
+                // (net_chain …) nodes (they live in .kicad_sch, root sheet).
+                if (doc) {
+                  const before = readNetChains(doc);
+                  const rowByOrig = new Map(
+                    next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
+                  );
+                  const after = before.flatMap((c) => {
+                    const row = rowByOrig.get(c.name);
+                    if (!row) return []; // deleted
+                    return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
+                  });
+                  if (JSON.stringify(after) !== JSON.stringify(before))
+                    runCommand(netChainsCommand(writeNetChains(doc, after)));
+                }
+                // The Embedded Files page edits the document itself
+                // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
+                // compress added files, drop removed ones, set the fonts flag.
+                if (doc) {
+                  const cur = listEmbeddedFiles(doc);
+                  const keep = new Set(next.embeddedFiles.files.map((f) => f.name));
+                  const removed = cur.files.filter((f) => !keep.has(f.name)).map((f) => f.name);
+                  const added = next.embeddedFiles.files.filter((f) => f.pendingBytes);
+                  const fontsChanged = next.embeddedFiles.embedFonts !== cur.embedFonts;
+                  if (removed.length || added.length || fontsChanged) {
+                    const base = doc;
+                    void (async () => {
+                      let after = base;
+                      for (const name of removed) after = removeEmbeddedFile(after, name);
+                      for (const f of added)
+                        after = await addEmbeddedFile(after, f.name, f.pendingBytes!);
+                      if (fontsChanged) after = setEmbedFonts(after, next.embeddedFiles.embedFonts);
+                      runCommand(embeddedFilesCommand(after));
+                    })();
+                  }
+                }
                 setSetupOpen(false);
               }}
               onCancel={() => setSetupOpen(false)}
+              onExportEmbedded={(files) => {
+                // onExportFiles: write every embedded file out — here as
+                // downloads; pending rows export their picked bytes directly.
+                const base = doc;
+                if (!base) return;
+                void (async () => {
+                  for (const f of files) {
+                    const bytes =
+                      f.pendingBytes ?? (await getEmbeddedFileData(base, f.name))?.bytes;
+                    if (bytes) downloadBlob(new Blob([bytes.slice().buffer]), f.name);
+                  }
+                })();
+              }}
             />
           )}
           {bomOpen && (

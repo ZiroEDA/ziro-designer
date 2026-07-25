@@ -23,4 +23,9 @@ export default defineConfig({
   define: { __BUILD_STAMP__: JSON.stringify(buildStamp()) },
   plugins: [react()],
   server: { port: 5173 },
+  // zstd-wasm locates zstd.wasm next to its own module via import.meta.url;
+  // pre-bundling would move the JS into .vite/deps without the wasm, so serve
+  // the package as-is (production builds handle new URL(..., import.meta.url)
+  // natively and copy the asset).
+  optimizeDeps: { exclude: ['@bokuweb/zstd-wasm'] },
 });

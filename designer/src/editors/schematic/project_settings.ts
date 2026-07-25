@@ -394,10 +394,15 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
   const chainClasses = getPath(j, 'net_settings.net_chain_classes');
   if (isObj(chainClasses)) {
     const counts = new Map<string, number>();
-    for (const v of Object.values(chainClasses)) {
-      if (typeof v === 'string' && v) counts.set(v, (counts.get(v) ?? 0) + 1);
+    const byChain: Record<string, string> = {};
+    for (const [chain, v] of Object.entries(chainClasses)) {
+      if (typeof v === 'string' && v) {
+        counts.set(v, (counts.get(v) ?? 0) + 1);
+        byChain[chain] = v;
+      }
     }
     s.netChains.classes = [...counts].map(([name, members]) => ({ name, members }));
+    s.netChains.classByChain = byChain;
   }
 
   // text_variables (project-file top level).
@@ -633,16 +638,14 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
     s.netClasses.assignments.map((a) => ({ netclass: a.netClass, pattern: a.pattern })),
   );
 
-  // net_settings.net_chain_classes: merge — chains aren't persisted here (they
-  // are engine data), so keep existing chain -> class entries except those
-  // whose class the panel deleted, then apply the in-memory chain assignments.
-  const oldChains = getPath(j, 'net_settings.net_chain_classes');
+  // net_settings.net_chain_classes: the in-memory chain -> class map persists
+  // verbatim (NET_SETTINGS::m_netChainClasses), minus entries whose class the
+  // panel deleted and with the grid rows' edits applied on top (the dialog's
+  // ApplyEdits already rekeyed renames and dropped deleted chains).
   const chainOut: Json = {};
   const liveClasses = new Set(s.netChains.classes.map((c) => c.name));
-  if (isObj(oldChains)) {
-    for (const [chain, cls] of Object.entries(oldChains)) {
-      if (typeof cls === 'string' && cls && liveClasses.has(cls)) chainOut[chain] = cls;
-    }
+  for (const [chain, cls] of Object.entries(s.netChains.classByChain)) {
+    if (cls && liveClasses.has(cls)) chainOut[chain] = cls;
   }
   for (const chain of s.netChains.chains) {
     if (chain.chainClass) chainOut[chain.name] = chain.chainClass;

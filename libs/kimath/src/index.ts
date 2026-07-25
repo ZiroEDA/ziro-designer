@@ -2,3 +2,4 @@
 export * from './math/vector2.js';
 export * from './geometry/eda_angle.js';
 export * from './trigo.js';
+export * from './mmh3_hash.js';

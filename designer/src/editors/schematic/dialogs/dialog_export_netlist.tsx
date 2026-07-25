@@ -9,6 +9,7 @@
 import { useState, type JSX } from 'react';
 import {
   generateNetlist,
+  generateSpiceNetlist,
   type NetlistFormat,
   type Schematic,
   type LibSymbol,
@@ -22,7 +23,9 @@ interface Props {
   onClose: () => void;
 }
 
-const TABS: { id: NetlistFormat; label: string; ext: string; note: string }[] = [
+type ExportTab = NetlistFormat | 'spice';
+
+const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
   {
     id: 'kicadxml',
     label: 'KiCad',
@@ -35,14 +38,36 @@ const TABS: { id: NetlistFormat; label: string; ext: string; note: string }[] = 
     ext: 'net',
     note: 'The classic OrcadPCB2 text netlist.',
   },
+  {
+    id: 'spice',
+    label: 'Spice',
+    ext: 'cir',
+    note: 'SPICE circuit netlist for external simulators (NETLIST_EXPORTER_SPICE).',
+  },
 ];
 
 export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props): JSX.Element {
-  const [tab, setTab] = useState<NetlistFormat>('kicadxml');
+  const [tab, setTab] = useState<ExportTab>('kicadxml');
+  // The Spice page's options (DIALOG_EXPORT_NETLIST's spice checkboxes).
+  const [saveAllVoltages, setSaveAllVoltages] = useState(false);
+  const [saveAllCurrents, setSaveAllCurrents] = useState(false);
+  const [saveAllDissipations, setSaveAllDissipations] = useState(false);
+  const [spiceErrors, setSpiceErrors] = useState<string[]>([]);
   const active = TABS.find((t) => t.id === tab)!;
 
   const doExport = (): void => {
-    const text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
+    let text: string;
+    if (tab === 'spice') {
+      const out = generateSpiceNetlist(doc, libById, null, {
+        saveAllVoltages,
+        saveAllCurrents,
+        saveAllDissipations,
+      });
+      setSpiceErrors(out.errors);
+      text = out.text;
+    } else {
+      text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
+    }
     const mime = tab === 'kicadxml' ? 'application/xml' : 'text/plain';
     const url = URL.createObjectURL(new Blob([text], { type: mime }));
     const a = document.createElement('a');
@@ -50,7 +75,7 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
     a.download = `${baseName}.${active.ext}`;
     a.click();
     URL.revokeObjectURL(url);
-    onClose();
+    if (tab !== 'spice' || spiceErrors.length === 0) onClose();
   };
 
   return (
@@ -87,6 +112,41 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
               {baseName}.{active.ext}
             </code>
           </div>
+          {tab === 'spice' && (
+            <div style={{ marginTop: 10, display: 'grid', gap: 4, fontSize: 12.5 }}>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAllVoltages}
+                  onChange={(e) => setSaveAllVoltages(e.target.checked)}
+                />
+                Save all voltages
+              </label>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAllCurrents}
+                  onChange={(e) => setSaveAllCurrents(e.target.checked)}
+                />
+                Save all currents
+              </label>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAllDissipations}
+                  onChange={(e) => setSaveAllDissipations(e.target.checked)}
+                />
+                Save all power dissipations
+              </label>
+              {spiceErrors.length > 0 && (
+                <div style={{ color: 'var(--ze-error, #c33)', marginTop: 4 }}>
+                  {spiceErrors.map((e) => (
+                    <div key={e}>{e}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onClose}>

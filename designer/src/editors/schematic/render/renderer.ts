@@ -8,7 +8,7 @@
  * follow KiCad's per-orientation direction.
  */
 
-import type { Vec2 } from '@ziroeda/kimath';
+import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import {
   symbolTransform,
   localToWorld,
@@ -21,7 +21,10 @@ import {
   type Transform,
 } from '@ziroeda/common';
 import {
+  buildWireWithHopShape,
   expandTextVars,
+  intersheetRefsAutoplaced,
+  intersheetRefsField,
   refId,
   symbolBodyBBox,
   danglingPinPositions,
@@ -211,6 +214,18 @@ export interface RenderOpts {
   /** Pin decoration size in IU (m_PinSymbolSize; default 25 mil). 0 keeps
    *  KiCad's per-pin fallback: the pin's own text sizes ÷ 2. */
   pinSymbolSizeIU?: number;
+  /** Wire hop-over arc radius in IU (default line width ×
+   *  SCHEMATIC_SETTINGS::GetHopOverScale). Unset or 0 = no hop-overs. */
+  hopOverRadiusIU?: number;
+  /** Inter-sheet references (m_IntersheetRefsShow on): resolves a global
+   *  label's implicit "Intersheet References" field text from its resolved
+   *  label text (SCH_GLOBALLABEL::ResolveTextVar `INTERSHEET_REFS` branch).
+   *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
+  intersheetRefs?: { text: (resolvedLabel: string) => string };
+  /** The highlighted net chain's member wires + its colour override
+   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor — the painter
+   *  tints chain wires while that chain is highlighted). */
+  chainHighlight?: { lineIds: ReadonlySet<string>; color: string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
    *  GetEffectiveLineStyle, SCH_JUNCTION::getEffectiveShape): applied only
    *  where the item carries no stroke of its own. */
@@ -273,6 +288,11 @@ let g_gapRatio = 3;
 let g_textOffsetRatio = 0.15;
 let g_labelSizeRatio = 0.375; // DEFAULT_LABEL_SIZE_RATIO (box expansion)
 let g_pinSymbolSize = 0.635 * MM; // m_PinSymbolSize (25 mil); 0 = per-pin fallback
+let g_hopOverRadius = 0; // hop-over arc radius (IU); 0 = hop-overs off
+// Inter-sheet reference resolver for the current render (unset = hidden).
+let g_intersheetRefs: RenderOpts['intersheetRefs'];
+// Highlighted-chain wire tint for the current render (unset = none).
+let g_chainHighlight: RenderOpts['chainHighlight'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
@@ -285,6 +305,14 @@ const _GRID = 1.27 * MM; // 50 mil
 
 function libUnitMatches(u: LibSymbolUnit, unit: number, bodyStyle: number): boolean {
   return (u.unit === 0 || u.unit === unit) && (u.bodyStyle === 0 || u.bodyStyle === bodyStyle);
+}
+
+/** EDA_ANGLE::Normalize180 in radians: fold an angle into (-π, π]. */
+function normalizePI(a: number): number {
+  let r = a;
+  while (r <= -Math.PI) r += 2 * Math.PI;
+  while (r > Math.PI) r -= 2 * Math.PI;
+  return r;
 }
 
 /** KiCad `(color r g b a)` (rgb 0-255, a 0-1) -> a CSS colour. */
@@ -383,6 +411,9 @@ export function renderSchematic(
     opts.pinSymbolSizeIU !== undefined && opts.pinSymbolSizeIU >= 0
       ? opts.pinSymbolSizeIU
       : PIN_SYMBOL_SIZE;
+  g_hopOverRadius = opts.hopOverRadiusIU && opts.hopOverRadiusIU > 0 ? opts.hopOverRadiusIU : 0;
+  g_intersheetRefs = opts.intersheetRefs;
+  g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
@@ -511,23 +542,60 @@ export function renderSchematic(
       line.stroke && line.stroke.width > 0 ? line.stroke.width : (nc?.widthIU ?? g_defaultPen);
     // An explicit stroke colour overrides the layer colour for wires and buses
     // too (SCH_PAINTER::getRenderColor honours SCH_LINE::GetLineColor()).
-    ctx.strokeStyle = on
-      ? theme.netHighlight
-      : line.stroke?.color
-        ? cssColor(line.stroke.color)
-        : nc?.color
-          ? nc.color
-          : line.kind === 'bus'
-            ? theme.bus
-            : line.kind === 'wire'
-              ? theme.wire
-              : theme.noteLine;
+    // A highlighted chain with a colour override tints its member wires
+    // (sch_painter.cpp draw(SCH_LINE): GetNetChainForNet + chain colour).
+    const chainTint =
+      line.kind === 'wire' && g_chainHighlight?.lineIds.has(refId('line', line.uuid, i))
+        ? g_chainHighlight.color
+        : undefined;
+    ctx.strokeStyle =
+      chainTint ??
+      (on
+        ? theme.netHighlight
+        : line.stroke?.color
+          ? cssColor(line.stroke.color)
+          : nc?.color
+            ? nc.color
+            : line.kind === 'bus'
+              ? theme.bus
+              : line.kind === 'wire'
+                ? theme.wire
+                : theme.noteLine);
     ctx.lineWidth = width;
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'
         ? line.stroke.type
         : (nc?.dash ?? line.stroke?.type);
     setDash(ctx, dashType, width);
+    // Wires/buses hop over crossing wires when the Formatting hop-over size is
+    // on (SCH_PAINTER::draw(SCH_LINE): BuildWireWithHopShape segments + arcs;
+    // hops are a small arc, so a solid line style gives best results).
+    if ((line.kind === 'wire' || line.kind === 'bus') && g_hopOverRadius > 0) {
+      for (const part of buildWireWithHopShape(line, sch.lines, g_hopOverRadius)) {
+        if (part.kind === 'seg') {
+          ctx.beginPath();
+          ctx.moveTo(part.a.x, part.a.y);
+          ctx.lineTo(part.b.x, part.b.y);
+          ctx.stroke();
+        } else {
+          const center = CalcArcCenter(part.start, part.mid, part.end);
+          const startAngle = Math.atan2(part.start.y - center.y, part.start.x - center.x);
+          const midAngle = Math.atan2(part.mid.y - center.y, part.mid.x - center.x);
+          const endAngle = Math.atan2(part.end.y - center.y, part.end.x - center.x);
+          // EDA_ANGLE::Normalize180 on each half, then sum — keeps the sweep
+          // direction through the arc's midpoint.
+          const angle = normalizePI(midAngle - startAngle) + normalizePI(endAngle - midAngle);
+          const radius = Math.hypot(part.start.x - center.x, part.start.y - center.y);
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, radius, startAngle, startAngle + angle, angle < 0);
+          ctx.stroke();
+          setDash(ctx, dashType, width);
+        }
+      }
+      ctx.setLineDash([]);
+      return;
+    }
     ctx.beginPath();
     ctx.moveTo(pts[0]!.x, pts[0]!.y);
     for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k]!.x, pts[k]!.y);
@@ -1375,6 +1443,51 @@ function drawLabel(
       // Centre the text in the box (box centre is at -symbLen/2 along the reading axis).
       const c = spinRotate({ x: -x / 2 + xoff, y: 0 }, spin);
       if (!shadow) drawText(ctx, l.text, { x: l.at.x + c.x, y: l.at.y + c.y }, h, color);
+      // The implicit "Intersheet References" field (${INTERSHEET_REFS}), when
+      // Formatting shows the layer. Colour: LAYER_INTERSHEET_REFS aliases
+      // LAYER_GLOBLABEL (render_settings.h GetLayerColor).
+      if (g_intersheetRefs && !shadow) {
+        const field = intersheetRefsField(l);
+        const refText = g_intersheetRefs.text(l.text);
+        const fh = field?.effects?.fontSize?.[0] ?? 1.27 * MM;
+        if (intersheetRefsAutoplaced(l, field)) {
+          // SCH_LABEL_BASE::AutoplaceFields: the refs sit past the flag's tail
+          // — offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
+          // back toward the label, rotated with the spin.
+          const margin = 2 * Math.round(g_textOffsetRatio * h);
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = -Infinity,
+            maxY = -Infinity;
+          for (const p of pts) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+          }
+          const off = Math.max(maxX - minX, maxY - minY) + margin;
+          if (spin === SPIN.LEFT)
+            drawText(ctx, refText, { x: l.at.x - off, y: l.at.y }, fh, color, ['right']);
+          else if (spin === SPIN.UP)
+            drawText(ctx, refText, { x: l.at.x, y: l.at.y - off }, fh, color, ['left'], 90);
+          else if (spin === SPIN.RIGHT)
+            drawText(ctx, refText, { x: l.at.x + off, y: l.at.y }, fh, color, ['left']);
+          else drawText(ctx, refText, { x: l.at.x, y: l.at.y + off }, fh, color, ['right'], 90);
+        } else if (field?.at) {
+          // A user-placed field keeps its stored position/effects.
+          drawText(
+            ctx,
+            refText,
+            field.at,
+            fh,
+            color,
+            field.effects?.justify,
+            field.angle % 180 === 90 ? 90 : 0,
+            field.effects?.bold ?? false,
+            field.effects?.italic ?? false,
+          );
+        }
+      }
     }
     return;
   }

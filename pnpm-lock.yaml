@@ -105,6 +105,9 @@ importers:
 
   eeschema:
     dependencies:
+      '@bokuweb/zstd-wasm':
+        specifier: ^0.0.27
+        version: 0.0.27
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
@@ -399,6 +402,9 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [win32]
+
+  '@bokuweb/zstd-wasm@0.0.27':
+    resolution: {integrity: sha512-GDm2uOTK3ESjnYmSeLQifJnBsRCWajKLvN32D2ZcQaaCIJI/Hse9s74f7APXjHit95S10UImsRGkTsbwHmrtmg==}
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
@@ -2164,6 +2170,8 @@ snapshots:
 
   '@biomejs/cli-win32-x64@2.5.3':
     optional: true
+
+  '@bokuweb/zstd-wasm@0.0.27': {}
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
