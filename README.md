@@ -75,6 +75,18 @@ per-browser id that is not linked to the user's account.
 Tracing, session replay and profiling are all disabled: this collects stack
 traces to fix bugs, not usage analytics.
 
+The deployed DSN lives in `vercel.json` rather than the Vercel dashboard. A
+Sentry DSN is a public, write-only ingest key — it ships inside the client
+bundle by design and can neither read issues nor reach the account — so keeping
+it in the repo means every deploy and preview is configured identically, with
+nothing to forget. Local development stays off unless you set `VITE_SENTRY_DSN`
+yourself, so debugging never pollutes production issues.
+
+The project is on Sentry's **EU (`de`) region**. Anything that talks to Sentry
+from the build (source-map upload, releases) must be pointed at
+`https://de.sentry.io/` via `SENTRY_URL`, with an auth token created there — the
+CLI defaults to the US instance and will otherwise upload into a void.
+
 ## Repository layout
 
 See **[STRUCTURE.md](./STRUCTURE.md)** for the full map and the conventions
