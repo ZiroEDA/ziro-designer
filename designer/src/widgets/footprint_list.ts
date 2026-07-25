@@ -9,7 +9,7 @@
  * as the symbol libraries (FOOTPRINTS_BASE / VITE_FOOTPRINTS_URL).
  */
 import type { PcbFootprint } from '@ziroeda/pcbnew';
-import { FOOTPRINTS_BASE } from '../editors/footprint/libraryManager.js';
+import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
 import { parseFootprint } from '../editors/footprint/footprintBoard.js';
 
 export interface FpIndexEntry {
@@ -22,9 +22,7 @@ let indexPromise: Promise<FpIndexEntry[]> | null = null;
 /** Load the footprint-library index (library → footprint names). */
 export function loadFootprintIndex(): Promise<FpIndexEntry[]> {
   if (!indexPromise) {
-    indexPromise = fetch(`${FOOTPRINTS_BASE}/index.json`)
-      .then((r) => (r.ok ? r.json() : []))
-      .catch(() => []);
+    indexPromise = fetchLibraryIndex<FpIndexEntry>('footprints');
   }
   return indexPromise;
 }
@@ -40,7 +38,7 @@ export function loadFootprint(libId: string): Promise<PcbFootprint | null> {
     const lib = libId.slice(0, sep);
     const name = libId.slice(sep + 1);
     p = fetch(
-      `${FOOTPRINTS_BASE}/${encodeURIComponent(lib)}.pretty/${encodeURIComponent(name)}.kicad_mod`,
+      `${libraryBase.footprints}/${encodeURIComponent(lib)}.pretty/${encodeURIComponent(name)}.kicad_mod`,
     )
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));

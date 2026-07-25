@@ -175,6 +175,11 @@ import { DialogExportBom } from './dialogs/dialog_export_bom.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
+import {
+  projectFpLibTablePath,
+  serializeFpLibTable,
+  type FpLibRow,
+} from '../footprint/fp_lib_table.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
 import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot.js';
 import {
@@ -1017,6 +1022,51 @@ export function SchematicEditor({
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
   const [assignFpOpen, setAssignFpOpen] = useState(false);
+  // The sheets of THIS design, in hierarchy order — cvpcb is handed the
+  // current schematic's netlist, so sibling projects sharing the folder (and
+  // sheets reached twice) must not add rows.
+  const assignFpFiles = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const s of sheetInstanceRefs) {
+      if (seen.has(s.file)) continue;
+      seen.add(s.file);
+      out.push(s.file);
+    }
+    return out.length > 0 ? out : [currentFile];
+  }, [sheetInstanceRefs, currentFile]);
+  // The project's own footprint files: the `.pretty` members plus the
+  // `fp-lib-table` that registers them (a folder no row points at is not a
+  // library) and the `.kicad_pro` that locates the project folder.
+  const projectFootprintFiles = useMemo(
+    () =>
+      rawFiles
+        .filter(
+          (f) =>
+            /\.kicad_mod$/i.test(f.name) ||
+            /(^|\/)fp-lib-table$/i.test(f.name) ||
+            /\.kicad_pro$/i.test(f.name),
+        )
+        .map((f) => ({ name: f.name, text: f.text })),
+    [rawFiles],
+  );
+  // Manage Footprint Libraries: write the project's `fp-lib-table` (creating it
+  // next to the `.kicad_pro` when the project has none) and keep it in memory,
+  // so a library registered here resolves immediately.
+  const saveProjectFpLibTable = useCallback(
+    (rows: FpLibRow[]) => {
+      const name = projectFpLibTablePath(rawFiles);
+      const text = serializeFpLibTable(rows);
+      setRawFiles((prev) => {
+        const has = prev.some((f) => f.name === name);
+        return has
+          ? prev.map((f) => (f.name === name ? { ...f, text } : f))
+          : [...prev, { name, text }];
+      });
+      onPersistFiles?.([{ name, text }]);
+    },
+    [rawFiles, onPersistFiles],
+  );
   const runClearAnnotation = useCallback(
     (scope: AnnotateOptions['scope']) => {
       runCommand(clearAnnotationCommand(scope, selection));
@@ -1346,12 +1396,26 @@ export function SchematicEditor({
   // sheet through the live undo history, other sheets through their own
   // histories (the same cross-document pattern as editPageNumber/ReplaceAll).
   const applyFieldsEdits = useCallback(
-    (edits: FieldsEdits) => {
+    (edits: FieldsEdits, opts: { persist?: boolean } = {}) => {
       const changedFiles: PickedFile[] = [];
       for (const [file, perSymbol] of edits) {
         const cmd = bulkEditFieldsCommand(perSymbol);
         if (file === currentFile) {
           runCommand(cmd);
+          // "Apply, Save Schematic & Continue" saves right away rather than
+          // waiting for the debounced autosave, so the on-screen sheet is
+          // serialized from the same command result runCommand just committed.
+          const cur = docRef.current;
+          if (opts.persist && cur) {
+            try {
+              changedFiles.push({
+                name: file,
+                text: serializeSchematic(withCleanup(cmd, libById).apply(cur)),
+              });
+            } catch {
+              /* skip a bad sheet */
+            }
+          }
           continue;
         }
         const target = project.current.docs.get(file);
@@ -1365,10 +1429,13 @@ export function SchematicEditor({
           /* skip a bad sheet */
         }
       }
-      if (changedFiles.length) onProjectChange?.(changedFiles);
+      if (changedFiles.length) {
+        onProjectChange?.(changedFiles);
+        if (opts.persist) onPersistFiles?.(changedFiles);
+      }
       setFieldsTableOpen(false);
     },
-    [currentFile, runCommand, onProjectChange, libById],
+    [currentFile, runCommand, onProjectChange, onPersistFiles, libById],
   );
 
   // Plot (DIALOG_PLOT_SCHEMATIC / SCH_PLOTTER::Plot): write the chosen format
@@ -3740,10 +3807,15 @@ export function SchematicEditor({
           {assignFpOpen && (
             <DialogAssignFootprints
               docs={liveDocs()}
-              onApply={(edits) => {
-                applyFieldsEdits(edits);
-                setAssignFpOpen(false);
+              // The netlist CVPCB works on is this design's sheets, in
+              // hierarchy order — not every .kicad_sch in the project folder.
+              files={assignFpFiles}
+              projectFootprints={projectFootprintFiles}
+              onApply={(edits, { save, close }) => {
+                applyFieldsEdits(edits, { persist: save });
+                if (close) setAssignFpOpen(false);
               }}
+              onSaveLibTable={saveProjectFpLibTable}
               onClose={() => setAssignFpOpen(false)}
             />
           )}

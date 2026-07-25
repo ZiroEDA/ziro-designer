@@ -19,11 +19,16 @@ export interface FootprintPreviewWidgetProps {
   footprint: string;
   /** Status label, e.g. "No footprint specified" (upstream SetStatusText). */
   statusText: string;
+  /** Resolve a LIB_ID to a footprint. Defaults to the hosted libraries; the
+   *  Assign Footprints window passes a resolver that also serves the project's
+   *  own `.pretty` libraries (the fp-lib-table's project scope). */
+  resolve?: (libId: string) => Promise<PcbFootprint | null>;
 }
 
 export function FootprintPreviewWidget({
   footprint,
   statusText,
+  resolve = loadFootprint,
 }: FootprintPreviewWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fp, setFp] = useState<PcbFootprint | null>(null);
@@ -38,7 +43,7 @@ export function FootprintPreviewWidget({
       return;
     }
     setStatus('loading');
-    void loadFootprint(footprint).then((loaded) => {
+    void resolve(footprint).then((loaded) => {
       if (cancelled) return;
       setFp(loaded);
       setStatus(loaded ? 'idle' : 'missing');
@@ -46,7 +51,7 @@ export function FootprintPreviewWidget({
     return () => {
       cancelled = true;
     };
-  }, [footprint]);
+  }, [footprint, resolve]);
 
   // Paint the footprint fitted into the pane (FOOTPRINT_PREVIEW_PANEL's
   // fitToCurrentFootprint), re-painting on pane resize.

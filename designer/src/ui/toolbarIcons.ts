@@ -268,6 +268,18 @@ const BITMAP: Record<string, string> = {
   diffMode: 'contrast_mode',
   flipView: 'mirror_h',
   showLayerManager: 'layers_manager',
+  // Assign Footprints (cvpcb, per CVPCB_ACTIONS .Icon()).
+  cvpcbSaveToSchematic: 'save',
+  cvpcbViewFootprint: 'show_footprint',
+  cvpcbPrevNA: 'left',
+  cvpcbNextNA: 'right',
+  cvpcbUndo: 'undo',
+  cvpcbRedo: 'redo',
+  cvpcbDeleteAll: 'delete_association',
+  cvpcbFilterFp: 'module_filtered_list',
+  cvpcbFilterPin: 'module_pin_filtered_list',
+  cvpcbFilterLib: 'module_library_list',
+  cvpcbLibTable: 'library_table',
 };
 
 /** KiCad icon URL for a toolbar tool id, or undefined if none is mapped. */

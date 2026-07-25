@@ -32,7 +32,8 @@ import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { FP_TOP_TOOLBAR, FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from './footprintToolbars.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
-import { FOOTPRINTS_BASE, FootprintLibraryManager, fpNameOf } from './libraryManager.js';
+import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
+import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
 import { FOOTPRINT_LAYERS } from './footprintBoard.js';
 import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
@@ -192,15 +193,16 @@ export function FootprintEditor({
       list.push({ fileName: basename(f.name), text: f.text });
       byDir.set(dir, list);
     }
+    // Only libraries the project's fp-lib-table registers are loaded, under
+    // the nickname the table gives them (FP_LIB_TABLE): a `.pretty` folder no
+    // row points at is not a library, here or in KiCad.
+    const libRows = projectFpLibTable(initialProject ?? []);
     for (const [dir, entries] of byDir) {
-      const name = dir
-        .replace(/\.pretty$/i, '')
-        .split('/')
-        .pop()!;
-      manager.current.addProjectLibrary(name, dir, entries);
+      const name = projectLibraryNickname(libRows, `${dir}/x.kicad_mod`);
+      if (name) manager.current.addProjectLibrary(name, dir, entries);
     }
     // Bundled global footprint libraries (names up front, files fetched lazily).
-    fetch(`${FOOTPRINTS_BASE}/index.json`)
+    fetch(`${footprintsBase()}/index.json`)
       .then((r) => (r.ok ? r.json() : []))
       .then((idx: { name: string; footprints: string[] }[]) => {
         for (const lib of idx) manager.current.addGlobalLibrary(lib.name, lib.footprints);
