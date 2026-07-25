@@ -46,15 +46,38 @@ export interface StubWire {
   fixed: Vec2;
 }
 
-/** An unselected label riding a moved wire: kept at the same parametric
- *  position along the wire's body (KiCad's SPECIAL_CASE_LABEL_INFO). */
+/**
+ * A wire split under a dragged label: the label sat mid-span, so the wire is
+ * cut at that point, a junction is dropped there, and a stub wire takes the
+ * label away (getConnectedDragItems' label branch → makeNewWire /
+ * makeNewJunction).
+ */
+export interface LineSplit {
+  /** The wire being cut. */
+  lineUuid: string;
+  /** The cut point — the label's anchor. */
+  at: Vec2;
+  /** Uuid of the far half. */
+  newUuid: string;
+  /** Uuid of the junction added at the cut. */
+  junctionUuid: string;
+  /** The original end point, restored on undo. */
+  originalEnd: Vec2;
+}
+
+/**
+ * An unselected label carried by a moved wire (KiCad's SPECIAL_CASE_LABEL_INFO).
+ * A wire moving whole takes its labels with it; a wire with only one end
+ * dragged leaves them where they are — upstream moves them by the *fixed*
+ * end's delta — and only pulls them back onto the wire if it shrank past them.
+ */
 export interface LabelRide {
   /** The label's stable id. */
   id: string;
   /** The carrying wire's uuid. */
   lineUuid: string;
-  /** Parametric position of the label anchor on start→end (0..1). */
-  t: number;
+  /** Whether the whole wire moves (both ends) rather than stretching. */
+  rigid: boolean;
 }
 
 /** A plan for a connection-aware move: which items move whole, which wire ends drag. */
@@ -69,6 +92,8 @@ export interface MoveSpec {
   newWires: readonly StubWire[];
   /** Unselected labels riding a moved wire's body. */
   labelRides: readonly LabelRide[];
+  /** Wires cut under a dragged label, each with its junction and far half. */
+  splits: readonly LineSplit[];
 }
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
@@ -100,6 +125,11 @@ export function planMove(
   });
   sch.labels.forEach((l, i) => {
     if (ids.has(refId('label', l.uuid, i))) points.add(key(l.at));
+  });
+  // Netclass flags connect like labels (getConnectedDragItems groups
+  // SCH_DIRECTIVE_LABEL_T with the label types).
+  (sch.directiveLabels ?? []).forEach((d, i) => {
+    if (ids.has(refId('directive', d.uuid, i))) points.add(key(d.at));
   });
   // A selected sheet's pins and a selected bus entry's two ends are moved
   // connection points too (getConnectedDragItems' candidate collection).
@@ -172,14 +202,6 @@ export function planMove(
     }
   });
 
-  const newWires: StubWire[] = [...fixedPoints].map((k) => {
-    const [x, y] = k.split(',').map(Number);
-    return { uuid: newUuid(), fixed: { x: x!, y: y! } };
-  });
-
-  // Unselected labels ride a moved wire: anywhere on a fully-moving wire's
-  // body, or on a stretching wire (KiCad hit-tests labels along the line and
-  // repositions them as it moves).
   const onSpan = (p: Vec2, a: Vec2, b: Vec2): boolean => {
     const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
     if (cross !== 0) return false;
@@ -187,10 +209,51 @@ export function planMove(
     const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
     return len2 > 0 && dot >= 0 && dot <= len2;
   };
-  const paramOf = (p: Vec2, a: Vec2, b: Vec2): number => {
-    const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
-    return len2 === 0 ? 0 : ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2;
-  };
+  const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
+  // A *selected* label sitting along an unselected wire keeps its connection:
+  // upstream builds a stub wire at that point and, when the label was mid-span,
+  // cuts the wire there and drops a junction (getConnectedDragItems' label
+  // branch). A label on a wire's endpoint needs none of this — that wire end is
+  // already being dragged with it.
+  const splits: LineSplit[] = [];
+  const stubPoints = new Set<string>();
+  const draggedOnWire = [
+    ...sch.labels.filter((l, i) => ids.has(refId('label', l.uuid, i))).map((l) => l.at),
+    ...(sch.directiveLabels ?? [])
+      .filter((d, i) => ids.has(refId('directive', d.uuid, i)))
+      .map((d) => d.at),
+  ];
+  draggedOnWire.forEach((labelAt) => {
+    for (let li = 0; li < sch.lines.length; li++) {
+      const ln = sch.lines[li]!;
+      if (ln.kind !== 'wire' && ln.kind !== 'bus') continue;
+      const lid = refId('line', ln.uuid, li);
+      if (fullIds.has(lid) || wireStart.has(lid) || wireEnd.has(lid)) continue;
+      if (samePoint(labelAt, ln.start) || samePoint(labelAt, ln.end)) continue;
+      if (!onSpan(labelAt, ln.start, ln.end)) continue;
+      stubPoints.add(key(labelAt));
+      if (ln.uuid !== undefined) {
+        splits.push({
+          lineUuid: ln.uuid,
+          at: labelAt,
+          newUuid: newUuid(),
+          junctionUuid: newUuid(),
+          originalEnd: ln.end,
+        });
+      }
+      break; // one new wire per point, as upstream does
+    }
+  });
+
+  const newWires: StubWire[] = [...fixedPoints, ...stubPoints].map((k) => {
+    const [x, y] = k.split(',').map(Number);
+    return { uuid: newUuid(), fixed: { x: x!, y: y! } };
+  });
+
+  // Unselected labels carried by a moved wire. A wire moving whole takes them
+  // along; a stretching wire leaves them where they are (upstream moves them by
+  // the fixed end's delta) and only pulls them back on if it shrank past them.
   const labelRides: LabelRide[] = [];
   sch.labels.forEach((l, i) => {
     const id = refId('label', l.uuid, i);
@@ -198,12 +261,13 @@ export function planMove(
     sch.lines.forEach((ln, li) => {
       if (ln.uuid === undefined) return;
       const lid = refId('line', ln.uuid, li);
-      const moving = fullIds.has(lid) || wireStart.has(lid) || wireEnd.has(lid);
+      const rigid = fullIds.has(lid);
+      const moving = rigid || wireStart.has(lid) || wireEnd.has(lid);
       if (!moving || !onSpan(l.at, ln.start, ln.end)) return;
       if (labelRides.some((r) => r.id === id)) return; // one carrier per label
-      labelRides.push({ id, lineUuid: ln.uuid, t: paramOf(l.at, ln.start, ln.end) });
+      labelRides.push({ id, lineUuid: ln.uuid, rigid });
     });
   });
 
-  return { fullIds, wireStart, wireEnd, newWires, labelRides };
+  return { fullIds, wireStart, wireEnd, newWires, labelRides, splits };
 }

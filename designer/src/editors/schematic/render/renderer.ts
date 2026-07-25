@@ -1524,6 +1524,36 @@ function drawLabel(
   ctx.lineWidth = shadow ? g_defaultPen + shadow.width : g_defaultPen;
   ctx.strokeStyle = color;
 
+  /**
+   * Paint a text run, or its selection shadow. KiCad shadows text by stroking
+   * the glyphs themselves with `attrs.m_StrokeWidth += getShadowWidth()`
+   * (SCH_PAINTER::draw(SCH_TEXT), the `drawingShadows` branch) — the whole
+   * label glows; there is no underline anywhere in it.
+   */
+  const paintText = (
+    text: string,
+    pos: Vec2,
+    size: number,
+    justify?: readonly string[],
+    angleDeg = 0,
+    bold = false,
+    italic = false,
+  ): void => {
+    const pen = bold ? size / 5 : Math.min(g_defaultPen, size * 0.25);
+    drawText(
+      ctx,
+      text,
+      pos,
+      size,
+      color,
+      justify,
+      angleDeg,
+      bold,
+      italic,
+      shadow ? pen + shadow.width : undefined,
+    );
+  };
+
   if (l.kind === 'hierarchical_label' || l.kind === 'global_label') {
     const halfSize = h / 2;
     if (l.kind === 'hierarchical_label') {
@@ -1534,15 +1564,12 @@ function drawLabel(
       polygon(ctx, pts, false, true);
       // Text sits just beyond the flag (which spans ~2*halfSize from the anchor).
       const off = 2 * halfSize + dist;
-      if (!shadow)
-        drawText(
-          ctx,
-          l.text,
-          { x: l.at.x + flow.x * off, y: l.at.y + flow.y * off },
-          h,
-          color,
-          justifyFor(spin),
-        );
+      paintText(
+        l.text,
+        { x: l.at.x + flow.x * off, y: l.at.y + flow.y * off },
+        h,
+        justifyFor(spin),
+      );
     } else {
       // Global label: 6-point box (margined) with a notch/point per shape, then
       // spin-rotated. Margin = m_LabelSizeRatio × text size
@@ -1579,7 +1606,7 @@ function drawLabel(
       polygon(ctx, pts, false, true);
       // Centre the text in the box (box centre is at -symbLen/2 along the reading axis).
       const c = spinRotate({ x: -x / 2 + xoff, y: 0 }, spin);
-      if (!shadow) drawText(ctx, l.text, { x: l.at.x + c.x, y: l.at.y + c.y }, h, color);
+      paintText(l.text, { x: l.at.x + c.x, y: l.at.y + c.y }, h);
       // The implicit "Intersheet References" field (${INTERSHEET_REFS}), when
       // Formatting shows the layer. Colour: LAYER_INTERSHEET_REFS aliases
       // LAYER_GLOBLABEL (render_settings.h GetLayerColor).
@@ -1632,17 +1659,10 @@ function drawLabel(
   // Free text (SCH_TEXT): drawn exactly at its anchor with its stored
   // justification and angle — KiCad applies no wire offset to plain text.
   if (l.kind === 'text') {
-    if (shadow) {
-      const len = Math.max(1, l.text.length) * h * 0.6;
-      strokeLine(ctx, l.at, { x: l.at.x + len, y: l.at.y });
-      return;
-    }
-    drawText(
-      ctx,
+    paintText(
       l.text,
       l.at,
       h,
-      color,
       l.effects?.justify ?? ['left', 'bottom'],
       l.angle % 180 === 90 ? 90 : 0,
       l.effects?.bold ?? false,
@@ -1657,24 +1677,11 @@ function drawLabel(
   // glyphs fully clear of the wire) and rotated for vertical spins.
   const perp = spin === SPIN.UP || spin === SPIN.BOTTOM ? { x: -dist, y: 0 } : { x: 0, y: -dist };
   const anchor = { x: l.at.x + perp.x, y: l.at.y + perp.y };
-  if (shadow) {
-    // No flag to glow: underline the text run in the reading direction as the cue.
-    const len = Math.max(1, l.text.length) * h * 0.6;
-    const from =
-      spin === SPIN.LEFT || spin === SPIN.BOTTOM
-        ? { x: anchor.x - flow.x * len, y: anchor.y - flow.y * len }
-        : anchor;
-    const to = { x: from.x + flow.x * len, y: from.y + flow.y * len };
-    strokeLine(ctx, from, to);
-    return;
-  }
   const vertical = spin === SPIN.UP || spin === SPIN.BOTTOM;
-  drawText(
-    ctx,
+  paintText(
     l.text,
     anchor,
     h,
-    color,
     l.effects?.justify ?? [...justifyFor(spin), 'bottom'],
     vertical ? 90 : 0,
     l.effects?.bold ?? false,
@@ -2275,6 +2282,8 @@ function drawText(
   angleDeg = 0,
   bold = false,
   italic = false,
+  /** Explicit pen width; the selection shadow strokes the glyphs wider. */
+  penIU?: number,
 ): void {
   if (text === '' || text === '~') return;
 
@@ -2313,7 +2322,7 @@ function drawText(
   // KiCad text pen: normal text uses the constant default pen (6 mil —
   // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
   // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
-  ctx.lineWidth = bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25);
+  ctx.lineWidth = penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25));
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // Vector-text mode strokes segments directly (capturable by the SVG adapter);

@@ -20,7 +20,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
-import { makeWireWithUuid } from './build.js';
+import { makeWireWithUuid, makeJunctionWithUuid } from './build.js';
 import type { MoveSpec, StubWire } from './connect.js';
 import type { EditCommand } from './command.js';
 
@@ -99,10 +99,24 @@ function applyConnectedMove(
   stubs: readonly SchLine[],
   removeStubIds: ReadonlySet<string>,
 ): Schematic {
+  const undoing = removeStubIds.size > 0 || stubs.length === 0;
+  const splitByUuid = new Map(spec.splits.map((sp) => [sp.lineUuid, sp]));
+  const splitAdded = new Set(spec.splits.map((sp) => sp.newUuid));
+  const splitJunctions = new Set(spec.splits.map((sp) => sp.junctionUuid));
+
   const lines = doc.lines
-    .filter((l) => !(l.uuid !== undefined && removeStubIds.has(l.uuid)))
+    .filter(
+      (l) =>
+        !(
+          l.uuid !== undefined &&
+          (removeStubIds.has(l.uuid) || (undoing && splitAdded.has(l.uuid)))
+        ),
+    )
     .map((l, i) => {
       const id = refId('line', l.uuid, i);
+      // A wire cut under a dragged label ends at the cut; undo restores it.
+      const split = l.uuid !== undefined ? splitByUuid.get(l.uuid) : undefined;
+      if (split) return { ...l, end: undoing ? split.originalEnd : split.at };
       if (spec.fullIds.has(id)) return moveLine(l, delta);
       const ms = spec.wireStart.has(id);
       const me = spec.wireEnd.has(id);
@@ -113,6 +127,13 @@ function applyConnectedMove(
         end: me ? add(l.end, delta) : l.end,
       };
     });
+  // The far halves and their junctions, added with the split and removed on undo.
+  const splitHalves = undoing
+    ? []
+    : spec.splits.map((sp) => makeWireWithUuid(sp.at, sp.originalEnd, sp.newUuid));
+  const splitDots = undoing
+    ? []
+    : spec.splits.map((sp) => makeJunctionWithUuid(sp.at, sp.junctionUuid));
   // Riding labels stay at the same parametric spot on their carrier wire
   // (SPECIAL_CASE_LABEL_INFO): translate rigidly with a fully-moved wire and
   // slide proportionally along a stretching one.
@@ -125,9 +146,6 @@ function applyConnectedMove(
     symbols: doc.symbols.map((s, i) =>
       spec.fullIds.has(refId('symbol', s.uuid, i)) ? moveSymbol(s, delta) : s,
     ),
-    junctions: doc.junctions.map((j, i) =>
-      spec.fullIds.has(refId('junction', j.uuid, i)) ? moveJunction(j, delta) : j,
-    ),
     noConnects: doc.noConnects.map((nc, i) =>
       spec.fullIds.has(refId('noconnect', nc.uuid, i)) ? moveNoConnect(nc, delta) : nc,
     ),
@@ -137,19 +155,47 @@ function applyConnectedMove(
       const ride = rideFor.get(id);
       const carrier = ride ? movedByUuid.get(ride.lineUuid) : undefined;
       if (!ride || !carrier) return l;
-      return {
-        ...l,
-        at: {
-          x: Math.round(carrier.start.x + ride.t * (carrier.end.x - carrier.start.x)),
-          y: Math.round(carrier.start.y + ride.t * (carrier.end.y - carrier.start.y)),
-        },
-      };
+      // The whole wire moved: the label goes with it.
+      if (ride.rigid) return moveLabel(l, delta);
+      // One end was dragged: upstream moves the label by the *fixed* end's
+      // delta — zero — and only puts it back on the wire when the wire shrank
+      // past it (SCH_MOVE_TOOL's special-case label handling).
+      return onSegment(l.at, carrier.start, carrier.end)
+        ? l
+        : { ...l, at: nearestOnSegment(l.at, carrier.start, carrier.end) };
     }),
     sheets: doc.sheets.map((s, i) =>
       spec.fullIds.has(refId('sheet', s.uuid, i)) ? moveSheet(s, delta) : s,
     ),
-    lines: stubs.length ? [...lines, ...stubs] : lines,
+    junctions: [
+      ...doc.junctions
+        .filter((j) => !(undoing && j.uuid !== undefined && splitJunctions.has(j.uuid)))
+        .map((j, i) =>
+          spec.fullIds.has(refId('junction', j.uuid, i)) ? moveJunction(j, delta) : j,
+        ),
+      ...splitDots,
+    ],
+    lines: [...lines, ...stubs, ...splitHalves],
   };
+}
+
+/** Is `p` on the segment a→b (KiCad's SCH_LINE::HitTest with 1 IU accuracy)? */
+function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
+  const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+  if (Math.abs(cross) > 1) return false;
+  const dot = (p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y);
+  const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+  return len2 > 0 && dot >= 0 && dot <= len2;
+}
+
+/** SEG::NearestPoint — where a label lands when its wire shrank past it. */
+function nearestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return { x: a.x, y: a.y };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: Math.round(a.x + t * dx), y: Math.round(a.y + t * dy) };
 }
 
 /**

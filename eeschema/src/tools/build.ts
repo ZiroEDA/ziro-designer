@@ -164,7 +164,11 @@ export function makeLabel(
 
 /** Create a new junction model item (with its backing AST node). */
 export function makeJunction(at: Vec2): SchJunction {
-  const uuid = newUuid();
+  return makeJunctionWithUuid(at, newUuid());
+}
+
+/** The same with a caller-supplied uuid, so an undoable command can name it. */
+export function makeJunctionWithUuid(at: Vec2, uuid: string): SchJunction {
   return { at, diameter: 0, uuid, source: buildJunctionNode(at, uuid) };
 }
 
