@@ -3169,6 +3169,8 @@ body {
 }
 /* WX_INFOBAR-style warning strip (annotation incomplete) */
 .ze-infobar {
+  display: flex;
+  align-items: center;
   padding: 7px 12px;
   font-size: 12.5px;
   background: #4d3f14;

@@ -1121,6 +1121,8 @@ export function SchematicEditor({
       })),
     [allFiles],
   );
+  // WX_INFOBAR message posted by a tool (null = hidden).
+  const [infoBar, setInfoBar] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
   // Folders that already exist inside the project, relative to the project's
@@ -4105,8 +4107,24 @@ export function SchematicEditor({
         />
 
         <div className="ze-canvas-wrap">
+          {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
+              its ✕ or by the next successful action. */}
+          {infoBar && (
+            <div className="ze-infobar">
+              {infoBar}
+              <span
+                className="x"
+                title="Close"
+                onClick={() => setInfoBar(null)}
+                style={{ marginLeft: 'auto', cursor: 'pointer' }}
+              >
+                ✕
+              </span>
+            </div>
+          )}
           <SchematicCanvas
             ref={controller}
+            onInfoBar={setInfoBar}
             schematic={doc}
             libById={libById}
             selection={selection}
