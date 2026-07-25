@@ -108,9 +108,21 @@ export const DEFAULT_INPUT_PREFS: InputPrefs = {
   mouseRight: 'pan',
   dragIsMove: false,
   autoStartWires: true,
-  crosshair: 'full',
-  alwaysShowCrosshair: false,
+  // KiCad's defaults (app_settings.cpp): SMALL_CROSS, and the crosshair shown
+  // whatever tool is active.
+  crosshair: 'small',
+  alwaysShowCrosshair: true,
 };
+
+/** The small crosshair is 80 screen px across, at any zoom (OPENGL_GAL::DrawCursor). */
+const SMALL_CROSS_PX = 80;
+
+/**
+ * Tools that snap to connection anchors (pins, wire ends) rather than plain
+ * grid, so the crosshair is drawn where the click will actually land — KiCad
+ * calls ForceCursorPosition() with the anchor BestSnapAnchor() picked.
+ */
+const CONNECTION_SNAP_TOOLS = new Set(['junction', 'noConnect', 'drawWire', 'drawBus']);
 
 // KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
 // concentric rings with a cross through them, hotspot at the centre. The rest of
@@ -682,6 +694,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         busEntries: [makeBusEntry(snap(cursorRef.current), entrySizeRef.current)],
       }).apply(doc);
     }
+    // Ghost: the junction dot and the no-connect X ride the cursor, so you see
+    // the item before you drop it — SingleClickPlace builds the item up front
+    // and keeps it in the view preview (AddToPreview) for the whole run.
+    if (activeTool === 'junction' && cursorRef.current) {
+      doc = addItems({ junctions: [makeJunction(snapConn(cursorRef.current))] }).apply(doc);
+    }
+    if (activeTool === 'noConnect' && cursorRef.current) {
+      doc = addItems({ noConnects: [makeNoConnect(snapConn(cursorRef.current))] }).apply(doc);
+    }
     // Preview: the shape/sheet being drawn (rendered through the model so it
     // matches the final item exactly).
     const ds = drawStateRef.current;
@@ -766,8 +787,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
     // Crosshair cursor (GAL options): full-window lines or a small cross at
     // the snapped cursor position, in the LAYER_SCHEMATIC_CURSOR colour.
-    if (cur) {
-      const c = snap(cur);
+    // Drawing tools always show it (ShowCursor(true)); with the selection tool
+    // it depends on "Always show crosshairs".
+    if (cur && (inputPrefs.alwaysShowCrosshair || activeTool !== 'select')) {
+      const c = CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(cur) : snap(cur);
       ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
       ctx.strokeStyle = theme.cursor;
       ctx.lineWidth = 1 / vp.scale;
@@ -796,7 +819,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         ctx.moveTo(c.x - span, c.y + span);
         ctx.lineTo(c.x + span, c.y - span);
       } else {
-        const arm = 8 / vp.scale;
+        const arm = SMALL_CROSS_PX / 2 / vp.scale;
         ctx.moveTo(c.x - arm, c.y);
         ctx.lineTo(c.x + arm, c.y);
         ctx.moveTo(c.x, c.y - arm);
