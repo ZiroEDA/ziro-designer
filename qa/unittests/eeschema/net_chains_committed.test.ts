@@ -15,6 +15,7 @@ import {
   detectNetChains,
   isValidNetChainName,
   readNetChains,
+  removeFromNetChainCommand,
   restoreCommittedNetChains,
   writeNetChains,
   type CommittedNetChain,
@@ -257,5 +258,39 @@ describe('chain netclass application (ApplyNetChainNetclasses)', () => {
       { pattern: 'IN', netClass: 'Nope' },
     ]);
     expect(missing.name).toBe('Default');
+  });
+});
+
+describe('removeFromNetChainCommand (SCH_EDITOR_CONTROL::RemoveFromNetChain)', () => {
+  const TWO_NET = `
+    ${res('R1', 10, 10, 'r1')}
+    (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))
+    (wire (pts (xy 12.54 10) (xy 20 10)) (uuid "wb"))
+    (label "IN" (at 0 10 0) (uuid "la"))
+    (label "MID" (at 20 10 0) (uuid "lb"))`;
+
+  it('blocks every 2-pin symbol bridging the net, undoably', () => {
+    const d = doc(TWO_NET);
+    const lib = libOf(d);
+    const nl = netlistOf(d);
+    expect(detectNetChains(d, lib, nl)).toHaveLength(1);
+
+    const cmd = removeFromNetChainCommand(d, lib, nl, 'IN');
+    expect(cmd).not.toBeNull();
+    const after = cmd!.apply(d);
+    expect(after.symbols[0]!.passthrough).toBe('block');
+    expect(detectNetChains(after, lib, netlistOf(after))).toHaveLength(0);
+    expect(serializeSchematic(after)).toContain('(passthrough block)');
+
+    // invert restores the prior (unset) mode exactly.
+    const undo = cmd!.invert(d);
+    const restored = undo.apply(after);
+    expect(restored.symbols[0]!.passthrough).toBeUndefined();
+    expect(detectNetChains(restored, lib, netlistOf(restored))).toHaveLength(1);
+  });
+
+  it('returns null when nothing bridges the net', () => {
+    const d = doc(TWO_NET);
+    expect(removeFromNetChainCommand(d, libOf(d), netlistOf(d), 'NOWHERE')).toBeNull();
   });
 });

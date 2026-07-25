@@ -128,6 +128,10 @@ import {
   defaultSchematicSetup,
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
+import {
+  DialogCreateNetChain,
+  type CreateChainFocusHint,
+} from './dialogs/dialog_create_net_chain.js';
 import { findProjectPro, readSchematicSetup, writeSchematicSetupText } from './project_settings.js';
 import {
   IU_PER_MILS,
@@ -142,10 +146,13 @@ import {
   buildPageRefsMap,
   chainPatternAssignments,
   detectNetChains,
+  isValidNetChainName,
   netChainsCommand,
   readNetChains,
+  removeFromNetChainCommand,
   restoreCommittedNetChains,
   writeNetChains,
+  type CommittedNetChain,
   expandTextVars,
   intersheetRefsText,
   addEmbeddedFile,
@@ -535,10 +542,38 @@ export function SchematicEditor({
     () => (doc ? computeNetlist(doc, libById, { busAliases }) : null),
     [doc, libById, busAliases],
   );
+  // This run's potential chains (RebuildNetChains) and the committed chains
+  // restored against them — shared by netclass resolution, the highlight
+  // actions and the Create Net Chain dialog.
+  const potentialChains = useMemo(
+    () => (doc && netlist ? detectNetChains(doc, libById, netlist) : []),
+    [doc, libById, netlist],
+  );
+  const committedChains = useMemo(() => {
+    if (!doc) return [];
+    return netlist
+      ? restoreCommittedNetChains(doc, libById, netlist, potentialChains, readNetChains(doc))
+      : readNetChains(doc);
+  }, [doc, libById, netlist, potentialChains]);
+
+  // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
+  // the plain net highlight, like upstream.
+  const [highlightedChain, setHighlightedChain] = useState<string | null>(null);
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
-    if (netlist && highlightItem !== null) {
+    if (netlist && highlightedChain !== null) {
+      // A highlighted chain brightens every member net's items
+      // (UpdateNetHighlighting walks the chain's nets).
+      const chain = committedChains.find((c) => c.name === highlightedChain);
+      if (chain) {
+        name = chain.name;
+        for (const netName of chain.nets) {
+          const net = netlist.nets.find((n) => n.name === netName);
+          if (net) for (const item of net.items) items.add(item);
+        }
+      }
+    } else if (netlist && highlightItem !== null) {
       const code = netlist.netByItem.get(highlightItem);
       if (code !== undefined) {
         const net = netlist.nets.find((n) => n.code === code);
@@ -549,7 +584,20 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem]);
+  }, [netlist, highlightItem, highlightedChain, committedChains]);
+
+  // Wire tint while a coloured chain is highlighted (painter chain block).
+  const chainHighlight = useMemo(() => {
+    if (!netlist || highlightedChain === null) return undefined;
+    const chain = committedChains.find((c) => c.name === highlightedChain);
+    if (!chain || chain.color === '') return undefined;
+    const lineIds = new Set<string>();
+    for (const netName of chain.nets) {
+      const net = netlist.nets.find((n) => n.name === netName);
+      if (net) for (const item of net.items) lineIds.add(item);
+    }
+    return { lineIds, color: chain.color };
+  }, [netlist, highlightedChain, committedChains]);
 
   // The live document for stable callbacks (selection promotion needs groups).
   const docRef = useRef(doc);
@@ -569,6 +617,7 @@ export function SchematicEditor({
 
   const onSelect = useCallback((id: string | null, additive: boolean) => {
     setHighlightItem(null); // a selection clears any net highlight (KiCad keeps the two exclusive)
+    setHighlightedChain(null);
     setSelection((prev) => {
       if (id === null) return additive ? prev : new Set();
       // A filtered-out hit (locked / disabled type) behaves like empty space.
@@ -590,6 +639,7 @@ export function SchematicEditor({
   // HighlightNet calls ClearSelection so the whole net shows, not a selection halo).
   const onHighlight = useCallback((id: string | null) => {
     setSelection(new Set());
+    setHighlightedChain(null);
     setHighlightItem(id);
   }, []);
 
@@ -904,6 +954,10 @@ export function SchematicEditor({
   // ERC severities + pin-conflict map that the ERC checker reads. (The setup
   // state itself is declared above the netlist memo, which consumes it.)
   const [setupOpen, setSetupOpen] = useState(false);
+  // Net-chain tools: the Create Net Chain dialog (ShowCreateNetChain) and the
+  // Name Net Chain prompt (NameNetChain's wxGetTextFromUser).
+  const [createChainOpen, setCreateChainOpen] = useState(false);
+  const [chainRename, setChainRename] = useState<{ orig: string; name: string } | null>(null);
   // Generate Bill of Materials (Symbol Fields Table export) dialog.
   const [bomOpen, setBomOpen] = useState(false);
   // Export Netlist (DIALOG_EXPORT_NETLIST) dialog.
@@ -1019,25 +1073,19 @@ export function SchematicEditor({
   // Committed-chain netclass overrides join the per-net resolution
   // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
   // pattern assignments) so member nets draw with the chain's netclass.
-  const netOverrides = useMemo(() => {
-    if (!doc) return undefined;
-    const committed = netlist
-      ? restoreCommittedNetChains(
-          doc,
-          libById,
-          netlist,
-          detectNetChains(doc, libById, netlist),
-          readNetChains(doc),
-        )
-      : readNetChains(doc);
-    return computeNetClassOverrides(
-      doc,
-      libById,
-      setup,
-      netlist,
-      chainPatternAssignments(committed),
-    );
-  }, [doc, libById, setup, netlist]);
+  const netOverrides = useMemo(
+    () =>
+      doc
+        ? computeNetClassOverrides(
+            doc,
+            libById,
+            setup,
+            netlist,
+            chainPatternAssignments(committedChains),
+          )
+        : undefined,
+    [doc, libById, setup, netlist, committedChains],
+  );
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
   // > Text Variables) + the sheet's title block + sheet/file tokens, per
@@ -1920,6 +1968,8 @@ export function SchematicEditor({
       ...(resolveTextVar ? { resolveTextVar } : {}),
       // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
       ...(intersheetRefs ? { intersheetRefs } : {}),
+      // Highlighted-chain wire tint (SetHighlightedNetChain + chain colour).
+      ...(chainHighlight ? { chainHighlight } : {}),
       selectionThicknessMils: es.selection.thickness,
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
@@ -2448,6 +2498,60 @@ export function SchematicEditor({
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
         );
+      // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
+      // selections; Highlight / Remove-from / Name when the hit item's net
+      // belongs to a committed chain.
+      {
+        const chainItems: MenuItem[] = [];
+        const symbolIds = doc
+          ? new Set(doc.symbols.map((s, i) => refId('symbol', s.uuid, i)))
+          : new Set<string>();
+        const symbolsOnly = selection.size > 0 && [...selection].every((id) => symbolIds.has(id));
+        if (symbolsOnly)
+          chainItems.push({
+            label: 'Create Net Chain...',
+            action: () => setCreateChainOpen(true),
+          });
+        const hitCode = hit && netlist ? netlist.netByItem.get(hit.id) : undefined;
+        const hitNet =
+          hitCode !== undefined
+            ? (netlist?.nets.find((n) => n.code === hitCode)?.name ?? null)
+            : null;
+        const hitChain = hitNet ? committedChains.find((c) => c.nets.includes(hitNet)) : undefined;
+        if (hitChain && hitNet) {
+          chainItems.push(
+            {
+              label: 'Highlight Net Chain',
+              action: () => {
+                setSelection(new Set());
+                setHighlightItem(null);
+                setHighlightedChain(hitChain.name);
+              },
+            },
+            {
+              label: 'Remove from Net Chain',
+              action: () => {
+                // RemoveFromNetChain: block every 2-pin symbol bridging this
+                // net out of its chain, then chains rebuild via the memos.
+                if (doc && netlist) {
+                  const cmd = removeFromNetChainCommand(doc, libById, netlist, hitNet);
+                  if (cmd) runCommand(cmd);
+                }
+              },
+            },
+            {
+              label: 'Name Net Chain...',
+              action: () => setChainRename({ orig: hitChain.name, name: hitChain.name }),
+            },
+          );
+        }
+        if (highlightedChain !== null)
+          chainItems.push({
+            label: 'Clear Net Highlighting',
+            action: () => setHighlightedChain(null),
+          });
+        if (chainItems.length > 0) items.push({ sep: true }, ...chainItems);
+      }
       items.push(
         { sep: true },
         act('Cut', 'cut', 'Ctrl+X'),
@@ -3265,6 +3369,113 @@ export function SchematicEditor({
               onPlot={doPlot}
               onClose={() => setPlotOpen(false)}
             />
+          )}
+          {createChainOpen && doc && (
+            <DialogCreateNetChain
+              potentials={potentialChains}
+              committed={committedChains}
+              hint={(() => {
+                // ShowCreateNetChain's FOCUS_HINT from the current selection:
+                // symbol references, or a single wire's net name.
+                const hint: CreateChainFocusHint = {};
+                if (doc) {
+                  const selSymbols = doc.symbols
+                    .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
+                    .filter((e) => selection.has(e.id));
+                  const ref = (sym: (typeof selSymbols)[number]['s']): string =>
+                    sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+                  if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
+                  if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
+                  if (selSymbols.length === 0 && selection.size === 1 && netlist) {
+                    const code = netlist.netByItem.get([...selection][0]!);
+                    const net =
+                      code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
+                    if (net) hint.netName = net.name;
+                  }
+                }
+                return hint;
+              })()}
+              onCreate={(chain) => {
+                // CreateNetChainFromPotential + highlight the new chain.
+                runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
+                setSelection(new Set());
+                setHighlightItem(null);
+                setHighlightedChain(chain.name);
+              }}
+              onClose={() => setCreateChainOpen(false)}
+            />
+          )}
+          {chainRename && doc && (
+            <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
+              <div
+                className="ze-modal"
+                style={{ width: 360 }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="ze-modal-header">
+                  Name Net Chain
+                  <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
+                    ✕
+                  </span>
+                </div>
+                <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Net chain name:
+                    <input
+                      style={{ flex: 1 }}
+                      value={chainRename.name}
+                      autoFocus
+                      onChange={(e) =>
+                        setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="ze-modal-footer">
+                  <button className="ze-btn" onClick={() => setChainRename(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="ze-btn primary"
+                    onClick={() => {
+                      // NameNetChain: rename the committed chain (collisions
+                      // rejected like RenameCommittedNetChain), rekey the
+                      // chain->class map, and keep the chain highlighted.
+                      const { orig, name } = chainRename;
+                      if (
+                        name === orig ||
+                        !isValidNetChainName(name) ||
+                        committedChains.some((c) => c.name === name)
+                      ) {
+                        setChainRename(null);
+                        return;
+                      }
+                      runCommand(
+                        netChainsCommand(
+                          writeNetChains(
+                            doc,
+                            committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
+                          ),
+                        ),
+                      );
+                      const classByChain = { ...setup.netChains.classByChain };
+                      if (classByChain[orig] !== undefined) {
+                        classByChain[name] = classByChain[orig];
+                        delete classByChain[orig];
+                        commitSetup({
+                          ...setup,
+                          netChains: { ...setup.netChains, classByChain },
+                        });
+                      }
+                      if (highlightedChain === orig) setHighlightedChain(name);
+                      setChainRename(null);
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
           {setupOpen && (
             <DialogSchematicSetup

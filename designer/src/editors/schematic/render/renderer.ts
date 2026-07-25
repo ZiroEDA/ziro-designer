@@ -222,6 +222,10 @@ export interface RenderOpts {
    *  label text (SCH_GLOBALLABEL::ResolveTextVar `INTERSHEET_REFS` branch).
    *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
   intersheetRefs?: { text: (resolvedLabel: string) => string };
+  /** The highlighted net chain's member wires + its colour override
+   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor — the painter
+   *  tints chain wires while that chain is highlighted). */
+  chainHighlight?: { lineIds: ReadonlySet<string>; color: string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
    *  GetEffectiveLineStyle, SCH_JUNCTION::getEffectiveShape): applied only
    *  where the item carries no stroke of its own. */
@@ -287,6 +291,8 @@ let g_pinSymbolSize = 0.635 * MM; // m_PinSymbolSize (25 mil); 0 = per-pin fallb
 let g_hopOverRadius = 0; // hop-over arc radius (IU); 0 = hop-overs off
 // Inter-sheet reference resolver for the current render (unset = hidden).
 let g_intersheetRefs: RenderOpts['intersheetRefs'];
+// Highlighted-chain wire tint for the current render (unset = none).
+let g_chainHighlight: RenderOpts['chainHighlight'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
@@ -407,6 +413,7 @@ export function renderSchematic(
       : PIN_SYMBOL_SIZE;
   g_hopOverRadius = opts.hopOverRadiusIU && opts.hopOverRadiusIU > 0 ? opts.hopOverRadiusIU : 0;
   g_intersheetRefs = opts.intersheetRefs;
+  g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
@@ -535,17 +542,25 @@ export function renderSchematic(
       line.stroke && line.stroke.width > 0 ? line.stroke.width : (nc?.widthIU ?? g_defaultPen);
     // An explicit stroke colour overrides the layer colour for wires and buses
     // too (SCH_PAINTER::getRenderColor honours SCH_LINE::GetLineColor()).
-    ctx.strokeStyle = on
-      ? theme.netHighlight
-      : line.stroke?.color
-        ? cssColor(line.stroke.color)
-        : nc?.color
-          ? nc.color
-          : line.kind === 'bus'
-            ? theme.bus
-            : line.kind === 'wire'
-              ? theme.wire
-              : theme.noteLine;
+    // A highlighted chain with a colour override tints its member wires
+    // (sch_painter.cpp draw(SCH_LINE): GetNetChainForNet + chain colour).
+    const chainTint =
+      line.kind === 'wire' && g_chainHighlight?.lineIds.has(refId('line', line.uuid, i))
+        ? g_chainHighlight.color
+        : undefined;
+    ctx.strokeStyle =
+      chainTint ??
+      (on
+        ? theme.netHighlight
+        : line.stroke?.color
+          ? cssColor(line.stroke.color)
+          : nc?.color
+            ? nc.color
+            : line.kind === 'bus'
+              ? theme.bus
+              : line.kind === 'wire'
+                ? theme.wire
+                : theme.noteLine);
     ctx.lineWidth = width;
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'

@@ -515,6 +515,83 @@ export function restoreCommittedNetChains(
   return out;
 }
 
+/**
+ * SCH_EDITOR_CONTROL::RemoveFromNetChain — every 2-pin symbol bridging
+ * `netName` into a different net gets `(passthrough block)`, undoably, so the
+ * next detection pass drops it from its chain.
+ */
+export function removeFromNetChainCommand(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  netlist: Netlist,
+  netName: string,
+): EditCommand | null {
+  const pins = enumeratePins(sch, libById);
+  const bySym = new Map<string, PinNode[]>();
+  for (const p of pins) {
+    const arr = bySym.get(p.symId) ?? [];
+    arr.push(p);
+    bySym.set(p.symId, arr);
+  }
+  const nameOf = (code: number | undefined): string =>
+    code !== undefined ? (netlist.nets.find((n) => n.code === code)?.name ?? '') : '';
+  const passthroughOf = new Map<string, 'block' | 'force' | undefined>();
+  sch.symbols.forEach((sym, si) => {
+    passthroughOf.set(refId('symbol', sym.uuid, si), sym.passthrough);
+  });
+
+  const toBlock = new Set<string>();
+  for (const [symId, symPins] of bySym) {
+    if (symPins.length !== 2) continue;
+    const a = nameOf(netlist.netByItem.get(symPins[0]!.id));
+    const b = nameOf(netlist.netByItem.get(symPins[1]!.id));
+    if (a === '' || b === '') continue;
+    if ((a === netName && b !== netName) || (b === netName && a !== netName)) {
+      if (passthroughOf.get(symId) !== 'block') toBlock.add(symId);
+    }
+  }
+  if (toBlock.size === 0) return null;
+
+  return {
+    label: 'Remove from Net Chain',
+    apply(doc: Schematic): Schematic {
+      return {
+        ...doc,
+        symbols: doc.symbols.map((sym, si) =>
+          toBlock.has(refId('symbol', sym.uuid, si))
+            ? { ...sym, passthrough: 'block' as const }
+            : sym,
+        ),
+      };
+    },
+    invert(before: Schematic): EditCommand {
+      const prior = new Map<string, 'block' | 'force' | undefined>();
+      before.symbols.forEach((sym, si) => {
+        const id = refId('symbol', sym.uuid, si);
+        if (toBlock.has(id)) prior.set(id, sym.passthrough);
+      });
+      return {
+        label: 'Remove from Net Chain',
+        apply(doc: Schematic): Schematic {
+          return {
+            ...doc,
+            symbols: doc.symbols.map((sym, si) => {
+              const id = refId('symbol', sym.uuid, si);
+              if (!prior.has(id)) return sym;
+              const mode = prior.get(id);
+              const out = { ...sym };
+              if (mode) (out as { passthrough?: 'block' | 'force' }).passthrough = mode;
+              else delete (out as { passthrough?: 'block' | 'force' }).passthrough;
+              return out;
+            }),
+          };
+        },
+        invert: () => removeFromNetChainCommand(sch, libById, netlist, netName) as EditCommand,
+      };
+    },
+  };
+}
+
 /** Dialog-OK document update: swap in the recomputed source (chain edits are
  *  applied whole, like the embedded-files flow). */
 export function netChainsCommand(after: Schematic): EditCommand {
