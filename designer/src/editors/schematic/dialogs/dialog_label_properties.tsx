@@ -547,7 +547,8 @@ export function DialogLabelProperties({
                     // FONT_CHOICE lists the installed outline fonts too; this
                     // build draws every face with KiCad's own stroke font, so
                     // only upstream's two entries — which render identically
-                    // there as well — are offered. The choice is stored.
+                    // there as well — are offered. The choice is stored, and
+                    // outline fonts are issue #154.
                     title="Text is drawn with KiCad's own font in the browser build."
                     value={face === '' ? 'Default Font' : face}
                     onChange={(e) =>

@@ -20,8 +20,8 @@
  *
  * The font choice offers upstream's two built-in entries; the outline fonts
  * FONT_CHOICE also lists are not available, because this build draws every
- * face with KiCad's own stroke font (see the font issue). The choice itself is
- * stored, so a file that names a face keeps it.
+ * face with KiCad's own stroke font (issue #154). The choice itself is stored,
+ * so a file that names a face keeps it.
  */
 
 import { useEffect, useRef, useState, type JSX } from 'react';
