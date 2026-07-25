@@ -40,6 +40,9 @@ import {
   setPageSettingsCommand,
   getPageSettings,
   bulkEditFieldsCommand,
+  bulkEditSymbolAttributesCommand,
+  composeCommands,
+  type SymbolAttrEdit,
   groupItemsCommand,
   ungroupItemsCommand,
   setSymbolsLockedCommand,
@@ -171,7 +174,6 @@ import {
   type IntersheetRefsConfig,
   type IntersheetSheet,
 } from '@ziroeda/eeschema';
-import { DialogExportBom } from './dialogs/dialog_export_bom.js';
 import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
 import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
@@ -1346,12 +1348,39 @@ export function SchematicEditor({
   // sheet through the live undo history, other sheets through their own
   // histories (the same cross-document pattern as editPageNumber/ReplaceAll).
   const applyFieldsEdits = useCallback(
-    (edits: FieldsEdits) => {
+    (
+      edits: FieldsEdits,
+      opts: {
+        /** "Apply, Save Schematic & Continue" writes the sheets straight away. */
+        persist?: boolean;
+        /** The `${DNP}` / `${EXCLUDE_FROM_…}` columns, applied in the same step. */
+        attrs?: ReadonlyMap<string, ReadonlyMap<string, SymbolAttrEdit>>;
+      } = {},
+    ) => {
       const changedFiles: PickedFile[] = [];
-      for (const [file, perSymbol] of edits) {
-        const cmd = bulkEditFieldsCommand(perSymbol);
+      for (const file of new Set([...edits.keys(), ...(opts.attrs?.keys() ?? [])])) {
+        const perSymbol = edits.get(file);
+        const perSymbolAttrs = opts.attrs?.get(file);
+        const cmds = [
+          ...(perSymbol?.size ? [bulkEditFieldsCommand(perSymbol)] : []),
+          ...(perSymbolAttrs?.size ? [bulkEditSymbolAttributesCommand(perSymbolAttrs)] : []),
+        ];
+        if (cmds.length === 0) continue;
+        const cmd = cmds.length === 1 ? cmds[0]! : composeCommands('Edit Symbol Fields', cmds);
         if (file === currentFile) {
           runCommand(cmd);
+          // Saving serializes from the same command result runCommand committed.
+          const cur = docRef.current;
+          if (opts.persist && cur) {
+            try {
+              changedFiles.push({
+                name: file,
+                text: serializeSchematic(withCleanup(cmd, libById).apply(cur)),
+              });
+            } catch {
+              /* skip a bad sheet */
+            }
+          }
           continue;
         }
         const target = project.current.docs.get(file);
@@ -1365,10 +1394,12 @@ export function SchematicEditor({
           /* skip a bad sheet */
         }
       }
-      if (changedFiles.length) onProjectChange?.(changedFiles);
-      setFieldsTableOpen(false);
+      if (changedFiles.length) {
+        onProjectChange?.(changedFiles);
+        if (opts.persist) onPersistFiles?.(changedFiles);
+      }
     },
-    [currentFile, runCommand, onProjectChange, libById],
+    [currentFile, runCommand, onProjectChange, onPersistFiles, libById],
   );
 
   // Plot (DIALOG_PLOT_SCHEMATIC / SCH_PLOTTER::Plot): write the chosen format
@@ -3708,17 +3739,6 @@ export function SchematicEditor({
               }}
             />
           )}
-          {bomOpen && (
-            <DialogExportBom
-              docs={[...liveDocs().values()]}
-              baseName={outputBaseName()}
-              presets={setup.bomPresets}
-              // Saved presets persist into schematic.bom_presets and list in
-              // Schematic Setup > BOM Presets, like upstream.
-              onSavePresets={(bomPresets) => commitSetup({ ...setup, bomPresets })}
-              onClose={() => setBomOpen(false)}
-            />
-          )}
           {netlistOpen && doc && (
             <DialogExportNetlist
               doc={doc}
@@ -3727,12 +3747,38 @@ export function SchematicEditor({
               onClose={() => setNetlistOpen(false)}
             />
           )}
-          {fieldsTableOpen && (
+          {/* One dialog, two views (DIALOG_SYMBOL_FIELDS_TABLE): Edit Symbol
+              Fields opens its Edit page, Generate BOM its Export page. */}
+          {(fieldsTableOpen || bomOpen) && (
             <DialogSymbolFieldsTable
               docs={liveDocs()}
+              rootFile={project.current.root}
+              currentPath={currentPath}
               fieldTemplates={setup.fieldTemplates}
-              onApply={applyFieldsEdits}
-              onClose={() => setFieldsTableOpen(false)}
+              presets={setup.bomPresets}
+              // Saved presets and the current view persist into schematic.bom_*
+              // and list in Schematic Setup > BOM Presets, like upstream.
+              onSavePresets={(bomPresets) => commitSetup({ ...setup, bomPresets })}
+              defaultBomFileName={`${outputBaseName()}.csv`}
+              initialTab={bomOpen ? 'export' : 'edit'}
+              onApply={(tableEdits, opts) =>
+                applyFieldsEdits(tableEdits.fields, { ...opts, attrs: tableEdits.attrs })
+              }
+              onExportFile={(name, text) =>
+                downloadBlob(new Blob([text], { type: 'text/csv' }), name)
+              }
+              // Cross-probe: pick the row's symbols on the canvas (highlight
+              // also brightens the first), as OnTableRangeSelected does.
+              onCrossProbe={(refs, mode) => {
+                const ids = refs.filter((r) => r.file === currentFile).map((r) => r.id);
+                if (ids.length === 0) return;
+                setSelection(new Set(ids));
+                if (mode === 'highlight') setHighlightItem(ids[0] ?? null);
+              }}
+              onClose={() => {
+                setFieldsTableOpen(false);
+                setBomOpen(false);
+              }}
             />
           )}
           {/* Assign Footprints (cvpcb): assignments apply as Footprint field

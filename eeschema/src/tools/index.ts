@@ -18,6 +18,7 @@ export * from './build.js';
 export * from './build-graphics.js';
 export * from './mutate.js';
 export * from './properties.js';
+export * from './fields_data_model.js';
 export * from './boxselect.js';
 export * from './clipboard.js';
 export * from './sch_find_replace_tool.js';

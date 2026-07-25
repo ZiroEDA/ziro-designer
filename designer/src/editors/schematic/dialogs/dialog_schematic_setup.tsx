@@ -103,6 +103,7 @@ export function DialogSchematicSetup({
       ...(o.bomPresets || o.bomFmtPresets
         ? {
             bomPresets: {
+              ...cur.bomPresets,
               presets: o.bomPresets ? other.bomPresets.presets : cur.bomPresets.presets,
               fmtPresets: o.bomFmtPresets ? other.bomPresets.fmtPresets : cur.bomPresets.fmtPresets,
             },
