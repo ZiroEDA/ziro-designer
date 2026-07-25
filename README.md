@@ -46,8 +46,34 @@ GPL-3.0-or-later. See [LICENSE](./LICENSE).
 | 3D viewer              | three.js                                           |
 | State / undo / actions | command bus with lossless document sources         |
 | Auth / cloud sync      | Supabase                                           |
+| Crash reporting        | Sentry (opt-out, scrubbed)                         |
 | Build / monorepo       | Vite + pnpm workspaces                             |
 | Tests                  | Vitest                                             |
+
+## Configuration
+
+Every integration is env-gated and degrades to a fully offline app when its
+variables are absent, so a clone runs with no configuration at all.
+
+| Variable                       | Effect when unset                        |
+| ------------------------------ | ---------------------------------------- |
+| `VITE_SUPABASE_URL`            | Auth and cloud sync disabled             |
+| `VITE_SUPABASE_ANON_KEY`       | Auth and cloud sync disabled             |
+| `VITE_SUPABASE_STORAGE_BUCKET` | Cloud file storage disabled              |
+| `VITE_SENTRY_DSN`              | Crash reporting disabled                 |
+| `VITE_RELEASE`                 | Crashes are tagged `dev`                 |
+
+### Crash reporting
+
+Reports are **opt-out** — on by default, switched off under
+Preferences → Common → Privacy. Payloads are scrubbed before sending
+(`designer/src/telemetry/scrub.ts`): file names are redacted, URLs lose their
+query strings, console breadcrumbs are dropped, and neither the signed-in
+account nor an IP address is attached. Reports are grouped by a random
+per-browser id that is not linked to the user's account.
+
+Tracing, session replay and profiling are all disabled: this collects stack
+traces to fix bugs, not usage analytics.
 
 ## Repository layout
 

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type JSX, type ReactNode } from 'react';
 import { downloadRecoveryZip, getRecoverySnapshot } from '../home/recovery.js';
+import { captureError, reportingActive } from '../telemetry/reporter.js';
 import './errorBoundary.css';
 
 interface Props {
@@ -32,9 +33,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    // Keep the stack in the console for anyone with devtools open — this is the
-    // only trace of the crash until error reporting is wired up.
+    // Always in the console for anyone with devtools open, whether or not the
+    // user has allowed reports to leave the machine.
     console.error('[ziro] unhandled error', error, info.componentStack);
+    // The component stack is not attached: it can embed props, and so project
+    // data. The exception's own stack is what identifies the bug anyway.
+    captureError(error, { boundary: 'root' });
   }
 
   private onSave = (): void => {
@@ -92,6 +96,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 </button>
               </div>
             </>
+          )}
+
+          {reportingActive() && (
+            <p className="ze-crash-note">
+              An anonymous crash report was sent so we can fix this. It contains the error below and
+              no project data. You can turn reports off in Preferences → Common → Privacy.
+            </p>
           )}
 
           <details className="ze-crash-details">

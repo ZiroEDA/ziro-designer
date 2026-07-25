@@ -458,6 +458,22 @@ export function gridSizeToIU(size: string): number {
   return Math.round(v * 254); // mils
 }
 
+// ----- PRIVACY (ZiroEDA-specific) -------------------------------------------------
+
+/**
+ * Not a KiCad settings mirror: KiCad is a desktop application and collects
+ * nothing, so it has no equivalent. Kept in its own store rather than folded
+ * into CommonSettings so `ziroeda.common` stays a faithful `common.json`.
+ */
+export interface PrivacySettings {
+  /** Send anonymous crash reports. Opt-out: on by default. */
+  crash_reports: boolean;
+}
+
+export const PRIVACY_DEFAULTS: PrivacySettings = {
+  crash_reports: true,
+};
+
 // ----- persistence + store --------------------------------------------------------
 
 function deepMerge<T>(defaults: T, stored: unknown): T {
@@ -502,6 +518,7 @@ class SettingsManager {
   common: CommonSettings = load('ziroeda.common', COMMON_DEFAULTS);
   eeschema: EeschemaSettings = load('ziroeda.eeschema', EESCHEMA_DEFAULTS);
   pcbnew: PcbnewSettings = load('ziroeda.pcbnew', PCBNEW_DEFAULTS);
+  privacy: PrivacySettings = load('ziroeda.privacy', PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = load('ziroeda.colors.user', {});
   private listeners = new Set<Listener>();
@@ -539,6 +556,14 @@ class SettingsManager {
     mutate(next);
     this.pcbnew = next;
     store('ziroeda.pcbnew', next);
+    this.notify();
+  }
+
+  updatePrivacy(mutate: (s: PrivacySettings) => void): void {
+    const next = structuredClone(this.privacy);
+    mutate(next);
+    this.privacy = next;
+    store('ziroeda.privacy', next);
     this.notify();
   }
 

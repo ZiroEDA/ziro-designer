@@ -72,6 +72,12 @@
   filter: brightness(1.2);
 }
 
+.ze-crash-note {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: #8b8f96;
+}
+
 .ze-crash-details {
   margin-top: 22px;
   font-size: 12px;
