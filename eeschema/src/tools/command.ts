@@ -17,6 +17,28 @@ export interface EditCommand {
   invert(before: Schematic): EditCommand;
 }
 
+/**
+ * Run several commands as one undo step — KiCad's SCH_COMMIT, which collects
+ * every change a dialog makes and pushes them under a single label.
+ */
+export function composeCommands(label: string, cmds: readonly EditCommand[]): EditCommand {
+  return {
+    label,
+    apply: (doc) => cmds.reduce((d, c) => c.apply(d), doc),
+    invert(before: Schematic): EditCommand {
+      // Each inverse is computed against the document as that command saw it,
+      // and they undo in reverse order.
+      const inverses: EditCommand[] = [];
+      let doc = before;
+      for (const c of cmds) {
+        inverses.unshift(c.invert(doc));
+        doc = c.apply(doc);
+      }
+      return composeCommands(label, inverses);
+    },
+  };
+}
+
 export class History {
   private undoStack: EditCommand[] = [];
   private redoStack: EditCommand[] = [];

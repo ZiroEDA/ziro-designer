@@ -126,6 +126,52 @@ export function bulkEditFieldsCommand(
   };
 }
 
+/** The symbol attribute flags the fields table edits through its `${DNP}` /
+ *  `${EXCLUDE_FROM_*}` columns (FIELDS_EDITOR_GRID_DATA_MODEL::setAttributeValue).
+ *  Omitted keys are left alone. */
+export interface SymbolAttrEdit {
+  readonly dnp?: boolean;
+  readonly excludedFromBom?: boolean;
+  readonly excludedFromBoard?: boolean;
+  readonly excludedFromSim?: boolean;
+  readonly excludedFromPosFiles?: boolean;
+}
+
+/**
+ * Bulk attribute edit — the attribute half of the Symbol Fields Table's apply
+ * (`FIELDS_EDITOR_GRID_DATA_MODEL::setAttributeValue`): the `${DNP}` and
+ * `${EXCLUDE_FROM_…}` columns write symbol flags rather than fields. `edits`
+ * maps a symbol's refId to the flags to change.
+ */
+export function bulkEditSymbolAttributesCommand(
+  edits: ReadonlyMap<string, SymbolAttrEdit>,
+): EditCommand {
+  return {
+    label: 'Edit Symbol Fields',
+    apply(doc: Schematic): Schematic {
+      return {
+        ...doc,
+        symbols: doc.symbols.map((s, i) => {
+          const edit = edits.get(refId('symbol', s.uuid, i));
+          if (!edit) return s;
+          const next = { ...s } as { -readonly [K in keyof SchSymbol]: SchSymbol[K] };
+          if (edit.dnp !== undefined) next.dnp = edit.dnp;
+          if (edit.excludedFromBom !== undefined) next.inBom = !edit.excludedFromBom;
+          if (edit.excludedFromBoard !== undefined) next.onBoard = !edit.excludedFromBoard;
+          if (edit.excludedFromSim !== undefined) next.excludedFromSim = edit.excludedFromSim;
+          if (edit.excludedFromPosFiles !== undefined)
+            next.excludedFromPosFiles = edit.excludedFromPosFiles;
+          return next;
+        }),
+      };
+    },
+    invert(before: Schematic): EditCommand {
+      const prev = before.symbols.map((s, i) => [refId('symbol', s.uuid, i), s] as const);
+      return restoreSymbols(new Map(prev.filter(([rid]) => edits.has(rid))));
+    },
+  };
+}
+
 /** Restore captured symbols verbatim (the inverse of a properties edit). */
 function restoreSymbols(saved: ReadonlyMap<string, SchSymbol>): EditCommand {
   return {

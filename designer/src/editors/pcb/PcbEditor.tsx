@@ -23,6 +23,7 @@ import {
   readBoard,
   boardHitCandidates,
   boardItemsInBox,
+  allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
   moveBoardItems,
@@ -39,6 +40,8 @@ import {
   mirrorBoardItems,
   groupBoardItems,
   ungroupBoardItems,
+  addToGroupItems,
+  removeFromGroupItems,
   expandGroupIds,
   groupContaining,
   setBoardItemsLocked,
@@ -62,8 +65,14 @@ import {
   type PcbArcTrack,
   type PcbVia,
   type PcbZone,
+  runDrc,
+  type DrcViolation,
+  BOARD_NETLIST_UPDATER,
+  spreadBoardFootprints,
+  type NETLIST,
 } from '@ziroeda/pcbnew';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
+import { Reporter, type ReportLine } from '@ziroeda/common';
+import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
@@ -76,18 +85,40 @@ import {
   type BoardSetupValues,
 } from './dialogs/dialog_board_setup.js';
 import {
+  druFileName,
+  findProjectDru,
+  findProjectPro,
+  readBoardSetupPro,
+  writeBoardSetupProText,
+} from './project_settings.js';
+import type { TextGfxRow } from './board_settings.js';
+import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.js';
+import { DialogDrc } from './dialogs/dialog_drc.js';
+import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
+import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
+import { loadFootprint } from '../../widgets/footprint_list.js';
+import { parseFootprint } from '../footprint/footprintBoard.js';
+import {
   buildScene,
   buildDrawSteps,
   drawBoard,
   drawGrid,
   drawDrawingSheet,
+  drawDrcMarkers,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
+  type DrcMarkerDraw,
 } from './renderBoard.js';
 import type { Viewer3D } from './pcb3d.js';
-import { layerColor, PCB_CURSOR, PCB_OBJECT_COLORS, PCB_SPECIAL } from './pcbTheme.js';
+import {
+  layerColor,
+  PCB_BACKGROUND,
+  PCB_CURSOR,
+  PCB_OBJECT_COLORS,
+  PCB_SPECIAL,
+} from './pcbTheme.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,
@@ -511,68 +542,18 @@ const wildcardMatch = (pattern: string, s: string): boolean => {
   return rx.test(s);
 };
 
-// Routing dimensions of a net class (netclass.cpp defaults, in IU).
+// Routing dimensions of a net class (NETCLASS factory defaults, in IU) — the
+// last-resort fallback when even the Default class carries no value.
 interface ClassDims {
   trackWidth: number;
   viaDiameter: number;
   viaDrill: number;
 }
 const DEFAULT_CLASS_DIMS: ClassDims = {
-  trackWidth: 0.2 * MM,
-  viaDiameter: 0.6 * MM,
-  viaDrill: 0.3 * MM,
+  trackWidth: 0.25 * MM,
+  viaDiameter: 0.8 * MM,
+  viaDrill: 0.4 * MM,
 };
-
-/** Net classes from the project file (net_settings in .kicad_pro). */
-function parseNetclasses(files?: { name: string; text: string }[]): {
-  classes: string[];
-  classColors: Map<string, string>;
-  classDims: Map<string, ClassDims>;
-  patterns: { netclass: string; pattern: string }[];
-} {
-  const out = {
-    classes: ['Default'],
-    classColors: new Map<string, string>(),
-    classDims: new Map<string, ClassDims>(),
-    patterns: [] as { netclass: string; pattern: string }[],
-  };
-  const pro = files?.find((f) => f.name.endsWith('.kicad_pro'));
-  if (!pro) return out;
-  try {
-    const json = JSON.parse(pro.text) as {
-      net_settings?: {
-        classes?: {
-          name?: string;
-          pcb_color?: string;
-          track_width?: number;
-          via_diameter?: number;
-          via_drill?: number;
-        }[];
-        netclass_patterns?: { netclass?: string; pattern?: string }[];
-      };
-    };
-    const ns = json.net_settings;
-    for (const c of ns?.classes ?? []) {
-      if (!c.name) continue;
-      if (!out.classes.includes(c.name)) out.classes.push(c.name);
-      // "rgb(0, 0, 0)"/alpha 0 means unset in the project file.
-      if (c.pcb_color && !/rgba?\(\s*0,\s*0,\s*0,?\s*0(\.0+)?\s*\)/.test(c.pcb_color))
-        out.classColors.set(c.name, c.pcb_color);
-      // Project-file dimensions are in mm.
-      out.classDims.set(c.name, {
-        trackWidth: c.track_width ? c.track_width * MM : DEFAULT_CLASS_DIMS.trackWidth,
-        viaDiameter: c.via_diameter ? c.via_diameter * MM : DEFAULT_CLASS_DIMS.viaDiameter,
-        viaDrill: c.via_drill ? c.via_drill * MM : DEFAULT_CLASS_DIMS.viaDrill,
-      });
-    }
-    for (const p of ns?.netclass_patterns ?? []) {
-      if (p.netclass && p.pattern) out.patterns.push({ netclass: p.netclass, pattern: p.pattern });
-    }
-  } catch {
-    // Malformed project file: fall back to Default only.
-  }
-  return out;
-}
 
 // Builtin layer presets (appearance_controls.cpp preset* + common/lset.cpp masks).
 const FRONT_TECH = ['F.SilkS', 'F.Mask', 'F.Adhes', 'F.Paste', 'F.CrtYd', 'F.Fab'];
@@ -607,6 +588,10 @@ export function PcbEditor({
   onBoardChange,
   projectName,
   projectFiles,
+  rootPro,
+  onPersistFiles,
+  onOutputFile,
+  crossProbeNet,
 }: {
   fileName: string;
   text: string;
@@ -625,6 +610,18 @@ export function PcbEditor({
   /** The open project's files (name + text) — lets the 3D viewer resolve
    *  ${KIPRJMOD}/relative model references to project-bundled files. */
   projectFiles?: { name: string; text: string }[];
+  /** Base name of the active `.kicad_pro` (scopes multi-project folders). */
+  rootPro?: string;
+  /** Persist project files immediately (Board Setup writes the `.kicad_pro`
+   *  and `.kicad_dru` through this, same flow as the schematic editor). */
+  onPersistFiles?: (files: { name: string; text: string }[]) => void;
+  /** Write a generated output file (plot / drill) into the project's file
+   *  manager; the path is relative to the project folder. */
+  onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
+  /** Net highlighted in the schematic editor, cross-probed here (KiCad's
+   *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
+   *  null clears the highlight (SendCrossProbeClearHighlight). */
+  crossProbeNet?: string | null;
 }): JSX.Element {
   const [board, setBoard] = useState<Board | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
@@ -700,6 +697,27 @@ export function PcbEditor({
   // The previously-shown highlight set, restored by the toggle button/Alt+`
   // (BOARD_INSPECTION_TOOL::m_lastHighlighted).
   const lastHighlightRef = useRef<ReadonlySet<number>>(new Set());
+  // Cross-probe from the schematic's net highlight: the net name arrives here
+  // and is resolved against the board's net table, exactly as pcbnew's
+  // "$NET: <name>" express-mail handler does.
+  useEffect(() => {
+    if (crossProbeNet === undefined) return;
+    const brd = boardRef.current;
+    let code = 0;
+    if (crossProbeNet && brd) {
+      for (const [c, name] of brd.nets) {
+        if (name === crossProbeNet) {
+          code = c;
+          break;
+        }
+      }
+    }
+    setHighlightNets((prev) => {
+      if (code <= 0) return prev.size === 0 ? prev : new Set();
+      if (prev.size === 1 && prev.has(code)) return prev;
+      return new Set([code]);
+    });
+  }, [crossProbeNet]);
   const [activeTool, setActiveTool] = useState('selectSetRect');
   // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
@@ -800,10 +818,94 @@ export function PcbEditor({
   const [pageDlgOpen, setPageDlgOpen] = useState(false);
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
-  // Board Setup (DIALOG_BOARD_SETUP). Values seed from board_design_settings.h
-  // defaults for now; project-file round-trip lands with a later phase.
+  // Folders that already exist in the project, relative to the project's own
+  // folder — the Plot dialog's "Output directory:" choices (the cloud file
+  // manager stands in for upstream's wxDirDialog).
+  const projectFolders = useMemo(() => {
+    const files = projectFiles ?? [];
+    const pro = files.find((f) => /\.kicad_pro$/i.test(f.name))?.name.replace(/\\/g, '/');
+    const prefix = pro?.includes('/') ? pro.slice(0, pro.lastIndexOf('/') + 1) : '';
+    const dirs = new Set<string>();
+    for (const f of files) {
+      const p = f.name.replace(/\\/g, '/');
+      if (prefix && !p.startsWith(prefix)) continue;
+      const rel = p.slice(prefix.length);
+      const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+      if (dir) dirs.add(dir);
+    }
+    return [...dirs];
+  }, [projectFiles]);
+  // Board Setup (DIALOG_BOARD_SETUP). Hydrated from the project's .kicad_pro
+  // + the board file's setup sections + the .kicad_dru; committed back to all
+  // three on OK (see commitBoardSetup below).
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
+  // DRC dialog (DIALOG_DRC) — the engine runs in-browser over the live board.
+  // The dialog is modeless like upstream; the violations become PCB_MARKERs
+  // that stay on the board until the next run / Delete All Markers, and the
+  // active violation is the brightened (highlighted) marker.
+  const [drcOpen, setDrcOpen] = useState(false);
+  // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
+  // project's schematic before the dialog opens, together with every footprint it
+  // names — the updater itself is synchronous, exactly like upstream, so the
+  // libraries have to be in hand first (upstream's adapter->BlockUntilLoaded).
+  const [updatePcb, setUpdatePcb] = useState<{
+    netlist: NETLIST;
+    library: Map<string, PcbFootprint>;
+  } | null>(null);
+  const [updatePcbBusy, setUpdatePcbBusy] = useState(false);
+  const [updatePcbError, setUpdatePcbError] = useState<{
+    message: string;
+    details?: string;
+  } | null>(null);
+  const [drcResults, setDrcResults] = useState<DrcViolation[] | null>(null);
+  const [drcSelected, setDrcSelected] = useState<number | null>(null);
+  const drcMarkersRef = useRef<DrcMarkerDraw[]>([]);
+  const drcDialogRef = useRef<HTMLDivElement | null>(null);
   const [boardSetup, setBoardSetup] = useState<BoardSetupValues>(defaultBoardSetup);
+  // Latest texts this editor wrote for project-side files: the projectFiles
+  // prop is a load-time snapshot (App persists to storage without refreshing
+  // the prop), so without this overlay a hydrate after a board save — or a
+  // second dialog OK — would read/merge stale text. Each entry remembers the
+  // prop text it was derived from (`base`): it applies only while the prop
+  // still holds that text, and drops automatically when a genuine reload
+  // delivers fresh content.
+  const projectFileEditsRef = useRef<Map<string, { base: string; text: string }>>(new Map());
+  const projectFilesNow = useCallback((): { name: string; text: string }[] => {
+    const edits = projectFileEditsRef.current;
+    return (projectFiles ?? []).map((f) => {
+      const entry = edits.get(f.name);
+      if (!entry) return f;
+      if (entry.base !== f.text && entry.text !== f.text) {
+        edits.delete(f.name); // the prop moved on: our overlay is obsolete
+        return f;
+      }
+      return { name: f.name, text: entry.text };
+    });
+  }, [projectFiles]);
+  const boardSetupRef = useRef(boardSetup);
+  boardSetupRef.current = boardSetup;
+
+  // BOARD_DESIGN_SETTINGS::GetLayerClass — the Text & Graphics Defaults row
+  // for a layer (silk / copper / edges / courtyard / fab / other).
+  const layerClassRow = (layer: string): TextGfxRow => {
+    const rows = boardSetupRef.current.textGraphics.rows;
+    const i = /\.SilkS$/.test(layer)
+      ? 0
+      : /\.Cu$/.test(layer)
+        ? 1
+        : layer === 'Edge.Cuts'
+          ? 2
+          : /\.CrtYd$/.test(layer)
+            ? 3
+            : /\.Fab$/.test(layer)
+              ? 4
+              : 5;
+    return rows[i] ?? rows[5]!;
+  };
+  // GetLineThickness(layer): the Board Setup default width for new graphics,
+  // with the factory constant as a safety net for a zeroed row.
+  const shapeWidthIU = (layer: string): number =>
+    Math.round(layerClassRow(layer).lineThickness * MM) || defaultShapeWidth(layer);
   // Find dialog (DIALOG_FIND): query, options, hit cursor + status line.
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
@@ -919,6 +1021,78 @@ export function PcbEditor({
       clearTimeout(id);
     };
   }, [text, fileName]);
+
+  // Hydrate Board Setup from the loaded project: the .kicad_pro slices
+  // (design settings, netclasses, component classes, tuning profiles, text
+  // variables), the board file's setup sections and the .kicad_dru rules —
+  // the same load KiCad does in BOARD::SetProject + LoadProjectSettings.
+  useEffect(() => {
+    const files = projectFilesNow();
+    const s = readBoardSetupPro(files, rootPro);
+    applyBoardFileSetup(text, s);
+    const dru = findProjectDru(files, rootPro);
+    if (dru) s.customRules.text = dru.text;
+    setBoardSetup(s);
+  }, [projectFilesNow, rootPro, text]);
+
+  // Commit Board Setup on dialog OK, KiCad's DIALOG_BOARD_SETUP flow: the
+  // project-side slices merge into the .kicad_pro (+ .kicad_dru), persisted
+  // immediately; the board-side slices patch the current board text, which is
+  // reloaded into the editor and saved through the normal board-save path.
+  const commitBoardSetup = useCallback(
+    (next: BoardSetupValues) => {
+      setBoardSetup(next);
+
+      // .kicad_pro + .kicad_dru (merge-writes preserve unowned keys).
+      const files = projectFilesNow();
+      const baseOf = (name: string): string =>
+        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+      const persist: { name: string; text: string }[] = [];
+      const pro = findProjectPro(files, rootPro);
+      if (pro) {
+        const updated = writeBoardSetupProText(pro.text, next);
+        if (updated !== null && updated !== pro.text)
+          persist.push({ name: pro.name, text: updated });
+        const druName = druFileName(pro.name);
+        const dru = findProjectDru(files, rootPro);
+        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
+          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
+        }
+      }
+      if (persist.length) {
+        for (const f of persist)
+          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+        onPersistFiles?.(persist);
+      }
+
+      // Board file: patch the *current* board serialization (not the original
+      // text — live edits must survive), then reload so the editor's board
+      // model, layer list and future saves all see the new setup.
+      const current = boardRef.current ? serializeBoard(boardRef.current) : text;
+      const patched = writeBoardFileSetup(current, next);
+      if (patched !== null && patched !== current) {
+        try {
+          const b = { ...readBoard(parse(patched)), fileName };
+          boardRef.current = b;
+          sceneRef.current = buildScene(b);
+          setBoard(b);
+          // Newly enabled layers become visible; existing choices stay.
+          setVisible((prev) => {
+            const nextVisible = new Set(prev);
+            const before = new Set(board?.layers.map((l) => l.name) ?? []);
+            for (const l of b.layers) if (!before.has(l.name)) nextVisible.add(l.name);
+            return nextVisible;
+          });
+          if (onSaveBoard) onSaveBoard(patched);
+          else setDirty(true);
+        } catch {
+          // A patch that fails to re-parse would corrupt the session: keep the
+          // old board and skip the board-file write.
+        }
+      }
+    },
+    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, text, fileName, board],
+  );
 
   // "Footprints Front/Back" hide whole footprints: rebuild the scene.
   useEffect(() => {
@@ -1314,7 +1488,7 @@ export function PcbEditor({
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
         ctx.strokeStyle = layerColor(activeLayer);
-        ctx.lineWidth = defaultShapeWidth(activeLayer);
+        ctx.lineWidth = shapeWidthIU(activeLayer);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.globalAlpha = 0.9;
@@ -1410,6 +1584,14 @@ export function PcbEditor({
         );
       }
     }
+    // DRC markers (PCB_MARKER, GAL overlay target): painted above the board
+    // and every editing overlay, under the cursor. The ref holds the already
+    // severity-filtered set (the Objects tab's DRC visibility rows gate them
+    // like BOARD::IsElementVisible in pcb_painter.cpp draw(PCB_MARKER)).
+    drawDrcMarkers(ctx, drcMarkersRef.current, v, dpr, {
+      background: PCB_BACKGROUND,
+      ...PCB_SPECIAL,
+    });
     // Crosshair cursor (GAL blitCursor): a white cross at the grid-snapped
     // cursor. crosshairSmall = an 80px cross (default), crosshairFull = full
     // screen lines, crosshair45 = a big diagonal X. Drawn topmost.
@@ -1459,6 +1641,28 @@ export function PcbEditor({
     sceneDirtyRef.current = true;
     requestDraw();
   }, [visible, drawOpts, requestDraw]);
+
+  // Rebuild the DRC marker overlay when the results, the active violation,
+  // the severity settings, or the Objects-tab DRC visibility rows change.
+  // Severity resolves like PCB_MARKER::GetSeverity via the Board Setup
+  // severities (error unless set to warning; ignored ones never get markers).
+  useEffect(() => {
+    const sev = boardSetup.drcSeverities;
+    drcMarkersRef.current = (drcResults ?? []).flatMap((vio, i) => {
+      const severity: DrcMarkerDraw['severity'] = sev[vio.code] === 'warning' ? 'warning' : 'error';
+      const shown = severity === 'warning' ? objects.drcWarnings : objects.drcErrors;
+      if (!shown) return [];
+      return [{ pos: vio.pos, severity, active: i === drcSelected }];
+    });
+    requestDraw();
+  }, [
+    drcResults,
+    drcSelected,
+    boardSetup.drcSeverities,
+    objects.drcErrors,
+    objects.drcWarnings,
+    requestDraw,
+  ]);
 
   // Recompile the selected items into their own scene, so the overlay can paint
   // them brightened over the raster (KiCad's selection look).
@@ -1518,6 +1722,124 @@ export function PcbEditor({
     [setBoardModel],
   );
 
+  // ----- Update PCB from Schematic (BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic) --
+
+  /**
+   * FetchNetlistFromSchematic, then load every footprint the netlist names so the
+   * synchronous updater can run: the hosted libraries plus any `.pretty` the project
+   * carries (FOOTPRINT_LIBRARY_ADAPTER's project rows). A bare footprint name with no
+   * library nickname searches the libraries alphabetically, as
+   * LoadFootprintWithOptionalNickname does.
+   */
+  const openUpdatePcb = useCallback(async (): Promise<void> => {
+    setUpdatePcbError(null);
+    const files = projectFilesNow();
+
+    const fetched = fetchNetlistFromSchematic(
+      files,
+      'Updating PCB requires a fully annotated schematic.',
+      rootPro,
+    );
+
+    if (!fetched.ok) {
+      setUpdatePcbError({
+        message: fetched.error,
+        ...(fetched.details ? { details: fetched.details } : {}),
+      });
+      return;
+    }
+
+    setUpdatePcbBusy(true);
+    try {
+      // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
+      const projectFootprints = new Map<string, string>();
+      for (const file of files) {
+        const norm = file.name.replace(/\\/g, '/');
+        const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(norm);
+        if (match) projectFootprints.set(`${match[1]}:${match[2]}`, file.text);
+      }
+
+      const wanted = new Set<string>();
+      for (const component of fetched.netlist.Components()) {
+        const fpid = component.GetFPID();
+        if (fpid !== '') wanted.add(fpid);
+      }
+
+      const library = new Map<string, PcbFootprint>();
+      await Promise.all(
+        [...wanted].map(async (fpid) => {
+          const local = projectFootprints.get(fpid);
+          if (local) {
+            const parsed = parseFootprint(local);
+            if (parsed) {
+              library.set(fpid, parsed);
+              return;
+            }
+          }
+          const fromLibrary = await loadFootprint(fpid);
+          if (fromLibrary) library.set(fpid, fromLibrary);
+        }),
+      );
+
+      setUpdatePcb({ netlist: fetched.netlist, library });
+    } finally {
+      setUpdatePcbBusy(false);
+    }
+  }, [projectFilesNow, rootPro]);
+
+  /**
+   * DIALOG_UPDATE_PCB::PerformUpdate. A dry run only reports; a real run commits the
+   * new board, then spreads the footprints it added and selects them —
+   * PCB_EDIT_FRAME::OnNetlistChanged's SpreadFootprints + selectItems, which is what
+   * leaves the new parts ready to be dragged into place.
+   */
+  const performNetlistUpdate = useCallback(
+    (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] => {
+      const brd = boardRef.current;
+      if (!brd || !updatePcb) return [];
+
+      const reporter = new Reporter();
+      const updater = new BOARD_NETLIST_UPDATER(
+        brd,
+        reporter,
+        (fpid) => {
+          const direct = updatePcb.library.get(fpid);
+          if (direct) return direct;
+          if (fpid.includes(':')) return null;
+          for (const key of [...updatePcb.library.keys()].sort()) {
+            if (key.slice(key.indexOf(':') + 1) === fpid) return updatePcb.library.get(key) ?? null;
+          }
+          return null;
+        },
+        {
+          isDryRun: dryRun,
+          // SetFindByTimeStamp( !relink ) / SetLookupByTimestamp( !relink ).
+          lookupByTimestamp: !options.relinkFootprints,
+          replaceFootprints: options.updateFootprints,
+          deleteUnusedFootprints: options.deleteExtraFootprints,
+          overrideLocks: options.overrideLocks,
+          updateFields: options.updateFields,
+          removeExtraFields: options.removeExtraFields,
+          transferGroups: options.transferGroups,
+        },
+      );
+
+      const result = updater.UpdateNetlist(updatePcb.netlist);
+
+      if (!dryRun) {
+        const spread =
+          result.addedFootprints.length > 0
+            ? spreadBoardFootprints(result.board, result.addedFootprints)
+            : result.board;
+        commitBoard(spread);
+        setSelection(new Set(result.addedFootprints.map((i) => boardItemId('footprint', i))));
+      }
+
+      return reporter.lines;
+    },
+    [updatePcb, commitBoard],
+  );
+
   // Apply a footprint edit from the Properties grid, committing to the board
   // (children + undo follow). Mirrors the PCB_PROPERTIES_PANEL edits.
   const editFootprint = useCallback(
@@ -1562,6 +1884,10 @@ export function PcbEditor({
     setSelection(new Set());
   }, [setBoardModel]);
 
+  // Selection-filter predicate ref (assigned once passesFilter is defined), so
+  // the stable Select All callback can honour the live filter.
+  const passesFilterRef = useRef<(id: string) => boolean>(() => true);
+
   // Delete the selected items (EDIT_TOOL::Remove). Reads the live selection ref
   // so the keyboard shortcut and menu both act on the current selection.
   // Deleting a group deletes its members too (the id set keeps the group id so
@@ -1573,6 +1899,15 @@ export function PcbEditor({
     commitBoard(deleteBoardItems(brd, new Set([...sel, ...expandGroupIds(brd, sel)])));
     setSelection(new Set());
   }, [commitBoard]);
+
+  // Select All / Unselect All (ACTIONS::selectAll / unselectAll). Select All
+  // honours the Selection Filter, like PCB_SELECTION_TOOL::selectAll.
+  const selectAllSel = useCallback(() => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    setSelection(new Set(allBoardItemIds(brd).filter(passesFilterRef.current)));
+  }, []);
+  const unselectAllSel = useCallback(() => setSelection(new Set()), []);
 
   // Rotate the selection ±90° about its centre (EDIT_TOOL::Rotate). Keeps the
   // selection so it can be rotated repeatedly. Groups rotate as their members.
@@ -1602,7 +1937,9 @@ export function PcbEditor({
   const groupSel = useCallback(() => {
     const brd = boardRef.current;
     const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
+    // ACTIONS::group is enabled only for >= 2 selected items (GROUP_TOOL::update
+    // -> Enable( group, selectionCount >= 2 )); grouping a lone item is a no-op.
+    if (!brd || sel.size < 2) return;
     const { board: next, id } = groupBoardItems(brd, sel);
     if (!id) return;
     commitBoard(next);
@@ -1617,10 +1954,51 @@ export function PcbEditor({
     commitBoard(ungroupBoardItems(brd, sel));
     setSelection(members);
   }, [commitBoard]);
+  // Add the selected items to the one selected group (ACTIONS::addToGroup); the
+  // group stays selected afterwards, like GROUP_TOOL::AddToGroup.
+  const addToGroupSel = useCallback(() => {
+    const brd = boardRef.current;
+    const sel = selForDrawRef.current;
+    if (!brd || sel.size === 0) return;
+    const next = addToGroupItems(brd, sel);
+    if (next === brd) return;
+    const gid = [...sel].find((id) => parseBoardItemId(id)?.kind === 'group');
+    commitBoard(next);
+    if (gid) setSelection(new Set([gid]));
+  }, [commitBoard]);
+  // Remove the selected items from their parent groups (ACTIONS::removeFromGroup).
+  const removeFromGroupSel = useCallback(() => {
+    const brd = boardRef.current;
+    const sel = selForDrawRef.current;
+    if (!brd || sel.size === 0) return;
+    const next = removeFromGroupItems(brd, sel);
+    if (next === brd) return;
+    commitBoard(next);
+  }, [commitBoard]);
+
+  // Group-edit context (SELECTION_TOOL::EnterGroup): double-clicking a group
+  // "enters" it so its members become individually selectable; Esc or double-
+  // clicking empty space leaves. Held as the group's uuid so it survives edits.
+  const [enteredGroup, setEnteredGroup] = useState<string | null>(null);
+  const enteredGroupRef = useRef<string | null>(null);
+  enteredGroupRef.current = enteredGroup;
+  // Drop out if the entered group is dissolved (ungroup / remove-from-group).
+  useEffect(() => {
+    if (enteredGroup && board && !board.groups.some((g) => g.uuid === enteredGroup))
+      setEnteredGroup(null);
+  }, [board, enteredGroup]);
+  const enteredGroupName = useMemo(() => {
+    if (!enteredGroup || !board) return null;
+    const g = board.groups.find((x) => x.uuid === enteredGroup);
+    return g ? g.name || 'Anonymous Group' : null;
+  }, [enteredGroup, board]);
+
+  // Canvas right-click menu (PCB_SELECTION_TOOL TOOL_MENU) position, or null.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Lock / unlock the selection (PCB_ACTIONS::lock / unlock).
   const lockSel = useCallback(
-    (locked: boolean) => {
+    (locked: boolean | 'toggle') => {
       const brd = boardRef.current;
       const sel = selForDrawRef.current;
       if (!brd || sel.size === 0) return;
@@ -1821,7 +2199,7 @@ export function PcbEditor({
             });
           if (findOpts.includeTexts)
             fp.texts.forEach((t, ti) => {
-              if (t.kind === 'user' && !t.hide && matches(t.text))
+              if (t.kind === 'user' && (findOpts.includeHidden || !t.hide) && matches(t.text))
                 hits.push({ id: boardItemId('fptext', i, ti), pos: t.at });
             });
         });
@@ -1879,10 +2257,49 @@ export function PcbEditor({
     },
     [findQuery, findOpts, requestDraw],
   );
-  // Query/options edits restart the search on the next Find.
+  // Query/options edits restart the search on the next Find. Board edits do
+  // too: `board` gets a fresh object identity on every mutation, so the cached
+  // hit list is invalidated whenever the board changes (matching the always-
+  // live schematic Find) rather than going stale until Restart Search.
   useEffect(() => {
     findDirtyRef.current = true;
-  }, [findQuery, findOpts]);
+  }, [findQuery, findOpts, board]);
+
+  // EDA_DRAW_FRAME::FocusOnLocation for the DRC dialog's click-to-locate:
+  // centre the view only when the position is off the current view or within
+  // 10% of its edge (the viewport deflated by width/10 on every side), or
+  // when it sits behind — or within 10% of — the modeless DRC dialog.
+  const drcFocusOn = useCallback(
+    (pos: { x: number; y: number }) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const v = viewRef.current;
+      const sx = v.flipX ? -v.scale : v.scale;
+      const px = pos.x * sx + v.tx;
+      const py = pos.y * v.scale + v.ty;
+      const margin = canvas.width / 10;
+      let center =
+        px < margin || px > canvas.width - margin || py < margin || py > canvas.height - margin;
+      const dlg = drcDialogRef.current;
+      if (!center && dlg) {
+        const dr = dlg.getBoundingClientRect();
+        const cr = canvas.getBoundingClientRect();
+        const k = cr.width > 0 ? canvas.width / cr.width : 1; // device px per CSS px
+        const inflate = (dr.width * k) / 10;
+        center =
+          px >= (dr.left - cr.left) * k - inflate &&
+          px <= (dr.right - cr.left) * k + inflate &&
+          py >= (dr.top - cr.top) * k - inflate &&
+          py <= (dr.bottom - cr.top) * k + inflate;
+      }
+      if (center) {
+        v.tx = canvas.width / 2 - pos.x * sx;
+        v.ty = canvas.height / 2 - pos.y * v.scale;
+      }
+      requestDraw();
+    },
+    [requestDraw],
+  );
 
   // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre.
   // The status bar Z indicator is scale·1000, so preset Z → scale Z/1000.
@@ -2052,6 +2469,7 @@ export function PcbEditor({
     const key = filterKeyOf(r.kind);
     return key ? selFilter.has(key) : true;
   };
+  passesFilterRef.current = passesFilter;
 
   // Hit candidates at a board point — KiCad's selectPoint pipeline: collect
   // with exact hit distances, Selection Filter, then GuessSelectionCandidates
@@ -2072,7 +2490,7 @@ export function PcbEditor({
     });
     const out: string[] = [];
     for (const id of cands) {
-      const resolved = groupContaining(brd, id) ?? id;
+      const resolved = groupContaining(brd, id, enteredGroupRef.current ?? undefined) ?? id;
       if (!out.includes(resolved)) out.push(resolved);
     }
     return out;
@@ -2115,6 +2533,122 @@ export function PcbEditor({
     setDisambig({ x: clientX, y: clientY, ids: cands, additive });
   };
 
+  // Double-click enters the group under the cursor (SELECTION_TOOL::EnterGroup):
+  // a member of the entered group that is itself a sub-group enters one level
+  // deeper; double-clicking empty space leaves the current group.
+  const onCanvasDoubleClick = (e: React.MouseEvent): void => {
+    if (e.button !== 0) return;
+    const w = worldAt(e.clientX, e.clientY);
+    const brd = boardRef.current;
+    if (!w || !brd) return;
+    const top = hitCandidates(w)[0];
+    const r = top ? parseBoardItemId(top) : null;
+    if (r?.kind === 'group') {
+      setEnteredGroup(brd.groups[r.index]?.uuid ?? null);
+      setSelection(new Set());
+    } else if (!top) {
+      setEnteredGroup(null);
+    }
+    requestDraw();
+  };
+
+  // Right-click opens the selection context menu (PCB_SELECTION_TOOL TOOL_MENU).
+  // An unselected item under the cursor becomes the selection first, exactly as
+  // KiCad selects before popping the menu.
+  const onCanvasContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const w = worldAt(e.clientX, e.clientY);
+    const brd = boardRef.current;
+    if (!w || !brd) {
+      setCtxMenu(null);
+      return;
+    }
+    const hit = hitCandidates(w)[0] ?? null;
+    if (hit && !selForDrawRef.current.has(hit)) applySelect(hit, false);
+    // The menu always opens on a non-empty board (Select All is shown even with
+    // nothing selected, per noItemsCondition = board && !IsEmpty).
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  // The selection context menu, in the upstream PCB_SELECTION_TOOL TOOL_MENU
+  // order for the actions we support: Select All / Unselect All, then the
+  // priority-100 submenus (Mirror / Rotate, GROUP_CONTEXT_MENU "Grouping",
+  // LOCK_CONTEXT_MENU "Locking"), then the priority-150 Duplicate / Delete.
+  // Each item's enabled state follows its upstream SELECTION_CONDITION. Entries
+  // gated by an empty selection are hidden, matching CONDITIONAL_MENU.
+  const buildPcbContextMenu = (): MenuItem[] => {
+    const brd = board;
+    let groupCount = 0;
+    let hasUngrouped = false;
+    let hasMember = false;
+    let anyLocked = false;
+    let anyUnlocked = false;
+    let hasNonPad = false;
+    for (const id of selection) {
+      const r = parseBoardItemId(id);
+      if (!r) continue;
+      if (brd) isBoardItemLocked(brd, id) ? (anyLocked = true) : (anyUnlocked = true);
+      if (r.kind === 'group') {
+        groupCount++;
+        hasNonPad = true;
+        if (brd && groupContaining(brd, id)) hasMember = true;
+      } else if (r.kind === 'pad' || r.kind === 'fptext') {
+        // children: not groupable and not mirrorable on their own
+      } else {
+        hasNonPad = true;
+        if (brd && groupContaining(brd, id)) hasMember = true;
+        else hasUngrouped = true;
+      }
+    }
+    const A = (label: string, actionId: string, disabled?: boolean): MenuItem => ({
+      label,
+      icon: actionId,
+      disabled,
+      action: () => onTopAction(actionId),
+    });
+    const items: MenuItem[] = [
+      { label: 'Select All', action: selectAllSel },
+      { label: 'Unselect All', action: unselectAllSel, disabled: selection.size === 0 },
+    ];
+    if (selection.size > 0) {
+      items.push(
+        { sep: true },
+        {
+          label: 'Mirror / Rotate',
+          items: [
+            A('Rotate Counterclockwise', 'rotateCCW'),
+            A('Rotate Clockwise', 'rotateCW'),
+            A('Mirror Horizontally', 'mirrorH', !hasNonPad),
+            A('Mirror Vertically', 'mirrorV', !hasNonPad),
+          ],
+        },
+        {
+          label: 'Grouping',
+          icon: 'group',
+          items: [
+            A('Group Items', 'group', selection.size < 2),
+            A('Ungroup Items', 'ungroup', groupCount === 0),
+            A('Add Items', 'addToGroup', !(groupCount === 1 && hasUngrouped)),
+            A('Remove Items', 'removeFromGroup', !hasMember),
+          ],
+        },
+        {
+          label: 'Locking',
+          icon: 'lock',
+          items: [
+            A('Lock', 'lock', !anyUnlocked),
+            A('Unlock', 'unlock', !anyLocked),
+            A('Toggle Lock', 'toggleLock'),
+          ],
+        },
+        { sep: true },
+        { label: 'Duplicate', icon: 'duplicate', action: duplicateSel },
+        { label: 'Delete', icon: 'delete', action: deleteSel },
+      );
+    }
+    return items;
+  };
+
   // ----- graphic shape drawing (DRAWING_TOOL) ---------------------------------
 
   // Constrain a line segment's end per the left-toolbar line mode: 90 snaps to
@@ -2150,7 +2684,7 @@ export function PcbEditor({
     const commit = (shape: Omit<PcbShape, 'source'>): void => {
       commitBoard(addBoardShape(brd, shape).board);
     };
-    const width = defaultShapeWidth(activeLayer);
+    const width = shapeWidthIU(activeLayer);
     const base = { width, fill: false, layer: activeLayer } as const;
 
     switch (kind) {
@@ -2377,7 +2911,8 @@ export function PcbEditor({
     setTextDialog(null);
     setTextDraft('');
     if (!brd || !at || !content) return;
-    const silk = /\.SilkS$/.test(activeLayer);
+    // The layer class's Board Setup text defaults (GetTextSize/GetTextThickness).
+    const row = layerClassRow(activeLayer);
     commitBoard(
       addBoardText(brd, {
         kind: 'user',
@@ -2385,8 +2920,8 @@ export function PcbEditor({
         at,
         angle: 0,
         layer: activeLayer,
-        size: { x: 1 * MM, y: 1 * MM },
-        thickness: (silk ? 0.1 : 0.15) * MM,
+        size: { x: Math.round(row.textWidth * MM), y: Math.round(row.textHeight * MM) },
+        thickness: Math.round(row.textThickness * MM),
       }).board,
     );
   };
@@ -2410,14 +2945,21 @@ export function PcbEditor({
     const sameAsLast =
       z.pts.length >= 3 && p.x === z.pts[z.pts.length - 1]!.x && p.y === z.pts[z.pts.length - 1]!.y;
     if (closeToFirst || sameAsLast) {
+      // Border style/pitch from Board Setup > Zones (ZONE_SETTINGS defaults).
+      const zoneDflts = boardSetupRef.current.zones;
       commitBoard(
         addBoardZone(brd, {
           net: z.net,
           netName: brd.nets.get(z.net) ?? '',
           layers: [z.layer],
           outline: [...z.pts],
-          hatchStyle: 'edge',
-          hatchPitch: 0.5 * MM,
+          hatchStyle:
+            zoneDflts.outlineDisplay === 'Fully hatched'
+              ? 'full'
+              : zoneDflts.outlineDisplay === 'Line'
+                ? 'none'
+                : 'edge',
+          hatchPitch: Math.round(zoneDflts.outlineHatchPitchMM * MM) || 0.5 * MM,
         }).board,
       );
       zoneRef.current = null;
@@ -2884,6 +3426,12 @@ export function PcbEditor({
         setFindOpen(true);
         return;
       }
+      // ACTIONS::updatePcbFromSchematic's default hotkey.
+      if (!mod && e.key === 'F8') {
+        e.preventDefault();
+        void openUpdatePcb();
+        return;
+      }
       if (mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         duplicateSel();
@@ -2947,6 +3495,10 @@ export function PcbEditor({
         } else if (drawingRef.current.length > 0) {
           // First Esc abandons the in-flight shape; the tool stays active.
           drawingRef.current = [];
+          requestDrawRef.current();
+        } else if (enteredGroupRef.current) {
+          // Esc leaves the entered group first (SELECTION_TOOL groupLeave).
+          setEnteredGroup(null);
           requestDrawRef.current();
         } else if (activeToolRef.current !== 'selectSetRect') {
           // Esc in a tool returns to the selection tool (TOOL_MANAGER).
@@ -3149,30 +3701,66 @@ export function PcbEditor({
 
   // ----- ratsnest + net classes ----------------------------------------------
 
-  const netclassInfo = useMemo(() => parseNetclasses(projectFiles), [projectFiles]);
-
-  // TOP_AUX pre-defined size lists (BOARD_DESIGN_SETTINGS m_TrackWidthList /
-  // m_ViasDimensionsList). The project's netclasses provide the entries —
-  // unique, ascending, like the Board Setup "Pre-defined Sizes" table.
-  const trackWidthList = useMemo(() => {
-    const s = new Set<number>([DEFAULT_CLASS_DIMS.trackWidth]);
-    for (const d of netclassInfo.classDims.values()) s.add(d.trackWidth);
-    return [...s].sort((a, b) => a - b);
-  }, [netclassInfo]);
-  const viaSizeList = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { diameter: number; drill: number }[] = [];
-    const push = (diameter: number, drill: number): void => {
-      const key = `${diameter}:${drill}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        out.push({ diameter, drill });
-      }
+  // Net classes from Board Setup — the single source of truth (hydrated from
+  // the project's net_settings, updated live when the dialog commits). A blank
+  // per-class cell inherits the Default class, which itself falls back to the
+  // NETCLASS factory constants (netclass resolution).
+  const netclassInfo = useMemo(() => {
+    const rows = boardSetup.netClasses.classes;
+    const mmVal = (s: string): number | undefined => {
+      const v = parseFloat(s);
+      return Number.isFinite(v) && v > 0 ? Math.round(v * MM) : undefined;
     };
-    push(DEFAULT_CLASS_DIMS.viaDiameter, DEFAULT_CLASS_DIMS.viaDrill);
-    for (const d of netclassInfo.classDims.values()) push(d.viaDiameter, d.viaDrill);
-    return out.sort((a, b) => a.diameter - b.diameter || a.drill - b.drill);
-  }, [netclassInfo]);
+    const dflt = rows[0];
+    const dfltDims: ClassDims = {
+      trackWidth: mmVal(dflt?.trackWidth ?? '') ?? DEFAULT_CLASS_DIMS.trackWidth,
+      viaDiameter: mmVal(dflt?.viaSize ?? '') ?? DEFAULT_CLASS_DIMS.viaDiameter,
+      viaDrill: mmVal(dflt?.viaHole ?? '') ?? DEFAULT_CLASS_DIMS.viaDrill,
+    };
+    const dfltClearance = mmVal(dflt?.clearance ?? '') ?? 0;
+    const classes: string[] = [];
+    const classColors = new Map<string, string>();
+    const classDims = new Map<string, ClassDims>();
+    const classClearance = new Map<string, number>();
+    for (const c of rows) {
+      if (!c.name || classes.includes(c.name)) continue;
+      classes.push(c.name);
+      if (c.pcbColor) classColors.set(c.name, c.pcbColor);
+      classDims.set(c.name, {
+        trackWidth: mmVal(c.trackWidth) ?? dfltDims.trackWidth,
+        viaDiameter: mmVal(c.viaSize) ?? dfltDims.viaDiameter,
+        viaDrill: mmVal(c.viaHole) ?? dfltDims.viaDrill,
+      });
+      classClearance.set(c.name, mmVal(c.clearance) ?? dfltClearance);
+    }
+    if (!classes.includes('Default')) classes.unshift('Default');
+    const patterns = boardSetup.netClasses.assignments
+      .filter((a) => a.pattern && a.netClass)
+      .map((a) => ({ netclass: a.netClass, pattern: a.pattern }));
+    return { classes, classColors, classDims, classClearance, patterns };
+  }, [boardSetup.netClasses]);
+
+  // TOP_AUX pre-defined size lists = BOARD_DESIGN_SETTINGS m_TrackWidthList /
+  // m_ViasDimensionsList (Board Setup > Pre-defined Sizes, in stored order;
+  // upstream's [0] "use netclass" sentinel is the dropdowns' first option).
+  const trackWidthList = useMemo(
+    () => boardSetup.trackWidthsMM.filter((w) => w > 0).map((w) => Math.round(w * MM)),
+    [boardSetup.trackWidthsMM],
+  );
+  const viaSizeList = useMemo(
+    () =>
+      boardSetup.viaSizesMM
+        .filter((v) => v.diameter > 0)
+        .map((v) => ({ diameter: Math.round(v.diameter * MM), drill: Math.round(v.drill * MM) })),
+    [boardSetup.viaSizesMM],
+  );
+  // A shrunken list drops an out-of-range selection back to "use netclass".
+  useEffect(() => {
+    if (trackSel > trackWidthList.length) setTrackSel(0);
+  }, [trackWidthList, trackSel]);
+  useEffect(() => {
+    if (viaSel > viaSizeList.length) setViaSel(0);
+  }, [viaSizeList, viaSel]);
   const trackWidthListRef = useRef(trackWidthList);
   trackWidthListRef.current = trackWidthList;
   const viaSizeListRef = useRef(viaSizeList);
@@ -3467,6 +4055,9 @@ export function PcbEditor({
       case 'pageSettings':
         setPageDlgOpen(true);
         break;
+      case 'runDRC':
+        setDrcOpen(true);
+        break;
       case 'boardSetup':
         setBoardSetupOpen(true);
         break;
@@ -3488,11 +4079,20 @@ export function PcbEditor({
       case 'ungroup':
         ungroupSel();
         break;
+      case 'addToGroup':
+        addToGroupSel();
+        break;
+      case 'removeFromGroup':
+        removeFromGroupSel();
+        break;
       case 'lock':
         lockSel(true);
         break;
       case 'unlock':
         lockSel(false);
+        break;
+      case 'toggleLock':
+        lockSel('toggle');
         break;
       case 'find':
         setFindOpen(true);
@@ -3523,6 +4123,9 @@ export function PcbEditor({
         break;
       case 'showEeschema':
         onShowSchematic?.();
+        break;
+      case 'updatePcbFromSch':
+        void openUpdatePcb();
         break;
       case 'threeDViewer':
         setShow3D(true);
@@ -3667,7 +4270,12 @@ export function PcbEditor({
     {
       label: 'Tools',
       items: [
-        { label: 'Update PCB from Schematic…', disabled: dis, shortcut: 'F8' },
+        {
+          label: 'Update PCB from Schematic…',
+          action: () => void openUpdatePcb(),
+          disabled: !onShowSchematic,
+          shortcut: 'F8',
+        },
         { label: 'Update Footprints from Library…', disabled: dis },
         { sep: true },
         { label: 'Remove Unused Pads…', disabled: dis },
@@ -3939,6 +4547,22 @@ export function PcbEditor({
     ];
   }, [board, fmtCoord, ratsnestEdges.length, selection, netClassOf, unitLabel]);
 
+  // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
+  // Ungroup grey out per GROUP_TOOL::update — Group needs >= 2 selected items,
+  // Ungroup needs a selected group. (Add / Remove to Group are right-click-only
+  // in KiCad; they live in the grouping context menu, not the toolbar.)
+  const topDisabled = useMemo(() => {
+    const s = new Set<string>();
+    if (!dirty) s.add('save');
+    let groupCount = 0;
+    for (const id of selection) {
+      if (parseBoardItemId(id)?.kind === 'group') groupCount++;
+    }
+    if (selection.size < 2) s.add('group');
+    if (groupCount === 0) s.add('ungroup');
+    return s;
+  }, [dirty, selection]);
+
   return (
     <div className="ze-app">
       <MenuBar
@@ -3961,7 +4585,7 @@ export function PcbEditor({
       <Toolbar
         entries={PCB_TOP_TOOLBAR}
         orientation="horizontal"
-        disabledIds={dirty ? undefined : new Set(['save'])}
+        disabledIds={topDisabled}
         onActivate={onTopAction}
       />
 
@@ -3988,7 +4612,7 @@ export function PcbEditor({
         >
           <option value={0}>Track: use netclass width</option>
           {trackWidthList.map((w, i) => (
-            <option key={w} value={i + 1}>
+            <option key={`${w}:${i}`} value={i + 1}>
               Track: {auxMM(w)} mm ({auxMils(w)} mil)
             </option>
           ))}
@@ -4005,7 +4629,7 @@ export function PcbEditor({
         <select title="Via size" value={viaSel} onChange={(e) => setViaSel(Number(e.target.value))}>
           <option value={0}>Via: use netclass sizes</option>
           {viaSizeList.map((v, i) => (
-            <option key={`${v.diameter}:${v.drill}`} value={i + 1}>
+            <option key={`${v.diameter}:${v.drill}:${i}`} value={i + 1}>
               {v.drill > 0
                 ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mil)`
                 : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mil)`}
@@ -4156,7 +4780,27 @@ export function PcbEditor({
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerLeave}
+            onDoubleClick={onCanvasDoubleClick}
+            onContextMenu={onCanvasContextMenu}
           />
+          {ctxMenu && (
+            <ContextMenu
+              x={ctxMenu.x}
+              y={ctxMenu.y}
+              items={buildPcbContextMenu()}
+              onClose={() => setCtxMenu(null)}
+            />
+          )}
+          {enteredGroupName && (
+            <div className="ze-group-editing" onMouseDown={(e) => e.stopPropagation()}>
+              <span>
+                Editing group: <b>{enteredGroupName}</b>
+              </span>
+              <button type="button" onClick={() => setEnteredGroup(null)}>
+                Leave (Esc)
+              </button>
+            </div>
+          )}
           {!board && !error && (
             <div className="ze-canvas-loading">
               <span className="ze-spinner" />
@@ -5084,14 +5728,103 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
+          projectFolders={projectFolders}
+          onOutputFile={onOutputFile}
+          onRunDrc={() => {
+            // DIALOG_PLOT's Run DRC... hands off to the DRC dialog.
+            setPlotDlgOpen(false);
+            setDrcOpen(true);
+          }}
           onClose={() => setPlotDlgOpen(false)}
+        />
+      )}
+      {/* Update PCB from Schematic: the netlist fetch, then DIALOG_UPDATE_PCB.
+          A failed fetch shows the same message upstream puts in a
+          DisplayErrorMessage box (a missing schematic, or one not annotated). */}
+      {updatePcbBusy && (
+        <div className="ze-modal-backdrop ze-loading-backdrop">
+          <div className="ze-loading-card">
+            <span className="ze-spinner" />
+            Loading footprint libraries…
+          </div>
+        </div>
+      )}
+      {updatePcbError && (
+        <div className="ze-modal-backdrop" onMouseDown={() => setUpdatePcbError(null)}>
+          <div className="ze-modal ze-message-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="ze-modal-header">
+              Update PCB from Schematic
+              <span className="x" onClick={() => setUpdatePcbError(null)}>
+                ✕
+              </span>
+            </div>
+            <div className="ze-modal-body ze-message-body">
+              <p>{updatePcbError.message}</p>
+              {updatePcbError.details && <pre>{updatePcbError.details}</pre>}
+            </div>
+            <div className="ze-modal-footer">
+              <span style={{ flex: 1 }} />
+              <button type="button" className="primary" onClick={() => setUpdatePcbError(null)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {updatePcb && (
+        <DialogUpdatePcb
+          onPerformUpdate={performNetlistUpdate}
+          onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {drcOpen && (
+        <DialogDrc
+          rootRef={drcDialogRef}
+          results={drcResults}
+          severities={boardSetup.drcSeverities}
+          selected={drcSelected}
+          run={() => {
+            const brd = boardRef.current;
+            if (!brd) {
+              setDrcResults([]);
+              setDrcSelected(null);
+              return;
+            }
+            const c = boardSetup.constraints;
+            const all = runDrc(brd, {
+              minClearance: Math.round(c.minClearanceMM * MM),
+              minTrackWidth: Math.round(c.minTrackMM * MM),
+              minViaDiameter: Math.round(c.minViaMM * MM),
+              minViaAnnulus: Math.round(c.minAnnularMM * MM),
+              minThroughHole: Math.round(c.minThroughHoleMM * MM),
+              minHoleToHole: Math.round(c.minHoleToHoleMM * MM),
+              clearanceOf: (net) =>
+                netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
+            });
+            // Ignored severities never make markers (RunDRC's severity gate).
+            setDrcResults(all.filter((vio) => boardSetup.drcSeverities[vio.code] !== 'ignore'));
+            setDrcSelected(null);
+          }}
+          onSelect={(i, pos) => {
+            setDrcSelected(i);
+            drcFocusOn(pos);
+          }}
+          onDeleteMarker={(i) => {
+            setDrcResults((r) => (r ? r.filter((_, j) => j !== i) : r));
+            setDrcSelected(null);
+          }}
+          onDeleteAll={() => {
+            setDrcResults([]);
+            setDrcSelected(null);
+          }}
+          onClose={() => setDrcOpen(false)}
         />
       )}
       {boardSetupOpen && (
         <DialogBoardSetup
           value={boardSetup}
           onOk={(next) => {
-            setBoardSetup(next);
+            commitBoardSetup(next);
             setBoardSetupOpen(false);
           }}
           onClose={() => setBoardSetupOpen(false)}

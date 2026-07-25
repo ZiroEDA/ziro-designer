@@ -24,7 +24,7 @@
  */
 
 import type { ErcCode, ErcSeverityLevel, PinError } from '@ziroeda/eeschema';
-import { PIN_TYPES } from '@ziroeda/eeschema';
+import { ERC_ITEMS, PIN_TYPES } from '@ziroeda/eeschema';
 import type { RawFile } from '../drawingsheet/projectSheet.js';
 import {
   LINE_STYLES,
@@ -104,24 +104,14 @@ function str(v: unknown, dflt: string): string {
 // ---------------------------------------------------------------------------
 // Value tables.
 
-/** ErcCode -> `erc.rule_severities` key (ERC_ITEM settings keys, erc_item.cpp).
- *  `pin_to_pin_error` is absent: upstream both pin-to-pin items share the
- *  `pin_to_pin` key and only the warning row is serialized (the error row sits
- *  in the internal group past `heading_internal`), so it stays in-memory. */
-const SEVERITY_KEYS: readonly (readonly [ErcCode, string])[] = [
-  ['pin_not_connected', 'pin_not_connected'],
-  ['pin_not_driven', 'pin_not_driven'],
-  ['power_pin_not_driven', 'power_pin_not_driven'],
-  ['pin_to_pin_warning', 'pin_to_pin'],
-  ['no_connect_connected', 'no_connect_connected'],
-  ['no_connect_dangling', 'no_connect_dangling'],
-  ['label_not_connected', 'label_dangling'],
-  ['label_single_pin', 'isolated_pin_label'],
-  ['endpoint_off_grid', 'endpoint_off_grid'],
-  ['net_not_bus_member', 'net_not_bus_member'],
-  ['bus_to_net_conflict', 'bus_to_net_conflict'],
-  ['bus_to_bus_conflict', 'bus_to_bus_conflict'],
-];
+/** The rules `erc.rule_severities` stores, and their keys — every code in
+ *  ERC_ITEMS *is* its settings key (ERC_ITEM::GetSettingsKey), and ERC_ITEMS is
+ *  ERC_ITEM::GetItemsWithSeverities, so the file round-trips exactly what KiCad
+ *  writes. The internal types (`duplicate_pins`, `pin_to_pin_error`) sit past
+ *  `heading_internal` upstream and are deliberately not serialized. */
+const SEVERITY_KEYS: readonly (readonly [ErcCode, string])[] = ERC_ITEMS.map(
+  (item) => [item.code, item.code] as const,
+);
 
 /** KiCad's "auto" operating-point range sentinels ('~V' / '~A'); the panel
  *  shows them as 'Auto'. */
@@ -320,6 +310,42 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     }
     s.bomPresets.fmtPresets = fmt;
   }
+  // schematic.bom_settings / bom_fmt_settings — the fields table's current view
+  // and output format (SCHEMATIC_SETTINGS m_BomSettings / m_BomFmtSettings).
+  const bomCur = getPath(j, 'schematic.bom_settings');
+  if (isObj(bomCur) && Array.isArray(bomCur.fields_ordered)) {
+    s.bomPresets.settings = {
+      name: str(bomCur.name, ''),
+      fieldsOrdered: bomCur.fields_ordered
+        .filter((f): f is Json => isObj(f))
+        .map((f) => ({
+          name: str(f.name, ''),
+          label: str(f.label, ''),
+          show: bool(f.show, false),
+          groupBy: bool(f.group_by, false),
+        })),
+      sortField: str(bomCur.sort_field, 'Reference'),
+      sortAsc: bool(bomCur.sort_asc, true),
+      filterString: str(bomCur.filter_string, ''),
+      groupSymbols: bool(bomCur.group_symbols, false),
+      excludeDnp: bool(bomCur.exclude_dnp, false),
+      includeExcludedFromBom: bool(bomCur.include_excluded_from_bom, false),
+    };
+  }
+  const fmtCur = getPath(j, 'schematic.bom_fmt_settings');
+  if (isObj(fmtCur)) {
+    s.bomPresets.fmtSettings = {
+      name: str(fmtCur.name, ''),
+      fieldDelimiter: str(fmtCur.field_delimiter, ','),
+      stringDelimiter: str(fmtCur.string_delimiter, '"'),
+      refDelimiter: str(fmtCur.ref_delimiter, ','),
+      refRangeDelimiter: str(fmtCur.ref_range_delimiter, ''),
+      keepTabs: bool(fmtCur.keep_tabs, false),
+      keepLineBreaks: bool(fmtCur.keep_line_breaks, false),
+    };
+  }
+  const bomFile = getPath(j, 'schematic.bom_export_filename');
+  if (typeof bomFile === 'string') s.bomPresets.exportFileName = bomFile;
 
   // erc.* — ERC_SETTINGS.
   const sev = getPath(j, 'erc.rule_severities');
@@ -345,6 +371,11 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     s.ercExclusions = excl
       .map((e) => (Array.isArray(e) ? str(e[0], '') : str(e, '')))
       .filter(Boolean);
+    s.ercExclusionComments = {};
+    for (const e of excl) {
+      if (Array.isArray(e) && typeof e[0] === 'string' && str(e[1], ''))
+        s.ercExclusionComments[e[0]] = str(e[1], '');
+    }
   }
 
   // net_settings.* — NET_SETTINGS.
@@ -576,6 +607,39 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
         keep_line_breaks: p.keepLineBreaks,
       })),
   );
+  // The current view/format and the export file name (written whether or not
+  // they match a saved preset, like SCHEMATIC_SETTINGS).
+  const cur = s.bomPresets.settings;
+  const oldCur = getPath(j, 'schematic.bom_settings');
+  const oldCurFmt = getPath(j, 'schematic.bom_fmt_settings');
+  setPath(j, 'schematic.bom_settings', {
+    ...(isObj(oldCur) ? oldCur : {}),
+    name: cur.name,
+    fields_ordered: cur.fieldsOrdered.map((f) => ({
+      name: f.name,
+      label: f.label,
+      show: f.show,
+      group_by: f.groupBy,
+    })),
+    sort_field: cur.sortField,
+    sort_asc: cur.sortAsc,
+    filter_string: cur.filterString,
+    group_symbols: cur.groupSymbols,
+    exclude_dnp: cur.excludeDnp,
+    include_excluded_from_bom: cur.includeExcludedFromBom,
+  });
+  const curFmt = s.bomPresets.fmtSettings;
+  setPath(j, 'schematic.bom_fmt_settings', {
+    ...(isObj(oldCurFmt) ? oldCurFmt : {}),
+    name: curFmt.name,
+    field_delimiter: curFmt.fieldDelimiter,
+    string_delimiter: curFmt.stringDelimiter,
+    ref_delimiter: curFmt.refDelimiter,
+    ref_range_delimiter: curFmt.refRangeDelimiter,
+    keep_tabs: curFmt.keepTabs,
+    keep_line_breaks: curFmt.keepLineBreaks,
+  });
+  setPath(j, 'schematic.bom_export_filename', s.bomPresets.exportFileName);
 
   // erc.rule_severities: overwrite our keys, keep unknown rules untouched.
   const oldSev = getPath(j, 'erc.rule_severities');
@@ -600,7 +664,7 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
   setPath(
     j,
     'erc.erc_exclusions',
-    s.ercExclusions.map((sig) => [sig, comments.get(sig) ?? '']),
+    s.ercExclusions.map((sig) => [sig, s.ercExclusionComments[sig] ?? comments.get(sig) ?? '']),
   );
 
   // net_settings.classes: Default first at INT_MAX priority, the rest in panel

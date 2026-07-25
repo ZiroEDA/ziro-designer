@@ -148,7 +148,7 @@ describe('passthrough bridge gates', () => {
       (label "MID" (at 12.54 20 0) (uuid "lb"))`);
     const chains = detectNetChains(d, libOf(d), netlistOf(d));
     expect(chains).toHaveLength(1);
-    expect(chains[0]!.nets).toEqual(['IN', 'MID']);
+    expect(chains[0]!.nets).toEqual(['/IN', '/MID']);
 
     // Without force the same layout produces nothing.
     const plain = doc(`
@@ -192,7 +192,7 @@ describe('committed restore', () => {
     const restored = restoreCommittedNetChains(d, libOf(d), nl, potentials, readNetChains(d));
     expect(restored).toHaveLength(1);
     expect(restored[0]!.name).toBe('SIG_PATH');
-    expect(restored[0]!.nets).toEqual(['IN', 'MID', 'OUT']); // refreshed from live topology
+    expect(restored[0]!.nets).toEqual(['/IN', '/MID', '/OUT']); // refreshed from live topology
   });
 
   it('pass 2b: falls back to the member-net list when no potential matches', () => {
@@ -202,12 +202,12 @@ describe('committed restore', () => {
       ${res('R1', 10, 10, 'r1')}
       (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))
       (label "IN" (at 0 10 0) (uuid "la"))
-      (net_chain "MANUAL" (from "R1" "1") (to "R1" "2") (nets "IN"))`);
+      (net_chain "MANUAL" (from "R1" "1") (to "R1" "2") (nets "/IN"))`);
     const nl = netlistOf(d);
     const restored = restoreCommittedNetChains(d, libOf(d), nl, [], readNetChains(d));
     expect(restored).toHaveLength(1);
     expect(restored[0]!.name).toBe('MANUAL');
-    expect(restored[0]!.nets).toEqual(['IN']);
+    expect(restored[0]!.nets).toEqual(['/IN']);
   });
 
   it('drops chains whose terminals cannot be resolved at all', () => {
@@ -275,7 +275,8 @@ describe('removeFromNetChainCommand (SCH_EDITOR_CONTROL::RemoveFromNetChain)', (
     const nl = netlistOf(d);
     expect(detectNetChains(d, lib, nl)).toHaveLength(1);
 
-    const cmd = removeFromNetChainCommand(d, lib, nl, 'IN');
+    // The net name as the UI hands it over: qualified with its sheet path.
+    const cmd = removeFromNetChainCommand(d, lib, nl, '/IN');
     expect(cmd).not.toBeNull();
     const after = cmd!.apply(d);
     expect(after.symbols[0]!.passthrough).toBe('block');

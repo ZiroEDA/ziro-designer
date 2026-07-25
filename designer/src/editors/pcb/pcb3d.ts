@@ -17,12 +17,13 @@ import { buildBoardOutline } from './boardOutline.js';
 import { buildBoardGeom, boardHoles, type Mesh } from './boardGeom.js';
 import { mountComponents, type ProjectFile } from './component3d.js';
 import type { Board } from '@ziroeda/pcbnew';
+import { MODELS3D_HOST } from '../../libraryHosts.js';
 
 const MM = 10000;
 // Where the 3D model library is hosted. Defaults to the bundled demo set;
 // point VITE_MODELS3D_URL at the hosted library (Cloudflare R2 / jsDelivr) to
 // cover all boards. See the ziro-3d-components-plan memory.
-const MODELS3D_BASE = (import.meta.env.VITE_MODELS3D_URL as string | undefined) || '/models3d';
+const MODELS3D_BASE = MODELS3D_HOST;
 
 interface BBox {
   minX: number;

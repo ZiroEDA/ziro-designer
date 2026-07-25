@@ -20,8 +20,8 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
-import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import type { PcbFootprint, PcbFootprintField, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** SEXPR board/footprint file version (KiCad 9.0; matches pcbnew's output). */
@@ -140,6 +140,34 @@ export function buildTextNode(text: PcbTextItem): SList {
   return { kind: 'list', items };
 }
 
+/**
+ * `(property "Name" "Value" (at 0 0 a) (layer "F.Fab") (hide yes) (uuid ..)
+ *  (effects (font (size 1 1) (thickness 0.15))))` — a user field created from
+ * scratch, styled as BOARD_NETLIST_UPDATER does it: invisible, on the fab layer of
+ * the footprint's side, at the footprint anchor with the footprint's orientation,
+ * and StyleFromSettings' defaults (DEFAULT_TEXT_SIZE / DEFAULT_TEXT_WIDTH).
+ */
+export function buildFieldNode(field: PcbFootprintField, fp: PcbFootprint): SList {
+  const size = mmToIU(1.0); // DEFAULT_TEXT_SIZE
+  const thickness = mmToIU(0.15); // DEFAULT_TEXT_WIDTH
+  return list(
+    atom('property'),
+    str(field.name),
+    str(field.value),
+    atNode({ x: 0, y: 0 }, fp.angle),
+    list(atom('layer'), str(fp.layer === 'B.Cu' ? 'B.Fab' : 'F.Fab')),
+    list(atom('hide'), atom('yes')),
+    list(
+      atom('effects'),
+      list(
+        atom('font'),
+        list(atom('size'), atom(mm(size)), atom(mm(size))),
+        list(atom('thickness'), atom(mm(thickness))),
+      ),
+    ),
+  );
+}
+
 // ----- footprint node ---------------------------------------------------------
 
 /** A modelled child node: pass the untouched source through, rebuild when source-less. */
@@ -148,6 +176,8 @@ const shapeNode = (s: PcbShape): SList =>
   s.source.items.length > 0 ? s.source : buildShapeNode(s);
 const textNode = (t: PcbTextItem): SList =>
   t.source.items.length > 0 ? t.source : buildTextNode(t);
+const fieldNode = (f: PcbFootprintField, fp: PcbFootprint): SList =>
+  f.source.items.length > 0 ? f.source : buildFieldNode(f, fp);
 
 const GRAPHIC_HEADS = new Set(['fp_line', 'fp_arc', 'fp_circle', 'fp_rect', 'fp_poly', 'fp_curve']);
 
@@ -162,6 +192,13 @@ function isTextSource(it: SList): boolean {
   return false;
 }
 
+/** Whether a source child is one the model owns as a user field (see PcbFootprintField). */
+function isFieldSource(it: SList): boolean {
+  if (head(it) !== 'property') return false;
+  const k = arg(it, 0);
+  return k !== undefined && k !== 'Reference' && k !== 'Value' && k !== 'ki_fp_filters';
+}
+
 /**
  * Rebuild the `(footprint …)` node from the typed model. The modelled item
  * classes (pads, graphics, Reference/Value + fp_text) are emitted from the model
@@ -172,10 +209,12 @@ function isTextSource(it: SList): boolean {
  */
 export function writeFootprintNode(fp: PcbFootprint): SList {
   const src = fp.source;
+  const fields = fp.fields ?? [];
   const out: SNode[] = [];
   let pi = 0,
     si = 0,
-    ti = 0; // next model pad / shape / text to emit
+    ti = 0,
+    di = 0; // next model pad / shape / text / user field to emit
 
   if (src.items.length > 0) {
     for (const it of src.items) {
@@ -193,6 +232,9 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       } else if (isTextSource(it)) {
         if (ti < fp.texts.length) out.push(textNode(fp.texts[ti]!));
         ti++;
+      } else if (isFieldSource(it)) {
+        if (di < fields.length) out.push(fieldNode(fields[di]!, fp));
+        di++;
       } else out.push(it);
     }
   } else {
@@ -209,6 +251,7 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
 
   // Append newly added items (model has more than the source held), by group.
   for (; ti < fp.texts.length; ti++) out.push(textNode(fp.texts[ti]!));
+  for (; di < fields.length; di++) out.push(fieldNode(fields[di]!, fp));
   for (; si < fp.shapes.length; si++) out.push(shapeNode(fp.shapes[si]!));
   for (; pi < fp.pads.length; pi++) out.push(padNode(fp.pads[pi]!));
 

@@ -57,8 +57,8 @@ function customSetup(): SchematicSetup {
     { name: 'Datasheet2', visible: false, url: true },
   ];
   s.erc.severities.pin_not_connected = 'ignore';
-  s.erc.severities.label_not_connected = 'warning';
-  s.erc.severities.label_single_pin = 'error';
+  s.erc.severities.label_dangling = 'warning';
+  s.erc.severities.isolated_pin_label = 'error';
   s.erc.pinMap = s.erc.pinMap.map((row) => [...row]);
   s.erc.pinMap[0]![1] = 2;
   s.ercExclusions = ['sig-a', 'sig-b'];
@@ -304,9 +304,9 @@ describe('schematic setup .kicad_pro persistence', () => {
         keepLineBreaks: false,
       },
     ]);
-    expect(s.erc.severities.label_not_connected).toBe('ignore'); // label_dangling
-    expect(s.erc.severities.label_single_pin).toBe('error'); // isolated_pin_label
-    expect(s.erc.severities.pin_to_pin_warning).toBe('error'); // pin_to_pin
+    expect(s.erc.severities.label_dangling).toBe('ignore'); // label_dangling
+    expect(s.erc.severities.isolated_pin_label).toBe('error'); // isolated_pin_label
+    expect(s.erc.severities.pin_to_pin).toBe('error'); // pin_to_pin
     expect(s.erc.pinMap[0]![0]).toBe(1);
     expect(s.ercExclusions).toEqual(['excl-sig', 'bare-sig']);
     // Default pinned first, then A (priority 0) before B (priority 1).

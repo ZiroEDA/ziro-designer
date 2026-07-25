@@ -18,6 +18,8 @@
 
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile, serializeFootprint, type PcbFootprint } from '@ziroeda/pcbnew';
+import { libraryBase } from '../../libraryHosts.js';
+import { trackLibraryLoad } from '../../widgets/library_loading.js';
 
 export interface ManagedFpLibrary {
   /** Library nickname (the `.pretty` directory basename). */
@@ -38,12 +40,9 @@ export interface ManagedFpLibrary {
   libModified: boolean;
 }
 
-// Deployments point VITE_FOOTPRINTS_URL at the full hosted library set
-// (Cloudflare R2 — same pattern as demos/3D models); bundled subset fallback.
-// The cast keeps this module loadable outside Vite (the qa test runner).
-const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
-export const FOOTPRINTS_BASE =
-  viteEnv?.VITE_FOOTPRINTS_URL || `${viteEnv?.BASE_URL ?? '/'}footprints`;
+// The hosted footprint library set, or the bundled subset when it is
+// unreachable (see libraryHosts.ts).
+export const footprintsBase = (): string => libraryBase.footprints;
 
 /** A footprint's name is the `.kicad_mod` basename (its FPID item name). */
 export const fpNameOf = (path: string): string =>
@@ -163,8 +162,12 @@ export class FootprintLibraryManager {
     if (existing) return existing;
     if (lib.scope === 'global') {
       try {
-        const text = await fetch(
-          `${FOOTPRINTS_BASE}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
+        const text = await trackLibraryLoad(
+          'footprints',
+          `Loading ${lib.name}…`,
+          fetch(
+            `${footprintsBase()}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
+          ),
         ).then((r) => {
           if (!r.ok) throw new Error(`${r.status}`);
           return r.text();

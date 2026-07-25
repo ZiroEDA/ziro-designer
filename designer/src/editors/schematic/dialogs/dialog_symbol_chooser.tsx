@@ -56,8 +56,10 @@ export function DialogSymbolChooser({
   const [keepSymbol, setKeepSymbol] = useState(false);
   const [placeAllUnits, setPlaceAllUnits] = useState(true);
 
+  // onLazyLoadUpdate runs once in the constructor, so the count is in the title
+  // from the outset — including the "(0 items loaded)" of an empty tree.
   const originalTitle = powerFilter ? 'Choose Power Symbol' : 'Choose Symbol';
-  const title = itemCount > 0 ? `${originalTitle} (${itemCount} items loaded)` : originalTitle;
+  const title = `${originalTitle} (${itemCount} items loaded)`;
 
   const accept = useCallback(() => {
     const selected = panelRef.current?.getSelected() ?? null;

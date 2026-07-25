@@ -30,6 +30,14 @@ export interface PlotOpts {
   background: boolean;
   /** Raster resolution for PNG/PDF output (the PNG Options DPI; default 300). */
   dpi?: number;
+  /** Title-block page context of this sheet instance (SCH_SHEET_PATH):
+   *  page-number string (${#}), sheet ordinal (page1only visibility), sheet
+   *  count (${##}), sheet name and human path. Unset = standalone sheet. */
+  pageNumber?: string;
+  sheetNumber?: number;
+  sheetCount?: number;
+  sheetName?: string;
+  sheetPath?: string;
   /** Pen width (IU) for zero-width strokes ("Minimum line width"). */
   defaultPenIU?: number;
   /** Effective junction-dot diameter (IU) from the schematic settings
@@ -56,6 +64,39 @@ export interface PlotOpts {
   resolveTextVar?: RenderOpts['resolveTextVar'];
   /** Unit-notation inputs for multi-unit references (SubReference). */
   subpart?: RenderOpts['subpart'];
+  /** Plot page override (SCH_PLOT_OPTS::m_pageSizeSelect): the schematic's own
+   *  page, or the drawing scaled onto an A4 / A sheet. */
+  pageSizeSelect?: PlotPageSize;
+  /** DXF export units (SCH_PLOT_OPTS::m_DXF_File_Unit). */
+  dxfUnits?: 'in' | 'mm';
+  /** PDF document properties from the AUTHOR / SUBJECT text variables
+   *  (m_PDFMetadata); unset = no /Info dictionary. */
+  pdfMetadata?: { title?: string; author?: string; subject?: string };
+}
+
+/** PAGE_SIZE_AUTO / PAGE_SIZE_A4 / PAGE_SIZE_A (the "Page size:" choice). */
+export type PlotPageSize = 'auto' | 'A4' | 'A';
+
+/** Page dimensions of the sheet in mm, long edge first. */
+const PLOT_PAGE_MM: Record<Exclude<PlotPageSize, 'auto'>, [number, number]> = {
+  A4: [297, 210],
+  A: [11 * 25.4, 8.5 * 25.4],
+};
+
+/**
+ * The page actually plotted and the scale the drawing gets (SCH_PLOTTER::
+ * plotOneSheetPDF/PS): "Schematic size" plots 1:1 on the sheet's own page;
+ * A4 / A keep the sheet's orientation and scale by min(scalex, scaley).
+ */
+export function plotPageIU(sch: Schematic, opts: PlotOpts): { w: number; h: number; scale: number } {
+  const actual = pageIU(sch);
+  const sel = opts.pageSizeSelect ?? 'auto';
+  if (sel === 'auto') return { w: actual.w, h: actual.h, scale: 1 };
+  const [long, short] = PLOT_PAGE_MM[sel];
+  const portrait = actual.h > actual.w;
+  const w = (portrait ? short : long) * MM;
+  const h = (portrait ? long : short) * MM;
+  return { w, h, scale: Math.min(w / actual.w, h / actual.h) };
 }
 
 /** An all-black-on-white theme for monochrome output (KiCad's B&W plot). */
@@ -88,6 +129,7 @@ function monochromeTheme(): Theme {
     noConnect: black,
     ercError: black,
     ercWarning: black,
+    ercExclusion: black,
     sheetBorder: black,
     sheetBackground: none,
     sheetName: black,
@@ -118,6 +160,11 @@ function outputRenderOpts(opts: PlotOpts): RenderOpts {
     showPageLimits: false,
     showDrawingSheet: opts.drawingSheet,
     ...(opts.sheet ? { drawingSheet: opts.sheet } : {}),
+    pageNumber: opts.pageNumber,
+    sheetNumber: opts.sheetNumber,
+    sheetCount: opts.sheetCount,
+    sheetName: opts.sheetName,
+    sheetPath: opts.sheetPath,
     defaultPenIU: opts.defaultPenIU,
     junctionDiameterIU: opts.junctionDiameterIU,
     dashLengthRatio: opts.dashLengthRatio,
@@ -153,7 +200,7 @@ export function renderSheetToCanvas(
   opts: PlotOpts,
   dpi = 300,
 ): HTMLCanvasElement {
-  const page = pageIU(sch);
+  const page = plotPageIU(sch, opts);
   const pxPerIU = dpi / 25.4 / MM; // dpi → px per mm → px per IU
   const cw = Math.max(1, Math.round(page.w * pxPerIU));
   const ch = Math.max(1, Math.round(page.h * pxPerIU));
@@ -165,7 +212,7 @@ export function renderSheetToCanvas(
   renderSchematic(
     ctx,
     sch,
-    { scale: pxPerIU, offsetX: 0, offsetY: 0 },
+    { scale: pxPerIU * page.scale, offsetX: 0, offsetY: 0 },
     theme,
     cw,
     ch,
@@ -186,16 +233,21 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Plot to PNG (raster) and download at the requested DPI (default 300). */
+/** Where a plotted file goes. Defaults to a browser download; the editor passes
+ *  a sink that writes into the project file manager instead. */
+export type PlotSink = (blob: Blob, filename: string) => void;
+
+/** Plot to PNG (raster) at the requested DPI (default 300). */
 export async function plotPng(
   sch: Schematic,
   base: Theme,
   opts: PlotOpts,
   name: string,
+  sink: PlotSink = downloadBlob,
 ): Promise<void> {
   const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
   const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'));
-  if (blob) downloadBlob(blob, `${name}.png`);
+  if (blob) sink(blob, `${name}.png`);
 }
 
 /** Plot to a single-page PDF with the rendered sheet embedded (JPEG/DCTDecode). */
@@ -204,28 +256,35 @@ export async function plotPdf(
   base: Theme,
   opts: PlotOpts,
   name: string,
+  sink: PlotSink = downloadBlob,
 ): Promise<void> {
   const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
-  const page = pageIU(sch);
+  const page = plotPageIU(sch, opts);
   // PDF user space is 72 pt/inch; page size in points from the mm page size.
   const ptW = (page.w / MM / 25.4) * 72;
   const ptH = (page.h / MM / 25.4) * 72;
   const jpeg = dataUriToBytes(canvas.toDataURL('image/jpeg', 0.92));
-  const blob = buildImagePdf(jpeg, canvas.width, canvas.height, ptW, ptH);
-  downloadBlob(blob, `${name}.pdf`);
+  const blob = buildImagePdf(jpeg, canvas.width, canvas.height, ptW, ptH, opts.pdfMetadata);
+  sink(blob, `${name}.pdf`);
 }
 
-/** Plot to a true-vector SVG and download. */
-export function plotSvg(sch: Schematic, base: Theme, opts: PlotOpts, name: string): void {
+/** Plot to a true-vector SVG. */
+export function plotSvg(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
   const svg = sheetToSvg(sch, base, opts);
-  downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
+  sink(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
 }
 
 // ----- SVG output (vector) ---------------------------------------------------
 
 /** Render a sheet to an SVG document string, at 1 user unit = 1 mm. */
 export function sheetToSvg(sch: Schematic, base: Theme, opts: PlotOpts): string {
-  const page = pageIU(sch);
+  const page = plotPageIU(sch, opts);
   const wMM = page.w / MM;
   const hMM = page.h / MM;
   // Draw in IU, then a viewBox in IU with an mm-sized viewport keeps line
@@ -238,7 +297,7 @@ export function sheetToSvg(sch: Schematic, base: Theme, opts: PlotOpts): string 
     renderSchematic(
       svg as unknown as CanvasRenderingContext2D,
       sch,
-      { scale: 1, offsetX: 0, offsetY: 0 },
+      { scale: page.scale, offsetX: 0, offsetY: 0 },
       theme,
       page.w,
       page.h,
@@ -445,6 +504,395 @@ class SvgContext {
 function n(v: number): string {
   return Number.isFinite(v) ? String(Math.round(v * 1000) / 1000) : '0';
 }
+/** Fixed-decimal number for DXF/PS coordinates (no exponent form). */
+function num(v: number): string {
+  return Number.isFinite(v) ? String(Math.round(v * 10000) / 10000) : '0';
+}
+/** CSS colour (#rgb / #rrggbb / rgb(...)) -> [r,g,b] in 0..255. */
+function parseColor(s: string): [number, number, number] {
+  const t = (s || '').trim();
+  if (t[0] === '#') {
+    if (t.length === 4)
+      return [
+        parseInt(t[1]! + t[1]!, 16),
+        parseInt(t[2]! + t[2]!, 16),
+        parseInt(t[3]! + t[3]!, 16),
+      ];
+    return [
+      parseInt(t.slice(1, 3), 16),
+      parseInt(t.slice(3, 5), 16),
+      parseInt(t.slice(5, 7), 16),
+    ];
+  }
+  const m = t.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const [r, g, b] = m[1]!.split(',').map((v) => parseInt(v, 10) || 0);
+    return [r ?? 0, g ?? 0, b ?? 0];
+  }
+  return [0, 0, 0];
+}
+
+type Pt = [number, number];
+interface SubPath {
+  pts: Pt[];
+  closed: boolean;
+}
+
+/**
+ * Shared CTM + path accumulation for the vector back-ends (DXF, PostScript).
+ * Implements the same CanvasRenderingContext2D subset as SvgContext, but — since
+ * DXF/PS can't defer a transform to a matrix attribute — every path point is
+ * resolved through the CTM to absolute page coordinates before it is emitted.
+ * Glyphs arrive as stroked segments (setVectorText), so only geometry is needed.
+ */
+abstract class VectorContext {
+  protected ctm: Mat = IDENT;
+  private stack: { ctm: Mat; lw: number; stroke: string; fill: string }[] = [];
+  private subs: SubPath[] = [];
+  private cur: SubPath | null = null;
+
+  fillStyle = '#000';
+  strokeStyle = '#000';
+  lineWidth = 1;
+  lineCap = 'butt';
+  lineJoin = 'miter';
+  font = '';
+  textAlign = '';
+
+  constructor(
+    protected pw: number,
+    protected ph: number,
+  ) {}
+
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void {
+    this.ctm = [a, b, c, d, e, f];
+  }
+  translate(x: number, y: number): void {
+    this.ctm = mul(this.ctm, [1, 0, 0, 1, x, y]);
+  }
+  rotate(t: number): void {
+    this.ctm = mul(this.ctm, [Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0]);
+  }
+  save(): void {
+    this.stack.push({
+      ctm: this.ctm,
+      lw: this.lineWidth,
+      stroke: this.strokeStyle,
+      fill: this.fillStyle,
+    });
+  }
+  restore(): void {
+    const s = this.stack.pop();
+    if (!s) return;
+    this.ctm = s.ctm;
+    this.lineWidth = s.lw;
+    this.strokeStyle = s.stroke;
+    this.fillStyle = s.fill;
+  }
+  setLineDash(_d: number[]): void {
+    // Dashes are dropped (solid strokes) — schematic dashes are cosmetic and a
+    // sketch-style plot is the DXF/PS convention.
+  }
+
+  beginPath(): void {
+    this.subs = [];
+    this.cur = null;
+  }
+  moveTo(x: number, y: number): void {
+    this.cur = { pts: [[x, y]], closed: false };
+    this.subs.push(this.cur);
+  }
+  lineTo(x: number, y: number): void {
+    if (!this.cur) return this.moveTo(x, y);
+    this.cur.pts.push([x, y]);
+  }
+  closePath(): void {
+    if (this.cur) this.cur.closed = true;
+  }
+  rect(x: number, y: number, w: number, h: number): void {
+    this.subs.push({
+      pts: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ],
+      closed: true,
+    });
+    this.cur = null;
+  }
+  arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
+    let span = a1 - a0;
+    if (ccw) {
+      if (span > 0) span -= 2 * Math.PI;
+    } else if (span < 0) span += 2 * Math.PI;
+    const s0: Pt = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)];
+    if (this.cur) this.cur.pts.push(s0);
+    else this.moveTo(s0[0], s0[1]);
+    const steps = Math.max(6, Math.ceil(Math.abs(span) / (Math.PI / 24)));
+    for (let i = 1; i <= steps; i++) {
+      const a = a0 + span * (i / steps);
+      this.cur!.pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  }
+
+  private apply(p: Pt): Pt {
+    const m = this.ctm;
+    return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]];
+  }
+  private ctmScale(): number {
+    return Math.hypot(this.ctm[0], this.ctm[1]) || 1;
+  }
+
+  stroke(): void {
+    const w = this.lineWidth * this.ctmScale();
+    for (const s of this.subs) {
+      if (s.pts.length < 2) continue;
+      this.emitPolyline(s.pts.map((p) => this.apply(p)), w, this.strokeStyle, s.closed);
+    }
+  }
+  fill(): void {
+    for (const s of this.subs) {
+      if (s.pts.length < 3) continue;
+      this.emitPolygon(
+        s.pts.map((p) => this.apply(p)),
+        this.fillStyle,
+      );
+    }
+  }
+  strokeRect(x: number, y: number, w: number, h: number): void {
+    const box: Pt[] = [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+    ];
+    this.emitPolyline(
+      box.map((p) => this.apply(p)),
+      this.lineWidth * this.ctmScale(),
+      this.strokeStyle,
+      true,
+    );
+  }
+  fillRect(x: number, y: number, w: number, h: number): void {
+    const box: Pt[] = [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+    ];
+    this.emitPolygon(
+      box.map((p) => this.apply(p)),
+      this.fillStyle,
+    );
+  }
+  fillText(): void {
+    // Unreachable while plotting: setVectorText strokes every glyph.
+  }
+  drawImage(): void {
+    // Raster images have no vector representation in DXF / PostScript.
+  }
+
+  protected abstract emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void;
+  protected abstract emitPolygon(pts: Pt[], color: string): void;
+}
+
+/** DXF (AutoCAD R2000 / AC1015) back-end: one LWPOLYLINE per path, in the
+ *  "Export units:" unit (DXF_UNITS::INCH / MM), true-colour (code 420). Y is
+ *  flipped because DXF is Y-up. */
+class DxfContext extends VectorContext {
+  private ents: string[] = [];
+  private handle = 0x100;
+  /** IU per exported unit: 1 mm, or 25.4 mm for inches. */
+  private readonly u: number;
+  constructor(
+    pw: number,
+    ph: number,
+    private readonly units: 'in' | 'mm' = 'in',
+  ) {
+    super(pw, ph);
+    this.u = units === 'mm' ? MM : MM * 25.4;
+  }
+  private X(x: number): string {
+    return num(x / this.u);
+  }
+  private Y(y: number): string {
+    return num((this.ph - y) / this.u);
+  }
+  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
+    this.lwpolyline(pts, closed, width, color);
+  }
+  protected emitPolygon(pts: Pt[], color: string): void {
+    // DXF has no simple filled polygon; emit the closed outline (sketch fill).
+    this.lwpolyline(pts, true, 0, color);
+  }
+  private lwpolyline(pts: Pt[], closed: boolean, width: number, color: string): void {
+    if (pts.length < 2) return;
+    const [r, g, b] = parseColor(color);
+    const h = (this.handle++).toString(16).toUpperCase();
+    const e: string[] = [
+      '0', 'LWPOLYLINE',
+      '5', h,
+      '100', 'AcDbEntity',
+      '8', '0',
+      '100', 'AcDbPolyline',
+      '90', String(pts.length),
+      '70', closed ? '1' : '0',
+      '420', String((r << 16) | (g << 8) | b),
+    ];
+    if (width > 0) e.push('43', num(width / this.u));
+    for (const p of pts) e.push('10', this.X(p[0]), '20', this.Y(p[1]));
+    this.ents.push(e.join('\n'));
+  }
+  document(): string {
+    const seed = this.handle.toString(16).toUpperCase();
+    return [
+      '0', 'SECTION',
+      '2', 'HEADER',
+      '9', '$ACADVER', '1', 'AC1015',
+      // $INSUNITS: 1 = inches, 4 = millimeters (the "Export units:" choice).
+      '9', '$INSUNITS', '70', this.units === 'mm' ? '4' : '1',
+      '9', '$HANDSEED', '5', seed,
+      '0', 'ENDSEC',
+      '0', 'SECTION',
+      '2', 'ENTITIES',
+      ...this.ents.join('\n').split('\n'),
+      '0', 'ENDSEC',
+      '0', 'EOF',
+      '',
+    ].join('\n');
+  }
+}
+
+/** PostScript (Adobe 3.0) back-end: points (1/72"), Y flipped (PS is Y-up). */
+class PsContext extends VectorContext {
+  private body: string[] = [];
+  private K = 72 / (25.4 * MM); // IU -> PostScript points
+  private X(x: number): string {
+    return num(x * this.K);
+  }
+  private Y(y: number): string {
+    return num((this.ph - y) * this.K);
+  }
+  private path(pts: Pt[], closed: boolean): string {
+    const c = [`newpath ${this.X(pts[0]![0])} ${this.Y(pts[0]![1])} m`];
+    for (let i = 1; i < pts.length; i++) c.push(`${this.X(pts[i]![0])} ${this.Y(pts[i]![1])} l`);
+    if (closed) c.push('closepath');
+    return c.join(' ');
+  }
+  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
+    if (pts.length < 2) return;
+    const [r, g, b] = parseColor(color);
+    this.body.push(
+      `${this.path(pts, closed)} ${num(width * this.K)} setlinewidth ` +
+        `${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor stroke`,
+    );
+  }
+  protected emitPolygon(pts: Pt[], color: string): void {
+    if (pts.length < 3) return;
+    const [r, g, b] = parseColor(color);
+    this.body.push(`${this.path(pts, true)} ${ps(r)} ${ps(g)} ${ps(b)} setrgbcolor fill`);
+  }
+  document(title: string): string {
+    const w = Math.ceil(this.pw * this.K);
+    const h = Math.ceil(this.ph * this.K);
+    return [
+      '%!PS-Adobe-3.0',
+      `%%BoundingBox: 0 0 ${w} ${h}`,
+      // Declare the real media size so interpreters don't fall back to US
+      // Letter (612 pt) and clip the right edge of a wider sheet.
+      `%%DocumentMedia: plot ${w} ${h} 0 () ()`,
+      `%%Title: ${title}`,
+      '%%Pages: 1',
+      '%%EndComments',
+      '%%BeginProlog',
+      '/m { moveto } bind def',
+      '/l { lineto } bind def',
+      '1 setlinecap 1 setlinejoin',
+      '%%EndProlog',
+      '%%Page: 1 1',
+      `<< /PageSize [${w} ${h}] >> setpagedevice`,
+      ...this.body,
+      'showpage',
+      '%%Trailer',
+      '%%EOF',
+      '',
+    ].join('\n');
+  }
+}
+/** 0..255 channel -> PostScript 0..1 float. */
+function ps(v: number): string {
+  return (v / 255).toFixed(3);
+}
+
+/** Plot the sheet to a true-vector DXF (AutoCAD) drawing. */
+export function sheetToDxf(sch: Schematic, base: Theme, opts: PlotOpts): string {
+  const page = plotPageIU(sch, opts);
+  return renderToVector(
+    sch,
+    base,
+    opts,
+    new DxfContext(page.w, page.h, opts.dxfUnits ?? 'in'),
+    (c) => c.document(),
+  );
+}
+/** Plot the sheet to a single-page Adobe PostScript document. */
+export function sheetToPs(sch: Schematic, base: Theme, opts: PlotOpts, title: string): string {
+  const page = plotPageIU(sch, opts);
+  return renderToVector(sch, base, opts, new PsContext(page.w, page.h), (c) => c.document(title));
+}
+/** Run the shared render walk into a vector context and serialise it. */
+function renderToVector<C extends VectorContext>(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  ctx: C,
+  done: (c: C) => string,
+): string {
+  const page = plotPageIU(sch, opts);
+  const theme = outputTheme(base, opts);
+  setVectorText(true);
+  try {
+    renderSchematic(
+      ctx as unknown as CanvasRenderingContext2D,
+      sch,
+      { scale: page.scale, offsetX: 0, offsetY: 0 },
+      theme,
+      page.w,
+      page.h,
+      undefined,
+      undefined,
+      outputRenderOpts(opts),
+    );
+  } finally {
+    setVectorText(false);
+  }
+  return done(ctx);
+}
+
+/** Plot to DXF. */
+export function plotDxf(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
+  sink(new Blob([sheetToDxf(sch, base, opts)], { type: 'application/dxf' }), `${name}.dxf`);
+}
+/** Plot to PostScript. */
+export function plotPs(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
+  sink(
+    new Blob([sheetToPs(sch, base, opts, name)], { type: 'application/postscript' }),
+    `${name}.ps`,
+  );
+}
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
@@ -462,8 +910,25 @@ function dataUriToBytes(uri: string): Uint8Array {
   return bytes;
 }
 
-/** Build a one-page PDF that shows `jpeg` (DCTDecode) filling a ptW×ptH page. */
-function buildImagePdf(jpeg: Uint8Array, pxW: number, pxH: number, ptW: number, ptH: number): Blob {
+/** PDF literal string body: escape the delimiters and drop non-Latin-1 bytes. */
+function pdfString(s: string): string {
+  return s
+    .replace(/[\\()]/g, (c) => `\\${c}`)
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\x20-\xff]/g, '');
+}
+
+/** Build a one-page PDF that shows `jpeg` (DCTDecode) filling a ptW×ptH page.
+ *  `info` (the "Generate metadata from AUTHOR & SUBJECT variables" option)
+ *  writes the document-properties dictionary. */
+function buildImagePdf(
+  jpeg: Uint8Array,
+  pxW: number,
+  pxH: number,
+  ptW: number,
+  ptH: number,
+  info?: { title?: string; author?: string; subject?: string },
+): Blob {
   const enc = new TextEncoder();
   const parts: (string | Uint8Array)[] = [];
   const offsets: number[] = [];
@@ -498,12 +963,19 @@ function buildImagePdf(jpeg: Uint8Array, pxW: number, pxH: number, ptW: number, 
   const content = `q ${round(ptW)} 0 0 ${round(ptH)} 0 0 cm /Im0 Do Q`;
   obj(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
 
+  // Document properties (PDF_PLOTTER::StartPlot's /Info dictionary).
+  const entries: string[] = ['/Producer (ZiroEDA)'];
+  if (info?.title) entries.push(`/Title (${pdfString(info.title)})`);
+  if (info?.author) entries.push(`/Author (${pdfString(info.author)})`);
+  if (info?.subject) entries.push(`/Subject (${pdfString(info.subject)})`);
+  obj(6, `<< ${entries.join(' ')} >>`);
+
   const xrefPos = pos;
-  const count = 6;
+  const count = 7;
   let xref = `xref\n0 ${count}\n0000000000 65535 f \n`;
   for (let i = 1; i < count; i++) xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
   push(xref);
-  push(`trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`);
+  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`);
 
   return new Blob(parts as BlobPart[], { type: 'application/pdf' });
 }
@@ -514,22 +986,33 @@ function round(v: number): number {
 
 // ----- Print (browser) -------------------------------------------------------
 
-/** Open the browser print flow for the rendered sheet (SCH_PRINTOUT). */
-export function printSheet(
-  sch: Schematic,
+/** One page of a print job: a sheet document and its render options. */
+export interface PrintPage {
+  sch: Schematic;
+  opts: PlotOpts;
+}
+
+/**
+ * Open the browser print flow for a multi-page job — SCH_PRINTOUT prints the
+ * whole hierarchy, one page per sheet instance in SCH_SHEET_LIST order.
+ * Colour output prints as-is; B&W forces the monochrome theme (outputTheme).
+ * "Print" auto-opens the browser print flow once the last page has loaded;
+ * "Print Preview" (KiCad's Apply) just shows the rendered pages. The page
+ * orientation follows the first sheet (CSS `@page` is per-document, unlike
+ * wxPrintout's per-page setup).
+ */
+export function printSheets(
+  pages: readonly PrintPage[],
   base: Theme,
-  opts: PlotOpts,
   title: string,
   preview = false,
 ): void {
-  // Colour output prints as-is; B&W forces the monochrome theme. The print
-  // window sizes the image to the page. "Print" auto-opens the browser print
-  // flow on load; "Print Preview" (KiCad's Apply) just shows the rendered page
-  // so the user can review it and print from the browser when ready.
-  const canvas = renderSheetToCanvas(sch, opts.color ? base : KICAD_CLASSIC, opts, 300);
-  const dataUrl = canvas.toDataURL('image/png');
-  const page = pageIU(sch);
-  const landscape = page.w >= page.h;
+  if (pages.length === 0) return;
+  const dataUrls = pages.map(({ sch, opts }) =>
+    renderSheetToCanvas(sch, opts.color ? base : KICAD_CLASSIC, opts, 300).toDataURL('image/png'),
+  );
+  const first = pageIU(pages[0]!.sch);
+  const landscape = first.w >= first.h;
   const win = window.open('', '_blank');
   if (!win) return;
   const onload = preview ? 'window.focus();' : 'window.focus();window.print();';
@@ -537,8 +1020,22 @@ export function printSheet(
     `<!doctype html><html><head><title>${escText(title)}</title>` +
       `<style>@page { size: ${landscape ? 'landscape' : 'portrait'}; margin: 0; }` +
       `html,body { margin: 0; padding: 0; }` +
-      `img { display: block; width: 100%; height: auto; }</style></head>` +
-      `<body><img src="${dataUrl}" onload="${onload}"/></body></html>`,
+      `img { display: block; width: 100%; height: auto; page-break-after: always; }` +
+      `img:last-child { page-break-after: auto; }</style></head>` +
+      `<body>${dataUrls
+        .map((u, i) => `<img src="${u}"${i === dataUrls.length - 1 ? ` onload="${onload}"` : ''}/>`)
+        .join('')}</body></html>`,
   );
   win.document.close();
+}
+
+/** Single-sheet convenience wrapper over printSheets. */
+export function printSheet(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  title: string,
+  preview = false,
+): void {
+  printSheets([{ sch, opts }], base, title, preview);
 }

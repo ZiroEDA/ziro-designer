@@ -20,10 +20,15 @@ export {
 } from './sch_io/sexpr/write-symbol-lib.js';
 export * from './project.js';
 export * from './fieldbox.js';
+export * from './lib_symbol_compare.js';
+export * from './sim/sim_model.js';
+export * from './sim/sim_model_types.js';
+export * from './sch_pin.js';
 export * from './tools/index.js';
 export * from './connectivity/index.js';
 export * from './exporters/bom.js';
 export * from './exporters/netlist.js';
+export * from './exporters/netlist_exporter_kicad.js';
 export * from './exporters/spice.js';
 
 import { writeSchematic as _writeSchematic } from './sch_io/sexpr/write-schematic.js';

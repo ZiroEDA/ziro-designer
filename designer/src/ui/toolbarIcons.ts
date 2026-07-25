@@ -187,6 +187,13 @@ const BITMAP: Record<string, string> = {
   syncedPins: 'pin2pin',
   addSymbolToSchematic: 'add_symbol_to_schematic',
   showElectricalTypes: 'pin_show_etype',
+  // annotate dialog sort-order bitmaps (dialog_annotate.cpp)
+  annotateDownRight: 'annotate_down_right',
+  annotateRightDown: 'annotate_right_down',
+  // symbol library browser (toolbars_symbol_viewer.cpp)
+  previousSymbol: 'lib_previous',
+  nextSymbol: 'lib_next',
+  showPinNumbers: 'pin',
   showHiddenFields: 'text_sketch',
   showLibraryTree: 'search_tree',
   placePin: 'pin',
@@ -268,6 +275,18 @@ const BITMAP: Record<string, string> = {
   diffMode: 'contrast_mode',
   flipView: 'mirror_h',
   showLayerManager: 'layers_manager',
+  // Assign Footprints (cvpcb, per CVPCB_ACTIONS .Icon()).
+  cvpcbSaveToSchematic: 'save',
+  cvpcbViewFootprint: 'show_footprint',
+  cvpcbPrevNA: 'left',
+  cvpcbNextNA: 'right',
+  cvpcbUndo: 'undo',
+  cvpcbRedo: 'redo',
+  cvpcbDeleteAll: 'delete_association',
+  cvpcbFilterFp: 'module_filtered_list',
+  cvpcbFilterPin: 'module_pin_filtered_list',
+  cvpcbFilterLib: 'module_library_list',
+  cvpcbLibTable: 'library_table',
 };
 
 /** KiCad icon URL for a toolbar tool id, or undefined if none is mapped. */

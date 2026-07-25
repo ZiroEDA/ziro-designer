@@ -20,6 +20,7 @@ import {
   useState,
 } from 'react';
 import { letterSubReference, type LibSymbol } from '@ziroeda/eeschema';
+import { atom, list, str } from '@ziroeda/sexpr/src/types.js';
 import { searchTerm } from '@ziroeda/common';
 import { LibTree } from '../../../widgets/lib_tree.js';
 import { LibTreeModelAdapter, type SortMode } from '../../../widgets/lib_tree_model_adapter.js';
@@ -71,17 +72,47 @@ let gPowerSearchString = '';
 const symProp = (sym: LibSymbol, key: string): string =>
   sym.properties.find((p) => p.key === key)?.value ?? '';
 
+const itemNameOf = (libId: string): string => libId.slice(libId.indexOf(':') + 1);
+
+/** The PICKED_SYMBOL's field edits applied to a copy of the symbol, as
+ *  processList does before handing it to the tree. */
+function withFields(sym: LibSymbol, fields: readonly [string, string][]): LibSymbol {
+  const properties = sym.properties.map((p) => {
+    const edit = fields.find(([key]) => key === p.key);
+    return edit ? { ...p, value: edit[1] } : p;
+  });
+  for (const [key, value] of fields) {
+    if (!properties.some((p) => p.key === key))
+      properties.push({
+        key,
+        value,
+        angle: 0,
+        source: list(atom('property'), str(key), str(value)),
+      });
+  }
+  return { ...sym, properties };
+}
+
 const unitCountOf = (sym: LibSymbol): number =>
   new Set(sym.units.map((u) => u.unit).filter((u) => u > 0)).size;
 
-/** LIB_SYMBOL::cacheSearchTerms — weighted terms once the real symbol is known. */
-function populateItemNode(node: LibTreeNode, sym: LibSymbol): void {
+/** LIB_SYMBOL::GetPinCount over the unit-1 (or common) graphical pins. */
+const pinCountOf = (sym: LibSymbol): number =>
+  sym.units.reduce((n, u) => n + (u.unit === 0 || u.unit === 1 ? u.pins.length : 0), 0);
+
+/**
+ * LIB_SYMBOL::cacheSearchTerms + cacheChooserFields — weighted terms and the
+ * optional-column values, once the real symbol is known.
+ */
+function populateItemNode(node: LibTreeNode, sym: LibSymbol, adapter?: LibTreeModelAdapter): void {
   const keywords = symProp(sym, 'ki_keywords');
   const desc = symProp(sym, 'Description');
   node.desc = desc;
   node.footprint = symProp(sym, 'Footprint');
   node.isPower = sym.isPower;
-  node.searchTerms = [
+  node.isRoot = !sym.extends;
+  node.pinCount = pinCountOf(sym);
+  node.sourceSearchTerms = [
     searchTerm(node.libNickname, 4),
     searchTerm(node.name, 8, true),
     searchTerm(node.libId, 16, true),
@@ -92,7 +123,15 @@ function populateItemNode(node: LibTreeNode, sym: LibSymbol): void {
     searchTerm(keywords, 1),
     searchTerm(desc, 1),
   ];
-  if (node.footprint) node.searchTerms.push(searchTerm(node.footprint, 1));
+  if (node.footprint) node.sourceSearchTerms.push(searchTerm(node.footprint, 1));
+
+  // cacheChooserFields: fields flagged `(show_in_chooser yes)` become columns,
+  // and "Keywords" is offered unless the symbol defines a field by that name.
+  node.fields = new Map<string, string>();
+  for (const f of sym.properties) if (f.showInChooser) node.fields.set(f.key, f.value);
+  if (!node.fields.has('Keywords')) node.fields.set('Keywords', keywords);
+  if (adapter) for (const name of node.fields.keys()) adapter.addColumnIfNecessary(name);
+  node.rebuildSearchTerms(adapter?.getShownColumns() ?? []);
 
   const units = unitCountOf(sym);
   if (units > 1 && node.children.length === 0) {
@@ -130,10 +169,16 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     const [regenerateNonce, setRegenerateNonce] = useState(0);
     const [selectedNode, setSelectedNode] = useState<LibTreeNode | null>(null);
     const [previewSymbol, setPreviewSymbol] = useState<LibSymbol | null>(null);
+    // A derived symbol's parent (LIB_SYMBOL::GetParent), needed for the details
+    // pane's "Derived from" line and its inherited field rows.
+    const [parentSymbol, setParentSymbol] = useState<LibSymbol | undefined>(undefined);
     const [fetchingLib, setFetchingLib] = useState<string | null>(null);
     const [fpOverride, setFpOverride] = useState('');
     const fieldEdits = useRef<[string, string][]>([]);
     const loadedLibs = useRef(new Set<string>());
+    // The history/already-placed group entries' symbols, with their picked
+    // field edits already applied (upstream's history_list_storage).
+    const groupSymbols = useRef(new Map<LibTreeNode, LibSymbol>()).current;
 
     // Sash positions (EESCHEMA_SETTINGS m_SymChooserPanel.sash_pos_h/_v).
     const [sashH, setSashH] = useState(settings.eeschema.sym_chooser.sash_pos_h);
@@ -142,11 +187,15 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     const adapter = useMemo(() => {
       const a = new LibTreeModelAdapter();
       a.setSortMode(settings.eeschema.sym_chooser.sort_mode as SortMode);
+      // loadColumnConfig: the persisted column set, defaulting to Item +
+      // Description with "Item" forced to the front.
+      if (settings.eeschema.lib_tree.columns.length > 0)
+        a.setShownColumns(settings.eeschema.lib_tree.columns);
       a.generateInfo = (node) => {
         if (node === selectedNodeRef.current && previewSymbolRef.current)
-          return generateAliasInfo(previewSymbolRef.current);
-        const placed = getPlacedLibSymbol?.(node.libId);
-        return placed ? generateAliasInfo(placed) : `<b>${node.name}</b>`;
+          return generateAliasInfo(previewSymbolRef.current, node.unit, parentSymbolRef.current);
+        const placed = groupSymbols.get(node) ?? getPlacedLibSymbol?.(node.libId);
+        return placed ? generateAliasInfo(placed, node.unit) : `<b>${node.name}</b>`;
       };
 
       if (powerFilter) {
@@ -159,8 +208,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         );
       }
 
+      // processList: an entry whose symbol can't be resolved is dropped, and
+      // the picked field values are applied to the copy that feeds the node —
+      // so an edited footprint/value shows in the tree and the details pane.
       const processList = (list: readonly PickedSymbol[], group: LibTreeNode) => {
         for (const picked of list) {
+          const sym = getPlacedLibSymbol?.(picked.libId);
+          if (!sym) continue;
           const [nick = '', itemName = ''] = picked.libId.split(':');
           const item = new LibTreeNode();
           item.type = LibTreeNodeType.ITEM;
@@ -168,11 +222,9 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           item.name = itemName;
           item.libNickname = nick;
           item.libItemName = itemName;
-          const sym = getPlacedLibSymbol?.(picked.libId);
-          if (sym) populateItemNode(item, sym);
-          for (const [key, value] of picked.fields) {
-            if (key === 'Footprint') item.footprint = value;
-          }
+          const edited = picked.fields.length ? withFields(sym, picked.fields) : sym;
+          groupSymbols.set(item, edited);
+          populateItemNode(item, edited, a);
           group.children.push(item);
         }
       };
@@ -183,17 +235,18 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       const recent = a.addGroup('-- Recently Used --');
       recent.isRecentlyUsedGroup = true;
       processList(historyList, recent);
-      recent.assignIntrinsicRanks(true);
+      a.finishLibrary(recent, true);
 
       if (historyList.length > 0) a.setPreselectNode(historyList[0]!.libId, historyList[0]!.unit);
 
       const placedGroup = a.addGroup('-- Already Placed --');
       placedGroup.isAlreadyPlacedGroup = true;
       processList(
-        [...alreadyPlaced].sort((x, y) => x.libId.localeCompare(y.libId)),
+        // Upstream sorts on the item name, not the whole LIB_ID.
+        [...alreadyPlaced].sort((x, y) => itemNameOf(x.libId).localeCompare(itemNameOf(y.libId))),
         placedGroup,
       );
-      placedGroup.assignIntrinsicRanks();
+      a.finishLibrary(placedGroup);
 
       return a;
       // The adapter is built once per dialog opening.
@@ -204,8 +257,10 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     // always sees the current selection.
     const selectedNodeRef = useRef<LibTreeNode | null>(null);
     const previewSymbolRef = useRef<LibSymbol | null>(null);
+    const parentSymbolRef = useRef<LibSymbol | undefined>(undefined);
     selectedNodeRef.current = selectedNode;
     previewSymbolRef.current = previewSymbol;
+    parentSymbolRef.current = parentSymbol;
 
     // AddLibraries: seed every library from the index with name-only items;
     // real data streams in lazily.
@@ -226,14 +281,14 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
               item.libNickname = lib.name;
               item.libItemName = name;
               item.isPower = /power/i.test(lib.name);
-              item.searchTerms = [
+              item.sourceSearchTerms = [
                 searchTerm(lib.name, 4),
                 searchTerm(name, 8, true),
                 searchTerm(`${lib.name}:${name}`, 16, true),
               ];
               libNode.children.push(item);
             }
-            libNode.assignIntrinsicRanks();
+            adapter.finishLibrary(libNode);
           }
           adapter.tree.assignIntrinsicRanks();
           setRegenerateNonce((n) => n + 1);
@@ -256,7 +311,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         await Promise.all(
           libNode.children.map(async (item) => {
             const sym = await loadSymbol(libNickname, item.libItemName).catch(() => undefined);
-            if (sym) populateItemNode(item, sym);
+            if (sym) populateItemNode(item, sym, adapter);
           }),
         );
         setRegenerateNonce((n) => n + 1);
@@ -273,13 +328,13 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         setFpOverride('');
 
         if (node && node.libId && node.type !== LibTreeNodeType.LIBRARY) {
-          // Group entries (Recently Used / Already Placed) may name project-local
-          // libraries; resolve those from the schematic's embedded cache first,
-          // as upstream does through GetLibSymbol.
-          const placed = getPlacedLibSymbol?.(node.libId);
-          if (placed) {
-            populateItemNode(node, placed);
-            setPreviewSymbol(placed);
+          // A group entry keeps the copy its picked field edits were applied to;
+          // otherwise resolve from the schematic's embedded cache (GetLibSymbol)
+          // before falling back to the hosted library.
+          const stored = groupSymbols.get(node) ?? getPlacedLibSymbol?.(node.libId);
+          if (stored) {
+            populateItemNode(node, stored, adapter);
+            setPreviewSymbol(stored);
             return;
           }
           setFetchingLib(node.libNickname);
@@ -288,7 +343,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             .then((sym) => {
               setPreviewSymbol(sym ?? null);
               if (sym) {
-                populateItemNode(node, sym);
+                populateItemNode(node, sym, adapter);
                 void ensureLibraryLoaded(node.libNickname);
               }
             })
@@ -391,29 +446,84 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         previewSymbol ? symProp(previewSymbol, 'ki_fp_filters').split(/\s+/).filter(Boolean) : [],
       [previewSymbol],
     );
-    const shownFootprint = fpOverride || defaultFootprint;
+    // onSymbolSelected: a node carrying its own footprint (a history entry with
+    // an edited Footprint field) is previewed with that, else showFootprintFor
+    // falls back to the symbol's own Footprint field.
+    const shownFootprint = fpOverride || selectedNode?.footprint || defaultFootprint;
+    // showFootprint: an unparsable LIB_ID reports itself rather than drawing.
+    const fpStatus = !validSelection
+      ? ''
+      : !shownFootprint
+        ? 'No footprint specified'
+        : /^[^:]+:[^:]+$/.test(shownFootprint)
+          ? ''
+          : 'Invalid footprint specified';
 
-    // FOOTPRINT_SELECT_WIDGET::UpdateList — filter the hosted footprint list
-    // by the symbol's fp_filters (zero filters shows just the default entry).
+    // AddAlwaysIncludedFootprint: explicitly associated footprints (issue #2282)
+    // head the list in written order and bypass the filters.
+    const alwaysIncluded = useMemo(() => {
+      const out: string[] = [];
+      for (const a of previewSymbol?.associatedFootprints ?? []) {
+        if (a.footprintLibId && !out.includes(a.footprintLibId)) out.push(a.footprintLibId);
+      }
+      return out;
+    }, [previewSymbol]);
+
+    // FOOTPRINT_SELECT_WIDGET::UpdateList — the always-included footprints, then
+    // the hosted list filtered by the symbol's fp_filters (zero filters and no
+    // associations leave just the default entry).
     const [fpItems, setFpItems] = useState<string[]>([]);
     useEffect(() => {
-      if (!showFp || fpFilters.length === 0) {
+      if (!showFp || (fpFilters.length === 0 && alwaysIncluded.length === 0)) {
         setFpItems([]);
+        return;
+      }
+      if (fpFilters.length === 0) {
+        setFpItems(alwaysIncluded);
         return;
       }
       let cancelled = false;
       void loadFootprintIndex().then((index) => {
-        if (!cancelled) setFpItems(filterFootprints(index, fpFilters));
+        if (cancelled) return;
+        const matched = filterFootprints(index, fpFilters).filter(
+          (fp) => !alwaysIncluded.includes(fp),
+        );
+        setFpItems([...alwaysIncluded, ...matched]);
       });
       return () => {
         cancelled = true;
       };
-    }, [showFp, fpFilters]);
+    }, [showFp, fpFilters, alwaysIncluded]);
+
+    // Resolve the selected symbol's parent so the details pane can name it and
+    // inherit its fields; parents live in the same library upstream.
+    useEffect(() => {
+      const ext = previewSymbol?.extends;
+      if (!previewSymbol || !ext) {
+        setParentSymbol(undefined);
+        return;
+      }
+      let cancelled = false;
+      const nick = previewSymbol.libId.split(':')[0] ?? '';
+      void loadSymbol(nick, ext)
+        .catch(() => undefined)
+        .then((sym) => {
+          if (!cancelled) setParentSymbol(sym ?? undefined);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [previewSymbol]);
+
+    // No hover preview here: LIB_TREE_MODEL_ADAPTER::HasPreview is false unless
+    // an adapter overrides it, and only the *synchronizing* adapters (the Symbol
+    // and Footprint Editors' trees) do. The chooser has a preview pane instead.
 
     const tree = (
       <div className="ze-chooser-treepane">
         <LibTree
           adapter={adapter}
+          recentSearchesKey={powerFilter ? 'power' : 'symbols'}
           regenerateNonce={regenerateNonce}
           initialSearch={powerFilter ? gPowerSearchString : gSymbolSearchString}
           onSearchChanged={onSearchChanged}
@@ -423,6 +533,9 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           onPinLibrary={onPinLibrary}
           onSortModeChanged={(mode) =>
             settings.updateEeschema((s) => (s.sym_chooser.sort_mode = mode as 0 | 1))
+          }
+          onShownColumnsChanged={(columns) =>
+            settings.updateEeschema((s) => (s.lib_tree.columns = [...columns]))
           }
           hasExternalDetails={!showFp}
           openLibs={settings.eeschema.lib_tree.open_libs}
@@ -457,8 +570,8 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
             />
             <div style={{ flex: 10, minHeight: 0, display: 'flex' }}>
               <FootprintPreviewWidget
-                footprint={validSelection ? shownFootprint : ''}
-                statusText={validSelection && !shownFootprint ? 'No footprint specified' : ''}
+                footprint={validSelection && !fpStatus ? shownFootprint : ''}
+                statusText={fpStatus}
               />
             </div>
           </div>
@@ -482,7 +595,10 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
           style={{ height: sashV, flex: 'none' }}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: generateAliasInfo HTML-escapes all library data
           dangerouslySetInnerHTML={{
-            __html: validSelection && previewSymbol ? generateAliasInfo(previewSymbol) : '',
+            __html:
+              validSelection && previewSymbol
+                ? generateAliasInfo(previewSymbol, selectedNode?.unit ?? 0, parentSymbol)
+                : '',
           }}
         />
       </div>

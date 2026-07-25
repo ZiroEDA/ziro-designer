@@ -166,6 +166,29 @@ body {
   opacity: 0.35;
 }
 
+/* A toolbar CONTROL slot (TOOLBAR_CONFIGURATION::AppendControl) — e.g. the
+   symbol viewer's unit / body-style wxChoice, 150 px wide upstream. */
+.ze-tb-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 2px;
+}
+.ze-tb-choice {
+  width: 150px;
+  height: 24px;
+  padding: 0 4px;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 12px;
+}
+.ze-tb-choice:disabled {
+  opacity: 0.5;
+}
+
 /* ACTION_TOOLBAR_PALETTE: the flyout with the rest of a group's actions,
    perpendicular to the toolbar. 4px border around the buttons, 1px between. */
 .ze-tb-palette {
@@ -1116,61 +1139,189 @@ body {
 }
 
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
+/* PCB Find dialog (DIALOG_FIND). Layout mirrors dialog_find_base.cpp:
+   topSizer[ leftSizer | buttonSizer(vertical) ] / staticline / sizerStatus. */
 .ze-find-dialog {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 320px;
+  width: 560px;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   z-index: 60;
 }
+/* The DRC dialog reuses the modeless find-dialog chrome (DIALOG_DRC is
+   modeless too — the canvas stays interactive for click-to-locate). */
+.ze-drc-dialog {
+  width: 520px;
+  top: 48px;
+}
 .ze-find-body {
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
-.ze-find-body .row {
+/* topSizer (wxHORIZONTAL): content grows, button column fixed on the right. */
+.ze-find-top {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
 }
-.ze-find-body .row input {
+.ze-find-left {
   flex: 1;
-}
-.ze-find-body .opts {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+/* bSizer8: "Search for:" + combo (combo grows). */
+.ze-find-searchrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ze-find-searchrow > span {
+  flex: 0 0 auto;
+}
+.ze-find-searchrow .ze-search {
+  flex: 1;
+  min-width: 0;
+}
+/* sizerOptions (wxHORIZONTAL with stretch spacers): modifiers spread across. */
+.ze-find-modifiers {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
 }
-.ze-find-body .opts label {
+/* sizerInclude = wxFlexGridSizer( 0, 2, 6, 20 ): 2 columns, vgap 6, hgap 20. */
+.ze-find-scope {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 20px;
+  row-gap: 6px;
+  font-size: 12px;
+}
+.ze-find-modifiers label,
+.ze-find-scope label {
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
+/* buttonSizer (wxVERTICAL, each button wxEXPAND). */
 .ze-find-buttons {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  justify-content: flex-end;
+  flex: 0 0 auto;
+  min-width: 118px;
 }
-.ze-find-buttons .status {
+.ze-find-buttons button {
+  width: 100%;
+}
+/* staticline separator. */
+.ze-find-sep {
+  height: 1px;
+  background: var(--chrome-border);
+  margin: 10px 0;
+}
+/* sizerStatus: status text (left) + "Show search panel" link (right). */
+.ze-find-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ze-find-status .status {
   flex: 1;
   color: #8a8c90;
   font-size: 12px;
 }
+.ze-find-panellink {
+  font-size: 12px;
+  color: #6b7684;
+  cursor: default;
+}
+
+/* Schematic Find / Find and Replace (DIALOG_SCH_FIND) reuses the PCB find
+   shell but has its own two-column input grid and 3-column option grid-bag. */
+.ze-schfind-dialog {
+  width: 520px;
+}
+/* leftGridSizer( 3, 2 ) — label | combo, second column growable. */
+.ze-schfind-inputs {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 6px;
+}
+.ze-schfind-inputs .ze-search {
+  min-width: 220px;
+  width: 100%;
+}
+/* gbSizer2 = wxGridBagSizer( 0, 20 ) — 3 columns, hgap 20. */
+.ze-schfind-scope {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  column-gap: 20px;
+  row-gap: 5px;
+  font-size: 12px;
+}
+.ze-schfind-scope label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+/* Empty spacer row (SetEmptyCellSize height 8). */
+.ze-schfind-gap {
+  height: 3px;
+}
 
 /* Annotate Schematic dialog (DIALOG_ANNOTATE). */
+/* Annotate Schematic (dialog_annotate_base.cpp): a 2x2 grid of static boxes —
+   Scope | Order over Options | Numbering — above the messages report panel. */
 .ze-annotate-dialog {
-  width: 380px;
+  width: 720px;
+  height: auto;
+  max-height: 92vh;
 }
 .ze-annotate-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 6px;
+  overflow: auto;
+}
+.ze-annotate-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.ze-annotate-grid > fieldset {
+  height: 100%;
+}
+/* The sort-order bitmaps beside each Order radio (annotate_down_right /
+   annotate_right_down). */
+.ze-order-bitmap {
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+}
+/* WX_INFOBAR: the "annotation required" banner ModalAnnotate passes in. */
+.ze-infobar {
+  margin: 6px 6px 0;
+  padding: 6px 10px;
+  border: 1px solid #7a6a20;
+  border-radius: 3px;
+  background: #3a3520;
+  color: #e8e2c8;
+  font-size: 12px;
 }
 .ze-annotate-body fieldset {
   border: 1px solid var(--chrome-border);
@@ -1197,6 +1348,88 @@ body {
   width: 70px;
   margin-left: 6px;
 }
+/* WX_HTML_REPORT_PANEL: the message list, the "Show:" severity filters with
+   their NUMBER_BADGEs, and Save... */
+.ze-report-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--chrome-border);
+  padding: 6px 8px 8px;
+  min-width: 0;
+}
+.ze-report-panel > legend {
+  padding: 0 4px;
+  color: #8a8c90;
+  font-size: 12px;
+}
+.ze-report-view {
+  flex: 1;
+  overflow: auto;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 2px;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+/* generateHtml's dark-theme colours. */
+.ze-report-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ze-report-line .tag {
+  color: #f04040;
+}
+.ze-report-line.warning .tag {
+  color: inherit;
+}
+.ze-report-line.info {
+  color: #909090;
+}
+.ze-report-line.action {
+  color: #60d060;
+}
+.ze-report-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.ze-report-filters label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ze-report-show {
+  color: #8a8c90;
+}
+.ze-report-spacer {
+  flex: 1;
+}
+.ze-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #2e8b2e;
+  color: #fff;
+}
+.ze-badge.error {
+  background: #f04040;
+  color: #fff;
+}
+.ze-badge.warning {
+  background: #f0d000;
+  color: #000;
+}
+
 .ze-mitem .mcheck {
   font-size: 12px;
   line-height: 1;
@@ -1211,6 +1444,68 @@ body {
 .ze-subdropdown {
   top: -5px;
   left: 100%;
+}
+
+/* Update PCB from Schematic (dialog_update_pcb_base.cpp): Options / Update
+   Footprints / Update Fields stacked above the report panel, whose lower sizer
+   sets a 660x300 minimum. */
+.ze-update-pcb-dialog {
+  width: 700px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-update-pcb-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  overflow: auto;
+}
+.ze-update-pcb-body fieldset {
+  border: 1px solid var(--chrome-border);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ze-update-pcb-body legend {
+  padding: 0 4px;
+  color: #8a8c90;
+  font-size: 12px;
+}
+.ze-update-pcb-body label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.ze-update-pcb-body label.disabled {
+  opacity: 0.4;
+}
+.ze-update-pcb-body .ze-report-panel {
+  min-height: 300px;
+}
+/* DisplayErrorMessage's box: a short message with optional developer detail. */
+.ze-message-dialog {
+  width: 520px;
+  height: auto;
+  max-height: 80vh;
+}
+.ze-message-body {
+  padding: 12px 14px;
+  overflow: auto;
+  font-size: 13px;
+}
+.ze-message-body pre {
+  margin: 10px 0 0;
+  padding: 8px;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow: auto;
 }
 
 /* Symbol chooser modal (KiCad-style centered dialog) */
@@ -1322,6 +1617,36 @@ body {
   color: #ddd;
   font-size: 13px;
 }
+/* Entered-group banner (SELECTION_TOOL::EnterGroup context indicator). */
+.ze-group-editing {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 12px;
+  background: rgba(30, 30, 36, 0.92);
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.ze-group-editing button {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  color: #ddd;
+  cursor: pointer;
+}
+.ze-group-editing button:hover {
+  background: #3a3a42;
+}
 .ze-modal {
   width: 860px;
   height: 580px;
@@ -1355,6 +1680,407 @@ body {
   display: flex;
   min-height: 0;
 }
+/* ---------------------------------------------------------------------------
+   Symbol Fields Table (dialog_symbol_fields_table_base.cpp).
+
+   The dialog is 600 x 300 dialog units with a vertical splitter: the view
+   controls left (sash at field_editor.sash_pos = 400, minimum pane 120), the
+   Edit/Export notebook right. Every number below is one of upstream's: the
+   view-controls grid is 250 px tall with 24 px column labels, no grid lines and
+   rows 4 px shorter than default; the Include / Group By columns are 46 / 56 px
+   and the rest splits between Field and BOM Name; the filter is 240 px wide;
+   the table grid is at least 400 x 200; delimiter fields are 60 px. */
+.ze-modal.ze-fields-table {
+  width: 1050px;
+  height: 640px;
+  max-width: 96vw;
+  max-height: 92vh;
+}
+.ze-sft-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.ze-sft-left {
+  flex: 0 0 auto;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0 10px 10px;
+}
+/* wxSP_3DSASH | wxSP_LIVE_UPDATE. */
+.ze-sft-sash {
+  flex: 0 0 auto;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+}
+.ze-sft-sash:hover {
+  background: var(--chrome-active);
+}
+.ze-sft-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px 0;
+}
+.ze-sft-fields-pane {
+  flex: 1;
+  min-height: 100px;
+}
+/* EnableGridLines( false ): only the header rule shows. */
+.ze-sft-fields {
+  table-layout: fixed;
+}
+.ze-sft-fields th {
+  height: 24px;
+  padding: 0 4px;
+  border: none;
+  border-bottom: 1px solid var(--chrome-border);
+  white-space: nowrap;
+}
+.ze-sft-fields td {
+  border: none;
+  padding: 0;
+  height: 20px;
+}
+.ze-sft-fields td.center {
+  text-align: center;
+}
+.ze-sft-fields td.ze-sft-name {
+  padding: 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-sft-fields td input[type="text"] {
+  padding: 1px 5px;
+}
+/* The grid cursor's row highlights solid, like WX_GRID's selection. */
+.ze-sft-fields tr.selected td {
+  outline: none;
+  background: #e07b1a;
+  color: #1b1d1f;
+}
+.ze-sft-fields tr.selected td input[type="text"] {
+  color: #1b1d1f;
+}
+.ze-modal.ze-fields-table input[type="checkbox"] {
+  accent-color: #e07b1a;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+/* bPresets: a horizontal rule, the label, a 2 px gap, then the choice. */
+.ze-sft-presets {
+  flex: 0 0 auto;
+  padding-top: 5px;
+}
+.ze-sft-presets hr {
+  border: none;
+  border-top: 1px solid var(--chrome-border);
+  margin: 0 0 5px;
+}
+.ze-sft-presets label {
+  display: block;
+  font-size: 12.5px;
+  padding-left: 5px;
+  margin-bottom: 2px;
+}
+.ze-sft-presets select {
+  display: block;
+  width: calc(100% - 10px);
+  margin: 0 5px 5px;
+  padding: 5px 8px;
+  font: inherit;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+}
+/* The Edit / Export notebook (wxNotebook) tabs. */
+.ze-sft-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+.ze-sft-tabs .ze-sft-tab {
+  padding: 5px 14px;
+  font-size: 12.5px;
+  color: var(--chrome-fg);
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.ze-sft-tabs .ze-sft-tab.active {
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-bg);
+  font-weight: 600;
+}
+/* A notebook page: controls above, grid filling the rest. */
+.ze-sft-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 5px;
+}
+.ze-sft-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 5px;
+  position: relative;
+}
+.ze-sft-filter {
+  flex: 1;
+  min-width: 240px;
+}
+.ze-sft-scope {
+  flex: 0 0 auto;
+}
+/* The wxStaticLine separators between the control groups. */
+.ze-sft-vsep {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 3px 0;
+  background: rgba(255, 255, 255, 0.16);
+}
+.ze-sft-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  margin: 0 3px;
+}
+.ze-sft-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  min-width: 270px;
+  padding: 4px 0;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.ze-sft-menu > div {
+  padding: 4px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ze-sft-menu > div:hover {
+  background: var(--chrome-hover);
+}
+.ze-sft-menu .tick {
+  display: inline-block;
+  width: 14px;
+}
+.ze-sft-menu hr {
+  border: none;
+  border-top: 1px solid var(--chrome-border);
+  margin: 4px 0;
+}
+.ze-sft-table-pane {
+  flex: 1;
+  min-height: 200px;
+}
+.ze-sft-table {
+  table-layout: fixed;
+  min-width: 400px;
+}
+.ze-sft-table th {
+  height: 24px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ze-sft-table td {
+  height: 28px;
+}
+/* WX_GRID paints its selection in the accent colour, not a focus ring. */
+.ze-sft-table tr.selected td {
+  outline: none;
+  background: rgba(224, 123, 26, 0.25);
+}
+.ze-sft-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.ze-sft-cell.center {
+  justify-content: center;
+}
+.ze-sft-cell.right {
+  justify-content: flex-end;
+  padding-right: 6px;
+}
+.ze-sft-cell .ze-sft-text {
+  padding: 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-sft-twisty {
+  flex: 0 0 auto;
+  width: 14px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.85;
+  font-size: 10px;
+}
+.ze-sft-twisty:not(.on) {
+  cursor: default;
+}
+.ze-sft-empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--ze-muted, #9a9ca0);
+}
+/* Export page: the format options (a wxGridBagSizer of label + 60 px field)
+   left, the output file / preview column right (the growable one). */
+.ze-sft-export {
+  flex-direction: row;
+  gap: 5px;
+  padding: 10px 0 5px;
+}
+.ze-sft-fmt {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto 60px;
+  gap: 4px 5px;
+  align-content: start;
+  align-items: center;
+  padding: 0 5px;
+}
+.ze-sft-fmt > label {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.ze-sft-fmt > .span {
+  grid-column: 1 / span 2;
+}
+.ze-sft-fmt > input {
+  width: 60px;
+  text-align: center;
+}
+.ze-sft-fmt > hr {
+  border: none;
+  border-top: 1px solid var(--chrome-border);
+  width: 100%;
+  margin: 5px 0;
+}
+.ze-sft-fmt > select {
+  width: 100%;
+}
+.ze-sft-output {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ze-sft-outfile {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.ze-sft-outfile label,
+.ze-sft-previewrow label {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.ze-sft-outfile input {
+  flex: 1;
+  min-width: 0;
+}
+.ze-sft-previewrow {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+.ze-sft-preview {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+  padding: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+}
+.ze-sft-footer {
+  gap: 10px;
+}
+.ze-sft-status {
+  font-size: 12px;
+}
+
+/* Symbol Library Browser (symbol_viewer_frame.cpp): the frame's AUI panes —
+   toolbar on top, "Libraries" | "Symbols" palettes left of the canvas, message
+   panel at the bottom — laid out inside one modal. Upstream's default frame is
+   500 x 400 with 150 px list panes. */
+.ze-modal.ze-lib-viewer {
+  width: 1000px;
+  height: 640px;
+}
+.ze-lib-viewer-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-lib-viewer-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.ze-lib-viewer-pane {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-width: 100px;
+  min-height: 0;
+}
+.ze-lib-viewer-pane .ze-search {
+  margin: 4px;
+  flex: 0 0 auto;
+}
+.ze-lib-viewer-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 0;
+}
+/* The GAL canvas pane: the <canvas> is absolutely placed so its device-pixel
+   backing store never feeds an intrinsic width back into the flex row. */
+.ze-lib-viewer-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.ze-lib-viewer-canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 /* Choose Symbol dialog (dialog_symbol_chooser + panel_symbol_chooser):
    lib tree | sash | preview column, mirroring the KiCad 10 layout. */
 .ze-modal.ze-symbol-chooser {
@@ -1393,11 +2119,29 @@ body {
   height: 4px;
   cursor: row-resize;
 }
+/* constructRightPanel's sizer margins: the symbol preview has 5px all round,
+   the footprint selector 5px left/right, the footprint preview 5px
+   left/right/bottom — so the panes never bleed into the dialog edge. */
 .ze-chooser-right {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 5px;
+  padding: 5px;
+}
+/* The tree panel carries the same 5px border (treeSizer's wxALL). */
+.ze-chooser-treepane > .ze-libtree {
+  border: 1px solid var(--chrome-border);
+  border-radius: 2px;
+  margin: 5px 0 5px 5px;
+}
+/* The preview panes (the GAL canvases upstream) sit in their own frames; the
+   footprint selector keeps its control border. */
+.ze-chooser-right > div {
+  border: 1px solid var(--chrome-border);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
 /* LIB_TREE widget: filter row, column headers, tree rows, details pane. */
@@ -1414,8 +2158,33 @@ body {
   padding: 8px;
   border-bottom: 1px solid var(--chrome-border);
 }
-.ze-libtree-sortbtn-wrap {
+.ze-libtree-sortbtn-wrap,
+.ze-libtree-recent-wrap {
   position: relative;
+}
+/* The search control's magnifier button and its recent-searches menu
+   (wxSearchCtrl::SetMenu / LIB_TREE::updateRecentSearchMenu). */
+.ze-libtree-recentbtn {
+  padding: 3px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--chrome-fg);
+  cursor: pointer;
+  font: inherit;
+  opacity: 0.8;
+}
+.ze-libtree-recentbtn:hover {
+  background: var(--chrome-hover);
+  border-color: var(--chrome-border);
+}
+.ze-libtree-recent-wrap .ze-libtree-menu {
+  right: auto;
+  left: 0;
+}
+.ze-libtree-menu .item.disabled {
+  opacity: 0.55;
+  pointer-events: none;
 }
 .ze-libtree-sortbtn {
   padding: 4px 8px;
@@ -1490,6 +2259,14 @@ body {
   overflow: auto;
   padding: 2px 4px;
   outline: none;
+  /* A column flex so the "loading libraries" panel can centre itself in the
+     space the rows will occupy. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.ze-libtree-list > .ze-libtree-row {
+  flex: 0 0 auto;
 }
 .ze-libtree-row {
   display: flex;
@@ -1558,6 +2335,18 @@ body {
 .ze-libtree-details.external {
   flex: none;
 }
+/* LIB_TREE's hover preview popup (PREVIEW_SIZE 240x200, pinned to the tree's
+   right edge and vertically centred on the cursor). */
+.ze-libtree-preview {
+  position: fixed;
+  right: 12px;
+  z-index: 40;
+  background: #fff;
+  border: 1px solid var(--chrome-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  pointer-events: none;
+}
 .ze-libtree-details hr {
   border: none;
   border-top: 1px solid var(--chrome-border);
@@ -1591,6 +2380,10 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
+  /* The pane is a GAL canvas: the wheel zooms it and a middle/right drag pans,
+     so the gestures must not reach the dialog behind it. */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .ze-preview-status {
   flex: 1;
@@ -1600,15 +2393,20 @@ body {
   color: #6b7280;
   font-size: 12px;
 }
+/* A canvas whose backing store is sized in device pixels reports that size as
+   its intrinsic width, which would otherwise become its flex basis and push the
+   layout (and the dialog) wide; pin it to the box its parent gives it. */
 .ze-preview-canvas {
   flex: 11;
+  min-width: 0;
   min-height: 0;
+  width: 100%;
+  height: 100%;
   background: #fff;
 }
 
 /* FOOTPRINT_SELECT_WIDGET */
 .ze-fp-select {
-  margin: 4px 6px;
   padding: 4px 6px;
   background: var(--chrome-bg2);
   color: var(--chrome-fg);
@@ -1617,36 +2415,36 @@ body {
   font: inherit;
   font-size: 12px;
 }
+/* FOOTPRINT_PREVIEW_PANEL paints on pcbnew's canvas, so its background is the
+   board editor's (LAYER_PCB_BACKGROUND, rgb(0,16,35)) — not the schematic
+   white of the symbol preview beside it. */
 .ze-fp-preview {
   flex: 10;
   min-height: 0;
-  background: #fff;
+  position: relative;
+  background: rgb(0, 16, 35);
+  color: #c8ccd0;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   padding: 8px;
-  border-top: 1px solid var(--chrome-border);
 }
 .ze-fp-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 .ze-fp-preview {
   position: relative;
   overflow: hidden;
 }
-.ze-fp-note .fp-name {
-  color: #1f2329;
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 4px;
-  word-break: break-all;
-}
+/* Status text over the dark board background (SetStatusText). */
 .ze-fp-preview .ze-muted {
-  color: #6b7280;
+  color: #9aa2ab;
   font-size: 12px;
 }
 .ze-preview-info {
@@ -2096,12 +2894,21 @@ body {
 }
 
 /* ERC results panel (KiCad DIALOG_ERC, modeless) */
+/* Electrical Rules Checker (dialog_erc_base.cpp). A DIALOG_SHIM is a real
+   window: this floats over the canvas, drags by its title bar and resizes from
+   its corner. The marker tree carries m_markerDataView's 640 x 260 minimum. */
 .ze-erc-panel {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 380px;
-  max-height: 70%;
+  width: 700px;
+  height: 520px;
+  min-width: 480px;
+  min-height: 320px;
+  max-width: 96vw;
+  max-height: 92vh;
+  resize: both;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 120;
@@ -2110,11 +2917,127 @@ body {
   border-radius: 6px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
 }
+.ze-drag-handle {
+  cursor: move;
+  user-select: none;
+}
+/* gbSizerOptions: the config-menu button, right-aligned above the notebook. */
+.ze-erc-options {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+}
+.ze-erc-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--chrome-fg);
+  cursor: pointer;
+}
+.ze-erc-menu-btn:hover {
+  background: var(--chrome-hover);
+  border-color: var(--chrome-border);
+}
+.ze-erc-menu-btn img {
+  width: 16px;
+  height: 16px;
+}
+/* RC_TREE_MODEL rows: a bold marker heading with its item children under it. */
+.ze-erc-item {
+  padding: 1px 0;
+}
+.ze-erc-subrow {
+  padding: 1px 12px 1px 34px;
+  font-size: 12px;
+  color: #b6b8bb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.ze-erc-subrow:hover {
+  background: var(--chrome-hover);
+}
+.ze-erc-subrow.selected {
+  background: #e07b1a;
+  color: #fff;
+}
+.ze-erc-subrow.excluded {
+  opacity: 0.55;
+  font-style: italic;
+}
+/* The "Tests Running..." page: phase messages over the progress gauge
+   (m_messages + m_gauge). */
+.ze-erc-progress-line {
+  padding: 2px 12px;
+  font-size: 12px;
+  color: #b6b8bb;
+}
+.ze-erc-gauge {
+  margin: 10px 12px;
+  height: 10px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--chrome-bg2);
+}
+.ze-erc-gauge .bar {
+  height: 100%;
+  background: #2f65c0;
+  transition: width 80ms linear;
+}
+/* The marker tree's expander glyph on a heading row. */
+.ze-erc-row .tri {
+  flex: 0 0 auto;
+  width: 12px;
+  color: #9a9ca0;
+  font-size: 10px;
+}
+.ze-erc-row .msg {
+  font-weight: 600;
+}
+.ze-erc-row.excluded .msg {
+  font-weight: 500;
+}
+/* bSeveritySizer's fixed spacers: 35 px after All, 25 px after each badge. */
+.ze-erc-footer .gap-35 {
+  width: 35px;
+  flex: 0 0 auto;
+}
+.ze-erc-footer .gap-25 {
+  width: 25px;
+  flex: 0 0 auto;
+}
+.ze-erc-footer .show-label {
+  color: #9a9ca0;
+}
+.ze-erc-footer .badge.zero {
+  background: #2e8b2e;
+}
+.ze-erc-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--chrome-border);
+}
+.ze-erc-buttons .grow {
+  flex: 1;
+}
 .ze-erc-list {
   flex: 1;
   overflow: auto;
   padding: 6px 0;
-  min-height: 60px;
+  /* m_markerDataView->SetMinSize( wxSize( 640, 260 ) ) */
+  min-height: 260px;
 }
 .ze-erc-empty {
   padding: 14px;
@@ -2200,6 +3123,7 @@ body {
   color: var(--chrome-fg);
   background: var(--chrome-hover);
   border-color: var(--chrome-border);
+  box-shadow: inset 0 -2px 0 #e07b1a;
 }
 .ze-erc-row.selected {
   background: var(--accent, #2f65c0);
@@ -2242,16 +3166,6 @@ body {
   color: #6ea8fe;
   cursor: pointer;
   text-decoration: underline;
-}
-.ze-erc-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 12px;
-  border-top: 1px solid var(--chrome-border);
-}
-.ze-erc-buttons .grow {
-  flex: 1;
 }
 /* WX_INFOBAR-style warning strip (annotation incomplete) */
 .ze-infobar {
@@ -2835,4 +3749,246 @@ body {
 }
 .ze-statusbar .cell.sized > .ze-size-template {
   visibility: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   Assign Footprints (CVPCB_MAINFRAME): the three monospaced list panes with
+   wxAUI-style captions, the bottom status lines, and the footprint viewer
+   panel that stands in for DISPLAY_FOOTPRINTS_FRAME.
+   --------------------------------------------------------------------------- */
+.ze-cvpcb {
+  display: flex;
+  flex-direction: column;
+}
+.ze-cvpcb .ze-toolbar.horizontal {
+  border-bottom: 1px solid var(--chrome-border);
+}
+.ze-cvpcb-filters-label {
+  font-weight: 700;
+  font-size: 12px;
+  padding: 0 6px 0 10px;
+  white-space: nowrap;
+}
+.ze-cvpcb-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.ze-cvpcb-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--chrome-border);
+}
+.ze-cvpcb-pane.last {
+  border-right: none;
+}
+/* EDA_PANE().Palette() caption bar. */
+.ze-cvpcb-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  color: #c8cacd;
+  background: var(--chrome-bg2);
+  border-bottom: 1px solid var(--chrome-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-cvpcb-caption .x {
+  margin-left: auto;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ze-cvpcb-list {
+  flex: 1;
+  overflow: auto;
+  background: var(--chrome-bg2);
+  font-family: var(--mono, ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace);
+  font-size: 12.5px;
+}
+.ze-cvpcb-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  line-height: 18px;
+  white-space: pre;
+  cursor: default;
+}
+.ze-cvpcb-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-cvpcb-row.selected {
+  background: #2d5a8e;
+  color: #fff;
+}
+/* SYMBOLS_LISTBOX's warning attribute (dark theme rgb(112,96,32)). */
+.ze-cvpcb-row .ze-cvpcb-warn {
+  display: block;
+  width: 100%;
+}
+.ze-cvpcb-row:has(.ze-cvpcb-warn) {
+  background: rgb(112, 96, 32);
+}
+.ze-cvpcb-row.selected:has(.ze-cvpcb-warn) {
+  background: #2d5a8e;
+}
+.ze-cvpcb-empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--ze-muted, #9a9ca0);
+}
+.ze-cvpcb-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--chrome-border);
+  font-size: 11.5px;
+  color: #b6b8bb;
+}
+.ze-cvpcb-status > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 14px;
+}
+.ze-cvpcb-viewer {
+  position: absolute;
+  inset: 22px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome-bg);
+  border-left: 1px solid var(--chrome-border);
+}
+
+/* Notebook tabs (wxNotebook pages) — the library table dialog's two tables. */
+.ze-tabbar {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+.ze-tabbar .ze-tab {
+  padding: 5px 14px;
+  font-size: 12.5px;
+  color: var(--chrome-fg);
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.ze-tabbar .ze-tab.active {
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-bg);
+  font-weight: 600;
+}
+
+/* "Loading libraries" feedback (library_loading.ts): the hosted set arrives
+   over the network, so a chooser says so instead of looking empty. The panel
+   is for a pane with nothing in it yet (KiCad shows a progress dialog there);
+   the row is for one that already has content. */
+.ze-lib-loading-panel {
+  flex: 1;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--chrome-fg);
+}
+.ze-lib-loading-panel .msg {
+  font-size: 13.5px;
+}
+.ze-lib-loading-panel .detail {
+  font-size: 12px;
+  color: var(--ze-muted, #9a9ca0);
+}
+.ze-spinner.big {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+}
+
+.ze-lib-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ze-muted, #9a9ca0);
+}
+.ze-lib-loading .ze-spinner {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+}
+
+/* EDA_REORDERABLE_LIST_DIALOG (the tree header's "Select Columns..."): an
+   Available list, > / < between it and the Enabled list, then Move up/down. */
+.ze-modal.ze-select-columns {
+  width: 520px;
+}
+.ze-modal-body.ze-reorderable {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px;
+}
+.ze-reorderable-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.ze-reorderable-col.wide {
+  flex: 3;
+}
+.ze-reorderable-col label {
+  font-size: 12px;
+  color: var(--chrome-fg2, #9a9ca0);
+}
+.ze-reorderable-list {
+  flex: 1;
+  min-height: 160px;
+  overflow: auto;
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+}
+.ze-reorderable-list .row {
+  padding: 3px 8px;
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-reorderable-list .row:hover {
+  background: var(--chrome-hover);
+}
+.ze-reorderable-list .row.active {
+  background: var(--chrome-active);
+  color: #fff;
+}
+.ze-reorderable-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+.ze-reorderable-buttons .ze-btn {
+  width: 28px;
+  padding: 4px 0;
+  text-align: center;
 }
