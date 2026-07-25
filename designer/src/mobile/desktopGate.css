@@ -1,0 +1,130 @@
+/* Desktop-only wall shown on small touch devices. Self-contained: it renders
+   instead of the app, so shell.css (and its :root theme vars) is never loaded
+   here — the KiCad dark-chrome colours are repeated literally below. */
+
+.ze-gate {
+  /* index.html pins html/body/#root to height:100%, so the page itself never
+     scrolls — the gate has to be its own scroll container or a short landscape
+     phone would clip the card with no way to reach the rest. Centring is done
+     with `margin:auto` on the card rather than `align-items:center`, which
+     would make the overflowing top edge unscrollable. */
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  padding: 24px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  background: #24262a;
+  color: #fff;
+  font:
+    15px / 1.5 system-ui,
+    "Segoe UI",
+    sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.ze-gate-card {
+  margin: auto; /* centres on both axes, and stays scrollable when it overflows */
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  background: #2f3136;
+  border: 1px solid #17181b;
+  border-radius: 10px;
+  padding: 32px 24px 24px;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+}
+
+/* Monitor glyph, drawn in KiCad's toolbar amber. */
+.ze-gate-icon {
+  width: 52px;
+  height: 37px;
+  margin-bottom: 20px;
+  fill: none;
+  stroke: #e8912b;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.ze-gate-title {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ze-gate-body {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #c4c7cc;
+}
+
+.ze-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0 16px;
+}
+
+.ze-gate-btn {
+  flex: 1 1 140px;
+  /* 44px min target: Apple's HIG / WCAG 2.5.5 touch minimum. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  color: #fff;
+  text-decoration: none;
+  background: #3a3d42;
+  border: 1px solid #17181b;
+  border-radius: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ze-gate-btn.primary {
+  background: #1b598f;
+  border-color: #4a86c5;
+}
+.ze-gate-btn:active {
+  filter: brightness(1.25);
+}
+
+.ze-gate-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #8b8f96;
+}
+
+.ze-gate-anyway {
+  margin-top: 20px;
+  padding: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: #8b8f96;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ze-gate-anyway:active {
+  color: #c4c7cc;
+}
+
+/* Landscape phone: very little height, so tighten the card down to fit. */
+@media (max-height: 480px) {
+  .ze-gate-card {
+    padding-top: 22px;
+  }
+  .ze-gate-icon {
+    width: 38px;
+    height: 27px;
+    margin-bottom: 12px;
+  }
+  .ze-gate-title {
+    font-size: 17px;
+  }
+}
