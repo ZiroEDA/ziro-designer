@@ -14,6 +14,15 @@
  * are its encoding, so records written by the older text-based store stay valid.
  */
 
+import {
+  PROBE_ID,
+  probeStorage,
+  reportStorageFailure,
+  reportStorageOk,
+  runTx,
+  type StorageStatus,
+} from './storageHealth.js';
+
 export interface StoredFile {
   name: string;
   bytes: Uint8Array;
@@ -62,16 +71,41 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+/**
+ * Run a transaction, reporting any failure to the storage-health layer so the
+ * UI can warn before the user loses work.
+ *
+ * Writes resolve on transaction *commit* (see `runTx`), not on request success:
+ * IndexedDB signals quota exhaustion by aborting the transaction after its
+ * individual requests have already reported success, so the old
+ * `req.onsuccess -> resolve` shape reported a clean save for data that was
+ * never written. Every caller below awaits this, and several swallow the
+ * rejection, so the health report has to happen here rather than at the call
+ * sites.
+ */
 function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDB().then(
     (db) =>
-      new Promise<T>((resolve, reject) => {
-        const t = db.transaction(STORE, mode);
-        const req = fn(t.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      }),
+      runTx<T>(db, STORE, mode, fn).then(
+        (result) => {
+          if (mode !== 'readonly') reportStorageOk();
+          return result;
+        },
+        (err) => {
+          reportStorageFailure(err);
+          throw err;
+        },
+      ),
+    (err) => {
+      reportStorageFailure(err); // could not even open the database
+      throw err;
+    },
   );
+}
+
+/** Boot check: prove a real write/read/delete round-trip works. */
+export function checkStorageHealth(): Promise<StorageStatus> {
+  return probeStorage(openDB, STORE);
 }
 
 // ----- gzip helpers ----------------------------------------------------------
@@ -94,7 +128,11 @@ async function gunzip(data: Uint8Array): Promise<Uint8Array> {
 
 // ----- public API ------------------------------------------------------------
 
-/** Whether IndexedDB is usable in this context (private mode can block it). */
+/**
+ * Cheap synchronous gate: is there an IndexedDB API to even try? This proves
+ * only that the API exists — not that writes land. `checkStorageHealth()` is
+ * the real test, and the health layer reports failures as they happen.
+ */
 export function storageAvailable(): boolean {
   return typeof indexedDB !== 'undefined';
 }
@@ -129,6 +167,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
   return (
     all
+      .filter((r) => r.id !== PROBE_ID) // health-probe canary, not a project
       .map((r) => ({
         id: r.id,
         name: r.name,
@@ -230,7 +269,7 @@ function b64ToBytes(b64: string): Uint8Array {
 /** id + updatedAt for every local project, for cheap sync diffing. */
 export async function listSyncMeta(): Promise<{ id: string; updatedAt: number }[]> {
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
-  return all.map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
+  return all.filter((r) => r.id !== PROBE_ID).map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
 }
 
 /** Export a stored project to its serializable (base64) form, or null if gone. */
