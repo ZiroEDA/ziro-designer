@@ -53,7 +53,8 @@ describe('detectNetChains', () => {
   it('bridges two labelled nets through a series resistor, named by label', () => {
     const chains = chainsOf(doc(TWO_NETS));
     expect(chains.length).toBe(1);
-    expect(chains[0]!.nets).toEqual(['IN', 'MID']);
+    // Member nets are live net names, so a local label carries its sheet path.
+    expect(chains[0]!.nets).toEqual(['/IN', '/MID']);
     expect(['IN', 'MID']).toContain(chains[0]!.name); // a member label names it
     expect(chains[0]!.symbols).toEqual(['r1']);
   });
@@ -71,7 +72,7 @@ describe('detectNetChains', () => {
         (label "C" (at 40 10 0) (uuid "lc"))`),
     );
     expect(chains.length).toBe(1);
-    expect(chains[0]!.nets).toEqual(['A', 'B', 'C']);
+    expect(chains[0]!.nets).toEqual(['/A', '/B', '/C']);
     expect(chains[0]!.symbols).toEqual(['r1', 'r2']);
   });
 

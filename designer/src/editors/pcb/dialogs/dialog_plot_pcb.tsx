@@ -1,28 +1,54 @@
 /**
  * Plot dialog for the board editor. Counterpart: DIALOG_PLOT
- * (pcbnew/dialogs/dialog_plot_base.cpp) — plot format choice (Gerber live;
- * Postscript / SVG / DXF / PDF / PNG greyed until their writers land), the
- * "Include Layers" checklist, the General Options subset our plotter honors,
- * the Gerber Options group (Protel filename extensions, fixed 4.6 mm
- * coordinate format, X2 attributes always on), and KiCad's button row:
- * Plot, Generate Drill Files..., Close.
+ * (`pcbnew/dialogs/dialog_plot_base.cpp` + `dialog_plot.cpp`) — the plot-format
+ * row and output directory on top, the "Include Layers" checklist on the left,
+ * "General Options" and the format's own group on the right, the Output
+ * Messages report panel, and the button row Run DRC... / Generate Drill
+ * Files... / Close / Plot.
  *
- * Plot writes one Gerber X2 file per checked layer and downloads them zipped;
- * Generate Drill Files writes the Excellon .drl.
+ * Gerber is the format this editor writes, so the dialog shows Gerber's world:
+ * upstream's SetPlotFormat( GERBER ) disables drill marks, scaling, mirrored
+ * and negative plot outright — options that could never do anything here — so
+ * they are left out instead of shown dead, along with the General Options that
+ * need plotting passes we don't have (soldermask subtraction, DNP marking,
+ * sketch pads / pad numbers). What remains is live: drawing the checked layers,
+ * the drill/place file origin, Protel extensions, the Gerber job file, the
+ * coordinate format and the X2/X1 attribute style.
+ *
+ * Web delta — there is no local filesystem, so "Output directory:" is a folder
+ * inside the *project* (our cloud file manager), where each .gbr/.gbrjob/.drl
+ * is written exactly as KiCad writes them to disk; "Download a copy to this
+ * computer" additionally streams the set out as a zip.
  */
-import { useState, type JSX } from 'react';
+import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, strToU8 } from 'fflate';
 import {
   plotGerberLayer,
   plotExcellonDrill,
   gerberProtelExtension,
   plotGerberJob,
+  boardAuxOrigin,
   type Board,
 } from '@ziroeda/pcbnew';
+import {
+  RPT_SEVERITY_ACTION,
+  RPT_SEVERITY_INFO,
+  RPT_SEVERITY_WARNING,
+  type ReportLine,
+} from '@ziroeda/common';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { Icon } from '../../../ui/icons.js';
 
 interface Props {
   board: Board;
   visibleLayers: ReadonlySet<string>;
+  /** Folders that already exist in the project (browse choices). */
+  projectFolders?: readonly string[];
+  /** Write a generated file into the project (path relative to the project
+   *  folder). Absent when the board is open standalone — then plots download. */
+  onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
+  /** Run DRC... (upstream m_buttonDRC opens the DRC dialog). */
+  onRunDrc?: () => void;
   onClose: () => void;
 }
 
@@ -37,8 +63,16 @@ const download = (name: string, data: Uint8Array | string): void => {
   URL.revokeObjectURL(a.href);
 };
 
-export function DialogPcbPlot({ board, visibleLayers, onClose }: Props): JSX.Element {
+export function DialogPcbPlot({
+  board,
+  visibleLayers,
+  projectFolders = [],
+  onOutputFile,
+  onRunDrc,
+  onClose,
+}: Props): JSX.Element {
   const layerNames = board.layers.map((l) => l.name);
+  const displayName = new Map(board.layers.map((l) => [l.name, l.userName ?? l.name]));
   // KiCad defaults to the fab set; seed with the visible layers intersection.
   const [checked, setChecked] = useState<Set<string>>(
     () => new Set(layerNames.filter((l) => visibleLayers.has(l))),
@@ -46,8 +80,27 @@ export function DialogPcbPlot({ board, visibleLayers, onClose }: Props): JSX.Ele
   const [protel, setProtel] = useState(false);
   const [jobFile, setJobFile] = useState(true);
   const [coordDigits, setCoordDigits] = useState<5 | 6>(6);
-  const [zoneNote] = useState(true);
-  const base = (board.fileName ?? 'board').replace(/\.kicad_pcb$/i, '');
+  const [useX2, setUseX2] = useState(true);
+  const [useAuxOrigin, setUseAuxOrigin] = useState(false);
+  const [outputDir, setOutputDir] = useState('gerbers');
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [downloadCopy, setDownloadCopy] = useState(false);
+  const base = (board.fileName ?? 'board')
+    .replace(/\.kicad_pcb$/i, '')
+    .split('/')
+    .pop()!;
+
+  // Output Messages (WX_HTML_REPORT_PANEL).
+  const [messages, setMessages] = useState<readonly ReportLine[]>([]);
+  const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
+  const report = useRef((message: string, severity: number): void => {
+    setMessages((m) => [...m, { message, severity, location: 'body' as const }]);
+  }).current;
+
+  const folders = useMemo(
+    () => [...new Set(projectFolders.filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [projectFolders],
+  );
 
   const toggle = (name: string): void =>
     setChecked((p) => {
@@ -57,170 +110,304 @@ export function DialogPcbPlot({ board, visibleLayers, onClose }: Props): JSX.Ele
       return n;
     });
 
+  const dir = outputDir.trim().replace(/^\/+|\/+$/g, '');
+  /** Write one generated file into the project (and optionally download it). */
+  const emit = (name: string, text: string, mime: string): void => {
+    const bytes = strToU8(text);
+    const path = dir ? `${dir}/${name}` : name;
+    if (onOutputFile) {
+      onOutputFile(path, bytes, mime);
+      report(`Plotted to '${path}'.`, RPT_SEVERITY_ACTION);
+    } else {
+      download(name, bytes);
+      report(`Plotted to '${name}'.`, RPT_SEVERITY_ACTION);
+    }
+  };
+
   const plot = (): void => {
-    const files: Record<string, Uint8Array> = {};
-    const made: { layer: string; name: string }[] = [];
+    const made: { layer: string; name: string; text: string }[] = [];
     const date = new Date().toISOString();
-    for (const layer of checked) {
+    const origin = useAuxOrigin ? boardAuxOrigin(board) : undefined;
+    for (const layer of layerNames.filter((l) => checked.has(l))) {
       const ext = protel ? gerberProtelExtension(layer) : 'gbr';
       const name = `${base}-${layer.replace(/\./g, '_')}.${ext}`;
-      files[name] = strToU8(plotGerberLayer(board, layer, { creationDate: date, coordDigits }));
-      made.push({ layer, name });
+      made.push({
+        layer,
+        name,
+        text: plotGerberLayer(board, layer, { creationDate: date, coordDigits, useX2, origin }),
+      });
     }
-    if (made.length === 0) return;
-    if (jobFile) files[`${base}-job.gbrjob`] = strToU8(plotGerberJob(board, made));
-    download(`${base}-gerbers.zip`, zipSync(files));
+    if (made.length === 0) {
+      report('No layers selected — nothing to plot.', RPT_SEVERITY_WARNING);
+      return;
+    }
+    for (const m of made) emit(m.name, m.text, 'application/vnd.gerber');
+    const files: Record<string, Uint8Array> = {};
+    for (const m of made) files[m.name] = strToU8(m.text);
+    if (jobFile) {
+      const jobName = `${base}-job.gbrjob`;
+      const text = plotGerberJob(
+        board,
+        made.map((m) => ({ layer: m.layer, name: m.name })),
+      );
+      emit(jobName, text, 'application/json');
+      files[jobName] = strToU8(text);
+    }
+    if (downloadCopy) {
+      download(`${base}-gerbers.zip`, zipSync(files));
+      report(`Downloaded ${base}-gerbers.zip.`, RPT_SEVERITY_INFO);
+    }
   };
 
   const drill = (): void => {
-    download(`${base}.drl`, plotExcellonDrill(board, { creationDate: new Date().toISOString() }));
+    const origin = useAuxOrigin ? boardAuxOrigin(board) : undefined;
+    const text = plotExcellonDrill(board, { creationDate: new Date().toISOString(), origin });
+    emit(`${base}.drl`, text, 'text/plain');
+    if (downloadCopy) download(`${base}.drl`, text);
+  };
+
+  const box: React.CSSProperties = {
+    border: '1px solid var(--chrome-border)',
+    borderRadius: 4,
+    padding: '6px 10px 8px',
+    margin: '0 0 10px',
+  };
+  const legend: React.CSSProperties = { fontSize: 11.5, padding: '0 4px', fontWeight: 600 };
+  const lab: React.CSSProperties = { fontSize: 12 };
+  const check: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    margin: '5px 0',
+    fontSize: 12.5,
+  };
+  const fieldRow: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    margin: '5px 0',
+    fontSize: 12.5,
   };
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal" style={{ width: 540 }} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="ze-modal"
+        style={{ width: 760, maxWidth: '96vw', height: 'auto' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="ze-modal-header">
           Plot
-          <span className="x" onClick={onClose}>
+          <span className="x" title="Close" onClick={onClose}>
             ✕
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 12, padding: 12 }}>
-          <fieldset style={{ minWidth: 190 }}>
-            <legend>Include Layers</legend>
-            <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-              {layerNames.map((l) => (
-                <label key={l} style={{ display: 'block' }}>
-                  <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} /> {l}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div style={{ minWidth: 260 }}>
-            <label style={{ display: 'block', marginBottom: 6 }}>
-              Plot format:{' '}
-              <select value="gerber">
-                <option value="gerber">Gerber</option>
-                <option disabled>Postscript</option>
-                <option disabled>SVG</option>
-                <option disabled>DXF</option>
-                <option disabled>PDF</option>
-                <option disabled>PNG</option>
-              </select>
-            </label>
-            <fieldset>
-              <legend>General Options</legend>
-              <div style={{ display: 'flex', gap: 14 }}>
-                <div>
-                  <label
-                    style={{ display: 'block', opacity: 0.5 }}
-                    title="Sheet plotting applies to SVG/PDF (staged)"
-                  >
-                    <input type="checkbox" disabled /> Plot drawing sheet
-                  </label>
-                  <label style={{ display: 'block', opacity: 0.5 }} title="Staged">
-                    <input type="checkbox" disabled /> Subtract soldermask from silkscreen
-                  </label>
-                  <label style={{ display: 'block', opacity: 0.5 }} title="Staged">
-                    <input type="checkbox" disabled /> Indicate DNP on fabrication layers
-                  </label>
-                  <label style={{ display: 'block', opacity: 0.5 }} title="Staged">
-                    <input type="checkbox" disabled /> Sketch pads on fabrication layers
-                  </label>
-                </div>
-                <div>
-                  {/* Disabled for the Gerber format, exactly like DIALOG_PLOT. */}
-                  <label
-                    style={{ display: 'block', opacity: 0.5 }}
-                    title="Not applicable to Gerber (KiCad disables these too)"
-                  >
-                    Drill marks:{' '}
-                    <select disabled>
-                      <option>None</option>
-                    </select>
-                  </label>
-                  <label
-                    style={{ display: 'block', opacity: 0.5 }}
-                    title="Not applicable to Gerber"
-                  >
-                    Scaling:{' '}
-                    <select disabled>
-                      <option>1:1</option>
-                    </select>
-                  </label>
-                  <label
-                    style={{ display: 'block', opacity: 0.5 }}
-                    title="Not applicable to Gerber"
-                  >
-                    <input type="checkbox" disabled /> Mirrored plot
-                  </label>
-                  <label
-                    style={{ display: 'block', opacity: 0.5 }}
-                    title="Not applicable to Gerber"
-                  >
-                    <input type="checkbox" disabled /> Negative plot
-                  </label>
-                  <label
-                    style={{ display: 'block' }}
-                    title="Zone fills are always current in this editor"
-                  >
-                    <input type="checkbox" checked={zoneNote} readOnly /> Check zone fills before
-                    plotting
-                  </label>
-                </div>
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend>Gerber Options</legend>
-              <label style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={protel}
-                  onChange={(e) => setProtel(e.target.checked)}
-                />{' '}
-                Use Protel filename extensions
-              </label>
-              <label style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={jobFile}
-                  onChange={(e) => setJobFile(e.target.checked)}
-                />{' '}
-                Generate Gerber job file
-              </label>
-              <label style={{ display: 'block' }}>
-                Coordinate format:{' '}
-                <select
-                  value={coordDigits}
-                  onChange={(e) => setCoordDigits(Number(e.target.value) as 5 | 6)}
+        <div
+          className="ze-modal-body"
+          style={{ display: 'block', padding: '10px 14px', maxHeight: '80vh', overflow: 'auto' }}
+        >
+          {/* Plot format + output directory (upstream's top rows). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={lab}>Plot format:</span>
+            <select className="ze-select" value="gerber" onChange={() => {}}>
+              <option value="gerber">Gerber</option>
+            </select>
+          </div>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
+            onMouseDown={() => setBrowseOpen(false)}
+          >
+            <span style={lab}>Output directory:</span>
+            <input
+              className="ze-search"
+              style={{ flex: 1 }}
+              value={outputDir}
+              placeholder="Project folder"
+              title="Folder inside the project for the plot files (relative to the project). They appear in the file manager, where you can download them."
+              onChange={(e) => setOutputDir(e.target.value)}
+            />
+            <div style={{ position: 'relative' }}>
+              <button
+                className="ze-btn sm"
+                title="Select output directory"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setBrowseOpen((v) => !v);
+                }}
+              >
+                <Icon name="folder" size={14} />
+              </button>
+              {browseOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    zIndex: 20,
+                    minWidth: 180,
+                    marginTop: 2,
+                    background: 'var(--chrome-bg2)',
+                    border: '1px solid var(--chrome-border)',
+                    borderRadius: 3,
+                    fontSize: 12,
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
-                  <option value={5}>4.5, unit mm</option>
-                  <option value={6}>4.6, unit mm</option>
-                </select>
-              </label>
-              <label style={{ display: 'block', opacity: 0.5 }}>
-                <input type="checkbox" checked disabled /> Use extended X2 format (recommended)
-              </label>
-            </fieldset>
-            <div className="ze-muted" style={{ fontSize: 11, margin: '6px 0' }}>
-              Stroked text on plotted layers is staged; verify output in the Gerber Viewer.
+                  {['', ...folders].map((f) => (
+                    <div
+                      key={f || '.'}
+                      className="ze-menu-item"
+                      style={{ padding: '4px 12px', cursor: 'pointer' }}
+                      onClick={() => {
+                        setOutputDir(f);
+                        setBrowseOpen(false);
+                      }}
+                    >
+                      {f || 'Project folder'}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            {/* Include Layers */}
+            <fieldset
+              style={{ ...box, flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}
+            >
+              <legend style={legend}>Include Layers</legend>
+              <div className="ze-grid-pane" style={{ height: 300, padding: '4px 6px' }}>
+                {layerNames.map((l) => (
+                  <label key={l} style={{ ...check, margin: '3px 0' }}>
+                    <input type="checkbox" checked={checked.has(l)} onChange={() => toggle(l)} />
+                    {displayName.get(l) ?? l}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            {/* Options */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <fieldset style={box}>
+                <legend style={legend}>General Options</legend>
+                <label
+                  style={check}
+                  title="Use the drill/place file origin as the coordinate origin for plotted files"
+                >
+                  <input
+                    type="checkbox"
+                    checked={useAuxOrigin}
+                    onChange={(e) => setUseAuxOrigin(e.target.checked)}
+                  />
+                  Use drill/place file origin
+                </label>
+                <label
+                  style={check}
+                  title="Plot files always land in the project's file manager; check this to also download them here."
+                >
+                  <input
+                    type="checkbox"
+                    checked={downloadCopy}
+                    onChange={(e) => setDownloadCopy(e.target.checked)}
+                  />
+                  Download a copy to this computer
+                </label>
+              </fieldset>
+
+              <fieldset style={box}>
+                <legend style={legend}>Gerber Options</legend>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label
+                      style={check}
+                      title={
+                        'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={protel}
+                        onChange={(e) => setProtel(e.target.checked)}
+                      />
+                      Use Protel filename extensions
+                    </label>
+                    <label
+                      style={check}
+                      title={
+                        'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={jobFile}
+                        onChange={(e) => setJobFile(e.target.checked)}
+                      />
+                      Generate Gerber job file
+                    </label>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={fieldRow}>
+                      <span>Coordinate format:</span>
+                      <select
+                        className="ze-select"
+                        style={{ flex: 1 }}
+                        value={coordDigits}
+                        onChange={(e) => setCoordDigits(Number(e.target.value) as 5 | 6)}
+                      >
+                        <option value={5}>4.5, unit mm</option>
+                        <option value={6}>4.6, unit mm</option>
+                      </select>
+                    </div>
+                    <label
+                      style={check}
+                      title={
+                        'Use X2 Gerber file format.\nInclude mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={useX2}
+                        onChange={(e) => setUseX2(e.target.checked)}
+                      />
+                      Use extended X2 format (recommended)
+                    </label>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+          </div>
+
+          {/* Output Messages (WX_HTML_REPORT_PANEL). */}
+          <HtmlReportPanel
+            lines={messages}
+            fileName="report.txt"
+            minHeight={90}
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+          />
         </div>
-        {/* DIALOG_PLOT's button row: Run DRC… on the left (staged), then
-            Plot / Generate Drill Files… / Close. */}
+
+        {/* DIALOG_PLOT std-button row (GTK): Generate Drill Files (Apply),
+            Close (Cancel), Plot (OK); Run DRC… on the far left. */}
         <div className="ze-modal-footer">
-          <button type="button" disabled style={{ marginRight: 'auto', opacity: 0.5 }}>
+          <button
+            className="ze-btn"
+            style={{ marginRight: 'auto' }}
+            disabled={!onRunDrc}
+            onClick={() => onRunDrc?.()}
+          >
             Run DRC...
           </button>
-          <button type="button" className="primary" onClick={plot}>
-            Plot
-          </button>
-          <button type="button" onClick={drill}>
+          <button className="ze-btn" onClick={drill}>
             Generate Drill Files...
           </button>
-          <button type="button" onClick={onClose}>
+          <button className="ze-btn" onClick={onClose}>
             Close
+          </button>
+          <button className="ze-btn primary" onClick={plot}>
+            Plot
           </button>
         </div>
       </div>

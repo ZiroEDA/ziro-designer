@@ -51,6 +51,7 @@ export function ProjectTreePane({
   onRenamePath,
   onDeletePaths,
   onViewTextPath,
+  onDownloadPath,
   onOpenPcbFile,
   onOpenSchematic,
   onOpenSymbolFile,
@@ -79,6 +80,8 @@ export function ProjectTreePane({
   onRenamePath?: (path: string) => void;
   onDeletePaths?: (paths: Set<string>) => void;
   onViewTextPath?: (path: string) => void;
+  /** Download a single file from the project to the browser's local storage. */
+  onDownloadPath?: (path: string) => void;
   onOpenPcbFile?: (file: PickedHomeFile) => void;
   onOpenSchematic: (startFile?: string) => void;
   onOpenSymbolFile?: (file: PickedHomeFile) => void;
@@ -292,6 +295,11 @@ export function ProjectTreePane({
                   'Edit in a Text Viewer',
                   singleText && onViewTextPath ? () => onViewTextPath(single) : undefined,
                   !singleText,
+                )}
+                {item(
+                  'Download…',
+                  single && onDownloadPath ? () => onDownloadPath(single) : undefined,
+                  paths.length !== 1,
                 )}
                 <div className="ze-msep" />
                 {item(

@@ -21,6 +21,14 @@ import './ui/shell.css';
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
+// Non-text project files (plot / export outputs) that must stay raw bytes —
+// decoding them as UTF-8 would corrupt them.
+const BINARY_RE = /\.(png|jpe?g|gif|bmp|pdf|zip|step|stp|stl|wrl|glb)$/i;
+const pickedFromStored = (f: { name: string; bytes: Uint8Array }): PickedFile =>
+  BINARY_RE.test(f.name)
+    ? { name: f.name, text: '', bytes: f.bytes }
+    : { name: f.name, text: dec.decode(f.bytes) };
+
 const projectNameOf = (files: PickedFile[]): string => {
   const pro = files.find((f) => /\.kicad_pro$/i.test(f.name));
   const src =
@@ -82,6 +90,9 @@ export function App(): JSX.Element {
   const [activePro, setActivePro] = useState<string | null>(null);
   // A board opened directly (no schematic project around it).
   const [standalonePcb, setStandalonePcb] = useState<PickedFile | null>(null);
+  // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
+  // sends "$NET: <name>" between the frames; here both are mounted together).
+  const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -128,7 +139,7 @@ export function App(): JSX.Element {
         const list = await listProjects();
         const loaded = list[0] ? await loadProject(list[0].id) : null;
         if (!loaded) return;
-        setProjectFiles(loaded.files.map((f) => ({ name: f.name, text: dec.decode(f.bytes) })));
+        setProjectFiles(loaded.files.map(pickedFromStored));
         setStartFile(s.startFile ?? null);
         if (s.view === 'schematic') setSchMounted(true);
         else if (s.view === 'pcb') setPcbMounted(true);
@@ -250,6 +261,47 @@ export function App(): JSX.Element {
     },
     [persistFilesNow],
   );
+
+  // Serializes the IndexedDB writes a plot run kicks off (see onOutputFile).
+  const outputWrites = useRef<Promise<void>>(Promise.resolve());
+  // A generated output file (plot / export) from an editor: drop it into the
+  // project — under the project's folder — so it appears in the home file
+  // manager (from which the user downloads it to local storage), and persist
+  // the raw bytes so it survives a reload. `relPath` is relative to the project
+  // folder and may name a sub-folder ("gerbers/board-F_Cu.gbr").
+  const onOutputFile = useCallback((relPath: string, bytes: Uint8Array, mime: string) => {
+    const baseName = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const cur = projectFilesRef.current;
+    if (!cur) {
+      // No project to file it under — fall back to a plain browser download.
+      const blob = new Blob([bytes.buffer as ArrayBuffer], {
+        type: mime || 'application/octet-stream',
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = baseName.split('/').pop() || 'plot';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
+    const prefix = projectDirPrefix(cur);
+    const name = prefix && baseName.startsWith(prefix) ? baseName : prefix + baseName;
+    const file: PickedFile = { name, text: '', bytes };
+    setProjectFiles((prev) => [...(prev ?? []).filter((f) => f.name !== name), file]);
+    if (!storageAvailable()) return;
+    // A plot run writes a whole set of files back-to-back (one Gerber per
+    // layer). updateProjectFiles is a read-modify-write of the one project
+    // record, so overlapping calls would each start from a stale copy and the
+    // last write would drop the others — chain them instead.
+    outputWrites.current = outputWrites.current
+      .then(async () => {
+        const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
+        if (rec) await updateProjectFiles(rec.id, [{ name, bytes }]);
+      })
+      .catch(() => {
+        /* storage disabled */
+      });
+  }, []);
 
   // The active project's .kicad_pro (full name), validated against the open
   // files; defaults to the first .kicad_pro. `activeBase` scopes every editor.
@@ -455,9 +507,11 @@ export function App(): JSX.Element {
             placeRequest={placeRequest}
             onProjectChange={onProjectChange}
             onPersistFiles={persistFilesNow}
+            onOutputFile={onOutputFile}
             registerAutosaveFlush={registerSchFlush}
             extraSheetFiles={sessionSheets}
             projectName={projectName}
+            onCrossProbeNet={setCrossProbeNet}
           />
         </div>
       )}
@@ -479,6 +533,10 @@ export function App(): JSX.Element {
             }}
             projectName={projectName}
             projectFiles={projectFiles ?? undefined}
+            rootPro={activeBase || undefined}
+            onPersistFiles={persistFilesNow}
+            onOutputFile={onOutputFile}
+            crossProbeNet={crossProbeNet}
           />
         </div>
       )}

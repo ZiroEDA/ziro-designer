@@ -29,6 +29,7 @@ import type {
   LibSymbolUnit,
   LineKind,
   Schematic,
+  SchDirectiveLabel,
   SchField,
   SchJunction,
   SchLabel,
@@ -157,6 +158,9 @@ export function readField(node: SList, invertY = false): SchField {
   if (effects) field.effects = directHide ? { ...effects, hidden: true } : effects;
   else if (directHide) field.effects = { hidden: true };
   if (boolField(node, 'show_name', false)) field.nameShown = true;
+  // `(show_in_chooser yes)` — the field is offered as a Symbol Chooser column
+  // (SCH_FIELD::ShowInChooser / LIB_SYMBOL::cacheChooserFields).
+  if (boolField(node, 'show_in_chooser', false)) field.showInChooser = true;
   return field;
 }
 
@@ -300,6 +304,55 @@ function readLibSymbol(node: SList): LibSymbol {
   const sym: { -readonly [K in keyof LibSymbol]: LibSymbol[K] } = {
     libId: arg(node, 0) ?? '',
     isPower: childNamed(node, 'power') !== undefined,
+    // (power) / (power global) is global; (power local) is not.
+    isLocalPower: (() => {
+      const power = childNamed(node, 'power');
+      return power !== undefined && arg(power, 0) === 'local';
+    })(),
+    duplicatePinNumbersAreJumpers: (() => {
+      const flag = childNamed(node, 'duplicate_pin_numbers_are_jumpers');
+      return flag !== undefined && arg(flag, 0) === 'yes';
+    })(),
+    // (jumper_pin_groups ("1" "2") ("3" "4"))
+    jumperPinGroups: (() => {
+      const groups = childNamed(node, 'jumper_pin_groups');
+      if (!groups) return [];
+      return groups.items
+        .slice(1)
+        .filter((it): it is SList => it.kind === 'list')
+        .map((g) =>
+          g.items
+            .filter(
+              (it): it is { kind: 'atom' | 'string'; value: string } =>
+                it.kind === 'atom' || it.kind === 'string',
+            )
+            .map((it) => it.value),
+        );
+    })(),
+    // (associated_footprints (footprint "<lib_id>" (map "STD-8")) …)
+    associatedFootprints: (() => {
+      const assoc = childNamed(node, 'associated_footprints');
+      if (!assoc) return [];
+      return childrenNamed(assoc, 'footprint').map((f) => ({
+        footprintLibId: arg(f, 0) ?? '',
+        mapName: (() => {
+          const m = childNamed(f, 'map');
+          return m ? (arg(m, 0) ?? '') : '';
+        })(),
+      }));
+    })(),
+    // (pin_maps (pin_map "NAME" (entry "<pin>" "<pad>") …))
+    pinMaps: (() => {
+      const maps = childNamed(node, 'pin_maps');
+      if (!maps) return [];
+      return childrenNamed(maps, 'pin_map').map((m) => ({
+        name: arg(m, 0) ?? '',
+        entries: childrenNamed(m, 'entry').map((e) => ({
+          pin: arg(e, 0) ?? '',
+          pad: arg(e, 1) ?? '',
+        })),
+      }));
+    })(),
     pinNumbersHidden: bareHide(pinNumbersNode),
     pinNamesHidden: bareHide(pinNamesNode),
     pinNameOffset: pinNamesNode
@@ -317,6 +370,7 @@ function readLibSymbol(node: SList): LibSymbol {
 interface InheritedBase {
   units: readonly LibSymbolUnit[];
   isPower: boolean;
+  isLocalPower: boolean;
   pinNumbersHidden: boolean;
   pinNamesHidden: boolean;
   pinNameOffset: number;
@@ -337,6 +391,7 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
   const ownBase = (s: LibSymbol): InheritedBase => ({
     units: s.units,
     isPower: s.isPower,
+    isLocalPower: s.isLocalPower ?? false,
     pinNumbersHidden: s.pinNumbersHidden,
     pinNamesHidden: s.pinNamesHidden,
     pinNameOffset: s.pinNameOffset,
@@ -349,7 +404,11 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
     seen.add(s.libId);
     const r = resolveBase(parent, seen);
     // Geometry + pin display come from the parent; only power can be additive.
-    return { ...r, isPower: s.isPower || r.isPower };
+    return {
+      ...r,
+      isPower: s.isPower || r.isPower,
+      isLocalPower: s.isLocalPower || r.isLocalPower,
+    };
   };
 
   return symbols.map((s) => {
@@ -386,6 +445,24 @@ function readSymbol(node: SList): SchSymbol {
     source: node,
   };
   if (mirror === 'x' || mirror === 'y') sym.mirror = mirror;
+  // (pin_map_override (mode …) (map "…") (edit "<pin>" "<pad>") …)
+  const overrideNode = childNamed(node, 'pin_map_override');
+  if (overrideNode) {
+    const modeNode = childNamed(overrideNode, 'mode');
+    const mapNode = childNamed(overrideNode, 'map');
+    const mode = (modeNode ? arg(modeNode, 0) : undefined) ?? 'library_default';
+    sym.pinMapOverride = {
+      mode:
+        mode === 'named_map' || mode === 'identity' || mode === 'delegate'
+          ? mode
+          : 'library_default',
+      mapName: (mapNode ? arg(mapNode, 0) : undefined) ?? '',
+      edits: childrenNamed(overrideNode, 'edit').map((e) => ({
+        pin: arg(e, 0) ?? '',
+        pad: arg(e, 1) ?? '',
+      })),
+    };
+  }
   if (boolField(node, 'locked', false)) sym.locked = true;
   // (passthrough default|block|force) — case-insensitive; DEFAULT stays unset.
   const passthroughNode = childNamed(node, 'passthrough');
@@ -394,6 +471,10 @@ function readSymbol(node: SList): SchSymbol {
   // Keep "token absent" distinct from "no": older files have no exclude_from_sim.
   if (childNamed(node, 'exclude_from_sim'))
     sym.excludedFromSim = boolField(node, 'exclude_from_sim', false);
+  // `(in_pos_files yes|no)` is the inverse of SCH_SYMBOL::GetExcludedFromPosFiles;
+  // absent in pre-10.0 files, so keep it undefined rather than defaulting.
+  if (childNamed(node, 'in_pos_files'))
+    sym.excludedFromPosFiles = !boolField(node, 'in_pos_files', true);
   const uuid = stringField(node, 'uuid');
   if (uuid) sym.uuid = uuid;
   return sym;
@@ -699,6 +780,22 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   return label;
 }
 
+/** `(directive_label …)` / `(netclass_flag …)` — SCH_DIRECTIVE_LABEL. Only the
+ *  placement and its fields are modelled: ERC's netclass test reads the
+ *  "Netclass" field, and the node itself round-trips from `source`. */
+function readDirectiveLabel(node: SList): SchDirectiveLabel {
+  const { at, angle } = readAt(node);
+  const label: { -readonly [K in keyof SchDirectiveLabel]: SchDirectiveLabel[K] } = {
+    at,
+    angle,
+    fields: childrenNamed(node, 'property').map((p) => readField(p)),
+    source: node,
+  };
+  const uuid = stringField(node, 'uuid');
+  if (uuid) label.uuid = uuid;
+  return label;
+}
+
 function readTitleBlock(node: SList): TitleBlock {
   const tb: { -readonly [K in keyof TitleBlock]: TitleBlock[K] } = { source: node };
   const title = stringField(node, 'title');
@@ -771,6 +868,7 @@ export function readSchematic(root: SList): Schematic {
   const textBoxes: SchTextBox[] = [];
   const tables: SchTable[] = [];
   const groups: SchGroup[] = [];
+  const directiveLabels: SchDirectiveLabel[] = [];
 
   const libSymbolsNode = childNamed(root, 'lib_symbols');
   if (libSymbolsNode) {
@@ -796,6 +894,8 @@ export function readSchematic(root: SList): Schematic {
     } else if (name === 'text_box') textBoxes.push(readTextBox(item));
     else if (name === 'table') tables.push(readTable(item));
     else if (name === 'group') groups.push(readGroup(item));
+    else if (name === 'directive_label' || name === 'netclass_flag')
+      directiveLabels.push(readDirectiveLabel(item));
     else if (LABEL_KINDS[name]) labels.push(readLabel(item, LABEL_KINDS[name]!));
   }
 
@@ -814,6 +914,7 @@ export function readSchematic(root: SList): Schematic {
     textBoxes,
     tables,
     groups,
+    directiveLabels,
     // Document-level (sheet_instances (path "/" (page "1"))): the root sheet's page.
     sheetInstances: (() => {
       const n = childNamed(root, 'sheet_instances');

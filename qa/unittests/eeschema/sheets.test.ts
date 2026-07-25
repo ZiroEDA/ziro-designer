@@ -66,8 +66,8 @@ describe('SCH_SHEET model', () => {
     const d = doc(`${SHEET} (wire (pts (xy 140 60) (xy 160 60)) (uuid "w1"))
       (label "VOUT" (at 160 60 0) (uuid "l1"))`);
     const violations = runErc(d, new Map());
-    expect(violations.filter((v) => v.code === 'label_not_connected')).toEqual([]);
-    expect(violations.filter((v) => v.code === 'label_single_pin')).toEqual([]);
+    expect(violations.filter((v) => v.code === 'label_dangling')).toEqual([]);
+    expect(violations.filter((v) => v.code === 'isolated_pin_label')).toEqual([]);
   });
 });
 

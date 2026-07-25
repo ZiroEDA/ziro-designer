@@ -6,9 +6,12 @@
  * with a status text replacing the canvas when there is nothing to draw
  * ("No footprint specified" / "Footprint not found").
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { usePreviewViewControls, type PreviewView } from './preview_view_controls.js';
+import type { InputPrefs } from '../editors/schematic/components/SchematicCanvas.js';
 import { buildScene, drawBoard, DEFAULT_DRAW_OPTIONS } from '../editors/pcb/renderBoard.js';
+import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';
 import { loadFootprint } from './footprint_list.js';
 
@@ -19,11 +22,19 @@ export interface FootprintPreviewWidgetProps {
   footprint: string;
   /** Status label, e.g. "No footprint specified" (upstream SetStatusText). */
   statusText: string;
+  /** Resolve a LIB_ID to a footprint. Defaults to the hosted libraries; the
+   *  Assign Footprints window passes a resolver that also serves the project's
+   *  own `.pretty` libraries (the fp-lib-table's project scope). */
+  resolve?: (libId: string) => Promise<PcbFootprint | null>;
+  /** Mouse preferences (PANEL_MOUSE_SETTINGS) for the zoom/pan gestures. */
+  inputPrefs?: InputPrefs;
 }
 
 export function FootprintPreviewWidget({
   footprint,
   statusText,
+  resolve = loadFootprint,
+  inputPrefs,
 }: FootprintPreviewWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fp, setFp] = useState<PcbFootprint | null>(null);
@@ -38,7 +49,7 @@ export function FootprintPreviewWidget({
       return;
     }
     setStatus('loading');
-    void loadFootprint(footprint).then((loaded) => {
+    void resolve(footprint).then((loaded) => {
       if (cancelled) return;
       setFp(loaded);
       setStatus(loaded ? 'idle' : 'missing');
@@ -46,48 +57,82 @@ export function FootprintPreviewWidget({
     return () => {
       cancelled = true;
     };
-  }, [footprint]);
+  }, [footprint, resolve]);
 
-  // Paint the footprint fitted into the pane (FOOTPRINT_PREVIEW_PANEL's
-  // fitToCurrentFootprint), re-painting on pane resize.
-  useEffect(() => {
+  // Paint the footprint through the pane's view (FOOTPRINT_PREVIEW_PANEL's
+  // fitToCurrentFootprint seeds it; the wheel and a middle/right drag move it
+  // afterwards, as on any GAL canvas).
+  const fpRef = useRef<PcbFootprint | null>(fp);
+  fpRef.current = fp;
+
+  const viewRef = useRef<PreviewView | null>(null);
+
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !fp) return;
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const scene = buildScene(footprintToBoard(fp));
-      const b = scene.bbox;
-      const w = canvas.width;
-      const h = canvas.height;
-      if (!b) return;
-      const bw = Math.max(1, b.maxX - b.minX);
-      const bh = Math.max(1, b.maxY - b.minY);
-      const scale = Math.min(w / (bw * 1.3), h / (bh * 1.3));
-      const view = {
-        scale,
-        tx: w / 2 - ((b.minX + b.maxX) / 2) * scale,
-        ty: h / 2 - ((b.minY + b.maxY) / 2) * scale,
-      };
-      drawBoard(ctx, scene, view, ALL_LAYERS, w, h, {
-        ...DEFAULT_DRAW_OPTIONS,
-        drawingSheet: false,
-      });
+    const footprintNow = fpRef.current;
+    if (!canvas || !footprintNow) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    // The panel is a pcbnew canvas, so it clears to LAYER_PCB_BACKGROUND
+    // before painting (the raster itself stays transparent).
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = PCB_BACKGROUND;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scene = buildScene(footprintToBoard(footprintNow));
+    const b = scene.bbox;
+    const w = canvas.width;
+    const h = canvas.height;
+    if (!b) return;
+    const bw = Math.max(1, b.maxX - b.minX);
+    const bh = Math.max(1, b.maxY - b.minY);
+    // SetViewport(bbox) then `SetScale(GetScale() * 0.7)` for the margin.
+    const fitScale = Math.min(w / bw, h / bh) * 0.7;
+    const view = viewRef.current ?? {
+      scale: fitScale,
+      tx: w / 2 - ((b.minX + b.maxX) / 2) * fitScale,
+      ty: h / 2 - ((b.minY + b.maxY) / 2) * fitScale,
     };
+    viewRef.current = view;
+    drawBoard(ctx, scene, view, ALL_LAYERS, w, h, {
+      ...DEFAULT_DRAW_OPTIONS,
+      drawingSheet: false,
+    });
+  }, []);
+
+  const viewCtl = usePreviewViewControls(canvasRef, draw, inputPrefs, viewRef);
+
+  // A newly displayed footprint refits, and so does a resize (onSize).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fp triggers the refit
+  useEffect(() => {
+    viewRef.current = null;
     draw();
-    const observer = new ResizeObserver(draw);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => {
+      viewRef.current = null;
+      draw();
+    });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [fp]);
+  }, [fp, draw]);
 
   return (
     <div className="ze-fp-preview">
       {fp && footprint ? (
-        <canvas ref={canvasRef} className="ze-fp-canvas" />
+        <canvas
+          ref={canvasRef}
+          className="ze-fp-canvas"
+          onWheel={viewCtl.handlers.onWheel}
+          onPointerDown={viewCtl.handlers.onPointerDown}
+          onPointerMove={viewCtl.handlers.onPointerMove}
+          onPointerUp={viewCtl.handlers.onPointerUp}
+          onPointerCancel={viewCtl.handlers.onPointerUp}
+          onContextMenu={viewCtl.handlers.onContextMenu}
+        />
       ) : (
         <div className="ze-muted">
           {!footprint ? statusText : status === 'loading' ? 'Loading…' : 'Footprint not found'}

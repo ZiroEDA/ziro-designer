@@ -19,7 +19,9 @@ import {
 function addItem(lib: LibTreeNode, name: string, keywords = '', desc = ''): LibTreeNode {
   const item = makeItemNode(lib, lib.name, name);
   item.desc = desc;
-  item.searchTerms = [
+  // The item's own terms; AssignIntrinsicRanks rebuilds `searchTerms` from
+  // these plus the shown columns' values, exactly as upstream does.
+  item.sourceSearchTerms = [
     searchTerm(lib.name, 4),
     searchTerm(name, 8, true),
     searchTerm(`${lib.name}:${name}`, 16, true),
@@ -30,6 +32,7 @@ function addItem(lib: LibTreeNode, name: string, keywords = '', desc = ''): LibT
     searchTerm(keywords, 1),
     searchTerm(desc, 1),
   ];
+  item.rebuildSearchTerms([]);
   return item;
 }
 
@@ -81,6 +84,50 @@ describe('LibTreeModelAdapter search', () => {
     adapter.updateSearchString('');
     const device = adapter.tree.children.find((l) => l.name === 'Device')!;
     expect(device.children.map((c) => c.name)).toEqual(['C', 'R', 'R_Variable']);
+  });
+});
+
+describe('LibTreeModelAdapter columns and fallbacks', () => {
+  it('keeps Item first and makes shown columns searchable', () => {
+    const adapter = buildAdapter();
+    const device = adapter.tree.children.find((l) => l.name === 'Device')!;
+    const r = device.children.find((c) => c.name === 'R')!;
+    r.fields.set('Manufacturer', 'Yageo');
+    adapter.addColumnIfNecessary('Manufacturer');
+    expect(adapter.getAvailableColumns()).toContain('Manufacturer');
+
+    // Not a shown column yet: its value is not scored.
+    adapter.updateSearchString('yageo');
+    expect(r.score).toBe(0);
+
+    adapter.setShownColumns(['Manufacturer', 'Item']);
+    expect(adapter.getShownColumns()[0]).toBe('Item');
+    adapter.updateSearchString('yageo');
+    expect(r.score).toBeGreaterThan(0);
+  });
+
+  it('counts the group libraries in the item count, like GetItemCount', () => {
+    const adapter = buildAdapter();
+    const before = adapter.getItemCount();
+    const recent = adapter.addGroup('-- Recently Used --');
+    recent.isRecentlyUsedGroup = true;
+    makeItemNode(recent, 'Device', 'R');
+    expect(adapter.getItemCount()).toBe(before + 1);
+  });
+
+  it('falls back to the first item when only one library is present', () => {
+    const adapter = new LibTreeModelAdapter();
+    const only = adapter.addLibrary('Device', '', false);
+    addItem(only, 'R');
+    addItem(only, 'C');
+    adapter.finishLibrary(only);
+    // No query and no preselect: showResults expands the single library.
+    expect(adapter.updateSearchString('')?.name).toBe('C');
+  });
+
+  it('shows nothing by default when several libraries could be expanded', () => {
+    const adapter = buildAdapter();
+    expect(adapter.updateSearchString('')).toBeNull();
   });
 });
 

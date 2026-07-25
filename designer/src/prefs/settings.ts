@@ -184,21 +184,62 @@ export interface EeschemaSettings {
     highlight_netclass_colors_thickness: number;
     highlight_netclass_colors_alpha: number;
   };
+  /** EESCHEMA_SETTINGS m_AnnotatePanel ("annotation.*"). */
   annotation: {
     automatic: boolean;
     recursive: boolean;
+    /** Regroup multi-unit symbols freely on a reset (annotation.regroup_units). */
+    regroup_units: boolean;
+    /** ANNOTATE_SCOPE_T: 0 whole schematic, 1 current sheet, 2 selection. */
+    scope: number;
+    /** 0 keep existing annotations, 1 reset them. */
+    options: number;
+    /** Visible-severity mask of the message panel; -1 = "not set yet" (all). */
+    messages_filter: number;
     method: 0 | 1 | 2; // first free | sheet*100 | sheet*1000
     sort_order: 0 | 1; // by X | by Y
   };
+  /** ERC dialog state (EESCHEMA_SETTINGS m_ERCDialog, "ERC.*") — the three
+   *  toggles behind DIALOG_ERC's config-menu button. */
+  erc_dialog: {
+    crossprobe: boolean;
+    scroll_on_crossprobe: boolean;
+    show_all_errors: boolean;
+  };
   /** LIB_TREE persisted state (EESCHEMA_SETTINGS m_LibTree). */
   lib_tree: {
+    /** Ordered list of visible columns in the tree ("Item" is always first). */
+    columns: string[];
     open_libs: string[];
+  };
+  /** Symbol Library Browser state (EESCHEMA_SETTINGS m_LibViewPanel, "lib_view.*").
+   *  show_pin_numbers is deliberately absent: upstream keeps it in the struct but
+   *  registers no param for it, so the toggle is session-only. */
+  lib_view: {
+    lib_list_width: number; // px
+    cmp_list_width: number; // px
+    show_pin_electrical_type: boolean;
   };
   /** Symbol Chooser dialog state (EESCHEMA_SETTINGS m_SymChooserPanel). */
   sym_chooser: {
     sash_pos_h: number; // px width of the right (preview) pane
     sash_pos_v: number; // px height of the details pane (power layout)
     sort_mode: 0 | 1; // SORT_MODE: 0 best match, 1 alphabetic
+  };
+  /** The APP_SETTINGS_BASE::PRINTING slice eeschema's Print dialog persists
+   *  ("printing.*" in eeschema.json; key names + defaults from
+   *  common/settings/app_settings.cpp — monochrome defaults ON). */
+  printing: {
+    /** Print the background color. */
+    background: boolean;
+    /** Print in black and white. */
+    monochrome: boolean;
+    /** Use a different color theme for printing (else the display theme). */
+    use_theme: boolean;
+    /** COLOR_SETTINGS filename of the print theme. */
+    color_theme: string;
+    /** Print the drawing sheet (border and title block). */
+    title_block: boolean;
   };
   window: {
     grid: {
@@ -286,16 +327,38 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
   annotation: {
     automatic: true,
     recursive: true,
+    regroup_units: false,
+    scope: 0,
+    options: 0,
+    messages_filter: -1,
     method: 0,
     sort_order: 0,
   },
+  erc_dialog: {
+    crossprobe: true,
+    scroll_on_crossprobe: true,
+    show_all_errors: false,
+  },
   lib_tree: {
+    columns: [],
     open_libs: [],
+  },
+  lib_view: {
+    lib_list_width: 150,
+    cmp_list_width: 150,
+    show_pin_electrical_type: true,
   },
   sym_chooser: {
     sash_pos_h: 360,
     sash_pos_v: 150,
     sort_mode: 0,
+  },
+  printing: {
+    background: false,
+    monochrome: true,
+    use_theme: false,
+    color_theme: '',
+    title_block: false,
   },
   window: {
     grid: {
@@ -320,6 +383,69 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
       crosshair: 'full',
       always_show_cursor: false,
     },
+  },
+};
+
+// ----- PCBNEW_SETTINGS ---------------------------------------------------------
+
+/**
+ * APP_SETTINGS_BASE::PRINTING (include/settings/app_settings.h:179), the slice
+ * pcbnew's print dialog persists. Key names and defaults are KiCad's
+ * (common/settings/app_settings.cpp "printing.*" params): note monochrome and
+ * pagination default ON, and drill_marks defaults to 1 (small mark).
+ */
+export interface PcbnewPrinting {
+  /** Print the background color. */
+  background: boolean;
+  /** Print in black and white. */
+  monochrome: boolean;
+  /** Printout scale: 0.0 = fit to page, 1.0 = 1:1, else custom. */
+  scale: number;
+  /** Use a different color theme for printing (else the display theme). */
+  use_theme: boolean;
+  /** COLOR_SETTINGS filename of the print theme. */
+  color_theme: string;
+  /** Print the drawing sheet (border and title block). */
+  title_block: boolean;
+  /** Enabled layers, as PCB_LAYER_ID ordinals. */
+  layers: number[];
+  /** Print mirrored. */
+  mirror: boolean;
+  /** Drill marks: 0 = none, 1 = small, 2 = real. */
+  drill_marks: number;
+  /** 0 = all layers on one page, 1 = one page per layer. */
+  pagination: number;
+  /** Print board edges on all pages (page-per-layer mode). */
+  edge_cuts_on_all_pages: boolean;
+  /** Honor the appearance manager's Objects-tab checkboxes. */
+  as_item_checkboxes: boolean;
+}
+
+export interface PcbnewSettings {
+  appearance: {
+    /** The editor's active color theme (APP_SETTINGS_BASE m_ColorTheme). */
+    color_theme: string;
+  };
+  printing: PcbnewPrinting;
+}
+
+export const PCBNEW_DEFAULTS: PcbnewSettings = {
+  appearance: {
+    color_theme: '_builtin_default',
+  },
+  printing: {
+    background: false,
+    monochrome: true,
+    scale: 1.0,
+    use_theme: false,
+    color_theme: '',
+    title_block: false,
+    layers: [],
+    mirror: false,
+    drill_marks: 1,
+    pagination: 1,
+    edge_cuts_on_all_pages: true,
+    as_item_checkboxes: false,
   },
 };
 
@@ -378,6 +504,7 @@ type Listener = () => void;
 class SettingsManager {
   common: CommonSettings = load('ziroeda.common', COMMON_DEFAULTS);
   eeschema: EeschemaSettings = load('ziroeda.eeschema', EESCHEMA_DEFAULTS);
+  pcbnew: PcbnewSettings = load('ziroeda.pcbnew', PCBNEW_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = load('ziroeda.colors.user', {});
   private listeners = new Set<Listener>();
@@ -407,6 +534,14 @@ class SettingsManager {
     mutate(next);
     this.eeschema = next;
     store('ziroeda.eeschema', next);
+    this.notify();
+  }
+
+  updatePcbnew(mutate: (s: PcbnewSettings) => void): void {
+    const next = structuredClone(this.pcbnew);
+    mutate(next);
+    this.pcbnew = next;
+    store('ziroeda.pcbnew', next);
     this.notify();
   }
 

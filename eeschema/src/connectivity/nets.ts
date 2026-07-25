@@ -36,11 +36,12 @@
 
 import type { Schematic, SchSymbol, LibSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { escapeNetName } from '@ziroeda/common/src/string_utils.js';
 import { refId } from '../tools/hittest.js';
 import { expandBusLabel, isBusLabel } from './bus.js';
 
 /** KiCad CONNECTION_SUBGRAPH::PRIORITY (higher wins when naming a net). */
-enum Priority {
+export enum Priority {
   None = 0,
   Pin = 1,
   SheetPin = 2,
@@ -62,16 +63,29 @@ interface Node {
   id: string;
   points: Vec2[];
   driver: Driver | null;
-  /** For auto-naming an unnamed net from a pin: "REF" and pin number. */
+  /** SCH_PIN::GetDefaultNetName for this pin — the name an otherwise unnamed net
+   *  takes ("Net-(R1-Pad1)"). */
   autoName?: string;
+  /** The same, for a net that carries a no-connect flag ("unconnected-(…)"). */
+  autoNameNoConnect?: string;
 }
 
 export interface Net {
   /** 1-based net code, stable for a given schematic ordering. */
   code: number;
+  /** SCH_CONNECTION::Name( false ) — qualified with the sheet path when the
+   *  driver is sheet-local ("/Child/CLK"). This is the net name everywhere else:
+   *  the netlist, the board, ERC messages. */
   name: string;
+  /** SCH_CONNECTION::Name( true ) — the driver's own name, with no sheet path
+   *  ("CLK"). Compare against label text and bus member tokens with this. */
+  localName: string;
   /** Node ids on this net (wire/label/junction refIds and `<symbolRef>:pin<i>` ids). */
   items: string[];
+  /** PRIORITY of the driver that named it (CONNECTION_SUBGRAPH::m_driver).
+   *  >= HierLabel is a "strong" driver and < GlobalPowerPin a "local" one,
+   *  exactly ResolveDrivers' m_strong_driver / m_local_driver. */
+  driverPriority: Priority;
 }
 
 /** A bus subgraph: the bus lines/entries it spans and its expanded members. */
@@ -85,6 +99,8 @@ export interface BusNet {
   /** Every bus label on the subgraph; `port` marks hierarchical labels
    *  (upstream's label-vs-port distinction for bus-to-bus conflicts). */
   labels: { id: string; text: string; port: boolean }[];
+  /** Bus-shaped sheet pins on this bus: the parent side of a hierarchical bus. */
+  sheetPins: { id: string; name: string; sheetId: string }[];
   /** Wire-to-bus entry refIds attached to this bus. */
   entryIds: string[];
 }
@@ -101,9 +117,39 @@ export interface NetlistOptions {
   /** Bus alias definitions (Schematic Setup > Bus Alias Definitions):
    *  alias name -> member tokens, used when expanding group-bus labels. */
   busAliases?: ReadonlyMap<string, readonly string[]>;
+  /**
+   * The sheet path a net name on this sheet is qualified with —
+   * `SCH_SHEET_PATH::PathHumanReadable( true, false, true )`: "/" for the root,
+   * "/Power/" one level down, with each sheet name escaped for net-name use.
+   * Only the sheet-dependent drivers take it (see {@link prependsSheetPath}).
+   * Defaults to the root, which is what a sheet graphed on its own is.
+   */
+  sheetPath?: string;
+}
+
+/**
+ * SCH_CONNECTION::recacheName — whether a net named by this driver carries its
+ * sheet path. A local label, a hierarchical label and a sheet pin all name a net
+ * that is local to (or enters) one sheet, so two sheets may each have a "CLK"
+ * without sharing it; a global label, a global power pin and an ordinary pin's
+ * auto-generated `Net-(R1-Pad1)` name are sheet-independent and take no prefix.
+ */
+function prependsSheetPath(priority: Priority): boolean {
+  switch (priority) {
+    case Priority.SheetPin:
+    case Priority.HierLabel:
+    case Priority.LocalLabel:
+    case Priority.LocalPowerPin:
+      return true;
+    default:
+      return false;
+  }
 }
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
+
+/** The `k` of a `<symbolRefId>:pin<k>` node id — the fallback for an unnumbered pin. */
+const pinIndexOf = (id: string): number => Number(id.slice(id.lastIndexOf(':pin') + 4));
 
 /** A symbol pin instance in world coordinates, as enumerated for the netlist/ERC. */
 export interface PinNode {
@@ -118,6 +164,9 @@ export interface PinNode {
   at: Vec2;
   /** True when the pin's parent lib symbol is a power symbol (GND, +5V, ...). */
   isPowerSymbol: boolean;
+  /** …and that symbol is a *local* power symbol (`(power local)`), whose pin
+   *  drives only its own sheet (SCH_PIN::IsLocalPower). */
+  isLocalPowerSymbol: boolean;
   hidden: boolean;
 }
 
@@ -151,6 +200,7 @@ export function enumeratePins(sch: Schematic, libById: Map<string, LibSymbol>): 
           electricalType: pin.electricalType,
           at: localToWorld(sym.at, t, pin.at),
           isPowerSymbol: lib.isPower,
+          isLocalPowerSymbol: lib.isPower && (lib.isLocalPower ?? false),
           hidden: pin.hidden,
         });
         k++;
@@ -199,12 +249,41 @@ class UnionFind {
   }
 }
 
+/**
+ * The connection name carried by a node id — SCH_ITEM::Connection()->Name().
+ * Wire-graph nodes answer with their net; a bus line/label/entry answers with
+ * the bus's name. An unnamed bus has no connection name, like upstream's empty
+ * SCH_CONNECTION.
+ */
+export function connectionName(netlist: Netlist, nodeId: string): string | null {
+  const code = netlist.netByItem.get(nodeId);
+  if (code !== undefined) return netlist.nets.find((n) => n.code === code)?.name ?? null;
+  const bus = netlist.buses.find((b) => b.items.includes(nodeId));
+  return bus?.name ? bus.name : null;
+}
+
+/**
+ * CONNECTION_GRAPH::GetEquivalentBusNames: the other names the same bus
+ * subgraph answers to, so `{MIXED_BUS}` and its expansion `{FOO BAR}`
+ * highlight together.
+ */
+export function equivalentBusNames(netlist: Netlist, name: string): string[] {
+  const out: string[] = [];
+  for (const b of netlist.buses) {
+    if (b.name !== name && !b.labels.some((l) => l.text === name)) continue;
+    if (b.name && b.name !== name) out.push(b.name);
+    for (const l of b.labels) if (l.text !== name) out.push(l.text);
+  }
+  return out;
+}
+
 /** Compute the single-sheet netlist for a schematic. */
 export function computeNetlist(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
   opts: NetlistOptions = {},
 ): Netlist {
+  const sheetPath = opts.sheetPath ?? '/';
   const nodes: Node[] = [];
   const wireNodes: { id: string; a: Vec2; b: Vec2 }[] = [];
   const busNodes: { id: string; a: Vec2; b: Vec2 }[] = [];
@@ -231,6 +310,8 @@ export function computeNetlist(
   // Labels: priority/name by kind. A bus label (vector/group syntax) sitting
   // on a bus names the bus subgraph instead of driving a wire net.
   const busLabels: { id: string; at: Vec2; text: string; priority: Priority; port: boolean }[] = [];
+  /** Bus-shaped sheet pins: the hierarchy's bus ports on the parent side. */
+  const busSheetPins: { id: string; at: Vec2; text: string; sheetId: string }[] = [];
   sch.labels.forEach((l, i) => {
     if (l.kind === 'text') return; // free text is not a net driver
     const priority =
@@ -275,12 +356,19 @@ export function computeNetlist(
   });
 
   // Hierarchical sheet pins connect like labels at their point (KiCad driver
-  // priority SHEET_PIN; the pin name names the net within this sheet).
+  // priority SHEET_PIN; the pin name names the net within this sheet). A pin
+  // whose name is bus syntax and which sits on a bus joins the *bus* graph
+  // instead — SCH_SHEET_PIN::ConfigureFromLabel makes it a BUS connection.
   sch.sheets.forEach((sh, si) => {
     const shId = refId('sheet', sh.uuid, si);
     sh.pins.forEach((p, k) => {
+      const id = `${shId}:sheetpin${k}`;
+      if (isBusLabel(p.name) && onAnyBus(p.at)) {
+        busSheetPins.push({ id, at: p.at, text: p.name, sheetId: shId });
+        return;
+      }
       nodes.push({
-        id: `${shId}:sheetpin${k}`,
+        id,
         points: [p.at],
         driver: { priority: Priority.SheetPin, name: p.name },
       });
@@ -289,8 +377,11 @@ export function computeNetlist(
 
   // No-connect flags join the net at their point (KiCad: SCH_NO_CONNECT is a
   // connectable item; the subgraph carrying one is exempt from unconnected checks).
+  const noConnectIds = new Set<string>();
   sch.noConnects.forEach((nc, i) => {
-    nodes.push({ id: refId('noconnect', nc.uuid, i), points: [nc.at], driver: null });
+    const id = refId('noconnect', nc.uuid, i);
+    noConnectIds.add(id);
+    nodes.push({ id, points: [nc.at], driver: null });
   });
 
   // Symbol pins (through the placement transform). Power symbols drive a power net
@@ -298,12 +389,70 @@ export function computeNetlist(
   const valueBySym = new Map(
     sch.symbols.map((s, i) => [refId('symbol', s.uuid, i), fieldValue(s, 'Value') ?? '']),
   );
-  for (const pin of enumeratePins(sch, libById)) {
+  const uuidBySym = new Map(sch.symbols.map((s, i) => [refId('symbol', s.uuid, i), s.uuid ?? '']));
+  const allPins = enumeratePins(sch, libById);
+  /** The other pins of each symbol, for GetDefaultNetName's has_multiple test. */
+  const pinsBySym = new Map<string, PinNode[]>();
+  for (const p of allPins) {
+    const arr = pinsBySym.get(p.symId) ?? [];
+    arr.push(p);
+    pinsBySym.set(p.symId, arr);
+  }
+
+  /**
+   * SCH_PIN::GetDefaultNetName — the name a pin gives a net nothing else names.
+   * `unconnected` is set when the pin is a no-connect type or the net carries a
+   * no-connect flag (upstream's aForceNoConnect), which swaps the prefix and forces
+   * the pad number into the name.
+   */
+  const defaultNetName = (pin: PinNode, unconnected: boolean): string => {
+    const open = unconnected ? 'unconnected-(' : 'Net-(';
+    const padNumber = pin.number || String(pinIndexOf(pin.id) + 1);
+    const shownName = pin.name === '~' ? '' : pin.name;
+
+    // Use the timestamp for unannotated symbols.
+    if (pin.ref.endsWith('?')) {
+      return `${open}${uuidBySym.get(pin.symId) ?? ''}-Pad${padNumber})`;
+    }
+
+    if (shownName !== '' && shownName !== pin.number) {
+      // Pin names might not be unique between units, so the reference designator
+      // carries the unit token; the pad number is added when it has to disambiguate.
+      const hasMultiple = (pinsBySym.get(pin.symId) ?? []).some(
+        (other) =>
+          other.name === pin.name &&
+          other.number !== pin.number &&
+          unconnected === (other.electricalType === 'no_connect'),
+      );
+      const pad = unconnected || hasMultiple ? `-Pad${escapeNetName(padNumber)}` : '';
+      return `${open}${pin.ref}-${escapeNetName(shownName)}${pad})`;
+    }
+
+    // Pin numbers are unique, so the unit token is skipped.
+    return `${open}${pin.ref}-Pad${escapeNetName(padNumber)})`;
+  };
+
+  for (const pin of allPins) {
     const node: Node = { id: pin.id, points: [pin.at], driver: null };
-    if (pin.isPowerSymbol) {
-      node.driver = { priority: Priority.GlobalPowerPin, name: valueBySym.get(pin.symId) ?? '' };
+    // GetDriverPriority for a pin: a power *input* pin drives a power net —
+    // GLOBAL_POWER_PIN for a global power symbol (or the legacy invisible
+    // power-in pin on an ordinary symbol, named after the pin rather than the
+    // symbol value, SCH_PIN::GetDefaultNetName), LOCAL_POWER_PIN for a
+    // `(power local)` symbol. A power symbol's power_out pin (PWR_FLAG) drives
+    // no name at all; it only makes the net driven for ERC.
+    const powerPin =
+      pin.electricalType === 'power_in' &&
+      (pin.isPowerSymbol || (pin.hidden && !pin.isPowerSymbol));
+    if (powerPin) {
+      node.driver = {
+        priority: pin.isLocalPowerSymbol ? Priority.LocalPowerPin : Priority.GlobalPowerPin,
+        name: pin.isPowerSymbol ? (valueBySym.get(pin.symId) ?? '') : pin.name,
+      };
     } else {
-      node.autoName = `Net-(${pin.ref}-Pad${pin.number || Number(pin.id.slice(pin.id.lastIndexOf(':pin') + 4)) + 1})`;
+      // Both spellings: which one applies depends on whether the net this pin
+      // lands on carries a no-connect, which is only known once nets are grouped.
+      node.autoName = defaultNetName(pin, pin.electricalType === 'no_connect');
+      node.autoNameNoConnect = defaultNetName(pin, true);
     }
     nodes.push(node);
   }
@@ -387,13 +536,14 @@ export function computeNetlist(
     {
       label: { text: string; priority: Priority } | null;
       labels: { id: string; text: string; port: boolean }[];
+      sheetPins: { id: string; name: string; sheetId: string }[];
       entryIds: string[];
     }
   >();
   const infoFor = (root: string): NonNullable<ReturnType<typeof busInfo.get>> => {
     let inf = busInfo.get(root);
     if (!inf) {
-      inf = { label: null, labels: [], entryIds: [] };
+      inf = { label: null, labels: [], sheetPins: [], entryIds: [] };
       busInfo.set(root, inf);
     }
     return inf;
@@ -407,6 +557,16 @@ export function computeNetlist(
     if (!inf.label || bl.priority > inf.label.priority)
       inf.label = { text: bl.text, priority: bl.priority };
   }
+  for (const sp of busSheetPins) {
+    const root = busRootOfPoint(sp.at);
+    if (!root) continue;
+    const inf = infoFor(root);
+    inf.sheetPins.push({ id: sp.id, name: sp.text, sheetId: sp.sheetId });
+    // SHEET_PIN priority never outranks a label, so it only names the bus when
+    // nothing else does.
+    if (!inf.label) inf.label = { text: sp.text, priority: Priority.SheetPin };
+  }
+
   const entriesByBusRoot = new Map<string, string[]>();
   for (const e of entryBusEnd) {
     const root = busRootOfPoint(e.at);
@@ -435,9 +595,15 @@ export function computeNetlist(
     const busItems = busNodes.filter((b) => busUf.find(b.id) === root).map((b) => b.id);
     buses.push({
       name: inf.label?.text ?? '',
-      items: [...busItems, ...inf.labels.map((l) => l.id), ...inf.entryIds],
+      items: [
+        ...busItems,
+        ...inf.labels.map((l) => l.id),
+        ...inf.sheetPins.map((p) => p.id),
+        ...inf.entryIds,
+      ],
       members,
       labels: inf.labels,
+      sheetPins: inf.sheetPins,
       entryIds: inf.entryIds,
     });
     if (members.length === 0) continue;
@@ -472,13 +638,26 @@ export function computeNetlist(
   for (const group of byRoot.values()) {
     let best: Driver | null = null;
     let auto: string | undefined;
+    // aForceNoConnect: a net carrying a no-connect flag names its pin "unconnected-".
+    const forceNoConnect = group.some((n) => noConnectIds.has(n.id));
     for (const n of group) {
       if (n.driver?.name && (!best || n.driver.priority > best.priority)) best = n.driver;
-      if (!auto && n.autoName) auto = n.autoName;
+      if (auto === undefined) {
+        const candidate = forceNoConnect ? n.autoNameNoConnect : n.autoName;
+        if (candidate) auto = candidate;
+      }
     }
-    const name = best?.name ?? auto ?? `Net-${code}`;
+    // A sheet-local driver qualifies the name with the sheet path it drives on.
+    const localName = best ? best.name : (auto ?? `Net-${code}`);
+    const name = best && prependsSheetPath(best.priority) ? `${sheetPath}${localName}` : localName;
     const items = group.map((n) => n.id);
-    nets.push({ code, name, items });
+    nets.push({
+      code,
+      name,
+      localName,
+      items,
+      driverPriority: best?.priority ?? Priority.None,
+    });
     for (const id of items) netByItem.set(id, code);
     code++;
   }

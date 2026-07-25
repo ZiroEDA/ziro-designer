@@ -84,6 +84,7 @@ export function DialogSchematicSetup({
     netClasses: structuredClone(value.netClasses),
     embeddedFiles: structuredClone(value.embeddedFiles),
     ercExclusions: [...value.ercExclusions],
+    ercExclusionComments: { ...value.ercExclusionComments },
     usedDesignators: value.usedDesignators,
   }));
   const [importOpen, setImportOpen] = useState(false);
@@ -103,6 +104,7 @@ export function DialogSchematicSetup({
       ...(o.bomPresets || o.bomFmtPresets
         ? {
             bomPresets: {
+              ...cur.bomPresets,
               presets: o.bomPresets ? other.bomPresets.presets : cur.bomPresets.presets,
               fmtPresets: o.bomFmtPresets ? other.bomPresets.fmtPresets : cur.bomPresets.fmtPresets,
             },

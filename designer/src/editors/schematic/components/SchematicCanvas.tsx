@@ -55,6 +55,7 @@ import {
   type ErcViolation,
   type ItemRef,
   collectAndGuess,
+  getNode,
 } from '@ziroeda/eeschema';
 import {
   renderSchematic,
@@ -122,6 +123,27 @@ const WIRE_CURSOR = (() => {
     `</svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 26, crosshair`;
 })();
+
+// KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
+// concentric rings with a cross through them, hotspot at the centre.
+const BULLSEYE_CURSOR = (() => {
+  const rings =
+    `<circle cx="16" cy="16" r="9" fill="none"/><circle cx="16" cy="16" r="4" fill="none"/>` +
+    `<line x1="16" y1="2" x2="16" y2="30"/><line x1="2" y1="16" x2="30" y2="16"/>`;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">` +
+    `<g stroke="#ffffff" stroke-width="3">${rings}</g>` +
+    `<g stroke="#000000" stroke-width="1">${rings}</g>` +
+    `</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
+})();
+
+/** The cursor a tool shows while it is active. */
+function toolCursor(tool: string): string {
+  if (tool === 'drawWire' || tool === 'drawBus') return WIRE_CURSOR;
+  if (tool === 'highlightNet') return BULLSEYE_CURSOR;
+  return tool === 'select' || tool === 'selectLasso' ? 'default' : 'crosshair';
+}
 
 export type LineMode = 'free' | '90' | '45';
 
@@ -305,8 +327,9 @@ interface Props {
   pastePending?: PastePayload | null;
   /** The paste was dropped: the command was submitted; `ids` are the pasted item ids. */
   onPasteDone?: (ids: ReadonlySet<string>) => void;
-  /** ERC violations to draw as KiCad marker arrows (null = ERC not run). */
-  ercMarkers?: readonly ErcViolation[] | null;
+  /** ERC violations to draw as KiCad marker arrows (null = ERC not run);
+   *  `excluded` picks LAYER_ERC_EXCLUSION's colour (SCH_MARKER::GetColorLayer). */
+  ercMarkers?: readonly (ErcViolation & { excluded?: boolean; brightened?: boolean })[] | null;
   onCommand: (cmd: EditCommand) => void;
   onCursorMove?: (world: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
@@ -922,11 +945,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // Switching tools abandons any in-progress shape and resets the entry stub.
     drawStateRef.current = null;
     entrySizeRef.current = { x: DEFAULT_ENTRY_SIZE, y: DEFAULT_ENTRY_SIZE };
-    // The wire/bus tools use KiCad's green wire cursor; everything else resets.
+    // Per-tool cursor (PICKER_TOOL::SetCursor / the drawing tools' KICURSOR):
+    // the wire/bus tools use KiCad's green wire cursor, the net-highlight
+    // picker the bullseye (sch_editor_control.cpp:1802), everything else the
+    // plain crosshair the drawing tools show.
     const canvas = canvasRef.current;
-    if (canvas)
-      canvas.style.cursor =
-        activeTool === 'drawWire' || activeTool === 'drawBus' ? WIRE_CURSOR : 'default';
+    if (canvas) canvas.style.cursor = toolCursor(activeTool);
   }, [activeTool]);
 
   const toWorld = (clientX: number, clientY: number): Vec2 => {
@@ -1198,11 +1222,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      // Highlight-Net tool (KiCad SCH_EDITOR_CONTROL::HighlightNet): click an item to
-      // brighten its net; click empty space to clear the highlight.
+      // Highlight-Net tool (KiCad SCH_EDITOR_CONTROL::HighlightNet): click a
+      // connectable item to brighten its net; click empty space to clear it.
+      // The pick is GetNode's — connectable types only, at growing thresholds —
+      // so pins, power flags and sheet pins highlight and a symbol body doesn't
+      // swallow the click. The picker also runs unsnapped (SetSnapping(false)).
       if (activeTool === 'highlightNet') {
-        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
-        onHighlight?.(hit ? hit.id : null);
+        const node = getNode(schematic, libById, world, Math.max((5 * dpr()) / vp.scale, GRID));
+        onHighlight?.(node ? node.id : null);
         return;
       }
 
@@ -1700,7 +1727,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => window.removeEventListener('keydown', onKey);
   }, [draw, activeTool, placeLib, finishPoly, finishWireChain]);
 
-  const cursor = activeTool === 'select' ? 'default' : 'crosshair';
+  const cursor = toolCursor(activeTool);
 
   return (
     <div

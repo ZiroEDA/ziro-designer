@@ -132,6 +132,8 @@ importers:
 
   libs/kimath: {}
 
+  libs/rectpack2d: {}
+
   libs/sexpr: {}
 
   pcb_calculator: {}
@@ -147,6 +149,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/rectpack2d':
+        specifier: workspace:*
+        version: link:../libs/rectpack2d
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr

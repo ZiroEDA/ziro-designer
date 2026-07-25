@@ -118,6 +118,38 @@ export interface Model3D {
   opacity?: number;
 }
 
+/**
+ * A footprint `(property "Name" "Value" …)` that is not Reference or Value —
+ * KiCad's user PCB_FIELDs (FOOTPRINT::GetFields minus the mandatory two, which
+ * this model carries as `texts`). The netlist updater adds, rewrites and removes
+ * these to mirror the symbol's fields.
+ */
+export interface PcbFootprintField {
+  name: string;
+  value: string;
+  source: SList;
+}
+
+/**
+ * Property names a footprint may carry that are NOT user fields. Before KiCad's PCB
+ * fields (file version < 20230620) these reserved keys stood in for what now have
+ * their own tokens — `(sheetname …)`, `(sheetfile …)`, `(descr …)`, `(tags …)` — and
+ * `Footprint` duplicated the LIB_ID until V9. `parseFOOTPRINT` consumes them rather
+ * than making fields of them, so nothing should present them to the user or compare
+ * them against a symbol's fields.
+ */
+export const RESERVED_FOOTPRINT_PROPERTIES: ReadonlySet<string> = new Set([
+  'Sheetname',
+  'Sheet name',
+  'Sheetfile',
+  'Sheet file',
+  'ki_description',
+  'ki_keywords',
+  'ki_locked',
+  'ki_fp_filters',
+  'Footprint',
+]);
+
 export interface PcbFootprint {
   lib: string;
   at: Vec2;
@@ -133,6 +165,19 @@ export interface PcbFootprint {
   attributes?: string[];
   /** `(locked yes)` on the footprint. */
   locked?: boolean;
+  /**
+   * `(path "/<sheetUuid>/<symbolUuid>")` — FOOTPRINT::GetPath, the KIID_PATH of
+   * the schematic symbol this footprint is linked to. Empty for a footprint with
+   * no symbol behind it.
+   */
+  path?: string;
+  /** `(sheetname …)` / `(sheetfile …)` — the symbol's sheet (FOOTPRINT::GetSheetname). */
+  sheetname?: string;
+  sheetfile?: string;
+  /** `(property ki_fp_filters …)` — FOOTPRINT::GetFilters, the symbol's fp filters. */
+  filters?: string;
+  /** User fields: every `(property …)` other than Reference/Value/ki_fp_filters. */
+  fields?: PcbFootprintField[];
   pads: PcbPad[];
   shapes: PcbShape[];
   texts: PcbTextItem[];

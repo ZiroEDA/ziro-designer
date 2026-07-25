@@ -36,13 +36,13 @@ export function FootprintSelectWidget({
       onChange={(e) => onFootprintSelected(e.target.value)}
     >
       <option value="">{defaultLabel}</option>
-      {items
-        .filter((fp) => fp !== defaultFootprint)
-        .map((fp) => (
-          <option key={fp} value={fp}>
-            {fp}
-          </option>
-        ))}
+      {/* The list is appended as the filter returns it — upstream only
+          deduplicates the always-included footprints, not the default. */}
+      {items.map((fp) => (
+        <option key={fp} value={fp}>
+          {fp}
+        </option>
+      ))}
     </select>
   );
 }

@@ -8,11 +8,16 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   RefDesTracker,
+  annotateHierarchy,
   annotateSymbols,
+  annotationReport,
+  checkAnnotation,
   clearAnnotationCommand,
+  clearAnnotationReport,
   splitReference,
   defaultAnnotateOptions,
   type AnnotateOptions,
+  type AnnotateSheet,
 } from '@ziroeda/eeschema';
 
 // Three resistors placed left→right at increasing X (R?, R?, R2) plus a power
@@ -144,6 +149,181 @@ describe('annotateSymbols — multi-unit sharing (REFDES_TRACKER::GetNextRefDesF
     const b = refOf(next.find((s) => s.uuid === 's-b')!);
     expect(a).toBe(b);
     expect(refOf(next.find((s) => s.uuid === 's-solo')!)).not.toBe(a);
+  });
+});
+
+// A hierarchy pass (SCH_EDIT_FRAME::AnnotateSymbols over a SCH_SHEET_LIST):
+// two sheets numbered in one go, with out-of-scope sheets reserving numbers.
+describe('annotateHierarchy', () => {
+  const sheetDoc = (refs: [string, number, string][]): string =>
+    `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+      (lib_symbols
+        (symbol "Device:R" (property "Reference" "R" (at 0 0 0)) (symbol "R_0_1")))
+      ${refs.map(([ref, x, uuid]) => sym(ref, x, 50, uuid)).join('\n')})`;
+
+  const root = readSchematic(
+    parse(
+      sheetDoc([
+        ['R?', 50, 'root-a'],
+        ['R?', 100, 'root-b'],
+      ]),
+    ),
+  );
+  const child = readSchematic(
+    parse(
+      sheetDoc([
+        ['R?', 60, 'child-a'],
+        ['R?', 120, 'child-b'],
+      ]),
+    ),
+  );
+  const libById = new Map(root.libSymbols.map((l) => [l.libId, l]));
+  const sheets = (
+    rootScope: AnnotateSheet['scope'],
+    childScope: AnnotateSheet['scope'],
+  ): AnnotateSheet[] => [
+    { file: 'root.kicad_sch', doc: root, sheetNumber: 1, scope: rootScope },
+    { file: 'child.kicad_sch', doc: child, sheetNumber: 2, scope: childScope },
+  ];
+
+  it('numbers both sheets in one pass, without duplicates', () => {
+    const out = annotateHierarchy(sheets('full', 'full'), libById, opts({ order: 'x' }));
+    const all = [...out.values()].flatMap((syms) => syms.map(refOf));
+    expect(new Set(all).size).toBe(4);
+    // Sorted by sheet number first, then X: root's two, then the child's.
+    expect(refOf(out.get('root.kicad_sch')!.find((s) => s.uuid === 'root-a')!)).toBe('R1');
+    expect(refOf(out.get('root.kicad_sch')!.find((s) => s.uuid === 'root-b')!)).toBe('R2');
+    expect(refOf(out.get('child.kicad_sch')!.find((s) => s.uuid === 'child-a')!)).toBe('R3');
+    expect(refOf(out.get('child.kicad_sch')!.find((s) => s.uuid === 'child-b')!)).toBe('R4');
+  });
+
+  it('an out-of-scope sheet still reserves its numbers (additionalRefs)', () => {
+    // The child keeps R1/R2; annotating only the root must skip them.
+    const numbered = readSchematic(
+      parse(
+        sheetDoc([
+          ['R1', 60, 'child-a'],
+          ['R2', 120, 'child-b'],
+        ]),
+      ),
+    );
+    const out = annotateHierarchy(
+      [
+        { file: 'root.kicad_sch', doc: root, sheetNumber: 1, scope: 'full' },
+        { file: 'child.kicad_sch', doc: numbered, sheetNumber: 2, scope: 'out' },
+      ],
+      libById,
+      opts({ order: 'x' }),
+    );
+    expect(out.has('child.kicad_sch')).toBe(false);
+    expect(refOf(out.get('root.kicad_sch')!.find((s) => s.uuid === 'root-a')!)).toBe('R3');
+  });
+
+  it('the sheet-x100 algo numbers from each symbol own sheet', () => {
+    const out = annotateHierarchy(
+      sheets('full', 'full'),
+      libById,
+      opts({ order: 'x', algo: 'sheet_100' }),
+    );
+    expect(refOf(out.get('root.kicad_sch')!.find((s) => s.uuid === 'root-a')!)).toBe('R101');
+    expect(refOf(out.get('child.kicad_sch')!.find((s) => s.uuid === 'child-a')!)).toBe('R201');
+  });
+});
+
+// aRegroupUnits: a reset without it keeps units that shared a reference
+// together; with it they re-pair by placement.
+describe('annotateHierarchy — regroup symbol units', () => {
+  const multiSym = (ref: string, unit: number, x: number, uuid: string): string => `
+    (symbol (lib_id "Amp:Dual") (at ${x} 50 0) (unit ${unit}) (uuid "${uuid}")
+      (property "Reference" "${ref}" (at ${x} 50 0))
+      (property "Value" "TL072" (at ${x} 50 0)))`;
+  const SCH_UNITS = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+    (lib_symbols
+      (symbol "Amp:Dual" (property "Reference" "U" (at 0 0 0))
+        (symbol "Dual_1_1") (symbol "Dual_2_1")))
+    ${multiSym('U5', 1, 10, 'g-a')}
+    ${multiSym('U5', 2, 90, 'g-b')}
+    ${multiSym('U6', 1, 20, 'g-c')}
+    ${multiSym('U6', 2, 80, 'g-d')})`;
+  const doc = readSchematic(parse(SCH_UNITS));
+  const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
+  const one = (o: Partial<AnnotateOptions>): AnnotateSheet[] => [
+    { file: 'f', doc, sheetNumber: 1, scope: 'full' },
+  ];
+
+  it('keeps the existing pairs when not regrouping', () => {
+    const out = annotateHierarchy(one({}), libById, opts({ resetExisting: true, order: 'x' }))!;
+    const syms = out.get('f')!;
+    const at = (uuid: string): string => refOf(syms.find((s) => s.uuid === uuid)!);
+    expect(at('g-a')).toBe(at('g-b'));
+    expect(at('g-c')).toBe(at('g-d'));
+    expect(at('g-a')).not.toBe(at('g-c'));
+  });
+
+  it('regrouping re-pairs units by placement', () => {
+    const out = annotateHierarchy(
+      one({}),
+      libById,
+      opts({ resetExisting: true, regroupUnits: true, order: 'x' }),
+    )!;
+    const syms = out.get('f')!;
+    const at = (uuid: string): string => refOf(syms.find((s) => s.uuid === uuid)!);
+    // By X the units pair up as (g-a, g-c) — both unit-1 — so each takes its
+    // own number and the unit-2 halves join them.
+    expect(at('g-a')).toBe('U1');
+    expect(at('g-c')).toBe('U2');
+    expect(at('g-d')).toBe('U1');
+    expect(at('g-b')).toBe('U2');
+  });
+});
+
+// The Annotation Messages panel's content (AnnotateSymbols' report loop and
+// SCH_REFERENCE_LIST::CheckAnnotation).
+describe('annotation messages', () => {
+  const doc = readSchematic(parse(SCH));
+  const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
+
+  it('words each line by whether the symbol was annotated before', () => {
+    const symbols = annotateSymbols(doc, libById, opts({ order: 'x' }));
+    const lines = annotationReport([{ before: doc, after: { ...doc, symbols } }], libById);
+    expect(lines.map((l) => l.message)).toEqual([
+      'Annotated 10k as R3.', // was R? (x=100)
+      'Annotated 10k as R1.', // was R? (x=50)
+    ]);
+    // R2 was already annotated and did not move, so it produced no line.
+    expect(lines).toHaveLength(2);
+  });
+
+  it('reports a renumber as an update', () => {
+    const symbols = annotateSymbols(doc, libById, opts({ resetExisting: true, order: 'x' }));
+    const lines = annotationReport([{ before: doc, after: { ...doc, symbols } }], libById);
+    expect(lines.map((l) => l.message)).toContain('Updated 10k from R2 to R3.');
+  });
+
+  it('clear annotation reports only the symbols that were annotated', () => {
+    // DeleteAnnotation's clearSymbolAnnotation reports (and clears) a symbol
+    // only when IsAnnotated — the two R? here were never annotated.
+    const after = clearAnnotationCommand('all').apply(doc);
+    const lines = clearAnnotationReport([{ before: doc, after }], libById);
+    expect(lines.map((l) => l.message)).toEqual(['Cleared annotation for 10k.']);
+  });
+
+  it('CheckAnnotation flags an unannotated symbol and a duplicate', () => {
+    expect(checkAnnotation([doc], libById)[0]!.message).toBe('Item not annotated: R?');
+
+    const dupe = readSchematic(
+      parse(`(kicad_sch (version 20231120) (generator "test") (paper "A4")
+        (lib_symbols
+          (symbol "Device:R" (property "Reference" "R" (at 0 0 0)) (symbol "R_0_1")))
+        ${sym('R1', 10, 50, 'd-a')}
+        ${sym('R1', 20, 50, 'd-b')})`),
+    );
+    expect(checkAnnotation([dupe], libById).map((l) => l.message)).toEqual(['Duplicate items R1']);
+  });
+
+  it('a fully annotated schematic reports nothing', () => {
+    const symbols = annotateSymbols(doc, libById, opts({ resetExisting: true, order: 'x' }));
+    expect(checkAnnotation([{ ...doc, symbols }], libById)).toHaveLength(0);
   });
 });
 
