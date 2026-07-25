@@ -380,8 +380,11 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
       },
     },
     cursor: {
-      crosshair: 'full',
-      always_show_cursor: false,
+      // KiCad's defaults: CROSS_HAIR_MODE::SMALL_CROSS, always_show_cursor true
+      // (common/settings/app_settings.cpp). A full-window crosshair on top of a
+      // tool's own bitmap cursor reads as two cursors fighting each other.
+      crosshair: 'small',
+      always_show_cursor: true,
     },
   },
 };
@@ -474,6 +477,41 @@ function deepMerge<T>(defaults: T, stored: unknown): T {
     }
   }
   return out as T;
+}
+
+/**
+ * One-time corrections to already-stored settings. Every settings object is
+ * persisted whole, so changing a default above never reaches anyone who has
+ * used the app before — a default that was simply wrong has to be rewritten
+ * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
+ */
+const SETTINGS_VERSION = 1;
+
+function migrateStored(): void {
+  const versionKey = 'ziroeda.settings_version';
+  try {
+    const from = Number(localStorage.getItem(versionKey) ?? '0');
+    if (from >= SETTINGS_VERSION) return;
+
+    // v1: eeschema's crosshair defaulted to full-window lines, drawn on top of
+    // each tool's own cursor bitmap — two cursors at once. KiCad's default is
+    // the small cross.
+    if (from < 1) {
+      const raw = localStorage.getItem('ziroeda.eeschema');
+      if (raw) {
+        const s = JSON.parse(raw) as EeschemaSettings;
+        if (s?.window?.cursor?.crosshair === 'full') {
+          s.window.cursor.crosshair = 'small';
+          s.window.cursor.always_show_cursor = true;
+          localStorage.setItem('ziroeda.eeschema', JSON.stringify(s));
+        }
+      }
+    }
+
+    localStorage.setItem(versionKey, String(SETTINGS_VERSION));
+  } catch {
+    /* private mode / unparsable settings — the defaults apply anyway */
+  }
 }
 
 function load<T>(key: string, defaults: T): T {
@@ -570,4 +608,5 @@ class SettingsManager {
   }
 }
 
+migrateStored();
 export const settings = new SettingsManager();
