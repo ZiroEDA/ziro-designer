@@ -11,6 +11,7 @@ import { addItems, makeWire, makeBus, makeJunction } from '@ziroeda/eeschema/src
 import {
   analyzePoint,
   isExplicitJunction,
+  isExplicitJunctionAllowed,
   isExplicitJunctionNeeded,
   isBusLabelText,
 } from '@ziroeda/eeschema/src/tools/junction_helpers.js';
@@ -153,6 +154,30 @@ describe('finishWires junctions', () => {
     const next = cmd!.apply(sch);
     expect(next.junctions.length).toBe(1);
     expect(next.junctions[0]!.at).toEqual(at(10, 0));
+  });
+});
+
+describe('isExplicitJunctionAllowed (SCH_SCREEN::IsExplicitJunctionAllowed)', () => {
+  it('offers a dot where two wires cross, and refuses one mid-wire', () => {
+    // Crossing wires: allowed (the analysis breaks crossings), even though no
+    // dot is *needed* there — this is what the junction tool checks.
+    const cross = addItems({
+      lines: [makeWire(at(0, 0), at(20, 0)), makeWire(at(10, -10), at(10, 10))],
+    }).apply(EMPTY());
+    expect(isExplicitJunctionAllowed(cross, undefined, at(10, 0))).toBe(true);
+    expect(isExplicitJunctionNeeded(cross, undefined, at(10, 0))).toBe(false);
+
+    // A single wire: nothing joins, so the tool refuses (and posts the info bar).
+    const one = addItems({ lines: [makeWire(at(0, 0), at(20, 0))] }).apply(EMPTY());
+    expect(isExplicitJunctionAllowed(one, undefined, at(10, 0))).toBe(false);
+  });
+
+  it('allows a dot on a tee, where one is needed anyway', () => {
+    const tee = addItems({
+      lines: [makeWire(at(0, 0), at(20, 0)), makeWire(at(10, 0), at(10, 10))],
+    }).apply(EMPTY());
+    expect(isExplicitJunctionAllowed(tee, undefined, at(10, 0))).toBe(true);
+    expect(isExplicitJunctionNeeded(tee, undefined, at(10, 0))).toBe(true);
   });
 });
 

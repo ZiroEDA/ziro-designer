@@ -172,6 +172,22 @@ export function isExplicitJunction(
   return info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires);
 }
 
+/**
+ * SCH_SCREEN::IsExplicitJunctionAllowed: whether the user may place a dot at
+ * `p`. Unlike the two predicates above this analyzes with crossings broken, so
+ * a wire crossing another counts as four exits and a dot is offered there —
+ * upstream's junction tool refuses the click when this is false ("Junction
+ * location contains no joinable wires and/or pins.").
+ */
+export function isExplicitJunctionAllowed(
+  sch: Schematic,
+  libById: ReadonlyMap<string, LibSymbol> | undefined,
+  p: Vec2,
+): boolean {
+  const info = analyzePoint(sch, libById, p, true);
+  return info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires);
+}
+
 /** SCH_SCREEN::IsExplicitJunctionNeeded: a dot belongs at `p` and none is
  *  there yet. */
 export function isExplicitJunctionNeeded(

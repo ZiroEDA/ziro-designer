@@ -19,6 +19,7 @@ import {
   deleteByIds,
   placeSymbol,
   makeJunction,
+  isExplicitJunctionAllowed,
   makeNoConnect,
   makeLabel,
   startSegments,
@@ -68,6 +69,7 @@ import {
   type Viewport,
 } from '../render/renderer.js';
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
+import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 
 /** Mouse/input behaviour from the Preferences dialog (COMMON_SETTINGS m_Input + eeschema). */
 export interface InputPrefs {
@@ -110,22 +112,9 @@ export const DEFAULT_INPUT_PREFS: InputPrefs = {
   alwaysShowCrosshair: false,
 };
 
-// KiCad's LINE_WIRE cursor (resources/.../cursor-line-wire.xpm): a black crosshair
-// at the hotspot with a green diagonal "wire" running up-right from it. Rebuilt as
-// an SVG cursor; hotspot at (5,26) as in KiCad.
-const WIRE_CURSOR = (() => {
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">` +
-    `<line x1="6" y1="25" x2="26" y2="5" stroke="#ffffff" stroke-width="5"/>` +
-    `<line x1="6" y1="25" x2="26" y2="5" stroke="#008000" stroke-width="3"/>` +
-    `<g stroke="#ffffff" stroke-width="3"><line x1="0" y1="26" x2="10" y2="26"/><line x1="5" y1="21" x2="5" y2="31"/></g>` +
-    `<g stroke="#000000" stroke-width="1"><line x1="0" y1="26" x2="10" y2="26"/><line x1="5" y1="21" x2="5" y2="31"/></g>` +
-    `</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 26, crosshair`;
-})();
-
 // KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
-// concentric rings with a cross through them, hotspot at the centre.
+// concentric rings with a cross through them, hotspot at the centre. The rest of
+// the tool cursors are KiCad's own bitmaps — see cursors.ts.
 const BULLSEYE_CURSOR = (() => {
   const rings =
     `<circle cx="16" cy="16" r="9" fill="none"/><circle cx="16" cy="16" r="4" fill="none"/>` +
@@ -138,11 +127,13 @@ const BULLSEYE_CURSOR = (() => {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`;
 })();
 
-/** The cursor a tool shows while it is active. */
+/** The wire cursor, also shown over a dangling pin with the select tool. */
+const WIRE_CURSOR = kiCursor('lineWire');
+
+/** The cursor a tool shows while it is active (SetCurrentCursor per tool). */
 function toolCursor(tool: string): string {
-  if (tool === 'drawWire' || tool === 'drawBus') return WIRE_CURSOR;
   if (tool === 'highlightNet') return BULLSEYE_CURSOR;
-  return tool === 'select' || tool === 'selectLasso' ? 'default' : 'crosshair';
+  return kiToolCursor(tool);
 }
 
 export type LineMode = 'free' | '90' | '45';
@@ -331,6 +322,9 @@ interface Props {
    *  `excluded` picks LAYER_ERC_EXCLUSION's colour (SCH_MARKER::GetColorLayer). */
   ercMarkers?: readonly (ErcViolation & { excluded?: boolean; brightened?: boolean })[] | null;
   onCommand: (cmd: EditCommand) => void;
+  /** WX_INFOBAR message from a tool ("Junction location contains no joinable
+   *  wires and/or pins."); null dismisses it. */
+  onInfoBar?: (message: string | null) => void;
   onCursorMove?: (world: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
   /** Active colour theme (Preferences > Colors). */
@@ -396,6 +390,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     onPasteDone,
     ercMarkers,
     onCommand,
+    onInfoBar,
     onCursorMove,
     onScaleChange,
     theme = KICAD_DEFAULT,
@@ -1151,7 +1146,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
 
       if (activeTool === 'junction') {
-        onCommand(addItems({ junctions: [makeJunction(snapConn(world))] }));
+        // SCH_DRAWING_TOOLS::SingleClickPlace refuses a dot where nothing joins
+        // — otherwise the schematic cleanup would drop it again straight away,
+        // which reads as "the tool did nothing".
+        const at = snapConn(world);
+        if (!isExplicitJunctionAllowed(schematic, libById, at)) {
+          onInfoBar?.('Junction location contains no joinable wires and/or pins.');
+          return;
+        }
+        onInfoBar?.(null);
+        onCommand(addItems({ junctions: [makeJunction(at)] }));
         return;
       }
 
