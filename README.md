@@ -62,9 +62,9 @@ variables are absent, so a clone runs with no configuration at all.
 | `VITE_SUPABASE_STORAGE_BUCKET` | Cloud file storage disabled              |
 | `VITE_SENTRY_DSN`              | Crash reporting disabled                 |
 | `VITE_RELEASE`                 | Falls back to the build's git SHA        |
-| `SENTRY_ORG`                   | Source maps not uploaded (see below)     |
-| `SENTRY_PROJECT`               | Source maps not uploaded                 |
-| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded                 |
+| `SENTRY_ORG`                   | Source maps not uploaded (set in `vercel.json`) |
+| `SENTRY_PROJECT`               | Source maps not uploaded (set in `vercel.json`) |
+| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded — **secret, dashboard only** |
 | `SENTRY_URL`                   | Defaults to `https://de.sentry.io/`      |
 
 ### Crash reporting
@@ -94,9 +94,15 @@ uploads into a void.
 #### Source maps
 
 Without them every stack trace arrives minified (`index-a1b2c3.js:1:48291`),
-which is close to useless. Set `SENTRY_ORG`, `SENTRY_PROJECT` and
-`SENTRY_AUTH_TOKEN` (the last one a *secret*, unlike the DSN) and the build
-uploads maps automatically.
+which is close to useless. The org and project slugs are plain identifiers and
+live in `vercel.json` with the DSN; `SENTRY_AUTH_TOKEN` is a real secret and
+belongs in the Vercel dashboard only. Uploading starts as soon as all three are
+present.
+
+Because the slugs are committed, **renaming the Sentry project changes its slug
+and silently stops symbolication** — the upload 401s, the build still succeeds,
+and traces quietly go back to being minified. Rename in Sentry and here
+together.
 
 Maps are generated as `hidden` and **deleted after upload** — no
 `sourceMappingURL` comment is emitted and no `.map` file is ever deployed, so
