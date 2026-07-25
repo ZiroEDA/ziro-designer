@@ -113,6 +113,13 @@ Ground truth for every mapping below is the KiCad source
   application into netclass resolution (`ApplyNetChainNetclasses`). The Setup
   grid edits committed chains (rename/netclass/colour/delete) with
   `ApplyEdits`' chain→class rekeying into `net_settings.net_chain_classes`.
+- **Net-chain editor tools** (PR #134) — the Create Net Chain dialog
+  (`DIALOG_CREATE_NET_CHAIN` port: uncommitted potentials, editable suggested
+  names, terminals column, focus hints, multi-create), plus the context-menu
+  actions Highlight Net Chain (member nets brighten; wires tint in the
+  chain's colour), Remove from Net Chain (`(passthrough block)` on bridging
+  symbols, undoable) and Name Net Chain (rename with collision rejection and
+  chain→class rekeying).
 - **Wire hop-overs** (PR #134) — Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
   `BuildWireWithHopShape` ports (`eeschema/src/tools/hop_over.ts`, with
@@ -165,7 +172,5 @@ Ground truth for every mapping below is the KiCad source
 ## Remaining work (phases A–H1 in PRs #113–#123; buses #124–#126; quick-wins
 ## #127; net chains + hop-overs + inter-sheet refs #134)
 
-1. Net-chain editor tools — createNetChain / nameNetChain /
-   highlightNetChain context actions and the chain-colour highlight tint
-   (persistence + restore + dialog editing already live).
-2. OPO fields — blocked on a simulator.
+1. OPO fields — blocked on a simulator (plan: ngspice WASM in a worker;
+   first chunk is the NETLIST_EXPORTER_SPICE port).
