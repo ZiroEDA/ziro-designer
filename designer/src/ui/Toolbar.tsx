@@ -25,7 +25,17 @@ export interface ToolGroup {
   paletteOnClick?: boolean;
 }
 
-export type ToolEntry = ToolButton | ToolGroup | 'sep';
+/**
+ * A TOOLBAR_CONFIGURATION::AppendControl slot: the widget itself is supplied by
+ * the frame through `controls`, exactly as KiCad frames register control
+ * factories (RegisterCustomToolbarControlFactory) for e.g. the symbol viewer's
+ * unit and body-style choices.
+ */
+export interface ToolControl {
+  control: string;
+}
+
+export type ToolEntry = ToolButton | ToolGroup | ToolControl | 'sep';
 
 interface Props {
   entries: ToolEntry[];
@@ -39,6 +49,8 @@ interface Props {
    *  on top of a button's own static `disabled` flag. */
   disabledIds?: ReadonlySet<string>;
   onActivate?: (id: string) => void;
+  /** Widgets for the `{ control }` entries, keyed by control name. */
+  controls?: Record<string, ReactNode>;
   /** Rendered after the buttons — toolbar CONTROLS (choices etc.). */
   trailing?: ReactNode;
 }
@@ -64,6 +76,7 @@ export function Toolbar({
   toggled,
   disabledIds,
   onActivate,
+  controls,
   trailing,
 }: Props): JSX.Element {
   // Selected ("default") action of each group, like ACTION_GROUP's
@@ -187,6 +200,12 @@ export function Toolbar({
     <div className={`ze-toolbar ${orientation}${side ? ` ${side}` : ''}`} role="toolbar">
       {entries.map((e, i) => {
         if (e === 'sep') return <span key={`s${i}`} className="ze-sep" />;
+        if ('control' in e)
+          return (
+            <span key={e.control} className="ze-tb-control">
+              {controls?.[e.control]}
+            </span>
+          );
         if ('group' in e) {
           const shown = displayedAction(e);
           return (
