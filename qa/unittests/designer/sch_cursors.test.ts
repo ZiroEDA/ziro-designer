@@ -7,8 +7,8 @@
  * click lands on.
  */
 import { describe, it, expect } from 'vitest';
-import { XPM_CURSORS } from '../../../designer/src/editors/schematic/cursors_data.js';
-import { toolCursorName } from '../../../designer/src/editors/schematic/cursors.js';
+import { XPM_CURSORS } from '@ziroeda/designer/src/editors/schematic/cursors_data.js';
+import { toolCursorName } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 
 describe('vendored cursor bitmaps', () => {
   it('are 32x32 with every pixel in the palette', () => {
