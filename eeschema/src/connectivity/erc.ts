@@ -1797,10 +1797,12 @@ export function* runErcSteps(
         if (dupe) {
           if (dupe.sym) {
             out.push(
-              violation('duplicate_reference', `Duplicate items ${ref}${sub(dupe)}\n`, dupe.sym.at, [
-                refItemId(dupe),
-                ...(g.sym ? [refItemId(g)] : []),
-              ]),
+              violation(
+                'duplicate_reference',
+                `Duplicate items ${ref}${sub(dupe)}\n`,
+                dupe.sym.at,
+                [refItemId(dupe), ...(g.sym ? [refItemId(g)] : [])],
+              ),
             );
           }
         } else {

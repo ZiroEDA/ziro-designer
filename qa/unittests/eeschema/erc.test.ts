@@ -649,7 +649,15 @@ describe('runErc — schematic-wide tests', () => {
     const earlier = runErc(doc, libById, defaultErcSettings(), {
       sheetIndex: 1,
       externalSymbols: [
-        { ref: 'R1', unit: 1, libId: 'T:PAS', value: 'PAS', footprint: '', sheetIndex: 0, index: 0 },
+        {
+          ref: 'R1',
+          unit: 1,
+          libId: 'T:PAS',
+          value: 'PAS',
+          footprint: '',
+          sheetIndex: 0,
+          index: 0,
+        },
       ],
       externalLabels: [{ text: 'gnd_a', isPin: false, sheetIndex: 0, index: 0 }],
     });
@@ -662,7 +670,15 @@ describe('runErc — schematic-wide tests', () => {
     const first = runErc(doc, libById, defaultErcSettings(), {
       sheetIndex: 0,
       externalSymbols: [
-        { ref: 'R1', unit: 1, libId: 'T:PAS', value: 'PAS', footprint: '', sheetIndex: 1, index: 0 },
+        {
+          ref: 'R1',
+          unit: 1,
+          libId: 'T:PAS',
+          value: 'PAS',
+          footprint: '',
+          sheetIndex: 1,
+          index: 0,
+        },
       ],
       externalLabels: [{ text: 'gnd_a', isPin: false, sheetIndex: 1, index: 0 }],
     });
@@ -675,7 +691,15 @@ describe('runErc — schematic-wide tests', () => {
     const v = runErc(doc, libById, defaultErcSettings(), {
       sheetIndex: 0,
       externalSymbols: [
-        { ref: 'R1', unit: 2, libId: 'T:PAS', value: '10k', footprint: '', sheetIndex: 1, index: 0 },
+        {
+          ref: 'R1',
+          unit: 2,
+          libId: 'T:PAS',
+          value: '10k',
+          footprint: '',
+          sheetIndex: 1,
+          index: 0,
+        },
       ],
     });
     expect(v.find((x) => x.code === 'unit_value_mismatch')!.message).toBe(
