@@ -26,6 +26,8 @@ import type {
   SchLabel,
   SchDirectiveLabel,
   SchField,
+  SheetPin,
+  Fill,
   SchNoConnect,
   SchSheet,
   SchBusEntry,
@@ -129,9 +131,15 @@ function buildEffects(fx: TextEffects | undefined): SList | null {
   const size = fx?.fontSize ?? [DEFAULT_TEXT_SIZE, DEFAULT_TEXT_SIZE];
   const nonDefaultSize = size[0] !== DEFAULT_TEXT_SIZE || size[1] !== DEFAULT_TEXT_SIZE;
   const just = justifyNode(fx?.justify);
-  if (!fx || (!nonDefaultSize && !fx.bold && !fx.italic && !fx.hidden && !just && !fx.color))
+  if (
+    !fx ||
+    (!nonDefaultSize && !fx.bold && !fx.italic && !fx.hidden && !just && !fx.color && !fx.face)
+  ) {
     return null;
-  const font: SNode[] = [atom('font'), sizeNode(size[0], size[1])];
+  }
+  const font: SNode[] = [atom('font')];
+  if (fx.face) font.push(list(atom('face'), str(fx.face)));
+  font.push(sizeNode(size[0], size[1]));
   if (fx.bold) font.push(list(atom('bold'), atom('yes')));
   if (fx.italic) font.push(list(atom('italic'), atom('yes')));
   if (fx.color) font.push(colorNode(fx.color));
@@ -154,7 +162,8 @@ function patchEffects(effectsNode: SList, fx: TextEffects, orig: TextEffects | u
   const sameColor = (a: TextEffects['color'], b: TextEffects['color']): boolean =>
     a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]);
   const colorChanged = !sameColor(fx.color, orig?.color);
-  if (sizeChanged || boldChanged || italicChanged || colorChanged) {
+  const faceChanged = (fx.face ?? '') !== (orig?.face ?? '');
+  if (sizeChanged || boldChanged || italicChanged || colorChanged || faceChanged) {
     if (!childNamed(e, 'font'))
       e = { kind: 'list', items: [e.items[0]!, list(atom('font')), ...e.items.slice(1)] };
     e = mapChild(e, 'font', (font) => {
@@ -169,6 +178,16 @@ function patchEffects(effectsNode: SList, fx: TextEffects, orig: TextEffects | u
       if (colorChanged) {
         f = stripToken(f, 'color');
         if (fx.color) f = { kind: 'list', items: [...f.items, colorNode(fx.color)] };
+      }
+      if (faceChanged) {
+        f = stripToken(f, 'face');
+        // KiCad writes the face first inside (font …).
+        if (fx.face) {
+          f = {
+            kind: 'list',
+            items: [f.items[0]!, list(atom('face'), str(fx.face)), ...f.items.slice(1)],
+          };
+        }
       }
       return f;
     });
@@ -498,6 +517,44 @@ function patchInstancePages(
 const instanceKey = (i: SheetInstance): string => `${i.project ?? ''} ${i.path}`;
 
 /** Patch a sheet: its position, each field, each pin, and instance page numbers. */
+/**
+ * Patch a sheet pin in place: its name, flag shape, position/side, and its own
+ * `(property …)` fields — SCH_SHEET_PIN is a SCH_LABEL_BASE, so the properties
+ * dialog can give it fields like any other label.
+ */
+/** `(fill (type ..) [(color ..)])`, as the graphic builders write it. */
+function textBoxFillNode(fill: Fill): SList {
+  const items: SNode[] = [atom('fill'), list(atom('type'), atom(fill.type))];
+  if (fill.color) items.push(colorNode(fill.color));
+  return { kind: 'list', items };
+}
+
+function writeSheetPin(node: SList, pin: SheetPin): SList {
+  let n = setItem(node, 1, str(pin.name));
+  n = setItem(n, 2, atom(pin.shape));
+  n = patchAt(n, pin.at);
+  n = mapChild(n, 'at', (at) => setItem(at, 3, atom(String(pin.angle))));
+  const fields = pin.fields ?? [];
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const written = new Set<string>();
+  // Existing property nodes are patched in place; fields the dialog added are
+  // appended, ones it removed are dropped.
+  const items: SNode[] = [];
+  for (const it of n.items) {
+    if (isList(it) && head(it) === 'property') {
+      const key = it.items[1];
+      const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+      if (!f) continue;
+      written.add(f.key);
+      items.push(patchProperty(it, f));
+      continue;
+    }
+    items.push(it);
+  }
+  for (const f of fields) if (!written.has(f.key)) items.push(buildPropertyNode(f));
+  return { kind: 'list', items };
+}
+
 function writeSheet(sh: SchSheet): SList {
   let node = patchAt(sh.source, sh.at);
   if (childNamed(node, 'instances') && sh.instances.length) {
@@ -516,7 +573,7 @@ function writeSheet(sh: SchSheet): SList {
       }
       if (isList(it) && head(it) === 'pin') {
         const pin = sh.pins[pinIdx++];
-        return pin ? patchAt(it, pin.at) : it;
+        return pin ? writeSheetPin(it, pin) : it;
       }
       return it;
     }),
@@ -542,7 +599,21 @@ function writeLabel(l: SchLabel): SList {
   // `(exclude_from_sim yes|no)` — written only once the model carries it, so a
   // file that never had the token keeps not having it.
   if (l.excludedFromSim !== undefined) node = setToken(node, 'exclude_from_sim', l.excludedFromSim);
+  node = setHyperlink(node, l.hyperlink);
   return node;
+}
+
+/** `(hyperlink "…")`, written only while one is set (SCH_TEXT::Format). */
+function setHyperlink(node: SList, link: string | undefined): SList {
+  const have = childNamed(node, 'hyperlink');
+  const current = have ? (arg(have, 0) ?? '') : '';
+  if ((link ?? '') === current) return node;
+  const stripped: SList = {
+    kind: 'list',
+    items: node.items.filter((it) => !(isList(it) && head(it) === 'hyperlink')),
+  };
+  if (!link) return stripped;
+  return { kind: 'list', items: [...stripped.items, list(atom('hyperlink'), str(link))] };
 }
 
 /**
@@ -582,6 +653,18 @@ function writeTextBox(tb: SchTextBox): SList {
   if (childNamed(node, 'size')) {
     node = mapChild(node, 'size', () => list(atom('size'), atom(mm(size.x)), atom(mm(size.y))));
   }
+  if (tb.effects && childNamed(node, 'effects')) {
+    const orig = readEffects(tb.source);
+    node = mapChild(node, 'effects', (e) => patchEffects(e, tb.effects!, orig));
+  }
+  if (tb.stroke) node = patchStroke(node, tb.stroke);
+  if (tb.fill && childNamed(node, 'fill')) {
+    node = mapChild(node, 'fill', () => textBoxFillNode(tb.fill!));
+  }
+  if (tb.excludedFromSim !== undefined) {
+    node = setToken(node, 'exclude_from_sim', tb.excludedFromSim);
+  }
+  node = setHyperlink(node, tb.hyperlink);
   return node;
 }
 

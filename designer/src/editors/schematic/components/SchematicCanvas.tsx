@@ -23,6 +23,7 @@ import {
   makeNoConnect,
   makeLabel,
   makeDirectiveLabel,
+  refId,
   setLabelFields,
   labelOrientationForPoint,
   spinOfAngle,
@@ -292,6 +293,10 @@ export interface PendingLabel {
   autoRotate?: boolean;
   /** Justification tokens for free text (the H/V alignment buttons). */
   justify?: readonly string[];
+  /** FONT_CHOICE's face, when one was picked ('' / undefined = default). */
+  face?: string;
+  /** `(hyperlink "…")` on free text. */
+  hyperlink?: string;
   /** `(exclude_from_sim yes)` — free text's simulation checkbox. */
   excludeFromSim?: boolean;
 }
@@ -332,15 +337,17 @@ export function buildPendingLabel(
   });
   const withFields = p.fields?.length ? setLabelFields(label, p.fields) : label;
   const out: { -readonly [K in keyof SchLabel]: SchLabel[K] } = { ...withFields };
-  if (p.color || p.justify) {
+  if (p.color || p.justify || p.face) {
     out.effects = {
       hidden: false,
       ...withFields.effects,
       ...(p.justify ? { justify: p.justify } : {}),
       ...(p.color ? { color: p.color } : {}),
+      ...(p.face ? { face: p.face } : {}),
     };
   }
   if (p.excludeFromSim !== undefined) out.excludedFromSim = p.excludeFromSim;
+  if (p.hyperlink) out.hyperlink = p.hyperlink;
   return out;
 }
 
@@ -373,6 +380,8 @@ interface Props {
   pendingDirective?: PendingDirective | null;
   /** The pending label was just dropped: take the next one, or stop. */
   onLabelPlaced?: () => void;
+  /** A `(hyperlink …)` on text was Ctrl-clicked: "#<page>" or a URL. */
+  onFollowLink?: (link: string) => void;
   /** A label tool clicked with nothing attached — ask for the next label
    *  (SCH_DRAWING_TOOLS::TwoClickPlace calls createNewLabel on that click).
    *  The click point lets the editor take the net name off the wire instead. */
@@ -457,6 +466,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     pendingDirective,
     onLabelPlaced,
     onLabelPrompt,
+    onFollowLink,
     highlight,
     onSelect,
     onHighlight,
@@ -1379,6 +1389,23 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
 
       if (activeTool !== 'select') return; // other tools not yet implemented
+
+      // Ctrl/Cmd-click on text carrying a `(hyperlink …)` follows it, the way
+      // SCH_EDIT_FRAME does: "#<page>" jumps to that sheet, a URL opens.
+      if (e.ctrlKey || e.metaKey) {
+        const linked = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        if (linked?.kind === 'label' || linked?.kind === 'textbox') {
+          const link =
+            linked.kind === 'label'
+              ? schematic.labels.find((l, i) => refId('label', l.uuid, i) === linked.id)?.hyperlink
+              : schematic.textBoxes.find((tb, i) => refId('textbox', tb.uuid, i) === linked.id)
+                  ?.hyperlink;
+          if (link) {
+            onFollowLink?.(link);
+            return;
+          }
+        }
+      }
 
       // Auto-start a wire when clicking a dangling pin (KiCad's autostartEvent),
       // gated by the "Automatically start wires on unconnected pins" preference.

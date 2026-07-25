@@ -56,6 +56,14 @@ export type EditedLabelField = Omit<SchField, 'source'> & { readonly source?: SL
  * simply aren't emitted.
  */
 export function setLabelFields(label: SchLabel, fields: readonly EditedLabelField[]): SchLabel {
+  return { ...label, source: setNodeFields(label.source, fields) };
+}
+
+/**
+ * The same, on the bare node — sheet pins are SCH_LABEL_BASEs too, so their
+ * `(pin …)` node carries fields the properties dialog edits.
+ */
+export function setNodeFields(node: SList, fields: readonly EditedLabelField[]): SList {
   const kept = new Map<SList, SchField>();
   const appended: EditedLabelField[] = [];
 
@@ -70,7 +78,7 @@ export function setLabelFields(label: SchLabel, fields: readonly EditedLabelFiel
   }
 
   const items: SNode[] = [];
-  for (const it of label.source.items) {
+  for (const it of node.items) {
     if (isList(it) && head(it) === 'property') {
       const edit = kept.get(it);
       if (edit) items.push(patchProperty(it, edit));
@@ -80,7 +88,7 @@ export function setLabelFields(label: SchLabel, fields: readonly EditedLabelFiel
   }
   for (const f of appended) items.push(buildPropertyNode(f));
 
-  return { ...label, source: { kind: 'list', items } };
+  return { kind: 'list', items };
 }
 
 /**

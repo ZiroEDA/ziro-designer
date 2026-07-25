@@ -118,6 +118,8 @@ export function readEffects(node: SList): TextEffects | undefined {
     hidden: bareHidden || boolField(e, 'hide', false),
   };
   if (size) effects.fontSize = [mmToIU(numArg(size, 0) ?? 0), mmToIU(numArg(size, 1) ?? 0)];
+  const face = font ? stringField(font, 'face') : undefined;
+  if (face) effects.face = face;
   if (justify) effects.justify = args(justify);
   if (font) {
     // bold/italic are bare tokens (legacy) or `(bold yes)` / `(italic yes)`.
@@ -533,6 +535,8 @@ function readSheetPin(node: SList): SheetPin {
   };
   const effects = readEffects(node);
   if (effects) pin.effects = effects;
+  const fields = childrenNamed(node, 'property').map((p) => readField(p));
+  if (fields.length) pin.fields = fields;
   const uuid = stringField(node, 'uuid');
   if (uuid) pin.uuid = uuid;
   return pin;
@@ -677,6 +681,8 @@ function readTextBox(node: SList): SchTextBox {
     tb.excludedFromSim = boolField(node, 'exclude_from_sim', false);
   const uuid = stringField(node, 'uuid');
   if (uuid) tb.uuid = uuid;
+  const hyperlink = stringField(node, 'hyperlink');
+  if (hyperlink) tb.hyperlink = hyperlink;
   return tb;
 }
 
@@ -778,6 +784,8 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   if (childNamed(node, 'exclude_from_sim')) {
     label.excludedFromSim = boolField(node, 'exclude_from_sim', false);
   }
+  const hyperlink = stringField(node, 'hyperlink');
+  if (hyperlink) label.hyperlink = hyperlink;
   const uuid = stringField(node, 'uuid');
   if (uuid) label.uuid = uuid;
   return label;

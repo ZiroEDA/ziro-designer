@@ -18,8 +18,10 @@
  * three vertical alignments, then horizontal/vertical text — and the colour
  * swatches sit in their thin bordered frames.
  *
- * Left out: the font list (this build draws with KiCad's own stroke font) and
- * the hyperlink row, which needs a `(hyperlink …)` we don't model yet.
+ * The font choice offers upstream's two built-in entries; the outline fonts
+ * FONT_CHOICE also lists are not available, because this build draws every
+ * face with KiCad's own stroke font (see the font issue). The choice itself is
+ * stored, so a file that names a face keeps it.
  */
 
 import { useEffect, useRef, useState, type JSX } from 'react';
@@ -55,6 +57,8 @@ const V_BUTTONS: { value: VAlign; icon: string; title: string }[] = [
 /** Everything the dialog hands back (TransferDataFromWindow). */
 export interface TextPropsResult {
   text: string;
+  /** FONT_CHOICE: '' = Default Font, otherwise the face written to the file. */
+  face: string;
   bold: boolean;
   italic: boolean;
   sizeIU: number;
@@ -64,6 +68,8 @@ export interface TextPropsResult {
   /** 0 or 90 — the two orientation buttons (SetTextAngle). */
   angle: number;
   excludeFromSim: boolean;
+  /** `(hyperlink "…")`: a sheet page ("#3") or a URL; '' = none. */
+  hyperlink: string;
   /** Text box only: border and fill. */
   border?: boolean;
   borderWidthIU?: number;
@@ -79,6 +85,8 @@ interface Props {
   /** SCH_TEXT or SCH_TEXTBOX — the box adds the border and fill rows. */
   kind: 'text' | 'textbox';
   initial: TextPropsInitial;
+  /** The hierarchy's pages, for the link combo ("#3" — Page 3 (Power)). */
+  pages?: readonly { value: string; label: string }[];
   onOk: (result: TextPropsResult) => void;
   onCancel: () => void;
 }
@@ -155,7 +163,7 @@ function Swatch({
   );
 }
 
-export function DialogTextProperties({ kind, initial, onOk, onCancel }: Props): JSX.Element {
+export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: Props): JSX.Element {
   const [text, setText] = useState(initial.text);
   const [bold, setBold] = useState(initial.bold);
   const [italic, setItalic] = useState(initial.italic);
@@ -165,6 +173,9 @@ export function DialogTextProperties({ kind, initial, onOk, onCancel }: Props): 
   const [sizeText, setSizeText] = useState(mmText(initial.sizeIU));
   const [color, setColor] = useState<ItemColor | undefined>(initial.color);
   const [excludeFromSim, setExcludeFromSim] = useState(initial.excludeFromSim);
+  const [face, setFace] = useState(initial.face ?? '');
+  const [linkOn, setLinkOn] = useState(!!initial.hyperlink);
+  const [link, setLink] = useState(initial.hyperlink ?? '');
   const [border, setBorder] = useState(initial.border ?? false);
   const [borderWidth, setBorderWidth] = useState(mmText(initial.borderWidthIU ?? 0));
   const [borderColor, setBorderColor] = useState<ItemColor | undefined>(initial.borderColor);
@@ -187,6 +198,8 @@ export function DialogTextProperties({ kind, initial, onOk, onCancel }: Props): 
     const w = Number(borderWidth.trim());
     onOk({
       text,
+      face,
+      hyperlink: linkOn ? link.trim() : '',
       bold,
       italic,
       sizeIU: Number.isFinite(n) && n > 0 ? Math.round(mmToIU(n)) : initial.sizeIU,
@@ -257,10 +270,11 @@ export function DialogTextProperties({ kind, initial, onOk, onCancel }: Props): 
             <span className="ze-lp-fmt-label">Font:</span>
             <select
               className="ze-lp-font"
-              disabled
-              title="The browser build draws all text with KiCad's own font."
-              value="Default Font"
-              onChange={() => undefined}
+              // As in the label dialog: FONT_CHOICE's two built-in entries,
+              // both drawn with KiCad's stroke font here, and stored.
+              title="Text is drawn with KiCad's own font in the browser build."
+              value={face === '' ? 'Default Font' : face}
+              onChange={(e) => setFace(e.target.value === 'Default Font' ? '' : e.target.value)}
             >
               <option>Default Font</option>
               <option>KiCad Font</option>
@@ -378,6 +392,37 @@ export function DialogTextProperties({ kind, initial, onOk, onCancel }: Props): 
                 </select>
               </>
             )}
+
+            {/* m_hyperlinkCb + m_hyperlinkCombo: a sheet page or a URL. */}
+            <label className="ze-lp-check">
+              <input
+                type="checkbox"
+                checked={linkOn}
+                onChange={(e) => setLinkOn(e.target.checked)}
+              />
+              Link:
+            </label>
+            <div className="ze-lp-sizerow">
+              <input
+                className="ze-lp-value"
+                list="ze-text-links"
+                disabled={!linkOn}
+                placeholder="#3, https://…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <datalist id="ze-text-links">
+                {(pages ?? []).map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+                <option value="file://" />
+                <option value="http://" />
+                <option value="https://" />
+              </datalist>
+            </div>
           </div>
         </div>
 

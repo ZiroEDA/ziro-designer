@@ -20,6 +20,7 @@ import {
   SPIN_ANGLE,
   spinOfAngle,
   wireLabelDriverName,
+  cleanLabelFields,
   DEFAULT_DIRECTIVE_PIN_LENGTH,
   directiveNetclassAssignments,
   type DirectiveShape,
@@ -28,6 +29,7 @@ import {
   type LabelSpin,
   type TextEffects,
   type SchLabel,
+  type SchField,
   type Stroke,
   type Fill,
   readSchematic,
@@ -524,6 +526,7 @@ export function SchematicEditor({
     italic: false,
     spin: 'right' as LabelSpin,
     autoRotate: false,
+    face: '',
   });
   // The free-text equivalents (m_lastTextHJustify / m_lastTextVJustify /
   // m_lastTextAngle), which createNewText carries between placements.
@@ -532,6 +535,7 @@ export function SchematicEditor({
     vAlign: 'center' as VAlign,
     angle: 0,
     excludeFromSim: false,
+    face: '',
   });
   // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
   const lastSheetPin = useRef({ shape: 'input' as LabelShape });
@@ -1121,6 +1125,19 @@ export function SchematicEditor({
     },
     [liveDocs, flatSheets],
   );
+
+  /** The link combo's page entries: "#<page>" labelled "Page 3 (Power)", as
+   *  DIALOG_TEXT_PROPERTIES fills m_hyperlinkCombo from Schematic().Hierarchy(). */
+  const linkPages = useMemo<{ value: string; label: string }[]>(() => {
+    return flatSheets.map((ref) => {
+      const page = pageNumberOf(ref.path);
+      const name =
+        ref.path === '/'
+          ? '<root sheet>'
+          : (sheetInstanceRefs.find((r) => r.path === ref.path)?.name ?? ref.file);
+      return { value: `#${page}`, label: `Page ${page} (${name})` };
+    });
+  }, [flatSheets, pageNumberOf, sheetInstanceRefs]);
 
   // Set the current sheet's page number (SCH_ACTIONS::editPageNumber →
   // SCH_SHEET_PATH::SetPageNumber). The root edits its own document; a sub-sheet
@@ -3063,6 +3080,7 @@ export function SchematicEditor({
         if (!tbd) return null;
         const effects: TextEffects = {
           hidden: false,
+          face: r.face || undefined,
           bold: r.bold || undefined,
           italic: r.italic || undefined,
           fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -3086,6 +3104,7 @@ export function SchematicEditor({
                 text: r.text,
                 angle: r.angle,
                 excludedFromSim: r.excludeFromSim,
+                hyperlink: r.hyperlink || undefined,
                 effects,
                 stroke,
                 fill,
@@ -3116,9 +3135,19 @@ export function SchematicEditor({
         lastSheetPin.current = { shape: r.shape as LabelShape };
         // The orientation buttons choose which border the pin sits on.
         const side = SPIN_ANGLE[r.spin] as SheetSide;
-        runCommand(
-          replaceSheet(spd.index, addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape)),
-        );
+        const withPin = addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape);
+        // The pin's own fields (SCH_SHEET_PIN is a SCH_LABEL_BASE), from the
+        // grid; writeSheetPin appends the ones the file doesn't have yet.
+        const fields = cleanLabelFields(r.fields) as SchField[];
+        const next = fields.length
+          ? {
+              ...withPin,
+              pins: withPin.pins.map((p, i) =>
+                i === withPin.pins.length - 1 ? { ...p, fields } : p,
+              ),
+            }
+          : withPin;
+        runCommand(replaceSheet(spd.index, next));
         return null;
       });
     },
@@ -3161,6 +3190,7 @@ export function SchematicEditor({
       italic: r.italic,
       spin: r.spin,
       autoRotate: r.autoRotate,
+      face: r.face,
     };
     const [first, ...rest] = r.texts;
     if (first === undefined) return;
@@ -3191,6 +3221,7 @@ export function SchematicEditor({
       vAlign: r.vAlign,
       angle: r.angle,
       excludeFromSim: r.excludeFromSim,
+      face: r.face,
     };
     setPendingLabel({
       kind: 'text',
@@ -3202,6 +3233,8 @@ export function SchematicEditor({
       angle: r.angle,
       justify: justifyTokens(r.hAlign, r.vAlign),
       excludeFromSim: r.excludeFromSim,
+      ...(r.face ? { face: r.face } : {}),
+      ...(r.hyperlink ? { hyperlink: r.hyperlink } : {}),
       ...(r.color ? { color: r.color } : {}),
     });
     setLabelPrompt(false);
@@ -3258,9 +3291,11 @@ export function SchematicEditor({
           text: r.text,
           angle: r.angle,
           excludedFromSim: r.excludeFromSim,
+          hyperlink: r.hyperlink || undefined,
           effects: {
             hidden: false,
             ...orig.effects,
+            face: r.face || undefined,
             bold: r.bold || undefined,
             italic: r.italic || undefined,
             fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -3304,6 +3339,26 @@ export function SchematicEditor({
     [activeTool, doc, netlist, setup.formatting.defaultTextSizeMils],
   );
 
+  /**
+   * Follow a text item's `(hyperlink …)`: "#<page>" switches to that sheet,
+   * anything else is a URL, opened in a new tab (SCH_EDIT_FRAME's handling,
+   * where the OS browser is launched instead).
+   */
+  const onFollowLink = useCallback(
+    (link: string) => {
+      if (link.startsWith('#')) {
+        const page = link.slice(1);
+        const target = flatSheets.find((ref) => pageNumberOf(ref.path) === page);
+        if (target) switchSheet(target.path, target.file);
+        else setInfoBar(`No sheet with page number "${page}".`);
+        return;
+      }
+      if (/^https?:\/\//i.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
+      else setInfoBar(`Cannot open "${link}" from the browser.`);
+    },
+    [flatSheets, pageNumberOf, switchSheet],
+  );
+
   /** A label was dropped: take the next of a multi-label run, else stop. */
   const onLabelPlaced = useCallback(() => {
     setPendingDirective(null);
@@ -3324,6 +3379,7 @@ export function SchematicEditor({
         const effects: TextEffects = {
           hidden: false,
           ...orig.effects,
+          face: r.face || undefined,
           bold: r.bold || undefined,
           italic: r.italic || undefined,
           fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -4450,6 +4506,7 @@ export function SchematicEditor({
             pendingLabel={pendingLabel}
             onLabelPlaced={onLabelPlaced}
             onLabelPrompt={onLabelPrompt}
+            onFollowLink={onFollowLink}
             highlight={highlightWires}
             theme={theme}
             renderOpts={renderOpts}
@@ -5071,8 +5128,11 @@ export function SchematicEditor({
       {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogTextProperties
           kind="text"
+          pages={linkPages}
           initial={{
             text: '',
+            face: lastText.current.face,
+            hyperlink: '',
             bold: lastLabel.current.bold,
             italic: lastLabel.current.italic,
             // New text defaults to Schematic Setup > Formatting's text size
@@ -5096,6 +5156,7 @@ export function SchematicEditor({
           isNew
           initial={{
             text: '',
+            face: lastLabel.current.face,
             shape: lastLabel.current.shape,
             bold: lastLabel.current.bold,
             italic: lastLabel.current.italic,
@@ -5167,8 +5228,11 @@ export function SchematicEditor({
       {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
         <DialogTextProperties
           kind="text"
+          pages={linkPages}
           initial={{
             text: labelEdit.text,
+            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
+            hyperlink: doc.labels[labelEdit.index]?.hyperlink ?? '',
             bold: !!doc.labels[labelEdit.index]?.effects?.bold,
             italic: !!doc.labels[labelEdit.index]?.effects?.italic,
             sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
@@ -5192,6 +5256,7 @@ export function SchematicEditor({
           isNew={false}
           initial={{
             text: labelEdit.text,
+            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
             shape: labelEdit.shape ?? lastLabel.current.shape,
             bold: !!doc.labels[labelEdit.index]?.effects?.bold,
             italic: !!doc.labels[labelEdit.index]?.effects?.italic,
@@ -5416,8 +5481,11 @@ export function SchematicEditor({
       {textBoxDraw && (
         <DialogTextProperties
           kind="textbox"
+          pages={linkPages}
           initial={{
             text: textBoxDraw.text,
+            face: textBoxOrig?.effects?.face ?? '',
+            hyperlink: textBoxOrig?.hyperlink ?? '',
             bold: !!textBoxOrig?.effects?.bold,
             italic: !!textBoxOrig?.effects?.italic,
             sizeIU:
