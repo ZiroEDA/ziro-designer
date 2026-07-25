@@ -76,6 +76,8 @@ import {
   type AnnotateOptions,
   type ErcRunOptions,
   type ExternalPin,
+  type ExternalSymbol,
+  type ExternalLabel,
   computeHierarchyNetlist,
   enumeratePins,
   runErc,
@@ -2657,6 +2659,47 @@ export function SchematicEditor({
       return map;
     };
 
+    // SCH_REFERENCE_LIST and TestSimilarLabels span the whole hierarchy, so
+    // each sheet's run is told what the other sheets hold. `sheetIndex` is the
+    // sheet's place in the list, which decides who owns a marker that spans two
+    // sheets — upstream never had to ask, walking every sheet in one pass.
+    const sheetIndexOf = new Map(sheetFiles.map((f, i) => [f, i] as const));
+    const allSymbols: (ExternalSymbol & { file: string })[] = [];
+    const allLabels: (ExternalLabel & { file: string })[] = [];
+    for (const file of sheetFiles) {
+      const sheetDoc = file === currentFile ? d : docs.get(file);
+      if (!sheetDoc) continue;
+      const sheetIndex = sheetIndexOf.get(file) ?? 0;
+      const libs = new Map(sheetDoc.libSymbols.map((l) => [l.libId, l]));
+      sheetDoc.symbols.forEach((sym, index) => {
+        const fieldOf = (key: string): string => sym.fields.find((f) => f.key === key)?.value ?? '';
+        allSymbols.push({
+          file,
+          ref: fieldOf('Reference'),
+          unit: sym.unit,
+          libId: sym.libId,
+          value: fieldOf('Value'),
+          footprint: fieldOf('Footprint'),
+          sheetIndex,
+          index,
+        });
+      });
+      let order = 0;
+      for (const l of sheetDoc.labels) {
+        if (l.kind === 'text') continue;
+        allLabels.push({ file, text: l.text, isPin: false, sheetIndex, index: order++ });
+      }
+      // A power symbol's value is the text TestSimilarLabels compares.
+      const seen = new Set<string>();
+      for (const p of enumeratePins(sheetDoc, libs)) {
+        if (p.electricalType !== 'power_in' || !p.isPowerSymbol || seen.has(p.symId)) continue;
+        seen.add(p.symId);
+        const sym = sheetDoc.symbols.find((_, i) => refId('symbol', _.uuid, i) === p.symId);
+        const value = sym?.fields.find((f) => f.key === 'Value')?.value ?? '';
+        if (value) allLabels.push({ file, text: value, isPin: true, sheetIndex, index: order++ });
+      }
+    }
+
     const found: ErcViolation[] = [];
     const frame = (): Promise<void> =>
       new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -2672,6 +2715,9 @@ export function SchematicEditor({
           ...ercOptions(setup),
           sheetFile: file,
           sheetPath: sheetPathFor.get(file) ?? '/',
+          sheetIndex: sheetIndexOf.get(file) ?? 0,
+          externalSymbols: allSymbols.filter((x) => x.file !== file),
+          externalLabels: allLabels.filter((x) => x.file !== file),
           externalNetPins: externalPinsFor(file),
           externalNetNoConnects: ncNets,
           librarySymbols: ercLibrarySymbols.current,
