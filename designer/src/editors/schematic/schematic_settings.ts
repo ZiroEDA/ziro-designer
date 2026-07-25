@@ -228,10 +228,21 @@ export interface BomFmtPreset {
 export interface BomPresets {
   presets: BomPreset[];
   fmtPresets: BomFmtPreset[];
+  /** schematic.bom_settings — the view the fields table last had
+   *  (SCHEMATIC_SETTINGS::m_BomSettings, default "Default Editing"). */
+  settings: BomPreset;
+  /** schematic.bom_fmt_settings — the last output format (default CSV). */
+  fmtSettings: BomFmtPreset;
+  /** schematic.bom_export_filename — the Export tab's output file. */
+  exportFileName: string;
 }
 
 export function defaultBomPresets(): BomPresets {
-  return { presets: [], fmtPresets: [] };
+  // The current view/format start as copies of the built-ins, but they are the
+  // user's own state (and are persisted), so they carry no read-only flag.
+  const { readOnly: _ro, ...settings } = bomBuiltInPresets()[0]!;
+  const { readOnly: _fro, ...fmtSettings } = bomFmtBuiltInPresets()[0]!;
+  return { presets: [], fmtPresets: [], settings, fmtSettings, exportFileName: '' };
 }
 
 const bomField = (name: string, label: string, show: boolean, groupBy: boolean): BomField => ({

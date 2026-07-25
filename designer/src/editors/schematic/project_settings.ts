@@ -320,6 +320,42 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     }
     s.bomPresets.fmtPresets = fmt;
   }
+  // schematic.bom_settings / bom_fmt_settings — the fields table's current view
+  // and output format (SCHEMATIC_SETTINGS m_BomSettings / m_BomFmtSettings).
+  const bomCur = getPath(j, 'schematic.bom_settings');
+  if (isObj(bomCur) && Array.isArray(bomCur.fields_ordered)) {
+    s.bomPresets.settings = {
+      name: str(bomCur.name, ''),
+      fieldsOrdered: bomCur.fields_ordered
+        .filter((f): f is Json => isObj(f))
+        .map((f) => ({
+          name: str(f.name, ''),
+          label: str(f.label, ''),
+          show: bool(f.show, false),
+          groupBy: bool(f.group_by, false),
+        })),
+      sortField: str(bomCur.sort_field, 'Reference'),
+      sortAsc: bool(bomCur.sort_asc, true),
+      filterString: str(bomCur.filter_string, ''),
+      groupSymbols: bool(bomCur.group_symbols, false),
+      excludeDnp: bool(bomCur.exclude_dnp, false),
+      includeExcludedFromBom: bool(bomCur.include_excluded_from_bom, false),
+    };
+  }
+  const fmtCur = getPath(j, 'schematic.bom_fmt_settings');
+  if (isObj(fmtCur)) {
+    s.bomPresets.fmtSettings = {
+      name: str(fmtCur.name, ''),
+      fieldDelimiter: str(fmtCur.field_delimiter, ','),
+      stringDelimiter: str(fmtCur.string_delimiter, '"'),
+      refDelimiter: str(fmtCur.ref_delimiter, ','),
+      refRangeDelimiter: str(fmtCur.ref_range_delimiter, ''),
+      keepTabs: bool(fmtCur.keep_tabs, false),
+      keepLineBreaks: bool(fmtCur.keep_line_breaks, false),
+    };
+  }
+  const bomFile = getPath(j, 'schematic.bom_export_filename');
+  if (typeof bomFile === 'string') s.bomPresets.exportFileName = bomFile;
 
   // erc.* — ERC_SETTINGS.
   const sev = getPath(j, 'erc.rule_severities');
@@ -576,6 +612,39 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
         keep_line_breaks: p.keepLineBreaks,
       })),
   );
+  // The current view/format and the export file name (written whether or not
+  // they match a saved preset, like SCHEMATIC_SETTINGS).
+  const cur = s.bomPresets.settings;
+  const oldCur = getPath(j, 'schematic.bom_settings');
+  const oldCurFmt = getPath(j, 'schematic.bom_fmt_settings');
+  setPath(j, 'schematic.bom_settings', {
+    ...(isObj(oldCur) ? oldCur : {}),
+    name: cur.name,
+    fields_ordered: cur.fieldsOrdered.map((f) => ({
+      name: f.name,
+      label: f.label,
+      show: f.show,
+      group_by: f.groupBy,
+    })),
+    sort_field: cur.sortField,
+    sort_asc: cur.sortAsc,
+    filter_string: cur.filterString,
+    group_symbols: cur.groupSymbols,
+    exclude_dnp: cur.excludeDnp,
+    include_excluded_from_bom: cur.includeExcludedFromBom,
+  });
+  const curFmt = s.bomPresets.fmtSettings;
+  setPath(j, 'schematic.bom_fmt_settings', {
+    ...(isObj(oldCurFmt) ? oldCurFmt : {}),
+    name: curFmt.name,
+    field_delimiter: curFmt.fieldDelimiter,
+    string_delimiter: curFmt.stringDelimiter,
+    ref_delimiter: curFmt.refDelimiter,
+    ref_range_delimiter: curFmt.refRangeDelimiter,
+    keep_tabs: curFmt.keepTabs,
+    keep_line_breaks: curFmt.keepLineBreaks,
+  });
+  setPath(j, 'schematic.bom_export_filename', s.bomPresets.exportFileName);
 
   // erc.rule_severities: overwrite our keys, keep unknown rules untouched.
   const oldSev = getPath(j, 'erc.rule_severities');

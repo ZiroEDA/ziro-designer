@@ -192,6 +192,9 @@ export interface SchSymbol {
   readonly passthrough?: 'block' | 'force';
   /** `(exclude_from_sim yes)`; undefined when the token is absent (pre-7.0 files). */
   readonly excludedFromSim?: boolean;
+  /** `(in_pos_files no)` — SCH_SYMBOL::GetExcludedFromPosFiles (stored inverted
+   *  in the file); undefined when the token is absent (pre-10.0 files). */
+  readonly excludedFromPosFiles?: boolean;
   readonly uuid?: string;
   readonly fields: readonly SchField[];
   readonly source: SList;

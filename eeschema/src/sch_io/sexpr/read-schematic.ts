@@ -394,6 +394,10 @@ function readSymbol(node: SList): SchSymbol {
   // Keep "token absent" distinct from "no": older files have no exclude_from_sim.
   if (childNamed(node, 'exclude_from_sim'))
     sym.excludedFromSim = boolField(node, 'exclude_from_sim', false);
+  // `(in_pos_files yes|no)` is the inverse of SCH_SYMBOL::GetExcludedFromPosFiles;
+  // absent in pre-10.0 files, so keep it undefined rather than defaulting.
+  if (childNamed(node, 'in_pos_files'))
+    sym.excludedFromPosFiles = !boolField(node, 'in_pos_files', true);
   const uuid = stringField(node, 'uuid');
   if (uuid) sym.uuid = uuid;
   return sym;

@@ -279,6 +279,7 @@ const SYMBOL_CHILD_ORDER = [
   'exclude_from_sim',
   'in_bom',
   'on_board',
+  'in_pos_files',
   'dnp',
   'passthrough',
   'locked',
@@ -354,6 +355,9 @@ function writeSymbol(sym: SchSymbol): SList {
     node = patchSymbolBool(node, 'exclude_from_sim', sym.excludedFromSim, false);
   node = patchSymbolBool(node, 'in_bom', sym.inBom, true);
   node = patchSymbolBool(node, 'on_board', sym.onBoard, true);
+  // Written inverted, like saveSymbol's FormatBool( "in_pos_files", !excluded ).
+  if (sym.excludedFromPosFiles !== undefined)
+    node = patchSymbolBool(node, 'in_pos_files', !sym.excludedFromPosFiles, true);
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
   node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
