@@ -222,6 +222,7 @@ import {
 } from './render/plot.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
 import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
@@ -1121,6 +1122,18 @@ export function SchematicEditor({
       })),
     [allFiles],
   );
+  // The tab title (SCH_EDIT_FRAME::UpdateTitle): the open sheet, the project it
+  // belongs to, and the frame's name.
+  const titleDoc = currentFile === DEFAULT_FILE ? '' : currentFile.split('/').pop()!;
+  useDocumentTitle(
+    'schematic',
+    formatTitle(
+      'Schematic Editor',
+      titleDoc && projectName ? `${titleDoc} [${projectName}]` : titleDoc || projectName,
+      dirty,
+    ),
+  );
+
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);

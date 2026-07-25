@@ -16,6 +16,7 @@ import {
   updateProjectFiles,
 } from './home/projectStore.js';
 import { saveSession, loadSession } from './home/session.js';
+import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import './ui/shell.css';
 
 const dec = new TextDecoder();
@@ -337,6 +338,12 @@ export function App(): JSX.Element {
   // KiCad shows "<project> — <Editor>" in the window title; we put it in the
   // menu bar. With several projects in a folder, it names the active one.
   const projectName = activeBase || folderName;
+
+  // The views without an editor frame of their own name the tab from here;
+  // each editor claims it through the same hook while it is the one on screen.
+  useDocumentTitle('home', formatTitle('Project Manager', projectName));
+  useDocumentTitle('calculator', formatTitle('PCB Calculator'));
+  useDocumentTitle('image', formatTitle('Image Converter'));
 
   // A different project folder drops any drawing sheets saved into the previous
   // one, and resets the active project to its default (first .kicad_pro).

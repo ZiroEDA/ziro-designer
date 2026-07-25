@@ -74,6 +74,7 @@ import {
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../schematic/dialogs/dialog_page_settings.js';
@@ -815,6 +816,17 @@ export function PcbEditor({
   } | null>(null);
   // Pending "Add Text" dialog: where the text will be placed.
   // Page Settings / Print dialogs (DIALOG_PAGES_SETTINGS / DIALOG_PRINT_PCBNEW).
+  // The tab title (PCB_EDIT_FRAME::UpdateTitle): the board file, its project,
+  // and a leading * while there are unsaved changes.
+  useDocumentTitle(
+    'pcb',
+    formatTitle(
+      'PCB Editor',
+      projectName ? `${fileName.split('/').pop()!} [${projectName}]` : fileName,
+      dirty,
+    ),
+  );
+
   const [pageDlgOpen, setPageDlgOpen] = useState(false);
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);

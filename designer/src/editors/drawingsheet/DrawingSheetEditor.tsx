@@ -33,6 +33,7 @@ import {
 import type { Vec2 } from '@ziroeda/kimath';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
@@ -1136,10 +1137,7 @@ export function DrawingSheetEditor({
   );
 
   // ---- title ----
-  const title = `${dirty ? '*' : ''}${fileName} — Drawing Sheet Editor`;
-  useEffect(() => {
-    document.title = title;
-  }, [title]);
+  useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));
 
   // ---- status bar (UpdateStatusBar) ----
   const unit = toggles.has('unitsInches') ? 'inches' : toggles.has('unitsMils') ? 'mils' : 'mm';
