@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/browser": "^10.68.0",
     "@supabase/supabase-js": "^2.110.0",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/eeschema": "workspace:*",
@@ -29,6 +30,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@sentry/vite-plugin": "^5.4.0",
     "@types/earcut": "^3.0.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

@@ -2,15 +2,19 @@ import { useMemo, useState } from 'react';
 import {
   COMMON_DEFAULTS,
   EESCHEMA_DEFAULTS,
+  PRIVACY_DEFAULTS,
   settings,
   type CommonSettings,
   type EeschemaSettings,
   type MouseDragAction,
+  type PrivacySettings,
   type ScrollModifier,
 } from './settings.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
 import { TOOL_HOTKEYS } from '../editors/schematic/menubar.js';
 import { pcm, usePcmVersion } from '../pcm/pcmStore.js';
+import { setReportingEnabled } from '../telemetry/reporter.js';
+import { sentrySink } from '../telemetry/sentrySink.js';
 
 /**
  * The Preferences dialog — the web mirror of KiCad's PAGED_DIALOG preferences
@@ -291,6 +295,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
   const [userColors, setUserColors] = useState<Record<string, string>>(() => ({
     ...settings.userColors,
   }));
+  const [privacy, setPrivacy] = useState<PrivacySettings>(() => structuredClone(settings.privacy));
 
   const upC = (fn: (s: CommonSettings) => void): void =>
     setCommon((s) => {
@@ -309,12 +314,19 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     settings.updateCommon((s) => Object.assign(s, common));
     settings.updateEeschema((s) => Object.assign(s, eeschema));
     settings.setUserColors(userColors);
+    // Routed through the reporter rather than written directly: switching this
+    // off has to tear the transport down now, not merely record a preference.
+    if (privacy.crash_reports !== settings.privacy.crash_reports)
+      setReportingEnabled(privacy.crash_reports, sentrySink);
     onClose();
   };
 
   const resetPage = (): void => {
     switch (page) {
       case 'common':
+        setCommon(structuredClone(COMMON_DEFAULTS));
+        setPrivacy(structuredClone(PRIVACY_DEFAULTS));
+        break;
       case 'mouse':
         setCommon(structuredClone(COMMON_DEFAULTS));
         break;
@@ -574,6 +586,16 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
                     s.backup.limit_total_size = v * 1048576;
                   })
                 }
+              />
+            </Group>
+            {/* Not a KiCad panel — KiCad is a desktop app and collects nothing.
+                Placed last on Common so the KiCad-mirrored groups read in order. */}
+            <Group title="Privacy">
+              <Check
+                label="Send anonymous crash reports"
+                title="Sends the error and stack trace when the app crashes, with file names removed and no project data. Used only to find and fix bugs."
+                checked={privacy.crash_reports}
+                onChange={(v) => setPrivacy({ ...privacy, crash_reports: v })}
               />
             </Group>
           </>

@@ -46,8 +46,78 @@ GPL-3.0-or-later. See [LICENSE](./LICENSE).
 | 3D viewer              | three.js                                           |
 | State / undo / actions | command bus with lossless document sources         |
 | Auth / cloud sync      | Supabase                                           |
+| Crash reporting        | Sentry (opt-out, scrubbed)                         |
 | Build / monorepo       | Vite + pnpm workspaces                             |
 | Tests                  | Vitest                                             |
+
+## Configuration
+
+Every integration is env-gated and degrades to a fully offline app when its
+variables are absent, so a clone runs with no configuration at all.
+
+| Variable                       | Effect when unset                        |
+| ------------------------------ | ---------------------------------------- |
+| `VITE_SUPABASE_URL`            | Auth and cloud sync disabled             |
+| `VITE_SUPABASE_ANON_KEY`       | Auth and cloud sync disabled             |
+| `VITE_SUPABASE_STORAGE_BUCKET` | Cloud file storage disabled              |
+| `VITE_SENTRY_DSN`              | Crash reporting disabled                 |
+| `VITE_RELEASE`                 | Falls back to the build's git SHA        |
+| `SENTRY_ORG`                   | Source maps not uploaded (set in `vercel.json`) |
+| `SENTRY_PROJECT`               | Source maps not uploaded (set in `vercel.json`) |
+| `SENTRY_AUTH_TOKEN`            | Source maps not uploaded — **secret, dashboard only** |
+| `SENTRY_URL`                   | Defaults to `https://de.sentry.io/`      |
+
+### Crash reporting
+
+Reports are **opt-out** — on by default, switched off under
+Preferences → Common → Privacy. Payloads are scrubbed before sending
+(`designer/src/telemetry/scrub.ts`): file names are redacted, URLs lose their
+query strings, console breadcrumbs are dropped, and neither the signed-in
+account nor an IP address is attached. Reports are grouped by a random
+per-browser id that is not linked to the user's account.
+
+Tracing, session replay and profiling are all disabled: this collects stack
+traces to fix bugs, not usage analytics.
+
+The deployed DSN lives in `vercel.json` rather than the Vercel dashboard. A
+Sentry DSN is a public, write-only ingest key — it ships inside the client
+bundle by design and can neither read issues nor reach the account — so keeping
+it in the repo means every deploy and preview is configured identically, with
+nothing to forget. Local development stays off unless you set `VITE_SENTRY_DSN`
+yourself, so debugging never pollutes production issues.
+
+The project is on Sentry's **EU (`de`) region**, which `vite.config.ts` already
+defaults to. Note that an auth token must also be created on `de.sentry.io` —
+tokens are region-scoped, and the CLI otherwise talks to the US instance and
+uploads into a void.
+
+#### Source maps
+
+Without them every stack trace arrives minified (`index-a1b2c3.js:1:48291`),
+which is close to useless. The org and project slugs are plain identifiers and
+live in `vercel.json` with the DSN; `SENTRY_AUTH_TOKEN` is a real secret and
+belongs in the Vercel dashboard only. Uploading starts as soon as all three are
+present.
+
+Because the slugs are committed, **renaming the Sentry project changes its slug
+and silently stops symbolication** — the upload 401s, the build still succeeds,
+and traces quietly go back to being minified. Rename in Sentry and here
+together.
+
+Maps are generated as `hidden` and **deleted after upload** — no
+`sourceMappingURL` comment is emitted and no `.map` file is ever deployed, so
+Sentry can symbolicate while the public site never serves our source. Deletion
+happens even when the upload fails, so a bad token cannot leak source.
+
+Upload failures are logged but **do not fail the build**, so an expired token
+degrades symbolication instead of breaking a deploy. That means a silent
+failure mode: if traces come back minified, check the build log rather than
+assuming it is working.
+
+Both the running app and the uploaded maps take their release from the same
+value in `vite.config.ts` (Vercel's commit SHA, else the git SHA). They must
+match exactly — Sentry binds events to maps by release name, and a mismatch
+just silently leaves stacks minified.
 
 ## Repository layout
 

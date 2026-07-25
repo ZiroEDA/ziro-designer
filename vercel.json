@@ -9,7 +9,10 @@
       "VITE_DEMOS_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev/demos",
       "VITE_MODELS3D_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev",
       "VITE_SYMBOLS_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev/symbols",
-      "VITE_FOOTPRINTS_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev/footprints"
+      "VITE_FOOTPRINTS_URL": "https://pub-ac941e05e1284f409be2ed74ddb151b3.r2.dev/footprints",
+      "VITE_SENTRY_DSN": "https://42aff68d046ec2d4486c43b5a2eb3f3e@o4511797248327680.ingest.de.sentry.io/4511797282406480",
+      "SENTRY_ORG": "ziroeda",
+      "SENTRY_PROJECT": "javascript-react"
     }
   }
 }

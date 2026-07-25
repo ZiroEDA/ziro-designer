@@ -6,6 +6,13 @@ import { AuthGate } from './auth/AuthGate.js';
 import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
+import { initTelemetry } from './telemetry/reporter.js';
+import { sentrySink } from './telemetry/sentrySink.js';
+
+// Before rendering, so a crash during the first paint is still reported. No-ops
+// when VITE_SENTRY_DSN is unset or the user has opted out — the same
+// env-gated-degrades-to-offline shape as auth and cloud sync.
+initTelemetry(sentrySink);
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
