@@ -6,9 +6,9 @@
  *
  * Files are stored as raw BYTES, mirroring KiCad's PROJECT_ARCHIVER, which
  * reads/writes every project file as a byte stream (project_archiver.cpp) so
- * binary files — 3D models (.step/.wrl), PDFs, images — round-trip exactly, not
+ * binary files, 3D models (.step/.wrl), PDFs, images, round-trip exactly, not
  * just s-expression text. KiCad text compresses ~10x, so each file is gzipped
- * (CompressionStream) before storage — the 80 MB Jetson board lands at ~8 MB.
+ * (CompressionStream) before storage, the 80 MB Jetson board lands at ~8 MB.
  * gzip is transparent: reads detect the magic bytes and fall back to the raw
  * bytes on browsers without CompressionStream. A UTF-8 text file's raw bytes
  * are its encoding, so records written by the older text-based store stay valid.
@@ -130,7 +130,7 @@ async function gunzip(data: Uint8Array): Promise<Uint8Array> {
 
 /**
  * Cheap synchronous gate: is there an IndexedDB API to even try? This proves
- * only that the API exists — not that writes land. `checkStorageHealth()` is
+ * only that the API exists, not that writes land. `checkStorageHealth()` is
  * the real test, and the health layer reports failures as they happen.
  */
 export function storageAvailable(): boolean {

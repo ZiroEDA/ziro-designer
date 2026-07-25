@@ -4,12 +4,12 @@
  *
  *  - circle  = SHAPE_CIRCLE
  *  - stadium = SHAPE_SEGMENT (segment + half-width)
- *  - arc     = SHAPE_ARC (center/radius/angle-range + half-width) — exact
+ *  - arc     = SHAPE_ARC (center/radius/angle-range + half-width), exact
  *              closest-approach: candidates are the radial projection when it
  *              falls inside the angular range, the endpoints both ways, and
  *              circle intersections (distance 0) inside the range.
  *  - poly    = SHAPE_SIMPLE / SHAPE_POLY_SET outline (any simple polygon,
- *              ray-cast containment) with an outward inflation `r` — which
+ *              ray-cast containment) with an outward inflation `r`, which
  *              represents rounded-rect pads exactly (deflated rect + corner
  *              radius) and stroked poly primitives (width/2).
  *

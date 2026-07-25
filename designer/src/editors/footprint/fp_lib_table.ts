@@ -1,6 +1,6 @@
 /**
  * The footprint library table. Counterpart: `common/fp_lib_table.cpp`
- * (FP_LIB_TABLE / LIB_TABLE_ROW) — the `fp-lib-table` file that maps a library
+ * (FP_LIB_TABLE / LIB_TABLE_ROW), the `fp-lib-table` file that maps a library
  * *nickname* to a `.pretty` directory.
  *
  * Two rules from upstream matter here, and both are strict:
@@ -28,7 +28,7 @@ export interface FpLibRow {
   uri: string;
   options: string;
   descr: string;
-  /** `(disabled)` — the row's "Enable" checkbox; a disabled row is not loaded. */
+  /** `(disabled)`, the row's "Enable" checkbox; a disabled row is not loaded. */
   disabled?: boolean;
 }
 
@@ -83,7 +83,7 @@ export function prettyDirOf(path: string): string {
 }
 
 /**
- * The nickname a project `.kicad_mod` path is reachable under — the enabled
+ * The nickname a project `.kicad_mod` path is reachable under, the enabled
  * table row whose URI points at its `.pretty` directory. Returns '' when no
  * row registers that directory: unregistered libraries do not exist, exactly
  * as FP_LIB_TABLE::FindRow finds nothing for them.
@@ -112,7 +112,7 @@ export function projectFpLibTablePath(files: readonly { name: string; text: stri
 }
 
 /** The `.pretty` directories present in the project, with the nickname (if any)
- *  each is registered under — what "Add Existing" offers. */
+ *  each is registered under, what "Add Existing" offers. */
 export function projectPrettyDirs(
   files: readonly { name: string; text: string }[],
   rows: readonly FpLibRow[],

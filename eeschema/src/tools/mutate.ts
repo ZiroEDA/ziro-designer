@@ -250,7 +250,7 @@ export function replaceDirectiveLabel(index: number, next: SchDirectiveLabel): E
  * Lock / unlock the selected symbols (SCH_EDIT_TOOL::modifyLockSelected).
  * `mode` 'lock' sets, 'unlock' clears. 'toggle' resolves the way upstream does:
  * if ANY selected symbol is locked the whole selection is unlocked, otherwise
- * the whole selection is locked — it is not a per-item flip. Only symbols
+ * the whole selection is locked, it is not a per-item flip. Only symbols
  * carry a lock state in the schematic grammar.
  */
 export function setSymbolsLockedCommand(
@@ -339,7 +339,7 @@ export function replaceTable(index: number, next: SchTable): EditCommand {
 
 /**
  * Whether a junction dot belongs at `p` and none exists yet
- * (SCH_SCREEN::IsExplicitJunctionNeeded via JUNCTION_HELPERS::AnalyzePoint —
+ * (SCH_SCREEN::IsExplicitJunctionNeeded via JUNCTION_HELPERS::AnalyzePoint,
  * counts distinct exit directions of wires/buses plus pins, sheet pins, bus
  * entries and labels; see junction_helpers.ts).
  */

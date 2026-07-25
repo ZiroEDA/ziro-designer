@@ -1,5 +1,5 @@
 /**
- * Twisted pair — faithful port of KiCad's
+ * Twisted pair, faithful port of KiCad's
  * `transline_calculations/twistedpair.cpp` (Lefferson 1971; loss forms from
  * Wadell §3.2.3). Pitch angle θ = atan(T·π·Dout), εeff = εenv + (0.25 +
  * 0.0007·θ°²)·(εr − εenv), Z0 = ZF0/(π√εeff)·acosh(Dout/Din).

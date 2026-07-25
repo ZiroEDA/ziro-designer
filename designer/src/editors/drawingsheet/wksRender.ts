@@ -6,7 +6,7 @@
  *  - poly-polygons are *filled* with the item colour (DrawPolygon, fill on,
  *    stroke off), the way logos are drawn;
  *  - text uses the stroke font (Newstroke) by default, or the named outline
- *    font when the item carries a `face` — matching `font->Draw`, which strokes
+ *    font when the item carries a `face`, matching `font->Draw`, which strokes
  *    glyph paths for the stroke font and fills glyph outlines for an outline
  *    font;
  *  - bitmaps are centred and sized `pixels / ppi · scale`.
@@ -220,7 +220,7 @@ export function drawDrawingSheetItems(
         break;
       }
       case 'poly': {
-        // DS_PAINTER fills poly-polygons (fill on, stroke off) — logos, not outlines.
+        // DS_PAINTER fills poly-polygons (fill on, stroke off), logos, not outlines.
         ctx.fillStyle = color;
         ctx.beginPath();
         d.pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));

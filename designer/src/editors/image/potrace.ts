@@ -1,9 +1,9 @@
 /**
- * Potrace — polygon/curve tracer for bitmaps.
+ * Potrace, polygon/curve tracer for bitmaps.
  *
  * A faithful TypeScript port of Peter Selinger's `potrace` (the same library
  * KiCad's Image Converter vendors and drives from `bitmap2component.cpp`).
- * Only the tracing core is ported — `bm_to_pathlist` (decompose.c) and the
+ * Only the tracing core is ported, `bm_to_pathlist` (decompose.c) and the
  * per-path `process_path` pipeline of trace.c: calc_sums → calc_lon →
  * bestpolygon → adjust_vertices → smooth → opticurve. The resulting cubic
  * Bézier / corner curve for every path is what the caller tessellates and
@@ -961,7 +961,7 @@ function optiCurve(path: Path, optTolerance: number): void {
 }
 
 /**
- * Trace a 1-bit bitmap into a list of smoothed curve paths — the TS counterpart
+ * Trace a 1-bit bitmap into a list of smoothed curve paths, the TS counterpart
  * of `potrace_trace()`, whose `plist` KiCad walks in `CreateOutputFile`.
  */
 export function traceBitmap(bm: Bitmap, params: TraceParams = DEFAULT_TRACE_PARAMS): Path[] {

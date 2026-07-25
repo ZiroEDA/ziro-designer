@@ -1,5 +1,5 @@
 /**
- * Drawing sheet (page layout) — the web-native mirror of KiCad's `pl_editor` /
+ * Drawing sheet (page layout), the web-native mirror of KiCad's `pl_editor` /
  * `common/drawing_sheet`. Model + `.kicad_wks` reader/writer + layout resolver
  * + editing geometry.
  */

@@ -95,7 +95,7 @@ export interface FindMatch {
  * left-to-right) so repeated Find Next progresses predictably.
  */
 export interface FindContext {
-  /** Current selection ids — required to honour "search the current selection only". */
+  /** Current selection ids, required to honour "search the current selection only". */
   selection?: ReadonlySet<string>;
   /** Net name -> a locatable item id + position, for "search net names". Pass
    *  the computeNetlist result; each net is located at one of its wire/label

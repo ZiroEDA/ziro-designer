@@ -1,10 +1,10 @@
 /**
- * Buffered symbol-library manager — the web port of KiCad's
+ * Buffered symbol-library manager, the web port of KiCad's
  * LIB_SYMBOL_LIBRARY_MANAGER (eeschema/symbol_editor/symbol_library_manager.*).
  *
  * Libraries come from two places, mirroring KiCad's global/project split:
  *   - the bundled global libraries under `public/symbols` (fetched lazily, with
- *     names known up front from index.json — like KiCad's on-demand lib loads),
+ *     names known up front from index.json, like KiCad's on-demand lib loads),
  *   - the open project's `.kicad_sym` files.
  *
  * Every library buffers working copies of its symbols; edits mark the symbol
@@ -98,7 +98,7 @@ export class SymbolLibraryManager {
   }
 
   /**
-   * Add a global library from already-loaded file text — used for libraries
+   * Add a global library from already-loaded file text, used for libraries
    * installed through the Plugin and Content Manager (their `.kicad_sym` text
    * lives in the PCM store rather than at a URL, so it is loaded eagerly).
    */

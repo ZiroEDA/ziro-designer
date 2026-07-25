@@ -58,7 +58,7 @@ export const emptySch = (uuid: string): string => `(kicad_sch
 `;
 
 // KiCad's default project file (kicad_pro): JSON settings written by File > New
-// Project. Only the essentials KiCad always emits — the app derives the project
+// Project. Only the essentials KiCad always emits, the app derives the project
 // name from `meta.filename` and ties the root schematic via `sheets`.
 export const projectJson = (name: string, rootUuid: string): string =>
   `${JSON.stringify(
@@ -115,7 +115,7 @@ export const newProjectFiles = (name: string): PickedHomeFile[] => {
 export const sanitizeProjectName = (s: string): string => s.replace(/[/\\:*?"<>|]/g, '').trim();
 
 /**
- * Save As: copy the project's files under a new project name — the folder
+ * Save As: copy the project's files under a new project name, the folder
  * prefix and every file whose stem matches the old project name are renamed
  * (mirrors the upstream manager's SaveProjectAs copy).
  */

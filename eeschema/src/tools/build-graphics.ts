@@ -1,6 +1,6 @@
 /**
  * Factories for schematic graphic items, bus entries, hierarchical sheets and
- * images — the right-toolbar drawing tools (SCH_ACTIONS draw/place actions).
+ * images, the right-toolbar drawing tools (SCH_ACTIONS draw/place actions).
  *
  * Like build.ts, every item gets a freshly-built `source` S-expression node so
  * it serializes losslessly. Sheet-level graphics live in +Y-down sheet space
@@ -118,7 +118,7 @@ export function makePolyline(points: readonly Vec2[], stroke?: Stroke, fill?: Fi
 /** DEFAULT_SCH_ENTRY_SIZE = 100 mils (default_values.h). */
 export const DEFAULT_ENTRY_SIZE = mmToIU(2.54);
 
-/** Create a wire-to-bus entry — the 45° stub from `at` to `at + size`. */
+/** Create a wire-to-bus entry, the 45° stub from `at` to `at + size`. */
 export function makeBusEntry(
   at: Vec2,
   size: Vec2 = { x: DEFAULT_ENTRY_SIZE, y: DEFAULT_ENTRY_SIZE },
@@ -238,9 +238,9 @@ export function addSheetPin(
 
 // ----- text box (SCH_TEXTBOX) ----------------------------------------------------
 
-/** DEFAULT_SIZE_TEXT = 50 mils (1.27 mm) — EDA_TEXT default text height. */
+/** DEFAULT_SIZE_TEXT = 50 mils (1.27 mm), EDA_TEXT default text height. */
 const DEFAULT_TEXT_HEIGHT = mmToIU(1.27);
-/** DEFAULT_LINE_WIDTH_MILS = 6 mils — a text box's default border width. */
+/** DEFAULT_LINE_WIDTH_MILS = 6 mils, a text box's default border width. */
 const DEFAULT_TEXTBOX_STROKE = mmToIU(0.1524);
 
 /** Build the `(effects (font (size h w)) (justify ..))` node for a text box. */

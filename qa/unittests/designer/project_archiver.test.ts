@@ -1,7 +1,7 @@
 /**
  * Archive / Unarchive: allow-list filtering, project-folder re-nesting, and
  * byte-exact zip round-trips (the compatibility promise applies to archives
- * too — what goes in must come out identical).
+ * too, what goes in must come out identical).
  */
 import { describe, it, expect } from 'vitest';
 import {

@@ -72,7 +72,7 @@ const unitName = (symName: string, unit: number, bodyStyle: number): string =>
   `${symName}_${unit}_${bodyStyle}`;
 
 /**
- * Find (or create) the unit entry items with (unit, bodyStyle) land in — KiCad
+ * Find (or create) the unit entry items with (unit, bodyStyle) land in, KiCad
  * groups draw items into `Name_U_B` child symbols on save.
  */
 export function ensureUnitEntry(
@@ -587,7 +587,7 @@ export interface SymbolHit {
 }
 
 /**
- * Hit-test the shown items at a world point (tolerance in IU) — pins by their
+ * Hit-test the shown items at a world point (tolerance in IU), pins by their
  * line + text boxes, graphics by stroke (interior when filled), fields by their
  * text box. Later-drawn items win (pins over body, fields on top).
  */

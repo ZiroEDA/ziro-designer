@@ -50,7 +50,7 @@ function optionNode(base: WksItemBase): SNode[] {
   return base.option !== 'normal' ? [list(A('option'), A(base.option))] : [];
 }
 
-/** `(repeat N) (incrx …) (incry …) [(incrlabel …)]` — formatRepeatParameters. */
+/** `(repeat N) (incrx …) (incry …) [(incrlabel …)]`, formatRepeatParameters. */
 function repeatNodes(base: WksItemBase, isText: boolean): SNode[] {
   if (base.repeat <= 1) return [];
   const out: SNode[] = [numNode('repeat', base.repeat)];

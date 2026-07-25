@@ -56,7 +56,7 @@ function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
       return Math.abs(d - g.radius) <= tol;
     }
     case 'arc':
-      // Approximate the arc by its start–mid–end chords (fine within tolerance).
+      // Approximate the arc by its start-mid-end chords (fine within tolerance).
       return distToSegment(p, g.start, g.mid) <= tol || distToSegment(p, g.mid, g.end) <= tol;
     case 'polyline':
     case 'bezier': {

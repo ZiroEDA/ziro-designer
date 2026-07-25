@@ -1,5 +1,5 @@
 /**
- * PCB Editor: the pcbnew frame replicated — menu bar (menubar_pcb_editor.cpp),
+ * PCB Editor: the pcbnew frame replicated, menu bar (menubar_pcb_editor.cpp),
  * top/left/right toolbars (toolbars_pcb_editor.cpp), the docked Appearance
  * manager with Layers / Objects / Nets tabs and layer presets
  * (widgets/appearance_controls.cpp), the Selection Filter panel, and the
@@ -517,7 +517,7 @@ const layerTooltip = (name: string): string => {
 };
 
 // User-facing layer names, as the Appearance panel shows them (LayerName() in
-// layer_id.cpp: F.Adhesive, User.Drawings… — not the file's canonical tokens).
+// layer_id.cpp: F.Adhesive, User.Drawings…, not the file's canonical tokens).
 const LAYER_DISPLAY_NAMES: Record<string, string> = {
   'F.Adhes': 'F.Adhesive',
   'B.Adhes': 'B.Adhesive',
@@ -543,7 +543,7 @@ const wildcardMatch = (pattern: string, s: string): boolean => {
   return rx.test(s);
 };
 
-// Routing dimensions of a net class (NETCLASS factory defaults, in IU) — the
+// Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
 // last-resort fallback when even the Default class carries no value.
 interface ClassDims {
   trackWidth: number;
@@ -606,9 +606,9 @@ export function PcbEditor({
   /** Debounced autosave sink (the app's coalesced project autosave): board
    *  edits sync automatically like the schematic's. */
   onBoardChange?: (text: string) => void;
-  /** Project name shown as "<project> — PCB Editor" in the menu bar. */
+  /** Project name shown as "<project>, PCB Editor" in the menu bar. */
   projectName?: string;
-  /** The open project's files (name + text) — lets the 3D viewer resolve
+  /** The open project's files (name + text), lets the 3D viewer resolve
    *  ${KIPRJMOD}/relative model references to project-bundled files. */
   projectFiles?: { name: string; text: string }[];
   /** Base name of the active `.kicad_pro` (scopes multi-project folders). */
@@ -671,7 +671,7 @@ export function PcbEditor({
   const [netColorMode, setNetColorMode] = useState<'all' | 'ratsnest' | 'off'>('ratsnest');
   const [ratsnestMode, setRatsnestMode] = useState<'all' | 'visible' | 'off'>('all');
   const [netOptsOpen, setNetOptsOpen] = useState(false);
-  // Pads whose local ratsnest is forced on, keyed `fp:pad` — the tool works at
+  // Pads whose local ratsnest is forced on, keyed `fp:pad`, the tool works at
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
   const [localRats, setLocalRats] = useState<ReadonlySet<string>>(new Set());
@@ -779,20 +779,20 @@ export function PcbEditor({
   const dragAffectedRef = useRef<ReadonlySet<string>>(new Set());
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
   // Keyboard grab (M/G): the selection follows the cursor until a click commits
-  // or Esc cancels — SCH/PCB move tool. Distinct from a left-button drag.
+  // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
   const grabbingRef = useRef(false);
   // While a move is in flight the base raster is the board with the moving items
   // removed; this scene holds just those items, painted live at the drag offset
   // so the real geometry follows the cursor (not merely its bounding box).
   const moveSceneRef = useRef<BoardScene | null>(null);
   // Selected items, compiled on their own so they can be repainted brightened
-  // over the raster — KiCad's selection is the item's colour Brightened(0.8),
+  // over the raster, KiCad's selection is the item's colour Brightened(0.8),
   // not a bounding box (pcb_painter.cpp getColor).
   const selSceneRef = useRef<BoardScene | null>(null);
   // Whole-board snapshot undo/redo (EDIT_TOOL's SaveCopyInUndoList).
   const undoRef = useRef<Board[]>([]);
   const redoRef = useRef<Board[]>([]);
-  // Item the disambiguation menu is hovering — brightened in the overlay pass.
+  // Item the disambiguation menu is hovering, brightened in the overlay pass.
   const hoverRef = useRef<string | null>(null);
   // Mirror of `disambig` open-state for the global Escape handler (no re-subscribe).
   const disambigRef = useRef(false);
@@ -831,7 +831,7 @@ export function PcbEditor({
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
   // Folders that already exist in the project, relative to the project's own
-  // folder — the Plot dialog's "Output directory:" choices (the cloud file
+  // folder, the Plot dialog's "Output directory:" choices (the cloud file
   // manager stands in for upstream's wxDirDialog).
   const projectFolders = useMemo(() => {
     const files = projectFiles ?? [];
@@ -851,14 +851,14 @@ export function PcbEditor({
   // + the board file's setup sections + the .kicad_dru; committed back to all
   // three on OK (see commitBoardSetup below).
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
-  // DRC dialog (DIALOG_DRC) — the engine runs in-browser over the live board.
+  // DRC dialog (DIALOG_DRC), the engine runs in-browser over the live board.
   // The dialog is modeless like upstream; the violations become PCB_MARKERs
   // that stay on the board until the next run / Delete All Markers, and the
   // active violation is the brightened (highlighted) marker.
   const [drcOpen, setDrcOpen] = useState(false);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
-  // names — the updater itself is synchronous, exactly like upstream, so the
+  // names, the updater itself is synchronous, exactly like upstream, so the
   // libraries have to be in hand first (upstream's adapter->BlockUntilLoaded).
   const [updatePcb, setUpdatePcb] = useState<{
     netlist: NETLIST;
@@ -876,8 +876,8 @@ export function PcbEditor({
   const [boardSetup, setBoardSetup] = useState<BoardSetupValues>(defaultBoardSetup);
   // Latest texts this editor wrote for project-side files: the projectFiles
   // prop is a load-time snapshot (App persists to storage without refreshing
-  // the prop), so without this overlay a hydrate after a board save — or a
-  // second dialog OK — would read/merge stale text. Each entry remembers the
+  // the prop), so without this overlay a hydrate after a board save, or a
+  // second dialog OK, would read/merge stale text. Each entry remembers the
   // prop text it was derived from (`base`): it applies only while the prop
   // still holds that text, and drops automatically when a genuine reload
   // delivers fresh content.
@@ -897,7 +897,7 @@ export function PcbEditor({
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
-  // BOARD_DESIGN_SETTINGS::GetLayerClass — the Text & Graphics Defaults row
+  // BOARD_DESIGN_SETTINGS::GetLayerClass, the Text & Graphics Defaults row
   // for a layer (silk / copper / edges / courtyard / fab / other).
   const layerClassRow = (layer: string): TextGfxRow => {
     const rows = boardSetupRef.current.textGraphics.rows;
@@ -955,7 +955,7 @@ export function PcbEditor({
 
   // Auto-sync: a moment after any edit, serialize into the app's coalesced
   // autosave. The title's '*' shows while the write is pending and clears once
-  // handed off — every change reaches the project storage without Ctrl+S.
+  // handed off, every change reaches the project storage without Ctrl+S.
   useEffect(() => {
     if (!dirty || !onBoardChange) return;
     const id = setTimeout(() => {
@@ -1036,7 +1036,7 @@ export function PcbEditor({
 
   // Hydrate Board Setup from the loaded project: the .kicad_pro slices
   // (design settings, netclasses, component classes, tuning profiles, text
-  // variables), the board file's setup sections and the .kicad_dru rules —
+  // variables), the board file's setup sections and the .kicad_dru rules,
   // the same load KiCad does in BOARD::SetProject + LoadProjectSettings.
   useEffect(() => {
     const files = projectFilesNow();
@@ -1078,7 +1078,7 @@ export function PcbEditor({
       }
 
       // Board file: patch the *current* board serialization (not the original
-      // text — live edits must survive), then reload so the editor's board
+      // text, live edits must survive), then reload so the editor's board
       // model, layer list and future saves all see the new setup.
       const current = boardRef.current ? serializeBoard(boardRef.current) : text;
       const patched = writeBoardFileSetup(current, next);
@@ -1122,8 +1122,8 @@ export function PcbEditor({
   // built off-screen (time-sliced so a 20k-track board never blocks the UI),
   // and every frame the current view blits that raster with a delta transform.
   // Crucially the crisp render is NOT cancelled or debounced while the user is
-  // interacting: it runs to completion, promotes itself, and — if the view has
-  // moved on — immediately starts another. So the picture continuously
+  // interacting: it runs to completion, promotes itself, and, if the view has
+  // moved on, immediately starts another. So the picture continuously
   // re-sharpens *during* a zoom/pan instead of only after it stops.
   const cacheRef = useRef<{
     canvas: HTMLCanvasElement;
@@ -1134,7 +1134,7 @@ export function PcbEditor({
   // The scene/board changed since the cached raster was built, so it needs a
   // fresh render even though the view matches. We keep the (stale) raster on
   // screen and re-render into a new canvas in the background, swapping when
-  // ready — so an edit/undo/toggle never blanks the board for a frame.
+  // ready, so an edit/undo/toggle never blanks the board for a frame.
   const sceneDirtyRef = useRef(true);
 
   const viewMatchesCache = (): boolean => {
@@ -1154,7 +1154,7 @@ export function PcbEditor({
   };
 
   const startCrispRender = useCallback(() => {
-    if (renderingRef.current) return; // in flight — it re-checks the view on completion
+    if (renderingRef.current) return; // in flight, it re-checks the view on completion
     const canvas = canvasRef.current;
     const scene = sceneRef.current;
     if (!canvas || !scene || canvas.width < 2) return;
@@ -1348,7 +1348,7 @@ export function PcbEditor({
       }
     }
     // Selection / move overlay: the selected items repainted brightened over the
-    // raster — KiCad draws a selected item in its layer colour Brightened(0.8),
+    // raster, KiCad draws a selected item in its layer colour Brightened(0.8),
     // not a bounding box (pcb_painter.cpp getColor). While a move is in flight the
     // moving items are excluded from the raster and this overlay follows the
     // cursor at the drag offset (EDIT_TOOL::Move's GAL overlay); otherwise it
@@ -1690,7 +1690,7 @@ export function PcbEditor({
         : null;
   }, [objects.footprintsFront, objects.footprintsBack]);
 
-  // The selection / disambiguation hover live only in the overlay — recompile the
+  // The selection / disambiguation hover live only in the overlay, recompile the
   // selection scene and repaint.
   useEffect(() => {
     rebuildSelScene();
@@ -1801,7 +1801,7 @@ export function PcbEditor({
 
   /**
    * DIALOG_UPDATE_PCB::PerformUpdate. A dry run only reports; a real run commits the
-   * new board, then spreads the footprints it added and selects them —
+   * new board, then spreads the footprints it added and selects them,
    * PCB_EDIT_FRAME::OnNetlistChanged's SpreadFootprints + selectItems, which is what
    * leaves the new parts ready to be dragged into place.
    */
@@ -2164,9 +2164,9 @@ export function PcbEditor({
   const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
   const zoomFitObjects = useCallback(() => zoomToFitImpl(false), [zoomToFitImpl]);
 
-  // DIALOG_FIND::search: collect hits in upstream order — footprint reference
+  // DIALOG_FIND::search: collect hits in upstream order, footprint reference
   // designators, footprint values, other text items (footprint text, board
-  // text, zone names), then net names — and walk the list with Find Next /
+  // text, zone names), then net names, and walk the list with Find Next /
   // Find Previous, wrapping when enabled. Each hit selects the item and
   // centres the view on it (FocusOnLocation).
   const runFind = useCallback(
@@ -2280,7 +2280,7 @@ export function PcbEditor({
   // EDA_DRAW_FRAME::FocusOnLocation for the DRC dialog's click-to-locate:
   // centre the view only when the position is off the current view or within
   // 10% of its edge (the viewport deflated by width/10 on every side), or
-  // when it sits behind — or within 10% of — the modeless DRC dialog.
+  // when it sits behind, or within 10% of, the modeless DRC dialog.
   const drcFocusOn = useCallback(
     (pos: { x: number; y: number }) => {
       const canvas = canvasRef.current;
@@ -2365,7 +2365,7 @@ export function PcbEditor({
       // Assigning canvas.width clears the canvas even when the value is
       // unchanged, blanking the board for a frame. This effect re-runs (and
       // re-observes, firing an initial callback) whenever the draw options
-      // change, so only touch the canvas on a REAL size change — otherwise a
+      // change, so only touch the canvas on a REAL size change, otherwise a
       // left-toolbar toggle flickers the whole view.
       const changed = canvas.width !== w || canvas.height !== h;
       if (changed) {
@@ -2454,7 +2454,7 @@ export function PcbEditor({
   } | null>(null);
 
   // Does an item of this kind pass the Selection Filter panel? (KiCad's
-  // SELECTION_FILTER_OPTIONS — track/arc→Tracks, shape→Graphics, etc.)
+  // SELECTION_FILTER_OPTIONS, track/arc→Tracks, shape→Graphics, etc.)
   const filterKeyOf = (kind: BoardItemKind): string | null =>
     kind === 'track' || kind === 'arc'
       ? 'tracks'
@@ -2483,7 +2483,7 @@ export function PcbEditor({
   };
   passesFilterRef.current = passesFilter;
 
-  // Hit candidates at a board point — KiCad's selectPoint pipeline: collect
+  // Hit candidates at a board point, KiCad's selectPoint pipeline: collect
   // with exact hit distances, Selection Filter, then GuessSelectionCandidates
   // (slop pruning, the 1.5× coverage-area heuristic, active-layer preference),
   // all transcribed in boardHitCandidates. One id = unambiguous click; several
@@ -3171,9 +3171,9 @@ export function PcbEditor({
   };
   // Toggle Net Highlight (the left-toolbar button / Alt+`). If a highlight is
   // showing, hide it (KiCad's `turnOn = highlighted.empty() && …`). Otherwise
-  // highlight the net(s) of the current selection — PCB_ACTIONS::
+  // highlight the net(s) of the current selection, PCB_ACTIONS::
   // highlightNetSelection, "highlight all copper items on the selected net(s)"
-  // — falling back to the last highlighted set when nothing carries a net.
+  // - falling back to the last highlighted set when nothing carries a net.
   const toggleHighlightRef = useRef<() => void>(() => {});
   toggleHighlightRef.current = () => {
     setHighlightNets((prev) => {
@@ -3258,7 +3258,7 @@ export function PcbEditor({
         if (!cur) return;
         if (d.onItem) {
           // Left-drag on a footprint = Move (pcb_selection_tool.cpp: a non-track
-          // selection runs PCB_ACTIONS::move — the routing is left behind). On
+          // selection runs PCB_ACTIONS::move, the routing is left behind). On
           // the first move, ensure the grabbed item is selected, then start the
           // move gesture so the real geometry tracks the cursor.
           if (!movingRef.current) {
@@ -3397,7 +3397,7 @@ export function PcbEditor({
     }
     requestDraw();
   };
-  // Pointer left the canvas — drop the crosshair.
+  // Pointer left the canvas, drop the crosshair.
   const onPointerLeave = (): void => {
     cursorRef.current = null;
     setCursor(null);
@@ -3461,7 +3461,7 @@ export function PcbEditor({
         rotateSel(!e.shiftKey);
         return;
       } // R = CCW, Shift+R = CW
-      // M = Move (routing left behind), G = Drag (attached traces follow) — a
+      // M = Move (routing left behind), G = Drag (attached traces follow), a
       // keyboard grab that follows the cursor and commits on click (EDIT_TOOL).
       if (!mod && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
@@ -3716,7 +3716,7 @@ export function PcbEditor({
 
   // ----- ratsnest + net classes ----------------------------------------------
 
-  // Net classes from Board Setup — the single source of truth (hydrated from
+  // Net classes from Board Setup, the single source of truth (hydrated from
   // the project's net_settings, updated live when the dialog commits). A blank
   // per-class cell inherits the Default class, which itself falls back to the
   // NETCLASS factory constants (netclass resolution).
@@ -3801,7 +3801,7 @@ export function PcbEditor({
   const ratsnestEdgesRef = useRef<RatsnestEdge[]>(ratsnestEdges);
   ratsnestEdgesRef.current = ratsnestEdges;
 
-  // Nets of the current selection — their airwires are always shown (even when
+  // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
   // thin airwires to what it connects to (PCB_SELECTION_TOOL local ratsnest).
   const selectedNets = useMemo(() => {
@@ -3843,7 +3843,7 @@ export function PcbEditor({
   }, [selectedNets, highlightNets]);
 
   // Highlight scene: all copper (tracks/arcs/vias/zones) on the highlighted
-  // nets, painted Brightened(0.5) over the dimmed board — BOARD_INSPECTION_TOOL
+  // nets, painted Brightened(0.5) over the dimmed board, BOARD_INSPECTION_TOOL
   // net highlight (pcb_painter.cpp: highlighted items brighten, the rest darken).
   const highlightSceneRef = useRef<BoardScene | null>(null);
   useEffect(() => {
@@ -4314,14 +4314,14 @@ export function PcbEditor({
   };
   const fmtAngle = (rad: number): string => `${((rad * 180) / Math.PI).toFixed(3)}`;
   const unitLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
-  const statusCoordText = cursor ? `X ${fmtCoord(cursor.x)}  Y ${fmtCoord(cursor.y)}` : 'X —  Y —';
+  const statusCoordText = cursor ? `X ${fmtCoord(cursor.x)}  Y ${fmtCoord(cursor.y)}` : 'X, Y -';
   const statusDeltaText = cursor
     ? toggles.has('togglePolarCoords')
       ? `r ${fmtCoord(Math.hypot(cursor.x, cursor.y))}  theta ${fmtAngle(Math.atan2(-cursor.y, cursor.x))}`
       : `dx ${fmtCoord(cursor.x)}  dy ${fmtCoord(cursor.y)}  dist ${fmtCoord(Math.hypot(cursor.x, cursor.y))}`
     : toggles.has('togglePolarCoords')
-      ? 'r —  theta —'
-      : 'dx —  dy —  dist —';
+      ? 'r, theta -'
+      : 'dx, dy, dist -';
   const gridText = `grid ${fmtCoord(gridIU)}`;
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
@@ -4389,7 +4389,7 @@ export function PcbEditor({
           const fp = board.footprints[r.index];
           if (!fp) return common;
           // FOOTPRINT::GetMsgPanelInfo (board editor): reference→value, board
-          // side, rotation, then status/attributes — matching pcbnew exactly.
+          // side, rotation, then status/attributes, matching pcbnew exactly.
           const attrLabel: Record<string, string> = {
             board_only: 'not in schematic',
             exclude_from_pos_files: 'exclude from pos files',
@@ -4487,7 +4487,7 @@ export function PcbEditor({
           const p = fp?.pads[r.sub ?? 0];
           if (!p) return common;
           // PAD::GetMsgPanelInfo (board editor): Footprint, Pad, Net, Layer,
-          // shape/type, size + rotation, then hole — matching pcbnew's order.
+          // shape/type, size + rotation, then hole, matching pcbnew's order.
           const dim = (iu: number): string => `${fmtCoord(iu)} ${unitLabel}`;
           const shapeLabel = p.shape.charAt(0).toUpperCase() + p.shape.slice(1);
           // Pad type abbreviations (ShowPadAttr): plated/non-plated through hole,
@@ -4563,7 +4563,7 @@ export function PcbEditor({
   }, [board, fmtCoord, ratsnestEdges.length, selection, netClassOf, unitLabel]);
 
   // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
-  // Ungroup grey out per GROUP_TOOL::update — Group needs >= 2 selected items,
+  // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
   // Ungroup needs a selected group. (Add / Remove to Group are right-click-only
   // in KiCad; they live in the grouping context menu, not the toolbar.)
   const topDisabled = useMemo(() => {
@@ -4593,7 +4593,7 @@ export function PcbEditor({
               {dirty ? '*' : ''}
               {projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}
             </b>
-            &nbsp;—&nbsp;PCB Editor
+            &nbsp;-&nbsp;PCB Editor
           </>
         }
       />
@@ -4787,7 +4787,7 @@ export function PcbEditor({
               inset: 0,
               // Picker tools show a real cursor: KICURSOR::BULLSEYE resolves
               // to the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), which
-              // is the SYSTEM crosshair cursor — the same one CSS 'crosshair'
+              // is the SYSTEM crosshair cursor, the same one CSS 'crosshair'
               // uses, so the web cursor matches desktop KiCad exactly.
               cursor: activeTool === 'localRatsnestTool' ? 'crosshair' : 'none',
             }}
@@ -5873,7 +5873,7 @@ export function PcbEditor({
       <div className="ze-statusbar">
         <span className="cell msg" data-testid="pcb-status-msg" />
         <StatusField template={STATUS_FIELD_TEMPLATES.zoom}>
-          Z {scale > 0 ? (scale * 1000).toFixed(2) : '—'}
+          Z {scale > 0 ? (scale * 1000).toFixed(2) : '-'}
         </StatusField>
         <StatusField template={STATUS_FIELD_TEMPLATES.coords} testId="pcb-absolute-coords">
           {statusCoordText}
@@ -5896,7 +5896,7 @@ export function PcbEditor({
   );
 }
 
-/** One-line label for a board item — the disambiguation menu row text
+/** One-line label for a board item, the disambiguation menu row text
  *  (KiCad's EDA_ITEM::GetItemDescription). */
 function describeBoardItem(board: Board, id: string): string {
   const r = parseBoardItemId(id);
@@ -5958,7 +5958,7 @@ function describeBoardItem(board: Board, id: string): string {
 
 // ---- KiCad property-grid components (PCB_PROPERTIES_PANEL wxPropertyGrid) -----
 // White name/value text, grey read-only, category bars with the GTK disclosure
-// chevron reused from the project tree — styled by .ze-pg* in shell.css.
+// chevron reused from the project tree, styled by .ze-pg* in shell.css.
 
 /** A collapsible category header (wxPropertyCategory). */
 const PgCat = ({
@@ -6210,7 +6210,7 @@ function FootprintProps({
   );
 }
 
-/** Read-only summary of the current selection for the Properties panel — the
+/** Read-only summary of the current selection for the Properties panel, the
  *  first slice of pcbnew's PCB_PROPERTIES_PANEL (editable fields come later). */
 // Property-grid mm formatter (KiCad's PCB_PROPERTIES_PANEL shows 2 decimals).
 const pgMM = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;

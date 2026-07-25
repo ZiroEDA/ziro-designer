@@ -7,7 +7,7 @@
  * patch-in-place strategy: the top-level `(kicad_pcb …)` node is rebuilt by
  * walking the *source* children in order, and for each child the model owns
  * (footprints, tracks/arcs, vias, zones, gr_* graphics, gr_text) the item's
- * `source` node — which board edits PATCH in place — is emitted. Everything the
+ * `source` node, which board edits PATCH in place, is emitted. Everything the
  * typed model does not represent (general, paper, layers, setup, net decls,
  * embedded files, …) passes straight through, byte-faithful.
  *
@@ -192,7 +192,7 @@ const textNode = (t: PcbTextItem): SNode =>
   t.source.items.length > 0 ? t.source : buildBoardTextNode(t);
 const zoneNode = (z: PcbZone): SNode => (z.source.items.length > 0 ? z.source : buildZoneNode(z));
 
-/** `(group "name" (uuid …) [(locked yes)] (members …))` — PCB_IO_KICAD_SEXPR::
+/** `(group "name" (uuid …) [(locked yes)] (members …))`, PCB_IO_KICAD_SEXPR::
  *  format(PCB_GROUP): members sorted alphabetically; empty groups not written
  *  (the walk drops a group whose model entry has no members). */
 export function buildGroupNode(g: PcbGroup): SList {

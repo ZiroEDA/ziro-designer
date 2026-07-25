@@ -1,11 +1,11 @@
 /**
- * Coupled microstrip lines — faithful port of KiCad's
- * `transline_calculations/coupled_microstrip.cpp` (Garg–Bahl static even/odd
- * model, Jansen thickness correction, Kirschning–Jansen even/odd dispersion and
+ * Coupled microstrip lines, faithful port of KiCad's
+ * `transline_calculations/coupled_microstrip.cpp` (Garg-Bahl static even/odd
+ * model, Jansen thickness correction, Kirschning-Jansen even/odd dispersion and
  * impedance dispersion, per-mode conductor and dielectric loss). The single-line
- * reference is the ported Hammerstad–Jensen microstrip evaluated at zero
+ * reference is the ported Hammerstad-Jensen microstrip evaluated at zero
  * thickness. The panel exposes no top cover, surface roughness, soldermask or
- * Djordjevic–Sarkar model, so those corrections take KiCad's documented no-op
+ * Djordjevic-Sarkar model, so those corrections take KiCad's documented no-op
  * paths (cover → q_c = 1, ΔZ0_cover = 0) and are omitted here.
  * Counterpart: KiCad `common/transline_calculations/coupled_microstrip.cpp`.
  */
@@ -144,7 +144,7 @@ function computeStatics(phys: CoupledMicrostripPhysical, el: TcElectrical): Stat
   const uTe = wTe / h;
   const uTo = wTo / h;
 
-  // er_eff_static() — cover effect q_c = 1 (no cover).
+  // er_eff_static(), cover effect q_c = 1 (no cover).
   let qInf = fillingFactorEven(uTe, g, er);
   let qT = deltaQThickness(uTe, tH);
   let q = qInf - qT; // × q_c(=1)
@@ -156,7 +156,7 @@ function computeStatics(phys: CoupledMicrostripPhysical, el: TcElectrical): Stat
   const aO = 0.7287 * (erEffSingle - 0.5 * (er + 1.0)) * (1.0 - Math.exp(-0.179 * uTo));
   const erEffO0 = (0.5 * (er + 1.0) + aO - erEffSingle) * q + erEffSingle;
 
-  // Z0_even_odd() — cover corrections ΔZ0 = 0 (no cover).
+  // Z0_even_odd(), cover corrections ΔZ0 = 0 (no cover).
   const z0Single = single.z0Static;
 
   const Q1 = 0.8695 * uTe ** 0.194;
@@ -397,7 +397,7 @@ export function coupledMicrostripAnalyze(
   const attenDielE = alphaDe * len;
   const attenDielO = alphaDo * len;
 
-  // line_angle() — reported angle is √(ang_l_e·ang_l_o).
+  // line_angle(), reported angle is √(ang_l_e·ang_l_o).
   const angLe = (2.0 * Math.PI * len * el.frequencyHz * Math.sqrt(fr.erEffE)) / C0;
   const angLo = (2.0 * Math.PI * len * el.frequencyHz * Math.sqrt(fr.erEffO)) / C0;
   const angDeg = (Math.sqrt(angLe * angLo) * 180) / Math.PI;
@@ -427,7 +427,7 @@ export function coupledMicrostripAnalyze(
 /**
  * Synthesis for a differential impedance: solve the gap for Zdiff at the given
  * width, then the length from the electrical angle (KiCad MinimiseZ0Error1D on
- * PHYS_S with the Z0_O target — Zdiff = 2·Z0_O).
+ * PHYS_S with the Z0_O target, Zdiff = 2·Z0_O).
  */
 export function coupledMicrostripSynthesize(
   phys: CoupledMicrostripPhysical,

@@ -1,6 +1,6 @@
 /**
  * Symbol Fields Table. Counterpart: `eeschema/dialogs/
- * dialog_symbol_fields_table.cpp` (DIALOG_SYMBOL_FIELDS_TABLE) — one dialog
+ * dialog_symbol_fields_table.cpp` (DIALOG_SYMBOL_FIELDS_TABLE), one dialog
  * with two views over the same model, exactly as upstream:
  *
  *   - **Edit** (Tools > Edit Symbol Fields): every symbol of the hierarchy in a
@@ -15,7 +15,7 @@
  * ("BOM Name"), plus the saved view presets. It collapses with the button at
  * the bottom-left, like upstream's sidebar toggle.
  *
- * Not built: the "Schematic variants" pane of the left splitter — schematic
+ * Not built: the "Schematic variants" pane of the left splitter, schematic
  * variants are a v10 engine feature (per-instance field/attribute overrides)
  * that ZiroEDA's document model does not carry yet.
  */
@@ -89,10 +89,10 @@ const SCOPES: readonly { id: FieldsScope; label: string }[] = [
 /** The 5 mandatory fields lead the list and can be neither renamed nor removed. */
 const MANDATORY_COUNT = 5;
 
-/** SetSize( horizPixelsFromDU( 600 ), … ) — the dialog's design width, which
+/** SetSize( horizPixelsFromDU( 600 ), … ), the dialog's design width, which
  *  also caps a table column at a third of it (SetupAllColumnProperties). */
 const DIALOG_WIDTH = 1050;
-/** field_editor.sash_pos — where the main splitter sits (eeschema_settings.cpp). */
+/** field_editor.sash_pos, where the main splitter sits (eeschema_settings.cpp). */
 const DEFAULT_SASH_POS = 400;
 
 /** BOM_PRESET → the engine's preset shape (same fields, different home). */
@@ -120,7 +120,7 @@ const fromSpec = (p: BomPresetSpec, name: string): BomPreset => ({
   includeExcludedFromBom: p.includeExcludedFromBom,
 });
 
-/** syncBomPresetSelection — a preset matches when its simple settings and its
+/** syncBomPresetSelection, a preset matches when its simple settings and its
  *  shown/grouped fields are identical to the model's current state. */
 function presetMatches(preset: BomPreset, current: BomPresetSpec): boolean {
   if (
@@ -145,7 +145,7 @@ function presetMatches(preset: BomPreset, current: BomPresetSpec): boolean {
   );
 }
 
-/** PreviewRefresh — symbols marked "exclude from BOM" are never exported, even
+/** PreviewRefresh, symbols marked "exclude from BOM" are never exported, even
  *  when the table is showing them. */
 function exportPreview(model: FieldsDataModel, format: BomFmtPreset): string {
   const saved = model.getIncludeExcludedFromBOM();
@@ -941,7 +941,7 @@ export function DialogSymbolFieldsTable({
                       {rows.length === 0 && (
                         <tr>
                           <td colSpan={Math.max(1, shownCols.length)} className="ze-sft-empty">
-                            No symbols — place and annotate symbols first.
+                            No symbols, place and annotate symbols first.
                           </td>
                         </tr>
                       )}

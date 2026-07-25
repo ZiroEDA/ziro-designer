@@ -59,7 +59,7 @@ function textRows(l: SchLabel, fmt: (iu: number) => string): MsgPanelItem[] {
 
 /**
  * The rows for a single selected item; [] for kinds whose upstream
- * counterpart shows nothing (junctions, no-connects, bus entries — EDA_ITEM's
+ * counterpart shows nothing (junctions, no-connects, bus entries, EDA_ITEM's
  * base GetMsgPanelInfo is empty).
  */
 export function getMsgPanelItems(

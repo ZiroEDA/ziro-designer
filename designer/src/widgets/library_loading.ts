@@ -1,13 +1,13 @@
 /**
  * "The libraries are loading" signal. Counterpart: the PROGRESS_REPORTER KiCad
- * drives while it reads the library tables — `SYMBOL_TREE_MODEL_ADAPTER::
+ * drives while it reads the library tables, `SYMBOL_TREE_MODEL_ADAPTER::
  * AddLibraries` ("Loading Symbol Libraries") and `FOOTPRINT_LIST::
  * ReadFootprintFiles` ("Loading Footprint Libraries").
  *
  * KiCad reads libraries off local disk behind a modal gauge; here they come
  * from the hosted bucket over the network, one `index.json` up front and a
  * `.kicad_sym` / `.kicad_mod` per library. A blocking dialog would be wrong for
- * that, but an empty pane with no explanation is worse — so every hosted fetch
+ * that, but an empty pane with no explanation is worse, so every hosted fetch
  * registers here and a pane with nothing in it yet shows a spinner.
  *
  * Symbols and footprints are tracked separately: a chooser fetching a footprint
@@ -28,7 +28,7 @@ export interface LibraryLoadingState {
 const IDLE: LibraryLoadingState = { count: 0, label: '' };
 
 const state: Record<LibraryKind, LibraryLoadingState> = { symbols: IDLE, footprints: IDLE };
-/** Any kind — the snapshot a widget that doesn't care about the split sees. */
+/** Any kind, the snapshot a widget that doesn't care about the split sees. */
 let anyState: LibraryLoadingState = IDLE;
 const listeners = new Set<() => void>();
 

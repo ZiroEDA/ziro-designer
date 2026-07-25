@@ -3,12 +3,12 @@
  * SCH_SELECTION_TOOL::selectMultiple / SelectMultiple (sch_selection_tool.cpp):
  *
  *  - dragging left-to-right selects items *fully enclosed* by the rectangle
- *    (SELECTION_MODE::INSIDE_RECTANGLE — the "window" select),
+ *    (SELECTION_MODE::INSIDE_RECTANGLE, the "window" select),
  *  - dragging right-to-left is greedy and selects everything the rectangle
  *    *touches* (SELECTION_MODE::TOUCHING_RECTANGLE).
  *
  * Per-item hit rules are the item's HitTest(BOX2I, aContained) overloads:
- *  - SCH_SYMBOL: the body bounding box (fields excluded) — contained needs the
+ *  - SCH_SYMBOL: the body bounding box (fields excluded), contained needs the
  *    whole body inside, touching needs an intersect (sch_symbol.cpp).
  *  - SCH_LINE: contained needs *both endpoints* inside; touching needs the
  *    rectangle to intersect the segment (sch_line.cpp). KiCad can additionally
@@ -168,7 +168,7 @@ export function boxSelect(
 // ----- lasso (freehand polygon) selection -----------------------------------
 //
 // KiCad's SCH_SELECTION_TOOL::selectLasso: a closed polygon traced by the
-// pointer. The default mode is TOUCHING_LASSO — an item is selected if the
+// pointer. The default mode is TOUCHING_LASSO, an item is selected if the
 // polygon contains it or its outline crosses it. (KiCad additionally flips to
 // INSIDE_LASSO when the trace winds clockwise; ZiroEDA uses touching, the more
 // forgiving and common behaviour.)

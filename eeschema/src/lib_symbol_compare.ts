@@ -1,7 +1,7 @@
 /**
  * Library symbol comparison. Counterpart: `eeschema/lib_symbol.cpp`
- * (`LIB_SYMBOL::Compare`) under the flags ERC uses —
- * `COMPARE_FLAGS::EQUALITY | COMPARE_FLAGS::ERC` — which is what
+ * (`LIB_SYMBOL::Compare`) under the flags ERC uses,
+ * `COMPARE_FLAGS::EQUALITY | COMPARE_FLAGS::ERC`, which is what
  * TestLibSymbolIssues runs to decide whether a schematic's cached symbol still
  * matches the library copy (ERCE_LIB_SYMBOL_MISMATCH).
  *
@@ -9,7 +9,7 @@
  * private flag and the position, so the comparison is: the power flag, the unit
  * count, the graphic items (count, then each one's geometry), the pins (matched
  * by number + unit + body style, then position), the fields (matched by
- * mandatory id or name, then text — position skipped, since Compare adds
+ * mandatory id or name, then text, position skipped, since Compare adds
  * SKIP_TST_POS for fields under ERC), the footprint filters, the keywords and
  * the pin-name offset. The show-pin-names / exclude-from-* settings are
  * deliberately *not* compared under ERC (upstream guards them with
@@ -21,7 +21,7 @@
 
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField, Vec2 } from './types.js';
 
-/** Why two symbols differ — the message Compare would have reported. */
+/** Why two symbols differ, the message Compare would have reported. */
 export type LibSymbolDifference =
   | 'power flag'
   | 'unit count'
@@ -42,7 +42,7 @@ const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 const samePoints = (a: readonly Vec2[], b: readonly Vec2[]): boolean =>
   a.length === b.length && a.every((p, i) => samePoint(p, b[i]!));
 
-/** EDA_SHAPE::compare — the geometry of one graphic item. */
+/** EDA_SHAPE::compare, the geometry of one graphic item. */
 function sameGraphic(a: LibGraphic, b: LibGraphic): boolean {
   if (a.kind !== b.kind) return false;
   switch (a.kind) {
@@ -120,7 +120,7 @@ const unitCount = (sym: LibSymbol): number => Math.max(1, ...sym.units.map((u) =
 
 /**
  * Compare a schematic's cached symbol with the library's copy. Returns the
- * first difference found, or null when they match — Compare's `retv != 0`.
+ * first difference found, or null when they match, Compare's `retv != 0`.
  */
 export function compareLibSymbolsForErc(
   cached: LibSymbol,
@@ -138,7 +138,7 @@ export function compareLibSymbolsForErc(
   }
 
   // Pins, matched by number within the same unit and body style. (Upstream's
-  // reverse loop looks the pin up in aRhs again — plainly a typo, since that
+  // reverse loop looks the pin up in aRhs again, plainly a typo, since that
   // can never fail; the intent, mirrored here, is to catch a pin the library
   // has and the schematic copy lacks.)
   for (const { pin, unit, bodyStyle } of allPins(cached.units)) {

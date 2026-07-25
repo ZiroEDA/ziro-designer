@@ -12,7 +12,7 @@
  * schematic model, it asks for netlist text and parses it.
  *
  * The one thing that cannot be mirrored is the modal Annotate dialog upstream opens
- * when the schematic is not annotated — the board editor cannot host the schematic's
+ * when the schematic is not annotated, the board editor cannot host the schematic's
  * dialog. Instead the annotation errors come back as a message for the caller to
  * show, which is the same information in one step fewer.
  */
@@ -60,7 +60,7 @@ function flattenSheets(root: SheetTreeNode, docs: ReadonlyMap<string, Schematic>
 }
 
 /**
- * PCB_EDIT_FRAME::FetchNetlistFromSchematic — the project's schematic sheets, read,
+ * PCB_EDIT_FRAME::FetchNetlistFromSchematic, the project's schematic sheets, read,
  * checked for annotation and exported as a KiCad netlist.
  *
  * `annotateMessage` is the message upstream passes for the "requires a fully

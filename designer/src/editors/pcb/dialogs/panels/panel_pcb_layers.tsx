@@ -1,6 +1,6 @@
 /**
  * Board Setup > Board Stackup > Board Editor Layers. Counterpart:
- * `pcbnew/dialogs/panel_setup_layers.cpp` (PANEL_SETUP_LAYERS) — the board's
+ * `pcbnew/dialogs/panel_setup_layers.cpp` (PANEL_SETUP_LAYERS), the board's
  * layers laid out as a vertical form in physical stack order (front technical
  * layers, copper, back technical layers, then Edge.Cuts / Margin / user layers).
  * Each row is [enable checkbox] [editable name] [type]: copper layers get a

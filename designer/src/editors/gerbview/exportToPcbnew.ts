@@ -1,5 +1,5 @@
 /**
- * Export loaded Gerber layers to a Pcbnew board file — the app-side mirror of
+ * Export loaded Gerber layers to a Pcbnew board file, the app-side mirror of
  * GerbView's GBR_TO_PCB_EXPORTER (`gerbview/export_to_pcbnew.cpp`). Each visible
  * layer maps to a board layer (by its X2 file function where known, else a
  * user-drawing layer), and its graphic items become board graphics: segments →

@@ -57,7 +57,7 @@ export function physicalLengthM(angleDeg: number, frequencyHz: number, epsEff: n
 
 /**
  * Ratio K(k)/K'(k) of complete elliptic integrals (Hilberg's approximation,
- * accurate to ~3 ppm — the standard form used in CPW models).
+ * accurate to ~3 ppm, the standard form used in CPW models).
  */
 export function ellipticRatio(k: number): number {
   if (k < 0 || k > 1) return NaN;

@@ -4,7 +4,7 @@
  *
  * KiCad runs this after every edit (as part of `RecalculateConnections`): it
  * merges pairs of wires that are colinear, the same layer/stroke, and either
- * overlap or touch end-to-end with no junction at the touch point — so two
+ * overlap or touch end-to-end with no junction at the touch point, so two
  * segments drawn or dragged into a straight line become a single wire, exactly
  * as in the desktop app. This is the model side; the caller applies it after a
  * move/draw commit.
@@ -207,7 +207,7 @@ export function mergeColinearWires(
       continue;
     }
 
-    // 2. Junctions: add where needed, remove where no longer legitimate —
+    // 2. Junctions: add where needed, remove where no longer legitimate,
     //    SCH_SCREEN::IsExplicitJunction, which accounts for pins, buses, bus
     //    entries and labels, so a dot where a pin meets mid-wire or three
     //    buses tee survives.

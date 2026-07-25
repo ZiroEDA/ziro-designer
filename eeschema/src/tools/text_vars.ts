@@ -19,7 +19,7 @@ const MAX_DEPTH = 10; // ADVANCED_CFG m_ResolveTextRecursionDepth default
 export function expandTextVars(source: string, resolver: TextVarResolver, depth = 0): string {
   let out = '';
   for (let i = 0; i < source.length; i++) {
-    // \${...}: escaped reference — emit the literal ${...} unexpanded.
+    // \${...}: escaped reference, emit the literal ${...} unexpanded.
     if (source[i] === '\\' && source[i + 1] === '$' && source[i + 2] === '{') {
       out += '${';
       let braces = 1;
@@ -114,7 +114,7 @@ export function schematicTextVarResolver(ctx: TextVarContext): TextVarResolver {
       case 'PROJECTNAME':
         return ctx.projectName ?? '';
       case 'CURRENT_DATE': {
-        // TITLE_BLOCK::GetCurrentDate — the locale short date; ISO here.
+        // TITLE_BLOCK::GetCurrentDate, the locale short date; ISO here.
         return new Date().toISOString().slice(0, 10);
       }
       case 'ISSUE_DATE':

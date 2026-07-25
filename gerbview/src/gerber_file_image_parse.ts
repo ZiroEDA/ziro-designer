@@ -76,7 +76,7 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
       s = s.slice(1);
     }
     if (s.includes('.')) {
-      // Explicit decimal point — value is already in file units.
+      // Explicit decimal point, value is already in file units.
       return sign * parseFloat(s);
     }
     const total = intDigits + fracDigits;

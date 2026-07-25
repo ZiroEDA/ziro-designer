@@ -22,9 +22,9 @@ export interface SymbolChooserResult {
   unit: number;
   /** Field edits, currently just a footprint override: [name, value]. */
   fields: [string, string][];
-  /** "Place repeated copies" — keep the symbol selected for subsequent clicks. */
+  /** "Place repeated copies", keep the symbol selected for subsequent clicks. */
   keepSymbol: boolean;
-  /** "Place all units" — sequentially place all units of the symbol. */
+  /** "Place all units", sequentially place all units of the symbol. */
   placeAllUnits: boolean;
 }
 
@@ -36,7 +36,7 @@ export interface DialogSymbolChooserProps {
   historyList?: readonly PickedSymbol[];
   alreadyPlaced?: readonly PickedSymbol[];
   getPlacedLibSymbol?: (libId: string) => LibSymbol | undefined;
-  /** wxID_OK — null when OK was pressed with nothing selected (invalid LIB_ID). */
+  /** wxID_OK, null when OK was pressed with nothing selected (invalid LIB_ID). */
   onOk: (result: SymbolChooserResult | null) => void;
   /** wxID_CANCEL. */
   onCancel: () => void;
@@ -57,7 +57,7 @@ export function DialogSymbolChooser({
   const [placeAllUnits, setPlaceAllUnits] = useState(true);
 
   // onLazyLoadUpdate runs once in the constructor, so the count is in the title
-  // from the outset — including the "(0 items loaded)" of an empty tree.
+  // from the outset, including the "(0 items loaded)" of an empty tree.
   const originalTitle = powerFilter ? 'Choose Power Symbol' : 'Choose Symbol';
   const title = `${originalTitle} (${itemCount} items loaded)`;
 

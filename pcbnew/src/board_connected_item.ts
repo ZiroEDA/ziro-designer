@@ -1,5 +1,5 @@
 /**
- * BOARD_CONNECTED_ITEM — base for board items that belong to a net
+ * BOARD_CONNECTED_ITEM, base for board items that belong to a net
  * (pcbnew/board_connected_item.h): tracks, vias, pads, zones. Adds the net code
  * onto BOARD_ITEM. (KiCad also tracks netclass/teardrop state; added as needed.)
  */

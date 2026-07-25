@@ -6,8 +6,8 @@
  *    (NETLIST_EXPORTER_ORCADPCB2, the classic OrcadPCB2 text netlist).
  *
  * Both build on the same connectivity the ERC checker uses (computeNetlist +
- * enumeratePins), so node identity matches. These operate on a single sheet —
- * the schematic the editor currently has open — like our ERC and BOM paths.
+ * enumeratePins), so node identity matches. These operate on a single sheet,
+ * the schematic the editor currently has open, like our ERC and BOM paths.
  */
 
 import type { Schematic, SchSymbol, LibSymbol } from '../types.js';

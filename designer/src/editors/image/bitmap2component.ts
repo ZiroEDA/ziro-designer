@@ -5,7 +5,7 @@
  * (`BITMAPCONV_INFO`): take a bitmap, reduce it to greyscale, threshold it to a
  * 1-bit image, trace that with potrace, then emit the traced polygons as a
  * schematic symbol, a PCB footprint, an EPS/PostScript drawing, or a drawing
- * sheet — one filled polygon per traced outline, holes cut out.
+ * sheet, one filled polygon per traced outline, holes cut out.
  *
  * The scale/offset/sign for each output format matches `CreateOutputFile`
  * exactly: the emitted millimetre coordinate is `(pixel − centre) · 25.4 / DPI`,
@@ -36,7 +36,7 @@ export interface LayerChoice {
 
 /**
  * The "Layer:" choices offered by KiCad's Image Converter, in the exact order
- * and with the exact display labels of `bitmap2cmp_panel_base` — the label is
+ * and with the exact display labels of `bitmap2cmp_panel_base`, the label is
  * what the dropdown shows, the id is the file layer name it maps to
  * (`ExportToBuffer`'s switch). Index 0 (F.Cu) is the KiCad default.
  */
@@ -62,7 +62,7 @@ export interface ConvertOptions {
   /** Download file stem; defaults to `name`. */
   fileStem?: string;
   /**
-   * Clipboard variant: KiCad's SYMBOL_PASTE_FMT — the symbol fragment without
+   * Clipboard variant: KiCad's SYMBOL_PASTE_FMT, the symbol fragment without
    * the `kicad_symbol_lib` wrapper. Only meaningful for `format: 'symbol'`.
    */
   paste?: boolean;
@@ -82,7 +82,7 @@ export interface GrayImage {
 /**
  * Reduce RGBA image data to greyscale, KiCad's Rec. 601 luma
  * (`0.299 R + 0.587 G + 0.114 B`, wx `ConvertToGreyscale`). Alpha is kept as
- * its own channel — `binarize` consults it separately, as KiCad does.
+ * its own channel, `binarize` consults it separately, as KiCad does.
  */
 export function imageToGray(data: Uint8ClampedArray, w: number, h: number): GrayImage {
   const gray = new Uint8ClampedArray(w * h);
@@ -98,7 +98,7 @@ export function imageToGray(data: Uint8ClampedArray, w: number, h: number): Gray
 }
 
 /**
- * Threshold a greyscale image to a 1-bit bitmap for tracing —
+ * Threshold a greyscale image to a 1-bit bitmap for tracing,
  * `BITMAP2CMP_PANEL::binarize` exactly: with `negative` the greyscale is
  * negated first (`negateGreyscaleImage`), then a pixel is foreground when it is
  * darker than the threshold *and* opaque enough (`alpha > 0.7 · threshold`).
@@ -128,7 +128,7 @@ export function monoToRGBA(bm: Bitmap): ImageData {
 
 /**
  * Render greyscale bytes to RGBA for the "Greyscale" preview tab. With
- * `negative`, the levels are inverted — KiCad negates the greyscale image
+ * `negative`, the levels are inverted, KiCad negates the greyscale image
  * itself when Negative is ticked, so the preview shows the negated version.
  */
 export function grayToRGBA(img: GrayImage, negative = false): ImageData {
@@ -211,8 +211,8 @@ export interface Region {
  * Trace the bitmap and group the result into filled regions using the even-odd
  * rule: a contour nested an even number of deep is a filled outline, an odd one
  * a hole cut from its immediate (smallest containing) outline. potrace's XOR
- * decomposition already emits every boundary once, so nesting parity — not the
- * raw path sign — is what tells outlines from holes, exactly as KiCad's
+ * decomposition already emits every boundary once, so nesting parity, not the
+ * raw path sign, is what tells outlines from holes, exactly as KiCad's
  * `SHAPE_POLY_SET` boolean does.
  */
 export function traceRegions(bm: Bitmap): Region[] {
@@ -308,7 +308,7 @@ function uuid(): string {
 
 /**
  * One ring (outer with holes bridged in) as `(xy ..)` lines. `close` repeats
- * the first point — KiCad closes the polygon for symbol and drawing-sheet
+ * the first point, KiCad closes the polygon for symbol and drawing-sheet
  * output but not for `fp_poly` ("No need to close polygon").
  */
 function ringXY(region: Region, xf: XForm, indent: string, close = false): string {

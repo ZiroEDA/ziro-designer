@@ -1,6 +1,6 @@
 /**
  * Coupled stripline (edge-coupled, optionally off-centre between the ground
- * planes) — port of KiCad `common/transline_calculations/coupled_stripline.cpp`.
+ * planes), port of KiCad `common/transline_calculations/coupled_stripline.cpp`.
  *
  * References (as in KiCad):
  *  [1] Cohn, "Characteristic Impedance of the Shielded-Strip Transmission
@@ -23,7 +23,7 @@ import {
 import { striplineAnalyze } from './stripline.js';
 
 // KiCad's EllipticIntegral() takes the parameter m (b = sqrt(1 - arg)); the
-// coupled-stripline code passes moduli straight in — mirror that convention.
+// coupled-stripline code passes moduli straight in, mirror that convention.
 const eK = (arg: number): number => ellipticIntegral(arg)[0];
 const coth = (x: number): number => 1.0 / Math.tanh(x);
 const sech = (x: number): number => 1.0 / Math.cosh(x);
@@ -37,7 +37,7 @@ export interface CoupledStriplinePhysical {
   heightM: number;
   /**
    * Distance from the strip plane to the closest ground plane, m.
-   * ≤ 0 (or omitted) means centred — the exact pre-offset behaviour.
+   * ≤ 0 (or omitted) means centred, the exact pre-offset behaviour.
    */
   offsetAM?: number;
   /** Strip thickness T, m. */
@@ -252,7 +252,7 @@ export function coupledStriplineAnalyze(
 }
 
 /**
- * Joint (W, S) synthesis for target even/odd impedances — port of KiCad's
+ * Joint (W, S) synthesis for target even/odd impedances, port of KiCad's
  * COUPLED_STRIPLINE::Synthesize default path (wcalc-derived 2-D Newton
  * iteration with a coupled-microstrip initial guess and 10 % step clamps).
  */

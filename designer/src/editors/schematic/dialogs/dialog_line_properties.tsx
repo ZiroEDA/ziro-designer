@@ -1,7 +1,7 @@
 /**
  * Wire/bus/line and junction properties. Counterparts:
- * `eeschema/dialogs/dialog_wire_bus_properties.cpp` (DIALOG_WIRE_BUS_PROPERTIES —
- * line width and style) and `dialog_junction_props.cpp` (DIALOG_JUNCTION_PROPS —
+ * `eeschema/dialogs/dialog_wire_bus_properties.cpp` (DIALOG_WIRE_BUS_PROPERTIES,
+ * line width and style) and `dialog_junction_props.cpp` (DIALOG_JUNCTION_PROPS,
  * junction diameter). Widths/diameters are entered in millimetres; 0 = "use the
  * netclass/schematic default".
  */

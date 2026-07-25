@@ -1,10 +1,10 @@
 /**
- * Supabase-backed project store — the cloud half of Ziro Designer's persistence.
+ * Supabase-backed project store, the cloud half of Ziro Designer's persistence.
  * Mirrors the IndexedDB API in ../home/projectStore, operating on the same
  * `SyncableProject` shape (gzipped files, base64-encoded).
  *
  * File blobs go to **Supabase Storage** when a bucket is configured
- * (VITE_SUPABASE_STORAGE_BUCKET) — the Postgres row then holds only metadata +
+ * (VITE_SUPABASE_STORAGE_BUCKET), the Postgres row then holds only metadata +
  * the file list, NOT the blobs. This keeps large projects out of the database
  * (storing blobs in Postgres is what filled the DB and made it unhealthy). With
  * no bucket configured it falls back to the previous inline-jsonb behaviour,
@@ -21,7 +21,7 @@ import type { SyncableProject } from '../home/projectStore.js';
 // Set to a bucket name to store file blobs in Supabase Storage instead of the
 // Postgres row. Leave unset to keep the (capped) inline behaviour.
 const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string | undefined) || '';
-// Max inline payload (base64) when NOT using Storage — protects the DB.
+// Max inline payload (base64) when NOT using Storage, protects the DB.
 const INLINE_CAP = 4 * 1024 * 1024;
 
 interface FileRef {
@@ -120,7 +120,7 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
   }
 
   // Inline (no bucket): keep blobs in the row, but cap the size so a big project
-  // can't fill the database — it stays local-only until Storage is configured.
+  // can't fill the database, it stays local-only until Storage is configured.
   const total = p.files.reduce((n, f) => n + f.gzB64.length, 0);
   if (total > INLINE_CAP) {
     console.warn(

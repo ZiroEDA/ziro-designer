@@ -1,6 +1,6 @@
 /**
  * Board Setup > Design Rules > Zones. Counterpart:
- * `pcbnew/dialogs/panel_setup_zones_base.cpp` + the embedded PANEL_ZONE_PROPERTIES —
+ * `pcbnew/dialogs/panel_setup_zones_base.cpp` + the embedded PANEL_ZONE_PROPERTIES,
  * "Default Properties for New Zones": the settings a newly drawn copper zone
  * starts with (clearance, minimum width, pad connection + thermal relief, outline
  * display, corner smoothing, island removal).

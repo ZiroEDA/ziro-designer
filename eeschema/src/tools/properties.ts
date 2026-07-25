@@ -138,7 +138,7 @@ export interface SymbolAttrEdit {
 }
 
 /**
- * Bulk attribute edit — the attribute half of the Symbol Fields Table's apply
+ * Bulk attribute edit, the attribute half of the Symbol Fields Table's apply
  * (`FIELDS_EDITOR_GRID_DATA_MODEL::setAttributeValue`): the `${DNP}` and
  * `${EXCLUDE_FROM_…}` columns write symbol flags rather than fields. `edits`
  * maps a symbol's refId to the flags to change.

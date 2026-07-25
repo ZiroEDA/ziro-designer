@@ -17,7 +17,7 @@ import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
 
 /**
- * The Preferences dialog — the web mirror of KiCad's PAGED_DIALOG preferences
+ * The Preferences dialog, the web mirror of KiCad's PAGED_DIALOG preferences
  * (EDA_BASE_FRAME::ShowPreferences): a page tree on the left, panels on the
  * right, transcribed from the wxFormBuilder panel sources:
  *   - Common                 <- panel_common_settings_base.cpp
@@ -588,7 +588,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
                 }
               />
             </Group>
-            {/* Not a KiCad panel — KiCad is a desktop app and collects nothing.
+            {/* Not a KiCad panel, KiCad is a desktop app and collects nothing.
                 Placed last on Common so the KiCad-mirrored groups read in order. */}
             <Group title="Privacy">
               <Check
@@ -708,7 +708,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
             </Group>
             <Group title="Scroll Gestures">
               <div className="ze-muted">
-                Vertical touchpad or scroll wheel movement — only one action can be assigned to each
+                Vertical touchpad or scroll wheel movement, only one action can be assigned to each
                 column:
               </div>
               <table className="ze-pref-scrolltable">

@@ -1,5 +1,5 @@
 /**
- * The Violation Severity list must stay identical to KiCad's — the same rules,
+ * The Violation Severity list must stay identical to KiCad's, the same rules,
  * in the same order, under the same headings, with the same settings keys
  * (which is what `.kicad_pro` stores) and the same default severities.
  *

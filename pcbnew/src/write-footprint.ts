@@ -142,7 +142,7 @@ export function buildTextNode(text: PcbTextItem): SList {
 
 /**
  * `(property "Name" "Value" (at 0 0 a) (layer "F.Fab") (hide yes) (uuid ..)
- *  (effects (font (size 1 1) (thickness 0.15))))` — a user field created from
+ *  (effects (font (size 1 1) (thickness 0.15))))`, a user field created from
  * scratch, styled as BOARD_NETLIST_UPDATER does it: invisible, on the fab layer of
  * the footprint's side, at the footprint anchor with the footprint's orientation,
  * and StyleFromSettings' defaults (DEFAULT_TEXT_SIZE / DEFAULT_TEXT_WIDTH).
@@ -202,7 +202,7 @@ function isFieldSource(it: SList): boolean {
 /**
  * Rebuild the `(footprint …)` node from the typed model. The modelled item
  * classes (pads, graphics, Reference/Value + fp_text) are emitted from the model
- * arrays — in model order — one per corresponding source child (so an edited
+ * arrays, in model order, one per corresponding source child (so an edited
  * item's PATCHED source is used, deletions drop trailing source nodes, and
  * additions append after their group). Every unmodelled child (descr, tags,
  * attr, models, other properties, …) passes through in place, byte-faithful.

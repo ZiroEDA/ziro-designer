@@ -64,7 +64,7 @@ function buildDemoSubmenu(h: ManagerMenuHandlers): MenuItem[] {
 }
 
 export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
-  // File > Open Recent — KiCad's FILE_HISTORY menu, fed from our project store.
+  // File > Open Recent, KiCad's FILE_HISTORY menu, fed from our project store.
   const recentSub: MenuItem[] =
     h.recent.length === 0
       ? [{ label: '(no recent projects)', disabled: true }]
@@ -80,7 +80,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       items: [
         { label: 'New Project…', shortcut: 'Ctrl+N', action: h.newProject },
         // "Clone Project from Repository…" is git-gated upstream and hidden
-        // when git is off — omitted until version control lands.
+        // when git is off, omitted until version control lands.
         // Upstream shows this only when the stock demos path exists; ours
         // lists the bundled demos as a submenu (the web take on its picker).
         {

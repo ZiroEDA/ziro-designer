@@ -1,6 +1,6 @@
 /**
  * Symbol Library Browser. Counterpart: `eeschema/symbol_viewer_frame.cpp`
- * (SYMBOL_VIEWER_FRAME) and `eeschema/toolbars_symbol_viewer.cpp` — the
+ * (SYMBOL_VIEWER_FRAME) and `eeschema/toolbars_symbol_viewer.cpp`, the
  * browse-first companion to the Choose Symbol dialog. The frame's AUI panes
  * become panes of one modal: the "Libraries" palette, the "Symbols" palette and
  * the canvas, with the top toolbar above and the message panel below.
@@ -69,23 +69,23 @@ const TOP_TOOLBAR: ToolEntry[] = [
   { id: 'addSymbolToSchematic', icon: 'addSymbolToSchematic', title: 'Add Symbol to Schematic' },
 ];
 
-/** LIB_SYMBOL::GetUnitCount — the highest unit number the symbol defines. */
+/** LIB_SYMBOL::GetUnitCount, the highest unit number the symbol defines. */
 function unitCount(sym: LibSymbol): number {
   return Math.max(1, ...sym.units.map((u) => u.unit));
 }
 
-/** LIB_SYMBOL::HasDeMorganBodyStyles — a body style 2 (`_1_2`, `_2_2`, …) exists. */
+/** LIB_SYMBOL::HasDeMorganBodyStyles, a body style 2 (`_1_2`, `_2_2`, …) exists. */
 function hasDeMorgan(sym: LibSymbol): boolean {
   return sym.units.some((u) => u.bodyStyle === 2);
 }
 
-/** LIB_SYMBOL::GetUnitDisplayName( aUnit, true ) — no per-unit names in the file format yet. */
+/** LIB_SYMBOL::GetUnitDisplayName( aUnit, true ), no per-unit names in the file format yet. */
 const unitDisplayName = (unit: number): string => `Unit ${letterSubReference(unit)}`;
 
 /** The tokenizer both filters use: whitespace-separated terms (wxTOKEN_STRTOK). */
 const filterTerms = (filter: string): string[] => filter.split(/[ \t\r\n]+/).filter(Boolean);
 
-/** LIB_ID::GetLibItemName — the list shows names, not full ids. */
+/** LIB_ID::GetLibItemName, the list shows names, not full ids. */
 const symbolName = (sym: LibSymbol): string => sym.libId.split(':').pop() ?? sym.libId;
 
 export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
@@ -105,7 +105,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   const [unit, setUnit] = useState(1);
   const [bodyStyle, setBodyStyle] = useState(1);
   const [showElectricalTypes, setShowElectricalTypes] = useState(cfg.show_pin_electrical_type);
-  // m_ShowPinNumbers is not a persisted param upstream — it starts off.
+  // m_ShowPinNumbers is not a persisted param upstream, it starts off.
   const [showPinNumbers, setShowPinNumbers] = useState(false);
   const [libWidth, setLibWidth] = useState(cfg.lib_list_width);
   const [symWidth, setSymWidth] = useState(cfg.cmp_list_width);
@@ -125,7 +125,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   }, []);
 
   // ReCreateLibList: every library the filter admits, pinned ones first. A
-  // filter is a set of terms, each matched against every library name — a
+  // filter is a set of terms, each matched against every library name, a
   // library that any term matches is listed (upstream's per-term sweep).
   const libs = useMemo(() => {
     const pinned = settings.common.system.session.pinned_symbol_libs;
@@ -272,7 +272,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     drawRef.current = draw;
   });
 
-  /** ACTIONS::zoomFitScreen — the viewer runs it after every symbol change. */
+  /** ACTIONS::zoomFitScreen, the viewer runs it after every symbol change. */
   const zoomFit = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || canvas.width === 0) return;
@@ -510,9 +510,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   };
 
   // DisplayLibInfos: the frame title carries the selected library's full URI.
-  const title = curLib
-    ? `${libraryUri(curLib)} — Symbol Library Browser`
-    : 'Symbol Library Browser';
+  const title = curLib ? `${libraryUri(curLib)}, Symbol Library Browser` : 'Symbol Library Browser';
 
   const description = previewSym ? symbolProperty(previewSym, 'Description') : '';
   const keywords = previewSym ? symbolProperty(previewSym, 'ki_keywords') : '';

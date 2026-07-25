@@ -1,12 +1,12 @@
 /**
- * DRC dialog — second slice. Counterpart: `pcbnew/dialogs/dialog_drc.cpp`
- * (DIALOG_DRC) — a MODELESS dialog like upstream: Run DRC over the board with
+ * DRC dialog, second slice. Counterpart: `pcbnew/dialogs/dialog_drc.cpp`
+ * (DIALOG_DRC), a MODELESS dialog like upstream: Run DRC over the board with
  * the Board Setup constraints, netclass clearances and violation severities.
  * The violations live in the editor (they are the board's PCB_MARKERs, drawn
  * on the canvas in the theme's DRC colors) and survive closing the dialog.
  *
  * Click-to-locate mirrors OnDRCItemSelected: clicking a violation row focuses
- * the marker (FocusOnLocation — centre only when off-view / edge / behind the
+ * the marker (FocusOnLocation, centre only when off-view / edge / behind the
  * dialog) and brightens it (the LAYER_DRC_HIGHLIGHTED repaint + collision X);
  * clicking an offending-item child row focuses that item instead. A
  * double-click hides the dialog, turning control over to the frame
@@ -30,7 +30,7 @@ interface Props {
   onDeleteMarker: (index: number) => void;
   onDeleteAll: () => void;
   onClose: () => void;
-  /** The dialog root — the editor's FocusOnLocation avoids this rect. */
+  /** The dialog root, the editor's FocusOnLocation avoids this rect. */
   rootRef?: Ref<HTMLDivElement>;
 }
 
@@ -52,7 +52,7 @@ export function DialogDrc({
     setRunning(true);
     setError(null);
     // Yield a tick so the button state paints before the (sync) run. NOTE:
-    // setTimeout, not requestAnimationFrame — rAF never fires in a hidden
+    // setTimeout, not requestAnimationFrame, rAF never fires in a hidden
     // tab, which would leave the dialog stuck on "Running…".
     setTimeout(() => {
       try {

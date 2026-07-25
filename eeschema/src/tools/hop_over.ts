@@ -17,7 +17,7 @@ export type HopShapePart =
   | { kind: 'seg'; a: Vec2; b: Vec2 }
   | { kind: 'arc'; start: Vec2; mid: Vec2; end: Vec2 };
 
-/** SCH_LINE::ShouldHopOver — should `me` hop over `candidate`? */
+/** SCH_LINE::ShouldHopOver, should `me` hop over `candidate`? */
 export function shouldHopOver(me: SchLine, candidate: SchLine): boolean {
   const isMeVertical = me.end.x === me.start.x;
   const isCandidateVertical = candidate.end.x === candidate.start.x;
@@ -40,10 +40,10 @@ export function shouldHopOver(me: SchLine, candidate: SchLine): boolean {
 const isEndPoint = (l: SchLine, p: Vec2): boolean =>
   (l.start.x === p.x && l.start.y === p.y) || (l.end.x === p.x && l.end.y === p.y);
 
-/** KiROUND — round half away from zero (std::llround). */
+/** KiROUND, round half away from zero (std::llround). */
 const kiRound = (v: number): number => Math.sign(v) * Math.floor(Math.abs(v) + 0.5);
 
-/** rescale<int64_t> — aNumerator × aValue / aDenominator, rounded to nearest
+/** rescale<int64_t>, aNumerator × aValue / aDenominator, rounded to nearest
  *  half away from zero, in exact integer arithmetic. */
 function rescale(aNumerator: bigint, aValue: bigint, aDenominator: bigint): number {
   const numerator = aNumerator * aValue;
@@ -52,7 +52,7 @@ function rescale(aNumerator: bigint, aValue: bigint, aDenominator: bigint): numb
   return Number(r / aDenominator);
 }
 
-/** SEG::Intersect( seg, aIgnoreEndpoints=true, aLines=false ) — the crossing
+/** SEG::Intersect( seg, aIgnoreEndpoints=true, aLines=false ), the crossing
  *  point of two segments, null when parallel, collinear, non-crossing, or (per
  *  aIgnoreEndpoints) meeting at a shared vertex of both. Exact integer port of
  *  SEG::intersects(); the point is existing.A + rescale( q/d )·f. */
@@ -89,7 +89,7 @@ function segIntersect(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): Vec2 | null {
 }
 
 /**
- * SCH_LINE::BuildWireWithHopShape — the wire's draw shape with a hop arc over
+ * SCH_LINE::BuildWireWithHopShape, the wire's draw shape with a hop arc over
  * every crossing it should hop. `others` are the sheet's other wire/bus lines
  * (candidates); `arcRadius` = default line width × the hop-over scale.
  */

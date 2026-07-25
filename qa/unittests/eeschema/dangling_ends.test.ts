@@ -1,7 +1,7 @@
 /**
  * Wire-end / label dangling squares (counterpart SCH_LINE::UpdateDanglingState
  * + SCH_LABEL_BASE::UpdateDanglingState, drawn by drawDanglingIndicator):
- * a wire tip is marked when nothing connectable sits on it — rotating a symbol
+ * a wire tip is marked when nothing connectable sits on it, rotating a symbol
  * away marks the freed wire ends, rotating it back clears them.
  */
 import { describe, it, expect } from 'vitest';

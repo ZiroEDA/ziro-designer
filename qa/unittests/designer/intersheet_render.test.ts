@@ -77,7 +77,7 @@ describe('inter-sheet references in the render pipeline', () => {
     );
     const added = on.filter((p) => !off.includes(p));
     expect(added.length).toBeGreaterThan(0);
-    // Stored at (50, 50) mm — strokes cluster near x = 500,000 IU, left of the label.
+    // Stored at (50, 50) mm, strokes cluster near x = 500,000 IU, left of the label.
     for (const p of added) {
       expect(firstX(p)).toBeGreaterThan(400_000);
       expect(firstX(p)).toBeLessThan(700_000);

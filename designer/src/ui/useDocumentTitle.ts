@@ -6,7 +6,7 @@
  *
  * Two things differ from a desktop window title. The editors here all stay
  * mounted and are toggled with CSS, so a title effect that just wrote
- * `document.title` left whichever editor ran last owning the tab — open the
+ * `document.title` left whichever editor ran last owning the tab, open the
  * Footprint Editor once and every other view reads "[no footprint loaded]"
  * forever. And a tab is narrow and truncates from the right, so the useful
  * part has to come first and KiCad's bracketed placeholders ("[no footprint
@@ -18,10 +18,10 @@ import { useEffect } from 'react';
 /** The app name every title ends with, matching index.html's default. */
 export const APP_NAME = 'Ziro Designer';
 
-/** `*doc — Editor · Ziro Designer`, or `Editor · Ziro Designer` with no doc. */
+/** `*doc, Editor · Ziro Designer`, or `Editor · Ziro Designer` with no doc. */
 export function formatTitle(editor: string, doc?: string | null, modified = false): string {
   const name = doc?.trim();
-  const head = name ? `${modified ? '*' : ''}${name} — ${editor}` : editor;
+  const head = name ? `${modified ? '*' : ''}${name}, ${editor}` : editor;
   return `${head} · ${APP_NAME}`;
 }
 

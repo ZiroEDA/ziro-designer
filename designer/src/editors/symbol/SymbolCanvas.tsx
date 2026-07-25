@@ -25,7 +25,7 @@ import {
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /
  * SYMBOL_EDITOR_MOVE_TOOL), the two-click pin/text placement and the
- * SYMBOL_EDITOR_DRAWING_TOOLS::doDrawShape state machine — including KiCad's
+ * SYMBOL_EDITOR_DRAWING_TOOLS::doDrawShape state machine, including KiCad's
  * exact 2-click arc construction (radius = chord × √½, quarter-circle bulge).
  */
 

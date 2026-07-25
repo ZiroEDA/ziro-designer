@@ -1,6 +1,6 @@
 /**
  * Text / Text Box Properties. Counterpart: `eeschema/dialogs/
- * dialog_text_properties.cpp` over `dialog_text_properties_base.cpp` — one
+ * dialog_text_properties.cpp` over `dialog_text_properties_base.cpp`, one
  * dialog serving SCH_TEXT and SCH_TEXTBOX, with the border/fill rows shown
  * only for the box:
  *
@@ -14,8 +14,8 @@
  *                                      [ Cancel ] [ OK ]
  *
  * The entry grows with the dialog (AddGrowableRow( 0 )), the icon bar carries
- * KiCad's own bitmaps in its order — bold, italic, the three horizontal and
- * three vertical alignments, then horizontal/vertical text — and the colour
+ * KiCad's own bitmaps in its order, bold, italic, the three horizontal and
+ * three vertical alignments, then horizontal/vertical text, and the colour
  * swatches sit in their thin bordered frames.
  *
  * Left out: the font list (this build draws with KiCad's own stroke font) and
@@ -61,7 +61,7 @@ export interface TextPropsResult {
   color?: ItemColor;
   hAlign: HAlign;
   vAlign: VAlign;
-  /** 0 or 90 — the two orientation buttons (SetTextAngle). */
+  /** 0 or 90, the two orientation buttons (SetTextAngle). */
   angle: number;
   excludeFromSim: boolean;
   /** Text box only: border and fill. */
@@ -76,7 +76,7 @@ export interface TextPropsResult {
 export interface TextPropsInitial extends TextPropsResult {}
 
 interface Props {
-  /** SCH_TEXT or SCH_TEXTBOX — the box adds the border and fill rows. */
+  /** SCH_TEXT or SCH_TEXTBOX, the box adds the border and fill rows. */
   kind: 'text' | 'textbox';
   initial: TextPropsInitial;
   onOk: (result: TextPropsResult) => void;

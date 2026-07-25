@@ -1,5 +1,5 @@
 /**
- * PagedDialog — the shared "setup" dialog shell.
+ * PagedDialog, the shared "setup" dialog shell.
  *
  * Counterpart: `common/widgets/paged_dialog.cpp` (PAGED_DIALOG), the base class
  * KiCad reuses for Schematic Setup, Board Setup and Preferences. It provides:
@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
   id: string;
-  /** Tree label — matches KiCad's page title. */
+  /** Tree label, matches KiCad's page title. */
   label: string;
   /** Greyed / not selectable: engine data not modelled yet. */
   disabled?: boolean;
@@ -34,7 +34,7 @@ export interface PagedDialogPage {
 }
 
 export interface PagedDialogSection {
-  /** Section header label — an expandable parent node (empty page upstream). */
+  /** Section header label, an expandable parent node (empty page upstream). */
   label: string;
   pages: PagedDialogPage[];
 }
@@ -63,7 +63,7 @@ interface Props {
 // (PAGED_DIALOG's g_lastPage). Module-scoped to survive dialog unmount.
 const g_lastPage: Record<string, string> = {};
 
-/** Enabled pages in tree order — the set up/down navigation walks. */
+/** Enabled pages in tree order, the set up/down navigation walks. */
 function enabledOrder(sections: PagedDialogSection[]): string[] {
   return sections.flatMap((s) => s.pages.filter((p) => !p.disabled).map((p) => p.id));
 }

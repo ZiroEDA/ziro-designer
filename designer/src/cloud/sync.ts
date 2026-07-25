@@ -2,7 +2,7 @@
  * Two-way project sync between IndexedDB (local) and Supabase (cloud).
  *
  * Strategy: last-write-wins by `updatedAt`. On sign-in we reconcile the union
- * of local + cloud ids — newer copy wins, missing copies are copied across.
+ * of local + cloud ids, newer copy wins, missing copies are copied across.
  * Individual saves/deletes also mirror to the cloud while online (see HomePage),
  * so this full pass is mainly for first sign-in on a new device.
  *

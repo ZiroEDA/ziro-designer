@@ -1,10 +1,10 @@
 /**
- * ZONE — a copper pour / rule area (pcbnew/zone.{h,cpp}). Ported for the
+ * ZONE, a copper pour / rule area (pcbnew/zone.{h,cpp}). Ported for the
  * geometry transforms and hit-testing.
  *
  * KiCad stores the outline and per-layer fills as SHAPE_POLY_SET (with holes);
  * this port models the outline as a point ring and the fills as per-layer point
- * rings — enough for Move/Rotate/Mirror/Flip and hit-testing. Multi-outline /
+ * rings, enough for Move/Rotate/Mirror/Flip and hit-testing. Multi-outline /
  * hole handling is TODO (marked). Method structure mirrors zone.cpp:1028/1083/
  * 1094 and the ZONE::HitTest corner/edge test (:735).
  */
@@ -78,7 +78,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     });
   }
 
-  /** ZONE::Flip — mirror geometry, then move the layers/fills to the other side. */
+  /** ZONE::Flip, mirror geometry, then move the layers/fills to the other side. */
   Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     this.Mirror(aCentre, aFlipDirection);
     this.m_layers = this.m_layers.map((l) => FlipLayer(l));
@@ -88,7 +88,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     this.SetLayer(this.m_layers[0] ?? this.GetLayer());
   }
 
-  /** ZONE::HitTest — near an outline corner (accuracy*2) or edge (accuracy),
+  /** ZONE::HitTest, near an outline corner (accuracy*2) or edge (accuracy),
    *  with a 0.1 mm floor on accuracy (zone.cpp:735). */
   HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
     const accuracy = Math.max(aAccuracy, mmToIU(0.1));
@@ -110,7 +110,7 @@ export class ZONE extends BOARD_CONNECTED_ITEM {
     return false;
   }
 
-  /** ZONE::HitTestFilledArea — inside a filled polygon on `aLayer`. */
+  /** ZONE::HitTestFilledArea, inside a filled polygon on `aLayer`. */
   HitTestFilledArea(aLayer: PCB_LAYER_ID, aRefPos: VECTOR2I): boolean {
     const rings = this.m_fills.get(aLayer);
     if (!rings) return false;

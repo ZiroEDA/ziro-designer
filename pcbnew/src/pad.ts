@@ -1,12 +1,12 @@
 /**
- * PAD — a footprint pad (pcbnew/pad.{h,cpp}). Ported faithfully for the geometry
+ * PAD, a footprint pad (pcbnew/pad.{h,cpp}). Ported faithfully for the geometry
  * transforms (Move/Rotate/Mirror/Flip) and hit-testing.
  *
  * Fidelity note: KiCad's PAD::HitTest (pad.cpp:1997) rejects by bounding radius
- * then tests GetEffectivePolygon(...)->Contains(pos) — the fully-built pad shape
+ * then tests GetEffectivePolygon(...)->Contains(pos), the fully-built pad shape
  * polygon (corner rounding, chamfers, custom primitives, per-layer padstack). We
  * model the common padstack (single shape/size/orientation) and test the point
- * analytically in the pad's local frame — the same result for circle / rect /
+ * analytically in the pad's local frame, the same result for circle / rect /
  * oval / roundrect. Custom-primitive pads and per-layer padstacks are TODO
  * (marked) and fall back to the bounding rectangle.
  */
@@ -44,7 +44,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   protected m_layerSet: PCB_LAYER_ID[];
   protected m_roundRectRadiusRatio: number;
   protected m_chamferRatio: number;
-  /** roundrect corner radius (absolute IU) — derived from ratio for hit-test. */
+  /** roundrect corner radius (absolute IU), derived from ratio for hit-test. */
 
   constructor(opts: {
     number?: string;
@@ -99,7 +99,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     this.m_pos = { ...aPos };
   }
 
-  /** Half the diagonal of the pad's bounding box — the HitTest reject radius
+  /** Half the diagonal of the pad's bounding box, the HitTest reject radius
    *  (approximates PAD::GetBoundingRadius for the common shapes). */
   GetBoundingRadius(): number {
     return Math.hypot(this.m_size.x / 2, this.m_size.y / 2);
@@ -118,7 +118,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     MIRROR(this.m_pos, aCentre, aFlipDirection);
   }
 
-  /** PAD::Flip (pad.cpp:1454) — mirror position, negate orientation, flip the
+  /** PAD::Flip (pad.cpp:1454), mirror position, negate orientation, flip the
    *  pad's layer set. (Chamfer-corner + custom-primitive flipping is TODO.) */
   Flip(aCentre: VECTOR2I, aFlipDirection: FLIP_DIRECTION): void {
     MIRROR(this.m_pos, aCentre, aFlipDirection);
@@ -127,7 +127,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     this.SetLayer(this.m_layerSet[0] ?? this.GetLayer());
   }
 
-  /** PAD::HitTest — bounding-radius reject, then point-in-shape in pad-local frame. */
+  /** PAD::HitTest, bounding-radius reject, then point-in-shape in pad-local frame. */
   HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
     const delta = { x: aPosition.x - this.m_pos.x, y: aPosition.y - this.m_pos.y };
     const boundingRadius = this.GetBoundingRadius() + aAccuracy;

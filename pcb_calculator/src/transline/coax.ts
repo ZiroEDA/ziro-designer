@@ -1,5 +1,5 @@
 /**
- * Coaxial line — faithful port of KiCad's `transline_calculations/coax.cpp`
+ * Coaxial line, faithful port of KiCad's `transline_calculations/coax.cpp`
  * (Pozar, "Microwave Engineering" 4th ed. §2.2, §3.5). TEM Z0, electrical
  * length, dielectric/conductor loss and higher-order TE/TM mode cut-offs.
  * Counterpart: KiCad `common/transline_calculations/coax.cpp`.

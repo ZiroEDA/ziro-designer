@@ -1,18 +1,18 @@
 /**
  * Print dialog for the board editor. Counterpart: DIALOG_PRINT_PCBNEW
  * (common/dialogs/dialog_print_generic.cpp + pcbnew/dialogs/
- * dialog_print_pcbnew.cpp) — the same controls in the same order, with
+ * dialog_print_pcbnew.cpp), the same controls in the same order, with
  * KiCad's behaviors translated exactly:
  *
  *  - Settings persist like PCBNEW_PRINTOUT_SETTINGS::Load/Save through the
  *    `printing.*` keys of the pcbnew settings (PCB_CONTROL::Print loads them
- *    before opening; every way of leaving the dialog — Print, Print Preview,
- *    Close, the X, the backdrop — runs saveSettings, mirroring
+ *    before opening; every way of leaving the dialog, Print, Print Preview,
+ *    Close, the X, the backdrop, runs saveSettings, mirroring
  *    onCancelButtonClick/onClose which both save).
  *  - The layer checklist is seeded from the saved `printing.layers` ordinals
  *    (KiCad's first run has nothing checked), listed in enabled-layer UI
  *    order; right-click gives the selection commands, where "Select Fab
- *    Layers" is (AllCuMask | AllTechMask) & ~courtyards — copper plus
+ *    Layers" is (AllCuMask | AllTechMask) & ~courtyards, copper plus
  *    silk/mask/adhesive/paste/fab, no Edge.Cuts, no courtyards.
  *  - Output mode Black and white disables "Print background color" and the
  *    theme controls (onColorModeClicked); "Use a different color theme"
@@ -56,8 +56,8 @@ const DRILL_MARKS = ['none', 'small', 'real'] as const;
 
 interface Props {
   board: Board;
-  /** The editor's visible layers (unused by KiCad's dialog — the checklist
-   *  comes from the saved settings — kept for the caller's convenience). */
+  /** The editor's visible layers (unused by KiCad's dialog, the checklist
+   *  comes from the saved settings, kept for the caller's convenience). */
   visibleLayers?: ReadonlySet<string>;
   /** The editor's draw options ("Print according to objects tab"). */
   drawOpts: PcbDrawOptions;
@@ -208,7 +208,7 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     const bbox = scene.bbox;
     const pxPerIU = DPI / 25.4 / MM;
     // BOARD_PRINTOUT::DrawPage: the view always looks at the centre of the
-    // drawing area (gal->SetLookAtPoint(drawingAreaBBox.Centre())) — 1:1 and
+    // drawing area (gal->SetLookAtPoint(drawingAreaBBox.Centre())), 1:1 and
     // Custom only change the scale, never the centring.
     const scaleValue = getScaleValue();
     const pageView = (): { scale: number; tx: number; ty: number; flipX: boolean } => {

@@ -1,5 +1,5 @@
 /**
- * Gerber X2 + Excellon plot writers — the fabrication-output core of
+ * Gerber X2 + Excellon plot writers, the fabrication-output core of
  * pcbnew's plot dialog, transcribed from GERBER_PLOTTER::StartPlot
  * (common/plotters/GERBER_plotter.cpp), the TF attribute builders
  * (pcbnew/pcbplot.cpp AddGerberX2Header / GetGerberFileFunctionAttribute)
@@ -20,7 +20,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
 let coordDigits = 6;
-/** Plot origin (PCB_PLOT_PARAMS::m_useAuxOrigin — the drill/place file origin);
+/** Plot origin (PCB_PLOT_PARAMS::m_useAuxOrigin, the drill/place file origin);
  *  every coordinate is written relative to it. */
 let plotOrigin: Vec2 = { x: 0, y: 0 };
 /** IU -> Gerber 4.x integer (mm · 10^digits). */
@@ -96,7 +96,7 @@ export function boardAuxOrigin(board: Board): Vec2 {
 /** Gerber writer options (the dialog's Gerber Options + General Options). */
 export interface GerberPlotOpts {
   creationDate?: string;
-  /** "Coordinate format:" — 4.5 or 4.6, unit mm. */
+  /** "Coordinate format:", 4.5 or 4.6, unit mm. */
   coordDigits?: 5 | 6;
   /** "Use extended X2 format": X2 writes %TF attributes, X1 writes them as
    *  comments (GERBER_PLOTTER::m_useX2format). */

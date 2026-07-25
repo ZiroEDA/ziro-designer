@@ -1,9 +1,9 @@
 /**
  * Modeless Find dialog for the board editor. Counterpart:
- * `pcbnew/dialogs/dialog_find.cpp` (DIALOG_FIND / dialog_find_base.cpp) — the
+ * `pcbnew/dialogs/dialog_find.cpp` (DIALOG_FIND / dialog_find_base.cpp), the
  * same controls in the same order: the search combo, then Match case, Whole
  * words only, Wildcards, Wrap; the include-scope checkboxes (footprint
- * reference designators, footprint values, other text items, net names — DRC
+ * reference designators, footprint values, other text items, net names, DRC
  * markers greyed until DRC lands); Find Next / Find Previous / Restart Search /
  * Close, with a status line. Enter = Find Next, Shift+Enter = Find Previous,
  * Esc = close.
@@ -137,7 +137,7 @@ export function DialogPcbFind({
                 Wrap
               </label>
             </div>
-            {/* sizerInclude: wxFlexGridSizer( 0, 2 ) — 2-column scope grid */}
+            {/* sizerInclude: wxFlexGridSizer( 0, 2 ), 2-column scope grid */}
             <div className="ze-find-scope">
               <label>
                 <input

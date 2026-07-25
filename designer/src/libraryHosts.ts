@@ -1,8 +1,8 @@
 /**
  * Where the hosted libraries live.
  *
- * The full KiCad sets — symbols, footprints, packages3D (pre-converted to .glb)
- * and the demo projects — are served from this project's Cloudflare R2 bucket,
+ * The full KiCad sets, symbols, footprints, packages3D (pre-converted to .glb)
+ * and the demo projects, are served from this project's Cloudflare R2 bucket,
  * so the app has the same library table wherever it runs. `public/symbols`,
  * `public/footprints` and friends hold only a small bundled subset, kept as an
  * offline fallback.
@@ -26,13 +26,13 @@ export const SYMBOLS_HOST = viteEnv?.VITE_SYMBOLS_URL || `${LIBRARY_HOST}/symbol
 /** `<base>/index.json` + `<base>/<Library>.pretty/<Footprint>.kicad_mod`. */
 export const FOOTPRINTS_HOST = viteEnv?.VITE_FOOTPRINTS_URL || `${LIBRARY_HOST}/footprints`;
 
-/** `<base>/<Library>.3dshapes/<Model>.glb` — the bucket root. */
+/** `<base>/<Library>.3dshapes/<Model>.glb`, the bucket root. */
 export const MODELS3D_HOST = viteEnv?.VITE_MODELS3D_URL || LIBRARY_HOST;
 
 /** `<base>/index.json` + the demo project archives. */
 export const DEMOS_HOST = viteEnv?.VITE_DEMOS_URL || `${LIBRARY_HOST}/demos`;
 
-/** The bundled subsets under `public/` — the offline fallback. */
+/** The bundled subsets under `public/`, the offline fallback. */
 export const bundledBase = (kind: 'symbols' | 'footprints'): string =>
   `${viteEnv?.BASE_URL ?? '/'}${kind}`;
 
@@ -52,7 +52,7 @@ export async function fetchLibraryIndex<T>(kind: 'symbols' | 'footprints'): Prom
     const res = await fetch(`${libraryBase[kind]}/index.json`);
     if (res.ok) return (await res.json()) as T[];
   } catch {
-    /* unreachable — fall through to the bundled subset */
+    /* unreachable, fall through to the bundled subset */
   }
   libraryBase[kind] = bundledBase(kind);
   try {

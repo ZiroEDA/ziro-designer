@@ -8,7 +8,7 @@
  * leave them stacked on top of each other. This lays them out in a free area below
  * the board in three nested passes:
  *
- *  1. within a sheet, footprints of identical size are arranged into a block — rows
+ *  1. within a sheet, footprints of identical size are arranged into a block, rows
  *     or columns depending on which way round they are, wrapped so a block does not
  *     become a 5:1 sliver, and ordered by reference designator;
  *  2. the blocks of one sheet are packed against each other;
@@ -55,7 +55,7 @@ const inflate = (b: Box, by: number): Box => ({
   maxY: b.maxY + by,
 });
 
-/** GetRefDesPrefix — everything up to the trailing digits and question marks. */
+/** GetRefDesPrefix, everything up to the trailing digits and question marks. */
 export function getRefDesPrefix(refDes: string): string {
   let end = refDes.length;
   while (end > 0) {
@@ -66,7 +66,7 @@ export function getRefDesPrefix(refDes: string): string {
   return refDes.slice(0, end);
 }
 
-/** GetTrailingInt — the number the reference designator ends with, 0 when none. */
+/** GetTrailingInt, the number the reference designator ends with, 0 when none. */
 export function getTrailingInt(text: string): number {
   let number = 0;
   let base = 1;
@@ -79,7 +79,7 @@ export function getTrailingInt(text: string): number {
   return number;
 }
 
-/** compareFootprintsbyRef — reference prefix, then the trailing number. */
+/** compareFootprintsbyRef, reference prefix, then the trailing number. */
 function compareFootprintsByRef(a: PcbFootprint, b: PcbFootprint): number {
   const refA = a.reference ?? '';
   const refB = b.reference ?? '';
@@ -90,7 +90,7 @@ function compareFootprintsByRef(a: PcbFootprint, b: PcbFootprint): number {
 }
 
 /**
- * spreadRectangles — pack `rects` (in IU) into a square area, growing the search
+ * spreadRectangles, pack `rects` (in IU) into a square area, growing the search
  * area by 20% until every rectangle fits. Returns the top-left corner each
  * rectangle was given, in IU.
  */
@@ -148,7 +148,7 @@ export interface SpreadFootprintsOptions {
 }
 
 /**
- * SpreadFootprints — the moves that lay `footprints` out without overlapping, with
+ * SpreadFootprints, the moves that lay `footprints` out without overlapping, with
  * the upper-left corner of the area at `targetBoxPosition`. Returns one translation
  * per input footprint, in input order; the caller applies them (this port is a pure
  * function, so it can be used for a dry run too).
@@ -209,7 +209,7 @@ export function spreadFootprints(
   const sheets = new Map<string, SheetGroup>();
 
   for (const fp of footprints) {
-    // GetPath().AsString().BeforeLast( '/' ) — the sheet the symbol lives on.
+    // GetPath().AsString().BeforeLast( '/' ), the sheet the symbol lives on.
     const path = groupBySheet ? (fp.path ?? '').slice(0, (fp.path ?? '').lastIndexOf('/') + 1) : '';
     const box = boxOf(fp);
     const size = { x: boxWidth(box) + componentGap, y: boxHeight(box) + componentGap };

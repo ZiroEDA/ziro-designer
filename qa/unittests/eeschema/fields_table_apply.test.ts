@@ -3,7 +3,7 @@
  * collects symbols from every sheet instance, its scopes filter by sheet path,
  * and OK turns the pending cells into per-sheet commands (field edits plus the
  * `${DNP}` / `${EXCLUDE_FROM_…}` attribute writes) that serialize back into the
- * `.kicad_sch` files and undo as one step — SCH_COMMIT's contract.
+ * `.kicad_sch` files and undo as one step, SCH_COMMIT's contract.
  *
  * This is the wiring SchematicEditor.applyFieldsEdits performs; `applyEdits`
  * below is that function with the React plumbing removed.

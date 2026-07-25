@@ -72,7 +72,7 @@ describe('schematic groups', () => {
       (group "Outer" (uuid "g-out") (members "g-in" "u-3"))`);
     const sel = expandSelectionToGroups(doc, new Set(['u-1']));
     // Touching u-1 selects Inner, which as a member of Outer selects Outer and
-    // every member — both group uuids and all three symbols.
+    // every member, both group uuids and all three symbols.
     expect([...sel].sort()).toEqual(['g-in', 'g-out', 'u-1', 'u-2', 'u-3']);
   });
 

@@ -23,7 +23,7 @@ export interface Theme {
   label: string;
   globalLabel: string;
   hierLabel: string;
-  /** LAYER_NETCLASS_REFS — netclass directive labels. */
+  /** LAYER_NETCLASS_REFS, netclass directive labels. */
   netclassFlag: string;
   netHighlight: string;
   selectionShadow: string;
@@ -33,7 +33,7 @@ export interface Theme {
   noConnect: string;
   ercError: string;
   ercWarning: string;
-  /** LAYER_ERC_EXCLUSION — the colour of an excluded marker. */
+  /** LAYER_ERC_EXCLUSION, the colour of an excluded marker. */
   ercExclusion: string;
   sheetBorder: string;
   sheetBackground: string;
@@ -52,7 +52,7 @@ export interface Theme {
   cursor: string;
 }
 
-/** "KiCad Default" — s_defaultTheme (the beige theme KiCad 9 ships as default). */
+/** "KiCad Default", s_defaultTheme (the beige theme KiCad 9 ships as default). */
 export const KICAD_DEFAULT: Theme = {
   background: 'rgb(245, 244, 239)',
   grid: 'rgb(181, 181, 181)',
@@ -94,7 +94,7 @@ export const KICAD_DEFAULT: Theme = {
   cursor: 'rgb(15, 15, 15)',
 };
 
-/** "KiCad Classic" — s_classicTheme (the white legacy theme; legacy palette values). */
+/** "KiCad Classic", s_classicTheme (the white legacy theme; legacy palette values). */
 export const KICAD_CLASSIC: Theme = {
   background: 'rgb(255, 255, 255)', // WHITE
   grid: 'rgb(132, 132, 132)', // DARKGRAY

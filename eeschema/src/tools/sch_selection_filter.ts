@@ -5,7 +5,7 @@
  *
  * The filter is how KiCad enforces item locking: a locked item fails the
  * filter unless `lockedItems` is enabled, so locked symbols cannot be
- * selected — and therefore cannot be moved, dragged or deleted — until the
+ * selected, and therefore cannot be moved, dragged or deleted, until the
  * user turns "Locked items" on in the Selection Filter panel. Each item-type
  * category gates its kinds the same way.
  */
@@ -44,7 +44,7 @@ export function defaultSelectionFilter(): SelectionFilterOptions {
   };
 }
 
-/** Any() — true if at least one category (not lockedItems) is enabled. */
+/** Any(), true if at least one category (not lockedItems) is enabled. */
 export function selectionFilterAny(o: SelectionFilterOptions): boolean {
   return (
     o.symbols ||
@@ -59,7 +59,7 @@ export function selectionFilterAny(o: SelectionFilterOptions): boolean {
   );
 }
 
-/** All() — true if every category (not lockedItems) is enabled. */
+/** All(), true if every category (not lockedItems) is enabled. */
 export function selectionFilterAll(o: SelectionFilterOptions): boolean {
   return (
     o.symbols &&

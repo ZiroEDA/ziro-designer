@@ -5,7 +5,7 @@
  * In the typed board model a net is just the `code -> name` entry of
  * `Board.nets`, and every net-carrying item (pad, track, via, zone) refers to it
  * by code. The writer passes the `(net …)` source children straight through, so
- * adding or dropping a net means editing the board node's own children — which is
+ * adding or dropping a net means editing the board node's own children, which is
  * what these helpers do, keeping `Board.nets` and `Board.source` in lockstep.
  */
 
@@ -13,10 +13,10 @@ import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/
 import { arg, numArg } from '@ziroeda/sexpr/src/query.js';
 import type { Board } from './types.js';
 
-/** NETINFO_LIST::UNCONNECTED — the code every unconnected item carries. */
+/** NETINFO_LIST::UNCONNECTED, the code every unconnected item carries. */
 export const UNCONNECTED_NET = 0;
 
-/** NETINFO_LIST::GetNetItem( name ) — the code of a net by name, or undefined. */
+/** NETINFO_LIST::GetNetItem( name ), the code of a net by name, or undefined. */
 export function findNet(board: Board, netName: string): number | undefined {
   for (const [code, name] of board.nets) {
     if (name === netName) return code;
@@ -24,10 +24,10 @@ export function findNet(board: Board, netName: string): number | undefined {
   return undefined;
 }
 
-/** NETINFO_LIST::GetNetItem( code ) — the name of a net by code. */
+/** NETINFO_LIST::GetNetItem( code ), the name of a net by code. */
 export const netName = (board: Board, code: number): string => board.nets.get(code) ?? '';
 
-/** NETINFO_LIST::getFreeNetCode — net codes stay consecutive. */
+/** NETINFO_LIST::getFreeNetCode, net codes stay consecutive. */
 function freeNetCode(board: Board): number {
   let code = 1;
   while (board.nets.has(code)) code++;
@@ -40,7 +40,7 @@ const netNode = (code: number, name: string): SList => ({
 });
 
 /**
- * NETINFO_LIST::AppendNet — add a net, or return the existing code when a net of
+ * NETINFO_LIST::AppendNet, add a net, or return the existing code when a net of
  * that name is already there. The new `(net …)` declaration is inserted after the
  * last existing one so the file keeps its conventional layout.
  */
@@ -72,7 +72,7 @@ export function appendNet(board: Board, name: string): { board: Board; code: num
 }
 
 /**
- * NETINFO_LIST::RemoveUnusedNets — keep only the nets in `keep` (upstream's
+ * NETINFO_LIST::RemoveUnusedNets, keep only the nets in `keep` (upstream's
  * IsCurrent flag), dropping both the model entries and the `(net …)` declarations.
  * Net 0 (`""`, the unconnected net) is always kept.
  */

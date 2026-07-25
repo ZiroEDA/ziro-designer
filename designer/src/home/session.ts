@@ -1,11 +1,11 @@
 /**
  * Persist the last app view across reloads (localStorage), so a page refresh
  * doesn't dump you back to an empty home screen. Only the *navigation* is stored
- * here — the project's files live in IndexedDB (projectStore), and on restore we
+ * here, the project's files live in IndexedDB (projectStore), and on restore we
  * reopen the most-recently-opened project (top of Recent, ordered by
  * lastOpenedAt) into the saved view.
  *
- * Note: unsaved editor edits are not preserved (that needs autosave) — restore
+ * Note: unsaved editor edits are not preserved (that needs autosave), restore
  * reopens the last saved project.
  */
 export interface Session {

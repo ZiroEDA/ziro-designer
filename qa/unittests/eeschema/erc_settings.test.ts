@@ -31,7 +31,7 @@ function sch(body: string) {
   const doc = readSchematic(parse(text));
   return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
 }
-// Two outputs on one wire — O×O is an error in the default matrix.
+// Two outputs on one wire, O×O is an error in the default matrix.
 const TWO_OUTPUTS = `
   ${place('OUT', 'U1', 10, 10, 'u1')} ${place('OUT', 'U2', 20, 10, 'u2')}
   (wire (pts (xy 10 10) (xy 20 10)) (uuid "w1"))`;

@@ -1,7 +1,7 @@
 /**
  * Symbol Fields Table data model. Counterpart: `eeschema/fields_data_model.cpp`
  * (FIELDS_EDITOR_GRID_DATA_MODEL), the engine behind KiCad's
- * DIALOG_SYMBOL_FIELDS_TABLE — its Edit view *and* its Export (BOM) view are
+ * DIALOG_SYMBOL_FIELDS_TABLE, its Edit view *and* its Export (BOM) view are
  * both this one model:
  *
  *   - columns are field names (plus the generated `${QUANTITY}` /
@@ -30,17 +30,17 @@ import { refsShorthand, type BomOutputFormat } from '../exporters/bom.js';
 export const QUANTITY_VARIABLE = '${QUANTITY}';
 /** FIELDS_EDITOR_GRID_DATA_MODEL::ITEM_NUMBER_VARIABLE. */
 export const ITEM_NUMBER_VARIABLE = '${ITEM_NUMBER}';
-/** INDETERMINATE_STATE (widgets/ui_common.h) — a group's cells disagree. */
+/** INDETERMINATE_STATE (widgets/ui_common.h), a group's cells disagree. */
 export const INDETERMINATE_STATE = '-- mixed values --';
 
 /** IsGeneratedField (common/common.cpp): a name that is exactly one token. */
 export const isGeneratedField = (name: string): boolean => /^\$\{\w*\}$/.test(name);
 
-/** GetGeneratedFieldDisplayName — the token names with the `${}` stripped. */
+/** GetGeneratedFieldDisplayName, the token names with the `${}` stripped. */
 export const generatedFieldDisplayName = (name: string): string =>
   expandTextVars(name, (token) => token);
 
-/** FIELDS_EDITOR_GRID_DATA_MODEL::isAttribute — columns that write symbol flags. */
+/** FIELDS_EDITOR_GRID_DATA_MODEL::isAttribute, columns that write symbol flags. */
 export const ATTRIBUTE_FIELDS = [
   '${DNP}',
   '${EXCLUDE_FROM_BOARD}',
@@ -55,7 +55,7 @@ export const isAttributeField = (name: string): boolean =>
 /** GROUP_TYPE (widgets/wx_grid.h): what a row is in the grouped table. */
 export type GroupType = 'singleton' | 'collapsed' | 'expanded' | 'child' | 'collapsed-during-sort';
 
-/** One symbol instance in the table — our stand-in for SCH_REFERENCE. */
+/** One symbol instance in the table, our stand-in for SCH_REFERENCE. */
 export interface FieldsRef {
   /** Sheet document basename the symbol lives in. */
   file: string;
@@ -91,7 +91,7 @@ export interface DataModelRow {
 /** FIELDS_EDITOR_GRID_DATA_MODEL::SCOPE. */
 export type FieldsScope = 'all' | 'sheet' | 'sheet-recursive';
 
-/** BOM_FIELD — one column of a BOM preset. */
+/** BOM_FIELD, one column of a BOM preset. */
 export interface BomFieldSpec {
   name: string;
   label: string;
@@ -99,7 +99,7 @@ export interface BomFieldSpec {
   groupBy: boolean;
 }
 
-/** BOM_PRESET — a named view of the table (columns, grouping, sort, filters). */
+/** BOM_PRESET, a named view of the table (columns, grouping, sort, filters). */
 export interface BomPresetSpec {
   name: string;
   readOnly?: boolean;
@@ -123,19 +123,19 @@ export interface FieldsTableEdits {
 const fieldValue = (sym: SchSymbol, key: string): string | undefined =>
   sym.fields.find((f) => f.key === key)?.value;
 
-/** SCH_REFERENCE::Split — "R12" → { ref: "R", refNumber: "12" }, "R?" → "?". */
+/** SCH_REFERENCE::Split, "R12" → { ref: "R", refNumber: "12" }, "R?" → "?". */
 function splitRef(reference: string): { ref: string; refNumber: string } {
   const m = /^(.*?)(\d+)$/.exec(reference);
   if (m) return { ref: m[1]!, refNumber: m[2]! };
   return { ref: reference.replace(/\?+$/, ''), refNumber: '?' };
 }
 
-/** SubReference — unit 1 → "A", 2 → "B" … (SCH_SYMBOL::SubReference). */
+/** SubReference, unit 1 → "A", 2 → "B" … (SCH_SYMBOL::SubReference). */
 const subReference = (unit: number): string =>
   unit >= 1 ? String.fromCharCode('A'.charCodeAt(0) + ((unit - 1) % 26)) : '';
 
 /**
- * Collect every non-power symbol of the hierarchy, once per sheet instance —
+ * Collect every non-power symbol of the hierarchy, once per sheet instance,
  * SCHEMATIC::Hierarchy().GetSymbols( …, SYMBOL_FILTER_NON_POWER ). Without a
  * root file the documents are walked in map order at the root path.
  */
@@ -178,13 +178,13 @@ export function buildFieldsReferences(
 // ---------------------------------------------------------------------------
 // String comparison helpers (common/string_utils.cpp).
 
-/** StrNumCmp — natural order, digit runs compared by value. The fields table
+/** StrNumCmp, natural order, digit runs compared by value. The fields table
  *  compares references case-insensitively, so that is this wrapper's default. */
 export function strNumCmp(a: string, b: string, ignoreCase = true): number {
   return baseStrNumCmp(a, b, ignoreCase);
 }
 
-/** SplitString — trailing text, the digit run before it, and the preamble. */
+/** SplitString, trailing text, the digit run before it, and the preamble. */
 function splitString(value: string): { beginning: string; digits: string; end: string } {
   let ii = value.length - 1;
   for (; ii >= 0; ii--) {
@@ -238,7 +238,7 @@ const SI_MODIFIERS: Readonly<Record<string, number>> = {
   E: 1e18,
 };
 
-/** ApplyModifier — scale `value` by an SI/IEC-60062 suffix; false when the
+/** ApplyModifier, scale `value` by an SI/IEC-60062 suffix; false when the
  *  trailing text isn't a recognised unit at all. */
 function applyModifier(value: number, text: string): { value: number; isModifier: boolean } {
   if (text.length === 0) return { value, isModifier: false };
@@ -250,7 +250,7 @@ function applyModifier(value: number, text: string): { value: number; isModifier
   return { value: hasModifier ? value * SI_MODIFIERS[first]! : value, isModifier: true };
 }
 
-/** ValueStringCompare — "10uF" sorts before "100uF" and "1mF". */
+/** ValueStringCompare, "10uF" sorts before "100uF" and "1mF". */
 export function valueStringCompare(a: string, b: string): number {
   const fa = splitString(a);
   const fb = splitString(b);
@@ -348,7 +348,7 @@ export function symbolTextVarResolver(
 }
 
 /**
- * DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames — seed the model's columns from a
+ * DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames, seed the model's columns from a
  * union of every field name in use: the mandatory fields first, then the
  * generated `${QUANTITY}` / `${ITEM_NUMBER}`, then user fields, then any
  * template fieldname not already present. Returns the names in that order,
@@ -451,7 +451,7 @@ export class FieldsDataModel {
     if (c) c.label = label;
   }
 
-  /** GetFieldNameCol — KiCad matches names case-insensitively here. */
+  /** GetFieldNameCol, KiCad matches names case-insensitively here. */
   getFieldNameCol(fieldName: string): number {
     return this.cols.findIndex((c) => c.fieldName.toLowerCase() === fieldName.toLowerCase());
   }
@@ -530,7 +530,7 @@ export class FieldsDataModel {
     return isAttributeField(this.getColFieldName(col));
   }
 
-  /** IsExpanderColumn — the first *shown* column carries the group triangle. */
+  /** IsExpanderColumn, the first *shown* column carries the group triangle. */
   isExpanderColumn(col: number): boolean {
     for (let i = 0; i < col; i++) {
       if (this.cols[i]?.show) return false;
@@ -657,7 +657,7 @@ export class FieldsDataModel {
     return symbolTextVarResolver(ref, this.docResolver?.(ref));
   }
 
-  /** getFieldShownText — the field's resolved text straight off the symbol. */
+  /** getFieldShownText, the field's resolved text straight off the symbol. */
   private getFieldShownText(ref: FieldsRef, fieldName: string): string {
     const value = fieldValue(ref.symbol, fieldName);
     if (value !== undefined) return expandTextVars(value, this.resolverFor(ref));
@@ -682,13 +682,13 @@ export class FieldsDataModel {
     return true;
   }
 
-  /** unitMatch — units of one annotated symbol always share a row. */
+  /** unitMatch, units of one annotated symbol always share a row. */
   private unitMatch(lh: FieldsRef, rh: FieldsRef): boolean {
     if (lh.refNumber === '?') return false;
     return lh.ref === rh.ref && lh.refNumber === rh.refNumber;
   }
 
-  /** groupMatch — every group-by column must agree (and at least one exists). */
+  /** groupMatch, every group-by column must agree (and at least one exists). */
   private groupMatch(lh: FieldsRef, rh: FieldsRef): boolean {
     const refCol = this.getFieldNameCol('Reference');
     if (refCol === -1) return false;
@@ -751,7 +751,7 @@ export class FieldsDataModel {
     this.sort();
   }
 
-  /** cmp — sort column first, reference second (empty rows sink). */
+  /** cmp, sort column first, reference second (empty rows sink). */
   private cmp(lh: DataModelRow, rh: DataModelRow): boolean {
     if (lh.refs.length === 0) return true;
     if (rh.refs.length === 0) return false;
@@ -916,7 +916,7 @@ export class FieldsDataModel {
     return group ? this.getGroupValue(group, col, ', ', '-', true, false) : '';
   }
 
-  /** GetExportValue — resolved, and mixed group values listed rather than hidden. */
+  /** GetExportValue, resolved, and mixed group values listed rather than hidden. */
   getExportValue(
     row: number,
     col: number,
@@ -927,7 +927,7 @@ export class FieldsDataModel {
     return group ? this.getGroupValue(group, col, refDelimiter, refRangeDelimiter, true, true) : '';
   }
 
-  /** SetValue — write one value to every symbol of the row. */
+  /** SetValue, write one value to every symbol of the row. */
   setValue(row: number, col: number, value: string): void {
     const column = this.cols[col];
     const group = this.rows[row];
@@ -950,7 +950,7 @@ export class FieldsDataModel {
     this.edited = true;
   }
 
-  /** GetDataWidth — the longest cell text of a column, in characters. */
+  /** GetDataWidth, the longest cell text of a column, in characters. */
   getDataWidth(col: number): number {
     const column = this.cols[col];
     if (!column) return 0;
@@ -1017,7 +1017,7 @@ export class FieldsDataModel {
     };
   }
 
-  /** FIELDS_EDITOR_GRID_DATA_MODEL::Export — the shown columns, delimited. */
+  /** FIELDS_EDITOR_GRID_DATA_MODEL::Export, the shown columns, delimited. */
   export(settings: BomOutputFormat): string {
     if (this.cols.length === 0) return '';
     let lastCol = -1;
@@ -1061,7 +1061,7 @@ export class FieldsDataModel {
   // --- apply ---------------------------------------------------------------
 
   /**
-   * ApplyData — the store's changed cells as per-sheet edits. Field values that
+   * ApplyData, the store's changed cells as per-sheet edits. Field values that
    * differ from the symbol are written; a tracked field the store no longer
    * carries (its column was removed) is cleared, which drops it from the
    * symbol; attribute columns become symbol flag changes.

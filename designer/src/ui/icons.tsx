@@ -10,7 +10,7 @@ import type { JSX } from 'react';
 const P = (d: string) => <path d={d} />;
 
 const ICONS: Record<string, JSX.Element> = {
-  // top — file/edit
+  // top, file/edit
   new: P('M4 1h6l3 3v11H4z M10 1v3h3'),
   open: P('M1 4h5l1 2h7v7H1z'),
   save: (
@@ -161,7 +161,7 @@ const ICONS: Record<string, JSX.Element> = {
     </g>
   ),
   bom: P('M3 2h10v12H3z M5 5h6 M5 8h6 M5 11h4'),
-  // left — view options
+  // left, view options
   grid: P('M2 2h12v12H2z M6 2v12 M10 2v12 M2 6h12 M2 10h12'),
   gridOverride: P('M2 2h12v12H2z M2 6h12 M2 10h12 M6 2v12'),
   unitIn: P('M5 3v10 M5 3h3 M5 8h2'),
@@ -182,7 +182,7 @@ const ICONS: Record<string, JSX.Element> = {
   annotateAuto: P('M3 13l1-3 7-7 2 2-7 7zM2 14h5'),
   hierarchy: P('M6 2h4v3H6z M2 11h4v3H2z M10 11h4v3h-4z M8 5v3 M4 8v3h8V8'),
   properties: P('M3 3h10v10H3z M5 6h6 M5 8h6 M5 10h4'),
-  // right — selection/draw
+  // right, selection/draw
   selectRect: P('M2 2l11 4-4 1-1 4z'),
   selectLasso: (
     <g>

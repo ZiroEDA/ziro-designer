@@ -90280,7 +90280,7 @@
 					)
 				)
 			)
-			(property "Description" "–36V, 1.5A Negative Linear Adjustable Regulator with Programmable Current Limit, TO-220-7"
+			(property "Description" "-36V, 1.5A Negative Linear Adjustable Regulator with Programmable Current Limit, TO-220-7"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -90842,7 +90842,7 @@
 					)
 				)
 			)
-			(property "Description" "–20V, 500mA, Ultralow Noise, Ultrahigh PSRR Negative Linear Regulator, -1.8..-20Vin, 0..-19.5Vout, DFN-12"
+			(property "Description" "-20V, 500mA, Ultralow Noise, Ultrahigh PSRR Negative Linear Regulator, -1.8..-20Vin, 0..-19.5Vout, DFN-12"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)

@@ -1,8 +1,8 @@
 /**
- * MurmurHash3 x64_128 — faithful port of KiCad's MMH3_HASH
+ * MurmurHash3 x64_128, faithful port of KiCad's MMH3_HASH
  * (libs/kimath/include/mmh3_hash.h, itself based on Austin Appleby's
  * public-domain MurmurHash3) and HASH_128::ToString (hash_128.h): the digest
- * prints as %016X%016X — h1 then h2, uppercase hex.
+ * prints as %016X%016X, h1 then h2, uppercase hex.
  *
  * Two tail treatments exist upstream: the correct one (`addData`) and the
  * pre-fix `addDataV1`, which rounded the tail up to 4-byte alignment, counted
@@ -64,16 +64,16 @@ function mmh3_x64_128(data: Uint8Array, seed: number, v1Tail: boolean): { h1: bi
   const remaining = data.length - nblocks * 16;
   // The streaming class hashes the tail from its 16-byte block buffer. addData
   // zeroes the whole remainder; addDataV1 only zeroed up to 4-byte alignment
-  // and counted the padding in len — for a single buffer the stale bytes
+  // and counted the padding in len, for a single buffer the stale bytes
   // beyond the padding are zero too (fresh block), so only `len` differs.
-  // V1's padding is 4 − ((remaining+4) % 4) — never 0: a 4-aligned tail gains
+  // V1's padding is 4 − ((remaining+4) % 4), never 0: a 4-aligned tail gains
   // 4 zero bytes, and a 12-byte tail pads len to a full block whose bytes then
   // vanish from the hash entirely (len & 15 == 0). That is the V1 bug.
   let len = BigInt(nblocks * 16 + remaining);
   if (v1Tail && remaining > 0) len += BigInt(4 - ((remaining + 4) % 4));
 
   const tail = data.subarray(nblocks * 16);
-  // hashTail switches on len & 15 — with V1 padding this can shorten (or zero)
+  // hashTail switches on len & 15, with V1 padding this can shorten (or zero)
   // the tail bytes considered, exactly like the padded block upstream.
   const tailLen = Number(len & 15n);
   let k1 = 0n;
@@ -108,7 +108,7 @@ function mmh3_x64_128(data: Uint8Array, seed: number, v1Tail: boolean): { h1: bi
 
 const hex16 = (v: bigint): string => v.toString(16).toUpperCase().padStart(16, '0');
 
-/** MMH3_HASH(seed).add(data).digest().ToString() — the current algorithm. */
+/** MMH3_HASH(seed).add(data).digest().ToString(), the current algorithm. */
 export function mmh3HashToString(data: Uint8Array, seed: number): string {
   const { h1, h2 } = mmh3_x64_128(data, seed, false);
   return hex16(h1) + hex16(h2);

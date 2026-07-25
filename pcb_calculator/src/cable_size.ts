@@ -1,6 +1,6 @@
 /**
  * Cable (round-wire) size: AWG ↔ diameter ↔ area, plus KiCad's fully-linked
- * wire/application model — every field can be edited and back-solves the wire
+ * wire/application model, every field can be edited and back-solves the wire
  * radius, everything else recomputes from it.
  * Counterpart: KiCad `pcb_calculator/calculator_panels/panel_cable_size.cpp`
  * (updateAll / On*Change handlers) and `common_data.cpp` material lists.
@@ -99,7 +99,7 @@ export interface CableState {
 export const cableHotResistivity = (rho20: number, alpha: number, tempC: number): number =>
   rho20 * (1 + alpha * (tempC - 20));
 
-/** Port of PANEL_CABLE_SIZE::updateAll — derive every field from the radius. */
+/** Port of PANEL_CABLE_SIZE::updateAll, derive every field from the radius. */
 export function cableUpdateAll(radiusM: number, p: CableParams): CableState {
   const areaM2 = Math.PI * radiusM * radiusM;
   const rhoHot = cableHotResistivity(p.rho20, p.alpha, p.temperatureC);
@@ -124,7 +124,7 @@ export function cableUpdateAll(radiusM: number, p: CableParams): CableState {
   };
 }
 
-// Inverse solvers — one per editable field, matching KiCad's On*Change
+// Inverse solvers, one per editable field, matching KiCad's On*Change
 // handlers. All take SI values; rhoHot is the temperature-adjusted resistivity.
 export const cableRadiusFromDiameter = (diameterM: number): number => diameterM / 2;
 

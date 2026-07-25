@@ -1,6 +1,6 @@
 /**
  * The netlist object model pcbnew consumes. Counterpart:
- * `pcbnew/netlist_reader/pcb_netlist.{h,cpp}` — COMPONENT_NET, NETLIST_GROUP,
+ * `pcbnew/netlist_reader/pcb_netlist.{h,cpp}`, COMPONENT_NET, NETLIST_GROUP,
  * COMPONENT and NETLIST.
  *
  * This is what the schematic hands the board: one COMPONENT per board-bound
@@ -26,7 +26,7 @@ export class COMPONENT_NET {
     readonly pinType = '',
   ) {}
 
-  /** COMPONENT_NET::IsValid — a net entry exists only for a named pin. */
+  /** COMPONENT_NET::IsValid, a net entry exists only for a named pin. */
   IsValid(): boolean {
     return this.pinName !== '';
   }
@@ -42,12 +42,12 @@ const EMPTY_NET = new COMPONENT_NET();
 export interface NETLIST_GROUP {
   name: string;
   uuid: string;
-  /** `(lib_id …)` — the design block this group came from, when any. */
+  /** `(lib_id …)`, the design block this group came from, when any. */
   libId: string;
   members: string[];
 }
 
-/** COMPONENT::UNIT_INFO — a multi-unit symbol's unit name and its pin numbers. */
+/** COMPONENT::UNIT_INFO, a multi-unit symbol's unit name and its pin numbers. */
 export interface UNIT_INFO {
   unitName: string;
   pins: string[];
@@ -73,7 +73,7 @@ export class COMPONENT {
     private m_reference: string,
     private m_value: string,
     /**
-     * The sheet path of the symbol — [ sheetUuid, … ] without the symbol itself,
+     * The sheet path of the symbol, [ sheetUuid, … ] without the symbol itself,
      * formatted as KiCad's KIID_PATH string ("/" or "/uuid/uuid/").
      */
     readonly path: string,
@@ -94,7 +94,7 @@ export class COMPONENT {
     return this.m_nets[index] ?? EMPTY_NET;
   }
 
-  /** COMPONENT::GetNet( pinName ) — the empty net when the pad has no pin. */
+  /** COMPONENT::GetNet( pinName ), the empty net when the pad has no pin. */
   GetNet(pinName: string): COMPONENT_NET {
     return this.m_nets.find((n) => n.pinName === pinName) ?? EMPTY_NET;
   }
@@ -103,7 +103,7 @@ export class COMPONENT {
     this.m_nets = [];
   }
 
-  /** COMPONENT::SortPins — COMPONENT_NET::operator< is by pin name. */
+  /** COMPONENT::SortPins, COMPONENT_NET::operator< is by pin name. */
   SortPins(): void {
     this.m_nets.sort((a, b) => (a.pinName < b.pinName ? -1 : a.pinName > b.pinName ? 1 : 0));
   }
@@ -164,7 +164,7 @@ export class COMPONENT {
     return this.m_footprintFilters;
   }
 
-  /** COMPONENT::IsLibSource — does this symbol come from `library:name`? */
+  /** COMPONENT::IsLibSource, does this symbol come from `library:name`? */
   IsLibSource(library: string, name: string): boolean {
     return library === this.m_library && name === this.m_name;
   }
@@ -205,7 +205,7 @@ export class COMPONENT {
  */
 export const fpidIsLegacy = (fpid: string): boolean => fpid !== '' && !fpid.includes(':');
 
-/** LIB_ID::GetLibItemName — the part after the nickname. */
+/** LIB_ID::GetLibItemName, the part after the nickname. */
 export const fpidItemName = (fpid: string): string => {
   const i = fpid.indexOf(':');
   return i === -1 ? fpid : fpid.slice(i + 1);
@@ -269,7 +269,7 @@ export class NETLIST {
   }
 
   /**
-   * NETLIST::GetComponentByPath — `uuidPath` is [ sheetUuid, …, symbolUuid ]: the
+   * NETLIST::GetComponentByPath, `uuidPath` is [ sheetUuid, …, symbolUuid ]: the
    * sheet path must match and the last element must be one of the component's
    * unit UUIDs.
    */
@@ -299,7 +299,7 @@ export class NETLIST {
     });
   }
 
-  /** NETLIST::SortByReference — operator< is StrNumCmp( ref, ref, true ). */
+  /** NETLIST::SortByReference, operator< is StrNumCmp( ref, ref, true ). */
   SortByReference(): void {
     this.m_components.sort((a, b) => strNumCmp(a.GetReference(), b.GetReference(), true));
   }
@@ -318,13 +318,13 @@ export class NETLIST {
     return this.m_replaceFootprints;
   }
 
-  /** NETLIST::AnyFootprintsLinked — any component with a footprint assigned. */
+  /** NETLIST::AnyFootprintsLinked, any component with a footprint assigned. */
   AnyFootprintsLinked(): boolean {
     return this.m_components.some((c) => c.GetFPID() !== '');
   }
 
   /**
-   * NETLIST::ApplyGroupMembership — resolve each group's member paths to the
+   * NETLIST::ApplyGroupMembership, resolve each group's member paths to the
    * components they name, once all components and groups have been read. A member
    * with more than one path element is an instance path (the same symbol UUID
    * exists once per instance of a shared sheet); a bare UUID matches any instance.

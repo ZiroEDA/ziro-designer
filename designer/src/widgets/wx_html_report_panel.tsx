@@ -1,6 +1,6 @@
 /**
  * Output-messages panel. Counterpart: `common/widgets/wx_html_report_panel.cpp`
- * (WX_HTML_REPORT_PANEL) — a titled box holding the report lines, the
+ * (WX_HTML_REPORT_PANEL), a titled box holding the report lines, the
  * "Show:" severity filters with their error/warning badges, and Save…
  *
  * The HTML window becomes a scrolling list of rows carrying the same colours

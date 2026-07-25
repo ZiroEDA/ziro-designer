@@ -57,7 +57,7 @@ function rectLoop(a: Vec2, b: Vec2): Vec2[] {
   ];
 }
 
-// Signed area (shoelace) — sign gives winding, magnitude ranks outer vs holes.
+// Signed area (shoelace), sign gives winding, magnitude ranks outer vs holes.
 function signedArea(loop: Pt[]): number {
   let a = 0;
   for (let i = 0; i < loop.length; i++) {
@@ -109,7 +109,7 @@ function chainLoops(polys: Vec2[][], tol: number): Vec2[][] {
 }
 
 /** Build the triangulated board outline (mm, centred 3D frame). `drills` (also
- * centred 3D mm) are subtracted from the surface so holes are real voids — the
+ * centred 3D mm) are subtracted from the surface so holes are real voids, the
  * board loops (for the walls) keep only the perimeter + Edge.Cuts cutouts. */
 export function buildBoardOutline(
   board: Board,

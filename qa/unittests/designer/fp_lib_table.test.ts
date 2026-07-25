@@ -1,7 +1,7 @@
 /**
  * Project footprint library table (FP_LIB_TABLE): the nickname a `.pretty`
  * directory is known by. The ECC83 demo stores `Footprints:Valve_ECC-83-1`
- * because its table names `${KIPRJMOD}/footprints.pretty` "Footprints" — using
+ * because its table names `${KIPRJMOD}/footprints.pretty` "Footprints", using
  * the directory name instead would make every such assignment look unknown.
  */
 import { describe, it, expect } from 'vitest';

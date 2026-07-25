@@ -1,5 +1,5 @@
 /**
- * "Resistor Calculator" panel — approximate a required value with 2–4
+ * "Resistor Calculator" panel, approximate a required value with 2 to 4
  * E-series resistors (series "+" / parallel "|").
  * Counterpart: KiCad `calculator_panels/panel_r_calculator.cpp`.
  *

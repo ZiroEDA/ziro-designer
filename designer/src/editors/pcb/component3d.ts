@@ -12,8 +12,8 @@
  * space. Each loader normalises geometry into mm exactly as KiCad's plugins
  * do:
  *   - `.glb` (our hosted library, converted from the KiCad 10 STEP set) and
- *     project STEP/IGES models are native mm — loaded raw;
- *   - `.wrl` is authored in 0.1-inch units — scaled ×2.54 at load, unless the
+ *     project STEP/IGES models are native mm, loaded raw;
+ *   - `.wrl` is authored in 0.1-inch units, scaled ×2.54 at load, unless the
  *     file carries its own top-level scale transform (WRL2BASE's
  *     "ApplyUnitConversion" rule in plugins/3d/vrml).
  * Our world frame is also mm, so the footprint matrix's model-unit factor is 1.

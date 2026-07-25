@@ -1,7 +1,7 @@
 /**
  * Progress reporting. Counterpart: `include/progress_reporter.h`
  * (PROGRESS_REPORTER) + `common/progress_reporter_base.cpp`
- * (PROGRESS_REPORTER_BASE) — KiCad's phase-based progress model behind every
+ * (PROGRESS_REPORTER_BASE), KiCad's phase-based progress model behind every
  * "Loading Schematic… 45%" gauge dialog. A job splits into phases; each phase
  * has a max count and a current count, and the overall bar value is
  * `(phase + current/max) / numPhases`.

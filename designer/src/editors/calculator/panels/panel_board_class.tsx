@@ -1,5 +1,5 @@
 /**
- * "Board Classes" memo panel — typical fabrication limits per class.
+ * "Board Classes" memo panel, typical fabrication limits per class.
  * Counterpart: KiCad `calculator_panels/panel_board_class.cpp`.
  */
 
@@ -16,8 +16,8 @@ export function PanelBoardClass(): JSX.Element {
     <div>
       <h3>Board Classes</h3>
       <div className="calc-note">
-        Indicative geometry limits per manufacturing class — a finer class means tighter features
-        and a more expensive board. Always confirm against your fab's capabilities.
+        Indicative geometry limits per manufacturing class, a finer class means tighter features and
+        a more expensive board. Always confirm against your fab's capabilities.
       </div>
       <div className="calc-field">
         <span className="calc-field-label">Units:</span>

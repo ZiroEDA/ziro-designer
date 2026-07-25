@@ -1,7 +1,7 @@
 {
   "name": "@ziroeda/designer",
   "version": "0.0.0",
-  "description": "Ziro Designer — the ZiroEDA design suite app shell: launcher, editor frames, cloud sync.",
+  "description": "Ziro Designer, the ZiroEDA design suite app shell: launcher, editor frames, cloud sync.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {

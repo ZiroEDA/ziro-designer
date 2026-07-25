@@ -1,6 +1,6 @@
 /**
  * String helpers shared across the editors. Counterpart:
- * `common/string_utils.cpp` — the natural-order comparison every reference
+ * `common/string_utils.cpp`, the natural-order comparison every reference
  * designator list is sorted with, and the stacked-pin notation, which lets one
  * schematic pin stand for several footprint pads: `[1,2]`, `[A1-A4]`,
  * `[1,3-5,7]`. A backslash escapes a structural character (`[ ] , -`) so it can
@@ -8,7 +8,7 @@
  */
 
 /**
- * EscapeString( …, CTX_NETNAME ) — make a string safe to use as (part of) a net
+ * EscapeString( …, CTX_NETNAME ), make a string safe to use as (part of) a net
  * name. `/` is the hierarchy separator in a net name, so it becomes `{slash}`;
  * newlines are dropped. This is what turns a label "SDA/A4" into the net name
  * "SDA{slash}A4", and it is applied to each sheet name of a net's path too.
@@ -24,7 +24,7 @@ export function escapeNetName(source: string): string {
 }
 
 /**
- * StrNumCmp — natural order: digit runs compare by value, so R2 sorts before
+ * StrNumCmp, natural order: digit runs compare by value, so R2 sorts before
  * R10. `aIgnoreCase` defaults to false, as upstream.
  */
 export function strNumCmp(a: string, b: string, ignoreCase = false): number {
@@ -74,7 +74,7 @@ const UNESCAPE_TOKENS: Record<string, string> = {
 };
 
 /**
- * UnescapeString — turn the `{slash}`-style escapes KiCad writes into a file back
+ * UnescapeString, turn the `{slash}`-style escapes KiCad writes into a file back
  * into the characters they stand for. A `{…}` group preceded by `$`, `~`, `^` or `_`
  * is markup (a variable reference, an overbar, a superscript, a subscript) and is
  * kept, with its contents unescaped; so is an unknown or unterminated token.
@@ -195,7 +195,7 @@ function parseAlphaNumericPin(pinNum: string): [string, number] {
 
 /**
  * ExpandStackedPinNotation: the pad numbers a pin stands for. `valid` reports
- * whether the notation parsed — mismatched brackets, a reversed or
+ * whether the notation parsed, mismatched brackets, a reversed or
  * non-numeric range, or an empty list make it false, and the pin name comes
  * back unexpanded.
  */

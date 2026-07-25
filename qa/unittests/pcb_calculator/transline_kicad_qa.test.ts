@@ -2,7 +2,7 @@
  * KiCad master's transline QA vectors, ported from
  * `qa/tests/common/transline_calculations/` (checked out 2026-07-22).
  * These pin our engines to the exact numbers KiCad's own test suite pins its
- * implementation to — if one of these fails after an engine edit, the port
+ * implementation to, if one of these fails after an engine edit, the port
  * has drifted from upstream.
  */
 
@@ -177,7 +177,7 @@ describe('coupled stripline (test_coupled_stripline.cpp)', () => {
   });
 });
 
-describe('Djordjevic–Sarkar (test_djordjevic_sarkar.cpp, scikit-rf oracle)', () => {
+describe('Djordjevic-Sarkar (test_djordjevic_sarkar.cpp, scikit-rf oracle)', () => {
   const model = djordjevicSarkarFit(4.4, 0.02, 1e9)!;
 
   it('FR-4 fit: εinf = 4.01276, m = 0.05606', () => {

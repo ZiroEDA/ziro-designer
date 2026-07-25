@@ -3,7 +3,7 @@
  *
  * Sources (gitignored): kicad-symbols-src/ and kicad-footprints-src/ (upstream
  * library repos, master). Upstream symbols moved to the one-symbol-per-file
- * layout (<Lib>.kicad_symdir/*.kicad_sym); the app — like released KiCad —
+ * layout (<Lib>.kicad_symdir/*.kicad_sym); the app, like released KiCad,
  * loads one .kicad_sym per library, so each dir is merged into a single
  * library file. The merge is lossless: every top-level `(symbol …)` block is
  * copied byte-for-byte via a balanced-paren scan, never reformatted.
@@ -101,7 +101,7 @@ for (const dir of pretties.sort()) {
 console.log(`footprints: ${fpIndex.length} libraries, ${fpEntries.length} footprints`);
 
 if (process.env.STAGE_ONLY) {
-  console.log('STAGE_ONLY set — merged libraries staged, skipping upload.');
+  console.log('STAGE_ONLY set, merged libraries staged, skipping upload.');
   process.exit(0);
 }
 

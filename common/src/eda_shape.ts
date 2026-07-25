@@ -1,5 +1,5 @@
 /**
- * EDA_SHAPE — the graphic-shape geometry shared by pcb and schematic items
+ * EDA_SHAPE, the graphic-shape geometry shared by pcb and schematic items
  * (common/eda_shape.{h,cpp}). In KiCad it is a mixin base; TypeScript has no
  * multiple inheritance, so PCB_SHAPE composes an EDA_SHAPE (pcb_shape.ts).
  *

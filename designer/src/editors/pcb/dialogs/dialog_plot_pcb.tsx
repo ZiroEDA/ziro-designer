@@ -1,6 +1,6 @@
 /**
  * Plot dialog for the board editor. Counterpart: DIALOG_PLOT
- * (`pcbnew/dialogs/dialog_plot_base.cpp` + `dialog_plot.cpp`) — the plot-format
+ * (`pcbnew/dialogs/dialog_plot_base.cpp` + `dialog_plot.cpp`), the plot-format
  * row and output directory on top, the "Include Layers" checklist on the left,
  * "General Options" and the format's own group on the right, the Output
  * Messages report panel, and the button row Run DRC... / Generate Drill
@@ -8,14 +8,14 @@
  *
  * Gerber is the format this editor writes, so the dialog shows Gerber's world:
  * upstream's SetPlotFormat( GERBER ) disables drill marks, scaling, mirrored
- * and negative plot outright — options that could never do anything here — so
+ * and negative plot outright, options that could never do anything here, so
  * they are left out instead of shown dead, along with the General Options that
  * need plotting passes we don't have (soldermask subtraction, DNP marking,
  * sketch pads / pad numbers). What remains is live: drawing the checked layers,
  * the drill/place file origin, Protel extensions, the Gerber job file, the
  * coordinate format and the X2/X1 attribute style.
  *
- * Web delta — there is no local filesystem, so "Output directory:" is a folder
+ * Web delta, there is no local filesystem, so "Output directory:" is a folder
  * inside the *project* (our cloud file manager), where each .gbr/.gbrjob/.drl
  * is written exactly as KiCad writes them to disk; "Download a copy to this
  * computer" additionally streams the set out as a zip.
@@ -45,7 +45,7 @@ interface Props {
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
-   *  folder). Absent when the board is open standalone — then plots download. */
+   *  folder). Absent when the board is open standalone, then plots download. */
   onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
   /** Run DRC... (upstream m_buttonDRC opens the DRC dialog). */
   onRunDrc?: () => void;
@@ -138,7 +138,7 @@ export function DialogPcbPlot({
       });
     }
     if (made.length === 0) {
-      report('No layers selected — nothing to plot.', RPT_SEVERITY_WARNING);
+      report('No layers selected, nothing to plot.', RPT_SEVERITY_WARNING);
       return;
     }
     for (const m of made) emit(m.name, m.text, 'application/vnd.gerber');

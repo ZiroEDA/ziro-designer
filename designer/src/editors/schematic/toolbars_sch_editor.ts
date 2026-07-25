@@ -2,9 +2,9 @@
  * Schematic editor toolbar layouts. Counterpart: `eeschema/
  * toolbars_sch_editor.cpp` (SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig),
  * transcribed exactly for the project-manager case (our editors always live
- * under the launcher, like KiCad frames under the project manager — so no
+ * under the launcher, like KiCad frames under the project manager, so no
  * New/Open on the top toolbar). Separators mark AppendSeparator groups;
- * TOOLBAR_GROUP_CONFIG entries render as ACTION_GROUP buttons — one visible
+ * TOOLBAR_GROUP_CONFIG entries render as ACTION_GROUP buttons, one visible
  * action with a corner triangle, long-press (or click, for option radio
  * groups) opening the palette with the rest.
  *
@@ -69,7 +69,7 @@ export const TOP_TOOLBAR: ToolEntry[] = [
   { id: 'showPcbNew', icon: 'showPcbNew', title: 'Switch to PCB Editor' },
 ];
 
-/** Left vertical toolbar (TOOLBAR_LOC::LEFT — display/edit option toggles). */
+/** Left vertical toolbar (TOOLBAR_LOC::LEFT, display/edit option toggles). */
 export const LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'toggleGrid', icon: 'grid', title: 'Show Grid', toggle: true },
   {
@@ -132,7 +132,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'showProperties', icon: 'properties', title: 'Properties', toggle: true },
 ];
 
-/** Right vertical toolbar (TOOLBAR_LOC::RIGHT — drawing/placement tools). */
+/** Right vertical toolbar (TOOLBAR_LOC::RIGHT, drawing/placement tools). */
 export const RIGHT_TOOLBAR: ToolEntry[] = [
   {
     group: 'Selection modes',

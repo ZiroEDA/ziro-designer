@@ -100,7 +100,7 @@ const IDEAL_VALUE =
   /^([0-9,. ]+)([fFpPnNuUmMkKgGtTμµ𝛍𝜇𝝁 ]|M(e|E)(g|G))?([fFhHΩΩ𝛀𝛺𝝮rR]|ohm)?([-1-9 ]*)([fFhHΩΩ𝛀𝛺𝝮rR]|ohm)?$/u;
 
 /**
- * SIM_MODEL::ReadTypeFromFields — the (device, type) pair must name a TYPE.
+ * SIM_MODEL::ReadTypeFromFields, the (device, type) pair must name a TYPE.
  * An empty `Sim.Type` is TYPE::NONE (no complaint); anything else that does not
  * resolve is the error TestSimModelIssues reports.
  */
@@ -112,7 +112,7 @@ export function readTypeFromFields(deviceType: string, modelType: string): { fou
       }
     }
   }
-  // TYPE::NONE — nothing named, nothing to complain about.
+  // TYPE::NONE, nothing named, nothing to complain about.
   if (modelType === '') return { found: true };
   return { found: false };
 }
@@ -170,7 +170,7 @@ export function checkSimModel(
 }
 
 /**
- * SIM_LIBRARY_SPICE::ReadFile — the model names a SPICE library defines.
+ * SIM_LIBRARY_SPICE::ReadFile, the model names a SPICE library defines.
  * `.model <name> …` and `.subckt <name> …`, case-insensitively, with `+`
  * continuation lines ignored (they never start a definition).
  */
@@ -184,7 +184,7 @@ export function spiceLibraryModelNames(text: string): string[] {
   return names;
 }
 
-/** SIM_LIBRARY::FindModel — SPICE names are case-insensitive. */
+/** SIM_LIBRARY::FindModel, SPICE names are case-insensitive. */
 export function findSpiceModel(libraryText: string, name: string): boolean {
   const wanted = name.toLowerCase();
   return spiceLibraryModelNames(libraryText).some((n) => n.toLowerCase() === wanted);

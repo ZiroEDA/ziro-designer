@@ -5,7 +5,7 @@
  * the installed packages and the configured repositories, computes per-package
  * state and available updates, holds a pending-changes queue applied as a batch
  * (DIALOG_PCM's "Apply Pending Changes"), verifies payload hashes, and persists
- * everything to localStorage — the web equivalent of KiCad's
+ * everything to localStorage, the web equivalent of KiCad's
  * `installed_packages.json` plus the repository cache. Subscribers re-render
  * through useSyncExternalStore.
  *
@@ -48,7 +48,7 @@ function storeJson(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* private mode — installs simply don't persist */
+    /* private mode, installs simply don't persist */
   }
 }
 
@@ -240,8 +240,8 @@ class PcmStore {
   /**
    * Add and fetch a third-party repository. Follows KiCad's two-level layout:
    * the index document points at a separate packages resource
-   * (`{ name, packages: { url, sha256? } }`), which is fetched and — when a
-   * sha256 is given — verified before use. A flat `{ name, packages: [...] }`
+   * (`{ name, packages: { url, sha256? } }`), which is fetched and, when a
+   * sha256 is given, verified before use. A flat `{ name, packages: [...] }`
    * document is also accepted for convenience. Throws on network/parse/hash
    * errors.
    */

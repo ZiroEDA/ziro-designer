@@ -1,5 +1,5 @@
 /**
- * VECTOR2I — the integer 2D vector KiCad uses for board coordinates
+ * VECTOR2I, the integer 2D vector KiCad uses for board coordinates
  * (libs/kimath/include/math/vector2.h). KiCad's VECTOR2<T> is a rich template;
  * this port provides the mutable {x,y} struct plus the operations the pcbnew
  * classes actually call. Coordinates are internal units (nanometres in KiCad;

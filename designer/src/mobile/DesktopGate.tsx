@@ -44,7 +44,7 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
         <h1 className="ze-gate-title">Ziro Designer needs a bigger screen</h1>
 
         <p className="ze-gate-body">
-          Ziro Designer is a full EDA suite — schematic capture, PCB layout and 3D preview. It's
+          Ziro Designer is a full EDA suite, schematic capture, PCB layout and 3D preview. It's
           built for a mouse, a keyboard and room to work, so there's no phone version yet.
         </p>
         <p className="ze-gate-body">Open this link on a laptop or desktop to get started.</p>
@@ -80,7 +80,7 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
 
 /**
  * Desktop-only wall. On a small touch-only device the app is replaced by a card
- * explaining why, with a way to carry the link over to a real machine — a phone
+ * explaining why, with a way to carry the link over to a real machine, a phone
  * visitor gets a deliberate product, not a collapsed desktop layout that reads
  * as broken. See {@link useDesktopGate} for what counts as "small touch-only";
  * tablets in landscape and anything with a mouse attached are let straight
@@ -90,7 +90,7 @@ function GateCard({ onContinue }: { onContinue: () => void }): JSX.Element {
  * KiCad's project manager (tree pane, drag splitter, status bar), which is no
  * more usable on a phone than the editors are.
  *
- * "Continue anyway" is always offered — the layout will be unusable, but a
+ * "Continue anyway" is always offered, the layout will be unusable, but a
  * determined visitor is never hard-blocked, and the choice sticks across
  * reloads.
  */

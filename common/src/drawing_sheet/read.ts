@@ -11,7 +11,7 @@
  *  - text justification defaults to LEFT / CENTER; the `center` token inside
  *    `(justify …)` sets BOTH axes to center, `left`/`right`/`top`/`bottom`
  *    set one axis each;
- *  - `(font …)` carries bare `bold` / `italic` atoms (not `(bold yes)` lists —
+ *  - `(font …)` carries bare `bold` / `italic` atoms (not `(bold yes)` lists,
  *    those are accepted leniently for older third-party writers), plus
  *    `(face NAME)`, `(size W H)`, `(linewidth W)` and `(color R G B A)`;
  *  - bitmap image data is base64 `(data "…" "…")` chunks directly under the
@@ -230,7 +230,7 @@ function readItem(node: SList): WksItem | null {
     if (data) {
       b64 = args(data).join('');
     } else {
-      // Legacy: (pngdata (data "hex line") … ) — 32 hex bytes per line; also
+      // Legacy: (pngdata (data "hex line") … ), 32 hex bytes per line; also
       // tolerate a (ppi N) child written by some historic exporters.
       const png = childNamed(node, 'pngdata');
       if (png) {

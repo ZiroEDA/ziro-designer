@@ -1,5 +1,5 @@
 /**
- * Output-size model — the counterpart of KiCad's `IMAGE_SIZE`
+ * Output-size model, the counterpart of KiCad's `IMAGE_SIZE`
  * (`bitmap2cmp_frame.cpp`). The source image has a pixel count and a native PPI;
  * the "Output Size" box lets you express the exported size either physically
  * (mm / inch) or directly as a DPI. Whatever the unit, the exporter ultimately

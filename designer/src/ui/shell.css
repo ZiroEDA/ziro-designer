@@ -56,7 +56,7 @@ body {
 .ze-menubar .ze-menu:hover {
   background: var(--chrome-hover);
 }
-/* KiCad window-title info in the menu bar: "<project> — <Editor>", centred like
+/* KiCad window-title info in the menu bar: "<project>, <Editor>", centred like
    a window title. Absolute + pointer-events:none so it doesn't block menus. */
 .ze-menubar-title {
   position: absolute;
@@ -166,7 +166,7 @@ body {
   opacity: 0.35;
 }
 
-/* A toolbar CONTROL slot (TOOLBAR_CONFIGURATION::AppendControl) — e.g. the
+/* A toolbar CONTROL slot (TOOLBAR_CONFIGURATION::AppendControl), e.g. the
    symbol viewer's unit / body-style wxChoice, 150 px wide upstream. */
 .ze-tb-control {
   display: inline-flex;
@@ -333,7 +333,7 @@ body {
   font-weight: 500;
 }
 
-/* PCB Properties grid — mirrors KiCad's wxPropertyGrid (PROPERTIES_PANEL):
+/* PCB Properties grid, mirrors KiCad's wxPropertyGrid (PROPERTIES_PANEL):
    white name/value text (system WINDOWTEXT), grey read-only (GRAYTEXT), a
    name|value split by a line, and category bars with the GTK disclosure
    chevron reused from the project tree. Values are plain text, not boxed. */
@@ -429,8 +429,8 @@ body {
 
 /* Message panel + status bar */
 /* EDA_MSG_PANEL: two rows (upper label / lower value), each one control-font
-   line high. Items are packed left-to-right — no fixed columns, no separators
-   — offset from the left by ~one character and spaced by ~one character plus
+   line high. Items are packed left-to-right, no fixed columns, no separators
+   - offset from the left by ~one character and spaced by ~one character plus
    the item padding (updateItemPos: m_last_x += textExtent + m_fontSize.x). */
 .ze-msgpanel {
   display: flex;
@@ -477,7 +477,7 @@ body {
 /* KiCad's KISTATUSBAR has two stretching fields: field 0 (the message area,
    weight -2) on the far left and field 6 (the "current tool" panel, weight -1)
    before the constraint field. In the dark theme the field separators are
-   invisible, so we draw none — the two stretch fields position the cluster. */
+   invisible, so we draw none, the two stretch fields position the cluster. */
 .ze-statusbar .cell.msg {
   flex: 1 1 0;
   min-width: 0;
@@ -840,7 +840,7 @@ body {
   flex: 0 0 auto;
   width: 80px;
 }
-/* Opacity slider: KiCad's compact wxSlider — a thin track with a small round
+/* Opacity slider: KiCad's compact wxSlider, a thin track with a small round
    thumb, not the browser's tall default control. The filled left portion is
    set inline as a gradient so it shows the current value. */
 .ze-opacity {
@@ -891,7 +891,7 @@ body {
   border: none;
 }
 /* A net/netclass with no custom color: a plain empty swatch (dark with a
-   border), like KiCad's uncolored COLOR_SWATCH — click it to assign a color. */
+   border), like KiCad's uncolored COLOR_SWATCH, click it to assign a color. */
 .ze-layer-swatch.unset {
   background: #2b2d31;
   border-color: #565961;
@@ -1152,7 +1152,7 @@ body {
   z-index: 60;
 }
 /* The DRC dialog reuses the modeless find-dialog chrome (DIALOG_DRC is
-   modeless too — the canvas stays interactive for click-to-locate). */
+   modeless too, the canvas stays interactive for click-to-locate). */
 .ze-drc-dialog {
   width: 520px;
   top: 48px;
@@ -1251,7 +1251,7 @@ body {
 .ze-schfind-dialog {
   width: 520px;
 }
-/* leftGridSizer( 3, 2 ) — label | combo, second column growable. */
+/* leftGridSizer( 3, 2 ), label | combo, second column growable. */
 .ze-schfind-inputs {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -1263,7 +1263,7 @@ body {
   min-width: 220px;
   width: 100%;
 }
-/* gbSizer2 = wxGridBagSizer( 0, 20 ) — 3 columns, hgap 20. */
+/* gbSizer2 = wxGridBagSizer( 0, 20 ), 3 columns, hgap 20. */
 .ze-schfind-scope {
   display: grid;
   grid-template-columns: auto auto 1fr;
@@ -1283,8 +1283,8 @@ body {
 }
 
 /* Annotate Schematic dialog (DIALOG_ANNOTATE). */
-/* Annotate Schematic (dialog_annotate_base.cpp): a 2x2 grid of static boxes —
-   Scope | Order over Options | Numbering — above the messages report panel. */
+/* Annotate Schematic (dialog_annotate_base.cpp): a 2x2 grid of static boxes,
+   Scope | Order over Options | Numbering, above the messages report panel. */
 .ze-annotate-dialog {
   width: 720px;
   height: auto;
@@ -2029,9 +2029,9 @@ body {
   font-size: 12px;
 }
 
-/* Symbol Library Browser (symbol_viewer_frame.cpp): the frame's AUI panes —
+/* Symbol Library Browser (symbol_viewer_frame.cpp): the frame's AUI panes,
    toolbar on top, "Libraries" | "Symbols" palettes left of the canvas, message
-   panel at the bottom — laid out inside one modal. Upstream's default frame is
+   panel at the bottom, laid out inside one modal. Upstream's default frame is
    500 x 400 with 150 px list panes. */
 .ze-modal.ze-lib-viewer {
   width: 1000px;
@@ -2121,7 +2121,7 @@ body {
 }
 /* constructRightPanel's sizer margins: the symbol preview has 5px all round,
    the footprint selector 5px left/right, the footprint preview 5px
-   left/right/bottom — so the panes never bleed into the dialog edge. */
+   left/right/bottom, so the panes never bleed into the dialog edge. */
 .ze-chooser-right {
   flex: 1;
   display: flex;
@@ -2416,7 +2416,7 @@ body {
   font-size: 12px;
 }
 /* FOOTPRINT_PREVIEW_PANEL paints on pcbnew's canvas, so its background is the
-   board editor's (LAYER_PCB_BACKGROUND, rgb(0,16,35)) — not the schematic
+   board editor's (LAYER_PCB_BACKGROUND, rgb(0,16,35)), not the schematic
    white of the symbol preview beside it. */
 .ze-fp-preview {
   flex: 10;
@@ -2474,7 +2474,7 @@ body {
   gap: 8px;
   justify-content: flex-end;
 }
-/* Footer buttons keep their intrinsic size — never shrink to min-content
+/* Footer buttons keep their intrinsic size, never shrink to min-content
    (which wraps "Page Setup..." / "Print Preview" onto two lines). */
 .ze-modal-footer .ze-btn {
   flex: 0 0 auto;
@@ -2496,7 +2496,7 @@ body {
 .ze-chooser-footer-spacer {
   flex: 1;
 }
-/* PagedDialog shell (Schematic Setup / Board Setup) — mirrors PAGED_DIALOG. */
+/* PagedDialog shell (Schematic Setup / Board Setup), mirrors PAGED_DIALOG. */
 .ze-paged-infobar {
   padding: 6px 12px;
   font-size: 12px;
@@ -2694,7 +2694,7 @@ body {
    48/48 px with a 22 px column-label band and a 100 px minimum height, the
    text-entry block has a 12 px margin and 3 px between caption and control,
    and the Shape / Formatting boxes sit side by side above the buttons. The
-   dialog itself has no fixed size upstream (wxDialog size -1,-1) — it fits
+   dialog itself has no fixed size upstream (wxDialog size -1,-1), it fits
    its content, which the grid pins to ~530 px. */
 .ze-modal.ze-label-props {
   width: 552px;
@@ -3609,7 +3609,7 @@ body {
 }
 
 /* Sign-in as a modal (opened from the header/nudge for a signed-out user who
-   dismissed the wall isn't possible — kept for completeness / future reuse). */
+   dismissed the wall isn't possible, kept for completeness / future reuse). */
 .ze-auth-modal {
   position: relative;
 }
@@ -4175,7 +4175,7 @@ body {
   border-left: 1px solid var(--chrome-border);
 }
 
-/* Notebook tabs (wxNotebook pages) — the library table dialog's two tables. */
+/* Notebook tabs (wxNotebook pages), the library table dialog's two tables. */
 .ze-tabbar {
   display: flex;
   gap: 2px;

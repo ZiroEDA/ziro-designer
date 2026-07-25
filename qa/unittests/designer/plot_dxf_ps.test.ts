@@ -30,7 +30,7 @@ const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
 
 describe('plot to DXF', () => {
   const doc = readSchematic(parse(SCH));
-  // "Export units: Millimeters" — the dialog's other choice is Inches, which is
+  // "Export units: Millimeters", the dialog's other choice is Inches, which is
   // KiCad's default selection (m_DXF_plotUnits) and the writer's default too.
   const dxf = sheetToDxf(doc, KICAD_DEFAULT, {
     color: true,

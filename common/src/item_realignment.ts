@@ -22,7 +22,7 @@ import {
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
-/** ITEM_REALIGNER_BASE::TRANSFORM — rotation about the origin, then translation. */
+/** ITEM_REALIGNER_BASE::TRANSFORM, rotation about the origin, then translation. */
 export interface REALIGN_TRANSFORM {
   rotation: EDA_ANGLE;
   translation: VECTOR2I;
@@ -33,7 +33,7 @@ const ANGLE_225 = new EDA_ANGLE(225);
 const ANGLE_315 = new EDA_ANGLE(315);
 const ANGLE_270 = new EDA_ANGLE(270);
 
-/** Snap90Degrees — the nearest quarter turn. */
+/** Snap90Degrees, the nearest quarter turn. */
 function snap90Degrees(angle: EDA_ANGLE): EDA_ANGLE {
   const a = angle.Normalized();
   if (a.AsDegrees() < ANGLE_45.AsDegrees()) return ANGLE_0.Clone();
@@ -47,7 +47,7 @@ const norm = (v: VECTOR2I): number => Math.hypot(v.x, v.y);
 const sub = (a: VECTOR2I, b: VECTOR2I): VECTOR2I => ({ x: a.x - b.x, y: a.y - b.y });
 
 /**
- * ORTHO_ITEM_REALIGNER::GetTransform — the transform to apply to the NEW points
+ * ORTHO_ITEM_REALIGNER::GetTransform, the transform to apply to the NEW points
  * (`ptsB`) to best align them onto the OLD ones (`ptsA`). Both lists must be the
  * same length and index-matched. Returns null when no usable baseline exists (all
  * candidate point pairs coincide), which the caller reads as "no shift".
@@ -61,7 +61,7 @@ export function orthoRealignTransform(
   const epsilon = 10;
   let bestRotation: EDA_ANGLE | null = null;
 
-  // First find a good baseline — two matching points in each set that are not
+  // First find a good baseline, two matching points in each set that are not
   // coincident.
   for (let firstPtIdx = 0; firstPtIdx < ptsA.length && !bestRotation; firstPtIdx++) {
     for (let secondPtIdx = firstPtIdx; secondPtIdx < ptsA.length; secondPtIdx++) {
@@ -110,7 +110,7 @@ export function orthoRealignTransform(
     return { rotation, translation: sub(ptsA[bestPadIdx]!, rotatedPtsB[bestPadIdx]!) };
   }
 
-  // Otherwise fix nothing and take the mean displacement — the least-squares
+  // Otherwise fix nothing and take the mean displacement, the least-squares
   // minimising translation.
   let totalX = 0;
   let totalY = 0;

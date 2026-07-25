@@ -1,5 +1,5 @@
 /**
- * Committed net chains — `(net_chain …)` persistence (parseSchNetChain +
+ * Committed net chains, `(net_chain …)` persistence (parseSchNetChain +
  * SCH_IO_KICAD_SEXPR::Format), the passthrough bridge gates
  * (buildBridgeAdjacency BLOCK/FORCE), terminal-pin selection (RebuildNetChains
  * pass 4: farthest-apart pin pair), the committed-restore passes (2a terminal
@@ -46,7 +46,7 @@ const doc = (body: string) =>
 const libOf = (d: ReturnType<typeof doc>) => new Map(d.libSymbols.map((l) => [l.libId, l]));
 const netlistOf = (d: ReturnType<typeof doc>) => computeNetlist(d, libOf(d));
 
-// R1 bridging IN—MID, R2 bridging MID—OUT: a 3-net chain.
+// R1 bridging IN-MID, R2 bridging MID-OUT: a 3-net chain.
 const CHAIN3 = `
   ${res('R1', 10, 10, 'r1')}
   ${res('R2', 30, 10, 'r2')}
@@ -139,7 +139,7 @@ describe('passthrough bridge gates', () => {
   });
 
   it('(passthrough force) bridges even non-collinear wires', () => {
-    // Wire B is vertical while wire A is horizontal — default mode rejects.
+    // Wire B is vertical while wire A is horizontal, default mode rejects.
     const d = doc(`
       ${res('R1', 10, 10, 'r1', '(passthrough force)')}
       (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))

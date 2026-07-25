@@ -1,5 +1,5 @@
 /**
- * "RF Attenuators" panel — PI, Tee, bridged Tee and resistive splitter.
+ * "RF Attenuators" panel, PI, Tee, bridged Tee and resistive splitter.
  * Counterpart: KiCad `calculator_panels/panel_rf_attenuators.cpp`.
  */
 

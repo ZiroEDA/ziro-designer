@@ -1,13 +1,13 @@
 /**
  * Print dialog. Counterpart: `eeschema/printing/dialog_print.cpp` (DIALOG_PRINT
- * for eeschema, dialog_print_base.cpp) — the same control order: "Print
+ * for eeschema, dialog_print_base.cpp), the same control order: "Print
  * drawing sheet", "Output mode:" choice, "Print background color", the
  * different-print-theme option. KiCad's behaviors translated exactly:
  *
  *  - Options persist in the eeschema settings' `printing.*` slice.
  *    TransferDataToWindow seeds every control from it (first run is KiCad's
  *    defaults: B&W, no drawing sheet), and SavePrintOptions runs from the
- *    DESTRUCTOR — i.e. on every way of leaving the dialog (Print, Preview,
+ *    DESTRUCTOR, i.e. on every way of leaving the dialog (Print, Preview,
  *    Close, the X, the backdrop).
  *  - The theme choice pre-selects `use_theme ? printing.color_theme : the
  *    editor's display theme` and is enabled only while the checkbox is

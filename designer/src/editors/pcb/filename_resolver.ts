@@ -9,7 +9,7 @@
  *   1. normalise separators, expand env-var substitutions;
  *   2. `kicad-embed://` URIs → embedded files (not modelled yet → unresolved);
  *   3. the name as specified, if it exists (for us: an exact project file);
- *   4. a `${VAR}` that failed to expand fails hard — no library fallback;
+ *   4. a `${VAR}` that failed to expand fails hard, no library fallback;
  *   5. bare/relative paths try the project directory FIRST (so a project can
  *      override a library model), then ${KICADn_3DMODEL_DIR};
  *   6. `:alias:` shortcuts (user aliases not supported yet → unresolved).
@@ -54,7 +54,7 @@ const joinUrl = (base: string, rel: string): string =>
 
 const norm = (s: string): string => s.replace(/\\/g, '/').replace(/^\.\//, '');
 
-// A project reference matches a file by full relative path or — web-specific —
+// A project reference matches a file by full relative path or, web-specific,
 // by basename (KiCad checks wxFileName::FileExists on the user's disk; an
 // uploaded project has no disk, so a path recorded on another machine can only
 // be matched by its final component).
@@ -78,7 +78,7 @@ export function resolvePath(path: string, opts: ResolveOpts): ResolvedModel {
   if (p.startsWith('kicad-embed://')) return { kind: 'unresolved' };
 
   // ${KIPRJMOD}: strictly the project directory. Upstream expands the var and
-  // requires the file to exist — a miss fails hard, it never falls back to the
+  // requires the file to exist, a miss fails hard, it never falls back to the
   // library.
   if (PRJ_ENV.test(p)) return findInProject(p.replace(PRJ_ENV, ''), opts.projectFiles);
 
@@ -91,7 +91,7 @@ export function resolvePath(path: string, opts: ResolveOpts): ResolvedModel {
   }
 
   // Any other ${VAR}/$(VAR) cannot expand here (no environment, and user path
-  // aliases are not supported yet) — upstream fails hard in this case too.
+  // aliases are not supported yet), upstream fails hard in this case too.
   if (ANY_ENV.test(p)) return { kind: 'unresolved' };
 
   // Legacy `:alias:rest` shortcuts: user aliases are not supported yet.

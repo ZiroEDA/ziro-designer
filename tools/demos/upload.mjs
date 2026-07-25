@@ -1,5 +1,5 @@
 /**
- * Upload the FULL upstream demo corpus (no stripping — every file of every
+ * Upload the FULL upstream demo corpus (no stripping, every file of every
  * project) straight from kicad-src/demos to R2, plus a generated manifest.
  * Dependency-free SigV4 (S3-compatible) so the repo carries no SDK weight.
  *

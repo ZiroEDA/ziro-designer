@@ -4,7 +4,7 @@
  *
  * This mirrors KiCad exactly: `FOOTPRINT_EDIT_FRAME` is a `PCB_BASE_EDIT_FRAME`
  * that owns a `BOARD` holding the one footprint being edited (see
- * `footprint_edit_frame.cpp` — `GetBoard()->Add( footprint )`). The footprint is
+ * `footprint_edit_frame.cpp`, `GetBoard()->Add( footprint )`). The footprint is
  * placed at the board origin (0,0, 0°), so its stored local coordinates are also
  * its board coordinates and no transform is applied.
  */

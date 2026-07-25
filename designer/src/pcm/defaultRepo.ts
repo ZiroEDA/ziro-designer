@@ -4,7 +4,7 @@
  * KiCad ships a well-known default repository URL; the equivalent here is a
  * repository compiled into the app so the Plugin and Content Manager has real,
  * installable content out of the box (and works with no network). Third-party
- * repositories can still be added by URL — see `pcmStore.addRepository`.
+ * repositories can still be added by URL, see `pcmStore.addRepository`.
  *
  * The colour themes are complete `Theme` objects (built by overriding the KiCad
  * default palette). The library packages carry small, real `.kicad_sym`
@@ -761,7 +761,7 @@ const PACKAGES: RepoPackage[] = [
   themePkg(
     'com.ziroeda.theme.nord',
     'Nord',
-    'The Nord arctic, north-bluish colour palette — a calm dark theme.',
+    'The Nord arctic, north-bluish colour palette, a calm dark theme.',
     NORD,
     ['dark', 'blue', 'nord'],
   ),

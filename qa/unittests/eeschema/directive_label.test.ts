@@ -30,7 +30,7 @@ describe('flag geometry', () => {
     const flag = makeDirectiveLabel(at(50, 50), { shape: 'round', pinLength: mmToIU(2.54) });
     const g = directiveGraphic(flag);
     // A flag stored at angle 0 is SPIN_STYLE::RIGHT, which CreateGraphicShape
-    // rotates by 180° — the pin runs up the sheet from its anchor.
+    // rotates by 180°, the pin runs up the sheet from its anchor.
     expect(g.line[0]).toEqual(at(50, 50));
     expect(g.circle).toBeDefined();
     expect(g.circle?.center.y).toBeLessThan(g.line[0].y);

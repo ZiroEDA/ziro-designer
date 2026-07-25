@@ -2,14 +2,14 @@ import type { JSX } from 'react';
 import type { ProgressSnapshot } from './progress_reporter.js';
 
 /**
- * Blocking progress overlay — the web equivalent of KiCad's WX_PROGRESS_REPORTER
+ * Blocking progress overlay, the web equivalent of KiCad's WX_PROGRESS_REPORTER
  * dialog plus busy cursor (eeschema/pcbnew files-io). Render it while a heavy
  * load/save runs so the UI never looks frozen; a null label hides it. The
  * spinner animates via `transform`, so it keeps moving on the compositor thread
  * even while the main thread is busy parsing/compressing.
  *
  * `label` may be a plain string (indeterminate spinner, the original API) or a
- * ProgressSnapshot from a ProgressReporter — then a determinate progress bar
+ * ProgressSnapshot from a ProgressReporter, then a determinate progress bar
  * with a percentage and an optional "3 of 12" detail line renders under the
  * message, like KiCad's gauge dialog.
  */
@@ -30,7 +30,7 @@ export function LoadingOverlay({
           {(pct !== null || snap.detail) && (
             <span className="ze-loading-detail">
               {snap.detail ?? ''}
-              {snap.detail && pct !== null ? ' — ' : ''}
+              {snap.detail && pct !== null ? ', ' : ''}
               {pct !== null ? `${pct}%` : ''}
             </span>
           )}

@@ -14,7 +14,7 @@ function gitSha(short = false): string | undefined {
 }
 
 // A short build stamp (git SHA + UTC time) so the running app can show exactly
-// which deploy is loaded — this makes "am I on the latest build?" verifiable
+// which deploy is loaded, this makes "am I on the latest build?" verifiable
 // instead of guessing when behaviour looks stale.
 function buildStamp(): string {
   const sha = gitSha(true);
@@ -40,7 +40,7 @@ const RELEASE: string = process.env.VERCEL_GIT_COMMIT_SHA ?? gitSha() ?? 'dev';
 process.env.VITE_RELEASE ??= RELEASE;
 
 /**
- * Source maps are uploaded to Sentry and then deleted — never deployed.
+ * Source maps are uploaded to Sentry and then deleted, never deployed.
  *
  * `sourcemap: 'hidden'` generates them without leaving a `//# sourceMappingURL`
  * comment in the bundle, so nothing advertises them, and
@@ -48,7 +48,7 @@ process.env.VITE_RELEASE ??= RELEASE;
  * Sentry gets readable stack traces; the public site never serves our source.
  *
  * The whole thing is off unless all three credentials are present. That keeps
- * `pnpm build` working for contributors and in CI — and, importantly, means a
+ * `pnpm build` working for contributors and in CI, and, importantly, means a
  * build without the token emits no maps at all rather than emitting them and
  * quietly publishing them.
  */

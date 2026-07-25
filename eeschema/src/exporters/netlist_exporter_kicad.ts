@@ -1,7 +1,7 @@
 /**
  * The KiCad (s-expression) netlist. Counterparts:
  *  - `eeschema/netlist_exporters/netlist_exporter_kicad.cpp`
- *    (NETLIST_EXPORTER_KICAD — `Format( out, GNL_ALL | GNL_OPT_KICAD )`),
+ *    (NETLIST_EXPORTER_KICAD, `Format( out, GNL_ALL | GNL_OPT_KICAD )`),
  *  - `eeschema/netlist_exporters/netlist_exporter_xml.cpp`
  *    (NETLIST_EXPORTER_XML::makeRoot and its section builders),
  *  - `common/xnode.cpp` (XNODE::Format, which prints the very same node tree as
@@ -11,7 +11,7 @@
  * This is the schematic side of "Update PCB from Schematic": pcbnew reads what
  * this writes with KICAD_NETLIST_PARSER. Because both ends of the handoff are a
  * file format rather than a shared object graph, the board never has to reach into
- * the schematic model — exactly the separation upstream gets from kiway mail.
+ * the schematic model, exactly the separation upstream gets from kiway mail.
  *
  * Unlike {@link netlistKicadXml} in ./netlist.ts (the generic XML netlist for
  * external tools, still single-sheet), this exporter walks the whole hierarchy:
@@ -65,12 +65,12 @@ class XNODE {
     return child;
   }
 
-  /** AddChild( node( name, text ) ) — the common leaf case. */
+  /** AddChild( node( name, text ) ), the common leaf case. */
   leaf(name: string, text: string): XNODE {
     return this.child(new XNODE(name, text));
   }
 
-  /** XNODE::Format — attributes, then text, then element children. */
+  /** XNODE::Format, attributes, then text, then element children. */
   toSList(): SList {
     const items: SNode[] = [atom(this.name)];
     for (const [name, value] of this.attrs) items.push(list(atom(name), str(value)));
@@ -84,7 +84,7 @@ class XNODE {
 
 /** One sheet instance of the hierarchy, with the two path spellings the netlist needs. */
 export interface NetlistSheet extends HierSheet {
-  /** SCH_SHEET_PATH::PathHumanReadable — "/" or "/Power/Filter/". */
+  /** SCH_SHEET_PATH::PathHumanReadable, "/" or "/Power/Filter/". */
   namePath: string;
 }
 
@@ -93,16 +93,16 @@ export interface KicadNetlistInput {
   sheets: readonly NetlistSheet[];
   /** The lib_symbols cache of a sheet's document. */
   libsFor: (sheet: NetlistSheet) => Map<string, LibSymbol>;
-  /** The root schematic's file name — the `(design (source …))` header. */
+  /** The root schematic's file name, the `(design (source …))` header. */
   source: string;
   /** Bus alias definitions, so bus members expand as the editor sees them. */
   busAliases?: ReadonlyMap<string, readonly string[]>;
-  /** Project text variables — the `(design (textvar …))` entries. */
+  /** Project text variables, the `(design (textvar …))` entries. */
   textVars?: ReadonlyMap<string, string>;
   /** The effective netclass of a net name, for `(net … (class …))`. */
   netClassFor?: (netName: string) => string;
   /**
-   * The pad numbers a footprint carries, keyed by its LIB_ID — the footprintPads
+   * The pad numbers a footprint carries, keyed by its LIB_ID, the footprintPads
    * cache NETLIST_EXPORTER_BASE::resolvePadNumbers consults so a remapped symbol
    * pin lands on the right pad. Omit it and pin numbers are used as pad numbers.
    */
@@ -160,7 +160,7 @@ function orderedSymbols(doc: Schematic): SymbolInstance[] {
 
   const out: SymbolInstance[] = [];
   for (const [ref, units] of byRef) {
-    // "( *( test.first ) )->m_Uuid > symbol->m_Uuid" — the lowest UUID wins the
+    // "( *( test.first ) )->m_Uuid > symbol->m_Uuid", the lowest UUID wins the
     // ordered_symbols slot, the rest become extra_units.
     const sorted = [...units].sort((a, b) => (a.sym.uuid ?? '').localeCompare(b.sym.uuid ?? ''));
     const primary = sorted[0]!;
@@ -197,7 +197,7 @@ function makeDesignHeader(input: KicadNetlistInput): XNODE {
     xtitleBlock.leaf('rev', tb?.rev ?? '');
     xtitleBlock.leaf('date', tb?.date ?? '');
     xtitleBlock.leaf('source', sheet.file);
-    // TITLE_BLOCK::GetComment( 0..8 ) — the typed model does not carry the nine
+    // TITLE_BLOCK::GetComment( 0..8 ), the typed model does not carry the nine
     // comment lines, so they are read from the block's own `(comment N "…")`.
     const comments = tb ? childrenNamed(tb.source, 'comment') : [];
     for (let i = 0; i < 9; i++) {
@@ -213,7 +213,7 @@ function makeDesignHeader(input: KicadNetlistInput): XNODE {
 }
 
 /**
- * NETLIST_EXPORTER_XML::addSymbolFields — the value / footprint / datasheet /
+ * NETLIST_EXPORTER_XML::addSymbolFields, the value / footprint / datasheet /
  * description elements and the `(fields …)` block. For a multi-unit symbol each
  * unit may carry its own field values, so the lowest-numbered unit with a
  * non-blank value wins for each field name (upstream's "scavenger algorithm").
@@ -268,7 +268,7 @@ function addSymbolFields(
   fields.set('Datasheet', datasheet);
   fields.set('Description', description);
 
-  // Do not output field values blank in netlist — except Value, which is always
+  // Do not output field values blank in netlist, except Value, which is always
   // written (as "~" when empty).
   xcomp.leaf('value', value !== '' ? value : '~');
   if (footprint !== '') xcomp.leaf('footprint', footprint);
@@ -317,7 +317,7 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
         xcomp.child(new XNODE('property')).attr('name', field.key).attr('value', field.value);
       }
 
-      // The sheet symbol's fields (Sheetname / Sheetfile / user fields) — how the
+      // The sheet symbol's fields (Sheetname / Sheetfile / user fields), how the
       // board learns which sheet a footprint belongs to.
       for (const sheetField of parentSheetFields(input, sheet)) {
         xcomp
@@ -358,7 +358,7 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
 
       // Every UUID that shares this reference: the extra units first, the primary
       // last (BOARD_NETLIST_UPDATER links the footprint to the *first* one, so the
-      // ordering matters — upstream emits extras then the primary).
+      // ordering matters, upstream emits extras then the primary).
       const xunits = xcomp.child(new XNODE('tstamps'));
       for (const extra of instance.extraUnits) xunits.texts.push(extra.sym.uuid ?? '');
       xunits.texts.push(sym.uuid ?? '');
@@ -380,7 +380,7 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
 }
 
 /**
- * The fields of the sheet symbol that opens `sheet` — Sheetname and Sheetfile, the
+ * The fields of the sheet symbol that opens `sheet`, Sheetname and Sheetfile, the
  * properties BOARD_NETLIST_UPDATER copies onto the footprint. The root sheet has
  * no parent sheet symbol and so contributes none.
  */
@@ -406,7 +406,7 @@ function parentSheetFields(
 }
 
 /**
- * NETLIST_EXPORTER_XML::makeGroups — the symbol groups whose members should become
+ * NETLIST_EXPORTER_XML::makeGroups, the symbol groups whose members should become
  * PCB groups. Group and member UUIDs are prefixed with the sheet instance path, so
  * a group on a shared sheet yields one group per instance; a group name is
  * qualified with the instance path when its sheet is used more than once.
@@ -661,7 +661,7 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
 // ----- root -------------------------------------------------------------------
 
 /**
- * NETLIST_EXPORTER_XML::makeRoot( GNL_ALL | GNL_OPT_KICAD ) — the whole netlist as
+ * NETLIST_EXPORTER_XML::makeRoot( GNL_ALL | GNL_OPT_KICAD ), the whole netlist as
  * one S-expression node, in the section order pcbnew's parser expects.
  */
 export function makeKicadNetlistNode(input: KicadNetlistInput): SList {
@@ -684,7 +684,7 @@ export function makeKicadNetlistNode(input: KicadNetlistInput): SList {
   return xroot.toSList();
 }
 
-/** NETLIST_EXPORTER_KICAD::Format — the netlist as `.net` text. */
+/** NETLIST_EXPORTER_KICAD::Format, the netlist as `.net` text. */
 export function netlistKicad(input: KicadNetlistInput): string {
   return serialize(makeKicadNetlistNode(input));
 }

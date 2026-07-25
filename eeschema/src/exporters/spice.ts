@@ -4,9 +4,9 @@
  * InferSimModel` (sim/sim_model.cpp) and the SPICE_GENERATOR item-line
  * builders (sim/spice_generator.cpp, sim_model_ideal/behavioral/source.cpp).
  *
- * Scope: the inference pipeline — 2-pin R/L/C (ideal values or behavioural
+ * Scope: the inference pipeline, 2-pin R/L/C (ideal values or behavioural
  * expressions) and V/I sources (DC/AC), from the reference prefix and the
- * Value / `Sim.*` fields — plus schematic-text directive collection and
+ * Value / `Sim.*` fields, plus schematic-text directive collection and
  * ngspice-safe net-name conversion. Symbols carrying explicit `Sim.Library`/
  * `Sim.Name` models (or other unrecognised devices) are reported and skipped;
  * the full SIM_MODEL registry is the simulator project's next chunk.
@@ -36,7 +36,7 @@ export interface SpiceExportOptions {
 }
 
 /**
- * NETLIST_EXPORTER_SPICE::ConvertToSpiceMarkup — flatten KiCad text markup
+ * NETLIST_EXPORTER_SPICE::ConvertToSpiceMarkup, flatten KiCad text markup
  * (`~{X}` negation keeps a leading '~' before the sanitiser turns it into '_';
  * `_{X}`/`^{X}` print as plain X), replace ngspice-hostile characters with
  * '_', and apply the ground aliases (`…/0` → `0`, `/gnd` → `gnd`, leading
@@ -79,7 +79,7 @@ export function convertToSpiceMarkup(name: string): string {
   return out;
 }
 
-/** SIM_VALUE::ToSpice — SI notation to SPICE notation ('M' → 'Meg', µ → 'u');
+/** SIM_VALUE::ToSpice, SI notation to SPICE notation ('M' → 'Meg', µ → 'u');
  *  plain numbers and unparsable strings (behavioural expressions) pass
  *  through untouched. */
 export function toSpice(value: string): string {
@@ -180,7 +180,7 @@ const SOURCE_VAL =
   /^([0-9,. ]+)([fFpPnNuUmMkKgGtTμµ ]|M(?:e|E)(?:g|G))?([vVaA])?([-1-9 ]*)([vVaA])?$/;
 
 /**
- * SIM_MODEL::InferSimModel — infer a model for 2-pin passives (R/L/C) and
+ * SIM_MODEL::InferSimModel, infer a model for 2-pin passives (R/L/C) and
  * sources (V/I) from the reference prefix and the Value / Sim.* fields.
  * Returns null when no inference applies (explicit models, other devices).
  */
@@ -329,7 +329,7 @@ const DIRECTIVES = [
   '.WIDTH',
 ];
 
-/** ReadDirectives — schematic text (and text boxes) whose lines contain SPICE
+/** ReadDirectives, schematic text (and text boxes) whose lines contain SPICE
  *  directives (or K-line mutual-inductor declarations) pass into the netlist. */
 export function collectSpiceDirectives(sch: Schematic, resolve?: (t: string) => string): string[] {
   const out: string[] = [];
@@ -373,7 +373,7 @@ export interface SpiceItem {
   refName: string;
   /** The full item line, '\n'-terminated ('' = model contributes no line). */
   line: string;
-  /** SPICE_GENERATOR::ItemName — refName prefixed with the item type letter
+  /** SPICE_GENERATOR::ItemName, refName prefixed with the item type letter
    *  when it doesn't already start with it. */
   itemName: string;
 }
@@ -382,7 +382,7 @@ export interface SpiceItem {
 const SIM_COMMANDS = ['.AC', '.DC', '.TRAN', '.OP', '.DISTO', '.NOISE', '.PZ', '.SENS', '.TF'];
 
 /**
- * NETLIST_EXPORTER_SPICE::DoWriteNetlist — the full netlist text plus any
+ * NETLIST_EXPORTER_SPICE::DoWriteNetlist, the full netlist text plus any
  * skipped symbols (explicit/unsupported models, this chunk's boundary).
  */
 export function generateSpiceNetlist(

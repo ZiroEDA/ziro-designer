@@ -1,26 +1,26 @@
 /**
  * Project-file persistence for the Schematic Setup dialog. Counterparts:
- * `eeschema/schematic_settings.cpp` (SCHEMATIC_SETTINGS — the `schematic.*`
- * namespace of `.kicad_pro`), `eeschema/erc/erc_settings.cpp` (ERC_SETTINGS —
- * `erc.*`), `common/project/net_settings.cpp` (NET_SETTINGS — `net_settings.*`)
+ * `eeschema/schematic_settings.cpp` (SCHEMATIC_SETTINGS, the `schematic.*`
+ * namespace of `.kicad_pro`), `eeschema/erc/erc_settings.cpp` (ERC_SETTINGS,
+ * `erc.*`), `common/project/net_settings.cpp` (NET_SETTINGS, `net_settings.*`)
  * and `common/project/project_file.cpp` (`text_variables`).
  *
  * `readSchematicSetup` hydrates a SchematicSetup from the project's raw
  * `.kicad_pro` (missing keys fall back to KiCad's defaults);
  * `writeSchematicSetupText` merges a SchematicSetup back into the `.kicad_pro`
- * JSON, preserving every key it does not own — so a KiCad-authored project
+ * JSON, preserving every key it does not own, so a KiCad-authored project
  * round-trips with only the edited settings changed. `page_layout_descr_file`
  * in particular belongs to projectSheet.ts and is never touched here.
  *
  * Bus aliases persist at `schematic.bus_aliases` (an alias -> members object;
- * current KiCad stores them here — the schematic writer no longer emits
+ * current KiCad stores them here, the schematic writer no longer emits
  * `bus_alias` nodes, only the parser still accepts legacy ones). Embedded
  * files stay `.kicad_sch` data (the `embedded_files` section, zstd-compressed
- * blobs preserved losslessly through the AST) — listed read-only for now.
+ * blobs preserved losslessly through the AST), listed read-only for now.
  *
  * Units follow the file format: PARAM_SCALED sizes are stored in mils
  * (scale `1 / schIUScale.IU_PER_MILS`), net-class PCB fields in mm and
- * wire/bus widths in mils — the panel grids type file units directly.
+ * wire/bus widths in mils, the panel grids type file units directly.
  */
 
 import type { ErcCode, ErcSeverityLevel, PinError } from '@ziroeda/eeschema';
@@ -104,7 +104,7 @@ function str(v: unknown, dflt: string): string {
 // ---------------------------------------------------------------------------
 // Value tables.
 
-/** The rules `erc.rule_severities` stores, and their keys — every code in
+/** The rules `erc.rule_severities` stores, and their keys, every code in
  *  ERC_ITEMS *is* its settings key (ERC_ITEM::GetSettingsKey), and ERC_ITEMS is
  *  ERC_ITEM::GetItemsWithSeverities, so the file round-trips exactly what KiCad
  *  writes. The internal types (`duplicate_pins`, `pin_to_pin_error`) sit past
@@ -123,7 +123,7 @@ function opoRangeFromFile(file: unknown, auto: string): string {
   return v === auto ? 'Auto' : v;
 }
 
-/** COLOR4D's unset marker — what GetSchematicColor/GetPcbColor( true ) emit
+/** COLOR4D's unset marker, what GetSchematicColor/GetPcbColor( true ) emit
  *  for COLOR4D::UNSPECIFIED. */
 const KICAD_COLOR_UNSET = 'rgba(0, 0, 0, 0.000)';
 
@@ -160,7 +160,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
   }
   if (!isObj(j)) return s;
 
-  // schematic.drawing.* + schematic.* — SCHEMATIC_SETTINGS.
+  // schematic.drawing.* + schematic.*, SCHEMATIC_SETTINGS.
   const f = s.formatting;
   f.defaultLineWidthMils = num(
     getPath(j, 'schematic.drawing.default_line_thickness'),
@@ -310,7 +310,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     }
     s.bomPresets.fmtPresets = fmt;
   }
-  // schematic.bom_settings / bom_fmt_settings — the fields table's current view
+  // schematic.bom_settings / bom_fmt_settings, the fields table's current view
   // and output format (SCHEMATIC_SETTINGS m_BomSettings / m_BomFmtSettings).
   const bomCur = getPath(j, 'schematic.bom_settings');
   if (isObj(bomCur) && Array.isArray(bomCur.fields_ordered)) {
@@ -347,7 +347,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
   const bomFile = getPath(j, 'schematic.bom_export_filename');
   if (typeof bomFile === 'string') s.bomPresets.exportFileName = bomFile;
 
-  // erc.* — ERC_SETTINGS.
+  // erc.*, ERC_SETTINGS.
   const sev = getPath(j, 'erc.rule_severities');
   if (isObj(sev)) {
     for (const [code, key] of SEVERITY_KEYS) {
@@ -378,7 +378,7 @@ export function readSchematicSetupText(proText: string): SchematicSetup {
     }
   }
 
-  // net_settings.* — NET_SETTINGS.
+  // net_settings.*, NET_SETTINGS.
   const classes = getPath(j, 'net_settings.classes');
   if (Array.isArray(classes)) {
     const numStr = (v: unknown): string =>
@@ -487,7 +487,7 @@ const OPTIONAL_CLASS_KEYS: readonly (readonly [string, keyof NetClass])[] = [
   ['bus_width', 'busThickness'],
 ];
 
-/** INT_MAX — NET_SETTINGS gives the Default class the lowest priority. */
+/** INT_MAX, NET_SETTINGS gives the Default class the lowest priority. */
 const DEFAULT_CLASS_PRIORITY = 2147483647;
 
 /** Return `proText` with the SchematicSetup merged in (all unrelated keys
@@ -501,7 +501,7 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
   }
   if (!isObj(j)) return null;
 
-  // schematic.drawing.* + schematic.* — SCHEMATIC_SETTINGS.
+  // schematic.drawing.* + schematic.*, SCHEMATIC_SETTINGS.
   const f = s.formatting;
   setPath(j, 'schematic.drawing.default_line_thickness', f.defaultLineWidthMils);
   setPath(j, 'schematic.drawing.default_text_size', f.defaultTextSizeMils);
@@ -717,7 +717,7 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
   }
   setPath(j, 'net_settings.net_chain_classes', chainOut);
 
-  // text_variables: fully owned by the panel — rebuild (a deleted row must
+  // text_variables: fully owned by the panel, rebuild (a deleted row must
   // leave the file).
   const varsOut: Json = {};
   for (const v of s.textVars) if (v.name) varsOut[v.name] = v.value;
@@ -726,7 +726,7 @@ export function writeSchematicSetupText(proText: string, s: SchematicSetup): str
   // schematic.used_designators (REFDES_TRACKER state; opaque string).
   setPath(j, 'schematic.used_designators', s.usedDesignators);
 
-  // schematic.bus_aliases: fully owned by the panel — rebuild.
+  // schematic.bus_aliases: fully owned by the panel, rebuild.
   const aliasesOut: Json = {};
   for (const a of s.busAliases) if (a.name) aliasesOut[a.name] = [...a.members];
   setPath(j, 'schematic.bus_aliases', aliasesOut);

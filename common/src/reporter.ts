@@ -4,10 +4,10 @@
  *
  * A REPORTER is the write end of a message stream; the widget that displays it
  * (WX_HTML_REPORT_PANEL) is the read end. Lines carry a severity and a location
- * — head lines print first, tail lines last, everything else in report order.
+ * - head lines print first, tail lines last, everything else in report order.
  */
 
-/** SEVERITY — a bit flag, so a filter is a mask (report_severity.h). */
+/** SEVERITY, a bit flag, so a filter is a mask (report_severity.h). */
 export const RPT_SEVERITY_UNDEFINED = 0x01;
 export const RPT_SEVERITY_INFO = 0x02;
 export const RPT_SEVERITY_EXCLUSION = 0x04;
@@ -29,7 +29,7 @@ export interface ReportLine {
   location: ReportLocation;
 }
 
-/** REPORTER — Report()/ReportTail()/ReportHead() onto a message sink. */
+/** REPORTER, Report()/ReportTail()/ReportHead() onto a message sink. */
 export class Reporter {
   readonly lines: ReportLine[] = [];
 
@@ -57,7 +57,7 @@ export class Reporter {
     return this.lines.length > 0;
   }
 
-  /** WX_HTML_REPORT_PANEL::Count — lines matching a severity mask. */
+  /** WX_HTML_REPORT_PANEL::Count, lines matching a severity mask. */
   count(severityMask: Severity): number {
     return this.lines.filter((l) => severityMask & l.severity).length;
   }
@@ -75,7 +75,7 @@ export function orderedReportLines(lines: readonly ReportLine[], sort = false): 
   return [...head, ...body, ...tail];
 }
 
-/** WX_HTML_REPORT_PANEL::generatePlainText — the text a saved report holds. */
+/** WX_HTML_REPORT_PANEL::generatePlainText, the text a saved report holds. */
 export function reportLineToPlainText(line: ReportLine): string {
   switch (line.severity) {
     case RPT_SEVERITY_ERROR:

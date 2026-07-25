@@ -102,7 +102,7 @@ describe('copy/paste (doCopy / Paste port)', () => {
     expect(text.startsWith('(lib_symbols')).toBe(true);
     expect(text).toContain('(symbol');
     expect(text).toContain('(lib_id "Connector_Generic:Conn_01x02")');
-    // No kicad_sch wrapper — this is what desktop KiCad puts on the clipboard.
+    // No kicad_sch wrapper, this is what desktop KiCad puts on the clipboard.
     expect(text.startsWith('(kicad_sch')).toBe(false);
   });
 

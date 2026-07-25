@@ -123,7 +123,7 @@ describe('schematic setup .kicad_pro persistence', () => {
     expect(readSchematicSetup([])).toEqual(defaultSchematicSetup());
     const fromTemplate = readSchematicSetupText(TEMPLATE);
     // A stored classes list wins verbatim: the template's Default carries only
-    // clearance 0.2, so every other dimension reads as unset — like KiCad's
+    // clearance 0.2, so every other dimension reads as unset, like KiCad's
     // NETCLASS(name, false) reader. Factory defaults only apply when the file
     // has no net_settings.classes at all.
     const want = defaultSchematicSetup();
@@ -376,7 +376,7 @@ describe('schematic setup .kicad_pro persistence', () => {
     expect(outClasses[0]!.diff_pair_via_gap).toBe(0.25);
     // Unknown per-preset keys survive an unchanged OK via the old-object
     // merge (an entry lacking required keys is dropped, like upstream's
-    // from_json — so the fixture is complete).
+    // from_json, so the fixture is complete).
     const withPresets = JSON.parse(TEMPLATE) as Record<string, unknown>;
     (withPresets.schematic as Record<string, unknown>).bom_presets = [
       {

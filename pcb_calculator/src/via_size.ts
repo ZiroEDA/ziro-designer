@@ -79,7 +79,7 @@ export function viaSize(p: ViaSizeParams): ViaSizeResult {
       ? (55.51e-12 * p.epsilonR * p.lengthM * p.padDiaM) / (p.clearanceDiaM - p.padDiaM)
       : NaN;
 
-  // 10–90 % rise-time degradation: 2.2·C·(Z0/2).
+  // 10 to 90 % rise-time degradation: 2.2·C·(Z0/2).
   const riseTimeDegradationS = (2.2 * capacitanceF * p.z0Ohm) / 2;
 
   // Inductance (H): (μ0/2π)·L·(ln(4L/D) + 1) = 200 nH/m · L · (…).

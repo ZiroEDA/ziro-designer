@@ -23,7 +23,7 @@ interface Candidate {
   exact: boolean;
   /** Distance metric for the closest-item race (world IU). */
   dist: number;
-  /** Filled shapes win hit tests anywhere inside — kept selectable but never
+  /** Filled shapes win hit tests anywhere inside, kept selectable but never
    *  promoted to closest (upstream's `dominating`). */
   dominating: boolean;
   /** Instant winner of the closest race (junctions; upstream also pins). */
@@ -234,7 +234,7 @@ export function collectAndGuess(
         index: i,
         exact: contains(bbox, p),
         dist: Math.hypot(p.x - (bbox.minX + bbox.maxX) / 2, p.y - (bbox.minY + bbox.maxY) / 2),
-        // A sheet body contains everything drawn on it — like a filled shape,
+        // A sheet body contains everything drawn on it, like a filled shape,
         // it must not win the closest race against items inside it.
         dominating: true,
         instant: false,
@@ -266,7 +266,7 @@ export function collectAndGuess(
     if (!closest || c.dist < closest.dist) closest = c;
   }
 
-  // Drop everything not fully inside the closest item's tight box — those
+  // Drop everything not fully inside the closest item's tight box, those
   // items have clickable area elsewhere.
   if (closest) {
     const w = closest.bbox.maxX - closest.bbox.minX;
@@ -383,7 +383,7 @@ const labelDescription = (l: SchLabel): string => {
   }
 };
 
-/** The Clarify Selection row text — each item's GetItemDescription. */
+/** The Clarify Selection row text, each item's GetItemDescription. */
 export function describeItem(
   sch: Schematic,
   libById: Map<string, LibSymbol>,

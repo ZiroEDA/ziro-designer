@@ -1,11 +1,11 @@
 /**
  * Load a STEP/IGES model into a three.js object, in the browser. Counterpart:
- * `plugins/3d/occ/loadmodel.cpp` — KiCad tessellates these formats with its
+ * `plugins/3d/occ/loadmodel.cpp`, KiCad tessellates these formats with its
  * OpenCascade kernel; we use the same kernel compiled to WASM
  * (occt-import-js), lazy-loaded on first use so boards without project-local
  * CAD models never pay for it.
  *
- * Geometry comes out in the file's native millimetres — KiCad model space —
+ * Geometry comes out in the file's native millimetres, KiCad model space,
  * with per-BREP-face STEP colors mapped to one material per color, exactly as
  * our offline library converter does for the hosted `.glb` set.
  */

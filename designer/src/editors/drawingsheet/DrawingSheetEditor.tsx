@@ -1,10 +1,10 @@
 /**
- * The Drawing Sheet Editor frame — the web mirror of `pl_editor`'s
+ * The Drawing Sheet Editor frame, the web mirror of `pl_editor`'s
  * PL_EDITOR_FRAME (pagelayout_editor/pl_editor_frame.cpp): the menu bar
  * (menubar.cpp), the top / left / right toolbars with the origin and page
  * selectors (toolbars_pl_editor.cpp), the docked properties panel
- * (dialogs/properties_frame.cpp — see PropertiesFrame), the design inspector
- * (dialogs/design_inspector.cpp — see DesignInspector), the page-preview
+ * (dialogs/properties_frame.cpp, see PropertiesFrame), the design inspector
+ * (dialogs/design_inspector.cpp, see DesignInspector), the page-preview
  * settings dialog (PageSettingsDialog), the canvas with its interactive tools
  * (DrawingSheetCanvas), and the two status-bar rows with the origin-relative
  * coordinate readout (PL_EDITOR_FRAME::UpdateStatusBar).
@@ -520,7 +520,7 @@ export function DrawingSheetEditor({
     [anchoredPoint, addItem],
   );
 
-  // Create a bitmap item from any image File — used by Place → Image, by pasting
+  // Create a bitmap item from any image File, used by Place → Image, by pasting
   // an image, and by images the Image Converter puts on the clipboard.
   const addBitmapFromFile = useCallback(
     async (file: File, pos: WksPoint) => {
@@ -1175,12 +1175,12 @@ export function DrawingSheetEditor({
     ? `X ${fmt4(toUser((cursor.x - originInfo.origin.x) * originInfo.xs))}  Y ${fmt4(
         toUser((cursor.y - originInfo.origin.y) * originInfo.ys),
       )}`
-    : 'X —  Y —';
+    : 'X, Y -';
   const relCoord = cursor
     ? `dx ${fmt4(toUser((cursor.x - localOrigin.x) * originInfo.xs))}  dy ${fmt4(
         toUser((cursor.y - localOrigin.y) * originInfo.ys),
       )}`
-    : 'dx —  dy —';
+    : 'dx, dy -';
 
   // Grid: 1 mm in metric, 0.1 in imperial (about the pl_editor defaults).
   const gridIU = unit === 'mm' ? mmToIU(1) : mmToIU(2.54);
@@ -1235,7 +1235,7 @@ export function DrawingSheetEditor({
               {dirty ? '*' : ''}
               {fileName}
             </b>
-            &nbsp;—&nbsp;Drawing Sheet Editor
+            &nbsp;-&nbsp;Drawing Sheet Editor
           </>
         }
       />
@@ -1349,7 +1349,7 @@ export function DrawingSheetEditor({
         <span className="cell">{pageNumber === 1 ? 'Page 1' : 'Other pages'}</span>
       </div>
       <div className="ze-statusbar">
-        <span className="cell">Z {scale > 0 ? (scale * 1000).toFixed(2) : '—'}</span>
+        <span className="cell">Z {scale > 0 ? (scale * 1000).toFixed(2) : '-'}</span>
         <span className="cell" data-testid="ds-coords">
           {absCoord}
         </span>
@@ -1408,7 +1408,7 @@ export function DrawingSheetEditor({
 }
 
 /**
- * Preferences — the display options `pl_editor` keeps in its settings
+ * Preferences, the display options `pl_editor` keeps in its settings
  * (pl_editor_settings.cpp `black_background`; common display options'
  * always-show-crosshairs).
  */

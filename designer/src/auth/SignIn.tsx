@@ -5,16 +5,16 @@ import { useAuth } from './AuthProvider.js';
  * Sign-in dialog. Methods, easiest first:
  *
  *   1. Continue with Google (OAuth redirect);
- *   2. Email code: enter your email, we send a 6-digit code, enter it, done —
+ *   2. Email code: enter your email, we send a 6-digit code, enter it, done,
  *      passwordless, and the account is created on first use (no separate
  *      sign-up or confirmation-link round trip);
- *   3. "Use a password instead" — the classic email+password pair, kept for
+ *   3. "Use a password instead", the classic email+password pair, kept for
  *      existing accounts.
  *
  * `gate` mode (AuthGate) makes it a required wall: no close button, backdrop
  * clicks don't dismiss it, and the copy invites creating an account. Otherwise
  * it's an optional modal opened from the project manager. `onClose` is a no-op
- * in gate mode — a successful sign-in flips the auth state and AuthGate swaps
+ * in gate mode, a successful sign-in flips the auth state and AuthGate swaps
  * the wall for the app on its own.
  */
 export function SignInDialog({
@@ -38,11 +38,11 @@ export function SignInDialog({
   const [busy, setBusy] = useState(false);
 
   // Server misconfiguration (e.g. the Google provider not enabled in the
-  // Supabase dashboard) surfaces as a raw API error — translate it into
+  // Supabase dashboard) surfaces as a raw API error, translate it into
   // guidance that points at the always-available email-code flow.
   const friendly = (message: string): string =>
     /provider is not enabled/i.test(message)
-      ? 'Google sign-in is not enabled on this server yet — use the email code below instead.'
+      ? 'Google sign-in is not enabled on this server yet, use the email code below instead.'
       : message;
 
   const run = async (fn: () => Promise<{ error: string | null }>): Promise<boolean> => {
@@ -118,7 +118,7 @@ export function SignInDialog({
         <div className="ze-auth-brand">Ziro Designer</div>
         <div className="ze-auth-sub">
           {gate
-            ? 'Sign in or create a free account to start designing — the full KiCad experience, right in your browser.'
+            ? 'Sign in or create a free account to start designing, the full KiCad experience, right in your browser.'
             : 'Sign in to back up your projects to the cloud and use them on any device.'}
         </div>
 
@@ -159,7 +159,7 @@ export function SignInDialog({
               {busy ? 'Sending…' : 'Email me a sign-in code'}
             </button>
             <div className="ze-auth-toggle">
-              No password needed — new accounts are created automatically.{' '}
+              No password needed, new accounts are created automatically.{' '}
               <button
                 type="button"
                 className="ze-auth-switch"

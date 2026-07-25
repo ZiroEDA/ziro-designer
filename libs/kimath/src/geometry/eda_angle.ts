@@ -1,5 +1,5 @@
 /**
- * EDA_ANGLE — a faithful TypeScript port of KiCad's angle class
+ * EDA_ANGLE, a faithful TypeScript port of KiCad's angle class
  * (libs/kimath/include/geometry/eda_angle.h). Angles are stored internally in
  * degrees. This is the first file of the file-by-file KiCad port; see the
  * `kicad-faithful-port` note.
@@ -21,7 +21,7 @@ export class EDA_ANGLE {
   /** Internal value, always in degrees (KiCad m_value). */
   private m_value: number;
 
-  /** `EDA_ANGLE( value, type )` — type defaults to degrees (KiCad's explicit
+  /** `EDA_ANGLE( value, type )`, type defaults to degrees (KiCad's explicit
    *  double ctor). */
   constructor(value = 0, angleType: EDA_ANGLE_T = EDA_ANGLE_T.DEGREES_T) {
     switch (angleType) {
@@ -37,7 +37,7 @@ export class EDA_ANGLE {
     }
   }
 
-  /** `EDA_ANGLE( const VECTOR2D& )` — the angle of a vector, cardinal-exact. */
+  /** `EDA_ANGLE( const VECTOR2D& )`, the angle of a vector, cardinal-exact. */
   static fromVector(v: { x: number; y: number }): EDA_ANGLE {
     if (v.x === 0 && v.y === 0) return new EDA_ANGLE(0);
     if (v.y === 0) return new EDA_ANGLE(v.x < 0 ? -180.0 : 0.0);

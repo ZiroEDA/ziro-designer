@@ -18,7 +18,7 @@ export interface RectWH {
   h: number;
 }
 
-/** rect_xywh — also `space_rect`, the free-space rectangle type. */
+/** rect_xywh, also `space_rect`, the free-space rectangle type. */
 export interface RectXYWH {
   x: number;
   y: number;
@@ -32,11 +32,11 @@ const maxSide = (r: RectWH): number => (r.h > r.w ? r.h : r.w);
 const minSide = (r: RectWH): number => (r.h < r.w ? r.h : r.w);
 const pathologicalMult = (r: RectWH): number => (maxSide(r) / minSide(r)) * area(r);
 
-/** created_splits — the free spaces left after an insertion; null means "did not fit". */
+/** created_splits, the free spaces left after an insertion; null means "did not fit". */
 type CreatedSplits = RectXYWH[] | null;
 
 /**
- * insert_and_split — place `im` in the top-left of space `sp` and return the spaces
+ * insert_and_split, place `im` in the top-left of space `sp` and return the spaces
  * left over, or null when the image does not fit.
  */
 function insertAndSplit(im: RectWH, sp: RectXYWH): CreatedSplits {
@@ -69,7 +69,7 @@ function insertAndSplit(im: RectWH, sp: RectXYWH): CreatedSplits {
 }
 
 /**
- * empty_spaces with default_empty_spaces — the bin being packed. Flipping is not
+ * empty_spaces with default_empty_spaces, the bin being packed. Flipping is not
  * ported: every KiCad caller passes `flipping_option::DISABLED`.
  */
 export class EMPTY_SPACES {
@@ -123,7 +123,7 @@ export class EMPTY_SPACES {
   }
 }
 
-/** bin_dimension — which side(s) the bin search shrinks. */
+/** bin_dimension, which side(s) the bin search shrinks. */
 enum BinDimension {
   BOTH = 0,
   WIDTH = 1,
@@ -134,7 +134,7 @@ enum BinDimension {
 type PackingResult = { ok: true; bin: RectWH } | { ok: false; totalInsertedArea: number };
 
 /**
- * best_packing_for_ordering_impl — binary-search viable bin sizes from
+ * best_packing_for_ordering_impl, binary-search viable bin sizes from
  * `startingBin` downwards. Stops when a bin took every rectangle and the next size
  * to try differs by less than `discardStep`.
  */
@@ -217,7 +217,7 @@ function bestPackingForOrderingImpl(
   }
 }
 
-/** best_packing_for_ordering — search both dimensions, then refine each on its own. */
+/** best_packing_for_ordering, search both dimensions, then refine each on its own. */
 function bestPackingForOrdering(
   root: EMPTY_SPACES,
   ordering: readonly RectWH[],
@@ -242,7 +242,7 @@ function bestPackingForOrdering(
   return { ok: true, bin: bestBin };
 }
 
-/** callback_result — a report callback can stop the final placement pass. */
+/** callback_result, a report callback can stop the final placement pass. */
 export enum CallbackResult {
   ABORT_PACKING = 0,
   CONTINUE_PACKING = 1,
@@ -281,7 +281,7 @@ const DEFAULT_COMPARATORS: ((a: RectWH, b: RectWH) => number)[] = [
 ];
 
 /**
- * find_best_packing — pack `subjects` into the smallest square bin that fits them,
+ * find_best_packing, pack `subjects` into the smallest square bin that fits them,
  * trying every default ordering and keeping the best. Zero-area rectangles are
  * skipped, as upstream does.
  */

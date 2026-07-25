@@ -1,5 +1,5 @@
 /**
- * GBR_LAYOUT — the collection of loaded Gerber/drill images, mirroring
+ * GBR_LAYOUT, the collection of loaded Gerber/drill images, mirroring
  * `gerbview/gbr_layout.h`. GerbView holds up to GERBER_DRAWLAYERS_COUNT active
  * layers; this container tracks them in draw order and computes the overall
  * bounding box for zoom-to-fit.

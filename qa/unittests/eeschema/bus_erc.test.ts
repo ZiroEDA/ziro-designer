@@ -1,7 +1,7 @@
 /**
  * Bus ERC rules (CONNECTION_GRAPH::ercCheckBus*): net-not-bus-member taps,
  * direct wire-to-bus contact, bus labels on wires, and bus-to-bus port
- * mismatches — each honouring the Violation Severity settings.
+ * mismatches, each honouring the Violation Severity settings.
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';

@@ -1,6 +1,6 @@
 /**
  * Net Classes panel. Counterpart:
- * `common/dialogs/panel_setup_netclasses_base.cpp` (PANEL_SETUP_NETCLASSES) — the
+ * `common/dialogs/panel_setup_netclasses_base.cpp` (PANEL_SETUP_NETCLASSES), the
  * shared net-class editor. Top: a wide "Netclasses" grid (Name + physical/visual
  * columns) with add / move-up / move-down / remove. Bottom: a "Netclass
  * Assignments" grid mapping a net-name pattern to a net class. The Default class

@@ -1,6 +1,6 @@
 /**
  * DRC marker painting (designer/src/editors/pcb/renderBoard.ts
- * drawDrcMarkers): mirrors pcb_painter.cpp draw(PCB_MARKER*) — the
+ * drawDrcMarkers): mirrors pcb_painter.cpp draw(PCB_MARKER*), the
  * MARKER_BASE MarkerShapeCorners polygon at MarkerScale() =
  * SCALING_FACTOR/sqrt(zoom) (pcb_marker.cpp SCALING_FACTOR = 0.1625mm), a
  * LAYER_MARKER_SHADOWS stroked outline in the background color at alpha 0.6

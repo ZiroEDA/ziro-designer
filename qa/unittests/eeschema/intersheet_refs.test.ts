@@ -1,5 +1,5 @@
 /**
- * Inter-sheet references — SCHEMATIC::RecomputeIntersheetRefs (map building)
+ * Inter-sheet references, SCHEMATIC::RecomputeIntersheetRefs (map building)
  * and SCH_GLOBALLABEL::ResolveTextVar's `INTERSHEET_REFS` branch
  * (eeschema/schematic.cpp, sch_label.cpp). Quirks asserted straight from the
  * C++: only global labels participate, unknown labels resolve to "?", pages
@@ -80,7 +80,7 @@ describe('intersheetRefsText (SCH_GLOBALLABEL::ResolveTextVar)', () => {
     expect(intersheetRefsText('NOPE', cfg())).toBe('[?]');
   });
 
-  it('drops the current page when listOwnPage is off — possibly to empty', () => {
+  it('drops the current page when listOwnPage is off, possibly to empty', () => {
     expect(intersheetRefsText('CLK', cfg({ listOwnPage: false }))).toBe('[ii,A]');
     // The token branch has no early return: an empty list still renders.
     expect(intersheetRefsText('RST', cfg({ listOwnPage: false, currentVirtualPage: 2 }))).toBe(

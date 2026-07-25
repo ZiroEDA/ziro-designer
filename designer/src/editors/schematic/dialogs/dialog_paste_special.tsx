@@ -1,6 +1,6 @@
 /**
  * Paste Special dialog. Counterpart: `common/dialogs/dialog_paste_special.cpp`
- * (DIALOG_PASTE_SPECIAL) — the Reference Designators radio box with KiCad's
+ * (DIALOG_PASTE_SPECIAL), the Reference Designators radio box with KiCad's
  * three paste modes, and the "Clear net assignments" option (greyed: we do
  * not store net assignments on schematic items).
  */

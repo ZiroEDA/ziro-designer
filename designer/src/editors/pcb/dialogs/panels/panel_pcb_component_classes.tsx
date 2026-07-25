@@ -1,7 +1,7 @@
 /**
  * Board Setup > Design Rules > Component Classes. Counterpart:
  * `pcbnew/dialogs/panel_assign_component_classes_base.cpp`
- * (PANEL_ASSIGN_COMPONENT_CLASSES + PANEL_COMPONENT_CLASS_ASSIGNMENT) — an
+ * (PANEL_ASSIGN_COMPONENT_CLASSES + PANEL_COMPONENT_CLASS_ASSIGNMENT), an
  * "Assign component class per sheet" option and a list of custom assignments.
  * Each assignment names a component class, a Match all / Match any mode, and a
  * set of conditions (Reference / Side / Rotation / Footprint) that select the

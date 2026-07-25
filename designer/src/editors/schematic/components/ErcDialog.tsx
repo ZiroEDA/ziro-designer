@@ -12,7 +12,7 @@ import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 
 /**
  * Electrical Rules Checker. Counterpart: `eeschema/dialogs/dialog_erc.cpp`
- * (DIALOG_ERC) over `dialog_erc_base.cpp`'s layout — the annotation infobar and
+ * (DIALOG_ERC) over `dialog_erc_base.cpp`'s layout, the annotation infobar and
  * config menu, the Violations / Ignored Tests notebook over the marker tree
  * (640 x 260 minimum, as upstream sizes m_markerDataView), the "Show:" severity
  * row with its number badges and Save…, and the Delete Marker / Delete All
@@ -29,7 +29,7 @@ export interface ErcFilters {
   exclusions: boolean;
 }
 
-/** EESCHEMA_SETTINGS m_ERCDialog — the config (gear) menu's three toggles. */
+/** EESCHEMA_SETTINGS m_ERCDialog, the config (gear) menu's three toggles. */
 export interface ErcDialogOptions {
   crossprobe: boolean;
   scrollOnCrossprobe: boolean;
@@ -59,7 +59,7 @@ interface Props {
   onShowAnnotate?: () => void;
   onRun: () => void;
   /**
-   * OnERCItemSelected: focus what the clicked row stands for — the marker
+   * OnERCItemSelected: focus what the clicked row stands for, the marker
    * itself for a heading row (`itemId` unset), or that one item for a child
    * row. `center` follows the "Center on Cross-probe" option.
    */
@@ -71,7 +71,7 @@ interface Props {
   onDelete: (index: number) => void;
   onDeleteAll: () => void;
   /** Exclusion signatures (SCHEMATIC::m_ercExclusions); a marker whose key is
-   *  in the set is excluded — shown only under the Exclusions filter. */
+   *  in the set is excluded, shown only under the Exclusions filter. */
   excluded: ReadonlySet<string>;
   /** Exclude Marker / drop the exclusion (SCH_INSPECTION_TOOL::ExcludeMarker).
    *  `comment` is MARKER_BASE::SetComment (Exclude with comment…). */
@@ -172,7 +172,7 @@ export function ErcDialog({
         ? 'Error: '
         : 'Warning: ';
 
-  /** ERC_REPORT::WriteJsonReport — the erc.v1 schema. */
+  /** ERC_REPORT::WriteJsonReport, the erc.v1 schema. */
   const jsonReport = (): string => {
     const sheets = new Map<string, { v: ErcViolation; i: number }[]>();
     for (const row of shown) {
@@ -229,7 +229,7 @@ export function ErcDialog({
     URL.revokeObjectURL(url);
   };
 
-  // DIALOG_ERC::OnSaveReport — the plain-text .rpt of ERC_REPORT::GetTextReport.
+  // DIALOG_ERC::OnSaveReport, the plain-text .rpt of ERC_REPORT::GetTextReport.
   const saveReport = (): void => {
     const parts: string[] = [
       `ERC report (${new Date().toISOString()}, Encoding UTF8)`,

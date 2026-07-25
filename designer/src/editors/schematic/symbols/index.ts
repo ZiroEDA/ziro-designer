@@ -2,7 +2,7 @@
  * Symbol library access.
  *
  * The full set of (combined) KiCad symbol libraries lives under `public/symbols`
- * as static assets — a names index (`index.json`, loaded up front for search) and
+ * as static assets, a names index (`index.json`, loaded up front for search) and
  * one `<Library>.kicad_sym` per library (fetched and parsed on demand when a symbol
  * is placed). This keeps the JS bundle small while making thousands of real KiCad
  * symbols available. They are read natively with the same parser as schematics.
@@ -69,7 +69,7 @@ export async function loadSymbol(
 }
 
 /**
- * Every symbol of one library, in file order — SYMBOL_LIBRARY_ADAPTER::GetSymbols,
+ * Every symbol of one library, in file order, SYMBOL_LIBRARY_ADAPTER::GetSymbols,
  * which the Symbol Library Browser needs whole so it can filter on keywords,
  * description and pin count rather than just names.
  */
@@ -77,18 +77,18 @@ export async function loadLibrarySymbols(library: string): Promise<LibSymbol[]> 
   return [...(await loadLibrary(library)).values()];
 }
 
-/** LIBRARY_MANAGER::GetFullURI — where a library nickname's file actually lives. */
+/** LIBRARY_MANAGER::GetFullURI, where a library nickname's file actually lives. */
 export function libraryUri(library: string): string {
   return `${symbolsBase()}/${library}.kicad_sym`;
 }
 
-/** A symbol's `(property ...)` value, or '' — LIB_SYMBOL::GetDescription/GetKeyWords. */
+/** A symbol's `(property ...)` value, or '', LIB_SYMBOL::GetDescription/GetKeyWords. */
 export function symbolProperty(sym: LibSymbol, key: string): string {
   return sym.properties.find((p) => p.key === key)?.value ?? '';
 }
 
 /**
- * LIB_SYMBOL::cachePinCount — pins of every unit in the base body style.
+ * LIB_SYMBOL::cachePinCount, pins of every unit in the base body style.
  * (Upstream also folds stacked pins in through GetStackedPinCount; the parsed
  * library carries each stacked pin separately, so counting them is the same.)
  */
@@ -98,7 +98,7 @@ export function symbolPinCount(sym: LibSymbol): number {
   return count;
 }
 
-/** LIB_SYMBOL::cacheSearchTerms — the weighted terms a filter scores against. */
+/** LIB_SYMBOL::cacheSearchTerms, the weighted terms a filter scores against. */
 export function symbolSearchTerms(sym: LibSymbol): SearchTerm[] {
   const [nickname = '', name = ''] = splitLibId(sym.libId);
   const keywords = symbolProperty(sym, 'ki_keywords');

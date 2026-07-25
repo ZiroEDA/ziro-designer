@@ -1,13 +1,13 @@
 /**
  * Net-chain detection. Counterpart: `CONNECTION_GRAPH::buildBridgeAdjacency` +
  * `RebuildNetChains` (eeschema/connection_graph.cpp) and SCH_NETCHAIN
- * (eeschema/sch_netchain.h) — chains of nets bridged by 2-pin passthrough
+ * (eeschema/sch_netchain.h), chains of nets bridged by 2-pin passthrough
  * symbols (series resistors, filters, …) so DRC rules can target them via
  * `inNetChainClass('name')`.
  *
  * The exact pipeline, single-sheet:
  *  1. bridge edges: every 2-pin symbol whose pins each land on a wire, with
- *     the default-mode gate (no power pins; both wires collinear — vertical
+ *     the default-mode gate (no power pins; both wires collinear, vertical
  *     on one X or horizontal on one Y) links its two distinct nets;
  *  2. edges touching a power subgraph (a power-class pin or power symbol)
  *     drop, their non-power endpoints marked power-adjacent;
@@ -46,7 +46,7 @@ export interface DetectedNetChain {
   nets: string[];
   /** RefIds of the bridging 2-pin symbols. */
   symbols: string[];
-  /** The chain's end pins — the farthest-apart pin pair on member nets
+  /** The chain's end pins, the farthest-apart pin pair on member nets
    *  (RebuildNetChains pass 4); unset when no two pins resolve. */
   terminals?: [ChainTerminal, ChainTerminal];
 }
@@ -281,7 +281,7 @@ export function detectNetChains(
     }
   }
 
-  // ----- pass 4: terminal pins — the farthest-apart pin pair on member nets
+  // ----- pass 4: terminal pins, the farthest-apart pin pair on member nets
   const chainTerminals = (c: (typeof chains)[number]): [ChainTerminal, ChainTerminal] | null => {
     const onChain = pins.filter((p) => c.nets.has(netName(netlist.netByItem.get(p.id))));
     let best = -1n;
@@ -321,11 +321,11 @@ export function detectNetChains(
 }
 
 // ---------------------------------------------------------------------------
-// Committed net chains — `(net_chain "name" (from "ref" "pin") (to "ref" "pin")
+// Committed net chains, `(net_chain "name" (from "ref" "pin") (to "ref" "pin")
 // [(net_class "…")] [(color R G B A)] [(nets "n1" …)])` nodes in `.kicad_sch`,
 // written by exactly one (the root) sheet file.
 
-/** SCH_NETCHAIN::SYNTHETIC_NET_PREFIX — per-run subgraph names, never persisted. */
+/** SCH_NETCHAIN::SYNTHETIC_NET_PREFIX, per-run subgraph names, never persisted. */
 export const NET_CHAIN_SYNTHETIC_PREFIX = '__SG_';
 
 /** SCH_NETCHAIN::IsValidName. */
@@ -339,7 +339,7 @@ export function isValidNetChainName(name: string): boolean {
 
 export interface CommittedNetChain {
   name: string;
-  /** Terminal end pins as (reference, pin number) pairs — the chain's anchor. */
+  /** Terminal end pins as (reference, pin number) pairs, the chain's anchor. */
   from: ChainTerminal;
   to: ChainTerminal;
   /** Netclass override applied to every member net ('' = none). */
@@ -350,7 +350,7 @@ export interface CommittedNetChain {
   nets: string[];
 }
 
-/** parseSchNetChain — read every `(net_chain …)` node from the source AST. */
+/** parseSchNetChain, read every `(net_chain …)` node from the source AST. */
 export function readNetChains(sch: Schematic): CommittedNetChain[] {
   const out: CommittedNetChain[] = [];
   for (const node of sch.source.items) {
@@ -405,7 +405,7 @@ function colorParts(color: string): [number, number, number, number] | null {
 
 /**
  * SCH_IO_KICAD_SEXPR::Format's net-chain block: replace the document's
- * `(net_chain …)` nodes with `chains` — skipping chains with an empty terminal
+ * `(net_chain …)` nodes with `chains`, skipping chains with an empty terminal
  * ref (like the writer), filtering synthetic member nets, and omitting the
  * optional sections at their defaults. New nodes land where the old ones were
  * (before `sheet_instances` when there were none).
@@ -462,7 +462,7 @@ export function writeNetChains(sch: Schematic, chains: readonly CommittedNetChai
 /**
  * The committed-restore passes of RebuildNetChains: resolve each persisted
  * chain against this run's potentials by terminal refs (pass 2a), then fall
- * back to the persisted member-net list (pass 2b) — requiring both terminal
+ * back to the persisted member-net list (pass 2b), requiring both terminal
  * pins to resolve and at least one pin on a member net. Restored chains carry
  * the potential's live nets and refreshed terminals where matched, and keep
  * their persisted name, netclass and colour.
@@ -516,7 +516,7 @@ export function restoreCommittedNetChains(
 }
 
 /**
- * SCH_EDITOR_CONTROL::RemoveFromNetChain — every 2-pin symbol bridging
+ * SCH_EDITOR_CONTROL::RemoveFromNetChain, every 2-pin symbol bridging
  * `netName` into a different net gets `(passthrough block)`, undoably, so the
  * next detection pass drops it from its chain.
  */
@@ -603,7 +603,7 @@ export function netChainsCommand(after: Schematic): EditCommand {
 }
 
 /**
- * ApplyNetChainNetclasses — chain netclass overrides become per-net pattern
+ * ApplyNetChainNetclasses, chain netclass overrides become per-net pattern
  * assignments (appended after the user's own patterns in netclass
  * resolution); synthetic member names never match a resolved net.
  */
