@@ -107,11 +107,15 @@ function buildCache(
     for (const p of [w.start, w.end]) {
       conns.push(...lineKeyAt(p, key));
       if (sch.junctions.some((j) => same(j.at, p))) conns.push({ type: 'junction' });
+      // Every symbol counts, the moving one included: upstream's
+      // getConnectedItems has no selection test for SCH_SYMBOL_T, so a wire on
+      // a dragged pin has that pin in its cache — which is what keeps the
+      // junction special case ("a junction alone gets one segment") from
+      // applying to pin-attached wires.
       let pinHere = false;
-      sch.symbols.forEach((sym, i) => {
-        if (spec.fullIds.has(refId('symbol', sym.uuid, i))) return;
+      for (const sym of sch.symbols) {
         if (symbolPinPositions(sym, libById.get(sym.libId)).some((q) => same(q, p))) pinHere = true;
-      });
+      }
       for (const sh of sch.sheets) if (sh.pins.some((q) => same(q.at, p))) pinHere = true;
       if (pinHere) conns.push({ type: 'pin' });
     }

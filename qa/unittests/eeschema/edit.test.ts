@@ -188,26 +188,39 @@ describe('connection-aware move (rubber-banding)', () => {
 });
 
 describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
-  it('translates a wire whose far end is attached to nothing', async () => {
+  it('bends at the far end and leaves it where it was', async () => {
     const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
     const { sch, libById } = loadOneEndWire();
-    // The wire is vertical (x=161.29 from y=105.0 to 111.76); only its end
-    // (161.29,111.76) connects to J1 pin 1, and its start hangs free. KiCad's
-    // orthoLineDrag moves the unselected end of an unattached wire too ("Original
-    // line has no attachments, just move the unselected end"), so the X step
-    // carries the whole wire and the Y step stretches it — no bend is needed.
+    // The wire is vertical (x=161.29 from y=105.0 to 111.76); its end sits on
+    // J1 pin 1. Upstream's cache holds that pin (getConnectedItems has no
+    // selection test for symbols), so the wire counts as attached and takes the
+    // 90° bend at its *far* end — which stays exactly where it was, while the
+    // dragged end follows the pin.
     const ids = new Set(['d5224ac6-3b29-4f27-99e0-c4e878a39680']); // J1
     const spec = planMove(sch, libById, ids);
     const delta = { x: mmToIU(2.54), y: mmToIU(-1.27) };
     const moved = orthoMove(sch, spec, delta, libById).apply(sch);
 
-    const wire = moved.lines[0]!;
-    expect(wire.start).toEqual({ x: sch.lines[0]!.start.x + delta.x, y: sch.lines[0]!.start.y });
-    expect(wire.end).toEqual({
-      x: sch.lines[0]!.end.x + delta.x,
-      y: sch.lines[0]!.end.y + delta.y,
-    });
-    expect(moved.lines.length).toBe(sch.lines.length);
+    for (const l of moved.lines) {
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
+    }
+    const freeEnd = sch.lines[0]!.start;
+    expect(
+      moved.lines.some(
+        (l) =>
+          (l.start.x === freeEnd.x && l.start.y === freeEnd.y) ||
+          (l.end.x === freeEnd.x && l.end.y === freeEnd.y),
+      ),
+    ).toBe(true);
+    const pinEnd = { x: sch.lines[0]!.end.x + delta.x, y: sch.lines[0]!.end.y + delta.y };
+    expect(
+      moved.lines.some(
+        (l) =>
+          (l.start.x === pinEnd.x && l.start.y === pinEnd.y) ||
+          (l.end.x === pinEnd.x && l.end.y === pinEnd.y),
+      ),
+    ).toBe(true);
   });
 
   it('undoes an orthogonal move exactly (removes the bend, reverses)', async () => {
