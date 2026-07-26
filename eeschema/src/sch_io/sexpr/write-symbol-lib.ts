@@ -14,6 +14,7 @@
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { readGraphic, readLibPin } from './read-schematic.js';
 import { patchProperty } from './write-schematic.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
@@ -437,8 +438,8 @@ export function writeSymbolLib(symbols: readonly LibSymbol[]): SList {
     items: [
       atom('kicad_symbol_lib'),
       list(atom('version'), atom(String(SYMBOL_LIB_FILE_VERSION))),
-      list(atom('generator'), str('kicad_symbol_editor')),
-      list(atom('generator_version'), str('9.0')),
+      list(atom('generator'), str(GENERATOR)),
+      list(atom('generator_version'), str(GENERATOR_VERSION)),
       ...ordered.map(writeLibSymbolNode),
     ],
   };

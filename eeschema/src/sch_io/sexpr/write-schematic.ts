@@ -17,6 +17,7 @@
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { arg, childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
@@ -476,7 +477,7 @@ function patchInstancePages(
   hasProject: boolean,
 ): SList {
   const patchPath = (pathNode: SList, project: string): SList => {
-    const page = pageByKey.get(`${project} ${arg(pathNode, 0) ?? ''}`);
+    const page = pageByKey.get(`${project}\u0000${arg(pathNode, 0) ?? ''}`);
     if (page === undefined || !childNamed(pathNode, 'page')) return pathNode;
     return mapChild(pathNode, 'page', () => list(atom('page'), str(page)));
   };
@@ -495,7 +496,7 @@ function patchInstancePages(
   return { kind: 'list', items };
 }
 
-const instanceKey = (i: SheetInstance): string => `${i.project ?? ''} ${i.path}`;
+const instanceKey = (i: SheetInstance): string => `${i.project ?? ''}\u0000${i.path}`;
 
 /** Patch a sheet: its position, each field, each pin, and instance page numbers. */
 function writeSheet(sh: SchSheet): SList {
@@ -653,6 +654,19 @@ export function writeSchematic(sch: Schematic): SList {
   const out: SNode[] = [atom('kicad_sch')];
 
   for (const name of HEADER_ORDER) {
+    // We wrote this file, so we name ourselves, exactly as KiCad overwrites the
+    // generator with its own name on save. Preserving the original would leave
+    // a schematic we edited still attributed to eeschema, which is the
+    // misattribution these fields exist to prevent. Written unconditionally so
+    // a file that arrived without the token still gains one.
+    if (name === 'generator') {
+      out.push(list(atom('generator'), str(GENERATOR)));
+      continue;
+    }
+    if (name === 'generator_version') {
+      out.push(list(atom('generator_version'), str(GENERATOR_VERSION)));
+      continue;
+    }
     const c = childNamed(sch.source, name);
     if (c) out.push(c);
   }

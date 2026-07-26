@@ -21,6 +21,7 @@ import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/
 import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { PcbFootprint, PcbFootprintField, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -243,8 +244,8 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       atom('footprint'),
       str(fp.lib),
       list(atom('version'), atom(String(FOOTPRINT_FILE_VERSION))),
-      list(atom('generator'), str('pcbnew')),
-      list(atom('generator_version'), str('9.0')),
+      list(atom('generator'), str(GENERATOR)),
+      list(atom('generator_version'), str(GENERATOR_VERSION)),
       list(atom('layer'), str(fp.layer || 'F.Cu')),
     );
   }

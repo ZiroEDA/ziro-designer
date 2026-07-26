@@ -17,6 +17,7 @@
 
 import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/src/types.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
 import {
   WKS_FILE_VERSION,
   WKS_GENERATOR_VERSION,
@@ -209,8 +210,8 @@ export function writeDrawingSheet(sheet: WksSheet): SList {
   return list(
     A('kicad_wks'),
     list(A('version'), A(String(WKS_FILE_VERSION))),
-    list(A('generator'), S('pl_editor')),
-    list(A('generator_version'), S(WKS_GENERATOR_VERSION)),
+    list(A('generator'), S(GENERATOR)),
+    list(A('generator_version'), S(GENERATOR_VERSION)),
     setup,
     ...items,
   );

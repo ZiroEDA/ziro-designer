@@ -5,12 +5,13 @@
  * anywhere.
  */
 
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { PickedHomeFile } from './files.js';
 
 const enc = new TextEncoder();
 
 // What pcbnew writes for File > New Board: default 2-layer stack.
-export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "ziroeda")
+export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "${GENERATOR}")
   (general (thickness 1.6) (legacy_teardrops no))
   (paper "A4")
   (layers
@@ -44,8 +45,8 @@ export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "ziroeda")
 // "sheets" list (KiCad ties the project's root sheet to this uuid).
 export const emptySch = (uuid: string): string => `(kicad_sch
 	(version 20250114)
-	(generator "eeschema")
-	(generator_version "9.0")
+	(generator "${GENERATOR}")
+	(generator_version "${GENERATOR_VERSION}")
 	(uuid "${uuid}")
 	(paper "A4")
 	(lib_symbols)

@@ -3,6 +3,11 @@
  * two output pins wired together must land on one net with both nodes, and the
  * component/footprint sections must reflect the placed symbols.
  */
+import {
+  GENERATOR,
+  GENERATOR_APPLICATION,
+  GENERATOR_VERSION,
+} from '@ziroeda/common/src/generator.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
@@ -65,7 +70,7 @@ describe('netlistOrcadPcb2', () => {
   const net = netlistOrcadPcb2(doc, libById, { source: 'test.kicad_sch' });
 
   it('writes each symbol with its footprint, ref and value', () => {
-    expect(net.startsWith('( { Eeschema netlist created')).toBe(true);
+    expect(net.startsWith(`( { ${GENERATOR_APPLICATION} netlist created`)).toBe(true);
     expect(net).toContain('Resistor_SMD:R_0603  R1 1k');
     expect(net).toContain('Resistor_SMD:R_0603  R2 1k');
     expect(net.trimEnd().endsWith('*')).toBe(true);

@@ -21,6 +21,7 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { writeFootprintNode } from './write-footprint.js';
 import type {
   Board,
@@ -258,6 +259,11 @@ export function writeBoardNode(board: Board): SList {
       if (gi < board.groups.length && board.groups[gi]!.members.length > 0)
         out.push(groupNode(board.groups[gi]!));
       gi++;
+    } else if (h === 'generator') {
+      // We wrote this file, so we name ourselves, as KiCad does on save.
+      out.push(list(atom('generator'), str(GENERATOR)));
+    } else if (h === 'generator_version') {
+      out.push(list(atom('generator_version'), str(GENERATOR_VERSION)));
     } else out.push(it);
   }
 

@@ -15,12 +15,11 @@
 
 import { traceBitmap, Bitmap, Pt, DEFAULT_TRACE_PARAMS, type Path } from './potrace.js';
 import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 
-/** File version tokens, matching the eeschema / pcbnew writers in this repo (KiCad 9.0). */
 const SEXPR_SYMBOL_LIB_FILE_VERSION = 20241209;
 const SEXPR_FOOTPRINT_FILE_VERSION = 20241229;
 const SEXPR_WKS_FILE_VERSION = 20220228;
-const GENERATOR_VERSION = '9.0';
 /** KiCad's SCH_LINE_THICKNESS_MM used for symbol polyline strokes. */
 const SCH_LINE_THICKNESS_MM = 0.01;
 
@@ -331,7 +330,7 @@ function writeFootprint(regions: Region[], o: ConvertOptions, w: number, h: numb
   let s = '';
   s += `(footprint "${o.name}"\n`;
   s += `\t(version ${SEXPR_FOOTPRINT_FILE_VERSION})\n`;
-  s += `\t(generator "bitmap2component")\n`;
+  s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(layer "F.Cu")\n`;
   s += `\t(attr board_only exclude_from_pos_files exclude_from_bom)\n`;
@@ -375,7 +374,7 @@ function writeSymbol(regions: Region[], o: ConvertOptions, w: number, h: number)
   if (!o.paste) {
     s += `(kicad_symbol_lib\n`;
     s += `\t(version ${SEXPR_SYMBOL_LIB_FILE_VERSION})\n`;
-    s += `\t(generator "bitmap2component")\n`;
+    s += `\t(generator "${GENERATOR}")\n`;
     s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   }
   s += `\t(symbol "${o.name}"\n`;
@@ -407,7 +406,7 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   let s = '';
   s += `(kicad_wks\n`;
   s += `\t(version ${SEXPR_WKS_FILE_VERSION})\n`;
-  s += `\t(generator "bitmap2component")\n`;
+  s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(setup\n\t\t(textsize 1.5 1.5)\n\t\t(linewidth 0.15)\n\t\t(textlinewidth 0.15)\n`;
   s += `\t\t(left_margin 10)\n\t\t(right_margin 10)\n\t\t(top_margin 10)\n\t\t(bottom_margin 10)\n\t)\n`;

@@ -5,6 +5,11 @@
  * polyline, and the geometry must sit centred on the origin at the requested
  * DPI, with holes cut out of the fill.
  */
+import {
+  GENERATOR,
+  GENERATOR_APPLICATION,
+  GENERATOR_VERSION,
+} from '@ziroeda/common/src/generator.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
@@ -147,7 +152,7 @@ describe('footprint output', () => {
     expect(polys.length).toBe(1);
     expect(polys[0]!.fill).toBe(true);
     expect(polys[0]!.layer).toBe(layer);
-    expect(text).toContain('(generator "bitmap2component")');
+    expect(text).toContain(`(generator "${GENERATOR}")`);
     expect(text).toContain('(attr board_only exclude_from_pos_files exclude_from_bom)');
   });
 
