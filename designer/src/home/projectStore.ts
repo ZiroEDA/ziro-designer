@@ -46,7 +46,47 @@ interface StoredRecord {
   updatedAt: number;
   lastOpenedAt?: number;
   files: { name: string; gz: Uint8Array }[];
+  /**
+   * The account this project belongs to, once it has been associated with one.
+   *
+   * IndexedDB is per browser, not per account, and signing out does not clear
+   * it. Without an owner recorded here, signing in as a second person on the
+   * same machine made every project of the first person look like "local work
+   * that is missing from the cloud", so sync pushed them up under the second
+   * account. Where the id happened to already exist, Postgres refused the write
+   * (that is the row-level security error); where it did not, one person's
+   * projects were silently copied into another person's account.
+   *
+   * Undefined means the project has never been associated with an account:
+   * either it predates this field, or it was made while signed out.
+   */
+  ownerId?: string;
 }
+
+/**
+ * The signed-in account, as far as the store is concerned. Set by the auth
+ * layer on every session change, so the store can filter without importing it.
+ * Null when signed out or when auth is not configured at all, in which case
+ * nothing is filtered and the app behaves exactly as it did offline.
+ */
+let currentOwner: string | null = null;
+
+export function setProjectOwner(userId: string | null): void {
+  currentOwner = userId;
+}
+
+/**
+ * Whether this record belongs to whoever is signed in.
+ *
+ * Unowned records stay visible: they are either pre-existing projects from
+ * before ownership was recorded, or work made while signed out, and hiding
+ * somebody's own local work would be worse than the problem being fixed. They
+ * are claimed by the first account that syncs them.
+ */
+export const ownedBy = (owner: string | null, r: { ownerId?: string }): boolean =>
+  owner === null || r.ownerId === undefined || r.ownerId === owner;
+
+const ownedByCurrent = (r: { ownerId?: string }): boolean => ownedBy(currentOwner, r);
 
 const DB_NAME = 'ziroeda';
 const STORE = 'projects';
@@ -157,6 +197,7 @@ export async function saveProject(name: string, files: StoredFile[], id?: string
     updatedAt: now,
     lastOpenedAt: now,
     files: gzFiles,
+    ...(currentOwner ? { ownerId: currentOwner } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
   return pid;
@@ -168,6 +209,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
   return (
     all
       .filter((r) => r.id !== PROBE_ID) // health-probe canary, not a project
+      .filter(ownedByCurrent) // another account's work stays on disk but hidden
       .map((r) => ({
         id: r.id,
         name: r.name,
@@ -226,6 +268,17 @@ export async function loadProject(
   };
 }
 
+/**
+ * Record that a project now belongs to an account. Called after a push lands,
+ * so an unowned project stops being claimable by whoever signs in next.
+ */
+export async function claimProject(id: string, userId: string): Promise<void> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r || r.ownerId === userId) return;
+  r.ownerId = userId;
+  await tx('readwrite', (s) => s.put(r));
+}
+
 export async function deleteProject(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
 }
@@ -269,7 +322,13 @@ function b64ToBytes(b64: string): Uint8Array {
 /** id + updatedAt for every local project, for cheap sync diffing. */
 export async function listSyncMeta(): Promise<{ id: string; updatedAt: number }[]> {
   const all = await tx<StoredRecord[]>('readonly', (s) => s.getAll());
-  return all.filter((r) => r.id !== PROBE_ID).map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
+  // The filter is the fix for cross-account leakage: sync compares this list
+  // against the cloud, and row-level security means another account's rows are
+  // invisible, so anything left in here would look local-only and be pushed up
+  // under the wrong owner.
+  return all
+    .filter((r) => r.id !== PROBE_ID && ownedByCurrent(r))
+    .map((r) => ({ id: r.id, updatedAt: r.updatedAt }));
 }
 
 /** Export a stored project to its serializable (base64) form, or null if gone. */
@@ -293,6 +352,7 @@ export async function importProject(p: SyncableProject): Promise<void> {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     files: p.files.map((f) => ({ name: f.name, gz: b64ToBytes(f.gzB64) })),
+    ...(currentOwner ? { ownerId: currentOwner } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
 }

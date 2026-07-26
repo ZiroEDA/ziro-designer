@@ -112,9 +112,15 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
         }),
       ),
     );
-    const { error } = await supabase
-      .from('projects')
-      .upsert({ ...base, files: p.files.map((f) => ({ name: f.name })) });
+    const { error } = await supabase.from('projects').upsert(
+      { ...base, files: p.files.map((f) => ({ name: f.name })) },
+      {
+        // Match the (user_id, id) primary key. Conflicting on id alone would
+        // aim the update at another account's row, which row-level security
+        // then refuses.
+        onConflict: 'user_id,id',
+      },
+    );
     if (error) throw error;
     return;
   }
@@ -128,7 +134,9 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
     );
     return;
   }
-  const { error } = await supabase.from('projects').upsert({ ...base, files: p.files });
+  const { error } = await supabase
+    .from('projects')
+    .upsert({ ...base, files: p.files }, { onConflict: 'user_id,id' });
   if (error) throw error;
 }
 
