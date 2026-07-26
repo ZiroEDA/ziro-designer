@@ -11,7 +11,7 @@
  */
 
 import { authEnabled } from '../auth/supabaseClient.js';
-import { exportProject, importProject, listSyncMeta } from '../home/projectStore.js';
+import { claimProject, exportProject, importProject, listSyncMeta } from '../home/projectStore.js';
 import { cloudDelete, cloudGet, cloudListMeta, cloudUpsert } from './cloudStore.js';
 
 /** Progress callback: `done` of `total` transfers finished so far. */
@@ -64,7 +64,11 @@ export async function syncAllProjects(userId: string, onProgress?: SyncProgress)
 
 async function pushOne(userId: string, id: string): Promise<void> {
   const p = await exportProject(id);
-  if (p) await cloudUpsert(userId, p);
+  if (!p) return;
+  await cloudUpsert(userId, p);
+  // Only after the write lands: a project that has been pushed belongs to this
+  // account, so the next person to sign in on this browser does not inherit it.
+  await claimProject(id, userId);
 }
 
 async function pullOne(id: string): Promise<void> {

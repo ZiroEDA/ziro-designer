@@ -4,15 +4,37 @@
 -- can only read/write their own rows. Files are stored gzipped + base64 in a
 -- JSONB column, mirroring the app's IndexedDB record shape.
 
+-- The primary key is (user_id, id), not id alone. `id` comes from the browser's
+-- local store, so it is only unique within one machine, and making it globally
+-- unique meant one account's project id could name another account's row. An
+-- upsert then took its ON CONFLICT UPDATE path against a row it did not own and
+-- was refused by row-level security ("violates ... (USING expression)"). Scoped
+-- this way, two accounts holding the same local id simply keep separate rows.
 create table if not exists public.projects (
-  id          uuid primary key,                       -- shared with the local IndexedDB id
+  id          uuid not null,                          -- shared with the local IndexedDB id
   user_id     uuid not null references auth.users (id) on delete cascade,
   name        text not null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   -- [{ "name": "board.kicad_pcb", "gzB64": "..." }, ...]
-  files       jsonb not null default '[]'::jsonb
+  files       jsonb not null default '[]'::jsonb,
+  primary key (user_id, id)
 );
+
+-- Migration for a database created before the key was scoped. Safe to re-run:
+-- `id` was unique, so no (user_id, id) pair can collide.
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'projects_pkey'
+      and conrelid = 'public.projects'::regclass
+      and array_length(conkey, 1) = 1
+  ) then
+    alter table public.projects drop constraint projects_pkey;
+    alter table public.projects add primary key (user_id, id);
+  end if;
+end $$;
 
 create index if not exists projects_user_id_idx on public.projects (user_id);
 create index if not exists projects_updated_at_idx on public.projects (user_id, updated_at desc);
