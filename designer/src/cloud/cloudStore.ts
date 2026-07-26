@@ -79,12 +79,22 @@ export async function cloudGet(id: string): Promise<SyncableProject | null> {
 
   // Storage-backed: download each blob and re-encode to the gzB64 shape.
   const userId = r.user_id ?? '';
+  //
+  // A failed download must abort the whole pull. It previously became an empty
+  // file, which the caller then wrote into the local store, replacing a good
+  // project with blank ones. That is the worst outcome available here: sync
+  // resolves by timestamp, so a newer-but-broken cloud row could quietly
+  // destroy the only complete copy of the work.
   const files = await Promise.all(
     r.files.map(async (f) => {
       const { data: blob, error: e } = await supabase!.storage
         .from(BUCKET)
         .download(objPath(userId, id, f.name));
-      if (e || !blob) return { name: f.name, gzB64: '' };
+      if (e || !blob) {
+        throw new Error(
+          `Could not download "${f.name}" for project "${r.name}": ${e?.message ?? 'file missing from storage'}.`,
+        );
+      }
       return { name: f.name, gzB64: bytesToB64(new Uint8Array(await blob.arrayBuffer())) };
     }),
   );
@@ -104,7 +114,15 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
 
   if (BUCKET) {
     // Blobs → Storage; the row keeps only the file names.
-    await Promise.all(
+    //
+    // Every result is checked, because `upload` reports failure by returning an
+    // error rather than throwing. Discarding those meant a project whose blobs
+    // had all failed to upload still got its row written, listing files that
+    // were not in Storage. The row then claimed a complete project, and since
+    // sync resolves by timestamp, that empty copy could be pulled back over the
+    // good local one. A missing bucket presented exactly this way: twenty
+    // silent 400s, then a confident row.
+    const uploads = await Promise.all(
       p.files.map((f) =>
         supabase!.storage.from(BUCKET).upload(objPath(userId, p.id, f.name), b64ToBytes(f.gzB64), {
           upsert: true,
@@ -112,6 +130,15 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
         }),
       ),
     );
+    const failed = uploads.filter((u) => u.error);
+    if (failed.length > 0) {
+      // Surfaced rather than summarised: the underlying text is what identifies
+      // the cause ("Bucket not found" means Storage was never provisioned).
+      const reason = failed[0]?.error?.message ?? 'unknown error';
+      throw new Error(
+        `Cloud sync failed for "${p.name}": ${failed.length} of ${p.files.length} files could not be uploaded (${reason}).`,
+      );
+    }
     const { error } = await supabase.from('projects').upsert(
       { ...base, files: p.files.map((f) => ({ name: f.name })) },
       {
