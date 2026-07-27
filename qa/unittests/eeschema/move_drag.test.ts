@@ -44,7 +44,7 @@ const R = readSymbolLib(
  * on from that far end, which is the "a connected line runs along the move"
  * case.
  */
-function pinnedWire(opts: { corner?: boolean } = {}): {
+function pinnedWire(opts: { corner?: boolean; vertical?: boolean } = {}): {
   sch: Schematic;
   libById: Map<string, LibSymbol>;
   moving: string;
@@ -52,13 +52,14 @@ function pinnedWire(opts: { corner?: boolean } = {}): {
   // R's pins sit 3.81 mm above and below its origin, so a symbol placed at
   // (0, -3.81) has a pin exactly at the origin.
   let sch = placeSymbol(R, at(0, -3.81)).apply(EMPTY());
-  sch = placeSymbol(R, at(20, -3.81)).apply(sch);
+  // The second symbol sits to the right, or below for the vertical-wire case.
+  sch = placeSymbol(R, opts.vertical ? at(0, 23.81) : at(20, -3.81)).apply(sch);
   const libById = new Map<string, LibSymbol>(sch.libSymbols.map((l) => [l.libId, l]));
   const fixedPin = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId)).filter(
     (p) => p.y === 0,
   )[0]!;
   const movingPin = symbolPinPositions(sch.symbols[1]!, libById.get(sch.symbols[1]!.libId)).filter(
-    (p) => p.y === 0,
+    (p) => (opts.vertical ? p.y === at(0, 20).y : p.y === 0),
   )[0]!;
   sch = addItems({
     lines: [
@@ -258,6 +259,30 @@ describe('orthoLineDrag: where the bend goes', () => {
     expect(horizontal.start.y).toBe(0);
     expect(new Set([vertical.start.y, vertical.end.y])).toEqual(new Set([0, at(0, 10).y]));
     expect(vertical.start.x).toBe(at(20, 0).x);
+  });
+
+  it('never flattens a vertical wire into a diagonal when its pin is dragged', () => {
+    // The reported shape: a perfectly vertical wire from the dragged symbol's
+    // pin down to a fixed pin. In H/V line mode the far end holds still and the
+    // wire keeps its axis — every surviving segment is horizontal or vertical.
+    const { sch, libById, moving } = pinnedWire({ vertical: true });
+    const spec = planMove(sch, libById, new Set([moving]));
+    const moved = withCleanup(orthoMove(sch, spec, at(-10, -5), libById), libById).apply(sch);
+    for (const l of moved.lines) {
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
+    }
+    // The far end is exactly where it was, still on its pin.
+    const fixedPin = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId)).find(
+      (p) => p.y === 0,
+    )!;
+    expect(
+      moved.lines.some(
+        (l) =>
+          (l.start.x === fixedPin.x && l.start.y === fixedPin.y) ||
+          (l.end.x === fixedPin.x && l.end.y === fixedPin.y),
+      ),
+    ).toBe(true);
   });
 
   it('lengthens a connected wire that runs along the move instead of adding one', () => {
