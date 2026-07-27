@@ -237,26 +237,34 @@ describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
     expect(undone.symbols[0]!.at).toEqual(sch.symbols[0]!.at);
   });
 
-  it('keeps the rubber-band stubs straight, as upstream exempts them from bending', async () => {
+  it('bends the rubber-band stubs into an L in H/V line mode', async () => {
     const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
     const { sch, libById } = load();
     // Drag the wire itself (both ends sit on J1's fixed pins) diagonally. The
-    // stubs upstream adds carry both IS_NEW and SELECTED_BY_DRAG, which the
-    // ortho pass skips (`!line->HasFlag( SELECTED_BY_DRAG | IS_NEW )`), so they
-    // run straight from the pin to the dragged point — they are the rubber band.
+    // stub that keeps each pin connected leaves the pin along one axis and then
+    // turns: a diagonal wire out of a pin is what this mode exists to prevent.
     const ids = new Set([sch.lines[0]!.uuid!]);
     const spec = planMove(sch, libById, ids);
     expect(spec.newWires.length).toBe(2);
     const delta = { x: mmToIU(2.54), y: mmToIU(2.54) };
     const moved = orthoMove(sch, spec, delta, libById).apply(sch);
 
-    // Each fixed pin still has a wire endpoint on it, and the stub from it ends
-    // at the dragged point.
+    for (const l of moved.lines) {
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
+    }
     const pins = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId));
     for (const pin of pins) {
-      const stub = moved.lines.find((l) => l.start.x === pin.x && l.start.y === pin.y);
-      expect(stub).toBeDefined();
-      expect(stub!.end).toEqual({ x: pin.x + delta.x, y: pin.y + delta.y });
+      // A wire still leaves the pin, and the run reaches the dragged point.
+      expect(moved.lines.some((l) => l.start.x === pin.x && l.start.y === pin.y)).toBe(true);
+      const dragged = { x: pin.x + delta.x, y: pin.y + delta.y };
+      expect(
+        moved.lines.some(
+          (l) =>
+            (l.start.x === dragged.x && l.start.y === dragged.y) ||
+            (l.end.x === dragged.x && l.end.y === dragged.y),
+        ),
+      ).toBe(true);
     }
   });
 });

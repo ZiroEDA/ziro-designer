@@ -31,7 +31,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
-import { makeBus, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
+import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
 import { symbolPinPositions } from './connect.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
@@ -338,12 +338,35 @@ function computeOrtho(
     if (!same(orig.end, w.end)) adjust.push({ id: key, which: 'end', from: orig.end, to: w.end });
   }
   const bends: SchLine[] = [];
-  // Rubber-band stubs from the plan (a fixed pin/junction, or a label dragged
-  // off a wire). Upstream flags them SELECTED_BY_DRAG | IS_NEW, which
-  // orthoLineDrag skips outright — only their start is pinned, so they run
-  // straight to the dragged point in H/V mode too.
+  // Rubber-band stubs from the plan: the wire that keeps a connection alive when
+  // a pin, junction or label is pulled away from what it was touching.
+  //
+  // Upstream flags these IS_NEW | SELECTED_BY_DRAG, which orthoLineDrag skips,
+  // so in master they stay straight — but a diagonal wire appearing out of a
+  // junction is exactly what H/V line mode exists to prevent, and it is not
+  // what the desktop app puts on screen. In this mode we bend the stub into an
+  // L (out along X, then Y); free line mode keeps the straight run.
   for (const w of spec.newWires) {
-    bends.push(makeWireWithUuid(w.fixed, add(w.fixed, delta), w.uuid));
+    const moved = add(w.fixed, delta);
+    if (delta.x !== 0 && delta.y !== 0) {
+      // Leave along the axis that isn't already occupied, so the stub doesn't
+      // run back along a wire that is still attached at that point.
+      const occupied = (dx: number, dy: number): boolean =>
+        sch.lines.some((l) => {
+          if (l.kind !== 'wire' && l.kind !== 'bus') return false;
+          const other = same(l.start, w.fixed) ? l.end : same(l.end, w.fixed) ? l.start : null;
+          if (!other) return false;
+          return dx !== 0
+            ? other.y === w.fixed.y && Math.sign(other.x - w.fixed.x) === Math.sign(dx)
+            : other.x === w.fixed.x && Math.sign(other.y - w.fixed.y) === Math.sign(dy);
+        });
+      const xFirst = !occupied(delta.x, 0) || occupied(0, delta.y);
+      const corner = xFirst ? { x: moved.x, y: w.fixed.y } : { x: w.fixed.x, y: moved.y };
+      bends.push(makeWireWithUuid(w.fixed, corner, w.uuid));
+      bends.push(makeWire(corner, moved));
+    } else {
+      bends.push(makeWireWithUuid(w.fixed, moved, w.uuid));
+    }
   }
   for (const [, w] of work) {
     if (!w.isNew || same(w.start, w.end)) continue;

@@ -285,6 +285,40 @@ describe('orthoLineDrag: where the bend goes', () => {
     ).toBe(true);
   });
 
+  it('leaves a junction that sits on the dragged pin with an orthogonal rubber band', () => {
+    // The reported case: a junction dot right on the pin, no wire in between.
+    // Upstream leaves the wires there and rubber-bands one new wire from the
+    // junction; in H/V mode that wire turns instead of cutting the corner, and
+    // it leaves the pin along an axis no existing wire already occupies.
+    let sch = placeSymbol(R, at(0, -3.81)).apply(EMPTY());
+    const libById = new Map<string, LibSymbol>(sch.libSymbols.map((l) => [l.libId, l]));
+    const pin = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId)).find(
+      (q) => q.y === 0,
+    )!;
+    sch = addItems({
+      lines: [makeWire(pin, at(20, 0)), makeWire(pin, at(0, 20)), makeWire(pin, at(-20, 0))],
+      junctions: [makeJunction(pin)],
+    }).apply(sch);
+    const spec = planMove(sch, libById, new Set([refId('symbol', sch.symbols[0]!.uuid, 0)]));
+    expect(spec.newWires).toHaveLength(1);
+    const delta = at(-10, -5);
+    const moved = withCleanup(orthoMove(sch, spec, delta, libById), libById).apply(sch);
+
+    for (const l of moved.lines) {
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
+    }
+    // The three original wires are untouched, and the rubber band runs from the
+    // junction to the pin's new spot without doubling back along one of them.
+    expect(moved.lines).toHaveLength(5);
+    expect(
+      moved.lines.some((l) => l.end.x === pin.x + delta.x && l.end.y === pin.y + delta.y),
+    ).toBe(true);
+    expect(moved.lines.some((l) => l.start.x === pin.x && l.start.y === pin.y && l.end.y < 0)).toBe(
+      true,
+    );
+  });
+
   it('lengthens a connected wire that runs along the move instead of adding one', () => {
     // The far end is a corner: a vertical wire carries on from it. Dragging the
     // symbol down runs along that wire, so upstream stretches it and adds
