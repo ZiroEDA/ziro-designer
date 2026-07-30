@@ -19,7 +19,7 @@ import type {
   SchField,
   Vec2,
 } from '../types.js';
-import { refId } from './hittest.js';
+import { refId, fieldId } from './hittest.js';
 import { makeWireWithUuid, makeJunctionWithUuid } from './build.js';
 import type { MoveSpec, StubWire } from './connect.js';
 import type { EditCommand } from './command.js';
@@ -55,6 +55,26 @@ const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
   pins: s.pins.map((p) => ({ ...p, at: add(p.at, d) })),
 });
 
+/**
+ * A symbol under a move: the whole symbol if it is selected, otherwise only
+ * those of its fields that are. KiCad makes SCH_FIELD independently movable
+ * (SCH_COLLECTOR::MovableItems), so dragging a reference or footprint text
+ * repositions just that text and leaves the symbol where it is.
+ */
+export function moveSymbolOrFields(
+  s: SchSymbol,
+  symId: string,
+  ids: ReadonlySet<string>,
+  d: Vec2,
+): SchSymbol {
+  if (ids.has(symId)) return moveSymbol(s, d);
+  if (!s.fields.some((_f, k) => ids.has(fieldId(symId, k)))) return s;
+  return {
+    ...s,
+    fields: s.fields.map((f, k) => (ids.has(fieldId(symId, k)) ? moveField(f, d) : f)),
+  };
+}
+
 /** Create a command that moves every item in `ids` by `delta`. */
 export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
   return {
@@ -64,7 +84,7 @@ export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
       return {
         ...doc,
         symbols: doc.symbols.map((s, i) =>
-          ids.has(refId('symbol', s.uuid, i)) ? moveSymbol(s, delta) : s,
+          moveSymbolOrFields(s, refId('symbol', s.uuid, i), ids, delta),
         ),
         lines: doc.lines.map((l, i) =>
           ids.has(refId('line', l.uuid, i)) ? moveLine(l, delta) : l,
@@ -144,7 +164,7 @@ function applyConnectedMove(
   return {
     ...doc,
     symbols: doc.symbols.map((s, i) =>
-      spec.fullIds.has(refId('symbol', s.uuid, i)) ? moveSymbol(s, delta) : s,
+      moveSymbolOrFields(s, refId('symbol', s.uuid, i), spec.fullIds, delta),
     ),
     noConnects: doc.noConnects.map((nc, i) =>
       spec.fullIds.has(refId('noconnect', nc.uuid, i)) ? moveNoConnect(nc, delta) : nc,
@@ -158,7 +178,7 @@ function applyConnectedMove(
       // The whole wire moved: the label goes with it.
       if (ride.rigid) return moveLabel(l, delta);
       // One end was dragged: upstream moves the label by the *fixed* end's
-      // delta — zero — and only puts it back on the wire when the wire shrank
+      // delta, zero, and only puts it back on the wire when the wire shrank
       // past it (SCH_MOVE_TOOL's special-case label handling).
       return onSegment(l.at, carrier.start, carrier.end)
         ? l
@@ -188,7 +208,7 @@ function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
   return len2 > 0 && dot >= 0 && dot <= len2;
 }
 
-/** SEG::NearestPoint — where a label lands when its wire shrank past it. */
+/** SEG::NearestPoint, where a label lands when its wire shrank past it. */
 function nearestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
   const dx = b.x - a.x;
   const dy = b.y - a.y;

@@ -14,7 +14,15 @@
 
 import type { LibSymbol, SchLabel, Schematic, Vec2 } from '../types.js';
 import { iuToMM } from '@ziroeda/common';
-import { refId, type ItemRef, hitTest } from './hittest.js';
+import {
+  refId,
+  type ItemRef,
+  hitTest,
+  collectFieldBoxes,
+  collectPinSegments,
+  pinDistance,
+  pinAccuracy,
+} from './hittest.js';
 import { contains, inflate, labelBox, symbolBodyBBox, type BBox } from './bbox.js';
 
 interface Candidate {
@@ -23,12 +31,14 @@ interface Candidate {
   exact: boolean;
   /** Distance metric for the closest-item race (world IU). */
   dist: number;
-  /** Filled shapes win hit tests anywhere inside — kept selectable but never
+  /** Filled shapes win hit tests anywhere inside, kept selectable but never
    *  promoted to closest (upstream's `dominating`). */
   dominating: boolean;
   /** Instant winner of the closest race (junctions; upstream also pins). */
   instant: boolean;
   bbox: BBox;
+  /** Owning item's id, for the child-wins-a-tie rule (a field's symbol). */
+  parentId?: string;
 }
 
 const dSeg = (p: Vec2, a: Vec2, b: Vec2): number => {
@@ -184,6 +194,47 @@ export function collectAndGuess(
     }
   }
 
+  // Pins: GuessSelectionCandidates takes an exact pin hit outright, the same
+  // way it does a junction ("closest = item; break").
+  for (const seg of collectPinSegments(sch, libById)) {
+    const d = pinDistance(seg, p);
+    const tol = pinAccuracy(accuracy);
+    if (d > tol) continue;
+    const sym = sch.symbols[seg.symbolIndex]!;
+    cands.push({
+      ref: { kind: 'pin', id: seg.id },
+      index: seg.index,
+      exact: true,
+      dist: d,
+      dominating: false,
+      instant: true,
+      bbox: {
+        minX: Math.min(seg.at.x, seg.bodyEnd.x),
+        minY: Math.min(seg.at.y, seg.bodyEnd.y),
+        maxX: Math.max(seg.at.x, seg.bodyEnd.x),
+        maxY: Math.max(seg.at.y, seg.bodyEnd.y),
+      },
+      parentId: refId('symbol', sym.uuid, seg.symbolIndex),
+    });
+  }
+
+  // Symbol fields: separate selectable items whose small text box beats the
+  // body on distance, so clicking a reference picks the reference.
+  for (const f of collectFieldBoxes(sch, libById)) {
+    if (dRect(p, f.bbox) > accuracy) continue;
+    const sym = sch.symbols[f.symbolIndex]!;
+    cands.push({
+      ref: { kind: 'field', id: f.id },
+      index: f.index,
+      exact: contains(f.bbox, p),
+      dist: dRect(p, f.bbox),
+      dominating: false,
+      instant: false,
+      bbox: f.bbox,
+      parentId: refId('symbol', sym.uuid, f.symbolIndex),
+    });
+  }
+
   for (let i = 0; i < sch.symbols.length; i++) {
     const s = sch.symbols[i]!;
     const bbox = symbolBodyBBox(s, libById.get(s.libId));
@@ -234,7 +285,7 @@ export function collectAndGuess(
         index: i,
         exact: contains(bbox, p),
         dist: Math.hypot(p.x - (bbox.minX + bbox.maxX) / 2, p.y - (bbox.minY + bbox.maxY) / 2),
-        // A sheet body contains everything drawn on it — like a filled shape,
+        // A sheet body contains everything drawn on it, like a filled shape,
         // it must not win the closest race against items inside it.
         dominating: true,
         instant: false,
@@ -264,9 +315,12 @@ export function collectAndGuess(
     }
     if (c.dominating) continue;
     if (!closest || c.dist < closest.dist) closest = c;
+    // "if( item->GetParent() == closest ) closest = item", on a tie the child
+    // wins, so a field exactly on its symbol's centre still takes the click.
+    else if (c.dist === closest.dist && c.parentId === closest.ref.id) closest = c;
   }
 
-  // Drop everything not fully inside the closest item's tight box — those
+  // Drop everything not fully inside the closest item's tight box, those
   // items have clickable area elsewhere.
   if (closest) {
     const w = closest.bbox.maxX - closest.bbox.minX;
@@ -383,7 +437,7 @@ const labelDescription = (l: SchLabel): string => {
   }
 };
 
-/** The Clarify Selection row text — each item's GetItemDescription. */
+/** The Clarify Selection row text, each item's GetItemDescription. */
 export function describeItem(
   sch: Schematic,
   libById: Map<string, LibSymbol>,

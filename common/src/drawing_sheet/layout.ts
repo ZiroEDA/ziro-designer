@@ -8,7 +8,7 @@
  *  - corner anchoring: the four page corners are the margin-box corners, and an
  *    item coordinate is measured *inward* from its anchor corner;
  *  - repeats: an item with `repeat > 1` is emitted per repeat, each copy offset
- *    by (incrx, incry) mm — but a repeat other than the first is dropped when it
+ *    by (incrx, incry) mm, but a repeat other than the first is dropped when it
  *    falls outside the margin box (DS_DATA_ITEM::IsInsidePage), which is what
  *    clips the `repeat 100` coordinate-band labels at the page edge;
  *  - per-repeat text labels increment via DS_DATA_ITEM_TEXT::IncrementLabel
@@ -44,11 +44,11 @@ export interface WksPage {
 
 /** Values the `${…}` variables and page-number tokens resolve against. */
 export interface WksResolveContext {
-  /** 1-based sheet ordinal (DS_DRAW_ITEM_LIST m_sheetNumber) — drives the
+  /** 1-based sheet ordinal (DS_DRAW_ITEM_LIST m_sheetNumber), drives the
    *  page1only/notonpage1 item visibility and is the `${#}` fallback. */
   pageNumber?: number;
   /** The page number *string* shown by `${#}` (DS_DRAW_ITEM_LIST
-   *  m_pageNumber / SCH_SHEET_PATH::GetPageNumber — may be "A", "ii", …).
+   *  m_pageNumber / SCH_SHEET_PATH::GetPageNumber, may be "A", "ii", …).
    *  Unset = the ordinal. */
   pageName?: string;
   /** Total number of sheets. */
@@ -188,7 +188,7 @@ export function resolveDrawingSheetText(text: string, ctx: WksResolveContext): s
 
 /**
  * Increment a text label for a repeat, mirroring DS_DATA_ITEM_TEXT::
- * IncrementLabel: only the LAST character is considered — a digit is replaced
+ * IncrementLabel: only the LAST character is considered, a digit is replaced
  * by the integer (digit + incr) (so "9" + 1 → "10"), any other character is
  * shifted by code point ("A" → "B").
  */
@@ -389,4 +389,93 @@ export function layoutDrawingSheet(
   });
 
   return out;
+}
+
+// ----- hit testing ------------------------------------------------------------
+
+/** Distance from p to the segment a-b. */
+function distToSeg(p: Vec2, a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Whether p is within `accuracy` of one laid-out drawing-sheet item. */
+function hitsDrawItem(item: DsDrawItem, p: Vec2, accuracy: number): boolean {
+  switch (item.kind) {
+    case 'line': {
+      const tol = accuracy + item.width / 2;
+      return distToSeg(p, item.a, item.b) <= tol;
+    }
+    case 'rect': {
+      // A drawing-sheet rectangle is its outline, not a filled area, the
+      // border frame must not swallow clicks over the whole page.
+      const tol = accuracy + item.width / 2;
+      const x0 = Math.min(item.a.x, item.b.x);
+      const x1 = Math.max(item.a.x, item.b.x);
+      const y0 = Math.min(item.a.y, item.b.y);
+      const y1 = Math.max(item.a.y, item.b.y);
+      return (
+        distToSeg(p, { x: x0, y: y0 }, { x: x1, y: y0 }) <= tol ||
+        distToSeg(p, { x: x0, y: y1 }, { x: x1, y: y1 }) <= tol ||
+        distToSeg(p, { x: x0, y: y0 }, { x: x0, y: y1 }) <= tol ||
+        distToSeg(p, { x: x1, y: y0 }, { x: x1, y: y1 }) <= tol
+      );
+    }
+    case 'poly': {
+      const tol = accuracy + item.width / 2;
+      for (let i = 1; i < item.pts.length; i++) {
+        if (distToSeg(p, item.pts[i - 1]!, item.pts[i]!) <= tol) return true;
+      }
+      return false;
+    }
+    case 'text': {
+      // The text's box: DS_DRAW_ITEM_TEXT hit-tests its bounding box, which is
+      // what makes the whole title block clickable rather than just the glyphs.
+      const halfH = item.h / 2 + accuracy;
+      const halfW = (Math.max(1, item.text.length) * item.w) / 2 + accuracy;
+      const cx =
+        item.hjustify === 'left'
+          ? item.at.x + halfW - accuracy
+          : item.hjustify === 'right'
+            ? item.at.x - halfW + accuracy
+            : item.at.x;
+      const cy =
+        item.vjustify === 'top'
+          ? item.at.y + halfH - accuracy
+          : item.vjustify === 'bottom'
+            ? item.at.y - halfH + accuracy
+            : item.at.y;
+      return Math.abs(p.x - cx) <= halfW && Math.abs(p.y - cy) <= halfH;
+    }
+    case 'bitmap': {
+      const w = ((item.pxW ?? 0) * 254000) / (item.ppi || 300) / 2;
+      const h = ((item.pxH ?? 0) * 254000) / (item.ppi || 300) / 2;
+      return Math.abs(p.x - item.at.x) <= w + accuracy && Math.abs(p.y - item.at.y) <= h + accuracy;
+    }
+  }
+}
+
+/**
+ * Whether `p` lands on any part of the drawing sheet, the page border, its
+ * rulers, or the title block.
+ *
+ * `DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems` (ds_proxy_view_item.cpp) walks
+ * the laid-out sheet and tests each item with five pixels of slop at the
+ * current zoom. It is deliberately a test against the *items*, not against the
+ * page rectangle: clicking empty paper inside the frame hits nothing.
+ */
+export function hitTestDrawingSheet(
+  draws: readonly DsDrawItem[],
+  p: Vec2,
+  accuracy: number,
+): boolean {
+  for (const item of draws) {
+    if (hitsDrawItem(item, p, accuracy)) return true;
+  }
+  return false;
 }

@@ -2,7 +2,7 @@
  * Connectable-point snapping, the model side of KiCad's EE_GRID_HELPER::BestSnapAnchor
  * with GRID_CONNECTABLE: when drawing or moving, the cursor snaps to nearby
  * connection anchors (symbol pins, wire endpoints, junctions, label anchors) so
- * items land exactly on each other and stay electrically connected — instead of
+ * items land exactly on each other and stay electrically connected, instead of
  * only snapping to the background grid.
  */
 
@@ -50,7 +50,10 @@ export function collectAnchors(
   sch.junctions.forEach((j, i) => {
     if (!exclude?.has(refId('junction', j.uuid, i))) pts.push(j.at);
   });
+  // GRID_CONNECTABLE snaps to connectable items only; SCH_TEXT is not one
+  // (SCH_ITEM::IsConnectable() is false and SCH_TEXT never overrides it).
   sch.labels.forEach((l, i) => {
+    if (l.kind === 'text') return;
     if (!exclude?.has(refId('label', l.uuid, i))) pts.push(l.at);
   });
   // GRID_CONNECTABLE also snaps to sheet pins, bus-entry ends and no-connects.
@@ -89,6 +92,7 @@ export function selectionAnchors(
     if (ids.has(refId('junction', j.uuid, i))) pts.push(j.at);
   });
   sch.labels.forEach((l, i) => {
+    if (l.kind === 'text') return; // not connectable
     if (ids.has(refId('label', l.uuid, i))) pts.push(l.at);
   });
   return pts;

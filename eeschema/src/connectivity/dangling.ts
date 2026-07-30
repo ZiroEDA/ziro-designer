@@ -10,20 +10,9 @@
 
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { SegmentIndex, onSegment } from './segment_index.js';
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
-
-/** True if point p lies on the segment a-b (exact integer-IU geometry, as KiCad). */
-function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
-  const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-  if (cross !== 0) return false;
-  return (
-    p.x >= Math.min(a.x, b.x) &&
-    p.x <= Math.max(a.x, b.x) &&
-    p.y >= Math.min(a.y, b.y) &&
-    p.y <= Math.max(a.y, b.y)
-  );
-}
 
 /** World connection points of a placed symbol's pins (pin tips through the transform). */
 function symbolPinWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
@@ -64,7 +53,7 @@ export function danglingPinPositions(sch: Schematic, libById: Map<string, LibSym
   for (const p of pins) pinCount.set(key(p), (pinCount.get(key(p)) ?? 0) + 1);
 
   // Points occupied by a junction, label anchor, or a wire endpoint (O(1) lookup for
-  // the common case — a pin connects at a wire end far more often than mid-span).
+  // the common case, a pin connects at a wire end far more often than mid-span).
   const nodePoints = new Set<string>();
   for (const j of sch.junctions) nodePoints.add(key(j.at));
   for (const nc of sch.noConnects) nodePoints.add(key(nc.at)); // an NC flag "connects" the pin
@@ -77,12 +66,16 @@ export function danglingPinPositions(sch: Schematic, libById: Map<string, LibSym
     nodePoints.add(key(w.end));
   }
 
+  // The mid-span (pass-through) test is indexed: on a sheet still being wired
+  // up most pins are unconnected, and scanning every wire for each of them made
+  // this pass quadratic in the size of the sheet.
+  const midSpan = new SegmentIndex(wires.map((w) => ({ item: w, a: w.start, b: w.end })));
+
   const connected = (p: Vec2): boolean => {
     if ((pinCount.get(key(p)) ?? 0) > 1) return true; // stacked on another pin
     if (nodePoints.has(key(p))) return true; // junction, label, or wire end here
-    // Only the rare pin that is on no endpoint needs the mid-span (pass-through) scan.
-    for (const w of wires) if (onSegment(p, w.start, w.end)) return true;
-    return false;
+    // Only the rare pin that is on no endpoint needs the mid-span scan.
+    return midSpan.any(p);
   };
 
   // De-duplicate coincident dangling pins so we draw one target per point.
@@ -117,7 +110,7 @@ interface EndEntry {
   owner: unknown;
 }
 
-/** All pin points including hidden ones — invisible power pins still connect
+/** All pin points including hidden ones, invisible power pins still connect
  *  (SCH_SYMBOL::GetEndPoints adds every pin). */
 function allPinsWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
   if (!lib) return [];
@@ -169,7 +162,7 @@ export interface DanglingWireEnd {
 }
 
 /**
- * Dangling wire endpoints — where KiCad draws the small square
+ * Dangling wire endpoints, where KiCad draws the small square
  * (drawDanglingIndicator). Per SCH_LINE::UpdateDanglingState, a wire end is
  * connected by any co-located end item except a bus end (or bus-bus entry
  * end); only wires are reported since KiCad never draws bus squares.

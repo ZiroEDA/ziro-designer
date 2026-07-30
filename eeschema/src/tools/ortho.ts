@@ -6,7 +6,7 @@
  * Upstream never lets a dragged wire go diagonal in H/V line mode, and the way
  * it manages that is specific: the move is split into an X step and a Y step,
  * and for each partially-dragged wire the *unselected* end is what gets special
- * treatment — the dragged end always follows the cursor exactly, so a wire on a
+ * treatment, the dragged end always follows the cursor exactly, so a wire on a
  * moving symbol pin stays on that pin with its own direction intact. At the far
  * end, in order of preference:
  *
@@ -33,6 +33,7 @@ import type {
 import { refId } from './hittest.js';
 import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
 import { symbolPinPositions } from './connect.js';
+import { moveSymbolOrFields } from './move.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
 
@@ -63,7 +64,7 @@ interface WorkLine {
   key: string;
   uuid: string;
   isNew: boolean;
-  /** The wire this one was cloned from — its layer and stroke (SetLastResolvedState). */
+  /** The wire this one was cloned from, its layer and stroke (SetLastResolvedState). */
   template: SchLine;
   start: Vec2;
   end: Vec2;
@@ -74,8 +75,20 @@ interface WorkLine {
   storedAngle: Axis;
 }
 
-/** One entry of `m_lineConnectionCache`. */
-type Conn = { type: 'line'; key: string } | { type: 'junction' } | { type: 'pin' };
+/**
+ * One entry of `m_lineConnectionCache`, tagged with which end of the wire it
+ * was found at.
+ *
+ * Upstream pools both ends into one list, and that pooling is load-bearing:
+ * `foundAttachment` counts a pin at the *dragged* end, which is what makes a
+ * wire running off a moving symbol bend at its far end instead of sliding
+ * bodily. But the rest of orthoLineDrag reasons about the unselected end only,
+ * "it's important that we only add items at the unselected end, since that is
+ * the only end that is handled specially", and reading a pin or junction from
+ * the wrong end there picks the wrong branch. Tagging lets both hold.
+ */
+type ConnKind = { type: 'line'; key: string } | { type: 'junction' } | { type: 'pin' };
+type Conn = ConnKind & { far?: boolean };
 
 /** The connected-item cache for a dragged wire's endpoints (getConnectedItems). */
 function buildCache(
@@ -103,21 +116,22 @@ function buildCache(
 
   for (const [key, w] of work) {
     if (w.isNew) continue;
+    // Both ends, as upstream pools them, but each entry remembers whether it
+    // came from the unselected ("far") end, which is the only end
+    // orthoLineDrag's branch choice is about.
+    const half = w.startFlag !== w.endFlag;
+    const farPoint = half ? (w.startFlag ? w.end : w.start) : null;
     const conns: Conn[] = [];
     for (const p of [w.start, w.end]) {
-      conns.push(...lineKeyAt(p, key));
-      if (sch.junctions.some((j) => same(j.at, p))) conns.push({ type: 'junction' });
-      // Every symbol counts, the moving one included: upstream's
-      // getConnectedItems has no selection test for SCH_SYMBOL_T, so a wire on
-      // a dragged pin has that pin in its cache — which is what keeps the
-      // junction special case ("a junction alone gets one segment") from
-      // applying to pin-attached wires.
+      const far = farPoint !== null && same(p, farPoint);
+      for (const c of lineKeyAt(p, key)) conns.push({ ...c, far });
+      if (sch.junctions.some((j) => same(j.at, p))) conns.push({ type: 'junction', far });
       let pinHere = false;
       for (const sym of sch.symbols) {
         if (symbolPinPositions(sym, libById.get(sym.libId)).some((q) => same(q, p))) pinHere = true;
       }
       for (const sh of sch.sheets) if (sh.pins.some((q) => same(q.at, p))) pinHere = true;
-      if (pinHere) conns.push({ type: 'pin' });
+      if (pinHere) conns.push({ type: 'pin', far });
     }
     cache.set(key, conns);
   }
@@ -125,7 +139,7 @@ function buildCache(
 }
 
 /**
- * One wire, one axis-aligned step of the move — `SCH_MOVE_TOOL::orthoLineDrag`.
+ * One wire, one axis-aligned step of the move, `SCH_MOVE_TOOL::orthoLineDrag`.
  * `bend` carries the per-drag bend counters upstream keeps in the caller.
  */
 function orthoLineDrag(
@@ -152,6 +166,9 @@ function orthoLineDrag(
   let foundLine: WorkLine | null = null;
 
   for (const c of conns) {
+    // What sits at the *far* end decides which branch runs; a pin or junction
+    // at the end being dragged says nothing about how to hold the other one.
+    if (c.far === false) continue;
     if (c.type === 'junction') {
       foundJunction = true;
       continue;
@@ -178,8 +195,22 @@ function orthoLineDrag(
     lengthOf(line.start, line.end) === 0 &&
     parallel(line.storedAngle);
 
-  if (!preferOriginalLine && !foundLine && foundJunction && !foundPin) {
-    // A junction alone is special-cased to a single new segment.
+  if (!preferOriginalLine && foundJunction && !foundPin) {
+    // A junction is special-cased to a single new segment leaving the tee.
+    //
+    // Upstream writes this branch as `!foundLine && foundJunction && !foundPin`
+    //, a parallel neighbour, if there is one, absorbs the drag instead. At a
+    // junction that is the wrong outcome and is the bug this fixes: a tee
+    // almost always *has* a leg parallel to the drag (that is what a tee is),
+    // so lengthening it pulls the junction point away from the tee's other
+    // legs, stranding them and leaving the junction with nothing to hold. Drag
+    // a symbol whose wire runs into a tee and the far branch is abandoned,
+    // dangling, with the junction quietly cleaned away.
+    //
+    // A junction is an explicit statement that several conductors meet *here*,
+    // so nothing attached to it may be moved out from under it: the new segment
+    // takes the whole movement and every existing leg stays exactly where it
+    // is. Deliberately stricter than the line above it in sch_move_tool.cpp.
     const created = newLine(unselectedEnd, line.template);
     work.set(created.key, created);
     cache.set(created.key, conns);
@@ -342,7 +373,7 @@ function computeOrtho(
   // a pin, junction or label is pulled away from what it was touching.
   //
   // Upstream flags these IS_NEW | SELECTED_BY_DRAG, which orthoLineDrag skips,
-  // so in master they stay straight — but a diagonal wire appearing out of a
+  // so in master they stay straight, but a diagonal wire appearing out of a
   // junction is exactly what H/V line mode exists to prevent, and it is not
   // what the desktop app puts on screen. In this mode we bend the stub into an
   // L (out along X, then Y); free line mode keeps the straight run.
@@ -379,11 +410,6 @@ function computeOrtho(
   return { adjust, bends };
 }
 
-const moveSymbol = (s: SchSymbol, d: Vec2): SchSymbol => ({
-  ...s,
-  at: add(s.at, d),
-  fields: s.fields.map((f) => (f.at ? { ...f, at: add(f.at, d) } : f)),
-});
 const moveJunction = (j: SchJunction, d: Vec2): SchJunction => ({ ...j, at: add(j.at, d) });
 const moveLabel = (l: SchLabel, d: Vec2): SchLabel => ({ ...l, at: add(l.at, d) });
 
@@ -427,8 +453,10 @@ function applyMove(
 
   return {
     ...doc,
+    // A field picked on its own moves inside a symbol that stays put; the whole
+    // symbol moves when the symbol itself is selected.
     symbols: doc.symbols.map((s, i) =>
-      fullIds.has(refId('symbol', s.uuid, i)) ? moveSymbol(s, delta) : s,
+      moveSymbolOrFields(s, refId('symbol', s.uuid, i), fullIds, delta),
     ),
     junctions: [
       ...doc.junctions
@@ -463,7 +491,7 @@ function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
   return len2 > 0 && dot >= 0 && dot <= len2;
 }
 
-/** SEG::NearestPoint — where a label lands when its wire shrank past it. */
+/** SEG::NearestPoint, where a label lands when its wire shrank past it. */
 function nearestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
   const dx = b.x - a.x;
   const dy = b.y - a.y;

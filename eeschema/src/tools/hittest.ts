@@ -8,6 +8,142 @@
 import type { Schematic, SchSymbol, LibGraphic, LibSymbol, Vec2 } from '../types.js';
 import { contains, inflate, labelBox, symbolBodyBBox } from './bbox.js';
 import { directiveBox } from './directive_label.js';
+import { symbolFieldBoxes, type Box } from '../fieldbox.js';
+import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
+import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+
+/** The id of a placed symbol's field: `<symbolRefId>:field<k>`, as sheet pins
+ *  are `<sheetRefId>:sheetpin<k>`. */
+export const fieldId = (symbolRefId: string, index: number): string =>
+  `${symbolRefId}:field${index}`;
+
+/** A field's world box as a plain BBox. */
+const fieldBBox = (b: Box): { minX: number; minY: number; maxX: number; maxY: number } => ({
+  minX: b.x,
+  minY: b.y,
+  maxX: b.x + b.w,
+  maxY: b.y + b.h,
+});
+
+/** The id of a placed symbol's pin: `<symbolRefId>:pin<k>`, the same identity
+ *  the netlist uses for that pin. */
+export const pinId = (symbolRefId: string, index: number): string => `${symbolRefId}:pin${index}`;
+
+/**
+ * SCH_PIN::HitTest floors its accuracy at m_PinSymbolSize / 4 so a pin with no
+ * name or number is still clickable (sch_pin.cpp). Default pin symbol size is
+ * 25 mil.
+ */
+const PIN_HIT_FLOOR = (0.635 * 10000) / 4;
+
+/** Local-space unit vector from a pin's connection point toward the body. */
+function pinDirection(angle: number): Vec2 {
+  switch (((angle % 360) + 360) % 360) {
+    case 0:
+      return { x: 1, y: 0 };
+    case 90:
+      return { x: 0, y: -1 };
+    case 180:
+      return { x: -1, y: 0 };
+    default:
+      return { x: 0, y: 1 };
+  }
+}
+
+export interface PinSegment {
+  id: string;
+  symbolIndex: number;
+  index: number;
+  /** Connection point (the "active" end) in world coordinates. */
+  at: Vec2;
+  /** Where the pin line meets the symbol body, in world coordinates. */
+  bodyEnd: Vec2;
+}
+
+/**
+ * Every drawn pin of every placed symbol as a world-space segment.
+ *
+ * Pins are selectable items in eeschema, SCH_SELECTION_TOOL::Selectable has a
+ * SCH_PIN_T case gated on the "Pins" selection filter and on visibility, and
+ * GuessSelectionCandidates lets an exact pin hit win outright. Hidden pins are
+ * skipped unless `showHidden`, matching `!pin->IsVisible() && !GetShowAllPins()`.
+ */
+export function collectPinSegments(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  showHidden = false,
+): PinSegment[] {
+  const out: PinSegment[] = [];
+  sch.symbols.forEach((sym, si) => {
+    const lib = libById.get(sym.libId);
+    if (!lib) return;
+    const symId = refId('symbol', sym.uuid, si);
+    const t = symbolTransform(sym.angle, sym.mirror);
+    let k = 0;
+    for (const u of lib.units) {
+      if (
+        (u.unit !== 0 && u.unit !== sym.unit) ||
+        (u.bodyStyle !== 0 && u.bodyStyle !== sym.bodyStyle)
+      )
+        continue;
+      for (const pin of u.pins) {
+        const index = k++;
+        if (pin.hidden && !showHidden) continue;
+        const d = pinDirection(pin.angle);
+        out.push({
+          id: pinId(symId, index),
+          symbolIndex: si,
+          index,
+          at: localToWorld(sym.at, t, pin.at),
+          bodyEnd: localToWorld(sym.at, t, {
+            x: pin.at.x + d.x * pin.length,
+            y: pin.at.y + d.y * pin.length,
+          }),
+        });
+      }
+    }
+  });
+  return out;
+}
+
+/** Distance from p to the pin's line, the shape a pin is picked by. */
+export function pinDistance(seg: PinSegment, p: Vec2): number {
+  const { at: a, bodyEnd: b } = seg;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** The accuracy a pin hit test uses, floored as SCH_PIN::HitTest does. */
+export const pinAccuracy = (accuracy: number): number => Math.max(accuracy, PIN_HIT_FLOOR);
+
+/** Every visible field of every placed symbol, with its id and world box. */
+export function collectFieldBoxes(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+): { id: string; symbolIndex: number; index: number; bbox: ReturnType<typeof fieldBBox> }[] {
+  const out: {
+    id: string;
+    symbolIndex: number;
+    index: number;
+    bbox: ReturnType<typeof fieldBBox>;
+  }[] = [];
+  sch.symbols.forEach((sym, si) => {
+    const symId = refId('symbol', sym.uuid, si);
+    for (const f of symbolFieldBoxes(sym, libById.get(sym.libId), measureText)) {
+      out.push({
+        id: fieldId(symId, f.index),
+        symbolIndex: si,
+        index: f.index,
+        bbox: fieldBBox(f.box),
+      });
+    }
+  });
+  return out;
+}
 
 /** A reference to a top-level, selectable schematic item. */
 export interface ItemRef {
@@ -23,7 +159,9 @@ export interface ItemRef {
     | 'graphic'
     | 'textbox'
     | 'table'
-    | 'directive';
+    | 'directive'
+    | 'field'
+    | 'pin';
   /** Stable identity: the item's uuid, or `idx:<n>` when one is absent. */
   id: string;
 }
@@ -56,7 +194,7 @@ function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
       return Math.abs(d - g.radius) <= tol;
     }
     case 'arc':
-      // Approximate the arc by its start–mid–end chords (fine within tolerance).
+      // Approximate the arc by its start-mid-end chords (fine within tolerance).
       return distToSegment(p, g.start, g.mid) <= tol || distToSegment(p, g.mid, g.end) <= tol;
     case 'polyline':
     case 'bezier': {
@@ -152,6 +290,19 @@ export function hitTest(
     if (hitGraphic(g, p, tol)) return { kind: 'graphic', id: refId('graphic', undefined, i) };
   }
 
+  // Pins first: GuessSelectionCandidates takes an exact pin hit immediately
+  // ("if( item->Type() == SCH_PIN_T || … ) { closest = item; break; }").
+  for (const seg of collectPinSegments(sch, libById)) {
+    if (pinDistance(seg, p) <= pinAccuracy(accuracy)) return { kind: 'pin', id: seg.id };
+  }
+
+  // Symbol fields are items in their own right (SCH_COLLECTOR::EditableItems
+  // lists SCH_FIELD_T), and they sit over or beside the body, so they are
+  // tested before it, or the body would swallow every reference click.
+  for (const f of collectFieldBoxes(sch, libById)) {
+    if (contains(inflate(f.bbox, accuracy / 2), p)) return { kind: 'field', id: f.id };
+  }
+
   for (let i = 0; i < sch.symbols.length; i++) {
     const s = sch.symbols[i]!;
     const box = inflate(symbolBodyBBox(s, libById.get(s.libId)), accuracy / 2);
@@ -240,6 +391,26 @@ export function itemRefById(sch: Schematic, id: string): ItemRef | null {
       if (refId(kind, uuid(arr[i]!), i) === id) return { kind, id };
     return null;
   };
+  // `<symbolRefId>:pin<k>`, a composite id, like fields below.
+  const pinAt = id.lastIndexOf(':pin');
+  if (pinAt > 0) {
+    const symId = id.slice(0, pinAt);
+    if (sch.symbols.some((s, i) => refId('symbol', s.uuid, i) === symId))
+      return { kind: 'pin', id };
+    return null;
+  }
+  // `<symbolRefId>:field<k>`, resolved before the plain scans, since the
+  // symbol prefix would otherwise never match the composite id.
+  const fieldAt = id.lastIndexOf(':field');
+  if (fieldAt > 0) {
+    const symId = id.slice(0, fieldAt);
+    const k = Number(id.slice(fieldAt + 6));
+    const si = sch.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
+    if (si >= 0 && Number.isInteger(k) && k >= 0 && k < sch.symbols[si]!.fields.length) {
+      return { kind: 'field', id };
+    }
+    return null;
+  }
   return (
     scan('symbol', sch.symbols, (t) => t.uuid) ??
     scan('line', sch.lines, (t) => t.uuid) ??

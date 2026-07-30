@@ -1,5 +1,5 @@
 /**
- * Drawing sheet (page layout) — the web-native mirror of KiCad's `pl_editor` /
+ * Drawing sheet (page layout), the web-native mirror of KiCad's `pl_editor` /
  * `common/drawing_sheet`. Model + `.kicad_wks` reader/writer + layout resolver
  * + editing geometry.
  */
@@ -9,6 +9,7 @@ export { writeDrawingSheet, serializeDrawingSheet } from './write.js';
 export { defaultDrawingSheet, emptyDrawingSheet } from './default-sheet.js';
 export {
   layoutDrawingSheet,
+  hitTestDrawingSheet,
   resolveDrawingSheetText,
   incrementLabel,
   expandTextEscapes,

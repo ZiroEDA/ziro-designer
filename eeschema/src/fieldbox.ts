@@ -3,8 +3,8 @@
  *
  * KiCad does not draw a symbol field with its stored justification. Because the
  * parent symbol's transform would make mirrored/rotated justification ambiguous,
- * SCH_PAINTER::draw(SCH_FIELD) computes the field's *bounding box* — text box,
- * rotated by the text angle, mapped through the symbol transform — and then draws
+ * SCH_PAINTER::draw(SCH_FIELD) computes the field's *bounding box*, text box,
+ * rotated by the text angle, mapped through the symbol transform, and then draws
  * the text centre-justified at the box centre (sch_painter.cpp). The properties
  * dialog's H/V-align columns likewise show the *effective* justification derived
  * from that box (SCH_FIELD::GetEffectiveHorizJustify / IsHorizJustifyFlipped).
@@ -22,7 +22,7 @@
  * the renderer), so this stays framework-free and unit-testable.
  */
 
-import type { SchField, SchSymbol, Vec2 } from './types.js';
+import type { LibSymbol, SchField, SchSymbol, Vec2 } from './types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { symbolTransform, applyTransform, type Transform } from '@ziroeda/common/src/transform.js';
 
@@ -199,7 +199,7 @@ function invTransform(t: Transform): Transform {
  * field position and mapped through the parent symbol's transform. This box is in
  * schematic coordinates; the painter draws the text centred inside it.
  *
- * The file's `(at ...)` for a symbol field is SCH_FIELD::GetPosition() — the
+ * The file's `(at ...)` for a symbol field is SCH_FIELD::GetPosition(), the
  * *transformed* position. KiCad's internal GetTextPos() is the pre-transform
  * one (GetPosition applies the parent transform, sch_field.cpp), so the box is
  * built at inverse-transform(at - origin) and mapped forward again.
@@ -232,7 +232,7 @@ export function fieldBoundingBox(
 }
 
 /**
- * SCH_FIELD::GetDrawRotation: the angle the text is actually drawn at — the
+ * SCH_FIELD::GetDrawRotation: the angle the text is actually drawn at, the
  * field's own angle, toggled H<->V when the symbol transform has y1 != 0
  * (i.e. the symbol is rotated 90°/270°).
  */
@@ -285,7 +285,7 @@ export function isVertJustifyFlipped(
 const flipH = (j: HJustify): HJustify => (j === 'left' ? 'right' : j === 'right' ? 'left' : j);
 const flipV = (j: VJustify): VJustify => (j === 'top' ? 'bottom' : j === 'bottom' ? 'top' : j);
 
-/** SCH_FIELD::GetEffectiveHorizJustify — what the dialog's H-Align column shows. */
+/** SCH_FIELD::GetEffectiveHorizJustify, what the dialog's H-Align column shows. */
 export function effectiveHorizJustify(
   field: SchField,
   sym: SchSymbol,
@@ -296,7 +296,7 @@ export function effectiveHorizJustify(
   return j === 'center' ? j : isHorizJustifyFlipped(field, sym, shownText, measure) ? flipH(j) : j;
 }
 
-/** SCH_FIELD::GetEffectiveVertJustify — what the dialog's V-Align column shows. */
+/** SCH_FIELD::GetEffectiveVertJustify, what the dialog's V-Align column shows. */
 export function effectiveVertJustify(
   field: SchField,
   sym: SchSymbol,
@@ -354,4 +354,42 @@ export function justifyTokens(h: HJustify, v: VJustify): readonly string[] | und
   if (h !== 'center') tokens.push(h);
   if (v !== 'center') tokens.push(v);
   return tokens.length ? tokens : undefined;
+}
+
+// ----- selection geometry -----------------------------------------------------
+
+/** A placed symbol's field as the selection sees it: its world bounding box. */
+export interface SymbolFieldBox {
+  /** Index into `sym.fields`, the `k` of the `<symbolRefId>:field<k>` id. */
+  index: number;
+  key: string;
+  shown: string;
+  box: Box;
+}
+
+/**
+ * The visible fields of a placed symbol with their bounding boxes.
+ *
+ * KiCad treats every SCH_FIELD as a selectable, movable item in its own right
+ * (SCH_COLLECTOR::EditableItems / MovableItems both list SCH_FIELD_T), so
+ * clicking a reference or footprint text picks the text, not the symbol. Hidden
+ * fields and empty ones are not drawn and so cannot be picked, matching
+ * SCH_SELECTION_TOOL::Selectable's IsVisible() gate.
+ */
+export function symbolFieldBoxes(
+  sym: SchSymbol,
+  lib: LibSymbol | undefined,
+  measure: TextMeasurer,
+  opts: { showHidden?: boolean; subpart?: SubpartSettings } = {},
+): SymbolFieldBox[] {
+  const unitCount = lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1;
+  const out: SymbolFieldBox[] = [];
+  sym.fields.forEach((f, index) => {
+    if (!f.at) return;
+    if (f.effects?.hidden && !opts.showHidden) return;
+    const shown = fieldShownText(f, sym, unitCount, opts.subpart);
+    if (shown === '') return;
+    out.push({ index, key: f.key, shown, box: fieldBoundingBox(f, sym, shown, measure) });
+  });
+  return out;
 }

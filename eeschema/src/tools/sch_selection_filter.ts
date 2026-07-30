@@ -5,7 +5,7 @@
  *
  * The filter is how KiCad enforces item locking: a locked item fails the
  * filter unless `lockedItems` is enabled, so locked symbols cannot be
- * selected — and therefore cannot be moved, dragged or deleted — until the
+ * selected, and therefore cannot be moved, dragged or deleted, until the
  * user turns "Locked items" on in the Selection Filter panel. Each item-type
  * category gates its kinds the same way.
  */
@@ -44,7 +44,7 @@ export function defaultSelectionFilter(): SelectionFilterOptions {
   };
 }
 
-/** Any() — true if at least one category (not lockedItems) is enabled. */
+/** Any(), true if at least one category (not lockedItems) is enabled. */
 export function selectionFilterAny(o: SelectionFilterOptions): boolean {
   return (
     o.symbols ||
@@ -59,7 +59,7 @@ export function selectionFilterAny(o: SelectionFilterOptions): boolean {
   );
 }
 
-/** All() — true if every category (not lockedItems) is enabled. */
+/** All(), true if every category (not lockedItems) is enabled. */
 export function selectionFilterAll(o: SelectionFilterOptions): boolean {
   return (
     o.symbols &&
@@ -81,6 +81,20 @@ type Category = keyof Omit<SelectionFilterOptions, 'lockedItems'>;
 function resolveItem(doc: Schematic, id: string): { category: Category; locked: boolean } | null {
   // Symbols and sheets → "symbols" (SCH_SYMBOL_T / SCH_SHEET_T). Only symbols
   // carry a lock state in the schematic grammar.
+  // Pins and symbol fields are children of a symbol, addressed by composite
+  // ids. A pin belongs to the "pins" category (SCH_PIN_T / SCH_SHEET_PIN_T in
+  // itemPassesFilter); a field follows its parent symbol.
+  const pinAt = id.lastIndexOf(':pin');
+  if (pinAt > 0 && doc.symbols.some((s, i) => refId('symbol', s.uuid, i) === id.slice(0, pinAt)))
+    return { category: 'pins', locked: false };
+  const fieldAt = id.lastIndexOf(':field');
+  if (fieldAt > 0) {
+    const owner = doc.symbols.findIndex(
+      (s, i) => refId('symbol', s.uuid, i) === id.slice(0, fieldAt),
+    );
+    if (owner !== -1) return { category: 'symbols', locked: doc.symbols[owner]!.locked ?? false };
+  }
+
   const si = doc.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === id);
   if (si !== -1) return { category: 'symbols', locked: doc.symbols[si]!.locked ?? false };
   if (doc.sheets.some((s, i) => refId('sheet', s.uuid, i) === id))
