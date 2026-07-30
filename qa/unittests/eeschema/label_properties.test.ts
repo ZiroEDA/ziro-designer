@@ -233,12 +233,14 @@ describe('sheet pin fields', () => {
     const pin = sch.sheets[0]!.pins[0]!;
     expect(pin.fields ?? []).toEqual([]);
 
+    // A field the dialog just added has no `(property …)` node behind it yet,
+    // which is what EditedLabelField models; once written, every SchField
+    // carries the node it was read from, so the pin gets one here too.
+    const added = { key: 'Note', value: '5V', angle: 0, effects: { hidden: false } };
     const withField = {
       ...pin,
-      fields: [{ key: 'Note', value: '5V', angle: 0, effects: { hidden: false } }],
-      source: setNodeFields(pin.source, [
-        { key: 'Note', value: '5V', angle: 0, effects: { hidden: false } },
-      ]),
+      fields: [{ ...added, source: parse('(property "Note" "5V")') }],
+      source: setNodeFields(pin.source, [added]),
     };
     const sheet = { ...sch.sheets[0]!, pins: [withField] };
     const out = serializeSchematic({ ...sch, sheets: [sheet] });

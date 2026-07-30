@@ -136,7 +136,7 @@ describe('schematic grid painting', () => {
     for (const [w, h] of [
       [400, 300],
       [1600, 1200],
-    ]) {
+    ] as const) {
       const { calls } = paint(w, h, gridOnly());
       expect(calls.filter((c) => c.op === 'fill')).toHaveLength(1);
       expect(calls.filter((c) => c.op === 'fillRect')).toHaveLength(1); // background clear only
