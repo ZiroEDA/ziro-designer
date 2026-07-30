@@ -27,8 +27,8 @@
  */
 
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { childNamed } from '@ziroeda/sexpr/src/query.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
+import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
@@ -957,6 +957,42 @@ const moveShape = (s: PcbShape, d: Vec2): PcbShape => {
 };
 
 /**
+ * ZONE::Move: the outline polygon and every filled polygon shift together, so a
+ * poured zone travels with its fill rather than being re-poured. Upstream also
+ * translates the border hatch lines and the bbox cache, which are both derived
+ * here rather than stored, and sets NeedRefill (the fill is only exactly right
+ * again after a re-pour, but a translated one is far better than none).
+ *
+ * The source carries the same points twice, `(polygon (pts …))` for the outline
+ * and a `(pts …)` inside every `(filled_polygon …)`, so both are patched.
+ */
+const moveZone = (z: PcbZone, d: Vec2): PcbZone => {
+  const shiftPts = (node: SList): SList => ({
+    kind: 'list',
+    items: node.items.map((it) => {
+      if (!isList(it) || head(it) !== 'xy') return it;
+      const x = numArg(it, 0);
+      const y = numArg(it, 1);
+      if (x === undefined || y === undefined) return it;
+      return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
+    }),
+  });
+  const shiftIn = (node: SList): SList => ({
+    kind: 'list',
+    items: node.items.map((it) =>
+      isList(it) && head(it) === 'pts' ? shiftPts(it) : isList(it) ? shiftIn(it) : it,
+    ),
+  });
+
+  return {
+    ...z,
+    ...(z.outline ? { outline: z.outline.map((p) => add(p, d)) } : {}),
+    fills: z.fills.map((f) => ({ ...f, polys: f.polys.map((poly) => poly.map((p) => add(p, d))) })),
+    source: shiftIn(z.source),
+  };
+};
+
+/**
  * Move a whole footprint: only its anchor `(at …)` is patched in the source
  * (children stay in the footprint's local frame, exactly as the writer emits
  * them). The model's board-absolute child coordinates are shifted too, so
@@ -981,8 +1017,7 @@ const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
 
 /**
  * Move the selected board items by `delta` (internal units). Mirrors
- * PCB_MOVE_TOOL committing a drag. Zones are not moved yet (their outline lives
- * in the source polygon; that lands with zone editing), their ids are ignored.
+ * PCB_MOVE_TOOL committing a drag.
  */
 export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Vec2): Board {
   if ((delta.x === 0 && delta.y === 0) || ids.size === 0) return board;
@@ -990,6 +1025,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
   const fpTexts = fpTextsByFp(ids);
   return {
     ...board,
+    zones: board.zones.map((z, i) => (idx.zone.has(i) ? moveZone(z, delta) : z)),
     tracks: board.tracks.map((t, i) => (idx.track.has(i) ? moveTrack(t, delta) : t)),
     arcs: board.arcs.map((a, i) => (idx.arc.has(i) ? moveArc(a, delta) : a)),
     vias: board.vias.map((v, i) => (idx.via.has(i) ? moveVia(v, delta) : v)),
@@ -1886,7 +1922,8 @@ export function setBoardPageSettings(board: Board, s: BoardPageSettings): Board 
  * LEFT_RIGHT (x flips). Mirrorable kinds: tracks, arcs, vias, graphics, text
  * (EDIT_TOOL::MirrorableItems). Footprints are skipped, KiCad: "Footprints
  * cannot be mirrored. Use Flip to move them to the other side of the board."
- * Zones are skipped like move/rotate (zone outline editing is staged).
+ * Zones are skipped: ZONE::Mirror would have to transform every outline and
+ * fill point, which the move path now has the machinery for but this does not.
  */
 export function mirrorBoardItems(
   board: Board,
