@@ -67,8 +67,10 @@ import {
   collectAndGuess,
   getNode,
 } from '@ziroeda/eeschema';
+import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
   renderSchematic,
+  drawingSheetItems,
   drawErcMarkers,
   fitToContent,
   fitToBBox,
@@ -128,14 +130,14 @@ const SMALL_CROSS_PX = 80;
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain
- * grid, so the crosshair is drawn where the click will actually land — KiCad
+ * grid, so the crosshair is drawn where the click will actually land, KiCad
  * calls ForceCursorPosition() with the anchor BestSnapAnchor() picked.
  */
 const CONNECTION_SNAP_TOOLS = new Set(['junction', 'noConnect', 'drawWire', 'drawBus']);
 
 // KiCad's BULLSEYE cursor (wxCURSOR_BULLSEYE), used by the net-highlight picker:
 // concentric rings with a cross through them, hotspot at the centre. The rest of
-// the tool cursors are KiCad's own bitmaps — see cursors.ts.
+// the tool cursors are KiCad's own bitmaps, see cursors.ts.
 const BULLSEYE_CURSOR = (() => {
   const rings =
     `<circle cx="16" cy="16" r="9" fill="none"/><circle cx="16" cy="16" r="4" fill="none"/>` +
@@ -297,7 +299,7 @@ export interface PendingLabel {
   face?: string;
   /** `(hyperlink "…")` on free text. */
   hyperlink?: string;
-  /** `(exclude_from_sim yes)` — free text's simulation checkbox. */
+  /** `(exclude_from_sim yes)`, free text's simulation checkbox. */
   excludeFromSim?: boolean;
 }
 
@@ -311,7 +313,7 @@ export interface PendingDirective {
 }
 
 /**
- * The label the dialog described, built at the point it is dropped —
+ * The label the dialog described, built at the point it is dropped,
  * SCH_DRAWING_TOOLS keeps the item it created and just moves it to the cursor,
  * so everything the dialog set (shape, formatting, colour, fields) is carried
  * onto the placed label.
@@ -323,7 +325,7 @@ export function buildPendingLabel(
   libById?: ReadonlyMap<string, LibSymbol>,
 ): SchLabel {
   // "Auto" (AutoRotateOnPlacement): the label turns to suit whatever it lands
-  // on — SCH_EDIT_FRAME::AutoRotateItem, run as the item is placed.
+  // on, SCH_EDIT_FRAME::AutoRotateItem, run as the item is placed.
   const spin =
     p.autoRotate && sch
       ? labelOrientationForPoint(sch, at, spinOfAngle(p.angle ?? 0), libById)
@@ -372,7 +374,7 @@ interface Props {
   placeLib: LibSymbol | null;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
-  /** A symbol was just placed — the editor steps units / reopens the chooser. */
+  /** A symbol was just placed, the editor steps units / reopens the chooser. */
   onSymbolPlaced?: () => void;
   /** A named label that follows the cursor until clicked to place (null = none yet). */
   pendingLabel: PendingLabel | null;
@@ -382,7 +384,7 @@ interface Props {
   onLabelPlaced?: () => void;
   /** A `(hyperlink …)` on text was Ctrl-clicked: "#<page>" or a URL. */
   onFollowLink?: (link: string) => void;
-  /** A label tool clicked with nothing attached — ask for the next label
+  /** A label tool clicked with nothing attached, ask for the next label
    *  (SCH_DRAWING_TOOLS::TwoClickPlace calls createNewLabel on that click).
    *  The click point lets the editor take the net name off the wire instead. */
   onLabelPrompt?: (at: Vec2) => void;
@@ -395,6 +397,9 @@ interface Props {
   onRequestTool?: (id: string) => void;
   /** Double-clicked item (KiCad's Properties action, sch_edit_tool.cpp). */
   onEditItem?: (id: string, kind: ItemRef['kind']) => void;
+  /** Properties invoked over the drawing sheet with nothing selected: KiCad
+   *  posts ACTIONS::pageSettings for that (SCH_EDIT_TOOL::Properties). */
+  onEditDrawingSheet?: () => void;
   /** Box-selection result (KiCad SelectMultiple): replace/add/subtract the ids. */
   onSelectBox?: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
   /** Items being pasted: they follow the cursor until clicked to drop (KiCad's paste-then-move). */
@@ -492,6 +497,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     onZoomArea,
     onContextMenuRequest,
     onClarify,
+    onEditDrawingSheet,
   },
   ref,
 ): JSX.Element {
@@ -531,9 +537,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     y: Math.round(p.y / GRID) * GRID,
   });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // The scene canvas holds the schematic itself; the overlay on top carries the
+  // things that follow the pointer (crosshair, rubber band, lasso, the wire
+  // chain being drawn). Moving the mouse repaints only the overlay, so the
+  // schematic is not re-rendered for every pointer event.
+  const overlayRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<Viewport | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  // Live document, readable from effects that must not re-run when it changes.
+  const schematicRef = useRef(schematic);
+  schematicRef.current = schematic;
 
   const modeRef = useRef<Mode>('idle');
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
@@ -542,7 +556,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const moveDeltaRef = useRef<Vec2 | null>(null);
   const moveSpecRef = useRef<MoveSpec | null>(null);
   // 'move' leaves connected wires behind (moveItems), 'drag' rubber-bands them
-  // (moveWithConnections/orthoMove) — SCH_MOVE_TOOL's two modes.
+  // (moveWithConnections/orthoMove), SCH_MOVE_TOOL's two modes.
   const moveKindRef = useRef<'move' | 'drag'>('drag');
   // A keyboard-initiated grabbed move follows the cursor with no button held and
   // commits on the next left click (vs a button-drag, committed on pointer-up).
@@ -566,7 +580,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const lassoPointsRef = useRef<Vec2[]>([]);
 
   // Wire-drawing state (SCH_LINE_WIRE_BUS_TOOL): the chain of segments being
-  // drawn (m_wires) — the last two are "live" and follow the cursor — plus the
+  // drawn (m_wires), the last two are "live" and follow the cursor, plus the
   // 45°-mode posture flag (static bool posture) and the mode we last drew with
   // (lastMode, to adjust the chain when line mode changes mid-draw).
   const wiresRef = useRef<WireSeg[]>([]);
@@ -587,7 +601,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const dpr = () => window.devicePixelRatio || 1;
 
-  // Dangling (unconnected) pins — KiCad's clickable wire-start anchors.
+  // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
   const danglingPins = useMemo(
     () => danglingPinPositions(schematic, libById),
     [schematic, libById],
@@ -615,7 +629,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     [anchors],
   );
   /**
-   * Track the cursor with the live segment(s) of the wire chain — the motion
+   * Track the cursor with the live segment(s) of the wire chain, the motion
    * handler of SCH_LINE_WIRE_BUS_TOOL::doDrawSegments, including the
    * adjustment when the H/V/45 mode is switched mid-draw. Returns the
    * possibly-adjusted cursor position (sheet-pin pushes).
@@ -697,7 +711,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     moveDeltaRef.current = { x: 0, y: 0 };
     modeRef.current = 'move';
     grabbedRef.current = true;
-    draw();
+    requestDraw();
 
     // Escape cancels the grabbed move (nothing was committed, so just drop the
     // ghost). Capture phase + stopPropagation so the editor's Escape doesn't
@@ -710,24 +724,27 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         moveSpecRef.current = null;
         moveDeltaRef.current = null;
         moveStartRef.current = null;
-        draw();
+        requestDraw();
       }
     };
     window.addEventListener('keydown', onEsc, true);
     return () => window.removeEventListener('keydown', onEsc, true);
   }, [grabRequest?.nonce]);
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const vp = viewportRef.current;
-    if (!canvas || !vp) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  /**
+   * The document as it should currently look: the schematic plus whatever ghost
+   * the active tool has attached to the cursor. `ghosting` says whether any of
+   * them applied, a ghost moves every frame, so it must never be baked into
+   * the retained raster.
+   */
+  const buildDisplayDoc = useCallback((): { doc: Schematic; ghosting: boolean } => {
     const md = moveDeltaRef.current;
     const spec = moveSpecRef.current;
+    let ghosting = false;
     let doc = schematic;
     if (modeRef.current === 'move' && md && spec) {
       doc = buildMove(spec, md).apply(schematic);
+      ghosting = true;
     } else if (
       (activeTool === 'placeSymbol' || activeTool === 'placePower') &&
       placeLib &&
@@ -737,30 +754,35 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       doc = placeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit).apply(
         schematic,
       );
+      ghosting = true;
     }
     // Ghost: the named label follows the cursor (with its flag) until clicked to place.
     if (pendingLabel && cursorRef.current) {
       doc = addItems({
         labels: [buildPendingLabel(pendingLabel, snap(cursorRef.current), schematic, libById)],
       }).apply(doc);
+      ghosting = true;
     }
     // Ghost: pasted items follow the cursor until dropped (KiCad's paste-then-move).
     if (pastePending && cursorRef.current) {
       const c = snap(cursorRef.current);
       const delta = { x: c.x - pastePending.refPoint.x, y: c.y - pastePending.refPoint.y };
       doc = pasteItems(translatePayload(pastePending, delta)).apply(doc);
+      ghosting = true;
     }
     // Ghost: an image chosen in the editor follows the cursor until clicked.
     if (pendingImage && cursorRef.current) {
       doc = addItems({ images: [makeImage(snap(cursorRef.current), pendingImage.data)] }).apply(
         doc,
       );
+      ghosting = true;
     }
     // Ghost: the bus-entry stub follows the cursor (R rotates its size vector).
     if (activeTool === 'busEntry' && cursorRef.current) {
       doc = addItems({
         busEntries: [makeBusEntry(snap(cursorRef.current), entrySizeRef.current)],
       }).apply(doc);
+      ghosting = true;
     }
     // Ghost: the netclass flag rides the cursor until it is dropped.
     if (activeTool === 'placeClassLabel' && pendingDirective && cursorRef.current) {
@@ -775,15 +797,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           }),
         ],
       }).apply(doc);
+      ghosting = true;
     }
     // Ghost: the junction dot and the no-connect X ride the cursor, so you see
-    // the item before you drop it — SingleClickPlace builds the item up front
+    // the item before you drop it, SingleClickPlace builds the item up front
     // and keeps it in the view preview (AddToPreview) for the whole run.
     if (activeTool === 'junction' && cursorRef.current) {
       doc = addItems({ junctions: [makeJunction(snapConn(cursorRef.current))] }).apply(doc);
+      ghosting = true;
     }
     if (activeTool === 'noConnect' && cursorRef.current) {
       doc = addItems({ noConnects: [makeNoConnect(snapConn(cursorRef.current))] }).apply(doc);
+      ghosting = true;
     }
     // Preview: the shape/sheet being drawn (rendered through the model so it
     // matches the final item exactly).
@@ -791,24 +816,238 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (ds) {
       const g = previewGraphic(ds);
       if (g) doc = addItems({ graphics: [g] }).apply(doc);
+      ghosting = true;
     }
-    renderSchematic(
-      ctx,
-      doc,
-      vp,
-      theme,
-      canvas.width,
-      canvas.height,
-      selection,
-      highlight,
-      renderOpts,
-    );
+    return { doc, ghosting };
+  }, [
+    schematic,
+    libById,
+    activeTool,
+    placeLib,
+    placeUnit,
+    pendingLabel,
+    pendingDirective,
+    pastePending,
+    pendingImage,
+    snapConn,
+    buildMove,
+    GRID,
+  ]);
 
-    // ERC markers (KiCad's bent-arrow fault indicators).
-    if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, vp, theme);
+  /**
+   * What a full repaint of this sheet last cost, in ms. Everything below keys
+   * off it: a sheet that repaints inside a frame is always painted directly and
+   * is therefore always pixel-exact, and only a sheet that cannot keep up falls
+   * back to the retained raster.
+   */
+  const paintCostRef = useRef(0);
+
+  /** Paint the whole schematic at `view` onto any context. */
+  const paintSchematic = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      doc: Schematic,
+      view: Viewport,
+      width: number,
+      height: number,
+      /** A field dragged on its own draws its umbilical back to its symbol. */
+      moving = false,
+    ) => {
+      const t0 = performance.now();
+      const opts = moving ? { ...renderOpts, movingSelection: true } : renderOpts;
+      renderSchematic(ctx, doc, view, theme, width, height, selection, highlight, opts);
+      // ERC markers (KiCad's bent-arrow fault indicators).
+      if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, view, theme);
+      // Track the worst recent cost, decaying slowly: one cheap frame (say a
+      // view where almost everything is culled) must not talk us into direct
+      // painting a sheet that is expensive as soon as it is zoomed out again.
+      const cost = performance.now() - t0;
+      paintCostRef.current = Math.max(cost, paintCostRef.current * 0.9);
+    },
+    [theme, selection, highlight, renderOpts, ercMarkers],
+  );
+
+  /**
+   * Retained scene raster, the board painter's approach (PcbEditor
+   * startCrispRender / cacheRef): a full repaint of a dense sheet costs tens of
+   * milliseconds, far too much to redo for every pan frame, so the schematic is
+   * painted once into an offscreen canvas and panning/zooming just blits that
+   * bitmap through the view delta. The crisp repaint follows on the next task
+   * and swaps in when ready, so the view never blocks on it.
+   */
+  const sceneCacheRef = useRef<{ canvas: HTMLCanvasElement; view: Viewport } | null>(null);
+  /** The schematic changed, so the raster no longer depicts it. */
+  const rasterStaleRef = useRef(true);
+  const renderingRef = useRef(false);
+  /** Assigned once the frame scheduler below exists. */
+  const requestDrawRef = useRef<() => void>(() => {});
+
+  const sameView = (a: Viewport, b: Viewport): boolean =>
+    a.scale === b.scale && a.offsetX === b.offsetX && a.offsetY === b.offsetY;
+
+  const paintSchematicRef = useRef(paintSchematic);
+  paintSchematicRef.current = paintSchematic;
+
+  /**
+   * A sheet that repaints in under this is painted directly on every frame, so
+   * pan and zoom stay pixel-exact, no blurry intermediate, nothing to "catch
+   * up" afterwards. The raster is a fallback for sheets that genuinely cannot
+   * paint inside a frame, where the alternative is not a crisp view but a
+   * ten-frames-per-second one. Deliberately under a 16 ms frame so the overlay
+   * and the browser's own work still fit alongside it.
+   */
+  const DIRECT_PAINT_BUDGET_MS = 10;
+
+  /**
+   * How long the view must hold still before the raster is repainted for it,
+   * only reached on sheets over the budget above. A pan moves the view every
+   * frame; repainting each time would put a full render between every blit and
+   * undo the point of caching. Short enough not to read as a lag.
+   */
+  const VIEW_SETTLE_MS = 48;
+  const viewRebuildRef = useRef(0);
+
+  /** Rebuild the raster for the current view, off the current frame. */
+  const startSceneRender = useCallback(() => {
+    clearTimeout(viewRebuildRef.current);
+    if (renderingRef.current) return; // in flight, it re-checks on completion
+    const canvas = canvasRef.current;
+    const vp = viewportRef.current;
+    if (!canvas || !vp || canvas.width < 2) return;
+    renderingRef.current = true;
+    rasterStaleRef.current = false;
+    const jobView = { ...vp };
+    const work = document.createElement('canvas');
+    work.width = canvas.width;
+    work.height = canvas.height;
+    const wctx = work.getContext('2d');
+    if (!wctx) {
+      renderingRef.current = false;
+      return;
+    }
+    // A task, not an animation frame: this must still run with the tab hidden.
+    setTimeout(() => {
+      try {
+        paintSchematicRef.current(wctx, schematicRef.current, jobView, work.width, work.height);
+        sceneCacheRef.current = { canvas: work, view: jobView };
+      } finally {
+        renderingRef.current = false;
+      }
+      requestDrawRef.current();
+      // Chase whatever changed while we were painting: a content change is
+      // followed at once, a view change only once the view settles.
+      const now = viewportRef.current;
+      if (rasterStaleRef.current) startSceneRenderRef.current();
+      else if (now && !sameView(jobView, now)) scheduleViewRebuildRef.current();
+    }, 0);
+  }, []);
+  const startSceneRenderRef = useRef(startSceneRender);
+  startSceneRenderRef.current = startSceneRender;
+
+  /** Repaint the raster once the view has stopped moving. */
+  const scheduleViewRebuild = useCallback(() => {
+    clearTimeout(viewRebuildRef.current);
+    viewRebuildRef.current = window.setTimeout(() => startSceneRenderRef.current(), VIEW_SETTLE_MS);
+  }, []);
+  const scheduleViewRebuildRef = useRef(scheduleViewRebuild);
+  scheduleViewRebuildRef.current = scheduleViewRebuild;
+  useEffect(() => () => clearTimeout(viewRebuildRef.current), []);
+
+  /** The schematic layer: a blit of the retained raster, or a direct paint. */
+  const drawScene = useCallback(() => {
+    const canvas = canvasRef.current;
+    const vp = viewportRef.current;
+    if (!canvas || !vp) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { doc, ghosting } = buildDisplayDoc();
+
+    // An attached ghost moves with the cursor, so it is painted straight to the
+    // screen and the raster is dropped rather than having the ghost baked in.
+    if (ghosting) {
+      sceneCacheRef.current = null;
+      rasterStaleRef.current = true;
+      paintSchematic(ctx, doc, vp, canvas.width, canvas.height, modeRef.current === 'move');
+      onScaleChange?.(vp.scale);
+      return;
+    }
+
+    // Sheets that can be repainted inside a frame always are, so panning and
+    // zooming them is exact at every step and never has to resolve afterwards.
+    if (paintCostRef.current <= DIRECT_PAINT_BUDGET_MS) {
+      clearTimeout(viewRebuildRef.current);
+      sceneCacheRef.current = null;
+      rasterStaleRef.current = true;
+      paintSchematic(ctx, doc, vp, canvas.width, canvas.height);
+      onScaleChange?.(vp.scale);
+      return;
+    }
+
+    const cache = sceneCacheRef.current;
+    const usable =
+      cache && cache.canvas.width === canvas.width && cache.canvas.height === canvas.height;
+    if (!usable) {
+      // Nothing to blit (first frame, or the canvas was resized): paint now so
+      // the sheet is on screen, and build the raster from it.
+      paintSchematic(ctx, doc, vp, canvas.width, canvas.height);
+      onScaleChange?.(vp.scale);
+      startSceneRender();
+      return;
+    }
+
+    // Blit the raster through the view delta. Panning past its edge exposes the
+    // background until the crisp repaint lands, so clear first.
+    const k = vp.scale / cache.view.scale;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = theme.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(
+      k,
+      0,
+      0,
+      k,
+      vp.offsetX - cache.view.offsetX * k,
+      vp.offsetY - cache.view.offsetY * k,
+    );
+    // Keep zoom-in crisp; let zoom-out smooth, so thin wires don't shimmer.
+    ctx.imageSmoothingEnabled = k < 1;
+    ctx.drawImage(cache.canvas, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    onScaleChange?.(vp.scale);
+
+    // A changed sheet is repainted at once; a moved view waits for the gesture
+    // to finish, so a pan is carried entirely by blits.
+    if (rasterStaleRef.current) startSceneRender();
+    else if (!sameView(cache.view, vp)) scheduleViewRebuild();
+  }, [
+    buildDisplayDoc,
+    paintSchematic,
+    startSceneRender,
+    scheduleViewRebuild,
+    onScaleChange,
+    theme,
+  ]);
+
+  /**
+   * Everything that tracks the pointer, on its own transparent canvas above the
+   * scene: the selection rubber band, the lasso trace, the wire/bus chain being
+   * drawn, and the crosshair. None of it needs the document, so a mouse move
+   * repaints only this layer.
+   */
+  const drawOverlay = useCallback(() => {
+    const canvas = overlayRef.current;
+    const vp = viewportRef.current;
+    if (!canvas || !vp) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
     // Box-selection rubber band, in KiCad's colours: the fill shows the mode
-    // (normal/additive/subtractive) and the outline shows the direction —
+    // (normal/additive/subtractive) and the outline shows the direction,
     // dark yellow for a left-to-right "window", blue for right-to-left greedy.
     const bo = boxOriginRef.current;
     const be = boxEndRef.current;
@@ -910,27 +1149,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.stroke();
       ctx.restore();
     }
-    onScaleChange?.(vp.scale);
-  }, [
-    schematic,
-    selection,
-    activeTool,
-    lineMode,
-    placeLib,
-    placeUnit,
-    pendingLabel,
-    pastePending,
-    pendingImage,
-    highlight,
-    ercMarkers,
-    updateWireChain,
-    snapConn,
-    buildMove,
-    onScaleChange,
-    theme,
-    renderOpts,
-    inputPrefs,
-  ]);
+  }, [activeTool, updateWireChain, snapConn, theme, inputPrefs, GRID]);
+
+  /**
+   * One repaint per animation frame, the way every other canvas in the app
+   * schedules its work (PcbEditor/GerberCanvas/FootprintCanvas requestDraw).
+   * `sceneDirtyRef` records whether the schematic layer has to be rebuilt too,
+   * a plain pointer move only asks for the overlay.
+   */
+  const sceneDirtyRef = useRef(true);
+  const rafRef = useRef(0);
+  const drawSceneRef = useRef(drawScene);
+  drawSceneRef.current = drawScene;
+  const drawOverlayRef = useRef(drawOverlay);
+  drawOverlayRef.current = drawOverlay;
+
+  const frame = useCallback(() => {
+    rafRef.current = 0;
+    if (sceneDirtyRef.current) {
+      sceneDirtyRef.current = false;
+      drawSceneRef.current();
+    }
+    drawOverlayRef.current();
+  }, []);
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
+
+  // Cancel-and-re-arm on every request, like the other canvases: the pending
+  // frame is always the freshest one, and a request can never be swallowed by
+  // an earlier frame that (in a throttled or occluded window) never arrives.
+  const schedule = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => frameRef.current());
+  }, []);
+  /** Repaint the schematic (and the overlay) on the next frame. */
+  const requestDraw = useCallback(() => {
+    sceneDirtyRef.current = true;
+    schedule();
+  }, [schedule]);
+  /** Repaint only the pointer overlay on the next frame. */
+  const requestOverlay = schedule;
+  requestDrawRef.current = requestDraw;
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const zoomAbout = useCallback(
     (px: number, py: number, factor: number) => {
@@ -940,9 +1200,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const wy = (py - vp.offsetY) / vp.scale;
       const scale = vp.scale * factor;
       viewportRef.current = { scale, offsetX: px - wx * scale, offsetY: py - wy * scale };
-      draw();
+      requestDraw();
     },
-    [draw],
+    [requestDraw],
   );
 
   // A fit requested before the canvas has been laid out (ResizeObserver hasn't
@@ -961,15 +1221,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           return;
         }
         viewportRef.current = fitToContent(schematic, c.width, c.height);
-        draw();
+        requestDraw();
       },
       zoomToBox: (box) => {
         const c = canvasRef.current;
         if (!c || !sizedRef.current) return;
         viewportRef.current = fitToBBox(box, c.width, c.height);
-        draw();
+        requestDraw();
       },
-      redraw: () => draw(),
+      redraw: () => requestDraw(),
       zoomIn: () => {
         const c = canvasRef.current;
         if (c) zoomAbout(c.width / 2, c.height / 2, 1.25);
@@ -989,10 +1249,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           offsetX: c.width / 2 - p.x * scale,
           offsetY: c.height / 2 - p.y * scale,
         };
-        draw();
+        requestDraw();
       },
     }),
-    [schematic, draw, zoomAbout],
+    [schematic, requestDraw, zoomAbout],
   );
 
   useEffect(() => {
@@ -1003,30 +1263,52 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => ro.disconnect();
   }, []);
 
+  // Size the backing stores. Assigning canvas.width *always* clears the bitmap,
+  // even to the value it already has, so this must not run on every document
+  // change, or every edit blanks the canvas for a frame before it repaints.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || size.w === 0 || size.h === 0) return;
+    const overlay = overlayRef.current;
+    if (!canvas || !overlay || size.w === 0 || size.h === 0) return;
     const r = dpr();
-    canvas.width = Math.floor(size.w * r);
-    canvas.height = Math.floor(size.h * r);
-    canvas.style.width = `${size.w}px`;
-    canvas.style.height = `${size.h}px`;
+    const w = Math.floor(size.w * r);
+    const h = Math.floor(size.h * r);
+    for (const c of [canvas, overlay]) {
+      if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+      }
+      c.style.width = `${size.w}px`;
+      c.style.height = `${size.h}px`;
+    }
     sizedRef.current = true;
     if (!viewportRef.current || fitPendingRef.current) {
-      viewportRef.current = fitToContent(schematic, canvas.width, canvas.height);
+      viewportRef.current = fitToContent(schematicRef.current, canvas.width, canvas.height);
       fitPendingRef.current = false;
     }
-    draw();
-  }, [size, schematic, draw]);
+    requestDraw();
+  }, [size, requestDraw]);
 
+  // The sheet, or the way it is painted, changed: the retained raster no longer
+  // depicts it and has to be rebuilt rather than blitted. Declared before the
+  // repaint effect below so the flag is set by the time that one runs.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: paintSchematic is the signal, not a callee
   useEffect(() => {
-    draw();
-  }, [selection, draw]);
+    rasterStaleRef.current = true;
+  }, [schematic, paintSchematic]);
+
+  // Repaint whenever anything the scene is built from changes, `drawScene`'s
+  // identity tracks the document, selection, tool, theme and display options,
+  // so it is the invalidation signal even though the effect never calls it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: drawScene is the signal, not a callee
+  useEffect(() => {
+    requestDraw();
+  }, [drawScene, requestDraw]);
   // Embedded bitmaps decode asynchronously; repaint when one becomes ready.
   useEffect(() => {
-    setRenderInvalidator(draw);
+    setRenderInvalidator(requestDraw);
     return () => setRenderInvalidator(null);
-  }, [draw]);
+  }, [requestDraw]);
   // Cancel an in-progress wire and reset the placement orientation only when the
   // tool actually changes (not on every schematic update, which would break the
   // multi-segment wire chain). When drawWire was just auto-started from a dangling
@@ -1079,7 +1361,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         inputPrefs.scrollModPanV !== inputPrefs.scrollModZoom
       ) {
         viewportRef.current = { ...vp, offsetY: vp.offsetY - delta * dpr() };
-        draw();
+        requestDraw();
         return;
       }
       if (
@@ -1088,14 +1370,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ) {
         const d = inputPrefs.reverseScrollPanH ? -delta : delta;
         viewportRef.current = { ...vp, offsetX: vp.offsetX - d * dpr() };
-        draw();
+        requestDraw();
         return;
       }
       if (mod !== inputPrefs.scrollModZoom) return;
       // Horizontal touchpad movement pans when enabled.
       if (inputPrefs.horizontalPan && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         viewportRef.current = { ...vp, offsetX: vp.offsetX - e.deltaX * dpr() };
-        draw();
+        requestDraw();
         return;
       }
       const speed = inputPrefs.zoomSpeedAuto ? 1 : inputPrefs.zoomSpeed / 5;
@@ -1106,7 +1388,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         Math.exp(dir * delta * 0.001 * speed),
       );
     },
-    [zoomAbout, draw, inputPrefs],
+    [zoomAbout, requestDraw, inputPrefs],
   );
 
   // Finish a rectangle/circle/arc (2nd click), a bezier (control click), or a
@@ -1127,19 +1409,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const at = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
         const size = { w: Math.abs(p.x - ds.start.x), h: Math.abs(p.y - ds.start.y) };
         if (size.w > 0 && size.h > 0) onSheetDrawn?.(at, size);
-        draw();
+        requestDraw();
         return;
       } else if (ds.tool === 'textbox') {
         const start = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
         const end = { x: Math.max(ds.start.x, p.x), y: Math.max(ds.start.y, p.y) };
         if (end.x > start.x && end.y > start.y) onTextBoxDrawn?.(start, end);
-        draw();
+        requestDraw();
         return;
       }
       if (g) onCommand(addItems({ graphics: [g] }));
-      draw();
+      requestDraw();
     },
-    [onCommand, onSheetDrawn, onTextBoxDrawn, draw],
+    [onCommand, onSheetDrawn, onTextBoxDrawn, requestDraw],
   );
 
   // Finish an open polyline (lines tool): double-click / Enter / right-click.
@@ -1148,8 +1430,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (ds?.tool !== 'lines') return;
     drawStateRef.current = null;
     if (ds.points.length >= 2) onCommand(addItems({ graphics: [makePolyline(ds.points)] }));
-    draw();
-  }, [onCommand, draw]);
+    requestDraw();
+  }, [onCommand, requestDraw]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -1168,7 +1450,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         moveSpecRef.current = null;
         moveDeltaRef.current = null;
         moveStartRef.current = null;
-        draw();
+        requestDraw();
         return;
       }
 
@@ -1246,13 +1528,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
             }
           }
         }
-        draw();
+        requestDraw();
         return;
       }
 
       if (activeTool === 'junction') {
         // SCH_DRAWING_TOOLS::SingleClickPlace refuses a dot where nothing joins
-        // — otherwise the schematic cleanup would drop it again straight away,
+        //, otherwise the schematic cleanup would drop it again straight away,
         // which reads as "the tool did nothing".
         const at = snapConn(world);
         if (!isExplicitJunctionAllowed(schematic, libById, at)) {
@@ -1342,7 +1624,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         } else {
           finalizeShape(ds, p);
         }
-        draw();
+        requestDraw();
         return;
       }
 
@@ -1354,7 +1636,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       // Highlight-Net tool (KiCad SCH_EDITOR_CONTROL::HighlightNet): click a
       // connectable item to brighten its net; click empty space to clear it.
-      // The pick is GetNode's — connectable types only, at growing thresholds —
+      // The pick is GetNode's, connectable types only, at growing thresholds,
       // so pins, power flags and sheet pins highlight and a symbol body doesn't
       // swallow the click. The picker also runs unsnapped (SetSnapping(false)).
       if (activeTool === 'highlightNet') {
@@ -1416,7 +1698,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      // select / move — the left-drag semantics follow the "Left button drag"
+      // select / move, the left-drag semantics follow the "Left button drag"
       // preference: SELECT always rubber-bands; DRAG_SELECTED moves only an
       // already-selected item; DRAG_ANY moves whatever is under the cursor.
       (e.target as Element).setPointerCapture(e.pointerId);
@@ -1491,7 +1773,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       updateWireChain,
       finishWireChain,
       finalizeShape,
-      draw,
+      requestDraw,
       inputPrefs,
     ],
   );
@@ -1511,28 +1793,31 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         canvas.style.cursor = danglingPinAt(world) ? WIRE_CURSOR : 'default';
 
       // Shape/sheet drawing preview + bus-entry / image ghosts track the cursor.
+      // These ride in the document, so the scene has to be rebuilt.
       if (drawStateRef.current) {
         drawStateRef.current.cursor = snap(world);
-        draw();
+        requestDraw();
         return;
       }
       if (activeTool === 'busEntry' || pendingImage) {
-        draw();
+        requestDraw();
         return;
       }
 
       if (pendingLabel) {
-        draw();
+        requestDraw();
         return;
       } // update the attached label ghost
       if (pastePending && modeRef.current !== 'pan') {
-        draw();
+        requestDraw();
         return;
       } // pasted items track the cursor
 
+      // The rubber band, the lasso and the wire chain all live on the overlay,
+      // so dragging one of them never repaints the schematic.
       if (modeRef.current === 'box') {
         boxEndRef.current = world;
-        draw();
+        requestOverlay();
         return;
       }
 
@@ -1542,16 +1827,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const pts = lassoPointsRef.current;
         const last = pts[pts.length - 1];
         if (!last || Math.hypot(world.x - last.x, world.y - last.y) * vp.scale > 4) pts.push(world);
-        draw();
+        requestOverlay();
         return;
       }
 
       if (activeTool === 'drawWire' || activeTool === 'drawBus') {
-        if (wiresRef.current.length) draw();
+        if (wiresRef.current.length) requestOverlay();
+        else requestOverlay(); // keep the crosshair tracking between runs
         return;
       }
       if (activeTool === 'placeSymbol' || activeTool === 'placePower') {
-        if (placeLib) draw(); // update the attached ghost
+        if (placeLib)
+          requestDraw(); // the attached ghost rides in the document
+        else requestOverlay();
         return;
       }
       if (modeRef.current === 'move' && moveStartRef.current) {
@@ -1576,7 +1864,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         }
         if (bestDelta) delta = bestDelta;
         moveDeltaRef.current = delta;
-        draw();
+        requestDraw();
       } else if (modeRef.current === 'pan' && panLastRef.current) {
         panMovedRef.current = true;
         viewportRef.current = {
@@ -1585,7 +1873,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           offsetY: vp.offsetY + (e.clientY - panLastRef.current.y) * dpr(),
         };
         panLastRef.current = { x: e.clientX, y: e.clientY };
-        draw();
+        requestDraw();
       } else if (modeRef.current === 'dragzoom' && panLastRef.current) {
         // Drag-zoom gesture: vertical travel zooms about the canvas centre.
         panMovedRef.current = true;
@@ -1598,7 +1886,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           );
         panLastRef.current = { x: e.clientX, y: e.clientY };
       } else if (cursorRef.current) {
-        draw(); // keep the crosshair tracking the cursor
+        requestOverlay(); // keep the crosshair tracking the cursor
       }
     },
     [
@@ -1608,9 +1896,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       pastePending,
       pendingImage,
       danglingPinAt,
-      draw,
+      requestDraw,
+      requestOverlay,
       onCursorMove,
       zoomAbout,
+      GRID,
     ],
   );
 
@@ -1645,7 +1935,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         boxOriginRef.current = null;
         boxEndRef.current = null;
         modeRef.current = 'idle';
-        draw();
+        requestDraw();
         return;
       }
       if (activeTool !== 'select' && activeTool !== 'selectLasso') return;
@@ -1667,7 +1957,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         boxHitRef.current = null;
         lassoPointsRef.current = [];
         modeRef.current = 'idle';
-        draw();
+        requestDraw();
         return;
       }
       if (modeRef.current === 'move' && grabbedRef.current) {
@@ -1710,7 +2000,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       moveDeltaRef.current = null;
       moveSpecRef.current = null;
       panLastRef.current = null;
-      if (!committedMove) draw();
+      if (!committedMove) requestDraw();
     },
     [
       activeTool,
@@ -1722,7 +2012,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onClarify,
       onSelectBox,
       onZoomArea,
-      draw,
+      requestDraw,
     ],
   );
 
@@ -1735,7 +2025,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           updateWireChain(snapConn(toWorld(e.clientX, e.clientY)));
           finishWireChain();
         }
-        draw();
+        requestDraw();
         return;
       }
       // Lines tool: a double-click ends the open polyline.
@@ -1748,21 +2038,31 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (activeTool === 'select') {
         const vp = viewportRef.current;
         if (!vp) return;
-        const hit = hitTest(
-          schematic,
-          libById,
-          toWorld(e.clientX, e.clientY),
-          (6 * dpr()) / vp.scale,
-        );
-        if (hit) onEditItem?.(hit.id, hit.kind);
+        const world = toWorld(e.clientX, e.clientY);
+        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        if (hit) {
+          onEditItem?.(hit.id, hit.kind);
+          return;
+        }
+        // Nothing under the cursor: SCH_EDIT_TOOL::Properties falls through to
+        // the drawing sheet, if the layer is shown and the point actually
+        // lands on one of its items, it posts ACTIONS::pageSettings. Empty
+        // paper inside the frame hits nothing, so this cannot fire from a
+        // double-click on blank canvas.
+        if (renderOpts.showDrawingSheet === false) return;
+        const draws = drawingSheetItems(schematic, renderOpts.drawingSheet, renderOpts);
+        // HitTestDrawingSheetItems: five pixels of slop at the current zoom.
+        if (hitTestDrawingSheet(draws, world, (5 * dpr()) / vp.scale)) onEditDrawingSheet?.();
       }
     },
     [
       activeTool,
-      draw,
+      requestDraw,
       schematic,
       libById,
       onEditItem,
+      onEditDrawingSheet,
+      renderOpts,
       finishPoly,
       updateWireChain,
       finishWireChain,
@@ -1780,7 +2080,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if ((document.body.dataset.activeView ?? 'schematic') !== 'schematic') return;
       if (e.key === 'Escape' && wiresRef.current.length) {
         wiresRef.current = [];
-        draw();
+        requestDraw();
         return;
       }
       // SCH_ACTIONS::switchSegmentPosture ('/') while drawing a wire/bus.
@@ -1792,7 +2092,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           switchPosture90(wires[wires.length - 2]!, wires[wires.length - 1]!);
         }
         e.preventDefault();
-        draw(); // 45° recomputes the break point from the flipped posture
+        requestDraw(); // 45° recomputes the break point from the flipped posture
         return;
       }
       // SCH_ACTIONS::undoLastSegment (Backspace/Delete) while drawing.
@@ -1802,13 +2102,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if ((free && wires.length > 1) || (!free && wires.length > 2)) {
           wires.pop();
           e.preventDefault();
-          draw();
+          requestDraw();
         }
         return;
       }
       if (e.key === 'Escape' && drawStateRef.current) {
         drawStateRef.current = null;
-        draw();
+        requestDraw();
         return;
       }
       // ACTIONS::finishInteractive (End): commit the in-progress wire/bus
@@ -1816,7 +2116,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (e.key === 'End' && wiresRef.current.length) {
         e.preventDefault();
         finishWireChain();
-        draw();
+        requestDraw();
         return;
       }
       if ((e.key === 'Enter' || e.key === 'End') && drawStateRef.current?.tool === 'lines') {
@@ -1824,7 +2124,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      // Skip while typing — a focused checkbox/radio (Selection Filter panel)
+      // Skip while typing, a focused checkbox/radio (Selection Filter panel)
       // isn't typing and must not eat the R/X/Y hotkeys.
       const tgt = e.target as HTMLElement | null;
       if (
@@ -1840,7 +2140,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       // R/X/Y here only steer the item attached to the cursor while placing;
       // selection transforms live in the editor's hotkey handler (a second
-      // window listener — handling them in both applied every transform twice).
+      // window listener, handling them in both applied every transform twice).
       const k = e.key.toLowerCase();
       if (k !== 'r' && k !== 'x' && k !== 'y') return;
 
@@ -1851,14 +2151,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           ? { x: -sz.y, y: sz.x } // Shift+R = rotate CW
           : { x: sz.y, y: -sz.x };
         e.preventDefault();
-        draw();
+        requestDraw();
         return;
       }
 
       if ((activeTool === 'placeSymbol' || activeTool === 'placePower') && placeLib) {
         // Advance the attached symbol's orientation in place. Serialized mirror
         // axis 'y' is KiCad's MirrorHorizontally (hotkey X), 'x' its
-        // MirrorVertically (hotkey Y) — see common/transform.ts.
+        // MirrorVertically (hotkey Y), see common/transform.ts.
         const o = placeOrientRef.current;
         placeOrientRef.current =
           k === 'r'
@@ -1867,12 +2167,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
               ? mirrorOrientation(o, 'y')
               : mirrorOrientation(o, 'x');
         e.preventDefault();
-        draw();
+        requestDraw();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [draw, activeTool, placeLib, finishPoly, finishWireChain]);
+  }, [requestDraw, activeTool, placeLib, finishPoly, finishWireChain]);
 
   const cursor = toolCursor(activeTool);
 
@@ -1893,11 +2193,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           e.preventDefault();
           if (activeTool === 'drawWire' || activeTool === 'drawBus') {
             wiresRef.current = [];
-            draw();
+            requestDraw();
           } else if (drawStateRef.current?.tool === 'lines') finishPoly();
           else if (drawStateRef.current) {
             drawStateRef.current = null;
-            draw();
+            requestDraw();
           } else if (
             (activeTool === 'select' || activeTool === 'selectLasso') &&
             !panMovedRef.current
@@ -1919,7 +2219,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         onPointerLeave={() => {
           cursorRef.current = null;
           onCursorMove?.(null);
+          requestOverlay(); // drop the crosshair when the pointer leaves
         }}
+      />
+      {/* The pointer overlay (crosshair, rubber band, lasso, wire preview) sits
+          above the scene and never takes events, so clicks and pointer captures
+          still land on the scene canvas below. */}
+      <canvas
+        ref={overlayRef}
+        style={{ display: 'block', position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
       />
       {/* Label placement uses a properties dialog (in App) and a cursor-attached ghost. */}
     </div>

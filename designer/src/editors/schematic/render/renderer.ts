@@ -17,6 +17,7 @@ import {
   defaultDrawingSheet,
   setOverbarHeightRatio,
   type WksResolveContext,
+  type DsDrawItem,
   type WksSheet,
   type Transform,
 } from '@ziroeda/common';
@@ -34,6 +35,8 @@ import {
   fieldShownText,
   fieldBoundingBox,
   fieldDrawRotation,
+  fieldId,
+  collectPinSegments,
   getPageSettings,
   ITALIC_TILT,
   type BBox,
@@ -65,6 +68,8 @@ function inView(minX: number, minY: number, maxX: number, maxY: number): boolean
 // rotation): SCH_FIELD::GetBoundingBox costs a text measure + transform per
 // field, far too much to redo on every pan frame of a dense sheet.
 interface FieldDraw {
+  /** Index into the symbol's `fields`, the `k` of its `…:field<k>` id. */
+  index: number;
   key: string;
   shown: string;
   centre: Vec2;
@@ -121,14 +126,15 @@ function fieldDrawsFor(
     // A multi-unit Reference gains its unit letter (GetRef(..., true)).
     const unitCount = lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1;
     const out: FieldDraw[] = [];
-    for (const f of sym.fields) {
-      if (!f.at) continue;
-      if (f.effects?.hidden && !showHidden) continue;
+    sym.fields.forEach((f, index) => {
+      if (!f.at) return;
+      if (f.effects?.hidden && !showHidden) return;
       // GetShownText: field values expand `${VAR}` (layout uses the result).
       const shown = shownText(fieldShownText(f, sym, unitCount, g_subpart));
-      if (shown === '') continue;
+      if (shown === '') return;
       const box = fieldBoundingBox(f, sym, shown, measureText);
       const fd: FieldDraw = {
+        index,
         key: f.key,
         shown,
         centre: { x: box.x + Math.trunc(box.w / 2), y: box.y + Math.trunc(box.h / 2) },
@@ -144,7 +150,7 @@ function fieldDrawsFor(
       if (f.effects?.hidden) fd.hidden = true;
       if (f.effects?.color) fd.cssColor = cssColor(f.effects.color);
       out.push(fd);
-    }
+    });
     return out;
   });
   return g_fieldDraws;
@@ -194,22 +200,22 @@ export interface RenderOpts {
   /** Custom drawing sheet (a loaded `.kicad_wks`), like KiCad's project
    *  `m_DrawingSheetFileName`. Unset = the built-in default stationery. */
   drawingSheet?: WksSheet;
-  /** Pen width (IU) for zero-width strokes — the plot dialog's "Minimum line
+  /** Pen width (IU) for zero-width strokes, the plot dialog's "Minimum line
    *  width" (default pen thickness). Unset = KiCad's 6-mil default. */
   defaultPenIU?: number;
   /** Effective junction-dot diameter (IU) for junctions with no explicit
    *  diameter (SCHEMATIC_SETTINGS::GetJunctionSize()). A value ≤ 1 means the
-   *  user chose "None" — no dot is drawn. Unset = DEFAULT_JUNCTION_DIAM. */
+   *  user chose "None", no dot is drawn. Unset = DEFAULT_JUNCTION_DIAM. */
   junctionDiameterIU?: number;
   /** Dashed-line dash / gap lengths as multiples of the line width
    *  (m_DashedLineDashRatio / m_DashedLineGapRatio; ISO 128-2 defaults 12 / 3). */
   dashLengthRatio?: number;
   gapLengthRatio?: number;
   /** Label / pin-text lift as a fraction of text size (m_TextOffsetRatio;
-   *  default 0.15 — the Formatting panel's percent value ÷ 100). */
+   *  default 0.15, the Formatting panel's percent value ÷ 100). */
   textOffsetRatio?: number;
   /** Global-label box margin as a fraction of text size (m_LabelSizeRatio;
-   *  default 0.375 — the Formatting panel's percent value ÷ 100). */
+   *  default 0.375, the Formatting panel's percent value ÷ 100). */
   labelSizeRatio?: number;
   /** Overbar Y offset as a multiple of text size (FONT_METRICS
    *  m_OverbarHeight; default 1.23). */
@@ -226,7 +232,7 @@ export interface RenderOpts {
    *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
   intersheetRefs?: { text: (resolvedLabel: string) => string };
   /** The highlighted net chain's member wires + its colour override
-   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor — the painter
+   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor, the painter
    *  tints chain wires while that chain is highlighted). */
   chainHighlight?: { lineIds: ReadonlySet<string>; color: string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
@@ -246,8 +252,8 @@ export interface RenderOpts {
   subpart?: { separator: number; firstId: number };
   /** Title-block page context of the rendered sheet instance
    *  (SCH_SHEET_PATH / DS_DRAW_ITEM_LIST): the page-number *string* shown by
-   *  `${#}` (SetPageNumber — may be "A", "ii", …), the sheet *ordinal*
-   *  (SetSheetNumber — drives page1only/notonpage1 item visibility), the
+   *  `${#}` (SetPageNumber, may be "A", "ii", …), the sheet *ordinal*
+   *  (SetSheetNumber, drives page1only/notonpage1 item visibility), the
    *  hierarchy's sheet count (`${##}`), and the sheet name / human-readable
    *  path (`${SHEETNAME}` / `${SHEETPATH}`). Unset = standalone sheet. */
   pageNumber?: string;
@@ -255,6 +261,10 @@ export interface RenderOpts {
   sheetCount?: number;
   sheetName?: string;
   sheetPath?: string;
+  /** A move is in progress, so a selected field draws its umbilical line back
+   *  to its parent instead of its anchor cross (SCH_PAINTER::draw(SCH_FIELD):
+   *  `aField->IsMoving()`). */
+  movingSelection?: boolean;
   /** selection.thickness (mils). */
   selectionThicknessMils: number;
   /** selection.highlight_thickness (mils). */
@@ -265,6 +275,10 @@ export interface RenderOpts {
     style: 'dots' | 'lines' | 'crosses';
     lineWidthPx: number;
     minSpacingPx: number;
+    /** Content scale factor (GAL::GetScaleFactor): the pixel-valued grid
+     *  settings above are logical pixels, as they are in GAL, and are scaled by
+     *  this for the device-pixel canvas. Unset = 1. */
+    devicePixelRatio?: number;
     /** Per-item grid overrides (ACTIONS::toggleGridOverrides): IU sizes, only
      * present when enabled + that item's override is on. */
     overrides?: {
@@ -285,6 +299,18 @@ export const DEFAULT_RENDER_OPTS: RenderOpts = {
   highlightThicknessMils: 2,
   grid: { show: true, sizeIU: 12700, style: 'dots', lineWidthPx: 1, minSpacingPx: 10 },
 };
+
+// FONT::getLinePositions fudge factors, verbatim from common/font/font.cpp:
+// a single line's block height is 1.17 × the text height, and stroke text is
+// nudged by the pen width on both axes.
+/** TEXT_ANCHOR_SIZE (eeschema/default_values.h), in mils. */
+const TEXT_ANCHOR_SIZE_MILS = 8;
+/** 1 mil in IU. */
+const MIL_IU = 254;
+
+const SINGLE_LINE_BLOCK = 1.17;
+const STROKE_V_FUDGE = 0.052;
+const STROKE_H_FUDGE = 1.52;
 
 const MM = 10000; // IU per mm
 const DEFAULT_LINE_WIDTH = 0.1524 * MM; // ~6 mil, KiCad default
@@ -488,9 +514,10 @@ export function renderSchematic(
       theme,
       theme.selectionShadow,
       selShadowWidth,
+      opts.showHiddenPins,
     );
 
-  // Net highlighting, ported from SCH_PAINTER: brightened items are drawn twice —
+  // Net highlighting, ported from SCH_PAINTER: brightened items are drawn twice,
   // once on LAYER_SELECTION_SHADOWS (a wider stroke of the brightened colour at 15%
   // alpha, i.e. getRenderColor()'s `color.WithAlpha(0.15)` branch for IsBrightened()
   // with aDrawingShadows), then again on their normal layer at full-opacity
@@ -566,7 +593,7 @@ export function renderSchematic(
 
   // Wires, buses and graphic polylines. Wires/buses use the theme net colours; a
   // graphic polyline uses its own stroke colour (KiCad graphics carry their colour)
-  // and dash style, and draws all of its vertices — not just the first segment.
+  // and dash style, and draws all of its vertices, not just the first segment.
   sch.lines.forEach((line, i) => {
     const pts = line.points ?? [line.start, line.end];
     let minX = Infinity,
@@ -632,7 +659,7 @@ export function renderSchematic(
           const startAngle = Math.atan2(part.start.y - center.y, part.start.x - center.x);
           const midAngle = Math.atan2(part.mid.y - center.y, part.mid.x - center.x);
           const endAngle = Math.atan2(part.end.y - center.y, part.end.x - center.x);
-          // EDA_ANGLE::Normalize180 on each half, then sum — keeps the sweep
+          // EDA_ANGLE::Normalize180 on each half, then sum, keeps the sweep
           // direction through the arc's midpoint.
           const angle = normalizePI(midAngle - startAngle) + normalizePI(endAngle - midAngle);
           const radius = Math.hypot(part.start.x - center.x, part.start.y - center.y);
@@ -703,7 +730,7 @@ export function renderSchematic(
     const jid = refId('junction', j.uuid, i);
     // Diameter 0 = "use schematic settings" (clamped to ≥170% of the net's
     // wire width when a netclass sets one); a settings size of ≤1 IU is the
-    // "None" choice — the junction exists but draws no dot (sch_junction.cpp).
+    // "None" choice, the junction exists but draws no dot (sch_junction.cpp).
     const d = j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
     if (d <= 1) return;
     ctx.fillStyle = hl(jid) ? theme.netHighlight : j.color ? cssColor(j.color) : theme.junction;
@@ -830,7 +857,7 @@ export function renderSchematic(
     }
     // Fields are painted exactly as KiCad's SCH_PAINTER::draw(SCH_FIELD): the
     // field's bounding box (text box rotated by the field angle, mapped through
-    // the symbol transform — SCH_FIELD::GetBoundingBox) is computed once per
+    // the symbol transform, SCH_FIELD::GetBoundingBox) is computed once per
     // document (cached below) and the text is stroked CENTER/CENTER at the box
     // centre with the draw rotation (GetDrawRotation).
     // A power symbol's visible REFERENCE / VALUE fields brighten with its net
@@ -973,6 +1000,43 @@ export function renderSchematic(
       ctx.strokeStyle = brighten(color, 0.3);
       ctx.strokeRect(d.pos.x - rLabel, d.pos.y - rLabel, rLabel * 2, rLabel * 2);
     }
+  }
+
+  // A selected field's anchor, and its umbilical line while it is being moved
+  // (the tail of SCH_PAINTER::draw(SCH_FIELD)):
+  //
+  //   if( aField->IsMoving() && !parentMoving )  draw line field -> parent
+  //   else if( aField->IsSelected() && !parentMoving )  drawAnchor( field pos )
+  //
+  // The umbilical is what shows a field moving *independently* of its symbol;
+  // it is suppressed when the symbol itself is being dragged, since then the
+  // two move together and the line would just be a stray.
+  if (selection && selection.size > 0) {
+    ctx.setLineDash([]);
+    ctx.strokeStyle = theme.anchor;
+    sch.symbols.forEach((sym, si) => {
+      const symId = refId('symbol', sym.uuid, si);
+      if (selection.has(symId)) return; // parentMoving / parent selected
+      for (const fd of fieldDraws[si] ?? []) {
+        if (!selection.has(fieldId(symId, fd.index))) continue;
+        const at = sym.fields[fd.index]?.at;
+        if (!at) continue;
+        if (opts.movingSelection) {
+          // GetOutlineWidth() is 1 IU (render_settings.cpp), a hairline, so
+          // floor it at one device pixel rather than letting it vanish.
+          ctx.lineWidth = Math.max(1, g_scale > 0 ? 1 / g_scale : 1);
+          strokeLine(ctx, at, sym.at);
+        } else {
+          // drawAnchor: a zoom-compensated cross, TEXT_ANCHOR_SIZE = 8 mils.
+          const radius =
+            Math.round(((g_scale > 0 ? 1 / g_scale : 1) * TEXT_ANCHOR_SIZE_MILS) / 25) +
+            TEXT_ANCHOR_SIZE_MILS * MIL_IU;
+          ctx.lineWidth = g_defaultPen / 3;
+          strokeLine(ctx, { x: at.x - radius, y: at.y }, { x: at.x + radius, y: at.y });
+          strokeLine(ctx, { x: at.x, y: at.y - radius }, { x: at.x, y: at.y + radius });
+        }
+      }
+    });
   }
 }
 
@@ -1316,11 +1380,11 @@ const TARGET_PIN_RADIUS = 0.381 * MM;
 const NOCONNECT_SIZE = 1.2192 * MM;
 
 // SCH_RENDER_SETTINGS::m_PinSymbolSize (25 mil): the fixed size of pin
-// decorations — negation bubble radius, clock notch, polarity slopes.
+// decorations, negation bubble radius, clock notch, polarity slopes.
 const PIN_SYMBOL_SIZE = 0.635 * MM;
 
 // KiCad's ERC marker: MarkerShapeCorners (marker_base.cpp) scaled by 0.15 mm
-// (sch_marker.cpp SCALING_FACTOR) — the little bent arrow anchored at the fault.
+// (sch_marker.cpp SCALING_FACTOR), the little bent arrow anchored at the fault.
 const MARKER_SHAPE: readonly (readonly [number, number])[] = [
   [0, 0],
   [8, 1],
@@ -1334,7 +1398,7 @@ const MARKER_SHAPE: readonly (readonly [number, number])[] = [
 ];
 const MARKER_SCALE = 0.15 * MM;
 
-/** An ERC marker to draw: position, severity and exclusion state — SCH_MARKER::
+/** An ERC marker to draw: position, severity and exclusion state, SCH_MARKER::
  *  GetColorLayer picks LAYER_ERC_ERR / _WARN / _EXCLUSION from exactly these. */
 export interface MarkerDraw {
   at: Vec2;
@@ -1358,7 +1422,7 @@ export function drawErcMarkers(
       : m.severity === 'error'
         ? theme.ercError
         : theme.ercWarning;
-    // EDA_ITEM::SetBrightened — COLOR4D::Brightened( 0.5 ) at draw time.
+    // EDA_ITEM::SetBrightened, COLOR4D::Brightened( 0.5 ) at draw time.
     ctx.fillStyle = m.brightened ? brighten(color, 0.5) : color;
     ctx.beginPath();
     MARKER_SHAPE.forEach(([x, y], i) => {
@@ -1494,7 +1558,7 @@ function drawLabel(
   const h = l.effects?.fontSize?.[0] ?? 1.27 * MM;
   const spin = labelSpin(l.angle, l.effects?.justify);
   // Free text uses its own font colour when set, else the notes-layer blue
-  // (LAYER_NOTES, rgb(0,0,194) in KiCad's default theme) — not the label black.
+  // (LAYER_NOTES, rgb(0,0,194) in KiCad's default theme), not the label black.
   const color = shadow
     ? shadow.color
     : brightened
@@ -1527,7 +1591,7 @@ function drawLabel(
   /**
    * Paint a text run, or its selection shadow. KiCad shadows text by stroking
    * the glyphs themselves with `attrs.m_StrokeWidth += getShadowWidth()`
-   * (SCH_PAINTER::draw(SCH_TEXT), the `drawingShadows` branch) — the whole
+   * (SCH_PAINTER::draw(SCH_TEXT), the `drawingShadows` branch), the whole
    * label glows; there is no underline anywhere in it.
    */
   const paintText = (
@@ -1616,7 +1680,7 @@ function drawLabel(
         const fh = field?.effects?.fontSize?.[0] ?? 1.27 * MM;
         if (intersheetRefsAutoplaced(l, field)) {
           // SCH_LABEL_BASE::AutoplaceFields: the refs sit past the flag's tail
-          // — offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
+          //, offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
           // back toward the label, rotated with the spin.
           const margin = 2 * Math.round(g_textOffsetRatio * h);
           let minX = Infinity,
@@ -1657,7 +1721,7 @@ function drawLabel(
   }
 
   // Free text (SCH_TEXT): drawn exactly at its anchor with its stored
-  // justification and angle — KiCad applies no wire offset to plain text.
+  // justification and angle, KiCad applies no wire offset to plain text.
   if (l.kind === 'text') {
     paintText(
       l.text,
@@ -1672,7 +1736,7 @@ function drawLabel(
   }
 
   // Local label: text lifted off the wire perpendicular to it (x for vertical
-  // spins, y for horizontal — sch_label.cpp GetSchematicTextOffset), drawn with
+  // spins, y for horizontal, sch_label.cpp GetSchematicTextOffset), drawn with
   // the file's own justification (which carries the 'bottom' that keeps the
   // glyphs fully clear of the wire) and rotated for vertical spins.
   const perp = spin === SPIN.UP || spin === SPIN.BOTTOM ? { x: -dist, y: 0 } : { x: 0, y: -dist };
@@ -1718,6 +1782,7 @@ function drawSelectionShadows(
   theme: Theme,
   color: string,
   width: number,
+  showHiddenPins = false,
 ): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
@@ -1764,6 +1829,35 @@ function drawSelectionShadows(
     for (const unit of lib.units)
       if (libUnitMatches(unit, sym.unit, sym.bodyStyle))
         drawLibUnitShadow(ctx, unit, sym.at, t, color, width);
+  });
+
+  // A pin picked on its own gets the glow by itself; a selected symbol already
+  // strokes all of its pins through drawLibUnitShadow above.
+  for (const seg of collectPinSegments(sch, libById, showHiddenPins)) {
+    if (!selection.has(seg.id)) continue;
+    if (selection.has(refId('symbol', sch.symbols[seg.symbolIndex]!.uuid, seg.symbolIndex)))
+      continue;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = g_defaultPen + width;
+    strokeLine(ctx, seg.at, seg.bodyEnd);
+  }
+
+  // Symbol fields glow with their symbol, and on their own when picked alone.
+  //
+  // SCH_SELECTION_TOOL::highlight() runs over a selected item's children
+  // ("Highlight pins and fields") setting SELECTED on each, and
+  // SCH_PAINTER::draw(SCH_SYMBOL) paints them on the shadow layer whenever
+  // selection.draw_selected_children is on, which it is by default
+  // (eeschema_settings.cpp). So selecting a symbol lights its reference, value
+  // and footprint text too, not just the body.
+  const shadowFields = fieldDrawsFor(sch, libById, g_fieldShowHidden);
+  sch.symbols.forEach((sym, si) => {
+    const symId = refId('symbol', sym.uuid, si);
+    const symbolSelected = selection.has(symId);
+    for (const fd of shadowFields[si] ?? []) {
+      if (!symbolSelected && !selection.has(fieldId(symId, fd.index))) continue;
+      drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic, width);
+    }
   });
 
   // Labels: re-stroke the flag/box geometry wider in the shadow colour.
@@ -1884,7 +1978,7 @@ function drawLibUnit(
 ): number {
   // Two passes matching SCH_PAINTER's layer order: background/custom fills
   // first (LAYER_DEVICE_BACKGROUND), then outlines and outline-colour fills
-  // (LAYER_DEVICE) — so a filled body never covers a neighbour's outline.
+  // (LAYER_DEVICE), so a filled body never covers a neighbour's outline.
   const tracePath = (g: (typeof unit.graphics)[number]): boolean => {
     switch (g.kind) {
       case 'rectangle': {
@@ -1927,7 +2021,7 @@ function drawLibUnit(
     }
   };
 
-  // Pass 1: LAYER_DEVICE_BACKGROUND — body-background and custom-colour fills.
+  // Pass 1: LAYER_DEVICE_BACKGROUND, body-background and custom-colour fills.
   if (phase !== 'fg') {
     for (const g of unit.graphics) {
       if (g.kind === 'text') continue;
@@ -1951,7 +2045,7 @@ function drawLibUnit(
     if (phase === 'bg') return pinIndexStart;
   }
 
-  // Pass 2: LAYER_DEVICE — outlines, outline-colour (FILLED_SHAPE) fills, text.
+  // Pass 2: LAYER_DEVICE, outlines, outline-colour (FILLED_SHAPE) fills, text.
   for (const g of unit.graphics) {
     const lw = g.kind !== 'text' && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
     ctx.lineWidth = lw;
@@ -1999,14 +2093,14 @@ function drawLibUnit(
     if (pin.hidden && !showHiddenPins) continue;
     const hiddenGhost = pin.hidden;
     // Per-pin text sizes; a stored size of 0 means "not drawn" (KiCad lays the text
-    // out at zero height — Altium imports hide pin names this way and put graphic
+    // out at zero height, Altium imports hide pin names this way and put graphic
     // text in the body instead).
     const NUM = pin.numberSize ?? DEFAULT_TEXT;
     const NAME = pin.nameSize ?? DEFAULT_TEXT;
     // externalPinDecoSize / internalPinDecoSize (sch_painter.cpp): the
     // Schematic Setup m_PinSymbolSize when set; a value of 0 falls back to the
-    // pin's own text sizes (number/2 for external decorations — negation
-    // bubble, polarity slopes — and name/2, else number/2, for the clock).
+    // pin's own text sizes (number/2 for external decorations, negation
+    // bubble, polarity slopes, and name/2, else number/2, for the clock).
     const radius = g_pinSymbolSize > 0 ? g_pinSymbolSize : NUM / 2;
     const diam = radius * 2;
     const clockSize = g_pinSymbolSize > 0 ? g_pinSymbolSize : NAME !== 0 ? NAME / 2 : NUM / 2;
@@ -2014,7 +2108,7 @@ function drawLibUnit(
     const endLocal = pinBodyEnd(pin.at, pin.angle, pin.length);
     const pos = localToWorld(origin, t, pin.at); // connection point (tip)
     const p0 = localToWorld(origin, t, endLocal); // pin root (at the body)
-    // Direction from the root toward the tip, in world space (painter's `dir`) —
+    // Direction from the root toward the tip, in world space (painter's `dir`),
     // computed after the symbol transform so rotated/mirrored symbols lay their
     // decorations and text out exactly like upstream.
     const len = pin.length;
@@ -2220,7 +2314,7 @@ function polygon(ctx: CanvasRenderingContext2D, pts: Vec2[], fill: boolean, clos
 /**
  * Draw a circular arc through three points (KiCad stores arcs as start/mid/end).
  * When `fill` is set, the arc's circular segment is filled (the path is implicitly
- * closed by the chord for filling but only the arc itself is stroked) — matching
+ * closed by the chord for filling but only the arc itself is stroked), matching
  * KiCad, where a filled arc combines with its sibling polyline to form e.g. a gate
  * body, and the shared chord edge is never stroked.
  */
@@ -2308,21 +2402,35 @@ function drawText(
 
   // KiCad strokes schematic text with the Newstroke font. The glyph run is built
   // once into a Path2D (baseline-left origin, italic shear baked in) and cached
-  // by text+size, then placed per call with a canvas transform — retained paths
+  // by text+size, then placed per call with a canvas transform, retained paths
   // make dense sheets (hundreds of labels/pin names) pan smoothly.
   const width = glyphRun(text, heightIU, italic).width;
-  const offX = right ? -width : left ? 0 : -width / 2; // default: centre
-  const offY = top ? cap : bottom ? 0 : cap / 2; // baseline placement; default: middle
+  // KiCad text pen: normal text uses the constant default pen (6 mil,
+  // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
+  // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
+  const pen = penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25));
+
+  // Where the baseline lands, per FONT::getLinePositions (common/font/font.cpp):
+  // the draw origin starts one text height below the anchor, then the vertical
+  // justification subtracts the block height, which for a single line is
+  // 1.17 × the height ("a fudge to match 6.0 positioning"). Stroke text nudges
+  // by a fraction of the pen on both axes.
+  //
+  // The upshot for BOTTOM is that the baseline sits *above* the anchor by
+  // 0.17 × the height, not on it. That gap is what lifts a net label clear of
+  // the wire it names; placing the baseline on the anchor draws the wire
+  // straight through the glyphs.
+  const blockH = cap * SINGLE_LINE_BLOCK;
+  const offY = (top ? cap : bottom ? cap - blockH : cap - blockH / 2) - pen * STROKE_V_FUDGE;
+  const fudgeX = pen / STROKE_H_FUDGE;
+  const offX = right ? -(width + fudgeX) : left ? fudgeX : -width / 2;
 
   ctx.save();
   ctx.translate(at.x, at.y);
   if (a !== 0) ctx.rotate(-a); // matches placeAt's screen-space rotation
   ctx.translate(offX, offY);
   ctx.strokeStyle = color;
-  // KiCad text pen: normal text uses the constant default pen (6 mil —
-  // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
-  // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
-  ctx.lineWidth = penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25));
+  ctx.lineWidth = pen;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // Vector-text mode strokes segments directly (capturable by the SVG adapter);
@@ -2355,7 +2463,7 @@ function glyphRun(
   if (!entry) {
     const { strokes, width } = layoutText(text, size);
     // Italic: STROKE_GLYPH::Transform shears each point right by y·ITALIC_TILT
-    // (y is negative above the baseline, so tops lean right) — glyph.cpp.
+    // (y is negative above the baseline, so tops lean right), glyph.cpp.
     const tilt = italic ? ITALIC_TILT : 0;
     const sheared: Vec2[][] = strokes.map((stroke) =>
       stroke.map((pt) => ({ x: pt.x - pt.y * tilt, y: pt.y })),
@@ -2456,29 +2564,26 @@ export function paperSizeIU(paper: string | undefined): { w: number; h: number }
 /** No drawing-sheet item is ever "selected" on the schematic canvas. */
 const NO_DS_SELECTION: ReadonlySet<number> = new Set();
 
-function drawDrawingSheet(
-  ctx: CanvasRenderingContext2D,
+/**
+ * The drawing sheet laid out for this schematic, the page border, its rulers
+ * and the resolved title block, as the renderer draws it.
+ *
+ * Exported so hit-testing sees exactly the geometry that is on screen, the way
+ * DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems rebuilds the same draw list the
+ * painter uses.
+ */
+export function drawingSheetItems(
   sch: Schematic,
-  theme: Theme,
   sheet?: WksSheet,
-  // Sheet-instance page context (RenderOpts subset) for the title block.
   opts: Pick<
     RenderOpts,
     'pageNumber' | 'sheetNumber' | 'sheetCount' | 'sheetName' | 'sheetPath'
   > = {},
-): void {
+): DsDrawItem[] {
   const page = paperSizeIU(sch.paper);
-  if (!page) return;
-  // Render the real default drawing sheet through the same resolver + painter
-  // pl_editor uses (layoutDrawingSheet → drawDrawingSheetItems), so every
-  // title-block variable is substituted from the document — including the
-  // company line and Comment 1-4, which the previous hand-rolled block dropped
-  // (it also hardcoded the version, sheet id and path).
+  if (!page) return [];
   const ps = getPageSettings(sch);
   const resolveCtx: WksResolveContext = {
-    // Page context from the sheet instance (SCH_SHEET_PATH): ordinal for the
-    // page1only visibility, page string for ${#}, count for ${##}, and the
-    // human-readable path for ${SHEETPATH}. A standalone sheet is 1/1 at "/".
     pageNumber: opts.sheetNumber ?? 1,
     ...(opts.pageNumber !== undefined ? { pageName: opts.pageNumber } : {}),
     sheetCount: opts.sheetCount ?? 1,
@@ -2493,17 +2598,69 @@ function drawDrawingSheet(
     sheetPath: opts.sheetPath ?? '/',
     appVersion: 'ZiroEDA',
   };
-  const draws = layoutDrawingSheet(
+  return layoutDrawingSheet(
     sheet ?? defaultDrawingSheet(),
     { widthMM: iuToMM(page.w), heightMM: iuToMM(page.h) },
     resolveCtx,
   );
+}
+
+function drawDrawingSheet(
+  ctx: CanvasRenderingContext2D,
+  sch: Schematic,
+  theme: Theme,
+  sheet?: WksSheet,
+  // Sheet-instance page context (RenderOpts subset) for the title block.
+  opts: Pick<
+    RenderOpts,
+    'pageNumber' | 'sheetNumber' | 'sheetCount' | 'sheetName' | 'sheetPath'
+  > = {},
+): void {
+  // Render the real default drawing sheet through the same resolver + painter
+  // pl_editor uses (layoutDrawingSheet -> drawDrawingSheetItems), so every
+  // title-block variable is substituted from the document.
+  const draws = drawingSheetItems(sch, sheet, opts);
+  if (draws.length === 0) return;
   drawDrawingSheetItems(ctx, draws, NO_DS_SELECTION, {
     color: theme.pageFrame,
     // 1-device-pixel pen floor keeps hairlines visible when zoomed out.
     minWidth: g_scale > 0 ? 1 / g_scale : 1,
   });
 }
+
+/**
+ * GAL::SetCoarseGrid( 10 ), from the GAL constructor: every tenth grid line is
+ * drawn at double width, which is what gives KiCad's grid its coarse pattern.
+ * It is also the factor GetVisibleGridSize() steps the spacing up by when the
+ * grid gets too dense, the grid jumps 50 mil -> 500 mil, it does not double.
+ */
+const GRID_TICK = 10;
+
+/** GetVisibleGridSize() floors the grid size at 100 IU before anything else. */
+const MIN_GRID_IU = 100;
+
+/**
+ * Retained grid geometry. The lattice is built once into Path2D form in device
+ * space and then only translated, so the grid costs one fill (dots) or two
+ * strokes (lines/crosses) per frame instead of a draw call per node, the same
+ * reason OPENGL_GAL submits it through the non-cached vertex manager in one go,
+ * and what the board painter already does (renderBoard.ts drawGrid).
+ *
+ * The path is anchored on a *tick-aligned* node, not simply the first visible
+ * one, so which nodes are coarse is identical in path space for every pan and
+ * only the translation changes. It is rebuilt when the zoom, canvas size or
+ * grid appearance changes.
+ */
+interface GridGeometry {
+  /** Minor nodes/lines, and the coarse (every GRID_TICK-th) ones. */
+  minor: Path2D;
+  major: Path2D;
+}
+let g_gridGeom: GridGeometry | null = null;
+let g_gridKey = '';
+
+/** Guard against a pathological view (a not-yet-sized canvas) asking for millions of nodes. */
+const MAX_GRID_NODES = 1_000_000;
 
 function drawGrid(
   ctx: CanvasRenderingContext2D,
@@ -2513,62 +2670,114 @@ function drawGrid(
   canvasHeight: number,
   grid: RenderOpts['grid'],
 ): void {
-  // Visible world bounds (inverse of the viewport transform).
-  const left = -viewport.offsetX / viewport.scale;
-  const top = -viewport.offsetY / viewport.scale;
-  const right = (canvasWidth - viewport.offsetX) / viewport.scale;
-  const bottom = (canvasHeight - viewport.offsetY) / viewport.scale;
+  const { scale, offsetX, offsetY } = viewport;
+  if (scale <= 0 || grid.sizeIU <= 0) return;
+  // GAL works in logical pixels; ours is a device-pixel canvas, so the
+  // pixel-valued settings are scaled up by the content scale factor exactly
+  // where GAL applies GetScaleFactor().
+  const dpr = grid.devicePixelRatio && grid.devicePixelRatio > 0 ? grid.devicePixelRatio : 1;
 
-  // GAL grid density limit: double the drawn step until it clears the
-  // configured minimum on-screen spacing (gal options "Minimum grid spacing").
-  let step = grid.sizeIU;
-  const minPx = Math.max(2, grid.minSpacingPx);
-  while (step * viewport.scale < minPx) step *= 2;
+  // GAL::GetVisibleGridSize(): step the drawn grid up by a whole tick until it
+  // clears the minimum on-screen spacing. SMALL_CROSS needs twice the room.
+  let step = Math.max(MIN_GRID_IU, grid.sizeIU);
+  const thresholdIU =
+    ((Math.max(0, grid.minSpacingPx) * dpr) / scale) * (grid.style === 'crosses' ? 2 : 1);
+  while (step <= thresholdIU) step *= GRID_TICK;
 
-  ctx.fillStyle = theme.grid;
-  ctx.strokeStyle = theme.grid;
-  const px = Math.max(1, grid.lineWidthPx) / viewport.scale; // grid pen, in world units
-  const x0 = Math.ceil(left / step) * step;
-  const y0 = Math.ceil(top / step) * step;
+  const pitch = step * scale; // node spacing, device px
+  const nx = Math.ceil(canvasWidth / pitch) + 1;
+  const ny = Math.ceil(canvasHeight / pitch) + 1;
+  if (nx * ny > MAX_GRID_NODES) return;
 
-  if (grid.style === 'lines') {
-    ctx.lineWidth = px;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    for (let x = x0; x <= right; x += step) {
-      ctx.moveTo(x, top);
-      ctx.lineTo(x, bottom);
-    }
-    for (let y = y0; y <= bottom; y += step) {
-      ctx.moveTo(left, y);
-      ctx.lineTo(right, y);
-    }
-    ctx.stroke();
-    return;
-  }
-  if (grid.style === 'crosses') {
-    ctx.lineWidth = px;
-    ctx.setLineDash([]);
-    const arm = 3 / viewport.scale; // ~3 px arms
-    ctx.beginPath();
-    for (let x = x0; x <= right; x += step) {
-      for (let y = y0; y <= bottom; y += step) {
-        ctx.moveTo(x - arm, y);
-        ctx.lineTo(x + arm, y);
-        ctx.moveTo(x, y - arm);
-        ctx.lineTo(x, y + arm);
+  // OPENGL_GAL::DrawGrid pen widths. The stored width is
+  // scaleFactor * <the setting> + 0.25 (GAL::updatedGalDisplayOptions), floored
+  // at one pixel, and every tick line is twice that.
+  const minorW = Math.max(1, dpr * Math.max(0, grid.lineWidthPx) + 0.25);
+  const majorW = minorW * 2;
+
+  // Node indices, counted from the grid origin exactly as DrawGrid does:
+  // KiROUND( (worldStart - origin) / gridSize ), then one node of margin on
+  // each side so the lattice always fills the screen. Eeschema has no settable
+  // grid origin, so the origin is the world origin.
+  const i0 = Math.round(-offsetX / scale / step) - 1;
+  const j0 = Math.round(-offsetY / scale / step) - 1;
+  // Anchor the retained path on the nearest tick-aligned node at or before the
+  // first one, so `k % GRID_TICK` in path space is the true coarse-ness.
+  const iA = i0 - (((i0 % GRID_TICK) + GRID_TICK) % GRID_TICK);
+  const jA = j0 - (((j0 % GRID_TICK) + GRID_TICK) % GRID_TICK);
+  const cols = nx + GRID_TICK;
+  const rows = ny + GRID_TICK;
+
+  const key = `${grid.style}|${pitch}|${cols}x${rows}|${canvasWidth}x${canvasHeight}|${minorW}`;
+  if (key !== g_gridKey || !g_gridGeom) {
+    const minor = new Path2D();
+    const major = new Path2D();
+    const w = cols * pitch;
+    const h = rows * pitch;
+    if (grid.style === 'lines') {
+      // Horizontal lines, then vertical ones; each is coarse on its own index.
+      for (let l = 0; l <= rows; l++) {
+        const y = l * pitch;
+        const p = l % GRID_TICK === 0 ? major : minor;
+        p.moveTo(0, y);
+        p.lineTo(w, y);
+      }
+      for (let k = 0; k <= cols; k++) {
+        const x = k * pitch;
+        const p = k % GRID_TICK === 0 ? major : minor;
+        p.moveTo(x, 0);
+        p.lineTo(x, h);
+      }
+    } else if (grid.style === 'crosses') {
+      // SMALL_CROSS: arms are 2 x the pen width, and a cross is coarse only
+      // where *both* indices are on a tick (DrawGrid's `tickX && tickY`).
+      for (let k = 0; k <= cols; k++) {
+        const x = k * pitch;
+        const tickX = k % GRID_TICK === 0;
+        for (let l = 0; l <= rows; l++) {
+          const y = l * pitch;
+          const coarse = tickX && l % GRID_TICK === 0;
+          const p = coarse ? major : minor;
+          const arm = 2 * (coarse ? majorW : minorW);
+          p.moveTo(x - arm, y);
+          p.lineTo(x + arm, y);
+          p.moveTo(x, y - arm);
+          p.lineTo(x, y + arm);
+        }
+      }
+    } else {
+      // DOTS: GAL stencils the horizontal lines against the vertical ones, so a
+      // node is the *intersection* of the two pens, a coarse column gives a
+      // wider mark, a coarse row a taller one, and a coarse crossing a big
+      // square. Rectangles reproduce that exactly, and all of them fill at once.
+      for (let k = 0; k <= cols; k++) {
+        const x = k * pitch;
+        const wk = k % GRID_TICK === 0 ? majorW : minorW;
+        for (let l = 0; l <= rows; l++) {
+          const hl = l % GRID_TICK === 0 ? majorW : minorW;
+          minor.rect(x - wk / 2, l * pitch - hl / 2, wk, hl);
+        }
       }
     }
-    ctx.stroke();
-    return;
+    g_gridGeom = { minor, major };
+    g_gridKey = key;
   }
-  // Dots.
-  const dot = Math.max(0.15 * MM, px);
-  for (let x = x0; x <= right; x += step) {
-    for (let y = y0; y <= bottom; y += step) {
-      ctx.fillRect(x - dot / 2, y - dot / 2, dot, dot);
-    }
+
+  // Painted in device space; the caller's world transform is restored after.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, iA * pitch + offsetX, jA * pitch + offsetY);
+  if (grid.style === 'dots') {
+    ctx.fillStyle = theme.grid;
+    ctx.fill(g_gridGeom.minor);
+  } else {
+    ctx.strokeStyle = theme.grid;
+    ctx.setLineDash([]);
+    ctx.lineWidth = minorW;
+    ctx.stroke(g_gridGeom.minor);
+    ctx.lineWidth = majorW;
+    ctx.stroke(g_gridGeom.major);
   }
+  ctx.restore();
 }
 
 /** Render a single library symbol centred and scaled into a preview canvas. */
