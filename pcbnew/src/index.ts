@@ -69,6 +69,8 @@ export {
   addToGroupItems,
   removeFromGroupItems,
   expandGroupIds,
+  filterSelectionForFreePads,
+  filterSelectionForDelete,
   groupContaining,
   boardUuidIndex,
   setBoardItemsLocked,
@@ -146,3 +148,15 @@ export {
   getTrailingInt,
   type SpreadFootprintsOptions,
 } from './spread_footprints.js';
+
+// Track dragging (pcbnew/router: PNS::DRAGGER + PNS::LINE geometry).
+export {
+  assembleLine,
+  startTrackDrag,
+  updateTrackDrag,
+  trackDragSegments,
+  applyTrackDrag,
+  type AssembledLine,
+  type TrackDrag,
+  type DragMode,
+} from './router/pns_drag.js';

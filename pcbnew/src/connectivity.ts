@@ -7,14 +7,16 @@
  * A minimal port of the piece of pcbnew's CONNECTIVITY_DATA the interactive
  * editor needs first, enough to answer "when this footprint moves, which track
  * ends should move with it?" (EDIT_TOOL's drag vs. move). KiCad decides two
- * copper items touch when they share a net and their shapes overlap; here a
- * track end attaches to a pad when it lands inside the pad's copper on a shared
- * net (the common case: a route ending on a pad centre), which is what a drag
- * needs to keep the routing rubber-banded to the part.
+ * copper items touch when they share a net and their shapes overlap
+ * (CN_VISITOR::operator()); here a track end attaches to a pad when its end cap
+ * touches the pad's copper on a shared net, which is what a drag needs to keep
+ * the routing rubber-banded to the part.
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Board, PcbPad } from './types.js';
+import { padShapes } from './drc/drc_engine.js';
+import { shapeDist, type Shape } from './drc/drc_geometry.js';
+import type { Board } from './types.js';
 
 /** A specific end of a track or arc segment. */
 export interface TrackEndRef {
@@ -23,26 +25,30 @@ export interface TrackEndRef {
   end: 'start' | 'end';
 }
 
-/** Board-absolute connection point of a pad (its centre). */
-const padAnchor = (pad: PcbPad): Vec2 => pad.at;
-
-/**
- * Does point `pt` (a track end) sit on `pad`'s copper? Uses the pad's circular
- * extent (half its larger dimension), generous enough to catch routes that end
- * a hair off the exact centre, without reaching neighbouring pads.
- */
-function endOnPad(pt: Vec2, pad: PcbPad): boolean {
-  const r = Math.max(pad.size.x, pad.size.y) / 2;
-  const a = padAnchor(pad);
-  return Math.hypot(pt.x - a.x, pt.y - a.y) <= r;
+/** A pad and the copper shapes it is collided by (padShapes is not cheap). */
+interface PadCopper {
+  net: number;
+  shapes: Shape[];
 }
 
-/** Every pad of the given footprints, with its footprint index kept for grouping. */
-function movingPads(board: Board, footprintIdx: ReadonlySet<number>): PcbPad[] {
-  const pads: PcbPad[] = [];
+/**
+ * Does a track end at `pt`, `width` wide, touch this pad's copper? The end cap ,
+ * a disc of half the track width, as SHAPE_SEGMENT's cap is, is collided against
+ * the pad's real shape, so a route ending on the edge of an oblong or rotated pad
+ * counts and one that merely passes near it does not.
+ */
+function endOnPad(pt: Vec2, width: number, pad: PadCopper): boolean {
+  const cap: Shape = { kind: 'circle', c: pt, r: width / 2 };
+  return pad.shapes.some((s) => shapeDist(cap, s) <= 0);
+}
+
+/** The copper of every pad of the given footprints. */
+function movingPads(board: Board, footprintIdx: ReadonlySet<number>): PadCopper[] {
+  const pads: PadCopper[] = [];
   for (const i of footprintIdx) {
     const fp = board.footprints[i];
-    if (fp) pads.push(...fp.pads);
+    if (!fp) continue;
+    for (const pad of fp.pads) pads.push({ net: pad.net ?? -1, shapes: padShapes(pad) });
   }
   return pads;
 }
@@ -60,14 +66,15 @@ export function connectedTrackEnds(board: Board, footprintIdx: ReadonlySet<numbe
   const out: TrackEndRef[] = [];
   const attach = (
     pt: Vec2,
+    width: number,
     net: number,
     kind: 'track' | 'arc',
     index: number,
     end: 'start' | 'end',
   ): void => {
     for (const pad of pads) {
-      if ((pad.net ?? -1) !== net) continue;
-      if (endOnPad(pt, pad)) {
+      if (pad.net !== net) continue;
+      if (endOnPad(pt, width, pad)) {
         out.push({ kind, index, end });
         return;
       }
@@ -75,12 +82,12 @@ export function connectedTrackEnds(board: Board, footprintIdx: ReadonlySet<numbe
   };
 
   board.tracks.forEach((t, i) => {
-    attach(t.start, t.net, 'track', i, 'start');
-    attach(t.end, t.net, 'track', i, 'end');
+    attach(t.start, t.width, t.net, 'track', i, 'start');
+    attach(t.end, t.width, t.net, 'track', i, 'end');
   });
   board.arcs.forEach((a, i) => {
-    attach(a.start, a.net, 'arc', i, 'start');
-    attach(a.end, a.net, 'arc', i, 'end');
+    attach(a.start, a.width, a.net, 'arc', i, 'start');
+    attach(a.end, a.width, a.net, 'arc', i, 'end');
   });
   return out;
 }

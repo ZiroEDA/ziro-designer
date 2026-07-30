@@ -2,25 +2,55 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Ratsnest computation, a compact port of pcbnew's RN_NET /
- * CONNECTIVITY_DATA pipeline (ratsnest/ratsnest_data.cpp): per net, cluster
- * the copper items that are already physically connected (pads, track/arc
- * segments, vias, filled zones), then emit the shortest edges that would join
- * the remaining clusters (kruskal on the closest cluster pairs), which are
- * the airwires the canvas draws and the "Unrouted" count.
+ * Ratsnest computation, a compact port of pcbnew's RN_NET / CONNECTIVITY_DATA
+ * pipeline (connectivity/connectivity_algo.cpp + ratsnest/ratsnest_data.cpp):
+ * per net, cluster the copper items that are already physically connected
+ * (pads, track/arc segments, vias, filled zones), then emit the shortest edges
+ * that would join the remaining clusters, which are the airwires the canvas
+ * draws and the "Unrouted" count.
+ *
+ * Two items of a net are connected on exactly the terms CN_VISITOR::operator()
+ * sets: their effective copper shapes collide on a common layer. Anything that
+ * touches counts, a track teeing off the *middle* of another track, a track
+ * crossing a pad it does not end on, two track ends that overlap only by their
+ * width, so copper that really is joined never keeps an airwire drawn over it.
+ * The shapes are the ones DRC collides ({@link padShapes}, {@link shapeDist}),
+ * KiCad's GetEffectiveShape()->Collide() pair.
  */
 
+import { arcShape, padShapes } from './drc/drc_engine.js';
+import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import type { Board, PcbPad } from './types.js';
 
-/** Copper scope of a connection anchor: one layer, or through-hole (all). */
+/** Copper scope of a shape or anchor: one layer, or through-hole (all). */
 type AnchorLayer = string | 'through';
 
+interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** One copper shape of one board item, with the layer it sits on. */
+interface Piece {
+  /**
+   * Union-find index of the *item* (CN_ITEM) the shape belongs to, so the
+   * several shapes of one pad, or the two ends of one segment, cluster as one
+   * thing without a collision test.
+   */
+  item: number;
+  layer: AnchorLayer;
+  shape: Shape;
+  box: BBox;
+}
+
+/** A point an airwire may end on (CN_ITEM's anchors): pad/via centre, track end. */
 interface Anchor {
   x: number;
   y: number;
   layer: AnchorLayer;
-  /** Union-find parent index. */
-  parent: number;
+  item: number;
 }
 
 /** One airwire between two unconnected clusters of a net. */
@@ -45,15 +75,12 @@ function padLayer(pad: PcbPad): AnchorLayer {
   return cu ?? 'through';
 }
 
-/** Ray-cast point-in-polygon. */
-function inPoly(x: number, y: number, poly: { x: number; y: number }[]): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const a = poly[i]!;
-    const b = poly[j]!;
-    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
-  }
-  return inside;
+/** The copper of one net: the shapes to collide, and the anchors to draw from. */
+interface NetGeometry {
+  pieces: Piece[];
+  anchors: Anchor[];
+  /** Number of items handed out so far, the union-find's size. */
+  items: number;
 }
 
 /** Build the airwire list for every net on the board. */
@@ -61,77 +88,85 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
   const edges: RatsnestEdge[] = [];
 
   // Bucket the board's connected items per net code (net 0 = no net).
-  interface NetItems {
-    pads: PcbPad[];
-    tracks: { sx: number; sy: number; ex: number; ey: number; layer: string }[];
-    vias: { x: number; y: number; r: number }[];
-    zones: { layer: string; polys: { x: number; y: number }[][] }[];
-  }
-  const nets = new Map<number, NetItems>();
-  const forNet = (net: number): NetItems => {
+  const nets = new Map<number, NetGeometry>();
+  const forNet = (net: number): NetGeometry => {
     let n = nets.get(net);
     if (!n) {
-      n = { pads: [], tracks: [], vias: [], zones: [] };
+      n = { pieces: [], anchors: [], items: 0 };
       nets.set(net, n);
     }
     return n;
   };
+  const addShape = (g: NetGeometry, item: number, layer: AnchorLayer, shape: Shape): void => {
+    g.pieces.push({ item, layer, shape, box: shapeBBox(shape) });
+  };
 
-  for (const fp of board.footprints)
-    for (const pad of fp.pads) if (pad.net && pad.net > 0) forNet(pad.net).pads.push(pad);
-  board.tracks.forEach((t) => {
-    if (t.net > 0)
-      forNet(t.net).tracks.push({
-        sx: t.start.x,
-        sy: t.start.y,
-        ex: t.end.x,
-        ey: t.end.y,
-        layer: t.layer,
-      });
-  });
-  board.arcs.forEach((a) => {
-    if (a.net > 0)
-      forNet(a.net).tracks.push({
-        sx: a.start.x,
-        sy: a.start.y,
-        ex: a.end.x,
-        ey: a.end.y,
-        layer: a.layer,
-      });
-  });
-  board.vias.forEach((v) => {
-    if (v.net > 0) forNet(v.net).vias.push({ x: v.at.x, y: v.at.y, r: v.size / 2 });
-  });
+  for (const fp of board.footprints) {
+    for (const pad of fp.pads) {
+      if (!pad.net || pad.net <= 0) continue;
+      const g = forNet(pad.net);
+      const item = g.items++;
+      const layer = padLayer(pad);
+      for (const shape of padShapes(pad)) addShape(g, item, layer, shape);
+      g.anchors.push({ x: pad.at.x, y: pad.at.y, layer, item });
+    }
+  }
+  for (const t of board.tracks) {
+    if (t.net <= 0) continue;
+    const g = forNet(t.net);
+    const item = g.items++;
+    addShape(g, item, t.layer, { kind: 'stadium', a: t.start, b: t.end, r: t.width / 2 });
+    g.anchors.push({ x: t.start.x, y: t.start.y, layer: t.layer, item });
+    g.anchors.push({ x: t.end.x, y: t.end.y, layer: t.layer, item });
+  }
+  for (const a of board.arcs) {
+    if (a.net <= 0) continue;
+    const g = forNet(a.net);
+    const item = g.items++;
+    addShape(g, item, a.layer, arcShape(a.start, a.mid, a.end, a.width));
+    g.anchors.push({ x: a.start.x, y: a.start.y, layer: a.layer, item });
+    g.anchors.push({ x: a.end.x, y: a.end.y, layer: a.layer, item });
+  }
+  for (const v of board.vias) {
+    if (v.net <= 0) continue;
+    const g = forNet(v.net);
+    const item = g.items++;
+    addShape(g, item, 'through', { kind: 'circle', c: v.at, r: v.size / 2 });
+    g.anchors.push({ x: v.at.x, y: v.at.y, layer: 'through', item });
+  }
   for (const z of board.zones) {
     if (z.net <= 0) continue;
-    // A poured (filled) zone connects every same-net item within its boundary.
-    // Use the zone outline for the containment test rather than the fill
-    // polygons: a thermal-relieved pad sits in the fill's clearance hole, so
-    // its centre is outside the fill even though a spoke connects it, the
-    // outline captures that, matching what KiCad's connectivity reports.
     if (z.fills.length === 0) continue; // unfilled zone: no copper, no connection
+    const g = forNet(z.net);
+    const item = g.items++;
+    // A poured zone connects every same-net item its copper touches. Use the
+    // zone outline rather than the fill polygons: a thermal-relieved pad sits in
+    // the fill's clearance hole, so it misses the fill even though a spoke
+    // connects it, the outline captures that, matching what KiCad's
+    // connectivity reports. A zone contributes no anchor: airwires are drawn
+    // between pads, vias and track ends, as RN_NET's anchors are.
     if (z.outline && z.outline.length >= 3) {
-      for (const layer of z.layers) forNet(z.net).zones.push({ layer, polys: [z.outline] });
+      for (const layer of z.layers)
+        addShape(g, item, layer, { kind: 'poly', pts: z.outline, r: 0 });
     } else {
       // No stored outline, fall back to the fill polygons.
-      for (const f of z.fills) forNet(z.net).zones.push({ layer: f.layer, polys: f.polys });
+      for (const f of z.fills)
+        for (const poly of f.polys)
+          if (poly.length >= 3) addShape(g, item, f.layer, { kind: 'poly', pts: poly, r: 0 });
     }
   }
 
-  for (const [net, items] of nets) {
-    const anchors: Anchor[] = [];
-    const add = (x: number, y: number, layer: AnchorLayer): number => {
-      anchors.push({ x, y, layer, parent: anchors.length });
-      return anchors.length - 1;
-    };
+  for (const [net, g] of nets) {
+    // ----- cluster the items whose copper touches (CN_CONNECTIVITY_ALGO) -----
+    const parent = Array.from({ length: g.items }, (_, i) => i);
     const find = (i: number): number => {
       let r = i;
-      while (anchors[r]!.parent !== r) r = anchors[r]!.parent;
+      while (parent[r] !== r) r = parent[r]!;
       // Path compression.
       let c = i;
-      while (anchors[c]!.parent !== c) {
-        const next = anchors[c]!.parent;
-        anchors[c]!.parent = r;
+      while (parent[c] !== c) {
+        const next = parent[c]!;
+        parent[c] = r;
         c = next;
       }
       return r;
@@ -139,111 +174,84 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
     const union = (a: number, b: number): void => {
       const ra = find(a);
       const rb = find(b);
-      if (ra !== rb) anchors[rb]!.parent = ra;
+      if (ra !== rb) parent[rb] = ra;
     };
 
-    // Pads and vias are round(ish) connection targets with a capture radius;
-    // track ends connect where they land on them (connectivity_algo's shape
-    // collisions, reduced to the anchor-distance case).
-    const targets: { idx: number; r: number }[] = [];
-    for (const pad of items.pads) {
-      const idx = add(pad.at.x, pad.at.y, padLayer(pad));
-      targets.push({ idx, r: Math.max(pad.size.x, pad.size.y) / 2 });
-    }
-    for (const via of items.vias) {
-      const idx = add(via.x, via.y, 'through');
-      targets.push({ idx, r: via.r });
-    }
-    const trackEnds: number[] = [];
-    for (const t of items.tracks) {
-      const s = add(t.sx, t.sy, t.layer);
-      const e = add(t.ex, t.ey, t.layer);
-      union(s, e); // the segment itself connects its two ends
-      trackEnds.push(s, e);
-    }
-
-    // Track end ↔ pad/via capture, and coincident track ends.
-    for (const ei of trackEnds) {
-      const e = anchors[ei]!;
-      for (const t of targets) {
-        const a = anchors[t.idx]!;
-        if (!layersCompatible(e.layer, a.layer)) continue;
-        if (Math.hypot(e.x - a.x, e.y - a.y) <= t.r + 1) union(ei, t.idx);
-      }
-    }
-    // Coincident endpoints (track-to-track joints share exact coordinates).
-    const byPos = new Map<string, number[]>();
-    for (let i = 0; i < anchors.length; i++) {
-      const a = anchors[i]!;
-      const key = `${Math.round(a.x)},${Math.round(a.y)}`;
-      const list = byPos.get(key);
-      if (list) {
-        for (const j of list) if (layersCompatible(a.layer, anchors[j]!.layer)) union(i, j);
-        list.push(i);
-      } else byPos.set(key, [i]);
-    }
-    // Pad-to-pad / pad-to-via overlap (stacked or touching anchors).
-    for (let i = 0; i < targets.length; i++) {
-      for (let j = i + 1; j < targets.length; j++) {
-        const a = anchors[targets[i]!.idx]!;
-        const b = anchors[targets[j]!.idx]!;
-        if (!layersCompatible(a.layer, b.layer)) continue;
-        if (Math.hypot(a.x - b.x, a.y - b.y) <= targets[i]!.r + targets[j]!.r) {
-          union(targets[i]!.idx, targets[j]!.idx);
-        }
+    // Sorting by left edge lets the sweep stop as soon as a candidate starts to
+    // the right of the current shape (the broad phase runDrc uses; upstream has
+    // an R-tree, CN_RTREE).
+    const pieces = [...g.pieces].sort((p, q) => p.box.minX - q.box.minX);
+    for (let i = 0; i < pieces.length; i++) {
+      const A = pieces[i]!;
+      for (let j = i + 1; j < pieces.length; j++) {
+        const B = pieces[j]!;
+        if (B.box.minX > A.box.maxX) break;
+        if (A.item === B.item) continue;
+        if (B.box.minY > A.box.maxY || A.box.minY > B.box.maxY) continue;
+        if (!layersCompatible(A.layer, B.layer)) continue;
+        if (find(A.item) === find(B.item)) continue; // already one cluster
+        if (shapeDist(A.shape, B.shape) <= 0) union(A.item, B.item);
       }
     }
 
-    // Filled zones connect everything sitting inside their fill.
-    for (const z of items.zones) {
-      let first = -1;
-      for (let i = 0; i < anchors.length; i++) {
-        const a = anchors[i]!;
-        if (!layersCompatible(a.layer, z.layer)) continue;
-        if (z.polys.some((p) => inPoly(a.x, a.y, p))) {
-          if (first < 0) first = i;
-          else union(first, i);
-        }
-      }
+    // ----- join the clusters with the shortest airwires (RN_NET::kruskalMST) --
+    const clusters = new Map<number, Anchor[]>();
+    for (const a of g.anchors) {
+      const root = find(a.item);
+      const c = clusters.get(root);
+      if (c) c.push(a);
+      else clusters.set(root, [a]);
     }
+    const groups = [...clusters.values()];
+    if (groups.length < 2) continue;
 
-    // Cluster and join with the shortest airwires (greedy kruskal over the
-    // closest anchor pair between clusters, like RN_NET::kruskalMST).
-    const clusters = new Map<number, number[]>();
-    for (let i = 0; i < anchors.length; i++) {
-      const r = find(i);
-      const c = clusters.get(r);
-      if (c) c.push(i);
-      else clusters.set(r, [i]);
-    }
-    let groups = [...clusters.values()];
-    while (groups.length > 1) {
-      let best = { d: Infinity, gi: -1, gj: -1, a: -1, b: -1 };
-      for (let gi = 0; gi < groups.length; gi++) {
-        for (let gj = gi + 1; gj < groups.length; gj++) {
-          for (const a of groups[gi]!) {
-            for (const b of groups[gj]!) {
-              const d = Math.hypot(anchors[a]!.x - anchors[b]!.x, anchors[a]!.y - anchors[b]!.y);
-              if (d < best.d) best = { d, gi, gj, a, b };
+    // Prim over the cluster graph, whose edge weight is the closest anchor pair
+    // of the two clusters: the same minimum spanning tree, and each cluster pair
+    // is measured exactly once.
+    const inTree = new Array<boolean>(groups.length).fill(false);
+    const link = groups.map(() => ({
+      d: Infinity,
+      from: null as Anchor | null,
+      to: null as Anchor | null,
+    }));
+    const attach = (ci: number): void => {
+      inTree[ci] = true;
+      for (let j = 0; j < groups.length; j++) {
+        if (inTree[j]) continue;
+        const best = link[j]!;
+        for (const a of groups[ci]!) {
+          for (const b of groups[j]!) {
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d < best.d) {
+              best.d = d;
+              best.from = a;
+              best.to = b;
             }
           }
         }
       }
-      if (best.gi < 0) break;
-      const a = anchors[best.a]!;
-      const b = anchors[best.b]!;
-      edges.push({
-        net,
-        ax: a.x,
-        ay: a.y,
-        bx: b.x,
-        by: b.y,
-        aLayer: a.layer,
-        bLayer: b.layer,
-      });
-      const merged = [...groups[best.gi]!, ...groups[best.gj]!];
-      groups = groups.filter((_, i) => i !== best.gi && i !== best.gj);
-      groups.push(merged);
+    };
+
+    attach(0);
+    for (let n = 1; n < groups.length; n++) {
+      let pick = -1;
+      for (let j = 0; j < groups.length; j++) {
+        if (!inTree[j] && (pick < 0 || link[j]!.d < link[pick]!.d)) pick = j;
+      }
+      if (pick < 0) break;
+      const { from, to } = link[pick]!;
+      if (from && to) {
+        edges.push({
+          net,
+          ax: from.x,
+          ay: from.y,
+          bx: to.x,
+          by: to.y,
+          aLayer: from.layer,
+          bLayer: to.layer,
+        });
+      }
+      attach(pick);
     }
   }
 

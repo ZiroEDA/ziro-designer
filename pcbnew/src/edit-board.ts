@@ -1004,6 +1004,13 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
   };
 }
 
+/** Put a track's ends at `start`/`end`, keeping the rest of its source node. */
+export const withTrackEnds = (t: PcbTrack, start: Vec2, end: Vec2): PcbTrack => {
+  let src = patchChild(t.source, 'start', xyNode('start', start));
+  src = patchChild(src, 'end', xyNode('end', end));
+  return { ...t, start, end, source: src };
+};
+
 /** Move one or both ends of a track by `d`, patching only the moved ends. */
 const moveTrackEnds = (t: PcbTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2): PcbTrack => {
   let src = t.source;
@@ -1594,6 +1601,50 @@ export function expandGroupIds(board: Board, ids: ReadonlySet<string>): Set<stri
   };
   for (const id of ids) visit(id, 0);
   return out;
+}
+
+/**
+ * PCB_SELECTION_TOOL::FilterCollectorForFreePads, outside the footprint editor
+ * a pad is not an item you edit on its own: every selected pad is replaced by its
+ * parent footprint, so grabbing a mounting hole's pad moves the whole footprint.
+ * KiCad keeps the pad itself only when the "allow free pads" preference is on
+ * (PCBNEW_SETTINGS::m_AllowFreePads, off by default) and the command did not ask
+ * for promotion outright; the pad's own `IsFreePad()` does not come into it (that
+ * is the router's notion of a free pad, not the selection's).
+ *
+ * Footprint *texts* are deliberately left alone: KiCad does move those on their
+ * own, which is why the move commands filter pads and nothing else.
+ */
+export function filterSelectionForFreePads(
+  ids: ReadonlySet<string>,
+  opts: { allowFreePads?: boolean; forcePromotion?: boolean } = {},
+): Set<string> {
+  const promote = !opts.allowFreePads || opts.forcePromotion === true;
+  const out = new Set<string>();
+  for (const id of ids) {
+    const r = parseBoardItemId(id);
+    out.add(promote && r?.kind === 'pad' ? boardItemId('footprint', r.index) : id);
+  }
+  return out;
+}
+
+/**
+ * The ids Delete may act on, or null when the command must be refused.
+ *
+ * EDIT_TOOL::Remove runs the same free-pad filter as every other command, then
+ * compares the footprint count across it: if promoting a pad pulled in a
+ * footprint the selection did not already hold, upstream rings the bell and
+ * deletes *nothing*, because losing a whole part because one of its pads was
+ * selected is never what was meant. (Hover selections are exempt upstream, but
+ * the interactive delete tool never collects a pad in the first place ,
+ * GENERAL_COLLECTOR::BoardLevelItems has no PCB_PAD_T.)
+ */
+export function filterSelectionForDelete(ids: ReadonlySet<string>): Set<string> | null {
+  const items = filterSelectionForFreePads(ids);
+  for (const id of items) {
+    if (!ids.has(id) && parseBoardItemId(id)?.kind === 'footprint') return null;
+  }
+  return items;
 }
 
 /**
