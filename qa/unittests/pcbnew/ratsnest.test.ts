@@ -187,4 +187,68 @@ describe('buildRatsnest', () => {
     const b = board({ footprints: [footprint([front, back])] });
     expect(buildRatsnest(b)).toHaveLength(1);
   });
+
+  // Copper touching anywhere connects it (CN_VISITOR::operator() collides the
+  // whole effective shape), not just at the anchors.
+  it('a track teeing off the middle of another track connects', () => {
+    const b = board({
+      footprints: [
+        footprint([
+          pad({ x: 0, y: 0 }, 1),
+          pad({ x: 2000, y: 0 }, 1),
+          pad({ x: 1000, y: 1000 }, 1),
+        ]),
+      ],
+      tracks: [
+        track({ x: 0, y: 0 }, { x: 2000, y: 0 }, 1),
+        track({ x: 1000, y: 0 }, { x: 1000, y: 1000 }, 1),
+      ],
+    });
+    expect(buildRatsnest(b)).toHaveLength(0);
+  });
+
+  it('two track ends that overlap only by their width connect', () => {
+    const wide = (s: { x: number; y: number }, e: { x: number; y: number }): PcbTrack => ({
+      ...track(s, e, 1),
+      width: 250,
+    });
+    const b = board({
+      footprints: [footprint([pad({ x: 0, y: 0 }, 1), pad({ x: 2000, y: 0 }, 1)])],
+      tracks: [wide({ x: 0, y: 0 }, { x: 1000, y: 0 }), wide({ x: 1050, y: 0 }, { x: 2000, y: 0 })],
+    });
+    expect(buildRatsnest(b)).toHaveLength(0);
+  });
+
+  it('a track crossing over a pad it does not end on connects to it', () => {
+    const b = board({
+      footprints: [
+        footprint([
+          pad({ x: 0, y: 0 }, 1),
+          pad({ x: 1000, y: 0 }, 1), // sits under the middle of the track
+          pad({ x: 2000, y: 0 }, 1),
+        ]),
+      ],
+      tracks: [track({ x: 0, y: 0 }, { x: 2000, y: 0 }, 1)],
+    });
+    expect(buildRatsnest(b)).toHaveLength(0);
+  });
+
+  it('a track ending on the far edge of an oblong pad connects', () => {
+    const longPad: PcbPad = { ...pad({ x: 0, y: 0 }, 1), size: { x: 2000, y: 200 } };
+    const b = board({
+      footprints: [footprint([longPad, pad({ x: 3000, y: 0 }, 1)])],
+      // starts at the pad's right edge, not its centre
+      tracks: [track({ x: 1000, y: 0 }, { x: 3000, y: 0 }, 1)],
+    });
+    expect(buildRatsnest(b)).toHaveLength(0);
+  });
+
+  it('a track that only passes near a pad of its net does not connect', () => {
+    const b = board({
+      footprints: [footprint([pad({ x: 0, y: 0 }, 1), pad({ x: 1000, y: 1000 }, 1)])],
+      // 1000 IU below the second pad: no copper overlap, so the airwire stays
+      tracks: [track({ x: 0, y: 0 }, { x: 2000, y: 0 }, 1)],
+    });
+    expect(buildRatsnest(b)).toHaveLength(1);
+  });
 });

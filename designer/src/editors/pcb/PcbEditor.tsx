@@ -46,6 +46,13 @@ import {
   addToGroupItems,
   removeFromGroupItems,
   expandGroupIds,
+  filterSelectionForFreePads,
+  filterSelectionForDelete,
+  startTrackDrag,
+  updateTrackDrag,
+  trackDragSegments,
+  applyTrackDrag,
+  type TrackDrag,
   groupContaining,
   setBoardItemsLocked,
   isBoardItemLocked,
@@ -136,7 +143,6 @@ const MM = 10000;
 
 // pcb_painter.cpp getColor: a selected item is drawn in its layer colour
 // Brightened(0.8) (per channel c·0.2 + 0.8), i.e. pushed 80% toward white.
-const SELECT_BRIGHTEN = 0.8;
 
 // Snap a world point to the given grid (GAL GetGridPoint). Shared by the
 // crosshair and the move so a dragged item follows the snapped crosshair and
@@ -583,6 +589,40 @@ const PRESETS: { name: string; layers: (all: string[], copper: string[]) => stri
   },
 ];
 
+/**
+ * The selection an EDIT_TOOL command actually operates on: groups expanded to
+ * their members, and pads replaced by their parent footprints, the
+ * FilterCollectorForHierarchy + FilterCollectorForFreePads pair every command
+ * (Move, Drag, Rotate, Mirror, Remove, …) runs its collector through.
+ *
+ * `selection` is what RequestSelection leaves selected afterwards: it hands the
+ * filtered collector back, so a promoted pad leaves its footprint selected. It
+ * is null when nothing was promoted, so group ids stay selected as groups.
+ */
+/** The board's metadata with none of its items, the shell an overlay is drawn in. */
+function emptyBoardLike(board: Board): Board {
+  return {
+    ...board,
+    footprints: [],
+    tracks: [],
+    arcs: [],
+    vias: [],
+    zones: [],
+    shapes: [],
+    texts: [],
+    groups: [],
+  };
+}
+
+function promotePadsForCommand(
+  board: Board,
+  sel: ReadonlySet<string>,
+): { items: Set<string>; selection: Set<string> | null } {
+  const items = filterSelectionForFreePads(expandGroupIds(board, sel));
+  const hadPad = [...sel].some((id) => parseBoardItemId(id)?.kind === 'pad');
+  return { items, selection: hadPad ? filterSelectionForFreePads(sel) : null };
+}
+
 export function PcbEditor({
   fileName,
   text,
@@ -782,6 +822,11 @@ export function PcbEditor({
   // and the world grab origin the delta is measured from.
   const movingSelRef = useRef<ReadonlySet<string>>(new Set());
   const dragAffectedRef = useRef<ReadonlySet<string>>(new Set());
+  // A router drag of a trace (EDIT_TOOL::Drag → PNS::DRAGGER): the whole line is
+  // re-cut every frame rather than translated, so it runs beside the move refs.
+  const trackDragRef = useRef<TrackDrag | null>(null);
+  /** The net highlight to restore when a track drag ends, or null if none. */
+  const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
   // Keyboard grab (M/G): the selection follows the cursor until a click commits
   // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
@@ -1111,6 +1156,10 @@ export function PcbEditor({
     [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, text, fileName, board],
   );
 
+  // Whether the board raster is painted dimmed (a net highlight is active).
+  // Read by the raster job; toggling it re-renders the raster.
+  const dimmedRef = useRef(false);
+
   // "Footprints Front/Back" hide whole footprints: rebuild the scene.
   useEffect(() => {
     if (!boardRef.current) return;
@@ -1192,6 +1241,11 @@ export function PcbEditor({
       work.height,
       drawOpts,
       undefined,
+      false,
+      // A net highlight darkens everything that is not on it (pcb_painter.cpp
+      // GetColor: Darkened(1 - m_highlightFactor)); the highlighted copper is
+      // repainted brightened over this raster in draw().
+      dimmedRef.current ? 'dimmed' : 'none',
     );
     let i = 0;
     const run = (): void => {
@@ -1367,12 +1421,24 @@ export function PcbEditor({
     // while dragging (the move overlay owns the frame).
     {
       const hs = highlightSceneRef.current;
-      if (hs && !moveDeltaRef.current) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // A router drag keeps the highlight up (that is the whole point of
+      // highlightNets during performDragging); any other gesture drops it.
+      if (hs && (!moveDeltaRef.current || trackDragRef.current)) {
+        // The rest of the board is already dimmed in the raster, so this pass
+        // only repaints the highlighted copper Brightened(m_highlightFactor).
         ctx.save();
-        drawBoard(ctx, hs, v, visible, canvas.width, canvas.height, drawOpts, undefined, true, 0.5);
+        drawBoard(
+          ctx,
+          hs,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          drawOpts,
+          undefined,
+          true,
+          'highlighted',
+        );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -1381,9 +1447,11 @@ export function PcbEditor({
       const md = moveDeltaRef.current;
       const os = moveSceneRef.current ?? selSceneRef.current;
       if (os) {
-        // A drag overlay is already at its stretched absolute coords; a move
-        // overlay is the static subset translated by the drag delta.
-        const off = dragModeRef.current ? { x: 0, y: 0 } : (md ?? { x: 0, y: 0 });
+        // A drag overlay, a stretched footprint drag or a re-cut router drag ,
+        // is already at its absolute coords; only a move overlay is the static
+        // subset that has to be translated by the drag delta.
+        const absolute = dragModeRef.current || trackDragRef.current !== null;
+        const off = absolute ? { x: 0, y: 0 } : (md ?? { x: 0, y: 0 });
         const offView = {
           scale: v.scale,
           flipX: v.flipX,
@@ -1391,6 +1459,9 @@ export function PcbEditor({
           ty: v.ty + off.y * v.scale,
         };
         ctx.save();
+        // The router draws its in-flight line as a preview item at 80% alpha
+        // (ROUTER_PREVIEW_ITEM's ctor: m_color.a = 0.8).
+        if (trackDragRef.current) ctx.globalAlpha = 0.8;
         drawBoard(
           ctx,
           os,
@@ -1401,7 +1472,10 @@ export function PcbEditor({
           drawOpts,
           undefined,
           true,
-          SELECT_BRIGHTEN,
+          // The router's preview line keeps the plain layer color, the net
+          // highlight is what lifts the rest of the net (DisplayItem passes no
+          // flags for a drag, so getLayerColor returns the layer color as-is).
+          trackDragRef.current ? 'none' : 'selected',
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1913,7 +1987,12 @@ export function PcbEditor({
     const brd = boardRef.current;
     const sel = selForDrawRef.current;
     if (!brd || sel.size === 0) return;
-    commitBoard(deleteBoardItems(brd, new Set([...sel, ...expandGroupIds(brd, sel)])));
+    // EDIT_TOOL::Remove refuses outright when the free-pad filter would take a
+    // whole footprint with a selected pad; upstream rings the bell, and there is
+    // no bell to ring here, so the command simply does nothing.
+    const items = filterSelectionForDelete(new Set([...sel, ...expandGroupIds(brd, sel)]));
+    if (!items) return;
+    commitBoard(deleteBoardItems(brd, items));
     setSelection(new Set());
   }, [commitBoard]);
 
@@ -1933,7 +2012,9 @@ export function PcbEditor({
       const brd = boardRef.current;
       const sel = selForDrawRef.current;
       if (!brd || sel.size === 0) return;
-      commitBoard(rotateBoardItems(brd, expandGroupIds(brd, sel), ccw));
+      const { items, selection } = promotePadsForCommand(brd, sel);
+      if (selection) setSelection(selection);
+      commitBoard(rotateBoardItems(brd, items, ccw));
     },
     [commitBoard],
   );
@@ -1945,7 +2026,9 @@ export function PcbEditor({
       const brd = boardRef.current;
       const sel = selForDrawRef.current;
       if (!brd || sel.size === 0) return;
-      commitBoard(mirrorBoardItems(brd, expandGroupIds(brd, sel), direction));
+      const { items, selection } = promotePadsForCommand(brd, sel);
+      if (selection) setSelection(selection);
+      commitBoard(mirrorBoardItems(brd, items, direction));
     },
     [commitBoard],
   );
@@ -3040,9 +3123,13 @@ export function PcbEditor({
   ): void => {
     const brd = boardRef.current;
     if (!brd || sel0.size === 0) return;
-    // A grabbed group moves as its members (the move commands know items only).
-    const sel = expandGroupIds(brd, sel0);
+    // A grabbed group moves as its members (the move commands know items only),
+    // and a grabbed pad moves its whole footprint, EDIT_TOOL::doMoveSelection
+    // runs FilterCollectorForHierarchy then FilterCollectorForFreePads over the
+    // selection before it moves anything.
+    const { items: sel, selection } = promotePadsForCommand(brd, sel0);
     movingSelRef.current = sel;
+    if (selection) setSelection(selection);
     moveKindRef.current = kind;
     moveOriginRef.current = origin;
     const fpIdx = new Set<number>();
@@ -3064,6 +3151,66 @@ export function PcbEditor({
     sceneDirtyRef.current = true;
   };
 
+  /**
+   * Start a router drag of the track under the cursor (EDIT_TOOL::Drag →
+   * PNS::DRAGGER). The gesture works on the whole *line* the segment belongs to,
+   * so its neighbours are re-cut as it moves rather than left behind. Returns
+   * false when the seed is not draggable, so the caller can fall back to a move.
+   */
+  const beginTrackDrag = (
+    trackIndex: number,
+    origin: { x: number; y: number },
+    freeAngle: boolean,
+  ): boolean => {
+    const brd = boardRef.current;
+    if (!brd) return false;
+    const drag = startTrackDrag(brd, trackIndex, origin, { freeAngle });
+    if (!drag) return false;
+
+    trackDragRef.current = drag;
+    moveKindRef.current = 'drag';
+    moveOriginRef.current = origin;
+    dragModeRef.current = false;
+    // ROUTER_TOOL::performDragging highlights the dragged item's net for the
+    // duration of the drag (router_tool.cpp → TOOL_BASE::highlightNets), so the
+    // whole net lifts to the highlight color while everything else dims. An
+    // existing highlight that already covers this net is kept on the way out;
+    // otherwise the previous one is restored (TOOL_BASE::m_startHighlightNetcodes).
+    if (drag.line.net > 0) {
+      const current = highlightNetsRef.current;
+      dragHighlightRestoreRef.current = current.has(drag.line.net) ? current : new Set();
+      setHighlightNets(new Set([drag.line.net]));
+    }
+    const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
+    movingSelRef.current = affected;
+    dragAffectedRef.current = affected;
+    sceneRef.current = buildScene(deleteBoardItems(brd, affected), sceneFilter());
+    moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
+    moveDeltaRef.current = { x: 0, y: 0 };
+    sceneDirtyRef.current = true;
+    return true;
+  };
+
+  /** Put the net highlight back the way a track drag found it. */
+  const restoreDragHighlight = (): void => {
+    const restore = dragHighlightRestoreRef.current;
+    if (!restore) return;
+    dragHighlightRestoreRef.current = null;
+    setHighlightNets(restore);
+  };
+
+  /**
+   * The track a routable selection drags, or null. Upstream's test is
+   * `(segs >= 1 || arcs >= 1 || vias == 1) && segs + arcs + vias == size`, the
+   * selection must be nothing but routing. Only a lone track segment is dragged
+   * here; multi-segment and via drags still fall back to a move.
+   */
+  const routableTrackSeed = (sel: ReadonlySet<string>): number | null => {
+    if (sel.size !== 1) return null;
+    const r = parseBoardItemId([...sel][0]!);
+    return r?.kind === 'track' ? r.index : null;
+  };
+
   // Track the in-flight gesture to the grid-snapped cursor. A drag rebuilds the
   // stretched geometry each frame (traces don't translate uniformly).
   const updateMove = (cur: { x: number; y: number }): void => {
@@ -3074,6 +3221,23 @@ export function PcbEditor({
     const to = snapToGrid(cur);
     const delta = { x: to.x - from.x, y: to.y - from.y };
     moveDeltaRef.current = delta;
+    if (trackDragRef.current) {
+      // The line is re-cut from scratch against the cursor each frame: a router
+      // drag is not a translation, so the overlay carries the new absolute
+      // geometry and the draw path applies no offset to it.
+      const drag = trackDragRef.current;
+      const chain = updateTrackDrag(drag, to);
+      const line = trackDragSegments(brd, drag, chain);
+      moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
+      if (liveRatsRef.current) {
+        ratsDrawRef.current = filterRatsRef.current(
+          buildRatsnest(applyTrackDrag(brd, drag, chain)),
+          selectedNetsRef.current,
+        );
+      }
+      requestDraw();
+      return;
+    }
     if (dragModeRef.current) {
       const dragged = dragBoardItems(brd, movingSelRef.current, delta);
       moveSceneRef.current = buildScene(
@@ -3100,10 +3264,22 @@ export function PcbEditor({
     const kind = moveKindRef.current;
     const sel = movingSelRef.current;
     const hadOverlay = moveSceneRef.current !== null || dragModeRef.current;
+    const trackDrag = trackDragRef.current;
+    trackDragRef.current = null;
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    if (trackDrag) {
+      const cur = cursorRef.current;
+      restoreDragHighlight();
+      if (brd && cur && delta && (delta.x !== 0 || delta.y !== 0)) {
+        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, snapToGrid(cur))));
+      } else if (brd) {
+        rebuildScene(brd);
+      }
+      return;
+    }
     if (brd && delta && (delta.x !== 0 || delta.y !== 0)) {
       commitBoard(
         kind === 'drag' ? dragBoardItems(brd, sel, delta) : moveBoardItems(brd, sel, delta),
@@ -3116,6 +3292,8 @@ export function PcbEditor({
   // Abandon the gesture without committing (Esc), restoring the full scene.
   const cancelMove = (): void => {
     const brd = boardRef.current;
+    trackDragRef.current = null;
+    restoreDragHighlight();
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
@@ -3129,15 +3307,26 @@ export function PcbEditor({
     if (brd) rebuildScene(brd);
   };
 
-  // Keyboard grab (M = Move, G = Drag): grab the selection at the cursor and
-  // follow it until a click commits or Esc cancels. Routed through refs so the
-  // stable global key handler always calls the latest closures.
-  const grabStartRef = useRef<(kind: 'move' | 'drag') => void>(() => {});
+  // Keyboard grab: M = Move (PCB_ACTIONS::move, routing left behind), D = Drag
+  // 45° (drag45Degree) and G = Drag free angle (dragFreeAngle). On a trace the
+  // two drags run the router's dragger; on anything else EDIT_TOOL::Drag falls
+  // through to doMoveSelection, which is the move with the traces rubber-banded.
+  // Routed through refs so the stable global key handler always calls the latest
+  // closures.
+  const grabStartRef = useRef<(kind: 'move' | 'drag' | 'drag45') => void>(() => {});
   grabStartRef.current = (kind) => {
     const sel = selForDrawRef.current;
     const cur = cursorRef.current;
     if (sel.size === 0 || !cur || movingRef.current || grabbingRef.current) return;
-    beginMove(sel, kind, cur);
+    if (kind !== 'move') {
+      const seed = routableTrackSeed(sel);
+      if (seed !== null && beginTrackDrag(seed, cur, kind === 'drag')) {
+        grabbingRef.current = true;
+        requestDraw();
+        return;
+      }
+    }
+    beginMove(sel, kind === 'move' ? 'move' : 'drag', cur);
     grabbingRef.current = true;
     requestDraw();
   };
@@ -3262,10 +3451,8 @@ export function PcbEditor({
         const cur = worldAt(e.clientX, e.clientY);
         if (!cur) return;
         if (d.onItem) {
-          // Left-drag on a footprint = Move (pcb_selection_tool.cpp: a non-track
-          // selection runs PCB_ACTIONS::move, the routing is left behind). On
-          // the first move, ensure the grabbed item is selected, then start the
-          // move gesture so the real geometry tracks the cursor.
+          // On the first move, ensure the grabbed item is selected, then start
+          // the gesture so the real geometry tracks the cursor.
           if (!movingRef.current) {
             movingRef.current = true;
             let movingSel: ReadonlySet<string> = selForDrawRef.current;
@@ -3273,7 +3460,14 @@ export function PcbEditor({
               movingSel = new Set([d.hitId]);
               applySelect(d.hitId, false);
             }
-            beginMove(movingSel, 'move', d.world);
+            // pcb_selection_tool.cpp: a routable selection (tracks/arcs/vias and
+            // nothing else) left-drags as a router *drag*, PCBNEW_SETTINGS'
+            // m_TrackDragAction, which defaults to TRACK_DRAG_ACTION::DRAG, the
+            // 45° one. Everything else runs PCB_ACTIONS::move, which leaves the
+            // routing behind.
+            const seed = routableTrackSeed(movingSel);
+            if (seed === null || !beginTrackDrag(seed, d.world, false))
+              beginMove(movingSel, 'move', d.world);
           }
           updateMove(cur);
         } else {
@@ -3476,6 +3670,11 @@ export function PcbEditor({
       if (!mod && (e.key === 'g' || e.key === 'G')) {
         e.preventDefault();
         grabStartRef.current('drag');
+        return;
+      }
+      if (!mod && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        grabStartRef.current('drag45');
         return;
       }
       if (!mod && (e.key === 'f' || e.key === 'F')) zoomToFit();
@@ -3855,6 +4054,10 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd || highlightNets.size === 0) {
       highlightSceneRef.current = null;
+      if (dimmedRef.current) {
+        dimmedRef.current = false;
+        sceneDirtyRef.current = true; // repaint the board at full brightness
+      }
       requestDraw();
       return;
     }
@@ -3871,7 +4074,16 @@ export function PcbEditor({
     brd.zones.forEach((z, i) => {
       if (highlightNets.has(z.net)) ids.add(boardItemId('zone', i));
     });
+    // The line a router drag has in flight is drawn by the move overlay, so it
+    // must not also appear here at its old position (upstream HideItem()s it).
+    if (trackDragRef.current) for (const id of dragAffectedRef.current) ids.delete(id);
     highlightSceneRef.current = ids.size > 0 ? buildScene(subsetBoardItems(brd, ids)) : null;
+    // The raster carries the dimming, so it has to be re-rendered when the
+    // highlight comes and goes.
+    if (dimmedRef.current !== (highlightSceneRef.current !== null)) {
+      dimmedRef.current = highlightSceneRef.current !== null;
+      sceneDirtyRef.current = true;
+    }
     requestDraw();
   }, [highlightNets, requestDraw]);
 

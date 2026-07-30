@@ -19,6 +19,8 @@ import {
   addToGroupItems,
   removeFromGroupItems,
   expandGroupIds,
+  filterSelectionForFreePads,
+  filterSelectionForDelete,
   groupContaining,
   setBoardItemsLocked,
   allBoardItemIds,
@@ -646,5 +648,101 @@ describe('mirror (EDIT_TOOL::Mirror)', () => {
     const m = mirrorBoardItems(b, new Set(['track:0', 'footprint:0']), 'h');
     expect(m.footprints[0]!.at).toEqual(fp.at); // untouched
     expect(m.tracks[0]!.start.x).not.toBe(0); // mirrored
+  });
+});
+
+describe('filterSelectionForFreePads (PCB_SELECTION_TOOL::FilterCollectorForFreePads)', () => {
+  it('replaces a selected pad with its parent footprint', () => {
+    const sel = new Set([boardItemId('pad', 3, 1), 'track:0']);
+    expect([...filterSelectionForFreePads(sel)].sort()).toEqual(['footprint:3', 'track:0']);
+  });
+
+  it('collapses several pads of one footprint to a single footprint id', () => {
+    const sel = new Set([boardItemId('pad', 2, 0), boardItemId('pad', 2, 1)]);
+    expect([...filterSelectionForFreePads(sel)]).toEqual(['footprint:2']);
+  });
+
+  it('leaves footprint text alone, KiCad moves those on their own', () => {
+    const sel = new Set([boardItemId('fptext', 1, 0)]);
+    expect([...filterSelectionForFreePads(sel)]).toEqual([boardItemId('fptext', 1, 0)]);
+  });
+
+  it('keeps the pad when free pads are allowed, unless promotion is forced', () => {
+    const sel = new Set([boardItemId('pad', 0, 0)]);
+    expect([...filterSelectionForFreePads(sel, { allowFreePads: true })]).toEqual([
+      boardItemId('pad', 0, 0),
+    ]);
+    expect([
+      ...filterSelectionForFreePads(sel, { allowFreePads: true, forcePromotion: true }),
+    ]).toEqual(['footprint:0']);
+  });
+
+  it('moving a grabbed pad moves the whole footprint', () => {
+    const fp = footprint([
+      pad({ x: 5000, y: 5000 }, 400, 400),
+      pad({ x: 7000, y: 5000 }, 400, 400),
+    ]);
+    const b = board({ footprints: [fp] });
+    const delta = { x: 1000, y: -500 };
+
+    // The raw pad id moves nothing: pads are not independently movable items.
+    expect(moveBoardItems(b, new Set([boardItemId('pad', 0, 0)]), delta)).toEqual(b);
+
+    // Filtered the way the move tool filters, the footprint and both pads move.
+    const moved = moveBoardItems(
+      b,
+      filterSelectionForFreePads(new Set([boardItemId('pad', 0, 0)])),
+      delta,
+    );
+    expect(moved.footprints[0]!.at).toEqual({ x: 1000, y: -500 });
+    expect(moved.footprints[0]!.pads[0]!.at).toEqual({ x: 6000, y: 4500 });
+    expect(moved.footprints[0]!.pads[1]!.at).toEqual({ x: 8000, y: 4500 });
+  });
+
+  it('rotating a grabbed pad rotates the whole footprint', () => {
+    const fp = footprint([
+      pad({ x: 0, y: 0 }, 400, 400),
+      pad({ x: 2000, y: 0 }, 400, 400), // 2000 to the right of pad 1
+    ]);
+    const b = board({ footprints: [fp] });
+
+    // Unfiltered, a pad id rotates nothing.
+    expect(rotateBoardItems(b, new Set([boardItemId('pad', 0, 1)]), true)).toEqual(b);
+
+    const r = rotateBoardItems(
+      b,
+      filterSelectionForFreePads(new Set([boardItemId('pad', 0, 1)])),
+      true,
+    );
+    // About the pads' bbox centre (1000, 0): the pair ends up vertical.
+    expect(r.footprints[0]!.pads[0]!.at.x).toBe(r.footprints[0]!.pads[1]!.at.x);
+    expect(r.footprints[0]!.pads[0]!.at.y).not.toBe(r.footprints[0]!.pads[1]!.at.y);
+  });
+});
+
+describe('filterSelectionForDelete (EDIT_TOOL::Remove)', () => {
+  it('refuses the delete when a pad would take its footprint with it', () => {
+    expect(filterSelectionForDelete(new Set([boardItemId('pad', 0, 0)]))).toBeNull();
+    expect(filterSelectionForDelete(new Set([boardItemId('pad', 0, 0), 'track:1']))).toBeNull();
+  });
+
+  it('allows it when the footprint was selected anyway', () => {
+    const sel = new Set(['footprint:0', boardItemId('pad', 0, 0)]);
+    expect([...filterSelectionForDelete(sel)!]).toEqual(['footprint:0']);
+  });
+
+  it('passes a pad-free selection through untouched', () => {
+    const sel = new Set(['track:0', 'via:2', boardItemId('fptext', 1, 0)]);
+    expect([...filterSelectionForDelete(sel)!].sort()).toEqual([...sel].sort());
+  });
+
+  it('deletes nothing at all when refused', () => {
+    const b = board({
+      footprints: [footprint([pad({ x: 0, y: 0 }, 400, 400)])],
+      tracks: [track({ x: 0, y: 0 }, { x: 1000, y: 0 })],
+    });
+    const items = filterSelectionForDelete(new Set([boardItemId('pad', 0, 0), 'track:0']));
+    expect(items).toBeNull(); // the track is spared too, like upstream's early return
+    expect(b.footprints).toHaveLength(1);
   });
 });

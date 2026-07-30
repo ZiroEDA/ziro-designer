@@ -46,20 +46,110 @@ const MM = 10000; // IU per mm, matches core units
 // falls back to it for the pad-clearance outlines shown by default.
 const DEFAULT_PAD_CLEARANCE = 0.2 * MM;
 
+// ---------------------------------------------------------------------------
+// Emphasis colors (COLOR4D + RENDER_SETTINGS::update + PCB_PAINTER::GetColor).
+//
+// RENDER_SETTINGS's two factors are both 0.5 (render_settings.cpp), and every
+// emphasis below is derived from the base layer color with them, none of it is
+// a fixed "make it lighter" nudge, which is why a flat brighten never matches.
+
+/** RENDER_SETTINGS::m_selectFactor / m_highlightFactor (render_settings.cpp). */
+const SELECT_FACTOR = 0.5;
+const HIGHLIGHT_FACTOR = 0.5;
+
+/** An `rgb()/rgba()` string split into 0..1 channels + alpha. */
+function parseRgba(color: string): { r: number; g: number; b: number; a: string | null } | null {
+  const m = /rgba?\(([^)]+)\)/.exec(color);
+  if (!m) return null;
+  const parts = m[1]!.split(',').map((s) => s.trim());
+  return {
+    r: Number(parts[0]) / 255,
+    g: Number(parts[1]) / 255,
+    b: Number(parts[2]) / 255,
+    a: parts.length > 3 ? parts[3]! : null,
+  };
+}
+
+const formatRgba = (r: number, g: number, b: number, a: string | null): string => {
+  const ch = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
+  return a === null ? `rgb(${ch(r)},${ch(g)},${ch(b)})` : `rgba(${ch(r)},${ch(g)},${ch(b)},${a})`;
+};
+
 /**
  * COLOR4D::Brightened(f): push each channel toward white by factor f
- * (c·(1−f)+f). KiCad brightens selected items by 0.8 (pcb_painter.cpp getColor).
- * Parses the `rgb()/rgba()` strings the theme emits and re-emits the same form.
+ * (c·(1−f)+f), alpha untouched. Parses the `rgb()/rgba()` strings the theme
+ * emits and re-emits the same form.
  */
 export function brightenColor(color: string, f: number): string {
   if (f <= 0) return color;
-  const m = /rgba?\(([^)]+)\)/.exec(color);
-  if (!m) return color;
-  const parts = m[1]!.split(',').map((s) => s.trim());
-  const r = Math.round(Number(parts[0]) * (1 - f) + 255 * f);
-  const g = Math.round(Number(parts[1]) * (1 - f) + 255 * f);
-  const b = Math.round(Number(parts[2]) * (1 - f) + 255 * f);
-  return parts.length > 3 ? `rgba(${r},${g},${b},${parts[3]})` : `rgb(${r},${g},${b})`;
+  const c = parseRgba(color);
+  if (!c) return color;
+  return formatRgba(c.r * (1 - f) + f, c.g * (1 - f) + f, c.b * (1 - f) + f, c.a);
+}
+
+/** COLOR4D::Darkened(f): scale each channel by (1−f), alpha untouched. */
+export function darkenColor(color: string, f: number): string {
+  if (f <= 0) return color;
+  const c = parseRgba(color);
+  if (!c) return color;
+  return formatRgba(c.r * (1 - f), c.g * (1 - f), c.b * (1 - f), c.a);
+}
+
+/** COLOR4D::GetBrightness, KiCad's weighted W3C formula (blue weight .117). */
+export function colorBrightness(color: string): number {
+  const c = parseRgba(color);
+  if (!c) return 0;
+  return c.r * 0.299 + c.g * 0.587 + c.b * 0.117;
+}
+
+/**
+ * RENDER_SETTINGS::update()'s m_layerColorsSel, the color a *selected* item
+ * takes. Not a fixed brighten: the factor grows with the layer's own brightness
+ * (`selectFactor/2 + brightness³`) so dark layers lift a little and bright ones
+ * lift a lot, and two cases opt out entirely ,
+ *
+ *  - a near-black color (brightness < 0.05) and net-name text are left alone;
+ *  - a color already so bright that brightening moves it less than 0.05 is
+ *    *darkened* instead, with the blue channel pushed up, which is the faint
+ *    blue glow KiCad puts on selected white silkscreen.
+ */
+export function selectedColor(color: string, isNetname = false): string {
+  const c = parseRgba(color);
+  if (!c) return color;
+
+  const brightness = colorBrightness(color);
+  if (isNetname || brightness < 0.05) return color;
+
+  const factor = Math.min(1, SELECT_FACTOR * 0.5 + brightness ** 3);
+  const brightened = brightenColor(color, factor);
+
+  if (Math.abs(colorBrightness(brightened) - brightness) >= 0.05) return brightened;
+
+  const darkened = parseRgba(darkenColor(color, SELECT_FACTOR * 0.4))!;
+  return formatRgba(darkened.r, darkened.g, c.b * (1 - factor) + factor, c.a);
+}
+
+/** The color a highlighted net takes (pcb_painter.cpp: Brightened(0.5)). */
+export const highlightedColor = (color: string): string => brightenColor(color, HIGHLIGHT_FACTOR);
+
+/** …and what everything else takes for contrast: Darkened(1 − 0.5). */
+export const dimmedColor = (color: string): string => darkenColor(color, 1 - HIGHLIGHT_FACTOR);
+
+/** Which emphasis a paint pass applies to every color it draws. */
+export type Emphasis = 'none' | 'selected' | 'highlighted' | 'dimmed';
+
+/** Apply an emphasis to one color. `isNetname` only matters for 'selected'. */
+export function emphasize(color: string, emphasis: Emphasis, isNetname = false): string {
+  switch (emphasis) {
+    case 'selected':
+      return selectedColor(color, isNetname);
+    case 'highlighted':
+      return highlightedColor(color);
+    case 'dimmed':
+      return dimmedColor(color);
+    default:
+      return color;
+  }
 }
 
 /** Object visibility + opacity, mirroring pcbnew's Appearance>Objects tab. */
@@ -75,6 +165,9 @@ export interface PcbDrawOptions {
   trackOpacity: number;
   viaOpacity: number;
   padOpacity: number;
+  /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks. Default on
+   *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
+  netNames: boolean;
   zoneOpacity: number;
   /** Zone display mode: false = filled (default), true = outline sketch. */
   zoneOutline: boolean;
@@ -118,6 +211,7 @@ export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
   trackOpacity: 1.0,
   viaOpacity: 1.0,
   padOpacity: 1.0,
+  netNames: true,
   zoneOpacity: 0.6,
   zoneOutline: false,
   padClearance: true,
@@ -151,6 +245,16 @@ interface LayerBuckets {
   textBoard: Map<number, Path2D>;
 }
 
+/** One track's net label, ready for the zoom-dependent pass to place. */
+export interface TrackNetLabel {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  width: number;
+  layer: string;
+  /** GetDisplayNetname(), the short name, after the last '/'. */
+  text: string;
+}
+
 export interface BoardScene {
   layers: Map<string, LayerBuckets>;
   viaHoles: Path2D;
@@ -164,6 +268,9 @@ export interface BoardScene {
   /** Every hole redrawn at the SMALL_DRILL cap (0.35 mm), print's
    *  "Drill marks: Small mark" (pcbplot.h SMALL_DRILL). */
   holesSmall: Path2D;
+  /** Track net labels, kept as data rather than baked glyphs: where they go and
+   *  whether they appear at all depends on the zoom (PCB_TRACK::ViewGetLOD). */
+  netLabels: TrackNetLabel[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
 }
 
@@ -718,6 +825,7 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
     padHolesNP: new Path2D(),
     padText: new Map(),
     holesSmall: new Path2D(),
+    netLabels: [],
     bbox: null,
   };
   const copperNames = board.layers
@@ -745,6 +853,20 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
     b.hasTrackOutlines = true;
     grow(t.start.x, t.start.y, t.width);
     grow(t.end.x, t.end.y, t.width);
+    // PCB_TRACK::ViewGetLOD skips the unconnected net; the name itself is the
+    // short one (GetDisplayNetname).
+    if (t.net > 0) {
+      const name = board.nets.get(t.net) ?? '';
+      const shown = name.slice(name.lastIndexOf('/') + 1);
+      if (shown !== '')
+        scene.netLabels.push({
+          start: t.start,
+          end: t.end,
+          width: t.width,
+          layer: t.layer,
+          text: shown,
+        });
+    }
   }
   for (const a of board.arcs) {
     const pts = tessellateArc(a.start, a.mid, a.end);
@@ -1217,18 +1339,18 @@ export function buildDrawSteps(
   // Overlay pass (live move preview): paint the items on top of an existing
   // frame, so skip the background clear and the drawing sheet.
   overlay = false,
-  // Selection brightening (pcb_painter.cpp: selected items are Brightened(0.8)).
-  // 0 = paint the layer colors as-is.
-  brighten = 0,
+  // How this pass emphasises what it paints (PCB_PAINTER::GetColor): selected
+  // items take m_layerColorsSel, a highlighted net brightens and the rest of the
+  // board darkens. 'none' paints the layer colors as-is.
+  emphasis: Emphasis = 'none',
 ): (() => void)[] {
   const steps: (() => void)[] = [];
-  // Per-layer color from the active theme, brightened toward white for a
-  // selection overlay.
+  // Per-layer color from the active theme, under this pass's emphasis.
   const themeColors = opts.theme?.layerColors;
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const col = (layer: string): string =>
-    opts.colorOverride ?? brightenColor(themeColors?.[layer] ?? layerColor(layer), brighten);
-  const sp = (c: string): string => brightenColor(c, brighten);
+    opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis);
+  const sp = (c: string): string => emphasize(c, emphasis);
   steps.push(() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // The raster is kept transparent so the grid (painted on the live canvas
@@ -1395,7 +1517,129 @@ export function buildDrawSteps(
       ctx.globalAlpha = 1;
     });
   }
+
+  // Track net names, last: the label only exists at a high enough zoom, so its
+  // glyphs are laid out per frame rather than baked into the scene.
+  if (opts.netNames && scene.netLabels.length > 0) {
+    steps.push(() => {
+      const viewport = viewportInWorld(view, widthPx, heightPx);
+      const byColor = new Map<string, Map<number, Path2D>>();
+
+      for (const label of scene.netLabels) {
+        if (!visible.has(label.layer)) continue;
+        if (!showsNetName(label, view)) continue;
+        const color = col(label.layer);
+        let map = byColor.get(color);
+        if (!map) {
+          map = new Map();
+          byColor.set(color, map);
+        }
+        addTrackNetName(map, label, viewport);
+      }
+      for (const [color, map] of byColor) {
+        ctx.strokeStyle = color;
+        strokeAll(ctx, map, minPen);
+      }
+    });
+  }
   return steps;
+}
+
+/** The visible world rectangle, for the netname repeat/clip rules. */
+function viewportInWorld(
+  view: PcbViewTransform,
+  widthPx: number,
+  heightPx: number,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const sx = view.flipX ? -view.scale : view.scale;
+  const x0 = (0 - view.tx) / sx;
+  const x1 = (widthPx - view.tx) / sx;
+  const y0 = (0 - view.ty) / view.scale;
+  const y1 = (heightPx - view.ty) / view.scale;
+  return {
+    minX: Math.min(x0, x1),
+    maxX: Math.max(x0, x1),
+    minY: Math.min(y0, y1),
+    maxY: Math.max(y0, y1),
+  };
+}
+
+/**
+ * PCB_TRACK::ViewGetLOD for a netname layer: the label shows once the track is
+ * drawn at least as wide on screen as 4 mm is at scale 1, `lodScaleForThreshold
+ * (view, m_width, mmToIU(4.0))`, compared against the view scale, and only when
+ * the track is long enough to hold the text (`length² >= (width · chars)²`).
+ */
+export function showsNetName(label: TrackNetLabel, view: PcbViewTransform): boolean {
+  if (label.width <= 0) return false;
+
+  const dx = label.end.x - label.start.x;
+  const dy = label.end.y - label.start.y;
+  const nameSize = label.text.length * label.width;
+  if (dx * dx + dy * dy < nameSize * nameSize) return false;
+
+  return label.width * view.scale >= NETNAME_MIN_PX;
+}
+
+/**
+ * KiCad's 4 mm threshold in screen pixels. Its VIEW scale is normalised so that
+ * scale 1 draws 1 mm at the screen's nominal DPI, which puts the gate at
+ * 4 mm · (96 dpi / 25.4) ≈ 15 px of track width.
+ */
+const NETNAME_MIN_PX = (4 * 96) / 25.4;
+
+/**
+ * PCB_PAINTER::renderNetNameForSegment: the text is the track's width tall
+ * (glyphs at 0.55 of it), runs along the segment turned into ]-90°, 90°], and
+ * repeats once per viewport-length of track so a long trace stays labelled
+ * wherever you are looking. Positions outside the viewport are skipped.
+ */
+function addTrackNetName(
+  map: Map<number, Path2D>,
+  label: TrackNetLabel,
+  viewport: { minX: number; minY: number; maxX: number; maxY: number },
+): void {
+  const dx = label.end.x - label.start.x;
+  const dy = label.end.y - label.start.y;
+  const length = Math.hypot(dx, dy);
+  const textSize = label.width;
+
+  let angle: number;
+  let numNames = 1;
+  const vw = viewport.maxX - viewport.minX;
+  const vh = viewport.maxY - viewport.minY;
+
+  if (dy === 0) {
+    angle = 0;
+    numNames = Math.max(numNames, Math.round(length / vw));
+  } else if (dx === 0) {
+    angle = 90;
+    numNames = Math.max(numNames, Math.round(length / vh));
+  } else {
+    // -EDA_ANGLE(segV), normalised into ]-90°, 90°] so the text stays readable.
+    angle = -(Math.atan2(dy, dx) * 180) / Math.PI;
+    while (angle > 90) angle -= 180;
+    while (angle <= -90) angle += 180;
+    numNames = Math.max(numNames, Math.round(length / (Math.SQRT2 * Math.min(vw, vh))));
+  }
+
+  const divisions = numNames + 1;
+  for (let i = 1; i < divisions; i++) {
+    const x = label.start.x + (dx * i) / divisions;
+    const y = label.start.y + (dy * i) / divisions;
+    if (x < viewport.minX || x > viewport.maxX || y < viewport.minY || y > viewport.maxY) continue;
+    addText(map, {
+      kind: 'user',
+      text: label.text,
+      at: { x, y },
+      angle,
+      layer: label.layer,
+      // GAL glyph size is 0.55 · textSize; the pen is textSize/12.
+      size: { x: textSize * 0.55, y: textSize * 0.55 },
+      thickness: textSize / 12,
+      source: { kind: 'list', items: [] },
+    });
+  }
 }
 
 /** Paint the compiled scene in one blocking pass (small boards / exports). */
@@ -1409,7 +1653,7 @@ export function drawBoard(
   opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
   sheet?: SheetInfo,
   overlay = false,
-  brighten = 0,
+  emphasis: Emphasis = 'none',
 ): void {
   for (const step of buildDrawSteps(
     ctx,
@@ -1421,7 +1665,7 @@ export function drawBoard(
     opts,
     sheet,
     overlay,
-    brighten,
+    emphasis,
   ))
     step();
 }
