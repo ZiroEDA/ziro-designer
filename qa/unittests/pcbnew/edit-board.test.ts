@@ -746,3 +746,55 @@ describe('filterSelectionForDelete (EDIT_TOOL::Remove)', () => {
     expect(b.footprints).toHaveLength(1);
   });
 });
+
+describe('zone move (ZONE::Move)', () => {
+  const poly = [
+    { x: 0, y: 0 },
+    { x: 10000, y: 0 },
+    { x: 10000, y: 10000 },
+    { x: 0, y: 10000 },
+  ];
+  const src = parse(`(zone (net 1) (layer "F.Cu")
+      (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1)))
+      (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1))))`);
+
+  const zoned = (): Board =>
+    board({
+      zones: [
+        {
+          net: 1,
+          layers: ['F.Cu'],
+          outline: poly,
+          fills: [{ layer: 'F.Cu', polys: [poly] }],
+          source: src,
+        },
+      ],
+    });
+
+  it('moves the outline and the fill together', () => {
+    const d = { x: 5000, y: -2500 };
+    const out = moveBoardItems(zoned(), new Set(['zone:0']), d);
+    expect(out.zones[0]!.outline![0]).toEqual({ x: 5000, y: -2500 });
+    expect(out.zones[0]!.outline![2]).toEqual({ x: 15000, y: 7500 });
+    // The pour travels with its boundary rather than being left behind.
+    expect(out.zones[0]!.fills[0]!.polys[0]![0]).toEqual({ x: 5000, y: -2500 });
+    expect(out.zones[0]!.fills[0]!.polys[0]![2]).toEqual({ x: 15000, y: 7500 });
+  });
+
+  it('patches both point lists in the source, so the move survives a save', () => {
+    const d = { x: mmToIU(1), y: mmToIU(2) };
+    const out = moveBoardItems(zoned(), new Set(['zone:0']), d);
+    const text = serializeBoard({ ...out, source: out.zones[0]!.source });
+    // Every (xy ...) shifted by (1, 2) mm: the outline started at 0 0 and 1 0.
+    expect(text).toContain('(xy 1 2)');
+    expect(text).toContain('(xy 2 2)');
+    expect(text).not.toContain('(xy 0 0)');
+  });
+
+  it('leaves other zones alone', () => {
+    const b = zoned();
+    const two = { ...b, zones: [b.zones[0]!, { ...b.zones[0]! }] };
+    const out = moveBoardItems(two, new Set(['zone:0']), { x: 1000, y: 0 });
+    expect(out.zones[1]!.outline![0]).toEqual({ x: 0, y: 0 });
+  });
+});
