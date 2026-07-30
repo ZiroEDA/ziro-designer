@@ -1507,12 +1507,14 @@ export function buildDrawSteps(
 
   for (let i = fCuIndex + 1; i < PCB_PAINT_ORDER.length; i++) pushLayer(PCB_PAINT_ORDER[i]!);
 
-  // Pad numbers on top, in a bright contrasting color (KiCad draws them over
-  // the pad copper). Selection brightening doesn't apply to the label.
+  // Pad numbers and net names on top, in a bright contrasting color (KiCad
+  // draws them over the pad copper). Only *selection* leaves them alone: the
+  // net-name skip lives in RENDER_SETTINGS::update()'s m_layerColorsSel, so a
+  // net highlight still brightens and dims this text with everything else.
   if (opts.pads && scene.padText.size > 0) {
     steps.push(() => {
       ctx.globalAlpha = opts.padOpacity;
-      ctx.strokeStyle = special.padName;
+      ctx.strokeStyle = emphasize(special.padName, emphasis, true);
       strokeAll(ctx, scene.padText, minPen);
       ctx.globalAlpha = 1;
     });
@@ -1525,10 +1527,13 @@ export function buildDrawSteps(
       const viewport = viewportInWorld(view, widthPx, heightPx);
       const byColor = new Map<string, Map<number, Path2D>>();
 
+      // draw(PCB_TRACK) takes its color from GetColor(track, aLayer) with aLayer
+      // the *netname* layer, so the text is the theme's netnames color (white at
+      // 0.7), not the copper color, exactly as the pad net names are.
+      const color = emphasize(special.padName, emphasis, true);
       for (const label of scene.netLabels) {
         if (!visible.has(label.layer)) continue;
         if (!showsNetName(label, view)) continue;
-        const color = col(label.layer);
         let map = byColor.get(color);
         if (!map) {
           map = new Map();

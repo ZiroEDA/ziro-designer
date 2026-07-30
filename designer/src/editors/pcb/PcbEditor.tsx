@@ -1296,15 +1296,23 @@ export function PcbEditor({
     // flipped (KiCad's DS_PROXY_VIEW_ITEM un-mirrors itself). tx is recovered by
     // mirroring back about the viewport centre.
     if (drawOpts.drawingSheet && boardRef.current) {
+      const sheetColor = drawOpts.theme?.special.drawingSheet ?? PCB_SPECIAL.drawingSheet;
       const sheetTx = v.flipX ? canvas.width - v.tx : v.tx;
       ctx.setTransform(v.scale, 0, 0, v.scale, sheetTx, v.ty);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      drawDrawingSheet(ctx, {
-        paper: boardRef.current.paper,
-        titleBlock: boardRef.current.titleBlock,
-        fileName,
-      });
+      // The sheet keeps its colour under a net highlight: DS_PROXY_VIEW_ITEM
+      // reads GetLayerColor(LAYER_DRAWINGSHEET), the raw layer colour, not the
+      // item-aware GetColor that does the brighten/darken.
+      drawDrawingSheet(
+        ctx,
+        {
+          paper: boardRef.current.paper,
+          titleBlock: boardRef.current.titleBlock,
+          fileName,
+        },
+        sheetColor,
+      );
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     const c = cacheRef.current;
@@ -4046,9 +4054,13 @@ export function PcbEditor({
     return s;
   }, [selectedNets, highlightNets]);
 
-  // Highlight scene: all copper (tracks/arcs/vias/zones) on the highlighted
-  // nets, painted Brightened(0.5) over the dimmed board, BOARD_INSPECTION_TOOL
-  // net highlight (pcb_painter.cpp: highlighted items brighten, the rest darken).
+  // Highlight scene: every copper item on the highlighted nets, painted
+  // Brightened(0.5) over the dimmed board, BOARD_INSPECTION_TOOL net highlight
+  // (pcb_painter.cpp: highlighted items brighten, the rest darken).
+  //
+  // "Every copper item" includes the *pads*: PAD is a BOARD_CONNECTED_ITEM and
+  // draw(PAD) runs the same GetColor, so the net's pads lift with its tracks.
+  // Leaving them out was what made a highlighted net look half-lit.
   const highlightSceneRef = useRef<BoardScene | null>(null);
   useEffect(() => {
     const brd = boardRef.current;
@@ -4073,6 +4085,11 @@ export function PcbEditor({
     });
     brd.zones.forEach((z, i) => {
       if (highlightNets.has(z.net)) ids.add(boardItemId('zone', i));
+    });
+    brd.footprints.forEach((fp, fi) => {
+      fp.pads.forEach((p, pi) => {
+        if (p.net !== undefined && highlightNets.has(p.net)) ids.add(boardItemId('pad', fi, pi));
+      });
     });
     // The line a router drag has in flight is drawn by the move overlay, so it
     // must not also appear here at its old position (upstream HideItem()s it).
