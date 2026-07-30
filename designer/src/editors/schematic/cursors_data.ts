@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * KiCad's own mouse cursors for the schematic tools, vendored from
  * `resources/bitmaps_png/cursors/*.xpm` (GPL, like the toolbar icons) and kept

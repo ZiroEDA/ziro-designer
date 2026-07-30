@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The global footprint list backing the chooser widgets: library/footprint
  * names from the hosted libraries' index, lazy per-footprint `.kicad_mod`

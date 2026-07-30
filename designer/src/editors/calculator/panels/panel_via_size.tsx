@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Via Size" panel, electrical, thermal and parasitic characteristics of a
  * plated through-hole via. Counterpart: KiCad `calculator_panels/panel_via_size.cpp`.

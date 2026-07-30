@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Project footprint library table (FP_LIB_TABLE): the nickname a `.pretty`
  * directory is known by. The ECC83 demo stores `Footprints:Valve_ECC-83-1`

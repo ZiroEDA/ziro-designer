@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Excellon drill-file reader, mirroring `gerbview/excellon_read_drill.cpp`.
  * It parses the M48 header (unit + zero mode + tool table) and the body

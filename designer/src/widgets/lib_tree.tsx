@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Widget displaying a tree of library items: filter box with its recent-search
  * menu and a sort/expand menu, the column tree (Item + the columns the user has

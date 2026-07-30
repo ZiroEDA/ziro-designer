@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Ratsnest computation, a compact port of pcbnew's RN_NET /
  * CONNECTIVITY_DATA pipeline (ratsnest/ratsnest_data.cpp): per net, cluster

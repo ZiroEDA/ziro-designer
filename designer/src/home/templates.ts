@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Project templates, KiCad's "New Project from Template" (project_template.cpp,
  * kicad_manager_control.cpp). A template is a folder with a .kicad_pro/sch/pcb,

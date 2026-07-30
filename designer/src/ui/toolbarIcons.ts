@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Maps each toolbar tool id to KiCad's own icon (the dark-theme SVGs vendored
  * under assets/toolbar). Bitmap names are taken from KiCad's SCH_ACTIONS /

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Editing wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) and junction diameter
  * (DIALOG_JUNCTION_PROPS): replaceLine / replaceJunction with the lossless

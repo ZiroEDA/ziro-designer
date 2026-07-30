@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Rectangle bin packing. Counterpart: `thirdparty/rectpack2d/rectpack2d/`
  * (rect_structs.h, insert_and_split.h, empty_spaces.h, best_bin_finder.h,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Item locking (SCH_EDIT_TOOL Lock / Unlock / Toggle + SCH_ITEM::IsLocked):
  * the `(locked yes)` token round-trips on symbols and the lock command

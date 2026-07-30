@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Create Net Chain dialog. Counterpart:
  * `eeschema/dialogs/dialog_create_net_chain.cpp` (DIALOG_CREATE_NET_CHAIN),

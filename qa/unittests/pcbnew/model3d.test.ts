@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Footprint 3D model references: parsing `(model …)` into footprint.models,
  * the first step toward rendering component bodies in the 3D viewer.

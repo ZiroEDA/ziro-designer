@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BOARD_CONNECTED_ITEM, base for board items that belong to a net
  * (pcbnew/board_connected_item.h): tracks, vias, pads, zones. Adds the net code

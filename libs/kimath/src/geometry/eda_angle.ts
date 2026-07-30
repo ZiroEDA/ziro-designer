@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * EDA_ANGLE, a faithful TypeScript port of KiCad's angle class
  * (libs/kimath/include/geometry/eda_angle.h). Angles are stored internally in

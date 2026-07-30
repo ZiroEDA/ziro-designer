@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "The libraries are loading" signal. Counterpart: the PROGRESS_REPORTER KiCad
  * drives while it reads the library tables, `SYMBOL_TREE_MODEL_ADAPTER::

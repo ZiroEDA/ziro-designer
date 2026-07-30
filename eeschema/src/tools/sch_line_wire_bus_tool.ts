@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Interactive wire/bus drawing logic. Mirrors kicad/eeschema/tools/
  * sch_line_wire_bus_tool.cpp (SCH_LINE_WIRE_BUS_TOOL): the two-segment

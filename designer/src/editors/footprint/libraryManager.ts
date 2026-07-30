@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Buffered footprint-library manager, the web port of KiCad's
  * FP_LIB_TABLE-backed editing model used by `FOOTPRINT_EDIT_FRAME`

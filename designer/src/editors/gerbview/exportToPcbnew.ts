@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Export loaded Gerber layers to a Pcbnew board file, the app-side mirror of
  * GerbView's GBR_TO_PCB_EXPORTER (`gerbview/export_to_pcbnew.cpp`). Each visible

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board Setup > Board Stackup > Physical Stackup. Counterpart:
  * `pcbnew/board_stackup_manager/panel_board_stackup.cpp`

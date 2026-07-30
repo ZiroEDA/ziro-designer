@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Simulation model resolution (counterpart SIM_MODEL::ReadTypeFromFields /
  * InferSimModel and SIM_LIB_MGR::CreateModel): the diagnostics ERC's

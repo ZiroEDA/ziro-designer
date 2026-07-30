@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Exact DRC shape geometry. Counterparts: the SHAPE classes KiCad's DRC
  * collides (`libs/kimath/src/geometry/shape_*.cpp`):

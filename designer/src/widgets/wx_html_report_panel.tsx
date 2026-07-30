@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Output-messages panel. Counterpart: `common/widgets/wx_html_report_panel.cpp`
  * (WX_HTML_REPORT_PANEL), a titled box holding the report lines, the

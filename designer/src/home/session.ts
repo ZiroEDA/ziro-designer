@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Persist the last app view across reloads (localStorage), so a page refresh
  * doesn't dump you back to an empty home screen. Only the *navigation* is stored

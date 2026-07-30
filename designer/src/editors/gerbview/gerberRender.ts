@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Canvas 2D renderer for Gerber layers, the app-side mirror of GerbView's
  * GAL painter (`gerbview/gerbview_painter.cpp` GERBVIEW_PAINTER::Draw). It draws

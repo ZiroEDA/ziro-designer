@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Design Inspector dialog, the web counterpart of `pl_editor`'s
  * DIALOG_INSPECTOR (pagelayout_editor/dialogs/design_inspector.cpp): a grid of

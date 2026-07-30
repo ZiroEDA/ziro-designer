@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Shared constants and helpers for the transmission-line models, ported from
  * KiCad's `common/transline_calculations/` (units.h + transline_calculation_base).

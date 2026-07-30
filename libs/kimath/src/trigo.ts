@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Faithful port of the integer RotatePoint from KiCad's libs/kimath/src/trigo.cpp.
  * KiCad mutates points through pointers; in TypeScript these return a new

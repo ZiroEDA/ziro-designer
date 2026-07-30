@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Image-file metadata for the Image Converter, the browser stand-in for what
  * `BITMAP2CMP_PANEL::OpenProjectFiles` reads through wxImage: the embedded

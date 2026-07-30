@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Fetching a netlist from the schematic, board-side. Counterparts:
  * `pcbnew/pcb_edit_frame.cpp` (PCB_EDIT_FRAME::FetchNetlistFromSchematic) and

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The board's net table. Counterpart: `pcbnew/netinfo_list.cpp` (NETINFO_LIST) and
  * the `(net <code> "<name>")` declarations at the top of a `.kicad_pcb`.

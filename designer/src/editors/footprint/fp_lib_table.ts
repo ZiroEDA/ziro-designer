@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The footprint library table. Counterpart: `common/fp_lib_table.cpp`
  * (FP_LIB_TABLE / LIB_TABLE_ROW), the `fp-lib-table` file that maps a library

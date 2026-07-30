@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board-file persistence for the Board Setup dialog, the `.kicad_pcb` side.
  * Counterparts: `pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp`

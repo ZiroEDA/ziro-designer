@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * D_CODE, a Gerber aperture, mirroring `gerbview/dcode.h/.cpp`. Each aperture
  * has a shape (circle, rect, obround, regular polygon, or a macro reference),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Assign Footprints. Counterpart: `cvpcb/cvpcb_mainframe.cpp`
  * (CVPCB_MAINFRAME) with `cvpcb/menubar.cpp`, `cvpcb/toolbars_cvpcb.cpp`,

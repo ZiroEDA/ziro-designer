@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board Setup persistence, the `.kicad_pro` side: read/write of
  * BOARD_DESIGN_SETTINGS / NET_SETTINGS / COMPONENT_CLASS_SETTINGS /

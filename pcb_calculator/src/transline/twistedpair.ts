@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Twisted pair, faithful port of KiCad's
  * `transline_calculations/twistedpair.cpp` (Lefferson 1971; loss forms from

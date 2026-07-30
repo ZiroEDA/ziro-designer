@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Drawing-sheet editing geometry: bounding boxes, picking, and corner-aware
  * moves over the `WksSheet` model. The editor works in resolved IU page space

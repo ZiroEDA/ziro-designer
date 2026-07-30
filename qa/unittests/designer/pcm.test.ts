@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plugin and Content Manager store: the web port of KiCad's
  * PLUGIN_CONTENT_MANAGER. These exercise the version/compatibility logic

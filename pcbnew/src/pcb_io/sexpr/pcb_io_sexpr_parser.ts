@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * PCB_IO_KICAD_SEXPR_PARSER, the `.kicad_pcb` reader
  * (pcbnew/pcb_io/sexpr/pcb_io_sexpr_parser.cpp). Builds the BOARD

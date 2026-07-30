@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The RS-274X / RS-274D interpreter, mirroring the parsing half of
  * `gerbview/gerber_file_image.cpp`, `gerbview/rs274x.cpp` and

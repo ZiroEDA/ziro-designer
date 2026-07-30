@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The model side of DIALOG_LABEL_PROPERTIES: a label's orientation
  * (SPIN_STYLE), its fields (`(property …)` children, the same grid the symbol

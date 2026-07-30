@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Resistor colour-code: value + tolerance → 4/5-band colours (and back).
  * Counterpart: KiCad `pcb_calculator/calculator_panels/panel_color_code.cpp`.

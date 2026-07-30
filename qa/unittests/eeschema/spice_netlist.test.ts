@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * SPICE netlist export, NETLIST_EXPORTER_SPICE + SIM_MODEL::InferSimModel
  * quirks straight from the C++: net-name markup conversion and ground

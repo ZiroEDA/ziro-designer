@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Drawing sheet (page layout), the web-native mirror of KiCad's `pl_editor` /
  * `common/drawing_sheet`. Model + `.kicad_wks` reader/writer + layout resolver

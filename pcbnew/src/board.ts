@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BOARD, the root container (pcbnew/board.{h,cpp}). Holds the footprints,
  * tracks/arcs/vias, zones and board-level graphics/text, plus the layer table

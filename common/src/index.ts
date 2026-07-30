@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** @ziroeda/common, shared EDA foundations mirroring KiCad's common/. */
 export * from './eda_units.js';
 export * from './generator.js';

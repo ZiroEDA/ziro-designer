@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Footprint editing operations, pure transforms on the typed PcbFootprint,
  * the geometry behind KiCad's FOOTPRINT_EDIT_FRAME edit tools (move / rotate /

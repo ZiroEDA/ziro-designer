@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Pin Conflicts Map panel. Counterpart: `eeschema/dialogs/panel_setup_pinmap.cpp`
  * (PANEL_SETUP_PINMAP::reBuildMatrixPanel), the pin-type-vs-pin-type conflict

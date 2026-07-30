@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Wire hop-over geometry. Counterparts: `SCH_LINE::ShouldHopOver` +
  * `SCH_LINE::BuildWireWithHopShape` (eeschema/sch_line.cpp) and the painter's

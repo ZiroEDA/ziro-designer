@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Archive / Unarchive project logic: KiCad zips the whole project folder,
  * reading each file as a raw byte stream (PROJECT_ARCHIVER::Archive). We do

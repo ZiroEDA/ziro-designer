@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Gerber Viewer toolbar layouts, following GerbView's toolbar configuration
  * (`gerbview/toolbars_gerber.cpp` GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig):

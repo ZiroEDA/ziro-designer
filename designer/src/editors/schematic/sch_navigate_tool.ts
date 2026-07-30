@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Hierarchy navigation. Counterpart: `eeschema/tools/sch_navigate_tool.cpp`
  * (SCH_NAVIGATE_TOOL): a linear history of visited sheet instances for

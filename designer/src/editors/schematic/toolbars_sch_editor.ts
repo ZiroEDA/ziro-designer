@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Schematic editor toolbar layouts. Counterpart: `eeschema/
  * toolbars_sch_editor.cpp` (SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig),

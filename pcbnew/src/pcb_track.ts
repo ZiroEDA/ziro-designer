@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * PCB_TRACK / PCB_ARC / PCB_VIA, the copper routing items (pcbnew/pcb_track.{h,cpp}).
  * Faithful ports of the geometry-transform + hit-test methods; the object model

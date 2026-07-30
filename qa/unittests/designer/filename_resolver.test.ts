@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * 3D model path resolution (counterpart common/filename_resolver.cpp):
  * KiCad's ResolvePath order adapted for the web, the project's own files

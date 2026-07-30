@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Pure editing operations on a LibSymbol, mirroring KiCad's symbol editor tools
  * (symbol_editor_edit_tool.cpp / symbol_editor_pin_tool.cpp / drawing tools).

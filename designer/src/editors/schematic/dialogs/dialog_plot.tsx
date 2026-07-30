@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plot dialog. Counterpart: `eeschema/dialogs/dialog_plot_schematic_base.cpp` +
  * `dialog_plot_schematic.cpp` (DIALOG_PLOT_SCHEMATIC). Same layout as upstream:

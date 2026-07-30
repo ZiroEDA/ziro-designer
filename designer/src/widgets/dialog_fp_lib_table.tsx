@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Manage Footprint Libraries. Counterpart: `pcbnew/dialogs/panel_fp_lib_table.cpp`
  * (PANEL_FP_LIB_TABLE, opened by ACTIONS::showFootprintLibTable), the two

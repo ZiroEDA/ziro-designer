@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * File > New Project scaffolding: the three files a fresh project starts
  * with (.kicad_pro / .kicad_sch / .kicad_pcb), byte-identical in spirit to

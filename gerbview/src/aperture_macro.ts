@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Aperture macros (RS-274X `AM` command), mirroring
  * `gerbview/aperture_macro.h/.cpp` and `gerbview/am_primitive.h/.cpp`.

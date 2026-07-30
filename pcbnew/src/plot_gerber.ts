@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Gerber X2 + Excellon plot writers, the fabrication-output core of
  * pcbnew's plot dialog, transcribed from GERBER_PLOTTER::StartPlot

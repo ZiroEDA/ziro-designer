@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Search-pattern matching and weighted scoring for library/item choosers.
  * Mirrors kicad/common/eda_pattern_match.cpp (EDA_PATTERN_MATCH_* and

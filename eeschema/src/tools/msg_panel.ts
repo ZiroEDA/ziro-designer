@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Message-panel rows for the selected item. Counterparts: each item's
  * `GetMsgPanelInfo` (eeschema/sch_symbol.cpp, sch_line.cpp, sch_label.cpp,

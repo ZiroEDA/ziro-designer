@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Which segments pass through this point?", the lookup at the heart of
  * KiCad's connectivity pass (CONNECTION_GRAPH::updateItemConnectivity, and the

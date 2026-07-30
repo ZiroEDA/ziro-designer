@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Electrical Spacing" panel, two calculators like KiCad: the IPC-2221
  * minimum-clearance table and the IEC 60664-1 insulation coordination

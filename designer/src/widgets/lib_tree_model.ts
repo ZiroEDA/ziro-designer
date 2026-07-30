@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The library-tree data model used by the chooser dialogs: a root holding
  * library nodes, holding item nodes, holding unit nodes. Mirrors

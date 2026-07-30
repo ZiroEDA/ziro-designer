@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * IEC 60063 preferred-number (E-series) tables and helpers.
  * Counterpart: KiCad `common/eseries.cpp` + `pcb_calculator/calculator_panels/panel_eseries_display.cpp`.

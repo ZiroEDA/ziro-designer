@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * IPC-2221 minimum electrical spacing (creepage/clearance) table.
  * Counterpart: KiCad `pcb_calculator/calculator_panels/panel_electrical_spacing_ipc2221.cpp`.

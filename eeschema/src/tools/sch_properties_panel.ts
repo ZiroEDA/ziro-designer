@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Properties panel rows. Counterpart: `eeschema/widgets/sch_properties_panel.cpp`
  * driven by the PROPERTY_MANAGER registrations at the bottom of each item's

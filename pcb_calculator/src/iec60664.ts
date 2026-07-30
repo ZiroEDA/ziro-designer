@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * IEC 60664-1:2020 insulation-coordination calculator: clearance, creepage,
  * minimum groove width and rated impulse withstand voltage.

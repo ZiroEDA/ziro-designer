@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The working panel of the Choose Symbol dialog: library tree on the left of
  * a draggable sash; symbol preview, footprint selector and footprint preview

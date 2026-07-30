@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Connectable-point snapping, the model side of KiCad's EE_GRID_HELPER::BestSnapAnchor
  * with GRID_CONNECTABLE: when drawing or moving, the cursor snaps to nearby
