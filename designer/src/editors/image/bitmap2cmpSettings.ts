@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BITMAP2CMP_SETTINGS, web edition (`bitmap2cmp_settings.cpp`). The stored JSON
  * uses KiCad's own key names from `bitmap2component.json` (schema v1) so the

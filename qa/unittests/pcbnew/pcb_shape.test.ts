@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
 import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';

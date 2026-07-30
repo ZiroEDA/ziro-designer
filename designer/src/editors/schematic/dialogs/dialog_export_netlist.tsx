@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Export Netlist dialog. Counterpart: `eeschema/dialogs/dialog_export_netlist.cpp`
  * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter. We ship the

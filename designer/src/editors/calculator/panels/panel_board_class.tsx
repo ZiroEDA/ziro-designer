@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Board Classes" memo panel, typical fabrication limits per class.
  * Counterpart: KiCad `calculator_panels/panel_board_class.cpp`.

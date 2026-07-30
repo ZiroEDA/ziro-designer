@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Gerber Viewer frame, the web mirror of GerbView's GERBVIEW_FRAME
  * (`gerbview/gerbview_frame.cpp`): the menu bar (`menubar.cpp`), the top / left

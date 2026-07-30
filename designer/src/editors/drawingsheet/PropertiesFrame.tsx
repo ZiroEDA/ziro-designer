@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Drawing Sheet Editor's docked properties panel, the web counterpart of
  * `pl_editor`'s PROPERTIES_FRAME (pagelayout_editor/dialogs/properties_frame.cpp).

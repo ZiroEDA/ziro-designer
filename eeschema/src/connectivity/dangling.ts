@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Dangling-pin detection, the model side of KiCad's dangling-state pass
  * (SCH_PIN / SCH_ITEM::UpdateDanglingState). A pin is "dangling" when nothing

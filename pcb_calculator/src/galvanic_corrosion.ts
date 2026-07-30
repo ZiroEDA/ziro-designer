@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Galvanic-corrosion memo: corrosion potentials of common metals/finishes
  * (referenced to copper = 0 V, per KiCad's table sourced from NASA-STD-6012,

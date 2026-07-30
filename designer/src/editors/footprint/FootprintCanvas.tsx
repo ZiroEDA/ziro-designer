@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Footprint Editor drawing canvas, the PCB_DRAW_PANEL_GAL of KiCad's
  * `FOOTPRINT_EDIT_FRAME`, ported to Canvas 2D. It reuses the board painter

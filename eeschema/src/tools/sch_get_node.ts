@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Connectivity node under the cursor". Counterpart:
  * `SCH_SELECTION_TOOL::GetNode` (eeschema/tools/sch_selection_tool.cpp), the

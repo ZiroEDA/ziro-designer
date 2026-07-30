@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Color Code" memo panel, resistor band encoder + reference chart.
  * Counterpart: KiCad `calculator_panels/panel_color_code.cpp`.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Project-tree domain logic for the launcher: rebuilding the on-disk folder
  * hierarchy from picked files, the archive allow-list, root-file ordering,

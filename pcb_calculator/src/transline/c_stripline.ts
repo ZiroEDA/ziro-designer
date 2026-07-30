@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Coupled stripline (edge-coupled, optionally off-centre between the ground
  * planes), port of KiCad `common/transline_calculations/coupled_stripline.cpp`.

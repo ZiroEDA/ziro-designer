@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Library-tree model + adapter (counterparts common/lib_tree_model.cpp and
  * common/lib_tree_model_adapter.cpp): search scoring, best-match/alphabetic

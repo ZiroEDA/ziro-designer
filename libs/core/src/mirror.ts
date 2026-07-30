@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Faithful port of KiCad's include/core/mirror.h, FLIP_DIRECTION and the MIRROR
  * helpers used throughout BOARD_ITEM::Flip.

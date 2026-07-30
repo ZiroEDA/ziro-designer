@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Bus connectivity in the netlist: bus subgraphs form from bus lines + labels,
  * wire-to-bus entries carry their wire's net, and member nets join ACROSS a

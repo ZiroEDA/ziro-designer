@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * GERBER_DRAW_ITEM, one graphic element of a Gerber image, mirroring
  * `gerbview/gerber_draw_item.h/.cpp`. It can be a drawn trace (segment/arc/

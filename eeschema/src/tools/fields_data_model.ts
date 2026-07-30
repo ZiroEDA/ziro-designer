@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symbol Fields Table data model. Counterpart: `eeschema/fields_data_model.cpp`
  * (FIELDS_EDITOR_GRID_DATA_MODEL), the engine behind KiCad's

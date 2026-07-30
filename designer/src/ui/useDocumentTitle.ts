@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The browser tab's title. Counterpart: each frame's `UpdateTitle()` (e.g.
  * `pcbnew/footprint_edit_frame.cpp`, `eeschema/sch_edit_frame.cpp`), which

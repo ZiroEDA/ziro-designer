@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * EDA_SHAPE, the graphic-shape geometry shared by pcb and schematic items
  * (common/eda_shape.{h,cpp}). In KiCad it is a mixin base; TypeScript has no

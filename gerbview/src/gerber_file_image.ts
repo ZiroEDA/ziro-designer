@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * GERBER_FILE_IMAGE, the parsed state and graphic contents of a single Gerber
  * layer, mirroring `gerbview/gerber_file_image.h/.cpp`. It owns the format

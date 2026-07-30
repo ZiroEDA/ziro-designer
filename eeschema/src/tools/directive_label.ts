@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The netclass directive label's geometry, SCH_DIRECTIVE_LABEL::
  * CreateGraphicShape (eeschema/sch_label.cpp). The flag is a pin line from the

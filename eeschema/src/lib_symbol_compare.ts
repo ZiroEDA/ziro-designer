@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Library symbol comparison. Counterpart: `eeschema/lib_symbol.cpp`
  * (`LIB_SYMBOL::Compare`) under the flags ERC uses,

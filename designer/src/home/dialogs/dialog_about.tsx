@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** About dialog (upstream counterpart: common/dialog_about/). Shows the
  * product identity, the build stamp baked in by Vite, and the license.
  *

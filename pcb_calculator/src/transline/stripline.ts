@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symmetric stripline, faithful port of KiCad's
  * `transline_calculations/stripline.cpp` (Wheeler/Cohn line impedance combined

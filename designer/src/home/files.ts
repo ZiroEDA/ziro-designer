@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** Shared file value passed between the launcher, editors, and stores. */
 
 /** A file picked from disk for a project open. `bytes` is the byte-exact source

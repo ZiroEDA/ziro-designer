@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * VECTOR2I, the integer 2D vector KiCad uses for board coordinates
  * (libs/kimath/include/math/vector2.h). KiCad's VECTOR2<T> is a rich template;

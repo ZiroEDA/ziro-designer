@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BOM Presets panel. Counterpart: `eeschema/dialogs/panel_bom_presets_base.cpp`
  * (PANEL_BOM_PRESETS), two read-only "Name" grids (Bill of Materials Presets and

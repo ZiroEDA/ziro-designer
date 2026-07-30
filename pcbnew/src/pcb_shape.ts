@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * PCB_SHAPE, a board graphic (pcbnew/pcb_shape.{h,cpp}). In KiCad it derives
  * from both BOARD_ITEM and EDA_SHAPE; here it extends BOARD_ITEM and composes an

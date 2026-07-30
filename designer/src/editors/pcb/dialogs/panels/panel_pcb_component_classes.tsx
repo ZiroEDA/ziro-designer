@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board Setup > Design Rules > Component Classes. Counterpart:
  * `pcbnew/dialogs/panel_assign_component_classes_base.cpp`

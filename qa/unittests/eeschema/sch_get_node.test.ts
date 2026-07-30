@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The net-highlight pick (counterpart SCH_SELECTION_TOOL::GetNode): connectable
  * types only, exact hits before sloppy ones, and ids that resolve straight

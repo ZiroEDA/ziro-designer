@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The browser tab title (the frames' `UpdateTitle()`): the open document first,
  * marked with `*` while modified, then the editor's name. The document leads

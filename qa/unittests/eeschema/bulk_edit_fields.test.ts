@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Bulk field edit (Symbol Fields Table edit view): bulkEditFieldsCommand sets
  * field values on many symbols in one undoable commit, updating in place,

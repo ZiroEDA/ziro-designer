@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board outline geometry for the 3D viewer: chain the Edge.Cuts graphics into
  * closed loops (KiCad's BOARD::GetBoardPolygonOutlines), tessellate arcs/circles,

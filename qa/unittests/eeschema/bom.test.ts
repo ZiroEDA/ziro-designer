@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BOM export (Symbol Fields Table export, Tools > Generate Bill of Materials):
  * symbols group by Value+Footprint, power symbols and not-in-BOM parts drop

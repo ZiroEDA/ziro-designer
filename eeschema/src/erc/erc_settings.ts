@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * ERC settings. Counterpart: `eeschema/erc/erc_settings.cpp` (ERC_SETTINGS),
  * the per-project electrical-rules configuration edited by the Schematic Setup

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The "Select Columns" dialog behind a library tree's header context menu.
  * Mirrors kicad/common/dialogs/eda_reorderable_list_dialog.cpp

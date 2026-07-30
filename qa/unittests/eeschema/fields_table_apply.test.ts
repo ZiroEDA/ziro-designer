@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symbol Fields Table, end to end over a hierarchy: the dialog's data model
  * collects symbols from every sheet instance, its scopes filter by sheet path,

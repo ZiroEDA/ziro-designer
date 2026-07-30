@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Demo projects, upstream's File > Open Demo Project (openDemoProject in
  * kicad/tools/kicad_manager_control.cpp, gated on PATHS::GetStockDemosPath).

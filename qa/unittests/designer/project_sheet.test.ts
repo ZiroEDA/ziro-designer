@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Project drawing-sheet reference: read/write schematic.page_layout_descr_file
  * in the .kicad_pro and resolve the referenced .kicad_wks from project files.

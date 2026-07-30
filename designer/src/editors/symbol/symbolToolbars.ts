@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symbol Editor toolbar layouts, transcribed from KiCad 9.0's
  * `eeschema/symbol_editor/toolbars_symbol_editor.cpp` (ReCreateHToolbar /

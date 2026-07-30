@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Page settings. Counterpart: `common/dialogs/dialog_page_settings.cpp`
  * (DIALOG_PAGES_SETTINGS::onOK → SCH_EDIT_FRAME), the paper size / orientation

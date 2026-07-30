@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The KiCad (s-expression) netlist NETLIST_EXPORTER_KICAD writes and pcbnew reads,
  * the schematic half of "Update PCB from Schematic". The round trip through

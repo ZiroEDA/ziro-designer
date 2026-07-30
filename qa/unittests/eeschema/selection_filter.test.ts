@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Selection filter (SCH_SELECTION_FILTER_OPTIONS + itemPassesFilter): locked
  * symbols are unselectable unless `lockedItems` is on, and each item-type

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Import Settings from Another Project. Counterpart:
  * `eeschema/dialogs/dialog_sch_import_settings_base.cpp`

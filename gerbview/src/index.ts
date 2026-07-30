@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * @ziroeda/gerbview, the Gerber/Excellon viewer engine, ported from KiCad's
  * `gerbview/`. Parses RS-274X Gerber and Excellon drill files into a typed

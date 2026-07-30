@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Board Setup > Violation Severity. Counterpart: `common/dialogs/
  * panel_setup_severities.cpp` (PANEL_SETUP_SEVERITIES) as used by DIALOG_BOARD_SETUP

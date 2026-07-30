@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * DRC smoke test over the real ecc83 demo board: a valid KiCad demo must
  * produce zero violations at the default constraints, and the run must be

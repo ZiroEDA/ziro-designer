@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Sheet-path page numbers. Counterpart: `eeschema/sch_sheet_path.cpp`
  * (SCH_SHEET_PATH::GetPageNumber / SetPageNumber) + `sch_sheet.cpp`

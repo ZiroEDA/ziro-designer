@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Hierarchical sheets: SCH_SHEET parsing/round-trip, sheet-pin connectivity,
  * and the project hierarchy helpers (SCH_SHEET_LIST equivalent).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Best-fit realignment of two point sets. Counterpart: `common/item_realignment.cpp`
  * (ORTHO_ITEM_REALIGNER) over `include/item_realignment.h`.

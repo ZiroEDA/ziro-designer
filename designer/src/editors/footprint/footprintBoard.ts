@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Wrap a single library footprint as a one-item BOARD so the existing
  * PCB_PAINTER pipeline (renderBoard.ts) can draw it unchanged.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * DRC marker painting (designer/src/editors/pcb/renderBoard.ts
  * drawDrcMarkers): mirrors pcb_painter.cpp draw(PCB_MARKER*), the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Schematic editor menu bar. Counterpart: `eeschema/menubar.cpp`
  * (SCH_EDIT_FRAME::doReCreateMenuBar), transcribed exactly: same menus, same

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * BOARD_ITEM, the abstract base of every board object (pcbnew/board_item.h).
  * A faithful port of the geometry-transform + layer interface every pcbnew item

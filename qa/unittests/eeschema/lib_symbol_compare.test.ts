@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * LIB_SYMBOL::Compare under ERC's flags (EQUALITY | ERC): what makes a cached
  * schematic symbol count as "doesn't match copy in library".

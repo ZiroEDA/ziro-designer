@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Factories for schematic graphic items, bus entries, hierarchical sheets and
  * images, the right-toolbar drawing tools (SCH_ACTIONS draw/place actions).

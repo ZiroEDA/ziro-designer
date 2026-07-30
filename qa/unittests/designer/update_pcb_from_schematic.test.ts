@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Update PCB from Schematic" over a real project: the Arduino_Uno template, whose
  * schematic and board were both written by KiCad and are in sync. This exercises the

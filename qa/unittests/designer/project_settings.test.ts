@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Schematic Setup persistence: read/write of SCHEMATIC_SETTINGS / ERC_SETTINGS /
  * NET_SETTINGS / text_variables through the project's .kicad_pro

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** New Project from Template (KiCad's DIALOG_TEMPLATE_SELECTOR): pick a
  * template on the left, read its description, name it, and create. */
 

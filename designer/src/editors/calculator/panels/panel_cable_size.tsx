@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Cable Size" panel, KiCad's fully-linked wire model: every field (diameter,
  * area, linear resistance, 100%-skin-depth frequency, ampacity, DC resistance,

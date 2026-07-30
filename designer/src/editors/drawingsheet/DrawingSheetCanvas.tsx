@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Drawing Sheet Editor canvas, `pl_editor`'s PL_DRAW_PANEL_GAL plus its
  * interactive tools in Canvas 2D. It shows the page as white stationery on the

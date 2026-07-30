@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Offline-first project store (IndexedDB), the local half of ZiroEDA's
  * EasyEDA-style cloud persistence. Projects opened or created in the app are

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Paste Special dialog. Counterpart: `common/dialogs/dialog_paste_special.cpp`
  * (DIALOG_PASTE_SPECIAL), the Reference Designators radio box with KiCad's

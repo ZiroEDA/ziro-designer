@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * PCB color themes (designer/src/editors/pcb/pcbTheme.ts): the two built-in
  * COLOR_SETTINGS palettes from common/settings/builtin_color_themes.h and the

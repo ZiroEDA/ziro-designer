@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Gerber Viewer dialogs: the DCode list (GerbView's "List DCodes",
  * `gerbview/dialogs/dialog_select_one_pcb_layer` sibling `DIALOG_PRINT`… no; this

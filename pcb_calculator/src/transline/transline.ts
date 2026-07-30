@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Shared transmission-line infrastructure: physical constants, skin depth,
  * elliptic-integral ratio, and the generic synthesis root-finder.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plot to DXF and PostScript (DIALOG_PLOT_SCHEMATIC, DXF / Postscript formats):
  * the same vector plotter that drives SVG runs the schematic renderer through a

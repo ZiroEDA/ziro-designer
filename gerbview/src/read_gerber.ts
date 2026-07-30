@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * File-type detection and dispatch, mirroring GerbView's file-open logic
  * (`GERBVIEW_FRAME::LoadFileOrShowDialog` + `IsExcellonFile`). Given the text of

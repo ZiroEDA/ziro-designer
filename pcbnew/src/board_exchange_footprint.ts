@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Placing a library footprint on a board, and swapping one for another.
  * Counterparts: `pcbnew/netlist_reader/pcb_netlist_utils.cpp`

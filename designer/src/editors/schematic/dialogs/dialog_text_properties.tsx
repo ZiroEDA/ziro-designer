@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Text / Text Box Properties. Counterpart: `eeschema/dialogs/
  * dialog_text_properties.cpp` over `dialog_text_properties_base.cpp`, one

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Drawing-sheet canvas painter. Draws the resolved IU primitives from
  * `layoutDrawingSheet` the way KiCad's DS_PAINTER paints them in `pl_editor`

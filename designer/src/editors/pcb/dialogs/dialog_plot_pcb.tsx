@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plot dialog for the board editor. Counterpart: DIALOG_PLOT
  * (`pcbnew/dialogs/dialog_plot_base.cpp` + `dialog_plot.cpp`), the plot-format

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symbol annotation (counterpart eeschema/annotate.cpp +
  * sch_reference_list.cpp): assign first-free numbers per prefix, sorted by

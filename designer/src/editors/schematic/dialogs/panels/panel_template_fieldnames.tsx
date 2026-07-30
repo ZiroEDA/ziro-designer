@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Field Name Templates panel. Counterpart:
  * `eeschema/dialogs/panel_template_fieldnames_base.cpp` (PANEL_TEMPLATE_FIELDNAMES),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Copper conductor fusing (melting) current, using the energy-balance model:
  * the I²R·t energy dissipated over the fuse time must supply the heat to raise

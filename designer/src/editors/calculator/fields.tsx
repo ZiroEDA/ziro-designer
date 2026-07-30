@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Shared input/output widgets and number formatting for the calculator
  * panels, the equivalent of KiCad pcb_calculator's UNIT_SELECTOR + value

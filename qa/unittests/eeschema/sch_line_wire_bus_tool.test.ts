@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Interactive wire-drawing model (counterpart eeschema/tools/
  * sch_line_wire_bus_tool.cpp): two-segment break-point coercion in 90°/45°

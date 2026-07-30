@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plot to SVG (DIALOG_PLOT_SCHEMATIC, SVG format): the vector plotter drives the
  * on-screen schematic renderer through a Canvas2D-shaped adapter that records

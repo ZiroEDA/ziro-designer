@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Embedded-files summary: names/types and the embed-fonts flag list from the
  * schematic's lossless AST (the zstd data blobs pass through untouched).

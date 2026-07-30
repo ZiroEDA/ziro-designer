@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "Transmission Lines" panel, analysis/synthesis for the nine line types.
  * Counterpart: KiCad `calculator_panels/panel_transline.cpp`.

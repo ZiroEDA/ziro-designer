@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * "E-Series" memo panel, the IEC 60063 preferred-value tables, shown as two
  * colour-coded grids (E1/E3/E6/E12 and E24/E48/E96) like KiCad.

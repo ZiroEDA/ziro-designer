@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Image Converter frame, the browser counterpart of KiCad's `bitmap2cmp`
  * (`bitmap2cmp_frame.cpp` + `bitmap2cmp_panel.cpp`). The layout mirrors

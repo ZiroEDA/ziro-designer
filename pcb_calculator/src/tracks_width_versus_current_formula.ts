@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * IPC-2221 track width vs. current capacity, plus the derived resistance /
  * voltage-drop / power-loss figures shown on the panel.

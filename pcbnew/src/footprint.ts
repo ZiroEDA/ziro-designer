@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * FOOTPRINT, a placed component (pcbnew/footprint.{h,cpp}). Children (pads,
  * fields, graphics, zones) are stored in board-absolute coordinates, exactly

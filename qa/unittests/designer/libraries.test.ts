@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The complete official symbol + footprint libraries must parse with our
  * engines. Local-only sweeps (skipped in CI): merged symbol libraries come

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Multi-sheet project helpers, mirroring KiCad's SCH_SHEET_LIST hierarchy walk:
  * the root schematic references sub-sheets through their "Sheetfile" field, each

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Simulation model resolution for ERC. Counterpart: `eeschema/sim/sim_model.cpp`
  * (`SIM_MODEL::ReadTypeFromFields`, `SIM_MODEL::InferSimModel`) and

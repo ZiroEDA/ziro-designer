@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Buffered symbol-library manager, the web port of KiCad's
  * LIB_SYMBOL_LIBRARY_MANAGER (eeschema/symbol_editor/symbol_library_manager.*).

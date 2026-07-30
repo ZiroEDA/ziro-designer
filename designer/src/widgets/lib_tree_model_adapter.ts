@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Glue between the LIB_TREE widget and the LibTreeNode model: owns the root
  * node, the sort mode, the search scoring pass and the "which rows are shown /

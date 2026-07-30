@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Bitmap image support for the Drawing Sheet Editor, mirroring what
  * BITMAP_BASE does for `pl_editor`: the model stores the PNG payload
