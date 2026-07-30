@@ -28,7 +28,7 @@ const tree: SheetTreeNode = {
 };
 
 describe('flattenHierarchy', () => {
-  it('is depth-first — KiCad virtual page number order', () => {
+  it('is depth-first, KiCad virtual page number order', () => {
     expect(flattenHierarchy(tree).map((s) => s.path)).toEqual(['/', '/a/', '/a/c/', '/b/']);
   });
 });
@@ -49,7 +49,7 @@ describe('SchNavigateTool', () => {
     expect(nav.canGoBack()).toBe(true);
     expect(nav.back()).toBe('/a/');
     expect(nav.back()).toBe('/');
-    expect(nav.back()).toBeNull(); // at the beginning — upstream wxBell()s
+    expect(nav.back()).toBeNull(); // at the beginning, upstream wxBell()s
     expect(nav.forward()).toBe('/a/');
     expect(nav.forward()).toBe('/a/c/');
     expect(nav.forward()).toBeNull();

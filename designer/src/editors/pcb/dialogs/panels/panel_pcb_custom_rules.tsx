@@ -1,6 +1,6 @@
 /**
  * Board Setup > Design Rules > Custom Rules. Counterpart:
- * `pcbnew/dialogs/panel_setup_rules_base.cpp` (PANEL_SETUP_RULES) — a "DRC Rules"
+ * `pcbnew/dialogs/panel_setup_rules_base.cpp` (PANEL_SETUP_RULES), a "DRC Rules"
  * code editor (KiCad uses a wxStyledTextCtrl over the project's `.kicad_dru`
  * text) with a line-number gutter and a syntax-help affordance. Custom rules
  * constrain DRC beyond the per-netclass values.

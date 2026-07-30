@@ -1,7 +1,7 @@
 /**
  * Connection-aware component move (counterpart eeschema/tools/
  * sch_move_tool.cpp getConnectedDragItems + orthoLineDrag): wires whose
- * endpoints sit on a moved symbol's pins follow the move — stretching in
+ * endpoints sit on a moved symbol's pins follow the move, stretching in
  * free mode, gaining 90° bends in H/V mode.
  */
 import { describe, it, expect } from 'vitest';

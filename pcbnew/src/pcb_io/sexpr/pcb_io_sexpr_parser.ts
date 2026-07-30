@@ -1,12 +1,12 @@
 /**
- * PCB_IO_KICAD_SEXPR_PARSER — the `.kicad_pcb` reader
+ * PCB_IO_KICAD_SEXPR_PARSER, the `.kicad_pcb` reader
  * (pcbnew/pcb_io/sexpr/pcb_io_sexpr_parser.cpp). Builds the BOARD
  * object model from file text. KiCad hand-writes a DSN lexer; here the shared
  * S-expr parser (src/sexpr) is the lexer/AST and this class maps the AST to
  * objects (parseBOARD / parseFOOTPRINT / parsePAD / parsePCB_TRACK / …).
  *
  * Footprint children are baked to board-absolute coordinates on read (rotate by
- * the footprint orientation, then translate) — matching both KiCad's in-memory
+ * the footprint orientation, then translate), matching both KiCad's in-memory
  * model (absolute m_pos) and the object model here. Only the modeled grammar is
  * consumed; unmodeled tokens are ignored (they'll be added as the model grows).
  */

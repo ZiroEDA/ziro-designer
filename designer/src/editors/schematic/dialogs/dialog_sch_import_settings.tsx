@@ -1,7 +1,7 @@
 /**
  * Import Settings from Another Project. Counterpart:
  * `eeschema/dialogs/dialog_sch_import_settings_base.cpp`
- * (DIALOG_SCH_IMPORT_SETTINGS) — a project-file picker over the "Import:"
+ * (DIALOG_SCH_IMPORT_SETTINGS), a project-file picker over the "Import:"
  * checkbox list, in upstream's exact order and default states (everything
  * pre-checked except Annotation preferences). OK hands back the picked
  * `.kicad_pro` text plus the chosen options; the Setup dialog then copies the

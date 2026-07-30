@@ -248,7 +248,7 @@ describe('stripline', () => {
 describe('twisted pair', () => {
   const tpEl = { ...el, epsilonR: 3.5, epsilonRenv: 1 };
 
-  it('typical hookup pair lands near 100–150 Ω', () => {
+  it('typical hookup pair lands near 100 to 150 Ω', () => {
     const r = twistedPairAnalyze(
       { dinM: 0.511e-3, doutM: 0.93e-3, twistsPerM: 100, lengthM: 1 },
       tpEl,

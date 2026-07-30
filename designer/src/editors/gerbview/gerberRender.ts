@@ -1,9 +1,9 @@
 /**
- * Canvas 2D renderer for Gerber layers — the app-side mirror of GerbView's
+ * Canvas 2D renderer for Gerber layers, the app-side mirror of GerbView's
  * GAL painter (`gerbview/gerbview_painter.cpp` GERBVIEW_PAINTER::Draw). It draws
  * each visible image into a reusable offscreen buffer honouring Gerber
- * compositing rules — dark objects add, clear objects (LPC) and drilled holes
- * erase, negative images invert, macro exposure-off primitives cut holes — then
+ * compositing rules, dark objects add, clear objects (LPC) and drilled holes
+ * erase, negative images invert, macro exposure-off primitives cut holes, then
  * blends the buffers onto the main canvas in layer order. Display options
  * (sketch modes for flashed/lines/polygons, negative-object ghosting, diff
  * mode, high-contrast dimming, DCode numbers) match the left-toolbar toggles.
@@ -313,7 +313,7 @@ function drawImageToBuffer(
 
 /**
  * Render all layers to the main canvas. `layers` is bottom-to-top; GerbView
- * draws the active layer last (on top) — the caller orders the array so the
+ * draws the active layer last (on top), the caller orders the array so the
  * active layer is at the end.
  */
 export function renderGerberLayers(

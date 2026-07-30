@@ -1,5 +1,5 @@
 /**
- * D_CODE — a Gerber aperture, mirroring `gerbview/dcode.h/.cpp`. Each aperture
+ * D_CODE, a Gerber aperture, mirroring `gerbview/dcode.h/.cpp`. Each aperture
  * has a shape (circle, rect, obround, regular polygon, or a macro reference),
  * outer dimensions, and an optional drilled hole (round or rectangular) that is
  * cleared from the flashed pad. Dimensions are stored in the file unit that was

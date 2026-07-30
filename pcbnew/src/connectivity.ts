@@ -2,7 +2,7 @@
  * Board connectivity: which track/arc endpoints attach to which pads/vias.
  *
  * A minimal port of the piece of pcbnew's CONNECTIVITY_DATA the interactive
- * editor needs first — enough to answer "when this footprint moves, which track
+ * editor needs first, enough to answer "when this footprint moves, which track
  * ends should move with it?" (EDIT_TOOL's drag vs. move). KiCad decides two
  * copper items touch when they share a net and their shapes overlap; here a
  * track end attaches to a pad when it lands inside the pad's copper on a shared
@@ -25,7 +25,7 @@ const padAnchor = (pad: PcbPad): Vec2 => pad.at;
 
 /**
  * Does point `pt` (a track end) sit on `pad`'s copper? Uses the pad's circular
- * extent (half its larger dimension) — generous enough to catch routes that end
+ * extent (half its larger dimension), generous enough to catch routes that end
  * a hair off the exact centre, without reaching neighbouring pads.
  */
 function endOnPad(pt: Vec2, pad: PcbPad): boolean {
@@ -46,7 +46,7 @@ function movingPads(board: Board, footprintIdx: ReadonlySet<number>): PcbPad[] {
 
 /**
  * Track/arc endpoints attached (same net + on-pad) to any pad of the given
- * footprints — the ends a drag should carry so the routing stretches with the
+ * footprints, the ends a drag should carry so the routing stretches with the
  * part. A track selected in its own right is the caller's concern; this only
  * reports the attachment geometry.
  */

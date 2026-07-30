@@ -6,7 +6,7 @@
  * fractures the result so each outline is a single self-touching ring that a
  * solid `fp_poly` / outline-filled `polyline` can represent. We do the same with
  * a bridge merge adapted from the hole-elimination step of the `earcut`
- * triangulation library (ISC, © Mapbox) — only the linked-list bridging is
+ * triangulation library (ISC, © Mapbox), only the linked-list bridging is
  * ported, not the triangulation.
  */
 
@@ -211,7 +211,7 @@ function eliminateHole(hole: Node, outerNode: Node): Node {
 
 /**
  * Merge holes into an outline, returning one closed ring with zero-width bridges
- * at each hole — the fractured outline KiCad emits. With no holes the outline is
+ * at each hole, the fractured outline KiCad emits. With no holes the outline is
  * returned unchanged.
  */
 export function fractureWithHoles(outer: Pt[], holes: Pt[][]): Pt[] {

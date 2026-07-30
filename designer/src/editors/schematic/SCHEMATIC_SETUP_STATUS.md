@@ -1,4 +1,4 @@
-# Schematic Setup — implementation status
+# Schematic Setup, implementation status
 
 Exact state of the Schematic Setup dialog (KiCad `DIALOG_SCHEMATIC_SETUP`
 counterpart) as of PR #134. "End to end" means: edited in the dialog →
@@ -27,17 +27,17 @@ Ground truth for every mapping below is the KiCad source
 
 ### ✅ Working end to end
 
-- **Violation Severity** — every rule's error/warning/ignore drives `runErc`;
+- **Violation Severity**, every rule's error/warning/ignore drives `runErc`;
   persisted under `erc.rule_severities`. File keys differ from our codes:
   `label_not_connected`→`label_dangling`, `label_single_pin`→`isolated_pin_label`,
   `pin_to_pin_warning`→`pin_to_pin`; `pin_to_pin_error` is intentionally
   file-less (upstream shares the `pin_to_pin` key and only serializes the
   warning row).
-- **Pin Conflicts Map** — 12×12 matrix drives pin-to-pin ERC; persisted as
+- **Pin Conflicts Map**, 12×12 matrix drives pin-to-pin ERC; persisted as
   `erc.pin_map` (wrong-sized matrices rejected on read, like upstream).
-- **ERC exclusions** — persisted as `[signature, comment]` pairs under
+- **ERC exclusions**, persisted as `[signature, comment]` pairs under
   `erc.erc_exclusions`; comments of surviving signatures preserved.
-- **Formatting** — all consumable fields live, on screen *and* print/plot:
+- **Formatting**, all consumable fields live, on screen *and* print/plot:
   - *Default line width* → pen for zero-width strokes (`defaultPenIU`).
   - *Default text size* → new label/text dialogs seed from it
     (`DIALOG_LABEL_PROPERTIES` behavior).
@@ -55,27 +55,27 @@ Ground truth for every mapping below is the KiCad source
   - *Pin symbol size* → negation bubble / polarity slopes / clock notch, with
     KiCad's 0-fallback (number-size/2 external, name-size/2 else number/2 clock).
   - *Connection grid* → the `endpoint_off_grid` ERC rule (see below). This is
-    the setting's ONLY real KiCad consumer — editor snapping uses the user
+    the setting's ONLY real KiCad consumer, editor snapping uses the user
     grid preferences, not `m_ConnectionGridSize`.
-- **`endpoint_off_grid` ERC rule** (`ERC_TESTER::TestOffGridEndpoints` port) —
+- **`endpoint_off_grid` ERC rule** (`ERC_TESTER::TestOffGridEndpoints` port),
   wire/bus endpoints (marker at start, else end; one per line), bus-entry
   points, first off-grid pin per symbol (NC-type pins exempt). Default
   severity: warning.
 
-- **Annotation** (PR #118) — the Annotate dialog seeds sort/method/start
+- **Annotation** (PR #118), the Annotate dialog seeds sort/method/start
   number from the project settings on open and writes changes back on every
   close (`DIALOG_ANNOTATE`), via the shared `commitSetup` flow.
-- **Field Name Templates** (PR #119) — Symbol Properties appends template
+- **Field Name Templates** (PR #119), Symbol Properties appends template
   fieldnames not yet on the symbol (empty rows with the template's Visible
   flag; named-but-empty rows survive OK); Bulk Edit Symbol Fields offers
   template columns.
-- **BOM Presets** (PR #120) — full `BOM_PRESET`/`BOM_FMT_PRESET` bodies; the
+- **BOM Presets** (PR #120), full `BOM_PRESET`/`BOM_FMT_PRESET` bodies; the
   Generate BOM dialog has view + format preset pickers (KiCad's exact
   built-ins plus saved ones), editable delimiters, and Save Preset. Exporter
   ports: `bomToDelimited` (delimiter wrapping/doubling, tab/newline
   stripping) and `refsShorthand` (`R1-R4` range collapsing). Built-ins never
   persist, like upstream.
-- **Net Classes** (PR #121) — `resolveEffectiveNetClass`
+- **Net Classes** (PR #121), `resolveEffectiveNetClass`
   (`GetEffectiveNetClass` port: prefix + `*`/`?` pattern matching, grid-order
   priority merge, Default completion, composite `Effective for net: <net>`
   naming); wires/buses without their own stroke draw with the resolved
@@ -83,27 +83,27 @@ Ground truth for every mapping below is the KiCad source
   the message panel shows the real Resolved Netclass. Known deviation: the
   grid can't express an unset line style, so only non-Solid styles
   contribute to merges.
-- **Text Variables** (PR #122) — `expandTextVars` +
+- **Text Variables** (PR #122), `expandTextVars` +
   `schematicTextVarResolver` (`eeschema/src/tools/text_vars.ts`): recursive
   `${VAR}` expansion with the TITLE_BLOCK / SCHEMATIC / PROJECT token set,
   applied at the renderer's GetShownText choke points (labels, free text,
   text boxes, tables, fields) on screen, print and plot.
-- **Bus Alias Definitions** (PR #123) — persist at `schematic.bus_aliases`
+- **Bus Alias Definitions** (PR #123), persist at `schematic.bus_aliases`
   in `.kicad_pro`, where current KiCad stores them (the schematic writer no
   longer emits `bus_alias` nodes; the parser only accepts legacy ones).
-- **Bus connectivity** (PRs #124–#126) — `NET_SETTINGS` bus-label parsing +
+- **Bus connectivity** (PRs #124-#126), `NET_SETTINGS` bus-label parsing +
   member expansion (`eeschema/src/connectivity/bus.ts`), bus subgraphs with
   member-net joins in the netlist (separate union-find; entries split
   bus-side/wire-side; aliases unfold), and the three bus ERC rules
   (`net_not_bus_member`, `bus_to_net_conflict`, `bus_to_bus_conflict`).
-- **Annotation leftovers** (PR #127) — `SubReference` unit-notation display
+- **Annotation leftovers** (PR #127), `SubReference` unit-notation display
   (`U1A`/`U1.1`/…) through fields/panels, `reuse_designators` honored via the
   `REFDES_TRACKER` port (serialize/deserialize in
   `schematic.used_designators`), and the dialog's Reset-to-Defaults +
   Import-Settings buttons (exact `DIALOG_SCH_IMPORT_SETTINGS` checkbox set).
-- **Net Chains** (PR #134) — detection AND the committed store are live:
+- **Net Chains** (PR #134), detection AND the committed store are live:
   `CONNECTION_GRAPH::RebuildNetChains` port
-  (`eeschema/src/connectivity/net_chains.ts`) — nets bridged through 2-pin
+  (`eeschema/src/connectivity/net_chains.ts`), nets bridged through 2-pin
   passives with collinear wires, power-edge drops, leaf/stub pruning,
   label-driven naming, plus `(net_chain …)` node persistence in `.kicad_sch`
   (parse/write per `parseSchNetChain` / `SCH_IO_KICAD_SEXPR::Format`), the
@@ -113,35 +113,35 @@ Ground truth for every mapping below is the KiCad source
   application into netclass resolution (`ApplyNetChainNetclasses`). The Setup
   grid edits committed chains (rename/netclass/colour/delete) with
   `ApplyEdits`' chain→class rekeying into `net_settings.net_chain_classes`.
-- **Net-chain editor tools** (PR #134) — the Create Net Chain dialog
+- **Net-chain editor tools** (PR #134), the Create Net Chain dialog
   (`DIALOG_CREATE_NET_CHAIN` port: uncommitted potentials, editable suggested
   names, terminals column, focus hints, multi-create), plus the context-menu
   actions Highlight Net Chain (member nets brighten; wires tint in the
   chain's colour), Remove from Net Chain (`(passthrough block)` on bridging
   symbols, undoable) and Name Net Chain (rename with collision rejection and
   chain→class rekeying).
-- **Wire hop-overs** (PR #134) — Formatting's Hop-over size choice draws hop
+- **Wire hop-overs** (PR #134), Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
   `BuildWireWithHopShape` ports (`eeschema/src/tools/hop_over.ts`, with
   `SEG::Intersect`'s integer parametric test and `CalcArcCenter` in
   `libs/kimath/src/trigo.ts`); arc radius = default line width ×
   `hopover_size_mult_list[choice]`; screen, print and plot.
-- **Embedded Files, write side** (PR #134) — add/remove/export are live:
+- **Embedded Files, write side** (PR #134), add/remove/export are live:
   `CompressAndEncode`/`DecompressAndDecode` ports in
   `eeschema/src/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
   76-column `|`-delimited base64, MurmurHash3 x64_128 checksum with the V1
-  tail and legacy SHA-256 fallbacks — `libs/kimath/src/mmh3_hash.ts`);
+  tail and legacy SHA-256 fallbacks, `libs/kimath/src/mmh3_hash.ts`);
   AddFile's extension→type table and name-sorted collection; the panel adds
   via multi-file picker, exports all files as downloads, and OK applies to
   the document (undoable source swap).
-- **Inter-sheet references** (PR #134) — Formatting's show flag draws the
+- **Inter-sheet references** (PR #134), Formatting's show flag draws the
   implicit "Intersheet References" field beside global labels:
   `RecomputeIntersheetRefs` map build + `ResolveTextVar` INTERSHEET_REFS
   ports (`eeschema/src/tools/intersheet_refs.ts`), autoplaced past the flag
   tail per `AutoplaceFields` or at the stored field position; own-page /
   abbreviated / prefix / suffix options all live; per-sheet virtual page on
   screen, print and plot.
-- **Embedded Files, read side** (PR #123) — the page lists the document's
+- **Embedded Files, read side** (PR #123), the page lists the document's
   real `embedded_files` section (names, types, `kicad-embed://` references)
   and the `embedded_fonts` flag via `listEmbeddedFiles`
   (`eeschema/src/tools/embedded.ts`), refreshed on every dialog open; the
@@ -154,12 +154,12 @@ Ground truth for every mapping below is the KiCad source
 
 ### 🔴 Not implemented (deliberate)
 
-(nothing — every page short of the simulator-bound OPO fields is live)
+(nothing, every page short of the simulator-bound OPO fields is live)
 
 ## Gotchas encoded in the serializer (don't rediscover these)
 
 - Ratio fields are stored raw in the file but shown ×100 in the panel
-  (`text_offset_ratio` 0.15 ↔ 15) — except overbar, which is raw everywhere.
+  (`text_offset_ratio` 0.15 ↔ 15), except overbar, which is raw everywhere.
 - `PARAM_SCALED` sizes are stored in **mils** (scale `1/IU_PER_MILS`); 1 mil
   = 254 IU.
 - The writer merges: it must never touch keys it doesn't own
@@ -169,8 +169,8 @@ Ground truth for every mapping below is the KiCad source
 - KiCad defaults that differ from naive guesses: intersheet prefix/suffix are
   `[` / `]`, `reuse_designators` defaults **true**.
 
-## Remaining work (phases A–H1 in PRs #113–#123; buses #124–#126; quick-wins
+## Remaining work (phases A-H1 in PRs #113-#123; buses #124-#126; quick-wins
 ## #127; net chains + hop-overs + inter-sheet refs #134)
 
-1. OPO fields — blocked on a simulator (plan: ngspice WASM in a worker;
+1. OPO fields, blocked on a simulator (plan: ngspice WASM in a worker;
    first chunk is the NETLIST_EXPORTER_SPICE port).

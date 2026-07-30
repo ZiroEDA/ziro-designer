@@ -1534,7 +1534,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       if (activeTool === 'junction') {
         // SCH_DRAWING_TOOLS::SingleClickPlace refuses a dot where nothing joins
-        //, otherwise the schematic cleanup would drop it again straight away,
+        // - otherwise the schematic cleanup would drop it again straight away,
         // which reads as "the tool did nothing".
         const at = snapConn(world);
         if (!isExplicitJunctionAllowed(schematic, libById, at)) {

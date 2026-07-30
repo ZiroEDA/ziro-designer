@@ -2,7 +2,7 @@
  * Project-scoped schematic settings: the data model edited by the Schematic
  * Setup dialog. Counterpart: `eeschema/schematic_settings.h`
  * (SCHEMATIC_SETTINGS) plus the NET_SETTINGS / project-file slices the dialog's
- * pages edit — kept apart from the panel components (KiCad's data/UI split, and
+ * pages edit, kept apart from the panel components (KiCad's data/UI split, and
  * a plain .ts module so the engine, the .kicad_pro serializer and tests can
  * import it without pulling in React panels).
  *
@@ -228,12 +228,12 @@ export interface BomFmtPreset {
 export interface BomPresets {
   presets: BomPreset[];
   fmtPresets: BomFmtPreset[];
-  /** schematic.bom_settings — the view the fields table last had
+  /** schematic.bom_settings, the view the fields table last had
    *  (SCHEMATIC_SETTINGS::m_BomSettings, default "Default Editing"). */
   settings: BomPreset;
-  /** schematic.bom_fmt_settings — the last output format (default CSV). */
+  /** schematic.bom_fmt_settings, the last output format (default CSV). */
   fmtSettings: BomFmtPreset;
-  /** schematic.bom_export_filename — the Export tab's output file. */
+  /** schematic.bom_export_filename, the Export tab's output file. */
   exportFileName: string;
 }
 
@@ -252,7 +252,7 @@ const bomField = (name: string, label: string, show: boolean, groupBy: boolean):
   groupBy,
 });
 
-/** BOM_PRESET::BuiltInPresets() — Default Editing, Grouped By Value,
+/** BOM_PRESET::BuiltInPresets(), Default Editing, Grouped By Value,
  *  Grouped By Value and Footprint, Attributes (bom_settings.cpp). */
 export function bomBuiltInPresets(): BomPreset[] {
   const base = {
@@ -326,7 +326,7 @@ export function bomBuiltInPresets(): BomPreset[] {
   ];
 }
 
-/** BOM_FMT_PRESET::BuiltInPresets() — CSV, TSV, Semicolons. */
+/** BOM_FMT_PRESET::BuiltInPresets(), CSV, TSV, Semicolons. */
 export function bomFmtBuiltInPresets(): BomFmtPreset[] {
   const base = { readOnly: true, refRangeDelimiter: '', keepTabs: false, keepLineBreaks: false };
   return [
@@ -369,7 +369,7 @@ export interface NetChainClass {
   members: number;
 }
 export interface NetChainsData {
-  /** Committed chains — the dialog grid rows (loadFromModel lists only the
+  /** Committed chains, the dialog grid rows (loadFromModel lists only the
    *  committed set; potentials become committed via the editor tools). */
   chains: NetChain[];
   classes: NetChainClass[];
@@ -504,7 +504,7 @@ export function resolveEffectiveNetClass(
     c === dflt ? Number.MAX_SAFE_INTEGER : data.classes.indexOf(c) - 1;
   const matched: NetClass[] = [];
   if (netName) {
-    // User pattern assignments first, then chain-derived ones — the same two
+    // User pattern assignments first, then chain-derived ones, the same two
     // applyPatternList calls in NET_SETTINGS::GetEffectiveNetClass; chain
     // netclasses must exist (ApplyNetChainNetclasses' HasNetclass gate).
     for (const a of [...data.assignments, ...(chainAssignments ?? [])]) {
@@ -539,7 +539,7 @@ export function resolveEffectiveNetClass(
     if (bus !== undefined) eff.busWidthMils = bus;
     if (c.color) eff.color = c.color;
     // The grid can't express an unset style (rows default to Solid), so only
-    // a non-Solid choice contributes — KiCad's HasLineStyle() equivalent.
+    // a non-Solid choice contributes, KiCad's HasLineStyle() equivalent.
     if (c.lineStyle && c.lineStyle !== 'Solid') eff.lineStyle = c.lineStyle;
   }
   return eff;
@@ -576,7 +576,7 @@ export const DEFAULT_WIRE_WIDTH_MILS = 6;
  *  (None, Smallest, Small, Default, Large, Largest). */
 export const JUNCTION_SIZE_MULT = [0, 1.7, 4, 6, 9, 12] as const;
 
-/** SCHEMATIC_SETTINGS::GetJunctionSize — the effective dot diameter (IU) for
+/** SCHEMATIC_SETTINGS::GetJunctionSize, the effective dot diameter (IU) for
  *  junctions without an explicit diameter: Default-netclass wire width × the
  *  choice multiplier, floored at 1 IU ("None" → 1 = draw no dot). */
 export function junctionDotDiameterIU(s: SchematicSetup): number {
@@ -591,7 +591,7 @@ export function junctionDotDiameterIU(s: SchematicSetup): number {
  *  (None, Smallest, Small, Medium, Large, Largest). */
 export const HOP_OVER_SIZE_MULT = [0, 1.7, 4, 6, 9, 12] as const;
 
-/** SCHEMATIC_SETTINGS::GetHopOverScale × m_DefaultLineWidth — the painter's
+/** SCHEMATIC_SETTINGS::GetHopOverScale × m_DefaultLineWidth, the painter's
  *  hop-over arc radius in IU (sch_painter.cpp draw(SCH_LINE): arcRadius =
  *  defaultLineWidth × hopOverScale). 0 = hop-overs off ("None"). */
 export function hopOverArcRadiusIU(s: SchematicSetup): number {

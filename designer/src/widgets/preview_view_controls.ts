@@ -2,9 +2,9 @@
  * Mouse zoom/pan for the small preview canvases (symbol chooser, footprint
  * chooser, CVPCB's viewer).
  *
- * Upstream these panes are real GAL canvases — SYMBOL_PREVIEW_WIDGET hosts a
+ * Upstream these panes are real GAL canvases, SYMBOL_PREVIEW_WIDGET hosts a
  * SCH_PREVIEW_PANEL and FOOTPRINT_PREVIEW_WIDGET a FOOTPRINT_PREVIEW_PANEL,
- * both EDA_DRAW_PANEL_GALs — so they get WX_VIEW_CONTROLS for free: the wheel
+ * both EDA_DRAW_PANEL_GALs, so they get WX_VIEW_CONTROLS for free: the wheel
  * zooms about the cursor (`VIEW::SetScale(scale * exp(…), ToWorld(cursor))`)
  * and a middle/right drag pans, exactly as on the editor canvas. The view is
  * refit whenever the pane is resized or the displayed item changes
@@ -16,7 +16,7 @@ import type { InputPrefs } from '../editors/schematic/components/SchematicCanvas
 import { DEFAULT_INPUT_PREFS } from '../editors/schematic/components/SchematicCanvas.js';
 import { settings } from '../prefs/settings.js';
 
-/** The mouse settings the preview panes use when their owner passes none —
+/** The mouse settings the preview panes use when their owner passes none,
  *  COMMON_SETTINGS m_Input, the same source WX_VIEW_CONTROLS reads. */
 export function commonInputPrefs(): InputPrefs {
   const input = settings.common.input;

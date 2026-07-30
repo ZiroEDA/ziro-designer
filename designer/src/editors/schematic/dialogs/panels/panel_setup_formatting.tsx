@@ -1,11 +1,11 @@
 /**
  * Schematic Setup > Formatting. Counterpart:
- * `eeschema/dialogs/panel_setup_formatting_base.cpp` (PANEL_SETUP_FORMATTING) —
+ * `eeschema/dialogs/panel_setup_formatting_base.cpp` (PANEL_SETUP_FORMATTING),
  * the SCHEMATIC_SETTINGS formatting fields in KiCad's two-column layout:
  *   left column  : Text, Symbols, Connections
  *   right column : Inter-sheet References, Dashed Lines, Operating-point Overlay
  *
- * (Symbol unit notation lives on the separate Annotation page, not here — see
+ * (Symbol unit notation lives on the separate Annotation page, not here, see
  * panel_eeschema_annotation_options.tsx.)
  *
  * Field sizing mirrors upstream: value controls grow to fill the group's second

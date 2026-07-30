@@ -22,7 +22,7 @@ import './ui/shell.css';
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
-// Non-text project files (plot / export outputs) that must stay raw bytes —
+// Non-text project files (plot / export outputs) that must stay raw bytes,
 // decoding them as UTF-8 would corrupt them.
 const BINARY_RE = /\.(png|jpe?g|gif|bmp|pdf|zip|step|stp|stl|wrl|glb)$/i;
 const pickedFromStored = (f: { name: string; bytes: Uint8Array }): PickedFile =>
@@ -47,7 +47,7 @@ const projBaseOf = (proName: string): string => pcbBasename(proName).replace(/\.
 
 // Does `fileName` belong to the project whose basename is `base`? KiCad's per-
 // project files share the exact basename (proj.kicad_sch / proj.kicad_pcb), so
-// the file basename starts with "base." — this keeps "proj" and "proj_v2" apart.
+// the file basename starts with "base.", this keeps "proj" and "proj_v2" apart.
 const inProject = (fileName: string, base: string): boolean =>
   pcbBasename(fileName).toLowerCase().startsWith(`${base.toLowerCase()}.`);
 
@@ -61,7 +61,7 @@ const projectDirPrefix = (files: PickedFile[]): string => {
 
 /**
  * Top-level app: KiCad's project manager, then the schematic, symbol and PCB
- * editors. Like KiCad, the editors share one open project and stay resident —
+ * editors. Like KiCad, the editors share one open project and stay resident,
  * you cross-navigate between them (eeschema's "Open PCB" / "Symbol Editor",
  * pcbnew's "Open Schematic", the symbol editor's "Add symbol to schematic")
  * without reloading or losing state. Each is kept mounted once used and toggled
@@ -118,7 +118,7 @@ export function App(): JSX.Element {
     nonce: number;
   } | null>(null);
   // Editors stay mounted (display toggled by CSS) but their global hotkey
-  // handlers must only act for the visible frame — a keystroke in eeschema
+  // handlers must only act for the visible frame, a keystroke in eeschema
   // must not drive the hidden board editor. Handlers read this stamp.
   useEffect(() => {
     document.body.dataset.activeView = view;
@@ -126,7 +126,7 @@ export function App(): JSX.Element {
 
   // Restore the last view on reload: reopen the most-recently-opened project
   // (top of Recent) into the saved view, so a refresh doesn't lose your work.
-  // On reload, reopen the most-recently-opened project (top of Recent) — into
+  // On reload, reopen the most-recently-opened project (top of Recent), into
   // the home file manager and, if that's where you were, the editor view too.
   const [restoring, setRestoring] = useState(() => !!loadSession());
   const restored = useRef(false);
@@ -167,7 +167,7 @@ export function App(): JSX.Element {
 
   // Autosave: the schematic editor hands us its updated sheets (by basename).
   // Debounce-write just those files back to IndexedDB (preserving the rest), so
-  // a reload restores your edits — without touching projectFiles (that would
+  // a reload restores your edits, without touching projectFiles (that would
   // remount/reset the live editor). Names come from the open project.
   const projectFilesRef = useRef(projectFiles);
   projectFilesRef.current = projectFiles;
@@ -207,14 +207,14 @@ export function App(): JSX.Element {
     },
     [writePending],
   );
-  // Flush any pending autosave now — on leaving an editor and before reopening,
+  // Flush any pending autosave now, on leaving an editor and before reopening,
   // so a quick "edit → home → reopen" never reads a stale project.
   const schFlush = useRef<(() => void) | null>(null);
   const registerSchFlush = useCallback((fn: (() => void) | null) => {
     schFlush.current = fn;
   }, []);
   // Edits mirrored into the in-memory project so the home tree (and a reopen
-  // from it) reflect them — autosave only writes IndexedDB, which a tree reopen
+  // from it) reflect them, autosave only writes IndexedDB, which a tree reopen
   // does not re-read. Cleared when a project is (re)opened.
   const liveEdits = useRef<Map<string, string>>(new Map());
   const flushSaves = useCallback(() => {
@@ -229,8 +229,8 @@ export function App(): JSX.Element {
   }, [projectFiles]);
 
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
-  // used for discrete actions — drawing-sheet reference changes and Save to
-  // Project — so a "go back and reopen" reads them straight back.
+  // used for discrete actions, drawing-sheet reference changes and Save to
+  // Project, so a "go back and reopen" reads them straight back.
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
     if (!cur || files.length === 0 || !storageAvailable()) return;
@@ -266,7 +266,7 @@ export function App(): JSX.Element {
   // Serializes the IndexedDB writes a plot run kicks off (see onOutputFile).
   const outputWrites = useRef<Promise<void>>(Promise.resolve());
   // A generated output file (plot / export) from an editor: drop it into the
-  // project — under the project's folder — so it appears in the home file
+  // project, under the project's folder, so it appears in the home file
   // manager (from which the user downloads it to local storage), and persist
   // the raw bytes so it survives a reload. `relPath` is relative to the project
   // folder and may name a sub-folder ("gerbers/board-F_Cu.gbr").
@@ -274,7 +274,7 @@ export function App(): JSX.Element {
     const baseName = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
     const cur = projectFilesRef.current;
     if (!cur) {
-      // No project to file it under — fall back to a plain browser download.
+      // No project to file it under, fall back to a plain browser download.
       const blob = new Blob([bytes.buffer as ArrayBuffer], {
         type: mime || 'application/octet-stream',
       });
@@ -293,7 +293,7 @@ export function App(): JSX.Element {
     // A plot run writes a whole set of files back-to-back (one Gerber per
     // layer). updateProjectFiles is a read-modify-write of the one project
     // record, so overlapping calls would each start from a stale copy and the
-    // last write would drop the others — chain them instead.
+    // last write would drop the others, chain them instead.
     outputWrites.current = outputWrites.current
       .then(async () => {
         const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
@@ -324,7 +324,7 @@ export function App(): JSX.Element {
     () => !!projectFiles?.some((f) => /\.kicad_sch$/i.test(f.name)),
     [projectFiles],
   );
-  // The folder's identity (first .kicad_pro) — stable across in-folder project
+  // The folder's identity (first .kicad_pro), stable across in-folder project
   // switches, so it keys the "new project opened" reset without self-firing.
   const folderName = useMemo(
     () =>
@@ -335,7 +335,7 @@ export function App(): JSX.Element {
           : '',
     [projectFiles, standalonePcb],
   );
-  // KiCad shows "<project> — <Editor>" in the window title; we put it in the
+  // KiCad shows "<project>, <Editor>" in the window title; we put it in the
   // menu bar. With several projects in a folder, it names the active one.
   const projectName = activeBase || folderName;
 

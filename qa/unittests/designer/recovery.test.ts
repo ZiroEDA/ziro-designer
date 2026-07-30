@@ -1,5 +1,5 @@
 /**
- * Crash recovery — getting the open project out of a broken session
+ * Crash recovery, getting the open project out of a broken session
  * (designer/src/home/recovery.ts).
  *
  * Unlike Archive Project, recovery deliberately ignores KiCad's archive
@@ -28,7 +28,7 @@ function roundTrip(snap: RecoverySnapshot): Record<string, Uint8Array> {
 /** One entry, failing loudly rather than yielding `undefined`. */
 function at(zip: Record<string, Uint8Array>, name: string): Uint8Array {
   const data = zip[name];
-  if (!data) throw new Error(`missing "${name}" — archive holds: ${Object.keys(zip).join(', ')}`);
+  if (!data) throw new Error(`missing "${name}", archive holds: ${Object.keys(zip).join(', ')}`);
   return data;
 }
 
@@ -44,7 +44,7 @@ describe('getRecoverySnapshot', () => {
     expect(getRecoverySnapshot()).toBeNull();
   });
 
-  it('survives a provider that throws — the app is already broken', () => {
+  it('survives a provider that throws, the app is already broken', () => {
     setRecoveryProvider(() => {
       throw new Error('state is gone');
     });

@@ -20,7 +20,7 @@ export interface FootprintShift {
 }
 
 /**
- * PAD::GetFPRelativePosition — a pad's position in its footprint's own frame,
+ * PAD::GetFPRelativePosition, a pad's position in its footprint's own frame,
  * recovered from the board-absolute position this model stores (the inverse of the
  * reader's `toBoard`).
  */
@@ -30,7 +30,7 @@ const padRelativePosition = (fp: PcbFootprint, pad: { at: VECTOR2I }): VECTOR2I 
 /**
  * The pads of a footprint whose number is unique within it, keyed by number. A
  * repeated number tells us nothing about which pad corresponds to which in the
- * other footprint, so those are dropped — pad numbers cover 99% of cases.
+ * other footprint, so those are dropped, pad numbers cover 99% of cases.
  */
 function uniquelyNumberedPads(fp: PcbFootprint): Map<string, VECTOR2I> {
   const result = new Map<string, VECTOR2I>();
@@ -51,7 +51,7 @@ function uniquelyNumberedPads(fp: PcbFootprint): Map<string, VECTOR2I> {
 }
 
 /**
- * ComputeFootprintShift — the position and orientation shift to apply to `next` so
+ * ComputeFootprintShift, the position and orientation shift to apply to `next` so
  * its pads sit where `existing`'s pads sit. Returns null when no useful pair of
  * pads is shared, which callers read as "place it exactly where the old one was".
  */

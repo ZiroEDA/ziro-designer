@@ -85,7 +85,7 @@ describe('drc engine (slice 1)', () => {
   it('roundrect corners are exact (no false positive in the corner radius)', () => {
     // 1x1mm roundrect, ratio 0.25 -> corner radius 0.25mm: corner circle
     // center (0.25,0.25). A 0.1mm track point at (0.663,0.663) has an exact
-    // gap of ~0.284mm (> 0.2 clearance) — the OUTER RECTANGLE approximation
+    // gap of ~0.284mm (> 0.2 clearance), the OUTER RECTANGLE approximation
     // would report ~0.18mm and falsely flag it.
     const clear = board(`
       (footprint "R" (at 0 0)

@@ -42,7 +42,7 @@ const chainsOf = (d: ReturnType<typeof doc>) =>
 
 describe('detectNetChains', () => {
   // R1 at 90° spans (10-2.54, 10)..(10+2.54, 10) horizontally; wires left and
-  // right are horizontal and collinear (same y) — the default-mode gate.
+  // right are horizontal and collinear (same y), the default-mode gate.
   const TWO_NETS = `
     ${res('R1', 10, 10, 'r1')}
     (wire (pts (xy 0 10) (xy 7.46 10)) (uuid "wa"))

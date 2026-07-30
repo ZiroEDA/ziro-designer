@@ -13,7 +13,7 @@
  * minimum line width is disabled for DXF; PDF and DXF options grey out unless
  * their format is picked and the PNG group only appears for PNG.
  *
- * Web deltas — the browser has no filesystem, so the output directory is a
+ * Web deltas, the browser has no filesystem, so the output directory is a
  * folder inside the *project* (our cloud file manager) rather than a disk path,
  * and its browse button lists the project's folders. Everything plotted lands
  * there; "Download a copy to this computer" additionally streams the file

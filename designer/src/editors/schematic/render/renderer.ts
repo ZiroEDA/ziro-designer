@@ -1680,7 +1680,7 @@ function drawLabel(
         const fh = field?.effects?.fontSize?.[0] ?? 1.27 * MM;
         if (intersheetRefsAutoplaced(l, field)) {
           // SCH_LABEL_BASE::AutoplaceFields: the refs sit past the flag's tail
-          //, offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
+          // - offset = bodyBBox.GetSizeMax() + 2 × GetTextOffset(), justified
           // back toward the label, rotated with the spin.
           const margin = 2 * Math.round(g_textOffsetRatio * h);
           let minX = Infinity,

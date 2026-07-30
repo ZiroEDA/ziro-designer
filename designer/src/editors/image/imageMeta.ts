@@ -1,5 +1,5 @@
 /**
- * Image-file metadata for the Image Converter — the browser stand-in for what
+ * Image-file metadata for the Image Converter, the browser stand-in for what
  * `BITMAP2CMP_PANEL::OpenProjectFiles` reads through wxImage: the embedded
  * resolution (`wxIMAGE_OPTION_RESOLUTIONX/Y`, converted from per-cm when
  * needed) and the bitmap depth shown as "BPP". Canvas decoding flattens both

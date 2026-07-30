@@ -2,7 +2,7 @@
  * Browser-side project opening: walk a picked directory (File System Access
  * API), a dropped folder (webkit directory entries), or a plain file list
  * into lazy byte readers for the launcher's ingest path. No direct upstream
- * counterpart — the desktop suite opens projects through the OS file dialog
+ * counterpart, the desktop suite opens projects through the OS file dialog
  * (kicad/kicad_manager_frame.cpp); this module is that behavior's web
  * equivalent. Pure logic against structural interfaces, so it is unit-tested
  * with fakes.

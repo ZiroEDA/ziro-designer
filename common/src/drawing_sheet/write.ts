@@ -17,6 +17,7 @@
 
 import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/src/types.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
+import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
 import {
   WKS_FILE_VERSION,
   WKS_GENERATOR_VERSION,
@@ -50,7 +51,7 @@ function optionNode(base: WksItemBase): SNode[] {
   return base.option !== 'normal' ? [list(A('option'), A(base.option))] : [];
 }
 
-/** `(repeat N) (incrx …) (incry …) [(incrlabel …)]` — formatRepeatParameters. */
+/** `(repeat N) (incrx …) (incry …) [(incrlabel …)]`, formatRepeatParameters. */
 function repeatNodes(base: WksItemBase, isText: boolean): SNode[] {
   if (base.repeat <= 1) return [];
   const out: SNode[] = [numNode('repeat', base.repeat)];
@@ -209,8 +210,8 @@ export function writeDrawingSheet(sheet: WksSheet): SList {
   return list(
     A('kicad_wks'),
     list(A('version'), A(String(WKS_FILE_VERSION))),
-    list(A('generator'), S('pl_editor')),
-    list(A('generator_version'), S(WKS_GENERATOR_VERSION)),
+    list(A('generator'), S(GENERATOR)),
+    list(A('generator_version'), S(GENERATOR_VERSION)),
     setup,
     ...items,
   );

@@ -7,7 +7,7 @@ export interface ToolButton {
   icon: string;
   title: string;
   toggle?: boolean;
-  /** Feature not implemented yet — shown greyed in its upstream position. */
+  /** Feature not implemented yet, shown greyed in its upstream position. */
   disabled?: boolean;
 }
 
@@ -51,7 +51,7 @@ interface Props {
   onActivate?: (id: string) => void;
   /** Widgets for the `{ control }` entries, keyed by control name. */
   controls?: Record<string, ReactNode>;
-  /** Rendered after the buttons — toolbar CONTROLS (choices etc.). */
+  /** Rendered after the buttons, toolbar CONTROLS (choices etc.). */
   trailing?: ReactNode;
 }
 

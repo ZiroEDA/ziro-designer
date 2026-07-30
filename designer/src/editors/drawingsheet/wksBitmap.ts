@@ -2,7 +2,7 @@
  * Bitmap image support for the Drawing Sheet Editor, mirroring what
  * BITMAP_BASE does for `pl_editor`: the model stores the PNG payload
  * (base64, as the `(data …)` chunks in the file), the DPI comes from the
- * image itself (the PNG pHYs chunk — 300 when absent, as wxImage reports),
+ * image itself (the PNG pHYs chunk, 300 when absent, as wxImage reports),
  * and the drawn size is `pixels / ppi` inches at the item's scale.
  *
  * The engine model can't decode images (no DOM), so this browser-side module

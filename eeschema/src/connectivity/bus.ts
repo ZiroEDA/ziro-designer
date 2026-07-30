@@ -6,16 +6,16 @@
  *
  * Vector buses `PRE[m..n]SUF` expand to `PRE<i>SUF` for every index in the
  * range (equal bounds are invalid; reversed bounds swap). Group buses
- * `NAME{A B, C[0..1]}` expand each member recursively — a member may itself
+ * `NAME{A B, C[0..1]}` expand each member recursively, a member may itself
  * be a vector, a group, or a defined bus-alias name (whose members expand in
- * place) — and a *named* group prefixes every member with `NAME.`.
+ * place), and a *named* group prefixes every member with `NAME.`.
  *
  * Formatting markers (`^{}`, `_{}`, `~{}`) follow upstream's rules: they are
  * part of a name (`~{CAS}` is a different net from `CAS`), `D_{[1..2]}`
  * treats the subscript as decorating the range (stripped), and `~{BE[0..3]}`
  * keeps the marker wrapping each member name. Quoted strings and
  * backslash-escaped spaces are honoured. (Upstream's EscapeString/CTX_NETNAME
- * re-encoding is not applied — our net names stay raw.)
+ * re-encoding is not applied, our net names stay raw.)
  */
 
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
@@ -29,7 +29,7 @@ function isEscaped(s: string, i: number): boolean {
   return n % 2 === 1;
 }
 
-/** NET_SETTINGS::ParseBusVector — `PRE[m..n]SUF` -> expanded members. */
+/** NET_SETTINGS::ParseBusVector, `PRE[m..n]SUF` -> expanded members. */
 export function parseBusVector(bus: string): { name: string; members: string[] } | null {
   const len = bus.length;
   let i = 0;
@@ -144,7 +144,7 @@ export function parseBusVector(bus: string): { name: string; members: string[] }
   return { name: prefix, members };
 }
 
-/** NET_SETTINGS::ParseBusGroup — `NAME{m1 m2, m3}` -> raw member tokens
+/** NET_SETTINGS::ParseBusGroup, `NAME{m1 m2, m3}` -> raw member tokens
  *  (unexpanded; a token may itself be a vector, group or alias name). */
 export function parseBusGroup(group: string): { name: string; members: string[] } | null {
   const len = group.length;
@@ -250,7 +250,7 @@ export interface BusInfo {
 const MAX_BUS_DEPTH = 10; // guards alias cycles, like the graph's recursion cap
 
 /**
- * SCH_CONNECTION::ConfigureFromLabel — expand a bus label to its member net
+ * SCH_CONNECTION::ConfigureFromLabel, expand a bus label to its member net
  * names. `aliases` maps a bus-alias name to its member tokens (from Schematic
  * Setup > Bus Alias Definitions). Returns null for a plain (non-bus) label.
  */

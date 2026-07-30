@@ -8,12 +8,13 @@
  * while edited items are rebuilt in KiCad's canonical format.
  *
  * Geometry note: symbol-library files store +Y-up while the typed model is
- * +Y-down (readPoint's invertY) — every coordinate written here is negated back.
+ * +Y-down (readPoint's invertY), every coordinate written here is negated back.
  */
 
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { readGraphic, readLibPin } from './read-schematic.js';
 import { patchProperty } from './write-schematic.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
@@ -48,7 +49,7 @@ const DEFAULT_PIN_NAME_OFFSET_IU = mmToIU(0.508);
 
 // ----- shared sub-nodes -------------------------------------------------------
 
-/** `(stroke (width ..) (type ..) [(color ..)])` — STROKE_PARAMS::Format. */
+/** `(stroke (width ..) (type ..) [(color ..)])`, STROKE_PARAMS::Format. */
 function strokeNode(stroke: Stroke | undefined): SList {
   const items: SNode[] = [
     atom('stroke'),
@@ -76,7 +77,7 @@ function fillNode(fill: Fill | undefined): SList {
   return { kind: 'list', items };
 }
 
-/** `(effects (font (size h w) [bold] [italic]) [(justify ..)] [(hide yes)])` — EDA_TEXT::Format.
+/** `(effects (font (size h w) [bold] [italic]) [(justify ..)] [(hide yes)])`, EDA_TEXT::Format.
  * Library fields/text always carry the font size (KiCad writes it unconditionally). */
 function effectsNode(effects: TextEffects | undefined): SList {
   const size = effects?.fontSize ?? [DEFAULT_TEXT_SIZE, DEFAULT_TEXT_SIZE];
@@ -94,7 +95,7 @@ function effectsNode(effects: TextEffects | undefined): SList {
 // ----- item builders (canonical KiCad output) ---------------------------------
 
 /**
- * Build a `(pin ...)` node — mirrors `SCH_IO_KICAD_SEXPR_LIB_CACHE::savePin`:
+ * Build a `(pin ...)` node, mirrors `SCH_IO_KICAD_SEXPR_LIB_CACHE::savePin`:
  * `(pin <type> <shape> (at x y angle) (length ..) [(hide yes)] (name .. (effects ..))
  *  (number .. (effects ..)) (alternate ..)*)`.
  * Any `(alternate ...)` children of the previous source are carried over.
@@ -138,7 +139,7 @@ export function buildLibPinNode(pin: Omit<LibPin, 'source'>, prevSource?: SList)
   return { kind: 'list', items };
 }
 
-/** Build a graphic body item node — mirrors `saveSymbolDrawItem` for SCH_SHAPE/SCH_TEXT. */
+/** Build a graphic body item node, mirrors `saveSymbolDrawItem` for SCH_SHAPE/SCH_TEXT. */
 export function buildLibGraphicNode(g: LibGraphic): SList {
   switch (g.kind) {
     case 'rectangle':
@@ -420,7 +421,7 @@ function inheritanceDepth(sym: LibSymbol, byName: Map<string, LibSymbol>): numbe
 }
 
 /**
- * Build the `(kicad_symbol_lib ...)` root node — the exact structure
+ * Build the `(kicad_symbol_lib ...)` root node, the exact structure
  * `SCH_IO_KICAD_SEXPR_LIB_CACHE::Save` writes: header, then the symbols ordered
  * by inheritance depth and name.
  */
@@ -437,8 +438,8 @@ export function writeSymbolLib(symbols: readonly LibSymbol[]): SList {
     items: [
       atom('kicad_symbol_lib'),
       list(atom('version'), atom(String(SYMBOL_LIB_FILE_VERSION))),
-      list(atom('generator'), str('kicad_symbol_editor')),
-      list(atom('generator_version'), str('9.0')),
+      list(atom('generator'), str(GENERATOR)),
+      list(atom('generator_version'), str(GENERATOR_VERSION)),
       ...ordered.map(writeLibSymbolNode),
     ],
   };

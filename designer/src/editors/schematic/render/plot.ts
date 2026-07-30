@@ -1,7 +1,7 @@
 /**
  * Schematic print/plot output. Counterparts: `eeschema/sch_plotter.cpp`
- * (SCH_PLOTTER — the Plot dialog's file writers) and `eeschema/printing/
- * sch_printout.cpp` (SCH_PRINTOUT — the Print dialog's page rendering).
+ * (SCH_PLOTTER, the Plot dialog's file writers) and `eeschema/printing/
+ * sch_printout.cpp` (SCH_PRINTOUT, the Print dialog's page rendering).
  *
  * Both reuse the on-screen schematic renderer: a sheet is drawn at page size
  * with the grid/cursor off and the drawing sheet + colours chosen by the
@@ -540,8 +540,8 @@ interface SubPath {
 
 /**
  * Shared CTM + path accumulation for the vector back-ends (DXF, PostScript).
- * Implements the same CanvasRenderingContext2D subset as SvgContext, but — since
- * DXF/PS can't defer a transform to a matrix attribute — every path point is
+ * Implements the same CanvasRenderingContext2D subset as SvgContext, but, since
+ * DXF/PS can't defer a transform to a matrix attribute, every path point is
  * resolved through the CTM to absolute page coordinates before it is emitted.
  * Glyphs arrive as stroked segments (setVectorText), so only geometry is needed.
  */
@@ -590,7 +590,7 @@ abstract class VectorContext {
     this.fillStyle = s.fill;
   }
   setLineDash(_d: number[]): void {
-    // Dashes are dropped (solid strokes) — schematic dashes are cosmetic and a
+    // Dashes are dropped (solid strokes), schematic dashes are cosmetic and a
     // sketch-style plot is the DXF/PS convention.
   }
 
@@ -1025,7 +1025,7 @@ export interface PrintPage {
 }
 
 /**
- * Open the browser print flow for a multi-page job — SCH_PRINTOUT prints the
+ * Open the browser print flow for a multi-page job, SCH_PRINTOUT prints the
  * whole hierarchy, one page per sheet instance in SCH_SHEET_LIST order.
  * Colour output prints as-is; B&W forces the monochrome theme (outputTheme).
  * "Print" auto-opens the browser print flow once the last page has loaded;

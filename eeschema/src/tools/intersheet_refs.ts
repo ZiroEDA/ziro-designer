@@ -20,9 +20,9 @@ export const INTERSHEET_REFS_FIELD_NAME = 'Intersheet References';
 /** One sheet instance of the hierarchy, in SCH_SHEET_LIST order. */
 export interface IntersheetSheet {
   sch: Schematic;
-  /** SCH_SHEET_PATH::GetVirtualPageNumber — 1-based hierarchy ordinal. */
+  /** SCH_SHEET_PATH::GetVirtualPageNumber, 1-based hierarchy ordinal. */
   virtualPage: number;
-  /** SCH_SHEET_PATH::GetPageNumber — the page-number *string* ("2", "A", …). */
+  /** SCH_SHEET_PATH::GetPageNumber, the page-number *string* ("2", "A", …). */
   pageString: string;
   /** Per-sheet `${VAR}` expansion for the label text (GetShownText). */
   resolve?: (text: string) => string;

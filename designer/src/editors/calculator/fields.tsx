@@ -1,6 +1,6 @@
 /**
  * Shared input/output widgets and number formatting for the calculator
- * panels — the equivalent of KiCad pcb_calculator's UNIT_SELECTOR + value
+ * panels, the equivalent of KiCad pcb_calculator's UNIT_SELECTOR + value
  * fields, including the per-field unit dropdowns (mm/mil/inch, Hz…GHz, Ω…MΩ)
  * that convert their value in place when you switch units.
  */

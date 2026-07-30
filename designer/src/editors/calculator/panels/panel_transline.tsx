@@ -1,5 +1,5 @@
 /**
- * "Transmission Lines" panel — analysis/synthesis for the nine line types.
+ * "Transmission Lines" panel, analysis/synthesis for the nine line types.
  * Counterpart: KiCad `calculator_panels/panel_transline.cpp`.
  *
  * Every physical dimension has a per-field unit selector (mm/mil/inch/µm…) and
@@ -179,7 +179,7 @@ function PresetField({
         <option value="">…</option>
         {presets.map((p) => (
           <option key={`${p.name}`} value={String(p.value)}>
-            {p.value} — {p.name}
+            {p.value}, {p.name}
           </option>
         ))}
       </select>
@@ -194,7 +194,7 @@ export function PanelTransline(): JSX.Element {
   const [sub, setSub] = useState({ ...SUBSTRATE_DEFAULTS });
   const [phys, setPhys] = useState<Record<string, number>>(() => defaults('microstrip'));
   const [z0, setZ0] = useState('50');
-  // Odd-mode impedance target — used by the coupled stripline (KiCad Zodd).
+  // Odd-mode impedance target, used by the coupled stripline (KiCad Zodd).
   const [zOdd, setZOdd] = useState('50');
   // Dielectric dispersion model (KiCad m_dielectricModelChoice + spec frequency).
   const [dielModel, setDielModel] = useState<'constant' | 'djordjevic_sarkar'>('constant');
@@ -231,7 +231,7 @@ export function PanelTransline(): JSX.Element {
       mur: 1, // dielectric relative permeability (non-magnetic substrate)
       murC: parseNum(sub.mur),
     };
-    // Djordjevic–Sarkar overlays the dispersed εr / tan δ at the operating
+    // Djordjevic-Sarkar overlays the dispersed εr / tan δ at the operating
     // frequency, exactly as KiCad's UpdateDielectricModel does per analysis.
     const d = dispersedSubstrate(base, { model: dielModel, specFreqHz });
     return { ...base, epsilonR: d.epsilonR, tanD: d.tanD };
@@ -337,7 +337,7 @@ export function PanelTransline(): JSX.Element {
       else setZ0(fmt(type === 'c_microstrip' ? (r.extra?.zDiff ?? r.z0) : r.z0, 5));
       setAngle(fmt(r.angleDeg, 5));
     } catch {
-      setError('Analysis failed — check the input values.');
+      setError('Analysis failed, check the input values.');
     }
   };
 

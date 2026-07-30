@@ -1,6 +1,6 @@
 /**
  * Selection text helpers, ported from KiCad's `eeschema/tools/sch_tool_utils.cpp`:
- * GetSchItemAsText / GetSelectedItemsAsText — the "Copy as Text" payload.
+ * GetSchItemAsText / GetSelectedItemsAsText, the "Copy as Text" payload.
  * Text-bearing items yield their shown text (labels, text, text boxes; tables
  * as tab-separated rows); everything else yields nothing, exactly upstream.
  */

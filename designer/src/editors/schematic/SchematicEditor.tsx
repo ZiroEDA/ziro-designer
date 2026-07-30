@@ -550,7 +550,7 @@ export function SchematicEditor({
   const [directiveEdit, setDirectiveEdit] = useState<{ index: number } | null>(null);
   // immediate_actions (COMMON_SETTINGS::m_Input): picking a label or text tool
   // primes it, so the properties dialog comes up as soon as the tool is active
-  //, whichever way it was chosen (toolbar, menu or hotkey).
+  // - whichever way it was chosen (toolbar, menu or hotkey).
   useEffect(() => {
     const isLabelTool = !!LABEL_TOOL_KINDS[activeTool] || activeTool === 'placeClassLabel';
     setLabelPrompt(isLabelTool);
@@ -4410,7 +4410,7 @@ export function SchematicEditor({
               {dirty ? '*' : ''}
               {projectName || 'No project'}
             </b>
-            &nbsp;, &nbsp;Schematic Editor
+            &nbsp;-&nbsp;Schematic Editor
           </>
         }
       />

@@ -8,7 +8,7 @@ export default defineConfig({
   title: 'Ziro Designer',
   titleTemplate: ':title · Ziro Designer Docs',
   description:
-    'Documentation for Ziro Designer — the browser-native, open-source PCB engineering suite from ZIRO EDA.',
+    'Documentation for Ziro Designer, the browser-native, open-source PCB engineering suite from ZIRO EDA.',
   lang: 'en-US',
   cleanUrls: true,
   lastUpdated: true,
@@ -16,7 +16,7 @@ export default defineConfig({
   srcExclude: ['CLAUDE.md'],
   appearance: 'dark', // brand is dark-first; toggle still available
 
-  // Standalone docs site — its own Vercel project + subdomain (e.g.
+  // Standalone docs site, its own Vercel project + subdomain (e.g.
   // docs.designer.ziroeda.com), served from that project's root.
 
   head: [

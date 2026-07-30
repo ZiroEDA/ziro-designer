@@ -3,7 +3,7 @@
  * centred in the pane the rows will fill (see library_loading.ts). KiCad covers
  * the same wait with its "Loading Symbol Libraries" progress dialog.
  *
- * Deliberately the *only* shape — an extra line above a populated list shifts
+ * Deliberately the *only* shape, an extra line above a populated list shifts
  * everything under it every time a library is fetched, which is worse than no
  * feedback at all.
  */

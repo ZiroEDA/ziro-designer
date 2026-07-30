@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { authEnabled, supabase } from './supabaseClient.js';
+import { setProjectOwner } from '../home/projectStore.js';
 
 export interface SignUpResult {
   error: string | null;
@@ -22,7 +23,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  /** OAuth sign-in (redirect flow) — e.g. "Continue with Google". */
+  /** OAuth sign-in (redirect flow), e.g. "Continue with Google". */
   signInWithGoogle: () => Promise<{ error: string | null }>;
   /** Passwordless: email a 6-digit sign-in code (creates the account if new). */
   sendOtp: (email: string) => Promise<{ error: string | null }>;
@@ -44,11 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
+      setProjectOwner(data.session?.user.id ?? null);
       setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      // Keep the project store's idea of the account in step, so a sign-out
+      // followed by a different sign-in cannot push the previous person's work.
+      setProjectOwner(next?.user.id ?? null);
       setLoading(false);
     });
 

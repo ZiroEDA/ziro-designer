@@ -1,6 +1,6 @@
 /**
  * Embedded Files panel. Counterpart:
- * `common/dialogs/panel_embedded_files_base.cpp` (PANEL_EMBEDDED_FILES) — a
+ * `common/dialogs/panel_embedded_files_base.cpp` (PANEL_EMBEDDED_FILES), a
  * read-only "Filename / Embedded Reference" grid, then a button row: add
  * (browse), remove, an "Embed fonts" checkbox, and Export. Files stored in the
  * schematic are referenced elsewhere as ${EMBED_...}.

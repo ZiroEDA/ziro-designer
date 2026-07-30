@@ -1,9 +1,9 @@
 /**
  * Board Setup > Design Rules > Tuning Profiles. Counterpart:
- * `pcbnew/dialogs/panel_setup_tuning_profiles_base.cpp` (PANEL_SETUP_TUNING_PROFILES) —
+ * `pcbnew/dialogs/panel_setup_tuning_profiles_base.cpp` (PANEL_SETUP_TUNING_PROFILES),
  * a notebook of tuning profiles (add/remove at the bottom), each tab a
  * PANEL_SETUP_TUNING_PROFILE_INFO form: Name, Type (single/differential), target
- * impedance, frequency, and — when time-domain tuning is enabled — the track/via
+ * impedance, frequency, and, when time-domain tuning is enabled, the track/via
  * propagation delay settings. The deep via-delay-override matrix is not modelled
  * here yet.
  */

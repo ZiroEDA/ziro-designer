@@ -159,7 +159,7 @@ function readTextEffects(item: SList): {
   const justifyNode = effects ? childNamed(effects, 'justify') : undefined;
   const justify = justifyNode ? args(justifyNode) : undefined;
   return {
-    // (size h w): height first — match the schematic reader convention of {x: w, y: h}.
+    // (size h w): height first, match the schematic reader convention of {x: w, y: h}.
     size: { x: size.y, y: size.x },
     thickness: thicknessMM !== undefined ? mmToIU(thicknessMM) : undefined,
     bold: font ? stringField(font, 'bold') === 'yes' : undefined,
@@ -320,7 +320,7 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
 
 /**
  * Read a standalone `.kicad_mod` file (a top-level `(footprint …)` node) into a
- * footprint in its own LOCAL frame — the form the Footprint Editor works in.
+ * footprint in its own LOCAL frame, the form the Footprint Editor works in.
  * A library footprint carries no board placement, so children keep their stored
  * (footprint-relative) coordinates: no transform is baked in and the anchor sits
  * at the origin. This is the library-cache load path of KiCad's
@@ -407,14 +407,14 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
         if (key === 'Reference') fp.reference = value;
         else fp.value = value;
       } else if (key === 'ki_fp_filters') {
-        // FOOTPRINT::SetFilters — a bare property, not a field with text. (8.0.0rc3
+        // FOOTPRINT::SetFilters, a bare property, not a field with text. (8.0.0rc3
         // wrote it as a field by mistake; either way it is only the filters.)
         fp.filters = value;
       } else if (key !== undefined) {
         // Before PCB fields (file version < 20230620) these reserved keys stood in
         // for what are now their own tokens (parseFOOTPRINT, T_property). They are
         // still kept in `fields` so the writer emits them back untouched, but the
-        // typed value is what consumers read — RESERVED_FOOTPRINT_PROPERTIES lists
+        // typed value is what consumers read, RESERVED_FOOTPRINT_PROPERTIES lists
         // the names that are therefore *not* user fields.
         if (key === 'Sheetname' || key === 'Sheet name') fp.sheetname ??= value;
         else if (key === 'Sheetfile' || key === 'Sheet file') fp.sheetfile ??= value;
@@ -435,7 +435,7 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
 }
 
 // A footprint's `(model …)` 3D reference (PCB_IO_KICAD_SEXPR_PARSER::parse3DModel).
-// Offset/scale/rotate stay in the file's native units (mm, unitless, degrees) —
+// Offset/scale/rotate stay in the file's native units (mm, unitless, degrees),
 // the 3D viewer applies KiCad's transform. The legacy `(at (xyz …))` variant is
 // in *inches*: upstream multiplies it by 25.4 into mm.
 function readModel(item: SList): Model3D | null {
@@ -481,11 +481,11 @@ function readZone(item: SList): PcbZone {
     if (existing) existing.polys.push(pts);
     else fills.push({ layer, polys: [pts] });
   }
-  // The zone boundary `(polygon (pts …))` — drawn as the border, and larger
+  // The zone boundary `(polygon (pts …))`, drawn as the border, and larger
   // than the (clearance-inset) fill.
   const polyNode = childNamed(item, 'polygon');
   const outline = polyNode ? readPts(childNamed(polyNode, 'pts'), null) : [];
-  // `(hatch <style> <pitch>)` — border display style + hatch pitch (mm).
+  // `(hatch <style> <pitch>)`, border display style + hatch pitch (mm).
   const hatchNode = childNamed(item, 'hatch');
   const hatchWord = hatchNode ? arg(hatchNode, 0) : undefined;
   const hatchStyle: PcbZone['hatchStyle'] =
@@ -644,7 +644,7 @@ export function readBoard(root: SList): Board {
         board.zones.push({ ...readZone(item), locked: lockedOf(item) });
         break;
       case 'group': {
-        // `(group "name" (uuid …) [(locked yes)] (members "uuid"…))` — PCB_GROUP.
+        // `(group "name" (uuid …) [(locked yes)] (members "uuid"…))`, PCB_GROUP.
         const membersNode = childNamed(item, 'members');
         board.groups.push({
           name: arg(item, 0) ?? '',

@@ -1,5 +1,5 @@
 /**
- * The Design Inspector dialog — the web counterpart of `pl_editor`'s
+ * The Design Inspector dialog, the web counterpart of `pl_editor`'s
  * DIALOG_INSPECTOR (pagelayout_editor/dialogs/design_inspector.cpp): a grid of
  * every item in the sheet model with a leading root "Layout" row describing
  * the page, and per-item columns for the type, repeat count, comment and text.
@@ -99,7 +99,7 @@ export function DesignInspector({
                   <td style={cell}>{TYPE_GLYPH[it.type]}</td>
                   <td style={cell}>{TYPE_LABEL[it.type]}</td>
                   <td style={cell}>{it.repeat}</td>
-                  <td style={cell}>{it.comment || <span className="ze-muted">—</span>}</td>
+                  <td style={cell}>{it.comment || <span className="ze-muted">-</span>}</td>
                   <td
                     style={{
                       ...cell,

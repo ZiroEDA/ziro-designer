@@ -1,6 +1,6 @@
 /**
  * Page settings. Counterpart: `common/dialogs/dialog_page_settings.cpp`
- * (DIALOG_PAGES_SETTINGS::onOK → SCH_EDIT_FRAME) — the paper size / orientation
+ * (DIALOG_PAGES_SETTINGS::onOK → SCH_EDIT_FRAME), the paper size / orientation
  * and the title-block fields (date, revision, title, company, comments 1-9).
  *
  * A schematic document is lossless: the writer re-emits the `(paper …)` and

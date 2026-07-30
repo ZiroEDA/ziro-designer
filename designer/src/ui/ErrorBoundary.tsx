@@ -17,7 +17,7 @@ interface State {
  * Last-resort crash screen.
  *
  * React unmounts the whole tree when a render throws, so without a boundary any
- * error in an editor leaves a blank white page — with the user's unsaved work
+ * error in an editor leaves a blank white page, with the user's unsaved work
  * still in memory and no way to reach it. That turns a recoverable bug into
  * lost work, which for an EDA tool is the worst failure we can ship.
  *
@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
           {snap ? (
             <>
               <p className="ze-crash-body">
-                Your project is still in memory. Download it before reloading — reloading will
+                Your project is still in memory. Download it before reloading, reloading will
                 discard anything that hasn't been saved.
               </p>
               <div className="ze-crash-actions">
@@ -76,8 +76,8 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               {saved === false && (
                 <p className="ze-crash-warn">
-                  The download failed. Copy the error below and report it — please don't reload,
-                  your work is still recoverable from this tab.
+                  The download failed. Copy the error below and report it, please don't reload, your
+                  work is still recoverable from this tab.
                 </p>
               )}
             </>

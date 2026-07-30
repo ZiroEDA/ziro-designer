@@ -1,6 +1,6 @@
 /**
  * Manage Footprint Libraries. Counterpart: `pcbnew/dialogs/panel_fp_lib_table.cpp`
- * (PANEL_FP_LIB_TABLE, opened by ACTIONS::showFootprintLibTable) — the two
+ * (PANEL_FP_LIB_TABLE, opened by ACTIONS::showFootprintLibTable), the two
  * library tables, "Global Libraries" and "Project Specific Libraries", each a
  * grid of Enable / Nickname / Library Path / Library Format / Options /
  * Description rows, with add / add-existing / move / remove buttons and the
@@ -49,7 +49,7 @@ export function DialogFpLibTable({
   const [sel, setSel] = useState<number | null>(null);
   const [browseOpen, setBrowseOpen] = useState(false);
 
-  // The project's `.pretty` folders — "Add Existing" offers the unregistered ones.
+  // The project's `.pretty` folders, "Add Existing" offers the unregistered ones.
   const prettyDirs = useMemo(() => projectPrettyDirs(projectFiles, rows), [projectFiles, rows]);
   const unregistered = prettyDirs.filter(
     (d) => !rows.some((r) => rowPrettyDir(r).toLowerCase() === d.dir.toLowerCase()),

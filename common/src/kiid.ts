@@ -9,7 +9,7 @@
  * last time instead of creating a second one.
  */
 
-/** KIID::FromName's namespace UUID — fixed forever (kiid.cpp). */
+/** KIID::FromName's namespace UUID, fixed forever (kiid.cpp). */
 const NAMESPACE_UUID = '8b8b58e2-3d21-4a24-9dcf-42e0f14001a2';
 
 /** SHA-1 (FIPS 180-4), synchronous: WebCrypto's digest is promise-only. */
@@ -93,7 +93,7 @@ function uuidToBytes(uuid: string): Uint8Array {
 const hex2 = (n: number): string => n.toString(16).padStart(2, '0');
 
 /**
- * KIID::FromName — the version-5 UUID of `name` in KiCad's fixed namespace
+ * KIID::FromName, the version-5 UUID of `name` in KiCad's fixed namespace
  * (boost::uuids::name_generator_sha1, which is RFC 4122 §4.3).
  */
 export function kiidFromName(name: string): string {
@@ -111,7 +111,7 @@ export function kiidFromName(name: string): string {
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
 }
 
-/** KIID_PATH::AsString — "/uuid/uuid", or "/" for the root path. */
+/** KIID_PATH::AsString, "/uuid/uuid", or "/" for the root path. */
 export function kiidPathAsString(uuids: readonly string[]): string {
   return uuids.length === 0 ? '/' : `/${uuids.join('/')}`;
 }

@@ -6,7 +6,7 @@
  *
  * Two things make it different from `hitTest`:
  *
- *  - it collects only `connectedTypes` (sch_selection_tool.cpp:509) — power
+ *  - it collects only `connectedTypes` (sch_selection_tool.cpp:509), power
  *    symbols, pins, wires, buses, bus entries, labels, sheet pins and
  *    junctions. Anything else (a symbol body, a sheet, a text box) is
  *    invisible to it, so clicking one falls through to whatever connectable
@@ -15,9 +15,9 @@
  *    first threshold that finds anything, so an exact hit always beats a
  *    nearby one.
  *
- * The ids returned are connectivity node ids — the very ids `computeNetlist`
+ * The ids returned are connectivity node ids, the very ids `computeNetlist`
  * emits (`<symbolRef>:pin<k>`, `<sheetRef>:sheetpin<k>`, wire/label/junction
- * refIds) — so the caller can look the net straight up in `netByItem`.
+ * refIds), so the caller can look the net straight up in `netByItem`.
  */
 
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
@@ -52,7 +52,7 @@ function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-/** The pin's body end (the non-connection end), in symbol-local space —
+/** The pin's body end (the non-connection end), in symbol-local space,
  *  the same mapping the painter uses for the pin line. */
 function pinRoot(at: Vec2, angle: number, length: number): Vec2 {
   switch (((angle % 360) + 360) % 360) {
@@ -77,7 +77,7 @@ function sheetPinBox(at: Vec2, name: string, size: number): BBox {
 
 /**
  * The connectable item under `p`, or null. `thresholdMax` is the widest slop
- * to accept (world IU) — upstream's max(HITTEST_THRESHOLD_PIXELS, grid size).
+ * to accept (world IU), upstream's max(HITTEST_THRESHOLD_PIXELS, grid size).
  */
 export function getNode(
   sch: Schematic,
@@ -184,7 +184,7 @@ function collectAt(
 
   // --- power symbols (SCH_SYMBOL_LOCATE_POWER_T) -------------------------
   // A power flag's body and its visible fields stand in for its single pin
-  // (sch_editor_control.cpp:1086 — `pins.size() == 1` -> pins[0]->Connection()),
+  // (sch_editor_control.cpp:1086, `pins.size() == 1` -> pins[0]->Connection()),
   // which is how clicking a GND flag highlights GND.
   for (let si = 0; si < sch.symbols.length; si++) {
     const sym = sch.symbols[si]!;

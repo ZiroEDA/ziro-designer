@@ -1,4 +1,4 @@
--- Ziro Designer — Supabase Storage for project file blobs.
+-- Ziro Designer, Supabase Storage for project file blobs.
 -- Run once in the Supabase SQL editor. This keeps large files OUT of Postgres
 -- (storing blobs in the DB is what filled it and made it unhealthy); the
 -- `projects` table then holds only metadata + the file list.

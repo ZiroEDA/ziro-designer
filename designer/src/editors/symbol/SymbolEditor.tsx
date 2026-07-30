@@ -55,9 +55,10 @@ import {
   type PinDialogResult,
 } from './components/dialogs.js';
 import '../../ui/shell.css';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 /**
- * The Symbol Editor frame — the web mirror of KiCad's SYMBOL_EDIT_FRAME
+ * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
  * (eeschema/symbol_editor/): menu bar (menubar_symbol_editor.cpp), the three
  * toolbars with the unit selector combo (toolbars_symbol_editor.cpp), the
  * library tree pane (symbol_tree_pane.cpp) and the drawing canvas, wired to a
@@ -140,7 +141,7 @@ export function SymbolEditor({
   initialProject?: SymbolEditorFile[] | null;
   /** eeschema wiring for "Add symbol to schematic" (SCH_ACTIONS::addSymbolToSchematic). */
   onAddSymbolToSchematic?: (sym: LibSymbol) => void;
-  /** Project name shown as "<project> — Symbol Editor" in the menu bar. */
+  /** Project name shown as "<project>, Symbol Editor" in the menu bar. */
   projectName?: string;
   /** The `.kicad_sym` the project manager launched us on (KiCad's MAIL_LIB_EDIT).
    *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
@@ -197,6 +198,7 @@ export function SymbolEditor({
   } | null>(null);
   const [shapeDialog, setShapeDialog] = useState<{ editId: string } | null>(null);
   const [newSymbolOpen, setNewSymbolOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [symbolPropsOpen, setSymbolPropsOpen] = useState(false);
   const [pinTableOpen, setPinTableOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
@@ -325,7 +327,7 @@ export function SymbolEditor({
     [bump],
   );
 
-  // Open the specific library the project manager launched us on — KiCad's
+  // Open the specific library the project manager launched us on, KiCad's
   // PROJECT_TREE_ITEM::Activate routing a `.kicad_sym` through editSymbols +
   // MAIL_LIB_EDIT. A `.kicad_sym` is a whole library, so select it in the tree
   // (like KiCad highlighting the library node) and load its first symbol so the
@@ -769,7 +771,7 @@ export function SymbolEditor({
       } else if (editId && workSymbol) {
         // EditPinProperties: apply the dialog and, in synchronized mode, update the
         // matching pins of the other units (same original position/orientation/
-        // type/visibility/name — one per unit).
+        // type/visibility/name, one per unit).
         const ref = parseItemId(editId);
         const original = ref && workSymbol.units[ref.unitIdx]?.pins[ref.itemIdx];
         let next = replaceSymbolItem(workSymbol, editId, r.pin);
@@ -1397,7 +1399,7 @@ export function SymbolEditor({
       },
       {
         label: 'Help',
-        items: [{ label: 'About ZiroEDA', action: () => {} }],
+        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
       },
     ],
     [
@@ -1444,7 +1446,7 @@ export function SymbolEditor({
     if (ref.kind === 'pin') {
       const p = workSymbol.units[ref.unitIdx]?.pins[ref.itemIdx];
       return p
-        ? `Pin ${p.number} '${p.name}' — ${p.electricalType}, ${p.shape}, length ${fmt(p.length)} ${unitsLabel}`
+        ? `Pin ${p.number} '${p.name}', ${p.electricalType}, ${p.shape}, length ${fmt(p.length)} ${unitsLabel}`
         : null;
     }
     if (ref.kind === 'field') {
@@ -1490,7 +1492,7 @@ export function SymbolEditor({
         }
         title={
           <>
-            <b>{projectName || 'No project'}</b>&nbsp;—&nbsp;Symbol Editor
+            <b>{projectName || 'No project'}</b>&nbsp;-&nbsp;Symbol Editor
           </>
         }
       />
@@ -1586,7 +1588,7 @@ export function SymbolEditor({
                         }}
                         onClick={() => setTreeSel({ lib: row.lib, name: row.sym! })}
                         onDoubleClick={() => void loadSymbol(row.lib, row.sym!)}
-                        title={row.desc ? `${row.sym} — ${row.desc}` : row.sym}
+                        title={row.desc ? `${row.sym}, ${row.desc}` : row.sym}
                       >
                         <span>
                           {row.sym}
@@ -1689,7 +1691,7 @@ export function SymbolEditor({
           Z {Number.isFinite(zoomPct) ? (zoomPct / 100).toFixed(2) : '1.00'}
         </span>
         <span className="cell">
-          X {cursor ? fmt(cursor.x) : '—'} Y {cursor ? fmt(cursor.y) : '—'}
+          X {cursor ? fmt(cursor.x) : '-'} Y {cursor ? fmt(cursor.y) : '-'}
         </span>
         <span className="cell">
           grid {unitsLabel === 'mm' ? '1.2700' : unitsLabel === 'mils' ? '50' : '0.0500'}
@@ -1748,6 +1750,7 @@ export function SymbolEditor({
             />
           );
         })()}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {newSymbolOpen && (
         <NewSymbolDialog
           symbolNames={targetLib ? manager.current.symbolNames(targetLib) : []}

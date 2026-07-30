@@ -1,24 +1,24 @@
 /**
- * Board-level hit-testing, bounding boxes and item identity — the geometry
+ * Board-level hit-testing, bounding boxes and item identity, the geometry
  * behind KiCad's PCB_SELECTION_TOOL (pcbnew/tools/pcb_selection_tool.cpp) and the
  * per-item BOARD_ITEM::HitTest overrides. This is the foundation the board
  * editing tools build on: every click, box-select and highlight resolves through
  * here. Pure functions over the typed `Board`; no rendering or React.
  *
  * Faithful to KiCad 10.0.0 HitTest math:
- *   - PCB_TRACK::HitTest  — point-to-segment distance <= accuracy + width/2.
- *   - PCB_ARC::HitTest    — endpoint short-circuit, then |dist-radius| <= acc+w/2
+ *   - PCB_TRACK::HitTest, point-to-segment distance <= accuracy + width/2.
+ *   - PCB_ARC::HitTest, endpoint short-circuit, then |dist-radius| <= acc+w/2
  *                           AND the point's angle lies within the arc sweep.
- *   - PCB_VIA::HitTest     — distance from centre <= accuracy + width/2.
- *   - FOOTPRINT::HitTest   — bbox.Inflate(accuracy).Contains(pos) (the simple,
+ *   - PCB_VIA::HitTest, distance from centre <= accuracy + width/2.
+ *   - FOOTPRINT::HitTest, bbox.Inflate(accuracy).Contains(pos) (the simple,
  *                            non-accurate variant the selection tool uses first).
- *   - EDA_SHAPE::hitTest   — per shape kind (segment / arc / circle / rect border
+ *   - EDA_SHAPE::hitTest, per shape kind (segment / arc / circle / rect border
  *                            vs. filled / polygon edges).
- *   - PCB_TEXT / ZONE      — text bounding box; point-in-filled-polygon.
+ *   - PCB_TEXT / ZONE, text bounding box; point-in-filled-polygon.
  *
  * A board is a flat set of items across typed arrays; an item is addressed by a
  * stable `${kind}:${index}` id (mirrors the Footprint Editor's id scheme so the
- * two canvases share selection conventions). A footprint selects as a whole —
+ * two canvases share selection conventions). A footprint selects as a whole,
  * clicking any of its geometry yields the footprint, matching pcbnew's default
  * (KiCad selects the FOOTPRINT, not its pad, unless you alt/nested-select).
  */
@@ -77,7 +77,7 @@ const KINDS: ReadonlySet<string> = new Set<BoardItemKind>([
 ]);
 
 // `fptext` and `pad` ids carry a second index (`<kind>:<footprint>:<sub>`), the
-// text/pad within the footprint — pcbnew selects the child, not the footprint,
+// text/pad within the footprint, pcbnew selects the child, not the footprint,
 // when the Selection Filter allows it.
 const SUB_KINDS: ReadonlySet<string> = new Set(['fptext', 'pad']);
 
@@ -101,7 +101,7 @@ export function parseBoardItemId(id: string): BoardItemRef | null {
 
 // ----- geometry helpers -------------------------------------------------------
 
-/** Distance from `p` to segment `a`–`b` (KiCad TestSegmentHit's core). */
+/** Distance from `p` to segment `a`-`b` (KiCad TestSegmentHit's core). */
 const distToSeg = (p: Vec2, a: Vec2, b: Vec2): number => {
   const dx = b.x - a.x,
     dy = b.y - a.y;
@@ -270,7 +270,7 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
 
 // ----- per-item hit tests -----------------------------------------------------
 
-/** PCB_ARC::HitTest — endpoint short-circuit, radial band, then angle in sweep. */
+/** PCB_ARC::HitTest, endpoint short-circuit, radial band, then angle in sweep. */
 const arcHit = (
   start: Vec2,
   mid: Vec2,
@@ -295,7 +295,7 @@ const arcHit = (
   return ccwSpan(ap, a0) <= ccwSpan(a1, a0); // CW arc
 };
 
-/** EDA_SHAPE::hitTest — per shape kind. */
+/** EDA_SHAPE::hitTest, per shape kind. */
 const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   const t = tol + s.width / 2;
   if (s.kind === 'line' && s.start && s.end) return distToSeg(pos, s.start, s.end) <= t;
@@ -460,7 +460,7 @@ const onLayer = (layers: string[], layer: string): boolean =>
   layers.some((l) => l === layer || (l.startsWith('*.') && layer.endsWith(l.slice(1))));
 
 export interface BoardHitOpts {
-  /** Stateful Selection Filter predicate — runs before the heuristics, like
+  /** Stateful Selection Filter predicate, runs before the heuristics, like
    *  FilterCollectedItems runs before GuessSelectionCandidates. */
   filter?: (id: string) => boolean;
   /** Active layer: enables the silk preference and the final layer filter. */
@@ -487,7 +487,7 @@ export function boardHitCandidates(
   let hits: HitEntry[] = [];
   const singlePixel = tol / 5; // MAX_SLOP is 5 pixels (GuessSelectionCandidates)
 
-  // PCB_SELECTION_TOOL::Selectable — an item on only-hidden layers can't be
+  // PCB_SELECTION_TOOL::Selectable, an item on only-hidden layers can't be
   // picked. Footprints stay selectable (their bodies span several layers).
   const vis = opts.visibleLayers;
   const selectable = (layers: string[]): boolean =>
@@ -503,7 +503,7 @@ export function boardHitCandidates(
         id: boardItemId('via', i),
         kind: 'via',
         dist: d,
-        // "Vias rarely hide other things" — area is r² of the DRILL, not πr².
+        // "Vias rarely hide other things", area is r² of the DRILL, not πr².
         area: (v.drill / 2) ** 2,
         layers: ['*.Cu'],
       });
@@ -639,7 +639,7 @@ export function boardHitCandidates(
   });
 
   // Selectable(): drop items living only on hidden layers, then the stateful
-  // Selection Filter (FilterCollectedItems) — both run before the guesses.
+  // Selection Filter (FilterCollectedItems), both run before the guesses.
   hits = hits.filter((h) => h.kind === 'footprint' || selectable(h.layers));
   if (opts.filter) hits = hits.filter((h) => opts.filter!(h.id));
   if (hits.length <= 1) return hits.map((h) => h.id);
@@ -665,7 +665,7 @@ export function boardHitCandidates(
   hits = hits.filter((h) => h.dist <= minSlop + singlePixel);
 
   // "If the user clicked on a small item within a much larger one then it's
-  // pretty clear they're trying to select the smaller one" — sort by coverage
+  // pretty clear they're trying to select the smaller one", sort by coverage
   // area and start rejecting at the first 1.5× jump.
   const sizeRatio = 1.5;
   const byArea = [...hits].sort((a, b) => a.area - b.area);
@@ -677,7 +677,7 @@ export function boardHitCandidates(
   }
 
   // Special case: a footprint completely covered by other features would be
-  // unselectable — keep it for the disambiguation menu (CoverageRatio > 0.70).
+  // unselectable, keep it for the disambiguation menu (CoverageRatio > 0.70).
   const maxCoverRatio = 0.7;
   for (const h of byArea) {
     if (h.kind !== 'footprint' || !rejected.has(h)) continue;
@@ -766,8 +766,8 @@ const polyInRect = (r: BoardBBox, poly: Vec2[]): boolean => {
 
 /**
  * Every board item selected by a rubber-band from (x0,y0) to (x1,y1). KiCad's
- * two modes: `contained` (drag left→right — window select, item fully inside)
- * vs. crossing (drag right→left — item merely intersects). Each item mirrors its
+ * two modes: `contained` (drag left→right, window select, item fully inside)
+ * vs. crossing (drag right→left, item merely intersects). Each item mirrors its
  * own BOARD_ITEM::HitTest(BOX2I): a track by its endpoints (not its width),
  * a via by its circle, an arc/footprint/graphic by geometry-or-bbox.
  */
@@ -979,7 +979,7 @@ const moveFootprint = (fp: PcbFootprint, d: Vec2): PcbFootprint => ({
 /**
  * Move the selected board items by `delta` (internal units). Mirrors
  * PCB_MOVE_TOOL committing a drag. Zones are not moved yet (their outline lives
- * in the source polygon; that lands with zone editing) — their ids are ignored.
+ * in the source polygon; that lands with zone editing), their ids are ignored.
  */
 export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Vec2): Board {
   if ((delta.x === 0 && delta.y === 0) || ids.size === 0) return board;
@@ -1025,7 +1025,7 @@ const moveArcEnds = (a: PcbArcTrack, ends: ReadonlySet<'start' | 'end'>, d: Vec2
  * Drag the selection like {@link moveBoardItems}, but additionally stretch the
  * track/arc ends attached to any moving footprint so the routing follows the
  * part (EDIT_TOOL's Drag, as opposed to Move which leaves the tracks behind).
- * Ends whose track is itself selected are skipped — the whole track already
+ * Ends whose track is itself selected are skipped, the whole track already
  * moved with the selection.
  */
 export function dragBoardItems(board: Board, ids: ReadonlySet<string>, delta: Vec2): Board {
@@ -1634,7 +1634,7 @@ export function ungroupBoardItems(board: Board, ids: ReadonlySet<string>): Board
 }
 
 /** The index of the group directly owning this item's uuid, or -1 (an item's
- *  immediate parent group — GetParentGroup, one level, unlike groupContaining
+ *  immediate parent group, GetParentGroup, one level, unlike groupContaining
  *  which walks to the top). */
 function parentGroupIndex(board: Board, id: string): number {
   const uuid = uuidOfItemId(board, id);
@@ -1729,7 +1729,7 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
 }
 
 /**
- * Lock or unlock the selected items (`(locked yes)` per lockable formatter —
+ * Lock or unlock the selected items (`(locked yes)` per lockable formatter,
  * tracks, arcs, vias, zones, graphics, text, footprints, groups). Pads /
  * footprint texts lock their parent footprint, like KiCad.
  */
@@ -1772,7 +1772,7 @@ export function setBoardItemsLocked(
 
 /** The page settings the dialog edits (paper token + title block fields). */
 export interface BoardPageSettings {
-  /** `"A4"`, `"A4 portrait"`, or `"User <w> <h>"` (mm) — the schematic token. */
+  /** `"A4"`, `"A4 portrait"`, or `"User <w> <h>"` (mm), the schematic token. */
   paper: string;
   title: string;
   date: string;
@@ -1830,7 +1830,7 @@ export function setBoardPageSettings(board: Board, s: BoardPageSettings): Board 
  * Mirror the selected items about the selection centre (EDIT_TOOL::Mirror).
  * `'v'` = mirrorV = FLIP_DIRECTION::TOP_BOTTOM (y flips), `'h'` = mirrorH =
  * LEFT_RIGHT (x flips). Mirrorable kinds: tracks, arcs, vias, graphics, text
- * (EDIT_TOOL::MirrorableItems). Footprints are skipped — KiCad: "Footprints
+ * (EDIT_TOOL::MirrorableItems). Footprints are skipped, KiCad: "Footprints
  * cannot be mirrored. Use Flip to move them to the other side of the board."
  * Zones are skipped like move/rotate (zone outline editing is staged).
  */

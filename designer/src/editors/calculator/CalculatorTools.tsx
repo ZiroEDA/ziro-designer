@@ -165,10 +165,10 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
             Engineering calculators for PCB design, organised like KiCad's Calculator Tools:
           </p>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li>General system design — regulators, resistor substitution</li>
-            <li>Power, current & isolation — spacing, via, track width, fusing, cable</li>
-            <li>High speed — wavelength, RF attenuators, transmission lines</li>
-            <li>Memo — E-series, colour code, board classes, galvanic corrosion</li>
+            <li>General system design, regulators, resistor substitution</li>
+            <li>Power, current & isolation, spacing, via, track width, fusing, cable</li>
+            <li>High speed, wavelength, RF attenuators, transmission lines</li>
+            <li>Memo, E-series, colour code, board classes, galvanic corrosion</li>
           </ul>
         </Modal>
       )}

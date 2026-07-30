@@ -42,7 +42,7 @@ describe('footprint 3D models', () => {
   });
 
   // PCB_IO_KICAD_SEXPR_PARSER::parse3DModel: the legacy `(at (xyz …))` offset
-  // variant is in inches — upstream multiplies by 25.4 into mm.
+  // variant is in inches, upstream multiplies by 25.4 into mm.
   it('converts legacy (at (xyz …)) offsets from inches to mm', () => {
     const b = readBoard(
       parse(`(kicad_pcb (version 20241229) (generator "test")

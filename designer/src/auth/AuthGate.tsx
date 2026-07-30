@@ -7,10 +7,10 @@ import { SignInDialog } from './SignIn.js';
  * Sign-in wall. When Supabase auth is configured, the app is gated behind a
  * sign-in: visitors must create an account (or sign in) before they can use it.
  * To show what they're signing up for, the real editor is rendered blurred and
- * inert behind the centred sign-in card — the KiCad-like UI is right there,
+ * inert behind the centred sign-in card, the KiCad-like UI is right there,
  * just out of reach until you're in.
  *
- * (Guest-first entry was tried earlier but backfired — almost nobody signed in,
+ * (Guest-first entry was tried earlier but backfired, almost nobody signed in,
  * so the value of an account never landed. This puts the account up front while
  * still previewing the product behind the glass.)
  *

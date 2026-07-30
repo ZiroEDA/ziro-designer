@@ -41,7 +41,7 @@ export interface PickedSymbol {
 }
 
 export interface PanelSymbolChooserProps {
-  /** SYMBOL_LIBRARY_FILTER::GetFilterPowerSymbols — power ports only. */
+  /** SYMBOL_LIBRARY_FILTER::GetFilterPowerSymbols, power ports only. */
   powerFilter?: boolean;
   /** "Show footprint previews in Symbol Chooser" (Preferences > Editing Options). */
   showFootprints: boolean;
@@ -51,9 +51,9 @@ export interface PanelSymbolChooserProps {
   alreadyPlaced: readonly PickedSymbol[];
   /** Resolves a LIB_ID from the schematic's embedded library cache. */
   getPlacedLibSymbol?: (libId: string) => LibSymbol | undefined;
-  /** Accept handler — double-click/Enter chose a symbol. */
+  /** Accept handler, double-click/Enter chose a symbol. */
   onAccept: () => void;
-  /** Escape handler — Esc with an empty search box. */
+  /** Escape handler, Esc with an empty search box. */
   onEscape: () => void;
   /** Lazy-load handler: item count changed (updates the dialog title). */
   onItemCountChanged?: (count: number) => void;
@@ -101,7 +101,7 @@ const pinCountOf = (sym: LibSymbol): number =>
   sym.units.reduce((n, u) => n + (u.unit === 0 || u.unit === 1 ? u.pins.length : 0), 0);
 
 /**
- * LIB_SYMBOL::cacheSearchTerms + cacheChooserFields — weighted terms and the
+ * LIB_SYMBOL::cacheSearchTerms + cacheChooserFields, weighted terms and the
  * optional-column values, once the real symbol is known.
  */
 function populateItemNode(node: LibTreeNode, sym: LibSymbol, adapter?: LibTreeModelAdapter): void {
@@ -202,14 +202,14 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         a.setFilter(
           (node) =>
             node.isPower ||
-            // Not yet loaded — fall back to the library name until real
+            // Not yet loaded, fall back to the library name until real
             // power flags are known.
             (!loadedLibs.current.has(node.libNickname) && /power/i.test(node.libNickname)),
         );
       }
 
       // processList: an entry whose symbol can't be resolved is dropped, and
-      // the picked field values are applied to the copy that feeds the node —
+      // the picked field values are applied to the copy that feeds the node,
       // so an edited footprint/value shows in the tree and the details pane.
       const processList = (list: readonly PickedSymbol[], group: LibTreeNode) => {
         for (const picked of list) {
@@ -469,7 +469,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       return out;
     }, [previewSymbol]);
 
-    // FOOTPRINT_SELECT_WIDGET::UpdateList — the always-included footprints, then
+    // FOOTPRINT_SELECT_WIDGET::UpdateList, the always-included footprints, then
     // the hosted list filtered by the symbol's fp_filters (zero filters and no
     // associations leave just the default entry).
     const [fpItems, setFpItems] = useState<string[]>([]);

@@ -64,7 +64,7 @@ describe('computeHierarchyNetlist', () => {
     // The child's hier-label net takes the parent's local-label name: the local
     // label (LOCAL_LABEL) outranks the hierarchical label (HIER_LABEL).
     // The winning driver is the parent's local label, so the whole chain takes
-    // that driver's name *and* its sheet path — the root's, here "/".
+    // that driver's name *and* its sheet path, the root's, here "/".
     expect(netNameOf(bySheet.get('/s1/')!, 'hl-in')).toBe('/MAIN');
     expect(netNameOf(bySheet.get('/')!, 'l-main')).toBe('/MAIN');
     // …and the pin on the child sheet is on that same net.
@@ -247,8 +247,8 @@ describe('ERC over a hierarchy', () => {
 /**
  * Buses across the hierarchy: a bus-shaped sheet pin belongs to the *bus*
  * graph (SCH_SHEET_PIN::ConfigureFromLabel makes it a BUS connection), and it
- * pairs with the child sheet's bus port of the same name — upstream's
- * GetNameForDriver comparison — so the bus connection travels between them.
+ * pairs with the child sheet's bus port of the same name, upstream's
+ * GetNameForDriver comparison, so the bus connection travels between them.
  */
 describe('hierarchical buses', () => {
   const busSheet = (body: string): Schematic =>

@@ -17,6 +17,7 @@
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { arg, childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
@@ -231,7 +232,7 @@ export function buildPropertyNode(field: Omit<SchField, 'source'>, invertY = fal
 
 /**
  * Patch a `(property ...)` node to match the typed field, changing only what
- * differs. `invertY` writes Y negated — symbol-*library* fields are stored +Y-up
+ * differs. `invertY` writes Y negated, symbol-*library* fields are stored +Y-up
  * in the file while the model is +Y-down (the mirror of readField's invertY).
  * Exported for the symbol-library writer.
  */
@@ -349,7 +350,7 @@ function patchSymbolBool(node: SList, name: string, value: boolean, dflt: boolea
   return insertCanonical(node, list(atom(name), atom(value ? 'yes' : 'no')));
 }
 
-/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token —
+/** Patch `(passthrough block|force)`; DEFAULT (undefined) removes the token,
  *  the writer omits it "to avoid file churn" (saveSymbol). */
 function patchPassthrough(node: SList, mode: 'block' | 'force' | undefined): SList {
   const child = childNamed(node, 'passthrough');
@@ -495,7 +496,7 @@ function patchInstancePages(
   hasProject: boolean,
 ): SList {
   const patchPath = (pathNode: SList, project: string): SList => {
-    const page = pageByKey.get(`${project} ${arg(pathNode, 0) ?? ''}`);
+    const page = pageByKey.get(`${project}\u0000${arg(pathNode, 0) ?? ''}`);
     if (page === undefined || !childNamed(pathNode, 'page')) return pathNode;
     return mapChild(pathNode, 'page', () => list(atom('page'), str(page)));
   };
@@ -514,7 +515,7 @@ function patchInstancePages(
   return { kind: 'list', items };
 }
 
-const instanceKey = (i: SheetInstance): string => `${i.project ?? ''} ${i.path}`;
+const instanceKey = (i: SheetInstance): string => `${i.project ?? ''}\u0000${i.path}`;
 
 /** Patch a sheet: its position, each field, each pin, and instance page numbers. */
 /**
@@ -596,7 +597,7 @@ function writeLabel(l: SchLabel): SList {
     const orig = readEffects(l.source);
     node = mapChild(node, 'effects', (e) => patchEffects(e, l.effects!, orig));
   }
-  // `(exclude_from_sim yes|no)` — written only once the model carries it, so a
+  // `(exclude_from_sim yes|no)`, written only once the model carries it, so a
   // file that never had the token keeps not having it.
   if (l.excludedFromSim !== undefined) node = setToken(node, 'exclude_from_sim', l.excludedFromSim);
   node = setHyperlink(node, l.hyperlink);
@@ -619,7 +620,7 @@ function setHyperlink(node: SList, link: string | undefined): SList {
 /**
  * Patch a netclass directive label: its position, orientation, flag shape, pin
  * length and its fields (the "Netclass" property the dialog edits). Everything
- * else in the node — effects, uuid, anything we don't model — passes through.
+ * else in the node, effects, uuid, anything we don't model, passes through.
  */
 function writeDirectiveLabel(l: SchDirectiveLabel): SList {
   let node = patchAt(l.source, l.at);
@@ -736,6 +737,19 @@ export function writeSchematic(sch: Schematic): SList {
   const out: SNode[] = [atom('kicad_sch')];
 
   for (const name of HEADER_ORDER) {
+    // We wrote this file, so we name ourselves, exactly as KiCad overwrites the
+    // generator with its own name on save. Preserving the original would leave
+    // a schematic we edited still attributed to eeschema, which is the
+    // misattribution these fields exist to prevent. Written unconditionally so
+    // a file that arrived without the token still gains one.
+    if (name === 'generator') {
+      out.push(list(atom('generator'), str(GENERATOR)));
+      continue;
+    }
+    if (name === 'generator_version') {
+      out.push(list(atom('generator_version'), str(GENERATOR_VERSION)));
+      continue;
+    }
     const c = childNamed(sch.source, name);
     if (c) out.push(c);
   }

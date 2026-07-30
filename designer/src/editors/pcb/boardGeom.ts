@@ -1,5 +1,5 @@
 /**
- * Per-layer board GEOMETRY for the 3D viewer — the KiCad approach
+ * Per-layer board GEOMETRY for the 3D viewer, the KiCad approach
  * (create_scene.cpp): every copper/silk/pad shape becomes real triangles, so
  * the board stays razor-sharp at any zoom or angle (unlike a baked texture).
  *
@@ -190,7 +190,7 @@ export function buildBoardGeom(board: Board, box: Box): BoardGeom {
   const silkSide = (layer: string): SideGeom | null =>
     layer === 'F.SilkS' ? front : layer === 'B.SilkS' ? back : null;
 
-  // Every drill (vias + through-hole pads), in IU — subtracted from copper so a
+  // Every drill (vias + through-hole pads), in IU, subtracted from copper so a
   // trace/zone connecting to a hole doesn't show inside the see-through drill.
   const drills = board.vias.map((v) => ({ cx: v.at.x, cy: v.at.y, r: v.drill / 2 }));
   for (const fp of board.footprints)
@@ -298,7 +298,7 @@ export function buildBoardGeom(board: Board, box: Box): BoardGeom {
   }
   for (const sh of board.shapes) addSilk(sh, silkSide(sh.layer), poly3d);
 
-  // Text as stroke geometry — reference designators/values on silk, plus text
+  // Text as stroke geometry, reference designators/values on silk, plus text
   // on copper (e.g. a board name on F.Cu/B.Cu) into the copper mesh so it reads
   // like KiCad. Mirrors renderBoard.addText's placement transform.
   const textMesh = (layer: string): Mesh | null =>
@@ -328,7 +328,7 @@ function addText(t: Text, mesh: Mesh | null, poly3d: (mesh: Mesh, loop: Pt[]) =>
   const j = t.justify ?? [];
   const offX = j.includes('left') ? 0 : j.includes('right') ? -width : -width / 2;
   const offY = j.includes('top') ? size : j.includes('bottom') ? 0 : size / 2;
-  // Keep footprint reference/value text upright, never upside down — KiCad's
+  // Keep footprint reference/value text upright, never upside down, KiCad's
   // PCB_TEXT::GetDrawRotation (keep angle in ]-90..90]).
   let ang = t.angle;
   if (t.kind === 'reference' || t.kind === 'value') {
@@ -342,7 +342,7 @@ function addText(t: Text, mesh: Mesh | null, poly3d: (mesh: Mesh, loop: Pt[]) =>
     tilt = t.italic ? ITALIC_TILT : 0;
   // KiCad scales glyphs by (width, height) separately (eda_text.cpp writes
   // "(size height width)"); layoutText used height for both, so condense x by
-  // width/height — otherwise non-square text (a condensed board name) is too
+  // width/height, otherwise non-square text (a condensed board name) is too
   // wide and runs off the board.
   const sx = size > 0 ? t.size.x / size : 1;
   const world = (p: Vec2): Pt => {

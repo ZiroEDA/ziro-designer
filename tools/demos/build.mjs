@@ -4,7 +4,7 @@
  * Reads the gitignored upstream clone (kicad-src/demos, branch 10.0), applies
  * the same stripping rules the bundled ecc83 uses (design files verbatim;
  * large 3D models, PDFs, archives, backups omitted; the jetson and vme-wren
- * showcase boards skipped — their board files alone are 81/67 MB), and writes
+ * showcase boards skipped, their board files alone are 81/67 MB), and writes
  * a ready-to-upload tree + manifest to tools/demos/out/.
  *
  * Usage:
@@ -63,7 +63,7 @@ const TITLES = {
 
 if (!existsSync(SRC)) {
   console.error(
-    'kicad-src/demos not found — clone the upstream 10.0 branch first (see .gitignore note).',
+    'kicad-src/demos not found, clone the upstream 10.0 branch first (see .gitignore note).',
   );
   process.exit(1);
 }

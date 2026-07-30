@@ -1,5 +1,5 @@
 /**
- * PCB_TRACK / PCB_ARC / PCB_VIA — the copper routing items (pcbnew/pcb_track.{h,cpp}).
+ * PCB_TRACK / PCB_ARC / PCB_VIA, the copper routing items (pcbnew/pcb_track.{h,cpp}).
  * Faithful ports of the geometry-transform + hit-test methods; the object model
  * is mutated in place and later regenerated to the file by the sexpr writer.
  *
@@ -105,7 +105,7 @@ export class PCB_ARC extends PCB_TRACK {
     this.m_Mid = { ...p };
   }
 
-  /** Arc centre (circumcentre of start/mid/end) — PCB_ARC::GetPosition. */
+  /** Arc centre (circumcentre of start/mid/end), PCB_ARC::GetPosition. */
   override GetPosition(): VECTOR2I {
     const a = this.m_Start,
       b = this.m_Mid,
@@ -136,7 +136,7 @@ export class PCB_ARC extends PCB_TRACK {
     MIRROR(this.m_Mid, aCentre, aFlipDirection);
   }
 
-  /** PCB_ARC::HitTest — endpoint short-circuit, radial band, then angle in sweep. */
+  /** PCB_ARC::HitTest, endpoint short-circuit, radial band, then angle in sweep. */
   override HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
     const maxDist = aAccuracy + this.m_width / 2.0;
     if (Distance(this.m_Start, aPosition) <= maxDist || Distance(this.m_End, aPosition) <= maxDist)
@@ -218,7 +218,7 @@ export class PCB_VIA extends PCB_TRACK {
     return this.m_bottomLayer;
   }
 
-  /** PCB_VIA::HitTest — distance from centre within accuracy + radius. */
+  /** PCB_VIA::HitTest, distance from centre within accuracy + radius. */
   override HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
     const maxDist = aAccuracy + Math.trunc(this.m_width / 2);
     const rel = { x: aPosition.x - this.m_Start.x, y: aPosition.y - this.m_Start.y };

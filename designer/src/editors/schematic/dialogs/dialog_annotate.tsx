@@ -1,6 +1,6 @@
 /**
  * Annotate Schematic dialog. Counterpart: `eeschema/dialogs/dialog_annotate.cpp`
- * (DIALOG_ANNOTATE) over `dialog_annotate_base.cpp`'s layout — a 2×2 grid of
+ * (DIALOG_ANNOTATE) over `dialog_annotate_base.cpp`'s layout, a 2×2 grid of
  * Scope | Order over Options | Numbering, the Annotation Messages report panel,
  * and the Clear Annotation / Close / Annotate buttons.
  *
@@ -15,7 +15,7 @@ import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,
- *  numbering method, start number — DIALOG_ANNOTATE reads them on open and
+ *  numbering method, start number, DIALOG_ANNOTATE reads them on open and
  *  writes changes back on close; scope/reset stay app preferences). */
 export interface AnnotateProjectSettings {
   order: Exclude<AnnotateOptions['order'], 'unsorted'>;

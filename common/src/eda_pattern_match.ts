@@ -4,7 +4,7 @@
  * EDA_COMBINED_MATCHER with ScoreTerms).
  *
  * A combined matcher tries, in order: regular expression, wildcard (?/*) and
- * plain substring — "whatever syntax users prefer, it shall be matched"
+ * plain substring, "whatever syntax users prefer, it shall be matched"
  * (CTX_LIBITEM). The relational matcher (`pins>4`) is not ported: the web
  * library index carries no per-item numeric fields to relate against.
  */
@@ -12,7 +12,7 @@
 /** One weighted search term of a tree item (upstream SEARCH_TERM, lib_tree_item.h). */
 export interface SearchTerm {
   text: string;
-  /** Relative weight — e.g. item name 8, LIB_ID 16, keywords 4, description 1. */
+  /** Relative weight, e.g. item name 8, LIB_ID 16, keywords 4, description 1. */
   score: number;
   /**
    * Only the item's own name/LIB_ID can promote it into the exact-match tier;
@@ -103,7 +103,7 @@ export class EdaCombinedMatcher {
   }
 
   /**
-   * EDA_COMBINED_MATCHER::ScoreTerms — weigh this matcher against an item's
+   * EDA_COMBINED_MATCHER::ScoreTerms, weigh this matcher against an item's
    * search terms: 8× for an exact term match, 2× for a match at the start,
    * 1× anywhere else. `exact` is set only when a name term equals the query.
    */

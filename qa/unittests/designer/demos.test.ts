@@ -1,5 +1,5 @@
 /**
- * Bundled demo projects must parse with our own engines — a demo that fails
+ * Bundled demo projects must parse with our own engines, a demo that fails
  * to open would be the worst possible first impression, and the classic
  * upstream project doubles as a real-world compatibility fixture.
  */
@@ -11,7 +11,7 @@ import { readSchematic, readSymbolLib } from '@ziroeda/eeschema';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
-// Full corpus sweep source: the gitignored upstream clone (local dev only —
+// Full corpus sweep source: the gitignored upstream clone (local dev only,
 // in CI the bundled ecc83 fixture above is the guaranteed compatibility test).
 const DEMOS_ROOT = fileURLToPath(new URL('../../../kicad-src/demos/', import.meta.url));
 const read = (name: string): string => readFileSync(DEMO + name, 'utf8');
@@ -46,7 +46,7 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
   });
 });
 
-/** The full upstream demo corpus must parse with our engines — run locally
+/** The full upstream demo corpus must parse with our engines, run locally
  * against the reference clone (skipped in CI where the clone is absent). */
 describe.skipIf(!existsSync(DEMOS_ROOT))('upstream demo corpus parse sweep', () => {
   const walk = (dir: string): string[] =>
@@ -55,7 +55,7 @@ describe.skipIf(!existsSync(DEMOS_ROOT))('upstream demo corpus parse sweep', () 
     );
   // Guarded walk: vitest executes skipped suite factories during collection,
   // so this must not touch the filesystem when the clone is absent (CI).
-  // The jetson/vme-wren showcase boards are 81/67 MB — parseable, but not
+  // The jetson/vme-wren showcase boards are 81/67 MB, parseable, but not
   // worth a minute of every local test run; everything else sweeps.
   const all = existsSync(DEMOS_ROOT)
     ? walk(DEMOS_ROOT).filter((f) => statSync(f).size < 20 * 1024 * 1024)

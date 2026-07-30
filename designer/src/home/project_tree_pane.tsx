@@ -3,7 +3,7 @@
  * kicad/project_tree_pane.cpp). Renders the .kicad_pro root row, the
  * KiCad-sorted directory tree, and the empty-state open/select/drop hints.
  * Single click selects, double click routes each document type to its editor
- * (PROJECT_TREE_ITEM::Activate). State stays in the launcher — this pane is
+ * (PROJECT_TREE_ITEM::Activate). State stays in the launcher, this pane is
  * fully controlled. Ctrl/Cmd-click multi-selects; right-click opens the
  * context menu (the web-applicable subset of upstream's popup: text viewer,
  * rename, delete).
@@ -65,7 +65,7 @@ export function ProjectTreePane({
   dirRoot: DirNode | null;
   /** The tree root shows the full .kicad_pro filename (m_root = fn.GetFullName()). */
   rootLabel: string;
-  /** Basenames (lowercased, no extension) of every .kicad_pro in the folder —
+  /** Basenames (lowercased, no extension) of every .kicad_pro in the folder,
    *  KiCad's getProjects(dir). A .kicad_sch shows only when its basename is one
    *  of these (the root sheet of some project); subsheets stay hidden. */
   projectNames: ReadonlySet<string>;
@@ -93,12 +93,12 @@ export function ProjectTreePane({
   onSelectFiles: () => void;
 }): JSX.Element {
   // KiCad's addItemToProjectTree: a .kicad_sch is listed only when its basename
-  // is one of the folder's project names (getProjects) — i.e. the root sheet of
+  // is one of the folder's project names (getProjects), i.e. the root sheet of
   // *some* project. Sub-sheets hide (they live in the editor's hierarchy
   // navigator). A folder may hold several projects: the active project's
   // .kicad_pro is the bold root row (hidden as a child, like KiCad's
-  // `filename != fn.GetFullName()`); every other file — including the other
-  // projects' .kicad_pro, .kicad_sch and .kicad_pcb — stays visible, and their
+  // `filename != fn.GetFullName()`); every other file, including the other
+  // projects' .kicad_pro, .kicad_sch and .kicad_pcb, stays visible, and their
   // .kicad_pro can be double-clicked to switch project.
   const isHiddenNode = (name: string): boolean => {
     const base = name.split(/[\\/]/).pop() ?? name;
@@ -215,7 +215,7 @@ export function ProjectTreePane({
         {picked ? (
           <>
             {/* project root (.kicad_pro): bold, selectable, and its twisty
-                collapses the whole tree — like KiCad's tree root. */}
+                collapses the whole tree, like KiCad's tree root. */}
             <div
               className={`ze-tree-item root${selected.has(ROOT_SELECTION) ? ' active' : ''}`}
               style={{ cursor: 'pointer' }}
@@ -288,7 +288,7 @@ export function ProjectTreePane({
             return (
               <>
                 {/* "New Directory…" needs file-move to be useful in the
-                    file-list project model — arrives with drag-move. */}
+                    file-list project model, arrives with drag-move. */}
                 {item('New Directory…', undefined, true)}
                 <div className="ze-msep" />
                 {item(

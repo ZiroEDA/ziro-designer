@@ -1,6 +1,6 @@
 /**
  * Board Setup > Board Stackup > Solder Mask/Paste. Counterpart:
- * `pcbnew/dialogs/panel_setup_mask_and_paste_base.cpp` (PANEL_SETUP_MASK_AND_PASTE) —
+ * `pcbnew/dialogs/panel_setup_mask_and_paste_base.cpp` (PANEL_SETUP_MASK_AND_PASTE),
  * two groups: Solder Mask Settings (expansion, minimum web width, mask-to-copper
  * clearance, tent vias front/back) and Solder Paste Settings (clearance, relative
  * clearance %). Board-wide defaults applied to pads unless overridden.

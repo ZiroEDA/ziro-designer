@@ -123,7 +123,7 @@ describe('connection-aware move (rubber-banding)', () => {
     const moved = moveWithConnections(spec, delta).apply(sch);
 
     const before = sch.lines[0]!;
-    // End moved with the symbol; start stayed put — the wire stayed connected.
+    // End moved with the symbol; start stayed put, the wire stayed connected.
     expect(moved.lines[0]!.end).toEqual({ x: before.end.x + delta.x, y: before.end.y + delta.y });
     expect(moved.lines[0]!.start).toEqual(before.start);
     // And the symbol moved too.

@@ -11,14 +11,14 @@ import type { ToolEntry } from '../../ui/Toolbar.js';
 const sep: ToolEntry = 'sep';
 
 /**
- * Not yet implemented in the web canvas — shown greyed in its upstream
+ * Not yet implemented in the web canvas, shown greyed in its upstream
  * position (repo convention) until each tool is ported end-to-end.
  */
 const todo = { disabled: true } as const;
 
 /** TOP_MAIN toolbar. */
 export const PCB_TOP_TOOLBAR: ToolEntry[] = [
-  // doNew/open appear only when Kiface().IsSingle() — standalone pcbnew. This
+  // doNew/open appear only when Kiface().IsSingle(), standalone pcbnew. This
   // editor is project-hosted (KiCad project mode), so they are not shown.
   { id: 'save', icon: 'save', title: 'Save' },
   sep,
@@ -63,7 +63,7 @@ export const PCB_TOP_TOOLBAR: ToolEntry[] = [
 
 // PCB_ACTION_TOOLBAR_CONTROLS::currentVariant closes TOP_MAIN as a CHOICE
 // control (not a bitmap button) and ACTION_TOOLBAR_CONTROLS::ipcScripting is
-// a region for plugin buttons — empty (invisible) until plugins register,
+// a region for plugin buttons, empty (invisible) until plugins register,
 // exactly like plugin-less KiCad. The editor renders the variant dropdown as
 // the toolbar's trailing control.
 

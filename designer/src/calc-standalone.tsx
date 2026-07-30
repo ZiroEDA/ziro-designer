@@ -1,5 +1,5 @@
 /**
- * Standalone entry that mounts just the Calculator Tools frame — used to build
+ * Standalone entry that mounts just the Calculator Tools frame, used to build
  * a single self-contained page for manual testing, independent of the launcher,
  * cloud sync or the other editors.
  */

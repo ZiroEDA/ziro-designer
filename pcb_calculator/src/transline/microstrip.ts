@@ -1,6 +1,6 @@
 /**
- * Microstrip — faithful port of KiCad's `transline_calculations/microstrip.cpp`:
- * Hammerstad–Jensen static Z0/εeff with thickness correction, Kirschning–Jansen
+ * Microstrip, faithful port of KiCad's `transline_calculations/microstrip.cpp`:
+ * Hammerstad-Jensen static Z0/εeff with thickness correction, Kirschning-Jansen
  * dispersion, March covered-microstrip terms, and conductor/dielectric loss.
  * Cover height and surface roughness default to their no-cover / smooth limits
  * (the panel does not expose them), matching KiCad's default output.
@@ -42,7 +42,7 @@ export interface MicrostripResult extends TranslineAnalysis {
   z0Static: number;
 }
 
-// --- Hammerstad–Jensen building blocks (KiCad names kept) ---
+// --- Hammerstad-Jensen building blocks (KiCad names kept) ---
 
 function z0Homogeneous(u: number): number {
   const fu = 6.0 + (2.0 * Math.PI - 6.0) * Math.exp(-((30.666 / u) ** 0.7528));
@@ -182,7 +182,7 @@ export function microstripAnalyze(
     tanDEff = sm.tanD;
   }
 
-  // Dispersion (Kirschning–Jansen). f_n in GHz·mm.
+  // Dispersion (Kirschning-Jansen). f_n in GHz·mm.
   const fn = (el.frequencyHz * phys.heightM) / 1e6;
   const P = eRDispersion(u, er, fn);
   const erEffF = er - (er - erEff0) / (1.0 + P);

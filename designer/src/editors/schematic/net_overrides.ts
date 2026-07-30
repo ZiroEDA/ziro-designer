@@ -41,7 +41,7 @@ const DASH_TOKENS: Record<string, string | undefined> = {
   'Dash-Dot-Dot': 'dash_dot_dot',
 };
 
-/** True when no class carries a visual parameter — the whole pass can skip. */
+/** True when no class carries a visual parameter, the whole pass can skip. */
 function nothingToApply(s: SchematicSetup): boolean {
   return s.netClasses.classes.every(
     (c) =>

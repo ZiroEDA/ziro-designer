@@ -7,7 +7,7 @@
  * patch-in-place strategy: the top-level `(kicad_pcb …)` node is rebuilt by
  * walking the *source* children in order, and for each child the model owns
  * (footprints, tracks/arcs, vias, zones, gr_* graphics, gr_text) the item's
- * `source` node — which board edits PATCH in place — is emitted. Everything the
+ * `source` node, which board edits PATCH in place, is emitted. Everything the
  * typed model does not represent (general, paper, layers, setup, net decls,
  * embedded files, …) passes straight through, byte-faithful.
  *
@@ -21,6 +21,7 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { writeFootprintNode } from './write-footprint.js';
 import type {
   Board,
@@ -192,7 +193,7 @@ const textNode = (t: PcbTextItem): SNode =>
   t.source.items.length > 0 ? t.source : buildBoardTextNode(t);
 const zoneNode = (z: PcbZone): SNode => (z.source.items.length > 0 ? z.source : buildZoneNode(z));
 
-/** `(group "name" (uuid …) [(locked yes)] (members …))` — PCB_IO_KICAD_SEXPR::
+/** `(group "name" (uuid …) [(locked yes)] (members …))`, PCB_IO_KICAD_SEXPR::
  *  format(PCB_GROUP): members sorted alphabetically; empty groups not written
  *  (the walk drops a group whose model entry has no members). */
 export function buildGroupNode(g: PcbGroup): SList {
@@ -258,6 +259,11 @@ export function writeBoardNode(board: Board): SList {
       if (gi < board.groups.length && board.groups[gi]!.members.length > 0)
         out.push(groupNode(board.groups[gi]!));
       gi++;
+    } else if (h === 'generator') {
+      // We wrote this file, so we name ourselves, as KiCad does on save.
+      out.push(list(atom('generator'), str(GENERATOR)));
+    } else if (h === 'generator_version') {
+      out.push(list(atom('generator_version'), str(GENERATOR_VERSION)));
     } else out.push(it);
   }
 

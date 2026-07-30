@@ -1,6 +1,6 @@
 /**
  * Field Name Templates panel. Counterpart:
- * `eeschema/dialogs/panel_template_fieldnames_base.cpp` (PANEL_TEMPLATE_FIELDNAMES) —
+ * `eeschema/dialogs/panel_template_fieldnames_base.cpp` (PANEL_TEMPLATE_FIELDNAMES),
  * a "Field Name Templates" title, then a Name / Visible / URL grid, then a
  * bottom-left button row: add, move up, move down, (gap) delete. The template
  * field names are auto-added to new symbols, each with Visible / URL flags.

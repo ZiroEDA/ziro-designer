@@ -5,12 +5,13 @@
  * anywhere.
  */
 
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { PickedHomeFile } from './files.js';
 
 const enc = new TextEncoder();
 
 // What pcbnew writes for File > New Board: default 2-layer stack.
-export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "ziroeda")
+export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "${GENERATOR}")
   (general (thickness 1.6) (legacy_teardrops no))
   (paper "A4")
   (layers
@@ -44,8 +45,8 @@ export const EMPTY_PCB = `(kicad_pcb (version 20241229) (generator "ziroeda")
 // "sheets" list (KiCad ties the project's root sheet to this uuid).
 export const emptySch = (uuid: string): string => `(kicad_sch
 	(version 20250114)
-	(generator "eeschema")
-	(generator_version "9.0")
+	(generator "${GENERATOR}")
+	(generator_version "${GENERATOR_VERSION}")
 	(uuid "${uuid}")
 	(paper "A4")
 	(lib_symbols)
@@ -58,7 +59,7 @@ export const emptySch = (uuid: string): string => `(kicad_sch
 `;
 
 // KiCad's default project file (kicad_pro): JSON settings written by File > New
-// Project. Only the essentials KiCad always emits — the app derives the project
+// Project. Only the essentials KiCad always emits, the app derives the project
 // name from `meta.filename` and ties the root schematic via `sheets`.
 export const projectJson = (name: string, rootUuid: string): string =>
   `${JSON.stringify(
@@ -115,7 +116,7 @@ export const newProjectFiles = (name: string): PickedHomeFile[] => {
 export const sanitizeProjectName = (s: string): string => s.replace(/[/\\:*?"<>|]/g, '').trim();
 
 /**
- * Save As: copy the project's files under a new project name — the folder
+ * Save As: copy the project's files under a new project name, the folder
  * prefix and every file whose stem matches the old project name are renamed
  * (mirrors the upstream manager's SaveProjectAs copy).
  */

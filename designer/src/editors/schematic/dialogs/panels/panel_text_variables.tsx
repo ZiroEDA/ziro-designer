@@ -1,6 +1,6 @@
 /**
  * Text Variables panel. Counterpart: `common/dialogs/panel_text_variables_base.cpp`
- * (PANEL_TEXT_VARIABLES) — the project's `${NAME}` substitutions, edited in a
+ * (PANEL_TEXT_VARIABLES), the project's `${NAME}` substitutions, edited in a
  * two-column grid (Variable Name / Text Substitution) with an add and a delete
  * bitmap button at the bottom-left. Delete removes the selected row.
  */

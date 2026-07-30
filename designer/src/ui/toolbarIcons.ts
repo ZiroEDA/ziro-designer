@@ -265,7 +265,7 @@ const BITMAP: Record<string, string> = {
   gerbPrevLayer: 'left',
   // The toolbar resolves icons by the tool *id*, so the left/right Gerber
   // toggles (whose ids differ from their `icon` field) need id-keyed entries
-  // too — otherwise they render as empty placeholder squares.
+  // too, otherwise they render as empty placeholder squares.
   togglePolar: 'polar_coord',
   flashedSketch: 'pad_sketch',
   linesSketch: 'showtrack',

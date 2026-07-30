@@ -5,7 +5,7 @@
  * (`BITMAPCONV_INFO`): take a bitmap, reduce it to greyscale, threshold it to a
  * 1-bit image, trace that with potrace, then emit the traced polygons as a
  * schematic symbol, a PCB footprint, an EPS/PostScript drawing, or a drawing
- * sheet — one filled polygon per traced outline, holes cut out.
+ * sheet, one filled polygon per traced outline, holes cut out.
  *
  * The scale/offset/sign for each output format matches `CreateOutputFile`
  * exactly: the emitted millimetre coordinate is `(pixel − centre) · 25.4 / DPI`,
@@ -15,12 +15,11 @@
 
 import { traceBitmap, Bitmap, Pt, DEFAULT_TRACE_PARAMS, type Path } from './potrace.js';
 import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 
-/** File version tokens, matching the eeschema / pcbnew writers in this repo (KiCad 9.0). */
 const SEXPR_SYMBOL_LIB_FILE_VERSION = 20241209;
 const SEXPR_FOOTPRINT_FILE_VERSION = 20241229;
 const SEXPR_WKS_FILE_VERSION = 20220228;
-const GENERATOR_VERSION = '9.0';
 /** KiCad's SCH_LINE_THICKNESS_MM used for symbol polyline strokes. */
 const SCH_LINE_THICKNESS_MM = 0.01;
 
@@ -36,7 +35,7 @@ export interface LayerChoice {
 
 /**
  * The "Layer:" choices offered by KiCad's Image Converter, in the exact order
- * and with the exact display labels of `bitmap2cmp_panel_base` — the label is
+ * and with the exact display labels of `bitmap2cmp_panel_base`, the label is
  * what the dropdown shows, the id is the file layer name it maps to
  * (`ExportToBuffer`'s switch). Index 0 (F.Cu) is the KiCad default.
  */
@@ -62,7 +61,7 @@ export interface ConvertOptions {
   /** Download file stem; defaults to `name`. */
   fileStem?: string;
   /**
-   * Clipboard variant: KiCad's SYMBOL_PASTE_FMT — the symbol fragment without
+   * Clipboard variant: KiCad's SYMBOL_PASTE_FMT, the symbol fragment without
    * the `kicad_symbol_lib` wrapper. Only meaningful for `format: 'symbol'`.
    */
   paste?: boolean;
@@ -82,7 +81,7 @@ export interface GrayImage {
 /**
  * Reduce RGBA image data to greyscale, KiCad's Rec. 601 luma
  * (`0.299 R + 0.587 G + 0.114 B`, wx `ConvertToGreyscale`). Alpha is kept as
- * its own channel — `binarize` consults it separately, as KiCad does.
+ * its own channel, `binarize` consults it separately, as KiCad does.
  */
 export function imageToGray(data: Uint8ClampedArray, w: number, h: number): GrayImage {
   const gray = new Uint8ClampedArray(w * h);
@@ -98,7 +97,7 @@ export function imageToGray(data: Uint8ClampedArray, w: number, h: number): Gray
 }
 
 /**
- * Threshold a greyscale image to a 1-bit bitmap for tracing —
+ * Threshold a greyscale image to a 1-bit bitmap for tracing,
  * `BITMAP2CMP_PANEL::binarize` exactly: with `negative` the greyscale is
  * negated first (`negateGreyscaleImage`), then a pixel is foreground when it is
  * darker than the threshold *and* opaque enough (`alpha > 0.7 · threshold`).
@@ -128,7 +127,7 @@ export function monoToRGBA(bm: Bitmap): ImageData {
 
 /**
  * Render greyscale bytes to RGBA for the "Greyscale" preview tab. With
- * `negative`, the levels are inverted — KiCad negates the greyscale image
+ * `negative`, the levels are inverted, KiCad negates the greyscale image
  * itself when Negative is ticked, so the preview shows the negated version.
  */
 export function grayToRGBA(img: GrayImage, negative = false): ImageData {
@@ -211,8 +210,8 @@ export interface Region {
  * Trace the bitmap and group the result into filled regions using the even-odd
  * rule: a contour nested an even number of deep is a filled outline, an odd one
  * a hole cut from its immediate (smallest containing) outline. potrace's XOR
- * decomposition already emits every boundary once, so nesting parity — not the
- * raw path sign — is what tells outlines from holes, exactly as KiCad's
+ * decomposition already emits every boundary once, so nesting parity, not the
+ * raw path sign, is what tells outlines from holes, exactly as KiCad's
  * `SHAPE_POLY_SET` boolean does.
  */
 export function traceRegions(bm: Bitmap): Region[] {
@@ -308,7 +307,7 @@ function uuid(): string {
 
 /**
  * One ring (outer with holes bridged in) as `(xy ..)` lines. `close` repeats
- * the first point — KiCad closes the polygon for symbol and drawing-sheet
+ * the first point, KiCad closes the polygon for symbol and drawing-sheet
  * output but not for `fp_poly` ("No need to close polygon").
  */
 function ringXY(region: Region, xf: XForm, indent: string, close = false): string {
@@ -331,7 +330,7 @@ function writeFootprint(regions: Region[], o: ConvertOptions, w: number, h: numb
   let s = '';
   s += `(footprint "${o.name}"\n`;
   s += `\t(version ${SEXPR_FOOTPRINT_FILE_VERSION})\n`;
-  s += `\t(generator "bitmap2component")\n`;
+  s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(layer "F.Cu")\n`;
   s += `\t(attr board_only exclude_from_pos_files exclude_from_bom)\n`;
@@ -375,7 +374,7 @@ function writeSymbol(regions: Region[], o: ConvertOptions, w: number, h: number)
   if (!o.paste) {
     s += `(kicad_symbol_lib\n`;
     s += `\t(version ${SEXPR_SYMBOL_LIB_FILE_VERSION})\n`;
-    s += `\t(generator "bitmap2component")\n`;
+    s += `\t(generator "${GENERATOR}")\n`;
     s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   }
   s += `\t(symbol "${o.name}"\n`;
@@ -407,7 +406,7 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   let s = '';
   s += `(kicad_wks\n`;
   s += `\t(version ${SEXPR_WKS_FILE_VERSION})\n`;
-  s += `\t(generator "bitmap2component")\n`;
+  s += `\t(generator "${GENERATOR}")\n`;
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(setup\n\t\t(textsize 1.5 1.5)\n\t\t(linewidth 0.15)\n\t\t(textlinewidth 0.15)\n`;
   s += `\t\t(left_margin 10)\n\t\t(right_margin 10)\n\t\t(top_margin 10)\n\t\t(bottom_margin 10)\n\t)\n`;

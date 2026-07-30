@@ -1,8 +1,8 @@
 /**
- * Image Converter frame — the browser counterpart of KiCad's `bitmap2cmp`
+ * Image Converter frame, the browser counterpart of KiCad's `bitmap2cmp`
  * (`bitmap2cmp_frame.cpp` + `bitmap2cmp_panel.cpp`). The layout mirrors
  * `bitmap2cmp_panel_base`: a left preview notebook (Original / Greyscale /
- * Black & White) and a right column of groups — Image Information, Load Source
+ * Black & White) and a right column of groups, Image Information, Load Source
  * Image, Output Size, Options (threshold + negative), Output Format (with the
  * footprint Layer choice), then Export to File / Export to Clipboard.
  */
@@ -82,7 +82,7 @@ const bytesToDataUrl = (bytes: Uint8Array, type: string): string => {
 };
 
 interface Loaded {
-  /** File name without extension — used as the download file stem. */
+  /** File name without extension, used as the download file stem. */
   name: string;
   /** Full file name, shown in the title bar (KiCad's UpdateTitle). */
   fullName: string;
@@ -319,7 +319,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     setStatus(`Exported ${out.filename}`);
   };
   const exportToClipboard = async (): Promise<void> => {
-    // OnExportToClipboard: a symbol copies as SYMBOL_PASTE_FMT — the bare
+    // OnExportToClipboard: a symbol copies as SYMBOL_PASTE_FMT, the bare
     // symbol fragment, ready to paste into an open schematic.
     const out = buildOutput(format === 'symbol');
     if (!out) {
@@ -386,7 +386,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             ⌂ ZiroEDA
           </div>
         }
-        title={loaded ? `${loaded.fullName} — Image Converter` : 'Image Converter'}
+        title={loaded ? `${loaded.fullName}, Image Converter` : 'Image Converter'}
       />
       <input
         ref={fileInputRef}
@@ -604,10 +604,10 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 white, then traced with potrace into filled polygons.
               </p>
               <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-                <li>Symbol — a schematic library symbol (.kicad_sym)</li>
-                <li>Footprint — a PCB footprint (.kicad_mod) on the chosen layer</li>
-                <li>Postscript — an encapsulated PostScript drawing (.ps)</li>
-                <li>Drawing Sheet — a worksheet graphic (.kicad_wks)</li>
+                <li>Symbol, a schematic library symbol (.kicad_sym)</li>
+                <li>Footprint, a PCB footprint (.kicad_mod) on the chosen layer</li>
+                <li>Postscript, an encapsulated PostScript drawing (.ps)</li>
+                <li>Drawing Sheet, a worksheet graphic (.kicad_wks)</li>
               </ul>
             </div>
             <div className="imgc-modal-foot">

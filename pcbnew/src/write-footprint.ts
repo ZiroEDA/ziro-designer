@@ -21,6 +21,7 @@ import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/
 import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { PcbFootprint, PcbFootprintField, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -142,7 +143,7 @@ export function buildTextNode(text: PcbTextItem): SList {
 
 /**
  * `(property "Name" "Value" (at 0 0 a) (layer "F.Fab") (hide yes) (uuid ..)
- *  (effects (font (size 1 1) (thickness 0.15))))` — a user field created from
+ *  (effects (font (size 1 1) (thickness 0.15))))`, a user field created from
  * scratch, styled as BOARD_NETLIST_UPDATER does it: invisible, on the fab layer of
  * the footprint's side, at the footprint anchor with the footprint's orientation,
  * and StyleFromSettings' defaults (DEFAULT_TEXT_SIZE / DEFAULT_TEXT_WIDTH).
@@ -202,7 +203,7 @@ function isFieldSource(it: SList): boolean {
 /**
  * Rebuild the `(footprint …)` node from the typed model. The modelled item
  * classes (pads, graphics, Reference/Value + fp_text) are emitted from the model
- * arrays — in model order — one per corresponding source child (so an edited
+ * arrays, in model order, one per corresponding source child (so an edited
  * item's PATCHED source is used, deletions drop trailing source nodes, and
  * additions append after their group). Every unmodelled child (descr, tags,
  * attr, models, other properties, …) passes through in place, byte-faithful.
@@ -243,8 +244,8 @@ export function writeFootprintNode(fp: PcbFootprint): SList {
       atom('footprint'),
       str(fp.lib),
       list(atom('version'), atom(String(FOOTPRINT_FILE_VERSION))),
-      list(atom('generator'), str('pcbnew')),
-      list(atom('generator_version'), str('9.0')),
+      list(atom('generator'), str(GENERATOR)),
+      list(atom('generator_version'), str(GENERATOR_VERSION)),
       list(atom('layer'), str(fp.layer || 'F.Cu')),
     );
   }

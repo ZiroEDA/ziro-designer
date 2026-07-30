@@ -1,5 +1,5 @@
 /**
- * @ziroeda/pcb_calculator — Calculator Tools engine.
+ * @ziroeda/pcb_calculator, Calculator Tools engine.
  * Counterpart: KiCad `pcb_calculator/`.
  */
 

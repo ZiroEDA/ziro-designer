@@ -6,7 +6,7 @@
  * the same integer internal units as the schematic model (mmToIU), positions of
  * footprint children are stored board-absolute (the parent transform is applied
  * at read time exactly like the parser's legacy-file path: rotate by the
- * footprint orientation about its anchor, then translate — `RebakeFromLib`).
+ * footprint orientation about its anchor, then translate, `RebakeFromLib`).
  * Every item keeps its source `SList` for lossless round-tripping.
  */
 
@@ -104,7 +104,7 @@ export interface PcbTextItem {
   source: SList;
 }
 
-/** A 3D model attached to a footprint — KiCad `(model path (offset)(scale)(rotate))`.
+/** A 3D model attached to a footprint, KiCad `(model path (offset)(scale)(rotate))`.
  *  `path` usually starts with an env var like `${KICAD6_3DMODEL_DIR}/...` (the
  *  installed library) or `${KIPRJMOD}/...` (project-local). Offset is in mm,
  *  rotation in degrees per axis (KiCad applies it as -Z, -Y, -X), scale unitless. */
@@ -119,7 +119,7 @@ export interface Model3D {
 }
 
 /**
- * A footprint `(property "Name" "Value" …)` that is not Reference or Value —
+ * A footprint `(property "Name" "Value" …)` that is not Reference or Value,
  * KiCad's user PCB_FIELDs (FOOTPRINT::GetFields minus the mandatory two, which
  * this model carries as `texts`). The netlist updater adds, rewrites and removes
  * these to mirror the symbol's fields.
@@ -133,7 +133,7 @@ export interface PcbFootprintField {
 /**
  * Property names a footprint may carry that are NOT user fields. Before KiCad's PCB
  * fields (file version < 20230620) these reserved keys stood in for what now have
- * their own tokens — `(sheetname …)`, `(sheetfile …)`, `(descr …)`, `(tags …)` — and
+ * their own tokens, `(sheetname …)`, `(sheetfile …)`, `(descr …)`, `(tags …)`, and
  * `Footprint` duplicated the LIB_ID until V9. `parseFOOTPRINT` consumes them rather
  * than making fields of them, so nothing should present them to the user or compare
  * them against a symbol's fields.
@@ -166,15 +166,15 @@ export interface PcbFootprint {
   /** `(locked yes)` on the footprint. */
   locked?: boolean;
   /**
-   * `(path "/<sheetUuid>/<symbolUuid>")` — FOOTPRINT::GetPath, the KIID_PATH of
+   * `(path "/<sheetUuid>/<symbolUuid>")`, FOOTPRINT::GetPath, the KIID_PATH of
    * the schematic symbol this footprint is linked to. Empty for a footprint with
    * no symbol behind it.
    */
   path?: string;
-  /** `(sheetname …)` / `(sheetfile …)` — the symbol's sheet (FOOTPRINT::GetSheetname). */
+  /** `(sheetname …)` / `(sheetfile …)`, the symbol's sheet (FOOTPRINT::GetSheetname). */
   sheetname?: string;
   sheetfile?: string;
-  /** `(property ki_fp_filters …)` — FOOTPRINT::GetFilters, the symbol's fp filters. */
+  /** `(property ki_fp_filters …)`, FOOTPRINT::GetFilters, the symbol's fp filters. */
   filters?: string;
   /** User fields: every `(property …)` other than Reference/Value/ki_fp_filters. */
   fields?: PcbFootprintField[];
@@ -246,7 +246,7 @@ export interface PcbZone {
 }
 
 /**
- * A `(group "name" (uuid …) [(locked yes)] (members "uuid"…))` — PCB_GROUP.
+ * A `(group "name" (uuid …) [(locked yes)] (members "uuid"…))`, PCB_GROUP.
  * Members reference other board items by their uuid.
  */
 export interface PcbGroup {

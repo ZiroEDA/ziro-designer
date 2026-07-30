@@ -1,6 +1,6 @@
 /**
  * Net Chains panel. Counterpart:
- * `eeschema/dialogs/panel_setup_net_chains_base.cpp` (PANEL_SETUP_NET_CHAINS) — a
+ * `eeschema/dialogs/panel_setup_net_chains_base.cpp` (PANEL_SETUP_NET_CHAINS), a
  * notebook with two tabs:
  *   Chains            : a grid (Name / Members / Net Chain Class / Net Class /
  *                       Colour) over a "Member Nets" list for the selected chain,
@@ -144,7 +144,7 @@ export function PanelSetupNetChains({ value, onChange }: Props): JSX.Element {
             {curChain && curChain.members.length ? (
               curChain.members.map((m, i) => <div key={i}>{m}</div>)
             ) : (
-              <span style={{ color: 'var(--ze-muted, #888)' }}>—</span>
+              <span style={{ color: 'var(--ze-muted, #888)' }}>-</span>
             )}
           </div>
 

@@ -1,5 +1,5 @@
 /**
- * The Gerber Viewer canvas — GerbView's GERBVIEW_DRAW_PANEL_GAL plus its
+ * The Gerber Viewer canvas, GerbView's GERBVIEW_DRAW_PANEL_GAL plus its
  * interactive tools in Canvas 2D. It renders the composited layers
  * (gerberRender), tracks the cursor for the coordinate readout, supports
  * pan (middle/right drag or space-drag), wheel zoom about the cursor, the

@@ -2,7 +2,7 @@
  * Project-scoped board settings: the data model edited by the Board Setup
  * dialog. Counterpart: `pcbnew/board_design_settings.h`
  * (BOARD_DESIGN_SETTINGS) plus the stackup / net-settings / component-class
- * slices the dialog's pages edit — kept apart from the panel components
+ * slices the dialog's pages edit, kept apart from the panel components
  * (KiCad's data/UI split, and a plain .ts module so the engine, the
  * `.kicad_pro`/`.kicad_pcb` serializers and tests can import it without
  * pulling in React panels).
@@ -52,7 +52,7 @@ export interface BoardConstraints {
   includeStackupHeight: boolean;
 }
 
-/** The `rules.*` param defaults (board_design_settings.cpp:264-332) — what a
+/** The `rules.*` param defaults (board_design_settings.cpp:264-332), what a
  *  missing key means on read, and what KiCad seeds a new project with. */
 export function defaultConstraints(): BoardConstraints {
   return {
@@ -154,7 +154,7 @@ export function defaultLayers(): LayersSetup {
 // Physical Stackup (PANEL_SETUP_BOARD_STACKUP / BOARD_STACKUP).
 
 /** An additional dielectric sublayer (BOARD_STACKUP_ITEM's DIELECTRIC_PRMS
- *  entries past index 0 — the `addsublayer` groups of the file format). */
+ *  entries past index 0, the `addsublayer` groups of the file format). */
 export interface DielectricSublayer {
   material: string;
   thicknessMM: number;
@@ -411,7 +411,7 @@ export function defaultPcbFormatting(): PcbFormatting {
 }
 
 // ---------------------------------------------------------------------------
-// Zones (PANEL_SETUP_ZONES — default properties for new zones).
+// Zones (PANEL_SETUP_ZONES, default properties for new zones).
 
 export interface ZoneDefaults {
   name: string;
@@ -570,7 +570,7 @@ export function defaultComponentClasses(): ComponentClassesData {
 }
 
 // ---------------------------------------------------------------------------
-// Custom Rules (PANEL_SETUP_RULES — the project's .kicad_dru text).
+// Custom Rules (PANEL_SETUP_RULES, the project's .kicad_dru text).
 
 export interface CustomRules {
   text: string;
@@ -597,7 +597,7 @@ interface DrcCategory {
   items: DrcItem[];
 }
 
-// DRC items in KiCad's category order (drc_item.cpp allItemTypes, v10) —
+// DRC items in KiCad's category order (drc_item.cpp allItemTypes, v10),
 // codes are the exact GetSettingsKey() strings used in
 // board.design_settings.rule_severities; the internal group (padstack_invalid,
 // generic_warning/error) has no user-editable severity and is omitted, like

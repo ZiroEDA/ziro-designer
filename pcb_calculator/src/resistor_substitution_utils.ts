@@ -1,5 +1,5 @@
 /**
- * Resistor-substitution search: approximate a required resistance with 2–4
+ * Resistor-substitution search: approximate a required resistance with 2 to 4
  * E-series resistors combined in series/parallel.
  * Exact port of KiCad `pcb_calculator/resistor_substitution_utils.cpp`
  * (RES_EQUIV_CALC): full sorted 2R buffer + binary-search complement lookups,
@@ -175,7 +175,7 @@ function seriesData(id: ESeriesId): Resistance[] {
   const list: Resistance[] = [];
   outer: for (let decade = RES_EQUIV_FIRST_VALUE; ; decade *= 10) {
     for (const v of base) {
-      // All E1–E24 values are integers in [10, 1e6]; round away float noise.
+      // All E1-E24 values are integers in [10, 1e6]; round away float noise.
       const value = Math.round((decade * v) / (base[0] ?? 1));
       list.push({ value, name: strValue(value), parts: [value] });
       if (value >= RES_EQUIV_LAST_VALUE) break outer;

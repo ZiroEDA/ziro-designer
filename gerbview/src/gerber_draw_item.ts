@@ -1,5 +1,5 @@
 /**
- * GERBER_DRAW_ITEM — one graphic element of a Gerber image, mirroring
+ * GERBER_DRAW_ITEM, one graphic element of a Gerber image, mirroring
  * `gerbview/gerber_draw_item.h/.cpp`. It can be a drawn trace (segment/arc/
  * circle), a filled region polygon (G36/G37), or a flashed aperture (a "spot"
  * shape). Coordinates are absolute IU (the image transform is already applied).

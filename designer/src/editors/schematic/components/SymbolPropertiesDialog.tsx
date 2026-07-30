@@ -29,7 +29,7 @@ import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
  * (eeschema/dialogs/dialog_symbol_properties.cpp) and its fields grid
  * (fields_grid_table.cpp):
  *
- *  - one row per field with KiCad's columns — Name, Value, Show, Show Name,
+ *  - one row per field with KiCad's columns, Name, Value, Show, Show Name,
  *    H Align, V Align, Italic, Bold, Text Size, Orientation, Position X/Y;
  *  - positions are shown symbol-relative (TransferDataToWindow offsets each copy
  *    by -symbol position) and in the user units (mm);
@@ -269,7 +269,7 @@ export function SymbolPropertiesDialog({
         <div className="ze-props-body">
           {error && (
             <div className="ze-props-error" onClick={() => setError(null)}>
-              {error} — click to dismiss
+              {error}, click to dismiss
             </div>
           )}
 

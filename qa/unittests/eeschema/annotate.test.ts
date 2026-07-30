@@ -98,7 +98,7 @@ describe('annotateSymbols', () => {
   });
 });
 
-describe('annotateSymbols — multi-unit sharing (REFDES_TRACKER::GetNextRefDesForUnits)', () => {
+describe('annotateSymbols, multi-unit sharing (REFDES_TRACKER::GetNextRefDesForUnits)', () => {
   // A two-unit part: fresh unit A + unit B placed separately, plus a kept
   // U1 unit A to join, and a different-value dual op-amp that must not share.
   const multiSym = (ref: string, value: string, unit: number, x: number, uuid: string): string => `
@@ -232,7 +232,7 @@ describe('annotateHierarchy', () => {
 
 // aRegroupUnits: a reset without it keeps units that shared a reference
 // together; with it they re-pair by placement.
-describe('annotateHierarchy — regroup symbol units', () => {
+describe('annotateHierarchy, regroup symbol units', () => {
   const multiSym = (ref: string, unit: number, x: number, uuid: string): string => `
     (symbol (lib_id "Amp:Dual") (at ${x} 50 0) (unit ${unit}) (uuid "${uuid}")
       (property "Reference" "${ref}" (at ${x} 50 0))
@@ -268,7 +268,7 @@ describe('annotateHierarchy — regroup symbol units', () => {
     )!;
     const syms = out.get('f')!;
     const at = (uuid: string): string => refOf(syms.find((s) => s.uuid === uuid)!);
-    // By X the units pair up as (g-a, g-c) — both unit-1 — so each takes its
+    // By X the units pair up as (g-a, g-c), both unit-1, so each takes its
     // own number and the unit-2 halves join them.
     expect(at('g-a')).toBe('U1');
     expect(at('g-c')).toBe('U2');
@@ -302,7 +302,7 @@ describe('annotation messages', () => {
 
   it('clear annotation reports only the symbols that were annotated', () => {
     // DeleteAnnotation's clearSymbolAnnotation reports (and clears) a symbol
-    // only when IsAnnotated — the two R? here were never annotated.
+    // only when IsAnnotated, the two R? here were never annotated.
     const after = clearAnnotationCommand('all').apply(doc);
     const lines = clearAnnotationReport([{ before: doc, after }], libById);
     expect(lines.map((l) => l.message)).toEqual(['Cleared annotation for 10k.']);

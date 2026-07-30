@@ -40,9 +40,10 @@ import { FOOTPRINT_LAYERS } from './footprintBoard.js';
 import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 /**
- * The Footprint Editor frame — the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
+ * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
  * (pcbnew/footprint_edit_frame.cpp): menu bar (menubar_footprint_editor.cpp),
  * the three toolbars with the layer selector (toolbars_footprint_editor.cpp),
  * the footprint library tree pane (footprint_tree_pane.cpp) and the board-based
@@ -117,7 +118,7 @@ function newFootprint(name: string): PcbFootprint {
 
 /**
  * Resolve a project `.kicad_mod` path (the file the project manager
- * double-clicked — KiCad's MAIL_FP_EDIT packet) to the library nickname and
+ * double-clicked, KiCad's MAIL_FP_EDIT packet) to the library nickname and
  * footprint name the manager keys it under. Mirrors the bootstrap grouping:
  * a footprint's library is its `.pretty` directory, its name the file basename.
  */
@@ -175,6 +176,7 @@ export function FootprintEditor({
   const [newLibName, setNewLibName] = useState<string | null>(null);
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [padDialogId, setPadDialogId] = useState<string | null>(null);
 
   const controller = useRef<FootprintCanvasController>(null);
@@ -250,7 +252,7 @@ export function FootprintEditor({
     [bump],
   );
 
-  // Open the specific footprint the project manager launched us on — KiCad's
+  // Open the specific footprint the project manager launched us on, KiCad's
   // PROJECT_TREE_ITEM::Activate routing a `.kicad_mod` through editFootprints +
   // MAIL_FP_EDIT. Resolve its `.pretty` library and name, expand and select it
   // in the library tree, and load it onto the canvas. Runs after the bootstrap
@@ -974,7 +976,10 @@ export function FootprintEditor({
         ],
       },
       { label: 'Preferences', items: [{ label: 'Preferences…', disabled: true }] },
-      { label: 'Help', items: [{ label: 'About ZiroEDA', action: () => {} }] },
+      {
+        label: 'Help',
+        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
+      },
     ],
     [
       save,
@@ -1011,7 +1016,7 @@ export function FootprintEditor({
     if (unitLabel === 'mils') return ((mm / 25.4) * 1000).toFixed(2);
     return mm.toFixed(4);
   };
-  const zoomZ = scale > 0 ? (scale * 1000).toFixed(2) : '—';
+  const zoomZ = scale > 0 ? (scale * 1000).toFixed(2) : '-';
 
   const layerRows = useMemo(() => {
     const known = new Set(ALL_FP_LAYERS);
@@ -1056,7 +1061,7 @@ export function FootprintEditor({
         }
         title={
           <>
-            <b>{curName ? `${curLib}:${curName}` : 'No footprint'}</b>&nbsp;—&nbsp;Footprint Editor
+            <b>{curName ? `${curLib}:${curName}` : 'No footprint'}</b>&nbsp;-&nbsp;Footprint Editor
           </>
         }
       />
@@ -1156,7 +1161,7 @@ export function FootprintEditor({
                         }}
                         onClick={() => setTreeSel({ lib: row.lib, name: row.fp! })}
                         onDoubleClick={() => void loadFootprint(row.lib, row.fp!)}
-                        title={`${row.fp} — double-click to edit`}
+                        title={`${row.fp}, double-click to edit`}
                       >
                         <span>
                           {row.fp}
@@ -1274,11 +1279,11 @@ export function FootprintEditor({
           </span>
         )}
         <span className="cell grow">{status}</span>
-        <span className="cell">{curName ? `${curLib}:${curName}` : '—'}</span>
+        <span className="cell">{curName ? `${curLib}:${curName}` : '-'}</span>
       </div>
       <div className="ze-statusbar">
         <span className="cell">Z {zoomZ}</span>
-        <span className="cell">{cursor ? `X ${fmt(cursor.x)} Y ${fmt(cursor.y)}` : 'X — Y —'}</span>
+        <span className="cell">{cursor ? `X ${fmt(cursor.x)} Y ${fmt(cursor.y)}` : 'X, Y -'}</span>
         <span className="cell grow">{activeLayer}</span>
         <span className="cell">{unitLabel}</span>
       </div>
@@ -1317,6 +1322,7 @@ export function FootprintEditor({
         />
       )}
 
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}

@@ -1,5 +1,5 @@
 /**
- * Rectangular waveguide — faithful port of KiCad's
+ * Rectangular waveguide, faithful port of KiCad's
  * `transline_calculations/rectwaveguide.cpp` (Pozar §3.3): TE10 impedance,
  * guide wavelength, per-mode conductor loss, dielectric loss and the TE/TM
  * mode lists. Below cutoff the guide is evanescent (Z0 = 0).

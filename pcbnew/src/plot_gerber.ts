@@ -1,5 +1,5 @@
 /**
- * Gerber X2 + Excellon plot writers — the fabrication-output core of
+ * Gerber X2 + Excellon plot writers, the fabrication-output core of
  * pcbnew's plot dialog, transcribed from GERBER_PLOTTER::StartPlot
  * (common/plotters/GERBER_plotter.cpp), the TF attribute builders
  * (pcbnew/pcbplot.cpp AddGerberX2Header / GetGerberFileFunctionAttribute)
@@ -14,13 +14,18 @@
 
 import type { Board, PcbPad, PcbShape } from './types.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import {
+  GENERATOR_APPLICATION,
+  GENERATOR_VENDOR,
+  GENERATOR_VERSION,
+} from '@ziroeda/common/src/generator.js';
 import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { tessellateArc, rotatePcb } from './read-board.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Fractional digits for the 4.x format; the dialog offers 4.5 / 4.6. */
 let coordDigits = 6;
-/** Plot origin (PCB_PLOT_PARAMS::m_useAuxOrigin — the drill/place file origin);
+/** Plot origin (PCB_PLOT_PARAMS::m_useAuxOrigin, the drill/place file origin);
  *  every coordinate is written relative to it. */
 let plotOrigin: Vec2 = { x: 0, y: 0 };
 /** IU -> Gerber 4.x integer (mm · 10^digits). */
@@ -96,7 +101,7 @@ export function boardAuxOrigin(board: Board): Vec2 {
 /** Gerber writer options (the dialog's Gerber Options + General Options). */
 export interface GerberPlotOpts {
   creationDate?: string;
-  /** "Coordinate format:" — 4.5 or 4.6, unit mm. */
+  /** "Coordinate format:", 4.5 or 4.6, unit mm. */
   coordDigits?: 5 | 6;
   /** "Use extended X2 format": X2 writes %TF attributes, X1 writes them as
    *  comments (GERBER_PLOTTER::m_useX2format). */
@@ -223,7 +228,7 @@ export function plotGerberLayer(board: Board, layer: string, opts: GerberPlotOpt
   const tf = (body: string): string =>
     opts.useX2 === false ? `G04 #@! TF${body}*` : `%TF${body}*%`;
   const out: string[] = [
-    tf('.GenerationSoftware,ZiroEDA,Pcbnew,1.0'),
+    tf(`.GenerationSoftware,${GENERATOR_VENDOR},${GENERATOR_APPLICATION},${GENERATOR_VERSION}`),
     ...(date ? [tf(`.CreationDate,${date}`)] : []),
     tf(`.FileFunction,${gerberFileFunction(layer, copperCount)}`),
     tf(`.FilePolarity,${filePolarity(layer)}`),
@@ -278,7 +283,9 @@ export function plotExcellonDrill(
   const dias = [...tools.keys()].sort((a, b) => a - b);
   const out: string[] = [
     'M48',
-    ...(opts.creationDate ? [`; DRILL file ZiroEDA date ${opts.creationDate}`] : []),
+    ...(opts.creationDate
+      ? [`; DRILL file ${GENERATOR_APPLICATION} date ${opts.creationDate}`]
+      : []),
     '; FORMAT={-:-/ absolute / metric / decimal}',
     'FMAT,2',
     'METRIC',
@@ -300,7 +307,13 @@ export function plotGerberJob(board: Board, files: { layer: string; name: string
   const copperCount = board.layers.filter((l) => /\.Cu$/.test(l.name)).length || 2;
   return JSON.stringify(
     {
-      Header: { GenerationSoftware: { Vendor: 'ZiroEDA', Application: 'Pcbnew' } },
+      Header: {
+        GenerationSoftware: {
+          Vendor: GENERATOR_VENDOR,
+          Application: GENERATOR_APPLICATION,
+          Version: GENERATOR_VERSION,
+        },
+      },
       GeneralSpecs: { ProjectId: { Name: board.fileName ?? 'board' }, LayerNumber: copperCount },
       FilesAttributes: files.map((f) => ({
         Path: f.name,

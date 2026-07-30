@@ -1,11 +1,11 @@
 /**
- * BOARD_ITEM — the abstract base of every board object (pcbnew/board_item.h).
+ * BOARD_ITEM, the abstract base of every board object (pcbnew/board_item.h).
  * A faithful port of the geometry-transform + layer interface every pcbnew item
  * implements. KiCad's BOARD_ITEM also carries parent/group/locked state and a
  * KICAD_T type tag; those are added as the port needs them.
  *
  * The transform methods (Move/Rotate/Flip/Mirror) mutate the item in place,
- * exactly like KiCad — the object model is the source of truth, and the writer
+ * exactly like KiCad, the object model is the source of truth, and the writer
  * (pcb_io_sexpr) regenerates the file from it.
  */
 

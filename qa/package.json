@@ -2,7 +2,7 @@
   "name": "@ziroeda/qa",
   "version": "0.0.0",
   "private": true,
-  "description": "Unit tests (KiCad: qa/) — round-trip corpora and engine tests for all packages.",
+  "description": "Unit tests (KiCad: qa/), round-trip corpora and engine tests for all packages.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {

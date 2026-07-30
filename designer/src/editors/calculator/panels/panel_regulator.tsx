@@ -1,5 +1,5 @@
 /**
- * "Regulators" panel — adjustable-regulator divider with min/typ/max
+ * "Regulators" panel, adjustable-regulator divider with min/typ/max
  * worst-case analysis. Counterpart: KiCad `calculator_panels/panel_regulator.cpp`.
  *
  * The regulator library plays the role of KiCad's regulators data file: it
@@ -264,7 +264,7 @@ export function PanelRegulator(): JSX.Element {
   const copyComment = (): void => {
     // KiCad copies the power-comment field verbatim.
     if (!comment) {
-      setToast('Nothing to copy yet — press Calculate first.');
+      setToast('Nothing to copy yet, press Calculate first.');
       return;
     }
     setToast(copyText(comment) ? 'Copied to clipboard.' : 'Copy failed.');
@@ -381,7 +381,7 @@ export function PanelRegulator(): JSX.Element {
 
         {/* KiCad's right column is only as wide as the parameter grid, so the
             stretch-spacer items (tolerance input, Copy, Reset) align to the
-            grid's right edge — not the page edge. */}
+            grid's right edge, not the page edge. */}
         <div className="calc-col" style={{ flex: '0 0 auto', width: 530 }}>
           <Group title="Regulator">
             <div className="calc-field">
@@ -593,7 +593,7 @@ export function PanelRegulator(): JSX.Element {
 
       {form && (
         <Modal
-          title={form.original ? `Edit Regulator — ${form.original}` : 'Add Regulator'}
+          title={form.original ? `Edit Regulator, ${form.original}` : 'Add Regulator'}
           onClose={() => setForm(null)}
           footer={
             <>

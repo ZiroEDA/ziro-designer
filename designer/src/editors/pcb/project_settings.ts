@@ -1,8 +1,8 @@
 /**
- * Project-file persistence for the Board Setup dialog — the `.kicad_pro` side.
- * Counterparts: `pcbnew/board_design_settings.cpp` (BOARD_DESIGN_SETTINGS —
+ * Project-file persistence for the Board Setup dialog, the `.kicad_pro` side.
+ * Counterparts: `pcbnew/board_design_settings.cpp` (BOARD_DESIGN_SETTINGS,
  * the `board.design_settings.*` NESTED_SETTINGS), `common/project/
- * net_settings.cpp` (NET_SETTINGS — `net_settings.*`), `common/project/
+ * net_settings.cpp` (NET_SETTINGS, `net_settings.*`), `common/project/
  * component_class_settings.cpp` (`component_class_settings.*`),
  * `common/project/tuning_profiles.cpp` (`tuning_profiles.*`) and
  * `common/project/project_file.cpp` (`text_variables`).
@@ -10,7 +10,7 @@
  * `readBoardSetupPro` hydrates the `.kicad_pro`-owned slices of a
  * BoardSetupValues (missing keys fall back to KiCad's param defaults);
  * `writeBoardSetupProText` merges them back, preserving every key it does not
- * own — a KiCad-authored project round-trips with only the edited settings
+ * own, a KiCad-authored project round-trips with only the edited settings
  * changed. The `.kicad_pcb`-owned slices (stackup, enabled layers, board
  * finish, mask/paste clearances, dash ratios, embedded files) live in
  * board_file_settings.ts; custom rules live in `<project>.kicad_dru`.
@@ -19,7 +19,7 @@
  * PARAM_SCALED lengths are mm doubles; `defaults.dimensions.arrow_length` and
  * `.extension_offset` are RAW nanometre integers; teardrop and zone ratios are
  * raw ratios (the panels show percent); enums are plain ints. Every KiCad
- * write emits all params, but missing keys on read mean the param default —
+ * write emits all params, but missing keys on read mean the param default,
  * clamping happens on read only.
  */
 
@@ -237,7 +237,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
   }
   if (!isObj(j)) return s;
 
-  // rules.* — constraints.
+  // rules.*, constraints.
   for (const [path, field] of RULE_KEYS)
     s.constraints[field] = num(getPath(j, `${DS}.${path}`), s.constraints[field] as number);
   s.constraints.minThermalSpokes = num(
@@ -259,7 +259,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     s.maskPaste.maskToCopperMM,
   );
 
-  // rule_severities — keys we surface; unknown keys stay untouched on write.
+  // rule_severities, keys we surface; unknown keys stay untouched on write.
   const sev = getPath(j, `${DS}.rule_severities`);
   if (isObj(sev)) {
     for (const cat of DRC_CATEGORIES) {
@@ -272,7 +272,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
   }
 
   // Pre-defined sizes. The stored lists' element [0] is the reserved
-  // "use netclass" sentinel (m_TrackWidthList[0] etc. — its value is never a
+  // "use netclass" sentinel (m_TrackWidthList[0] etc., its value is never a
   // real size): the panel grid owns entries from index 1 up
   // (panel_setup_tracks_and_vias.cpp `for ii = 1`). Entries missing a
   // required key are skipped, like upstream's JSON read.
@@ -306,7 +306,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
       .slice(1);
   }
 
-  // teardrop_parameters — matched by td_target_name, like upstream.
+  // teardrop_parameters, matched by td_target_name, like upstream.
   const tds = getPath(j, `${DS}.teardrop_parameters`);
   if (Array.isArray(tds)) {
     for (const e of tds) {
@@ -342,7 +342,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     t.singleSided = bool(g.single_sided, t.singleSided);
   }
 
-  // defaults.* — text & graphics layer classes.
+  // defaults.*, text & graphics layer classes.
   s.textGraphics.rows.forEach((row, i) => {
     const prefix = LAYER_CLASS_PREFIX[i];
     if (prefix === null) {
@@ -361,7 +361,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     row.keepUpright = bool(getPath(j, `${DS}.defaults.${prefix}_text_upright`), row.keepUpright);
   });
 
-  // defaults.dimension* — dimensions.
+  // defaults.dimension*, dimensions.
   const dim = s.textGraphics.dimensions;
   dim.units = DIM_UNITS[num(getPath(j, `${DS}.defaults.dimension_units`), 3)] ?? 'Automatic';
   dim.precision =
@@ -383,7 +383,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
   dim.extLineOffsetMM =
     num(getPath(j, `${DS}.defaults.dimensions.extension_offset`), dim.extLineOffsetMM * 1e6) / 1e6;
 
-  // defaults.apply_defaults_to_fp_* — formatting flags (dash ratios are board-file data).
+  // defaults.apply_defaults_to_fp_*, formatting flags (dash ratios are board-file data).
   s.formatting.applyFields = bool(
     getPath(j, `${DS}.defaults.apply_defaults_to_fp_fields`),
     s.formatting.applyFields,
@@ -405,7 +405,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     s.formatting.applyBarcodes,
   );
 
-  // defaults.zones.* — new-zone defaults.
+  // defaults.zones.*, new-zone defaults.
   const z = s.zones;
   z.clearanceMM = num(getPath(j, `${DS}.defaults.zones.min_clearance`), z.clearanceMM);
   z.minWidthMM = num(getPath(j, `${DS}.defaults.zones.min_thickness`), z.minWidthMM);
@@ -431,7 +431,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     REMOVE_ISLANDS[num(getPath(j, `${DS}.defaults.zones.remove_islands`), 0)] ?? 'Always';
   z.areaLimitMM2 = num(getPath(j, `${DS}.defaults.zones.min_island_area`), z.areaLimitMM2);
 
-  // net_settings.* — netclasses (same file slice the schematic dialog edits).
+  // net_settings.*, netclasses (same file slice the schematic dialog edits).
   const classes = getPath(j, 'net_settings.classes');
   if (Array.isArray(classes)) {
     const numStr = (v: unknown): string =>
@@ -471,7 +471,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
       .filter((a): a is NetClassAssignment => Boolean(a.pattern || a.netClass));
   }
 
-  // component_class_settings.* — assignments.
+  // component_class_settings.*, assignments.
   s.componentClasses.assignPerSheet = bool(
     getPath(j, 'component_class_settings.sheet_component_classes.enabled'),
     s.componentClasses.assignPerSheet,
@@ -500,7 +500,7 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
     s.componentClasses.assignments = out;
   }
 
-  // tuning_profiles.* — impedance/geometry profiles (frequency stored in Hz).
+  // tuning_profiles.*, impedance/geometry profiles (frequency stored in Hz).
   const profiles = getPath(j, 'tuning_profiles.tuning_profiles_impedance_geometric');
   if (Array.isArray(profiles)) {
     const out: TuningProfile[] = [];
@@ -554,7 +554,7 @@ const OPTIONAL_CLASS_KEYS: readonly (readonly [string, keyof NetClass])[] = [
   ['bus_width', 'busThickness'],
 ];
 
-/** INT_MAX — NET_SETTINGS gives the Default class the lowest priority. */
+/** INT_MAX, NET_SETTINGS gives the Default class the lowest priority. */
 const DEFAULT_CLASS_PRIORITY = 2147483647;
 
 function teardropJson(name: string, t: TeardropShape): Json {
@@ -598,7 +598,7 @@ export function writeBoardSetupProText(proText: string, s: BoardSetupValues): st
   // (nested_settings.cpp:79); bdsSchemaVersion = 2.
   setPath(j, `${DS}.meta.version`, 2);
 
-  // rules.* — constraints (mm doubles; spokes is a raw int).
+  // rules.*, constraints (mm doubles; spokes is a raw int).
   for (const [path, field] of RULE_KEYS) setPath(j, `${DS}.${path}`, s.constraints[field]);
   setPath(j, `${DS}.rules.min_resolved_spokes`, s.constraints.minThermalSpokes);
   setPath(j, `${DS}.rules.use_height_for_length_calcs`, s.constraints.includeStackupHeight);
@@ -627,7 +627,7 @@ export function writeBoardSetupProText(proText: string, s: BoardSetupValues): st
   ]);
 
   // teardrop_parameters (teardrop_options carries the enable flags, which the
-  // Board Setup panel does not own — preserved untouched).
+  // Board Setup panel does not own, preserved untouched).
   setPath(
     j,
     `${DS}.teardrop_parameters`,
@@ -638,7 +638,7 @@ export function writeBoardSetupProText(proText: string, s: BoardSetupValues): st
   for (const [key, field] of TUNING_GROUPS)
     setPath(j, `${DS}.tuning_pattern_settings.${key}`, tuningJson(s.tuning[field]));
 
-  // defaults.* — text & graphics.
+  // defaults.*, text & graphics.
   s.textGraphics.rows.forEach((row, i) => {
     const prefix = LAYER_CLASS_PREFIX[i];
     if (prefix === null) {
@@ -800,7 +800,7 @@ export function writeBoardSetupProText(proText: string, s: BoardSetupValues): st
     })),
   );
 
-  // text_variables: fully owned by the panel — rebuild.
+  // text_variables: fully owned by the panel, rebuild.
   const varsOut: Json = {};
   for (const v of s.textVars) if (v.name) varsOut[v.name] = v.value;
   setPath(j, 'text_variables', varsOut);

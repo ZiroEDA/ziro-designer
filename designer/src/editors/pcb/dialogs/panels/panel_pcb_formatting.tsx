@@ -1,6 +1,6 @@
 /**
  * Board Setup > Text & Graphics > Formatting. Counterpart:
- * `pcbnew/dialogs/panel_setup_formatting_base.cpp` (PANEL_SETUP_FORMATTING) —
+ * `pcbnew/dialogs/panel_setup_formatting_base.cpp` (PANEL_SETUP_FORMATTING),
  * two groups:
  *   Dashed Lines               : dash length / gap length (ratios of line width).
  *   When Adding Footprints to Board : apply board defaults to a footprint's

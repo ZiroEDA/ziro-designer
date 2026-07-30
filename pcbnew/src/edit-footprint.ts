@@ -1,5 +1,5 @@
 /**
- * Footprint editing operations — pure transforms on the typed PcbFootprint,
+ * Footprint editing operations, pure transforms on the typed PcbFootprint,
  * the geometry behind KiCad's FOOTPRINT_EDIT_FRAME edit tools (move / rotate /
  * mirror / delete / add). The web mirror of PCB_MOVE_TOOL / EDIT_TOOL applied to
  * a footprint's children.
@@ -431,7 +431,7 @@ function patchArg(src: SList, index: number, value: string): SList {
 }
 
 /** Patch a Reference/Value text's stored string: `(property "Reference" VAL …)`
- *  or `(fp_text reference VAL …)` — the value is the 3rd positional in both. */
+ *  or `(fp_text reference VAL …)`, the value is the 3rd positional in both. */
 function patchTextValue(src: SList, value: string): SList {
   if (src.items.length === 0) return src; // new item: buildTextNode uses .text
   return patchArg(src, 2, value);

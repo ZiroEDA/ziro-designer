@@ -249,10 +249,10 @@ describe('footprint hit-test + selection priority', () => {
   // Footprint whose pad bbox spans 4800..5200; a track crosses the same region.
   const fp = footprint([pad({ x: 5000, y: 5000 }, 400, 400)]);
   const t = track({ x: 4000, y: 5000 }, { x: 6000, y: 5000 }, 100);
-  it('clicking a pad selects the pad — the larger footprint is rejected (area heuristic)', () => {
+  it('clicking a pad selects the pad, the larger footprint is rejected (area heuristic)', () => {
     // Two pads make the footprint's hull much larger than one pad, so
     // GuessSelectionCandidates rejects it at the 1.5× area jump and the pad is
-    // the sole survivor — no disambiguation, no unchecking "Footprints".
+    // the sole survivor, no disambiguation, no unchecking "Footprints".
     const fp2 = footprint([
       pad({ x: 5000, y: 5000 }, 400, 400),
       pad({ x: 9000, y: 5000 }, 400, 400),
@@ -261,7 +261,7 @@ describe('footprint hit-test + selection priority', () => {
     expect(boardHitCandidates(b, { x: 5000, y: 5100 }, 10)).toEqual(['pad:0:0']);
   });
   it('clicking the trace centerline over a pad prefers the trace (smallest coverage area)', () => {
-    // Track coverage area is width² — far below the pad's face — so the pad is
+    // Track coverage area is width², far below the pad's face, so the pad is
     // rejected ("clicked on a small item within a larger one"). This footprint
     // is 100% covered by its single pad, so the >70% coverage exception keeps
     // it for the disambiguation menu, exactly like GuessSelectionCandidates.
@@ -489,7 +489,7 @@ describe('canonical builders (source-less items append + re-read)', () => {
 )
 `;
     const b = readBoard(parse(TEXT));
-    // Push items with EMPTY source — the writer must build them canonically.
+    // Push items with EMPTY source, the writer must build them canonically.
     const withNew: Board = {
       ...b,
       tracks: [

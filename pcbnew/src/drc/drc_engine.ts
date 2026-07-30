@@ -1,7 +1,7 @@
 /**
  * DRC engine. Counterparts: `pcbnew/drc/drc_engine.cpp` (constraint
- * resolution: the effective clearance between two items is the WORST —
- * largest — of the applicable rules: the board-setup minimum plus each
+ * resolution: the effective clearance between two items is the WORST,
+ * largest, of the applicable rules: the board-setup minimum plus each
  * item's netclass clearance, mirroring the implicit per-netclass rules) and
  * the test providers:
  *   - drc_test_provider_copper_clearance (DRCE_CLEARANCE / clearance)
@@ -17,7 +17,7 @@
  * arc tracks use true arc collision, oval pads are stadiums, rect/trapezoid
  * pads are polygons, roundrect pads are deflated rectangles inflated by the
  * corner radius, custom pads collide primitive-by-primitive (gr_line/circle/
- * arc/poly/rect — an unfilled circle primitive is the exact stroked ring),
+ * arc/poly/rect, an unfilled circle primitive is the exact stroked ring),
  * chamfered+rounded rects decompose into the exact chamfer-cut polygon plus
  * corner circles, and blind/micro vias exist only on their span layers.
  * Zone fills are not yet checked (TODO: zone provider).
@@ -177,7 +177,7 @@ export function padShapes(pad: PcbPad): Shape[] {
     // EXACT as a union: one polygon whose chamfered corners are the straight
     // cuts on the full rectangle and whose rounded corners are the two arc
     // tangent points, plus one circle per rounded corner (radius rr at the
-    // corner center) to fill the rounded bulge — the same area KiCad's
+    // corner center) to fill the rounded bulge, the same area KiCad's
     // TransformShapeToPolygon covers.
     const rr = Math.min((pad.roundrectRatio ?? 0) * Math.min(w, h), Math.min(w, h) / 2);
     const cut = (pad.chamferRatio ?? 0.2) * Math.min(w, h);
@@ -235,7 +235,7 @@ function primitiveShapes(prim: PadPrimitive, place: (p: Vec2) => Vec2): Shape[] 
   if (prim.kind === 'gr_circle' && prim.center && prim.end) {
     const rad = Math.hypot(prim.end.x - prim.center.x, prim.end.y - prim.center.y);
     // Filled: a disc out to the stroke's outer edge. Unfilled: the exact
-    // ring — a full-sweep arc stroked at width/2.
+    // ring, a full-sweep arc stroked at width/2.
     if (prim.fill) return [{ kind: 'circle', c: place(prim.center), r: rad + r }];
     return [{ kind: 'arc', c: place(prim.center), rad, a0: 0, sweep: 2 * Math.PI, r }];
   }

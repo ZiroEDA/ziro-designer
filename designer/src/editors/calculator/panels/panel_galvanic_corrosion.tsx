@@ -1,5 +1,5 @@
 /**
- * "Galvanic Corrosion" memo panel — anodic-index difference matrix.
+ * "Galvanic Corrosion" memo panel, anodic-index difference matrix.
  * Counterpart: KiCad `calculator_panels/panel_galvanic_corrosion.cpp`.
  */
 

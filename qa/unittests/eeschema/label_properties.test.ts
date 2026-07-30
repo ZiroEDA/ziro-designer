@@ -1,6 +1,6 @@
 /**
  * The model side of DIALOG_LABEL_PROPERTIES: a label's orientation
- * (SPIN_STYLE), its fields (`(property …)` children — the same grid the symbol
+ * (SPIN_STYLE), its fields (`(property …)` children, the same grid the symbol
  * dialog edits), and the auto-rotate-on-placement rule
  * (SCH_SCREEN::GetLabelOrientationForPoint).
  */

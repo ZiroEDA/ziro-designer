@@ -2,13 +2,13 @@
  * Field helpers. Counterpart: `eeschema/sch_field.cpp`.
  *
  * A netclass directive label stores the netclass it applies in a field whose
- * name is "Netclass" — but files written by a translated build (or shared
+ * name is "Netclass", but files written by a translated build (or shared
  * across languages via git) carry the translated name instead, so
  * `SCH_FIELD::GetCanonicalName` maps any of them back. The table below is
  * `GetKnownNetclassFieldTranslations()`, verbatim.
  */
 
-/** GetKnownNetclassFieldTranslations() — "Netclass" in every shipped locale. */
+/** GetKnownNetclassFieldTranslations(), "Netclass" in every shipped locale. */
 export const NETCLASS_FIELD_TRANSLATIONS: readonly string[] = [
   'صنف الشبكة', // ar
   'Верига Клас', // bg

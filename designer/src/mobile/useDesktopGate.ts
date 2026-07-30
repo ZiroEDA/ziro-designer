@@ -4,29 +4,37 @@ import { useEffect, useState } from 'react';
  * Small-touchscreen detection for the desktop gate.
  *
  * KiCad is a desktop application: there is no upstream phone UI to mirror, and
- * the editors lean on a mouse throughout — hover tooltips, right-click context
+ * the editors lean on a mouse throughout, hover tooltips, right-click context
  * menus, modifier-key drags and single-letter hotkeys. Rather than invent a
  * touch UX with no reference (and fork the file structure that keeps us honest
  * against KiCad's source), we detect the devices that cannot drive the app and
  * show them a way to come back on a real machine.
  *
- * The predicate is deliberately three separate queries ANDed in JS rather than
- * one `(pointer: coarse) and (max-width: ...) and (not (any-pointer: fine))`
- * media string — media-query boolean `not` is Level 4 and only lands in Safari
- * 16.4+, while each individual feature below is universally supported.
+ * Two queries, ANDed in JS rather than written as one
+ * `(pointer: coarse) and (max-width: ...)` string, media-query boolean logic
+ * is Level 4 and only lands in Safari 16.4+, while each feature below is
+ * universally supported.
  *
- *   - SMALL   — rules out desktops, and tablets in landscape (iPad landscape is
- *               1133–1194 CSS px, which is genuinely workable).
- *   - COARSE  — the *primary* pointer is a finger. A touchscreen laptop still
- *               reports `fine` because its main pointer is the trackpad, so
- *               those are never gated.
- *   - NO_FINE — nothing precise is attached at all. An iPad with a Magic
- *               Keyboard or a Bluetooth mouse reports `any-pointer: fine`, and
- *               that user can drive the editors, so we let them through.
+ *   - SMALL, rules out desktops, and tablets in landscape (iPad landscape is
+ *              1133 to 1194 CSS px, which is genuinely workable).
+ *   - COARSE, the *primary* pointer is a finger. A touchscreen laptop still
+ *              reports `fine` because its main pointer is the trackpad, so
+ *              those are never gated.
+ *
+ * There was a third condition here, `not (any-pointer: fine)`, meant to let a
+ * tablet with a Magic Keyboard or Bluetooth mouse through. It silently disabled
+ * the gate on real phones: `any-pointer: fine` is reported by plenty of
+ * handsets (Android devices advertising stylus capability, among others), so
+ * the whole predicate collapsed to false on exactly the hardware it exists to
+ * catch. It is gone, and the regression test below pins that behaviour.
+ *
+ * Cost of dropping it: a *portrait* tablet with a mouse attached now gets the
+ * gate. That is a rare pose, keyboard cases hold a tablet in landscape, which
+ * passes on width anyway, and "Continue anyway" is one tap. Worth it to make
+ * the common case correct.
  */
 const SMALL = '(max-width: 1024px)';
 const COARSE = '(pointer: coarse)';
-const ANY_FINE = '(any-pointer: fine)';
 
 /** Set once by "Continue anyway", so the choice survives a reload. */
 const OVERRIDE_KEY = 'ziro.desktopGate.override';
@@ -40,8 +48,7 @@ const matches = (q: string): boolean => {
 };
 
 /** True when this device is too small and too touch-only to run the editors. */
-export const isSmallTouchDevice = (): boolean =>
-  matches(SMALL) && matches(COARSE) && !matches(ANY_FINE);
+export const isSmallTouchDevice = (): boolean => matches(SMALL) && matches(COARSE);
 
 const overridden = (): boolean => {
   try {
@@ -56,7 +63,7 @@ export const setDesktopGateOverride = (): void => {
   try {
     localStorage.setItem(OVERRIDE_KEY, '1');
   } catch {
-    /* storage blocked — the in-memory state below still lets them through */
+    /* storage blocked, the in-memory state below still lets them through */
   }
 };
 
@@ -72,7 +79,7 @@ export function useDesktopGate(): { gated: boolean; dismiss: () => void } {
   useEffect(() => {
     let lists: MediaQueryList[];
     try {
-      lists = [SMALL, COARSE, ANY_FINE].map((q) => window.matchMedia(q));
+      lists = [SMALL, COARSE].map((q) => window.matchMedia(q));
     } catch {
       return;
     }

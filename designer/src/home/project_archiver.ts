@@ -1,7 +1,7 @@
 /**
  * Archive / Unarchive project logic: KiCad zips the whole project folder,
  * reading each file as a raw byte stream (PROJECT_ARCHIVER::Archive). We do
- * the same — byte-exact entries, re-nested under a folder named for the
+ * the same, byte-exact entries, re-nested under a folder named for the
  * project (so an archive unzips the way KiCad expects). Pure functions; the
  * download/upload plumbing stays in the launcher component.
  */
@@ -36,7 +36,7 @@ export function archiveEntries(
   return entries;
 }
 
-/** Zip the collected entries (blocking — paint any progress UI first). */
+/** Zip the collected entries (blocking, paint any progress UI first). */
 export const zipArchive = (entries: Record<string, Uint8Array>): Uint8Array<ArrayBuffer> =>
   zipSync(entries, { level: 6 }) as Uint8Array<ArrayBuffer>;
 

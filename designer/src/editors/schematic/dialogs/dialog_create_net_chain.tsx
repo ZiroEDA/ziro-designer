@@ -1,6 +1,6 @@
 /**
  * Create Net Chain dialog. Counterpart:
- * `eeschema/dialogs/dialog_create_net_chain.cpp` (DIALOG_CREATE_NET_CHAIN) —
+ * `eeschema/dialogs/dialog_create_net_chain.cpp` (DIALOG_CREATE_NET_CHAIN),
  * a grid of this run's *uncommitted* potential chains (Suggested Name
  * editable; Terminals "R1:1 → R2:2"; Member Nets), a filter box, a Chain Name
  * input that falls back to the selected row's name, and multi-create: OK

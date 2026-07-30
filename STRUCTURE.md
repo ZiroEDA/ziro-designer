@@ -2,8 +2,8 @@
 
 Ziro Designer is organised as a pnpm monorepo: one app package (`designer/`)
 on top of framework-agnostic engine packages. The engine tree follows the
-source-layout conventions of the upstream KiCad codebase — the one place in
-the project where we deliberately keep that vocabulary — so ported logic has
+source-layout conventions of the upstream KiCad codebase, the one place in
+the project where we deliberately keep that vocabulary, so ported logic has
 an obvious home next to its C++ origin and stays easy to audit for
 format-compatibility.
 

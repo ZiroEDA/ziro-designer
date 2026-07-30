@@ -4,7 +4,7 @@
  * KiCad ships a well-known default repository URL; the equivalent here is a
  * repository compiled into the app so the Plugin and Content Manager has real,
  * installable content out of the box (and works with no network). Third-party
- * repositories can still be added by URL — see `pcmStore.addRepository`.
+ * repositories can still be added by URL, see `pcmStore.addRepository`.
  *
  * The colour themes are complete `Theme` objects (built by overriding the KiCad
  * default palette). The library packages carry small, real `.kicad_sym`
@@ -711,6 +711,30 @@ const LIB_POWER = `(kicad_symbol_lib
 
 const ZIRO: Contact = { name: 'ZiroEDA', contact: { web: 'https://github.com/ziroeda' } };
 
+/**
+ * The symbol libraries bundled below are KiCad's official library content, not
+ * ours. They are reproduced verbatim, so KiCad's library team is the author and
+ * we are only the packager.
+ *
+ * Their licence is CC-BY-SA 4.0 with the KiCad library exception, which is a
+ * different licence from KiCad's GPL source. Attribution is the central
+ * obligation of CC-BY-SA, so naming ourselves author here would breach it. The
+ * exception matters to users as well: it is what keeps the share-alike terms
+ * from reaching a design that merely uses these symbols.
+ */
+const KICAD_LIBRARIES: Contact = {
+  name: 'KiCad Libraries Team',
+  contact: { web: 'https://gitlab.com/kicad/libraries' },
+};
+
+/** CC-BY-SA 4.0 plus the exception described at kicad.org/libraries/license. */
+const KICAD_LIBRARY_LICENSE = 'CC-BY-SA-4.0 with KiCad Library Exception';
+
+const KICAD_LIBRARY_RESOURCES: Record<string, string> = {
+  license: 'https://www.kicad.org/libraries/license/',
+  source: 'https://gitlab.com/kicad/libraries/kicad-symbols',
+};
+
 /** One stable version, compatible from KiCad 7 onward (matches our file format). */
 const v1 = (): PackageVersion[] => [{ version: '1.0.0', status: 'stable', kicadVersion: '7.0' }];
 
@@ -727,7 +751,11 @@ function themePkg(
     name,
     description,
     author: ZIRO,
-    license: 'MIT',
+    // Built by overriding KiCad's default palette, so these inherit the GPL of
+    // the work they derive from. MIT was claimed here previously, which the
+    // derivation does not permit.
+    license: 'GPL-3.0-or-later',
+    resources: { license: 'https://www.kicad.org/about/licenses/' },
     category: 'Colour Theme',
     tags,
     versions: v1(),
@@ -748,8 +776,10 @@ function libPkg(
     name,
     description,
     descriptionFull: `Symbol library "${libraries.map((l) => l.name).join(', ')}" for the Symbol Editor.`,
-    author: ZIRO,
-    license: 'CC-BY-SA-4.0',
+    author: KICAD_LIBRARIES,
+    maintainer: ZIRO,
+    license: KICAD_LIBRARY_LICENSE,
+    resources: KICAD_LIBRARY_RESOURCES,
     category: 'Symbols',
     tags,
     versions: v1(),
@@ -761,7 +791,7 @@ const PACKAGES: RepoPackage[] = [
   themePkg(
     'com.ziroeda.theme.nord',
     'Nord',
-    'The Nord arctic, north-bluish colour palette — a calm dark theme.',
+    'The Nord arctic, north-bluish colour palette, a calm dark theme.',
     NORD,
     ['dark', 'blue', 'nord'],
   ),

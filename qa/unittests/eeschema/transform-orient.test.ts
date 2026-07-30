@@ -86,7 +86,7 @@ describe('transformItems command', () => {
     const sch = load();
     const id = refId('symbol', sch.symbols[0]!.uuid, 0);
     // J1 is at 180°; MirrorHorizontally (mirrorY) of it decomposes to (angle 0,
-    // mirror x), exactly as KiCad's GetOrientation would — so a mirror node appears.
+    // mirror x), exactly as KiCad's GetOrientation would, so a mirror node appears.
     const mirrored = transformItems(new Set([id]), 'mirrorY').apply(sch);
     expect(mirrored.symbols[0]!.mirror).toBe('x');
     expect(serializeSchematic(mirrored)).toMatch(/\(mirror [xy]\)/);

@@ -1,5 +1,5 @@
 /**
- * The Footprint Editor drawing canvas — the PCB_DRAW_PANEL_GAL of KiCad's
+ * The Footprint Editor drawing canvas, the PCB_DRAW_PANEL_GAL of KiCad's
  * `FOOTPRINT_EDIT_FRAME`, ported to Canvas 2D. It reuses the board painter
  * (renderBoard.ts) unchanged by wrapping the edited footprint as a one-item
  * BOARD (footprintToBoard), exactly as pcbnew edits a footprint on an internal
@@ -279,7 +279,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       requestDraw();
     }, [scene, visible, drawOpts, requestDraw]);
 
-    // The selection only affects the overlay, not the raster — just repaint.
+    // The selection only affects the overlay, not the raster, just repaint.
     useEffect(() => {
       requestDraw();
     }, [selection, requestDraw]);
@@ -401,7 +401,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       };
     };
 
-    // A gesture in flight: pan (middle button), or — with the select tool —
+    // A gesture in flight: pan (middle button), or, with the select tool,
     // click-select + box-select on empty space, and drag-move over a selection.
     const gestureRef = useRef<
       | { mode: 'pan'; last: { x: number; y: number } }

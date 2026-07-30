@@ -1,8 +1,8 @@
 /**
  * Update PCB from Schematic dialog. Counterpart:
  * `pcbnew/dialogs/dialog_update_pcb.cpp` (DIALOG_UPDATE_PCB) over
- * `dialog_update_pcb_base.cpp`'s layout: three stacked static boxes — Options,
- * Update Footprints, Update Fields — above the report panel, with "Update PCB" and
+ * `dialog_update_pcb_base.cpp`'s layout: three stacked static boxes, Options,
+ * Update Footprints, Update Fields, above the report panel, with "Update PCB" and
  * "Close" for OK and Cancel.
  *
  * The dialog is a live preview of the update: TransferDataToWindow runs the netlist
@@ -17,7 +17,7 @@ import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_repo
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */
 export interface UpdatePcbOptions {
-  /** m_cbRelinkFootprints — inverted into SetLookupByTimestamp. */
+  /** m_cbRelinkFootprints, inverted into SetLookupByTimestamp. */
   relinkFootprints: boolean;
   /** m_cbTransferGroups. */
   transferGroups: boolean;
@@ -48,7 +48,7 @@ export const DEFAULT_UPDATE_PCB_OPTIONS: UpdatePcbOptions = {
 };
 
 interface Props {
-  /** PerformUpdate( aDryRun ) — the caller runs the updater and returns its report. */
+  /** PerformUpdate( aDryRun ), the caller runs the updater and returns its report. */
   onPerformUpdate: (options: UpdatePcbOptions, dryRun: boolean) => readonly ReportLine[];
   onClose: () => void;
   /**

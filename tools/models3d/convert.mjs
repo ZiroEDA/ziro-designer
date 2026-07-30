@@ -1,8 +1,8 @@
 /**
  * STEP -> GLB converter for the KiCad 10 packages3D library.
  *
- * Tessellates each .step with OpenCascade (occt-import-js WASM) — the same
- * kernel KiCad's own 3D viewer uses — preserving per-face STEP colors, then
+ * Tessellates each .step with OpenCascade (occt-import-js WASM), the same
+ * kernel KiCad's own 3D viewer uses, preserving per-face STEP colors, then
  * writes a compact .glb via @gltf-transform.
  *
  * Geometry stays in the STEP file's native millimetres; the app-side loader

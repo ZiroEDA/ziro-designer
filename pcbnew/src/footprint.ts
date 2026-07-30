@@ -1,5 +1,5 @@
 /**
- * FOOTPRINT — a placed component (pcbnew/footprint.{h,cpp}). Children (pads,
+ * FOOTPRINT, a placed component (pcbnew/footprint.{h,cpp}). Children (pads,
  * fields, graphics, zones) are stored in board-absolute coordinates, exactly
  * like KiCad; the footprint's position and orientation are bookkeeping used for
  * pick-and-place and library updates.
@@ -8,7 +8,7 @@
  *   Move (:Move)                 → SetPosition(m_pos + v): translate all children.
  *   Rotate (:Rotate)             → move m_pos about centre, then SetOrientation
  *                                  (rotate every child about the new anchor).
- *   Flip (:2902) — the operation this whole architecture was about — mirrors the
+ *   Flip (:2902), the operation this whole architecture was about, mirrors the
  *   anchor, flips the layer, negates orientation, and Flips EVERY child about the
  *   anchor (TOP_BOTTOM), then rotates 180° for a LEFT_RIGHT flip.
  *   HitTest (:2319)              → bounding box inflated by accuracy.
@@ -94,14 +94,14 @@ export class FOOTPRINT extends BOARD_ITEM {
     return this.m_pos;
   }
 
-  /** FOOTPRINT::SetPosition — translate the anchor and every child by the delta. */
+  /** FOOTPRINT::SetPosition, translate the anchor and every child by the delta. */
   SetPosition(aPos: VECTOR2I): void {
     const delta = { x: aPos.x - this.m_pos.x, y: aPos.y - this.m_pos.y };
     this.m_pos = { ...aPos };
     for (const child of this.children()) child.Move(delta);
   }
 
-  /** FOOTPRINT::SetOrientation — rotate every child about the anchor by the change. */
+  /** FOOTPRINT::SetOrientation, rotate every child about the anchor by the change. */
   SetOrientation(aNewAngle: EDA_ANGLE): void {
     const angleChange = aNewAngle.sub(this.m_orient);
     this.m_orient = aNewAngle.Normalized().Normalize180();
@@ -177,7 +177,7 @@ export class FOOTPRINT extends BOARD_ITEM {
     return minX <= maxX ? { minX, minY, maxX, maxY } : null;
   }
 
-  /** FOOTPRINT::HitTest — bbox inflated by accuracy contains the point. */
+  /** FOOTPRINT::HitTest, bbox inflated by accuracy contains the point. */
   HitTest(aPosition: VECTOR2I, aAccuracy = 0): boolean {
     const b = this.GetBoundingBox();
     if (!b) return false;

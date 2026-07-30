@@ -6,16 +6,17 @@
  *    (NETLIST_EXPORTER_ORCADPCB2, the classic OrcadPCB2 text netlist).
  *
  * Both build on the same connectivity the ERC checker uses (computeNetlist +
- * enumeratePins), so node identity matches. These operate on a single sheet —
- * the schematic the editor currently has open — like our ERC and BOM paths.
+ * enumeratePins), so node identity matches. These operate on a single sheet,
+ * the schematic the editor currently has open, like our ERC and BOM paths.
  */
 
 import type { Schematic, SchSymbol, LibSymbol } from '../types.js';
 import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
 import { refId } from '../tools/hittest.js';
+import { GENERATOR_APPLICATION } from '@ziroeda/common/src/generator.js';
 import { compareRefs } from './bom.js';
 
-const NETLIST_HEAD = 'Eeschema';
+const NETLIST_HEAD = GENERATOR_APPLICATION;
 
 const field = (s: SchSymbol, key: string): string =>
   s.fields.find((f) => f.key === key)?.value ?? '';

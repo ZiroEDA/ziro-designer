@@ -1,5 +1,5 @@
 /**
- * "E-Series" memo panel — the IEC 60063 preferred-value tables, shown as two
+ * "E-Series" memo panel, the IEC 60063 preferred-value tables, shown as two
  * colour-coded grids (E1/E3/E6/E12 and E24/E48/E96) like KiCad.
  * Counterpart: KiCad `calculator_panels/panel_eseries_display.cpp`.
  */

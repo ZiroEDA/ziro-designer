@@ -31,7 +31,7 @@ describe('symbolTransform with mirror', () => {
   });
 });
 
-describe('localToWorld — verified against the real fixture geometry', () => {
+describe('localToWorld, verified against the real fixture geometry', () => {
   it('maps Conn_01x02 pin 1 to the wire start point', () => {
     // From nfc-antenna.kicad_sch: symbol J1 placed at (156.21, 111.76) angle 180,
     // pin 1 local position (-5.08, 0). KiCad's transform must land it on the wire

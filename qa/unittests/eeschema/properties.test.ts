@@ -232,7 +232,7 @@ describe('field geometry (SCH_FIELD::GetBoundingBox port)', () => {
     const plain = fieldBoundingBox(f, sym, 'R1', measure);
     const mirrored = fieldBoundingBox(f, mkSym(0, 'y'), 'R1', measure);
     // Left-justified: the box grows rightward from the anchor. Mirror-Y flips the
-    // text run around the anchor (the file position is the *transformed* one —
+    // text run around the anchor (the file position is the *transformed* one,
     // SCH_FIELD::GetPosition), so the box now grows leftward, ending at it.
     expect(plain.x).toBe(f.at!.x); // box starts at the anchor
     expect(Math.abs(mirrored.x + mirrored.w - f.at!.x)).toBeLessThan(3000); // ends at the anchor

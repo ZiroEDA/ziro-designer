@@ -29,7 +29,7 @@ export interface Viewport {
 
 const MM = 10000; // IU per mm
 const MIL = 0.0254 * MM;
-export const GRID = 1.27 * MM; // 50 mil — the symbol editor's pin grid
+export const GRID = 1.27 * MM; // 50 mil, the symbol editor's pin grid
 const DEFAULT_LINE_WIDTH = 6 * MIL; // DEFAULT_LINE_WIDTH_MILS
 const DEFAULT_TEXT = 1.27 * MM;
 /** TARGET_PIN_RADIUS (ee_painter): 15 mils. */
@@ -209,7 +209,7 @@ const flipH = (h: TextInfo['halign']): TextInfo['halign'] =>
   h === 'left' ? 'right' : h === 'right' ? 'left' : 'center';
 
 /**
- * PIN_LAYOUT_CACHE::transformTextForPin — the layout is computed in the PIN_RIGHT
+ * PIN_LAYOUT_CACHE::transformTextForPin, the layout is computed in the PIN_RIGHT
  * frame (position at origin, root at +x) and rotated to the pin's orientation.
  * Orientations: 0=right(identity) 180=left 90=up 270=down.
  */
@@ -399,7 +399,7 @@ export function drawPin(
 
   const pos = pin.at; // connection point (tip)
   const p0 = pinBodyEnd(pin); // root (body end)
-  // Painter dir: sign(pos - p0) — from the root toward the tip.
+  // Painter dir: sign(pos - p0), from the root toward the tip.
   const dir = { x: Math.sign(pos.x - p0.x), y: Math.sign(pos.y - p0.y) };
 
   const color = shadow ? shadow.color : hidden ? hiddenColor : theme.pin;

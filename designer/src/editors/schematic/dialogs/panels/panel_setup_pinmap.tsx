@@ -1,6 +1,6 @@
 /**
  * Pin Conflicts Map panel. Counterpart: `eeschema/dialogs/panel_setup_pinmap.cpp`
- * (PANEL_SETUP_PINMAP::reBuildMatrixPanel) — the pin-type-vs-pin-type conflict
+ * (PANEL_SETUP_PINMAP::reBuildMatrixPanel), the pin-type-vs-pin-type conflict
  * matrix, drawn as KiCad's lower-triangular staircase: pin-type names right-
  * aligned down the left; each column's name set HORIZONTALLY up-and-right of its
  * diagonal cell (into the empty upper triangle) with a vertical `|` callout; and

@@ -23,16 +23,16 @@ const gRecentSearches = new Map<string, string[]>();
 
 export interface LibTreeProps {
   adapter: LibTreeModelAdapter;
-  /** m_recentSearchesKey — which recent-search list this tree shares. */
+  /** m_recentSearchesKey, which recent-search list this tree shares. */
   recentSearchesKey?: string;
   /** Bumped by the owner whenever it mutates the adapter (lazy library loads). */
   regenerateNonce?: number;
   /** Initial filter text (g_symbolSearchString persists it across openings). */
   initialSearch?: string;
   onSearchChanged?: (search: string) => void;
-  /** EVT_LIBITEM_SELECTED — selection moved (null = no selection). */
+  /** EVT_LIBITEM_SELECTED, selection moved (null = no selection). */
   onSelect: (node: LibTreeNode | null) => void;
-  /** EVT_LIBITEM_CHOSEN — double-click or Enter on an item/unit. */
+  /** EVT_LIBITEM_CHOSEN, double-click or Enter on an item/unit. */
   onChoose: (node: LibTreeNode) => void;
   /** A library row was expanded/collapsed (lazy load + open_libs persistence). */
   onToggleLibrary?: (node: LibTreeNode, open: boolean) => void;
@@ -42,7 +42,7 @@ export interface LibTreeProps {
   onSortModeChanged?: (mode: SortMode) => void;
   /** Shown columns changed through the header's Select Columns dialog. */
   onShownColumnsChanged?: (columns: readonly string[]) => void;
-  /** LIB_TREE_MODEL_ADAPTER::HasPreview/ShowPreview — the hover popup's content
+  /** LIB_TREE_MODEL_ADAPTER::HasPreview/ShowPreview, the hover popup's content
    *  for a row, or null when that row has no preview. */
   renderPreview?: (node: LibTreeNode) => ReactNode;
   /** When the panel places the details pane elsewhere (no-footprints layout). */
@@ -142,7 +142,7 @@ export function LibTree({
     [adapter, select, expandAncestors],
   );
 
-  // Initial pass — ensures a preselect node is shown even with no query.
+  // Initial pass, ensures a preselect node is shown even with no query.
   useEffect(() => {
     regenerate(search, true);
     searchRef.current?.focus();
@@ -205,7 +205,7 @@ export function LibTree({
   };
 
   // ExpandAll/CollapseAll act on the whole tree control, so multi-unit symbols
-  // open too — not just the library rows.
+  // open too, not just the library rows.
   const expandCollapseAll = (expand: boolean) => {
     if (!expand) {
       setExpanded(new Set());
@@ -279,7 +279,7 @@ export function LibTree({
         setOpen(selected, false);
       }
     } else if (!inSearchBox && selected && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-      // Bare Left/Right expand/collapse, but only from the tree — the search
+      // Bare Left/Right expand/collapse, but only from the tree, the search
       // box keeps normal caret movement (onTreeCharHook).
       e.preventDefault();
       setOpen(selected, e.key === 'ArrowRight');
@@ -384,7 +384,7 @@ export function LibTree({
       style={{ left: ctxMenu.x, top: ctxMenu.y }}
       onMouseLeave={() => setCtxMenu(null)}
     >
-      {/* LIB_TREE::onItemContextMenu: Pin/Unpin only, on library rows only —
+      {/* LIB_TREE::onItemContextMenu: Pin/Unpin only, on library rows only,
           Expand/Collapse All live in the sort-button menu, not here. */}
       {ctxMenu.node.type === LibTreeNodeType.LIBRARY && !ctxMenu.node.isGroup ? (
         <div
@@ -402,7 +402,7 @@ export function LibTree({
     </div>
   );
 
-  // LIB_TREE::onHeaderContextMenu — a single "Select Columns..." entry opening
+  // LIB_TREE::onHeaderContextMenu, a single "Select Columns..." entry opening
   // the reorderable Available/Enabled list.
   const headerContextMenu = headerMenu && (
     <div
@@ -545,7 +545,7 @@ export function LibTree({
           </div>
         ))}
         {/* LIB_TREE has its libraries in hand by the time it is shown; ours
-            are still arriving, so the pane says so where the rows will be —
+            are still arriving, so the pane says so where the rows will be,
             the "Recently Used"/"Already Placed" groups sit above, which is why
             this keys off library rows rather than an empty tree. */}
         {!hasLibraryRows && (

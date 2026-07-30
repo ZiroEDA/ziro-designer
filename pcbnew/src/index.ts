@@ -1,4 +1,4 @@
-/** @ziroeda/pcbnew — board engine mirroring KiCad's pcbnew/. */
+/** @ziroeda/pcbnew, board engine mirroring KiCad's pcbnew/. */
 export * from './types.js';
 export { connectedTrackEnds, type TrackEndRef } from './connectivity.js';
 export { buildRatsnest, type RatsnestEdge } from './ratsnest.js';

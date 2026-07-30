@@ -105,7 +105,7 @@ describe('project hierarchy (SCH_SHEET_LIST equivalent)', () => {
 
   it('gives each instance of a shared file a distinct path (complex hierarchy)', () => {
     // KiCad's complex_hierarchy demo: the root instantiates ampli_ht.kicad_sch
-    // twice (vertical + horizontal) — same file, two SCH_SHEET_PATHs.
+    // twice (vertical + horizontal), same file, two SCH_SHEET_PATHs.
     const rootTwice = doc(`(sheet (at 10 10) (size 20 20) (uuid "v")
         (property "Sheetname" "ampli_ht_vertical" (at 0 0 0)) (property "Sheetfile" "ampli_ht.kicad_sch" (at 0 0 0)))
       (sheet (at 50 10) (size 20 20) (uuid "h")

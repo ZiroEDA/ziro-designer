@@ -5,11 +5,11 @@
  * `.kicad_wks` (common/drawing_sheet/drawing_sheet_default_description.cpp):
  *
  *  - the page border as ONE rect item anchored at the margin corners and
- *    repeated twice with a 2 mm step — the repeat produces the inner border;
+ *    repeated twice with a 2 mm step, the repeat produces the inner border;
  *  - the coordinate reference band on all four edges: tick lines every 50 mm
  *    (repeat 30) and centred labels ("1", "2", … along the top/bottom via the
  *    per-repeat label increment; "A", "B", … down the sides) in 1.3 mm text
- *    (repeat 100 — the page-clip rule stops them at the page edge);
+ *    (repeat 100, the page-clip rule stops them at the page edge);
  *  - the 110 × 34 mm title block in the bottom-right corner: separator lines
  *    at 5.5 / 8.5 / 12.5 / 18.5 mm plus two verticals, and the `${…}` variable
  *    text fields (title in 2 mm bold italic, revision/company in bold).
@@ -110,7 +110,7 @@ export function defaultDrawingSheet(): WksSheet {
     end: { x: 2, y: 2, corner: 'rbcorner' },
     lineWidth: 0,
   };
-  // Page border: one rect repeated twice — the 2 mm step draws the inner border.
+  // Page border: one rect repeated twice, the 2 mm step draws the inner border.
   const border: WksRect = {
     type: 'rect',
     ...BASE,

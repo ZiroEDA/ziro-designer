@@ -1,9 +1,9 @@
 /**
- * Plugin and Content Manager (PCM) — data model.
+ * Plugin and Content Manager (PCM), data model.
  *
  * The web port of KiCad's Plugin and Content Manager (kicad/pcm/). This mirrors
- * KiCad's `pcm_data.h` structures — PCM_PACKAGE, PACKAGE_VERSION, PCM_CONTACT,
- * PCM_REPOSITORY — and the `pcm.v1` repository JSON schema, so real KiCad
+ * KiCad's `pcm_data.h` structures, PCM_PACKAGE, PACKAGE_VERSION, PCM_CONTACT,
+ * PCM_REPOSITORY, and the `pcm.v1` repository JSON schema, so real KiCad
  * repositories and package metadata map across with minimal translation.
  *
  * The difference from desktop KiCad is where a package's *payload* lives:

@@ -46,7 +46,7 @@ export const CORROSION_METALS: readonly CorrosionMetal[] = [
   { name: 'Lead', symbol: 'Pb', potentialV: 0.27 },
   { name: '2xxx series Al alloy', symbol: 'AlCu4Mg', potentialV: 0.37 },
   { name: 'Cast iron', symbol: 'Fe-C-Si', potentialV: 0.38 },
-  { name: 'Carbon steel', symbol: 'Fe–C', potentialV: 0.43 },
+  { name: 'Carbon steel', symbol: 'Fe-C', potentialV: 0.43 },
   { name: 'Aluminium, chromated', symbol: 'Al-Chromate', potentialV: 0.5 },
   { name: 'Aluminium, pure, passive', symbol: 'Al', potentialV: 0.52 },
   { name: 'Cadmium', symbol: 'Cd', potentialV: 0.53 },

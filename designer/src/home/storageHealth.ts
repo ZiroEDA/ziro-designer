@@ -1,5 +1,5 @@
 /**
- * Storage health — does persistence actually work, and has it started failing?
+ * Storage health, does persistence actually work, and has it started failing?
  *
  * The project store is the only thing standing between a user and losing hours
  * of layout work, and it can fail for reasons that are invisible until a reload
@@ -9,10 +9,10 @@
  *
  * So we do two things instead of assuming it works:
  *
- *   1. `probeStorage()` at boot — a real round-trip (write a canary, read it
+ *   1. `probeStorage()` at boot, a real round-trip (write a canary, read it
  *      back, delete it) rather than a `typeof indexedDB` feature check, which
  *      only proves the API exists.
- *   2. `reportStorageFailure()` from the store's write path — persistence can
+ *   2. `reportStorageFailure()` from the store's write path, persistence can
  *      break *during* a session (quota fills up mid-edit), long after a clean
  *      boot probe. Subscribers surface it immediately.
  *
@@ -40,8 +40,8 @@ export const PROBE_ID = '__ziro_storage_probe__';
 
 /**
  * Classify a thrown IndexedDB error. Quota shows up under several names across
- * engines — the DOMException name, the legacy code (22), and Firefox's
- * message-only form — so check all three rather than trusting one.
+ * engines, the DOMException name, the legacy code (22), and Firefox's
+ * message-only form, so check all three rather than trusting one.
  */
 export function classifyError(err: unknown): StorageFailure {
   const e = err as { name?: string; code?: number; message?: string } | null;
@@ -80,7 +80,7 @@ function emit(status: StorageStatus): void {
 }
 
 /**
- * Called by the store when a write fails. Latches unhealthy — once persistence
+ * Called by the store when a write fails. Latches unhealthy, once persistence
  * has dropped work we keep saying so until a probe proves it recovered, because
  * a single successful write afterwards does not bring back what was lost.
  */
@@ -134,7 +134,7 @@ export async function probeStorage(
     const read = await runTx<unknown>(db, storeName, 'readonly', (s) => s.get(PROBE_ID));
     await runTx(db, storeName, 'readwrite', (s) => s.delete(PROBE_ID));
     if (!read) {
-      // Wrote without error, but it wasn't there on read-back — the store is
+      // Wrote without error, but it wasn't there on read-back, the store is
       // lying to us, which is exactly the silent-loss case we're hunting.
       const status = await withEstimate({ ok: false, failure: 'unknown' });
       emit(status);

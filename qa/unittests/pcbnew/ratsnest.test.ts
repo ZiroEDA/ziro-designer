@@ -127,7 +127,7 @@ describe('buildRatsnest', () => {
 
   it('a poured zone connects thermally-relieved pads whose centres miss the fill', () => {
     // The fill is the outer ring only (a big hole in the middle), so neither
-    // pad centre lands inside a fill polygon — but both are inside the zone
+    // pad centre lands inside a fill polygon, but both are inside the zone
     // outline, so the pour still connects them (no airwire), like KiCad.
     const outerRing = [
       { x: 0, y: 0 },
@@ -136,7 +136,7 @@ describe('buildRatsnest', () => {
       { x: 0, y: 2000 },
     ];
     const holeFill = [
-      // a thin frame with a big empty centre — pad centres fall in the hole
+      // a thin frame with a big empty centre, pad centres fall in the hole
       { x: 0, y: 0 },
       { x: 100, y: 0 },
       { x: 100, y: 2000 },

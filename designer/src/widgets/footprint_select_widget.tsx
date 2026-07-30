@@ -1,8 +1,8 @@
 /**
  * Footprint drop-down of the symbol chooser. Mirrors
  * kicad/common/widgets/footprint_select_widget.cpp
- * (FOOTPRINT_SELECT_WIDGET): the default footprint entry at the top —
- * "[Default] <fp>" or "No default footprint" — followed by the hosted-library
+ * (FOOTPRINT_SELECT_WIDGET): the default footprint entry at the top,
+ * "[Default] <fp>" or "No default footprint", followed by the hosted-library
  * footprints matching the symbol's fp_filters (FOOTPRINT_FILTER results,
  * capped like upstream's m_max_items).
  */
@@ -15,7 +15,7 @@ export interface FootprintSelectWidgetProps {
   /** Currently selected footprint ('' = the default entry). */
   value: string;
   disabled?: boolean;
-  /** EVT_FOOTPRINT_SELECTED — the user picked an entry. */
+  /** EVT_FOOTPRINT_SELECTED, the user picked an entry. */
   onFootprintSelected: (footprint: string) => void;
 }
 
@@ -36,7 +36,7 @@ export function FootprintSelectWidget({
       onChange={(e) => onFootprintSelected(e.target.value)}
     >
       <option value="">{defaultLabel}</option>
-      {/* The list is appended as the filter returns it — upstream only
+      {/* The list is appended as the filter returns it, upstream only
           deduplicates the always-included footprints, not the default. */}
       {items.map((fp) => (
         <option key={fp} value={fp}>

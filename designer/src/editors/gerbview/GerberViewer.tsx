@@ -1,5 +1,5 @@
 /**
- * The Gerber Viewer frame — the web mirror of GerbView's GERBVIEW_FRAME
+ * The Gerber Viewer frame, the web mirror of GerbView's GERBVIEW_FRAME
  * (`gerbview/gerbview_frame.cpp`): the menu bar (`menubar.cpp`), the top / left
  * toolbars with the layer, DCode and highlight selectors
  * (`toolbars_gerber.cpp`), the docked Layers manager (GERBER_LAYER_WIDGET), the
@@ -9,7 +9,7 @@
  *
  * Files load through `readGerberOrDrill` (RS-274X Gerber or Excellon drill),
  * `.gbrjob` job files assign layer functions/colours, and zip archives expand
- * to individual layers — matching GerbView's File menu.
+ * to individual layers, matching GerbView's File menu.
  */
 
 import {
@@ -82,7 +82,7 @@ export function GerberViewer({
   const [activeTool, setActiveTool] = useState<'select' | 'measure'>('select');
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
-  const [status, setStatus] = useState('Ready — open a Gerber, drill, job or zip file');
+  const [status, setStatus] = useState('Ready, open a Gerber, drill, job or zip file');
   const [measure, setMeasure] = useState<{ a: Vec2; b: Vec2 } | null>(null);
   const [picked, setPicked] = useState<GERBER_DRAW_ITEM | null>(null);
   const [showDcodeList, setShowDcodeList] = useState(false);
@@ -330,7 +330,7 @@ export function GerberViewer({
   const exportToPcb = useCallback(() => {
     const visible = layers.filter((l) => l.visible && l.image.items.length > 0);
     if (visible.length === 0) {
-      setStatus('Nothing to export — no visible layers with content');
+      setStatus('Nothing to export, no visible layers with content');
       return;
     }
     const text = exportLayersToPcb(visible.map((l) => ({ image: l.image, name: l.name })));
@@ -642,7 +642,7 @@ export function GerberViewer({
     ? polar
       ? `r ${fmtCoord(Math.hypot(cursor.x, cursor.y))}  θ ${((Math.atan2(cursor.y, cursor.x) * 180) / Math.PI).toFixed(1)}°`
       : `X ${fmtCoord(cursor.x)}  Y ${fmtCoord(cursor.y)}`
-    : 'X —  Y —';
+    : 'X, Y -';
 
   const measureText = measure
     ? (() => {
@@ -735,7 +735,7 @@ export function GerberViewer({
         title={
           <>
             <b>{projectName || 'Gerber Viewer'}</b>
-            &nbsp;—&nbsp;Gerber Viewer
+            &nbsp;-&nbsp;Gerber Viewer
           </>
         }
       />
@@ -751,7 +751,7 @@ export function GerberViewer({
             value={activeLayer}
             onChange={(e) => setActiveLayer(Number(e.target.value))}
           >
-            {layers.length === 0 && <option value={0}>—</option>}
+            {layers.length === 0 && <option value={0}>-</option>}
             {layers.map((l, i) => (
               <option key={l.id} value={i}>
                 {l.name}
@@ -794,7 +794,7 @@ export function GerberViewer({
             }
             disabled={highlightOptions.nets.length === 0}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {highlightOptions.nets.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -816,7 +816,7 @@ export function GerberViewer({
             }
             disabled={highlightOptions.comps.length === 0}
           >
-            <option value="">—</option>
+            <option value="">-</option>
             {highlightOptions.comps.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -900,7 +900,7 @@ export function GerberViewer({
         )}
       </div>
       <div className="ze-statusbar">
-        <span className="cell">Z {scale > 0 ? (scale * 1e6).toFixed(1) : '—'}</span>
+        <span className="cell">Z {scale > 0 ? (scale * 1e6).toFixed(1) : '-'}</span>
         <span className="cell" data-testid="gbr-coords">
           {coordText}
         </span>

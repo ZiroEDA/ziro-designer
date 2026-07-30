@@ -1,6 +1,6 @@
 /**
  * Reconciling a board against a netlist. Counterpart:
- * `pcbnew/netlist_reader/board_netlist_updater.cpp` (BOARD_NETLIST_UPDATER) — the
+ * `pcbnew/netlist_reader/board_netlist_updater.cpp` (BOARD_NETLIST_UPDATER), the
  * engine behind "Update PCB from Schematic" and "Import Netlist".
  *
  * The process, as the upstream class documents it:
@@ -17,12 +17,12 @@
  *
  * Every step reports what it did (or, in a dry run, what it *would* do) through a
  * {@link Reporter}, in the present tense for a dry run and the past tense for the
- * real thing — the two strings upstream keeps side by side, so the dialog's
+ * real thing, the two strings upstream keeps side by side, so the dialog's
  * "Changes to Be Applied" and "Changes Applied to PCB" read correctly.
  *
  * Differences from upstream, all because the board model has no counterpart yet:
  * component classes, design variants, design-block layouts and net chains are not
- * updated, and there is no undo commit — the caller gets a new Board value back and
+ * updated, and there is no undo commit, the caller gets a new Board value back and
  * pushes it onto its own undo stack.
  */
 
@@ -73,7 +73,7 @@ export interface BoardNetlistUpdaterOptions {
 }
 
 export interface BoardNetlistUpdateResult {
-  /** The updated board — the input board unchanged when this was a dry run. */
+  /** The updated board, the input board unchanged when this was a dry run. */
   board: Board;
   /** Indices into `board.footprints` of the footprints this run added. */
   addedFootprints: number[];
@@ -193,13 +193,13 @@ function withAttribute(fp: PcbFootprint, flag: string, on: boolean): PcbFootprin
 const padIsOnCopperLayer = (pad: PcbPad): boolean =>
   pad.layers.some((l) => l === '*.Cu' || l.endsWith('.Cu'));
 
-/** PAD::IsNoConnectPad — an unnumbered pad cannot be matched to a pin. */
+/** PAD::IsNoConnectPad, an unnumbered pad cannot be matched to a pin. */
 const padIsNoConnect = (pad: PcbPad): boolean => pad.number === '';
 
 // ----- the updater ------------------------------------------------------------
 
 /**
- * BOARD_NETLIST_UPDATER — one instance per run, exactly as upstream: construct,
+ * BOARD_NETLIST_UPDATER, one instance per run, exactly as upstream: construct,
  * set the options, call {@link UpdateNetlist}, read the counts back.
  */
 export class BOARD_NETLIST_UPDATER {
@@ -255,14 +255,14 @@ export class BOARD_NETLIST_UPDATER {
     return this.m_options.isDryRun;
   }
 
-  /** getNetname — during a dry run, the net this run has already assigned. */
+  /** getNetname, during a dry run, the net this run has already assigned. */
   private getNetname(padKey: string, pad: PcbPad): string {
     if (this.dryRun && this.m_padNets.has(padKey)) return this.m_padNets.get(padKey)!;
     return pad.net === undefined ? '' : (this.m_board.nets.get(pad.net) ?? '');
   }
 
   /**
-   * estimateFootprintInsertionPosition — below any existing board features, or the
+   * estimateFootprintInsertionPosition, below any existing board features, or the
    * centre of the page when the board is empty.
    */
   private estimateFootprintInsertionPosition(): { x: number; y: number } {
@@ -273,12 +273,12 @@ export class BOARD_NETLIST_UPDATER {
         y: bbox.maxY + mmToIU(10),
       };
     }
-    // BOARD::GetPageSettings().GetSizeIU — A4 landscape is KiCad's default page.
+    // BOARD::GetPageSettings().GetSizeIU, A4 landscape is KiCad's default page.
     const page = pageSizeIU(this.m_board.paper);
     return { x: Math.round(page.x / 2), y: Math.round(page.y / 2) };
   }
 
-  /** BOARD::GetBoardEdgesBoundingBox — the Edge.Cuts outline's extents. */
+  /** BOARD::GetBoardEdgesBoundingBox, the Edge.Cuts outline's extents. */
   private boardEdgesBoundingBox(): {
     minX: number;
     minY: number;
@@ -303,7 +303,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * addNewFootprint — load the component's footprint from the libraries and place
+   * addNewFootprint, load the component's footprint from the libraries and place
    * it on the board. Returns the index of the new footprint, or -1.
    */
   private addNewFootprint(component: COMPONENT, footprintId: string): number {
@@ -364,7 +364,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * replaceFootprint — swap a board footprint for the one the symbol now names.
+   * replaceFootprint, swap a board footprint for the one the symbol now names.
    * Returns the (unchanged) index on success, -1 when nothing was replaced.
    */
   private replaceFootprint(index: number, component: COMPONENT): number {
@@ -426,7 +426,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * updateFootprintParameters — reference, value, symbol link, fields, sheet name
+   * updateFootprintParameters, reference, value, symbol link, fields, sheet name
    * and file, and the fabrication attributes the netlist carries.
    */
   private updateFootprintParameters(index: number, component: COMPONENT): void {
@@ -647,7 +647,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * updateComponentPadConnections — the heart of the update: every pad's net, pin
+   * updateComponentPadConnections, the heart of the update: every pad's net, pin
    * function and pin type, taken from the component's netlist entry.
    */
   private updateComponentPadConnections(index: number, component: COMPONENT): void {
@@ -777,7 +777,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * updateFootprintGroup — move a footprint into the PCB group that mirrors its
+   * updateFootprintGroup, move a footprint into the PCB group that mirrors its
    * symbol's group, creating that group when the board has none with its UUID.
    */
   private updateFootprintGroup(index: number, component: COMPONENT): void {
@@ -847,7 +847,7 @@ export class BOARD_NETLIST_UPDATER {
     }
   }
 
-  /** updateGroups — a PCB group's name follows its netlist group's name. */
+  /** updateGroups, a PCB group's name follows its netlist group's name. */
   private updateGroups(netlist: NETLIST): void {
     if (!this.m_options.transferGroups) return;
 
@@ -876,7 +876,7 @@ export class BOARD_NETLIST_UPDATER {
     });
   }
 
-  /** cacheCopperZoneConnections — the pads each copper zone touches, before any edit. */
+  /** cacheCopperZoneConnections, the pads each copper zone touches, before any edit. */
   private cacheCopperZoneConnections(): void {
     this.m_board.zones.forEach((zone, zoneIndex) => {
       if (!zoneIsOnCopperLayer(zone)) return;
@@ -893,7 +893,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * updateCopperZoneNets — stitching vias and copper zones sitting on a net the
+   * updateCopperZoneNets, stitching vias and copper zones sitting on a net the
    * netlist no longer has are moved to the net their pads went to, so a rename does
    * not leave dead copper behind.
    */
@@ -1009,7 +1009,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * testConnectivity — verify the board carries every pad the netlist mentions: if
+   * testConnectivity, verify the board carries every pad the netlist mentions: if
    * it does not, the footprints are wrong or the symbol's pins are unnumbered.
    */
   private testConnectivity(netlist: NETLIST, footprintMap: Map<COMPONENT, number>): void {
@@ -1040,7 +1040,7 @@ export class BOARD_NETLIST_UPDATER {
   }
 
   /**
-   * BOARD_NETLIST_UPDATER::UpdateNetlist — the whole process, in upstream's order.
+   * BOARD_NETLIST_UPDATER::UpdateNetlist, the whole process, in upstream's order.
    */
   UpdateNetlist(netlist: NETLIST): BoardNetlistUpdateResult {
     this.m_errorCount = 0;
@@ -1258,7 +1258,7 @@ export class BOARD_NETLIST_UPDATER {
 // ----- free functions ---------------------------------------------------------
 
 /**
- * BOARD_NETLIST_UPDATER::fpidsEquivalent — compare a board footprint id against a
+ * BOARD_NETLIST_UPDATER::fpidsEquivalent, compare a board footprint id against a
  * schematic-derived one, ignoring the library nickname when the schematic side uses
  * a legacy bare footprint name. A board footprint always carries a nickname, so a
  * strict equality test would never match a legacy schematic FPID.
@@ -1274,7 +1274,7 @@ function componentPath(component: COMPONENT): string {
   return primary ? joinPath(component.path, primary) : component.path;
 }
 
-/** KIID_PATH::push_back — append a UUID to a "/a/b/" style path. */
+/** KIID_PATH::push_back, append a UUID to a "/a/b/" style path. */
 function joinPath(path: string, uuid: string): string {
   const base = path === '' || path === '/' ? '/' : path.endsWith('/') ? path : `${path}/`;
   return `${base}${uuid}`;
@@ -1309,7 +1309,7 @@ function setFootprintText(
 /**
  * Set a footprint's sheet name or file. A board written before PCB fields keeps these
  * in `(property "Sheetname" …)` rather than the `(sheetname …)` token, so the value is
- * rewritten wherever it actually lives — writing the modern token next to a stale
+ * rewritten wherever it actually lives, writing the modern token next to a stale
  * legacy property would leave the footprint carrying two different answers.
  */
 function setSheetInfo(
@@ -1360,7 +1360,7 @@ function withGroupMembers(group: PcbGroup, members: string[]): PcbGroup {
   };
 }
 
-/** `(group "name" …)` — the name is the first scalar after the head. */
+/** `(group "name" …)`, the name is the first scalar after the head. */
 function renameGroup(src: SList, name: string): SList {
   return src.items.length === 0 ? src : replaceArg(src, 0, name);
 }

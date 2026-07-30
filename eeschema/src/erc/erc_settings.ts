@@ -1,12 +1,12 @@
 /**
- * ERC settings. Counterpart: `eeschema/erc/erc_settings.cpp` (ERC_SETTINGS) —
+ * ERC settings. Counterpart: `eeschema/erc/erc_settings.cpp` (ERC_SETTINGS),
  * the per-project electrical-rules configuration edited by the Schematic Setup
  * dialog: a severity (error / warning / ignore) for every ERC rule, and the
  * pin-to-pin conflict matrix. `runErc` reads these instead of hard-coded
  * defaults, so overriding a severity or a matrix cell changes the check.
  */
 
-/** ELECTRICAL_PINTYPE order — the ERC matrix rows/columns and the pin-map grid. */
+/** ELECTRICAL_PINTYPE order, the ERC matrix rows/columns and the pin-map grid. */
 export const PIN_TYPES = [
   'input',
   'output',
@@ -67,7 +67,7 @@ export const WAR = 1;
 export const ERR = 2;
 export type PinError = typeof OK | typeof WAR | typeof ERR;
 
-/** ERC_SETTINGS::m_defaultPinMap — the default conflict matrix. */
+/** ERC_SETTINGS::m_defaultPinMap, the default conflict matrix. */
 export const DEFAULT_PIN_MAP: PinError[][] = [
   /*         I,   O,    Bi,   3S,   Pas,  NIC,  UnS,  PwrI, PwrO, OC,   OE,   NC */
   /* I  */ [OK, OK, OK, OK, OK, OK, WAR, OK, OK, OK, OK, ERR],
@@ -86,7 +86,7 @@ export const DEFAULT_PIN_MAP: PinError[][] = [
 
 /**
  * The ERC rules, named by their settings key (`RC_ITEM::GetSettingsKey`, which is
- * what `.kicad_pro` stores). Every type in `ERC_ITEM::allItemTypes` is here — the
+ * what `.kicad_pro` stores). Every type in `ERC_ITEM::allItemTypes` is here, the
  * user-editable ones first, then the internal group, which carries a severity but
  * no Violation-Severity row and is never written to the project file.
  */
@@ -157,7 +157,7 @@ export type ErcSeverityLevel = ErcSeverity | 'ignore';
 export type ErcGroup = 'Connections' | 'Conflicts' | 'Miscellaneous';
 
 /**
- * Violation-Severity panel rows: rule, label and group — `ERC_ITEM::allItemTypes`
+ * Violation-Severity panel rows: rule, label and group, `ERC_ITEM::allItemTypes`
  * up to `heading_internal` (`ERC_ITEM::GetItemsWithSeverities`), in upstream's
  * order and wording. These are also exactly the keys `.kicad_pro` stores under
  * `erc.rule_severities`; the types below `heading_internal` (duplicate_pins,

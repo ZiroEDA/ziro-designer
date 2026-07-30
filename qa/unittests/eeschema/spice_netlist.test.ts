@@ -1,5 +1,5 @@
 /**
- * SPICE netlist export — NETLIST_EXPORTER_SPICE + SIM_MODEL::InferSimModel
+ * SPICE netlist export, NETLIST_EXPORTER_SPICE + SIM_MODEL::InferSimModel
  * quirks straight from the C++: net-name markup conversion and ground
  * aliases, SI→SPICE value notation, passive/source inference (separator
  * disambiguation, `4u7`-style fraction values, behavioural fallback),

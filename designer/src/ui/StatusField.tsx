@@ -2,7 +2,7 @@
  * A fixed-width status-bar field. Counterpart:
  * `EDA_DRAW_FRAME::updateStatusBarWidths` (common/eda_draw_frame.cpp), which
  * sizes each KISTATUSBAR pane from a widest-case template string ("X
- * 00000.0000  Y 00000.0000", …) plus an "M"-width spacer — so the live values
+ * 00000.0000  Y 00000.0000", …) plus an "M"-width spacer, so the live values
  * never shift their neighbours as they change. The template renders invisibly
  * under the value to reserve exactly that width in the page font.
  */

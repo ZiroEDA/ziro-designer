@@ -2,7 +2,7 @@
  * Copy / paste / duplicate, ported from KiCad's SCH_EDITOR_CONTROL
  * (eeschema/tools/sch_editor_control.cpp):
  *
- *  - doCopy(): the clipboard payload is KiCad's own format — a bare sequence of
+ *  - doCopy(): the clipboard payload is KiCad's own format, a bare sequence of
  *    S-expressions, `(lib_symbols <defs used by the selection>)` followed by the
  *    selected items, exactly what SCH_IO_KICAD_SEXPR::Format(SCH_SELECTION*)
  *    writes. Text copied here pastes into desktop KiCad and vice versa.
@@ -193,7 +193,7 @@ function clearAnnotation(sym: SchSymbol): SchSymbol {
 
 /**
  * Parse clipboard text into a paste payload. Accepts KiCad's bare item sequence
- * (the clipboard format), a whole `(kicad_sch ...)` document, or — failing both —
+ * (the clipboard format), a whole `(kicad_sch ...)` document, or, failing both,
  * returns the content as a text item exactly as KiCad's Paste() fallback does.
  */
 export function parsePastedText(
