@@ -380,6 +380,65 @@ function labelRows(sch: Schematic, index: number): PropRow[] {
  * no registered properties yet. (Upstream shows the intersection for
  * multi-selections; that refinement is tracked in #77.)
  */
+
+/**
+ * A symbol field selected on its own (SCH_FIELD): its text and where it sits.
+ * Position goes through moveItems on the field id, so only the text moves,
+ * the symbol stays put, matching SCH_FIELD being independently movable.
+ */
+function fieldRows(sch: Schematic, id: string): PropRow[] {
+  const at = id.lastIndexOf(':field');
+  const symId = id.slice(0, at);
+  const k = Number(id.slice(at + 6));
+  const si = sch.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
+  if (si < 0) return [];
+  const f = sch.symbols[si]!.fields[k];
+  if (!f?.at) return [];
+
+  /** Replace field k of symbol si outright; the inverse restores the original. */
+  const replaceField = (
+    label: string,
+    next: (typeof f)[] extends never[] ? never : typeof f,
+  ): EditCommand => ({
+    label,
+    apply: (doc) => ({
+      ...doc,
+      symbols: doc.symbols.map((s, i) =>
+        i === si ? { ...s, fields: s.fields.map((g, j) => (j === k ? next : g)) } : s,
+      ),
+    }),
+    invert: () => replaceField(label, f),
+  });
+
+  return [
+    ...positionRows(id, f.at),
+    {
+      group: '',
+      name: 'Orientation',
+      kind: 'choice',
+      choices: ORIENTATIONS,
+      value: String(((f.angle % 360) + 360) % 360),
+      set: (v) => replaceField('Change Orientation', { ...f, angle: Number(v) }),
+    },
+    { group: 'Field', name: 'Name', kind: 'string', value: f.key },
+    {
+      group: 'Field',
+      name: 'Value',
+      kind: 'string',
+      value: f.value,
+      set: (v) =>
+        String(v) === f.value ? null : replaceField('Edit Field', { ...f, value: String(v) }),
+    },
+    {
+      group: 'Field',
+      name: 'Show',
+      kind: 'bool',
+      value: !f.effects?.hidden,
+      set: (v) => replaceField('Show Field', { ...f, effects: { ...f.effects, hidden: !v } }),
+    },
+  ];
+}
+
 export function schPropertiesFor(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
@@ -390,6 +449,8 @@ export function schPropertiesFor(
     return -1;
   };
   switch (ref.kind) {
+    case 'field':
+      return fieldRows(sch, ref.id);
     case 'symbol': {
       const i = indexOf(sch.symbols, (t, k) => refId('symbol', t.uuid, k));
       return i < 0 ? [] : symbolRows(sch, libById, i);

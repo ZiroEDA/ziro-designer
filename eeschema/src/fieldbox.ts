@@ -22,7 +22,7 @@
  * the renderer), so this stays framework-free and unit-testable.
  */
 
-import type { SchField, SchSymbol, Vec2 } from './types.js';
+import type { LibSymbol, SchField, SchSymbol, Vec2 } from './types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { symbolTransform, applyTransform, type Transform } from '@ziroeda/common/src/transform.js';
 
@@ -354,4 +354,42 @@ export function justifyTokens(h: HJustify, v: VJustify): readonly string[] | und
   if (h !== 'center') tokens.push(h);
   if (v !== 'center') tokens.push(v);
   return tokens.length ? tokens : undefined;
+}
+
+// ----- selection geometry -----------------------------------------------------
+
+/** A placed symbol's field as the selection sees it: its world bounding box. */
+export interface SymbolFieldBox {
+  /** Index into `sym.fields`, the `k` of the `<symbolRefId>:field<k>` id. */
+  index: number;
+  key: string;
+  shown: string;
+  box: Box;
+}
+
+/**
+ * The visible fields of a placed symbol with their bounding boxes.
+ *
+ * KiCad treats every SCH_FIELD as a selectable, movable item in its own right
+ * (SCH_COLLECTOR::EditableItems / MovableItems both list SCH_FIELD_T), so
+ * clicking a reference or footprint text picks the text, not the symbol. Hidden
+ * fields and empty ones are not drawn and so cannot be picked, matching
+ * SCH_SELECTION_TOOL::Selectable's IsVisible() gate.
+ */
+export function symbolFieldBoxes(
+  sym: SchSymbol,
+  lib: LibSymbol | undefined,
+  measure: TextMeasurer,
+  opts: { showHidden?: boolean; subpart?: SubpartSettings } = {},
+): SymbolFieldBox[] {
+  const unitCount = lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1;
+  const out: SymbolFieldBox[] = [];
+  sym.fields.forEach((f, index) => {
+    if (!f.at) return;
+    if (f.effects?.hidden && !opts.showHidden) return;
+    const shown = fieldShownText(f, sym, unitCount, opts.subpart);
+    if (shown === '') return;
+    out.push({ index, key: f.key, shown, box: fieldBoundingBox(f, sym, shown, measure) });
+  });
+  return out;
 }

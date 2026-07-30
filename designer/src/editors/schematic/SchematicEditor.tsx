@@ -20,6 +20,7 @@ import {
   SPIN_ANGLE,
   spinOfAngle,
   wireLabelDriverName,
+  cleanLabelFields,
   DEFAULT_DIRECTIVE_PIN_LENGTH,
   directiveNetclassAssignments,
   type DirectiveShape,
@@ -28,6 +29,7 @@ import {
   type LabelSpin,
   type TextEffects,
   type SchLabel,
+  type SchField,
   type Stroke,
   type Fill,
   readSchematic,
@@ -258,6 +260,7 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -286,7 +289,6 @@ const SETTINGS_TOGGLES = new Set([
   'lineMode45',
   'annotateAuto',
 ]);
-const PX_PER_MM_100 = 3.7795;
 
 /** ERC_TESTER::TestDuplicateSheetNames, the guard the highlight tools run
  *  before picking (sheet names compare case-insensitively upstream). */
@@ -524,6 +526,7 @@ export function SchematicEditor({
     italic: false,
     spin: 'right' as LabelSpin,
     autoRotate: false,
+    face: '',
   });
   // The free-text equivalents (m_lastTextHJustify / m_lastTextVJustify /
   // m_lastTextAngle), which createNewText carries between placements.
@@ -532,6 +535,7 @@ export function SchematicEditor({
     vAlign: 'center' as VAlign,
     angle: 0,
     excludeFromSim: false,
+    face: '',
   });
   // m_lastSheetPinType: the shape the next sheet pin starts with (Input).
   const lastSheetPin = useRef({ shape: 'input' as LabelShape });
@@ -670,14 +674,23 @@ export function SchematicEditor({
   // Selection Filter (SCH_SELECTION_FILTER_OPTIONS): gates which item types,
   // and locked items, the selection accepts.
   const [selFilter, setSelFilter] = useState<SelectionFilterOptions>(defaultSelectionFilter);
-  const [cursor, setCursor] = useState<Vec2 | null>(null);
   // Status-bar relative coordinates: dx/dy/dist measure from this origin,
   // which Space resets to the cursor (ACTIONS::resetLocalCoords;
   // COMMON_TOOLS::ResetLocalCoords sets SCH_SCREEN::m_LocalOrigin).
   const [localOrigin, setLocalOrigin] = useState<Vec2>({ x: 0, y: 0 });
+  // The cursor and the viewport scale drive nothing but the three status-bar
+  // panes, and they change on every pointer event, so they are held in refs
+  // and pushed straight into that widget. Routing them through this frame's
+  // state would re-render the whole editor for every mouse move.
   const cursorRef = useRef<Vec2 | null>(null);
-  cursorRef.current = cursor;
-  const [scale, setScale] = useState(1);
+  const statusRef = useRef<StatusReadoutHandle>(null);
+  const onCursorMove = useCallback((world: Vec2 | null) => {
+    cursorRef.current = world;
+    statusRef.current?.setCursor(world);
+  }, []);
+  const onScaleChange = useCallback((s: number) => {
+    statusRef.current?.setScale(s);
+  }, []);
   // The symbol whose properties dialog is open (its refId), or null.
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
@@ -714,23 +727,50 @@ export function SchematicEditor({
     () => new Map(setup.busAliases.filter((a) => a.name).map((a) => [a.name, a.members])),
     [setup.busAliases],
   );
+
+  // Connectivity runs one task behind the document. Rebuilding the graph is the
+  // most expensive thing an edit triggers, and nothing about the *geometry* the
+  // user just changed depends on it, so the edit is painted first and the nets
+  // are rebuilt immediately afterwards, with the previous result left on screen
+  // for that one frame rather than blanking. Everything derived from the graph
+  // (net colours, netclass widths, chains) keys off `connDoc` so it stays
+  // self-consistent; a wire drawn this frame simply has no override yet.
+  //
+  // This does not widen any window a caller could observe: a handler that edits
+  // the document already cannot see a rebuilt netlist, because React has not
+  // re-rendered at that point either.
+  const [connDoc, setConnDoc] = useState<Schematic | null>(doc);
+  useEffect(() => {
+    if (connDoc === doc) return;
+    // setTimeout, not requestAnimationFrame, rAF never fires while the tab is
+    // hidden, and connectivity must keep up with edits made off-screen.
+    const t = setTimeout(() => setConnDoc(doc), 0);
+    return () => clearTimeout(t);
+  }, [doc, connDoc]);
+
   const netlist = useMemo(
-    () => (doc ? computeNetlist(doc, libById, { busAliases }) : null),
-    [doc, libById, busAliases],
+    () => (connDoc ? computeNetlist(connDoc, libById, { busAliases }) : null),
+    [connDoc, libById, busAliases],
   );
   // This run's potential chains (RebuildNetChains) and the committed chains
   // restored against them, shared by netclass resolution, the highlight
   // actions and the Create Net Chain dialog.
   const potentialChains = useMemo(
-    () => (doc && netlist ? detectNetChains(doc, libById, netlist) : []),
-    [doc, libById, netlist],
+    () => (connDoc && netlist ? detectNetChains(connDoc, libById, netlist) : []),
+    [connDoc, libById, netlist],
   );
   const committedChains = useMemo(() => {
-    if (!doc) return [];
+    if (!connDoc) return [];
     return netlist
-      ? restoreCommittedNetChains(doc, libById, netlist, potentialChains, readNetChains(doc))
-      : readNetChains(doc);
-  }, [doc, libById, netlist, potentialChains]);
+      ? restoreCommittedNetChains(
+          connDoc,
+          libById,
+          netlist,
+          potentialChains,
+          readNetChains(connDoc),
+        )
+      : readNetChains(connDoc);
+  }, [connDoc, libById, netlist, potentialChains]);
 
   // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
   // the plain net highlight, like upstream.
@@ -1122,6 +1162,19 @@ export function SchematicEditor({
     [liveDocs, flatSheets],
   );
 
+  /** The link combo's page entries: "#<page>" labelled "Page 3 (Power)", as
+   *  DIALOG_TEXT_PROPERTIES fills m_hyperlinkCombo from Schematic().Hierarchy(). */
+  const linkPages = useMemo<{ value: string; label: string }[]>(() => {
+    return flatSheets.map((ref) => {
+      const page = pageNumberOf(ref.path);
+      const name =
+        ref.path === '/'
+          ? '<root sheet>'
+          : (sheetInstanceRefs.find((r) => r.path === ref.path)?.name ?? ref.file);
+      return { value: `#${page}`, label: `Page ${page} (${name})` };
+    });
+  }, [flatSheets, pageNumberOf, sheetInstanceRefs]);
+
   // Set the current sheet's page number (SCH_ACTIONS::editPageNumber →
   // SCH_SHEET_PATH::SetPageNumber). The root edits its own document; a sub-sheet
   // edits its object in the *parent* document (through that doc's own history).
@@ -1399,16 +1452,19 @@ export function SchematicEditor({
   // Committed-chain netclass overrides join the per-net resolution
   // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
   // pattern assignments) so member nets draw with the chain's netclass.
+  // Keyed on connDoc alongside the graph it resolves against, the ids in the
+  // override maps are only meaningful for the document the netlist was built
+  // from. An item added since simply has no override for a frame.
   const netOverrides = useMemo(
     () =>
-      doc
-        ? computeNetClassOverrides(doc, libById, setup, netlist, [
+      connDoc
+        ? computeNetClassOverrides(connDoc, libById, setup, netlist, [
             ...chainPatternAssignments(committedChains),
             // Netclass directive labels assign to whatever net they sit on.
-            ...directiveNetclassAssignments(doc, netlist),
+            ...directiveNetclassAssignments(connDoc, netlist),
           ])
         : undefined,
-    [doc, libById, setup, netlist, committedChains],
+    [connDoc, libById, setup, netlist, committedChains],
   );
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
@@ -2472,6 +2528,7 @@ export function SchematicEditor({
     const payload = parsePastedText(copySelectionText(doc, selection), doc);
     if (!payload) return;
     let refPoint = payload.refPoint;
+    const cursor = cursorRef.current;
     if (cursor) {
       let best = Infinity;
       const consider = (p: Vec2): void => {
@@ -2491,7 +2548,7 @@ export function SchematicEditor({
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
-  }, [doc, selection, cursor]);
+  }, [doc, selection]);
 
   // The paste was dropped: keep the pasted items selected, as KiCad does.
   const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
@@ -2673,7 +2730,9 @@ export function SchematicEditor({
     // CONNECTION_GRAPH: graph every sheet instance and propagate net names
     // through the sheet pins, so the net tests below see whole nets rather
     // than each sheet's slice of them.
-    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    // setTimeout, not requestAnimationFrame, rAF never fires in a hidden tab,
+    // which would leave an ERC run wedged half-way through.
+    await new Promise((r) => setTimeout(r, 0));
 
     const hierSheets = flatSheets
       .map((s) => ({ path: s.path, file: s.file, doc: docs.get(s.file) }))
@@ -2783,8 +2842,8 @@ export function SchematicEditor({
     }
 
     const found: ErcViolation[] = [];
-    const frame = (): Promise<void> =>
-      new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    // As above: a plain task yield, so a run keeps going in a hidden tab.
+    const frame = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
     for (const file of sheetFiles) {
       const sheetDoc = file === currentFile ? d : docs.get(file);
@@ -2964,6 +3023,7 @@ export function SchematicEditor({
         style: es.window.grid.style,
         lineWidthPx: es.window.grid.line_width,
         minSpacingPx: es.window.grid.min_spacing,
+        devicePixelRatio: dpr,
         overrides: {
           enabled: es.window.grid.overrides_enabled,
           ...(es.window.grid.overrides.connected.enabled
@@ -2992,6 +3052,7 @@ export function SchematicEditor({
       sheetInstanceRefs,
       currentPath,
       pageNumberOf,
+      dpr,
     ],
   );
 
@@ -3063,6 +3124,7 @@ export function SchematicEditor({
         if (!tbd) return null;
         const effects: TextEffects = {
           hidden: false,
+          face: r.face || undefined,
           bold: r.bold || undefined,
           italic: r.italic || undefined,
           fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -3086,6 +3148,7 @@ export function SchematicEditor({
                 text: r.text,
                 angle: r.angle,
                 excludedFromSim: r.excludeFromSim,
+                hyperlink: r.hyperlink || undefined,
                 effects,
                 stroke,
                 fill,
@@ -3116,9 +3179,19 @@ export function SchematicEditor({
         lastSheetPin.current = { shape: r.shape as LabelShape };
         // The orientation buttons choose which border the pin sits on.
         const side = SPIN_ANGLE[r.spin] as SheetSide;
-        runCommand(
-          replaceSheet(spd.index, addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape)),
-        );
+        const withPin = addSheetPin(sheet, name, spd.at, side, r.shape as LabelShape);
+        // The pin's own fields (SCH_SHEET_PIN is a SCH_LABEL_BASE), from the
+        // grid; writeSheetPin appends the ones the file doesn't have yet.
+        const fields = cleanLabelFields(r.fields) as SchField[];
+        const next = fields.length
+          ? {
+              ...withPin,
+              pins: withPin.pins.map((p, i) =>
+                i === withPin.pins.length - 1 ? { ...p, fields } : p,
+              ),
+            }
+          : withPin;
+        runCommand(replaceSheet(spd.index, next));
         return null;
       });
     },
@@ -3131,11 +3204,11 @@ export function SchematicEditor({
       const rows = Math.max(1, Math.min(50, Math.round(td.rows)));
       const cols = Math.max(1, Math.min(50, Math.round(td.cols)));
       // Anchor at the last cursor position, or a sensible default sheet location.
-      const at = cursor ?? { x: 500000, y: 500000 };
+      const at = cursorRef.current ?? { x: 500000, y: 500000 };
       runCommand(addItems({ tables: [makeTable(at, rows, cols)] }));
       return null;
     });
-  }, [cursor, runCommand]);
+  }, [runCommand]);
 
   const commitTableEdit = useCallback(() => {
     setTableEdit((te) => {
@@ -3161,6 +3234,7 @@ export function SchematicEditor({
       italic: r.italic,
       spin: r.spin,
       autoRotate: r.autoRotate,
+      face: r.face,
     };
     const [first, ...rest] = r.texts;
     if (first === undefined) return;
@@ -3191,6 +3265,7 @@ export function SchematicEditor({
       vAlign: r.vAlign,
       angle: r.angle,
       excludeFromSim: r.excludeFromSim,
+      face: r.face,
     };
     setPendingLabel({
       kind: 'text',
@@ -3202,6 +3277,8 @@ export function SchematicEditor({
       angle: r.angle,
       justify: justifyTokens(r.hAlign, r.vAlign),
       excludeFromSim: r.excludeFromSim,
+      ...(r.face ? { face: r.face } : {}),
+      ...(r.hyperlink ? { hyperlink: r.hyperlink } : {}),
       ...(r.color ? { color: r.color } : {}),
     });
     setLabelPrompt(false);
@@ -3258,9 +3335,11 @@ export function SchematicEditor({
           text: r.text,
           angle: r.angle,
           excludedFromSim: r.excludeFromSim,
+          hyperlink: r.hyperlink || undefined,
           effects: {
             hidden: false,
             ...orig.effects,
+            face: r.face || undefined,
             bold: r.bold || undefined,
             italic: r.italic || undefined,
             fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -3304,6 +3383,26 @@ export function SchematicEditor({
     [activeTool, doc, netlist, setup.formatting.defaultTextSizeMils],
   );
 
+  /**
+   * Follow a text item's `(hyperlink …)`: "#<page>" switches to that sheet,
+   * anything else is a URL, opened in a new tab (SCH_EDIT_FRAME's handling,
+   * where the OS browser is launched instead).
+   */
+  const onFollowLink = useCallback(
+    (link: string) => {
+      if (link.startsWith('#')) {
+        const page = link.slice(1);
+        const target = flatSheets.find((ref) => pageNumberOf(ref.path) === page);
+        if (target) switchSheet(target.path, target.file);
+        else setInfoBar(`No sheet with page number "${page}".`);
+        return;
+      }
+      if (/^https?:\/\//i.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
+      else setInfoBar(`Cannot open "${link}" from the browser.`);
+    },
+    [flatSheets, pageNumberOf, switchSheet],
+  );
+
   /** A label was dropped: take the next of a multi-label run, else stop. */
   const onLabelPlaced = useCallback(() => {
     setPendingDirective(null);
@@ -3324,6 +3423,7 @@ export function SchematicEditor({
         const effects: TextEffects = {
           hidden: false,
           ...orig.effects,
+          face: r.face || undefined,
           bold: r.bold || undefined,
           italic: r.italic || undefined,
           fontSize: [r.sizeIU, r.sizeIU] as [number, number],
@@ -4179,7 +4279,6 @@ export function SchematicEditor({
     if (units === 'mils') return `${(mm / 0.0254).toFixed(2)}`;
     return `${(mm / 25.4).toFixed(4)}`;
   };
-  const zoomPct = Math.round(((scale * 10000 * dpr) / PX_PER_MM_100) * 100);
 
   // Properties panel rows (SCH_PROPERTIES_PANEL): the property grid for a
   // single selected item; multi-selections keep the count message for now
@@ -4450,6 +4549,7 @@ export function SchematicEditor({
             pendingLabel={pendingLabel}
             onLabelPlaced={onLabelPlaced}
             onLabelPrompt={onLabelPrompt}
+            onFollowLink={onFollowLink}
             highlight={highlightWires}
             theme={theme}
             renderOpts={renderOpts}
@@ -4488,8 +4588,9 @@ export function SchematicEditor({
                     : es.appearance.show_erc_warnings,
               )}
             onCommand={runCommand}
-            onCursorMove={setCursor}
-            onScaleChange={setScale}
+            onEditDrawingSheet={() => setPageSettingsOpen(true)}
+            onCursorMove={onCursorMove}
+            onScaleChange={onScaleChange}
           />
           {ctxMenu && (
             <ContextMenu
@@ -5006,17 +5107,12 @@ export function SchematicEditor({
         <span className="cell msg" data-testid="sch-status-msg">
           {highlightName ? `Highlighted net: ${highlightName}` : ''}
         </span>
-        <StatusField template={STATUS_FIELD_TEMPLATES.zoom}>
-          Z {Number.isFinite(zoomPct) ? (zoomPct / 100).toFixed(2) : '1.00'}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.coords}>
-          X {cursor ? fmt(cursor.x) : '-'} Y {cursor ? fmt(cursor.y) : '-'}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.deltas}>
-          dx {cursor ? fmt(cursor.x - localOrigin.x) : '-'} dy{' '}
-          {cursor ? fmt(cursor.y - localOrigin.y) : '-'} dist{' '}
-          {cursor ? fmt(Math.hypot(cursor.x - localOrigin.x, cursor.y - localOrigin.y)) : '-'}
-        </StatusField>
+        <StatusReadout
+          ref={statusRef}
+          units={units}
+          localOrigin={localOrigin}
+          devicePixelRatio={dpr}
+        />
         <StatusField template={STATUS_FIELD_TEMPLATES.grid}>
           grid {(() => {
             const iu = renderOpts.grid.sizeIU;
@@ -5071,8 +5167,11 @@ export function SchematicEditor({
       {activeTool === 'placeText' && labelPrompt && !pendingLabel && !labelEdit && (
         <DialogTextProperties
           kind="text"
+          pages={linkPages}
           initial={{
             text: '',
+            face: lastText.current.face,
+            hyperlink: '',
             bold: lastLabel.current.bold,
             italic: lastLabel.current.italic,
             // New text defaults to Schematic Setup > Formatting's text size
@@ -5096,6 +5195,7 @@ export function SchematicEditor({
           isNew
           initial={{
             text: '',
+            face: lastLabel.current.face,
             shape: lastLabel.current.shape,
             bold: lastLabel.current.bold,
             italic: lastLabel.current.italic,
@@ -5167,8 +5267,11 @@ export function SchematicEditor({
       {labelEdit && labelEdit.kind === 'text' && doc?.labels[labelEdit.index] && (
         <DialogTextProperties
           kind="text"
+          pages={linkPages}
           initial={{
             text: labelEdit.text,
+            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
+            hyperlink: doc.labels[labelEdit.index]?.hyperlink ?? '',
             bold: !!doc.labels[labelEdit.index]?.effects?.bold,
             italic: !!doc.labels[labelEdit.index]?.effects?.italic,
             sizeIU: doc.labels[labelEdit.index]?.effects?.fontSize?.[0] ?? 12700,
@@ -5192,6 +5295,7 @@ export function SchematicEditor({
           isNew={false}
           initial={{
             text: labelEdit.text,
+            face: doc.labels[labelEdit.index]?.effects?.face ?? '',
             shape: labelEdit.shape ?? lastLabel.current.shape,
             bold: !!doc.labels[labelEdit.index]?.effects?.bold,
             italic: !!doc.labels[labelEdit.index]?.effects?.italic,
@@ -5416,8 +5520,11 @@ export function SchematicEditor({
       {textBoxDraw && (
         <DialogTextProperties
           kind="textbox"
+          pages={linkPages}
           initial={{
             text: textBoxDraw.text,
+            face: textBoxOrig?.effects?.face ?? '',
+            hyperlink: textBoxOrig?.hyperlink ?? '',
             bold: !!textBoxOrig?.effects?.bold,
             italic: !!textBoxOrig?.effects?.italic,
             sizeIU:

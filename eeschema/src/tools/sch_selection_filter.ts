@@ -81,6 +81,20 @@ type Category = keyof Omit<SelectionFilterOptions, 'lockedItems'>;
 function resolveItem(doc: Schematic, id: string): { category: Category; locked: boolean } | null {
   // Symbols and sheets → "symbols" (SCH_SYMBOL_T / SCH_SHEET_T). Only symbols
   // carry a lock state in the schematic grammar.
+  // Pins and symbol fields are children of a symbol, addressed by composite
+  // ids. A pin belongs to the "pins" category (SCH_PIN_T / SCH_SHEET_PIN_T in
+  // itemPassesFilter); a field follows its parent symbol.
+  const pinAt = id.lastIndexOf(':pin');
+  if (pinAt > 0 && doc.symbols.some((s, i) => refId('symbol', s.uuid, i) === id.slice(0, pinAt)))
+    return { category: 'pins', locked: false };
+  const fieldAt = id.lastIndexOf(':field');
+  if (fieldAt > 0) {
+    const owner = doc.symbols.findIndex(
+      (s, i) => refId('symbol', s.uuid, i) === id.slice(0, fieldAt),
+    );
+    if (owner !== -1) return { category: 'symbols', locked: doc.symbols[owner]!.locked ?? false };
+  }
+
   const si = doc.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === id);
   if (si !== -1) return { category: 'symbols', locked: doc.symbols[si]!.locked ?? false };
   if (doc.sheets.some((s, i) => refId('sheet', s.uuid, i) === id))

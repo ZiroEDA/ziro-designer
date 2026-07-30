@@ -45,6 +45,27 @@ export function LoadingOverlay({
   );
 }
 
-/** Yield so the browser paints the overlay before the main thread gets busy. */
+/**
+ * Yield so the browser paints the overlay before the main thread gets busy.
+ *
+ * Two animation frames are the accurate signal, but they are only a *hint*:
+ * rAF never fires while the tab is hidden or the window is occluded, and every
+ * caller here is awaiting this between chunks of a load. Waiting on rAF alone
+ * therefore stalls the whole load the moment the user switches tab, the same
+ * trap dialog_drc.cpp's runner avoids. A timer races the frames so progress is
+ * guaranteed; whichever arrives first wins.
+ */
+const PAINT_FALLBACK_MS = 34; // ~2 frames at 60 Hz
+
 export const nextPaint = (): Promise<void> =>
-  new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, PAINT_FALLBACK_MS);
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+  });

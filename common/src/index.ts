@@ -20,6 +20,7 @@ export {
   defaultDrawingSheet,
   emptyDrawingSheet,
   layoutDrawingSheet,
+  hitTestDrawingSheet,
   resolveDrawingSheetText,
   incrementLabel,
   expandTextEscapes,

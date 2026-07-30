@@ -188,28 +188,39 @@ describe('connection-aware move (rubber-banding)', () => {
 });
 
 describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
-  it('slides a vertical wire along its axis and adds a horizontal bend', async () => {
+  it('bends at the far end and leaves it where it was', async () => {
     const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
     const { sch, libById } = loadOneEndWire();
-    // The wire is vertical (x=161.29 from y=105.0 to 111.76); only its end
-    // (161.29,111.76) connects to J1 pin 1. Move J1 by (Δx, Δy).
+    // The wire is vertical (x=161.29 from y=105.0 to 111.76); its end sits on
+    // J1 pin 1. Upstream's cache holds that pin (getConnectedItems has no
+    // selection test for symbols), so the wire counts as attached and takes the
+    // 90° bend at its *far* end — which stays exactly where it was, while the
+    // dragged end follows the pin.
     const ids = new Set(['d5224ac6-3b29-4f27-99e0-c4e878a39680']); // J1
     const spec = planMove(sch, libById, ids);
     const delta = { x: mmToIU(2.54), y: mmToIU(-1.27) };
-    const moved = orthoMove(sch, spec, delta).apply(sch);
+    const moved = orthoMove(sch, spec, delta, libById).apply(sch);
 
-    const wire = moved.lines[0]!;
-    // Vertical wire: its dragged end slid only in Y (stays vertical), keeping x.
-    expect(wire.start).toEqual(sch.lines[0]!.start); // fixed end unchanged
-    expect(wire.end).toEqual({ x: sch.lines[0]!.end.x, y: sch.lines[0]!.end.y + delta.y });
-    // A bend wire was added connecting the corner to the moved pin.
-    expect(moved.lines.length).toBe(sch.lines.length + 1);
-    const bend = moved.lines.at(-1)!;
-    expect(bend.start).toEqual({ x: sch.lines[0]!.end.x, y: sch.lines[0]!.end.y + delta.y });
-    expect(bend.end).toEqual({
-      x: sch.lines[0]!.end.x + delta.x,
-      y: sch.lines[0]!.end.y + delta.y,
-    });
+    for (const l of moved.lines) {
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
+    }
+    const freeEnd = sch.lines[0]!.start;
+    expect(
+      moved.lines.some(
+        (l) =>
+          (l.start.x === freeEnd.x && l.start.y === freeEnd.y) ||
+          (l.end.x === freeEnd.x && l.end.y === freeEnd.y),
+      ),
+    ).toBe(true);
+    const pinEnd = { x: sch.lines[0]!.end.x + delta.x, y: sch.lines[0]!.end.y + delta.y };
+    expect(
+      moved.lines.some(
+        (l) =>
+          (l.start.x === pinEnd.x && l.start.y === pinEnd.y) ||
+          (l.end.x === pinEnd.x && l.end.y === pinEnd.y),
+      ),
+    ).toBe(true);
   });
 
   it('undoes an orthogonal move exactly (removes the bend, reverses)', async () => {
@@ -226,28 +237,34 @@ describe('orthogonal move (keeps wires orthogonal with a bend)', () => {
     expect(undone.symbols[0]!.at).toEqual(sch.symbols[0]!.at);
   });
 
-  it('never leaves a diagonal segment: dragging a wire body diagonally makes orthogonal stubs', async () => {
+  it('bends the rubber-band stubs into an L in H/V line mode', async () => {
     const { orthoMove } = await import('@ziroeda/eeschema/src/tools/ortho.js');
     const { sch, libById } = load();
-    // Drag the wire itself (both ends sit on J1's fixed pins) diagonally. In H/V
-    // mode every resulting segment must stay horizontal or vertical.
+    // Drag the wire itself (both ends sit on J1's fixed pins) diagonally. The
+    // stub that keeps each pin connected leaves the pin along one axis and then
+    // turns: a diagonal wire out of a pin is what this mode exists to prevent.
     const ids = new Set([sch.lines[0]!.uuid!]);
     const spec = planMove(sch, libById, ids);
     expect(spec.newWires.length).toBe(2);
-    const moved = orthoMove(sch, spec, { x: mmToIU(2.54), y: mmToIU(2.54) }).apply(sch);
+    const delta = { x: mmToIU(2.54), y: mmToIU(2.54) };
+    const moved = orthoMove(sch, spec, delta, libById).apply(sch);
 
     for (const l of moved.lines) {
-      const isOrtho = l.start.x === l.end.x || l.start.y === l.end.y;
-      expect(isOrtho).toBe(true);
+      const ortho = l.start.x === l.end.x || l.start.y === l.end.y;
+      expect(ortho).toBe(true);
     }
-    // Each fixed pin still has a wire endpoint touching it (connection preserved).
     const pins = symbolPinPositions(sch.symbols[0]!, libById.get(sch.symbols[0]!.libId));
     for (const pin of pins) {
-      const touches = moved.lines.some(
-        (l) =>
-          (l.start.x === pin.x && l.start.y === pin.y) || (l.end.x === pin.x && l.end.y === pin.y),
-      );
-      expect(touches).toBe(true);
+      // A wire still leaves the pin, and the run reaches the dragged point.
+      expect(moved.lines.some((l) => l.start.x === pin.x && l.start.y === pin.y)).toBe(true);
+      const dragged = { x: pin.x + delta.x, y: pin.y + delta.y };
+      expect(
+        moved.lines.some(
+          (l) =>
+            (l.start.x === dragged.x && l.start.y === dragged.y) ||
+            (l.end.x === dragged.x && l.end.y === dragged.y),
+        ),
+      ).toBe(true);
     }
   });
 });

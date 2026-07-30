@@ -38,7 +38,9 @@ import type { Schematic, SchSymbol, LibSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { escapeNetName } from '@ziroeda/common/src/string_utils.js';
 import { refId } from '../tools/hittest.js';
+import { subReference } from '../fieldbox.js';
 import { expandBusLabel, isBusLabel } from './bus.js';
+import { SegmentIndex, onSegment as segmentContains } from './segment_index.js';
 
 /** KiCad CONNECTION_SUBGRAPH::PRIORITY (higher wins when naming a net). */
 export enum Priority {
@@ -56,6 +58,44 @@ interface Driver {
   priority: Priority;
   /** Resolved net name for this driver, or '' if it only contributes an auto name. */
   name: string;
+  /** Sheet-pin shape, for the OUTPUT-beats-INPUT tie-break. */
+  shape?: string;
+}
+
+/**
+ * The `-Pad` demotion and alphabetical fallback of connection_graph.cpp's
+ * compareDrivers (rules 5 and 6): a name KiCad had to build out of a pad number
+ * is low quality, so a net with any *named* pin on it takes that pin's name,
+ * `Net-(U1A-K)` rather than `Net-(R1-Pad2)`.
+ */
+function compareNames(a: string, b: string): number {
+  const aLowQuality = a.includes('-Pad');
+  const bLowQuality = b.includes('-Pad');
+  if (aLowQuality !== bLowQuality) return aLowQuality ? 1 : -1;
+  return a < b ? -1 : b < a ? 1 : 0;
+}
+
+/**
+ * CONNECTION_SUBGRAPH::ResolveDrivers' ranking (connection_graph.cpp's
+ * compareDrivers): negative when `a` should name the net. Ties matter, picking
+ * whichever driver the file happens to list first names nets differently from
+ * KiCad, and a board updated from such a netlist reconnects every pad onto a
+ * freshly-named net, stranding its routing on the old one.
+ *
+ * Two of upstream's rules do not apply here: the bus superset test (buses are a
+ * separate subgraph with their own naming) and the power-pin rank, which this
+ * port already carries in {@link Priority} (Global/LocalPowerPin over Pin).
+ */
+function compareDrivers(a: Driver, b: Driver): number {
+  if (a.priority !== b.priority) return a.priority > b.priority ? -1 : 1;
+
+  // A sheet pin driving out of its sheet beats one driving in.
+  if (a.priority === Priority.SheetPin && a.shape !== b.shape) {
+    if (a.shape === 'output') return -1;
+    if (b.shape === 'output') return 1;
+  }
+
+  return compareNames(a.name, b.name);
 }
 
 /** A connectable item (node in the union-find): a wire, label, junction, or symbol pin. */
@@ -157,12 +197,15 @@ export interface PinNode {
   id: string;
   symId: string;
   ref: string;
+  /** SCH_SYMBOL::GetRef( sheet, true ), the reference with its unit token when
+   *  the symbol has several units ("U1A"); the plain reference otherwise. */
+  refWithUnit: string;
   number: string;
   name: string;
   /** Electrical type token: input | output | ... (see ERC pin matrix). */
   electricalType: string;
   at: Vec2;
-  /** True when the pin's parent lib symbol is a power symbol (GND, +5V, ...). */
+  /** True when the pin's parent lib symbol is a power symbol (GND, +5V...). */
   isPowerSymbol: boolean;
   /** …and that symbol is a *local* power symbol (`(power local)`), whose pin
    *  drives only its own sheet (SCH_PIN::IsLocalPower). */
@@ -183,6 +226,9 @@ export function enumeratePins(sch: Schematic, libById: Map<string, LibSymbol>): 
     const symId = refId('symbol', sym.uuid, si);
     const t = symbolTransform(sym.angle, sym.mirror);
     const ref = fieldValue(sym, 'Reference') ?? '?';
+    // GetRef( …, true ) only appends the unit token for a multi-unit symbol.
+    const unitCount = lib.units.reduce((m, u) => Math.max(m, u.unit), 0);
+    const refWithUnit = unitCount > 1 ? `${ref}${subReference(sym.unit)}` : ref;
     let k = 0;
     for (const u of lib.units) {
       if (
@@ -195,6 +241,7 @@ export function enumeratePins(sch: Schematic, libById: Map<string, LibSymbol>): 
           id: `${symId}:pin${k}`,
           symId,
           ref,
+          refWithUnit,
           number: pin.number,
           name: pin.name,
           electricalType: pin.electricalType,
@@ -211,16 +258,7 @@ export function enumeratePins(sch: Schematic, libById: Map<string, LibSymbol>): 
 }
 
 /** True if point p lies on the segment a-b (exact, integer IU coordinates). */
-export function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
-  const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-  if (cross !== 0) return false;
-  return (
-    p.x >= Math.min(a.x, b.x) &&
-    p.x <= Math.max(a.x, b.x) &&
-    p.y >= Math.min(a.y, b.y) &&
-    p.y <= Math.max(a.y, b.y)
-  );
-}
+export const onSegment = segmentContains;
 
 function fieldValue(sym: SchSymbol, keyName: string): string | undefined {
   return sym.fields.find((f) => f.key === keyName)?.value;
@@ -300,7 +338,11 @@ export function computeNetlist(
     wireNodes.push({ id, a: line.start, b: line.end });
   });
 
-  const onAnyBus = (p: Vec2): boolean => busNodes.some((b) => onSegment(p, b.a, b.b));
+  // Wires and buses are indexed once so "what passes through this point?",
+  // asked for every junction, label, bus entry and sheet pin below, costs a
+  // hash lookup instead of a scan over every segment on the sheet.
+  const busIndex = new SegmentIndex(busNodes.map((b) => ({ item: b.id, a: b.a, b: b.b })));
+  const onAnyBus = (p: Vec2): boolean => busIndex.any(p);
 
   // Junctions.
   sch.junctions.forEach((j, i) => {
@@ -370,7 +412,7 @@ export function computeNetlist(
       nodes.push({
         id,
         points: [p.at],
-        driver: { priority: Priority.SheetPin, name: p.name },
+        driver: { priority: Priority.SheetPin, name: p.name, shape: p.shape },
       });
     });
   });
@@ -425,7 +467,7 @@ export function computeNetlist(
           unconnected === (other.electricalType === 'no_connect'),
       );
       const pad = unconnected || hasMultiple ? `-Pad${escapeNetName(padNumber)}` : '';
-      return `${open}${pin.ref}-${escapeNetName(shownName)}${pad})`;
+      return `${open}${pin.refWithUnit}-${escapeNetName(shownName)}${pad})`;
     }
 
     // Pin numbers are unique, so the unit token is skipped.
@@ -448,7 +490,11 @@ export function computeNetlist(
         priority: pin.isLocalPowerSymbol ? Priority.LocalPowerPin : Priority.GlobalPowerPin,
         name: pin.isPowerSymbol ? (valueBySym.get(pin.symId) ?? '') : pin.name,
       };
-    } else {
+    } else if (!pin.ref.startsWith('#')) {
+      // ResolveDrivers skips a pin whose symbol is not in the netlist
+      // (SCH_SYMBOL::m_isInNetlist = !ref.StartsWith("#")), so a PWR_FLAG or
+      // other virtual symbol never lends a net its name.
+      //
       // Both spellings: which one applies depends on whether the net this pin
       // lands on carries a no-connect, which is only known once nets are grouped.
       node.autoName = defaultNetName(pin, pin.electricalType === 'no_connect');
@@ -470,26 +516,20 @@ export function computeNetlist(
   };
   for (const n of nodes) for (const p of n.points) add(p, n.id);
 
+  const wireIndex = new SegmentIndex(wireNodes.map((w) => ({ item: w.id, a: w.a, b: w.b })));
+
   // Junction rule: a junction ties every wire whose segment passes through it.
-  sch.junctions.forEach((j, i) => {
-    const jid = refId('junction', j.uuid, i);
-    for (const w of wireNodes) {
-      if (onSegment(j.at, w.a, w.b)) add(j.at, w.id);
-    }
-    void jid;
+  sch.junctions.forEach((j) => {
+    for (const id of wireIndex.hits(j.at)) add(j.at, id);
   });
 
   // Label-over-wires rule: a label overlapping >= 2 wires ties them (KiCad enforces
   // connectivity for all wires under a label even without an explicit junction).
-  sch.labels.forEach((l, i) => {
+  sch.labels.forEach((l) => {
     if (l.kind === 'text') return;
-    const overlapping = wireNodes.filter((w) => onSegment(l.at, w.a, w.b));
+    const overlapping = wireIndex.hits(l.at);
     if (overlapping.length < 2) return;
-    const lid = refId('label', l.uuid, i);
-    for (const w of overlapping) {
-      add(l.at, w.id);
-    }
-    void lid;
+    for (const id of overlapping) add(l.at, id);
   });
 
   // Union items sharing a point; wires bridge their two endpoints automatically.
@@ -519,7 +559,7 @@ export function computeNetlist(
   }
   // Junctions tie buses crossing through them, like wires.
   sch.junctions.forEach((j) => {
-    for (const b of busNodes) if (onSegment(j.at, b.a, b.b)) addBus(j.at, b.id);
+    for (const id of busIndex.hits(j.at)) addBus(j.at, id);
   });
   for (const ids of busPointMap.values()) {
     const arr = [...ids];
@@ -528,8 +568,8 @@ export function computeNetlist(
   // A bus label names the subgraph of the bus segment it sits on; an entry's
   // bus-side end attaches it to that subgraph.
   const busRootOfPoint = (p: Vec2): string | null => {
-    for (const b of busNodes) if (onSegment(p, b.a, b.b)) return busUf.find(b.id);
-    return null;
+    const hit = busIndex.hits(p)[0];
+    return hit === undefined ? null : busUf.find(hit);
   };
   const busInfo = new Map<
     string,
@@ -580,13 +620,25 @@ export function computeNetlist(
   // Member resolution across each bus: wire nets attached via entries whose
   // resolved name is one of the bus's members join into a single net
   // (CONNECTION_GRAPH's bus neighbor propagation).
-  const provisionalName = (root: string): string | null => {
-    let best: Driver | null = null;
-    for (const n of nodes) {
-      if (uf.find(n.id) !== root) continue;
-      if (n.driver?.name && (!best || n.driver.priority > best.priority)) best = n.driver;
-    }
-    return best?.name ?? null;
+  // The highest-priority driver on each net, gathered in one pass. Re-deriving
+  // it by walking every node for every bus entry made this quadratic on sheets
+  // with wide buses; the map is kept correct across the unions below.
+  const bestByRoot = new Map<string, Driver>();
+  for (const n of nodes) {
+    if (!n.driver?.name) continue;
+    const root = uf.find(n.id);
+    const cur = bestByRoot.get(root);
+    if (!cur || compareDrivers(n.driver, cur) < 0) bestByRoot.set(root, n.driver);
+  }
+  const provisionalName = (root: string): string | null =>
+    bestByRoot.get(uf.find(root))?.name ?? null;
+  /** Union two nets and carry the winning driver onto the surviving root. */
+  const unionNets = (a: string, b: string): void => {
+    const da = bestByRoot.get(uf.find(a));
+    const db = bestByRoot.get(uf.find(b));
+    uf.union(a, b);
+    const best = !da ? db : !db ? da : compareDrivers(da, db) <= 0 ? da : db;
+    if (best) bestByRoot.set(uf.find(a), best);
   };
   const buses: BusNet[] = [];
   for (const [root, inf] of busInfo) {
@@ -614,7 +666,7 @@ export function computeNetlist(
       const name = provisionalName(wireRoot);
       if (!name || !memberSet.has(name)) continue;
       const prior = byMember.get(name);
-      if (prior) uf.union(prior, wireRoot);
+      if (prior) unionNets(prior, wireRoot);
       else byMember.set(name, wireRoot);
     }
   }
@@ -637,16 +689,22 @@ export function computeNetlist(
   let code = 1;
   for (const group of byRoot.values()) {
     let best: Driver | null = null;
-    let auto: string | undefined;
+    /** The pin whose default name would name this net if nothing else does. */
+    let autoPin: Node | null = null;
     // aForceNoConnect: a net carrying a no-connect flag names its pin "unconnected-".
     const forceNoConnect = group.some((n) => noConnectIds.has(n.id));
     for (const n of group) {
-      if (n.driver?.name && (!best || n.driver.priority > best.priority)) best = n.driver;
-      if (auto === undefined) {
-        const candidate = forceNoConnect ? n.autoNameNoConnect : n.autoName;
-        if (candidate) auto = candidate;
-      }
+      if (n.driver?.name && (!best || compareDrivers(n.driver, best) < 0)) best = n.driver;
+      // Pin candidates are ranked on the plain spelling, as ResolveDrivers ranks
+      // them on GetNameForDriver; the "unconnected-" spelling of the winner is
+      // only picked up once the winner is known.
+      if (n.autoName && (!autoPin || compareNames(n.autoName, autoPin.autoName!) < 0)) autoPin = n;
     }
+    const auto = autoPin
+      ? forceNoConnect
+        ? autoPin.autoNameNoConnect
+        : autoPin.autoName
+      : undefined;
     // A sheet-local driver qualifies the name with the sheet path it drives on.
     const localName = best ? best.name : (auto ?? `Net-${code}`);
     const name = best && prependsSheetPath(best.priority) ? `${sheetPath}${localName}` : localName;

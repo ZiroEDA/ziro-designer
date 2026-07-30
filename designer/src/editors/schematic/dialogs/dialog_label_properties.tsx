@@ -111,6 +111,8 @@ const V_ALIGNS = ['Top', 'Center', 'Bottom'];
 export interface LabelPropsResult {
   /** One entry per label: several when "Multiple label input" is used. */
   texts: string[];
+  /** FONT_CHOICE: '' = Default Font, otherwise the face written to the file. */
+  face: string;
   shape: AnyLabelShape;
   bold: boolean;
   italic: boolean;
@@ -123,6 +125,7 @@ export interface LabelPropsResult {
 
 export interface LabelPropsInitial {
   text: string;
+  face?: string;
   shape: AnyLabelShape;
   bold: boolean;
   italic: boolean;
@@ -218,6 +221,7 @@ export function DialogLabelProperties({
   const [autoRotate, setAutoRotate] = useState(initial.autoRotate);
   const [sizeText, setSizeText] = useState(mmText(initial.sizeIU));
   const [color, setColor] = useState<ItemColor | undefined>(initial.color);
+  const [face, setFace] = useState(initial.face ?? '');
   const [fields, setFields] = useState<EditedLabelField[]>([...initial.fields]);
   const [selRow, setSelRow] = useState<number | null>(null);
   const valueRef = useRef<HTMLInputElement>(null);
@@ -238,11 +242,9 @@ export function DialogLabelProperties({
   // The combo (with the existing labels) is used for local and global labels;
   // hierarchical labels and sheet pins get the plain single-line entry.
   const isCombo = kind === 'label' || kind === 'global_label';
-  // A sheet pin is owned by its sheet and carries no fields of its own here,
-  // so the Fields grid, which edits a label's `(property …)` children, has
-  // nothing to show for it.
-  const hasFields = kind !== 'sheet_pin';
-  // A directive label has no text of its own, its netclass lives in a field,
+  // Every type here is a SCH_LABEL_BASE, so every one can carry fields.
+  const hasFields = true;
+  // A directive label has no text of its own — its netclass lives in a field —
   // so the text entry, the multi-label box and the syntax help are all hidden,
   // the shape box carries the flag shapes and "Text size" becomes "Pin length".
   const hasText = !isDirective;
@@ -259,6 +261,7 @@ export function DialogLabelProperties({
     if (texts.length === 0 && !isDirective) return; // KiCad refuses an empty label
     onOk({
       texts,
+      face,
       shape,
       bold,
       italic,
@@ -541,10 +544,16 @@ export function DialogLabelProperties({
                 ) : (
                   <select
                     className="ze-lp-font"
-                    disabled
-                    title="The browser build draws all text with KiCad's own font."
-                    value="Default Font"
-                    onChange={() => undefined}
+                    // FONT_CHOICE lists the installed outline fonts too; this
+                    // build draws every face with KiCad's own stroke font, so
+                    // only upstream's two entries — which render identically
+                    // there as well — are offered. The choice is stored, and
+                    // outline fonts are issue #154.
+                    title="Text is drawn with KiCad's own font in the browser build."
+                    value={face === '' ? 'Default Font' : face}
+                    onChange={(e) =>
+                      setFace(e.target.value === 'Default Font' ? '' : e.target.value)
+                    }
                   >
                     <option>Default Font</option>
                     <option>KiCad Font</option>

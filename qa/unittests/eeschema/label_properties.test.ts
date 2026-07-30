@@ -16,6 +16,7 @@ import {
   labelOrientationForPoint,
   pinSpinStyle,
   setLabelFields,
+  setNodeFields,
   spinOfAngle,
   wireLabelDriverName,
 } from '@ziroeda/eeschema/src/tools/label_properties.js';
@@ -180,5 +181,78 @@ describe('free text', () => {
     const out = serializeSchematic({ ...sch, labels: [text] });
     expect(out).toContain('(exclude_from_sim yes)');
     expect(readSchematic(parse(out)).labels[0]?.excludedFromSim).toBe(true);
+  });
+});
+
+describe('font face, hyperlinks and sheet-pin fields', () => {
+  it('round-trips a font face', () => {
+    const sch = load();
+    const label = sch.labels[0]!;
+    const faced = { ...label, effects: { ...label.effects, hidden: false, face: 'KiCad Font' } };
+    const out = serializeSchematic({ ...sch, labels: [faced] });
+    expect(out).toContain('(face "KiCad Font")');
+    expect(readSchematic(parse(out)).labels[0]?.effects?.face).toBe('KiCad Font');
+
+    // Clearing it takes the token back out.
+    const cleared = readSchematic(parse(out)).labels[0]!;
+    const back = serializeSchematic({
+      ...sch,
+      labels: [{ ...cleared, effects: { ...cleared.effects, hidden: false, face: undefined } }],
+    });
+    expect(back).not.toContain('(face');
+  });
+
+  it('round-trips a hyperlink on free text', () => {
+    const sch = load();
+    const text = { ...buildLabel('text', 'see page 3', { x: 0, y: 0 }), hyperlink: '#3' };
+    const out = serializeSchematic({ ...sch, labels: [text] });
+    expect(out).toContain('(hyperlink "#3")');
+    const read = readSchematic(parse(out)).labels[0]!;
+    expect(read.hyperlink).toBe('#3');
+    // Removing it drops the token again.
+    expect(
+      serializeSchematic({ ...sch, labels: [{ ...read, hyperlink: undefined }] }),
+    ).not.toContain('(hyperlink');
+  });
+});
+
+describe('sheet pin fields', () => {
+  const SHEET = `(kicad_sch (version 20250114) (generator "eeschema")
+  (sheet (at 100 100) (size 40 30) (uuid "s1")
+    (property "Sheetname" "Power" (at 100 99 0))
+    (property "Sheetfile" "power.kicad_sch" (at 100 131 0))
+    (pin "VBUS" input (at 100 110 180)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid "p1")
+    )
+  )
+)`;
+
+  it("reads, edits and writes a pin's own fields", () => {
+    const sch = readSchematic(parse(SHEET));
+    const pin = sch.sheets[0]!.pins[0]!;
+    expect(pin.fields ?? []).toEqual([]);
+
+    // A field the dialog just added has no `(property …)` node behind it yet,
+    // which is what EditedLabelField models; once written, every SchField
+    // carries the node it was read from, so the pin gets one here too.
+    const added = { key: 'Note', value: '5V', angle: 0, effects: { hidden: false } };
+    const withField = {
+      ...pin,
+      fields: [{ ...added, source: parse('(property "Note" "5V")') }],
+      source: setNodeFields(pin.source, [added]),
+    };
+    const sheet = { ...sch.sheets[0]!, pins: [withField] };
+    const out = serializeSchematic({ ...sch, sheets: [sheet] });
+    expect(out).toContain('(property "Note" "5V"');
+    expect(readSchematic(parse(out)).sheets[0]?.pins[0]?.fields?.[0]?.value).toBe('5V');
+  });
+
+  it('writes an edited pin name and shape back', () => {
+    const sch = readSchematic(parse(SHEET));
+    const pin = sch.sheets[0]!.pins[0]!;
+    const sheet = { ...sch.sheets[0]!, pins: [{ ...pin, name: 'VCC', shape: 'output' as const }] };
+    const out = serializeSchematic({ ...sch, sheets: [sheet] });
+    expect(out).toContain('(pin "VCC" output');
   });
 });

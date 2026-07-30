@@ -38,6 +38,8 @@ export interface Fill {
 
 /** Text rendering attributes, matching KiCad's `(effects (font ..) (justify ..) hide)`. */
 export interface TextEffects {
+  /** `(font (face "…"))` — the font family. Absent = KiCad's default font. */
+  readonly face?: string;
   /** Font size as [height, width] in IU. */
   readonly fontSize?: readonly [number, number];
   /** Horizontal/vertical justification tokens, e.g. ['left','bottom']. */
@@ -324,6 +326,8 @@ export interface SchTextBox {
   readonly effects?: TextEffects;
   /** `(exclude_from_sim yes)`; undefined when absent. */
   readonly excludedFromSim?: boolean;
+  /** `(hyperlink "…")` — a sheet page ("#3") or a URL. */
+  readonly hyperlink?: string;
   readonly uuid?: string;
   readonly source: SList;
 }
@@ -384,6 +388,8 @@ export interface SchLabel {
   readonly effects?: TextEffects;
   /** `(exclude_from_sim yes)` on free text (SCH_TEXT); undefined when absent. */
   readonly excludedFromSim?: boolean;
+  /** `(hyperlink "…")` — a sheet page ("#3") or a URL (SCH_TEXT::GetHyperlink). */
+  readonly hyperlink?: string;
   readonly uuid?: string;
   readonly source: SList;
 }
@@ -420,6 +426,9 @@ export interface SheetPin {
   /** Side encoding from the file: 0 = right, 90 = top, 180 = left, 270 = bottom. */
   readonly angle: number;
   readonly effects?: TextEffects;
+  /** `(property …)` children — SCH_SHEET_PIN is a SCH_LABEL_BASE, so it can
+   *  carry fields of its own (the dialog's Fields grid edits them). */
+  readonly fields?: readonly SchField[];
   readonly uuid?: string;
   readonly source: SList;
 }

@@ -9,6 +9,7 @@ export { writeDrawingSheet, serializeDrawingSheet } from './write.js';
 export { defaultDrawingSheet, emptyDrawingSheet } from './default-sheet.js';
 export {
   layoutDrawingSheet,
+  hitTestDrawingSheet,
   resolveDrawingSheetText,
   incrementLabel,
   expandTextEscapes,
