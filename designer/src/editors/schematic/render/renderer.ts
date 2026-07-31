@@ -51,6 +51,8 @@ import {
   type LibSymbolUnit,
   directiveGraphic,
   directiveBox,
+  imagePPI,
+  iuPerPixel,
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
@@ -715,13 +717,16 @@ export function renderSchematic(
   // Tables (SCH_TABLE): cell text, then border + row/column separators.
   for (const t of sch.tables) drawTable(ctx, t, theme);
 
-  // Embedded bitmaps (SCH_BITMAP): centred at `at`, sized pixels x 254000/300 IU
-  // (BITMAP_BASE m_pixelSizeIu for 300 ppi) x the item's scale.
+  // Embedded bitmaps (SCH_BITMAP): centred at `at`, sized in pixels times
+  // BITMAP_BASE's m_pixelSizeIu at the image's own resolution, times the item's
+  // scale. The resolution comes from the file's pHYs chunk, defaulting to 300
+  // ppi, so this is the same extent hit-testing and the point editor use.
   for (const im of sch.images) {
     const entry = imageFor(im);
     if (!entry) continue;
-    const w = entry.img.naturalWidth * IU_PER_PIXEL * im.scale;
-    const h = entry.img.naturalHeight * IU_PER_PIXEL * im.scale;
+    const k = iuPerPixel(imagePPI(im.data)) * im.scale;
+    const w = entry.img.naturalWidth * k;
+    const h = entry.img.naturalHeight * k;
     if (!inView(im.at.x - w / 2, im.at.y - h / 2, im.at.x + w / 2, im.at.y + h / 2)) continue;
     ctx.drawImage(entry.img, im.at.x - w / 2, im.at.y - h / 2, w, h);
   }
@@ -1342,9 +1347,6 @@ function drawTable(
 }
 
 // ----- embedded bitmaps -------------------------------------------------------
-
-// BITMAP_BASE: m_pixelSizeIu = 254000 / ppi with the default 300 ppi.
-const IU_PER_PIXEL = 254000 / 300;
 
 interface ImageEntry {
   img: HTMLImageElement;

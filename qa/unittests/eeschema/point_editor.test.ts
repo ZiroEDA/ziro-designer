@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId, hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { imagePixelSize, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
+import { imagePixelSize, imagePPI, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 import {
@@ -749,5 +749,42 @@ describe('cycling the arc edit mode', () => {
     let m = ArcEditMode.KeepCenterAdjustAngleRadius;
     for (let i = 0; i < 3; i++) m = incrementArcEditMode(m);
     expect(m).toBe(ArcEditMode.KeepCenterAdjustAngleRadius);
+  });
+});
+
+describe('image resolution', () => {
+  // The same 64 x 32 image, with and without a pHYs chunk saying 600 ppi.
+  const PLAIN = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6E';
+  const PPI600 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAAACXBIWXMAAFxGAABcRgEUlENB';
+  const UNIT0 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAAACXBIWXMAAFxGAABcRgBjk3PX';
+  const img = (data: string) =>
+    readSchematic(
+      parse(
+        `(kicad_sch (version 1) (lib_symbols)
+           (image (at 100 100) (scale 1) (uuid "i") (data "${data}")))`,
+      ),
+    ).images[0]!;
+
+  it('defaults to 300 ppi when the file states none', () => {
+    // BITMAP_BASE's own default, which is what every image looked like before.
+    expect(imagePPI(PLAIN)).toBe(300);
+  });
+
+  it('reads the resolution out of the pHYs chunk', () => {
+    // PNG states pixels per metre; 23622 ppm is 600 ppi.
+    expect(imagePPI(PPI600)).toBe(600);
+  });
+
+  it('ignores a pHYs chunk that only gives an aspect ratio', () => {
+    // Unit 0 means "unknown": the numbers are a ratio, not a physical size.
+    expect(imagePPI(UNIT0)).toBe(300);
+  });
+
+  it('draws a 600 ppi image at half the size of a 300 ppi one', () => {
+    // The same pixels at twice the resolution cover half the paper.
+    const plain = imageSizeIU(img(PLAIN));
+    const fine = imageSizeIU(img(PPI600));
+    expect(fine.w).toBeCloseTo(plain.w / 2, 3);
+    expect(fine.h).toBeCloseTo(plain.h / 2, 3);
   });
 });

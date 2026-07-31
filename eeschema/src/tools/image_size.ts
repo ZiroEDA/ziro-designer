@@ -19,11 +19,18 @@
 
 import type { SchImage } from '../types.js';
 
+/** `BITMAP_BASE`'s default resolution when the file states none. */
+export const DEFAULT_PPI = 300;
+
 /**
- * `BITMAP_BASE::m_pixelSizeIu`, the IU one image pixel spans before scaling:
- * 25.4 mm over the default 300 ppi.
+ * `BITMAP_BASE::m_pixelSizeIu` at the default resolution: the IU one image pixel
+ * spans before scaling, 25.4 mm over 300 ppi. Images that state their own
+ * resolution use `iuPerPixel` below instead.
  */
-export const IU_PER_PIXEL = 254000 / 300;
+export const IU_PER_PIXEL = 254000 / DEFAULT_PPI;
+
+/** `m_pixelSizeIu` for a given resolution. */
+export const iuPerPixel = (ppi: number): number => 254000 / ppi;
 
 /** The PNG magic, which the payload must open with for the offsets to hold. */
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -32,12 +39,18 @@ const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const be32 = (b: Uint8Array, off: number): number =>
   ((b[off]! << 24) | (b[off + 1]! << 16) | (b[off + 2]! << 8) | b[off + 3]!) >>> 0;
 
-/** The first `n` bytes of a base64 payload, decoded. */
+/**
+ * The first `n` bytes of a base64 payload, decoded, or fewer when the payload
+ * is shorter than that. Callers check the length they actually need: the header
+ * needs its 24 bytes, while a chunk scan is happy with whatever there is.
+ */
 function head(data: string, n: number): Uint8Array | null {
   // 4 base64 characters carry 3 bytes, so ceil(n/3) quads cover n bytes.
   const chars = Math.ceil(n / 3) * 4;
-  const b64 = data.replace(/\s+/g, '').slice(0, chars);
-  if (b64.length < chars) return null;
+  const all = data.replace(/\s+/g, '');
+  // Slicing on a quad boundary keeps the remainder decodable; a payload shorter
+  // than that is taken whole, padding included.
+  const b64 = all.length <= chars ? all : all.slice(0, chars);
   try {
     const bin = atob(b64);
     const out = new Uint8Array(bin.length);
@@ -69,13 +82,47 @@ export function imagePixelSize(data: string): { w: number; h: number } | null {
 }
 
 /**
+ * The image's own resolution, `BITMAP_BASE::GetPPI`.
+ *
+ * PNG states it in the optional pHYs chunk, as pixels per unit with a unit byte
+ * where 1 means the metre. Upstream reads the same number through wxImage's
+ * resolution options and rounds it to whole ppi. A file without the chunk keeps
+ * BITMAP_BASE's 300, which is why every image looked like 300 ppi here before.
+ */
+export function imagePPI(data: string): number {
+  // pHYs must precede IDAT, and the header plus a handful of ancillary chunks
+  // fits well inside this; reading the whole payload to find it would mean
+  // decoding megabytes of pixel data on every hit test.
+  const b = head(data, 4096);
+  if (!b) return DEFAULT_PPI;
+  let off = 8; // past the magic
+  while (off + 8 <= b.length) {
+    const len = be32(b, off);
+    const type = String.fromCharCode(b[off + 4]!, b[off + 5]!, b[off + 6]!, b[off + 7]!);
+    const data0 = off + 8;
+    if (type === 'IDAT' || type === 'IEND') break; // pixel data starts; no pHYs
+    if (type === 'pHYs' && data0 + 9 <= b.length) {
+      const ppuX = be32(b, data0);
+      const unit = b[data0 + 8];
+      // unit 0 is "unknown", an aspect ratio only, which says nothing about size.
+      if (unit === 1 && ppuX > 0) return Math.round((ppuX / 100) * 2.54);
+      return DEFAULT_PPI;
+    }
+    off = data0 + len + 4; // skip the payload and its CRC
+    if (!Number.isSafeInteger(off) || len < 0) break;
+  }
+  return DEFAULT_PPI;
+}
+
+/**
  * `REFERENCE_IMAGE::GetSize`, the image's extent in IU: its pixel size times the
- * IU-per-pixel constant times the `(scale …)` factor.
+ * IU per pixel at its own resolution, times the `(scale …)` factor.
  *
  * Falls back to a small square when the payload cannot be read, so an
  * undecodable image is still selectable rather than invisible to hit-testing.
  */
 export function imageSizeIU(im: SchImage): { w: number; h: number } {
   const px = imagePixelSize(im.data) ?? { w: 40, h: 40 };
-  return { w: px.w * IU_PER_PIXEL * im.scale, h: px.h * IU_PER_PIXEL * im.scale };
+  const k = iuPerPixel(imagePPI(im.data)) * im.scale;
+  return { w: px.w * k, h: px.h * k };
 }
