@@ -14,6 +14,7 @@
     "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/rectpack2d": "workspace:*",
-    "@ziroeda/sexpr": "workspace:*"
+    "@ziroeda/sexpr": "workspace:*",
+    "polygon-clipping": "^0.15.7"
   }
 }

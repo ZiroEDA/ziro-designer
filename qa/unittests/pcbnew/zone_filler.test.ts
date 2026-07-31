@@ -1,0 +1,223 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Zone filling (ZONE_FILLER): the pour keeps clearance from other nets, opens a
+ * thermal relief around its own pads and bridges back to them with spokes, and
+ * drops islands that reach nothing.
+ */
+import { describe, it, expect } from 'vitest';
+import { fillZone, fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import type { Board, PcbPad, PcbFootprint, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+
+const EMPTY = { kind: 'list' as const, items: [] };
+const MM = (n: number): number => mmToIU(n);
+
+const pad = (at: { x: number; y: number }, net: number, size = MM(2)): PcbPad => ({
+  number: '1',
+  type: 'smd',
+  shape: 'rect',
+  at,
+  angle: 0,
+  size: { x: size, y: size },
+  layers: ['F.Cu'],
+  net,
+  source: EMPTY,
+});
+const footprint = (pads: PcbPad[]): PcbFootprint => ({
+  lib: 'R',
+  at: { x: 0, y: 0 },
+  angle: 0,
+  layer: 'F.Cu',
+  pads,
+  shapes: [],
+  texts: [],
+  models: [],
+  source: EMPTY,
+});
+
+/** A 40 x 40 mm pour on F.Cu, net 1, with KiCad's default fill settings. */
+const zone = (over: Partial<PcbZone> = {}): PcbZone => ({
+  net: 1,
+  layers: ['F.Cu'],
+  outline: [
+    { x: 0, y: 0 },
+    { x: MM(40), y: 0 },
+    { x: MM(40), y: MM(40) },
+    { x: 0, y: MM(40) },
+  ],
+  fills: [],
+  padConnection: 'thermal',
+  clearance: MM(0.5),
+  minThickness: MM(0.25),
+  thermalGap: MM(0.5),
+  thermalBridgeWidth: MM(0.5),
+  filled: true,
+  priority: 0,
+  source: EMPTY,
+  ...over,
+});
+
+const board = (over: Partial<Board>): Board => ({
+  version: 20241229,
+  layers: [],
+  nets: new Map([
+    [1, 'GND'],
+    [2, 'VCC'],
+  ]),
+  footprints: [],
+  tracks: [],
+  arcs: [],
+  vias: [],
+  zones: [],
+  shapes: [],
+  texts: [],
+  groups: [],
+  source: EMPTY,
+  ...over,
+});
+
+/** Total filled area in mm², holes (wound the other way) subtracting. */
+const area = (polys: { x: number; y: number }[][]): number => {
+  let total = 0;
+  for (const poly of polys) {
+    let a = 0;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+      a += (poly[j]!.x + poly[i]!.x) * (poly[j]!.y - poly[i]!.y);
+    total += a / 2;
+  }
+  return Math.abs(total) / (10000 * 10000);
+};
+
+describe('zone filler', () => {
+  it('pours the whole outline when nothing is in the way', () => {
+    const b = board({ zones: [zone()] });
+    const fills = fillZone(b, 0);
+    expect(fills).toHaveLength(1);
+    expect(fills[0]!.layer).toBe('F.Cu');
+    expect(area(fills[0]!.polys)).toBeCloseTo(1600, 0); // 40 x 40
+  });
+
+  it('keeps clearance from another net, leaving a hole around it', () => {
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2)])],
+    });
+    const filled = area(fillZone(b, 0)[0]!.polys);
+    // A 2 mm pad plus 0.5 mm clearance all round: a 3 x 3 mm bite, with rounded
+    // corners, so a little less than 9 mm².
+    expect(filled).toBeLessThan(1600);
+    expect(1600 - filled).toBeGreaterThan(8);
+    expect(1600 - filled).toBeLessThan(9.5);
+  });
+
+  it('opens a thermal relief around its own pad and bridges back with spokes', () => {
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 1)])],
+    });
+    const filled = area(fillZone(b, 0)[0]!.polys);
+    // The relief ring is knocked out (2 mm pad + 0.5 mm gap = 3 x 3) but four
+    // 0.5 mm spokes are added back across it, so less is removed than a plain
+    // clearance hole of the same size.
+    expect(1600 - filled).toBeGreaterThan(4);
+    expect(1600 - filled).toBeLessThan(8.5);
+  });
+
+  it('a solid connection leaves the pad fully covered', () => {
+    const b = board({
+      zones: [zone({ padConnection: 'full' })],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 1)])],
+    });
+    expect(area(fillZone(b, 0)[0]!.polys)).toBeCloseTo(1600, 0);
+  });
+
+  it('keeps clearance from a track on another net', () => {
+    const b = board({
+      zones: [zone()],
+      tracks: [
+        {
+          start: { x: 0, y: MM(20) },
+          end: { x: MM(40), y: MM(20) },
+          width: MM(1),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fills = fillZone(b, 0);
+    // The track cuts the pour clean in two.
+    expect(fills[0]!.polys.length).toBe(2);
+    // 40 mm long, 1 mm wide + 0.5 mm either side = 2 mm of copper removed.
+    expect(1600 - area(fills[0]!.polys)).toBeGreaterThan(75);
+  });
+
+  it('drops an island that reaches nothing on the net', () => {
+    // A track on another net splits the pour; the net's only pad is in the
+    // upper half, so the lower half is an island and goes.
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(5) }, 1)])],
+      tracks: [
+        {
+          start: { x: 0, y: MM(20) },
+          end: { x: MM(40), y: MM(20) },
+          width: MM(1),
+          layer: 'F.Cu',
+          net: 2,
+          source: EMPTY,
+        },
+      ],
+    });
+    const fills = fillZone(b, 0);
+    // What is left is the half holding the pad: every ring, the outer one and
+    // the four the spokes cut the thermal relief into, lies above the track.
+    expect(fills[0]!.polys.every((ring) => ring.every((p) => p.y < MM(21)))).toBe(true);
+    // Just under half the pour: 40 x ~19.5 mm, less the relief.
+    expect(area(fills[0]!.polys)).toBeGreaterThan(700);
+    expect(area(fills[0]!.polys)).toBeLessThan(790);
+  });
+
+  it('a higher-priority zone knocks this one out', () => {
+    const b = board({
+      zones: [
+        zone(),
+        zone({
+          net: 2,
+          priority: 1,
+          outline: [
+            { x: MM(10), y: MM(10) },
+            { x: MM(20), y: MM(10) },
+            { x: MM(20), y: MM(20) },
+            { x: MM(10), y: MM(20) },
+          ],
+        }),
+      ],
+    });
+    // 10 x 10 mm knocked out, plus clearance around it.
+    expect(1600 - area(fillZone(b, 0)[0]!.polys)).toBeGreaterThan(100);
+  });
+
+  it('fillZones writes the polygons into every zone and its source', () => {
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2)])],
+    });
+    const out = fillZones(b);
+    expect(out.zones[0]!.fills).toHaveLength(1);
+    expect(out.zones[0]!.fills[0]!.polys.length).toBeGreaterThan(0);
+    const items = out.zones[0]!.source.items;
+    expect(
+      items.some(
+        (i) => 'items' in i && (i.items[0] as { value?: string })?.value === 'filled_polygon',
+      ),
+    ).toBe(true);
+  });
+
+  it('leaves a zone alone when it is set not to fill', () => {
+    const b = board({ zones: [zone({ filled: false, fills: [] })] });
+    expect(fillZones(b).zones[0]!.fills).toEqual([]);
+  });
+});

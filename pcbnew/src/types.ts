@@ -239,6 +239,22 @@ export interface PcbZone {
   fills: PcbZoneFill[];
   /** The user-drawn zone boundary `(polygon (pts …))`, drawn as the zone border. */
   outline?: Vec2[];
+  /** How the fill connects to same-net pads, `(connect_pads [<mode>] …)`:
+   *  ZONE_CONNECTION thermal (the default) / full (solid) / no / thruHoleOnly. */
+  padConnection?: 'thermal' | 'full' | 'none' | 'thru_hole_only';
+  /** `(connect_pads (clearance …))`, the zone's own copper clearance in IU
+   *  (ZONE_SETTINGS::m_ZoneClearance, default ZONE_CLEARANCE_MM = 0.5 mm). */
+  clearance?: number;
+  /** `(min_thickness …)`, ZONE_THICKNESS_MM = 0.25 mm by default. */
+  minThickness?: number;
+  /** `(fill … (thermal_gap …))`, ZONE_THERMAL_RELIEF_GAP_MM = 0.5 mm. */
+  thermalGap?: number;
+  /** `(fill … (thermal_bridge_width …))`, ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM. */
+  thermalBridgeWidth?: number;
+  /** `(fill yes)` — whether the zone is set to be poured at all. */
+  filled?: boolean;
+  /** `(priority …)`: a higher-priority zone knocks lower ones out of its area. */
+  priority?: number;
   /** Border display style from `(hatch <style> <pitch>)`: none / edge / full. */
   hatchStyle?: 'none' | 'edge' | 'full';
   /** Border hatch pitch in IU (the `(hatch … <pitch>)` distance). */

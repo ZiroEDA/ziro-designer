@@ -161,6 +161,9 @@ importers:
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      polygon-clipping:
+        specifier: ^0.15.7
+        version: 0.15.7
 
   qa:
     dependencies:

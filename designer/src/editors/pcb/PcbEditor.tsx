@@ -80,6 +80,7 @@ import {
   BOARD_NETLIST_UPDATER,
   spreadBoardFootprints,
   type NETLIST,
+  fillZones,
   zoneHandles,
   moveZoneCorner,
   moveZoneEdge,
@@ -3289,6 +3290,20 @@ export function PcbEditor({
     return best;
   };
 
+  /**
+   * Fill All Zones (PCB_ACTIONS::zoneFillAll, the B key): re-pour every zone
+   * from the current copper. ZONE_FILLER::Fill runs over the whole board rather
+   * than one zone, so an edit anywhere re-flows everything that touches it.
+   */
+  const fillAllZones = useCallback(() => {
+    const brd = boardRef.current;
+    if (!brd || brd.zones.length === 0) return;
+    commitBoard(fillZones(brd));
+  }, [commitBoard]);
+  // The global key handler is stable, so it reaches the action through a ref.
+  const fillAllZonesRef = useRef(fillAllZones);
+  fillAllZonesRef.current = fillAllZones;
+
   /** Put the net highlight back the way a track drag found it. */
   const restoreDragHighlight = (): void => {
     const restore = dragHighlightRestoreRef.current;
@@ -3830,6 +3845,12 @@ export function PcbEditor({
       if (!mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         grabStartRef.current('drag45');
+        return;
+      }
+      // B = Fill All Zones (PCB_ACTIONS::zoneFillAll).
+      if (!mod && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        fillAllZonesRef.current();
         return;
       }
       if (!mod && (e.key === 'f' || e.key === 'F')) zoomToFit();
