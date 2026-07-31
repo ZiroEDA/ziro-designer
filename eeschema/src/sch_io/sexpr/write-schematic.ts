@@ -38,6 +38,8 @@ import type {
   SchTextBox,
   SchTable,
   SchTableCell,
+  SchImage,
+  LibGraphic,
   SchGroup,
   TextEffects,
   Stroke,
@@ -45,10 +47,15 @@ import type {
   Vec2,
 } from '../../types.js';
 
-function mm(iu: number): string {
-  let s = iuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+/** KiCad's fixed-point number formatting, trailing zeros trimmed. */
+function num(v: number): string {
+  let s = v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
   if (s === '' || s === '-0') s = '0';
   return s;
+}
+
+function mm(iu: number): string {
+  return num(iuToMM(iu));
 }
 
 /** Replace items[index] of a list, returning a new list. */
@@ -73,10 +80,30 @@ function mapChild(node: SList, name: string, fn: (child: SList) => SList): SList
 
 /** Patch the x/y of an `(at x y [angle])` child, keeping the angle and any extras. */
 function patchAt(node: SList, p: Vec2): SList {
-  return mapChild(node, 'at', (at) => {
-    const items = at.items.slice();
+  return patchXY(node, 'at', p);
+}
+
+/** Patch the two coordinates of a `(<name> x y [extra…])` child, keeping the extras. */
+function patchXY(node: SList, name: string, p: Vec2): SList {
+  return mapChild(node, name, (child) => {
+    const items = child.items.slice();
     items[1] = atom(mm(p.x));
     items[2] = atom(mm(p.y));
+    return { kind: 'list', items };
+  });
+}
+
+/** Patch the `(xy …)` children of a `(pts …)` child from a vertex list. */
+function patchPts(node: SList, points: readonly Vec2[]): SList {
+  return mapChild(node, 'pts', (pts) => {
+    let i = 0;
+    const items = pts.items.map((it) => {
+      if (!isList(it) || head(it) !== 'xy') return it;
+      // Extra source xy's beyond what we model keep the last vertex we have.
+      const p = points[i] ?? points[points.length - 1];
+      i++;
+      return p ? list(atom('xy'), atom(mm(p.x)), atom(mm(p.y))) : it;
+    });
     return { kind: 'list', items };
   });
 }
@@ -456,19 +483,7 @@ function writeLine(l: SchLine): SList {
   // A multi-point polyline patches each vertex from `points`; a wire/bus has just
   // its two endpoints. Extra source xy's beyond what we model are left untouched.
   const verts = l.points ?? [l.start, l.end];
-  const node = mapChild(l.source, 'pts', (pts) => {
-    let i = 0;
-    const items = pts.items.map((it) => {
-      if (isList(it) && head(it) === 'xy') {
-        const p = verts[i] ?? verts[verts.length - 1]!;
-        i++;
-        return list(atom('xy'), atom(mm(p.x)), atom(mm(p.y)));
-      }
-      return it;
-    });
-    return { kind: 'list', items };
-  });
-  return patchStroke(node, l.stroke);
+  return patchStroke(patchPts(l.source, verts), l.stroke);
 }
 
 /** Patch a junction: position, `(diameter ..)` and `(color ..)`. */
@@ -561,6 +576,12 @@ function writeSheetPin(node: SList, pin: SheetPin): SList {
 
 function writeSheet(sh: SchSheet): SList {
   let node = patchAt(sh.source, sh.at);
+  // `(size w h)`, so a resize (SCH_POINT_EDITOR's sheet handles) round-trips.
+  if (childNamed(node, 'size')) {
+    node = mapChild(node, 'size', () =>
+      list(atom('size'), atom(mm(sh.size.w)), atom(mm(sh.size.h))),
+    );
+  }
   if (childNamed(node, 'instances') && sh.instances.length) {
     const pages = new Map(sh.instances.map((i) => [instanceKey(i), i.page]));
     node = mapChild(node, 'instances', (inst) => patchInstancePages(inst, pages, true));
@@ -709,6 +730,45 @@ function writeTable(tb: SchTable): SList {
   });
 }
 
+/**
+ * Patch a sheet-level graphic shape's geometry against its source node.
+ *
+ * Each kind is patched through the sub-nodes the reader took it from
+ * (`readGraphic`), so stroke, fill, uuid and anything we don't model ride along
+ * untouched. Sheet coordinates are +Y down, so unlike the symbol-library writer
+ * there is no Y inversion here.
+ */
+function writeGraphic(g: LibGraphic): SList {
+  switch (g.kind) {
+    case 'rectangle':
+      return patchXY(patchXY(g.source, 'start', g.start), 'end', g.end);
+    case 'circle': {
+      const node = patchXY(g.source, 'center', g.center);
+      return childNamed(node, 'radius')
+        ? mapChild(node, 'radius', () => list(atom('radius'), atom(mm(g.radius))))
+        : node;
+    }
+    case 'arc':
+      return patchXY(patchXY(patchXY(g.source, 'start', g.start), 'mid', g.mid), 'end', g.end);
+    case 'polyline':
+    case 'bezier':
+      return patchPts(g.source, g.points);
+    case 'text':
+      return patchAt(setItem(g.source, 1, str(g.text)), g.at);
+  }
+}
+
+/**
+ * Patch an image: `(at x y)` and `(scale …)`; the `(data …)` payload is
+ * untouched. Scale is a bare multiplier, not a length, so it is not in IU.
+ */
+function writeImage(im: SchImage): SList {
+  const node = patchAt(im.source, im.at);
+  return childNamed(node, 'scale')
+    ? mapChild(node, 'scale', () => list(atom('scale'), atom(num(im.scale))))
+    : node;
+}
+
 const HEADER_ORDER = ['version', 'generator', 'generator_version', 'uuid', 'paper', 'title_block'];
 const STRUCTURAL = new Set([...HEADER_ORDER, 'lib_symbols']);
 const ITEM_HEADS = new Set([
@@ -770,10 +830,8 @@ export function writeSchematic(sch: Schematic): SList {
     ...sch.sheets.map(writeSheet),
     ...sch.textBoxes.map(writeTextBox),
     ...sch.tables.map(writeTable),
-    // Images and sheet-level graphic shapes are render-only for now: their source
-    // nodes pass through untouched.
-    ...sch.images.map((im) => im.source),
-    ...sch.graphics.map((g) => g.source),
+    ...sch.images.map(writeImage),
+    ...sch.graphics.map(writeGraphic),
     // Groups serialize last, like upstream; empty groups are never written
     // (SCH_IO_KICAD_SEXPR::saveGroup).
     ...sch.groups.filter((g) => g.members.length > 0).map(writeGroup),

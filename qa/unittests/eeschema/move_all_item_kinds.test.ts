@@ -17,7 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema';
+import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
@@ -162,6 +162,18 @@ describe('every movable item kind moves, on every path', () => {
     const ids = new Set([refId('junction', plain.junctions[0]?.uuid, 0)]);
     const out = orthoMove(plain, planMove(plain, LIBS, ids), D, LIBS).apply(plain);
     expect(out.directiveLabels).toBe(plain.directiveLabels);
+  });
+
+  it('survives a save, for every kind', () => {
+    // Moving an item rewrites the parsed struct; the writer patches that back
+    // into the item's source node. Images and shapes used to be written from
+    // their untouched source instead, so their move was thrown away on save
+    // while undo history said otherwise.
+    for (const k of KINDS) {
+      const out = orthoMove(sch, planMove(sch, LIBS, new Set([k.id(sch)])), D, LIBS).apply(sch);
+      const reread = readSchematic(parse(serializeSchematic(out)));
+      expect(k.at(reread), `${k.name} did not survive the round trip`).toEqual(k.at(out));
+    }
   });
 
   it('undoes exactly, on the drag path', () => {
