@@ -309,12 +309,137 @@ export function fillZone(
 
     // Prune anything thinner than the zone's minimum thickness, then fracture
     // before storing, as ZONE_FILLER does.
-    const pruned = postKnockoutMinWidthPrune(kept, zone, maxError);
+    let pruned = postKnockoutMinWidthPrune(kept, zone, maxError);
+
+    // A hatched zone keeps only its webbing (ZONE_FILLER::addHatchFillTypeOnZone).
+    if (zone.fillMode === 'hatch') pruned = addHatchFillTypeOnZone(pruned, zone, maxError);
     const polys: Vec2[][] = fracture(pruned);
     if (polys.length > 0) fills.push({ layer, polys });
   }
 
   return fills;
+}
+
+/**
+ * ZONE_FILLER::addHatchFillTypeOnZone: cut a grid of holes out of a finished
+ * fill so only its webbing is left.
+ *
+ * The grid pitch is the web thickness plus the gap; each hole is a square of
+ * `gap + minThickness`, optionally chamfered (level 1) or filleted (level 2+) by
+ * half the gap scaled by the smoothing value. Holes are clipped to the fill
+ * deflated by the web thickness, so the zone keeps a solid border, and any hole
+ * left smaller than `hatchHoleMinArea` of a full one is dropped rather than
+ * leaving a speck.
+ *
+ * Not ported: the board-outline deflation (pcbnew clips holes to the board edge,
+ * which needs an Edge.Cuts outline this layer does not have) and the thermal
+ * ring interaction, which belongs with hatched thermal reliefs.
+ */
+function addHatchFillTypeOnZone(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
+  if (fill.length === 0) return fill;
+
+  const minThickness = zone.minThickness ?? 0;
+  const gap = zone.hatchGap ?? 0;
+  if (gap <= 0) return fill;
+
+  // The webbing must be at least the min thickness; the micron of margin is
+  // upstream's, to keep Gerber rounding from closing the gap.
+  const thickness = Math.max(zone.hatchThickness ?? 0, minThickness + mmToIU(0.001));
+  const gridsize = thickness + gap;
+  if (gridsize <= 0) return fill;
+
+  const orientation = ((zone.hatchOrientation ?? 0) * Math.PI) / 180;
+
+  // The hole is larger than the gap because the webbing has width of its own.
+  const holeSize = gap + minThickness;
+  let holeBase: Polygon = [
+    [
+      { x: 0, y: 0 },
+      { x: holeSize, y: 0 },
+      { x: holeSize, y: holeSize },
+      { x: 0, y: holeSize },
+    ],
+  ];
+
+  const level = zone.hatchSmoothingLevel ?? 0;
+  if (level > 0) {
+    const smoothValue = Math.round((gap * (zone.hatchSmoothingValue ?? 0)) / 2);
+    // Upstream skips smoothing below 0.02 mm, and prefers a chamfer under
+    // 0.04 mm even when a fillet was asked for, to save segments.
+    if (smoothValue > mmToIU(0.02)) {
+      holeBase =
+        level === 1 || smoothValue <= mmToIU(0.04)
+          ? chamfer([holeBase], smoothValue)[0]!
+          : fillet([holeBase], smoothValue, level > 2 ? maxError / 2 : maxError)[0]!;
+    }
+  }
+
+  const minimalHoleArea = Math.abs(ringArea(holeBase[0]!)) * (zone.hatchHoleMinArea ?? 0.3);
+
+  // The grid is laid out in the un-rotated frame and each hole rotated back, so
+  // the pattern lines up however the zone is turned.
+  const rot = (p: Vec2, a: number): Vec2 => ({
+    x: p.x * Math.cos(a) - p.y * Math.sin(a),
+    y: p.x * Math.sin(a) + p.y * Math.cos(a),
+  });
+  const unrotated = fill.map((poly) => poly.map((ring) => ring.map((p) => rot(p, -orientation))));
+
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const poly of unrotated) {
+    for (const p of poly[0] ?? []) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+  }
+  if (!Number.isFinite(minX)) return fill;
+
+  const xOffset = minX - (minX % gridsize) - gridsize;
+  const yOffset = minY - (minY % gridsize) - gridsize;
+
+  const holes: Geom[] = [];
+  for (let xx = xOffset; xx <= maxX; xx += gridsize) {
+    for (let yy = yOffset; yy <= maxY; yy += gridsize) {
+      const moved = holeBase[0]!.map((p) => rot({ x: p.x + xx, y: p.y + yy }, orientation));
+      holes.push([moved.map((p) => [p.x, p.y] as [number, number])]);
+    }
+  }
+  if (holes.length === 0) return fill;
+
+  // Clip the holes to the fill pulled in by the web thickness: that inset is
+  // what leaves a solid border around the hatching.
+  const deflatedBy = Math.max((zone.hatchThickness ?? 0) - minThickness, maxError * 2);
+  const inner = inflate(fill, -deflatedBy, CornerStrategy.CHAMFER_ALL_CORNERS);
+  if (inner.length === 0) return fill;
+
+  const multi = (ps: Polygon[]): MultiPolygon =>
+    ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
+
+  const clipped = polygonClipping.intersection(
+    polygonClipping.union(holes[0]!, ...holes.slice(1)) as Geom,
+    multi(inner) as Geom,
+  ) as MultiPolygon;
+
+  // A hole clipped down to a speck is dropped rather than pitting the copper.
+  const kept = clipped.filter(
+    (poly) => Math.abs(ringArea(poly[0]!.map(([x, y]) => ({ x, y })))) >= minimalHoleArea,
+  );
+  if (kept.length === 0) return fill;
+
+  const out = polygonClipping.difference(multi(fill) as Geom, kept as Geom) as MultiPolygon;
+  return out.map((poly) => poly.map(ptsOf));
+}
+
+/** Twice the signed area of a ring, halved: the enclosed area. */
+function ringArea(ring: Vec2[]): number {
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
+    a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
+  return a / 2;
 }
 
 /**

@@ -216,6 +216,10 @@ function readShape(item: SList, t: FpTransform | null): PcbShape | null {
   const h = head(item) ?? '';
   const kind = h.replace(/^(gr_|fp_)/, '');
   if (!['line', 'arc', 'circle', 'rect', 'poly', 'curve'].includes(kind)) return null;
+  const numChild = (node: SList | undefined, name: string): number | undefined => {
+    const c = node ? childNamed(node, name) : undefined;
+    return c ? numArg(c, 0) : undefined;
+  };
   const fillNode = childNamed(item, 'fill');
   const fillVal = fillNode ? arg(fillNode, 0) : undefined;
   const s: PcbShape = {
@@ -511,6 +515,10 @@ function readZone(item: SList): PcbZone {
     const v = c ? numArg(c, 0) : undefined;
     return v === undefined ? undefined : mmToIU(v);
   };
+  const numChild = (node: SList | undefined, name: string): number | undefined => {
+    const c = node ? childNamed(node, name) : undefined;
+    return c ? numArg(c, 0) : undefined;
+  };
   const fillNode = childNamed(item, 'fill');
   const priorityNode = childNamed(item, 'priority');
   return {
@@ -532,6 +540,16 @@ function readZone(item: SList): PcbZone {
       return w === 'chamfer' ? 'chamfer' : w === 'fillet' ? 'fillet' : 'none';
     })(),
     cornerRadius: mmChild(fillNode, 'radius') ?? 0,
+    fillMode: (() => {
+      const node = fillNode ? childNamed(fillNode, 'mode') : undefined;
+      return node && arg(node, 0) === 'hatch' ? 'hatch' : 'solid';
+    })(),
+    hatchThickness: mmChild(fillNode, 'hatch_thickness') ?? 0,
+    hatchGap: mmChild(fillNode, 'hatch_gap') ?? 0,
+    hatchOrientation: numChild(fillNode, 'hatch_orientation') ?? 0,
+    hatchSmoothingLevel: numChild(fillNode, 'hatch_smoothing_level') ?? 0,
+    hatchSmoothingValue: numChild(fillNode, 'hatch_smoothing_value') ?? 0,
+    hatchHoleMinArea: numChild(fillNode, 'hatch_min_hole_area') ?? 0.3,
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
     uuid: uuidOf(item),
