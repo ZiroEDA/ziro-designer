@@ -37,6 +37,9 @@ import {
   directiveNetclassAssignments,
   type DirectiveShape,
   labelFields,
+  changeTextType,
+  TYPE_LABELS,
+  type TextType,
   setLabelFields,
   type LabelSpin,
   type TextEffects,
@@ -4087,6 +4090,39 @@ export function SchematicEditor({
         act('Mirror Vertically', 'mirrorV', 'Y'),
         act('Mirror Horizontally', 'mirrorH', 'X'),
       );
+      // SCH_EDIT_TOOL's "Change To" submenu (toLabel / toGLabel / toHLabel /
+      // toDLabel / toText / toTextBox), shown when the selection holds
+      // anything convertible. Each entry greys out for a selection that is
+      // already that type, as upstream skips those items.
+      {
+        const convertible = doc ? changeTextType(doc, selection, 'text_box') !== null : false;
+        const anyText =
+          convertible || (doc ? changeTextType(doc, selection, 'label') !== null : false);
+        if (anyText)
+          items.push({
+            label: 'Change To',
+            items: (
+              [
+                'label',
+                'global_label',
+                'hierarchical_label',
+                'directive_label',
+                'text',
+                'text_box',
+              ] as TextType[]
+            ).map((to) => ({
+              label: TYPE_LABELS[to],
+              disabled: !doc || changeTextType(doc, selection, to) === null,
+              action: () => {
+                const cmd = doc && changeTextType(doc, selection, to);
+                if (cmd) {
+                  runCommand(cmd);
+                  setSelection(new Set());
+                }
+              },
+            })),
+          });
+      }
       if (selection.size === 1)
         items.push({
           label: 'Properties...',
