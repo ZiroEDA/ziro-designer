@@ -143,21 +143,13 @@ export function DialogSchematicFind({
               </label>
               {/* gbSizer2 row 1 is an empty 8px spacer row. */}
               <div className="ze-schfind-gap" style={{ gridColumn: '1 / -1' }} />
-              <label style={{ gridColumn: '1 / span 2' }}>
+              <label style={{ gridColumn: '1 / -1' }}>
                 <input
                   type="checkbox"
                   checked={data.searchAllPins}
                   onChange={(e) => onChange({ ...data, searchAllPins: e.target.checked })}
                 />
                 Search pin names and numbers
-              </label>
-              <label style={{ gridColumn: 3 }}>
-                <input
-                  type="checkbox"
-                  checked={data.searchNetNames}
-                  onChange={(e) => onChange({ ...data, searchNetNames: e.target.checked })}
-                />
-                Search net names
               </label>
               <label style={{ gridColumn: '1 / -1' }}>
                 <input
@@ -194,6 +186,16 @@ export function DialogSchematicFind({
                   Replace matches in reference designators
                 </label>
               )}
+              {/* Last in the box, as dialog_sch_find_base.cpp orders it: it
+                  comes after the replace option, not beside the pin search. */}
+              <label style={{ gridColumn: '1 / -1' }}>
+                <input
+                  type="checkbox"
+                  checked={data.searchNetNames}
+                  onChange={(e) => onChange({ ...data, searchNetNames: e.target.checked })}
+                />
+                Search net names
+              </label>
             </div>
           </div>
           {/* rightSizer: vertical button stack. */}

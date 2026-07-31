@@ -6,12 +6,19 @@
  * (DIALOG_PASTE_SPECIAL), the Reference Designators radio box with KiCad's
  * three paste modes, and the "Clear net assignments" option (greyed: we do
  * not store net assignments on schematic items).
+ *
+ * The mode it opens on is not a fixed default. SCH_EDITOR_CONTROL::Paste picks
+ * `annotateAutomatic ? UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`, so a project
+ * that annotates automatically offers to keep the references unique, and one
+ * that does not offers to clear them instead. Neither ever opens on "keep".
  */
 
 import { useState, type JSX } from 'react';
 import type { PasteMode } from '@ziroeda/eeschema';
 
 interface Props {
+  /** `eeschema.annotation.automatic`, which decides the mode the dialog opens on. */
+  annotateAutomatic: boolean;
   onOk: (mode: PasteMode) => void;
   onCancel: () => void;
 }
@@ -22,8 +29,8 @@ const OPTIONS: { mode: PasteMode; label: string }[] = [
   { mode: 'remove', label: 'Clear reference designators on all pasted symbols' },
 ];
 
-export function DialogPasteSpecial({ onOk, onCancel }: Props): JSX.Element {
-  const [mode, setMode] = useState<PasteMode>('unique');
+export function DialogPasteSpecial({ annotateAutomatic, onOk, onCancel }: Props): JSX.Element {
+  const [mode, setMode] = useState<PasteMode>(annotateAutomatic ? 'unique' : 'remove');
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
