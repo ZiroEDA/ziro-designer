@@ -7,6 +7,7 @@ export * from './command.js';
 export * from './connect.js';
 export * from './move.js';
 export * from './ortho.js';
+export * from './point_editor.js';
 export * from './transform.js';
 export * from './snap.js';
 export * from './cleanup.js';
