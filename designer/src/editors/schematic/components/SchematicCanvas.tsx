@@ -387,6 +387,9 @@ interface Props {
   lineMode: LineMode;
   /** eeschema.drawing.arc_edit_mode: what dragging an arc's edit points means. */
   arcEditMode: ArcEditMode;
+  /** Start drawing a wire from this point (Unfold from Bus hands the tool over
+   *  with the entry's far end already placed). A fresh nonce re-arms it. */
+  wireStartRequest?: { at: Vec2; nonce: number } | null;
   placeLib: LibSymbol | null;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
@@ -508,6 +511,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     activeTool,
     lineMode,
     arcEditMode,
+    wireStartRequest,
     placeLib,
     placeUnit = 1,
     onSymbolPlaced,
@@ -652,6 +656,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const cursorRef = useRef<Vec2 | null>(null);
   // A dangling pin the next drawWire activation should start from (auto-start wire).
   const pendingWireStartRef = useRef<Vec2 | null>(null);
+  // A wire start handed over by another tool (Unfold from Bus). Armed on a new
+  // nonce so the same point can be requested twice.
+  useEffect(() => {
+    if (wireStartRequest) pendingWireStartRef.current = wireStartRequest.at;
+  }, [wireStartRequest?.nonce]);
   // Orientation applied to the symbol currently being placed (R/X/Y before dropping).
   const placeOrientRef = useRef<Orientation>({ angle: 0 });
   // In-progress shape/sheet drawing (rectangle/circle/arc/lines/bezier/sheet).
