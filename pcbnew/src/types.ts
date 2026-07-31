@@ -251,6 +251,20 @@ export interface PcbZone {
   thermalGap?: number;
   /** `(fill … (thermal_bridge_width …))`, ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM. */
   thermalBridgeWidth?: number;
+  /** `(fill … (mode hatch))`, ZONE_FILL_MODE: solid (the default) or hatched. */
+  fillMode?: 'solid' | 'hatch';
+  /** `(fill … (hatch_thickness …))`, the width of the hatch webbing in IU. */
+  hatchThickness?: number;
+  /** `(fill … (hatch_gap …))`, the opening between webs in IU. */
+  hatchGap?: number;
+  /** `(fill … (hatch_orientation …))`, the grid's rotation in degrees. */
+  hatchOrientation?: number;
+  /** `(fill … (hatch_smoothing_level …))`: 0 none, 1 chamfer, 2+ fillet. */
+  hatchSmoothingLevel?: number;
+  /** `(fill … (hatch_smoothing_value …))`, 0..1 of half the gap. */
+  hatchSmoothingValue?: number;
+  /** `(fill … (hatch_min_hole_area …))`, as a fraction of a full grid hole. */
+  hatchHoleMinArea?: number;
   /** `(fill … (smoothing chamfer|fillet))`, ZONE_SETTINGS::m_cornerSmoothingType. */
   cornerSmoothing?: 'none' | 'chamfer' | 'fillet';
   /** `(fill … (radius …))`, the chamfer distance / fillet radius in IU. */

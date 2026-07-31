@@ -277,6 +277,44 @@ describe('zone filler', () => {
     expect(filleted).toBeLessThan(plain);
   });
 
+  it('hatches a zone into webbing instead of solid copper', () => {
+    const solid = area(fillZone(board({ zones: [zone()] }), 0)[0]!.polys);
+    const hatched = fillZone(
+      board({
+        zones: [
+          zone({
+            fillMode: 'hatch',
+            hatchThickness: MM(1),
+            hatchGap: MM(2),
+            hatchHoleMinArea: 0.3,
+          }),
+        ],
+      }),
+      0,
+    );
+    const webbing = area(hatched[0]!.polys);
+    // A 1 mm web on a 3 mm pitch keeps well under half the copper.
+    expect(webbing).toBeLessThan(solid * 0.6);
+    expect(webbing).toBeGreaterThan(0);
+    // It is one connected mesh: fracture joins every hole to the outline, so
+    // the whole grid comes back as a single ring with a great many points.
+    expect(hatched[0]!.polys).toHaveLength(1);
+    expect(hatched[0]!.polys[0]!.length).toBeGreaterThan(100);
+  });
+
+  it('a wider hatch gap leaves less copper', () => {
+    const fill = (gap: number): number =>
+      area(
+        fillZone(
+          board({
+            zones: [zone({ fillMode: 'hatch', hatchThickness: MM(1), hatchGap: gap })],
+          }),
+          0,
+        )[0]!.polys,
+      );
+    expect(fill(MM(3))).toBeLessThan(fill(MM(1.5)));
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);
