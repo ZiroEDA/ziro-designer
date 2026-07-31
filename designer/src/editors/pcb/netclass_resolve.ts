@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Which netclasses a net belongs to.
+ * Counterpart: `NET_SETTINGS::GetEffectiveNetClass` and
+ * `NETCLASS::ContainsNetclassWithName` (common/project/net_settings.cpp,
+ * common/netclass.cpp).
+ *
+ * A net's effective netclass is an *aggregate*: every pattern that matches
+ * contributes a constituent, and membership tests ask whether any constituent
+ * carries the name. Code that only wants one label (the netlist's `netclass`
+ * field) takes the first match; code that filters by class has to consider all
+ * of them, or a net in both `Power` and `HighVoltage` would be invisible to a
+ * filter on the second.
+ */
+
+/** One `net_settings.netclass_patterns` row. */
+export interface NetClassAssignmentLike {
+  pattern: string;
+  netClass: string;
+}
+
+/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
+export function globMatches(pattern: string, text: string): boolean {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\?/g, '.')
+    .replace(/\*/g, '.*');
+  try {
+    return new RegExp(`^${escaped}$`).test(text);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The single netclass label a net reports, the first matching assignment.
+ * This is what a netlist's `(netclass …)` field carries.
+ */
+export function netClassFor(name: string, assignments: readonly NetClassAssignmentLike[]): string {
+  for (const assignment of assignments) {
+    if (globMatches(assignment.pattern, name)) return assignment.netClass;
+  }
+  return 'Default';
+}
+
+/**
+ * Every netclass a net belongs to — the constituent set
+ * `ContainsNetclassWithName` searches.
+ *
+ * An unmatched net is in Default, and `<no net>` is forced into it. Explicit
+ * label assignments and bus-member inheritance are not modelled: the board
+ * carries pattern assignments only.
+ */
+export function netclassesForNet(
+  name: string,
+  assignments: readonly NetClassAssignmentLike[],
+): string[] {
+  if (name === '') return ['Default'];
+
+  const out: string[] = [];
+
+  for (const assignment of assignments) {
+    if (!assignment.pattern || !assignment.netClass) continue;
+    if (!globMatches(assignment.pattern, name)) continue;
+    if (!out.includes(assignment.netClass)) out.push(assignment.netClass);
+  }
+
+  return out.length > 0 ? out : ['Default'];
+}
