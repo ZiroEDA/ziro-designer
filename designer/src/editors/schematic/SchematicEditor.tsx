@@ -37,6 +37,12 @@ import {
   directiveNetclassAssignments,
   type DirectiveShape,
   labelFields,
+  changeTextType,
+  setAttribute,
+  attributeIsSet,
+  type Attribute,
+  TYPE_LABELS,
+  type TextType,
   setLabelFields,
   type LabelSpin,
   type TextEffects,
@@ -296,6 +302,15 @@ const RADIO_GROUPS: string[][] = [
 // Local view toggles; grid/crosshair/line-mode/hidden-pins live in the settings
 // store (Preferences) and are derived each render so the two stay in sync.
 const DEFAULT_TOGGLES = new Set(['unitsMm', 'showHierarchy', 'showProperties']);
+/** Edit > Attributes menu ids, and the attribute each one sets. */
+const ATTRIBUTE_IDS: Record<string, Attribute> = {
+  attrSim: 'sim',
+  attrBom: 'bom',
+  attrBoard: 'board',
+  attrPosFiles: 'posFiles',
+  attrDnp: 'dnp',
+};
+
 const SETTINGS_TOGGLES = new Set([
   'toggleGrid',
   'toggleGridOverrides',
@@ -4087,6 +4102,39 @@ export function SchematicEditor({
         act('Mirror Vertically', 'mirrorV', 'Y'),
         act('Mirror Horizontally', 'mirrorH', 'X'),
       );
+      // SCH_EDIT_TOOL's "Change To" submenu (toLabel / toGLabel / toHLabel /
+      // toDLabel / toText / toTextBox), shown when the selection holds
+      // anything convertible. Each entry greys out for a selection that is
+      // already that type, as upstream skips those items.
+      {
+        const convertible = doc ? changeTextType(doc, selection, 'text_box') !== null : false;
+        const anyText =
+          convertible || (doc ? changeTextType(doc, selection, 'label') !== null : false);
+        if (anyText)
+          items.push({
+            label: 'Change To',
+            items: (
+              [
+                'label',
+                'global_label',
+                'hierarchical_label',
+                'directive_label',
+                'text',
+                'text_box',
+              ] as TextType[]
+            ).map((to) => ({
+              label: TYPE_LABELS[to],
+              disabled: !doc || changeTextType(doc, selection, to) === null,
+              action: () => {
+                const cmd = doc && changeTextType(doc, selection, to);
+                if (cmd) {
+                  runCommand(cmd);
+                  setSelection(new Set());
+                }
+              },
+            })),
+          });
+      }
       if (selection.size === 1)
         items.push({
           label: 'Properties...',
@@ -4192,37 +4240,51 @@ export function SchematicEditor({
     return items;
   };
 
-  const onLeftToggle = useCallback((id: string) => {
-    if (SETTINGS_TOGGLES.has(id)) {
-      settings.updateEeschema((s) => {
-        if (id === 'toggleGrid') s.window.grid.show = !s.window.grid.show;
-        else if (id === 'toggleGridOverrides')
-          s.window.grid.overrides_enabled = !s.window.grid.overrides_enabled;
-        else if (id === 'toggleHiddenPins')
-          s.appearance.show_hidden_pins = !s.appearance.show_hidden_pins;
-        else if (id === 'toggleHiddenFields')
-          s.appearance.show_hidden_fields = !s.appearance.show_hidden_fields;
-        else if (id === 'crosshairSmall') s.window.cursor.crosshair = 'small';
-        else if (id === 'crosshairFull') s.window.cursor.crosshair = 'full';
-        else if (id === 'crosshair45') s.window.cursor.crosshair = '45';
-        else if (id === 'lineModeFree') s.drawing.line_mode = 0;
-        else if (id === 'lineMode90') s.drawing.line_mode = 1;
-        else if (id === 'lineMode45') s.drawing.line_mode = 2;
-        else if (id === 'annotateAuto') s.annotation.automatic = !s.annotation.automatic;
+  const onLeftToggle = useCallback(
+    (id: string) => {
+      // The Attributes submenu is a set of item edits, not a view setting: it
+      // acts on the selection (SCH_EDIT_TOOL::SetAttribute).
+      const attr = ATTRIBUTE_IDS[id];
+      if (attr) {
+        if (doc) {
+          const cmd = setAttribute(doc, selection, attr);
+          if (cmd) runCommand(cmd);
+        }
+        return;
+      }
+      if (SETTINGS_TOGGLES.has(id)) {
+        settings.updateEeschema((s) => {
+          if (id === 'toggleGrid') s.window.grid.show = !s.window.grid.show;
+          else if (id === 'toggleGridOverrides')
+            s.window.grid.overrides_enabled = !s.window.grid.overrides_enabled;
+          else if (id === 'toggleHiddenPins')
+            s.appearance.show_hidden_pins = !s.appearance.show_hidden_pins;
+          else if (id === 'toggleHiddenFields')
+            s.appearance.show_hidden_fields = !s.appearance.show_hidden_fields;
+          else if (id === 'crosshairSmall') s.window.cursor.crosshair = 'small';
+          else if (id === 'crosshairFull') s.window.cursor.crosshair = 'full';
+          else if (id === 'crosshair45') s.window.cursor.crosshair = '45';
+          else if (id === 'lineModeFree') s.drawing.line_mode = 0;
+          else if (id === 'lineMode90') s.drawing.line_mode = 1;
+          else if (id === 'lineMode45') s.drawing.line_mode = 2;
+          else if (id === 'annotateAuto') s.annotation.automatic = !s.annotation.automatic;
+        });
+        return;
+      }
+      setLocalToggles((prev) => {
+        const next = new Set(prev);
+        const group = RADIO_GROUPS.find((g) => g.includes(id));
+        if (group) {
+          for (const g of group) next.delete(g);
+          next.add(id);
+        } else if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
       });
-      return;
-    }
-    setLocalToggles((prev) => {
-      const next = new Set(prev);
-      const group = RADIO_GROUPS.find((g) => g.includes(id));
-      if (group) {
-        for (const g of group) next.delete(g);
-        next.add(id);
-      } else if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [doc, selection, runCommand],
+  );
 
   const menus = useMemo(
     () =>
@@ -4233,6 +4295,14 @@ export function SchematicEditor({
           toggleHiddenFields: es.appearance.show_hidden_fields,
           showProperties: toggles.has('showProperties'),
           showHierarchy: toggles.has('showHierarchy'),
+          // Each attribute shows checked only when everything the action would
+          // touch already carries it, the same test the action itself uses.
+          ...Object.fromEntries(
+            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [
+              id,
+              !!doc && attributeIsSet(doc, selection, a),
+            ]),
+          ),
         },
       ),
     [
@@ -4242,6 +4312,8 @@ export function SchematicEditor({
       es.appearance.show_hidden_pins,
       es.appearance.show_hidden_fields,
       toggles,
+      doc,
+      selection,
     ],
   );
 
