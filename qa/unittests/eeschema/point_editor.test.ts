@@ -18,6 +18,10 @@ import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 import {
   pointEditTarget,
+  canAddCorner,
+  canRemoveCorner,
+  addCorner,
+  removeCorner,
   editHandles,
   dragHandle,
   reshapeCommand,
@@ -651,5 +655,76 @@ describe('images', () => {
     const halfW = (64 * IU_PER_PIXEL) / 2;
     expect(hit(halfW * 0.9, 0)).toBe('image');
     expect(hit(halfW * 1.5, 0)).toBeNull();
+  });
+});
+
+describe('adding and removing polyline corners', () => {
+  // SCH_ACTIONS::pointEditorAddCorner / pointEditorRemoveCorner, the two entries
+  // SCH_POINT_EDITOR contributes to the selection context menu.
+  const polyTarget = () => targetOf(POLY_ID);
+  const TOL = mm(1);
+
+  it('offers Add Corner only when the cursor is on the shape', () => {
+    // The new corner goes on the segment nearest the cursor, so the cursor has
+    // to be on one (addCornerCondition hit-tests the shape).
+    expect(canAddCorner(sch, polyTarget(), { x: mm(15), y: mm(40) }, TOL)).toBe(true);
+    expect(canAddCorner(sch, polyTarget(), { x: mm(15), y: mm(80) }, TOL)).toBe(false);
+  });
+
+  it('offers Add Corner on nothing but a graphic polyline', () => {
+    // Wires and buses are segments, not outlines; upstream gates on SHAPE_T::POLY.
+    expect(canAddCorner(sch, targetOf(WIRE_ID), { x: mm(85), y: mm(55) }, TOL)).toBe(false);
+    expect(canAddCorner(sch, targetOf(RECT_ID), { x: mm(10), y: mm(15) }, TOL)).toBe(false);
+  });
+
+  it('inserts the corner into the segment nearest the cursor', () => {
+    // Between vertices 0 (10,40) and 1 (20,40), so it lands at index 1.
+    const out = addCorner(sch, polyTarget(), { x: mm(15), y: mm(40) })!;
+    expect(out.lines[1]!.points).toEqual([
+      { x: mm(10), y: mm(40) },
+      { x: mm(15), y: mm(40) },
+      { x: mm(20), y: mm(40) },
+      { x: mm(20), y: mm(50) },
+    ]);
+  });
+
+  it('inserts into the second segment when the cursor is nearer to it', () => {
+    const out = addCorner(sch, polyTarget(), { x: mm(20), y: mm(45) })!;
+    expect(out.lines[1]!.points![2]).toEqual({ x: mm(20), y: mm(45) });
+  });
+
+  it('keeps start and end at the ends of the vertex list', () => {
+    const out = addCorner(sch, polyTarget(), { x: mm(15), y: mm(40) })!;
+    expect(out.lines[1]!.start).toEqual({ x: mm(10), y: mm(40) });
+    expect(out.lines[1]!.end).toEqual({ x: mm(20), y: mm(50) });
+  });
+
+  it('removes the corner its handle picked', () => {
+    const h = handle(POLY_ID, 'point', 1);
+    const out = removeCorner(sch, polyTarget(), h)!;
+    expect(out.lines[1]!.points).toEqual([
+      { x: mm(10), y: mm(40) },
+      { x: mm(20), y: mm(50) },
+    ]);
+  });
+
+  it('will not reduce a polyline below two points', () => {
+    // removeCornerCondition refuses at 2 points for a SCH_SHAPE.
+    const two = addCorner(sch, polyTarget(), { x: mm(15), y: mm(40) })!;
+    let doc = removeCorner(two, polyTarget(), handle(POLY_ID, 'point', 1))!;
+    doc = removeCorner(doc, polyTarget(), { kind: 'point', index: 1, at: doc.lines[1]!.end })!;
+    expect(doc.lines[1]!.points).toHaveLength(2);
+    expect(
+      canRemoveCorner(doc, polyTarget(), { kind: 'point', index: 0, at: doc.lines[1]!.start }),
+    ).toBe(false);
+    expect(
+      removeCorner(doc, polyTarget(), { kind: 'point', index: 0, at: doc.lines[1]!.start }),
+    ).toBeNull();
+  });
+
+  it('survives a save', () => {
+    const out = addCorner(sch, polyTarget(), { x: mm(15), y: mm(40) })!;
+    const reread = readSchematic(parse(serializeSchematic(out)));
+    expect(reread.lines[1]!.points).toEqual(out.lines[1]!.points);
   });
 });

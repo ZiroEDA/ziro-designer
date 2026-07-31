@@ -777,6 +777,102 @@ export function dragHandle(
   }
 }
 
+// ----- add / remove corner ---------------------------------------------------
+//
+// SCH_ACTIONS::pointEditorAddCorner / pointEditorRemoveCorner, the two entries
+// SCH_POINT_EDITOR puts in the selection context menu for a polyline.
+
+/** The vertex list a corner can be added to or removed from, or null. */
+function polyPointsOf(doc: Schematic, t: PointEditTarget): readonly Vec2[] | null {
+  if (t.kind !== 'line') return null;
+  const l = doc.lines[t.index];
+  // Wires and buses are segments, not outlines; only a graphic polyline has
+  // corners to add to (upstream gates on SHAPE_T::POLY).
+  if (!l || l.kind !== 'polyline') return null;
+  return l.points ?? [l.start, l.end];
+}
+
+/**
+ * `SCH_POINT_EDITOR::addCornerCondition`: the cursor has to be on the shape
+ * itself, within a handle's width of it, since the new corner goes on the
+ * segment nearest the cursor.
+ */
+export function canAddCorner(doc: Schematic, t: PointEditTarget, at: Vec2, tol: number): boolean {
+  const pts = polyPointsOf(doc, t);
+  if (!pts || pts.length < 2) return false;
+  for (let i = 1; i < pts.length; i++)
+    if (distanceToSegment(at, pts[i - 1]!, pts[i]!) <= tol) return true;
+  return false;
+}
+
+/**
+ * `SCH_POINT_EDITOR::removeCornerCondition`: a vertex has to be picked, and a
+ * polyline may not be reduced below the two points that still make a line.
+ */
+export function canRemoveCorner(doc: Schematic, t: PointEditTarget, handle: EditHandle): boolean {
+  const pts = polyPointsOf(doc, t);
+  if (!pts || pts.length <= 2) return false;
+  return handle.kind === 'point' && handle.index >= 0 && handle.index < pts.length;
+}
+
+/**
+ * Insert a corner at `at`, on the segment nearest to it
+ * (`SCH_POINT_EDITOR::addCorner`).
+ */
+export function addCorner(doc: Schematic, t: PointEditTarget, at: Vec2): Schematic | null {
+  const pts = polyPointsOf(doc, t);
+  if (!pts || pts.length < 2) return null;
+  let closest = 0;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < pts.length; i++) {
+    const d = distanceToSegment(at, pts[i - 1]!, pts[i]!);
+    if (d < best) {
+      best = d;
+      closest = i - 1;
+    }
+  }
+  const points = [...pts.slice(0, closest + 1), { ...at }, ...pts.slice(closest + 1)];
+  return withPolyPoints(doc, t.index, points);
+}
+
+/** Drop the corner the handle picked (`SCH_POINT_EDITOR::removeCorner`). */
+export function removeCorner(
+  doc: Schematic,
+  t: PointEditTarget,
+  handle: EditHandle,
+): Schematic | null {
+  if (!canRemoveCorner(doc, t, handle)) return null;
+  const pts = polyPointsOf(doc, t)!;
+  return withPolyPoints(
+    doc,
+    t.index,
+    pts.filter((_, i) => i !== handle.index),
+  );
+}
+
+/** Rewrite a polyline's vertices, keeping start/end at the ends of the list. */
+function withPolyPoints(doc: Schematic, index: number, points: readonly Vec2[]): Schematic {
+  const l = doc.lines[index];
+  if (!l || points.length < 2) return doc;
+  const moved: SchLine = {
+    ...l,
+    points,
+    start: points[0]!,
+    end: points[points.length - 1]!,
+  };
+  return { ...doc, lines: doc.lines.map((x, i) => (i === index ? moved : x)) };
+}
+
+/** Distance from a point to a segment, `SEG::Distance`. */
+function distanceToSegment(p: Vec2, a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
 /**
  * One undo step for a completed drag. A drag runs `dragHandle` per pointer event
  * and only the final document is committed, so the command carries that result

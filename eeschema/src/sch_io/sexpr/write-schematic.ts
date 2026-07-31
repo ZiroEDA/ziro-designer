@@ -93,17 +93,39 @@ function patchXY(node: SList, name: string, p: Vec2): SList {
   });
 }
 
-/** Patch the `(xy …)` children of a `(pts …)` child from a vertex list. */
+/**
+ * Rewrite the `(xy …)` children of a `(pts …)` child from a vertex list.
+ *
+ * The vertex *count* can change, not just the coordinates: Add Corner and
+ * Remove Corner (SCH_POINT_EDITOR) insert and drop points. So the xy nodes are
+ * emitted to match the list exactly rather than patched one for one, which
+ * would silently keep a polyline at the length it was read at. Everything in
+ * `(pts …)` that is not an xy is left where it was.
+ */
 function patchPts(node: SList, points: readonly Vec2[]): SList {
   return mapChild(node, 'pts', (pts) => {
+    const xy = (p: Vec2): SList => list(atom('xy'), atom(mm(p.x)), atom(mm(p.y)));
+    const items: SNode[] = [];
     let i = 0;
-    const items = pts.items.map((it) => {
-      if (!isList(it) || head(it) !== 'xy') return it;
-      // Extra source xy's beyond what we model keep the last vertex we have.
-      const p = points[i] ?? points[points.length - 1];
+    let lastXyAt = -1;
+    for (const it of pts.items) {
+      if (!isList(it) || head(it) !== 'xy') {
+        items.push(it);
+        continue;
+      }
+      // Source vertices beyond the list are dropped; the rest are rewritten.
+      if (i < points.length) {
+        lastXyAt = items.length;
+        items.push(xy(points[i]!));
+      }
       i++;
-      return p ? list(atom('xy'), atom(mm(p.x)), atom(mm(p.y))) : it;
-    });
+    }
+    // Vertices the list gained go in after the last one written, so they stay
+    // contiguous with the others rather than landing after a trailing child.
+    if (i < points.length) {
+      const added = points.slice(i).map(xy);
+      items.splice(lastXyAt + 1, 0, ...added);
+    }
     return { kind: 'list', items };
   });
 }
