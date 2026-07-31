@@ -5,8 +5,13 @@
  * Wire/bus/line and junction properties. Counterparts:
  * `eeschema/dialogs/dialog_wire_bus_properties.cpp` (DIALOG_WIRE_BUS_PROPERTIES,
  * line width and style) and `dialog_junction_props.cpp` (DIALOG_JUNCTION_PROPS,
- * junction diameter). Widths/diameters are entered in millimetres; 0 = "use the
- * netclass/schematic default".
+ * junction diameter). Widths and diameters are entered in millimetres, and 0
+ * means "use the netclass's value", which is what upstream's help text says and
+ * what Reset to Defaults (wxID_APPLY) puts everything back to.
+ *
+ * The wire form also edits the junction size, because KiCad edits it here: a
+ * selection of wires usually carries the junctions between them, and having to
+ * open a second dialog for them would be the odd behaviour.
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
@@ -39,7 +44,9 @@ interface WireProps {
   widthIU: number;
   style: string;
   color?: ItemColor;
-  onOk: (widthIU: number, style: string, color?: ItemColor) => void;
+  /** Junction diameter for the junctions in scope; 0 = the netclass value. */
+  junctionIU?: number;
+  onOk: (widthIU: number, style: string, color?: ItemColor, junctionIU?: number) => void;
   onCancel: () => void;
 }
 interface JunctionProps {
@@ -55,10 +62,12 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
   const [width, setWidth] = useState(props.kind === 'wire' ? mm(props.widthIU) : '0');
   const [style, setStyle] = useState(props.kind === 'wire' ? props.style : 'default');
   const [diameter, setDiameter] = useState(props.kind === 'junction' ? mm(props.diameterIU) : '0');
+  const [junction, setJunction] = useState(props.kind === 'wire' ? mm(props.junctionIU ?? 0) : '0');
   const [color, setColor] = useState<ItemColor | undefined>(props.color);
 
   const submit = (): void => {
-    if (props.kind === 'wire') props.onOk(mmToIU(Number(width) || 0), style, color);
+    if (props.kind === 'wire')
+      props.onOk(mmToIU(Number(width) || 0), style, color, mmToIU(Number(junction) || 0));
     else props.onOk(mmToIU(Number(diameter) || 0), color);
   };
 
@@ -105,7 +114,7 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
           {props.kind === 'wire' ? (
             <>
               <label className="row">
-                <span>Width:</span>
+                <span>Wire/bus width:</span>
                 <input
                   className="ze-search"
                   autoFocus
@@ -135,8 +144,26 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
                   ))}
                 </select>
               </label>
+              <label className="row">
+                {/* KiCad edits the junction size in this same dialog, since a
+                    selection of wires usually carries the junctions between
+                    them; 0 means "use the netclass value". */}
+                <span>Junction size:</span>
+                <input
+                  className="ze-search"
+                  value={junction}
+                  onChange={(e) => setJunction(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') submit();
+                  }}
+                />
+                <span className="ze-muted" style={{ fontSize: 11 }}>
+                  mm
+                </span>
+              </label>
               <div className="ze-muted" style={{ fontSize: 11, marginTop: 4 }}>
-                Set width to 0 to use schematic's default line width.
+                Set width to 0 to use netclass's wire/bus widths.
               </div>
             </>
           ) : (
@@ -165,6 +192,21 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
           )}
         </div>
         <div className="ze-modal-footer">
+          {/* wxID_APPLY: back to "use the netclass / editor values", which is
+              what a width of 0 and no colour mean. */}
+          <button
+            className="ze-btn"
+            style={{ marginRight: 'auto' }}
+            onClick={() => {
+              setWidth('0');
+              setJunction('0');
+              setDiameter('0');
+              setStyle('default');
+              setColor(undefined);
+            }}
+          >
+            Reset to Defaults
+          </button>
           <button className="ze-btn" onClick={props.onCancel}>
             Cancel
           </button>

@@ -3807,20 +3807,34 @@ export function SchematicEditor({
   );
 
   const commitLineEdit = useCallback(
-    (widthIU: number, style: string, color?: ItemColor) => {
+    (widthIU: number, style: string, color?: ItemColor, junctionIU?: number) => {
       setLineEdit((le) => {
         if (!le || !doc) return null;
         const orig = doc.lines[le.index];
-        if (orig) {
-          const stroke: { width: number; type: string; color?: ItemColor } = {
-            ...(orig.stroke ?? {}),
-            width: widthIU,
-            type: style,
-          };
-          if (color) stroke.color = color;
-          else delete stroke.color;
-          runCommand(replaceLine(le.index, { ...orig, stroke }));
+        if (!orig) return null;
+        const stroke: { width: number; type: string; color?: ItemColor } = {
+          ...(orig.stroke ?? {}),
+          width: widthIU,
+          type: style,
+        };
+        if (color) stroke.color = color;
+        else delete stroke.color;
+
+        const cmds: EditCommand[] = [replaceLine(le.index, { ...orig, stroke })];
+        // The junction size applies to the junctions this wire actually meets,
+        // which is what "the junctions in the selection scope" comes to here.
+        if (junctionIU !== undefined) {
+          const touches = (p: { x: number; y: number }): boolean =>
+            (p.x === orig.start.x && p.y === orig.start.y) ||
+            (p.x === orig.end.x && p.y === orig.end.y);
+          doc.junctions.forEach((j, i) => {
+            if (touches(j.at) && j.diameter !== junctionIU)
+              cmds.push(replaceJunction(i, { ...j, diameter: junctionIU }));
+          });
         }
+        runCommand(
+          cmds.length === 1 ? cmds[0]! : composeCommands('Edit Wire & Bus Properties', cmds),
+        );
         return null;
       });
     },
@@ -5335,6 +5349,7 @@ export function SchematicEditor({
           )}
           {pasteSpecialOpen && (
             <DialogPasteSpecial
+              annotateAutomatic={es.annotation.automatic}
               onOk={(mode: PasteMode) => {
                 setPasteSpecialOpen(false);
                 void navigator.clipboard?.readText().then((text) => {
@@ -5867,6 +5882,15 @@ export function SchematicEditor({
           widthIU={lineEdit.widthIU}
           style={lineEdit.style}
           color={lineEdit.color}
+          junctionIU={
+            doc.junctions.find(
+              (j) =>
+                (j.at.x === doc.lines[lineEdit.index]?.start.x &&
+                  j.at.y === doc.lines[lineEdit.index]?.start.y) ||
+                (j.at.x === doc.lines[lineEdit.index]?.end.x &&
+                  j.at.y === doc.lines[lineEdit.index]?.end.y),
+            )?.diameter ?? 0
+          }
           onOk={commitLineEdit}
           onCancel={() => setLineEdit(null)}
         />
