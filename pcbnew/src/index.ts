@@ -153,6 +153,9 @@ export {
   type SpreadFootprintsOptions,
 } from './spread_footprints.js';
 
+// Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
+export { fillZone, fillZones, type ZoneFillOptions } from './zone_filler.js';
+
 // Track dragging (pcbnew/router: PNS::DRAGGER + PNS::LINE geometry).
 export {
   assembleLine,

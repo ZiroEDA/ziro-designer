@@ -494,6 +494,25 @@ function readZone(item: SList): PcbZone {
   const hatchStyle: PcbZone['hatchStyle'] =
     hatchWord === 'none' ? 'none' : hatchWord === 'full' ? 'full' : hatchWord ? 'edge' : undefined;
   const hatchPitch = hatchNode ? mmToIU(Number(arg(hatchNode, 1) ?? 0)) : 0;
+  // Fill parameters (ZONE_SETTINGS). The defaults are pcbnew/zones.h's, which is
+  // what a zone written without them means.
+  const connectNode = childNamed(item, 'connect_pads');
+  const connectWord = connectNode ? arg(connectNode, 0) : undefined;
+  const padConnection: PcbZone['padConnection'] =
+    connectWord === 'no'
+      ? 'none'
+      : connectWord === 'yes'
+        ? 'full'
+        : connectWord === 'thru_hole_only'
+          ? 'thru_hole_only'
+          : 'thermal';
+  const mmChild = (node: SList | undefined, name: string): number | undefined => {
+    const c = node ? childNamed(node, name) : undefined;
+    const v = c ? numArg(c, 0) : undefined;
+    return v === undefined ? undefined : mmToIU(v);
+  };
+  const fillNode = childNamed(item, 'fill');
+  const priorityNode = childNamed(item, 'priority');
   return {
     net: netNode ? (numArg(netNode, 0) ?? 0) : 0,
     netName: stringField(item, 'net_name'),
@@ -502,6 +521,13 @@ function readZone(item: SList): PcbZone {
     outline: outline.length >= 3 ? outline : undefined,
     hatchStyle,
     hatchPitch,
+    padConnection,
+    clearance: mmChild(connectNode, 'clearance') ?? mmToIU(0.5),
+    minThickness: mmChild(item, 'min_thickness') ?? mmToIU(0.25),
+    thermalGap: mmChild(fillNode, 'thermal_gap') ?? mmToIU(0.5),
+    thermalBridgeWidth: mmChild(fillNode, 'thermal_bridge_width') ?? mmToIU(0.5),
+    filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
+    priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
     uuid: uuidOf(item),
     source: item,
   };
