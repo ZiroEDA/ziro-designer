@@ -36,6 +36,7 @@ export * from './intersheet_refs.js';
 export * from './label_properties.js';
 export * from './change_text_type.js';
 export * from './set_attribute.js';
+export * from './sch_align_tool.js';
 export * from './directive_label.js';
 export * from './sch_sheet_path.js';
 export * from './page_settings.js';

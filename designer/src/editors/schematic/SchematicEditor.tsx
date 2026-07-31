@@ -39,6 +39,9 @@ import {
   labelFields,
   changeTextType,
   setAttribute,
+  alignItems,
+  ALIGN_LABELS,
+  type AlignMode,
   attributeIsSet,
   type Attribute,
   TYPE_LABELS,
@@ -4160,6 +4163,33 @@ export function SchematicEditor({
             });
         }
       }
+      // SCH_ALIGN_TOOL's submenu, shown once there is more than one thing to
+      // line up. The click position is the target hint (selectTarget prefers
+      // the item under the cursor), so it is passed through.
+      if (selection.size > 1)
+        items.push({
+          label: 'Align Items',
+          items: (['top', 'bottom', 'left', 'right', 'centerX', 'centerY'] as AlignMode[]).map(
+            (mode) => ({
+              label: ALIGN_LABELS[mode],
+              action: () => {
+                if (!doc) return;
+                const grid = gridSizeToIU(
+                  es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+                );
+                const cmd = alignItems(
+                  doc,
+                  selection,
+                  libById,
+                  mode,
+                  grid,
+                  ctxMenu?.pointEdit?.world,
+                );
+                if (cmd) runCommand(cmd);
+              },
+            }),
+          ),
+        });
       items.push(
         { sep: true },
         act('Rotate Counterclockwise', 'rotateCCW', 'R'),
