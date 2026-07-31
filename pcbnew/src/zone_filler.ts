@@ -27,7 +27,12 @@
 
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import {
+  CornerStrategy,
+  fracture,
+  inflate,
+  type Polygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
@@ -296,15 +301,70 @@ export function fillZone(
       kept.push(poly.map(ptsOf));
     }
 
-    // Fracture before storing, as ZONE_FILLER does through
-    // SHAPE_POLY_SET::Fracture: a zone fill is written as simple closed rings,
-    // each hole cut open to its outline with a zero-width slit. A reader that
-    // fills every ring it finds, which KiCad is, then draws the pour correctly.
-    const polys: Vec2[][] = fracture(kept);
+    // Prune anything thinner than the zone's minimum thickness, then fracture
+    // before storing, as ZONE_FILLER does.
+    const pruned = postKnockoutMinWidthPrune(kept, zone, maxError);
+    const polys: Vec2[][] = fracture(pruned);
     if (polys.length > 0) fills.push({ layer, polys });
   }
 
   return fills;
+}
+
+/**
+ * ZONE_FILLER::postKnockoutMinWidthPrune: deflate by half the minimum thickness,
+ * drop what is left of anything too small to survive, then inflate back and clip
+ * to where we started. Copper narrower than min thickness vanishes in the
+ * deflate and never comes back, which is how upstream removes slivers and
+ * hairline necks without touching the rest of the pour.
+ *
+ * Upstream deflates with CHAMFER_ALL_CORNERS and re-inflates with
+ * ROUND_ALL_CORNERS, which is not symmetric on purpose: inflating with a miter
+ * would throw spikes off acute corners.
+ */
+function postKnockoutMinWidthPrune(fill: Polygon[], zone: PcbZone, maxError: number): Polygon[] {
+  const halfMinWidth = Math.floor((zone.minThickness ?? 0) / 2);
+  const epsilon = mmToIU(0.001);
+  if (halfMinWidth - epsilon <= epsilon) return fill;
+  if (fill.length === 0) return fill;
+
+  const segs = segmentsForRadius(halfMinWidth, maxError);
+  const preDeflate = fill;
+
+  let polys = inflate(fill, -(halfMinWidth - epsilon), CornerStrategy.CHAMFER_ALL_CORNERS, segs);
+
+  // Islands whose whole extent is under the min thickness cannot hold copper.
+  const minThickness = zone.minThickness ?? 0;
+  polys = polys.filter((poly) => {
+    const outer = poly[0];
+    if (!outer || outer.length < 3) return false;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const p of outer) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+    return Math.max(maxX - minX, maxY - minY) >= minThickness;
+  });
+
+  if (polys.length === 0) return [];
+
+  polys = inflate(polys, halfMinWidth - epsilon, CornerStrategy.ROUND_ALL_CORNERS, segs);
+
+  // The re-inflate can push past where the fill started, so clip back to it.
+  // Both sides are one multipolygon each: intersecting them flat would demand
+  // every piece overlap every other.
+  const multi = (ps: Polygon[]): MultiPolygon =>
+    ps.map((poly) => poly.map((ring) => ring.map((p) => [p.x, p.y] as [number, number])));
+  const a = multi(polys);
+  const b = multi(preDeflate);
+  if (a.length === 0 || b.length === 0) return [];
+  const clipped = polygonClipping.intersection(a as Geom, b as Geom) as MultiPolygon;
+  return clipped.map((poly) => poly.map(ptsOf));
 }
 
 /** Ray-cast containment, for the island test. */

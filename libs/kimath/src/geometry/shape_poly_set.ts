@@ -13,6 +13,7 @@
  * draws the pour correctly; rings left as holes would be filled in solid.
  */
 
+import ClipperLib from 'clipper-lib';
 import type { Vec2 } from '../math/vector2.js';
 
 /** An outline followed by its holes, KiCad's SHAPE_POLY_SET::POLYGON. */
@@ -185,4 +186,140 @@ export function fracture(polygons: Polygon[]): Vec2[][] {
     for (const ring of fractureSingle(poly)) out.push(ring);
   }
   return out;
+}
+
+// ----- offsetting (SHAPE_POLY_SET::Inflate) -----------------------------------
+
+/**
+ * CORNER_STRATEGY (shape_poly_set.h): how a corner is treated when a polygon is
+ * inflated. Deflating never spikes, but inflating can throw long spikes off an
+ * acute corner, which is why the zone filler picks its strategy deliberately.
+ */
+export enum CornerStrategy {
+  /** Just extend the edges; leaves large spikes on acute angles. */
+  ALLOW_ACUTE_CORNERS = 0,
+  /** Acute angles are chamfered. */
+  CHAMFER_ACUTE_CORNERS = 1,
+  /** Acute angles are rounded. */
+  ROUND_ACUTE_CORNERS = 2,
+  /** Every angle is chamfered. */
+  CHAMFER_ALL_CORNERS = 3,
+  /** Every angle is rounded; the nicest shape, and the most segments. */
+  ROUND_ALL_CORNERS = 4,
+}
+
+/**
+ * SHAPE_POLY_SET::Inflate. Offsets every polygon by `amount` (negative
+ * deflates), with the join type and miter limit upstream maps each corner
+ * strategy to, and the arc tolerance it derives from the segment count:
+ *
+ *   ArcTolerance = |amount| * (1 - cos(pi / circleSegCount))
+ *
+ * Clipper works in integers, which our internal units already are.
+ */
+export function inflate(
+  polygons: Polygon[],
+  amount: number,
+  strategy: CornerStrategy = CornerStrategy.ROUND_ALL_CORNERS,
+  circleSegCount = 16,
+): Polygon[] {
+  if (amount === 0 || polygons.length === 0) return polygons.map((p) => p.map((r) => [...r]));
+
+  let joinType: number;
+  let miterLimit = 2.0;
+
+  switch (strategy) {
+    case CornerStrategy.ALLOW_ACUTE_CORNERS:
+      joinType = ClipperLib.JoinType.jtMiter;
+      miterLimit = 10; // allows large spikes
+      break;
+    case CornerStrategy.CHAMFER_ACUTE_CORNERS:
+    case CornerStrategy.ROUND_ACUTE_CORNERS:
+      joinType = ClipperLib.JoinType.jtMiter;
+      break;
+    case CornerStrategy.CHAMFER_ALL_CORNERS:
+      joinType = ClipperLib.JoinType.jtSquare;
+      break;
+    default:
+      joinType = ClipperLib.JoinType.jtRound;
+      break;
+  }
+
+  // Guard the segment count the way upstream does before deriving the tolerance.
+  const segs = circleSegCount < 6 ? 6 : circleSegCount;
+  const coeff = 1.0 - Math.cos(Math.PI / segs);
+
+  const co = new ClipperLib.ClipperOffset(miterLimit, Math.abs(amount) * coeff);
+
+  for (const poly of polygons) {
+    co.AddPaths(
+      poly.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))),
+      joinType,
+      ClipperLib.EndType.etClosedPolygon,
+    );
+  }
+
+  const solution: { X: number; Y: number }[][] = [];
+  co.Execute(solution, amount);
+
+  // Clipper hands back a flat list of rings, holes wound the other way from
+  // their outline (SHAPE_POLY_SET regroups the same way when it imports from
+  // Clipper). Rather than trust a winding convention, nest them: a ring inside
+  // an even number of others is an outline, an odd one is a hole belonging to
+  // the smallest ring containing it.
+  const rings = solution
+    .map((ring) => ring.map((p) => ({ x: p.X, y: p.Y })))
+    .filter((ring) => ring.length >= 3);
+
+  const containers = rings.map((ring, i) =>
+    rings.filter((other, j) => j !== i && pointInRing(ring[0]!, other)),
+  );
+
+  const out: Polygon[] = [];
+  const indexOfOutline = new Map<Vec2[], number>();
+
+  rings.forEach((ring, i) => {
+    if (containers[i]!.length % 2 === 0) {
+      indexOfOutline.set(ring, out.length);
+      out.push([ring]);
+    }
+  });
+
+  rings.forEach((ring, i) => {
+    if (containers[i]!.length % 2 === 0) return;
+    // The smallest containing ring that is itself an outline.
+    let best: Vec2[] | null = null;
+    let bestArea = Number.POSITIVE_INFINITY;
+    for (const candidate of containers[i]!) {
+      if (!indexOfOutline.has(candidate)) continue;
+      const a = Math.abs(signedArea(candidate));
+      if (a < bestArea) {
+        bestArea = a;
+        best = candidate;
+      }
+    }
+    if (best) out[indexOfOutline.get(best)!]!.push(ring);
+  });
+
+  return out;
+}
+
+/** Twice the signed area; the sign gives the winding. */
+function signedArea(ring: Vec2[]): number {
+  let a = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
+    a += (ring[j]!.x + ring[i]!.x) * (ring[j]!.y - ring[i]!.y);
+  return a / 2;
+}
+
+/** Ray-cast containment. */
+function pointInRing(p: Vec2, ring: Vec2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i]!;
+    const b = ring[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+      inside = !inside;
+  }
+  return inside;
 }

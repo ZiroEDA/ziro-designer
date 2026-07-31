@@ -235,6 +235,29 @@ describe('zone filler', () => {
     expect(1600 - area(polys)).toBeGreaterThan(8);
   });
 
+  it('prunes a neck thinner than the zone minimum thickness', () => {
+    // Two pads of another net, 0.15 mm apart, leave a 0.15 mm neck of copper
+    // between their clearance bites. The zone's min thickness is 0.25 mm, so
+    // postKnockoutMinWidthPrune takes the neck out and the pour splits in two.
+    const gap = MM(0.15);
+    const padSize = MM(4);
+    const b = board({
+      zones: [zone()],
+      footprints: [
+        footprint([
+          pad({ x: MM(20), y: MM(10) }, 2, padSize),
+          pad({ x: MM(20), y: MM(10) + padSize + MM(1) + gap }, 2, padSize),
+        ]),
+      ],
+    });
+    const fills = fillZone(b, 0);
+    // The neck is gone: what remains does not bridge between the two bites.
+    const ringsCrossingTheNeck = fills[0]!.polys.filter((ring) =>
+      ring.some((p) => Math.abs(p.x - MM(20)) < MM(0.5) && p.y > MM(14) && p.y < MM(15)),
+    );
+    expect(ringsCrossingTheNeck).toHaveLength(0);
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);

@@ -136,7 +136,11 @@ importers:
         specifier: workspace:*
         version: link:../kimath
 
-  libs/kimath: {}
+  libs/kimath:
+    dependencies:
+      clipper-lib:
+        specifier: ^6.4.2
+        version: 6.4.2
 
   libs/rectpack2d: {}
 
@@ -161,6 +165,9 @@ importers:
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      clipper-lib:
+        specifier: ^6.4.2
+        version: 6.4.2
       polygon-clipping:
         specifier: ^0.15.7
         version: 0.15.7
@@ -1464,6 +1471,9 @@ packages:
   check-error@2.1.3:
     resolution: {integrity: sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA==}
     engines: {node: '>= 16'}
+
+  clipper-lib@6.4.2:
+    resolution: {integrity: sha512-knglhjQX5ihNj/XCIs6zCHrTemdvHY3LPZP9XB2nq2/3igyYMFueFXtfp84baJvEE+f8pO1ZS4UVeEgmLnAprQ==}
 
   comma-separated-tokens@2.0.3:
     resolution: {integrity: sha512-Fu4hJdvzeylCfQPp9SGWidpzrMs7tTrlu6Vb8XGaRGck8QSNZJJp538Wrb60Lax4fPwR64ViY468OIUTbRlGZg==}
@@ -3216,6 +3226,8 @@ snapshots:
   character-entities-legacy@3.0.0: {}
 
   check-error@2.1.3: {}
+
+  clipper-lib@6.4.2: {}
 
   comma-separated-tokens@2.0.3: {}
 
