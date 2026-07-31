@@ -167,3 +167,21 @@ export {
   type TrackDrag,
   type DragMode,
 } from './router/pns_drag.js';
+
+// Teardrops (pcbnew/teardrop: TEARDROP_MANAGER).
+export {
+  updateTeardrops,
+  teardropZones,
+  addTeardropsOnTracks,
+  setTeardropPriorities,
+  computeTeardropPolygon,
+  defaultTeardropParameters,
+  defaultTeardropParametersList,
+  MAGIC_TEARDROP_ZONE_ID,
+  TargetTd,
+  type Teardrop,
+  type TeardropType,
+  type TeardropParameters,
+  type TeardropParametersList,
+  type UpdateTeardropsOptions,
+} from './teardrop.js';
