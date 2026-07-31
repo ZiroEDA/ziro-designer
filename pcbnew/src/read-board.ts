@@ -526,6 +526,12 @@ function readZone(item: SList): PcbZone {
     minThickness: mmChild(item, 'min_thickness') ?? mmToIU(0.25),
     thermalGap: mmChild(fillNode, 'thermal_gap') ?? mmToIU(0.5),
     thermalBridgeWidth: mmChild(fillNode, 'thermal_bridge_width') ?? mmToIU(0.5),
+    cornerSmoothing: (() => {
+      const node = fillNode ? childNamed(fillNode, 'smoothing') : undefined;
+      const w = node ? arg(node, 0) : undefined;
+      return w === 'chamfer' ? 'chamfer' : w === 'fillet' ? 'fillet' : 'none';
+    })(),
+    cornerRadius: mmChild(fillNode, 'radius') ?? 0,
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
     uuid: uuidOf(item),
