@@ -1,0 +1,611 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Point editor: the handles a single selected item carries, and what dragging
+ * one does to it. Counterpart: `eeschema/tools/sch_point_editor.cpp`
+ * (SCH_POINT_EDITOR and its POINT_EDIT_BEHAVIORs) plus the shared behaviors in
+ * `common/tool/point_editor_behavior.cpp`.
+ *
+ * Upstream keeps an EDIT_POINTS for the selected item: an EDIT_POINT per corner
+ * or vertex, and an EDIT_LINE per edge whose position is the edge midpoint and
+ * whose SetPosition shifts both of its ends. Grabbing one and moving it runs the
+ * behavior's UpdateItem, which reads *all* the points back and rewrites the item
+ * from them. That indirection is why a rectangle's corner can push its
+ * neighbours: the neighbours are points too.
+ *
+ * We keep the same shape, minus the mutable EDIT_POINTS: `editHandles` derives
+ * the handles from the document, and `dragHandle` takes the grabbed handle and
+ * its new position and returns the whole reshaped document. Recomputing rather
+ * than mutating means a drag is a pure function of (document, handle, cursor),
+ * so the preview during a drag and the committed result cannot disagree.
+ *
+ * Covered here: wires, buses, graphic polylines, rectangles, circles, text boxes
+ * and sheets. Not yet: arcs (need ARC_EDIT_MODE), table cells, ellipses and rule
+ * areas (we model none of them), and images, whose handles are placed from the
+ * decoded pixel size, which the engine does not have.
+ *
+ * Note that a sheet-level `(polyline …)` is read into `lines`, not `graphics`
+ * (only rectangles, circles and arcs become graphics), so the vertex handles for
+ * one are on the line path.
+ */
+
+import type {
+  Schematic,
+  SchSheet,
+  SchLine,
+  SchTextBox,
+  SheetPin,
+  LibGraphic,
+  Vec2,
+} from '../types.js';
+import { refId } from './hittest.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import type { EditCommand } from './command.js';
+
+/** A square handle on a corner or vertex (EDIT_POINT), or a circle at an edge
+ *  midpoint (EDIT_LINE). */
+export type HandleKind = 'point' | 'line';
+
+export interface EditHandle {
+  readonly kind: HandleKind;
+  /** Index within the item's handle list of that kind; the identity a drag carries. */
+  readonly index: number;
+  readonly at: Vec2;
+}
+
+/** The item the handles belong to: which array, and where in it. */
+export interface PointEditTarget {
+  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox';
+  readonly index: number;
+}
+
+// Point indices, named as upstream names them (sch_point_editor.cpp).
+const RECT_TOPLEFT = 0;
+const RECT_TOPRIGHT = 1;
+const RECT_BOTLEFT = 2;
+const RECT_BOTRIGHT = 3;
+const RECT_CENTER = 4;
+const RECT_TOP = 0;
+const RECT_RIGHT = 1;
+const RECT_BOT = 2;
+const RECT_LEFT = 3;
+const LINE_START = 0;
+const LINE_END = 1;
+const CIRC_CENTER = 0;
+const CIRC_END = 1;
+
+/** MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT (sch_sheet.h), in mils. */
+const MIN_SHEET_WIDTH = mmToIU(500 * 0.0254);
+const MIN_SHEET_HEIGHT = mmToIU(150 * 0.0254);
+/** RECTANGLE_POINT_EDIT_BEHAVIOR floors every rectangle at one mil. */
+const ONE_MIL = mmToIU(0.0254);
+
+const pt = (kind: HandleKind, index: number, at: Vec2): EditHandle => ({ kind, index, at });
+const mid = (a: Vec2, b: Vec2): Vec2 => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+/**
+ * The item `id` refers to, if it is one the point editor can edit.
+ *
+ * Upstream gates on `pointEditorTypes`; a selection of anything else (or of more
+ * than one item) simply has no points.
+ */
+export function pointEditTarget(doc: Schematic, id: string): PointEditTarget | null {
+  const find = <T extends { uuid?: string }>(
+    xs: readonly T[] | undefined,
+    kind: Parameters<typeof refId>[0],
+  ): number => (xs ?? []).findIndex((x, i) => refId(kind, x.uuid, i) === id);
+
+  const sheet = find(doc.sheets, 'sheet');
+  if (sheet !== -1) return { kind: 'sheet', index: sheet };
+  const textbox = find(doc.textBoxes, 'textbox');
+  if (textbox !== -1) return { kind: 'textbox', index: textbox };
+  const line = find(doc.lines, 'line');
+  if (line !== -1) return { kind: 'line', index: line };
+  // Graphics carry no uuid of their own, so they are addressed by index.
+  const graphic = (doc.graphics ?? []).findIndex((_, i) => refId('graphic', undefined, i) === id);
+  if (graphic !== -1) {
+    // Text has a position but no geometry to reshape, so it gets no points.
+    return doc.graphics[graphic]!.kind === 'text' ? null : { kind: 'graphic', index: graphic };
+  }
+  return null;
+}
+
+// ----- rectangles ------------------------------------------------------------
+//
+// Rectangles, text boxes and sheets share RECTANGLE_POINT_EDIT_BEHAVIOR's four
+// corners and four edge lines. They differ only in their minimum size and in
+// what UpdateItem writes the result back into.
+
+interface Corners {
+  topLeft: Vec2;
+  topRight: Vec2;
+  botLeft: Vec2;
+  botRight: Vec2;
+}
+
+const cornersOf = (topLeft: Vec2, botRight: Vec2): Corners => ({
+  topLeft: { ...topLeft },
+  topRight: { x: botRight.x, y: topLeft.y },
+  botLeft: { x: topLeft.x, y: botRight.y },
+  botRight: { ...botRight },
+});
+
+/** The corner and edge handles of a box, with the centre point when `center`. */
+function rectHandles(topLeft: Vec2, botRight: Vec2, center: boolean): EditHandle[] {
+  const c = cornersOf(topLeft, botRight);
+  const out = [
+    pt('point', RECT_TOPLEFT, c.topLeft),
+    pt('point', RECT_TOPRIGHT, c.topRight),
+    pt('point', RECT_BOTLEFT, c.botLeft),
+    pt('point', RECT_BOTRIGHT, c.botRight),
+  ];
+  // A sheet has no centre handle; a shape and a text box do.
+  if (center) out.push(pt('point', RECT_CENTER, mid(c.topLeft, c.botRight)));
+  out.push(
+    pt('line', RECT_TOP, mid(c.topLeft, c.topRight)),
+    pt('line', RECT_RIGHT, mid(c.topRight, c.botRight)),
+    pt('line', RECT_BOT, mid(c.botRight, c.botLeft)),
+    pt('line', RECT_LEFT, mid(c.botLeft, c.topLeft)),
+  );
+  return out;
+}
+
+/**
+ * Move the grabbed handle to `pos`, as the drag itself does before UpdateItem
+ * runs. A corner point follows the cursor; an edge line is under EC_PERPLINE, so
+ * it only moves along its own normal, carrying both of its ends.
+ */
+function moveHandle(c: Corners, h: EditHandle, pos: Vec2): void {
+  if (h.kind === 'point') {
+    if (h.index === RECT_TOPLEFT) c.topLeft = { ...pos };
+    else if (h.index === RECT_TOPRIGHT) c.topRight = { ...pos };
+    else if (h.index === RECT_BOTLEFT) c.botLeft = { ...pos };
+    else if (h.index === RECT_BOTRIGHT) c.botRight = { ...pos };
+    return;
+  }
+  if (h.index === RECT_TOP) {
+    c.topLeft = { ...c.topLeft, y: pos.y };
+    c.topRight = { ...c.topRight, y: pos.y };
+  } else if (h.index === RECT_BOT) {
+    c.botLeft = { ...c.botLeft, y: pos.y };
+    c.botRight = { ...c.botRight, y: pos.y };
+  } else if (h.index === RECT_LEFT) {
+    c.topLeft = { ...c.topLeft, x: pos.x };
+    c.botLeft = { ...c.botLeft, x: pos.x };
+  } else if (h.index === RECT_RIGHT) {
+    c.topRight = { ...c.topRight, x: pos.x };
+    c.botRight = { ...c.botRight, x: pos.x };
+  }
+}
+
+/**
+ * RECTANGLE_POINT_EDIT_BEHAVIOR::PinEditedCorner. Clamp the dragged corner so it
+ * cannot cross its opposite corner (leaving at least minWidth x minHeight), then
+ * push the two corners that share an edge with it so the box stays a rectangle.
+ * An edge drag only has to be clamped: it moves both of its ends already.
+ */
+function pinEditedCorner(c: Corners, h: EditHandle, minWidth: number, minHeight: number): void {
+  if (h.kind === 'point') {
+    if (h.index === RECT_TOPLEFT) {
+      c.topLeft = {
+        x: Math.min(c.topLeft.x, c.botRight.x - minWidth),
+        y: Math.min(c.topLeft.y, c.botRight.y - minHeight),
+      };
+      c.topRight = { ...c.topRight, y: c.topLeft.y };
+      c.botLeft = { ...c.botLeft, x: c.topLeft.x };
+    } else if (h.index === RECT_TOPRIGHT) {
+      c.topRight = {
+        x: Math.max(c.topRight.x, c.botLeft.x + minWidth),
+        y: Math.min(c.topRight.y, c.botLeft.y - minHeight),
+      };
+      c.topLeft = { ...c.topLeft, y: c.topRight.y };
+      c.botRight = { ...c.botRight, x: c.topRight.x };
+    } else if (h.index === RECT_BOTLEFT) {
+      c.botLeft = {
+        x: Math.min(c.botLeft.x, c.topRight.x - minWidth),
+        y: Math.max(c.botLeft.y, c.topRight.y + minHeight),
+      };
+      c.botRight = { ...c.botRight, y: c.botLeft.y };
+      c.topLeft = { ...c.topLeft, x: c.botLeft.x };
+    } else if (h.index === RECT_BOTRIGHT) {
+      c.botRight = {
+        x: Math.max(c.botRight.x, c.topLeft.x + minWidth),
+        y: Math.max(c.botRight.y, c.topLeft.y + minHeight),
+      };
+      c.botLeft = { ...c.botLeft, y: c.botRight.y };
+      c.topRight = { ...c.topRight, x: c.botRight.x };
+    }
+    return;
+  }
+  if (h.index === RECT_TOP)
+    c.topLeft = { ...c.topLeft, y: Math.min(c.topLeft.y, c.botRight.y - minHeight) };
+  else if (h.index === RECT_LEFT)
+    c.topLeft = { ...c.topLeft, x: Math.min(c.topLeft.x, c.botRight.x - minWidth) };
+  else if (h.index === RECT_BOT)
+    c.botRight = { ...c.botRight, y: Math.max(c.botRight.y, c.topLeft.y + minHeight) };
+  else if (h.index === RECT_RIGHT)
+    c.botRight = { ...c.botRight, x: Math.max(c.botRight.x, c.topLeft.x + minWidth) };
+}
+
+const isCorner = (h: EditHandle): boolean => h.kind === 'point' && h.index <= RECT_BOTRIGHT;
+
+/**
+ * The box a reshape produces, as RECTANGLE_POINT_EDIT_BEHAVIOR::UpdateItem
+ * writes it: a corner sets both position and end, the centre translates the
+ * whole box, and each edge sets only its own coordinate.
+ */
+function reshapedBox(
+  start: Vec2,
+  end: Vec2,
+  h: EditHandle,
+  pos: Vec2,
+  minSize: Vec2,
+): { start: Vec2; end: Vec2 } {
+  if (h.kind === 'point' && h.index === RECT_CENTER) {
+    const delta = { x: pos.x - (start.x + end.x) / 2, y: pos.y - (start.y + end.y) / 2 };
+    return {
+      start: { x: start.x + delta.x, y: start.y + delta.y },
+      end: { x: end.x + delta.x, y: end.y + delta.y },
+    };
+  }
+  const c = cornersOf(start, end);
+  moveHandle(c, h, pos);
+  pinEditedCorner(c, h, Math.max(ONE_MIL, minSize.x), Math.max(ONE_MIL, minSize.y));
+
+  if (isCorner(h)) return { start: c.topLeft, end: c.botRight };
+  if (h.index === RECT_TOP) return { start: { ...start, y: c.topLeft.y }, end };
+  if (h.index === RECT_LEFT) return { start: { ...start, x: c.topLeft.x }, end };
+  if (h.index === RECT_BOT) return { start, end: { ...end, y: c.botRight.y } };
+  if (h.index === RECT_RIGHT) return { start, end: { ...end, x: c.botRight.x } };
+  return { start, end };
+}
+
+// ----- sheets ----------------------------------------------------------------
+
+/**
+ * SCH_SHEET::bumpToNextGrid, which rounds to the 50 mil grid away from zero in
+ * `direction`. Used only to pad the pin extents that floor a sheet's size.
+ */
+function bumpToNextGrid(value: number, direction: number): number {
+  const gridSize = mmToIU(50 * 0.0254);
+  const base = Math.trunc(value / gridSize);
+  const excess = Math.abs(value % gridSize);
+  if (direction > 0) return (base + 1) * gridSize;
+  if (excess > 0) return base * gridSize;
+  return (base - 1) * gridSize;
+}
+
+/** Sheet-pin sides, from the file's angle encoding (0 right, 90 top, 180 left, 270 bottom). */
+const sideOf = (angle: number): 'right' | 'top' | 'left' | 'bottom' =>
+  angle === 90 ? 'top' : angle === 180 ? 'left' : angle === 270 ? 'bottom' : 'right';
+
+/**
+ * SCH_SHEET::GetMinWidth / GetMinHeight: a sheet cannot be shrunk past the pins
+ * on the two edges perpendicular to the drag, nor below MIN_SHEET_WIDTH /
+ * MIN_SHEET_HEIGHT.
+ *
+ * Upstream measures each pin's full bounding box, text included; we only have
+ * the pin's anchor, so the floor here is a little looser than KiCad's. It still
+ * stops the sheet closing over its pins, which is what the clamp is for.
+ */
+function sheetMinSize(sh: SchSheet, fromLeft: boolean, fromTop: boolean): Vec2 {
+  let pinsLeft = sh.at.x + sh.size.w;
+  let pinsRight = sh.at.x;
+  let pinsTop = sh.at.y + sh.size.h;
+  let pinsBottom = sh.at.y;
+
+  for (const p of sh.pins) {
+    const side = sideOf(p.angle);
+    if (side === 'top' || side === 'bottom') {
+      pinsLeft = Math.min(pinsLeft, p.at.x);
+      pinsRight = Math.max(pinsRight, p.at.x);
+    } else {
+      pinsTop = Math.min(pinsTop, p.at.y);
+      pinsBottom = Math.max(pinsBottom, p.at.y);
+    }
+  }
+  pinsLeft = bumpToNextGrid(pinsLeft, -1);
+  pinsRight = bumpToNextGrid(pinsRight, 1);
+  pinsTop = bumpToNextGrid(pinsTop, -1);
+  pinsBottom = bumpToNextGrid(pinsBottom, 1);
+
+  const minWidth =
+    pinsLeft >= pinsRight ? 0 : fromLeft ? pinsRight - sh.at.x : sh.at.x + sh.size.w - pinsLeft;
+  const minHeight =
+    pinsTop >= pinsBottom ? 0 : fromTop ? pinsBottom - sh.at.y : sh.at.y + sh.size.h - pinsTop;
+
+  return {
+    x: Math.max(minWidth, MIN_SHEET_WIDTH),
+    y: Math.max(minHeight, MIN_SHEET_HEIGHT),
+  };
+}
+
+/**
+ * SCH_SHEET_PIN::ConstrainOnEdge(pos, false): keep the pin on its own edge of
+ * the resized sheet, and clamp its along-edge coordinate into the new bounds.
+ */
+function constrainPinOnEdge(pin: SheetPin, at: Vec2, size: { w: number; h: number }): SheetPin {
+  const left = at.x;
+  const right = at.x + size.w;
+  const top = at.y;
+  const bottom = at.y + size.h;
+  switch (sideOf(pin.angle)) {
+    case 'left':
+      return { ...pin, at: { x: left, y: Math.min(Math.max(pin.at.y, top), bottom) } };
+    case 'right':
+      return { ...pin, at: { x: right, y: Math.min(Math.max(pin.at.y, top), bottom) } };
+    case 'top':
+      return { ...pin, at: { x: Math.min(Math.max(pin.at.x, left), right), y: top } };
+    case 'bottom':
+      return { ...pin, at: { x: Math.min(Math.max(pin.at.x, left), right), y: bottom } };
+  }
+}
+
+const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
+/**
+ * Resize a sheet and bring everything anchored to it along.
+ *
+ * SHEET_POINT_EDIT_BEHAVIOR::UpdateItem calls SetPositionIgnoringPins (fields
+ * follow the sheet, pins do not, because Resize is about to place them) then
+ * Resize, then walks the no-connects and wires it recorded at grab time and
+ * moves them onto their pin's new position.
+ */
+function resizeSheet(doc: Schematic, index: number, h: EditHandle, pos: Vec2): Schematic {
+  const sh = doc.sheets[index];
+  if (!sh) return doc;
+
+  const start = sh.at;
+  const end = { x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h };
+  // Which sides the drag is pulling decides which pins floor the new size: a
+  // right or bottom drag measures from the far edge, so `fromLeft` / `fromTop`
+  // follow the corner being moved (an edge line counts as its own corner).
+  const fromLeft =
+    (h.kind === 'point' && (h.index === RECT_TOPRIGHT || h.index === RECT_BOTRIGHT)) ||
+    (h.kind === 'line' && h.index === RECT_RIGHT);
+  const fromTop =
+    (h.kind === 'point' && (h.index === RECT_BOTLEFT || h.index === RECT_BOTRIGHT)) ||
+    (h.kind === 'line' && h.index === RECT_BOT);
+
+  const box = reshapedBox(start, end, h, pos, sheetMinSize(sh, fromLeft, fromTop));
+  const newAt = box.start;
+  const newSize = { w: box.end.x - box.start.x, h: box.end.y - box.start.y };
+  if (samePoint(newAt, sh.at) && newSize.w === sh.size.w && newSize.h === sh.size.h) return doc;
+
+  const delta = { x: newAt.x - sh.at.x, y: newAt.y - sh.at.y };
+  // The no-connect and the wire end sitting on each pin, recorded before the
+  // pins move so they can be put back on top of them afterwards.
+  const anchored = sh.pins.map((p) => ({
+    from: p.at,
+    to: constrainPinOnEdge(p, newAt, newSize).at,
+  }));
+
+  const resized: SchSheet = {
+    ...sh,
+    at: newAt,
+    size: newSize,
+    // SetPositionIgnoringPins moves the fields with the sheet.
+    fields: sh.fields.map((f) =>
+      f.at ? { ...f, at: { x: f.at.x + delta.x, y: f.at.y + delta.y } } : f,
+    ),
+    pins: sh.pins.map((p) => constrainPinOnEdge(p, newAt, newSize)),
+  };
+
+  const movedTo = (p: Vec2): Vec2 | null => {
+    const a = anchored.find((x) => samePoint(x.from, p));
+    return a && !samePoint(a.from, a.to) ? a.to : null;
+  };
+
+  const out: Schematic = { ...doc, sheets: doc.sheets.map((s, i) => (i === index ? resized : s)) };
+
+  let noConnects = out.noConnects;
+  if (noConnects.some((nc) => movedTo(nc.at)))
+    noConnects = noConnects.map((nc) => {
+      const to = movedTo(nc.at);
+      return to ? { ...nc, at: to } : nc;
+    });
+
+  let lines = out.lines;
+  if (
+    lines.some(
+      (l) => (l.kind === 'wire' || l.kind === 'bus') && (movedTo(l.start) || movedTo(l.end)),
+    )
+  )
+    lines = lines.map((l) => {
+      if (l.kind !== 'wire' && l.kind !== 'bus') return l;
+      const s = movedTo(l.start);
+      const e = movedTo(l.end);
+      return s || e ? { ...l, start: s ?? l.start, end: e ?? l.end } : l;
+    });
+
+  return { ...out, noConnects, lines };
+}
+
+// ----- handles and drags per item kind ---------------------------------------
+
+/** The handles a graphic shape carries, by kind. */
+function graphicHandles(g: LibGraphic): EditHandle[] {
+  switch (g.kind) {
+    case 'rectangle':
+      return rectHandles(g.start, g.end, true);
+    case 'circle':
+      // EDA_CIRCLE_POINT_EDIT_BEHAVIOR: the centre, and GetEnd(), which sits one
+      // radius to the +x side of it.
+      return [
+        pt('point', CIRC_CENTER, g.center),
+        pt('point', CIRC_END, { x: g.center.x + g.radius, y: g.center.y }),
+      ];
+    case 'polyline':
+    case 'bezier':
+      // A vertex per point: EDA_POLYGON_POINT_EDIT_BEHAVIOR for a polyline, and
+      // for a bezier the two ends plus the two control points.
+      return g.points.map((p, i) => pt('point', i, p));
+    case 'arc':
+    case 'text':
+      return [];
+  }
+}
+
+function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2): LibGraphic {
+  switch (g.kind) {
+    case 'rectangle': {
+      const box = reshapedBox(g.start, g.end, h, pos, { x: 0, y: 0 });
+      return { ...g, start: box.start, end: box.end };
+    }
+    case 'circle':
+      // Dragging the centre moves the circle; dragging the end sets the radius
+      // from the distance to the centre (EDA_SHAPE::SetEnd on a circle).
+      if (h.index === CIRC_CENTER) return { ...g, center: { ...pos } };
+      return { ...g, radius: Math.round(Math.hypot(pos.x - g.center.x, pos.y - g.center.y)) };
+    case 'polyline':
+    case 'bezier':
+      return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
+    case 'arc':
+    case 'text':
+      return g;
+  }
+}
+
+/**
+ * A note line sharing an endpoint with this one, which
+ * LINE_POINT_EDIT_BEHAVIOR::MakePoints records so that dragging the shared
+ * endpoint drags both. Only graphic lines connect this way: the check upstream
+ * is `test->GetLayer() != LAYER_NOTES`, so wires and buses are left to the
+ * connectivity machinery instead.
+ */
+function connectedNoteLine(
+  doc: Schematic,
+  self: number,
+  p: Vec2,
+): { index: number; end: 'start' | 'end' } | null {
+  for (let i = 0; i < doc.lines.length; i++) {
+    if (i === self) continue;
+    const l = doc.lines[i]!;
+    if (l.kind !== 'polyline') continue;
+    if (samePoint(l.start, p)) return { index: i, end: 'start' };
+    if (samePoint(l.end, p)) return { index: i, end: 'end' };
+  }
+  return null;
+}
+
+function dragLine(doc: Schematic, index: number, h: EditHandle, pos: Vec2): Schematic {
+  const l = doc.lines[index];
+  if (!l) return doc;
+
+  // A multi-point polyline has a handle per vertex and no separate start/end.
+  if (l.points && l.points.length > 2) {
+    const points = l.points.map((p, i) => (i === h.index ? { ...pos } : p));
+    const moved: SchLine = {
+      ...l,
+      points,
+      start: points[0]!,
+      end: points[points.length - 1]!,
+    };
+    return { ...doc, lines: doc.lines.map((x, i) => (i === index ? moved : x)) };
+  }
+
+  const from = h.index === LINE_START ? l.start : l.end;
+  const moved: SchLine =
+    h.index === LINE_START ? { ...l, start: { ...pos } } : { ...l, end: { ...pos } };
+  const linked = connectedNoteLine(doc, index, from);
+
+  return {
+    ...doc,
+    lines: doc.lines.map((x, i) => {
+      if (i === index) return moved;
+      if (linked && i === linked.index)
+        return linked.end === 'start' ? { ...x, start: { ...pos } } : { ...x, end: { ...pos } };
+      return x;
+    }),
+  };
+}
+
+/** The minimum a text box may shrink to (SCH_TEXTBOX::GetMinSize): its text
+ *  must still fit vertically. Empty text has no floor. */
+function textBoxMinSize(tb: SchTextBox): Vec2 {
+  if (tb.text.trim() === '') return { x: 0, y: 0 };
+  const lines = tb.text.split('\n').length;
+  const fontHeight = tb.effects?.fontSize?.[1] ?? mmToIU(1.27);
+  const margins = (tb.margins?.top ?? 0) + (tb.margins?.bottom ?? 0);
+  return { x: 0, y: lines * fontHeight * 1.2 + margins };
+}
+
+/** The handles of the item, in the order upstream's EDIT_POINTS holds them. */
+export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
+  switch (t.kind) {
+    case 'sheet': {
+      const sh = doc.sheets[t.index];
+      if (!sh) return [];
+      // A sheet has no centre handle: it is dragged by its body instead.
+      return rectHandles(sh.at, { x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h }, false);
+    }
+    case 'textbox': {
+      const tb = doc.textBoxes[t.index];
+      return tb ? rectHandles(tb.start, tb.end, true) : [];
+    }
+    case 'line': {
+      const l = doc.lines[t.index];
+      if (!l) return [];
+      if (l.points && l.points.length > 2) return l.points.map((p, i) => pt('point', i, p));
+      return [pt('point', LINE_START, l.start), pt('point', LINE_END, l.end)];
+    }
+    case 'graphic': {
+      const g = doc.graphics[t.index];
+      return g ? graphicHandles(g) : [];
+    }
+  }
+}
+
+/** The document with `handle` dragged to `pos`. Pure: same inputs, same result. */
+export function dragHandle(
+  doc: Schematic,
+  t: PointEditTarget,
+  handle: EditHandle,
+  pos: Vec2,
+): Schematic {
+  switch (t.kind) {
+    case 'sheet':
+      return resizeSheet(doc, t.index, handle, pos);
+    case 'textbox': {
+      const tb = doc.textBoxes[t.index];
+      if (!tb) return doc;
+      const box = reshapedBox(tb.start, tb.end, handle, pos, textBoxMinSize(tb));
+      const moved: SchTextBox = { ...tb, start: box.start, end: box.end };
+      return { ...doc, textBoxes: doc.textBoxes.map((x, i) => (i === t.index ? moved : x)) };
+    }
+    case 'line':
+      return dragLine(doc, t.index, handle, pos);
+    case 'graphic': {
+      const g = doc.graphics[t.index];
+      if (!g) return doc;
+      const moved = dragGraphic(g, handle, pos);
+      return { ...doc, graphics: doc.graphics.map((x, i) => (i === t.index ? moved : x)) };
+    }
+  }
+}
+
+/**
+ * One undo step for a completed drag. A drag runs `dragHandle` per pointer event
+ * and only the final document is committed, so the command carries that result
+ * and its inverse carries the document as the drag found it.
+ *
+ * Only the arrays a reshape can touch are taken from `after`, and only when it
+ * actually replaced them, so an undo step never disturbs edits made elsewhere in
+ * the document between apply and invert.
+ */
+export function reshapeCommand(label: string, after: Schematic): EditCommand {
+  return {
+    label,
+    apply(doc: Schematic): Schematic {
+      const out: { -readonly [K in keyof Schematic]: Schematic[K] } = { ...doc };
+      if (after.sheets !== doc.sheets) out.sheets = after.sheets;
+      if (after.lines !== doc.lines) out.lines = after.lines;
+      if (after.graphics !== doc.graphics) out.graphics = after.graphics;
+      if (after.textBoxes !== doc.textBoxes) out.textBoxes = after.textBoxes;
+      if (after.noConnects !== doc.noConnects) out.noConnects = after.noConnects;
+      return out;
+    },
+    invert: (before: Schematic) => reshapeCommand(label, before),
+  };
+}

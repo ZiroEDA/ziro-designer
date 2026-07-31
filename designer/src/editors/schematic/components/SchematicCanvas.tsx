@@ -57,6 +57,12 @@ import {
   lassoSelect,
   pasteItems,
   translatePayload,
+  pointEditTarget,
+  editHandles,
+  dragHandle,
+  reshapeCommand,
+  type EditHandle,
+  type PointEditTarget,
   type MoveSpec,
   type EditCommand,
   type Schematic,
@@ -460,6 +466,25 @@ const BOX_FILL_SUBTRACT = 'rgba(255, 128, 128, 0.5)'; // COLOR4D(1.0,0.5,0.5,0.5
 const BOX_OUTLINE_L2R = 'rgb(179, 179, 0)'; // window select: dark yellow
 const BOX_OUTLINE_R2L = 'rgb(26, 26, 255)'; // greedy select: blue
 
+// EDIT_POINT's screen sizes and LAYER_AUX_ITEMS colour (edit_points.h /
+// edit_points.cpp ViewDraw). The border is derived from the fill the way
+// upstream does it: white is bright, so it darkens by 0.7 / 0.5 at alpha 0.8.
+// Same values as the PCB point editor, so a handle looks the same in both.
+const EDIT_POINT_SIZE = 8;
+const EDIT_POINT_BORDER_SIZE = 3;
+const EDIT_POINT_HOVER_SIZE = 6;
+const EDIT_POINT_FILL = 'rgb(255,255,255)';
+const EDIT_POINT_BORDER = 'rgba(77,77,77,0.8)';
+const EDIT_POINT_HOVER_BORDER = 'rgba(128,128,128,0.8)';
+
+/** Undo labels for a completed reshape, as KiCad names the commit. */
+const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
+  sheet: 'Resize Sheet',
+  textbox: 'Resize Text Box',
+  line: 'Drag Line Endpoint',
+  graphic: 'Drag Shape',
+};
+
 export const SchematicCanvas = forwardRef<CanvasController, Props>(function SchematicCanvas(
   {
     schematic,
@@ -569,6 +594,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // anchors of everything else, so a dragged pin/wire-end snaps onto a matching anchor.
   const movePointsRef = useRef<Vec2[]>([]);
   const moveAnchorsRef = useRef<Vec2[]>([]);
+
+  // Point editing (SCH_POINT_EDITOR): the handles of the one selected item,
+  // which one the cursor is over, and the drag in flight. The reshaped document
+  // is what the scene paints while a handle is being dragged, and what gets
+  // committed on release.
+  const pointTargetRef = useRef<PointEditTarget | null>(null);
+  const pointHandlesRef = useRef<readonly EditHandle[]>([]);
+  const hoveredHandleRef = useRef<EditHandle | null>(null);
+  const pointDragRef = useRef<EditHandle | null>(null);
+  const pointEditDocRef = useRef<Schematic | null>(null);
+  /** Assigned once the frame scheduler below exists. */
+  const requestOverlayRef = useRef<() => void>(() => {});
 
   // Box-selection drag (KiCad selectMultiple): origin/end in world coordinates.
   const boxHitRef = useRef<string | null>(null);
@@ -734,6 +771,57 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => window.removeEventListener('keydown', onEsc, true);
   }, [grabRequest?.nonce]);
 
+  // Escape abandons a handle drag: nothing has been committed, so dropping the
+  // reshaped document puts the item back. Capture phase + stopPropagation so
+  // the editor's own Escape does not also clear the selection.
+  useEffect(() => {
+    const onEsc = (ev: KeyboardEvent): void => {
+      if (ev.key !== 'Escape' || !pointDragRef.current) return;
+      ev.stopPropagation();
+      pointDragRef.current = null;
+      pointEditDocRef.current = null;
+      const target = pointTargetRef.current;
+      if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+      requestDrawRef.current();
+    };
+    window.addEventListener('keydown', onEsc, true);
+    return () => window.removeEventListener('keydown', onEsc, true);
+  }, []);
+
+  // SCH_POINT_EDITOR shows its points for a single selected item, and only with
+  // the selection tool: while a drawing tool is up the clicks belong to it.
+  useEffect(() => {
+    const one = selection.size === 1 ? [...selection][0]! : null;
+    const target = one && activeTool === 'select' ? pointEditTarget(schematic, one) : null;
+    pointTargetRef.current = target;
+    pointHandlesRef.current = target ? editHandles(schematic, target) : [];
+    if (!target) hoveredHandleRef.current = null;
+    requestOverlayRef.current();
+  }, [selection, schematic, activeTool]);
+
+  /**
+   * The handle under a world point. EDIT_POINTS::FindPoint hit-tests each point's
+   * own box, which stays POINT_SIZE screen pixels wide however far you are zoomed
+   * in, so the tolerance is converted back through the view scale.
+   */
+  const handleAt = useCallback((p: Vec2): EditHandle | null => {
+    const vp = viewportRef.current;
+    const handles = pointHandlesRef.current;
+    if (!vp || handles.length === 0) return null;
+    const tol = (EDIT_POINT_SIZE * dpr()) / vp.scale;
+    let best: EditHandle | null = null;
+    let bestD = Number.POSITIVE_INFINITY;
+    for (const h of handles) {
+      const d = Math.hypot(h.at.x - p.x, h.at.y - p.y);
+      // Corner points win ties: they sit on top of the edge handles either side.
+      if (d <= tol && (d < bestD || (d === bestD && h.kind === 'point'))) {
+        best = h;
+        bestD = d;
+      }
+    }
+    return best;
+  }, []);
+
   /**
    * The document as it should currently look: the schematic plus whatever ghost
    * the active tool has attached to the cursor. `ghosting` says whether any of
@@ -745,6 +833,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const spec = moveSpecRef.current;
     let ghosting = false;
     let doc = schematic;
+    // A handle drag in flight paints the reshaped document instead: it changes
+    // every frame, so like every other ghost it must not be baked into the raster.
+    if (pointEditDocRef.current) {
+      return { doc: pointEditDocRef.current, ghosting: true };
+    }
     if (modeRef.current === 'move' && md && spec) {
       doc = buildMove(spec, md).apply(schematic);
       ghosting = true;
@@ -1109,6 +1202,34 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.stroke();
     }
 
+    // Edit points (SCH_POINT_EDITOR): a square on every corner or vertex of the
+    // one selected item and a circle at every edge midpoint, drawn at a fixed
+    // screen size whatever the zoom, in LAYER_AUX_ITEMS white with the darker
+    // border EDIT_POINTS::ViewDraw derives from it, thickening on hover.
+    {
+      const handles = pointHandlesRef.current;
+      if (handles.length > 0 && modeRef.current !== 'move') {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const r = dpr();
+        const half = (EDIT_POINT_SIZE / 2) * r;
+        const hovered = pointDragRef.current ?? hoveredHandleRef.current;
+        ctx.fillStyle = EDIT_POINT_FILL;
+        ctx.setLineDash([]);
+        for (const h of handles) {
+          const x = h.at.x * vp.scale + vp.offsetX;
+          const y = h.at.y * vp.scale + vp.offsetY;
+          const active = hovered?.kind === h.kind && hovered?.index === h.index;
+          ctx.strokeStyle = active ? EDIT_POINT_HOVER_BORDER : EDIT_POINT_BORDER;
+          ctx.lineWidth = (active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * r;
+          ctx.beginPath();
+          if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
+          else ctx.rect(x - half, y - half, half * 2, half * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+    }
+
     // Crosshair cursor (GAL options): full-window lines or a small cross at
     // the snapped cursor position, in the LAYER_SCHEMATIC_CURSOR colour.
     // Drawing tools always show it (ShowCursor(true)); with the selection tool
@@ -1193,6 +1314,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   /** Repaint only the pointer overlay on the next frame. */
   const requestOverlay = schedule;
   requestDrawRef.current = requestDraw;
+  requestOverlayRef.current = requestOverlay;
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const zoomAbout = useCallback(
@@ -1701,6 +1823,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
+      // A handle under the cursor takes the press: SCH_POINT_EDITOR runs ahead
+      // of the selection tool, so grabbing a point reshapes the item rather than
+      // starting a move of it.
+      if (e.button === 0) {
+        const grabbed = handleAt(world);
+        if (grabbed) {
+          (e.target as Element).setPointerCapture(e.pointerId);
+          pointDragRef.current = grabbed;
+          requestOverlay();
+          return;
+        }
+      }
+
       // select / move, the left-drag semantics follow the "Left button drag"
       // preference: SELECT always rubber-bands; DRAG_SELECTED moves only an
       // already-selected item; DRAG_ANY moves whatever is under the cursor.
@@ -1777,6 +1912,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       finishWireChain,
       finalizeShape,
       requestDraw,
+      requestOverlay,
+      handleAt,
       inputPrefs,
     ],
   );
@@ -1788,6 +1925,32 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const world = toWorld(e.clientX, e.clientY);
       cursorRef.current = world;
       onCursorMove?.(world);
+
+      // Dragging an edit point reshapes the item live. The reshape runs against
+      // the committed document rather than the previous frame's result, so a
+      // drag is a pure function of where the cursor is now, and nothing
+      // accumulates across frames.
+      const dragging = pointDragRef.current;
+      const target = pointTargetRef.current;
+      if (dragging && target) {
+        const reshaped = dragHandle(schematic, target, dragging, snap(world));
+        pointEditDocRef.current = reshaped === schematic ? null : reshaped;
+        // The handles move with the item, so the one being dragged is re-derived
+        // to keep the hover highlight and the next frame's geometry in step.
+        pointHandlesRef.current = editHandles(reshaped, target);
+        requestDraw();
+        return;
+      }
+
+      // Idle hover over a handle thickens its border (EDIT_POINTS::ViewDraw).
+      if (modeRef.current === 'idle' && pointHandlesRef.current.length > 0) {
+        const over = handleAt(world);
+        const was = hoveredHandleRef.current;
+        if (over?.kind !== was?.kind || over?.index !== was?.index) {
+          hoveredHandleRef.current = over;
+          requestOverlay();
+        }
+      }
 
       // Over a dangling pin with the select tool: show the wire cursor (KiCad switches
       // the cursor to LINE_WIRE to signal that clicking will start a wire).
@@ -1903,12 +2066,28 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       requestOverlay,
       onCursorMove,
       zoomAbout,
+      handleAt,
+      schematic,
+      snap,
       GRID,
     ],
   );
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
+      // A handle drag commits the reshape as one undo step. A press that never
+      // moved leaves no document to commit and just lets go of the handle.
+      if (pointDragRef.current) {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+        const reshaped = pointEditDocRef.current;
+        const target = pointTargetRef.current;
+        pointDragRef.current = null;
+        pointEditDocRef.current = null;
+        if (reshaped && target) onCommand(reshapeCommand(POINT_EDIT_LABELS[target.kind], reshaped));
+        else if (target) pointHandlesRef.current = editHandles(schematic, target);
+        requestDraw();
+        return;
+      }
       // Middle/right-button pan or drag-zoom ends regardless of the active tool.
       if (
         (modeRef.current === 'pan' || modeRef.current === 'dragzoom') &&
