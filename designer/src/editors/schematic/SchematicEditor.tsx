@@ -417,6 +417,7 @@ const sPowerHistoryList: PickedSymbol[] = [];
 export function SchematicEditor({
   onExitToHome,
   onShowPcb,
+  onUpdatePcb,
   onShowSymbolEditor,
   onShowFootprintEditor,
   onShowCalculator,
@@ -434,6 +435,9 @@ export function SchematicEditor({
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
+  /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
+   *  its update dialog. Absent when the project has no board. */
+  onUpdatePcb?: () => void;
   /** Open the Symbol Editor (the top toolbar's `symbolEditor` button). */
   onShowSymbolEditor?: () => void;
   /** Open the Footprint Editor (the top toolbar's `footprintEditor` button). */
@@ -3595,6 +3599,7 @@ export function SchematicEditor({
       else if (id === 'save') save();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'showPcbNew') onShowPcb?.();
+      else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
       else if (id === 'bom') setBomOpen(true);
@@ -3760,6 +3765,7 @@ export function SchematicEditor({
       runCommand,
       runErcNow,
       onShowPcb,
+      onUpdatePcb,
       onShowSymbolEditor,
       onShowFootprintEditor,
       onShowCalculator,
@@ -4140,6 +4146,11 @@ export function SchematicEditor({
         e.preventDefault();
         const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
         onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+      } else if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        // ACTIONS::updatePcbFromSchematic's default hotkey, the same one the PCB
+        // frame answers.
+        e.preventDefault();
+        onUpdatePcb?.();
       } else if (e.key === 'F5' && !e.altKey && !e.shiftKey) {
         // ACTIONS::zoomRedraw default hotkey (F5).
         e.preventDefault();
@@ -4302,6 +4313,7 @@ export function SchematicEditor({
     save,
     promptOpen,
     selection,
+    onUpdatePcb,
     runCommand,
     activeTool,
     onToolSelect,
