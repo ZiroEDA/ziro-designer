@@ -486,6 +486,7 @@ const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
   textbox: 'Resize Text Box',
   line: 'Drag Line Endpoint',
   graphic: 'Drag Shape',
+  image: 'Resize Image',
 };
 
 export const SchematicCanvas = forwardRef<CanvasController, Props>(function SchematicCanvas(

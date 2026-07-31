@@ -12,7 +12,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { refId, hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { imagePixelSize, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 import {
@@ -548,5 +549,107 @@ describe('a sheet pin is measured by its whole flag', () => {
       return dragHandle(d, t, h, { x: mm(50), y: mm(50) }).sheets[0]!.size.w;
     };
     expect(floorFor(5)).toBeGreaterThan(floorFor(1.27));
+  });
+});
+
+describe('images', () => {
+  // A 64 x 32 PNG: only its header is present, which is all the engine reads.
+  const PNG_64x32 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6E';
+  const IU_PER_PIXEL = 254000 / 300;
+  const imgDoc = (scale = 1) =>
+    readSchematic(
+      parse(
+        `(kicad_sch (version 1) (lib_symbols)
+           (image (at 100 100) (scale ${scale}) (uuid "im1") (data "${PNG_64x32}")))`,
+      ),
+    );
+
+  it('reads its pixel size out of the PNG header', () => {
+    // BITMAP_BASE::GetSizePixels, without a decoder: PNG states its dimensions
+    // in IHDR, which is always the first chunk at a fixed offset.
+    expect(imagePixelSize(PNG_64x32)).toEqual({ w: 64, h: 32 });
+    expect(imagePixelSize('not base64 at all!!')).toBeNull();
+    // A valid base64 payload that is not a PNG is refused rather than guessed at.
+    expect(imagePixelSize('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')).toBeNull();
+  });
+
+  it('scales that size the way REFERENCE_IMAGE::GetSize does', () => {
+    expect(imageSizeIU(imgDoc(1).images[0]!).w).toBeCloseTo(64 * IU_PER_PIXEL, 3);
+    expect(imageSizeIU(imgDoc(2).images[0]!).h).toBeCloseTo(2 * 32 * IU_PER_PIXEL, 3);
+  });
+
+  it('puts a handle on each corner of its true extent', () => {
+    const d = imgDoc();
+    const t = pointEditTarget(d, refId('image', 'im1', 0))!;
+    expect(t.kind).toBe('image');
+    const hs = editHandles(d, t);
+    // Four corners; upstream's fifth point is the transform origin, which we
+    // do not model.
+    expect(hs).toHaveLength(4);
+    const halfW = (64 * IU_PER_PIXEL) / 2;
+    const halfH = (32 * IU_PER_PIXEL) / 2;
+    expect(hs[0]!.at.x).toBeCloseTo(mm(100) - halfW, 3);
+    expect(hs[3]!.at.y).toBeCloseTo(mm(100) + halfH, 3);
+  });
+
+  it('rescales about its centre, keeping the aspect ratio', () => {
+    // An image resizes by a ratio of distances from the centre, not by moving
+    // the corner to the cursor, so the aspect ratio cannot drift.
+    const d = imgDoc();
+    const t = pointEditTarget(d, refId('image', 'im1', 0))!;
+    const corner = editHandles(d, t)[3]!; // bottom-right
+    const from = { x: corner.at.x - mm(100), y: corner.at.y - mm(100) };
+    const out = dragHandle(d, t, corner, {
+      x: mm(100) + from.x * 2,
+      y: mm(100) + from.y * 2,
+    });
+    expect(out.images[0]!.scale).toBeCloseTo(2, 6);
+    expect(out.images[0]!.at).toEqual(d.images[0]!.at);
+  });
+
+  it('will not let a corner cross the centre and mirror the image', () => {
+    const d = imgDoc();
+    const t = pointEditTarget(d, refId('image', 'im1', 0))!;
+    const corner = editHandles(d, t)[3]!;
+    // Dragged well past the centre into the opposite quadrant.
+    const out = dragHandle(d, t, corner, { x: mm(50), y: mm(50) });
+    expect(out.images[0]!.scale).toBeGreaterThan(0);
+  });
+
+  it('will not shrink past 50 mils on its longer side', () => {
+    // UpdateItem floors both dimensions at 50 mils and then takes the *smaller*
+    // of the two resulting ratios, so the constraint that actually binds is the
+    // one on the longer side; the shorter side stays proportional and ends up
+    // under 50 mils. That is upstream's behaviour, not a rounding artefact.
+    const d = imgDoc();
+    const t = pointEditTarget(d, refId('image', 'im1', 0))!;
+    const corner = editHandles(d, t)[3]!;
+    const out = dragHandle(d, t, corner, { x: mm(100) + 1, y: mm(100) + 1 });
+    const size = imageSizeIU(out.images[0]!);
+    const before = imageSizeIU(d.images[0]!);
+    expect(Math.max(size.w, size.h)).toBeCloseTo(mmToIU(50 * 0.0254), -1);
+    // Still 2:1, the ratio it started at.
+    expect(size.w / size.h).toBeCloseTo(before.w / before.h, 6);
+  });
+
+  it('survives a save', () => {
+    const d = imgDoc();
+    const t = pointEditTarget(d, refId('image', 'im1', 0))!;
+    const corner = editHandles(d, t)[3]!;
+    const from = { x: corner.at.x - mm(100), y: corner.at.y - mm(100) };
+    const out = dragHandle(d, t, corner, { x: mm(100) + from.x * 2, y: mm(100) + from.y * 2 });
+    const reread = readSchematic(parse(serializeSchematic(out)));
+    expect(reread.images[0]!.scale).toBeCloseTo(out.images[0]!.scale, 6);
+  });
+
+  it('is clickable over its whole extent, and not beyond it', () => {
+    // The hit test used to assume a flat 40x40 pixels for every image, so a
+    // large one was only clickable near its middle.
+    const d = imgDoc();
+    const hit = (dx: number, dy: number) =>
+      hitTest(d, new Map(), { x: mm(100) + dx, y: mm(100) + dy }, 0)?.kind ?? null;
+    const halfW = (64 * IU_PER_PIXEL) / 2;
+    expect(hit(halfW * 0.9, 0)).toBe('image');
+    expect(hit(halfW * 1.5, 0)).toBeNull();
   });
 });

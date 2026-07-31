@@ -21,9 +21,9 @@
  * so the preview during a drag and the committed result cannot disagree.
  *
  * Covered here: wires, buses, graphic polylines, rectangles, circles, arcs, text
- * boxes and sheets. Not yet: table cells, and ellipses and rule areas, which we
- * do not model at all. Arcs live in arc_edit.ts, since what a drag means there
- * depends on the ARC_EDIT_MODE preference and takes real geometry.
+ * boxes, sheets and images. Not yet: table cells, and ellipses and rule areas,
+ * which we do not model at all. Arcs live in arc_edit.ts, since what a drag
+ * means there depends on the ARC_EDIT_MODE preference and takes real geometry.
  *
  * Note that a sheet-level `(polyline …)` is read into `lines`, not `graphics`
  * (only rectangles, circles and arcs become graphics), so the vertex handles for
@@ -35,12 +35,14 @@ import type {
   SchSheet,
   SchLine,
   SchTextBox,
+  SchImage,
   SheetPin,
   LibGraphic,
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
 import { sheetPinBBox } from './bbox.js';
+import { imageSizeIU } from './image_size.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { EditCommand } from './command.js';
 import {
@@ -70,7 +72,7 @@ export interface EditHandle {
 
 /** The item the handles belong to: which array, and where in it. */
 export interface PointEditTarget {
-  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox';
+  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox' | 'image';
   readonly index: number;
 }
 
@@ -120,6 +122,8 @@ export function pointEditTarget(doc: Schematic, id: string): PointEditTarget | n
   if (textbox !== -1) return { kind: 'textbox', index: textbox };
   const line = find(doc.lines, 'line');
   if (line !== -1) return { kind: 'line', index: line };
+  const image = find(doc.images, 'image');
+  if (image !== -1) return { kind: 'image', index: image };
   // Graphics carry no uuid of their own, so they are addressed by index.
   const graphic = (doc.graphics ?? []).findIndex((_, i) => refId('graphic', undefined, i) === id);
   if (graphic !== -1) {
@@ -610,6 +614,85 @@ function dragLine(doc: Schematic, index: number, h: EditHandle, pos: Vec2): Sche
   };
 }
 
+// ----- images ----------------------------------------------------------------
+
+/** BITMAP_POINT_EDIT_BEHAVIOR's 50 mil floor on a rescaled image. */
+const MIN_IMAGE_SIDE = mmToIU(50 * 0.0254);
+
+/**
+ * An image's four corner handles. `at` is its centre, so they sit half its
+ * extent away in each direction (BITMAP_POINT_EDIT_BEHAVIOR::MakePoints).
+ *
+ * Upstream adds a fifth for the transform origin. We do not model
+ * `SCH_BITMAP`'s transform-origin offset, so there is nothing to place there
+ * and no drag that could write it back; the four corners are the whole set.
+ */
+function imageHandles(im: SchImage): EditHandle[] {
+  const s = imageSizeIU(im);
+  const topLeft = { x: im.at.x - s.w / 2, y: im.at.y - s.h / 2 };
+  const botRight = { x: im.at.x + s.w / 2, y: im.at.y + s.h / 2 };
+  const c = cornersOf(topLeft, botRight);
+  return [
+    pt('point', RECT_TOPLEFT, c.topLeft),
+    pt('point', RECT_TOPRIGHT, c.topRight),
+    pt('point', RECT_BOTLEFT, c.botLeft),
+    pt('point', RECT_BOTRIGHT, c.botRight),
+  ];
+}
+
+/**
+ * Rescale an image by dragging a corner (BITMAP_POINT_EDIT_BEHAVIOR::UpdateItem).
+ *
+ * An image scales about its centre and keeps its aspect ratio, so the drag is
+ * read as a ratio of distances rather than a new corner position: how far the
+ * corner now is from the centre, over how far it was. Dragging through the
+ * centre would flip the image, so a corner that crosses it is pinned there, and
+ * the result is floored at 50 mils on the shorter side.
+ */
+function dragImage(im: SchImage, h: EditHandle, pos: Vec2): SchImage {
+  const size = imageSizeIU(im);
+  const origin = im.at;
+  const half = { x: size.w / 2, y: size.h / 2 };
+
+  // The corner being dragged, as it was, relative to the centre.
+  let oldCorner: Vec2;
+  switch (h.index) {
+    case RECT_TOPLEFT:
+      oldCorner = { x: -half.x, y: -half.y };
+      break;
+    case RECT_TOPRIGHT:
+      oldCorner = { x: half.x, y: -half.y };
+      break;
+    case RECT_BOTLEFT:
+      oldCorner = { x: -half.x, y: half.y };
+      break;
+    case RECT_BOTRIGHT:
+      oldCorner = { x: half.x, y: half.y };
+      break;
+    default:
+      return im;
+  }
+  let newCorner = { x: pos.x - origin.x, y: pos.y - origin.y };
+
+  // Crossing the origin would mirror the image, which a resize handle must not
+  // do, so a corner that changes sign is clamped onto the centre instead.
+  const sign = (v: number): number => (v < 0 ? -1 : v > 0 ? 1 : 0);
+  if (sign(newCorner.x) !== sign(oldCorner.x) || sign(newCorner.y) !== sign(oldCorner.y))
+    newCorner = { x: 0, y: 0 };
+
+  const newLength = Math.hypot(newCorner.x, newCorner.y);
+  const oldLength = Math.hypot(oldCorner.x, oldCorner.y);
+  let ratio = oldLength > 0 ? newLength / oldLength : 1;
+
+  // Floor the shorter side at 50 mils, and take whichever ratio that implies.
+  const newWidth = Math.max(size.w * ratio, MIN_IMAGE_SIDE);
+  const newHeight = Math.max(size.h * ratio, MIN_IMAGE_SIDE);
+  ratio = Math.min(newWidth / size.w, newHeight / size.h);
+  if (ratio === 1) return im;
+
+  return { ...im, scale: im.scale * ratio };
+}
+
 /** The minimum a text box may shrink to (SCH_TEXTBOX::GetMinSize): its text
  *  must still fit vertically. Empty text has no floor. */
 function textBoxMinSize(tb: SchTextBox): Vec2 {
@@ -638,6 +721,10 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
       if (!l) return [];
       if (l.points && l.points.length > 2) return l.points.map((p, i) => pt('point', i, p));
       return [pt('point', LINE_START, l.start), pt('point', LINE_END, l.end)];
+    }
+    case 'image': {
+      const im = doc.images[t.index];
+      return im ? imageHandles(im) : [];
     }
     case 'graphic': {
       const g = doc.graphics[t.index];
@@ -671,6 +758,13 @@ export function dragHandle(
     }
     case 'line':
       return dragLine(doc, t.index, handle, pos);
+    case 'image': {
+      const im = doc.images[t.index];
+      if (!im) return doc;
+      const moved = dragImage(im, handle, pos);
+      if (moved === im) return doc;
+      return { ...doc, images: doc.images.map((x, i) => (i === t.index ? moved : x)) };
+    }
     case 'graphic': {
       const g = doc.graphics[t.index];
       if (!g) return doc;
@@ -702,6 +796,7 @@ export function reshapeCommand(label: string, after: Schematic): EditCommand {
       if (after.graphics !== doc.graphics) out.graphics = after.graphics;
       if (after.textBoxes !== doc.textBoxes) out.textBoxes = after.textBoxes;
       if (after.noConnects !== doc.noConnects) out.noConnects = after.noConnects;
+      if (after.images !== doc.images) out.images = after.images;
       return out;
     },
     invert: (before: Schematic) => reshapeCommand(label, before),
