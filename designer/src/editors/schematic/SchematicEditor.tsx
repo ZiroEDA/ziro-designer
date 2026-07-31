@@ -121,6 +121,9 @@ import {
   addSheetPin,
   replaceSheet,
   replaceGraphic,
+  replaceImage,
+  imagePPI,
+  imagePixelSize,
   replaceTextBox,
   replaceTable,
   replaceLabel,
@@ -203,6 +206,7 @@ import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
+import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
@@ -644,6 +648,8 @@ export function SchematicEditor({
   const [shapeEdit, setShapeEdit] = useState<{ kind: 'graphic' | 'line'; index: number } | null>(
     null,
   );
+  // Image Properties (DIALOG_IMAGE_PROPERTIES over PANEL_IMAGE_EDITOR).
+  const [imageEdit, setImageEdit] = useState<{ index: number } | null>(null);
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -2408,7 +2414,10 @@ export function SchematicEditor({
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        else if (d.graphics.some((_, i) => refId('graphic', undefined, i) === id)) {
+        else if (d.images.some((im, i) => refId('image', im.uuid, i) === id)) {
+          const ii = d.images.findIndex((im, i) => refId('image', im.uuid, i) === id);
+          setImageEdit({ index: ii });
+        } else if (d.graphics.some((_, i) => refId('graphic', undefined, i) === id)) {
           const gi = d.graphics.findIndex((_, i) => refId('graphic', undefined, i) === id);
           // Free text has no border or fill to edit; it is a text item.
           if (d.graphics[gi]!.kind !== 'text') setShapeEdit({ kind: 'graphic', index: gi });
@@ -3620,6 +3629,28 @@ export function SchematicEditor({
       };
     },
     [shapeEditItem],
+  );
+
+  /** Apply DIALOG_IMAGE_PROPERTIES: position, scale, and the payload when
+   *  Convert to Greyscale rewrote it. */
+  const commitImageEdit = useCallback(
+    (r: ImagePropsResult) => {
+      setImageEdit((ie) => {
+        if (!ie || !doc) return null;
+        const orig = doc.images[ie.index];
+        if (orig)
+          runCommand(
+            replaceImage(ie.index, {
+              ...orig,
+              at: r.at,
+              scale: r.scale,
+              ...(r.data !== undefined ? { data: r.data } : {}),
+            }),
+          );
+        return null;
+      });
+    },
+    [doc, runCommand],
   );
 
   /**
@@ -5632,6 +5663,18 @@ export function SchematicEditor({
           hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
           onOk={commitSheetEdit}
           onCancel={() => setSheetEdit(null)}
+        />
+      )}
+
+      {imageEdit && doc.images[imageEdit.index] && (
+        <DialogImageProperties
+          at={doc.images[imageEdit.index]!.at}
+          scale={doc.images[imageEdit.index]!.scale}
+          data={doc.images[imageEdit.index]!.data}
+          ppi={imagePPI(doc.images[imageEdit.index]!.data)}
+          pixelSize={imagePixelSize(doc.images[imageEdit.index]!.data) ?? { w: 40, h: 40 }}
+          onOk={commitImageEdit}
+          onCancel={() => setImageEdit(null)}
         />
       )}
 

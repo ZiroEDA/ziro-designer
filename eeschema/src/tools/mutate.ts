@@ -314,6 +314,20 @@ export function replaceSheet(index: number, next: SchSheet): EditCommand {
   };
 }
 
+/** Replace the image at `index` with `next` (its position, scale, or a payload
+ *  rewritten by Convert to Greyscale). */
+export function replaceImage(index: number, next: SchImage): EditCommand {
+  return {
+    label: 'Edit Image',
+    apply(doc: Schematic): Schematic {
+      return { ...doc, images: doc.images.map((im, i) => (i === index ? next : im)) };
+    },
+    invert(before: Schematic): EditCommand {
+      return replaceImage(index, before.images[index]!);
+    },
+  };
+}
+
 /** Replace the sheet-level graphic shape at `index` with `next` (its border and
  *  fill, from DIALOG_SHAPE_PROPERTIES, or its geometry from the point editor). */
 export function replaceGraphic(index: number, next: LibGraphic): EditCommand {
