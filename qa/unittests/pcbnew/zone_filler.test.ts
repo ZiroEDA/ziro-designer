@@ -315,6 +315,69 @@ describe('zone filler', () => {
     expect(fill(MM(3))).toBeLessThan(fill(MM(1.5)));
   });
 
+  describe('copper thieving', () => {
+    const thieved = (over: Record<string, unknown>) =>
+      fillZone(
+        board({
+          zones: [
+            zone({
+              fillMode: 'thieving',
+              thieving: {
+                pattern: 'dots',
+                elementSize: MM(1),
+                gap: MM(2),
+                lineWidth: MM(0.5),
+                stagger: false,
+                orientation: 0,
+                ...over,
+              },
+            }),
+          ],
+        }),
+        0,
+      );
+
+    it('replaces the pour with a field of separate dots', () => {
+      const polys = thieved({})[0]!.polys;
+      // A 40 mm zone on a 3 mm pitch: order of 13 x 13 dots, each its own ring.
+      expect(polys.length).toBeGreaterThan(100);
+      // Each dot is about 1 mm across, so the copper left is a small fraction.
+      expect(area(polys)).toBeLessThan(1600 * 0.15);
+      expect(area(polys)).toBeGreaterThan(0);
+    });
+
+    it('squares cover more copper than dots of the same size', () => {
+      expect(area(thieved({ pattern: 'squares' })[0]!.polys)).toBeGreaterThan(
+        area(thieved({ pattern: 'dots' })[0]!.polys),
+      );
+    });
+
+    it('a wider gap leaves fewer stamps', () => {
+      expect(thieved({ gap: MM(6) })[0]!.polys.length).toBeLessThan(
+        thieved({ gap: MM(2) })[0]!.polys.length,
+      );
+    });
+
+    it('staggering shifts alternate rows without changing the count much', () => {
+      const straight = thieved({ stagger: false })[0]!.polys.length;
+      const staggered = thieved({ stagger: true })[0]!.polys.length;
+      expect(Math.abs(straight - staggered)).toBeLessThan(straight * 0.3);
+    });
+
+    it('crosshatch leaves a connected mesh rather than separate stamps', () => {
+      const polys = thieved({ pattern: 'hatch' })[0]!.polys;
+      // Voids are subtracted from the pour, and fracture ties it into one ring.
+      expect(polys).toHaveLength(1);
+      expect(area(polys)).toBeLessThan(1600);
+      expect(area(polys)).toBeGreaterThan(0);
+    });
+
+    it('a malformed pattern fills nothing rather than looping forever', () => {
+      expect(thieved({ gap: 0 })).toEqual([]);
+      expect(thieved({ elementSize: 0 })).toEqual([]);
+    });
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);

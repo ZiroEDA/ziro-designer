@@ -542,7 +542,26 @@ function readZone(item: SList): PcbZone {
     cornerRadius: mmChild(fillNode, 'radius') ?? 0,
     fillMode: (() => {
       const node = fillNode ? childNamed(fillNode, 'mode') : undefined;
-      return node && arg(node, 0) === 'hatch' ? 'hatch' : 'solid';
+      const w = node ? arg(node, 0) : undefined;
+      return w === 'hatch' ? 'hatch' : w === 'thieving' ? 'thieving' : 'solid';
+    })(),
+    thieving: (() => {
+      const node = fillNode ? childNamed(fillNode, 'thieving') : undefined;
+      if (!node) return undefined;
+      const typeWord = arg(childNamed(node, 'type') ?? node, 0);
+      return {
+        pattern:
+          typeWord === 'squares'
+            ? ('squares' as const)
+            : typeWord === 'hatch'
+              ? ('hatch' as const)
+              : ('dots' as const),
+        elementSize: mmChild(node, 'size') ?? 0,
+        gap: mmChild(node, 'gap') ?? 0,
+        lineWidth: mmChild(node, 'width') ?? 0,
+        stagger: arg(childNamed(node, 'stagger') ?? node, 0) === 'yes',
+        orientation: numChild(node, 'orientation') ?? 0,
+      };
     })(),
     hatchThickness: mmChild(fillNode, 'hatch_thickness') ?? 0,
     hatchGap: mmChild(fillNode, 'hatch_gap') ?? 0,
