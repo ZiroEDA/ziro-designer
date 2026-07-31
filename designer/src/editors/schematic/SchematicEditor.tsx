@@ -133,6 +133,10 @@ import {
   replaceGraphic,
   replaceImage,
   replaceSymbol,
+  replaceSheetPin,
+  parseSheetPinId,
+  deleteSheetPin,
+  type SheetPinRef,
   isMandatoryField,
   imagePPI,
   imagePixelSize,
@@ -220,6 +224,10 @@ import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_s
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
+import {
+  DialogSheetPinProperties,
+  type SheetPinPropsResult,
+} from './dialogs/dialog_sheet_pin_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
@@ -674,6 +682,8 @@ export function SchematicEditor({
   const [imageEdit, setImageEdit] = useState<{ index: number } | null>(null);
   // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
   const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
+  // Sheet Pin Properties (DIALOG_SHEET_PIN_PROPERTIES).
+  const [sheetPinEdit, setSheetPinEdit] = useState<SheetPinRef | null>(null);
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -2435,6 +2445,12 @@ export function SchematicEditor({
         if (!d) return d;
         // A field of a placed symbol: "<symbolRefId>:field<k>"
         // (DIALOG_FIELD_PROPERTIES, not the whole symbol's dialog).
+        // A sheet's hierarchical pin (DIALOG_SHEET_PIN_PROPERTIES).
+        const spRef = d ? parseSheetPinId(d, id) : null;
+        if (spRef) {
+          setSheetPinEdit(spRef);
+          return d;
+        }
         const field = /^(.*):field(\d+)$/.exec(id);
         if (field) {
           const si = d.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === field[1]);
@@ -3660,6 +3676,21 @@ export function SchematicEditor({
       };
     },
     [shapeEditItem],
+  );
+
+  const commitSheetPinEdit = useCallback(
+    (r: SheetPinPropsResult) => {
+      setSheetPinEdit((sp) => {
+        if (!sp || !doc) return null;
+        const orig = doc.sheets[sp.sheet]?.pins[sp.pin];
+        if (orig)
+          runCommand(
+            replaceSheetPin(sp, { ...orig, name: r.name, shape: r.shape, effects: r.effects }),
+          );
+        return null;
+      });
+    },
+    [doc, runCommand],
   );
 
   /**
@@ -5860,6 +5891,20 @@ export function SchematicEditor({
           hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
           onOk={commitSheetEdit}
           onCancel={() => setSheetEdit(null)}
+        />
+      )}
+
+      {sheetPinEdit && doc.sheets[sheetPinEdit.sheet]?.pins[sheetPinEdit.pin] && (
+        <DialogSheetPinProperties
+          initial={{
+            name: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.name,
+            shape: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.shape,
+            effects: doc.sheets[sheetPinEdit.sheet]!.pins[sheetPinEdit.pin]!.effects ?? {
+              hidden: false,
+            },
+          }}
+          onOk={commitSheetPinEdit}
+          onCancel={() => setSheetPinEdit(null)}
         />
       )}
 

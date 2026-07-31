@@ -28,7 +28,7 @@ import type {
   Vec2,
 } from '../types.js';
 import type { Orientation } from '@ziroeda/common/src/transform.js';
-import { refId } from './hittest.js';
+import { refId, sheetPinId } from './hittest.js';
 import { makeSymbol } from './build.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunctionNeeded } from './junction_helpers.js';
@@ -136,7 +136,17 @@ export function deleteByIds(ids: ReadonlySet<string>): EditCommand {
         directiveLabels: (doc.directiveLabels ?? []).filter(
           (d, i) => !ids.has(refId('directive', d.uuid, i)),
         ),
-        sheets: doc.sheets.filter((s, i) => !ids.has(refId('sheet', s.uuid, i))),
+        // A sheet survives, minus any of its pins that were selected: a pin is
+        // an item of its own (SCH_SHEET_PIN), so Delete on one removes just it.
+        // Pins are dropped before the sheets are, so each sheet still knows its
+        // own index and the pin ids still resolve.
+        sheets: doc.sheets
+          .map((s, i) => {
+            const shId = refId('sheet', s.uuid, i);
+            if (!s.pins.some((_, k) => ids.has(sheetPinId(shId, k)))) return s;
+            return { ...s, pins: s.pins.filter((_, k) => !ids.has(sheetPinId(shId, k))) };
+          })
+          .filter((_, i) => !ids.has(refId('sheet', doc.sheets[i]!.uuid, i))),
         busEntries: doc.busEntries.filter((be, i) => !ids.has(refId('busentry', be.uuid, i))),
         images: doc.images.filter((im, i) => !ids.has(refId('image', im.uuid, i))),
         graphics: doc.graphics.filter((_, i) => !ids.has(refId('graphic', undefined, i))),

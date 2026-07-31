@@ -59,6 +59,10 @@ import {
   translatePayload,
   pointEditTarget,
   editHandles,
+  parseSheetPinId,
+  moveSheetPin,
+  moveSheetPinCommand,
+  type SheetPinRef,
   type ArcEditMode,
   dragHandle,
   reshapeCommand,
@@ -615,7 +619,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const pointHandlesRef = useRef<readonly EditHandle[]>([]);
   const hoveredHandleRef = useRef<EditHandle | null>(null);
   const pointDragRef = useRef<EditHandle | null>(null);
+  /** The reshaped document while a handle or sheet-pin drag is in flight. */
   const pointEditDocRef = useRef<Schematic | null>(null);
+  // A sheet pin drags along its sheet's border rather than by a free delta, so
+  // it gets its own drag rather than going through the move tool.
+  const sheetPinDragRef = useRef<SheetPinRef | null>(null);
   /** Assigned once the frame scheduler below exists. */
   const requestOverlayRef = useRef<() => void>(() => {});
 
@@ -1835,6 +1843,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
+      // A sheet pin is constrained to its sheet's border, so dragging one is
+      // not a move by a delta and does not go through the move tool.
+      if (e.button === 0 && activeTool === 'select') {
+        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        if (hit?.kind === 'sheetpin') {
+          const ref = parseSheetPinId(schematic, hit.id);
+          if (ref) {
+            (e.target as Element).setPointerCapture(e.pointerId);
+            onSelect(hit.id, e.shiftKey);
+            sheetPinDragRef.current = ref;
+            return;
+          }
+        }
+      }
+
       // A handle under the cursor takes the press: SCH_POINT_EDITOR runs ahead
       // of the selection tool, so grabbing a point reshapes the item rather than
       // starting a move of it.
@@ -1937,6 +1960,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const world = toWorld(e.clientX, e.clientY);
       cursorRef.current = world;
       onCursorMove?.(world);
+
+      // Dragging a sheet pin slides it along its sheet's border, switching
+      // edges when the cursor is nearest another one (ConstrainOnEdge).
+      const pinDrag = sheetPinDragRef.current;
+      if (pinDrag) {
+        const moved = moveSheetPin(schematic, pinDrag, snap(world));
+        pointEditDocRef.current = moved === schematic ? null : moved;
+        requestDraw();
+        return;
+      }
 
       // Dragging an edit point reshapes the item live. The reshape runs against
       // the committed document rather than the previous frame's result, so a
@@ -2088,6 +2121,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
+      // A sheet-pin drag commits the same way a handle drag does.
+      if (sheetPinDragRef.current) {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+        const moved = pointEditDocRef.current;
+        sheetPinDragRef.current = null;
+        pointEditDocRef.current = null;
+        if (moved) onCommand(moveSheetPinCommand(moved));
+        requestDraw();
+        return;
+      }
+
       // A handle drag commits the reshape as one undo step. A press that never
       // moved leaves no document to commit and just lets go of the handle.
       if (pointDragRef.current) {
