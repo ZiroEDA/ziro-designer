@@ -251,8 +251,23 @@ export interface PcbZone {
   thermalGap?: number;
   /** `(fill … (thermal_bridge_width …))`, ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM. */
   thermalBridgeWidth?: number;
-  /** `(fill … (mode hatch))`, ZONE_FILL_MODE: solid (the default) or hatched. */
-  fillMode?: 'solid' | 'hatch';
+  /** `(fill … (mode …))`, ZONE_FILL_MODE: solid (the default), hatched or thieving. */
+  fillMode?: 'solid' | 'hatch' | 'thieving';
+  /** `(fill … (thieving …))`, THIEVING_SETTINGS. */
+  thieving?: {
+    /** Stamp shape: dots (the default), squares, or a crosshatch of lines. */
+    pattern: 'dots' | 'squares' | 'hatch';
+    /** Diameter (dots) or side length (squares), in IU. */
+    elementSize: number;
+    /** Edge-to-edge spacing between stamps, or between crosshatch lines. */
+    gap: number;
+    /** Line width, crosshatch only. */
+    lineWidth: number;
+    /** Offset alternating rows by half the stride. */
+    stagger: boolean;
+    /** Pattern rotation in degrees. */
+    orientation: number;
+  };
   /** `(fill … (hatch_thickness …))`, the width of the hatch webbing in IU. */
   hatchThickness?: number;
   /** `(fill … (hatch_gap …))`, the opening between webs in IU. */
