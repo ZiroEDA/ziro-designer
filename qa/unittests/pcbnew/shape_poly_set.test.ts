@@ -7,7 +7,12 @@
  * be before it is written, since KiCad fills every ring it reads.
  */
 import { describe, it, expect } from 'vitest';
-import { fracture, fractureSingle } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import {
+  CornerStrategy,
+  fracture,
+  fractureSingle,
+  inflate,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 
 /** Signed area; sign tells the winding, magnitude the enclosed area. */
 const signedArea = (ring: { x: number; y: number }[]): number => {
@@ -69,5 +74,41 @@ describe('fracture', () => {
     expect(rings).toHaveLength(2);
     expect(Math.abs(signedArea(rings[0]!))).toBeCloseTo(8400, 6);
     expect(Math.abs(signedArea(rings[1]!))).toBeCloseTo(2500, 6);
+  });
+});
+
+describe('inflate (SHAPE_POLY_SET::Inflate)', () => {
+  it('grows and shrinks by the amount given', () => {
+    const grown = inflate([[square(0, 0, 100)]], 10, CornerStrategy.CHAMFER_ALL_CORNERS, 16);
+    expect(Math.abs(signedArea(grown[0]![0]!))).toBeGreaterThan(10000);
+    const shrunk = inflate([[square(0, 0, 100)]], -10, CornerStrategy.CHAMFER_ALL_CORNERS, 16);
+    // 80 x 80 with chamfered corners, so a touch under 6400.
+    expect(Math.abs(signedArea(shrunk[0]![0]!))).toBeLessThan(6500);
+    expect(Math.abs(signedArea(shrunk[0]![0]!))).toBeGreaterThan(6000);
+  });
+
+  it('deflates a shape thinner than the amount out of existence', () => {
+    // A 10-wide bar deflated by 6 either side has nothing left.
+    const bar = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+      { x: 200, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    expect(inflate([[bar]], -6, CornerStrategy.CHAMFER_ALL_CORNERS, 16)).toHaveLength(0);
+  });
+
+  it('keeps a hole a hole rather than turning it into an island', () => {
+    const withHole = [square(0, 0, 200), square(80, 80, 40).reverse()];
+    const out = inflate([withHole], -5, CornerStrategy.CHAMFER_ALL_CORNERS, 16);
+    expect(out).toHaveLength(1);
+    // One outline plus its hole, and the hole grew as the outline shrank.
+    expect(out[0]).toHaveLength(2);
+    expect(Math.abs(signedArea(out[0]![1]!))).toBeGreaterThan(1600);
+  });
+
+  it('is a no-op for zero', () => {
+    const same = inflate([[square(0, 0, 100)]], 0);
+    expect(same[0]![0]).toHaveLength(4);
   });
 });
