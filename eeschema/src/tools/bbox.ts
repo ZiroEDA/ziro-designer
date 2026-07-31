@@ -11,7 +11,8 @@
 
 import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
-import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, Vec2 } from '../types.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, SheetPin, Vec2 } from '../types.js';
 
 export interface BBox {
   minX: number;
@@ -107,6 +108,71 @@ export function labelBox(l: SchLabel): BBox {
       ? at.y + h
       : at.y + h / 2;
   return { minX: left, minY: top, maxX: right, maxY: bottom };
+}
+
+/** DANGLING_SYMBOL_SIZE (default_values.h), 12 mils. */
+const DANGLING_SYMBOL_SIZE = mmToIU(12 * 0.0254);
+/** DEFAULT_TEXT_OFFSET_RATIO (default_values.h), the gap between a flag and its text. */
+const TEXT_OFFSET_RATIO = 0.15;
+const DEFAULT_TEXT_HEIGHT = mmToIU(1.27);
+
+/**
+ * A sheet pin's bounding box, flag and text together. Counterpart:
+ * `SCH_HIERLABEL::GetBodyBoundingBox` (SCH_SHEET_PIN is a SCH_HIERLABEL), whose
+ * box runs `length` away from the anchor along the pin's side and `height`
+ * across it, where the length carries an extra `height` for the flag's
+ * triangular point and the anchor is pulled back by DANGLING_SYMBOL_SIZE.
+ *
+ * The side comes from the file's angle encoding, which is the spin style:
+ * 0 = right, 90 = top, 180 = left, 270 = bottom.
+ */
+export function sheetPinBBox(pin: SheetPin): BBox {
+  const textHeight = pin.effects?.fontSize?.[1] ?? DEFAULT_TEXT_HEIGHT;
+  // GetEffectiveTextPenWidth for a default-thickness label.
+  const penWidth = Math.round(textHeight / 8);
+  const margin = Math.round(TEXT_OFFSET_RATIO * textHeight);
+  const height = textHeight + penWidth + margin;
+  // GetTextBox().GetWidth(), approximated the way labelBox above does, plus the
+  // height upstream adds for the triangular shape.
+  const length = Math.max(1, pin.name.length) * textHeight * 0.7 + height;
+
+  let x = pin.at.x;
+  let y = pin.at.y;
+  let dx: number;
+  let dy: number;
+  switch (pin.angle) {
+    case 90: // top edge, SPIN_STYLE::UP
+      dx = height;
+      dy = -length;
+      x -= height / 2;
+      y += DANGLING_SYMBOL_SIZE;
+      break;
+    case 180: // left edge, SPIN_STYLE::RIGHT
+      dx = length;
+      dy = height;
+      x -= DANGLING_SYMBOL_SIZE;
+      y -= height / 2;
+      break;
+    case 270: // bottom edge, SPIN_STYLE::BOTTOM
+      dx = height;
+      dy = length;
+      x -= height / 2;
+      y -= DANGLING_SYMBOL_SIZE;
+      break;
+    default: // right edge, SPIN_STYLE::LEFT
+      dx = -length;
+      dy = height;
+      x += DANGLING_SYMBOL_SIZE;
+      y -= height / 2;
+      break;
+  }
+  // BOX2I( origin, size ).Normalize(), which sorts the corners.
+  return {
+    minX: Math.min(x, x + dx),
+    minY: Math.min(y, y + dy),
+    maxX: Math.max(x, x + dx),
+    maxY: Math.max(y, y + dy),
+  };
 }
 
 /** Body bounding box of a placed symbol (graphics + pins through the transform). */

@@ -13,6 +13,8 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
+import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 import {
   pointEditTarget,
   editHandles,
@@ -22,6 +24,7 @@ import {
 } from '@ziroeda/eeschema/src/tools/point_editor.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
+type P = { x: number; y: number };
 const mm = (v: number): number => mmToIU(v);
 
 /** A sheet 30 x 20 at (50,50) with two pins on its right edge, a wire on one of
@@ -370,5 +373,180 @@ describe('reshapes survive a save', () => {
     expect(reread.sheets[0]!.size).toEqual({ w: mm(50), h: mm(40) });
     expect((reread.graphics[0] as { end: { x: number } }).end.x).toBe(mm(45));
     expect((reread.graphics[1] as { radius: number }).radius).toBe(mm(12));
+  });
+});
+
+describe('arcs', () => {
+  // A quarter arc from (60,10) round to (70,20), centred on (60,20) with a
+  // radius of 10: the mid sits at 45 degrees, (60+10/sqrt2, 20-10/sqrt2).
+  const arcDoc = readSchematic(
+    parse(
+      `(kicad_sch (version 1) (lib_symbols)
+         (arc (start 60 10) (mid 67.0711 12.9289) (end 70 20) (uuid "a1")))`,
+    ),
+  );
+  const ARC_ID = refId('graphic', undefined, 0);
+  const target = () => pointEditTarget(arcDoc, ARC_ID)!;
+  const arcHandle = (i: number): EditHandle =>
+    editHandles(arcDoc, target()).find((h) => h.index === i && h.kind === 'point')!;
+  const arcOf = (d: ReturnType<typeof readSchematic>) =>
+    d.graphics[0] as { start: P; mid: P; end: P };
+  /** The radius the three stored points imply. */
+  const radius = (g: { start: P; mid: P; end: P }): number => {
+    const c = CalcArcCenter(g.start, g.mid, g.end);
+    return Math.hypot(g.start.x - c.x, g.start.y - c.y);
+  };
+
+  it('has start, mid, end and centre points', () => {
+    // EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints. The two indicator lines from the
+    // centre are drawn, not grabbed, so they are not handles.
+    const hs = editHandles(arcDoc, target());
+    expect(hs).toHaveLength(4);
+    expect(hs.every((h) => h.kind === 'point')).toBe(true);
+    expect(arcHandle(0).at).toEqual(arcOf(arcDoc).start);
+    expect(arcHandle(2).at).toEqual(arcOf(arcDoc).end);
+    // The centre is derived, not stored: CalcArcCenter of the three points.
+    expect(arcHandle(3).at.x).toBeCloseTo(mm(60), -2);
+    expect(arcHandle(3).at.y).toBeCloseTo(mm(20), -2);
+  });
+
+  it('moves the whole arc when the centre is dragged, keeping the centre', () => {
+    // KEEP_CENTER_ADJUST_ANGLE_RADIUS and KEEP_CENTER_ENDS_ADJUST_ANGLE both
+    // just translate the arc by the centre's delta.
+    for (const mode of [
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+      ArcEditMode.KeepCenterEndsAdjustAngle,
+    ]) {
+      const c = arcHandle(3).at;
+      const out = dragHandle(arcDoc, target(), arcHandle(3), { x: c.x + mm(10), y: c.y }, mode);
+      const g = arcOf(out);
+      expect(g.start.x - arcOf(arcDoc).start.x).toBe(mm(10));
+      expect(g.end.x - arcOf(arcDoc).end.x).toBe(mm(10));
+      expect(radius(g)).toBeCloseTo(radius(arcOf(arcDoc)), -2);
+    }
+  });
+
+  it('keeps both endpoints when the centre is dragged in keep-endpoints mode', () => {
+    // editArcCenterKeepEndpoints projects the drag onto the perpendicular
+    // bisector of the chord, the only place a centre can be.
+    const c = arcHandle(3).at;
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(3),
+      { x: c.x + mm(30), y: c.y + mm(2) },
+      ArcEditMode.KeepEndpointsOrStartDirection,
+    );
+    const g = arcOf(out);
+    expect(g.start).toEqual(arcOf(arcDoc).start);
+    expect(g.end).toEqual(arcOf(arcDoc).end);
+    // The bulge changed, so the mid did.
+    expect(g.mid).not.toEqual(arcOf(arcDoc).mid);
+  });
+
+  it('sets the radius from the cursor when the mid is dragged, keeping the centre', () => {
+    const c = arcHandle(3).at;
+    // Straight up from the centre, 20 mm out.
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(1),
+      { x: c.x, y: c.y - mm(20) },
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+    );
+    expect(radius(arcOf(out))).toBeCloseTo(mm(20), -2);
+  });
+
+  it('keeps both endpoints when the mid is dragged in keep-endpoints mode', () => {
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(1),
+      { x: mm(66), y: mm(11) },
+      ArcEditMode.KeepEndpointsOrStartDirection,
+    );
+    const g = arcOf(out);
+    expect(g.start).toEqual(arcOf(arcDoc).start);
+    expect(g.end).toEqual(arcOf(arcDoc).end);
+  });
+
+  it('brings both ends to the new radius when an endpoint is dragged', () => {
+    // KEEP_CENTER_ADJUST_ANGLE_RADIUS: the dragged end sets the radius and the
+    // other end slides out to match, so the arc stays circular.
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      { x: mm(60), y: mm(0) },
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+    );
+    const g = arcOf(out);
+    const c = CalcArcCenter(g.start, g.mid, g.end);
+    expect(Math.hypot(g.start.x - c.x, g.start.y - c.y)).toBeCloseTo(mm(20), -2);
+    expect(Math.hypot(g.end.x - c.x, g.end.y - c.y)).toBeCloseTo(mm(20), -2);
+  });
+
+  it('holds the radius when an endpoint is dragged in keep-angle mode', () => {
+    // KEEP_CENTER_ENDS_ADJUST_ANGLE: only the angle the end subtends changes.
+    const before = radius(arcOf(arcDoc));
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      { x: mm(60), y: mm(-30) },
+      ArcEditMode.KeepCenterEndsAdjustAngle,
+    );
+    expect(radius(arcOf(out))).toBeCloseTo(before, -2);
+  });
+
+  it('leaves an untouched arc exactly where it was', () => {
+    // The (start, mid, end) <-> (start, end, centre) conversion has to be the
+    // identity for a drag that puts a point back where it already is, or a
+    // click without a move would nudge the arc.
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      arcOf(arcDoc).start,
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+    );
+    expect(arcOf(out).start).toEqual(arcOf(arcDoc).start);
+    expect(arcOf(out).end).toEqual(arcOf(arcDoc).end);
+  });
+
+  it('survives a save', () => {
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      { x: mm(60), y: mm(0) },
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+    );
+    const reread = readSchematic(parse(serializeSchematic(out)));
+    expect(arcOf(reread).start).toEqual(arcOf(out).start);
+    expect(arcOf(reread).mid).toEqual(arcOf(out).mid);
+    expect(arcOf(reread).end).toEqual(arcOf(out).end);
+  });
+});
+
+describe('a sheet pin is measured by its whole flag', () => {
+  it('counts the flag box, not just the anchor point', () => {
+    // SCH_SHEET::GetMinWidth measures each pin's GetBoundingBox. A pin on the
+    // top edge points its text upward, so what it contributes to the *width* is
+    // the flag's height, which scales with the text size. Measuring from the
+    // anchor alone would make both of these identical.
+    const floorFor = (textSize: number): number => {
+      const d = readSchematic(
+        parse(
+          `(kicad_sch (version 1) (lib_symbols) (sheet (at 50 50) (size 40 30) (uuid "s")
+             (pin "A" input (at 70 50 90) (uuid "p")
+               (effects (font (size ${textSize} ${textSize}))))))`,
+        ),
+      );
+      const t = pointEditTarget(d, refId('sheet', 's', 0))!;
+      const h = editHandles(d, t).find((x) => x.kind === 'point' && x.index === 3)!;
+      return dragHandle(d, t, h, { x: mm(50), y: mm(50) }).sheets[0]!.size.w;
+    };
+    expect(floorFor(5)).toBeGreaterThan(floorFor(1.27));
   });
 });
