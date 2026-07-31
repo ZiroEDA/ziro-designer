@@ -36,7 +36,7 @@ import type {
 import { refId } from './hittest.js';
 import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
 import { symbolPinPositions } from './connect.js';
-import { moveSymbolOrFields } from './move.js';
+import { moveSymbolOrFields, moveRigidItems } from './move.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
 
@@ -456,6 +456,9 @@ function applyMove(
 
   return {
     ...doc,
+    // Sheets, no-connects, netclass flags, text boxes, bus entries, images,
+    // shapes and tables translate rigidly and identically on every move path.
+    ...moveRigidItems(doc, fullIds, delta),
     // A field picked on its own moves inside a symbol that stays put; the whole
     // symbol moves when the symbol itself is selected.
     symbols: doc.symbols.map((s, i) =>

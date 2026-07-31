@@ -19,6 +19,11 @@ import type {
   SchDirectiveLabel,
   SchNoConnect,
   SchSheet,
+  SchBusEntry,
+  SchImage,
+  SchTextBox,
+  SchTable,
+  LibGraphic,
   SchField,
   Vec2,
 } from '../types.js';
@@ -57,6 +62,115 @@ const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
   fields: s.fields.map((f) => moveField(f, d)),
   pins: s.pins.map((p) => ({ ...p, at: add(p.at, d) })),
 });
+// `at` is the entry's corner and `size` its signed extent, so only `at` moves.
+const moveBusEntry = (b: SchBusEntry, d: Vec2): SchBusEntry => ({ ...b, at: add(b.at, d) });
+const moveImage = (im: SchImage, d: Vec2): SchImage => ({ ...im, at: add(im.at, d) });
+const moveTextBox = (tb: SchTextBox, d: Vec2): SchTextBox => ({
+  ...tb,
+  start: add(tb.start, d),
+  end: add(tb.end, d),
+});
+// A table's geometry lives entirely in its cells' corners.
+const moveTable = (t: SchTable, d: Vec2): SchTable => ({
+  ...t,
+  cells: t.cells.map((c) => ({ ...c, start: add(c.start, d), end: add(c.end, d) })),
+});
+
+/** A graphic shape, translated by whichever points its kind is defined by. */
+function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
+  switch (g.kind) {
+    case 'rectangle':
+      return { ...g, start: add(g.start, d), end: add(g.end, d) };
+    case 'circle':
+      return { ...g, center: add(g.center, d) };
+    case 'arc':
+      return { ...g, start: add(g.start, d), mid: add(g.mid, d), end: add(g.end, d) };
+    case 'polyline':
+    case 'bezier':
+      return { ...g, points: g.points.map((p) => add(p, d)) };
+    case 'text':
+      return { ...g, at: add(g.at, d) };
+  }
+}
+
+/**
+ * The items that translate rigidly: nothing rubber-bands to them, so a move is
+ * a plain offset of their geometry, identical on all three move paths.
+ *
+ * They are shared here because the paths had drifted apart. Every one of these
+ * is in `SCH_COLLECTOR::MovableItems` upstream and `SCH_MOVE_TOOL` translates
+ * them all the same way, but the ortho drag path rewrote only symbols, wires,
+ * junctions and labels, so dragging a sheet, a no-connect or a netclass flag
+ * did nothing at all, and text boxes, bus entries, images, shapes and tables
+ * would not move on any path.
+ *
+ * Returns only the arrays the move actually touched, to spread over the
+ * document. A drag calls this on every pointer event and these arrays are
+ * almost always untouched, so rebuilding them unconditionally would make each
+ * one look changed to anything comparing by identity. An untouched optional
+ * field like `directiveLabels` stays absent rather than becoming `[]`.
+ */
+export function moveRigidItems(
+  doc: Schematic,
+  ids: ReadonlySet<string>,
+  d: Vec2,
+): Partial<
+  Pick<
+    Schematic,
+    | 'noConnects'
+    | 'sheets'
+    | 'directiveLabels'
+    | 'busEntries'
+    | 'images'
+    | 'textBoxes'
+    | 'tables'
+    | 'graphics'
+  >
+> {
+  /** The array with the selected entries moved, or null if none were. */
+  function moved<T>(
+    xs: readonly T[] | undefined,
+    kind: Parameters<typeof refId>[0],
+    uuidOf: (x: T) => string | undefined,
+    mv: (x: T) => T,
+  ): T[] | null {
+    if (!xs) return null;
+    let copy: T[] | null = null;
+    for (let i = 0; i < xs.length; i++) {
+      const x = xs[i]!;
+      if (!ids.has(refId(kind, uuidOf(x), i))) continue;
+      copy ??= xs.slice();
+      copy[i] = mv(x);
+    }
+    return copy;
+  }
+  const uuid = (x: { uuid?: string }): string | undefined => x.uuid;
+
+  const out: { -readonly [K in keyof Schematic]?: Schematic[K] } = {};
+  const noConnects = moved(doc.noConnects, 'noconnect', uuid, (x) => moveNoConnect(x, d));
+  if (noConnects) out.noConnects = noConnects;
+  const sheets = moved(doc.sheets, 'sheet', uuid, (x) => moveSheet(x, d));
+  if (sheets) out.sheets = sheets;
+  const directives = moved(doc.directiveLabels, 'directive', uuid, (x) => moveDirectiveLabel(x, d));
+  if (directives) out.directiveLabels = directives;
+  const busEntries = moved(doc.busEntries, 'busentry', uuid, (x) => moveBusEntry(x, d));
+  if (busEntries) out.busEntries = busEntries;
+  const images = moved(doc.images, 'image', uuid, (x) => moveImage(x, d));
+  if (images) out.images = images;
+  const textBoxes = moved(doc.textBoxes, 'textbox', uuid, (x) => moveTextBox(x, d));
+  if (textBoxes) out.textBoxes = textBoxes;
+  const tables = moved(doc.tables, 'table', uuid, (x) => moveTable(x, d));
+  if (tables) out.tables = tables;
+  // Graphics are addressed by index alone: they carry no uuid of their own.
+  const graphics = moved(
+    doc.graphics,
+    'graphic',
+    () => undefined,
+    (x) => moveGraphic(x, d),
+  );
+  if (graphics) out.graphics = graphics;
+  return out;
+}
 
 /**
  * A symbol under a move: the whole symbol if it is selected, otherwise only
@@ -86,6 +200,7 @@ export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
       if (ids.size === 0 || (delta.x === 0 && delta.y === 0)) return doc;
       return {
         ...doc,
+        ...moveRigidItems(doc, ids, delta),
         symbols: doc.symbols.map((s, i) =>
           moveSymbolOrFields(s, refId('symbol', s.uuid, i), ids, delta),
         ),
@@ -95,17 +210,8 @@ export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
         junctions: doc.junctions.map((j, i) =>
           ids.has(refId('junction', j.uuid, i)) ? moveJunction(j, delta) : j,
         ),
-        noConnects: doc.noConnects.map((nc, i) =>
-          ids.has(refId('noconnect', nc.uuid, i)) ? moveNoConnect(nc, delta) : nc,
-        ),
         labels: doc.labels.map((l, i) =>
           ids.has(refId('label', l.uuid, i)) ? moveLabel(l, delta) : l,
-        ),
-        directiveLabels: (doc.directiveLabels ?? []).map((d, i) =>
-          ids.has(refId('directive', d.uuid, i)) ? moveDirectiveLabel(d, delta) : d,
-        ),
-        sheets: doc.sheets.map((s, i) =>
-          ids.has(refId('sheet', s.uuid, i)) ? moveSheet(s, delta) : s,
         ),
       };
     },
@@ -166,11 +272,9 @@ function applyConnectedMove(
 
   return {
     ...doc,
+    ...moveRigidItems(doc, spec.fullIds, delta),
     symbols: doc.symbols.map((s, i) =>
       moveSymbolOrFields(s, refId('symbol', s.uuid, i), spec.fullIds, delta),
-    ),
-    noConnects: doc.noConnects.map((nc, i) =>
-      spec.fullIds.has(refId('noconnect', nc.uuid, i)) ? moveNoConnect(nc, delta) : nc,
     ),
     labels: doc.labels.map((l, i) => {
       const id = refId('label', l.uuid, i);
@@ -187,9 +291,6 @@ function applyConnectedMove(
         ? l
         : { ...l, at: nearestOnSegment(l.at, carrier.start, carrier.end) };
     }),
-    sheets: doc.sheets.map((s, i) =>
-      spec.fullIds.has(refId('sheet', s.uuid, i)) ? moveSheet(s, delta) : s,
-    ),
     junctions: [
       ...doc.junctions
         .filter((j) => !(undoing && j.uuid !== undefined && splitJunctions.has(j.uuid)))
