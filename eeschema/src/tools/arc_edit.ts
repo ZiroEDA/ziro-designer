@@ -37,6 +37,22 @@ export enum ArcEditMode {
   KeepCenterEndsAdjustAngle = 2,
 }
 
+/**
+ * The next mode in the cycle (`IncrementArcEditMode`). Note it is not the
+ * declaration order: cycling goes radius, then angle, then endpoints, so the two
+ * centre-keeping modes sit next to each other.
+ */
+export function incrementArcEditMode(mode: ArcEditMode): ArcEditMode {
+  switch (mode) {
+    case ArcEditMode.KeepCenterAdjustAngleRadius:
+      return ArcEditMode.KeepCenterEndsAdjustAngle;
+    case ArcEditMode.KeepCenterEndsAdjustAngle:
+      return ArcEditMode.KeepEndpointsOrStartDirection;
+    default:
+      return ArcEditMode.KeepCenterAdjustAngleRadius;
+  }
+}
+
 /** An arc as KiCad holds it while editing: the mid point is derived from these. */
 export interface ArcState {
   start: Vec2;
