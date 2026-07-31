@@ -285,7 +285,8 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     for (const p of primsNode.items) {
       if (!isList(p)) continue;
       const ph = head(p) ?? '';
-      if (!['gr_poly', 'gr_line', 'gr_circle', 'gr_arc', 'gr_rect'].includes(ph)) continue;
+      if (!['gr_poly', 'gr_line', 'gr_circle', 'gr_arc', 'gr_rect', 'gr_vector'].includes(ph))
+        continue;
       const fillNode = childNamed(p, 'fill');
       const fillVal = fillNode ? arg(fillNode, 0) : undefined;
       primitives.push({

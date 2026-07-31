@@ -378,6 +378,53 @@ describe('zone filler', () => {
     });
   });
 
+  it("takes a custom pad's spoke templates instead of the four axis spokes", () => {
+    // Same pad either way, only the number of templates differs, so the relief
+    // knocked out is identical and the spokes are the only variable.
+    const vector = (x: number, y: number): PadPrimitive => ({
+      kind: 'gr_vector',
+      start: { x: 0, y: 0 },
+      end: { x, y },
+      width: 0,
+      fill: false,
+    });
+    const custom = (primitives: PadPrimitive[]): PcbPad => ({
+      ...pad({ x: MM(20), y: MM(20) }, 1, MM(4)),
+      shape: 'custom',
+      primitives,
+    });
+    const filled = (primitives: PadPrimitive[]): number =>
+      area(
+        fillZone(board({ zones: [zone()], footprints: [footprint([custom(primitives)])] }), 0)[0]!
+          .polys,
+      );
+
+    const two = filled([vector(MM(2), 0), vector(-MM(2), 0)]);
+    const four = filled([vector(MM(2), 0), vector(-MM(2), 0), vector(0, MM(2)), vector(0, -MM(2))]);
+    // Each spoke adds copper back across the relief, so four bridge more than two.
+    expect(four).toBeGreaterThan(two);
+  });
+
+  it('ignores a spoke template with neither end in the pad', () => {
+    const stray: PcbPad = {
+      ...pad({ x: MM(20), y: MM(20) }, 1, MM(4)),
+      shape: 'custom',
+      primitives: [
+        {
+          kind: 'gr_vector',
+          start: { x: MM(30), y: MM(30) },
+          end: { x: MM(35), y: MM(35) },
+          width: 0,
+          fill: false,
+        },
+      ],
+    };
+    // No usable template: the relief is opened with no bridge across it at all.
+    const fills = fillZone(board({ zones: [zone()], footprints: [footprint([stray])] }), 0);
+    expect(fills).toHaveLength(1);
+    expect(area(fills[0]!.polys)).toBeLessThan(1600);
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);
