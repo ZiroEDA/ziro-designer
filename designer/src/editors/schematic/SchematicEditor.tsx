@@ -21,6 +21,13 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
   type ArcEditMode,
+  type EditHandle,
+  pointEditTarget,
+  canAddCorner,
+  canRemoveCorner,
+  addCorner,
+  removeCorner,
+  reshapeCommand,
   SPIN_ANGLE,
   spinOfAngle,
   wireLabelDriverName,
@@ -597,9 +604,13 @@ export function SchematicEditor({
   } | null>(null);
   // Right-click selection context menu (SCH_SELECTION_TOOL's TOOL_MENU):
   // client-space position plus the hit-tested item, or null when closed.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; hit: ItemRef | null } | null>(
-    null,
-  );
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number;
+    y: number;
+    hit: ItemRef | null;
+    /** Where the click landed, for SCH_POINT_EDITOR's Add / Remove Corner. */
+    pointEdit?: { world: Vec2; handle: EditHandle | null; tolerance: number };
+  } | null>(null);
   // Clarify Selection (SCH_SELECTION_TOOL::doSelectionMenu): an ambiguous
   // click lists every candidate; picking a row selects it.
   const [clarify, setClarify] = useState<{
@@ -967,10 +978,15 @@ export function SchematicEditor({
   // selected item or empty canvas the selection is kept and the menu applies
   // to it (KiCad selects the item, then pops the TOOL_MENU).
   const onContextMenuRequest = useCallback(
-    (x: number, y: number, hit: ItemRef | null) => {
+    (
+      x: number,
+      y: number,
+      hit: ItemRef | null,
+      pointEdit: { world: Vec2; handle: EditHandle | null; tolerance: number },
+    ) => {
       if (hit)
         setSelection((prev) => (prev.has(hit.id) ? prev : new Set(promote(new Set([hit.id])))));
-      setCtxMenu({ x, y, hit });
+      setCtxMenu({ x, y, hit, pointEdit });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -3829,6 +3845,34 @@ export function SchematicEditor({
           icon: 'enterSheet',
           action: () => onEditItem(hit.id, 'sheet'),
         });
+      // SCH_POINT_EDITOR's own two menu items, shown for a polyline under the
+      // same conditions upstream gates them on: the cursor has to be on the
+      // shape to add a corner, and on one of its vertices to remove one.
+      {
+        const pe = ctxMenu?.pointEdit;
+        const target =
+          doc && selection.size === 1 ? pointEditTarget(doc, [...selection][0]!) : null;
+        if (doc && target && pe) {
+          if (canAddCorner(doc, target, pe.world, pe.tolerance))
+            items.push({
+              label: 'Add Corner',
+              icon: 'addCorner',
+              action: () => {
+                const next = addCorner(doc, target, pe.world);
+                if (next) runCommand(reshapeCommand('Add Corner', next));
+              },
+            });
+          if (pe.handle && canRemoveCorner(doc, target, pe.handle))
+            items.push({
+              label: 'Remove Corner',
+              icon: 'removeCorner',
+              action: () => {
+                const next = removeCorner(doc, target, pe.handle!);
+                if (next) runCommand(reshapeCommand('Remove Corner', next));
+              },
+            });
+        }
+      }
       items.push(
         { sep: true },
         act('Rotate Counterclockwise', 'rotateCCW', 'R'),

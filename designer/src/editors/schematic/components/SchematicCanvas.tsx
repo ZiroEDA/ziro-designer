@@ -453,7 +453,14 @@ interface Props {
   /** Plain right-click with the select tool idle (KiCad's selection-tool
    *  context menu): `hit` is the already-hit-tested item under the cursor.
    *  The editor updates the selection and pops the menu at the client point. */
-  onContextMenuRequest?: (clientX: number, clientY: number, hit: ItemRef | null) => void;
+  onContextMenuRequest?: (
+    clientX: number,
+    clientY: number,
+    hit: ItemRef | null,
+    /** Where the click landed and which edit point it was over, so the menu can
+     *  offer Add / Remove Corner (SCH_POINT_EDITOR's two context-menu items). */
+    pointEdit: { world: Vec2; handle: EditHandle | null; tolerance: number },
+  ) => void;
   /** An ambiguous click (several candidates after GuessSelectionCandidates):
    *  the editor pops the Clarify Selection menu at the client point. */
   onClarify?: (clientX: number, clientY: number, candidates: ItemRef[], additive: boolean) => void;
@@ -2401,7 +2408,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
               toWorld(e.clientX, e.clientY),
               (6 * dpr()) / vp.scale,
             );
-            onContextMenuRequest?.(e.clientX, e.clientY, hit);
+            const world = toWorld(e.clientX, e.clientY);
+            onContextMenuRequest?.(e.clientX, e.clientY, hit, {
+              world,
+              handle: handleAt(world),
+              tolerance: (EDIT_POINT_SIZE * dpr()) / vp.scale,
+            });
           }
         }}
         onPointerLeave={() => {
