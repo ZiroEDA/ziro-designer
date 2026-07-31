@@ -277,6 +277,7 @@ export function buildPropertyNode(field: Omit<SchField, 'source'>, invertY = fal
     list(atom('at'), atom(mm(at.x)), atom(mm(y)), atom(String(field.angle))),
   ];
   if (field.nameShown) items.push(list(atom('show_name'), atom('yes')));
+  if (field.doNotAutoplace) items.push(list(atom('do_not_autoplace'), atom('yes')));
   const fx = buildEffects(field.effects);
   if (fx) items.push(fx);
   return { kind: 'list', items };
@@ -311,6 +312,26 @@ export function patchProperty(propNode: SList, field: SchField, invertY = false)
       const items = n.items.slice();
       const atIdx = items.findIndex((it) => isList(it) && head(it) === 'at');
       items.splice(atIdx >= 0 ? atIdx + 1 : items.length, 0, list(atom('show_name'), atom('yes')));
+      n = { kind: 'list', items };
+    }
+  }
+  // do_not_autoplace follows show_name, and like it is only written once set,
+  // so a file that never carried the token keeps not carrying it.
+  if (hasToken(n, 'do_not_autoplace') !== !!field.doNotAutoplace) {
+    n = stripToken(n, 'do_not_autoplace');
+    if (field.doNotAutoplace) {
+      const items = n.items.slice();
+      // After the last of (at …) / (show_name …), which is where KiCad's
+      // canonical order puts it.
+      let after = -1;
+      items.forEach((it, i) => {
+        if (isList(it) && (head(it) === 'at' || head(it) === 'show_name')) after = i;
+      });
+      items.splice(
+        after >= 0 ? after + 1 : items.length,
+        0,
+        list(atom('do_not_autoplace'), atom('yes')),
+      );
       n = { kind: 'list', items };
     }
   }

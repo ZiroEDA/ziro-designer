@@ -163,6 +163,8 @@ export function readField(node: SList, invertY = false): SchField {
   if (effects) field.effects = directHide ? { ...effects, hidden: true } : effects;
   else if (directHide) field.effects = { hidden: true };
   if (boolField(node, 'show_name', false)) field.nameShown = true;
+  if (childNamed(node, 'do_not_autoplace'))
+    field.doNotAutoplace = boolField(node, 'do_not_autoplace', false);
   // `(show_in_chooser yes)`, the field is offered as a Symbol Chooser column
   // (SCH_FIELD::ShowInChooser / LIB_SYMBOL::cacheChooserFields).
   if (boolField(node, 'show_in_chooser', false)) field.showInChooser = true;

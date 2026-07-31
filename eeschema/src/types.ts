@@ -216,6 +216,9 @@ export interface SchField {
   readonly nameShown?: boolean;
   /** `(show_in_chooser yes)`, SCH_FIELD::ShowInChooser. */
   readonly showInChooser?: boolean;
+  /** `(do_not_autoplace yes)`, stored inverted from SCH_FIELD::CanAutoplace;
+   *  undefined when the token is absent, which means the field may autoplace. */
+  readonly doNotAutoplace?: boolean;
   readonly source: SList;
 }
 
