@@ -112,6 +112,15 @@ import type { TextGfxRow } from './board_settings.js';
 import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
+import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import {
+  applyGlobalTeardropEdit,
+  type GlobalTeardropEditOptions,
+} from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
+import {
+  defaultTeardropParametersList,
+  type TeardropParametersList,
+} from '@ziroeda/pcbnew/src/teardrop.js';
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
@@ -938,6 +947,8 @@ export function PcbEditor({
   // that stay on the board until the next run / Delete All Markers, and the
   // active violation is the brightened (highlighted) marker.
   const [drcOpen, setDrcOpen] = useState(false);
+  // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
+  const [teardropsOpen, setTeardropsOpen] = useState(false);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -3321,6 +3332,61 @@ export function PcbEditor({
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
 
+  /**
+   * The board's TEARDROP_PARAMETERS_LIST, built from the Board Setup panel's
+   * millimetre/percentage values. The scope and enable flags live in the
+   * project file's `teardrop_options`, which Board Setup preserves but does not
+   * model, so the dialog owns them for the length of the edit.
+   */
+  const teardropParamsList = useCallback((): TeardropParametersList => {
+    const base = defaultTeardropParametersList();
+    const shape = (s: (typeof boardSetup)['teardrops']['round']) => ({
+      enabled: true,
+      allowUseTwoTracks: s.allowSpanTwoSegments,
+      tdOnPadsInZones: !s.preferZoneConnection,
+      bestLengthRatio: s.bestLengthPct / 100,
+      tdMaxLen: Math.round(s.maxLengthMM * MM),
+      bestWidthRatio: s.bestWidthPct / 100,
+      tdMaxWidth: Math.round(s.maxWidthMM * MM),
+      curvedEdges: s.curvedEdges,
+      widthtoSizeFilterRatio: s.trackWidthLimitPct / 100,
+    });
+    return {
+      ...base,
+      round: shape(boardSetup.teardrops.round),
+      rect: shape(boardSetup.teardrops.rect),
+      track: shape(boardSetup.teardrops.trackToTrack),
+    };
+  }, [boardSetup]);
+
+  /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
+  const applyTeardropEdit = useCallback(
+    (options: GlobalTeardropEditOptions) => {
+      const brd = boardRef.current;
+      setTeardropsOpen(false);
+      if (!brd) return;
+
+      const selected = selection;
+      const next = applyGlobalTeardropEdit(brd, options, {
+        list: teardropParamsList(),
+        isSelected: (item) => {
+          // Pads are selected as `pad:<footprint>:<index>`, vias as `via:<index>`.
+          for (let fi = 0; fi < brd.footprints.length; fi++) {
+            const pads = brd.footprints[fi]!.pads;
+            for (let pi = 0; pi < pads.length; pi++) {
+              if (pads[pi] === item) return selected.has(`pad:${fi}:${pi}`);
+            }
+          }
+          const vi = brd.vias.indexOf(item as (typeof brd.vias)[number]);
+          return vi >= 0 && selected.has(`via:${vi}`);
+        },
+      });
+
+      commitBoard(next.board);
+    },
+    [commitBoard, selection, teardropParamsList],
+  );
+
   /** Put the net highlight back the way a track drag found it. */
   const restoreDragHighlight = (): void => {
     const restore = dragHighlightRestoreRef.current;
@@ -4641,6 +4707,8 @@ export function PcbEditor({
         },
         { sep: true },
         { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
+        { sep: true },
+        { label: 'Edit Teardrops…', action: () => setTeardropsOpen(true) },
         { sep: true },
         { label: 'Global Deletions…', disabled: dis },
       ],
@@ -6210,6 +6278,19 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {teardropsOpen && board && (
+        <DialogGlobalEditTeardrops
+          nets={board.nets}
+          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+          hasSelection={selection.size > 0}
+          onEditDefaults={() => {
+            setTeardropsOpen(false);
+            setBoardSetupOpen(true);
+          }}
+          onApply={applyTeardropEdit}
+          onClose={() => setTeardropsOpen(false)}
         />
       )}
       {drcOpen && (

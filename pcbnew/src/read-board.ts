@@ -40,8 +40,70 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbZoneFill,
+  TeardropParams,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+
+/**
+ * `(teardrops …)` on a pad or via.
+ * Counterpart: `PCB_IO_KICAD_SEXPR_PARSER::parseTEARDROP_PARAMETERS`.
+ *
+ * Every field has a default, so a partial token still yields a complete set —
+ * and `prefer_zone_connections` is stored inverted, as upstream does.
+ */
+function readTeardropParams(node: SList | undefined): TeardropParams | undefined {
+  if (!node) return undefined;
+
+  // TEARDROP_PARAMETERS's constructor.
+  const p: TeardropParams = {
+    enabled: false,
+    allowUseTwoTracks: true,
+    tdOnPadsInZones: false,
+    bestLengthRatio: 0.5,
+    tdMaxLen: mmToIU(1.0),
+    bestWidthRatio: 1.0,
+    tdMaxWidth: mmToIU(2.0),
+    curvedEdges: false,
+    widthtoSizeFilterRatio: 0.9,
+  };
+
+  // parseMaybeAbsentBool: a bare `(enabled)` means the token's "present" value.
+  const flag = (name: string, whenBare: boolean): boolean | undefined => {
+    const c = childNamed(node, name);
+    if (!c) return undefined;
+    const v = arg(c, 0);
+    return v === undefined ? whenBare : v === 'yes' || v === 'true';
+  };
+
+  const numChild = (name: string): number | undefined => {
+    const c = childNamed(node, name);
+    return c ? (numArg(c, 0) ?? undefined) : undefined;
+  };
+
+  p.enabled = flag('enabled', true) ?? p.enabled;
+  p.allowUseTwoTracks = flag('allow_two_segments', true) ?? p.allowUseTwoTracks;
+
+  const preferZone = flag('prefer_zone_connections', false);
+  if (preferZone !== undefined) p.tdOnPadsInZones = !preferZone;
+
+  p.bestLengthRatio = numChild('best_length_ratio') ?? p.bestLengthRatio;
+  p.bestWidthRatio = numChild('best_width_ratio') ?? p.bestWidthRatio;
+  p.widthtoSizeFilterRatio = numChild('filter_ratio') ?? p.widthtoSizeFilterRatio;
+
+  const maxLen = numChild('max_length');
+  if (maxLen !== undefined) p.tdMaxLen = mmToIU(maxLen);
+
+  const maxWidth = numChild('max_width');
+  if (maxWidth !== undefined) p.tdMaxWidth = mmToIU(maxWidth);
+
+  const curved = flag('curved_edges', true);
+  if (curved !== undefined) p.curvedEdges = curved;
+  // Legacy: a non-zero segment count meant "curved".
+  else if (numChild('curve_points') !== undefined)
+    p.curvedEdges = (numChild('curve_points') ?? 0) > 0;
+
+  return p;
+}
 
 const ptAt = (node: SList | undefined, from = 0): Vec2 | undefined => {
   if (!node) return undefined;
@@ -321,6 +383,7 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
       : undefined,
     pinType: childNamed(item, 'pintype') ? arg(childNamed(item, 'pintype')!, 0) : undefined,
     primitives: primitives.length > 0 ? primitives : undefined,
+    teardrops: readTeardropParams(childNamed(item, 'teardrops')),
     uuid: uuidOf(item),
     source: item,
   };
@@ -572,6 +635,14 @@ function readZone(item: SList): PcbZone {
     hatchHoleMinArea: numChild(fillNode, 'hatch_min_hole_area') ?? 0.3,
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
+    // `(attr (teardrop (type padvia|track_end)))`, ZONE::SetTeardropAreaType.
+    teardropType: (() => {
+      const attr = childNamed(item, 'attr');
+      const td = attr ? childNamed(attr, 'teardrop') : undefined;
+      const type = td ? childNamed(td, 'type') : undefined;
+      const word = type ? arg(type, 0) : undefined;
+      return word === 'padvia' ? 'viapad' : word === 'track_end' ? 'trackend' : undefined;
+    })(),
     uuid: uuidOf(item),
     source: item,
   };
@@ -707,6 +778,7 @@ export function readBoard(root: SList): Board {
               ? 'blind'
               : 'through',
           net: numberField(item, 'net') ?? 0,
+          teardrops: readTeardropParams(childNamed(item, 'teardrops')),
           locked: lockedOf(item),
           uuid: uuidOf(item),
           source: item,

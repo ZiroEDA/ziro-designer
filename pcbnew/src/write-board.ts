@@ -25,7 +25,11 @@ import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import { writeFootprintNode } from './write-footprint.js';
+import {
+  buildTeardropParamsNode,
+  isDefaultTeardropParams,
+  writeFootprintNode,
+} from './write-footprint.js';
 import type {
   Board,
   PcbTrack,
@@ -46,6 +50,9 @@ function mm(iu: number): string {
   if (s === '' || s === '-0') s = '0';
   return s;
 }
+
+/** Millimetres to board IU, for the defaults the builders fall back to. */
+const PCB_MM = (v: number): number => Math.round(v * 1e6);
 
 const xy = (name: string, p: Vec2): SList => list(atom(name), atom(mm(p.x)), atom(mm(p.y)));
 const atNode = (p: Vec2, angle = 0): SList =>
@@ -96,6 +103,7 @@ export function buildViaNode(v: PcbVia): SList {
     { kind: 'list', items: [atom('layers'), str(v.layers[0]), str(v.layers[1])] },
     list(atom('net'), atom(String(v.net))),
   );
+  if (!isDefaultTeardropParams(v.teardrops)) items.push(buildTeardropParamsNode(v.teardrops!));
   if (v.uuid) items.push(list(atom('uuid'), str(v.uuid)));
   return { kind: 'list', items };
 }
@@ -129,9 +137,14 @@ export function buildBoardShapeNode(s: PcbShape): SList {
 }
 
 /**
- * `(zone (net ..) (net_name ..) (layer[s] ..) (hatch ..) … (polygon (pts …)))`
- * for a freshly-drawn zone, with KiCad's default zone settings
- * (ZONE_SETTINGS: clearance 0.5, min thickness 0.25, thermal 0.5/0.5).
+ * `(zone (net ..) (net_name ..) (layer[s] ..) (hatch ..) … (polygon (pts …))
+ * (filled_polygon …))`, PCB_IO_KICAD_SEXPR::format( const ZONE* ).
+ *
+ * Model-driven, falling back to KiCad's zone defaults (ZONE_SETTINGS:
+ * clearance 0.5, min thickness 0.25, thermal 0.5/0.5) for the fields a
+ * freshly-drawn zone leaves unset. Generated zones — teardrops — set those
+ * fields and carry their own fill, so a builder that hardcoded the defaults
+ * would write copper KiCad then re-poured into something else.
  */
 export function buildZoneNode(z: PcbZone): SList {
   const items: SNode[] = [
@@ -144,15 +157,38 @@ export function buildZoneNode(z: PcbZone): SList {
   if (z.uuid) items.push(list(atom('uuid'), str(z.uuid)));
   const hatchStyle = z.hatchStyle ?? 'edge';
   items.push(list(atom('hatch'), atom(hatchStyle), atom(z.hatchPitch ? mm(z.hatchPitch) : '0.5')));
-  items.push(list(atom('connect_pads'), list(atom('clearance'), atom('0.5'))));
-  items.push(list(atom('min_thickness'), atom('0.25')));
+
+  if (z.priority) items.push(list(atom('priority'), atom(String(z.priority))));
+
+  // `(attr (teardrop (type …)))` marks generated copper, so a re-run of the
+  // teardrop generator knows which zones are its own to replace.
+  if (z.teardropType) {
+    items.push(
+      list(
+        atom('attr'),
+        list(
+          atom('teardrop'),
+          list(atom('type'), atom(z.teardropType === 'viapad' ? 'padvia' : 'track_end')),
+        ),
+      ),
+    );
+  }
+
+  const connect: SNode[] = [atom('connect_pads')];
+  if (z.padConnection === 'none') connect.push(atom('no'));
+  else if (z.padConnection === 'full') connect.push(atom('yes'));
+  else if (z.padConnection === 'thru_hole_only') connect.push(atom('thru_hole_only'));
+  connect.push(list(atom('clearance'), atom(mm(z.clearance ?? PCB_MM(0.5)))));
+  items.push({ kind: 'list', items: connect });
+
+  items.push(list(atom('min_thickness'), atom(mm(z.minThickness ?? PCB_MM(0.25)))));
   items.push(list(atom('filled_areas_thickness'), atom('no')));
   items.push(
     list(
       atom('fill'),
-      atom('yes'),
-      list(atom('thermal_gap'), atom('0.5')),
-      list(atom('thermal_bridge_width'), atom('0.5')),
+      atom(z.filled === false ? 'no' : 'yes'),
+      list(atom('thermal_gap'), atom(mm(z.thermalGap ?? PCB_MM(0.5)))),
+      list(atom('thermal_bridge_width'), atom(mm(z.thermalBridgeWidth ?? PCB_MM(0.5)))),
     ),
   );
   items.push(
@@ -161,6 +197,20 @@ export function buildZoneNode(z: PcbZone): SList {
       items: [atom('pts'), ...(z.outline ?? []).map((p) => xy('xy', p))],
     }),
   );
+
+  // The filled copper, one node per outline per layer.
+  for (const fill of z.fills) {
+    for (const poly of fill.polys) {
+      if (poly.length === 0) continue;
+      items.push(
+        list(atom('filled_polygon'), list(atom('layer'), str(fill.layer)), {
+          kind: 'list',
+          items: [atom('pts'), ...poly.map((p) => xy('xy', p))],
+        }),
+      );
+    }
+  }
+
   return { kind: 'list', items };
 }
 

@@ -766,6 +766,15 @@ function pointInRing(p: Vec2, ring: Vec2[]): boolean {
 export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
   const zones = board.zones.map((z, i) => {
     if (z.filled === false) return z;
+
+    // Teardrops keep the fill their generator produced. Upstream *does* run the
+    // filler over them, but under a pile of special cases — pad connection
+    // forced to FULL, no keepout knockouts, same-net higher-priority zones
+    // skipped — whose net effect is the outline it already has. Pouring one
+    // like an ordinary zone instead opens a thermal relief in the flare and
+    // eats the very copper the teardrop exists to add.
+    if (z.teardropType) return z;
+
     const fills = fillZone(board, i, opts);
     return { ...z, fills, source: withFilledPolygons(z, fills) };
   });

@@ -25,7 +25,14 @@ import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import type { PcbFootprint, PcbFootprintField, PcbPad, PcbShape, PcbTextItem } from './types.js';
+import type {
+  PcbFootprint,
+  PcbFootprintField,
+  PcbPad,
+  PcbShape,
+  PcbTextItem,
+  TeardropParams,
+} from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** SEXPR board/footprint file version (KiCad 9.0; matches pcbnew's output). */
@@ -44,6 +51,54 @@ const atNode = (p: Vec2, angle = 0): SList =>
   angle
     ? list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(angle)))
     : list(atom('at'), atom(mm(p.x)), atom(mm(p.y)));
+
+/** `(yes)`/`(no)` the way KICAD_FORMAT::FormatBool writes it. */
+const boolNode = (name: string, v: boolean): SList => list(atom(name), atom(v ? 'yes' : 'no'));
+
+/** FormatDouble2Str: up to 10 significant digits, trailing zeros trimmed. */
+function double2Str(v: number): string {
+  const s = v.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+  return s === '' || s === '-0' ? '0' : s;
+}
+
+/**
+ * `(teardrops …)`, PCB_IO_KICAD_SEXPR::formatTeardropParameters.
+ *
+ * `prefer_zone_connections` is written inverted, matching the stored
+ * `m_TdOnPadsInZones`. Callers should skip this entirely when the parameters
+ * equal upstream's defaults ({@link isDefaultTeardropParams}) — writing the
+ * block unconditionally would rewrite every pad on every board we touch.
+ */
+export function buildTeardropParamsNode(p: TeardropParams): SList {
+  return list(
+    atom('teardrops'),
+    list(atom('best_length_ratio'), atom(double2Str(p.bestLengthRatio))),
+    list(atom('max_length'), atom(mm(p.tdMaxLen))),
+    list(atom('best_width_ratio'), atom(double2Str(p.bestWidthRatio))),
+    list(atom('max_width'), atom(mm(p.tdMaxWidth))),
+    boolNode('curved_edges', p.curvedEdges),
+    list(atom('filter_ratio'), atom(double2Str(p.widthtoSizeFilterRatio))),
+    boolNode('enabled', p.enabled),
+    boolNode('allow_two_segments', p.allowUseTwoTracks),
+    boolNode('prefer_zone_connections', !p.tdOnPadsInZones),
+  );
+}
+
+/** isDefaultTeardropParameters: nothing to write when every field is stock. */
+export function isDefaultTeardropParams(p: TeardropParams | undefined): boolean {
+  if (!p) return true;
+  return (
+    p.enabled === false &&
+    p.bestLengthRatio === 0.5 &&
+    p.tdMaxLen === mmToIU(1.0) &&
+    p.bestWidthRatio === 1.0 &&
+    p.tdMaxWidth === mmToIU(2.0) &&
+    p.curvedEdges === false &&
+    p.widthtoSizeFilterRatio === 0.9 &&
+    p.allowUseTwoTracks === true &&
+    p.tdOnPadsInZones === false
+  );
+}
 
 // ----- canonical item builders (used only for edited / new items) -------------
 
@@ -75,6 +130,7 @@ export function buildPadNode(pad: PcbPad): SList {
     items.push(list(atom('chamfer_ratio'), atom(mm(pad.chamferRatio))));
   if (pad.chamfer && pad.chamfer.length > 0)
     items.push({ kind: 'list', items: [atom('chamfer'), ...pad.chamfer.map((c) => atom(c))] });
+  if (!isDefaultTeardropParams(pad.teardrops)) items.push(buildTeardropParamsNode(pad.teardrops!));
   if (pad.uuid) items.push(list(atom('uuid'), str(pad.uuid)));
   return { kind: 'list', items };
 }

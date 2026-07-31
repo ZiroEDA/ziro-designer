@@ -65,8 +65,37 @@ export interface PcbPad {
   /** `(pintype …)`: the schematic electrical type (PAD::GetPinType). */
   pinType?: string;
   primitives?: PadPrimitive[];
+  /** `(teardrops …)`, PAD::GetTeardropParams. Absent means upstream's defaults. */
+  teardrops?: TeardropParams;
   uuid?: string;
   source: SList;
+}
+
+/**
+ * `(teardrops …)` on a pad or via: TEARDROP_PARAMETERS, in IU.
+ *
+ * The engine's own type lives in teardrop.ts; this is the file-format shape,
+ * kept here so the reader and writer do not have to depend on the generator.
+ */
+export interface TeardropParams {
+  /** `(enabled …)`. */
+  enabled: boolean;
+  /** `(allow_two_segments …)`. */
+  allowUseTwoTracks: boolean;
+  /** The *inverse* of `(prefer_zone_connections …)`, as upstream stores it. */
+  tdOnPadsInZones: boolean;
+  /** `(best_length_ratio …)`. */
+  bestLengthRatio: number;
+  /** `(max_length …)`, IU. */
+  tdMaxLen: number;
+  /** `(best_width_ratio …)`. */
+  bestWidthRatio: number;
+  /** `(max_width …)`, IU. */
+  tdMaxWidth: number;
+  /** `(curved_edges …)`, or a non-zero legacy `(curve_points …)`. */
+  curvedEdges: boolean;
+  /** `(filter_ratio …)`. */
+  widthtoSizeFilterRatio: number;
 }
 
 /** A board or footprint graphic (gr_line/fp_line families), board-absolute. */
@@ -226,6 +255,8 @@ export interface PcbVia {
   layers: [string, string];
   kind: 'through' | 'blind' | 'micro';
   net: number;
+  /** `(teardrops …)`, PCB_VIA::GetTeardropParams. */
+  teardrops?: TeardropParams;
   locked?: boolean;
   uuid?: string;
   source: SList;

@@ -4307,3 +4307,77 @@ body {
   padding: 4px 0;
   text-align: center;
 }
+
+/* Edit Teardrops (dialog_global_edit_teardrops_base.cpp): Scope and Filter
+   Items side by side, Action below, with the specified-values block indented
+   under its radio. */
+.ze-teardrops-dialog {
+  width: 640px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-teardrops-top {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+.ze-teardrops-body select {
+  margin-left: 4px;
+  max-width: 180px;
+}
+.ze-teardrops-body .ze-td-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ze-teardrops-body .ze-link {
+  background: none;
+  border: none;
+  color: var(--accent, #4a9eff);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+.ze-teardrops-body .ze-link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ze-teardrops-body .ze-td-specified {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 0 22px;
+}
+.ze-teardrops-body .ze-td-label {
+  min-width: 150px;
+}
+.ze-teardrops-body .ze-td-input {
+  width: 70px;
+  text-align: right;
+}
+.ze-teardrops-body .ze-td-unit {
+  color: #8a8c90;
+  font-size: 12px;
+}
+.ze-teardrops-body .ze-td-note {
+  color: #8a8c90;
+  font-size: 11px;
+  margin-left: 150px;
+}
+/* The three-state control: checked, unchecked, or indeterminate ("—"). */
+.ze-teardrops-body .ze-tristate {
+  width: 15px;
+  height: 15px;
+  line-height: 1;
+  font-size: 11px;
+  padding: 0;
+  border: 1px solid var(--chrome-border);
+  background: var(--input-bg, #2b2d31);
+  color: inherit;
+  cursor: pointer;
+}
+.ze-teardrops-body .ze-tristate:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

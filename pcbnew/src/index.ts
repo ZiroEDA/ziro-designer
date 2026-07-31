@@ -171,6 +171,8 @@ export {
 // Teardrops (pcbnew/teardrop: TEARDROP_MANAGER).
 export {
   updateTeardrops,
+  applyTeardrops,
+  removeTeardrops,
   teardropZones,
   addTeardropsOnTracks,
   setTeardropPriorities,
@@ -185,3 +187,13 @@ export {
   type TeardropParametersList,
   type UpdateTeardropsOptions,
 } from './teardrop.js';
+
+// Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
+export {
+  applyGlobalTeardropEdit,
+  countGlobalTeardropTargets,
+  DEFAULT_GLOBAL_TEARDROP_EDIT,
+  type GlobalTeardropEditOptions,
+  type GlobalTeardropEditContext,
+  type TeardropEditAction,
+} from './teardrop_global_edit.js';
