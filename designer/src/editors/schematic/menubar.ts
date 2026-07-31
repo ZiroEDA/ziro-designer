@@ -206,7 +206,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Junctions', 'junction', 'junction', 'J'),
         tool('Place Net Labels', 'labelLocal', 'placeLabel', 'L'),
         tool('Place Global Labels', 'labelGlobal', 'placeGlobalLabel', 'Ctrl+L'),
-        stub('Place Directive Labels'),
+        tool('Place Directive Labels', 'labelClass', 'placeClassLabel'),
         stub('Draw Rule Areas'),
         SEP,
         tool('Place Hierarchical Labels', 'labelHier', 'placeHierLabel', 'H'),
