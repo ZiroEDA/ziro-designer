@@ -18,6 +18,8 @@ import {
   moveSheetPinCommand,
   deleteSheetPin,
   sideOfAngle,
+  cleanupSheetPins,
+  hierarchicalLabelNames,
 } from '@ziroeda/eeschema/src/tools/sch_sheet_pin_tool.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
@@ -141,5 +143,56 @@ describe('deleting a sheet pin', () => {
     expect(out.sheets[0]!.pins.map((p) => p.name)).toEqual(['B']);
     const back = cmd.invert(sch).apply(out);
     expect(back.sheets[0]!.pins.map((p) => p.name)).toEqual(['A', 'B']);
+  });
+});
+
+describe('cleaning up sheet pins', () => {
+  // SCH_SHEET::CleanupSheet drops pins that no longer name a hierarchical label
+  // inside the sheet: rename or delete the label and the pin connects to
+  // nothing, which ERC reports but nothing removes.
+  const child = (labels: string[]) =>
+    readSchematic(
+      parse(
+        `(kicad_sch (version 1) (lib_symbols) ${labels
+          .map((t, i) => `(hierarchical_label "${t}" (at 10 ${10 + i} 0) (uuid "h${i}"))`)
+          .join(' ')})`,
+      ),
+    );
+
+  it('keeps the pins that still match a label', () => {
+    const cmd = cleanupSheetPins(sch, 0, hierarchicalLabelNames(child(['A', 'B'])));
+    // Nothing to remove, so no command at all rather than an empty one.
+    expect(cmd).toBeNull();
+  });
+
+  it('drops a pin whose label is gone', () => {
+    const cmd = cleanupSheetPins(sch, 0, hierarchicalLabelNames(child(['A'])))!;
+    expect(cmd.apply(sch).sheets[0]!.pins.map((p) => p.name)).toEqual(['A']);
+  });
+
+  it('matches names case-insensitively, as CmpNoCase does', () => {
+    expect(cleanupSheetPins(sch, 0, hierarchicalLabelNames(child(['a', 'b'])))).toBeNull();
+  });
+
+  it('drops every pin when the sheet has no hierarchical labels', () => {
+    const cmd = cleanupSheetPins(sch, 0, hierarchicalLabelNames(child([])))!;
+    expect(cmd.apply(sch).sheets[0]!.pins).toHaveLength(0);
+  });
+
+  it('puts them back on undo', () => {
+    const cmd = cleanupSheetPins(sch, 0, hierarchicalLabelNames(child([])))!;
+    const back = cmd.invert(sch).apply(cmd.apply(sch));
+    expect(back.sheets[0]!.pins.map((p) => p.name)).toEqual(['A', 'B']);
+  });
+
+  it('only reads hierarchical labels, not other label kinds', () => {
+    // A local or global label of the same name is a different thing and does
+    // not keep a sheet pin alive.
+    const other = readSchematic(
+      parse(`(kicad_sch (version 1) (lib_symbols)
+        (label "A" (at 10 10 0) (uuid "l1"))
+        (global_label "B" (at 10 20 0) (uuid "g1")))`),
+    );
+    expect(hierarchicalLabelNames(other)).toEqual([]);
   });
 });

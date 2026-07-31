@@ -221,6 +221,56 @@ export function deleteSheetPin(ref: SheetPinRef): EditCommand {
   };
 }
 
+/**
+ * `SCH_SHEET::CleanupSheet`: drop the pins that no longer name a hierarchical
+ * label inside the sheet.
+ *
+ * A sheet pin is the parent's end of a connection whose other end is a
+ * hierarchical label in the child. Rename or delete the label and the pin is
+ * left connecting to nothing, which ERC reports but nothing removes. This is
+ * the removal, and it matches names case-insensitively, as upstream's
+ * CmpNoCase does.
+ *
+ * `childLabels` is the hierarchical labels of the sheet's own document, which
+ * the caller reads: a sheet's contents live in another file.
+ */
+export function cleanupSheetPins(
+  doc: Schematic,
+  sheetIndex: number,
+  childLabels: readonly string[],
+): EditCommand | null {
+  const sheet = doc.sheets[sheetIndex];
+  if (!sheet) return null;
+  const keep = new Set(childLabels.map((t) => t.toLowerCase()));
+  const pins = sheet.pins.filter((p) => keep.has(p.name.toLowerCase()));
+  if (pins.length === sheet.pins.length) return null;
+
+  return {
+    label: 'Cleanup Sheet Pins',
+    apply(d: Schematic): Schematic {
+      return {
+        ...d,
+        sheets: d.sheets.map((s, i) => (i === sheetIndex ? { ...s, pins } : s)),
+      };
+    },
+    invert(before: Schematic): EditCommand {
+      const original = before.sheets[sheetIndex]!.pins;
+      return {
+        label: 'Cleanup Sheet Pins',
+        apply: (d: Schematic): Schematic => ({
+          ...d,
+          sheets: d.sheets.map((s, i) => (i === sheetIndex ? { ...s, pins: original } : s)),
+        }),
+        invert: () => cleanupSheetPins(doc, sheetIndex, childLabels)!,
+      };
+    },
+  };
+}
+
+/** The hierarchical labels of a document, the names a sheet's pins must match. */
+export const hierarchicalLabelNames = (doc: Schematic): string[] =>
+  doc.labels.filter((l) => l.kind === 'hierarchical_label').map((l) => l.text);
+
 /** Every sheet pin's selection id, for the selection filter and box select. */
 export function allSheetPinIds(doc: Schematic): string[] {
   return doc.sheets.flatMap((s, i) =>

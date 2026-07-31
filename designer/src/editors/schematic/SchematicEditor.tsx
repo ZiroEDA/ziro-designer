@@ -135,6 +135,8 @@ import {
   replaceSymbol,
   replaceSheetPin,
   parseSheetPinId,
+  cleanupSheetPins,
+  hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
   isMandatoryField,
@@ -4162,11 +4164,32 @@ export function SchematicEditor({
         },
       );
       if (hit?.kind === 'sheet')
-        items.push({
-          label: 'Enter Sheet',
-          icon: 'enterSheet',
-          action: () => onEditItem(hit.id, 'sheet'),
-        });
+        items.push(
+          {
+            label: 'Enter Sheet',
+            icon: 'enterSheet',
+            action: () => onEditItem(hit.id, 'sheet'),
+          },
+          // SCH_ACTIONS::cleanupSheetPins: drop the pins that no longer name a
+          // hierarchical label inside the sheet.
+          {
+            label: 'Cleanup Sheet Pins',
+            icon: 'cleanupSheetPins',
+            action: () => {
+              if (!doc) return;
+              const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
+              const sh = doc.sheets[si];
+              if (!sh) return;
+              const file = sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
+              const child = liveDocs().get(file);
+              // Without the child document there is nothing to check against,
+              // and dropping every pin would be worse than doing nothing.
+              if (!child) return;
+              const cmd = cleanupSheetPins(doc, si, hierarchicalLabelNames(child));
+              if (cmd) runCommand(cmd);
+            },
+          },
+        );
       // SCH_POINT_EDITOR's own two menu items, shown for a polyline under the
       // same conditions upstream gates them on: the cursor has to be on the
       // shape to add a corner, and on one of its vertices to remove one.
