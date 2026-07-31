@@ -77,6 +77,8 @@ export interface GlobalTeardropEditContext {
   netclassOf?: (net: number) => readonly string[];
   /** Whether an item is in the current selection. */
   isSelected?: (item: PcbPad | PcbVia) => boolean;
+  /** BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion, for teardrop mask zones. */
+  solderMaskExpansion?: number;
 }
 
 /** The item's stored parameters, or upstream's defaults when it has none. */
@@ -242,7 +244,13 @@ export function applyGlobalTeardropEdit(
 
   const staged: Board = { ...board, vias, footprints };
 
-  return { board: applyTeardrops(staged, { list: finalList }), list: finalList };
+  return {
+    board: applyTeardrops(staged, {
+      list: finalList,
+      solderMaskExpansion: ctx.solderMaskExpansion,
+    }),
+    list: finalList,
+  };
 }
 
 /**

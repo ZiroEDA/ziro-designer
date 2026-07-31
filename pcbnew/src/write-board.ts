@@ -69,11 +69,27 @@ export function buildTrackNode(t: PcbTrack): SList {
     xy('start', t.start),
     xy('end', t.end),
     list(atom('width'), atom(mm(t.width))),
-    list(atom('layer'), str(t.layer)),
+    ...copperLayerNodes(t),
     list(atom('net'), atom(String(t.net))),
   ];
   if (t.uuid) items.push(list(atom('uuid'), str(t.uuid)));
   return { kind: 'list', items };
+}
+
+/**
+ * `(layer …)`, or `(layers "F.Cu" "F.Mask") (solder_mask_margin …)` when the
+ * track also opens the solder mask. Upstream writes the margin only alongside
+ * a mask layer and only on an outer copper layer.
+ */
+function copperLayerNodes(t: PcbTrack | PcbArcTrack): SNode[] {
+  if (!t.maskLayer) return [list(atom('layer'), str(t.layer))];
+
+  const out: SNode[] = [{ kind: 'list', items: [atom('layers'), str(t.layer), str(t.maskLayer)] }];
+
+  if (t.solderMaskMargin !== undefined)
+    out.push(list(atom('solder_mask_margin'), atom(mm(t.solderMaskMargin))));
+
+  return out;
 }
 
 /** `(arc (start ..) (mid ..) (end ..) (width ..) (layer ..) (net ..) [(uuid ..)])`. */
@@ -84,7 +100,7 @@ export function buildArcTrackNode(a: PcbArcTrack): SList {
     xy('mid', a.mid),
     xy('end', a.end),
     list(atom('width'), atom(mm(a.width))),
-    list(atom('layer'), str(a.layer)),
+    ...copperLayerNodes(a),
     list(atom('net'), atom(String(a.net))),
   ];
   if (a.uuid) items.push(list(atom('uuid'), str(a.uuid)));

@@ -138,7 +138,25 @@ const toBoard = (local: Vec2, t: FpTransform | null): Vec2 => {
 
 const layerOf = (node: SList): string => {
   const l = childNamed(node, 'layer');
-  return l ? (arg(l, 0) ?? '') : '';
+  if (l) return arg(l, 0) ?? '';
+  // `(layers "F.Cu" "F.Mask")`: PCB_TRACK::SetLayerSet keeps the copper one.
+  const ls = childNamed(node, 'layers');
+  return ls ? (args(ls).find((n) => /\.Cu$/.test(n)) ?? args(ls)[0] ?? '') : '';
+};
+
+/**
+ * The solder-mask layer a copper item's `(layers …)` names, if any.
+ * PCB_TRACK::HasSolderMask is precisely this being present.
+ */
+const maskLayerOf = (node: SList): string | undefined => {
+  const ls = childNamed(node, 'layers');
+  return ls ? args(ls).find((n) => /\.Mask$/.test(n)) : undefined;
+};
+
+/** `(solder_mask_margin …)` in IU. */
+const maskMarginOf = (node: SList): number | undefined => {
+  const v = numberField(node, 'solder_mask_margin');
+  return v === undefined ? undefined : mmToIU(v);
 };
 
 const uuidOf = (node: SList): string | undefined =>
@@ -740,6 +758,8 @@ export function readBoard(root: SList): Board {
             width: mmToIU(numberField(item, 'width') ?? 0),
             layer: layerOf(item),
             net: numberField(item, 'net') ?? 0,
+            maskLayer: maskLayerOf(item),
+            solderMaskMargin: maskMarginOf(item),
             locked: lockedOf(item),
             uuid: uuidOf(item),
             source: item,
@@ -759,6 +779,8 @@ export function readBoard(root: SList): Board {
             width: mmToIU(numberField(item, 'width') ?? 0),
             layer: layerOf(item),
             net: numberField(item, 'net') ?? 0,
+            maskLayer: maskLayerOf(item),
+            solderMaskMargin: maskMarginOf(item),
             locked: lockedOf(item),
             uuid: uuidOf(item),
             source: item,
