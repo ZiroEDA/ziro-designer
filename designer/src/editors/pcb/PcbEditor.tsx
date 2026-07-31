@@ -1908,6 +1908,9 @@ export function PcbEditor({
   // teardropParamsList is defined further down (it needs boardSetup); commitBoard
   // reaches it through a ref so its own identity stays stable.
   const teardropListRef = useRef<() => TeardropParametersList>(defaultTeardropParametersList);
+  // BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion, for the mask zone a teardrop
+  // grows when its track opens the mask.
+  const teardropMaskExpansionRef = useRef(0);
 
   const boardWantsTeardrops = (b: Board): boolean =>
     b.vias.some((v) => v.teardrops?.enabled) ||
@@ -3401,6 +3404,7 @@ export function PcbEditor({
     };
   }, [boardSetup]);
   teardropListRef.current = teardropParamsList;
+  teardropMaskExpansionRef.current = Math.round(boardSetup.maskPaste.maskExpansionMM * MM);
 
   /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
   const applyTeardropEdit = useCallback(
@@ -3412,6 +3416,7 @@ export function PcbEditor({
       const selected = selection;
       const next = applyGlobalTeardropEdit(brd, options, {
         list: teardropParamsList(),
+        solderMaskExpansion: teardropMaskExpansionRef.current,
         isSelected: (item) => {
           // Pads are selected as `pad:<footprint>:<index>`, vias as `via:<index>`.
           for (let fi = 0; fi < brd.footprints.length; fi++) {

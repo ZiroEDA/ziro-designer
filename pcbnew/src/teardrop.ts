@@ -30,6 +30,7 @@ import {
   transformCircleToPolygon,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
+import { CornerStrategy, inflate } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
@@ -1264,6 +1265,13 @@ export interface Teardrop {
   priority: number;
   /** The absolute outline area, the priority sort key. */
   outlineArea: number;
+  /**
+   * `createTeardropMask`'s companion zone, when the track it flares also opens
+   * the solder mask. Same shape, inflated by the mask expansion, on F.Mask or
+   * B.Mask — without it the flare would sit under mask while the track it grew
+   * from is exposed.
+   */
+  mask?: { layer: string; corners: Vec2[]; minThickness: number };
 }
 
 /** Per-item parameter lookup; return null to leave an item alone. */
@@ -1275,11 +1283,71 @@ export interface UpdateTeardropsOptions {
   paramsFor?: TeardropParamsFor;
   /** TEARDROP_PARAMETERS_LIST; used for the track-to-track pass and defaults. */
   list?: TeardropParametersList;
+  /**
+   * BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion, the fallback for a track with
+   * no local margin. Only reaches tracks that open the mask at all.
+   */
+  solderMaskExpansion?: number;
   maxError?: number;
 }
 
 /** ZONE::CalculateOutlineArea. */
 const outlineArea = (corners: Vec2[]): number => Math.abs(chainArea(corners));
+
+/** IsExternalCopperLayer. */
+const isExternalCopper = (layer: string): boolean => layer === 'F.Cu' || layer === 'B.Cu';
+
+/** The mask layer a teardrop on this track would need; createTeardropMask. */
+const maskLayerFor = (track: TdTrack): string | undefined => {
+  if (!track.maskLayer || !isExternalCopper(track.layer)) return undefined;
+  return track.layer === 'F.Cu' ? 'F.Mask' : 'B.Mask';
+};
+
+/**
+ * PCB_TRACK::GetSolderMaskExpansion, minus the DRC-rule path.
+ *
+ * Upstream first asks the DRC engine for a SOLDER_MASK_EXPANSION_CONSTRAINT and
+ * only falls back to the local margin and the board default. We have no custom
+ * rules for that constraint, so the two remaining branches are the whole answer.
+ */
+function solderMaskExpansion(track: TdTrack, boardExpansion: number): number {
+  let margin = track.solderMaskMargin ?? boardExpansion;
+
+  // Keep the opening from inverting on a large negative margin.
+  if (margin < 0) margin = Math.max(margin, -Math.trunc(track.width / 2));
+
+  return margin;
+}
+
+/**
+ * TEARDROP_MANAGER::createTeardropMask: the same corners, inflated by the mask
+ * expansion.
+ *
+ * Upstream inflates with ALLOW_ACUTE_CORNERS and leaves the rounding to the
+ * zone's own min-thickness deflate/reinflate, which it raises to the expansion
+ * for exactly that reason; we carry the raised min thickness on the record so
+ * the zone we build says the same thing.
+ */
+function teardropMask(corners: Vec2[], track: TdTrack, boardExpansion: number): Teardrop['mask'] {
+  const layer = maskLayerFor(track);
+
+  if (!layer) return undefined;
+
+  // The minimum zone thickness createTeardropMask sets.
+  const baseThickness = pcbIUScale.mmToIU(0.0254);
+  const expansion = solderMaskExpansion(track, boardExpansion);
+
+  if (expansion === 0) return { layer, corners, minThickness: baseThickness };
+
+  // ALLOW_ACUTE_CORNERS is a miter join, so no segment count is involved.
+  const grown = inflate([[corners]], expansion, CornerStrategy.ALLOW_ACUTE_CORNERS);
+
+  return {
+    layer,
+    corners: grown[0]?.[0] ?? corners,
+    minThickness: Math.max(baseThickness, expansion),
+  };
+}
 
 /** Every track and arc on the board, in file order. */
 const allBoardTracks = (board: Board): TdTrack[] => [...board.tracks, ...board.arcs];
@@ -1483,6 +1551,7 @@ export function addTeardropsOnTracks(
   list: TeardropParametersList,
   tolerance: number,
   maxError: number,
+  maskExpansion = 0,
 ): Teardrop[] {
   const params = { ...list.track };
   const out: Teardrop[] = [];
@@ -1558,6 +1627,7 @@ export function addTeardropsOnTracks(
             corners,
             priority: MAGIC_TEARDROP_ZONE_ID,
             outlineArea: outlineArea(corners),
+            mask: teardropMask(corners, track, maskExpansion),
           });
         }
       }
@@ -1577,6 +1647,7 @@ export function addTeardropsOnTracks(
 export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {}): Teardrop[] {
   const list = opts.list ?? defaultTeardropParametersList();
   const maxError = opts.maxError ?? DEFAULT_MAX_ERROR;
+  const maskExpansion = opts.solderMaskExpansion ?? 0;
   const paramsFor = opts.paramsFor ?? ((item: TdItem) => defaultParamsFor(list, item));
 
   // m_tolerance, as UpdateTeardrops sets it.
@@ -1598,6 +1669,7 @@ export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {})
       corners,
       priority: MAGIC_TEARDROP_ZONE_ID,
       outlineArea: outlineArea(corners),
+      mask: teardropMask(corners, track, maskExpansion),
     });
   };
 
@@ -1653,7 +1725,7 @@ export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {})
   }
 
   if (list.targetTrack2Track && list.track.enabled)
-    out.push(...addTeardropsOnTracks(board, list, tolerance, maxError));
+    out.push(...addTeardropsOnTracks(board, list, tolerance, maxError, maskExpansion));
 
   setTeardropPriorities(out);
 
@@ -1671,24 +1743,50 @@ export function teardropZones(
   teardrops: readonly Teardrop[],
   netNames?: ReadonlyMap<number, string>,
 ): PcbZone[] {
-  return teardrops.map((td) => ({
-    net: td.net,
-    netName: netNames?.get(td.net) ?? '',
-    layers: [td.layer],
-    fills: [{ layer: td.layer, polys: [td.corners] }],
-    outline: td.corners,
-    padConnection: 'full' as const,
-    clearance: 0,
-    minThickness: pcbIUScale.mmToIU(0.0254),
-    filled: true,
-    priority: td.priority,
-    teardropType: td.type,
-    // ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER.
-    hatchStyle: 'invisible' as const,
-    // Source-less, so the writer emits it from buildZoneNode. A non-empty
-    // source here would be echoed to the file verbatim.
-    source: { kind: 'list' as const, items: [] },
-  }));
+  const out: PcbZone[] = [];
+
+  for (const td of teardrops) {
+    out.push({
+      net: td.net,
+      netName: netNames?.get(td.net) ?? '',
+      layers: [td.layer],
+      fills: [{ layer: td.layer, polys: [td.corners] }],
+      outline: td.corners,
+      padConnection: 'full' as const,
+      clearance: 0,
+      minThickness: pcbIUScale.mmToIU(0.0254),
+      filled: true,
+      priority: td.priority,
+      teardropType: td.type,
+      // ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER.
+      hatchStyle: 'invisible' as const,
+      // Source-less, so the writer emits it from buildZoneNode. A non-empty
+      // source here would be echoed to the file verbatim.
+      source: { kind: 'list' as const, items: [] },
+    });
+
+    if (!td.mask) continue;
+
+    // createTeardropMask: no net, no pad connection — it is a mask opening, not
+    // copper, and giving it a net would put it in the ratsnest.
+    out.push({
+      net: 0,
+      netName: '',
+      layers: [td.mask.layer],
+      fills: [{ layer: td.mask.layer, polys: [td.mask.corners] }],
+      outline: td.mask.corners,
+      padConnection: 'full' as const,
+      clearance: 0,
+      minThickness: td.mask.minThickness,
+      filled: true,
+      priority: td.priority,
+      teardropType: td.type,
+      hatchStyle: 'invisible' as const,
+      source: { kind: 'list' as const, items: [] },
+    });
+  }
+
+  return out;
 }
 
 /**

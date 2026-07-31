@@ -230,6 +230,14 @@ export interface PcbTrack {
   width: number;
   layer: string;
   net: number;
+  /**
+   * `(layers "F.Cu" "F.Mask")`, PCB_TRACK::SetLayerSet: a track can carry a
+   * solder-mask opening alongside its copper layer. `HasSolderMask()` is
+   * exactly "the layer set named a mask layer".
+   */
+  maskLayer?: string;
+  /** `(solder_mask_margin …)`, PCB_TRACK::GetLocalSolderMaskMargin, in IU. */
+  solderMaskMargin?: number;
   /** `(locked yes)` on the track. */
   locked?: boolean;
   uuid?: string;
@@ -243,6 +251,14 @@ export interface PcbArcTrack {
   width: number;
   layer: string;
   net: number;
+  /**
+   * `(layers "F.Cu" "F.Mask")`, PCB_TRACK::SetLayerSet: a track can carry a
+   * solder-mask opening alongside its copper layer. `HasSolderMask()` is
+   * exactly "the layer set named a mask layer".
+   */
+  maskLayer?: string;
+  /** `(solder_mask_margin …)`, PCB_TRACK::GetLocalSolderMaskMargin, in IU. */
+  solderMaskMargin?: number;
   locked?: boolean;
   uuid?: string;
   source: SList;
