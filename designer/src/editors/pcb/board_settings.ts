@@ -465,10 +465,32 @@ export interface TeardropShape {
   curvedEdges: boolean;
 }
 
+/**
+ * `teardrop_options` in the project file: TEARDROP_PARAMETERS_LIST's target
+ * flags. PANEL_SETUP_TEARDROPS does not show these — DIALOG_GLOBAL_EDIT_TEARDROPS
+ * owns them, and writes them back here so the scope survives a reload.
+ */
+export interface TeardropTargets {
+  /** m_TargetVias / `td_onvia`. */
+  vias: boolean;
+  /** m_TargetPTHPads / `td_onpthpad`. */
+  pthPads: boolean;
+  /** m_TargetSMDPads / `td_onsmdpad`. */
+  smdPads: boolean;
+  /** m_TargetTrack2Track / `td_ontrackend`. */
+  trackToTrack: boolean;
+  /** m_UseRoundShapesOnly / `td_onroundshapesonly`. */
+  roundShapesOnly: boolean;
+}
+
+/** The three shape groups PANEL_SETUP_TEARDROPS edits, apart from the targets. */
+export type TeardropShapeKey = 'round' | 'rect' | 'trackToTrack';
+
 export interface TeardropsSetup {
   round: TeardropShape;
   rect: TeardropShape;
   trackToTrack: TeardropShape;
+  targets: TeardropTargets;
 }
 
 function teardropShape(): TeardropShape {
@@ -485,7 +507,19 @@ function teardropShape(): TeardropShape {
 }
 
 export function defaultTeardrops(): TeardropsSetup {
-  return { round: teardropShape(), rect: teardropShape(), trackToTrack: teardropShape() };
+  return {
+    round: teardropShape(),
+    rect: teardropShape(),
+    trackToTrack: teardropShape(),
+    // TEARDROP_PARAMETERS_LIST's constructor.
+    targets: {
+      vias: true,
+      pthPads: true,
+      smdPads: true,
+      trackToTrack: false,
+      roundShapesOnly: false,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

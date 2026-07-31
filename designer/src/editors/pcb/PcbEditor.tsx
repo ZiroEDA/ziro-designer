@@ -118,7 +118,10 @@ import {
   type GlobalTeardropEditOptions,
 } from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
 import {
+  applyTeardrops,
+  boardHasTeardrops,
   defaultTeardropParametersList,
+  teardropInputsChanged,
   type TeardropParametersList,
 } from '@ziroeda/pcbnew/src/teardrop.js';
 import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
@@ -1895,14 +1898,47 @@ export function PcbEditor({
     [rebuildScene],
   );
 
-  // Commit an edit: snapshot the current board for undo, then swap in the next.
+  /**
+   * Does anything on the board ask for teardrops?
+   *
+   * The refresh below is a full rebuild, so it is worth one cheap scan to skip
+   * it entirely — which is what happens on every board that has never opened
+   * the Edit Teardrops dialog.
+   */
+  // teardropParamsList is defined further down (it needs boardSetup); commitBoard
+  // reaches it through a ref so its own identity stays stable.
+  const teardropListRef = useRef<() => TeardropParametersList>(defaultTeardropParametersList);
+
+  const boardWantsTeardrops = (b: Board): boolean =>
+    b.vias.some((v) => v.teardrops?.enabled) ||
+    b.footprints.some((f) => f.pads.some((p) => p.teardrops?.enabled)) ||
+    b.zones.some((z) => z.teardropType !== undefined);
+
+  /**
+   * Commit an edit: snapshot the current board for undo, then swap in the next.
+   *
+   * BOARD_COMMIT::Push refreshes teardrops on every commit that touched a
+   * track, pad, via or footprint — teardrops in pcbnew are live, they follow
+   * your routing rather than waiting for you to re-run a command. We rebuild
+   * the whole set rather than tracking dirty items; that is the same answer,
+   * and the scan above keeps boards without teardrops from paying for it.
+   *
+   * `skipTeardrops` is upstream's SKIP_TEARDROPS flag: the teardrop commands
+   * have already built the zones they want, and re-running here would be
+   * redundant work on a board that just did it.
+   */
   const commitBoard = useCallback(
-    (next: Board) => {
+    (next: Board, opts: { skipTeardrops?: boolean } = {}) => {
       const prev = boardRef.current;
       if (prev) undoRef.current.push(prev);
       redoRef.current = [];
       setDirty(true);
-      setBoardModel(next);
+      const refresh =
+        !opts.skipTeardrops &&
+        boardHasTeardrops(next) &&
+        (!prev || teardropInputsChanged(prev, next));
+
+      setBoardModel(refresh ? applyTeardrops(next, { list: teardropListRef.current() }) : next);
     },
     [setBoardModel],
   );
@@ -3340,6 +3376,7 @@ export function PcbEditor({
    */
   const teardropParamsList = useCallback((): TeardropParametersList => {
     const base = defaultTeardropParametersList();
+    const targets = boardSetup.teardrops.targets;
     const shape = (s: (typeof boardSetup)['teardrops']['round']) => ({
       enabled: true,
       allowUseTwoTracks: s.allowSpanTwoSegments,
@@ -3356,8 +3393,14 @@ export function PcbEditor({
       round: shape(boardSetup.teardrops.round),
       rect: shape(boardSetup.teardrops.rect),
       track: shape(boardSetup.teardrops.trackToTrack),
+      targetVias: targets.vias,
+      targetPTHPads: targets.pthPads,
+      targetSMDPads: targets.smdPads,
+      targetTrack2Track: targets.trackToTrack,
+      useRoundShapesOnly: targets.roundShapesOnly,
     };
   }, [boardSetup]);
+  teardropListRef.current = teardropParamsList;
 
   /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
   const applyTeardropEdit = useCallback(
@@ -3382,9 +3425,25 @@ export function PcbEditor({
         },
       });
 
-      commitBoard(next.board);
+      commitBoard(next.board, { skipTeardrops: true });
+
+      // The scope checkboxes are project state (`teardrop_options`), so they
+      // survive the dialog closing and the next reload.
+      commitBoardSetup({
+        ...boardSetupRef.current,
+        teardrops: {
+          ...boardSetupRef.current.teardrops,
+          targets: {
+            vias: next.list.targetVias,
+            pthPads: next.list.targetPTHPads,
+            smdPads: next.list.targetSMDPads,
+            trackToTrack: next.list.targetTrack2Track,
+            roundShapesOnly: next.list.useRoundShapesOnly,
+          },
+        },
+      });
     },
-    [commitBoard, selection, teardropParamsList],
+    [commitBoard, commitBoardSetup, selection, teardropParamsList],
   );
 
   /** Put the net highlight back the way a track drag found it. */
@@ -6285,6 +6344,13 @@ export function PcbEditor({
           nets={board.nets}
           layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
           hasSelection={selection.size > 0}
+          initialScope={{
+            vias: boardSetup.teardrops.targets.vias,
+            pthPads: boardSetup.teardrops.targets.pthPads,
+            smdPads: boardSetup.teardrops.targets.smdPads,
+            trackToTrack: boardSetup.teardrops.targets.trackToTrack,
+            roundPadsOnly: boardSetup.teardrops.targets.roundShapesOnly,
+          }}
           onEditDefaults={() => {
             setTeardropsOpen(false);
             setBoardSetupOpen(true);

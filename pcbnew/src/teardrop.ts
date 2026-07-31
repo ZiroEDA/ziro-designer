@@ -36,7 +36,7 @@ import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygo
 
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { arcShape, padShapes } from './drc/drc_engine.js';
-import { pointInPoly, shapeDist, type Shape } from './drc/drc_geometry.js';
+import { pointInPoly, shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { shapeToPolygon } from './zone_filler.js';
 import type {
   Board,
@@ -191,7 +191,30 @@ const ptsOf = (ring: Ring): Vec2[] => ring.map(([x, y]) => ({ x, y }));
  * is the same outline the zone filler and DRC already agree on; taking the
  * largest ring matches `Outline(0)` for the single-body pads that reach here.
  */
+const outlineCache = new WeakMap<TdItem, Map<number, Vec2[]>>();
+
 export function itemOutline(item: TdItem, maxError = DEFAULT_MAX_ERROR): Vec2[] {
+  // Every teardrop asks its pad for the same outline four or five times over
+  // (chord filter, anchor search, pointD clamp, hull clip), and a full rebuild
+  // now runs on every board commit. The cache is keyed on the item object,
+  // which is sound because the board model is immutable: an edited pad is a new
+  // object, so a changed pad can never hit a stale entry.
+  let byError = outlineCache.get(item);
+
+  if (byError) {
+    const hit = byError.get(maxError);
+    if (hit) return hit;
+  } else {
+    byError = new Map();
+    outlineCache.set(item, byError);
+  }
+
+  const outline = computeItemOutline(item, maxError);
+  byError.set(maxError, outline);
+  return outline;
+}
+
+function computeItemOutline(item: TdItem, maxError: number): Vec2[] {
   if (isRound(item)) {
     return transformCircleToPolygon(
       itemPosition(item),
@@ -1296,31 +1319,108 @@ export function areItemsInSameZone(board: Board, padOrVia: TdItem, track: TdTrac
   return false;
 }
 
-/** Pads that a track touches, on the track's layer and net. */
-function connectedPads(board: Board, track: TdTrack): PcbPad[] {
-  const out: PcbPad[] = [];
-  const trackShape = itemShapes(track)[0]!;
+/**
+ * A net-keyed index of the pads and vias a track could touch, with their DRC
+ * shapes and bounding boxes precomputed.
+ *
+ * Upstream asks connectivity (`GetConnectedPadsAndVias`), which is already a
+ * per-net query. A brute-force scan over every footprint per track is O(tracks
+ * x pads) and rebuilds `padShapes` each time — fine for a one-shot command,
+ * ruinous now that every board commit refreshes teardrops.
+ */
+interface ConnectivityIndex {
+  pads: Map<number, { pad: PcbPad; shapes: Shape[]; box: Box }[]>;
+  vias: Map<number, { via: PcbVia; shape: Shape; box: Box }[]>;
+}
+
+interface Box {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+const boxOf = (shapes: readonly Shape[]): Box => {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const s of shapes) {
+    const b = shapeBBox(s);
+    minX = Math.min(minX, b.minX);
+    minY = Math.min(minY, b.minY);
+    maxX = Math.max(maxX, b.maxX);
+    maxY = Math.max(maxY, b.maxY);
+  }
+
+  return { minX, minY, maxX, maxY };
+};
+
+const boxesOverlap = (a: Box, b: Box): boolean =>
+  a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY;
+
+function buildConnectivityIndex(board: Board): ConnectivityIndex {
+  const pads: ConnectivityIndex['pads'] = new Map();
+  const vias: ConnectivityIndex['vias'] = new Map();
 
   for (const fp of board.footprints) {
     for (const pad of fp.pads) {
-      if (pad.net !== track.net) continue;
-      if (!pad.layers.some((l) => l === track.layer || l === '*.Cu')) continue;
-      if (padShapes(pad).some((s) => shapeDist(trackShape, s) <= 0)) out.push(pad);
+      const net = pad.net ?? 0;
+      if (net === 0) continue;
+      const shapes = padShapes(pad);
+      const entry = { pad, shapes, box: boxOf(shapes) };
+      const list = pads.get(net);
+      if (list) list.push(entry);
+      else pads.set(net, [entry]);
     }
+  }
+
+  for (const via of board.vias) {
+    if (via.net === 0) continue;
+    const shape: Shape = { kind: 'circle', c: via.at, r: via.size / 2 };
+    const entry = { via, shape, box: boxOf([shape]) };
+    const list = vias.get(via.net);
+    if (list) list.push(entry);
+    else vias.set(via.net, [entry]);
+  }
+
+  return { pads, vias };
+}
+
+/** Pads that a track touches, on the track's layer and net. */
+function connectedPads(index: ConnectivityIndex, track: TdTrack): PcbPad[] {
+  const candidates = index.pads.get(track.net);
+  if (!candidates) return [];
+
+  const trackShape = itemShapes(track)[0]!;
+  const trackBox = boxOf([trackShape]);
+  const out: PcbPad[] = [];
+
+  for (const { pad, shapes, box } of candidates) {
+    if (!boxesOverlap(trackBox, box)) continue;
+    if (!pad.layers.some((l) => l === track.layer || l === '*.Cu')) continue;
+    if (shapes.some((s) => shapeDist(trackShape, s) <= 0)) out.push(pad);
   }
 
   return out;
 }
 
 /** Vias that a track touches, on the track's net. */
-function connectedVias(board: Board, track: TdTrack): PcbVia[] {
-  const trackShape = itemShapes(track)[0]!;
+function connectedVias(index: ConnectivityIndex, track: TdTrack): PcbVia[] {
+  const candidates = index.vias.get(track.net);
+  if (!candidates) return [];
 
-  return board.vias.filter(
-    (via) =>
-      via.net === track.net &&
-      shapeDist(trackShape, { kind: 'circle', c: via.at, r: via.size / 2 }) <= 0,
-  );
+  const trackShape = itemShapes(track)[0]!;
+  const trackBox = boxOf([trackShape]);
+  const out: PcbVia[] = [];
+
+  for (const { via, shape, box } of candidates) {
+    if (!boxesOverlap(trackBox, box)) continue;
+    if (shapeDist(trackShape, shape) <= 0) out.push(via);
+  }
+
+  return out;
 }
 
 /** The parameter set a pad or via falls under, by shape. */
@@ -1387,6 +1487,7 @@ export function addTeardropsOnTracks(
   const params = { ...list.track };
   const out: Teardrop[] = [];
   const tracks = allBoardTracks(board);
+  const index = buildConnectivityIndex(board);
 
   // Group by layer and net, as TRACK_BUFFER does.
   const groups = new Map<string, TdTrack[]>();
@@ -1434,8 +1535,8 @@ export function addTeardropsOnTracks(
 
         // Pads and vias have priority: skip if one already sits here.
         const existingPadOrVia =
-          connectedPads(board, track).some((pad) => hitTestItem(pad, pos)) ||
-          connectedVias(board, track).some((via) => hitTestItem(via, pos));
+          connectedPads(index, track).some((pad) => hitTestItem(pad, pos)) ||
+          connectedVias(index, track).some((via) => hitTestItem(via, pos));
 
         if (existingPadOrVia) continue;
 
@@ -1482,6 +1583,7 @@ export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {})
   const tolerance = pcbIUScale.mmToIU(0.01);
 
   const tracks = allBoardTracks(board);
+  const index = buildConnectivityIndex(board);
   const out: Teardrop[] = [];
 
   const build = (params: TeardropParameters, track: TdTrack, other: TdItem, pos: Vec2): void => {
@@ -1500,7 +1602,7 @@ export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {})
   };
 
   for (const track of tracks) {
-    for (const other of [...connectedPads(board, track), ...connectedVias(board, track)]) {
+    for (const other of [...connectedPads(index, track), ...connectedVias(index, track)]) {
       const params = paramsFor(other);
 
       if (!params?.enabled) continue;
@@ -1582,11 +1684,46 @@ export function teardropZones(
     priority: td.priority,
     teardropType: td.type,
     // ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER.
-    hatchStyle: 'none' as const,
+    hatchStyle: 'invisible' as const,
     // Source-less, so the writer emits it from buildZoneNode. A non-empty
     // source here would be echoed to the file verbatim.
     source: { kind: 'list' as const, items: [] },
   }));
+}
+
+/**
+ * Does anything on this board ask for teardrops?
+ *
+ * BOARD_COMMIT::Push refreshes teardrops on every commit, which for us is a
+ * full rebuild — worth one cheap scan to skip entirely, which is what happens
+ * on every board that has never enabled them. Existing teardrop zones count:
+ * a board that has them must keep them in step even if the last enabled item
+ * was just deleted.
+ */
+export function boardHasTeardrops(board: Board): boolean {
+  return (
+    board.vias.some((v) => v.teardrops?.enabled) ||
+    board.footprints.some((f) => f.pads.some((p) => p.teardrops?.enabled)) ||
+    board.zones.some((z) => z.teardropType !== undefined)
+  );
+}
+
+/**
+ * Could this commit have changed any teardrop?
+ *
+ * BOARD_COMMIT::Push only runs the teardrop update when the commit staged a
+ * track, arc, pad, via or footprint (`staleTeardropTracks` /
+ * `staleTeardropPadsAndVias` non-empty). This is the same question asked of an
+ * immutable model: if none of those collections was rebuilt, nothing a teardrop
+ * depends on moved, so an edit to text or a zone costs nothing.
+ */
+export function teardropInputsChanged(prev: Board, next: Board): boolean {
+  return (
+    prev.tracks !== next.tracks ||
+    prev.arcs !== next.arcs ||
+    prev.vias !== next.vias ||
+    prev.footprints !== next.footprints
+  );
 }
 
 /**

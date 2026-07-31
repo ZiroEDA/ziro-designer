@@ -23,7 +23,7 @@ const TD_ICON = import.meta.glob('../../../../assets/teardrops/*.svg', {
 const icon = (name: string): string | undefined =>
   TD_ICON[`../../../../assets/teardrops/${name}.svg`];
 
-import type { TeardropsSetup, TeardropShape } from '../../board_settings.js';
+import type { TeardropsSetup, TeardropShape, TeardropShapeKey } from '../../board_settings.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -58,7 +58,7 @@ export function PanelPcbTeardrops({ value, onChange }: Props): JSX.Element {
 
   const column = (
     title: string,
-    key: keyof TeardropsSetup,
+    key: TeardropShapeKey,
     opts: { img: string; ref: 'd' | 'w'; preferZone: boolean; spanLabel: string; note?: string },
   ): JSX.Element => {
     const s = value[key];

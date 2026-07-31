@@ -304,8 +304,18 @@ describe('board project_settings (.kicad_pro)', () => {
     expect(j.board.design_settings.rule_severities.some_future_rule).toBe('warning');
     expect(j.board.design_settings.rule_severities.clearance).toBe('error');
     expect(j.board.design_settings.defaults.pads).toEqual({ width: 1.5, height: 2, drill: 0.7 });
+    // teardrop_options is modelled now (the Edit Teardrops scope), so it is
+    // rewritten in full rather than passed through: the two flags the input set
+    // survive, and the three it omitted come back as TEARDROP_PARAMETERS_LIST's
+    // defaults.
     expect(j.board.design_settings.teardrop_options).toEqual([
-      { td_onvia: true, td_onpthpad: false },
+      {
+        td_onvia: true,
+        td_onpthpad: false,
+        td_onsmdpad: true,
+        td_ontrackend: false,
+        td_onroundshapesonly: false,
+      },
     ]);
     const dflt = j.net_settings.classes.find((c: { name: string }) => c.name === 'Default');
     expect(dflt.diff_pair_via_gap).toBe(0.31);
@@ -327,5 +337,40 @@ describe('board project_settings (.kicad_pro)', () => {
     expect(findProjectPro(files, 'mine')?.name).toBe('a/mine.kicad_pro');
     expect(readBoardSetupPro(files, 'mine').constraints.minTrackMM).toBe(0.13);
     expect(readBoardSetupPro([], 'mine')).toEqual(defaultBoardSetup());
+  });
+  it('round-trips teardrop_options, the Edit Teardrops scope', () => {
+    const pro = JSON.stringify({
+      board: {
+        design_settings: {
+          teardrop_options: [
+            {
+              td_onvia: false,
+              td_onpthpad: true,
+              td_onsmdpad: false,
+              td_ontrackend: true,
+              td_onroundshapesonly: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const s = readBoardSetupProText(pro);
+    expect(s.teardrops.targets).toEqual({
+      vias: false,
+      pthPads: true,
+      smdPads: false,
+      trackToTrack: true,
+      roundShapesOnly: true,
+    });
+
+    const j = JSON.parse(writeBoardSetupProText(pro, s)!);
+    expect(j.board.design_settings.teardrop_options[0]).toEqual({
+      td_onvia: false,
+      td_onpthpad: true,
+      td_onsmdpad: false,
+      td_ontrackend: true,
+      td_onroundshapesonly: true,
+    });
   });
 });

@@ -43,7 +43,7 @@ import {
   type DrcSeverity,
   type FreqUnit,
   type TeardropShape,
-  type TeardropsSetup,
+  type TeardropShapeKey,
   type TuningPattern,
   type TuningProfile,
   type TuningSetup,
@@ -155,7 +155,7 @@ const LAYER_CLASS_PREFIX = ['silk', 'copper', null, null, 'fab', 'other'] as con
 
 /** Teardrop target canonical names (teardrop_parameters.cpp) in
  *  TeardropsSetup {round, rect, trackToTrack} order. */
-const TEARDROP_TARGETS: readonly (readonly [string, keyof TeardropsSetup])[] = [
+const TEARDROP_TARGETS: readonly (readonly [string, TeardropShapeKey])[] = [
   ['td_round_shape', 'round'],
   ['td_rect_shape', 'rect'],
   ['td_track_end', 'trackToTrack'],
@@ -328,6 +328,19 @@ export function readBoardSetupProText(proText: string): BoardSetupValues {
       // (panel_setup_teardrops.cpp: SetValue(!m_TdOnPadsInZones)).
       t.preferZoneConnection = !bool(e.td_on_pad_in_zone, !t.preferZoneConnection);
     }
+  }
+
+  // teardrop_options, a one-entry array carrying the target flags
+  // (board_design_settings.cpp's PARAM_LAMBDA).
+  const tdOpts = getPath(j, `${DS}.teardrop_options`);
+  if (Array.isArray(tdOpts) && isObj(tdOpts[0])) {
+    const e = tdOpts[0];
+    const g = s.teardrops.targets;
+    g.vias = bool(e.td_onvia, g.vias);
+    g.pthPads = bool(e.td_onpthpad, g.pthPads);
+    g.smdPads = bool(e.td_onsmdpad, g.smdPads);
+    g.trackToTrack = bool(e.td_ontrackend, g.trackToTrack);
+    g.roundShapesOnly = bool(e.td_onroundshapesonly, g.roundShapesOnly);
   }
 
   // tuning_pattern_settings (PNS::MEANDER_SETTINGS).
@@ -629,13 +642,21 @@ export function writeBoardSetupProText(proText: string, s: BoardSetupValues): st
     ...s.diffPairsMM.map((p) => ({ gap: p.gap, via_gap: p.viaGap, width: p.width })),
   ]);
 
-  // teardrop_parameters (teardrop_options carries the enable flags, which the
-  // Board Setup panel does not own, preserved untouched).
+  // teardrop_parameters, plus teardrop_options's single entry of target flags.
   setPath(
     j,
     `${DS}.teardrop_parameters`,
     TEARDROP_TARGETS.map(([name, field]) => teardropJson(name, s.teardrops[field])),
   );
+  setPath(j, `${DS}.teardrop_options`, [
+    {
+      td_onvia: s.teardrops.targets.vias,
+      td_onpthpad: s.teardrops.targets.pthPads,
+      td_onsmdpad: s.teardrops.targets.smdPads,
+      td_ontrackend: s.teardrops.targets.trackToTrack,
+      td_onroundshapesonly: s.teardrops.targets.roundShapesOnly,
+    },
+  ]);
 
   // tuning_pattern_settings.
   for (const [key, field] of TUNING_GROUPS)

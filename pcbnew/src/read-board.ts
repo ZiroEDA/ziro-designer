@@ -559,7 +559,7 @@ function readZone(item: SList): PcbZone {
   // `(hatch <style> <pitch>)`, border display style + hatch pitch (mm).
   const hatchNode = childNamed(item, 'hatch');
   const hatchWord = hatchNode ? arg(hatchNode, 0) : undefined;
-  const hatchStyle: PcbZone['hatchStyle'] =
+  const hatchWordStyle: PcbZone['hatchStyle'] =
     hatchWord === 'none' ? 'none' : hatchWord === 'full' ? 'full' : hatchWord ? 'edge' : undefined;
   const hatchPitch = hatchNode ? mmToIU(Number(arg(hatchNode, 1) ?? 0)) : 0;
   // Fill parameters (ZONE_SETTINGS). The defaults are pcbnew/zones.h's, which is
@@ -585,13 +585,25 @@ function readZone(item: SList): PcbZone {
   };
   const fillNode = childNamed(item, 'fill');
   const priorityNode = childNamed(item, 'priority');
+  // `(attr (teardrop (type padvia|track_end)))`, ZONE::SetTeardropAreaType.
+  const teardropType: PcbZone['teardropType'] = (() => {
+    const attr = childNamed(item, 'attr');
+    const td = attr ? childNamed(attr, 'teardrop') : undefined;
+    const type = td ? childNamed(td, 'type') : undefined;
+    const word = type ? arg(type, 0) : undefined;
+    return word === 'padvia' ? 'viapad' : word === 'track_end' ? 'trackend' : undefined;
+  })();
   return {
     net: netNode ? (numArg(netNode, 0) ?? 0) : 0,
     netName: stringField(item, 'net_name'),
     layers,
     fills,
     outline: outline.length >= 3 ? outline : undefined,
-    hatchStyle,
+    // The generator sets INVISIBLE_BORDER, which upstream's writer spells as
+    // `none` — so a saved teardrop loses it. Restore it on read: a bright
+    // full-opacity border traced around every flare is not what the feature
+    // looks like in pcbnew, and the next commit would regenerate it anyway.
+    hatchStyle: teardropType ? ('invisible' as const) : hatchWordStyle,
     hatchPitch,
     padConnection,
     clearance: mmChild(connectNode, 'clearance') ?? mmToIU(0.5),
@@ -635,14 +647,7 @@ function readZone(item: SList): PcbZone {
     hatchHoleMinArea: numChild(fillNode, 'hatch_min_hole_area') ?? 0.3,
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
-    // `(attr (teardrop (type padvia|track_end)))`, ZONE::SetTeardropAreaType.
-    teardropType: (() => {
-      const attr = childNamed(item, 'attr');
-      const td = attr ? childNamed(attr, 'teardrop') : undefined;
-      const type = td ? childNamed(td, 'type') : undefined;
-      const word = type ? arg(type, 0) : undefined;
-      return word === 'padvia' ? 'viapad' : word === 'track_end' ? 'trackend' : undefined;
-    })(),
+    teardropType,
     uuid: uuidOf(item),
     source: item,
   };

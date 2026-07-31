@@ -173,6 +173,8 @@ export {
   updateTeardrops,
   applyTeardrops,
   removeTeardrops,
+  boardHasTeardrops,
+  teardropInputsChanged,
   teardropZones,
   addTeardropsOnTracks,
   setTeardropPriorities,
