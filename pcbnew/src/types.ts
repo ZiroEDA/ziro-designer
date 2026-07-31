@@ -297,6 +297,12 @@ export interface PcbZone {
   hatchStyle?: 'none' | 'edge' | 'full';
   /** Border hatch pitch in IU (the `(hatch … <pitch>)` distance). */
   hatchPitch?: number;
+  /**
+   * `(teardrop (type padvia|track_end) …)`: ZONE::GetTeardropAreaType. A zone
+   * carrying this is generated copper, not a user zone — the zone filler leaves
+   * it alone and the teardrop generator owns its lifetime.
+   */
+  teardropType?: 'viapad' | 'trackend';
   locked?: boolean;
   uuid?: string;
   source: SList;

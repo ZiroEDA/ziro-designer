@@ -3,6 +3,11 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** @ziroeda/kimath, math foundations ported from KiCad's libs/kimath. */
 export * from './math/vector2.js';
+export * from './math/util.js';
 export * from './geometry/eda_angle.js';
+export * from './geometry/convex_hull.js';
+export * from './geometry/seg.js';
+export * from './convert_basic_shapes_to_polygon.js';
+export * from './bezier_curves.js';
 export * from './trigo.js';
 export * from './mmh3_hash.js';

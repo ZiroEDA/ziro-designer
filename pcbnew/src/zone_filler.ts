@@ -105,7 +105,7 @@ function stadiumPoly(a: Vec2, b: Vec2, r: number, maxError: number): Ring {
  * A DRC shape as a polygon grown by `gap`. Inflation is a union of the shape
  * with a stadium along each edge, which is what keeps this to booleans alone.
  */
-function shapeToPolygon(shape: Shape, gap: number, maxError: number): Geom[] {
+export function shapeToPolygon(shape: Shape, gap: number, maxError: number): Geom[] {
   switch (shape.kind) {
     case 'circle':
       return [[circlePoly(shape.c, shape.r + gap, maxError)]];
