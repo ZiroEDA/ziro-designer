@@ -143,11 +143,11 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         {
           label: 'Attributes',
           items: [
-            stubChk('Exclude from Simulation'),
-            stubChk('Exclude from Bill of Materials'),
-            stubChk('Exclude from Board'),
-            stubChk('Exclude from Position Files'),
-            stubChk('Do not Populate'),
+            chk('Exclude from Simulation', 'attrSim'),
+            chk('Exclude from Bill of Materials', 'attrBom'),
+            chk('Exclude from Board', 'attrBoard'),
+            chk('Exclude from Position Files', 'attrPosFiles'),
+            chk('Do not Populate', 'attrDnp'),
           ],
         },
       ],
