@@ -12,7 +12,7 @@ import {
   addBoardText,
   addBoardZone,
 } from '@ziroeda/pcbnew/src/edit-board.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 
 const MIN_BOARD = `(kicad_pcb (version 20241229) (generator "test")

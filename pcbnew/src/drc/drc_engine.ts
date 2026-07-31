@@ -26,6 +26,7 @@
  * Zone fills are not yet checked (TODO: zone provider).
  */
 
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board, PadPrimitive, PcbPad, PcbVia } from '../types.js';
 import { type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
@@ -288,7 +289,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   const copperOrder = board.layers.map((l) => l.name).filter(isCopper);
   const netName = (n: number): string => board.nets.get(n) || `net ${n}`;
   const mm = (iu: number): string =>
-    `${(iu / 1e4).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} mm`;
+    `${iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} mm`;
 
   // ----- collect copper items per layer ------------------------------------
   let ownerSeq = 0;

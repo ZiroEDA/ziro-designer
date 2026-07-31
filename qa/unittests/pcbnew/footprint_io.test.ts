@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
 
 // A minimal but real-shaped KiCad 9 `.kicad_mod`: a two-pad SMD resistor with a

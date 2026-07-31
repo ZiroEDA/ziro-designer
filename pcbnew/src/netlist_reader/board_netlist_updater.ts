@@ -36,7 +36,7 @@ import {
   RPT_SEVERITY_WARNING,
   type Reporter,
 } from '@ziroeda/common/src/reporter.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { arg } from '@ziroeda/sexpr/src/query.js';

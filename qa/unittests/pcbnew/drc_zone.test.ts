@@ -2,11 +2,12 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** Zone-fill clearance (drc_test_provider_copper_clearance zone pass). */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard, runDrc } from '@ziroeda/pcbnew';
 
-const MM = 10000;
+const MM = PCB_IU_PER_MM;
 const base = (extra: string) =>
   readBoard(
     parse(`(kicad_pcb (version 20241229) (generator "test")

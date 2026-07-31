@@ -6,9 +6,10 @@
  * thermal relief around its own pads and bridges back to them with spokes, and
  * drops islands that reach nothing.
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { fillZone, fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board, PcbPad, PcbFootprint, PcbZone } from '@ziroeda/pcbnew/src/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };
@@ -87,7 +88,7 @@ const area = (polys: { x: number; y: number }[][]): number => {
       a += (poly[j]!.x + poly[i]!.x) * (poly[j]!.y - poly[i]!.y);
     total += a / 2;
   }
-  return Math.abs(total) / (10000 * 10000);
+  return Math.abs(total) / (PCB_IU_PER_MM * PCB_IU_PER_MM);
 };
 
 describe('zone filler', () => {

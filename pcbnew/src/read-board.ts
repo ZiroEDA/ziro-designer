@@ -18,7 +18,7 @@
  */
 
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   arg,
   args,

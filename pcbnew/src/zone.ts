@@ -18,7 +18,7 @@ import { type VECTOR2I, Distance } from '@ziroeda/kimath/src/math/vector2.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint, TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { MIRROR, type FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 export class ZONE extends BOARD_CONNECTED_ITEM {
   protected m_outline: VECTOR2I[];

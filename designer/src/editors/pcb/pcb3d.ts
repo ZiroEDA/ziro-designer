@@ -12,6 +12,7 @@
  * file only turns those meshes into three.js meshes + materials, lights, and a
  * KiCad-style trackball camera. Component 3D models are added on top of this.
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import * as THREE from 'three';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -22,7 +23,7 @@ import { mountComponents, type ProjectFile } from './component3d.js';
 import type { Board } from '@ziroeda/pcbnew';
 import { MODELS3D_HOST } from '../../libraryHosts.js';
 
-const MM = 10000;
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 // Where the 3D model library is hosted. Defaults to the bundled demo set;
 // point VITE_MODELS3D_URL at the hosted library (Cloudflare R2 / jsDelivr) to
 // cover all boards. See the ziro-3d-components-plan memory.

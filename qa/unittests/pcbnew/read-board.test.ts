@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard, rotatePcb, arcCenter } from '@ziroeda/pcbnew/src/read-board.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 // Local KiCad source clone (gitignored); the suite is skipped when absent.
 const STICKHUB = new URL('../../../kicad-src/demos/stickhub/StickHub.kicad_pcb', import.meta.url)

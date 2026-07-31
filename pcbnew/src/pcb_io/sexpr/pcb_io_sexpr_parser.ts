@@ -16,7 +16,7 @@
 
 import { parse, head, isList, type SList } from '@ziroeda/sexpr/src/index.js';
 import { arg, args, childNamed, numArg, numberField } from '@ziroeda/sexpr/src/query.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

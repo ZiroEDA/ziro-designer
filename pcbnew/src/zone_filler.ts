@@ -26,7 +26,7 @@
  */
 
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
@@ -371,6 +371,6 @@ const headOf = (node: { items: unknown[] }): string | undefined => {
 
 /** Internal units -> the trimmed millimetre string the writer uses. */
 function fmt(iu: number): string {
-  const s = (iu / 10000).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  const s = pcbIuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
   return s === '' || s === '-0' ? '0' : s;
 }

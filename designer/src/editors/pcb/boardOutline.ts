@@ -10,11 +10,12 @@
  * Output is in millimetres, already in the viewer's centred 3D frame: X centred
  * on the board, Y flipped (KiCad Y is down, GL Y is up).
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import earcut from 'earcut';
 import type { Vec2 } from '@ziroeda/kimath';
 import { tessellateArc, type Board } from '@ziroeda/pcbnew';
 
-const MM = 10000; // internal units per millimetre
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
 export interface Pt {
   x: number;
