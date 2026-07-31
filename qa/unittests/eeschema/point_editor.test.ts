@@ -15,7 +15,7 @@ import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { refId, hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { imagePixelSize, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
-import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
 import {
   pointEditTarget,
   canAddCorner,
@@ -726,5 +726,28 @@ describe('adding and removing polyline corners', () => {
     const out = addCorner(sch, polyTarget(), { x: mm(15), y: mm(40) })!;
     const reread = readSchematic(parse(serializeSchematic(out)));
     expect(reread.lines[1]!.points).toEqual(out.lines[1]!.points);
+  });
+});
+
+describe('cycling the arc edit mode', () => {
+  it('goes radius, then angle, then endpoints, and back', () => {
+    // IncrementArcEditMode, whose order is deliberately not the enum's: the two
+    // centre-keeping modes are adjacent so Ctrl+Space steps between the pair
+    // before leaving them.
+    expect(incrementArcEditMode(ArcEditMode.KeepCenterAdjustAngleRadius)).toBe(
+      ArcEditMode.KeepCenterEndsAdjustAngle,
+    );
+    expect(incrementArcEditMode(ArcEditMode.KeepCenterEndsAdjustAngle)).toBe(
+      ArcEditMode.KeepEndpointsOrStartDirection,
+    );
+    expect(incrementArcEditMode(ArcEditMode.KeepEndpointsOrStartDirection)).toBe(
+      ArcEditMode.KeepCenterAdjustAngleRadius,
+    );
+  });
+
+  it('returns to where it started after three steps', () => {
+    let m = ArcEditMode.KeepCenterAdjustAngleRadius;
+    for (let i = 0; i < 3; i++) m = incrementArcEditMode(m);
+    expect(m).toBe(ArcEditMode.KeepCenterAdjustAngleRadius);
   });
 });

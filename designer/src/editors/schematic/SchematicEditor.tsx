@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
   type ArcEditMode,
+  incrementArcEditMode,
   type EditHandle,
   pointEditTarget,
   canAddCorner,
@@ -4146,6 +4147,14 @@ export function SchematicEditor({
         e.preventDefault();
         const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
         onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {
+        // ACTIONS::cycleArcEditMode (Ctrl+Space): switch to a different method
+        // of editing arcs. The point editor reads the same preference, so this
+        // changes what dragging an arc's points does from the next drag on.
+        e.preventDefault();
+        settings.updateEeschema((s) => {
+          s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
+        });
       } else if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         // ACTIONS::updatePcbFromSchematic's default hotkey, the same one the PCB
         // frame answers.
