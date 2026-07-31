@@ -582,8 +582,15 @@ function readSheet(node: SList): SchSheet {
     fields: childrenNamed(node, 'property').map((p) => readField(p)),
     pins: childrenNamed(node, 'pin').map(readSheetPin),
     instances: readSheetInstances(node),
+    // Stored inverted for the first two, and defaulting to "included" so a file
+    // written before the tokens existed reads as a plain sheet.
+    inBom: boolField(node, 'in_bom', true),
+    onBoard: boolField(node, 'on_board', true),
+    dnp: boolField(node, 'dnp', false),
     source: node,
   };
+  if (childNamed(node, 'exclude_from_sim'))
+    sheet.excludedFromSim = boolField(node, 'exclude_from_sim', false);
   const stroke = readStroke(node);
   if (stroke) sheet.stroke = stroke;
   const fill = childNamed(node, 'fill');

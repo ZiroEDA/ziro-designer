@@ -195,6 +195,10 @@ export function makeSheet(
     stroke: { width: mmToIU(0.1524), type: 'solid' },
     fields: [nameField, fileField],
     pins: [],
+    // A new sheet is included everywhere, like a new symbol (SCH_SHEET's ctor).
+    inBom: true,
+    onBoard: true,
+    dnp: false,
     instances: [], // KiCad adds the sheet instance during the next annotate/update pass
     uuid,
     source,

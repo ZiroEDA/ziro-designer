@@ -604,6 +604,26 @@ function writeSheet(sh: SchSheet): SList {
       list(atom('size'), atom(mm(sh.size.w)), atom(mm(sh.size.h))),
     );
   }
+  // Attributes, written the same way a symbol's are: an explicit yes/no, added
+  // only once the flag leaves its default so a file that never carried the
+  // token keeps not carrying it. `in_bom` and `on_board` are stored inverted
+  // from the dialog's "Exclude from…", exactly as saveSheet writes them.
+  node = patchSymbolBool(node, 'in_bom', sh.inBom, true);
+  node = patchSymbolBool(node, 'on_board', sh.onBoard, true);
+  node = patchSymbolBool(node, 'dnp', sh.dnp, false);
+  if (sh.excludedFromSim !== undefined)
+    node = patchSymbolBool(node, 'exclude_from_sim', sh.excludedFromSim, false);
+  // Border width and colour live in the sheet's `(stroke …)`.
+  node = patchStroke(node, sh.stroke);
+  if (childNamed(node, 'fill')) {
+    node = mapChild(node, 'fill', (f) =>
+      // `(fill (color r g b a))`; an absent background is alpha 0, which is how
+      // saveSheet writes COLOR4D::UNSPECIFIED.
+      childNamed(f, 'color')
+        ? mapChild(f, 'color', () => colorNode(sh.fillColor ?? [0, 0, 0, 0]))
+        : f,
+    );
+  }
   if (childNamed(node, 'instances') && sh.instances.length) {
     const pages = new Map(sh.instances.map((i) => [instanceKey(i), i.page]));
     node = mapChild(node, 'instances', (inst) => patchInstancePages(inst, pages, true));
