@@ -246,7 +246,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     {
       label: 'Tools',
       items: [
-        stub('Update PCB from Schematic...', 'F8'),
+        act('Update PCB from Schematic...', 'updatePcbFromSch', 'updatePcbFromSch', 'F8'),
         act('Switch to PCB Editor', 'pcb', 'showPcbNew'),
         act('Calculator Tools', 'calculator', 'showCalculator'),
         SEP,

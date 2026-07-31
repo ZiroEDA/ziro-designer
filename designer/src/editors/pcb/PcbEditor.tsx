@@ -653,6 +653,7 @@ export function PcbEditor({
   onPersistFiles,
   onOutputFile,
   crossProbeNet,
+  updateFromSchematic,
 }: {
   fileName: string;
   text: string;
@@ -683,6 +684,10 @@ export function PcbEditor({
    *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
    *  null clears the highlight (SendCrossProbeClearHighlight). */
   crossProbeNet?: string | null;
+  /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
+   *  which switches here and then runs the same dialog this frame's own F8 does
+   *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
+  updateFromSchematic?: number | null;
 }): JSX.Element {
   const [board, setBoard] = useState<Board | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
@@ -1955,6 +1960,17 @@ export function PcbEditor({
       setUpdatePcbBusy(false);
     }
   }, [projectFilesNow, rootPro]);
+
+  // Tools > Update PCB from Schematic, invoked from the schematic editor: the
+  // app switches to this frame and bumps the nonce, and the same dialog opens
+  // as for this frame's own F8. Skipped on mount so merely opening the PCB
+  // editor does not pop it.
+  const updateReqRef = useRef<number | null | undefined>(updateFromSchematic);
+  useEffect(() => {
+    if (updateFromSchematic === updateReqRef.current) return;
+    updateReqRef.current = updateFromSchematic;
+    if (updateFromSchematic != null) void openUpdatePcb();
+  }, [updateFromSchematic, openUpdatePcb]);
 
   /**
    * DIALOG_UPDATE_PCB::PerformUpdate. A dry run only reports; a real run commits the

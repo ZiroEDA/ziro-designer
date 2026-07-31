@@ -97,6 +97,10 @@ export function App(): JSX.Element {
   // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
   // sends "$NET: <name>" between the frames; here both are mounted together).
   const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
+  // Tools > Update PCB from Schematic (F8) from the schematic editor: switch to
+  // the PCB frame and bump this, which is what runs the dialog there. KiCad's
+  // SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way.
+  const [updatePcbNonce, setUpdatePcbNonce] = useState<number | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -508,6 +512,14 @@ export function App(): JSX.Element {
           <SchematicEditor
             onExitToHome={goHome}
             onShowPcb={pcbFile ? showPcb : undefined}
+            onUpdatePcb={
+              pcbFile
+                ? () => {
+                    showPcb();
+                    setUpdatePcbNonce((n) => (n ?? 0) + 1);
+                  }
+                : undefined
+            }
             onShowSymbolEditor={showSymbolEditor}
             onShowFootprintEditor={showFootprintEditor}
             onShowCalculator={showCalculator}
@@ -547,6 +559,7 @@ export function App(): JSX.Element {
             onPersistFiles={persistFilesNow}
             onOutputFile={onOutputFile}
             crossProbeNet={crossProbeNet}
+            updateFromSchematic={updatePcbNonce}
           />
         </div>
       )}
