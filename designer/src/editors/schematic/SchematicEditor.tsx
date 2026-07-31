@@ -138,6 +138,9 @@ import {
   cleanupSheetPins,
   autoplaceAllSheetPins,
   hierarchicalLabels,
+  busUnfoldMembers,
+  unfoldBus,
+  busForUnfolding,
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
@@ -688,6 +691,11 @@ export function SchematicEditor({
   const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
   // Sheet Pin Properties (DIALOG_SHEET_PIN_PROPERTIES).
   const [sheetPinEdit, setSheetPinEdit] = useState<SheetPinRef | null>(null);
+  // Unfold from Bus leaves the wire tool drawing away from the new entry
+  // (SCH_LINE_WIRE_BUS_TOOL continues into its drawing loop).
+  const [wireStartRequest, setWireStartRequest] = useState<{ at: Vec2; nonce: number } | null>(
+    null,
+  );
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -4349,6 +4357,38 @@ export function SchematicEditor({
           shortcut: 'E',
           action: () => openProperties([...selection][0]!),
         });
+      // SCH_ACTIONS::unfoldBus (C): BUS_UNFOLD_MENU lists the bus's members and
+      // picking one drops an entry plus a label for it.
+      if (hit?.kind === 'line' && doc && ctxMenu?.pointEdit) {
+        const bi = doc.lines.findIndex((l, i) => refId('line', l.uuid, i) === hit.id);
+        const members = bi === -1 ? [] : busUnfoldMembers(doc, bi, busAliases);
+        if (members.length)
+          items.push({
+            label: 'Unfold from Bus',
+            items: members.map((net) => ({
+              label: net,
+              action: () => {
+                const at = ctxMenu.pointEdit!.world;
+                const out = unfoldBus(
+                  doc,
+                  bi,
+                  at,
+                  net,
+                  mmToIU(es.drawing.default_text_size * 0.0254),
+                );
+                if (out) {
+                  runCommand(out.command);
+                  // KiCad leaves you drawing the wire away from the entry.
+                  setActiveTool('drawWire');
+                  setWireStartRequest((p) => ({
+                    at: out.wireStart,
+                    nonce: (p?.nonce ?? 0) + 1,
+                  }));
+                }
+              },
+            })),
+          });
+      }
       if (hit?.kind === 'line')
         items.push(
           { sep: true },
@@ -4779,6 +4819,31 @@ export function SchematicEditor({
           });
           return;
         }
+        // C = Unfold from Bus (SCH_ACTIONS::unfoldBus) on the bus under the
+        // cursor. With one member it unfolds straight away; with several the
+        // choice belongs in BUS_UNFOLD_MENU, which is the context menu.
+        if (e.key.toLowerCase() === 'c' && doc && cursorRef.current) {
+          const bi = busForUnfolding(doc, cursorRef.current, mmToIU(2));
+          if (bi !== -1) {
+            const members = busUnfoldMembers(doc, bi, busAliases);
+            if (members.length === 1) {
+              e.preventDefault();
+              const out = unfoldBus(
+                doc,
+                bi,
+                cursorRef.current,
+                members[0]!,
+                mmToIU(es.drawing.default_text_size * 0.0254),
+              );
+              if (out) {
+                runCommand(out.command);
+                setActiveTool('drawWire');
+                setWireStartRequest((p) => ({ at: out.wireStart, nonce: (p?.nonce ?? 0) + 1 }));
+              }
+              return;
+            }
+          }
+        }
         // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields) on the selection.
         if (e.key.toLowerCase() === 'o' && selection.size > 0) {
           e.preventDefault();
@@ -5103,6 +5168,7 @@ export function SchematicEditor({
             selection={selection}
             activeTool={activeTool}
             lineMode={lineMode}
+            wireStartRequest={wireStartRequest}
             arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
             placeLib={placeLib}
             placeUnit={placeUnit}

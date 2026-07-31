@@ -39,6 +39,7 @@ export * from './set_attribute.js';
 export * from './sch_align_tool.js';
 export * from './autoplace_fields.js';
 export * from './sch_sheet_pin_tool.js';
+export * from './unfold_bus.js';
 export * from './directive_label.js';
 export * from './sch_sheet_path.js';
 export * from './page_settings.js';
