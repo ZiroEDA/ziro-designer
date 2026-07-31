@@ -314,6 +314,20 @@ export function replaceSheet(index: number, next: SchSheet): EditCommand {
   };
 }
 
+/** Replace the sheet-level graphic shape at `index` with `next` (its border and
+ *  fill, from DIALOG_SHAPE_PROPERTIES, or its geometry from the point editor). */
+export function replaceGraphic(index: number, next: LibGraphic): EditCommand {
+  return {
+    label: 'Edit Shape',
+    apply(doc: Schematic): Schematic {
+      return { ...doc, graphics: doc.graphics.map((g, i) => (i === index ? next : g)) };
+    },
+    invert(before: Schematic): EditCommand {
+      return replaceGraphic(index, before.graphics[index]!);
+    },
+  };
+}
+
 /** Replace the text box at `index` with `next` (e.g. after editing its text). */
 export function replaceTextBox(index: number, next: SchTextBox): EditCommand {
   return {

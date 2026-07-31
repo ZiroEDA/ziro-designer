@@ -781,23 +781,46 @@ function writeTable(tb: SchTable): SList {
  * there is no Y inversion here.
  */
 function writeGraphic(g: LibGraphic): SList {
+  // Text is the one graphic with no border or fill; the rest carry both, and
+  // DIALOG_SHAPE_PROPERTIES edits them, so they are patched alongside geometry.
+  if (g.kind === 'text') return patchAt(setItem(g.source, 1, str(g.text)), g.at);
+
+  let node: SList;
   switch (g.kind) {
     case 'rectangle':
-      return patchXY(patchXY(g.source, 'start', g.start), 'end', g.end);
-    case 'circle': {
-      const node = patchXY(g.source, 'center', g.center);
-      return childNamed(node, 'radius')
-        ? mapChild(node, 'radius', () => list(atom('radius'), atom(mm(g.radius))))
-        : node;
-    }
+      node = patchXY(patchXY(g.source, 'start', g.start), 'end', g.end);
+      break;
+    case 'circle':
+      node = patchXY(g.source, 'center', g.center);
+      if (childNamed(node, 'radius'))
+        node = mapChild(node, 'radius', () => list(atom('radius'), atom(mm(g.radius))));
+      break;
     case 'arc':
-      return patchXY(patchXY(patchXY(g.source, 'start', g.start), 'mid', g.mid), 'end', g.end);
+      node = patchXY(patchXY(patchXY(g.source, 'start', g.start), 'mid', g.mid), 'end', g.end);
+      break;
     case 'polyline':
     case 'bezier':
-      return patchPts(g.source, g.points);
-    case 'text':
-      return patchAt(setItem(g.source, 1, str(g.text)), g.at);
+      node = patchPts(g.source, g.points);
+      break;
   }
+  node = patchStroke(node, g.stroke);
+  return patchShapeFill(node, g.fill);
+}
+
+/**
+ * Patch a shape's `(fill (type …) [(color …)])`.
+ *
+ * The fill type is one of UI_FILL_MODE's five, and the colour only means
+ * anything for `color`, so switching away from it drops the colour rather than
+ * leaving a stale one behind for the next switch back to pick up.
+ */
+function patchShapeFill(node: SList, fill: Fill | undefined): SList {
+  if (!fill) return node;
+  const items: SNode[] = [atom('fill'), list(atom('type'), atom(fill.type))];
+  if (fill.color) items.push(colorNode(fill.color));
+  const next: SList = { kind: 'list', items };
+  if (childNamed(node, 'fill')) return mapChild(node, 'fill', () => next);
+  return { kind: 'list', items: [...node.items, next] };
 }
 
 /**

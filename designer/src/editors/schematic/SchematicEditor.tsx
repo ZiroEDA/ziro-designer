@@ -120,6 +120,7 @@ import {
   makeSheet,
   addSheetPin,
   replaceSheet,
+  replaceGraphic,
   replaceTextBox,
   replaceTable,
   replaceLabel,
@@ -201,6 +202,7 @@ import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_prop
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
+import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
@@ -637,6 +639,11 @@ export function SchematicEditor({
   // Sheet Properties (DIALOG_SHEET_PROPERTIES); the dialog reads the sheet
   // itself out of the document, so only which one is open is state.
   const [sheetEdit, setSheetEdit] = useState<{ index: number } | null>(null);
+  // Shape Properties (DIALOG_SHAPE_PROPERTIES). A graphic polyline lives in
+  // `lines`, every other shape in `graphics`, so the target says which.
+  const [shapeEdit, setShapeEdit] = useState<{ kind: 'graphic' | 'line'; index: number } | null>(
+    null,
+  );
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -2401,11 +2408,17 @@ export function SchematicEditor({
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
         else if (d.tables.some((t, i) => refId('table', t.uuid, i) === id)) onEditItem(id, 'table');
-        else if (d.lines.some((l, i) => refId('line', l.uuid, i) === id)) {
-          // Wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES).
+        else if (d.graphics.some((_, i) => refId('graphic', undefined, i) === id)) {
+          const gi = d.graphics.findIndex((_, i) => refId('graphic', undefined, i) === id);
+          // Free text has no border or fill to edit; it is a text item.
+          if (d.graphics[gi]!.kind !== 'text') setShapeEdit({ kind: 'graphic', index: gi });
+        } else if (d.lines.some((l, i) => refId('line', l.uuid, i) === id)) {
           const li = d.lines.findIndex((l, i) => refId('line', l.uuid, i) === id);
           const l = d.lines[li]!;
-          if (l.kind !== 'polyline')
+          // A wire or bus is a connection and gets DIALOG_WIRE_BUS_PROPERTIES;
+          // a graphic polyline is a shape and gets DIALOG_SHAPE_PROPERTIES.
+          if (l.kind === 'polyline') setShapeEdit({ kind: 'line', index: li });
+          else
             setLineEdit({
               index: li,
               widthIU: l.stroke?.width ?? 0,
@@ -3569,6 +3582,78 @@ export function SchematicEditor({
       });
     },
     [doc, runCommand, currentPath, liveDocs],
+  );
+
+  /** The shape being edited, whichever array it lives in. */
+  const shapeEditItem = useCallback(
+    (se: { kind: 'graphic' | 'line'; index: number }) =>
+      se.kind === 'line' ? doc?.lines[se.index] : doc?.graphics[se.index],
+    [doc],
+  );
+
+  /** KiCad titles the dialog after the shape ("Rectangle Properties"). */
+  const shapeEditName = useCallback(
+    (se: { kind: 'graphic' | 'line'; index: number }): string => {
+      const kind = se.kind === 'line' ? 'polyline' : (shapeEditItem(se)?.kind ?? 'shape');
+      return kind.charAt(0).toUpperCase() + kind.slice(1);
+    },
+    [shapeEditItem],
+  );
+
+  /** The shape's border and fill as the dialog wants them. A stored width below
+   *  zero is KiCad's "no border", which is what the Border checkbox reads. */
+  const shapePropsOf = useCallback(
+    (se: { kind: 'graphic' | 'line'; index: number }): ShapePropsResult => {
+      const item = shapeEditItem(se);
+      // Text is the one graphic with neither, and never opens this dialog.
+      const styled = item && 'stroke' in item ? item : undefined;
+      const stroke = styled?.stroke;
+      const fill = styled && 'fill' in styled ? styled.fill : undefined;
+      const width = stroke?.width ?? 0;
+      return {
+        border: width >= 0,
+        borderWidthIU: Math.max(0, width),
+        borderStyle: stroke?.type ?? 'default',
+        ...(stroke?.color ? { borderColor: stroke.color } : {}),
+        fillType: fill?.type ?? 'none',
+        ...(fill?.color ? { fillColor: fill.color } : {}),
+      };
+    },
+    [shapeEditItem],
+  );
+
+  /**
+   * Apply DIALOG_SHAPE_PROPERTIES. Unchecking Border stores a width of -1,
+   * KiCad's "no border at all", which is a different thing from 0 meaning "use
+   * the schematic's default line width".
+   */
+  const commitShapeEdit = useCallback(
+    (r: ShapePropsResult) => {
+      setShapeEdit((se) => {
+        if (!se || !doc) return null;
+        const stroke: { width: number; type: string; color?: ItemColor } = {
+          width: r.borderWidthIU,
+          type: r.borderStyle,
+          ...(r.borderColor ? { color: r.borderColor } : {}),
+        };
+        const fill =
+          r.fillType === 'none'
+            ? { type: 'none' }
+            : { type: r.fillType, ...(r.fillColor ? { color: r.fillColor } : {}) };
+
+        if (se.kind === 'line') {
+          const orig = doc.lines[se.index];
+          if (orig) runCommand(replaceLine(se.index, { ...orig, stroke }));
+        } else {
+          const orig = doc.graphics[se.index];
+          // Text carries neither, and never reaches this dialog.
+          if (orig && orig.kind !== 'text')
+            runCommand(replaceGraphic(se.index, { ...orig, stroke, fill }));
+        }
+        return null;
+      });
+    },
+    [doc, runCommand],
   );
 
   const commitLineEdit = useCallback(
@@ -5547,6 +5632,15 @@ export function SchematicEditor({
           hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
           onOk={commitSheetEdit}
           onCancel={() => setSheetEdit(null)}
+        />
+      )}
+
+      {shapeEdit && (
+        <DialogShapeProperties
+          shapeName={shapeEditName(shapeEdit)}
+          initial={shapePropsOf(shapeEdit)}
+          onOk={commitShapeEdit}
+          onCancel={() => setShapeEdit(null)}
         />
       )}
 
