@@ -136,6 +136,8 @@ import {
   replaceSheetPin,
   parseSheetPinId,
   cleanupSheetPins,
+  autoplaceAllSheetPins,
+  hierarchicalLabels,
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
@@ -4169,6 +4171,30 @@ export function SchematicEditor({
             label: 'Enter Sheet',
             icon: 'enterSheet',
             action: () => onEditItem(hit.id, 'sheet'),
+          },
+          // SCH_ACTIONS::autoplaceAllSheetPins: a pin for every hierarchical
+          // label inside the sheet that has none yet.
+          {
+            label: 'Autoplace All Sheet Pins',
+            icon: 'autoplaceAllSheetPins',
+            action: () => {
+              if (!doc) return;
+              const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
+              const sh = doc.sheets[si];
+              if (!sh) return;
+              const file = sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
+              const child = liveDocs().get(file);
+              if (!child) return;
+              const cmd = autoplaceAllSheetPins(
+                doc,
+                si,
+                hierarchicalLabels(child),
+                es.drawing.default_text_size
+                  ? mmToIU(es.drawing.default_text_size * 0.0254)
+                  : 12700,
+              );
+              if (cmd) runCommand(cmd);
+            },
           },
           // SCH_ACTIONS::cleanupSheetPins: drop the pins that no longer name a
           // hierarchical label inside the sheet.

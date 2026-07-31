@@ -20,6 +20,7 @@ import {
   sideOfAngle,
   cleanupSheetPins,
   hierarchicalLabelNames,
+  autoplaceAllSheetPins,
 } from '@ziroeda/eeschema/src/tools/sch_sheet_pin_tool.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
@@ -194,5 +195,72 @@ describe('cleaning up sheet pins', () => {
         (global_label "B" (at 10 20 0) (uuid "g1")))`),
     );
     expect(hierarchicalLabelNames(other)).toEqual([]);
+  });
+});
+
+describe('auto-placing all sheet pins', () => {
+  // SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins: a pin for every hierarchical
+  // label inside the sheet that has none yet, laid down its edges.
+  const TEXT_SIZE = mm(1.27);
+  const labels = (specs: [string, string?][]) =>
+    specs.map(([text, shape]) => ({ text, ...(shape ? { shape: shape as never } : {}) }));
+
+  it('adds a pin for each label that has none yet', () => {
+    // "A" and "B" already have pins; only "C" is new (importHierLabels).
+    const cmd = autoplaceAllSheetPins(sch, 0, labels([['A'], ['B'], ['C']]), TEXT_SIZE)!;
+    const out = cmd.apply(sch);
+    expect(out.sheets[0]!.pins.map((p) => p.name)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('does nothing when every label already has a pin', () => {
+    // Running it twice must add nothing the second time.
+    expect(autoplaceAllSheetPins(sch, 0, labels([['A'], ['B']]), TEXT_SIZE)).toBeNull();
+  });
+
+  it('puts outputs on the right edge and everything else on the left', () => {
+    const out = autoplaceAllSheetPins(
+      sch,
+      0,
+      labels([
+        ['OUT', 'output'],
+        ['IN', 'input'],
+      ]),
+      TEXT_SIZE,
+    )!.apply(sch);
+    const added = out.sheets[0]!.pins.filter((p) => p.name === 'OUT' || p.name === 'IN');
+    expect(sideOfAngle(added.find((p) => p.name === 'OUT')!.angle)).toBe('right');
+    expect(sideOfAngle(added.find((p) => p.name === 'IN')!.angle)).toBe('left');
+  });
+
+  it('sorts each column by name', () => {
+    const out = autoplaceAllSheetPins(sch, 0, labels([['Z'], ['M'], ['C']]), TEXT_SIZE)!.apply(sch);
+    const added = out.sheets[0]!.pins.filter((p) => ['C', 'M', 'Z'].includes(p.name));
+    const byY = [...added].sort((a, b) => a.at.y - b.at.y).map((p) => p.name);
+    expect(byY).toEqual(['C', 'M', 'Z']);
+  });
+
+  it('stacks below the pins already on that edge without moving them', () => {
+    // A and B sit on the right edge at y = 55 and 60.
+    const before = sch.sheets[0]!.pins.map((p) => p.at.y);
+    const out = autoplaceAllSheetPins(sch, 0, labels([['C', 'output']]), TEXT_SIZE)!.apply(sch);
+    expect(out.sheets[0]!.pins.slice(0, 2).map((p) => p.at.y)).toEqual(before);
+    expect(out.sheets[0]!.pins[2]!.at.y).toBeGreaterThan(mm(60));
+  });
+
+  it('grows the sheet when the new pins would run past the bottom', () => {
+    // A pin outside the rectangle is not on the border and connects to nothing.
+    const many = labels(Array.from({ length: 12 }, (_, i) => [`N${i}`] as [string]));
+    const out = autoplaceAllSheetPins(sch, 0, many, TEXT_SIZE)!.apply(sch);
+    expect(out.sheets[0]!.size.h).toBeGreaterThan(sch.sheets[0]!.size.h);
+    const bottom = out.sheets[0]!.at.y + out.sheets[0]!.size.h;
+    for (const p of out.sheets[0]!.pins) expect(p.at.y).toBeLessThanOrEqual(bottom);
+  });
+
+  it('undoes exactly, and the result saves', () => {
+    const cmd = autoplaceAllSheetPins(sch, 0, labels([['C'], ['D', 'output']]), TEXT_SIZE)!;
+    const out = cmd.apply(sch);
+    expect(cmd.invert(sch).apply(out).sheets[0]!.pins).toEqual(sch.sheets[0]!.pins);
+    const back = readSchematic(parse(serializeSchematic(out)));
+    expect(back.sheets[0]!.pins.map((p) => p.name)).toEqual(out.sheets[0]!.pins.map((p) => p.name));
   });
 });
