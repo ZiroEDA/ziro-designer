@@ -912,8 +912,11 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
       }
     }
     // The zone boundary is drawn as a border on each of the zone's layers
-    // (pcb_painter.cpp draw(ZONE): outline of GetBoardOutline in the layer color).
-    if (z.outline && z.outline.length >= 3) {
+    // (pcb_painter.cpp draw(ZONE): outline of GetBoardOutline in the layer
+    // color). INVISIBLE_BORDER suppresses it entirely — that is what teardrops
+    // use, and without it every flare gets a full-opacity outline traced over a
+    // 0.6-opacity fill, which reads as a bright wire around the copper.
+    if (z.hatchStyle !== 'invisible' && z.outline && z.outline.length >= 3) {
       // DIAGONAL_EDGE = short ticks (length = pitch, spacing = pitch);
       // DIAGONAL_FULL = full diagonals (spacing = pitch·2). Copper slope = −1.
       const style = z.hatchStyle ?? 'edge';

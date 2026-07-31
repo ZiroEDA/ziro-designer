@@ -155,7 +155,9 @@ export function buildZoneNode(z: PcbZone): SList {
   if (z.layers.length === 1) items.push(list(atom('layer'), str(z.layers[0]!)));
   else items.push({ kind: 'list', items: [atom('layers'), ...z.layers.map((l) => str(l))] });
   if (z.uuid) items.push(list(atom('uuid'), str(z.uuid)));
-  const hatchStyle = z.hatchStyle ?? 'edge';
+  // INVISIBLE_BORDER has no token of its own; upstream's switch falls through
+  // to `none`, so the style is lost on save and the reader restores it.
+  const hatchStyle = z.hatchStyle === 'invisible' ? 'none' : (z.hatchStyle ?? 'edge');
   items.push(list(atom('hatch'), atom(hatchStyle), atom(z.hatchPitch ? mm(z.hatchPitch) : '0.5')));
 
   if (z.priority) items.push(list(atom('priority'), atom(String(z.priority))));

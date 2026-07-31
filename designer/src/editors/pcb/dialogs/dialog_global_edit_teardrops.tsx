@@ -30,6 +30,11 @@ interface Props {
   layers: readonly string[];
   /** Whether anything is selected; gates "Selected items only". */
   hasSelection: boolean;
+  /** The project's remembered `teardrop_options` scope flags. */
+  initialScope?: Pick<
+    GlobalTeardropEditOptions,
+    'pthPads' | 'smdPads' | 'vias' | 'trackToTrack' | 'roundPadsOnly'
+  >;
   /** Open Board Setup on the Teardrops page. */
   onEditDefaults?: () => void;
   onApply: (options: GlobalTeardropEditOptions) => void;
@@ -46,12 +51,14 @@ export function DialogGlobalEditTeardrops({
   nets,
   layers,
   hasSelection,
+  initialScope,
   onEditDefaults,
   onApply,
   onClose,
 }: Props): JSX.Element {
   const [opts, setOpts] = useState<GlobalTeardropEditOptions>({
     ...DEFAULT_GLOBAL_TEARDROP_EDIT,
+    ...initialScope,
   });
 
   // The "specified values" fields, held as strings so a half-typed number does

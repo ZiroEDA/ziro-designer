@@ -324,8 +324,15 @@ export interface PcbZone {
   filled?: boolean;
   /** `(priority …)`: a higher-priority zone knocks lower ones out of its area. */
   priority?: number;
-  /** Border display style from `(hatch <style> <pitch>)`: none / edge / full. */
-  hatchStyle?: 'none' | 'edge' | 'full';
+  /**
+   * ZONE_BORDER_DISPLAY_STYLE, from `(hatch <style> <pitch>)`.
+   *
+   * `invisible` is INVISIBLE_BORDER — no border drawn at all, which the
+   * teardrop generator sets. The file format has no token for it (upstream's
+   * writer falls through to `none`), so it survives a save only because the
+   * reader restores it for teardrop zones.
+   */
+  hatchStyle?: 'none' | 'edge' | 'full' | 'invisible';
   /** Border hatch pitch in IU (the `(hatch … <pitch>)` distance). */
   hatchPitch?: number;
   /**
