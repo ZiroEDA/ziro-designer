@@ -157,12 +157,7 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
     group: 'Labels',
     actions: [
       { id: 'placeLabel', icon: 'labelLocal', title: 'Place Net Labels (L)' },
-      {
-        id: 'placeClassLabel',
-        icon: 'labelClass',
-        title: 'Place Directive Labels',
-        disabled: true,
-      },
+      { id: 'placeClassLabel', icon: 'labelClass', title: 'Place Directive Labels' },
       { id: 'placeGlobalLabel', icon: 'labelGlobal', title: 'Place Global Labels (Ctrl+L)' },
       { id: 'placeHierLabel', icon: 'labelHier', title: 'Place Hierarchical Labels (H)' },
     ],
