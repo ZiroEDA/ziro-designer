@@ -18,7 +18,9 @@
  * broken hierarchy.
  */
 
-import type { Schematic, SchSheet, SheetPin, Vec2 } from '../types.js';
+import type { LabelShape, Schematic, SchSheet, SheetPin, Vec2 } from '../types.js';
+import { addSheetPin } from './build-graphics.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { refId, sheetPinId } from './hittest.js';
 import type { EditCommand } from './command.js';
 
@@ -270,6 +272,109 @@ export function cleanupSheetPins(
 /** The hierarchical labels of a document, the names a sheet's pins must match. */
 export const hierarchicalLabelNames = (doc: Schematic): string[] =>
   doc.labels.filter((l) => l.kind === 'hierarchical_label').map((l) => l.text);
+
+/**
+ * `SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins`: give the sheet a pin for every
+ * hierarchical label inside it that has none yet, laid out down its edges.
+ *
+ * `importHierLabels` is the "that has none yet" part: a label whose name already
+ * matches a pin is skipped, so running this twice adds nothing the second time.
+ * Outputs go down the right edge and everything else down the left, each column
+ * sorted by name, and each stacks *below* whatever is already on that edge
+ * rather than moving it.
+ *
+ * The sheet grows downward if the new pins would run past its bottom, because a
+ * pin outside the rectangle is not on the border and connects to nothing.
+ *
+ * `childLabels` comes from the sheet's own document, which the caller reads.
+ */
+export function autoplaceAllSheetPins(
+  doc: Schematic,
+  sheetIndex: number,
+  childLabels: readonly { text: string; shape?: LabelShape }[],
+  defaultTextSize: number,
+): EditCommand | null {
+  const sheet = doc.sheets[sheetIndex];
+  if (!sheet) return null;
+
+  const have = new Set(sheet.pins.map((p) => p.name));
+  const fresh = childLabels.filter((l) => !have.has(l.text));
+  if (fresh.length === 0) return null;
+
+  // A pitch wide enough that pin text does not touch, snapped to the grid.
+  const grid = mmToIU(50 * 0.0254);
+  const pitch =
+    Math.round(Math.max(Math.round(defaultTextSize * 2), mmToIU(100 * 0.0254)) / grid) * grid;
+  const margin = pitch;
+
+  const leftX = sheet.at.x;
+  const rightX = sheet.at.x + sheet.size.w;
+  const topY = sheet.at.y;
+
+  // Stack below what is already on each edge, without disturbing it.
+  let leftY = topY + margin - pitch;
+  let rightY = topY + margin - pitch;
+  for (const p of sheet.pins) {
+    const side = sideOfAngle(p.angle);
+    if (side === 'right') rightY = Math.max(rightY, p.at.y);
+    else if (side === 'left') leftY = Math.max(leftY, p.at.y);
+  }
+
+  const byText = (a: { text: string }, b: { text: string }): number =>
+    a.text < b.text ? -1 : a.text > b.text ? 1 : 0;
+  const rightLabels = fresh.filter((l) => l.shape === 'output').sort(byText);
+  const leftLabels = fresh.filter((l) => l.shape !== 'output').sort(byText);
+
+  // Grow the sheet if the new pins would run past the bottom edge.
+  const needBot =
+    Math.max(leftY + leftLabels.length * pitch, rightY + rightLabels.length * pitch) + margin;
+  const size = needBot > topY + sheet.size.h ? { w: sheet.size.w, h: needBot - topY } : sheet.size;
+
+  return {
+    label: 'Auto-place Sheet Pins',
+    apply(d: Schematic): Schematic {
+      let out = { ...d.sheets[sheetIndex]!, size };
+      const column = (
+        labels: typeof leftLabels,
+        x: number,
+        startY: number,
+        side: SheetEdge,
+      ): void => {
+        let y = Math.round(startY / grid) * grid;
+        for (const l of labels) {
+          y += pitch;
+          out = addSheetPin(
+            out,
+            l.text,
+            { x, y },
+            angleOfSide(side) as 0 | 90 | 180 | 270,
+            l.shape ?? 'passive',
+          );
+        }
+      };
+      column(leftLabels, leftX, leftY, 'left');
+      column(rightLabels, rightX, rightY, 'right');
+      return { ...d, sheets: d.sheets.map((s, i) => (i === sheetIndex ? out : s)) };
+    },
+    invert(before: Schematic): EditCommand {
+      const original = before.sheets[sheetIndex]!;
+      return {
+        label: 'Auto-place Sheet Pins',
+        apply: (d: Schematic): Schematic => ({
+          ...d,
+          sheets: d.sheets.map((s, i) => (i === sheetIndex ? original : s)),
+        }),
+        invert: () => autoplaceAllSheetPins(doc, sheetIndex, childLabels, defaultTextSize)!,
+      };
+    },
+  };
+}
+
+/** The hierarchical labels of a document with their shapes, for autoplacement. */
+export const hierarchicalLabels = (doc: Schematic): { text: string; shape?: LabelShape }[] =>
+  doc.labels
+    .filter((l) => l.kind === 'hierarchical_label')
+    .map((l) => ({ text: l.text, ...(l.shape ? { shape: l.shape } : {}) }));
 
 /** Every sheet pin's selection id, for the selection filter and box select. */
 export function allSheetPinIds(doc: Schematic): string[] {
