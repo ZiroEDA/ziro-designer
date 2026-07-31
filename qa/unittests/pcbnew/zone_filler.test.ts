@@ -217,6 +217,24 @@ describe('zone filler', () => {
     ).toBe(true);
   });
 
+  it('writes the fill fractured, with no holes left for KiCad to fill in', () => {
+    // A pad of another net in the middle punches a hole clean through the pour.
+    const b = board({
+      zones: [zone()],
+      footprints: [footprint([pad({ x: MM(20), y: MM(20) }, 2)])],
+    });
+    const polys = fillZone(b, 0)[0]!.polys;
+    // Fractured: one ring, not an outline plus a hole. Every ring is wound the
+    // same way, so a reader filling each one draws the pour, not a solid slab.
+    expect(polys).toHaveLength(1);
+    const ring = polys[0]!;
+    // The slit doubles back, so the ring visits the hole and returns.
+    expect(ring.length).toBeGreaterThan(8);
+    // And the area is still the pour less the pad's clearance bite.
+    expect(area(polys)).toBeLessThan(1600);
+    expect(1600 - area(polys)).toBeGreaterThan(8);
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);

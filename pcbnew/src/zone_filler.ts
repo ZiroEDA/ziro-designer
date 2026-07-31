@@ -27,6 +27,7 @@
 
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
@@ -285,17 +286,21 @@ export function fillZone(
     // Islands that reach nothing on the net are dropped
     // (ZONE_FILLER's island removal, ISLAND_REMOVAL_MODE::ALWAYS). The test is
     // on the outer ring; the polygon's holes travel with it.
-    const polys: Vec2[][] = [];
+    const kept: Polygon[] = [];
     for (const poly of area) {
       const outer = poly[0];
       if (!outer || outer.length < 4) continue;
       const pts = ptsOf(outer);
       if (zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInRing(p, pts)))
         continue;
-      // Every ring, not just the outer one: the clipper winds holes the other
-      // way round, which is what makes them knock out under a nonzero fill.
-      for (const ring of poly) polys.push(ptsOf(ring));
+      kept.push(poly.map(ptsOf));
     }
+
+    // Fracture before storing, as ZONE_FILLER does through
+    // SHAPE_POLY_SET::Fracture: a zone fill is written as simple closed rings,
+    // each hole cut open to its outline with a zero-width slit. A reader that
+    // fills every ring it finds, which KiCad is, then draws the pour correctly.
+    const polys: Vec2[][] = fracture(kept);
     if (polys.length > 0) fills.push({ layer, polys });
   }
 
