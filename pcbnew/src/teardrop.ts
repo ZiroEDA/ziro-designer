@@ -38,7 +38,15 @@ import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { arcShape, padShapes } from './drc/drc_engine.js';
 import { pointInPoly, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { shapeToPolygon } from './zone_filler.js';
-import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia, PcbZone } from './types.js';
+import type {
+  Board,
+  PcbArcTrack,
+  PcbPad,
+  PcbTrack,
+  PcbVia,
+  PcbZone,
+  TeardropParams,
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // TEARDROP_PARAMETERS (teardrop_parameters.h)
@@ -50,27 +58,13 @@ export enum TargetTd {
   TARGET_TRACK = 2,
 }
 
-/** TEARDROP_PARAMETERS. Lengths and widths are IU; ratios are 0..1. */
-export interface TeardropParameters {
-  /** Max allowed length in IU; <= 0 disables the constraint. */
-  tdMaxLen: number;
-  /** Max allowed width in IU; <= 0 disables the constraint. */
-  tdMaxWidth: number;
-  /** Teardrop length as a fraction of the pad/via size. */
-  bestLengthRatio: number;
-  /** Teardrop width as a fraction of the pad/via size. */
-  bestWidthRatio: number;
-  /** Track width / pad size above which no teardrop is built. */
-  widthtoSizeFilterRatio: number;
-  /** Bezier flanks instead of straight ones. */
-  curvedEdges: boolean;
-  /** Whether this item gets teardrops at all. */
-  enabled: boolean;
-  /** Span a second track segment when the first is too short. */
-  allowUseTwoTracks: boolean;
-  /** Keep teardrops on pads that a zone already connects. */
-  tdOnPadsInZones: boolean;
-}
+/**
+ * TEARDROP_PARAMETERS. Lengths and widths are IU; ratios are 0..1.
+ *
+ * The same shape the file carries in `(teardrops …)`, so a pad's stored
+ * parameters drive the generator directly with nothing to convert.
+ */
+export type TeardropParameters = TeardropParams;
 
 /** TEARDROP_PARAMETERS::TEARDROP_PARAMETERS, upstream's defaults. */
 export function defaultTeardropParameters(): TeardropParameters {
@@ -1331,7 +1325,11 @@ function connectedVias(board: Board, track: TdTrack): PcbVia[] {
 
 /** The parameter set a pad or via falls under, by shape. */
 function defaultParamsFor(list: TeardropParametersList, item: TdItem): TeardropParameters | null {
-  if (isVia(item)) return list.targetVias ? list.round : null;
+  // The item's own `(teardrops …)` wins, as PAD::GetTeardropParams does: the
+  // board-level list only supplies what an item never overrode.
+  const own = isTrack(item) ? undefined : item.teardrops;
+
+  if (isVia(item)) return list.targetVias ? (own ?? list.round) : null;
 
   if (isPad(item)) {
     const isPTH = item.type === 'thru_hole';
@@ -1339,9 +1337,9 @@ function defaultParamsFor(list: TeardropParametersList, item: TdItem): TeardropP
     if (isPTH && !list.targetPTHPads) return null;
     if (!isPTH && !list.targetSMDPads) return null;
 
-    if (isRound(item)) return list.round;
+    if (isRound(item)) return own ?? list.round;
     if (list.useRoundShapesOnly) return null;
-    return list.rect;
+    return own ?? list.rect;
   }
 
   return list.track;
@@ -1394,7 +1392,7 @@ export function addTeardropsOnTracks(
   const groups = new Map<string, TdTrack[]>();
 
   for (const t of tracks) {
-    const key = `${t.layer} ${t.net}`;
+    const key = `${t.layer}|${t.net}`;
     const g = groups.get(key);
     if (g) g.push(t);
     else groups.set(key, [t]);
@@ -1567,9 +1565,13 @@ export function updateTeardrops(board: Board, opts: UpdateTeardropsOptions = {})
  * zone filler over it — upstream's note is that a real refill is potentially
  * very expensive, and the outline is already the intended copper.
  */
-export function teardropZones(teardrops: readonly Teardrop[]): PcbZone[] {
+export function teardropZones(
+  teardrops: readonly Teardrop[],
+  netNames?: ReadonlyMap<number, string>,
+): PcbZone[] {
   return teardrops.map((td) => ({
     net: td.net,
+    netName: netNames?.get(td.net) ?? '',
     layers: [td.layer],
     fills: [{ layer: td.layer, polys: [td.corners] }],
     outline: td.corners,
@@ -1579,7 +1581,32 @@ export function teardropZones(teardrops: readonly Teardrop[]): PcbZone[] {
     filled: true,
     priority: td.priority,
     teardropType: td.type,
+    // ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER.
     hatchStyle: 'none' as const,
-    source: ['zone'] as unknown as PcbZone['source'],
+    // Source-less, so the writer emits it from buildZoneNode. A non-empty
+    // source here would be echoed to the file verbatim.
+    source: { kind: 'list' as const, items: [] },
   }));
+}
+
+/**
+ * TEARDROP_MANAGER::RemoveTeardrops with a full sweep: every generated
+ * teardrop zone, gone. User zones are untouched.
+ */
+export function removeTeardrops(board: Board): Board {
+  return { ...board, zones: board.zones.filter((z) => !z.teardropType) };
+}
+
+/**
+ * Rebuild every teardrop on the board: drop the old generated zones, run the
+ * generator, append the new ones.
+ *
+ * This is the `UpdateTeardrops( aForceFullUpdate = true )` entry point the
+ * "Add Teardrops" command uses. Teardrop zones go last in `board.zones` so
+ * their high priorities sort above the user's pours.
+ */
+export function applyTeardrops(board: Board, opts: UpdateTeardropsOptions = {}): Board {
+  const cleaned = removeTeardrops(board);
+  const zones = teardropZones(updateTeardrops(cleaned, opts), board.nets);
+  return { ...cleaned, zones: [...cleaned.zones, ...zones] };
 }
