@@ -21,6 +21,9 @@ import {
   expandGroupIds,
   filterSelectionForFreePads,
   filterSelectionForDelete,
+  zoneHandles,
+  moveZoneCorner,
+  moveZoneEdge,
   groupContaining,
   setBoardItemsLocked,
   allBoardItemIds,
@@ -796,5 +799,83 @@ describe('zone move (ZONE::Move)', () => {
     const two = { ...b, zones: [b.zones[0]!, { ...b.zones[0]! }] };
     const out = moveBoardItems(two, new Set(['zone:0']), { x: 1000, y: 0 });
     expect(out.zones[1]!.outline![0]).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('zone outline editing (PCB_POINT_EDITOR over a ZONE)', () => {
+  const square = [
+    { x: 0, y: 0 },
+    { x: 10000, y: 0 },
+    { x: 10000, y: 10000 },
+    { x: 0, y: 10000 },
+  ];
+  const zoneBoard = (): Board =>
+    board({
+      zones: [
+        {
+          net: 1,
+          layers: ['F.Cu'],
+          outline: square,
+          fills: [{ layer: 'F.Cu', polys: [square] }],
+          source: parse(
+            `(zone (net 1) (layer "F.Cu")
+               (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1)))
+               (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 0 1))))`,
+          ),
+        },
+      ],
+    });
+
+  it('puts a handle on every corner and every edge midpoint', () => {
+    const h = zoneHandles(zoneBoard(), 0);
+    expect(h.filter((x) => x.kind === 'corner')).toHaveLength(4);
+    expect(h.filter((x) => x.kind === 'edge')).toHaveLength(4);
+    // The first edge runs 0,0 -> 10000,0, so its handle sits halfway along it.
+    expect(h.find((x) => x.kind === 'edge' && x.index === 0)!.at).toEqual({ x: 5000, y: 0 });
+    // The last edge wraps back to the first corner.
+    expect(h.find((x) => x.kind === 'edge' && x.index === 3)!.at).toEqual({ x: 0, y: 5000 });
+  });
+
+  it('dragging a corner moves only that vertex', () => {
+    const out = moveZoneCorner(zoneBoard(), 0, 2, { x: 20000, y: 12000 });
+    expect(out.zones[0]!.outline).toEqual([
+      { x: 0, y: 0 },
+      { x: 10000, y: 0 },
+      { x: 20000, y: 12000 },
+      { x: 0, y: 10000 },
+    ]);
+  });
+
+  it('dragging an edge moves both of its vertices (ZONE::MoveEdge)', () => {
+    const out = moveZoneEdge(zoneBoard(), 0, 0, { x: 0, y: -3000 });
+    expect(out.zones[0]!.outline![0]).toEqual({ x: 0, y: -3000 });
+    expect(out.zones[0]!.outline![1]).toEqual({ x: 10000, y: -3000 });
+    expect(out.zones[0]!.outline![2]).toEqual({ x: 10000, y: 10000 }); // untouched
+  });
+
+  it('the wrapping edge moves the last and first vertices', () => {
+    const out = moveZoneEdge(zoneBoard(), 0, 3, { x: -2000, y: 0 });
+    expect(out.zones[0]!.outline![3]).toEqual({ x: -2000, y: 10000 });
+    expect(out.zones[0]!.outline![0]).toEqual({ x: -2000, y: 0 });
+  });
+
+  it('unfills the zone, as UpdateItem does before touching the polygon', () => {
+    const out = moveZoneCorner(zoneBoard(), 0, 0, { x: -5000, y: -5000 });
+    expect(out.zones[0]!.fills).toEqual([]);
+    expect(serializeBoard({ ...out, source: out.zones[0]!.source })).not.toContain(
+      'filled_polygon',
+    );
+  });
+
+  it('writes the new outline into the source', () => {
+    const out = moveZoneCorner(zoneBoard(), 0, 0, { x: mmToIU(5), y: mmToIU(6) });
+    expect(serializeBoard({ ...out, source: out.zones[0]!.source })).toContain('(xy 5 6)');
+  });
+
+  it('leaves a zone with no outline alone', () => {
+    const b = zoneBoard();
+    const noOutline = { ...b, zones: [{ ...b.zones[0]!, outline: undefined }] };
+    expect(zoneHandles(noOutline, 0)).toEqual([]);
+    expect(moveZoneCorner(noOutline, 0, 0, { x: 1, y: 1 })).toBe(noOutline);
   });
 });
