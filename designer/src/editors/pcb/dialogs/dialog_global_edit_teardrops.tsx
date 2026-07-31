@@ -28,6 +28,8 @@ interface Props {
   nets: ReadonlyMap<number, string>;
   /** Copper layer names for the layer filter. */
   layers: readonly string[];
+  /** Netclass names for the netclass filter. */
+  netclasses: readonly string[];
   /** Whether anything is selected; gates "Selected items only". */
   hasSelection: boolean;
   /** The project's remembered `teardrop_options` scope flags. */
@@ -50,6 +52,7 @@ const triLabel = (v: Tri): string => (v === undefined ? '—' : v ? '✓' : '');
 export function DialogGlobalEditTeardrops({
   nets,
   layers,
+  netclasses,
   hasSelection,
   initialScope,
   onEditDefaults,
@@ -212,6 +215,28 @@ export function DialogGlobalEditTeardrops({
                   {[...nets.entries()].map(([code, name]) => (
                     <option key={code} value={code}>
                       {name === '' ? '<no net>' : name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={opts.netclassFilter != null}
+                  onChange={(e) =>
+                    set({ netclassFilter: e.target.checked ? (netclasses[0] ?? null) : null })
+                  }
+                />
+                Filter items by net class:
+                <select
+                  value={opts.netclassFilter ?? ''}
+                  disabled={opts.netclassFilter == null}
+                  onChange={(e) => set({ netclassFilter: e.target.value })}
+                >
+                  {netclasses.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
                     </option>
                   ))}
                 </select>

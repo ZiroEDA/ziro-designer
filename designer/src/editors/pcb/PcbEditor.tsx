@@ -113,6 +113,7 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { netclassesForNet } from './netclass_resolve.js';
 import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
@@ -3417,6 +3418,10 @@ export function PcbEditor({
       const next = applyGlobalTeardropEdit(brd, options, {
         list: teardropParamsList(),
         solderMaskExpansion: teardropMaskExpansionRef.current,
+        // NETCLASS::ContainsNetclassWithName searches every constituent, so a
+        // net in two classes has to answer to a filter on either.
+        netclassOf: (net) =>
+          netclassesForNet(brd.nets.get(net) ?? '', boardSetupRef.current.netClasses.assignments),
         isSelected: (item) => {
           // Pads are selected as `pad:<footprint>:<index>`, vias as `via:<index>`.
           for (let fi = 0; fi < brd.footprints.length; fi++) {
@@ -6348,6 +6353,7 @@ export function PcbEditor({
         <DialogGlobalEditTeardrops
           nets={board.nets}
           layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+          netclasses={boardSetup.netClasses.classes.map((c) => c.name)}
           hasSelection={selection.size > 0}
           initialScope={{
             vias: boardSetup.teardrops.targets.vias,

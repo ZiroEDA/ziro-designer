@@ -20,6 +20,7 @@
  * show, which is the same information in one step fewer.
  */
 
+import { netClassFor } from './netclass_resolve.js';
 import {
   buildSheetTree,
   checkAnnotation,
@@ -146,33 +147,6 @@ export function fetchNetlistFromSchematic(
         'Received an error while reading netlist. Please report this issue to the ZiroEDA team.',
       details: String(err),
     };
-  }
-}
-
-/**
- * NET_SETTINGS::GetEffectiveNetClass, pattern half: the first assignment whose glob
- * matches the net name wins, else Default.
- */
-function netClassFor(
-  name: string,
-  assignments: readonly { pattern: string; netClass: string }[],
-): string {
-  for (const assignment of assignments) {
-    if (globMatches(assignment.pattern, name)) return assignment.netClass;
-  }
-  return 'Default';
-}
-
-/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
-function globMatches(pattern: string, text: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
   }
 }
 
