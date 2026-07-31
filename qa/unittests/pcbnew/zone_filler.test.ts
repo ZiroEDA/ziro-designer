@@ -10,7 +10,13 @@ import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { fillZone, fillZones } from '@ziroeda/pcbnew/src/zone_filler.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board, PcbPad, PcbFootprint, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+import type {
+  Board,
+  PadPrimitive,
+  PcbFootprint,
+  PcbPad,
+  PcbZone,
+} from '@ziroeda/pcbnew/src/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };
 const MM = (n: number): number => mmToIU(n);
