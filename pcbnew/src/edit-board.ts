@@ -2052,3 +2052,88 @@ export function duplicateBoardItems(
   const copied: Board = { ...board, tracks, arcs, vias, footprints, shapes, texts };
   return { board: moveBoardItems(copied, new Set(newIds), delta), ids: newIds };
 }
+
+// ----- zone outline editing (PCB_POINT_EDITOR over a ZONE) ---------------------
+
+/**
+ * The handles KiCad puts on a selected zone: one per outline vertex, plus one at
+ * the midpoint of every edge. Counterpart:
+ * `common/tool/point_editor_behavior.cpp` (POLYGON_POINT_EDIT_BEHAVIOR::
+ * BuildForPolyOutline) driving ZONE_POINT_EDIT_BEHAVIOR.
+ *
+ * A corner handle drags that vertex; an edge handle is an EDIT_LINE, whose
+ * position is the midpoint of its two ends and whose SetPosition shifts *both*
+ * of them, which is ZONE::MoveEdge.
+ */
+export interface ZoneHandle {
+  kind: 'corner' | 'edge';
+  /** Vertex index, or for an edge the index of its first vertex. */
+  index: number;
+  at: Vec2;
+}
+
+export function zoneHandles(board: Board, zoneIndex: number): ZoneHandle[] {
+  const outline = board.zones[zoneIndex]?.outline;
+  if (!outline || outline.length < 3) return [];
+
+  const out: ZoneHandle[] = [];
+  outline.forEach((p, i) => out.push({ kind: 'corner', index: i, at: p }));
+  outline.forEach((p, i) => {
+    const q = outline[(i + 1) % outline.length]!;
+    // EDIT_LINE::GetPosition, the midpoint of the two ends.
+    out.push({ kind: 'edge', index: i, at: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } });
+  });
+  return out;
+}
+
+/** Rewrite a zone's `(polygon (pts …))` from an outline, and drop its fills. */
+function withZoneOutline(z: PcbZone, outline: Vec2[]): PcbZone {
+  const items = z.source.items.map((it) => {
+    if (!isList(it) || head(it) !== 'polygon') return it;
+    return {
+      kind: 'list' as const,
+      items: it.items.map((c) => (isList(c) && head(c) === 'pts' ? ptsNode(outline) : c)),
+    };
+  });
+  return {
+    ...z,
+    outline,
+    // ZONE_POINT_EDIT_BEHAVIOR::UpdateItem calls UnFill() before touching the
+    // polygon: the pour no longer matches its boundary, so KiCad drops it and
+    // waits to be re-filled.
+    fills: [],
+    source: {
+      kind: 'list',
+      items: items.filter((it) => !(isList(it) && head(it) === 'filled_polygon')),
+    },
+  };
+}
+
+/**
+ * Drag one outline vertex to `pos` (POLYGON_POINT_EDIT_BEHAVIOR::
+ * UpdateOutlineFromPoints, which writes every edit point back into the polygon).
+ */
+export function moveZoneCorner(board: Board, zoneIndex: number, corner: number, pos: Vec2): Board {
+  const z = board.zones[zoneIndex];
+  if (!z?.outline || corner < 0 || corner >= z.outline.length) return board;
+  const outline = z.outline.map((p, i) => (i === corner ? { ...pos } : p));
+  return {
+    ...board,
+    zones: board.zones.map((zz, i) => (i === zoneIndex ? withZoneOutline(zz, outline) : zz)),
+  };
+}
+
+/**
+ * Shift one whole edge by `delta` (ZONE::MoveEdge, which moves the edge's vertex
+ * and its neighbour together).
+ */
+export function moveZoneEdge(board: Board, zoneIndex: number, edge: number, delta: Vec2): Board {
+  const z = board.zones[zoneIndex];
+  if (!z?.outline || edge < 0 || edge >= z.outline.length) return board;
+  const next = (edge + 1) % z.outline.length;
+  const outline = z.outline.map((p, i) => (i === edge || i === next ? add(p, delta) : p));
+  return {
+    ...board,
+    zones: board.zones.map((zz, i) => (i === zoneIndex ? withZoneOutline(zz, outline) : zz)),
+  };
+}
