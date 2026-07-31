@@ -258,6 +258,25 @@ describe('zone filler', () => {
     expect(ringsCrossingTheNeck).toHaveLength(0);
   });
 
+  it('smooths the outline before pouring, when the zone asks for it', () => {
+    const plain = area(fillZone(board({ zones: [zone()] }), 0)[0]!.polys);
+
+    const chamfered = area(
+      fillZone(board({ zones: [zone({ cornerSmoothing: 'chamfer', cornerRadius: MM(2) })] }), 0)[0]!
+        .polys,
+    );
+    // Four corners cut back by 2 mm: 4 triangles of 2 mm².
+    expect(plain - chamfered).toBeCloseTo(8, 1);
+
+    const filleted = area(
+      fillZone(board({ zones: [zone({ cornerSmoothing: 'fillet', cornerRadius: MM(2) })] }), 0)[0]!
+        .polys,
+    );
+    // Rounding keeps more copper than cutting the corner straight off.
+    expect(filleted).toBeGreaterThan(chamfered);
+    expect(filleted).toBeLessThan(plain);
+  });
+
   it('leaves a zone alone when it is set not to fill', () => {
     const b = board({ zones: [zone({ filled: false, fills: [] })] });
     expect(fillZones(b).zones[0]!.fills).toEqual([]);

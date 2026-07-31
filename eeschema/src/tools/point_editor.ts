@@ -20,10 +20,10 @@
  * than mutating means a drag is a pure function of (document, handle, cursor),
  * so the preview during a drag and the committed result cannot disagree.
  *
- * Covered here: wires, buses, graphic polylines, rectangles, circles, text boxes
- * and sheets. Not yet: arcs (need ARC_EDIT_MODE), table cells, ellipses and rule
- * areas (we model none of them), and images, whose handles are placed from the
- * decoded pixel size, which the engine does not have.
+ * Covered here: wires, buses, graphic polylines, rectangles, circles, arcs, text
+ * boxes, sheets and images. Not yet: table cells, and ellipses and rule areas,
+ * which we do not model at all. Arcs live in arc_edit.ts, since what a drag
+ * means there depends on the ARC_EDIT_MODE preference and takes real geometry.
  *
  * Note that a sheet-level `(polyline …)` is read into `lines`, not `graphics`
  * (only rectangles, circles and arcs become graphics), so the vertex handles for
@@ -35,13 +35,29 @@ import type {
   SchSheet,
   SchLine,
   SchTextBox,
+  SchImage,
   SheetPin,
   LibGraphic,
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
+import { sheetPinBBox } from './bbox.js';
+import { imageSizeIU } from './image_size.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { EditCommand } from './command.js';
+import {
+  ArcEditMode,
+  arcState,
+  arcMidOf,
+  arcFromState,
+  setArcGeometry,
+  editArcCenterKeepEndpoints,
+  editArcEndpointKeepCenter,
+  editArcEndpointKeepRadius,
+  editArcEndpointKeepTangent,
+  editArcMidKeepCenter,
+  editArcMidKeepEndpoints,
+} from './arc_edit.js';
 
 /** A square handle on a corner or vertex (EDIT_POINT), or a circle at an edge
  *  midpoint (EDIT_LINE). */
@@ -56,7 +72,7 @@ export interface EditHandle {
 
 /** The item the handles belong to: which array, and where in it. */
 export interface PointEditTarget {
-  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox';
+  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox' | 'image';
   readonly index: number;
 }
 
@@ -74,6 +90,10 @@ const LINE_START = 0;
 const LINE_END = 1;
 const CIRC_CENTER = 0;
 const CIRC_END = 1;
+const ARC_START = 0;
+const ARC_MID = 1;
+const ARC_END = 2;
+const ARC_CENTER = 3;
 
 /** MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT (sch_sheet.h), in mils. */
 const MIN_SHEET_WIDTH = mmToIU(500 * 0.0254);
@@ -102,6 +122,8 @@ export function pointEditTarget(doc: Schematic, id: string): PointEditTarget | n
   if (textbox !== -1) return { kind: 'textbox', index: textbox };
   const line = find(doc.lines, 'line');
   if (line !== -1) return { kind: 'line', index: line };
+  const image = find(doc.images, 'image');
+  if (image !== -1) return { kind: 'image', index: image };
   // Graphics carry no uuid of their own, so they are addressed by index.
   const graphic = (doc.graphics ?? []).findIndex((_, i) => refId('graphic', undefined, i) === id);
   if (graphic !== -1) {
@@ -283,11 +305,8 @@ const sideOf = (angle: number): 'right' | 'top' | 'left' | 'bottom' =>
 /**
  * SCH_SHEET::GetMinWidth / GetMinHeight: a sheet cannot be shrunk past the pins
  * on the two edges perpendicular to the drag, nor below MIN_SHEET_WIDTH /
- * MIN_SHEET_HEIGHT.
- *
- * Upstream measures each pin's full bounding box, text included; we only have
- * the pin's anchor, so the floor here is a little looser than KiCad's. It still
- * stops the sheet closing over its pins, which is what the clamp is for.
+ * MIN_SHEET_HEIGHT. Pins are measured by their full bounding box, flag and text
+ * together, exactly as upstream does.
  */
 function sheetMinSize(sh: SchSheet, fromLeft: boolean, fromTop: boolean): Vec2 {
   let pinsLeft = sh.at.x + sh.size.w;
@@ -297,12 +316,15 @@ function sheetMinSize(sh: SchSheet, fromLeft: boolean, fromTop: boolean): Vec2 {
 
   for (const p of sh.pins) {
     const side = sideOf(p.angle);
+    const box = sheetPinBBox(p);
+    // Pins on the top and bottom edges hold the width; those on the left and
+    // right hold the height.
     if (side === 'top' || side === 'bottom') {
-      pinsLeft = Math.min(pinsLeft, p.at.x);
-      pinsRight = Math.max(pinsRight, p.at.x);
+      pinsLeft = Math.min(pinsLeft, box.minX);
+      pinsRight = Math.max(pinsRight, box.maxX);
     } else {
-      pinsTop = Math.min(pinsTop, p.at.y);
-      pinsBottom = Math.max(pinsBottom, p.at.y);
+      pinsTop = Math.min(pinsTop, box.minY);
+      pinsBottom = Math.max(pinsBottom, box.maxY);
     }
   }
   pinsLeft = bumpToNextGrid(pinsLeft, -1);
@@ -436,19 +458,91 @@ function graphicHandles(g: LibGraphic): EditHandle[] {
         pt('point', CIRC_CENTER, g.center),
         pt('point', CIRC_END, { x: g.center.x + g.radius, y: g.center.y }),
       ];
+    case 'arc': {
+      // EDA_ARC_POINT_EDIT_BEHAVIOR: start, mid, end, centre. The two indicator
+      // lines from the centre are drawn, not grabbed, so they are not handles.
+      const s = arcState(g.start, g.mid, g.end);
+      return [
+        pt('point', ARC_START, g.start),
+        pt('point', ARC_MID, arcMidOf(s)),
+        pt('point', ARC_END, g.end),
+        pt('point', ARC_CENTER, s.center),
+      ];
+    }
     case 'polyline':
     case 'bezier':
       // A vertex per point: EDA_POLYGON_POINT_EDIT_BEHAVIOR for a polyline, and
       // for a bezier the two ends plus the two control points.
       return g.points.map((p, i) => pt('point', i, p));
-    case 'arc':
     case 'text':
       return [];
   }
 }
 
-function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2): LibGraphic {
+/**
+ * EDA_ARC_POINT_EDIT_BEHAVIOR::UpdateItem. Which point moved and which arc edit
+ * mode is set together decide what the drag means; every combination is one of
+ * the helpers in arc_edit.ts.
+ */
+function dragArc(
+  g: Extract<LibGraphic, { kind: 'arc' }>,
+  h: EditHandle,
+  pos: Vec2,
+  mode: ArcEditMode,
+): { start: Vec2; mid: Vec2; end: Vec2 } | null {
+  const cur = arcState(g.start, g.mid, g.end);
+  const mid = arcMidOf(cur);
+
+  // Upstream only reaches UpdateItem once a point has actually moved, and every
+  // mode below decides what to do by comparing the incoming points against the
+  // arc's own. Handing it a point that has not moved is therefore ambiguous:
+  // the endpoint branches would read it as the *other* end being dragged and
+  // re-derive both ends, nudging the arc by a rounding step. A drag frame that
+  // did not move the grabbed point leaves the arc alone, and says so by
+  // returning null so the caller can hand back the very same document.
+  if (pos.x === h.at.x && pos.y === h.at.y) return null;
+
+  if (h.index === ARC_CENTER) {
+    if (mode === ArcEditMode.KeepEndpointsOrStartDirection) {
+      return arcFromState({
+        ...cur,
+        center: editArcCenterKeepEndpoints(pos, cur.start, cur.end),
+      });
+    }
+    // Both centre-keeping modes just move the whole arc.
+    const d = { x: pos.x - cur.center.x, y: pos.y - cur.center.y };
+    return setArcGeometry(
+      { x: g.start.x + d.x, y: g.start.y + d.y },
+      { x: mid.x + d.x, y: mid.y + d.y },
+      { x: g.end.x + d.x, y: g.end.y + d.y },
+    );
+  }
+
+  if (h.index === ARC_MID) {
+    if (mode === ArcEditMode.KeepEndpointsOrStartDirection)
+      return editArcMidKeepEndpoints(cur, cur.start, cur.end, pos);
+    return arcFromState(editArcMidKeepCenter(cur.center, cur.start, cur.end, pos));
+  }
+
+  // A start or end drag: `pos` replaces that endpoint, the other stays put.
+  const start = h.index === ARC_START ? pos : cur.start;
+  const end = h.index === ARC_END ? pos : cur.end;
+  switch (mode) {
+    case ArcEditMode.KeepCenterAdjustAngleRadius:
+      return arcFromState(editArcEndpointKeepCenter(cur, cur.center, start, end));
+    case ArcEditMode.KeepCenterEndsAdjustAngle:
+      return arcFromState(editArcEndpointKeepRadius(cur, cur.center, start, end));
+    case ArcEditMode.KeepEndpointsOrStartDirection:
+      return arcFromState(editArcEndpointKeepTangent(cur, cur.center, start, mid, end));
+  }
+}
+
+function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2, arcMode: ArcEditMode): LibGraphic {
   switch (g.kind) {
+    case 'arc': {
+      const moved = dragArc(g, h, pos, arcMode);
+      return moved ? { ...g, ...moved } : g;
+    }
     case 'rectangle': {
       const box = reshapedBox(g.start, g.end, h, pos, { x: 0, y: 0 });
       return { ...g, start: box.start, end: box.end };
@@ -461,7 +555,6 @@ function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2): LibGraphic {
     case 'polyline':
     case 'bezier':
       return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
-    case 'arc':
     case 'text':
       return g;
   }
@@ -521,6 +614,85 @@ function dragLine(doc: Schematic, index: number, h: EditHandle, pos: Vec2): Sche
   };
 }
 
+// ----- images ----------------------------------------------------------------
+
+/** BITMAP_POINT_EDIT_BEHAVIOR's 50 mil floor on a rescaled image. */
+const MIN_IMAGE_SIDE = mmToIU(50 * 0.0254);
+
+/**
+ * An image's four corner handles. `at` is its centre, so they sit half its
+ * extent away in each direction (BITMAP_POINT_EDIT_BEHAVIOR::MakePoints).
+ *
+ * Upstream adds a fifth for the transform origin. We do not model
+ * `SCH_BITMAP`'s transform-origin offset, so there is nothing to place there
+ * and no drag that could write it back; the four corners are the whole set.
+ */
+function imageHandles(im: SchImage): EditHandle[] {
+  const s = imageSizeIU(im);
+  const topLeft = { x: im.at.x - s.w / 2, y: im.at.y - s.h / 2 };
+  const botRight = { x: im.at.x + s.w / 2, y: im.at.y + s.h / 2 };
+  const c = cornersOf(topLeft, botRight);
+  return [
+    pt('point', RECT_TOPLEFT, c.topLeft),
+    pt('point', RECT_TOPRIGHT, c.topRight),
+    pt('point', RECT_BOTLEFT, c.botLeft),
+    pt('point', RECT_BOTRIGHT, c.botRight),
+  ];
+}
+
+/**
+ * Rescale an image by dragging a corner (BITMAP_POINT_EDIT_BEHAVIOR::UpdateItem).
+ *
+ * An image scales about its centre and keeps its aspect ratio, so the drag is
+ * read as a ratio of distances rather than a new corner position: how far the
+ * corner now is from the centre, over how far it was. Dragging through the
+ * centre would flip the image, so a corner that crosses it is pinned there, and
+ * the result is floored at 50 mils on the shorter side.
+ */
+function dragImage(im: SchImage, h: EditHandle, pos: Vec2): SchImage {
+  const size = imageSizeIU(im);
+  const origin = im.at;
+  const half = { x: size.w / 2, y: size.h / 2 };
+
+  // The corner being dragged, as it was, relative to the centre.
+  let oldCorner: Vec2;
+  switch (h.index) {
+    case RECT_TOPLEFT:
+      oldCorner = { x: -half.x, y: -half.y };
+      break;
+    case RECT_TOPRIGHT:
+      oldCorner = { x: half.x, y: -half.y };
+      break;
+    case RECT_BOTLEFT:
+      oldCorner = { x: -half.x, y: half.y };
+      break;
+    case RECT_BOTRIGHT:
+      oldCorner = { x: half.x, y: half.y };
+      break;
+    default:
+      return im;
+  }
+  let newCorner = { x: pos.x - origin.x, y: pos.y - origin.y };
+
+  // Crossing the origin would mirror the image, which a resize handle must not
+  // do, so a corner that changes sign is clamped onto the centre instead.
+  const sign = (v: number): number => (v < 0 ? -1 : v > 0 ? 1 : 0);
+  if (sign(newCorner.x) !== sign(oldCorner.x) || sign(newCorner.y) !== sign(oldCorner.y))
+    newCorner = { x: 0, y: 0 };
+
+  const newLength = Math.hypot(newCorner.x, newCorner.y);
+  const oldLength = Math.hypot(oldCorner.x, oldCorner.y);
+  let ratio = oldLength > 0 ? newLength / oldLength : 1;
+
+  // Floor the shorter side at 50 mils, and take whichever ratio that implies.
+  const newWidth = Math.max(size.w * ratio, MIN_IMAGE_SIDE);
+  const newHeight = Math.max(size.h * ratio, MIN_IMAGE_SIDE);
+  ratio = Math.min(newWidth / size.w, newHeight / size.h);
+  if (ratio === 1) return im;
+
+  return { ...im, scale: im.scale * ratio };
+}
+
 /** The minimum a text box may shrink to (SCH_TEXTBOX::GetMinSize): its text
  *  must still fit vertically. Empty text has no floor. */
 function textBoxMinSize(tb: SchTextBox): Vec2 {
@@ -550,6 +722,10 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
       if (l.points && l.points.length > 2) return l.points.map((p, i) => pt('point', i, p));
       return [pt('point', LINE_START, l.start), pt('point', LINE_END, l.end)];
     }
+    case 'image': {
+      const im = doc.images[t.index];
+      return im ? imageHandles(im) : [];
+    }
     case 'graphic': {
       const g = doc.graphics[t.index];
       return g ? graphicHandles(g) : [];
@@ -557,12 +733,18 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
   }
 }
 
-/** The document with `handle` dragged to `pos`. Pure: same inputs, same result. */
+/**
+ * The document with `handle` dragged to `pos`. Pure: same inputs, same result.
+ *
+ * `arcMode` is the "Arc editing mode" preference
+ * (`EESCHEMA_SETTINGS::m_Drawing.arc_edit_mode`), which only an arc reads.
+ */
 export function dragHandle(
   doc: Schematic,
   t: PointEditTarget,
   handle: EditHandle,
   pos: Vec2,
+  arcMode: ArcEditMode = ArcEditMode.KeepCenterAdjustAngleRadius,
 ): Schematic {
   switch (t.kind) {
     case 'sheet':
@@ -576,10 +758,20 @@ export function dragHandle(
     }
     case 'line':
       return dragLine(doc, t.index, handle, pos);
+    case 'image': {
+      const im = doc.images[t.index];
+      if (!im) return doc;
+      const moved = dragImage(im, handle, pos);
+      if (moved === im) return doc;
+      return { ...doc, images: doc.images.map((x, i) => (i === t.index ? moved : x)) };
+    }
     case 'graphic': {
       const g = doc.graphics[t.index];
       if (!g) return doc;
-      const moved = dragGraphic(g, handle, pos);
+      const moved = dragGraphic(g, handle, pos, arcMode);
+      // A frame that reshaped nothing hands back the very same document, so
+      // anything downstream comparing by identity sees no change.
+      if (moved === g) return doc;
       return { ...doc, graphics: doc.graphics.map((x, i) => (i === t.index ? moved : x)) };
     }
   }
@@ -604,6 +796,7 @@ export function reshapeCommand(label: string, after: Schematic): EditCommand {
       if (after.graphics !== doc.graphics) out.graphics = after.graphics;
       if (after.textBoxes !== doc.textBoxes) out.textBoxes = after.textBoxes;
       if (after.noConnects !== doc.noConnects) out.noConnects = after.noConnects;
+      if (after.images !== doc.images) out.images = after.images;
       return out;
     },
     invert: (before: Schematic) => reshapeCommand(label, before),

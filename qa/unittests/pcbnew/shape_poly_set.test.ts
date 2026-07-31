@@ -8,7 +8,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  chamfer,
   CornerStrategy,
+  fillet,
   fracture,
   fractureSingle,
   inflate,
@@ -110,5 +112,47 @@ describe('inflate (SHAPE_POLY_SET::Inflate)', () => {
   it('is a no-op for zero', () => {
     const same = inflate([[square(0, 0, 100)]], 0);
     expect(same[0]![0]).toHaveLength(4);
+  });
+});
+
+describe('corner smoothing (chamferFilletPolygon)', () => {
+  const sq = square(0, 0, 1000);
+
+  it('chamfer cuts each corner into two points', () => {
+    const out = chamfer([[sq]], 100);
+    // Four corners, each replaced by a pair.
+    expect(out[0]![0]).toHaveLength(8);
+    // The cut is `distance` along each edge from the corner.
+    expect(out[0]![0]).toContainEqual({ x: 0, y: 100 });
+    expect(out[0]![0]).toContainEqual({ x: 100, y: 0 });
+    // And it removes area: four triangles of 100x100/2.
+    expect(Math.abs(signedArea(out[0]![0]!))).toBeCloseTo(1000 * 1000 - 4 * 5000, 6);
+  });
+
+  it('chamfer takes at most half an edge, however large the distance', () => {
+    const out = chamfer([[sq]], 100000);
+    // Clamped to half of each edge, so the square becomes a diamond.
+    expect(Math.abs(signedArea(out[0]![0]!))).toBeCloseTo(500000, 6);
+  });
+
+  it('fillet rounds a corner into an arc of several points', () => {
+    const out = fillet([[sq]], 200, 5);
+    expect(out[0]![0]!.length).toBeGreaterThan(8);
+    // Rounding removes less than the chamfer of the same size.
+    const filletArea = Math.abs(signedArea(out[0]![0]!));
+    const chamferArea = Math.abs(signedArea(chamfer([[sq]], 200)[0]![0]!));
+    expect(filletArea).toBeGreaterThan(chamferArea);
+    expect(filletArea).toBeLessThan(1000 * 1000);
+  });
+
+  it('a finer error limit puts more segments in the arc', () => {
+    const coarse = fillet([[sq]], 200, 50)[0]![0]!.length;
+    const fine = fillet([[sq]], 200, 1)[0]![0]!.length;
+    expect(fine).toBeGreaterThan(coarse);
+  });
+
+  it('a zero distance leaves the polygon alone', () => {
+    expect(chamfer([[sq]], 0)[0]![0]).toHaveLength(4);
+    expect(fillet([[sq]], 0, 5)[0]![0]).toHaveLength(4);
   });
 });

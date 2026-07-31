@@ -11,6 +11,7 @@
 import type { Schematic, SchSymbol, LibGraphic, LibSymbol, Vec2 } from '../types.js';
 import { contains, inflate, labelBox, symbolBodyBBox } from './bbox.js';
 import { directiveBox } from './directive_label.js';
+import { imageSizeIU } from './image_size.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -169,9 +170,6 @@ export interface ItemRef {
   id: string;
 }
 
-// BITMAP_BASE: m_pixelSizeIu = 254000 / ppi with the default 300 ppi.
-const IU_PER_PIXEL = 254000 / 300;
-
 /** Whether world point p hits the stroke (or filled interior) of a graphic shape. */
 function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
   switch (g.kind) {
@@ -312,13 +310,15 @@ export function hitTest(
     if (contains(box, p)) return { kind: 'symbol', id: refId('symbol', s.uuid, i) };
   }
 
-  // Embedded images: bounding box centred at `at` (pixels x IU_PER_PIXEL x scale).
+  // Embedded images: bounding box centred at `at`, its true extent read out of
+  // the PNG header (SCH_BITMAP::GetBoundingBox over REFERENCE_IMAGE::GetSize).
+  // This used to assume a flat 40x40 pixels, so a large image was only
+  // clickable near its middle and a small one was clickable well outside itself.
   for (let i = 0; i < sch.images.length; i++) {
     const im = sch.images[i]!;
-    // Without a decoded natural size, assume a modest default extent so the
-    // image is still clickable; the renderer uses the true size once decoded.
-    const halfW = 20 * IU_PER_PIXEL * im.scale;
-    const halfH = 20 * IU_PER_PIXEL * im.scale;
+    const size = imageSizeIU(im);
+    const halfW = size.w / 2;
+    const halfH = size.h / 2;
     if (Math.abs(p.x - im.at.x) <= halfW + accuracy && Math.abs(p.y - im.at.y) <= halfH + accuracy)
       return { kind: 'image', id: refId('image', im.uuid, i) };
   }

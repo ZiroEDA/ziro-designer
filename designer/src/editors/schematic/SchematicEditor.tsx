@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
+  type ArcEditMode,
   SPIN_ANGLE,
   spinOfAngle,
   wireLabelDriverName,
@@ -4546,6 +4547,7 @@ export function SchematicEditor({
             selection={selection}
             activeTool={activeTool}
             lineMode={lineMode}
+            arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
             placeLib={placeLib}
             placeUnit={placeUnit}
             onSymbolPlaced={onSymbolPlaced}

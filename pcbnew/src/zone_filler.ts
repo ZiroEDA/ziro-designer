@@ -28,7 +28,9 @@
 import polygonClipping, { type Geom, type MultiPolygon, type Ring } from 'polygon-clipping';
 import { pcbIuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
+  chamfer,
   CornerStrategy,
+  fillet,
   fracture,
   inflate,
   type Polygon,
@@ -202,7 +204,11 @@ export function fillZone(
   for (const layer of zone.layers) {
     if (!isCopper(layer)) continue;
 
-    const outline: Geom = [ringOf(zone.outline)];
+    // ZONE::BuildSmoothedPoly: chamfer or fillet the outline's corners before
+    // anything is knocked out of it. Rule areas and teardrops are left alone
+    // upstream; so is a zone with no smoothing set, which is the default.
+    const smoothed = smoothOutline(zone.outline, zone, maxError);
+    const outline: Geom = [ringOf(smoothed)];
     const holes: Geom[] = [];
     const spokes: Geom[] = [];
     const connected: Vec2[] = []; // same-net anchors, for island removal
@@ -309,6 +315,22 @@ export function fillZone(
   }
 
   return fills;
+}
+
+/**
+ * ZONE::BuildSmoothedPoly's `smooth` lambda: the outline with its corners
+ * chamfered or filleted by the zone's corner radius. SMOOTHING_NONE, a zero
+ * radius, and shapes too small to smooth all fall through unchanged.
+ */
+function smoothOutline(outline: Vec2[], zone: PcbZone, maxError: number): Vec2[] {
+  const mode = zone.cornerSmoothing ?? 'none';
+  const radius = zone.cornerRadius ?? 0;
+  if (mode === 'none' || radius <= 0 || outline.length < 3) return outline;
+
+  const smoothed =
+    mode === 'chamfer' ? chamfer([[outline]], radius) : fillet([[outline]], radius, maxError);
+
+  return smoothed[0]?.[0] ?? outline;
 }
 
 /**

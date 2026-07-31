@@ -59,6 +59,7 @@ import {
   translatePayload,
   pointEditTarget,
   editHandles,
+  type ArcEditMode,
   dragHandle,
   reshapeCommand,
   type EditHandle,
@@ -380,6 +381,8 @@ interface Props {
   selection: ReadonlySet<string>;
   activeTool: string;
   lineMode: LineMode;
+  /** eeschema.drawing.arc_edit_mode: what dragging an arc's edit points means. */
+  arcEditMode: ArcEditMode;
   placeLib: LibSymbol | null;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
@@ -483,6 +486,7 @@ const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
   textbox: 'Resize Text Box',
   line: 'Drag Line Endpoint',
   graphic: 'Drag Shape',
+  image: 'Resize Image',
 };
 
 export const SchematicCanvas = forwardRef<CanvasController, Props>(function SchematicCanvas(
@@ -492,6 +496,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     selection,
     activeTool,
     lineMode,
+    arcEditMode,
     placeLib,
     placeUnit = 1,
     onSymbolPlaced,
@@ -1933,7 +1938,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const dragging = pointDragRef.current;
       const target = pointTargetRef.current;
       if (dragging && target) {
-        const reshaped = dragHandle(schematic, target, dragging, snap(world));
+        const reshaped = dragHandle(schematic, target, dragging, snap(world), arcEditMode);
         pointEditDocRef.current = reshaped === schematic ? null : reshaped;
         // The handles move with the item, so the one being dragged is re-derived
         // to keep the hover highlight and the next frame's geometry in step.
@@ -2069,6 +2074,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       handleAt,
       schematic,
       snap,
+      arcEditMode,
       GRID,
     ],
   );

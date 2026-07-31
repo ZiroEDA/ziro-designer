@@ -323,3 +323,148 @@ function pointInRing(p: Vec2, ring: Vec2[]): boolean {
   }
   return inside;
 }
+
+// ----- corner smoothing (corner_operations.cpp) --------------------------------
+
+/** CORNER_MODE for chamferFilletPolygon. */
+export enum CornerMode {
+  CHAMFERED = 0,
+  FILLETED = 1,
+}
+
+/** KiCad's KiROUND: round half away from zero. */
+const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
+
+/**
+ * GetArcToSegmentCount: segments needed to hold an arc of `radius` sweeping
+ * `angleRad` within `errorMax`.
+ */
+function arcToSegmentCount(radius: number, errorMax: number, angleRad: number): number {
+  if (radius < 10 || angleRad === 0) return 1;
+  const arcAngle = Math.abs(angleRad);
+  const maxSegs = Math.ceil((2 * Math.PI) / arcAngle) * 8;
+  const argument = 1.0 - errorMax / radius;
+  let segCount = argument <= -1 ? maxSegs : Math.ceil((2 * Math.PI) / Math.acos(argument) / 2);
+  segCount = Math.ceil((segCount * arcAngle) / (2 * Math.PI));
+  return Math.max(1, Math.min(segCount, maxSegs));
+}
+
+/**
+ * SHAPE_POLY_SET::chamferFilletPolygon (corner_operations.cpp): replace every
+ * corner of every contour with either a straight cut (chamfer) or an arc
+ * (fillet). Both are limited to half of the shorter adjacent edge, so a corner
+ * can never eat its neighbour, and both leave parallel edges alone.
+ */
+export function chamferFilletPolygon(
+  poly: Polygon,
+  mode: CornerMode,
+  distance: number,
+  errorMax = 0,
+): Polygon {
+  if (distance === 0) return poly.map((ring) => ring.map((p) => ({ ...p })));
+
+  const out: Polygon = [];
+
+  for (const contour of poly) {
+    const newContour: Vec2[] = [];
+    const count = contour.length;
+
+    for (let currVertex = 0; currVertex < count; currVertex++) {
+      const x1 = contour[currVertex]!.x;
+      const y1 = contour[currVertex]!.y;
+      const prevVertex = currVertex === 0 ? count - 1 : currVertex - 1;
+      const nextVertex = currVertex === count - 1 ? 0 : currVertex + 1;
+
+      const xa = contour[prevVertex]!.x - x1;
+      const ya = contour[prevVertex]!.y - y1;
+      const xb = contour[nextVertex]!.x - x1;
+      const yb = contour[nextVertex]!.y - y1;
+
+      // Avoid segments that would generate NaNs below.
+      if (Math.abs(xa + xb) < Number.EPSILON && Math.abs(ya + yb) < Number.EPSILON) continue;
+
+      const lena = Math.hypot(xa, ya);
+      const lenb = Math.hypot(xb, yb);
+
+      if (mode === CornerMode.CHAMFERED) {
+        let d = distance;
+        // Chamfer one half of an edge at most.
+        if (0.5 * lena < d) d = 0.5 * lena;
+        if (0.5 * lenb < d) d = 0.5 * lenb;
+
+        newContour.push({ x: x1 + kiRound((d * xa) / lena), y: y1 + kiRound((d * ya) / lena) });
+        newContour.push({ x: x1 + kiRound((d * xb) / lenb), y: y1 + kiRound((d * yb) / lenb) });
+        continue;
+      }
+
+      const cosine = (xa * xb + ya * yb) / (lena * lenb);
+      let radius = distance;
+      const denom = Math.sqrt(2.0 / (1 + cosine) - 1);
+
+      // Parallel edges have nothing to round.
+      if (!Number.isFinite(denom)) continue;
+
+      // Limit the rounding to one half of an edge.
+      if (0.5 * lena * denom < radius) radius = 0.5 * lena * denom;
+      if (0.5 * lenb * denom < radius) radius = 0.5 * lenb * denom;
+
+      // The fillet arc's centre.
+      let k = radius / Math.sqrt(0.5 * (1 - cosine));
+      const lenab = Math.hypot(xa / lena + xb / lenb, ya / lena + yb / lenb);
+      const xc = x1 + (k * (xa / lena + xb / lenb)) / lenab;
+      const yc = y1 + (k * (ya / lena + yb / lenb)) / lenab;
+
+      // Arc start and end vectors.
+      k = radius / Math.sqrt(2 / (1 + cosine) - 1);
+      const xs = x1 + (k * xa) / lena - xc;
+      const ys = y1 + (k * ya) / lena - yc;
+      const xe = x1 + (k * xb) / lenb - xc;
+      const ye = y1 + (k * yb) / lenb - yc;
+
+      let argument = (xs * xe + ys * ye) / (radius * radius);
+      argument = Math.max(-1, Math.min(1, argument));
+
+      const arcAngle = Math.acos(argument);
+      const segments = arcToSegmentCount(radius, errorMax, arcAngle);
+      let deltaAngle = arcAngle / segments;
+      const startAngle = Math.atan2(-ys, xs);
+
+      // Flip the arc for inner corners.
+      if (xa * yb - ya * xb <= 0) deltaAngle *= -1;
+
+      let nx = xc + xs;
+      let ny = yc + ys;
+      if (Number.isNaN(nx) || Number.isNaN(ny)) continue;
+
+      newContour.push({ x: kiRound(nx), y: kiRound(ny) });
+
+      let prevX = kiRound(nx);
+      let prevY = kiRound(ny);
+
+      for (let j = 0; j < segments; j++) {
+        nx = xc + Math.cos(startAngle + (j + 1) * deltaAngle) * radius;
+        ny = yc - Math.sin(startAngle + (j + 1) * deltaAngle) * radius;
+        if (Number.isNaN(nx) || Number.isNaN(ny)) continue;
+
+        // Rounding can repeat a corner; do not add it twice.
+        if (kiRound(nx) !== prevX || kiRound(ny) !== prevY) {
+          newContour.push({ x: kiRound(nx), y: kiRound(ny) });
+          prevX = kiRound(nx);
+          prevY = kiRound(ny);
+        }
+      }
+    }
+
+    if (newContour.length >= 3) out.push(newContour);
+  }
+
+  return out;
+}
+
+/** SHAPE_POLY_SET::Chamfer: cut every corner back by `distance`. */
+export const chamfer = (polygons: Polygon[], distance: number): Polygon[] =>
+  polygons.map((poly) => chamferFilletPolygon(poly, CornerMode.CHAMFERED, distance));
+
+/** SHAPE_POLY_SET::Fillet: round every corner to `radius`. */
+export const fillet = (polygons: Polygon[], radius: number, errorMax: number): Polygon[] =>
+  polygons.map((poly) => chamferFilletPolygon(poly, CornerMode.FILLETED, radius, errorMax));

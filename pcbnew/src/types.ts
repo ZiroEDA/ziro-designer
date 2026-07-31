@@ -251,6 +251,10 @@ export interface PcbZone {
   thermalGap?: number;
   /** `(fill … (thermal_bridge_width …))`, ZONE_THERMAL_RELIEF_COPPER_WIDTH_MM. */
   thermalBridgeWidth?: number;
+  /** `(fill … (smoothing chamfer|fillet))`, ZONE_SETTINGS::m_cornerSmoothingType. */
+  cornerSmoothing?: 'none' | 'chamfer' | 'fillet';
+  /** `(fill … (radius …))`, the chamfer distance / fillet radius in IU. */
+  cornerRadius?: number;
   /** `(fill yes)` — whether the zone is set to be poured at all. */
   filled?: boolean;
   /** `(priority …)`: a higher-priority zone knocks lower ones out of its area. */
