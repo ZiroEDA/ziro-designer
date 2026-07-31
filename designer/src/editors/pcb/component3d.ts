@@ -25,6 +25,7 @@
  * fetched once and cloned. A model's `(opacity …)` clones materials on its
  * instance (MODELTORENDER carries m_Opacity into the transparent pass).
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
@@ -32,7 +33,7 @@ import type { Board } from '@ziroeda/pcbnew';
 import { resolvePath } from './filename_resolver.js';
 import { loadCadModel } from './loadmodel.js';
 
-const MM = 10000; // internal units per mm
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const VRML_UNIT_MM = 2.54; // legacy VRML model unit = 0.1 inch (WRL2BASE)
 
 type Footprint = Board['footprints'][number];

@@ -23,7 +23,7 @@
  */
 
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';

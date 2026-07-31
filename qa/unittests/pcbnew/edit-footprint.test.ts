@@ -25,7 +25,7 @@ import {
 import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 
 // A two-pad footprint with a silk line and a reference, in local coords.
 const SRC = `(footprint "R"

@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const square = (x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] => [
   { x: x0, y: y0 },

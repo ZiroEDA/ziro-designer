@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { mmToIU } from '@ziroeda/common';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { Reporter, RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common';
 import {
   BOARD_NETLIST_UPDATER,

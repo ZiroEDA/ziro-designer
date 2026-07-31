@@ -12,6 +12,7 @@
  * last in LAYER_DRC_HIGHLIGHTED with its collision 'X' (half-length
  * 2.5·MarkerScale(), stroke MarkerScale()/2).
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { drawDrcMarkers } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { PCB_BACKGROUND, PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
@@ -61,8 +62,8 @@ describe('drawDrcMarkers', () => {
   // MarkerScale() = mmToIU(0.1625) / sqrt(zoom); GAL zoom factor for a
   // view at `scale` device px per IU (1 IU = 100 nm) on a 96 dpi screen:
   // zoom = scale·IU_PER_MM·25.4/(96·dpr).
-  const zoom = (view.scale * 10000 * 25.4) / (96 * dpr);
-  const scaleIU = 1625 / Math.sqrt(zoom);
+  const zoom = (view.scale * PCB_IU_PER_MM * 25.4) / (96 * dpr);
+  const scaleIU = (0.1625 * PCB_IU_PER_MM) / Math.sqrt(zoom);
 
   it('paints nothing without markers', () => {
     const ctx = recorder();

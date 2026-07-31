@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { parseBoard } from '@ziroeda/pcbnew/src/pcb_io/sexpr/pcb_io_sexpr_parser.js';
 import { formatBoard } from '@ziroeda/pcbnew/src/pcb_io/sexpr/pcb_io_sexpr.js';
 import { PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const SRC = `(kicad_pcb (version 20241229) (generator "pcbnew")
 	(paper "A4")

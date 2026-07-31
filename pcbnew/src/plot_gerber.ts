@@ -16,7 +16,7 @@
  */
 
 import type { Board, PcbPad, PcbShape } from './types.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,

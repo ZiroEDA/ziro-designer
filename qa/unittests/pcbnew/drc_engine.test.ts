@@ -4,13 +4,14 @@
 /**
  * DRC engine slice 1 (pcbnew/src/drc/drc_engine.ts): copper clearance with
  * netclass resolution, track width, via diameter/annular/drill and
- * hole-to-hole checks. IU = 100 nm (0.1 mm = 1000 IU… MM = 10000 IU).
+ * hole-to-hole checks. IU = 1 nm, so MM = 1e6 IU (pcbnew's scale).
  */
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard, runDrc, type DrcOptions } from '@ziroeda/pcbnew';
 
-const MM = 10000;
+const MM = PCB_IU_PER_MM;
 
 /** A tiny two-net board built from real board text (via the real parser). */
 function board(extra: string): ReturnType<typeof readBoard> {

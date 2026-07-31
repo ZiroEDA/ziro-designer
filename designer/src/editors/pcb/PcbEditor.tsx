@@ -10,7 +10,8 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
-import { iuToMM } from '@ziroeda/common';
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common';
 import {
   useCallback,
   useEffect,
@@ -144,7 +145,7 @@ import {
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
-const MM = 10000;
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
 // pcb_painter.cpp getColor: a selected item is drawn in its layer colour
 // Brightened(0.8) (per channel c·0.2 + 0.8), i.e. pushed 80% toward white.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
@@ -70,7 +71,7 @@ describe('Gerber X2 plot (GERBER_PLOTTER / pcbplot.cpp)', () => {
     const withOrigin = readBoard(
       parse(BOARD.replace('(net 0 "")', '(setup (aux_axis_origin 5 5))\n  (net 0 "")')),
     );
-    expect(boardAuxOrigin(withOrigin)).toEqual({ x: 50000, y: 50000 });
+    expect(boardAuxOrigin(withOrigin)).toEqual({ x: mmToIU(5), y: mmToIU(5) });
     const out = plotGerberLayer(withOrigin, 'F.Cu', { origin: boardAuxOrigin(withOrigin) });
     // The track start (10,10) is 5 mm from the (5,5) origin.
     expect(out).toContain('X5000000Y-5000000D02*');

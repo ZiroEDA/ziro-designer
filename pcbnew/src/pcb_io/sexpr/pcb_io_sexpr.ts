@@ -16,7 +16,7 @@
  */
 
 import { atom, str, serialize, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '../../board.js';

@@ -18,7 +18,7 @@
  */
 
 import { atom, str, list, isList, head, type SList } from '@ziroeda/sexpr/src/index.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { rotatePcb } from './read-board.js';
 import type { PadShape, PadType, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

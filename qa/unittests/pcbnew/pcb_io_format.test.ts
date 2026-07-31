@@ -13,7 +13,7 @@ import { PCB_FIELD, MANDATORY_FIELD_T } from '@ziroeda/pcbnew/src/pcb_field.js';
 // Cross-check the formatter output with the (proven) existing reader.
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 function sampleBoard(): BOARD {
   const b = new BOARD();

@@ -23,7 +23,7 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type { PcbFootprint, PcbFootprintField, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

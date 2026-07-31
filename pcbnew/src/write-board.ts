@@ -23,7 +23,7 @@
 
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
-import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { writeFootprintNode } from './write-footprint.js';
 import type {

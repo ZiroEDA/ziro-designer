@@ -22,6 +22,7 @@
  *    pad.cpp; zone fills sit directly under their layer's tracks.
  */
 
+import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   tessellateArc,
@@ -39,7 +40,7 @@ import {
 } from './pcbTheme.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 
-const MM = 10000; // IU per mm, matches core units
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
 // Default net-class clearance (netclass.cpp DEFAULT_CLEARANCE = 0.2 mm). This
 // board carries no explicit net class (those live in the .kicad_pro), so KiCad
