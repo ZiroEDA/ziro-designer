@@ -40,6 +40,7 @@ import {
   changeTextType,
   setAttribute,
   alignItems,
+  autoplaceFields,
   ALIGN_LABELS,
   type AlignMode,
   attributeIsSet,
@@ -4163,6 +4164,23 @@ export function SchematicEditor({
             });
         }
       }
+      // SCH_ACTIONS::autoplaceFields, offered whenever a symbol is selected.
+      if (
+        doc &&
+        [...selection].some((id) => doc.symbols.some((sy, i) => refId('symbol', sy.uuid, i) === id))
+      )
+        items.push({
+          label: 'Autoplace Fields',
+          icon: 'autoplaceFields',
+          shortcut: 'O',
+          action: () => {
+            const cmd = autoplaceFields(doc, selection, libById, {
+              allowRejustify: es.autoplace_fields.allow_rejustify,
+              alignToGrid: es.autoplace_fields.align_to_grid,
+            });
+            if (cmd) runCommand(cmd);
+          },
+        });
       // SCH_ALIGN_TOOL's submenu, shown once there is more than one thing to
       // line up. The click position is the target hint (selectTarget prefers
       // the item under the cursor), so it is passed through.
@@ -4665,6 +4683,18 @@ export function SchematicEditor({
               s.window.grid.last_size_idx =
                 (s.window.grid.last_size_idx + (e.shiftKey ? n - 1 : 1)) % n;
           });
+          return;
+        }
+        // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields) on the selection.
+        if (e.key.toLowerCase() === 'o' && selection.size > 0) {
+          e.preventDefault();
+          if (doc) {
+            const cmd = autoplaceFields(doc, selection, libById, {
+              allowRejustify: es.autoplace_fields.allow_rejustify,
+              alignToGrid: es.autoplace_fields.align_to_grid,
+            });
+            if (cmd) runCommand(cmd);
+          }
           return;
         }
         // E = Properties (KiCad SCH_ACTIONS::properties) on a single selected
