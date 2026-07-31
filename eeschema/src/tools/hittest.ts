@@ -9,7 +9,7 @@
  */
 
 import type { Schematic, SchSymbol, LibGraphic, LibSymbol, Vec2 } from '../types.js';
-import { contains, inflate, labelBox, symbolBodyBBox } from './bbox.js';
+import { contains, inflate, labelBox, sheetPinBBox, symbolBodyBBox } from './bbox.js';
 import { directiveBox } from './directive_label.js';
 import { imageSizeIU } from './image_size.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
@@ -32,6 +32,11 @@ const fieldBBox = (b: Box): { minX: number; minY: number; maxX: number; maxY: nu
 /** The id of a placed symbol's pin: `<symbolRefId>:pin<k>`, the same identity
  *  the netlist uses for that pin. */
 export const pinId = (symbolRefId: string, index: number): string => `${symbolRefId}:pin${index}`;
+
+/** The id of a sheet's hierarchical pin, the same identity the netlist,
+ *  connectivity and ERC already address it by. */
+export const sheetPinId = (sheetRefId: string, index: number): string =>
+  `${sheetRefId}:sheetpin${index}`;
 
 /**
  * SCH_PIN::HitTest floors its accuracy at m_PinSymbolSize / 4 so a pin with no
@@ -165,7 +170,8 @@ export interface ItemRef {
     | 'table'
     | 'directive'
     | 'field'
-    | 'pin';
+    | 'pin'
+    | 'sheetpin';
   /** Stable identity: the item's uuid, or `idx:<n>` when one is absent. */
   id: string;
 }
@@ -366,6 +372,18 @@ export function hitTest(
 
   // Sheets last: their rectangle is large, so smaller items inside win first
   // (KiCad's SCH_SHEET::HitTest accepts any point in the body box).
+  // A sheet's pins are items in their own right (SCH_SHEET_PIN is a
+  // SCH_LABEL_BASE), and sit on the border, so they are tested before the body
+  // or the sheet would always win the click.
+  for (let i = 0; i < sch.sheets.length; i++) {
+    const sh = sch.sheets[i]!;
+    const shId = refId('sheet', sh.uuid, i);
+    for (let k = 0; k < sh.pins.length; k++) {
+      if (contains(inflate(sheetPinBBox(sh.pins[k]!), accuracy), p))
+        return { kind: 'sheetpin', id: sheetPinId(shId, k) };
+    }
+  }
+
   for (let i = 0; i < sch.sheets.length; i++) {
     const sh = sch.sheets[i]!;
     const box = inflate(
