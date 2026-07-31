@@ -3141,6 +3141,14 @@ body {
 .ze-cell-select:focus {
   border-color: var(--chrome-active-border);
 }
+/* A grid cell KiCad renders read-only: the mandatory field names, and the
+   hierarchical path. Same metrics as an editable cell so rows stay aligned. */
+.ze-cell-ro {
+  display: inline-block;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  color: var(--chrome-fg-dim, #9aa0a6);
+}
 .ze-props-rowbtns {
   display: flex;
   gap: 6px;

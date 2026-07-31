@@ -460,6 +460,15 @@ export interface SheetInstance {
 export interface SchSheet {
   readonly at: Vec2;
   readonly size: { readonly w: number; readonly h: number };
+  /** `(in_bom yes)` / `(on_board yes)` / `(dnp no)`, stored inverted for the
+   *  first two exactly as SCH_IO_KICAD_SEXPR::saveSheet writes them. A sheet
+   *  carries the same attribute set as a symbol: the flags apply to everything
+   *  inside it (DIALOG_SHEET_PROPERTIES' Attributes box). */
+  readonly inBom: boolean;
+  readonly onBoard: boolean;
+  readonly dnp: boolean;
+  /** `(exclude_from_sim yes)`; undefined when the token is absent. */
+  readonly excludedFromSim?: boolean;
   readonly stroke?: Stroke;
   /** `(fill (color r g b a))`, the sheet body colour; absent/alpha-0 = unfilled. */
   readonly fillColor?: readonly [number, number, number, number];

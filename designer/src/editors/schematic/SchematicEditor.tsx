@@ -42,6 +42,7 @@ import {
   type TextEffects,
   type SchLabel,
   type SchField,
+  type SchSheet,
   type Stroke,
   type Fill,
   readSchematic,
@@ -199,6 +200,7 @@ import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
 import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
+import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
@@ -632,11 +634,9 @@ export function SchematicEditor({
     shape?: LabelShape;
   } | null>(null);
   // Editing a hierarchical sheet's name/file (DIALOG_SHEET_PROPERTIES).
-  const [sheetEdit, setSheetEdit] = useState<{
-    index: number;
-    name: string;
-    file: string;
-  } | null>(null);
+  // Sheet Properties (DIALOG_SHEET_PROPERTIES); the dialog reads the sheet
+  // itself out of the document, so only which one is open is state.
+  const [sheetEdit, setSheetEdit] = useState<{ index: number } | null>(null);
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -2422,15 +2422,7 @@ export function SchematicEditor({
         } else {
           // Properties on a sheet opens its dialog (double-click enters it).
           const si = d.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === id);
-          if (si !== -1) {
-            const sh = d.sheets[si]!;
-            setSheetEdit({
-              index: si,
-              name: sheetName(sh),
-              // Raw Sheetfile field value (may carry a sub-path), not the basename.
-              file: sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '',
-            });
-          }
+          if (si !== -1) setSheetEdit({ index: si });
         }
         return d;
       });
@@ -3468,24 +3460,116 @@ export function SchematicEditor({
     [doc, runCommand],
   );
 
-  const commitSheetEdit = useCallback(() => {
-    setSheetEdit((se) => {
-      if (!se || !doc) return null;
-      const orig = doc.sheets[se.index];
-      const name = se.name.trim();
-      if (orig && name) {
-        const fields = orig.fields.map((f) =>
-          f.key === 'Sheetname'
-            ? { ...f, value: name }
-            : f.key === 'Sheetfile'
-              ? { ...f, value: se.file.trim() }
-              : f,
-        );
-        runCommand(replaceSheet(se.index, { ...orig, fields }));
-      }
-      return null;
-    });
-  }, [doc, runCommand]);
+  /** The sheet as DIALOG_SHEET_PROPERTIES wants it: its fields as grid rows,
+   *  its border and fill, this instance's page number and its attributes. */
+  const sheetPropsOf = useCallback(
+    (sh: SchSheet, _index: number): SheetPropsResult => {
+      const rootUuid = liveDocs().get(project.current.root)?.uuid;
+      const chain = [...currentPath.split('/').filter(Boolean), sh.uuid ?? ''];
+      const path = rootUuid && sh.uuid ? instanceKey(rootUuid, chain) : null;
+      return {
+        fields: sh.fields.map((f) => ({
+          key: f.key,
+          value: f.value,
+          effects: f.effects ?? { hidden: false },
+          nameShown: !!f.nameShown,
+          ...(f.source ? { source: f.source } : {}),
+        })),
+        borderWidthIU: sh.stroke?.width ?? 0,
+        ...(sh.stroke?.color ? { borderColor: sh.stroke.color } : {}),
+        ...(sh.fillColor ? { backgroundColor: sh.fillColor } : {}),
+        pageNumber: (path && sh.instances.find((i) => i.path === path)?.page) || '',
+        excludeFromSim: !!sh.excludedFromSim,
+        excludeFromBom: !sh.inBom,
+        excludeFromBoard: !sh.onBoard,
+        dnp: sh.dnp,
+      };
+    },
+    [currentPath, liveDocs],
+  );
+
+  /**
+   * SCH_SHEET_PATH::PathHumanReadable for the sheet being edited: the names of
+   * the sheets from the root down to it, which is the path this sheet's
+   * instance data is keyed under.
+   */
+  const sheetPathLabel = useCallback(
+    (sh: SchSheet): string => {
+      // namePath is the parent chain with a trailing slash ("/" at the root),
+      // so appending this sheet's own name completes the readable path.
+      const here = sheetInstanceRefs.find((r) => r.path === currentPath)?.namePath ?? '/';
+      return `${here}${sheetName(sh)}`;
+    },
+    [sheetInstanceRefs, currentPath],
+  );
+
+  /**
+   * Apply DIALOG_SHEET_PROPERTIES. The fields grid carries the sheet name and
+   * file, since upstream those are just its two mandatory rows; everything else
+   * writes into the sheet object, except the page number, which belongs to this
+   * sheet's instance and goes through the same command editPageNumber uses.
+   */
+  /**
+   * Apply DIALOG_SHEET_PROPERTIES. The fields grid carries the sheet name and
+   * file, since upstream those are just its two mandatory rows; the rest writes
+   * into the sheet object, except the page number, which belongs to this
+   * sheet's instance record and goes through the command editPageNumber uses.
+   */
+  const commitSheetEdit = useCallback(
+    (r: SheetPropsResult) => {
+      setSheetEdit((se) => {
+        if (!se || !doc) return null;
+        const orig = doc.sheets[se.index];
+        if (!orig) return null;
+
+        // Each row keeps the source node of the field it came from, so fields
+        // the dialog did not touch still round-trip byte-for-byte.
+        const fields = r.fields.map((row) => {
+          const prev = orig.fields.find((f) => f.key === row.key);
+          return {
+            ...(prev ?? {}),
+            key: row.key,
+            value: row.value,
+            effects: row.effects,
+            nameShown: row.nameShown,
+          } as SchField;
+        });
+
+        const stroke: NonNullable<SchSheet['stroke']> = {
+          ...(orig.stroke ?? { type: 'solid' }),
+          width: r.borderWidthIU,
+          ...(r.borderColor ? { color: r.borderColor } : {}),
+        };
+        if (!r.borderColor) delete (stroke as { color?: ItemColor }).color;
+
+        const next: SchSheet = {
+          ...orig,
+          fields,
+          stroke,
+          // The file stores these inverted; the dialog asks the other way round.
+          inBom: !r.excludeFromBom,
+          onBoard: !r.excludeFromBoard,
+          dnp: r.dnp,
+          excludedFromSim: r.excludeFromSim,
+          ...(r.backgroundColor ? { fillColor: r.backgroundColor } : {}),
+        };
+        if (!r.backgroundColor) delete (next as { fillColor?: ItemColor }).fillColor;
+
+        const cmds: EditCommand[] = [replaceSheet(se.index, next)];
+        const rootUuid = liveDocs().get(project.current.root)?.uuid;
+        const chain = [...currentPath.split('/').filter(Boolean), orig.uuid ?? ''];
+        if (rootUuid && orig.uuid) {
+          const path = instanceKey(rootUuid, chain);
+          const current = orig.instances.find((i) => i.path === path)?.page ?? '';
+          if (r.pageNumber !== current)
+            cmds.push(setSheetPageNumberCommand(se.index, path, r.pageNumber));
+        }
+        runCommand(composeCommands('Edit Sheet Properties', cmds));
+        return null;
+      });
+    },
+    [doc, runCommand, currentPath, liveDocs],
+  );
 
   const commitLineEdit = useCallback(
     (widthIU: number, style: string, color?: ItemColor) => {
@@ -5457,56 +5541,13 @@ export function SchematicEditor({
       )}
 
       {/* Editing an existing sheet's name/file (DIALOG_SHEET_PROPERTIES, E key). */}
-      {sheetEdit && (
-        <div className="ze-modal-backdrop" onMouseDown={() => setSheetEdit(null)}>
-          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Sheet Properties
-              <span className="x" title="Cancel" onClick={() => setSheetEdit(null)}>
-                ✕
-              </span>
-            </div>
-            <div
-              className="ze-label-dialog-body"
-              style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-            >
-              <label className="row">
-                <span>Sheet name</span>
-                <input
-                  className="ze-search"
-                  autoFocus
-                  value={sheetEdit.name}
-                  onChange={(e) => setSheetEdit({ ...sheetEdit, name: e.target.value })}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </label>
-              <label className="row">
-                <span>File name</span>
-                <input
-                  className="ze-search"
-                  value={sheetEdit.file}
-                  onChange={(e) => setSheetEdit({ ...sheetEdit, file: e.target.value })}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter') commitSheetEdit();
-                  }}
-                />
-              </label>
-            </div>
-            <div className="ze-modal-footer">
-              <button className="ze-btn" onClick={() => setSheetEdit(null)}>
-                Cancel
-              </button>
-              <button
-                className="ze-btn primary"
-                disabled={!sheetEdit.name.trim()}
-                onClick={commitSheetEdit}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
+      {sheetEdit && doc.sheets[sheetEdit.index] && (
+        <DialogSheetProperties
+          initial={sheetPropsOf(doc.sheets[sheetEdit.index]!, sheetEdit.index)}
+          hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
+          onOk={commitSheetEdit}
+          onCancel={() => setSheetEdit(null)}
+        />
       )}
 
       {/* Hierarchical sheet: after drawing the rectangle, name it and its file. */}
