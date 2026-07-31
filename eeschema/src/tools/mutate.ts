@@ -314,6 +314,20 @@ export function replaceSheet(index: number, next: SchSheet): EditCommand {
   };
 }
 
+/** Replace the symbol at `index` with `next` (its fields, orientation, or the
+ *  attributes the Attributes menu sets). */
+export function replaceSymbol(index: number, next: SchSymbol): EditCommand {
+  return {
+    label: 'Edit Symbol',
+    apply(doc: Schematic): Schematic {
+      return { ...doc, symbols: doc.symbols.map((s, i) => (i === index ? next : s)) };
+    },
+    invert(before: Schematic): EditCommand {
+      return replaceSymbol(index, before.symbols[index]!);
+    },
+  };
+}
+
 /** Replace the image at `index` with `next` (its position, scale, or a payload
  *  rewritten by Convert to Greyscale). */
 export function replaceImage(index: number, next: SchImage): EditCommand {

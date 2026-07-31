@@ -128,6 +128,8 @@ import {
   replaceSheet,
   replaceGraphic,
   replaceImage,
+  replaceSymbol,
+  isMandatoryField,
   imagePPI,
   imagePixelSize,
   replaceTextBox,
@@ -213,6 +215,7 @@ import { DialogPasteSpecial } from './dialogs/dialog_paste_special.js';
 import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
 import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
 import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
+import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
@@ -665,6 +668,8 @@ export function SchematicEditor({
   );
   // Image Properties (DIALOG_IMAGE_PROPERTIES over PANEL_IMAGE_EDITOR).
   const [imageEdit, setImageEdit] = useState<{ index: number } | null>(null);
+  // Field Properties (DIALOG_FIELD_PROPERTIES): which symbol, which field.
+  const [fieldEdit, setFieldEdit] = useState<{ symbol: number; index: number } | null>(null);
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
   const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
@@ -2424,7 +2429,14 @@ export function SchematicEditor({
     (id: string) => {
       setDoc((d) => {
         if (!d) return d;
-        if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
+        // A field of a placed symbol: "<symbolRefId>:field<k>"
+        // (DIALOG_FIELD_PROPERTIES, not the whole symbol's dialog).
+        const field = /^(.*):field(\d+)$/.exec(id);
+        if (field) {
+          const si = d.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === field[1]);
+          const fi = Number(field[2]);
+          if (si !== -1 && d.symbols[si]!.fields[fi]) setFieldEdit({ symbol: si, index: fi });
+        } else if (d.symbols.some((s, i) => refId('symbol', s.uuid, i) === id)) setPropsTarget(id);
         else if (d.labels.some((l, i) => refId('label', l.uuid, i) === id)) onEditItem(id, 'label');
         else if (d.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
           onEditItem(id, 'textbox');
@@ -3644,6 +3656,59 @@ export function SchematicEditor({
       };
     },
     [shapeEditItem],
+  );
+
+  /**
+   * DIALOG_FIELD_PROPERTIES reads and writes the field's position
+   * symbol-relative, the way the symbol properties grid shows it
+   * (TransferDataToWindow offsets each copy by -symbol position).
+   */
+  const fieldPropsOf = useCallback(
+    (fe: { symbol: number; index: number }): FieldPropsResult | null => {
+      const sym = doc?.symbols[fe.symbol];
+      const f = sym?.fields[fe.index];
+      if (!sym || !f) return null;
+      return {
+        key: f.key,
+        value: f.value,
+        at: f.at ? { x: f.at.x - sym.at.x, y: f.at.y - sym.at.y } : { x: 0, y: 0 },
+        angle: f.angle,
+        effects: f.effects ?? { hidden: false },
+        nameShown: !!f.nameShown,
+        doNotAutoplace: !!f.doNotAutoplace,
+      };
+    },
+    [doc],
+  );
+
+  const commitFieldEdit = useCallback(
+    (r: FieldPropsResult) => {
+      setFieldEdit((fe) => {
+        if (!fe || !doc) return null;
+        const sym = doc.symbols[fe.symbol];
+        const orig = sym?.fields[fe.index];
+        if (!sym || !orig) return null;
+        const next: SchField = {
+          ...orig,
+          key: r.key,
+          value: r.value,
+          // Back to absolute, the way the document stores it.
+          at: { x: r.at.x + sym.at.x, y: r.at.y + sym.at.y },
+          angle: r.angle,
+          effects: r.effects,
+          nameShown: r.nameShown,
+          doNotAutoplace: r.doNotAutoplace,
+        };
+        runCommand(
+          replaceSymbol(fe.symbol, {
+            ...sym,
+            fields: sym.fields.map((f, i) => (i === fe.index ? next : f)),
+          }),
+        );
+        return null;
+      });
+    },
+    [doc, runCommand],
   );
 
   /** Apply DIALOG_IMAGE_PROPERTIES: position, scale, and the payload when
@@ -5735,6 +5800,15 @@ export function SchematicEditor({
           hierarchicalPath={sheetPathLabel(doc.sheets[sheetEdit.index]!)}
           onOk={commitSheetEdit}
           onCancel={() => setSheetEdit(null)}
+        />
+      )}
+
+      {fieldEdit && fieldPropsOf(fieldEdit) && (
+        <DialogFieldProperties
+          initial={fieldPropsOf(fieldEdit)!}
+          mandatory={isMandatoryField(doc.symbols[fieldEdit.symbol]!.fields[fieldEdit.index]!.key)}
+          onOk={commitFieldEdit}
+          onCancel={() => setFieldEdit(null)}
         />
       )}
 
