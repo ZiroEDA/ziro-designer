@@ -29,7 +29,12 @@ export type PadShape = 'circle' | 'rect' | 'oval' | 'trapezoid' | 'roundrect' | 
 
 /** A drawing primitive of a custom pad, in pad-local coordinates. */
 export interface PadPrimitive {
-  kind: 'gr_poly' | 'gr_line' | 'gr_circle' | 'gr_arc' | 'gr_rect';
+  /**
+   * `gr_vector` is not copper: it is a PCB_SHAPE proxy item marking where a
+   * thermal spoke should attach to a custom pad (the writer spells a proxy
+   * SEGMENT `gr_vector` and a real one `gr_line`).
+   */
+  kind: 'gr_poly' | 'gr_line' | 'gr_circle' | 'gr_arc' | 'gr_rect' | 'gr_vector';
   pts?: Vec2[];
   start?: Vec2;
   mid?: Vec2;

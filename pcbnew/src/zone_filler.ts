@@ -39,7 +39,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { padShapes } from './drc/drc_engine.js';
 import type { Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './read-board.js';
-import type { Board, PcbPad, PcbZone, PcbZoneFill } from './types.js';
+import type { Board, PadPrimitive, PcbPad, PcbZone, PcbZoneFill } from './types.js';
 
 /** BOARD_DESIGN_SETTINGS::m_MaxError, the arc approximation limit (0.005 mm). */
 const DEFAULT_MAX_ERROR = mmToIU(0.005);
@@ -160,6 +160,14 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone): Geom[] {
   const width = Math.min(zone.thermalBridgeWidth ?? mmToIU(0.5), minor);
   if (width < (zone.minThickness ?? 0)) return [];
 
+  // A custom pad can declare where its spokes attach, as `gr_vector` proxy
+  // primitives. When it does, those replace the four axis spokes entirely.
+  const templates = (pad.primitives ?? []).filter(
+    (prim) => prim.kind === 'gr_vector' && prim.start && prim.end,
+  );
+
+  if (templates.length > 0) return customThermalSpokes(pad, zone, templates, width);
+
   // Long enough to cross the relief ring and land in the pour beyond it.
   const reach = Math.max(pad.size.x, pad.size.y) / 2 + gap + width;
   const angle = ((pad.angle ?? 0) * Math.PI) / 180;
@@ -183,6 +191,75 @@ function thermalSpokes(pad: PcbPad, zone: PcbZone): Geom[] {
       ],
     ]);
   }
+  return out;
+}
+
+/**
+ * The custom-pad half of ZONE_FILLER::buildThermalSpokes: a pad whose primitives
+ * carry `gr_vector` proxy segments says where its spokes go, instead of taking
+ * the four on its own axes.
+ *
+ * Each template segment is placed into board coordinates, oriented so it starts
+ * inside the pad (and dropped if neither end is), then widened into a spoke of
+ * the bridge width and run out past the relief by the zone's minimum thickness,
+ * which is what gives the connection its full width.
+ *
+ * Upstream additionally trims each spoke and both of its edges against the pad
+ * and thermal outlines, dropping a spoke whose edges miss; that trimming needs
+ * polygon/segment intersection this layer does not have, so a template that
+ * points outward is used as drawn.
+ */
+function customThermalSpokes(
+  pad: PcbPad,
+  zone: PcbZone,
+  templates: PadPrimitive[],
+  width: number,
+): Geom[] {
+  const angle = ((pad.angle ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const place = (p: Vec2): Vec2 => ({
+    x: pad.at.x + p.x * cos - p.y * sin,
+    y: pad.at.y + p.x * sin + p.y * cos,
+  });
+
+  const reach = zone.minThickness ?? 0;
+  const halfW = width / 2;
+  const out: Geom[] = [];
+
+  for (const prim of templates) {
+    let a = place(prim.start!);
+    let b = place(prim.end!);
+
+    // seg.A must be the end inside the pad; upstream reverses if it is not, and
+    // skips the template when neither end is.
+    const inside = (p: Vec2): boolean =>
+      Math.hypot(p.x - pad.at.x, p.y - pad.at.y) <= Math.max(pad.size.x, pad.size.y) / 2;
+    if (!inside(a)) {
+      if (!inside(b)) continue;
+      [a, b] = [b, a];
+    }
+
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len === 0) continue;
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+
+    // Run the far end past the relief so the spoke lands in the pour.
+    const tip = { x: b.x + dx * reach, y: b.y + dy * reach };
+    const hx = -dy * halfW;
+    const hy = dx * halfW;
+
+    out.push([
+      [
+        [a.x + hx, a.y + hy],
+        [tip.x + hx, tip.y + hy],
+        [tip.x - hx, tip.y - hy],
+        [a.x - hx, a.y - hy],
+      ],
+    ]);
+  }
+
   return out;
 }
 
