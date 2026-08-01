@@ -107,6 +107,9 @@ import {
   incrementAnnotations,
   globalEdit,
   changeSymbols,
+  symbolLibIdRows,
+  orphanCandidates,
+  libIdChangeCommand,
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
@@ -246,6 +249,7 @@ import {
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
+import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
@@ -1341,6 +1345,9 @@ export function SchematicEditor({
   const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
   // SCH_EDIT_TOOL::GlobalEdit (Edit Text & Graphics Properties).
   const [globalEditOpen, setGlobalEditOpen] = useState(false);
+  // DIALOG_EDIT_SYMBOLS_LIBID (Bulk Edit Symbol Library Links).
+  const [libIdsOpen, setLibIdsOpen] = useState(false);
+  const [libIdErrors, setLibIdErrors] = useState<readonly string[]>([]);
   // DIALOG_CHANGE_SYMBOLS, in whichever of its two modes was asked for.
   const [changeSymbolsMode, setChangeSymbolsMode] = useState<ChangeSymbolsMode | null>(null);
   const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
@@ -1736,6 +1743,19 @@ export function SchematicEditor({
       }
     },
     [currentFile, runCommand],
+  );
+
+  // Bulk Edit Symbol Library Links (DIALOG_EDIT_SYMBOLS_LIBID). A bad row keeps
+  // the dialog open on its error rather than closing on a half-applied edit.
+  const runLibIdChanges = useCallback(
+    (changes: Map<string, string>) => {
+      if (!doc) return;
+      const { command, errors } = libIdChangeCommand(doc, libById, changes);
+      setLibIdErrors(errors);
+      if (command) runCommand(command);
+      if (errors.length === 0) setLibIdsOpen(false);
+    },
+    [doc, libById, runCommand],
   );
 
   /** Every field name in use on this sheet, with the mandatory ones first —
@@ -4215,7 +4235,10 @@ export function SchematicEditor({
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
-      else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
+      else if (id === 'editSymbolLibraryLinks') {
+        setLibIdErrors([]);
+        setLibIdsOpen(true);
+      } else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
         setChangeSymbolsMessages([]);
         setChangeSymbolsMode(id === 'changeSymbols' ? 'change' : 'update');
       } else if (id === 'schematicSetup') {
@@ -5743,6 +5766,15 @@ export function SchematicEditor({
                 setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
+            />
+          )}
+          {libIdsOpen && doc && (
+            <DialogEditSymbolsLibId
+              rows={symbolLibIdRows(doc, libById)}
+              candidatesFor={(id) => orphanCandidates(id, libById)}
+              errors={libIdErrors}
+              onApply={runLibIdChanges}
+              onClose={() => setLibIdsOpen(false)}
             />
           )}
           {changeSymbolsMode !== null && (
