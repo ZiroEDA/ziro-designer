@@ -13,6 +13,7 @@ export * from './image_size.js';
 export * from './transform.js';
 export * from './snap.js';
 export * from './cleanup.js';
+export * from './post_move_cleanup.js';
 export * from './junction_helpers.js';
 export * from './sch_collectors.js';
 export * from './sch_get_node.js';

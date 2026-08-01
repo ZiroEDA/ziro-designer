@@ -21,6 +21,7 @@ import {
   addItems,
   deleteByIds,
   placeSymbol,
+  withPostMoveCleanup,
   makeJunction,
   isExplicitJunctionAllowed,
   makeNoConnect,
@@ -761,6 +762,24 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         : moveWithConnections(spec, delta);
     },
     [schematic, lineMode, libById],
+  );
+
+  /**
+   * The same move, as it is *committed*. SCH_MOVE_TOOL runs its junction, trim
+   * and dangling-stub pass inside the commit, not while the item is on the
+   * cursor — so the ghost keeps using `buildMove` and only the drop cleans up.
+   */
+  const buildMoveCommit = useCallback(
+    (spec: MoveSpec, delta: Vec2): EditCommand =>
+      withPostMoveCleanup(
+        buildMove(spec, delta),
+        spec,
+        libById,
+        effSelRef.current,
+        // isDragLike: a plain move (M) leaves connected wires behind on purpose.
+        moveKindRef.current !== 'move',
+      ),
+    [buildMove, libById],
   );
 
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL Move/Drag): the selection
@@ -1600,7 +1619,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (e.button !== 0) return;
         const d = moveDeltaRef.current;
         const spec = moveSpecRef.current;
-        if (d && spec && (d.x !== 0 || d.y !== 0)) onCommand(buildMove(spec, d));
+        if (d && spec && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
         grabbedRef.current = false;
         modeRef.current = 'idle';
         moveSpecRef.current = null;
@@ -1951,6 +1970,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onSheetPinClick,
       danglingPinAt,
       onCommand,
+      buildMoveCommit,
       snapConn,
       updateWireChain,
       finishWireChain,
@@ -2216,7 +2236,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const d = moveDeltaRef.current;
         const spec = moveSpecRef.current;
         if (d && spec && (d.x !== 0 || d.y !== 0)) {
-          onCommand(buildMove(spec, d));
+          onCommand(buildMoveCommit(spec, d));
           committedMove = true;
         }
       } else if (modeRef.current === 'box') {
@@ -2255,7 +2275,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       schematic,
       libById,
       onCommand,
-      buildMove,
+      buildMoveCommit,
       onSelect,
       onClarify,
       onSelectBox,
