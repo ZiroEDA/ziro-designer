@@ -199,3 +199,20 @@ export {
   type GlobalTeardropEditContext,
   type TeardropEditAction,
 } from './teardrop_global_edit.js';
+
+// Item properties dialogs (pcbnew/dialogs/: DIALOG_TRACK_VIA_PROPERTIES,
+// DIALOG_COPPER_ZONE over PANEL_ZONE_PROPERTIES).
+export {
+  trackViaSelection,
+  collectTrackViaValues,
+  applyTrackViaValues,
+  hasTrackOrVia,
+  type TrackViaSelection,
+  type TrackViaValues,
+} from './track_via_properties.js';
+export {
+  zoneAt,
+  collectZoneValues,
+  applyZoneValues,
+  type ZoneValues,
+} from './zone_properties.js';

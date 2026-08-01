@@ -115,6 +115,13 @@ import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { netclassesForNet } from './netclass_resolve.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
+import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
+import {
+  applyZoneValues,
+  collectZoneValues,
+  zoneAt,
+  type ZoneValues,
+} from '@ziroeda/pcbnew/src/zone_properties.js';
 import {
   applyTrackViaValues,
   hasTrackOrVia,
@@ -963,6 +970,8 @@ export function PcbEditor({
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
   const [trackViaOpen, setTrackViaOpen] = useState(false);
+  // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
+  const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2805,6 +2814,9 @@ export function PcbEditor({
       // EDIT_TOOL::Properties on a copper item.
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setTrackViaOpen(true);
+    } else if (top && r?.kind === 'zone') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setZonePropsIndex(r.index);
     } else if (!top) {
       setEnteredGroup(null);
     }
@@ -2873,10 +2885,16 @@ export function PcbEditor({
       { label: 'Unselect All', action: unselectAllSel, disabled: selection.size === 0 },
     ];
     if (selection.size > 0) {
-      const editable = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
+      const zoneIdx = brd ? zoneAt(brd, selection) : null;
+      const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
+      const editable = copper || zoneIdx !== null;
       items.push(
         { sep: true },
-        { label: 'Properties…', action: () => setTrackViaOpen(true), disabled: !editable },
+        {
+          label: 'Properties…',
+          action: () => (copper ? setTrackViaOpen(true) : setZonePropsIndex(zoneIdx)),
+          disabled: !editable,
+        },
         { sep: true },
         {
           label: 'Mirror / Rotate',
@@ -3431,8 +3449,15 @@ export function PcbEditor({
   const openTrackViaProperties = useCallback(() => {
     const brd = boardRef.current;
     if (!brd) return;
-    if (!hasTrackOrVia(trackViaSelection(brd, selForDrawRef.current))) return;
-    setTrackViaOpen(true);
+    const sel = selForDrawRef.current;
+
+    if (hasTrackOrVia(trackViaSelection(brd, sel))) {
+      setTrackViaOpen(true);
+      return;
+    }
+
+    const zi = zoneAt(brd, sel);
+    if (zi !== null) setZonePropsIndex(zi);
   }, []);
   const openTrackViaPropertiesRef = useRef(openTrackViaProperties);
   openTrackViaPropertiesRef.current = openTrackViaProperties;
@@ -3448,6 +3473,21 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard],
+  );
+
+  /** PANEL_ZONE_PROPERTIES::TransferDataFromWindow. */
+  const applyZoneEdit = useCallback(
+    (values: ZoneValues) => {
+      const brd = boardRef.current;
+      const index = zonePropsIndex;
+      setZonePropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyZoneValues(brd, index, values);
+      // A changed zone has to be re-poured; its fill was built from the old
+      // clearances (ZONE_FILLER runs on the commit that closes the dialog).
+      if (next !== brd) commitBoard(fillZones(next));
+    },
+    [commitBoard, zonePropsIndex],
   );
 
   /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
@@ -6398,6 +6438,15 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {zonePropsIndex !== null && board?.zones[zonePropsIndex] && (
+        <DialogCopperZones
+          initial={collectZoneValues(board.zones[zonePropsIndex]!)}
+          nets={board.nets}
+          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+          onApply={applyZoneEdit}
+          onClose={() => setZonePropsIndex(null)}
         />
       )}
       {trackViaOpen && board && (

@@ -287,6 +287,8 @@ export interface PcbZoneFill {
 export interface PcbZone {
   net: number;
   netName?: string;
+  /** `(name "…")`, ZONE::GetZoneName — the handle DRC rules refer to it by. */
+  name?: string;
   layers: string[];
   fills: PcbZoneFill[];
   /** The user-drawn zone boundary `(polygon (pts …))`, drawn as the zone border. */
@@ -338,6 +340,14 @@ export interface PcbZone {
   cornerRadius?: number;
   /** `(fill yes)` — whether the zone is set to be poured at all. */
   filled?: boolean;
+  /**
+   * `(fill … (island_removal_mode N))`, ISLAND_REMOVAL_MODE: what to do with a
+   * filled island that reaches nothing on the net. 0 always, 1 never, 2 below
+   * an area limit.
+   */
+  islandRemovalMode?: 'always' | 'never' | 'area';
+  /** `(fill … (island_area_min …))` in mm², the limit for the `area` mode. */
+  islandAreaMin?: number;
   /** `(priority …)`: a higher-priority zone knocks lower ones out of its area. */
   priority?: number;
   /**

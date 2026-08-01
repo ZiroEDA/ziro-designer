@@ -4422,3 +4422,16 @@ body {
   font-size: 11px;
   margin-left: 120px;
 }
+
+/* Copper Zone Properties (panel_zone_properties_base.cpp). */
+.ze-zone-dialog {
+  width: 560px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-zone-layers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 8px;
+  margin-left: 6px;
+}
