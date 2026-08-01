@@ -27,6 +27,7 @@
  */
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { buildRatsnest } from '../ratsnest.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
 import type { Board, PadPrimitive, PcbPad, PcbShape, PcbVia } from '../types.js';
@@ -649,6 +650,68 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- connectivity ------------------------------------------------------
+  // drc_test_provider_connectivity. Not rule-driven: it asks the connectivity
+  // model, which for us is the same ratsnest the canvas draws.
+
+  // One marker per remaining airwire, which is precisely what an unconnected
+  // net *is* — RunOnUnconnectedEdges over CN_EDGEs.
+  for (const edge of buildRatsnest(board)) {
+    const from = { x: edge.ax, y: edge.ay };
+    const to = { x: edge.bx, y: edge.by };
+
+    out.push({
+      code: 'unconnected_items',
+      message: `Missing connection between items [${netName(edge.net)}]`,
+      pos: from,
+      items: [
+        { desc: `Item [${netName(edge.net)}]`, pos: from },
+        { desc: `Item [${netName(edge.net)}]`, pos: to },
+      ],
+    });
+  }
+
+  // Dangling ends. `copperAt` answers "what same-net copper touches this
+  // point", which is the CN_ITEM::ConnectedItems() walk in miniature.
+  const danglingItems = danglingCopper(board, copperOrder);
+
+  for (const t of [...board.tracks, ...board.arcs]) {
+    const accuracy = Math.round(t.width / 2);
+    const pos = danglingEnd(t.start, t.end, t.layer, t.net, accuracy, t, danglingItems);
+    if (!pos) continue;
+
+    out.push({
+      code: 'track_dangling',
+      message: 'Track has unconnected end',
+      pos,
+      items: [{ desc: `Track [${netName(t.net)}] on ${t.layer}`, pos }],
+    });
+  }
+
+  for (const v of board.vias) {
+    // A via is dangling when everything it touches sits on one layer — it is
+    // then carrying a connection from a layer to itself.
+    const touching = danglingItems.filter(
+      (c) =>
+        c.net === v.net &&
+        c.item !== v &&
+        shapeDist(c.shape, { kind: 'circle', c: v.at, r: v.size / 2 }) === 0,
+    );
+
+    // No connections at all is only an error when the via has a net.
+    if (touching.length === 0 && v.net <= 0) continue;
+
+    const layers = new Set(touching.map((c) => c.layer));
+    if (layers.size > 1) continue;
+
+    out.push({
+      code: 'via_dangling',
+      message: 'Via is not connected or is connected on only one layer',
+      pos: v.at,
+      items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
+    });
+  }
+
   // ----- miscellaneous -----------------------------------------------------
   // drc_test_provider_misc, plus the two that live with the items they check:
   // the text-on-Edge.Cuts test from the disallow provider, and PAD::CheckPads'
@@ -1099,6 +1162,157 @@ function* boardEvalItems(
       shapes: [],
     };
   }
+}
+
+/** One piece of copper the dangling test can connect to. */
+interface DanglingCopper {
+  net: number;
+  layer: string;
+  shape: Shape;
+  /** Identity, so an item never counts as connected to itself. */
+  item: unknown;
+  /** Pads and vias are the two kinds a track may sit *inside* rather than end on. */
+  padLike: boolean;
+  /** A zone fill: a track with both ends in one is redundant, never dangling. */
+  zone: boolean;
+  /**
+   * getMinDist's reference points: a track or arc measures to its nearer
+   * *endpoint*, everything else to its position. Measuring to the shape
+   * instead reads zero anywhere inside a fat track, which ties the
+   * both-ends-hit test and invents dangling ends on short stubs.
+   */
+  anchors: Vec2[];
+}
+
+/** getMinDist: distance from a point to the item's nearest anchor. */
+const minDistTo = (c: DanglingCopper, p: Vec2): number =>
+  Math.min(...c.anchors.map((a) => Math.hypot(a.x - p.x, a.y - p.y)));
+
+/**
+ * Every copper item a track end could be connected to.
+ *
+ * Layers are resolved to concrete copper here: a `*.Cu` pad is on all of them
+ * and a via spans its whole range, so matching the file's tokens literally
+ * would miss every track that ends on one.
+ */
+function danglingCopper(board: Board, copperOrder: string[]): DanglingCopper[] {
+  const out: DanglingCopper[] = [];
+
+  for (const t of board.tracks)
+    out.push({
+      net: t.net,
+      layer: t.layer,
+      shape: { kind: 'stadium', a: t.start, b: t.end, r: t.width / 2 },
+      item: t,
+      padLike: false,
+      zone: false,
+      anchors: [t.start, t.end],
+    });
+
+  for (const t of board.arcs)
+    out.push({
+      net: t.net,
+      layer: t.layer,
+      shape: arcShape(t.start, t.mid, t.end, t.width),
+      item: t,
+      padLike: false,
+      zone: false,
+      anchors: [t.start, t.end],
+    });
+
+  for (const v of board.vias)
+    for (const layer of viaLayers(v, copperOrder))
+      out.push({
+        net: v.net,
+        layer,
+        shape: { kind: 'circle', c: v.at, r: v.size / 2 },
+        item: v,
+        padLike: true,
+        zone: false,
+        anchors: [v.at],
+      });
+
+  for (const fp of board.footprints)
+    for (const pad of fp.pads)
+      for (const shape of padShapes(pad))
+        for (const layer of copperOrder)
+          if (padOnLayer(pad, layer))
+            out.push({
+              net: pad.net ?? 0,
+              layer,
+              shape,
+              item: pad,
+              padLike: true,
+              zone: false,
+              anchors: [pad.at],
+            });
+
+  for (const z of board.zones)
+    for (const fill of z.fills)
+      for (const poly of fill.polys)
+        out.push({
+          net: z.net,
+          layer: fill.layer,
+          shape: { kind: 'poly', pts: poly, r: 0 },
+          item: z,
+          padLike: false,
+          zone: true,
+          anchors: [poly[0] ?? { x: 0, y: 0 }],
+        });
+
+  return out;
+}
+
+/**
+ * CONNECTIVITY_DATA::TestTrackEndpointDangling, with `aIgnoreTracksInPads`.
+ *
+ * A track is dangling when one of its ends reaches nothing. The subtlety
+ * upstream warns about is a short segment connected to the *same* item at both
+ * ends — that is still dangling, so a hit that covers both ends is credited to
+ * whichever end is nearer rather than to both.
+ *
+ * Returns the unconnected end, or undefined when both ends are connected.
+ */
+function danglingEnd(
+  start: Vec2,
+  end: Vec2,
+  layer: string,
+  net: number,
+  accuracy: number,
+  self: unknown,
+  copper: readonly DanglingCopper[],
+): Vec2 | undefined {
+  let startCount = 0;
+  let endCount = 0;
+
+  const startProbe: Shape = { kind: 'circle', c: start, r: accuracy };
+  const endProbe: Shape = { kind: 'circle', c: end, r: accuracy };
+
+  for (const c of copper) {
+    if (c.item === self || c.layer !== layer || c.net !== net) continue;
+
+    const hitStart = shapeDist(c.shape, startProbe) === 0;
+    const hitEnd = shapeDist(c.shape, endProbe) === 0;
+
+    if (hitStart && hitEnd) {
+      // Both ends in a zone: the track may be redundant, but it is not
+      // dangling. Both ends under one pad or via: the caller asked us to
+      // ignore that too.
+      if (c.zone || c.padLike) return undefined;
+
+      // A tie goes to the end, as upstream's strict `<` does.
+      if (minDistTo(c, start) < minDistTo(c, end)) startCount++;
+      else endCount++;
+    } else if (hitStart) {
+      startCount++;
+    } else if (hitEnd) {
+      endCount++;
+    }
+
+    if (startCount > 0 && endCount > 0) return undefined;
+  }
+
+  return startCount === 0 ? start : end;
 }
 
 /** A board graphic's collision geometry, PCB_SHAPE::GetEffectiveShape. */
