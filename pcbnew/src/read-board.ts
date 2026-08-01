@@ -40,6 +40,7 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbZoneFill,
+  StrokeType,
   TeardropParams,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -325,8 +326,11 @@ function readShape(item: SList, t: FpTransform | null): PcbShape | null {
   const s: PcbShape = {
     kind: kind as PcbShape['kind'],
     width: mmToIU(strokeWidth(item)),
+    strokeType: strokeType(item),
     fill: fillVal === 'yes' || fillVal === 'solid',
     layer: layerOf(item),
+    maskLayer: maskLayerOf(item),
+    solderMaskMargin: maskMarginOf(item),
     uuid: uuidOf(item),
     source: item,
   };
@@ -350,6 +354,21 @@ const strokeWidth = (item: SList): number => {
   const stroke = childNamed(item, 'stroke');
   if (stroke) return numberField(stroke, 'width') ?? 0;
   return numberField(item, 'width') ?? 0;
+};
+
+/** `(stroke (type …))`, LINE_STYLE; absent for a legacy `(width …)` graphic. */
+const strokeType = (item: SList): StrokeType | undefined => {
+  const stroke = childNamed(item, 'stroke');
+  const type = stroke ? childNamed(stroke, 'type') : undefined;
+  const word = type ? arg(type, 0) : undefined;
+  return word === 'solid' ||
+    word === 'dash' ||
+    word === 'dot' ||
+    word === 'dash_dot' ||
+    word === 'dash_dot_dot' ||
+    word === 'default'
+    ? word
+    : undefined;
 };
 
 function readPad(item: SList, t: FpTransform | null): PcbPad | null {

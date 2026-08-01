@@ -4453,3 +4453,11 @@ body {
   height: auto;
   max-height: 92vh;
 }
+
+/* Text / Shape properties (dialog_text_properties_base.cpp,
+   dialog_shape_properties_base.cpp). */
+.ze-graphic-dialog {
+  width: 520px;
+  height: auto;
+  max-height: 92vh;
+}

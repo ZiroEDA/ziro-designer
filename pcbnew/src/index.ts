@@ -233,3 +233,14 @@ export {
   type PadRef,
   type PadValues,
 } from './pad_properties.js';
+export {
+  textAt,
+  shapeAt,
+  collectTextValues,
+  applyTextValues,
+  collectShapeValues,
+  applyShapeValues,
+  shapePointsUsed,
+  type TextValues,
+  type ShapeValues,
+} from './graphic_properties.js';
