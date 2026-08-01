@@ -260,7 +260,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         stub('Bulk Edit Symbol Library Links...'),
         SEP,
         act('Annotate Schematic...', 'annotate', 'annotate'),
-        stub('Increment Annotations From...'),
+        act('Increment Annotations From...', 'annotate', 'incrementAnnotations'),
         SEP,
         act('Assign Footprints...', 'assignFp', 'assignFootprints'),
         act('Generate Bill of Materials...', 'bom', 'bom'),

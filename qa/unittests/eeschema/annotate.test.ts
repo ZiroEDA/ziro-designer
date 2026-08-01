@@ -18,6 +18,8 @@ import {
   clearAnnotationCommand,
   clearAnnotationReport,
   splitReference,
+  isSplitNeeded,
+  incrementAnnotations,
   defaultAnnotateOptions,
   type AnnotateOptions,
   type AnnotateSheet,
@@ -394,5 +396,59 @@ describe('annotate with a REFDES_TRACKER', () => {
     const next = annotateSymbols(doc, libById, opts({ order: 'x', tracker }));
     expect(refOf(next.find((s) => s.uuid === 'u-b')!)).toBe('R1');
     expect(refOf(next.find((s) => s.uuid === 'u-a')!)).toBe('R3');
+  });
+});
+
+const NUMBERED = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+  (lib_symbols
+    (symbol "Device:R" (property "Reference" "R" (at 0 0 0)) (symbol "R_0_1")))
+  ${sym('R1', 10, 50, 'n-a')}
+  ${sym('R2', 20, 50, 'n-b')}
+  ${sym('R3', 30, 50, 'n-c')}
+  ${sym('C1', 40, 50, 'n-d')})`;
+
+describe('incrementAnnotations (SCH_EDITOR_CONTROL::IncrementAnnotations)', () => {
+  const refs = (sch: ReturnType<typeof readSchematic>): string[] =>
+    sch.symbols.map((s) => s.fields.find((f) => f.key === 'Reference')?.value ?? '');
+  const run = (start: string, by: number) => {
+    const sch = readSchematic(parse(NUMBERED));
+    return refs({
+      ...sch,
+      symbols: incrementAnnotations(sch.symbols, { startRef: start, increment: by }),
+    });
+  };
+
+  it('moves the tail of one prefix up and leaves the rest alone', () => {
+    // R1 R2 R3 C1 → start at R2, +1 → R1 R3 R4 C1: R1 is below the start and
+    // C1 is a different prefix.
+    expect(run('R2', 1)).toEqual(['R1', 'R3', 'R4', 'C1']);
+  });
+
+  it('increments by more than one', () => {
+    expect(run('R2', 10)).toEqual(['R1', 'R12', 'R13', 'C1']);
+  });
+
+  it('does nothing when the start reference has no number to split', () => {
+    // IsSplitNeeded is false for "R", and upstream returns without a commit.
+    expect(run('R', 1)).toEqual(['R1', 'R2', 'R3', 'C1']);
+    expect(isSplitNeeded('R')).toBe(false);
+    expect(isSplitNeeded('R1')).toBe(true);
+    expect(isSplitNeeded('R?')).toBe(true);
+    expect(isSplitNeeded('')).toBe(false);
+  });
+
+  it('starting at "R?" renumbers the whole run', () => {
+    // atoi( GetRefNumber() ) is 0 for an unannotated reference, so every R is
+    // at or above the start.
+    expect(run('R?', 1)).toEqual(['R2', 'R3', 'R4', 'C1']);
+  });
+
+  it('leaves the array identical when nothing matches', () => {
+    const sch = readSchematic(parse(NUMBERED));
+    expect(incrementAnnotations(sch.symbols, { startRef: 'U1', increment: 1 })).toBe(sch.symbols);
+  });
+
+  it('starting above the run changes nothing', () => {
+    expect(run('R9', 1)).toEqual(['R1', 'R2', 'R3', 'C1']);
   });
 });
