@@ -82,6 +82,12 @@ export interface DrcOptions {
    */
   minResolvedSpokes?: number;
   /**
+   * rules.min_silk_clearance (IU), Board Setup's silkscreen clearance. Used
+   * for silk against the board edge; a negative value turns that off, as
+   * upstream's `minClearance < 0` gate does.
+   */
+  minSilkClearance?: number;
+  /**
    * rules.min_copper_edge_clearance (IU), Board Setup's "copper to edge".
    * Absent means zero, i.e. copper may touch the board edge but not cross it;
    * a negative value turns the check off, as upstream's `minClearance >= 0`
@@ -1146,7 +1152,11 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
 
         for (const e of edgeShapes) {
           const actual = shapeDist(it.shape, e);
-          if (actual >= clearance) continue;
+          // Inclusive, as SHAPE::Collide is: at a clearance of zero an actual
+          // overlap still collides, which is the case that matters when Board
+          // Setup asks for no clearance at all. The epsilon already taken off
+          // `clearance` is what keeps exactly-at-clearance legal.
+          if (actual > clearance) continue;
 
           // Inside a castellation, the collision is the point of the pad.
           if (castellated.some((h) => shapeDist(it.shape, h) === 0)) continue;
@@ -1159,6 +1169,41 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
             items: [{ desc: it.desc, pos: it.pos }],
           });
           break;
+        }
+      }
+    }
+
+    // Silkscreen against the same edges, under its own code and its own
+    // clearance. Silk running off the board edge is trimmed by the fab rather
+    // than shorting anything, which is why it is a separate, usually gentler
+    // severity — but it still loses the legend it was meant to print.
+    const minSilk = opts.minSilkClearance ?? 0;
+
+    if (minSilk >= 0) {
+      const silkClearance = Math.max(0, minSilk - DRC_EPSILON);
+
+      for (const s of [...board.shapes, ...board.footprints.flatMap((fp) => fp.shapes)]) {
+        if (s.layer !== 'F.SilkS' && s.layer !== 'B.SilkS') continue;
+
+        for (const shape of graphicShapes(s)) {
+          let hit = false;
+
+          for (const e of edgeShapes) {
+            const actual = shapeDist(shape, e);
+            if (actual > silkClearance) continue;
+
+            const pos = s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 };
+            out.push({
+              code: 'silk_edge_clearance',
+              message: `Silkscreen clipped by board edge (clearance ${mm(minSilk)}; actual ${mm(actual)})`,
+              pos,
+              items: [{ desc: `Graphic on ${s.layer}`, pos }],
+            });
+            hit = true;
+            break;
+          }
+
+          if (hit) break;
         }
       }
     }

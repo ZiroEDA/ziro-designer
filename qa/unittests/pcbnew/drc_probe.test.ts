@@ -26,6 +26,12 @@ it('runs DRC on the real ecc83 board', () => {
     minThroughHole: 3000,
     minHoleToHole: 2500,
   });
-  expect(v).toEqual([]);
+  // The demo genuinely overhangs its own board edge: two F.SilkS lines run to
+  // y = 137.811 mm while the outline's bottom edge is at y = 136.525 mm, so
+  // 1.29 mm of legend prints on nothing. KiCad reports it too — at warning
+  // severity, which this probe has no model of — so it is named here rather
+  // than papered over by loosening the assertion.
+  expect(v.filter((x) => x.code !== 'silk_edge_clearance')).toEqual([]);
+  expect(v.filter((x) => x.code === 'silk_edge_clearance')).toHaveLength(2);
   expect(performance.now() - t0).toBeLessThan(2000);
 }, 20000);
