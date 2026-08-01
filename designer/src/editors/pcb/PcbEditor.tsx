@@ -123,6 +123,7 @@ import {
   footprintAt,
   type FootprintValues,
 } from '@ziroeda/pcbnew/src/footprint_properties.js';
+import { flipBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
 import {
   applyZoneValues,
   collectZoneValues,
@@ -2920,6 +2921,12 @@ export function PcbEditor({
             A('Rotate Clockwise', 'rotateCW'),
             A('Mirror Horizontally', 'mirrorH', !hasNonPad),
             A('Mirror Vertically', 'mirrorV', !hasNonPad),
+            { sep: true },
+            {
+              label: 'Change Side / Flip',
+              action: () => flipSelection(),
+              disabled: selection.size === 0,
+            },
           ],
         },
         {
@@ -3497,6 +3504,21 @@ export function PcbEditor({
     },
     [commitBoard],
   );
+
+  /**
+   * Change Side / Flip (EDIT_TOOL::Flip, F). Not Mirror: upstream refuses to
+   * mirror a footprint and points you here, because flipping has to swap every
+   * child's layer as well as mirror the geometry.
+   */
+  const flipSelection = useCallback(() => {
+    const brd = boardRef.current;
+    const sel = selForDrawRef.current;
+    if (!brd || sel.size === 0) return;
+    const next = flipBoardItems(brd, sel);
+    if (next !== brd) commitBoard(next);
+  }, [commitBoard]);
+  const flipSelectionRef = useRef(flipSelection);
+  flipSelectionRef.current = flipSelection;
 
   /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
   const applyFootprintEdit = useCallback(
@@ -4130,7 +4152,18 @@ export function PcbEditor({
         fillAllZonesRef.current();
         return;
       }
-      if (!mod && (e.key === 'f' || e.key === 'F')) zoomToFit();
+      // F = Change Side / Flip (PCB_ACTIONS::flip). Zoom to Fit is Ctrl+0 and
+      // Home upstream, not F.
+      if (!mod && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        flipSelectionRef.current();
+        return;
+      }
+      if (e.key === 'Home' || (mod && e.key === '0')) {
+        e.preventDefault();
+        zoomToFit();
+        return;
+      }
       // Net highlight (BOARD_INSPECTION_TOOL). `~` clears; Alt+` toggles the last
       // highlight on/off; a bare ` highlights the net under the cursor.
       if (!mod && e.key === '~') {
@@ -4903,6 +4936,7 @@ export function PcbEditor({
         { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
         { sep: true },
         { label: 'Properties…', action: () => openTrackViaProperties(), shortcut: 'E' },
+        { label: 'Change Side / Flip', action: () => flipSelection(), shortcut: 'F' },
         { sep: true },
         { label: 'Edit Teardrops…', action: () => setTeardropsOpen(true) },
         { sep: true },
@@ -4914,7 +4948,7 @@ export function PcbEditor({
       items: [
         { label: 'Zoom In', action: () => zoomStep(1.3), shortcut: 'Ctrl++' },
         { label: 'Zoom Out', action: () => zoomStep(1 / 1.3), shortcut: 'Ctrl+-' },
-        { label: 'Zoom to Fit', action: zoomToFit, shortcut: 'F' },
+        { label: 'Zoom to Fit', action: zoomToFit, shortcut: 'Ctrl+0' },
         {
           label: 'Redraw',
           action: () => {
@@ -6480,7 +6514,6 @@ export function PcbEditor({
         <DialogFootprintProperties
           initial={collectFootprintValues(board.footprints[fpPropsIndex]!)}
           libId={board.footprints[fpPropsIndex]!.lib}
-          side={board.footprints[fpPropsIndex]!.layer === 'B.Cu' ? 'Back' : 'Front'}
           onApply={applyFootprintEdit}
           onClose={() => setFpPropsIndex(null)}
         />

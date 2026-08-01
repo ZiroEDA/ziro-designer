@@ -252,4 +252,26 @@ describe('apply', () => {
     const once = edit({ localClearance: MM(0.3) });
     expect(applyFootprintValues(once, 0, collectFootprintValues(fp(once)))).toBe(once);
   });
+
+  it('changes the side by flipping the footprint in place', () => {
+    const out = roundTrip(edit({ side: 'back' }));
+
+    expect(fp(out).layer).toBe('B.Cu');
+    // Flipping in place: the anchor stays put, everything else swaps side.
+    expect(fp(out).at).toEqual(fp(b).at);
+    expect(fp(out).angle).toBe(-90);
+    expect(fp(out).pads[0]!.layers).toEqual(['B.Cu']);
+
+    // And the dialog reads the new side back.
+    expect(collectFootprintValues(fp(out)).side).toBe('back');
+  });
+
+  it('applies position and orientation before the flip, as upstream does', () => {
+    // Flipping first would let the rotate undo the angle negation the flip
+    // just applied, and the footprint would come out facing the wrong way.
+    const out = roundTrip(edit({ side: 'back', x: MM(50), y: MM(60) }));
+
+    expect(fp(out).layer).toBe('B.Cu');
+    expect(fp(out).at).toEqual({ x: MM(50), y: MM(60) });
+  });
 });

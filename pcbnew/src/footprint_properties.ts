@@ -19,6 +19,7 @@ import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import {
   boardItemId,
   dropChild,
+  flipBoardItems,
   mm,
   moveBoardItems,
   parseBoardItemId,
@@ -53,6 +54,8 @@ export interface FootprintValues {
   y: number;
   /** Degrees. */
   orientation: number;
+  /** Which side the footprint sits on; changing it is FOOTPRINT::Flip. */
+  side: 'front' | 'back';
   locked: boolean;
   /**
    * Footprint type. `through_hole` and `smd` are mutually exclusive here, as
@@ -98,6 +101,7 @@ export function collectFootprintValues(fp: PcbFootprint): FootprintValues {
     x: fp.at.x,
     y: fp.at.y,
     orientation: fp.angle,
+    side: fp.layer === 'B.Cu' ? 'back' : 'front',
     locked: fp.locked ?? false,
     footprintType: has(fp, 'smd')
       ? 'smd'
@@ -155,13 +159,22 @@ export function applyFootprintValues(board: Board, index: number, v: FootprintVa
   if (JSON.stringify(before) === JSON.stringify(v)) return board;
 
   let next = board;
-
-  // Geometry first, through the helpers that carry the children along.
   const id = boardItemId('footprint', index);
+
+  // Upstream's order, and it matters: position, then rotate to the orientation
+  // box, then flip last. Flipping first would have the rotate undo the angle
+  // negation that flipping just applied, so a footprint changed to the back
+  // would come out facing the wrong way.
   if (v.x !== fp.at.x || v.y !== fp.at.y)
     next = moveBoardItems(next, new Set([id]), { x: v.x - fp.at.x, y: v.y - fp.at.y });
 
   if (v.orientation !== fp.angle) next = setFootprintOrientation(next, index, v.orientation);
+
+  // FOOTPRINT::Flip about the footprint's own anchor, so it flips in place.
+  if (v.side !== (fp.layer === 'B.Cu' ? 'back' : 'front')) {
+    const placed = next.footprints[index];
+    if (placed) next = flipBoardItems(next, new Set([id]), placed.at);
+  }
 
   // Reference and Value live in their own text items, each with its own source
   // node — the writer emits those directly, so patching a copy inside the
