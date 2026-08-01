@@ -26,14 +26,17 @@
  * Zone fills are not yet checked (TODO: zone provider).
  */
 
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { chainIntersectChain } from '@ziroeda/kimath/src/geometry/seg.js';
 import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import { buildRatsnest } from '../ratsnest.js';
+import { shapeToPolygon } from '../zone_filler.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
 import type {
   Board,
   PadPrimitive,
+  PcbFootprint,
   PcbPad,
   PcbShape,
   PcbTextItem,
@@ -73,6 +76,11 @@ export interface DrcOptions {
   minThroughHole: number;
   /** rules.min_hole_to_hole (IU). */
   minHoleToHole: number;
+  /**
+   * rules.min_resolved_spokes, Board Setup's "minimum thermal relief spoke
+   * count". Zero turns the starved-thermal check off; the default is 2.
+   */
+  minResolvedSpokes?: number;
   /**
    * rules.min_copper_edge_clearance (IU), Board Setup's "copper to edge".
    * Absent means zero, i.e. copper may touch the board edge but not cross it;
@@ -881,6 +889,62 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
               { desc: `Track [${netName(b.net)}] on ${b.layer}`, pos: b.start },
             ],
           });
+      }
+    }
+  }
+
+  // ----- starved thermals --------------------------------------------------
+  // drc_test_provider_zone_connections. A thermally-relieved pad is meant to
+  // reach its zone through several spokes; if the pour could only form one,
+  // the joint carries far less current and heat than the design implies.
+  //
+  // Spokes are counted geometrically, as upstream does: inflate the pad by
+  // half the thermal gap, intersect that outline with the zone fill, and every
+  // *pair* of crossings is one spoke passing through the relief ring.
+  {
+    const minSpokes = opts.minResolvedSpokes ?? 2;
+
+    if (minSpokes > 0) {
+      for (const z of board.zones) {
+        if (z.ruleArea || z.net <= 0 || z.fills.length === 0) continue;
+
+        for (const fill of z.fills) {
+          if (!isCopper(fill.layer)) continue;
+
+          for (const fp of board.footprints) {
+            for (const pad of fp.pads) {
+              if ((pad.net ?? 0) !== z.net) continue;
+              if (!padOnLayer(pad, fill.layer)) continue;
+              if (resolvedZoneConnection(pad, fp, z) !== 'thermal') continue;
+
+              const midGap = (z.thermalGap ?? 0) / 2;
+              const spokes = countThermalSpokes(pad, midGap, fill.polys);
+
+              // Nothing at all is a connectivity question, not a thermal one.
+              if (spokes === 0) continue;
+
+              // A custom pad declares its own spokes with proxy segments, and
+              // that count is what it should achieve.
+              const custom = (pad.primitives ?? []).filter((p) => p.kind === 'gr_vector').length;
+              const required = custom > 0 ? custom : minSpokes;
+
+              if (spokes >= required) continue;
+
+              out.push({
+                code: 'starved_thermal',
+                message: `Thermal relief connection to zone incomplete (layer ${fill.layer}; ${spokes} of ${required} spokes)`,
+                pos: pad.at,
+                items: [
+                  { desc: `Pad ${pad.number} of ${fp.reference ?? fp.lib}`, pos: pad.at },
+                  {
+                    desc: z.name ? `Zone '${z.name}'` : `Zone [${netName(z.net)}]`,
+                    pos: fill.polys[0]?.[0] ?? pad.at,
+                  },
+                ],
+              });
+            }
+          }
+        }
       }
     }
   }
@@ -1747,6 +1811,70 @@ function* boardEvalItems(
  */
 function holeToShape(h: BoardHole, s: Shape): number {
   return shapeDist({ kind: 'stadium', a: h.a, b: h.b, r: 0 }, s);
+}
+
+/**
+ * ZONE_CONNECTION resolution: a pad's own setting wins, then its footprint's,
+ * then the zone's. `inherited` at any level means "ask the next one up".
+ */
+function resolvedZoneConnection(
+  pad: PcbPad,
+  fp: PcbFootprint,
+  zone: PcbZone,
+): 'thermal' | 'none' | 'full' | 'thru_hole_only' {
+  const fromPad = pad.zoneConnection;
+  if (fromPad && fromPad !== 'inherited') return fromPad;
+
+  const fromFp = fp.zoneConnection;
+  if (fromFp && fromFp !== 'inherited') return fromFp;
+
+  return zone.padConnection ?? 'thermal';
+}
+
+/**
+ * How many thermal spokes reach a pad, counted the way upstream counts them.
+ *
+ * The pad outline inflated by half the thermal gap sits in the middle of the
+ * relief ring. A spoke crosses that ring, so it cuts the inflated outline
+ * *twice* — which is why the count is intersections / 2 rather than
+ * intersections. Coincident crossings are collapsed first, or a spoke landing
+ * exactly on a vertex would be counted twice over — carried from upstream; no
+ * test covers it, because forcing two crossings onto the identical coordinate
+ * against a polygonised offset outline is not something a fixture can arrange.
+ *
+ * Upstream additionally discounts spokes to an island that connects to nothing
+ * else, since such a spoke carries no current anywhere. That needs the filler's
+ * island bookkeeping, which we do not keep, so those spokes are counted here.
+ */
+function countThermalSpokes(pad: PcbPad, midGap: number, polys: readonly Vec2[][]): number {
+  // ARC_LOW_DEF, the same tolerance the pad polygonisation uses upstream.
+  const outlines = padShapes(pad).flatMap((sh) => shapeToPolygon(sh, midGap, mmToIU(0.005)));
+
+  let spokes = 0;
+
+  for (const poly of polys) {
+    if (poly.length < 3) continue;
+    // chainIntersectChain walks poly as an open chain, so the closing edge is
+    // added back or a spoke crossing it would be missed.
+    const closed = [...poly, poly[0]!];
+
+    for (const geom of outlines) {
+      // shapeToPolygon hands back polygon-clipping rings: [x, y] pairs.
+      const raw = geom[0] as [number, number][] | undefined;
+      if (!raw || raw.length < 3) continue;
+
+      const ring = raw.map(([x, y]) => ({ x, y }));
+      const hits = chainIntersectChain([...ring, ring[0]!], closed);
+      const unique: Vec2[] = [];
+
+      for (const h of hits)
+        if (!unique.some((u) => u.x === h.p.x && u.y === h.p.y)) unique.push(h.p);
+
+      if (unique.length >= 2) spokes += Math.floor(unique.length / 2);
+    }
+  }
+
+  return spokes;
 }
 
 /** One track-segment-length violation. */
