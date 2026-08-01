@@ -20,7 +20,7 @@ import {
   refId,
 } from '@ziroeda/eeschema/src/tools/index.js';
 import { planMove } from '@ziroeda/eeschema/src/tools/connect.js';
-import { moveWithConnections } from '@ziroeda/eeschema/src/tools/move.js';
+import { moveWithConnections, grabHotkeyAction } from '@ziroeda/eeschema/src/tools/move.js';
 import { orthoMove } from '@ziroeda/eeschema/src/tools/ortho.js';
 import { withCleanup } from '@ziroeda/eeschema/src/tools/cleanup.js';
 import { placeSymbol } from '@ziroeda/eeschema/src/tools/index.js';
@@ -335,5 +335,26 @@ describe('orthoLineDrag: where the bend goes', () => {
     const horizontal = moved.lines.find((l) => l.start.y === l.end.y)!;
     expect(horizontal.start).toEqual(at(0, 10));
     expect(horizontal.end).toEqual(at(20, 10));
+  });
+});
+
+describe('the Move/Drag hotkey while a move is already running', () => {
+  // SCH_MOVE_TOOL::checkMoveInProgress. Easy to get backwards, so pinned here.
+  it('starts a move when none is running', () => {
+    expect(grabHotkeyAction(false, 'drag', 'move')).toBe('start');
+    expect(grabHotkeyAction(false, 'move', 'move')).toBe('start');
+  });
+
+  it('drops the items when the same hotkey is pressed again', () => {
+    // "The tool hotkey is interpreted as a click when already dragging/moving."
+    expect(grabHotkeyAction(true, 'move', 'move')).toBe('drop');
+    expect(grabHotkeyAction(true, 'drag', 'drag')).toBe('drop');
+  });
+
+  it('restarts in the new mode when the other hotkey is pressed', () => {
+    // G during an M move, or M during a G drag: revert and re-enter the loop
+    // rather than dropping what is on the cursor.
+    expect(grabHotkeyAction(true, 'move', 'drag')).toBe('restart');
+    expect(grabHotkeyAction(true, 'drag', 'move')).toBe('restart');
   });
 });
