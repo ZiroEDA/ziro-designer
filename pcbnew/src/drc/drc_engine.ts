@@ -679,6 +679,42 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- zones intersect ---------------------------------------------------
+  // DRC_TEST_PROVIDER_COPPER_CLEARANCE::testZonesToZones. Two same-net zones
+  // overlapping is only a problem when neither can win: the filler resolves an
+  // overlap by priority, so *distinct* priorities are perfectly legal and only
+  // equal ones are ambiguous.
+  for (let i = 0; i < board.zones.length; i++) {
+    for (let j = i + 1; j < board.zones.length; j++) {
+      const za = board.zones[i]!;
+      const zb = board.zones[j]!;
+
+      // "Rule areas may overlap at will."
+      if (za.ruleArea || zb.ruleArea) continue;
+      if (za.net !== zb.net || za.net < 0) continue;
+      if ((za.priority ?? 0) !== (zb.priority ?? 0)) continue;
+      if (!za.layers.some((l) => zb.layers.includes(l))) continue;
+
+      const oa = za.outline;
+      const ob = zb.outline;
+      if (!oa || oa.length < 3 || !ob || ob.length < 3) continue;
+
+      // The *outlines*, not the poured copper: two zones drawn overlapping are
+      // ambiguous even before either is filled.
+      if (shapeDist({ kind: 'poly', pts: oa, r: 0 }, { kind: 'poly', pts: ob, r: 0 }) > 0) continue;
+
+      out.push({
+        code: 'zones_intersect',
+        message: 'Copper zones intersect (intersecting zones must have distinct priorities)',
+        pos: oa[0]!,
+        items: [
+          { desc: za.name ? `Zone '${za.name}'` : `Zone [${netName(za.net)}]`, pos: oa[0]! },
+          { desc: zb.name ? `Zone '${zb.name}'` : `Zone [${netName(zb.net)}]`, pos: ob[0]! },
+        ],
+      });
+    }
+  }
+
   // ----- copper to board edge ----------------------------------------------
   // drc_test_provider_edge_clearance. The edges are the graphics on Edge.Cuts
   // and Margin — board and footprint alike.
