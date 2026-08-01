@@ -240,7 +240,7 @@ function readConstraint(node: SList, errors: string[], ruleName: string): DrcCon
       // Bare words after the type: disallow kinds, a zone-connection mode, or
       // an assertion's expression.
       if (type === 'disallow' && DISALLOW_KINDS.has(word)) {
-        (c.disallow ??= []).push(word as DrcDisallow);
+        c.disallow = [...(c.disallow ?? []), word as DrcDisallow];
       } else if (type === 'zone_connection') {
         c.zoneConnection = word as DrcConstraint['zoneConnection'];
       } else if (type === 'assertion') {
