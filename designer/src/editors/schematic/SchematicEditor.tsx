@@ -110,6 +110,10 @@ import {
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
+  detectFieldCaseConflicts,
+  resolveFieldCaseConflictsCommand,
+  type FieldCaseAction,
+  type FieldCaseConflict,
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
@@ -250,6 +254,7 @@ import {
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
+import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
@@ -1423,6 +1428,13 @@ export function SchematicEditor({
   const [netlistOpen, setNetlistOpen] = useState(false);
   // Bulk Edit Symbol Fields (Symbol Fields Table edit view) dialog.
   const [fieldsTableOpen, setFieldsTableOpen] = useState(false);
+  // DIALOG_RESOLVE_FIELD_CASE_CONFLICTS gates the fields table: two field names
+  // differing only in case cannot both be a column, so the table will not open
+  // until they are resolved. `pending` is the view it should open afterwards.
+  const [caseConflicts, setCaseConflicts] = useState<{
+    list: readonly FieldCaseConflict[];
+    pending: 'edit' | 'bom';
+  } | null>(null);
   // Symbol Library Browser (SYMBOL_VIEWER_FRAME).
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
@@ -1743,6 +1755,35 @@ export function SchematicEditor({
       }
     },
     [currentFile, runCommand],
+  );
+
+  /** Open the fields table, unless its field names have to be resolved first. */
+  const openFieldsTable = useCallback(
+    (view: 'edit' | 'bom') => {
+      const conflicts = doc ? detectFieldCaseConflicts(doc) : [];
+      if (conflicts.length > 0) {
+        setCaseConflicts({ list: conflicts, pending: view });
+        return;
+      }
+      if (view === 'bom') setBomOpen(true);
+      else setFieldsTableOpen(true);
+    },
+    [doc],
+  );
+
+  const applyCaseConflicts = useCallback(
+    (actions: Map<string, FieldCaseAction>, separator: string) => {
+      if (!doc || !caseConflicts) return;
+      const cmd = resolveFieldCaseConflictsCommand(doc, caseConflicts.list, actions, separator);
+      if (cmd) runCommand(cmd);
+      const view = caseConflicts.pending;
+      setCaseConflicts(null);
+      // Resolving only the first two spellings of a name can leave a third, so
+      // the table opens on the next pass rather than after this one.
+      if (view === 'bom') setBomOpen(true);
+      else setFieldsTableOpen(true);
+    },
+    [doc, caseConflicts, runCommand],
   );
 
   // Bulk Edit Symbol Library Links (DIALOG_EDIT_SYMBOLS_LIBID). A bad row keeps
@@ -4170,9 +4211,9 @@ export function SchematicEditor({
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
-      else if (id === 'bom') setBomOpen(true);
+      else if (id === 'bom') openFieldsTable('bom');
       else if (id === 'exportNetlist') setNetlistOpen(true);
-      else if (id === 'editSymbolFields') setFieldsTableOpen(true);
+      else if (id === 'editSymbolFields') openFieldsTable('edit');
       else if (id === 'symbolBrowser') setBrowserOpen(true);
       else if (id === 'assignFootprints') setAssignFpOpen(true);
       else if (id === 'showCalculator') onShowCalculator?.();
@@ -5766,6 +5807,14 @@ export function SchematicEditor({
                 setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
+            />
+          )}
+          {caseConflicts && (
+            <DialogResolveFieldCaseConflicts
+              conflicts={caseConflicts.list}
+              onApply={applyCaseConflicts}
+              // Cancel abandons opening the table (m_aborted upstream).
+              onCancel={() => setCaseConflicts(null)}
             />
           )}
           {libIdsOpen && doc && (
