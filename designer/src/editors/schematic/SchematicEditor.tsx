@@ -91,6 +91,8 @@ import {
   selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
+  getNode,
+  selectConnection,
   applySelectionFilter,
   defaultSelectionFilter,
   selectionFilterAll,
@@ -2625,6 +2627,22 @@ export function SchematicEditor({
     };
   }, [doc, selection, propsTarget, runCommand]);
 
+  // Select/Expand Connection (Ctrl+4 and the context menu). Each press widens
+  // the selection by one stage; the walk itself lives in eeschema.
+  const expandSelectionAlongConnection = useCallback(() => {
+    if (!doc || selection.size === 0) return;
+    setSelection(
+      new Set(
+        promote(
+          selectConnection(doc, libById, selection, {
+            passesFilter: (id) => filterIds(new Set([id])).size > 0,
+          }),
+        ),
+      ),
+    );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: promote/filterIds read refs
+  }, [doc, libById, selection]);
+
   // Duplicate (Ctrl+D): copy to a local buffer and paste from it. KiCad anchors
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
@@ -4488,6 +4506,14 @@ export function SchematicEditor({
       }
       items.push(
         { sep: true },
+        {
+          // SCH_ACTIONS::selectConnection, on the selection context menu as
+          // well as Ctrl+4 (sch_selection_tool.cpp's expandableSelection).
+          label: 'Select/Expand Connection',
+          shortcut: 'Ctrl+4',
+          action: expandSelectionAlongConnection,
+        },
+        { sep: true },
         act('Cut', 'cut', 'Ctrl+X'),
         act('Copy', 'copy', 'Ctrl+C'),
         act('Copy as Text', 'copyAsText', 'Ctrl+Shift+C'),
@@ -4779,6 +4805,26 @@ export function SchematicEditor({
                   ? g2
                   : g1;
         });
+      } else if (e.altKey && e.key === '3') {
+        // SCH_ACTIONS::selectNode (Alt+3): select the connection item under the
+        // cursor. The pick is GetNode's, connectable types only at growing
+        // thresholds, so a pin or a wire wins over the symbol body around it.
+        e.preventDefault();
+        if (doc && cursorRef.current) {
+          // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
+          // with no pointer scale to hand here the grid is the threshold.
+          const grid = gridSizeToIU(
+            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx] ??
+              '50 mil',
+          );
+          const node = getNode(doc, libById, cursorRef.current, grid);
+          if (node) setSelection(new Set(promote(filterIds(new Set([node.id])))));
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '4') {
+        // SCH_ACTIONS::selectConnection (Ctrl+4): widen the selection along the
+        // connection, one stage per press (junction, then pin, then everything).
+        e.preventDefault();
+        expandSelectionAlongConnection();
       } else if (e.altKey && e.key.toLowerCase() === 's' && selection.size > 1) {
         // SCH_ACTIONS::swap (Alt+S): the selection's positions cycle round.
         e.preventDefault();
