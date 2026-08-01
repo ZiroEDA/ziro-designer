@@ -216,3 +216,12 @@ export {
   applyZoneValues,
   type ZoneValues,
 } from './zone_properties.js';
+export {
+  footprintAt,
+  collectFootprintValues,
+  applyFootprintValues,
+  attributesFor,
+  FOOTPRINT_ATTRIBUTES,
+  type FootprintValues,
+  type FootprintAttribute,
+} from './footprint_properties.js';

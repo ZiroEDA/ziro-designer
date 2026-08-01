@@ -200,6 +200,18 @@ export interface PcbFootprint {
   tags?: string;
   /** `(attr …)` flags (board_only, exclude_from_pos_files, exclude_from_bom, dnp, …). */
   attributes?: string[];
+  /**
+   * Local overrides of the Board Setup values, all optional and all in IU
+   * except the paste ratio. FOOTPRINT::GetLocalClearance and friends: absent
+   * means "use the board value", which is not the same as zero.
+   */
+  localClearance?: number;
+  localSolderMaskMargin?: number;
+  localSolderPasteMargin?: number;
+  /** `(solder_paste_margin_ratio …)`, a fraction of the pad size, not IU. */
+  localSolderPasteMarginRatio?: number;
+  /** `(zone_connect N)`, ZONE_CONNECTION: how this footprint's pads meet zones. */
+  zoneConnection?: 'inherited' | 'none' | 'thermal' | 'full';
   /** `(locked yes)` on the footprint. */
   locked?: boolean;
   /**

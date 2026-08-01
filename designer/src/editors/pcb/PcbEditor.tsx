@@ -116,6 +116,13 @@ import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrop
 import { netclassesForNet } from './netclass_resolve.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
+import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties.js';
+import {
+  applyFootprintValues,
+  collectFootprintValues,
+  footprintAt,
+  type FootprintValues,
+} from '@ziroeda/pcbnew/src/footprint_properties.js';
 import {
   applyZoneValues,
   collectZoneValues,
@@ -972,6 +979,8 @@ export function PcbEditor({
   const [trackViaOpen, setTrackViaOpen] = useState(false);
   // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
+  // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
+  const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2817,6 +2826,9 @@ export function PcbEditor({
     } else if (top && r?.kind === 'zone') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setZonePropsIndex(r.index);
+    } else if (top && r?.kind === 'footprint') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setFpPropsIndex(r.index);
     } else if (!top) {
       setEnteredGroup(null);
     }
@@ -2886,13 +2898,18 @@ export function PcbEditor({
     ];
     if (selection.size > 0) {
       const zoneIdx = brd ? zoneAt(brd, selection) : null;
+      const fpIdx = brd ? footprintAt(brd, selection) : null;
       const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-      const editable = copper || zoneIdx !== null;
+      const editable = copper || zoneIdx !== null || fpIdx !== null;
       items.push(
         { sep: true },
         {
           label: 'Properties…',
-          action: () => (copper ? setTrackViaOpen(true) : setZonePropsIndex(zoneIdx)),
+          action: () => {
+            if (copper) setTrackViaOpen(true);
+            else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
+            else setFpPropsIndex(fpIdx);
+          },
           disabled: !editable,
         },
         { sep: true },
@@ -3457,7 +3474,13 @@ export function PcbEditor({
     }
 
     const zi = zoneAt(brd, sel);
-    if (zi !== null) setZonePropsIndex(zi);
+    if (zi !== null) {
+      setZonePropsIndex(zi);
+      return;
+    }
+
+    const fi = footprintAt(brd, sel);
+    if (fi !== null) setFpPropsIndex(fi);
   }, []);
   const openTrackViaPropertiesRef = useRef(openTrackViaProperties);
   openTrackViaPropertiesRef.current = openTrackViaProperties;
@@ -3473,6 +3496,19 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard],
+  );
+
+  /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
+  const applyFootprintEdit = useCallback(
+    (values: FootprintValues) => {
+      const brd = boardRef.current;
+      const index = fpPropsIndex;
+      setFpPropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyFootprintValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, fpPropsIndex],
   );
 
   /** PANEL_ZONE_PROPERTIES::TransferDataFromWindow. */
@@ -6438,6 +6474,15 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {fpPropsIndex !== null && board?.footprints[fpPropsIndex] && (
+        <DialogFootprintProperties
+          initial={collectFootprintValues(board.footprints[fpPropsIndex]!)}
+          libId={board.footprints[fpPropsIndex]!.lib}
+          side={board.footprints[fpPropsIndex]!.layer === 'B.Cu' ? 'Back' : 'Front'}
+          onApply={applyFootprintEdit}
+          onClose={() => setFpPropsIndex(null)}
         />
       )}
       {zonePropsIndex !== null && board?.zones[zonePropsIndex] && (
