@@ -257,7 +257,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         stub('Remap Legacy Library Symbols...'),
         SEP,
         act('Bulk Edit Symbol Fields...', 'fields', 'editSymbolFields'),
-        stub('Bulk Edit Symbol Library Links...'),
+        act('Bulk Edit Symbol Library Links...', 'properties', 'editSymbolLibraryLinks'),
         SEP,
         act('Annotate Schematic...', 'annotate', 'annotate'),
         act('Increment Annotations From...', 'annotate', 'incrementAnnotations'),
