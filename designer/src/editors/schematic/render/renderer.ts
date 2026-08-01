@@ -1645,9 +1645,16 @@ function drawLabel(
       // (SCH_LABEL_BASE::GetLabelBoxExpansion).
       const margin = g_labelSizeRatio * h;
       const hs = halfSize + margin;
-      const symbLen = Math.max(1, l.text.length) * h * 0.62 + 2 * margin;
-      const x = symbLen + 3,
-        y = hs + 3;
+      // CreateGraphicShape sizes the box from the *measured* text box, not from
+      // a per-character estimate: a label of narrow characters would otherwise
+      // sit in a box far too wide for it, and a wide one would overflow.
+      // GetTextBox is the glyph extent inflated by 1.5 × the text pen on each
+      // side (FONT::StringBoundaryLimits' stroke branch), and the outline's own
+      // pen widens the box again on top of that.
+      const textPen = Math.min(g_defaultPen, h * 0.25);
+      const symbLen = measureText(l.text, h) + 3 * textPen + 2 * margin;
+      const x = symbLen + g_defaultPen + 3,
+        y = hs + g_defaultPen + 3;
       const box: { x: number; y: number }[] = [
         { x: 0, y: 0 },
         { x: 0, y: -y },
@@ -1673,9 +1680,31 @@ function drawLabel(
         return { x: l.at.x + r.x, y: l.at.y + r.y };
       });
       polygon(ctx, pts, false, true);
-      // Centre the text in the box (box centre is at -symbLen/2 along the reading axis).
-      const c = spinRotate({ x: -x / 2 + xoff, y: 0 }, spin);
-      paintText(l.text, { x: l.at.x + c.x, y: l.at.y + c.y }, h);
+      // SCH_GLOBALLABEL::GetSchematicTextOffset: the text hangs off the anchor
+      // by the box expansion (plus three-quarters of the height when the shape
+      // has a triangle to clear), and is nudged down by 0.0715 × height so it
+      // centres on the middle of an "E" rather than an "R" — which is what
+      // leaves room for an overbar without the bar leaving the box.
+      const shapeHoriz =
+        s === 'input' || s === 'bidirectional' || s === 'tri_state' ? (h * 3) / 4 : 0;
+      const horiz = margin + shapeHoriz;
+      const vert = h * 0.0715;
+      const off =
+        spin === SPIN.LEFT
+          ? { x: -horiz, y: vert }
+          : spin === SPIN.UP
+            ? { x: vert, y: -horiz }
+            : spin === SPIN.RIGHT
+              ? { x: horiz, y: vert }
+              : { x: vert, y: horiz };
+      paintText(
+        l.text,
+        { x: l.at.x + off.x, y: l.at.y + off.y },
+        h,
+        // SetSpinStyle justifies the text away from the anchor;
+        // SCH_GLOBALLABEL centres it vertically, which is drawText's default.
+        justifyFor(spin),
+      );
       // The implicit "Intersheet References" field (${INTERSHEET_REFS}), when
       // Formatting shows the layer. Colour: LAYER_INTERSHEET_REFS aliases
       // LAYER_GLOBLABEL (render_settings.h GetLayerColor).
