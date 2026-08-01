@@ -137,7 +137,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Find and Replace', 'replace', 'findReplace', 'Ctrl+Alt+F'),
         SEP,
         tool('Interactive Delete Tool', 'delete', 'delete'),
-        stub('Edit Text & Graphics Properties...'),
+        act('Edit Text & Graphics Properties...', 'properties', 'globalEditTextAndGraphics'),
         stub('Change Symbols...'),
         act('Edit Sheet Page Number...', 'editPageNumber', 'editPageNumber'),
         {

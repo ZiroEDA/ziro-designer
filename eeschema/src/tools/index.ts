@@ -50,3 +50,4 @@ export * from './sch_group_tool.js';
 export * from './sch_tool_utils.js';
 export * from './sch_selection_filter.js';
 export * from './select_connection.js';
+export * from './global_edit_text_and_graphics.js';
