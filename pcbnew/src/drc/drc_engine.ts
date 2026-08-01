@@ -679,6 +679,92 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- copper to hole ----------------------------------------------------
+  // The hole half of testSingleLayerItemAgainstItem. What separates it from
+  // the copper clearance test is that it runs even at a clearance of zero,
+  // "because the item cannot be inside (or intersect) the hole" — so with no
+  // rule at all it still catches copper laid over someone else's drill.
+  //
+  // Same-net pairs are skipped, which is not obvious from the hole branch
+  // itself: the RTree *filter* rejects them before the test is reached. Miss
+  // that and every track entering its own through-hole pad is a violation.
+  {
+    // Sorted by minX so the scan below can stop early, as the clearance sweep
+    // does. Without it this is copper × holes over the whole board.
+    const holes = boardHoles(board, netName)
+      .map((h) => ({ h, box: shapeBBox({ kind: 'stadium', a: h.a, b: h.b, r: h.width / 2 }) }))
+      .sort((p, q) => p.box.minX - q.box.minX);
+    // The widest clearance any rule can ask for, so the cheap box test below
+    // can reject a pair before anything expensive runs.
+    const hasHoleRules = ruleEngine?.byType.has('hole_clearance') ?? false;
+    const maxHoleClearance = hasHoleRules
+      ? (ruleEngine?.byType.get('hole_clearance') ?? []).reduce(
+          (m, e) => Math.max(m, e.constraint.value.min ?? 0),
+          0,
+        )
+      : 0;
+
+    for (const [layer, items] of itemsByLayer) {
+      for (const it of items) {
+        const itBox = shapeBBox(it.shape);
+
+        for (const { h, box } of holes) {
+          if (box.minX > itBox.maxX + maxHoleClearance) break;
+
+          // Same net, which also covers an item against its own hole: a pad's
+          // copper always lies over its own drill.
+          if (h.net === it.net) continue;
+
+          // A via's hole only exists on the layers it spans.
+          if (
+            h.viaLayers &&
+            !viaLayers({ layers: h.viaLayers } as PcbVia, copperOrder).includes(layer)
+          )
+            continue;
+
+          // Box rejection first: evaluating the rule for every copper/hole
+          // pair on a real board is the dominant cost otherwise.
+          if (
+            itBox.minX > box.maxX + maxHoleClearance ||
+            box.minY > itBox.maxY + maxHoleClearance ||
+            itBox.minY > box.maxY + maxHoleClearance
+          )
+            continue;
+
+          // With no hole_clearance rule the limit is zero, and evaluating a
+          // rule set that cannot match is the dominant cost on a real board —
+          // it doubled the whole DRC run before this gate.
+          const c = hasHoleRules
+            ? customValue(
+                'hole_clearance',
+                evalItem('Via', it.net, layer),
+                evalItem('Track', it.net, layer),
+                layer,
+              )
+            : undefined;
+          const required = Math.max(0, (c?.value.min ?? 0) - DRC_EPSILON);
+
+          // Segment-to-shape: the hole carries a slot axis, so this follows a
+          // milled oval as well as a round drill.
+          const gap = Math.max(0, holeToShape(h, it.shape) - h.width / 2);
+
+          if (gap > required) continue;
+          if (required === 0 && gap > 0) continue;
+
+          out.push({
+            code: 'hole_clearance',
+            message: `Hole clearance violation (clearance ${mm(c?.value.min ?? 0)}${ruleNote(c?.rule)}; actual ${mm(gap)})`,
+            pos: h.c,
+            items: [
+              { desc: it.desc, pos: it.pos },
+              { desc: h.desc, pos: h.c },
+            ],
+          });
+        }
+      }
+    }
+  }
+
   // ----- track segment length and angle ------------------------------------
   // Both are purely rule-driven: nothing in Board Setup expresses either, so
   // with no `.kicad_dru` neither runs at all.
@@ -1524,6 +1610,17 @@ function* boardEvalItems(
   }
 }
 
+/**
+ * Distance from a hole's *axis* to a shape.
+ *
+ * The caller backs off the hole's half-width afterwards, which is what turns
+ * the axis distance into an edge-to-edge one — and follows a milled slot along
+ * its length rather than treating it as a circle at its centre.
+ */
+function holeToShape(h: BoardHole, s: Shape): number {
+  return shapeDist({ kind: 'stadium', a: h.a, b: h.b, r: 0 }, s);
+}
+
 /** One track-segment-length violation. */
 function trackDim(
   what: string,
@@ -1626,6 +1723,8 @@ interface BoardHole {
   desc: string;
   /** Copper layers, vias only: two blind vias sharing none never interfere. */
   viaLayers?: string[];
+  /** Net code, so same-net pairs can be skipped as the RTree filter does. */
+  net: number;
 }
 
 /** Every drilled hole on the board: via drills and pad drills. */
@@ -1640,6 +1739,7 @@ function boardHoles(board: Board, netName: (n: number) => string): BoardHole[] {
       c: v.at,
       desc: `Via [${netName(v.net)}]`,
       viaLayers: [...v.layers],
+      net: v.net,
     });
 
   for (const fp of board.footprints) {
@@ -1659,6 +1759,7 @@ function boardHoles(board: Board, netName: (n: number) => string): BoardHole[] {
         width,
         c: pad.at,
         desc: `Pad ${pad.number} of ${fp.reference ?? fp.lib}`,
+        net: pad.net ?? 0,
       });
     }
   }
