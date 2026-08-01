@@ -19,6 +19,7 @@ import type {
   SchLabel,
   SchDirectiveLabel,
   SchSheet,
+  SheetPin,
   SchBusEntry,
   SchImage,
   SchTextBox,
@@ -68,22 +69,130 @@ function batchIds(b: ItemsBatch): Set<string> {
   return ids;
 }
 
-function collectByIds(doc: Schematic, ids: ReadonlySet<string>): ItemsBatch {
+/** An item that was deleted, and where in its array it used to be. */
+interface Removed<T> {
+  index: number;
+  item: T;
+}
+
+/**
+ * Everything a delete took out of `doc`, each with the index it came from.
+ *
+ * Undo has to put items *back where they were*, not on the end. The order of
+ * these arrays is the order the writer emits items in, so appending turns a
+ * delete-then-undo into a reordered file — and for an item with no uuid of its
+ * own, `refId` falls back to the index, so appending changes its identity too.
+ */
+interface RemovedItems {
+  symbols: Removed<SchSymbol>[];
+  lines: Removed<SchLine>[];
+  junctions: Removed<SchJunction>[];
+  noConnects: Removed<SchNoConnect>[];
+  labels: Removed<SchLabel>[];
+  directiveLabels: Removed<SchDirectiveLabel>[];
+  sheets: Removed<SchSheet>[];
+  busEntries: Removed<SchBusEntry>[];
+  images: Removed<SchImage>[];
+  graphics: Removed<LibGraphic>[];
+  textBoxes: Removed<SchTextBox>[];
+  tables: Removed<SchTable>[];
+  /**
+   * Pins taken off a sheet that itself survived. A sheet pin is an item of its
+   * own (SCH_SHEET_PIN), so Delete on one removes just it — and nothing used to
+   * collect it, which made deleting a sheet pin permanently unundoable.
+   */
+  sheetPins: { sheetIndex: number; pinIndex: number; pin: SheetPin }[];
+}
+
+const removedFrom = <T>(
+  arr: readonly T[],
+  id: (item: T, i: number) => string,
+  ids: ReadonlySet<string>,
+): Removed<T>[] =>
+  arr.flatMap((item, index) => (ids.has(id(item, index)) ? [{ index, item }] : []));
+
+function collectByIds(doc: Schematic, ids: ReadonlySet<string>): RemovedItems {
+  const sheets = removedFrom(doc.sheets, (s, i) => refId('sheet', s.uuid, i), ids);
+  const deletedSheets = new Set(sheets.map((r) => r.index));
+  const sheetPins: RemovedItems['sheetPins'] = [];
+  doc.sheets.forEach((sh, sheetIndex) => {
+    // A pin on a sheet that is going too comes back with the sheet.
+    if (deletedSheets.has(sheetIndex)) return;
+    const shId = refId('sheet', sh.uuid, sheetIndex);
+    sh.pins.forEach((pin, pinIndex) => {
+      if (ids.has(sheetPinId(shId, pinIndex))) sheetPins.push({ sheetIndex, pinIndex, pin });
+    });
+  });
+
   return {
-    symbols: doc.symbols.filter((s, i) => ids.has(refId('symbol', s.uuid, i))),
-    lines: doc.lines.filter((l, i) => ids.has(refId('line', l.uuid, i))),
-    junctions: doc.junctions.filter((j, i) => ids.has(refId('junction', j.uuid, i))),
-    noConnects: doc.noConnects.filter((nc, i) => ids.has(refId('noconnect', nc.uuid, i))),
-    labels: doc.labels.filter((l, i) => ids.has(refId('label', l.uuid, i))),
-    directiveLabels: (doc.directiveLabels ?? []).filter((d, i) =>
-      ids.has(refId('directive', d.uuid, i)),
+    symbols: removedFrom(doc.symbols, (s, i) => refId('symbol', s.uuid, i), ids),
+    lines: removedFrom(doc.lines, (l, i) => refId('line', l.uuid, i), ids),
+    junctions: removedFrom(doc.junctions, (j, i) => refId('junction', j.uuid, i), ids),
+    noConnects: removedFrom(doc.noConnects, (nc, i) => refId('noconnect', nc.uuid, i), ids),
+    labels: removedFrom(doc.labels, (l, i) => refId('label', l.uuid, i), ids),
+    directiveLabels: removedFrom(
+      doc.directiveLabels ?? [],
+      (d, i) => refId('directive', d.uuid, i),
+      ids,
     ),
-    sheets: doc.sheets.filter((s, i) => ids.has(refId('sheet', s.uuid, i))),
-    busEntries: doc.busEntries.filter((be, i) => ids.has(refId('busentry', be.uuid, i))),
-    images: doc.images.filter((im, i) => ids.has(refId('image', im.uuid, i))),
-    graphics: doc.graphics.filter((_, i) => ids.has(refId('graphic', undefined, i))),
-    textBoxes: doc.textBoxes.filter((tb, i) => ids.has(refId('textbox', tb.uuid, i))),
-    tables: doc.tables.filter((t, i) => ids.has(refId('table', t.uuid, i))),
+    sheets,
+    busEntries: removedFrom(doc.busEntries, (be, i) => refId('busentry', be.uuid, i), ids),
+    images: removedFrom(doc.images, (im, i) => refId('image', im.uuid, i), ids),
+    graphics: removedFrom(doc.graphics, (_g, i) => refId('graphic', undefined, i), ids),
+    textBoxes: removedFrom(doc.textBoxes, (tb, i) => refId('textbox', tb.uuid, i), ids),
+    tables: removedFrom(doc.tables, (t, i) => refId('table', t.uuid, i), ids),
+    sheetPins,
+  };
+}
+
+/** Put `removed` back into `kept` at the indices they came from. */
+function spliceBack<T>(kept: readonly T[], removed: readonly Removed<T>[]): readonly T[] {
+  if (removed.length === 0) return kept;
+  const byIndex = new Map(removed.map((r) => [r.index, r.item]));
+  const out: T[] = [];
+  let k = 0;
+  for (let i = 0; i < kept.length + removed.length; i++) {
+    const back = byIndex.get(i);
+    out.push(back !== undefined ? back : kept[k++]!);
+  }
+  return out;
+}
+
+/** Undo of a delete: every item back at its old index, sheet pins included. */
+function restoreRemoved(removed: RemovedItems, ids: ReadonlySet<string>): EditCommand {
+  return {
+    label: 'Delete',
+    apply(doc: Schematic): Schematic {
+      const sheets = spliceBack(doc.sheets, removed.sheets);
+      // Pins go back after the sheets do, so the recorded sheet index lines up.
+      const bySheet = new Map<number, Removed<SheetPin>[]>();
+      for (const { sheetIndex, pinIndex, pin } of removed.sheetPins) {
+        const arr = bySheet.get(sheetIndex) ?? [];
+        arr.push({ index: pinIndex, item: pin });
+        bySheet.set(sheetIndex, arr);
+      }
+      return {
+        ...doc,
+        symbols: spliceBack(doc.symbols, removed.symbols),
+        lines: spliceBack(doc.lines, removed.lines),
+        junctions: spliceBack(doc.junctions, removed.junctions),
+        noConnects: spliceBack(doc.noConnects, removed.noConnects),
+        labels: spliceBack(doc.labels, removed.labels),
+        directiveLabels: spliceBack(doc.directiveLabels ?? [], removed.directiveLabels),
+        sheets: bySheet.size
+          ? sheets.map((sh, i) => {
+              const pins = bySheet.get(i);
+              return pins ? { ...sh, pins: spliceBack(sh.pins, pins) } : sh;
+            })
+          : sheets,
+        busEntries: spliceBack(doc.busEntries, removed.busEntries),
+        images: spliceBack(doc.images, removed.images),
+        graphics: spliceBack(doc.graphics, removed.graphics),
+        textBoxes: spliceBack(doc.textBoxes, removed.textBoxes),
+        tables: spliceBack(doc.tables, removed.tables),
+      };
+    },
+    invert: () => deleteByIds(ids),
   };
 }
 
@@ -155,7 +264,7 @@ export function deleteByIds(ids: ReadonlySet<string>): EditCommand {
       };
     },
     invert(before: Schematic): EditCommand {
-      return addItems(collectByIds(before, ids));
+      return restoreRemoved(collectByIds(before, ids), ids);
     },
   };
 }
