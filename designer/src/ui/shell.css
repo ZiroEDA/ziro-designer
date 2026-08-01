@@ -4446,3 +4446,10 @@ body {
 .ze-fpprops-tabs {
   padding: 8px 12px 0;
 }
+
+/* Pad Properties (dialog_pad_properties_base.cpp). */
+.ze-padprops-dialog {
+  width: 580px;
+  height: auto;
+  max-height: 92vh;
+}

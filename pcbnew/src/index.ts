@@ -225,3 +225,11 @@ export {
   type FootprintValues,
   type FootprintAttribute,
 } from './footprint_properties.js';
+export {
+  padAt,
+  collectPadValues,
+  applyPadValues,
+  padLocalPos,
+  type PadRef,
+  type PadValues,
+} from './pad_properties.js';

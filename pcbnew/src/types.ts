@@ -65,6 +65,23 @@ export interface PcbPad {
   /** `(pintype …)`: the schematic electrical type (PAD::GetPinType). */
   pinType?: string;
   primitives?: PadPrimitive[];
+  /**
+   * Local overrides, same tokens and same three-valued meaning as a footprint's:
+   * absent is "inherit", which is not the same as zero. A pad's value wins over
+   * its footprint's, which wins over Board Setup.
+   */
+  localClearance?: number;
+  localSolderMaskMargin?: number;
+  localSolderPasteMargin?: number;
+  /** `(solder_paste_margin_ratio …)`, a fraction of the pad size, not IU. */
+  localSolderPasteMarginRatio?: number;
+  /** `(zone_connect N)`, ZONE_CONNECTION for this pad alone. */
+  zoneConnection?: 'inherited' | 'none' | 'thermal' | 'full';
+  /** `(thermal_bridge_width …)` / `(thermal_gap …)`, IU; this pad's relief. */
+  thermalBridgeWidth?: number;
+  thermalGap?: number;
+  /** `(die_length …)`, PAD::GetPadToDieLength, IU. */
+  padToDieLength?: number;
   /** `(teardrops …)`, PAD::GetTeardropParams. Absent means upstream's defaults. */
   teardrops?: TeardropParams;
   uuid?: string;
