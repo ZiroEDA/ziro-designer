@@ -11,7 +11,7 @@ import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
 import { makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
-import { labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { globalLabelShape, labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
@@ -109,6 +109,46 @@ describe('labelBox measures its text (SCH_LABEL::GetBodyBoundingBox)', () => {
     const small = labelBox(label('CLK', mmToIU(1)));
     const big = labelBox(label('CLK', mmToIU(2)));
     expect(big.maxX - big.minX).toBeGreaterThan(small.maxX - small.minX);
+  });
+
+  it('boxes a global label by its outline, not its text', () => {
+    // SCH_LABEL_BASE::GetBodyBoundingBox merges CreateGraphicShape's points:
+    // the flag is bigger than the letters on every side, and all of it is
+    // clickable.
+    const text = makeLabel('label', 'CLK', { x: 0, y: 0 }, { fontSize: mmToIU(1.27) });
+    const flag = makeLabel(
+      'global_label',
+      'CLK',
+      { x: 0, y: 0 },
+      {
+        fontSize: mmToIU(1.27),
+        shape: 'bidirectional',
+      },
+    );
+    const t = labelBox(text);
+    const g = labelBox(flag);
+    expect(g.maxX - g.minX).toBeGreaterThan(t.maxX - t.minX);
+    expect(g.maxY - g.minY).toBeGreaterThan(t.maxY - t.minY);
+  });
+
+  it('gives an input-shaped global label the same box as its drawn outline', () => {
+    const flag = makeLabel(
+      'global_label',
+      'D0',
+      { x: mmToIU(10), y: mmToIU(10) },
+      {
+        fontSize: mmToIU(1.27),
+        shape: 'input',
+      },
+    );
+    const pts = globalLabelShape(flag);
+    const box = labelBox(flag);
+    for (const p of pts) {
+      expect(p.x).toBeGreaterThanOrEqual(box.minX);
+      expect(p.x).toBeLessThanOrEqual(box.maxX);
+      expect(p.y).toBeGreaterThanOrEqual(box.minY);
+      expect(p.y).toBeLessThanOrEqual(box.maxY);
+    }
   });
 
   it('still hangs off the anchor per the justification', () => {
