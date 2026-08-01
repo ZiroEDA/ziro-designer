@@ -144,6 +144,7 @@ import {
   swapItems,
   canSwap,
   cycleBodyStyle,
+  repeatItems,
   hasAlternateBodyStyle,
   setBodyStyle,
   hierarchicalLabelNames,
@@ -3507,7 +3508,11 @@ export function SchematicEditor({
   );
 
   /** A label was dropped: take the next of a multi-label run, else stop. */
-  const onLabelPlaced = useCallback(() => {
+  // What F1 repeats: the items the last placement produced
+  // (SCH_EDIT_FRAME::GetRepeatItems).
+  const repeatItemsRef = useRef<string[]>([]);
+  const onLabelPlaced = useCallback((id?: string) => {
+    if (id) repeatItemsRef.current = [id];
     setPendingDirective(null);
     setLabelQueue((q) => {
       const [next, ...rest] = q;
@@ -4709,6 +4714,33 @@ export function SchematicEditor({
         // ACTIONS::zoomRedraw default hotkey (F5).
         e.preventDefault();
         controller.current?.redraw();
+      } else if (
+        e.key === 'F1' &&
+        !e.altKey &&
+        !e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        repeatItemsRef.current.length > 0 &&
+        doc
+      ) {
+        // SCH_ACTIONS::repeatDrawItem (F1). It shares the key with
+        // ACTIONS::zoomInCenter; upstream resolves that by tool scope, and
+        // here by there being something to repeat.
+        e.preventDefault();
+        const r = repeatItems(doc, repeatItemsRef.current, {
+          offset: {
+            x: mmToIU(es.drawing.default_repeat_offset_x * 0.0254),
+            y: mmToIU(es.drawing.default_repeat_offset_y * 0.0254),
+          },
+          labelIncrement: es.drawing.repeat_label_increment,
+        });
+        if (r) {
+          runCommand(r.command);
+          // The copies become the selection, and the next F1 repeats from them.
+          repeatItemsRef.current = r.ids;
+          setSelection(new Set(r.ids));
+          if (r.clampedAtZero) setError('Label value cannot go below zero');
+        }
       } else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         // ACTIONS::zoomInCenter default hotkey (F1).
         e.preventDefault();
