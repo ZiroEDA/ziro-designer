@@ -278,3 +278,101 @@ describe('errors and the command', () => {
     expect(command!.invert(before).apply(after)).toEqual(before);
   });
 });
+
+/**
+ * "Update/reset symbol attributes" (dialog_change_symbols.cpp): the four flags
+ * come off the *flattened* library part, since a derived symbol declares none
+ * of its own.
+ */
+const ATTR_SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+  (lib_symbols
+    (symbol "Sim:Only" (exclude_from_sim yes) (in_bom no) (on_board no) (in_pos_files no)
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "Only" (at 0 -2 0))
+      (symbol "Only_0_1"))
+    (symbol "Sim:Base" (exclude_from_sim yes) (in_bom no) (on_board yes)
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "Base" (at 0 -2 0))
+      (symbol "Base_0_1"))
+    (symbol "Sim:Derived" (extends "Sim:Base")
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "Derived" (at 0 -2 0)))
+    (symbol "Sim:Silent"
+      (property "Reference" "U" (at 0 0 0))
+      (property "Value" "Silent" (at 0 -2 0))
+      (symbol "Silent_0_1")))
+  (symbol (lib_id "Sim:Only") (at 30 30 0) (unit 1) (uuid "a0")
+    (property "Reference" "U1" (at 32 30 0))
+    (property "Value" "Only" (at 32 28 0)))
+  (symbol (lib_id "Sim:Derived") (at 40 30 0) (unit 1) (uuid "a1")
+    (property "Reference" "U2" (at 42 30 0))
+    (property "Value" "Derived" (at 42 28 0)))
+  (symbol (lib_id "Sim:Silent") (at 50 30 0) (unit 1) (dnp yes) (in_bom no) (uuid "a2")
+    (property "Reference" "U3" (at 52 30 0))
+    (property "Value" "Silent" (at 52 28 0))))`;
+
+const attrDoc = (): Schematic => readSchematic(parse(ATTR_SCH));
+const attrLibs = (): Map<string, LibSymbol> =>
+  new Map(attrDoc().libSymbols.map((l) => [l.libId, l]));
+
+describe('the library part’s own attributes', () => {
+  it('reads them, un-inverting the two that are stored the other way round', () => {
+    const l = attrLibs().get('Sim:Only')!;
+    // in_bom / on_board / in_pos_files are written as "included"; the model
+    // stores "excluded from", like a placement does.
+    expect(l.excludedFromSim).toBe(true);
+    expect(l.excludedFromBom).toBe(true);
+    expect(l.excludedFromBoard).toBe(true);
+    expect(l.excludedFromPosFiles).toBe(true);
+  });
+
+  it('leaves them undefined when the library never wrote them', () => {
+    const l = attrLibs().get('Sim:Silent')!;
+    expect(l.excludedFromSim).toBeUndefined();
+    expect(l.excludedFromBom).toBeUndefined();
+  });
+
+  it('takes a derived symbol’s attributes from its parent', () => {
+    // "They are not supported in derived symbols" — the flattened part answers.
+    const l = attrLibs().get('Sim:Derived')!;
+    expect(l.excludedFromSim).toBe(true);
+    expect(l.excludedFromBom).toBe(true);
+    expect(l.excludedFromBoard).toBe(false);
+  });
+});
+
+describe('Update/reset symbol attributes', () => {
+  const run = (over: Partial<ChangeSymbolsOptions> = {}) =>
+    changeSymbols(attrDoc(), attrLibs(), opts({ mode: 'update', resetAttributes: true, ...over }));
+
+  it('copies all four onto the placement', () => {
+    const s = run().doc.symbols[0]!;
+    expect(s.excludedFromSim).toBe(true);
+    expect(s.inBom).toBe(false);
+    expect(s.onBoard).toBe(false);
+    expect(s.excludedFromPosFiles).toBe(true);
+  });
+
+  it('copies the parent’s attributes through a derived symbol', () => {
+    const s = run().doc.symbols[1]!;
+    expect(s.excludedFromSim).toBe(true);
+    expect(s.inBom).toBe(false);
+    expect(s.onBoard).toBe(true);
+  });
+
+  it('leaves a placement alone where the library says nothing', () => {
+    // Sim:Silent declares no attributes. Reading that as "no" would clear U3's
+    // real exclude-from-BOM, which is data the user set.
+    const s = run().doc.symbols[2]!;
+    expect(s.inBom).toBe(false);
+    expect(s.dnp).toBe(true);
+  });
+
+  it('changes nothing when the switch is off', () => {
+    const before = attrDoc().symbols[0]!;
+    const s = run({ resetAttributes: false }).doc.symbols[0]!;
+    expect(s.inBom).toBe(before.inBom);
+    expect(s.onBoard).toBe(before.onBoard);
+    expect(s.excludedFromSim).toBe(before.excludedFromSim);
+  });
+});
