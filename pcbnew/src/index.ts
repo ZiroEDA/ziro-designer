@@ -264,3 +264,14 @@ export {
   type DrcExpr,
   type DrcExprContext,
 } from './drc/drc_expr.js';
+export {
+  buildDrcRuleEngine,
+  evalDrcRules,
+  ruleMatchesLayer,
+  boardSetupRules,
+  netClassRules,
+  type DrcRuleEngine,
+  type DrcEvalItem,
+  type DrcItemType,
+  type ResolvedConstraint,
+} from './drc/drc_rules_engine.js';
