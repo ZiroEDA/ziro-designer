@@ -30,7 +30,7 @@ import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import { buildRatsnest } from '../ratsnest.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
-import type { Board, PadPrimitive, PcbPad, PcbShape, PcbVia } from '../types.js';
+import type { Board, PadPrimitive, PcbPad, PcbShape, PcbTextItem, PcbVia } from '../types.js';
 import {
   areaOutline,
   areasMatching,
@@ -650,6 +650,78 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- text --------------------------------------------------------------
+  // drc_test_provider_text_dims (rule-driven: no constraint, no test) and
+  // drc_test_provider_text_mirroring (not rule-driven at all).
+  const allTexts = [
+    ...board.texts.map((t) => ({ t, desc: `Text '${t.text}'` })),
+    ...board.footprints.flatMap((fp) =>
+      fp.texts.map((t) => ({ t, desc: `Text '${t.text}' of ${fp.reference ?? fp.lib}` })),
+    ),
+  ];
+
+  if (ruleEngine?.byType.has('text_height') || ruleEngine?.byType.has('text_thickness')) {
+    for (const { t, desc } of allTexts) {
+      const item = evalItem('Text', 0, t.layer, {
+        Text_Height: t.size.y,
+        Text_Width: t.size.x,
+      });
+
+      const height = customValue('text_height', item, undefined, t.layer);
+      if (height) {
+        const { min, max } = height.value;
+        if (min !== undefined && t.size.y < min)
+          out.push(textDim('text_height', 'min height', min, t.size.y, height.rule, desc, t.at));
+        if (max !== undefined && t.size.y > max)
+          out.push(textDim('text_height', 'max height', max, t.size.y, height.rule, desc, t.at));
+      }
+
+      const thickness = customValue('text_thickness', item, undefined, t.layer);
+      if (thickness) {
+        // The stroke-font branch. Upstream's other branch deflates each
+        // TrueType glyph to find collapsed strokes; we have no glyph outlines,
+        // so an outline font is simply not checked rather than mis-checked.
+        const actual = effectiveTextPenWidth(t);
+        const { min, max } = thickness.value;
+        if (min !== undefined && actual < min)
+          out.push(
+            textDim('text_thickness', 'min thickness', min, actual, thickness.rule, desc, t.at),
+          );
+        if (max !== undefined && actual > max)
+          out.push(
+            textDim('text_thickness', 'max thickness', max, actual, thickness.rule, desc, t.at),
+          );
+      }
+    }
+  }
+
+  // Mirroring. Text reading backwards on a front layer, or forwards on a back
+  // one, is a plotting mistake rather than a spacing one.
+  const FRONT_TEXT_LAYERS = new Set(['F.Cu', 'F.SilkS', 'F.Mask', 'F.Fab']);
+  const BACK_TEXT_LAYERS = new Set(['B.Cu', 'B.SilkS', 'B.Mask', 'B.Fab']);
+
+  for (const { t, desc } of allTexts) {
+    if (t.hide) continue;
+
+    if (t.mirror && FRONT_TEXT_LAYERS.has(t.layer)) {
+      out.push({
+        code: 'mirrored_text_on_front_layer',
+        message: 'Mirrored text on front layer',
+        pos: t.at,
+        items: [{ desc, pos: t.at }],
+      });
+    }
+
+    if (!t.mirror && BACK_TEXT_LAYERS.has(t.layer)) {
+      out.push({
+        code: 'nonmirrored_text_on_back_layer',
+        message: 'Non-mirrored text on back layer',
+        pos: t.at,
+        items: [{ desc, pos: t.at }],
+      });
+    }
+  }
+
   // ----- connectivity ------------------------------------------------------
   // drc_test_provider_connectivity. Not rule-driven: it asks the connectivity
   // model, which for us is the same ratsnest the canvas draws.
@@ -1162,6 +1234,47 @@ function* boardEvalItems(
       shapes: [],
     };
   }
+}
+
+/**
+ * EDA_TEXT::GetEffectiveTextPenWidth.
+ *
+ * A stored thickness of 0 or 1 means "auto": bold is 1/5 of the text width,
+ * normal 1/8. The result is then clamped to a quarter of the smaller text
+ * dimension, so a hairline-thin setting on tiny text cannot report a pen wider
+ * than the glyphs it draws.
+ */
+function effectiveTextPenWidth(t: PcbTextItem): number {
+  let pen = t.thickness ?? 0;
+
+  if (pen <= 1) {
+    pen = t.bold
+      ? Math.round(Math.min(t.size.x, t.size.y) / 5)
+      : Math.round(Math.min(t.size.x, t.size.y) / 8);
+  }
+
+  return Math.min(pen, Math.round(Math.min(Math.abs(t.size.x), Math.abs(t.size.y)) * 0.25));
+}
+
+/** One text-dimension violation, in upstream's "(min height X; actual Y)" form. */
+function textDim(
+  code: string,
+  what: string,
+  limit: number,
+  actual: number,
+  rule: DrcRule | undefined,
+  desc: string,
+  pos: Vec2,
+): DrcViolation {
+  const mm = (iu: number): string =>
+    `${iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} mm`;
+
+  return {
+    code,
+    message: `Text ${code === 'text_height' ? 'height' : 'thickness'} (${what} ${mm(limit)}${rule ? ` (rule '${rule.name}')` : ''}; actual ${mm(actual)})`,
+    pos,
+    items: [{ desc, pos }],
+  };
 }
 
 /** One piece of copper the dangling test can connect to. */
