@@ -6712,6 +6712,7 @@ export function PcbEditor({
               minViaAnnulus: Math.round(c.minAnnularMM * MM),
               minThroughHole: Math.round(c.minThroughHoleMM * MM),
               minHoleToHole: Math.round(c.minHoleToHoleMM * MM),
+              minCopperToEdge: Math.round(c.copperToEdgeMM * MM),
               clearanceOf: (net) =>
                 netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
               // Board Setup's Custom Rules page finally reaches DRC: a matching

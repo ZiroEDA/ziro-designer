@@ -64,6 +64,13 @@ export interface DrcOptions {
   minThroughHole: number;
   /** rules.min_hole_to_hole (IU). */
   minHoleToHole: number;
+  /**
+   * rules.min_copper_edge_clearance (IU), Board Setup's "copper to edge".
+   * Absent means zero, i.e. copper may touch the board edge but not cross it;
+   * a negative value turns the check off, as upstream's `minClearance >= 0`
+   * gate does.
+   */
+  minCopperToEdge?: number;
   /** Netclass clearance for a net code (IU); absent = 0 (the implicit
    *  netclass clearance rules of drc_engine.cpp). */
   clearanceOf?: (net: number) => number;
@@ -626,6 +633,72 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
           pos: pad.at,
           items: [{ desc: `Pad ${pad.number} of ${ref}`, pos: pad.at }],
         });
+      }
+    }
+  }
+
+  // ----- copper to board edge ----------------------------------------------
+  // drc_test_provider_edge_clearance. The edges are the graphics on Edge.Cuts
+  // and Margin — board and footprint alike.
+  const edgeShapes: Shape[] = [];
+
+  for (const s of [...board.shapes, ...board.footprints.flatMap((fp) => fp.shapes)]) {
+    if (s.layer !== 'Edge.Cuts' && s.layer !== 'Margin') continue;
+
+    // An Edge.Cuts stroke has its width forced to zero: the cut follows the
+    // centreline, not the edges of the line the user drew. Margin keeps its
+    // width, being a real keep-out band.
+    edgeShapes.push(...graphicShapes(s.layer === 'Edge.Cuts' ? { ...s, width: 0 } : s));
+  }
+
+  if (edgeShapes.length > 0 && (opts.minCopperToEdge ?? 0) >= 0) {
+    // A castellated pad is meant to be cut through, so copper meeting an edge
+    // inside its hole is intentional.
+    const castellated: Shape[] = board.footprints
+      .flatMap((fp) => fp.pads)
+      .filter((p) => p.padProperty === 'pad_prop_castellated' && p.drill)
+      .map((p) => ({
+        kind: 'circle' as const,
+        c: p.at,
+        r: Math.min(p.drill!.w, p.drill!.h || p.drill!.w) / 2,
+      }));
+
+    // One violation per item: "don't report violations with multiple edges;
+    // one is enough".
+    const reported = new Set<number>();
+
+    for (const [layer, items] of itemsByLayer) {
+      for (const it of items) {
+        if (reported.has(it.owner)) continue;
+
+        const edgeCustom = customValue(
+          'edge_clearance',
+          evalItem('Track', it.net, layer),
+          undefined,
+          layer,
+        );
+        const minEdge = edgeCustom?.value.min ?? opts.minCopperToEdge ?? 0;
+        if (minEdge < 0) continue;
+
+        // The epsilon slack again: copper exactly at the clearance is legal.
+        const clearance = Math.max(0, minEdge - DRC_EPSILON);
+
+        for (const e of edgeShapes) {
+          const actual = shapeDist(it.shape, e);
+          if (actual >= clearance) continue;
+
+          // Inside a castellation, the collision is the point of the pad.
+          if (castellated.some((h) => shapeDist(it.shape, h) === 0)) continue;
+
+          reported.add(it.owner);
+          out.push({
+            code: 'copper_edge_clearance',
+            message: `Board edge clearance violation (clearance ${mm(minEdge)}${ruleNote(edgeCustom?.rule)}; actual ${mm(actual)})`,
+            pos: it.pos,
+            items: [{ desc: it.desc, pos: it.pos }],
+          });
+          break;
+        }
       }
     }
   }
