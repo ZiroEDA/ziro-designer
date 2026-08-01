@@ -31,7 +31,15 @@ import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import { buildRatsnest } from '../ratsnest.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
-import type { Board, PadPrimitive, PcbPad, PcbShape, PcbTextItem, PcbVia } from '../types.js';
+import type {
+  Board,
+  PadPrimitive,
+  PcbPad,
+  PcbShape,
+  PcbTextItem,
+  PcbVia,
+  PcbZone,
+} from '../types.js';
 import {
   areaOutline,
   areasMatching,
@@ -125,6 +133,12 @@ interface CopperItem {
    * PCB_TRACE_T against PCB_TRACE_T — an arc is not part of it.
    */
   track?: { a: Vec2; b: Vec2 };
+  /**
+   * The zone a fill polygon belongs to. The isolation test needs it: a zone's
+   * own other islands must not count as its connection, or two disjoint
+   * halves of one pour would vouch for each other.
+   */
+  zone?: PcbZone;
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +493,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
           desc: `Zone fill [${netName(z.net)}] on ${fill.layer}`,
           pos: poly[0]!,
           owner,
+          zone: z,
         });
       }
     }
@@ -866,6 +881,72 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
               { desc: `Track [${netName(b.net)}] on ${b.layer}`, pos: b.start },
             ],
           });
+      }
+    }
+  }
+
+  // ----- isolated copper ---------------------------------------------------
+  // The "starved zones" pass of drc_test_provider_connectivity: an island of
+  // zone fill that reaches nothing on its net. The filler drops these under
+  // ISLAND_REMOVAL_MODE ALWAYS, so what is left to report are the ones a board
+  // set to NEVER or AREA deliberately kept.
+  //
+  // Isolation is tested by *collision* with same-net copper, not by a
+  // containment test on anchor points. A thermally-relieved pad sits in a gap
+  // in the fill, and once the fill is fractured that gap is cut out of the
+  // ring — so its centre reads as outside the copper it is spoked to, and
+  // every thermally-connected pour looks isolated.
+  for (const z of board.zones) {
+    if (z.ruleArea || z.net <= 0 || z.fills.length === 0) continue;
+
+    // Upstream reports from m_ZoneIsolatedIslandsMap, which holds the islands
+    // the filler *kept*. Under ALWAYS — the default — it removed them all, so
+    // there is nothing to report and the whole scan is skipped. That is both
+    // faithful and what keeps this off the critical path of a normal board.
+    if ((z.islandRemovalMode ?? 'always') === 'always') continue;
+
+    // Copper thieving is netless dummy copper by definition: every stamp is an
+    // island, and that is the intended geometry.
+    if (z.fillMode === 'thieving') continue;
+
+    for (const fill of z.fills) {
+      if (!isCopper(fill.layer)) continue;
+
+      // A zone's own islands must not vouch for each other, so its own fill
+      // polygons are excluded outright.
+      const sameNet = (itemsByLayer.get(fill.layer) ?? []).filter(
+        (c) => c.net === z.net && c.zone !== z,
+      );
+      const withBox = sameNet.map((c) => ({ c, box: shapeBBox(c.shape) }));
+
+      for (const poly of fill.polys) {
+        if (poly.length < 3) continue;
+
+        const shape: Shape = { kind: 'poly', pts: poly, r: 0 };
+        const box = shapeBBox(shape);
+        const touches = withBox.some(
+          ({ c, box: b2 }) =>
+            !(
+              b2.minX > box.maxX ||
+              box.minX > b2.maxX ||
+              b2.minY > box.maxY ||
+              box.minY > b2.maxY
+            ) && shapeDist(shape, c.shape) === 0,
+        );
+
+        if (touches) continue;
+
+        out.push({
+          code: 'isolated_copper',
+          message: 'Isolated copper fill',
+          pos: poly[0]!,
+          items: [
+            {
+              desc: z.name ? `Zone '${z.name}'` : `Zone fill [${netName(z.net)}] on ${fill.layer}`,
+              pos: poly[0]!,
+            },
+          ],
+        });
       }
     }
   }
