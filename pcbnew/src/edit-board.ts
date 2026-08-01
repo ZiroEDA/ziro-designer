@@ -2150,3 +2150,198 @@ export function moveZoneEdge(board: Board, zoneIndex: number, edge: number, delt
     zones: board.zones.map((zz, i) => (i === zoneIndex ? withZoneOutline(zz, outline) : zz)),
   };
 }
+
+// ----- flip (EDIT_TOOL::Flip, the F key) --------------------------------------
+//
+// Flip is not Mirror. Upstream's Mirror explicitly *skips* footprints and tells
+// you so ("Footprints cannot be mirrored. Use Flip to move them to the other
+// side of the board."), because a footprint's sides are not interchangeable:
+// flipping one has to swap every child's layer as well as mirror its geometry.
+
+/**
+ * FlipLayer (common/layer_id.cpp), on layer names.
+ *
+ * The F/B pairs swap; inner copper reverses about the middle of the stack,
+ * which needs the copper count, so a board with no layer table leaves inner
+ * layers alone rather than guessing.
+ */
+export function flipLayerName(layer: string, copperLayerCount = 0): string {
+  const pair = layer.match(/^([FB])\.(.+)$/);
+  if (pair) return `${pair[1] === 'F' ? 'B' : 'F'}.${pair[2]}`;
+
+  const inner = layer.match(/^In(\d+)\.Cu$/);
+  if (inner && copperLayerCount >= 4) {
+    const index = Number(inner[1]) - 1;
+    const maxIndex = copperLayerCount - 3;
+    const flipped = Math.min(Math.max(copperLayerCount - 3 - index, 0), maxIndex);
+    return `In${flipped + 1}.Cu`;
+  }
+
+  return layer;
+}
+
+/** The board's copper layer count, for the inner-layer half of flipLayerName. */
+const copperCount = (board: Board): number =>
+  board.layers.filter((l) => /\.Cu$/.test(l.name)).length;
+
+/** EDA_ANGLE::Normalize180: fold into ]-180, 180]. */
+const norm180 = (a: number): number => {
+  let v = norm360(a);
+  if (v > 180) v -= 360;
+  return v;
+};
+
+/**
+ * EDIT_TOOL::Flip / FOOTPRINT::Flip for the items this model carries.
+ *
+ * Upstream mirrors the anchor about the centre, moves the footprint there, then
+ * flips each child about the *new* anchor. With children stored board-absolute
+ * those two steps collapse into one mirror of everything about the original
+ * centre — the algebra cancels — so that is what this does.
+ *
+ * `FLIP_DIRECTION::TOP_BOTTOM` only: upstream's default, and the direction the
+ * "Change Side" control means.
+ */
+export function flipBoardItems(board: Board, ids: ReadonlySet<string>, centre?: Vec2): Board {
+  if (ids.size === 0) return board;
+
+  const c =
+    centre ??
+    (() => {
+      const b = boardSelectionBBox(board, ids);
+      return b ? { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 } : { x: 0, y: 0 };
+    })();
+
+  const nCu = copperCount(board);
+  const flipLayer = (l: string): string => flipLayerName(l, nCu);
+  const mirY = (p: Vec2): Vec2 => ({ x: p.x, y: 2 * c.y - p.y });
+  const idx = indicesByKind(ids);
+
+  const layerNode = (l: string): SList => list(atom('layer'), str(l));
+
+  const flipTrack = (t: PcbTrack): PcbTrack => {
+    const start = mirY(t.start);
+    const end = mirY(t.end);
+    const layer = flipLayer(t.layer);
+    const maskLayer = t.maskLayer ? flipLayer(t.maskLayer) : undefined;
+    let src = patchChild(t.source, 'start', xyNode('start', start));
+    src = patchChild(src, 'end', xyNode('end', end));
+    src = maskLayer
+      ? patchChild(dropChild(src, 'layer'), 'layers', {
+          kind: 'list',
+          items: [atom('layers'), str(layer), str(maskLayer)],
+        })
+      : patchChild(dropChild(src, 'layers'), 'layer', layerNode(layer));
+    return { ...t, start, end, layer, maskLayer, source: src };
+  };
+
+  const flipArc = (a: PcbArcTrack): PcbArcTrack => {
+    const start = mirY(a.start);
+    const mid = mirY(a.mid);
+    const end = mirY(a.end);
+    const layer = flipLayer(a.layer);
+    let src = patchChild(a.source, 'start', xyNode('start', start));
+    src = patchChild(src, 'mid', xyNode('mid', mid));
+    src = patchChild(src, 'end', xyNode('end', end));
+    src = patchChild(dropChild(src, 'layers'), 'layer', layerNode(layer));
+    return { ...a, start, mid, end, layer, source: src };
+  };
+
+  // A through via spans the whole stack, so only its position moves.
+  const flipVia = (v: PcbVia): PcbVia => {
+    const at = mirY(v.at);
+    const layers: [string, string] =
+      v.kind === 'through' ? v.layers : [flipLayer(v.layers[0]), flipLayer(v.layers[1])];
+    let src = patchChild(v.source, 'at', atNode(at));
+    if (layers !== v.layers) {
+      src = patchChild(src, 'layers', {
+        kind: 'list',
+        items: [atom('layers'), str(layers[0]), str(layers[1])],
+      });
+    }
+    return { ...v, at, layers, source: src };
+  };
+
+  /**
+   * PCB_TEXT::Flip: TOP_BOTTOM turns the angle into 180 - angle rather than
+   * negating it (text mirrors as text, it does not rotate), and a side-specific
+   * layer toggles the mirrored flag.
+   */
+  const flipText = (t: PcbTextItem): PcbTextItem => {
+    const at = mirY(t.at);
+    const angle = norm360(180 - t.angle);
+    const layer = flipLayer(t.layer);
+    let src = patchChild(t.source, 'at', atNode(at, angle));
+    src = patchChild(src, 'layer', layerNode(layer));
+    return { ...t, at, angle, layer, mirror: !t.mirror, source: src };
+  };
+
+  const flipShape = (s: PcbShape): PcbShape => {
+    const next: PcbShape = { ...s, layer: flipLayer(s.layer) };
+    if (s.center) next.center = mirY(s.center);
+    if (s.start) next.start = mirY(s.start);
+    if (s.end) next.end = mirY(s.end);
+    if (s.mid) next.mid = mirY(s.mid);
+    if (s.pts) next.pts = s.pts.map(mirY);
+    // PCB_SHAPE::Flip swaps an arc's ends so its direction survives the mirror.
+    if (s.kind === 'arc' && next.start && next.end) {
+      const swap = next.start;
+      next.start = next.end;
+      next.end = swap;
+    }
+    let src = s.source;
+    if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
+    if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
+    if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
+    if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
+    if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
+    src = patchChild(src, 'layer', layerNode(next.layer));
+    return { ...next, source: src };
+  };
+
+  /**
+   * FOOTPRINT::Flip. The orientation is negated (not 180-minus, as text is),
+   * because a footprint's angle is a placement value that pick-and-place files
+   * and library updates read back.
+   */
+  const flipFp = (f: PcbFootprint): PcbFootprint => {
+    const at = mirY(f.at);
+    const layer = flipLayer(f.layer);
+    const angle = norm180(-f.angle);
+
+    const pads = f.pads.map((p) => {
+      const padAt = mirY(p.at);
+      let src = patchChild(p.source, 'at', atNode(padAt, norm360(-p.angle)));
+      const layers = p.layers.map(flipLayer);
+      src = patchChild(src, 'layers', {
+        kind: 'list',
+        items: [atom('layers'), ...layers.map((l) => str(l))],
+      });
+      // A trapezoid's delta and an oblong drill's offset are mirrored with it.
+      const delta = p.delta ? { x: p.delta.x, y: -p.delta.y } : undefined;
+      if (delta) src = patchChild(src, 'rect_delta', xyNode('rect_delta', delta));
+      return { ...p, at: padAt, angle: norm360(-p.angle), layers, delta, source: src };
+    });
+
+    return {
+      ...f,
+      at,
+      angle,
+      layer,
+      pads,
+      texts: f.texts.map(flipText),
+      shapes: f.shapes.map(flipShape),
+      source: patchChild(patchChild(f.source, 'at', atNode(at, angle)), 'layer', layerNode(layer)),
+    };
+  };
+
+  return {
+    ...board,
+    tracks: board.tracks.map((t, i) => (idx.track.has(i) ? flipTrack(t) : t)),
+    arcs: board.arcs.map((a, i) => (idx.arc.has(i) ? flipArc(a) : a)),
+    vias: board.vias.map((v, i) => (idx.via.has(i) ? flipVia(v) : v)),
+    texts: board.texts.map((t, i) => (idx.text.has(i) ? flipText(t) : t)),
+    shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? flipShape(s) : s)),
+    footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? flipFp(f) : f)),
+  };
+}

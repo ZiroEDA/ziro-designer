@@ -7,10 +7,8 @@
  * a General page (position, orientation, fabrication attributes) and a
  * "Clearance Overrides && Pad Connections" page.
  *
- * Two things upstream has that are not here, both for want of a model:
- *  - the Fields grid (per-field text properties) — that is text-properties work;
- *  - Side (front/back), which is `FOOTPRINT::Flip`, shared with the mirror tool
- *    and worth its own change.
+ * One thing upstream has that is not here: the Fields grid, which edits each
+ * field's text properties — that is DIALOG_TEXT_PROPERTIES work.
  *
  * The decision logic lives in `pcbnew/src/footprint_properties.ts`.
  */
@@ -23,8 +21,6 @@ interface Props {
   initial: FootprintValues;
   /** The footprint's library id, shown read-only as upstream's Library link. */
   libId: string;
-  /** The side the footprint sits on, shown read-only (see the note above). */
-  side: string;
   onApply: (values: FootprintValues) => void;
   onClose: () => void;
 }
@@ -34,7 +30,6 @@ type Tab = 'general' | 'clearances';
 export function DialogFootprintProperties({
   initial,
   libId,
-  side,
   onApply,
   onClose,
 }: Props): JSX.Element {
@@ -198,9 +193,16 @@ export function DialogFootprintProperties({
                   </select>
                   <span className="ze-tvp-unit">deg</span>
                 </label>
-                <label title="Flipping a footprint is FOOTPRINT::Flip, which is not ported yet.">
+                <label title="Changing the side flips the footprint (EDIT_TOOL::Flip).">
                   <span className="ze-tvp-label">Side:</span>
-                  <input type="text" className="ze-tvp-select" value={side} readOnly />
+                  <select
+                    className="ze-tvp-select"
+                    value={v.side}
+                    onChange={(e) => set({ side: e.target.value as FootprintValues['side'] })}
+                  >
+                    <option value="front">Front</option>
+                    <option value="back">Back</option>
+                  </select>
                 </label>
                 {check('Locked', 'locked')}
               </fieldset>
