@@ -67,6 +67,84 @@ export interface DrcEvalItem {
   test?: (fn: string, args: string[]) => boolean | undefined;
 }
 
+/**
+ * The one `disallow` kind an item answers to, as `DRC_ENGINE::EvalRules`
+ * derives the mask it tests `m_DisallowFlags` against.
+ *
+ * A via reports its own span — through, blind, buried or micro — rather than a
+ * generic "via", so `(constraint disallow micro_via)` leaves a through via
+ * alone while `(constraint disallow via)` catches all four.
+ *
+ * `hole` is not an item type: upstream evaluates a drilled item a second time
+ * with the HOLE_PROXY flag set, so the caller says which pass this is rather
+ * than this deriving it.
+ */
+export function disallowKindFor(item: DrcEvalItem, holeProxy = false): DrcDisallow | undefined {
+  if (holeProxy) return 'hole';
+
+  switch (item.type) {
+    case 'Track':
+    case 'Arc':
+      return 'track';
+
+    case 'Via':
+      // PCB_VIA::IsBlindVia / IsBuriedVia: the file has no token for the
+      // difference, so it is read off the span. Exactly one outer layer is
+      // blind; neither is buried.
+      switch (item.props?.viaKind) {
+        case 'micro':
+          return 'micro_via';
+        case 'blind':
+          return 'blind_via';
+        case 'buried':
+          return 'buried_via';
+        default:
+          return 'through_via';
+      }
+
+    case 'Pad':
+      return 'pad';
+    case 'Footprint':
+      return 'footprint';
+    case 'Text':
+      return 'text';
+    case 'Graphic':
+      return 'graphic';
+
+    case 'Zone':
+      // A teardrop area is generated copper, so DRC treats it as a track.
+      return item.props?.teardrop ? 'track' : 'zone';
+
+    case 'Hole':
+      return 'hole';
+
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Does a `(constraint disallow …)` token list cover this item's kind?
+ *
+ * `via` is the only token that is not a leaf: the parser expands it to all four
+ * spans, so it must be expanded here too or `(constraint disallow via)` would
+ * miss every via that is not a through via.
+ */
+function disallowCovers(tokens: readonly DrcDisallow[], kind: DrcDisallow | undefined): boolean {
+  if (!kind) return false;
+
+  return tokens.some((t) => {
+    if (t === kind) return true;
+    return (
+      t === 'via' &&
+      (kind === 'through_via' ||
+        kind === 'blind_via' ||
+        kind === 'buried_via' ||
+        kind === 'micro_via')
+    );
+  });
+}
+
 /** A rule paired with how it entered the engine. */
 export interface EngineRule {
   rule: DrcRule;
@@ -239,6 +317,8 @@ export function evalDrcRules(
   b: DrcEvalItem | undefined,
   layer?: string,
   localOverride?: number,
+  /** Which pass this is for a drilled item; see disallowKindFor. */
+  holeProxy = false,
 ): ResolvedConstraint {
   const out: ResolvedConstraint = {
     type,
@@ -253,8 +333,17 @@ export function evalDrcRules(
     return out;
   }
 
+  const disallowKind = type === 'disallow' && a ? disallowKindFor(a, holeProxy) : undefined;
+
   for (const entry of engine.byType.get(type) ?? []) {
     if (!ruleMatchesLayer(entry.rule, layer)) continue;
+
+    // A disallow constraint that does not name this item's kind is skipped,
+    // not fatal: upstream returns from the per-constraint lambda, so an
+    // earlier constraint that *does* name it still stands.
+    if (type === 'disallow' && !disallowCovers(entry.constraint.disallow ?? [], disallowKind))
+      continue;
+
     // A netclass-derived rule has no condition to test upstream either.
     if (!conditionHolds(entry.rule.condition, a, b, out.errors)) continue;
 
@@ -275,6 +364,52 @@ export function evalDrcRules(
   }
 
   return out;
+}
+
+/** One assertion that applied to an item, and whether it held. */
+export interface AssertionResult {
+  rule: DrcRule;
+  /** The expression as written, for the marker text. */
+  expression: string;
+  passed: boolean;
+}
+
+/**
+ * DRC_ENGINE::ProcessAssertions.
+ *
+ * Assertions are the one constraint type that does *not* resolve to a single
+ * winner: every assertion whose layer and condition match is evaluated, and
+ * each failure is its own marker. Running them through evalDrcRules would
+ * report at most one per item and silently drop the rest.
+ */
+export function collectAssertions(
+  engine: DrcRuleEngine,
+  a: DrcEvalItem,
+  layer?: string,
+): { results: AssertionResult[]; errors: string[] } {
+  const results: AssertionResult[] = [];
+  const errors: string[] = [];
+
+  for (const entry of engine.byType.get('assertion') ?? []) {
+    const expression = entry.constraint.assertion;
+    if (!expression) continue;
+
+    if (!ruleMatchesLayer(entry.rule, layer)) continue;
+    if (!conditionHolds(entry.rule.condition, a, undefined, errors)) continue;
+
+    // The assertion is evaluated against A alone — there is no second item.
+    const { matched, error } = testDrcCondition(expression, contextFor(a, undefined));
+    if (error) {
+      // An assertion that will not compile is reported, not treated as a
+      // failure: a broken expression is a rule-file problem, not a board one.
+      if (!errors.includes(error)) errors.push(error);
+      continue;
+    }
+
+    results.push({ rule: entry.rule, expression, passed: matched });
+  }
+
+  return { results, errors };
 }
 
 /**

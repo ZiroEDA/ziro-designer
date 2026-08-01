@@ -17,7 +17,14 @@
  * parentheses, and string/number literals. Arithmetic is left out and reported
  * rather than silently mis-evaluated — a condition that quietly returns false
  * would apply a rule to nothing and look like the board passed.
+ *
+ * A numeric literal may carry a unit — `A.Width > 0.2mm` — scaled to IU by the
+ * same PCBEXPR_UNIT_RESOLVER path a `(min …)` value takes, so the two cannot
+ * drift apart. A bare number stays IU, because upstream's resolver has no
+ * default unit.
  */
+
+import { parseRuleValue } from './drc_rule.js';
 
 /** A parsed condition. */
 export type DrcExpr =
@@ -80,8 +87,17 @@ function tokenise(src: string): Token[] {
 
     const num = /^[0-9]+(\.[0-9]+)?/.exec(src.slice(i));
     if (num) {
-      out.push({ t: 'number', v: Number(num[0]) });
       i += num[0].length;
+
+      // A unit is its own token upstream, appended to the value it follows, so
+      // whitespace between the two is allowed and `A.Width > 0.2 mm` lexes the
+      // same as `0.2mm`. The boundary test is upstream's MatchAhead
+      // predicate — without it "mil" would match the start of "million".
+      const unit = /^\s*(mil|mm|in|deg|fs|ps)(?![A-Za-z0-9_])/.exec(src.slice(i));
+      const scaled = parseRuleValue(num[0] + (unit?.[1] ?? ''));
+
+      if (unit) i += unit[0].length;
+      out.push({ t: 'number', v: scaled ?? Number(num[0]) });
       continue;
     }
 

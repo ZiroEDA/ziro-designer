@@ -60,12 +60,20 @@ export type DrcConstraintType =
   | 'disallow'
   | 'assertion';
 
-/** DRC_DISALLOW_T, the item kinds a `disallow` constraint can name. */
+/**
+ * DRC_DISALLOW_T, the item kinds a `disallow` constraint can name.
+ *
+ * `via` is not a kind of its own: upstream's parser expands it to all four via
+ * spans at once, so `(constraint disallow via)` forbids micro and blind vias
+ * too. The expansion lives in drc_rules_engine.ts, where the match happens.
+ */
 export type DrcDisallow =
   | 'track'
   | 'via'
-  | 'micro_via'
+  | 'through_via'
+  | 'blind_via'
   | 'buried_via'
+  | 'micro_via'
   | 'pad'
   | 'zone'
   | 'text'
@@ -153,8 +161,10 @@ const CONSTRAINT_TYPES = new Set<string>([
 const DISALLOW_KINDS = new Set<string>([
   'track',
   'via',
-  'micro_via',
+  'through_via',
+  'blind_via',
   'buried_via',
+  'micro_via',
   'pad',
   'zone',
   'text',
