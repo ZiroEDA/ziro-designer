@@ -45,7 +45,15 @@ function movePoint(p: Vec2, op: TransformOp, center: Vec2): Vec2 {
   return { x: 2 * center.x - p.x, y: p.y }; // mirrorY: flip X
 }
 
-function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): SchSymbol {
+/**
+ * Rotate / mirror one symbol about `center`, body and fields together.
+ *
+ * Exported because a symbol attached to the cursor turns the same way a placed
+ * one does: Place Next Symbol Unit carries a copy of an existing symbol, so R /
+ * X / Y during that placement must spin the copy's fields with it rather than
+ * reset it to a library-default orientation.
+ */
+export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): SchSymbol {
   const at = movePoint(s.at, op, center);
   const orient =
     op === 'rotateCW'
