@@ -106,6 +106,10 @@ import {
   annotateHierarchy,
   incrementAnnotations,
   globalEdit,
+  changeSymbols,
+  type ChangeSymbolsMessage,
+  type ChangeSymbolsMode,
+  type ChangeSymbolsOptions,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -241,6 +245,7 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from './dialogs/dialog_global_edit_text_and_graphics.js';
+import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
@@ -1336,6 +1341,11 @@ export function SchematicEditor({
   const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
   // SCH_EDIT_TOOL::GlobalEdit (Edit Text & Graphics Properties).
   const [globalEditOpen, setGlobalEditOpen] = useState(false);
+  // DIALOG_CHANGE_SYMBOLS, in whichever of its two modes was asked for.
+  const [changeSymbolsMode, setChangeSymbolsMode] = useState<ChangeSymbolsMode | null>(null);
+  const [changeSymbolsMessages, setChangeSymbolsMessages] = useState<
+    readonly ChangeSymbolsMessage[]
+  >([]);
   // Page Settings (DIALOG_PAGES_SETTINGS), Print (DIALOG_PRINT) and Plot
   // (DIALOG_PLOT_SCHEMATIC) dialogs, open flags.
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
@@ -1726,6 +1736,63 @@ export function SchematicEditor({
       }
     },
     [currentFile, runCommand],
+  );
+
+  /** Every field name in use on this sheet, with the mandatory ones first —
+   *  the dialog's checklist (DIALOG_CHANGE_SYMBOLS::updateFieldsList). */
+  const changeSymbolsFieldNames = useMemo(() => {
+    const names = ['Reference', 'Value', 'Footprint', 'Datasheet'];
+    const seen = new Set(names);
+    for (const sym of doc?.symbols ?? []) {
+      for (const f of sym.fields) {
+        if (!seen.has(f.key)) {
+          seen.add(f.key);
+          names.push(f.key);
+        }
+      }
+    }
+    for (const lib of doc?.libSymbols ?? []) {
+      for (const f of lib.properties) {
+        if (!seen.has(f.key)) {
+          seen.add(f.key);
+          names.push(f.key);
+        }
+      }
+    }
+    return names;
+  }, [doc]);
+
+  // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
+  // dialog stays open on its report, as upstream's does.
+  const runChangeSymbols = useCallback(
+    (o: ChangeSymbolsOptions) => {
+      const sheets = annotateSheets('all', false);
+      const libs = hierarchyLibs(sheets);
+      const changedFiles: PickedFile[] = [];
+      const messages: ChangeSymbolsMessage[] = [];
+      for (const sheet of sheets) {
+        const r = changeSymbols(sheet.doc, libs, {
+          ...o,
+          match:
+            o.match.mode === 'selected' && sheet.file === currentFile
+              ? { ...o.match, selected: selection }
+              : o.match.mode === 'selected'
+                ? { ...o.match, selected: new Set<string>() }
+                : o.match,
+        });
+        messages.push(...r.messages);
+        if (r.doc === sheet.doc) continue;
+        applySheetDocument(
+          sheet.file,
+          r.doc,
+          o.mode === 'change' ? 'Change Symbols' : 'Update Symbols from Library',
+          changedFiles,
+        );
+      }
+      if (changedFiles.length) onProjectChange?.(changedFiles);
+      setChangeSymbolsMessages(messages);
+    },
+    [annotateSheets, hierarchyLibs, applySheetDocument, currentFile, selection, onProjectChange],
   );
 
   // Edit Text & Graphics Properties (SCH_EDIT_TOOL::GlobalEdit). The sweep runs
@@ -4148,7 +4215,10 @@ export function SchematicEditor({
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
-      else if (id === 'schematicSetup') {
+      else if (id === 'changeSymbols' || id === 'updateSymbolsFromLibrary') {
+        setChangeSymbolsMessages([]);
+        setChangeSymbolsMode(id === 'changeSymbols' ? 'change' : 'update');
+      } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
         // read-only until the zstd blobs can be decoded, and the Net Chains
@@ -5673,6 +5743,16 @@ export function SchematicEditor({
                 setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
+            />
+          )}
+          {changeSymbolsMode !== null && (
+            <DialogChangeSymbols
+              mode={changeSymbolsMode}
+              fieldNames={changeSymbolsFieldNames}
+              hasSelection={selection.size > 0}
+              messages={changeSymbolsMessages}
+              onApply={runChangeSymbols}
+              onClose={() => setChangeSymbolsMode(null)}
             />
           )}
           {globalEditOpen && (

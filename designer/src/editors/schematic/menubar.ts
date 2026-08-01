@@ -138,7 +138,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         SEP,
         tool('Interactive Delete Tool', 'delete', 'delete'),
         act('Edit Text & Graphics Properties...', 'properties', 'globalEditTextAndGraphics'),
-        stub('Change Symbols...'),
+        act('Change Symbols...', 'properties', 'changeSymbols'),
         act('Edit Sheet Page Number...', 'editPageNumber', 'editPageNumber'),
         {
           label: 'Attributes',
@@ -251,7 +251,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Calculator Tools', 'calculator', 'showCalculator'),
         SEP,
         act('Symbol Editor', 'symbolEditor', 'symbolEditor'),
-        stub('Update Symbols from Library...'),
+        act('Update Symbols from Library...', 'properties', 'updateSymbolsFromLibrary'),
         SEP,
         stub('Rescue Symbols...'),
         stub('Remap Legacy Library Symbols...'),
