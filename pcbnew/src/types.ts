@@ -405,9 +405,29 @@ export interface PcbZone {
    * it alone and the teardrop generator owns its lifetime.
    */
   teardropType?: 'viapad' | 'trackend';
+  /**
+   * `(keepout …)` — ZONE::GetIsRuleArea. Present means this is a rule area, not
+   * a copper zone: it is never poured, it carries no net, and it forbids
+   * whatever its flags name.
+   *
+   * Each flag is *do not allow*, spelled as ZONE::GetDoNotAllow… rather than
+   * as the file's `allowed`/`not_allowed`, so `true` always means "forbidden"
+   * and the sense cannot be read backwards.
+   */
+  ruleArea?: RuleAreaKeepout;
   locked?: boolean;
   uuid?: string;
   source: SList;
+}
+
+/** `(keepout (tracks …) (vias …) (pads …) (copperpour …) (footprints …))`. */
+export interface RuleAreaKeepout {
+  tracks: boolean;
+  vias: boolean;
+  pads: boolean;
+  /** `copperpour`, ZONE::GetDoNotAllowZoneFills. */
+  copperPour: boolean;
+  footprints: boolean;
 }
 
 /**

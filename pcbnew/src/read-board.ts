@@ -725,6 +725,27 @@ function readZone(item: SList): PcbZone {
     islandAreaMin: numChild(fillNode, 'island_area_min') ?? 10,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
     teardropType,
+    ruleArea: (() => {
+      // "keepout" now means rule area, but the file token stayed the same.
+      const ko = childNamed(item, 'keepout');
+      if (!ko) return undefined;
+
+      // pads and footprints post-date the token, so a file written before them
+      // has neither — upstream initialises both to allowed rather than
+      // inheriting whatever the last zone had.
+      const flag = (name: string): boolean => {
+        const c = childNamed(ko, name);
+        return c ? arg(c, 0) === 'not_allowed' : false;
+      };
+
+      return {
+        tracks: flag('tracks'),
+        vias: flag('vias'),
+        pads: flag('pads'),
+        copperPour: flag('copperpour'),
+        footprints: flag('footprints'),
+      };
+    })(),
     uuid: uuidOf(item),
     source: item,
   };
