@@ -141,6 +141,8 @@ import {
   busUnfoldMembers,
   unfoldBus,
   busForUnfolding,
+  swapItems,
+  canSwap,
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
@@ -4283,6 +4285,17 @@ export function SchematicEditor({
             if (cmd) runCommand(cmd);
           },
         });
+      // SCH_ACTIONS::swap (Alt+S).
+      if (doc && canSwap(doc, selection))
+        items.push({
+          label: 'Swap',
+          icon: 'swap',
+          shortcut: 'Alt+S',
+          action: () => {
+            const cmd = swapItems(doc, selection);
+            if (cmd) runCommand(cmd);
+          },
+        });
       // SCH_ALIGN_TOOL's submenu, shown once there is more than one thing to
       // line up. The click position is the target hint (selectTarget prefers
       // the item under the cursor), so it is passed through.
@@ -4699,6 +4712,13 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
+      } else if (e.altKey && e.key.toLowerCase() === 's' && selection.size > 1) {
+        // SCH_ACTIONS::swap (Alt+S): the selection's positions cycle round.
+        e.preventDefault();
+        if (doc) {
+          const cmd = swapItems(doc, selection);
+          if (cmd) runCommand(cmd);
+        }
       } else if (e.altKey && e.key === 'ArrowLeft') {
         // SCH_ACTIONS::navigateBack (Alt+Left).
         e.preventDefault();
