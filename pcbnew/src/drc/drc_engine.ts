@@ -679,6 +679,111 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- track segment length and angle ------------------------------------
+  // Both are purely rule-driven: nothing in Board Setup expresses either, so
+  // with no `.kicad_dru` neither runs at all.
+  if (ruleEngine?.byType.has('track_segment_length')) {
+    const lengths: { len: number; pos: Vec2; layer: string; net: number; desc: string }[] = [
+      ...board.tracks.map((t) => ({
+        len: Math.hypot(t.end.x - t.start.x, t.end.y - t.start.y),
+        // A straight track is marked at its midpoint, an arc at its start.
+        pos: { x: (t.start.x + t.end.x) / 2, y: (t.start.y + t.end.y) / 2 },
+        layer: t.layer,
+        net: t.net,
+        desc: `Track [${netName(t.net)}] on ${t.layer}`,
+      })),
+      ...board.arcs.map((a) => {
+        const s = arcShape(a.start, a.mid, a.end, a.width);
+        return {
+          // PCB_ARC::GetLength is the swept arc, not the chord.
+          len:
+            s.kind === 'arc'
+              ? s.rad * Math.abs(s.sweep)
+              : Math.hypot(a.end.x - a.start.x, a.end.y - a.start.y),
+          pos: a.start,
+          layer: a.layer,
+          net: a.net,
+          desc: `Arc track [${netName(a.net)}] on ${a.layer}`,
+        };
+      }),
+    ];
+
+    for (const t of lengths) {
+      const c = customValue(
+        'track_segment_length',
+        evalItem('Track', t.net, t.layer),
+        undefined,
+        t.layer,
+      );
+      if (!c) continue;
+
+      if (c.value.min !== undefined && t.len < c.value.min)
+        out.push(trackDim('min length', c.value.min, t.len, c.rule, t.desc, t.pos));
+      if (c.value.max !== undefined && t.len > c.value.max)
+        out.push(trackDim('max length', c.value.max, t.len, c.rule, t.desc, t.pos));
+    }
+  }
+
+  if (ruleEngine?.byType.has('track_angle')) {
+    const straight = board.tracks;
+
+    for (let i = 0; i < straight.length; i++) {
+      for (let j = i + 1; j < straight.length; j++) {
+        const a = straight[i]!;
+        const b = straight[j]!;
+
+        // Upstream walks each track's *connected* tracks, which are same-net by
+        // construction. One marker per pair: walking both directions would give
+        // the same joint twice.
+        if (a.layer !== b.layer || a.net !== b.net) continue;
+
+        // segIntersect returns null for collinear segments — deliberately, for
+        // its teardrop caller. SEG::Intersect resolves them, so a shared
+        // endpoint is picked up here: that is what makes a straight-through
+        // joint read 180° and a hairpin 0° rather than both being skipped.
+        const at = segIntersect(a.start, a.end, b.start, b.end) ?? sharedEndpoint(a, b);
+        if (!at) continue;
+
+        // A corner inside a pad is deliberate, not a mitre problem.
+        if (padAtPoint(board, at, a.layer)) continue;
+
+        const actual = jointAngle(a, b, at);
+        const c = customValue(
+          'track_angle',
+          evalItem('Track', a.net, a.layer),
+          evalItem('Track', b.net, b.layer),
+          a.layer,
+        );
+        if (!c) continue;
+
+        // Angles are degrees, which parseRuleValue passes through unscaled.
+        const deg = (v: number): string => `${v.toFixed(1)}°`;
+
+        if (c.value.min !== undefined && actual < c.value.min)
+          out.push({
+            code: 'track_angle',
+            message: `Track angle (min angle ${deg(c.value.min)}${ruleNote(c.rule)}; actual ${deg(actual)})`,
+            pos: at,
+            items: [
+              { desc: `Track [${netName(a.net)}] on ${a.layer}`, pos: a.start },
+              { desc: `Track [${netName(b.net)}] on ${b.layer}`, pos: b.start },
+            ],
+          });
+
+        if (c.value.max !== undefined && actual > c.value.max)
+          out.push({
+            code: 'track_angle',
+            message: `Track angle (max angle ${deg(c.value.max)}${ruleNote(c.rule)}; actual ${deg(actual)})`,
+            pos: at,
+            items: [
+              { desc: `Track [${netName(a.net)}] on ${a.layer}`, pos: a.start },
+              { desc: `Track [${netName(b.net)}] on ${b.layer}`, pos: b.start },
+            ],
+          });
+      }
+    }
+  }
+
   // ----- zones intersect ---------------------------------------------------
   // DRC_TEST_PROVIDER_COPPER_CLEARANCE::testZonesToZones. Two same-net zones
   // overlapping is only a problem when neither can win: the filler resolves an
@@ -1417,6 +1522,96 @@ function* boardEvalItems(
       shapes: [],
     };
   }
+}
+
+/** One track-segment-length violation. */
+function trackDim(
+  what: string,
+  limit: number,
+  actual: number,
+  rule: DrcRule | undefined,
+  desc: string,
+  pos: Vec2,
+): DrcViolation {
+  const mm = (iu: number): string =>
+    `${iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} mm`;
+
+  return {
+    code: 'track_segment_length',
+    message: `Track segment length (${what} ${mm(limit)}${rule ? ` (rule '${rule.name}')` : ''}; actual ${mm(actual)})`,
+    pos,
+    items: [{ desc, pos }],
+  };
+}
+
+/** Is there a pad covering this point on this layer? */
+function padAtPoint(board: Board, p: Vec2, layer: string): boolean {
+  const probe: Shape = { kind: 'circle', c: p, r: 0 };
+
+  for (const fp of board.footprints) {
+    for (const pad of fp.pads) {
+      if (!pad.layers.includes(layer) && !(pad.layers.includes('*.Cu') && isCopper(layer)))
+        continue;
+      if (padShapes(pad).some((s) => shapeDist(s, probe) === 0)) return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * The point two segments share, if any.
+ *
+ * Only endpoints are considered. A partial collinear *overlap* — two tracks
+ * lying along each other rather than meeting — is a shorting or clearance
+ * problem, and those tests own it.
+ */
+function sharedEndpoint(a: { start: Vec2; end: Vec2 }, b: { start: Vec2; end: Vec2 }): Vec2 | null {
+  const same = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
+
+  for (const p of [a.start, a.end]) for (const q of [b.start, b.end]) if (same(p, q)) return p;
+
+  return null;
+}
+
+/**
+ * The angle between two track segments meeting at `at`.
+ *
+ * Both directions are taken *away* from the joint, so a straight-through pair
+ * reads 180° and a hairpin reads 0°. When the joint is not an endpoint of one
+ * of them — a T junction — upstream folds an obtuse reading back below 90°,
+ * because the two arms of the crossed track are the same line and only the
+ * sharper side is a manufacturing problem.
+ */
+function jointAngle(
+  a: { start: Vec2; end: Vec2 },
+  b: { start: Vec2; end: Vec2 },
+  at: Vec2,
+): number {
+  const unit = (from: Vec2, to: Vec2): Vec2 => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: dx / len, y: dy / len };
+  };
+  const same = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
+
+  let da = unit(a.start, a.end);
+  let db = unit(b.start, b.end);
+  let belowNinety = false;
+
+  if (same(a.end, at)) da = { x: -da.x, y: -da.y };
+  else if (!same(a.start, at)) belowNinety = true;
+
+  if (same(b.end, at)) db = { x: -db.x, y: -db.y };
+  else if (!same(b.start, at)) belowNinety = true;
+
+  const dot = Math.max(-1, Math.min(1, da.x * db.x + da.y * db.y));
+  let actual = (Math.acos(dot) * 180) / Math.PI;
+
+  if (belowNinety && actual > 90) actual -= 90;
+
+  return actual;
 }
 
 /** One drilled hole, as the SHAPE_SEGMENT upstream models it. */
