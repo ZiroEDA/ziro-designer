@@ -868,14 +868,27 @@ export function allBoardItemIds(board: Board): string[] {
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
 
 /** Internal units -> trimmed millimetre string (KiCad formatInternalUnits). */
-const mm = (iu: number): string => {
+export const mm = (iu: number): string => {
   let s = iuToMM(iu).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
   if (s === '' || s === '-0') s = '0';
   return s;
 };
 
+/** Drop the first `name` child of a source node, if it has one. */
+export function dropChild(src: SList, name: string): SList {
+  let dropped = false;
+  const items = src.items.filter((it) => {
+    if (!dropped && isList(it) && head(it) === name) {
+      dropped = true;
+      return false;
+    }
+    return true;
+  });
+  return dropped ? { kind: 'list', items } : src;
+}
+
 /** Replace (or append) the first `name` child of a source node. */
-function patchChild(src: SList, name: string, node: SList): SList {
+export function patchChild(src: SList, name: string, node: SList): SList {
   let replaced = false;
   const items = src.items.map((it) => {
     if (!replaced && isList(it) && head(it) === name) {
