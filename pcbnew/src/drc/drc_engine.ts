@@ -34,10 +34,11 @@ import type { Board, PadPrimitive, PcbPad, PcbShape, PcbTextItem, PcbVia } from 
 import {
   areaOutline,
   areasMatching,
+  DRC_EPSILON,
   shapesEnclosedByArea,
   shapesIntersectArea,
 } from './drc_areas.js';
-import { type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
+import { type Shape, segSeg as segSegDist, shapeBBox, shapeDist } from './drc_geometry.js';
 import type { DrcConstraintType, DrcDisallow, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule.js';
 import {
   buildDrcRuleEngine,
@@ -590,11 +591,25 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
     const holeCustom = customValue('hole_size', viaItem, undefined, v.layers[0]);
     const minHole = holeCustom?.value.min ?? opts.minThroughHole;
+    const maxHole = holeCustom?.value.max;
+    // A microvia's drill reports under its own code, so it can be given its own
+    // severity — which is the whole reason upstream splits them.
+    const holeCode = v.kind === 'micro' ? 'microvia_drill_out_of_range' : 'drill_out_of_range';
 
     if (minHole > 0 && v.drill < minHole) {
       out.push({
-        code: 'drill_out_of_range',
+        code: holeCode,
         message: `Hole size out of range (min hole ${mm(minHole)}${ruleNote(holeCustom?.rule)}; actual ${mm(v.drill)})`,
+        pos: v.at,
+        items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
+      });
+    }
+
+    // Only a rule can express a maximum drill.
+    if (maxHole !== undefined && v.drill > maxHole) {
+      out.push({
+        code: holeCode,
+        message: `Hole size out of range (max hole ${mm(maxHole)}${ruleNote(holeCustom?.rule)}; actual ${mm(v.drill)})`,
         pos: v.at,
         items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
       });
@@ -615,37 +630,54 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
-  // ----- hole_to_hole (any layer; hole edge to hole edge) ------------------
+  // ----- hole to hole ------------------------------------------------------
+  // drc_test_provider_hole_to_hole. A hole is a SHAPE_SEGMENT, not a circle:
+  // a round drill is a zero-length segment whose width is the diameter, and a
+  // slot carries the milled axis, so one model covers both exactly.
   const h2hCustom = customValue('hole_to_hole', undefined, undefined, undefined);
   const minHoleToHole = h2hCustom?.value.min ?? opts.minHoleToHole;
+  const holes = boardHoles(board, netName);
 
-  if (minHoleToHole > 0) {
-    const holes: { c: Vec2; r: number; desc: string }[] = [
-      ...vias.map((v) => ({ c: v.at, r: v.drill / 2, desc: `Via [${netName(v.net)}]` })),
-      ...pads
-        .filter(({ pad }) => pad.drill)
-        .map(({ pad, ref }) => ({
-          c: pad.at,
-          r: Math.min(pad.drill!.w, pad.drill!.h || pad.drill!.w) / 2,
-          desc: `Pad ${pad.number} of ${ref}`,
-        })),
-    ];
-    for (let i = 0; i < holes.length; i++) {
-      for (let j = i + 1; j < holes.length; j++) {
-        const a = holes[i]!;
-        const b = holes[j]!;
-        const gap = Math.hypot(a.c.x - b.c.x, a.c.y - b.c.y) - a.r - b.r;
-        if (gap < minHoleToHole && gap > -Math.min(a.r, b.r)) {
-          out.push({
-            code: 'hole_to_hole',
-            message: `Drilled hole too close to other hole (min ${mm(minHoleToHole)}${ruleNote(h2hCustom?.rule)}; actual ${mm(Math.max(0, gap))})`,
-            pos: a.c,
-            items: [
-              { desc: a.desc, pos: a.c },
-              { desc: b.desc, pos: b.c },
-            ],
-          });
-        }
+  for (let i = 0; i < holes.length; i++) {
+    for (let j = i + 1; j < holes.length; j++) {
+      const a = holes[i]!;
+      const b = holes[j]!;
+
+      // Blind and buried vias are drilled before the stack is laminated, so
+      // two that share no copper layer are never drilled into each other.
+      if (a.viaLayers && b.viaLayers && !a.viaLayers.some((l) => b.viaLayers?.includes(l)))
+        continue;
+
+      // Co-located holes are their own violation, and *instead of* the
+      // too-close one — upstream's branch is an else-if.
+      if (Math.hypot(a.c.x - b.c.x, a.c.y - b.c.y) < DRC_EPSILON) {
+        out.push({
+          code: 'holes_co_located',
+          message: 'Drilled holes co-located',
+          pos: a.c,
+          items: [
+            { desc: a.desc, pos: a.c },
+            { desc: b.desc, pos: b.c },
+          ],
+        });
+        continue;
+      }
+
+      // Between the two axes, then back off the two half-widths.
+      const actual = Math.max(0, segSegDist(a.a, a.b, b.a, b.b) - a.width / 2 - b.width / 2);
+      // The epsilon slack keeps a hole placed exactly at the limit legal.
+      const minClearance = Math.max(0, minHoleToHole - DRC_EPSILON);
+
+      if (minClearance > 0 && actual < minClearance) {
+        out.push({
+          code: 'hole_to_hole',
+          message: `Drilled hole too close to other hole (min ${mm(minClearance)}${ruleNote(h2hCustom?.rule)}; actual ${mm(actual)})`,
+          pos: a.c,
+          items: [
+            { desc: a.desc, pos: a.c },
+            { desc: b.desc, pos: b.c },
+          ],
+        });
       }
     }
   }
@@ -1234,6 +1266,58 @@ function* boardEvalItems(
       shapes: [],
     };
   }
+}
+
+/** One drilled hole, as the SHAPE_SEGMENT upstream models it. */
+interface BoardHole {
+  /** The slot axis; a and b coincide for a round drill. */
+  a: Vec2;
+  b: Vec2;
+  /** The drill diameter, i.e. the segment's width. */
+  width: number;
+  /** The hole centre, for the marker. */
+  c: Vec2;
+  desc: string;
+  /** Copper layers, vias only: two blind vias sharing none never interfere. */
+  viaLayers?: string[];
+}
+
+/** Every drilled hole on the board: via drills and pad drills. */
+function boardHoles(board: Board, netName: (n: number) => string): BoardHole[] {
+  const out: BoardHole[] = [];
+
+  for (const v of board.vias)
+    out.push({
+      a: v.at,
+      b: v.at,
+      width: v.drill,
+      c: v.at,
+      desc: `Via [${netName(v.net)}]`,
+      viaLayers: [...v.layers],
+    });
+
+  for (const fp of board.footprints) {
+    for (const pad of fp.pads) {
+      if (!pad.drill) continue;
+
+      // An oblong drill is a slot: the axis runs along its longer dimension,
+      // and the width is the shorter one.
+      const { w, h, oblong } = pad.drill;
+      const width = oblong ? Math.min(w, h || w) : w;
+      const half = oblong ? Math.max(0, (Math.max(w, h || w) - width) / 2) : 0;
+      const along = rot(w >= (h || w) ? { x: half, y: 0 } : { x: 0, y: half }, pad.angle);
+
+      out.push({
+        a: { x: pad.at.x - along.x, y: pad.at.y - along.y },
+        b: { x: pad.at.x + along.x, y: pad.at.y + along.y },
+        width,
+        c: pad.at,
+        desc: `Pad ${pad.number} of ${fp.reference ?? fp.lib}`,
+      });
+    }
+  }
+
+  return out;
 }
 
 /**
