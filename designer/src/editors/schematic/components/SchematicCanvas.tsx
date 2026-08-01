@@ -400,7 +400,8 @@ interface Props {
   /** A netclass directive label following the cursor (SCH_DIRECTIVE_LABEL). */
   pendingDirective?: PendingDirective | null;
   /** The pending label was just dropped: take the next one, or stop. */
-  onLabelPlaced?: () => void;
+  /** A label was placed; the argument is its id, which F1 repeats. */
+  onLabelPlaced?: (id?: string) => void;
   /** A `(hyperlink …)` on text was Ctrl-clicked: "#<page>" or a URL. */
   onFollowLink?: (link: string) => void;
   /** A label tool clicked with nothing attached, ask for the next label
@@ -1711,14 +1712,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // several wires; Escape (handled in App) ends the run.
       if (LABEL_TOOLS[activeTool]) {
         if (pendingLabel) {
-          onCommand(
-            addItems({
-              labels: [buildPendingLabel(pendingLabel, snap(world), schematic, libById)],
-            }),
-          );
+          const placed = buildPendingLabel(pendingLabel, snap(world), schematic, libById);
+          onCommand(addItems({ labels: [placed] }));
           // The placed label is done with; the tool takes the next one of a
           // multi-label run, or waits for a click to ask for another.
-          onLabelPlaced?.();
+          // Its id is what F1 repeats (SCH_EDIT_FRAME's repeat list).
+          onLabelPlaced?.(placed.uuid);
         } else {
           onLabelPrompt?.(snapConn(world));
         }
