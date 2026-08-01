@@ -347,11 +347,23 @@ export function fillZone(
       holes.push([circlePoly(v.at, v.size / 2 + gapTo(v.net), maxError)]);
     }
 
-    // Higher-priority zones on this layer knock this one out
-    // (ZONE_FILLER::subtractHigherPriorityZones).
+    // Other zones on this layer knock this one out
+    // (ZONE_FILLER::knockoutZoneClearance).
     board.zones.forEach((other, i) => {
       if (i === zoneIndex || !other.outline || other.outline.length < 3) return;
       if (!other.layers.includes(layer)) return;
+
+      // A rule area is tested first and never takes part in the priority or
+      // same-net logic below: it forbids copper outright, whatever its
+      // priority or net. The knockout is its bare outline — upstream passes a
+      // clearance of 0 — and a teardrop is exempt, being generated copper the
+      // user never placed inside the area.
+      if (other.ruleArea) {
+        if (other.ruleArea.copperPour && !zone.teardropType)
+          holes.push(...shapeToPolygon({ kind: 'poly', pts: other.outline, r: 0 }, 0, maxError));
+        return;
+      }
+
       if ((other.priority ?? 0) <= (zone.priority ?? 0)) return;
       if (other.net === zone.net) return;
       holes.push(
@@ -784,6 +796,11 @@ export function fillZones(board: Board, opts: ZoneFillOptions = {}): Board {
     // like an ordinary zone instead opens a thermal relief in the flare and
     // eats the very copper the teardrop exists to add.
     if (z.teardropType) return z;
+
+    // A rule area is not copper and is never poured. Without this it goes
+    // through the pour like any other zone, and on a board whose island
+    // removal is set to NEVER that lays filled copper inside the keepout.
+    if (z.ruleArea) return z;
 
     const fills = fillZone(board, i, opts);
     return { ...z, fills, source: withFilledPolygons(z, fills) };

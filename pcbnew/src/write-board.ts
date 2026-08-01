@@ -200,6 +200,23 @@ export function buildZoneNode(z: PcbZone): SList {
   items.push({ kind: 'list', items: connect });
 
   items.push(list(atom('min_thickness'), atom(mm(z.minThickness ?? PCB_MM(0.25)))));
+
+  // A rule area writes its keepout flags here, immediately after min_thickness,
+  // and the token's presence is what marks the zone as a rule area on read.
+  if (z.ruleArea) {
+    const allow = (v: boolean): SNode => atom(v ? 'not_allowed' : 'allowed');
+    items.push(
+      list(
+        atom('keepout'),
+        list(atom('tracks'), allow(z.ruleArea.tracks)),
+        list(atom('vias'), allow(z.ruleArea.vias)),
+        list(atom('pads'), allow(z.ruleArea.pads)),
+        list(atom('copperpour'), allow(z.ruleArea.copperPour)),
+        list(atom('footprints'), allow(z.ruleArea.footprints)),
+      ),
+    );
+  }
+
   items.push(list(atom('filled_areas_thickness'), atom('no')));
   const fill: SNode[] = [
     atom('fill'),
