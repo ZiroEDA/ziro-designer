@@ -33,6 +33,7 @@ import { type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
 import type { DrcConstraintType, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule.js';
 import {
   buildDrcRuleEngine,
+  collectAssertions,
   evalDrcRules,
   type DrcEvalItem,
   type DrcItemType,
@@ -593,5 +594,206 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- disallow / assertion (every board item) ---------------------------
+  // Both walk the whole board rather than copper pairs, and both are pure
+  // rule-driven: with no .kicad_dru there is nothing to check and the sweep is
+  // skipped entirely (HasRulesForConstraintType).
+  if (ruleEngine && (ruleEngine.byType.has('disallow') || ruleEngine.byType.has('assertion'))) {
+    for (const item of boardEvalItems(board, netName, netClassesOf)) {
+      if (ruleEngine.byType.has('disallow')) {
+        // A drilled item is evaluated twice, as itself and as its hole, which
+        // is how `(constraint disallow hole)` reaches a via or a plated pad.
+        for (const holeProxy of item.hasHole ? [false, true] : [false]) {
+          const r = evalDrcRules(
+            ruleEngine,
+            'disallow',
+            item.eval,
+            undefined,
+            item.eval.layer,
+            undefined,
+            holeProxy,
+          );
+
+          // An ignored severity makes no marker at all, as upstream checks
+          // before reporting rather than filtering afterwards.
+          if (!r.rule || !r.disallow || r.severity === 'ignore') continue;
+
+          out.push({
+            code: 'items_not_allowed',
+            message: `Items not allowed${ruleNote(r.rule)}`,
+            pos: item.pos,
+            items: [{ desc: item.desc, pos: item.pos }],
+          });
+        }
+      }
+
+      if (ruleEngine.byType.has('assertion')) {
+        const { results } = collectAssertions(ruleEngine, item.eval, item.eval.layer);
+
+        for (const a of results) {
+          if (a.passed) continue;
+
+          out.push({
+            code: 'assertion_failure',
+            message: `Assertion failure${ruleNote(a.rule)}`,
+            pos: item.pos,
+            items: [{ desc: item.desc, pos: item.pos }],
+          });
+        }
+      }
+    }
+  }
+
   return out;
+}
+
+/** One board item as the rule engine sees it, plus what a marker needs. */
+interface BoardEvalItem {
+  eval: DrcEvalItem;
+  desc: string;
+  pos: Vec2;
+  /** Drilled, so it gets the second HOLE_PROXY pass. */
+  hasHole: boolean;
+}
+
+/**
+ * Every board item the rule-driven checks visit, mirroring
+ * `forEachGeometryItem( {}, LSET::AllLayersMask(), … )`.
+ *
+ * `props` carries what a condition or an assertion can ask about — Width,
+ * Orientation, the via span — because those are only reachable through the
+ * expression language, never through a numeric constraint.
+ */
+function* boardEvalItems(
+  board: Board,
+  netName: (n: number) => string,
+  netClassesOf: (net: number) => readonly string[],
+): Generator<BoardEvalItem> {
+  const classes = (net: number): string[] => [...netClassesOf(net)];
+
+  for (const t of board.tracks) {
+    yield {
+      eval: {
+        type: 'Track',
+        layer: t.layer,
+        netName: board.nets.get(t.net),
+        netClasses: classes(t.net),
+        props: { Width: t.width },
+      },
+      desc: `Track [${netName(t.net)}] on ${t.layer}`,
+      pos: t.start,
+      hasHole: false,
+    };
+  }
+
+  for (const t of board.arcs) {
+    yield {
+      eval: {
+        type: 'Arc',
+        layer: t.layer,
+        netName: board.nets.get(t.net),
+        netClasses: classes(t.net),
+        props: { Width: t.width },
+      },
+      desc: `Track [${netName(t.net)}] on ${t.layer}`,
+      pos: t.start,
+      hasHole: false,
+    };
+  }
+
+  for (const v of board.vias) {
+    yield {
+      eval: {
+        type: 'Via',
+        layer: v.layers[0],
+        layers: [...v.layers],
+        netName: board.nets.get(v.net),
+        netClasses: classes(v.net),
+        props: { viaKind: viaSpanKind(v), Width: v.size, Hole: v.drill },
+      },
+      desc: `Via [${netName(v.net)}]`,
+      pos: v.at,
+      hasHole: true,
+    };
+  }
+
+  for (const fp of board.footprints) {
+    const ref = fp.reference ?? fp.lib;
+
+    yield {
+      eval: { type: 'Footprint', layer: fp.layer, props: { Orientation: fp.angle } },
+      desc: `Footprint ${ref}`,
+      pos: fp.at,
+      hasHole: false,
+    };
+
+    for (const pad of fp.pads) {
+      const net = pad.net ?? 0;
+      yield {
+        eval: {
+          type: 'Pad',
+          layer: pad.layers[0],
+          layers: [...pad.layers],
+          netName: board.nets.get(net),
+          netClasses: classes(net),
+          props: { Pad_Number: pad.number },
+        },
+        desc: `Pad ${pad.number} of ${ref}`,
+        pos: pad.at,
+        hasHole: pad.drill !== undefined,
+      };
+    }
+  }
+
+  for (const z of board.zones) {
+    yield {
+      eval: {
+        type: 'Zone',
+        layer: z.layers[0],
+        layers: [...z.layers],
+        netName: board.nets.get(z.net),
+        netClasses: classes(z.net),
+        props: { teardrop: z.teardropType ? 1 : 0 },
+      },
+      desc: z.name ? `Zone '${z.name}'` : `Zone [${netName(z.net)}]`,
+      // ZONE::GetPosition is the first outline corner.
+      pos: z.outline?.[0] ?? z.fills[0]?.polys[0]?.[0] ?? { x: 0, y: 0 },
+      hasHole: false,
+    };
+  }
+
+  for (const s of board.shapes) {
+    yield {
+      eval: { type: 'Graphic', layer: s.layer, props: { Width: s.width } },
+      desc: `Graphic on ${s.layer}`,
+      pos: s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 },
+      hasHole: false,
+    };
+  }
+
+  for (const t of board.texts) {
+    yield {
+      eval: { type: 'Text', layer: t.layer, props: { Orientation: t.angle } },
+      desc: `Text '${t.text}' on ${t.layer}`,
+      pos: t.at,
+      hasHole: false,
+    };
+  }
+}
+
+/**
+ * PCB_VIA::IsBlindVia / IsBuriedVia. The file has one token for both, so the
+ * two are told apart by the span: exactly one outer layer is blind, neither is
+ * buried.
+ */
+function viaSpanKind(v: PcbVia): string {
+  if (v.kind === 'micro') return 'micro';
+  if (v.kind === 'through') return 'through';
+
+  const outer = (l: string): boolean => l === 'F.Cu' || l === 'B.Cu';
+  const [start, end] = v.layers;
+
+  if (outer(start) !== outer(end)) return 'blind';
+  if (!outer(start) && !outer(end)) return 'buried';
+  return 'through';
 }
