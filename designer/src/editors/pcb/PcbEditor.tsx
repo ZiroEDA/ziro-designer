@@ -11,7 +11,7 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { pcbIuToMM as iuToMM } from '@ziroeda/common';
+import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
   useEffect,
@@ -135,6 +135,7 @@ import {
   collectShapeValues,
   collectTextValues,
   shapeAt,
+  shapePointsUsed,
   textAt,
   type ShapeValues,
   type TextValues,
@@ -5571,6 +5572,7 @@ export function PcbEditor({
                     board={board}
                     selection={selection}
                     onEditFootprint={editFootprint}
+                    onEdit={commitBoard}
                   />
                 )}
               </div>
@@ -7114,76 +7116,326 @@ function FootprintProps({
  *  first slice of pcbnew's PCB_PROPERTIES_PANEL (editable fields come later). */
 // Property-grid mm formatter (KiCad's PCB_PROPERTIES_PANEL shows 2 decimals).
 const pgMM = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;
+/** The bare number a PgEdit cell shows for an IU length (no unit suffix). */
+const pgNum = (iu: number): string => iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+/** Parse a millimetre cell back to IU, or undefined if it is not a number. */
+const pgIU = (text: string): number | undefined => {
+  const n = Number(text);
+  return Number.isFinite(n) ? mmToIU(n) : undefined;
+};
+
+/**
+ * An editable millimetre row: shows `1.23 mm`, commits IU.
+ *
+ * The panel edits live, one field at a time, so each commit runs the same
+ * collect/apply pair the matching dialog uses — the property grid is a second
+ * face on those modules, not a second implementation.
+ */
+const PgMM = ({
+  label,
+  iu,
+  onCommit,
+}: {
+  label: string;
+  iu: number;
+  onCommit?: (iu: number) => void;
+}): JSX.Element => (
+  <PgEdit
+    label={label}
+    value={pgNum(iu)}
+    suffix="mm"
+    onCommit={
+      onCommit
+        ? (text) => {
+            const v = pgIU(text);
+            if (v !== undefined) onCommit(v);
+          }
+        : undefined
+    }
+  />
+);
+
+/** A choice row (wxEnumProperty). */
+const PgChoice = <T extends string>({
+  label,
+  value,
+  options,
+  onCommit,
+}: {
+  label: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onCommit?: (v: T) => void;
+}): JSX.Element => (
+  <PgRow label={label}>
+    {onCommit ? (
+      <select
+        className="pg-edit"
+        value={value}
+        onChange={(e) => onCommit(e.target.value as T)}
+        style={{ width: '100%' }}
+      >
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <span>{options.find(([v]) => v === value)?.[1] ?? value}</span>
+    )}
+  </PgRow>
+);
+
+/**
+ * An override cell: blank means inherit, which is not the same as zero.
+ * Clearing the box drops the override rather than writing 0.
+ */
+const PgOverride = ({
+  label,
+  iu,
+  onCommit,
+}: {
+  label: string;
+  iu: number | null;
+  onCommit?: (v: number | null) => void;
+}): JSX.Element => (
+  <PgEdit
+    label={label}
+    value={iu === null ? '' : pgNum(iu)}
+    suffix={iu === null ? '' : 'mm'}
+    onCommit={
+      onCommit
+        ? (text) => {
+            if (text.trim() === '') {
+              onCommit(null);
+              return;
+            }
+            const v = pgIU(text);
+            if (v !== undefined) onCommit(v);
+          }
+        : undefined
+    }
+  />
+);
 
 /** The PAD property grid (PCB_PROPERTIES_PANEL: PAD reflected properties). */
-function PadProps({ pad, netName }: { pad: PcbPad; netName: (c: number) => string }): JSX.Element {
+function PadProps({
+  board,
+  padRef,
+  netName,
+  onEdit,
+}: {
+  board: Board;
+  padRef: PadRef;
+  netName: (c: number) => string;
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
   const [open, setOpen] = useState<Record<string, boolean>>({
     Basic: true,
     Pad: true,
     Overrides: true,
   });
   const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-  const padType =
-    {
-      thru_hole: 'Through-hole',
-      np_thru_hole: 'NPTH, mechanical',
-      smd: 'SMD',
-      connect: 'Edge connector',
-    }[pad.type] ?? pad.type;
-  const padShape =
-    {
-      circle: 'Circle',
-      rect: 'Rectangle',
-      roundrect: 'Rounded rectangle',
-      oval: 'Oval',
-      trapezoid: 'Trapezoidal',
-      custom: 'Custom',
-    }[pad.shape] ?? pad.shape;
-  // Copper layers: a through pad spans all copper (KiCad "All copper layers");
-  // an SMD pad names its single copper layer.
+
+  const pad = board.footprints[padRef.footprint]?.pads[padRef.pad];
+  if (!pad) return null;
+  const v = collectPadValues(pad);
+
+  const commit = onEdit
+    ? (patch: Partial<PadValues>): void => onEdit(applyPadValues(board, padRef, { ...v, ...patch }))
+    : undefined;
+
+  // A through pad spans all copper (KiCad "All copper layers"); an SMD pad
+  // names its single copper layer.
   const copperLayers = pad.layers.some((l) => l === '*.Cu')
     ? 'All copper layers'
     : pad.layers.filter((l) => /\.Cu$/.test(l)).join(', ') || pad.layers.join(', ');
-  const holeRound = !pad.drill?.oblong;
+
   return (
     <div className="ze-pg">
       <div className="ze-pg-title">Pad</div>
       <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
       {(open.Basic ?? true) && (
         <>
-          <PgRO label="Position X" value={pgMM(pad.at.x)} />
-          <PgRO label="Position Y" value={pgMM(pad.at.y)} />
-          <PgRO label="Net" value={netName(pad.net ?? 0)} />
-          <PgRO label="Orientation" value={`${fmtOrient(pad.angle ?? 0)}°`} />
+          <PgMM label="Position X" iu={v.x} onCommit={commit ? (x) => commit({ x }) : undefined} />
+          <PgMM label="Position Y" iu={v.y} onCommit={commit ? (y) => commit({ y }) : undefined} />
+          <PgChoice
+            label="Net"
+            value={String(v.net)}
+            options={[...board.nets.entries()].map(
+              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
+            )}
+            onCommit={commit ? (n) => commit({ net: Number(n) }) : undefined}
+          />
+          <PgEdit
+            label="Orientation"
+            value={String(v.orientation)}
+            suffix="°"
+            onCommit={
+              commit
+                ? (t) => {
+                    const n = Number(t);
+                    if (Number.isFinite(n)) commit({ orientation: n });
+                  }
+                : undefined
+            }
+          />
         </>
       )}
       <PgCat label="Pad Properties" open={open.Pad ?? true} onToggle={() => toggle('Pad')} />
       {(open.Pad ?? true) && (
         <>
-          <PgRO label="Pad Type" value={padType} />
-          <PgRO label="Pad Shape" value={padShape} />
-          <PgRO label="Pad Number" value={pad.number} />
+          <PgChoice
+            label="Pad Type"
+            value={v.type}
+            options={
+              [
+                ['thru_hole', 'Through-hole'],
+                ['smd', 'SMD'],
+                ['connect', 'Edge connector'],
+                ['np_thru_hole', 'NPTH, mechanical'],
+              ] as const
+            }
+            onCommit={
+              commit
+                ? (type) =>
+                    commit({ type, hasHole: type === 'thru_hole' || type === 'np_thru_hole' })
+                : undefined
+            }
+          />
+          <PgChoice
+            label="Pad Shape"
+            value={v.shape}
+            options={
+              [
+                ['circle', 'Circle'],
+                ['rect', 'Rectangle'],
+                ['roundrect', 'Rounded rectangle'],
+                ['oval', 'Oval'],
+                ['trapezoid', 'Trapezoidal'],
+                ['custom', 'Custom'],
+              ] as const
+            }
+            onCommit={commit ? (shape) => commit({ shape }) : undefined}
+          />
+          <PgEdit
+            label="Pad Number"
+            value={v.number}
+            onCommit={commit ? (number) => commit({ number }) : undefined}
+          />
           <PgRO label="Pin Name" value={pad.pinFunction ?? ''} />
           <PgRO label="Pin Type" value={pad.pinType ?? ''} />
-          <PgRO label="Size X" value={pgMM(pad.size.x)} />
-          {pad.shape !== 'circle' && <PgRO label="Size Y" value={pgMM(pad.size.y)} />}
-          {pad.drill && <PgRO label="Hole Shape" value={holeRound ? 'Round' : 'Oval'} />}
-          {pad.drill && <PgRO label="Hole Size X" value={pgMM(pad.drill.w)} />}
-          {pad.drill && !holeRound && <PgRO label="Hole Size Y" value={pgMM(pad.drill.h)} />}
-          <PgRO label="Fabrication Property" value="None" />
+          <PgMM
+            label="Size X"
+            iu={v.sizeX}
+            onCommit={commit ? (sizeX) => commit({ sizeX }) : undefined}
+          />
+          {v.shape !== 'circle' && (
+            <PgMM
+              label="Size Y"
+              iu={v.sizeY}
+              onCommit={commit ? (sizeY) => commit({ sizeY }) : undefined}
+            />
+          )}
+          {v.hasHole && (
+            <PgChoice
+              label="Hole Shape"
+              value={v.holeOblong ? 'oval' : 'round'}
+              options={
+                [
+                  ['round', 'Round'],
+                  ['oval', 'Oval'],
+                ] as const
+              }
+              onCommit={commit ? (k) => commit({ holeOblong: k === 'oval' }) : undefined}
+            />
+          )}
+          {v.hasHole && (
+            <PgMM
+              label="Hole Size X"
+              iu={v.holeW}
+              onCommit={commit ? (holeW) => commit({ holeW }) : undefined}
+            />
+          )}
+          {v.hasHole && v.holeOblong && (
+            <PgMM
+              label="Hole Size Y"
+              iu={v.holeH}
+              onCommit={commit ? (holeH) => commit({ holeH }) : undefined}
+            />
+          )}
           <PgRO label="Copper Layers" value={copperLayers} />
-          <PgRO label="Pad To Die Length" value="0 mm" />
+          <PgOverride
+            label="Pad To Die Length"
+            iu={v.padToDieLength}
+            onCommit={commit ? (padToDieLength) => commit({ padToDieLength }) : undefined}
+          />
         </>
       )}
       <PgCat label="Overrides" open={open.Overrides ?? true} onToggle={() => toggle('Overrides')} />
       {(open.Overrides ?? true) && (
         <>
-          <PgRO label="Clearance Override" value="" />
-          <PgRO label="Soldermask Margin Override" value="" />
-          <PgRO label="Solderpaste Margin Override" value="" />
-          <PgRO label="Solderpaste Margin Ratio Override" value="" />
-          <PgRO label="Zone Connection Style" value="Inherited" />
-          <PgRO label="Thermal Relief Spoke Angle" value="45°" />
+          <PgOverride
+            label="Clearance Override"
+            iu={v.localClearance}
+            onCommit={commit ? (localClearance) => commit({ localClearance }) : undefined}
+          />
+          <PgOverride
+            label="Soldermask Margin Override"
+            iu={v.localSolderMaskMargin}
+            onCommit={
+              commit ? (localSolderMaskMargin) => commit({ localSolderMaskMargin }) : undefined
+            }
+          />
+          <PgOverride
+            label="Solderpaste Margin Override"
+            iu={v.localSolderPasteMargin}
+            onCommit={
+              commit ? (localSolderPasteMargin) => commit({ localSolderPasteMargin }) : undefined
+            }
+          />
+          <PgEdit
+            label="Solderpaste Margin Ratio Override"
+            value={
+              v.localSolderPasteMarginRatio === null ? '' : String(v.localSolderPasteMarginRatio)
+            }
+            onCommit={
+              commit
+                ? (t) => {
+                    if (t.trim() === '') {
+                      commit({ localSolderPasteMarginRatio: null });
+                      return;
+                    }
+                    const n = Number(t);
+                    if (Number.isFinite(n)) commit({ localSolderPasteMarginRatio: n });
+                  }
+                : undefined
+            }
+          />
+          <PgChoice
+            label="Zone Connection Style"
+            value={v.zoneConnection}
+            options={
+              [
+                ['inherited', 'Inherited'],
+                ['full', 'Solid'],
+                ['thermal', 'Thermal reliefs'],
+                ['none', 'None'],
+              ] as const
+            }
+            onCommit={commit ? (zoneConnection) => commit({ zoneConnection }) : undefined}
+          />
+          <PgOverride
+            label="Thermal Relief Gap"
+            iu={v.thermalGap}
+            onCommit={commit ? (thermalGap) => commit({ thermalGap }) : undefined}
+          />
+          <PgOverride
+            label="Thermal Spoke Width"
+            iu={v.thermalBridgeWidth}
+            onCommit={commit ? (thermalBridgeWidth) => commit({ thermalBridgeWidth }) : undefined}
+          />
         </>
       )}
     </div>
@@ -7192,35 +7444,87 @@ function PadProps({ pad, netName }: { pad: PcbPad; netName: (c: number) => strin
 
 /** The TRACK / ARC property grid (PCB_TRACK reflected properties). */
 function TrackProps({
-  track,
-  arc,
+  board,
+  id,
   netName,
+  layers,
+  onEdit,
 }: {
-  track?: PcbTrack;
-  arc?: PcbArcTrack;
+  board: Board;
+  id: string;
   netName: (c: number) => string;
-}): JSX.Element {
-  const t = track ?? arc!;
+  layers: readonly string[];
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
   const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Track: true });
   const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
+
+  const sel = trackViaSelection(board, [id]);
+  const t = sel.tracks[0]?.item ?? sel.arcs[0]?.item;
+  if (!t) return null;
+  const isArc = sel.arcs.length > 0;
+
+  // One field at a time, through the same collect/apply pair the dialog uses.
+  const commit = onEdit
+    ? (patch: Partial<TrackViaValues>): void => onEdit(applyTrackViaValues(board, sel, patch))
+    : undefined;
+
   return (
     <div className="ze-pg">
-      <div className="ze-pg-title">{arc ? 'Track (Arc)' : 'Track'}</div>
+      <div className="ze-pg-title">{isArc ? 'Track (Arc)' : 'Track'}</div>
       <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
       {(open.Basic ?? true) && (
         <>
-          <PgRO label="Start X" value={pgMM(t.start.x)} />
-          <PgRO label="Start Y" value={pgMM(t.start.y)} />
-          <PgRO label="End X" value={pgMM(t.end.x)} />
-          <PgRO label="End Y" value={pgMM(t.end.y)} />
-          <PgRO label="Net" value={netName(t.net)} />
+          {/* An arc's endpoints follow its mid point, so they stay read-only. */}
+          <PgMM
+            label="Start X"
+            iu={t.start.x}
+            onCommit={!isArc && commit ? (v) => commit({ startX: v }) : undefined}
+          />
+          <PgMM
+            label="Start Y"
+            iu={t.start.y}
+            onCommit={!isArc && commit ? (v) => commit({ startY: v }) : undefined}
+          />
+          <PgMM
+            label="End X"
+            iu={t.end.x}
+            onCommit={!isArc && commit ? (v) => commit({ endX: v }) : undefined}
+          />
+          <PgMM
+            label="End Y"
+            iu={t.end.y}
+            onCommit={!isArc && commit ? (v) => commit({ endY: v }) : undefined}
+          />
+          <PgChoice
+            label="Net"
+            value={String(t.net)}
+            options={[...board.nets.entries()].map(
+              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
+            )}
+            onCommit={commit ? (v) => commit({ net: Number(v) }) : undefined}
+          />
         </>
       )}
       <PgCat label="Track Properties" open={open.Track ?? true} onToggle={() => toggle('Track')} />
       {(open.Track ?? true) && (
         <>
-          <PgLayer label="Layer" layer={t.layer} color={layerColor(t.layer)} />
-          <PgRO label="Width" value={pgMM(t.width)} />
+          <PgChoice
+            label="Layer"
+            value={t.layer}
+            options={layers.map((l) => [l, l] as const)}
+            onCommit={commit ? (v) => commit({ layer: v }) : undefined}
+          />
+          <PgMM
+            label="Width"
+            iu={t.width}
+            onCommit={commit ? (v) => commit({ trackWidth: v }) : undefined}
+          />
+          <PgCheck
+            label="Locked"
+            checked={t.locked ?? false}
+            onChange={commit ? (v) => commit({ locked: v }) : undefined}
+          />
         </>
       )}
     </div>
@@ -7228,67 +7532,260 @@ function TrackProps({
 }
 
 /** The VIA property grid (PCB_VIA reflected properties). */
-function ViaProps({ via, netName }: { via: PcbVia; netName: (c: number) => string }): JSX.Element {
+function ViaProps({
+  board,
+  id,
+  layers,
+  onEdit,
+}: {
+  board: Board;
+  id: string;
+  layers: readonly string[];
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
   const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Via: true });
   const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-  const viaType =
-    { through: 'Through', blind: 'Blind/buried', micro: 'Microvia' }[via.kind] ?? via.kind;
+
+  const sel = trackViaSelection(board, [id]);
+  const via = sel.vias[0]?.item;
+  if (!via) return null;
+
+  const commit = onEdit
+    ? (patch: Partial<TrackViaValues>): void => onEdit(applyTrackViaValues(board, sel, patch))
+    : undefined;
+
   return (
     <div className="ze-pg">
       <div className="ze-pg-title">Via</div>
       <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
       {(open.Basic ?? true) && (
         <>
-          <PgRO label="Position X" value={pgMM(via.at.x)} />
-          <PgRO label="Position Y" value={pgMM(via.at.y)} />
-          <PgRO label="Net" value={netName(via.net)} />
+          <PgMM
+            label="Position X"
+            iu={via.at.x}
+            onCommit={commit ? (v) => commit({ viaX: v }) : undefined}
+          />
+          <PgMM
+            label="Position Y"
+            iu={via.at.y}
+            onCommit={commit ? (v) => commit({ viaY: v }) : undefined}
+          />
+          <PgChoice
+            label="Net"
+            value={String(via.net)}
+            options={[...board.nets.entries()].map(
+              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
+            )}
+            onCommit={commit ? (v) => commit({ net: Number(v) }) : undefined}
+          />
         </>
       )}
       <PgCat label="Via Properties" open={open.Via ?? true} onToggle={() => toggle('Via')} />
       {(open.Via ?? true) && (
         <>
-          <PgRO label="Via Type" value={viaType} />
-          <PgRO label="Diameter" value={pgMM(via.size)} />
-          <PgRO label="Hole" value={pgMM(via.drill)} />
-          <PgLayer label="Layer Top" layer={via.layers[0]} color={layerColor(via.layers[0])} />
-          <PgLayer label="Layer Bottom" layer={via.layers[1]} color={layerColor(via.layers[1])} />
+          <PgChoice
+            label="Via Type"
+            value={via.kind}
+            options={
+              [
+                ['through', 'Through'],
+                ['blind', 'Blind/buried'],
+                ['micro', 'Microvia'],
+              ] as const
+            }
+            onCommit={commit ? (v) => commit({ viaType: v }) : undefined}
+          />
+          <PgMM
+            label="Diameter"
+            iu={via.size}
+            onCommit={commit ? (v) => commit({ viaDiameter: v }) : undefined}
+          />
+          <PgMM
+            label="Hole"
+            iu={via.drill}
+            onCommit={commit ? (v) => commit({ viaDrill: v }) : undefined}
+          />
+          <PgChoice
+            label="Layer Top"
+            value={via.layers[0]}
+            options={layers.map((l) => [l, l] as const)}
+            onCommit={commit ? (v) => commit({ startLayer: v }) : undefined}
+          />
+          <PgChoice
+            label="Layer Bottom"
+            value={via.layers[1]}
+            options={layers.map((l) => [l, l] as const)}
+            onCommit={commit ? (v) => commit({ endLayer: v }) : undefined}
+          />
+          <PgCheck
+            label="Locked"
+            checked={via.locked ?? false}
+            onChange={commit ? (v) => commit({ locked: v }) : undefined}
+          />
+        </>
+      )}
+      <PgCat label="Teardrops" open={open.Td ?? false} onToggle={() => toggle('Td')} />
+      {open.Td && (
+        <>
+          <PgCheck
+            label="Enabled"
+            checked={via.teardrops?.enabled ?? false}
+            onChange={commit ? (v) => commit({ tdEnabled: v }) : undefined}
+          />
+          <PgCheck
+            label="Curved Edges"
+            checked={via.teardrops?.curvedEdges ?? false}
+            onChange={commit ? (v) => commit({ tdCurvedEdges: v }) : undefined}
+          />
         </>
       )}
     </div>
   );
 }
 
-/** The ZONE property grid (ZONE reflected properties; from parsed fields). */
+/** The ZONE property grid (ZONE reflected properties). */
 function ZoneProps({
-  zone,
+  board,
+  index,
   netName,
+  onEdit,
 }: {
-  zone: PcbZone;
+  board: Board;
+  index: number;
   netName: (c: number) => string;
-}): JSX.Element {
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
   const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Fill: true });
   const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
-  const border =
-    zone.hatchStyle === 'full'
-      ? 'Hatched'
-      : zone.hatchStyle === 'edge'
-        ? 'Hatched border'
-        : 'Solid';
+
+  const zone = board.zones[index];
+  if (!zone) return null;
+  const v = collectZoneValues(zone);
+
+  // A zone edit changes the pour, so the fill is rebuilt with it — the same
+  // thing the dialog does on OK.
+  const commit = onEdit
+    ? (patch: Partial<ZoneValues>): void =>
+        onEdit(fillZones(applyZoneValues(board, index, { ...v, ...patch })))
+    : undefined;
+
   return (
     <div className="ze-pg">
       <div className="ze-pg-title">Copper Zone</div>
       <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
       {(open.Basic ?? true) && (
         <>
-          <PgRO label="Net" value={zone.netName ?? netName(zone.net)} />
+          <PgEdit
+            label="Name"
+            value={v.name}
+            onCommit={commit ? (name) => commit({ name }) : undefined}
+          />
+          <PgChoice
+            label="Net"
+            value={String(v.net)}
+            options={[...board.nets.entries()].map(
+              ([code, name]) => [String(code), name === '' ? '<no net>' : name] as const,
+            )}
+            onCommit={commit ? (n) => commit({ net: Number(n) }) : undefined}
+          />
           <PgRO label="Layers" value={zone.layers.join(', ')} />
+          <PgEdit
+            label="Priority"
+            value={String(v.priority)}
+            onCommit={
+              commit
+                ? (t) => {
+                    const n = Number(t);
+                    if (Number.isFinite(n)) commit({ priority: n });
+                  }
+                : undefined
+            }
+          />
+          <PgCheck
+            label="Locked"
+            checked={v.locked}
+            onChange={commit ? (locked) => commit({ locked }) : undefined}
+          />
         </>
       )}
       <PgCat label="Fill Style" open={open.Fill ?? true} onToggle={() => toggle('Fill')} />
       {(open.Fill ?? true) && (
         <>
-          <PgRO label="Border Display" value={border} />
-          <PgRO label="Filled" value={zone.fills.length > 0 ? 'Yes' : 'No'} />
+          <PgChoice
+            label="Border Display"
+            value={v.hatchStyle}
+            options={
+              [
+                ['none', 'Line'],
+                ['edge', 'Hatched'],
+                ['full', 'Fully hatched'],
+                ['invisible', 'Invisible'],
+              ] as const
+            }
+            onCommit={commit ? (hatchStyle) => commit({ hatchStyle }) : undefined}
+          />
+          <PgCheck
+            label="Filled"
+            checked={v.filled}
+            onChange={commit ? (filled) => commit({ filled }) : undefined}
+          />
+          <PgChoice
+            label="Fill Type"
+            value={v.fillMode}
+            options={
+              [
+                ['solid', 'Solid fill'],
+                ['hatch', 'Hatch pattern'],
+                ['thieving', 'Copper thieving'],
+              ] as const
+            }
+            onCommit={commit ? (fillMode) => commit({ fillMode }) : undefined}
+          />
+          <PgMM
+            label="Clearance"
+            iu={v.clearance}
+            onCommit={commit ? (clearance) => commit({ clearance }) : undefined}
+          />
+          <PgMM
+            label="Min Width"
+            iu={v.minThickness}
+            onCommit={commit ? (minThickness) => commit({ minThickness }) : undefined}
+          />
+          <PgChoice
+            label="Pad Connections"
+            value={v.padConnection}
+            options={
+              [
+                ['full', 'Solid'],
+                ['thermal', 'Thermal reliefs'],
+                ['thru_hole_only', 'Reliefs for PTH'],
+                ['none', 'None'],
+              ] as const
+            }
+            onCommit={commit ? (padConnection) => commit({ padConnection }) : undefined}
+          />
+          <PgMM
+            label="Thermal Gap"
+            iu={v.thermalGap}
+            onCommit={commit ? (thermalGap) => commit({ thermalGap }) : undefined}
+          />
+          <PgMM
+            label="Thermal Spoke Width"
+            iu={v.thermalBridgeWidth}
+            onCommit={commit ? (thermalBridgeWidth) => commit({ thermalBridgeWidth }) : undefined}
+          />
+          <PgChoice
+            label="Remove Islands"
+            value={v.islandRemovalMode}
+            options={
+              [
+                ['always', 'Always'],
+                ['never', 'Never'],
+                ['area', 'Below area limit'],
+              ] as const
+            }
+            onCommit={commit ? (islandRemovalMode) => commit({ islandRemovalMode }) : undefined}
+          />
         </>
       )}
     </div>
@@ -7299,91 +7796,70 @@ function PcbSelectionInfo({
   board,
   selection,
   onEditFootprint,
+  onEdit,
 }: {
   board: Board | null;
   selection: ReadonlySet<string>;
   onEditFootprint?: (index: number, e: FpEdit) => void;
+  /** Commit a whole new board; the panel edits live, one field at a time. */
+  onEdit?: (next: Board) => void;
 }): JSX.Element {
-  const mm = (iu: number): string => iuToMM(iu).toFixed(4);
   const ids = [...selection];
 
   if (!board) return <div className="ze-muted">…</div>;
 
+  const layerNames = board.layers.map((l) => l.name);
+  const copperLayers = layerNames.filter((l) => /\.Cu$/.test(l));
+
   if (ids.length === 1) {
-    const ref = parseBoardItemId(ids[0]!);
+    const id = ids[0]!;
+    const ref = parseBoardItemId(id);
     const netName = (code: number): string => board.nets.get(code) || `(net ${code})`;
-    const row = (k: string, v: string): JSX.Element => (
-      <div
-        key={k}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 8,
-          padding: '2px 4px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}
-      >
-        <span className="ze-muted">{k}</span>
-        <span style={{ textAlign: 'right' }}>{v}</span>
-      </div>
-    );
-    // Collapsible-style group header, like KiCad's property-grid categories.
+
     if (ref) {
       switch (ref.kind) {
-        case 'track': {
-          const t = board.tracks[ref.index];
-          if (t) return <TrackProps track={t} netName={netName} />;
-          break;
-        }
-        case 'arc': {
-          const a = board.arcs[ref.index];
-          if (a) return <TrackProps arc={a} netName={netName} />;
-          break;
-        }
-        case 'via': {
-          const v = board.vias[ref.index];
-          if (v) return <ViaProps via={v} netName={netName} />;
-          break;
-        }
-        case 'pad': {
-          const p = board.footprints[ref.index]?.pads[ref.sub ?? 0];
-          if (p) return <PadProps pad={p} netName={netName} />;
-          break;
-        }
+        case 'track':
+        case 'arc':
+          return (
+            <TrackProps
+              board={board}
+              id={id}
+              netName={netName}
+              layers={copperLayers}
+              onEdit={onEdit}
+            />
+          );
+        case 'via':
+          return <ViaProps board={board} id={id} layers={copperLayers} onEdit={onEdit} />;
+        case 'pad':
+          return (
+            <PadProps
+              board={board}
+              padRef={{ footprint: ref.index, pad: ref.sub ?? 0 }}
+              netName={netName}
+              onEdit={onEdit}
+            />
+          );
         case 'footprint': {
           const f = board.footprints[ref.index];
           if (f) return <FootprintProps fp={f} index={ref.index} onEdit={onEditFootprint} />;
           break;
         }
-        case 'zone': {
-          const z = board.zones[ref.index];
-          if (z) return <ZoneProps zone={z} netName={netName} />;
-          break;
-        }
-        case 'shape': {
-          const s = board.shapes[ref.index];
-          if (s)
-            return (
-              <div>
-                <b>Graphic ({s.kind})</b>
-                {row('Layer', s.layer)}
-                {row('Width', `${mm(s.width)} mm`)}
-              </div>
-            );
-          break;
-        }
-        case 'text': {
-          const t = board.texts[ref.index];
-          if (t)
-            return (
-              <div>
-                <b>Text</b>
-                {row('Text', t.text)}
-                {row('Layer', t.layer)}
-              </div>
-            );
-          break;
-        }
+        case 'zone':
+          return <ZoneProps board={board} index={ref.index} netName={netName} onEdit={onEdit} />;
+        case 'shape':
+          return (
+            <GraphicShapeProps
+              board={board}
+              index={ref.index}
+              layers={layerNames}
+              onEdit={onEdit}
+            />
+          );
+        case 'text':
+          return (
+            <GraphicTextProps board={board} index={ref.index} layers={layerNames} onEdit={onEdit} />
+          );
       }
     }
   }
@@ -7403,6 +7879,215 @@ function PcbSelectionInfo({
           <span>{n}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** The board-text property grid (PCB_TEXT reflected properties). */
+function GraphicTextProps({
+  board,
+  index,
+  layers,
+  onEdit,
+}: {
+  board: Board;
+  index: number;
+  layers: readonly string[];
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
+  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Font: true });
+  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
+
+  const t = board.texts[index];
+  if (!t) return null;
+  const v = collectTextValues(t);
+
+  const commit = onEdit
+    ? (patch: Partial<TextValues>): void =>
+        onEdit(applyTextValues(board, index, { ...v, ...patch }))
+    : undefined;
+
+  return (
+    <div className="ze-pg">
+      <div className="ze-pg-title">Text</div>
+      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
+      {(open.Basic ?? true) && (
+        <>
+          <PgEdit
+            label="Text"
+            value={v.text}
+            onCommit={commit ? (text) => commit({ text }) : undefined}
+          />
+          <PgMM label="Position X" iu={v.x} onCommit={commit ? (x) => commit({ x }) : undefined} />
+          <PgMM label="Position Y" iu={v.y} onCommit={commit ? (y) => commit({ y }) : undefined} />
+          <PgEdit
+            label="Orientation"
+            value={String(v.orientation)}
+            suffix="°"
+            onCommit={
+              commit
+                ? (s) => {
+                    const n = Number(s);
+                    if (Number.isFinite(n)) commit({ orientation: n });
+                  }
+                : undefined
+            }
+          />
+          <PgChoice
+            label="Layer"
+            value={v.layer}
+            options={layers.map((l) => [l, l] as const)}
+            onCommit={commit ? (layer) => commit({ layer }) : undefined}
+          />
+          <PgCheck
+            label="Locked"
+            checked={v.locked}
+            onChange={commit ? (locked) => commit({ locked }) : undefined}
+          />
+        </>
+      )}
+      <PgCat label="Text Properties" open={open.Font ?? true} onToggle={() => toggle('Font')} />
+      {(open.Font ?? true) && (
+        <>
+          <PgMM
+            label="Width"
+            iu={v.width}
+            onCommit={commit ? (width) => commit({ width }) : undefined}
+          />
+          <PgMM
+            label="Height"
+            iu={v.height}
+            onCommit={commit ? (height) => commit({ height }) : undefined}
+          />
+          <PgMM
+            label="Thickness"
+            iu={v.thickness}
+            onCommit={commit ? (thickness) => commit({ thickness }) : undefined}
+          />
+          <PgCheck
+            label="Bold"
+            checked={v.bold}
+            onChange={commit ? (bold) => commit({ bold }) : undefined}
+          />
+          <PgCheck
+            label="Italic"
+            checked={v.italic}
+            onChange={commit ? (italic) => commit({ italic }) : undefined}
+          />
+          <PgCheck
+            label="Mirrored"
+            checked={v.mirrored}
+            onChange={commit ? (mirrored) => commit({ mirrored }) : undefined}
+          />
+          <PgCheck
+            label="Knockout"
+            checked={v.knockout}
+            onChange={commit ? (knockout) => commit({ knockout }) : undefined}
+          />
+          <PgCheck
+            label="Hidden"
+            checked={v.hidden}
+            onChange={commit ? (hidden) => commit({ hidden }) : undefined}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The board-graphic property grid (PCB_SHAPE reflected properties). */
+function GraphicShapeProps({
+  board,
+  index,
+  layers,
+  onEdit,
+}: {
+  board: Board;
+  index: number;
+  layers: readonly string[];
+  onEdit?: (next: Board) => void;
+}): JSX.Element | null {
+  const [open, setOpen] = useState<Record<string, boolean>>({ Basic: true, Stroke: true });
+  const toggle = (g: string): void => setOpen((o) => ({ ...o, [g]: !o[g] }));
+
+  const shape = board.shapes[index];
+  if (!shape) return null;
+  const v = collectShapeValues(shape);
+  const used = shapePointsUsed(shape.kind);
+
+  const commit = onEdit
+    ? (patch: Partial<ShapeValues>): void =>
+        onEdit(applyShapeValues(board, index, { ...v, ...patch }))
+    : undefined;
+
+  const pt = (label: string, key: 'start' | 'end' | 'mid' | 'center'): JSX.Element => (
+    <>
+      <PgMM
+        label={`${label} X`}
+        iu={v[key].x}
+        onCommit={commit ? (x) => commit({ [key]: { ...v[key], x } }) : undefined}
+      />
+      <PgMM
+        label={`${label} Y`}
+        iu={v[key].y}
+        onCommit={commit ? (y) => commit({ [key]: { ...v[key], y } }) : undefined}
+      />
+    </>
+  );
+
+  return (
+    <div className="ze-pg">
+      <div className="ze-pg-title">Graphic ({shape.kind})</div>
+      <PgCat label="Basic Properties" open={open.Basic ?? true} onToggle={() => toggle('Basic')} />
+      {(open.Basic ?? true) && (
+        <>
+          {used.center && pt('Center', 'center')}
+          {used.start && pt('Start', 'start')}
+          {used.mid && pt('Mid', 'mid')}
+          {used.end && pt(shape.kind === 'circle' ? 'Radius' : 'End', 'end')}
+          <PgChoice
+            label="Layer"
+            value={v.layer}
+            options={layers.map((l) => [l, l] as const)}
+            onCommit={commit ? (layer) => commit({ layer }) : undefined}
+          />
+          <PgCheck
+            label="Locked"
+            checked={v.locked}
+            onChange={commit ? (locked) => commit({ locked }) : undefined}
+          />
+        </>
+      )}
+      <PgCat label="Stroke" open={open.Stroke ?? true} onToggle={() => toggle('Stroke')} />
+      {(open.Stroke ?? true) && (
+        <>
+          <PgMM
+            label="Line Width"
+            iu={v.lineWidth}
+            onCommit={commit ? (lineWidth) => commit({ lineWidth }) : undefined}
+          />
+          <PgChoice
+            label="Line Style"
+            value={v.strokeType}
+            options={
+              [
+                ['default', 'Default'],
+                ['solid', 'Solid'],
+                ['dash', 'Dashed'],
+                ['dot', 'Dotted'],
+                ['dash_dot', 'Dash-Dot'],
+                ['dash_dot_dot', 'Dash-Dot-Dot'],
+              ] as const
+            }
+            onCommit={commit ? (strokeType) => commit({ strokeType }) : undefined}
+          />
+          <PgCheck
+            label="Filled"
+            checked={v.filled}
+            onChange={commit ? (filled) => commit({ filled }) : undefined}
+          />
+        </>
+      )}
     </div>
   );
 }
