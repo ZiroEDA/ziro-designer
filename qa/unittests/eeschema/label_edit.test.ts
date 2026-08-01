@@ -10,6 +10,9 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
+import { labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (label "NET1" (at 50 50 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "loc-1"))
@@ -80,5 +83,41 @@ describe('writeLabel formatting/orientation patches', () => {
     // Identity replace: nothing semantically changed, nothing should move.
     const after = replaceLabel(idx, { ...orig }).apply(doc);
     expect(serializeSchematic(after)).toBe(before);
+  });
+});
+
+describe('labelBox measures its text (SCH_LABEL::GetBodyBoundingBox)', () => {
+  const label = (text: string, fontSize = mmToIU(1.27)) =>
+    makeLabel('label', text, { x: 0, y: 0 }, { fontSize });
+
+  it('gives a narrow string a narrower box than a wide one', () => {
+    // The old estimate was length x height x 0.7, so these two came out
+    // identical - three characters each - when on screen they are nothing
+    // like the same width.
+    const thin = labelBox(label('III'));
+    const wide = labelBox(label('WWW'));
+    expect(wide.maxX - wide.minX).toBeGreaterThan(thin.maxX - thin.minX);
+  });
+
+  it('grows with the text', () => {
+    const short = labelBox(label('A'));
+    const long = labelBox(label('AAAAAAAA'));
+    expect(long.maxX - long.minX).toBeGreaterThan(short.maxX - short.minX);
+  });
+
+  it('scales with the text height', () => {
+    const small = labelBox(label('CLK', mmToIU(1)));
+    const big = labelBox(label('CLK', mmToIU(2)));
+    expect(big.maxX - big.minX).toBeGreaterThan(small.maxX - small.minX);
+  });
+
+  it('still hangs off the anchor per the justification', () => {
+    const l = makeLabel('label', 'CLK', { x: 0, y: 0 }, { fontSize: mmToIU(1.27) });
+    const right = labelBox({
+      ...l,
+      effects: { ...(l.effects ?? { hidden: false }), justify: ['right'] },
+    });
+    expect(right.maxX).toBe(0);
+    expect(right.minX).toBeLessThan(0);
   });
 });

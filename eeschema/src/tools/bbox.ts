@@ -12,6 +12,7 @@
 import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, SheetPin, Vec2 } from '../types.js';
 
 export interface BBox {
@@ -86,14 +87,49 @@ function unitMatches(u: LibSymbolUnit, unit: number, bodyStyle: number): boolean
   return (u.unit === 0 || u.unit === unit) && (u.bodyStyle === 0 || u.bodyStyle === bodyStyle);
 }
 
+/** The schematic's default line width (6 mil), which text is stroked with. */
+const DEFAULT_PEN = mmToIU(6 * 0.0254);
+
 /**
- * Approximate text box of a label/text item: anchored at its connection point and
- * growing away from it per the justification. Shared by click and box selection.
+ * `EDA_TEXT::GetEffectiveTextPenWidth` for schematic text left at the default
+ * thickness: the default pen, or size/5 when bold, clamped to a quarter of the
+ * size so tiny text does not turn into a blob (`ClampTextPenSize`).
+ */
+export function textPenWidth(height: number, bold = false): number {
+  const pen = bold ? Math.round(height / 5) : DEFAULT_PEN;
+  return Math.min(pen, Math.round(height * 0.25));
+}
+
+/**
+ * The width of a run of schematic text, as `GetTextBox` measures it:
+ * `FONT::StringBoundaryLimits`, which for a stroke font is the glyph extent
+ * inflated by 1.5 × the pen on each side.
+ */
+export function textBoxWidth(text: string, height: number, bold = false): number {
+  return measureText(text, height) + 3 * textPenWidth(height, bold);
+}
+
+/**
+ * Body box of a label or free text. Counterpart: `SCH_LABEL::GetBodyBoundingBox`
+ * — the measured text box, lifted by the text offset that holds a label clear
+ * of its wire, inflated by the pen, and merged with the anchor point (which
+ * sits outside the text box, since the text hangs off it).
+ *
+ * The width is measured rather than estimated: `III` and `WWW` are the same
+ * length in characters and nothing like the same width on screen, and this box
+ * is what decides whether a click lands on the label.
+ *
+ * The height stays the nominal text height plus the pen, where upstream uses
+ * the glyphs' own vertical extent — our stroke font exposes advance widths but
+ * no vertical metrics, so a line of `xxx` gets the same box height as `XXX`.
+ * Only the top and bottom edges are affected, by a fraction of the height.
  */
 export function labelBox(l: SchLabel): BBox {
   const h = l.effects?.fontSize?.[0] ?? 12700;
   const justify = l.effects?.justify;
-  const w = Math.max(1, l.text.length) * h * 0.7;
+  const bold = !!l.effects?.bold;
+  const pen = textPenWidth(h, bold);
+  const w = textBoxWidth(l.text, h, bold) + 2 * pen;
   const at = l.at;
   const left = justify?.includes('right') ? at.x - w : at.x;
   const right = justify?.includes('right') ? at.x : at.x + w;
@@ -132,9 +168,9 @@ export function sheetPinBBox(pin: SheetPin): BBox {
   const penWidth = Math.round(textHeight / 8);
   const margin = Math.round(TEXT_OFFSET_RATIO * textHeight);
   const height = textHeight + penWidth + margin;
-  // GetTextBox().GetWidth(), approximated the way labelBox above does, plus the
-  // height upstream adds for the triangular shape.
-  const length = Math.max(1, pin.name.length) * textHeight * 0.7 + height;
+  // GetTextBox().GetWidth(), measured the way labelBox does, plus the height
+  // upstream adds for the triangular shape.
+  const length = textBoxWidth(pin.name, textHeight, !!pin.effects?.bold) + height;
 
   let x = pin.at.x;
   let y = pin.at.y;
