@@ -57,6 +57,7 @@ import {
 import type { Theme } from '../theme.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { globalLabelShape } from '@ziroeda/eeschema/src/tools/bbox.js';
 
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
@@ -1640,45 +1641,12 @@ function drawLabel(
         justifyFor(spin),
       );
     } else {
-      // Global label: 6-point box (margined) with a notch/point per shape, then
-      // spin-rotated. Margin = m_LabelSizeRatio × text size
-      // (SCH_LABEL_BASE::GetLabelBoxExpansion).
+      // Global label: the outline comes from eeschema's globalLabelShape, the
+      // same points labelBox is built from, so the shape a label is drawn as
+      // and the box it is selected by cannot drift apart.
       const margin = g_labelSizeRatio * h;
-      const hs = halfSize + margin;
-      // CreateGraphicShape sizes the box from the *measured* text box, not from
-      // a per-character estimate: a label of narrow characters would otherwise
-      // sit in a box far too wide for it, and a wide one would overflow.
-      // GetTextBox is the glyph extent inflated by 1.5 × the text pen on each
-      // side (FONT::StringBoundaryLimits' stroke branch), and the outline's own
-      // pen widens the box again on top of that.
-      const textPen = Math.min(g_defaultPen, h * 0.25);
-      const symbLen = measureText(l.text, h) + 3 * textPen + 2 * margin;
-      const x = symbLen + g_defaultPen + 3,
-        y = hs + g_defaultPen + 3;
-      const box: { x: number; y: number }[] = [
-        { x: 0, y: 0 },
-        { x: 0, y: -y },
-        { x: -x, y: -y },
-        { x: -x, y: 0 },
-        { x: -x, y },
-        { x: 0, y },
-      ];
-      let xoff = 0;
       const s = l.shape ?? 'bidirectional';
-      if (s === 'input') {
-        xoff = -hs;
-        box[0]!.x += hs;
-      } else if (s === 'output') {
-        box[3]!.x -= hs;
-      } else if (s === 'bidirectional' || s === 'tri_state') {
-        xoff = -hs;
-        box[0]!.x += hs;
-        box[3]!.x -= hs;
-      }
-      const pts = box.map((p) => {
-        const r = spinRotate({ x: p.x + xoff, y: p.y }, spin);
-        return { x: l.at.x + r.x, y: l.at.y + r.y };
-      });
+      const pts = globalLabelShape(l, g_labelSizeRatio);
       polygon(ctx, pts, false, true);
       // SCH_GLOBALLABEL::GetSchematicTextOffset: the text hangs off the anchor
       // by the box expansion (plus three-quarters of the height when the shape

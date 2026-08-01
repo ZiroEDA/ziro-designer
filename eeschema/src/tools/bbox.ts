@@ -109,6 +109,82 @@ export function textBoxWidth(text: string, height: number, bold = false): number
   return measureText(text, height) + 3 * textPenWidth(height, bold);
 }
 
+/** SPIN_STYLE, in KiCad's order. */
+export const SPIN = { LEFT: 0, UP: 1, RIGHT: 2, BOTTOM: 3 } as const;
+
+/** `SCH_LABEL_BASE::GetSpinStyle`: from the text angle and horizontal justify. */
+export function labelSpin(angle: number, justify?: readonly string[]): number {
+  const vertical = (((angle % 360) + 360) % 360) % 180 === 90;
+  const right = justify?.includes('right') ?? false;
+  if (vertical) return right ? SPIN.BOTTOM : SPIN.UP;
+  return right ? SPIN.LEFT : SPIN.RIGHT;
+}
+
+/** The spin rotation CreateGraphicShape applies to its points. */
+export function spinRotate(p: Vec2, spin: number): Vec2 {
+  switch (spin) {
+    case SPIN.UP:
+      return { x: p.y, y: -p.x };
+    case SPIN.RIGHT:
+      return { x: -p.x, y: -p.y };
+    case SPIN.BOTTOM:
+      return { x: -p.y, y: p.x };
+    default:
+      return p;
+  }
+}
+
+/** DEFAULT_LABEL_SIZE_RATIO: the box expansion around a global label's text. */
+const DEFAULT_LABEL_SIZE_RATIO = 0.375;
+
+/**
+ * `SCH_GLOBALLABEL::CreateGraphicShape`: the six points of a global label's
+ * outline, in world coordinates.
+ *
+ * Shared with the painter so the shape a label is drawn as and the box it is
+ * selected by cannot drift apart — they were two separate estimates before, and
+ * they disagreed.
+ */
+export function globalLabelShape(l: SchLabel, labelSizeRatio = DEFAULT_LABEL_SIZE_RATIO): Vec2[] {
+  const h = l.effects?.fontSize?.[0] ?? 12700;
+  const bold = !!l.effects?.bold;
+  const pen = textPenWidth(h, bold);
+  const margin = labelSizeRatio * h;
+  const halfSize = h / 2 + margin;
+  const symbLen = textBoxWidth(l.text, h, bold) + 2 * margin;
+  const x = symbLen + pen + 3;
+  const y = halfSize + pen + 3;
+
+  const box: { x: number; y: number }[] = [
+    { x: 0, y: 0 },
+    { x: 0, y: -y },
+    { x: -x, y: -y },
+    { x: -x, y: 0 },
+    { x: -x, y },
+    { x: 0, y },
+  ];
+
+  // The flag's notch and point, per shape.
+  let xoff = 0;
+  const shape = l.shape ?? 'bidirectional';
+  if (shape === 'input') {
+    xoff = -halfSize;
+    box[0]!.x += halfSize;
+  } else if (shape === 'output') {
+    box[3]!.x -= halfSize;
+  } else if (shape === 'bidirectional' || shape === 'tri_state') {
+    xoff = -halfSize;
+    box[0]!.x += halfSize;
+    box[3]!.x -= halfSize;
+  }
+
+  const spin = labelSpin(l.angle, l.effects?.justify);
+  return box.map((p) => {
+    const r = spinRotate({ x: p.x + xoff, y: p.y }, spin);
+    return { x: l.at.x + r.x, y: l.at.y + r.y };
+  });
+}
+
 /**
  * Body box of a label or free text. Counterpart: `SCH_LABEL::GetBodyBoundingBox`
  * — the measured text box, lifted by the text offset that holds a label clear
@@ -129,6 +205,15 @@ export function labelBox(l: SchLabel): BBox {
   const justify = l.effects?.justify;
   const bold = !!l.effects?.bold;
   const pen = textPenWidth(h, bold);
+  // A global label is boxed by its outline, not by its text
+  // (SCH_LABEL_BASE::GetBodyBoundingBox merges the graphic shape's points and
+  // inflates by half the pen). That box is bigger than the text on every side,
+  // which is what makes the whole flag clickable and not just the letters.
+  if (l.kind === 'global_label') {
+    const b = emptyBBox();
+    for (const p of globalLabelShape(l)) includePoint(b, p);
+    return inflate(b, pen / 2);
+  }
   const w = textBoxWidth(l.text, h, bold) + 2 * pen;
   const at = l.at;
   const left = justify?.includes('right') ? at.x - w : at.x;
