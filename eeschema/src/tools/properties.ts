@@ -34,6 +34,8 @@ export interface SymbolEdit {
   readonly angle: number;
   readonly mirror?: 'x' | 'y';
   readonly unit: number;
+  /** Body style, 1-based; 2 is KiCad's "De Morgan" alternate. */
+  readonly bodyStyle: number;
   readonly inBom: boolean;
   readonly onBoard: boolean;
   readonly dnp: boolean;
@@ -66,6 +68,7 @@ export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand 
             ...s,
             angle: edit.angle,
             unit: edit.unit,
+            bodyStyle: edit.bodyStyle,
             inBom: edit.inBom,
             onBoard: edit.onBoard,
             dnp: edit.dnp,

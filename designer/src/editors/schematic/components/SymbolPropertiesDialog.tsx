@@ -64,6 +64,8 @@ interface Props {
   fieldTemplates?: readonly FieldTemplate[];
   /** Unit-notation inputs for the shown Reference (SubReference). */
   subpart?: SubpartSettings;
+  /** Whether the library symbol draws a second body style (De Morgan). */
+  hasAlternate?: boolean;
   onOk: (edit: SymbolEdit) => void;
   onCancel: () => void;
 }
@@ -92,6 +94,7 @@ export function SymbolPropertiesDialog({
   lib,
   fieldTemplates,
   subpart,
+  hasAlternate,
   onOk,
   onCancel,
 }: Props): JSX.Element {
@@ -134,6 +137,7 @@ export function SymbolPropertiesDialog({
   );
   const [mirror, setMirror] = useState<'' | 'x' | 'y'>(symbol.mirror ?? '');
   const [unit, setUnit] = useState(symbol.unit);
+  const [bodyStyle, setBodyStyle] = useState(symbol.bodyStyle);
 
   const [excludeSim, setExcludeSim] = useState(!!symbol.excludedFromSim);
   const [excludeBom, setExcludeBom] = useState(!symbol.inBom);
@@ -251,6 +255,7 @@ export function SymbolPropertiesDialog({
       angle: o.angle,
       mirror: o.mirror,
       unit,
+      bodyStyle,
       inBom: !excludeBom,
       onBoard: !excludeBoard,
       dnp,
@@ -460,6 +465,18 @@ export function SymbolPropertiesDialog({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="row">
+                {/* DIALOG_SYMBOL_PROPERTIES' "Alternate symbol (De Morgan)":
+                    body style 2 is the same gate drawn with its inputs and
+                    output inverted. Greyed when the symbol has no alternate. */}
+                <input
+                  type="checkbox"
+                  disabled={!hasAlternate}
+                  checked={bodyStyle === 2}
+                  onChange={(e) => setBodyStyle(e.target.checked ? 2 : 1)}
+                />
+                <span>Alternate symbol (De Morgan)</span>
               </label>
               <label className="row">
                 <span>Angle:</span>
