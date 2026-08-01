@@ -116,6 +116,9 @@ export interface TeardropParams {
 }
 
 /** A board or footprint graphic (gr_line/fp_line families), board-absolute. */
+/** `(stroke (type …))`, LINE_STYLE. `default` is the layer's own style. */
+export type StrokeType = 'default' | 'solid' | 'dash' | 'dot' | 'dash_dot' | 'dash_dot_dot';
+
 export interface PcbShape {
   kind: 'line' | 'arc' | 'circle' | 'rect' | 'poly' | 'curve';
   start?: Vec2;
@@ -124,8 +127,14 @@ export interface PcbShape {
   center?: Vec2;
   pts?: Vec2[];
   width: number;
+  /** `(stroke (type …))`; absent means the file did not say, i.e. solid. */
+  strokeType?: StrokeType;
   fill: boolean;
   layer: string;
+  /** `(layers "F.SilkS" "F.Mask")`: a graphic can open the solder mask too. */
+  maskLayer?: string;
+  /** `(solder_mask_margin …)`, IU. */
+  solderMaskMargin?: number;
   locked?: boolean;
   uuid?: string;
   source: SList;

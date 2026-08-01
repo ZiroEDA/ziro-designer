@@ -126,6 +126,20 @@ import {
 import { flipBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
 import {
+  DialogShapeProperties,
+  DialogTextProperties,
+} from './dialogs/dialog_graphic_properties.js';
+import {
+  applyShapeValues,
+  applyTextValues,
+  collectShapeValues,
+  collectTextValues,
+  shapeAt,
+  textAt,
+  type ShapeValues,
+  type TextValues,
+} from '@ziroeda/pcbnew/src/graphic_properties.js';
+import {
   applyPadValues,
   collectPadValues,
   // `padAt` is taken by the local hit-test helper below.
@@ -993,6 +1007,9 @@ export function PcbEditor({
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
+  // Text / Shape properties for board graphics.
+  const [textPropsIndex, setTextPropsIndex] = useState<number | null>(null);
+  const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2838,6 +2855,12 @@ export function PcbEditor({
     } else if (top && r?.kind === 'zone') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setZonePropsIndex(r.index);
+    } else if (top && r?.kind === 'text') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setTextPropsIndex(r.index);
+    } else if (top && r?.kind === 'shape') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setShapePropsIndex(r.index);
     } else if (top && r?.kind === 'pad') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
@@ -2915,8 +2938,16 @@ export function PcbEditor({
       const zoneIdx = brd ? zoneAt(brd, selection) : null;
       const fpIdx = brd ? footprintAt(brd, selection) : null;
       const padIdx = brd ? selectedPadAt(brd, selection) : null;
+      const textIdx = brd ? textAt(brd, selection) : null;
+      const shapeIdx = brd ? shapeAt(brd, selection) : null;
       const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-      const editable = copper || zoneIdx !== null || fpIdx !== null || padIdx !== null;
+      const editable =
+        copper ||
+        zoneIdx !== null ||
+        fpIdx !== null ||
+        padIdx !== null ||
+        textIdx !== null ||
+        shapeIdx !== null;
       items.push(
         { sep: true },
         {
@@ -2925,6 +2956,8 @@ export function PcbEditor({
             if (copper) setTrackViaOpen(true);
             else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
             else if (padIdx !== null) setPadPropsRef(padIdx);
+            else if (textIdx !== null) setTextPropsIndex(textIdx);
+            else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
             else setFpPropsIndex(fpIdx);
           },
           disabled: !editable,
@@ -3508,6 +3541,18 @@ export function PcbEditor({
       return;
     }
 
+    const ti = textAt(brd, sel);
+    if (ti !== null) {
+      setTextPropsIndex(ti);
+      return;
+    }
+
+    const si = shapeAt(brd, sel);
+    if (si !== null) {
+      setShapePropsIndex(si);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -3541,6 +3586,31 @@ export function PcbEditor({
   }, [commitBoard]);
   const flipSelectionRef = useRef(flipSelection);
   flipSelectionRef.current = flipSelection;
+
+  /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
+  const applyTextEdit = useCallback(
+    (values: TextValues) => {
+      const brd = boardRef.current;
+      const index = textPropsIndex;
+      setTextPropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyTextValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, textPropsIndex],
+  );
+
+  const applyShapeEdit = useCallback(
+    (values: ShapeValues) => {
+      const brd = boardRef.current;
+      const index = shapePropsIndex;
+      setShapePropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyShapeValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, shapePropsIndex],
+  );
 
   /** DIALOG_PAD_PROPERTIES::TransferDataFromWindow. */
   const applyPadEdit = useCallback(
@@ -6543,6 +6613,23 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {textPropsIndex !== null && board?.texts[textPropsIndex] && (
+        <DialogTextProperties
+          initial={collectTextValues(board.texts[textPropsIndex]!)}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyTextEdit}
+          onClose={() => setTextPropsIndex(null)}
+        />
+      )}
+      {shapePropsIndex !== null && board?.shapes[shapePropsIndex] && (
+        <DialogShapeProperties
+          initial={collectShapeValues(board.shapes[shapePropsIndex]!)}
+          kind={board.shapes[shapePropsIndex]!.kind}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyShapeEdit}
+          onClose={() => setShapePropsIndex(null)}
         />
       )}
       {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
