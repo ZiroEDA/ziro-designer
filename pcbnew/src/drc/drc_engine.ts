@@ -28,9 +28,15 @@
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Board, PadPrimitive, PcbPad, PcbVia } from '../types.js';
+import type { Board, PadPrimitive, PcbPad, PcbShape, PcbVia } from '../types.js';
+import {
+  areaOutline,
+  areasMatching,
+  shapesEnclosedByArea,
+  shapesIntersectArea,
+} from './drc_areas.js';
 import { type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
-import type { DrcConstraintType, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule.js';
+import type { DrcConstraintType, DrcDisallow, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule.js';
 import {
   buildDrcRuleEngine,
   collectAssertions,
@@ -309,10 +315,58 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   const out: DrcViolation[] = [];
   const clearanceOf = opts.clearanceOf ?? (() => 0);
 
-  // User rules only: the board and netclass values still come from the path
-  // below, so a match here means "a custom rule overrides them".
-  const ruleEngine = opts.customRules ? buildDrcRuleEngine([], opts.customRules) : undefined;
+  // The board and netclass *values* still come from the path below, so a
+  // numeric match in the engine means "a custom rule overrides them". Rule
+  // areas are the one implicit source loaded here, because a keepout has no
+  // other way to be expressed.
+  const implicitRules = ruleAreaRules(board);
+  const ruleEngine =
+    opts.customRules || implicitRules.length > 0
+      ? buildDrcRuleEngine(implicitRules, opts.customRules ?? { version: 0, rules: [], errors: [] })
+      : undefined;
   const netClassesOf = opts.netClassesOf ?? (() => []);
+
+  /**
+   * `A.intersectsArea('x')` and friends. The selector names zones by uuid or by
+   * wildcard name; the caller-side geometry lives in drc_areas.ts.
+   */
+  const areaTest =
+    (shapes: readonly Shape[], itemLayers: readonly string[]) =>
+    (fn: string, fnArgs: string[]): boolean | undefined => {
+      const name = fn.toLowerCase();
+      // insideArea is upstream's deprecated spelling of intersectsArea, and
+      // resolves to the same function — not to enclosure.
+      const wantsEnclosure = name === 'enclosedbyarea';
+      if (!wantsEnclosure && name !== 'intersectsarea' && name !== 'insidearea') return undefined;
+
+      const selector = fnArgs[0];
+      if (selector === undefined) return false;
+
+      // `#N` is our own fallback for a zone that has no uuid yet — see
+      // ruleAreaRules. It cannot collide with a uuid or a zone name.
+      const byIndex = /^#(\d+)$/.exec(selector);
+      const candidates = byIndex
+        ? [board.zones[Number(byIndex[1])]].filter((z) => z !== undefined)
+        : areasMatching(board.zones, selector);
+
+      for (const area of candidates) {
+        // An area never collides with itself, and shares a layer or it cannot
+        // be reached at all.
+        if (!area.layers.some((l) => itemLayers.includes(l))) continue;
+
+        const outline = areaOutline(area);
+        if (!outline) continue;
+
+        if (
+          wantsEnclosure
+            ? shapesEnclosedByArea(shapes, outline)
+            : shapesIntersectArea(shapes, outline)
+        )
+          return true;
+      }
+
+      return false;
+    };
 
   const evalItem = (
     type: DrcItemType,
@@ -600,14 +654,23 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   // skipped entirely (HasRulesForConstraintType).
   if (ruleEngine && (ruleEngine.byType.has('disallow') || ruleEngine.byType.has('assertion'))) {
     for (const item of boardEvalItems(board, netName, netClassesOf)) {
+      const itemLayers = item.eval.layers ?? (item.eval.layer ? [item.eval.layer] : []);
+      const withShapes = (shapes: readonly Shape[]): DrcEvalItem => ({
+        ...item.eval,
+        test: areaTest(shapes, itemLayers),
+      });
+
       if (ruleEngine.byType.has('disallow')) {
         // A drilled item is evaluated twice, as itself and as its hole, which
         // is how `(constraint disallow hole)` reaches a via or a plated pad.
         for (const holeProxy of item.hasHole ? [false, true] : [false]) {
+          // The hole pass collides the hole alone, not the pad around it.
+          const evalItem = withShapes(holeProxy ? (item.holeShapes ?? item.shapes) : item.shapes);
+
           const r = evalDrcRules(
             ruleEngine,
             'disallow',
-            item.eval,
+            evalItem,
             undefined,
             item.eval.layer,
             undefined,
@@ -628,7 +691,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
       }
 
       if (ruleEngine.byType.has('assertion')) {
-        const { results } = collectAssertions(ruleEngine, item.eval, item.eval.layer);
+        const { results } = collectAssertions(ruleEngine, withShapes(item.shapes), item.eval.layer);
 
         for (const a of results) {
           if (a.passed) continue;
@@ -654,6 +717,10 @@ interface BoardEvalItem {
   pos: Vec2;
   /** Drilled, so it gets the second HOLE_PROXY pass. */
   hasHole: boolean;
+  /** The item's copper geometry, for the area predicates. */
+  shapes: Shape[];
+  /** Its hole alone, which is what the HOLE_PROXY pass collides. */
+  holeShapes?: Shape[];
 }
 
 /**
@@ -683,6 +750,7 @@ function* boardEvalItems(
       desc: `Track [${netName(t.net)}] on ${t.layer}`,
       pos: t.start,
       hasHole: false,
+      shapes: [{ kind: 'stadium', a: t.start, b: t.end, r: t.width / 2 }],
     };
   }
 
@@ -698,6 +766,7 @@ function* boardEvalItems(
       desc: `Track [${netName(t.net)}] on ${t.layer}`,
       pos: t.start,
       hasHole: false,
+      shapes: [arcShape(t.start, t.mid, t.end, t.width)],
     };
   }
 
@@ -714,6 +783,8 @@ function* boardEvalItems(
       desc: `Via [${netName(v.net)}]`,
       pos: v.at,
       hasHole: true,
+      shapes: [{ kind: 'circle', c: v.at, r: v.size / 2 }],
+      holeShapes: [{ kind: 'circle', c: v.at, r: v.drill / 2 }],
     };
   }
 
@@ -725,6 +796,11 @@ function* boardEvalItems(
       desc: `Footprint ${ref}`,
       pos: fp.at,
       hasHole: false,
+      // Upstream collides a footprint's *courtyard* with the area, and reports
+      // an error rather than a match when there is none. We do not model
+      // courtyards, so a footprint never matches an area predicate — the same
+      // answer, by the same reasoning.
+      shapes: [],
     };
 
     for (const pad of fp.pads) {
@@ -741,6 +817,16 @@ function* boardEvalItems(
         desc: `Pad ${pad.number} of ${ref}`,
         pos: pad.at,
         hasHole: pad.drill !== undefined,
+        shapes: padShapes(pad),
+        holeShapes: pad.drill
+          ? [
+              {
+                kind: 'circle',
+                c: pad.at,
+                r: Math.min(pad.drill.w, pad.drill.h || pad.drill.w) / 2,
+              },
+            ]
+          : undefined,
       };
     }
   }
@@ -759,6 +845,10 @@ function* boardEvalItems(
       // ZONE::GetPosition is the first outline corner.
       pos: z.outline?.[0] ?? z.fills[0]?.polys[0]?.[0] ?? { x: 0, y: 0 },
       hasHole: false,
+      // A zone collides through its poured copper, not its outline: an unfilled
+      // zone has no geometry to collide (collidesWithArea returns false for
+      // !IsFilled).
+      shapes: z.fills.flatMap((f) => f.polys.map((pts) => ({ kind: 'poly' as const, pts, r: 0 }))),
     };
   }
 
@@ -768,6 +858,7 @@ function* boardEvalItems(
       desc: `Graphic on ${s.layer}`,
       pos: s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 },
       hasHole: false,
+      shapes: graphicShapes(s),
     };
   }
 
@@ -777,8 +868,94 @@ function* boardEvalItems(
       desc: `Text '${t.text}' on ${t.layer}`,
       pos: t.at,
       hasHole: false,
+      // Text collides through its stroked glyphs, which we do not tessellate.
+      shapes: [],
     };
   }
+}
+
+/** A board graphic's collision geometry, PCB_SHAPE::GetEffectiveShape. */
+function graphicShapes(s: PcbShape): Shape[] {
+  const r = s.width / 2;
+
+  switch (s.kind) {
+    case 'line':
+      return s.start && s.end ? [{ kind: 'stadium', a: s.start, b: s.end, r }] : [];
+
+    case 'circle': {
+      if (!s.center || !s.end) return [];
+      const rad = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
+      // A filled circle is the disc; an unfilled one is the stroked ring, and
+      // the ring's *interior* is not part of the shape.
+      return s.fill
+        ? [{ kind: 'circle', c: s.center, r: rad + r }]
+        : [{ kind: 'arc', c: s.center, rad, a0: 0, sweep: 2 * Math.PI, r }];
+    }
+
+    case 'arc':
+      return s.start && s.mid && s.end ? [arcShape(s.start, s.mid, s.end, s.width)] : [];
+
+    case 'rect':
+      if (!s.start || !s.end) return [];
+      return [
+        {
+          kind: 'poly',
+          pts: [s.start, { x: s.end.x, y: s.start.y }, s.end, { x: s.start.x, y: s.end.y }],
+          r,
+        },
+      ];
+
+    case 'poly':
+      return s.pts && s.pts.length >= 3 ? [{ kind: 'poly', pts: s.pts, r }] : [];
+
+    // A Bezier is stored by its control points; colliding the hull would
+    // over-report, so it is left out rather than approximated.
+    case 'curve':
+      return [];
+  }
+}
+
+/**
+ * The implicit `disallow` rules a board's rule areas imply, as
+ * `DRC_ENGINE::loadImplicitRules` builds them: one rule per area, conditioned
+ * on the item intersecting it, carrying the area's keepout flags.
+ *
+ * Upstream gives the rule a whole layer *set*; a DrcRule names one layer, so a
+ * multi-layer area becomes one rule per layer — the same thing said longer.
+ */
+export function ruleAreaRules(board: Board): DrcRule[] {
+  const rules: DrcRule[] = [];
+
+  board.zones.forEach((zone, index) => {
+    const ko = zone.ruleArea;
+    if (!ko || !zone.outline || zone.outline.length < 3) return;
+
+    const disallow: DrcDisallow[] = [];
+    if (ko.tracks) disallow.push('track');
+    if (ko.vias) disallow.push('via');
+    if (ko.pads) disallow.push('pad');
+    if (ko.copperPour) disallow.push('zone');
+    if (ko.footprints) disallow.push('footprint');
+
+    if (disallow.length === 0) return;
+
+    // The uuid is what upstream keys the condition on. A zone built in memory
+    // may not have one yet, so it falls back to its index — which addresses
+    // exactly one zone and never collides with a real uuid.
+    const selector = zone.uuid ?? `#${index}`;
+    const name = zone.name ? `keepout area '${zone.name}'` : 'keepout area';
+
+    for (const layer of zone.layers.length > 0 ? zone.layers : [undefined]) {
+      rules.push({
+        name,
+        layer,
+        condition: `A.intersectsArea('${selector}')`,
+        constraints: [{ type: 'disallow', value: {}, disallow }],
+      });
+    }
+  });
+
+  return rules;
 }
 
 /**
