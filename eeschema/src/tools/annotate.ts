@@ -437,6 +437,63 @@ export function setSymbolsCommand(symbols: readonly SchSymbol[], label: string):
   };
 }
 
+/**
+ * SCH_REFERENCE::IsSplitNeeded: the reference ends in a number or a `?`, so
+ * there is something to split off. "R12" and "R?" qualify; "R" and "TP" do not.
+ */
+export function isSplitNeeded(ref: string): boolean {
+  if (ref === '') return false;
+  const last = ref[ref.length - 1]!;
+  return last === '?' || (last >= '0' && last <= '9');
+}
+
+export interface IncrementAnnotationsOptions {
+  /** The reference to start from, e.g. "R5": its prefix picks which symbols are
+   *  touched and its number picks where in the run to start. */
+  startRef: string;
+  /** How much to add, 1..64 (the dialog's spin range). */
+  increment: number;
+}
+
+/**
+ * SCH_EDITOR_CONTROL::IncrementAnnotations: renumber a tail of one reference
+ * prefix, so that room can be made in the middle of an existing run.
+ *
+ * Everything sharing the start reference's prefix and numbered at or above its
+ * number moves up by `increment`; everything else is untouched. A start
+ * reference with nothing to split ("R", "TP") is rejected upstream and is a
+ * no-op here.
+ *
+ * Note that an unannotated "R?" reads as number 0, exactly as upstream's
+ * atoi( GetRefNumber() ) does, so starting at "R?" renumbers the whole R run
+ * including the unannotated ones.
+ *
+ * Returns the same array when nothing changed.
+ */
+export function incrementAnnotations(
+  symbols: readonly SchSymbol[],
+  opts: IncrementAnnotationsOptions,
+): readonly SchSymbol[] {
+  if (!isSplitNeeded(opts.startRef)) return symbols;
+  const start = splitReference(opts.startRef);
+  const startNum = start.num ?? 0;
+  let changed = false;
+  const out = symbols.map((sym) => {
+    const field = referenceOf(sym);
+    if (!field) return sym;
+    const { prefix, num } = splitReference(field.value);
+    if (prefix !== start.prefix) return sym;
+    if ((num ?? 0) < startNum) return sym;
+    changed = true;
+    const next = `${prefix}${(num ?? 0) + opts.increment}`;
+    return {
+      ...sym,
+      fields: sym.fields.map((f) => (f === field ? setFieldValue(f, next) : f)),
+    };
+  });
+  return changed ? out : symbols;
+}
+
 // ----- reporting (the Annotation Messages panel) -----------------------------
 
 /** SCH_SYMBOL::SubReference, 1 → "A", 2 → "B"… (the default notation). */

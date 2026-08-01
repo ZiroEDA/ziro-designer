@@ -104,6 +104,7 @@ import {
   replaceCommand,
   defaultSearchData,
   annotateHierarchy,
+  incrementAnnotations,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -231,6 +232,10 @@ import {
   type SheetRef,
 } from './sch_navigate_tool.js';
 import { DialogSchematicFind } from './dialogs/dialog_schematic_find.js';
+import {
+  DialogIncrementAnnotations,
+  type IncrementAnnotationsResult,
+} from './dialogs/dialog_increment_annotations.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
@@ -1322,6 +1327,8 @@ export function SchematicEditor({
 
   // Annotate Schematic (SCH_EDIT_FRAME::AnnotateSymbols) dialog.
   const [annotateOpen, setAnnotateOpen] = useState(false);
+  // SCH_ACTIONS::incrementAnnotations, a small dialog of its own.
+  const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
   // Page Settings (DIALOG_PAGES_SETTINGS), Print (DIALOG_PRINT) and Plot
   // (DIALOG_PLOT_SCHEMATIC) dialogs, open flags.
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
@@ -1658,6 +1665,30 @@ export function SchematicEditor({
       }
     },
     [currentFile, runCommand, libById],
+  );
+
+  // Increment Annotations From… (SCH_EDITOR_CONTROL::IncrementAnnotations):
+  // move a tail of one reference prefix up, to free numbers in the middle of a
+  // run. The scope radio is the dialog's own, not the annotate dialog's, so it
+  // is either this sheet or every sheet — nothing in between.
+  const runIncrementAnnotations = useCallback(
+    (r: IncrementAnnotationsResult) => {
+      const sheets = r.allSheets
+        ? annotateSheets('all', false)
+        : annotateSheets('current_sheet', false);
+      const changedFiles: PickedFile[] = [];
+      for (const sheet of sheets) {
+        if (sheet.scope === 'out') continue;
+        const symbols = incrementAnnotations(sheet.doc.symbols, {
+          startRef: r.startRef,
+          increment: r.increment,
+        });
+        if (symbols === sheet.doc.symbols) continue;
+        applySheetSymbols(sheet.file, symbols, 'Increment Annotations', changedFiles);
+      }
+      if (changedFiles.length) onProjectChange?.(changedFiles);
+    },
+    [annotateSheets, applySheetSymbols, onProjectChange],
   );
 
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
@@ -4037,6 +4068,7 @@ export function SchematicEditor({
       else if (id === 'find') openFindDialog('find');
       else if (id === 'findReplace') openFindDialog('replace');
       else if (id === 'annotate') setAnnotateOpen(true);
+      else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
       else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
@@ -5562,6 +5594,15 @@ export function SchematicEditor({
                 setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
+            />
+          )}
+          {incrementAnnotationsOpen && (
+            <DialogIncrementAnnotations
+              onOk={(r) => {
+                setIncrementAnnotationsOpen(false);
+                runIncrementAnnotations(r);
+              }}
+              onCancel={() => setIncrementAnnotationsOpen(false)}
             />
           )}
           {pageSettingsOpen && doc && (
