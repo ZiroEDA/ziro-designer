@@ -899,6 +899,129 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- padstack sanity ---------------------------------------------------
+  // PAD::doCheckPad. Two codes with different weight: `padstack_invalid` is
+  // geometry that cannot be built at all, `padstack` is a padstack that will
+  // build but probably is not what was meant.
+  for (const fp of board.footprints) {
+    const ref = fp.reference ?? fp.lib;
+
+    for (const pad of fp.pads) {
+      const desc = `Pad ${pad.number} of ${ref}`;
+      const bad = (code: 'padstack' | 'padstack_invalid', detail: string): void => {
+        out.push({
+          code,
+          message: `${code === 'padstack' ? 'Padstack is questionable' : 'Padstack is not valid'} ${detail}`,
+          pos: pad.at,
+          items: [{ desc, pos: pad.at }],
+        });
+      };
+
+      // A circle takes its diameter from x alone, so a zero y is legal there
+      // and nowhere else.
+      if (pad.shape !== 'custom') {
+        if (pad.size.x <= 0 || (pad.size.y <= 0 && pad.shape !== 'circle'))
+          bad('padstack_invalid', '(Pad must have a positive size)');
+      }
+
+      if (pad.drill) {
+        // Four IU: below that a hole cannot be turned into a polygon at all.
+        if (pad.drill.w <= 4 || (pad.drill.h || pad.drill.w) <= 4)
+          bad('padstack_invalid', '(PTH pad hole size must be larger than 4 nm)');
+
+        // An SMD pad is a surface feature; a hole in one is a contradiction.
+        if (pad.type === 'smd' || pad.type === 'connect')
+          bad('padstack_invalid', '(SMD pad has a hole)');
+      }
+
+      // Property/attribute pairings that upstream calls out by name.
+      const prop = pad.padProperty;
+      const plated = pad.type === 'thru_hole';
+
+      if (prop === 'pad_prop_fiducial_glob' || prop === 'pad_prop_fiducial_loc') {
+        if (pad.type === 'np_thru_hole') bad('padstack', "('fiducial' pads are normally plated)");
+      }
+      if (prop === 'pad_prop_testpoint' && pad.type === 'np_thru_hole')
+        bad('padstack', "('testpoint' pads are normally plated)");
+      if (prop === 'pad_prop_heatsink' && pad.type === 'np_thru_hole')
+        bad('padstack', "('heatsink' pads are normally plated)");
+      if (prop === 'pad_prop_castellated' && !plated)
+        bad('padstack', "('castellated' pads are normally PTH)");
+      if (prop === 'pad_prop_bga' && pad.type !== 'smd')
+        bad('padstack', "('BGA' property is for SMD pads)");
+      if (prop === 'pad_prop_mechanical' && !plated)
+        bad('padstack', "('mechanical' pads are normally PTH)");
+      if (prop === 'pad_prop_pressfit' && (!plated || pad.drill?.oblong))
+        bad('padstack', "('press-fit' pads are normally PTH with round holes)");
+
+      // A connector pad is an SMD pad that is deliberately not pasted.
+      if (pad.type === 'connect' && pad.layers.some((l) => /\.Paste$/.test(l)))
+        bad('padstack', '(connector pads normally have no solder paste; use a SMD pad instead)');
+
+      if (pad.type === 'smd') {
+        const cu = pad.layers.filter((l) => isCopper(l) || l === '*.Cu');
+        const front = cu.some((l) => l === 'F.Cu' || l === '*.Cu');
+        const back = cu.some((l) => l === 'B.Cu' || l === '*.Cu');
+
+        if (front && back) bad('padstack', '(SMD pad has copper on both sides of the board)');
+        else if (!front && !back) bad('padstack', '(SMD pad has no outer layers)');
+      }
+
+      // A negative local clearance is silently ignored by everything that
+      // reads it, so saying so is more use than honouring it.
+      if ((pad.localClearance ?? 0) < 0)
+        bad('padstack', '(negative local clearance values have no effect)');
+
+      const maskMargin = pad.localSolderMaskMargin;
+      if (maskMargin !== undefined && maskMargin < 0 && pad.shape !== 'custom') {
+        const abs = Math.abs(maskMargin);
+        if (abs > pad.size.x || abs > pad.size.y)
+          bad(
+            'padstack',
+            '(negative solder mask clearance is larger than pad; no solder mask will be generated)',
+          );
+      }
+
+      // Paste is the pad grown by the margin plus a fraction of its own size.
+      const pasteMargin = pad.localSolderPasteMargin ?? 0;
+      const ratio = pad.localSolderPasteMarginRatio ?? 0;
+      const pasteX = pad.size.x + pasteMargin + Math.round(pad.size.x * ratio);
+      const pasteY = pad.size.y + pasteMargin + Math.round(pad.size.y * ratio);
+
+      if (pasteX <= 0 || pasteY <= 0)
+        bad(
+          'padstack',
+          '(negative solder paste margin is larger than pad; no solder paste mask will be generated)',
+        );
+
+      // The corner ratios are a deliberate divergence, and the only one here.
+      // Upstream tests `GetRoundRectRadiusRatio() > 50.0`, but that getter
+      // returns exactly the number the file stores — `(roundrect_rratio 0.25)`
+      // — which is a 0..0.5 fraction, so the comparison can never fire. The
+      // threshold that matches the message is half: a radius above half the
+      // pad's smaller dimension is what makes it circular. Same for chamfer.
+      if (pad.shape === 'roundrect') {
+        const r = pad.roundrectRatio ?? 0;
+        if (r < 0) bad('padstack_invalid', '(negative corner radius is not allowed)');
+        else if (r > 0.5) bad('padstack', '(corner size will make pad circular)');
+      } else if (pad.shape === 'trapezoid') {
+        const dx = pad.delta?.x ?? 0;
+        const dy = pad.delta?.y ?? 0;
+        if (Math.abs(dx) > pad.size.y || Math.abs(dy) > pad.size.x)
+          bad('padstack_invalid', '(trapezoid delta is too large)');
+      }
+
+      // A chamfer ratio lives alongside the roundrect one rather than
+      // replacing it, so it is checked whatever the shape token says. Same
+      // fraction-vs-50 divergence as above.
+      const chamfer = pad.chamferRatio;
+      if (chamfer !== undefined) {
+        if (chamfer < 0) bad('padstack_invalid', '(negative corner chamfer is not allowed)');
+        else if (chamfer > 0.5) bad('padstack_invalid', '(corner chamfer is too large)');
+      }
+    }
+  }
+
   // ----- starved thermals --------------------------------------------------
   // drc_test_provider_zone_connections. A thermally-relieved pad is meant to
   // reach its zone through several spokes; if the pour could only form one,
