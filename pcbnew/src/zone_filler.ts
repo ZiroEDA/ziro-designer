@@ -371,16 +371,26 @@ export function fillZone(
       area = polygonClipping.intersection(withSpokes as Geom, outline) as MultiPolygon;
     }
 
-    // Islands that reach nothing on the net are dropped
-    // (ZONE_FILLER's island removal, ISLAND_REMOVAL_MODE::ALWAYS). The test is
-    // on the outer ring; the polygon's holes travel with it.
+    // Islands that reach nothing on the net (ZONE_FILLER's island removal).
+    // ISLAND_REMOVAL_MODE decides their fate: ALWAYS drops them, NEVER keeps
+    // them all, AREA keeps the ones at or above the limit. The test is on the
+    // outer ring; the polygon's holes travel with it.
+    const islandMode = zone.islandRemovalMode ?? 'always';
+    // island_area_min is stored in mm², so the comparison happens there too.
+    const iuPerMM = mmToIU(1);
+    const minIslandArea = (zone.islandAreaMin ?? 10) * iuPerMM * iuPerMM;
+
     const kept: Polygon[] = [];
     for (const poly of area) {
       const outer = poly[0];
       if (!outer || outer.length < 4) continue;
       const pts = ptsOf(outer);
-      if (zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInRing(p, pts)))
-        continue;
+      const island =
+        zone.net > 0 && connected.length > 0 && !connected.some((p) => pointInRing(p, pts));
+
+      if (island && islandMode === 'always') continue;
+      if (island && islandMode === 'area' && Math.abs(ringArea(pts)) < minIslandArea) continue;
+
       kept.push(poly.map(ptsOf));
     }
 

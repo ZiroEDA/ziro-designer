@@ -614,6 +614,7 @@ function readZone(item: SList): PcbZone {
   return {
     net: netNode ? (numArg(netNode, 0) ?? 0) : 0,
     netName: stringField(item, 'net_name'),
+    name: stringField(item, 'name'),
     layers,
     fills,
     outline: outline.length >= 3 ? outline : undefined,
@@ -664,6 +665,12 @@ function readZone(item: SList): PcbZone {
     hatchSmoothingValue: numChild(fillNode, 'hatch_smoothing_value') ?? 0,
     hatchHoleMinArea: numChild(fillNode, 'hatch_min_hole_area') ?? 0.3,
     filled: fillNode ? arg(fillNode, 0) === 'yes' : false,
+    islandRemovalMode: (() => {
+      const v = numChild(fillNode, 'island_removal_mode');
+      return v === 1 ? ('never' as const) : v === 2 ? ('area' as const) : ('always' as const);
+    })(),
+    // Stored in mm², not IU: upstream divides by IU_PER_MM when writing it.
+    islandAreaMin: numChild(fillNode, 'island_area_min') ?? 10,
     priority: priorityNode ? (numArg(priorityNode, 0) ?? 0) : 0,
     teardropType,
     uuid: uuidOf(item),

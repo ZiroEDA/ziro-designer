@@ -201,14 +201,23 @@ export function buildZoneNode(z: PcbZone): SList {
 
   items.push(list(atom('min_thickness'), atom(mm(z.minThickness ?? PCB_MM(0.25)))));
   items.push(list(atom('filled_areas_thickness'), atom('no')));
-  items.push(
-    list(
-      atom('fill'),
-      atom(z.filled === false ? 'no' : 'yes'),
-      list(atom('thermal_gap'), atom(mm(z.thermalGap ?? PCB_MM(0.5)))),
-      list(atom('thermal_bridge_width'), atom(mm(z.thermalBridgeWidth ?? PCB_MM(0.5)))),
-    ),
-  );
+  const fill: SNode[] = [
+    atom('fill'),
+    atom(z.filled === false ? 'no' : 'yes'),
+    list(atom('thermal_gap'), atom(mm(z.thermalGap ?? PCB_MM(0.5)))),
+    list(atom('thermal_bridge_width'), atom(mm(z.thermalBridgeWidth ?? PCB_MM(0.5)))),
+  ];
+  const islandMode = z.islandRemovalMode ?? 'always';
+  if (islandMode !== 'always') {
+    fill.push(
+      list(atom('island_removal_mode'), atom(islandMode === 'never' ? '1' : '2')),
+      // island_area_min is millimetres squared, not IU.
+      ...(islandMode === 'area'
+        ? [list(atom('island_area_min'), atom(String(z.islandAreaMin ?? 10)))]
+        : []),
+    );
+  }
+  items.push({ kind: 'list', items: fill });
   items.push(
     list(atom('polygon'), {
       kind: 'list',
