@@ -40,6 +40,7 @@ import {
   changeTextType,
   setAttribute,
   alignItems,
+  alignToGridCommand,
   autoplaceFields,
   ALIGN_LABELS,
   type AlignMode,
@@ -4666,6 +4667,20 @@ export function SchematicEditor({
           shortcut: 'Alt+S',
           action: () => {
             const cmd = swapItems(doc, selection);
+            if (cmd) runCommand(cmd);
+          },
+        });
+      // SCH_ACTIONS::alignToGrid, offered by SCH_MOVE_TOOL's selection menu
+      // whenever there is something movable selected. It drags each item onto
+      // the grid, so connected wiring comes along.
+      if (doc && selection.size > 0)
+        items.push({
+          label: 'Align Items to Grid',
+          action: () => {
+            const grid = gridSizeToIU(
+              es.window.grid.sizes[es.window.grid.last_size_idx] ?? '50 mil',
+            );
+            const cmd = alignToGridCommand(doc, selection, libById, grid);
             if (cmd) runCommand(cmd);
           },
         });
