@@ -30,6 +30,13 @@ import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Board, PadPrimitive, PcbPad, PcbVia } from '../types.js';
 import { type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
+import type { DrcConstraintType, DrcRule, DrcRuleSet, MinOptMax } from './drc_rule.js';
+import {
+  buildDrcRuleEngine,
+  evalDrcRules,
+  type DrcEvalItem,
+  type DrcItemType,
+} from './drc_rules_engine.js';
 
 // ---------------------------------------------------------------------------
 // Public API.
@@ -50,6 +57,21 @@ export interface DrcOptions {
   /** Netclass clearance for a net code (IU); absent = 0 (the implicit
    *  netclass clearance rules of drc_engine.cpp). */
   clearanceOf?: (net: number) => number;
+  /**
+   * Parsed `.kicad_dru`. A matching user rule replaces the value the board
+   * default and netclass would otherwise resolve to, which is upstream's
+   * ordering: implicit rules load first, user rules after, last match wins.
+   *
+   * The board and netclass values still resolve by the existing path rather
+   * than as implicit rules through the engine. That conversion is invisible to
+   * a user — it produces the same numbers — so it is left for its own change.
+   */
+  customRules?: DrcRuleSet;
+  /**
+   * Netclass names for a net code, so `A.NetClass == '…'` can match. Without
+   * it a rule keyed on netclass simply never fires.
+   */
+  netClassesOf?: (net: number) => readonly string[];
 }
 
 /** An offending item reference (RC_ITEM main/aux item, resolvable for
@@ -285,6 +307,42 @@ function viaLayers(v: PcbVia, copperOrder: string[]): string[] {
 export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   const out: DrcViolation[] = [];
   const clearanceOf = opts.clearanceOf ?? (() => 0);
+
+  // User rules only: the board and netclass values still come from the path
+  // below, so a match here means "a custom rule overrides them".
+  const ruleEngine = opts.customRules ? buildDrcRuleEngine([], opts.customRules) : undefined;
+  const netClassesOf = opts.netClassesOf ?? (() => []);
+
+  const evalItem = (
+    type: DrcItemType,
+    net: number,
+    layer: string | undefined,
+    props?: Record<string, number | string>,
+  ): DrcEvalItem => ({
+    type,
+    layer,
+    netName: board.nets.get(net),
+    netClasses: [...netClassesOf(net)],
+    props,
+  });
+
+  /**
+   * The value a custom rule resolves for this constraint, or undefined when
+   * none matched. Callers fall back to their existing board/netclass value.
+   */
+  const customValue = (
+    type: DrcConstraintType,
+    a: DrcEvalItem | undefined,
+    b: DrcEvalItem | undefined,
+    layer?: string,
+  ): { value: MinOptMax; rule: DrcRule } | undefined => {
+    if (!ruleEngine) return undefined;
+    const r = evalDrcRules(ruleEngine, type, a, b, layer);
+    return r.rule ? { value: r.value, rule: r.rule } : undefined;
+  };
+
+  /** " (rule 'name')" for a message, so a custom limit says where it came from. */
+  const ruleNote = (rule: DrcRule | undefined): string => (rule ? ` (rule '${rule.name}')` : '');
   // The (layers …) table lists copper front-to-back (CuStack order).
   const copperOrder = board.layers.map((l) => l.name).filter(isCopper);
   const netName = (n: number): string => board.nets.get(n) || `net ${n}`;
@@ -388,14 +446,21 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         if (B.box.minX > A.box.maxX + maxClearance) break;
         if (A.it.owner === B.it.owner) continue;
         if (A.it.net === B.it.net && A.it.net !== 0) continue;
-        const required = Math.max(opts.minClearance, clearanceOf(A.it.net), clearanceOf(B.it.net));
+        const base = Math.max(opts.minClearance, clearanceOf(A.it.net), clearanceOf(B.it.net));
+        const custom = customValue(
+          'clearance',
+          evalItem('Track', A.it.net, A.it.layer),
+          evalItem('Track', B.it.net, B.it.layer),
+          A.it.layer,
+        );
+        const required = custom?.value.min ?? base;
         if (required <= 0) continue;
         if (B.box.minY > A.box.maxY + required || A.box.minY > B.box.maxY + required) continue;
         const gap = shapeDist(A.it.shape, B.it.shape);
         if (gap < required) {
           out.push({
             code: 'clearance',
-            message: `Clearance violation (clearance ${mm(required)}; actual ${mm(gap)})`,
+            message: `Clearance violation (clearance ${mm(required)}${ruleNote(custom?.rule)}; actual ${mm(gap)})`,
             pos: A.it.pos,
             items: [
               { desc: A.it.desc, pos: A.it.pos },
@@ -408,42 +473,71 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   }
 
   // ----- track_width -------------------------------------------------------
-  if (opts.minTrackWidth > 0) {
-    for (const t of [...board.tracks, ...board.arcs]) {
-      if (t.width < opts.minTrackWidth) {
-        out.push({
-          code: 'track_width',
-          message: `Track width (min width ${mm(opts.minTrackWidth)}; actual ${mm(t.width)})`,
-          pos: t.start,
-          items: [{ desc: `Track [${netName(t.net)}] on ${t.layer}`, pos: t.start }],
-        });
-      }
+  // No board-default gate here any more: a rule can set a *maximum* even when
+  // Board Setup's minimum is zero, so every track has to be looked at.
+  for (const t of [...board.tracks, ...board.arcs]) {
+    const custom = customValue(
+      'track_width',
+      evalItem('Track', t.net, t.layer, { Width: t.width }),
+      undefined,
+      t.layer,
+    );
+    const min = custom?.value.min ?? opts.minTrackWidth;
+    const max = custom?.value.max;
+
+    if (max !== undefined && t.width > max) {
+      out.push({
+        code: 'track_width',
+        message: `Track width (max width ${mm(max)}${ruleNote(custom?.rule)}; actual ${mm(t.width)})`,
+        pos: t.start,
+        items: [{ desc: `Track [${netName(t.net)}] on ${t.layer}`, pos: t.start }],
+      });
+      continue;
+    }
+
+    if (min > 0 && t.width < min) {
+      out.push({
+        code: 'track_width',
+        message: `Track width (min width ${mm(min)}${ruleNote(custom?.rule)}; actual ${mm(t.width)})`,
+        pos: t.start,
+        items: [{ desc: `Track [${netName(t.net)}] on ${t.layer}`, pos: t.start }],
+      });
     }
   }
 
   // ----- via checks --------------------------------------------------------
   for (const v of vias) {
-    if (opts.minViaDiameter > 0 && v.size < opts.minViaDiameter) {
+    const viaItem = evalItem('Via', v.net, v.layers[0]);
+    const viaDia = customValue('via_diameter', viaItem, undefined, v.layers[0]);
+    const minViaDiameter = viaDia?.value.min ?? opts.minViaDiameter;
+
+    if (minViaDiameter > 0 && v.size < minViaDiameter) {
       out.push({
         code: 'via_diameter',
-        message: `Via diameter (min diameter ${mm(opts.minViaDiameter)}; actual ${mm(v.size)})`,
+        message: `Via diameter (min diameter ${mm(minViaDiameter)}${ruleNote(viaDia?.rule)}; actual ${mm(v.size)})`,
         pos: v.at,
         items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
       });
     }
     const annulus = (v.size - v.drill) / 2;
-    if (opts.minViaAnnulus > 0 && annulus < opts.minViaAnnulus) {
+    const annCustom = customValue('annular_width', viaItem, undefined, v.layers[0]);
+    const minAnnulus = annCustom?.value.min ?? opts.minViaAnnulus;
+
+    if (minAnnulus > 0 && annulus < minAnnulus) {
       out.push({
         code: 'annular_width',
-        message: `Annular width (min annular width ${mm(opts.minViaAnnulus)}; actual ${mm(annulus)})`,
+        message: `Annular width (min annular width ${mm(minAnnulus)}${ruleNote(annCustom?.rule)}; actual ${mm(annulus)})`,
         pos: v.at,
         items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
       });
     }
-    if (opts.minThroughHole > 0 && v.drill < opts.minThroughHole) {
+    const holeCustom = customValue('hole_size', viaItem, undefined, v.layers[0]);
+    const minHole = holeCustom?.value.min ?? opts.minThroughHole;
+
+    if (minHole > 0 && v.drill < minHole) {
       out.push({
         code: 'drill_out_of_range',
-        message: `Hole size out of range (min hole ${mm(opts.minThroughHole)}; actual ${mm(v.drill)})`,
+        message: `Hole size out of range (min hole ${mm(minHole)}${ruleNote(holeCustom?.rule)}; actual ${mm(v.drill)})`,
         pos: v.at,
         items: [{ desc: `Via [${netName(v.net)}]`, pos: v.at }],
       });
@@ -465,7 +559,10 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
   }
 
   // ----- hole_to_hole (any layer; hole edge to hole edge) ------------------
-  if (opts.minHoleToHole > 0) {
+  const h2hCustom = customValue('hole_to_hole', undefined, undefined, undefined);
+  const minHoleToHole = h2hCustom?.value.min ?? opts.minHoleToHole;
+
+  if (minHoleToHole > 0) {
     const holes: { c: Vec2; r: number; desc: string }[] = [
       ...vias.map((v) => ({ c: v.at, r: v.drill / 2, desc: `Via [${netName(v.net)}]` })),
       ...pads
@@ -481,10 +578,10 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         const a = holes[i]!;
         const b = holes[j]!;
         const gap = Math.hypot(a.c.x - b.c.x, a.c.y - b.c.y) - a.r - b.r;
-        if (gap < opts.minHoleToHole && gap > -Math.min(a.r, b.r)) {
+        if (gap < minHoleToHole && gap > -Math.min(a.r, b.r)) {
           out.push({
             code: 'hole_to_hole',
-            message: `Drilled hole too close to other hole (min ${mm(opts.minHoleToHole)}; actual ${mm(Math.max(0, gap))})`,
+            message: `Drilled hole too close to other hole (min ${mm(minHoleToHole)}${ruleNote(h2hCustom?.rule)}; actual ${mm(Math.max(0, gap))})`,
             pos: a.c,
             items: [
               { desc: a.desc, pos: a.c },

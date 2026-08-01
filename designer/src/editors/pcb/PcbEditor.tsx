@@ -72,10 +72,6 @@ import {
   type PcbFootprint,
   type PcbShape,
   type PcbPad,
-  type PcbTrack,
-  type PcbArcTrack,
-  type PcbVia,
-  type PcbZone,
   runDrc,
   type DrcViolation,
   BOARD_NETLIST_UPDATER,
@@ -114,6 +110,7 @@ import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { netclassesForNet } from './netclass_resolve.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties.js';
@@ -6717,6 +6714,11 @@ export function PcbEditor({
               minHoleToHole: Math.round(c.minHoleToHoleMM * MM),
               clearanceOf: (net) =>
                 netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
+              // Board Setup's Custom Rules page finally reaches DRC: a matching
+              // .kicad_dru rule overrides the board default and the netclass.
+              customRules: parseDrcRules(boardSetup.customRules.text),
+              netClassesOf: (net) =>
+                netclassesForNet(brd.nets.get(net) ?? '', boardSetup.netClasses.assignments),
             });
             // Ignored severities never make markers (RunDRC's severity gate).
             setDrcResults(all.filter((vio) => boardSetup.drcSeverities[vio.code] !== 'ignore'));
