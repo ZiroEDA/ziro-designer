@@ -27,6 +27,7 @@
  */
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import { buildRatsnest } from '../ratsnest.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
@@ -119,6 +120,11 @@ interface CopperItem {
   pos: Vec2;
   /** Same-owner shapes (one pad's primitives) never collide with each other. */
   owner: number;
+  /**
+   * The centreline, straight tracks only. Upstream's crossing test is
+   * PCB_TRACE_T against PCB_TRACE_T — an arc is not part of it.
+   */
+  track?: { a: Vec2; b: Vec2 };
 }
 
 // ---------------------------------------------------------------------------
@@ -431,6 +437,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
       desc: `Track [${netName(t.net)}] on ${t.layer}`,
       pos: t.start,
       owner: ownerSeq++,
+      track: { a: t.start, b: t.end },
     });
   }
   for (const a of board.arcs) {
@@ -521,18 +528,53 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         const required = custom?.value.min ?? base;
         if (required <= 0) continue;
         if (B.box.minY > A.box.maxY + required || A.box.minY > B.box.maxY + required) continue;
+
+        // Two crossing tracks are their own violation, tested before the
+        // clearance and reported instead of it: the centrelines actually
+        // intersect, so "how close are they" is not the useful question.
+        if (A.it.track && B.it.track) {
+          const at = segIntersect(A.it.track.a, A.it.track.b, B.it.track.a, B.it.track.b);
+          if (at) {
+            out.push({
+              code: 'tracks_crossing',
+              message: 'Tracks crossing',
+              pos: at,
+              items: [
+                { desc: A.it.desc, pos: A.it.pos },
+                { desc: B.it.desc, pos: B.it.pos },
+              ],
+            });
+            continue;
+          }
+        }
+
         const gap = shapeDist(A.it.shape, B.it.shape);
-        if (gap < required) {
+        if (gap >= required) continue;
+
+        // Copper of two nets actually touching is a short, not a spacing
+        // problem, and upstream says so in its own marker.
+        if (gap === 0) {
           out.push({
-            code: 'clearance',
-            message: `Clearance violation (clearance ${mm(required)}${ruleNote(custom?.rule)}; actual ${mm(gap)})`,
+            code: 'shorting_items',
+            message: `Items shorting two nets (nets ${netName(A.it.net)} and ${netName(B.it.net)})`,
             pos: A.it.pos,
             items: [
               { desc: A.it.desc, pos: A.it.pos },
               { desc: B.it.desc, pos: B.it.pos },
             ],
           });
+          continue;
         }
+
+        out.push({
+          code: 'clearance',
+          message: `Clearance violation (clearance ${mm(required)}${ruleNote(custom?.rule)}; actual ${mm(gap)})`,
+          pos: A.it.pos,
+          items: [
+            { desc: A.it.desc, pos: A.it.pos },
+            { desc: B.it.desc, pos: B.it.pos },
+          ],
+        });
       }
     }
   }
