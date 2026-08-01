@@ -244,3 +244,23 @@ export {
   type TextValues,
   type ShapeValues,
 } from './graphic_properties.js';
+
+// Custom design rules (pcbnew/drc: DRC_RULES_PARSER, LIBEVAL over PCBEXPR).
+export {
+  parseDrcRules,
+  parseRuleValue,
+  type DrcRule,
+  type DrcRuleSet,
+  type DrcConstraint,
+  type DrcConstraintType,
+  type DrcSeverity,
+  type MinOptMax,
+} from './drc/drc_rule.js';
+export {
+  parseDrcExpr,
+  evalDrcExpr,
+  testDrcCondition,
+  DrcExprError,
+  type DrcExpr,
+  type DrcExprContext,
+} from './drc/drc_expr.js';
