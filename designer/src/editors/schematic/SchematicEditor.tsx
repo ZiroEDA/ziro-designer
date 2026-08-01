@@ -44,6 +44,7 @@ import {
   ALIGN_LABELS,
   type AlignMode,
   attributeIsSet,
+  canSetAttribute,
   type Attribute,
   TYPE_LABELS,
   type TextType,
@@ -107,6 +108,10 @@ import {
   incrementAnnotations,
   globalEdit,
   changeSymbols,
+  symbolUnitCount,
+  unitDisplayName,
+  unplacedUnits,
+  setSymbolUnit,
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
@@ -357,6 +362,15 @@ const RADIO_GROUPS: string[][] = [
 // store (Preferences) and are derived each render so the two stay in sync.
 const DEFAULT_TOGGLES = new Set(['unitsMm', 'showHierarchy', 'showProperties']);
 /** Edit > Attributes menu ids, and the attribute each one sets. */
+/** The Attributes submenu, in the Edit menu's order (SCH_EDIT_TOOL). */
+const ATTRIBUTE_MENU: { id: string; label: string }[] = [
+  { id: 'attrSim', label: 'Exclude from Simulation' },
+  { id: 'attrBom', label: 'Exclude from Bill of Materials' },
+  { id: 'attrBoard', label: 'Exclude from Board' },
+  { id: 'attrPosFiles', label: 'Exclude from Position Files' },
+  { id: 'attrDnp', label: 'Do not Populate' },
+];
+
 const ATTRIBUTE_IDS: Record<string, Attribute> = {
   attrSim: 'sim',
   attrBom: 'bom',
@@ -4558,6 +4572,82 @@ export function SchematicEditor({
             if (cmd) runCommand(cmd);
           },
         });
+      // SYMBOL_UNIT_MENU: which unit of a multi-unit part this placement is.
+      // Units already on the sheet are annotated rather than disabled, since
+      // re-picking one is legitimate when swapping two of them over.
+      if (doc && selection.size === 1) {
+        const si = doc.symbols.findIndex(
+          (sy, i) => refId('symbol', sy.uuid, i) === [...selection][0],
+        );
+        const sym = si === -1 ? undefined : doc.symbols[si];
+        const lib = sym ? libById.get(sym.libId) : undefined;
+        const count = symbolUnitCount(lib);
+        if (sym && count > 1) {
+          const missing = unplacedUnits(doc, si, libById);
+          items.push({
+            label: 'Symbol Unit',
+            items: Array.from({ length: count }, (_v, k) => k + 1).map((u) => ({
+              label: unitDisplayName(lib, u) + (missing.has(u) ? '' : ' (already placed)'),
+              checked: sym.unit === u,
+              action: () => runCommand(setSymbolUnit(si, u)),
+            })),
+          });
+        }
+      }
+      // SCH_EDIT_TOOL's Attributes submenu, the same five item edits the Edit
+      // menu carries (SCH_EDIT_TOOL::SetAttribute).
+      if (doc && Object.values(ATTRIBUTE_IDS).some((a) => canSetAttribute(doc, selection, a)))
+        items.push({
+          label: 'Attributes',
+          items: ATTRIBUTE_MENU.map(({ id, label }) => ({
+            label,
+            checked: attributeIsSet(doc, selection, ATTRIBUTE_IDS[id]!),
+            disabled: !canSetAttribute(doc, selection, ATTRIBUTE_IDS[id]!),
+            action: () => onLeftToggle(id),
+          })),
+        });
+      // SCH_EDIT_TOOL's "Edit Main Fields" submenu: the same three the U, V and
+      // F keys open.
+      if (doc && selection.size === 1) {
+        const owner = /^(.*):field\d+$/.exec([...selection][0]!)?.[1] ?? [...selection][0]!;
+        const si = doc.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === owner);
+        if (si !== -1) {
+          const sym = doc.symbols[si]!;
+          const isPower = !!libById.get(sym.libId)?.isPower;
+          const entries: MenuItem[] = [];
+          for (const [key, label, shortcut] of [
+            ['Reference', 'Edit Reference...', 'U'],
+            ['Value', 'Edit Value...', 'V'],
+            // Footprint is meaningless on a power symbol, so upstream skips it.
+            ...(isPower ? [] : [['Footprint', 'Edit Footprint...', 'F']]),
+          ] as [string, string, string][]) {
+            const fi = sym.fields.findIndex((f) => f.key === key);
+            if (fi !== -1)
+              entries.push({
+                label,
+                shortcut,
+                action: () => setFieldEdit({ symbol: si, index: fi }),
+              });
+          }
+          if (entries.length > 0) items.push({ label: 'Edit Main Fields', items: entries });
+          items.push(
+            {
+              label: 'Change Symbol...',
+              action: () => {
+                setChangeSymbolsMessages([]);
+                setChangeSymbolsMode('change');
+              },
+            },
+            {
+              label: 'Update Symbol...',
+              action: () => {
+                setChangeSymbolsMessages([]);
+                setChangeSymbolsMode('update');
+              },
+            },
+          );
+        }
+      }
       // SCH_ACTIONS::cycleBodyStyle: step to the De Morgan alternate.
       if (doc && cycleBodyStyle(doc, selection, libById))
         items.push({
@@ -4606,12 +4696,19 @@ export function SchematicEditor({
             }),
           ),
         });
+      // KiCad groups the four transforms into a submenu rather than listing
+      // them flat (SCH_EDIT_TOOL's Transform Selection menu).
       items.push(
         { sep: true },
-        act('Rotate Counterclockwise', 'rotateCCW', 'R'),
-        act('Rotate Clockwise', 'rotateCW', 'Shift+R'),
-        act('Mirror Vertically', 'mirrorV', 'Y'),
-        act('Mirror Horizontally', 'mirrorH', 'X'),
+        {
+          label: 'Transform Selection',
+          items: [
+            act('Rotate Counterclockwise', 'rotateCCW', 'R'),
+            act('Rotate Clockwise', 'rotateCW', 'Shift+R'),
+            act('Mirror Vertically', 'mirrorV', 'Y'),
+            act('Mirror Horizontally', 'mirrorH', 'X'),
+          ],
+        },
       );
       // SCH_EDIT_TOOL's "Change To" submenu (toLabel / toGLabel / toHLabel /
       // toDLabel / toText / toTextBox), shown when the selection holds
@@ -4692,6 +4789,8 @@ export function SchematicEditor({
           tool('Place Net Label', 'placeLabel', 'L'),
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
+          // placeClassLabel sits with the other label tools on a wire.
+          tool('Place Netclass Directive Label', 'placeClassLabel'),
         );
       // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
       // selections; Highlight / Remove-from / Name when the hit item's net
@@ -4787,6 +4886,40 @@ export function SchematicEditor({
       { sep: true },
       act('Select All', 'selectAll', 'Ctrl+A'),
       act('Unselect All', 'unselectAll', 'Ctrl+Shift+A'),
+    );
+    // EDA_DRAW_FRAME::AddStandardSubMenus, rank 1000: every canvas context
+    // menu in KiCad ends with these two, whatever is selected.
+    items.push(
+      { sep: true },
+      {
+        label: 'Zoom',
+        items: [
+          act('Zoom to Fit', 'zoomFit', 'Ctrl+0'),
+          act('Zoom to Objects', 'zoomFitObjects', 'Ctrl+Home'),
+          act('Zoom In', 'zoomIn', 'F1'),
+          act('Zoom Out', 'zoomOut', 'F2'),
+          act('Refresh', 'zoomRedraw', 'F5'),
+        ],
+      },
+      {
+        label: 'Grid',
+        items: [
+          ...es.window.grid.sizes.map((size, i) => ({
+            label: size,
+            checked: es.window.grid.last_size_idx === i,
+            action: () =>
+              settings.updateEeschema((st) => {
+                st.window.grid.last_size_idx = i;
+              }),
+          })),
+          { sep: true },
+          {
+            label: 'Show Grid',
+            checked: es.window.grid.show,
+            action: () => onLeftToggle('toggleGrid'),
+          },
+        ],
+      },
     );
     return items;
   };
