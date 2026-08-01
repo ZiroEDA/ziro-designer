@@ -153,6 +153,12 @@ const maskLayerOf = (node: SList): string | undefined => {
   return ls ? args(ls).find((n) => /\.Mask$/.test(n)) : undefined;
 };
 
+/** A millimetre child in IU, or undefined when the token is absent. */
+const mmOrUndef = (node: SList, name: string): number | undefined => {
+  const v = numberField(node, name);
+  return v === undefined ? undefined : mmToIU(v);
+};
+
 /** `(solder_mask_margin …)` in IU. */
 const maskMarginOf = (node: SList): number | undefined => {
   const v = numberField(node, 'solder_mask_margin');
@@ -454,6 +460,23 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     descr: stringField(item, 'descr'),
     tags: stringField(item, 'tags'),
     attributes: attrNode ? args(attrNode) : undefined,
+    localClearance: mmOrUndef(item, 'clearance'),
+    localSolderMaskMargin: mmOrUndef(item, 'solder_mask_margin'),
+    localSolderPasteMargin: mmOrUndef(item, 'solder_paste_margin'),
+    localSolderPasteMarginRatio: numberField(item, 'solder_paste_margin_ratio'),
+    zoneConnection: (() => {
+      // ZONE_CONNECTION: 0 inherited, 1 thermal, 2 none, 3 full.
+      const v = numberField(item, 'zone_connect');
+      return v === 1
+        ? ('thermal' as const)
+        : v === 2
+          ? ('none' as const)
+          : v === 3
+            ? ('full' as const)
+            : v === 0
+              ? ('inherited' as const)
+              : undefined;
+    })(),
     locked: lockedNode ? arg(lockedNode, 0) !== 'no' : false,
     path: stringField(item, 'path'),
     sheetname: stringField(item, 'sheetname'),

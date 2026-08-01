@@ -4435,3 +4435,14 @@ body {
   gap: 2px 8px;
   margin-left: 6px;
 }
+
+/* Footprint Properties (dialog_footprint_properties_base.cpp): a notebook with
+   General and Clearance Overrides pages. */
+.ze-fpprops-dialog {
+  width: 580px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-fpprops-tabs {
+  padding: 8px 12px 0;
+}
