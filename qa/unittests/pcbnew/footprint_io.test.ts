@@ -121,14 +121,18 @@ const BUNDLED = new URL('../../../designer/public/footprints/CM5IO.pretty', impo
   .pathname;
 describe.skipIf(!existsSync(BUNDLED))('bundled footprint library (CM5IO.pretty)', () => {
   const files = readdirSync(BUNDLED).filter((f) => f.endsWith('.kicad_mod'));
-  it('parses every bundled footprint', () => {
+  it('parses every bundled footprint', { timeout: 30_000 }, () => {
     expect(files.length).toBeGreaterThan(20);
     for (const f of files) {
       const fp = readFootprintFile(parse(readFileSync(`${BUNDLED}/${f}`, 'utf8')));
       expect(fp, f).not.toBeNull();
     }
   });
-  it('round-trips every bundled footprint model-identically', () => {
+  // 69 footprints, each parsed, serialised and parsed again, then deep-compared.
+  // That is ~1.4s on its own but comfortably past vitest's 5s default once the
+  // rest of the suite is competing for cores, so it gets a timeout that matches
+  // the work rather than the default.
+  it('round-trips every bundled footprint model-identically', { timeout: 30_000 }, () => {
     for (const f of files) {
       const fp1 = readFootprintFile(parse(readFileSync(`${BUNDLED}/${f}`, 'utf8')))!;
       const fp2 = readFootprintFile(parse(serializeFootprint(fp1)))!;
