@@ -22,14 +22,23 @@
  * wide as it is tall; and a different order again for power symbols, which want
  * their label above them.
  *
- * AUTOPLACE_MANUAL adds two things this does not do yet: sifting out sides
- * whose fields would collide with other items, and nudging the box to fit
- * between adjacent wires. Both need the rest of the sheet rather than the
- * symbol, and neither changes where fields land on an uncluttered schematic.
+ * AUTOPLACE_MANUAL — what the O hotkey runs, as against the AUTOPLACE_AUTO pass
+ * a placement does — adds two steps that need the rest of the sheet rather than
+ * the symbol, and so change nothing on an uncluttered schematic:
+ *
+ *   2a. rule out sides where the fields would land on something
+ *       (`getCollidingSides` / `chooseSideFiltered`). A side is ruled out
+ *       *twice over*: first the sides that hit an object, then the sides that
+ *       hit only horizontal wires, so a wire is a softer obstacle than a
+ *       symbol. Running off the drawable area counts as hitting an object.
+ *   3a. if the box landed on horizontal wires above or below the symbol, snap
+ *       it to the 100 mil wire pitch so the fields sit *between* them rather
+ *       than across them (`fitFieldsBetweenWires`), which also switches the box
+ *       to fixed one-wire-per-field spacing.
  */
 
-import type { LibSymbol, SchField, SchSymbol, Vec2 } from '../types.js';
-import { symbolBodyBBox } from './bbox.js';
+import type { LibSymbol, SchField, SchSymbol, SchLine, Vec2 } from '../types.js';
+import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
 import { symbolFieldBoxes } from '../fieldbox.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
@@ -44,6 +53,8 @@ const HPADDING = mmToIU(25 * 0.0254);
 const VPADDING = mmToIU(15 * 0.0254);
 /** The grid autoplaced fields round to. */
 const GRID_50_MIL = mmToIU(50 * 0.0254);
+/** `WIRE_V_SPACING`: the 100 mil pitch wires are drawn on. */
+const WIRE_V_SPACING = mmToIU(100 * 0.0254);
 
 /** The four sides, as unit vectors (+Y is down). */
 const SIDE_TOP = { x: 0, y: -1 };
@@ -157,6 +168,241 @@ function preferredSides(
 /** The fields that autoplace moves: visible, and not opted out. */
 const placeable = (f: SchField): boolean => !f.effects?.hidden && !f.doNotAutoplace;
 
+// ----- AUTOPLACE_MANUAL: the sheet around the symbol ---------------------------
+
+/** What the sheet looks like to a symbol whose fields are being placed. */
+export interface AutoplaceSheet {
+  /** The sheet the symbol sits on. */
+  doc: Schematic;
+  libById: ReadonlyMap<string, LibSymbol>;
+  /**
+   * The page minus the drawing sheet's margins (`getDrawableArea`), if the
+   * caller knows it — resolving a paper name to a size is the application's
+   * job, not the model's. Upstream skips this check whenever the area comes
+   * back degenerate, and so do we when it is not supplied.
+   */
+  drawableArea?: BBox;
+}
+
+/** `COLLISION`: nothing, only horizontal wires, or something solid. */
+type Collision = 'none' | 'hWires' | 'objects';
+
+/** One thing the fields could land on. */
+interface Collider {
+  box: BBox;
+  /** Set when the collider is a line, which `getCollidingSides` treats apart. */
+  line?: SchLine;
+}
+
+const box2 = (a: Vec2, b: Vec2): BBox => ({
+  minX: Math.min(a.x, b.x),
+  minY: Math.min(a.y, b.y),
+  maxX: Math.max(a.x, b.x),
+  maxY: Math.max(a.y, b.y),
+});
+
+const intersects = (a: BBox, b: BBox): boolean =>
+  a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
+
+const containsBox = (outer: BBox, inner: BBox): boolean =>
+  inner.minX >= outer.minX &&
+  inner.maxX <= outer.maxX &&
+  inner.minY >= outer.minY &&
+  inner.maxY <= outer.maxY;
+
+/**
+ * `getPossibleCollisions`: everything on the sheet that could get in the way,
+ * the symbol itself excepted. Another symbol contributes its own visible
+ * fields as well as its body.
+ *
+ * Upstream pre-filters by the union of the candidate boxes and the symbol's;
+ * we collect the sheet once and let `filterCollisions` do the narrowing, which
+ * is the same answer without an index to maintain.
+ */
+function possibleColliders(sheet: AutoplaceSheet, self: SchSymbol): Collider[] {
+  const { doc, libById } = sheet;
+  const out: Collider[] = [];
+
+  doc.symbols.forEach((s) => {
+    if (s === self || (s.uuid !== undefined && s.uuid === self.uuid)) return;
+    const lib = libById.get(s.libId);
+    out.push({ box: symbolBodyBBox(s, lib) });
+    for (const fb of symbolFieldBoxes(s, lib, measureText)) {
+      const f = s.fields[fb.index];
+      if (!f || f.effects?.hidden) continue;
+      out.push({
+        box: {
+          minX: fb.box.x,
+          minY: fb.box.y,
+          maxX: fb.box.x + fb.box.w,
+          maxY: fb.box.y + fb.box.h,
+        },
+      });
+    }
+  });
+
+  for (const l of doc.lines) out.push({ box: box2(l.start, l.end), line: l });
+  for (const l of doc.labels) out.push({ box: labelBox(l) });
+  for (const d of doc.directiveLabels ?? []) out.push({ box: box2(d.at, d.at) });
+  for (const j of doc.junctions) out.push({ box: box2(j.at, j.at) });
+  for (const nc of doc.noConnects) out.push({ box: box2(nc.at, nc.at) });
+  for (const be of doc.busEntries)
+    out.push({ box: box2(be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y }) });
+  for (const sh of doc.sheets)
+    out.push({ box: box2(sh.at, { x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h }) });
+  for (const tb of doc.textBoxes) out.push({ box: box2(tb.start, tb.end) });
+  // Images are left out: their extent needs the PNG's pixel dimensions, which
+  // the model does not carry (only the base64 payload and a scale).
+
+  return out;
+}
+
+/** `filterCollisions`: those that actually overlap the box. */
+const filterCollisions = (colliders: readonly Collider[], box: BBox): Collider[] =>
+  colliders.filter((c) => intersects(c.box, box));
+
+/**
+ * `getCollidingSides`: for each side, whether the field box placed there would
+ * hit nothing, only horizontal wires, or something solid.
+ *
+ * A line only counts as the softer `hWires` when the side is vertical
+ * (`!side.x`) and the line is horizontal; anything else is a hard collision.
+ */
+function collidingSides(
+  sym: SchSymbol,
+  bbox: BBox,
+  size: Vec2,
+  colliders: readonly Collider[],
+  drawableArea: BBox | undefined,
+): Map<Side, Collision> {
+  const out = new Map<Side, Collision>();
+  for (const side of [SIDE_RIGHT, SIDE_TOP, SIDE_LEFT, SIDE_BOTTOM]) {
+    const topLeft = fieldBoxTopLeft(bbox, size, side);
+    const box: BBox = {
+      minX: topLeft.x,
+      minY: topLeft.y,
+      maxX: topLeft.x + size.x,
+      maxY: topLeft.y + size.y,
+    };
+
+    let collision: Collision = 'none';
+    // Running off the drawing sheet is as bad as landing on an item.
+    if (drawableArea && !containsBox(drawableArea, box)) collision = 'objects';
+
+    for (const c of filterCollisions(colliders, box)) {
+      if (c.line && side.x === 0) {
+        if (c.line.start.y === c.line.end.y && collision !== 'objects') collision = 'hWires';
+        else collision = 'objects';
+      } else {
+        collision = 'objects';
+      }
+    }
+    if (collision !== 'none') out.set(side, collision);
+  }
+  return out;
+}
+
+/**
+ * `fitFieldsBetweenWires`: when the box sits above or below the symbol and
+ * every obstacle under it is a horizontal wire on one consistent offset, snap
+ * its top to the wire pitch so the fields land in the gaps.
+ *
+ * Returns the new top, or null when the conditions do not hold — upstream is
+ * careful that every "return false" happens *before* it commits to the fixed
+ * spacing, so a refusal leaves the dynamic box untouched.
+ */
+function fitFieldsBetweenWires(
+  boxTopLeft: Vec2,
+  size: Vec2,
+  side: Side,
+  colliders: readonly Collider[],
+): number | null {
+  if (!sameSide(side, SIDE_TOP) && !sameSide(side, SIDE_BOTTOM)) return null;
+
+  const box: BBox = {
+    minX: boxTopLeft.x,
+    minY: boxTopLeft.y,
+    maxX: boxTopLeft.x + size.x,
+    maxY: boxTopLeft.y + size.y,
+  };
+  const hits = filterCollisions(colliders, box);
+  if (hits.length === 0) return null;
+
+  let offset = 0;
+  for (const c of hits) {
+    if (!c.line) return null;
+    if (c.line.start.y !== c.line.end.y) return null;
+    const thisOffset = (3 * WIRE_V_SPACING) / 2 - (c.line.start.y % WIRE_V_SPACING);
+    if (offset === 0) offset = thisOffset;
+    else if (offset !== thisOffset) return null;
+  }
+
+  return roundN(boxTopLeft.y, WIRE_V_SPACING, sameSide(side, SIDE_BOTTOM));
+}
+
+/**
+ * `chooseSideForFields`, including the collision sifting `chooseSideFiltered`
+ * does when the run is manual.
+ *
+ * Upstream reverses the preference list before filtering and scans it in both
+ * directions afterwards, which is what settles ties: a side removed for
+ * colliding is still remembered as a fallback if it has no more pins than the
+ * best fallback so far, and iterating worst-preferred-first means the most
+ * preferred of an equal-pin group is the one that sticks.
+ *
+ * Objects are sifted before horizontal wires, so a side blocked only by wires
+ * outranks one blocked by a symbol.
+ */
+function chooseSide(
+  ranked: readonly Side[],
+  countOn: (s: Side) => number,
+  colliding: Map<Side, Collision> | null,
+): { side: Side; pins: number } {
+  // Worst-preferred first, as upstream reverses it.
+  let sides = ranked.slice().reverse();
+  let sel = { side: SIDE_RIGHT, pins: Number.MAX_SAFE_INTEGER };
+
+  const sift = (collision: Collision): void => {
+    const keep: Side[] = [];
+    for (const s of sides) {
+      if (colliding!.get(s) === collision) {
+        const n = countOn(s);
+        if (n <= sel.pins) sel = { side: s, pins: n };
+      } else {
+        keep.push(s);
+      }
+    }
+    sides = keep;
+  };
+
+  if (colliding) {
+    sift('objects');
+    sift('hWires');
+  }
+
+  // A survivor with no pins at all wins outright, best-preferred first.
+  for (const s of sides.slice().reverse()) if (countOn(s) === 0) return { side: s, pins: 0 };
+
+  for (const s of sides) {
+    const n = countOn(s);
+    if (n <= sel.pins) sel = { side: s, pins: n };
+  }
+  return sel;
+}
+
+/** `fieldBoxPlacement`: the top-left of the field box on a given side. */
+function fieldBoxTopLeft(bbox: BBox, size: Vec2, side: Side): Vec2 {
+  const centre = { x: (bbox.minX + bbox.maxX) / 2, y: (bbox.minY + bbox.maxY) / 2 };
+  let offsX = (bbox.maxX - bbox.minX + size.x) / 2;
+  let offsY = (bbox.maxY - bbox.minY + size.y) / 2;
+  if (side.x !== 0) offsX += HPADDING;
+  else if (side.y !== 0) offsY += VPADDING;
+  return {
+    x: centre.x + side.x * offsX - size.x / 2,
+    y: centre.y + side.y * offsY - size.y / 2,
+  };
+}
+
 /**
  * The fields' bounding box: as wide as the widest field, as tall as all of them
  * stacked with their padding (`computeFBoxSize`, dynamic spacing).
@@ -165,6 +411,7 @@ function fieldBoxSize(
   sym: SchSymbol,
   lib: LibSymbol | undefined,
   alignToGrid: boolean,
+  dynamic = true,
 ): { boxes: { index: number; w: number; h: number }[]; size: Vec2 } {
   const boxes: { index: number; w: number; h: number }[] = [];
   let maxWidth = 0;
@@ -176,7 +423,12 @@ function fieldBoxSize(
     const h = fb.box.h;
     boxes.push({ index: fb.index, w, h });
     maxWidth = Math.max(maxWidth, w);
-    totalHeight += alignToGrid ? roundN(h, GRID_50_MIL, true) : h + FIELD_PADDING;
+    // Non-dynamic: one wire pitch per field, whatever the text measures.
+    totalHeight += !dynamic
+      ? WIRE_V_SPACING
+      : alignToGrid
+        ? roundN(h, GRID_50_MIL, true)
+        : h + FIELD_PADDING;
   }
   return { boxes, size: { x: maxWidth, y: totalHeight } };
 }
@@ -189,41 +441,35 @@ export function autoplacedFields(
   sym: SchSymbol,
   lib: LibSymbol | undefined,
   opts: AutoplaceOptions,
+  sheet?: AutoplaceSheet,
 ): SchField[] {
   const powerSymbol = !!lib?.isPower;
   const bbox = symbolBodyBBox(sym, lib);
   const { boxes, size } = fieldBoxSize(sym, lib, opts.alignToGrid);
   if (boxes.length === 0) return sym.fields.slice();
 
-  // Step 2: the highest-ranked side with no pins, else the fewest-pin side.
+  // Step 2: the highest-ranked side with no pins, else the fewest-pin side —
+  // with the colliding sides sifted out first when this is a manual run.
   const angles = pinAngles(sym, lib, powerSymbol);
   const ranked = preferredSides(sym, bbox, powerSymbol);
   const countOn = (s: Side): number => angles.filter((a) => sameSide(pinSide(a, sym), s)).length;
-  let side = ranked[0]!;
-  let pins = countOn(side);
-  const empty = ranked.find((s) => countOn(s) === 0);
-  if (empty) {
-    side = empty;
-    pins = 0;
-  } else {
-    for (const s of ranked) {
-      const n = countOn(s);
-      if (n < pins) {
-        side = s;
-        pins = n;
-      }
-    }
-  }
+  const colliders = sheet ? possibleColliders(sheet, sym) : null;
+  const chosen = chooseSide(
+    ranked,
+    countOn,
+    colliders ? collidingSides(sym, bbox, size, colliders, sheet?.drawableArea) : null,
+  );
+  const side = chosen.side;
+  const pins = chosen.pins;
 
-  // Step 3: where the box goes (fieldBoxPlacement).
-  const centre = { x: (bbox.minX + bbox.maxX) / 2, y: (bbox.minY + bbox.maxY) / 2 };
-  let offsX = (bbox.maxX - bbox.minX + size.x) / 2;
-  let offsY = (bbox.maxY - bbox.minY + size.y) / 2;
-  if (side.x !== 0) offsX += HPADDING;
-  else if (side.y !== 0) offsY += VPADDING;
-  const boxCentre = { x: centre.x + side.x * offsX, y: centre.y + side.y * offsY };
-  const boxLeft = boxCentre.x - size.x / 2;
-  const boxTop = boxCentre.y - size.y / 2;
+  // Step 3: where the box goes (fieldBoxPlacement), and — on a manual run above
+  // or below the symbol — snapped to the wire pitch so the fields sit in the
+  // gaps between horizontal wires rather than across them.
+  const topLeft = fieldBoxTopLeft(bbox, size, side);
+  const fittedTop = colliders ? fitFieldsBetweenWires(topLeft, size, side, colliders) : null;
+  const forceWireSpacing = fittedTop !== null;
+  const boxLeft = topLeft.x;
+  const boxTop = fittedTop ?? topLeft.y;
   const boxRight = boxLeft + size.x;
 
   // Step 4: lay the fields out down the box.
@@ -249,9 +495,16 @@ export function autoplacedFields(
   for (const b of boxes) {
     const f = out[b.index]!;
     const justify = hJustify ?? currentHJustify(f);
-    const padding = opts.alignToGrid ? roundN(b.h, GRID_50_MIL, true) - b.h : FIELD_PADDING;
-    let py = y + padding / 2 + b.h / 2;
-    y += padding + b.h;
+    // fieldVPlacement's !aDynamic branch: one wire pitch per field, split evenly
+    // between the field and its padding, so each lands on its own wire slot.
+    const height = forceWireSpacing ? WIRE_V_SPACING / 2 : b.h;
+    const padding = forceWireSpacing
+      ? WIRE_V_SPACING / 2
+      : opts.alignToGrid
+        ? roundN(b.h, GRID_50_MIL, true) - b.h
+        : FIELD_PADDING;
+    let py = y + padding / 2 + height / 2;
+    y += padding + height;
     // fieldHPlacement: the anchor follows the justification.
     let px =
       justify === 'left' ? boxLeft : justify === 'right' ? boxRight : (boxLeft + boxRight) / 2;
@@ -292,14 +545,19 @@ export function autoplaceFields(
   ids: ReadonlySet<string>,
   libById: Map<string, LibSymbol>,
   opts: AutoplaceOptions = { allowRejustify: true, alignToGrid: true },
+  drawableArea?: BBox,
 ): EditCommand | null {
   const targets = doc.symbols.flatMap((s, i) => (ids.has(refId('symbol', s.uuid, i)) ? [i] : []));
   if (targets.length === 0) return null;
 
+  // The O hotkey and the context-menu entry are both AUTOPLACE_MANUAL, so the
+  // sheet always comes along; an AUTOPLACE_AUTO caller would omit it.
+  const sheet: AutoplaceSheet = drawableArea ? { doc, libById, drawableArea } : { doc, libById };
+
   const placed = new Map<number, SchField[]>();
   for (const i of targets) {
     const s = doc.symbols[i]!;
-    placed.set(i, autoplacedFields(s, libById.get(s.libId), opts));
+    placed.set(i, autoplacedFields(s, libById.get(s.libId), opts, sheet));
   }
 
   return {
