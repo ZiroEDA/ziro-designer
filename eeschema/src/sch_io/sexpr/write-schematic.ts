@@ -449,11 +449,25 @@ function patchUnit(node: SList, unit: number): SList {
   return insertCanonical(node, list(atom('unit'), atom(String(unit))));
 }
 
+/** Patch `(body_style N)`; insert canonically when absent and not style 1.
+ *  saveSymbol writes it unconditionally, but adding it to a file that never had
+ *  it would churn every symbol, so it appears once the style leaves 1. */
+function patchBodyStyle(node: SList, bodyStyle: number): SList {
+  const child = childNamed(node, 'body_style');
+  if (child) {
+    if (numArg(child, 0) === bodyStyle) return node;
+    return mapChild(node, 'body_style', () => list(atom('body_style'), atom(String(bodyStyle))));
+  }
+  if (bodyStyle === 1) return node;
+  return insertCanonical(node, list(atom('body_style'), atom(String(bodyStyle))));
+}
+
 function writeSymbol(sym: SchSymbol): SList {
   let node = patchAt(sym.source, sym.at);
   node = patchAtAngle(node, sym.angle);
   node = patchMirror(node, sym.mirror);
   node = patchUnit(node, sym.unit);
+  node = patchBodyStyle(node, sym.bodyStyle);
   if (sym.excludedFromSim !== undefined)
     node = patchSymbolBool(node, 'exclude_from_sim', sym.excludedFromSim, false);
   node = patchSymbolBool(node, 'in_bom', sym.inBom, true);

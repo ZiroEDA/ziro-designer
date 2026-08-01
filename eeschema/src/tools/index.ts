@@ -41,6 +41,7 @@ export * from './autoplace_fields.js';
 export * from './sch_sheet_pin_tool.js';
 export * from './unfold_bus.js';
 export * from './swap_items.js';
+export * from './body_style.js';
 export * from './directive_label.js';
 export * from './sch_sheet_path.js';
 export * from './page_settings.js';

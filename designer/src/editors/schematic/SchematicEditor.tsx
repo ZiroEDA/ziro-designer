@@ -143,6 +143,9 @@ import {
   busForUnfolding,
   swapItems,
   canSwap,
+  cycleBodyStyle,
+  hasAlternateBodyStyle,
+  setBodyStyle,
   hierarchicalLabelNames,
   deleteSheetPin,
   type SheetPinRef,
@@ -4285,6 +4288,16 @@ export function SchematicEditor({
             if (cmd) runCommand(cmd);
           },
         });
+      // SCH_ACTIONS::cycleBodyStyle: step to the De Morgan alternate.
+      if (doc && cycleBodyStyle(doc, selection, libById))
+        items.push({
+          label: 'Cycle Body Style',
+          icon: 'cycleBodyStyle',
+          action: () => {
+            const cmd = cycleBodyStyle(doc, selection, libById);
+            if (cmd) runCommand(cmd);
+          },
+        });
       // SCH_ACTIONS::swap (Alt+S).
       if (doc && canSwap(doc, selection))
         items.push({
@@ -5798,6 +5811,7 @@ export function SchematicEditor({
       {/* Double-click / E on a symbol: KiCad's Symbol Properties dialog. */}
       {propsSymbol && propsTarget !== null && (
         <SymbolPropertiesDialog
+          hasAlternate={hasAlternateBodyStyle(libById.get(propsSymbol.libId))}
           symbol={propsSymbol}
           lib={libById.get(propsSymbol.libId)}
           fieldTemplates={setup.fieldTemplates}

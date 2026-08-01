@@ -48,6 +48,7 @@ const baseEdit = (sym: SchSymbol) => ({
   angle: sym.angle,
   mirror: sym.mirror,
   unit: sym.unit,
+  bodyStyle: sym.bodyStyle,
   inBom: sym.inBom,
   onBoard: sym.onBoard,
   dnp: sym.dnp,
@@ -139,7 +140,7 @@ describe('editSymbolProperties', () => {
     expect(re.symbols[0]!.fields.length).toBe(sym.fields.length + 1); // empty+empty dropped
   });
 
-  it('writes unit / dnp / in_bom / on_board / mirror / orientation', () => {
+  it('writes unit / body_style / dnp / in_bom / on_board / mirror / orientation', () => {
     const sch = readSchematic(parse(fixture));
     const sym = sch.symbols[0]!;
     const id = refId('symbol', sym.uuid, 0);
@@ -148,6 +149,7 @@ describe('editSymbolProperties', () => {
       angle: 90,
       mirror: 'x',
       unit: 2,
+      bodyStyle: 2,
       inBom: false,
       onBoard: false,
       dnp: true,
@@ -159,10 +161,14 @@ describe('editSymbolProperties', () => {
     expect(text).toContain('(on_board no)');
     expect(text).toContain('(exclude_from_sim yes)');
     expect(text).toContain('(mirror x)');
+    // body_style is the De Morgan alternate; it was never written before, so a
+    // switched symbol came back on style 1 after a save.
+    expect(text).toContain('(body_style 2)');
     const re = readSchematic(parse(text));
     expect(re.symbols[0]!.angle).toBe(90);
     expect(re.symbols[0]!.mirror).toBe('x');
     expect(re.symbols[0]!.unit).toBe(2);
+    expect(re.symbols[0]!.bodyStyle).toBe(2);
     expect(re.symbols[0]!.dnp).toBe(true);
     expect(re.symbols[0]!.inBom).toBe(false);
     expect(re.symbols[0]!.excludedFromSim).toBe(true);
