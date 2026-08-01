@@ -105,6 +105,7 @@ import {
   defaultSearchData,
   annotateHierarchy,
   incrementAnnotations,
+  globalEdit,
   annotationReport,
   checkAnnotation,
   clearAnnotationCommand,
@@ -236,6 +237,10 @@ import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
 } from './dialogs/dialog_increment_annotations.js';
+import {
+  DialogGlobalEditTextAndGraphics,
+  type GlobalEditResult,
+} from './dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
 import { DialogPageSettings, type PageExportFlags } from './dialogs/dialog_page_settings.js';
@@ -1329,6 +1334,8 @@ export function SchematicEditor({
   const [annotateOpen, setAnnotateOpen] = useState(false);
   // SCH_ACTIONS::incrementAnnotations, a small dialog of its own.
   const [incrementAnnotationsOpen, setIncrementAnnotationsOpen] = useState(false);
+  // SCH_EDIT_TOOL::GlobalEdit (Edit Text & Graphics Properties).
+  const [globalEditOpen, setGlobalEditOpen] = useState(false);
   // Page Settings (DIALOG_PAGES_SETTINGS), Print (DIALOG_PRINT) and Plot
   // (DIALOG_PLOT_SCHEMATIC) dialogs, open flags.
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
@@ -1689,6 +1696,77 @@ export function SchematicEditor({
       if (changedFiles.length) onProjectChange?.(changedFiles);
     },
     [annotateSheets, applySheetSymbols, onProjectChange],
+  );
+
+  /** The same, for an edit that replaces a whole sheet document. */
+  const applySheetDocument = useCallback(
+    (file: string, next: Schematic, label: string, changed: PickedFile[]): void => {
+      const cmd: EditCommand = {
+        label,
+        apply: () => next,
+        invert: (before: Schematic) => ({
+          label,
+          apply: () => before,
+          invert: (b: Schematic) => ({ label, apply: () => b, invert: () => cmd }),
+        }),
+      };
+      if (file === currentFile) {
+        runCommand(cmd);
+        return;
+      }
+      const target = project.current.docs.get(file);
+      if (!target) return;
+      if (!histories.current.has(file)) histories.current.set(file, new History());
+      const applied = histories.current.get(file)!.execute(target, cmd);
+      project.current.docs.set(file, applied);
+      try {
+        changed.push({ name: file, text: serializeSchematic(applied) });
+      } catch {
+        /* skip a bad sheet */
+      }
+    },
+    [currentFile, runCommand],
+  );
+
+  // Edit Text & Graphics Properties (SCH_EDIT_TOOL::GlobalEdit). The sweep runs
+  // over the whole hierarchy, as TransferDataFromWindow does — it walks every
+  // sheet path, not just the one on screen.
+  const runGlobalEdit = useCallback(
+    (r: GlobalEditResult) => {
+      const sheets = annotateSheets('all', false);
+      const libs = hierarchyLibs(sheets);
+      const changedFiles: PickedFile[] = [];
+      for (const sheet of sheets) {
+        // The net filter needs that sheet's own netlist; it is only computed
+        // when the filter is actually on.
+        const netOfItem = r.filters.net
+          ? (id: string): string | null => {
+              const nl = computeNetlist(sheet.doc, libs);
+              return connectionName(nl, id);
+            }
+          : undefined;
+        const next = globalEdit(sheet.doc, libs, {
+          scope: r.scope,
+          filters: {
+            ...r.filters,
+            ...(r.filters.selectedOnly && sheet.file === currentFile
+              ? { selected: selection }
+              : {}),
+            // "Selected items only" can only mean the sheet on screen; an
+            // off-screen sheet has no selection, so nothing there matches.
+            ...(r.filters.selectedOnly && sheet.file !== currentFile
+              ? { selected: new Set<string>() }
+              : {}),
+          },
+          action: r.action,
+          ...(netOfItem ? { netOfItem } : {}),
+        });
+        if (next === sheet.doc) continue;
+        applySheetDocument(sheet.file, next, 'Edit Text and Graphics', changedFiles);
+      }
+      if (changedFiles.length) onProjectChange?.(changedFiles);
+    },
+    [annotateSheets, hierarchyLibs, applySheetDocument, currentFile, selection, onProjectChange],
   );
 
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
@@ -4069,6 +4147,7 @@ export function SchematicEditor({
       else if (id === 'findReplace') openFindDialog('replace');
       else if (id === 'annotate') setAnnotateOpen(true);
       else if (id === 'incrementAnnotations') setIncrementAnnotationsOpen(true);
+      else if (id === 'globalEditTextAndGraphics') setGlobalEditOpen(true);
       else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
@@ -5594,6 +5673,16 @@ export function SchematicEditor({
                 setAnnotateMessages([]);
                 setAnnotateOpen(false);
               }}
+            />
+          )}
+          {globalEditOpen && (
+            <DialogGlobalEditTextAndGraphics
+              hasSelection={selection.size > 0}
+              onOk={(r) => {
+                setGlobalEditOpen(false);
+                runGlobalEdit(r);
+              }}
+              onCancel={() => setGlobalEditOpen(false)}
             />
           )}
           {incrementAnnotationsOpen && (

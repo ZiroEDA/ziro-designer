@@ -610,6 +610,12 @@ function writeSheetPin(node: SList, pin: SheetPin): SList {
   n = setItem(n, 2, atom(pin.shape));
   n = patchAt(n, pin.at);
   n = mapChild(n, 'at', (at) => setItem(at, 3, atom(String(pin.angle))));
+  // Formatting, the same way a label patches it: the pin's text is editable
+  // through its properties dialog and through Edit Text & Graphics.
+  if (pin.effects && childNamed(n, 'effects')) {
+    const orig = readEffects(node);
+    n = mapChild(n, 'effects', (e) => patchEffects(e, pin.effects!, orig));
+  }
   const fields = pin.fields ?? [];
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const written = new Set<string>();
