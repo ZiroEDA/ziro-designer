@@ -28,6 +28,7 @@
 
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
 import type { Board, PadPrimitive, PcbPad, PcbShape, PcbVia } from '../types.js';
 import {
   areaOutline,
@@ -648,6 +649,121 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- courtyards --------------------------------------------------------
+  // drc_test_provider_courtyard_clearance, plus the missing/malformed pair.
+  // A courtyard is derived from the footprint's F.CrtYd / B.CrtYd graphics, so
+  // this runs whatever the rule file says.
+  const courtyards = board.footprints.map((fp) => ({
+    fp,
+    ref: fp.reference ?? fp.lib,
+    front: buildCourtyard(fp, 'F.CrtYd'),
+    back: buildCourtyard(fp, 'B.CrtYd'),
+  }));
+
+  for (const c of courtyards) {
+    if (c.front.malformed || c.back.malformed) {
+      out.push({
+        code: 'malformed_courtyard',
+        message: `Footprint has malformed courtyard ${c.front.error ?? c.back.error ?? ''}`.trim(),
+        pos: c.fp.at,
+        items: [{ desc: `Footprint ${c.ref}`, pos: c.fp.at }],
+      });
+      // Malformed and missing are exclusive: upstream reports the first and
+      // never falls through to the second.
+      continue;
+    }
+
+    if (c.front.outlines.length === 0 && c.back.outlines.length === 0) {
+      if (allowsMissingCourtyard(c.fp)) continue;
+
+      out.push({
+        code: 'missing_courtyard',
+        message: 'Footprint has no courtyard defined',
+        pos: c.fp.at,
+        items: [{ desc: `Footprint ${c.ref}`, pos: c.fp.at }],
+      });
+    }
+  }
+
+  for (let i = 0; i < courtyards.length; i++) {
+    for (let j = i + 1; j < courtyards.length; j++) {
+      const a = courtyards[i]!;
+      const b = courtyards[j]!;
+
+      // Courtyards only collide with their own side of the board.
+      for (const side of ['front', 'back'] as const) {
+        const outlinesA = a[side].outlines;
+        const outlinesB = b[side].outlines;
+        if (outlinesA.length === 0 || outlinesB.length === 0) continue;
+
+        const clearance =
+          customValue(
+            'courtyard_clearance',
+            evalItem('Footprint', 0, side === 'front' ? 'F.Cu' : 'B.Cu'),
+            evalItem('Footprint', 0, side === 'front' ? 'F.Cu' : 'B.Cu'),
+          )?.value.min ?? 0;
+
+        const hit = outlinesA.some((oa) =>
+          outlinesB.some(
+            (ob) =>
+              shapeDist({ kind: 'poly', pts: oa, r: 0 }, { kind: 'poly', pts: ob, r: 0 }) <=
+              clearance,
+          ),
+        );
+
+        if (!hit) continue;
+
+        out.push({
+          code: 'courtyards_overlap',
+          message: 'Courtyards overlap',
+          pos: a.fp.at,
+          items: [
+            { desc: `Footprint ${a.ref}`, pos: a.fp.at },
+            { desc: `Footprint ${b.ref}`, pos: b.fp.at },
+          ],
+        });
+        break;
+      }
+
+      // A drilled pad of one footprint inside the other's courtyard. Via holes
+      // are deliberately not checked: "there is a presumption that a physical
+      // object goes through a pad hole, which is not the case for via holes."
+      for (const [owner, other] of [
+        [a, b],
+        [b, a],
+      ] as const) {
+        for (const pad of other.fp.pads) {
+          // A heatsink pad is exempt, and only a drilled pad counts at all.
+          if (pad.padProperty === 'pad_prop_heatsink') continue;
+          if (pad.type !== 'thru_hole' && pad.type !== 'np_thru_hole') continue;
+          if (!pad.drill) continue;
+
+          const hole: Shape = {
+            kind: 'circle',
+            c: pad.at,
+            r: Math.min(pad.drill.w, pad.drill.h || pad.drill.w) / 2,
+          };
+
+          const inside = [...owner.front.outlines, ...owner.back.outlines].some(
+            (o) => shapeDist(hole, { kind: 'poly', pts: o, r: 0 }) === 0,
+          );
+
+          if (!inside) continue;
+
+          out.push({
+            code: pad.type === 'thru_hole' ? 'pth_inside_courtyard' : 'npth_inside_courtyard',
+            message: pad.type === 'thru_hole' ? 'PTH inside courtyard' : 'NPTH inside courtyard',
+            pos: pad.at,
+            items: [
+              { desc: `Pad ${pad.number} of ${other.ref}`, pos: pad.at },
+              { desc: `Footprint ${owner.ref}`, pos: owner.fp.at },
+            ],
+          });
+        }
+      }
+    }
+  }
+
   // ----- disallow / assertion (every board item) ---------------------------
   // Both walk the whole board rather than copper pairs, and both are pure
   // rule-driven: with no .kicad_dru there is nothing to check and the sweep is
@@ -796,11 +912,14 @@ function* boardEvalItems(
       desc: `Footprint ${ref}`,
       pos: fp.at,
       hasHole: false,
-      // Upstream collides a footprint's *courtyard* with the area, and reports
-      // an error rather than a match when there is none. We do not model
-      // courtyards, so a footprint never matches an area predicate — the same
-      // answer, by the same reasoning.
-      shapes: [],
+      // A footprint collides through its *courtyard*, not its outline or its
+      // pads (collidesWithArea's PCB_FOOTPRINT_T branch). One with no
+      // courtyard collides with nothing, which is upstream's answer too — it
+      // reports an error and returns false.
+      shapes: [
+        ...buildCourtyard(fp, 'F.CrtYd').outlines,
+        ...buildCourtyard(fp, 'B.CrtYd').outlines,
+      ].map((pts) => ({ kind: 'poly' as const, pts, r: 0 })),
     };
 
     for (const pad of fp.pads) {
