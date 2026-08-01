@@ -885,6 +885,53 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- track not centered on via -----------------------------------------
+  // A track that lands *inside* a via's copper but not on its centre. The via
+  // still conducts, so this is a tidiness check — but an off-centre stub is
+  // usually the sign of a track that was dragged and left behind.
+  {
+    const centred = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
+
+    for (const t of [...board.tracks, ...board.arcs]) {
+      for (const v of board.vias) {
+        if (v.net !== t.net) continue;
+        if (!viaLayers(v, copperOrder).includes(t.layer)) continue;
+
+        const r = v.size / 2;
+        const startInVia = Math.hypot(t.start.x - v.at.x, t.start.y - v.at.y) <= r;
+        const endInVia = Math.hypot(t.end.x - v.at.x, t.end.y - v.at.y) <= r;
+        if (!startInVia && !endInVia) continue;
+
+        // If *any* track on this layer reaches the via's centre, the layer is
+        // properly connected and a neighbour sitting off-centre is tolerated.
+        const layerHasCentredTrack = [...board.tracks, ...board.arcs].some(
+          (o) =>
+            o.layer === t.layer &&
+            o.net === v.net &&
+            (centred(o.start, v.at) || centred(o.end, v.at)),
+        );
+        if (layerHasCentredTrack) continue;
+
+        const offStart = startInVia && !centred(t.start, v.at);
+        const offEnd = endInVia && !centred(t.end, v.at);
+        if (!offStart && !offEnd) continue;
+
+        const pos = offStart ? t.start : t.end;
+        out.push({
+          code: 'track_not_centered_on_via',
+          message: 'Track endpoint not centered on via',
+          pos,
+          items: [
+            { desc: `Track [${netName(t.net)}] on ${t.layer}`, pos },
+            { desc: `Via [${netName(v.net)}]`, pos: v.at },
+          ],
+        });
+        // One report per track, as upstream breaks out of the via loop.
+        break;
+      }
+    }
+  }
+
   // ----- isolated copper ---------------------------------------------------
   // The "starved zones" pass of drc_test_provider_connectivity: an island of
   // zone fill that reaches nothing on its net. The filler drops these under
