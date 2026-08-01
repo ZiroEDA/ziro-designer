@@ -899,6 +899,32 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- footprint type vs its pads ----------------------------------------
+  // FOOTPRINT::CheckFootprintAttributes. A footprint marked SMD that carries
+  // through-hole pads is not a cosmetic problem: the position file feeds a
+  // pick-and-place machine, and a part it cannot place should not be in it.
+  for (const fp of board.footprints) {
+    const set = fp.attributes?.includes('smd')
+      ? 'SMD'
+      : fp.attributes?.includes('through_hole')
+        ? 'Through hole'
+        : undefined;
+
+    // Only a footprint that states a type can contradict itself; one with no
+    // `(attr …)` at all is "unspecified", not wrong.
+    if (!set) continue;
+
+    const likely = likelyFootprintAttribute(fp);
+    if (!likely || likely === set) continue;
+
+    out.push({
+      code: 'footprint_type_mismatch',
+      message: `Footprint component type doesn't match footprint pads (expected '${likely}'; actual '${set}')`,
+      pos: fp.at,
+      items: [{ desc: `Footprint ${fp.reference ?? fp.lib}`, pos: fp.at }],
+    });
+  }
+
   // ----- padstack sanity ---------------------------------------------------
   // PAD::doCheckPad. Two codes with different weight: `padstack_invalid` is
   // geometry that cannot be built at all, `padstack` is a padstack that will
@@ -2043,6 +2069,43 @@ function countThermalSpokes(pad: PcbPad, midGap: number, polys: readonly Vec2[][
   }
 
   return spokes;
+}
+
+/**
+ * FOOTPRINT::GetLikelyAttribute — the type a footprint's pads imply.
+ *
+ * Through-hole wins outright when any plated through-hole pad is present:
+ * upstream's reasoning is that such a part "might not be auto-placed", so a
+ * mixed footprint is through-hole even if most of its pads are surface mount.
+ *
+ * Four pad properties are excluded from the vote entirely. A fiducial,
+ * heatsink, castellated or mechanical pad says nothing about how the component
+ * is fitted, so counting them would make a mechanical hole turn an SMD part
+ * into a through-hole one.
+ */
+function likelyFootprintAttribute(fp: PcbFootprint): 'SMD' | 'Through hole' | undefined {
+  const ABSTAINS = new Set([
+    'pad_prop_fiducial_glob',
+    'pad_prop_fiducial_loc',
+    'pad_prop_heatsink',
+    'pad_prop_castellated',
+    'pad_prop_mechanical',
+  ]);
+
+  let tht = 0;
+  let smd = 0;
+
+  for (const pad of fp.pads) {
+    if (pad.padProperty && ABSTAINS.has(pad.padProperty)) continue;
+
+    if (pad.type === 'thru_hole') tht++;
+    // An SMD pad only counts as surface mount if it is actually on copper.
+    else if (pad.type === 'smd' && pad.layers.some((l) => isCopper(l) || l === '*.Cu')) smd++;
+  }
+
+  if (tht > 0) return 'Through hole';
+  if (smd > 0) return 'SMD';
+  return undefined;
 }
 
 /** One track-segment-length violation. */
