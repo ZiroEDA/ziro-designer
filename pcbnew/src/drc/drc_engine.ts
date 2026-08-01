@@ -649,6 +649,114 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- miscellaneous -----------------------------------------------------
+  // drc_test_provider_misc, plus the two that live with the items they check:
+  // the text-on-Edge.Cuts test from the disallow provider, and PAD::CheckPads'
+  // through-hole-without-a-hole.
+
+  // The `(layers …)` table *is* the enabled set, so anything naming a copper
+  // layer outside it is on a disabled layer. Only copper is tested.
+  const enabled = new Set(board.layers.map((l) => l.name));
+  const disabled = (layer: string | undefined): boolean =>
+    layer !== undefined && isCopper(layer) && !enabled.has(layer);
+
+  const onDisabledLayer = (desc: string, pos: Vec2, layer: string): void => {
+    out.push({
+      code: 'item_on_disabled_layer',
+      message: `Item on a disabled copper layer (layer ${layer})`,
+      pos,
+      items: [{ desc, pos }],
+    });
+  };
+
+  for (const t of board.tracks)
+    if (disabled(t.layer)) onDisabledLayer(`Track [${netName(t.net)}]`, t.start, t.layer);
+  for (const t of board.arcs)
+    if (disabled(t.layer)) onDisabledLayer(`Track [${netName(t.net)}]`, t.start, t.layer);
+
+  for (const v of board.vias) {
+    // A via is tested at the two ends of its span, not everywhere between.
+    const bad = v.layers.find((l) => disabled(l));
+    if (bad) onDisabledLayer(`Via [${netName(v.net)}]`, v.at, bad);
+  }
+
+  for (const z of board.zones) {
+    const bad = z.layers.find((l) => disabled(l));
+    if (bad)
+      onDisabledLayer(
+        z.name ? `Zone '${z.name}'` : `Zone [${netName(z.net)}]`,
+        z.outline?.[0] ?? { x: 0, y: 0 },
+        bad,
+      );
+  }
+
+  // Everything else is tested by its plain layer set, which for a graphic or a
+  // text can name a copper layer just as a track's can.
+  for (const s of board.shapes)
+    if (disabled(s.layer))
+      onDisabledLayer(`Graphic on ${s.layer}`, s.start ?? s.center ?? { x: 0, y: 0 }, s.layer);
+
+  for (const t of [...board.texts, ...board.footprints.flatMap((fp) => fp.texts)])
+    if (disabled(t.layer)) onDisabledLayer(`Text '${t.text}'`, t.at, t.layer);
+
+  for (const fp of board.footprints) {
+    const ref = fp.reference ?? fp.lib;
+
+    for (const s of fp.shapes)
+      if (disabled(s.layer))
+        onDisabledLayer(`Graphic of ${ref}`, s.start ?? s.center ?? fp.at, s.layer);
+
+    for (const p of fp.pads) {
+      // A through-hole pad pierces every physical layer, so it is never on a
+      // disabled one; only surface pads are tested.
+      if (p.type === 'smd' || p.type === 'connect') {
+        const bad = p.layers.find((l) => disabled(l));
+        if (bad) onDisabledLayer(`Pad ${p.number} of ${ref}`, p.at, bad);
+      }
+
+      // PAD::CheckPads: a plated or unplated through-hole pad is expected to
+      // have a hole. An oblong drill needs both dimensions.
+      if (p.type === 'thru_hole' || p.type === 'np_thru_hole') {
+        const noHole = !p.drill || p.drill.w <= 0 || (p.drill.oblong && p.drill.h <= 0);
+        if (noHole) {
+          out.push({
+            code: 'through_hole_pad_without_hole',
+            message: 'Through hole pad has no hole',
+            pos: p.at,
+            items: [{ desc: `Pad ${p.number} of ${ref}`, pos: p.at }],
+          });
+        }
+      }
+    }
+  }
+
+  // Text that plots geometry onto Edge.Cuts corrupts the board outline.
+  // Graphics are *not* included: upstream's checkTextOnEdgeCuts answers true
+  // only for text-like items.
+  for (const t of [...board.texts, ...board.footprints.flatMap((fp) => fp.texts)]) {
+    if (t.layer === 'Edge.Cuts') {
+      out.push({
+        code: 'text_on_edge_cuts',
+        message: 'Text or graphic on Edge.Cuts layer',
+        pos: t.at,
+        items: [{ desc: `Text '${t.text}'`, pos: t.at }],
+      });
+    }
+  }
+
+  // A text variable the reader could not resolve is still spelled `${…}` in
+  // the shown text, which is exactly upstream's `*${*}*` test.
+  for (const t of [...board.texts, ...board.footprints.flatMap((fp) => fp.texts)]) {
+    if (/\$\{[^}]*\}/.test(t.text)) {
+      out.push({
+        code: 'unresolved_variable',
+        message: 'Unresolved text variable',
+        pos: t.at,
+        items: [{ desc: `Text '${t.text}'`, pos: t.at }],
+      });
+    }
+  }
+
   // ----- courtyards --------------------------------------------------------
   // drc_test_provider_courtyard_clearance, plus the missing/malformed pair.
   // A courtyard is derived from the footprint's F.CrtYd / B.CrtYd graphics, so
