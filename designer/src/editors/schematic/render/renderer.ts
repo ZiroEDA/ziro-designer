@@ -2897,7 +2897,21 @@ export function renderSymbolPreview(
 }
 
 /** Compute a viewport that fits the schematic content into the given canvas size. */
-export function fitToContent(sch: Schematic, canvasWidth: number, canvasHeight: number): Viewport {
+/**
+ * Fit the view to the sheet's contents.
+ *
+ * `includePage` is what separates ACTIONS::zoomFitScreen from zoomFitObjects:
+ * Zoom to Fit shows the whole page, so an empty corner of the drawing sheet is
+ * still on screen, while Zoom to All Objects fits only what has been drawn and
+ * ignores the sheet entirely. On a sparse schematic the two are very different
+ * views, which is why upstream gives them separate keys.
+ */
+export function fitToContent(
+  sch: Schematic,
+  canvasWidth: number,
+  canvasHeight: number,
+  includePage = true,
+): Viewport {
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -2922,8 +2936,9 @@ export function fitToContent(sch: Schematic, canvasWidth: number, canvasHeight: 
     include(sh.at);
     include({ x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h });
   }
-  // The drawing sheet is part of the scene: fit shows the whole page (as KiCad does).
-  const page = paperSizeIU(sch.paper);
+  // The drawing sheet is part of the scene for Zoom to Fit, and deliberately
+  // not for Zoom to All Objects.
+  const page = includePage ? paperSizeIU(sch.paper) : null;
   if (page) {
     include({ x: 0, y: 0 });
     include({ x: page.w, y: page.h });

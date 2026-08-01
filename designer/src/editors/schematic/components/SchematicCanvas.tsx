@@ -368,7 +368,8 @@ export function buildPendingLabel(
 }
 
 export interface CanvasController {
-  zoomToFit: () => void;
+  /** `objectsOnly` fits what is drawn and ignores the page (zoomFitObjects). */
+  zoomToFit: (objectsOnly?: boolean) => void;
   /** Fit the view to a world-space box (Zoom to Selected Objects). */
   zoomToBox: (box: { minX: number; minY: number; maxX: number; maxY: number }) => void;
   /** Force a repaint without changing the view (Refresh / zoomRedraw). */
@@ -1369,13 +1370,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   useImperativeHandle(
     ref,
     (): CanvasController => ({
-      zoomToFit: () => {
+      zoomToFit: (objectsOnly = false) => {
         const c = canvasRef.current;
         if (!c || !sizedRef.current) {
           fitPendingRef.current = true;
           return;
         }
-        viewportRef.current = fitToContent(schematic, c.width, c.height);
+        viewportRef.current = fitToContent(schematic, c.width, c.height, !objectsOnly);
         requestDraw();
       },
       zoomToBox: (box) => {

@@ -3907,7 +3907,9 @@ export function SchematicEditor({
         mirrorV: 'mirrorX',
         mirrorH: 'mirrorY',
       };
-      if (id === 'zoomFit' || id === 'zoomFitObjects') controller.current?.zoomToFit();
+      if (id === 'zoomFit') controller.current?.zoomToFit();
+      // Zoom to All Objects fits what is drawn, not the page (ACTIONS::zoomFitObjects).
+      else if (id === 'zoomFitObjects') controller.current?.zoomToFit(true);
       else if (id === 'zoomIn') controller.current?.zoomIn();
       else if (id === 'zoomOut') controller.current?.zoomOut();
       else if (id === 'zoomRedraw') controller.current?.redraw();
@@ -4672,9 +4674,9 @@ export function SchematicEditor({
         e.preventDefault();
         controller.current?.zoomToFit();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
-        // ACTIONS::zoomFitObjects (Ctrl+Home).
+        // ACTIONS::zoomFitObjects (Ctrl+Home): the drawn objects, not the page.
         e.preventDefault();
-        controller.current?.zoomToFit();
+        controller.current?.zoomToFit(true);
       } else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
         // ACTIONS::zoomIn (Ctrl++).
         e.preventDefault();
@@ -4757,6 +4759,26 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
+      } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
+        // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
+        // indices into the grid list, stored 1-based as KiCad stores them.
+        e.preventDefault();
+        settings.updateEeschema((st) => {
+          const n = st.window.grid.sizes.length;
+          if (n === 0) return;
+          const g1 = Math.min(Math.max(st.window.grid.fast_grid_1, 1), n) - 1;
+          const g2 = Math.min(Math.max(st.window.grid.fast_grid_2, 1), n) - 1;
+          st.window.grid.last_size_idx =
+            e.key === '1'
+              ? g1
+              : e.key === '2'
+                ? g2
+                : // Cycle: whichever of the two is not current, so the key
+                  // toggles between them rather than stepping the whole list.
+                  st.window.grid.last_size_idx === g1
+                  ? g2
+                  : g1;
+        });
       } else if (e.altKey && e.key.toLowerCase() === 's' && selection.size > 1) {
         // SCH_ACTIONS::swap (Alt+S): the selection's positions cycle round.
         e.preventDefault();
@@ -4907,6 +4929,43 @@ export function SchematicEditor({
               }
               return;
             }
+          }
+        }
+        // U / V / F = edit the Reference / Value / Footprint of the selected
+        // symbol (SCH_EDIT_TOOL::EditField), which opens the same field dialog
+        // double-clicking that field does. A field selected on its own resolves
+        // to its parent symbol, as EditField does.
+        {
+          const FIELD_KEYS: Record<string, string> = { u: 'Reference', v: 'Value', f: 'Footprint' };
+          const want = FIELD_KEYS[e.key.toLowerCase()];
+          if (want && doc && selection.size === 1) {
+            const id = [...selection][0]!;
+            const owner = /^(.*):field\d+$/.exec(id)?.[1] ?? id;
+            const si = doc.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === owner);
+            if (si !== -1) {
+              e.preventDefault();
+              const sym = doc.symbols[si]!;
+              // Footprint is meaningless on a power symbol, so upstream skips it.
+              const isPower = !!libById.get(sym.libId)?.isPower;
+              if (!(want === 'Footprint' && isPower)) {
+                const fi = sym.fields.findIndex((f) => f.key === want);
+                if (fi !== -1) setFieldEdit({ symbol: si, index: fi });
+              }
+              return;
+            }
+          }
+        }
+        // D = Show Datasheet (ACTIONS::showDatasheet) for the selected symbol.
+        if (e.key.toLowerCase() === 'd' && doc && selection.size === 1) {
+          const id = [...selection][0]!;
+          const sym = doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
+          if (sym) {
+            e.preventDefault();
+            const url = (sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '').trim();
+            // "~" is KiCad's "no datasheet", not a URL.
+            if (url === '' || url === '~') setError('No datasheet defined.');
+            else window.open(url, '_blank', 'noopener,noreferrer');
+            return;
           }
         }
         // O = Autoplace Fields (SCH_ACTIONS::autoplaceFields) on the selection.
