@@ -153,6 +153,20 @@ const maskLayerOf = (node: SList): string | undefined => {
   return ls ? args(ls).find((n) => /\.Mask$/.test(n)) : undefined;
 };
 
+/** `(zone_connect N)`: 0 inherited, 1 thermal, 2 none, 3 full. */
+const zoneConnectOf = (node: SList): 'inherited' | 'none' | 'thermal' | 'full' | undefined => {
+  const v = numberField(node, 'zone_connect');
+  return v === 1
+    ? 'thermal'
+    : v === 2
+      ? 'none'
+      : v === 3
+        ? 'full'
+        : v === 0
+          ? 'inherited'
+          : undefined;
+};
+
 /** A millimetre child in IU, or undefined when the token is absent. */
 const mmOrUndef = (node: SList, name: string): number | undefined => {
   const v = numberField(node, name);
@@ -407,6 +421,14 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
       : undefined,
     pinType: childNamed(item, 'pintype') ? arg(childNamed(item, 'pintype')!, 0) : undefined,
     primitives: primitives.length > 0 ? primitives : undefined,
+    localClearance: mmOrUndef(item, 'clearance'),
+    localSolderMaskMargin: mmOrUndef(item, 'solder_mask_margin'),
+    localSolderPasteMargin: mmOrUndef(item, 'solder_paste_margin'),
+    localSolderPasteMarginRatio: numberField(item, 'solder_paste_margin_ratio'),
+    zoneConnection: zoneConnectOf(item),
+    thermalBridgeWidth: mmOrUndef(item, 'thermal_bridge_width'),
+    thermalGap: mmOrUndef(item, 'thermal_gap'),
+    padToDieLength: mmOrUndef(item, 'die_length'),
     teardrops: readTeardropParams(childNamed(item, 'teardrops')),
     uuid: uuidOf(item),
     source: item,
@@ -464,19 +486,7 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     localSolderMaskMargin: mmOrUndef(item, 'solder_mask_margin'),
     localSolderPasteMargin: mmOrUndef(item, 'solder_paste_margin'),
     localSolderPasteMarginRatio: numberField(item, 'solder_paste_margin_ratio'),
-    zoneConnection: (() => {
-      // ZONE_CONNECTION: 0 inherited, 1 thermal, 2 none, 3 full.
-      const v = numberField(item, 'zone_connect');
-      return v === 1
-        ? ('thermal' as const)
-        : v === 2
-          ? ('none' as const)
-          : v === 3
-            ? ('full' as const)
-            : v === 0
-              ? ('inherited' as const)
-              : undefined;
-    })(),
+    zoneConnection: zoneConnectOf(item),
     locked: lockedNode ? arg(lockedNode, 0) !== 'no' : false,
     path: stringField(item, 'path'),
     sheetname: stringField(item, 'sheetname'),

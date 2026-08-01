@@ -124,6 +124,15 @@ import {
   type FootprintValues,
 } from '@ziroeda/pcbnew/src/footprint_properties.js';
 import { flipBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
+import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
+import {
+  applyPadValues,
+  collectPadValues,
+  // `padAt` is taken by the local hit-test helper below.
+  padAt as selectedPadAt,
+  type PadRef,
+  type PadValues,
+} from '@ziroeda/pcbnew/src/pad_properties.js';
 import {
   applyZoneValues,
   collectZoneValues,
@@ -982,6 +991,8 @@ export function PcbEditor({
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
+  // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
+  const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2827,6 +2838,9 @@ export function PcbEditor({
     } else if (top && r?.kind === 'zone') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setZonePropsIndex(r.index);
+    } else if (top && r?.kind === 'pad') {
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
     } else if (top && r?.kind === 'footprint') {
       setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
       setFpPropsIndex(r.index);
@@ -2900,8 +2914,9 @@ export function PcbEditor({
     if (selection.size > 0) {
       const zoneIdx = brd ? zoneAt(brd, selection) : null;
       const fpIdx = brd ? footprintAt(brd, selection) : null;
+      const padIdx = brd ? selectedPadAt(brd, selection) : null;
       const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-      const editable = copper || zoneIdx !== null || fpIdx !== null;
+      const editable = copper || zoneIdx !== null || fpIdx !== null || padIdx !== null;
       items.push(
         { sep: true },
         {
@@ -2909,6 +2924,7 @@ export function PcbEditor({
           action: () => {
             if (copper) setTrackViaOpen(true);
             else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
+            else if (padIdx !== null) setPadPropsRef(padIdx);
             else setFpPropsIndex(fpIdx);
           },
           disabled: !editable,
@@ -3486,6 +3502,12 @@ export function PcbEditor({
       return;
     }
 
+    const pi = selectedPadAt(brd, sel);
+    if (pi !== null) {
+      setPadPropsRef(pi);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -3519,6 +3541,19 @@ export function PcbEditor({
   }, [commitBoard]);
   const flipSelectionRef = useRef(flipSelection);
   flipSelectionRef.current = flipSelection;
+
+  /** DIALOG_PAD_PROPERTIES::TransferDataFromWindow. */
+  const applyPadEdit = useCallback(
+    (values: PadValues) => {
+      const brd = boardRef.current;
+      const ref = padPropsRef;
+      setPadPropsRef(null);
+      if (!brd || !ref) return;
+      const next = applyPadValues(brd, ref, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, padPropsRef],
+  );
 
   /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
   const applyFootprintEdit = useCallback(
@@ -6508,6 +6543,17 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
+        <DialogPadProperties
+          initial={collectPadValues(
+            board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!,
+          )}
+          nets={board.nets}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyPadEdit}
+          onClose={() => setPadPropsRef(null)}
         />
       )}
       {fpPropsIndex !== null && board?.footprints[fpPropsIndex] && (
