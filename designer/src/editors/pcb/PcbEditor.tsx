@@ -114,6 +114,13 @@ import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { netclassesForNet } from './netclass_resolve.js';
+import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
+import {
+  applyTrackViaValues,
+  hasTrackOrVia,
+  trackViaSelection,
+  type TrackViaValues,
+} from '@ziroeda/pcbnew/src/track_via_properties.js';
 import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
@@ -953,6 +960,9 @@ export function PcbEditor({
   const [drcOpen, setDrcOpen] = useState(false);
   // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
   const [teardropsOpen, setTeardropsOpen] = useState(false);
+  // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
+  // double-click on a copper item.
+  const [trackViaOpen, setTrackViaOpen] = useState(false);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2791,6 +2801,10 @@ export function PcbEditor({
     if (r?.kind === 'group') {
       setEnteredGroup(brd.groups[r.index]?.uuid ?? null);
       setSelection(new Set());
+    } else if (top && (r?.kind === 'track' || r?.kind === 'arc' || r?.kind === 'via')) {
+      // EDIT_TOOL::Properties on a copper item.
+      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
+      setTrackViaOpen(true);
     } else if (!top) {
       setEnteredGroup(null);
     }
@@ -2859,7 +2873,10 @@ export function PcbEditor({
       { label: 'Unselect All', action: unselectAllSel, disabled: selection.size === 0 },
     ];
     if (selection.size > 0) {
+      const editable = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
       items.push(
+        { sep: true },
+        { label: 'Properties…', action: () => setTrackViaOpen(true), disabled: !editable },
         { sep: true },
         {
           label: 'Mirror / Rotate',
@@ -3406,6 +3423,32 @@ export function PcbEditor({
   }, [boardSetup]);
   teardropListRef.current = teardropParamsList;
   teardropMaskExpansionRef.current = Math.round(boardSetup.maskPaste.maskExpansionMM * MM);
+
+  /**
+   * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
+   * Upstream refuses when the selection has nothing it can edit.
+   */
+  const openTrackViaProperties = useCallback(() => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    if (!hasTrackOrVia(trackViaSelection(brd, selForDrawRef.current))) return;
+    setTrackViaOpen(true);
+  }, []);
+  const openTrackViaPropertiesRef = useRef(openTrackViaProperties);
+  openTrackViaPropertiesRef.current = openTrackViaProperties;
+
+  /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
+  const applyTrackViaEdit = useCallback(
+    (values: TrackViaValues) => {
+      const brd = boardRef.current;
+      setTrackViaOpen(false);
+      if (!brd) return;
+      const sel = trackViaSelection(brd, selForDrawRef.current);
+      const next = applyTrackViaValues(brd, sel, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard],
+  );
 
   /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
   const applyTeardropEdit = useCallback(
@@ -3997,6 +4040,12 @@ export function PcbEditor({
       if (!mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         grabStartRef.current('drag45');
+        return;
+      }
+      // E = Properties (ACTIONS::properties).
+      if (!mod && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        openTrackViaPropertiesRef.current();
         return;
       }
       // B = Fill All Zones (PCB_ACTIONS::zoneFillAll).
@@ -4776,6 +4825,8 @@ export function PcbEditor({
         },
         { sep: true },
         { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
+        { sep: true },
+        { label: 'Properties…', action: () => openTrackViaProperties(), shortcut: 'E' },
         { sep: true },
         { label: 'Edit Teardrops…', action: () => setTeardropsOpen(true) },
         { sep: true },
@@ -6347,6 +6398,17 @@ export function PcbEditor({
         <DialogUpdatePcb
           onPerformUpdate={performNetlistUpdate}
           onClose={() => setUpdatePcb(null)}
+        />
+      )}
+      {trackViaOpen && board && (
+        <DialogTrackViaProperties
+          selection={trackViaSelection(board, selection)}
+          nets={board.nets}
+          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+          trackWidths={trackWidthList}
+          viaSizes={viaSizeList}
+          onApply={applyTrackViaEdit}
+          onClose={() => setTrackViaOpen(false)}
         />
       )}
       {teardropsOpen && board && (
