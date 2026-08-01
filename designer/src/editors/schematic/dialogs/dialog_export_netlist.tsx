@@ -42,6 +42,18 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
     note: 'The classic OrcadPCB2 text netlist.',
   },
   {
+    id: 'cadstar',
+    label: 'CadStar',
+    ext: 'frp',
+    note: 'The CadStar netlist (NETLIST_EXPORTER_CADSTAR).',
+  },
+  {
+    id: 'pads',
+    label: 'PADS',
+    ext: 'asc',
+    note: 'The PADS-PCB netlist (NETLIST_EXPORTER_PADS).',
+  },
+  {
     id: 'spice',
     label: 'Spice',
     ext: 'cir',

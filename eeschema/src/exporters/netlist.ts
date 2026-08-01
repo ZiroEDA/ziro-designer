@@ -83,6 +83,11 @@ class X {
 export interface NetlistMeta {
   /** Source schematic file name (design header `source`). */
   source: string;
+  /**
+   * Timestamp for the formats that stamp one (CadStar's `.TIM`). Left to the
+   * caller so an export is reproducible in a test; defaults to now.
+   */
+  date?: string;
 }
 
 /**
@@ -242,8 +247,143 @@ export function netlistOrcadPcb2(
   return out.join('\n');
 }
 
+/**
+ * The pins of every net, as `REF.PIN` pairs, ordered the way both the PADS and
+ * CadStar exporters order them.
+ *
+ * Both sort nets by name and, inside a net, by reference then pin number, "to
+ * ensure file stability for version control and QA comparisons". Both also drop
+ * duplicates, which a multi-unit part produces when its repeated pins are
+ * connected on more than one unit and so land in separate subgraphs. And both
+ * skip a reference beginning with `#`, the power/virtual symbols.
+ */
+function netPinsByName(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+): { name: string; pins: { ref: string; pin: string }[] }[] {
+  const netlist = computeNetlist(sch, libById);
+  const pinById = new Map(enumeratePins(sch, libById).map((p) => [p.id, p]));
+  const refByIndex = new Map(
+    sch.symbols.map((sym, i) => [refId('symbol', sym.uuid, i), field(sym, 'Reference')]),
+  );
+
+  const out: { name: string; pins: { ref: string; pin: string }[] }[] = [];
+  for (const net of netlist.nets) {
+    const seen = new Set<string>();
+    const pins: { ref: string; pin: string }[] = [];
+    for (const id of net.items) {
+      const pin = pinById.get(id);
+      if (!pin || !pin.number) continue;
+      const ref = refByIndex.get(pin.symId) ?? '';
+      if (!ref || ref.startsWith('#')) continue;
+      const k = `${ref}\u0000${pin.number}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      pins.push({ ref, pin: pin.number });
+    }
+    pins.sort((a, b) =>
+      a.ref === b.ref ? (a.pin < b.pin ? -1 : a.pin > b.pin ? 1 : 0) : a.ref < b.ref ? -1 : 1,
+    );
+    out.push({ name: net.name, pins });
+  }
+  return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+/**
+ * The PADS-PCB netlist (NETLIST_EXPORTER_PADS::WriteNetlist): a `*PART*`
+ * section of `REF  FOOTPRINT`, then a `*SIGNAL*` per net listing its pins.
+ *
+ * A symbol with no footprint falls back to its *value*, not to a placeholder,
+ * and either way spaces become underscores. Only nets with more than one pin
+ * are written — a single-pin net connects nothing on the board.
+ */
+export function netlistPads(sch: Schematic, libById: Map<string, LibSymbol>): string {
+  const out: string[] = ['*PADS-PCB*', '*PART*'];
+
+  for (const { sym, ref } of boardSymbols(sch)) {
+    let footprint = field(sym, 'Footprint').trim().replace(/ /g, '_');
+    if (!footprint) footprint = field(sym, 'Value').trim().replace(/ /g, '_');
+    // "{:<16} {}": the reference is padded to 16 columns.
+    out.push(`${ref.padEnd(16)} ${footprint}`);
+  }
+
+  out.push('*NET*');
+  for (const { name, pins } of netPinsByName(sch, libById)) {
+    if (pins.length <= 1) continue;
+    out.push(`*SIGNAL* ${name}`);
+    // Six connections to a line, "which seems to be the standard everyone
+    // follows" — the break lands *after* the seventh and every sixth beyond it,
+    // since the counter starts at zero.
+    let line = '';
+    pins.forEach(({ ref, pin }, i) => {
+      line += `${ref}.${pin}`;
+      if (i !== 0 && i % 6 === 0) {
+        out.push(line);
+        line = '';
+      } else {
+        line += ' ';
+      }
+    });
+    out.push(line);
+  }
+
+  out.push('*END*');
+  return `${out.join('\n')}\n`;
+}
+
+/**
+ * The CadStar netlist (NETLIST_EXPORTER_CADSTAR::WriteNetlist). Every directive
+ * begins with `.`: a `.HEA` header, one `.ADD_COM` per symbol, then the nets.
+ *
+ * A net's first pin is held back and printed on the `.ADD_TER` line *with the
+ * net name* once a second pin turns up — so a one-pin net emits nothing at all,
+ * which is how upstream drops them without testing for it. The third pin
+ * onwards are bare indented lines under the `.TER`.
+ */
+export function netlistCadstar(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  meta: NetlistMeta,
+): string {
+  const S = '.';
+  const out: string[] = [];
+  out.push(`${S}HEA`);
+  out.push(`${S}TIM ${meta.date ?? new Date().toISOString()}`);
+  out.push(`${S}APP "${NETLIST_HEAD}"`);
+  out.push('.TYP FULL');
+  out.push('');
+
+  for (const { sym, ref } of boardSymbols(sch)) {
+    const footprint = field(sym, 'Footprint') || '$noname';
+    const value = field(sym, 'Value').replace(/ /g, '_');
+    out.push(`${S}ADD_COM     ${ref}     "${value}"     "${footprint}"`);
+  }
+  out.push('');
+
+  for (const { name, pins } of netPinsByName(sch, libById)) {
+    let held = '';
+    let count = 0;
+    for (const { ref, pin } of pins) {
+      if (count === 0) {
+        held = `\n${S}ADD_TER   ${ref}   ${pin}     "${name}"`;
+        count++;
+      } else if (count === 1) {
+        out.push(held);
+        out.push(`${S}TER       ${ref}   ${pin}`);
+        count++;
+      } else {
+        out.push(`            ${ref}   ${pin}`);
+      }
+    }
+  }
+
+  out.push('');
+  out.push(`${S}END`);
+  return `${out.join('\n')}\n`;
+}
+
 /** The netlist formats offered by the export dialog. */
-export type NetlistFormat = 'kicadxml' | 'orcadpcb2';
+export type NetlistFormat = 'kicadxml' | 'orcadpcb2' | 'pads' | 'cadstar';
 
 export function generateNetlist(
   format: NetlistFormat,
@@ -251,7 +391,14 @@ export function generateNetlist(
   libById: Map<string, LibSymbol>,
   meta: NetlistMeta,
 ): string {
-  return format === 'kicadxml'
-    ? netlistKicadXml(sch, libById, meta)
-    : netlistOrcadPcb2(sch, libById, meta);
+  switch (format) {
+    case 'kicadxml':
+      return netlistKicadXml(sch, libById, meta);
+    case 'pads':
+      return netlistPads(sch, libById);
+    case 'cadstar':
+      return netlistCadstar(sch, libById, meta);
+    default:
+      return netlistOrcadPcb2(sch, libById, meta);
+  }
 }
