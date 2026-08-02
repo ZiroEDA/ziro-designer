@@ -53,6 +53,7 @@ const baseEdit = (sym: SchSymbol) => ({
   onBoard: sym.onBoard,
   dnp: sym.dnp,
   excludedFromSim: sym.excludedFromSim,
+  excludedFromPosFiles: sym.excludedFromPosFiles,
 });
 
 describe('editSymbolProperties', () => {
@@ -172,6 +173,35 @@ describe('editSymbolProperties', () => {
     expect(re.symbols[0]!.dnp).toBe(true);
     expect(re.symbols[0]!.inBom).toBe(false);
     expect(re.symbols[0]!.excludedFromSim).toBe(true);
+  });
+
+  it('carries Exclude from position files through to the file', () => {
+    // The Symbol Properties dialog was missing this checkbox entirely
+    // (dialog_symbol_properties_base.cpp has it as m_cbExcludeFromPosFiles),
+    // so the attribute could only be set by hand-editing the file.
+    const sch = readSchematic(parse(fixture));
+    const sym = sch.symbols[0]!;
+    const id = refId('symbol', sym.uuid, 0);
+    const next = editSymbolProperties(id, {
+      ...baseEdit(sym),
+      fields: editedFields(sym),
+      excludedFromPosFiles: true,
+    }).apply(sch);
+    const text = serialize(writeSchematic(next));
+    // The writer emits it inverted, as saveSymbol's FormatBool( "in_pos_files", !excluded ).
+    expect(text).toContain('(in_pos_files no)');
+    expect(readSchematic(parse(text)).symbols[0]!.excludedFromPosFiles).toBe(true);
+  });
+
+  it('leaves the position-files token absent when it was never set', () => {
+    const sch = readSchematic(parse(fixture));
+    const sym = sch.symbols[0]!;
+    const id = refId('symbol', sym.uuid, 0);
+    const next = editSymbolProperties(id, {
+      ...baseEdit(sym),
+      fields: editedFields(sym),
+    }).apply(sch);
+    expect(serialize(writeSchematic(next))).not.toContain('in_pos_files');
   });
 
   it('patches font size, bold, italic, justify and show_name losslessly', () => {

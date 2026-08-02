@@ -143,6 +143,7 @@ export function SymbolPropertiesDialog({
   const [excludeBom, setExcludeBom] = useState(!symbol.inBom);
   const [excludeBoard, setExcludeBoard] = useState(!symbol.onBoard);
   const [dnp, setDnp] = useState(symbol.dnp);
+  const [excludePosFiles, setExcludePosFiles] = useState(!!symbol.excludedFromPosFiles);
   const [error, setError] = useState<string | null>(null);
 
   const patchRow = (i: number, patch: Partial<Row>): void =>
@@ -261,6 +262,8 @@ export function SymbolPropertiesDialog({
       dnp,
       // Leave the token absent unless the file had it or the user turned it on.
       excludedFromSim: symbol.excludedFromSim !== undefined || excludeSim ? excludeSim : undefined,
+      excludedFromPosFiles:
+        symbol.excludedFromPosFiles !== undefined || excludePosFiles ? excludePosFiles : undefined,
     });
   };
 
@@ -507,6 +510,8 @@ export function SymbolPropertiesDialog({
 
             <fieldset className="ze-props-group">
               <legend>Attributes</legend>
+              {/* Upstream's order (dialog_symbol_properties_base.cpp): simulation,
+                  board, do-not-populate, bill of materials, position files. */}
               <label>
                 <input
                   type="checkbox"
@@ -514,14 +519,6 @@ export function SymbolPropertiesDialog({
                   onChange={(e) => setExcludeSim(e.target.checked)}
                 />{' '}
                 Exclude from simulation
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={excludeBom}
-                  onChange={(e) => setExcludeBom(e.target.checked)}
-                />{' '}
-                Exclude from bill of materials
               </label>
               <label>
                 <input
@@ -534,6 +531,22 @@ export function SymbolPropertiesDialog({
               <label>
                 <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />{' '}
                 Do not populate
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={excludeBom}
+                  onChange={(e) => setExcludeBom(e.target.checked)}
+                />{' '}
+                Exclude from bill of materials
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={excludePosFiles}
+                  onChange={(e) => setExcludePosFiles(e.target.checked)}
+                />{' '}
+                Exclude from position files
               </label>
             </fieldset>
           </div>
