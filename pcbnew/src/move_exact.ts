@@ -12,12 +12,13 @@
  */
 
 import {
-  boardItemBBox,
   boardSelectionBBox,
   moveBoardItems,
+  parseBoardItemId,
   rotateBoardItemsBy,
 } from './edit-board.js';
-import type { Board } from './types.js';
+import { arcCenter } from './read-board.js';
+import type { Board, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `ROTATION_ANCHOR` (dialog_move_exact.h). */
@@ -63,11 +64,59 @@ export function defaultRotationAnchor(selectionSize: number): RotationAnchor {
   return selectionSize > 1 ? 'selectionCenter' : 'itemAnchor';
 }
 
-/** The centre of an item's own bounding box, which is the anchor it turns about. */
-function itemCenter(board: Board, id: string): Vec2 | null {
-  const b = boardItemBBox(board, id);
-  if (!b) return null;
-  return { x: Math.round((b.minX + b.maxX) / 2), y: Math.round((b.minY + b.maxY) / 2) };
+/**
+ * `EDA_SHAPE::getPosition`. A graphic's anchor is not its centre: an arc
+ * anchors at the centre it turns about, a polygon at its first vertex, and
+ * everything else at its start point — which for a circle *is* its centre,
+ * since KiCad stores a circle as centre-plus-a-point-on-it.
+ */
+function shapeAnchor(s: PcbShape): Vec2 | null {
+  if (s.kind === 'arc')
+    return s.center ?? (s.start && s.mid && s.end ? arcCenter(s.start, s.mid, s.end) : null);
+  if (s.kind === 'circle') return s.center ?? s.start ?? null;
+  if (s.kind === 'poly') return s.pts?.[0] ?? null;
+  return s.start ?? null;
+}
+
+/**
+ * `BOARD_ITEM::GetPosition` — the item's own anchor, which is what
+ * `ROTATE_AROUND_ITEM_ANCHOR` turns about.
+ *
+ * This is deliberately *not* the bounding-box centre. A track anchors at its
+ * start, not its midpoint, so rotating one about its anchor pins one end and
+ * swings the other; using the centre instead would spin it about the middle,
+ * which is a different result and not what the menu entry says.
+ */
+export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
+  const r = parseBoardItemId(id);
+  if (!r) return null;
+
+  switch (r.kind) {
+    case 'track':
+      return board.tracks[r.index]?.start ?? null;
+    case 'arc': {
+      // PCB_ARC::GetPosition computes the arc centre from the three points.
+      const a = board.arcs[r.index];
+      return a ? arcCenter(a.start, a.mid, a.end) : null;
+    }
+    case 'via':
+      return board.vias[r.index]?.at ?? null;
+    case 'text':
+      return board.texts[r.index]?.at ?? null;
+    case 'footprint':
+      return board.footprints[r.index]?.at ?? null;
+    case 'pad':
+      return board.footprints[r.index]?.pads[r.sub ?? -1]?.at ?? null;
+    case 'shape': {
+      const s = board.shapes[r.index];
+      return s ? shapeAnchor(s) : null;
+    }
+    case 'zone':
+      // ZONE::GetPosition is the first corner of the outline.
+      return board.zones[r.index]?.outline?.[0] ?? null;
+    default:
+      return null;
+  }
 }
 
 /** `EDIT_TOOL::MoveExact`. */
@@ -89,10 +138,10 @@ export function moveExact(
   if (rotation === 0) return next;
 
   if (anchor === 'itemAnchor') {
-    // Each item turns about its own centre, so a multi-item selection rotates
-    // its items in place rather than swinging them around each other.
+    // Each item turns about its own anchor, so a multi-item selection rotates
+    // its items where they stand rather than swinging them around each other.
     for (const id of ids) {
-      const c = itemCenter(next, id);
+      const c = itemAnchorPoint(next, id);
       if (c) next = rotateBoardItemsBy(next, new Set([id]), rotation, c);
     }
     return next;
