@@ -11,3 +11,21 @@ export * from './convert_basic_shapes_to_polygon.js';
 export * from './bezier_curves.js';
 export * from './trigo.js';
 export * from './mmh3_hash.js';
+
+export {
+  arcTangentToSegments,
+  chamferLinePair,
+  extendLinePair,
+  filletLinePair,
+  sharedEndpoint,
+  otherEnd,
+  lineProject,
+  pointOnSegment,
+  segmentsIntersect,
+  ARC_MIN_PRECISION_IU,
+  EXTENSION_PADDING_IU,
+  type ArcPoints,
+  type ChamferResult,
+  type ExtensionResult,
+  type FilletResult,
+} from './geometry/corner_operations.js';
