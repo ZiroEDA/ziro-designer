@@ -32,7 +32,7 @@
  */
 
 import { boardItemId, parseBoardItemId } from './edit-board.js';
-import { arcCenter, tessellateArc } from './read-board.js';
+import { tessellateArc } from './read-board.js';
 import type { Board, PcbShape, PcbZone } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -396,6 +396,3 @@ export function convertToZone(
 
   return { board: { ...board, zones: [...board.zones, ...zones] }, ids: newIds };
 }
-
-/** Re-exported so callers can build an arc ring without reaching into the reader. */
-export { arcCenter };
