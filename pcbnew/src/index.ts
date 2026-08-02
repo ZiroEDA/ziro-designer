@@ -281,6 +281,16 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  boardEditHandles,
+  dragBoardHandle,
+  hasEditPoints,
+  editablePointItems,
+  arcHandleCentre,
+  type BoardEditHandle,
+  type HandleKind,
+} from './point_editor.js';
+
+export {
   createArray,
   arraySize,
   arrayTransform,
