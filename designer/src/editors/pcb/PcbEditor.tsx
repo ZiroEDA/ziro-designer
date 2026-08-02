@@ -83,6 +83,10 @@ import {
   itemAnchorPoint,
   positionRelative,
   boardGridOrigin,
+  convertToPoly,
+  convertToZone,
+  convertToLines,
+  segmentToArc,
   type DrcViolation,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
@@ -2470,6 +2474,35 @@ export function PcbEditor({
       setPosRelOpen(false);
     },
     [commitBoard],
+  );
+
+  /** CONVERT_TOOL::CreatePolys — to a filled graphic, a zone, or a rule area. */
+  const convertSelection = useCallback(
+    (to: 'poly' | 'zone' | 'ruleArea' | 'lines' | 'tracks' | 'arc') => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length === 0) return;
+
+      const layer = activeLayer;
+      let next = brd;
+
+      if (to === 'poly') {
+        next = convertToPoly(brd, sel, { layer }).board;
+      } else if (to === 'zone' || to === 'ruleArea') {
+        next = convertToZone(brd, sel, { layer, ruleArea: to === 'ruleArea' }).board;
+      } else if (to === 'lines' || to === 'tracks') {
+        next = convertToLines(brd, sel, {
+          layer,
+          target: to === 'tracks' ? 'track' : 'graphic',
+        }).board;
+      } else {
+        // Create Arc acts on one item, upstream's selection.Front().
+        next = segmentToArc(brd, sel[0]!).board;
+      }
+
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, activeLayer],
   );
 
   /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
@@ -5197,6 +5230,42 @@ export function PcbEditor({
               label: 'Distribute Vertically by Gaps',
               action: () => distributeSelection('verticallyGaps'),
               disabled: distributeDisabled,
+            },
+          ],
+        },
+        {
+          label: 'Convert',
+          submenu: [
+            {
+              label: 'Create Polygon from Selection…',
+              action: () => convertSelection('poly'),
+              disabled: selection.size === 0,
+            },
+            {
+              label: 'Create Zone from Selection…',
+              action: () => convertSelection('zone'),
+              disabled: selection.size === 0,
+            },
+            {
+              label: 'Create Rule Area from Selection…',
+              action: () => convertSelection('ruleArea'),
+              disabled: selection.size === 0,
+            },
+            { sep: true },
+            {
+              label: 'Create Lines from Selection…',
+              action: () => convertSelection('lines'),
+              disabled: selection.size === 0,
+            },
+            {
+              label: 'Create Tracks from Selection',
+              action: () => convertSelection('tracks'),
+              disabled: selection.size === 0,
+            },
+            {
+              label: 'Create Arc from Selection',
+              action: () => convertSelection('arc'),
+              disabled: selection.size === 0,
             },
           ],
         },
