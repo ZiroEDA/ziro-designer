@@ -899,7 +899,7 @@ export function PcbEditor({
   const [posRelOpen, setPosRelOpen] = useState(false);
   // Fillet / chamfer prompts. Upstream keeps the last value in a
   // function-static, so it reopens on whatever was typed last.
-  const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | null>(null);
+  const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | 'dogbone' | null>(null);
   const [outsetOpen, setOutsetOpen] = useState(false);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
@@ -908,6 +908,7 @@ export function PcbEditor({
   const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
   const [filletRadius, setFilletRadius] = useState(1_000_000);
   const [chamferSetback, setChamferSetback] = useState(1_000_000);
+  const [dogboneRadius, setDogboneRadius] = useState(1_000_000);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -2543,6 +2544,11 @@ export function PcbEditor({
       const res = modifyLines(brd, sel, op, {
         radius: valueIU,
         setback: valueIU,
+        dogboneRadius: valueIU,
+        // Without slots, an acute corner yields a pocket no cutter can reach.
+        // Upstream offers the choice; taking the usable one is the better
+        // default, and the engine reports which case it hit either way.
+        addSlots: true,
       });
       if (res.board !== brd) commitBoard(res.board);
       setLineModOpen(null);
@@ -5429,6 +5435,11 @@ export function PcbEditor({
               disabled: lineModDisabled,
             },
             {
+              label: 'Dogbone Corners…',
+              action: () => setLineModOpen('dogbone'),
+              disabled: lineModDisabled,
+            },
+            {
               label: 'Extend Lines to Meet',
               action: () => applyLineModification('extend'),
               disabled: lineModDisabled,
@@ -7155,12 +7166,25 @@ export function PcbEditor({
       )}
       {lineModOpen && board && (
         <DialogLineModification
-          title={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
-          label={lineModOpen === 'fillet' ? 'Radius:' : 'Set-back:'}
-          value={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
+          title={
+            lineModOpen === 'fillet'
+              ? 'Fillet Lines'
+              : lineModOpen === 'chamfer'
+                ? 'Chamfer Lines'
+                : 'Dogbone Corners'
+          }
+          label={lineModOpen === 'chamfer' ? 'Set-back:' : 'Radius:'}
+          value={
+            lineModOpen === 'fillet'
+              ? filletRadius
+              : lineModOpen === 'chamfer'
+                ? chamferSetback
+                : dogboneRadius
+          }
           onApply={(v: number) => {
             if (lineModOpen === 'fillet') setFilletRadius(v);
-            else setChamferSetback(v);
+            else if (lineModOpen === 'chamfer') setChamferSetback(v);
+            else setDogboneRadius(v);
             applyLineModification(lineModOpen, v);
           }}
           onClose={() => setLineModOpen(null)}

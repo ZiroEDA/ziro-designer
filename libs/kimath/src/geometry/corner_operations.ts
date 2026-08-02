@@ -306,3 +306,205 @@ export function extendLinePair(a: Seg, b: Seg): ExtensionResult | null {
 
   return { updatedA: extended(a), updatedB: extended(b) };
 }
+
+// ----- dogbone corners --------------------------------------------------------
+
+/**
+ * `GetBisectorOfCornerSegments`: a segment from the corner along the angle
+ * bisector, `length` long.
+ *
+ * Built by the parallelogram method — add the two outward unit vectors and the
+ * sum points along the bisector. Both are resized to the *same* length first,
+ * because a parallelogram's diagonal only bisects its angle when its sides are
+ * equal; using the segments' own lengths would lean the result towards the
+ * longer one.
+ */
+export function bisectorOfCorner(a: Seg, b: Seg, length: number): Seg | null {
+  const corner = sharedEndpoint(a, b);
+  if (!corner) return null;
+
+  const away = (s: Seg): Vec2 => {
+    // Whichever way the segment was drawn, point away from the corner.
+    const dA = len(sub(s.a, corner));
+    const dB = len(sub(s.b, corner));
+    return dA < dB ? sub(s.b, s.a) : sub(s.a, s.b);
+  };
+
+  const maxLen = Math.max(segLength(a), segLength(b));
+  const resize = (v: Vec2, to: number): Vec2 => {
+    const l = len(v);
+    if (l === 0) return { x: 0, y: 0 };
+    return { x: (v.x * to) / l, y: (v.y * to) / l };
+  };
+
+  const av = resize(away(a), maxLen);
+  const bv = resize(away(b), maxLen);
+  const sum = { x: av.x + bv.x, y: av.y + bv.y };
+  if (len(sum) === 0) return null; // opposed: no bisector direction
+
+  const out = resize(sum, length);
+  return { a: corner, b: { x: kiRound(corner.x + out.x), y: kiRound(corner.y + out.y) } };
+}
+
+/** Where a circle crosses a segment, within the segment's extent. */
+export function circleSegmentIntersections(centre: Vec2, radius: number, s: Seg): Vec2[] {
+  const d = sub(s.b, s.a);
+  const f = sub(s.a, centre);
+
+  const A = d.x * d.x + d.y * d.y;
+  if (A === 0) return [];
+  const B = 2 * (f.x * d.x + f.y * d.y);
+  const C = f.x * f.x + f.y * f.y - radius * radius;
+
+  const disc = B * B - 4 * A * C;
+  if (disc < 0) return [];
+
+  const sq = Math.sqrt(disc);
+  const out: Vec2[] = [];
+
+  for (const t of [(-B - sq) / (2 * A), (-B + sq) / (2 * A)]) {
+    if (t < 0 || t > 1) continue;
+    out.push({ x: kiRound(s.a.x + d.x * t), y: kiRound(s.a.y + d.y * t) });
+  }
+
+  return out;
+}
+
+/** The signed sweep of the arc through three points, in degrees. */
+export function arcCentralAngle(start: Vec2, mid: Vec2, end: Vec2): number {
+  const c = threePointCentre(start, mid, end);
+  if (!c) return 0;
+
+  const a0 = angleOf(sub(start, c));
+  const am = angleOf(sub(mid, c));
+  const a1 = angleOf(sub(end, c));
+
+  // Go the way round that passes through the midpoint.
+  const ccw = (from: number, to: number): number => {
+    let dd = to - from;
+    while (dd < 0) dd += 360;
+    return dd;
+  };
+
+  const sweep = ccw(a0, a1);
+  return ccw(a0, am) <= sweep ? sweep : sweep - 360;
+}
+
+/** The centre of the circle through three points, or null if they are collinear. */
+export function threePointCentre(a: Vec2, b: Vec2, c: Vec2): Vec2 | null {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+  if (Math.abs(d) < 1e-9) return null;
+  const a2 = a.x * a.x + a.y * a.y;
+  const b2 = b.x * b.x + b.y * b.y;
+  const c2 = c.x * c.x + c.y * c.y;
+  return {
+    x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
+    y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d,
+  };
+}
+
+/** Where a ray from `from` towards `dir` meets a segment, or null. */
+function rayHitsSegment(from: Vec2, dir: Vec2, s: Seg): Vec2 | null {
+  const hit = intersectLines({ a: from, b: { x: from.x + dir.x, y: from.y + dir.y } }, s);
+  if (!hit) return null;
+
+  // Behind the ray's start does not count.
+  if ((hit.x - from.x) * dir.x + (hit.y - from.y) * dir.y < 0) return null;
+
+  return { x: kiRound(hit.x), y: kiRound(hit.y) };
+}
+
+/** How far an intersection may sit from the corner and still count as *at* it. */
+export const DOGBONE_EPSILON = 8;
+
+export interface DogboneResult {
+  arc: ArcPoints;
+  updatedA: Seg | null;
+  updatedB: Seg | null;
+  /**
+   * The arc sweeps more than half a turn, so its opening is narrower than the
+   * bit that has to reach into it — a cutter cannot get in without a slot.
+   */
+  smallArcMouth: boolean;
+}
+
+/**
+ * `ComputeDogbone`: replace a sharp inside corner with a circular pocket, so a
+ * router bit of that radius can actually cut it and a mating part with a sharp
+ * outside corner still fits.
+ *
+ * On an acute corner the pocket ends up with a mouth narrower than its own
+ * diameter, which no cutter can enter. `addSlots` then pulls the arc back to a
+ * half turn and extends two parallel walls out to the original edges — the
+ * minimal slot that lets the bit in.
+ */
+export function computeDogbone(
+  a: Seg,
+  b: Seg,
+  radius: number,
+  addSlots = false,
+): DogboneResult | null {
+  const corner = sharedEndpoint(a, b);
+  if (!corner) return null;
+
+  const bisector = bisectorOfCorner(a, b, radius);
+  if (!bisector) return null;
+
+  const centre = bisector.b;
+
+  // Easier than working the tangent points out from the corner angle: just see
+  // where the pocket's circle crosses each edge.
+  const notAtCorner = (pts: Vec2[]): Vec2 | null =>
+    pts.find((p) => len(sub(p, corner)) > DOGBONE_EPSILON) ?? null;
+
+  const ptOnA = notAtCorner(circleSegmentIntersections(centre, radius, a));
+  const ptOnB = notAtCorner(circleSegmentIntersections(centre, radius, b));
+
+  // The pocket does not reach one of the edges: nothing sensible to build.
+  if (!ptOnA || !ptOnB) return null;
+
+  const arc: ArcPoints = { start: ptOnA, mid: corner, end: ptOnB };
+  const farA = otherEnd(a, corner);
+  const farB = otherEnd(b, corner);
+
+  // A thousandth of a degree of slack, so a corner that is exactly a right
+  // angle does not fall the wrong side of the test on rounding.
+  const smallArcMouth = Math.abs(arcCentralAngle(ptOnA, corner, ptOnB)) > 180 + 1e-3;
+
+  if (!smallArcMouth || !addSlots) {
+    return {
+      arc,
+      updatedA: same(farA, ptOnA) ? null : { a: farA, b: ptOnA },
+      updatedB: same(farB, ptOnB) ? null : { a: farB, b: ptOnB },
+      smallArcMouth,
+    };
+  }
+
+  // Pull the arc back to a half turn: its ends are the corner spun a quarter
+  // turn each way about the pocket centre.
+  let slotStart = rotateAbout(corner, centre, 90);
+  let slotEnd = rotateAbout(corner, centre, -90);
+
+  // Keep the end that belongs with segment A first, or the slot walls would be
+  // matched to the wrong edges.
+  const towards = (p: Vec2, q: Vec2): number =>
+    (p.x - centre.x) * (q.x - centre.x) + (p.y - centre.y) * (q.y - centre.y);
+  if (towards(slotStart, ptOnA) < towards(slotEnd, ptOnA)) {
+    [slotStart, slotEnd] = [slotEnd, slotStart];
+  }
+
+  // The walls run parallel to the bisector, from each arc end back out to the
+  // edge it came from.
+  const wall = sub(centre, corner);
+  const hitA = rayHitsSegment(slotStart, wall, a);
+  const hitB = rayHitsSegment(slotEnd, wall, b);
+
+  if (!hitA || !hitB) return null;
+
+  return {
+    arc: { start: slotStart, mid: rotateAbout(corner, centre, 180), end: slotEnd },
+    updatedA: same(farA, hitA) ? null : { a: farA, b: hitA },
+    updatedB: same(farB, hitB) ? null : { a: farB, b: hitB },
+    smallArcMouth,
+  };
+}

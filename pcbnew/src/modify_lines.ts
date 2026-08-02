@@ -23,6 +23,7 @@
 import { parseBoardItemId } from './edit-board.js';
 import {
   chamferLinePair,
+  computeDogbone,
   extendLinePair,
   filletLinePair,
   sharedEndpoint,
@@ -31,13 +32,21 @@ import {
 import type { Board, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
-export type LineModification = 'fillet' | 'chamfer' | 'extend';
+export type LineModification = 'fillet' | 'chamfer' | 'extend' | 'dogbone';
 
 export interface ModifyLinesOptions {
   /** Fillet only. */
   radius?: number;
   /** Chamfer only; the set-back along each line. */
   setback?: number;
+  /** Dogbone only; the router bit's radius. */
+  dogboneRadius?: number;
+  /**
+   * Dogbone only: widen a pocket whose mouth is narrower than the bit into the
+   * minimal slot that lets the bit in. Without it an acute corner produces a
+   * pocket no cutter can actually reach.
+   */
+  addSlots?: boolean;
 }
 
 export interface ModifyLinesResult {
@@ -158,7 +167,9 @@ export function modifyLines(
       const res =
         op === 'fillet'
           ? filletLinePair(segA, segB, opts.radius ?? 0)
-          : chamferLinePair(segA, segB, opts.setback ?? 0, opts.setback ?? 0);
+          : op === 'dogbone'
+            ? computeDogbone(segA, segB, opts.dogboneRadius ?? 0, opts.addSlots ?? false)
+            : chamferLinePair(segA, segB, opts.setback ?? 0, opts.setback ?? 0);
 
       if (!res) {
         // They met, and it still could not be done: the radius or set-back does
