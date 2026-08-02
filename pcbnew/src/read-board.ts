@@ -439,6 +439,9 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
       ? arg(childNamed(item, 'pinfunction')!, 0)
       : undefined,
     pinType: childNamed(item, 'pintype') ? arg(childNamed(item, 'pintype')!, 0) : undefined,
+    // `(property pad_prop_…)`, PAD::GetProperty. Only the token is kept; the
+    // courtyard check needs `pad_prop_heatsink`, which it exempts.
+    padProperty: childNamed(item, 'property') ? arg(childNamed(item, 'property')!, 0) : undefined,
     primitives: primitives.length > 0 ? primitives : undefined,
     localClearance: mmOrUndef(item, 'clearance'),
     localSolderMaskMargin: mmOrUndef(item, 'solder_mask_margin'),

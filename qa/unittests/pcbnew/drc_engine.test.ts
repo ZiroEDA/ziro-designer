@@ -154,11 +154,17 @@ describe('drc engine (slice 1)', () => {
     const blind = four(
       `(via blind (at 0 0) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 1)) ${track}`,
     );
-    expect(runDrc(blind, OPTS).filter((x) => x.code === 'clearance')).toHaveLength(0);
+    // What this is about is the *span*, so it asks for a spacing violation of
+    // either kind: the through via's copper is exactly touching the track,
+    // which upstream reports as a short rather than as a clearance.
+    const spacing = (b: ReturnType<typeof readBoard>): unknown[] =>
+      runDrc(b, OPTS).filter((x) => x.code === 'clearance' || x.code === 'shorting_items');
+
+    expect(spacing(blind)).toHaveLength(0);
     const through = four(
       `(via (at 0 0) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1)) ${track}`,
     );
-    expect(runDrc(through, OPTS).filter((x) => x.code === 'clearance')).toHaveLength(1);
+    expect(spacing(through)).toHaveLength(1);
   });
 
   it('checks widths, via sizes, drills and hole spacing', () => {
