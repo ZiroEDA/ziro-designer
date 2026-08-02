@@ -112,6 +112,7 @@ import {
   symbolUnitCount,
   unitDisplayName,
   unplacedUnits,
+  planNextSymbolUnit,
   setSymbolUnit,
   symbolLibIdRows,
   orphanCandidates,
@@ -612,7 +613,16 @@ export function SchematicEditor({
   const history = useRef(new History());
   const controller = useRef<CanvasController>(null);
   const [activeTool, setActiveTool] = useState('select');
-  const [placeLib, setPlaceLib] = useState<LibSymbol | null>(null);
+  const [placeLib, setPlaceLibOnly] = useState<LibSymbol | null>(null);
+  // A ready-built symbol on the cursor instead of one made from the library's
+  // defaults: Place Next Symbol Unit attaches a copy of an existing placement.
+  const [placeInstance, setPlaceInstance] = useState<SchSymbol | null>(null);
+  // Every other placement path starts (or abandons) a library placement through
+  // this, which drops the copy, so it can never outlive its own run.
+  const setPlaceLib = useCallback((lib: LibSymbol | null) => {
+    setPlaceLibOnly(lib);
+    setPlaceInstance(null);
+  }, []);
   // Unit attached to the cursor, and the chooser's checkbox state driving the
   // after-placement continuation (KeepSymbol / PlaceAllUnits stepping).
   const [placeUnit, setPlaceUnit] = useState(1);
@@ -1256,6 +1266,15 @@ export function SchematicEditor({
   // symbol attached ("Place repeated copies"), or clear it so the chooser
   // reopens, mirroring the continuation in SCH_DRAWING_TOOLS::PlaceSymbol.
   const onSymbolPlaced = useCallback(() => {
+    // `placeOneOnly = symbol != nullptr`: a placement handed a ready-made symbol
+    // drops exactly one and pops the tool, instead of continuing into the
+    // chooser or the unit stepping (sch_drawing_tools.cpp).
+    if (placeInstance) {
+      setPlaceLib(null);
+      setPlaceUnit(1);
+      setActiveTool('select');
+      return;
+    }
     const { keepSymbol, placeAllUnits, unitCount } = placeFlags.current;
     if (placeAllUnits && unitCount > 1) {
       if (placeUnit < unitCount) {
@@ -1271,7 +1290,32 @@ export function SchematicEditor({
     }
     setPlaceLib(null);
     setPlaceUnit(1);
-  }, [placeUnit]);
+  }, [placeUnit, placeInstance, setPlaceLib]);
+
+  /**
+   * SCH_DRAWING_TOOLS::PlaceNextSymbolUnit: attach a copy of the symbol at
+   * `symbolIndex`, switched to a unit the hierarchy is missing, to the cursor.
+   * `unit` is the one the menu entry named; 0 means the lowest one missing.
+   * Refusals go to the info bar with upstream's own wording.
+   */
+  const placeNextSymbolUnit = useCallback(
+    (symbolIndex: number, unit = 0) => {
+      if (!doc) return;
+      const plan = planNextSymbolUnit(doc, symbolIndex, libById, unit, liveDocs().values());
+      if (!plan.ok) {
+        setInfoBar(plan.message);
+        return;
+      }
+      const lib = libById.get(doc.symbols[symbolIndex]!.libId);
+      if (!lib) return;
+      placeFlags.current = { keepSymbol: false, placeAllUnits: false, unitCount: 1 };
+      setPlaceUnit(plan.unit);
+      setPlaceLibOnly(lib);
+      setPlaceInstance(plan.symbol);
+      setActiveTool('placeSymbol');
+    },
+    [doc, libById, liveDocs],
+  );
 
   // The stored page number of the sheet instance at `path`
   // (SCH_SHEET_PATH::GetPageNumber): the root sheet from the document-level
@@ -4584,15 +4628,25 @@ export function SchematicEditor({
         const lib = sym ? libById.get(sym.libId) : undefined;
         const count = symbolUnitCount(lib);
         if (sym && count > 1) {
-          const missing = unplacedUnits(doc, si, libById);
-          items.push({
-            label: 'Symbol Unit',
-            items: Array.from({ length: count }, (_v, k) => k + 1).map((u) => ({
+          const missing = unplacedUnits(doc, si, libById, liveDocs().values());
+          const unitItems: MenuItem[] = Array.from({ length: count }, (_v, k) => k + 1).map(
+            (u) => ({
               label: unitDisplayName(lib, u) + (missing.has(u) ? '' : ' (already placed)'),
               checked: sym.unit === u,
               action: () => runCommand(setSymbolUnit(si, u)),
-            })),
-          });
+            }),
+          );
+          // Below the list, one entry per unit the hierarchy is still missing,
+          // which starts a placement of that unit as a copy of this symbol.
+          if (missing.size > 0) {
+            unitItems.push({ sep: true });
+            for (const u of [...missing].sort((a, b) => a - b))
+              unitItems.push({
+                label: `Place unit ${unitDisplayName(lib, u)}`,
+                action: () => placeNextSymbolUnit(si, u),
+              });
+          }
+          items.push({ label: 'Symbol Unit', items: unitItems });
         }
       }
       // SCH_EDIT_TOOL's Attributes submenu, the same five item edits the Edit
@@ -5735,6 +5789,7 @@ export function SchematicEditor({
             arcEditMode={es.drawing.arc_edit_mode as ArcEditMode}
             placeLib={placeLib}
             placeUnit={placeUnit}
+            placeInstance={placeInstance}
             onSymbolPlaced={onSymbolPlaced}
             pendingLabel={pendingLabel}
             onLabelPlaced={onLabelPlaced}
