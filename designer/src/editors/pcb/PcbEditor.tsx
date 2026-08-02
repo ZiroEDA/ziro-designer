@@ -77,6 +77,9 @@ import {
   filterSelection,
   distributeBoardItems,
   type DistributeAction,
+  moveExact,
+  defaultRotationAnchor,
+  boardSelectionBBox,
   type DrcViolation,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
@@ -115,6 +118,7 @@ import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
+import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection } from './inspect_selection.js';
 import { netclassesForNet } from './netclass_resolve.js';
@@ -863,6 +867,7 @@ export function PcbEditor({
   const [show3D, setShow3D] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [moveExactOpen, setMoveExactOpen] = useState(false);
   // The Filter Selection *dialog*'s options — distinct from `selFilter` above,
   // which is the toolbar panel deciding what a click can pick up. This one
   // narrows an existing selection once, and is kept across openings as
@@ -2411,6 +2416,29 @@ export function PcbEditor({
       if (changed) commitBoard(next);
     },
     [commitBoard, flipView],
+  );
+
+  /** EDIT_TOOL::MoveExact, once the dialog has the numbers. */
+  const applyMoveExact = useCallback(
+    (v: MoveExactValues) => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length === 0) return;
+
+      const next = moveExact(brd, sel, {
+        translation: v.translation,
+        rotation: v.rotation,
+        anchor: v.anchor,
+        // Both origins are the board origin here: we have no user-settable
+        // local or drill/place origin yet, so those two anchors turn about
+        // (0,0) rather than silently doing nothing.
+        userOrigin: { x: 0, y: 0 },
+        auxOrigin: { x: 0, y: 0 },
+      });
+      if (next !== brd) commitBoard(next);
+      setMoveExactOpen(false);
+    },
+    [commitBoard],
   );
 
   /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
@@ -4254,6 +4282,14 @@ export function PcbEditor({
         rotateSel(!e.shiftKey);
         return;
       } // R = CCW, Shift+R = CW
+      // Shift+M = Move Exactly (PCB_ACTIONS::moveExact). This has to come
+      // before plain M below, which would otherwise swallow it: `e.key` is
+      // already 'M' whenever shift is held.
+      if (!mod && e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault();
+        if (selForDrawRef.current.size > 0) setMoveExactOpen(true);
+        return;
+      }
       // M = Move (routing left behind), G = Drag (attached traces follow), a
       // keyboard grab that follows the cursor and commits on click (EDIT_TOOL).
       if (!mod && (e.key === 'm' || e.key === 'M')) {
@@ -5109,6 +5145,12 @@ export function PcbEditor({
           ],
         },
         { sep: true },
+        {
+          label: 'Move Exactly…',
+          action: () => setMoveExactOpen(true),
+          shortcut: 'Shift+M',
+          disabled: selection.size === 0,
+        },
         {
           label: 'Filter Selection…',
           action: () => setFilterOpen(true),
@@ -6760,6 +6802,14 @@ export function PcbEditor({
           viaSizes={viaSizeList}
           onApply={applyTrackViaEdit}
           onClose={() => setTrackViaOpen(false)}
+        />
+      )}
+      {moveExactOpen && board && (
+        <DialogMoveExact
+          bbox={boardSelectionBBox(board, selection)}
+          defaultAnchor={defaultRotationAnchor(selection.size)}
+          onApply={applyMoveExact}
+          onClose={() => setMoveExactOpen(false)}
         />
       )}
       {filterOpen && board && (

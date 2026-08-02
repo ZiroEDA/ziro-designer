@@ -286,7 +286,10 @@ export {
 
 export {
   defaultRotationAnchor,
+  itemAnchorPoint,
+  MAX_BOARD_COORD,
   moveExact,
+  moveKeepsSelectionInBounds,
   polarTranslation,
   type MoveExactOptions,
   type RotationAnchor,

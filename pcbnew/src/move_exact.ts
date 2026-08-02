@@ -9,6 +9,17 @@
  * translation. Doing it the other way round gives a different answer for any
  * non-zero rotation, which is why upstream advances `selCenter` by the
  * translation before rotating and why this does the same.
+ *
+ * One thing deliberately not ported: `MoveExact` contains
+ *
+ *     EDA_ANGLE angle = rotation;
+ *     if( !…m_DisplayInvertYAxis ) rotation = -rotation;
+ *     … boardItem->Rotate( …, angle );
+ *
+ * The negation lands on `rotation`, but every `Rotate` call uses `angle`, the
+ * copy taken before it, and `rotation` is never read again — so the flip has no
+ * effect on the result. The dialog's angle is applied as typed. This is noted
+ * because the line looks load-bearing and is not.
  */
 
 import {
@@ -49,6 +60,33 @@ export function polarTranslation(distance: number, angleDeg: number): Vec2 {
     x: Math.round(distance * Math.cos(rad)),
     y: Math.round(distance * Math.sin(rad)),
   };
+}
+
+/**
+ * The furthest a coordinate may sit from the origin: `INT_MAX * M_SQRT1_2`,
+ * about 1518 mm. The √½ is there so that a point at the corner of the legal
+ * square still has a magnitude an int can hold.
+ */
+export const MAX_BOARD_COORD = Math.floor(2147483647 * Math.SQRT1_2);
+
+/**
+ * `DIALOG_MOVE_EXACT::OnTextChanged`: whether the typed translation would push
+ * the selection outside the largest representable board area. Upstream greys
+ * out OK and reddens the two entries when this is false.
+ *
+ * Only the translation is checked, not the rotation — same as upstream, which
+ * validates the numbers the user typed into the X and Y boxes.
+ */
+export function moveKeepsSelectionInBounds(
+  bbox: { minX: number; minY: number; maxX: number; maxY: number },
+  translation: Vec2,
+): boolean {
+  return (
+    bbox.minX + translation.x >= -MAX_BOARD_COORD &&
+    bbox.maxX + translation.x <= MAX_BOARD_COORD &&
+    bbox.minY + translation.y >= -MAX_BOARD_COORD &&
+    bbox.maxY + translation.y <= MAX_BOARD_COORD
+  );
 }
 
 /**
