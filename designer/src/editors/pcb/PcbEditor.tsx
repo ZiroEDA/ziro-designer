@@ -75,6 +75,8 @@ import {
   runDrc,
   DEFAULT_SELECTION_FILTER,
   filterSelection,
+  distributeBoardItems,
+  type DistributeAction,
   type DrcViolation,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
@@ -2409,6 +2411,19 @@ export function PcbEditor({
       if (changed) commitBoard(next);
     },
     [commitBoard, flipView],
+  );
+
+  /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
+  const distributeSelection = useCallback(
+    (action: DistributeAction) => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length < 3) return;
+
+      const next = distributeBoardItems(brd, sel, action);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard],
   );
 
   // Fit the view to a world-space box (shared by Zoom-to-Fit variants and the
@@ -5002,6 +5017,10 @@ export function PcbEditor({
 
   const dis = true;
   const alignDisabled = selection.size < 2;
+  // Distribution needs one item at each end and at least one to move between
+  // them, so it wants three where align wants two (SELECTION_CONDITIONS::
+  // MoreThan( 2 )).
+  const distributeDisabled = selection.size < 3;
   const menus: Menu[] = [
     {
       label: 'File',
@@ -5065,6 +5084,27 @@ export function PcbEditor({
               label: 'Align to Bottom',
               action: () => alignSelection('bottom'),
               disabled: alignDisabled,
+            },
+            { sep: true },
+            {
+              label: 'Distribute Horizontally by Centers',
+              action: () => distributeSelection('horizontallyCenters'),
+              disabled: distributeDisabled,
+            },
+            {
+              label: 'Distribute Horizontally by Gaps',
+              action: () => distributeSelection('horizontallyGaps'),
+              disabled: distributeDisabled,
+            },
+            {
+              label: 'Distribute Vertically by Centers',
+              action: () => distributeSelection('verticallyCenters'),
+              disabled: distributeDisabled,
+            },
+            {
+              label: 'Distribute Vertically by Gaps',
+              action: () => distributeSelection('verticallyGaps'),
+              disabled: distributeDisabled,
             },
           ],
         },

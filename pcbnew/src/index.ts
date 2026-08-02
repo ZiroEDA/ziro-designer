@@ -279,6 +279,11 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  distributeBoardItems,
+  type DistributeAction,
+} from './distribute_items.js';
+
+export {
   allItemsState,
   DEFAULT_SELECTION_FILTER,
   filterSelection,
