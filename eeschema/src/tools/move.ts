@@ -41,6 +41,11 @@ function moveField(f: SchField, d: Vec2): SchField {
 function moveSymbol(s: SchSymbol, d: Vec2): SchSymbol {
   return { ...s, at: add(s.at, d), fields: s.fields.map((f) => moveField(f, d)) };
 }
+
+/** The same rigid translation, to an absolute point: a symbol riding the cursor. */
+export function moveSymbolTo(s: SchSymbol, at: Vec2): SchSymbol {
+  return moveSymbol(s, { x: at.x - s.at.x, y: at.y - s.at.y });
+}
 const moveLine = (l: SchLine, d: Vec2): SchLine => ({
   ...l,
   start: add(l.start, d),

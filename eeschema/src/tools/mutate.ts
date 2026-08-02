@@ -170,6 +170,16 @@ export function placeSymbol(lib: LibSymbol, at: Vec2, orient?: Orientation, unit
   return placeCmd(lib, makeSymbol(lib, at, orient, unit));
 }
 
+/**
+ * Place a symbol that has already been built rather than one made from the
+ * library defaults — what Place Next Symbol Unit does, where the symbol is a
+ * copy of an existing placement (`SCH_ACTIONS::PLACE_SYMBOL_PARAMS` with
+ * `reannotate = false`).
+ */
+export function placeSymbolInstance(lib: LibSymbol, sym: SchSymbol): EditCommand {
+  return placeCmd(lib, sym);
+}
+
 function placeCmd(lib: LibSymbol, sym: SchSymbol): EditCommand {
   return {
     label: 'Place symbol',

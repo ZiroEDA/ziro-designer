@@ -10,7 +10,7 @@
  * are written in millimetres, matching the file format.
  */
 
-import { list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
+import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
 import { iuToMM } from '@ziroeda/common/src/eda_units.js';
 import type {
   SchLine,
@@ -37,6 +37,49 @@ export function newUuid(): string {
     const r = (Math.random() * 16) | 0;
     return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
+}
+
+/**
+ * Set (or insert) the `(uuid ...)` child of an item node.
+ *
+ * A copied item needs this: `writeSymbol` and friends patch geometry and fields
+ * back into the item's own `source` node but never its uuid, so a clone that
+ * kept its original node would serialize under the original's uuid.
+ */
+export function nodeWithUuid(node: SList, uuid: string): SList {
+  const items = node.items.filter((it) => !(isList(it) && head(it) === 'uuid'));
+  // KiCad writes uuid before properties/pts-dependent children; keep it simple and
+  // insert after the last of at/mirror/unit/attribute nodes, before property/pin.
+  let insertAt = items.length;
+  for (let i = 1; i < items.length; i++) {
+    const it = items[i]!;
+    if (isList(it) && (head(it) === 'property' || head(it) === 'pin' || head(it) === 'instances')) {
+      insertAt = i;
+      break;
+    }
+  }
+  items.splice(insertAt, 0, list(atom('uuid'), str(uuid)));
+  return { kind: 'list', items };
+}
+
+/**
+ * New UUIDs for a copied symbol node: the symbol itself, and each `(pin ...)`
+ * child.
+ *
+ * The `(instances ...)` block goes with them. It keys per-sheet-path reference
+ * and unit by the *original* symbol's identity, so carrying it onto a copy
+ * would hand the copy the original's annotation on every sheet that uses this
+ * screen. KiCad drops it on paste for the same reason
+ * (`PruneOrphanedSymbolInstances`).
+ */
+export function symbolNodeWithFreshUuids(node: SList): SList {
+  const n = nodeWithUuid(node, newUuid());
+  return {
+    kind: 'list',
+    items: n.items
+      .filter((it) => !(isList(it) && head(it) === 'instances'))
+      .map((it) => (isList(it) && head(it) === 'pin' ? nodeWithUuid(it, newUuid()) : it)),
+  };
 }
 
 /** Format an internal-unit coordinate as KiCad-style millimetres text. */

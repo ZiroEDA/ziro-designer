@@ -62,6 +62,11 @@ export interface PcbPad {
   net?: number;
   /** `(pinfunction …)`: the schematic pin name (PAD::GetPinFunction). */
   pinFunction?: string;
+  /**
+   * `(property pad_prop_…)`, PAD_PROP. Kept as the file's token: the only
+   * consumer so far is the courtyard check, which exempts a heatsink pad.
+   */
+  padProperty?: string;
   /** `(pintype …)`: the schematic electrical type (PAD::GetPinType). */
   pinType?: string;
   primitives?: PadPrimitive[];
