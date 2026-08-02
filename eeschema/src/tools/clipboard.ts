@@ -20,13 +20,13 @@
  */
 
 import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
+import { head, isList, str, type SList } from '@ziroeda/sexpr/src/types.js';
 import { readSchematic } from '../sch_io/sexpr/read-schematic.js';
 import type { Schematic, SchSymbol, SchField, LibSymbol, Vec2 } from '../types.js';
 import { writeSchematic } from '../sch_io/sexpr/write-schematic.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import { refId } from './hittest.js';
-import { newUuid, makeLabel } from './build.js';
+import { newUuid, makeLabel, nodeWithUuid, symbolNodeWithFreshUuids } from './build.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
 
@@ -101,37 +101,6 @@ export interface PastePayload {
   libs: LibSymbol[];
   /** KiCad's paste anchor: the leftmost item position (SCH_SELECTION::GetTopLeftItem). */
   refPoint: Vec2;
-}
-
-/** Set (or insert) the `(uuid ...)` child of an item node. */
-function withUuid(node: SList, uuid: string): SList {
-  const items = node.items.filter((it) => !(isList(it) && head(it) === 'uuid'));
-  // KiCad writes uuid before properties/pts-dependent children; keep it simple and
-  // insert after the last of at/mirror/unit/attribute nodes, before property/pin.
-  let insertAt = items.length;
-  for (let i = 1; i < items.length; i++) {
-    const it = items[i]!;
-    if (isList(it) && (head(it) === 'property' || head(it) === 'pin' || head(it) === 'instances')) {
-      insertAt = i;
-      break;
-    }
-  }
-  items.splice(insertAt, 0, list(atom('uuid'), str(uuid)));
-  return { kind: 'list', items };
-}
-
-/** New UUIDs for a pasted symbol node: the symbol itself, and each `(pin ...)` child. */
-function symbolWithFreshUuids(node: SList): SList {
-  let n = withUuid(node, newUuid());
-  n = {
-    kind: 'list',
-    items: n.items
-      // The clipboard's (instances ...) paths belong to the source project; KiCad
-      // prunes them on paste (PruneOrphanedSymbolInstances).
-      .filter((it) => !(isList(it) && head(it) === 'instances'))
-      .map((it) => (isList(it) && head(it) === 'pin' ? withUuid(it, newUuid()) : it)),
-  };
-  return n;
 }
 
 /** `R12` -> { prefix: 'R', n: 12 }; `R?` / `R` -> { prefix: 'R' }. */
@@ -248,7 +217,7 @@ export function parsePastedText(
   }
 
   const symbols = doc.symbols.map((s) => {
-    const source = symbolWithFreshUuids(s.source);
+    const source = symbolNodeWithFreshUuids(s.source);
     const uuid = (childNamed(source, 'uuid')!.items[1] as { value: string }).value;
     // Re-read fields from the fresh source so field.source identity stays aligned.
     const withIds: SchSymbol = { ...s, uuid, source };
@@ -258,7 +227,7 @@ export function parsePastedText(
   });
   const reuuid = <T extends { source: SList; uuid?: string }>(item: T): T => {
     const uuid = newUuid();
-    return { ...item, uuid, source: withUuid(item.source, uuid) };
+    return { ...item, uuid, source: nodeWithUuid(item.source, uuid) };
   };
   const lines = doc.lines.map(reuuid);
   const junctions = doc.junctions.map(reuuid);

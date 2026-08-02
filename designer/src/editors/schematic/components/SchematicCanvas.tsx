@@ -21,6 +21,9 @@ import {
   addItems,
   deleteByIds,
   placeSymbol,
+  placeSymbolInstance,
+  moveSymbolTo,
+  transformSymbol,
   makeJunction,
   isExplicitJunctionAllowed,
   makeNoConnect,
@@ -71,6 +74,7 @@ import {
   type MoveSpec,
   type EditCommand,
   type Schematic,
+  type SchSymbol,
   type LibSymbol,
   type LibGraphic,
   type LabelKind,
@@ -394,6 +398,10 @@ interface Props {
   placeLib: LibSymbol | null;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
+  /** A ready-built symbol to place instead of one made from `placeLib`'s
+   *  defaults: Place Next Symbol Unit attaches a copy of an existing symbol so
+   *  the new unit keeps its reference, fields and orientation. */
+  placeInstance?: SchSymbol | null;
   /** A symbol was just placed, the editor steps units / reopens the chooser. */
   onSymbolPlaced?: () => void;
   /** A named label that follows the cursor until clicked to place (null = none yet). */
@@ -516,6 +524,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     wireStartRequest,
     placeLib,
     placeUnit = 1,
+    placeInstance = null,
     onSymbolPlaced,
     pendingLabel,
     pendingDirective,
@@ -665,6 +674,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   }, [wireStartRequest?.nonce]);
   // Orientation applied to the symbol currently being placed (R/X/Y before dropping).
   const placeOrientRef = useRef<Orientation>({ angle: 0 });
+  // The ready-built symbol on the cursor (Place Next Symbol Unit), if any. It
+  // carries its own orientation, so R/X/Y turn *it* instead of accumulating
+  // into placeOrientRef, which only means anything for a library default.
+  const placeInstanceRef = useRef<SchSymbol | null>(null);
+  useEffect(() => {
+    placeInstanceRef.current = placeInstance;
+  }, [placeInstance]);
   // In-progress shape/sheet drawing (rectangle/circle/arc/lines/bezier/sheet).
   const drawStateRef = useRef<DrawState | null>(null);
   // Bus-entry size vector (R rotates it through the four 45° orientations).
@@ -878,9 +894,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       cursorRef.current
     ) {
       // Ghost: show the symbol attached to the cursor (with its current orientation).
-      doc = placeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit).apply(
-        schematic,
-      );
+      const inst = placeInstanceRef.current;
+      doc = (
+        inst
+          ? placeSymbolInstance(placeLib, moveSymbolTo(inst, snap(cursorRef.current)))
+          : placeSymbol(placeLib, snap(cursorRef.current), placeOrientRef.current, placeUnit)
+      ).apply(schematic);
       ghosting = true;
     }
     // Ghost: the named label follows the cursor (with its flag) until clicked to place.
@@ -1801,7 +1820,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
       if (activeTool === 'placeSymbol' || activeTool === 'placePower') {
         if (placeLib) {
-          onCommand(placeSymbol(placeLib, snap(world), placeOrientRef.current, placeUnit));
+          const inst = placeInstanceRef.current;
+          onCommand(
+            inst
+              ? placeSymbolInstance(placeLib, moveSymbolTo(inst, snap(world)))
+              : placeSymbol(placeLib, snap(world), placeOrientRef.current, placeUnit),
+          );
           // The editor steps to the next unit, keeps placing copies, or
           // reopens the chooser (sch_drawing_tools.cpp after commit.Push).
           onSymbolPlaced?.();
@@ -2407,13 +2431,22 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // Advance the attached symbol's orientation in place. Serialized mirror
         // axis 'y' is KiCad's MirrorHorizontally (hotkey X), 'x' its
         // MirrorVertically (hotkey Y), see common/transform.ts.
-        const o = placeOrientRef.current;
-        placeOrientRef.current =
-          k === 'r'
-            ? rotateOrientation(o, e.shiftKey)
-            : k === 'x'
-              ? mirrorOrientation(o, 'y')
-              : mirrorOrientation(o, 'x');
+        const inst = placeInstanceRef.current;
+        if (inst) {
+          // A copied symbol turns exactly as a placed one does, about its own
+          // position, so its fields ride around with the body.
+          const op =
+            k === 'r' ? (e.shiftKey ? 'rotateCW' : 'rotateCCW') : k === 'x' ? 'mirrorY' : 'mirrorX';
+          placeInstanceRef.current = transformSymbol(inst, op, inst.at);
+        } else {
+          const o = placeOrientRef.current;
+          placeOrientRef.current =
+            k === 'r'
+              ? rotateOrientation(o, e.shiftKey)
+              : k === 'x'
+                ? mirrorOrientation(o, 'y')
+                : mirrorOrientation(o, 'x');
+        }
         e.preventDefault();
         requestDraw();
       }
