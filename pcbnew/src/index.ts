@@ -281,6 +281,21 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  chainSegmentsToPolygons,
+  chainableItem,
+  closedShapeRing,
+  convertToPoly,
+  convertToPolygons,
+  convertToZone,
+  resolvedLineWidth,
+  CHAINING_EPSILON,
+  DEFAULT_RULE_AREA_KEEPOUT,
+  type ConvertStrategy,
+  type ConvertToPolyOptions,
+  type ConvertToZoneOptions,
+} from './convert_shapes.js';
+
+export {
   positionRelative,
   promotePadsToFootprints,
   selectionAnchorId,
