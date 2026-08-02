@@ -33,7 +33,12 @@ import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { buildRatsnest } from '../ratsnest.js';
 import { shapeToPolygon } from '../zone_filler.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
+import {
+  allowsMissingCourtyard,
+  buildCourtyard,
+  chainOutlines,
+  shapePoints,
+} from '../courtyard.js';
 import type {
   Board,
   PadPrimitive,
@@ -902,6 +907,71 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
               { desc: `Track [${netName(b.net)}] on ${b.layer}`, pos: b.start },
             ],
           });
+      }
+    }
+  }
+
+  // ----- board outline -----------------------------------------------------
+  // DRC_TEST_PROVIDER_MISC's outline tests. Two separate failures share the
+  // code: graphics too small to build anything from, and an Edge.Cuts set that
+  // will not chain into a closed shape.
+  {
+    const edges = [...board.shapes, ...board.footprints.flatMap((fp) => fp.shapes)].filter(
+      (s) => s.layer === 'Edge.Cuts',
+    );
+
+    const outlineError = (detail: string, pos: Vec2): void => {
+      out.push({
+        code: 'invalid_outline',
+        message: `Board has malformed outline ${detail}`,
+        pos,
+        items: [],
+      });
+    };
+
+    if (edges.length === 0) {
+      // Not every board in progress has an outline yet, but a board without
+      // one cannot be fabricated, so upstream says so rather than staying
+      // quiet.
+      outlineError('(no edges found on Edge.Cuts layer)', { x: 0, y: 0 });
+    } else {
+      // A graphic a few nanometres across builds nothing and is invisible on
+      // screen — the reason upstream calls it out by name.
+      const MIN_GRAPHIC = mmToIU(0.001);
+      let suspicious = false;
+
+      for (const s of edges) {
+        const size = edgeGraphicExtent(s);
+        if (size !== undefined && size <= MIN_GRAPHIC) {
+          suspicious = true;
+          outlineError(
+            '(Suspicious items found on Edge.Cuts layer)',
+            s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 },
+          );
+          break;
+        }
+      }
+
+      if (!suspicious) {
+        // The same chaining the courtyard builder uses, at the board's own
+        // epsilon: 0.01 mm rather than the courtyard's 0.02 mm, because an
+        // outline gap this test misses becomes a gap in the 3D model and the
+        // fabrication outline.
+        const closed: Vec2[][] = [];
+        const open: Vec2[][] = [];
+
+        for (const s of edges) {
+          const pts = shapePoints(s, mmToIU(0.05));
+          if (!pts) continue;
+          (pts.closed ? closed : open).push(pts.pts);
+        }
+
+        const chained = chainOutlines(open, mmToIU(0.01));
+
+        if (chained.error)
+          outlineError(chained.error, edges[0]?.start ?? edges[0]?.center ?? { x: 0, y: 0 });
+        else if (closed.length === 0 && chained.outlines.length === 0)
+          outlineError('(no edges found on Edge.Cuts layer)', { x: 0, y: 0 });
       }
     }
   }
@@ -2251,6 +2321,33 @@ function countThermalSpokes(pad: PcbPad, midGap: number, polys: readonly Vec2[][
   }
 
   return spokes;
+}
+
+/**
+ * How big an Edge.Cuts graphic is, for the degenerate-shape test.
+ *
+ * TestBoardOutlinesGraphicItems measures each kind the way it is drawn: a
+ * segment or rectangle by its diagonal, a circle by its radius, an arc by the
+ * two chords from its middle. A polygon or Bezier is not measured — upstream
+ * checks those for point count instead, which our reader has already enforced.
+ */
+function edgeGraphicExtent(s: PcbShape): number | undefined {
+  const len = (a: Vec2, b: Vec2): number => Math.hypot(b.x - a.x, b.y - a.y);
+
+  switch (s.kind) {
+    case 'line':
+    case 'rect':
+      return s.start && s.end ? len(s.start, s.end) : undefined;
+
+    case 'circle':
+      return s.center && s.end ? len(s.center, s.end) : undefined;
+
+    case 'arc':
+      return s.start && s.mid && s.end ? len(s.start, s.mid) + len(s.mid, s.end) : undefined;
+
+    default:
+      return undefined;
+  }
 }
 
 /**

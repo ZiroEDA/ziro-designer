@@ -92,7 +92,10 @@ function arcPoints(start: Vec2, mid: Vec2, end: Vec2, maxError: number): Vec2[] 
  * Circles, rectangles and polygons are already closed and become outlines
  * directly; lines, arcs and curves are open and have to be chained.
  */
-function shapePoints(s: PcbShape, maxError: number): { pts: Vec2[]; closed: boolean } | undefined {
+export function shapePoints(
+  s: PcbShape,
+  maxError: number,
+): { pts: Vec2[]; closed: boolean } | undefined {
   switch (s.kind) {
     case 'line':
       return s.start && s.end ? { pts: [s.start, s.end], closed: false } : undefined;
@@ -135,13 +138,17 @@ const TAU_ = 2 * Math.PI;
 
 /**
  * `ConvertOutlineToPolygon`: chain open segments end to end until each run
- * closes on itself.
+ * closes on itself. Shared with the board-outline check, which asks the same
+ * question of Edge.Cuts that this asks of F.CrtYd.
  *
  * Any endpoint within `epsilon` of another counts as the same point, in either
  * direction — a courtyard drawn clockwise in one place and anticlockwise in
  * another still closes, which is how hand-drawn footprints behave.
  */
-function chainOutlines(open: Vec2[][], epsilon: number): { outlines: Vec2[][]; error?: string } {
+export function chainOutlines(
+  open: Vec2[][],
+  epsilon: number,
+): { outlines: Vec2[][]; error?: string } {
   const remaining = open.map((pts) => [...pts]);
   const outlines: Vec2[][] = [];
 
