@@ -61,6 +61,7 @@ export {
   addBoardText,
   addBoardZone,
   rotateBoardItems,
+  rotateBoardItemsBy,
   duplicateBoardItems,
   boardSelectionBBox,
   mirrorBoardItems,
@@ -282,6 +283,14 @@ export {
   distributeBoardItems,
   type DistributeAction,
 } from './distribute_items.js';
+
+export {
+  defaultRotationAnchor,
+  moveExact,
+  polarTranslation,
+  type MoveExactOptions,
+  type RotationAnchor,
+} from './move_exact.js';
 
 export {
   allItemsState,
