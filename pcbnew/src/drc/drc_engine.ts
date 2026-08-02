@@ -985,6 +985,45 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
       const bomFp = fp.attributes?.includes('exclude_from_bom') ?? false;
       if (bomSym !== bomFp) parity("'Exclude from bill of materials' settings differ");
 
+      // Custom fields. Reference and Value are compared above as their own
+      // things, and Footprint is the fpid — none of the three is a user field.
+      // The board map keeps every stored field. Filtering the reserved
+      // property names out of it would be unreachable — the loop below only
+      // looks up names the *symbol* has — and in the one case it could fire, a
+      // symbol carrying a field literally named `Sheetname`, it would report
+      // that field missing rather than compare it.
+      const fpFields = new Map<string, string>();
+      for (const f of fp.fields ?? []) fpFields.set(f.name, f.value);
+
+      for (const [name, value] of c.GetFields()) {
+        if (name === 'Reference' || name === 'Value' || name === 'Footprint') continue;
+        if (name === 'Component Class') continue;
+
+        const onBoard = fpFields.get(name);
+
+        if (onBoard === undefined) {
+          out.push({
+            code: 'footprint_symbol_field_mismatch',
+            message: `Missing symbol field '${name}' in footprint`,
+            pos: fp.at,
+            items: [{ desc: `Footprint ${fp.reference}`, pos: fp.at }],
+          });
+          // Upstream reports the first mismatch and stops: a footprint whose
+          // fields have drifted wholesale is one problem, not twenty.
+          break;
+        }
+
+        if (onBoard !== value) {
+          out.push({
+            code: 'footprint_symbol_field_mismatch',
+            message: `Field '${name}' differs (PCB: '${onBoard}', Schematic: '${value}')`,
+            pos: fp.at,
+            items: [{ desc: `Footprint ${fp.reference}`, pos: fp.at }],
+          });
+          break;
+        }
+      }
+
       // Pad nets against the schematic's.
       for (const pad of fp.pads) {
         if (!pad.number) continue;
