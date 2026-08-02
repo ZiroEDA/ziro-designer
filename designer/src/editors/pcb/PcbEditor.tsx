@@ -88,6 +88,9 @@ import {
   modifyLines,
   modifiableLineCount,
   type LineModification,
+  polygonBoolean,
+  booleanableShapeCount,
+  type PolygonBoolean,
   convertToLines,
   segmentToArc,
   type DrcViolation,
@@ -2527,6 +2530,24 @@ export function PcbEditor({
       });
       if (res.board !== brd) commitBoard(res.board);
       setLineModOpen(null);
+    },
+    [commitBoard],
+  );
+
+  /** POLYGON_BOOLEAN_ROUTINE — merge, subtract or intersect the selection. */
+  const applyPolygonBoolean = useCallback(
+    (op: PolygonBoolean) => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length < 2) return;
+
+      const res = polygonBoolean(brd, sel, op);
+      if (res.board !== brd) {
+        commitBoard(res.board);
+        // The sources are gone and the result is new, so the old ids name
+        // nothing (or worse, something else). Clearing is the honest answer.
+        setSelection(new Set());
+      }
     },
     [commitBoard],
   );
@@ -5176,6 +5197,9 @@ export function PcbEditor({
   // matters is how many of the selection actually are ones — a selection of two
   // rectangles has nothing to fillet.
   const lineModDisabled = !board || modifiableLineCount(board, selection) < 2;
+  // Likewise counted on what the selection actually holds: two polygons, not
+  // two items.
+  const polyBoolDisabled = !board || booleanableShapeCount(board, selection) < 2;
   const menus: Menu[] = [
     {
       label: 'File',
@@ -5296,6 +5320,26 @@ export function PcbEditor({
               label: 'Create Arc from Selection',
               action: () => convertSelection('arc'),
               disabled: selection.size === 0,
+            },
+          ],
+        },
+        {
+          label: 'Polygons',
+          submenu: [
+            {
+              label: 'Merge Polygons',
+              action: () => applyPolygonBoolean('merge'),
+              disabled: polyBoolDisabled,
+            },
+            {
+              label: 'Subtract Polygons',
+              action: () => applyPolygonBoolean('subtract'),
+              disabled: polyBoolDisabled,
+            },
+            {
+              label: 'Intersect Polygons',
+              action: () => applyPolygonBoolean('intersect'),
+              disabled: polyBoolDisabled,
             },
           ],
         },
