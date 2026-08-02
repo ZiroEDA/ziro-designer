@@ -202,6 +202,71 @@ describe('attribute and value parity', () => {
   });
 });
 
+describe('custom field parity', () => {
+  const withFields = (symbolFields: [string, string][], boardFields: [string, string][]) => {
+    const c = component('R1', '10k', 'Lib:R_0603');
+    for (const [k, v] of symbolFields) c.GetFields().set(k, v);
+
+    const f = fp({
+      fields: boardFields.map(([name, value]) => ({ name, value, source: EMPTY })),
+    });
+
+    return codes(board([f]), netlistOf(c), 'footprint_symbol_field_mismatch');
+  };
+
+  it('reports a symbol field the footprint does not carry', () => {
+    const v = withFields([['MPN', 'ABC123']], []);
+
+    expect(v).toHaveLength(1);
+    expect(v[0]!.message).toContain("Missing symbol field 'MPN'");
+  });
+
+  it('reports a field whose value differs', () => {
+    const v = withFields([['MPN', 'ABC123']], [['MPN', 'XYZ789']]);
+
+    expect(v[0]!.message).toContain("Field 'MPN' differs");
+    expect(v[0]!.message).toContain('XYZ789');
+    expect(v[0]!.message).toContain('ABC123');
+  });
+
+  it('accepts fields that agree', () => {
+    expect(withFields([['MPN', 'ABC123']], [['MPN', 'ABC123']])).toHaveLength(0);
+  });
+
+  it('ignores extra fields the footprint carries but the symbol does not', () => {
+    // The comparison is symbol-driven: the schematic is the source of truth,
+    // and a footprint may legitimately carry more.
+    expect(withFields([], [['Internal', 'x']])).toHaveLength(0);
+  });
+
+  it('does not treat Reference, Value or Footprint as user fields', () => {
+    // Those three are compared as their own things, not as custom fields.
+    const v = withFields(
+      [
+        ['Reference', 'R99'],
+        ['Value', '47k'],
+        ['Footprint', 'Other:Thing'],
+      ],
+      [],
+    );
+
+    expect(v).toHaveLength(0);
+  });
+
+  it('reports only the first mismatch, not one per field', () => {
+    const v = withFields(
+      [
+        ['A', '1'],
+        ['B', '2'],
+        ['C', '3'],
+      ],
+      [],
+    );
+
+    expect(v).toHaveLength(1);
+  });
+});
+
 describe('net conflicts', () => {
   const withPads = (pads: PcbPad[], c: COMPONENT, nets: [number, string][]) =>
     codes(board([fp({ pads })], nets), netlistOf(c), 'net_conflict');
