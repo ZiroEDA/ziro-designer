@@ -187,6 +187,32 @@ export function danglingWireEnds(
   return out;
 }
 
+/** Which of a wire's two ends are dangling, by wire index. */
+export interface WireDangleState {
+  readonly start: boolean;
+  readonly end: boolean;
+}
+
+/**
+ * The same rule as `danglingWireEnds`, reported per wire and per end, which is
+ * what `SCH_LINE::IsStartDangling()` / `IsEndDangling()` answer. Keyed by the
+ * wire's index in `sch.lines`, since a wire's uuid is optional.
+ */
+export function wireDangleStates(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+): Map<number, WireDangleState> {
+  const byPos = endEntriesByPos(sch, libById);
+  const out = new Map<number, WireDangleState>();
+  sch.lines.forEach((l, i) => {
+    if (l.kind !== 'wire') return;
+    const dangles = (p: Vec2): boolean =>
+      !(byPos.get(key(p)) ?? []).some((e) => e.owner !== l && e.type !== 'bus');
+    out.set(i, { start: dangles(l.start), end: dangles(l.end) });
+  });
+  return out;
+}
+
 /**
  * Dangling label anchors (SCH_LABEL_BASE::UpdateDanglingState): connected by
  * an exact-position pin / label / sheet pin / no-connect, or by lying anywhere

@@ -102,6 +102,59 @@ export interface MoveSpec {
 const key = (p: Vec2): string => `${p.x},${p.y}`;
 
 /**
+ * `SCH_ITEM::GetConnectionPoints()` over a set of items: every point at which
+ * they make an electrical connection.
+ *
+ * Only *connectable* items contribute. `SCH_TEXT` never overrides
+ * `SCH_ITEM::IsConnectable()` (which returns false), so plain graphic text has
+ * no electrical anchor — `getConnectedDragItems` skips it for exactly that
+ * reason, and so does the junction/trim pass.
+ */
+export function connectionPoints(
+  sch: Schematic,
+  libById: ReadonlyMap<string, LibSymbol>,
+  ids: ReadonlySet<string>,
+): Vec2[] {
+  const out: Vec2[] = [];
+  sch.symbols.forEach((s, i) => {
+    if (ids.has(refId('symbol', s.uuid, i)))
+      for (const p of symbolPinPositions(s, libById.get(s.libId))) out.push(p);
+  });
+  sch.lines.forEach((l, i) => {
+    if (ids.has(refId('line', l.uuid, i))) {
+      out.push(l.start);
+      out.push(l.end);
+    }
+  });
+  sch.junctions.forEach((j, i) => {
+    if (ids.has(refId('junction', j.uuid, i))) out.push(j.at);
+  });
+  sch.labels.forEach((l, i) => {
+    if (l.kind === 'text') return;
+    if (ids.has(refId('label', l.uuid, i))) out.push(l.at);
+  });
+  // Netclass flags connect like labels (getConnectedDragItems groups
+  // SCH_DIRECTIVE_LABEL_T with the label types).
+  (sch.directiveLabels ?? []).forEach((d, i) => {
+    if (ids.has(refId('directive', d.uuid, i))) out.push(d.at);
+  });
+  sch.noConnects.forEach((nc, i) => {
+    if (ids.has(refId('noconnect', nc.uuid, i))) out.push(nc.at);
+  });
+  // A sheet's pins and a bus entry's two ends are its connection points.
+  sch.sheets.forEach((sh, i) => {
+    if (ids.has(refId('sheet', sh.uuid, i))) for (const p of sh.pins) out.push(p.at);
+  });
+  sch.busEntries.forEach((be, i) => {
+    if (ids.has(refId('busentry', be.uuid, i))) {
+      out.push(be.at);
+      out.push({ x: be.at.x + be.size.x, y: be.at.y + be.size.y });
+    }
+  });
+  return out;
+}
+
+/**
  * Build a move plan for a selection: collect the connection points of the
  * selected items, then attach the coincident endpoints of any *unselected* wire,
  * and plan a rubber-band stub for any moved point that lands on a fixed
@@ -112,44 +165,12 @@ export function planMove(
   libById: Map<string, LibSymbol>,
   ids: ReadonlySet<string>,
 ): MoveSpec {
-  const points = new Set<string>();
-  sch.symbols.forEach((s, i) => {
-    if (ids.has(refId('symbol', s.uuid, i)))
-      for (const p of symbolPinPositions(s, libById.get(s.libId))) points.add(key(p));
-  });
-  sch.lines.forEach((l, i) => {
-    if (ids.has(refId('line', l.uuid, i))) {
-      points.add(key(l.start));
-      points.add(key(l.end));
-    }
-  });
-  sch.junctions.forEach((j, i) => {
-    if (ids.has(refId('junction', j.uuid, i))) points.add(key(j.at));
-  });
-  // Only *labels* are connection points. SCH_TEXT never overrides
-  // SCH_ITEM::IsConnectable() (which returns false), so plain graphic text has
-  // no electrical anchor and must not pull wires along when it is dragged,
-  // getConnectedDragItems skips it for exactly that reason.
-  sch.labels.forEach((l, i) => {
-    if (l.kind === 'text') return;
-    if (ids.has(refId('label', l.uuid, i))) points.add(key(l.at));
-  });
-  // Netclass flags connect like labels (getConnectedDragItems groups
-  // SCH_DIRECTIVE_LABEL_T with the label types).
-  (sch.directiveLabels ?? []).forEach((d, i) => {
-    if (ids.has(refId('directive', d.uuid, i))) points.add(key(d.at));
-  });
-  // A selected sheet's pins and a selected bus entry's two ends are moved
-  // connection points too (getConnectedDragItems' candidate collection).
-  sch.sheets.forEach((sh, i) => {
-    if (ids.has(refId('sheet', sh.uuid, i))) for (const p of sh.pins) points.add(key(p.at));
-  });
-  sch.busEntries.forEach((be, i) => {
-    if (ids.has(refId('busentry', be.uuid, i))) {
-      points.add(key(be.at));
-      points.add(key({ x: be.at.x + be.size.x, y: be.at.y + be.size.y }));
-    }
-  });
+  // The moved items' own connection points. A selected no-connect contributes
+  // none: getConnectedDragItems treats no-connects as *candidates to join the
+  // drag* (below), never as anchors that pull other wires along.
+  const anchorIds = new Set(ids);
+  sch.noConnects.forEach((nc, i) => anchorIds.delete(refId('noconnect', nc.uuid, i)));
+  const points = new Set(connectionPoints(sch, libById, anchorIds).map(key));
 
   const fullIds = new Set(ids);
 
