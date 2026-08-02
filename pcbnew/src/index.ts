@@ -279,6 +279,15 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  allItemsState,
+  DEFAULT_SELECTION_FILTER,
+  filterSelection,
+  itemPassesFilter,
+  setAllFilterItems,
+  type SelectionFilter,
+} from './filter_selection.js';
+
+export {
   buildClearanceReport,
   buildConstraintsReport,
   formatInspectReport,
