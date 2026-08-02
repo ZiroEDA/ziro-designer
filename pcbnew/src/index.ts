@@ -281,6 +281,14 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  modifyLines,
+  modifiableLineCount,
+  type LineModification,
+  type ModifyLinesOptions,
+  type ModifyLinesResult,
+} from './modify_lines.js';
+
+export {
   convertToLines,
   itemRings,
   segmentToArc,
