@@ -29,3 +29,11 @@ export {
   type ExtensionResult,
   type FilletResult,
 } from './geometry/corner_operations.js';
+
+export {
+  booleanOp,
+  booleanAdd,
+  booleanSubtract,
+  booleanIntersection,
+  BooleanOp,
+} from './geometry/shape_poly_set.js';

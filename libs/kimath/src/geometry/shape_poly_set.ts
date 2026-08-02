@@ -264,9 +264,20 @@ export function inflate(
 
   // Clipper hands back a flat list of rings, holes wound the other way from
   // their outline (SHAPE_POLY_SET regroups the same way when it imports from
-  // Clipper). Rather than trust a winding convention, nest them: a ring inside
-  // an even number of others is an outline, an odd one is a hole belonging to
-  // the smallest ring containing it.
+  // Clipper).
+  return nestRings(solution);
+}
+
+/**
+ * Rebuild `Polygon[]` from Clipper's flat list of rings.
+ *
+ * Clipper returns outlines and holes mixed together, distinguished only by
+ * winding. Rather than trust a winding convention, rings are nested: a ring
+ * inside an even number of others is an outline, an odd one is a hole belonging
+ * to the smallest outline containing it. Shared by the offset and the boolean
+ * ops, which get the same shape of answer back.
+ */
+function nestRings(solution: { X: number; Y: number }[][]): Polygon[] {
   const rings = solution
     .map((ring) => ring.map((p) => ({ x: p.X, y: p.Y })))
     .filter((ring) => ring.length >= 3);
@@ -287,7 +298,6 @@ export function inflate(
 
   rings.forEach((ring, i) => {
     if (containers[i]!.length % 2 === 0) return;
-    // The smallest containing ring that is itself an outline.
     let best: Vec2[] | null = null;
     let bestArea = Number.POSITIVE_INFINITY;
     for (const candidate of containers[i]!) {
@@ -303,6 +313,65 @@ export function inflate(
 
   return out;
 }
+
+/** `SHAPE_POLY_SET`'s three boolean operations. */
+export enum BooleanOp {
+  ADD = 0,
+  SUBTRACT = 1,
+  INTERSECT = 2,
+}
+
+/**
+ * `SHAPE_POLY_SET::BooleanAdd` / `BooleanSubtract` / `BooleanIntersection`.
+ *
+ * Both sides are declared even-odd filled, mirroring how SHAPE_POLY_SET hands
+ * its polygons to Clipper: it stores holes as separate rings and leans on the
+ * fill rule rather than on winding to tell them from outlines.
+ *
+ * For the inputs this actually receives the non-zero rule would give the same
+ * answers — sources are always single rings, and Clipper orients its own output
+ * (holes wound against their outline), so both rules read them alike. Checked,
+ * rather than assumed: swapping the rule changes nothing measurable, including
+ * for a fractured ring fed back through a second operation. Even-odd is kept
+ * because it is what upstream declares, not because the difference is load
+ * bearing here.
+ */
+export function booleanOp(subject: Polygon[], clip: Polygon[], op: BooleanOp): Polygon[] {
+  const toPaths = (polys: Polygon[]): { X: number; Y: number }[][] =>
+    polys.flatMap((poly) => poly.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))));
+
+  const clipper = new ClipperLib.Clipper();
+  clipper.AddPaths(toPaths(subject), ClipperLib.PolyType.ptSubject, true);
+  clipper.AddPaths(toPaths(clip), ClipperLib.PolyType.ptClip, true);
+
+  const clipType =
+    op === BooleanOp.ADD
+      ? ClipperLib.ClipType.ctUnion
+      : op === BooleanOp.SUBTRACT
+        ? ClipperLib.ClipType.ctDifference
+        : ClipperLib.ClipType.ctIntersection;
+
+  const solution: { X: number; Y: number }[][] = [];
+  clipper.Execute(
+    clipType,
+    solution,
+    ClipperLib.PolyFillType.pftEvenOdd,
+    ClipperLib.PolyFillType.pftEvenOdd,
+  );
+
+  return nestRings(solution);
+}
+
+/** `SHAPE_POLY_SET::BooleanAdd`. */
+export const booleanAdd = (a: Polygon[], b: Polygon[]): Polygon[] => booleanOp(a, b, BooleanOp.ADD);
+
+/** `SHAPE_POLY_SET::BooleanSubtract`. */
+export const booleanSubtract = (a: Polygon[], b: Polygon[]): Polygon[] =>
+  booleanOp(a, b, BooleanOp.SUBTRACT);
+
+/** `SHAPE_POLY_SET::BooleanIntersection`. */
+export const booleanIntersection = (a: Polygon[], b: Polygon[]): Polygon[] =>
+  booleanOp(a, b, BooleanOp.INTERSECT);
 
 /** Twice the signed area; the sign gives the winding. */
 function signedArea(ring: Vec2[]): number {
