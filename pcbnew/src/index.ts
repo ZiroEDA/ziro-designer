@@ -281,6 +281,15 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  polygonBoolean,
+  booleanableShapeCount,
+  shapeAsPolygon,
+  type PolygonBoolean,
+  type PolygonBooleanOptions,
+  type PolygonBooleanResult,
+} from './polygon_booleans.js';
+
+export {
   modifyLines,
   modifiableLineCount,
   type LineModification,
