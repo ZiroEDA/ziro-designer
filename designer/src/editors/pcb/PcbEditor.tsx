@@ -91,6 +91,7 @@ import {
   polygonBoolean,
   booleanableShapeCount,
   type PolygonBoolean,
+  outsetItems,
   convertToLines,
   segmentToArc,
   type DrcViolation,
@@ -133,6 +134,12 @@ import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrop
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
 import { DialogLineModification } from './dialogs/dialog_line_modification.js';
+import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
+import {
+  DEFAULT_OUTSET_SETTINGS,
+  outsetOptionsFrom,
+  type OutsetSettings,
+} from './outset_settings.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
@@ -890,6 +897,9 @@ export function PcbEditor({
   // Fillet / chamfer prompts. Upstream keeps the last value in a
   // function-static, so it reopens on whatever was typed last.
   const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | null>(null);
+  const [outsetOpen, setOutsetOpen] = useState(false);
+  // Kept across openings, as upstream keeps its PARAMETERS on the tool.
+  const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
   const [filletRadius, setFilletRadius] = useState(1_000_000);
   const [chamferSetback, setChamferSetback] = useState(1_000_000);
   // The reference item for Position Relative, chosen by clicking the canvas
@@ -2548,6 +2558,22 @@ export function PcbEditor({
         // nothing (or worse, something else). Clearing is the honest answer.
         setSelection(new Set());
       }
+    },
+    [commitBoard],
+  );
+
+  /** OUTSET_ROUTINE — draw the selection again, a fixed distance outside. */
+  const applyOutset = useCallback(
+    (settings: OutsetSettings) => {
+      setOutsetSettings(settings);
+      setOutsetOpen(false);
+
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length === 0) return;
+
+      const res = outsetItems(brd, sel, outsetOptionsFrom(settings));
+      if (res.board !== brd) commitBoard(res.board);
     },
     [commitBoard],
   );
@@ -5344,6 +5370,11 @@ export function PcbEditor({
           ],
         },
         {
+          label: 'Outset Items…',
+          action: () => setOutsetOpen(true),
+          disabled: selection.size === 0,
+        },
+        {
           label: 'Modify Lines',
           submenu: [
             {
@@ -7065,6 +7096,14 @@ export function PcbEditor({
             Cancel
           </button>
         </div>
+      )}
+      {outsetOpen && board && (
+        <DialogOutsetItems
+          layers={board.layers.map((l) => l.name)}
+          initial={outsetSettings}
+          onApply={applyOutset}
+          onClose={() => setOutsetOpen(false)}
+        />
       )}
       {lineModOpen && board && (
         <DialogLineModification
