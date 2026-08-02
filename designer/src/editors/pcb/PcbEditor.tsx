@@ -73,7 +73,10 @@ import {
   type PcbShape,
   type PcbPad,
   runDrc,
+  DEFAULT_SELECTION_FILTER,
+  filterSelection,
   type DrcViolation,
+  type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   spreadBoardFootprints,
   type NETLIST,
@@ -109,6 +112,7 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection } from './inspect_selection.js';
 import { netclassesForNet } from './netclass_resolve.js';
@@ -856,6 +860,12 @@ export function PcbEditor({
   } | null>(null);
   const [show3D, setShow3D] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  // The Filter Selection *dialog*'s options — distinct from `selFilter` above,
+  // which is the toolbar panel deciding what a click can pick up. This one
+  // narrows an existing selection once, and is kept across openings as
+  // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
+  const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
   const viewer3dRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
@@ -5059,6 +5069,12 @@ export function PcbEditor({
           ],
         },
         { sep: true },
+        {
+          label: 'Filter Selection…',
+          action: () => setFilterOpen(true),
+          disabled: selection.size === 0,
+        },
+        { sep: true },
         { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
         { sep: true },
         { label: 'Properties…', action: () => openTrackViaProperties(), shortcut: 'E' },
@@ -6704,6 +6720,18 @@ export function PcbEditor({
           viaSizes={viaSizeList}
           onApply={applyTrackViaEdit}
           onClose={() => setTrackViaOpen(false)}
+        />
+      )}
+      {filterOpen && board && (
+        <DialogFilterSelection
+          filter={filterOpts}
+          onChange={setFilterOpts}
+          matchCount={filterSelection(board, selection, filterOpts).length}
+          onApply={() => {
+            setSelection(new Set(filterSelection(board, selection, filterOpts)));
+            setFilterOpen(false);
+          }}
+          onClose={() => setFilterOpen(false)}
         />
       )}
       {inspectOpen && board && (
