@@ -281,6 +281,14 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  createArray,
+  arraySize,
+  arrayTransform,
+  type ArraySpec,
+  type CreateArrayResult,
+} from './create_array.js';
+
+export {
   outsetItems,
   outsetSegmentRing,
   roundRectOutwards,
