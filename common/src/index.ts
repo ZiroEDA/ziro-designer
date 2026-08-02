@@ -63,3 +63,5 @@ export {
   type DsBitmapItem,
   type WksBBox,
 } from './drawing_sheet/index.js';
+
+export * from './array_options.js';
