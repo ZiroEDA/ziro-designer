@@ -85,6 +85,9 @@ import {
   boardGridOrigin,
   convertToPoly,
   convertToZone,
+  modifyLines,
+  modifiableLineCount,
+  type LineModification,
   convertToLines,
   segmentToArc,
   type DrcViolation,
@@ -126,6 +129,7 @@ import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
+import { DialogLineModification } from './dialogs/dialog_line_modification.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
@@ -880,6 +884,11 @@ export function PcbEditor({
   const [filterOpen, setFilterOpen] = useState(false);
   const [moveExactOpen, setMoveExactOpen] = useState(false);
   const [posRelOpen, setPosRelOpen] = useState(false);
+  // Fillet / chamfer prompts. Upstream keeps the last value in a
+  // function-static, so it reopens on whatever was typed last.
+  const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | null>(null);
+  const [filletRadius, setFilletRadius] = useState(1_000_000);
+  const [chamferSetback, setChamferSetback] = useState(1_000_000);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -2503,6 +2512,23 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, activeLayer],
+  );
+
+  /** EDIT_TOOL::ModifyLines — fillet, chamfer or extend the selected lines. */
+  const applyLineModification = useCallback(
+    (op: LineModification, valueIU?: number) => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length < 2) return;
+
+      const res = modifyLines(brd, sel, op, {
+        radius: valueIU,
+        setback: valueIU,
+      });
+      if (res.board !== brd) commitBoard(res.board);
+      setLineModOpen(null);
+    },
+    [commitBoard],
   );
 
   /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
@@ -5146,6 +5172,10 @@ export function PcbEditor({
   // them, so it wants three where align wants two (SELECTION_CONDITIONS::
   // MoreThan( 2 )).
   const distributeDisabled = selection.size < 3;
+  // The corner operations work on pairs of straight graphics, so the count that
+  // matters is how many of the selection actually are ones — a selection of two
+  // rectangles has nothing to fillet.
+  const lineModDisabled = !board || modifiableLineCount(board, selection) < 2;
   const menus: Menu[] = [
     {
       label: 'File',
@@ -5266,6 +5296,26 @@ export function PcbEditor({
               label: 'Create Arc from Selection',
               action: () => convertSelection('arc'),
               disabled: selection.size === 0,
+            },
+          ],
+        },
+        {
+          label: 'Modify Lines',
+          submenu: [
+            {
+              label: 'Fillet Lines…',
+              action: () => setLineModOpen('fillet'),
+              disabled: lineModDisabled,
+            },
+            {
+              label: 'Chamfer Lines…',
+              action: () => setLineModOpen('chamfer'),
+              disabled: lineModDisabled,
+            },
+            {
+              label: 'Extend Lines to Meet',
+              action: () => applyLineModification('extend'),
+              disabled: lineModDisabled,
             },
           ],
         },
@@ -6971,6 +7021,19 @@ export function PcbEditor({
             Cancel
           </button>
         </div>
+      )}
+      {lineModOpen && board && (
+        <DialogLineModification
+          title={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
+          label={lineModOpen === 'fillet' ? 'Radius:' : 'Set-back:'}
+          value={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
+          onApply={(v: number) => {
+            if (lineModOpen === 'fillet') setFilletRadius(v);
+            else setChamferSetback(v);
+            applyLineModification(lineModOpen, v);
+          }}
+          onClose={() => setLineModOpen(null)}
+        />
       )}
       {posRelOpen && board && (
         <DialogPositionRelative
