@@ -22,7 +22,9 @@ import { writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
 import {
   defaultRotationAnchor,
   itemAnchorPoint,
+  MAX_BOARD_COORD,
   moveExact,
+  moveKeepsSelectionInBounds,
   polarTranslation,
 } from '@ziroeda/pcbnew/src/move_exact.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
@@ -238,6 +240,41 @@ describe('rotation anchor', () => {
     const b = two();
 
     expect(moveExact(b, ['track:0'], { translation: { x: 0, y: 0 }, rotation: 0 })).toBe(b);
+  });
+});
+
+describe('the out-of-range check that greys out OK', () => {
+  const box = { minX: 0, minY: 0, maxX: MM(10), maxY: MM(10) };
+
+  it('accepts an ordinary move', () => {
+    expect(moveKeepsSelectionInBounds(box, { x: MM(50), y: MM(50) })).toBe(true);
+  });
+
+  it('rejects a move that runs off the right of the board area', () => {
+    expect(moveKeepsSelectionInBounds(box, { x: MAX_BOARD_COORD, y: 0 })).toBe(false);
+  });
+
+  it('rejects a move that runs off the left', () => {
+    // The far edge, not the near one, is what crosses first going negative.
+    expect(moveKeepsSelectionInBounds(box, { x: -MAX_BOARD_COORD - 1, y: 0 })).toBe(false);
+  });
+
+  it('checks the vertical axis too', () => {
+    expect(moveKeepsSelectionInBounds(box, { x: 0, y: MAX_BOARD_COORD })).toBe(false);
+    expect(moveKeepsSelectionInBounds(box, { x: 0, y: -MAX_BOARD_COORD - 1 })).toBe(false);
+  });
+
+  it('allows a move that lands exactly on the limit', () => {
+    // Upstream's test is a strict inequality, so the boundary itself is legal.
+    expect(moveKeepsSelectionInBounds(box, { x: MAX_BOARD_COORD - MM(10), y: 0 })).toBe(true);
+  });
+
+  it('puts the limit at INT_MAX * sqrt(1/2)', () => {
+    // The sqrt(1/2) is what keeps a corner point's magnitude inside an int, so
+    // a plain INT_MAX here would be wrong by 41%.
+    expect(MAX_BOARD_COORD).toBe(Math.floor(2147483647 * Math.SQRT1_2));
+    // 1518.5 mm — a metre and a half, which is the real ceiling on board size.
+    expect(MAX_BOARD_COORD / 1e6).toBeCloseTo(1518.5, 3);
   });
 });
 
