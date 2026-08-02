@@ -92,6 +92,7 @@ import {
   booleanableShapeCount,
   type PolygonBoolean,
   outsetItems,
+  createArray,
   convertToLines,
   segmentToArc,
   type DrcViolation,
@@ -134,6 +135,8 @@ import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrop
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
 import { DialogLineModification } from './dialogs/dialog_line_modification.js';
+import { DialogCreateArray } from './dialogs/dialog_create_array.js';
+import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
 import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
@@ -898,6 +901,9 @@ export function PcbEditor({
   // function-static, so it reopens on whatever was typed last.
   const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | null>(null);
   const [outsetOpen, setOutsetOpen] = useState(false);
+  const [arrayOpen, setArrayOpen] = useState(false);
+  // Kept across openings, as upstream persists its ARRAY_OPTIONS.
+  const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
   // Kept across openings, as upstream keeps its PARAMETERS on the tool.
   const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
   const [filletRadius, setFilletRadius] = useState(1_000_000);
@@ -2573,6 +2579,22 @@ export function PcbEditor({
       if (!brd || sel.length === 0) return;
 
       const res = outsetItems(brd, sel, outsetOptionsFrom(settings));
+      if (res.board !== brd) commitBoard(res.board);
+    },
+    [commitBoard],
+  );
+
+  /** ARRAY_TOOL::CreateArray. */
+  const applyArray = useCallback(
+    (settings: ArraySettings) => {
+      setArraySettings(settings);
+      setArrayOpen(false);
+
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length === 0) return;
+
+      const res = createArray(brd, sel, arraySpecFrom(settings));
       if (res.board !== brd) commitBoard(res.board);
     },
     [commitBoard],
@@ -5370,6 +5392,25 @@ export function PcbEditor({
           ],
         },
         {
+          label: 'Create Array…',
+          action: () => {
+            // A circular array turns about a point, and the selection's own
+            // centre is the only sensible one to open on — (0,0) would fling
+            // the copies across the board.
+            const brd = boardRef.current;
+            const bb = brd ? boardSelectionBBox(brd, selection) : null;
+            if (bb) {
+              setArraySettings((prev) => ({
+                ...prev,
+                centreXIU: Math.round((bb.minX + bb.maxX) / 2),
+                centreYIU: Math.round((bb.minY + bb.maxY) / 2),
+              }));
+            }
+            setArrayOpen(true);
+          },
+          disabled: selection.size === 0,
+        },
+        {
           label: 'Outset Items…',
           action: () => setOutsetOpen(true),
           disabled: selection.size === 0,
@@ -7096,6 +7137,13 @@ export function PcbEditor({
             Cancel
           </button>
         </div>
+      )}
+      {arrayOpen && board && (
+        <DialogCreateArray
+          initial={arraySettings}
+          onApply={applyArray}
+          onClose={() => setArrayOpen(false)}
+        />
       )}
       {outsetOpen && board && (
         <DialogOutsetItems
