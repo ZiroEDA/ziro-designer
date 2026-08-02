@@ -29,6 +29,7 @@
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { chainIntersectChain } from '@ziroeda/kimath/src/geometry/seg.js';
 import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
+import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { buildRatsnest } from '../ratsnest.js';
 import { shapeToPolygon } from '../zone_filler.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -87,6 +88,12 @@ export interface DrcOptions {
    * upstream's `minClearance < 0` gate does.
    */
   minSilkClearance?: number;
+  /**
+   * The schematic netlist, for the PCB-to-schematic parity checks. Absent
+   * means no schematic to compare against, and those checks do not run —
+   * which is upstream's behaviour when no netlist is supplied.
+   */
+  netlist?: NETLIST;
   /**
    * rules.min_copper_edge_clearance (IU), Board Setup's "copper to edge".
    * Absent means zero, i.e. copper may touch the board edge but not cross it;
@@ -896,6 +903,142 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
             ],
           });
       }
+    }
+  }
+
+  // ----- PCB to schematic parity -------------------------------------------
+  // drc_test_provider_schematic_parity. Runs only when the caller supplies a
+  // netlist — with no schematic there is nothing to be out of parity with.
+  if (opts.netlist) {
+    const nl = opts.netlist;
+
+    // Duplicate references. `board_only` footprints are exempt: they exist on
+    // the PCB by design and have no symbol to be duplicated from.
+    const seen = new Map<string, PcbFootprint>();
+
+    for (const fp of board.footprints) {
+      const ref = (fp.reference ?? '').toLowerCase();
+      if (!ref) continue;
+
+      const first = seen.get(ref);
+      if (!first) {
+        seen.set(ref, fp);
+        continue;
+      }
+
+      if (fp.attributes?.includes('board_only')) continue;
+
+      out.push({
+        code: 'duplicate_footprints',
+        message: `Duplicate footprints ${fp.reference}`,
+        pos: fp.at,
+        items: [
+          { desc: `Footprint ${fp.reference}`, pos: fp.at },
+          { desc: `Footprint ${first.reference}`, pos: first.at },
+        ],
+      });
+    }
+
+    const byRef = new Map<string, PcbFootprint>();
+    for (const fp of board.footprints) if (fp.reference) byRef.set(fp.reference, fp);
+
+    const inNetlist = new Set<string>();
+
+    for (let i = 0; i < nl.GetCount(); i++) {
+      const c = nl.GetComponent(i);
+      if (!c) continue;
+      inNetlist.add(c.GetReference());
+
+      const fp = byRef.get(c.GetReference());
+
+      if (!fp) {
+        out.push({
+          code: 'missing_footprint',
+          message: `Missing footprint ${c.GetReference()} (${c.GetValue()})`,
+          pos: { x: 0, y: 0 },
+          items: [],
+        });
+        continue;
+      }
+
+      const parity = (detail: string): void => {
+        out.push({
+          code: 'footprint_symbol_mismatch',
+          message: detail,
+          pos: fp.at,
+          items: [{ desc: `Footprint ${fp.reference}`, pos: fp.at }],
+        });
+      };
+
+      if (c.GetValue() !== (fp.value ?? ''))
+        parity(`Value (${fp.value ?? ''}) doesn't match symbol value (${c.GetValue()})`);
+
+      if (c.GetFPID() !== fp.lib)
+        parity(`${fp.lib} doesn't match footprint given by symbol (${c.GetFPID()})`);
+
+      // The two attribute flags the netlist carries as properties.
+      const dnpSym = c.GetProperties().has('dnp');
+      const dnpFp = fp.attributes?.includes('dnp') ?? false;
+      if (dnpSym !== dnpFp) parity("'Do not populate' settings differ");
+
+      const bomSym = c.GetProperties().has('exclude_from_bom');
+      const bomFp = fp.attributes?.includes('exclude_from_bom') ?? false;
+      if (bomSym !== bomFp) parity("'Exclude from bill of materials' settings differ");
+
+      // Pad nets against the schematic's.
+      for (const pad of fp.pads) {
+        if (!pad.number) continue;
+
+        const schNet = c.GetNet(pad.number);
+        const pcbNet = board.nets.get(pad.net ?? 0) ?? '';
+
+        const conflict = (detail: string): void => {
+          out.push({
+            code: 'net_conflict',
+            message: detail,
+            pos: fp.at,
+            items: [{ desc: `Pad ${pad.number} of ${fp.reference}`, pos: pad.at }],
+          });
+        };
+
+        if (pcbNet !== '' && schNet.pinName === '') {
+          conflict('No corresponding pin found in schematic');
+        } else if (pcbNet === '' && schNet.netName !== '') {
+          conflict(`Pad missing net given by schematic (${schNet.netName})`);
+        } else if (pcbNet !== schNet.netName && !unconnectedAlias(pcbNet, schNet.netName)) {
+          conflict(`Pad net (${pcbNet}) doesn't match net given by schematic (${schNet.netName})`);
+        }
+      }
+
+      // …and the schematic's pins against the pads.
+      const padNumbers = new Set(fp.pads.map((p) => p.number));
+
+      for (let j = 0; j < c.GetNetCount(); j++) {
+        const schNet = c.GetNetAt(j);
+        if (!schNet.pinName || padNumbers.has(schNet.pinName)) continue;
+
+        out.push({
+          code: 'net_conflict',
+          message: `No pad found in footprint for schematic pin ${schNet.pinName}`,
+          pos: fp.at,
+          items: [{ desc: `Footprint ${fp.reference}`, pos: fp.at }],
+        });
+      }
+    }
+
+    // Footprints on the board that no symbol accounts for. A `board_only`
+    // footprint is there deliberately — fiducials, mounting hardware — and is
+    // the whole reason the attribute exists.
+    for (const fp of board.footprints) {
+      if (!fp.reference || inNetlist.has(fp.reference)) continue;
+      if (fp.attributes?.includes('board_only')) continue;
+
+      out.push({
+        code: 'extra_footprint',
+        message: `Extra footprint ${fp.reference}`,
+        pos: fp.at,
+        items: [{ desc: `Footprint ${fp.reference}`, pos: fp.at }],
+      });
     }
   }
 
@@ -2069,6 +2212,21 @@ function countThermalSpokes(pad: PcbPad, midGap: number, polys: readonly Vec2[][
   }
 
   return spokes;
+}
+
+/**
+ * The two net names KiCad treats as the same despite differing text.
+ *
+ * A pad the schematic leaves unconnected gets a generated name, and the board
+ * carries a longer form of it — `unconnected-(U1-Pad1)` against the schematic's
+ * stem. Comparing the strings directly reports every no-connect pin on the
+ * board as a net conflict.
+ */
+function unconnectedAlias(pcbNet: string, schNet: string): boolean {
+  if (schNet === '') return false;
+  if (pcbNet.startsWith('unconnected-') && pcbNet.startsWith(schNet)) return true;
+  // A no-connect pad's board net is the schematic name with a suffix.
+  return pcbNet.startsWith(`${schNet}_`);
 }
 
 /**
