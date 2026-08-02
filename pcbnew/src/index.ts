@@ -93,6 +93,7 @@ export {
   plotGerberJob,
   gerberFileFunction,
   boardAuxOrigin,
+  boardGridOrigin,
   type GerberPlotOpts,
 } from './plot_gerber.js';
 export {
@@ -278,6 +279,16 @@ export {
   reportDrcConstraint,
   type ConstraintReport,
 } from './drc/drc_rules_engine.js';
+
+export {
+  positionRelative,
+  promotePadsToFootprints,
+  selectionAnchorId,
+  selectionAnchorPosition,
+  topLeftItem,
+  type PositionAnchorType,
+  type PositionRelativeOptions,
+} from './position_relative.js';
 
 export {
   distributeBoardItems,

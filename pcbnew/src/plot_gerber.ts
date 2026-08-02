@@ -101,6 +101,16 @@ export function boardAuxOrigin(board: Board): Vec2 {
   return { x: mmToIU(numArg(aux, 0) ?? 0), y: mmToIU(numArg(aux, 1) ?? 0) };
 }
 
+/** The board's grid origin (`(setup (grid_origin x y))`),
+ *  `BOARD_DESIGN_SETTINGS::GetGridOrigin` — what Position Relative offers as
+ *  its "grid origin" reference. Absent means the origin, as upstream defaults. */
+export function boardGridOrigin(board: Board): Vec2 {
+  const setup = childNamed(board.source, 'setup');
+  const org = setup ? childNamed(setup, 'grid_origin') : undefined;
+  if (!org) return { x: 0, y: 0 };
+  return { x: mmToIU(numArg(org, 0) ?? 0), y: mmToIU(numArg(org, 1) ?? 0) };
+}
+
 /** Gerber writer options (the dialog's Gerber Options + General Options). */
 export interface GerberPlotOpts {
   creationDate?: string;
