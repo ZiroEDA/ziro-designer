@@ -182,6 +182,45 @@ describe('chamfering a selection', () => {
   });
 });
 
+describe('dogboning a selection', () => {
+  it('replaces the corner with a pocket arc', () => {
+    const b = board(elbow());
+    const out = modifyLines(b, ids(2), 'dogbone', { dogboneRadius: MM(5) });
+
+    expect(out.successes).toBe(1);
+    expect(out.board.shapes.filter((s) => s.kind === 'arc')).toHaveLength(1);
+  });
+
+  it('runs the pocket through the original corner', () => {
+    // The deepest point is the corner itself, which is what lets a mating
+    // sharp corner still seat.
+    const b = board(elbow());
+    const arc = modifyLines(b, ids(2), 'dogbone', { dogboneRadius: MM(5) }).board.shapes.find(
+      (s) => s.kind === 'arc',
+    )!;
+
+    expect(arc.mid).toEqual({ x: MM(100), y: 0 });
+  });
+
+  it('counts a corner it cannot pocket as a failure', () => {
+    const b = board(elbow());
+    const out = modifyLines(b, ids(2), 'dogbone', { dogboneRadius: MM(500) });
+
+    expect(out.successes).toBe(0);
+    expect(out.failures).toBe(1);
+  });
+
+  it('shortens both arms back to the pocket', () => {
+    const b = board(elbow());
+    const out = modifyLines(b, ids(2), 'dogbone', { dogboneRadius: MM(5) });
+
+    for (const s of out.board.shapes.filter((s) => s.kind === 'line')) {
+      const len = Math.hypot(s.end!.x - s.start!.x, s.end!.y - s.start!.y);
+      expect(len).toBeLessThan(MM(100));
+    }
+  });
+});
+
 describe('extending a selection', () => {
   it('grows both lines until they meet', () => {
     const b = board([line(0, 0, 50, 0), line(100, 20, 100, 80)]);
