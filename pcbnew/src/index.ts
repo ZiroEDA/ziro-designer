@@ -281,6 +281,16 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  convertToLines,
+  itemRings,
+  segmentToArc,
+  bowedMidpoint,
+  ARC_BOW_RATIO,
+  type LineTarget,
+  type ConvertToLinesOptions,
+} from './convert_lines.js';
+
+export {
   chainSegmentsToPolygons,
   chainableItem,
   closedShapeRing,
