@@ -21,6 +21,7 @@ import { atom, head, isList, list, str } from '@ziroeda/sexpr/src/index.js';
 import { writeBoardNode } from '@ziroeda/pcbnew/src/write-board.js';
 import {
   defaultRotationAnchor,
+  itemAnchorPoint,
   moveExact,
   polarTranslation,
 } from '@ziroeda/pcbnew/src/move_exact.js';
@@ -158,28 +159,31 @@ describe('rotation anchor', () => {
     expect(defaultRotationAnchor(2)).toBe('selectionCenter');
   });
 
-  it('turns a single item about its own centre', () => {
+  it('turns a single item about its own anchor, not its centre', () => {
     const out = moveExact(two(), ['track:0'], { translation: { x: 0, y: 0 }, rotation: 90 });
 
-    // About its own centre (5,0): d = (−5,0) → (0,5) → (5,5). It turns in
-    // place, its midpoint unmoved.
-    near(out.tracks[0]!.start.x, MM(5));
-    near(out.tracks[0]!.start.y, MM(5));
-    near(out.tracks[0]!.end.x, MM(5));
-    near(out.tracks[0]!.end.y, MM(-5));
+    // A track's anchor is its *start*, per PCB_TRACK::GetPosition — so (0,0)
+    // is pinned and the far end swings from (10,0) to (0,−10). About the bbox
+    // centre (5,0) it would instead land at (5,5)-(5,−5), a different result
+    // and not what "rotate around item anchor" says.
+    near(out.tracks[0]!.start.x, 0);
+    near(out.tracks[0]!.start.y, 0);
+    near(out.tracks[0]!.end.x, 0);
+    near(out.tracks[0]!.end.y, MM(-10));
   });
 
-  it('rotates each item in place when asked for the item anchor', () => {
+  it('rotates each item about its own anchor', () => {
     const out = moveExact(two(), ['track:0', 'track:1'], {
       translation: { x: 0, y: 0 },
       rotation: 90,
       anchor: 'itemAnchor',
     });
 
-    // Each stays centred where it was: the second track does not orbit the
+    // Each keeps its own start point: the second track does not orbit the
     // first, which is exactly what the selection-centre anchor would make it do.
-    near((out.tracks[0]!.start.y + out.tracks[0]!.end.y) / 2, 0);
-    near((out.tracks[1]!.start.y + out.tracks[1]!.end.y) / 2, MM(20));
+    near(out.tracks[0]!.start.y, 0);
+    near(out.tracks[1]!.start.x, 0);
+    near(out.tracks[1]!.start.y, MM(20));
   });
 
   it('rotates about a user origin', () => {
@@ -187,15 +191,16 @@ describe('rotation anchor', () => {
       translation: { x: 0, y: 0 },
       rotation: 90,
       anchor: 'userOrigin',
-      userOrigin: { x: 0, y: 0 },
+      userOrigin: { x: MM(10), y: 0 },
     });
 
-    // The start point sits on the origin, so it does not move; the end swings
-    // from (10,0) to (0,−10).
-    near(out.tracks[0]!.start.x, 0);
-    near(out.tracks[0]!.start.y, 0);
-    near(out.tracks[0]!.end.x, 0);
-    near(out.tracks[0]!.end.y, MM(-10));
+    // Deliberately not the track's own anchor, or this would not tell the two
+    // apart. About (10,0): start (0,0) has d = (−10,0) → (0,10) → (10,10),
+    // while the far end sits on the origin and stays put.
+    near(out.tracks[0]!.start.x, MM(10));
+    near(out.tracks[0]!.start.y, MM(10));
+    near(out.tracks[0]!.end.x, MM(10));
+    near(out.tracks[0]!.end.y, 0);
   });
 
   it('rotates about the aux origin', () => {
@@ -203,11 +208,15 @@ describe('rotation anchor', () => {
       translation: { x: 0, y: 0 },
       rotation: 180,
       anchor: 'auxOrigin',
-      auxOrigin: { x: 0, y: 0 },
+      auxOrigin: { x: MM(5), y: MM(5) },
     });
 
-    near(out.tracks[0]!.end.x, MM(-10));
-    near(out.tracks[0]!.end.y, 0);
+    // Again away from the item's own anchor. A half turn about (5,5) reflects
+    // every point through it: (0,0) → (10,10) and (10,0) → (0,10).
+    near(out.tracks[0]!.start.x, MM(10));
+    near(out.tracks[0]!.start.y, MM(10));
+    near(out.tracks[0]!.end.x, 0);
+    near(out.tracks[0]!.end.y, MM(10));
   });
 
   it('skips the rotation when the chosen origin was not supplied', () => {
@@ -229,6 +238,123 @@ describe('rotation anchor', () => {
     const b = two();
 
     expect(moveExact(b, ['track:0'], { translation: { x: 0, y: 0 }, rotation: 0 })).toBe(b);
+  });
+});
+
+describe('what each kind of item calls its anchor', () => {
+  // BOARD_ITEM::GetPosition, which differs per class and is nowhere near the
+  // bounding-box centre for most of them.
+  it("is a track's start point", () => {
+    const b = board({ tracks: [track(3, 7, 13, 7)] });
+
+    expect(itemAnchorPoint(b, 'track:0')).toEqual({ x: MM(3), y: MM(7) });
+  });
+
+  it("is an arc track's centre, which is stored nowhere", () => {
+    // PCB_ARC::GetPosition computes the centre from the three points rather
+    // than reading a field, so this is the one anchor that is derived.
+    const b = board({
+      arcs: [
+        {
+          start: { x: 0, y: 0 },
+          mid: { x: MM(5), y: MM(5) },
+          end: { x: MM(10), y: 0 },
+          width: MM(0.25),
+          layer: 'F.Cu',
+          net: 0,
+          source: EMPTY,
+        },
+      ],
+    });
+    const a = itemAnchorPoint(b, 'arc:0')!;
+
+    // The circle through (0,0), (5,5) and (10,0) is centred at (5,0) — not at
+    // the arc's start, which is where a field-read would land.
+    near(a.x, MM(5));
+    near(a.y, 0);
+  });
+
+  it("is a via's own position", () => {
+    const b = board({
+      vias: [
+        {
+          at: { x: MM(4), y: MM(9) },
+          size: MM(0.8),
+          drill: MM(0.4),
+          layers: ['F.Cu', 'B.Cu'],
+          kind: 'through',
+          net: 0,
+          source: EMPTY,
+        },
+      ],
+    });
+
+    expect(itemAnchorPoint(b, 'via:0')).toEqual({ x: MM(4), y: MM(9) });
+  });
+
+  it("is a polygon's first vertex", () => {
+    const b = board({
+      shapes: [
+        {
+          kind: 'poly',
+          pts: [
+            { x: MM(1), y: MM(2) },
+            { x: MM(9), y: MM(2) },
+            { x: MM(9), y: MM(8) },
+          ],
+          width: 0,
+          fill: true,
+          layer: 'F.SilkS',
+          source: EMPTY,
+        },
+      ],
+    });
+
+    expect(itemAnchorPoint(b, 'shape:0')).toEqual({ x: MM(1), y: MM(2) });
+  });
+
+  it("is a circle's centre", () => {
+    // KiCad stores a circle as its centre plus a point on it, so getPosition
+    // returns the centre — not a point on the rim.
+    const b = board({
+      shapes: [
+        {
+          kind: 'circle',
+          center: { x: MM(5), y: MM(5) },
+          end: { x: MM(8), y: MM(5) },
+          width: MM(0.1),
+          fill: false,
+          layer: 'F.SilkS',
+          source: EMPTY,
+        },
+      ],
+    });
+
+    expect(itemAnchorPoint(b, 'shape:0')).toEqual({ x: MM(5), y: MM(5) });
+  });
+
+  it("is a zone's first outline corner", () => {
+    const b = board({
+      zones: [
+        {
+          net: 0,
+          layers: ['F.Cu'],
+          fills: [],
+          outline: [
+            { x: MM(2), y: MM(3) },
+            { x: MM(12), y: MM(3) },
+          ],
+          source: EMPTY,
+        },
+      ],
+    });
+
+    expect(itemAnchorPoint(b, 'zone:0')).toEqual({ x: MM(2), y: MM(3) });
+  });
+
+  it('is nothing for an id that resolves to nothing', () => {
+    expect(itemAnchorPoint(board(), 'track:9')).toBeNull();
+    expect(itemAnchorPoint(board(), 'nonsense')).toBeNull();
   });
 });
 
