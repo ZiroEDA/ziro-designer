@@ -281,6 +281,14 @@ export {
 } from './drc/drc_rules_engine.js';
 
 export {
+  outsetItems,
+  outsetSegmentRing,
+  roundRectOutwards,
+  type OutsetOptions,
+  type OutsetResult,
+} from './outset_items.js';
+
+export {
   polygonBoolean,
   booleanableShapeCount,
   shapeAsPolygon,
