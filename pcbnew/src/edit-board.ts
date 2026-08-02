@@ -1484,16 +1484,89 @@ function rotateFootprintAbout(f: PcbFootprint, c: Vec2, deg: number): PcbFootpri
 }
 
 /**
+ * `EDA_ANGLE::IsCardinal`: a whole multiple of 90°. Exact equality, as upstream
+ * writes it — 89.999° is not cardinal, and treating it as such would silently
+ * distort the rectangle it is applied to.
+ */
+const isCardinal = (deg: number): boolean => norm360(deg) % 90 === 0;
+
+/**
+ * A rectangle's four corners, in the winding the tessellation produces.
+ * `start`/`end` are opposite corners, so the other two are the mixed pairs.
+ */
+const rectCorners = (start: Vec2, end: Vec2): Vec2[] => [
+  { x: start.x, y: start.y },
+  { x: end.x, y: start.y },
+  { x: end.x, y: end.y },
+  { x: start.x, y: end.y },
+];
+
+/**
+ * Retype a `(gr_rect …)` source node as `(gr_poly … (pts …))`.
+ *
+ * The head atom carries the shape kind in the file, so changing the model's
+ * `kind` without changing the head would write a rect back out and lose the
+ * rotation on the next load. `start`/`end` go because a polygon has none.
+ */
+function rectSourceToPoly(src: SList, pts: Vec2[]): SList {
+  const rest = src.items
+    .slice(1)
+    .filter((it) => !(isList(it) && (head(it) === 'start' || head(it) === 'end')));
+  return { kind: 'list', items: [atom('gr_poly'), ptsNode(pts), ...rest] };
+}
+
+/**
+ * Rotate one board graphic. `EDA_SHAPE::rotate`.
+ *
+ * Every kind but the rectangle is carried by its defining points. A rectangle
+ * is stored as two opposite corners and is implicitly axis-aligned, so it can
+ * only survive a cardinal rotation; at any other angle upstream converts it to
+ * a polygon, and so does this. Rotating the two corners instead would keep the
+ * shape axis-aligned and silently resize it.
+ */
+function rotateBoardShape(s: PcbShape, c: Vec2, deg: number): PcbShape {
+  if (s.kind === 'rect' && s.start && s.end && !isCardinal(deg)) {
+    const pts = rectCorners(s.start, s.end).map((p) => rotAbout(p, c, deg));
+    const { start: _s, end: _e, ...rest } = s;
+    return { ...rest, kind: 'poly', pts, source: rectSourceToPoly(s.source, pts) };
+  }
+
+  const next = { ...s, ...rotShapeCoords(s, c, deg) };
+  let src = s.source;
+  if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
+  if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
+  if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
+  if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
+  if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
+  return { ...next, source: src };
+}
+
+/**
  * Rotate the selected items by ±90° about a centre (EDIT_TOOL::Rotate).
  * `ccw` picks the direction; `center` defaults to the selection's bounding-box
- * centre (KiCad rotates about the selection centre / rotation point). Footprints
- * rotate by patching their `(at … angle)` anchor (children stay local, so the
- * writer re-bakes them); their model-absolute child coords rotate too.
+ * centre (KiCad rotates about the selection centre / rotation point).
  */
 export function rotateBoardItems(
   board: Board,
   ids: ReadonlySet<string>,
   ccw: boolean,
+  center?: Vec2,
+): Board {
+  return rotateBoardItemsBy(board, ids, ccw ? 90 : -90, center);
+}
+
+/**
+ * Rotate the selected items by an arbitrary angle about a centre.
+ *
+ * The ±90° command is the common case, but Move Exactly and the rotation-angle
+ * setting both hand over a free angle. Footprints rotate by patching their
+ * `(at … angle)` anchor (children stay local, so the writer re-bakes them);
+ * their model-absolute child coords rotate too.
+ */
+export function rotateBoardItemsBy(
+  board: Board,
+  ids: ReadonlySet<string>,
+  degrees: number,
   center?: Vec2,
 ): Board {
   if (ids.size === 0) return board;
@@ -1503,7 +1576,7 @@ export function rotateBoardItems(
       const b = boardSelectionBBox(board, ids);
       return b ? { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 } : { x: 0, y: 0 };
     })();
-  const deg = ccw ? 90 : -90;
+  const deg = degrees;
   const idx = indicesByKind(ids);
 
   const rotTrack = (t: PcbTrack): PcbTrack => {
@@ -1531,16 +1604,7 @@ export function rotateBoardItems(
       angle = norm360(t.angle + deg);
     return { ...t, at, angle, source: patchChild(t.source, 'at', atNode(at, angle)) };
   };
-  const rotShape = (s: PcbShape): PcbShape => {
-    const next = { ...s, ...rotShapeCoords(s, c, deg) };
-    let src = s.source;
-    if (next.center) src = patchChild(src, 'center', xyNode('center', next.center));
-    if (next.start) src = patchChild(src, 'start', xyNode('start', next.start));
-    if (next.end) src = patchChild(src, 'end', xyNode('end', next.end));
-    if (next.mid) src = patchChild(src, 'mid', xyNode('mid', next.mid));
-    if (next.pts) src = patchChild(src, 'pts', ptsNode(next.pts));
-    return { ...next, source: src };
-  };
+  const rotShape = (s: PcbShape): PcbShape => rotateBoardShape(s, c, deg);
   const rotFootprint = (f: PcbFootprint): PcbFootprint => rotateFootprintAbout(f, c, deg);
 
   return {
