@@ -80,6 +80,9 @@ import {
   moveExact,
   defaultRotationAnchor,
   boardSelectionBBox,
+  itemAnchorPoint,
+  positionRelative,
+  boardGridOrigin,
   type DrcViolation,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
@@ -119,8 +122,12 @@ import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
+import {
+  DialogPositionRelative,
+  type PositionRelativeValues,
+} from './dialogs/dialog_position_relative.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
-import { inspectSelection } from './inspect_selection.js';
+import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netclassesForNet } from './netclass_resolve.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
@@ -868,6 +875,15 @@ export function PcbEditor({
   const [inspectOpen, setInspectOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [moveExactOpen, setMoveExactOpen] = useState(false);
+  const [posRelOpen, setPosRelOpen] = useState(false);
+  // The reference item for Position Relative, chosen by clicking the canvas
+  // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
+  // keeps its dialog alive between calls.
+  const [posRelRef, setPosRelRef] = useState<{ id: string; label: string } | null>(null);
+  const pickingRefItem = useRef(false);
+  // Mirrors the ref for rendering: the click handler needs a ref (it is not
+  // rebuilt per render), the banner needs state.
+  const [pickingRefShown, setPickingRefShown] = useState(false);
   // The Filter Selection *dialog*'s options — distinct from `selFilter` above,
   // which is the toolbar panel deciding what a click can pick up. This one
   // narrows an existing selection once, and is kept across openings as
@@ -2437,6 +2453,21 @@ export function PcbEditor({
       });
       if (next !== brd) commitBoard(next);
       setMoveExactOpen(false);
+    },
+    [commitBoard],
+  );
+
+  /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
+   *  the reference and the offset. */
+  const applyPositionRelative = useCallback(
+    (v: PositionRelativeValues) => {
+      const brd = boardRef.current;
+      const sel = [...selForDrawRef.current];
+      if (!brd || sel.length === 0) return;
+
+      const next = positionRelative(brd, sel, v);
+      if (next !== brd) commitBoard(next);
+      setPosRelOpen(false);
     },
     [commitBoard],
   );
@@ -4129,6 +4160,25 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
+        // Arming the Position Relative reference picker (PCB_PICKER_TOOL): the
+        // next click names an item and does *not* touch the selection, which is
+        // the thing being positioned.
+        if (pickingRefItem.current) {
+          const w = worldAt(e.clientX, e.clientY);
+          const hit = w ? hitCandidates(w)[0] : undefined;
+          if (hit) {
+            const brd0 = boardRef.current;
+            setPosRelRef({
+              id: hit,
+              label: (brd0 && describeSelected(brd0, hit)?.desc) || hit,
+            });
+            pickingRefItem.current = false;
+            setPickingRefShown(false);
+            setPosRelOpen(true);
+            requestDraw();
+          }
+          return;
+        }
         // Interactive Delete Tool (PCB_CONTROL::DeleteItemCursor): each click
         // deletes the item under the cursor, honouring the selection filter.
         if (activeToolRef.current === 'deleteTool') {
@@ -4288,6 +4338,12 @@ export function PcbEditor({
       if (!mod && e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
         if (selForDrawRef.current.size > 0) setMoveExactOpen(true);
+        return;
+      }
+      // Shift+P = Position Relative To (PCB_ACTIONS::positionRelative).
+      if (!mod && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        if (selForDrawRef.current.size > 0) setPosRelOpen(true);
         return;
       }
       // M = Move (routing left behind), G = Drag (attached traces follow), a
@@ -5149,6 +5205,12 @@ export function PcbEditor({
           label: 'Move Exactly…',
           action: () => setMoveExactOpen(true),
           shortcut: 'Shift+M',
+          disabled: selection.size === 0,
+        },
+        {
+          label: 'Position Relative To…',
+          action: () => setPosRelOpen(true),
+          shortcut: 'Shift+P',
           disabled: selection.size === 0,
         },
         {
@@ -6810,6 +6872,58 @@ export function PcbEditor({
           defaultAnchor={defaultRotationAnchor(selection.size)}
           onApply={applyMoveExact}
           onClose={() => setMoveExactOpen(false)}
+        />
+      )}
+      {pickingRefShown && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '6px 12px',
+            fontSize: 12,
+            background: 'var(--chrome-bg)',
+            border: '1px solid var(--chrome-border)',
+            borderRadius: 6,
+            boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+            zIndex: 41,
+          }}
+        >
+          Click an item to use as the reference.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              pickingRefItem.current = false;
+              setPickingRefShown(false);
+              setPosRelOpen(true);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {posRelOpen && board && (
+        <DialogPositionRelative
+          gridOrigin={boardGridOrigin(board)}
+          userOrigin={{ x: 0, y: 0 }}
+          referenceItem={
+            posRelRef
+              ? {
+                  label: posRelRef.label,
+                  at: itemAnchorPoint(board, posRelRef.id) ?? { x: 0, y: 0 },
+                }
+              : null
+          }
+          onPick={() => {
+            // Hide the dialog while the canvas is armed: it is an overlay, and
+            // the item wanted may well be underneath it.
+            pickingRefItem.current = true;
+            setPickingRefShown(true);
+            setPosRelOpen(false);
+          }}
+          onApply={applyPositionRelative}
+          onClose={() => setPosRelOpen(false)}
         />
       )}
       {filterOpen && board && (
