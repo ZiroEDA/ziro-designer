@@ -911,6 +911,70 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- silkscreen over a solder mask opening -----------------------------
+  // drc_test_provider_silk_clearance, the SILK_MASK_CLEARANCE half: silk
+  // printed over a mask opening lands on bare metal, where it will not adhere
+  // and can wick into the joint.
+  //
+  // The openings are the pads' — a pad's copper grown by its resolved solder
+  // mask margin. KiCad's board-level mask expansion defaults to zero and is
+  // not in our model, so a pad with no local margin opens at its copper
+  // outline, which is what that default means.
+  if ((opts.minSilkClearance ?? 0) >= 0) {
+    const clearance = Math.max(0, (opts.minSilkClearance ?? 0) - DRC_EPSILON);
+
+    const openings: { shape: Shape; side: 'F' | 'B'; desc: string }[] = [];
+
+    for (const fp of board.footprints) {
+      for (const pad of fp.pads) {
+        const margin = pad.localSolderMaskMargin ?? fp.localSolderMaskMargin ?? 0;
+        const sides: ('F' | 'B')[] = [];
+
+        if (pad.layers.some((l) => l === 'F.Mask' || l === '*.Mask')) sides.push('F');
+        if (pad.layers.some((l) => l === 'B.Mask' || l === '*.Mask')) sides.push('B');
+        if (sides.length === 0) continue;
+
+        for (const shape of padShapes(pad))
+          for (const side of sides)
+            openings.push({
+              shape: inflateShape(shape, margin),
+              side,
+              desc: `Pad ${pad.number} of ${fp.reference ?? fp.lib}`,
+            });
+      }
+    }
+
+    if (openings.length > 0) {
+      for (const s of [...board.shapes, ...board.footprints.flatMap((fp) => fp.shapes)]) {
+        const side = s.layer === 'F.SilkS' ? 'F' : s.layer === 'B.SilkS' ? 'B' : undefined;
+        if (!side) continue;
+
+        let reported = false;
+
+        for (const shape of graphicShapes(s)) {
+          for (const o of openings) {
+            if (o.side !== side) continue;
+            if (shapeDist(shape, o.shape) > clearance) continue;
+
+            const pos = s.start ?? s.center ?? s.pts?.[0] ?? { x: 0, y: 0 };
+            out.push({
+              code: 'silk_over_copper',
+              message: `Silkscreen clipped by solder mask (clearance ${mm(opts.minSilkClearance ?? 0)}; actual ${mm(shapeDist(shape, o.shape))})`,
+              pos,
+              items: [
+                { desc: `Graphic on ${s.layer}`, pos },
+                { desc: o.desc, pos },
+              ],
+            });
+            reported = true;
+            break;
+          }
+          if (reported) break;
+        }
+      }
+    }
+  }
+
   // ----- via count ---------------------------------------------------------
   // The one constraint of drc_test_provider_matched_length that does not need
   // the length calculator. Rule-driven: with no `via_count` constraint there
@@ -2370,6 +2434,27 @@ function countThermalSpokes(pad: PcbPad, midGap: number, polys: readonly Vec2[][
   }
 
   return spokes;
+}
+
+/**
+ * Grow a shape by a margin, for a pad's solder mask opening.
+ *
+ * Every Shape kind already carries a radius the collision code adds, so the
+ * margin folds into it rather than needing the outline re-offset.
+ */
+function inflateShape(s: Shape, margin: number): Shape {
+  if (margin === 0) return s;
+
+  switch (s.kind) {
+    case 'circle':
+      return { ...s, r: Math.max(0, s.r + margin) };
+    case 'stadium':
+      return { ...s, r: Math.max(0, s.r + margin) };
+    case 'arc':
+      return { ...s, r: Math.max(0, s.r + margin) };
+    case 'poly':
+      return { ...s, r: Math.max(0, s.r + margin) };
+  }
 }
 
 /**
