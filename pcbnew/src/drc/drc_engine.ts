@@ -911,6 +911,55 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
     }
   }
 
+  // ----- via count ---------------------------------------------------------
+  // The one constraint of drc_test_provider_matched_length that does not need
+  // the length calculator. Rule-driven: with no `via_count` constraint there
+  // is nothing to check.
+  //
+  // Upstream counts vias on the *optimised connection path*, which can drop a
+  // via that contributes nothing to the route. We count the vias on the net.
+  // For an ordinary point-to-point net the two agree; a net carrying stubs
+  // could differ, and the length constraints are not ported for the same
+  // reason — an approximate length would disagree with KiCad silently, where
+  // an approximate count at least means what the rule's author asked for.
+  // The has() test is an optimisation, not a behaviour gate: customValue
+  // returns nothing without a matching rule anyway. It is here because the
+  // per-net loop below would otherwise evaluate the rule set once per net.
+  if (ruleEngine?.byType.has('via_count')) {
+    const perNet = new Map<number, PcbVia[]>();
+
+    for (const v of board.vias) {
+      if (v.net <= 0) continue;
+      const list = perNet.get(v.net);
+      if (list) list.push(v);
+      else perNet.set(v.net, [v]);
+    }
+
+    for (const [net, vias] of perNet) {
+      const c = customValue('via_count', evalItem('Via', net, vias[0]!.layers[0]), undefined);
+      if (!c) continue;
+
+      const count = vias.length;
+      const at = vias[0]!.at;
+
+      if (c.value.max !== undefined && count > c.value.max) {
+        out.push({
+          code: 'too_many_vias',
+          message: `Too many vias on a connection (max count ${c.value.max}${ruleNote(c.rule)}; actual ${count})`,
+          pos: at,
+          items: [{ desc: `Via [${netName(net)}]`, pos: at }],
+        });
+      } else if (c.value.min !== undefined && count < c.value.min) {
+        out.push({
+          code: 'too_many_vias',
+          message: `Too few vias on a connection (min count ${c.value.min}${ruleNote(c.rule)}; actual ${count})`,
+          pos: at,
+          items: [{ desc: `Via [${netName(net)}]`, pos: at }],
+        });
+      }
+    }
+  }
+
   // ----- board outline -----------------------------------------------------
   // DRC_TEST_PROVIDER_MISC's outline tests. Two separate failures share the
   // code: graphics too small to build anything from, and an Edge.Cuts set that
