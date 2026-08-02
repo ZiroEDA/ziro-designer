@@ -274,4 +274,14 @@ export {
   type DrcEvalItem,
   type DrcItemType,
   type ResolvedConstraint,
+  reportDrcConstraint,
+  type ConstraintReport,
 } from './drc/drc_rules_engine.js';
+
+export {
+  buildClearanceReport,
+  buildConstraintsReport,
+  formatInspectReport,
+  type InspectItem,
+  type InspectSection,
+} from './drc/drc_inspect.js';

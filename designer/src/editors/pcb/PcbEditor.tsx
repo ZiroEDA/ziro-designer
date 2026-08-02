@@ -109,6 +109,8 @@ import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
+import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
+import { inspectSelection } from './inspect_selection.js';
 import { netclassesForNet } from './netclass_resolve.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
@@ -853,6 +855,7 @@ export function PcbEditor({
     additive: boolean;
   } | null>(null);
   const [show3D, setShow3D] = useState(false);
+  const [inspectOpen, setInspectOpen] = useState(false);
   const viewer3dRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   // Live (world) cursor position read by draw()'s crosshair pass without
@@ -4513,6 +4516,26 @@ export function PcbEditor({
   // the project's net_settings, updated live when the dialog commits). A blank
   // per-class cell inherits the Default class, which itself falls back to the
   // NETCLASS factory constants (netclass resolution).
+  /**
+   * The selection as Clearance / Constraints Resolution sections.
+   *
+   * Built from the same rule set DRC runs with, through the same walk, so the
+   * explanation cannot disagree with the markers it exists to explain.
+   */
+  const inspectSections = useMemo(() => {
+    if (!board || !inspectOpen) return [];
+
+    return inspectSelection(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
+      netclassesForNet(net, boardSetup.netClasses.assignments),
+    );
+  }, [
+    board,
+    inspectOpen,
+    selection,
+    boardSetup.customRules.text,
+    boardSetup.netClasses.assignments,
+  ]);
+
   const netclassInfo = useMemo(() => {
     const rows = boardSetup.netClasses.classes;
     const mmVal = (s: string): number | undefined => {
@@ -5098,6 +5121,19 @@ export function PcbEditor({
       items: [
         { label: 'Measure Tool', disabled: dis, shortcut: 'Ctrl+Shift+M' },
         { label: 'Board Statistics', disabled: dis },
+        { sep: true },
+        // Upstream names these by what is being resolved, and which one you
+        // get depends on how many items are selected.
+        {
+          label: 'Clearance Resolution…',
+          disabled: dis || selection.size !== 2,
+          action: () => setInspectOpen(true),
+        },
+        {
+          label: 'Constraints Resolution…',
+          disabled: dis || selection.size !== 1,
+          action: () => setInspectOpen(true),
+        },
         { sep: true },
         { label: 'Design Rules Checker', disabled: dis },
       ],
@@ -6668,6 +6704,18 @@ export function PcbEditor({
           viaSizes={viaSizeList}
           onApply={applyTrackViaEdit}
           onClose={() => setTrackViaOpen(false)}
+        />
+      )}
+      {inspectOpen && board && (
+        <DialogInspectConstraints
+          title={selection.size === 2 ? 'Clearance Resolution' : 'Constraints Resolution'}
+          sections={inspectSections}
+          hint={
+            selection.size === 0
+              ? 'Select an item to see what constraints apply to it, or two items to see how their clearance resolves.'
+              : undefined
+          }
+          onClose={() => setInspectOpen(false)}
         />
       )}
       {teardropsOpen && board && (
