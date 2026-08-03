@@ -59,6 +59,7 @@ export {
   addBoardTrack,
   addBoardVia,
   addBoardText,
+  addBoardDimension,
   addBoardZone,
   rotateBoardItems,
   rotateBoardItemsBy,
@@ -404,3 +405,19 @@ export {
   resize,
   type DimSegment,
 } from './dimension_geometry.js';
+
+export {
+  startDimension,
+  moveDimension,
+  clickDimension,
+  setHeightFromCursor,
+  dimensionClickCount,
+  radialKnee,
+  DEFAULT_DIMENSION_DEFAULTS,
+  DEFAULT_ARROW_LENGTH,
+  DEFAULT_EXTENSION_OFFSET,
+  DEFAULT_LINE_THICKNESS,
+  type DimensionDefaults,
+  type DimensionDraw,
+  type DimensionDrawStep,
+} from './draw_dimension.js';
