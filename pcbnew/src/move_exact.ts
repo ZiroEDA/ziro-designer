@@ -152,6 +152,10 @@ export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
     case 'zone':
       // ZONE::GetPosition is the first corner of the outline.
       return board.zones[r.index]?.outline?.[0] ?? null;
+    case 'dimension':
+      // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
+      // point, not the centre of the drawn lines and not the text.
+      return board.dimensions[r.index]?.start ?? null;
     default:
       return null;
   }

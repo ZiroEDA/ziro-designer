@@ -86,6 +86,17 @@ export function itemPassesFilter(board: Board, id: string, filter: SelectionFilt
     case 'text':
       return filter.text && board.texts[ref.index] !== undefined;
 
+    // A dimension follows its layer, exactly as a graphic does: upstream's
+    // `PCB_SELECTION_FILTER_OPTIONS` has no dimension box of its own, and both
+    // its `graphics` and `dimensions` cases route through the same
+    // outline/tech-layer split. Note this makes the `text` box irrelevant to a
+    // dimension, even though it carries text.
+    case 'dimension': {
+      const d = board.dimensions[ref.index];
+      if (!d) return false;
+      return d.layer === 'Edge.Cuts' ? filter.boardOutline : filter.techLayers;
+    }
+
     case 'fptext':
       return filter.text && board.footprints[ref.index]?.texts[ref.sub ?? 0] !== undefined;
 

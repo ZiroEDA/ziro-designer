@@ -32,8 +32,10 @@ import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/ed
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
+import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import type {
   Board,
+  PcbDimension,
   PcbFootprint,
   PcbPad,
   PcbTrack,
@@ -48,25 +50,18 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- item ids ---------------------------------------------------------------
 
-export type BoardItemKind =
-  | 'track'
-  | 'arc'
-  | 'via'
-  | 'footprint'
-  | 'zone'
-  | 'shape'
-  | 'text'
-  | 'fptext'
-  | 'pad'
-  | 'group';
-export interface BoardItemRef {
-  kind: BoardItemKind;
-  index: number;
-  /** For 'fptext'/'pad': the text/pad index within footprint `index`. */
-  sub?: number;
-}
-
-const KINDS: ReadonlySet<string> = new Set<BoardItemKind>([
+/**
+ * Every kind of thing an id can name, as one list.
+ *
+ * The type and the runtime membership set are both derived from this, because
+ * they used to be written out separately and drifted: `new Set<BoardItemKind>`
+ * accepts a *subset* without complaint, so adding a kind to the union while
+ * forgetting the set typechecked cleanly and then failed at
+ * `parseBoardItemId`, which silently returned null and made the new kind
+ * invisible to selection, move, delete and everything downstream. Derived,
+ * that cannot happen again.
+ */
+const BOARD_ITEM_KINDS = [
   'track',
   'arc',
   'via',
@@ -74,10 +69,22 @@ const KINDS: ReadonlySet<string> = new Set<BoardItemKind>([
   'zone',
   'shape',
   'text',
+  'dimension',
   'fptext',
   'pad',
   'group',
-]);
+] as const;
+
+export type BoardItemKind = (typeof BOARD_ITEM_KINDS)[number];
+
+export interface BoardItemRef {
+  kind: BoardItemKind;
+  index: number;
+  /** For 'fptext'/'pad': the text/pad index within footprint `index`. */
+  sub?: number;
+}
+
+const KINDS: ReadonlySet<string> = new Set<string>(BOARD_ITEM_KINDS);
 
 // `fptext` and `pad` ids carry a second index (`<kind>:<footprint>:<sub>`), the
 // text/pad within the footprint, pcbnew selects the child, not the footprint,
@@ -244,6 +251,12 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
     case 'text': {
       const t = board.texts[ref.index];
       return t ? textBBox(t) : null;
+    }
+    case 'dimension': {
+      const d = board.dimensions[ref.index];
+      // The lines only — the text is measured separately, since sizing it needs
+      // glyph metrics the engine does not have.
+      return d ? dimensionBBox(d) : null;
     }
     case 'fptext': {
       const f = board.footprints[ref.index];
@@ -547,6 +560,19 @@ export function boardHitCandidates(
         layers: [t.layer],
       });
   });
+  board.dimensions.forEach((dm, i) => {
+    const d = distanceToDimension(dm, pos);
+    if (d <= tol)
+      hits.push({
+        id: boardItemId('dimension', i),
+        kind: 'dimension',
+        dist: d,
+        // Linear, like a track or an unfilled graphic: width squared, so a
+        // dimension never hides a solid item underneath it.
+        area: dm.style.thickness * dm.style.thickness,
+        layers: [dm.layer],
+      });
+  });
   board.shapes.forEach((s, i) => {
     const d = shapeDist(s, pos);
     if (d <= tol) {
@@ -834,6 +860,10 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('text', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('text', i);
   });
+  board.dimensions.forEach((_, i) => {
+    const b = boardItemBBox(board, boardItemId('dimension', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('dimension', i);
+  });
   board.zones.forEach((z, i) => {
     if (contained) {
       if (bboxContained('zone', i)) push('zone', i);
@@ -855,6 +885,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.footprints.forEach((_, i) => out.push(boardItemId('footprint', i)));
   board.shapes.forEach((_, i) => out.push(boardItemId('shape', i)));
   board.texts.forEach((_, i) => out.push(boardItemId('text', i)));
+  board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
 }
@@ -939,6 +970,49 @@ const moveVia = (v: PcbVia, d: Vec2): PcbVia => {
 const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => {
   const at = add(t.at, d);
   return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
+};
+
+/**
+ * Shift a dimension: both feature points, and the text if it has one.
+ *
+ * The `(pts …)` list holds the feature points and the `(gr_text … (at …))`
+ * child holds the text, so both have to be patched — moving only `pts` would
+ * leave the label behind on save. The text child is patched inside the
+ * dimension's own source node rather than through `moveText`, because the text
+ * is not a top-level board text and has no separate source of its own.
+ */
+const moveDimension = (dm: PcbDimension, d: Vec2): PcbDimension => {
+  const shiftPts = (node: SList): SList => ({
+    kind: 'list',
+    items: node.items.map((it) => {
+      if (!isList(it) || head(it) !== 'xy') return it;
+      const x = numArg(it, 0);
+      const y = numArg(it, 1);
+      if (x === undefined || y === undefined) return it;
+      return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
+    }),
+  });
+
+  let src = dm.source;
+  src = {
+    kind: 'list',
+    items: src.items.map((it) => {
+      if (!isList(it)) return it;
+      if (head(it) === 'pts') return shiftPts(it);
+      if (head(it) === 'gr_text' && dm.text) {
+        return patchChild(it, 'at', atNode(add(dm.text.at, d), dm.text.angle));
+      }
+      return it;
+    }),
+  };
+
+  return {
+    ...dm,
+    start: add(dm.start, d),
+    end: add(dm.end, d),
+    ...(dm.text ? { text: { ...dm.text, at: add(dm.text.at, d) } } : {}),
+    source: src,
+  };
 };
 
 /** Shift every coordinate of a board graphic and patch its source in place. */
@@ -1044,6 +1118,9 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     vias: board.vias.map((v, i) => (idx.via.has(i) ? moveVia(v, delta) : v)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? moveShape(s, delta) : s)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? moveText(t, delta) : t)),
+    dimensions: board.dimensions.map((d, i) =>
+      idx.dimension.has(i) ? moveDimension(d, delta) : d,
+    ),
     footprints: board.footprints.map((f, i) => {
       // A whole-footprint move takes precedence over its individual texts.
       if (idx.footprint.has(i)) return moveFootprint(f, delta);
@@ -1205,6 +1282,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     zone: new Set(),
     shape: new Set(),
     text: new Set(),
+    dimension: new Set(),
     fptext: new Set(),
     pad: new Set(),
     group: new Set(),
@@ -1303,6 +1381,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     zones: board.zones.filter((_, i) => !idx.zone.has(i)),
     shapes: board.shapes.filter((_, i) => !idx.shape.has(i)),
     texts: board.texts.filter((_, i) => !idx.text.has(i)),
+    dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
       // so the fptext map stays aligned), then drop whole selected footprints.
@@ -1661,6 +1740,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.shapes[r.index]?.uuid;
     case 'text':
       return board.texts[r.index]?.uuid;
+    case 'dimension':
+      return board.dimensions[r.index]?.uuid;
     case 'footprint':
       return board.footprints[r.index]?.uuid;
     case 'group':
@@ -1886,6 +1967,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.shapes[r.index]?.locked;
     case 'text':
       return !!board.texts[r.index]?.locked;
+    case 'dimension':
+      return !!board.dimensions[r.index]?.locked;
     case 'footprint':
     case 'pad':
     case 'fptext':
