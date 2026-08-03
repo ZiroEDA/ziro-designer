@@ -21,6 +21,7 @@ import {
   addItems,
   deleteByIds,
   placeSymbol,
+  grabHotkeyAction,
   withPostMoveCleanup,
   placeSymbolInstance,
   moveSymbolTo,
@@ -803,6 +804,32 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // biome-ignore lint/correctness/useExhaustiveDependencies: nonce-driven, like placeRequest
   useEffect(() => {
     if (!grabRequest || selection.size === 0) return;
+
+    // SCH_MOVE_TOOL::checkMoveInProgress — the hotkey pressed *during* a move.
+    const what = grabHotkeyAction(grabbedRef.current, moveKindRef.current, grabRequest.kind);
+
+    if (what === 'drop') {
+      const spec = moveSpecRef.current;
+      const d = moveDeltaRef.current;
+      if (spec && d && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
+      endGrab();
+      return;
+    }
+
+    if (what === 'restart') {
+      // Nothing has been committed, so upstream's revert is just re-planning
+      // against the untouched sheet. The anchor is left alone, so the items
+      // stay put under the cursor instead of springing back to where they
+      // began.
+      moveKindRef.current = grabRequest.kind;
+      const next = planMove(schematic, libById, effSelRef.current);
+      moveSpecRef.current = next;
+      const moved = new Set([...effSelRef.current, ...next.wireStart, ...next.wireEnd]);
+      moveAnchorsRef.current = collectAnchors(schematic, libById, moved);
+      requestDraw();
+      return;
+    }
+
     const anchors = selectionAnchors(schematic, libById, selection);
     const origin = cursorRef.current ? snap(cursorRef.current) : (anchors[0] ?? null);
     if (!origin) return;
@@ -818,23 +845,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     modeRef.current = 'move';
     grabbedRef.current = true;
     requestDraw();
-
-    // Escape cancels the grabbed move (nothing was committed, so just drop the
-    // ghost). Capture phase + stopPropagation so the editor's Escape doesn't
-    // also clear the selection.
-    const onEsc = (ev: KeyboardEvent): void => {
-      if (ev.key === 'Escape' && grabbedRef.current) {
-        ev.stopPropagation();
-        grabbedRef.current = false;
-        modeRef.current = 'idle';
-        moveSpecRef.current = null;
-        moveDeltaRef.current = null;
-        moveStartRef.current = null;
-        requestDraw();
-      }
-    };
-    window.addEventListener('keydown', onEsc, true);
-    return () => window.removeEventListener('keydown', onEsc, true);
   }, [grabRequest?.nonce]);
 
   // Escape abandons a handle drag: nothing has been committed, so dropping the
@@ -1380,6 +1390,32 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     sceneDirtyRef.current = true;
     schedule();
   }, [schedule]);
+
+  /** Let go of a grabbed move without committing anything. */
+  const endGrab = useCallback(() => {
+    grabbedRef.current = false;
+    modeRef.current = 'idle';
+    moveSpecRef.current = null;
+    moveDeltaRef.current = null;
+    moveStartRef.current = null;
+    requestDraw();
+  }, [requestDraw]);
+
+  // Escape cancels a grabbed move (nothing was committed, so just drop the
+  // ghost). Capture phase + stopPropagation so the editor's Escape doesn't also
+  // clear the selection. Registered once rather than per grab, so a restart
+  // (the grab effect) cannot leave the move without its escape hatch.
+  useEffect(() => {
+    const onEsc = (ev: KeyboardEvent): void => {
+      if (ev.key === 'Escape' && grabbedRef.current) {
+        ev.stopPropagation();
+        endGrab();
+      }
+    };
+    window.addEventListener('keydown', onEsc, true);
+    return () => window.removeEventListener('keydown', onEsc, true);
+  }, [endGrab]);
+
   /** Repaint only the pointer overlay on the next frame. */
   const requestOverlay = schedule;
   requestDrawRef.current = requestDraw;
@@ -1639,12 +1675,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const d = moveDeltaRef.current;
         const spec = moveSpecRef.current;
         if (d && spec && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
-        grabbedRef.current = false;
-        modeRef.current = 'idle';
-        moveSpecRef.current = null;
-        moveDeltaRef.current = null;
-        moveStartRef.current = null;
-        requestDraw();
+        endGrab();
         return;
       }
 
@@ -1995,6 +2026,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       danglingPinAt,
       onCommand,
       buildMoveCommit,
+      endGrab,
       snapConn,
       updateWireChain,
       finishWireChain,
