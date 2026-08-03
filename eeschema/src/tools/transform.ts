@@ -16,7 +16,7 @@
  * spin; a mirror is its own inverse.
  */
 
-import type { Schematic, SchSymbol, SchField, Vec2 } from '../types.js';
+import type { Schematic, SchSymbol, SchField, TextEffects, Vec2 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
@@ -81,6 +81,78 @@ export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): Sc
   return next;
 }
 
+/**
+ * `EDA_TEXT::FlipHJustify`: swap left and right, leaving centre alone.
+ *
+ * Centre is deliberately untouched — upstream tests the two outer cases and
+ * falls through on anything else, so a centred label stays centred through any
+ * number of rotations.
+ */
+export function flipHJustify(
+  justify: readonly string[] | undefined,
+): readonly string[] | undefined {
+  if (!justify) return justify;
+  if (!justify.includes('left') && !justify.includes('right')) return justify;
+  return justify.map((t) => (t === 'left' ? 'right' : t === 'right' ? 'left' : t));
+}
+
+/**
+ * The minimum a rotation needs. Labels, directive labels and free text are
+ * separate types in the model but share exactly this, and the rule reads
+ * nothing else.
+ */
+interface TextLike {
+  readonly angle: number;
+  readonly effects?: TextEffects;
+}
+
+/** Schematic text is only ever horizontal or vertical; the other two directions
+ *  come from the horizontal justify, which is why rotation flips it. */
+const isVertical = (angle: number): boolean => angle === 90;
+
+/**
+ * `SCH_TEXT::Rotate90`.
+ *
+ * Not a position change: a label rotates *in place*, about itself. Which way it
+ * ends up facing is carried by the angle (0 or 90) together with the horizontal
+ * justify, and that pair is what `labelSpin` reads back as a SPIN_STYLE. So one
+ * quarter turn toggles the angle, and flips the justify on exactly one of the
+ * two half-turns — otherwise four rotations would not return the label to where
+ * it started.
+ */
+export function rotateText90<T extends TextLike>(item: T, clockwise: boolean): T {
+  const vertical = isVertical(item.angle);
+  const flip = (!vertical && clockwise) || (vertical && !clockwise);
+  const effects = flip
+    ? { ...(item.effects ?? { hidden: false }), justify: flipHJustify(item.effects?.justify) }
+    : item.effects;
+  return { ...item, angle: vertical ? 0 : 90, effects } as T;
+}
+
+/**
+ * `SCH_TEXT::MirrorSpinStyle`: the same justify flip without the angle change.
+ * `leftRight` is true for a horizontal mirror (X), false for a vertical one.
+ */
+export function mirrorTextSpin<T extends TextLike>(item: T, leftRight: boolean): T {
+  const vertical = isVertical(item.angle);
+  if (!((!vertical && leftRight) || (vertical && !leftRight))) return item;
+  return {
+    ...item,
+    effects: {
+      ...(item.effects ?? { hidden: false }),
+      justify: flipHJustify(item.effects?.justify),
+    },
+  } as T;
+}
+
+/** Apply one op to a text-like item, in place. */
+function transformTextItem<T extends TextLike>(item: T, op: TransformOp): T {
+  if (op === 'rotateCW') return rotateText90(item, true);
+  if (op === 'rotateCCW') return rotateText90(item, false);
+  // MirrorHorizontally is the left-right one (X); MirrorVertically is not.
+  return mirrorTextSpin(item, op === 'mirrorX');
+}
+
 /** Bounding-box center of the selected symbols' positions (snapped is the caller's job). */
 function selectionCenter(doc: Schematic, ids: ReadonlySet<string>): Vec2 {
   const pts: Vec2[] = [];
@@ -114,6 +186,16 @@ export function transformItems(
         ...doc,
         symbols: doc.symbols.map((s, i) =>
           ids.has(refId('symbol', s.uuid, i)) ? transformSymbol(s, op, c) : s,
+        ),
+        // Labels, hierarchical/global labels and free text all rotate in place
+        // via Rotate90 / MirrorSpinStyle rather than about the selection centre
+        // (SCH_EDIT_TOOL::Rotate's SCH_TEXT_T ... SCH_DIRECTIVE_LABEL_T arm).
+        // Until now R, X and Y simply did nothing to any of them.
+        labels: doc.labels.map((l, i) =>
+          ids.has(refId('label', l.uuid, i)) ? transformTextItem(l, op) : l,
+        ),
+        directiveLabels: doc.directiveLabels?.map((d, i) =>
+          ids.has(refId('directive', d.uuid, i)) ? transformTextItem(d, op) : d,
         ),
       };
     },
