@@ -356,3 +356,33 @@ export function moveWithConnections(spec: MoveSpec, delta: Vec2): EditCommand {
     },
   };
 }
+
+/** Which flavour of grabbed move is running: M leaves wires, G drags them. */
+export type MoveKind = 'move' | 'drag';
+
+/** What pressing a Move/Drag hotkey does, given what is already happening. */
+export type GrabHotkeyAction = 'start' | 'restart' | 'drop';
+
+/**
+ * `SCH_MOVE_TOOL::checkMoveInProgress`: what M or G means when a move is
+ * already in flight.
+ *
+ * Pressing the *same* one again is "interpreted as a click when already
+ * dragging/moving" — it drops the items where they are. Pressing the *other*
+ * one switches mode: upstream reverts the in-flight commit and posts
+ * `SCH_ACTIONS::restartMove` to re-enter the loop, keeping the anchor at
+ * `m_cursor - m_moveOffset` so the items stay under the cursor rather than
+ * springing back to where they began.
+ *
+ * The distinction is easy to get backwards — dropping on the *other* key and
+ * restarting on the same one would feel plausible and be wrong — which is why
+ * the rule lives here rather than inline in the canvas.
+ */
+export function grabHotkeyAction(
+  inProgress: boolean,
+  currentKind: MoveKind,
+  requestedKind: MoveKind,
+): GrabHotkeyAction {
+  if (!inProgress) return 'start';
+  return requestedKind === currentKind ? 'drop' : 'restart';
+}
