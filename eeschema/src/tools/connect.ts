@@ -170,7 +170,27 @@ export function planMove(
   // drag* (below), never as anchors that pull other wires along.
   const anchorIds = new Set(ids);
   sch.noConnects.forEach((nc, i) => anchorIds.delete(refId('noconnect', nc.uuid, i)));
-  const points = new Set(connectionPoints(sch, libById, anchorIds).map(key));
+  return planMoveFromPoints(sch, libById, ids, connectionPoints(sch, libById, anchorIds));
+}
+
+/**
+ * The same plan, but told explicitly which points are moving rather than
+ * deriving them from the selection.
+ *
+ * Align Items to Grid needs this: it drags a wire one *end* at a time
+ * (upstream flags the line STARTPOINT or ENDPOINT and calls `moveItem` in DRAG
+ * mode), so the moving point is one endpoint and the wire itself is not a
+ * whole-item mover. Passing an empty `ids` with a single point gives exactly
+ * that — the wire picks up `wireStart`/`wireEnd` for the end in question, and
+ * everything else attached at that point is planned as usual.
+ */
+export function planMoveFromPoints(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  ids: ReadonlySet<string>,
+  movedPoints: readonly Vec2[],
+): MoveSpec {
+  const points = new Set(movedPoints.map(key));
 
   const fullIds = new Set(ids);
 
