@@ -54,6 +54,7 @@ const board = (shapes: PcbShape[]): Board => ({
   zones: [],
   shapes,
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

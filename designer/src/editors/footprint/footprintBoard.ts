@@ -57,6 +57,7 @@ export function footprintToBoard(fp: PcbFootprint | null): Board {
     layers: FOOTPRINT_LAYERS,
     nets: new Map([[0, '']]),
     footprints: fp ? [fp] : [],
+    dimensions: [],
     tracks: [],
     arcs: [],
     vias: [],

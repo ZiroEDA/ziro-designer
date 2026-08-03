@@ -127,6 +127,7 @@ const board = (): Board => ({
       source: EMPTY,
     },
   ],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

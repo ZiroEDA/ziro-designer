@@ -53,6 +53,7 @@ const board = (zones: PcbZone[]): Board => ({
   zones,
   shapes: [],
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

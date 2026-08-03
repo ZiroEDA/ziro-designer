@@ -30,8 +30,10 @@ import {
   isDefaultTeardropParams,
   writeFootprintNode,
 } from './write-footprint.js';
+import { isAlignedKind } from './types.js';
 import type {
   Board,
+  PcbDimension,
   PcbTrack,
   PcbArcTrack,
   PcbVia,
@@ -290,6 +292,76 @@ const textNode = (t: PcbTextItem): SNode =>
   t.source.items.length > 0 ? t.source : buildBoardTextNode(t);
 const zoneNode = (z: PcbZone): SNode => (z.source.items.length > 0 ? z.source : buildZoneNode(z));
 
+/**
+ * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR::format(PCB_DIMENSION_BASE).
+ *
+ * Child order is upstream's, and which children appear is decided by the kind
+ * rather than by whether the model happens to hold a value. Two rules are worth
+ * stating because they do not follow from the names:
+ *
+ * - **An orthogonal dimension writes every aligned field.** Upstream reaches
+ *   them through `dynamic_cast<PCB_DIM_ALIGNED*>`, which succeeds for
+ *   orthogonal too, since `PCB_DIM_ORTHOGONAL` derives from it. So `(height …)`
+ *   and `(extension_height …)` are *not* aligned-only, despite the `(type)`
+ *   test putting orthogonal first.
+ * - **A centre dimension has no `(format …)` and no text.** It marks a point;
+ *   there is no measurement to render, so there is nothing to format.
+ */
+export function buildDimensionNode(d: PcbDimension): SList {
+  const aligned = isAlignedKind(d.kind);
+  const items: SNode[] = [atom('dimension'), list(atom('type'), atom(d.kind))];
+  if (d.locked) items.push(list(atom('locked'), atom('yes')));
+  items.push(list(atom('layer'), str(d.layer)));
+  if (d.uuid) items.push(list(atom('uuid'), str(d.uuid)));
+  items.push(list(atom('pts'), xy('xy', d.start), xy('xy', d.end)));
+
+  if (aligned) items.push(list(atom('height'), atom(mm(d.height ?? 0))));
+  if (d.kind === 'radial') items.push(list(atom('leader_length'), atom(mm(d.leaderLength ?? 0))));
+  if (d.kind === 'orthogonal')
+    items.push(list(atom('orientation'), atom(String(d.orientation ?? 0))));
+
+  if (d.kind !== 'center') {
+    const f = d.format;
+    const fmt: SNode[] = [
+      atom('format'),
+      list(atom('prefix'), str(f?.prefix ?? '')),
+      list(atom('suffix'), str(f?.suffix ?? '')),
+      list(atom('units'), atom(String(f?.units ?? 3))),
+      list(atom('units_format'), atom(String(f?.unitsFormat ?? 1))),
+      list(atom('precision'), atom(String(f?.precision ?? 4))),
+    ];
+    // Written only when the override is enabled — an empty override is not the
+    // same as no override, so the presence of the token is the flag.
+    if (f?.overrideValue !== undefined)
+      fmt.push(list(atom('override_value'), str(f.overrideValue)));
+    if (f?.suppressZeroes) fmt.push(list(atom('suppress_zeroes'), atom('yes')));
+    items.push({ kind: 'list', items: fmt });
+  }
+
+  const style: SNode[] = [
+    atom('style'),
+    list(atom('thickness'), atom(mm(d.style.thickness))),
+    list(atom('arrow_length'), atom(mm(d.style.arrowLength))),
+    list(atom('text_position_mode'), atom(String(d.style.textPositionMode))),
+  ];
+  if (aligned && d.style.arrowDirection)
+    style.push(list(atom('arrow_direction'), atom(d.style.arrowDirection)));
+  if (aligned) style.push(list(atom('extension_height'), atom(mm(d.style.extensionHeight ?? 0))));
+  if (d.kind === 'leader')
+    style.push(list(atom('text_frame'), atom(String(d.style.textFrame ?? 0))));
+  style.push(list(atom('extension_offset'), atom(mm(d.style.extensionOffset))));
+  if (d.style.keepTextAligned) style.push(list(atom('keep_text_aligned'), atom('yes')));
+  items.push({ kind: 'list', items: style });
+
+  // Upstream writes the text last "to be sure the text options are known when
+  // reading the file".
+  if (d.kind !== 'center' && d.text) items.push(buildBoardTextNode(d.text));
+
+  return { kind: 'list', items };
+}
+const dimensionNode = (d: PcbDimension): SNode =>
+  d.source.items.length > 0 ? d.source : buildDimensionNode(d);
+
 /** `(group "name" (uuid …) [(locked yes)] (members …))`, PCB_IO_KICAD_SEXPR::
  *  format(PCB_GROUP): members sorted alphabetically; empty groups not written
  *  (the walk drops a group whose model entry has no members). */
@@ -322,6 +394,7 @@ export function writeBoardNode(board: Board): SList {
     si = 0,
     xi = 0,
     fi = 0,
+    di = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -351,6 +424,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'gr_text') {
       if (xi < board.texts.length) out.push(textNode(board.texts[xi]!));
       xi++;
+    } else if (h === 'dimension') {
+      if (di < board.dimensions.length) out.push(dimensionNode(board.dimensions[di]!));
+      di++;
     } else if (h === 'group') {
       // Empty groups are never written (PCB_IO_KICAD_SEXPR::format(PCB_GROUP)).
       if (gi < board.groups.length && board.groups[gi]!.members.length > 0)
@@ -372,6 +448,7 @@ export function writeBoardNode(board: Board): SList {
   for (; si < board.shapes.length; si++) out.push(shapeNode(board.shapes[si]!));
   for (; xi < board.texts.length; xi++) out.push(textNode(board.texts[xi]!));
   for (; zi < board.zones.length; zi++) out.push(zoneNode(board.zones[zi]!));
+  for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
   for (; gi < board.groups.length; gi++)
     if (board.groups[gi]!.members.length > 0) out.push(groupNode(board.groups[gi]!));
 

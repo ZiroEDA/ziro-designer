@@ -301,6 +301,7 @@ describe('island removal reaches the filler', () => {
     ],
     shapes: [],
     texts: [],
+    dimensions: [],
     groups: [],
     source: EMPTY,
   });
