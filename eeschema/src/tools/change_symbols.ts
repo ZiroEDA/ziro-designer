@@ -55,9 +55,10 @@ export interface ChangeSymbolsOptions {
   resetFieldVisibilities: boolean;
   resetFieldEffects: boolean;
   resetFieldPositions: boolean;
-  /** Not applied yet: the library part's attributes are not in the model. */
+  /** Take the library part's excluded-from-sim/BOM/board/pos-files flags. */
   resetAttributes: boolean;
-  /** Not applied yet, for the same reason. */
+  /** Not applied: show-pin-names/numbers has no per-placement home in our
+   *  model (see the note in `changeSymbols`). */
   resetPinTextVisibility: boolean;
   /** Let a power symbol's Value be overwritten from the library. */
   resetCustomPower: boolean;
@@ -237,11 +238,30 @@ export function changeSymbols(
     let next: SchSymbol = sym;
     if (targetId !== sym.libId) next = { ...next, libId: targetId };
 
-    // `resetAttributes` and `resetPinTextVisibility` would take their values
-    // from the library part's own attributes (excluded-from-BOM/board/sim, show
-    // pin names/numbers), which we do not parse into LibSymbol yet. Inventing
-    // defaults here would silently clear a placement's real attributes, so the
-    // switches leave them alone until the model carries them.
+    // "Update/reset symbol attributes": take the four flags from the library
+    // part. Upstream reads them off the *flattened* symbol, since a derived one
+    // does not declare its own — our reader flattens them the same way.
+    //
+    // A library that never wrote the token leaves the attribute undefined, and
+    // an undefined attribute is left alone rather than being read as an
+    // explicit "no": clearing a placement's real Do-Not-Populate because an old
+    // library omitted `in_bom` would be a silent data loss.
+    if (opts.resetAttributes) {
+      if (lib.excludedFromSim !== undefined)
+        next = { ...next, excludedFromSim: lib.excludedFromSim };
+      if (lib.excludedFromBom !== undefined) next = { ...next, inBom: !lib.excludedFromBom };
+      if (lib.excludedFromBoard !== undefined) next = { ...next, onBoard: !lib.excludedFromBoard };
+      if (lib.excludedFromPosFiles !== undefined)
+        next = { ...next, excludedFromPosFiles: lib.excludedFromPosFiles };
+    }
+
+    // `resetPinTextVisibility` is still not applied. Upstream copies the
+    // library's show-pin-names/numbers onto the placement, but SCH_SYMBOL keeps
+    // those on its *own* LIB_SYMBOL clone (`GetShowPinNames()` is
+    // `m_part->GetShowPinNames()`), one per placement. We share a single
+    // embedded definition per lib_id across every placement of that part, so
+    // there is nowhere to put a per-placement answer — writing it would change
+    // pin visibility on placements the dialog never matched.
 
     const libFields = lib.properties;
     const refInstances: string[] = [];

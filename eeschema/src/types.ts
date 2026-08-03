@@ -191,6 +191,20 @@ export interface LibSymbol {
   readonly pinMaps?: readonly LibPinMap[];
   /** `(associated_footprints …)`, which map each footprint binds to. */
   readonly associatedFootprints?: readonly LibAssociatedFootprint[];
+  /**
+   * The part's own attributes, as the library declares them: `(exclude_from_sim
+   * …)`, `(in_bom …)`, `(on_board …)`, `(in_pos_files …)`. Stored the way a
+   * placement stores them — *excluded from*, so the two inverted file tokens
+   * read the same way round on both sides.
+   *
+   * Undefined when the token is absent, which older libraries leave out.
+   * "Update/reset symbol attributes" copies these onto the placement, so the
+   * distinction matters: absent must not read as an explicit "no".
+   */
+  readonly excludedFromSim?: boolean;
+  readonly excludedFromBom?: boolean;
+  readonly excludedFromBoard?: boolean;
+  readonly excludedFromPosFiles?: boolean;
   /** `(pin_numbers (hide yes))`, hide all pin numbers. */
   readonly pinNumbersHidden: boolean;
   /** `(pin_names (hide yes))`, hide all pin names. */

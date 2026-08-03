@@ -370,6 +370,17 @@ function readLibSymbol(node: SList): LibSymbol {
     source: node,
   };
   if (extendsName !== undefined) sym.extends = extendsName;
+  // The part's own attributes. `in_bom` / `on_board` / `in_pos_files` are
+  // written inverted by the library writer (FormatBool( "in_bom", !excluded )),
+  // so they flip back to the "excluded from" sense the model stores. An absent
+  // token stays undefined: older libraries omit them, and "Update/reset symbol
+  // attributes" must not read that as an explicit no.
+  if (childNamed(node, 'exclude_from_sim'))
+    sym.excludedFromSim = boolField(node, 'exclude_from_sim', false);
+  if (childNamed(node, 'in_bom')) sym.excludedFromBom = !boolField(node, 'in_bom', true);
+  if (childNamed(node, 'on_board')) sym.excludedFromBoard = !boolField(node, 'on_board', true);
+  if (childNamed(node, 'in_pos_files'))
+    sym.excludedFromPosFiles = !boolField(node, 'in_pos_files', true);
   return sym;
 }
 
@@ -381,6 +392,12 @@ interface InheritedBase {
   pinNumbersHidden: boolean;
   pinNamesHidden: boolean;
   pinNameOffset: number;
+  /** "Fetch the attributes from the *flattened* library symbol. They are not
+   *  supported in derived symbols." (dialog_change_symbols.cpp) */
+  excludedFromSim?: boolean;
+  excludedFromBom?: boolean;
+  excludedFromBoard?: boolean;
+  excludedFromPosFiles?: boolean;
 }
 
 /**
@@ -402,6 +419,10 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
     pinNumbersHidden: s.pinNumbersHidden,
     pinNamesHidden: s.pinNamesHidden,
     pinNameOffset: s.pinNameOffset,
+    excludedFromSim: s.excludedFromSim,
+    excludedFromBom: s.excludedFromBom,
+    excludedFromBoard: s.excludedFromBoard,
+    excludedFromPosFiles: s.excludedFromPosFiles,
   });
 
   const resolveBase = (s: LibSymbol, seen: Set<string>): InheritedBase => {
@@ -428,6 +449,15 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
       pinNumbersHidden: r.pinNumbersHidden,
       pinNamesHidden: r.pinNamesHidden,
       pinNameOffset: r.pinNameOffset,
+      // Attributes come from the parent too: a derived symbol does not declare
+      // its own, and the flattened symbol is what "Update symbol attributes"
+      // reads.
+      ...(r.excludedFromSim !== undefined ? { excludedFromSim: r.excludedFromSim } : {}),
+      ...(r.excludedFromBom !== undefined ? { excludedFromBom: r.excludedFromBom } : {}),
+      ...(r.excludedFromBoard !== undefined ? { excludedFromBoard: r.excludedFromBoard } : {}),
+      ...(r.excludedFromPosFiles !== undefined
+        ? { excludedFromPosFiles: r.excludedFromPosFiles }
+        : {}),
     };
   });
 }
