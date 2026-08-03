@@ -393,6 +393,22 @@ const SYMBOL_CHILD_ORDER = [
   'instances',
 ];
 
+/**
+ * Insert `child` immediately before the first child named in `before`, or
+ * append when none of them is present.
+ *
+ * The per-item writers upstream print their children in a fixed order, so a
+ * value that was absent from the source has one right place to go. Patching
+ * only when the child already exists — which is what these writers used to do —
+ * silently drops an edit that introduces the child for the first time.
+ */
+function insertBeforeAny(node: SList, child: SList, before: readonly string[]): SList {
+  const items = node.items.slice();
+  const idx = items.findIndex((it) => isList(it) && before.includes(head(it) ?? ''));
+  items.splice(idx === -1 ? items.length : idx, 0, child);
+  return { kind: 'list', items };
+}
+
 /** Insert `child` after the last existing child that canonically precedes it. */
 function insertCanonical(node: SList, child: SList): SList {
   const rank = SYMBOL_CHILD_ORDER.indexOf(head(child) ?? '');
@@ -546,8 +562,11 @@ function writeLine(l: SchLine): SList {
 /** Patch a junction: position, `(diameter ..)` and `(color ..)`. */
 function writeJunction(j: SchJunction): SList {
   let node = patchAt(j.source, j.at);
-  if (childNamed(node, 'diameter'))
-    node = mapChild(node, 'diameter', () => list(atom('diameter'), atom(mm(j.diameter))));
+  const diameter = list(atom('diameter'), atom(mm(j.diameter)));
+  if (childNamed(node, 'diameter')) node = mapChild(node, 'diameter', () => diameter);
+  // saveJunction always prints it, right after (at …) and before (color …), so
+  // a diameter set on a junction whose file had none still round-trips.
+  else if (j.diameter) node = insertBeforeAny(node, diameter, ['color', 'uuid']);
   if (childNamed(node, 'color')) node = mapChild(node, 'color', () => colorNode(j.color));
   else if (j.color) {
     // Insert before (uuid ..) to keep KiCad's field order (at diameter color uuid).
@@ -561,7 +580,21 @@ function writeJunction(j: SchJunction): SList {
 
 const writeNoConnect = (nc: SchNoConnect): SList => patchAt(nc.source, nc.at);
 
-const writeBusEntry = (be: SchBusEntry): SList => patchAt(be.source, be.at);
+/**
+ * Patch a bus entry: its anchor and its `(size …)`.
+ *
+ * The size is a *vector*, and its signs are the entry's direction — the entry
+ * tool turns a stub through its four orientations by rotating that vector
+ * (`{x: sz.y, y: -sz.x}`), so dropping it saved every entry pointing down-right
+ * whichever way it was drawn. saveBusEntry prints it right after (at …).
+ */
+function writeBusEntry(be: SchBusEntry): SList {
+  const node = patchAt(be.source, be.at);
+  const size = list(atom('size'), atom(mm(be.size.x)), atom(mm(be.size.y)));
+  return childNamed(node, 'size')
+    ? mapChild(node, 'size', () => size)
+    : insertBeforeAny(node, size, ['stroke', 'uuid']);
+}
 
 /** Patch the `(page …)` inside each `(path …)` of an `(instances …)` or
  *  `(sheet_instances …)` node from the typed instances, keyed by project+path. */
@@ -695,8 +728,12 @@ function writeLabel(l: SchLabel): SList {
   node = mapChild(node, 'at', (at) => setItem(at, 3, atom(String(l.angle))));
   // Global/hierarchical labels carry a `(shape …)`; patch it in place when
   // present so a shape edit round-trips (local labels/text have no shape).
-  if (l.shape !== undefined && childNamed(node, 'shape')) {
-    node = mapChild(node, 'shape', () => list(atom('shape'), atom(l.shape!)));
+  if (l.shape !== undefined) {
+    const shape = list(atom('shape'), atom(l.shape));
+    // saveText prints (shape …) before (at …) for global/hierarchical labels.
+    node = childNamed(node, 'shape')
+      ? mapChild(node, 'shape', () => shape)
+      : insertBeforeAny(node, shape, ['at']);
   }
   // Formatting edits (bold/italic/size/justify) patch the `(effects …)` node
   // against the source's parsed effects, keeping everything else byte-stable.
@@ -732,11 +769,19 @@ function setHyperlink(node: SList, link: string | undefined): SList {
 function writeDirectiveLabel(l: SchDirectiveLabel): SList {
   let node = patchAt(l.source, l.at);
   node = mapChild(node, 'at', (at) => setItem(at, 3, atom(String(l.angle))));
-  if (l.shape !== undefined && childNamed(node, 'shape')) {
-    node = mapChild(node, 'shape', () => list(atom('shape'), atom(l.shape!)));
+  if (l.pinLength !== undefined) {
+    // saveText prints (length …) first for a directive label, then (shape …),
+    // then (at …).
+    const len = list(atom('length'), atom(mm(l.pinLength)));
+    node = childNamed(node, 'length')
+      ? mapChild(node, 'length', () => len)
+      : insertBeforeAny(node, len, ['shape', 'at']);
   }
-  if (l.pinLength !== undefined && childNamed(node, 'length')) {
-    node = mapChild(node, 'length', () => list(atom('length'), atom(mm(l.pinLength!))));
+  if (l.shape !== undefined) {
+    const shape = list(atom('shape'), atom(l.shape));
+    node = childNamed(node, 'shape')
+      ? mapChild(node, 'shape', () => shape)
+      : insertBeforeAny(node, shape, ['at']);
   }
   const byKey = new Map(l.fields.map((f) => [f.key, f]));
   node = {
@@ -760,6 +805,21 @@ function writeTextBox(tb: SchTextBox): SList {
   const size = { x: tb.end.x - tb.start.x, y: tb.end.y - tb.start.y };
   if (childNamed(node, 'size')) {
     node = mapChild(node, 'size', () => list(atom('size'), atom(mm(size.x)), atom(mm(size.y))));
+  }
+  // saveTextBox prints (margins l t r b) right after (size …); the writer used
+  // not to emit them at all, so a text box's text inset was lost on save.
+  if (tb.margins) {
+    const m = tb.margins;
+    const margins = list(
+      atom('margins'),
+      atom(mm(m.left)),
+      atom(mm(m.top)),
+      atom(mm(m.right)),
+      atom(mm(m.bottom)),
+    );
+    node = childNamed(node, 'margins')
+      ? mapChild(node, 'margins', () => margins)
+      : insertBeforeAny(node, margins, ['stroke', 'fill', 'effects', 'uuid']);
   }
   if (tb.effects && childNamed(node, 'effects')) {
     const orig = readEffects(tb.source);
@@ -870,9 +930,20 @@ function patchShapeFill(node: SList, fill: Fill | undefined): SList {
  */
 function writeImage(im: SchImage): SList {
   const node = patchAt(im.source, im.at);
+  // saveBitmap omits the scale entirely at 1.0 and prints it after (at …)
+  // otherwise, so a resized image round-trips and one scaled back to 1 drops
+  // the token again rather than leaving a stale one behind.
+  if (im.scale === 1) {
+    if (!childNamed(node, 'scale')) return node;
+    return {
+      kind: 'list',
+      items: node.items.filter((it) => !(isList(it) && head(it) === 'scale')),
+    };
+  }
+  const scale = list(atom('scale'), atom(num(im.scale)));
   return childNamed(node, 'scale')
-    ? mapChild(node, 'scale', () => list(atom('scale'), atom(num(im.scale))))
-    : node;
+    ? mapChild(node, 'scale', () => scale)
+    : insertBeforeAny(node, scale, ['uuid']);
 }
 
 const HEADER_ORDER = ['version', 'generator', 'generator_version', 'uuid', 'paper', 'title_block'];
