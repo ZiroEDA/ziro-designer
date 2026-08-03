@@ -75,6 +75,7 @@ const board = (footprints: PcbFootprint[], shapes: PcbShape[] = []): Board => ({
   zones: [],
   shapes,
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

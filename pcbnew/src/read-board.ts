@@ -22,6 +22,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   arg,
   args,
+  boolField,
   childNamed,
   childrenNamed,
   numArg,
@@ -30,10 +31,19 @@ import {
 } from '@ziroeda/sexpr/src/query.js';
 import type {
   Board,
+  DimensionFormat,
+  DimensionKind,
+  DimensionStyle,
+  DimPrecision,
+  DimTextBorder,
+  DimTextPosition,
+  DimUnitsFormat,
+  DimUnitsMode,
   Model3D,
   PadPrimitive,
   PadShape,
   PadType,
+  PcbDimension,
   PcbFootprint,
   PcbPad,
   PcbShape,
@@ -182,6 +192,80 @@ const maskMarginOf = (node: SList): number | undefined => {
 
 const uuidOf = (node: SList): string | undefined =>
   stringField(node, 'uuid') ?? stringField(node, 'tstamp');
+
+/**
+ * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR_PARSER::parseDIMENSION.
+ *
+ * Which children are present is decided by the kind, and it is not a free
+ * choice: a centre dimension has neither a `(format …)` nor text because it
+ * measures nothing, and every aligned-only field is *also* written for an
+ * orthogonal dimension because upstream's `PCB_DIM_ORTHOGONAL` derives from
+ * `PCB_DIM_ALIGNED`, so its `dynamic_cast` succeeds for both.
+ */
+function readDimension(item: SList): PcbDimension | null {
+  const typeNode = childNamed(item, 'type');
+  const kindArg = typeNode ? arg(typeNode, 0) : undefined;
+  const KINDS: DimensionKind[] = ['aligned', 'orthogonal', 'leader', 'center', 'radial'];
+  const kind = KINDS.find((k) => k === kindArg);
+  if (!kind) return null; // an unknown type is not a dimension we can round-trip
+
+  const pts = childNamed(item, 'pts');
+  const xys = pts ? pts.items.filter((n): n is SList => isList(n) && head(n) === 'xy') : [];
+  const start = ptAt(xys[0]);
+  const end = ptAt(xys[1]);
+  if (!start || !end) return null;
+
+  const fmtNode = childNamed(item, 'format');
+  const format: DimensionFormat | undefined = fmtNode
+    ? {
+        prefix: stringField(fmtNode, 'prefix') ?? '',
+        suffix: stringField(fmtNode, 'suffix') ?? '',
+        units: (numberField(fmtNode, 'units') ?? 3) as DimUnitsMode,
+        unitsFormat: (numberField(fmtNode, 'units_format') ?? 1) as DimUnitsFormat,
+        precision: (numberField(fmtNode, 'precision') ?? 4) as DimPrecision,
+        overrideValue: stringField(fmtNode, 'override_value'),
+        suppressZeroes: boolField(fmtNode, 'suppress_zeroes'),
+      }
+    : undefined;
+
+  const styleNode = childNamed(item, 'style');
+  const arrowDirNode = styleNode ? childNamed(styleNode, 'arrow_direction') : undefined;
+  const arrowDir = arrowDirNode ? arg(arrowDirNode, 0) : undefined;
+  const style: DimensionStyle = {
+    thickness: styleNode ? (mmOrUndef(styleNode, 'thickness') ?? 0) : 0,
+    arrowLength: styleNode ? (mmOrUndef(styleNode, 'arrow_length') ?? 0) : 0,
+    textPositionMode: (styleNode
+      ? (numberField(styleNode, 'text_position_mode') ?? 0)
+      : 0) as DimTextPosition,
+    arrowDirection: arrowDir === 'inward' || arrowDir === 'outward' ? arrowDir : undefined,
+    extensionHeight: styleNode ? mmOrUndef(styleNode, 'extension_height') : undefined,
+    textFrame: styleNode
+      ? (numberField(styleNode, 'text_frame') as DimTextBorder | undefined)
+      : undefined,
+    extensionOffset: styleNode ? (mmOrUndef(styleNode, 'extension_offset') ?? 0) : 0,
+    keepTextAligned: styleNode ? boolField(styleNode, 'keep_text_aligned') : undefined,
+  };
+
+  const textNode = childNamed(item, 'gr_text');
+  const text = textNode
+    ? (readPcbText(textNode, 'user', arg(textNode, 0) ?? '', null) ?? undefined)
+    : undefined;
+
+  return {
+    kind,
+    layer: stringField(item, 'layer') ?? '',
+    uuid: uuidOf(item),
+    start,
+    end,
+    height: mmOrUndef(item, 'height'),
+    leaderLength: mmOrUndef(item, 'leader_length'),
+    orientation: numberField(item, 'orientation'),
+    format,
+    style,
+    text,
+    source: item,
+  };
+}
 
 /** `(pts (xy …) (arc (start)(mid)(end)) …)` -> polyline, arcs tessellated. */
 function readPts(pts: SList | undefined, t: FpTransform | null): Vec2[] {
@@ -793,6 +877,7 @@ export function readBoard(root: SList): Board {
     zones: [],
     shapes: [],
     texts: [],
+    dimensions: [],
     groups: [],
     source: root,
   };
@@ -923,6 +1008,11 @@ export function readBoard(root: SList): Board {
       case 'gr_text': {
         const tx = readPcbText(item, 'user', arg(item, 0) ?? '', null);
         if (tx) board.texts.push({ ...tx, locked: lockedOf(item) });
+        break;
+      }
+      case 'dimension': {
+        const d = readDimension(item);
+        if (d) board.dimensions.push({ ...d, locked: lockedOf(item) });
         break;
       }
       default:

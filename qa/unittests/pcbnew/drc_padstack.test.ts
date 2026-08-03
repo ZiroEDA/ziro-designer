@@ -59,6 +59,7 @@ const board = (pads: PcbPad[]): Board => ({
   zones: [],
   shapes: [],
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

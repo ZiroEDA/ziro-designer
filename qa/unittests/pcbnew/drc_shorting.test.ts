@@ -53,6 +53,7 @@ const board = (tracks: PcbTrack[], over: Partial<Board> = {}): Board => ({
   zones: [],
   shapes: [],
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
   ...over,

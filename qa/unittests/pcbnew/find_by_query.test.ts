@@ -93,6 +93,7 @@ const board = (): Board => ({
   zones: [],
   shapes: [],
   texts: [],
+  dimensions: [],
   groups: [],
   source: EMPTY,
 });

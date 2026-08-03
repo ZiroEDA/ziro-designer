@@ -447,6 +447,86 @@ export interface PcbGroup {
   source: SList;
 }
 
+/**
+ * The five dimension kinds. Counterpart: the `PCB_DIM_*` classes in
+ * `pcbnew/pcb_dimension.h`.
+ *
+ * Upstream's `PCB_DIM_ORTHOGONAL` *derives from* `PCB_DIM_ALIGNED`, which is why
+ * the serializer tests for it first and why an orthogonal dimension still writes
+ * every aligned-only field. Here the kind is one explicit tag instead of a class
+ * hierarchy, so `isAlignedKind` stands in for that `dynamic_cast`.
+ */
+export type DimensionKind = 'aligned' | 'orthogonal' | 'leader' | 'center' | 'radial';
+
+/** True where upstream's `dynamic_cast<PCB_DIM_ALIGNED*>` would succeed. */
+export const isAlignedKind = (k: DimensionKind): boolean => k === 'aligned' || k === 'orthogonal';
+
+/** `DIM_UNITS_MODE`: 0 inch, 1 mils, 2 mm, 3 automatic. */
+export type DimUnitsMode = 0 | 1 | 2 | 3;
+/** `DIM_UNITS_FORMAT`: 0 none, 1 bare suffix, 2 parenthesised suffix. */
+export type DimUnitsFormat = 0 | 1 | 2;
+/** `DIM_PRECISION`: 0-5 fixed digits, 6-9 the scaled `V_*` variants. */
+export type DimPrecision = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+/** `DIM_TEXT_POSITION`: 0 outside, 1 inline, 2 manual. */
+export type DimTextPosition = 0 | 1 | 2;
+/** `DIM_TEXT_BORDER`: 0 none, 1 rectangle, 2 circle, 3 round rectangle. */
+export type DimTextBorder = 0 | 1 | 2 | 3;
+
+/** `(format …)`. Absent on a centre dimension, which measures nothing. */
+export interface DimensionFormat {
+  prefix: string;
+  suffix: string;
+  units: DimUnitsMode;
+  unitsFormat: DimUnitsFormat;
+  precision: DimPrecision;
+  /** `(override_value …)`, written only when the override is enabled. */
+  overrideValue?: string;
+  suppressZeroes?: boolean;
+}
+
+/** `(style …)`. Which members are written depends on the kind. */
+export interface DimensionStyle {
+  thickness: number;
+  arrowLength: number;
+  textPositionMode: DimTextPosition;
+  /** Aligned and orthogonal only. */
+  arrowDirection?: 'inward' | 'outward';
+  /** Aligned and orthogonal only (ortho derives from aligned). */
+  extensionHeight?: number;
+  /** Leader only. */
+  textFrame?: DimTextBorder;
+  extensionOffset: number;
+  keepTextAligned?: boolean;
+}
+
+/**
+ * A dimension, KiCad `(dimension (type …) …)`.
+ * Counterpart: `PCB_DIMENSION_BASE` and its five subclasses.
+ *
+ * `start`/`end` are the *feature points* — what is being measured — not where
+ * the drawn lines go; the crossbar and extension lines are derived from these
+ * plus the style. A centre dimension carries neither a `format` nor text.
+ */
+export interface PcbDimension {
+  kind: DimensionKind;
+  layer: string;
+  locked?: boolean;
+  uuid?: string;
+  start: Vec2;
+  end: Vec2;
+  /** `(height …)`, aligned and orthogonal: crossbar distance from the feature line. */
+  height?: number;
+  /** `(leader_length …)`, radial only. */
+  leaderLength?: number;
+  /** `(orientation …)`, orthogonal only: 0 horizontal, 1 vertical. */
+  orientation?: number;
+  format?: DimensionFormat;
+  style: DimensionStyle;
+  /** The `(gr_text …)` child. Absent on a centre dimension. */
+  text?: PcbTextItem;
+  source: SList;
+}
+
 export interface Board {
   version: number;
   thickness?: number;
@@ -469,6 +549,7 @@ export interface Board {
   zones: PcbZone[];
   shapes: PcbShape[];
   texts: PcbTextItem[];
+  dimensions: PcbDimension[];
   groups: PcbGroup[];
   fileName?: string;
   source: SList;
