@@ -391,3 +391,16 @@ export {
   type InspectItem,
   type InspectSection,
 } from './drc/drc_inspect.js';
+
+export {
+  ARROW_ANGLE_DEG,
+  INWARD_ARROW_LENGTH_TO_HEAD_RATIO,
+  arrowSegments,
+  dimensionBBox,
+  dimensionSegments,
+  distanceToDimension,
+  hitTestDimension,
+  measuredValue,
+  resize,
+  type DimSegment,
+} from './dimension_geometry.js';
