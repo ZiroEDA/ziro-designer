@@ -1445,6 +1445,24 @@ export function addBoardText(
   };
 }
 
+/**
+ * Append a freshly-placed dimension (`DRAWING_TOOL::DrawDimension`'s commit).
+ *
+ * The item carries an empty source node, so the writer builds it from the model
+ * with `buildDimensionNode` rather than patching — there is nothing to patch
+ * until it has been saved once.
+ */
+export function addBoardDimension(
+  board: Board,
+  dimension: Omit<PcbDimension, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbDimension = { ...dimension, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, dimensions: [...board.dimensions, withSource] },
+    id: boardItemId('dimension', board.dimensions.length),
+  };
+}
+
 /** Append a freshly-drawn (unfilled) zone (DRAWING_TOOL::DrawZone commit). */
 export function addBoardZone(
   board: Board,
