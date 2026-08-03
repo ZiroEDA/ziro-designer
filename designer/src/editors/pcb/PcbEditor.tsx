@@ -101,10 +101,9 @@ import {
   spreadBoardFootprints,
   type NETLIST,
   fillZones,
-  zoneHandles,
-  moveZoneCorner,
-  moveZoneEdge,
-  type ZoneHandle,
+  boardEditHandles,
+  dragBoardHandle,
+  type BoardEditHandle,
 } from '@ziroeda/pcbnew';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
@@ -137,6 +136,7 @@ import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exa
 import { DialogLineModification } from './dialogs/dialog_line_modification.js';
 import { DialogCreateArray } from './dialogs/dialog_create_array.js';
 import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
+import { handleAtPoint, handleDragTarget, handleTolerance } from './point_edit_canvas.js';
 import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
@@ -974,16 +974,17 @@ export function PcbEditor({
   /** The net highlight to restore when a track drag ends, or null if none. */
   const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
   // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
-  // zone, which one the cursor is over, and the drag in flight.
-  const zoneHandlesRef = useRef<ZoneHandle[]>([]);
-  const zoneHandleZoneRef = useRef<number>(-1);
-  const hoveredZoneHandleRef = useRef<ZoneHandle | null>(null);
-  const zoneHandleDragRef = useRef<{
-    handle: ZoneHandle;
+  // item, which handle the cursor is over, and the drag in flight.
+  const editHandlesRef = useRef<BoardEditHandle[]>([]);
+  /** The item the handles belong to, as a board item id. */
+  const editHandleItemRef = useRef<string | null>(null);
+  const hoveredEditHandleRef = useRef<BoardEditHandle | null>(null);
+  const editHandleDragRef = useRef<{
+    handle: BoardEditHandle;
     origin: { x: number; y: number };
   } | null>(null);
   /** The reshaped board while a handle drag is in flight, committed on release. */
-  const zoneEditPreviewRef = useRef<Board | null>(null);
+  const pointEditPreviewRef = useRef<Board | null>(null);
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
   // Keyboard grab (M/G): the selection follows the cursor until a click commits
   // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
@@ -1327,20 +1328,23 @@ export function PcbEditor({
     [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, text, fileName, board],
   );
 
-  // PCB_POINT_EDITOR shows its points for a single selected item; for a zone
-  // that is a handle per outline corner plus one per edge midpoint.
+  // PCB_POINT_EDITOR shows its points for a *single* selected item: a handle per
+  // corner or vertex, plus one at each edge midpoint. Which items have any is
+  // the engine's business, not this component's.
   useEffect(() => {
     const brd = boardRef.current;
-    const one = selection.size === 1 ? parseBoardItemId([...selection][0]!) : null;
-    if (!brd || one?.kind !== 'zone') {
-      zoneHandlesRef.current = [];
-      zoneHandleZoneRef.current = -1;
-      hoveredZoneHandleRef.current = null;
+    const id = selection.size === 1 ? [...selection][0]! : null;
+    const handles = brd && id ? boardEditHandles(brd, id) : [];
+
+    if (handles.length === 0) {
+      editHandlesRef.current = [];
+      editHandleItemRef.current = null;
+      hoveredEditHandleRef.current = null;
       requestDrawRef.current();
       return;
     }
-    zoneHandlesRef.current = zoneHandles(brd, one.index);
-    zoneHandleZoneRef.current = one.index;
+    editHandlesRef.current = handles;
+    editHandleItemRef.current = id;
     requestDrawRef.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, board]);
@@ -1603,16 +1607,16 @@ export function PcbEditor({
         ctx.stroke();
       }
     }
-    // Zone outline handles (PCB_POINT_EDITOR): a single selected zone gets a
-    // square on each outline corner and a circle at each edge midpoint, drawn at
+    // Point-editor handles (PCB_POINT_EDITOR): a single selected item gets a
+    // square on each corner or vertex and a circle at each edge midpoint, drawn at
     // a fixed screen size in LAYER_AUX_ITEMS white with a darker border
     // (EDIT_POINTS::ViewDraw; POINT_SIZE 8, BORDER_SIZE 3, HOVER_SIZE 6).
     {
-      const handles = zoneHandlesRef.current;
+      const handles = editHandlesRef.current;
       if (handles.length > 0 && !moveDeltaRef.current) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         const half = (EDIT_POINT_SIZE / 2) * dpr;
-        const hovered = hoveredZoneHandleRef.current;
+        const hovered = hoveredEditHandleRef.current;
         ctx.fillStyle = EDIT_POINT_FILL;
         for (const h of handles) {
           const x = h.at.x * sx + v.tx;
@@ -1621,7 +1625,7 @@ export function PcbEditor({
           ctx.strokeStyle = active ? EDIT_POINT_HOVER_BORDER : EDIT_POINT_BORDER;
           ctx.lineWidth = (active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * dpr;
           ctx.beginPath();
-          if (h.kind === 'edge') ctx.arc(x, y, half, 0, Math.PI * 2);
+          if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
           else ctx.rect(x - half, y - half, half * 2, half * 2);
           ctx.fill();
           ctx.stroke();
@@ -3663,27 +3667,13 @@ export function PcbEditor({
     return true;
   };
 
-  /**
-   * The zone handle under a world point. EDIT_POINTS::FindPoint hit-tests each
-   * point's own box, which is POINT_SIZE screen pixels wide however far you are
-   * zoomed, so the tolerance is converted back through the view scale.
-   */
-  const zoneHandleAt = (p: { x: number; y: number }): ZoneHandle | null => {
-    const handles = zoneHandlesRef.current;
-    if (handles.length === 0) return null;
-    const tol = EDIT_POINT_SIZE / viewRef.current.scale;
-    let best: ZoneHandle | null = null;
-    let bestD = Number.POSITIVE_INFINITY;
-    for (const h of handles) {
-      const d = Math.hypot(h.at.x - p.x, h.at.y - p.y);
-      // Corners win ties: they sit on top of the edge handles either side.
-      if (d <= tol && (d < bestD || (d === bestD && h.kind === 'corner'))) {
-        best = h;
-        bestD = d;
-      }
-    }
-    return best;
-  };
+  /** The handle under a world point (EDIT_POINTS::FindPoint). */
+  const editHandleAt = (p: { x: number; y: number }): BoardEditHandle | null =>
+    handleAtPoint(
+      editHandlesRef.current,
+      p,
+      handleTolerance(EDIT_POINT_SIZE, viewRef.current.scale),
+    );
 
   /**
    * Fill All Zones (PCB_ACTIONS::zoneFillAll, the B key): re-pour every zone
@@ -4128,13 +4118,13 @@ export function PcbEditor({
       }
       const w = worldAt(e.clientX, e.clientY);
       const brd = boardRef.current;
-      // A zone handle under the cursor takes the press: PCB_POINT_EDITOR runs
-      // ahead of the selection tool so grabbing a point edits the outline rather
-      // than starting a move of the zone.
+      // A handle under the cursor takes the press: PCB_POINT_EDITOR runs ahead
+      // of the selection tool, so grabbing a point reshapes the item rather
+      // than starting a move of it.
       if (w && !isClickTool(activeToolRef.current)) {
-        const handle = zoneHandleAt(w);
+        const handle = editHandleAt(w);
         if (handle) {
-          zoneHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          editHandleDragRef.current = { handle, origin: snapToGrid(w) };
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
           return;
         }
@@ -4175,25 +4165,21 @@ export function PcbEditor({
       requestDraw();
       return;
     }
-    // Dragging a zone handle: reshape the outline live. A corner follows the
-    // cursor (UpdateOutlineFromPoints); an edge moves by the cursor delta, which
-    // shifts both of its vertices (ZONE::MoveEdge).
-    const handleDrag = zoneHandleDragRef.current;
+    // Dragging a handle: reshape the item live. A corner follows the cursor; an
+    // edge handle carries its whole edge, so it is moved by the cursor's delta
+    // from where it was grabbed rather than snapped onto the cursor — grabbing
+    // an edge slightly off its midpoint should not jump it.
+    const handleDrag = editHandleDragRef.current;
     if (handleDrag) {
       const cur = worldAt(e.clientX, e.clientY);
       const brd = boardRef.current;
-      if (cur && brd) {
+      const id = editHandleItemRef.current;
+      if (cur && brd && id) {
         const to = snapToGrid(cur);
-        const zi = zoneHandleZoneRef.current;
-        const next =
-          handleDrag.handle.kind === 'corner'
-            ? moveZoneCorner(brd, zi, handleDrag.handle.index, to)
-            : moveZoneEdge(brd, zi, handleDrag.handle.index, {
-                x: to.x - handleDrag.origin.x,
-                y: to.y - handleDrag.origin.y,
-              });
-        zoneEditPreviewRef.current = next;
-        zoneHandlesRef.current = zoneHandles(next, zi);
+        const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
+        const next = dragBoardHandle(brd, id, handleDrag.handle, target);
+        pointEditPreviewRef.current = next;
+        editHandlesRef.current = boardEditHandles(next, id);
         sceneRef.current = buildScene(next, sceneFilter());
         sceneDirtyRef.current = true;
         requestDraw();
@@ -4201,12 +4187,12 @@ export function PcbEditor({
       return;
     }
     // Hovering a handle thickens its border (EDIT_POINT::IsHover).
-    if (!downRef.current && zoneHandlesRef.current.length > 0) {
+    if (!downRef.current && editHandlesRef.current.length > 0) {
       const cur = worldAt(e.clientX, e.clientY);
-      const hit = cur ? zoneHandleAt(cur) : null;
-      const prev = hoveredZoneHandleRef.current;
+      const hit = cur ? editHandleAt(cur) : null;
+      const prev = hoveredEditHandleRef.current;
       if (hit?.kind !== prev?.kind || hit?.index !== prev?.index) {
-        hoveredZoneHandleRef.current = hit;
+        hoveredEditHandleRef.current = hit;
         requestDraw();
       }
     }
@@ -4255,12 +4241,12 @@ export function PcbEditor({
     }
   };
   const onPointerUp = (e: React.PointerEvent): void => {
-    // Finish a zone outline edit: commit the reshaped board, or put the scene
-    // back if the handle never moved.
-    if (zoneHandleDragRef.current) {
-      const preview = zoneEditPreviewRef.current;
-      zoneHandleDragRef.current = null;
-      zoneEditPreviewRef.current = null;
+    // Finish a point edit: commit the reshaped board, or put the scene back if
+    // the handle never moved.
+    if (editHandleDragRef.current) {
+      const preview = pointEditPreviewRef.current;
+      editHandleDragRef.current = null;
+      pointEditPreviewRef.current = null;
       if (preview) commitBoard(preview);
       else if (boardRef.current) rebuildScene(boardRef.current);
       requestDraw();
