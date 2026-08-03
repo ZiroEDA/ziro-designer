@@ -70,6 +70,7 @@ import {
   symbolBodyBBox,
   labelBox,
   emptyBBox,
+  type BBox,
   isEmpty,
   includePoint,
   instanceKey,
@@ -330,9 +331,11 @@ import {
   plotPdf,
   plotDxf,
   plotPs,
+  pageIU,
   type PlotOpts,
   type PlotSink,
 } from './render/plot.js';
+import { DEFAULT_SETUP } from '@ziroeda/common/src/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
@@ -405,6 +408,28 @@ function hasDuplicateSheetNames(sch: Schematic): boolean {
     seen.add(name);
   }
   return false;
+}
+
+/**
+ * `AUTOPLACER::getDrawableArea`: the page inside the drawing sheet's margins.
+ * Autoplace treats a field box that would fall outside it as colliding, so a
+ * symbol near the edge keeps its fields on the page.
+ *
+ * Resolving a paper name to a size belongs to the application rather than the
+ * model, which is why the engine takes the rectangle instead of computing it.
+ * The margins are the drawing sheet's; a project with a custom `.kicad_wks`
+ * would take them from its setup, and the built-in sheet's 10 mm is used until
+ * loading one is wired through.
+ */
+function drawableArea(sch: Schematic): BBox {
+  const page = pageIU(sch);
+  const mm = (v: number): number => mmToIU(v);
+  return {
+    minX: mm(DEFAULT_SETUP.leftMargin),
+    minY: mm(DEFAULT_SETUP.topMargin),
+    maxX: page.w - mm(DEFAULT_SETUP.rightMargin),
+    maxY: page.h - mm(DEFAULT_SETUP.bottomMargin),
+  };
 }
 
 // The "Current Tool" status-bar field (EDA_DRAW_FRAME::DisplayToolMsg):
@@ -4609,10 +4634,16 @@ export function SchematicEditor({
           icon: 'autoplaceFields',
           shortcut: 'O',
           action: () => {
-            const cmd = autoplaceFields(doc, selection, libById, {
-              allowRejustify: es.autoplace_fields.allow_rejustify,
-              alignToGrid: es.autoplace_fields.align_to_grid,
-            });
+            const cmd = autoplaceFields(
+              doc,
+              selection,
+              libById,
+              {
+                allowRejustify: es.autoplace_fields.allow_rejustify,
+                alignToGrid: es.autoplace_fields.align_to_grid,
+              },
+              drawableArea(doc),
+            );
             if (cmd) runCommand(cmd);
           },
         });
@@ -5450,10 +5481,16 @@ export function SchematicEditor({
         if (e.key.toLowerCase() === 'o' && selection.size > 0) {
           e.preventDefault();
           if (doc) {
-            const cmd = autoplaceFields(doc, selection, libById, {
-              allowRejustify: es.autoplace_fields.allow_rejustify,
-              alignToGrid: es.autoplace_fields.align_to_grid,
-            });
+            const cmd = autoplaceFields(
+              doc,
+              selection,
+              libById,
+              {
+                allowRejustify: es.autoplace_fields.allow_rejustify,
+                alignToGrid: es.autoplace_fields.align_to_grid,
+              },
+              drawableArea(doc),
+            );
             if (cmd) runCommand(cmd);
           }
           return;
