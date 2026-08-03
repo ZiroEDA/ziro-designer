@@ -7404,6 +7404,13 @@ function describeBoardItem(board: Board, id: string): string {
       if (!p) return 'Pad';
       return `Pad ${p.number}${f?.reference ? ` of ${f.reference}` : ''} · ${net(p.net ?? 0)}`;
     }
+    case 'dimension': {
+      // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
+      // A centre dimension carries no text, so the quotes come out empty, which
+      // is what upstream does too.
+      const d = board.dimensions[r.index];
+      return d ? `Dimension '${d.text?.text ?? ''}' on ${d.layer}` : 'Dimension';
+    }
     case 'group': {
       const g = board.groups[r.index];
       // EDA_GROUP::GetItemDescription: 'Group "<name>" with N members' /
