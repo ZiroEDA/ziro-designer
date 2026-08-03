@@ -25,8 +25,11 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
+  dimensionBBox,
+  dimensionSegments,
   tessellateArc,
   type Board,
+  type PcbDimension,
   type PcbPad,
   type PcbShape,
   type PcbTextItem,
@@ -588,6 +591,26 @@ function addShape(scene: BoardScene, s: PcbShape): void {
 }
 
 /** Bake a text item's glyph strokes into the given thickness->path map. */
+/**
+ * A dimension's lines, into the graphics-stroke bucket of its layer.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_DIMENSION_BASE* )`, which walks
+ * the shapes `updateGeometry` produced and strokes them at the line width.
+ *
+ * The extension lines, crossbar, arrowheads and leader all share one width, so
+ * they collapse into a single Path2D — the same bucket a graphic line uses, and
+ * therefore the same stroke pass. The label goes to the board-text bucket, so it
+ * picks up the stroke font like any other board text.
+ */
+function addDimension(scene: BoardScene, d: PcbDimension): void {
+  const b = buckets(scene, d.layer);
+  const p = pathIn(b.gfxStrokes, Math.max(d.style.thickness, 1));
+  for (const seg of dimensionSegments(d)) {
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
+  }
+  if (d.text && !d.text.hide) addText(b.textBoard, d.text);
+}
+
 function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
   const size = t.size.y;
   if (size <= 0 || t.text === '') return;
@@ -998,6 +1021,14 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
   }
   for (const t of board.texts) {
     if (!t.hide) addText(buckets(scene, t.layer).textBoard, t);
+  }
+  for (const d of board.dimensions) {
+    addDimension(scene, d);
+    // From the drawn lines, not the feature points: the crossbar and the
+    // arrowheads reach past both of them.
+    const db = dimensionBBox(d);
+    grow(db.minX, db.minY);
+    grow(db.maxX, db.maxY);
   }
 
   scene.bbox = minX < maxX ? { minX, minY, maxX, maxY } : null;
