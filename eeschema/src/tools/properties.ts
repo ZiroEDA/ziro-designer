@@ -40,6 +40,8 @@ export interface SymbolEdit {
   readonly onBoard: boolean;
   readonly dnp: boolean;
   readonly excludedFromSim?: boolean;
+  /** `(in_pos_files no)`; undefined leaves the token as the file had it. */
+  readonly excludedFromPosFiles?: boolean;
 }
 
 /** TransferDataFromWindow's field post-processing + rel→abs position conversion. */
@@ -78,6 +80,8 @@ export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand 
           if (edit.mirror) m.mirror = edit.mirror;
           else delete m.mirror;
           if (edit.excludedFromSim !== undefined) m.excludedFromSim = edit.excludedFromSim;
+          if (edit.excludedFromPosFiles !== undefined)
+            m.excludedFromPosFiles = edit.excludedFromPosFiles;
           return m;
         }),
       };
