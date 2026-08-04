@@ -7789,6 +7789,7 @@ export function PcbEditor({
               minCopperToEdge: Math.round(c.copperToEdgeMM * MM),
               minResolvedSpokes: c.minThermalSpokes,
               minSilkClearance: Math.round(c.silkClearanceMM * MM),
+              minConnectionWidth: Math.round(c.minConnectionMM * MM),
               clearanceOf: (net) =>
                 netclassInfo.classClearance.get(netClassOf.get(net) ?? 'Default') ?? 0,
               // Board Setup's Custom Rules page finally reaches DRC: a matching

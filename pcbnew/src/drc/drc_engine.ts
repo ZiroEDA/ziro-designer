@@ -32,9 +32,11 @@ import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { buildRatsnest } from '../ratsnest.js';
 import { shapeToPolygon } from '../zone_filler.js';
+import type { Geom } from 'polygon-clipping';
 import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { shapeAsPolygon } from '../polygon_booleans.js';
 import { findSliverPoints } from './drc_sliver.js';
+import { findNecks } from './drc_connection_width.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   allowsMissingCourtyard,
@@ -109,6 +111,12 @@ export interface DrcOptions {
    * gate does.
    */
   minCopperToEdge?: number;
+  /**
+   * rules.min_connection (IU), Board Setup's "minimum connection width". Zero
+   * or absent turns the check off, which is also what upstream's default of 0
+   * does — a board that has not set one is not asking for the test.
+   */
+  minConnectionWidth?: number;
   /** Netclass clearance for a net code (IU); absent = 0 (the implicit
    *  netclass clearance rules of drc_engine.cpp). */
   clearanceOf?: (net: number) => number;
@@ -1624,6 +1632,74 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
             pos,
             items: [{ desc: `Copper on ${layer}`, pos }],
           });
+        }
+      }
+    }
+  }
+
+  // ----- minimum connection width -------------------------------------------
+  // DRC_TEST_PROVIDER_CONNECTION_WIDTH. Grouped by *net* as well as layer,
+  // unlike the sliver pass: a neck is a constriction in one net's own copper,
+  // and two different nets running close together is a clearance question that
+  // already has its own check.
+  {
+    /** ARC_LOW_DEF, the tolerance upstream polygonises copper at here. */
+    const ARC_LOW_DEF = mmToIU(0.005);
+    const minWidth = opts.minConnectionWidth ?? 0;
+
+    if (minWidth > 0) {
+      // Upstream's epsilon, and it is generous on purpose. A zone knockout is
+      // an approximation of a curve and always carries extra clearance, so the
+      // fill is already narrower than the geometry says; and a neck between
+      // *two* knockouts loses that on each side, hence the doubling. Testing
+      // the bare minimum would report every thermal relief on the board.
+      const epsilon = 2 * (DRC_EPSILON + ARC_LOW_DEF);
+      const testWidth = minWidth - epsilon;
+
+      const byNetLayer = new Map<string, Polygon[]>();
+      const add = (net: number, layer: string, polys: Polygon[]): void => {
+        if (net <= 0 || !isCopper(layer)) return;
+        const key = `${net}\u0000${layer}`;
+        byNetLayer.set(key, [...(byNetLayer.get(key) ?? []), ...polys]);
+      };
+
+      // shapeToPolygon speaks polygon-clipping's [x, y] pairs; kimath's
+      // booleans speak {x, y}. Converting is the boundary between the two, and
+      // casting across it instead silently yields NaN coordinates that merge
+      // into a polygon-shaped nothing.
+      // polygon-clipping's Geom is a union broad enough to nest further; every
+      // Geom shapeToPolygon builds is a flat list of rings of [x, y], so the
+      // narrowing here is true even though the declared type cannot say so.
+      const toKimath = (geoms: Geom[]): Polygon[] =>
+        (geoms as [number, number][][][]).map((geom) =>
+          geom.map((ring) => ring.map(([x, y]) => ({ x, y }))),
+        );
+
+      for (const [layer, items] of itemsByLayer)
+        for (const item of items)
+          add(item.net, layer, toKimath(shapeToPolygon(item.shape, 0, ARC_LOW_DEF)));
+
+      for (const [key, polys] of byNetLayer) {
+        if (polys.length === 0) continue;
+        const layer = key.slice(key.indexOf('\u0000') + 1);
+
+        let merged: Polygon[] = [];
+        for (const poly of polys)
+          merged = merged.length === 0 ? [poly] : booleanAdd(merged, [poly]);
+
+        // Outer rings only, as with slivers: a hole's own narrow places are
+        // gaps in the copper, not constrictions of it.
+        for (const [outline] of merged) {
+          if (!outline) continue;
+
+          for (const neck of findNecks(outline, testWidth)) {
+            out.push({
+              code: 'connection_width',
+              message: `Minimum connection width (min width ${mm(minWidth)}; actual ${mm(neck.width)}) on ${layer}`,
+              pos: neck.at,
+              items: [{ desc: `Copper on ${layer}`, pos: neck.at }],
+            });
+          }
         }
       }
     }
