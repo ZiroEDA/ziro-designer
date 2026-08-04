@@ -607,3 +607,20 @@ export {
   type GlobalTrackViaEditOptions,
   type GlobalTrackViaEditContext,
 } from './global_edit_tracks_and_vias.js';
+
+export {
+  exportD356,
+  writeD356Records,
+  buildViaTestpoints,
+  buildPadTestpoints,
+  internNewD356Netname,
+  computePadAccessCode,
+  viaAccessCode,
+  viaLayerPair,
+  expandLayerTokens,
+  layerNameToId,
+  iuToD356,
+  boardTentVias,
+  viaIsTented,
+  type D356Record,
+} from './export_d356.js';
