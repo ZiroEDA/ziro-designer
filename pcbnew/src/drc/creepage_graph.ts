@@ -91,11 +91,48 @@ export interface CuCircle {
   radius: number;
 }
 
-export type CreepShape = BePoint | BeCircle | CuSegment | CuCircle;
+/**
+ * A board-edge arc: a rounded corner, or a slot end.
+ *
+ * An arc is its circle where it exists and its endpoints where it does not,
+ * which is the whole of what makes it different. Angles are radians, and
+ * `endAngle` may exceed `startAngle` by up to a full turn — the span is the
+ * half-open sweep from one to the other, not a pair of bare directions.
+ */
+export interface BeArc {
+  kind: 'be-arc';
+  pos: Vec2;
+  radius: number;
+  startAngle: number;
+  endAngle: number;
+  startPoint: Vec2;
+  endPoint: Vec2;
+}
+
+/**
+ * A copper arc: a curved track, so a *thick* arc.
+ *
+ * Where a board-edge arc is a line, this has two surfaces — an outer circle at
+ * `radius + width/2` and an inner one at `radius - width/2` — and its ends are
+ * round caps of the track's half-width. Which surface a path reaches depends on
+ * whether it is coming from outside the curve or from within it.
+ */
+export interface CuArc {
+  kind: 'cu-arc';
+  pos: Vec2;
+  radius: number;
+  startAngle: number;
+  endAngle: number;
+  startPoint: Vec2;
+  endPoint: Vec2;
+  width: number;
+}
+
+export type CreepShape = BePoint | BeCircle | BeArc | CuSegment | CuCircle | CuArc;
 
 /** Whether a shape is copper: only copper carries a half-width. */
 export const isConductive = (s: CreepShape): boolean =>
-  s.kind === 'cu-segment' || s.kind === 'cu-circle';
+  s.kind === 'cu-segment' || s.kind === 'cu-circle' || s.kind === 'cu-arc';
 
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
@@ -452,6 +489,213 @@ function cuSegmentToBeCircle(
   return out;
 }
 
+const TWO_PI = Math.PI * 2;
+
+/**
+ * `AngleBetweenStartAndEnd`: where a point sits in the arc's sweep.
+ *
+ * Wound *forward* from the start angle rather than normalised to [0, 2π), so
+ * the answer can legitimately exceed a full turn. Comparing it against
+ * `endAngle` then decides membership in one test, with none of the wrap-around
+ * case analysis that a naive normalisation forces.
+ */
+export function angleBetweenStartAndEnd(
+  arc: { pos: Vec2; startAngle: number; endAngle: number },
+  p: Vec2,
+): number {
+  let angle = Math.atan2(p.y - arc.pos.y, p.x - arc.pos.x);
+  while (angle < arc.startAngle) angle += TWO_PI;
+  // Upstream's matching unwind. It cannot fire for an arc whose angles came
+  // from a file — `atan2` returns at most π and the loop above only adds — so
+  // mutation testing finds it unobservable. Kept as upstream's, since the only
+  // thing standing between it and a runaway loop above is that assumption.
+  while (angle > arc.endAngle + TWO_PI) angle -= TWO_PI;
+  return angle;
+}
+
+/** Whether `p` lies within the arc's sweep. */
+const onArc = (arc: { pos: Vec2; startAngle: number; endAngle: number }, p: Vec2): boolean =>
+  angleBetweenStartAndEnd(arc, p) <= arc.endAngle;
+
+/** Tolerance for "this intersection is really the segment's own endpoint", 50 IU. */
+const TOUCH_TOLERANCE = 50;
+
+/**
+ * `segmentIntersectsArc`: does the hop cut *through* the arc?
+ *
+ * A path is allowed to *end* on an arc — that is what reaching a rounded corner
+ * looks like — so an intersection at either of the segment's own endpoints is a
+ * touch and does not count. Only an interior crossing does.
+ */
+export function segmentIntersectsArc(
+  a1: Vec2,
+  a2: Vec2,
+  center: Vec2,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+): boolean {
+  const d = sub(a2, a1);
+  const f = sub(a1, center);
+  const a = dot(d, d);
+  if (a === 0) return false;
+
+  const b = 2 * dot(f, d);
+  const c = dot(f, f) - radius * radius;
+  const disc = b * b - 4 * a * c;
+  // No real root: the line misses the circle entirely. Removing this happens
+  // to give the same answer — the NaNs that follow compare false against
+  // everything — so mutation testing calls it unobservable. It stays because
+  // relying on NaN comparison semantics to be accidentally right is not a
+  // property worth depending on.
+  if (disc < 0) return false;
+
+  const sq = Math.sqrt(disc);
+  const tol2 = TOUCH_TOLERANCE * TOUCH_TOLERANCE;
+
+  for (const t of [(-b - sq) / (2 * a), (-b + sq) / (2 * a)]) {
+    if (t < 0 || t > 1) continue;
+    const hit = { x: a1.x + d.x * t, y: a1.y + d.y * t };
+    const near = (q: Vec2): boolean => (hit.x - q.x) ** 2 + (hit.y - q.y) ** 2 <= tol2;
+    if (near(a1) || near(a2)) continue;
+    if (onArc({ pos: center, startAngle, endAngle }, hit)) return true;
+  }
+
+  return false;
+}
+
+const beCircleOf = (arc: BeArc): BeCircle => ({
+  kind: 'be-circle',
+  pos: arc.pos,
+  radius: arc.radius,
+});
+
+/**
+ * Any shape against a board-edge arc.
+ *
+ * Upstream writes this out per source shape; the body is the same each time, so
+ * it is written once here. Take the paths against the arc's full circle, keep
+ * those that actually land on the arc, and — when some were lost — offer the
+ * arc's two *endpoints* instead, minus any that would cut through the arc on
+ * the way. That last filter is what stops a path tunnelling through a rounded
+ * corner to reach the far end of it.
+ */
+function shapeToBeArc(
+  src: CreepShape,
+  arc: BeArc,
+  maxWeight: number,
+  viaCircle: (c: BeCircle) => PathConnection[],
+  viaPoint: (p: BePoint) => PathConnection[],
+): PathConnection[] {
+  const centerDistance = norm(sub(srcPos(src), arc.pos));
+  // Wholly swallowed by the source shape: there is no path to its surface.
+  if (centerDistance + arc.radius < srcRadius(src)) return [];
+
+  const out: PathConnection[] = [];
+  const fromCircle = viaCircle(beCircleOf(arc));
+
+  for (const pc of fromCircle) if (onArc(arc, pc.a2)) out.push(pc);
+
+  // Every tangent landed on the arc, so it behaved as a whole circle and the
+  // endpoints add nothing.
+  if (out.length > 0 && out.length === fromCircle.length) return out;
+
+  for (const end of [arc.startPoint, arc.endPoint]) {
+    for (const pc of viaPoint({ kind: 'be-point', pos: end })) {
+      if (!segmentIntersectsArc(pc.a1, pc.a2, arc.pos, arc.radius, arc.startAngle, arc.endAngle))
+        out.push(pc);
+    }
+  }
+
+  return out.filter((pc) => pc.weight <= maxWeight);
+}
+
+/** The centre a shape's paths radiate from, for the containment shortcut. */
+function srcPos(s: CreepShape): Vec2 {
+  switch (s.kind) {
+    case 'be-point':
+      return s.pos;
+    case 'be-circle':
+    case 'cu-circle':
+    case 'be-arc':
+    case 'cu-arc':
+      return s.pos;
+    default:
+      return s.start;
+  }
+}
+
+/** A shape's own radius, or zero for those that have none. */
+function srcRadius(s: CreepShape): number {
+  switch (s.kind) {
+    case 'be-circle':
+    case 'cu-circle':
+    case 'be-arc':
+    case 'cu-arc':
+      return s.radius;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * A copper arc against a point.
+ *
+ * The thickness is the whole complication. If the point lies within the arc's
+ * sweep, the nearest copper is a surface of the curve — the *outer* circle when
+ * the point is outside the radius, the *inner* one when it is within, because
+ * a curved track has copper on both sides of its centreline. If the point is
+ * off the end of the sweep, the nearest copper is a round end cap instead.
+ */
+function cuArcToPoint(arc: CuArc, pt: BePoint, maxWeight: number): PathConnection[] {
+  const half = arc.width / 2;
+  const angle = angleBetweenStartAndEnd(arc, pt.pos);
+
+  if (angle < arc.endAngle) {
+    const d = sub(pt.pos, arc.pos);
+    // Outside the curve, so the near face is the outer surface. Every branch
+    // here returns a1 on the *copper* and a2 at the point; the dispatch flips
+    // the pair when the caller asked the other way round. Two of the three
+    // branches once swapped here as well, which cancelled the dispatch's flip
+    // and left half the paths pointing the opposite way to the other half.
+    if (dot(d, d) > arc.radius * arc.radius)
+      return pointToCuCircle(
+        pt,
+        { kind: 'cu-circle', pos: arc.pos, radius: arc.radius + half },
+        maxWeight,
+      );
+
+    const weight = Math.max(arc.radius - half - norm(d), 0);
+    if (weight <= 0 || weight >= maxWeight) return [];
+    return [{ a1: addVec(arc.pos, resize(d, arc.radius - half)), a2: pt.pos, weight }];
+  }
+
+  const caps: PathConnection[] = [];
+  for (const end of [arc.startPoint, arc.endPoint])
+    caps.push(...pointToCuCircle(pt, { kind: 'cu-circle', pos: end, radius: half }, maxWeight));
+
+  // Upstream keeps the shortest of the two caps rather than offering both: an
+  // end cap is a target, not an obstacle, so there is no "either way round".
+  let best: PathConnection | null = null;
+  for (const pc of caps) if (!best || (best.weight > pc.weight && pc.weight > 0)) best = pc;
+  return best ? [best] : [];
+}
+
+/**
+ * A copper arc's reachable surfaces, as the circles they are.
+ *
+ * `sweptOnly` marks the curve itself: a path may only reach it where the sweep
+ * actually goes, while the two end caps are always there to be reached.
+ */
+function cuArcCircles(arc: CuArc): { circle: CuCircle; sweptOnly: boolean }[] {
+  const half = arc.width / 2;
+  return [
+    { circle: { kind: 'cu-circle', pos: arc.pos, radius: arc.radius + half }, sweptOnly: true },
+    { circle: { kind: 'cu-circle', pos: arc.startPoint, radius: half }, sweptOnly: false },
+    { circle: { kind: 'cu-circle', pos: arc.endPoint, radius: half }, sweptOnly: false },
+  ];
+}
+
 /**
  * The candidate paths between two shapes, or none when they are further apart
  * than `maxWeight`.
@@ -461,7 +705,9 @@ function cuSegmentToBeCircle(
  * which is the point: whether to go left or right of a cutout is not a local
  * question.
  *
- * Arcs are not modelled yet, and the dispatch below has no case for them.
+ * An arc reaches this as its circle filtered to its own sweep, plus its
+ * endpoints where the sweep runs out — which is why every arc case below
+ * delegates rather than computing anything new.
  */
 export function pathsBetween(s1: CreepShape, s2: CreepShape, maxWeight: number): PathConnection[] {
   const maxSquared = maxWeight * maxWeight;
@@ -475,6 +721,51 @@ export function pathsBetween(s1: CreepShape, s2: CreepShape, maxWeight: number):
     const weightSq = dot(d, d);
     if (weightSq > maxSquared) return [];
     return [{ a1: s1.pos, a2: s2.pos, weight: Math.sqrt(weightSq) }];
+  }
+
+  // ----- arcs: circle where the sweep covers, endpoints where it does not -----
+  if (s2.kind === 'be-arc')
+    return shapeToBeArc(
+      s1,
+      s2,
+      maxWeight,
+      (c) => pathsBetween(s1, c, maxWeight),
+      (pt) => pathsBetween(s1, pt, maxWeight),
+    );
+  if (s1.kind === 'be-arc')
+    return flip(
+      shapeToBeArc(
+        s2,
+        s1,
+        maxWeight,
+        (c) => pathsBetween(s2, c, maxWeight),
+        (pt) => pathsBetween(s2, pt, maxWeight),
+      ),
+    );
+
+  if (s1.kind === 'cu-arc' && s2.kind === 'be-point') return cuArcToPoint(s1, s2, maxWeight);
+  if (s1.kind === 'be-point' && s2.kind === 'cu-arc') return flip(cuArcToPoint(s2, s1, maxWeight));
+
+  // Anything else against a copper arc: its outer surface and its two end
+  // caps are all circles, so the shortest path to any of them is the answer.
+  if (s1.kind === 'cu-arc' || s2.kind === 'cu-arc') {
+    const arc = (s1.kind === 'cu-arc' ? s1 : s2) as CuArc;
+    const other = s1.kind === 'cu-arc' ? s2 : s1;
+    const candidates: PathConnection[] = [];
+
+    for (const { circle, sweptOnly } of cuArcCircles(arc)) {
+      for (const pc of pathsBetween(other, circle, maxWeight)) {
+        // A path to the curve's own surface only counts where the sweep
+        // actually reaches; the end caps are always there.
+        if (sweptOnly && !onArc(arc, pc.a2)) continue;
+        candidates.push(pc);
+      }
+    }
+
+    let best: PathConnection | null = null;
+    for (const pc of candidates) if (!best || pc.weight < best.weight) best = pc;
+    if (!best) return [];
+    return s1.kind === 'cu-arc' ? flip([best]) : [best];
   }
 
   if (s1.kind === 'be-point' && s2.kind === 'be-circle') return pointToBeCircle(s1, s2, maxSquared);

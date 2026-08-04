@@ -536,5 +536,9 @@ export {
   type BeCircle,
   type CuSegment,
   type CuCircle,
+  type BeArc,
+  type CuArc,
+  angleBetweenStartAndEnd,
+  segmentIntersectsArc,
   type BoardSurface,
 } from './drc/creepage_graph.js';
