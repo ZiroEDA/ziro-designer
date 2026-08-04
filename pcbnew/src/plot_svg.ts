@@ -570,6 +570,13 @@ export class SvgPlotter {
     this.m_IUsPerDecimil = aIusPerDecimil;
 
     // Compute the paper size in IUs. for historical reasons the page size is in mils
+    // Two truncations, and only the first is observable. `PAGE_INFO::SetWidthMM`
+    // stores mils as `mm * 1000 / 25.4`, so the mils really can be fractional
+    // and dropping this one changes the emitted page size — a test pins it.
+    // The second is upstream's `int *= double`: by then the value is integral
+    // and every caller passes an integer `aIusPerDecimil` (pcbnew 2540,
+    // eeschema 100, gerbview 1000), so it can never fire. Mutation testing
+    // confirms it. Kept as upstream's arithmetic, not on the strength of a test.
     const paperSize = toVector2I(this.m_pageSizeMils);
     this.m_paperSize = {
       x: Math.trunc(paperSize.x * (10.0 * aIusPerDecimil)),
