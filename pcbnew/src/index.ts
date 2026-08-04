@@ -624,3 +624,13 @@ export {
   viaIsTented,
   type D356Record,
 } from './export_d356.js';
+
+export {
+  genPositionData,
+  decorateFilename,
+  placeFileName,
+  hasThroughHolePads,
+  sortPlaceFileList,
+  formatFixed,
+  type PlaceFileOptions,
+} from './place_file_exporter.js';
