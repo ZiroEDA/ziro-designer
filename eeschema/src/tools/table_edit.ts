@@ -36,7 +36,7 @@
 import type { SchTable, SchTableCell, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
-import { cellRowCol, normalizeTable } from './table_layout.js';
+import { cellRowCol, normalizeTable, tableOrigin } from './table_layout.js';
 import { resolveCell, tableOfCellId } from './table_cells.js';
 
 /** The block a set of cell indices spans, inclusive of their own spans. */
@@ -192,3 +192,174 @@ export function canMerge(doc: Schematic, ids: Iterable<string>): boolean {
 /** The id of a table by index, for callers building a selection. */
 export const tableIdAt = (doc: Schematic, i: number): string =>
   refId('table', doc.tables[i]?.uuid, i);
+
+// ----- rows and columns (doAddRow* / doDeleteRows / doAddColumn* / doDeleteColumns) -----
+
+/**
+ * A blank copy of a cell: `copyCell` keeps the formatting and **clears the
+ * text**, because inserting a row should give you the look of the row you
+ * inserted next to, not a second copy of its contents.
+ *
+ * The span is reset too. A new row's cells are their own 1x1 cells; carrying a
+ * merge across would claim cells that are not there yet.
+ */
+const blankCopy = (c: SchTableCell): SchTableCell => ({
+  ...c,
+  text: '',
+  colSpan: 1,
+  rowSpan: 1,
+});
+
+/** The row a cell index sits on. */
+const rowOf = (t: SchTable, index: number): number => cellRowCol(t, index).row;
+/** The column a cell index sits on. */
+const colOf = (t: SchTable, index: number): number => cellRowCol(t, index).col;
+
+/**
+ * Insert a row above or below `row`, copying that row's cells for their
+ * formatting and its height for the new row's.
+ */
+export function addRow(t: SchTable, row: number, where: 'above' | 'below'): SchTable {
+  const n = t.columnCount;
+  if (n <= 0) return t;
+  const rows = Math.ceil(t.cells.length / n);
+  if (row < 0 || row >= rows) return t;
+  const origin = tableOrigin(t);
+  const at = where === 'above' ? row : row + 1;
+  const source = t.cells.slice(row * n, row * n + n);
+  if (source.length < n) return t;
+  const cells = [...t.cells.slice(0, at * n), ...source.map(blankCopy), ...t.cells.slice(at * n)];
+  const height = t.rowHeights[row] ?? 0;
+  const rowHeights = [...t.rowHeights.slice(0, at), height, ...t.rowHeights.slice(at)];
+  return normalizeTable({ ...t, cells, rowHeights }, origin);
+}
+
+/** Insert a column before or after `col`, the same way. */
+export function addColumn(t: SchTable, col: number, where: 'before' | 'after'): SchTable {
+  const n = t.columnCount;
+  if (n <= 0 || col < 0 || col >= n) return t;
+  const origin = tableOrigin(t);
+  const at = where === 'before' ? col : col + 1;
+  const rows = Math.ceil(t.cells.length / n);
+  const cells: SchTableCell[] = [];
+  for (let r = 0; r < rows; r++) {
+    const rowCells = t.cells.slice(r * n, r * n + n);
+    const source = rowCells[col];
+    if (!source) {
+      cells.push(...rowCells);
+      continue;
+    }
+    cells.push(...rowCells.slice(0, at), blankCopy(source), ...rowCells.slice(at));
+  }
+  const width = t.colWidths[col] ?? 0;
+  const colWidths = [...t.colWidths.slice(0, at), width, ...t.colWidths.slice(at)];
+  return normalizeTable({ ...t, columnCount: n + 1, cells, colWidths }, origin);
+}
+
+/**
+ * Delete whole rows. Returns null when every row would go — the table itself is
+ * removed then, which is the caller's business rather than this function's
+ * (`commit.Remove( table )`).
+ */
+export function deleteRows(t: SchTable, rows: readonly number[]): SchTable | null {
+  const n = t.columnCount;
+  if (n <= 0) return t;
+  const total = Math.ceil(t.cells.length / n);
+  const gone = new Set(rows.filter((r) => r >= 0 && r < total));
+  if (gone.size === 0) return t;
+  if (gone.size >= total) return null;
+  const at = tableOrigin(t);
+  const cells = t.cells.filter((_, i) => !gone.has(rowOf(t, i)));
+  const rowHeights = t.rowHeights.filter((_, r) => !gone.has(r));
+  return normalizeTable({ ...t, cells, rowHeights }, at);
+}
+
+/** Delete whole columns; null when every column would go. */
+export function deleteColumns(t: SchTable, cols: readonly number[]): SchTable | null {
+  const n = t.columnCount;
+  if (n <= 0) return t;
+  const gone = new Set(cols.filter((c) => c >= 0 && c < n));
+  if (gone.size === 0) return t;
+  if (gone.size >= n) return null;
+  const at = tableOrigin(t);
+  const cells = t.cells.filter((_, i) => !gone.has(colOf(t, i)));
+  const colWidths = t.colWidths.filter((_, c) => !gone.has(c));
+  return normalizeTable({ ...t, columnCount: n - gone.size, cells, colWidths }, at);
+}
+
+/** What the row/column menu entries do, as one operation over a selection. */
+export type RowColOp =
+  | 'addRowAbove'
+  | 'addRowBelow'
+  | 'addColumnBefore'
+  | 'addColumnAfter'
+  | 'deleteRows'
+  | 'deleteColumns';
+
+/**
+ * Apply a row/column operation to the tables the selection touches.
+ *
+ * Add uses the topmost (or leftmost) selected cell as the source, matching
+ * `doAddRowAbove`'s `topmost` and `doAddRowBelow`'s `bottommost`. Delete takes
+ * every row or column holding a selected cell, and drops the whole table when
+ * that is all of them.
+ */
+export function rowColCommand(
+  doc: Schematic,
+  ids: Iterable<string>,
+  op: RowColOp,
+): EditCommand | null {
+  const groups = byTable(doc, ids);
+  if (groups.size === 0) return null;
+  let changed = false;
+  const tables: SchTable[] = [];
+  doc.tables.forEach((t, i) => {
+    const indices = groups.get(i);
+    if (!indices) {
+      tables.push(t);
+      return;
+    }
+    const rowsSel = indices.map((k) => rowOf(t, k));
+    const colsSel = indices.map((k) => colOf(t, k));
+    let next: SchTable | null = t;
+    switch (op) {
+      case 'addRowAbove':
+        next = addRow(t, Math.min(...rowsSel), 'above');
+        break;
+      case 'addRowBelow':
+        next = addRow(t, Math.max(...rowsSel), 'below');
+        break;
+      case 'addColumnBefore':
+        next = addColumn(t, Math.min(...colsSel), 'before');
+        break;
+      case 'addColumnAfter':
+        next = addColumn(t, Math.max(...colsSel), 'after');
+        break;
+      case 'deleteRows':
+        next = deleteRows(t, [...new Set(rowsSel)]);
+        break;
+      case 'deleteColumns':
+        next = deleteColumns(t, [...new Set(colsSel)]);
+        break;
+    }
+    // null means every row or column went, so the table itself goes: it is
+    // simply not pushed (commit.Remove( table )).
+    if (next === null) {
+      changed = true;
+      return;
+    }
+    if (next !== t) changed = true;
+    tables.push(next);
+  });
+  if (!changed) return null;
+  return tablesCommand(ROWCOL_LABELS[op], tables);
+}
+
+const ROWCOL_LABELS: Record<RowColOp, string> = {
+  addRowAbove: 'Add Row Above',
+  addRowBelow: 'Add Row Below',
+  addColumnBefore: 'Add Column Before',
+  addColumnAfter: 'Add Column After',
+  deleteRows: 'Delete Rows',
+  deleteColumns: 'Delete Columns',
+};

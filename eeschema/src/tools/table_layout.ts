@@ -66,9 +66,13 @@ export const cellRowCol = (t: SchTable, index: number): { row: number; col: numb
  * Cells are laid out in document order, row-major, which is the order the file
  * writes them in and the order the reader keeps.
  */
-export function normalizeTable(t: SchTable): SchTable {
+export function normalizeTable(t: SchTable, at?: Vec2): SchTable {
   if (t.cells.length === 0 || t.columnCount <= 0) return t;
-  const origin = tableOrigin(t);
+  // `at` is upstream's `VECTOR2I pos = table->GetPosition()` taken *before* the
+  // edit and put back after. Deleting the first row would otherwise re-anchor
+  // the table on what used to be the second row, and the whole table would jump
+  // up the sheet.
+  const origin = at ?? tableOrigin(t);
   const rows = Math.ceil(t.cells.length / t.columnCount);
   const colWidth = (c: number): number => t.colWidths[c] ?? 0;
   const rowHeight = (r: number): number => t.rowHeights[r] ?? 0;

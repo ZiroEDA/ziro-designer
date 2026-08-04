@@ -10,8 +10,13 @@ import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   canMerge,
   canUnmerge,
+  addColumn,
+  addRow,
   cellBlock,
+  deleteColumns,
+  deleteRows,
   mergeCells,
+  rowColCommand,
   tableCellsCommand,
   unmergeCells,
 } from '@ziroeda/eeschema/src/tools/table_edit.js';
@@ -207,5 +212,124 @@ describe('the document-level command', () => {
     expect(canUnmerge(d, [id(0)])).toBe(false);
     const mergedDoc = tableCellsCommand(d, [id(0), id(1)], 'merge')!.apply(d);
     expect(canUnmerge(mergedDoc, [id(0)])).toBe(true);
+  });
+});
+
+describe('rows and columns', () => {
+  it('adds a row above, copying the formatting and not the text', () => {
+    // copyCell keeps the look of the row you inserted next to; a second copy of
+    // its contents is not what "add row" means.
+    const out = addRow(table(), 0, 'above');
+    expect(out.cells).toHaveLength(9);
+    expect(out.cells.slice(0, 3).map((c) => c.text)).toEqual(['', '', '']);
+    expect(out.cells[3]!.text).toBe('a');
+    expect(out.cells[0]!.effects).toEqual(table().cells[0]!.effects);
+  });
+
+  it('adds a row below', () => {
+    const out = addRow(table(), 0, 'below');
+    expect(out.cells.slice(3, 6).map((c) => c.text)).toEqual(['', '', '']);
+    expect(out.cells[6]!.text).toBe('d');
+  });
+
+  it('gives the new row the source row’s height, and re-lays out', () => {
+    const out = addRow(table(), 0, 'above');
+    expect(out.rowHeights).toEqual([mm(10), mm(10), mm(10)]);
+    expect(out.cells[3]!.start.y).toBe(mm(20));
+  });
+
+  it('resets the span on a copied cell', () => {
+    // Carrying a merge into a new row would claim cells that are not there.
+    const merged = mergeCells(table(), [0, 1]);
+    const out = addRow(merged, 0, 'above');
+    expect(out.cells.slice(0, 3).map((c) => c.colSpan)).toEqual([1, 1, 1]);
+  });
+
+  it('adds a column, widening every row', () => {
+    const out = addColumn(table(), 0, 'before');
+    expect(out.columnCount).toBe(4);
+    expect(out.cells).toHaveLength(8);
+    expect(out.colWidths).toEqual([mm(20), mm(20), mm(20), mm(20)]);
+    expect(out.cells[0]!.text).toBe('');
+    expect(out.cells[1]!.text).toBe('a');
+    expect(out.cells[4]!.text).toBe('');
+    expect(out.cells[5]!.text).toBe('d');
+  });
+
+  it('adds a column after', () => {
+    const out = addColumn(table(), 2, 'after');
+    expect(out.cells.slice(0, 4).map((c) => c.text)).toEqual(['a', 'b', 'c', '']);
+  });
+
+  it('deletes a row and its height', () => {
+    const out = deleteRows(table(), [0])!;
+    expect(out.cells.map((c) => c.text)).toEqual(['d', '', 'f']);
+    expect(out.rowHeights).toEqual([mm(10)]);
+    expect(out.cells[0]!.start.y).toBe(mm(10));
+  });
+
+  it('deletes a column and its width', () => {
+    const out = deleteColumns(table(), [1])!;
+    expect(out.columnCount).toBe(2);
+    expect(out.cells.map((c) => c.text)).toEqual(['a', 'c', 'd', 'f']);
+    expect(out.colWidths).toEqual([mm(20), mm(20)]);
+    expect(out.cells[1]!.start.x).toBe(mm(30));
+  });
+
+  it('returns null when every row or column would go', () => {
+    // The table itself is removed then (commit.Remove), which is the caller's
+    // business rather than this function's.
+    expect(deleteRows(table(), [0, 1])).toBeNull();
+    expect(deleteColumns(table(), [0, 1, 2])).toBeNull();
+  });
+
+  it('does nothing for an out-of-range row or column', () => {
+    const t = table();
+    expect(addRow(t, 9, 'above')).toBe(t);
+    expect(addColumn(t, 9, 'before')).toBe(t);
+    expect(deleteRows(t, [9])).toBe(t);
+    expect(deleteColumns(t, [9])).toBe(t);
+  });
+});
+
+describe('the row/column command', () => {
+  it('adds above the topmost selected cell and below the bottommost', () => {
+    // doAddRowAbove takes `topmost`, doAddRowBelow takes `bottommost`.
+    const d = doc();
+    const above = rowColCommand(d, [id(3), id(1)], 'addRowAbove')!.apply(d);
+    expect(above.tables[0]!.cells[0]!.text).toBe('');
+    expect(above.tables[0]!.cells[3]!.text).toBe('a');
+    const below = rowColCommand(d, [id(1), id(3)], 'addRowBelow')!.apply(d);
+    expect(below.tables[0]!.cells.slice(6, 9).map((c) => c.text)).toEqual(['', '', '']);
+  });
+
+  it('deletes every row holding a selected cell', () => {
+    const d = doc();
+    const out = rowColCommand(d, [id(0)], 'deleteRows')!.apply(d);
+    expect(out.tables[0]!.cells.map((c) => c.text)).toEqual(['d', '', 'f']);
+  });
+
+  it('removes the table when the deletion takes all of it', () => {
+    const d = doc();
+    const out = rowColCommand(d, [id(0), id(3)], 'deleteRows')!.apply(d);
+    expect(out.tables).toHaveLength(0);
+  });
+
+  it('is null for a selection with no cells in it', () => {
+    expect(rowColCommand(doc(), ['sym-1'], 'addRowAbove')).toBeNull();
+  });
+
+  it('undoes', () => {
+    const d = doc();
+    const cmd = rowColCommand(d, [id(0)], 'deleteRows')!;
+    expect(cmd.invert(d).apply(cmd.apply(d)).tables).toEqual(d.tables);
+  });
+
+  it('survives the round trip to the file', () => {
+    const d = doc();
+    const out = rowColCommand(d, [id(0)], 'addRowAbove')!.apply(d);
+    const back = readSchematic(parse(serializeSchematic(out)));
+    expect(back.tables[0]!.cells).toHaveLength(9);
+    expect(back.tables[0]!.rowHeights).toHaveLength(3);
   });
 });
