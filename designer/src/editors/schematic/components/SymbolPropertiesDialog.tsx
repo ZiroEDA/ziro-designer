@@ -68,6 +68,18 @@ interface Props {
   hasAlternate?: boolean;
   onOk: (edit: SymbolEdit) => void;
   onCancel: () => void;
+  /**
+   * The buttons along the bottom of upstream's General page
+   * (dialog_symbol_properties_base.cpp). Each closes this dialog and hands off
+   * to the flow that already exists for it, which is what upstream's do —
+   * they are shortcuts into other dialogs, not editors in their own right.
+   *
+   * Optional so a caller that has no such flow simply gets no button, rather
+   * than a dead one.
+   */
+  onChangeSymbol?: () => void;
+  onUpdateSymbol?: () => void;
+  onEditSymbol?: () => void;
 }
 
 const mmStr = (iu: number): string => {
@@ -97,6 +109,9 @@ export function SymbolPropertiesDialog({
   hasAlternate,
   onOk,
   onCancel,
+  onChangeSymbol,
+  onUpdateSymbol,
+  onEditSymbol,
 }: Props): JSX.Element {
   const unitCount = useMemo(
     () => (lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1),
@@ -560,6 +575,22 @@ export function SymbolPropertiesDialog({
         </div>
 
         <div className="ze-modal-footer">
+          {/* Left-aligned hand-offs, as upstream places them. */}
+          {onUpdateSymbol && (
+            <button className="ze-btn" style={{ marginRight: 'auto' }} onClick={onUpdateSymbol}>
+              Update Symbol from Library...
+            </button>
+          )}
+          {onChangeSymbol && (
+            <button className="ze-btn" onClick={onChangeSymbol}>
+              Change Symbol...
+            </button>
+          )}
+          {onEditSymbol && (
+            <button className="ze-btn" onClick={onEditSymbol}>
+              Edit Symbol...
+            </button>
+          )}
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
