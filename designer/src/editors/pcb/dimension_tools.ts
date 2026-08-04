@@ -105,3 +105,57 @@ const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'] as cons
 // DIM_TEXT_POSITION also has MANUAL, which the panel does not offer: it is set
 // by dragging the text, not chosen up front.
 const DIM_POSITION = ['Outside', 'Inline'] as const;
+
+/** Which groups of controls the properties dialog shows, by kind. */
+export interface DimensionDialogFields {
+  /** Prefix, suffix, units, format, precision, suppress zeroes, override text. */
+  format: boolean;
+  /** Text size, thickness, orientation, bold/italic/mirrored. */
+  text: boolean;
+  /** The Outside/Inline/Manual choice, inside the text group. */
+  textPositionMode: boolean;
+  arrowLength: boolean;
+  extensionOffset: boolean;
+  /** Extension line overshoot. */
+  extensionOvershoot: boolean;
+  arrowDirection: boolean;
+  /** The leader's text frame (none/rectangle/circle/round rectangle). */
+  textFrame: boolean;
+}
+
+/**
+ * `DIALOG_DIMENSION_PROPERTIES`' constructor switch, which hides whole sizers
+ * depending on the dimension's class.
+ *
+ * - A **centre** mark measures nothing and has no text, so the format and text
+ *   groups go, and with them the arrow length and extension offset — it draws
+ *   only a cross.
+ * - A **leader** shows text you typed rather than a measurement, so the format
+ *   group goes and the text-position choice with it, but the text frame appears.
+ * - **Extension overshoot** is gated on `dynamic_cast<PCB_DIM_ALIGNED*>`
+ *   (`m_extensionOvershoot.Show(false)` otherwise), so radial and leader do not
+ *   get it either.
+ *
+ * **One deliberate divergence.** Upstream leaves the arrow-direction choice
+ * visible for radial and leader, but `updateDimensionFromDialog` only ever
+ * reaches `SetArrowDirection` through the base pointer while the *serializer*
+ * writes `(arrow_direction …)` for aligned and orthogonal alone — so on those
+ * kinds the control changes nothing that survives a save. It is hidden here for
+ * the same reason Create Array does not offer numbering: a control that quietly
+ * does nothing is worse than its absence.
+ */
+export function dimensionDialogFields(kind: DimensionKind): DimensionDialogFields {
+  const aligned = kind === 'aligned' || kind === 'orthogonal';
+  const centre = kind === 'center';
+  const leader = kind === 'leader';
+  return {
+    format: !centre && !leader,
+    text: !centre,
+    textPositionMode: !centre && !leader,
+    arrowLength: !centre,
+    extensionOffset: !centre,
+    extensionOvershoot: aligned,
+    arrowDirection: aligned,
+    textFrame: leader,
+  };
+}

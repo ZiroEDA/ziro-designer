@@ -113,6 +113,13 @@ import {
   type DimensionKind,
 } from '@ziroeda/pcbnew';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
+import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
+import {
+  applyDimensionValues,
+  collectDimensionValues,
+  dimensionAt,
+  type DimensionValues,
+} from '@ziroeda/pcbnew/src/dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -1086,6 +1093,7 @@ export function PcbEditor({
   // Text / Shape properties for board graphics.
   const [textPropsIndex, setTextPropsIndex] = useState<number | null>(null);
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
+  const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -3835,6 +3843,12 @@ export function PcbEditor({
       return;
     }
 
+    const di = dimensionAt(brd, sel);
+    if (di !== null) {
+      setDimensionPropsIndex(di);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -3880,6 +3894,19 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, textPropsIndex],
+  );
+
+  /** DIALOG_DIMENSION_PROPERTIES::TransferDataFromWindow. */
+  const applyDimensionEdit = useCallback(
+    (values: DimensionValues) => {
+      const brd = boardRef.current;
+      const index = dimensionPropsIndex;
+      setDimensionPropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyDimensionValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, dimensionPropsIndex],
   );
 
   const applyShapeEdit = useCallback(
@@ -7136,6 +7163,15 @@ export function PcbEditor({
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
           onClose={() => setShapePropsIndex(null)}
+        />
+      )}
+      {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
+        <DialogDimensionProperties
+          initial={collectDimensionValues(board.dimensions[dimensionPropsIndex]!)}
+          kind={board.dimensions[dimensionPropsIndex]!.kind}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyDimensionEdit}
+          onClose={() => setDimensionPropsIndex(null)}
         />
       )}
       {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
