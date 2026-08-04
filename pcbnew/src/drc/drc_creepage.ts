@@ -88,6 +88,71 @@ export interface CreepageResult {
 /** Distance between two points. */
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
 
+interface Box {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** A shape's bounding box, for the cheap pre-filter. */
+function boxOf(shape: CreepShape): Box {
+  switch (shape.kind) {
+    case 'be-point':
+      return { minX: shape.pos.x, minY: shape.pos.y, maxX: shape.pos.x, maxY: shape.pos.y };
+    case 'be-circle':
+    case 'be-arc':
+      return {
+        minX: shape.pos.x - shape.radius,
+        minY: shape.pos.y - shape.radius,
+        maxX: shape.pos.x + shape.radius,
+        maxY: shape.pos.y + shape.radius,
+      };
+    case 'cu-circle':
+      return {
+        minX: shape.pos.x - shape.radius,
+        minY: shape.pos.y - shape.radius,
+        maxX: shape.pos.x + shape.radius,
+        maxY: shape.pos.y + shape.radius,
+      };
+    case 'cu-arc': {
+      const r = shape.radius + shape.width / 2;
+      return {
+        minX: shape.pos.x - r,
+        minY: shape.pos.y - r,
+        maxX: shape.pos.x + r,
+        maxY: shape.pos.y + r,
+      };
+    }
+    case 'cu-segment': {
+      const h = shape.width / 2;
+      return {
+        minX: Math.min(shape.start.x, shape.end.x) - h,
+        minY: Math.min(shape.start.y, shape.end.y) - h,
+        maxX: Math.max(shape.start.x, shape.end.x) + h,
+        maxY: Math.max(shape.start.y, shape.end.y) + h,
+      };
+    }
+  }
+}
+
+/**
+ * Whether two boxes are close enough to be worth asking the geometry about.
+ *
+ * Not an optimisation so much as what makes the check finish: a filled zone
+ * contributes one shape per boundary edge, and the pair loop is quadratic in
+ * shapes. Rejecting a pair on four comparisons rather than a tangent
+ * construction is the difference between a check that runs and one that does
+ * not. It can only ever reject pairs the geometry would have rejected too —
+ * the boxes contain the shapes, so a box further apart than the target means
+ * the shapes are.
+ */
+function boxesWithin(a: Box, b: Box, target: number): boolean {
+  const dx = Math.max(0, Math.max(a.minX - b.maxX, b.minX - a.maxX));
+  const dy = Math.max(0, Math.max(a.minY - b.maxY, b.minY - a.maxY));
+  return Math.hypot(dx, dy) <= target;
+}
+
 /**
  * What it costs to travel between two landing points along one shape.
  *
@@ -157,10 +222,22 @@ export function creepageDistance(
 
   // Board edges belong to no net; copper carries its own so the virtual nodes
   // can find it.
-  const all: { entry: ShapeNodes; net: number }[] = [
-    ...shapes.edges.map((shape) => ({ entry: { shape, nodes: new Map() }, net: -1 })),
-    ...copperA.map((shape) => ({ entry: { shape, nodes: new Map() }, net: netA })),
-    ...copperB.map((shape) => ({ entry: { shape, nodes: new Map() }, net: netB })),
+  const all: { entry: ShapeNodes; net: number; box: Box }[] = [
+    ...shapes.edges.map((shape) => ({
+      entry: { shape, nodes: new Map() },
+      net: -1,
+      box: boxOf(shape),
+    })),
+    ...copperA.map((shape) => ({
+      entry: { shape, nodes: new Map() },
+      net: netA,
+      box: boxOf(shape),
+    })),
+    ...copperB.map((shape) => ({
+      entry: { shape, nodes: new Map() },
+      net: netB,
+      box: boxOf(shape),
+    })),
   ];
 
   const nodeAt = (item: (typeof all)[number], pos: Vec2): GraphNode => {
@@ -181,6 +258,9 @@ export function creepageDistance(
       // Two shapes of the same net need no path between them: they are already
       // one conductor, and the virtual node joins them for free.
       if (s1.net !== -1 && s1.net === s2.net) continue;
+
+      // Cheap rejection before any tangent maths.
+      if (!boxesWithin(s1.box, s2.box, target)) continue;
 
       for (const pc of pathsBetween(s1.entry.shape, s2.entry.shape, target)) {
         if (!isValidPath(pc, shapes.surface)) continue;

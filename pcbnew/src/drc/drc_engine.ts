@@ -38,6 +38,8 @@ import { shapeAsPolygon } from '../polygon_booleans.js';
 import { findSliverPoints } from './drc_sliver.js';
 import { findNecks } from './drc_connection_width.js';
 import { evaluateDiffPair, matchDpSuffix, type DpTrack } from './drc_diff_pair.js';
+import { creepageDistance } from './drc_creepage.js';
+import { boardEdgeShapes, boardSurface, copperShapesByNet } from './creepage_shapes.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   allowsMissingCourtyard,
@@ -118,6 +120,14 @@ export interface DrcOptions {
    * does — a board that has not set one is not asking for the test.
    */
   minConnectionWidth?: number;
+  /**
+   * `creepage` minimum (IU). Zero or absent turns the check off entirely, which
+   * is also upstream's behaviour: `HasRulesForConstraintType( CREEPAGE_CONSTRAINT )`
+   * gates the whole provider, so a board that has not asked for creepage never
+   * pays for it. There is no sensible default — the required distance depends on
+   * working voltage and pollution degree, which the board file does not record.
+   */
+  minCreepage?: number;
   /**
    * `diff_pair_gap` minimum (IU). Absent falls back to `minClearance`, which is
    * what upstream's implicit netclass rule sets it to.
@@ -1793,6 +1803,86 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
             pos: at,
             items: [{ desc: `Net ${name}`, pos: at }],
           });
+        }
+      }
+    }
+  }
+
+  // ----- creepage -----------------------------------------------------------
+  // DRC_TEST_PROVIDER_CREEPAGE. Creepage is not clearance: it is how far a
+  // leakage current must crawl across the board's *surface*, so a milled slot
+  // between two nets lengthens it without moving them apart. That makes it a
+  // shortest-path problem over the board rather than a distance between items.
+  {
+    // Creepage has no Board Setup field, here or upstream: the distance a
+    // board needs depends on working voltage and pollution degree, which the
+    // file does not record. It comes from a `.kicad_dru` rule or not at all,
+    // which is what upstream's `HasRulesForConstraintType` gate amounts to.
+    // The largest declared minimum is used, so the strictest rule on the board
+    // is the one that has to be satisfied.
+    const fromRules = (opts.customRules?.rules ?? [])
+      .flatMap((rule) => rule.constraints)
+      .filter((c) => c.type === 'creepage')
+      .map((c) => c.value.min ?? 0);
+
+    const minCreepage = opts.minCreepage ?? (fromRules.length > 0 ? Math.max(...fromRules) : 0);
+
+    // A cost guard rather than a behavioural one: with a target of zero the
+    // solver returns nothing anyway, so removing this changes no answer — it
+    // just makes every DRC run extract every shape on the board to find that
+    // out. Mutation testing calls it unobservable; a profiler would not.
+    if (minCreepage > 0) {
+      const surface = boardSurface(board);
+
+      // With no closed outline there is no surface to crawl over, and the
+      // board already has an invalid-outline violation saying so.
+      if (surface) {
+        const edges = boardEdgeShapes(board);
+
+        for (const layer of board.layers) {
+          if (!isCopper(layer.name)) continue;
+
+          const copperByNet = copperShapesByNet(board, layer.name);
+          const nets = [...copperByNet.keys()].sort((a, b) => a - b);
+
+          for (let i = 0; i < nets.length; i++) {
+            // Each unordered pair once. Comparing a net with itself would in
+            // fact come back empty — the solver joins one net's shapes through
+            // a single virtual node, leaving the other end unreachable — but
+            // relying on that would be paying for an answer already known.
+            for (let j = i + 1; j < nets.length; j++) {
+              const netA = nets[i]!;
+              const netB = nets[j]!;
+
+              const result = creepageDistance(
+                { surface, edges, copperByNet },
+                netA,
+                netB,
+                minCreepage,
+              );
+
+              // No route within the distance asked for is the *good* answer:
+              // nothing leaks that far.
+              if (!result) continue;
+              if (result.distance >= minCreepage) continue;
+
+              const at = result.path[0] ?? { x: 0, y: 0 };
+              out.push({
+                code: 'creepage',
+                message: `Creepage violation (creepage ${mm(minCreepage)}; actual ${mm(
+                  Math.round(result.distance),
+                )}) between ${board.nets.get(netA) ?? netA} and ${board.nets.get(netB) ?? netB} on ${layer.name}`,
+                pos: at,
+                items: [
+                  { desc: `Net ${board.nets.get(netA) ?? netA}`, pos: at },
+                  {
+                    desc: `Net ${board.nets.get(netB) ?? netB}`,
+                    pos: result.path[result.path.length - 1] ?? at,
+                  },
+                ],
+              });
+            }
+          }
         }
       }
     }
