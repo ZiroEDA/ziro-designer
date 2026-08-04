@@ -304,6 +304,27 @@ function applyConnectedMove(
         ),
       ...splitDots,
     ],
+    // Directive labels ride exactly as the other three label kinds do; the
+    // ride is planned for them in connect.ts, so it must be applied here too
+    // or the plan is silently dropped for that one kind.
+    ...(doc.directiveLabels
+      ? {
+          directiveLabels: doc.directiveLabels.map((dl, i) => {
+            const id = refId('directive', dl.uuid, i);
+            // This map replaces whatever moveRigidItems produced above, so a
+            // fully-selected flag must be moved here too — returning it
+            // untouched would silently undo that.
+            if (spec.fullIds.has(id)) return moveDirectiveLabel(dl, delta);
+            const ride = rideFor.get(id);
+            const carrier = ride ? movedByUuid.get(ride.lineUuid) : undefined;
+            if (!ride || !carrier) return dl;
+            if (ride.rigid) return moveDirectiveLabel(dl, delta);
+            return onSegment(dl.at, carrier.start, carrier.end)
+              ? dl
+              : { ...dl, at: nearestOnSegment(dl.at, carrier.start, carrier.end) };
+          }),
+        }
+      : {}),
     lines: [...lines, ...stubs, ...splitHalves],
   };
 }
