@@ -448,6 +448,57 @@ export interface PcbGroup {
 }
 
 /**
+ * One cell of a table, KiCad `(table_cell "…" …)`.
+ * Counterpart: `PCB_TABLECELL`, which *is* a `PCB_TEXTBOX` — upstream
+ * serialises a cell by calling `format(static_cast<PCB_TEXTBOX*>(cell))`.
+ *
+ * So a cell carries everything a text box does, plus `(span cols rows)`. Two
+ * things the shared serializer withholds from a cell: `(border …)` and its
+ * `(stroke …)`, because a cell does not draw its own border — the table's
+ * `(border …)` and `(separators …)` draw all the lines.
+ */
+export interface PcbTableCell extends PcbTextBox {
+  /** `(span cols rows)`; 1x1 unless the cell was merged with its neighbours. */
+  colSpan: number;
+  rowSpan: number;
+}
+
+/**
+ * A table, KiCad `(table …)`.
+ * Counterpart: `PCB_TABLE` (pcbnew/pcb_table.h).
+ *
+ * The cells are a flat list in row-major order; `columnCount` is what turns it
+ * back into a grid, and the row count is implied by the two together.
+ *
+ * `border` and `separators` each carry two flags and a stroke, and **the stroke
+ * is only written when at least one of that pair's flags is set** — a table with
+ * both border flags off has no border stroke in the file at all, so the width
+ * has to survive as a model default rather than being read back from nothing.
+ */
+export interface PcbTable {
+  columnCount: number;
+  layer: string;
+  uuid?: string;
+  locked?: boolean;
+  /** `(border (external …) (header …) [(stroke …)])`. */
+  borderExternal: boolean;
+  borderHeader: boolean;
+  borderWidth?: number;
+  borderStyle?: StrokeType;
+  /** `(separators (rows …) (cols …) [(stroke …)])`. */
+  separatorRows: boolean;
+  separatorCols: boolean;
+  separatorWidth?: number;
+  separatorStyle?: StrokeType;
+  columnWidths: number[];
+  rowHeights: number[];
+  cells: PcbTableCell[];
+  source: SList;
+}
+
+/**
+ * A text box, KiCad `(gr_text_box "…" …)`.
+/**
  * A text box, KiCad `(gr_text_box "…" …)`.
  * Counterpart: `PCB_TEXTBOX` (pcbnew/pcb_textbox.h), which is an `EDA_SHAPE`
  * and an `EDA_TEXT` at once — a rectangle that wraps text inside itself.
@@ -591,6 +642,7 @@ export interface Board {
   shapes: PcbShape[];
   texts: PcbTextItem[];
   textBoxes: PcbTextBox[];
+  tables: PcbTable[];
   dimensions: PcbDimension[];
   groups: PcbGroup[];
   fileName?: string;

@@ -53,6 +53,22 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
     (border yes)
     (stroke (width 0.12) (type solid))
     (knockout no))
+  (table
+    (column_count 1)
+    (uuid "11111111-0000-0000-0000-000000000007")
+    (layer "F.SilkS")
+    (border (external yes) (header no) (stroke (width 0.05) (type solid)))
+    (separators (rows no) (cols no))
+    (column_widths 10)
+    (row_heights 5)
+    (cells
+      (table_cell "c"
+        (start 90 90) (end 100 95)
+        (margins 1 1 1 1)
+        (span 1 1)
+        (layer "F.SilkS")
+        (uuid "11111111-0000-0000-0000-000000000008")
+        (effects (font (size 1 1))))))
   (dimension (type orthogonal) (layer "Dwgs.User")
     (uuid "11111111-0000-0000-0000-000000000006")
     (pts (xy 70 70) (xy 80 70)) (height 5) (orientation 0)
@@ -88,6 +104,7 @@ describe('the board starts with one of everything', () => {
     expect(c.shapes).toBe(1);
     expect(c.texts).toBe(1);
     expect(c.textBoxes).toBe(1);
+    expect(c.tables).toBe(1);
     expect(c.dimensions).toBe(1);
   });
 });
