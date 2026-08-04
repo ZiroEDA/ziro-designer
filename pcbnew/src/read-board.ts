@@ -56,6 +56,7 @@ import type {
   PcbZoneFill,
   StrokeType,
   TeardropParams,
+  UnconnectedLayerMode,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -601,6 +602,52 @@ const strokeType = (item: SList): StrokeType | undefined => {
     : undefined;
 };
 
+/**
+ * `(remove_unused_layers …)` / `(keep_end_layers …)` / `(start_end_only …)`,
+ * PADSTACK's UNCONNECTED_LAYER_MODE, as `parsePAD` and `parsePCB_VIA` read it.
+ *
+ * The tokens are the deprecated *pair of setters*, not the enum, so they are
+ * applied in file order: `SetKeepTopBottom` overwrites whatever
+ * `SetRemoveUnconnected` just chose. Two upstream asymmetries are reproduced:
+ *
+ * - a **pad** applies both truth values (`(keep_end_layers no)` alone lands on
+ *   `remove_all`, even after `(remove_unused_layers no)`), whereas a **via**
+ *   acts only when the value is true and ignores an explicit `no` entirely;
+ * - `start_end_only` exists on the via side only.
+ *
+ * `undefined` means the node carried none of them, which keeps an untouched
+ * item's source node out of the writer's way.
+ */
+function readUnconnectedLayerMode(item: SList, forVia: boolean): UnconnectedLayerMode | undefined {
+  let mode: UnconnectedLayerMode | undefined;
+
+  for (const child of item.items) {
+    if (!isList(child)) continue;
+
+    const name = head(child);
+    if (
+      name !== 'remove_unused_layers' &&
+      name !== 'keep_end_layers' &&
+      name !== 'start_end_only'
+    ) {
+      continue;
+    }
+
+    // parseMaybeAbsentBool( true ): a bare token means yes.
+    const word = arg(child, 0);
+    const value = word === undefined ? true : word === 'yes' || word === 'true';
+
+    if (forVia && !value) continue;
+
+    if (name === 'remove_unused_layers') mode = value ? 'remove_all' : 'keep_all';
+    else if (name === 'keep_end_layers')
+      mode = value ? 'remove_except_start_and_end' : 'remove_all';
+    else mode = 'start_end_only';
+  }
+
+  return mode;
+}
+
 function readPad(item: SList, t: FpTransform | null): PcbPad | null {
   const positional = args(item);
   const number = positional[0] ?? '';
@@ -682,6 +729,7 @@ function readPad(item: SList, t: FpTransform | null): PcbPad | null {
     thermalGap: mmOrUndef(item, 'thermal_gap'),
     padToDieLength: mmOrUndef(item, 'die_length'),
     teardrops: readTeardropParams(childNamed(item, 'teardrops')),
+    unconnectedLayerMode: readUnconnectedLayerMode(item, false),
     uuid: uuidOf(item),
     source: item,
   };
@@ -1129,6 +1177,7 @@ export function readBoard(root: SList): Board {
               : 'through',
           net: numberField(item, 'net') ?? 0,
           teardrops: readTeardropParams(childNamed(item, 'teardrops')),
+          unconnectedLayerMode: readUnconnectedLayerMode(item, true),
           locked: lockedOf(item),
           uuid: uuidOf(item),
           source: item,

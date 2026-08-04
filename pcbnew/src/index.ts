@@ -710,3 +710,26 @@ export {
   type GlobalTextGfxOptions,
   type GlobalTextGfxContext,
 } from './global_edit_text_and_graphics.js';
+
+export {
+  isExternalCopperLayer,
+  unconnectedLayerModeOf,
+  getRemoveUnconnected,
+  getKeepEndLayers,
+  boardCopperLayerCount,
+  boardLayerDepth,
+  viaHasPotentiallyUnusedLayers,
+  padHasPotentiallyUnusedLayers,
+  withPadUnconnectedLayerMode,
+  withViaUnconnectedLayerMode,
+  unusedPadLayersMode,
+  updateUnusedPadLayers,
+  conditionallyFlashed,
+  padFlashState,
+  viaFlashState,
+  DEFAULT_UNUSED_PAD_LAYERS_OPTIONS,
+  type UnusedPadLayersOptions,
+  type UnusedPadLayersContext,
+  type UnusedPadLayersResult,
+  type FlashState,
+} from './unused_pad_layers.js';

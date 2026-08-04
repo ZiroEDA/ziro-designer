@@ -89,9 +89,36 @@ export interface PcbPad {
   padToDieLength?: number;
   /** `(teardrops …)`, PAD::GetTeardropParams. Absent means upstream's defaults. */
   teardrops?: TeardropParams;
+  /**
+   * `(remove_unused_layers …)` + `(keep_end_layers …)`, PADSTACK's
+   * UNCONNECTED_LAYER_MODE. Absent means the file said nothing, which reads as
+   * `keep_all` but is kept distinct so an untouched pad round-trips unchanged.
+   * Only meaningful on a `thru_hole` pad — upstream's writer emits the tokens
+   * for PAD_ATTRIB::PTH alone.
+   */
+  unconnectedLayerMode?: UnconnectedLayerMode;
   uuid?: string;
   source: SList;
 }
+
+/**
+ * `UNCONNECTED_LAYER_MODE` (pcbnew/padstack.h): what a through-hole pad or via
+ * does with a copper layer it is not connected on. The removal is never applied
+ * to the stored layer set — it is re-evaluated by `FlashLayer()` every time the
+ * item is drawn, filled or plotted, so it tracks the routing.
+ *
+ * `start_end_only` has no pad spelling in the file format (the pad parser has
+ * no token for it), so it can only round-trip on a via.
+ */
+export type UnconnectedLayerMode =
+  /** Copper on every layer of the span, connected or not. KiCad's default. */
+  | 'keep_all'
+  /** Copper only where connected — outer layers included. */
+  | 'remove_all'
+  /** Copper where connected, plus the end layers: "Keep outside layers". */
+  | 'remove_except_start_and_end'
+  /** Copper on the two end layers and nowhere else, connections ignored. */
+  | 'start_end_only';
 
 /**
  * `(teardrops …)` on a pad or via: TEARDROP_PARAMETERS, in IU.
@@ -328,6 +355,12 @@ export interface PcbVia {
   net: number;
   /** `(teardrops …)`, PCB_VIA::GetTeardropParams. */
   teardrops?: TeardropParams;
+  /**
+   * `(remove_unused_layers …)` / `(keep_end_layers …)` / `(start_end_only …)`,
+   * PADSTACK's UNCONNECTED_LAYER_MODE. Absent means the file said nothing,
+   * which reads as `keep_all`.
+   */
+  unconnectedLayerMode?: UnconnectedLayerMode;
   locked?: boolean;
   uuid?: string;
   source: SList;
