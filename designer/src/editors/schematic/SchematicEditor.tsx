@@ -4945,6 +4945,17 @@ export function SchematicEditor({
             },
           );
         }
+        if (hitNet)
+          chainItems.push({
+            // SCH_ACTIONS::findNetInInspector: show the Net Navigator and put
+            // the selection on the clicked item's row, which is what the panel
+            // marks as active.
+            label: 'Find in Net Navigator',
+            action: () => {
+              setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
+              if (hit) setSelection(new Set([hit.id]));
+            },
+          });
         if (highlightedChain !== null || highlightItem !== null)
           chainItems.push({
             label: 'Clear Net Highlighting',
