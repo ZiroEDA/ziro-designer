@@ -324,6 +324,11 @@ export function getBoardPolygonOutlines(board: Board): BoardPolygonOutlines {
   // the caller's polygon set is never touched.
   if (chained.error) return { success: false, polygons: [] };
 
+  // Defensive, not load-bearing: an open run of fewer than three points fails
+  // chaining above and never reaches here, and no closed run shorter than a
+  // triangle has been found. Mutation testing confirms removing the filter
+  // changes no result. Kept because a degenerate ring reaching the parent
+  // search below would be counted as an outline that encloses nothing.
   const contours = [...closed, ...chained.outlines].filter((c) => c.length >= 3);
   if (contours.length === 0) return { success: true, polygons: [] };
 
