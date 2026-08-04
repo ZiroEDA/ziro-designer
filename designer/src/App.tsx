@@ -416,6 +416,47 @@ export function App(): JSX.Element {
     setSchMounted(true);
     setView('schematic');
   }, []);
+  // Edit with Symbol Editor, both legs. The schematic hands a library-shaped
+  // symbol over and remembers which placement it came from; the symbol editor
+  // hands the edit back and eeschema applies it.
+  const [symFromSchematic, setSymFromSchematic] = useState<{
+    symbol: LibSymbol;
+    unit: number;
+    bodyStyle: number;
+    nonce: number;
+  } | null>(null);
+  const [editedSymbol, setEditedSymbol] = useState<{
+    symbol: LibSymbol;
+    targetId: string;
+    nonce: number;
+  } | null>(null);
+  const editTargetId = useRef<string | null>(null);
+
+  const editSymbolInEditor = useCallback(
+    (req: { symbol: LibSymbol; unit: number; bodyStyle: number; targetId: string }) => {
+      editTargetId.current = req.targetId;
+      setSymMounted(true);
+      setView('symbols');
+      setSymFromSchematic((prev) => ({
+        symbol: req.symbol,
+        unit: req.unit,
+        bodyStyle: req.bodyStyle,
+        nonce: (prev?.nonce ?? 0) + 1,
+      }));
+    },
+    [],
+  );
+
+  const saveSymbolToSchematic = useCallback((sym: LibSymbol) => {
+    const targetId = editTargetId.current;
+    if (!targetId) return;
+    setEditedSymbol((prev) => ({ symbol: sym, targetId, nonce: (prev?.nonce ?? 0) + 1 }));
+    // Upstream returns to the schematic on save, which is also the only way to
+    // see whether the edit did what you wanted.
+    setSchMounted(true);
+    setView('schematic');
+  }, []);
+
   const showSymbolEditor = useCallback(() => {
     setSymMounted(true);
     setView('symbols');
@@ -549,6 +590,8 @@ export function App(): JSX.Element {
           <SchematicEditor
             onExitToHome={goHome}
             onShowPcb={pcbFile ? showPcb : undefined}
+            onEditSymbolInEditor={editSymbolInEditor}
+            editedSymbol={editedSymbol}
             // Tools > Update Schematic from PCB: read the board here, so the
             // schematic editor never has to know the board model — the adapter
             // is the whole coupling between the two.
@@ -627,6 +670,8 @@ export function App(): JSX.Element {
             onAddSymbolToSchematic={addSymbolToSchematic}
             projectName={projectName}
             openRequest={symRequest}
+            schematicSymbol={symFromSchematic}
+            onSaveToSchematic={saveSymbolToSchematic}
           />
         </div>
       )}

@@ -100,14 +100,16 @@ describe('the fields land in symbol space', () => {
     }
   });
 
-  it('leaves a field with no position alone', () => {
+  it('falls back to the library position when the placement has none', () => {
+    // Nothing to borrow, so the library's own position stands — rather than the
+    // field losing its position altogether.
     const sym = placement('90');
     const stripped: SchSymbol = {
       ...sym,
       fields: sym.fields.map((f) => ({ ...f, at: undefined })),
     };
     const out = libSymbolFromPlacement(stripped, libSymbol());
-    expect(out.properties.find((p) => p.key === 'Reference')!.at).toBeUndefined();
+    expect(out.properties.find((p) => p.key === 'Reference')!.at).toEqual(fieldAt(libSymbol()));
   });
 });
 
@@ -125,12 +127,33 @@ describe('what else comes across', () => {
     expect(out.pinNamesHidden).toBe(libSymbol().pinNamesHidden);
   });
 
-  it('carries the field text and effects through untouched', () => {
-    // Upstream copies the whole field and overwrites only the position.
+  it('keeps the LIBRARY’s field value, not the placement’s', () => {
+    // The divergence that matters. libById *is* the schematic's embedded
+    // lib_symbols, so a save-back carrying "R1" into the cached Device:R would
+    // leave "Update Symbols from Library" ready to push R1 onto every other
+    // resistor on the sheet.
     const out = libSymbolFromPlacement(placement('90'), libSymbol());
     const f = out.properties.find((p) => p.key === 'Reference')!;
-    expect(f.value).toBe('R1');
-    expect(f.effects).toEqual(placement('90').fields[0]!.effects);
+    expect(f.value).toBe('R');
+  });
+
+  it('borrows the position even so', () => {
+    // Taking the library's value must not mean taking its position: the whole
+    // point is that the editor shows the fields where they were placed.
+    const out = libSymbolFromPlacement(placement('0'), libSymbol());
+    expect(fieldAt(out)).toEqual({ x: mm(10), y: mm(5) });
+    expect(fieldAt(libSymbol())).not.toEqual({ x: mm(10), y: mm(5) });
+  });
+
+  it('drops a field the library does not have', () => {
+    // Not part of the library symbol; the placement keeps it either way.
+    const sym = placement('0');
+    const extra: SchSymbol = {
+      ...sym,
+      fields: [...sym.fields, { ...sym.fields[0]!, key: 'MPN', value: 'X-1' }],
+    };
+    const out = libSymbolFromPlacement(extra, libSymbol());
+    expect(out.properties.find((p) => p.key === 'MPN')).toBeUndefined();
   });
 
   it('floors unit and body style at 1', () => {

@@ -23,8 +23,28 @@
  *    library index, so a derived symbol arrives flattened. Flattening again
  *    would be a no-op.
  *  - **field text, effects and angle.** Upstream copies the whole field
- *    (`libField = field`) and then overwrites only the position, so everything
- *    else rides along untouched. So does this: only `at` changes.
+ *    (`libField = field`) and then overwrites only the position. We take the
+ *    **library's** field values and borrow only the *position* from the
+ *    placement. See below — this one is a deliberate divergence.
+ *
+ * ### Why the values stay the library's
+ *
+ * Upstream's working symbol carries the placement's field *text* too, so the
+ * editor shows `R1` where the library says `R`. That is what lets its
+ * `SaveSymbolToSchematic` call `UpdateFields` with `aUpdateRef` and write `R1`
+ * straight back.
+ *
+ * For us it would be a live hazard. Our `libById` **is** the schematic's
+ * embedded `lib_symbols`, so a save-back that put `R1` into the cached
+ * `Device:R` would leave "Update Symbols from Library" ready to push `R1` onto
+ * every other resistor on the sheet. Taking the position and leaving the value
+ * removes that entirely: the editor shows a library symbol, as a symbol editor
+ * should, and the placement's own Reference is never a thing the round trip can
+ * touch.
+ *
+ * The cost is that fields the placement has and the library does not are not
+ * carried into the working copy. They are not part of the library symbol, and
+ * the placement keeps them either way.
  *
  * What comes back is a working copy. Nothing here writes a library — the round
  * trip (editing it, and pushing the result back onto the placement) is the
@@ -47,12 +67,13 @@ import type { LibSymbol, SchField, SchSymbol } from '../types.js';
  */
 export function libSymbolFromPlacement(sym: SchSymbol, lib: LibSymbol): LibSymbol {
   const inv = invertTransform(symbolTransform(sym.angle, sym.mirror));
-  const properties = sym.fields.map((f): SchField => {
-    if (!f.at) return f;
+  const placed = new Map(sym.fields.map((f) => [f.key, f]));
+  const properties = lib.properties.map((f): SchField => {
+    const from = placed.get(f.key);
+    if (!from?.at) return f;
     // Relative to the symbol origin first: a placement's field position is
     // absolute, a library symbol's is not.
-    const local = applyTransform(inv, { x: f.at.x - sym.at.x, y: f.at.y - sym.at.y });
-    return { ...f, at: local };
+    return { ...f, at: applyTransform(inv, { x: from.at.x - sym.at.x, y: from.at.y - sym.at.y }) };
   });
   return { ...lib, libId: sym.libId, properties };
 }
