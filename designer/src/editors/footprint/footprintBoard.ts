@@ -59,6 +59,7 @@ export function footprintToBoard(fp: PcbFootprint | null): Board {
     footprints: fp ? [fp] : [],
     textBoxes: [],
     tables: [],
+    images: [],
     dimensions: [],
     tracks: [],
     arcs: [],

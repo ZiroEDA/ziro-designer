@@ -54,6 +54,7 @@ const board = (vias: PcbVia[]): Board => ({
   dimensions: [],
   textBoxes: [],
   tables: [],
+  images: [],
   groups: [],
   source: EMPTY,
 });

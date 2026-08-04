@@ -110,6 +110,8 @@ export {
   buildDimensionNode,
   buildTextBoxNode,
   buildTableNode,
+  buildImageNode,
+  BASE64_LINE_WIDTH,
   buildTableCellNode,
 } from './write-board.js';
 export {
