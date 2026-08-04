@@ -77,10 +77,57 @@ export interface PinSegment {
  * GuessSelectionCandidates lets an exact pin hit win outright. Hidden pins are
  * skipped unless `showHidden`, matching `!pin->IsVisible() && !GetShowAllPins()`.
  */
+/**
+ * Per-document memo for the two collectors below.
+ *
+ * Both walk every symbol and allocate an entry per pin and per field, and both
+ * are called from `hitTest` — which runs on every click, double-click and
+ * right-click. On a 2000-symbol sheet that was ~6 ms and several thousand
+ * throwaway objects **per click**, recomputing an answer that cannot have
+ * changed.
+ *
+ * A `WeakMap` keyed by the document is correct by construction rather than by
+ * discipline: `Schematic` is immutable and replaced on every edit, so a new
+ * document simply misses, and the old entry is collected with the old
+ * document. There is no invalidation to get wrong.
+ */
+const pinSegmentCache = new WeakMap<Schematic, Map<string, PinSegment[]>>();
+const fieldBoxCache = new WeakMap<Schematic, ReturnType<typeof computeFieldBoxes>>();
+
+function memo<T>(
+  cache: WeakMap<Schematic, Map<string, T>>,
+  sch: Schematic,
+  key: string,
+  make: () => T,
+): T {
+  let byKey = cache.get(sch);
+  if (!byKey) {
+    byKey = new Map();
+    cache.set(sch, byKey);
+  }
+  const hit = byKey.get(key);
+  if (hit !== undefined) return hit;
+  const made = make();
+  byKey.set(key, made);
+  return made;
+}
+
 export function collectPinSegments(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
   showHidden = false,
+): PinSegment[] {
+  // The library map is not part of the key: it is derived from the document's
+  // own `lib_symbols` and changes with it.
+  return memo(pinSegmentCache, sch, showHidden ? 'hidden' : 'shown', () =>
+    computePinSegments(sch, libById, showHidden),
+  );
+}
+
+function computePinSegments(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  showHidden: boolean,
 ): PinSegment[] {
   const out: PinSegment[] = [];
   sch.symbols.forEach((sym, si) => {
@@ -131,6 +178,17 @@ export const pinAccuracy = (accuracy: number): number => Math.max(accuracy, PIN_
 
 /** Every visible field of every placed symbol, with its id and world box. */
 export function collectFieldBoxes(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+): { id: string; symbolIndex: number; index: number; bbox: ReturnType<typeof fieldBBox> }[] {
+  const hit = fieldBoxCache.get(sch);
+  if (hit) return hit;
+  const made = computeFieldBoxes(sch, libById);
+  fieldBoxCache.set(sch, made);
+  return made;
+}
+
+function computeFieldBoxes(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
 ): { id: string; symbolIndex: number; index: number; bbox: ReturnType<typeof fieldBBox> }[] {

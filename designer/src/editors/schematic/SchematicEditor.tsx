@@ -370,6 +370,7 @@ import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
 import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
+import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -557,6 +558,7 @@ export function SchematicEditor({
   onShowPcb,
   onUpdatePcb,
   readBoardFootprints,
+  autosaveActive,
   onShowSymbolEditor,
   onShowFootprintEditor,
   onShowCalculator,
@@ -581,6 +583,12 @@ export function SchematicEditor({
    *  so a project with no board simply has no entry. Returning null means the
    *  board could not be read, which the caller reports. */
   readBoardFootprints?: () => PcbFootprintData[] | null;
+  /**
+   * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
+   * without a project, or when IndexedDB is unavailable — in which case nothing
+   * is written until Save, and leaving the page is worth a prompt.
+   */
+  autosaveActive?: boolean;
   /** Open the Symbol Editor (the top toolbar's `symbolEditor` button). */
   onShowSymbolEditor?: () => void;
   /** Open the Footprint Editor (the top toolbar's `footprintEditor` button). */
@@ -630,6 +638,14 @@ export function SchematicEditor({
   // greys when clean), same affordance as the PCB editor / KiCad's title.
   const [dirty, setDirty] = useState(false);
   const dirtySkipRef = useRef(true);
+  /**
+   * Edits made since the last time anything was written.
+   *
+   * Not the same as `dirty`, which is the title's asterisk and clears on a
+   * timer whether or not a write actually happened — fine as a flash, useless
+   * as "is there work to lose". This one only clears on a save.
+   */
+  const [unsaved, setUnsaved] = useState(false);
 
   const [doc, setDoc] = useState<Schematic | null>(initial);
   // Multi-sheet project: every parsed document by basename, the root file, and a
@@ -2974,29 +2990,47 @@ export function SchematicEditor({
   // autosave window (1.2 s) has taken the change. Mount / file switches skip.
   useEffect(() => {
     dirtySkipRef.current = true;
+    setUnsaved(false);
   }, [currentFile]);
+
+  // Only when nothing is writing the work down. With a project open, autosave
+  // plus the flush on page-hide already carry it, and a prompt would be noise
+  // on every close.
+  useUnsavedGuard(!autosaveActive && unsaved);
   useEffect(() => {
     if (dirtySkipRef.current) {
       dirtySkipRef.current = false;
       return;
     }
     setDirty(true);
+    setUnsaved(true);
     const id = setTimeout(() => setDirty(false), 1600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc]);
 
   const save = useCallback(() => {
-    setDirty(false);
-    setDoc((d) => {
-      if (!d) return d;
-      const text = serializeSchematic(d);
-      if (onPersistFiles && currentFile !== DEFAULT_FILE) {
-        // Save writes into the project's file manager (cloud storage); a local
-        // copy can be downloaded from there (or via Save a Copy).
-        onPersistFiles([{ name: currentFile, text }]);
-        return d;
-      }
+    // Not inside a setDoc updater. A state updater must be pure — StrictMode
+    // runs it twice, which here meant persisting twice or firing two downloads
+    // — and it must not be where the work is decided: the document is read from
+    // its ref instead.
+    const d = docRef.current;
+    if (!d) return;
+    let text: string;
+    try {
+      text = serializeSchematic(d);
+    } catch (e) {
+      // The flags stay set. Clearing them first told the user their work was
+      // safe *because* we were about to write it, which is exactly backwards
+      // when the write is the thing that failed.
+      setInfoBar(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+      // Save writes into the project's file manager (cloud storage); a local
+      // copy can be downloaded from there (or via Save a Copy).
+      onPersistFiles([{ name: currentFile, text }]);
+    } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
       const a = document.createElement('a');
       a.href = url;
@@ -3006,9 +3040,11 @@ export function SchematicEditor({
           : (fileName ?? `${d.titleBlock?.title ?? 'schematic'}.kicad_sch`);
       a.click();
       URL.revokeObjectURL(url);
-      return d;
-    });
-  }, [fileName, currentFile]);
+    }
+    // Only now: the asterisk and the leave-prompt both mean "written".
+    setDirty(false);
+    setUnsaved(false);
+  }, [fileName, currentFile, onPersistFiles]);
 
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),

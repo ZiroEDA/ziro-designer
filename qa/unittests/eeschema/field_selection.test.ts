@@ -452,3 +452,43 @@ describe('pins are selectable items', () => {
     expect(after.lines).toEqual(doc.lines);
   });
 });
+
+/**
+ * `collectPinSegments` and `collectFieldBoxes` are memoised per document,
+ * because `hitTest` calls both on every click and both walk every symbol —
+ * ~6 ms and several thousand throwaway objects per click on a 2000-symbol
+ * sheet, recomputing an answer that cannot have changed.
+ *
+ * The cache is keyed on the document, which is immutable and replaced on every
+ * edit. These pin the two things that would make it wrong: an answer that goes
+ * stale, and a flag that is not part of the key.
+ */
+describe('the collectors are memoised on the document', () => {
+  it('hands back the same array for the same document', () => {
+    const { doc, lib } = sheetWithResistor();
+    expect(collectFieldBoxes(doc, lib)).toBe(collectFieldBoxes(doc, lib));
+    expect(collectPinSegments(doc, lib)).toBe(collectPinSegments(doc, lib));
+  });
+
+  it('recomputes for a different document, so an edit is never stale', () => {
+    // A new document object is what an edit produces, and it must miss.
+    const a = sheetWithResistor();
+    const b = sheetWithResistor();
+    expect(collectFieldBoxes(a.doc, a.lib)).not.toBe(collectFieldBoxes(b.doc, b.lib));
+    // Same shape, computed twice — the ids differ only because placeSymbol
+    // mints a fresh uuid, which is the fixture rather than the cache.
+    expect(collectFieldBoxes(a.doc, a.lib).map((f) => f.index)).toEqual(
+      collectFieldBoxes(b.doc, b.lib).map((f) => f.index),
+    );
+  });
+
+  it('keeps the hidden-pin variants apart', () => {
+    // showHidden is part of the key; sharing one entry would hand the renderer
+    // the hit-tester's answer and hide pins that should be drawn.
+    const { doc, lib } = sheetWithResistor();
+    const shown = collectPinSegments(doc, lib, false);
+    const hidden = collectPinSegments(doc, lib, true);
+    expect(shown).not.toBe(hidden);
+    expect(collectPinSegments(doc, lib, true)).toBe(hidden);
+  });
+});
