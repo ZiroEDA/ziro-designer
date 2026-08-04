@@ -47,6 +47,7 @@ import type {
   PcbFootprint,
   PcbPad,
   PcbShape,
+  PcbTextBox,
   PcbTextItem,
   PcbZone,
   PcbZoneFill,
@@ -192,6 +193,56 @@ const maskMarginOf = (node: SList): number | undefined => {
 
 const uuidOf = (node: SList): string | undefined =>
   stringField(node, 'uuid') ?? stringField(node, 'tstamp');
+
+/**
+ * `(gr_text_box "…" …)`, PCB_IO_KICAD_SEXPR_PARSER::parseTextBoxContent.
+ *
+ * The box is two corners normally and a `(pts …)` polygon once a non-cardinal
+ * rotation has turned it into one, exactly as `gr_rect` behaves. Both forms are
+ * kept as they were found: converting a polygon back to corners would lose the
+ * rotation, which is the whole reason it became a polygon.
+ */
+function readTextBox(item: SList): PcbTextBox | null {
+  const marginsNode = childNamed(item, 'margins');
+  const m = (i: number): number => (marginsNode ? mmToIU(numArg(marginsNode, i) ?? 0) : 0);
+  const fx = readTextEffects(item);
+  const angleNode = childNamed(item, 'angle');
+  const angle = angleNode ? numArg(angleNode, 0) : undefined;
+  const borderNode = childNamed(item, 'border');
+  const knockoutNode = childNamed(item, 'knockout');
+
+  const box: PcbTextBox = {
+    text: arg(item, 0) ?? '',
+    margins: { left: m(0), top: m(1), right: m(2), bottom: m(3) },
+    angle,
+    layer: stringField(item, 'layer') ?? '',
+    uuid: uuidOf(item),
+    size: fx.size,
+    thickness: fx.thickness,
+    bold: fx.bold,
+    italic: fx.italic,
+    justify: fx.justify,
+    // `(border …)` is written explicitly both ways; a box with no token at all
+    // is a border, matching PCB_TEXTBOX's constructor.
+    border: borderNode ? arg(borderNode, 0) !== 'no' : true,
+    strokeWidth: mmToIU(strokeWidth(item)),
+    strokeType: strokeType(item),
+    knockout: knockoutNode ? arg(knockoutNode, 0) !== 'no' : undefined,
+    source: item,
+  };
+
+  const start = ptAt(childNamed(item, 'start'));
+  const end = ptAt(childNamed(item, 'end'));
+  if (start && end) {
+    box.start = start;
+    box.end = end;
+  } else {
+    const pts = readPts(childNamed(item, 'pts'), null);
+    if (pts.length === 0) return null; // neither form: not a box we can round-trip
+    box.pts = pts;
+  }
+  return box;
+}
 
 /**
  * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR_PARSER::parseDIMENSION.
@@ -877,6 +928,7 @@ export function readBoard(root: SList): Board {
     zones: [],
     shapes: [],
     texts: [],
+    textBoxes: [],
     dimensions: [],
     groups: [],
     source: root,
@@ -1008,6 +1060,11 @@ export function readBoard(root: SList): Board {
       case 'gr_text': {
         const tx = readPcbText(item, 'user', arg(item, 0) ?? '', null);
         if (tx) board.texts.push({ ...tx, locked: lockedOf(item) });
+        break;
+      }
+      case 'gr_text_box': {
+        const tb = readTextBox(item);
+        if (tb) board.textBoxes.push({ ...tb, locked: lockedOf(item) });
         break;
       }
       case 'dimension': {
