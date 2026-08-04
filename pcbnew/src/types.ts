@@ -232,6 +232,18 @@ export interface PcbFootprint {
   /** `(attr …)` flags (board_only, exclude_from_pos_files, exclude_from_bom, dnp, …). */
   attributes?: string[];
   /**
+   * `(net_tie_pad_groups "1,2" "3,4")`, FOOTPRINT::GetNetTiePadGroups: one
+   * string per group, each a comma-separated list of pad numbers that are
+   * *allowed* to short to one another. A backslash escapes the next character,
+   * so a pad genuinely numbered `A,1` can be listed as `A\,1` — which is why
+   * the strings are kept raw here and parsed by `mapPadNumbersToNetTieGroups`
+   * rather than split on read.
+   *
+   * `FOOTPRINT::IsNetTie()` is "at least one non-empty string", so
+   * `(net_tie_pad_groups "")` describes a footprint that is *not* a net tie.
+   */
+  netTiePadGroups?: string[];
+  /**
    * Local overrides of the Board Setup values, all optional and all in IU
    * except the paste ratio. FOOTPRINT::GetLocalClearance and friends: absent
    * means "use the board value", which is not the same as zero.
