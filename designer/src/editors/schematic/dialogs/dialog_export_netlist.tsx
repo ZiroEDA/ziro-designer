@@ -6,14 +6,22 @@
  * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter. We ship the
  * two built-in formats KiCad generates natively (KiCad generic XML and
  * OrcadPCB2); each page has an Export Netlist button that downloads the file.
+ * Allegro is the exception to "one page, one file": it is a netlist plus a
+ * sibling `devices/` directory of package definitions. With a project sink each
+ * file lands in its own place; without one a browser download cannot create a
+ * folder, so the set goes out as a `.zip` rather than as names with the slashes
+ * flattened out of them.
+ *
  * (Custom command-line generators are a desktop-only feature and omitted.)
  */
 
 import { useState, type JSX } from 'react';
+import { strToU8, zipSync } from 'fflate';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import {
   generateNetlist,
+  netlistFiles,
   generateSpiceNetlist,
   type NetlistFormat,
   type Schematic,
@@ -64,6 +72,14 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
     note: 'The PADS-PCB netlist (NETLIST_EXPORTER_PADS).',
   },
   {
+    id: 'allegro',
+    label: 'Allegro',
+    ext: 'txt',
+    note:
+      'The Cadence Allegro / Telesis netlist. Writes a netlist plus a devices/ ' +
+      'folder of package definitions.',
+  },
+  {
     id: 'spice',
     label: 'Spice',
     ext: 'cir',
@@ -95,6 +111,38 @@ export function DialogExportNetlist({
   const active = TABS.find((t) => t.id === tab)!;
 
   const doExport = (): void => {
+    // Allegro is the one format that is not a single file: a netlist plus a
+    // sibling devices/ directory of package definitions. With a project sink
+    // each file lands in its own place, folder and all; without one a browser
+    // download cannot create a folder, so the set goes out as a .zip rather
+    // than as names with the slashes flattened out of them.
+    if (tab === 'allegro') {
+      const filename = `${baseName}.${active.ext}`;
+      const files = netlistFiles('allegro', filename, doc, libById, {
+        source: `${baseName}.kicad_sch`,
+      });
+      if (onOutputFile) {
+        for (const f of files) {
+          const path = outputDir ? `${outputDir}/${f.path}` : f.path;
+          onOutputFile(path, new TextEncoder().encode(f.text), 'text/plain');
+          report(`Netlist written to '${path}'.`, RPT_SEVERITY_ACTION);
+        }
+      } else {
+        const entries: Record<string, Uint8Array> = {};
+        for (const f of files) entries[f.path] = strToU8(f.text);
+        const zip = `${baseName}-allegro.zip`;
+        const url = URL.createObjectURL(new Blob([zipSync(entries)], { type: 'application/zip' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zip;
+        a.click();
+        URL.revokeObjectURL(url);
+        report(`Netlist downloaded as '${zip}'.`, RPT_SEVERITY_ACTION);
+      }
+      onClose();
+      return;
+    }
+
     let text: string;
     if (tab === 'spice') {
       const out = generateSpiceNetlist(doc, libById, null, {
