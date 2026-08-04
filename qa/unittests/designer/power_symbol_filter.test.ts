@@ -15,6 +15,8 @@ import {
   isPowerSymbol,
   type LibIndexEntry,
 } from '@ziroeda/designer/src/editors/schematic/symbols/index.js';
+import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
 
 const entry = (over: Partial<LibIndexEntry> = {}): LibIndexEntry => ({
   name: 'Device',
@@ -66,5 +68,76 @@ describe('without power flags — an index generated before they existed', () =>
     const known = entry({ name: 'power', symbols: ['PWR_FLAG'], power: [] });
     expect(isPowerSymbol(guessed, 'PWR_FLAG')).toBe(true);
     expect(isPowerSymbol(known, 'PWR_FLAG')).toBe(false);
+  });
+});
+
+describe('the filter reaches the tree, not just the scores', () => {
+  const makeTree = () => {
+    const adapter = new LibTreeModelAdapter();
+    const lib = adapter.addLibrary('power', '', false);
+    for (const name of ['VCC', 'PWR_FLAG']) {
+      const item = new LibTreeNode();
+      item.type = LibTreeNodeType.ITEM;
+      item.parent = lib;
+      item.name = name;
+      item.libNickname = 'power';
+      item.isPower = name === 'VCC';
+      lib.children.push(item);
+    }
+    adapter.finishLibrary(lib);
+    const other = adapter.addLibrary('Device', '', false);
+    const r = new LibTreeNode();
+    r.type = LibTreeNodeType.ITEM;
+    r.parent = other;
+    r.name = 'R';
+    r.libNickname = 'Device';
+    other.children.push(r);
+    adapter.finishLibrary(other);
+    return { adapter, lib, other };
+  };
+
+  it('hides a non-power symbol with no search query', () => {
+    // The bug: the flattening consulted scores only while searching, and the
+    // filter only ever reached the display through scores — so with an empty
+    // search box "Place Power Symbol" listed everything.
+    const { adapter, lib } = makeTree();
+    adapter.setFilter((n) => n.isPower);
+    const [vcc, pwrFlag] = lib.children;
+    expect(adapter.isVisible(vcc!, false)).toBe(true);
+    expect(adapter.isVisible(pwrFlag!, false)).toBe(false);
+  });
+
+  it('hides a library with nothing matching, rather than showing an empty header', () => {
+    const { adapter, lib, other } = makeTree();
+    adapter.setFilter((n) => n.isPower);
+    expect(adapter.isVisible(lib, false)).toBe(true);
+    expect(adapter.isVisible(other, false)).toBe(false);
+  });
+
+  it('keeps an as-yet-unloaded library, whose symbols are unknown', () => {
+    // It has no children to test, and hiding it would make a library the user
+    // is about to open disappear.
+    const { adapter } = makeTree();
+    const unloaded = adapter.addLibrary('Connector', '', false);
+    adapter.setFilter((n) => n.isPower);
+    expect(unloaded.children.length).toBe(0);
+    expect(adapter.isVisible(unloaded, false)).toBe(true);
+  });
+
+  it('still drops zero-score rows while a query is running', () => {
+    const { adapter, lib } = makeTree();
+    adapter.setFilter(null);
+    const vcc = lib.children[0]!;
+    vcc.score = 0;
+    expect(adapter.isVisible(vcc, true)).toBe(false);
+    expect(adapter.isVisible(vcc, false)).toBe(true);
+  });
+
+  it('shows everything when no filter is set', () => {
+    const { adapter, lib, other } = makeTree();
+    adapter.setFilter(null);
+    expect(adapter.isVisible(lib, false)).toBe(true);
+    expect(adapter.isVisible(other, false)).toBe(true);
+    expect(adapter.isVisible(lib.children[1]!, false)).toBe(true);
   });
 });
