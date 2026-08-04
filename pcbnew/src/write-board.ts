@@ -233,6 +233,18 @@ export function buildZoneNode(z: PcbZone): SList {
         list(atom('footprints'), allow(z.ruleArea.footprints)),
       ),
     );
+
+    // `(placement …)` follows unconditionally for a rule area, source type and
+    // name included even when it is disabled — upstream writes the last-chosen
+    // source so re-enabling the area does not lose it.
+    const placement = z.placementArea;
+    items.push(
+      list(
+        atom('placement'),
+        list(atom('enabled'), atom(placement?.enabled ? 'yes' : 'no')),
+        list(atom(placement?.sourceType ?? 'sheetname'), str(placement?.source ?? '')),
+      ),
+    );
   }
 
   items.push(list(atom('filled_areas_thickness'), atom('no')));

@@ -465,6 +465,14 @@ export interface PcbZone {
    * and the sense cannot be read backwards.
    */
   ruleArea?: RuleAreaKeepout;
+  /**
+   * `(placement …)` — the *placement* half of a rule area, which restricts
+   * where the footprints of one schematic sheet / component class / group may
+   * sit. Upstream's parser calls `SetIsRuleArea( true )` from this token too,
+   * so a zone carrying only `(placement …)` and no `(keepout …)` is still a
+   * rule area; `ruleArea` is therefore never absent while this is present.
+   */
+  placementArea?: ZonePlacementArea;
   locked?: boolean;
   uuid?: string;
   source: SList;
@@ -478,6 +486,26 @@ export interface RuleAreaKeepout {
   /** `copperpour`, ZONE::GetDoNotAllowZoneFills. */
   copperPour: boolean;
   footprints: boolean;
+}
+
+/**
+ * PLACEMENT_SOURCE_T, minus `DESIGN_BLOCK`: that member exists only for the
+ * multichannel tool's in-flight rule areas, has no file token, and upstream's
+ * writer explicitly emits nothing for it — a saved zone can never carry it.
+ */
+export type PlacementSourceType = 'sheetname' | 'component_class' | 'group';
+
+/**
+ * `(placement (enabled yes|no) (sheetname|component_class|group "…"))`.
+ *
+ * `sourceType` and `source` are written even when `enabled` is false, because
+ * upstream stores the last-chosen source so re-enabling the rule area does not
+ * lose it.
+ */
+export interface ZonePlacementArea {
+  enabled: boolean;
+  sourceType: PlacementSourceType;
+  source: string;
 }
 
 /**
