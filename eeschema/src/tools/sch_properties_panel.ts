@@ -22,6 +22,7 @@ import type {
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
+  replaceImage,
   replaceJunction,
   replaceLabel,
   replaceLine,
@@ -488,6 +489,28 @@ export function schPropertiesFor(
       const i = indexOf(sch.noConnects, (t, k) => refId('noconnect', t.uuid, k));
       if (i < 0) return [];
       return positionRows(refId('noconnect', sch.noConnects[i]!.uuid, i), sch.noConnects[i]!.at);
+    }
+    // SCH_BITMAP's editable property is its scale; the position comes from the
+    // shared rows so it moves the same way every other item does.
+    case 'image': {
+      const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
+      if (i < 0) return [];
+      const im = sch.images[i]!;
+      return [
+        ...positionRows(refId('image', im.uuid, i), im.at),
+        {
+          group: '',
+          name: 'Scale',
+          kind: 'dist',
+          value: im.scale,
+          set: (v) => {
+            const n = num(v);
+            // A zero or negative scale would collapse or invert the image;
+            // PANEL_IMAGE_EDITOR clamps rather than accepting it.
+            return n === null || n <= 0 ? null : replaceImage(i, { ...im, scale: n });
+          },
+        },
+      ];
     }
     case 'sheet': {
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
