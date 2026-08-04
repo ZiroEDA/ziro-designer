@@ -2896,17 +2896,27 @@ export function SchematicEditor({
   }, [doc]);
 
   const save = useCallback(() => {
-    setDirty(false);
-    setUnsaved(false);
-    setDoc((d) => {
-      if (!d) return d;
-      const text = serializeSchematic(d);
-      if (onPersistFiles && currentFile !== DEFAULT_FILE) {
-        // Save writes into the project's file manager (cloud storage); a local
-        // copy can be downloaded from there (or via Save a Copy).
-        onPersistFiles([{ name: currentFile, text }]);
-        return d;
-      }
+    // Not inside a setDoc updater. A state updater must be pure — StrictMode
+    // runs it twice, which here meant persisting twice or firing two downloads
+    // — and it must not be where the work is decided: the document is read from
+    // its ref instead.
+    const d = docRef.current;
+    if (!d) return;
+    let text: string;
+    try {
+      text = serializeSchematic(d);
+    } catch (e) {
+      // The flags stay set. Clearing them first told the user their work was
+      // safe *because* we were about to write it, which is exactly backwards
+      // when the write is the thing that failed.
+      setInfoBar(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+      // Save writes into the project's file manager (cloud storage); a local
+      // copy can be downloaded from there (or via Save a Copy).
+      onPersistFiles([{ name: currentFile, text }]);
+    } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
       const a = document.createElement('a');
       a.href = url;
@@ -2916,9 +2926,11 @@ export function SchematicEditor({
           : (fileName ?? `${d.titleBlock?.title ?? 'schematic'}.kicad_sch`);
       a.click();
       URL.revokeObjectURL(url);
-      return d;
-    });
-  }, [fileName, currentFile]);
+    }
+    // Only now: the asterisk and the leave-prompt both mean "written".
+    setDirty(false);
+    setUnsaved(false);
+  }, [fileName, currentFile, onPersistFiles]);
 
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),
