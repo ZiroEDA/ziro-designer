@@ -34,6 +34,7 @@ import { connectedTrackEnds } from './connectivity.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
+import { tableBBox } from './table_geometry.js';
 import type {
   Board,
   PcbDimension,
@@ -43,6 +44,7 @@ import type {
   PcbArcTrack,
   PcbVia,
   PcbShape,
+  PcbTable,
   PcbTextBox,
   PcbTextItem,
   PcbZone,
@@ -72,6 +74,7 @@ const BOARD_ITEM_KINDS = [
   'shape',
   'text',
   'textbox',
+  'table',
   'dimension',
   'fptext',
   'pad',
@@ -258,6 +261,10 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
     case 'textbox': {
       const t = board.textBoxes[ref.index];
       return t ? textBoxBBox(t) : null;
+    }
+    case 'table': {
+      const tb = board.tables[ref.index];
+      return tb ? tableBBox(tb) : null;
     }
     case 'dimension': {
       const d = board.dimensions[ref.index];
@@ -583,6 +590,20 @@ export function boardHitCandidates(
         layers: [tb.layer],
       });
   });
+  board.tables.forEach((tb, i) => {
+    // PCB_TABLE::HitTest is a bounding-box Contains, like a text box: the whole
+    // grid is clickable, not just its lines.
+    const b = tableBBox(tb);
+    const d = bboxDist(b, pos);
+    if (d <= tol)
+      hits.push({
+        id: boardItemId('table', i),
+        kind: 'table',
+        dist: d,
+        area: bboxArea(b),
+        layers: [tb.layer],
+      });
+  });
   board.dimensions.forEach((dm, i) => {
     const d = distanceToDimension(dm, pos);
     if (d <= tol)
@@ -887,6 +908,10 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('textbox', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('textbox', i);
   });
+  board.tables.forEach((_, i) => {
+    const b = boardItemBBox(board, boardItemId('table', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('table', i);
+  });
   board.dimensions.forEach((_, i) => {
     const b = boardItemBBox(board, boardItemId('dimension', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('dimension', i);
@@ -913,6 +938,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.shapes.forEach((_, i) => out.push(boardItemId('shape', i)));
   board.texts.forEach((_, i) => out.push(boardItemId('text', i)));
   board.textBoxes.forEach((_, i) => out.push(boardItemId('textbox', i)));
+  board.tables.forEach((_, i) => out.push(boardItemId('table', i)));
   board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
@@ -998,6 +1024,35 @@ const moveVia = (v: PcbVia, d: Vec2): PcbVia => {
 const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => {
   const at = add(t.at, d);
   return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
+};
+
+/**
+ * Shift a table: every cell moves, and the source is patched cell by cell.
+ *
+ * A table has no coordinates of its own — its position *is* its cells — so
+ * moving one is moving all of them. The column widths and row heights are
+ * sizes, not positions, and stay put.
+ */
+const moveTable = (t: PcbTable, d: Vec2): PcbTable => {
+  const cells = t.cells.map((c) => ({
+    ...moveTextBox(c, d),
+    colSpan: c.colSpan,
+    rowSpan: c.rowSpan,
+  }));
+  let ci = 0;
+  const src: SList = {
+    kind: 'list',
+    items: t.source.items.map((it) => {
+      if (!isList(it) || head(it) !== 'cells') return it;
+      return {
+        kind: 'list',
+        items: it.items.map((c) =>
+          isList(c) && head(c) === 'table_cell' ? (cells[ci++]?.source ?? c) : c,
+        ),
+      };
+    }),
+  };
+  return { ...t, cells, source: src };
 };
 
 /**
@@ -1190,6 +1245,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? moveShape(s, delta) : s)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? moveText(t, delta) : t)),
     textBoxes: board.textBoxes.map((t, i) => (idx.textbox.has(i) ? moveTextBox(t, delta) : t)),
+    tables: board.tables.map((t, i) => (idx.table.has(i) ? moveTable(t, delta) : t)),
     dimensions: board.dimensions.map((d, i) =>
       idx.dimension.has(i) ? moveDimension(d, delta) : d,
     ),
@@ -1355,6 +1411,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     shape: new Set(),
     text: new Set(),
     textbox: new Set(),
+    table: new Set(),
     dimension: new Set(),
     fptext: new Set(),
     pad: new Set(),
@@ -1455,6 +1512,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     shapes: board.shapes.filter((_, i) => !idx.shape.has(i)),
     texts: board.texts.filter((_, i) => !idx.text.has(i)),
     textBoxes: board.textBoxes.filter((_, i) => !idx.textbox.has(i)),
+    tables: board.tables.filter((_, i) => !idx.table.has(i)),
     dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
@@ -1852,6 +1910,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.texts[r.index]?.uuid;
     case 'textbox':
       return board.textBoxes[r.index]?.uuid;
+    case 'table':
+      return board.tables[r.index]?.uuid;
     case 'dimension':
       return board.dimensions[r.index]?.uuid;
     case 'footprint':
@@ -2081,6 +2141,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.texts[r.index]?.locked;
     case 'textbox':
       return !!board.textBoxes[r.index]?.locked;
+    case 'table':
+      return !!board.tables[r.index]?.locked;
     case 'dimension':
       return !!board.dimensions[r.index]?.locked;
     case 'footprint':

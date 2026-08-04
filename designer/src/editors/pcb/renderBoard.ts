@@ -27,11 +27,14 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
   dimensionSegments,
+  tableBBox,
+  tableBorderSegments,
   textBoxBBox,
   textBoxCorners,
   tessellateArc,
   type Board,
   type PcbDimension,
+  type PcbTable,
   type PcbTextBox,
   type PcbPad,
   type PcbShape,
@@ -652,6 +655,47 @@ function textBoxTextAnchor(t: PcbTextBox): Vec2 {
 }
 
 /**
+ * A table: every cell drawn as a text box, then the borders and separators.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_TABLE* )`.
+ *
+ * A cell is drawn *without* its own border — upstream calls the shared text box
+ * painter, and a cell's `border` is never set from a file — so all the lines
+ * come from `tableBorderSegments`. They are bucketed by stroke width, since a
+ * header separator uses the heavier border weight while the rest use the
+ * separators weight.
+ */
+function addTable(scene: BoardScene, t: PcbTable): void {
+  if (t.cells.length === 0) return;
+  const b = buckets(scene, t.layer);
+
+  for (const cell of t.cells) {
+    // A zero span means the cell was merged away; upstream skips those.
+    if (cell.colSpan === 0 || cell.rowSpan === 0) continue;
+    if (cell.text !== '') {
+      addText(b.textBoard, {
+        kind: 'user',
+        text: cell.text,
+        at: textBoxTextAnchor(cell),
+        angle: cell.angle ?? 0,
+        layer: t.layer,
+        size: cell.size,
+        thickness: cell.thickness,
+        bold: cell.bold,
+        italic: cell.italic,
+        justify: cell.justify,
+        source: { kind: 'list', items: [] },
+      });
+    }
+  }
+
+  for (const seg of tableBorderSegments(t)) {
+    const p = pathIn(b.gfxStrokes, Math.max(seg.width, 1));
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
+  }
+}
+
+/**
  * A dimension's lines, into the graphics-stroke bucket of its layer.
  * Counterpart: `PCB_PAINTER::draw( const PCB_DIMENSION_BASE* )`, which walks
  * the shapes `updateGeometry` produced and strokes them at the line width.
@@ -1085,6 +1129,12 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
   for (const t of board.textBoxes) {
     addTextBox(scene, t);
     const tb = textBoxBBox(t);
+    grow(tb.minX, tb.minY);
+    grow(tb.maxX, tb.maxY);
+  }
+  for (const t of board.tables) {
+    addTable(scene, t);
+    const tb = tableBBox(t);
     grow(tb.minX, tb.minY);
     grow(tb.maxX, tb.maxY);
   }

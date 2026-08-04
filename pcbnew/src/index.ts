@@ -454,3 +454,11 @@ export {
   DEFAULT_TEXTBOX_DEFAULTS,
   type TextBoxDefaults,
 } from './draw_textbox.js';
+
+export {
+  tableBBox,
+  tableBorderSegments,
+  tableCell,
+  tableRowCount,
+  type TableSegment,
+} from './table_geometry.js';
