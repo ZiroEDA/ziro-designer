@@ -3,6 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
+import { readBoard } from '@ziroeda/pcbnew';
+import { parse as parseSexpr } from '@ziroeda/sexpr';
+import { boardFootprintData } from './editors/schematic/back_annotate_source.js';
 import { HomePage } from './home/HomePage.js';
 import { SchematicEditor, type PickedFile } from './editors/schematic/SchematicEditor.js';
 import { PcbEditor } from './editors/pcb/PcbEditor.js';
@@ -512,6 +515,20 @@ export function App(): JSX.Element {
           <SchematicEditor
             onExitToHome={goHome}
             onShowPcb={pcbFile ? showPcb : undefined}
+            // Tools > Update Schematic from PCB: read the board here, so the
+            // schematic editor never has to know the board model — the adapter
+            // is the whole coupling between the two.
+            readBoardFootprints={
+              pcbFile
+                ? () => {
+                    try {
+                      return boardFootprintData(readBoard(parseSexpr(pcbFile.text)));
+                    } catch {
+                      return null;
+                    }
+                  }
+                : undefined
+            }
             onUpdatePcb={
               pcbFile
                 ? () => {

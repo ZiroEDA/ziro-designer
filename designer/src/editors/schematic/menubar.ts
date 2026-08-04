@@ -69,6 +69,12 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     action: () => h.toggle(id),
   });
   /** Not implemented yet, greyed out, exactly where upstream puts it. */
+  /** An action with no icon of its own. */
+  const actNoIcon = (label: string, id: string, shortcut?: string): MenuItem => ({
+    label,
+    shortcut,
+    action: () => h.action(id),
+  });
   const stub = (label: string, shortcut?: string): MenuItem => ({
     label,
     shortcut,
@@ -266,7 +272,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Generate Bill of Materials...', 'bom', 'bom'),
         stub('Generate Legacy Bill of Materials...'),
         SEP,
-        stub('Update Schematic from PCB...'),
+        actNoIcon('Update Schematic from PCB...', 'updateSchFromPcb'),
         SEP,
         {
           label: 'Variants',
