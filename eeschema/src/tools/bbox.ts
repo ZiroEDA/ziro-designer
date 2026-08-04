@@ -195,11 +195,66 @@ export function globalLabelShape(l: SchLabel, labelSizeRatio = DEFAULT_LABEL_SIZ
  * length in characters and nothing like the same width on screen, and this box
  * is what decides whether a click lands on the label.
  *
- * The height stays the nominal text height plus the pen, where upstream uses
- * the glyphs' own vertical extent — our stroke font exposes advance widths but
- * no vertical metrics, so a line of `xxx` gets the same box height as `XXX`.
- * Only the top and bottom edges are affected, by a fraction of the height.
+ * The nominal text height is the right starting point and not a shortcut:
+ * KiCad's own stroke font ends `GetTextAsGlyphs` with
+ * `aBBox->SetEnd( cursor.x - …, cursor.y - glyphSize.y )`, so a line of `xxx`
+ * boxes the same as `XXX` upstream too. The per-glyph boxes it builds feed the
+ * advance *width* only.
+ *
+ * What the nominal height still needs, and what `labelTextBox` below adds, is
+ * everything `EDA_TEXT::GetTextBox` puts around it.
  */
+/**
+ * `EDA_TEXT::GetTextBox` for one line of schematic text.
+ *
+ * The pieces, in upstream's order, because each one moves an edge:
+ *
+ *  1. `FONT::StringBoundaryLimits` — the glyph extent inflated by
+ *     `1.5 × thickness` on every side for a stroke font, "to catch
+ *     diacriticals, descenders, etc.". `textBoxWidth` already carries that on
+ *     the width; the height needs it too.
+ *  2. a stroke-font `fudgeFactor` of `0.17 × extents.y`, added to the height —
+ *     and taken from the *inflated* extent, not the raw one.
+ *  3. an overbar allowance of `extents.y / 6` when the text contains `~{`.
+ *  4. justification, which moves the box relative to the anchor. The vertical
+ *     cases also *use* the fudge: top offsets by `-fudge`, bottom by `+fudge`.
+ *
+ * Vertical justification defaults to centre here. KiCad reads it from the item
+ * and our file model often has no vertical token at all; centre is what this
+ * codebase has always drawn and hit-tested with, so it stays the default rather
+ * than being changed on an unverifiable reading.
+ */
+export function labelTextBox(
+  text: string,
+  height: number,
+  bold: boolean,
+  justify: readonly string[] | undefined,
+  at: Vec2,
+): BBox {
+  const pen = textPenWidth(height, bold);
+  // StringBoundaryLimits inflates both axes; textBoxWidth has the width half.
+  const extentsX = textBoxWidth(text, height, bold);
+  const extentsY = height + 3 * pen;
+  const fudge = Math.round(extentsY * 0.17);
+  let sizeY = extentsY + fudge;
+  // `text.Contains( "~{" )`: an overbar climbs above the nominal ascent.
+  if (text.includes('~{')) sizeY += Math.round(extentsY / 6);
+
+  const right = justify?.includes('right') ?? false;
+  const centreH = !right && !justify?.includes('left');
+  const left = right ? at.x - extentsX : centreH ? at.x : at.x;
+  // Only 'right' shifts the box in our model; 'left' and the absent case both
+  // start at the anchor, as GR_TEXT_H_ALIGN_LEFT does without mirroring.
+  const x0 = left;
+
+  let y0: number;
+  if (justify?.includes('top')) y0 = at.y - fudge;
+  else if (justify?.includes('bottom')) y0 = at.y - sizeY + fudge;
+  else y0 = at.y - sizeY / 2;
+
+  return { minX: x0, minY: y0, maxX: x0 + extentsX, maxY: y0 + sizeY };
+}
+
 export function labelBox(l: SchLabel): BBox {
   const h = l.effects?.fontSize?.[0] ?? 12700;
   const justify = l.effects?.justify;
@@ -214,21 +269,46 @@ export function labelBox(l: SchLabel): BBox {
     for (const p of globalLabelShape(l)) includePoint(b, p);
     return inflate(b, pen / 2);
   }
-  const w = textBoxWidth(l.text, h, bold) + 2 * pen;
-  const at = l.at;
-  const left = justify?.includes('right') ? at.x - w : at.x;
-  const right = justify?.includes('right') ? at.x : at.x + w;
-  const top = justify?.includes('bottom')
-    ? at.y - h
-    : justify?.includes('top')
-      ? at.y
-      : at.y - h / 2;
-  const bottom = justify?.includes('bottom')
-    ? at.y
-    : justify?.includes('top')
-      ? at.y + h
-      : at.y + h / 2;
-  return { minX: left, minY: top, maxX: right, maxY: bottom };
+  // `SCH_LABEL::GetBodyBoundingBox`: the text box, lifted by the text offset,
+  // inflated by the pen, turned by the text angle, and finally merged with the
+  // anchor — the point where the wire actually attaches, which sits outside the
+  // text box and would otherwise not be clickable at all.
+  const box = labelTextBox(l.text, h, bold, justify, l.at);
+  const offset = Math.round(TEXT_OFFSET_RATIO * h);
+  let out: BBox = {
+    minX: box.minX,
+    minY: box.minY - offset,
+    maxX: box.maxX,
+    maxY: box.maxY - offset,
+  };
+  out = inflate(out, pen);
+
+  if (((l.angle % 360) + 360) % 360 !== 0) {
+    const b = emptyBBox();
+    for (const p of [
+      { x: out.minX, y: out.minY },
+      { x: out.maxX, y: out.maxY },
+    ]) {
+      includePoint(b, rotateAbout(p, l.at, l.angle));
+    }
+    out = b;
+  }
+
+  includePoint(out, l.at);
+  return out;
+}
+
+/** `RotatePoint( point, centre, angle )`, degrees, screen axes. */
+function rotateAbout(p: Vec2, centre: Vec2, angleDeg: number): Vec2 {
+  const rad = (angleDeg * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  const dx = p.x - centre.x;
+  const dy = p.y - centre.y;
+  return {
+    x: Math.round(centre.x + dx * c + dy * s),
+    y: Math.round(centre.y - dx * s + dy * c),
+  };
 }
 
 /** DANGLING_SYMBOL_SIZE (default_values.h), 12 mils. */
