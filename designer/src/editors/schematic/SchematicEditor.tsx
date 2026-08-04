@@ -330,6 +330,7 @@ import {
   plotPng,
   plotSvg,
   plotPdf,
+  plotPdfSheets,
   plotDxf,
   plotPs,
   pageIU,
@@ -2323,8 +2324,10 @@ export function SchematicEditor({
       // browser doesn't block it, the sink navigates it once the file (which
       // for PNG/PDF is produced asynchronously) is ready. Single page only.
       const preview = openAfter && !allPages ? window.open('', '_blank') : null;
-      const one = (d: Schematic, name: string, file: string): void => {
-        // Netclass visuals and text variables resolve per sheet.
+      // Netclass visuals, text variables and intersheet refs all resolve per
+      // sheet, so the options are built per sheet even when the pages end up in
+      // one document.
+      const optsFor = (d: Schematic, name: string, file: string): PlotOpts => {
         const nov = computeNetClassOverrides(
           d,
           new Map(d.libSymbols.map((l) => [l.libId, l])),
@@ -2352,10 +2355,13 @@ export function SchematicEditor({
               }
             : {}),
         };
-        // Every plot lands in the project's file manager (the cloud "disk");
-        // "Download a copy to this computer" additionally streams it out, and
-        // "Open file after plot" navigates the pre-opened preview tab to it.
-        const sink: PlotSink = (blob, filename) => {
+        return od;
+      };
+      // Every plot lands in the project's file manager (the cloud "disk");
+      // "Download a copy to this computer" additionally streams it out, and
+      // "Open file after plot" navigates the pre-opened preview tab to it.
+      const makeSink = (): PlotSink => {
+        return (blob, filename) => {
           const path = outputDir ? `${outputDir}/${filename}` : filename;
           if (onOutputFile) {
             void blob.arrayBuffer().then((buf) => {
@@ -2376,6 +2382,10 @@ export function SchematicEditor({
             preview.location.href = URL.createObjectURL(shown);
           }
         };
+      };
+      const one = (d: Schematic, name: string, file: string): void => {
+        const od = optsFor(d, name, file);
+        const sink = makeSink();
         if (format === 'svg') plotSvg(d, plotTheme, od, name, sink);
         else if (format === 'png') void plotPng(d, plotTheme, od, name, sink);
         else if (format === 'dxf') plotDxf(d, plotTheme, od, name, sink);
@@ -2386,8 +2396,24 @@ export function SchematicEditor({
         const sheets = [...liveDocs()];
         // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
         if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
-        for (const [file, d] of sheets)
-          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+        else if (format === 'pdf') {
+          // createPDFFile opens one file and pages through the sheet list, so a
+          // hierarchy is one document rather than a file per sheet. Every other
+          // format has no page after the first, which is why only this one is
+          // gathered.
+          void plotPdfSheets(
+            sheets.map(([file, d]) => ({
+              sch: d,
+              opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
+            })),
+            plotTheme,
+            outputBaseName(),
+            makeSink(),
+          );
+        } else {
+          for (const [file, d] of sheets)
+            one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+        }
       } else if (doc) one(doc, outputBaseName(), currentFile);
       else report('No sheets to plot.', RPT_SEVERITY_ERROR);
       // The dialog stays open after plotting (like DIALOG_PLOT_SCHEMATIC) so the
