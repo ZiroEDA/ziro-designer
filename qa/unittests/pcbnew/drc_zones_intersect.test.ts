@@ -56,6 +56,7 @@ const board = (zones: PcbZone[]): Board => ({
   dimensions: [],
   textBoxes: [],
   tables: [],
+  images: [],
   groups: [],
   source: EMPTY,
 });

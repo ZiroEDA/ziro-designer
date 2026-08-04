@@ -48,6 +48,7 @@ const board = (texts: PcbTextItem[]): Board => ({
   dimensions: [],
   textBoxes: [],
   tables: [],
+  images: [],
   groups: [],
   source: EMPTY,
 });

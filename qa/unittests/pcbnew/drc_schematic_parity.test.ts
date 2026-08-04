@@ -66,6 +66,7 @@ const board = (footprints: PcbFootprint[], nets: [number, string][] = []): Board
   dimensions: [],
   textBoxes: [],
   tables: [],
+  images: [],
   groups: [],
   source: EMPTY,
 });

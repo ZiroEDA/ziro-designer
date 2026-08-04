@@ -34,6 +34,7 @@ import { isAlignedKind } from './types.js';
 import type {
   Board,
   PcbDimension,
+  PcbImage,
   PcbTable,
   PcbTableCell,
   PcbTextBox,
@@ -354,6 +355,36 @@ export function buildTextBoxNode(t: PcbTextBox): SList {
 const textBoxNode = (t: PcbTextBox): SNode =>
   t.source.items.length > 0 ? t.source : buildTextBoxNode(t);
 
+/** The MIME base64 line width upstream splits `(data …)` at. */
+export const BASE64_LINE_WIDTH = 76;
+
+/**
+ * `(image …)`, PCB_IO_KICAD_SEXPR::format(PCB_REFERENCE_IMAGE*).
+ *
+ * `(scale …)` is written **only when it is not 1** and `(locked …)` only when
+ * set, both matching upstream — writing either unconditionally adds a token
+ * KiCad never produces, so an untouched file would change on every save.
+ *
+ * The base64 goes back out in 76-character pieces, the width
+ * `KICAD_FORMAT::FormatStreamData` uses.
+ */
+export function buildImageNode(img: PcbImage): SList {
+  const items: SNode[] = [atom('image'), xy('at', img.at), list(atom('layer'), str(img.layer))];
+  if (img.scale !== undefined && img.scale !== 1)
+    items.push(list(atom('scale'), atom(String(img.scale))));
+  if (img.locked) items.push(list(atom('locked'), atom('yes')));
+
+  const chunks: SNode[] = [atom('data')];
+  for (let i = 0; i < img.data.length; i += BASE64_LINE_WIDTH)
+    chunks.push(str(img.data.slice(i, i + BASE64_LINE_WIDTH)));
+  items.push({ kind: 'list', items: chunks });
+
+  if (img.uuid) items.push(list(atom('uuid'), str(img.uuid)));
+  return { kind: 'list', items };
+}
+const imageNode = (img: PcbImage): SNode =>
+  img.source.items.length > 0 ? img.source : buildImageNode(img);
+
 /**
  * `(table …)`, PCB_IO_KICAD_SEXPR::format(PCB_TABLE*).
  *
@@ -545,6 +576,7 @@ export function writeBoardNode(board: Board): SList {
     di = 0,
     bi = 0,
     tbi = 0,
+    ii = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -577,6 +609,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'gr_text_box') {
       if (bi < board.textBoxes.length) out.push(textBoxNode(board.textBoxes[bi]!));
       bi++;
+    } else if (h === 'image') {
+      if (ii < board.images.length) out.push(imageNode(board.images[ii]!));
+      ii++;
     } else if (h === 'table') {
       if (tbi < board.tables.length) out.push(tableNode(board.tables[tbi]!));
       tbi++;
@@ -605,6 +640,7 @@ export function writeBoardNode(board: Board): SList {
   for (; xi < board.texts.length; xi++) out.push(textNode(board.texts[xi]!));
   for (; zi < board.zones.length; zi++) out.push(zoneNode(board.zones[zi]!));
   for (; bi < board.textBoxes.length; bi++) out.push(textBoxNode(board.textBoxes[bi]!));
+  for (; ii < board.images.length; ii++) out.push(imageNode(board.images[ii]!));
   for (; tbi < board.tables.length; tbi++) out.push(tableNode(board.tables[tbi]!));
   for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
   for (; gi < board.groups.length; gi++)

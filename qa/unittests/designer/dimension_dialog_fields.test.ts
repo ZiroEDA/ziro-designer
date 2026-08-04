@@ -120,6 +120,7 @@ describe('the flags agree with what the engine will actually write', () => {
       dimensions: [{ ...d, end: { x: 1_000_000, y: 0 } }],
       textBoxes: [],
       tables: [],
+      images: [],
       groups: [],
       source: { kind: 'list' as const, items: [] },
     };

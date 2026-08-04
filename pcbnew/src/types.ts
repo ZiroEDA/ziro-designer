@@ -448,6 +448,36 @@ export interface PcbGroup {
 }
 
 /**
+ * A reference image, KiCad `(image (at …) … (data …))`.
+ * Counterpart: `PCB_REFERENCE_IMAGE` and its `REFERENCE_IMAGE`
+ * (pcbnew/pcb_reference_image.h).
+ *
+ * A drawing dropped on the board to trace over — a datasheet outline, a
+ * mechanical drawing — not something that is fabricated.
+ *
+ * `data` is the PNG as base64. The file splits it across many quoted strings at
+ * the MIME width of 76 characters, which is a transport detail: the model holds
+ * the joined string and the writer re-splits it.
+ *
+ * `scale` is **absent when it is 1**, because the serializer writes it only
+ * when it differs. Storing 1 and writing it back would add a token KiCad never
+ * produces.
+ */
+export interface PcbImage {
+  at: Vec2;
+  layer: string;
+  /** `(scale …)`; absent means 1. */
+  scale?: number;
+  locked?: boolean;
+  /** The PNG, base64-encoded, with the file's line splits joined out. */
+  data: string;
+  uuid?: string;
+  source: SList;
+}
+
+/**
+ * One cell of a table, KiCad `(table_cell "…" …)`.
+/**
  * One cell of a table, KiCad `(table_cell "…" …)`.
  * Counterpart: `PCB_TABLECELL`, which *is* a `PCB_TEXTBOX` — upstream
  * serialises a cell by calling `format(static_cast<PCB_TEXTBOX*>(cell))`.
@@ -643,6 +673,7 @@ export interface Board {
   texts: PcbTextItem[];
   textBoxes: PcbTextBox[];
   tables: PcbTable[];
+  images: PcbImage[];
   dimensions: PcbDimension[];
   groups: PcbGroup[];
   fileName?: string;

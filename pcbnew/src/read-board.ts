@@ -47,6 +47,7 @@ import type {
   PcbFootprint,
   PcbPad,
   PcbShape,
+  PcbImage,
   PcbTable,
   PcbTableCell,
   PcbTextBox,
@@ -244,6 +245,31 @@ function readTextBox(item: SList): PcbTextBox | null {
     box.pts = pts;
   }
   return box;
+}
+
+/**
+ * `(image …)`, PCB_IO_KICAD_SEXPR_PARSER::parsePCB_REFERENCE_IMAGE.
+ *
+ * `(data …)` is base64 split across many quoted strings at the MIME width of
+ * 76. That split is a transport detail, so the pieces are joined here and the
+ * writer re-splits them — a model holding the chunks would make every consumer
+ * deal with the wrapping.
+ */
+function readImage(item: SList): PcbImage | null {
+  const at = ptAt(childNamed(item, 'at'));
+  if (!at) return null;
+  const dataNode = childNamed(item, 'data');
+  const data = dataNode ? args(dataNode).join('') : '';
+  const scaleNode = childNamed(item, 'scale');
+  return {
+    at,
+    layer: stringField(item, 'layer') ?? '',
+    // Absent means 1: the serializer writes `(scale …)` only when it differs.
+    scale: scaleNode ? numArg(scaleNode, 0) : undefined,
+    data,
+    uuid: uuidOf(item),
+    source: item,
+  };
 }
 
 /**
@@ -999,6 +1025,7 @@ export function readBoard(root: SList): Board {
     texts: [],
     textBoxes: [],
     tables: [],
+    images: [],
     dimensions: [],
     groups: [],
     source: root,
@@ -1135,6 +1162,11 @@ export function readBoard(root: SList): Board {
       case 'gr_text_box': {
         const tb = readTextBox(item);
         if (tb) board.textBoxes.push({ ...tb, locked: lockedOf(item) });
+        break;
+      }
+      case 'image': {
+        const img = readImage(item);
+        if (img) board.images.push({ ...img, locked: lockedOf(item) });
         break;
       }
       case 'table': {
