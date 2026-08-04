@@ -146,6 +146,16 @@ export function getMsgPanelItems(
       return [{ upper: 'Sheet Name', lower: name }];
     }
 
+    // SCH_LABEL_BASE::GetMsgPanelInfo, the SCH_DIRECTIVE_LABEL_T arm. Note the
+    // Type row is *not* included: upstream adds it only for global labels,
+    // hierarchical labels and sheet pins, and a directive label is none of
+    // those even though it has a shape.
+    case 'directive': {
+      const i = indexOf(sch.directiveLabels ?? [], (t, k) => refId('directive', t.uuid, k));
+      if (i < 0) return [];
+      return [{ upper: 'Directive Label', lower: (sch.directiveLabels ?? [])[i]!.text }];
+    }
+
     default:
       return [];
   }
