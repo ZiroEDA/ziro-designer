@@ -168,11 +168,28 @@ function layoutRun(run: MarkupRun, size: number, cursorX: number, out?: Vec2[][]
   return cursorX;
 }
 
-/** Total advance width of `text` at glyph height `size` (IU), no stroke building. */
+/**
+ * Total advance width of `text` at glyph height `size` (IU), no stroke building.
+ *
+ * Multi-line text measures as its **widest line**, which is what `layoutText`
+ * lays out and therefore what is on screen. This used to run the whole string
+ * through as one line: the widths of every line were added together, and the
+ * `\n` itself advanced as a missing-glyph '?', so `"a\nb\nc"` measured almost
+ * five times its real width.
+ *
+ * Everything geometric goes through here — `textBoxWidth`, and so label and
+ * text bounding boxes, hit-testing, selection halos and field autoplacement —
+ * so a multi-line text had a box several times too wide, and picked up clicks
+ * a long way to its right.
+ */
 export function measureText(text: string, size: number): number {
-  let w = 0;
-  for (const run of parseMarkup(text)) w = layoutRun(run, size, w);
-  return w;
+  let widest = 0;
+  for (const line of text.split('\n')) {
+    let w = 0;
+    for (const run of parseMarkup(line)) w = layoutRun(run, size, w);
+    if (w > widest) widest = w;
+  }
+  return widest;
 }
 
 /**
