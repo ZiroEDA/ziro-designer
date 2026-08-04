@@ -4,6 +4,14 @@
 import { iuToMM } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
 import type { FieldTemplate } from '../schematic_settings.js';
+import {
+  colorFromHex,
+  colorHex,
+  fieldsFromRows,
+  rowsFromSymbol,
+  validateRows,
+  type FieldRow,
+} from '../symbol_props_rows.js';
 import { useMemo, useState } from 'react';
 import {
   effectiveHorizJustify,
@@ -33,7 +41,10 @@ import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
  * (fields_grid_table.cpp):
  *
  *  - one row per field with KiCad's columns, Name, Value, Show, Show Name,
- *    H Align, V Align, Italic, Bold, Text Size, Orientation, Position X/Y;
+ *    H Align, V Align, Italic, Bold, Text Size, Orientation, Position X/Y,
+ *    Color and Allow Autoplacement. FDC_FONT is deliberately left out: every
+ *    face still draws with the stroke font (#154), so a font picker would
+ *    change the file and nothing on screen;
  *  - positions are shown symbol-relative (TransferDataToWindow offsets each copy
  *    by -symbol position) and in the user units (mm);
  *  - the H/V-align cells show the *effective* justification and setting them
@@ -44,16 +55,7 @@ import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
  *    hidden (OnAddField); mandatory fields can't be renamed, deleted, or moved.
  */
 
-interface Row {
-  key: string;
-  value: string;
-  /** Symbol-relative position, IU (dialog convention). */
-  at: { x: number; y: number };
-  angle: number; // 0 (horizontal) | 90 (vertical)
-  effects: TextEffects;
-  nameShown: boolean;
-  source?: SchField['source'];
-}
+type Row = FieldRow;
 
 interface Props {
   symbol: SchSymbol;
@@ -103,31 +105,7 @@ export function SymbolPropertiesDialog({
     [lib],
   );
 
-  const [rows, setRows] = useState<Row[]>(() => {
-    const out: Row[] = symbol.fields.map((f) => ({
-      key: f.key,
-      value: f.value,
-      at: f.at ? { x: f.at.x - symbol.at.x, y: f.at.y - symbol.at.y } : { x: 0, y: 0 },
-      angle: ((f.angle % 180) + 180) % 180 === 90 ? 90 : 0,
-      effects: f.effects ?? { hidden: false },
-      nameShown: !!f.nameShown,
-      source: f.source,
-    }));
-    // Add in any template fieldnames not yet defined (TransferDataToWindow).
-    const defined = new Set(out.map((r) => r.key));
-    for (const t of fieldTemplates ?? []) {
-      if (t.name && !defined.has(t.name))
-        out.push({
-          key: t.name,
-          value: '',
-          at: { x: 0, y: 0 },
-          angle: 0,
-          effects: { hidden: !t.visible },
-          nameShown: false,
-        });
-    }
-    return out;
-  });
+  const [rows, setRows] = useState<Row[]>(() => rowsFromSymbol(symbol, fieldTemplates));
   const [selRow, setSelRow] = useState(0);
 
   // Orientation & mirror decompose exactly as TransferDataToWindow: choices are
@@ -224,13 +202,10 @@ export function SymbolPropertiesDialog({
   };
 
   const submit = (): void => {
-    // Validate(): non-mandatory fields must have a name (empty name + empty value
-    // rows are silently dropped, as TransferDataFromWindow does).
-    for (const r of rows) {
-      if (!isMandatoryField(r.key) && r.key.trim() === '' && r.value !== '') {
-        setError('Fields must have a name.');
-        return;
-      }
+    const invalid = validateRows(rows);
+    if (invalid) {
+      setError(invalid);
+      return;
     }
 
     // Compose orientation then mirror exactly as the dialog's two SetOrientation
@@ -239,17 +214,7 @@ export function SymbolPropertiesDialog({
     if (mirror) t = composeMirror(t, mirror);
     const o = orientationFromTransform(t);
 
-    const fields: EditedField[] = rows
-      .filter((r) => !(r.key.trim() === '' && r.value === ''))
-      .map((r) => ({
-        key: r.key.trim(),
-        value: r.value,
-        at: r.at,
-        angle: r.angle,
-        effects: r.effects,
-        nameShown: r.nameShown || undefined,
-        source: r.source,
-      }));
+    const fields: EditedField[] = fieldsFromRows(rows);
 
     onOk({
       fields,
@@ -300,6 +265,8 @@ export function SymbolPropertiesDialog({
                   <th>Orientation</th>
                   <th>Position X</th>
                   <th>Position Y</th>
+                  <th>Color</th>
+                  <th>Allow Autoplacement</th>
                 </tr>
               </thead>
               <tbody>
@@ -427,6 +394,36 @@ export function SymbolPropertiesDialog({
                         {numCell(i, 'posy', row.at.y, (iu) =>
                           patchRow(i, { at: { ...row.at, y: iu } }),
                         )}
+                      </td>
+                      {/* FDC_COLOR. The swatch cannot express "unspecified" —
+                          KiCad's own can, so the × beside it is the way back to
+                          the default text colour rather than a colour of black. */}
+                      <td className="ze-cell-color">
+                        <input
+                          type="color"
+                          value={colorHex(row.effects.color) || '#000000'}
+                          onChange={(e) => patchEffects(i, { color: colorFromHex(e.target.value) })}
+                        />
+                        <button
+                          type="button"
+                          className="ze-btn sm"
+                          title="Default colour"
+                          disabled={!row.effects.color}
+                          onClick={() => patchEffects(i, { color: undefined })}
+                        >
+                          ×
+                        </button>
+                      </td>
+                      {/* FDC_ALLOW_AUTOPLACE — SCH_FIELD::CanAutoplace, which the
+                          file stores inverted as (do_not_autoplace yes). */}
+                      <td className="c">
+                        <input
+                          type="checkbox"
+                          checked={!row.doNotAutoplace}
+                          onChange={(e) =>
+                            patchRow(i, { doNotAutoplace: e.target.checked ? undefined : true })
+                          }
+                        />
                       </td>
                     </tr>
                   );

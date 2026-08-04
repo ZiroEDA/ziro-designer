@@ -3110,6 +3110,20 @@ body {
 .ze-props-grid tr.sel td {
   background: rgba(45, 108, 223, 0.18);
 }
+/* FDC_COLOR: the swatch plus the reset that puts the field back on the
+   default text colour, which a native colour input cannot express. */
+.ze-props-grid td.ze-cell-color {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ze-props-grid td.ze-cell-color input[type="color"] {
+  width: 32px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--chrome-border);
+  background: none;
+}
 .ze-cell-input {
   width: 110px;
   padding: 3px 6px;
