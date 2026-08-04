@@ -542,3 +542,5 @@ export {
   segmentIntersectsArc,
   type BoardSurface,
 } from './drc/creepage_graph.js';
+
+export { creepageDistance, type CreepageShapes, type CreepageResult } from './drc/drc_creepage.js';
