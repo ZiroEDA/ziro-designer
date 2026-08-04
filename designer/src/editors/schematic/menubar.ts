@@ -69,7 +69,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     action: () => h.toggle(id),
   });
   /** Not implemented yet, greyed out, exactly where upstream puts it. */
-  /** An action with no icon of its own. */
+  /** An action with no icon of its own (upstream's Inspect entries have none). */
   const actNoIcon = (label: string, id: string, shortcut?: string): MenuItem => ({
     label,
     shortcut,
@@ -240,9 +240,11 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         stub('Show Bus Syntax Help'),
         SEP,
         act('Electrical Rules Checker', 'erc', 'erc'),
-        stub('Previous Marker'),
-        stub('Next Marker'),
-        stub('Exclude Marker'),
+        // SCH_INSPECTION_TOOL::PrevMarker / NextMarker / ExcludeMarker all
+        // raise the ERC dialog and act on it, since it owns the marker tree.
+        actNoIcon('Previous Marker', 'ercPrevMarker'),
+        actNoIcon('Next Marker', 'ercNextMarker'),
+        actNoIcon('Exclude Marker', 'ercExcludeMarker'),
         SEP,
         stub('Compare Symbol with Library'),
         SEP,

@@ -228,7 +228,7 @@ import {
 } from './dialogs/dialog_text_properties.js';
 import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
-import { ErcDialog } from './components/ErcDialog.js';
+import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
 import {
   DialogSymbolChooser,
   type PickedSymbol,
@@ -875,6 +875,8 @@ export function SchematicEditor({
   const [ercOpen, setErcOpen] = useState(false);
   /** Tools > Update Schematic from PCB: the footprints read for this run. */
   const [backAnnotateFps, setBackAnnotateFps] = useState<PcbFootprintData[] | null>(null);
+  /** The open ERC dialog's marker-tree API, for the Inspect menu's entries. */
+  const ercNav = useRef<ErcDialogNav | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -4300,7 +4302,20 @@ export function SchematicEditor({
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
       else if (id === 'erc') setErcOpen(true);
-      else if (id === 'showPcbNew') onShowPcb?.();
+      else if (id === 'ercPrevMarker' || id === 'ercNextMarker' || id === 'ercExcludeMarker') {
+        // The dialog owns the tree, so raise it first and act on the next tick,
+        // when it has mounted and filled in the ref (dlg->Show(true); dlg->Raise();
+        // dlg->NextMarker()).
+        setErcOpen(true);
+        const act = id;
+        requestAnimationFrame(() => {
+          const nav = ercNav.current;
+          if (!nav) return;
+          if (act === 'ercPrevMarker') nav.prev();
+          else if (act === 'ercNextMarker') nav.next();
+          else nav.excludeCurrent();
+        });
+      } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'updateSchFromPcb') {
         const fps = readBoardFootprints?.() ?? null;
@@ -5921,6 +5936,7 @@ export function SchematicEditor({
           )}
           {ercOpen && (
             <ErcDialog
+              navRef={ercNav}
               sourceName={currentFile}
               violations={ercResult}
               running={ercRunning}
