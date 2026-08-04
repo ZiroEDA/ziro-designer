@@ -13,6 +13,7 @@
 import type { LabelShape, LibSymbol, SchLabel, Schematic } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
+import { imagePPI, imageSizeIU } from './image_size.js';
 
 /** `EDA_SHAPE::getFriendlyName`, for the kinds a schematic can hold. */
 const SHAPE_NAMES: Record<string, string> = {
@@ -229,6 +230,22 @@ export function getMsgPanelItems(
         rows.push({ upper: 'Points', lower: `${g.points.length}` });
       }
       return rows;
+    }
+
+    // SCH_BITMAP::GetMsgPanelInfo. The first row is a bare title with no value,
+    // which is why `lower` is empty rather than repeating the heading.
+    case 'image': {
+      const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
+      if (i < 0) return [];
+      const im = sch.images[i]!;
+      const size = imageSizeIU(im);
+      return [
+        { upper: 'Bitmap', lower: '' },
+        { upper: 'PPI', lower: `${imagePPI(im.data)}` },
+        { upper: 'Scale', lower: `${im.scale}` },
+        { upper: 'Width', lower: fmt(size.w) },
+        { upper: 'Height', lower: fmt(size.h) },
+      ];
     }
 
     default:

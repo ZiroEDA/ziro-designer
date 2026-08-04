@@ -195,3 +195,36 @@ describe('the message panel arms added alongside the sweep', () => {
     expect(rows[0]!.lower).toBe('Circle');
   });
 });
+
+describe('an image reports what SCH_BITMAP reports', () => {
+  const LIB = new Map<string, LibSymbol>();
+  const fmt = (iu: number): string => `${iu}`;
+
+  it('lists Bitmap, PPI, Scale, Width and Height in upstream order', () => {
+    const ref = itemRefById(KITCHEN_SINK, refId('image', 'im-1', 0))!;
+    const rows = getMsgPanelItems(KITCHEN_SINK, LIB, ref, fmt);
+    expect(rows.map((r) => r.upper)).toEqual(['Bitmap', 'PPI', 'Scale', 'Width', 'Height']);
+    // The first row is a bare title upstream, with no value beside it.
+    expect(rows[0]!.lower).toBe('');
+  });
+
+  it('takes the scale from the model, so an edit shows up', () => {
+    const d = sheet(`(image (at 60 60) (scale 2.5) (uuid "im-2") (data "iVBORw0KGgo="))`);
+    const ref = itemRefById(d, refId('image', 'im-2', 0))!;
+    const rows = getMsgPanelItems(d, LIB, ref, fmt);
+    expect(rows.find((r) => r.upper === 'Scale')!.lower).toBe('2.5');
+  });
+
+  it('scales the reported size with the image scale', () => {
+    // imageSizeIU multiplies by the scale, so doubling it doubles both
+    // dimensions. Asserted as a ratio rather than a literal, because the
+    // fixture's PNG is a stub and falls back to a default pixel size.
+    const one = sheet(`(image (at 0 0) (scale 1) (uuid "a") (data "iVBORw0KGgo="))`);
+    const two = sheet(`(image (at 0 0) (scale 2) (uuid "b") (data "iVBORw0KGgo="))`);
+    const w = (d: Schematic): number => {
+      const ref = itemRefById(d, refId('image', d.images[0]!.uuid, 0))!;
+      return Number(getMsgPanelItems(d, LIB, ref, fmt).find((r) => r.upper === 'Width')!.lower);
+    };
+    expect(w(two)).toBe(w(one) * 2);
+  });
+});
