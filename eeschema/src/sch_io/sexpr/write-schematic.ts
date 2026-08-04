@@ -955,17 +955,28 @@ function writeTable(tb: SchTable): SList {
       setFlagChild(setFlagChild(sep, 'rows', tb.separatorRows), 'cols', tb.separatorCols),
     );
   }
-  return mapChild(node, 'cells', (cells) => {
-    let i = 0;
-    const items = cells.items.map((it) => {
-      if (isList(it) && head(it) === 'table_cell') {
-        const cell = tb.cells[i++];
-        return cell ? writeTableCell(cell) : it;
-      }
-      return it;
-    });
-    return { kind: 'list', items };
-  });
+  // The shape of the table is patched too, not just each cell's contents. It
+  // was safe to skip while a table could only be read: adding or deleting a row
+  // changes the cell count, the column count and the width/height lists, and a
+  // patcher that walked the *source* nodes would silently write the old shape.
+  node = mapChild(node, 'column_count', () =>
+    list(atom('column_count'), atom(String(tb.columnCount))),
+  );
+  if (childNamed(node, 'column_widths'))
+    node = mapChild(node, 'column_widths', () =>
+      list(atom('column_widths'), ...tb.colWidths.map((w) => atom(mm(w)))),
+    );
+  if (childNamed(node, 'row_heights'))
+    node = mapChild(node, 'row_heights', () =>
+      list(atom('row_heights'), ...tb.rowHeights.map((h) => atom(mm(h)))),
+    );
+  // Built from the model's cells rather than from the source list, so a table
+  // that gained or lost cells writes the cells it actually has. Each cell still
+  // patches its own source node, so an untouched table is still byte-stable.
+  return mapChild(node, 'cells', () => ({
+    kind: 'list',
+    items: [atom('cells'), ...tb.cells.map(writeTableCell)],
+  }));
 }
 
 /**
