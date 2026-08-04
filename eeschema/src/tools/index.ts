@@ -66,3 +66,4 @@ export * from './net_navigator.js';
 export * from './net_navigator.js';
 export * from './pin_alternates.js';
 export * from './pin_grid.js';
+export * from './back_annotate.js';
