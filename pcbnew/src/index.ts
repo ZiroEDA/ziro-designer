@@ -493,3 +493,11 @@ export {
   iuPerPixel,
   FALLBACK_PIXELS,
 } from './image_geometry.js';
+
+export {
+  findSliverPoints,
+  SLIVER_WIDTH_TOLERANCE,
+  SLIVER_ANGLE_TOLERANCE_DEG,
+  SLIVER_MINIMUM_LENGTH,
+  type SliverOptions,
+} from './drc/drc_sliver.js';

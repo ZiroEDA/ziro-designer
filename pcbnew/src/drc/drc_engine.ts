@@ -32,6 +32,9 @@ import { segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { NETLIST } from '../netlist_reader/pcb_netlist.js';
 import { buildRatsnest } from '../ratsnest.js';
 import { shapeToPolygon } from '../zone_filler.js';
+import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { shapeAsPolygon } from '../polygon_booleans.js';
+import { findSliverPoints } from './drc_sliver.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   allowsMissingCourtyard,
@@ -1578,6 +1581,50 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
             },
           ],
         });
+      }
+    }
+  }
+
+  // ----- copper slivers -----------------------------------------------------
+  // DRC_TEST_PROVIDER_SLIVER_CHECKER. All the copper on a layer is merged into
+  // one region first: a sliver is where a region doubles back on *itself*, so
+  // two separate items that happen to form a narrow gap are a clearance
+  // problem, not this one. The union is what turns "these touch" into "this is
+  // one shape with a needle in it".
+  {
+    const byLayer = new Map<string, Polygon[]>();
+    const add = (layer: string, poly: Polygon | null): void => {
+      if (!poly || !isCopper(layer)) return;
+      byLayer.set(layer, [...(byLayer.get(layer) ?? []), poly]);
+    };
+
+    for (const z of board.zones) {
+      if (z.ruleArea) continue;
+      for (const fill of z.fills)
+        for (const poly of fill.polys) if (poly.length >= 3) add(fill.layer, [poly]);
+    }
+    for (const sh of board.shapes) add(sh.layer, shapeAsPolygon(sh));
+
+    for (const [layer, polys] of byLayer) {
+      if (polys.length === 0) continue;
+      // Union them into single regions before looking for needles.
+      let merged: Polygon[] = [];
+      for (const p of polys) merged = merged.length === 0 ? [p] : booleanAdd(merged, [p]);
+
+      // Outer rings only, as upstream's `Outline( jj )` is. Holes are wound the
+      // other way, and the sliver test reads winding to tell a finger of copper
+      // from a slot — hand it a hole and it reports every slot as a sliver.
+      for (const [outline] of merged) {
+        if (!outline) continue;
+
+        for (const pos of findSliverPoints(outline)) {
+          out.push({
+            code: 'copper_sliver',
+            message: `Copper sliver on ${layer}`,
+            pos,
+            items: [{ desc: `Copper on ${layer}`, pos }],
+          });
+        }
       }
     }
   }
