@@ -116,6 +116,10 @@ import {
   type PcbTable,
   type PcbTextBox,
   addBoardImage,
+  applyImageValues,
+  collectImageValues,
+  imageAt,
+  type ImageValues,
   cancelPlaceImage,
   clickImage,
   fileChosen,
@@ -128,6 +132,7 @@ import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
+import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties.js';
 import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
 import {
   applyTableValues,
@@ -1129,6 +1134,7 @@ export function PcbEditor({
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
+  const [imagePropsIndex, setImagePropsIndex] = useState<number | null>(null);
   const [tablePropsIndex, setTablePropsIndex] = useState<number | null>(null);
   /**
    * A text box drawn but not yet confirmed. Upstream opens the properties
@@ -4121,6 +4127,12 @@ export function PcbEditor({
       return;
     }
 
+    const ii = imageAt(brd, sel);
+    if (ii !== null) {
+      setImagePropsIndex(ii);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -4192,6 +4204,19 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, textBoxPropsIndex],
+  );
+
+  /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
+  const applyImageEdit = useCallback(
+    (values: ImageValues) => {
+      const brd = boardRef.current;
+      const index = imagePropsIndex;
+      setImagePropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyImageValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, imagePropsIndex],
   );
 
   /** DIALOG_DIMENSION_PROPERTIES::TransferDataFromWindow. */
@@ -7535,6 +7560,15 @@ export function PcbEditor({
           layers={board.layers.map((l) => l.name)}
           onApply={applyTextBoxEdit}
           onClose={() => setTextBoxPropsIndex(null)}
+        />
+      )}
+      {imagePropsIndex !== null && board?.images[imagePropsIndex] && (
+        <DialogReferenceImageProperties
+          image={board.images[imagePropsIndex]!}
+          initial={collectImageValues(board.images[imagePropsIndex]!)}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyImageEdit}
+          onClose={() => setImagePropsIndex(null)}
         />
       )}
       {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
