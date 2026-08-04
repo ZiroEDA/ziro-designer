@@ -562,6 +562,11 @@ export function App(): JSX.Element {
             rootPro={activeBase || undefined}
             placeRequest={placeRequest}
             onProjectChange={onProjectChange}
+            // Whether edits actually reach storage. `onProjectChange` is always
+            // passed but no-ops without an open project or without IndexedDB,
+            // and the editor cannot see that from its side — so it is told,
+            // rather than left to infer that its work is being saved.
+            autosaveActive={!!projectFiles && storageAvailable()}
             onPersistFiles={persistFilesNow}
             onOutputFile={onOutputFile}
             registerAutosaveFlush={registerSchFlush}

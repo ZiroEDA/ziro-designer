@@ -351,6 +351,7 @@ import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
+import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -537,6 +538,7 @@ export function SchematicEditor({
   onExitToHome,
   onShowPcb,
   onUpdatePcb,
+  autosaveActive,
   onShowSymbolEditor,
   onShowFootprintEditor,
   onShowCalculator,
@@ -557,6 +559,12 @@ export function SchematicEditor({
   /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
    *  its update dialog. Absent when the project has no board. */
   onUpdatePcb?: () => void;
+  /**
+   * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
+   * without a project, or when IndexedDB is unavailable — in which case nothing
+   * is written until Save, and leaving the page is worth a prompt.
+   */
+  autosaveActive?: boolean;
   /** Open the Symbol Editor (the top toolbar's `symbolEditor` button). */
   onShowSymbolEditor?: () => void;
   /** Open the Footprint Editor (the top toolbar's `footprintEditor` button). */
@@ -606,6 +614,14 @@ export function SchematicEditor({
   // greys when clean), same affordance as the PCB editor / KiCad's title.
   const [dirty, setDirty] = useState(false);
   const dirtySkipRef = useRef(true);
+  /**
+   * Edits made since the last time anything was written.
+   *
+   * Not the same as `dirty`, which is the title's asterisk and clears on a
+   * timer whether or not a write actually happened — fine as a flash, useless
+   * as "is there work to lose". This one only clears on a save.
+   */
+  const [unsaved, setUnsaved] = useState(false);
 
   const [doc, setDoc] = useState<Schematic | null>(initial);
   // Multi-sheet project: every parsed document by basename, the root file, and a
@@ -2860,13 +2876,20 @@ export function SchematicEditor({
   // autosave window (1.2 s) has taken the change. Mount / file switches skip.
   useEffect(() => {
     dirtySkipRef.current = true;
+    setUnsaved(false);
   }, [currentFile]);
+
+  // Only when nothing is writing the work down. With a project open, autosave
+  // plus the flush on page-hide already carry it, and a prompt would be noise
+  // on every close.
+  useUnsavedGuard(!autosaveActive && unsaved);
   useEffect(() => {
     if (dirtySkipRef.current) {
       dirtySkipRef.current = false;
       return;
     }
     setDirty(true);
+    setUnsaved(true);
     const id = setTimeout(() => setDirty(false), 1600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2874,6 +2897,7 @@ export function SchematicEditor({
 
   const save = useCallback(() => {
     setDirty(false);
+    setUnsaved(false);
     setDoc((d) => {
       if (!d) return d;
       const text = serializeSchematic(d);
