@@ -259,6 +259,31 @@ describe('library parity: the library cannot be consulted', () => {
     );
   });
 
+  it('unescapes the nickname in a configuration message but not elsewhere', () => {
+    // The three configuration messages run the nickname through UnescapeString
+    // and the two that name a footprint do not. A nickname with no escape in it
+    // cannot tell the two apart, so this one carries `{slash}`: the config
+    // message must read `R/Lib` and the not-found message must keep the raw
+    // token, or the asymmetry is only half pinned.
+    const escaped = 'R{slash}Lib';
+
+    const disabled = setup({
+      '/proj/fp-lib-table': fpTable(libRow(escaped, '${KIPRJMOD}/lib.pretty', '(disabled)')),
+      '/proj/lib.pretty/R_0603.kicad_mod': R_0603,
+    });
+    expect(disabled.run([fp({ lib: `${escaped}:R_0603` })])[0]?.message).toBe(
+      "The footprint library 'R/Lib' is not enabled in the current configuration",
+    );
+
+    const absent = setup({
+      '/proj/fp-lib-table': fpTable(libRow(escaped, '${KIPRJMOD}/lib.pretty')),
+      '/proj/lib.pretty/Other.kicad_mod': R_0603,
+    });
+    expect(absent.run([fp({ lib: `${escaped}:R_0603` })])[0]?.message).toBe(
+      `Footprint 'R_0603' not found in library '${escaped}'`,
+    );
+  });
+
   it('reports a missing library directory as not enabled, not as not found', () => {
     const { run } = setup({
       '/proj/fp-lib-table': fpTable(libRow('Resistors', '${KIPRJMOD}/gone.pretty')),
