@@ -34,6 +34,8 @@ import { isAlignedKind } from './types.js';
 import type {
   Board,
   PcbDimension,
+  PcbTable,
+  PcbTableCell,
   PcbTextBox,
   PcbTrack,
   PcbArcTrack,
@@ -42,6 +44,7 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbGroup,
+  StrokeType,
 } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -352,6 +355,92 @@ const textBoxNode = (t: PcbTextBox): SNode =>
   t.source.items.length > 0 ? t.source : buildTextBoxNode(t);
 
 /**
+ * `(table …)`, PCB_IO_KICAD_SEXPR::format(PCB_TABLE*).
+ *
+ * The one rule that is not obvious: **the stroke inside `(border …)` and
+ * `(separators …)` is written only when at least one of that pair's flags is
+ * set.** A table with both border flags off has no border stroke in the file at
+ * all, so emitting one unconditionally would add a token KiCad never writes.
+ *
+ * Cells go through `buildTextBoxNode` because a `PCB_TABLECELL` *is* a
+ * `PCB_TEXTBOX` upstream, with `(span …)` inserted and the border/stroke pair
+ * withheld — a cell draws no border of its own.
+ */
+export function buildTableNode(t: PcbTable): SList {
+  const items: SNode[] = [atom('table'), list(atom('column_count'), atom(String(t.columnCount)))];
+  if (t.uuid) items.push(list(atom('uuid'), str(t.uuid)));
+  if (t.locked) items.push(list(atom('locked'), atom('yes')));
+  items.push(list(atom('layer'), str(t.layer)));
+
+  const strokeNode = (w: number | undefined, style: StrokeType | undefined): SList =>
+    list(
+      atom('stroke'),
+      list(atom('width'), atom(mm(w ?? 0))),
+      list(atom('type'), atom(style ?? 'solid')),
+    );
+
+  const border: SNode[] = [
+    atom('border'),
+    list(atom('external'), atom(t.borderExternal ? 'yes' : 'no')),
+    list(atom('header'), atom(t.borderHeader ? 'yes' : 'no')),
+  ];
+  if (t.borderExternal || t.borderHeader) border.push(strokeNode(t.borderWidth, t.borderStyle));
+  items.push({ kind: 'list', items: border });
+
+  const seps: SNode[] = [
+    atom('separators'),
+    list(atom('rows'), atom(t.separatorRows ? 'yes' : 'no')),
+    list(atom('cols'), atom(t.separatorCols ? 'yes' : 'no')),
+  ];
+  if (t.separatorRows || t.separatorCols) seps.push(strokeNode(t.separatorWidth, t.separatorStyle));
+  items.push({ kind: 'list', items: seps });
+
+  items.push({
+    kind: 'list',
+    items: [atom('column_widths'), ...t.columnWidths.map((w) => atom(mm(w)))],
+  });
+  items.push({
+    kind: 'list',
+    items: [atom('row_heights'), ...t.rowHeights.map((h) => atom(mm(h)))],
+  });
+
+  items.push({
+    kind: 'list',
+    items: [atom('cells'), ...t.cells.map((c) => buildTableCellNode(c))],
+  });
+  return { kind: 'list', items };
+}
+
+/**
+ * One `(table_cell …)`: the text box node, renamed, with `(span …)` after the
+ * margins and without the border/stroke pair the shared formatter skips for a
+ * cell.
+ */
+export function buildTableCellNode(c: PcbTableCell): SList {
+  const box = buildTextBoxNode(c);
+  const out: SNode[] = [];
+  for (const it of box.items) {
+    if (it.kind === 'atom' && it.value === 'gr_text_box') {
+      out.push(atom('table_cell'));
+      continue;
+    }
+    if (isList(it)) {
+      const h = head(it);
+      // A cell has no border of its own; the table draws every line.
+      if (h === 'border' || h === 'stroke') continue;
+      out.push(it);
+      if (h === 'margins')
+        out.push(list(atom('span'), atom(String(c.colSpan)), atom(String(c.rowSpan))));
+      continue;
+    }
+    out.push(it);
+  }
+  return { kind: 'list', items: out };
+}
+const tableNode = (t: PcbTable): SNode =>
+  t.source.items.length > 0 ? t.source : buildTableNode(t);
+
+/**
  * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR::format(PCB_DIMENSION_BASE).
  *
  * Child order is upstream's, and which children appear is decided by the kind
@@ -455,6 +544,7 @@ export function writeBoardNode(board: Board): SList {
     fi = 0,
     di = 0,
     bi = 0,
+    tbi = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -487,6 +577,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'gr_text_box') {
       if (bi < board.textBoxes.length) out.push(textBoxNode(board.textBoxes[bi]!));
       bi++;
+    } else if (h === 'table') {
+      if (tbi < board.tables.length) out.push(tableNode(board.tables[tbi]!));
+      tbi++;
     } else if (h === 'dimension') {
       if (di < board.dimensions.length) out.push(dimensionNode(board.dimensions[di]!));
       di++;
@@ -512,6 +605,7 @@ export function writeBoardNode(board: Board): SList {
   for (; xi < board.texts.length; xi++) out.push(textNode(board.texts[xi]!));
   for (; zi < board.zones.length; zi++) out.push(zoneNode(board.zones[zi]!));
   for (; bi < board.textBoxes.length; bi++) out.push(textBoxNode(board.textBoxes[bi]!));
+  for (; tbi < board.tables.length; tbi++) out.push(tableNode(board.tables[tbi]!));
   for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
   for (; gi < board.groups.length; gi++)
     if (board.groups[gi]!.members.length > 0) out.push(groupNode(board.groups[gi]!));

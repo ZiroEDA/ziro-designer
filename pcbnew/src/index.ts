@@ -108,6 +108,8 @@ export {
   buildBoardTextNode,
   buildDimensionNode,
   buildTextBoxNode,
+  buildTableNode,
+  buildTableCellNode,
 } from './write-board.js';
 export {
   runDrc,

@@ -134,6 +134,7 @@ const board = (zones: PcbZone[], footprints: PcbFootprint[]): Board => ({
   texts: [],
   dimensions: [],
   textBoxes: [],
+  tables: [],
   groups: [],
   source: EMPTY,
 });

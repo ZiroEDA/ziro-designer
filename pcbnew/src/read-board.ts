@@ -47,6 +47,8 @@ import type {
   PcbFootprint,
   PcbPad,
   PcbShape,
+  PcbTable,
+  PcbTableCell,
   PcbTextBox,
   PcbTextItem,
   PcbZone,
@@ -243,6 +245,73 @@ function readTextBox(item: SList): PcbTextBox | null {
   }
   return box;
 }
+
+/**
+ * `(table …)`, PCB_IO_KICAD_SEXPR_PARSER::parsePCB_TABLE.
+ *
+ * The cells reuse the text box reader, because upstream serialises a
+ * `PCB_TABLECELL` through `format(PCB_TEXTBOX*)` — a cell *is* a text box, plus
+ * `(span …)`. Note the shared writer withholds `(border …)` and `(stroke …)`
+ * from a cell, so a cell read here falls back to the text box defaults for
+ * those; the table's own border and separators are what actually draw lines.
+ */
+function readTable(item: SList): PcbTable | null {
+  const borderNode = childNamed(item, 'border');
+  const sepNode = childNamed(item, 'separators');
+  const widths = childNamed(item, 'column_widths');
+  const heights = childNamed(item, 'row_heights');
+  const cellsNode = childNamed(item, 'cells');
+
+  const cells: PcbTableCell[] = [];
+  if (cellsNode) {
+    for (const c of cellsNode.items) {
+      if (!isList(c) || head(c) !== 'table_cell') continue;
+      const box = readTextBox(c);
+      if (!box) continue;
+      const spanNode = childNamed(c, 'span');
+      cells.push({
+        ...box,
+        colSpan: (spanNode ? numArg(spanNode, 0) : undefined) ?? 1,
+        rowSpan: (spanNode ? numArg(spanNode, 1) : undefined) ?? 1,
+      });
+    }
+  }
+
+  const nums = (node: SList | undefined): number[] =>
+    node
+      ? node.items
+          .slice(1)
+          .map((n) => (n.kind === 'atom' ? Number(n.value) : Number.NaN))
+          .filter((n) => Number.isFinite(n))
+          .map((n) => mmToIU(n))
+      : [];
+
+  return {
+    columnCount: numberField(item, 'column_count') ?? 0,
+    layer: stringField(item, 'layer') ?? '',
+    uuid: uuidOf(item),
+    borderExternal: borderNode ? boolField(borderNode, 'external') : false,
+    borderHeader: borderNode ? boolField(borderNode, 'header') : false,
+    borderWidth: borderNode ? mmOrUndef2(borderNode) : undefined,
+    borderStyle: borderNode ? strokeType(borderNode) : undefined,
+    separatorRows: sepNode ? boolField(sepNode, 'rows') : false,
+    separatorCols: sepNode ? boolField(sepNode, 'cols') : false,
+    separatorWidth: sepNode ? mmOrUndef2(sepNode) : undefined,
+    separatorStyle: sepNode ? strokeType(sepNode) : undefined,
+    columnWidths: nums(widths),
+    rowHeights: nums(heights),
+    cells,
+    source: item,
+  };
+}
+
+/** The `(stroke (width …))` of a `border`/`separators` block, when present. */
+const mmOrUndef2 = (node: SList): number | undefined => {
+  const stroke = childNamed(node, 'stroke');
+  if (!stroke) return undefined;
+  const w = numberField(stroke, 'width');
+  return w === undefined ? undefined : mmToIU(w);
+};
 
 /**
  * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR_PARSER::parseDIMENSION.
@@ -929,6 +998,7 @@ export function readBoard(root: SList): Board {
     shapes: [],
     texts: [],
     textBoxes: [],
+    tables: [],
     dimensions: [],
     groups: [],
     source: root,
@@ -1065,6 +1135,11 @@ export function readBoard(root: SList): Board {
       case 'gr_text_box': {
         const tb = readTextBox(item);
         if (tb) board.textBoxes.push({ ...tb, locked: lockedOf(item) });
+        break;
+      }
+      case 'table': {
+        const tb = readTable(item);
+        if (tb) board.tables.push({ ...tb, locked: lockedOf(item) });
         break;
       }
       case 'dimension': {

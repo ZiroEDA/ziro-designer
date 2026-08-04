@@ -61,6 +61,7 @@ const board = (pads: PcbPad[]): Board => ({
   texts: [],
   dimensions: [],
   textBoxes: [],
+  tables: [],
   groups: [],
   source: EMPTY,
 });

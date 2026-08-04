@@ -751,6 +751,7 @@ function emptyBoardLike(board: Board): Board {
     shapes: [],
     texts: [],
     textBoxes: [],
+    tables: [],
     groups: [],
   };
 }
