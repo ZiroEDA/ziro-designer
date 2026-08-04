@@ -916,6 +916,29 @@ function writeTableCell(cell: SchTableCell): SList {
   node = childNamed(node, 'span')
     ? mapChild(node, 'span', () => span)
     : { kind: 'list', items: [...node.items, span] };
+  // Margins, fill and effects, the same three a text box patches. They were
+  // skipped for the same reason the span was -- nothing could change them --
+  // and the cell properties dialog changes all three.
+  if (cell.margins) {
+    const m = cell.margins;
+    const margins = list(
+      atom('margins'),
+      atom(mm(m.left)),
+      atom(mm(m.top)),
+      atom(mm(m.right)),
+      atom(mm(m.bottom)),
+    );
+    node = childNamed(node, 'margins')
+      ? mapChild(node, 'margins', () => margins)
+      : insertBeforeAny(node, margins, ['fill', 'effects', 'uuid']);
+  }
+  if (cell.fill && childNamed(node, 'fill')) {
+    node = mapChild(node, 'fill', () => textBoxFillNode(cell.fill!));
+  }
+  if (cell.effects && childNamed(node, 'effects')) {
+    const orig = readEffects(cell.source);
+    node = mapChild(node, 'effects', (e) => patchEffects(e, cell.effects!, orig));
+  }
   return node;
 }
 
