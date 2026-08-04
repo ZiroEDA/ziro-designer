@@ -8,51 +8,36 @@
  * the user had never heard of, and nothing on the page changed — the crash
  * screen could not help because the failure is usually before React mounts.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { missingFeatures, unsupportedMessage } from '@ziroeda/designer/src/browser_support.js';
 
 describe('the probe', () => {
+  // Node >= 21 defines `navigator` as a getter-only own property of globalThis,
+  // so plain assignment throws. stubGlobal goes through defineProperty and
+  // unstubAllGlobals puts the original descriptor back.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('passes on a browser that has the floor', () => {
     // The real probe list, against an environment shaped like the oldest
     // browser we mean to support. A failure here means the probe is stricter
     // than the app — which turns working browsers away, the opposite of the
     // bug. (Node has none of these globals, so they are supplied.)
-    const g = globalThis as Record<string, unknown>;
-    const saved = {
-      ResizeObserver: g.ResizeObserver,
-      indexedDB: g.indexedDB,
-      navigator: g.navigator,
-    };
-    try {
-      g.ResizeObserver = class {};
-      g.indexedDB = {};
-      g.navigator = { locks: { request: () => Promise.resolve() } };
-      expect(missingFeatures()).toEqual([]);
-    } finally {
-      for (const [k, v] of Object.entries(saved)) {
-        if (v === undefined) delete g[k];
-        else g[k] = v;
-      }
-    }
+    vi.stubGlobal('ResizeObserver', class {});
+    vi.stubGlobal('indexedDB', {});
+    vi.stubGlobal('navigator', { locks: { request: () => Promise.resolve() } });
+    expect(missingFeatures()).toEqual([]);
   });
 
   it('reports a browser missing each one', () => {
     // The inverse: with none of them present, every probe must notice. This is
     // what a 2021 Safari looks like to the app.
-    const g = globalThis as Record<string, unknown>;
-    const saved = { indexedDB: g.indexedDB, navigator: g.navigator };
-    try {
-      delete g.indexedDB;
-      g.navigator = {};
-      const names = missingFeatures().map((m) => m.feature);
-      expect(names).toContain('local storage of projects');
-      expect(names).toContain('cross-tab locking');
-    } finally {
-      for (const [k, v] of Object.entries(saved)) {
-        if (v === undefined) delete g[k];
-        else g[k] = v;
-      }
-    }
+    vi.stubGlobal('indexedDB', undefined);
+    vi.stubGlobal('navigator', {});
+    const names = missingFeatures().map((m) => m.feature);
+    expect(names).toContain('local storage of projects');
+    expect(names).toContain('cross-tab locking');
   });
 
   it('reports every missing feature, not just the first', () => {
