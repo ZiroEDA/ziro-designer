@@ -4338,7 +4338,7 @@ export function SchematicEditor({
             : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
         const entries: SyncSheetEntry[] = [];
         for (const { sh, i } of wanted) {
-          const file = (sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '').split('/').pop();
+          const file = sheetFile(sh);
           const sub = file ? project.current.docs.get(file) : undefined;
           if (!file || !sub) continue;
           entries.push({
