@@ -12,6 +12,7 @@ import { StorageBanner } from './ui/StorageBanner.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
+import { missingFeatures, unsupportedMessage } from './browser_support.js';
 
 // Before rendering, so a crash during the first paint is still reported. No-ops
 // when VITE_SENTRY_DSN is unset or the user has opted out, the same
@@ -24,25 +25,39 @@ installGlobalErrorHandlers();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
-// Outermost first:
-//   ErrorBoundary, catches throws from every layer below, gate and auth alike.
-//   DesktopGate, a phone that can't run the editors is turned away before we
-//                   ask it to sign in (and before auth touches the network).
-//   StorageBanner, sibling of the auth tree, so a storage failure is shouted
-//                   about whether or not the user is signed in, but inside the
-//                   gate, so a turned-away phone isn't warned about an app it
-//                   is not running.
-createRoot(root).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <DesktopGate>
-        <AuthProvider>
-          <AuthGate>
-            <App />
-          </AuthGate>
-        </AuthProvider>
-        <StorageBanner />
-      </DesktopGate>
-    </ErrorBoundary>
-  </StrictMode>,
-);
+
+// Before anything renders. An unsupported browser otherwise gets a white
+// screen: a TypeError out of a file the user has never heard of, and nothing
+// on the page to say whether the app is broken or their browser is. The crash
+// screen cannot help, because the failure is usually before React mounts.
+const missing = missingFeatures();
+if (missing.length > 0) {
+  root.textContent = unsupportedMessage(missing);
+  root.setAttribute(
+    'style',
+    'padding:2rem;max-width:40rem;margin:0 auto;white-space:pre-wrap;line-height:1.5',
+  );
+} else {
+  // Outermost first:
+  //   ErrorBoundary, catches throws from every layer below, gate and auth alike.
+  //   DesktopGate, a phone that can't run the editors is turned away before we
+  //                   ask it to sign in (and before auth touches the network).
+  //   StorageBanner, sibling of the auth tree, so a storage failure is shouted
+  //                   about whether or not the user is signed in, but inside the
+  //                   gate, so a turned-away phone isn't warned about an app it
+  //                   is not running.
+  createRoot(root).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <DesktopGate>
+          <AuthProvider>
+            <AuthGate>
+              <App />
+            </AuthGate>
+          </AuthProvider>
+          <StorageBanner />
+        </DesktopGate>
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+}
