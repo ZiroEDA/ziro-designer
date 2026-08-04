@@ -18,17 +18,18 @@ import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
 import { refId } from '../tools/hittest.js';
 import { GENERATOR_APPLICATION } from '@ziroeda/common/src/generator.js';
 import { compareRefs } from './bom.js';
+import { netlistAllegro, type AllegroFile } from './netlist_exporter_allegro.js';
 
 const NETLIST_HEAD = GENERATOR_APPLICATION;
 
-const field = (s: SchSymbol, key: string): string =>
+export const symbolField = (s: SchSymbol, key: string): string =>
   s.fields.find((f) => f.key === key)?.value ?? '';
 
 /** A symbol that belongs on the board (excludes power/virtual and off-board parts). */
-function boardSymbols(sch: Schematic): { sym: SchSymbol; ref: string; index: number }[] {
+export function boardSymbols(sch: Schematic): { sym: SchSymbol; ref: string; index: number }[] {
   const out: { sym: SchSymbol; ref: string; index: number }[] = [];
   sch.symbols.forEach((sym, index) => {
-    const ref = field(sym, 'Reference');
+    const ref = symbolField(sym, 'Reference');
     if (!ref || ref.startsWith('#') || !sym.onBoard) return;
     out.push({ sym, ref, index });
   });
@@ -123,10 +124,10 @@ export function netlistKicadXml(
   const comps = root.child(new X('components'));
   for (const { sym, ref } of symbols) {
     const comp = comps.child(new X('comp').attr('ref', ref));
-    comp.leaf('value', field(sym, 'Value') || '~');
-    const fp = field(sym, 'Footprint');
+    comp.leaf('value', symbolField(sym, 'Value') || '~');
+    const fp = symbolField(sym, 'Footprint');
     if (fp) comp.leaf('footprint', fp);
-    const ds = field(sym, 'Datasheet');
+    const ds = symbolField(sym, 'Datasheet');
     if (ds && ds !== '~') comp.leaf('datasheet', ds);
 
     // Non-standard fields become <fields><field name=..>value</field></fields>.
@@ -231,9 +232,9 @@ export function netlistOrcadPcb2(
 
   for (const { sym, ref, index } of boardSymbols(sch)) {
     const symId = refId('symbol', sym.uuid, index);
-    let footprint = field(sym, 'Footprint').replace(/ /g, '_');
+    let footprint = symbolField(sym, 'Footprint').replace(/ /g, '_');
     if (!footprint) footprint = '$noname';
-    const value = (field(sym, 'Value') || '~').replace(/ /g, '_');
+    const value = (symbolField(sym, 'Value') || '~').replace(/ /g, '_');
     out.push(` ( ${sym.uuid ?? symId} ${footprint}  ${ref} ${value}`);
     for (const pin of bySym.get(symId) ?? []) {
       if (!pin.number) continue;
@@ -257,14 +258,14 @@ export function netlistOrcadPcb2(
  * connected on more than one unit and so land in separate subgraphs. And both
  * skip a reference beginning with `#`, the power/virtual symbols.
  */
-function netPinsByName(
+export function netPinsByName(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
 ): { name: string; pins: { ref: string; pin: string }[] }[] {
   const netlist = computeNetlist(sch, libById);
   const pinById = new Map(enumeratePins(sch, libById).map((p) => [p.id, p]));
   const refByIndex = new Map(
-    sch.symbols.map((sym, i) => [refId('symbol', sym.uuid, i), field(sym, 'Reference')]),
+    sch.symbols.map((sym, i) => [refId('symbol', sym.uuid, i), symbolField(sym, 'Reference')]),
   );
 
   const out: { name: string; pins: { ref: string; pin: string }[] }[] = [];
@@ -301,8 +302,8 @@ export function netlistPads(sch: Schematic, libById: Map<string, LibSymbol>): st
   const out: string[] = ['*PADS-PCB*', '*PART*'];
 
   for (const { sym, ref } of boardSymbols(sch)) {
-    let footprint = field(sym, 'Footprint').trim().replace(/ /g, '_');
-    if (!footprint) footprint = field(sym, 'Value').trim().replace(/ /g, '_');
+    let footprint = symbolField(sym, 'Footprint').trim().replace(/ /g, '_');
+    if (!footprint) footprint = symbolField(sym, 'Value').trim().replace(/ /g, '_');
     // "{:<16} {}": the reference is padded to 16 columns.
     out.push(`${ref.padEnd(16)} ${footprint}`);
   }
@@ -354,8 +355,8 @@ export function netlistCadstar(
   out.push('');
 
   for (const { sym, ref } of boardSymbols(sch)) {
-    const footprint = field(sym, 'Footprint') || '$noname';
-    const value = field(sym, 'Value').replace(/ /g, '_');
+    const footprint = symbolField(sym, 'Footprint') || '$noname';
+    const value = symbolField(sym, 'Value').replace(/ /g, '_');
     out.push(`${S}ADD_COM     ${ref}     "${value}"     "${footprint}"`);
   }
   out.push('');
@@ -383,7 +384,7 @@ export function netlistCadstar(
 }
 
 /** The netlist formats offered by the export dialog. */
-export type NetlistFormat = 'kicadxml' | 'orcadpcb2' | 'pads' | 'cadstar';
+export type NetlistFormat = 'kicadxml' | 'orcadpcb2' | 'pads' | 'cadstar' | 'allegro';
 
 export function generateNetlist(
   format: NetlistFormat,
@@ -398,7 +399,30 @@ export function generateNetlist(
       return netlistPads(sch, libById);
     case 'cadstar':
       return netlistCadstar(sch, libById, meta);
+    case 'allegro':
+      // Allegro also writes a devices/ directory; callers that can place more
+      // than one file should use `netlistAllegroFiles` instead.
+      return netlistAllegro(sch, libById, meta).netlist;
     default:
       return netlistOrcadPcb2(sch, libById, meta);
   }
+}
+
+/**
+ * Every file a format produces, named relative to the netlist's folder.
+ * Only Allegro produces more than one; the rest return a single entry so a
+ * caller can treat all formats the same way.
+ */
+export function netlistFiles(
+  format: NetlistFormat,
+  fileName: string,
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  meta: NetlistMeta,
+): AllegroFile[] {
+  if (format === 'allegro') {
+    const { netlist, devices } = netlistAllegro(sch, libById, meta);
+    return [{ path: fileName, text: netlist }, ...devices];
+  }
+  return [{ path: fileName, text: generateNetlist(format, sch, libById, meta) }];
 }

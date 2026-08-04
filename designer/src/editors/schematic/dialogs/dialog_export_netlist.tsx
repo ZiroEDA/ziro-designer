@@ -3,15 +3,23 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Export Netlist dialog. Counterpart: `eeschema/dialogs/dialog_export_netlist.cpp`
- * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter. We ship the
- * two built-in formats KiCad generates natively (KiCad generic XML and
- * OrcadPCB2); each page has an Export Netlist button that downloads the file.
+ * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter: KiCad
+ * generic XML, OrcadPCB2, CadStar, PADS, Allegro and Spice. Each page has an
+ * Export Netlist button that downloads the result.
+ *
+ * Allegro is the exception to "one page, one file": it is a netlist plus a
+ * sibling `devices/` directory of package definitions, and a browser download
+ * cannot create a folder — so that page downloads a `.zip` with the layout
+ * intact rather than quietly flattening the names.
+ *
  * (Custom command-line generators are a desktop-only feature and omitted.)
  */
 
 import { useState, type JSX } from 'react';
+import { strToU8, zipSync } from 'fflate';
 import {
   generateNetlist,
+  netlistFiles,
   generateSpiceNetlist,
   type NetlistFormat,
   type Schematic,
@@ -54,6 +62,14 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
     note: 'The PADS-PCB netlist (NETLIST_EXPORTER_PADS).',
   },
   {
+    id: 'allegro',
+    label: 'Allegro',
+    ext: 'txt',
+    note:
+      'The Cadence Allegro / Telesis netlist. Downloads a .zip, because this ' +
+      'format is a netlist plus a devices/ folder of package definitions.',
+  },
+  {
     id: 'spice',
     label: 'Spice',
     ext: 'cir',
@@ -70,7 +86,33 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
   const [spiceErrors, setSpiceErrors] = useState<string[]>([]);
   const active = TABS.find((t) => t.id === tab)!;
 
+  const download = (name: string, blob: Blob): void => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const doExport = (): void => {
+    // Allegro is the one format that is not a single file: it wants a netlist
+    // and a sibling devices/ directory. A browser download cannot create a
+    // folder, so the set goes out as one .zip with the layout intact.
+    if (tab === 'allegro') {
+      const files = netlistFiles('allegro', `${baseName}.${active.ext}`, doc, libById, {
+        source: `${baseName}.kicad_sch`,
+      });
+      const entries: Record<string, Uint8Array> = {};
+      for (const f of files) entries[f.path] = strToU8(f.text);
+      download(
+        `${baseName}-allegro.zip`,
+        new Blob([zipSync(entries)], { type: 'application/zip' }),
+      );
+      onClose();
+      return;
+    }
+
     let text: string;
     if (tab === 'spice') {
       const out = generateSpiceNetlist(doc, libById, null, {
@@ -84,12 +126,7 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
       text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
     }
     const mime = tab === 'kicadxml' ? 'application/xml' : 'text/plain';
-    const url = URL.createObjectURL(new Blob([text], { type: mime }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${baseName}.${active.ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    download(`${baseName}.${active.ext}`, new Blob([text], { type: mime }));
     if (tab !== 'spice' || spiceErrors.length === 0) onClose();
   };
 
