@@ -336,6 +336,14 @@ export function patchProperty(propNode: SList, field: SchField, invertY = false)
       n = { kind: 'list', items };
     }
   }
+  // KiCad 7 files put a field's `(hide yes)` — or a bare `hide` — directly on
+  // the property, outside `(effects …)`, and the reader honours that form by
+  // forcing hidden. patchEffects writes the KiCad 8 form *inside* effects, so
+  // un-hiding such a field wrote `(hide no)` inside while the old direct token
+  // stayed put and won on the next read: the field would not un-hide. The
+  // effects form is what we write, so the direct one is dropped.
+  n = stripToken(n, 'hide');
+  n = { kind: 'list', items: n.items.filter((it) => !(it.kind === 'atom' && it.value === 'hide')) };
   // Effects: patch in place when present; otherwise synthesize only if non-default.
   if (childNamed(n, 'effects')) {
     n = mapChild(n, 'effects', (e) =>

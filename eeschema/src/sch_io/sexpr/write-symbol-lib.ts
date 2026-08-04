@@ -327,6 +327,23 @@ function hasToken(node: SList, name: string): boolean {
  * model does not represent (exclude_from_sim, in_bom, on_board, embedded_fonts,
  * extends, …) pass through from the source untouched.
  */
+/**
+ * The four part attributes and the file token each is written as. Three of them
+ * are stored **inverted** — the file says `in_bom`, the model says
+ * `excludedFromBom` — exactly as the schematic side stores them.
+ *
+ * An attribute the model never had stays absent: an older library that never
+ * wrote the token must not start claiming an explicit "no".
+ */
+function ATTR_TOKENS(sym: LibSymbol): [string, boolean][] {
+  const out: [string, boolean][] = [];
+  if (sym.excludedFromSim !== undefined) out.push(['exclude_from_sim', sym.excludedFromSim]);
+  if (sym.excludedFromBom !== undefined) out.push(['in_bom', !sym.excludedFromBom]);
+  if (sym.excludedFromBoard !== undefined) out.push(['on_board', !sym.excludedFromBoard]);
+  if (sym.excludedFromPosFiles !== undefined) out.push(['in_pos_files', !sym.excludedFromPosFiles]);
+  return out;
+}
+
 export function writeLibSymbolNode(sym: LibSymbol): SList {
   const src = sym.source;
   let propertiesWritten = false;
@@ -346,7 +363,22 @@ export function writeLibSymbolNode(sym: LibSymbol): SList {
 
   // Header flags the source didn't have but the model now sets, in KiCad's
   // canonical position (right after the name, before everything else).
-  if (sym.isPower && !childNamed(src, 'power')) out.push(list(atom('power')));
+  if (sym.isPower && !childNamed(src, 'power'))
+    out.push(sym.isLocalPower ? list(atom('power'), atom('local')) : list(atom('power')));
+  // The header attribute tokens were read into the model and then written back
+  // *from the source node*, so the model's value never won: a symbol whose file
+  // said `(duplicate_pin_numbers_are_jumpers no)` kept saying no however the
+  // model was changed. Nothing edits these today, so it was latent rather than
+  // live — but it is the same shape as the three live ones, and a symbol editor
+  // attributes page would have lost every edit silently.
+  //
+  // Handled by rewriting the child below rather than by adding one here, since
+  // the token is usually already in the file.
+  if (sym.duplicatePinNumbersAreJumpers && !childNamed(src, 'duplicate_pin_numbers_are_jumpers'))
+    out.push(list(atom('duplicate_pin_numbers_are_jumpers'), atom('yes')));
+  for (const [token, value] of ATTR_TOKENS(sym)) {
+    if (!childNamed(src, token)) out.push(list(atom(token), atom(value ? 'yes' : 'no')));
+  }
   if (sym.pinNumbersHidden && !childNamed(src, 'pin_numbers'))
     out.push(list(atom('pin_numbers'), list(atom('hide'), atom('yes'))));
   if (!childNamed(src, 'pin_names')) {
@@ -359,6 +391,21 @@ export function writeLibSymbolNode(sym: LibSymbol): SList {
   for (const it of src.items.slice(2)) {
     if (!isList(it)) {
       out.push(it);
+      continue;
+    }
+    const token = head(it) ?? '';
+    // Attribute tokens present in the source: take the model's value.
+    if (token === 'duplicate_pin_numbers_are_jumpers') {
+      out.push(list(atom(token), atom(sym.duplicatePinNumbersAreJumpers ? 'yes' : 'no')));
+      continue;
+    }
+    if (token === 'power') {
+      out.push(sym.isLocalPower ? list(atom('power'), atom('local')) : list(atom('power')));
+      continue;
+    }
+    const attr = ATTR_TOKENS(sym).find(([t]) => t === token);
+    if (attr) {
+      out.push(list(atom(token), atom(attr[1] ? 'yes' : 'no')));
       continue;
     }
     switch (head(it)) {
