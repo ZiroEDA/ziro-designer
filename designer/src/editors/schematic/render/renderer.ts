@@ -141,7 +141,7 @@ function fieldDrawsFor(
       // GetShownText: field values expand `${VAR}` (layout uses the result).
       const shown = shownText(fieldShownText(f, sym, unitCount, g_subpart));
       if (shown === '') return;
-      const box = fieldBoundingBox(f, sym, shown, measureText);
+      const box = fieldBoundingBox(f, sym, shown);
       const fd: FieldDraw = {
         index,
         key: f.key,

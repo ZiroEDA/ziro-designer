@@ -205,7 +205,7 @@ function computeFieldBoxes(
   }[] = [];
   sch.symbols.forEach((sym, si) => {
     const symId = refId('symbol', sym.uuid, si);
-    for (const f of symbolFieldBoxes(sym, libById.get(sym.libId), measureText)) {
+    for (const f of symbolFieldBoxes(sym, libById.get(sym.libId))) {
       out.push({
         id: fieldId(symId, f.index),
         symbolIndex: si,

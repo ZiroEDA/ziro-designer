@@ -258,7 +258,7 @@ describe('field geometry (SCH_FIELD::GetBoundingBox port)', () => {
 
   it('anchors a left/bottom-justified field to the right of and above its position', () => {
     const f = mkField(['left', 'bottom']);
-    const box = fieldTextBox(f, 'R1', measure);
+    const box = fieldTextBox(f, 'R1');
     // Left: box starts at the anchor. Bottom: box ends slightly below it (fudge).
     expect(box.x).toBe(f.at!.x);
     expect(box.y + box.h).toBeGreaterThan(f.at!.y - 1000);
@@ -268,8 +268,8 @@ describe('field geometry (SCH_FIELD::GetBoundingBox port)', () => {
   it('mirroring the symbol flips which side the box lands on (justify flip)', () => {
     const sym = mkSym();
     const f = mkField(['left']);
-    const plain = fieldBoundingBox(f, sym, 'R1', measure);
-    const mirrored = fieldBoundingBox(f, mkSym(0, 'y'), 'R1', measure);
+    const plain = fieldBoundingBox(f, sym, 'R1');
+    const mirrored = fieldBoundingBox(f, mkSym(0, 'y'), 'R1');
     // Left-justified: the box grows rightward from the anchor. Mirror-Y flips the
     // text run around the anchor (the file position is the *transformed* one,
     // SCH_FIELD::GetPosition), so the box now grows leftward, ending at it.

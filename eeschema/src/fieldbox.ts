@@ -27,6 +27,7 @@
 
 import type { LibSymbol, SchField, SchSymbol, Vec2 } from './types.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { symbolTransform, applyTransform, type Transform } from '@ziroeda/common/src/transform.js';
 
 /** Advance width of `text` at glyph size `sizeIU` (Newstroke advance sum). */
@@ -135,12 +136,7 @@ export function fieldShownText(
  * EDA_TEXT::GetTextBox for a single-line stroke-font field, anchored at the field
  * position with the *stored* justification, before any rotation/transform.
  */
-export function fieldTextBox(
-  field: SchField,
-  shownText: string,
-  measure: TextMeasurer,
-  posOverride?: Vec2,
-): Box {
+export function fieldTextBox(field: SchField, shownText: string, posOverride?: Vec2): Box {
   const { h, w } = fieldSize(field);
   const bold = !!field.effects?.bold;
   const italic = !!field.effects?.italic;
@@ -148,7 +144,13 @@ export function fieldTextBox(
 
   // FONT::StringBoundaryLimits: stroke glyph run bbox, inflated by round(1.5·pen).
   const inflate = kiRound(thickness * 1.5);
-  const extentsX = measure(shownText, w) - kiRound(w * 0.2) + 2 * inflate; // INTER_CHAR = 0.2
+  // Through the shared entry point (#154), so a field carrying `(font (face …))`
+  // is measured by whatever will draw it. With no provider installed that is
+  // the stroke font, which is what the injected measurer always was.
+  const extentsX =
+    textWidth(shownText, w, { face: field.effects?.face, bold, italic }) -
+    kiRound(w * 0.2) +
+    2 * inflate; // INTER_CHAR = 0.2
   const extentsY = h + 2 * inflate;
 
   const fudge = kiRound(extentsY * 0.17); // stroke-font fudge factor
@@ -207,18 +209,13 @@ function invTransform(t: Transform): Transform {
  * one (GetPosition applies the parent transform, sch_field.cpp), so the box is
  * built at inverse-transform(at - origin) and mapped forward again.
  */
-export function fieldBoundingBox(
-  field: SchField,
-  sym: SchSymbol,
-  shownText: string,
-  measure: TextMeasurer,
-): Box {
+export function fieldBoundingBox(field: SchField, sym: SchSymbol, shownText: string): Box {
   const origin = sym.at;
   const t: Transform = symbolTransform(sym.angle, sym.mirror);
   const relFile: Vec2 = { x: (field.at?.x ?? 0) - origin.x, y: (field.at?.y ?? 0) - origin.y };
   const pos = applyTransform(invTransform(t), relFile); // GetTextPos() - origin
 
-  const box = fieldTextBox(field, shownText, measure, pos);
+  const box = fieldTextBox(field, shownText, pos);
   let begin: Vec2 = { x: box.x, y: box.y };
   let end: Vec2 = { x: box.x + box.w, y: box.y + box.h };
   begin = rotatePoint(begin, pos, field.angle);
@@ -252,7 +249,7 @@ export function isHorizJustifyFlipped(
   shownText: string,
   measure: TextMeasurer,
 ): boolean {
-  const centre = centreOf(fieldBoundingBox(field, sym, shownText, measure));
+  const centre = centreOf(fieldBoundingBox(field, sym, shownText));
   const pos = field.at ?? { x: 0, y: 0 };
   const vertical = fieldDrawRotation(field, sym) === 90;
   switch (storedHJustify(field)) {
@@ -272,7 +269,7 @@ export function isVertJustifyFlipped(
   shownText: string,
   measure: TextMeasurer,
 ): boolean {
-  const centre = centreOf(fieldBoundingBox(field, sym, shownText, measure));
+  const centre = centreOf(fieldBoundingBox(field, sym, shownText));
   const pos = field.at ?? { x: 0, y: 0 };
   const vertical = fieldDrawRotation(field, sym) === 90;
   switch (storedVJustify(field)) {
@@ -382,7 +379,6 @@ export interface SymbolFieldBox {
 export function symbolFieldBoxes(
   sym: SchSymbol,
   lib: LibSymbol | undefined,
-  measure: TextMeasurer,
   opts: { showHidden?: boolean; subpart?: SubpartSettings } = {},
 ): SymbolFieldBox[] {
   const unitCount = lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1;
@@ -392,7 +388,7 @@ export function symbolFieldBoxes(
     if (f.effects?.hidden && !opts.showHidden) return;
     const shown = fieldShownText(f, sym, unitCount, opts.subpart);
     if (shown === '') return;
-    out.push({ index, key: f.key, shown, box: fieldBoundingBox(f, sym, shown, measure) });
+    out.push({ index, key: f.key, shown, box: fieldBoundingBox(f, sym, shown) });
   });
   return out;
 }
