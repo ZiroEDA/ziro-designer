@@ -73,10 +73,28 @@ for (const dir of symDirs.sort()) {
   // Derived symbols (`extends`) must appear after their parent; upstream keeps
   // parents and derivatives in one file, and file order preserves that.
   const names = parts.map((p) => p.name);
+  // LIB_SYMBOL::IsPower, carried in the index so the chooser's power filter is
+  // exact without loading every library. A derived symbol inherits it from the
+  // symbol it extends, so the parents are resolved first.
+  const blockByName = new Map(parts.map((p) => [p.name, p.block]));
+  const isPower = (name, seen = new Set()) => {
+    const block = blockByName.get(name);
+    if (!block || seen.has(name)) return false;
+    if (/\(\s*power\s*\)/.test(block)) return true;
+    const ext = /\(\s*extends\s+"([^"]+)"/.exec(block);
+    return ext ? isPower(ext[1], seen.add(name)) : false;
+  };
+  const power = names.filter((n) => isPower(n));
   const body = parts.map((p) => `\t${p.block}`).join('\n');
   const merged = `(kicad_symbol_lib\n\t(version 20241209)\n\t(generator "ziro_library_merge")\n\t(generator_version "1.0")\n${body}\n)\n`;
   symEntries.push([`symbols/${lib}.kicad_sym`, Buffer.from(merged), 'text/plain']);
-  symIndex.push({ name: lib, count: names.length, symbols: names });
+  symIndex.push({
+    name: lib,
+    count: names.length,
+    symbols: names,
+    // Omitted entirely when a library has none, keeping the index small.
+    ...(power.length ? { power } : {}),
+  });
   // stage the merged lib so the qa sweep can validate it with our engines
   mkdirSync(join(ROOT, 'tools/libraries/out/symbols'), { recursive: true });
   writeFileSync(join(ROOT, 'tools/libraries/out/symbols', `${lib}.kicad_sym`), merged);

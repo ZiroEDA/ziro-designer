@@ -20,6 +20,31 @@ export interface LibIndexEntry {
   name: string;
   count: number;
   symbols: string[];
+  /**
+   * Names of the power symbols in this library, when the index carries them.
+   *
+   * `LIB_SYMBOL::IsPower` is a property of the symbol, not of the library it
+   * lives in — a power symbol can sit anywhere and a "power"-named library can
+   * hold ordinary parts. Knowing it without loading the library needs the flag
+   * in the index, which is what this is. Optional so an index generated before
+   * it existed still loads; `isPowerSymbol` falls back in that case.
+   */
+  power?: string[];
+}
+
+/**
+ * Whether a symbol is a power symbol, for the chooser's power filter.
+ *
+ * With the flag in the index this is exact. Without it, the only thing
+ * available before the library loads is the library's *name*, which is a guess
+ * in both directions: an ordinary part in a library called "power" passes, and
+ * a real power symbol elsewhere is hidden until its library is read. KiCad has
+ * no such problem because it holds the whole index in memory; we load lazily on
+ * purpose, so the flag has to travel with the index.
+ */
+export function isPowerSymbol(entry: LibIndexEntry, symbolName: string): boolean {
+  if (entry.power) return entry.power.includes(symbolName);
+  return /power/i.test(entry.name);
 }
 
 // The hosted symbol library set, or the bundled subset when it is unreachable
