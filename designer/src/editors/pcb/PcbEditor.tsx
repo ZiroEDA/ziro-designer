@@ -115,6 +115,14 @@ import {
   type DimensionKind,
   type PcbTable,
   type PcbTextBox,
+  addBoardImage,
+  cancelPlaceImage,
+  clickImage,
+  fileChosen,
+  imageBBox,
+  moveImage,
+  startPlaceImage,
+  type ImagePlaceState,
 } from '@ziroeda/pcbnew';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -1221,6 +1229,8 @@ export function PcbEditor({
   } | null>(null);
   /** The dimension being placed (DRAWING_TOOL::DrawDimension's in-flight item). */
   const dimensionRef = useRef<DimensionDraw | null>(null);
+  /** The reference image being placed (`DRAWING_TOOL::PlaceReferenceImage`). */
+  const placeImageRef = useRef<ImagePlaceState>(startPlaceImage());
   // Switching tools abandons the in-flight shape/route/zone/ruler/dimension.
   useEffect(() => {
     drawingRef.current = [];
@@ -1230,6 +1240,7 @@ export function PcbEditor({
     dimensionRef.current = null;
     textBoxStartRef.current = null;
     tableStartRef.current = null;
+    placeImageRef.current = startPlaceImage();
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
   const rafRef = useRef(0);
@@ -1823,6 +1834,24 @@ export function PcbEditor({
         ctx.lineWidth = Math.max(1, dpr) / v.scale;
         ctx.globalAlpha = 0.9;
         ctx.strokeRect(first.x, first.y, p.x - first.x, p.y - first.y);
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // Reference image preview: the extent the picture will occupy, centred on
+    // the cursor. The same outline the renderer draws for a placed image —
+    // which is all either can draw until the raster pass exists.
+    {
+      const ps = placeImageRef.current;
+      const cur0 = cursorRef.current;
+      if (ps.step === 'placing' && ps.image && cur0) {
+        const box = imageBBox(moveImage(ps, snapToGrid(cur0)).image!);
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = layerColor(ps.image.layer);
+        ctx.lineWidth = Math.max(1, dpr) / v.scale;
+        ctx.globalAlpha = 0.9;
+        ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -3728,6 +3757,82 @@ export function PcbEditor({
     requestDraw();
   };
 
+  /**
+   * Ask for a PNG and hand back its base64 payload.
+   *
+   * Upstream opens a `wxFileDialog` from inside the tool's event loop and
+   * `continue`s if it is cancelled. The browser equivalent is a hidden file
+   * input; cancelling resolves to null, which leaves the tool armed exactly as
+   * the `continue` does.
+   *
+   * KiCad accepts any format wxImage can read and converts to PNG internally.
+   * We take PNG only, because `pngPixelSize`/`pngPPI` — which decide how much
+   * board the image covers — read the PNG header directly. Accepting a JPEG we
+   * could not measure would place an item of the fallback size, which looks
+   * like a scaling bug rather than an unsupported format.
+   */
+  const askForPng = (): Promise<string | null> =>
+    new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/png';
+      input.onchange = (): void => {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onerror = (): void => {
+          resolve(null);
+        };
+        reader.onload = (): void => {
+          // A data: URL is "data:image/png;base64,<payload>"; the model holds
+          // the payload alone, as the file's own quoted strings do.
+          const url = String(reader.result ?? '');
+          const comma = url.indexOf(',');
+          resolve(comma < 0 ? null : url.slice(comma + 1));
+        };
+        reader.readAsDataURL(file);
+      };
+      // Cancelling a file input fires no event in every browser, so nothing
+      // else resolves this promise. That is deliberate: an abandoned pick
+      // leaves the tool armed, which is what upstream's `continue` does too.
+      input.click();
+    });
+
+  /**
+   * A click with the reference image tool active
+   * (`DRAWING_TOOL::PlaceReferenceImage`). The first opens the file dialog and
+   * puts the picture on the cursor; the second drops it.
+   */
+  const handleImageClick = (world: { x: number; y: number }): void => {
+    const p = snapToGrid(world);
+    const state = placeImageRef.current;
+
+    if (state.step === 'awaiting-file') {
+      void askForPng().then((data) => {
+        if (data === null) return;
+        // The tool may have been switched away while the dialog was open.
+        if (activeToolRef.current !== 'placeReferenceImage') return;
+        const at = cursorRef.current ? snapToGrid(cursorRef.current) : p;
+        placeImageRef.current = fileChosen(placeImageRef.current, data, at, activeLayer);
+        requestDraw();
+      });
+      return;
+    }
+
+    const brd = boardRef.current;
+    const { state: next, commit } = clickImage(state, p);
+    placeImageRef.current = next;
+    if (commit && brd) {
+      const { board: withImage, id } = addBoardImage(brd, commit);
+      commitBoard(withImage);
+      setSelection(new Set([id]));
+    }
+    requestDraw();
+  };
+
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -4639,6 +4744,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drawTextBox') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleTextBoxClick(w);
+        } else if (activeToolRef.current === 'placeReferenceImage') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleImageClick(w);
         } else if (dimensionToolKind(activeToolRef.current)) {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleDimensionClick(w, dimensionToolKind(activeToolRef.current)!);
@@ -4825,6 +4933,13 @@ export function PcbEditor({
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
+          requestDrawRef.current();
+        } else if (placeImageRef.current.step === 'placing') {
+          // Esc drops the picture on the cursor but stays in the tool, ready
+          // for another file — upstream's `cleanup()` without the `PopTool`.
+          // Falling through to the tool-exit branch below instead would make
+          // picking the wrong file cost a re-activation.
+          placeImageRef.current = cancelPlaceImage(placeImageRef.current).state;
           requestDrawRef.current();
         } else if (dimensionRef.current) {
           dimensionRef.current = null;

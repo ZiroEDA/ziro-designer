@@ -25,6 +25,7 @@ import { readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
   SchSymbol,
+  SchSymbolPin,
   SchLine,
   SchJunction,
   SchLabel,
@@ -494,6 +495,7 @@ function writeSymbol(sym: SchSymbol): SList {
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
   node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
+  node = patchSymbolPins(node, sym.pins);
 
   // Rewrite the property block from the model's field list (order preserved), so
   // renamed/added/removed fields land exactly where KiCad writes them.
@@ -516,6 +518,52 @@ function writeSymbol(sym: SchSymbol): SList {
       (it) => isList(it) && (head(it) === 'pin' || head(it) === 'instances'),
     );
     items.splice(idx === -1 ? items.length : idx, 0, ...propNodes);
+  }
+  return { kind: 'list', items };
+}
+
+/**
+ * Patch a placement's `(pin "N" (uuid …) [(alternate "NAME")])` children to
+ * match the model, matching by pin number and leaving anything else in the node
+ * alone. Counterpart: the `GetRawPins()` loop in `SCH_IO_KICAD_SEXPR::saveSymbol`.
+ *
+ * A pin the model does not mention keeps its node untouched — the model only
+ * carries pins the *file* carried, so a symbol whose pins were never listed
+ * does not grow a list here.
+ */
+function patchSymbolPins(node: SList, pins: readonly SchSymbolPin[] | undefined): SList {
+  if (!pins?.length) return node;
+  const byNumber = new Map(pins.map((p) => [p.number, p]));
+  const written = new Set<string>();
+  const items = node.items.map((it) => {
+    if (!isList(it) || head(it) !== 'pin') return it;
+    const number = arg(it, 0) ?? '';
+    const pin = byNumber.get(number);
+    if (!pin) return it;
+    written.add(number);
+    let n: SList = it;
+    // saveSymbol writes no (alternate …) at all when the alt is empty *or*
+    // equals the base pin name — a deliberate workaround for alternates that
+    // were once set to the pin's own name. Clearing the model's alternate must
+    // therefore remove the child, not write an empty one.
+    n = stripToken(n, 'alternate');
+    if (pin.alternate) {
+      n = { kind: 'list', items: [...n.items, list(atom('alternate'), str(pin.alternate))] };
+    }
+    return n;
+  });
+  // A pin the file never listed but that now carries an alternate needs a node
+  // of its own, or the selection is lost on save with nothing to show for it.
+  // Only those: a pin with no alternate has nothing to say, and KiCad's writer
+  // emits the full list on its next save anyway.
+  const added = pins.filter((p) => p.alternate && !written.has(p.number));
+  if (added.length) {
+    const nodes = added.map((p) =>
+      list(atom('pin'), str(p.number), list(atom('alternate'), str(p.alternate!))),
+    );
+    // Canonical position: after the properties, before (instances …).
+    const idx = items.findIndex((it) => isList(it) && head(it) === 'instances');
+    items.splice(idx === -1 ? items.length : idx, 0, ...nodes);
   }
   return { kind: 'list', items };
 }

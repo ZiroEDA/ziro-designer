@@ -24,10 +24,11 @@
  * Footprint set should not wipe the footprint you assigned.
  */
 
-import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
+import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import type { EditCommand } from './command.js';
 import { wildCompare } from './global_edit_text_and_graphics.js';
 import { refId } from './hittest.js';
+import { clearAlternates } from './pin_alternates.js';
 
 export type ChangeSymbolsMode = 'change' | 'update';
 
@@ -60,6 +61,13 @@ export interface ChangeSymbolsOptions {
   /** Not applied: show-pin-names/numbers has no per-placement home in our
    *  model (see the note in `changeSymbols`). */
   resetPinTextVisibility: boolean;
+  /** "Reset alternate pin functions": clear every placement's chosen
+   *  `(alternate …)`. Even with this off, an alternate the new library does
+   *  not declare — or one equal to the base pin name — is cleared anyway. */
+  resetAlternatePin: boolean;
+  /** "Update/reset pin map overrides": drop the placement's
+   *  `(pin_map_override …)` back to the library default. */
+  resetPinMapOverrides: boolean;
   /** Let a power symbol's Value be overwritten from the library. */
   resetCustomPower: boolean;
 }
@@ -80,9 +88,14 @@ export function defaultChangeSymbolsOptions(mode: ChangeSymbolsMode): ChangeSymb
     resetFieldPositions: change,
     resetAttributes: change,
     resetPinTextVisibility: change,
+    resetAlternatePin: change,
+    resetPinMapOverrides: change,
     resetCustomPower: false,
   };
 }
+
+/** Every pin the part declares, across units and body styles. */
+const allLibPins = (lib: LibSymbol): readonly LibPin[] => lib.units.flatMap((u) => u.pins);
 
 export interface ChangeSymbolsMessage {
   text: string;
@@ -253,6 +266,25 @@ export function changeSymbols(
       if (lib.excludedFromBoard !== undefined) next = { ...next, onBoard: !lib.excludedFromBoard };
       if (lib.excludedFromPosFiles !== undefined)
         next = { ...next, excludedFromPosFiles: lib.excludedFromPosFiles };
+    }
+
+    // "Clear alternate pins as required." Runs on every matched symbol, not
+    // only when the box is checked: an alternate the *new* library does not
+    // declare, or one equal to the base pin name, is cleared regardless, since
+    // leaving it makes the placement disagree with its library symbol.
+    //
+    // Upstream's loop is `symbol->GetPins( &instance )`, the *current unit's*
+    // pins. We check against every unit's instead, deliberately: a placement's
+    // `(pin …)` list comes from `GetRawPins()` and so covers the whole part, so
+    // a unit-restricted check would read another unit's pin as "not in the
+    // library" and clear an alternate that is perfectly valid.
+    next = clearAlternates(next, allLibPins(lib), opts.resetAlternatePin);
+
+    // "Update/reset pin map overrides": SetPinMapOverride( PIN_MAP_INSTANCE_OVERRIDE() ),
+    // i.e. back to the default, which for us is having no override node at all.
+    if (opts.resetPinMapOverrides && next.pinMapOverride) {
+      const { pinMapOverride: _dropped, ...rest } = next;
+      next = rest;
     }
 
     // `resetPinTextVisibility` is still not applied. Upstream copies the
