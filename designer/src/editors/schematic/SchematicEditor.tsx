@@ -145,6 +145,9 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  buildNetNavigator,
+  netNavigatorOrder,
+  stepNetItem,
   buildSheetTree,
   sheetFile,
   sheetName,
@@ -351,6 +354,7 @@ import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { SearchPanel } from './components/SearchPanel.js';
+import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
 
@@ -4942,6 +4946,17 @@ export function SchematicEditor({
             },
           );
         }
+        if (hitNet)
+          chainItems.push({
+            // SCH_ACTIONS::findNetInInspector: show the Net Navigator and put
+            // the selection on the clicked item's row, which is what the panel
+            // marks as active.
+            label: 'Find in Net Navigator',
+            action: () => {
+              setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
+              if (hit) setSelection(new Set([hit.id]));
+            },
+          });
         if (highlightedChain !== null || highlightItem !== null)
           chainItems.push({
             label: 'Clear Net Highlighting',
@@ -5081,6 +5096,7 @@ export function SchematicEditor({
           showProperties: toggles.has('showProperties'),
           showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
+          showNetNavigator: toggles.has('showNetNavigator'),
           // Each attribute shows checked only when everything the action would
           // touch already carries it, the same test the action itself uses.
           ...Object.fromEntries(
@@ -5261,6 +5277,19 @@ export function SchematicEditor({
         // SCH_ACTIONS::showHierarchy (Ctrl+H): toggle the navigator panel.
         e.preventDefault();
         onLeftToggle('showHierarchy');
+      } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // SCH_ACTIONS::nextNetItem / previousNetItem (Tab / Shift+Tab):
+        // SCH_SELECTION_TOOL::SelectNext walks the Net Navigator's flattened
+        // tree, so it needs exactly one selected item to start from, and it
+        // *wraps* — unlike Previous/Next Marker, which stops at the ends.
+        if (doc && selection.size === 1) {
+          const order = netNavigatorOrder(buildNetNavigator(doc, libById, fmt));
+          const next = stepNetItem(order, [...selection][0]!, !e.shiftKey);
+          if (next !== null) {
+            e.preventDefault();
+            setSelection(new Set([next]));
+          }
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
@@ -5711,7 +5740,8 @@ export function SchematicEditor({
       <div className="ze-body">
         {(toggles.has('showProperties') ||
           toggles.has('showHierarchy') ||
-          toggles.has('showSearch')) && (
+          toggles.has('showSearch') ||
+          toggles.has('showNetNavigator')) && (
           <div className="ze-leftdock">
             {toggles.has('showSearch') && doc && (
               <div className="ze-panel grow">
@@ -5748,6 +5778,20 @@ export function SchematicEditor({
                         : `${selection.size} item(s) selected`}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            {toggles.has('showNetNavigator') && doc && (
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Net Navigator</div>
+                <div className="ze-panel-body">
+                  <NetNavigatorPanel
+                    doc={doc}
+                    libById={libById}
+                    fmt={fmt}
+                    selectedId={selection.size === 1 ? [...selection][0] : undefined}
+                    onSelect={(id) => setSelection(new Set([id]))}
+                  />
                 </div>
               </div>
             )}

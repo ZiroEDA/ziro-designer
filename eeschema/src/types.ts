@@ -424,6 +424,16 @@ export interface SchLabel {
 export type DirectiveShape = 'dot' | 'round' | 'diamond' | 'rectangle';
 
 export interface SchDirectiveLabel {
+  /**
+   * The label's own text — `(netclass_flag "…")`'s first argument.
+   *
+   * `SCH_DIRECTIVE_LABEL` is a `SCH_LABEL_BASE`, so it has text like any other
+   * label, and `GetMsgPanelInfo` shows it. It is usually empty in practice
+   * (the netclass travels in a field), which is why it went unmodelled — but
+   * "usually empty" is not "absent", and a file that carries one round-tripped
+   * only through `source`.
+   */
+  readonly text: string;
   readonly at: Vec2;
   readonly angle: number;
   /** `(shape …)`: the flag drawn at the end of the pin line. */
