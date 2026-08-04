@@ -740,8 +740,11 @@ export function SchematicEditor({
   const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
   // Assign Netclass: the patterns the selection produced, awaiting a class.
   const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
+  // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
+  // segment first and then run exactly this drag, which is why they are a grab
+  // kind rather than an edit of their own.
   const [grabRequest, setGrabRequest] = useState<{
-    kind: 'move' | 'drag';
+    kind: 'move' | 'drag' | 'break' | 'slice';
     nonce: number;
   } | null>(null);
   // Right-click selection context menu (SCH_SELECTION_TOOL's TOOL_MENU):
@@ -4626,6 +4629,22 @@ export function SchematicEditor({
       );
       if (netlist && selectedNets(netlist, selection).length > 0)
         items.push({ label: 'Assign Netclass...', icon: 'assignNetclass', action: assignNetclass });
+      // SCH_ACTIONS::breakWire / ::slice, both offered whenever a line is
+      // selected (SCH_SELECTION_TOOL's `linesSelection` condition). Break
+      // divides into connected segments, Slice into unconnected ones.
+      if (doc && [...selection].some((id) => id.startsWith('line:')))
+        items.push(
+          {
+            label: 'Break',
+            icon: 'break',
+            action: () => setGrabRequest((p) => ({ kind: 'break', nonce: (p?.nonce ?? 0) + 1 })),
+          },
+          {
+            label: 'Slice',
+            icon: 'slice',
+            action: () => setGrabRequest((p) => ({ kind: 'slice', nonce: (p?.nonce ?? 0) + 1 })),
+          },
+        );
       if (hit?.kind === 'sheet')
         items.push(
           {
