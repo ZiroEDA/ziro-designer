@@ -588,3 +588,13 @@ export {
   type CollisionTest,
   type OptimizeEffort,
 } from './router/pns_optimizer.js';
+
+export {
+  isCopperLayerName,
+  copperRank,
+  enabledCopperLayers,
+  buildSwapLayerMap,
+  swapItemLayers,
+  swapViaLayerPair,
+  swapBoardLayers,
+} from './swap_layers.js';
