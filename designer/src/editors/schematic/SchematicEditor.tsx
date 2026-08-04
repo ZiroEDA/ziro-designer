@@ -2991,6 +2991,14 @@ export function SchematicEditor({
       });
       payload.batch.junctions.forEach((j) => consider(j.at));
       payload.batch.labels.forEach((l) => consider(l.at));
+      // Every kind the clipboard carries needs an anchor here, or duplicating a
+      // selection made only of these lands it at the payload's leftmost point
+      // instead of under the cursor.
+      payload.batch.busEntries.forEach((b) => consider(b.at));
+      payload.batch.noConnects.forEach((n) => consider(n.at));
+      payload.batch.textBoxes.forEach((t) => consider(t.start));
+      payload.batch.images.forEach((im) => consider(im.at));
+      payload.batch.directiveLabels.forEach((d) => consider(d.at));
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });

@@ -44,13 +44,23 @@ export function copySelectionText(sch: Schematic, ids: ReadonlySet<string>): str
   const noConnects = sch.noConnects.filter((nc, i) => ids.has(refId('noconnect', nc.uuid, i)));
   const labels = sch.labels.filter((l, i) => ids.has(refId('label', l.uuid, i)));
 
+  const busEntries = sch.busEntries.filter((b, i) => ids.has(refId('busentry', b.uuid, i)));
+  const images = sch.images.filter((im, i) => ids.has(refId('image', im.uuid, i)));
+  const graphics = sch.graphics.filter((_g, i) => ids.has(refId('graphic', undefined, i)));
+  const textBoxes = sch.textBoxes.filter((t, i) => ids.has(refId('textbox', t.uuid, i)));
+  const directiveLabels = (sch.directiveLabels ?? []).filter((d, i) =>
+    ids.has(refId('directive', d.uuid, i)),
+  );
+  const tables = sch.tables.filter((t, i) => ids.has(refId('table', t.uuid, i)));
+
   const usedLibIds = new Set(symbols.map((s) => s.libId));
   const libs = sch.libSymbols.filter((l) => usedLibIds.has(l.libId));
 
   // Round the subset through the writer so item nodes carry current geometry.
-  // Sheets are excluded from the clipboard for now: KiCad ships each sheet's
-  // screen along on the clipboard (m_supplementaryClipboard), which needs
-  // multi-document paste support.
+  // `doCopy` copies whatever is selected, so every kind that can be selected
+  // belongs here. Sheets are the one deliberate exception: KiCad ships each
+  // sheet's screen along on the clipboard (m_supplementaryClipboard), which
+  // needs multi-document paste support.
   const subset: Schematic = {
     ...sch,
     symbols,
@@ -59,12 +69,12 @@ export function copySelectionText(sch: Schematic, ids: ReadonlySet<string>): str
     noConnects,
     labels,
     sheets: [],
-    busEntries: [],
-    images: [],
-    graphics: [],
-    textBoxes: [],
-    directiveLabels: [],
-    tables: [],
+    busEntries,
+    images,
+    graphics,
+    textBoxes,
+    directiveLabels,
+    tables,
     libSymbols: libs,
   };
   const root = writeSchematic(subset);
@@ -85,7 +95,17 @@ export function copySelectionText(sch: Schematic, ids: ReadonlySet<string>): str
       h === 'label' ||
       h === 'global_label' ||
       h === 'hierarchical_label' ||
-      h === 'text'
+      h === 'text' ||
+      // The kinds that used to fall through this filter and vanish silently.
+      h === 'bus_entry' ||
+      h === 'text_box' ||
+      h === 'rectangle' ||
+      h === 'circle' ||
+      h === 'arc' ||
+      h === 'bezier' ||
+      h === 'netclass_flag' ||
+      h === 'image' ||
+      h === 'table'
     ) {
       parts.push(serialize(it));
     }
@@ -229,12 +249,37 @@ export function parsePastedText(
     const uuid = newUuid();
     return { ...item, uuid, source: nodeWithUuid(item.source, uuid) };
   };
+  // Graphics carry a uuid in their node but not as a model field (they are
+  // identified by index), so their node alone is refreshed.
+  const reuuidNode = <T extends { source: SList }>(item: T): T => ({
+    ...item,
+    source: nodeWithUuid(item.source, newUuid()),
+  });
   const lines = doc.lines.map(reuuid);
   const junctions = doc.junctions.map(reuuid);
   const noConnects = doc.noConnects.map(reuuid);
   const labels = doc.labels.map(reuuid);
+  const busEntries = doc.busEntries.map(reuuid);
+  const images = doc.images.map(reuuid);
+  const textBoxes = doc.textBoxes.map(reuuid);
+  const directiveLabels = (doc.directiveLabels ?? []).map(reuuid);
+  const tables = doc.tables.map(reuuid);
+  const graphics = doc.graphics.map(reuuidNode);
 
-  if (symbols.length + lines.length + junctions.length + noConnects.length + labels.length === 0)
+  if (
+    symbols.length +
+      lines.length +
+      junctions.length +
+      noConnects.length +
+      labels.length +
+      busEntries.length +
+      images.length +
+      textBoxes.length +
+      directiveLabels.length +
+      tables.length +
+      graphics.length ===
+    0
+  )
     return null;
 
   // Only bring along lib definitions the target sheet doesn't already have.
@@ -252,6 +297,18 @@ export function parsePastedText(
   for (const j of junctions) consider(j.at);
   for (const nc of noConnects) consider(nc.at);
   for (const l of labels) consider(l.at);
+  for (const b of busEntries) consider(b.at);
+  for (const im of images) consider(im.at);
+  for (const t of textBoxes) consider(t.start);
+  for (const d of directiveLabels) consider(d.at);
+  // Shapes have no single anchor; each kind's leading point stands in, which is
+  // what `SCH_SHAPE::GetPosition` returns for it.
+  for (const g of graphics) {
+    if (g.kind === 'rectangle' || g.kind === 'arc') consider(g.start);
+    else if (g.kind === 'circle') consider(g.center);
+    else if (g.kind === 'text') consider(g.at);
+    else if (g.points[0]) consider(g.points[0]);
+  }
 
   return {
     batch: {
@@ -261,12 +318,12 @@ export function parsePastedText(
       noConnects,
       labels,
       sheets: [],
-      busEntries: [],
-      images: [],
-      graphics: [],
-      textBoxes: [],
-      directiveLabels: [],
-      tables: [],
+      busEntries,
+      images,
+      graphics,
+      textBoxes,
+      directiveLabels,
+      tables,
     },
     libs,
     refPoint: refPoint ?? { x: 0, y: 0 },
