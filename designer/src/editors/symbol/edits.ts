@@ -20,6 +20,7 @@ import {
   type LibSymbolUnit,
   type SchField,
 } from '@ziroeda/eeschema';
+import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import {
   GRID,
@@ -564,11 +565,18 @@ interface TextBoxSpec {
   vertical: boolean;
   halign: 'left' | 'center' | 'right';
   valign: 'top' | 'center' | 'bottom';
+  /** `(font (face …))` and its style, so the hit box matches the drawn glyphs. */
+  face?: string;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 function inTextBox(p: Vec2, t: TextBoxSpec): boolean {
   if (t.text === '' || t.text === '~') return false;
-  const w = measureText(t.text, t.size);
+  // Hit-testing measures through the shared entry point (#154), so what you can
+  // click matches what is drawn once an outline face is drawable. With no
+  // provider installed this is the stroke font, exactly as before.
+  const w = textWidth(t.text, t.size, { face: t.face, bold: t.bold, italic: t.italic });
   const h = t.size;
   // Local frame: x along the reading direction, y down.
   let lx: number, ly: number;
@@ -617,6 +625,9 @@ export function hitTestSymbol(
       vertical: f.angle % 180 === 90,
       halign: justify?.includes('left') ? 'left' : justify?.includes('right') ? 'right' : 'center',
       valign: justify?.includes('top') ? 'top' : justify?.includes('bottom') ? 'bottom' : 'center',
+      face: f.effects?.face,
+      bold: f.effects?.bold,
+      italic: f.effects?.italic,
     };
     if (inTextBox(world, box)) return { id: symItemId('field', 0, fi), kind: 'field' };
   }
@@ -723,6 +734,9 @@ function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
           : justify?.includes('bottom')
             ? 'bottom'
             : 'center',
+        face: g.effects?.face,
+        bold: g.effects?.bold,
+        italic: g.effects?.italic,
       });
     }
   }
