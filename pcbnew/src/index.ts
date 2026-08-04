@@ -486,3 +486,10 @@ export {
   MIN_CELL_IN_FONT_HEIGHTS,
   type TableDefaults,
 } from './draw_table.js';
+
+export {
+  imageBBox,
+  imageSizeIU,
+  iuPerPixel,
+  FALLBACK_PIXELS,
+} from './image_geometry.js';

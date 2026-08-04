@@ -167,6 +167,9 @@ export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
       if (!first) return null;
       return first.start ?? first.pts?.[0] ?? null;
     }
+    case 'image':
+      // PCB_REFERENCE_IMAGE::GetPosition is the image's centre.
+      return board.images[r.index]?.at ?? null;
     case 'dimension':
       // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
       // point, not the centre of the drawn lines and not the text.
