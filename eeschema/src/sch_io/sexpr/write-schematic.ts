@@ -591,9 +591,13 @@ const writeNoConnect = (nc: SchNoConnect): SList => patchAt(nc.source, nc.at);
 function writeBusEntry(be: SchBusEntry): SList {
   const node = patchAt(be.source, be.at);
   const size = list(atom('size'), atom(mm(be.size.x)), atom(mm(be.size.y)));
-  return childNamed(node, 'size')
+  const withSize = childNamed(node, 'size')
     ? mapChild(node, 'size', () => size)
     : insertBeforeAny(node, size, ['stroke', 'uuid']);
+  // A bus entry carries a stroke like any wire, and DIALOG_WIRE_BUS_PROPERTIES
+  // edits it. The patch was missing, so a width or style change would have been
+  // lost on save — the same shape as the six the writer audit found.
+  return patchStroke(withSize, be.stroke);
 }
 
 /** Patch the `(page …)` inside each `(path …)` of an `(instances …)` or

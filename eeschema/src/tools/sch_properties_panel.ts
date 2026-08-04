@@ -22,14 +22,19 @@ import type {
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
+  replaceBusEntry,
+  replaceGraphic,
+  replaceImage,
   replaceJunction,
   replaceLabel,
   replaceLine,
   replaceSheet,
+  replaceTable,
   replaceTextBox,
   setSymbolsLockedCommand,
 } from './mutate.js';
 import { moveItems } from './move.js';
+import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
 
@@ -489,6 +494,125 @@ export function schPropertiesFor(
       if (i < 0) return [];
       return positionRows(refId('noconnect', sch.noConnects[i]!.uuid, i), sch.noConnects[i]!.at);
     }
+    // #307 made a bus entry's stroke editable through the wire/bus dialog; the
+    // properties panel is the other place upstream exposes it, since
+    // SCH_EDIT_TOOL::Properties groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T.
+    case 'busentry': {
+      const i = indexOf(sch.busEntries, (t, k) => refId('busentry', t.uuid, k));
+      if (i < 0) return [];
+      const be = sch.busEntries[i]!;
+      const withStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceBusEntry(i, { ...be, stroke: { width: 0, type: 'default', ...be.stroke, ...p } });
+      const cur = be.stroke?.type ?? 'default';
+      return [
+        ...positionRows(refId('busentry', be.uuid, i), be.at),
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: be.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : withStroke({ width: n });
+          },
+        },
+        {
+          group: '',
+          name: 'Wire Style',
+          kind: 'choice',
+          choices: WIRE_STYLES,
+          value:
+            WIRE_STYLES[Math.max(0, STROKE_TYPES.indexOf(cur as (typeof STROKE_TYPES)[number]))]!,
+          set: (v) => {
+            const k = (WIRE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : withStroke({ type: STROKE_TYPES[k]! });
+          },
+        },
+      ];
+    }
+    // SCH_BITMAP's editable property is its scale; the position comes from the
+    // shared rows so it moves the same way every other item does.
+    case 'image': {
+      const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
+      if (i < 0) return [];
+      const im = sch.images[i]!;
+      return [
+        ...positionRows(refId('image', im.uuid, i), im.at),
+        {
+          group: '',
+          name: 'Scale',
+          kind: 'dist',
+          value: im.scale,
+          set: (v) => {
+            const n = num(v);
+            // A zero or negative scale would collapse or invert the image;
+            // PANEL_IMAGE_EDITOR clamps rather than accepting it.
+            return n === null || n <= 0 ? null : replaceImage(i, { ...im, scale: n });
+          },
+        },
+      ];
+    }
+    // SCH_SHAPE's registered properties: the stroke, the fill, and whichever
+    // geometry describes that shape. Graphic lines drop the "Default" style
+    // choice a wire keeps, which is what LINE_STYLES encodes.
+    case 'graphic': {
+      const i = indexOf(sch.graphics, (_t, k) => refId('graphic', undefined, k));
+      if (i < 0) return [];
+      const g = sch.graphics[i]!;
+      // A graphic 'text' is a text item, not a shape: it carries neither a
+      // stroke nor a fill, so the shape rows do not apply to it.
+      if (g.kind === 'text') return positionRows(refId('graphic', undefined, i), g.at);
+      const cur = g.stroke?.type ?? 'solid';
+      const setStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceGraphic(i, { ...g, stroke: { width: 0, type: 'solid', ...g.stroke, ...p } });
+      const rows: PropRow[] = [
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: g.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : setStroke({ width: n });
+          },
+        },
+        {
+          group: '',
+          name: 'Line Style',
+          kind: 'choice',
+          choices: LINE_STYLES,
+          value:
+            LINE_STYLES[
+              Math.max(0, STROKE_TYPES.slice(1).indexOf(cur as (typeof STROKE_TYPES)[number]))
+            ]!,
+          set: (v) => {
+            const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : setStroke({ type: STROKE_TYPES.slice(1)[k]! });
+          },
+        },
+        {
+          group: '',
+          name: 'Filled',
+          kind: 'bool',
+          value: (g.fill?.type ?? 'none') !== 'none',
+          set: (v) =>
+            replaceGraphic(i, { ...g, fill: { ...g.fill, type: v ? 'outline' : 'none' } }),
+        },
+      ];
+      if (g.kind === 'circle') {
+        rows.unshift({
+          group: '',
+          name: 'Radius',
+          kind: 'dist',
+          value: g.radius,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 ? null : replaceGraphic(i, { ...g, radius: n });
+          },
+        });
+      }
+      return rows;
+    }
     case 'sheet': {
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
       if (i < 0) return [];
@@ -510,6 +634,78 @@ export function schPropertiesFor(
             }),
         },
         { group: 'Fields', name: 'Sheetfile', kind: 'string', value: fieldVal('Sheetfile') },
+      ];
+    }
+    // SCH_TABLE's registered properties: the border and separator toggles, and
+    // the column count as a read-only fact (changing it would add or drop cells,
+    // which is SCH_EDIT_TABLE_TOOL's job rather than a grid row's).
+    case 'table': {
+      const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
+      if (i < 0) return [];
+      const t = sch.tables[i]!;
+      const flag = (
+        name: string,
+        value: boolean,
+        set: (v: boolean) => Partial<typeof t>,
+      ): PropRow => ({
+        group: '',
+        name,
+        kind: 'bool',
+        value,
+        set: (v) => replaceTable(i, { ...t, ...set(!!v) }),
+      });
+      return [
+        { group: '', name: 'Columns', kind: 'int', value: t.columnCount },
+        { group: '', name: 'Rows', kind: 'int', value: t.rowHeights.length },
+        flag('External Border', t.borderExternal, (v) => ({ borderExternal: v })),
+        flag('Header Border', t.borderHeader, (v) => ({ borderHeader: v })),
+        flag('Row Separators', t.separatorRows, (v) => ({ separatorRows: v })),
+        flag('Column Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+      ];
+    }
+    // A sheet pin is a SCH_HIERLABEL living on a sheet, so it offers the same
+    // name and shape a hierarchical label does. It is edited through its parent
+    // sheet, there being no per-pin command.
+    //
+    // Position is deliberately absent. A sheet pin is constrained to its
+    // sheet's border (ConstrainOnEdge), so a free X/Y setter would let the grid
+    // put it somewhere the drag tool never could.
+    case 'sheetpin': {
+      const sp = parseSheetPinId(sch, ref.id);
+      if (!sp) return [];
+      const sheet = sch.sheets[sp.sheet];
+      const pin = sheet?.pins[sp.pin];
+      if (!sheet || !pin) return [];
+      const patchPin = (p: Partial<typeof pin>): EditCommand =>
+        replaceSheet(sp.sheet, {
+          ...sheet,
+          pins: sheet.pins.map((x, k) => (k === sp.pin ? { ...x, ...p } : x)),
+        });
+      const cur = SHAPE_TOKENS.indexOf(pin.shape as (typeof SHAPE_TOKENS)[number]);
+      return [
+        {
+          group: '',
+          name: 'Name',
+          kind: 'string',
+          value: pin.name,
+          set: (v) => {
+            const name = String(v).trim();
+            // An unnamed sheet pin has no hierarchical label to match, so an
+            // empty name is rejected rather than written.
+            return name === '' ? null : patchPin({ name });
+          },
+        },
+        {
+          group: '',
+          name: 'Shape',
+          kind: 'choice',
+          choices: LABEL_SHAPES,
+          value: LABEL_SHAPES[Math.max(0, cur)]!,
+          set: (v) => {
+            const k = (LABEL_SHAPES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : patchPin({ shape: SHAPE_TOKENS[k]! });
+          },
+        },
       ];
     }
     case 'textbox': {

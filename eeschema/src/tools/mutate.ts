@@ -336,6 +336,25 @@ export function replaceLine(index: number, next: SchLine): EditCommand {
   };
 }
 
+/**
+ * Replace the bus entry at `index` with `next`.
+ *
+ * Upstream groups `SCH_BUS_WIRE_ENTRY_T` with `SCH_LINE_T` and `SCH_JUNCTION_T`
+ * in `SCH_EDIT_TOOL::Properties`, so an entry opens the same
+ * DIALOG_WIRE_BUS_PROPERTIES a wire does and its stroke is editable.
+ */
+export function replaceBusEntry(index: number, next: SchBusEntry): EditCommand {
+  return {
+    label: 'Edit Bus Entry',
+    apply(doc: Schematic): Schematic {
+      return { ...doc, busEntries: doc.busEntries.map((b, i) => (i === index ? next : b)) };
+    },
+    invert(before: Schematic): EditCommand {
+      return replaceBusEntry(index, before.busEntries[index]!);
+    },
+  };
+}
+
 /** Replace the junction at `index` with `next` (e.g. after editing its diameter). */
 export function replaceJunction(index: number, next: SchJunction): EditCommand {
   return {

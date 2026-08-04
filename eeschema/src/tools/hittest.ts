@@ -412,6 +412,20 @@ export function itemRefById(sch: Schematic, id: string): ItemRef | null {
       if (refId(kind, uuid(arr[i]!), i) === id) return { kind, id };
     return null;
   };
+  // `<sheetRefId>:sheetpin<k>`. Checked before the `:pin` case below, which it
+  // does not collide with (`:sheetpin` contains no `:pin`) but reads clearer
+  // adjacent to it. Without this a sheet pin resolved to null, and everything
+  // downstream that asks "what is this id?" — the properties panel and the
+  // message panel both — went blank on a selected sheet pin.
+  const sheetPinAt = id.lastIndexOf(':sheetpin');
+  if (sheetPinAt > 0) {
+    const shId = id.slice(0, sheetPinAt);
+    const k = Number(id.slice(sheetPinAt + ':sheetpin'.length));
+    const si = sch.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === shId);
+    if (si >= 0 && Number.isInteger(k) && k >= 0 && k < sch.sheets[si]!.pins.length)
+      return { kind: 'sheetpin', id };
+    return null;
+  }
   // `<symbolRefId>:pin<k>`, a composite id, like fields below.
   const pinAt = id.lastIndexOf(':pin');
   if (pinAt > 0) {

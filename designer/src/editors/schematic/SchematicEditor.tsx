@@ -183,6 +183,7 @@ import {
   replaceTable,
   replaceLabel,
   replaceDirectiveLabel,
+  replaceBusEntry,
   replaceLine,
   replaceJunction,
   makeImage,
@@ -792,6 +793,15 @@ export function SchematicEditor({
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
   const [lineEdit, setLineEdit] = useState<{
+    index: number;
+    widthIU: number;
+    style: string;
+    color?: ItemColor;
+  } | null>(null);
+  // A bus entry opens the same DIALOG_WIRE_BUS_PROPERTIES a wire does: upstream
+  // groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T and SCH_JUNCTION_T in
+  // SCH_EDIT_TOOL::Properties.
+  const [busEntryEdit, setBusEntryEdit] = useState<{
     index: number;
     widthIU: number;
     style: string;
@@ -2838,6 +2848,21 @@ export function SchematicEditor({
             diameterIU: d.junctions[ji]!.diameter,
             color: d.junctions[ji]!.color,
           });
+        } else if (d.busEntries.some((b, i) => refId('busentry', b.uuid, i) === id)) {
+          // Grouped with wires and junctions upstream; same stroke dialog.
+          const bi = d.busEntries.findIndex((b, i) => refId('busentry', b.uuid, i) === id);
+          const be = d.busEntries[bi]!;
+          setBusEntryEdit({
+            index: bi,
+            widthIU: be.stroke?.width ?? 0,
+            style: be.stroke?.type ?? 'default',
+            color: be.stroke?.color,
+          });
+        } else if (
+          (d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)
+        ) {
+          // Reachable by double-click already, but Properties never routed here.
+          onEditItem(id, 'directive');
         } else {
           // Properties on a sheet opens its dialog (double-click enters it).
           const si = d.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === id);
@@ -4166,6 +4191,26 @@ export function SchematicEditor({
           if (orig && orig.kind !== 'text')
             runCommand(replaceGraphic(se.index, { ...orig, stroke, fill }));
         }
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
+
+  const commitBusEntryEdit = useCallback(
+    (widthIU: number, style: string, color?: ItemColor) => {
+      setBusEntryEdit((be) => {
+        if (!be || !doc) return null;
+        const orig = doc.busEntries[be.index];
+        if (!orig) return null;
+        const stroke: { width: number; type: string; color?: ItemColor } = {
+          ...(orig.stroke ?? {}),
+          width: widthIU,
+          type: style,
+        };
+        if (color) stroke.color = color;
+        else delete stroke.color;
+        runCommand(replaceBusEntry(be.index, { ...orig, stroke }));
         return null;
       });
     },
@@ -6729,6 +6774,18 @@ export function SchematicEditor({
         <DialogListHotkeys
           sections={buildHotkeyList(menus)}
           onClose={() => setHotkeyListOpen(false)}
+        />
+      )}
+
+      {/* A bus entry's stroke (DIALOG_WIRE_BUS_PROPERTIES, E on an entry). */}
+      {busEntryEdit && (
+        <DialogLineProperties
+          kind="wire"
+          widthIU={busEntryEdit.widthIU}
+          style={busEntryEdit.style}
+          color={busEntryEdit.color}
+          onOk={commitBusEntryEdit}
+          onCancel={() => setBusEntryEdit(null)}
         />
       )}
 
