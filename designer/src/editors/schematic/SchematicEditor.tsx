@@ -6025,6 +6025,14 @@ export function SchematicEditor({
               replace={findOpen === 'replace'}
               onReplace={doReplaceNext}
               onReplaceAll={doReplaceAll}
+              // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
+              // upstream — so clicking a link labelled "Show search panel" with
+              // the panel already open closes it. We show it instead; the panel
+              // is the point of the link, and the divergence is one keystroke
+              // away from being undone either way.
+              onShowSearchPanel={() => {
+                setLocalToggles((prev) => new Set(prev).add('showSearch'));
+              }}
             />
           )}
           {annotateOpen && (

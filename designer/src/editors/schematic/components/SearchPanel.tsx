@@ -58,6 +58,10 @@ export function SearchPanel({ doc, libById, fmt, onSelect, onFocus }: Props): JS
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', gap: 6, padding: '4px 6px', alignItems: 'center' }}>
         <input
+          // SEARCH_PANE::FocusSearch — ToggleSearch focuses the box whenever
+          // the pane is shown, and the pane mounts exactly then.
+          // biome-ignore lint/a11y/noAutofocus: matches ToggleSearch's FocusSearch
+          autoFocus
           value={query}
           placeholder="Search…"
           onChange={(e) => setQuery(e.target.value)}
