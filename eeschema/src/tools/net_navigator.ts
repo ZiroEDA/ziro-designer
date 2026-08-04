@@ -42,8 +42,16 @@ export interface NetNavigatorNet {
   items: NetNavigatorItem[];
 }
 
-/** Formats an internal-unit distance the way the frame shows it. */
-export type ValueFormatter = (iu: number) => string;
+/**
+ * Formats an internal-unit distance the way the frame shows it.
+ *
+ * Not exported, and deliberately so: `search_handlers.ts` exports a type of the
+ * same name, and `tools/index.ts` re-exports both modules with `export *` — two
+ * identical-but-distinct `ValueFormatter`s make that ambiguous and the whole
+ * package stops compiling. Neither branch can see it alone; a combined-merge
+ * check found it.
+ */
+type ValueFormatter = (iu: number) => string;
 
 const LABEL_TITLE: Record<string, string> = {
   label: 'Label',
