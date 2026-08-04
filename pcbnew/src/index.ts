@@ -598,3 +598,12 @@ export {
   swapViaLayerPair,
   swapBoardLayers,
 } from './swap_layers.js';
+
+export {
+  wildCompareString,
+  passesGlobalTrackViaFilters,
+  applyGlobalTrackViaEdit,
+  countGlobalTrackViaTargets,
+  type GlobalTrackViaEditOptions,
+  type GlobalTrackViaEditContext,
+} from './global_edit_tracks_and_vias.js';
