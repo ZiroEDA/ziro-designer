@@ -839,3 +839,39 @@ export {
   type TrackGeometryCleanupOptions,
   type TrackGeometryCleanupResult,
 } from './tracks_cleaner.js';
+
+export {
+  parseLibraryTable,
+  parseLibraryTableOptions,
+  formatLibraryTableOptions,
+  expandEnvVarSubstitutions,
+  expandLibraryUri,
+  libraryRowFullUri,
+  flattenLibraryRows,
+  findLibraryRow,
+  findLibraryRowForFpid,
+  NESTED_TABLE_ROW_TYPE,
+  type LibraryTable,
+  type LibraryTableRow,
+  type LibraryTableScope,
+  type LibraryTableSet,
+  type LibraryTableType,
+  type UriVarResolver,
+} from './fp_lib_table.js';
+
+export {
+  loadLibraryTable,
+  loadFootprintLibraryTables,
+  loadFootprintLibrary,
+  footprintLibraryNames,
+  footprintLibraryTimestamp,
+  footprintLibraryIsModified,
+  getLibraryFootprint,
+  loadFootprintFromLibraries,
+  FP_LIB_TABLE_FILE_NAME,
+  type FootprintLibrary,
+  type FootprintLibraryFs,
+  type LibraryDirEntry,
+  type LoadFootprintOptions,
+  type LoadFootprintTablesOptions,
+} from './footprint_library.js';
