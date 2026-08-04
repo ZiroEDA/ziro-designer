@@ -80,6 +80,30 @@ export function applyTransform(t: Transform, p: Vec2): Vec2 {
   return { x: t.x1 * p.x + t.y1 * p.y, y: t.x2 * p.x + t.y2 * p.y };
 }
 
+/**
+ * The inverse placement transform: schematic-space back to symbol-local.
+ *
+ * Every matrix `symbolTransform` produces is a rotation optionally composed
+ * with a mirror, so its determinant is ±1 and the inverse is the adjugate over
+ * the determinant — integer in, integer out. Computing it rather than
+ * transcribing a case analysis (as `LoadSymbolFromSchematic` does, mirroring
+ * before rotating) makes it the exact inverse of *our* forward transform by
+ * construction, which is the property that matters.
+ *
+ * A degenerate matrix cannot arise from `symbolTransform`; identity is returned
+ * rather than dividing by zero.
+ */
+export function invertTransform(t: Transform): Transform {
+  const det = t.x1 * t.y2 - t.y1 * t.x2;
+  if (det === 0) return IDENTITY;
+  return {
+    x1: z(t.y2 / det),
+    y1: z(-t.y1 / det),
+    x2: z(-t.x2 / det),
+    y2: z(t.x1 / det),
+  };
+}
+
 /** Map a symbol-local point to schematic/world coordinates given the symbol origin. */
 export function localToWorld(origin: Vec2, t: Transform, p: Vec2): Vec2 {
   const r = applyTransform(t, p);

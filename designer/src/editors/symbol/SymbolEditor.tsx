@@ -134,12 +134,21 @@ function flattenAgainst(sym: LibSymbol, lib: ManagedLibrary, depth = 0): LibSymb
   };
 }
 
+/**
+ * The transient library a symbol borrowed from the schematic lives in. Never
+ * written to disk: it is the closest thing we have to upstream's session-only
+ * instance tab.
+ */
+const SCHEMATIC_LIB = 'Schematic';
+
 export function SymbolEditor({
   onExitToHome,
   initialProject,
   onAddSymbolToSchematic,
   projectName,
   openRequest,
+  schematicSymbol,
+  onSaveToSchematic,
 }: {
   onExitToHome: () => void;
   initialProject?: SymbolEditorFile[] | null;
@@ -150,6 +159,17 @@ export function SymbolEditor({
   /** The `.kicad_sym` the project manager launched us on (KiCad's MAIL_LIB_EDIT).
    *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
   openRequest?: { file: string | null; nonce: number } | null;
+  /** A symbol handed over from the schematic (SCH_EDIT_TOOL's Edit with Symbol
+   *  Editor). Re-sent with a fresh nonce so a resident editor re-opens it. */
+  schematicSymbol?: {
+    symbol: LibSymbol;
+    unit: number;
+    bodyStyle: number;
+    nonce: number;
+  } | null;
+  /** Save, when the open symbol came from the schematic: the edit goes back to
+   *  the placement instead of to a library (SaveSymbolToSchematic). */
+  onSaveToSchematic?: (sym: LibSymbol) => void;
 }): JSX.Element {
   const manager = useRef(new SymbolLibraryManager());
   const theme = useSchematicTheme();
@@ -179,6 +199,9 @@ export function SymbolEditor({
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
+  /** The symbol currently on loan from the schematic, by name; null otherwise.
+   *  While set, Save routes back to the placement rather than to a library. */
+  const [fromSchematic, setFromSchematic] = useState<string | null>(null);
   const [panelWidth, setPanelWidth] = useState(260);
 
   // Dialogs / pending placements.
@@ -351,6 +374,34 @@ export function SymbolEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openRequest?.nonce]);
 
+  // A symbol on loan from the schematic. Upstream hands it to a session-only
+  // instance tab (findOrCreateSymbolInstanceTab); we have no tabs, so it goes
+  // into a transient in-memory library that is never written to disk. The tree
+  // shows it under its own heading, which is what makes "this one is not from a
+  // library" visible rather than something the user has to remember.
+  useEffect(() => {
+    const req = schematicSymbol;
+    if (!req) return;
+    // The bare name reads better in the tree than "Device:R"; the placement's
+    // full lib id is restored on the way back, from the schematic side.
+    const name = req.symbol.libId.split(':').pop() || req.symbol.libId;
+    const sym: LibSymbol = { ...req.symbol, libId: name };
+    if (!manager.current.libraryExists(SCHEMATIC_LIB)) manager.current.createLibrary(SCHEMATIC_LIB);
+    manager.current.updateSymbol(SCHEMATIC_LIB, sym);
+    setExpanded((e) => new Set(e).add(SCHEMATIC_LIB));
+    setTreeSel({ lib: SCHEMATIC_LIB, name });
+    setFromSchematic(name);
+    void loadSymbol(SCHEMATIC_LIB, name).then(() => {
+      setUnit(req.unit);
+      setBodyStyle(req.bodyStyle);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schematicSymbol?.nonce]);
+
+  /** Whether the symbol on screen is the one the schematic lent us. */
+  const editingSchematicSymbol =
+    fromSchematic !== null && curLib === SCHEMATIC_LIB && curName === fromSchematic;
+
   // ----- save / revert ------------------------------------------------------------
   const downloadText = (fileName: string, text: string): void => {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
@@ -375,14 +426,24 @@ export function SymbolEditor({
     [bump],
   );
 
-  /** Save: the tree's target library, else the current symbol's library. */
+  /** Save: back to the schematic when the symbol came from there
+   *  (symbol_editor.cpp routes Save by whether the tab has a schematic source),
+   *  otherwise the tree's target library, else the current symbol's. */
   const save = useCallback(() => {
+    if (editingSchematicSymbol && workSymbol && onSaveToSchematic) {
+      onSaveToSchematic(workSymbol);
+      setStatus('Saved to schematic');
+      return;
+    }
     const libName = treeSel?.lib ?? curLib;
     if (libName) void saveLibrary(libName);
-  }, [treeSel, curLib, saveLibrary]);
+  }, [editingSchematicSymbol, workSymbol, onSaveToSchematic, treeSel, curLib, saveLibrary]);
 
   const saveAll = useCallback(() => {
     for (const name of manager.current.libraryNames()) {
+      // The schematic's transient library has no file behind it; "Save All"
+      // must not offer to download one.
+      if (name === SCHEMATIC_LIB) continue;
       if (manager.current.isLibraryModified(name)) void saveLibrary(name);
     }
   }, [saveLibrary]);

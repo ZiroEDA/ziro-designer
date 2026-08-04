@@ -149,6 +149,9 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  editorUnitFor,
+  libSymbolFromPlacement,
+  saveSymbolToSchematic,
   buildNetNavigator,
   netNavigatorOrder,
   stepNetItem,
@@ -557,6 +560,8 @@ export function SchematicEditor({
   onExitToHome,
   onShowPcb,
   onUpdatePcb,
+  onEditSymbolInEditor,
+  editedSymbol,
   readBoardFootprints,
   autosaveActive,
   onShowSymbolEditor,
@@ -579,6 +584,17 @@ export function SchematicEditor({
   /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
    *  its update dialog. Absent when the project has no board. */
   onUpdatePcb?: () => void;
+  /** SCH_EDIT_TOOL's Edit with Symbol Editor (Ctrl+E): hand the placement's
+   *  symbol to the symbol editor and switch to it. */
+  onEditSymbolInEditor?: (req: {
+    symbol: LibSymbol;
+    unit: number;
+    bodyStyle: number;
+    targetId: string;
+  }) => void;
+  /** The edited symbol coming back (SaveSymbolToSchematic). Re-sent with a
+   *  fresh nonce so a second save of the same symbol still applies. */
+  editedSymbol?: { symbol: LibSymbol; targetId: string; nonce: number } | null;
   /** Tools > Update Schematic from PCB: the board's footprints, read on demand
    *  so a project with no board simply has no entry. Returning null means the
    *  board could not be read, which the caller reports. */
@@ -1996,6 +2012,48 @@ export function SchematicEditor({
     }
     return names;
   }, [doc]);
+
+  /**
+   * SCH_EDIT_TOOL's Edit with Symbol Editor. Hands the placement's symbol over
+   * in library form: the fields come back out of schematic space, and the unit
+   * and body style the editor opens on are the placement's.
+   */
+  const editSymbolInEditor = useCallback(
+    (id: string): void => {
+      const d = docRef.current;
+      if (!d || !onEditSymbolInEditor) return;
+      const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
+      const sym = si === -1 ? undefined : d.symbols[si];
+      const lib = sym && libById.get(sym.libId);
+      if (!sym || !lib) {
+        setInfoBar('That symbol is not in any loaded library.');
+        return;
+      }
+      onEditSymbolInEditor({
+        symbol: libSymbolFromPlacement(sym, lib),
+        ...editorUnitFor(sym),
+        targetId: id,
+      });
+    },
+    [libById, onEditSymbolInEditor],
+  );
+
+  // The edited symbol coming back from the editor. A nonce rather than the
+  // symbol's identity, so saving the same symbol twice applies twice.
+  const editedNonce = useRef<number | null>(null);
+  useEffect(() => {
+    const req = editedSymbol;
+    if (!req || editedNonce.current === req.nonce) return;
+    editedNonce.current = req.nonce;
+    const d = docRef.current;
+    if (!d) return;
+    const cmd = saveSymbolToSchematic(d, req.targetId, req.symbol);
+    if (!cmd) {
+      setInfoBar('That symbol is no longer on the schematic.');
+      return;
+    }
+    runCommand(cmd);
+  }, [editedSymbol, runCommand]);
 
   // Change Symbols / Update Symbols from Library (DIALOG_CHANGE_SYMBOLS). The
   // dialog stays open on its report, as upstream's does.
@@ -4973,6 +5031,11 @@ export function SchematicEditor({
                 setChangeSymbolsMode('update');
               },
             },
+            {
+              label: 'Edit with Symbol Editor',
+              shortcut: 'Ctrl+E',
+              action: () => editSymbolInEditor(owner),
+            },
           );
         }
       }
@@ -5515,6 +5578,13 @@ export function SchematicEditor({
         // ACTIONS::zoomOutCenter default hotkey (F2).
         e.preventDefault();
         controller.current?.zoomOut();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {
+        // SCH_ACTIONS::editWithLibEdit (Ctrl+E) on a single selected symbol.
+        e.preventDefault();
+        if (selection.size === 1) {
+          const id = [...selection][0]!;
+          editSymbolInEditor(/^(.*):field\d+$/.exec(id)?.[1] ?? id);
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && !e.shiftKey) {
         // SCH_ACTIONS::showHierarchy (Ctrl+H): toggle the navigator panel.
         e.preventDefault();
@@ -5811,6 +5881,7 @@ export function SchematicEditor({
     promptOpen,
     selection,
     onUpdatePcb,
+    editSymbolInEditor,
     runCommand,
     activeTool,
     onToolSelect,
