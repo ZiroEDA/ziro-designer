@@ -44,3 +44,52 @@ describe('footprint preview pipeline', () => {
     }
   });
 });
+
+/**
+ * `FilterByPinCount` (panel_symbol_chooser.cpp:618/628,
+ * footprint_select_widget.cpp:100-111). The pad counts come from the generated
+ * index rather than from downloading every candidate — the Assign Footprints
+ * dialog has to do that, six workers at a time behind a size guard, and it is
+ * far too much to run behind a symbol preview.
+ */
+describe('filtering by pin count', () => {
+  const index = [
+    {
+      name: 'R',
+      footprints: ['R_0805', 'R_0603', 'R_Array_4'],
+      pads: [2, 2, 8],
+    },
+    { name: 'C', footprints: ['C_0805'], pads: [2] },
+  ];
+
+  it('keeps only the footprints with that many pads', () => {
+    expect(filterFootprints(index, ['R_*'], 400, 2)).toEqual(['R:R_0805', 'R:R_0603']);
+    expect(filterFootprints(index, ['R_*'], 400, 8)).toEqual(['R:R_Array_4']);
+  });
+
+  it('is independent of the glob filter, both ways', () => {
+    // Globs alone still work when no pin count is known…
+    expect(filterFootprints(index, ['R_0805'])).toEqual(['R:R_0805']);
+    // …and a pin count alone works when the symbol declares no fp_filters,
+    // which is upstream's behaviour and the reason an empty glob list is not
+    // "match nothing" here.
+    expect(filterFootprints(index, [], 400, 8)).toEqual(['R:R_Array_4']);
+  });
+
+  it('still matches nothing with neither criterion', () => {
+    expect(filterFootprints(index, [])).toEqual([]);
+    expect(filterFootprints(index, [], 400, 0)).toEqual([]);
+  });
+
+  it('does not veto when the index predates pad counts', () => {
+    // An older index cannot answer "how many pads", so it must not filter
+    // everything out — degrading to no pin filter beats degrading to nothing.
+    const old = [{ name: 'R', footprints: ['R_0805', 'R_Array_4'] }];
+    expect(filterFootprints(old, ['R_*'], 400, 2)).toEqual(['R:R_0805', 'R:R_Array_4']);
+  });
+
+  it('respects the cap with a pin count as well', () => {
+    const many = [{ name: 'X', footprints: ['a', 'b', 'c'], pads: [2, 2, 2] }];
+    expect(filterFootprints(many, [], 2, 2)).toEqual(['X:a', 'X:b']);
+  });
+});

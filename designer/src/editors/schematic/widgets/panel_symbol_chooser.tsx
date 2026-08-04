@@ -470,23 +470,28 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       return out;
     }, [previewSymbol]);
 
-    // FOOTPRINT_SELECT_WIDGET::UpdateList, the always-included footprints, then
-    // the hosted list filtered by the symbol's fp_filters (zero filters and no
-    // associations leave just the default entry).
+    // FOOTPRINT_SELECT_WIDGET::UpdateList: the always-included footprints, then
+    // the hosted list narrowed by the symbol's fp_filters and by its pin count.
+    //
+    // The two filters are independent, and upstream offers pin-count matches to
+    // a symbol with **no** fp_filters at all — so an empty glob list is not
+    // "show nothing" as long as the pin count can speak for itself.
+    const fpPinCount = previewSymbol ? pinCountOf(previewSymbol) : 0;
     const [fpItems, setFpItems] = useState<string[]>([]);
     useEffect(() => {
-      if (!showFp || (fpFilters.length === 0 && alwaysIncluded.length === 0)) {
+      if (!showFp) {
         setFpItems([]);
         return;
       }
-      if (fpFilters.length === 0) {
+      const canNarrow = fpFilters.length > 0 || fpPinCount > 0;
+      if (!canNarrow) {
         setFpItems(alwaysIncluded);
         return;
       }
       let cancelled = false;
       void loadFootprintIndex().then((index) => {
         if (cancelled) return;
-        const matched = filterFootprints(index, fpFilters).filter(
+        const matched = filterFootprints(index, fpFilters, 400, fpPinCount).filter(
           (fp) => !alwaysIncluded.includes(fp),
         );
         setFpItems([...alwaysIncluded, ...matched]);
@@ -494,7 +499,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       return () => {
         cancelled = true;
       };
-    }, [showFp, fpFilters, alwaysIncluded]);
+    }, [showFp, fpFilters, alwaysIncluded, fpPinCount]);
 
     // Resolve the selected symbol's parent so the details pane can name it and
     // inherit its fields; parents live in the same library upstream.
