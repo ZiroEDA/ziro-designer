@@ -54,6 +54,7 @@
  * component list.
  */
 
+import { kiidFromString, kiidPathAsString } from '@ziroeda/common/src/kiid.js';
 import { COMPONENT, NETLIST } from './pcb_netlist.js';
 import { parseKicadNetlist } from './kicad_netlist_reader.js';
 import { parse } from '@ziroeda/sexpr/src/parser.js';
@@ -162,11 +163,29 @@ export function guessNetlistFileType(text: string): NetlistFileType {
 }
 
 /**
+ * `KIID_PATH( text ).AsString()`: split on '/', drop the empty steps, and put
+ * each step through KIID's string constructor. A legacy netlist writes the old
+ * eight-digit timestamps (`/32568D1E`), which only become comparable with the
+ * board's `(path …)` once expanded to the UUID they stand for — the board
+ * updater matches a component to a footprint by comparing those strings, so
+ * keeping the file's text here would leave every legacy import unmatchable.
+ *
+ * The one departure from `AsString()` is the empty path: it returns `""`
+ * upstream and `"/"` here, because `"/"` is what the s-expression reader stores
+ * for a root-sheet component and both readers feed the same model.
+ */
+function legacyKiidPath(text: string): string {
+  return kiidPathAsString(text.split('/').filter(Boolean).map(kiidFromString));
+}
+
+/**
  * LEGACY_NETLIST_READER::loadComponent. One line such as
  * `( /68183921-93a5-49ac-91b0-49d05a0e1647 $noname R20 4.7K {Lib=R}`, read as
- * five whitespace-or-parenthesis separated words: sheet path, footprint name,
+ * five whitespace-or-parenthesis separated words: symbol path, footprint name,
  * reference, value and an optional `{Lib=…}` comment. The first four are
- * mandatory; a missing one aborts the whole import.
+ * mandatory; a missing one aborts the whole import. Unlike the s-expression
+ * dialect, the path here already ends at the symbol itself, which is why the
+ * component gets no unit UUIDs of its own.
  *
  * `$noname` is the exporter's placeholder for "no footprint yet" and becomes an
  * empty FPID, to be filled in later from the `.cmp` file.
@@ -181,7 +200,7 @@ function loadLegacyComponent(netlist: NETLIST, text: string, lineNumber: number)
     return word;
   };
 
-  const path = need(0, 'Cannot parse time stamp in symbol section of netlist.');
+  const path = legacyKiidPath(need(0, 'Cannot parse time stamp in symbol section of netlist.'));
   const footprintWord = need(1, 'Cannot parse footprint name in symbol section of netlist.');
   const reference = need(2, 'Cannot parse reference designator in symbol section of netlist.');
   const value = need(3, 'Cannot parse value in symbol section of netlist.');

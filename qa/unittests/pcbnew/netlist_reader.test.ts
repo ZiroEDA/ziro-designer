@@ -92,7 +92,7 @@ describe("the legacy reader on KiCad's own interf_u demo", () => {
     // `( /32568D1E $noname  JP1 CONN_8X2 {Lib=CONN_8X2}` — two spaces after
     // $noname, so a naive single-space split shifts every field along by one.
     const jp1 = result!.netlist.GetComponentByReference('JP1')!;
-    expect(jp1.path).toBe('/32568D1E');
+    expect(jp1.path).toBe('/00000000-0000-0000-0000-000032568d1e');
     expect(jp1.GetValue()).toBe('CONN_8X2');
     expect(jp1.GetName()).toBe('CONN_8X2');
   });
@@ -228,6 +228,46 @@ describe('legacy reader edge cases', () => {
       ['1', 'VCC'],
       ['2', ''],
     ]);
+  });
+
+  it('expands each step of the time stamp path into the UUID it stands for', () => {
+    // The board stores `(path "/uuid")` in canonical form, and the updater
+    // matches a component to a footprint by comparing those strings. Left as the
+    // file's own text, a legacy path would never match anything and every import
+    // would place a second copy of every footprint. A path already written as a
+    // UUID is only lower-cased, and a nested path keeps its steps in order.
+    const netlist = new NETLIST();
+    loadLegacyNetlist(
+      wrap(
+        ' ( /32568D1E/AA45 $noname R1 1k {Lib=R}',
+        ' )',
+        ' ( /68183921-93A5-49AC-91B0-49D05A0E1647 $noname R2 2k {Lib=R}',
+        ' )',
+      ),
+      netlist,
+    );
+    expect(netlist.GetComponentByReference('R1')!.path).toBe(
+      '/00000000-0000-0000-0000-000032568d1e/00000000-0000-0000-0000-00000000aa45',
+    );
+    expect(netlist.GetComponentByReference('R2')!.path).toBe(
+      '/68183921-93a5-49ac-91b0-49d05a0e1647',
+    );
+  });
+
+  it('gives an unreadable time stamp a fresh random UUID every read', () => {
+    // KIID's string constructor falls back to a random UUID when it can parse
+    // neither shape, so the same file read twice disagrees with itself. That is
+    // upstream's answer to "this identifier is not an identifier"; substituting a
+    // stable hash would make such a component matchable when upstream cannot
+    // match it.
+    const text = wrap(' ( /not-a-timestamp $noname R1 1k {Lib=R}', ' )');
+    const first = new NETLIST();
+    const second = new NETLIST();
+    loadLegacyNetlist(text, first);
+    loadLegacyNetlist(text, second);
+    const path = first.GetComponentByReference('R1')!.path;
+    expect(path).toMatch(/^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(second.GetComponentByReference('R1')!.path).not.toBe(path);
   });
 
   it('keeps both components when a reference designator repeats', () => {
