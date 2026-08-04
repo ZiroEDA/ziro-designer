@@ -58,3 +58,4 @@ export * from './change_symbols.js';
 export * from './edit_symbol_libid.js';
 export * from './field_case_conflicts.js';
 export * from './pin_alternates.js';
+export * from './pin_grid.js';
