@@ -16,7 +16,7 @@
  * spin; a mirror is its own inverse.
  */
 
-import type { Schematic, SchSymbol, SchField, Vec2 } from '../types.js';
+import type { Schematic, SchSymbol, SchField, LibGraphic, TextEffects, Vec2 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
@@ -81,12 +81,151 @@ export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): Sc
   return next;
 }
 
-/** Bounding-box center of the selected symbols' positions (snapped is the caller's job). */
-function selectionCenter(doc: Schematic, ids: ReadonlySet<string>): Vec2 {
+/**
+ * `EDA_TEXT::FlipHJustify`: swap left and right, leaving centre alone.
+ *
+ * Centre is deliberately untouched — upstream tests the two outer cases and
+ * falls through on anything else, so a centred label stays centred through any
+ * number of rotations.
+ */
+export function flipHJustify(
+  justify: readonly string[] | undefined,
+): readonly string[] | undefined {
+  if (!justify) return justify;
+  if (!justify.includes('left') && !justify.includes('right')) return justify;
+  return justify.map((t) => (t === 'left' ? 'right' : t === 'right' ? 'left' : t));
+}
+
+/**
+ * The minimum a rotation needs. Labels, directive labels and free text are
+ * separate types in the model but share exactly this, and the rule reads
+ * nothing else.
+ */
+interface TextLike {
+  readonly angle: number;
+  readonly effects?: TextEffects;
+}
+
+/** Schematic text is only ever horizontal or vertical; the other two directions
+ *  come from the horizontal justify, which is why rotation flips it. */
+const isVertical = (angle: number): boolean => angle === 90;
+
+/**
+ * `SCH_TEXT::Rotate90`.
+ *
+ * Not a position change: a label rotates *in place*, about itself. Which way it
+ * ends up facing is carried by the angle (0 or 90) together with the horizontal
+ * justify, and that pair is what `labelSpin` reads back as a SPIN_STYLE. So one
+ * quarter turn toggles the angle, and flips the justify on exactly one of the
+ * two half-turns — otherwise four rotations would not return the label to where
+ * it started.
+ */
+export function rotateText90<T extends TextLike>(item: T, clockwise: boolean): T {
+  const vertical = isVertical(item.angle);
+  const flip = (!vertical && clockwise) || (vertical && !clockwise);
+  const effects = flip
+    ? { ...(item.effects ?? { hidden: false }), justify: flipHJustify(item.effects?.justify) }
+    : item.effects;
+  return { ...item, angle: vertical ? 0 : 90, effects } as T;
+}
+
+/**
+ * `SCH_TEXT::MirrorSpinStyle`: the same justify flip without the angle change.
+ * `leftRight` is true for a horizontal mirror (X), false for a vertical one.
+ */
+export function mirrorTextSpin<T extends TextLike>(item: T, leftRight: boolean): T {
+  const vertical = isVertical(item.angle);
+  if (!((!vertical && leftRight) || (vertical && !leftRight))) return item;
+  return {
+    ...item,
+    effects: {
+      ...(item.effects ?? { hidden: false }),
+      justify: flipHJustify(item.effects?.justify),
+    },
+  } as T;
+}
+
+/** Apply one op to a text-like item, in place. */
+function transformTextItem<T extends TextLike>(item: T, op: TransformOp): T {
+  if (op === 'rotateCW') return rotateText90(item, true);
+  if (op === 'rotateCCW') return rotateText90(item, false);
+  // MirrorHorizontally is the left-right one (X); MirrorVertically is not.
+  return mirrorTextSpin(item, op === 'mirrorX');
+}
+
+/**
+ * One shape, every point that defines it (`SCH_SHAPE::Rotate`).
+ *
+ * A circle keeps its radius and only its centre moves; an arc carries its mid
+ * point so the bulge survives; the rest are point lists.
+ */
+function transformGraphic(g: LibGraphic, op: TransformOp, center: Vec2): LibGraphic {
+  switch (g.kind) {
+    case 'rectangle': {
+      const a = movePoint(g.start, op, center);
+      const b = movePoint(g.end, op, center);
+      return {
+        ...g,
+        start: { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) },
+        end: { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) },
+      };
+    }
+    case 'circle':
+      return { ...g, center: movePoint(g.center, op, center) };
+    case 'arc':
+      return {
+        ...g,
+        start: movePoint(g.start, op, center),
+        mid: movePoint(g.mid, op, center),
+        end: movePoint(g.end, op, center),
+      };
+    case 'polyline':
+    case 'bezier':
+      return { ...g, points: g.points.map((p) => movePoint(p, op, center)) };
+    case 'text':
+      return { ...g, at: movePoint(g.at, op, center) };
+    default:
+      return g;
+  }
+}
+
+/**
+ * Anchor points of everything selected, whatever kind it is.
+ *
+ * This used to look at symbols alone, which made the centre `{0,0}` for any
+ * selection without one — so a pair of wires rotated about the page origin
+ * rather than about themselves.
+ */
+function selectionPoints(doc: Schematic, ids: ReadonlySet<string>): Vec2[] {
   const pts: Vec2[] = [];
   doc.symbols.forEach((s, i) => {
     if (ids.has(refId('symbol', s.uuid, i))) pts.push(s.at);
   });
+  doc.lines.forEach((l, i) => {
+    if (ids.has(refId('line', l.uuid, i))) pts.push(l.start, l.end);
+  });
+  doc.junctions.forEach((j, i) => {
+    if (ids.has(refId('junction', j.uuid, i))) pts.push(j.at);
+  });
+  doc.noConnects.forEach((n, i) => {
+    if (ids.has(refId('noconnect', n.uuid, i))) pts.push(n.at);
+  });
+  doc.busEntries.forEach((b, i) => {
+    if (ids.has(refId('busentry', b.uuid, i)))
+      pts.push(b.at, { x: b.at.x + b.size.x, y: b.at.y + b.size.y });
+  });
+  doc.textBoxes.forEach((t, i) => {
+    if (ids.has(refId('textbox', t.uuid, i))) pts.push(t.start, t.end);
+  });
+  doc.labels.forEach((l, i) => {
+    if (ids.has(refId('label', l.uuid, i))) pts.push(l.at);
+  });
+  return pts;
+}
+
+/** Bounding-box center of the selection (snapped is the caller's job). */
+function selectionCenter(doc: Schematic, ids: ReadonlySet<string>): Vec2 {
+  const pts = selectionPoints(doc, ids);
   if (pts.length === 0) return { x: 0, y: 0 };
   const minX = Math.min(...pts.map((p) => p.x));
   const maxX = Math.max(...pts.map((p) => p.x));
@@ -114,6 +253,51 @@ export function transformItems(
         ...doc,
         symbols: doc.symbols.map((s, i) =>
           ids.has(refId('symbol', s.uuid, i)) ? transformSymbol(s, op, c) : s,
+        ),
+        // Labels, hierarchical/global labels and free text all rotate in place
+        // via Rotate90 / MirrorSpinStyle rather than about the selection centre
+        // (SCH_EDIT_TOOL::Rotate's SCH_TEXT_T ... SCH_DIRECTIVE_LABEL_T arm).
+        // Until now R, X and Y simply did nothing to any of them.
+        labels: doc.labels.map((l, i) =>
+          ids.has(refId('label', l.uuid, i)) ? transformTextItem(l, op) : l,
+        ),
+        directiveLabels: doc.directiveLabels?.map((d, i) =>
+          ids.has(refId('directive', d.uuid, i)) ? transformTextItem(d, op) : d,
+        ),
+        // The geometric kinds share one rule: move every point that defines
+        // them (`head->Rotate( rotPoint, !clockwise )` and its mirror pair).
+        lines: doc.lines.map((l, i) =>
+          ids.has(refId('line', l.uuid, i))
+            ? { ...l, start: movePoint(l.start, op, c), end: movePoint(l.end, op, c) }
+            : l,
+        ),
+        junctions: doc.junctions.map((j, i) =>
+          ids.has(refId('junction', j.uuid, i)) ? { ...j, at: movePoint(j.at, op, c) } : j,
+        ),
+        noConnects: doc.noConnects.map((n, i) =>
+          ids.has(refId('noconnect', n.uuid, i)) ? { ...n, at: movePoint(n.at, op, c) } : n,
+        ),
+        // A bus entry is an anchor plus a signed extent, and the extent is the
+        // stub's direction — so both ends move and the size is re-derived,
+        // rather than the anchor moving and the stub still pointing its old way.
+        busEntries: doc.busEntries.map((b, i) => {
+          if (!ids.has(refId('busentry', b.uuid, i))) return b;
+          const at = movePoint(b.at, op, c);
+          const far = movePoint({ x: b.at.x + b.size.x, y: b.at.y + b.size.y }, op, c);
+          return { ...b, at, size: { x: far.x - at.x, y: far.y - at.y } };
+        }),
+        textBoxes: doc.textBoxes.map((t, i) => {
+          if (!ids.has(refId('textbox', t.uuid, i))) return t;
+          const a = movePoint(t.start, op, c);
+          const b = movePoint(t.end, op, c);
+          // The corners may swap under a rotation or mirror; start is top-left.
+          const start = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) };
+          const end = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) };
+          const angle = op.startsWith('rotate') ? (t.angle === 90 ? 0 : 90) : t.angle;
+          return { ...t, start, end, angle };
+        }),
+        graphics: doc.graphics.map((g, i) =>
+          ids.has(refId('graphic', undefined, i)) ? transformGraphic(g, op, c) : g,
         ),
       };
     },

@@ -58,6 +58,17 @@ export interface TextEffects {
 
 // ----- Library symbol (the reusable definition) -----------------------------
 
+/**
+ * One `(alternate "NAME" <type> <shape>)` on a library pin — an alternative
+ * function the same physical pin can serve. Mirrors `SCH_PIN::ALT`; a placed
+ * symbol selects one by name.
+ */
+export interface LibPinAlt {
+  readonly name: string;
+  readonly electricalType: string;
+  readonly shape: string;
+}
+
 /** A pin in a symbol definition. Mirrors KiCad `SCH_PIN` as parsed in a lib symbol. */
 export interface LibPin {
   /** Electrical type token: input | output | bidirectional | passive | power_in | … */
@@ -72,6 +83,9 @@ export interface LibPin {
   readonly length: number;
   readonly name: string;
   readonly number: string;
+  /** `(alternate …)` children, keyed by name upstream (`SCH_PIN::GetAlternates`).
+   *  Absent when the pin declares none, which is the common case. */
+  readonly alternates?: readonly LibPinAlt[];
   /** Name text height in IU; 0 hides the name (Altium imports use this), undefined = default. */
   readonly nameSize?: number;
   /** Number text height in IU; 0 hides the number, undefined = default. */
@@ -236,6 +250,20 @@ export interface SchField {
   readonly source: SList;
 }
 
+/**
+ * A placed symbol's per-pin state. The library pin holds the geometry; this
+ * holds only what belongs to *this* placement — its uuid and its chosen
+ * alternate function.
+ */
+export interface SchSymbolPin {
+  readonly number: string;
+  readonly uuid?: string;
+  /** The selected `(alternate …)` name, absent when the pin serves its base
+   *  function. Upstream also treats an alt equal to the base pin name as no
+   *  alternate at all — a bug it works around on both read and write. */
+  readonly alternate?: string;
+}
+
 /** A placed symbol on the schematic. Mirrors KiCad `SCH_SYMBOL`. */
 export interface SchSymbol {
   readonly libId: string;
@@ -263,6 +291,10 @@ export interface SchSymbol {
   readonly fields: readonly SchField[];
   /** `(pin_map_override …)`, this instance's pin-map resolution. */
   readonly pinMapOverride?: PinMapOverride;
+  /** `(pin "1" (uuid …) [(alternate "NAME")])` — one entry per pin of the
+   *  placement, carrying the pin's own uuid and, when the user picked one, the
+   *  library alternate it is serving (`SCH_PIN::GetAlt`). */
+  readonly pins?: readonly SchSymbolPin[];
   readonly source: SList;
 }
 
@@ -424,6 +456,16 @@ export interface SchLabel {
 export type DirectiveShape = 'dot' | 'round' | 'diamond' | 'rectangle';
 
 export interface SchDirectiveLabel {
+  /**
+   * The label's own text — `(netclass_flag "…")`'s first argument.
+   *
+   * `SCH_DIRECTIVE_LABEL` is a `SCH_LABEL_BASE`, so it has text like any other
+   * label, and `GetMsgPanelInfo` shows it. It is usually empty in practice
+   * (the netclass travels in a field), which is why it went unmodelled — but
+   * "usually empty" is not "absent", and a file that carries one round-tripped
+   * only through `source`.
+   */
+  readonly text: string;
   readonly at: Vec2;
   readonly angle: number;
   /** `(shape …)`: the flag drawn at the end of the pin line. */

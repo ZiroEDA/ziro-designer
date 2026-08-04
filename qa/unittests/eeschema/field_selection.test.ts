@@ -426,13 +426,18 @@ describe('pins are selectable items', () => {
     const seg = collectPinSegments(doc, lib)[0]!;
     expect(itemPassesFilter(doc, seg.id, defaultSelectionFilter())).toBe(true);
     expect(itemPassesFilter(doc, seg.id, { ...defaultSelectionFilter(), pins: false })).toBe(false);
-    // A field follows its parent symbol's category, not the pin one.
+    // A field is governed by *Text*, not by Symbols and not by Pins.
+    // SCH_SELECTION_TOOL::itemPassesFilter puts `case SCH_FIELD_T:` with
+    // SCH_TEXT_T / SCH_TEXTBOX_T / SCH_TABLE_T / SCH_TABLECELL_T under
+    // `m_filter.text`, and that is the only arm fields reach. This assertion
+    // used to read `symbols: false -> false`, which stated the opposite.
     const fid = fieldId(
       refId('symbol', doc.symbols[0]!.uuid, 0),
       collectFieldBoxes(doc, lib)[0]!.index,
     );
     expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), pins: false })).toBe(true);
-    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(false);
+    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(true);
+    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), text: false })).toBe(false);
   });
 
   it('glows on its own without moving anything', () => {
@@ -445,5 +450,45 @@ describe('pins are selectable items', () => {
     const after = orthoMove(doc, spec, { x: mmToIU(5), y: 0 }, lib).apply(doc);
     expect(JSON.stringify(after.symbols[0])).toBe(before);
     expect(after.lines).toEqual(doc.lines);
+  });
+});
+
+/**
+ * `collectPinSegments` and `collectFieldBoxes` are memoised per document,
+ * because `hitTest` calls both on every click and both walk every symbol —
+ * ~6 ms and several thousand throwaway objects per click on a 2000-symbol
+ * sheet, recomputing an answer that cannot have changed.
+ *
+ * The cache is keyed on the document, which is immutable and replaced on every
+ * edit. These pin the two things that would make it wrong: an answer that goes
+ * stale, and a flag that is not part of the key.
+ */
+describe('the collectors are memoised on the document', () => {
+  it('hands back the same array for the same document', () => {
+    const { doc, lib } = sheetWithResistor();
+    expect(collectFieldBoxes(doc, lib)).toBe(collectFieldBoxes(doc, lib));
+    expect(collectPinSegments(doc, lib)).toBe(collectPinSegments(doc, lib));
+  });
+
+  it('recomputes for a different document, so an edit is never stale', () => {
+    // A new document object is what an edit produces, and it must miss.
+    const a = sheetWithResistor();
+    const b = sheetWithResistor();
+    expect(collectFieldBoxes(a.doc, a.lib)).not.toBe(collectFieldBoxes(b.doc, b.lib));
+    // Same shape, computed twice — the ids differ only because placeSymbol
+    // mints a fresh uuid, which is the fixture rather than the cache.
+    expect(collectFieldBoxes(a.doc, a.lib).map((f) => f.index)).toEqual(
+      collectFieldBoxes(b.doc, b.lib).map((f) => f.index),
+    );
+  });
+
+  it('keeps the hidden-pin variants apart', () => {
+    // showHidden is part of the key; sharing one entry would hand the renderer
+    // the hit-tester's answer and hide pins that should be drawn.
+    const { doc, lib } = sheetWithResistor();
+    const shown = collectPinSegments(doc, lib, false);
+    const hidden = collectPinSegments(doc, lib, true);
+    expect(shown).not.toBe(hidden);
+    expect(collectPinSegments(doc, lib, true)).toBe(hidden);
   });
 });

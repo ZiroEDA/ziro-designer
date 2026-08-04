@@ -19,7 +19,7 @@
  *   - `toggle(id)` flips a CHECK setting (View toggles).
  */
 
-import type { Menu, MenuItem } from '../../ui/MenuBar.js';
+import type { Menu, MenuItem } from '../../ui/menu_types.js';
 
 export interface MenuHandlers {
   tool: (id: string) => void;
@@ -69,6 +69,12 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     action: () => h.toggle(id),
   });
   /** Not implemented yet, greyed out, exactly where upstream puts it. */
+  /** An action with no icon of its own (upstream's Inspect entries have none). */
+  const actNoIcon = (label: string, id: string, shortcut?: string): MenuItem => ({
+    label,
+    shortcut,
+    action: () => h.action(id),
+  });
   const stub = (label: string, shortcut?: string): MenuItem => ({
     label,
     shortcut,
@@ -159,8 +165,12 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
           label: 'Panels',
           items: [
             chk('Properties', 'showProperties'),
-            stubChk('Search', 'Ctrl+G'),
+            chk('Search', 'showSearch', 'Ctrl+G'),
             chk('Hierarchy Navigator', 'showHierarchy', 'Ctrl+H'),
+            // Upstream gates this on the m_IncrementalConnectivity advanced
+            // config, which is off by default — so its absence here was not
+            // drift. We always have connectivity, so it is always offered.
+            chk('Net Navigator', 'showNetNavigator'),
             stubChk('Design Blocks'),
             stubChk('Remote Symbols'),
           ],
@@ -212,7 +222,8 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Hierarchical Labels', 'labelHier', 'placeHierLabel', 'H'),
         tool('Draw Hierarchical Sheets', 'sheet', 'drawSheet', 'S'),
         tool('Place Pins from Sheet', 'sheetPin', 'sheetPin'),
-        stub('Sync All Sheet Pins...'),
+        actNoIcon('Sync Sheet Pins...', 'syncSheetPins'),
+        actNoIcon('Sync All Sheet Pins...', 'syncAllSheetPins'),
         stub('Import Sheet...'),
         SEP,
         tool('Draw Text', 'text', 'placeText', 'T'),
@@ -234,9 +245,11 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         stub('Show Bus Syntax Help'),
         SEP,
         act('Electrical Rules Checker', 'erc', 'erc'),
-        stub('Previous Marker'),
-        stub('Next Marker'),
-        stub('Exclude Marker'),
+        // SCH_INSPECTION_TOOL::PrevMarker / NextMarker / ExcludeMarker all
+        // raise the ERC dialog and act on it, since it owns the marker tree.
+        actNoIcon('Previous Marker', 'ercPrevMarker'),
+        actNoIcon('Next Marker', 'ercNextMarker'),
+        actNoIcon('Exclude Marker', 'ercExcludeMarker'),
         SEP,
         stub('Compare Symbol with Library'),
         SEP,
@@ -266,7 +279,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Generate Bill of Materials...', 'bom', 'bom'),
         stub('Generate Legacy Bill of Materials...'),
         SEP,
-        stub('Update Schematic from PCB...'),
+        actNoIcon('Update Schematic from PCB...', 'updateSchFromPcb'),
         SEP,
         {
           label: 'Variants',
@@ -289,6 +302,14 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Preferences...', 'preferences', 'openPreferences', 'Ctrl+,'),
       ],
     },
-    { label: 'Help', items: [{ label: 'About ZiroEDA', disabled: true }] },
+    {
+      label: 'Help',
+      items: [
+        // ACTIONS::listHotKeys, which upstream also puts in Help.
+        act('List Hotkeys...', 'listHotkeys', 'listHotkeys', 'Ctrl+F1'),
+        SEP,
+        { label: 'About ZiroEDA', disabled: true },
+      ],
+    },
   ];
 }

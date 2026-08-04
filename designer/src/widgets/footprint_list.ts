@@ -19,6 +19,19 @@ import { parseFootprint } from '../editors/footprint/footprintBoard.js';
 export interface FpIndexEntry {
   name: string;
   footprints: string[];
+  /**
+   * Distinct numbered pads per footprint, parallel to `footprints`.
+   *
+   * Absent on an index generated before this field existed, and the pin-count
+   * filter degrades to "no filtering" rather than to "nothing matches" — the
+   * same graceful shape the power flag uses. It only takes effect once
+   * `tools/libraries/upload.mjs` has regenerated the index.
+   *
+   * Counted the way `FOOTPRINT_INFO::GetUniquePadCount` does: distinct pad
+   * *numbers*, so a two-pad SMD resistor is 2 and the unnumbered mechanical
+   * pads on a connector shell add nothing.
+   */
+  pads?: number[];
 }
 
 let indexPromise: Promise<FpIndexEntry[]> | null = null;
@@ -78,25 +91,39 @@ function compileFilter(pattern: string): { withLib: boolean; re: RegExp } | null
 }
 
 /**
- * FOOTPRINT_FILTER::FilterPattern, footprints whose name (or "Lib:Name" for
- * patterns containing a colon) matches ANY of the symbol's fp_filters globs.
- * Results are "Lib:Name" ids, capped at `max` (upstream m_max_items).
+ * `FOOTPRINT_FILTER` over the index: a footprint is offered when it matches ANY
+ * of the symbol's `fp_filters` globs (`FilterPattern`) **and**, when a pin
+ * count is given, has that many distinct numbered pads (`FilterByPinCount`).
+ * Results are "Lib:Name" ids, capped at `max` (upstream `m_max_items`).
+ *
+ * The two filters are independent, which is the part that is easy to get
+ * wrong. Upstream offers pin-count-matched footprints for a symbol with **no**
+ * `fp_filters` at all — so an empty glob list plus a pin count is not "match
+ * nothing", it is "match on pins alone". Without a pin count an empty glob
+ * list still matches nothing, because then there is no criterion left.
  */
 export function filterFootprints(
   index: readonly FpIndexEntry[],
   filters: readonly string[],
   max = 400,
+  pinCount?: number,
 ): string[] {
   const compiled = filters.map(compileFilter).filter((f) => f !== null);
-  if (compiled.length === 0) return [];
+  const byPins = pinCount !== undefined && pinCount > 0;
+  if (compiled.length === 0 && !byPins) return [];
   const out: string[] = [];
   for (const lib of index) {
-    for (const name of lib.footprints) {
+    for (const [i, name] of lib.footprints.entries()) {
       const id = `${lib.name}:${name}`;
-      if (compiled.some((f) => f.re.test(f.withLib ? id : name))) {
-        out.push(id);
-        if (out.length >= max) return out;
+      if (compiled.length > 0 && !compiled.some((f) => f.re.test(f.withLib ? id : name))) continue;
+      if (byPins) {
+        const pads = lib.pads?.[i];
+        // An index without pad counts cannot answer, so it does not veto:
+        // filtering everything out would be worse than not filtering.
+        if (pads !== undefined && pads !== pinCount) continue;
       }
+      out.push(id);
+      if (out.length >= max) return out;
     }
   }
   return out;

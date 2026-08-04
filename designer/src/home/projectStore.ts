@@ -25,6 +25,7 @@ import {
   runTx,
   type StorageStatus,
 } from './storageHealth.js';
+import { withRecordLock } from './record_lock.js';
 
 export interface StoredFile {
   name: string;
@@ -231,22 +232,29 @@ export async function listProjects(): Promise<ProjectMeta[]> {
  *  just those and leaving every other file (pcb, models, binaries) untouched. */
 export async function updateProjectFiles(id: string, changed: StoredFile[]): Promise<void> {
   if (changed.length === 0) return;
-  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-  if (!r) return;
-  const byName = new Map(r.files.map((f) => [f.name, f]));
-  for (const f of changed) byName.set(f.name, { name: f.name, gz: await gzip(f.bytes) });
-  r.files = [...byName.values()];
-  r.updatedAt = Date.now();
-  await tx('readwrite', (s) => s.put(r));
+  // Read-modify-write over the whole record: without the lock, a second tab
+  // saving between the read and the put loses everything the first tab wrote,
+  // including files it never touched.
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    const byName = new Map(r.files.map((f) => [f.name, f]));
+    for (const f of changed) byName.set(f.name, { name: f.name, gz: await gzip(f.bytes) });
+    r.files = [...byName.values()];
+    r.updatedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+  });
 }
 
 /** Mark a project as just opened (reorders Recent without touching updatedAt,
  *  so it doesn't trigger a needless cloud sync). */
 export async function touchOpened(id: string): Promise<void> {
-  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-  if (!r) return;
-  r.lastOpenedAt = Date.now();
-  await tx('readwrite', (s) => s.put(r));
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    r.lastOpenedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+  });
 }
 
 /** Load a project's files (decompressed), or null if it no longer exists. */
@@ -276,10 +284,12 @@ export async function loadProject(
  * so an unowned project stops being claimable by whoever signs in next.
  */
 export async function claimProject(id: string, userId: string): Promise<void> {
-  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-  if (!r || r.ownerId === userId) return;
-  r.ownerId = userId;
-  await tx('readwrite', (s) => s.put(r));
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r || r.ownerId === userId) return;
+    r.ownerId = userId;
+    await tx('readwrite', (s) => s.put(r));
+  });
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -287,11 +297,13 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 export async function renameProject(id: string, name: string): Promise<void> {
-  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-  if (!r) return;
-  r.name = name;
-  r.updatedAt = Date.now();
-  await tx('readwrite', (s) => s.put(r));
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    r.name = name;
+    r.updatedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+  });
 }
 
 // ----- cloud-sync serialization ----------------------------------------------

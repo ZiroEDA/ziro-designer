@@ -228,12 +228,12 @@ export function LibTree({
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     for (const lib of adapter.tree.children) {
-      if (searching && lib.score <= 0) continue;
+      if (!adapter.isVisible(lib, searching)) continue;
       const libOpen = isOpen(lib);
       out.push({ node: lib, indent: 0, expandable: true, open: libOpen });
       if (!libOpen) continue;
       for (const item of lib.children) {
-        if (searching && item.score <= 0) continue;
+        if (!adapter.isVisible(item, searching)) continue;
         const itemOpen = item.children.length > 0 && isOpen(item);
         out.push({ node: item, indent: 1, expandable: item.children.length > 0, open: itemOpen });
         if (itemOpen) {

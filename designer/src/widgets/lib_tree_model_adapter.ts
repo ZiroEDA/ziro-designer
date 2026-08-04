@@ -54,6 +54,33 @@ export class LibTreeModelAdapter {
     this.filter = filter;
   }
 
+  /**
+   * Whether a row should be drawn, for the tree's flattening pass.
+   *
+   * Two independent reasons to hide one, and conflating them was a real bug:
+   *
+   *  - **score**, but only while a query is running. With no query every node
+   *    scores the same, so score says nothing and must not be consulted.
+   *  - **the filter**, always. `updateScore` already zeroes a rejected item's
+   *    score, but that only reaches the display through the score test above —
+   *    so with the power filter on and an empty search box, every non-power
+   *    symbol stayed visible and the filter did nothing until the user typed.
+   *
+   * A library is shown when any of its children is, so a library with nothing
+   * matching does not appear as an empty header. An as-yet-unloaded library has
+   * no children and is kept: its symbols are not known yet, and hiding it would
+   * make a library the user is about to open disappear.
+   */
+  isVisible(node: LibTreeNode, searching: boolean): boolean {
+    if (node.type === LibTreeNodeType.LIBRARY) {
+      if (searching && node.score <= 0) return false;
+      if (!this.filter || node.children.length === 0) return true;
+      return node.children.some((c) => this.filter!(c));
+    }
+    if (searching && node.score <= 0) return false;
+    return !this.filter || this.filter(node);
+  }
+
   getSortMode(): SortMode {
     return this.sortMode;
   }

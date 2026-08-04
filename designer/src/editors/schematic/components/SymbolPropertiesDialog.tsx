@@ -4,6 +4,14 @@
 import { iuToMM } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
 import type { FieldTemplate } from '../schematic_settings.js';
+import {
+  colorFromHex,
+  colorHex,
+  fieldsFromRows,
+  rowsFromSymbol,
+  validateRows,
+  type FieldRow,
+} from '../symbol_props_rows.js';
 import { useMemo, useState } from 'react';
 import {
   effectiveHorizJustify,
@@ -24,7 +32,11 @@ import {
   type SymbolEdit,
   type EditedField,
   type TextEffects,
+  pinGridRows,
+  setPinAlternate,
+  PIN_GRID_COLUMNS,
 } from '@ziroeda/eeschema';
+import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 
 /**
@@ -44,16 +56,7 @@ import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
  *    hidden (OnAddField); mandatory fields can't be renamed, deleted, or moved.
  */
 
-interface Row {
-  key: string;
-  value: string;
-  /** Symbol-relative position, IU (dialog convention). */
-  at: { x: number; y: number };
-  angle: number; // 0 (horizontal) | 90 (vertical)
-  effects: TextEffects;
-  nameShown: boolean;
-  source?: SchField['source'];
-}
+type Row = FieldRow;
 
 interface Props {
   symbol: SchSymbol;
@@ -68,6 +71,18 @@ interface Props {
   hasAlternate?: boolean;
   onOk: (edit: SymbolEdit) => void;
   onCancel: () => void;
+  /**
+   * The buttons along the bottom of upstream's General page
+   * (dialog_symbol_properties_base.cpp). Each closes this dialog and hands off
+   * to the flow that already exists for it, which is what upstream's do —
+   * they are shortcuts into other dialogs, not editors in their own right.
+   *
+   * Optional so a caller that has no such flow simply gets no button, rather
+   * than a dead one.
+   */
+  onChangeSymbol?: () => void;
+  onUpdateSymbol?: () => void;
+  onEditSymbol?: () => void;
 }
 
 const mmStr = (iu: number): string => {
@@ -97,37 +112,16 @@ export function SymbolPropertiesDialog({
   hasAlternate,
   onOk,
   onCancel,
+  onChangeSymbol,
+  onUpdateSymbol,
+  onEditSymbol,
 }: Props): JSX.Element {
   const unitCount = useMemo(
     () => (lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1),
     [lib],
   );
 
-  const [rows, setRows] = useState<Row[]>(() => {
-    const out: Row[] = symbol.fields.map((f) => ({
-      key: f.key,
-      value: f.value,
-      at: f.at ? { x: f.at.x - symbol.at.x, y: f.at.y - symbol.at.y } : { x: 0, y: 0 },
-      angle: ((f.angle % 180) + 180) % 180 === 90 ? 90 : 0,
-      effects: f.effects ?? { hidden: false },
-      nameShown: !!f.nameShown,
-      source: f.source,
-    }));
-    // Add in any template fieldnames not yet defined (TransferDataToWindow).
-    const defined = new Set(out.map((r) => r.key));
-    for (const t of fieldTemplates ?? []) {
-      if (t.name && !defined.has(t.name))
-        out.push({
-          key: t.name,
-          value: '',
-          at: { x: 0, y: 0 },
-          angle: 0,
-          effects: { hidden: !t.visible },
-          nameShown: false,
-        });
-    }
-    return out;
-  });
+  const [rows, setRows] = useState<Row[]>(() => rowsFromSymbol(symbol, fieldTemplates));
   const [selRow, setSelRow] = useState(0);
 
   // Orientation & mirror decompose exactly as TransferDataToWindow: choices are
@@ -145,6 +139,13 @@ export function SymbolPropertiesDialog({
   const [dnp, setDnp] = useState(symbol.dnp);
   const [excludePosFiles, setExcludePosFiles] = useState(!!symbol.excludedFromPosFiles);
   const [error, setError] = useState<string | null>(null);
+  // The notebook. Upstream has a third page, Pin Map; we model
+  // (pin_map_override …) but have no editor for it yet, so it is not offered
+  // rather than shown empty.
+  const [tab, setTab] = useState<'general' | 'pins'>('general');
+  // Pin selections accumulate on a working copy, so Cancel discards them with
+  // everything else rather than having already been applied.
+  const [pinSym, setPinSym] = useState<SchSymbol>(symbol);
 
   const patchRow = (i: number, patch: Partial<Row>): void =>
     setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
@@ -224,13 +225,10 @@ export function SymbolPropertiesDialog({
   };
 
   const submit = (): void => {
-    // Validate(): non-mandatory fields must have a name (empty name + empty value
-    // rows are silently dropped, as TransferDataFromWindow does).
-    for (const r of rows) {
-      if (!isMandatoryField(r.key) && r.key.trim() === '' && r.value !== '') {
-        setError('Fields must have a name.');
-        return;
-      }
+    const invalid = validateRows(rows);
+    if (invalid) {
+      setError(invalid);
+      return;
     }
 
     // Compose orientation then mirror exactly as the dialog's two SetOrientation
@@ -239,17 +237,7 @@ export function SymbolPropertiesDialog({
     if (mirror) t = composeMirror(t, mirror);
     const o = orientationFromTransform(t);
 
-    const fields: EditedField[] = rows
-      .filter((r) => !(r.key.trim() === '' && r.value === ''))
-      .map((r) => ({
-        key: r.key.trim(),
-        value: r.value,
-        at: r.at,
-        angle: r.angle,
-        effects: r.effects,
-        nameShown: r.nameShown || undefined,
-        source: r.source,
-      }));
+    const fields: EditedField[] = fieldsFromRows(rows);
 
     onOk({
       fields,
@@ -264,6 +252,10 @@ export function SymbolPropertiesDialog({
       excludedFromSim: symbol.excludedFromSim !== undefined || excludeSim ? excludeSim : undefined,
       excludedFromPosFiles:
         symbol.excludedFromPosFiles !== undefined || excludePosFiles ? excludePosFiles : undefined,
+      // Only when the Pin Functions page actually changed something, so a
+      // symbol whose pins the file never listed does not gain a list from
+      // merely opening the dialog.
+      pins: pinSym === symbol ? undefined : pinSym.pins,
     });
   };
 
@@ -284,282 +276,420 @@ export function SymbolPropertiesDialog({
             </div>
           )}
 
-          <div className="ze-props-grid-wrap">
-            <table className="ze-props-grid">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Value</th>
-                  <th>Show</th>
-                  <th>Show Name</th>
-                  <th>H Align</th>
-                  <th>V Align</th>
-                  <th>Italic</th>
-                  <th>Bold</th>
-                  <th>Text Size</th>
-                  <th>Orientation</th>
-                  <th>Position X</th>
-                  <th>Position Y</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => {
-                  const f = absField(row, symbol);
-                  const shown = shownFor(row);
-                  const effH = effectiveHorizJustify(f, symbol, shown, measureText);
-                  const effV = effectiveVertJustify(f, symbol, shown, measureText);
-                  const mandatory = isMandatoryField(row.key);
-                  return (
-                    <tr key={i} className={i === selRow ? 'sel' : ''} onClick={() => setSelRow(i)}>
+          <div className="ze-erc-tabs">
+            <div
+              className={`tab${tab === 'general' ? ' active' : ''}`}
+              onClick={() => setTab('general')}
+            >
+              General
+            </div>
+            <div className={`tab${tab === 'pins' ? ' active' : ''}`} onClick={() => setTab('pins')}>
+              Pin Functions
+            </div>
+          </div>
+
+          {tab === 'pins' ? (
+            <div className="ze-props-grid-wrap">
+              <table className="ze-props-grid">
+                <thead>
+                  <tr>
+                    {PIN_GRID_COLUMNS.map((c) => (
+                      <th key={c}>{c}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pinGridRows(pinSym, lib).map((r) => (
+                    <tr key={r.number}>
                       <td>
-                        {mandatory ? (
-                          <span className="ze-cell-ro">{row.key}</span>
+                        <span className="ze-cell-ro">{r.number}</span>
+                      </td>
+                      <td>
+                        <span className="ze-cell-ro">{r.baseName}</span>
+                      </td>
+                      <td>
+                        {/* "Don't accept random values; must use the popup to
+                            change to a known alternate." A pin with no
+                            alternates has an empty, uneditable cell. */}
+                        {r.choices.length === 0 ? (
+                          <span className="ze-cell-ro" />
                         ) : (
-                          <input
-                            className="ze-cell-input"
-                            value={row.key}
-                            onChange={(e) => patchRow(i, { key: e.target.value })}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          />
+                          <select
+                            className="ze-cell-select"
+                            value={r.alternate}
+                            onChange={(e) =>
+                              setPinSym((sym) =>
+                                setPinAlternate(sym, lib, r.number, e.target.value),
+                              )
+                            }
+                          >
+                            {r.choices.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
                         )}
                       </td>
+                      {/* Type and Style follow the selection: GetType/GetShape
+                          consult the alternate, so picking a function changes
+                          what the pin is, not just what it is called. */}
                       <td>
-                        <input
-                          className="ze-cell-input"
-                          value={row.value}
-                          onChange={(e) => patchRow(i, { value: e.target.value })}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!row.effects.hidden}
-                          onChange={(e) => patchEffects(i, { hidden: !e.target.checked })}
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={row.nameShown}
-                          onChange={(e) => patchRow(i, { nameShown: e.target.checked })}
-                        />
+                        <span className="ze-cell-ro">
+                          {PIN_TYPE_NAMES[r.electricalType] ?? r.electricalType}
+                        </span>
                       </td>
                       <td>
-                        <select
-                          className="ze-cell-select"
-                          value={effH}
-                          onChange={(e) => {
-                            const stored = storedForEffectiveHoriz(
-                              f,
-                              symbol,
-                              shown,
-                              measureText,
-                              e.target.value as 'left' | 'center' | 'right',
-                            );
-                            patchEffects(i, { justify: justifyTokens(stored, storedVJustify(f)) });
-                          }}
-                        >
-                          <option value="left">Left</option>
-                          <option value="center">Center</option>
-                          <option value="right">Right</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          className="ze-cell-select"
-                          value={effV}
-                          onChange={(e) => {
-                            const stored = storedForEffectiveVert(
-                              f,
-                              symbol,
-                              shown,
-                              measureText,
-                              e.target.value as 'top' | 'center' | 'bottom',
-                            );
-                            patchEffects(i, { justify: justifyTokens(storedHJustify(f), stored) });
-                          }}
-                        >
-                          <option value="top">Top</option>
-                          <option value="center">Center</option>
-                          <option value="bottom">Bottom</option>
-                        </select>
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!!row.effects.italic}
-                          onChange={(e) =>
-                            patchEffects(i, { italic: e.target.checked || undefined })
-                          }
-                        />
-                      </td>
-                      <td className="c">
-                        <input
-                          type="checkbox"
-                          checked={!!row.effects.bold}
-                          onChange={(e) => patchEffects(i, { bold: e.target.checked || undefined })}
-                        />
-                      </td>
-                      <td>
-                        {numCell(i, 'size', row.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE, (iu) =>
-                          patchEffects(i, { fontSize: [iu, iu] }),
-                        )}
-                      </td>
-                      <td>
-                        <select
-                          className="ze-cell-select"
-                          value={row.angle === 90 ? 'Vertical' : 'Horizontal'}
-                          onChange={(e) =>
-                            patchRow(i, { angle: e.target.value === 'Vertical' ? 90 : 0 })
-                          }
-                        >
-                          <option>Horizontal</option>
-                          <option>Vertical</option>
-                        </select>
-                      </td>
-                      <td>
-                        {numCell(i, 'posx', row.at.x, (iu) =>
-                          patchRow(i, { at: { ...row.at, x: iu } }),
-                        )}
-                      </td>
-                      <td>
-                        {numCell(i, 'posy', row.at.y, (iu) =>
-                          patchRow(i, { at: { ...row.at, y: iu } }),
-                        )}
+                        <span className="ze-cell-ro">{PIN_SHAPE_NAMES[r.shape] ?? r.shape}</span>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="ze-props-rowbtns">
-            <button className="ze-btn sm" title="Add field" onClick={addRow}>
-              +
-            </button>
-            <button className="ze-btn sm" title="Move up" onClick={() => moveRow(-1)}>
-              ↑
-            </button>
-            <button className="ze-btn sm" title="Move down" onClick={() => moveRow(1)}>
-              ↓
-            </button>
-            <span className="grow" />
-            <button className="ze-btn sm" title="Delete field" onClick={deleteRow}>
-              🗑
-            </button>
-          </div>
-
-          <div className="ze-props-columns">
-            <fieldset className="ze-props-group">
-              <legend>General</legend>
-              <label className="row">
-                <span>Unit:</span>
-                <select
-                  className="ze-select"
-                  disabled={unitCount < 2}
-                  value={unit}
-                  onChange={(e) => setUnit(Number(e.target.value))}
-                >
-                  {Array.from({ length: Math.max(unitCount, 1) }, (_, k) => (
-                    <option key={k + 1} value={k + 1}>
-                      Unit {letterSubReference(k + 1)}
-                    </option>
                   ))}
-                </select>
-              </label>
-              <label className="row">
-                {/* DIALOG_SYMBOL_PROPERTIES' "Alternate symbol (De Morgan)":
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          <div hidden={tab !== 'general'}>
+            <div className="ze-props-grid-wrap">
+              <table className="ze-props-grid">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Value</th>
+                    <th>Show</th>
+                    <th>Show Name</th>
+                    <th>H Align</th>
+                    <th>V Align</th>
+                    <th>Italic</th>
+                    <th>Bold</th>
+                    <th>Text Size</th>
+                    <th>Orientation</th>
+                    <th>Position X</th>
+                    <th>Position Y</th>
+                    <th>Color</th>
+                    <th>Allow Autoplacement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => {
+                    const f = absField(row, symbol);
+                    const shown = shownFor(row);
+                    const effH = effectiveHorizJustify(f, symbol, shown, measureText);
+                    const effV = effectiveVertJustify(f, symbol, shown, measureText);
+                    const mandatory = isMandatoryField(row.key);
+                    return (
+                      <tr
+                        key={i}
+                        className={i === selRow ? 'sel' : ''}
+                        onClick={() => setSelRow(i)}
+                      >
+                        <td>
+                          {mandatory ? (
+                            <span className="ze-cell-ro">{row.key}</span>
+                          ) : (
+                            <input
+                              className="ze-cell-input"
+                              value={row.key}
+                              onChange={(e) => patchRow(i, { key: e.target.value })}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          <input
+                            className="ze-cell-input"
+                            value={row.value}
+                            onChange={(e) => patchRow(i, { value: e.target.value })}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!row.effects.hidden}
+                            onChange={(e) => patchEffects(i, { hidden: !e.target.checked })}
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={row.nameShown}
+                            onChange={(e) => patchRow(i, { nameShown: e.target.checked })}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            className="ze-cell-select"
+                            value={effH}
+                            onChange={(e) => {
+                              const stored = storedForEffectiveHoriz(
+                                f,
+                                symbol,
+                                shown,
+                                measureText,
+                                e.target.value as 'left' | 'center' | 'right',
+                              );
+                              patchEffects(i, {
+                                justify: justifyTokens(stored, storedVJustify(f)),
+                              });
+                            }}
+                          >
+                            <option value="left">Left</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            className="ze-cell-select"
+                            value={effV}
+                            onChange={(e) => {
+                              const stored = storedForEffectiveVert(
+                                f,
+                                symbol,
+                                shown,
+                                measureText,
+                                e.target.value as 'top' | 'center' | 'bottom',
+                              );
+                              patchEffects(i, {
+                                justify: justifyTokens(storedHJustify(f), stored),
+                              });
+                            }}
+                          >
+                            <option value="top">Top</option>
+                            <option value="center">Center</option>
+                            <option value="bottom">Bottom</option>
+                          </select>
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!!row.effects.italic}
+                            onChange={(e) =>
+                              patchEffects(i, { italic: e.target.checked || undefined })
+                            }
+                          />
+                        </td>
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!!row.effects.bold}
+                            onChange={(e) =>
+                              patchEffects(i, { bold: e.target.checked || undefined })
+                            }
+                          />
+                        </td>
+                        <td>
+                          {numCell(
+                            i,
+                            'size',
+                            row.effects.fontSize?.[0] ?? DEFAULT_TEXT_SIZE,
+                            (iu) => patchEffects(i, { fontSize: [iu, iu] }),
+                          )}
+                        </td>
+                        <td>
+                          <select
+                            className="ze-cell-select"
+                            value={row.angle === 90 ? 'Vertical' : 'Horizontal'}
+                            onChange={(e) =>
+                              patchRow(i, { angle: e.target.value === 'Vertical' ? 90 : 0 })
+                            }
+                          >
+                            <option>Horizontal</option>
+                            <option>Vertical</option>
+                          </select>
+                        </td>
+                        <td>
+                          {numCell(i, 'posx', row.at.x, (iu) =>
+                            patchRow(i, { at: { ...row.at, x: iu } }),
+                          )}
+                        </td>
+                        <td>
+                          {numCell(i, 'posy', row.at.y, (iu) =>
+                            patchRow(i, { at: { ...row.at, y: iu } }),
+                          )}
+                        </td>
+                        {/* FDC_COLOR. A native swatch cannot express
+                            "unspecified", so the × beside it is the way back to
+                            the default text colour rather than a colour of black. */}
+                        <td className="ze-cell-color">
+                          <input
+                            type="color"
+                            value={colorHex(row.effects.color) || '#000000'}
+                            onChange={(e) =>
+                              patchEffects(i, { color: colorFromHex(e.target.value) })
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="ze-btn sm"
+                            title="Default colour"
+                            disabled={!row.effects.color}
+                            onClick={() => patchEffects(i, { color: undefined })}
+                          >
+                            ×
+                          </button>
+                        </td>
+                        {/* FDC_ALLOW_AUTOPLACE — SCH_FIELD::CanAutoplace, which
+                            the file stores inverted as (do_not_autoplace yes). */}
+                        <td className="c">
+                          <input
+                            type="checkbox"
+                            checked={!row.doNotAutoplace}
+                            onChange={(e) =>
+                              patchRow(i, { doNotAutoplace: e.target.checked ? undefined : true })
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="ze-props-rowbtns">
+              <button className="ze-btn sm" title="Add field" onClick={addRow}>
+                +
+              </button>
+              <button className="ze-btn sm" title="Move up" onClick={() => moveRow(-1)}>
+                ↑
+              </button>
+              <button className="ze-btn sm" title="Move down" onClick={() => moveRow(1)}>
+                ↓
+              </button>
+              <span className="grow" />
+              <button className="ze-btn sm" title="Delete field" onClick={deleteRow}>
+                🗑
+              </button>
+            </div>
+
+            <div className="ze-props-columns">
+              <fieldset className="ze-props-group">
+                <legend>General</legend>
+                <label className="row">
+                  <span>Unit:</span>
+                  <select
+                    className="ze-select"
+                    disabled={unitCount < 2}
+                    value={unit}
+                    onChange={(e) => setUnit(Number(e.target.value))}
+                  >
+                    {Array.from({ length: Math.max(unitCount, 1) }, (_, k) => (
+                      <option key={k + 1} value={k + 1}>
+                        Unit {letterSubReference(k + 1)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="row">
+                  {/* DIALOG_SYMBOL_PROPERTIES' "Alternate symbol (De Morgan)":
                     body style 2 is the same gate drawn with its inputs and
                     output inverted. Greyed when the symbol has no alternate. */}
-                <input
-                  type="checkbox"
-                  disabled={!hasAlternate}
-                  checked={bodyStyle === 2}
-                  onChange={(e) => setBodyStyle(e.target.checked ? 2 : 1)}
-                />
-                <span>Alternate symbol (De Morgan)</span>
-              </label>
-              <label className="row">
-                <span>Angle:</span>
-                <select
-                  className="ze-select"
-                  value={orient}
-                  onChange={(e) => setOrient(Number(e.target.value))}
-                >
-                  <option value={0}>0</option>
-                  <option value={90}>+90</option>
-                  <option value={270}>-90</option>
-                  <option value={180}>180</option>
-                </select>
-              </label>
-              <label className="row">
-                <span>Mirror:</span>
-                <select
-                  className="ze-select"
-                  value={mirror}
-                  onChange={(e) => setMirror(e.target.value as '' | 'x' | 'y')}
-                >
-                  <option value="">Not mirrored</option>
-                  <option value="x">Around X axis</option>
-                  <option value="y">Around Y axis</option>
-                </select>
-              </label>
-            </fieldset>
+                  <input
+                    type="checkbox"
+                    disabled={!hasAlternate}
+                    checked={bodyStyle === 2}
+                    onChange={(e) => setBodyStyle(e.target.checked ? 2 : 1)}
+                  />
+                  <span>Alternate symbol (De Morgan)</span>
+                </label>
+                <label className="row">
+                  <span>Angle:</span>
+                  <select
+                    className="ze-select"
+                    value={orient}
+                    onChange={(e) => setOrient(Number(e.target.value))}
+                  >
+                    <option value={0}>0</option>
+                    <option value={90}>+90</option>
+                    <option value={270}>-90</option>
+                    <option value={180}>180</option>
+                  </select>
+                </label>
+                <label className="row">
+                  <span>Mirror:</span>
+                  <select
+                    className="ze-select"
+                    value={mirror}
+                    onChange={(e) => setMirror(e.target.value as '' | 'x' | 'y')}
+                  >
+                    <option value="">Not mirrored</option>
+                    <option value="x">Around X axis</option>
+                    <option value="y">Around Y axis</option>
+                  </select>
+                </label>
+              </fieldset>
 
-            <fieldset className="ze-props-group">
-              <legend>Attributes</legend>
-              {/* Upstream's order (dialog_symbol_properties_base.cpp): simulation,
+              <fieldset className="ze-props-group">
+                <legend>Attributes</legend>
+                {/* Upstream's order (dialog_symbol_properties_base.cpp): simulation,
                   board, do-not-populate, bill of materials, position files. */}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={excludeSim}
-                  onChange={(e) => setExcludeSim(e.target.checked)}
-                />{' '}
-                Exclude from simulation
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={excludeBoard}
-                  onChange={(e) => setExcludeBoard(e.target.checked)}
-                />{' '}
-                Exclude from board
-              </label>
-              <label>
-                <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />{' '}
-                Do not populate
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={excludeBom}
-                  onChange={(e) => setExcludeBom(e.target.checked)}
-                />{' '}
-                Exclude from bill of materials
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={excludePosFiles}
-                  onChange={(e) => setExcludePosFiles(e.target.checked)}
-                />{' '}
-                Exclude from position files
-              </label>
-            </fieldset>
-          </div>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={excludeSim}
+                    onChange={(e) => setExcludeSim(e.target.checked)}
+                  />{' '}
+                  Exclude from simulation
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={excludeBoard}
+                    onChange={(e) => setExcludeBoard(e.target.checked)}
+                  />{' '}
+                  Exclude from board
+                </label>
+                <label>
+                  <input type="checkbox" checked={dnp} onChange={(e) => setDnp(e.target.checked)} />{' '}
+                  Do not populate
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={excludeBom}
+                    onChange={(e) => setExcludeBom(e.target.checked)}
+                  />{' '}
+                  Exclude from bill of materials
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={excludePosFiles}
+                    onChange={(e) => setExcludePosFiles(e.target.checked)}
+                  />{' '}
+                  Exclude from position files
+                </label>
+              </fieldset>
+            </div>
 
-          <div className="ze-props-libid">
-            <span className="lbl">Library link:</span>
-            <span className="val" title={symbol.libId}>
-              {symbol.libId}
-            </span>
+            <div className="ze-props-libid">
+              <span className="lbl">Library link:</span>
+              <span className="val" title={symbol.libId}>
+                {symbol.libId}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="ze-modal-footer">
+          {/* Left-aligned hand-offs, as upstream places them. */}
+          {onUpdateSymbol && (
+            <button className="ze-btn" style={{ marginRight: 'auto' }} onClick={onUpdateSymbol}>
+              Update Symbol from Library...
+            </button>
+          )}
+          {onChangeSymbol && (
+            <button className="ze-btn" onClick={onChangeSymbol}>
+              Change Symbol...
+            </button>
+          )}
+          {onEditSymbol && (
+            <button className="ze-btn" onClick={onEditSymbol}>
+              Edit Symbol...
+            </button>
+          )}
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>

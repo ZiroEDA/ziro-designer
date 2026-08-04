@@ -9,7 +9,7 @@
  * desktop-only items are reinterpreted for the web (see the notes inline).
  */
 
-import type { Menu, MenuItem } from '../ui/MenuBar.js';
+import type { Menu, MenuItem } from '../ui/menu_types.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
 

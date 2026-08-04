@@ -90,12 +90,25 @@ function resolveItem(doc: Schematic, id: string): { category: Category; locked: 
   const pinAt = id.lastIndexOf(':pin');
   if (pinAt > 0 && doc.symbols.some((s, i) => refId('symbol', s.uuid, i) === id.slice(0, pinAt)))
     return { category: 'pins', locked: false };
+  // A sheet pin is a pin, not an "other item": upstream groups SCH_SHEET_PIN_T
+  // with SCH_PIN_T under the same filter. It used to resolve to nothing at all,
+  // and an unresolved id passes — so the Pins toggle did not reach sheet pins.
+  const sheetPinAt = id.lastIndexOf(':sheetpin');
+  if (
+    sheetPinAt > 0 &&
+    doc.sheets.some((s, i) => refId('sheet', s.uuid, i) === id.slice(0, sheetPinAt))
+  )
+    return { category: 'pins', locked: false };
+
+  // A field is *text* upstream (SCH_FIELD_T sits with SCH_TEXT_T / SCH_TEXTBOX_T
+  // / SCH_TABLE_T), not part of its parent symbol's category. The owner lookup
+  // stays, because a field of a locked symbol is still locked.
   const fieldAt = id.lastIndexOf(':field');
   if (fieldAt > 0) {
     const owner = doc.symbols.findIndex(
       (s, i) => refId('symbol', s.uuid, i) === id.slice(0, fieldAt),
     );
-    if (owner !== -1) return { category: 'symbols', locked: doc.symbols[owner]!.locked ?? false };
+    if (owner !== -1) return { category: 'text', locked: doc.symbols[owner]!.locked ?? false };
   }
 
   const si = doc.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === id);
@@ -129,6 +142,11 @@ function resolveItem(doc: Schematic, id: string): { category: Category; locked: 
   if (doc.busEntries.some((be, i) => refId('busentry', be.uuid, i) === id))
     return { category: 'otherItems', locked: false };
   if (doc.noConnects.some((nc, i) => refId('noconnect', nc.uuid, i) === id))
+    return { category: 'otherItems', locked: false };
+  // So do directive labels. Upstream lists SCH_LABEL_T, SCH_GLOBAL_LABEL_T and
+  // SCH_HIER_LABEL_T under `labels` but *not* SCH_DIRECTIVE_LABEL_T, which
+  // therefore reaches the `default:` arm and is governed by `otherItems`.
+  if ((doc.directiveLabels ?? []).some((d, i) => refId('directive', d.uuid, i) === id))
     return { category: 'otherItems', locked: false };
 
   return null;

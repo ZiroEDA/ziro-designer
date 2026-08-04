@@ -10,8 +10,29 @@
  * (SCH_INSPECTION_TOOL::UpdateMessagePanel; multi-selections clear it).
  */
 
-import type { LibSymbol, SchLabel, Schematic } from '../types.js';
+import type { LabelShape, LibSymbol, SchLabel, Schematic } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
+import { parseSheetPinId } from './sch_sheet_pin_tool.js';
+import { imagePPI, imageSizeIU } from './image_size.js';
+
+/** `EDA_SHAPE::getFriendlyName`, for the kinds a schematic can hold. */
+const SHAPE_NAMES: Record<string, string> = {
+  rectangle: 'Rectangle',
+  circle: 'Circle',
+  arc: 'Arc',
+  polyline: 'Polygon',
+  bezier: 'Bezier',
+  text: 'Text',
+};
+
+/** The shape tokens as the message panel spells them (DIALOG_SHEET_PIN_PROPERTIES). */
+const SHEET_PIN_SHAPE: Record<LabelShape, string> = {
+  input: 'Input',
+  output: 'Output',
+  bidirectional: 'Bidirectional',
+  tri_state: 'Tri-state',
+  passive: 'Passive',
+};
 
 export interface MsgPanelItem {
   upper: string;
@@ -144,6 +165,97 @@ export function getMsgPanelItems(
       const sh = sch.sheets[i]!;
       const name = sh.fields.find((f) => f.key === 'Sheetname')?.value ?? '';
       return [{ upper: 'Sheet Name', lower: name }];
+    }
+
+    // SCH_SHEET_PIN is a SCH_LABEL_BASE, so its panel shows the same name and
+    // shape a hierarchical label's does (SCH_HIERLABEL::GetMsgPanelInfo).
+    case 'sheetpin': {
+      const spRef = parseSheetPinId(sch, ref.id);
+      if (!spRef) return [];
+      const pin = sch.sheets[spRef.sheet]?.pins[spRef.pin];
+      if (!pin) return [];
+      return [
+        { upper: 'Hierarchical Sheet Pin', lower: pin.name },
+        { upper: 'Type', lower: SHEET_PIN_SHAPE[pin.shape] ?? pin.shape },
+      ];
+    }
+
+    // SCH_TEXTBOX::GetMsgPanelInfo. The text is shown raw, not resolved —
+    // upstream's comment: "we want to show the user the variable references".
+    case 'textbox': {
+      const i = indexOf(sch.textBoxes, (t, k) => refId('textbox', t.uuid, k));
+      if (i < 0) return [];
+      const tb = sch.textBoxes[i]!;
+      const rows: MsgPanelItem[] = [{ upper: 'Text Box', lower: tb.text }];
+      if (tb.excludedFromSim) rows.push({ upper: 'Exclude from', lower: 'Simulation' });
+      return rows;
+    }
+
+    // SCH_TABLE::GetMsgPanelInfo — the column count, not the cell contents.
+    case 'table': {
+      const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
+      if (i < 0) return [];
+      return [{ upper: 'Table', lower: `${sch.tables[i]!.columnCount} Columns` }];
+    }
+
+    // SCH_BUS_ENTRY_BASE::GetMsgPanelInfo switches on the layer. Ours is always
+    // a wire entry: a bus-to-bus one is written as a bus segment and cannot be
+    // read back as an entry (saveBusEntry), so LAYER_BUS is unreachable here.
+    case 'busentry': {
+      const i = indexOf(sch.busEntries, (t, k) => refId('busentry', t.uuid, k));
+      if (i < 0) return [];
+      const rows: MsgPanelItem[] = [{ upper: 'Bus Entry Type', lower: 'Wire' }];
+      if (netName) {
+        rows.push({ upper: 'Connection Name', lower: netName });
+        rows.push({ upper: 'Resolved Netclass', lower: netClassName || 'Default' });
+      }
+      return rows;
+    }
+
+    // EDA_SHAPE::ShapeGetMsgPanelInfo: the friendly name, then whichever
+    // measurement that shape is described by.
+    case 'graphic': {
+      const i = indexOf(sch.graphics, (_t, k) => refId('graphic', undefined, k));
+      if (i < 0) return [];
+      const g = sch.graphics[i]!;
+      const rows: MsgPanelItem[] = [{ upper: 'Shape', lower: SHAPE_NAMES[g.kind] ?? g.kind }];
+      if (g.kind === 'circle') {
+        rows.push({ upper: 'Radius', lower: fmt(g.radius) });
+      } else if (g.kind === 'rectangle') {
+        rows.push({ upper: 'Width', lower: fmt(Math.abs(g.end.x - g.start.x)) });
+        rows.push({ upper: 'Height', lower: fmt(Math.abs(g.end.y - g.start.y)) });
+      } else if (g.kind === 'polyline' || g.kind === 'bezier') {
+        // POLY reports its point count; BEZIER reports a length we do not
+        // measure, so the point count stands in and says so.
+        rows.push({ upper: 'Points', lower: `${g.points.length}` });
+      }
+      return rows;
+    }
+
+    // SCH_BITMAP::GetMsgPanelInfo. The first row is a bare title with no value,
+    // which is why `lower` is empty rather than repeating the heading.
+    case 'image': {
+      const i = indexOf(sch.images, (t, k) => refId('image', t.uuid, k));
+      if (i < 0) return [];
+      const im = sch.images[i]!;
+      const size = imageSizeIU(im);
+      return [
+        { upper: 'Bitmap', lower: '' },
+        { upper: 'PPI', lower: `${imagePPI(im.data)}` },
+        { upper: 'Scale', lower: `${im.scale}` },
+        { upper: 'Width', lower: fmt(size.w) },
+        { upper: 'Height', lower: fmt(size.h) },
+      ];
+    }
+
+    // SCH_LABEL_BASE::GetMsgPanelInfo, the SCH_DIRECTIVE_LABEL_T arm. Note the
+    // Type row is *not* included: upstream adds it only for global labels,
+    // hierarchical labels and sheet pins, and a directive label is none of
+    // those even though it has a shape.
+    case 'directive': {
+      const i = indexOf(sch.directiveLabels ?? [], (t, k) => refId('directive', t.uuid, k));
+      if (i < 0) return [];
+      return [{ upper: 'Directive Label', lower: (sch.directiveLabels ?? [])[i]!.text }];
     }
 
     default:

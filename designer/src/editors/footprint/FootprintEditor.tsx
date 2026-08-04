@@ -33,6 +33,7 @@ import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { FP_TOP_TOOLBAR, FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from './footprintToolbars.js';
@@ -1010,6 +1011,12 @@ export function FootprintEditor({
     'footprints',
     formatTitle('Footprint Editor', curName ? `${curLib}:${curName}` : null, modified),
   );
+
+  // Library edits are buffered and only written by Save, so closing the tab
+  // discards them. `hasModifications()` answers across every open library
+  // rather than just the footprint on screen — losing an edit to a library you
+  // are not looking at is the easier mistake to make.
+  useUnsavedGuard(manager.current.hasModifications());
 
   // ----- unit display -----------------------------------------------------------
   const unitLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';

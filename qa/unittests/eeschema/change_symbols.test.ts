@@ -376,3 +376,117 @@ describe('Update/reset symbol attributes', () => {
     expect(s.excludedFromSim).toBe(before.excludedFromSim);
   });
 });
+
+/**
+ * A part whose pin 2 has alternates, a placement using one, a pin-map override,
+ * and a second library part that dropped the alternate the placement uses.
+ */
+const PINS_SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+  (lib_symbols
+    (symbol "MCU:U"
+      (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+      (property "Value" "U" (at 0 -2 0) (effects (font (size 1.27 1.27))))
+      (symbol "U_1_1"
+        (pin power_in line (at 0 2.54 270) (length 2.54) (name "VCC") (number "1"))
+        (pin bidirectional line (at 0 -2.54 90) (length 2.54)
+          (name "PA0") (number "2")
+          (alternate "SCK" output clock)))
+      (symbol "U_2_1"
+        (pin passive line (at 5 0 0) (length 2.54)
+          (name "GND") (number "3")
+          (alternate "AGND" passive line))))
+    (symbol "MCU:U2"
+      (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+      (property "Value" "U2" (at 0 -2 0) (effects (font (size 1.27 1.27))))
+      (symbol "U2_1_1"
+        (pin power_in line (at 0 2.54 270) (length 2.54) (name "VCC") (number "1"))
+        (pin bidirectional line (at 0 -2.54 90) (length 2.54)
+          (name "PA0") (number "2")))))
+  (symbol (lib_id "MCU:U") (at 30 30 0) (unit 1) (uuid "u0")
+    (property "Reference" "U1" (at 32 30 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "U" (at 32 28 0) (effects (font (size 1.27 1.27))))
+    (pin_map_override (mode named_map) (map "STD-8"))
+    (pin "1" (uuid "p-1"))
+    (pin "2" (uuid "p-2") (alternate "SCK"))
+    (pin "3" (uuid "p-3") (alternate "AGND"))))`;
+
+const pinsDoc = (): Schematic => readSchematic(parse(PINS_SCH));
+const pinsLibs = (): Map<string, LibSymbol> =>
+  new Map(pinsDoc().libSymbols.map((l) => [l.libId, l]));
+const altOf = (d: Schematic, number: string): string | undefined =>
+  d.symbols[0]!.pins?.find((p) => p.number === number)?.alternate;
+
+describe('alternate pins and pin map overrides', () => {
+  it('leaves a valid alternate alone with the reset box off', () => {
+    const r = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({ mode: 'update', resetAlternatePin: false, resetPinMapOverrides: false }),
+    );
+    expect(altOf(r.doc, '2')).toBe('SCK');
+  });
+
+  it('clears every alternate with the reset box on', () => {
+    const r = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({ mode: 'update', resetAlternatePin: true }),
+    );
+    expect(altOf(r.doc, '2')).toBeUndefined();
+    expect(altOf(r.doc, '3')).toBeUndefined();
+    // The pin's identity is not collateral damage.
+    expect(r.doc.symbols[0]!.pins?.find((p) => p.number === '2')?.uuid).toBe('p-2');
+  });
+
+  it('keeps an alternate on a pin of another unit, box off', () => {
+    // The placement is unit 1, but its (pin …) list covers the whole part
+    // (GetRawPins). Checking only the placed unit's pins would read pin 3 as
+    // "not in the library" and clear a perfectly valid alternate.
+    const r = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({ mode: 'update', resetAlternatePin: false }),
+    );
+    expect(altOf(r.doc, '3')).toBe('AGND');
+  });
+
+  it('clears a stale alternate even with the box off, on a Change', () => {
+    // MCU:U2's pin 2 declares no alternates at all, so "SCK" no longer names
+    // anything — upstream clears it whether or not the box is checked.
+    const r = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({
+        mode: 'change',
+        newLibId: 'MCU:U2',
+        resetAlternatePin: false,
+        resetPinMapOverrides: false,
+      }),
+    );
+    expect(r.doc.symbols[0]!.libId).toBe('MCU:U2');
+    expect(altOf(r.doc, '2')).toBeUndefined();
+  });
+
+  it('drops the pin map override only when its box is on', () => {
+    const kept = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({ mode: 'update', resetPinMapOverrides: false }),
+    );
+    expect(kept.doc.symbols[0]!.pinMapOverride?.mapName).toBe('STD-8');
+    const reset = changeSymbols(
+      pinsDoc(),
+      pinsLibs(),
+      opts({ mode: 'update', resetPinMapOverrides: true }),
+    );
+    expect(reset.doc.symbols[0]!.pinMapOverride).toBeUndefined();
+  });
+
+  it('defaults both boxes on for Change and off for Update', () => {
+    // TransferDataToWindow: MODE::CHANGE checks them, MODE::UPDATE does not.
+    expect(defaultChangeSymbolsOptions('change').resetAlternatePin).toBe(true);
+    expect(defaultChangeSymbolsOptions('change').resetPinMapOverrides).toBe(true);
+    expect(defaultChangeSymbolsOptions('update').resetAlternatePin).toBe(false);
+    expect(defaultChangeSymbolsOptions('update').resetPinMapOverrides).toBe(false);
+  });
+});

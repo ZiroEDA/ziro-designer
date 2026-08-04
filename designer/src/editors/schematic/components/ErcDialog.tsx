@@ -6,6 +6,8 @@ import { iuToMM } from '@ziroeda/common';
 import {
   ERC_ITEMS,
   ercExclusionKey,
+  nextMarker,
+  prevMarker,
   type ErcSeverityLevel,
   type ErcViolation,
 } from '@ziroeda/eeschema';
@@ -90,7 +92,22 @@ interface Props {
   /** Open Schematic Setup on the Pin Conflicts Map / Formatting pages. */
   onEditPinMap?: () => void;
   onEditConnectionGrid?: () => void;
+  /**
+   * Previous / Next / Exclude Marker act on the dialog, not on the schematic:
+   * upstream's SCH_INSPECTION_TOOL raises the dialog and calls into it, because
+   * the dialog owns the tree the selection lives in. The Inspect menu fills
+   * this ref in and calls it.
+   */
+  navRef?: { current: ErcDialogNav | null };
   onClose: () => void;
+}
+
+/** What the Inspect menu can do to an open dialog (DIALOG_ERC's public API). */
+export interface ErcDialogNav {
+  next: () => void;
+  prev: () => void;
+  /** ExcludeMarker with no marker given: whichever row the dialog has. */
+  excludeCurrent: () => void;
 }
 
 const fmt = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;
@@ -125,6 +142,7 @@ export function ErcDialog({
   onEditSeverities,
   onEditPinMap,
   onEditConnectionGrid,
+  navRef,
   onClose,
 }: Props): JSX.Element {
   const [tab, setTab] = useState<'violations' | 'ignored'>('violations');
@@ -164,6 +182,37 @@ export function ErcDialog({
         ),
     [violations, filters, isExcl],
   );
+
+  // PrevMarker / NextMarker step the *displayed* tree, and both switch to the
+  // violations page first (DIALOG_ERC::NextMarker sets notebook selection 0).
+  const step = useCallback(
+    (dir: 1 | -1) => {
+      setTab('violations');
+      const order = shown.map(({ i }) => i);
+      const from = selected?.index ?? null;
+      const to = dir === 1 ? nextMarker(order, from) : prevMarker(order, from);
+      // null means "leave the selection where it is": neither direction wraps.
+      if (to !== null) setSelected({ index: to, item: null });
+    },
+    [shown, selected],
+  );
+
+  useEffect(() => {
+    if (!navRef) return;
+    navRef.current = {
+      next: () => step(1),
+      prev: () => step(-1),
+      excludeCurrent: () => {
+        const v = selected === null ? undefined : violations?.[selected.index];
+        // "if( !marker || marker->IsExcluded() ) return" — excluding twice is
+        // not a toggle, and onToggleExclude is one.
+        if (v && !isExcl(v)) onToggleExclude(v);
+      },
+    };
+    return () => {
+      navRef.current = null;
+    };
+  }, [navRef, step, selected, violations, isExcl, onToggleExclude]);
 
   // RC_TREE_MODEL::GetValue: "Error: " / "Warning: " / "Excluded error: ".
   const rowPrefix = (v: ErcViolation): string =>

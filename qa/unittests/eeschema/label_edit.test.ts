@@ -11,7 +11,12 @@ import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceLabel } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { History } from '@ziroeda/eeschema/src/tools/command.js';
 import { makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
-import { globalLabelShape, labelBox } from '@ziroeda/eeschema/src/tools/bbox.js';
+import {
+  globalLabelShape,
+  labelBox,
+  labelTextBox,
+  textPenWidth,
+} from '@ziroeda/eeschema/src/tools/bbox.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
@@ -157,7 +162,40 @@ describe('labelBox measures its text (SCH_LABEL::GetBodyBoundingBox)', () => {
       ...l,
       effects: { ...(l.effects ?? { hidden: false }), justify: ['right'] },
     });
-    expect(right.maxX).toBe(0);
+    // The text runs left from the anchor, but the box does not stop there:
+    // GetBodyBoundingBox ends with `rect.Inflate( GetEffectiveTextPenWidth() )`,
+    // so every edge is one pen further out. This assertion used to read
+    // `toBe(0)`, which encoded the missing inflation.
+    expect(right.maxX).toBe(textPenWidth(mmToIU(1.27)));
     expect(right.minX).toBeLessThan(0);
+  });
+
+  it('reaches the anchor, where the wire attaches', () => {
+    // "Labels have a position point that is outside of the TextBox" —
+    // GetBodyBoundingBox ends with `rect.Merge( GetPosition() )`. Without it
+    // the one point a user is most likely to click is not in the box at all.
+    const l = makeLabel('label', 'CLK', { x: 0, y: 0 }, { fontSize: mmToIU(1.27) });
+    const b = labelBox(l);
+    expect(b.minX).toBeLessThanOrEqual(0);
+    expect(b.maxX).toBeGreaterThanOrEqual(0);
+    expect(b.minY).toBeLessThanOrEqual(0);
+    expect(b.maxY).toBeGreaterThanOrEqual(0);
+  });
+
+  it('is taller than the nominal text height, by the fudge factor and pen', () => {
+    // GetTextBox inflates by 1.5*thickness a side, then adds 0.17*extents.y
+    // for a stroke font. The old box was exactly the nominal height.
+    const h = mmToIU(1.27);
+    const b = labelTextBox('CLK', h, false, undefined, { x: 0, y: 0 });
+    const pen = textPenWidth(h);
+    const extentsY = h + 3 * pen;
+    expect(b.maxY - b.minY).toBe(extentsY + Math.round(extentsY * 0.17));
+  });
+
+  it('allows for an overbar, which climbs above the ascent', () => {
+    const h = mmToIU(1.27);
+    const plain = labelTextBox('CLK', h, false, undefined, { x: 0, y: 0 });
+    const barred = labelTextBox('~{CLK}', h, false, undefined, { x: 0, y: 0 });
+    expect(barred.maxY - barred.minY).toBeGreaterThan(plain.maxY - plain.minY);
   });
 });

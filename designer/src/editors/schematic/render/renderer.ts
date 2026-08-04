@@ -51,13 +51,15 @@ import {
   type LibSymbolUnit,
   directiveGraphic,
   directiveBox,
+  imageSizeIU,
   imagePPI,
   iuPerPixel,
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { globalLabelShape } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
@@ -1773,8 +1775,15 @@ function justifyFor(spin: number): string[] {
  * KiCad-style selection: a blue LAYER_SELECTION_SHADOWS glow drawn *under* each
  * selected item by re-stroking the item's own geometry wider in the shadow colour
  * (SCH_PAINTER draws selected items on the shadow layer at getShadowWidth() extra
- * width). Wires, junctions, symbol bodies + pins, and label flags/anchors each get
- * the halo; there is no bounding box, matching the desktop app.
+ * width). Every placed kind gets the halo — wires, junctions, symbol bodies and
+ * pins, fields, label flags, sheets, bus entries, text boxes, tables, images,
+ * sheet graphics and directive labels — and there is no bounding box, matching
+ * the desktop app.
+ *
+ * Six of those were missing until the sweep that added them, and every one was
+ * already selectable: clicking a text box updated the properties panel and
+ * Delete removed it, but nothing on screen said it was picked. A selection you
+ * cannot see is the quietest kind of broken.
  */
 function drawSelectionShadows(
   ctx: CanvasRenderingContext2D,
@@ -1875,6 +1884,122 @@ function drawSelectionShadows(
     ctx.lineWidth = bw + width;
     ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
   });
+
+  // Everything below here was missing, and every one of them could already be
+  // selected: clicking a text box updated the properties panel and Delete
+  // removed it, but nothing on screen ever said it was picked.
+
+  // Bus entries: a wider stroke along the 45 degree stub.
+  sch.busEntries.forEach((be, i) => {
+    if (!selection.has(refId('busentry', be.uuid, i))) return;
+    const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = base + width;
+    strokeLine(ctx, be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y });
+  });
+
+  // Text boxes and table cells: the border, re-stroked wider. A borderless text
+  // box still glows — the halo is the only thing that says it is selected, so
+  // it is drawn from the geometry rather than from the stroke setting.
+  sch.textBoxes.forEach((tb, i) => {
+    if (!selection.has(refId('textbox', tb.uuid, i))) return;
+    const base = tb.stroke && tb.stroke.width > 0 ? tb.stroke.width : g_defaultPen;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = base + width;
+    ctx.strokeRect(tb.start.x, tb.start.y, tb.end.x - tb.start.x, tb.end.y - tb.start.y);
+  });
+
+  sch.tables.forEach((t, i) => {
+    if (!selection.has(refId('table', t.uuid, i)) || !t.cells.length) return;
+    const minX = Math.min(...t.cells.map((c) => Math.min(c.start.x, c.end.x)));
+    const minY = Math.min(...t.cells.map((c) => Math.min(c.start.y, c.end.y)));
+    const maxX = Math.max(...t.cells.map((c) => Math.max(c.start.x, c.end.x)));
+    const maxY = Math.max(...t.cells.map((c) => Math.max(c.start.y, c.end.y)));
+    const base = t.borderStroke && t.borderStroke.width > 0 ? t.borderStroke.width : g_defaultPen;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = base + width;
+    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+  });
+
+  // Images: SCH_PAINTER has no shadow geometry for a bitmap either, so upstream
+  // draws its outline. Ours does the same rather than tinting the pixels.
+  sch.images.forEach((im, i) => {
+    if (!selection.has(refId('image', im.uuid, i))) return;
+    const sz = imageSizeIU(im);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = g_defaultPen + width;
+    ctx.strokeRect(im.at.x - sz.w / 2, im.at.y - sz.h / 2, sz.w, sz.h);
+  });
+
+  // Sheet graphics: re-stroke the shape itself, so a circle glows as a circle.
+  sch.graphics.forEach((g, i) => {
+    if (!selection.has(refId('graphic', undefined, i))) return;
+    ctx.strokeStyle = color;
+    // A graphic text carries no stroke; every other shape may.
+    const gw = 'stroke' in g && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
+    ctx.lineWidth = gw + width;
+    strokeGraphicOutline(ctx, g);
+  });
+
+  // Directive labels: the pin line and the flag at its end.
+  (sch.directiveLabels ?? []).forEach((d, i) => {
+    if (!selection.has(refId('directive', d.uuid, i))) return;
+    const g = directiveGraphic(d);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = g_defaultPen + width;
+    strokeLine(ctx, g.line[0], g.line[1]);
+    if (g.circle) {
+      ctx.beginPath();
+      ctx.arc(g.circle.center.x, g.circle.center.y, g.circle.radius + width / 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (g.polygon) {
+      ctx.beginPath();
+      g.polygon.forEach((p, n) => (n === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.stroke();
+    }
+  });
+}
+
+/** Stroke a sheet graphic's own outline, for the selection halo. */
+function strokeGraphicOutline(ctx: CanvasRenderingContext2D, g: LibGraphic): void {
+  switch (g.kind) {
+    case 'rectangle':
+      ctx.strokeRect(g.start.x, g.start.y, g.end.x - g.start.x, g.end.y - g.start.y);
+      break;
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(g.center.x, g.center.y, g.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'arc': {
+      const c = CalcArcCenter(g.start, g.mid, g.end);
+      const r = Math.hypot(g.start.x - c.x, g.start.y - c.y);
+      ctx.beginPath();
+      ctx.arc(
+        c.x,
+        c.y,
+        r,
+        Math.atan2(g.start.y - c.y, g.start.x - c.x),
+        Math.atan2(g.end.y - c.y, g.end.x - c.x),
+      );
+      ctx.stroke();
+      break;
+    }
+    case 'polyline':
+    case 'bezier':
+      if (!g.points.length) break;
+      ctx.beginPath();
+      g.points.forEach((p, n) => (n === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.stroke();
+      break;
+    case 'text':
+      // A graphic text's halo is the text itself, redrawn wider.
+      drawText(ctx, g.text, g.at, g.effects?.fontSize?.[0] ?? 12700, ctx.strokeStyle as string);
+      break;
+  }
 }
 
 interface PinDisplay {
@@ -2908,7 +3033,14 @@ export function fitToContent(
   canvasWidth: number,
   canvasHeight: number,
   includePage = true,
+  libById: Map<string, LibSymbol> = new Map(),
 ): Viewport {
+  // One walk over the document, shared with alignment and Zoom to Selected
+  // Objects. This used to have its own, covering lines, junctions, symbols
+  // (position and field anchors only), labels and sheets — so a sheet made of
+  // text boxes, images, graphics or tables framed nothing at all under Zoom to
+  // All Objects, and a large symbol's body could sit outside the fit.
+  const content = contentBBox(sch, libById);
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -2919,19 +3051,9 @@ export function fitToContent(
     maxX = Math.max(maxX, p.x);
     maxY = Math.max(maxY, p.y);
   };
-  for (const l of sch.lines) {
-    include(l.start);
-    include(l.end);
-  }
-  for (const j of sch.junctions) include(j.at);
-  for (const s of sch.symbols) {
-    include(s.at);
-    for (const f of s.fields) if (f.at) include(f.at);
-  }
-  for (const l of sch.labels) include(l.at);
-  for (const sh of sch.sheets) {
-    include(sh.at);
-    include({ x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h });
+  if (!isEmpty(content)) {
+    include({ x: content.minX, y: content.minY });
+    include({ x: content.maxX, y: content.maxY });
   }
   // The drawing sheet is part of the scene for Zoom to Fit, and deliberately
   // not for Zoom to All Objects.

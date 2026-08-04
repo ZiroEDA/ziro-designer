@@ -279,6 +279,8 @@ export function makeDirectiveLabel(
     netclassField,
   );
   return {
+    // The node above writes str('') as the first argument; keep the two in step.
+    text: '',
     at,
     angle,
     shape,

@@ -35,6 +35,11 @@ interface Props {
   replace?: boolean;
   onReplace?: () => void;
   onReplaceAll?: () => void;
+  /**
+   * `DIALOG_SCH_FIND::onShowSearchPanel`. Absent in the symbol editor, where
+   * upstream hides the link (and the separator above it) outright.
+   */
+  onShowSearchPanel?: () => void;
 }
 
 export function DialogSchematicFind({
@@ -47,6 +52,7 @@ export function DialogSchematicFind({
   replace,
   onReplace,
   onReplaceAll,
+  onShowSearchPanel,
 }: Props): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(data.findString);
@@ -222,9 +228,20 @@ export function DialogSchematicFind({
         {/* bSizer6: status + "Show search panel" link. */}
         <div className="ze-find-status">
           <span className="status">{status}</span>
-          <span className="ze-find-panellink" title="Search panel is staged" aria-disabled="true">
-            Show search panel
-          </span>
+          {onShowSearchPanel && (
+            // The label carries the action's hotkey, as upstream appends
+            // KeyNameFromKeyCode( ACTIONS::showSearch.GetHotKey() ) to it.
+            <button
+              type="button"
+              className="ze-find-panellink"
+              onClick={() => {
+                onShowSearchPanel();
+                onClose();
+              }}
+            >
+              Show search panel (Ctrl+G)
+            </button>
+          )}
         </div>
       </div>
     </div>

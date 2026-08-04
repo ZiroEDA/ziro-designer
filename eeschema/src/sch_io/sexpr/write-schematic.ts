@@ -25,6 +25,7 @@ import { readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
   SchSymbol,
+  SchSymbolPin,
   SchLine,
   SchJunction,
   SchLabel,
@@ -494,6 +495,7 @@ function writeSymbol(sym: SchSymbol): SList {
   node = patchSymbolBool(node, 'dnp', sym.dnp, false);
   node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
+  node = patchSymbolPins(node, sym.pins);
 
   // Rewrite the property block from the model's field list (order preserved), so
   // renamed/added/removed fields land exactly where KiCad writes them.
@@ -516,6 +518,52 @@ function writeSymbol(sym: SchSymbol): SList {
       (it) => isList(it) && (head(it) === 'pin' || head(it) === 'instances'),
     );
     items.splice(idx === -1 ? items.length : idx, 0, ...propNodes);
+  }
+  return { kind: 'list', items };
+}
+
+/**
+ * Patch a placement's `(pin "N" (uuid …) [(alternate "NAME")])` children to
+ * match the model, matching by pin number and leaving anything else in the node
+ * alone. Counterpart: the `GetRawPins()` loop in `SCH_IO_KICAD_SEXPR::saveSymbol`.
+ *
+ * A pin the model does not mention keeps its node untouched — the model only
+ * carries pins the *file* carried, so a symbol whose pins were never listed
+ * does not grow a list here.
+ */
+function patchSymbolPins(node: SList, pins: readonly SchSymbolPin[] | undefined): SList {
+  if (!pins?.length) return node;
+  const byNumber = new Map(pins.map((p) => [p.number, p]));
+  const written = new Set<string>();
+  const items = node.items.map((it) => {
+    if (!isList(it) || head(it) !== 'pin') return it;
+    const number = arg(it, 0) ?? '';
+    const pin = byNumber.get(number);
+    if (!pin) return it;
+    written.add(number);
+    let n: SList = it;
+    // saveSymbol writes no (alternate …) at all when the alt is empty *or*
+    // equals the base pin name — a deliberate workaround for alternates that
+    // were once set to the pin's own name. Clearing the model's alternate must
+    // therefore remove the child, not write an empty one.
+    n = stripToken(n, 'alternate');
+    if (pin.alternate) {
+      n = { kind: 'list', items: [...n.items, list(atom('alternate'), str(pin.alternate))] };
+    }
+    return n;
+  });
+  // A pin the file never listed but that now carries an alternate needs a node
+  // of its own, or the selection is lost on save with nothing to show for it.
+  // Only those: a pin with no alternate has nothing to say, and KiCad's writer
+  // emits the full list on its next save anyway.
+  const added = pins.filter((p) => p.alternate && !written.has(p.number));
+  if (added.length) {
+    const nodes = added.map((p) =>
+      list(atom('pin'), str(p.number), list(atom('alternate'), str(p.alternate!))),
+    );
+    // Canonical position: after the properties, before (instances …).
+    const idx = items.findIndex((it) => isList(it) && head(it) === 'instances');
+    items.splice(idx === -1 ? items.length : idx, 0, ...nodes);
   }
   return { kind: 'list', items };
 }
@@ -591,9 +639,13 @@ const writeNoConnect = (nc: SchNoConnect): SList => patchAt(nc.source, nc.at);
 function writeBusEntry(be: SchBusEntry): SList {
   const node = patchAt(be.source, be.at);
   const size = list(atom('size'), atom(mm(be.size.x)), atom(mm(be.size.y)));
-  return childNamed(node, 'size')
+  const withSize = childNamed(node, 'size')
     ? mapChild(node, 'size', () => size)
     : insertBeforeAny(node, size, ['stroke', 'uuid']);
+  // A bus entry carries a stroke like any wire, and DIALOG_WIRE_BUS_PROPERTIES
+  // edits it. The patch was missing, so a width or style change would have been
+  // lost on save — the same shape as the six the writer audit found.
+  return patchStroke(withSize, be.stroke);
 }
 
 /** Patch the `(page …)` inside each `(path …)` of an `(instances …)` or
@@ -767,7 +819,9 @@ function setHyperlink(node: SList, link: string | undefined): SList {
  * else in the node, effects, uuid, anything we don't model, passes through.
  */
 function writeDirectiveLabel(l: SchDirectiveLabel): SList {
-  let node = patchAt(l.source, l.at);
+  // The text is the node's first argument, like every other label's.
+  let node = setItem(l.source, 1, str(l.text));
+  node = patchAt(node, l.at);
   node = mapChild(node, 'at', (at) => setItem(at, 3, atom(String(l.angle))));
   if (l.pinLength !== undefined) {
     // saveText prints (length …) first for a directive label, then (shape …),
@@ -858,9 +912,43 @@ function writeTableCell(cell: SchTableCell): SList {
   return node;
 }
 
-/** Patch a table: rebuild its `(cells ...)` block from the model's cells (lossless otherwise). */
+/**
+ * Set a `(name yes|no)` child inside a node, adding it when absent.
+ *
+ * The reader defaults a missing flag to false, so writing it explicitly is what
+ * makes a change survive: a node that never carried `(header no)` would
+ * otherwise keep reading back as whatever it had before.
+ */
+function setFlagChild(node: SList, name: string, value: boolean): SList {
+  const flag = list(atom(name), atom(value ? 'yes' : 'no'));
+  return childNamed(node, name)
+    ? mapChild(node, name, () => flag)
+    : { kind: 'list', items: [...node.items, flag] };
+}
+
+/**
+ * Patch a table: its `(cells ...)` block, and the border and separator flags.
+ *
+ * The flags were not patched at all until the properties panel made them
+ * editable — the eighth-and-a-half instance of the shape the writer audit
+ * named, and the one I introduced myself by adding the rows before checking
+ * their patcher. `(border ...)` and `(separators ...)` are only written when
+ * the node already has them: a table that never carried either is left alone
+ * rather than gaining nodes it did not have.
+ */
 function writeTable(tb: SchTable): SList {
-  return mapChild(tb.source, 'cells', (cells) => {
+  let node = tb.source;
+  if (childNamed(node, 'border')) {
+    node = mapChild(node, 'border', (b) =>
+      setFlagChild(setFlagChild(b, 'external', tb.borderExternal), 'header', tb.borderHeader),
+    );
+  }
+  if (childNamed(node, 'separators')) {
+    node = mapChild(node, 'separators', (sep) =>
+      setFlagChild(setFlagChild(sep, 'rows', tb.separatorRows), 'cols', tb.separatorCols),
+    );
+  }
+  return mapChild(node, 'cells', (cells) => {
     let i = 0;
     const items = cells.items.map((it) => {
       if (isList(it) && head(it) === 'table_cell') {

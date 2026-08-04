@@ -15,7 +15,7 @@
  *     are never dropped.
  */
 
-import type { Schematic, SchSymbol, SchField } from '../types.js';
+import type { Schematic, SchSymbol, SchSymbolPin, SchField } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
@@ -42,6 +42,9 @@ export interface SymbolEdit {
   readonly excludedFromSim?: boolean;
   /** `(in_pos_files no)`; undefined leaves the token as the file had it. */
   readonly excludedFromPosFiles?: boolean;
+  /** The Pin Functions page's alternate selections. Undefined leaves the
+   *  placement's pin list exactly as the file had it. */
+  readonly pins?: readonly SchSymbolPin[];
 }
 
 /** TransferDataFromWindow's field post-processing + rel→abs position conversion. */
@@ -82,6 +85,7 @@ export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand 
           if (edit.excludedFromSim !== undefined) m.excludedFromSim = edit.excludedFromSim;
           if (edit.excludedFromPosFiles !== undefined)
             m.excludedFromPosFiles = edit.excludedFromPosFiles;
+          if (edit.pins !== undefined) m.pins = edit.pins;
           return m;
         }),
       };

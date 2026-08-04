@@ -69,6 +69,7 @@ import {
   parsePastedText,
   boxSelect,
   symbolBodyBBox,
+  selectionBBox,
   labelBox,
   emptyBBox,
   type BBox,
@@ -96,6 +97,9 @@ import {
   expandSelectionToGroups,
   getNode,
   selectConnection,
+  planNetclassAssignment,
+  selectedNets,
+  addNetclassAssignment,
   applySelectionFilter,
   defaultSelectionFilter,
   selectionFilterAll,
@@ -145,6 +149,12 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  buildNetNavigator,
+  netNavigatorOrder,
+  stepNetItem,
+  type PcbFootprintData,
+  syncPinFromLabel,
+  syncLabelsFromPin,
   buildSheetTree,
   sheetFile,
   sheetName,
@@ -180,6 +190,7 @@ import {
   replaceTable,
   replaceLabel,
   replaceDirectiveLabel,
+  replaceBusEntry,
   replaceLine,
   replaceJunction,
   makeImage,
@@ -227,7 +238,7 @@ import {
 } from './dialogs/dialog_text_properties.js';
 import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
-import { ErcDialog } from './components/ErcDialog.js';
+import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
 import {
   DialogSymbolChooser,
   type PickedSymbol,
@@ -245,6 +256,9 @@ import { Toolbar } from '../../ui/Toolbar.js';
 import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
+import { buildHotkeyList } from './hotkey_list.js';
+import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
+import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
@@ -330,6 +344,7 @@ import {
   plotPng,
   plotSvg,
   plotPdf,
+  plotPdfSheets,
   plotDxf,
   plotPs,
   pageIU,
@@ -350,7 +365,12 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { SearchPanel } from './components/SearchPanel.js';
+import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
+import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
+import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
+import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -537,6 +557,8 @@ export function SchematicEditor({
   onExitToHome,
   onShowPcb,
   onUpdatePcb,
+  readBoardFootprints,
+  autosaveActive,
   onShowSymbolEditor,
   onShowFootprintEditor,
   onShowCalculator,
@@ -557,6 +579,16 @@ export function SchematicEditor({
   /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
    *  its update dialog. Absent when the project has no board. */
   onUpdatePcb?: () => void;
+  /** Tools > Update Schematic from PCB: the board's footprints, read on demand
+   *  so a project with no board simply has no entry. Returning null means the
+   *  board could not be read, which the caller reports. */
+  readBoardFootprints?: () => PcbFootprintData[] | null;
+  /**
+   * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
+   * without a project, or when IndexedDB is unavailable — in which case nothing
+   * is written until Save, and leaving the page is worth a prompt.
+   */
+  autosaveActive?: boolean;
   /** Open the Symbol Editor (the top toolbar's `symbolEditor` button). */
   onShowSymbolEditor?: () => void;
   /** Open the Footprint Editor (the top toolbar's `footprintEditor` button). */
@@ -606,6 +638,14 @@ export function SchematicEditor({
   // greys when clean), same affordance as the PCB editor / KiCad's title.
   const [dirty, setDirty] = useState(false);
   const dirtySkipRef = useRef(true);
+  /**
+   * Edits made since the last time anything was written.
+   *
+   * Not the same as `dirty`, which is the title's asterisk and clears on a
+   * timer whether or not a write actually happened — fine as a flash, useless
+   * as "is there work to lose". This one only clears on a save.
+   */
+  const [unsaved, setUnsaved] = useState(false);
 
   const [doc, setDoc] = useState<Schematic | null>(initial);
   // Multi-sheet project: every parsed document by basename, the root file, and a
@@ -730,8 +770,14 @@ export function SchematicEditor({
   const [pendingImage, setPendingImage] = useState<{ data: string } | null>(null);
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
+  const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
+  // Assign Netclass: the patterns the selection produced, awaiting a class.
+  const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
+  // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
+  // segment first and then run exactly this drag, which is why they are a grab
+  // kind rather than an edit of their own.
   const [grabRequest, setGrabRequest] = useState<{
-    kind: 'move' | 'drag';
+    kind: 'move' | 'drag' | 'break' | 'slice';
     nonce: number;
   } | null>(null);
   // Right-click selection context menu (SCH_SELECTION_TOOL's TOOL_MENU):
@@ -783,6 +829,15 @@ export function SchematicEditor({
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
   const [lineEdit, setLineEdit] = useState<{
+    index: number;
+    widthIU: number;
+    style: string;
+    color?: ItemColor;
+  } | null>(null);
+  // A bus entry opens the same DIALOG_WIRE_BUS_PROPERTIES a wire does: upstream
+  // groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T and SCH_JUNCTION_T in
+  // SCH_EDIT_TOOL::Properties.
+  const [busEntryEdit, setBusEntryEdit] = useState<{
     index: number;
     widthIU: number;
     style: string;
@@ -866,6 +921,12 @@ export function SchematicEditor({
   const [ercFocusedMarker, setErcFocusedMarker] = useState<string | null>(null);
   // DIALOG_ERC's visibility, and the phase messages of a run in flight.
   const [ercOpen, setErcOpen] = useState(false);
+  /** Tools > Update Schematic from PCB: the footprints read for this run. */
+  const [backAnnotateFps, setBackAnnotateFps] = useState<PcbFootprintData[] | null>(null);
+  /** The open ERC dialog's marker-tree API, for the Inspect menu's entries. */
+  const ercNav = useRef<ErcDialogNav | null>(null);
+  /** Tools > Sync Sheet Pins: which sub-sheets the dialog is showing. */
+  const [syncPinsOpen, setSyncPinsOpen] = useState<SyncSheetEntry[] | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1766,6 +1827,35 @@ export function SchematicEditor({
   );
 
   /** Apply one sheet's new symbol list, on its own undo history when off-screen. */
+  /**
+   * Run an edit against any sheet of the project, not just the open one.
+   *
+   * The open sheet goes through the ordinary undo path so Ctrl+Z reaches it;
+   * another sheet gets its own history and is serialized straight into the
+   * `changed` list for the caller to persist. Extracted from
+   * `applySheetSymbols` when Sync Sheet Pins needed the same thing for pins and
+   * labels — the mechanism was never about symbols.
+   */
+  const applySheetCommand = useCallback(
+    (file: string, cmd: EditCommand, changed: PickedFile[]): void => {
+      if (file === currentFile) {
+        runCommand(cmd);
+        return;
+      }
+      const target = project.current.docs.get(file);
+      if (!target) return;
+      if (!histories.current.has(file)) histories.current.set(file, new History());
+      const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
+      project.current.docs.set(file, next);
+      try {
+        changed.push({ name: file, text: serializeSchematic(next) });
+      } catch {
+        /* skip a bad sheet */
+      }
+    },
+    [currentFile, runCommand, libById],
+  );
+
   const applySheetSymbols = useCallback(
     (file: string, symbols: readonly SchSymbol[], label: string, changed: PickedFile[]): void => {
       const cmd = setSymbolsCommand(symbols, label);
@@ -2323,8 +2413,10 @@ export function SchematicEditor({
       // browser doesn't block it, the sink navigates it once the file (which
       // for PNG/PDF is produced asynchronously) is ready. Single page only.
       const preview = openAfter && !allPages ? window.open('', '_blank') : null;
-      const one = (d: Schematic, name: string, file: string): void => {
-        // Netclass visuals and text variables resolve per sheet.
+      // Netclass visuals, text variables and intersheet refs all resolve per
+      // sheet, so the options are built per sheet even when the pages end up in
+      // one document.
+      const optsFor = (d: Schematic, name: string, file: string): PlotOpts => {
         const nov = computeNetClassOverrides(
           d,
           new Map(d.libSymbols.map((l) => [l.libId, l])),
@@ -2352,10 +2444,13 @@ export function SchematicEditor({
               }
             : {}),
         };
-        // Every plot lands in the project's file manager (the cloud "disk");
-        // "Download a copy to this computer" additionally streams it out, and
-        // "Open file after plot" navigates the pre-opened preview tab to it.
-        const sink: PlotSink = (blob, filename) => {
+        return od;
+      };
+      // Every plot lands in the project's file manager (the cloud "disk");
+      // "Download a copy to this computer" additionally streams it out, and
+      // "Open file after plot" navigates the pre-opened preview tab to it.
+      const makeSink = (): PlotSink => {
+        return (blob, filename) => {
           const path = outputDir ? `${outputDir}/${filename}` : filename;
           if (onOutputFile) {
             void blob.arrayBuffer().then((buf) => {
@@ -2376,6 +2471,10 @@ export function SchematicEditor({
             preview.location.href = URL.createObjectURL(shown);
           }
         };
+      };
+      const one = (d: Schematic, name: string, file: string): void => {
+        const od = optsFor(d, name, file);
+        const sink = makeSink();
         if (format === 'svg') plotSvg(d, plotTheme, od, name, sink);
         else if (format === 'png') void plotPng(d, plotTheme, od, name, sink);
         else if (format === 'dxf') plotDxf(d, plotTheme, od, name, sink);
@@ -2386,8 +2485,24 @@ export function SchematicEditor({
         const sheets = [...liveDocs()];
         // SCH_PLOTTER::Plot: nothing to write is an error, not a silent no-op.
         if (sheets.length === 0) report('No sheets to plot.', RPT_SEVERITY_ERROR);
-        for (const [file, d] of sheets)
-          one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+        else if (format === 'pdf') {
+          // createPDFFile opens one file and pages through the sheet list, so a
+          // hierarchy is one document rather than a file per sheet. Every other
+          // format has no page after the first, which is why only this one is
+          // gathered.
+          void plotPdfSheets(
+            sheets.map(([file, d]) => ({
+              sch: d,
+              opts: optsFor(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file),
+            })),
+            plotTheme,
+            outputBaseName(),
+            makeSink(),
+          );
+        } else {
+          for (const [file, d] of sheets)
+            one(d, file.replace(/\.kicad_sch$/i, '') || outputBaseName(), file);
+        }
       } else if (doc) one(doc, outputBaseName(), currentFile);
       else report('No sheets to plot.', RPT_SEVERITY_ERROR);
       // The dialog stays open after plotting (like DIALOG_PLOT_SCHEMATIC) so the
@@ -2829,6 +2944,21 @@ export function SchematicEditor({
             diameterIU: d.junctions[ji]!.diameter,
             color: d.junctions[ji]!.color,
           });
+        } else if (d.busEntries.some((b, i) => refId('busentry', b.uuid, i) === id)) {
+          // Grouped with wires and junctions upstream; same stroke dialog.
+          const bi = d.busEntries.findIndex((b, i) => refId('busentry', b.uuid, i) === id);
+          const be = d.busEntries[bi]!;
+          setBusEntryEdit({
+            index: bi,
+            widthIU: be.stroke?.width ?? 0,
+            style: be.stroke?.type ?? 'default',
+            color: be.stroke?.color,
+          });
+        } else if (
+          (d.directiveLabels ?? []).some((dl, i) => refId('directive', dl.uuid, i) === id)
+        ) {
+          // Reachable by double-click already, but Properties never routed here.
+          onEditItem(id, 'directive');
         } else {
           // Properties on a sheet opens its dialog (double-click enters it).
           const si = d.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === id);
@@ -2860,29 +2990,47 @@ export function SchematicEditor({
   // autosave window (1.2 s) has taken the change. Mount / file switches skip.
   useEffect(() => {
     dirtySkipRef.current = true;
+    setUnsaved(false);
   }, [currentFile]);
+
+  // Only when nothing is writing the work down. With a project open, autosave
+  // plus the flush on page-hide already carry it, and a prompt would be noise
+  // on every close.
+  useUnsavedGuard(!autosaveActive && unsaved);
   useEffect(() => {
     if (dirtySkipRef.current) {
       dirtySkipRef.current = false;
       return;
     }
     setDirty(true);
+    setUnsaved(true);
     const id = setTimeout(() => setDirty(false), 1600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc]);
 
   const save = useCallback(() => {
-    setDirty(false);
-    setDoc((d) => {
-      if (!d) return d;
-      const text = serializeSchematic(d);
-      if (onPersistFiles && currentFile !== DEFAULT_FILE) {
-        // Save writes into the project's file manager (cloud storage); a local
-        // copy can be downloaded from there (or via Save a Copy).
-        onPersistFiles([{ name: currentFile, text }]);
-        return d;
-      }
+    // Not inside a setDoc updater. A state updater must be pure — StrictMode
+    // runs it twice, which here meant persisting twice or firing two downloads
+    // — and it must not be where the work is decided: the document is read from
+    // its ref instead.
+    const d = docRef.current;
+    if (!d) return;
+    let text: string;
+    try {
+      text = serializeSchematic(d);
+    } catch (e) {
+      // The flags stay set. Clearing them first told the user their work was
+      // safe *because* we were about to write it, which is exactly backwards
+      // when the write is the thing that failed.
+      setInfoBar(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+      // Save writes into the project's file manager (cloud storage); a local
+      // copy can be downloaded from there (or via Save a Copy).
+      onPersistFiles([{ name: currentFile, text }]);
+    } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
       const a = document.createElement('a');
       a.href = url;
@@ -2892,9 +3040,11 @@ export function SchematicEditor({
           : (fileName ?? `${d.titleBlock?.title ?? 'schematic'}.kicad_sch`);
       a.click();
       URL.revokeObjectURL(url);
-      return d;
-    });
-  }, [fileName, currentFile]);
+    }
+    // Only now: the asterisk and the leave-prompt both mean "written".
+    setDirty(false);
+    setUnsaved(false);
+  }, [fileName, currentFile, onPersistFiles]);
 
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),
@@ -2988,6 +3138,14 @@ export function SchematicEditor({
       });
       payload.batch.junctions.forEach((j) => consider(j.at));
       payload.batch.labels.forEach((l) => consider(l.at));
+      // Every kind the clipboard carries needs an anchor here, or duplicating a
+      // selection made only of these lands it at the payload's leftmost point
+      // instead of under the cursor.
+      payload.batch.busEntries.forEach((b) => consider(b.at));
+      payload.batch.noConnects.forEach((n) => consider(n.at));
+      payload.batch.textBoxes.forEach((t) => consider(t.start));
+      payload.batch.images.forEach((im) => consider(im.at));
+      payload.batch.directiveLabels.forEach((d) => consider(d.at));
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
@@ -4163,6 +4321,26 @@ export function SchematicEditor({
     [doc, runCommand],
   );
 
+  const commitBusEntryEdit = useCallback(
+    (widthIU: number, style: string, color?: ItemColor) => {
+      setBusEntryEdit((be) => {
+        if (!be || !doc) return null;
+        const orig = doc.busEntries[be.index];
+        if (!orig) return null;
+        const stroke: { width: number; type: string; color?: ItemColor } = {
+          ...(orig.stroke ?? {}),
+          width: widthIU,
+          type: style,
+        };
+        if (color) stroke.color = color;
+        else delete stroke.color;
+        runCommand(replaceBusEntry(be.index, { ...orig, stroke }));
+        return null;
+      });
+    },
+    [doc, runCommand],
+  );
+
   const commitLineEdit = useCallback(
     (widthIU: number, style: string, color?: ItemColor, junctionIU?: number) => {
       setLineEdit((le) => {
@@ -4237,8 +4415,32 @@ export function SchematicEditor({
     reader.readAsDataURL(file);
   }, []);
 
+  /**
+   * SCH_EDITOR_CONTROL::AssignNetclass — reduce the selection to net-name
+   * patterns and open the picker. The refusals are upstream's and are shown in
+   * the error bar rather than silently doing nothing.
+   */
+  const assignNetclass = useCallback(() => {
+    if (!netlist) return;
+    const plan = planNetclassAssignment(selectedNets(netlist, selection));
+    if (plan.error) {
+      setError(plan.error);
+      return;
+    }
+    setNetclassPatterns(plan.patterns);
+  }, [netlist, selection]);
+
   const onTopAction = useCallback(
     (id: string) => {
+      // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
+      if (id === 'listHotkeys') {
+        setHotkeyListOpen(true);
+        return;
+      }
+      if (id === 'assignNetclass') {
+        assignNetclass();
+        return;
+      }
       // mirrorV = MirrorVertically (KiCad SYM_MIRROR_X); mirrorH = MirrorHorizontally (SYM_MIRROR_Y).
       const TX: Record<string, TransformOp> = {
         rotateCCW: 'rotateCCW',
@@ -4254,46 +4456,68 @@ export function SchematicEditor({
       else if (id === 'zoomRedraw') controller.current?.redraw();
       else if (id === 'zoomTool') setActiveTool('zoomTool');
       else if (id === 'zoomFitSelection') {
-        // Zoom to Selected Objects: fit the view to the selection's extent.
-        const box = emptyBBox();
-        doc?.symbols.forEach((s, i) => {
-          if (selection.has(refId('symbol', s.uuid, i))) {
-            const b = symbolBodyBBox(s, libById.get(s.libId));
-            includePoint(box, { x: b.minX, y: b.minY });
-            includePoint(box, { x: b.maxX, y: b.maxY });
-          }
-        });
-        doc?.labels.forEach((l, i) => {
-          if (selection.has(refId('label', l.uuid, i))) {
-            const b = labelBox(l);
-            includePoint(box, { x: b.minX, y: b.minY });
-            includePoint(box, { x: b.maxX, y: b.maxY });
-          }
-        });
-        doc?.lines.forEach((l, i) => {
-          if (selection.has(refId('line', l.uuid, i))) {
-            includePoint(box, l.start);
-            includePoint(box, l.end);
-          }
-        });
-        doc?.junctions.forEach((j, i) => {
-          if (selection.has(refId('junction', j.uuid, i))) includePoint(box, j.at);
-        });
-        doc?.sheets.forEach((sh, i) => {
-          if (selection.has(refId('sheet', sh.uuid, i))) {
-            includePoint(box, sh.at);
-            includePoint(box, { x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h });
-          }
-        });
+        // Zoom to Selected Objects. The extent comes from the one walk that
+        // knows every item kind; this used to have its own, and it covered five
+        // kinds of fifteen, so selecting a text box and zooming did nothing.
+        const box = doc ? selectionBBox(doc, selection, libById) : emptyBBox();
         if (!isEmpty(box)) controller.current?.zoomToBox(box);
       } else if (id === 'undo') undo();
       else if (id === 'redo') redo();
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
       else if (id === 'erc') setErcOpen(true);
-      else if (id === 'showPcbNew') onShowPcb?.();
+      else if (id === 'ercPrevMarker' || id === 'ercNextMarker' || id === 'ercExcludeMarker') {
+        // The dialog owns the tree, so raise it first and act on the next tick,
+        // when it has mounted and filled in the ref (dlg->Show(true); dlg->Raise();
+        // dlg->NextMarker()).
+        setErcOpen(true);
+        const act = id;
+        requestAnimationFrame(() => {
+          const nav = ercNav.current;
+          if (!nav) return;
+          if (act === 'ercPrevMarker') nav.prev();
+          else if (act === 'ercNextMarker') nav.next();
+          else nav.excludeCurrent();
+        });
+      } else if (id === 'syncSheetPins' || id === 'syncAllSheetPins') {
+        // syncSheetPins acts on the selected sheet symbol, syncAllSheetsPins on
+        // every sheet of the open screen. Both need the sub-sheet's document,
+        // which only a loaded project has.
+        const d = docRef.current;
+        const wanted =
+          id === 'syncSheetPins'
+            ? (d?.sheets
+                .map((sh, i) => ({ sh, i }))
+                .filter(({ sh, i }) => selection.has(refId('sheet', sh.uuid, i))) ?? [])
+            : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
+        const entries: SyncSheetEntry[] = [];
+        for (const { sh, i } of wanted) {
+          const file = sheetFile(sh);
+          const sub = file ? project.current.docs.get(file) : undefined;
+          if (!file || !sub) continue;
+          entries.push({
+            sheetIndex: i,
+            name: sh.fields.find((f) => f.key === 'Sheetname')?.value ?? file,
+            file,
+            sub,
+          });
+        }
+        if (entries.length === 0)
+          setInfoBar(
+            id === 'syncSheetPins'
+              ? 'Select a sheet whose file is part of this project.'
+              : 'This schematic has no sub-sheets loaded from the project.',
+          );
+        else setSyncPinsOpen(entries);
+      } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
-      else if (id === 'symbolEditor') onShowSymbolEditor?.();
+      else if (id === 'updateSchFromPcb') {
+        const fps = readBoardFootprints?.() ?? null;
+        // A board that cannot be read is worth saying so about; an empty one is
+        // a legitimate answer and the dialog reports "no changes".
+        if (fps) setBackAnnotateFps(fps);
+        else setInfoBar('No board to read, or the board could not be parsed.');
+      } else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
       else if (id === 'bom') openFieldsTable('bom');
       else if (id === 'exportNetlist') setNetlistOpen(true);
@@ -4546,6 +4770,24 @@ export function SchematicEditor({
           action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
         },
       );
+      if (netlist && selectedNets(netlist, selection).length > 0)
+        items.push({ label: 'Assign Netclass...', icon: 'assignNetclass', action: assignNetclass });
+      // SCH_ACTIONS::breakWire / ::slice, both offered whenever a line is
+      // selected (SCH_SELECTION_TOOL's `linesSelection` condition). Break
+      // divides into connected segments, Slice into unconnected ones.
+      if (doc && [...selection].some((id) => id.startsWith('line:')))
+        items.push(
+          {
+            label: 'Break',
+            icon: 'break',
+            action: () => setGrabRequest((p) => ({ kind: 'break', nonce: (p?.nonce ?? 0) + 1 })),
+          },
+          {
+            label: 'Slice',
+            icon: 'slice',
+            action: () => setGrabRequest((p) => ({ kind: 'slice', nonce: (p?.nonce ?? 0) + 1 })),
+          },
+        );
       if (hit?.kind === 'sheet')
         items.push(
           {
@@ -4941,6 +5183,17 @@ export function SchematicEditor({
             },
           );
         }
+        if (hitNet)
+          chainItems.push({
+            // SCH_ACTIONS::findNetInInspector: show the Net Navigator and put
+            // the selection on the clicked item's row, which is what the panel
+            // marks as active.
+            label: 'Find in Net Navigator',
+            action: () => {
+              setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
+              if (hit) setSelection(new Set([hit.id]));
+            },
+          });
         if (highlightedChain !== null || highlightItem !== null)
           chainItems.push({
             label: 'Clear Net Highlighting',
@@ -5078,7 +5331,9 @@ export function SchematicEditor({
           toggleHiddenPins: es.appearance.show_hidden_pins,
           toggleHiddenFields: es.appearance.show_hidden_fields,
           showProperties: toggles.has('showProperties'),
+          showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
+          showNetNavigator: toggles.has('showNetNavigator'),
           // Each attribute shows checked only when everything the action would
           // touch already carries it, the same test the action itself uses.
           ...Object.fromEntries(
@@ -5247,6 +5502,11 @@ export function SchematicEditor({
           setSelection(new Set(r.ids));
           if (r.clampedAtZero) setError('Label value cannot go below zero');
         }
+      } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        // ACTIONS::listHotKeys (Ctrl+F1). Checked before the bare-F1 zoom arm
+        // below, which requires no modifiers, so the two cannot collide.
+        e.preventDefault();
+        setHotkeyListOpen(true);
       } else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         // ACTIONS::zoomInCenter default hotkey (F1).
         e.preventDefault();
@@ -5259,10 +5519,28 @@ export function SchematicEditor({
         // SCH_ACTIONS::showHierarchy (Ctrl+H): toggle the navigator panel.
         e.preventDefault();
         onLeftToggle('showHierarchy');
+      } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // SCH_ACTIONS::nextNetItem / previousNetItem (Tab / Shift+Tab):
+        // SCH_SELECTION_TOOL::SelectNext walks the Net Navigator's flattened
+        // tree, so it needs exactly one selected item to start from, and it
+        // *wraps* — unlike Previous/Next Marker, which stops at the ends.
+        if (doc && selection.size === 1) {
+          const order = netNavigatorOrder(buildNetNavigator(doc, libById, fmt));
+          const next = stepNetItem(order, [...selection][0]!, !e.shiftKey);
+          if (next !== null) {
+            e.preventDefault();
+            setSelection(new Set([next]));
+          }
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        // ACTIONS::showSearch (Ctrl+G): toggle the Search panel. Distinct from
+        // Ctrl+Shift+G above, which is grid overrides.
+        e.preventDefault();
+        onLeftToggle('showSearch');
       } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
         // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
         // indices into the grid list, stored 1-based as KiCad stores them.
@@ -5702,8 +5980,28 @@ export function SchematicEditor({
       />
 
       <div className="ze-body">
-        {(toggles.has('showProperties') || toggles.has('showHierarchy')) && (
+        {(toggles.has('showProperties') ||
+          toggles.has('showHierarchy') ||
+          toggles.has('showSearch') ||
+          toggles.has('showNetNavigator')) && (
           <div className="ze-leftdock">
+            {toggles.has('showSearch') && doc && (
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Search</div>
+                <div className="ze-panel-body">
+                  <SearchPanel
+                    doc={doc}
+                    libById={libById}
+                    fmt={fmt}
+                    onSelect={(id) => setSelection(new Set([id]))}
+                    onFocus={(id, at) => {
+                      setSelection(new Set([id]));
+                      controller.current?.centerOn(at);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             {toggles.has('showProperties') && (
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Properties</div>
@@ -5722,6 +6020,20 @@ export function SchematicEditor({
                         : `${selection.size} item(s) selected`}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            {toggles.has('showNetNavigator') && doc && (
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Net Navigator</div>
+                <div className="ze-panel-body">
+                  <NetNavigatorPanel
+                    doc={doc}
+                    libById={libById}
+                    fmt={fmt}
+                    selectedId={selection.size === 1 ? [...selection][0] : undefined}
+                    onSelect={(id) => setSelection(new Set([id]))}
+                  />
                 </div>
               </div>
             )}
@@ -5896,8 +6208,53 @@ export function SchematicEditor({
               onClose={() => setClarify(null)}
             />
           )}
+          {backAnnotateFps && doc && (
+            <DialogUpdateFromPcb
+              doc={doc}
+              footprints={backAnnotateFps}
+              onApply={runCommand}
+              onClose={() => setBackAnnotateFps(null)}
+            />
+          )}
+          {syncPinsOpen && doc && (
+            <DialogSyncSheetPins
+              parent={doc}
+              parentFile={currentFile}
+              sheets={syncPinsOpen}
+              // Each direction writes a different file, which is why they go
+              // through the per-sheet applier rather than plain runCommand.
+              onUsePinTemplate={(entry, pin, label) => {
+                const cmd = syncPinFromLabel(
+                  doc,
+                  { sheet: entry.sheetIndex, pin: pin.index },
+                  label,
+                );
+                if (!cmd) return;
+                const changed: PickedFile[] = [];
+                applySheetCommand(currentFile, cmd, changed);
+                if (changed.length) onProjectChange?.(changed);
+              }}
+              onUseLabelTemplate={(entry, label, pin) => {
+                const changed: PickedFile[] = [];
+                applySheetCommand(entry.file, syncLabelsFromPin(label, pin), changed);
+                if (changed.length) onProjectChange?.(changed);
+                // The dialog reads the sub-sheet it was handed, so refresh it.
+                setSyncPinsOpen((prev) =>
+                  prev
+                    ? prev.map((e) =>
+                        e.file === entry.file
+                          ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
+                          : e,
+                      )
+                    : prev,
+                );
+              }}
+              onClose={() => setSyncPinsOpen(null)}
+            />
+          )}
           {ercOpen && (
             <ErcDialog
+              navRef={ercNav}
               sourceName={currentFile}
               violations={ercResult}
               running={ercRunning}
@@ -5999,6 +6356,14 @@ export function SchematicEditor({
               replace={findOpen === 'replace'}
               onReplace={doReplaceNext}
               onReplaceAll={doReplaceAll}
+              // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
+              // upstream — so clicking a link labelled "Show search panel" with
+              // the panel already open closes it. We show it instead; the panel
+              // is the point of the link, and the divergence is one keystroke
+              // away from being undone either way.
+              onShowSearchPanel={() => {
+                setLocalToggles((prev) => new Set(prev).add('showSearch'));
+              }}
             />
           )}
           {annotateOpen && (
@@ -6334,6 +6699,8 @@ export function SchematicEditor({
               doc={doc}
               libById={libById}
               baseName={outputBaseName()}
+              projectFolders={projectFolders}
+              onOutputFile={onOutputFile}
               onClose={() => setNetlistOpen(false)}
             />
           )}
@@ -6489,6 +6856,26 @@ export function SchematicEditor({
             setPropsTarget(null);
           }}
           onCancel={() => setPropsTarget(null)}
+          // The General page's hand-off buttons. Each closes this dialog and
+          // opens the flow that already exists, as upstream's do.
+          onChangeSymbol={() => {
+            setPropsTarget(null);
+            setChangeSymbolsMessages([]);
+            setChangeSymbolsMode('change');
+          }}
+          onUpdateSymbol={() => {
+            setPropsTarget(null);
+            setChangeSymbolsMessages([]);
+            setChangeSymbolsMode('update');
+          }}
+          onEditSymbol={
+            onShowSymbolEditor
+              ? () => {
+                  setPropsTarget(null);
+                  onShowSymbolEditor();
+                }
+              : undefined
+          }
         />
       )}
 
@@ -6661,6 +7048,46 @@ export function SchematicEditor({
           }
           onOk={commitLineEdit}
           onCancel={() => setLineEdit(null)}
+        />
+      )}
+
+      {/* Assign Netclass (DIALOG_ASSIGN_NETCLASS). */}
+      {netclassPatterns && (
+        <DialogAssignNetclass
+          patterns={netclassPatterns}
+          netClasses={setup.netClasses.classes.map((c) => c.name)}
+          onCancel={() => setNetclassPatterns(null)}
+          onOk={(netClass) => {
+            const assignments = netclassPatterns.reduce(
+              (acc, pattern) => addNetclassAssignment(acc, pattern, netClass),
+              setup.netClasses.assignments,
+            );
+            commitSetup({
+              ...setup,
+              netClasses: { ...setup.netClasses, assignments },
+            });
+            setNetclassPatterns(null);
+          }}
+        />
+      )}
+
+      {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
+      {hotkeyListOpen && (
+        <DialogListHotkeys
+          sections={buildHotkeyList(menus)}
+          onClose={() => setHotkeyListOpen(false)}
+        />
+      )}
+
+      {/* A bus entry's stroke (DIALOG_WIRE_BUS_PROPERTIES, E on an entry). */}
+      {busEntryEdit && (
+        <DialogLineProperties
+          kind="wire"
+          widthIU={busEntryEdit.widthIU}
+          style={busEntryEdit.style}
+          color={busEntryEdit.color}
+          onOk={commitBusEntryEdit}
+          onCancel={() => setBusEntryEdit(null)}
         />
       )}
 

@@ -257,7 +257,27 @@ export async function plotPng(
   if (blob) sink(blob, `${name}.png`);
 }
 
-/** Plot to a single-page PDF with the rendered sheet embedded (JPEG/DCTDecode). */
+/** One sheet of a PDF plot job. */
+export interface PdfPlotSheet {
+  sch: Schematic;
+  opts: PlotOpts;
+}
+
+/** Render one sheet to the JPEG page the PDF writer embeds. */
+function pdfPageOf(sch: Schematic, base: Theme, opts: PlotOpts): PdfImagePage {
+  const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
+  const page = plotPageIU(sch, opts);
+  // PDF user space is 72 pt/inch; page size in points from the mm page size.
+  return {
+    jpeg: dataUriToBytes(canvas.toDataURL('image/jpeg', 0.92)),
+    pxW: canvas.width,
+    pxH: canvas.height,
+    ptW: (page.w / MM / 25.4) * 72,
+    ptH: (page.h / MM / 25.4) * 72,
+  };
+}
+
+/** Plot one sheet to a single-page PDF (JPEG/DCTDecode). */
 export async function plotPdf(
   sch: Schematic,
   base: Theme,
@@ -265,14 +285,29 @@ export async function plotPdf(
   name: string,
   sink: PlotSink = downloadBlob,
 ): Promise<void> {
-  const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
-  const page = plotPageIU(sch, opts);
-  // PDF user space is 72 pt/inch; page size in points from the mm page size.
-  const ptW = (page.w / MM / 25.4) * 72;
-  const ptH = (page.h / MM / 25.4) * 72;
-  const jpeg = dataUriToBytes(canvas.toDataURL('image/jpeg', 0.92));
-  const blob = buildImagePdf(jpeg, canvas.width, canvas.height, ptW, ptH, opts.pdfMetadata);
-  sink(blob, `${name}.pdf`);
+  sink(buildImagePdf([pdfPageOf(sch, base, opts)], opts.pdfMetadata), `${name}.pdf`);
+}
+
+/**
+ * Plot a whole hierarchy to **one** multi-page PDF, as
+ * `SCH_PLOTTER::createPDFFile` does — it opens the file once and pages through
+ * the sheet list rather than writing a file per sheet. Every other format is
+ * one file per sheet because those formats have no notion of a page after the
+ * first; PDF does, and a twelve-sheet design should be one document you can
+ * page through and send.
+ *
+ * Each page keeps its own size: sheets in one project can use different paper.
+ */
+export async function plotPdfSheets(
+  sheets: readonly PdfPlotSheet[],
+  base: Theme,
+  name: string,
+  sink: PlotSink = downloadBlob,
+  metadata?: PlotOpts['pdfMetadata'],
+): Promise<void> {
+  if (sheets.length === 0) return;
+  const pages = sheets.map((s) => pdfPageOf(s.sch, base, s.opts));
+  sink(buildImagePdf(pages, metadata ?? sheets[0]!.opts.pdfMetadata), `${name}.pdf`);
 }
 
 /** Plot to a true-vector SVG. */
@@ -953,15 +988,32 @@ function pdfString(s: string): string {
     .replace(/[^\x20-\xff]/g, '');
 }
 
-/** Build a one-page PDF that shows `jpeg` (DCTDecode) filling a ptW×ptH page.
- *  `info` (the "Generate metadata from AUTHOR & SUBJECT variables" option)
- *  writes the document-properties dictionary. */
+/** One page of an image PDF: the rendered sheet and the page size it fills. */
+interface PdfImagePage {
+  jpeg: Uint8Array;
+  pxW: number;
+  pxH: number;
+  ptW: number;
+  ptH: number;
+}
+
+/**
+ * Build a PDF showing one JPEG (DCTDecode) per page.
+ *
+ * **A hierarchy is one document, not one file per sheet.** `SCH_PLOTTER::
+ * createPDFFile` opens the file once and `StartPage`/`ClosePage`s through the
+ * sheet list, so plotting a twelve-sheet design gives you a twelve-page PDF you
+ * can page through and send — not twelve files to keep together by hand.
+ *
+ * Each page keeps its own `/MediaBox`: sheets in one project can have different
+ * paper sizes, and forcing them to share one would either crop the big ones or
+ * pad the small ones.
+ *
+ * `info` (the "Generate metadata from AUTHOR & SUBJECT variables" option)
+ * writes the document-properties dictionary.
+ */
 function buildImagePdf(
-  jpeg: Uint8Array,
-  pxW: number,
-  pxH: number,
-  ptW: number,
-  ptH: number,
+  pages: readonly PdfImagePage[],
   info?: { title?: string; author?: string; subject?: string },
 ): Blob {
   const enc = new TextEncoder();
@@ -978,39 +1030,52 @@ function buildImagePdf(
     push(`${i} 0 obj\n${body}\nendobj\n`);
   };
 
+  // Object numbering: 1 catalog, 2 page tree, then three objects per page
+  // (page, image, content), then the /Info dictionary last.
+  const pageObj = (i: number): number => 3 + i * 3;
+  const imageObj = (i: number): number => 4 + i * 3;
+  const contentObj = (i: number): number => 5 + i * 3;
+  const infoObj = 3 + pages.length * 3;
+
   push('%PDF-1.4\n%\xff\xff\xff\xff\n');
   obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
-  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  obj(
-    3,
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(ptW)} ${round(ptH)}] ` +
-      `/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
-  );
-  // Image XObject (JPEG stream).
-  offsets[4] = pos;
-  push(
-    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pxW} /Height ${pxH} ` +
-      `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`,
-  );
-  push(jpeg);
-  push('\nendstream\nendobj\n');
-  // Content stream: place the image to fill the page.
-  const content = `q ${round(ptW)} 0 0 ${round(ptH)} 0 0 cm /Im0 Do Q`;
-  obj(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  const kids = pages.map((_p, i) => `${pageObj(i)} 0 R`).join(' ');
+  obj(2, `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`);
+
+  pages.forEach((p, i) => {
+    obj(
+      pageObj(i),
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${round(p.ptW)} ${round(p.ptH)}] ` +
+        `/Resources << /XObject << /Im0 ${imageObj(i)} 0 R >> >> /Contents ${contentObj(i)} 0 R >>`,
+    );
+    // Image XObject (JPEG stream).
+    offsets[imageObj(i)] = pos;
+    push(
+      `${imageObj(i)} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.pxW} /Height ${p.pxH} ` +
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`,
+    );
+    push(p.jpeg);
+    push('\nendstream\nendobj\n');
+    // Content stream: place the image to fill the page.
+    const content = `q ${round(p.ptW)} 0 0 ${round(p.ptH)} 0 0 cm /Im0 Do Q`;
+    obj(contentObj(i), `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
 
   // Document properties (PDF_PLOTTER::StartPlot's /Info dictionary).
   const entries: string[] = ['/Producer (ZiroEDA)'];
   if (info?.title) entries.push(`/Title (${pdfString(info.title)})`);
   if (info?.author) entries.push(`/Author (${pdfString(info.author)})`);
   if (info?.subject) entries.push(`/Subject (${pdfString(info.subject)})`);
-  obj(6, `<< ${entries.join(' ')} >>`);
+  obj(infoObj, `<< ${entries.join(' ')} >>`);
 
   const xrefPos = pos;
-  const count = 7;
+  const count = infoObj + 1;
   let xref = `xref\n0 ${count}\n0000000000 65535 f \n`;
   for (let i = 1; i < count; i++) xref += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
   push(xref);
-  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`);
+  push(
+    `trailer\n<< /Size ${count} /Root 1 0 R /Info ${infoObj} 0 R >>\nstartxref\n${xrefPos}\n%%EOF\n`,
+  );
 
   return new Blob(parts as BlobPart[], { type: 'application/pdf' });
 }
