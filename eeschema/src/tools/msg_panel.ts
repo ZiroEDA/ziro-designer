@@ -12,6 +12,7 @@
 
 import type { LabelShape, LibSymbol, SchLabel, Schematic } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
+import { resolveCell } from './table_cells.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { imagePPI, imageSizeIU } from './image_size.js';
 
@@ -196,6 +197,23 @@ export function getMsgPanelItems(
       const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
       if (i < 0) return [];
       return [{ upper: 'Table', lower: `${sch.tables[i]!.columnCount} Columns` }];
+    }
+
+    // A cell describes itself, not the table it sits in: the panel is the one
+    // place that says which item the click actually landed on.
+    case 'tablecell': {
+      const r = resolveCell(sch, ref.id);
+      if (!r) return [];
+      const span =
+        r.cell.colSpan === 1 && r.cell.rowSpan === 1
+          ? ''
+          : ` (${r.cell.colSpan}x${r.cell.rowSpan})`;
+      const row = Math.floor(r.cellIndex / r.table.columnCount) + 1;
+      const col = (r.cellIndex % r.table.columnCount) + 1;
+      return [
+        { upper: 'Table Cell', lower: `Row ${row}, Column ${col}${span}` },
+        { upper: 'Text', lower: r.cell.text },
+      ];
     }
 
     // SCH_BUS_ENTRY_BASE::GetMsgPanelInfo switches on the layer. Ours is always

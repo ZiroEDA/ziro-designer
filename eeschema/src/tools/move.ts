@@ -28,6 +28,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { refId, fieldId } from './hittest.js';
+import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import { makeWireWithUuid, makeJunctionWithUuid } from './build.js';
 import type { MoveSpec, StubWire } from './connect.js';
 import type { EditCommand } from './command.js';
@@ -198,7 +199,12 @@ export function moveSymbolOrFields(
 }
 
 /** Create a command that moves every item in `ids` by `delta`. */
-export function moveItems(ids: ReadonlySet<string>, delta: Vec2): EditCommand {
+export function moveItems(rawIds: ReadonlySet<string>, delta: Vec2): EditCommand {
+  // sch_move_tool / sch_edit_tool call RequestSelection with
+  // aPromoteCellSelections: a cell cannot leave the table it belongs to, so a
+  // selected cell stands for its table here. Done at the engine rather than at
+  // each call site, so no caller can forget it.
+  const ids = hasCellSelection(rawIds) ? promoteCellSelection(rawIds) : rawIds;
   return {
     label: 'Move',
     apply(doc: Schematic): Schematic {

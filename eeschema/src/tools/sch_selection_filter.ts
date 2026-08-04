@@ -15,6 +15,7 @@
 
 import type { Schematic } from '../types.js';
 import { refId } from './hittest.js';
+import { tableOfCellId } from './table_cells.js';
 
 /** Mirrors SCH_SELECTION_FILTER_OPTIONS. `lockedItems` is special (excluded
  *  from All()); the rest are per-category toggles. */
@@ -129,7 +130,11 @@ function resolveItem(doc: Schematic, id: string): { category: Category; locked: 
   // Text boxes, tables and free text → "text".
   if (doc.textBoxes.some((tb, i) => refId('textbox', tb.uuid, i) === id))
     return { category: 'text', locked: false };
-  if (doc.tables.some((t, i) => refId('table', t.uuid, i) === id))
+  // A cell follows its table's category rather than having one of its own:
+  // there is no cell row in the Selection Filter, and a filter that hid tables
+  // while leaving their cells clickable would be worse than no filter.
+  const tableId = tableOfCellId(id) ?? id;
+  if (doc.tables.some((t, i) => refId('table', t.uuid, i) === tableId))
     return { category: 'text', locked: false };
   const gi = doc.graphics.findIndex((_, i) => refId('graphic', undefined, i) === id);
   if (gi !== -1)
