@@ -132,10 +132,12 @@ describe('a table has properties too', () => {
      (separators (rows yes) (cols no) (stroke (width 0) (type solid)))
      (column_widths 10 10) (row_heights 5)
      (cells
-       (text_box "a" (exclude_from_sim no) (at 0 0 0) (size 10 5)
-         (effects (font (size 1.27 1.27))))
-       (text_box "b" (exclude_from_sim no) (at 10 0 0) (size 10 5)
-         (effects (font (size 1.27 1.27)))))
+       (table_cell "a" (exclude_from_sim no) (at 0 0 0) (size 10 5)
+         (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1)
+         (effects (font (size 1.27 1.27))) (uuid "c-a"))
+       (table_cell "b" (exclude_from_sim no) (at 10 0 0) (size 10 5)
+         (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1)
+         (effects (font (size 1.27 1.27))) (uuid "c-b")))
      (uuid "tb-1"))`;
   const doc = () => sheet(TABLE);
   const tRows = (d: Schematic) =>
@@ -144,6 +146,10 @@ describe('a table has properties too', () => {
   it('is no longer an empty grid', () => {
     const d = doc();
     expect(d.tables).toHaveLength(1);
+    // Guard the fixture itself: this used to say (text_box …) inside (cells …)
+    // where the token is (table_cell …), so the table parsed with no cells at
+    // all and the assertions below were about something that was not a table.
+    expect(d.tables[0]!.cells.map((c) => c.text)).toEqual(['a', 'b']);
     expect(tRows(d).length).toBeGreaterThan(0);
   });
 
