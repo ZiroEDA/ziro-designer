@@ -431,3 +431,14 @@ export {
 } from './dimension_properties.js';
 
 export { textBoxCorners, textBoxBBox } from './textbox_geometry.js';
+
+export {
+  textBoxAt,
+  collectTextBoxValues,
+  applyTextBoxValues,
+  splitJustify,
+  joinJustify,
+  type TextBoxValues,
+  type HorizJustify,
+  type VertJustify,
+} from './textbox_properties.js';

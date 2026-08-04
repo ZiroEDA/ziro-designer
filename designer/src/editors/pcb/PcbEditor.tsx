@@ -114,6 +114,13 @@ import {
 } from '@ziroeda/pcbnew';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
+import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
+import {
+  applyTextBoxValues,
+  collectTextBoxValues,
+  textBoxAt,
+  type TextBoxValues,
+} from '@ziroeda/pcbnew/src/textbox_properties.js';
 import {
   applyDimensionValues,
   collectDimensionValues,
@@ -1095,6 +1102,7 @@ export function PcbEditor({
   const [textPropsIndex, setTextPropsIndex] = useState<number | null>(null);
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
+  const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -3850,6 +3858,12 @@ export function PcbEditor({
       return;
     }
 
+    const bi = textBoxAt(brd, sel);
+    if (bi !== null) {
+      setTextBoxPropsIndex(bi);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -3895,6 +3909,19 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, textPropsIndex],
+  );
+
+  /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
+  const applyTextBoxEdit = useCallback(
+    (values: TextBoxValues) => {
+      const brd = boardRef.current;
+      const index = textBoxPropsIndex;
+      setTextBoxPropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyTextBoxValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, textBoxPropsIndex],
   );
 
   /** DIALOG_DIMENSION_PROPERTIES::TransferDataFromWindow. */
@@ -7164,6 +7191,14 @@ export function PcbEditor({
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
           onClose={() => setShapePropsIndex(null)}
+        />
+      )}
+      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
+        <DialogTextBoxProperties
+          initial={collectTextBoxValues(board.textBoxes[textBoxPropsIndex]!)}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyTextBoxEdit}
+          onClose={() => setTextBoxPropsIndex(null)}
         />
       )}
       {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
