@@ -96,6 +96,9 @@ import {
   expandSelectionToGroups,
   getNode,
   selectConnection,
+  planNetclassAssignment,
+  selectedNets,
+  addNetclassAssignment,
   applySelectionFilter,
   defaultSelectionFilter,
   selectionFilterAll,
@@ -247,6 +250,7 @@ import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from './toolbars_sch_editor.
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { buildHotkeyList } from './hotkey_list.js';
+import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
 import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
 import {
   SchNavigateTool,
@@ -734,6 +738,8 @@ export function SchematicEditor({
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
   const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
+  // Assign Netclass: the patterns the selection produced, awaiting a class.
+  const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
   // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
   // segment first and then run exactly this drag, which is why they are a grab
   // kind rather than an edit of their own.
@@ -4296,11 +4302,30 @@ export function SchematicEditor({
     reader.readAsDataURL(file);
   }, []);
 
+  /**
+   * SCH_EDITOR_CONTROL::AssignNetclass — reduce the selection to net-name
+   * patterns and open the picker. The refusals are upstream's and are shown in
+   * the error bar rather than silently doing nothing.
+   */
+  const assignNetclass = useCallback(() => {
+    if (!netlist) return;
+    const plan = planNetclassAssignment(selectedNets(netlist, selection));
+    if (plan.error) {
+      setError(plan.error);
+      return;
+    }
+    setNetclassPatterns(plan.patterns);
+  }, [netlist, selection]);
+
   const onTopAction = useCallback(
     (id: string) => {
       // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
       if (id === 'listHotkeys') {
         setHotkeyListOpen(true);
+        return;
+      }
+      if (id === 'assignNetclass') {
+        assignNetclass();
         return;
       }
       // mirrorV = MirrorVertically (KiCad SYM_MIRROR_X); mirrorH = MirrorHorizontally (SYM_MIRROR_Y).
@@ -4610,6 +4635,8 @@ export function SchematicEditor({
           action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
         },
       );
+      if (netlist && selectedNets(netlist, selection).length > 0)
+        items.push({ label: 'Assign Netclass...', icon: 'assignNetclass', action: assignNetclass });
       // SCH_ACTIONS::breakWire / ::slice, both offered whenever a line is
       // selected (SCH_SELECTION_TOOL's `linesSelection` condition). Break
       // divides into connected segments, Slice into unconnected ones.
@@ -6749,6 +6776,34 @@ export function SchematicEditor({
         />
       )}
 
+      {/* Assign Netclass (DIALOG_ASSIGN_NETCLASS). */}
+      {netclassPatterns && (
+        <DialogAssignNetclass
+          patterns={netclassPatterns}
+          netClasses={setup.netClasses.classes.map((c) => c.name)}
+          onCancel={() => setNetclassPatterns(null)}
+          onOk={(netClass) => {
+            const assignments = netclassPatterns.reduce(
+              (acc, pattern) => addNetclassAssignment(acc, pattern, netClass),
+              setup.netClasses.assignments,
+            );
+            commitSetup({
+              ...setup,
+              netClasses: { ...setup.netClasses, assignments },
+            });
+            setNetclassPatterns(null);
+          }}
+        />
+      )}
+
+      {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
+      {hotkeyListOpen && (
+        <DialogListHotkeys
+          sections={buildHotkeyList(menus)}
+          onClose={() => setHotkeyListOpen(false)}
+        />
+      )}
+
       {/* A bus entry's stroke (DIALOG_WIRE_BUS_PROPERTIES, E on an entry). */}
       {busEntryEdit && (
         <DialogLineProperties
@@ -6758,14 +6813,6 @@ export function SchematicEditor({
           color={busEntryEdit.color}
           onOk={commitBusEntryEdit}
           onCancel={() => setBusEntryEdit(null)}
-        />
-      )}
-
-      {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
-      {hotkeyListOpen && (
-        <DialogListHotkeys
-          sections={buildHotkeyList(menus)}
-          onClose={() => setHotkeyListOpen(false)}
         />
       )}
 

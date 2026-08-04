@@ -18,6 +18,7 @@ export * from './align_to_grid.js';
 export * from './break_wire.js';
 export * from './arrow_nudge.js';
 export * from './bus_entry_kind.js';
+export * from './assign_netclass.js';
 export * from './junction_helpers.js';
 export * from './sch_collectors.js';
 export * from './sch_get_node.js';
