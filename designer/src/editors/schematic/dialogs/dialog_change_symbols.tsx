@@ -65,6 +65,10 @@ export function DialogChangeSymbols({
       return { ...o, updateFields: next };
     });
 
+  // The two words the Change-mode SetLabel block swaps out.
+  const part = mode === 'change' ? 'new symbol' : 'library symbol';
+  const upd = mode === 'change' ? 'Update' : 'Update/reset';
+
   const check = (label: string, k: keyof ChangeSymbolsOptions, note?: string): JSX.Element => (
     <label className="row">
       <input
@@ -182,19 +186,25 @@ export function DialogChangeSymbols({
                 Deselect All
               </button>
             </div>
-            {check('Remove fields if not in new symbol', 'removeExtraFields')}
-            {check('Reset fields if empty in new symbol', 'resetEmptyFields')}
-            {check('Update field text', 'resetFieldText')}
-            {check('Update field visibilities', 'resetFieldVisibilities')}
-            {check('Update field sizes and styles', 'resetFieldEffects')}
-            {check('Update field positions', 'resetFieldPositions')}
-            {check('Update/reset symbol attributes', 'resetAttributes', '(not applied yet)')}
+            {/* Change mode relabels most of these (the SetLabel block at the
+                top of DIALOG_CHANGE_SYMBOLS's ctor): "new symbol" for "library
+                symbol", and plain "Update" for "Update/reset". Two have no
+                Change-mode override and read the same in both. */}
+            {check(`Remove fields if not in ${part}`, 'removeExtraFields')}
+            {check(`Reset fields if empty in ${part}`, 'resetEmptyFields')}
+            {check(`${upd} field text`, 'resetFieldText')}
+            {check(`${upd} field visibilities`, 'resetFieldVisibilities')}
+            {check(`${upd} field sizes and styles`, 'resetFieldEffects')}
+            {check(`${upd} field positions`, 'resetFieldPositions')}
             {check(
-              'Update/reset pin text visibility',
+              `${upd} pin name/number visibilities`,
               'resetPinTextVisibility',
               '(not applied yet)',
             )}
-            {check('Update/reset custom power symbols', 'resetCustomPower')}
+            {check('Reset alternate pin functions', 'resetAlternatePin')}
+            {check(`${upd} symbol attributes`, 'resetAttributes')}
+            {check('Update/reset pin map overrides', 'resetPinMapOverrides')}
+            {check('Reset custom power symbols', 'resetCustomPower')}
           </fieldset>
 
           {messages.length > 0 && (
