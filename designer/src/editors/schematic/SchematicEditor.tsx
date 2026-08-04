@@ -151,6 +151,7 @@ import {
   buildNetNavigator,
   netNavigatorOrder,
   stepNetItem,
+  type PcbFootprintData,
   buildSheetTree,
   sheetFile,
   sheetName,
@@ -362,6 +363,7 @@ import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
+import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
 
@@ -549,6 +551,7 @@ export function SchematicEditor({
   onExitToHome,
   onShowPcb,
   onUpdatePcb,
+  readBoardFootprints,
   onShowSymbolEditor,
   onShowFootprintEditor,
   onShowCalculator,
@@ -569,6 +572,10 @@ export function SchematicEditor({
   /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
    *  its update dialog. Absent when the project has no board. */
   onUpdatePcb?: () => void;
+  /** Tools > Update Schematic from PCB: the board's footprints, read on demand
+   *  so a project with no board simply has no entry. Returning null means the
+   *  board could not be read, which the caller reports. */
+  readBoardFootprints?: () => PcbFootprintData[] | null;
   /** Open the Symbol Editor (the top toolbar's `symbolEditor` button). */
   onShowSymbolEditor?: () => void;
   /** Open the Footprint Editor (the top toolbar's `footprintEditor` button). */
@@ -893,6 +900,8 @@ export function SchematicEditor({
   const [ercFocusedMarker, setErcFocusedMarker] = useState<string | null>(null);
   // DIALOG_ERC's visibility, and the phase messages of a run in flight.
   const [ercOpen, setErcOpen] = useState(false);
+  /** Tools > Update Schematic from PCB: the footprints read for this run. */
+  const [backAnnotateFps, setBackAnnotateFps] = useState<PcbFootprintData[] | null>(null);
   /** The open ERC dialog's marker-tree API, for the Inspect menu's entries. */
   const ercNav = useRef<ErcDialogNav | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
@@ -4402,7 +4411,13 @@ export function SchematicEditor({
         });
       } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
-      else if (id === 'symbolEditor') onShowSymbolEditor?.();
+      else if (id === 'updateSchFromPcb') {
+        const fps = readBoardFootprints?.() ?? null;
+        // A board that cannot be read is worth saying so about; an empty one is
+        // a legitimate answer and the dialog reports "no changes".
+        if (fps) setBackAnnotateFps(fps);
+        else setInfoBar('No board to read, or the board could not be parsed.');
+      } else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
       else if (id === 'bom') openFieldsTable('bom');
       else if (id === 'exportNetlist') setNetlistOpen(true);
@@ -6091,6 +6106,14 @@ export function SchematicEditor({
                 },
               }))}
               onClose={() => setClarify(null)}
+            />
+          )}
+          {backAnnotateFps && doc && (
+            <DialogUpdateFromPcb
+              doc={doc}
+              footprints={backAnnotateFps}
+              onApply={runCommand}
+              onClose={() => setBackAnnotateFps(null)}
             />
           )}
           {ercOpen && (

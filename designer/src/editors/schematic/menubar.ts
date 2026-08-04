@@ -278,7 +278,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Generate Bill of Materials...', 'bom', 'bom'),
         stub('Generate Legacy Bill of Materials...'),
         SEP,
-        stub('Update Schematic from PCB...'),
+        actNoIcon('Update Schematic from PCB...', 'updateSchFromPcb'),
         SEP,
         {
           label: 'Variants',
