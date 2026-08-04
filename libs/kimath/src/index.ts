@@ -37,3 +37,5 @@ export {
   booleanIntersection,
   BooleanOp,
 } from './geometry/shape_poly_set.js';
+
+export { Vertex, VertexSet, type Box2 } from './geometry/vertex_set.js';
