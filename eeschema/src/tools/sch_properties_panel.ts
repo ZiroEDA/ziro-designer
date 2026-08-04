@@ -34,6 +34,7 @@ import {
   setSymbolsLockedCommand,
 } from './mutate.js';
 import { moveItems } from './move.js';
+import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
 
@@ -660,6 +661,51 @@ export function schPropertiesFor(
         flag('Header Border', t.borderHeader, (v) => ({ borderHeader: v })),
         flag('Row Separators', t.separatorRows, (v) => ({ separatorRows: v })),
         flag('Column Separators', t.separatorCols, (v) => ({ separatorCols: v })),
+      ];
+    }
+    // A sheet pin is a SCH_HIERLABEL living on a sheet, so it offers the same
+    // name and shape a hierarchical label does. It is edited through its parent
+    // sheet, there being no per-pin command.
+    //
+    // Position is deliberately absent. A sheet pin is constrained to its
+    // sheet's border (ConstrainOnEdge), so a free X/Y setter would let the grid
+    // put it somewhere the drag tool never could.
+    case 'sheetpin': {
+      const sp = parseSheetPinId(sch, ref.id);
+      if (!sp) return [];
+      const sheet = sch.sheets[sp.sheet];
+      const pin = sheet?.pins[sp.pin];
+      if (!sheet || !pin) return [];
+      const patchPin = (p: Partial<typeof pin>): EditCommand =>
+        replaceSheet(sp.sheet, {
+          ...sheet,
+          pins: sheet.pins.map((x, k) => (k === sp.pin ? { ...x, ...p } : x)),
+        });
+      const cur = SHAPE_TOKENS.indexOf(pin.shape as (typeof SHAPE_TOKENS)[number]);
+      return [
+        {
+          group: '',
+          name: 'Name',
+          kind: 'string',
+          value: pin.name,
+          set: (v) => {
+            const name = String(v).trim();
+            // An unnamed sheet pin has no hierarchical label to match, so an
+            // empty name is rejected rather than written.
+            return name === '' ? null : patchPin({ name });
+          },
+        },
+        {
+          group: '',
+          name: 'Shape',
+          kind: 'choice',
+          choices: LABEL_SHAPES,
+          value: LABEL_SHAPES[Math.max(0, cur)]!,
+          set: (v) => {
+            const k = (LABEL_SHAPES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : patchPin({ shape: SHAPE_TOKENS[k]! });
+          },
+        },
       ];
     }
     case 'textbox': {

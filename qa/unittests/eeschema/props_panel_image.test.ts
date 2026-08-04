@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
 import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { itemRefById, refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
@@ -173,5 +173,56 @@ describe('a table has properties too', () => {
     expect(after.tables[0]!.separatorRows).toBe(false);
     // And the neighbouring flag is untouched.
     expect(after.tables[0]!.borderExternal).toBe(true);
+  });
+});
+
+describe('a sheet pin has properties', () => {
+  const SHEET = `(sheet (at 10 10) (size 20 20) (uuid "sh-1")
+     (property "Sheetname" "sub" (at 10 9 0) (effects (font (size 1.27 1.27))))
+     (property "Sheetfile" "sub.kicad_sch" (at 10 31 0) (effects (font (size 1.27 1.27))))
+     (pin "A" input (at 10 14 180) (effects (font (size 1.27 1.27)))))`;
+  const doc = () => sheet(SHEET);
+  const pinId = (d: Schematic) => sheetPinId(refId('sheet', d.sheets[0]!.uuid, 0), 0);
+  const pRows = (d: Schematic) => schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!);
+
+  it('offers name and shape', () => {
+    expect(pRows(doc()).map((r) => r.name)).toEqual(['Name', 'Shape']);
+  });
+
+  it('omits position, which is constrained to the sheet border', () => {
+    // ConstrainOnEdge keeps a pin on its sheet's edge; a free X/Y setter would
+    // let the grid put it somewhere the drag tool never could.
+    expect(pRows(doc()).some((r) => r.name.startsWith('Position'))).toBe(false);
+  });
+
+  it('renames through the parent sheet', () => {
+    const d = doc();
+    const after = pRows(d).find((r) => r.name === 'Name')!.set!('CLK')!.apply(d);
+    expect(after.sheets[0]!.pins[0]!.name).toBe('CLK');
+  });
+
+  it('refuses an empty name', () => {
+    // An unnamed sheet pin has no hierarchical label to match.
+    expect(pRows(doc()).find((r) => r.name === 'Name')!.set!('   ')).toBeNull();
+  });
+
+  it('changes the shape through the token list', () => {
+    const d = doc();
+    const row = pRows(d).find((r) => r.name === 'Shape')!;
+    expect(row.value).toBe('Input');
+    expect(row.set!('Tri-state')!.apply(d).sheets[0]!.pins[0]!.shape).toBe('tri_state');
+  });
+
+  it('leaves the sheet’s other pins alone', () => {
+    const d = sheet(`(sheet (at 10 10) (size 20 20) (uuid "sh-1")
+       (property "Sheetname" "sub" (at 10 9 0) (effects (font (size 1.27 1.27))))
+       (property "Sheetfile" "sub.kicad_sch" (at 10 31 0) (effects (font (size 1.27 1.27))))
+       (pin "A" input (at 10 14 180) (effects (font (size 1.27 1.27))))
+       (pin "B" output (at 10 18 180) (effects (font (size 1.27 1.27)))))`);
+    const after = schPropertiesFor(d, LIB, itemRefById(d, pinId(d))!).find(
+      (r) => r.name === 'Name',
+    )!.set!('CLK')!.apply(d);
+    expect(after.sheets[0]!.pins[1]!.name).toBe('B');
+    expect(after.sheets[0]!.pins[1]!.shape).toBe('output');
   });
 });
