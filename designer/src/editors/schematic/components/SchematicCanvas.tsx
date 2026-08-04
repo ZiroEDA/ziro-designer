@@ -521,6 +521,9 @@ const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
   line: 'Drag Line Endpoint',
   graphic: 'Drag Shape',
   image: 'Resize Image',
+  // The drag resizes a whole column or row, not the cell, so the undo entry
+  // says what actually changed.
+  tablecell: 'Resize Table',
 };
 
 export const SchematicCanvas = forwardRef<CanvasController, Props>(function SchematicCanvas(

@@ -13,6 +13,12 @@ import {
   resizeCellEdge,
   tableOrigin,
 } from '@ziroeda/eeschema/src/tools/table_layout.js';
+import {
+  dragHandle,
+  editHandles,
+  pointEditTarget,
+} from '@ziroeda/eeschema/src/tools/point_editor.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { SchTable } from '@ziroeda/eeschema/src/types.js';
 
 const mm = (n: number): number => n * 10000;
@@ -158,5 +164,65 @@ describe('dragging a cell edge', () => {
       cells: t.cells.map((c, i) => (i === 0 ? { ...c, colSpan: 5 } : c)),
     };
     expect(resizeCellEdge(overrun, 0, 'right', mm(60))).toBe(overrun);
+  });
+});
+
+describe('the cell point editor', () => {
+  const doc = () =>
+    readSchematic(
+      parse(`(kicad_sch (version 20250114) (paper "A4") (lib_symbols)
+        (table (column_count 2) (border (external yes) (header yes))
+          (separators (rows yes) (cols yes))
+          (column_widths 20 30) (row_heights 10 15) (uuid "t-1")
+          (cells
+            ${cell(10, 10, 20, 10, '(span 1 1)', 'a')}
+            ${cell(30, 10, 30, 10, '(span 1 1)', 'b')}
+            ${cell(10, 20, 20, 15, '(span 1 1)', 'c')}
+            ${cell(30, 20, 30, 15, '(span 1 1)', 'd')})))`),
+    );
+
+  const CELL0 = 't-1:cell0';
+
+  it('resolves a cell id to a point-edit target', () => {
+    expect(pointEditTarget(doc(), CELL0)).toEqual({ kind: 'tablecell', index: 0, cell: 0 });
+  });
+
+  it('gives a cell two handles, not eight', () => {
+    // EDA_TABLECELL_POINT_EDIT_BEHAVIOR exposes COL_WIDTH and ROW_HEIGHT only:
+    // there is no top-left to drag, because a cell cannot move out of its grid.
+    const d = doc();
+    const handles = editHandles(d, pointEditTarget(d, CELL0)!);
+    expect(handles).toHaveLength(2);
+    expect(handles[0]!.at).toEqual({ x: mm(30), y: mm(15) });
+    expect(handles[1]!.at).toEqual({ x: mm(20), y: mm(20) });
+  });
+
+  it('dragging the right handle widens the column', () => {
+    const d = doc();
+    const t = pointEditTarget(d, CELL0)!;
+    const after = dragHandle(d, t, editHandles(d, t)[0]!, { x: mm(35), y: mm(15) });
+    expect(after.tables[0]!.colWidths[0]).toBe(mm(25));
+    // The neighbour moves with it rather than overlapping.
+    expect(after.tables[0]!.cells[1]!.start.x).toBe(mm(35));
+  });
+
+  it('dragging the bottom handle heightens the row', () => {
+    const d = doc();
+    const t = pointEditTarget(d, CELL0)!;
+    const after = dragHandle(d, t, editHandles(d, t)[1]!, { x: mm(20), y: mm(24) });
+    expect(after.tables[0]!.rowHeights[0]).toBe(mm(14));
+    expect(after.tables[0]!.cells[2]!.start.y).toBe(mm(24));
+  });
+
+  it('floors a drag at one mil rather than inverting the cell', () => {
+    const d = doc();
+    const t = pointEditTarget(d, CELL0)!;
+    const after = dragHandle(d, t, editHandles(d, t)[0]!, { x: mm(-50), y: mm(15) });
+    expect(after.tables[0]!.colWidths[0]).toBe(mmToIU(0.0254));
+  });
+
+  it('has no handles for a cell that is gone', () => {
+    const d = doc();
+    expect(editHandles(d, { kind: 'tablecell', index: 0, cell: 99 })).toEqual([]);
   });
 });
