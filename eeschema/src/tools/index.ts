@@ -68,3 +68,4 @@ export * from './pin_alternates.js';
 export * from './pin_grid.js';
 export * from './back_annotate.js';
 export * from './scene_bbox.js';
+export * from './sync_sheet_pins.js';

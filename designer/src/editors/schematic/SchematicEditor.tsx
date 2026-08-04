@@ -153,6 +153,8 @@ import {
   netNavigatorOrder,
   stepNetItem,
   type PcbFootprintData,
+  syncPinFromLabel,
+  syncLabelsFromPin,
   buildSheetTree,
   sheetFile,
   sheetName,
@@ -366,6 +368,7 @@ import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
+import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
 
@@ -906,6 +909,8 @@ export function SchematicEditor({
   const [backAnnotateFps, setBackAnnotateFps] = useState<PcbFootprintData[] | null>(null);
   /** The open ERC dialog's marker-tree API, for the Inspect menu's entries. */
   const ercNav = useRef<ErcDialogNav | null>(null);
+  /** Tools > Sync Sheet Pins: which sub-sheets the dialog is showing. */
+  const [syncPinsOpen, setSyncPinsOpen] = useState<SyncSheetEntry[] | null>(null);
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1806,6 +1811,35 @@ export function SchematicEditor({
   );
 
   /** Apply one sheet's new symbol list, on its own undo history when off-screen. */
+  /**
+   * Run an edit against any sheet of the project, not just the open one.
+   *
+   * The open sheet goes through the ordinary undo path so Ctrl+Z reaches it;
+   * another sheet gets its own history and is serialized straight into the
+   * `changed` list for the caller to persist. Extracted from
+   * `applySheetSymbols` when Sync Sheet Pins needed the same thing for pins and
+   * labels — the mechanism was never about symbols.
+   */
+  const applySheetCommand = useCallback(
+    (file: string, cmd: EditCommand, changed: PickedFile[]): void => {
+      if (file === currentFile) {
+        runCommand(cmd);
+        return;
+      }
+      const target = project.current.docs.get(file);
+      if (!target) return;
+      if (!histories.current.has(file)) histories.current.set(file, new History());
+      const next = histories.current.get(file)!.execute(target, withCleanup(cmd, libById));
+      project.current.docs.set(file, next);
+      try {
+        changed.push({ name: file, text: serializeSchematic(next) });
+      } catch {
+        /* skip a bad sheet */
+      }
+    },
+    [currentFile, runCommand, libById],
+  );
+
   const applySheetSymbols = useCallback(
     (file: string, symbols: readonly SchSymbol[], label: string, changed: PickedFile[]): void => {
       const cmd = setSymbolsCommand(symbols, label);
@@ -4409,6 +4443,36 @@ export function SchematicEditor({
           else if (act === 'ercNextMarker') nav.next();
           else nav.excludeCurrent();
         });
+      } else if (id === 'syncSheetPins' || id === 'syncAllSheetPins') {
+        // syncSheetPins acts on the selected sheet symbol, syncAllSheetsPins on
+        // every sheet of the open screen. Both need the sub-sheet's document,
+        // which only a loaded project has.
+        const d = docRef.current;
+        const wanted =
+          id === 'syncSheetPins'
+            ? (d?.sheets
+                .map((sh, i) => ({ sh, i }))
+                .filter(({ sh, i }) => selection.has(refId('sheet', sh.uuid, i))) ?? [])
+            : (d?.sheets.map((sh, i) => ({ sh, i })) ?? []);
+        const entries: SyncSheetEntry[] = [];
+        for (const { sh, i } of wanted) {
+          const file = sheetFile(sh);
+          const sub = file ? project.current.docs.get(file) : undefined;
+          if (!file || !sub) continue;
+          entries.push({
+            sheetIndex: i,
+            name: sh.fields.find((f) => f.key === 'Sheetname')?.value ?? file,
+            file,
+            sub,
+          });
+        }
+        if (entries.length === 0)
+          setInfoBar(
+            id === 'syncSheetPins'
+              ? 'Select a sheet whose file is part of this project.'
+              : 'This schematic has no sub-sheets loaded from the project.',
+          );
+        else setSyncPinsOpen(entries);
       } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'updateSchFromPcb') {
@@ -6114,6 +6178,42 @@ export function SchematicEditor({
               footprints={backAnnotateFps}
               onApply={runCommand}
               onClose={() => setBackAnnotateFps(null)}
+            />
+          )}
+          {syncPinsOpen && doc && (
+            <DialogSyncSheetPins
+              parent={doc}
+              parentFile={currentFile}
+              sheets={syncPinsOpen}
+              // Each direction writes a different file, which is why they go
+              // through the per-sheet applier rather than plain runCommand.
+              onUsePinTemplate={(entry, pin, label) => {
+                const cmd = syncPinFromLabel(
+                  doc,
+                  { sheet: entry.sheetIndex, pin: pin.index },
+                  label,
+                );
+                if (!cmd) return;
+                const changed: PickedFile[] = [];
+                applySheetCommand(currentFile, cmd, changed);
+                if (changed.length) onProjectChange?.(changed);
+              }}
+              onUseLabelTemplate={(entry, label, pin) => {
+                const changed: PickedFile[] = [];
+                applySheetCommand(entry.file, syncLabelsFromPin(label, pin), changed);
+                if (changed.length) onProjectChange?.(changed);
+                // The dialog reads the sub-sheet it was handed, so refresh it.
+                setSyncPinsOpen((prev) =>
+                  prev
+                    ? prev.map((e) =>
+                        e.file === entry.file
+                          ? { ...e, sub: project.current.docs.get(e.file) ?? e.sub }
+                          : e,
+                      )
+                    : prev,
+                );
+              }}
+              onClose={() => setSyncPinsOpen(null)}
             />
           )}
           {ercOpen && (
