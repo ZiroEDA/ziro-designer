@@ -128,6 +128,8 @@ import {
   startPlaceImage,
   type ImagePlaceState,
 } from '@ziroeda/pcbnew';
+import { boardObstacleHulls } from '@ziroeda/pcbnew/src/router/pns_obstacles.js';
+import { routeShortest } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -1816,7 +1818,7 @@ export function PcbEditor({
         ctx.globalAlpha = 0.9;
         ctx.beginPath();
         ctx.moveTo(r.last.x, r.last.y);
-        for (const p of routePath(r.last, end)) ctx.lineTo(p.x, p.y);
+        for (const p of routedPath(r.last, end)) ctx.lineTo(p.x, p.y);
         ctx.stroke();
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3557,6 +3559,44 @@ export function PcbEditor({
     return [{ x: from.x, y: from.y + Math.sign(dy) * (Math.abs(dy) - Math.abs(dx)) }, to];
   };
 
+  /**
+   * The route from `from` to `to`, bent around anything in the way.
+   *
+   * `routePath` gives the 45°-constrained shape the user asked for; this walks
+   * it past the obstacles on the layer (PNS's WALKAROUND, both directions, the
+   * better one kept). Returns the points *after* `from`, as `routePath` does.
+   *
+   * A route that cannot get clear falls back to the direct path rather than
+   * refusing to draw. That is upstream's MARK_OBSTACLES behaviour and it is the
+   * right default for a tool that only suggests geometry: a track the user can
+   * see and DRC will flag beats a tool that silently does nothing.
+   */
+  const routedPath = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): { x: number; y: number }[] => {
+    const direct = routePath(from, to);
+    const brd = boardRef.current;
+    const r = routeRef.current;
+    if (!brd || !r) return direct;
+
+    const clearance = netclassInfo.classClearance.get(netClassOf.get(r.net) ?? 'Default') ?? 0;
+    if (clearance <= 0) return direct;
+
+    const hulls = boardObstacleHulls(brd, {
+      net: r.net,
+      layer: r.layer,
+      width: r.dims.trackWidth,
+      clearance,
+    });
+    if (hulls.length === 0) return direct;
+
+    const walked = routeShortest([from, ...direct], hulls);
+    if (walked.status !== 'done') return direct;
+
+    return walked.path.slice(1);
+  };
+
   // Routing dimensions for a net: its net class dims, overridden by the
   // TOP_AUX track-width / via-size selections when they're not "use netclass"
   // (BOARD_DESIGN_SETTINGS::GetCurrentTrackWidth / GetCurrentViaSize).
@@ -3594,7 +3634,7 @@ export function PcbEditor({
       const end = landed ? target.snap : snapToGrid(world);
       let b = brd;
       let prev = r.last;
-      for (const p of routePath(r.last, end)) {
+      for (const p of routedPath(r.last, end)) {
         if (p.x !== prev.x || p.y !== prev.y) {
           b = addBoardTrack(b, {
             start: prev,
@@ -3623,7 +3663,7 @@ export function PcbEditor({
     const end = snapToGrid(cur);
     let b = brd;
     let prev = r.last;
-    for (const p of routePath(r.last, end)) {
+    for (const p of routedPath(r.last, end)) {
       if (p.x !== prev.x || p.y !== prev.y) {
         b = addBoardTrack(b, {
           start: prev,

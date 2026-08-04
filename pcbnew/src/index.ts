@@ -575,3 +575,5 @@ export {
   type WalkOptions,
   type WalkResult,
 } from './router/pns_walkaround.js';
+
+export { boardObstacleHulls, type ObstacleQuery } from './router/pns_obstacles.js';
