@@ -106,6 +106,7 @@ export {
   buildBoardShapeNode,
   buildBoardTextNode,
   buildDimensionNode,
+  buildTextBoxNode,
 } from './write-board.js';
 export {
   runDrc,

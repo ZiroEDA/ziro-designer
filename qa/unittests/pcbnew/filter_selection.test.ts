@@ -128,6 +128,7 @@ const board = (): Board => ({
     },
   ],
   dimensions: [],
+  textBoxes: [],
   groups: [],
   source: EMPTY,
 });

@@ -94,6 +94,7 @@ const board = (): Board => ({
   shapes: [],
   texts: [],
   dimensions: [],
+  textBoxes: [],
   groups: [],
   source: EMPTY,
 });

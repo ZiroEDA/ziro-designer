@@ -1374,6 +1374,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
   const fpTexts = fpTextsByFp(ids);
   return {
     ...board,
+    textBoxes: [],
     groups: board.groups.filter((_, i) => !idx.group.has(i)),
     tracks: board.tracks.filter((_, i) => !idx.track.has(i)),
     arcs: board.arcs.filter((_, i) => !idx.arc.has(i)),
@@ -1962,6 +1963,7 @@ export function removeFromGroupItems(board: Board, ids: ReadonlySet<string>): Bo
   });
   return {
     ...board,
+    textBoxes: [],
     groups: groups.filter((_, i) => !dissolve.has(i)),
   };
 }
@@ -2032,6 +2034,7 @@ export function setBoardItemsLocked(
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? patch(s) : s)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? patch(t) : t)),
     footprints: board.footprints.map((f, i) => (idx.footprint.has(i) ? patch(f) : f)),
+    textBoxes: [],
     groups: board.groups.map((g, i) => (idx.group.has(i) ? patch(g) : g)),
   };
 }

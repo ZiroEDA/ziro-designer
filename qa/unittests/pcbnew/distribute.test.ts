@@ -49,6 +49,7 @@ const board = (shapes: PcbShape[]): Board => ({
   shapes,
   texts: [],
   dimensions: [],
+  textBoxes: [],
   groups: [],
   source: EMPTY,
 });

@@ -91,6 +91,7 @@ const board = (over: Partial<Board> = {}): Board => ({
   shapes: [],
   texts: [],
   dimensions: [],
+  textBoxes: [],
   groups: [],
   source: EMPTY,
   ...over,

@@ -34,6 +34,7 @@ import { isAlignedKind } from './types.js';
 import type {
   Board,
   PcbDimension,
+  PcbTextBox,
   PcbTrack,
   PcbArcTrack,
   PcbVia,
@@ -293,6 +294,64 @@ const textNode = (t: PcbTextItem): SNode =>
 const zoneNode = (z: PcbZone): SNode => (z.source.items.length > 0 ? z.source : buildZoneNode(z));
 
 /**
+ * `(gr_text_box "…" …)`, PCB_IO_KICAD_SEXPR::format(PCB_TEXTBOX*).
+ *
+ * Child order is upstream's. Two details that are not obvious:
+ *
+ * - The shape is `(start …) (end …)` **or** `(pts …)`, never both. Upstream
+ *   switches on `GetLibraryShape()`, and a box only becomes a polygon once a
+ *   non-cardinal rotation has made it one.
+ * - `(border …)` and `(knockout …)` are written **explicitly both ways** —
+ *   `FormatBool` always emits — unlike the many flags that are omitted when
+ *   false. Dropping a `no` here changes what a reader defaults to.
+ */
+export function buildTextBoxNode(t: PcbTextBox): SList {
+  const items: SNode[] = [atom('gr_text_box'), str(t.text)];
+  if (t.locked) items.push(list(atom('locked'), atom('yes')));
+
+  if (t.pts && t.pts.length > 0) {
+    items.push({ kind: 'list', items: [atom('pts'), ...t.pts.map((p) => xy('xy', p))] });
+  } else {
+    items.push(xy('start', t.start ?? { x: 0, y: 0 }), xy('end', t.end ?? { x: 0, y: 0 }));
+  }
+
+  items.push(
+    list(
+      atom('margins'),
+      atom(mm(t.margins.left)),
+      atom(mm(t.margins.top)),
+      atom(mm(t.margins.right)),
+      atom(mm(t.margins.bottom)),
+    ),
+  );
+  if (t.angle) items.push(list(atom('angle'), atom(String(t.angle))));
+  items.push(list(atom('layer'), str(t.layer)));
+  if (t.uuid) items.push(list(atom('uuid'), str(t.uuid)));
+
+  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(t.size.y)), atom(mm(t.size.x)))];
+  if (t.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(t.thickness))));
+  if (t.bold) font.push(list(atom('bold'), atom('yes')));
+  if (t.italic) font.push(list(atom('italic'), atom('yes')));
+  const effects: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  if (t.justify && t.justify.length > 0)
+    effects.push({ kind: 'list', items: [atom('justify'), ...t.justify.map((j) => atom(j))] });
+  items.push({ kind: 'list', items: effects });
+
+  items.push(list(atom('border'), atom(t.border ? 'yes' : 'no')));
+  items.push(
+    list(
+      atom('stroke'),
+      list(atom('width'), atom(mm(t.strokeWidth ?? 0))),
+      list(atom('type'), atom(t.strokeType ?? 'solid')),
+    ),
+  );
+  items.push(list(atom('knockout'), atom(t.knockout ? 'yes' : 'no')));
+  return { kind: 'list', items };
+}
+const textBoxNode = (t: PcbTextBox): SNode =>
+  t.source.items.length > 0 ? t.source : buildTextBoxNode(t);
+
+/**
  * `(dimension (type …) …)`, PCB_IO_KICAD_SEXPR::format(PCB_DIMENSION_BASE).
  *
  * Child order is upstream's, and which children appear is decided by the kind
@@ -395,6 +454,7 @@ export function writeBoardNode(board: Board): SList {
     xi = 0,
     fi = 0,
     di = 0,
+    bi = 0,
     gi = 0;
 
   for (const it of src.items) {
@@ -424,6 +484,9 @@ export function writeBoardNode(board: Board): SList {
     } else if (h === 'gr_text') {
       if (xi < board.texts.length) out.push(textNode(board.texts[xi]!));
       xi++;
+    } else if (h === 'gr_text_box') {
+      if (bi < board.textBoxes.length) out.push(textBoxNode(board.textBoxes[bi]!));
+      bi++;
     } else if (h === 'dimension') {
       if (di < board.dimensions.length) out.push(dimensionNode(board.dimensions[di]!));
       di++;
@@ -448,6 +511,7 @@ export function writeBoardNode(board: Board): SList {
   for (; si < board.shapes.length; si++) out.push(shapeNode(board.shapes[si]!));
   for (; xi < board.texts.length; xi++) out.push(textNode(board.texts[xi]!));
   for (; zi < board.zones.length; zi++) out.push(zoneNode(board.zones[zi]!));
+  for (; bi < board.textBoxes.length; bi++) out.push(textBoxNode(board.textBoxes[bi]!));
   for (; di < board.dimensions.length; di++) out.push(dimensionNode(board.dimensions[di]!));
   for (; gi < board.groups.length; gi++)
     if (board.groups[gi]!.members.length > 0) out.push(groupNode(board.groups[gi]!));

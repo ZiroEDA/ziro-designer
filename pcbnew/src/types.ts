@@ -448,6 +448,47 @@ export interface PcbGroup {
 }
 
 /**
+ * A text box, KiCad `(gr_text_box "…" …)`.
+ * Counterpart: `PCB_TEXTBOX` (pcbnew/pcb_textbox.h), which is an `EDA_SHAPE`
+ * and an `EDA_TEXT` at once — a rectangle that wraps text inside itself.
+ *
+ * The box is normally a rectangle given by two corners. A **non-cardinal
+ * rotation turns it into a polygon**, exactly as it does for `gr_rect`: the
+ * serializer switches on `GetLibraryShape()` and writes `(pts …)` instead of
+ * `(start …) (end …)`. So both forms have to round-trip, and which one is
+ * present is the shape, not a detail.
+ *
+ * `margins` is the padding between the border and the wrapped text, in the
+ * order the file writes it: left, top, right, bottom.
+ */
+export interface PcbTextBox {
+  text: string;
+  /** Rectangle form: two opposite corners. Absent when the box is a polygon. */
+  start?: Vec2;
+  end?: Vec2;
+  /** Polygon form, from a non-cardinal rotation. Absent when it is a rectangle. */
+  pts?: Vec2[];
+  margins: { left: number; top: number; right: number; bottom: number };
+  /** `(angle …)` in degrees; absent (not zero) when the box is upright. */
+  angle?: number;
+  layer: string;
+  uuid?: string;
+  locked?: boolean;
+  // --- EDA_TEXT::Format ---
+  size: Vec2;
+  thickness?: number;
+  bold?: boolean;
+  italic?: boolean;
+  justify?: string[];
+  /** `(border yes|no)`: whether the rectangle itself is drawn. */
+  border: boolean;
+  strokeWidth?: number;
+  strokeType?: StrokeType;
+  knockout?: boolean;
+  source: SList;
+}
+
+/**
  * The five dimension kinds. Counterpart: the `PCB_DIM_*` classes in
  * `pcbnew/pcb_dimension.h`.
  *
@@ -549,6 +590,7 @@ export interface Board {
   zones: PcbZone[];
   shapes: PcbShape[];
   texts: PcbTextItem[];
+  textBoxes: PcbTextBox[];
   dimensions: PcbDimension[];
   groups: PcbGroup[];
   fileName?: string;
