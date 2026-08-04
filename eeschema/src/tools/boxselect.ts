@@ -24,8 +24,9 @@
  */
 
 import type { Schematic, LibSymbol, Vec2 } from '../types.js';
-import { refId } from './hittest.js';
+import { refId, type ItemRef } from './hittest.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
+import { alignBoxes } from './sch_align_tool.js';
 
 const boxContains = (r: BBox, b: BBox): boolean =>
   b.minX >= r.minX && b.maxX <= r.maxX && b.minY >= r.minY && b.maxY <= r.maxY;
@@ -83,6 +84,34 @@ function circleIntersectsBox(r: BBox, c: Vec2, radius: number): boolean {
   const nx = Math.max(r.minX, Math.min(c.x, r.maxX));
   const ny = Math.max(r.minY, Math.min(c.y, r.maxY));
   return (c.x - nx) ** 2 + (c.y - ny) ** 2 <= radius * radius;
+}
+
+/**
+ * The kinds neither walk above tests individually. Each is a plain rectangle to
+ * a selection drag — an image, a table, a directive label's flag, and a graphic
+ * shape — so one pass over the shared extent walk covers them all.
+ *
+ * This is where the sweep behind this file landed: a rubber-band drag used to
+ * skip every one of these, so boxing a region and pressing Delete left the
+ * images and graphics behind, with nothing on screen to say why.
+ *
+ * One approximation is deliberate. A circle, an arc or a polyline is tested by
+ * its *extent*, not its outline, so a touching drag through the empty corner of
+ * a circle's bounding box selects it. Upstream collides the shape itself. The
+ * alternative to over-selecting slightly was not selecting at all.
+ */
+const EXTENT_ONLY: ReadonlySet<ItemRef['kind']> = new Set([
+  'image',
+  'graphic',
+  'table',
+  'directive',
+]);
+
+function extentOnlyItems(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+): { id: string; box: BBox }[] {
+  return alignBoxes(sch, null, libById).filter((b) => EXTENT_ONLY.has(b.kind));
 }
 
 /**
@@ -164,6 +193,20 @@ export function boxSelect(
     if (contained ? boxContains(rect, box) : boxIntersects(rect, box))
       ids.add(refId('textbox', tb.uuid, i));
   });
+
+  // A bus entry is a 45 degree stub, so a touching drag must cross the segment
+  // rather than its bounding box — the box covers a triangle the stub is not in.
+  sch.busEntries.forEach((be, i) => {
+    const end2 = { x: be.at.x + be.size.x, y: be.at.y + be.size.y };
+    const hit = contained
+      ? containsPt(rect, be.at) && containsPt(rect, end2)
+      : segmentIntersectsBox(rect, be.at, end2);
+    if (hit) ids.add(refId('busentry', be.uuid, i));
+  });
+
+  for (const { id, box } of extentOnlyItems(sch, libById)) {
+    if (contained ? boxContains(rect, box) : boxIntersects(rect, box)) ids.add(id);
+  }
 
   return ids;
 }
@@ -286,6 +329,10 @@ export function lassoSelect(
     };
     if (polyTouchesBox(polygon, box)) ids.add(refId('textbox', tb.uuid, i));
   });
+
+  for (const { id, box } of extentOnlyItems(sch, libById)) {
+    if (polyTouchesBox(polygon, box)) ids.add(id);
+  }
 
   return ids;
 }

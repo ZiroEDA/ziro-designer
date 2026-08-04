@@ -21,7 +21,7 @@
  */
 
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
-import { refId } from './hittest.js';
+import { refId, type ItemRef } from './hittest.js';
 import { symbolBodyBBox, labelBox, sheetPinBBox, type BBox } from './bbox.js';
 import { directiveBox } from './directive_label.js';
 import { imageSizeIU } from './image_size.js';
@@ -43,6 +43,8 @@ export const ALIGN_LABELS: Record<AlignMode, string> = {
 /** One selected item: what to move, where it is, and whether it may move. */
 export interface ItemBox {
   id: string;
+  /** Which item array it came from, so a caller can treat kinds differently. */
+  kind: ItemRef['kind'];
   box: BBox;
   /** The item's own anchor, which the grid snap is applied to. */
   anchor: Vec2;
@@ -70,14 +72,22 @@ export function alignBoxes(
   libById: Map<string, LibSymbol>,
 ): ItemBox[] {
   const out: ItemBox[] = [];
-  const add = (id: string, box: BBox, anchor: Vec2, connectable: boolean, locked = false): void => {
+  const add = (
+    kind: ItemRef['kind'],
+    id: string,
+    box: BBox,
+    anchor: Vec2,
+    connectable: boolean,
+    locked = false,
+  ): void => {
     // A null id set means "every item", which is what the whole-sheet extent
     // wants; alignment always passes a real selection.
-    if (ids === null || ids.has(id)) out.push({ id, box, anchor, locked, connectable });
+    if (ids === null || ids.has(id)) out.push({ kind, id, box, anchor, locked, connectable });
   };
 
   doc.symbols.forEach((s, i) =>
     add(
+      'symbol',
       refId('symbol', s.uuid, i),
       symbolBodyBBox(s, libById.get(s.libId)),
       s.at,
@@ -86,18 +96,21 @@ export function alignBoxes(
     ),
   );
   doc.lines.forEach((l, i) =>
-    add(refId('line', l.uuid, i), boxOf(l.start, l.end), l.start, l.kind !== 'polyline'),
+    add('line', refId('line', l.uuid, i), boxOf(l.start, l.end), l.start, l.kind !== 'polyline'),
   );
-  doc.junctions.forEach((j, i) => add(refId('junction', j.uuid, i), boxOf(j.at, j.at), j.at, true));
+  doc.junctions.forEach((j, i) =>
+    add('junction', refId('junction', j.uuid, i), boxOf(j.at, j.at), j.at, true),
+  );
   doc.noConnects.forEach((n, i) =>
-    add(refId('noconnect', n.uuid, i), boxOf(n.at, n.at), n.at, true),
+    add('noconnect', refId('noconnect', n.uuid, i), boxOf(n.at, n.at), n.at, true),
   );
-  doc.labels.forEach((l, i) => add(refId('label', l.uuid, i), labelBox(l), l.at, true));
+  doc.labels.forEach((l, i) => add('label', refId('label', l.uuid, i), labelBox(l), l.at, true));
   (doc.directiveLabels ?? []).forEach((d, i) =>
-    add(refId('directive', d.uuid, i), directiveBox(d), d.at, true),
+    add('directive', refId('directive', d.uuid, i), directiveBox(d), d.at, true),
   );
   doc.busEntries.forEach((b, i) =>
     add(
+      'busentry',
       refId('busentry', b.uuid, i),
       boxOf(b.at, { x: b.at.x + b.size.x, y: b.at.y + b.size.y }),
       b.at,
@@ -114,10 +127,10 @@ export function alignBoxes(
       box.maxX = Math.max(box.maxX, pb.maxX);
       box.maxY = Math.max(box.maxY, pb.maxY);
     }
-    add(refId('sheet', s.uuid, i), box, s.at, true);
+    add('sheet', refId('sheet', s.uuid, i), box, s.at, true);
   });
   doc.textBoxes.forEach((t, i) =>
-    add(refId('textbox', t.uuid, i), boxOf(t.start, t.end), t.start, false),
+    add('textbox', refId('textbox', t.uuid, i), boxOf(t.start, t.end), t.start, false),
   );
   // A table's extent is its cells': the table node itself carries only column
   // widths and row heights, so an empty table has no geometry to align to.
@@ -129,11 +142,12 @@ export function alignBoxes(
       maxX: Math.max(...t.cells.map((c) => Math.max(c.start.x, c.end.x))),
       maxY: Math.max(...t.cells.map((c) => Math.max(c.start.y, c.end.y))),
     };
-    add(refId('table', t.uuid, i), box, { x: box.minX, y: box.minY }, false);
+    add('table', refId('table', t.uuid, i), box, { x: box.minX, y: box.minY }, false);
   });
   doc.images.forEach((im, i) => {
     const s = imageSizeIU(im);
     add(
+      'image',
       refId('image', im.uuid, i),
       boxOf(
         { x: im.at.x - s.w / 2, y: im.at.y - s.h / 2 },
@@ -147,10 +161,11 @@ export function alignBoxes(
     const id = refId('graphic', undefined, i);
     switch (g.kind) {
       case 'rectangle':
-        add(id, boxOf(g.start, g.end), g.start, false);
+        add('graphic', id, boxOf(g.start, g.end), g.start, false);
         break;
       case 'circle':
         add(
+          'graphic',
           id,
           boxOf(
             { x: g.center.x - g.radius, y: g.center.y - g.radius },
@@ -167,7 +182,7 @@ export function alignBoxes(
         b.minY = Math.min(b.minY, g.mid.y);
         b.maxX = Math.max(b.maxX, g.mid.x);
         b.maxY = Math.max(b.maxY, g.mid.y);
-        add(id, b, g.start, false);
+        add('graphic', id, b, g.start, false);
         break;
       }
       case 'polyline':
@@ -181,11 +196,11 @@ export function alignBoxes(
           b.maxX = Math.max(b.maxX, p.x);
           b.maxY = Math.max(b.maxY, p.y);
         }
-        add(id, b, first, false);
+        add('graphic', id, b, first, false);
         break;
       }
       case 'text':
-        add(id, boxOf(g.at, g.at), g.at, false);
+        add('graphic', id, boxOf(g.at, g.at), g.at, false);
         break;
     }
   });
