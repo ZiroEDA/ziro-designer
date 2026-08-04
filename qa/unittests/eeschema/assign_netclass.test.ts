@@ -14,6 +14,7 @@ import {
   busMemberPatterns,
   netNamePattern,
   planNetclassAssignment,
+  selectedNets,
   type SelectedNet,
 } from '@ziroeda/eeschema/src/tools/assign_netclass.js';
 import { Priority } from '@ziroeda/eeschema/src/connectivity/nets.js';
@@ -174,5 +175,63 @@ describe('storing an assignment', () => {
     const input = [...start];
     addNetclassAssignment(input, 'GND', 'Power');
     expect(input).toEqual(start);
+  });
+});
+
+describe('resolving a selection to connections', () => {
+  const netlist = {
+    nets: [
+      { code: 1, name: 'VCC', driverPriority: Priority.LocalLabel },
+      { code: 2, name: 'GND', driverPriority: Priority.LocalLabel },
+    ],
+    netByItem: new Map([
+      ['line:w1', 1],
+      ['line:w2', 1],
+      ['line:w3', 2],
+    ]),
+    buses: [
+      { name: 'D[0..7]', items: ['line:b1'] },
+      { name: '', items: ['line:b2'] },
+    ],
+  };
+
+  it('maps items to their nets', () => {
+    expect(selectedNets(netlist, ['line:w1'])).toEqual([
+      { name: 'VCC', isBus: false, driverPriority: Priority.LocalLabel },
+    ]);
+  });
+
+  it('reports one entry per net, not per item', () => {
+    // Two wires on the same net are one connection.
+    expect(selectedNets(netlist, ['line:w1', 'line:w2'])).toHaveLength(1);
+    expect(selectedNets(netlist, ['line:w1', 'line:w3'])).toHaveLength(2);
+  });
+
+  it('ignores an item with no connection', () => {
+    // Upstream's loop `continue`s past those rather than failing, so a symbol
+    // body selected alongside a wire does not break the action.
+    expect(selectedNets(netlist, ['symbol:s1', 'line:w1'])).toHaveLength(1);
+    expect(selectedNets(netlist, ['symbol:s1'])).toEqual([]);
+  });
+
+  it('finds a bus, which is not in netByItem', () => {
+    expect(selectedNets(netlist, ['line:b1'])).toEqual([
+      { name: 'D[0..7]', isBus: true, driverPriority: Priority.LocalLabel },
+    ]);
+  });
+
+  it('an unnamed bus is refused by the pattern rule', () => {
+    // Reported at Priority.None: there is no label on it to assign a class to.
+    const nets = selectedNets(netlist, ['line:b2']);
+    expect(nets[0]!.driverPriority).toBe(Priority.None);
+    expect(planNetclassAssignment(nets).error).toBe(
+      'All selected nets must be labeled to assign a netclass.',
+    );
+  });
+
+  it('feeds the plan end to end', () => {
+    const plan = planNetclassAssignment(selectedNets(netlist, ['line:w1', 'line:w3', 'line:b1']));
+    expect(plan.error).toBeUndefined();
+    expect(plan.patterns).toEqual(['D*', 'GND', 'VCC']);
   });
 });

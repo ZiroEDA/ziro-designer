@@ -141,3 +141,47 @@ export function addNetclassAssignment(
   }
   return out;
 }
+
+/** The netlist shape this resolver needs; the real `Netlist` satisfies it. */
+interface NetlistLike {
+  nets: readonly { code: number; name: string; driverPriority: Priority }[];
+  netByItem: ReadonlyMap<string, number>;
+  buses: readonly { name: string; items: readonly string[] }[];
+}
+
+/**
+ * The connections a selection touches, as `AssignNetclass`'s first loop
+ * gathers them (`static_cast<SCH_ITEM*>( item )->Connection()`).
+ *
+ * An item with no connection contributes nothing rather than erroring — that
+ * loop simply `continue`s — so a selection of a symbol body and a wire yields
+ * one net, not a failure.
+ *
+ * A bus is looked up second because `netByItem` only holds electrical nets;
+ * bus subgraphs are separate and are not nets themselves. An unnamed bus is
+ * reported at `Priority.None`, which the pattern rule then refuses: there is no
+ * label on it to assign a class to.
+ */
+export function selectedNets(netlist: NetlistLike, ids: Iterable<string>): SelectedNet[] {
+  const out: SelectedNet[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    const code = netlist.netByItem.get(id);
+    if (code !== undefined) {
+      const net = netlist.nets.find((n) => n.code === code);
+      if (!net || seen.has(`n:${net.code}`)) continue;
+      seen.add(`n:${net.code}`);
+      out.push({ name: net.name, isBus: false, driverPriority: net.driverPriority });
+      continue;
+    }
+    const bus = netlist.buses.find((b) => b.items.includes(id));
+    if (!bus || seen.has(`b:${bus.name}`)) continue;
+    seen.add(`b:${bus.name}`);
+    out.push({
+      name: bus.name,
+      isBus: true,
+      driverPriority: bus.name ? Priority.LocalLabel : Priority.None,
+    });
+  }
+  return out;
+}

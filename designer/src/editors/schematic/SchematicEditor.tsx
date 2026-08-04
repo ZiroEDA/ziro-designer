@@ -96,6 +96,9 @@ import {
   expandSelectionToGroups,
   getNode,
   selectConnection,
+  planNetclassAssignment,
+  selectedNets,
+  addNetclassAssignment,
   applySelectionFilter,
   defaultSelectionFilter,
   selectionFilterAll,
@@ -246,6 +249,7 @@ import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from './toolbars_sch_editor.
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { buildHotkeyList } from './hotkey_list.js';
+import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
 import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
 import {
   SchNavigateTool,
@@ -733,6 +737,8 @@ export function SchematicEditor({
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
   const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
+  // Assign Netclass: the patterns the selection produced, awaiting a class.
+  const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
   const [grabRequest, setGrabRequest] = useState<{
     kind: 'move' | 'drag';
     nonce: number;
@@ -4240,11 +4246,30 @@ export function SchematicEditor({
     reader.readAsDataURL(file);
   }, []);
 
+  /**
+   * SCH_EDITOR_CONTROL::AssignNetclass — reduce the selection to net-name
+   * patterns and open the picker. The refusals are upstream's and are shown in
+   * the error bar rather than silently doing nothing.
+   */
+  const assignNetclass = useCallback(() => {
+    if (!netlist) return;
+    const plan = planNetclassAssignment(selectedNets(netlist, selection));
+    if (plan.error) {
+      setError(plan.error);
+      return;
+    }
+    setNetclassPatterns(plan.patterns);
+  }, [netlist, selection]);
+
   const onTopAction = useCallback(
     (id: string) => {
       // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
       if (id === 'listHotkeys') {
         setHotkeyListOpen(true);
+        return;
+      }
+      if (id === 'assignNetclass') {
+        assignNetclass();
         return;
       }
       // mirrorV = MirrorVertically (KiCad SYM_MIRROR_X); mirrorH = MirrorHorizontally (SYM_MIRROR_Y).
@@ -4554,6 +4579,8 @@ export function SchematicEditor({
           action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
         },
       );
+      if (netlist && selectedNets(netlist, selection).length > 0)
+        items.push({ label: 'Assign Netclass...', icon: 'assignNetclass', action: assignNetclass });
       if (hit?.kind === 'sheet')
         items.push(
           {
@@ -6674,6 +6701,26 @@ export function SchematicEditor({
           }
           onOk={commitLineEdit}
           onCancel={() => setLineEdit(null)}
+        />
+      )}
+
+      {/* Assign Netclass (DIALOG_ASSIGN_NETCLASS). */}
+      {netclassPatterns && (
+        <DialogAssignNetclass
+          patterns={netclassPatterns}
+          netClasses={setup.netClasses.classes.map((c) => c.name)}
+          onCancel={() => setNetclassPatterns(null)}
+          onOk={(netClass) => {
+            const assignments = netclassPatterns.reduce(
+              (acc, pattern) => addNetclassAssignment(acc, pattern, netClass),
+              setup.netClasses.assignments,
+            );
+            commitSetup({
+              ...setup,
+              netClasses: { ...setup.netClasses, assignments },
+            });
+            setNetclassPatterns(null);
+          }}
         />
       )}
 
