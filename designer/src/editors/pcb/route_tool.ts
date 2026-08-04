@@ -20,7 +20,8 @@
  * cannot drift.
  */
 import { boardObstacleHulls } from '@ziroeda/pcbnew/src/router/pns_obstacles.js';
-import { routeShortest } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
+import { optimize } from '@ziroeda/pcbnew/src/router/pns_optimizer.js';
+import { nearestObstacle, routeShortest } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -74,6 +75,21 @@ export interface RouteContext {
  * The same fallback covers the cheap exits — no clearance configured, nothing
  * on the layer to avoid — so there is one answer for "avoidance did not apply"
  * rather than three.
+ *
+ * ## The walk is tidied before it is returned
+ *
+ * Walkaround's output is correct and is not what anybody would draw: it hugs
+ * every hull it passes, tracing octagon corners that stop mattering the moment
+ * the path is clear of them, so a route past three vias arrives as twenty
+ * points. `optimize` takes that back to the few corners a person would have
+ * used. It is the last step rather than a separate command because the user
+ * never wants the untidied version — upstream optimises as part of placing.
+ *
+ * The collision test handed to it is `nearestObstacle` over the *same* hulls
+ * the walk used. That matters more than it looks: the optimiser will only
+ * accept a shortcut that this predicate calls clear, so tidying can never
+ * produce a route walkaround would have rejected. One notion of "blocked",
+ * used by both halves.
  */
 export function routedPath(from: Vec2, to: Vec2, ctx: RouteContext): Vec2[] {
   const direct = posturePath(from, to);
@@ -95,5 +111,7 @@ export function routedPath(from: Vec2, to: Vec2, ctx: RouteContext): Vec2[] {
   const walked = routeShortest([from, ...direct], hulls);
   if (walked.status !== 'done') return direct;
 
-  return walked.path.slice(1);
+  const tidied = optimize(walked.path, (path) => nearestObstacle(path, hulls) !== null);
+
+  return tidied.slice(1);
 }
