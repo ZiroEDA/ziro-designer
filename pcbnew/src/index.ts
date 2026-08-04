@@ -147,6 +147,10 @@ export {
   type DrcViolation,
   type DrcItemRef,
 } from './drc/drc_engine.js';
+export {
+  checkLibraryParity,
+  type LibraryParityOptions,
+} from './drc/drc_library_parity.js';
 
 // --- Netlist (eeschema -> pcbnew) --------------------------------------------
 export {

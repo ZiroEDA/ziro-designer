@@ -12,6 +12,8 @@
  *   - drc_test_provider_annular_width (DRCE_ANNULAR_WIDTH / annular_width)
  *   - drc_test_provider_hole_size (drill_out_of_range, via_diameter)
  *   - drc_test_provider_hole_to_hole (hole_to_hole)
+ *   - drc_test_provider_library_parity (lib_footprint_issues,
+ *     lib_footprint_mismatch; see drc_library_parity.ts)
  *
  * Violation `code`s are the DRC_ITEM::GetSettingsKey() strings, so the
  * caller can look severities up directly in `rule_severities`.
@@ -39,6 +41,7 @@ import { findSliverPoints } from './drc_sliver.js';
 import { findNecks } from './drc_connection_width.js';
 import { evaluateDiffPair, matchDpSuffix, type DpTrack } from './drc_diff_pair.js';
 import { creepageDistance } from './drc_creepage.js';
+import { checkLibraryParity, type LibraryParityOptions } from './drc_library_parity.js';
 import { boardEdgeShapes, boardSurface, copperShapesByNet } from './creepage_shapes.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
@@ -107,6 +110,12 @@ export interface DrcOptions {
    * which is upstream's behaviour when no netlist is supplied.
    */
   netlist?: NETLIST;
+  /**
+   * The footprint libraries, for the library-parity checks. Absent means no
+   * project is loaded and those checks do not run — upstream's `if( !project )`
+   * "skipping library parity tests" bail, taken before any library is touched.
+   */
+  libraries?: LibraryParityOptions;
   /**
    * rules.min_copper_edge_clearance (IU), Board Setup's "copper to edge".
    * Absent means zero, i.e. copper may touch the board edge but not cross it;
@@ -1299,6 +1308,11 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
       });
     }
   }
+
+  // ----- board footprints against their libraries ---------------------------
+  // drc_test_provider_library_parity. Runs only when the caller has libraries
+  // to compare against, which is upstream's "no project loaded" bail.
+  if (opts.libraries) out.push(...checkLibraryParity(board, opts.libraries));
 
   // ----- footprint type vs its pads ----------------------------------------
   // FOOTPRINT::CheckFootprintAttributes. A footprint marked SMD that carries
