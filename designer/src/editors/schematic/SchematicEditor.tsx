@@ -360,6 +360,7 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
@@ -5200,6 +5201,7 @@ export function SchematicEditor({
           toggleHiddenPins: es.appearance.show_hidden_pins,
           toggleHiddenFields: es.appearance.show_hidden_fields,
           showProperties: toggles.has('showProperties'),
+          showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
           showNetNavigator: toggles.has('showNetNavigator'),
           // Each attribute shows checked only when everything the action would
@@ -5404,6 +5406,11 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        // ACTIONS::showSearch (Ctrl+G): toggle the Search panel. Distinct from
+        // Ctrl+Shift+G above, which is grid overrides.
+        e.preventDefault();
+        onLeftToggle('showSearch');
       } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
         // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
         // indices into the grid list, stored 1-based as KiCad stores them.
@@ -5845,8 +5852,26 @@ export function SchematicEditor({
       <div className="ze-body">
         {(toggles.has('showProperties') ||
           toggles.has('showHierarchy') ||
+          toggles.has('showSearch') ||
           toggles.has('showNetNavigator')) && (
           <div className="ze-leftdock">
+            {toggles.has('showSearch') && doc && (
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Search</div>
+                <div className="ze-panel-body">
+                  <SearchPanel
+                    doc={doc}
+                    libById={libById}
+                    fmt={fmt}
+                    onSelect={(id) => setSelection(new Set([id]))}
+                    onFocus={(id, at) => {
+                      setSelection(new Set([id]));
+                      controller.current?.centerOn(at);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             {toggles.has('showProperties') && (
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Properties</div>
@@ -6156,6 +6181,14 @@ export function SchematicEditor({
               replace={findOpen === 'replace'}
               onReplace={doReplaceNext}
               onReplaceAll={doReplaceAll}
+              // onShowSearchPanel runs ACTIONS::showSearch, which is a *toggle*
+              // upstream — so clicking a link labelled "Show search panel" with
+              // the panel already open closes it. We show it instead; the panel
+              // is the point of the link, and the divergence is one keystroke
+              // away from being undone either way.
+              onShowSearchPanel={() => {
+                setLocalToggles((prev) => new Set(prev).add('showSearch'));
+              }}
             />
           )}
           {annotateOpen && (

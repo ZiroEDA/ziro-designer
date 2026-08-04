@@ -17,9 +17,16 @@
 import type { Vec2 } from '@ziroeda/kimath';
 import type { LibSymbol, SchField, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
+import { EdaCombinedMatcher } from '@ziroeda/common/src/eda_pattern_match.js';
 import { refId } from './hittest.js';
 
-export type MatchMode = 'plain' | 'wholeword' | 'wildcard' | 'regex';
+/**
+ * EDA_SEARCH_MATCH_MODE. `permissive` is the Search panel's mode — upstream's
+ * comment for it is "try to handle whatever the user throws at us (substring,
+ * wildcards, regex, etc.)", and it is implemented by handing the query to
+ * EDA_COMBINED_MATCHER rather than by picking one syntax.
+ */
+export type MatchMode = 'plain' | 'wholeword' | 'wildcard' | 'regex' | 'permissive';
 
 /** EDA_SEARCH_DATA + the SCH_SEARCH_DATA extras. */
 export interface SchSearchData {
@@ -65,6 +72,11 @@ export function matchesText(text: string, d: SchSearchData): boolean {
   const t = d.matchCase ? text : text.toUpperCase();
   const s = d.matchCase ? d.findString : d.findString.toUpperCase();
   switch (d.matchMode) {
+    case 'permissive':
+      // EDA_COMBINED_MATCHER tries regex, then wildcard, then substring, so a
+      // query that is not valid regex still finds what the user meant. It
+      // lower-cases internally, which is why the case-folded text is passed.
+      return new EdaCombinedMatcher(s.toLowerCase()).find(t.toLowerCase()) >= 0;
     case 'wholeword':
       return new RegExp(`\\b${escapeRe(s)}\\b`).test(t);
     case 'wildcard': {
