@@ -598,3 +598,95 @@ export {
   swapViaLayerPair,
   swapBoardLayers,
 } from './swap_layers.js';
+
+export {
+  wildCompareString,
+  passesGlobalTrackViaFilters,
+  applyGlobalTrackViaEdit,
+  countGlobalTrackViaTargets,
+  type GlobalTrackViaEditOptions,
+  type GlobalTrackViaEditContext,
+} from './global_edit_tracks_and_vias.js';
+
+export {
+  exportD356,
+  writeD356Records,
+  buildViaTestpoints,
+  buildPadTestpoints,
+  internNewD356Netname,
+  computePadAccessCode,
+  viaAccessCode,
+  viaLayerPair,
+  expandLayerTokens,
+  layerNameToId,
+  iuToD356,
+  boardTentVias,
+  viaIsTented,
+  type D356Record,
+} from './export_d356.js';
+
+export {
+  genPositionData,
+  decorateFilename,
+  placeFileName,
+  hasThroughHolePads,
+  sortPlaceFileList,
+  formatFixed,
+  type PlaceFileOptions,
+} from './place_file_exporter.js';
+
+export {
+  cleanupGraphics,
+  isNullShape,
+  areEquivalent,
+  equivalentPt,
+  DRC_EPSILON,
+  ARC_HIGH_DEF,
+  type CleanupItem,
+  type CleanupCode,
+  type CleanupGraphicsOptions,
+} from './graphics_cleaner.js';
+
+export {
+  globalDeletionFilterEnabled,
+  globalDeletionLayerChoices,
+  layerMatchesFilter,
+  layerMatchesDrawingFilter,
+  globalDeletionIds,
+  globalDeletionRebuildsRatsnest,
+  applyGlobalDeletion,
+  countGlobalDeletionTargets,
+  DEFAULT_GLOBAL_DELETION_OPTIONS,
+  type GlobalDeletionOptions,
+} from './global_deletion.js';
+
+export {
+  padEnumerationNumber,
+  padEnumerationAccuracy,
+  padIsOnLayer,
+  padIsAperturePad,
+  padCanHaveNumber,
+  startPadEnumeration,
+  padEnumerationPreview,
+  padEnumerationPrompt,
+  padEnumerationHitOrder,
+  applyPadEnumeration,
+  getNextPadNumber,
+  DEFAULT_PAD_ENUMERATION_PARAMS,
+  DEFAULT_LAST_PAD_NUMBER,
+  PAD_ENUMERATION_COMMIT_LABEL,
+  PAD_ENUMERATION_ACCURACY_PX,
+  PAD_ENUMERATION_SAMPLE_STEP_IU,
+  type SequentialPadEnumerationParams,
+  type PadEnumerationState,
+  type PadEnumerationUndo,
+} from './pad_enumerate.js';
+
+export {
+  checkFootprint,
+  checkPad,
+  isNetTie,
+  mapPadNumbersToNetTieGroups,
+  getNetTiePads,
+  type PadFinding,
+} from './footprint_checker.js';

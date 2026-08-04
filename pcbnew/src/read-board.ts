@@ -726,6 +726,11 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
   const t: FpTransform | null = local ? null : { pos, angle };
   const attrNode = childNamed(item, 'attr');
   const lockedNode = childNamed(item, 'locked');
+  // parseFOOTPRINT, T_net_tie_pad_groups: every argument is one group string,
+  // stored verbatim. The empty-string group is kept rather than dropped —
+  // IsNetTie() distinguishes "no groups" from "one empty group" only by looking
+  // at the strings, and both must survive a round trip.
+  const netTieNode = childNamed(item, 'net_tie_pad_groups');
   const fp: PcbFootprint = {
     lib,
     at: pos,
@@ -734,6 +739,7 @@ function readFootprint(item: SList, local = false): PcbFootprint | null {
     descr: stringField(item, 'descr'),
     tags: stringField(item, 'tags'),
     attributes: attrNode ? args(attrNode) : undefined,
+    netTiePadGroups: netTieNode ? args(netTieNode) : undefined,
     localClearance: mmOrUndef(item, 'clearance'),
     localSolderMaskMargin: mmOrUndef(item, 'solder_mask_margin'),
     localSolderPasteMargin: mmOrUndef(item, 'solder_paste_margin'),
