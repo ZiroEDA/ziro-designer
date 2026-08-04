@@ -61,7 +61,7 @@ const ringOf = (pts: Vec2[]): Ring => pts.map((p) => [p.x, p.y] as [number, numb
 const ptsOf = (ring: Ring): Vec2[] => ring.map(([x, y]) => ({ x, y }));
 
 /** GetArcToSegmentCount: enough segments that the chord error stays under maxError. */
-function segmentsForRadius(radius: number, maxError: number): number {
+export function segmentsForRadius(radius: number, maxError: number): number {
   if (radius <= 0) return 4;
   const argument = 1 - maxError / radius;
   const count =
