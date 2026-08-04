@@ -864,9 +864,43 @@ function writeTableCell(cell: SchTableCell): SList {
   return node;
 }
 
-/** Patch a table: rebuild its `(cells ...)` block from the model's cells (lossless otherwise). */
+/**
+ * Set a `(name yes|no)` child inside a node, adding it when absent.
+ *
+ * The reader defaults a missing flag to false, so writing it explicitly is what
+ * makes a change survive: a node that never carried `(header no)` would
+ * otherwise keep reading back as whatever it had before.
+ */
+function setFlagChild(node: SList, name: string, value: boolean): SList {
+  const flag = list(atom(name), atom(value ? 'yes' : 'no'));
+  return childNamed(node, name)
+    ? mapChild(node, name, () => flag)
+    : { kind: 'list', items: [...node.items, flag] };
+}
+
+/**
+ * Patch a table: its `(cells ...)` block, and the border and separator flags.
+ *
+ * The flags were not patched at all until the properties panel made them
+ * editable — the eighth-and-a-half instance of the shape the writer audit
+ * named, and the one I introduced myself by adding the rows before checking
+ * their patcher. `(border ...)` and `(separators ...)` are only written when
+ * the node already has them: a table that never carried either is left alone
+ * rather than gaining nodes it did not have.
+ */
 function writeTable(tb: SchTable): SList {
-  return mapChild(tb.source, 'cells', (cells) => {
+  let node = tb.source;
+  if (childNamed(node, 'border')) {
+    node = mapChild(node, 'border', (b) =>
+      setFlagChild(setFlagChild(b, 'external', tb.borderExternal), 'header', tb.borderHeader),
+    );
+  }
+  if (childNamed(node, 'separators')) {
+    node = mapChild(node, 'separators', (sep) =>
+      setFlagChild(setFlagChild(sep, 'rows', tb.separatorRows), 'cols', tb.separatorCols),
+    );
+  }
+  return mapChild(node, 'cells', (cells) => {
     let i = 0;
     const items = cells.items.map((it) => {
       if (isList(it) && head(it) === 'table_cell') {
