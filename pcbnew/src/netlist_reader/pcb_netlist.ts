@@ -69,6 +69,7 @@ export class COMPONENT {
   private m_fields = new Map<string, string>();
   private m_units: UNIT_INFO[] = [];
   private m_group: NETLIST_GROUP | null = null;
+  private m_altFpid = '';
 
   constructor(
     /** The footprint LIB_ID assigned to the symbol ("Library:Footprint"). */
@@ -158,6 +159,19 @@ export class COMPONENT {
   }
   GetFPID(): string {
     return this.m_fpid;
+  }
+
+  /**
+   * COMPONENT::SetAltFPID / GetAltFPID. When the netlist and the CvPcb `.cmp`
+   * file disagree about the footprint, the `.cmp` value takes the primary slot
+   * and the netlist's is parked here so CvPcb can ask the user which to keep.
+   * Only CMP_READER::Load ever writes it.
+   */
+  SetAltFPID(fpid: string): void {
+    this.m_altFpid = fpid;
+  }
+  GetAltFPID(): string {
+    return this.m_altFpid;
   }
 
   SetFootprintFilters(filters: string[]): void {

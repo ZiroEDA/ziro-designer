@@ -149,6 +149,17 @@ export {
 } from './netlist_reader/pcb_netlist.js';
 export { loadKicadNetlist, parseKicadNetlist } from './netlist_reader/kicad_netlist_reader.js';
 export {
+  NetlistParseError,
+  guessNetlistFileType,
+  loadCmpFootprintLinks,
+  loadLegacyNetlist,
+  loadNetlist,
+  type LegacyNetlistOptions,
+  type LoadNetlistOptions,
+  type LoadNetlistResult,
+  type NetlistFileType,
+} from './netlist_reader/netlist_reader.js';
+export {
   BOARD_NETLIST_UPDATER,
   fpidsEquivalent,
   type BoardNetlistUpdaterOptions,
