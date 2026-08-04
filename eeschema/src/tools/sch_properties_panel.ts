@@ -22,6 +22,7 @@ import type {
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
+  replaceBusEntry,
   replaceGraphic,
   replaceImage,
   replaceJunction,
@@ -490,6 +491,42 @@ export function schPropertiesFor(
       const i = indexOf(sch.noConnects, (t, k) => refId('noconnect', t.uuid, k));
       if (i < 0) return [];
       return positionRows(refId('noconnect', sch.noConnects[i]!.uuid, i), sch.noConnects[i]!.at);
+    }
+    // #307 made a bus entry's stroke editable through the wire/bus dialog; the
+    // properties panel is the other place upstream exposes it, since
+    // SCH_EDIT_TOOL::Properties groups SCH_BUS_WIRE_ENTRY_T with SCH_LINE_T.
+    case 'busentry': {
+      const i = indexOf(sch.busEntries, (t, k) => refId('busentry', t.uuid, k));
+      if (i < 0) return [];
+      const be = sch.busEntries[i]!;
+      const withStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceBusEntry(i, { ...be, stroke: { width: 0, type: 'default', ...be.stroke, ...p } });
+      const cur = be.stroke?.type ?? 'default';
+      return [
+        ...positionRows(refId('busentry', be.uuid, i), be.at),
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: be.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : withStroke({ width: n });
+          },
+        },
+        {
+          group: '',
+          name: 'Wire Style',
+          kind: 'choice',
+          choices: WIRE_STYLES,
+          value:
+            WIRE_STYLES[Math.max(0, STROKE_TYPES.indexOf(cur as (typeof STROKE_TYPES)[number]))]!,
+          set: (v) => {
+            const k = (WIRE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : withStroke({ type: STROKE_TYPES[k]! });
+          },
+        },
+      ];
     }
     // SCH_BITMAP's editable property is its scale; the position comes from the
     // shared rows so it moves the same way every other item does.
