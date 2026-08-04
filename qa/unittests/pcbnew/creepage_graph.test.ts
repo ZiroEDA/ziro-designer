@@ -37,10 +37,15 @@ const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
 
 const pt = (x: number, y: number): CreepShape => ({ kind: 'be-point', pos: P(x, y) });
-const beSeg = (x1: number, y1: number, x2: number, y2: number): CreepShape => ({
-  kind: 'be-segment',
-  start: P(x1, y1),
-  end: P(x2, y2),
+const bc = (x: number, y: number, r: number): CreepShape => ({
+  kind: 'be-circle',
+  pos: P(x, y),
+  radius: MM(r),
+});
+const cc = (x: number, y: number, r: number): CreepShape => ({
+  kind: 'cu-circle',
+  pos: P(x, y),
+  radius: MM(r),
 });
 const cu = (x1: number, y1: number, x2: number, y2: number, w: number): CreepShape => ({
   kind: 'cu-segment',
@@ -53,8 +58,9 @@ describe('what counts as copper', () => {
   it('is the track segment, and nothing on the board edge', () => {
     // Only copper has a width to measure from the surface of.
     expect(isConductive(cu(0, 0, 1, 0, 0.2))).toBe(true);
+    expect(isConductive(cc(0, 0, 1))).toBe(true);
     expect(isConductive(pt(0, 0))).toBe(false);
-    expect(isConductive(beSeg(0, 0, 1, 0))).toBe(false);
+    expect(isConductive(bc(0, 0, 1))).toBe(false);
   });
 });
 
@@ -115,19 +121,179 @@ describe('the distance between two shapes', () => {
     expect(pathsBetween(cu(0, 0, 10, 0, 1), cu(0, 0.5, 10, 0.5, 1), MM(10))[0]?.weight).toBe(0);
   });
 
-  it('finds the nearest approach of two segments that are not parallel', () => {
-    // The near ends, not the far ones: an L where the two arms nearly meet.
-    const [path] = pathsBetween(beSeg(0, 0, 10, 0), beSeg(12, 0, 12, 10), MM(10));
+  it('finds the nearest approach of two tracks that are not parallel', () => {
+    // The near ends, not the far ones: an L whose two arms nearly meet.
+    const [path] = pathsBetween(cu(0, 0, 10, 0, 0), cu(12, 0, 12, 10, 0), MM(10));
 
     expect(path?.weight).toBe(MM(2));
   });
 
-  it('measures a board edge with no width at all', () => {
-    expect(pathsBetween(pt(0, 0), beSeg(5, -5, 5, 5), MM(10))[0]?.weight).toBe(MM(5));
-  });
-
   it('drops two segments that are further apart than the search', () => {
     expect(pathsBetween(cu(0, 0, 10, 0, 1), cu(0, 80, 10, 80, 1), MM(10))).toEqual([]);
+  });
+});
+
+describe('a board-edge circle is an obstacle, not a target', () => {
+  // The single most important distinction in the file. A path meeting a round
+  // *cutout* is going round it, so it leaves along a tangent and there are two
+  // of them. A path meeting round *copper* has arrived, so it comes in
+  // radially and there is one. Getting these the same way round would either
+  // let paths cut through cutouts or make them stop short of copper.
+
+  it('costs the tangent length, not the gap to its rim', () => {
+    // Centre 10 mm away, radius 6: the path travels 8 mm before it starts
+    // turning — sqrt(10² − 6²) — where the *gap* to the rim is only 4.
+    const paths = pathsBetween(pt(0, 0), bc(10, 0, 6), MM(50));
+
+    expect(paths).toHaveLength(2);
+    expect(paths[0]?.weight).toBeCloseTo(MM(8), -3);
+  });
+
+  it('offers a tangent either way round it', () => {
+    // Which side is shorter is not a local question — it depends on what else
+    // is in the way — so both are offered and the search decides.
+    const [first, second] = pathsBetween(pt(0, 0), bc(10, 0, 6), MM(50));
+
+    expect(first?.a2).toEqual(P(6.4, -4.8));
+    expect(second?.a2).toEqual(P(6.4, 4.8));
+  });
+
+  it('has no tangent at all from a point inside it', () => {
+    expect(pathsBetween(pt(10, 0), bc(10, 0, 6), MM(50))).toEqual([]);
+  });
+
+  it('turns round when the shapes are given the other way round', () => {
+    const forward = pathsBetween(pt(0, 0), bc(10, 0, 6), MM(50));
+    const reverse = pathsBetween(bc(10, 0, 6), pt(0, 0), MM(50));
+
+    expect(reverse[0]?.a1).toEqual(forward[0]?.a2);
+    expect(reverse[0]?.a2).toEqual(forward[0]?.a1);
+  });
+});
+
+describe('round copper is a target', () => {
+  it('costs the gap to its surface, and lands on it', () => {
+    // The path starts at the point and ends on the copper's surface — the
+    // *near* side of it, 4 mm away, not at its centre 10 mm away.
+    const [path] = pathsBetween(pt(0, 0), cc(10, 0, 6), MM(50));
+
+    expect(path?.weight).toBe(MM(4));
+    expect(path?.a1).toEqual(P(0, 0));
+    expect(path?.a2).toEqual(P(4, 0));
+  });
+
+  it('measures between two pieces of round copper along their centres', () => {
+    const [path] = pathsBetween(cc(0, 0, 3), cc(20, 0, 4), MM(50));
+
+    expect(path?.weight).toBe(MM(13));
+    expect(path?.a1).toEqual(P(3, 0));
+    expect(path?.a2).toEqual(P(16, 0));
+  });
+
+  it('reports nothing between two that overlap, which are one conductor', () => {
+    expect(pathsBetween(cc(0, 0, 10), cc(12, 0, 5), MM(50))).toEqual([]);
+  });
+
+  it('reports nothing when one sits inside the other', () => {
+    // There is no gap between them to measure.
+    expect(pathsBetween(cc(0, 0, 10), cc(1, 0, 2), MM(50))).toEqual([]);
+  });
+});
+
+describe('two board-edge circles', () => {
+  it('offer four tangents: two alongside and two crossing between', () => {
+    const paths = pathsBetween(bc(0, 0, 3), bc(20, 0, 3), MM(50));
+
+    expect(paths).toHaveLength(4);
+  });
+
+  it('make the alongside pair the length of the centre line for equal radii', () => {
+    // Same radius, so the outer tangents run parallel to the centre line and
+    // are exactly as long as it.
+    const [outer] = pathsBetween(bc(0, 0, 3), bc(20, 0, 3), MM(50));
+
+    expect(outer?.weight).toBeCloseTo(MM(20), -3);
+    expect(outer?.a1).toEqual(P(0, 3));
+    expect(outer?.a2).toEqual(P(20, 3));
+  });
+
+  it('make the crossing pair shorter, by the radius sum rather than difference', () => {
+    // sqrt(20² − 6²) — the crossed tangents pass between the two circles.
+    const crossed = pathsBetween(bc(0, 0, 3), bc(20, 0, 3), MM(50))[2];
+
+    expect(crossed?.weight).toBeCloseTo(Math.sqrt(MM(20) ** 2 - MM(6) ** 2), -3);
+  });
+});
+
+describe('round copper against a round cutout', () => {
+  it('takes the tangent to the cutout and the radius off the copper', () => {
+    // sqrt(20² − 6²) − 2: tangent to the obstacle, then in to the copper.
+    const paths = pathsBetween(cc(0, 0, 2), bc(20, 0, 6), MM(50));
+
+    expect(paths).toHaveLength(2);
+    expect(paths[0]?.weight).toBeCloseTo(Math.sqrt(MM(20) ** 2 - MM(6) ** 2) - MM(2), -3);
+  });
+
+  it('goes straight out along the radius when the copper is inside the cutout', () => {
+    // No external tangent exists from in there, so the nearest approach is
+    // radial: 10 − 2 − 1.
+    const paths = pathsBetween(cc(2, 0, 1), bc(0, 0, 10), MM(50));
+
+    expect(paths[0]?.weight).toBe(MM(7));
+    expect(paths[0]?.a1).toEqual(P(3, 0));
+    expect(paths[0]?.a2).toEqual(P(10, 0));
+  });
+
+  it('still offers two entries in that case, because callers index by side', () => {
+    // Upstream's own note. A single entry makes one side of a track silently
+    // find nothing at all — see the straddling case below.
+    expect(pathsBetween(cc(2, 0, 1), bc(0, 0, 10), MM(50))).toHaveLength(2);
+  });
+});
+
+describe('a track against a circle', () => {
+  it('leaves from its flank when the circle is alongside', () => {
+    const [path] = pathsBetween(cu(0, 0, 20, 0, 2), cc(10, 10, 3), MM(50));
+
+    expect(path?.weight).toBe(MM(6));
+    expect(path?.a1).toEqual(P(10, 1));
+    expect(path?.a2).toEqual(P(10, 7));
+  });
+
+  it('leaves from its end cap when the circle is past the end', () => {
+    // The cap is a circle of the track's half-width, so the problem reduces to
+    // one already solved rather than needing its own geometry.
+    const [path] = pathsBetween(cu(0, 0, 20, 0, 2), cc(30, 0, 3), MM(50));
+
+    expect(path?.weight).toBe(MM(6));
+    expect(path?.a1).toEqual(P(21, 0));
+  });
+
+  it('takes both tangents off its flank against a cutout alongside it', () => {
+    // The two tangents leave where the cutout's own extremes project onto the
+    // track — which is why the projection is taken twice, shifted by the
+    // radius each way.
+    const paths = pathsBetween(cu(0, 0, 40, 0, 2), bc(20, 10, 3), MM(50));
+
+    expect(paths).toHaveLength(2);
+    expect(paths[0]?.a1).toEqual(P(17, 1));
+    expect(paths[1]?.a1).toEqual(P(23, 1));
+    expect(paths[0]?.weight).toBe(MM(9));
+  });
+
+  it('falls back to its end cap against a cutout past the end', () => {
+    // Both tangents must come off the cap and be mirror images. Checking only
+    // the first hides the failure: without the fallback the second entry is a
+    // path that starts *beyond* the cutout, which is nonsense but has a
+    // plausible-looking weight.
+    const paths = pathsBetween(cu(0, 0, 10, 0, 2), bc(30, 0, 3), MM(50));
+    const expected = Math.sqrt(MM(20) ** 2 - MM(3) ** 2) - MM(1);
+
+    expect(paths).toHaveLength(2);
+    expect(paths[0]?.weight).toBeCloseTo(expected, -3);
+    expect(paths[1]?.weight).toBeCloseTo(expected, -3);
+    expect(paths[1]?.a1).toEqual({ x: paths[0]!.a1.x, y: -paths[0]!.a1.y });
+    expect(paths[1]?.a2).toEqual({ x: paths[0]!.a2.x, y: -paths[0]!.a2.y });
   });
 });
 

@@ -46,17 +46,34 @@ export interface PathConnection {
   weight: number;
 }
 
-/** A point on a board edge — a corner, or the end of an edge segment. */
+/**
+ * A point on a board edge — a corner, or the end of an edge segment.
+ *
+ * There is deliberately no board-edge *segment* shape, and upstream has none
+ * either: a straight edge contributes only its two endpoints. That is not an
+ * omission but the geometry — a shortest path across a polygonal surface bends
+ * only at corners, so a node in the middle of a straight edge can never be on
+ * one. (I had added such a shape and removed it again; it could only ever have
+ * grown the graph without changing an answer.)
+ */
 export interface BePoint {
   kind: 'be-point';
   pos: Vec2;
 }
 
-/** A straight run of board edge. */
-export interface BeSegment {
-  kind: 'be-segment';
-  start: Vec2;
-  end: Vec2;
+/**
+ * A round *cutout* — an obstacle a path goes around.
+ *
+ * The board-edge and copper circles are not the same shape wearing different
+ * labels, and the difference is the most important thing in this file. A path
+ * meeting a board-edge circle is going *round* it, so it leaves along a
+ * tangent, and there are two of them — one either way round. A path meeting a
+ * copper circle has *arrived*, so it comes in radially and there is one.
+ */
+export interface BeCircle {
+  kind: 'be-circle';
+  pos: Vec2;
+  radius: number;
 }
 
 /** A copper track segment, which has width and so a surface rather than a line. */
@@ -67,10 +84,18 @@ export interface CuSegment {
   width: number;
 }
 
-export type CreepShape = BePoint | BeSegment | CuSegment;
+/** Round copper — a via, or a round pad. A target, not an obstacle. */
+export interface CuCircle {
+  kind: 'cu-circle';
+  pos: Vec2;
+  radius: number;
+}
+
+export type CreepShape = BePoint | BeCircle | CuSegment | CuCircle;
 
 /** Whether a shape is copper: only copper carries a half-width. */
-export const isConductive = (s: CreepShape): boolean => s.kind === 'cu-segment';
+export const isConductive = (s: CreepShape): boolean =>
+  s.kind === 'cu-segment' || s.kind === 'cu-circle';
 
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
@@ -80,7 +105,7 @@ const norm = (v: Vec2): number => Math.hypot(v.x, v.y);
 function resize(v: Vec2, len: number): Vec2 {
   const n = norm(v);
   if (n === 0) return { x: 0, y: 0 };
-  return { x: Math.round((v.x * len) / n), y: Math.round((v.y * len) / n) };
+  return { x: Math.round((v.x * len) / n) || 0, y: Math.round((v.y * len) / n) || 0 };
 }
 
 /** The point of segment a→b nearest `p`, clamped to the segment. */
@@ -93,19 +118,355 @@ export function closestPointOnSegment(a: Vec2, b: Vec2, p: Vec2): Vec2 {
   return { x: Math.round(a.x + d.x * t), y: Math.round(a.y + d.y * t) };
 }
 
-const endpointsOf = (s: BeSegment | CuSegment): [Vec2, Vec2] => [s.start, s.end];
+const endpointsOf = (s: CuSegment): [Vec2, Vec2] => [s.start, s.end];
+
+/** Rotate a unit-ish vector 90 degrees. `VECTOR2D::Perpendicular`. */
+const perp = (v: Vec2): Vec2 => ({ x: -v.y, y: v.x });
+
+/** Unit vector, as a float pair — the tangent maths cannot round yet. */
+function unit(v: Vec2): { x: number; y: number } {
+  const n = norm(v);
+  if (n === 0) return { x: 0, y: 0 };
+  return { x: v.x / n, y: v.y / n };
+}
+
+/**
+ * Round to internal units, collapsing negative zero.
+ *
+ * `Math.round(-0.2)` is `-0`, which compares equal to `0` but is not the same
+ * value to a deep-equality check — so it survives every comparison until it
+ * reaches a test or a file, and then looks like a real difference. The tangent
+ * maths below produces it constantly, since half the constructions are
+ * symmetric about an axis.
+ */
+const at = (x: number, y: number): Vec2 => ({ x: Math.round(x) || 0, y: Math.round(y) || 0 });
+
+/**
+ * A point and a board-edge circle: the two tangent lines, one either way round.
+ *
+ * The weight is the *tangent length*, `sqrt(d² - r²)`, not the gap to the rim.
+ * That is the whole difference between rounding an obstacle and reaching a
+ * target: the path does not stop at the circle, it grazes it and carries on, so
+ * what it costs is how far it travels to get to the point where it starts
+ * turning.
+ */
+function pointToBeCircle(pt: BePoint, circle: BeCircle, maxSquared: number): PathConnection[] {
+  if (circle.radius <= 0) return [];
+
+  const d = sub(pt.pos, circle.pos);
+  const distSq = dot(d, d);
+  const weightSq = distSq - circle.radius * circle.radius;
+  if (weightSq > maxSquared) return [];
+  // Inside the circle there is no tangent to find at all.
+  if (weightSq < 0) return [];
+
+  const dir1 = unit(d);
+  const dir2 = perp(dir1);
+  const dist = Math.sqrt(distSq);
+  const value1 = (circle.radius * circle.radius) / dist;
+  const value2 = Math.sqrt(Math.max(circle.radius * circle.radius - value1 * value1, 0));
+  const weight = Math.sqrt(weightSq);
+
+  return [
+    {
+      a1: pt.pos,
+      a2: at(
+        dir1.x * value1 + dir2.x * value2 + circle.pos.x,
+        dir1.y * value1 + dir2.y * value2 + circle.pos.y,
+      ),
+      weight,
+    },
+    {
+      a1: pt.pos,
+      a2: at(
+        dir1.x * value1 - dir2.x * value2 + circle.pos.x,
+        dir1.y * value1 - dir2.y * value2 + circle.pos.y,
+      ),
+      weight,
+    },
+  ];
+}
+
+/** A point and round copper: straight in along the radius. */
+function pointToCuCircle(pt: BePoint, circle: CuCircle, maxWeight: number): PathConnection[] {
+  const dist = norm(sub(circle.pos, pt.pos));
+  const weight = dist - circle.radius;
+  if (weight > maxWeight) return [];
+
+  return [
+    {
+      a1: addVec(circle.pos, resize(sub(pt.pos, circle.pos), circle.radius)),
+      a2: pt.pos,
+      weight: Math.max(weight, 0),
+    },
+  ];
+}
+
+/** Two pieces of round copper: along the line of centres. */
+function cuCircleToCuCircle(c1: CuCircle, c2: CuCircle, maxWeight: number): PathConnection[] {
+  const d = sub(c1.pos, c2.pos);
+  const rDiff = c1.radius - c2.radius;
+  // One entirely inside the other: there is no gap between them to measure.
+  // Kept because upstream has it, but it decides nothing on its own — nesting
+  // forces the weight below zero, so the negative test just below rejects the
+  // same cases. Mutation testing confirmed removing it changes no answer.
+  if (dot(d, d) < rDiff * rDiff) return [];
+
+  const weight = norm(d) - c1.radius - c2.radius;
+  // Overlapping copper is not a creepage path, it is one conductor.
+  if (weight > maxWeight || weight < 0) return [];
+
+  return [
+    {
+      a1: addVec(c1.pos, resize(sub(c2.pos, c1.pos), c1.radius)),
+      a2: addVec(c2.pos, resize(sub(c1.pos, c2.pos), c2.radius)),
+      weight: Math.max(weight, 0),
+    },
+  ];
+}
+
+/**
+ * Two board-edge circles: up to four tangents.
+ *
+ * Two *straight* ones, running along the same side of both circles, whose
+ * length falls out of the radius **difference**; and two *crossed* ones, which
+ * pass between the circles and use the **sum**. A path may legitimately take
+ * either, so both are offered and the search decides.
+ */
+function beCircleToBeCircle(c1: BeCircle, c2: BeCircle, maxSquared: number): PathConnection[] {
+  const d = sub(c2.pos, c1.pos);
+  const distSq = dot(d, d);
+  const dist = Math.sqrt(distSq);
+  if (dist === 0) return [];
+
+  const { radius: r1 } = c1;
+  const { radius: r2 } = c2;
+  const out: PathConnection[] = [];
+
+  const dir1 = unit(d);
+  const dir2 = perp(dir1);
+
+  const tangents = (ratio1: number, weightSq: number, crossed: boolean): void => {
+    if (weightSq > maxSquared || weightSq < 0) return;
+    const ratio2 = Math.sqrt(Math.max(1 - ratio1 * ratio1, 0));
+    const weight = Math.sqrt(weightSq);
+    const sign = crossed ? -1 : 1;
+
+    for (const s of [1, -1]) {
+      out.push({
+        a1: at(
+          c1.pos.x + dir1.x * r1 * ratio1 + s * dir2.x * r1 * ratio2,
+          c1.pos.y + dir1.y * r1 * ratio1 + s * dir2.y * r1 * ratio2,
+        ),
+        a2: at(
+          c2.pos.x + sign * (dir1.x * r2 * ratio1 + s * dir2.x * r2 * ratio2),
+          c2.pos.y + sign * (dir1.y * r2 * ratio1 + s * dir2.y * r2 * ratio2),
+        ),
+        weight,
+      });
+    }
+  };
+
+  const rDiff = Math.abs(r1 - r2);
+  tangents(rDiff === 0 ? 0 : (r1 - r2) / dist, distSq - rDiff * rDiff, false);
+  tangents((r1 + r2) / dist, distSq - (r1 + r2) * (r1 + r2), true);
+
+  return out;
+}
+
+/**
+ * Round copper and a board-edge circle: two tangents, or a radial gap when the
+ * copper sits *inside* the cutout.
+ *
+ * The inside case returns the same connection twice. That looks like a mistake
+ * and is upstream's own note: callers pick a tangent by index, so a single
+ * entry would make one side of a track silently find nothing.
+ */
+function cuCircleToBeCircle(cu: CuCircle, be: BeCircle, maxWeight: number): PathConnection[] {
+  const d = sub(be.pos, cu.pos);
+  const dist = norm(d);
+  if (dist > maxWeight && dist > be.radius) return [];
+  if (dist === 0) return [];
+
+  const circleAngle = Math.atan2(d.y, d.x);
+
+  if (dist <= be.radius) {
+    // Inside the cutout, so there are no external tangents; the nearest
+    // approach is straight out along the radius.
+    const weight = Math.max(be.radius - dist - cu.radius, 0);
+    if (weight > maxWeight) return [];
+
+    const radial = circleAngle + Math.PI;
+    const cx = Math.cos(radial);
+    const cy = Math.sin(radial);
+    const pc: PathConnection = {
+      a1: at(cu.pos.x + cu.radius * cx, cu.pos.y + cu.radius * cy),
+      a2: at(be.pos.x + be.radius * cx, be.pos.y + be.radius * cy),
+      weight,
+    };
+    return [pc, pc];
+  }
+
+  const weight = Math.sqrt(dist * dist - be.radius * be.radius) - cu.radius;
+  if (weight > maxWeight) return [];
+
+  const theta = Math.asin(be.radius / dist);
+  const psi = Math.acos(be.radius / dist);
+  const w = Math.max(weight, 0);
+
+  return [
+    {
+      a1: at(
+        cu.pos.x + cu.radius * Math.cos(theta + circleAngle),
+        cu.pos.y + cu.radius * Math.sin(theta + circleAngle),
+      ),
+      a2: at(
+        be.pos.x + be.radius * Math.cos(circleAngle + Math.PI - psi),
+        be.pos.y + be.radius * Math.sin(circleAngle + Math.PI - psi),
+      ),
+      weight: w,
+    },
+    {
+      a1: at(
+        cu.pos.x + cu.radius * Math.cos(circleAngle - theta),
+        cu.pos.y + cu.radius * Math.sin(circleAngle - theta),
+      ),
+      a2: at(
+        be.pos.x + be.radius * Math.cos(circleAngle + Math.PI + psi),
+        be.pos.y + be.radius * Math.sin(circleAngle + Math.PI + psi),
+      ),
+      weight: w,
+    },
+  ];
+}
+
+/** Where a point projects onto a track, in distance along it from the start. */
+function projectionAlong(seg: CuSegment, p: Vec2): { length: number; projected: number } {
+  const d = sub(seg.end, seg.start);
+  const length = norm(d);
+  if (length === 0) return { length: 0, projected: 0 };
+  const angle = Math.atan2(d.y, d.x);
+  return {
+    length,
+    projected: Math.cos(angle) * (p.x - seg.start.x) + Math.sin(angle) * (p.y - seg.start.y),
+  };
+}
+
+/** Which side of a track a point falls on: +1 or -1. */
+const sideOf = (seg: CuSegment, p: Vec2): number => {
+  const d = sub(seg.end, seg.start);
+  const e = sub(p, seg.start);
+  return d.x * e.y - d.y * e.x > 0 ? 1 : -1;
+};
+
+/** A track and round copper: the flat of the track, or its rounded end cap. */
+function cuSegmentToCuCircle(
+  seg: CuSegment,
+  circle: CuCircle,
+  maxWeight: number,
+  maxSquared: number,
+): PathConnection[] {
+  const hw = seg.width / 2;
+  const { length, projected } = projectionAlong(seg, circle.pos);
+
+  // Past either end, the nearest copper is the end cap — which is a circle of
+  // the track's half-width, so the problem reduces to one already solved.
+  if (projected <= 0 || length === 0)
+    return cuCircleToCuCircle({ kind: 'cu-circle', pos: seg.start, radius: hw }, circle, maxWeight);
+  if (projected >= length)
+    return cuCircleToCuCircle({ kind: 'cu-circle', pos: seg.end, radius: hw }, circle, maxWeight);
+
+  const along = sub(seg.end, seg.start);
+  const side = sideOf(seg, circle.pos);
+  const a1 = addVec(addVec(seg.start, resize(along, projected)), resize(perp(along), hw * side));
+  const a2 = addVec(circle.pos, resize(sub(a1, circle.pos), circle.radius));
+  const weightSq = dot(sub(a2, a1), sub(a2, a1));
+  if (weightSq > maxSquared) return [];
+
+  return [{ a1, a2, weight: Math.sqrt(weightSq) }];
+}
+
+/**
+ * A track and a board-edge circle.
+ *
+ * Off either end it reduces to the end cap against the circle. Alongside, the
+ * two tangents leave the track's flank at the points where the circle's own
+ * extremes project onto it — which is why the projection is taken twice, once
+ * shifted by the radius each way.
+ */
+function cuSegmentToBeCircle(
+  seg: CuSegment,
+  be: BeCircle,
+  maxWeight: number,
+  maxSquared: number,
+): PathConnection[] {
+  const hw = seg.width / 2;
+  const { length, projected } = projectionAlong(seg, be.pos);
+  if (length === 0)
+    return cuCircleToBeCircle({ kind: 'cu-circle', pos: seg.start, radius: hw }, be, maxWeight);
+
+  const p1 = projected - be.radius;
+  const p2 = projected + be.radius;
+
+  if (p1 < 0 && p2 < 0)
+    return cuCircleToBeCircle({ kind: 'cu-circle', pos: seg.start, radius: hw }, be, maxWeight);
+  if (p1 > length && p2 > length)
+    return cuCircleToBeCircle({ kind: 'cu-circle', pos: seg.end, radius: hw }, be, maxWeight);
+
+  const along = sub(seg.end, seg.start);
+  const side = sideOf(seg, be.pos);
+  const flank = (dist: number): Vec2 =>
+    addVec(addVec(seg.start, resize(along, dist)), resize(perp(along), hw * side));
+
+  const out: PathConnection[] = [];
+
+  if (p1 >= 0 && p1 <= length && p2 >= 0 && p2 <= length) {
+    const a1 = flank(p1);
+    const a2 = sub(be.pos, resize(along, be.radius));
+    const wSq = dot(sub(a2, a1), sub(a2, a1));
+    if (wSq < maxSquared) {
+      out.push({ a1, a2, weight: Math.sqrt(wSq) });
+      out.push({
+        a1: flank(p2),
+        a2: addVec(be.pos, resize(along, be.radius)),
+        weight: Math.sqrt(wSq),
+      });
+    }
+    return out;
+  }
+
+  // Straddling one end: one tangent comes off the end cap, the other off the
+  // flank. Upstream picks the cap tangent by side, which is why the inside
+  // case above must return two entries.
+  const capAt = p1 < 0 ? seg.start : seg.end;
+  const caps = cuCircleToBeCircle({ kind: 'cu-circle', pos: capAt, radius: hw }, be, maxWeight);
+  if (caps.length < 2) return out;
+  out.push(caps[side === 1 ? 1 : 0]!);
+
+  const onFlank = p1 >= 0 && p1 <= length ? p1 : p2;
+  const a1 = flank(onFlank);
+  const a2 = sub(be.pos, resize(along, be.radius));
+  const wSq = dot(sub(a2, a1), sub(a2, a1));
+  if (wSq < maxSquared) out.push({ a1, a2, weight: Math.sqrt(wSq) });
+
+  return out;
+}
 
 /**
  * The candidate paths between two shapes, or none when they are further apart
  * than `maxWeight`.
  *
- * Upstream returns a *vector* because a circle or an arc can face another shape
- * along two different tangents. For the straight-edge subset there is only ever
- * one nearest approach, so this returns at most one — but the shape of the
- * return value is kept, because the arc work will need it.
+ * A *list*, because a circle offers a path either way round it. The search then
+ * decides which side is actually shorter once the obstacles are accounted for —
+ * which is the point: whether to go left or right of a cutout is not a local
+ * question.
+ *
+ * Arcs are not modelled yet, and the dispatch below has no case for them.
  */
 export function pathsBetween(s1: CreepShape, s2: CreepShape, maxWeight: number): PathConnection[] {
   const maxSquared = maxWeight * maxWeight;
+  const flip = (paths: PathConnection[]): PathConnection[] =>
+    paths.map((pc) => ({ a1: pc.a2, a2: pc.a1, weight: pc.weight }));
 
   // Point to point: the straight line, and the gate is on the *squared*
   // distance so the square root is only paid for a path that survives.
@@ -116,36 +477,62 @@ export function pathsBetween(s1: CreepShape, s2: CreepShape, maxWeight: number):
     return [{ a1: s1.pos, a2: s2.pos, weight: Math.sqrt(weightSq) }];
   }
 
-  const halfWidth = (s: CreepShape): number => (s.kind === 'cu-segment' ? s.width / 2 : 0);
+  if (s1.kind === 'be-point' && s2.kind === 'be-circle') return pointToBeCircle(s1, s2, maxSquared);
+  if (s1.kind === 'be-circle' && s2.kind === 'be-point')
+    return flip(pointToBeCircle(s2, s1, maxSquared));
 
-  // Point to segment, either way round.
+  if (s1.kind === 'be-point' && s2.kind === 'cu-circle')
+    return flip(pointToCuCircle(s1, s2, maxWeight));
+  if (s1.kind === 'cu-circle' && s2.kind === 'be-point') return pointToCuCircle(s2, s1, maxWeight);
+
+  if (s1.kind === 'cu-circle' && s2.kind === 'cu-circle')
+    return cuCircleToCuCircle(s1, s2, maxWeight);
+
+  if (s1.kind === 'be-circle' && s2.kind === 'be-circle')
+    return beCircleToBeCircle(s1, s2, maxSquared);
+
+  if (s1.kind === 'cu-circle' && s2.kind === 'be-circle')
+    return cuCircleToBeCircle(s1, s2, maxWeight);
+  if (s1.kind === 'be-circle' && s2.kind === 'cu-circle')
+    return flip(cuCircleToBeCircle(s2, s1, maxWeight));
+
+  if (s1.kind === 'cu-segment' && s2.kind === 'cu-circle')
+    return cuSegmentToCuCircle(s1, s2, maxWeight, maxSquared);
+  if (s1.kind === 'cu-circle' && s2.kind === 'cu-segment')
+    return flip(cuSegmentToCuCircle(s2, s1, maxWeight, maxSquared));
+
+  if (s1.kind === 'cu-segment' && s2.kind === 'be-circle')
+    return cuSegmentToBeCircle(s1, s2, maxWeight, maxSquared);
+  if (s1.kind === 'be-circle' && s2.kind === 'cu-segment')
+    return flip(cuSegmentToBeCircle(s2, s1, maxWeight, maxSquared));
+
+  // Point to track: the nearest point on the centreline, pushed out to the
+  // copper's surface.
   if (s1.kind === 'be-point' || s2.kind === 'be-point') {
     const pt = (s1.kind === 'be-point' ? s1 : s2) as BePoint;
-    const seg = (s1.kind === 'be-point' ? s2 : s1) as BeSegment | CuSegment;
-    const [start, end] = endpointsOf(seg);
-    const hw = halfWidth(seg);
+    const seg = (s1.kind === 'be-point' ? s2 : s1) as CuSegment;
+    const hw = seg.width / 2;
 
-    const onSeg = closestPointOnSegment(start, end, pt.pos);
+    const onSeg = closestPointOnSegment(seg.start, seg.end, pt.pos);
     const dist = norm(sub(onSeg, pt.pos));
     const weight = Math.max(dist - hw, 0);
     if (weight > maxWeight) return [];
 
-    // The path leaves the copper's *surface*, so it starts half a width out
-    // from the centreline towards the other shape.
-    const a1 = { x: onSeg.x, y: onSeg.y };
-    const pushed = hw > 0 ? addVec(a1, resize(sub(pt.pos, a1), hw)) : a1;
+    const pushed = hw > 0 ? addVec(onSeg, resize(sub(pt.pos, onSeg), hw)) : onSeg;
     const conn: PathConnection = { a1: pushed, a2: pt.pos, weight };
     return [s1.kind === 'be-point' ? { a1: conn.a2, a2: conn.a1, weight } : conn];
   }
 
-  // Segment to segment. Four candidate approaches — each endpoint of each
-  // against the other segment — and the nearest wins. Two segments that cross
-  // would give zero, which the floor below turns into a legal zero-cost hop
-  // rather than a negative weight Dijkstra cannot take.
-  const [a, b] = endpointsOf(s1);
-  const [c, d] = endpointsOf(s2);
-  const hw1 = halfWidth(s1);
-  const hw2 = halfWidth(s2);
+  // Track to track. Four candidate approaches — each endpoint of each against
+  // the other — and the nearest wins. Overlapping copper would give a negative
+  // weight, which the floor turns into a legal zero-cost hop rather than
+  // something Dijkstra cannot take.
+  const segA = s1 as CuSegment;
+  const segB = s2 as CuSegment;
+  const [a, b] = endpointsOf(segA);
+  const [c, d] = endpointsOf(segB);
+  const hw1 = segA.width / 2;
+  const hw2 = segB.width / 2;
 
   const candidates: [Vec2, Vec2][] = [
     [closestPointOnSegment(a, b, c), c],
