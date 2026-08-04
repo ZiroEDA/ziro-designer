@@ -11,11 +11,16 @@ import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
+import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 
 // Before rendering, so a crash during the first paint is still reported. No-ops
 // when VITE_SENTRY_DSN is unset or the user has opted out, the same
 // env-gated-degrades-to-offline shape as auth and cloud sync.
 initTelemetry(sentrySink);
+// The error boundary only sees render and commit. Nearly everything here is a
+// pointer handler, a key handler or an await — none of which reach a boundary,
+// all of which were going to a console nobody reads.
+installGlobalErrorHandlers();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
