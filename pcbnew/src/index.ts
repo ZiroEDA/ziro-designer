@@ -659,3 +659,25 @@ export {
   DEFAULT_GLOBAL_DELETION_OPTIONS,
   type GlobalDeletionOptions,
 } from './global_deletion.js';
+
+export {
+  padEnumerationNumber,
+  padEnumerationAccuracy,
+  padIsOnLayer,
+  padIsAperturePad,
+  padCanHaveNumber,
+  startPadEnumeration,
+  padEnumerationPreview,
+  padEnumerationPrompt,
+  padEnumerationHitOrder,
+  applyPadEnumeration,
+  getNextPadNumber,
+  DEFAULT_PAD_ENUMERATION_PARAMS,
+  DEFAULT_LAST_PAD_NUMBER,
+  PAD_ENUMERATION_COMMIT_LABEL,
+  PAD_ENUMERATION_ACCURACY_PX,
+  PAD_ENUMERATION_SAMPLE_STEP_IU,
+  type SequentialPadEnumerationParams,
+  type PadEnumerationState,
+  type PadEnumerationUndo,
+} from './pad_enumerate.js';
