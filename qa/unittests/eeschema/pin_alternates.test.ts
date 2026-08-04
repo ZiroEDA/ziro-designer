@@ -114,6 +114,32 @@ describe('the round trip', () => {
     expect(out).toContain('(pin "2"');
   });
 
+  it('writes a node for a pin the file never listed, once it has an alternate', () => {
+    // The dialog can select an alternate on a pin the file never mentioned.
+    // Without a node of its own the selection would be lost on save, silently.
+    const doc = sheet('');
+    const sym = doc.symbols[0]!;
+    const out = serialize(
+      writeSchematic({
+        ...doc,
+        symbols: [{ ...sym, pins: [{ number: '2', alternate: 'NRST' }] }],
+      }),
+    );
+    expect(out).toContain('(pin "2"');
+    expect(out).toContain('(alternate "NRST")');
+  });
+
+  it('adds nothing for a pin that carries no alternate', () => {
+    // A pin with nothing to say must not make the file grow; KiCad's own writer
+    // emits the full list on its next save regardless.
+    const doc = sheet('');
+    const sym = doc.symbols[0]!;
+    const out = serialize(
+      writeSchematic({ ...doc, symbols: [{ ...sym, pins: [{ number: '2' }] }] }),
+    );
+    expect(out).not.toContain('(pin "2"');
+  });
+
   it('sets an alternate on a placement that had none', () => {
     const doc = sheet(PLAIN);
     const sym = doc.symbols[0]!;

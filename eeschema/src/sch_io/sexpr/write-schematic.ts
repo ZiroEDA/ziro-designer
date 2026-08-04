@@ -534,10 +534,13 @@ function writeSymbol(sym: SchSymbol): SList {
 function patchSymbolPins(node: SList, pins: readonly SchSymbolPin[] | undefined): SList {
   if (!pins?.length) return node;
   const byNumber = new Map(pins.map((p) => [p.number, p]));
+  const written = new Set<string>();
   const items = node.items.map((it) => {
     if (!isList(it) || head(it) !== 'pin') return it;
-    const pin = byNumber.get(arg(it, 0) ?? '');
+    const number = arg(it, 0) ?? '';
+    const pin = byNumber.get(number);
     if (!pin) return it;
+    written.add(number);
     let n: SList = it;
     // saveSymbol writes no (alternate …) at all when the alt is empty *or*
     // equals the base pin name — a deliberate workaround for alternates that
@@ -549,6 +552,19 @@ function patchSymbolPins(node: SList, pins: readonly SchSymbolPin[] | undefined)
     }
     return n;
   });
+  // A pin the file never listed but that now carries an alternate needs a node
+  // of its own, or the selection is lost on save with nothing to show for it.
+  // Only those: a pin with no alternate has nothing to say, and KiCad's writer
+  // emits the full list on its next save anyway.
+  const added = pins.filter((p) => p.alternate && !written.has(p.number));
+  if (added.length) {
+    const nodes = added.map((p) =>
+      list(atom('pin'), str(p.number), list(atom('alternate'), str(p.alternate!))),
+    );
+    // Canonical position: after the properties, before (instances …).
+    const idx = items.findIndex((it) => isList(it) && head(it) === 'instances');
+    items.splice(idx === -1 ? items.length : idx, 0, ...nodes);
+  }
   return { kind: 'list', items };
 }
 
