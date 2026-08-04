@@ -19,7 +19,7 @@
  *   - `toggle(id)` flips a CHECK setting (View toggles).
  */
 
-import type { Menu, MenuItem } from '../../ui/MenuBar.js';
+import type { Menu, MenuItem } from '../../ui/menu_types.js';
 
 export interface MenuHandlers {
   tool: (id: string) => void;

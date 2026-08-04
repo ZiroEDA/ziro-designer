@@ -4,28 +4,11 @@
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { toolbarIconUrl } from './toolbarIcons.js';
 
-export interface MenuItem {
-  label?: string;
-  /** Tool/action id, its KiCad icon is shown if one is mapped. */
-  icon?: string;
-  action?: () => void;
-  sep?: boolean;
-  disabled?: boolean;
-  /** Keyboard hint shown right-aligned (e.g. "Ctrl+S"). */
-  shortcut?: string;
-  /** ACTION_MENU::CHECK items, shows a checkmark when true. */
-  checked?: boolean;
-  /** Nested items rendered as a flyout submenu (KiCad ACTION_MENU submenus:
-   *  Import, Export, Attributes, Open Recent…). `items` and `submenu` are
-   *  accepted interchangeably so callers from either editor keep working. */
-  submenu?: MenuItem[];
-  items?: MenuItem[];
-}
-
-export interface Menu {
-  label: string;
-  items: MenuItem[];
-}
+// The data types live in menu_types.ts so menu-building modules stay
+// reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
+// every existing importer keeps working.
+import type { Menu, MenuItem } from './menu_types.js';
+export type { Menu, MenuItem };
 
 /** One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. */
 function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
