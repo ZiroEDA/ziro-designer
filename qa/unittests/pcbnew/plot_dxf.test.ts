@@ -603,6 +603,21 @@ describe('DXF arcs (Arc)', () => {
     );
   });
 
+  it('truncates a fractional centre toward zero before transforming it', () => {
+    // Upstream's Arc takes a VECTOR2D centre but userToDeviceCoordinates takes
+    // a VECTOR2I, and the converting constructor does a clamped static_cast —
+    // so the fraction is lost *before* the transform, not rounded during it.
+    // Rounding instead would move this centre to 2 decimils rather than 1, and
+    // negative coordinates would move the opposite way.
+    const p = plotter({ iusPerDecimil: 1 });
+    p.Arc({ x: 1.9, y: -1.9 }, new EDA_ANGLE(0), new EDA_ANGLE(90), 10000, FILL_T.NO_FILL, -2);
+
+    const text = entities(p);
+    // 1.9 IU truncates to 1, which is 0.0001 units here. Rounding would give
+    // 0.0002, and the Y axis is flipped so both come out positive.
+    expect(text).toContain(' 10\n0.0001\n 20\n0.0001\n');
+  });
+
   it('emits nothing for a non-positive radius', () => {
     const p = plotter({ iusPerDecimil: 1 });
     p.Arc({ x: 0, y: 0 }, new EDA_ANGLE(0), new EDA_ANGLE(90), 0, FILL_T.NO_FILL, -2);
