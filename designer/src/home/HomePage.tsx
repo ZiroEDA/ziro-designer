@@ -9,6 +9,7 @@ import {
   saveProject,
   loadProject,
   deleteProject,
+  renameProject,
   touchOpened,
   type ProjectMeta,
 } from './projectStore.js';
@@ -441,6 +442,26 @@ export function HomePage({
     } finally {
       setLoading(null);
     }
+  };
+
+  /**
+   * Rename a stored project. The store half has been written and tested since
+   * the project store landed; nothing ever called it, because there was no way
+   * to ask (#421).
+   *
+   * A trimmed-empty name is a cancel, not a rename to "": a project with no
+   * name is unfindable in the list it lives in.
+   */
+  const renameStored = async (id: string, current: string, e: React.MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    const next = window.prompt('Rename project', current)?.trim();
+    if (!next || next === current) return;
+    await renameProject(id, next);
+    refreshSaved();
+    // The cloud copy carries the name too, so a rename that only landed
+    // locally would come back on the next device that syncs.
+    if (userId)
+      void pushProject(userId, id).catch((err) => console.warn('Cloud rename failed:', err));
   };
 
   const removeStored = async (id: string, e: React.MouseEvent): Promise<void> => {
@@ -960,6 +981,13 @@ export function HomePage({
                       {p.fileCount} file{p.fileCount === 1 ? '' : 's'} · {fmtBytes(p.bytes)} ·{' '}
                       {fmtWhen(p.updatedAt)}
                     </span>
+                    <button
+                      className="ze-recent-del"
+                      title="Rename this project"
+                      onClick={(e) => void renameStored(p.id, p.name, e)}
+                    >
+                      ✎
+                    </button>
                     <button
                       className="ze-recent-del"
                       title="Remove from this browser"
