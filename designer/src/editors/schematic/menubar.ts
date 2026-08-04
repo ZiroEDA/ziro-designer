@@ -69,6 +69,12 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     action: () => h.toggle(id),
   });
   /** Not implemented yet, greyed out, exactly where upstream puts it. */
+  /** An action with no icon of its own. */
+  const actNoIcon = (label: string, id: string, shortcut?: string): MenuItem => ({
+    label,
+    shortcut,
+    action: () => h.action(id),
+  });
   const stub = (label: string, shortcut?: string): MenuItem => ({
     label,
     shortcut,
@@ -212,7 +218,8 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Hierarchical Labels', 'labelHier', 'placeHierLabel', 'H'),
         tool('Draw Hierarchical Sheets', 'sheet', 'drawSheet', 'S'),
         tool('Place Pins from Sheet', 'sheetPin', 'sheetPin'),
-        stub('Sync All Sheet Pins...'),
+        actNoIcon('Sync Sheet Pins...', 'syncSheetPins'),
+        actNoIcon('Sync All Sheet Pins...', 'syncAllSheetPins'),
         stub('Import Sheet...'),
         SEP,
         tool('Draw Text', 'text', 'placeText', 'T'),
