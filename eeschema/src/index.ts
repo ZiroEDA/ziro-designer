@@ -29,6 +29,7 @@ export * from './sim/sim_model_types.js';
 export * from './sch_pin.js';
 export * from './tools/index.js';
 export * from './connectivity/index.js';
+export * from './erc/marker_nav.js';
 export * from './exporters/bom.js';
 export * from './exporters/netlist.js';
 export * from './exporters/netlist_exporter_kicad.js';
