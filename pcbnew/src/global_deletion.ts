@@ -362,9 +362,11 @@ export function layerMatchesDrawingFilter(
  *
  * `edit-board.ts`'s `isBoardItemLocked` reads the item's own flag only, and
  * routes footprint children to the footprint. Extending it would change
- * lock/unlock behaviour across the whole editor, so this stays local.
+ * lock/unlock behaviour across the whole editor, so this stays local — exported
+ * for the other engines that need the same `IsLocked()`, but not re-exported
+ * from `index.ts`.
  */
-function groupLockedUuids(board: Board): ReadonlySet<string> {
+export function groupLockedUuids(board: Board): ReadonlySet<string> {
   const containing = new Map<string, number>(); // member uuid -> group index
   board.groups.forEach((g, i) => {
     for (const m of g.members) containing.set(m, i);

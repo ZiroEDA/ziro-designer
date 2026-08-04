@@ -12,7 +12,7 @@
  * on a vertex is classified the same way KiCad classifies it.
  */
 
-import { rescale } from '../math/util.js';
+import { KiROUND, rescale } from '../math/util.js';
 import type { VECTOR2I } from '../math/vector2.js';
 
 /** One crossing found by {@link chainIntersect}. */
@@ -157,4 +157,87 @@ export function chainArea(points: readonly VECTOR2I[], absolute = true): number 
 
   // Negative when the points run anti-clockwise.
   return absolute ? Math.abs(area * 0.5) : -area * 0.5;
+}
+
+// ---------------------------------------------------------------------------
+// Approximate collinearity (SEG::mutualDistanceSquared / SEG::ApproxCollinear)
+
+/**
+ * A board coordinate as an exact integer. Upstream's VECTOR2I *is* an integer,
+ * so the rounding only formalises what the C++ type already guarantees — but it
+ * is not optional here: `BigInt()` throws on a fractional number, and a Vec2
+ * that has been through a floating-point transform can carry one.
+ */
+const big = (v: number): bigint => BigInt(KiROUND(v));
+
+/** `(B - A).SquaredEuclideanNorm()` — over 2^53 at metre-scale coordinates. */
+const squaredLength = (a: VECTOR2I, b: VECTOR2I): bigint => {
+  const dx = big(b.x) - big(a.x);
+  const dy = big(b.y) - big(a.y);
+  return dx * dx + dy * dy;
+};
+
+/**
+ * `SEG::ApproxCollinear` (seg.cpp:789) and the `mutualDistanceSquared`
+ * (seg.cpp:760) it is built on, folded into one function because nothing else
+ * needs the signed distances.
+ *
+ * ## Why this is BigInt and not `number`
+ *
+ * Upstream works in `ecoord` (int64). With 1e6 IU/mm, a coordinate near the
+ * edge of KiCad's 3.5 km design space reaches ~1e9, so `p`/`q` reach ~1e9,
+ * `det` ~1e18 and **`det * det` ~1e36** — far past the 2^53 where a double
+ * stops representing consecutive integers. Even the `SquaredLength` comparison
+ * that decides which segment supplies the line crosses 2^53 at ~9.5 cm. In
+ * doubles the rounding noise swamps the ±1 IU threshold, so a pair of segments
+ * a metre long would be judged collinear or not essentially at random. Every
+ * value below is therefore exact.
+ *
+ * The `rescale( det, det, l )` is upstream's int64 specialisation
+ * (math/util.cpp:76): round-half-away-from-zero, which for a non-negative
+ * numerator and a positive denominator is `(det² + l/2) / l` truncated — and
+ * `l / 2` is itself an integer division. That is why the effective threshold is
+ * not exactly 1 IU of perpendicular offset but about 1.22 IU.
+ *
+ * The longer segment supplies the line; ties keep `a` (upstream swaps only on a
+ * strict `<`). A zero-length longer segment has no line, and upstream returns
+ * false rather than treating the degenerate case as collinear.
+ */
+export function segApproxCollinear(
+  aA: VECTOR2I,
+  aB: VECTOR2I,
+  bA: VECTOR2I,
+  bB: VECTOR2I,
+  aDistanceThreshold = 1,
+): boolean {
+  let a1 = aA;
+  let a2 = aB;
+  let b1 = bA;
+  let b2 = bB;
+
+  if (squaredLength(a1, a2) < squaredLength(b1, b2)) {
+    [a1, a2, b1, b2] = [b1, b2, a1, a2];
+  }
+
+  const p = big(a1.y) - big(a2.y);
+  const q = big(a2.x) - big(a1.x);
+  const r = -p * big(a1.x) - q * big(a1.y);
+  const l = p * p + q * q;
+
+  if (l === 0n) return false;
+
+  const det1 = p * big(b1.x) + q * big(b1.y) + r;
+  const det2 = p * big(b2.x) + q * big(b2.y) + r;
+
+  // rescale( det, det, l ): the numerator is a square and `l` is positive, so
+  // the sign branch upstream carries for negative operands cannot be taken.
+  const half = l / 2n;
+  const d1 = (det1 * det1 + half) / l;
+  const d2 = (det2 * det2 + half) / l;
+
+  // Upstream re-applies sgn(det) and then takes the absolute value again; the
+  // pair cancels, so the comparison is against the unsigned squared distance.
+  const thresholdSquared = big(aDistanceThreshold) * big(aDistanceThreshold);
+
+  return d1 <= thresholdSquared && d2 <= thresholdSquared;
 }

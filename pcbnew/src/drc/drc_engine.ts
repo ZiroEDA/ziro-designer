@@ -393,7 +393,7 @@ const padOnLayer = (pad: PcbPad, layer: string): boolean =>
   pad.layers.includes(layer) || (pad.layers.includes('*.Cu') && isCopper(layer));
 
 /** The copper layers a via exists on: its span in board stack order. */
-function viaLayers(v: PcbVia, copperOrder: string[]): string[] {
+export function viaLayers(v: PcbVia, copperOrder: string[]): string[] {
   const i0 = copperOrder.indexOf(v.layers[0]);
   const i1 = copperOrder.indexOf(v.layers[1]);
   if (i0 === -1 || i1 === -1) return copperOrder;
