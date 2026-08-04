@@ -185,6 +185,57 @@ describe('when it falls back to the direct path', () => {
   });
 });
 
+describe('tidying the walk before it is drawn', () => {
+  // Three vias in a row, routed past. Walkaround hugs each octagon in turn —
+  // six points per via — which is correct and is not what anybody would draw.
+  const row = board({ vias: [via(5, 0, 2), via(10, 0, 2), via(15, 0, 2)] });
+  const hulls = boardObstacleHulls(row, {
+    net: 1,
+    layer: 'F.Cu',
+    width: MM(0.25),
+    clearance: MM(0.2),
+  });
+
+  /** Samples every segment rather than trusting the corners. */
+  const entersCopper = (from: Vec2, path: readonly Vec2[]): boolean => {
+    const full = [from, ...path];
+    for (let i = 0; i + 1 < full.length; i++) {
+      const a = full[i]!;
+      const b = full[i + 1]!;
+      for (let t = 0; t <= 400; t++) {
+        const q = { x: a.x + ((b.x - a.x) * t) / 400, y: a.y + ((b.y - a.y) * t) / 400 };
+        for (const h of hulls) if (pointInside(h, q) && !pointOnEdge(h, q)) return true;
+      }
+    }
+    return false;
+  };
+
+  it('takes a route that hugged three vias down to a handful of corners', () => {
+    // Raw walkaround gives 19 points here; one rise, one straight run over all
+    // three, one descent is what a person would have drawn.
+    expect(routedPath(P(0, 0), P(20, 0), ctx(row))).toHaveLength(3);
+  });
+
+  it('keeps the tidied route clear of the copper it went round', () => {
+    // The one that has to hold. The cheapest route between two points either
+    // side of a via goes straight through it, so tidying without re-checking
+    // would undo precisely the detour walkaround just found.
+    expect(entersCopper(P(0, 0), routedPath(P(0, 0), P(20, 0), ctx(row)))).toBe(false);
+  });
+
+  it('would cut straight through if the tidy were unchecked', () => {
+    // Stated so the previous test is visibly load bearing: the straight line
+    // from start to cursor is both the cheapest route and an illegal one.
+    expect(entersCopper(P(0, 0), [P(20, 0)])).toBe(true);
+  });
+
+  it('still arrives exactly at the cursor', () => {
+    const path = routedPath(P(0, 0), P(20, 0), ctx(row));
+
+    expect(path[path.length - 1]).toEqual(P(20, 0));
+  });
+});
+
 describe('what the caller receives', () => {
   it('is the points after the start, never the start itself', () => {
     // The component appends these to the point it already has; returning the
