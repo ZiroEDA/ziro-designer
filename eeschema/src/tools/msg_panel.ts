@@ -10,8 +10,18 @@
  * (SCH_INSPECTION_TOOL::UpdateMessagePanel; multi-selections clear it).
  */
 
-import type { LibSymbol, SchLabel, Schematic } from '../types.js';
+import type { LabelShape, LibSymbol, SchLabel, Schematic } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
+import { parseSheetPinId } from './sch_sheet_pin_tool.js';
+
+/** The shape tokens as the message panel spells them (DIALOG_SHEET_PIN_PROPERTIES). */
+const SHEET_PIN_SHAPE: Record<LabelShape, string> = {
+  input: 'Input',
+  output: 'Output',
+  bidirectional: 'Bidirectional',
+  tri_state: 'Tri-state',
+  passive: 'Passive',
+};
 
 export interface MsgPanelItem {
   upper: string;
@@ -144,6 +154,19 @@ export function getMsgPanelItems(
       const sh = sch.sheets[i]!;
       const name = sh.fields.find((f) => f.key === 'Sheetname')?.value ?? '';
       return [{ upper: 'Sheet Name', lower: name }];
+    }
+
+    // SCH_SHEET_PIN is a SCH_LABEL_BASE, so its panel shows the same name and
+    // shape a hierarchical label's does (SCH_HIERLABEL::GetMsgPanelInfo).
+    case 'sheetpin': {
+      const spRef = parseSheetPinId(sch, ref.id);
+      if (!spRef) return [];
+      const pin = sch.sheets[spRef.sheet]?.pins[spRef.pin];
+      if (!pin) return [];
+      return [
+        { upper: 'Hierarchical Sheet Pin', lower: pin.name },
+        { upper: 'Type', lower: SHEET_PIN_SHAPE[pin.shape] ?? pin.shape },
+      ];
     }
 
     default:
