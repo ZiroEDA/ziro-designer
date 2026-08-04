@@ -15,6 +15,7 @@ export * from './snap.js';
 export * from './cleanup.js';
 export * from './post_move_cleanup.js';
 export * from './align_to_grid.js';
+export * from './assign_netclass.js';
 export * from './junction_helpers.js';
 export * from './sch_collectors.js';
 export * from './sch_get_node.js';
