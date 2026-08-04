@@ -142,6 +142,25 @@ describe('the completeness guard', () => {
     for (const id of expected) expect(all.has(id), id).toBe(true);
   });
 
+  it('covers Select All, which is this call with an infinite touching rectangle', () => {
+    // Ctrl+A is `boxSelect(doc, libs, {1e15,1e15}, {-1e15,-1e15})` in the
+    // editor — right-to-left, so touching mode. It therefore inherited the
+    // missing kinds exactly, and selecting everything left the images,
+    // graphics, tables, directive labels and bus entries behind.
+    const d = doc();
+    const all = boxSelect(d, libs(), { x: 1e15, y: 1e15 }, { x: -1e15, y: -1e15 });
+    for (const id of [
+      refId('graphic', undefined, 0),
+      refId('table', d.tables[0]!.uuid, 0),
+      'd1',
+      'be1',
+      'tb1',
+      'r1',
+    ]) {
+      expect(all.has(id), id).toBe(true);
+    }
+  });
+
   it('and so does a lasso around the whole sheet', () => {
     const d = doc();
     const all = lassoSelect(d, libs(), [mm(-10, -10), mm(400, -10), mm(400, 400), mm(-10, 400)]);
