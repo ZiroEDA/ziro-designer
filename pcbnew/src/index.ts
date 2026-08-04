@@ -114,6 +114,18 @@ export {
   type DxfTextAttributes,
   type DxfLayerExport,
 } from './plot_dxf.js';
+// Same rule for the SVG back-end: only the SVG-prefixed names travel to the
+// package surface. FILL_T, LINE_STYLE, PLOT_TEXT_MODE, Color4d, XmlEsc, fixed
+// and base64Encode are KiCad names the DXF module already claims or another
+// port will want, so they stay importable from './plot_svg.js' alone.
+export {
+  SvgPlotter,
+  svgRenderSettings,
+  type SvgRenderSettings,
+  type SvgTextAttributes,
+  type SvgFont,
+  type SvgImage,
+} from './plot_svg.js';
 export {
   serializeBoard,
   writeBoardNode,
