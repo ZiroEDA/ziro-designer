@@ -61,3 +61,5 @@ export * from './global_edit_text_and_graphics.js';
 export * from './change_symbols.js';
 export * from './edit_symbol_libid.js';
 export * from './field_case_conflicts.js';
+export * from './net_navigator.js';
+export * from './net_navigator.js';

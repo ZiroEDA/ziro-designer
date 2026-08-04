@@ -161,6 +161,10 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
             chk('Properties', 'showProperties'),
             stubChk('Search', 'Ctrl+G'),
             chk('Hierarchy Navigator', 'showHierarchy', 'Ctrl+H'),
+            // Upstream gates this on the m_IncrementalConnectivity advanced
+            // config, which is off by default — so its absence here was not
+            // drift. We always have connectivity, so it is always offered.
+            chk('Net Navigator', 'showNetNavigator'),
             stubChk('Design Blocks'),
             stubChk('Remote Symbols'),
           ],
