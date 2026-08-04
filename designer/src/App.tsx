@@ -20,6 +20,8 @@ import {
 } from './home/projectStore.js';
 import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
+import { setRecoveryProvider } from './home/recovery.js';
+import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import './ui/shell.css';
 
@@ -352,6 +354,31 @@ export function App(): JSX.Element {
   // KiCad shows "<project>, <Editor>" in the window title; we put it in the
   // menu bar. With several projects in a folder, it names the active one.
   const projectName = activeBase || folderName;
+
+  // The crash screen's "download your project before reloading" is the whole
+  // point of `recovery.ts`, and nothing had ever registered a provider — so it
+  // always found nothing and told the user *"No open project was in memory, so
+  // nothing was lost"*, then offered to reload. That reassurance was false and
+  // the reload discarded the work.
+  useEffect(() => {
+    setRecoveryProvider(() => {
+      // Serialise whatever the open editor is holding first, so the zip is not
+      // a debounce-window behind the crash. It writes to storage too, which on
+      // this path is welcome; a throw here must not cost us the rest.
+      try {
+        schFlush.current?.();
+      } catch {
+        /* the app is already broken; take what is already queued */
+      }
+      return recoverySnapshotFrom(
+        projectName,
+        projectFilesRef.current,
+        liveEdits.current,
+        pendingWrite.current,
+      );
+    });
+    return () => setRecoveryProvider(null);
+  }, [projectName]);
 
   // The views without an editor frame of their own name the tab from here;
   // each editor claims it through the same hook while it is the one on screen.
