@@ -6489,6 +6489,26 @@ export function SchematicEditor({
             setPropsTarget(null);
           }}
           onCancel={() => setPropsTarget(null)}
+          // The General page's hand-off buttons. Each closes this dialog and
+          // opens the flow that already exists, as upstream's do.
+          onChangeSymbol={() => {
+            setPropsTarget(null);
+            setChangeSymbolsMessages([]);
+            setChangeSymbolsMode('change');
+          }}
+          onUpdateSymbol={() => {
+            setPropsTarget(null);
+            setChangeSymbolsMessages([]);
+            setChangeSymbolsMode('update');
+          }}
+          onEditSymbol={
+            onShowSymbolEditor
+              ? () => {
+                  setPropsTarget(null);
+                  onShowSymbolEditor();
+                }
+              : undefined
+          }
         />
       )}
 
