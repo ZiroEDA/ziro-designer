@@ -87,6 +87,9 @@ const ARRAYS = [
   'images',
   'textBoxes',
   'tables',
+  // Sheet-level rectangles, circles and arcs. Missing from the first version
+  // of this list, which is exactly the hole a hand-written list develops.
+  'graphics',
   'directiveLabels',
 ] as const;
 
