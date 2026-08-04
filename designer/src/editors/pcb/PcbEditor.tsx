@@ -124,6 +124,7 @@ import {
   startPlaceImage,
   type ImagePlaceState,
 } from '@ziroeda/pcbnew';
+import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
@@ -1231,6 +1232,12 @@ export function PcbEditor({
   const dimensionRef = useRef<DimensionDraw | null>(null);
   /** The reference image being placed (`DRAWING_TOOL::PlaceReferenceImage`). */
   const placeImageRef = useRef<ImagePlaceState>(startPlaceImage());
+  /**
+   * Decoded reference-image pixels. A ref, not state: the map is mutated in
+   * place and the redraw is what publishes it, so making it state would rebuild
+   * the draw options on every decode for no gain.
+   */
+  const imageCacheRef = useRef(new ReferenceImageCache());
   // Switching tools abandons the in-flight shape/route/zone/ruler/dimension.
   useEffect(() => {
     drawingRef.current = [];
@@ -1288,6 +1295,10 @@ export function PcbEditor({
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
       activeLayer,
+      // Identity-stable: the cache mutates the map and asks for a redraw, and
+      // the paint pass reads it then. Nothing here needs to change for a decode
+      // to become visible.
+      imageBitmaps: imageCacheRef.current.bitmaps,
     }),
     [objects, opacity, toggles, contrast, activeLayer],
   );
@@ -1496,6 +1507,11 @@ export function PcbEditor({
     // The drawing sheet is drawn separately (unflipped) in draw(), like KiCad's
     // DS_PROXY_VIEW_ITEM which un-mirrors itself, so it stays readable and the
     // title block keeps its corner under a flipped view. So the raster omits it.
+    // Decode any reference image we have not seen; each decode asks for one
+    // more frame, so the picture appears as soon as it is ready rather than at
+    // the next unrelated redraw.
+    for (const img of scene.images) imageCacheRef.current.ensure(img.data, requestDraw);
+
     const steps = buildDrawSteps(
       cctx,
       scene,

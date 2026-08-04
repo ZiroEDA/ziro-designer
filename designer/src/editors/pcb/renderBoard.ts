@@ -208,6 +208,11 @@ export interface PcbDrawOptions {
    *  different color theme" passes one of PCB_THEMES (or the synthetic B&W
    *  palette). Absent = the built-in KiCad Default palette. */
   theme?: PcbColorTheme;
+  /** Decoded reference-image bitmaps, keyed by payload (`ReferenceImageCache`).
+   *  A payload that is absent has not been decoded yet and a `null` one never
+   *  will be; either way the pass outlines the extent instead. Callers that do
+   *  not paint images — print, plot — simply omit this. */
+  imageBitmaps?: ReadonlyMap<string, CanvasImageSource | null>;
 }
 
 /** KiCad defaults (project_local_settings.cpp + s_objectSettings). */
@@ -257,6 +262,13 @@ interface LayerBuckets {
   textBoard: Map<number, Path2D>;
 }
 
+/** A reference image's payload and where it goes; the bitmap is cached apart. */
+export interface SceneImage {
+  data: string;
+  layer: string;
+  box: { minX: number; minY: number; maxX: number; maxY: number };
+}
+
 /** One track's net label, ready for the zoom-dependent pass to place. */
 export interface TrackNetLabel {
   start: { x: number; y: number };
@@ -283,6 +295,8 @@ export interface BoardScene {
   /** Track net labels, kept as data rather than baked glyphs: where they go and
    *  whether they appear at all depends on the zoom (PCB_TRACK::ViewGetLOD). */
   netLabels: TrackNetLabel[];
+  /** Reference images, as payload + destination. The pixels live in the cache. */
+  images: SceneImage[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
 }
 
@@ -661,17 +675,19 @@ function textBoxTextAnchor(t: PcbTextBox): Vec2 {
  * Counterpart: `PCB_PAINTER::draw( const PCB_REFERENCE_IMAGE* )`, which blits
  * the decoded bitmap.
  *
- * **The picture itself is not drawn here.** The scene is Path2D geometry that
- * the canvas strokes; painting a raster needs an `ImageBitmap` decoded off the
- * base64 and a separate draw pass, which this layer has no way to hold. What is
- * drawn is the box the image occupies, so it is visible and selectable rather
- * than silently absent — and the gap is a missing picture, not a missing item.
+ * **The picture is recorded, not drawn.** The scene is Path2D geometry built
+ * synchronously; a raster is neither a path nor synchronous — decoding the
+ * base64 hands back a promise and a `CanvasImageSource`. So what goes in the
+ * scene is the payload, the layer and the box it fills, and the paint pass
+ * blits it once `ReferenceImageCache` has decoded it. Same arrangement as
+ * `netLabels`, which are data for the same kind of reason.
+ *
+ * Nothing is added to the stroke buckets: an outline is what the paint pass
+ * falls back to when the payload will not decode, so drawing one here would put
+ * a permanent box around every picture that *does*.
  */
 function addImage(scene: BoardScene, img: PcbImage): void {
-  const b = buckets(scene, img.layer);
-  const box = imageBBox(img);
-  const p = pathIn(b.gfxStrokes, 1);
-  p.rect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+  scene.images.push({ data: img.data, layer: img.layer, box: imageBBox(img) });
 }
 
 /**
@@ -974,6 +990,7 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
     padText: new Map(),
     holesSmall: new Path2D(),
     netLabels: [],
+    images: [],
     bbox: null,
   };
   const copperNames = board.layers
@@ -1694,6 +1711,39 @@ export function buildDrawSteps(
       ctx.strokeStyle = emphasize(special.padName, emphasis, true);
       strokeAll(ctx, scene.padText, minPen);
       ctx.globalAlpha = 1;
+    });
+  }
+
+  // Reference images. Painted before the net names but after the copper, which
+  // is where PCB_PAINTER puts them: a reference image is something to trace
+  // over, so it must not cover the board.
+  //
+  // A picture that has not decoded yet, or never will, is outlined instead —
+  // the item stays visible and selectable, which is what it did before any of
+  // this could paint at all.
+  if (scene.images.length > 0) {
+    steps.push(() => {
+      for (const img of scene.images) {
+        if (!visible.has(img.layer)) continue;
+        const la = layerAlpha(img.layer);
+        if (la === 0) continue;
+
+        const w = img.box.maxX - img.box.minX;
+        const h = img.box.maxY - img.box.minY;
+        const bitmap = opts.imageBitmaps?.get(img.data);
+
+        ctx.globalAlpha = la;
+        if (bitmap) {
+          // A flipped view already negates the X scale on the context, so the
+          // picture mirrors with the board rather than needing its own flip.
+          ctx.drawImage(bitmap, img.box.minX, img.box.minY, w, h);
+        } else {
+          ctx.strokeStyle = col(img.layer);
+          ctx.lineWidth = minPen;
+          ctx.strokeRect(img.box.minX, img.box.minY, w, h);
+        }
+        ctx.globalAlpha = 1;
+      }
     });
   }
 
