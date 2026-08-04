@@ -733,3 +733,24 @@ export {
   type UnusedPadLayersResult,
   type FlashState,
 } from './unused_pad_layers.js';
+
+export {
+  computeBoardStatistics,
+  initialiseBoardStatisticsData,
+  collectDrillLineItems,
+  sameDrillLineItem,
+  getBoardPolygonOutlines,
+  DEFAULT_BOARD_STATISTICS_OPTIONS,
+  STATISTICS_INT_MAX,
+  type BoardStatisticsData,
+  type BoardStatisticsOptions,
+  type BoardPolygonOutlines,
+  type BoardOutlinePolygon,
+  type DrillLineItem,
+  type PadDrillShape,
+  type FootprintStatisticsEntry,
+  type StatisticsCountEntry,
+  type PadAttribute,
+  type CountedPadProperty,
+  type ViaTypeName,
+} from './board_statistics.js';
