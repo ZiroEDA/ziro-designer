@@ -13,6 +13,7 @@ import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
+import { checkStorageHealth } from './home/projectStore.js';
 
 // Before rendering, so a crash during the first paint is still reported. No-ops
 // when VITE_SENTRY_DSN is unset or the user has opted out, the same
@@ -22,6 +23,15 @@ initTelemetry(sentrySink);
 // pointer handler, a key handler or an await — none of which reach a boundary,
 // all of which were going to a console nobody reads.
 installGlobalErrorHandlers();
+// The real storage test, at boot. storageAvailable() only proves the API
+// exists; this proves a write/read/delete round-trip lands. Without it the
+// first a user hears of a full or read-only origin is a save failing mid-edit,
+// which is the case storageHealth.ts was written to catch — the function was
+// documented as the boot check and nothing ever called it.
+//
+// Fire-and-forget on purpose: a rejection is already reported through the
+// health layer, and a storage probe must never be able to stop the app booting.
+void checkStorageHealth().catch(() => undefined);
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
