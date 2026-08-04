@@ -12,6 +12,7 @@ import {
   buildNetNavigator,
   netNavigatorItemText,
   netNavigatorOrder,
+  netNavigatorIndex,
   netOfItem,
   stepNetItem,
 } from '@ziroeda/eeschema/src/tools/net_navigator.js';
@@ -132,5 +133,68 @@ describe('Tab and Shift+Tab', () => {
     expect(flat.length).toBe(t.reduce((n, x) => n + x.items.length, 0));
     const lastOfFirst = t[0]!.items[t[0]!.items.length - 1]!.id;
     if (t.length > 1) expect(stepNetItem(flat, lastOfFirst, true)).toBe(t[1]!.items[0]!.id);
+  });
+});
+
+describe('the tree is linear in the sheet, not quadratic', () => {
+  /** A sheet with `n` resistors, each on its own two-segment labelled net. */
+  const bigSheet = (n: number): Schematic => {
+    const parts: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const y = 10 + i * 10;
+      parts.push(`(symbol (lib_id "Device:R") (at 50.8 ${y} 0) (unit 1) (uuid "s${i}")
+        (property "Reference" "R${i}" (at 53 ${y - 1} 0) (effects (font (size 1.27 1.27))))
+        (property "Value" "10k" (at 53 ${y + 1} 0) (effects (font (size 1.27 1.27)))))`);
+      parts.push(`(wire (pts (xy 50.8 ${y - 3.81}) (xy 63.5 ${y - 3.81})) (uuid "w${i}"))`);
+      parts.push(
+        `(label "N${i}" (at 63.5 ${y - 3.81} 0) (effects (font (size 1.27 1.27))) (uuid "l${i}"))`,
+      );
+    }
+    return readSchematic(
+      parse(`(kicad_sch (version 20250114) (paper "A4")
+        (lib_symbols
+          (symbol "Device:R"
+            (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+            (property "Value" "R" (at 0 -2 0) (effects (font (size 1.27 1.27))))
+            (symbol "R_0_1"
+              (pin passive line (at 0 3.81 270) (length 1.27) (name "A") (number "1"))
+              (pin passive line (at 0 -3.81 90) (length 1.27) (name "~") (number "2")))))
+        ${parts.join('\n')})`),
+    );
+  };
+
+  it('builds a 1200-symbol sheet without the quadratic scan', () => {
+    // The original resolved every id by scanning the document, and every symbol
+    // pin by re-running enumeratePins — which walks every symbol and allocates
+    // every pin. On a sheet this size that is tens of millions of operations,
+    // and the panel rebuilds on *every* document change.
+    //
+    // The budget separates the two shapes rather than measuring performance.
+    // Measured on this fixture: indexed ~0.14 s, per-item-scan ~3.0 s. 1.5 s is
+    // ten times the linear cost and half the quadratic one, so it has room to
+    // be slow on a loaded machine and still cannot pass the bug.
+    const d = bigSheet(1200);
+    const l = new Map(d.libSymbols.map((s) => [s.libId, s]));
+    const started = Date.now();
+    const tree = buildNetNavigator(d, l, fmt);
+    expect(Date.now() - started).toBeLessThan(1500);
+    expect(tree.length).toBeGreaterThan(1000);
+    // And it still describes things correctly at that size.
+    const first = tree.find((n) => n.name.endsWith('N0'))!;
+    expect(first.items.some((i) => i.text.startsWith("Label 'N0'"))).toBe(true);
+    expect(first.items.some((i) => i.text.startsWith("Symbol 'R0' pin '1'"))).toBe(true);
+  });
+
+  it('an index built once answers the same as one built per call', () => {
+    // The bulk path passes a shared index; the single-lookup API builds its
+    // own. They must not be allowed to drift.
+    const d = bigSheet(5);
+    const l = new Map(d.libSymbols.map((s) => [s.libId, s]));
+    const shared = netNavigatorIndex(d, l);
+    for (const id of ['w0', 'l0', 's0:pin0', 'nope']) {
+      expect(netNavigatorItemText(d, l, id, fmt, shared)).toEqual(
+        netNavigatorItemText(d, l, id, fmt),
+      );
+    }
   });
 });
