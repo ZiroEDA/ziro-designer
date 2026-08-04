@@ -25,6 +25,18 @@ import { newUuid } from './build.js';
 import { list, atom, str } from '@ziroeda/sexpr/src/types.js';
 
 /** Every item uuid a group member can reference (groups included, for nesting). */
+/**
+ * Every uuid that may be a group member.
+ *
+ * This is not only the gate on *forming* a group: `pruneGroupMembers` drops any
+ * member uuid that is not in here, so a kind missing from this list is not
+ * merely ungroupable — a group that already contains one, written by KiCad,
+ * loses that member on the next edit and on the next save. A missing arm here
+ * is silent data loss on a file we did not author.
+ *
+ * Only sheet graphics are deliberately absent, and they are absent for a real
+ * reason: they carry no typed uuid, so there is nothing to record.
+ */
 export function collectItemUuids(doc: Schematic): Set<string> {
   const out = new Set<string>();
   const add = (u?: string): void => {
@@ -42,6 +54,7 @@ export function collectItemUuids(doc: Schematic): Set<string> {
   // uuids yet; they simply can't join groups until that changes.
   doc.textBoxes.forEach((i) => add(i.uuid));
   doc.tables.forEach((i) => add(i.uuid));
+  (doc.directiveLabels ?? []).forEach((i) => add(i.uuid));
   doc.groups.forEach((g) => add(g.uuid));
   return out;
 }
