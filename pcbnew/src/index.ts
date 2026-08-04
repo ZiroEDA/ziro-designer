@@ -554,3 +554,14 @@ export {
   isSegment45Degree,
   type Hull,
 } from './router/pns_hull.js';
+
+export {
+  pointInside,
+  pointOnEdge,
+  edgeContainingPoint,
+  findPoint,
+  splitAt,
+  rawIntersections,
+  hullIntersection,
+  type HullIntersect,
+} from './router/pns_chain.js';
