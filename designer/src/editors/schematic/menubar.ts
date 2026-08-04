@@ -289,6 +289,14 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Preferences...', 'preferences', 'openPreferences', 'Ctrl+,'),
       ],
     },
-    { label: 'Help', items: [{ label: 'About ZiroEDA', disabled: true }] },
+    {
+      label: 'Help',
+      items: [
+        // ACTIONS::listHotKeys, which upstream also puts in Help.
+        act('List Hotkeys...', 'listHotkeys', 'listHotkeys', 'Ctrl+F1'),
+        SEP,
+        { label: 'About ZiroEDA', disabled: true },
+      ],
+    },
   ];
 }

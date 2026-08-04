@@ -246,6 +246,8 @@ import { Toolbar } from '../../ui/Toolbar.js';
 import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
+import { buildHotkeyList } from './hotkey_list.js';
+import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
@@ -731,6 +733,7 @@ export function SchematicEditor({
   const [pendingImage, setPendingImage] = useState<{ data: string } | null>(null);
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
+  const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
   // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
   // segment first and then run exactly this drag, which is why they are a grab
   // kind rather than an edit of their own.
@@ -4295,6 +4298,11 @@ export function SchematicEditor({
 
   const onTopAction = useCallback(
     (id: string) => {
+      // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
+      if (id === 'listHotkeys') {
+        setHotkeyListOpen(true);
+        return;
+      }
       // mirrorV = MirrorVertically (KiCad SYM_MIRROR_X); mirrorH = MirrorHorizontally (SYM_MIRROR_Y).
       const TX: Record<string, TransformOp> = {
         rotateCCW: 'rotateCCW',
@@ -5319,6 +5327,11 @@ export function SchematicEditor({
           setSelection(new Set(r.ids));
           if (r.clampedAtZero) setError('Label value cannot go below zero');
         }
+      } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        // ACTIONS::listHotKeys (Ctrl+F1). Checked before the bare-F1 zoom arm
+        // below, which requires no modifiers, so the two cannot collide.
+        e.preventDefault();
+        setHotkeyListOpen(true);
       } else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         // ACTIONS::zoomInCenter default hotkey (F1).
         e.preventDefault();
@@ -6745,6 +6758,14 @@ export function SchematicEditor({
           color={busEntryEdit.color}
           onOk={commitBusEntryEdit}
           onCancel={() => setBusEntryEdit(null)}
+        />
+      )}
+
+      {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
+      {hotkeyListOpen && (
+        <DialogListHotkeys
+          sections={buildHotkeyList(menus)}
+          onClose={() => setHotkeyListOpen(false)}
         />
       )}
 
