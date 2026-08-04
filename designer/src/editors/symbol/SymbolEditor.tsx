@@ -20,6 +20,7 @@ import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
@@ -1432,6 +1433,13 @@ export function SymbolEditor({
     'symbols',
     formatTitle('Symbol Editor', curName ? `${curLib}:${curName}` : null, modified),
   );
+
+  // Library edits are buffered and only written by Save, so closing the tab
+  // discards them. `hasModifications()` is the manager's own answer to "is
+  // there anything unwritten", across every open library rather than just the
+  // symbol on screen — losing an edit to a library you are not looking at is
+  // the easier mistake to make.
+  useUnsavedGuard(manager.current.hasModifications());
 
   const unitsLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
   const fmt = (iu: number): string => {
