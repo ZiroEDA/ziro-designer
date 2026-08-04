@@ -7520,6 +7520,12 @@ function describeBoardItem(board: Board, id: string): string {
       if (!p) return 'Pad';
       return `Pad ${p.number}${f?.reference ? ` of ${f.reference}` : ''} · ${net(p.net ?? 0)}`;
     }
+    case 'textbox': {
+      // PCB_TEXTBOX::GetItemDescription: "PCB text box '<text>' on <layer>",
+      // lowercase as upstream spells it.
+      const t = board.textBoxes[r.index];
+      return t ? `PCB text box '${t.text}' on ${t.layer}` : 'PCB text box';
+    }
     case 'dimension': {
       // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
       // A centre dimension carries no text, so the quotes come out empty, which

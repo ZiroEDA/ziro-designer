@@ -27,9 +27,12 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
   dimensionSegments,
+  textBoxBBox,
+  textBoxCorners,
   tessellateArc,
   type Board,
   type PcbDimension,
+  type PcbTextBox,
   type PcbPad,
   type PcbShape,
   type PcbTextItem,
@@ -592,6 +595,63 @@ function addShape(scene: BoardScene, s: PcbShape): void {
 
 /** Bake a text item's glyph strokes into the given thickness->path map. */
 /**
+ * A text box's border and its text.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_TEXTBOX* )`, which strokes the
+ * corners at the box's line width and then draws the text inside.
+ *
+ * The border is drawn **only when it is enabled** — a box with `border no` is
+ * text with invisible margins, not a rectangle. The text still goes in either
+ * way, which is why the two are separate decisions here.
+ */
+function addTextBox(scene: BoardScene, t: PcbTextBox): void {
+  const b = buckets(scene, t.layer);
+  if (t.border) {
+    const pts = textBoxCorners(t);
+    if (pts.length > 1) {
+      const p = pathIn(b.gfxStrokes, Math.max(t.strokeWidth ?? 0, 1));
+      p.moveTo(pts[0]!.x, pts[0]!.y);
+      for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
+      p.closePath();
+    }
+  }
+  if (t.text !== '') {
+    addText(b.textBoard, {
+      kind: 'user',
+      text: t.text,
+      at: textBoxTextAnchor(t),
+      angle: t.angle ?? 0,
+      layer: t.layer,
+      size: t.size,
+      thickness: t.thickness,
+      bold: t.bold,
+      italic: t.italic,
+      justify: t.justify,
+      source: { kind: 'list', items: [] },
+    });
+  }
+}
+
+/**
+ * Where the wrapped text starts.
+ *
+ * Upstream lays the text out inside the box's margins with the font metrics,
+ * wrapping it to the width. We have no wrapping, so the string is drawn from
+ * the top-left corner plus the left/top margins — the right place for the first
+ * line, and honest about being no more than that.
+ */
+function textBoxTextAnchor(t: PcbTextBox): Vec2 {
+  const pts = textBoxCorners(t);
+  if (pts.length === 0) return { x: 0, y: 0 };
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+  }
+  return { x: minX + t.margins.left, y: minY + t.margins.top + t.size.y };
+}
+
+/**
  * A dimension's lines, into the graphics-stroke bucket of its layer.
  * Counterpart: `PCB_PAINTER::draw( const PCB_DIMENSION_BASE* )`, which walks
  * the shapes `updateGeometry` produced and strokes them at the line width.
@@ -1021,6 +1081,12 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
   }
   for (const t of board.texts) {
     if (!t.hide) addText(buckets(scene, t.layer).textBoard, t);
+  }
+  for (const t of board.textBoxes) {
+    addTextBox(scene, t);
+    const tb = textBoxBBox(t);
+    grow(tb.minX, tb.minY);
+    grow(tb.maxX, tb.maxY);
   }
   for (const d of board.dimensions) {
     addDimension(scene, d);
