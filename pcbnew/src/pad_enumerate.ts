@@ -269,6 +269,13 @@ export function padEnumerationHitOrder(
   isVisible?: (padIndex: number) => boolean,
 ): number[] {
   const travel = { x: to.x - from.x, y: to.y - from.y };
+  // The *integer* norm, matching upstream's VECTOR2<int>. It differs from a
+  // plain hypot only when the float sits within half a unit of a multiple of
+  // the sample step, and then only by one extra sample. `EuclideanNormI` has
+  // its own test; at this call site the difference is real but no fixture has
+  // been found where it changes the returned hit order, so swapping it for
+  // `Math.hypot` is currently unobservable here. Kept because it is upstream's
+  // type, not on the strength of a test.
   const distance = EuclideanNormI(travel);
   // Integer division, then +1: at least one sample even for a standing cursor.
   const segments = Math.trunc(distance / PAD_ENUMERATION_SAMPLE_STEP_IU) + 1;
