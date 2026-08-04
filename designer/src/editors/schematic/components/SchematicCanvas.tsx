@@ -25,6 +25,10 @@ import {
   withPostMoveCleanup,
   planBreakWire,
   composeCommands,
+  nudge,
+  applyAxisLock,
+  type AxisLock,
+  type ArrowKey,
   placeSymbolInstance,
   moveSymbolTo,
   transformSymbol,
@@ -650,6 +654,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    */
   const moveBaseRef = useRef<Schematic | null>(null);
   const breakCmdRef = useRef<EditCommand | null>(null);
+  /**
+   * The keyboard's half of a move: which axis the last arrow locked, and which
+   * arrow it was (the release test compares against the immediately preceding
+   * one). Upstream keeps these as `axisLock` / `lastArrowKeyAction` locals in
+   * `doMoveSelection`, which lives for the duration of one move.
+   */
+  const axisLockRef = useRef<AxisLock>('none');
+  const lastArrowRef = useRef<ArrowKey | null>(null);
   // A sheet pin drags along its sheet's border rather than by a free delta, so
   // it gets its own drag rather than going through the move tool.
   const sheetPinDragRef = useRef<SheetPinRef | null>(null);
@@ -1464,7 +1476,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // so dropping the pending command restores the unbroken wire.
     breakCmdRef.current = null;
     moveBaseRef.current = null;
+    // The lock lives exactly as long as the move that owns it.
+    axisLockRef.current = 'none';
+    lastArrowRef.current = null;
     requestDraw();
+  }, [requestDraw]);
+
+  // Arrow keys nudge a grabbed move one grid square and lock the axis
+  // (SCH_MOVE_TOOL's m_lastKeyboardCursorPosition block). Registered once, like
+  // the Escape handler, so a restart cannot leave the move without a keyboard.
+  useEffect(() => {
+    const KEYS: Record<string, ArrowKey> = {
+      ArrowLeft: 'left',
+      ArrowRight: 'right',
+      ArrowUp: 'up',
+      ArrowDown: 'down',
+    };
+    const onArrow = (ev: KeyboardEvent): void => {
+      const key = KEYS[ev.key];
+      // Alt+Arrow is already spoken for, and a nudge only means anything while
+      // something is actually on the cursor.
+      if (!key || ev.altKey || ev.ctrlKey || ev.metaKey || !grabbedRef.current) return;
+      const start = moveStartRef.current;
+      const delta = moveDeltaRef.current;
+      if (!start || !delta) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const next = nudge(
+        {
+          cursor: { x: start.x + delta.x, y: start.y + delta.y },
+          lock: axisLockRef.current,
+          lastKey: lastArrowRef.current,
+        },
+        key,
+        GRID,
+      );
+      axisLockRef.current = next.lock;
+      lastArrowRef.current = next.lastKey;
+      moveDeltaRef.current = { x: next.cursor.x - start.x, y: next.cursor.y - start.y };
+      requestDraw();
+    };
+    window.addEventListener('keydown', onArrow, true);
+    return () => window.removeEventListener('keydown', onArrow, true);
   }, [requestDraw]);
 
   // Escape cancels a grabbed move (nothing was committed, so just drop the
@@ -2225,6 +2278,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           }
         }
         if (bestDelta) delta = bestDelta;
+        // Once an arrow has fixed the axis, the mouse cannot pull the item off
+        // it — the lock is applied to the pointer path as well as the keyboard
+        // one, which is the whole reason it exists.
+        if (axisLockRef.current !== 'none') {
+          const prev = moveDeltaRef.current ?? { x: 0, y: 0 };
+          delta = applyAxisLock(delta, prev, axisLockRef.current);
+        }
         moveDeltaRef.current = delta;
         requestDraw();
       } else if (modeRef.current === 'pan' && panLastRef.current) {
