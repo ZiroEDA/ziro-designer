@@ -23,6 +23,8 @@ import {
   placeSymbol,
   grabHotkeyAction,
   withPostMoveCleanup,
+  planBreakWire,
+  composeCommands,
   placeSymbolInstance,
   moveSymbolTo,
   transformSymbol,
@@ -465,7 +467,8 @@ interface Props {
   /** Keyboard-initiated grabbed move (SCH_MOVE_TOOL): 'move' leaves connected
    *  wires behind, 'drag' keeps them attached. A fresh nonce starts a move of
    *  the current selection that follows the cursor until clicked to drop. */
-  grabRequest?: { kind: 'move' | 'drag'; nonce: number } | null;
+  /** SCH_MOVE_TOOL's four modes; break and slice split the wire, then drag it. */
+  grabRequest?: { kind: 'move' | 'drag' | 'break' | 'slice'; nonce: number } | null;
   /** Zoom to Selection Area (ACTIONS::zoomTool): the user dragged a rectangle;
    *  fit the view to it (and the parent returns the tool to select). */
   onZoomArea?: (box: { minX: number; minY: number; maxX: number; maxY: number }) => void;
@@ -638,6 +641,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const pointDragRef = useRef<EditHandle | null>(null);
   /** The reshaped document while a handle or sheet-pin drag is in flight. */
   const pointEditDocRef = useRef<Schematic | null>(null);
+  /**
+   * Break / Slice split the wire *before* the drag starts, and upstream folds
+   * both into one commit (`SCH_COMMIT` pushed as "Break Wire"). Until the drop
+   * the split is uncommitted, so the drag has to run against a document the
+   * document state does not hold yet: `moveBaseRef` is that document, and
+   * `breakCmdRef` is the split waiting to be composed into the commit.
+   */
+  const moveBaseRef = useRef<Schematic | null>(null);
+  const breakCmdRef = useRef<EditCommand | null>(null);
   // A sheet pin drags along its sheet's border rather than by a free delta, so
   // it gets its own drag rather than going through the move tool.
   const sheetPinDragRef = useRef<SheetPinRef | null>(null);
@@ -774,8 +786,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const buildMove = useCallback(
     (spec: MoveSpec, delta: Vec2): EditCommand => {
       if (moveKindRef.current === 'move') return moveItems(effSelRef.current, delta);
+      // A break plans its bends against the *split* sheet: the halves it is
+      // about to drag do not exist in `schematic` yet.
       return lineMode !== 'free'
-        ? orthoMove(schematic, spec, delta, libById)
+        ? orthoMove(moveBaseRef.current ?? schematic, spec, delta, libById)
         : moveWithConnections(spec, delta);
     },
     [schematic, lineMode, libById],
@@ -787,15 +801,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    * cursor — so the ghost keeps using `buildMove` and only the drop cleans up.
    */
   const buildMoveCommit = useCallback(
-    (spec: MoveSpec, delta: Vec2): EditCommand =>
-      withPostMoveCleanup(
+    (spec: MoveSpec, delta: Vec2): EditCommand => {
+      const move = withPostMoveCleanup(
         buildMove(spec, delta),
         spec,
         libById,
         effSelRef.current,
         // isDragLike: a plain move (M) leaves connected wires behind on purpose.
         moveKindRef.current !== 'move',
-      ),
+      );
+      // One undo step covers the split and the drag together, as upstream's
+      // single "Break Wire" / "Slice Wire" commit does — undoing a break must
+      // not leave the wire cut in two where the user dropped it.
+      const split = breakCmdRef.current;
+      return split ? composeCommands(split.label, [split, move]) : move;
+    },
     [buildMove, libById],
   );
 
@@ -805,8 +825,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   useEffect(() => {
     if (!grabRequest || selection.size === 0) return;
 
+    const kind = grabRequest.kind;
+
+    // SCH_MOVE_TOOL::preprocessBreakOrSliceSelection: split first, then run the
+    // ordinary drag over the halves. The split is held pending rather than
+    // committed, so Escape abandons the whole thing and the wire is never cut.
+    //
+    // There is no restart arm here as there is for M and G: a split needs a
+    // committed wire to cut, so a request arriving mid-move drops that move.
+    if (kind === 'break' || kind === 'slice') {
+      if (grabbedRef.current) {
+        const spec = moveSpecRef.current;
+        const d = moveDeltaRef.current;
+        if (spec && d && (d.x !== 0 || d.y !== 0)) onCommand(buildMoveCommit(spec, d));
+        endGrab();
+        return;
+      }
+      const cursor = cursorRef.current ? snap(cursorRef.current) : null;
+      if (!cursor) return;
+      const plan = planBreakWire(schematic, selection, cursor, kind);
+      if (!plan) return;
+      const split = plan.command.apply(schematic);
+      breakCmdRef.current = plan.command;
+      moveBaseRef.current = split;
+      // Both modes are drag-like (`m_mode != MOVE`), so the drop runs the
+      // connected-wire cleanup rather than leaving stubs behind.
+      moveKindRef.current = 'drag';
+      effSelRef.current = new Set([...plan.dragEnd, ...plan.dragStart]);
+      moveSpecRef.current = plan.spec;
+      movePointsRef.current = plan.at ? [plan.at] : [];
+      moveAnchorsRef.current = collectAnchors(split, libById, effSelRef.current);
+      // `m_breakPos` seeds the cursor so the first motion is measured from the
+      // break, not from wherever the pointer was when the menu was dismissed.
+      moveStartRef.current = plan.at ?? cursor;
+      moveDeltaRef.current = { x: 0, y: 0 };
+      modeRef.current = 'move';
+      grabbedRef.current = true;
+      requestDraw();
+      return;
+    }
+
     // SCH_MOVE_TOOL::checkMoveInProgress — the hotkey pressed *during* a move.
-    const what = grabHotkeyAction(grabbedRef.current, moveKindRef.current, grabRequest.kind);
+    const what = grabHotkeyAction(grabbedRef.current, moveKindRef.current, kind);
 
     if (what === 'drop') {
       const spec = moveSpecRef.current;
@@ -821,7 +881,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // against the untouched sheet. The anchor is left alone, so the items
       // stay put under the cursor instead of springing back to where they
       // began.
-      moveKindRef.current = grabRequest.kind;
+      moveKindRef.current = kind;
       const next = planMove(schematic, libById, effSelRef.current);
       moveSpecRef.current = next;
       const moved = new Set([...effSelRef.current, ...next.wireStart, ...next.wireEnd]);
@@ -833,7 +893,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const anchors = selectionAnchors(schematic, libById, selection);
     const origin = cursorRef.current ? snap(cursorRef.current) : (anchors[0] ?? null);
     if (!origin) return;
-    moveKindRef.current = grabRequest.kind;
+    moveKindRef.current = kind;
     effSelRef.current = selection;
     const spec = planMove(schematic, libById, selection);
     moveSpecRef.current = spec;
@@ -908,14 +968,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const md = moveDeltaRef.current;
     const spec = moveSpecRef.current;
     let ghosting = false;
-    let doc = schematic;
+    // A break in flight has already split the wire, but only in the pending
+    // command; everything downstream must see the split document.
+    let doc = moveBaseRef.current ?? schematic;
     // A handle drag in flight paints the reshaped document instead: it changes
     // every frame, so like every other ghost it must not be baked into the raster.
     if (pointEditDocRef.current) {
       return { doc: pointEditDocRef.current, ghosting: true };
     }
     if (modeRef.current === 'move' && md && spec) {
-      doc = buildMove(spec, md).apply(schematic);
+      doc = buildMove(spec, md).apply(doc);
       ghosting = true;
     } else if (
       (activeTool === 'placeSymbol' || activeTool === 'placePower') &&
@@ -1398,6 +1460,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     moveSpecRef.current = null;
     moveDeltaRef.current = null;
     moveStartRef.current = null;
+    // A break that is abandoned takes its split with it: nothing was committed,
+    // so dropping the pending command restores the unbroken wire.
+    breakCmdRef.current = null;
+    moveBaseRef.current = null;
     requestDraw();
   }, [requestDraw]);
 
