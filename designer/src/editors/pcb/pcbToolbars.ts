@@ -377,7 +377,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     group: 'Text objects',
     actions: [
       { id: 'placeText', icon: 'placeText', title: 'Draw Text (Ctrl+Shift+T)' },
-      { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes', ...todo },
+      { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
     ],
   },
   { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables', ...todo },
