@@ -371,7 +371,6 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     icon: 'placeReferenceImage',
     title:
       'Place Reference Images\nAdd bitmap images to be used as reference (images will not be included in any output)',
-    ...todo,
   },
   {
     group: 'Text objects',

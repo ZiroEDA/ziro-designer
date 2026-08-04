@@ -60,6 +60,7 @@ export {
   addBoardVia,
   addBoardText,
   addBoardDimension,
+  addBoardImage,
   addBoardTextBox,
   addBoardTable,
   addBoardZone,
@@ -493,6 +494,17 @@ export {
   iuPerPixel,
   FALLBACK_PIXELS,
 } from './image_geometry.js';
+
+export {
+  startPlaceImage,
+  newReferenceImage,
+  fileChosen,
+  moveImage,
+  clickImage,
+  cancelPlaceImage,
+  type ImagePlaceState,
+  type ImagePlaceStep,
+} from './place_image.js';
 
 export {
   findSliverPoints,
