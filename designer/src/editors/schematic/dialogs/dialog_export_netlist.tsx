@@ -3,20 +3,22 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Export Netlist dialog. Counterpart: `eeschema/dialogs/dialog_export_netlist.cpp`
- * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter: KiCad
- * generic XML, OrcadPCB2, CadStar, PADS, Allegro and Spice. Each page has an
- * Export Netlist button that downloads the result.
- *
+ * (DIALOG_EXPORT_NETLIST), a notebook with one page per exporter. We ship the
+ * two built-in formats KiCad generates natively (KiCad generic XML and
+ * OrcadPCB2); each page has an Export Netlist button that downloads the file.
  * Allegro is the exception to "one page, one file": it is a netlist plus a
- * sibling `devices/` directory of package definitions, and a browser download
- * cannot create a folder — so that page downloads a `.zip` with the layout
- * intact rather than quietly flattening the names.
+ * sibling `devices/` directory of package definitions. With a project sink each
+ * file lands in its own place; without one a browser download cannot create a
+ * folder, so the set goes out as a `.zip` rather than as names with the slashes
+ * flattened out of them.
  *
  * (Custom command-line generators are a desktop-only feature and omitted.)
  */
 
 import { useState, type JSX } from 'react';
 import { strToU8, zipSync } from 'fflate';
+import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import {
   generateNetlist,
   netlistFiles,
@@ -31,6 +33,14 @@ interface Props {
   libById: Map<string, LibSymbol>;
   /** Suggested output base name (sheet/project name, no extension). */
   baseName: string;
+  /** Folders that already exist in the project, for the output-path list. */
+  projectFolders?: readonly string[];
+  /**
+   * Write the netlist into the project's file manager, as plotting does. When
+   * absent the dialog streams a download instead, which is what it did before
+   * there was anywhere else to put the file.
+   */
+  onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
   onClose: () => void;
 }
 
@@ -66,8 +76,8 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
     label: 'Allegro',
     ext: 'txt',
     note:
-      'The Cadence Allegro / Telesis netlist. Downloads a .zip, because this ' +
-      'format is a netlist plus a devices/ folder of package definitions.',
+      'The Cadence Allegro / Telesis netlist. Writes a netlist plus a devices/ ' +
+      'folder of package definitions.',
   },
   {
     id: 'spice',
@@ -77,7 +87,21 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
   },
 ];
 
-export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props): JSX.Element {
+export function DialogExportNetlist({
+  doc,
+  libById,
+  baseName,
+  projectFolders = [],
+  onOutputFile,
+  onClose,
+}: Props): JSX.Element {
+  // Project-relative output folder; '' is the project's own folder, matching
+  // the Plot dialog's "Output directory".
+  const [outputDir, setOutputDir] = useState('');
+  const [messages, setMessages] = useState<readonly ReportLine[]>([]);
+  const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
+  const report = (message: string, severity: number): void =>
+    setMessages((prev) => [...prev, { message, severity, location: 'body' }]);
   const [tab, setTab] = useState<ExportTab>('kicadxml');
   // The Spice page's options (DIALOG_EXPORT_NETLIST's spice checkboxes).
   const [saveAllVoltages, setSaveAllVoltages] = useState(false);
@@ -86,29 +110,35 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
   const [spiceErrors, setSpiceErrors] = useState<string[]>([]);
   const active = TABS.find((t) => t.id === tab)!;
 
-  const download = (name: string, blob: Blob): void => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const doExport = (): void => {
-    // Allegro is the one format that is not a single file: it wants a netlist
-    // and a sibling devices/ directory. A browser download cannot create a
-    // folder, so the set goes out as one .zip with the layout intact.
+    // Allegro is the one format that is not a single file: a netlist plus a
+    // sibling devices/ directory of package definitions. With a project sink
+    // each file lands in its own place, folder and all; without one a browser
+    // download cannot create a folder, so the set goes out as a .zip rather
+    // than as names with the slashes flattened out of them.
     if (tab === 'allegro') {
-      const files = netlistFiles('allegro', `${baseName}.${active.ext}`, doc, libById, {
+      const filename = `${baseName}.${active.ext}`;
+      const files = netlistFiles('allegro', filename, doc, libById, {
         source: `${baseName}.kicad_sch`,
       });
-      const entries: Record<string, Uint8Array> = {};
-      for (const f of files) entries[f.path] = strToU8(f.text);
-      download(
-        `${baseName}-allegro.zip`,
-        new Blob([zipSync(entries)], { type: 'application/zip' }),
-      );
+      if (onOutputFile) {
+        for (const f of files) {
+          const path = outputDir ? `${outputDir}/${f.path}` : f.path;
+          onOutputFile(path, new TextEncoder().encode(f.text), 'text/plain');
+          report(`Netlist written to '${path}'.`, RPT_SEVERITY_ACTION);
+        }
+      } else {
+        const entries: Record<string, Uint8Array> = {};
+        for (const f of files) entries[f.path] = strToU8(f.text);
+        const zip = `${baseName}-allegro.zip`;
+        const url = URL.createObjectURL(new Blob([zipSync(entries)], { type: 'application/zip' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zip;
+        a.click();
+        URL.revokeObjectURL(url);
+        report(`Netlist downloaded as '${zip}'.`, RPT_SEVERITY_ACTION);
+      }
       onClose();
       return;
     }
@@ -126,7 +156,25 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
       text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
     }
     const mime = tab === 'kicadxml' ? 'application/xml' : 'text/plain';
-    download(`${baseName}.${active.ext}`, new Blob([text], { type: mime }));
+    const filename = `${baseName}.${active.ext}`;
+    // The netlist lands in the project's file manager, as a plot does. Without
+    // a sink there is nowhere else to put it, so it streams out instead.
+    if (onOutputFile) {
+      const path = outputDir ? `${outputDir}/${filename}` : filename;
+      onOutputFile(path, new TextEncoder().encode(text), mime);
+      report(`Netlist written to '${path}'.`, RPT_SEVERITY_ACTION);
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: mime }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      report(`Netlist downloaded as '${filename}'.`, RPT_SEVERITY_ACTION);
+    }
+    // Spice errors are worth reading, so they go to the panel and the dialog
+    // stays open to show them.
+    for (const err of tab === 'spice' ? spiceErrors : []) report(err, RPT_SEVERITY_ERROR);
     if (tab !== 'spice' || spiceErrors.length === 0) onClose();
   };
 
@@ -199,6 +247,32 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
               )}
             </div>
           )}
+          {/* Output directory, project-relative, as the Plot dialog has. */}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+            Output directory:
+            <input
+              list="ze-netlist-folders"
+              value={outputDir}
+              placeholder="(project folder)"
+              onChange={(e) => setOutputDir(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <datalist id="ze-netlist-folders">
+              {projectFolders.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
+          </label>
+        </div>
+        {/* Output Messages (WX_HTML_REPORT_PANEL), as the other exporters have. */}
+        <div style={{ padding: '0 10px 8px' }}>
+          <HtmlReportPanel
+            lines={messages}
+            fileName="netlist-report.txt"
+            minHeight={90}
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+          />
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onClose}>
