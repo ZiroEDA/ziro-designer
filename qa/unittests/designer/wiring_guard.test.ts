@@ -79,13 +79,23 @@ describe('the durability layer is actually wired up', () => {
         0,
       );
 
+      // Import statements are stripped first. An import is not a use: deleting
+      // the one call to a function usually leaves its import behind, and a
+      // corpus that counted the import would call that wired. (It did, on the
+      // first attempt at the reference-matching below.)
       const corpus = appSources(rel.replace('designer/src', ''))
-        .map((f) => readFileSync(f, 'utf8'))
+        .map((f) => readFileSync(f, 'utf8').replace(/^import[\s\S]*?from\s+'[^']*';/gm, ''))
         .join('\n');
 
       const unwired = names.filter(
-        // `<T>` may sit between the name and the parenthesis: runTx<T>(db, …).
-        (n) => !EXCUSED[n] && !new RegExp(`\\b${n}\\s*(?:<[^>]*>)?\\s*\\(`).test(corpus),
+        // Two ways a function is wired, and both count:
+        //   a call — `runTx<T>(db, …)`, where `<T>` may sit before the paren;
+        //   a reference — `useSyncExternalStore(subscribeLibraryLoading, …)`,
+        //     `.map(reportLineToPlainText)`, a prop, a callback.
+        // A broader sweep over the whole app found four exports that looked
+        // unwired to a call-only pattern and were all passed by reference. A
+        // guard that reports those is a guard people learn to override.
+        (n) => !EXCUSED[n] && !new RegExp(`\\b${n}\\b`).test(corpus),
       );
       expect(
         unwired,
