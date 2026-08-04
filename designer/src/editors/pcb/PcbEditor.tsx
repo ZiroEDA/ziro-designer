@@ -7772,6 +7772,11 @@ function describeBoardItem(board: Board, id: string): string {
       const t = board.tables[r.index];
       return t ? `${t.columnCount} column table` : 'table';
     }
+    case 'image': {
+      // PCB_REFERENCE_IMAGE::GetItemDescription is the bare string, with no
+      // layer and no filename — there is nothing else it can usefully say.
+      return 'Reference Image';
+    }
     case 'dimension': {
       // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
       // A centre dimension carries no text, so the quotes come out empty, which

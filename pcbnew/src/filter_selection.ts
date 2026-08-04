@@ -86,6 +86,15 @@ export function itemPassesFilter(board: Board, id: string, filter: SelectionFilt
     case 'text':
       return filter.text && board.texts[ref.index] !== undefined;
 
+    // `PCB_REFERENCE_IMAGE_T` has no checkbox of its own upstream and falls to
+    // the layer-based split a graphic uses — it is a drawing on a layer, not
+    // text and not copper.
+    case 'image': {
+      const img = board.images[ref.index];
+      if (!img) return false;
+      return img.layer === 'Edge.Cuts' ? filter.boardOutline : filter.techLayers;
+    }
+
     // `PCB_TABLE_T` and `PCB_TABLECELL_T` sit in the same group as
     // `PCB_TEXTBOX_T` and return `includePcbTexts`.
     case 'table':

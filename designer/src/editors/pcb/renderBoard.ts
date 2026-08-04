@@ -27,6 +27,7 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
   dimensionSegments,
+  imageBBox,
   tableBBox,
   tableBorderSegments,
   textBoxBBox,
@@ -34,6 +35,7 @@ import {
   tessellateArc,
   type Board,
   type PcbDimension,
+  type PcbImage,
   type PcbTable,
   type PcbTextBox,
   type PcbPad,
@@ -655,6 +657,24 @@ function textBoxTextAnchor(t: PcbTextBox): Vec2 {
 }
 
 /**
+ * A reference image's extent, as an outline.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_REFERENCE_IMAGE* )`, which blits
+ * the decoded bitmap.
+ *
+ * **The picture itself is not drawn here.** The scene is Path2D geometry that
+ * the canvas strokes; painting a raster needs an `ImageBitmap` decoded off the
+ * base64 and a separate draw pass, which this layer has no way to hold. What is
+ * drawn is the box the image occupies, so it is visible and selectable rather
+ * than silently absent — and the gap is a missing picture, not a missing item.
+ */
+function addImage(scene: BoardScene, img: PcbImage): void {
+  const b = buckets(scene, img.layer);
+  const box = imageBBox(img);
+  const p = pathIn(b.gfxStrokes, 1);
+  p.rect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+}
+
+/**
  * A table: every cell drawn as a text box, then the borders and separators.
  * Counterpart: `PCB_PAINTER::draw( const PCB_TABLE* )`.
  *
@@ -1131,6 +1151,12 @@ export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
     const tb = textBoxBBox(t);
     grow(tb.minX, tb.minY);
     grow(tb.maxX, tb.maxY);
+  }
+  for (const img of board.images) {
+    addImage(scene, img);
+    const ib = imageBBox(img);
+    grow(ib.minX, ib.minY);
+    grow(ib.maxX, ib.maxY);
   }
   for (const t of board.tables) {
     addTable(scene, t);

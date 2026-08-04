@@ -35,6 +35,7 @@ import { footprintBBox, padBBox } from './edit-footprint.js';
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';
+import { imageBBox } from './image_geometry.js';
 import type {
   Board,
   PcbDimension,
@@ -44,6 +45,7 @@ import type {
   PcbArcTrack,
   PcbVia,
   PcbShape,
+  PcbImage,
   PcbTable,
   PcbTextBox,
   PcbTextItem,
@@ -75,6 +77,7 @@ const BOARD_ITEM_KINDS = [
   'text',
   'textbox',
   'table',
+  'image',
   'dimension',
   'fptext',
   'pad',
@@ -265,6 +268,10 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
     case 'table': {
       const tb = board.tables[ref.index];
       return tb ? tableBBox(tb) : null;
+    }
+    case 'image': {
+      const img = board.images[ref.index];
+      return img ? imageBBox(img) : null;
     }
     case 'dimension': {
       const d = board.dimensions[ref.index];
@@ -604,6 +611,20 @@ export function boardHitCandidates(
         layers: [tb.layer],
       });
   });
+  board.images.forEach((img, i) => {
+    // PCB_REFERENCE_IMAGE::HitTest is a bounding-box Contains: the picture is
+    // solid to the mouse, with no outline to miss between.
+    const b = imageBBox(img);
+    const d = bboxDist(b, pos);
+    if (d <= tol)
+      hits.push({
+        id: boardItemId('image', i),
+        kind: 'image',
+        dist: d,
+        area: bboxArea(b),
+        layers: [img.layer],
+      });
+  });
   board.dimensions.forEach((dm, i) => {
     const d = distanceToDimension(dm, pos);
     if (d <= tol)
@@ -912,6 +933,10 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('table', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('table', i);
   });
+  board.images.forEach((_, i) => {
+    const b = boardItemBBox(board, boardItemId('image', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('image', i);
+  });
   board.dimensions.forEach((_, i) => {
     const b = boardItemBBox(board, boardItemId('dimension', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('dimension', i);
@@ -939,6 +964,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.texts.forEach((_, i) => out.push(boardItemId('text', i)));
   board.textBoxes.forEach((_, i) => out.push(boardItemId('textbox', i)));
   board.tables.forEach((_, i) => out.push(boardItemId('table', i)));
+  board.images.forEach((_, i) => out.push(boardItemId('image', i)));
   board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
@@ -1024,6 +1050,19 @@ const moveVia = (v: PcbVia, d: Vec2): PcbVia => {
 const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => {
   const at = add(t.at, d);
   return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
+};
+
+/**
+ * Shift a reference image and patch its `(at …)`.
+ *
+ * The whole item is one point plus a payload, so this is the simplest mover on
+ * the board — but the `(data …)` must be left strictly alone: it is megabytes
+ * of base64, and rebuilding the node rather than patching one child would
+ * rewrite all of it on every nudge.
+ */
+const moveImage = (img: PcbImage, d: Vec2): PcbImage => {
+  const at = add(img.at, d);
+  return { ...img, at, source: patchChild(img.source, 'at', xyNode('at', at)) };
 };
 
 /**
@@ -1246,6 +1285,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     texts: board.texts.map((t, i) => (idx.text.has(i) ? moveText(t, delta) : t)),
     textBoxes: board.textBoxes.map((t, i) => (idx.textbox.has(i) ? moveTextBox(t, delta) : t)),
     tables: board.tables.map((t, i) => (idx.table.has(i) ? moveTable(t, delta) : t)),
+    images: board.images.map((img, i) => (idx.image.has(i) ? moveImage(img, delta) : img)),
     dimensions: board.dimensions.map((d, i) =>
       idx.dimension.has(i) ? moveDimension(d, delta) : d,
     ),
@@ -1412,6 +1452,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     text: new Set(),
     textbox: new Set(),
     table: new Set(),
+    image: new Set(),
     dimension: new Set(),
     fptext: new Set(),
     pad: new Set(),
@@ -1513,6 +1554,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     texts: board.texts.filter((_, i) => !idx.text.has(i)),
     textBoxes: board.textBoxes.filter((_, i) => !idx.textbox.has(i)),
     tables: board.tables.filter((_, i) => !idx.table.has(i)),
+    images: board.images.filter((_, i) => !idx.image.has(i)),
     dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
@@ -1929,6 +1971,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.textBoxes[r.index]?.uuid;
     case 'table':
       return board.tables[r.index]?.uuid;
+    case 'image':
+      return board.images[r.index]?.uuid;
     case 'dimension':
       return board.dimensions[r.index]?.uuid;
     case 'footprint':
@@ -2160,6 +2204,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.textBoxes[r.index]?.locked;
     case 'table':
       return !!board.tables[r.index]?.locked;
+    case 'image':
+      return !!board.images[r.index]?.locked;
     case 'dimension':
       return !!board.dimensions[r.index]?.locked;
     case 'footprint':
