@@ -128,8 +128,7 @@ import {
   startPlaceImage,
   type ImagePlaceState,
 } from '@ziroeda/pcbnew';
-import { boardObstacleHulls } from '@ziroeda/pcbnew/src/router/pns_obstacles.js';
-import { routeShortest } from '@ziroeda/pcbnew/src/router/pns_walkaround.js';
+import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -3544,57 +3543,27 @@ export function PcbEditor({
     return null;
   };
 
-  // The 45°-constrained two-segment route path (ROUTER_TOOL's posture):
-  // a straight run along the dominant axis, then the diagonal to the cursor.
-  const routePath = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-  ): { x: number; y: number }[] => {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    if (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) return [to];
-    if (Math.abs(dx) > Math.abs(dy)) {
-      return [{ x: from.x + Math.sign(dx) * (Math.abs(dx) - Math.abs(dy)), y: from.y }, to];
-    }
-    return [{ x: from.x, y: from.y + Math.sign(dy) * (Math.abs(dy) - Math.abs(dx)) }, to];
-  };
-
   /**
    * The route from `from` to `to`, bent around anything in the way.
    *
-   * `routePath` gives the 45°-constrained shape the user asked for; this walks
-   * it past the obstacles on the layer (PNS's WALKAROUND, both directions, the
-   * better one kept). Returns the points *after* `from`, as `routePath` does.
-   *
-   * A route that cannot get clear falls back to the direct path rather than
-   * refusing to draw. That is upstream's MARK_OBSTACLES behaviour and it is the
-   * right default for a tool that only suggests geometry: a track the user can
-   * see and DRC will flag beats a tool that silently does nothing.
+   * The decision lives in `route_tool.ts` so it can be tested; this is the
+   * component's view of the world handed to it.
    */
   const routedPath = (
     from: { x: number; y: number },
     to: { x: number; y: number },
   ): { x: number; y: number }[] => {
-    const direct = routePath(from, to);
     const brd = boardRef.current;
     const r = routeRef.current;
-    if (!brd || !r) return direct;
+    if (!brd || !r) return posturePath(from, to);
 
-    const clearance = netclassInfo.classClearance.get(netClassOf.get(r.net) ?? 'Default') ?? 0;
-    if (clearance <= 0) return direct;
-
-    const hulls = boardObstacleHulls(brd, {
+    return routeDecision(from, to, {
+      board: brd,
       net: r.net,
       layer: r.layer,
       width: r.dims.trackWidth,
-      clearance,
+      clearance: netclassInfo.classClearance.get(netClassOf.get(r.net) ?? 'Default') ?? 0,
     });
-    if (hulls.length === 0) return direct;
-
-    const walked = routeShortest([from, ...direct], hulls);
-    if (walked.status !== 'done') return direct;
-
-    return walked.path.slice(1);
   };
 
   // Routing dimensions for a net: its net class dims, overridden by the
