@@ -523,3 +523,14 @@ export {
   SLIVER_MINIMUM_LENGTH,
   type SliverOptions,
 } from './drc/drc_sliver.js';
+
+export {
+  CreepageGraph,
+  pathsBetween,
+  isValidPath,
+  closestPointOnSegment,
+  isConductive,
+  type PathConnection,
+  type CreepShape,
+  type BoardSurface,
+} from './drc/creepage_graph.js';
