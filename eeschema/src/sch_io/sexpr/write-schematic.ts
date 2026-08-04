@@ -856,6 +856,11 @@ function writeDirectiveLabel(l: SchDirectiveLabel): SList {
 function writeTextBox(tb: SchTextBox): SList {
   let node = setItem(tb.source, 1, str(tb.text));
   node = patchAt(node, tb.start);
+  // A text box rotates (SCH_TEXTBOX, R on a selected box, which flips angle
+  // between 0 and 90) and patchAt writes only x and y, keeping whatever third
+  // item the file already had. So a rotation lived in the model and on screen
+  // and never reached the file. Found by the structural writer sweep.
+  node = patchAtAngle(node, tb.angle);
   const size = { x: tb.end.x - tb.start.x, y: tb.end.y - tb.start.y };
   if (childNamed(node, 'size')) {
     node = mapChild(node, 'size', () => list(atom('size'), atom(mm(size.x)), atom(mm(size.y))));
