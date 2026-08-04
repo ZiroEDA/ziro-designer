@@ -168,6 +168,12 @@ export function chainArea(points: readonly VECTOR2I[], absolute = true): number 
  * is not optional here: `BigInt()` throws on a fractional number, and a Vec2
  * that has been through a floating-point transform can carry one.
  */
+// `KiROUND` is here to *convert*, not to round faithfully: `BigInt()` throws
+// on a fractional number and a Vec2 could carry one. Board coordinates are
+// integers, so swapping it for `Math.round` changes no answer on any real
+// input — mutation testing confirms that — and the two differ only on a
+// negative half, which no caller here produces. Kept for the KiCad rounding
+// convention rather than on the strength of a test.
 const big = (v: number): bigint => BigInt(KiROUND(v));
 
 /** `(B - A).SquaredEuclideanNorm()` — over 2^53 at metre-scale coordinates. */
