@@ -681,3 +681,12 @@ export {
   type PadEnumerationState,
   type PadEnumerationUndo,
 } from './pad_enumerate.js';
+
+export {
+  checkFootprint,
+  checkPad,
+  isNetTie,
+  mapPadNumbersToNetTieGroups,
+  getNetTiePads,
+  type PadFinding,
+} from './footprint_checker.js';

@@ -353,7 +353,7 @@ export function padShapes(pad: PcbPad): Shape[] {
   return [rectPoly(w, h, 0)];
 }
 
-function primitiveShapes(prim: PadPrimitive, place: (p: Vec2) => Vec2): Shape[] {
+export function primitiveShapes(prim: PadPrimitive, place: (p: Vec2) => Vec2): Shape[] {
   const r = prim.width / 2;
   if (prim.kind === 'gr_line' && prim.start && prim.end)
     return [{ kind: 'stadium', a: place(prim.start), b: place(prim.end), r }];
@@ -2817,7 +2817,7 @@ function unconnectedAlias(pcbNet: string, schNet: string): boolean {
  * is fitted, so counting them would make a mechanical hole turn an SMD part
  * into a through-hole one.
  */
-function likelyFootprintAttribute(fp: PcbFootprint): 'SMD' | 'Through hole' | undefined {
+export function likelyFootprintAttribute(fp: PcbFootprint): 'SMD' | 'Through hole' | undefined {
   const ABSTAINS = new Set([
     'pad_prop_fiducial_glob',
     'pad_prop_fiducial_loc',
@@ -3181,7 +3181,7 @@ function danglingEnd(
 }
 
 /** A board graphic's collision geometry, PCB_SHAPE::GetEffectiveShape. */
-function graphicShapes(s: PcbShape): Shape[] {
+export function graphicShapes(s: PcbShape): Shape[] {
   const r = s.width / 2;
 
   switch (s.kind) {
