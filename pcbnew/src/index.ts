@@ -421,3 +421,10 @@ export {
   type DimensionDraw,
   type DimensionDrawStep,
 } from './draw_dimension.js';
+
+export {
+  dimensionAt,
+  collectDimensionValues,
+  applyDimensionValues,
+  type DimensionValues,
+} from './dimension_properties.js';
