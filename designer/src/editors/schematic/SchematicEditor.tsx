@@ -151,6 +151,9 @@ import {
   ercExclusionKey,
   canMerge,
   canUnmerge,
+  resolveCell,
+  tableCellId,
+  tableOfCellId,
   hasCellSelection,
   rowColCommand,
   tableCellsCommand,
@@ -268,6 +271,7 @@ import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { buildHotkeyList } from './hotkey_list.js';
 import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
 import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
+import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
@@ -793,6 +797,8 @@ export function SchematicEditor({
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
   const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
+  /** DIALOG_TABLECELL_PROPERTIES: the cell ids it is editing. */
+  const [cellPropsIds, setCellPropsIds] = useState<string[] | null>(null);
   // Assign Netclass: the patterns the selection produced, awaiting a class.
   const [netclassPatterns, setNetclassPatterns] = useState<string[] | null>(null);
   // SCH_MOVE_TOOL::Main's four modes. Break and Slice split the selected
@@ -5082,6 +5088,12 @@ export function SchematicEditor({
             },
           },
           {
+            label: 'Properties...',
+            shortcut: 'E',
+            action: () => setCellPropsIds([...selection].filter((i) => tableOfCellId(i) !== null)),
+          },
+          { sep: true },
+          {
             label: 'Unmerge Cells',
             disabled: !canUnmerge(doc, selection),
             action: () => {
@@ -7196,6 +7208,49 @@ export function SchematicEditor({
       )}
 
       {/* The read-only hotkey list (DIALOG_LIST_HOTKEYS, Ctrl+F1). */}
+      {cellPropsIds && doc && (
+        <DialogTableCellProperties
+          cells={cellPropsIds
+            .map((i) => resolveCell(doc, i)?.cell)
+            .filter((c): c is NonNullable<typeof c> => !!c)}
+          fmt={fmt}
+          parse={(t) => {
+            const n = Number.parseFloat(t);
+            if (!Number.isFinite(n)) return null;
+            return units === 'mm'
+              ? mmToIU(n)
+              : units === 'mils'
+                ? mmToIU(n * 0.0254)
+                : mmToIU(n * 25.4);
+          }}
+          onCancel={() => setCellPropsIds(null)}
+          onOk={(next) => {
+            const targets = new Set(cellPropsIds);
+            const tables = doc.tables.map((t, ti) => {
+              const tid = refId('table', t.uuid, ti);
+              if (!t.cells.some((_, k) => targets.has(tableCellId(tid, k)))) return t;
+              return {
+                ...t,
+                cells: t.cells.map((c, k) => (targets.has(tableCellId(tid, k)) ? next(c) : c)),
+              };
+            });
+            runCommand({
+              label: 'Table Cell Properties',
+              apply: (d) => ({ ...d, tables }),
+              invert: (before) => {
+                const was = before.tables;
+                const put = (arr: typeof was): EditCommand => ({
+                  label: 'Table Cell Properties',
+                  apply: (d) => ({ ...d, tables: arr }),
+                  invert: (b) => put(b.tables),
+                });
+                return put(was);
+              },
+            });
+            setCellPropsIds(null);
+          }}
+        />
+      )}
       {hotkeyListOpen && (
         <DialogListHotkeys
           sections={buildHotkeyList(menus)}

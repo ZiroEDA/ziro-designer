@@ -74,3 +74,4 @@ export * from './save_symbol_to_schematic.js';
 export * from './table_cells.js';
 export * from './table_layout.js';
 export * from './table_edit.js';
+export * from './table_cell_props.js';
