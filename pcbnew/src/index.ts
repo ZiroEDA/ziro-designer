@@ -792,3 +792,11 @@ export {
   type ReannotatePrefixInfo,
   type ReannotateSortCodes,
 } from './board_reannotate.js';
+
+export { cleanupErrorText, type CleanupRcCode, type CleanupRcItem } from './cleanup_item.js';
+
+export {
+  cleanupTrackGeometry,
+  type TrackGeometryCleanupOptions,
+  type TrackGeometryCleanupResult,
+} from './tracks_cleaner.js';
