@@ -149,6 +149,12 @@ import {
   runErcSteps,
   ERC_ITEMS,
   ercExclusionKey,
+  canMerge,
+  canUnmerge,
+  hasCellSelection,
+  rowColCommand,
+  tableCellsCommand,
+  type RowColOp,
   editorUnitFor,
   libSymbolFromPlacement,
   saveSymbolToSchematic,
@@ -4769,6 +4775,22 @@ export function SchematicEditor({
   // submenu (100), SCH_MOVE_TOOL move/drag and enterSheet/leaveSheet (150),
   // SCH_EDIT_TOOL transforms + properties (200), wire placements (250), the
   // clipboard block (300), then selectAll/unselectAll (400).
+  /** One entry point for the six row/column actions, which differ only by op. */
+  const runRowCol = useCallback(
+    (op: RowColOp): void => {
+      const d = docRef.current;
+      if (!d) return;
+      const cmd = rowColCommand(d, selection, op);
+      if (!cmd) return;
+      runCommand(cmd);
+      // The ids shift when rows or columns move, and a stale cell id would
+      // address a different cell. Clearing is what upstream's SelectedEvent
+      // amounts to here.
+      setSelection(new Set());
+    },
+    [selection, runCommand],
+  );
+
   const buildContextMenu = (): MenuItem[] => {
     const hit = ctxMenu?.hit ?? null;
     const act = (label: string, id: string, shortcut?: string): MenuItem => ({
@@ -5038,6 +5060,37 @@ export function SchematicEditor({
             },
           );
         }
+      }
+      // SCH_EDIT_TABLE_TOOL, when the selection holds table cells. Upstream
+      // puts these in their own submenu of the table-cell context menu.
+      if (doc && hasCellSelection(selection)) {
+        const cellItems: MenuItem[] = [
+          { label: 'Add Row Above', action: () => runRowCol('addRowAbove') },
+          { label: 'Add Row Below', action: () => runRowCol('addRowBelow') },
+          { label: 'Add Column Before', action: () => runRowCol('addColumnBefore') },
+          { label: 'Add Column After', action: () => runRowCol('addColumnAfter') },
+          { sep: true },
+          { label: 'Delete Rows', action: () => runRowCol('deleteRows') },
+          { label: 'Delete Columns', action: () => runRowCol('deleteColumns') },
+          { sep: true },
+          {
+            label: 'Merge Cells',
+            disabled: !canMerge(doc, selection),
+            action: () => {
+              const cmd = tableCellsCommand(doc, selection, 'merge');
+              if (cmd) runCommand(cmd);
+            },
+          },
+          {
+            label: 'Unmerge Cells',
+            disabled: !canUnmerge(doc, selection),
+            action: () => {
+              const cmd = tableCellsCommand(doc, selection, 'unmerge');
+              if (cmd) runCommand(cmd);
+            },
+          },
+        ];
+        items.push({ label: 'Table', items: cellItems });
       }
       // SCH_ACTIONS::cycleBodyStyle: step to the De Morgan alternate.
       if (doc && cycleBodyStyle(doc, selection, libById))
