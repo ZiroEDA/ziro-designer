@@ -646,6 +646,8 @@ export {
   type CleanupCode,
   type CleanupGraphicsOptions,
 } from './graphics_cleaner.js';
+
+export {
   globalDeletionFilterEnabled,
   globalDeletionLayerChoices,
   layerMatchesFilter,

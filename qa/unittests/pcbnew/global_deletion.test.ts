@@ -385,6 +385,18 @@ describe('drawings', () => {
     expect(globalDeletionIds(b, opts({ texts: true }))).toEqual(new Set(['text:0']));
   });
 
+  it('spares an unlocked graphic when the unlocked filter is off', () => {
+    // The lock filter has two independent halves, and only the locked one is
+    // interesting by default — `drawingFilterUnlocked` starts true, so a test
+    // that never turns it off cannot tell the unlocked branch from a constant.
+    const b = board({ shapes: [shape('F.SilkS')] });
+
+    expect(globalDeletionIds(b, opts({ drawings: true }))).toEqual(new Set(['shape:0']));
+    expect(globalDeletionIds(b, opts({ drawings: true, drawingFilterUnlocked: false }))).toEqual(
+      new Set(),
+    );
+  });
+
   it('deletes a copper shape that also opens the solder mask', () => {
     // PCB_SHAPE::GetLayerSet adds F.Mask, and F.Mask IS in AllNonCuMask(), so
     // the mask-carrying copper shape goes while the bare one stays. Testing only
