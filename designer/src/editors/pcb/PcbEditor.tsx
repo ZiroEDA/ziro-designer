@@ -104,7 +104,15 @@ import {
   boardEditHandles,
   dragBoardHandle,
   type BoardEditHandle,
+  addBoardDimension,
+  clickDimension,
+  dimensionSegments,
+  moveDimension,
+  startDimension,
+  type DimensionDraw,
+  type DimensionKind,
 } from '@ziroeda/pcbnew';
+import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -1164,12 +1172,15 @@ export function PcbEditor({
     a: { x: number; y: number };
     b: { x: number; y: number } | null;
   } | null>(null);
-  // Switching tools abandons the in-flight shape/route/zone/ruler.
+  /** The dimension being placed (DRAWING_TOOL::DrawDimension's in-flight item). */
+  const dimensionRef = useRef<DimensionDraw | null>(null);
+  // Switching tools abandons the in-flight shape/route/zone/ruler/dimension.
   useEffect(() => {
     drawingRef.current = [];
     routeRef.current = null;
     zoneRef.current = null;
     measureRef.current = null;
+    dimensionRef.current = null;
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
   const rafRef = useRef(0);
@@ -1724,6 +1735,28 @@ export function PcbEditor({
         ctx.beginPath();
         ctx.moveTo(r.last.x, r.last.y);
         for (const p of routePath(r.last, end)) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // Dimension preview (DRAWING_TOOL::DrawDimension): the real geometry the
+    // engine would produce, so what you see while placing is what you commit.
+    {
+      const dr = dimensionRef.current;
+      const cur0 = cursorRef.current;
+      if (dr && cur0) {
+        const live = moveDimension(dr, snapToGrid(cur0)).dimension;
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = layerColor(live.layer);
+        ctx.lineWidth = Math.max(live.style.thickness, Math.max(1, dpr) / v.scale);
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        for (const seg of dimensionSegments(live)) {
+          ctx.moveTo(seg.a.x, seg.a.y);
+          ctx.lineTo(seg.b.x, seg.b.y);
+        }
         ctx.stroke();
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3508,6 +3541,46 @@ export function PcbEditor({
   // One left click of the Draw Filled Zones tool: the first click opens the
   // Copper Zone Properties dialog; afterwards clicks collect the outline,
   // closing back on the first corner commits the (unfilled) zone.
+  /**
+   * A click with a dimension tool active (DRAWING_TOOL::DrawDimension).
+   *
+   * The first click starts one; later clicks advance it. Aligned and orthogonal
+   * take a third click for the crossbar, the other three finish on the second —
+   * the engine decides, this only commits when it says `done`.
+   */
+  const handleDimensionClick = (world: { x: number; y: number }, kind: DimensionKind): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const p = snapToGrid(world);
+    const cur = dimensionRef.current;
+
+    if (!cur) {
+      const tg = boardSetupRef.current.textGraphics;
+      dimensionRef.current = startDimension(
+        kind,
+        p,
+        dimensionDefaultsFrom(
+          tg.dimensions,
+          activeLayer,
+          shapeWidthIU(activeLayer),
+          Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
+          Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
+        ),
+      );
+      requestDraw();
+      return;
+    }
+
+    const next = clickDimension(cur, p);
+    if (next.done) {
+      commitBoard(addBoardDimension(brd, next.dimension).board);
+      dimensionRef.current = null;
+    } else {
+      dimensionRef.current = next;
+    }
+    requestDraw();
+  };
+
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -4356,6 +4429,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placeText') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) setTextDialog(snapToGrid(w));
+        } else if (dimensionToolKind(activeToolRef.current)) {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleDimensionClick(w, dimensionToolKind(activeToolRef.current)!);
         } else if (activeToolRef.current === 'drawZone') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleZoneClick(w);
@@ -4533,6 +4609,9 @@ export function PcbEditor({
         } else if (routeRef.current) {
           // Esc ends the route in progress; committed segments stay.
           routeRef.current = null;
+          requestDrawRef.current();
+        } else if (dimensionRef.current) {
+          dimensionRef.current = null;
           requestDrawRef.current();
         } else if (zoneRef.current) {
           zoneRef.current = null;
