@@ -242,6 +242,34 @@ export {
   applyZoneValues,
   type ZoneValues,
 } from './zone_properties.js';
+// Rule Area Properties (pcbnew/dialogs/dialog_rule_area_properties.cpp).
+export {
+  collectRuleAreaValues,
+  applyRuleAreaValues,
+  ruleAreaValuesError,
+  hasKeepoutParametersSet,
+  initialRuleAreaPage,
+  collectPlacementSources,
+  collectPlacementPage,
+  placementFromPage,
+  withPlacementRadio,
+  withPlacementSelection,
+  NO_LAYERS_SELECTED,
+  type RuleAreaValues,
+  type PlacementSources,
+  type PlacementPage,
+  type PlacementCombo,
+  type ZoneBorderStyle,
+  type ZoneValueError,
+} from './rule_area_properties.js';
+// Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
+export {
+  collectNonCopperZoneValues,
+  applyNonCopperZoneValues,
+  nonCopperZoneValuesError,
+  NO_LAYER_SELECTED,
+  type NonCopperZoneValues,
+} from './non_copper_zone_properties.js';
 export {
   footprintAt,
   collectFootprintValues,

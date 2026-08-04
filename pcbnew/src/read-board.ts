@@ -54,6 +54,7 @@ import type {
   PcbTextItem,
   PcbZone,
   PcbZoneFill,
+  PlacementSourceType,
   StrokeType,
   TeardropParams,
   UnconnectedLayerMode,
@@ -1015,7 +1016,16 @@ function readZone(item: SList): PcbZone {
     ruleArea: (() => {
       // "keepout" now means rule area, but the file token stayed the same.
       const ko = childNamed(item, 'keepout');
-      if (!ko) return undefined;
+
+      if (!ko) {
+        // The parser's `placement` case calls SetIsRuleArea( true ) as well,
+        // and — unlike the `keepout` case — touches none of the do-not-allow
+        // flags, so they stand at the default zone settings the parser's ZONE
+        // was constructed from: tracks, vias and pads forbidden, copper pour
+        // and footprints allowed (ZONE_SETTINGS::ZONE_SETTINGS).
+        if (!childNamed(item, 'placement')) return undefined;
+        return { tracks: true, vias: true, pads: true, copperPour: false, footprints: false };
+      }
 
       // pads and footprints post-date the token, so a file written before them
       // has neither — upstream initialises both to allowed rather than
@@ -1032,6 +1042,30 @@ function readZone(item: SList): PcbZone {
         copperPour: flag('copperpour'),
         footprints: flag('footprints'),
       };
+    })(),
+    placementArea: (() => {
+      const node = childNamed(item, 'placement');
+      if (!node) return undefined;
+
+      // Upstream walks the children in order and lets each name token
+      // overwrite both the type and the source, so when a hand-edited file
+      // names two sources the *last* one wins. Absent all three, the ZONE
+      // constructor's SHEETNAME and an empty name stand.
+      let sourceType: PlacementSourceType = 'sheetname';
+      let source = '';
+      let enabled = false;
+
+      for (const child of node.items) {
+        if (!isList(child)) continue;
+        const name = head(child);
+        if (name === 'enabled') enabled = arg(child, 0) === 'yes';
+        else if (name === 'sheetname' || name === 'component_class' || name === 'group') {
+          sourceType = name;
+          source = arg(child, 0) ?? '';
+        }
+      }
+
+      return { enabled, sourceType, source };
     })(),
     uuid: uuidOf(item),
     source: item,
