@@ -909,6 +909,13 @@ function writeTableCell(cell: SchTableCell): SList {
   if (childNamed(node, 'size')) {
     node = mapChild(node, 'size', () => list(atom('size'), atom(mm(size.x)), atom(mm(size.y))));
   }
+  // The span was read and never written back, because until merge/unmerge
+  // nothing could change it. It is added when absent as well as patched: a cell
+  // that had no `(span ...)` is a 1x1 one, and after a merge it is not.
+  const span = list(atom('span'), atom(String(cell.colSpan)), atom(String(cell.rowSpan)));
+  node = childNamed(node, 'span')
+    ? mapChild(node, 'span', () => span)
+    : { kind: 'list', items: [...node.items, span] };
   return node;
 }
 

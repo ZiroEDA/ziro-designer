@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema';
+import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
   canMerge,
   canUnmerge,
@@ -141,6 +141,39 @@ describe('the block a selection spans', () => {
     // while still looking like it worked.
     const t = mergeCells(table(), [0, 1]);
     expect(cellBlock(t, [1])).toEqual({ colMin: 1, colMax: 2, rowMin: 0, rowMax: 1 });
+  });
+});
+
+describe('reaching the file', () => {
+  it('writes the new spans, so a merge survives a save', () => {
+    // The writer patched a cell's text, position and size but never its span,
+    // because until merge/unmerge nothing could change one. A merge that did
+    // not reach the file would come back unmerged on the next open.
+    const d = doc();
+    const after = tableCellsCommand(d, [id(0), id(1)], 'merge')!.apply(d);
+    const text = serializeSchematic(after);
+    expect(text).toContain('(span 2 1)');
+    expect(text).toContain('(span 0 0)');
+    expect(readSchematic(parse(text)).tables[0]!.cells[0]!.colSpan).toBe(2);
+  });
+
+  it('adds a span to a cell that never had one', () => {
+    // A cell with no `(span ...)` reads as 1x1; after a merge it is not, so
+    // patching an absent node is not enough — it has to be added.
+    const bare = readSchematic(
+      parse(`(kicad_sch (version 20250114) (paper "A4") (lib_symbols)
+        (table (column_count 2) (border (external yes) (header yes))
+          (separators (rows yes) (cols yes))
+          (column_widths 20 20) (row_heights 10) (uuid "t-2")
+          (cells
+            (table_cell "a" (at 10 10 0) (size 20 10)
+              (effects (font (size 1.27 1.27))))
+            (table_cell "b" (at 30 10 0) (size 20 10)
+              (effects (font (size 1.27 1.27)))))))`),
+    );
+    const merged = mergeCells(bare.tables[0]!, [0, 1]);
+    const text = serializeSchematic({ ...bare, tables: [merged] });
+    expect(text).toContain('(span 2 1)');
   });
 });
 
