@@ -105,12 +105,14 @@ import {
   dragBoardHandle,
   type BoardEditHandle,
   addBoardDimension,
+  addBoardTextBox,
   clickDimension,
   dimensionSegments,
   moveDimension,
   startDimension,
   type DimensionDraw,
   type DimensionKind,
+  type PcbTextBox,
 } from '@ziroeda/pcbnew';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
@@ -121,6 +123,10 @@ import {
   textBoxAt,
   type TextBoxValues,
 } from '@ziroeda/pcbnew/src/textbox_properties.js';
+import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/src/draw_textbox.js';
+
+/** An empty source node, for an item that has not been saved yet. */
+const EMPTY_SLIST = { kind: 'list' as const, items: [] };
 import {
   applyDimensionValues,
   collectDimensionValues,
@@ -1103,6 +1109,14 @@ export function PcbEditor({
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
+  /**
+   * A text box drawn but not yet confirmed. Upstream opens the properties
+   * dialog straight after the second click and throws the box away if it is
+   * cancelled, so it is not on the board until OK.
+   */
+  const [pendingTextBox, setPendingTextBox] = useState<Omit<PcbTextBox, 'source'> | null>(null);
+  /** The first corner of a text box being drawn. */
+  const textBoxStartRef = useRef<{ x: number; y: number } | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -1198,6 +1212,7 @@ export function PcbEditor({
     zoneRef.current = null;
     measureRef.current = null;
     dimensionRef.current = null;
+    textBoxStartRef.current = null;
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
   const rafRef = useRef(0);
@@ -1753,6 +1768,22 @@ export function PcbEditor({
         ctx.moveTo(r.last.x, r.last.y);
         for (const p of routePath(r.last, end)) ctx.lineTo(p.x, p.y);
         ctx.stroke();
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // Text box preview: the rectangle being dragged out, before the dialog.
+    {
+      const first = textBoxStartRef.current;
+      const cur0 = cursorRef.current;
+      if (first && cur0) {
+        const p = snapToGrid(cur0);
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = layerColor(activeLayer);
+        ctx.lineWidth = Math.max(1, dpr) / v.scale;
+        ctx.globalAlpha = 0.9;
+        ctx.strokeRect(first.x, first.y, p.x - first.x, p.y - first.y);
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -3598,6 +3629,36 @@ export function PcbEditor({
     requestDraw();
   };
 
+  /**
+   * A click with the text box tool active (DRAWING_TOOL::DrawRectangle with
+   * isTextBox). Two corners, then the properties dialog decides whether the box
+   * is kept at all.
+   */
+  const handleTextBoxClick = (world: { x: number; y: number }): void => {
+    const p = snapToGrid(world);
+    const first = textBoxStartRef.current;
+    if (!first) {
+      textBoxStartRef.current = p;
+      requestDraw();
+      return;
+    }
+    // A rectangle with no width or height is not a box; keep waiting.
+    if (!isDrawableTextBox(first, p)) return;
+
+    const tg = boardSetupRef.current.textGraphics;
+    setPendingTextBox(
+      newTextBox(first, p, {
+        layer: activeLayer,
+        textSize: Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
+        textThickness: Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
+        borderWidth: shapeWidthIU(activeLayer),
+        borderStyle: 'solid',
+      }),
+    );
+    textBoxStartRef.current = null;
+    requestDraw();
+  };
+
   const handleZoneClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -4484,6 +4545,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placeText') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) setTextDialog(snapToGrid(w));
+        } else if (activeToolRef.current === 'drawTextBox') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleTextBoxClick(w);
         } else if (dimensionToolKind(activeToolRef.current)) {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleDimensionClick(w, dimensionToolKind(activeToolRef.current)!);
@@ -4664,6 +4728,9 @@ export function PcbEditor({
         } else if (routeRef.current) {
           // Esc ends the route in progress; committed segments stay.
           routeRef.current = null;
+          requestDrawRef.current();
+        } else if (textBoxStartRef.current) {
+          textBoxStartRef.current = null;
           requestDrawRef.current();
         } else if (dimensionRef.current) {
           dimensionRef.current = null;
@@ -7191,6 +7258,25 @@ export function PcbEditor({
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
           onClose={() => setShapePropsIndex(null)}
+        />
+      )}
+      {pendingTextBox && (
+        <DialogTextBoxProperties
+          initial={collectTextBoxValues({ ...pendingTextBox, source: EMPTY_SLIST })}
+          layers={board?.layers.map((l) => l.name) ?? []}
+          placing
+          onApply={(values) => {
+            const brd = boardRef.current;
+            const box = pendingTextBox;
+            setPendingTextBox(null);
+            if (!brd || !box) return;
+            const { board: withBox, id } = addBoardTextBox(brd, box);
+            const index = parseBoardItemId(id)?.index ?? 0;
+            // Apply what was typed to the box just added, then commit once so
+            // the placement is a single undo step.
+            commitBoard(applyTextBoxValues(withBox, index, values));
+          }}
+          onClose={() => setPendingTextBox(null)}
         />
       )}
       {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (

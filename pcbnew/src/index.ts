@@ -60,6 +60,7 @@ export {
   addBoardVia,
   addBoardText,
   addBoardDimension,
+  addBoardTextBox,
   addBoardZone,
   rotateBoardItems,
   rotateBoardItemsBy,
@@ -442,3 +443,12 @@ export {
   type HorizJustify,
   type VertJustify,
 } from './textbox_properties.js';
+
+export {
+  newTextBox,
+  normalizeCorners,
+  legacyTextMargin,
+  isDrawableTextBox,
+  DEFAULT_TEXTBOX_DEFAULTS,
+  type TextBoxDefaults,
+} from './draw_textbox.js';

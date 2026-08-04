@@ -1520,6 +1520,24 @@ export function addBoardText(
 }
 
 /**
+ * Append a freshly-drawn text box (`DRAWING_TOOL::DrawRectangle`'s commit with
+ * `isTextBox`).
+ *
+ * Source-less, so the writer builds the node from the model — there is nothing
+ * to patch until it has been saved once.
+ */
+export function addBoardTextBox(
+  board: Board,
+  box: Omit<PcbTextBox, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbTextBox = { ...box, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, textBoxes: [...board.textBoxes, withSource] },
+    id: boardItemId('textbox', board.textBoxes.length),
+  };
+}
+
+/**
  * Append a freshly-placed dimension (`DRAWING_TOOL::DrawDimension`'s commit).
  *
  * The item carries an empty source node, so the writer builds it from the model
