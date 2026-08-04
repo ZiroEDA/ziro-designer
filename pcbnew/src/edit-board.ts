@@ -1578,6 +1578,23 @@ export function addBoardText(
 }
 
 /**
+ * Append a freshly-drawn table (`DRAWING_TOOL::DrawTable`'s commit).
+ *
+ * Source-less, so the writer builds the node — and every cell's node — from the
+ * model on the first save.
+ */
+export function addBoardTable(
+  board: Board,
+  table: Omit<PcbTable, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbTable = { ...table, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, tables: [...board.tables, withSource] },
+    id: boardItemId('table', board.tables.length),
+  };
+}
+
+/**
  * Append a freshly-drawn text box (`DRAWING_TOOL::DrawRectangle`'s commit with
  * `isTextBox`).
  *

@@ -106,12 +106,14 @@ import {
   type BoardEditHandle,
   addBoardDimension,
   addBoardTextBox,
+  addBoardTable,
   clickDimension,
   dimensionSegments,
   moveDimension,
   startDimension,
   type DimensionDraw,
   type DimensionKind,
+  type PcbTable,
   type PcbTextBox,
 } from '@ziroeda/pcbnew';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
@@ -131,6 +133,7 @@ import {
   type TextBoxValues,
 } from '@ziroeda/pcbnew/src/textbox_properties.js';
 import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/src/draw_textbox.js';
+import { newTable, type TableDefaults } from '@ziroeda/pcbnew/src/draw_table.js';
 
 /** An empty source node, for an item that has not been saved yet. */
 const EMPTY_SLIST = { kind: 'list' as const, items: [] };
@@ -1126,6 +1129,10 @@ export function PcbEditor({
   const [pendingTextBox, setPendingTextBox] = useState<Omit<PcbTextBox, 'source'> | null>(null);
   /** The first corner of a text box being drawn. */
   const textBoxStartRef = useRef<{ x: number; y: number } | null>(null);
+  /** A table drawn but not yet confirmed; its dialog decides whether it stays. */
+  const [pendingTable, setPendingTable] = useState<Omit<PcbTable, 'source'> | null>(null);
+  /** The first corner of a table being drawn. */
+  const tableStartRef = useRef<{ x: number; y: number } | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -1222,6 +1229,7 @@ export function PcbEditor({
     measureRef.current = null;
     dimensionRef.current = null;
     textBoxStartRef.current = null;
+    tableStartRef.current = null;
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
   const rafRef = useRef(0);
@@ -1776,6 +1784,28 @@ export function PcbEditor({
         ctx.beginPath();
         ctx.moveTo(r.last.x, r.last.y);
         for (const p of routePath(r.last, end)) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // Table preview: the grid this drag would produce, drawn from the engine's
+    // own cells so the shape shown is the shape committed.
+    {
+      const first = tableStartRef.current;
+      const cur0 = cursorRef.current;
+      if (first && cur0) {
+        const preview = newTable(first, snapToGrid(cur0), tableDefaults());
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        ctx.strokeStyle = layerColor(activeLayer);
+        ctx.lineWidth = Math.max(1, dpr) / v.scale;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        for (const c of preview.cells) {
+          if (!c.start || !c.end) continue;
+          ctx.rect(c.start.x, c.start.y, c.end.x - c.start.x, c.end.y - c.start.y);
+        }
         ctx.stroke();
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3643,6 +3673,36 @@ export function PcbEditor({
    * isTextBox). Two corners, then the properties dialog decides whether the box
    * is kept at all.
    */
+  /** Board Setup values a freshly-drawn table takes, shared by preview and commit. */
+  const tableDefaults = (): TableDefaults => {
+    const tg = boardSetupRef.current.textGraphics;
+    return {
+      layer: activeLayer,
+      fontWidth: Math.round((tg.rows[0]?.textWidth ?? 1) * MM),
+      fontHeight: Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
+      textThickness: Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
+      lineThickness: shapeWidthIU(activeLayer),
+      gridPitch: gridIURef.current,
+    };
+  };
+
+  /**
+   * A click with the table tool active (DRAWING_TOOL::DrawTable). Two clicks,
+   * then the properties dialog decides whether the table is kept at all.
+   */
+  const handleTableClick = (world: { x: number; y: number }): void => {
+    const p = snapToGrid(world);
+    const first = tableStartRef.current;
+    if (!first) {
+      tableStartRef.current = p;
+      requestDraw();
+      return;
+    }
+    setPendingTable(newTable(first, p, tableDefaults()));
+    tableStartRef.current = null;
+    requestDraw();
+  };
+
   const handleTextBoxClick = (world: { x: number; y: number }): void => {
     const p = snapToGrid(world);
     const first = textBoxStartRef.current;
@@ -4573,6 +4633,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placeText') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) setTextDialog(snapToGrid(w));
+        } else if (activeToolRef.current === 'drawTable') {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleTableClick(w);
         } else if (activeToolRef.current === 'drawTextBox') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleTextBoxClick(w);
@@ -4756,6 +4819,9 @@ export function PcbEditor({
         } else if (routeRef.current) {
           // Esc ends the route in progress; committed segments stay.
           routeRef.current = null;
+          requestDrawRef.current();
+        } else if (tableStartRef.current) {
+          tableStartRef.current = null;
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
           textBoxStartRef.current = null;
@@ -7286,6 +7352,23 @@ export function PcbEditor({
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
           onClose={() => setShapePropsIndex(null)}
+        />
+      )}
+      {pendingTable && (
+        <DialogTableProperties
+          initial={collectTableValues({ ...pendingTable, source: EMPTY_SLIST })}
+          layers={board?.layers.map((l) => l.name) ?? []}
+          onApply={(values) => {
+            const brd = boardRef.current;
+            const tbl = pendingTable;
+            setPendingTable(null);
+            if (!brd || !tbl) return;
+            const { board: withTable, id } = addBoardTable(brd, tbl);
+            const index = parseBoardItemId(id)?.index ?? 0;
+            // One commit, so placing a table is a single undo step.
+            commitBoard(applyTableValues(withTable, index, values));
+          }}
+          onClose={() => setPendingTable(null)}
         />
       )}
       {pendingTextBox && (

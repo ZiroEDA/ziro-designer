@@ -61,6 +61,7 @@ export {
   addBoardText,
   addBoardDimension,
   addBoardTextBox,
+  addBoardTable,
   addBoardZone,
   rotateBoardItems,
   rotateBoardItemsBy,
@@ -471,3 +472,15 @@ export {
   displayToStoredCol,
   type TableValues,
 } from './table_properties.js';
+
+export {
+  newTable,
+  tableGridSize,
+  tableCellSize,
+  DEFAULT_TABLE_DEFAULTS,
+  COL_STEP_IN_FONT_WIDTHS,
+  ROW_STEP_IN_FONT_HEIGHTS,
+  MIN_CELL_IN_FONT_WIDTHS,
+  MIN_CELL_IN_FONT_HEIGHTS,
+  type TableDefaults,
+} from './draw_table.js';
