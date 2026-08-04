@@ -477,8 +477,6 @@ export interface PcbImage {
 
 /**
  * One cell of a table, KiCad `(table_cell "…" …)`.
-/**
- * One cell of a table, KiCad `(table_cell "…" …)`.
  * Counterpart: `PCB_TABLECELL`, which *is* a `PCB_TEXTBOX` — upstream
  * serialises a cell by calling `format(static_cast<PCB_TEXTBOX*>(cell))`.
  *

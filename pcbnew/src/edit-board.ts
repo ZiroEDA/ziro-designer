@@ -1672,6 +1672,18 @@ export function addBoardDimension(
   };
 }
 
+/** Append a freshly-placed reference image (`DRAWING_TOOL::PlaceReferenceImage`'s commit). */
+export function addBoardImage(
+  board: Board,
+  image: Omit<PcbImage, 'source'>,
+): { board: Board; id: string } {
+  const withSource: PcbImage = { ...image, source: { kind: 'list', items: [] } };
+  return {
+    board: { ...board, images: [...board.images, withSource] },
+    id: boardItemId('image', board.images.length),
+  };
+}
+
 /** Append a freshly-drawn (unfilled) zone (DRAWING_TOOL::DrawZone commit). */
 export function addBoardZone(
   board: Board,
