@@ -126,6 +126,17 @@ export function buildViaNode(v: PcbVia): SList {
     { kind: 'list', items: [atom('layers'), str(v.layers[0]), str(v.layers[1])] },
     list(atom('net'), atom(String(v.net))),
   );
+  // `format( const PCB_TRACK* )` for a via spells UNCONNECTED_LAYER_MODE right
+  // after the layer pair, and writes nothing at all for KEEP_ALL. `remove_all`
+  // still emits an explicit `(keep_end_layers no)`, which the via parser then
+  // ignores — reproduced so a file we write matches one KiCad writes.
+  if (v.unconnectedLayerMode === 'start_end_only') {
+    items.push(list(atom('start_end_only'), atom('yes')));
+  } else if (v.unconnectedLayerMode !== undefined && v.unconnectedLayerMode !== 'keep_all') {
+    items.push(list(atom('remove_unused_layers'), atom('yes')));
+    const keep = v.unconnectedLayerMode === 'remove_except_start_and_end';
+    items.push(list(atom('keep_end_layers'), atom(keep ? 'yes' : 'no')));
+  }
   if (!isDefaultTeardropParams(v.teardrops)) items.push(buildTeardropParamsNode(v.teardrops!));
   if (v.uuid) items.push(list(atom('uuid'), str(v.uuid)));
   return { kind: 'list', items };

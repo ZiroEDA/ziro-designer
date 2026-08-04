@@ -124,6 +124,18 @@ export function buildPadNode(pad: PcbPad): SList {
     items.push({ kind: 'list', items: d });
   }
   items.push({ kind: 'list', items: [atom('layers'), ...pad.layers.map((l) => str(l))] });
+  // `format( const PAD* )` writes the unconnected-layer tokens right after the
+  // layer list, and for PAD_ATTRIB::PTH only. Upstream emits `no` on every PTH
+  // pad; we emit nothing when the model never learnt a mode, so a pad rebuilt
+  // from scratch does not sprout a token the source never had.
+  if (pad.type === 'thru_hole' && pad.unconnectedLayerMode !== undefined) {
+    const remove = pad.unconnectedLayerMode !== 'keep_all';
+    items.push(list(atom('remove_unused_layers'), atom(remove ? 'yes' : 'no')));
+    if (remove) {
+      const keep = pad.unconnectedLayerMode === 'remove_except_start_and_end';
+      items.push(list(atom('keep_end_layers'), atom(keep ? 'yes' : 'no')));
+    }
+  }
   if (pad.roundrectRatio !== undefined)
     items.push(list(atom('roundrect_rratio'), atom(mm(pad.roundrectRatio))));
   if (pad.chamferRatio !== undefined)
