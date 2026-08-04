@@ -41,7 +41,7 @@ export const ALIGN_LABELS: Record<AlignMode, string> = {
 };
 
 /** One selected item: what to move, where it is, and whether it may move. */
-interface ItemBox {
+export interface ItemBox {
   id: string;
   box: BBox;
   /** The item's own anchor, which the grid snap is applied to. */
@@ -66,12 +66,14 @@ const boxOf = (a: Vec2, b: Vec2): BBox => ({
  */
 export function alignBoxes(
   doc: Schematic,
-  ids: ReadonlySet<string>,
+  ids: ReadonlySet<string> | null,
   libById: Map<string, LibSymbol>,
 ): ItemBox[] {
   const out: ItemBox[] = [];
   const add = (id: string, box: BBox, anchor: Vec2, connectable: boolean, locked = false): void => {
-    if (ids.has(id)) out.push({ id, box, anchor, locked, connectable });
+    // A null id set means "every item", which is what the whole-sheet extent
+    // wants; alignment always passes a real selection.
+    if (ids === null || ids.has(id)) out.push({ id, box, anchor, locked, connectable });
   };
 
   doc.symbols.forEach((s, i) =>
@@ -117,6 +119,18 @@ export function alignBoxes(
   doc.textBoxes.forEach((t, i) =>
     add(refId('textbox', t.uuid, i), boxOf(t.start, t.end), t.start, false),
   );
+  // A table's extent is its cells': the table node itself carries only column
+  // widths and row heights, so an empty table has no geometry to align to.
+  doc.tables.forEach((t, i) => {
+    if (!t.cells.length) return;
+    const box: BBox = {
+      minX: Math.min(...t.cells.map((c) => Math.min(c.start.x, c.end.x))),
+      minY: Math.min(...t.cells.map((c) => Math.min(c.start.y, c.end.y))),
+      maxX: Math.max(...t.cells.map((c) => Math.max(c.start.x, c.end.x))),
+      maxY: Math.max(...t.cells.map((c) => Math.max(c.start.y, c.end.y))),
+    };
+    add(refId('table', t.uuid, i), box, { x: box.minX, y: box.minY }, false);
+  });
   doc.images.forEach((im, i) => {
     const s = imageSizeIU(im);
     add(

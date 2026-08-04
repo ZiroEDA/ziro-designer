@@ -69,6 +69,7 @@ import {
   parsePastedText,
   boxSelect,
   symbolBodyBBox,
+  selectionBBox,
   labelBox,
   emptyBBox,
   type BBox,
@@ -4254,37 +4255,10 @@ export function SchematicEditor({
       else if (id === 'zoomRedraw') controller.current?.redraw();
       else if (id === 'zoomTool') setActiveTool('zoomTool');
       else if (id === 'zoomFitSelection') {
-        // Zoom to Selected Objects: fit the view to the selection's extent.
-        const box = emptyBBox();
-        doc?.symbols.forEach((s, i) => {
-          if (selection.has(refId('symbol', s.uuid, i))) {
-            const b = symbolBodyBBox(s, libById.get(s.libId));
-            includePoint(box, { x: b.minX, y: b.minY });
-            includePoint(box, { x: b.maxX, y: b.maxY });
-          }
-        });
-        doc?.labels.forEach((l, i) => {
-          if (selection.has(refId('label', l.uuid, i))) {
-            const b = labelBox(l);
-            includePoint(box, { x: b.minX, y: b.minY });
-            includePoint(box, { x: b.maxX, y: b.maxY });
-          }
-        });
-        doc?.lines.forEach((l, i) => {
-          if (selection.has(refId('line', l.uuid, i))) {
-            includePoint(box, l.start);
-            includePoint(box, l.end);
-          }
-        });
-        doc?.junctions.forEach((j, i) => {
-          if (selection.has(refId('junction', j.uuid, i))) includePoint(box, j.at);
-        });
-        doc?.sheets.forEach((sh, i) => {
-          if (selection.has(refId('sheet', sh.uuid, i))) {
-            includePoint(box, sh.at);
-            includePoint(box, { x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h });
-          }
-        });
+        // Zoom to Selected Objects. The extent comes from the one walk that
+        // knows every item kind; this used to have its own, and it covered five
+        // kinds of fifteen, so selecting a text box and zooming did nothing.
+        const box = doc ? selectionBBox(doc, selection, libById) : emptyBBox();
         if (!isEmpty(box)) controller.current?.zoomToBox(box);
       } else if (id === 'undo') undo();
       else if (id === 'redo') redo();

@@ -1450,7 +1450,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           fitPendingRef.current = true;
           return;
         }
-        viewportRef.current = fitToContent(schematic, c.width, c.height, !objectsOnly);
+        viewportRef.current = fitToContent(schematic, c.width, c.height, !objectsOnly, libById);
         requestDraw();
       },
       zoomToBox: (box) => {
@@ -1513,7 +1513,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     }
     sizedRef.current = true;
     if (!viewportRef.current || fitPendingRef.current) {
-      viewportRef.current = fitToContent(schematicRef.current, canvas.width, canvas.height);
+      viewportRef.current = fitToContent(
+        schematicRef.current,
+        canvas.width,
+        canvas.height,
+        true,
+        libById,
+      );
       fitPendingRef.current = false;
     }
     requestDraw();
