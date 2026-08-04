@@ -152,3 +152,79 @@ describe('the panels a resolved ref feeds', () => {
     expect(getMsgPanelItems(KITCHEN_SINK, LIB, ref, fmt)).toEqual([]);
   });
 });
+
+describe('the message panel arms added alongside the sweep', () => {
+  const LIB = new Map<string, LibSymbol>();
+  const fmt = (iu: number): string => `${iu}`;
+  const rowsFor = (id: string, net?: string) =>
+    getMsgPanelItems(KITCHEN_SINK, LIB, itemRefById(KITCHEN_SINK, id)!, fmt, net);
+
+  it('a text box reports its raw text', () => {
+    // Upstream deliberately does not resolve variables here: "we want to show
+    // the user the variable references".
+    const rows = rowsFor(refId('textbox', 'tb-1', 0));
+    expect(rows[0]).toEqual({ upper: 'Text Box', lower: 'hi' });
+  });
+
+  it('a bus entry reports its type, and its net when it has one', () => {
+    const plain = rowsFor(refId('busentry', 'be-1', 0));
+    expect(plain).toEqual([{ upper: 'Bus Entry Type', lower: 'Wire' }]);
+    const wired = rowsFor(refId('busentry', 'be-1', 0), 'VCC');
+    expect(wired.map((r) => r.upper)).toEqual([
+      'Bus Entry Type',
+      'Connection Name',
+      'Resolved Netclass',
+    ]);
+    expect(wired[2]!.lower).toBe('Default');
+  });
+
+  it('a rectangle reports its name and both dimensions', () => {
+    const rows = rowsFor(refId('graphic', undefined, 0));
+    expect(rows[0]).toEqual({ upper: 'Shape', lower: 'Rectangle' });
+    expect(rows.map((r) => r.upper)).toEqual(['Shape', 'Width', 'Height']);
+    // The fixture is 10mm x 10mm; the numbers come through fmt unchanged.
+    expect(rows[1]!.lower).toBe(rows[2]!.lower);
+  });
+
+  it('a circle reports a radius rather than width and height', () => {
+    const d = sheet(`(circle (center 10 10) (radius 5)
+       (stroke (width 0) (type default)) (fill (type none)) (uuid "c-1"))`);
+    const ref = itemRefById(d, refId('graphic', undefined, 0))!;
+    const rows = getMsgPanelItems(d, LIB, ref, fmt);
+    expect(rows.map((r) => r.upper)).toEqual(['Shape', 'Radius']);
+    expect(rows[0]!.lower).toBe('Circle');
+  });
+});
+
+describe('an image reports what SCH_BITMAP reports', () => {
+  const LIB = new Map<string, LibSymbol>();
+  const fmt = (iu: number): string => `${iu}`;
+
+  it('lists Bitmap, PPI, Scale, Width and Height in upstream order', () => {
+    const ref = itemRefById(KITCHEN_SINK, refId('image', 'im-1', 0))!;
+    const rows = getMsgPanelItems(KITCHEN_SINK, LIB, ref, fmt);
+    expect(rows.map((r) => r.upper)).toEqual(['Bitmap', 'PPI', 'Scale', 'Width', 'Height']);
+    // The first row is a bare title upstream, with no value beside it.
+    expect(rows[0]!.lower).toBe('');
+  });
+
+  it('takes the scale from the model, so an edit shows up', () => {
+    const d = sheet(`(image (at 60 60) (scale 2.5) (uuid "im-2") (data "iVBORw0KGgo="))`);
+    const ref = itemRefById(d, refId('image', 'im-2', 0))!;
+    const rows = getMsgPanelItems(d, LIB, ref, fmt);
+    expect(rows.find((r) => r.upper === 'Scale')!.lower).toBe('2.5');
+  });
+
+  it('scales the reported size with the image scale', () => {
+    // imageSizeIU multiplies by the scale, so doubling it doubles both
+    // dimensions. Asserted as a ratio rather than a literal, because the
+    // fixture's PNG is a stub and falls back to a default pixel size.
+    const one = sheet(`(image (at 0 0) (scale 1) (uuid "a") (data "iVBORw0KGgo="))`);
+    const two = sheet(`(image (at 0 0) (scale 2) (uuid "b") (data "iVBORw0KGgo="))`);
+    const w = (d: Schematic): number => {
+      const ref = itemRefById(d, refId('image', d.images[0]!.uuid, 0))!;
+      return Number(getMsgPanelItems(d, LIB, ref, fmt).find((r) => r.upper === 'Width')!.lower);
+    };
+    expect(w(two)).toBe(w(one) * 2);
+  });
+});
