@@ -350,6 +350,7 @@ import {
 import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from './components/SchematicCanvas.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
+import { SearchPanel } from './components/SearchPanel.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import '../../ui/shell.css';
 
@@ -5078,6 +5079,7 @@ export function SchematicEditor({
           toggleHiddenPins: es.appearance.show_hidden_pins,
           toggleHiddenFields: es.appearance.show_hidden_fields,
           showProperties: toggles.has('showProperties'),
+          showSearch: toggles.has('showSearch'),
           showHierarchy: toggles.has('showHierarchy'),
           // Each attribute shows checked only when everything the action would
           // touch already carries it, the same test the action itself uses.
@@ -5263,6 +5265,11 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        // ACTIONS::showSearch (Ctrl+G): toggle the Search panel. Distinct from
+        // Ctrl+Shift+G above, which is grid overrides.
+        e.preventDefault();
+        onLeftToggle('showSearch');
       } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
         // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
         // indices into the grid list, stored 1-based as KiCad stores them.
@@ -5702,8 +5709,27 @@ export function SchematicEditor({
       />
 
       <div className="ze-body">
-        {(toggles.has('showProperties') || toggles.has('showHierarchy')) && (
+        {(toggles.has('showProperties') ||
+          toggles.has('showHierarchy') ||
+          toggles.has('showSearch')) && (
           <div className="ze-leftdock">
+            {toggles.has('showSearch') && doc && (
+              <div className="ze-panel grow">
+                <div className="ze-panel-header">Search</div>
+                <div className="ze-panel-body">
+                  <SearchPanel
+                    doc={doc}
+                    libById={libById}
+                    fmt={fmt}
+                    onSelect={(id) => setSelection(new Set([id]))}
+                    onFocus={(id, at) => {
+                      setSelection(new Set([id]));
+                      controller.current?.centerOn(at);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             {toggles.has('showProperties') && (
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Properties</div>

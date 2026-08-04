@@ -21,7 +21,7 @@
  *    then substring, so `R?` and `^R1$` both work without a mode selector.
  */
 
-import type { LibSymbol, Schematic } from '../types.js';
+import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { matchesText, type SchSearchData, defaultSearchData } from './sch_find_replace_tool.js';
 
@@ -34,6 +34,8 @@ export interface SearchHit {
   id: string;
   /** The row's cells, in the order that tab's columns are declared. */
   cells: string[];
+  /** Where to centre the view on a double-click (SEARCH_HANDLER::FocusItem). */
+  at: Vec2;
 }
 
 /** The columns each tab shows, in upstream's order. */
@@ -60,7 +62,13 @@ export function searchPaneData(query: string, searchHiddenFields = false): SchSe
   };
 }
 
-const fmt = (n: number): string => String(n);
+/**
+ * X and Y are shown in the user's units, as upstream's
+ * `MessageTextFromValue` does; the caller injects the formatter for the same
+ * reason the message panel does — the engine has no notion of the frame's unit
+ * setting. Raw internal units is the fallback, not the intent.
+ */
+export type ValueFormatter = (iu: number) => string;
 
 /** The label kinds' display names, as the Type column shows them. */
 const LABEL_TYPE: Record<string, string> = {
@@ -81,6 +89,7 @@ export function searchSchematic(
   libById: ReadonlyMap<string, LibSymbol>,
   query: string,
   searchHiddenFields = false,
+  fmt: ValueFormatter = (n) => String(n),
 ): SearchHit[] {
   const d = searchPaneData(query, searchHiddenFields);
   if (!d.findString) return [];
@@ -103,11 +112,13 @@ export function searchSchematic(
             kind: 'power',
             id: refId('symbol', sym.uuid, i),
             cells: [field('Reference'), field('Value'), ...at],
+            at: sym.at,
           }
         : {
             kind: 'symbol',
             id: refId('symbol', sym.uuid, i),
             cells: [field('Reference'), field('Value'), field('Footprint'), ...at],
+            at: sym.at,
           },
     );
   });
@@ -119,11 +130,12 @@ export function searchSchematic(
     // handler's. Upstream splits them the same way.
     hits.push(
       l.kind === 'text'
-        ? { kind: 'text', id: refId('label', l.uuid, i), cells: ['Text', l.text, ...at] }
+        ? { kind: 'text', id: refId('label', l.uuid, i), cells: ['Text', l.text, ...at], at: l.at }
         : {
             kind: 'label',
             id: refId('label', l.uuid, i),
             cells: [LABEL_TYPE[l.kind] ?? l.kind, l.text, ...at],
+            at: l.at,
           },
     );
   });
@@ -134,6 +146,7 @@ export function searchSchematic(
       kind: 'text',
       id: refId('textbox', tb.uuid, i),
       cells: ['Text Box', tb.text, fmt(tb.start.x), fmt(tb.start.y)],
+      at: tb.start,
     });
   });
 

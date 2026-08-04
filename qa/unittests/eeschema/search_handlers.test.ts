@@ -129,3 +129,32 @@ describe('the columns each tab declares', () => {
     for (const h of hits) expect(h.cells).toHaveLength(SEARCH_COLUMNS[h.kind].length);
   });
 });
+
+describe('a hit carries what the panel needs to act on it', () => {
+  it('reports the item position, so a double-click can centre on it', () => {
+    // SEARCH_HANDLER::FocusItem centres the view; the row's X/Y cells are
+    // formatted strings, so the raw position has to travel alongside them.
+    const [hit] = searchSchematic(sheet(SYM), LIB, 'R1');
+    expect(hit?.at).toEqual({ x: 200000, y: 200000 });
+    const [note] = hitsOfKind(searchSchematic(sheet(LABELS), LIB, 'note'), 'text');
+    expect(note?.at).toEqual({ x: 90000, y: 90000 });
+  });
+
+  it('formats X and Y through the caller-supplied units formatter', () => {
+    // MessageTextFromValue: the engine has no notion of the frame's units, so
+    // the panel injects the formatter. Raw IU is only the fallback.
+    const mm = (iu: number): string => `${iu / 10000} mm`;
+    const [hit] = searchSchematic(sheet(SYM), LIB, 'R1', false, mm);
+    expect(hit?.cells.slice(-2)).toEqual(['20 mm', '20 mm']);
+    // Without one, the cells stay raw.
+    const [raw] = searchSchematic(sheet(SYM), LIB, 'R1');
+    expect(raw?.cells.slice(-2)).toEqual(['200000', '200000']);
+  });
+
+  it('gives every kind as many cells as its tab has columns', () => {
+    // A short row would silently shift every column after the gap.
+    const hits = searchSchematic(sheet(SYM + '\n' + LABELS), LIB, 'R1|CLK|VBUS|note');
+    expect(hits.length).toBeGreaterThan(0);
+    for (const h of hits) expect(h.cells).toHaveLength(SEARCH_COLUMNS[h.kind].length);
+  });
+});

@@ -159,7 +159,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
           label: 'Panels',
           items: [
             chk('Properties', 'showProperties'),
-            stubChk('Search', 'Ctrl+G'),
+            chk('Search', 'showSearch', 'Ctrl+G'),
             chk('Hierarchy Navigator', 'showHierarchy', 'Ctrl+H'),
             stubChk('Design Blocks'),
             stubChk('Remote Symbols'),
