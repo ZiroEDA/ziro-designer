@@ -42,6 +42,7 @@ import type {
   SchNoConnect,
   SchSheet,
   SchSymbol,
+  SchSymbolPin,
   SchTable,
   SchGroup,
   SchTableCell,
@@ -199,6 +200,16 @@ export function readLibPin(node: SList, invertY = false): LibPin {
   };
   // Per-pin name/number text sizes. A size of 0 means the text is not drawn
   // (KiCad lays it out zero-height; Altium imports hide names this way).
+  // `(alternate "NAME" <electrical type> <shape>)`, one child per alternative
+  // function. Positional, exactly as parseSchPin reads them.
+  const alts = childrenNamed(node, 'alternate');
+  if (alts.length) {
+    pin.alternates = alts.map((a) => ({
+      name: arg(a, 0) ?? '',
+      electricalType: arg(a, 1) ?? 'unspecified',
+      shape: arg(a, 2) ?? 'line',
+    }));
+  }
   const nameFx = childNamed(node, 'name') && readEffects(childNamed(node, 'name')!);
   const numFx = childNamed(node, 'number') && readEffects(childNamed(node, 'number')!);
   if (nameFx?.fontSize) pin.nameSize = nameFx.fontSize[0];
@@ -499,6 +510,21 @@ function readSymbol(node: SList): SchSymbol {
         pad: arg(e, 1) ?? '',
       })),
     };
+  }
+  // `(pin "1" (uuid …) [(alternate "NAME")])`. Only the placement's own pins:
+  // a sheet's `(pin …)` is a different item entirely, and readSheet handles it.
+  const pinNodes = childrenNamed(node, 'pin');
+  if (pinNodes.length) {
+    sym.pins = pinNodes.map((p) => {
+      const entry: { -readonly [K in keyof SchSymbolPin]: SchSymbolPin[K] } = {
+        number: arg(p, 0) ?? '',
+      };
+      const uuid = stringField(p, 'uuid');
+      if (uuid) entry.uuid = uuid;
+      const alt = stringField(p, 'alternate');
+      if (alt) entry.alternate = alt;
+      return entry;
+    });
   }
   if (boolField(node, 'locked', false)) sym.locked = true;
   // (passthrough default|block|force), case-insensitive; DEFAULT stays unset.
