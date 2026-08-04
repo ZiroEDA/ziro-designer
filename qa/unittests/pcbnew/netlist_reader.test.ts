@@ -53,6 +53,11 @@ describe('netlist dialect detection', () => {
     // These are the other two live formats; misfiling one sends the file to a
     // reader that will throw on its very first line.
     expect(guessNetlistFileType('(export (version "E")\n')).toBe('kicad');
+    // Only the s-expression sniff is case *sensitive* upstream: reLegacy and
+    // reOrcad carry `(?i)`, reKicad does not. `(EXPORT …)` therefore falls
+    // through to 'unknown' rather than being read as a KiCad netlist.
+    expect(guessNetlistFileType('(EXPORT (version "E")\n')).toBe('unknown');
+    expect(guessNetlistFileType('# eeschema netlist version 1.1\n')).toBe('legacy');
     expect(guessNetlistFileType('( { Netlist created by SomeTool }\n')).toBe('orcad');
   });
 
