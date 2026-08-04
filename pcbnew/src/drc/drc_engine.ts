@@ -37,6 +37,7 @@ import { booleanAdd, type Polygon } from '@ziroeda/kimath/src/geometry/shape_pol
 import { shapeAsPolygon } from '../polygon_booleans.js';
 import { findSliverPoints } from './drc_sliver.js';
 import { findNecks } from './drc_connection_width.js';
+import { evaluateDiffPair, matchDpSuffix, type DpTrack } from './drc_diff_pair.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   allowsMissingCourtyard,
@@ -117,6 +118,20 @@ export interface DrcOptions {
    * does — a board that has not set one is not asking for the test.
    */
   minConnectionWidth?: number;
+  /**
+   * `diff_pair_gap` minimum (IU). Absent falls back to `minClearance`, which is
+   * what upstream's implicit netclass rule sets it to.
+   */
+  diffPairGapMin?: number;
+  /**
+   * `diff_pair_gap` maximum (IU). Absent means no maximum — and that is the
+   * default, because the implicit netclass rule sets only a min and an opt. A
+   * board with nothing but netclasses never reports a gap for being *too wide*;
+   * that needs a custom rule or a per-layer tuning entry.
+   */
+  diffPairGapMax?: number;
+  /** `diff_pair_uncoupled` maximum (IU). Absent means the length is not checked. */
+  diffPairMaxUncoupled?: number;
   /** Netclass clearance for a net code (IU); absent = 0 (the implicit
    *  netclass clearance rules of drc_engine.cpp). */
   clearanceOf?: (net: number) => number;
@@ -1700,6 +1715,84 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
               items: [{ desc: `Copper on ${layer}`, pos: neck.at }],
             });
           }
+        }
+      }
+    }
+  }
+
+  // ----- differential pair coupling -----------------------------------------
+  // DRC_TEST_PROVIDER_DIFF_PAIR_COUPLING. Pairs are discovered by *name*: there
+  // is no flag in the file saying two nets belong together, so `matchDpSuffix`
+  // reads each name backwards for a polarity mark and a pair exists when both
+  // halves name each other.
+  {
+    const gapMin = opts.diffPairGapMin ?? opts.minClearance;
+    const limits = {
+      gapMin,
+      gapMax: opts.diffPairGapMax,
+      maxUncoupled: opts.diffPairMaxUncoupled,
+    };
+
+    if (
+      gapMin > 0 ||
+      opts.diffPairGapMax !== undefined ||
+      opts.diffPairMaxUncoupled !== undefined
+    ) {
+      const byNetName = new Map<string, DpTrack[]>();
+      for (const t of board.tracks) {
+        if (!isCopper(t.layer)) continue;
+        const name = board.nets.get(t.net) ?? '';
+        if (name === '') continue;
+        byNetName.set(name, [
+          ...(byNetName.get(name) ?? []),
+          { a: t.start, b: t.end, width: t.width, layer: t.layer },
+        ]);
+      }
+
+      const done = new Set<string>();
+
+      for (const [name, pTracks] of byNetName) {
+        const suffix = matchDpSuffix(name);
+        // Only drive each pair from its positive half, so the pair is not
+        // evaluated twice with P and N swapped.
+        if (suffix.polarity !== 1) continue;
+
+        const nTracks = byNetName.get(suffix.complement);
+        if (!nTracks) continue;
+
+        const key = `${name}\u0000${suffix.complement}`;
+        if (done.has(key)) continue;
+        done.add(key);
+
+        const result = evaluateDiffPair(pTracks, nTracks, limits, DRC_EPSILON);
+
+        if (result.uncoupledViolation) {
+          const at = pTracks[0]?.a ?? nTracks[0]?.a;
+          if (at)
+            out.push({
+              code: 'diff_pair_uncoupled_length_too_long',
+              message: `Differential pair ${suffix.baseName} (maximum uncoupled length ${mm(
+                opts.diffPairMaxUncoupled ?? 0,
+              )}; actual ${mm(result.uncoupledLength)})`,
+              pos: at,
+              items: [{ desc: `Net ${name}`, pos: at }],
+            });
+        }
+
+        for (const bad of result.gapViolations) {
+          const at = {
+            x: Math.round((bad.pClip.a.x + bad.pClip.b.x) / 2),
+            y: Math.round((bad.pClip.a.y + bad.pClip.b.y) / 2),
+          };
+          const bound = bad.failedMin
+            ? `minimum gap ${mm(limits.gapMin)}`
+            : `maximum gap ${mm(limits.gapMax ?? 0)}`;
+          out.push({
+            code: 'diff_pair_gap_out_of_range',
+            message: `Differential pair ${suffix.baseName} (${bound}; actual ${mm(bad.gap)})`,
+            pos: at,
+            items: [{ desc: `Net ${name}`, pos: at }],
+          });
         }
       }
     }
