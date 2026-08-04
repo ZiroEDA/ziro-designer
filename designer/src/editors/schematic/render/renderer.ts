@@ -57,7 +57,8 @@ import {
 import type { Theme } from '../theme.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { globalLabelShape } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
@@ -2908,7 +2909,14 @@ export function fitToContent(
   canvasWidth: number,
   canvasHeight: number,
   includePage = true,
+  libById: Map<string, LibSymbol> = new Map(),
 ): Viewport {
+  // One walk over the document, shared with alignment and Zoom to Selected
+  // Objects. This used to have its own, covering lines, junctions, symbols
+  // (position and field anchors only), labels and sheets — so a sheet made of
+  // text boxes, images, graphics or tables framed nothing at all under Zoom to
+  // All Objects, and a large symbol's body could sit outside the fit.
+  const content = contentBBox(sch, libById);
   let minX = Infinity,
     minY = Infinity,
     maxX = -Infinity,
@@ -2919,19 +2927,9 @@ export function fitToContent(
     maxX = Math.max(maxX, p.x);
     maxY = Math.max(maxY, p.y);
   };
-  for (const l of sch.lines) {
-    include(l.start);
-    include(l.end);
-  }
-  for (const j of sch.junctions) include(j.at);
-  for (const s of sch.symbols) {
-    include(s.at);
-    for (const f of s.fields) if (f.at) include(f.at);
-  }
-  for (const l of sch.labels) include(l.at);
-  for (const sh of sch.sheets) {
-    include(sh.at);
-    include({ x: sh.at.x + sh.size.w, y: sh.at.y + sh.size.h });
+  if (!isEmpty(content)) {
+    include({ x: content.minX, y: content.minY });
+    include({ x: content.maxX, y: content.maxY });
   }
   // The drawing sheet is part of the scene for Zoom to Fit, and deliberately
   // not for Zoom to All Objects.
