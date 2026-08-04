@@ -47,11 +47,6 @@ const EXCUSED: Record<string, string> = {
   classifyError: 'used inside its own module; exported for its own test',
   // Test-only reset for module-level state, named so.
   resetRecordLocksForTests: 'test-only, and says so in the name',
-  // A store capability with no UI: there is no way to rename a project in the
-  // app, so this has never been called. Harmless rather than dangerous -- the
-  // failure is a missing feature, not a silent one -- but recorded here rather
-  // than deleted, since the store half is written and tested. See #419.
-  renameProject: 'no rename-project UI exists yet; the store half is ready',
 };
 
 const repo = fileURLToPath(new URL('../../../', import.meta.url));
