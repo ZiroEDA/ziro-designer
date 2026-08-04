@@ -10,6 +10,8 @@
  */
 
 import { useState, type JSX } from 'react';
+import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import {
   generateNetlist,
   generateSpiceNetlist,
@@ -23,6 +25,14 @@ interface Props {
   libById: Map<string, LibSymbol>;
   /** Suggested output base name (sheet/project name, no extension). */
   baseName: string;
+  /** Folders that already exist in the project, for the output-path list. */
+  projectFolders?: readonly string[];
+  /**
+   * Write the netlist into the project's file manager, as plotting does. When
+   * absent the dialog streams a download instead, which is what it did before
+   * there was anywhere else to put the file.
+   */
+  onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
   onClose: () => void;
 }
 
@@ -61,7 +71,21 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
   },
 ];
 
-export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props): JSX.Element {
+export function DialogExportNetlist({
+  doc,
+  libById,
+  baseName,
+  projectFolders = [],
+  onOutputFile,
+  onClose,
+}: Props): JSX.Element {
+  // Project-relative output folder; '' is the project's own folder, matching
+  // the Plot dialog's "Output directory".
+  const [outputDir, setOutputDir] = useState('');
+  const [messages, setMessages] = useState<readonly ReportLine[]>([]);
+  const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
+  const report = (message: string, severity: number): void =>
+    setMessages((prev) => [...prev, { message, severity, location: 'body' }]);
   const [tab, setTab] = useState<ExportTab>('kicadxml');
   // The Spice page's options (DIALOG_EXPORT_NETLIST's spice checkboxes).
   const [saveAllVoltages, setSaveAllVoltages] = useState(false);
@@ -84,12 +108,25 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
       text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
     }
     const mime = tab === 'kicadxml' ? 'application/xml' : 'text/plain';
-    const url = URL.createObjectURL(new Blob([text], { type: mime }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${baseName}.${active.ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = `${baseName}.${active.ext}`;
+    // The netlist lands in the project's file manager, as a plot does. Without
+    // a sink there is nowhere else to put it, so it streams out instead.
+    if (onOutputFile) {
+      const path = outputDir ? `${outputDir}/${filename}` : filename;
+      onOutputFile(path, new TextEncoder().encode(text), mime);
+      report(`Netlist written to '${path}'.`, RPT_SEVERITY_ACTION);
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: mime }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      report(`Netlist downloaded as '${filename}'.`, RPT_SEVERITY_ACTION);
+    }
+    // Spice errors are worth reading, so they go to the panel and the dialog
+    // stays open to show them.
+    for (const err of tab === 'spice' ? spiceErrors : []) report(err, RPT_SEVERITY_ERROR);
     if (tab !== 'spice' || spiceErrors.length === 0) onClose();
   };
 
@@ -162,6 +199,32 @@ export function DialogExportNetlist({ doc, libById, baseName, onClose }: Props):
               )}
             </div>
           )}
+          {/* Output directory, project-relative, as the Plot dialog has. */}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+            Output directory:
+            <input
+              list="ze-netlist-folders"
+              value={outputDir}
+              placeholder="(project folder)"
+              onChange={(e) => setOutputDir(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <datalist id="ze-netlist-folders">
+              {projectFolders.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
+          </label>
+        </div>
+        {/* Output Messages (WX_HTML_REPORT_PANEL), as the other exporters have. */}
+        <div style={{ padding: '0 10px 8px' }}>
+          <HtmlReportPanel
+            lines={messages}
+            fileName="netlist-report.txt"
+            minHeight={90}
+            visibleSeverities={severities}
+            onVisibleSeveritiesChange={setSeverities}
+          />
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onClose}>
