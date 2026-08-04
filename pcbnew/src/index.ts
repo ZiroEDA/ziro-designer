@@ -891,3 +891,18 @@ export {
   type LoadFootprintOptions,
   type LoadFootprintTablesOptions,
 } from './footprint_library.js';
+
+export {
+  footprintDifferences,
+  footprintNeedsUpdate,
+  type DiffMode,
+} from './footprint_diff.js';
+
+export {
+  diffFootprintAgainstLibrary,
+  resolveLibraryFootprint,
+  type FootprintDiffReport,
+  type LibraryFootprintQuery,
+  type LibraryFootprintStatus,
+  type ResolvedLibraryFootprint,
+} from './diff_footprint.js';
