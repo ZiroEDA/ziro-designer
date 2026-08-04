@@ -426,13 +426,18 @@ describe('pins are selectable items', () => {
     const seg = collectPinSegments(doc, lib)[0]!;
     expect(itemPassesFilter(doc, seg.id, defaultSelectionFilter())).toBe(true);
     expect(itemPassesFilter(doc, seg.id, { ...defaultSelectionFilter(), pins: false })).toBe(false);
-    // A field follows its parent symbol's category, not the pin one.
+    // A field is governed by *Text*, not by Symbols and not by Pins.
+    // SCH_SELECTION_TOOL::itemPassesFilter puts `case SCH_FIELD_T:` with
+    // SCH_TEXT_T / SCH_TEXTBOX_T / SCH_TABLE_T / SCH_TABLECELL_T under
+    // `m_filter.text`, and that is the only arm fields reach. This assertion
+    // used to read `symbols: false -> false`, which stated the opposite.
     const fid = fieldId(
       refId('symbol', doc.symbols[0]!.uuid, 0),
       collectFieldBoxes(doc, lib)[0]!.index,
     );
     expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), pins: false })).toBe(true);
-    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(false);
+    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), symbols: false })).toBe(true);
+    expect(itemPassesFilter(doc, fid, { ...defaultSelectionFilter(), text: false })).toBe(false);
   });
 
   it('glows on its own without moving anything', () => {
