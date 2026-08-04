@@ -308,19 +308,28 @@ export function planMoveFromPoints(
   // along; a stretching wire leaves them where they are (upstream moves them by
   // the fixed end's delta) and only pulls them back on if it shrank past them.
   const labelRides: LabelRide[] = [];
-  sch.labels.forEach((l, i) => {
-    if (l.kind === 'text') return; // not connectable: it never rides a wire
-    const id = refId('label', l.uuid, i);
+  const considerRide = (id: string, at: Vec2): void => {
     if (fullIds.has(id)) return;
     sch.lines.forEach((ln, li) => {
       if (ln.uuid === undefined) return;
       const lid = refId('line', ln.uuid, li);
       const rigid = fullIds.has(lid);
       const moving = rigid || wireStart.has(lid) || wireEnd.has(lid);
-      if (!moving || !onSpan(l.at, ln.start, ln.end)) return;
+      if (!moving || !onSpan(at, ln.start, ln.end)) return;
       if (labelRides.some((r) => r.id === id)) return; // one carrier per label
       labelRides.push({ id, lineUuid: ln.uuid, rigid });
     });
+  };
+  sch.labels.forEach((l, i) => {
+    if (l.kind === 'text') return; // not connectable: it never rides a wire
+    considerRide(refId('label', l.uuid, i), l.at);
+  });
+  // A directive label rides too. getConnectedDragItems puts
+  // SCH_DIRECTIVE_LABEL_T in the same case as SCH_LABEL_T / SCH_GLOBAL_LABEL_T
+  // / SCH_HIER_LABEL_T — the one that connects "anywhere along the length" —
+  // and it was the only one of the four this loop did not scan.
+  (sch.directiveLabels ?? []).forEach((d, i) => {
+    considerRide(refId('directive', d.uuid, i), d.at);
   });
 
   return { fullIds, wireStart, wireEnd, newWires, labelRides, splits };
