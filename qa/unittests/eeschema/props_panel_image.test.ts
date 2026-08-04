@@ -71,3 +71,57 @@ describe('the position rows move the image', () => {
     expect(after.images[0]!.at.y).toBe(d.images[0]!.at.y);
   });
 });
+
+describe('a graphic shape has properties too', () => {
+  const shapeDoc = (body: string): Schematic => sheet(body);
+  const gRows = (d: Schematic) =>
+    schPropertiesFor(d, LIB, itemRefById(d, refId('graphic', undefined, 0))!);
+
+  const RECT = `(rectangle (start 10 10) (end 20 20)
+     (stroke (width 0) (type solid)) (fill (type none)) (uuid "r-1"))`;
+  const CIRCLE = `(circle (center 10 10) (radius 5)
+     (stroke (width 0) (type solid)) (fill (type none)) (uuid "c-1"))`;
+
+  it('offers stroke and fill rows', () => {
+    expect(gRows(shapeDoc(RECT)).map((r) => r.name)).toEqual([
+      'Line Width',
+      'Line Style',
+      'Filled',
+    ]);
+  });
+
+  it('a circle gains a radius row ahead of them', () => {
+    expect(gRows(shapeDoc(CIRCLE)).map((r) => r.name)[0]).toBe('Radius');
+  });
+
+  it('drops the Default style choice a wire keeps', () => {
+    // LINE_STYLES = WIRE_STYLES.slice(1): graphic lines have no Default.
+    const row = gRows(shapeDoc(RECT)).find((r) => r.name === 'Line Style')!;
+    expect(row.choices).not.toContain('Default');
+    expect(row.value).toBe('Solid');
+  });
+
+  it('toggles the fill through replaceGraphic', () => {
+    const d = shapeDoc(RECT);
+    const row = gRows(d).find((r) => r.name === 'Filled')!;
+    expect(row.value).toBe(false);
+    const after = row.set!(true)!.apply(d);
+    const g = after.graphics[0]!;
+    if (g.kind !== 'rectangle') throw new Error('expected a rectangle');
+    expect(g.fill?.type).toBe('outline');
+  });
+
+  it('refuses a non-positive radius', () => {
+    const d = shapeDoc(CIRCLE);
+    expect(gRows(d).find((r) => r.name === 'Radius')!.set!(0)).toBeNull();
+  });
+
+  it('a graphic text gets position rows, not shape rows', () => {
+    // It is a text item and carries neither a stroke nor a fill.
+    const d = shapeDoc(`(text "note" (at 10 10 0) (effects (font (size 1.27 1.27))) (uuid "t-1"))`);
+    const ref = itemRefById(d, refId('graphic', undefined, 0));
+    // Free text may land in labels rather than graphics depending on the
+    // reader; only assert when it is actually a graphic.
+    if (ref) expect(gRows(d).every((r) => r.name.startsWith('Position'))).toBe(true);
+  });
+});

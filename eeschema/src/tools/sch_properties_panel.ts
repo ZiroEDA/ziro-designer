@@ -22,6 +22,7 @@ import type {
 import type { EditCommand } from './command.js';
 import { refId, type ItemRef } from './hittest.js';
 import {
+  replaceGraphic,
   replaceImage,
   replaceJunction,
   replaceLabel,
@@ -511,6 +512,67 @@ export function schPropertiesFor(
           },
         },
       ];
+    }
+    // SCH_SHAPE's registered properties: the stroke, the fill, and whichever
+    // geometry describes that shape. Graphic lines drop the "Default" style
+    // choice a wire keeps, which is what LINE_STYLES encodes.
+    case 'graphic': {
+      const i = indexOf(sch.graphics, (_t, k) => refId('graphic', undefined, k));
+      if (i < 0) return [];
+      const g = sch.graphics[i]!;
+      // A graphic 'text' is a text item, not a shape: it carries neither a
+      // stroke nor a fill, so the shape rows do not apply to it.
+      if (g.kind === 'text') return positionRows(refId('graphic', undefined, i), g.at);
+      const cur = g.stroke?.type ?? 'solid';
+      const setStroke = (p: Partial<Stroke>): EditCommand =>
+        replaceGraphic(i, { ...g, stroke: { width: 0, type: 'solid', ...g.stroke, ...p } });
+      const rows: PropRow[] = [
+        {
+          group: '',
+          name: 'Line Width',
+          kind: 'dist',
+          value: g.stroke?.width ?? 0,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n < 0 ? null : setStroke({ width: n });
+          },
+        },
+        {
+          group: '',
+          name: 'Line Style',
+          kind: 'choice',
+          choices: LINE_STYLES,
+          value:
+            LINE_STYLES[
+              Math.max(0, STROKE_TYPES.slice(1).indexOf(cur as (typeof STROKE_TYPES)[number]))
+            ]!,
+          set: (v) => {
+            const k = (LINE_STYLES as readonly string[]).indexOf(String(v));
+            return k < 0 ? null : setStroke({ type: STROKE_TYPES.slice(1)[k]! });
+          },
+        },
+        {
+          group: '',
+          name: 'Filled',
+          kind: 'bool',
+          value: (g.fill?.type ?? 'none') !== 'none',
+          set: (v) =>
+            replaceGraphic(i, { ...g, fill: { ...g.fill, type: v ? 'outline' : 'none' } }),
+        },
+      ];
+      if (g.kind === 'circle') {
+        rows.unshift({
+          group: '',
+          name: 'Radius',
+          kind: 'dist',
+          value: g.radius,
+          set: (v) => {
+            const n = num(v);
+            return n === null || n <= 0 ? null : replaceGraphic(i, { ...g, radius: n });
+          },
+        });
+      }
+      return rows;
     }
     case 'sheet': {
       const i = indexOf(sch.sheets, (t, k) => refId('sheet', t.uuid, k));
