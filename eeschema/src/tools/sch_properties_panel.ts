@@ -29,6 +29,7 @@ import {
   replaceLabel,
   replaceLine,
   replaceSheet,
+  replaceTable,
   replaceTextBox,
   setSymbolsLockedCommand,
 } from './mutate.js';
@@ -632,6 +633,33 @@ export function schPropertiesFor(
             }),
         },
         { group: 'Fields', name: 'Sheetfile', kind: 'string', value: fieldVal('Sheetfile') },
+      ];
+    }
+    // SCH_TABLE's registered properties: the border and separator toggles, and
+    // the column count as a read-only fact (changing it would add or drop cells,
+    // which is SCH_EDIT_TABLE_TOOL's job rather than a grid row's).
+    case 'table': {
+      const i = indexOf(sch.tables, (t, k) => refId('table', t.uuid, k));
+      if (i < 0) return [];
+      const t = sch.tables[i]!;
+      const flag = (
+        name: string,
+        value: boolean,
+        set: (v: boolean) => Partial<typeof t>,
+      ): PropRow => ({
+        group: '',
+        name,
+        kind: 'bool',
+        value,
+        set: (v) => replaceTable(i, { ...t, ...set(!!v) }),
+      });
+      return [
+        { group: '', name: 'Columns', kind: 'int', value: t.columnCount },
+        { group: '', name: 'Rows', kind: 'int', value: t.rowHeights.length },
+        flag('External Border', t.borderExternal, (v) => ({ borderExternal: v })),
+        flag('Header Border', t.borderHeader, (v) => ({ borderHeader: v })),
+        flag('Row Separators', t.separatorRows, (v) => ({ separatorRows: v })),
+        flag('Column Separators', t.separatorCols, (v) => ({ separatorCols: v })),
       ];
     }
     case 'textbox': {

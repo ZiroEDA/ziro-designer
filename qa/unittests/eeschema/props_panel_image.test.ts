@@ -125,3 +125,53 @@ describe('a graphic shape has properties too', () => {
     if (ref) expect(gRows(d).every((r) => r.name.startsWith('Position'))).toBe(true);
   });
 });
+
+describe('a table has properties too', () => {
+  const TABLE = `(table (column_count 2)
+     (border (external yes) (header yes) (stroke (width 0) (type solid)))
+     (separators (rows yes) (cols no) (stroke (width 0) (type solid)))
+     (column_widths 10 10) (row_heights 5)
+     (cells
+       (text_box "a" (exclude_from_sim no) (at 0 0 0) (size 10 5)
+         (effects (font (size 1.27 1.27))))
+       (text_box "b" (exclude_from_sim no) (at 10 0 0) (size 10 5)
+         (effects (font (size 1.27 1.27)))))
+     (uuid "tb-1"))`;
+  const doc = () => sheet(TABLE);
+  const tRows = (d: Schematic) =>
+    schPropertiesFor(d, LIB, itemRefById(d, refId('table', 'tb-1', 0))!);
+
+  it('is no longer an empty grid', () => {
+    const d = doc();
+    expect(d.tables).toHaveLength(1);
+    expect(tRows(d).length).toBeGreaterThan(0);
+  });
+
+  it('reports the shape and offers the border toggles', () => {
+    expect(tRows(doc()).map((r) => r.name)).toEqual([
+      'Columns',
+      'Rows',
+      'External Border',
+      'Header Border',
+      'Row Separators',
+      'Column Separators',
+    ]);
+  });
+
+  it('leaves the column count read-only', () => {
+    // Changing it would add or drop cells, which is SCH_EDIT_TABLE_TOOL's job.
+    const cols = tRows(doc()).find((r) => r.name === 'Columns')!;
+    expect(cols.value).toBe(2);
+    expect(cols.set).toBeUndefined();
+  });
+
+  it('writes a border toggle through replaceTable', () => {
+    const d = doc();
+    const row = tRows(d).find((r) => r.name === 'Row Separators')!;
+    expect(row.value).toBe(true);
+    const after = row.set!(false)!.apply(d);
+    expect(after.tables[0]!.separatorRows).toBe(false);
+    // And the neighbouring flag is untouched.
+    expect(after.tables[0]!.borderExternal).toBe(true);
+  });
+});
