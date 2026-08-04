@@ -24,6 +24,8 @@ import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   CreepageGraph,
+  angleBetweenStartAndEnd,
+  segmentIntersectsArc,
   closestPointOnSegment,
   isConductive,
   isValidPath,
@@ -294,6 +296,238 @@ describe('a track against a circle', () => {
     expect(paths[1]?.weight).toBeCloseTo(expected, -3);
     expect(paths[1]?.a1).toEqual({ x: paths[0]!.a1.x, y: -paths[0]!.a1.y });
     expect(paths[1]?.a2).toEqual({ x: paths[0]!.a2.x, y: -paths[0]!.a2.y });
+  });
+});
+
+/** A point on a circle, by degrees — arcs are given by their sweep. */
+const onCircle = (cx: number, cy: number, r: number, deg: number): Vec2 => ({
+  x: Math.round(MM(cx) + MM(r) * Math.cos((deg * Math.PI) / 180)),
+  y: Math.round(MM(cy) + MM(r) * Math.sin((deg * Math.PI) / 180)),
+});
+const beArc = (cx: number, cy: number, r: number, d0: number, d1: number): CreepShape => ({
+  kind: 'be-arc',
+  pos: P(cx, cy),
+  radius: MM(r),
+  startAngle: (d0 * Math.PI) / 180,
+  endAngle: (d1 * Math.PI) / 180,
+  startPoint: onCircle(cx, cy, r, d0),
+  endPoint: onCircle(cx, cy, r, d1),
+});
+const cuArc = (
+  cx: number,
+  cy: number,
+  r: number,
+  d0: number,
+  d1: number,
+  w: number,
+): CreepShape => ({
+  kind: 'cu-arc',
+  pos: P(cx, cy),
+  radius: MM(r),
+  startAngle: (d0 * Math.PI) / 180,
+  endAngle: (d1 * Math.PI) / 180,
+  startPoint: onCircle(cx, cy, r, d0),
+  endPoint: onCircle(cx, cy, r, d1),
+  width: MM(w),
+});
+
+describe('where a point sits in an arc’s sweep', () => {
+  const arc = { pos: P(0, 0), startAngle: 0, endAngle: Math.PI / 2 };
+  const deg = (rad: number): number => Math.round((rad * 180) / Math.PI);
+
+  it('is measured forward from the start, not normalised to a turn', () => {
+    // Which is what lets one comparison against the end angle decide
+    // membership, with none of the wrap-around case analysis a normalised
+    // angle would force.
+    expect(deg(angleBetweenStartAndEnd(arc, P(6, 0)))).toBe(0);
+    expect(deg(angleBetweenStartAndEnd(arc, P(0, 6)))).toBe(90);
+  });
+
+  it('runs past the end angle for a point outside the sweep', () => {
+    expect(deg(angleBetweenStartAndEnd(arc, P(-6, 0)))).toBe(180);
+  });
+});
+
+describe('whether a hop cuts through an arc', () => {
+  it('does when it passes clean through', () => {
+    expect(segmentIntersectsArc(P(0, 0), P(20, 0), P(10, 0), MM(6), -Math.PI, Math.PI)).toBe(true);
+  });
+
+  it('does not when it merely ends on it', () => {
+    // Reaching a rounded corner is exactly what a creepage path does, so an
+    // intersection at the hop's own endpoint is a touch, not a crossing.
+    expect(segmentIntersectsArc(P(0, 0), P(4, 0), P(10, 0), MM(6), -Math.PI, Math.PI)).toBe(false);
+  });
+
+  it('does not when it misses entirely', () => {
+    expect(segmentIntersectsArc(P(0, 20), P(20, 20), P(10, 0), MM(6), -Math.PI, Math.PI)).toBe(
+      false,
+    );
+  });
+
+  it('does not when it crosses the circle away from the arc’s sweep', () => {
+    // The hop crosses the circle at (4, 0) and (16, 0) — 180° and 0° — while
+    // the arc only sweeps the top, 45° to 135°. The circle is in the way but
+    // the *board edge* is not: only the swept part is real.
+    expect(
+      segmentIntersectsArc(P(0, 0), P(20, 0), P(10, 0), MM(6), Math.PI / 4, (3 * Math.PI) / 4),
+    ).toBe(false);
+  });
+});
+
+describe('an arc is its circle where it exists', () => {
+  it('behaves exactly as a circle when the sweep is the whole way round', () => {
+    const asArc = pathsBetween(pt(0, 0), beArc(10, 0, 6, -179, 179), MM(50));
+    const asCircle = pathsBetween(pt(0, 0), bc(10, 0, 6), MM(50));
+
+    expect(asArc).toHaveLength(2);
+    expect(asArc.map((p) => p.weight)).toEqual(asCircle.map((p) => p.weight));
+  });
+
+  it('keeps only the tangent that actually lands on the sweep', () => {
+    // Upper-left quarter of the circle. One tangent lands at 127°, inside the
+    // 90..180 sweep; the other at 233°, outside it, and is dropped.
+    const paths = pathsBetween(pt(0, 0), beArc(10, 0, 6, 90, 180), MM(50));
+
+    expect(paths.some((p) => p.weight === MM(8))).toBe(true);
+    expect(paths.filter((p) => p.weight === MM(8))).toHaveLength(1);
+  });
+
+  it('offers its endpoint where the sweep runs out', () => {
+    // The 180° end of that arc is at (4, 0), 4 mm from the origin — a shorter
+    // route than the surviving tangent, and one a circle would never offer.
+    const paths = pathsBetween(pt(0, 0), beArc(10, 0, 6, 90, 180), MM(50));
+
+    expect(paths.some((p) => p.weight === MM(4))).toBe(true);
+  });
+
+  it('refuses an endpoint it would have to tunnel through the arc to reach', () => {
+    // The far endpoint of the same arc is at (10, 6). The straight line to it
+    // from the origin crosses the arc at 152° — inside the sweep — so that
+    // route is not available, and only two paths come back rather than three.
+    const paths = pathsBetween(pt(0, 0), beArc(10, 0, 6, 90, 180), MM(50));
+
+    expect(paths).toHaveLength(2);
+  });
+
+  it('turns round when given the other way round', () => {
+    const forward = pathsBetween(pt(0, 0), beArc(10, 0, 6, 90, 180), MM(50));
+    const reverse = pathsBetween(beArc(10, 0, 6, 90, 180), pt(0, 0), MM(50));
+
+    expect(reverse[0]?.a1).toEqual(forward[0]?.a2);
+    expect(reverse[0]?.a2).toEqual(forward[0]?.a1);
+  });
+});
+
+describe('a copper arc has thickness', () => {
+  // Right half of a circle centred (10, 0), radius 6, track 2 mm wide.
+  const ARC = cuArc(10, 0, 6, -90, 90, 2);
+
+  it('is reached on its outer surface from outside the curve', () => {
+    // 20 mm to the centre, less radius 6 and half-width 1: the copper's face
+    // is at 7 from the centre, so the gap is 13.
+    const [path] = pathsBetween(pt(30, 0), ARC, MM(50));
+
+    expect(path?.weight).toBe(MM(13));
+    expect(path?.a2).toEqual(P(17, 0));
+  });
+
+  it('is reached on its *inner* surface from within the curve', () => {
+    // A curved track has copper on both sides of its centreline. From 2 mm
+    // out of the centre the near face is the inner one, at radius 5.
+    const [path] = pathsBetween(pt(12, 0), ARC, MM(50));
+
+    expect(path?.weight).toBe(MM(3));
+    expect(path?.a2).toEqual(P(15, 0));
+  });
+
+  it('is reached at an end cap from beyond the sweep', () => {
+    // Directly left of the centre is 180°, outside the -90..90 sweep, so the
+    // nearest copper is a round cap of the track's half-width.
+    const [path] = pathsBetween(pt(0, 0), ARC, MM(50));
+
+    expect(path?.weight).toBeCloseTo(Math.hypot(MM(10), MM(6)) - MM(1), -3);
+  });
+
+  it('points every path the same way round, whichever surface it reached', () => {
+    // The bug this guards was invisible in two of the three branches: an extra
+    // swap inside them cancelled the dispatch's own flip, so the outer-surface
+    // and end-cap paths came back reversed relative to the inner-surface one.
+    // Half the graph's edges would have had their ends the wrong way round.
+    const outer = pathsBetween(pt(30, 0), ARC, MM(50))[0]!;
+    const inner = pathsBetween(pt(12, 0), ARC, MM(50))[0]!;
+    const cap = pathsBetween(pt(0, 0), ARC, MM(50))[0]!;
+
+    // a1 is always the point that was asked about; a2 is always the copper.
+    expect(outer.a1).toEqual(P(30, 0));
+    expect(inner.a1).toEqual(P(12, 0));
+    expect(cap.a1).toEqual(P(0, 0));
+  });
+
+  it('reverses all of them together when asked the other way round', () => {
+    const forward = pathsBetween(pt(30, 0), ARC, MM(50))[0]!;
+    const reverse = pathsBetween(ARC, pt(30, 0), MM(50))[0]!;
+
+    expect(reverse.a1).toEqual(forward.a2);
+    expect(reverse.a2).toEqual(forward.a1);
+  });
+
+  it('offers one path, not two: an end cap is a target, not an obstacle', () => {
+    // Both caps are candidates and the shorter wins. There is no "either way
+    // round" to offer, because the path is not going round anything.
+    expect(pathsBetween(pt(0, 0), ARC, MM(50))).toHaveLength(1);
+  });
+
+  it('picks the nearer of the two caps, not whichever comes first', () => {
+    // From above-left, the far cap at (10, -6) is 27.9 away and the near one
+    // at (10, 6) is 17.2. A symmetric fixture cannot tell the two apart, which
+    // is why this one is deliberately lopsided.
+    const [path] = pathsBetween(pt(0, 20), ARC, MM(60));
+
+    expect(path?.weight).toBeCloseTo(Math.hypot(MM(10), MM(14)) - MM(1), -3);
+  });
+});
+
+describe('a copper arc against something other than a point', () => {
+  const ARC = cuArc(10, 0, 6, -90, 90, 2);
+
+  it('reaches its curve where the sweep covers', () => {
+    // A track off to the right, facing the outer surface at x = 17.
+    const [path] = pathsBetween(cu(30, -5, 30, 5, 2), ARC, MM(60));
+
+    expect(path?.weight).toBe(MM(12));
+    expect(path?.a2).toEqual(P(17, 0));
+  });
+
+  it('falls back to a cap when the nearest point of the circle is off the sweep', () => {
+    // A track off to the *left*. The closest point of the arc's circle is
+    // (4, 0) at 180°, outside the -90..90 sweep — there is no copper there.
+    // Without that check the path would land on empty space and read 13 mm
+    // instead of 18.
+    const [path] = pathsBetween(cu(-10, -5, -10, 5, 2), ARC, MM(60));
+
+    expect(path?.weight).toBeCloseTo(MM(18.025), -4);
+    expect(path?.a2.x).toBeGreaterThan(MM(8));
+  });
+
+  it('takes the shortest of the candidate surfaces, not the first offered', () => {
+    // A track just left of the *top* cap. The curve is ruled out — its nearest
+    // point is at 108°, past the sweep — leaving the two caps, and the far one
+    // is offered first. Every other fixture happens to have the shortest
+    // candidate first, which hides this entirely.
+    const [path] = pathsBetween(cu(2, 6, 7, 6, 2), ARC, MM(60));
+
+    expect(path?.weight).toBe(MM(1));
+    expect(path?.a2).toEqual(P(9, 6));
+  });
+
+  it('reaches an end cap directly when that is what is nearest', () => {
+    // A track running just above the top cap at (10, 6): 5 mm centre to
+    // centre, less the track's 1 and the cap's 1.
+    const [path] = pathsBetween(cu(6, 12, 14, 12, 2), ARC, MM(60));
+
+    expect(path?.weight).toBe(MM(4));
+    expect(path?.a2).toEqual(P(10, 7));
   });
 });
 
