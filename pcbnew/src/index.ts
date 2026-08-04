@@ -507,6 +507,16 @@ export {
 } from './place_image.js';
 
 export {
+  imageAt,
+  collectImageValues,
+  applyImageValues,
+  scaleForWidth,
+  scaleForHeight,
+  sizeForScale,
+  type ImageValues,
+} from './image_properties.js';
+
+export {
   findSliverPoints,
   SLIVER_WIDTH_TOLERANCE,
   SLIVER_ANGLE_TOLERANCE_DEG,
