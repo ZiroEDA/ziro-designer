@@ -838,7 +838,9 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
  *  "Netclass" field, and the node itself round-trips from `source`. */
 function readDirectiveLabel(node: SList): SchDirectiveLabel {
   const { at, angle } = readAt(node);
+  const first = node.items[1];
   const label: { -readonly [K in keyof SchDirectiveLabel]: SchDirectiveLabel[K] } = {
+    text: first && first.kind !== 'list' ? first.value : '',
     at,
     angle,
     fields: childrenNamed(node, 'property').map((p) => readField(p)),

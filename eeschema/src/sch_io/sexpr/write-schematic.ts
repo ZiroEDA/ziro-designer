@@ -771,7 +771,9 @@ function setHyperlink(node: SList, link: string | undefined): SList {
  * else in the node, effects, uuid, anything we don't model, passes through.
  */
 function writeDirectiveLabel(l: SchDirectiveLabel): SList {
-  let node = patchAt(l.source, l.at);
+  // The text is the node's first argument, like every other label's.
+  let node = setItem(l.source, 1, str(l.text));
+  node = patchAt(node, l.at);
   node = mapChild(node, 'at', (at) => setItem(at, 3, atom(String(l.angle))));
   if (l.pinLength !== undefined) {
     // saveText prints (length …) first for a directive label, then (shape …),
