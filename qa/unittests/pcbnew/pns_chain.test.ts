@@ -212,6 +212,27 @@ describe('where a path crosses a hull', () => {
     expect(hit?.indexTheir).toBe(0);
   });
 
+  it('does not count a path that ends *on* the hull', () => {
+    // Regression. A path that reaches the boundary and stops has not crossed
+    // it — that is what routing up to a pad looks like. The corner test used
+    // to sample "just after" the hit toward the very vertex the hit sat on,
+    // which is the hit again, and read the boundary as the far side. The
+    // walkaround driver then found the same obstacle for ever.
+    expect(hullIntersection(SQUARE, [P(-50, 50), P(0, 50)])).toEqual([]);
+  });
+
+  it('does not count a path that starts on the hull and leaves', () => {
+    // The mirror case: no near side to compare against.
+    expect(hullIntersection(SQUARE, [P(0, 50), P(-50, 50)])).toEqual([]);
+  });
+
+  it('does not count a path that arrives and turns along the edge', () => {
+    // Both samples land on the boundary, where ray casting answers whichever
+    // way the rounding fell — so "on the edge" has to be a third answer here
+    // too, not folded into inside or outside.
+    expect(hullIntersection(SQUARE, [P(-50, 50), P(0, 50), P(0, 20)])).toEqual([]);
+  });
+
   it('reports nothing for a path with no segments', () => {
     expect(hullIntersection(SQUARE, [P(50, 50)])).toEqual([]);
   });

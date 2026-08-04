@@ -320,3 +320,163 @@ export function walkaround(line: Chain, hull: Chain, cw: boolean): Chain | null 
 
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// The driver: walking around *every* obstacle, not just one.
+// Counterpart: `WALKAROUND::Route` and `WALKAROUND::singleStep`
+// (pcbnew/router/pns_walkaround.cpp).
+// ---------------------------------------------------------------------------
+
+/**
+ * How a route ended.
+ *
+ * `stuck` and `almost-done` are both failures to finish, and the router treats
+ * them differently: a stuck route found an obstacle it could not get round at
+ * all, while an almost-done one was simply getting too long to be worth
+ * continuing. The first is a dead end; the second is a judgement call.
+ */
+export type WalkStatus = 'done' | 'stuck' | 'almost-done';
+
+export interface WalkOptions {
+  /** `WalkaroundIterationLimit`, upstream's 40. */
+  iterationLimit?: number;
+  /** Whether to give up on a route that grows out of proportion. */
+  lengthLimit?: boolean;
+  /** `m_lengthExpansionFactor`, upstream's 10. */
+  lengthExpansionFactor?: number;
+}
+
+export interface WalkResult {
+  path: Chain;
+  status: WalkStatus;
+}
+
+/** Total length of a chain. */
+function chainLength(c: readonly Vec2[]): number {
+  let len = 0;
+  for (let i = 0; i + 1 < c.length; i++)
+    len += Math.hypot(c[i + 1]!.x - c[i]!.x, c[i + 1]!.y - c[i]!.y);
+  return len;
+}
+
+/** Does the line touch this hull at all — crossing it or running inside it? */
+function collides(line: Chain, hull: Chain): boolean {
+  if (hullIntersection(hull, line).length > 0) return true;
+  // A line wholly inside the hull crosses nothing, and is the worst kind of
+  // collision to miss.
+  return line.some((p) => pointInside(hull, p) && !pointOnEdge(hull, p));
+}
+
+/**
+ * `NODE::NearestObstacle`, reduced to what walkaround asks of it: which of
+ * these hulls does the line run into *first*.
+ *
+ * Nearest is measured from the line's start, not from its middle or by hull
+ * area, because the walk consumes obstacles in the order the route meets them.
+ * Taking them in any other order makes each detour invalidate the last.
+ *
+ * Hulls are supplied rather than queried from a board: the spatial index that
+ * would find them is its own item on the tracker, and the driver's logic does
+ * not depend on where they came from.
+ */
+export function nearestObstacle(line: Chain, hulls: readonly Chain[]): number | null {
+  // The strict `<` below only decides which of two *equidistant* obstacles is
+  // taken first, and the loop deals with both either way — so it changes no
+  // route, only the order. Mutation testing finds it unobservable; it is kept
+  // because "first" is the intent and ties should not depend on array order.
+  if (line.length < 2) return null;
+
+  const start = line[0]!;
+  let best: number | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < hulls.length; i++) {
+    const hull = hulls[i]!;
+    if (!collides(line, hull)) continue;
+
+    const hits = hullIntersection(hull, line);
+    // A line already inside a hull has no crossing to measure, so it is the
+    // most urgent obstacle there is rather than the least.
+    let d = hits.length === 0 ? 0 : Number.POSITIVE_INFINITY;
+
+    for (const hit of hits) d = Math.min(d, Math.hypot(hit.p.x - start.x, hit.p.y - start.y));
+
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * `WALKAROUND::Route` for one direction: keep walking around obstacles until
+ * none is left.
+ *
+ * Each step re-queries, because a detour around one obstacle routinely puts the
+ * path into another — that is the ordinary case on a dense board, not an edge
+ * case, and it is why this is a loop rather than a pass over a list.
+ *
+ * The length limit is the interesting bit of policy. A route that has grown ten
+ * times longer than it started is not going to become good, and continuing to
+ * the iteration limit only makes the editor lag while the user waits. Upstream
+ * gives that its own status — `almost-done` rather than `stuck` — because the
+ * path so far is usable even though the walk did not finish.
+ */
+export function routeAround(
+  line: Chain,
+  hulls: readonly Chain[],
+  cw: boolean,
+  opts: WalkOptions = {},
+): WalkResult {
+  const iterationLimit = opts.iterationLimit ?? 40;
+  const lengthLimit = opts.lengthLimit ?? true;
+  const expansion = opts.lengthExpansionFactor ?? 10;
+  const initialLength = chainLength(line);
+
+  let path = line.map((p) => ({ ...p }));
+
+  for (let iteration = 0; iteration < iterationLimit; iteration++) {
+    const idx = nearestObstacle(path, hulls);
+    if (idx === null) return { path, status: 'done' };
+
+    const next = walkaround(path, hulls[idx]!, cw);
+    if (!next) return { path, status: 'stuck' };
+
+    path = next;
+
+    if (lengthLimit && initialLength > 0 && chainLength(path) / initialLength > expansion)
+      return { path, status: 'almost-done' };
+  }
+
+  // Ran out of iterations with obstacles still in the way.
+  return { path, status: 'almost-done' };
+}
+
+/**
+ * `WP_SHORTEST`: try both ways round and keep the better.
+ *
+ * "Better" is not simply shorter. A route that clears every obstacle beats one
+ * that does not, however long it is — a short path through a pad is not a path.
+ * Only when both succeed, or both fail, does length decide.
+ */
+export function routeShortest(
+  line: Chain,
+  hulls: readonly Chain[],
+  opts: WalkOptions = {},
+): WalkResult & { cw: boolean } {
+  const cw = routeAround(line, hulls, true, opts);
+  const ccw = routeAround(line, hulls, false, opts);
+
+  const cwDone = cw.status === 'done';
+  const ccwDone = ccw.status === 'done';
+
+  if (cwDone !== ccwDone) {
+    const winner = cwDone ? cw : ccw;
+    return { ...winner, cw: cwDone };
+  }
+
+  const takeCw = chainLength(cw.path) <= chainLength(ccw.path);
+  return { ...(takeCw ? cw : ccw), cw: takeCw };
+}

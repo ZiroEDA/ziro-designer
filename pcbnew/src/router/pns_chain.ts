@@ -315,12 +315,23 @@ export function hullIntersection(hull: readonly Vec2[], line: readonly Vec2[]): 
       continue;
     }
 
-    // At a corner, ask whether the path crosses the boundary or grazes it: the
-    // two points either side of the hit must fall on opposite sides.
-    const before = pointInside(hull, previousOn(line, hit));
-    const after = pointInside(hull, nextOn(line, hit));
+    // At a corner, ask whether the path crosses the boundary or grazes it. A
+    // path that *ends* at the hit has no far side and so has crossed nothing —
+    // which is exactly what reaching a pad and stopping looks like.
+    const { before, after } = samplesAround(line, hit);
+    if (before === null || after === null) continue;
 
-    if (before !== after && !seen.has(key)) {
+    // The same three-way answer as everywhere else here, and for the same
+    // reason: a sample sitting *on* the boundary is neither in nor out, and
+    // ray casting there answers whichever way the rounding fell. A real
+    // crossing needs one sample genuinely inside and the other genuinely
+    // outside — anything less is a path running along the edge.
+    const sideOf = (q: Vec2): number => (pointOnEdge(hull, q) ? 0 : pointInside(hull, q) ? 1 : -1);
+
+    const sBefore = sideOf(before);
+    const sAfter = sideOf(after);
+
+    if (sBefore !== 0 && sAfter !== 0 && sBefore !== sAfter && !seen.has(key)) {
       seen.add(key);
       out.push(hit);
     }
@@ -329,16 +340,48 @@ export function hullIntersection(hull: readonly Vec2[], line: readonly Vec2[]): 
   return out;
 }
 
-/** A point a little back along the path from a crossing. */
-function previousOn(line: readonly Vec2[], hit: HullIntersect): Vec2 {
-  const a = line[hit.indexTheir]!;
-  return midpointToward(hit.p, a);
-}
+/**
+ * Sample the path just before and just after a crossing.
+ *
+ * Both are found by stepping to the nearest *distinct* path point on each side
+ * and taking the midpoint. Stepping to the segment's own endpoints is not
+ * enough: when the crossing lands exactly on a path vertex, one of those
+ * endpoints **is** the crossing, and the midpoint toward it is the crossing
+ * again — which reads as being on the boundary and makes a path that merely
+ * *reaches* the hull look like one that passes through it.
+ *
+ * `null` on either side means the path ends there, and a path that ends on the
+ * boundary has not crossed it.
+ *
+ * Skipping points identical to the crossing is what makes this work, and it is
+ * *also* unobservable on its own: without it the midpoint comes out as the
+ * crossing itself, which the on-edge test then classifies as neither side —
+ * the same answer by a different route. Both are kept, because relying on one
+ * to cover for the other is how the bug this function exists to fix got in.
+ */
+function samplesAround(
+  line: readonly Vec2[],
+  hit: HullIntersect,
+): { before: Vec2 | null; after: Vec2 | null } {
+  const p = hit.p;
 
-/** ...and a little forward. */
-function nextOn(line: readonly Vec2[], hit: HullIntersect): Vec2 {
-  const b = line[hit.indexTheir + 1]!;
-  return midpointToward(hit.p, b);
+  let before: Vec2 | null = null;
+  for (let i = hit.indexTheir; i >= 0; i--) {
+    if (!same(line[i]!, p)) {
+      before = midpointToward(p, line[i]!);
+      break;
+    }
+  }
+
+  let after: Vec2 | null = null;
+  for (let i = hit.indexTheir + 1; i < line.length; i++) {
+    if (!same(line[i]!, p)) {
+      after = midpointToward(p, line[i]!);
+      break;
+    }
+  }
+
+  return { before, after };
 }
 
 /**
