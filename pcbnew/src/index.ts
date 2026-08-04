@@ -646,3 +646,14 @@ export {
   type CleanupCode,
   type CleanupGraphicsOptions,
 } from './graphics_cleaner.js';
+  globalDeletionFilterEnabled,
+  globalDeletionLayerChoices,
+  layerMatchesFilter,
+  layerMatchesDrawingFilter,
+  globalDeletionIds,
+  globalDeletionRebuildsRatsnest,
+  applyGlobalDeletion,
+  countGlobalDeletionTargets,
+  DEFAULT_GLOBAL_DELETION_OPTIONS,
+  type GlobalDeletionOptions,
+} from './global_deletion.js';
