@@ -118,3 +118,44 @@ export function kiidFromName(name: string): string {
 export function kiidPathAsString(uuids: readonly string[]): string {
   return uuids.length === 0 ? '/' : `/${uuids.join('/')}`;
 }
+
+/** boost::uuids::string_generator's grammar: 8-4-4-4-12, or the same 32 digits bare. */
+const UUID_TEXT =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})$/i;
+
+/**
+ * KIID::KIID( const std::string& ), which reads an identifier written by any
+ * generation of KiCad. Three shapes, tried in this order:
+ *
+ *  - Up to eight hex digits: an EESchema *legacy timestamp*. It fills only the
+ *    last four octets of the UUID, taken from the end of the text — upstream
+ *    copies octet by octet with a clamped start index, which is a right-aligned
+ *    zero fill written the long way round.
+ *  - Anything boost's string generator accepts: 32 hex digits, optionally
+ *    hyphenated and optionally wrapped in braces.
+ *  - Anything else: a *fresh random* UUID. Upstream has no way to represent an
+ *    unreadable identifier, so it invents one, which means such a file read
+ *    twice yields two different UUIDs and the item can never be matched by path
+ *    at all. Reproduced rather than replaced: a stable substitute would silently
+ *    match items upstream considers unmatchable.
+ */
+export function kiidFromString(text: string): string {
+  if (text !== '' && text.length <= 8 && /^[0-9a-f]+$/i.test(text)) {
+    return `00000000-0000-0000-0000-0000${text.toLowerCase().padStart(8, '0')}`;
+  }
+
+  const braced = text.length > 1 && text.startsWith('{') && text.endsWith('}');
+  const body = (braced ? text.slice(1, -1) : text).toLowerCase();
+
+  if (UUID_TEXT.test(body)) {
+    const hex = body.replace(/-/g, '');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+
+  const rand = (n: number): string =>
+    Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  return `${rand(8)}-${rand(4)}-4${rand(3)}-${rand(4)}-${rand(12)}`;
+}
