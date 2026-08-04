@@ -16,7 +16,9 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { replaceBusEntry } from '@ziroeda/eeschema/src/tools/mutate.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { schPropertiesFor } from '@ziroeda/eeschema/src/tools/sch_properties_panel.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));
@@ -104,5 +106,50 @@ describe('the stroke reaches the file', () => {
     const reloaded = readSchematic(parse(serializeSchematic(replaceBusEntry(0, next).apply(d))));
     expect(reloaded.busEntries[0]!.at).toEqual(d.busEntries[0]!.at);
     expect(reloaded.busEntries[0]!.size).toEqual(d.busEntries[0]!.size);
+  });
+});
+
+describe('the properties panel row', () => {
+  const LIB = new Map<string, LibSymbol>();
+  const rows = (d: Schematic) =>
+    schPropertiesFor(d, LIB, itemRefById(d, refId('busentry', d.busEntries[0]!.uuid, 0))!);
+
+  it('is no longer empty', () => {
+    // schPropertiesFor had no busentry arm, so selecting one showed nothing.
+    expect(rows(withStroke()).length).toBeGreaterThan(0);
+  });
+
+  it('offers position, width and style', () => {
+    expect(rows(withStroke()).map((r) => r.name)).toEqual([
+      'Position X',
+      'Position Y',
+      'Line Width',
+      'Wire Style',
+    ]);
+  });
+
+  it('writes a width change through replaceBusEntry', () => {
+    const d = withStroke();
+    const row = rows(d).find((r) => r.name === 'Line Width')!;
+    const after = row.set!(mmToIU(0.5))!.apply(d);
+    expect(after.busEntries[0]!.stroke?.width).toBe(mmToIU(0.5));
+  });
+
+  it('refuses a negative width', () => {
+    expect(rows(withStroke()).find((r) => r.name === 'Line Width')!.set!(-1)).toBeNull();
+  });
+
+  it('offers Default among the styles, as a wire does', () => {
+    // A bus entry is grouped with wires upstream, so it keeps the Default
+    // choice that graphic lines do not have.
+    const row = rows(withStroke()).find((r) => r.name === 'Wire Style')!;
+    expect(row.choices).toContain('Default');
+    expect(row.value).toBe('Default');
+  });
+
+  it('maps a style choice back to its token', () => {
+    const d = withStroke();
+    const row = rows(d).find((r) => r.name === 'Wire Style')!;
+    expect(row.set!('Dotted')!.apply(d).busEntries[0]!.stroke?.type).toBe('dot');
   });
 });
