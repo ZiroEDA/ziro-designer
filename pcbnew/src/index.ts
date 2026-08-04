@@ -462,3 +462,12 @@ export {
   tableRowCount,
   type TableSegment,
 } from './table_geometry.js';
+
+export {
+  tableAt,
+  collectTableValues,
+  applyTableValues,
+  isBackLayer,
+  displayToStoredCol,
+  type TableValues,
+} from './table_properties.js';

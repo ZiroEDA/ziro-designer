@@ -117,6 +117,13 @@ import {
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
+import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
+import {
+  applyTableValues,
+  collectTableValues,
+  tableAt,
+  type TableValues,
+} from '@ziroeda/pcbnew/src/table_properties.js';
 import {
   applyTextBoxValues,
   collectTextBoxValues,
@@ -1110,6 +1117,7 @@ export function PcbEditor({
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
+  const [tablePropsIndex, setTablePropsIndex] = useState<number | null>(null);
   /**
    * A text box drawn but not yet confirmed. Upstream opens the properties
    * dialog straight after the second click and throws the box away if it is
@@ -3926,6 +3934,12 @@ export function PcbEditor({
       return;
     }
 
+    const tbi = tableAt(brd, sel);
+    if (tbi !== null) {
+      setTablePropsIndex(tbi);
+      return;
+    }
+
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
@@ -3971,6 +3985,19 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, textPropsIndex],
+  );
+
+  /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
+  const applyTableEdit = useCallback(
+    (values: TableValues) => {
+      const brd = boardRef.current;
+      const index = tablePropsIndex;
+      setTablePropsIndex(null);
+      if (!brd || index === null) return;
+      const next = applyTableValues(brd, index, values);
+      if (next !== brd) commitBoard(next);
+    },
+    [commitBoard, tablePropsIndex],
   );
 
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
@@ -7278,6 +7305,14 @@ export function PcbEditor({
             commitBoard(applyTextBoxValues(withBox, index, values));
           }}
           onClose={() => setPendingTextBox(null)}
+        />
+      )}
+      {tablePropsIndex !== null && board?.tables[tablePropsIndex] && (
+        <DialogTableProperties
+          initial={collectTableValues(board.tables[tablePropsIndex]!)}
+          layers={board.layers.map((l) => l.name)}
+          onApply={applyTableEdit}
+          onClose={() => setTablePropsIndex(null)}
         />
       )}
       {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
