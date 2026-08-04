@@ -19,6 +19,7 @@ import {
   updateProjectFiles,
 } from './home/projectStore.js';
 import { saveSession, loadSession } from './home/session.js';
+import { installFlushOnHide } from './home/flush_on_hide.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import './ui/shell.css';
 
@@ -234,6 +235,12 @@ export function App(): JSX.Element {
   useEffect(() => {
     liveEdits.current.clear();
   }, [projectFiles]);
+
+  // Autosave is debounced by 1.2 s. That is right while someone types and wrong
+  // at the moment they leave: an edit followed within the window by a tab
+  // close, a reload or a swipe to another app never reached storage. Leaving an
+  // editor already flushed; leaving the page did not.
+  useEffect(() => installFlushOnHide(flushSaves), [flushSaves]);
 
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
   // used for discrete actions, drawing-sheet reference changes and Save to
