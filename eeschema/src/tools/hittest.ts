@@ -12,6 +12,11 @@ import type { Schematic, SchSymbol, LibGraphic, LibSymbol, Vec2 } from '../types
 import { contains, inflate, labelBox, sheetPinBBox, symbolBodyBBox } from './bbox.js';
 import { directiveBox } from './directive_label.js';
 import { imageSizeIU } from './image_size.js';
+// table_cells imports refId from here in turn. Both sides are function
+// declarations used only at call time, never during module evaluation, so the
+// cycle is inert -- and keeping the cell rules in one module is worth more than
+// avoiding it.
+import { cellAt, tableCellId } from './table_cells.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -229,7 +234,8 @@ export interface ItemRef {
     | 'directive'
     | 'field'
     | 'pin'
-    | 'sheetpin';
+    | 'sheetpin'
+    | 'tablecell';
   /** Stable identity: the item's uuid, or `idx:<n>` when one is absent. */
   id: string;
 }
@@ -424,8 +430,16 @@ export function hitTest(
       p.x <= maxX + accuracy &&
       p.y >= minY - accuracy &&
       p.y <= maxY + accuracy
-    )
-      return { kind: 'table', id: refId('table', t.uuid, i) };
+    ) {
+      // A click inside the grid lands on the cell (SCH_TABLECELL is what
+      // SCH_SELECTION_TOOL collects); the table itself answers only for a point
+      // in the accuracy band outside every cell, which is its border.
+      const tableId = refId('table', t.uuid, i);
+      const k = cellAt(t, p);
+      return k === -1
+        ? { kind: 'table', id: tableId }
+        : { kind: 'tablecell', id: tableCellId(tableId, k) };
+    }
   }
 
   // Sheets last: their rectangle is large, so smaller items inside win first

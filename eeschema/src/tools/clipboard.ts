@@ -26,6 +26,7 @@ import type { Schematic, SchSymbol, SchField, LibSymbol, Vec2 } from '../types.j
 import { writeSchematic } from '../sch_io/sexpr/write-schematic.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import { refId } from './hittest.js';
+import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import { newUuid, makeLabel, nodeWithUuid, symbolNodeWithFreshUuids } from './build.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
@@ -37,7 +38,11 @@ import type { ItemsBatch } from './mutate.js';
  * with the definitions the selected symbols use, then each item, top-level.
  * Uses the same write path as saving, so edited geometry is current.
  */
-export function copySelectionText(sch: Schematic, ids: ReadonlySet<string>): string {
+export function copySelectionText(sch: Schematic, rawIds: ReadonlySet<string>): string {
+  // SCH_EDITOR_CONTROL special-cases a selection holding cells: what goes on
+  // the clipboard is the table, since a cell out of its grid is not a thing
+  // that can be pasted anywhere.
+  const ids = hasCellSelection(rawIds) ? promoteCellSelection(rawIds) : rawIds;
   const symbols = sch.symbols.filter((s, i) => ids.has(refId('symbol', s.uuid, i)));
   const lines = sch.lines.filter((l, i) => ids.has(refId('line', l.uuid, i)));
   const junctions = sch.junctions.filter((j, i) => ids.has(refId('junction', j.uuid, i)));

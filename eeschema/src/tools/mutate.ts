@@ -30,6 +30,7 @@ import type {
 } from '../types.js';
 import type { Orientation } from '@ziroeda/common/src/transform.js';
 import { refId, sheetPinId } from './hittest.js';
+import { hasCellSelection, tableCellId } from './table_cells.js';
 import { makeSymbol } from './build.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunctionNeeded } from './junction_helpers.js';
@@ -260,12 +261,44 @@ export function deleteByIds(ids: ReadonlySet<string>): EditCommand {
         images: doc.images.filter((im, i) => !ids.has(refId('image', im.uuid, i))),
         graphics: doc.graphics.filter((_, i) => !ids.has(refId('graphic', undefined, i))),
         textBoxes: doc.textBoxes.filter((tb, i) => !ids.has(refId('textbox', tb.uuid, i))),
-        tables: doc.tables.filter((t, i) => !ids.has(refId('table', t.uuid, i))),
+        // A table survives Delete on one of its cells, and the cell survives
+        // too: SCH_EDIT_TOOL clears the cell's *text* rather than removing it
+        // (sch_edit_tool.cpp's DoDelete). Removing it would tear a hole in the
+        // grid, which is why upstream does not.
+        tables: doc.tables
+          .map((t, i) => clearDeletedCells(t, refId('table', t.uuid, i), ids))
+          .filter((_, i) => !ids.has(refId('table', doc.tables[i]!.uuid, i))),
       };
     },
     invert(before: Schematic): EditCommand {
-      return restoreRemoved(collectByIds(before, ids), ids);
+      const undo = restoreRemoved(collectByIds(before, ids), ids);
+      // Clearing a cell *modifies* a table rather than removing one, and
+      // restoreRemoved only knows how to put items back. Without this, undo of
+      // a cleared cell silently left it empty.
+      if (!hasCellSelection(ids)) return undo;
+      const tables = before.tables;
+      return {
+        label: undo.label,
+        apply: (d) => ({ ...undo.apply(d), tables }),
+        invert: (b) => undo.invert(b),
+      };
     },
+  };
+}
+
+/**
+ * Delete on a table cell empties it rather than removing it
+ * (`SCH_EDIT_TOOL`: "Clear contents of table cell"). Returns the table
+ * unchanged when none of its cells were selected, so identity still means
+ * nothing happened.
+ */
+function clearDeletedCells(t: SchTable, tableId: string, ids: ReadonlySet<string>): SchTable {
+  if (!t.cells.some((_, k) => ids.has(tableCellId(tableId, k)))) return t;
+  return {
+    ...t,
+    cells: t.cells.map((c, k) =>
+      ids.has(tableCellId(tableId, k)) && c.text !== '' ? { ...c, text: '' } : c,
+    ),
   };
 }
 

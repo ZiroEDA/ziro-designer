@@ -19,6 +19,7 @@
 import type { Schematic, SchSymbol, SchField, LibGraphic, TextEffects, Vec2 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
+import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import type { EditCommand } from './command.js';
 
 export type TransformOp = 'rotateCW' | 'rotateCCW' | 'mirrorX' | 'mirrorY';
@@ -240,10 +241,15 @@ function selectionCenter(doc: Schematic, ids: ReadonlySet<string>): Vec2 {
  * single-item behaviour). `center` may be supplied to keep undo exact.
  */
 export function transformItems(
-  ids: ReadonlySet<string>,
+  rawIds: ReadonlySet<string>,
   op: TransformOp,
   center?: Vec2,
 ): EditCommand {
+  // sch_edit_tool's rotatable/mirrorable type list is annotated
+  // "will be promoted to parent table(s)". A cell cannot leave its table, so a
+  // selected cell stands for its table here. Done at the engine rather than at
+  // each call site, so no caller can forget it.
+  const ids = hasCellSelection(rawIds) ? promoteCellSelection(rawIds) : rawIds;
   return {
     label: op.startsWith('rotate') ? 'Rotate' : 'Mirror',
     apply(doc: Schematic): Schematic {
