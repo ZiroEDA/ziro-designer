@@ -754,3 +754,27 @@ export {
   type CountedPadProperty,
   type ViaTypeName,
 } from './board_statistics.js';
+
+export {
+  planBoardReannotate,
+  applyBoardReannotate,
+  reannotateBoard,
+  reannotateDuplicates,
+  reannotateSortCodes,
+  compareReannotateFootprints,
+  roundToReannotateGrid,
+  filterReannotatePrefix,
+  DEFAULT_REANNOTATE_OPTIONS,
+  REANNOTATE_ACTION_MESSAGE,
+  REANNOTATE_MIN_GRID,
+  REANNOTATE_MAX_ERROR,
+  REANNOTATE_VALID_PREFIX_CHARS,
+  type ReannotateAction,
+  type ReannotateScope,
+  type ReannotateOptions,
+  type ReannotatePlan,
+  type ReannotateChange,
+  type ReannotateRefDesInfo,
+  type ReannotatePrefixInfo,
+  type ReannotateSortCodes,
+} from './board_reannotate.js';
