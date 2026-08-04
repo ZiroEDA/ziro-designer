@@ -577,3 +577,14 @@ export {
 } from './router/pns_walkaround.js';
 
 export { boardObstacleHulls, type ObstacleQuery } from './router/pns_obstacles.js';
+
+export {
+  optimize,
+  cornerCost,
+  chainCornerCost,
+  mergeColinear,
+  mergeObtuse,
+  mergeFull,
+  type CollisionTest,
+  type OptimizeEffort,
+} from './router/pns_optimizer.js';
