@@ -96,6 +96,13 @@ const ARRAYS = [
 type ArrayName = (typeof ARRAYS)[number];
 
 /**
+ * How many items of each kind to sweep. Two rather than one so an item whose
+ * source node differs from its neighbour's — an older token spelling, a missing
+ * optional child — still gets a turn.
+ */
+const INSTANCES_PER_KIND = 2;
+
+/**
  * A schematic holding one of every item kind. The two real fixtures are honest
  * boards and so contain symbols, wires, labels and sheets — none of the kinds
  * the three recent bugs were in. A sweep is only as good as what it sweeps.
@@ -231,7 +238,11 @@ function sweep(doc: Schematic): Miss[] {
   const misses: Miss[] = [];
   for (const array of ARRAYS) {
     const items = (doc[array] ?? []) as unknown as Record<string, unknown>[];
-    items.forEach((item, index) => {
+    // One instance per kind. Coverage here is per (kind, field) — the writer
+    // has one arm per kind, so symbol 17 of 30 exercises nothing symbol 0 did
+    // not. Sweeping all of them cost a full serialize+parse per leaf per item,
+    // which ran to 20 s on a real board and timed out under a loaded suite.
+    items.slice(0, INSTANCES_PER_KIND).forEach((item, index) => {
       for (const { path, value } of leaves(item)) {
         // Excluding a *branch* has to exclude everything under it: `source` is
         // a whole s-expression tree, and its leaves are `source.items.3.kind`.

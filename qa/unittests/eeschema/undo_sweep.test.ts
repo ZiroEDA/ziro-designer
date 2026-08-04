@@ -201,16 +201,15 @@ describe('the registry keeps up with the tools', () => {
    * command nothing ever applies, whose invert nobody has ever run.
    */
   /**
-   * Factories no test calls today. Each is a real gap, listed so it is visible
-   * and so a newly untested factory cannot hide among them. Filed as #405.
+   * Factories no test calls today. The list is debt, not an exemption: it
+   * exists so a *newly* untested factory cannot hide among the old ones, and
+   * the assertion below fails once an entry gains a test and should go.
+   *
+   * All five original entries were cleared in the commit that added
+   * `untested_commands.test.ts` (#407). Empty is the goal state, and staying
+   * empty is the guard's whole job.
    */
-  const KNOWN_UNTESTED: Record<string, string> = {
-    annotateCommand: 'annotation is tested through its planner, never through the command',
-    setSymbolsCommand: 'a thin setter over an already-computed array',
-    splitLinesCommand: 'needs a drag mid-segment to set up',
-    embeddedFilesCommand: 'embedded files have no item-model coverage at all',
-    replaceSheetPin: 'sheet pins are tested through the dialog, not the command',
-  };
+  const KNOWN_UNTESTED: Record<string, string> = {};
 
   it('every EditCommand factory is exercised by some test', () => {
     const toolsDir = fileURLToPath(new URL('../../../eeschema/src/tools/', import.meta.url));
