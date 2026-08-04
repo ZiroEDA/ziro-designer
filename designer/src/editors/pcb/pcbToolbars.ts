@@ -380,7 +380,7 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
       { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
     ],
   },
-  { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables', ...todo },
+  { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables' },
   {
     group: 'Dimension objects',
     actions: [
