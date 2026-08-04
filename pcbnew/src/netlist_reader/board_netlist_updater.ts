@@ -812,7 +812,6 @@ export class BOARD_NETLIST_UPDATER {
         // A group with fewer than two items left is dissolved.
         this.m_board = {
           ...this.m_board,
-          textBoxes: [],
           groups: this.m_board.groups.map((g, i) =>
             i === existingIndex ? withGroupMembers(g, members.length < 2 ? [] : members) : g,
           ),
@@ -833,7 +832,6 @@ export class BOARD_NETLIST_UPDATER {
           const target = this.m_board.groups[targetIndex]!;
           this.m_board = {
             ...this.m_board,
-            textBoxes: [],
             groups: this.m_board.groups.map((g, i) =>
               i === targetIndex ? withGroupMembers(target, [...target.members, uuid]) : g,
             ),
@@ -871,7 +869,6 @@ export class BOARD_NETLIST_UPDATER {
       if (!this.dryRun) {
         this.m_board = {
           ...this.m_board,
-          textBoxes: [],
           groups: this.m_board.groups.map((g, j) =>
             j === i
               ? { ...g, name: netlistGroup.name, source: renameGroup(g.source, netlistGroup.name) }
@@ -1208,7 +1205,6 @@ export class BOARD_NETLIST_UPDATER {
           ...this.m_board,
           footprints: this.m_board.footprints.filter((_, i) => !drop.has(i)),
           // A deleted footprint must not stay a group member.
-          textBoxes: [],
           groups: this.m_board.groups.map((g) =>
             g.members.some((m) => droppedUuids.has(m))
               ? withGroupMembers(
