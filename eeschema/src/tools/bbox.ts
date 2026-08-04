@@ -13,6 +13,7 @@ import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { textWidth, type TextStyle } from '@ziroeda/common/src/font/font_provider.js';
 import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, SheetPin, Vec2 } from '../types.js';
 
 export interface BBox {
@@ -105,8 +106,15 @@ export function textPenWidth(height: number, bold = false): number {
  * `FONT::StringBoundaryLimits`, which for a stroke font is the glyph extent
  * inflated by 1.5 × the pen on each side.
  */
-export function textBoxWidth(text: string, height: number, bold = false): number {
-  return measureText(text, height) + 3 * textPenWidth(height, bold);
+export function textBoxWidth(
+  text: string,
+  height: number,
+  bold = false,
+  style?: TextStyle,
+): number {
+  // Routed through the single measurement entry point (#154): with no face, or
+  // no provider installed, this is exactly the stroke measurement it always was.
+  return textWidth(text, height, { ...style, bold }) + 3 * textPenWidth(height, bold);
 }
 
 /** SPIN_STYLE, in KiCad's order. */
