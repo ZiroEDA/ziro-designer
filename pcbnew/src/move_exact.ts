@@ -152,6 +152,13 @@ export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
     case 'zone':
       // ZONE::GetPosition is the first corner of the outline.
       return board.zones[r.index]?.outline?.[0] ?? null;
+    case 'textbox': {
+      // EDA_SHAPE::getPosition for a RECTANGLE is its first corner; a rotated
+      // box has none, so its first polygon point stands in.
+      const t = board.textBoxes[r.index];
+      if (!t) return null;
+      return t.start ?? t.pts?.[0] ?? null;
+    }
     case 'dimension':
       // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
       // point, not the centre of the drawn lines and not the text.

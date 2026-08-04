@@ -33,6 +33,7 @@ import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
+import { textBoxBBox } from './textbox_geometry.js';
 import type {
   Board,
   PcbDimension,
@@ -42,6 +43,7 @@ import type {
   PcbArcTrack,
   PcbVia,
   PcbShape,
+  PcbTextBox,
   PcbTextItem,
   PcbZone,
   PcbGroup,
@@ -69,6 +71,7 @@ const BOARD_ITEM_KINDS = [
   'zone',
   'shape',
   'text',
+  'textbox',
   'dimension',
   'fptext',
   'pad',
@@ -251,6 +254,10 @@ export function boardItemBBox(board: Board, id: string): BoardBBox | null {
     case 'text': {
       const t = board.texts[ref.index];
       return t ? textBBox(t) : null;
+    }
+    case 'textbox': {
+      const t = board.textBoxes[ref.index];
+      return t ? textBoxBBox(t) : null;
     }
     case 'dimension': {
       const d = board.dimensions[ref.index];
@@ -560,6 +567,22 @@ export function boardHitCandidates(
         layers: [t.layer],
       });
   });
+  board.textBoxes.forEach((tb, i) => {
+    // PCB_TEXTBOX::HitTest is a bounding-box Contains, so the whole box is
+    // clickable — the interior is not empty the way a dimension's is, and a
+    // box with `border no` would otherwise be almost unselectable.
+    const b = textBoxBBox(tb);
+    const d = bboxDist(b, pos);
+    if (d <= tol)
+      hits.push({
+        id: boardItemId('textbox', i),
+        kind: 'textbox',
+        dist: d,
+        // A real area, so a small box inside a large one wins the size ranking.
+        area: bboxArea(b),
+        layers: [tb.layer],
+      });
+  });
   board.dimensions.forEach((dm, i) => {
     const d = distanceToDimension(dm, pos);
     if (d <= tol)
@@ -860,6 +883,10 @@ export function boardItemsInBox(
     const b = boardItemBBox(board, boardItemId('text', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('text', i);
   });
+  board.textBoxes.forEach((_, i) => {
+    const b = boardItemBBox(board, boardItemId('textbox', i))!;
+    if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('textbox', i);
+  });
   board.dimensions.forEach((_, i) => {
     const b = boardItemBBox(board, boardItemId('dimension', i))!;
     if (contained ? boxContainsBox(rect, b) : boxIntersects(rect, b)) push('dimension', i);
@@ -885,6 +912,7 @@ export function allBoardItemIds(board: Board): string[] {
   board.footprints.forEach((_, i) => out.push(boardItemId('footprint', i)));
   board.shapes.forEach((_, i) => out.push(boardItemId('shape', i)));
   board.texts.forEach((_, i) => out.push(boardItemId('text', i)));
+  board.textBoxes.forEach((_, i) => out.push(boardItemId('textbox', i)));
   board.dimensions.forEach((_, i) => out.push(boardItemId('dimension', i)));
   board.zones.forEach((_, i) => out.push(boardItemId('zone', i)));
   return out;
@@ -970,6 +998,49 @@ const moveVia = (v: PcbVia, d: Vec2): PcbVia => {
 const moveText = (t: PcbTextItem, d: Vec2): PcbTextItem => {
   const at = add(t.at, d);
   return { ...t, at, source: patchChild(t.source, 'at', atNode(at, t.angle)) };
+};
+
+/**
+ * Shift a text box and patch its source.
+ *
+ * A box is corners *or* a polygon, so both forms have to move — a mover that
+ * only handled `(start …)/(end …)` would leave every rotated box behind.
+ */
+const moveTextBox = (t: PcbTextBox, d: Vec2): PcbTextBox => {
+  let src = t.source;
+  const next: PcbTextBox = { ...t };
+
+  if (t.pts && t.pts.length > 0) {
+    next.pts = t.pts.map((p) => add(p, d));
+    src = {
+      kind: 'list',
+      items: src.items.map((it) =>
+        isList(it) && head(it) === 'pts'
+          ? {
+              kind: 'list',
+              items: it.items.map((n) => {
+                if (!isList(n) || head(n) !== 'xy') return n;
+                const x = numArg(n, 0);
+                const y = numArg(n, 1);
+                if (x === undefined || y === undefined) return n;
+                return list(atom('xy'), atom(mm(mmToIU(x) + d.x)), atom(mm(mmToIU(y) + d.y)));
+              }),
+            }
+          : it,
+      ),
+    };
+  } else {
+    if (t.start) {
+      next.start = add(t.start, d);
+      src = patchChild(src, 'start', xyNode('start', next.start));
+    }
+    if (t.end) {
+      next.end = add(t.end, d);
+      src = patchChild(src, 'end', xyNode('end', next.end));
+    }
+  }
+  next.source = src;
+  return next;
 };
 
 /**
@@ -1118,6 +1189,7 @@ export function moveBoardItems(board: Board, ids: ReadonlySet<string>, delta: Ve
     vias: board.vias.map((v, i) => (idx.via.has(i) ? moveVia(v, delta) : v)),
     shapes: board.shapes.map((s, i) => (idx.shape.has(i) ? moveShape(s, delta) : s)),
     texts: board.texts.map((t, i) => (idx.text.has(i) ? moveText(t, delta) : t)),
+    textBoxes: board.textBoxes.map((t, i) => (idx.textbox.has(i) ? moveTextBox(t, delta) : t)),
     dimensions: board.dimensions.map((d, i) =>
       idx.dimension.has(i) ? moveDimension(d, delta) : d,
     ),
@@ -1282,6 +1354,7 @@ function indicesByKind(ids: ReadonlySet<string>): Record<BoardItemKind, Set<numb
     zone: new Set(),
     shape: new Set(),
     text: new Set(),
+    textbox: new Set(),
     dimension: new Set(),
     fptext: new Set(),
     pad: new Set(),
@@ -1381,6 +1454,7 @@ export function deleteBoardItems(board: Board, ids: ReadonlySet<string>): Board 
     zones: board.zones.filter((_, i) => !idx.zone.has(i)),
     shapes: board.shapes.filter((_, i) => !idx.shape.has(i)),
     texts: board.texts.filter((_, i) => !idx.text.has(i)),
+    textBoxes: board.textBoxes.filter((_, i) => !idx.textbox.has(i)),
     dimensions: board.dimensions.filter((_, i) => !idx.dimension.has(i)),
     footprints: board.footprints
       // Remove individually-selected footprint texts first (on original indices,
@@ -1758,6 +1832,8 @@ function uuidOfItemId(board: Board, id: string): string | undefined {
       return board.shapes[r.index]?.uuid;
     case 'text':
       return board.texts[r.index]?.uuid;
+    case 'textbox':
+      return board.textBoxes[r.index]?.uuid;
     case 'dimension':
       return board.dimensions[r.index]?.uuid;
     case 'footprint':
@@ -1985,6 +2061,8 @@ export function isBoardItemLocked(board: Board, id: string): boolean {
       return !!board.shapes[r.index]?.locked;
     case 'text':
       return !!board.texts[r.index]?.locked;
+    case 'textbox':
+      return !!board.textBoxes[r.index]?.locked;
     case 'dimension':
       return !!board.dimensions[r.index]?.locked;
     case 'footprint':

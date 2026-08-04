@@ -86,6 +86,12 @@ export function itemPassesFilter(board: Board, id: string, filter: SelectionFilt
     case 'text':
       return filter.text && board.texts[ref.index] !== undefined;
 
+    // `PCB_TEXTBOX_T` sits with `PCB_TEXT_T` in upstream's switch and returns
+    // `includePcbTexts` — a text box follows the *text* checkbox, not the
+    // layer-based graphics split a dimension uses, even though it is a shape.
+    case 'textbox':
+      return filter.text && board.textBoxes[ref.index] !== undefined;
+
     // A dimension follows its layer, exactly as a graphic does: upstream's
     // `PCB_SELECTION_FILTER_OPTIONS` has no dimension box of its own, and both
     // its `graphics` and `dimensions` cases route through the same

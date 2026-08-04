@@ -429,3 +429,5 @@ export {
   applyDimensionValues,
   type DimensionValues,
 } from './dimension_properties.js';
+
+export { textBoxCorners, textBoxBBox } from './textbox_geometry.js';
