@@ -41,6 +41,8 @@ import type {
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
+import { resolveCell } from './table_cells.js';
+import { resizeCellEdge } from './table_layout.js';
 import { sheetPinBBox } from './bbox.js';
 import { imageSizeIU } from './image_size.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -72,8 +74,10 @@ export interface EditHandle {
 
 /** The item the handles belong to: which array, and where in it. */
 export interface PointEditTarget {
-  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox' | 'image';
+  readonly kind: 'sheet' | 'line' | 'graphic' | 'textbox' | 'image' | 'tablecell';
   readonly index: number;
+  /** Table cells only: the cell's index within `doc.tables[index]`. */
+  readonly cell?: number;
 }
 
 // Point indices, named as upstream names them (sch_point_editor.cpp).
@@ -94,6 +98,9 @@ const ARC_START = 0;
 const ARC_MID = 1;
 const ARC_END = 2;
 const ARC_CENTER = 3;
+/** EDA_TABLECELL_POINT_EDIT_BEHAVIOR's two points. */
+const CELL_COL_WIDTH = 0;
+const CELL_ROW_HEIGHT = 1;
 
 /** MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT (sch_sheet.h), in mils. */
 const MIN_SHEET_WIDTH = mmToIU(500 * 0.0254);
@@ -115,6 +122,11 @@ export function pointEditTarget(doc: Schematic, id: string): PointEditTarget | n
     xs: readonly T[] | undefined,
     kind: Parameters<typeof refId>[0],
   ): number => (xs ?? []).findIndex((x, i) => refId(kind, x.uuid, i) === id);
+
+  // A table cell (SCH_TABLECELL_POINT_EDIT_BEHAVIOR). Checked first: a cell id
+  // contains its table's id, so anything matching it is unambiguous.
+  const cell = resolveCell(doc, id);
+  if (cell) return { kind: 'tablecell', index: cell.tableIndex, cell: cell.cellIndex };
 
   const sheet = find(doc.sheets, 'sheet');
   if (sheet !== -1) return { kind: 'sheet', index: sheet };
@@ -716,6 +728,21 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
       const tb = doc.textBoxes[t.index];
       return tb ? rectHandles(tb.start, tb.end, true) : [];
     }
+    // A cell gets two handles, not eight: EDA_TABLECELL_POINT_EDIT_BEHAVIOR
+    // exposes COL_WIDTH and ROW_HEIGHT only. There is no top-left to drag,
+    // because a cell cannot move independently of its grid -- dragging one
+    // resizes a whole column or row.
+    case 'tablecell': {
+      const table = doc.tables[t.index];
+      const c = table?.cells[t.cell ?? -1];
+      if (!table || !c) return [];
+      const x1 = Math.max(c.start.x, c.end.x);
+      const y1 = Math.max(c.start.y, c.end.y);
+      return [
+        pt('point', CELL_COL_WIDTH, { x: x1, y: mid(c.start, c.end).y }),
+        pt('point', CELL_ROW_HEIGHT, { x: mid(c.start, c.end).x, y: y1 }),
+      ];
+    }
     case 'line': {
       const l = doc.lines[t.index];
       if (!l) return [];
@@ -755,6 +782,20 @@ export function dragHandle(
       const box = reshapedBox(tb.start, tb.end, handle, pos, textBoxMinSize(tb));
       const moved: SchTextBox = { ...tb, start: box.start, end: box.end };
       return { ...doc, textBoxes: doc.textBoxes.map((x, i) => (i === t.index ? moved : x)) };
+    }
+    case 'tablecell': {
+      const table = doc.tables[t.index];
+      const c = table?.cells[t.cell ?? -1];
+      if (!table || !c) return doc;
+      const x0 = Math.min(c.start.x, c.end.x);
+      const y0 = Math.min(c.start.y, c.end.y);
+      // The drag gives the cell's new full extent; resizeCellEdge splits that
+      // back across the columns or rows the cell spans.
+      const next =
+        handle.index === CELL_COL_WIDTH
+          ? resizeCellEdge(table, t.cell!, 'right', Math.max(ONE_MIL, pos.x - x0))
+          : resizeCellEdge(table, t.cell!, 'bottom', Math.max(ONE_MIL, pos.y - y0));
+      return { ...doc, tables: doc.tables.map((x, i) => (i === t.index ? next : x)) };
     }
     case 'line':
       return dragLine(doc, t.index, handle, pos);
