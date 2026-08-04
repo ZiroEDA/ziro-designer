@@ -58,6 +58,7 @@ import {
   makeArc,
   makePolyline,
   makeBusEntry,
+  makeBusEntryOrSegment,
   makeImage,
   DEFAULT_ENTRY_SIZE,
   collectAnchors,
@@ -1937,8 +1938,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
 
       // Wire-to-bus entry: click drops a 45° stub (R rotates it; stays active).
+      // A stub drawn bus-to-bus becomes a bus *segment* instead, because that is
+      // what the file format can hold — saveBusEntry converts one on the way out
+      // and parseBusEntry can never read one back.
       if (activeTool === 'busEntry') {
-        onCommand(addItems({ busEntries: [makeBusEntry(snap(world), entrySizeRef.current)] }));
+        onCommand(
+          addItems(makeBusEntryOrSegment(schematic, libById, snap(world), entrySizeRef.current)),
+        );
         return;
       }
 
