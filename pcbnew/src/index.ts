@@ -532,5 +532,9 @@ export {
   isConductive,
   type PathConnection,
   type CreepShape,
+  type BePoint,
+  type BeCircle,
+  type CuSegment,
+  type CuCircle,
   type BoardSurface,
 } from './drc/creepage_graph.js';
