@@ -33,7 +33,7 @@ import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.
 import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
-import { loadIndex, loadSymbol } from '../symbols/index.js';
+import { isPowerSymbol, loadIndex, loadSymbol } from '../symbols/index.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
@@ -202,13 +202,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       };
 
       if (powerFilter) {
-        a.setFilter(
-          (node) =>
-            node.isPower ||
-            // Not yet loaded, fall back to the library name until real
-            // power flags are known.
-            (!loadedLibs.current.has(node.libNickname) && /power/i.test(node.libNickname)),
-        );
+        // isPower is now exact whenever the index carries power flags, so the
+        // library-name guess is not layered on top of it — that second test
+        // used to re-admit every symbol in a "power"-named library after the
+        // per-symbol flag had already rejected it.
+        a.setFilter((node) => node.isPower);
       }
 
       // processList: an entry whose symbol can't be resolved is dropped, and
@@ -283,7 +281,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
               item.name = name;
               item.libNickname = lib.name;
               item.libItemName = name;
-              item.isPower = /power/i.test(lib.name);
+              item.isPower = isPowerSymbol(lib, name);
               item.sourceSearchTerms = [
                 searchTerm(lib.name, 4),
                 searchTerm(name, 8, true),
