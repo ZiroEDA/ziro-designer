@@ -60,6 +60,7 @@ import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
+import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
@@ -1919,6 +1920,22 @@ function drawSelectionShadows(
     ctx.strokeStyle = color;
     ctx.lineWidth = base + width;
     ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+  });
+
+  // A selected cell gets its own outline. Without this a click on a table did
+  // something invisible: the selection changed, the message panel changed, and
+  // nothing on the canvas moved.
+  sch.tables.forEach((t, i) => {
+    const tableId = refId('table', t.uuid, i);
+    t.cells.forEach((c, k) => {
+      if (!selection.has(tableCellId(tableId, k))) return;
+      const x0 = Math.min(c.start.x, c.end.x);
+      const y0 = Math.min(c.start.y, c.end.y);
+      const base = t.borderStroke && t.borderStroke.width > 0 ? t.borderStroke.width : g_defaultPen;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = base + width;
+      ctx.strokeRect(x0, y0, Math.abs(c.end.x - c.start.x), Math.abs(c.end.y - c.start.y));
+    });
   });
 
   // Images: SCH_PAINTER has no shadow geometry for a bitmap either, so upstream
