@@ -72,3 +72,4 @@ export * from './sync_sheet_pins.js';
 export * from './symbol_from_schematic.js';
 export * from './save_symbol_to_schematic.js';
 export * from './table_cells.js';
+export * from './table_layout.js';
