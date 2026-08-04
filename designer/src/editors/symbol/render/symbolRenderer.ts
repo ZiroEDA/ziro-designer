@@ -21,6 +21,7 @@ import type { Vec2 } from '@ziroeda/kimath';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
 import type { Theme } from '../../schematic/theme.js';
 
@@ -731,7 +732,14 @@ export function drawField(
   const h = f.effects?.fontSize?.[0] ?? DEFAULT_TEXT;
   if (shadow) {
     // Underline the run as the selection cue (fields have no outline geometry).
-    const w = measureText(f.value, h);
+    // Through the shared entry point (#154): a library field can carry
+    // `(font (face …))`, and the underline has to be the width of what is
+    // actually drawn. With no provider that is the stroke font, as before.
+    const w = textWidth(f.value, h, {
+      face: f.effects?.face,
+      bold: f.effects?.bold,
+      italic: f.effects?.italic,
+    });
     const justify = f.effects?.justify;
     const x0 = justify?.includes('right')
       ? f.at.x - w
