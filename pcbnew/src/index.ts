@@ -566,4 +566,12 @@ export {
   type HullIntersect,
 } from './router/pns_chain.js';
 
-export { walkaround } from './router/pns_walkaround.js';
+export {
+  walkaround,
+  nearestObstacle,
+  routeAround,
+  routeShortest,
+  type WalkStatus,
+  type WalkOptions,
+  type WalkResult,
+} from './router/pns_walkaround.js';
