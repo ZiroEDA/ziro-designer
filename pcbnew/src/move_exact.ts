@@ -159,6 +159,14 @@ export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
       if (!t) return null;
       return t.start ?? t.pts?.[0] ?? null;
     }
+    case 'table': {
+      // A table has no coordinates of its own; its position is where its first
+      // cell starts.
+      const tb = board.tables[r.index];
+      const first = tb?.cells[0];
+      if (!first) return null;
+      return first.start ?? first.pts?.[0] ?? null;
+    }
     case 'dimension':
       // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
       // point, not the centre of the drawn lines and not the text.

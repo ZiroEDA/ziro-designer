@@ -7648,6 +7648,12 @@ function describeBoardItem(board: Board, id: string): string {
       const t = board.textBoxes[r.index];
       return t ? `PCB text box '${t.text}' on ${t.layer}` : 'PCB text box';
     }
+    case 'table': {
+      // PCB_TABLE::GetItemDescription: "%d column table", lowercase as
+      // upstream spells it.
+      const t = board.tables[r.index];
+      return t ? `${t.columnCount} column table` : 'table';
+    }
     case 'dimension': {
       // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
       // A centre dimension carries no text, so the quotes come out empty, which
