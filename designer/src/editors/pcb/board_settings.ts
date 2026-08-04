@@ -767,6 +767,7 @@ export const DRC_CATEGORIES: DrcCategory[] = [
       { code: 'text_on_edge_cuts', title: 'Text or graphic on Edge.Cuts layer' },
       { code: 'zones_intersect', title: 'Copper zones intersect' },
       { code: 'isolated_copper', title: 'Isolated copper fill', def: 'warning' },
+      { code: 'copper_sliver', title: 'Copper sliver', def: 'warning' },
       { code: 'footprint', title: 'Footprint is not valid' },
       { code: 'padstack', title: 'Padstack is questionable', def: 'warning' },
       { code: 'pth_inside_courtyard', title: 'PTH inside courtyard' },
