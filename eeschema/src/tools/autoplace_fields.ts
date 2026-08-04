@@ -227,7 +227,7 @@ function possibleColliders(sheet: AutoplaceSheet, self: SchSymbol): Collider[] {
     if (s === self || (s.uuid !== undefined && s.uuid === self.uuid)) return;
     const lib = libById.get(s.libId);
     out.push({ box: symbolBodyBBox(s, lib) });
-    for (const fb of symbolFieldBoxes(s, lib, measureText)) {
+    for (const fb of symbolFieldBoxes(s, lib)) {
       const f = s.fields[fb.index];
       if (!f || f.effects?.hidden) continue;
       out.push({
@@ -416,7 +416,7 @@ function fieldBoxSize(
   const boxes: { index: number; w: number; h: number }[] = [];
   let maxWidth = 0;
   let totalHeight = 0;
-  for (const fb of symbolFieldBoxes(sym, lib, measureText)) {
+  for (const fb of symbolFieldBoxes(sym, lib)) {
     const f = sym.fields[fb.index];
     if (!f || !placeable(f)) continue;
     const w = fb.box.w;
