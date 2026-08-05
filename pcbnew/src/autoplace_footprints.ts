@@ -180,7 +180,11 @@ function padExtent(pad: PcbPad): Box2 {
   ]) {
     // The reader stores pad angles board-frame absolute, with KiCad's
     // clockwise-positive convention (read-board.ts).
-    box = mergePoint(box, pad.at.x + corner.x * c + corner.y * sn, pad.at.y + corner.y * c - corner.x * sn);
+    box = mergePoint(
+      box,
+      pad.at.x + corner.x * c + corner.y * sn,
+      pad.at.y + corner.y * c - corner.x * sn,
+    );
   }
 
   return box!;
@@ -730,6 +734,13 @@ export class Autoplacer {
     const flags = new Array<number>(fps.length).fill(0);
     for (const e of edges) {
       if (e.aFootprint !== undefined) flags[e.aFootprint]!++;
+      // An edge with both ends on one footprint counts **once**, not twice:
+      // upstream pushes it from the first branch or from the `else if`, never
+      // both (connectivity_data.cpp:1107-1110). Verified against the C++ rather
+      // than by test — the count reaches the outside only through the order
+      // `pickFootprint` returns, so pinning it needs a board contrived so that
+      // double-counting flips two footprints' ranking. Dropping this guard is a
+      // real divergence; it is simply not one a test here can see.
       if (e.bFootprint !== undefined && e.bFootprint !== e.aFootprint) flags[e.bFootprint]!++;
     }
 
