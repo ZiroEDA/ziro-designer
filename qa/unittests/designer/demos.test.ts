@@ -10,7 +10,12 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
-import { serializeSchematic, readSchematic, readSymbolLib } from '@ziroeda/eeschema';
+import {
+  serializeSchematic,
+  serializeSymbolLib,
+  readSchematic,
+  readSymbolLib,
+} from '@ziroeda/eeschema';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
@@ -36,6 +41,26 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
   it('local symbol library parses', () => {
     const symbols = readSymbolLib(parse(read('ecc83-pp.kicad_sym')));
     expect(symbols.length).toBeGreaterThan(0);
+  });
+
+  it('and saves byte-for-byte, but for the generator stamp', () => {
+    // The same claim as the schematic above, for the other writer. It already
+    // held — unlike the schematic, which needed #439 and #440 — so this pins it
+    // rather than fixing anything.
+    //
+    // This file is the oracle because `kicad_symbol_editor` wrote it. The
+    // bundled Device.kicad_sym is *not*: tools/libraries/upload.mjs merges
+    // upstream's one-symbol-per-file layout by a byte-exact paren scan, so each
+    // symbol keeps the indentation it had as a top-level item and the whole
+    // library sits a level deeper than KiCad's canonical layout. Comparing
+    // against it would report 156911 differing lines and none of them ours.
+    const src = read('ecc83-pp.kicad_sym');
+    const out = serializeSymbolLib(readSymbolLib(parse(src)));
+    const stamp = (t: string): string =>
+      t
+        .replace(/\(generator "[^"]*"\)/, '(generator "X")')
+        .replace(/\(generator_version "[^"]*"\)/, '(generator_version "X")');
+    expect(stamp(out)).toBe(stamp(src));
   });
 
   it('a save is stable: serialising twice changes nothing the second time', () => {
