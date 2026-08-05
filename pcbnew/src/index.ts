@@ -126,6 +126,21 @@ export {
   type SvgFont,
   type SvgImage,
 } from './plot_svg.js';
+// And again for the PDF back-end. Only the PDF-prefixed names travel; FILL_T,
+// LINE_STYLE, PLOT_TEXT_MODE, Color4d, fixed, formatG, encodeStringForPlotter
+// and the two image-stream writers stay importable from './plot_pdf.js' alone,
+// because the DXF and SVG modules already spell their own copies of the first
+// four and the rest are KiCad names a later port will want.
+export {
+  PdfPlotter,
+  pdfRenderSettings,
+  pdfCreationDate,
+  type PdfRenderSettings,
+  type PdfImage,
+  type PdfDeflate,
+  type PdfProject,
+  type PdfBox2,
+} from './plot_pdf.js';
 export {
   serializeBoard,
   writeBoardNode,
