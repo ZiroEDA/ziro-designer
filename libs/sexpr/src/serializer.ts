@@ -56,6 +56,19 @@ function leafToText(node: Exclude<SNode, SList>): string {
   return node.kind === 'string' ? `"${escapeString(node.value)}"` : node.value;
 }
 
+/**
+ * Where KiCad stops packing `(xy …)` onto a shared line
+ * (`xySpecialCaseColumnLimit`, common/io/kicad/kicad_io_utils.cpp). The check
+ * is against the column *before* the next pair is written, so a line can end
+ * past the limit — matching upstream rather than a tidier rule.
+ */
+const XY_COLUMN_LIMIT = 99;
+
+/** A `(xy x y)` list, the one node KiCad lays out specially. */
+function isXy(node: SNode): node is SList {
+  return isList(node) && node.items[0]?.kind === 'atom' && node.items[0].value === 'xy';
+}
+
 /** True if the list has no sub-lists and can be rendered on one line. */
 function isInlineable(node: SList): boolean {
   return node.items.every((it) => !isList(it));
@@ -86,7 +99,25 @@ function writeNode(node: SNode, depth: number, out: string[]): void {
   out.push(opening);
 
   for (; idx < node.items.length; idx++) {
-    writeNode(node.items[idx]!, depth + 1, out);
+    const item = node.items[idx]!;
+    // KiCad's prettifier packs consecutive `(xy …)` onto one line while the
+    // column is under 99 (kicad_io_utils.cpp: xySpecialCaseColumnLimit). A tab
+    // counts as one column there — indentSize is 1 — so the same arithmetic
+    // works here. Without it every polyline is re-laid-out on first save, which
+    // is 71 lines of diff noise on the ecc83 demo alone (#437).
+    if (isXy(item)) {
+      const text = `(${item.items.map((it) => leafToText(it as Exclude<SNode, SList>)).join(' ')})`;
+      const line = out[out.length - 1];
+      const packable =
+        idx > 0 &&
+        isXy(node.items[idx - 1]!) &&
+        line !== undefined &&
+        line.length < XY_COLUMN_LIMIT;
+      if (packable) out[out.length - 1] = `${line} ${text}`;
+      else out.push(INDENT.repeat(depth + 1) + text);
+      continue;
+    }
+    writeNode(item, depth + 1, out);
   }
 
   out.push(`${pad})`);

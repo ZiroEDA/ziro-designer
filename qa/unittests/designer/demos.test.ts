@@ -74,6 +74,38 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
     expect(second.symbols.map((s) => s.libId)).toEqual(first.symbols.map((s) => s.libId));
   });
 
+  it('saves a KiCad file with KiCad’s own line layout', () => {
+    // KiCad packs consecutive `(xy …)` onto one line while the column is under
+    // 99 (kicad_io_utils.cpp). Without that rule every polyline was re-laid-out
+    // on the first save — 71 lines of diff noise in a file the user did not
+    // change, which is exactly what a source-patching writer exists to avoid.
+    //
+    // Line *count* is the sharp part: a formatting change shows up here
+    // immediately, whatever the section order.
+    const src = read('ecc83-pp.kicad_sch');
+    const out = serializeSchematic(readSchematic(parse(src)));
+    expect(out.split('\n').length).toBe(src.split('\n').length);
+    expect(out.split('\n').filter((l) => l.includes('(xy ')).length).toBe(
+      src.split('\n').filter((l) => l.includes('(xy ')).length,
+    );
+  });
+
+  it('and every line of content, up to the generator stamp', () => {
+    // Order-independent, because our writer emits the document's sections in a
+    // different order from KiCad's — a separate divergence, tracked on #437.
+    // What this pins is that nothing else differs at all: same lines, same
+    // count, only the two `(generator …)` lines rewritten, which is correct
+    // and what KiCad does when it saves someone else's file.
+    const lines = (t: string): string[] =>
+      t
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l !== '' && !l.startsWith('(generator'))
+        .sort();
+    const src = read('ecc83-pp.kicad_sch');
+    expect(lines(serializeSchematic(readSchematic(parse(src))))).toEqual(lines(src));
+  });
+
   it('every bundled footprint parses', () => {
     const dir = `${DEMO}footprints.pretty/`;
     const files = readdirSync(dir).filter((f) => f.endsWith('.kicad_mod'));
