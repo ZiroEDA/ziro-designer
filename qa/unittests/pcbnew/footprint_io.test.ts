@@ -3,6 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
@@ -102,16 +103,45 @@ describe('readFootprintFile / serializeFootprint (.kicad_mod)', () => {
   });
 });
 
-// Opportunistic check against a real KiCad demo footprint when the source tree
-// is present (custom pads exercise the primitive-preservation path).
-const ONEPIN = '/home/akshay/zeo/demos/custom_pads_test/custom_pads_test.pretty/1pin.kicad_mod';
-describe.skipIf(!existsSync(ONEPIN))('readFootprintFile (real KiCad demo footprint)', () => {
+// A real KiCad footprint with a **custom pad**, which is the primitive-
+// preservation path and the one thing the bundled sweep below cannot reach:
+// not one footprint in CM5IO.pretty has `(primitives …)`.
+//
+// It used to point at an absolute path under a developer's home directory, so
+// it ran on exactly one machine and skipped silently everywhere else — CI
+// included. `describe.skipIf` makes lost coverage look like a passing suite,
+// which is why the fixture is vendored here instead.
+const ONEPIN = fileURLToPath(new URL('../../data/custom_pads_1pin.kicad_mod', import.meta.url));
+describe('readFootprintFile (a footprint with custom pads)', () => {
+  it('reads the custom pad’s primitives at all', () => {
+    // Asserted before the round trip, and separately from it: a field dropped
+    // on *read* is symmetric, so read→write→read still matches and the
+    // comparison below sees nothing. That was true here — deleting the
+    // primitives from the reader left this file's only real assertion green.
+    const fp = readFootprintFile(parse(readFileSync(ONEPIN, 'utf8')))!;
+    const withPrims = fp.pads.filter((p) => (p.primitives?.length ?? 0) > 0);
+    expect(withPrims.length, 'the fixture no longer has a custom pad').toBeGreaterThan(0);
+  });
+
   it('round-trips a real .kicad_mod', () => {
     const src = readFileSync(ONEPIN, 'utf8');
     const fp1 = readFootprintFile(parse(src))!;
     expect(fp1).not.toBeNull();
     const fp2 = readFootprintFile(parse(serializeFootprint(fp1)))!;
     expect(strip(fp2)).toEqual(strip(fp1));
+  });
+
+  it('keeps them through a save', () => {
+    // And the other half: written out and read back, the primitives are still
+    // there. Together these two say what the round trip alone cannot.
+    const fp1 = readFootprintFile(parse(readFileSync(ONEPIN, 'utf8')))!;
+    const text = serializeFootprint(fp1);
+    expect(text).toContain('(primitives');
+    const fp2 = readFootprintFile(parse(text))!;
+    const prims = (f: typeof fp1): number =>
+      f.pads.reduce((n, p) => n + (p.primitives?.length ?? 0), 0);
+    expect(prims(fp2)).toBe(prims(fp1));
+    expect(prims(fp2)).toBeGreaterThan(0);
   });
 });
 
