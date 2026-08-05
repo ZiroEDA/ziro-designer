@@ -14,7 +14,16 @@
  */
 
 import { authEnabled } from '../auth/supabaseClient.js';
-import { claimProject, exportProject, importProject, listSyncMeta } from '../home/projectStore.js';
+import {
+  claimProject,
+  exportProject,
+  forkLocalCopy,
+  hasDivergedLocally,
+  importProject,
+  listSyncMeta,
+  localCopyName,
+  markSynced,
+} from '../home/projectStore.js';
 import { cloudDelete, cloudGet, cloudListMeta, cloudUpsert } from './cloudStore.js';
 
 /** Progress callback: `done` of `total` transfers finished so far. */
@@ -72,11 +81,32 @@ async function pushOne(userId: string, id: string): Promise<void> {
   // Only after the write lands: a project that has been pushed belongs to this
   // account, so the next person to sign in on this browser does not inherit it.
   await claimProject(id, userId);
+  // The two sides agree as of this push (#367).
+  await markSynced(id);
 }
 
+/**
+ * Take the cloud's copy — but not over unsynced local work.
+ *
+ * Reconciliation is last-write-wins on `updatedAt`, so a pull overwrites the
+ * local record wholesale. That is fine when the local side has not changed
+ * since it last agreed with the cloud, and destroys a day's work when it has:
+ * edit offline on a laptop, edit on a desktop, sign in, and one side vanished
+ * with no prompt and no copy (#367).
+ *
+ * The local copy is kept as a **new project** first. That is additive and
+ * reversible — the user gets two entries in Recent to compare, and can delete
+ * whichever they do not want — where the alternative is losing one of them
+ * silently. It costs an extra Recent entry, and only when the two sides have
+ * genuinely diverged.
+ */
 async function pullOne(id: string): Promise<void> {
   const p = await cloudGet(id);
-  if (p) await importProject(p);
+  if (!p) return;
+  if (await hasDivergedLocally(id)) {
+    await forkLocalCopy(id, localCopyName(p.name, new Date()));
+  }
+  await importProject(p);
 }
 
 /** Mirror a single saved project up to the cloud (best-effort). */

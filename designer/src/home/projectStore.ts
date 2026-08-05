@@ -49,6 +49,17 @@ interface StoredRecord {
   createdAt: number;
   updatedAt: number;
   lastOpenedAt?: number;
+  /**
+   * `updatedAt` at the moment of the last successful push or pull — the point
+   * the two sides last agreed.
+   *
+   * Without it, "local is older than the cloud" cannot be told apart from
+   * "local was edited *and* is older", so a pull cannot know whether it is
+   * about to overwrite work or just catch up. Absent on a record that has
+   * never synced, which is treated as "not diverged": forking on a first sync
+   * would fork every project the first time somebody signs in.
+   */
+  syncedAt?: number;
   files: { name: string; gz: Uint8Array }[];
   /**
    * The account this project belongs to, once it has been associated with one.
@@ -292,6 +303,22 @@ export async function claimProject(id: string, userId: string): Promise<void> {
   });
 }
 
+/**
+ * Record that the local copy now agrees with the cloud, after a push.
+ *
+ * Separate from `claimProject`, which early-returns when the owner is already
+ * right — the watermark has to move on every successful push, not only the
+ * first one.
+ */
+export async function markSynced(id: string): Promise<void> {
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    r.syncedAt = r.updatedAt;
+    await tx('readwrite', (s) => s.put(r));
+  });
+}
+
 export async function deleteProject(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
 }
@@ -367,7 +394,58 @@ export async function importProject(p: SyncableProject): Promise<void> {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     files: p.files.map((f) => ({ name: f.name, gz: b64ToBytes(f.gzB64) })),
+    // We have just taken the cloud's copy wholesale, so this is the point the
+    // two sides agree.
+    syncedAt: p.updatedAt,
     ...(currentOwner ? { ownerId: currentOwner } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
+}
+
+/**
+ * Whether the local copy has been edited since the last time it agreed with the
+ * cloud — `updatedAt > syncedAt`.
+ *
+ * A record that has never synced returns false: it has nothing to diverge
+ * *from*, and forking on a first sync would fork everything the first time
+ * somebody signs in.
+ */
+export async function hasDivergedLocally(id: string): Promise<boolean> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  return !!r && r.syncedAt !== undefined && r.updatedAt > r.syncedAt;
+}
+
+/**
+ * How a preserved copy is named, so it is obvious in Recent what it is.
+ *
+ * Dated to the day rather than the second: two syncs on the same day should
+ * produce the same name, not a churn of near-identical entries. It lives here
+ * rather than beside the sync code because that module reaches `import.meta.env`
+ * through the auth client, which qa's compiler cannot see.
+ */
+export const localCopyName = (name: string, when: Date): string =>
+  `${name} (local copy, ${when.toISOString().slice(0, 10)})`;
+
+/**
+ * Copy the local record to a new project under a new id, so a pull can take the
+ * cloud's version without destroying what is here.
+ *
+ * Returns the new id, or null when there is nothing to copy. The copy has no
+ * `syncedAt` and no owner: it is a local artefact of this browser, and pushing
+ * it anywhere is the user's decision to make later.
+ */
+export async function forkLocalCopy(id: string, name: string): Promise<string | null> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) return null;
+  const now = Date.now();
+  const copyId = crypto.randomUUID?.() ?? `p${now}-${Math.random().toString(36).slice(2)}`;
+  const copy: StoredRecord = {
+    id: copyId,
+    name,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    files: r.files,
+  };
+  await tx('readwrite', (s) => s.put(copy));
+  return copyId;
 }
