@@ -3,8 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * DRC smoke test over the real ecc83 demo board: a valid KiCad demo must
- * produce zero violations at the default constraints, and the run must be
- * fast (the engine runs synchronously on the UI thread for now).
+ * produce zero violations at the default constraints, and the run must not be
+ * pathologically slow — the engine runs synchronously on the UI thread, so a
+ * shape-of-the-work regression there freezes the app.
  */
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -45,5 +46,16 @@ it('runs DRC on the real ecc83 board', () => {
   // than papered over by loosening the assertion.
   expect(v.filter((x) => x.code !== 'silk_edge_clearance')).toEqual([]);
   expect(v.filter((x) => x.code === 'silk_edge_clearance')).toHaveLength(2);
-  expect(best).toBeLessThan(2000);
-}, 20000);
+  // A *pathology* ceiling, not a performance target. #262 made this the best of
+  // three because a single reading measured the machine; #273 then recorded
+  // three consecutive failures at 2.4-2.6 s on the same commit, so best-of-N
+  // does not help when every worker is saturated at once — the best run is slow
+  // too.
+  //
+  // The thing actually worth catching is a regression that changes the shape of
+  // the work: an O(n) check becoming O(n^2) shows up as tens of seconds on this
+  // board, not as 2.1 s. A ceiling that only such a change can breach keeps that
+  // guard and stops the suite failing because another worker was compiling. The
+  // engine runs synchronously on the UI thread, so it is worth guarding at all.
+  expect(best).toBeLessThan(15000);
+}, 60000);
