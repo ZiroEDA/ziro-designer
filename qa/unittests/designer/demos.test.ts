@@ -74,6 +74,25 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
     expect(second.symbols.map((s) => s.libId)).toEqual(first.symbols.map((s) => s.libId));
   });
 
+  it('saves a KiCad file byte-for-byte, but for the generator stamp', () => {
+    // The strongest statement the save path can make, and it holds: read the
+    // demo, write it back, and the bytes are KiCad's own — same layout, same
+    // section order, same everything except the two `(generator …)` lines,
+    // which KiCad also rewrites when it saves a file someone else made.
+    //
+    // Getting here took the `(xy …)` packing rule (#439) and then the section
+    // order, which KiCad derives from the KICAD_T enum rather than from the
+    // order items sit in. Before that a saved file was a permutation of itself
+    // and every line showed as changed.
+    const src = read('ecc83-pp.kicad_sch');
+    const out = serializeSchematic(readSchematic(parse(src)));
+    const stamp = (t: string): string =>
+      t
+        .replace(/\(generator "[^"]*"\)/, '(generator "X")')
+        .replace(/\(generator_version "[^"]*"\)/, '(generator_version "X")');
+    expect(stamp(out)).toBe(stamp(src));
+  });
+
   it('saves a KiCad file with KiCad’s own line layout', () => {
     // KiCad packs consecutive `(xy …)` onto one line while the column is under
     // 99 (kicad_io_utils.cpp). Without that rule every polyline was re-laid-out

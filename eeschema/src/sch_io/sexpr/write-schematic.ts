@@ -1138,22 +1138,42 @@ export function writeSchematic(sch: Schematic): SList {
 
   out.push(list(atom('lib_symbols'), ...sch.libSymbols.map((l) => l.source)));
 
+  // KiCad sorts the screen's items into a multiset keyed on (type ordinal,
+  // uuid) before writing — "Enforce item ordering" in
+  // SCH_IO_KICAD_SEXPR::Format — so the section order is the KICAD_T enum's,
+  // not the order the items happen to sit in.
+  //
+  // We emitted symbols first and graphics near the end, which put every
+  // section in the wrong place: a KiCad file saved by us came back as a
+  // permutation of itself, and the whole document showed as changed in a diff
+  // (#437). The order below is typeinfo.h's, and the label kinds are split out
+  // because KiCad gives each its own ordinal while our model keeps them in one
+  // array.
+  //
+  // Within a kind KiCad then sorts by uuid. We keep the order the file gave us,
+  // which is the same thing for a file KiCad wrote; only items *we* added land
+  // differently, and appending them is the lesser surprise.
+  const labelsOfKind = (kind: string): SNode[] =>
+    sch.labels.filter((l) => l.kind === kind).map(writeLabel);
+
   out.push(
-    ...sch.symbols.map(writeSymbol),
-    ...sch.lines.map(writeLine),
-    ...sch.junctions.map(writeJunction),
-    ...sch.noConnects.map(writeNoConnect),
-    ...sch.busEntries.map(writeBusEntry),
-    ...sch.labels.map(writeLabel),
-    ...(sch.directiveLabels ?? []).map(writeDirectiveLabel),
-    ...sch.sheets.map(writeSheet),
-    ...sch.textBoxes.map(writeTextBox),
-    ...sch.tables.map(writeTable),
-    ...sch.images.map(writeImage),
-    ...sch.graphics.map(writeGraphic),
-    // Groups serialize last, like upstream; empty groups are never written
-    // (SCH_IO_KICAD_SEXPR::saveGroup).
-    ...sch.groups.filter((g) => g.members.length > 0).map(writeGroup),
+    ...sch.graphics.map(writeGraphic), // SCH_SHAPE_T
+    ...labelsOfKind('text'), // SCH_TEXT_T
+    ...sch.textBoxes.map(writeTextBox), // SCH_TEXTBOX_T
+    ...sch.junctions.map(writeJunction), // SCH_JUNCTION_T
+    ...sch.noConnects.map(writeNoConnect), // SCH_NO_CONNECT_T
+    ...sch.busEntries.map(writeBusEntry), // SCH_BUS_WIRE_ENTRY_T
+    ...sch.lines.map(writeLine), // SCH_LINE_T
+    ...sch.images.map(writeImage), // SCH_BITMAP_T
+    ...sch.tables.map(writeTable), // SCH_TABLE_T
+    ...labelsOfKind('label'), // SCH_LABEL_T
+    ...labelsOfKind('global_label'), // SCH_GLOBAL_LABEL_T
+    ...labelsOfKind('hierarchical_label'), // SCH_HIER_LABEL_T
+    ...(sch.directiveLabels ?? []).map(writeDirectiveLabel), // SCH_DIRECTIVE_LABEL_T
+    ...sch.symbols.map(writeSymbol), // SCH_SYMBOL_T
+    // Empty groups are never written (SCH_IO_KICAD_SEXPR::saveGroup).
+    ...sch.groups.filter((g) => g.members.length > 0).map(writeGroup), // SCH_GROUP_T
+    ...sch.sheets.map(writeSheet), // SCH_SHEET_T
   );
 
   // Preserve any remaining structural nodes (sheet_instances, embedded_fonts, …).
