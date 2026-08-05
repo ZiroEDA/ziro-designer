@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Every field of `StoredRecord` is accounted for by every function that builds
+ * one — carried across, or excused by name with a reason.
+ *
+ * Three functions construct a record literal rather than patching the stored
+ * one, so a field they do not mention is silently dropped. That has now bitten
+ * three times in two days:
+ *
+ *  - `syncedAt` was wiped by every ordinary save, which made the whole cloud
+ *    conflict protection inert — `updatedAt > syncedAt` can never be true if
+ *    the first edit after a sync erases `syncedAt`;
+ *  - `ownerId` was dropped when saving while signed out, un-owning the project
+ *    and exposing it to every account on the browser;
+ *  - the same shape hit the schematic writer three times (`(span …)`, the
+ *    table's column widths, a cell's margins) in the same week.
+ *
+ * Every one of those tested green, because the feature worked. Only the field
+ * went missing.
+ *
+ * Asserted against the source rather than the store: the store is IndexedDB
+ * and qa has none. Crude, and it catches the thing that matters — somebody
+ * adds a field to `StoredRecord` and one of these three does not carry it.
+ */
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const src = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/home/projectStore.ts', import.meta.url)),
+  'utf8',
+);
+
+/** The functions that build a `StoredRecord` literal, and where each ends. */
+const BUILDERS: [name: string, until: string][] = [
+  ['saveProject', 'export async function listProjects'],
+  ['importProject', 'export async function hasDivergedLocally'],
+  ['forkLocalCopy', 'export async function deleteProject'],
+];
+
+/**
+ * Fields a given builder legitimately does not carry, and why. A reason is the
+ * price of an exemption — the point of the list is that adding to it is a
+ * decision somebody made on purpose.
+ */
+const EXCUSED: Record<string, Record<string, string>> = {
+  saveProject: {
+    id: 'generated or passed in; it is what identifies the record',
+    name: 'the argument — renaming is the caller’s intent',
+    updatedAt: 'set to now: this save is the update',
+    files: 'the argument',
+  },
+  importProject: {
+    id: 'comes from the cloud record',
+    name: 'comes from the cloud record',
+    createdAt: 'comes from the cloud record',
+    updatedAt: 'comes from the cloud record',
+    files: 'comes from the cloud record',
+    syncedAt: 'set to the pulled updatedAt: the two sides now agree',
+    ownerId: 'set to the current owner',
+    lastOpenedAt:
+      'deliberately not carried: a pulled project sorts by its new updatedAt, ' +
+      'which is what "someone else just changed this" should do to Recent',
+  },
+  forkLocalCopy: {
+    id: 'a fresh id — the copy is a new project',
+    name: 'the argument: "<name> (local copy, <date>)"',
+    syncedAt: 'deliberately absent: the copy has never agreed with the cloud',
+    lastOpenedAt: 'never opened; it sorts by updatedAt beside its original',
+  },
+};
+
+/** Field names declared on the StoredRecord interface. */
+function storedRecordFields(): string[] {
+  const start = src.indexOf('interface StoredRecord {');
+  const end = src.indexOf('\n}', start);
+  expect(start, 'StoredRecord interface not found — the scan stopped working').toBeGreaterThan(-1);
+  return [...src.slice(start, end).matchAll(/^\s{2}(\w+)\??:/gm)].map((m) => m[1]!);
+}
+
+/**
+ * A builder's body with comments stripped.
+ *
+ * The strip is what makes this catch a *removed* carry rather than only a new
+ * field: the comment explaining why `syncedAt` is carried mentions `syncedAt`,
+ * so a plain text search still matched after the line doing the carrying was
+ * deleted. Measured, not assumed — the mutation that drops the carry passed
+ * until the comments came out.
+ */
+function body(name: string, until: string): string {
+  const start = src.indexOf(`export async function ${name}`);
+  expect(start, `${name} not found`).toBeGreaterThan(-1);
+  const end = src.indexOf(until, start);
+  return src
+    .slice(start, end > start ? end : undefined)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+}
+
+describe('every StoredRecord field is accounted for', () => {
+  const fields = storedRecordFields();
+
+  it('found the interface', () => {
+    // Without this the sweep passes by having nothing to check.
+    expect(fields).toContain('syncedAt');
+    expect(fields.length).toBeGreaterThan(5);
+  });
+
+  for (const [name, until] of BUILDERS) {
+    it(name, () => {
+      const text = body(name, until);
+      expect(text.length, `${name}'s body looks empty`).toBeGreaterThan(200);
+      const missing = fields.filter((f) => !EXCUSED[name]?.[f] && !text.includes(f));
+      expect(
+        missing,
+        `${name} builds a StoredRecord without carrying: ${missing.join(', ')} — ` +
+          'carry them across, or excuse each with a reason',
+      ).toEqual([]);
+    });
+  }
+});
