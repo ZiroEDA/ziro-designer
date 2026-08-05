@@ -32,6 +32,36 @@ const OPENERS: [file: string, fn: string][] = [
   ['designer/src/editors/symbol/SymbolEditor.tsx', 'const loadSymbol'],
 ];
 
+/**
+ * The async plot back-ends, fired and forgotten from the plot dialog. That
+ * dialog has a report panel; a failure had nowhere to go and left it empty.
+ * A raster plot of a large sheet is the realistic case — the canvas has a size
+ * limit, and exceeding it throws.
+ */
+describe('the plot back-ends report their failures', () => {
+  const src = readFileSync(`${repo}designer/src/editors/schematic/SchematicEditor.tsx`, 'utf8');
+
+  for (const fn of ['plotPng', 'plotPdf', 'plotPdfSheets']) {
+    it(fn, () => {
+      const at = src.indexOf(`void ${fn}(`);
+      expect(
+        at,
+        `${fn} is no longer fired with void — check this test still applies`,
+      ).toBeGreaterThan(-1);
+      // Up to the *next* plot call, so one back-end's catch cannot vouch for
+      // another's. A fixed-size window overlapped the following call and made
+      // this pass with the catch deleted, which the mutation pass caught.
+      const after = src.slice(at + 5);
+      const nextCall = after.search(/\bvoid plot\w+\(/);
+      const window = nextCall === -1 ? after.slice(0, 700) : after.slice(0, nextCall);
+      expect(
+        window,
+        `${fn} is fired and forgotten with no catch — a failure leaves the report panel empty`,
+      ).toMatch(/\.catch\(/);
+    });
+  }
+});
+
 describe('every opener reports its failures', () => {
   for (const [file, fn] of OPENERS) {
     it(`${fn} in ${file.split('/').pop()}`, () => {
