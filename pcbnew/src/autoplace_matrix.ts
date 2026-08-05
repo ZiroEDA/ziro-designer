@@ -107,7 +107,11 @@ export const sideMask = (layer: string): string[] =>
  * mid point plays no part — upstream normalises the end angle upwards until it
  * is at least the start angle, so the sweep is always positive.
  */
-export function arcSweepDegrees(centre: { x: number; y: number }, start: { x: number; y: number }, end: { x: number; y: number }): number {
+export function arcSweepDegrees(
+  centre: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): number {
   const startAngle = EDA_ANGLE.fromVector({ x: start.x - centre.x, y: start.y - centre.y });
   let endAngle = EDA_ANGLE.fromVector({ x: end.x - centre.x, y: end.y - centre.y });
 
@@ -347,7 +351,6 @@ export class ArMatrix {
 
         if (cx > dx && cx <= dx + lg) {
           if ((cx - dx) * (cx - dx) + cy * cy <= lg * lg) this.opCell(layer, row, col, color, op);
-          continue;
         }
       }
     }
@@ -725,7 +728,12 @@ export class ArMatrix {
         if (cgain !== 256) localKeepOut = idiv(localKeepOut * cgain, 256);
 
         if (trace & 1) {
-          this.setDist(row, col, AR_SIDE_BOTTOM, this.getDist(row, col, AR_SIDE_BOTTOM) + localKeepOut);
+          this.setDist(
+            row,
+            col,
+            AR_SIDE_BOTTOM,
+            this.getDist(row, col, AR_SIDE_BOTTOM) + localKeepOut,
+          );
         }
 
         if (trace & 2) {

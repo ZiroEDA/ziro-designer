@@ -245,10 +245,10 @@ describe('the placement matrix', () => {
 
 describe('the board outline on the grid', () => {
   it('measures the board from Edge.Cuts alone and chains it into a ring', () => {
-    const b = board([footprint({ at: { x: MM(200), y: MM(200) } })], [
-      ...outline(0, 0, 40, 30),
-      line(-50, -50, 90, 80, 'F.SilkS'),
-    ]);
+    const b = board(
+      [footprint({ at: { x: MM(200), y: MM(200) } })],
+      [...outline(0, 0, 40, 30), line(-50, -50, 90, 80, 'F.SilkS')],
+    );
 
     // Silkscreen is not the board edge, and neither is a footprint sitting
     // off the board: a matrix sized from either would be enormous and the
@@ -382,10 +382,7 @@ describe('the ratsnest cost function', () => {
       at: { x: MM(10), y: MM(10) },
       pads: [pad(10, 10, { net: 7 }), pad(20, 10, { number: '2', net: 7 })],
     });
-    const placer = new Autoplacer(
-      board([twoPads, target], outline(0, 0, 100, 100)),
-      NO_CLEARANCE,
-    );
+    const placer = new Autoplacer(board([twoPads, target], outline(0, 0, 100, 100)), NO_CLEARANCE);
     placer.matrix.gridRouting = MM(1);
     placer.genPlacementRoutingMatrix();
 
@@ -656,11 +653,7 @@ describe('choosing where to put it', () => {
   it('keeps a placed footprint out of the cells another one already claimed', () => {
     const a = part('R1', 50, 50, 1, 2);
     const b = part('R2', 55, 50, 1, 2);
-    const result = autoplaceFootprints(
-      board([a, b], outline(0, 0, 20, 20)),
-      [0, 1],
-      NO_CLEARANCE,
-    );
+    const result = autoplaceFootprints(board([a, b], outline(0, 0, 20, 20)), [0, 1], NO_CLEARANCE);
 
     const p1 = posOf(result.board, 'R1');
     const p2 = posOf(result.board, 'R2');
@@ -831,7 +824,10 @@ describe('how a footprint is measured', () => {
   });
 
   it('is area times pad count that ranks a footprint, not area alone', () => {
-    const wide = footprint({ at: { x: MM(10), y: MM(10) }, pads: [pad(10, 10, { size: { x: MM(10), y: MM(10) } })] });
+    const wide = footprint({
+      at: { x: MM(10), y: MM(10) },
+      pads: [pad(10, 10, { size: { x: MM(10), y: MM(10) } })],
+    });
 
     // `GetArea` is |width| * |height| of the text-excluded box. Ranking is that
     // times the pad count, so a 10 mm square single-pad part ranks below a
