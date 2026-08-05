@@ -441,9 +441,15 @@ export const localCopyName = (name: string, when: Date): string =>
  * Copy the local record to a new project under a new id, so a pull can take the
  * cloud's version without destroying what is here.
  *
- * Returns the new id, or null when there is nothing to copy. The copy has no
- * `syncedAt` and no owner: it is a local artefact of this browser, and pushing
- * it anywhere is the user's decision to make later.
+ * Returns the new id, or null when there is nothing to copy.
+ *
+ * The copy has no `syncedAt` — it has never agreed with the cloud, and pushing
+ * it anywhere is the user's decision to make later — but it **does** carry the
+ * current owner. An unowned record is visible to every account on the browser
+ * (`ownedBy` treats `undefined` as "anyone's"), and this record is a copy of
+ * the signed-in user's board: leaving it unowned would show one person's work
+ * to the next person who signs in on a shared machine, which is the exact leak
+ * `ownedByCurrent` exists to stop.
  */
 export async function forkLocalCopy(id: string, name: string): Promise<string | null> {
   const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
@@ -456,6 +462,9 @@ export async function forkLocalCopy(id: string, name: string): Promise<string | 
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     files: r.files,
+    // The original's owner, falling back to whoever is signed in now. Not
+    // omitted: see above.
+    ...((r.ownerId ?? currentOwner) ? { ownerId: r.ownerId ?? currentOwner! } : {}),
   };
   await tx('readwrite', (s) => s.put(copy));
   return copyId;

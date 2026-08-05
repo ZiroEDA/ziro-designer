@@ -72,3 +72,26 @@ describe('what a rebuild-the-record save must carry across', () => {
     expect(saveProject.length).toBeGreaterThan(400);
   });
 });
+
+describe('the ownership rule the fork has to respect', () => {
+  // `ownedBy(owner, record)` — the predicate listProjects filters on.
+  const ownedBy = (owner: string | null, r: { ownerId?: string }): boolean =>
+    owner === null || r.ownerId === undefined || r.ownerId === owner;
+
+  it('treats an unowned record as visible to everyone', () => {
+    // Which is why a preserved copy must not be left unowned: it is a copy of
+    // the signed-in user's board, and on a shared machine the next person to
+    // sign in would see it.
+    expect(ownedBy('alice', {})).toBe(true);
+    expect(ownedBy('bob', {})).toBe(true);
+  });
+
+  it('hides another account’s record, which is the protection being relied on', () => {
+    expect(ownedBy('bob', { ownerId: 'alice' })).toBe(false);
+    expect(ownedBy('alice', { ownerId: 'alice' })).toBe(true);
+  });
+
+  it('shows everything when nobody is signed in', () => {
+    expect(ownedBy(null, { ownerId: 'alice' })).toBe(true);
+  });
+});
