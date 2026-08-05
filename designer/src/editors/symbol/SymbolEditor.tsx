@@ -347,6 +347,11 @@ export function SymbolEditor({
         setPendingText(null);
         bump();
         requestAnimationFrame(() => controller.current?.zoomToFit());
+      } catch (e) {
+        // ensureLoaded fetches the library. A network failure threw out of an
+        // async handler: the overlay cleared and nothing else happened, so the
+        // symbol simply never appeared and nothing said why.
+        setStatus(`Could not load ${libName}:${symName} — ${e instanceof Error ? e.message : e}`);
       } finally {
         setLoading(null);
       }

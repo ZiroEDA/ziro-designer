@@ -2717,6 +2717,13 @@ export function SchematicEditor({
         setFileName(start);
         setError(problems.length ? `Some sheets failed to load: ${problems.join('; ')}` : null);
         requestAnimationFrame(() => controller.current?.zoomToFit());
+      } catch (e) {
+        // Each *sheet* is already caught individually and reported through
+        // `problems`. This is everything around them — reading the .kicad_pro,
+        // picking the root, building the hierarchy — where a throw escaped an
+        // async handler: the overlay cleared, no project loaded, and the error
+        // bar stayed empty, so opening a project appeared to do nothing at all.
+        setError(`Could not open this project: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         setLoading(null);
       }
