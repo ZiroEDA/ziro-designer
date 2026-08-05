@@ -269,6 +269,11 @@ export function HomePage({
           value: done / total,
         }),
       );
+    } catch (e) {
+      // A demo is fetched over the network. Without this the throw escaped an
+      // async handler and the card simply did nothing when clicked.
+      window.alert(`Could not open that demo: ${e instanceof Error ? e.message : String(e)}`);
+      return;
     } finally {
       setLoading(null);
     }
@@ -439,6 +444,19 @@ export function HomePage({
         );
       await touchOpened(id); // resurface in Recent (ordered by last opened)
       refreshSaved();
+    } catch (e) {
+      // Without this the throw escaped an async click handler: the overlay
+      // cleared, nothing opened, and nothing said why — the user clicks their
+      // project, sees a flicker, and is stuck with no way to tell whether they
+      // mis-clicked or their work is gone.
+      //
+      // A corrupt gzip blob, an IndexedDB read that fails, a decode error: all
+      // reach here, and all leave the project in place, so retrying or
+      // exporting it is still possible. Saying so is the whole fix.
+      window.alert(
+        `Could not open this project: ${e instanceof Error ? e.message : String(e)}\n\n` +
+          'It is still saved in this browser — nothing has been deleted.',
+      );
     } finally {
       setLoading(null);
     }
