@@ -10,6 +10,8 @@
  * last agreed with the cloud; a day's work when it has.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { localCopyName } from '@ziroeda/designer/src/home/projectStore.js';
 
 describe('the preserved copy’s name', () => {
@@ -31,5 +33,42 @@ describe('the preserved copy’s name', () => {
 
   it('keeps the original name recognisable', () => {
     expect(localCopyName('Amp', new Date('2026-08-05T00:00:00Z'))).toContain('Amp');
+  });
+});
+
+describe('what a rebuild-the-record save must carry across', () => {
+  /**
+   * `saveProject` builds a fresh `StoredRecord` rather than patching the stored
+   * one, so every field not named in that literal is dropped on each save. This
+   * is the shape that has bitten before — a field added to a record, and an
+   * update path that quietly wipes it.
+   *
+   * Asserted against the source rather than the store, because the store is
+   * IndexedDB and qa has none. Crude, and it catches the thing that matters:
+   * somebody adding a field to StoredRecord and not carrying it here.
+   */
+  const src = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/home/projectStore.ts', import.meta.url)),
+    'utf8',
+  );
+  const saveProject = src.slice(
+    src.indexOf('export async function saveProject'),
+    src.indexOf('export async function listProjects'),
+  );
+
+  it('reads the existing record back', () => {
+    expect(saveProject).toMatch(/existing = await tx/);
+  });
+
+  for (const field of ['createdAt', 'syncedAt', 'ownerId']) {
+    it(`carries ${field} across`, () => {
+      expect(saveProject).toContain(`existing?.${field}`);
+    });
+  }
+
+  it('is looking at the right function', () => {
+    // A slice that missed would pass every check above by being empty.
+    expect(saveProject).toContain("await tx('readwrite'");
+    expect(saveProject.length).toBeGreaterThan(400);
   });
 });

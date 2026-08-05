@@ -199,20 +199,31 @@ export async function saveProject(name: string, files: StoredFile[], id?: string
   const gzFiles = await Promise.all(
     files.map(async (f) => ({ name: f.name, gz: await gzip(f.bytes) })),
   );
-  // Preserve createdAt when updating an existing record.
-  let createdAt = now;
-  if (id) {
-    const existing = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
-    if (existing) createdAt = existing.createdAt;
-  }
+  // This rebuilds the record rather than patching it, so anything not carried
+  // across here is silently dropped on every save. `createdAt` was already
+  // read back for that reason; `syncedAt` has to be too.
+  let existing: StoredRecord | undefined;
+  if (id) existing = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+
   const record: StoredRecord = {
     id: pid,
     name,
-    createdAt,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     lastOpenedAt: now,
     files: gzFiles,
-    ...(currentOwner ? { ownerId: currentOwner } : {}),
+    // The sync watermark survives an ordinary save. Dropping it would make
+    // `updatedAt > syncedAt` — the definition of "this side diverged" — never
+    // true, because the first local edit after a sync would erase the very
+    // thing the comparison is against, and the conflict protection (#367)
+    // would be inert exactly when it is needed.
+    ...(existing?.syncedAt !== undefined ? { syncedAt: existing.syncedAt } : {}),
+    // Falls back to the record's existing owner rather than dropping it: an
+    // unowned record is visible to every account on the browser, so saving
+    // while signed out must not un-own somebody's project.
+    ...((currentOwner ?? existing?.ownerId)
+      ? { ownerId: (currentOwner ?? existing?.ownerId)! }
+      : {}),
   };
   await tx('readwrite', (s) => s.put(record));
   return pid;
