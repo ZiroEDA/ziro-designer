@@ -51,6 +51,8 @@ interface Anchor {
   y: number;
   layer: AnchorLayer;
   item: number;
+  /** Index of the footprint this anchor's pad belongs to; absent for bare copper. */
+  footprint?: number;
 }
 
 /** One airwire between two unconnected clusters of a net. */
@@ -62,6 +64,15 @@ export interface RatsnestEdge {
   by: number;
   aLayer: AnchorLayer;
   bLayer: AnchorLayer;
+  /**
+   * The footprint each end belongs to, by board index, when that end is a pad
+   * anchor; absent when it is a track end, a via or a zone. This is
+   * `CN_ANCHOR::Parent()` narrowed to the one question
+   * `CONNECTIVITY_DATA::GetRatsnestForComponent` asks of it — which component
+   * an airwire leaves from. Nothing draws with it.
+   */
+  aFootprint?: number;
+  bFootprint?: number;
 }
 
 const layersCompatible = (a: AnchorLayer, b: AnchorLayer): boolean =>
@@ -101,16 +112,16 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
     g.pieces.push({ item, layer, shape, box: shapeBBox(shape) });
   };
 
-  for (const fp of board.footprints) {
+  board.footprints.forEach((fp, fpIndex) => {
     for (const pad of fp.pads) {
       if (!pad.net || pad.net <= 0) continue;
       const g = forNet(pad.net);
       const item = g.items++;
       const layer = padLayer(pad);
       for (const shape of padShapes(pad)) addShape(g, item, layer, shape);
-      g.anchors.push({ x: pad.at.x, y: pad.at.y, layer, item });
+      g.anchors.push({ x: pad.at.x, y: pad.at.y, layer, item, footprint: fpIndex });
     }
-  }
+  });
   for (const t of board.tracks) {
     if (t.net <= 0) continue;
     const g = forNet(t.net);
@@ -249,6 +260,8 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
           by: to.y,
           aLayer: from.layer,
           bLayer: to.layer,
+          aFootprint: from.footprint,
+          bFootprint: to.footprint,
         });
       }
       attach(pick);
