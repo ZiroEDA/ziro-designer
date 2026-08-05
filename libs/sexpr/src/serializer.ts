@@ -13,9 +13,13 @@
  *
  * NOTE ON FIDELITY: This reproduces KiCad's dominant layout but is not yet
  * byte-for-byte identical for every node type (e.g. KiCad packs multiple `(xy)`
- * pairs onto one line under `(pts)`). That is intentional for now: correctness is
+ * pairs onto one line under `(pts)`). That is intentional: correctness is
  * defined as *semantic* round-trip (parse∘serialize∘parse is identity over the
- * AST). Byte-exact formatting is a tracked refinement for the save feature.
+ * AST), which is asserted on the bundled demo in qa/unittests/designer.
+ *
+ * Byte-exact formatting is #437, filed with the measurement — on ecc83 the
+ * only differences are the generator stamp and `(pts)` packing, 71 lines of
+ * diff noise on a file the user did not change.
  */
 
 import { isList, type SList, type SNode } from './types.js';
