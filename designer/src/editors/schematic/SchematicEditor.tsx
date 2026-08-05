@@ -2545,11 +2545,17 @@ export function SchematicEditor({
       const one = (d: Schematic, name: string, file: string): void => {
         const od = optsFor(d, name, file);
         const sink = makeSink();
+        // The async back-ends are fired and forgotten, so a failure had nowhere
+        // to go: the dialog has a report panel and it stayed empty. A raster
+        // plot of a big sheet is the realistic case — the canvas has a size
+        // limit and exceeding it throws.
+        const failed = (e: unknown): void =>
+          report(`Plot failed: ${e instanceof Error ? e.message : String(e)}`, RPT_SEVERITY_ERROR);
         if (format === 'svg') plotSvg(d, plotTheme, od, name, sink);
-        else if (format === 'png') void plotPng(d, plotTheme, od, name, sink);
+        else if (format === 'png') void plotPng(d, plotTheme, od, name, sink).catch(failed);
         else if (format === 'dxf') plotDxf(d, plotTheme, od, name, sink);
         else if (format === 'ps') plotPs(d, plotTheme, od, name, sink);
-        else void plotPdf(d, plotTheme, od, name, sink);
+        else void plotPdf(d, plotTheme, od, name, sink).catch(failed);
       };
       if (allPages) {
         const sheets = [...liveDocs()];
@@ -2568,6 +2574,11 @@ export function SchematicEditor({
             plotTheme,
             outputBaseName(),
             makeSink(),
+          ).catch((e) =>
+            report(
+              `Plot failed: ${e instanceof Error ? e.message : String(e)}`,
+              RPT_SEVERITY_ERROR,
+            ),
           );
         } else {
           for (const [file, d] of sheets)
