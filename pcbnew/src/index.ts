@@ -206,6 +206,14 @@ export {
   type SpreadFootprintsOptions,
 } from './spread_footprints.js';
 
+// Footprint autoplacement (pcbnew/autorouter: AR_AUTOPLACER + AR_MATRIX).
+export {
+  autoplaceFootprints,
+  AR_STEP_MM,
+  type AutoplaceOptions,
+  type AutoplaceResult,
+} from './autoplace_footprints.js';
+
 // Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
 export { fillZone, fillZones, type ZoneFillOptions } from './zone_filler.js';
 
