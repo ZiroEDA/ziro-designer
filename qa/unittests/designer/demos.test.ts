@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema';
+import { serializeSchematic, readSchematic, readSymbolLib } from '@ziroeda/eeschema';
 import { readBoard, readFootprintFile } from '@ziroeda/pcbnew';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
@@ -36,6 +36,42 @@ describe.skipIf(!existsSync(DEMO))('bundled demo project (ecc83)', () => {
   it('local symbol library parses', () => {
     const symbols = readSymbolLib(parse(read('ecc83-pp.kicad_sym')));
     expect(symbols.length).toBeGreaterThan(0);
+  });
+
+  it('a save is stable: serialising twice changes nothing the second time', () => {
+    // The serializer defines correctness as *semantic* round-trip — parse ∘
+    // serialize ∘ parse is identity over the AST — and is explicit that it is
+    // not byte-for-byte identical to KiCad's layout (#437).
+    //
+    // That property was never asserted on this fixture, the one guaranteed to
+    // exist in CI. What it rules out is *non-deterministic* output — a Map
+    // iteration order, a timestamp, anything that makes two saves of the same
+    // document differ.
+    //
+    // What it does not catch, measured rather than assumed: a change to the
+    // layout itself. Re-indenting the whole serializer leaves it green, because
+    // the second pass re-parses the first pass's text and lays it out the same
+    // new way. Layout is #437; this is only the fixpoint.
+    const once = serializeSchematic(readSchematic(parse(read('ecc83-pp.kicad_sch'))));
+    const twice = serializeSchematic(readSchematic(parse(once)));
+    expect(twice).toBe(once);
+  });
+
+  it('and the model survives that save unchanged', () => {
+    // Semantic identity, stated over the model rather than the text: every
+    // item, and every field of it, comes back.
+    const first = readSchematic(parse(read('ecc83-pp.kicad_sch')));
+    const second = readSchematic(parse(serializeSchematic(first)));
+    const shape = (d: typeof first) => ({
+      symbols: d.symbols.length,
+      lines: d.lines.length,
+      labels: d.labels.length,
+      sheets: d.sheets.length,
+      junctions: d.junctions.length,
+      libSymbols: d.libSymbols.length,
+    });
+    expect(shape(second)).toEqual(shape(first));
+    expect(second.symbols.map((s) => s.libId)).toEqual(first.symbols.map((s) => s.libId));
   });
 
   it('every bundled footprint parses', () => {
