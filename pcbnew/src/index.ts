@@ -964,3 +964,68 @@ export {
   DEFAULT_IMPORT_LAYER,
   type LayerMapTarget,
 } from './graphics_importer_pcbnew.js';
+export { PnsLayerRange } from './router/pns_layerset.js';
+
+export {
+  defaultShapeCollider,
+  getRouterIface,
+  getShapeCollider,
+  hasNet,
+  makeCollisionSearchContext,
+  NO_NET,
+  ObstacleSet,
+  PnsConstraintType,
+  resolveCollisionSearchOptions,
+  setRouterIface,
+  setShapeCollider,
+  type CollisionNode,
+  type CollisionSearchContext,
+  type CollisionSearchOptions,
+  type DpNetPair,
+  type KeepoutResult,
+  type NetHandle,
+  type Obstacle,
+  type PnsConstraint,
+  type PnsRouterIface,
+  type PnsRuleResolver,
+  type ResolvedCollisionSearchOptions,
+  type ShapeCollider,
+  type ShapeCollision,
+} from './router/pns_collision.js';
+
+export {
+  LineMarker,
+  OwnableItem,
+  PnsItem,
+  PnsKind,
+  PnsLinkedItem,
+  PnsLinkHolder,
+  type PnsBoardItem,
+  type PnsItemOwner,
+  type PnsLineLike,
+  type PnsViaLike,
+} from './router/pns_item.js';
+
+export { PnsItemSet } from './router/pns_itemset.js';
+
+export { jointTagsEqual, PnsJoint, type JointTag } from './router/pns_joint.js';
+
+export { PnsIndex, type IndexVisitor } from './router/pns_index.js';
+
+export { PnsHole } from './router/pns_hole.js';
+
+export { PnsSolid } from './router/pns_solid.js';
+
+export { PnsSegment, type ShapeSegment } from './router/pns_segment.js';
+
+export { PnsArc, type ShapeArc } from './router/pns_arc.js';
+
+export {
+  PnsVia,
+  PnsVVia,
+  ViaStackMode,
+  type PnsViaType,
+  type ViaHandle,
+} from './router/pns_via.js';
+
+export { moveShape } from './drc/drc_geometry.js';
