@@ -1606,6 +1606,25 @@ body {
 .ze-sync-pill.done {
   color: #7fce7f;
 }
+/* A sync that did not land. Squared off, wider and wrapping, because it carries
+   the reason and stays until dismissed rather than fading like the others. */
+.ze-sync-pill.failed {
+  align-items: flex-start;
+  max-width: 480px;
+  color: #ffb4a2;
+  border-color: #a33;
+  border-radius: 8px;
+}
+.ze-sync-dismiss {
+  flex: none;
+  padding: 2px 8px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
 /* Spinner centered over a canvas while its document parses (PCB/board load). */
 .ze-canvas-loading {
   position: absolute;

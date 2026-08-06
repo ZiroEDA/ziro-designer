@@ -2,42 +2,62 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Supabase-backed project store, the cloud half of Ziro Designer's persistence.
- * Mirrors the IndexedDB API in ../home/projectStore, operating on the same
- * `SyncableProject` shape (gzipped files, base64-encoded).
+ * The cloud half of project persistence, as a commit protocol.
  *
- * File blobs go to **Supabase Storage** when a bucket is configured
- * (VITE_SUPABASE_STORAGE_BUCKET), the Postgres row then holds only metadata +
- * the file list, NOT the blobs. This keeps large projects out of the database
- * (storing blobs in Postgres is what filled the DB and made it unhealthy). With
- * no bucket configured it falls back to the previous inline-jsonb behaviour,
- * capped in size so it can't bloat the DB.
+ * ### What went wrong before
  *
- * All rows are scoped to the signed-in user by Row Level Security (see
- * supabase/projects.sql); Storage objects live under `<userId>/…` with a
- * matching per-user policy.
+ * A push used to upload each blob to a mutable path, ignore whether any of
+ * those uploads succeeded, and then rewrite the row to list file *names* only —
+ * discarding the inline copies that were, at that moment, the only ones left.
+ * A pull turned a failed download into `gzB64: ''` and wrote the resulting
+ * empty record over the local one, which the sync layer then marked as agreed.
+ * Eleven of fourteen projects in one browser were reduced to a list of file
+ * names with no contents, and nothing anywhere reported an error.
+ *
+ * ### The protocol now
+ *
+ * Two rules, both borrowed from systems that do not lose data:
+ *
+ * **Content-addressed storage.** Blobs are keyed by the hash of their bytes
+ * (`blobStore.ts`), so a write can only add and a read can be verified.
+ *
+ * **The commit is last, and it is the only mutation.** Every blob is stored and
+ * then *confirmed present* before the row is written. Until that row lands, the
+ * previous version is entirely intact; if anything fails, it stays that way and
+ * the error propagates. A row can therefore never reference a blob that is not
+ * in the store — the invariant the old design had no way to state, let alone
+ * hold.
+ *
+ * Everything here runs against the {@link CloudBackend} interface, so the
+ * failure paths are reachable from tests. They were not before, which is the
+ * real reason the bugs survived.
  */
 
-import { supabase } from '../auth/supabaseClient.js';
+import type { CloudBackend, ManifestEntry, ProjectRow, RowFile } from './backend.js';
+import { isInlineFile, isManifestEntry } from './backend.js';
+import { blobPath, getBlob, legacyPath, putBlob } from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
 
-// Set to a bucket name to store file blobs in Supabase Storage instead of the
-// Postgres row. Leave unset to keep the (capped) inline behaviour.
-const BUCKET = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET as string | undefined) || '';
-// Max inline payload (base64) when NOT using Storage, protects the DB.
-const INLINE_CAP = 4 * 1024 * 1024;
+let backend: CloudBackend | null = null;
 
-interface FileRef {
-  name: string;
-  gzB64?: string;
+/**
+ * Install the transport. The app installs the Supabase one at startup; tests
+ * install a fake that can fail.
+ *
+ * Deliberately explicit rather than a module-level import of the Supabase
+ * client: that import is what made this file unreachable from the test package
+ * (it pulls in `import.meta.env`), and unreachable from tests is where the
+ * damage came from.
+ */
+export function setCloudBackend(next: CloudBackend | null): void {
+  backend = next;
 }
-interface Row {
-  id: string;
-  user_id?: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-  files: FileRef[];
+
+export const cloudBackendInstalled = (): boolean => backend !== null;
+
+function need(): CloudBackend {
+  if (!backend) throw new Error('cloud: no backend installed');
+  return backend;
 }
 
 const b64ToBytes = (b64: string): Uint8Array => {
@@ -46,118 +66,187 @@ const b64ToBytes = (b64: string): Uint8Array => {
   for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
   return u;
 };
+
 const bytesToB64 = (u: Uint8Array): string => {
   let s = '';
   for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
   return btoa(s);
 };
-// Storage object path for one project file.
-const objPath = (userId: string, id: string, name: string): string =>
-  `${userId}/${id}/${encodeURIComponent(name)}.gz`;
 
 /** id + updatedAt for every cloud project of the signed-in user. */
 export async function cloudListMeta(): Promise<{ id: string; updatedAt: number }[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase.from('projects').select('id, updated_at');
-  if (error) throw error;
-  return (data ?? []).map((r) => ({ id: r.id, updatedAt: new Date(r.updated_at).getTime() }));
+  const rows = await need().listProjects();
+  return rows.map((r) => ({ id: r.id, updatedAt: new Date(r.updated_at).getTime() }));
 }
 
-/** Fetch a single cloud project (with file bodies), or null if absent. */
-export async function cloudGet(id: string): Promise<SyncableProject | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase.from('projects').select('*').eq('id', id).maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  const r = data as Row;
-  const meta = {
-    id: r.id,
-    name: r.name,
-    createdAt: new Date(r.created_at).getTime(),
-    updatedAt: new Date(r.updated_at).getTime(),
-  };
-  const inline = r.files.length === 0 || r.files[0]!.gzB64 !== undefined;
-  if (inline || !BUCKET)
-    return { ...meta, files: (r.files as { name: string; gzB64: string }[]) ?? [] };
+/**
+ * Read the files of a row, whichever of the three shapes it is in.
+ *
+ * Legacy rows are still out there and still readable; only writing has changed.
+ * The one behavioural difference is that a blob which cannot be fetched is now
+ * an error in every shape. Returning an empty file for it is what turned a
+ * transient storage failure into permanent loss.
+ */
+async function readFiles(
+  be: CloudBackend,
+  row: ProjectRow,
+  userId: string,
+): Promise<{ name: string; gzB64: string }[]> {
+  const files: RowFile[] = row.files ?? [];
+  if (files.length === 0) return [];
 
-  // Storage-backed: download each blob and re-encode to the gzB64 shape.
-  const userId = r.user_id ?? '';
-  const files = await Promise.all(
-    r.files.map(async (f) => {
-      const { data: blob, error: e } = await supabase!.storage
-        .from(BUCKET)
-        .download(objPath(userId, id, f.name));
-      if (e || !blob) return { name: f.name, gzB64: '' };
-      return { name: f.name, gzB64: bytesToB64(new Uint8Array(await blob.arrayBuffer())) };
+  // Current shape: content-addressed, and verified on arrival.
+  if (isManifestEntry(files[0]!)) {
+    if (!userId) throw new Error(`project ${row.id}: row has no user_id, cannot address its blobs`);
+    return Promise.all(
+      (files as ManifestEntry[]).map(async (f) => ({
+        name: f.name,
+        gzB64: bytesToB64(await getBlob(be, userId, f.hash)),
+      })),
+    );
+  }
+
+  // Legacy shape: blobs base64-encoded in the row itself.
+  if (isInlineFile(files[0]!)) {
+    return files.map((f) => ({ name: f.name, gzB64: (f as { gzB64: string }).gzB64 }));
+  }
+
+  // Legacy shape: names only, blobs at a path built from the project id.
+  if (!userId) throw new Error(`project ${row.id}: row has no user_id, cannot address its blobs`);
+  return Promise.all(
+    files.map(async (f) => ({
+      name: f.name,
+      gzB64: bytesToB64(await be.getObject(legacyPath(userId, row.id, f.name))),
+    })),
+  );
+}
+
+/** Fetch a single cloud project with its file bodies, or null if absent. */
+export async function cloudGet(id: string): Promise<SyncableProject | null> {
+  const be = need();
+  const row = await be.getProject(id);
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+    files: await readFiles(be, row, row.user_id ?? ''),
+  };
+}
+
+/**
+ * Every file of this project is a zero-length blob.
+ *
+ * gzip of even an empty file is around twenty bytes, so this is not a project
+ * of empty files: it is the signature of a record that has already been
+ * damaged. Pushing it would copy the damage to the one place a recovery could
+ * have come from, so the push refuses and says why. The matching guard on the
+ * receiving side lives in `importProject`.
+ */
+const isHollow = (files: { gzB64: string }[]): boolean =>
+  files.length > 0 && files.every((f) => f.gzB64.length === 0);
+
+/**
+ * Commit a project: store every blob, confirm every blob, then write the row.
+ *
+ * The ordering is the whole point. Uploading is additive and safe to retry;
+ * writing the row is the single moment the project's contents change, and it
+ * happens only once there is nothing left that can fail.
+ */
+export async function cloudUpsert(userId: string, p: SyncableProject): Promise<void> {
+  const be = need();
+
+  if (isHollow(p.files)) {
+    throw new Error(
+      `refusing to push "${p.name}": all ${p.files.length} files are empty, which means the local copy is damaged`,
+    );
+  }
+
+  // 1. Store the blobs. Content-addressed, so this cannot overwrite anything,
+  //    and an unchanged file is recognised and skipped.
+  const manifest: ManifestEntry[] = await Promise.all(
+    p.files.map(async (f) => {
+      const bytes = b64ToBytes(f.gzB64);
+      return { name: f.name, hash: await putBlob(be, userId, bytes), size: bytes.length };
     }),
   );
-  return { ...meta, files };
-}
 
-/** Insert or update a project for the given user. */
-export async function cloudUpsert(userId: string, p: SyncableProject): Promise<void> {
-  if (!supabase) return;
-  const base = {
+  // 2. Confirm every blob is readable before anything references it. `putBlob`
+  //    already rejects on a failed upload; this catches the rarer case of a
+  //    write that reports success and does not land, which is exactly the class
+  //    of failure that started all this.
+  const missing = (
+    await Promise.all(
+      manifest.map(async (m) => ((await be.hasObject(blobPath(userId, m.hash))) ? null : m.name)),
+    )
+  ).filter((n): n is string => n !== null);
+  if (missing.length > 0) {
+    throw new Error(
+      `refusing to commit "${p.name}": ${missing.length} of ${manifest.length} blobs are not in the store (${missing.slice(0, 3).join(', ')})`,
+    );
+  }
+
+  // 3. Commit. Everything the row names is now known to exist.
+  const row: ProjectRow & { user_id: string } = {
     id: p.id,
     user_id: userId,
     name: p.name,
     created_at: new Date(p.createdAt).toISOString(),
     updated_at: new Date(p.updatedAt).toISOString(),
+    files: manifest,
   };
+  await be.putProject(row);
 
-  if (BUCKET) {
-    // Blobs → Storage; the row keeps only the file names.
-    await Promise.all(
-      p.files.map((f) =>
-        supabase!.storage.from(BUCKET).upload(objPath(userId, p.id, f.name), b64ToBytes(f.gzB64), {
-          upsert: true,
-          contentType: 'application/gzip',
-        }),
-      ),
-    );
-    const { error } = await supabase.from('projects').upsert(
-      { ...base, files: p.files.map((f) => ({ name: f.name })) },
-      {
-        // Match the (user_id, id) primary key. Conflicting on id alone would
-        // aim the update at another account's row, which row-level security
-        // then refuses.
-        onConflict: 'user_id,id',
-      },
-    );
-    if (error) throw error;
-    return;
+  // 4. Record the committed manifest. Additive history: the blobs it names are
+  //    never deleted while it exists, so any past version can be restored.
+  //
+  //    Never fatal. The commit above has already landed, so reporting a failure
+  //    here would tell the sync layer the push did not happen and leave the two
+  //    sides marked as disagreeing when they agree. A database without the
+  //    `manifest.sql` migration simply has no history.
+  try {
+    await be.recordVersion?.(userId, row);
+  } catch (e) {
+    console.warn(`project history not recorded for "${p.name}":`, e);
   }
-
-  // Inline (no bucket): keep blobs in the row, but cap the size so a big project
-  // can't fill the database, it stays local-only until Storage is configured.
-  const total = p.files.reduce((n, f) => n + f.gzB64.length, 0);
-  if (total > INLINE_CAP) {
-    console.warn(
-      `Cloud sync skipped for "${p.name}": ${(total / 1048576).toFixed(1)} MB exceeds the inline cap. Configure VITE_SUPABASE_STORAGE_BUCKET to sync large projects.`,
-    );
-    return;
-  }
-  const { error } = await supabase
-    .from('projects')
-    .upsert({ ...base, files: p.files }, { onConflict: 'user_id,id' });
-  if (error) throw error;
 }
 
+/**
+ * Delete a project, and the blobs no other project of this user still needs.
+ *
+ * Reference-counted rather than "delete this project's folder", because blobs
+ * are shared: two projects containing the same footprint library share one
+ * object, and a save-as shares nearly all of them. Deleting by project would
+ * quietly empty its sibling.
+ *
+ * Conservative on failure. If the set of still-referenced hashes cannot be
+ * established the row is removed and the blobs are left behind: orphaned
+ * objects cost storage, and this is the only code path in the module that can
+ * destroy anything.
+ */
 export async function cloudDelete(id: string): Promise<void> {
-  if (!supabase) return;
-  if (BUCKET) {
-    const { data } = await supabase
-      .from('projects')
-      .select('user_id, files')
-      .eq('id', id)
-      .maybeSingle();
-    const r = data as Pick<Row, 'user_id' | 'files'> | null;
-    if (r?.user_id && r.files?.length) {
-      await supabase.storage
-        .from(BUCKET)
-        .remove(r.files.map((f) => objPath(r.user_id!, id, f.name)));
-    }
+  const be = need();
+  const row = await be.getProject(id);
+  if (!row) return;
+  const userId = row.user_id ?? '';
+  const doomed = (row.files ?? []).filter(isManifestEntry).map((f) => f.hash);
+
+  await be.deleteProject(id);
+
+  if (!userId || doomed.length === 0) return;
+  let stillUsed: Set<string>;
+  try {
+    const others = await be.listProjects();
+    const rows = await Promise.all(
+      others.filter((o) => o.id !== id).map((o) => be.getProject(o.id)),
+    );
+    stillUsed = new Set(
+      rows.flatMap((r) => (r?.files ?? []).filter(isManifestEntry).map((f) => f.hash)),
+    );
+  } catch {
+    return; // Cannot prove they are unreferenced, so leave them.
   }
-  const { error } = await supabase.from('projects').delete().eq('id', id);
-  if (error) throw error;
+  const orphans = [...new Set(doomed)].filter((h) => !stillUsed.has(h));
+  if (orphans.length > 0) await be.removeObjects(orphans.map((h) => blobPath(userId, h)));
 }
