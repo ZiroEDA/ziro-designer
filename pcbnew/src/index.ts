@@ -141,6 +141,24 @@ export {
   type PdfProject,
   type PdfBox2,
 } from './plot_pdf.js';
+// And once more for the PostScript back-end, which is PDF's sibling under
+// PSLIKE_PLOTTER and repeats the same helpers for the same reason. Only the
+// PS-prefixed names travel; FILL_T, LINE_STYLE, PLOT_TEXT_MODE, Color4d, fixed,
+// formatG, getFillId, encodeStringForPlotter, GetPenSizeForBold and the
+// PS_MACRO_PROLOG / POSTSCRIPT_TEXT_ASCENT constants stay importable from
+// './plot_ps.js' alone, because three of the four back-ends already spell their
+// own copies of the enums and the rest are KiCad names, not Ziro ones.
+export {
+  PsPlotter,
+  psRenderSettings,
+  psPageInfo,
+  psCreationDate,
+  type PsRenderSettings,
+  type PsPageInfo,
+  type PsImage,
+  type PsFont,
+  type PsTextAttributes,
+} from './plot_ps.js';
 export {
   serializeBoard,
   writeBoardNode,
