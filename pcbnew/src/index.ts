@@ -1037,3 +1037,48 @@ export {
 } from './router/pns_line_item.js';
 
 export { PnsNode, type PnsBox } from './router/pns_node.js';
+// ----- the shape collision table (shape_collisions.cpp) -------------------------
+
+export {
+  arcCollidePoint,
+  arcCollideSeg,
+  arcIsEffectiveLine,
+  arcNearestPointsArc,
+  arcNearestPointsCircle,
+  arcSliceContainsPoint,
+  chainCollideSeg,
+  chainPointInside,
+  circleFurthestPoint,
+  circleIntersectCircle,
+  circleIntersectSeg,
+  circleNearestPoint,
+  collideArcArc,
+  collideArcChain,
+  collideArcCircle,
+  collideArcSegment,
+  collideChainChain,
+  collideChainSegment,
+  collideCircleChain,
+  collideCircleCircle,
+  collideCircleSegment,
+  collideSegmentSegment,
+  collideShapes,
+  segCollide,
+  segNearestPointToPoint,
+  segNearestPointToSeg,
+  segSquaredDistanceToPoint,
+  segSquaredDistanceToSeg,
+  shapeCircleCollideSeg,
+  shapeSegmentCollideSeg,
+  type CollideArc,
+  type CollideChain,
+  type CollideCircle,
+  type CollideSeg,
+  type CollideSegment,
+  type ShapeCollisionResult,
+} from './drc/shape_collisions.js';
+
+export {
+  installLocatingShapeCollider,
+  locatingShapeCollider,
+} from './router/pns_shape_collider.js';
