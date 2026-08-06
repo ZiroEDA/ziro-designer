@@ -256,3 +256,13 @@ export function shapeBBox(s: Shape): { minX: number; minY: number; maxX: number;
   }
   return { minX: minX - s.r, minY: minY - s.r, maxX: maxX + s.r, maxY: maxY + s.r };
 }
+
+/** `SHAPE::Move`: the same shape, translated. */
+export function moveShape(s: Shape, delta: Vec2): Shape {
+  const mv = (p: Vec2): Vec2 => ({ x: p.x + delta.x, y: p.y + delta.y });
+
+  if (s.kind === 'circle') return { ...s, c: mv(s.c) };
+  if (s.kind === 'stadium') return { ...s, a: mv(s.a), b: mv(s.b) };
+  if (s.kind === 'arc') return { ...s, c: mv(s.c) };
+  return { ...s, pts: s.pts.map(mv) };
+}
