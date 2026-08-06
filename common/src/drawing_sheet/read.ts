@@ -275,12 +275,27 @@ function readSetup(node: SList | undefined): WksSetup {
   };
 }
 
-/** Parse a `.kicad_wks` document (root `(kicad_wks …)`) into a `WksSheet`. */
+/**
+ * The three roots KiCad accepts (`DRAWING_SHEET_PARSER::parseHeader`).
+ *
+ * `page_layout` and `drawing_sheet` are the older, unversioned forms; only
+ * `kicad_wks` carries a `(version …)`. Upstream's own demos still ship the
+ * legacy one — `demos/interf_u/pagelayout_logo.kicad_wks` opens with
+ * `(page_layout …)` — so refusing it means refusing a file KiCad opens fine.
+ */
+const ROOTS = ['kicad_wks', 'drawing_sheet', 'page_layout'];
+
+/** Parse a drawing-sheet document into a `WksSheet`. */
 export function readDrawingSheet(root: SList): WksSheet {
-  if (head(root) !== 'kicad_wks') {
-    throw new Error(`readDrawingSheet: expected (kicad_wks …), got (${head(root) ?? '?'} …)`);
+  const rootToken = head(root) ?? '?';
+  if (!ROOTS.includes(rootToken)) {
+    throw new Error(`readDrawingSheet: expected one of ${ROOTS.join(', ')}, got (${rootToken} …)`);
   }
-  const version = numArg(childNamed(root, 'version') ?? root, 0);
+  // A legacy file has no `(version …)` at all, and reading one off the root
+  // instead would pick up whatever leading atom happened to be there. Missing
+  // means current, the same assumption KiCad makes when it upgrades one.
+  const versionNode = childNamed(root, 'version');
+  const version = versionNode ? (numArg(versionNode, 0) ?? WKS_FILE_VERSION) : WKS_FILE_VERSION;
   const gen = childNamed(root, 'generator');
   const items: WksItem[] = [];
   for (const child of root.items) {
@@ -292,7 +307,7 @@ export function readDrawingSheet(root: SList): WksSheet {
     }
   }
   return {
-    version: childNamed(root, 'version') ? (version ?? WKS_FILE_VERSION) : WKS_FILE_VERSION,
+    version,
     generator: (gen && arg(gen, 0)) || 'pl_editor',
     setup: readSetup(childNamed(root, 'setup')),
     items,
