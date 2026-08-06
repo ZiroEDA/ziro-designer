@@ -63,7 +63,19 @@ const isRoundPad = (pad: PcbPad): boolean =>
  */
 export function boardObstacleHulls(board: Board, q: ObstacleQuery): Hull[] {
   const out: Hull[] = [];
-  const foreign = (net: number | undefined): boolean => (net ?? 0) !== q.net;
+
+  // `ITEM::collideSimple` (pns_item.cpp:188) skips the clearance between two
+  // items only when `differentNetsOnly && Net() == aHead->Net() && aHead->Net()`
+  // — and that third term is the whole point. Net 0 is "no net", not a net, so
+  // it never earns the same-net exemption: two unconnected pieces of copper
+  // collide with each other exactly as if they belonged to different nets.
+  // Dropping the term is the natural way to write this and is wrong in the one
+  // direction that matters, letting a route run straight through copper the
+  // router should have walked around.
+  const foreign = (net: number | undefined): boolean => {
+    const n = net ?? 0;
+    return n === 0 || n !== q.net;
+  };
 
   for (const t of board.tracks) {
     if (t.layer !== q.layer || !foreign(t.net)) continue;
