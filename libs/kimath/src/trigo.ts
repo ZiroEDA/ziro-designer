@@ -8,7 +8,7 @@
  */
 
 import { EDA_ANGLE, ANGLE_0, ANGLE_90, ANGLE_180, ANGLE_270 } from './geometry/eda_angle.js';
-import { VECTOR2I } from './math/vector2.js';
+import { VECTOR2I, type Vec2 } from './math/vector2.js';
 
 /** Rotate a point about the origin by `aAngle` (KiCad RotatePoint(int*,int*,angle)). */
 export function RotatePoint(point: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I;
@@ -222,6 +222,35 @@ export function CalcArcCenter(
     return { x: rounded10CenterX, y: rounded10CenterY };
   }
   return { x: centerX, y: centerY };
+}
+
+/**
+ * `RotatePoint( double*, double*, … )`, the VECTOR2D overload (trigo.cpp:277).
+ *
+ * The same cardinal shortcuts as the integer form, and then no rounding at all.
+ * Callers that rotate before converting to internal units — the graphics
+ * importer's arcs, for one — need the un-rounded value: rounding at millimetre
+ * scale and *then* multiplying by a million turns a sub-nanometre difference
+ * into half a millimetre.
+ */
+export function RotatePointD(point: Vec2, aAngle: EDA_ANGLE): Vec2;
+export function RotatePointD(point: Vec2, aCentre: Vec2, aAngle: EDA_ANGLE): Vec2;
+export function RotatePointD(point: Vec2, b: Vec2 | EDA_ANGLE, c?: EDA_ANGLE): Vec2 {
+  if (b instanceof EDA_ANGLE) return rotateAboutOriginD(point, b);
+  const centre = b;
+  const o = rotateAboutOriginD({ x: point.x - centre.x, y: point.y - centre.y }, c as EDA_ANGLE);
+  return { x: o.x + centre.x, y: o.y + centre.y };
+}
+
+function rotateAboutOriginD(p: Vec2, aAngle: EDA_ANGLE): Vec2 {
+  const angle = aAngle.Normalized();
+  if (angle.equals(ANGLE_0)) return { x: p.x, y: p.y };
+  if (angle.equals(ANGLE_90)) return { x: p.y, y: -p.x }; // sin=1, cos=0
+  if (angle.equals(ANGLE_180)) return { x: -p.x, y: -p.y }; // sin=0, cos=-1
+  if (angle.equals(ANGLE_270)) return { x: -p.y, y: p.x }; // sin=-1, cos=0
+  const s = angle.Sin();
+  const cos = angle.Cos();
+  return { x: p.y * s + p.x * cos, y: p.y * cos - p.x * s };
 }
 
 function rotateAboutOrigin(p: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I {

@@ -947,3 +947,20 @@ export {
   type LibraryFootprintStatus,
   type ResolvedLibraryFootprint,
 } from './diff_footprint.js';
+
+// Graphics import (DXF/SVG into board graphics). Only the import-specific
+// names travel: BOX2D, MATRIX3x3D, the IMPORTED_* shape classes and
+// setupSplineOrLine are KiCad names another port will want and stay importable
+// from './graphics_importer.js' / './graphics_importer_pcbnew.js' alone.
+export {
+  GRAPHICS_IMPORTER_BUFFER,
+  IMPORTED_STROKE,
+  POLY_FILL_RULE,
+  type IMPORTED_ITEM,
+} from './graphics_importer.js';
+
+export {
+  GRAPHICS_IMPORTER_PCBNEW,
+  DEFAULT_IMPORT_LAYER,
+  type LayerMapTarget,
+} from './graphics_importer_pcbnew.js';
