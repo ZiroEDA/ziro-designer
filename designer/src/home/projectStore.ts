@@ -397,14 +397,43 @@ export async function exportProject(id: string): Promise<SyncableProject | null>
   };
 }
 
+/**
+ * Whether a set of stored files is damage rather than data.
+ *
+ * gzip of even an empty file is around twenty bytes, so a project whose blobs
+ * are *all* zero-length is not a project of empty files. It is the signature of
+ * a record that has already lost its contents, and the reason this predicate
+ * exists is that eleven projects reached exactly that state and every layer
+ * treated it as ordinary data.
+ *
+ * A project with no files at all is left out: that is a real state, not damage.
+ */
+export const isHollowRecord = (files: { gz: Uint8Array }[]): boolean =>
+  files.length > 0 && files.every((f) => f.gz.byteLength === 0);
+
 /** Write a project from its serializable form, preserving its timestamps. */
 export async function importProject(p: SyncableProject): Promise<void> {
+  const files = p.files.map((f) => ({ name: f.name, gz: b64ToBytes(f.gzB64) }));
+
+  // The last line of defence, and the one that would have held when the others
+  // did not. Whatever the layers above believe, an incoming copy with no
+  // contents does not get to replace a local copy that has some.
+  if (isHollowRecord(files)) {
+    const existing = await tx<StoredRecord | undefined>('readonly', (s) => s.get(p.id));
+    if ((existing?.files ?? []).some((f) => f.gz.byteLength > 0)) {
+      throw new Error(
+        `refusing to overwrite "${existing?.name ?? p.id}" with an empty copy: ` +
+          `all ${files.length} incoming files have no contents`,
+      );
+    }
+  }
+
   const record: StoredRecord = {
     id: p.id,
     name: p.name,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
-    files: p.files.map((f) => ({ name: f.name, gz: b64ToBytes(f.gzB64) })),
+    files,
     // We have just taken the cloud's copy wholesale, so this is the point the
     // two sides agree.
     syncedAt: p.updatedAt,

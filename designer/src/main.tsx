@@ -14,6 +14,9 @@ import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth } from './home/projectStore.js';
+import { authEnabled } from './auth/supabaseClient.js';
+import { setCloudBackend } from './cloud/cloudStore.js';
+import { supabaseBackend } from './cloud/supabaseBackend.js';
 
 // Before rendering, so a crash during the first paint is still reported. No-ops
 // when VITE_SENTRY_DSN is unset or the user has opted out, the same
@@ -32,6 +35,12 @@ installGlobalErrorHandlers();
 // Fire-and-forget on purpose: a rejection is already reported through the
 // health layer, and a storage probe must never be able to stop the app booting.
 void checkStorageHealth().catch(() => undefined);
+
+// The cloud store works against an interface so its failure paths are reachable
+// from tests; this is where the real transport goes in. Without Supabase
+// configured nothing is installed and every cloud call refuses loudly, which is
+// correct: `sync.ts` gates on `authEnabled` and never makes one.
+if (authEnabled) setCloudBackend(supabaseBackend());
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');

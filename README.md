@@ -74,6 +74,43 @@ variables are absent, so a clone runs with no configuration at all.
 | `SENTRY_AUTH_TOKEN`            | Source maps not uploaded (secret, dashboard only) |
 | `SENTRY_URL`                   | Defaults to `https://de.sentry.io/`      |
 
+### Cloud sync
+
+Run `supabase/projects.sql`, `supabase/storage.sql` and `supabase/manifest.sql`
+once each in the Supabase SQL editor, and turn on **object versioning** for the
+bucket. The app works without any of it — everything is local-first — but a
+deployment that syncs should have all four.
+
+Project files are stored **content-addressed**: a blob's key is the SHA-256 of
+its bytes, at `<userId>/blobs/<hash>`. Three properties follow, and they are the
+whole design:
+
+- **A write cannot destroy.** Different contents cannot share a key, so an
+  upload only ever adds. Keying blobs by `<project>/<filename>` instead — which
+  is what the first version did — makes every save an overwrite of the only
+  copy.
+- **A read is verifiable.** The key states what the bytes must hash to, so a
+  truncated or substituted download is caught rather than handed to the parser.
+- **History is nearly free.** Superseded blobs are still there under their own
+  keys, so `project_versions` recording each committed manifest is enough to
+  restore any earlier state.
+
+The commit protocol is: store every blob, **confirm every blob is present**,
+then write the row — and only then. Until that row lands the previous version is
+entirely intact, so a push that fails at any point changes nothing. A row can
+therefore never reference an object that is not in the store.
+
+Reconciliation is last-write-wins on `updatedAt`, with the losing side kept as a
+`(local copy, <date>)` project rather than discarded. A per-project failure is
+reported in the UI, not logged to the console.
+
+The transport is an interface (`cloud/backend.ts`) whose every method throws or
+fulfils; `cloud/supabaseBackend.ts` is the only file that touches Supabase's
+`{ data, error }` convention. That is deliberate. The convention's failure mode
+is silent — `await` succeeds whether or not `error` is set — and the first
+version, which called the client directly from the store and so could not be
+reached by any test, lost the contents of eleven projects to exactly that.
+
 ### Crash reporting
 
 Reports are **opt-out**: on by default, switched off under

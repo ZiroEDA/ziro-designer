@@ -17,6 +17,7 @@ import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { SignInDialog } from '../auth/SignIn.js';
 import { syncAllProjects, pushProject, deleteCloudProject } from '../cloud/sync.js';
+import type { SyncResult } from '../cloud/sync.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import { loadTemplates, createFromTemplate, type TemplateMeta } from './templates.js';
@@ -63,6 +64,9 @@ import {
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
+
+/** One project that would not sync, as reported by `syncAllProjects`. */
+type SyncFailure = SyncResult['failures'][number];
 
 // KiCad's own dark-theme icons (GPL), vendored under assets/.
 const TILE_ICONS = import.meta.glob('../assets/launcher/*.svg', {
@@ -288,7 +292,9 @@ export function HomePage({
   const [loading, setLoading] = useState<string | ProgressSnapshot | null>(null);
   // Cloud sync status pill (non-blocking, bottom-right): transfers done/total
   // while projects reconcile on sign-in, then a brief "synced" confirmation.
-  const [syncState, setSyncState] = useState<{ done: number; total: number } | 'done' | null>(null);
+  const [syncState, setSyncState] = useState<
+    { done: number; total: number } | { failures: SyncFailure[] } | 'done' | null
+  >(null);
   const refreshSaved = (): void => {
     if (storageAvailable()) void listProjects().then(setSaved);
   };
@@ -308,17 +314,29 @@ export function HomePage({
         if (done > 0) refreshSaved();
       }
     })
-      .then(() => {
-        if (!cancelled) refreshSaved();
-      })
-      .catch((e) => console.warn('Cloud sync failed:', e))
-      .finally(() => {
+      .then((r) => {
         if (cancelled) return;
-        // Flip the pill to its "synced" confirmation, then fade it out.
-        setSyncState((s) => (s && s !== 'done' ? 'done' : null));
+        refreshSaved();
+        // A failure has to stay on screen. The previous version logged to the
+        // console and then showed the success tick regardless, so a sync in
+        // which every project failed was indistinguishable from a clean one.
+        if (r.failures.length > 0) {
+          for (const f of r.failures) console.warn(`Cloud ${f.direction} failed:`, f.message);
+          setSyncState({ failures: r.failures });
+          return;
+        }
+        setSyncState('done');
         setTimeout(() => {
           if (!cancelled) setSyncState(null);
         }, 2500);
+      })
+      .catch((e: unknown) => {
+        // The reconcile itself could not run (offline, or the project list was
+        // unreadable). Individual transfer failures come back in `failures`.
+        if (cancelled) return;
+        const message = e instanceof Error ? e.message : String(e);
+        console.warn('Cloud sync failed:', message);
+        setSyncState({ failures: [{ id: '', direction: 'pull', message }] });
       });
     return () => {
       cancelled = true;
@@ -1074,11 +1092,28 @@ export function HomePage({
 
       {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
 
-      {/* Cloud-sync status (non-blocking): projects reconciling on sign-in. */}
+      {/* Cloud-sync status (non-blocking): projects reconciling on sign-in.
+          A failure stays until dismissed — it is the only signal the user gets
+          that their work is not where they think it is. */}
       {syncState && (
-        <div className={`ze-sync-pill${syncState === 'done' ? ' done' : ''}`}>
+        <div
+          className={`ze-sync-pill${syncState === 'done' ? ' done' : ''}${
+            typeof syncState === 'object' && 'failures' in syncState ? ' failed' : ''
+          }`}
+        >
           {syncState === 'done' ? (
             <>✓ Projects synced</>
+          ) : 'failures' in syncState ? (
+            <>
+              <span>
+                ⚠ {syncState.failures.length}{' '}
+                {syncState.failures.length === 1 ? 'project' : 'projects'} did not sync:{' '}
+                {syncState.failures[0]!.message}
+              </span>
+              <button type="button" className="ze-sync-dismiss" onClick={() => setSyncState(null)}>
+                Dismiss
+              </button>
+            </>
           ) : (
             <>
               <span className="ze-spinner" />
