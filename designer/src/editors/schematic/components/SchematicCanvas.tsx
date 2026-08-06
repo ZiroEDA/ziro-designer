@@ -102,10 +102,24 @@ import {
   fitToContent,
   fitToBBox,
   setRenderInvalidator,
+  drawGrid,
   DEFAULT_RENDER_OPTS,
   type RenderOpts,
   type Viewport,
 } from '../render/renderer.js';
+import { SchematicGl } from '../../../render/gl/schematic_gl.js';
+
+/**
+ * Opt in to the WebGL renderer with `?renderer=gl` (#449).
+ *
+ * Read once, at module load, because switching renderers mid-session would
+ * mean tearing down a GL context and rebuilding canvases for no good reason.
+ * A URL parameter rather than a setting while the two are being compared: it
+ * makes an A/B on the same document one edit of the address bar, and it does
+ * not add a preference we would have to keep or remove later.
+ */
+const GL_RENDERER =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).get('renderer') === 'gl';
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 
@@ -614,6 +628,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // chain being drawn). Moving the mouse repaints only the overlay, so the
   // schematic is not re-rendered for every pointer event.
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  // The WebGL document layer, between the two (#449). Opt-in for now: it is
+  // being compared against the Canvas2D path on real documents before it can
+  // become the default, and a renderer swap is not something to do silently.
+  const glCanvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<SchematicGl | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<Viewport | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -1215,6 +1234,25 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (!ctx) return;
     const { doc, ghosting } = buildDisplayDoc();
 
+    // The WebGL path (#449). The 2D canvas keeps the background and the grid,
+    // which are cheap and genuinely zoom-dependent; the document goes to the
+    // GPU once and every later pan or zoom is a uniform update. That replaces
+    // the ~70 ms unchunked repaint `startSceneRender` does after each gesture,
+    // which is what makes the wheel feel like it stutters.
+    const gl = glRef.current;
+    if (gl && !gl.isLost) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = theme.background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      gl.render(
+        { doc, theme, opts: renderOpts, selection, highlight },
+        { scale: vp.scale, offsetX: vp.offsetX, offsetY: vp.offsetY },
+      );
+      onScaleChange?.(vp.scale);
+      return;
+    }
+
     // An attached ghost moves with the cursor, so it is painted straight to the
     // screen and the raster is dropped rather than having the ghost baked in.
     if (ghosting) {
@@ -1616,6 +1654,32 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => ro.disconnect();
   }, []);
 
+  // Bring up the GL device once the layer is mounted. A null means this browser
+  // or this moment cannot give us WebGL2, and `drawScene` then takes the
+  // Canvas2D path exactly as before: an editor that renders is worth more than
+  // one that renders quickly.
+  useEffect(() => {
+    if (!GL_RENDERER) return;
+    const canvas = glCanvasRef.current;
+    if (!canvas || glRef.current) return;
+    glRef.current = SchematicGl.create(canvas);
+    if (!glRef.current) console.warn('WebGL2 unavailable; using the Canvas2D renderer');
+    // A lost context is not an error we can prevent, only one we can survive:
+    // drop the device and let the next frame fall back.
+    const onLost = (e: Event): void => {
+      e.preventDefault();
+      glRef.current?.dispose();
+      glRef.current = null;
+      requestDrawRef.current();
+    };
+    canvas.addEventListener('webglcontextlost', onLost);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      glRef.current?.dispose();
+      glRef.current = null;
+    };
+  }, []);
+
   // Size the backing stores. Assigning canvas.width *always* clears the bitmap,
   // even to the value it already has, so this must not run on every document
   // change, or every edit blanks the canvas for a frame before it repaints.
@@ -1626,7 +1690,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const r = dpr();
     const w = Math.floor(size.w * r);
     const h = Math.floor(size.h * r);
-    for (const c of [canvas, overlay]) {
+    // The GL layer is sized with the others when it is mounted. Its drawing
+    // buffer is the viewport the shaders project into, so a stale size shows up
+    // as a document drawn at the wrong scale rather than as nothing at all.
+    const layers = [canvas, overlay, ...(glCanvasRef.current ? [glCanvasRef.current] : [])];
+    for (const c of layers) {
       if (c.width !== w || c.height !== h) {
         c.width = w;
         c.height = h;
@@ -2701,6 +2769,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           requestOverlay(); // drop the crosshair when the pointer leaves
         }}
       />
+      {/* The WebGL document layer (#449), mounted only with ?renderer=gl. It is
+          transparent and sits over the 2D canvas, which then paints just the
+          background and the grid: the grid's spacing adapts to the zoom, so it
+          is the one thing that genuinely cannot live in a retained buffer.
+          Takes no events, like the overlay above it. */}
+      {GL_RENDERER && (
+        <canvas
+          ref={glCanvasRef}
+          style={{ display: 'block', position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
+        />
+      )}
       {/* The pointer overlay (crosshair, rubber band, lasso, wire preview) sits
           above the scene and never takes events, so clicks and pointer captures
           still land on the scene canvas below. */}
