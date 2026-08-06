@@ -130,6 +130,24 @@ describe('a net is not an obstacle to itself', () => {
 
     expect(boardObstacleHulls(b, QUERY)).toHaveLength(1);
   });
+
+  it('does not let unassigned copper claim the exemption from unassigned copper', () => {
+    // Routing net 0 — a track drawn on no net at all, which pcbnew allows. The
+    // same-net exemption in `ITEM::collideSimple` is guarded by `aHead->Net()`
+    // being non-zero, so two net-0 items collide. Reading net 0 as an ordinary
+    // net makes every other unconnected trace invisible and the route runs
+    // through it; this is the one case where getting it wrong permits an
+    // illegal route rather than merely costing a legal one.
+    const b = board({ tracks: [track(20, 0, 20, 40, 0)] });
+
+    expect(boardObstacleHulls(b, { ...QUERY, net: 0 })).toHaveLength(1);
+  });
+
+  it('still blocks a net-0 route with ordinary copper', () => {
+    const b = board({ tracks: [track(20, 0, 20, 40, 2)] });
+
+    expect(boardObstacleHulls(b, { ...QUERY, net: 0 })).toHaveLength(1);
+  });
 });
 
 describe('which layer an obstacle blocks', () => {
