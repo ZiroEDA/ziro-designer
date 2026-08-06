@@ -2806,7 +2806,7 @@ let g_gridKey = '';
 /** Guard against a pathological view (a not-yet-sized canvas) asking for millions of nodes. */
 const MAX_GRID_NODES = 1_000_000;
 
-function drawGrid(
+export function drawGrid(
   ctx: CanvasRenderingContext2D,
   viewport: Viewport,
   theme: Theme,
