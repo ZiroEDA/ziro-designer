@@ -16,6 +16,7 @@
  * division and every clearance computed from it inherits the truncation.
  */
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
+import type { PnsLine } from './pns_line_item.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { Chain, Seg } from './pns_line.js';
 import type { NetHandle } from './pns_collision.js';
@@ -51,6 +52,28 @@ export class PnsSegment extends PnsLinkedItem {
           : { seg: copySeg(aSeg), width: 0 };
       this.mNet = aNet;
     }
+  }
+
+  /**
+   * `SEGMENT( const LINE& aParentLine, const SEG& aSeg )`: one straight piece of
+   * a line, taking the line's width, net, layers, marker and rank.
+   *
+   * Note what it does *not* take. `m_parent` is explicitly nulled — a segment cut
+   * out of a line does not map back to one board track — while `m_sourceItem` is
+   * carried over, which is how the interface layer still knows where the copper
+   * came from. `ARC`'s equivalent constructor copies neither, and that asymmetry
+   * is upstream's.
+   */
+  static fromParentLine(aParentLine: PnsLine, aSeg: Seg): PnsSegment {
+    const s = new PnsSegment({ seg: aSeg, width: aParentLine.width() }, aParentLine.net());
+
+    s.mParent = null;
+    s.mSourceItem = aParentLine.getSourceItem();
+    s.setLayers(aParentLine.layers());
+    s.mark(aParentLine.marker());
+    s.setRank(aParentLine.rank());
+
+    return s;
   }
 
   static classOf(aItem: PnsItem | null): boolean {
