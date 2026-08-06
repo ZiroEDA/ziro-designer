@@ -26,6 +26,7 @@
  */
 import { arcShape } from '../drc/drc_engine.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
+import type { PnsLine } from './pns_line_item.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { NetHandle } from './pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -74,6 +75,28 @@ export class PnsArc extends PnsLinkedItem {
     a.setLayers(aParentArc.layers());
     a.mark(aParentArc.marker());
     a.setRank(aParentArc.rank());
+    return a;
+  }
+
+  /**
+   * `ARC( const LINE& aParentLine, const SHAPE_ARC& aArc )`: one curved piece of
+   * a line. The arc geometry is rebuilt from the three points with the *line's*
+   * width, discarding whatever width the chain's stored copy had — the chain
+   * zeroes it, and the stroke belongs to the line.
+   *
+   * Unlike `SEGMENT`'s equivalent, neither the parent nor the source item is
+   * touched. Upstream's asymmetry, kept.
+   */
+  static fromParentLine(aParentLine: PnsLine, aArc: ShapeArc): PnsArc {
+    const a = new PnsArc(
+      { p0: aArc.p0, arcMid: aArc.arcMid, p1: aArc.p1, width: aParentLine.width() },
+      aParentLine.net(),
+    );
+
+    a.setLayers(aParentLine.layers());
+    a.mark(aParentLine.marker());
+    a.setRank(aParentLine.rank());
+
     return a;
   }
 

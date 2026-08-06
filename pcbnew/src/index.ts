@@ -1029,3 +1029,11 @@ export {
 } from './router/pns_via.js';
 
 export { moveShape } from './drc/drc_geometry.js';
+
+export {
+  PnsLine,
+  PnsLineChain,
+  PNS_HULL_MARGIN,
+} from './router/pns_line_item.js';
+
+export { PnsNode, type PnsBox } from './router/pns_node.js';
