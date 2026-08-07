@@ -45,6 +45,7 @@
  */
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Seg } from './pns_line.js';
+import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const big = (v: number): bigint => BigInt(KiROUND(v));
@@ -82,13 +83,23 @@ export const segSquaredLength = (aSeg: Seg): number => {
 };
 
 /**
- * `SEG::Length`: `( A - B ).EuclideanNorm()` returned as an `int`.
+ * `SEG::Length` (`seg.h:339`): `( A - B ).EuclideanNorm()`.
  *
- * The C++ return type is `int`, so the double norm is **truncated**, not
- * rounded. A base segment of 999.9 IU measures 999.
+ * There is **no truncation here to perform**. `A - B` is a `VECTOR2I`, so the
+ * template parameter is `int`, and `VECTOR2<int>::EuclideanNorm()`
+ * (`vector2d.h:279`) already returns an `int` — its body is
+ * `KiROUND<double,int>( std::hypot( x, y ) )`, with a 45° short-cut of
+ * `KiROUND( |x| * M_SQRT2 )` and exact answers on the axes. By the time the
+ * value reaches `Length`'s `int` return type it has already been *rounded*;
+ * there is no double left to cut.
+ *
+ * Truncating instead is wrong by one unit whenever the hypotenuse's fraction
+ * reaches a half — a (2, 3) segment is 4 upstream and would be 3 — and the
+ * error does not cancel in a difference, which is what `DIFF_PAIR::Skew` takes
+ * and what `CoupledLength` sums over every coupled stretch.
  */
 export const segLength = (aSeg: Seg): number =>
-  noNegZero(Math.trunc(Math.hypot(aSeg.a.x - aSeg.b.x, aSeg.a.y - aSeg.b.y)));
+  EuclideanNormI({ x: aSeg.a.x - aSeg.b.x, y: aSeg.a.y - aSeg.b.y });
 
 /**
  * `SEG::LineProject`: the foot of the perpendicular from `aP` onto the
