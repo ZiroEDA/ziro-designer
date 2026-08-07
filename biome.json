@@ -12,7 +12,8 @@
       "!designer/src/assets",
       "!qa/data",
       "!**/dist",
-      "!common/src/font/newstroke_glyphs.ts"
+      "!common/src/font/newstroke_glyphs.ts",
+      "!designer/src/render/gl/vendor"
     ]
   },
   "formatter": {
