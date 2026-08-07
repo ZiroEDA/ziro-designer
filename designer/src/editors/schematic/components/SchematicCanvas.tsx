@@ -108,6 +108,7 @@ import {
   type Viewport,
 } from '../render/renderer.js';
 import { SchematicGl } from '../../../render/gl/schematic_gl.js';
+import { movingIds } from '../moving_ids.js';
 
 /**
  * Opt in to the WebGL renderer with `?renderer=gl` (#449).
@@ -136,6 +137,7 @@ interface PerfCounters {
   ghostFull: number;
   blit: number;
   full: number;
+  gl: number;
   rebuilds: number;
   totalMs: number;
   maxMs: number;
@@ -148,6 +150,7 @@ const perf: PerfCounters = {
   ghostFull: 0,
   blit: 0,
   full: 0,
+  gl: 0,
   rebuilds: 0,
   totalMs: 0,
   maxMs: 0,
@@ -158,7 +161,7 @@ if (PERF && typeof window !== 'undefined') {
 }
 
 /** Record one repaint: which branch drew it, and how long it took. */
-function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full', t0: number): void {
+function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0: number): void {
   if (!PERF) return;
   const ms = performance.now() - t0;
   perf.frames++;
@@ -183,17 +186,6 @@ const GL_RENDERER =
  * A stub wire added by the move exists only in the moved document, so it is
  * drawn by the preview and has nothing to hide from the background.
  */
-function movingIds(spec: MoveSpec): ReadonlySet<string> {
-  const ids = new Set<string>([...spec.fullIds, ...spec.wireStart, ...spec.wireEnd]);
-  for (const ride of spec.labelRides) ids.add(ride.id);
-  for (const split of spec.splits) {
-    ids.add(split.lineUuid); // the wire being cut redraws as its near half
-    ids.add(split.newUuid);
-    ids.add(split.junctionUuid);
-  }
-  for (const stub of spec.newWires) if (stub.uuid) ids.add(stub.uuid);
-  return ids;
-}
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 
@@ -731,6 +723,27 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const dragBgRef = useRef<{ canvas: HTMLCanvasElement; view: Viewport; spec: MoveSpec } | null>(
     null,
   );
+  /**
+   * The base render options for a drag, memoised by identity.
+   *
+   * `SchematicGl` decides whether to re-record by comparing the content key by
+   * *reference*. Building `{ ...renderOpts, hiddenItems: moving }` inside the
+   * frame would hand it a new object every pointer move and re-record the whole
+   * sheet each time, which is the failure the preview exists to avoid and would
+   * have been invisible except as "it is still slow".
+   */
+  const dragOptsMemo = useRef<{
+    base: RenderOpts;
+    moving: ReadonlySet<string>;
+    out: RenderOpts;
+  } | null>(null);
+  const dragOptsRef = useRef((base: RenderOpts, moving: ReadonlySet<string>): RenderOpts => {
+    const hit = dragOptsMemo.current;
+    if (hit && hit.base === base && hit.moving === moving) return hit.out;
+    const out: RenderOpts = { ...base, hiddenItems: moving };
+    dragOptsMemo.current = { base, moving, out };
+    return out;
+  });
   // 'move' leaves connected wires behind (moveItems), 'drag' rubber-bands them
   // (moveWithConnections/orthoMove), SCH_MOVE_TOOL's two modes.
   const moveKindRef = useRef<'move' | 'drag'>('drag');
@@ -1326,6 +1339,41 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // the ~70 ms unchunked repaint `startSceneRender` does after each gesture,
     // which is what makes the wheel feel like it stutters.
     const gl = glRef.current;
+    const dragSpec = modeRef.current === 'move' ? moveSpecRef.current : null;
+
+    // A drag on the GL path: the document without the moving items stays on the
+    // GPU, and only the moving items are re-recorded and re-uploaded per frame.
+    //
+    // This used to fall back to Canvas2D, which meant none of the WebGL work
+    // applied to the one interaction it was most needed for. Worse, the
+    // fallback cached a full-size bitmap keyed on the viewport, so any pan or
+    // zoom mid-drag, including auto-pan at the canvas edge, threw it away and
+    // re-rendered the whole sheet in Canvas2D: one such frame measured 116 ms,
+    // which is the lurch where the symbol stops following the cursor.
+    //
+    // The base is keyed on the *moving set*, not on the view, so panning and
+    // zooming during a drag cost nothing.
+    if (gl && !gl.isLost && ghosting && dragSpec) {
+      const moving = movingIds(dragSpec);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = theme.background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      gl.render(
+        {
+          doc: moveBaseRef.current ?? schematicRef.current,
+          theme,
+          opts: dragOptsRef.current(renderOpts, moving),
+          selection,
+          highlight,
+        },
+        { scale: vp.scale, offsetX: vp.offsetX, offsetY: vp.offsetY },
+        { doc, ids: moving },
+      );
+      notePaint('preview', __t0);
+      onScaleChange?.(vp.scale);
+      return;
+    }
     // A ghost (a drag in flight, or a symbol attached to the cursor) rebuilds
     // the document every frame, and the GL buffer is keyed on the document's
     // identity, so it would re-record and re-upload the whole sheet on every
@@ -1347,6 +1395,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         { doc, theme, opts: renderOpts, selection, highlight },
         { scale: vp.scale, offsetX: vp.offsetX, offsetY: vp.offsetY },
       );
+      notePaint('gl', __t0);
       onScaleChange?.(vp.scale);
       return;
     }

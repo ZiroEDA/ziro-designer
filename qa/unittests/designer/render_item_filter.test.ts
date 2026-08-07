@@ -32,6 +32,7 @@ import {
 import { recordSchematicScene } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { movingIds } from '@ziroeda/designer/src/editors/schematic/moving_ids.js';
 
 const SCALE = 0.00002;
 const SRC = readFileSync(
@@ -446,5 +447,42 @@ describe('the selection shadow honours the filter too', () => {
     // is not passing because nothing draws a halo in the first place.
     const visibleAndSelected = record({ selection: moving });
     expect(visibleAndSelected.segmentCount).toBeGreaterThan(record({}).segmentCount);
+  });
+});
+
+describe('a drag re-records only what is moving', () => {
+  /**
+   * The preview and the base are exact complements, and the base must not be
+   * rebuilt while a drag is running.
+   *
+   * The failure this guards against is silent: it does not draw anything wrong,
+   * it just costs the whole sheet on every pointer move, which reads as "the
+   * component lags behind the cursor" and nothing else. Both halves of it come
+   * from object identity, so both are easy to reintroduce by writing the
+   * obvious thing.
+   */
+  it('keeps the moving set identity-stable across frames', () => {
+    // `SchematicGl` compares its content key by reference. A fresh Set per
+    // frame is a new identity, which re-records the sheet every pointer move.
+    const spec = {
+      fullIds: new Set(['a']),
+      wireStart: new Set<string>(),
+      wireEnd: new Set<string>(),
+      newWires: [],
+      labelRides: [],
+      splits: [],
+    };
+    const first = movingIds(spec as never);
+    const second = movingIds(spec as never);
+    expect(second).toBe(first);
+  });
+
+  it('draws the base and the preview exactly once between them', () => {
+    const symId = symbolIds()[0]!;
+    const moving = new Set([symId]);
+    const plain = record({});
+    const base = record({ hiddenItems: moving });
+    const preview = record({ onlyItems: moving });
+    expect(base.segmentCount + preview.segmentCount).toBe(plain.segmentCount);
   });
 });

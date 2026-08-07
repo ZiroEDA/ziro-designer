@@ -72,7 +72,7 @@ describe('every opener reports its failures', () => {
       // To the end of the function: the next top-level `const` declaration at
       // the same indent, which is how this file declares each handler.
       const rest = src.slice(start + fn.length);
-      const end = rest.search(/\n  const \w/);
+      const end = rest.search(/\n {2}const \w/);
       const body = end === -1 ? rest : rest.slice(0, end);
 
       expect(body).toContain('try {');

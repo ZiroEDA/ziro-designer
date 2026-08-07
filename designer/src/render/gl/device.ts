@@ -73,13 +73,96 @@ function link(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): Web
   return p;
 }
 
+/**
+ * One set of buffers: the geometry of a single layer.
+ *
+ * There are two. The **base** holds the document and is uploaded when the
+ * document changes. The **preview** holds only the items being dragged and is
+ * re-uploaded on every pointer move, which is what KiCad's
+ * `VIEW::AddToPreview` group is for. Keeping them apart is the whole point: a
+ * drag must not touch the base, and a base upload of 30,000 segments must not
+ * happen sixty times a second.
+ */
+interface GlLayer {
+  seg: WebGLBuffer;
+  disc: WebGLBuffer;
+  tri: WebGLBuffer;
+  vaoSeg: WebGLVertexArrayObject;
+  vaoDisc: WebGLVertexArrayObject;
+  vaoTri: WebGLVertexArrayObject;
+  segCount: number;
+  discCount: number;
+  triVerts: number;
+}
+
 /** The unit quad every instanced primitive expands from. */
 const QUAD = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
 
+/** Build one layer's buffers and vertex arrays. Null if the driver refuses. */
+function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | null {
+  const seg = gl.createBuffer();
+  const disc = gl.createBuffer();
+  const tri = gl.createBuffer();
+  const vaoSeg = gl.createVertexArray();
+  const vaoDisc = gl.createVertexArray();
+  const vaoTri = gl.createVertexArray();
+  if (!seg || !disc || !tri || !vaoSeg || !vaoDisc || !vaoTri) return null;
+
+  // Segments: location 0 is the shared quad (divisor 0), 1..5 are per-instance.
+  gl.bindVertexArray(vaoSeg);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, seg);
+  const segStride = SEGMENT_STRIDE * F32;
+  for (const [loc, size, offset] of [
+    [1, 2, 0], // p0
+    [2, 2, 2], // p1
+    [3, 1, 4], // halfWidth
+    [4, 1, 5], // minPx
+    [5, 4, 6], // colour
+  ] as [number, number, number][]) {
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, segStride, offset * F32);
+    gl.vertexAttribDivisor(loc, 1);
+  }
+
+  gl.bindVertexArray(vaoDisc);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, disc);
+  const discStride = DISC_STRIDE * F32;
+  for (const [loc, size, offset] of [
+    [1, 2, 0], // centre
+    [2, 1, 2], // radius
+    [3, 1, 3], // minPx
+    [4, 4, 4], // colour
+  ] as [number, number, number][]) {
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, discStride, offset * F32);
+    gl.vertexAttribDivisor(loc, 1);
+  }
+
+  gl.bindVertexArray(vaoTri);
+  gl.bindBuffer(gl.ARRAY_BUFFER, tri);
+  const triStride = TRIANGLE_STRIDE * F32;
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, triStride, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 4, gl.FLOAT, false, triStride, 2 * F32);
+
+  gl.bindVertexArray(null);
+  return { seg, disc, tri, vaoSeg, vaoDisc, vaoTri, segCount: 0, discCount: 0, triVerts: 0 };
+}
+
 export class GlDevice {
-  private segCount = 0;
-  private discCount = 0;
-  private triVerts = 0;
+  /** Uniform locations, looked up once. Each `getUniformLocation` is a
+   *  synchronous query into the driver, and this was doing four per frame. */
+  private readonly uniforms = new Map<
+    WebGLProgram,
+    { view: WebGLUniformLocation | null; viewport: WebGLUniformLocation | null }
+  >();
 
   private constructor(
     private readonly gl: WebGL2RenderingContext,
@@ -87,13 +170,16 @@ export class GlDevice {
     private readonly progDisc: WebGLProgram,
     private readonly progTri: WebGLProgram,
     private readonly quad: WebGLBuffer,
-    private readonly bufSeg: WebGLBuffer,
-    private readonly bufDisc: WebGLBuffer,
-    private readonly bufTri: WebGLBuffer,
-    private readonly vaoSeg: WebGLVertexArrayObject,
-    private readonly vaoDisc: WebGLVertexArrayObject,
-    private readonly vaoTri: WebGLVertexArrayObject,
-  ) {}
+    private readonly base: GlLayer,
+    private readonly preview: GlLayer,
+  ) {
+    for (const p of [progSeg, progDisc, progTri]) {
+      this.uniforms.set(p, {
+        view: gl.getUniformLocation(p, 'u_view'),
+        viewport: gl.getUniformLocation(p, 'u_viewport'),
+      });
+    }
+  }
 
   static create(canvas: HTMLCanvasElement): GlDevice | null {
     let gl: WebGL2RenderingContext | null = null;
@@ -127,95 +213,53 @@ export class GlDevice {
     if (!progSeg || !progDisc || !progTri) return null;
 
     const quad = gl.createBuffer();
-    const bufSeg = gl.createBuffer();
-    const bufDisc = gl.createBuffer();
-    const bufTri = gl.createBuffer();
-    const vaoSeg = gl.createVertexArray();
-    const vaoDisc = gl.createVertexArray();
-    const vaoTri = gl.createVertexArray();
-    if (!quad || !bufSeg || !bufDisc || !bufTri || !vaoSeg || !vaoDisc || !vaoTri) return null;
-
+    if (!quad) return null;
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, QUAD, gl.STATIC_DRAW);
 
-    // Segments: location 0 is the shared quad (divisor 0), 1..5 are per-instance.
-    gl.bindVertexArray(vaoSeg);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufSeg);
-    const segStride = SEGMENT_STRIDE * F32;
-    const segAttrs: [number, number, number][] = [
-      [1, 2, 0], // p0
-      [2, 2, 2], // p1
-      [3, 1, 4], // halfWidth
-      [4, 1, 5], // minPx
-      [5, 4, 6], // colour
-    ];
-    for (const [loc, size, offset] of segAttrs) {
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, segStride, offset * F32);
-      gl.vertexAttribDivisor(loc, 1);
-    }
+    const base = createLayer(gl, quad);
+    const preview = createLayer(gl, quad);
+    if (!base || !preview) return null;
 
-    gl.bindVertexArray(vaoDisc);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufDisc);
-    const discStride = DISC_STRIDE * F32;
-    const discAttrs: [number, number, number][] = [
-      [1, 2, 0], // centre
-      [2, 1, 2], // radius
-      [3, 1, 3], // minPx
-      [4, 4, 4], // colour
-    ];
-    for (const [loc, size, offset] of discAttrs) {
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, discStride, offset * F32);
-      gl.vertexAttribDivisor(loc, 1);
-    }
-
-    gl.bindVertexArray(vaoTri);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufTri);
-    const triStride = TRIANGLE_STRIDE * F32;
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, triStride, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, triStride, 2 * F32);
-
-    gl.bindVertexArray(null);
-
-    return new GlDevice(
-      gl,
-      progSeg,
-      progDisc,
-      progTri,
-      quad,
-      bufSeg,
-      bufDisc,
-      bufTri,
-      vaoSeg,
-      vaoDisc,
-      vaoTri,
-    );
+    return new GlDevice(gl, progSeg, progDisc, progTri, quad, base, preview);
   }
 
   /**
    * Send a recorded scene to the GPU. The expensive half, and the half that
    * should run only when the document actually changes.
    */
-  upload(scene: Scene): void {
+  private uploadInto(layer: GlLayer, scene: Scene): void {
     const gl = this.gl;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufSeg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.seg);
     gl.bufferData(gl.ARRAY_BUFFER, scene.segments.view(), gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufDisc);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.disc);
     gl.bufferData(gl.ARRAY_BUFFER, scene.discs.view(), gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufTri);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.tri);
     gl.bufferData(gl.ARRAY_BUFFER, scene.triangles.view(), gl.DYNAMIC_DRAW);
-    this.segCount = scene.segmentCount;
-    this.discCount = scene.discCount;
-    this.triVerts = scene.triangleVertexCount;
+    layer.segCount = scene.segmentCount;
+    layer.discCount = scene.discCount;
+    layer.triVerts = scene.triangleVertexCount;
+  }
+
+  /** Send the document. The expensive half, and the rare one. */
+  upload(scene: Scene): void {
+    this.uploadInto(this.base, scene);
+  }
+
+  /**
+   * Send the items being dragged. Runs on every pointer move, so it must stay
+   * proportional to what is moving rather than to the size of the sheet, which
+   * is what `onlyItems` on the recording side is for.
+   */
+  uploadPreview(scene: Scene): void {
+    this.uploadInto(this.preview, scene);
+  }
+
+  /** Drop the preview, at the end of a drag. */
+  clearPreview(): void {
+    this.preview.segCount = 0;
+    this.preview.discCount = 0;
+    this.preview.triVerts = 0;
   }
 
   /**
@@ -239,32 +283,30 @@ export class GlDevice {
     const setView = (p: WebGLProgram): void => {
       // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is WebGL, not a React hook; the rule matches on the "use" prefix
       gl.useProgram(p);
-      gl.uniform4f(
-        gl.getUniformLocation(p, 'u_view'),
-        view.scaleX,
-        view.scaleY,
-        view.offsetX,
-        view.offsetY,
-      );
-      gl.uniform2f(gl.getUniformLocation(p, 'u_viewport'), w, h);
+      const u = this.uniforms.get(p);
+      gl.uniform4f(u?.view ?? null, view.scaleX, view.scaleY, view.offsetX, view.offsetY);
+      gl.uniform2f(u?.viewport ?? null, w, h);
     };
 
-    // Fills first, then strokes over them, then discs: the order the Canvas2D
-    // renderer paints in, and the order the result has to match.
-    if (this.triVerts > 0) {
-      setView(this.progTri);
-      gl.bindVertexArray(this.vaoTri);
-      gl.drawArrays(gl.TRIANGLES, 0, this.triVerts);
-    }
-    if (this.segCount > 0) {
-      setView(this.progSeg);
-      gl.bindVertexArray(this.vaoSeg);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.segCount);
-    }
-    if (this.discCount > 0) {
-      setView(this.progDisc);
-      gl.bindVertexArray(this.vaoDisc);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.discCount);
+    // The document, then the items being dragged over it. Fills before strokes
+    // within each, which is the order the Canvas2D renderer paints in and the
+    // order the result has to match.
+    for (const layer of [this.base, this.preview]) {
+      if (layer.triVerts > 0) {
+        setView(this.progTri);
+        gl.bindVertexArray(layer.vaoTri);
+        gl.drawArrays(gl.TRIANGLES, 0, layer.triVerts);
+      }
+      if (layer.segCount > 0) {
+        setView(this.progSeg);
+        gl.bindVertexArray(layer.vaoSeg);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.segCount);
+      }
+      if (layer.discCount > 0) {
+        setView(this.progDisc);
+        gl.bindVertexArray(layer.vaoDisc);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.discCount);
+      }
     }
     gl.bindVertexArray(null);
   }
@@ -293,12 +335,14 @@ export class GlDevice {
   dispose(): void {
     const gl = this.gl;
     gl.deleteBuffer(this.quad);
-    gl.deleteBuffer(this.bufSeg);
-    gl.deleteBuffer(this.bufDisc);
-    gl.deleteBuffer(this.bufTri);
-    gl.deleteVertexArray(this.vaoSeg);
-    gl.deleteVertexArray(this.vaoDisc);
-    gl.deleteVertexArray(this.vaoTri);
+    for (const layer of [this.base, this.preview]) {
+      gl.deleteBuffer(layer.seg);
+      gl.deleteBuffer(layer.disc);
+      gl.deleteBuffer(layer.tri);
+      gl.deleteVertexArray(layer.vaoSeg);
+      gl.deleteVertexArray(layer.vaoDisc);
+      gl.deleteVertexArray(layer.vaoTri);
+    }
     gl.deleteProgram(this.progSeg);
     gl.deleteProgram(this.progDisc);
     gl.deleteProgram(this.progTri);
