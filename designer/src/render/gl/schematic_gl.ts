@@ -30,23 +30,19 @@
  * canvas, which keeps the cull from removing anything, and the GPU does the
  * culling afterwards for nothing.
  *
- * ### It is not fully zoom-independent, and the bucket is why
+ * ### It is zoom-independent, and that is the whole point
  *
- * Most of what `renderer.ts` derives from the view scale is a width, and the
- * shader re-derives those per frame from a pixel floor. Two things are not
- * widths:
+ * Everything `renderer.ts` derives from the view scale is a width, and a
+ * minimum width belongs to the view rather than to a vertex: the shader clamps
+ * with `max(halfWidth * scale, minPx)`, which is what KiCad's
+ * `u_minLinePixelWidth` does. So panning and zooming never re-record.
  *
- *   - `drawText` skips a run under 0.6 screen pixels, so the *amount of text*
- *     recorded depends on the zoom;
- *   - a selection halo's width and a selected field's anchor cross radius are
- *     computed from the scale, and recording at a nominal scale of 1 collapsed
- *     both to a couple of internal units, which is a five-hundredth of a
- *     millimetre and invisible.
- *
- * So the buffer is keyed on the zoom *octave*. A wheel gesture stays inside one
- * bucket and costs nothing; crossing an octave costs one re-record rather than
- * one per frame. Removing the dependence outright means moving the text cull
- * into the shader, which is worth doing and is not done.
+ * They used to. The recorder classified widths against the recording scale and
+ * stored a scale-derived floor, which made 98% of segments differ between one
+ * zoom octave and the next, so the buffer was keyed on the octave and rebuilt
+ * whenever the zoom crossed one. Each rebuild cost 50 to 100 ms, and for eight
+ * consecutive octaves it produced byte-identical output. That hitch was the
+ * zoom lag.
  */
 
 import {
@@ -66,22 +62,6 @@ import { GlRecorder } from './recorder.js';
  * `renderer.ts` keeps the whole document whatever the recording scale.
  */
 const WORLD_HALF = 2e9;
-
-/**
- * The zoom the buffer was recorded for, as a power of two.
- *
- * Most of what `renderer.ts` derives from the view scale is a width, and the
- * shader re-derives those per frame. A few things are not: a selected field's
- * anchor cross has a zoom-compensated *radius*, real geometry that no uniform
- * can fix up. So recording is pinned to the scale it happened at, and a
- * re-record is forced only once the zoom has moved a full octave.
- *
- * That keeps a wheel gesture free (a few clicks stay inside one octave) while
- * bounding the error on those few decorations to a factor of two, which for a
- * halo and an anchor cross is not visible.
- */
-const zoomBucket = (scale: number): number =>
-  scale > 0 && Number.isFinite(scale) ? Math.round(Math.log2(scale)) : 0;
 
 /** Everything whose change means the geometry has to be recorded again. */
 export interface ContentKey {
@@ -109,7 +89,6 @@ export interface GlViewport {
 export class SchematicGl {
   private readonly scene = new Scene();
   private recorded: ContentKey | null = null;
-  private recordedBucket: number | null = null;
   /** Timing of the last record, for the diagnostics overlay and for tests. */
   lastRecordMs = 0;
 
@@ -128,13 +107,11 @@ export class SchematicGl {
    * current octave, which is what makes a wheel gesture cost nothing.
    */
   render(content: ContentKey, view: GlViewport): void {
-    const bucket = zoomBucket(view.scale);
-    if (!sameContent(this.recorded, content) || bucket !== this.recordedBucket) {
+    if (!sameContent(this.recorded, content)) {
       const t0 = performance.now();
       this.record(content, view.scale);
       this.device.upload(this.scene);
       this.recorded = content;
-      this.recordedBucket = bucket;
       this.lastRecordMs = performance.now() - t0;
     }
     this.device.draw(
