@@ -47,8 +47,8 @@
  *   clearance at all".
  */
 import {
+  collideShapeLists,
   getRouterIface,
-  getShapeCollider,
   hasNet,
   type CollisionNode,
   type CollisionSearchContext,
@@ -303,6 +303,35 @@ export abstract class PnsItem extends OwnableItem {
    */
   shape(_aLayer: number): Shape | null {
     return null;
+  }
+
+  /**
+   * The same geometry as {@link shape}, as the list of primitives it is made of
+   * — which is what collision, and only collision, asks for.
+   *
+   * Upstream has no counterpart because it does not need one: `Shape()` hands
+   * back a `SHAPE*`, and a `SHAPE` is free to be composite. `LINE::Shape()`
+   * returns its whole `SHAPE_LINE_CHAIN`; a pad's returns a `SHAPE_COMPOUND`.
+   * This repo's `Shape` is a union of *primitives* — circle, stadium, arc,
+   * closed poly — with no composite member and, in particular, no **open**
+   * polyline: a `LINE` returned as `{ kind: 'poly' }` would silently close and
+   * collide against an edge running from its last point back to its first.
+   *
+   * So the composite case is spelled as a list, and this is the accessor that
+   * can express it. Every item whose shape is a single primitive inherits the
+   * default and is unaffected; `PnsLine` overrides it and keeps answering null
+   * from {@link shape}, because the spatial index takes a shape and upstream
+   * does not index a `LINE` either.
+   *
+   * Null means the same thing it means for {@link shape} — "nothing on this
+   * layer" — and `collideSimple` bails on it. An *empty* list is different and
+   * is not the same as null: it is a real, empty geometry, which collides with
+   * nothing. That is a chain with no segments.
+   */
+  shapes(aLayer: number): readonly Shape[] | null {
+    const s = this.shape(aLayer);
+
+    return s === null ? null : [s];
   }
 
   /** The layers on which this item has a potentially different shape. */
@@ -616,15 +645,15 @@ function collideSimple(
       (resolver?.isNonPlatedSlot(aItem) ?? false);
     const checkNetTie = resolver?.isInNetTie(aItem) ?? false;
 
-    const shapeI = aItem.shape(aLayer);
-    const shapeH = aHead.shape(aLayer);
+    const shapeI = aItem.shapes(aLayer);
+    const shapeH = aHead.shapes(aLayer);
 
     if (!shapeI || !shapeH) return false;
 
     // The extra "1" accounts for hulls being built to exactly the clearance
     // distance, so there must be no collision when exactly at that distance.
     const effective = clearance + lineWidthH + lineWidthI - 1;
-    const hit = getShapeCollider()(shapeH, shapeI, effective);
+    const hit = collideShapeLists(shapeH, shapeI, effective);
 
     if (hit.collides) {
       if (checkCastellation || checkNetTie) {

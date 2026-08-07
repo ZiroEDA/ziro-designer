@@ -1296,6 +1296,11 @@ export class PnsShove {
 
     if (!samePoint(aObstacleLine.cPoint(0), aResultLine.cLine().cPoint(0))) return false;
 
+    // Live since ZiroEDA issue #484 — a LINE had no shape, so this answered
+    // `false` whatever the geometry. Forcing it back to that answer still leaves
+    // the whole suite green: no fixture walks a line round a via and lands it
+    // back on the line it was avoiding. Named rather than contrived, and the
+    // same is true of the three sister guards in this file.
     if (aResultLine.collide(aCurLine, this.mCurrentNode, aResultLine.layer())) return false;
 
     return true;
@@ -1457,6 +1462,7 @@ export class PnsShove {
 
       if (path.selfIntersecting()) continue;
 
+      // Live since issue #484, uncovered — see the note in shoveLineFromLoneVia.
       if (l.collide(aCurLine, this.mCurrentNode, l.layer())) continue;
 
       aResultLine.setShape(l.cLine().clone());
@@ -1774,6 +1780,7 @@ export class PnsShove {
       if (this.mLineStack.length > 0) {
         const lastLine = this.mLineStack[0] as PnsLine;
 
+        // Live since issue #484, uncovered — see the note in shoveLineFromLoneVia.
         if (lastLine.collide(walkaroundLine, this.mCurrentNode, lastLine.layer())) {
           const dummy = lastLine.clone();
 
@@ -2173,6 +2180,8 @@ export class PnsShove {
       const vtest = v.clone();
       vtest.setDiameter(sl, s.width());
 
+      // `aCurrent` is a LINE, so this too was dead before issue #484, and it too
+      // is uncovered — see the note in shoveLineFromLoneVia.
       if (vtest.collide(aCurrent, this.mCurrentNode, aCurrent.layer())) {
         // Drop the segment from this iteration and force-propagate the via.
         obs.item = v;

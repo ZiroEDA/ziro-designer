@@ -49,7 +49,6 @@ import {
   checkDpColliding,
   coupledBypass,
   findCoupledVertices,
-  linesCollide,
   mergeDpSegments,
   mergeDpStep,
   optimizeDiffPair,
@@ -59,6 +58,7 @@ import { DiffPair } from '@ziroeda/pcbnew/src/router/pns_diff_pair.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
 import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
 import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
+import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
 import { itemHull } from '@ziroeda/pcbnew/src/router/pns_item_hull.js';
 import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/src/router/pns_collision.js';
@@ -217,41 +217,162 @@ describe('findCoupledVertices', () => {
   });
 });
 
-describe('linesCollide (the local LINE::Collide( LINE* ), issue #484)', () => {
+/**
+ * The two lanes of `aP` / `aN`, dressed as the pair's cached `LINE`s — which is
+ * what {@link verifyDpBypass} collides.
+ */
+function lanes(aP: Vec2[], aN: Vec2[]): [PnsLine, PnsLine] {
+  const dp = pair(aP, aN);
+
+  return [
+    PnsLine.fromBase(dp.pLine(), PnsLineChain.fromPoints(dp.cP())),
+    PnsLine.fromBase(dp.nLine(), PnsLineChain.fromPoints(dp.cN())),
+  ];
+}
+
+/**
+ * What this file used to export as `linesCollide`: every segment of one lane
+ * against every segment of the other, as `SEGMENT`s cut from the lines. Kept
+ * *here*, in the test, purely as the independent yardstick the real
+ * `LINE::Collide` is measured against below.
+ */
+function pairwiseSegments(aA: PnsLine, aB: PnsLine, aNode: PnsNode, aLayer: number): boolean {
+  const chainA = aA.cLine();
+  const chainB = aB.cLine();
+
+  for (let i = 0; i < chainA.segmentCount(); i++) {
+    const segA = PnsSegment.fromParentLine(aA, chainA.cSegment(i));
+
+    for (let j = 0; j < chainB.segmentCount(); j++) {
+      const segB = PnsSegment.fromParentLine(aB, chainB.cSegment(j));
+
+      if (segA.collide(segB, aNode, aLayer)) return true;
+    }
+  }
+
+  return false;
+}
+
+describe('LINE::Collide( LINE* ) (issue #484)', () => {
   it('answers true for two lines that cross', () => {
-    // `PnsLine.collide()` itself cannot: `shape()` is null for a line, so
-    // `collideSimple` bails before it ever looks at the geometry. That is
-    // issue #484, and this helper is the local way round it.
-    const dp = pair([V(0, 0), V(1000, 0)], [V(500, -500), V(500, 500)]);
-    const w = world();
+    // Until #484 was fixed this was `false`: `PnsLine.shape()` is null, so
+    // `collideSimple` bailed before it ever looked at the geometry.
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(500, -500), V(500, 500)]);
 
-    const a = PnsLine.fromBase(dp.pLine(), PnsLineChain.fromPoints(dp.cP()));
-    const b = PnsLine.fromBase(dp.nLine(), PnsLineChain.fromPoints(dp.cN()));
-
-    expect(a.collide(b, w, a.layer())).toBe(false);
-    expect(linesCollide(a, b, w, a.layer())).toBe(true);
+    expect(a.collide(b, world(), a.layer())).toBe(true);
   });
 
   it('answers false for two lines a clear distance apart', () => {
-    const dp = pair([V(0, 0), V(1000, 0)], [V(0, 40000), V(1000, 40000)]);
-    const w = world();
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(0, 40000), V(1000, 40000)]);
 
-    const a = PnsLine.fromBase(dp.pLine(), PnsLineChain.fromPoints(dp.cP()));
-    const b = PnsLine.fromBase(dp.nLine(), PnsLineChain.fromPoints(dp.cN()));
-
-    expect(linesCollide(a, b, w, a.layer())).toBe(false);
+    expect(a.collide(b, world(), a.layer())).toBe(false);
   });
 
   it('respects the clearance the node resolves, not just the copper', () => {
     // Centre lines 700 apart, 200 wide: 500 of air. A clearance of 600 turns
     // that into a collision without either line moving.
-    const dp = pair([V(0, 0), V(1000, 0)], [V(0, 700), V(1000, 700)]);
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(0, 700), V(1000, 700)]);
 
-    const a = PnsLine.fromBase(dp.pLine(), PnsLineChain.fromPoints(dp.cP()));
-    const b = PnsLine.fromBase(dp.nLine(), PnsLineChain.fromPoints(dp.cN()));
+    expect(a.collide(b, world(0), a.layer())).toBe(false);
+    expect(a.collide(b, world(600), a.layer())).toBe(true);
+  });
 
-    expect(linesCollide(a, b, world(0), a.layer())).toBe(false);
-    expect(linesCollide(a, b, world(600), a.layer())).toBe(true);
+  it('collides through a segment of the chain that is not the first', () => {
+    // The blocker sits across the *third* segment of the staircase, so a branch
+    // that only ever looked at `cSegment( 0 )` would answer false.
+    const [a] = lanes(STAIRCASE, OFFSET);
+    const [, b] = lanes([V(0, 0), V(1000, 0)], [V(1800, 500), V(2200, 500)]);
+
+    expect(a.collide(b, world(), a.layer())).toBe(true);
+  });
+
+  it('never collides with an empty chain', () => {
+    // A chain with no segments has no geometry: `shapes()` is empty, not null,
+    // and an empty list of primitives meets nothing.
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(500, -500), V(500, 500)]);
+
+    a.setShape(new PnsLineChain());
+
+    expect(a.collide(b, world(), a.layer())).toBe(false);
+    expect(b.collide(a, world(), b.layer())).toBe(false);
+  });
+
+  it('is the quantity the pairwise-segment test computes', () => {
+    // The two are the same measurement taken two ways. `collideSimple` folds
+    // half of each LINE's width into the clearance and collides the bare
+    // chains, which is upstream; the segment cut from a line carries that same
+    // half-width in its stadium radius instead. Sweeping the separation across
+    // the whole transition, at four clearances, pins that they agree.
+    //
+    // 199 and 200 are absent on purpose: they are the one band where the two
+    // *do* differ, and the test below is about exactly that.
+    for (const clearance of [0, 200, 600, 1500]) {
+      for (const dy of [0, 100, 198, 201, 400, 700, 1000, 1698, 1700, 1702, 3000]) {
+        const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(0, dy), V(1000, dy)]);
+        const w = world(clearance);
+
+        expect({ clearance, dy, hit: a.collide(b, w, a.layer()) }).toEqual({
+          clearance,
+          dy,
+          hit: pairwiseSegments(a, b, w, a.layer()),
+        });
+      }
+    }
+  });
+
+  it('diverges from the pairwise test only where the copper already overlaps', () => {
+    // The one band where the two disagree, and the LINE answer is upstream's.
+    //
+    // Two 200-wide lanes 200 apart are exactly touching. The pairwise test
+    // measures stadium to stadium, gets a gap of 0, and `d === 0` collides
+    // whatever the clearance. `collideSimple` measures centre to centre, gets
+    // 200, and asks `200 < clearance + 100 + 100 - 1` — false at clearance 0
+    // and at clearance 1. That `- 1` is upstream's, and its whole job is that
+    // touching at exactly the clearance distance is not a collision; the
+    // pairwise test loses it because clamping the gap at zero has already
+    // thrown away how deep the overlap was.
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(0, 200), V(1000, 200)]);
+
+    for (const clearance of [0, 1]) {
+      const w = world(clearance);
+
+      expect(a.collide(b, w, a.layer())).toBe(false);
+      expect(pairwiseSegments(a, b, w, a.layer())).toBe(true);
+    }
+
+    // Two units of clearance is what it takes to close the gap between them.
+    const w2 = world(2);
+
+    expect(a.collide(b, w2, a.layer())).toBe(true);
+    expect(pairwiseSegments(a, b, w2, a.layer())).toBe(true);
+  });
+
+  it('collides on the arcs of the chain, which the segment walk skips', () => {
+    // Every segment of an arc reports `IsArcSegment`, so for this chain the
+    // straight-segment walk emits nothing at all and the arc list is the only
+    // thing holding the geometry up. A quarter turn about (1e6, 0) from the
+    // origin to (1e6, 1e6) bulges out through (293000, 707000); the probe
+    // crosses that curve but stays 318198 from its chord, and the effective
+    // clearance here is 199.
+    //
+    // The `isArcSegment` skip itself is not pinned and cannot usefully be: the
+    // polyline stand-in is a run of chords *inside* the curve, so emitting it
+    // as well can only shorten a distance by up to `ARC_HIGH_DEF`. Dropping the
+    // skip changes how many primitives are measured, not the verdict.
+    const [a, b] = lanes([V(0, 0), V(1000, 0)], [V(0, 0), V(1000, 0)]);
+
+    const curved = new PnsLineChain();
+    curved.appendArcShape({
+      p0: V(0, 0),
+      arcMid: V(293000, 707000),
+      p1: V(1000000, 1000000),
+      width: 0,
+    });
+    a.setShape(curved);
+
+    b.setShape(PnsLineChain.fromPoints([V(250000, 700000), V(350000, 700000)]));
+
+    expect(a.collide(b, world(), a.layer())).toBe(true);
   });
 });
 

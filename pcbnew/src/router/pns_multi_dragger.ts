@@ -50,7 +50,7 @@ import { PnsLine, PnsLineChain } from './pns_line_item.js';
 import { chainSplit, lineDragCorner, lineDragSegment } from './pns_line_drag.js';
 import type { PnsNode } from './pns_node.js';
 import { PnsMode } from './pns_routing_settings.js';
-import { PnsSegment } from './pns_segment.js';
+import type { PnsSegment } from './pns_segment.js';
 import { PnsShove, PnsShovePolicy, PnsShoveStatus } from './pns_shove.js';
 import { routeShortest } from './pns_walkaround.js';
 import type { Seg } from './pns_line.js';
@@ -239,60 +239,14 @@ export function chainPointAlong(aChain: PnsLineChain, aPathLength: number): Vec2
 }
 
 /**
- * `LINE::Collide( const LINE*, NODE*, int aLayer, COLLISION_SEARCH_CONTEXT* )`.
- *
- * Upstream's `LINE::Shape()` returns the line's own `SHAPE_LINE_CHAIN`, so
- * `ITEM::collideSimple` compares two polylines directly. **This port's
- * `PnsLine.shape()` answers `null`** — a LINE is not something the spatial
- * index holds — and `collideSimple` returns false the moment either shape is
- * missing. A line would therefore never collide with anything, and
- * `clipToOtherLine` would never clip.
- *
- * The bridge is the pairwise segment test, which is the same question with the
- * same clearance: a scratch `SEGMENT` per line carries that line's width, net
- * and layers (`SEGMENT::fromParentLine`), and every pair goes through the
- * ordinary `ITEM::Collide`. Upstream folds each line's half-width into the
- * clearance; a `SEGMENT`'s stadium shape carries its own width, so the sum
- * comes out the same.
- *
- * The argument order is upstream's: the *clipped* line is `aItem` and the
- * reference is `aHead`, which is what decides whose net the resolver is asked
- * about first.
- */
-function linesCollide(
-  aNode: PnsNode,
-  aLine: PnsLine,
-  aRef: PnsLine,
-  aCtx: ReturnType<typeof makeCollisionSearchContext>,
-): boolean {
-  const ca = aLine.cLine();
-  const cb = aRef.cLine();
-
-  if (ca.segmentCount() === 0 || cb.segmentCount() === 0) return false;
-
-  const sa = PnsSegment.fromParentLine(aLine, ca.cSegment(0));
-  const sb = PnsSegment.fromParentLine(aRef, cb.cSegment(0));
-
-  for (let i = 0; i < ca.segmentCount(); i++) {
-    const a = ca.cSegment(i);
-
-    sa.setEnds(a.a, a.b);
-
-    for (let j = 0; j < cb.segmentCount(); j++) {
-      const b = cb.cSegment(j);
-
-      sb.setEnds(b.a, b.b);
-
-      if (sa.collide(sb, aNode, aLine.layer(), aCtx)) return true;
-    }
-  }
-
-  return false;
-}
-
-/**
  * `clipToOtherLine` (`pns_multi_dragger.cpp:294-346`): shorten `aClipped` until
  * it stops touching `aRef`, by binary search on its length.
+ *
+ * The probe is `l.Collide( &aRef, aNode, l.Layer(), &ctx )`, upstream's
+ * spelling. It carried a local pairwise-segment stand-in until ZiroEDA issue
+ * #484 was fixed — `PnsLine.shape()` answered null, `collideSimple` bailed
+ * before it looked at any geometry, and `clipToOtherLine` therefore never
+ * clipped. `PnsItem.shapes()` now hands the collision path the line's chain.
  *
  * Two upstream details decide what this actually does:
  *
@@ -327,7 +281,7 @@ export function clipToOtherLine(aNode: PnsNode, aRef: PnsLine, aClipped: PnsLine
 
     l.setShape(slTmp);
 
-    if (linesCollide(aNode, l, aRef, ctx)) {
+    if (l.collide(aRef, aNode, l.layer(), ctx)) {
       didClip = true;
       curL -= step;
       step = Math.trunc(step / 2);
