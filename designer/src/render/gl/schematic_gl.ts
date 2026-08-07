@@ -154,6 +154,16 @@ export class SchematicGl {
     recordSchematicScene(this.scene, content, viewScale);
   }
 
+  /**
+   * Blank the layer, for a frame the Canvas2D path is painting instead.
+   *
+   * The recorded buffer is kept, so the next GL frame costs a draw and not a
+   * re-record. Only what is on screen goes.
+   */
+  clear(): void {
+    this.device.clear();
+  }
+
   /** Force a re-record on the next draw; for a context loss or a resize. */
   invalidate(): void {
     this.recorded = null;
