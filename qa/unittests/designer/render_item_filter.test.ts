@@ -25,7 +25,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, refId } from '@ziroeda/eeschema';
-import { DEFAULT_RENDER_OPTS } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import {
+  DEFAULT_RENDER_OPTS,
+  renderSchematic,
+} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { recordSchematicScene } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
@@ -142,6 +145,92 @@ describe('onlyItems', () => {
     const id = symbolIds()[0]!;
     const both = record({ onlyItems: new Set([id]), hiddenItems: new Set([id]) });
     expect(both.segmentCount).toBeGreaterThan(0);
+  });
+});
+
+describe('the preview pass paints over what is already there', () => {
+  /**
+   * A context that records the calls this cares about and ignores the rest.
+   *
+   * Deliberately not the GL recorder: that one is told to drop the canvas
+   * clear (`skipFirstFillRect`), which is exactly why every GL test passed
+   * while the Canvas2D path went blank. A spy that sees every call is the only
+   * thing that could have caught it.
+   */
+  function spy(): { fillRects: [number, number, number, number][]; ctx: CanvasRenderingContext2D } {
+    const fillRects: [number, number, number, number][] = [];
+    const noop = (): void => {};
+    const ctx = {
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      lineCap: '',
+      lineJoin: '',
+      globalAlpha: 1,
+      font: '',
+      textAlign: '',
+      setTransform: noop,
+      translate: noop,
+      rotate: noop,
+      scale: noop,
+      save: noop,
+      restore: noop,
+      setLineDash: noop,
+      beginPath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      closePath: noop,
+      rect: noop,
+      arc: noop,
+      bezierCurveTo: noop,
+      stroke: noop,
+      fill: noop,
+      strokeRect: noop,
+      fillText: noop,
+      drawImage: noop,
+      clip: noop,
+      fillRect: (x: number, y: number, w: number, h: number) => fillRects.push([x, y, w, h]),
+    };
+    return { fillRects, ctx: ctx as unknown as CanvasRenderingContext2D };
+  }
+
+  const W = 800;
+  const H = 600;
+  const paint = (
+    extra: Partial<typeof DEFAULT_RENDER_OPTS>,
+  ): [number, number, number, number][] => {
+    const s = spy();
+    renderSchematic(
+      s.ctx,
+      doc(),
+      { scale: SCALE, offsetX: 0, offsetY: 0 },
+      theme,
+      W,
+      H,
+      undefined,
+      undefined,
+      // The grid builds a Path2D, which is a browser type with no Node
+      // equivalent, and it is not what this is about.
+      { ...DEFAULT_RENDER_OPTS, grid: { ...DEFAULT_RENDER_OPTS.grid, show: false }, ...extra },
+    );
+    return s.fillRects;
+  };
+
+  const clearsCanvas = (rects: [number, number, number, number][]): boolean =>
+    rects.some(([x, y, w, h]) => x === 0 && y === 0 && w === W && h === H);
+
+  it('does not clear the canvas', () => {
+    // The regression: `renderSchematic` opens by painting the background over
+    // the whole canvas. Under `onlyItems` that erased the background the
+    // caller had just blitted, so selecting a component blanked the sheet and
+    // left only the symbol.
+    const id = symbolIds()[0]!;
+    expect(clearsCanvas(paint({ onlyItems: new Set([id]) }))).toBe(false);
+  });
+
+  it('but an ordinary render still does', () => {
+    // Otherwise the previous frame would smear.
+    expect(clearsCanvas(paint({}))).toBe(true);
   });
 });
 
