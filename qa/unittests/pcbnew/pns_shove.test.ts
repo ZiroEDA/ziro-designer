@@ -33,6 +33,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  PnsOptimizerFlags,
   DEFAULT_SHOVE_SETTINGS,
   PnsShove,
   PnsShovePolicy,
@@ -1423,5 +1424,35 @@ describe('SHOVE::ShoveObstacleLine — the retry schedule', () => {
     }
 
     expect(peakFor(5000)).toBeGreaterThan(peakFor(300));
+  });
+});
+
+describe('OPTIMIZER::OptimizationEffort, the flag bits', () => {
+  it('numbers every member exactly as pns_optimizer.h does', () => {
+    // These are a mask, so a wrong value is not a private detail: it means
+    // something else to any code reading the same mask against upstream's
+    // numbering. RESTRICT_AREA and LIMIT_CORNER_COUNT were previously 0x20 and
+    // 0x80 here — upstream's PRESERVE_VERTEX and MERGE_COLINEAR.
+    expect(PnsOptimizerFlags.MERGE_SEGMENTS).toBe(0x01);
+    expect(PnsOptimizerFlags.SMART_PADS).toBe(0x02);
+    expect(PnsOptimizerFlags.MERGE_OBTUSE).toBe(0x04);
+    expect(PnsOptimizerFlags.FANOUT_CLEANUP).toBe(0x08);
+    expect(PnsOptimizerFlags.KEEP_TOPOLOGY).toBe(0x10);
+    expect(PnsOptimizerFlags.PRESERVE_VERTEX).toBe(0x20);
+    expect(PnsOptimizerFlags.RESTRICT_VERTEX_RANGE).toBe(0x40);
+    expect(PnsOptimizerFlags.MERGE_COLINEAR).toBe(0x80);
+    expect(PnsOptimizerFlags.RESTRICT_AREA).toBe(0x100);
+    expect(PnsOptimizerFlags.LIMIT_CORNER_COUNT).toBe(0x200);
+  });
+
+  it('gives every member a distinct bit', () => {
+    // The reason the old values were wrong at all: a member left out does not
+    // reserve its bit, so the next one added silently takes it.
+    const values = Object.values(PnsOptimizerFlags).filter(
+      (v): v is number => typeof v === 'number',
+    );
+
+    expect(new Set(values).size).toBe(values.length);
+    expect(values.reduce((a, b) => a | b, 0)).toBe(0x3ff);
   });
 });
