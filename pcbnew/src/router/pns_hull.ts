@@ -49,7 +49,7 @@ const perpendicular = (v: Vec2): Vec2 => ({ x: -v.y, y: v.x });
 const sgn = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
 /** `VECTOR2I::Resize`: same direction, given length, rounded to internal units. */
-function resize(v: Vec2, len: number): Vec2 {
+export function resize(v: Vec2, len: number): Vec2 {
   const n = Math.hypot(v.x, v.y);
   if (n === 0) return { x: 0, y: 0 };
   return { x: kiRound((v.x * len) / n) || 0, y: kiRound((v.y * len) / n) || 0 };

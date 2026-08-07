@@ -74,7 +74,14 @@
  * `doAddVia`, `doAddArc`, `doAddHole`, and the private kind dispatcher `add` is
  * `addItem`. Everything else keeps upstream's name.
  */
-import { getShapeCollider } from './pns_collision.js';
+import {
+  getShapeCollider,
+  makeCollisionSearchContext,
+  ObstacleSet,
+  resolveCollisionSearchOptions,
+} from './pns_collision.js';
+import { hullIntersection } from './pns_chain.js';
+import { itemHull } from './pns_item_hull.js';
 import { PnsIndex, type IndexVisitor } from './pns_index.js';
 import { PnsJoint, type JointTag } from './pns_joint.js';
 import { PnsItemSet } from './pns_itemset.js';
@@ -84,7 +91,14 @@ import { PNS_HULL_MARGIN, PnsLine } from './pns_line_item.js';
 import { PnsArc, reversedArc } from './pns_arc.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsVVia } from './pns_via.js';
-import type { CollisionNode, NetHandle, PnsRuleResolver } from './pns_collision.js';
+import type {
+  CollisionNode,
+  CollisionSearchContext,
+  CollisionSearchOptions,
+  NetHandle,
+  Obstacle,
+  PnsRuleResolver,
+} from './pns_collision.js';
 import type { PnsLinkedItem } from './pns_item.js';
 import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia, ViaHandle } from './pns_via.js';
@@ -138,6 +152,180 @@ interface FollowLineState {
   /** `aPos`: where the next corner goes. Grows forwards, shrinks backwards. */
   pos: number;
   guardHit: boolean;
+}
+
+/**
+ * `DIRECTION_45::CORNER_MODE`, to the extent {@link PnsNode.nearestObstacle}
+ * needs it: the two 90° modes make it collapse every obstacle hull to its
+ * bounding box before intersecting.
+ */
+export enum PnsCornerMode {
+  MITERED_45 = 0,
+  ROUNDED_45 = 1,
+  MITERED_90 = 2,
+  ROUNDED_90 = 3,
+}
+
+let routerCornerMode: PnsCornerMode = PnsCornerMode.MITERED_45;
+
+/**
+ * `ROUTER::GetInstance()->Settings().GetCornerMode()`.
+ *
+ * Another process-wide singleton, and modelled as one for the same reason the
+ * router interface is (see `pns_collision.ts`): faking it as a parameter would
+ * change which call sites can reach it. `MITERED_45` is
+ * `PNS_SETTINGS`' default.
+ */
+export const getRouterCornerMode = (): PnsCornerMode => routerCornerMode;
+
+export function setRouterCornerMode(aMode: PnsCornerMode): void {
+  routerCornerMode = aMode;
+}
+
+/**
+ * `OBSTACLE_VISITOR` (`pns_node.h:186-211`, `pns_node.cpp:186-206`).
+ *
+ * Two nodes, not one: `m_node` is the world being searched and is what
+ * `Collide` is handed, while `m_override` is the branch whose deletions have to
+ * be respected while searching someone *else's* index. On a local search the
+ * second is null and {@link PnsObstacleVisitor.visit} can never fire; on the
+ * root pass they are the root and this branch respectively, which is why a
+ * root item the branch removed is skipped **and** why the clearances for the
+ * items that survive are asked of the root rather than of the branch.
+ */
+export abstract class PnsObstacleVisitor {
+  /** The item we are looking for collisions with. */
+  protected mItem: PnsItem | null;
+  /** Node we are searching in (either root or a branch). */
+  protected mNode: PnsNode | null = null;
+  /** Node that overrides root entries. */
+  protected mOverride: PnsNode | null = null;
+  /** `std::optional<int>`: which sub-index is being walked right now. */
+  protected mLayerContext: number | null = null;
+
+  constructor(aItem: PnsItem | null) {
+    this.mItem = aItem;
+  }
+
+  setWorld(aNode: PnsNode | null, aOverride: PnsNode | null = null): void {
+    this.mNode = aNode;
+    this.mOverride = aOverride;
+  }
+
+  setLayerContext(aLayer: number): void {
+    this.mLayerContext = aLayer;
+  }
+
+  clearLayerContext(): void {
+    this.mLayerContext = null;
+  }
+
+  /** `operator()`: false stops the scan of the sub-index it is in. */
+  abstract call(aCandidate: PnsItem): boolean;
+
+  /**
+   * Is there a more recent branch with a newer (possibly modified) version of
+   * this item? Returning true means "skip it".
+   */
+  protected visit(aCandidate: PnsItem): boolean {
+    if (this.mOverride === null) return false;
+
+    return this.mOverride.overrides(aCandidate);
+  }
+
+  /** The callable the spatial index wants, wired to `LAYER_CONTEXT_SETTER`. */
+  asIndexVisitor(): IndexVisitor {
+    const v: IndexVisitor = (item: PnsItem): boolean => this.call(item);
+
+    v.setLayerContext = (layer: number): void => this.setLayerContext(layer);
+    v.clearLayerContext = (): void => this.clearLayerContext();
+
+    return v;
+  }
+}
+
+/**
+ * `NODE::DEFAULT_OBSTACLE_VISITOR` — the function object that visits potential
+ * obstacles and performs the actual collision refining.
+ *
+ * ## The order of the five filters is a specification, not a style
+ *
+ * `pns_node.cpp:222-242`, in order: kind mask, self, caller filter, override,
+ * collide, limit. Every adjacent pair is load-bearing:
+ *
+ *  - **caller filter before override.** Both reject, so the resulting obstacle
+ *    set is the same either way — but the filter is an arbitrary callback that
+ *    the caller may be using to *observe* which candidates were considered, and
+ *    reordering silently changes what it sees.
+ *  - **override before collide.** `ITEM::Collide` inserts into the obstacle set
+ *    itself; testing the override afterwards would leave an item this branch
+ *    has deleted sitting in the results.
+ *  - **limit after collide, not before.** Two consequences, both pinned. The
+ *    insert has already happened by the time the count is tested — and a
+ *    single `Collide` can insert *several* obstacles through its hole and via
+ *    recursion — so `limitCount` is a soft cap and the set routinely ends up
+ *    larger than it. And the test only runs for a candidate that actually
+ *    collided, so hoisting it above `Collide` makes it reject *non*-colliding
+ *    candidates too and stops the scan strictly earlier: a mutant that moves it
+ *    up changes how far the search gets, which the caller's filter can see.
+ *  - the limit test is `> 0`, so `limitCount === 0` never stops the scan, and
+ *    neither does the default `-1`.
+ */
+class DefaultObstacleVisitor extends PnsObstacleVisitor {
+  private readonly mCtx: CollisionSearchContext;
+
+  constructor(aCtx: CollisionSearchContext, aItem: PnsItem | null) {
+    super(aItem);
+    this.mCtx = aCtx;
+  }
+
+  override call(aCandidate: PnsItem): boolean {
+    if (!aCandidate.ofKind(this.mCtx.options.kindMask)) return true;
+
+    // Collisions with self aren't a thing; don't spend time on them.
+    if (this.mItem === aCandidate) return true;
+
+    if (this.mCtx.options.filter && !this.mCtx.options.filter(aCandidate)) return true;
+
+    if (this.visit(aCandidate)) return true;
+
+    if (!this.mItem || !this.mNode) return true;
+
+    if (!aCandidate.collide(this.mItem, this.mNode, this.mLayerContext ?? -1, this.mCtx)) {
+      return true;
+    }
+
+    if (
+      this.mCtx.options.limitCount > 0 &&
+      this.mCtx.obstacles.size() >= this.mCtx.options.limitCount
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+}
+
+/** `makeHull`'s bounding box, as a four-point chain. */
+function hullBBoxChain(aHull: readonly Vec2[]): Vec2[] {
+  let left = Number.POSITIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+
+  for (const p of aHull) {
+    left = Math.min(left, p.x);
+    top = Math.min(top, p.y);
+    right = Math.max(right, p.x);
+    bottom = Math.max(bottom, p.y);
+  }
+
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+  ];
 }
 
 /**
@@ -1368,6 +1556,354 @@ export class PnsNode implements CollisionNode {
           return seg2;
         }
       }
+    }
+
+    return null;
+  }
+
+  // ----- collision querying ---------------------------------------------------------
+
+  /**
+   * Find every item colliding — closer than the clearance — with `aItem`.
+   *
+   * @returns the size of the **whole** obstacle set, not the number this call
+   *          added. Every accumulating caller therefore over-counts; see
+   *          {@link PnsNode.checkColliding}, which relies on it only being
+   *          non-zero.
+   *
+   * ## Six things that are easy to lose
+   *
+   *  1. **The virtual check is on the query item.** A VVIA asked what it hits
+   *     answers nothing at all. Virtual *candidates* are not filtered here —
+   *     they are handled by {@link PnsNode.getClearance} returning 0 for them,
+   *     which is a different thing and produces a different result.
+   *  2. The proximity radius for **both** passes is *this* node's
+   *     `m_maxClearance`. The root's own value is never read, so a branch with
+   *     a smaller max clearance searches the root's index narrowly.
+   *  3. The root pass's guard reads the caller's `limitCount` raw. The default
+   *     `-1` short-circuits it open, and the comparison is against the set
+   *     size, which — see (1) — includes anything a previous call left there.
+   *  4. On the root pass the visitor's *world* becomes the root, so `Collide`
+   *     asks the **root** for clearances and edge exclusions. A branch's own
+   *     `m_edgeExclusions` (which {@link PnsNode.branch} does not copy anyway)
+   *     is not consulted for root items.
+   *  5. One visitor serves both passes; only `setWorld` changes between them.
+   *     The layer context is scoped per sub-index by the index itself.
+   *  6. The obstacle set is an in/out parameter and is **never cleared**.
+   */
+  queryColliding(
+    aItem: PnsItem,
+    aObstacles: ObstacleSet,
+    aOpts?: CollisionSearchOptions | null,
+  ): number {
+    const ctx = makeCollisionSearchContext(aObstacles, aOpts);
+
+    // By default, virtual items cannot collide.
+    if (aItem.isVirtual()) return 0;
+
+    const visitor = new DefaultObstacleVisitor(ctx, aItem);
+    const indexVisitor = visitor.asIndexVisitor();
+
+    visitor.setWorld(this, null);
+
+    // First, look for colliding items in the local index.
+    this.mIndex.query(aItem, this.mMaxClearance, indexVisitor);
+
+    // If we haven't found enough items, look in the root branch as well.
+    if (
+      !this.isRoot() &&
+      (ctx.obstacles.size() < ctx.options.limitCount || ctx.options.limitCount < 0)
+    ) {
+      visitor.setWorld(this.mRoot, this);
+      this.mRoot.mIndex.query(aItem, this.mMaxClearance, indexVisitor);
+    }
+
+    return aObstacles.size();
+  }
+
+  /**
+   * Follow a line looking for the obstacle nearest to its starting point.
+   *
+   * ## The scratch segment, and why it is one object
+   *
+   * Upstream's per-segment query is
+   *
+   * ```cpp
+   * for( int i = 0; i < aLine->CLine().SegmentCount(); i++ ) {
+   *     const SEGMENT s( *aLine, aLine->CLine().CSegment( i ) );
+   *     QueryColliding( &s, obstacleSet, aOpts );
+   * }
+   * ```
+   *
+   * — a **stack temporary inside the loop body**. Every iteration builds it at
+   * the same address and destroys it at the end of the iteration, so:
+   *
+   *  - every `OBSTACLE` from every segment carries the *same* `m_head` pointer,
+   *    and `std::set<OBSTACLE>` — keyed on `(m_head, m_item)` — therefore
+   *    **deduplicates by item across the whole line**. A pad that all twelve
+   *    segments of a line run into yields **one** obstacle, not twelve;
+   *  - the clearance cache, keyed on the same pointer pair, hands segments
+   *    2..n the answer computed for segment 1. Upstream's comment on those
+   *    lines says exactly this: *"Clearances between &s and other items are
+   *    cached, which means they'll be the same for all segments in the line.
+   *    Disabling the cache will lead to slowness."*;
+   *  - and `m_head` is **dangling** the moment the iteration ends. Nothing
+   *    downstream dereferences it — this function reads only `m_item`, and its
+   *    callers read `m_distFirst` — which is why the bug is latent.
+   *
+   * There is no stack slot here, so the faithful analogue is **one scratch
+   * `PnsSegment`, built once and re-pointed each iteration**. Same object
+   * identity, geometry rewritten. That reproduces both effects exactly. It also
+   * leaves `obstacle.head` pointing at a live object carrying the *last*
+   * segment's geometry rather than at freed memory, which is strictly more
+   * defined than upstream and observable only by a caller upstream would have
+   * crashed in.
+   *
+   * The scratch segment is built once rather than per iteration; the only
+   * fields `SEGMENT( const LINE&, const SEG& )` copies besides the geometry are
+   * the line's width, net, layers, marker and rank, none of which vary across
+   * the line. Its uid does not advance per segment, which upstream's would —
+   * uids matter to joints, and a segment that is never added to a node has none.
+   *
+   * **Do not "fix" this by giving each segment its own identity.** It multiplies
+   * the obstacle set by up to the segment count; it makes the hull-priming loop
+   * below repeat identical `getClearance` and `hullCache` work N times over,
+   * since both depend only on the obstacle and the line's width and layer; it
+   * changes `obstacles[0]`, which is what gets returned whenever every hull
+   * intersection test fails; and it shifts which entry wins the strict-`<`
+   * distance comparison on a tie.
+   *
+   * ## The via is keyed separately
+   *
+   * `aLine->Via()` is a reference to the line's own member, a stable address
+   * distinct from the scratch segment's. So a pad hit by both the line and its
+   * via produces **two** obstacles, not one.
+   *
+   * ## No thread pool
+   *
+   * Upstream dispatches the per-obstacle intersection work in blocks when there
+   * are more than eight obstacles. Each task writes only `results[i]` and every
+   * read happens after the join, so the parallel and sequential paths are
+   * observationally identical; this is the sequential one.
+   *
+   * ## The reduction
+   *
+   * Strict `<`, so the **first** minimum wins and obstacle-set order breaks
+   * ties. The `dist === 0` early break happens *after* the assignment. And when
+   * nothing intersected at all, the answer is `obstacles[0]` **with its own
+   * `distFirst` and `ipFirst`** — the zero and the origin that `Collide` wrote —
+   * not with the sentinel.
+   */
+  nearestObstacle(aLine: PnsLine, aOpts?: CollisionSearchOptions | null): Obstacle | null {
+    const cornerMode = getRouterCornerMode();
+    const obstacleSet = new ObstacleSet();
+    const opts = resolveCollisionSearchOptions(aOpts);
+    const chain = aLine.cLine();
+
+    // One object for the whole loop — upstream's stack slot. See the docblock.
+    const scratch =
+      chain.segmentCount() > 0 ? PnsSegment.fromParentLine(aLine, chain.cSegment(0)) : null;
+
+    for (let i = 0; i < chain.segmentCount(); i++) {
+      const s = chain.cSegment(i);
+
+      (scratch as PnsSegment).setEnds(s.a, s.b);
+      this.queryColliding(scratch as PnsSegment, obstacleSet, aOpts);
+    }
+
+    if (aLine.endsWithVia()) this.queryColliding(aLine.via(), obstacleSet, aOpts);
+
+    if (obstacleSet.empty()) return null;
+
+    // Convert to indexed vector for parallel access.
+    const obstacles = [...obstacleSet.items()];
+    const numObstacles = obstacles.length;
+
+    const layer = aLine.layer();
+    const ruleResolver = this.getRuleResolver();
+    const simplifyHull =
+      cornerMode === PnsCornerMode.MITERED_90 || cornerMode === PnsCornerMode.ROUNDED_90;
+    const hasVia = aLine.endsWithVia();
+
+    // `ruleResolver->HullCache(...)` is dereferenced unguarded upstream, so a
+    // node with no resolver crashes here even though `getClearance` two lines
+    // up happily answers 100000 for one. Reproduced as a throw rather than
+    // silently falling back to an uncached hull, which would hide the mistake.
+    if (!ruleResolver) {
+      throw new Error('PNS: NODE::NearestObstacle() with no rule resolver installed');
+    }
+
+    const hullFor = (aItem: PnsItem, aClearance: number): Vec2[] => {
+      const cached =
+        ruleResolver.hullCache?.(aItem, aClearance, 0, layer) ??
+        itemHull(aItem, aClearance, 0, layer);
+
+      // `makeHull`: the 90° corner modes take the bounding box instead.
+      return simplifyHull ? hullBBoxChain(cached) : [...cached];
+    };
+
+    // The first step here is sequential since GetClearance() and HullCache()
+    // are not thread-safe, so upstream populates all the caches first.
+    const lineHulls: Vec2[][] = new Array<Vec2[]>(numObstacles);
+    const viaHulls: Vec2[][] = new Array<Vec2[]>(numObstacles);
+
+    for (let i = 0; i < numObstacles; i++) {
+      const obstacle = obstacles[i] as Obstacle;
+      const item = obstacle.item as PnsItem;
+
+      const clearance =
+        this.getClearance(item, aLine, opts.useClearanceEpsilon) + Math.trunc(aLine.width() / 2);
+
+      lineHulls[i] = hullFor(item, clearance);
+
+      if (hasVia) {
+        const via = aLine.via();
+        const viaClearance =
+          this.getClearance(item, via, opts.useClearanceEpsilon) +
+          Math.trunc(via.diameter(aLine.layer()) / 2);
+
+        viaHulls[i] = hullFor(item, viaClearance);
+      }
+    }
+
+    const linePath: Vec2[] = [];
+
+    for (let i = 0; i < chain.pointCount(); i++) linePath.push(chain.cPoint(i));
+
+    const dists = new Array<number>(numObstacles).fill(Number.MAX_SAFE_INTEGER);
+    const ips = new Array<Vec2>(numObstacles).fill({ x: 0, y: 0 });
+
+    for (let i = 0; i < numObstacles; i++) {
+      // `hullIntersection` returns only the crossings upstream marks valid, so
+      // the `if( !ip.valid ) continue` has already happened.
+      for (const ip of hullIntersection(lineHulls[i] as Vec2[], linePath)) {
+        const dist = chain.pathLength(ip.p, ip.indexTheir);
+
+        if (dist < (dists[i] as number)) {
+          dists[i] = dist;
+          ips[i] = ip.p;
+        }
+      }
+
+      if (hasVia) {
+        // The via's crossings go into the *same* result, so the via can beat
+        // the line's own nearest crossing.
+        for (const ip of hullIntersection(viaHulls[i] as Vec2[], linePath)) {
+          const dist = chain.pathLength(ip.p, ip.indexTheir);
+
+          if (dist < (dists[i] as number)) {
+            dists[i] = dist;
+            ips[i] = ip.p;
+          }
+        }
+      }
+    }
+
+    let nearest: Obstacle = {
+      head: null,
+      item: null,
+      ipFirst: { x: 0, y: 0 },
+      clearance: 0,
+      pos: { x: 0, y: 0 },
+      distFirst: Number.MAX_SAFE_INTEGER,
+      maxFanoutWidth: 0,
+    };
+
+    for (let i = 0; i < numObstacles; i++) {
+      if ((dists[i] as number) < nearest.distFirst) {
+        nearest = { ...(obstacles[i] as Obstacle) };
+        nearest.distFirst = dists[i] as number;
+        nearest.ipFirst = ips[i] as Vec2;
+
+        if (dists[i] === 0) break;
+      }
+    }
+
+    if (nearest.distFirst === Number.MAX_SAFE_INTEGER) nearest = obstacles[0] as Obstacle;
+
+    return nearest;
+  }
+
+  /**
+   * Does this item collide with anything in the world? The first obstacle
+   * found, or null.
+   *
+   * Three overloads, all upstream's:
+   *
+   *  - **an item and a kind mask** builds options that set *only* the mask and
+   *    a limit of one, leaving every other option at its header default;
+   *  - **an item and explicit options** does **not** force a limit of one, so a
+   *    caller passing options gets whatever limit it asked for;
+   *  - **an item set** short-circuits on the first of its members that
+   *    collides, and goes through the kind-mask overload for each.
+   *
+   * A `LINE` is walked segment by segment through the same scratch-segment
+   * trick as {@link PnsNode.nearestObstacle}, and the answer is
+   * `*obstacles.begin()` as soon as the set is non-empty — after **every**
+   * segment, and again after the via. `n` accumulates set *sizes* rather than
+   * counts of new obstacles, so `if( n )` means nothing more than "the set is
+   * not empty".
+   *
+   * `*obstacles.begin()` is the one place `std::set<OBSTACLE>`'s ordering by
+   * raw pointer is observable. That order is an allocator artefact, differs
+   * between two C++ builds, and cannot be reproduced in a garbage-collected
+   * language; {@link ObstacleSet} uses **insertion order** instead, so this
+   * returns the first obstacle that was found rather than the one whose item
+   * happened to sit lowest in memory. Deterministic, and no caller treats this
+   * as "the nearest" — that question is {@link PnsNode.nearestObstacle}'s.
+   *
+   * Note the non-LINE arm is an `else if`, so a line that collides with nothing
+   * returns empty without a second whole-item query.
+   */
+  checkColliding(aSet: PnsItemSet, aKindMask?: number): Obstacle | null;
+  checkColliding(aItemA: PnsItem, aKindMask?: number): Obstacle | null;
+  checkColliding(aItemA: PnsItem, aOpts: CollisionSearchOptions): Obstacle | null;
+  checkColliding(
+    aItemAOrSet: PnsItem | PnsItemSet,
+    aKindMaskOrOpts: number | CollisionSearchOptions = PnsKind.ANY_T,
+  ): Obstacle | null {
+    if (aItemAOrSet instanceof PnsItemSet) {
+      const kindMask = typeof aKindMaskOrOpts === 'number' ? aKindMaskOrOpts : PnsKind.ANY_T;
+
+      for (const item of aItemAOrSet.items()) {
+        const obs = this.checkColliding(item, kindMask);
+
+        if (obs) return obs;
+      }
+
+      return null;
+    }
+
+    const aItemA = aItemAOrSet;
+    const opts: CollisionSearchOptions =
+      typeof aKindMaskOrOpts === 'number'
+        ? { kindMask: aKindMaskOrOpts, limitCount: 1 }
+        : aKindMaskOrOpts;
+
+    const obs = new ObstacleSet();
+
+    if (aItemA.kind() === PnsKind.LINE_T) {
+      let n = 0;
+      const line = aItemA as PnsLine;
+      const l = line.cLine();
+      const scratch = l.segmentCount() > 0 ? PnsSegment.fromParentLine(line, l.cSegment(0)) : null;
+
+      for (let i = 0; i < l.segmentCount(); i++) {
+        const s = l.cSegment(i);
+
+        (scratch as PnsSegment).setEnds(s.a, s.b);
+        n += this.queryColliding(scratch as PnsSegment, obs, opts);
+
+        if (n) return obs.first();
+      }
+
+      if (line.endsWithVia()) {
+        n += this.queryColliding(line.via(), obs, opts);
+
+        if (n) return obs.first();
+      }
+    } else if (this.queryColliding(aItemA, obs, opts) > 0) {
+      return obs.first();
     }
 
     return null;

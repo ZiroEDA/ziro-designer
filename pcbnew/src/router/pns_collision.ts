@@ -146,6 +146,29 @@ export interface PnsRuleResolver {
   clearTemporaryCaches?(): void;
   /** Default 0. */
   clearanceEpsilon?(): number;
+
+  /**
+   * `HullCache`: the obstacle's hull, grown by a clearance, memoised.
+   *
+   * Added by the collision-querying change. The docblock above says this was
+   * left out because `Hull` is not an item virtual in this port and the only
+   * consumer, `NODE::NearestObstacle`, had not landed — that consumer is now
+   * here, and the dispatch lives in `pns_item_hull.ts`.
+   *
+   * It stays **optional**, and that is not laziness. Upstream gives it a body
+   * in the header (`pns_node.h:176-182`) — an uncached `aItem->Hull(...)` — so
+   * a resolver that does not implement it is a legal resolver, and the caller
+   * must fall back rather than fail. What the caller must *not* do is invent a
+   * fallback for a **missing resolver**: `NearestObstacle` dereferences
+   * `ruleResolver` unguarded (`pns_node.cpp:335`) and crashes, even though
+   * `GetClearance` two lines earlier tolerates a null one.
+   */
+  hullCache?(
+    item: PnsItem,
+    clearance: number,
+    walkaroundThickness: number,
+    layer: number,
+  ): readonly Vec2[];
 }
 
 // ----- obstacles ---------------------------------------------------------------
