@@ -148,6 +148,38 @@ describe('onlyItems', () => {
   });
 });
 
+describe("sub-items: a symbol's fields", () => {
+  it('are hidden and drawn with their symbol, exactly once', () => {
+    // Dragging a symbol must take its reference and value text along, or the
+    // text is drawn from the background at the old position *and* from the
+    // preview at the cursor. That is the duplicated naming text that was
+    // reported, and this is the case that fixes it.
+    const symId = symbolIds()[0]!;
+    const plain = record({});
+    const background = record({ hiddenItems: new Set([symId]) });
+    const preview = record({ onlyItems: new Set([symId]) });
+    expect(background.segmentCount).toBeLessThan(plain.segmentCount);
+    expect(preview.segmentCount).toBeGreaterThan(0);
+    // Exact complements: drawing the fields from both sides would over-count.
+    expect(background.segmentCount + preview.segmentCount).toBe(plain.segmentCount);
+  });
+
+  it('take their selection halo with them', () => {
+    // A dragged symbol must not leave its fields glowing behind it.
+    const moving = new Set([symbolIds()[0]!]);
+    const hiddenAndSelected = record({ selection: moving, hiddenItems: moving });
+    const hiddenNotSelected = record({ hiddenItems: moving });
+    expect(hiddenAndSelected.segmentCount).toBe(hiddenNotSelected.segmentCount);
+  });
+
+  // Not covered, and known: filtering a *field on its own*
+  // (`<symbol>:field<n>`) is inert. Measured on this fixture, hiding one
+  // changes nothing and `onlyItems` naming one records no geometry at all, so
+  // dragging a field by itself still goes through the whole-sheet repaint. The
+  // field text is evidently drawn somewhere other than the loop guarded here;
+  // finding where is its own piece of work rather than a guess bolted on.
+});
+
 describe('the preview pass paints over what is already there', () => {
   /**
    * A context that records the calls this cares about and ignores the rest.
