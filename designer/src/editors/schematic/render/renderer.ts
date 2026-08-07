@@ -2719,7 +2719,16 @@ function drawText(
 
   // Real glyphs at every zoom (KiCad keeps stroking text however small); below
   // ~0.6 screen px a run is sub-pixel noise, so it is skipped entirely.
-  if (heightIU * g_scale < 0.6) return;
+  //
+  // Not for a vector backend. Those record geometry rather than pixels: the
+  // WebGL scene is uploaded once and drawn at every zoom, and the SVG, DXF and
+  // PostScript plotters produce a document with no screen scale at all. Judging
+  // them by the current view's pixels dropped text from a plot because of how
+  // the editor happened to be zoomed, and it was the last thing making the
+  // recorded scene depend on the zoom: it alone changed the segment count from
+  // 1296 to 3546 across a fourfold change of scale, which forced the whole
+  // buffer to be rebuilt on a zoom.
+  if (!g_vectorText && heightIU * g_scale < 0.6) return;
 
   // KiCad strokes schematic text with the Newstroke font. The glyph run is built
   // once into a Path2D (baseline-left origin, italic shear baked in) and cached
@@ -2944,8 +2953,17 @@ function drawDrawingSheet(
   if (draws.length === 0) return;
   drawDrawingSheetItems(ctx, draws, NO_DS_SELECTION, {
     color: theme.pageFrame,
-    // 1-device-pixel pen floor keeps hairlines visible when zoomed out.
-    minWidth: g_scale > 0 ? 1 / g_scale : 1,
+    // A 1-device-pixel pen floor keeps the frame's hairlines visible when
+    // zoomed out, expressed as the world width that is one pixel *now*.
+    //
+    // A vector backend gets none of it. It records geometry rather than pixels,
+    // so a floor derived from the current zoom is baked into the output: for
+    // the WebGL scene the shader applies its own constant pixel floor at draw
+    // time, and for the SVG, DXF and PostScript plotters there is no screen to
+    // have pixels. This was the last thing keeping the recorded scene tied to
+    // the view: 921 of 80230 floats moved with the zoom, and the whole buffer
+    // had to be rebuilt because of them.
+    minWidth: g_vectorText ? 0 : g_scale > 0 ? 1 / g_scale : 1,
   });
 }
 

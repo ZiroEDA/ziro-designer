@@ -283,8 +283,9 @@ describe('the property the whole design rests on', () => {
   const at = (scale: number): Scene => {
     const s = new Scene();
     const r = new GlRecorder(s, { referenceScale: scale });
-    // A world-width stroke, and a "one screen pixel" stroke, which is how
-    // renderer.ts asks for a hairline (`1 / g_scale`).
+    // The same drawing calls each time. A caller that varied its widths with
+    // the zoom would be baking the view in itself, which is a fault in the
+    // caller: `renderer.ts` had two such places and both are fixed.
     r.beginPath();
     r.moveTo(0, 0);
     r.lineTo(1000, 0);
@@ -293,7 +294,7 @@ describe('the property the whole design rests on', () => {
     r.beginPath();
     r.moveTo(0, 100);
     r.lineTo(1000, 100);
-    r.lineWidth = 1 / scale;
+    r.lineWidth = 2;
     r.stroke();
     return s;
   };
@@ -306,14 +307,14 @@ describe('the property the whole design rests on', () => {
     expect(a).toEqual(b);
   });
 
-  it('records a hairline as a pixel minimum, not as a world width', () => {
-    // `1 / scale` means "one screen pixel". Baking it as a world width would
-    // make the line grow as you zoom in, which is exactly wrong, and would
-    // make the geometry zoom-dependent.
-    const g = segments(at(2));
-    const hairline = g.find((x) => x.y0 === 100)!;
-    expect(hairline.half).toBe(0);
-    expect(hairline.minPx).toBeGreaterThan(0);
+  it('gives every segment the same pixel floor, whatever the scale', () => {
+    // A minimum width is one decision about the view, not a per-vertex value.
+    // It used to be computed per segment against the recording scale, which
+    // made 98% of segments differ between one zoom octave and the next and
+    // forced the whole buffer to be rebuilt on a zoom.
+    const floors = new Set([...segments(at(0.25)), ...segments(at(4))].map((g) => g.minPx));
+    expect(floors.size).toBe(1);
+    expect([...floors][0]).toBeGreaterThan(0);
   });
 
   it('records a genuine world width as a world width', () => {

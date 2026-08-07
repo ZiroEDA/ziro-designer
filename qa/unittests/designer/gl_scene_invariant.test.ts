@@ -104,31 +104,30 @@ describe('how far the recorded geometry depends on the zoom', () => {
     expect(differing).toBe(0);
   });
 
-  it('does depend on the zoom, through the text level of detail', () => {
-    // Stated as a fact rather than hidden, because an earlier version of this
-    // file recorded at scale 1 for both sides and so proved nothing: with the
-    // scale held fixed, of course nothing moved.
+  it('is byte-identical across a 4x change of view scale', () => {
+    // The property the whole backend rests on, and it now actually holds.
     //
-    // Two things genuinely vary with the view scale.
+    // It did not before. The recorder classified each width against the
+    // recording scale and stored a scale-derived pixel floor, so 98% of
+    // segments differed between one zoom octave and the next and the buffer had
+    // to be rebuilt whenever the zoom crossed one, at 50 to 100 ms a time.
+    // A minimum width belongs to the view, not to a vertex; the shader clamps
+    // it, and the geometry stopped caring about the zoom.
     //
-    //   1. `drawText` skips a run under 0.6 screen pixels, so a different zoom
-    //      records a different amount of text. This is the big one, and it is
-    //      why the counts below differ by nearly threefold.
-    //   2. Selection decorations: the halo width and a selected field's anchor
-    //      cross radius are computed from the scale.
-    //
-    // `SchematicGl` handles both by keying the buffer on the zoom *octave*, so
-    // a wheel gesture stays inside one bucket and a re-record happens only when
-    // the zoom has doubled or halved. Removing the dependence entirely means
-    // moving the text cull into the shader, which is worth doing and is not
-    // done yet.
-    //
-    // If this test ever starts passing, that work has landed: replace it with
-    // the byte-identical assertion across scales.
+    // Compared float by float rather than by count: a count can match while
+    // every coordinate has shifted.
     const a = record(SCALE);
     const b = record(SCALE * 4);
-    expect(b.segmentCount).not.toBe(a.segmentCount);
-    expect(b.segmentCount).toBeGreaterThan(a.segmentCount);
+
+    expect(b.segmentCount).toBe(a.segmentCount);
+    expect(b.discCount).toBe(a.discCount);
+    expect(b.triangleVertexCount).toBe(a.triangleVertexCount);
+
+    const va = a.segments.view();
+    const vb = b.segments.view();
+    let differing = 0;
+    for (let i = 0; i < va.length; i++) if (va[i] !== vb[i]) differing++;
+    expect(differing, `${differing} of ${va.length} segment floats moved with the view`).toBe(0);
   });
 
   it('draws a selection halo wide enough to see', () => {
@@ -155,14 +154,25 @@ describe('how far the recorded geometry depends on the zoom', () => {
     expect(widest, 'widest recorded stroke, in internal units').toBeGreaterThan(0.05 * MM);
   });
 
-  it('records hairlines as a pixel floor rather than a world width', () => {
-    // The mechanism that makes the above true: a `1 / scale` request becomes
-    // "at least N device pixels", which the shader applies per frame, instead
-    // of a world width that would grow as you zoom in.
-    const s = record(SCALE);
-    const v = s.segments.view();
-    let pixelFloored = 0;
-    for (let i = 0; i < v.length; i += 10) if (v[i + 4] === 0 && v[i + 5]! > 0) pixelFloored++;
-    expect(pixelFloored).toBeGreaterThan(0);
+  it('gives every segment the same constant pixel floor', () => {
+    // The mechanism that makes the invariant above hold. A minimum width is one
+    // decision about the view, not a per-vertex value, so it is the same number
+    // on every segment and the shader applies it. When it was computed per
+    // segment against the recording scale it differed on 98% of them between
+    // one octave and the next, and that alone forced a rebuild on every zoom.
+    const v = record(SCALE).segments.view();
+    const floors = new Set<number>();
+    for (let i = 0; i < v.length; i += 10) floors.add(v[i + 5]!);
+    expect(floors.size).toBe(1);
+    expect([...floors][0]).toBeGreaterThan(0);
+  });
+
+  it('stores real world widths, not zeroes standing in for a pixel request', () => {
+    // The other half: widths are the world widths the renderer asked for, so
+    // they mean the same thing at every zoom.
+    const v = record(SCALE).segments.view();
+    let withWidth = 0;
+    for (let i = 0; i < v.length; i += 10) if (v[i + 4]! > 0) withWidth++;
+    expect(withWidth).toBeGreaterThan(0);
   });
 });

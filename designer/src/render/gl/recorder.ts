@@ -321,10 +321,28 @@ export class GlRecorder {
    * and what stops a hairline vanishing when zoomed out.
    */
   private pen(): { half: number; minPx: number } {
+    // The true world half-width, and a constant one-device-pixel floor.
+    //
+    // This used to classify: a width that worked out to about a screen pixel at
+    // the recording scale was stored as `half: 0` plus a *scale-derived*
+    // `minPx`, and anything larger as a world width plus a constant floor. Both
+    // halves of that were a mistake, and profiling put numbers on it: `minPx`
+    // then differed on 98% of segments between one zoom octave and the next,
+    // which is the entire reason the buffer had to be re-recorded on a zoom at
+    // all. Each of those re-records cost 50 to 100 ms and produced, for eight
+    // consecutive octaves, byte-identical output.
+    //
+    // The classification was also wrong on its own terms: whether a stroke fell
+    // above or below the threshold depended on the zoom, so the same wire
+    // changed category mid-gesture and its width jumped.
+    //
+    // A minimum line width belongs to the view, not to a vertex. It is one
+    // uniform decision applied at draw time, which is what KiCad's
+    // `u_minLinePixelWidth` is and what `SEGMENT_VERT` already does with
+    // `max(a_halfWidth * abs(u_view.x), a_minPx)`. Storing the world width and
+    // letting the shader clamp makes the geometry genuinely independent of the
+    // zoom, which is what lets the buffer be recorded once and never again.
     const world = (Math.max(0, this.st.lineWidth) * matScale(this.st.ctm)) / this.worldScale;
-    const asPixels = world * this.refScale;
-    // Within a whisker of an exact pixel request: treat it as one.
-    if (asPixels <= 1.5) return { half: 0, minPx: (Math.max(asPixels, 1) * this.dpr) / 2 };
     return { half: world / 2, minPx: this.dpr / 2 };
   }
 
