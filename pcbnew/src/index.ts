@@ -1394,3 +1394,25 @@ export {
 export { PnsMeanderPlacer } from './router/pns_meander_placer.js';
 export { PnsDpMeanderPlacer } from './router/pns_dp_meander_placer.js';
 export { PnsMeanderSkewPlacer } from './router/pns_meander_skew_placer.js';
+// `PNS::DIFF_PAIR_PLACER`, the interactive differential-pair routing session.
+//
+// `DpPlacerHost`, `DpPlacerSizes` and `DEFAULT_DP_PLACER_SIZES` are exported
+// from the module but deliberately **not** re-exported here. They stand in for
+// `PNS::ROUTER`, `PNS::PLACEMENT_ALGO` and `PNS::SIZES_SETTINGS`, none of which
+// is ported; `PNS::LINE_PLACER` needs the same three and will declare its own
+// until someone ports them properly, and two modules exporting rival names
+// through this file is exactly the conflict that costs a merge. Import them
+// from `router/pns_diff_pair_placer.js` directly.
+export {
+  DP_ERR_NO_COMPLEMENTARY_NET,
+  DP_ERR_NO_STARTING_POINT,
+  DpPlacerState,
+  PnsDiffPairPlacer,
+  diffPairViaGap,
+  dpErrNoCoupledStartingPoint,
+  effectiveDiffPairViaGap,
+  findDpPrimitivePair,
+  getDanglingAnchor,
+  pushoutForce,
+  type DpPrimitivePairSearch,
+} from './router/pns_diff_pair_placer.js';
