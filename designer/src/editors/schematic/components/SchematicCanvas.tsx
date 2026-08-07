@@ -111,15 +111,6 @@ import { SchematicGl } from '../../../render/gl/schematic_gl.js';
 import { movingIds } from '../moving_ids.js';
 
 /**
- * Opt in to the WebGL renderer with `?renderer=gl` (#449).
- *
- * Read once, at module load, because switching renderers mid-session would
- * mean tearing down a GL context and rebuilding canvases for no good reason.
- * A URL parameter rather than a setting while the two are being compared: it
- * makes an A/B on the same document one edit of the address bar, and it does
- * not add a preference we would have to keep or remove later.
- */
-/**
  * `?perf=1` records what each repaint cost and which path drew it, on
  * `window.__perf`.
  *
@@ -172,8 +163,23 @@ function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0:
   if (perf.last.length > 40) perf.last.shift();
 }
 
+/**
+ * The WebGL renderer, on by default; `?renderer=canvas` opts out.
+ *
+ * It was opt-in while it was being compared against the Canvas2D path, and
+ * leaving it that way past the point of decision was a mistake: the two paths
+ * behave very differently under a drag or a zoom, and the flag meant a plain
+ * URL quietly exercised the old one. Improvements were reported against a
+ * renderer that was not running.
+ *
+ * `?renderer=canvas` is kept because a renderer swap should stay reversible
+ * without a deploy, and because a browser with no WebGL2 falls back to Canvas2D
+ * anyway (`SchematicGl.create` returns null and `drawScene` takes the old
+ * path). An editor that renders beats one that renders quickly.
+ */
 const GL_RENDERER =
-  typeof location !== 'undefined' && new URLSearchParams(location.search).get('renderer') === 'gl';
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('renderer') !== 'canvas';
 
 /**
  * Every item a move changes the look of, by the id the painter keys them under.
@@ -1338,7 +1344,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // GPU once and every later pan or zoom is a uniform update. That replaces
     // the ~70 ms unchunked repaint `startSceneRender` does after each gesture,
     // which is what makes the wheel feel like it stutters.
-    const gl = glRef.current;
+    // The GL recorder does not draw images yet, so a sheet carrying one is
+    // painted by Canvas2D rather than silently losing it. Checked per frame
+    // because it is a property of the document being drawn, and it costs a
+    // length comparison.
+    const gl = doc.images.length === 0 ? glRef.current : null;
     const dragSpec = modeRef.current === 'move' ? moveSpecRef.current : null;
 
     // A drag on the GL path: the document without the moving items stays on the
