@@ -47,6 +47,18 @@ const board = (): Board =>
 )`),
   );
 
+/** The same board with a reference image dropped on it. */
+const boardWithImage = (): Board =>
+  readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (segment (start 100 100) (end 120 100) (width 0.25) (layer "F.Cu") (net 0))
+  (image (at 110 105) (layer "F.Cu")
+    (data "aVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUFFQUFBQUJDQVlBQUFBZkZjU0pBQUFBQzBsRVFWUjQybUw4"))
+)`),
+  );
+
 const VISIBLE = new Set(['F.Cu', 'B.Cu', 'Edge.Cuts']);
 
 const record = (viewScale: number): Scene => {
@@ -100,5 +112,47 @@ describe('recordBoardScene', () => {
     let worst = 0;
     for (let i = 0; i < a.length; i++) worst = Math.max(worst, Math.abs(a[i]! - b[i]!));
     expect(worst).toBe(0);
+  });
+});
+
+/**
+ * Everything on a `BoardScene` that is *not* a path.
+ *
+ * `PcbEditor` swaps the factory the board is compiled through when the GL layer
+ * is drawing, and it reads three things off the resulting scene that have
+ * nothing to do with the backend: `bbox` for zoom-to-fit, `images` for the
+ * decode-and-blit pass, `netLabels` for the zoom-dependent track names. All
+ * three are computed alongside the paths rather than from them, so a factory
+ * swap has no business changing them — and if it did, the symptom would be
+ * zoom-to-fit landing on empty space, or net labels quietly disappearing,
+ * neither of which reads as a renderer bug.
+ */
+describe('a GL-compiled scene keeps what the editor reads that is not a path', () => {
+  it('measures the same bounding box', () => {
+    const scene = buildScene(board(), {}, GL_PATH_FACTORY);
+    expect(scene.bbox).not.toBeNull();
+    // The board spans 90..130 mm in X and 90..118 mm in Y, plus stroke widths
+    // and the pads' own extent. pcbnew's IU is 1 nm.
+    const bb = scene.bbox!;
+    expect(bb.minX / 1e6).toBeGreaterThan(85);
+    expect(bb.minX / 1e6).toBeLessThan(91);
+    expect(bb.maxX / 1e6).toBeGreaterThan(129);
+    expect(bb.maxX / 1e6).toBeLessThan(135);
+  });
+
+  it('still carries the track net labels', () => {
+    const scene = buildScene(board(), {}, GL_PATH_FACTORY);
+    expect(scene.netLabels.map((l) => l.text)).toContain('VCC');
+  });
+
+  it('still reports a reference image, which is why the board falls back', () => {
+    // The editor's one hard reason to keep a board on Canvas2D: `GlRecorder`
+    // has no `drawImage`, so a picture recorded into a vertex buffer is a
+    // picture lost. The fallback is only possible because the scene says so
+    // here — and it has to say so through *this* factory, since the scene the
+    // editor tests is the one it just compiled for the GPU.
+    const scene = buildScene(boardWithImage(), {}, GL_PATH_FACTORY);
+    expect(scene.images).toHaveLength(1);
+    expect(scene.images[0]!.layer).toBe('F.Cu');
   });
 });

@@ -104,6 +104,16 @@ export class PcbGl {
   private recorded: BoardContentKey | null = null;
   /** Timing of the last record, for `?perf=1` and for tests. */
   lastRecordMs = 0;
+  /**
+   * How many times the board has been recorded.
+   *
+   * The number `?perf=1` exists to show. Recording is the expensive half, and
+   * the claim this whole backend rests on is that it happens on an edit and not
+   * on a pan, a zoom or a pointer move — which is a claim about a count, not
+   * about a duration. Timing the last record cannot distinguish "recorded once"
+   * from "recorded every frame at the same cost".
+   */
+  recordCount = 0;
 
   private constructor(private readonly device: GlDevice) {}
 
@@ -123,6 +133,7 @@ export class PcbGl {
       this.device.upload(this.scene);
       this.recorded = content;
       this.lastRecordMs = performance.now() - t0;
+      this.recordCount++;
     }
 
     if (preview) {
