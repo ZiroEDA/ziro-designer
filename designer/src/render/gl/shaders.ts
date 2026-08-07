@@ -169,6 +169,26 @@ float distToSegment(vec2 p, vec2 a, vec2 b) {
 
 void main() {
   float d = distToSegment(v_pixel, v_s0, v_s1);
+
+  // A hairline is drawn solid, not antialiased.
+  //
+  // The ramp below is right for anything with width to spare, but a stroke
+  // already clamped to a single pixel has none: the ramp spreads it over two
+  // columns at partial alpha, so it comes out grey. Stroke-font text is
+  // thousands of such strokes, which is why our sheet read as washed out beside
+  // desktop KiCad's black at the same zoom, and why snapping alone did not fix
+  // it: glyphs are mostly diagonals and curves, so an axis-aligned snap never
+  // touched them.
+  //
+  // KiCad splits the same way, with a separate path for lines at or below one
+  // pixel (SHADER_LINE_B in common/gal/shaders/kicad_vert.glsl) rather than
+  // thinning the antialiased one.
+  if (v_halfPx <= 0.51) {
+    if (d > 0.5) discard;
+    fragColor = v_color;
+    return;
+  }
+
   // One pixel of ramp: the coverage estimate that gives antialiased edges,
   // round caps and round joins in the same expression.
   float cover = clamp(v_halfPx + 0.5 - d, 0.0, 1.0);
