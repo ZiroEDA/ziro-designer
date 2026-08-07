@@ -62,6 +62,28 @@ import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 
+/**
+ * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
+ *
+ * Module state like the rest of the per-render settings below: the drawing
+ * functions are spread over three passes and threading a filter through every
+ * one of them would be a far larger change than the feature is worth.
+ */
+let g_hidden: ReadonlySet<string> | null = null;
+let g_only: ReadonlySet<string> | null = null;
+
+/**
+ * Whether an item is part of this render.
+ *
+ * Deliberately cheap and called once per item per pass: on a five thousand
+ * item sheet the whole filter costs a fraction of a millisecond, which is the
+ * point, since a drag re-renders the preview on every pointer move.
+ */
+function drawable(id: string): boolean {
+  if (g_only) return g_only.has(id);
+  return !g_hidden || !g_hidden.has(id);
+}
+
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
 let g_scale = 1;
@@ -274,6 +296,29 @@ export interface RenderOpts {
    *  to its parent instead of its anchor cross (SCH_PAINTER::draw(SCH_FIELD):
    *  `aField->IsMoving()`). */
   movingSelection?: boolean;
+  /**
+   * Item ids to leave out of this render.
+   *
+   * KiCad caches each item's geometry separately, so re-drawing one item
+   * leaves every other item's cached vertices alone
+   * (`VIEW::updateItemGeometry`, common/view/view.cpp). For moves specifically,
+   * `SCH_MOVE_TOOL` puts the dragged items in a preview group
+   * (`m_view->AddToPreview` / `ClearPreview`) painted over a static background.
+   *
+   * Both need the same thing from the painter: draw the sheet *without* the
+   * items being moved, so they are not painted twice, once stale from the
+   * background and once live under the cursor.
+   *
+   * Absent or empty draws everything, which is what every existing caller
+   * wants and gets.
+   */
+  hiddenItems?: ReadonlySet<string>;
+  /**
+   * Item ids to draw to the exclusion of all others: the other half of the
+   * pair above, and what renders the preview. Its cost is set by how many
+   * items are moving, not by how large the sheet is.
+   */
+  onlyItems?: ReadonlySet<string>;
   /** selection.thickness (mils). */
   selectionThicknessMils: number;
   /** selection.highlight_thickness (mils). */
@@ -466,6 +511,10 @@ export function renderSchematic(
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
+  // Empty sets are normalised to null so the common case (draw everything)
+  // costs a null check rather than a Set lookup per item per pass.
+  g_hidden = opts.hiddenItems && opts.hiddenItems.size > 0 ? opts.hiddenItems : null;
+  g_only = opts.onlyItems && opts.onlyItems.size > 0 ? opts.onlyItems : null;
   // The stroke font draws ~{...} overbars at the settings ratio (m_OverbarHeight).
   setOverbarHeightRatio(opts.overbarHeightRatio);
   const libById = new Map<string, LibSymbol>();
@@ -493,7 +542,7 @@ export function renderSchematic(
   if (opts.grid.show) drawGrid(ctx, viewport, theme, canvasWidth, canvasHeight, opts.grid);
   // Page limits (LAYER_SCHEMATIC_PAGE_LIMITS): the paper-edge outline,
   // toggled by "Show page limits" in the Display Options.
-  if (opts.showPageLimits) {
+  if (opts.showPageLimits && !g_only) {
     const page = paperSizeIU(sch.paper);
     if (page) {
       ctx.strokeStyle = theme.pageLimits;
@@ -502,7 +551,13 @@ export function renderSchematic(
       ctx.strokeRect(0, 0, page.w, page.h);
     }
   }
-  if (opts.showDrawingSheet !== false) drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
+  // The page frame and title block belong to the sheet, not to any item, so
+  // they have no id to filter on. `onlyItems` is the preview pass and must draw
+  // *only* the items named: including the frame would repaint it on every
+  // pointer move of a drag, and draw it twice over the background that already
+  // has it.
+  if (opts.showDrawingSheet !== false && !g_only)
+    drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
 
   const hl = (id: string): boolean => highlight?.has(id) ?? false;
 
@@ -542,7 +597,8 @@ export function renderSchematic(
   if (highlight && highlight.size > 0) {
     ctx.strokeStyle = HALO_COLOR;
     sch.lines.forEach((line, i) => {
-      if (!hl(refId('line', line.uuid, i))) return;
+      const id = refId('line', line.uuid, i);
+      if (!drawable(id) || !hl(id)) return;
       const base = line.stroke && line.stroke.width > 0 ? line.stroke.width : g_defaultPen;
       ctx.lineWidth = base + shadowWidth;
       strokeLine(ctx, line.start, line.end);
@@ -553,7 +609,7 @@ export function renderSchematic(
     ctx.strokeStyle = HALO_COLOR;
     sch.junctions.forEach((j, i) => {
       const jid = refId('junction', j.uuid, i);
-      if (!hl(jid)) return;
+      if (!drawable(jid) || !hl(jid)) return;
       const d =
         j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
       if (d <= 1) return; // settings size "None": nothing to halo
@@ -567,13 +623,15 @@ export function renderSchematic(
     // (UpdateNetHighlighting walks labels, sheet pins, entries and no-connects,
     // not just wires): halo here, redrawn in the brightened colour below.
     sch.busEntries.forEach((be, i) => {
-      if (!hl(refId('busentry', be.uuid, i))) return;
+      const id = refId('busentry', be.uuid, i);
+      if (!drawable(id) || !hl(id)) return;
       const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
       ctx.lineWidth = base + shadowWidth;
       strokeLine(ctx, be.at, { x: be.at.x + be.size.x, y: be.at.y + be.size.y });
     });
     sch.noConnects.forEach((nc, i) => {
-      if (!hl(refId('noconnect', nc.uuid, i))) return;
+      const id = refId('noconnect', nc.uuid, i);
+      if (!drawable(id) || !hl(id)) return;
       const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
       ctx.lineWidth = g_defaultPen + shadowWidth;
       strokeLine(
@@ -588,11 +646,13 @@ export function renderSchematic(
       );
     });
     sch.labels.forEach((l, i) => {
-      if (l.effects?.hidden || !hl(refId('label', l.uuid, i))) return;
+      const id = refId('label', l.uuid, i);
+      if (l.effects?.hidden || !drawable(id) || !hl(id)) return;
       drawLabel(ctx, l, theme, { color: HALO_COLOR, width: shadowWidth });
     });
     sch.sheets.forEach((sh, si) => {
       const shId = refId('sheet', sh.uuid, si);
+      if (!drawable(shId)) return;
       sh.pins.forEach((p, k) => {
         if (!hl(`${shId}:sheetpin${k}`)) return;
         drawLabel(ctx, sheetPinAsLabel(p), theme, { color: HALO_COLOR, width: shadowWidth });
@@ -604,6 +664,7 @@ export function renderSchematic(
   // graphic polyline uses its own stroke colour (KiCad graphics carry their colour)
   // and dash style, and draws all of its vertices, not just the first segment.
   sch.lines.forEach((line, i) => {
+    if (!drawable(refId('line', line.uuid, i))) return;
     const pts = line.points ?? [line.start, line.end];
     let minX = Infinity,
       minY = Infinity,
@@ -692,6 +753,7 @@ export function renderSchematic(
   // Wire-to-bus entries: a 45-degree stub from `at` to `at + size`, drawn on the
   // wire layer (SCH_PAINTER::draw(SCH_BUS_ENTRY_BASE): SCH_BUS_WIRE_ENTRY -> LAYER_WIRE).
   sch.busEntries.forEach((be, i) => {
+    if (!drawable(refId('busentry', be.uuid, i))) return;
     const ex = be.at.x + be.size.x,
       ey = be.at.y + be.size.y;
     if (
@@ -713,33 +775,44 @@ export function renderSchematic(
 
   // Sheet-level graphic shapes (rectangle/circle/arc on the notes layer): the
   // item's own stroke colour/dash, else LAYER_NOTES; colour fills honoured.
-  for (const g of sch.graphics) drawSheetGraphic(ctx, g, theme);
+  sch.graphics.forEach((g, i) => {
+    if (!drawable(refId('graphic', undefined, i))) return;
+    drawSheetGraphic(ctx, g, theme);
+  });
 
   // Text boxes (SCH_TEXTBOX): bordered box with word-wrapped text inside.
-  for (const tb of sch.textBoxes) drawTextBox(ctx, tb, theme);
+  sch.textBoxes.forEach((tb, i) => {
+    if (!drawable(refId('textbox', tb.uuid, i))) return;
+    drawTextBox(ctx, tb, theme);
+  });
 
   // Tables (SCH_TABLE): cell text, then border + row/column separators.
-  for (const t of sch.tables) drawTable(ctx, t, theme);
+  sch.tables.forEach((t, i) => {
+    if (!drawable(refId('table', t.uuid, i))) return;
+    drawTable(ctx, t, theme);
+  });
 
   // Embedded bitmaps (SCH_BITMAP): centred at `at`, sized in pixels times
   // BITMAP_BASE's m_pixelSizeIu at the image's own resolution, times the item's
   // scale. The resolution comes from the file's pHYs chunk, defaulting to 300
   // ppi, so this is the same extent hit-testing and the point editor use.
-  for (const im of sch.images) {
+  sch.images.forEach((im, imIndex) => {
+    if (!drawable(refId('image', im.uuid, imIndex))) return;
     const entry = imageFor(im);
-    if (!entry) continue;
+    if (!entry) return;
     const k = iuPerPixel(imagePPI(im.data)) * im.scale;
     const w = entry.img.naturalWidth * k;
     const h = entry.img.naturalHeight * k;
-    if (!inView(im.at.x - w / 2, im.at.y - h / 2, im.at.x + w / 2, im.at.y + h / 2)) continue;
+    if (!inView(im.at.x - w / 2, im.at.y - h / 2, im.at.x + w / 2, im.at.y + h / 2)) return;
     ctx.drawImage(entry.img, im.at.x - w / 2, im.at.y - h / 2, w, h);
-  }
+  });
 
   // Junctions (recoloured when on the highlighted net); an explicit colour
   // overrides the layer colour (SCH_JUNCTION::GetJunctionColor).
   sch.junctions.forEach((j, i) => {
     if (!inView(j.at.x, j.at.y, j.at.x, j.at.y)) return;
     const jid = refId('junction', j.uuid, i);
+    if (!drawable(jid)) return;
     // Diameter 0 = "use schematic settings" (clamped to ≥170% of the net's
     // wire width when a netclass sets one); a settings size of ≤1 IU is the
     // "None" choice, the junction exists but draws no dot (sch_junction.cpp).
@@ -757,6 +830,7 @@ export function renderSchematic(
     ctx.lineWidth = g_defaultPen;
     const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
     sch.noConnects.forEach((nc, i) => {
+      if (!drawable(refId('noconnect', nc.uuid, i))) return;
       if (!inView(nc.at.x - delta, nc.at.y - delta, nc.at.x + delta, nc.at.y + delta)) return;
       ctx.strokeStyle = hl(refId('noconnect', nc.uuid, i)) ? theme.netHighlight : theme.noConnect;
       ctx.beginPath();
@@ -818,6 +892,7 @@ export function renderSchematic(
   const fieldDraws = fieldDrawsFor(sch, libById, opts.showHiddenFields);
   const bodyBoxes = bodyBoxesFor(sch, libById);
   sch.symbols.forEach((sym, si) => {
+    if (!drawable(refId('symbol', sym.uuid, si))) return;
     const lib = libById.get(sym.libId);
     const bb: BBox = bodyBoxes[si]!;
     const bodyVisible = inView(bb.minX, bb.minY, bb.maxX, bb.maxY);
@@ -900,7 +975,7 @@ export function renderSchematic(
   // brightened colour, flag and text alike (SCH_PAINTER::getRenderColor for an
   // IsBrightened() item).
   sch.labels.forEach((l, i) => {
-    if (l.effects?.hidden) return;
+    if (l.effects?.hidden || !drawable(refId('label', l.uuid, i))) return;
     const h = l.effects?.fontSize?.[0] ?? 1.27 * MM;
     const span = h * (Math.max(1, l.text.length) + 4);
     if (!inView(l.at.x - span, l.at.y - span, l.at.x + span, l.at.y + span)) return;
@@ -918,6 +993,7 @@ export function renderSchematic(
   // Sheetfile fields, and pins drawn exactly as hierarchical labels (the
   // painter casts SCH_SHEET_PIN to SCH_HIERLABEL) in the LAYER_SHEETLABEL colour.
   sch.sheets.forEach((sh, si) => {
+    if (!drawable(refId('sheet', sh.uuid, si))) return;
     const pad = 8 * MM; // fields sit just outside the rectangle
     if (!inView(sh.at.x - pad, sh.at.y - pad, sh.at.x + sh.size.w + pad, sh.at.y + sh.size.h + pad))
       return;
@@ -1801,7 +1877,8 @@ function drawSelectionShadows(
 
   // Wires / buses: wider stroke of the segment.
   sch.lines.forEach((l, i) => {
-    if (!selection.has(refId('line', l.uuid, i))) return;
+    const id = refId('line', l.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const base = l.stroke && l.stroke.width > 0 ? l.stroke.width : g_defaultPen;
     ctx.lineWidth = base + width;
     strokeLine(ctx, l.start, l.end);
@@ -1810,7 +1887,7 @@ function drawSelectionShadows(
   // Junctions: a slightly larger filled disc under the dot.
   sch.junctions.forEach((j, i) => {
     const jid = refId('junction', j.uuid, i);
-    if (!selection.has(jid)) return;
+    if (!drawable(jid) || !selection.has(jid)) return;
     const d = j.diameter > 0 ? j.diameter : (g_netOverrides?.junctions.get(jid) ?? g_junctionDiam);
     if (d <= 1) return; // settings size "None": no dot to underlay
     const r = d / 2 + width / 2;
@@ -1821,7 +1898,8 @@ function drawSelectionShadows(
 
   // No-connect flags: a wider X under the mark.
   sch.noConnects.forEach((nc, i) => {
-    if (!selection.has(refId('noconnect', nc.uuid, i))) return;
+    const id = refId('noconnect', nc.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     ctx.lineWidth = g_defaultPen + width;
     const delta = Math.max(NOCONNECT_SIZE, g_defaultPen * 3) / 2;
     ctx.beginPath();
@@ -1834,7 +1912,8 @@ function drawSelectionShadows(
 
   // Symbols: re-stroke the body graphics and pins in the shadow colour.
   sch.symbols.forEach((sym, i) => {
-    if (!selection.has(refId('symbol', sym.uuid, i))) return;
+    const id = refId('symbol', sym.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const lib = libById.get(sym.libId);
     if (!lib) return;
     const t = symbolTransform(sym.angle, sym.mirror);
@@ -1874,7 +1953,8 @@ function drawSelectionShadows(
 
   // Labels: re-stroke the flag/box geometry wider in the shadow colour.
   sch.labels.forEach((l, i) => {
-    if (l.effects?.hidden || !selection.has(refId('label', l.uuid, i))) return;
+    const id = refId('label', l.uuid, i);
+    if (l.effects?.hidden || !drawable(id) || !selection.has(id)) return;
     drawLabel(ctx, l, theme, { color, width });
   });
 
