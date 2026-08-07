@@ -84,6 +84,26 @@ function drawable(id: string): boolean {
   return !g_hidden || !g_hidden.has(id);
 }
 
+/**
+ * Whether a sub-item is part of this render: a symbol's field, a sheet's pin.
+ *
+ * Sub-items carry their own id (`<symbol>:field0`) and can be selected and
+ * dragged on their own, but they still belong to a parent, so the two ids have
+ * to be considered together:
+ *
+ *  - hiding a parent hides its children, or dragging a symbol would leave its
+ *    reference and value text behind at the old position;
+ *  - naming a parent under `onlyItems` draws its children with it, so dragging
+ *    a symbol carries its text along;
+ *  - naming a child alone draws just the child, which is what dragging a field
+ *    out from under its symbol does.
+ */
+function drawableChild(parentId: string, childId: string): boolean {
+  if (g_only) return g_only.has(parentId) || g_only.has(childId);
+  if (!g_hidden) return true;
+  return !g_hidden.has(parentId) && !g_hidden.has(childId);
+}
+
 // Per-render state (single-threaded): the visible world rect for culling and the
 // current zoom, so text below a few screen pixels is drawn cheaply.
 let g_scale = 1;
@@ -899,10 +919,18 @@ export function renderSchematic(
   const fieldDraws = fieldDrawsFor(sch, libById, opts.showHiddenFields);
   const bodyBoxes = bodyBoxesFor(sch, libById);
   sch.symbols.forEach((sym, si) => {
-    if (!drawable(refId('symbol', sym.uuid, si))) return;
+    // A symbol's body and each of its fields are separate items to the filter:
+    // a field carries its own id (`<symbol>:field<n>`) and is dragged on its
+    // own. Guarding the whole loop on the symbol's id drew a dragged field
+    // twice, once from the background and once from the preview, and left a
+    // selection halo behind at the old position.
+    const symDrawable = drawable(refId('symbol', sym.uuid, si));
+    const fieldDrawable = (index: number): boolean =>
+      drawableChild(refId('symbol', sym.uuid, si), fieldId(refId('symbol', sym.uuid, si), index));
+    if (!symDrawable && !(fieldDraws[si] ?? []).some((fd) => fieldDrawable(fd.index))) return;
     const lib = libById.get(sym.libId);
     const bb: BBox = bodyBoxes[si]!;
-    const bodyVisible = inView(bb.minX, bb.minY, bb.maxX, bb.maxY);
+    const bodyVisible = symDrawable && inView(bb.minX, bb.minY, bb.maxX, bb.maxY);
     if (lib && bodyVisible) {
       const t = symbolTransform(sym.angle, sym.mirror);
       const pins = {
@@ -960,6 +988,7 @@ export function renderSchematic(
     const powerFieldsLit =
       !!lib?.isPower && (highlight?.has(`${refId('symbol', sym.uuid, si)}:pin0`) ?? false);
     for (const fd of fieldDraws[si] ?? []) {
+      if (!fieldDrawable(fd.index)) continue;
       if (!inView(fd.minX, fd.minY, fd.maxX, fd.maxY)) continue;
       const color = fd.hidden
         ? theme.hidden
@@ -1953,6 +1982,10 @@ function drawSelectionShadows(
     const symId = refId('symbol', sym.uuid, si);
     const symbolSelected = selection.has(symId);
     for (const fd of shadowFields[si] ?? []) {
+      // A field's halo follows the field, not its symbol: a dragged field must
+      // not leave its highlight sitting at the old position, and a dragged
+      // symbol must take its fields' halos with it.
+      if (!drawableChild(symId, fieldId(symId, fd.index))) continue;
       if (!symbolSelected && !selection.has(fieldId(symId, fd.index))) continue;
       drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic, width);
     }
