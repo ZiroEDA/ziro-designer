@@ -620,6 +620,24 @@ export class PnsNode implements CollisionNode {
   }
 
   /**
+   * `delete aNode` — upstream's other rollback, the one `SHOVE` uses.
+   *
+   * {@link killChildren} destroys a node's *branches*; this destroys the node
+   * itself, its branches first. It is exactly `~NODE()`: children depth-first,
+   * then this node's own joints, garbage, parent link and index.
+   * `SHOVE::reduceSpringback` and the failure path of `SHOVE::Run` both need it
+   * — popping a spring-back frame means that frame's overlay stops existing, and
+   * nothing else in the public surface expresses that.
+   *
+   * After this the node answers nothing and must not be used again, which is the
+   * same contract upstream's dangling pointer carries, made visible.
+   */
+  destroy(): void {
+    this.releaseChildren();
+    this.destroyNode();
+  }
+
+  /**
    * Apply a branch's delta to this node, then destroy every branch of it.
    *
    * ### Five things not to miss
