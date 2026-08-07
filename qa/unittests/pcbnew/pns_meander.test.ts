@@ -783,11 +783,23 @@ describe('MEANDER_SETTINGS', () => {
 // ---------------------------------------------------------------------------
 
 describe('the SEG and SHAPE_ARC operations underneath', () => {
-  it('SEG::Length truncates the norm rather than rounding it', () => {
+  it('SEG::Length rounds the norm, and takes the 45-degree short cut', () => {
+    // `A - B` is a VECTOR2I, so `EuclideanNorm()` is already the int overload
+    // and has rounded before `Length`'s int return type ever sees it. There is
+    // no double left to truncate.
     expect(segLength({ a: { x: 0, y: 0 }, b: { x: 3, y: 4 } })).toBe(5);
-    // hypot(2, 2) = 2.828: truncated to 2, where rounding would say 3.
-    expect(segLength({ a: { x: 0, y: 0 }, b: { x: 2, y: 2 } })).toBe(2);
+
+    // The diagonals go through upstream's `KiROUND( |x| * M_SQRT2 )` short cut
+    // rather than hypot: 2.828 -> 3, 7.071 -> 7. Truncating gives 2 and 7, so
+    // the second of these cannot tell the two rules apart on its own.
+    expect(segLength({ a: { x: 0, y: 0 }, b: { x: 2, y: 2 } })).toBe(3);
     expect(segLength({ a: { x: 0, y: 0 }, b: { x: 5, y: 5 } })).toBe(7);
+
+    // The plain hypot path, where the fraction reaches a half: 3.606 -> 4.
+    expect(segLength({ a: { x: 0, y: 0 }, b: { x: 2, y: 3 } })).toBe(4);
+
+    // On an axis the answer is exact and neither rule can differ.
+    expect(segLength({ a: { x: 0, y: 0 }, b: { x: 7, y: 0 } })).toBe(7);
   });
 
   it('SEG::Contains allows three square IU of slop and no more', () => {
