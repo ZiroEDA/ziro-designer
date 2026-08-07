@@ -521,9 +521,16 @@ export function renderSchematic(
   for (const lib of sch.libSymbols) libById.set(lib.libId, lib);
 
   // Background.
+  //
+  // Not under `onlyItems`: that is the preview pass, painted *over* a
+  // background someone else has already drawn. Clearing the canvas here erased
+  // it and left the sheet showing nothing but the item under the cursor. The
+  // drawing sheet and the page limits are held back for the same reason.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = theme.background;
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  if (!g_only) {
+    ctx.fillStyle = theme.background;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  }
 
   // World transform.
   const { scale, offsetX, offsetY } = viewport;
