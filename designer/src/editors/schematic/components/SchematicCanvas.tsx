@@ -120,6 +120,29 @@ import { SchematicGl } from '../../../render/gl/schematic_gl.js';
  */
 const GL_RENDERER =
   typeof location !== 'undefined' && new URLSearchParams(location.search).get('renderer') === 'gl';
+
+/**
+ * Every item a move changes the look of, by the id the painter keys them under.
+ *
+ * These are the items that go in the preview and are held out of the static
+ * background. `refId` returns an item's uuid when it has one, so a split that
+ * inserts a wire mid-drag does not renumber anything and these stay valid for
+ * the whole gesture.
+ *
+ * A stub wire added by the move exists only in the moved document, so it is
+ * drawn by the preview and has nothing to hide from the background.
+ */
+function movingIds(spec: MoveSpec): ReadonlySet<string> {
+  const ids = new Set<string>([...spec.fullIds, ...spec.wireStart, ...spec.wireEnd]);
+  for (const ride of spec.labelRides) ids.add(ride.id);
+  for (const split of spec.splits) {
+    ids.add(split.lineUuid); // the wire being cut redraws as its near half
+    ids.add(split.newUuid);
+    ids.add(split.junctionUuid);
+  }
+  for (const stub of spec.newWires) if (stub.uuid) ids.add(stub.uuid);
+  return ids;
+}
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 
@@ -646,6 +669,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const moveStartRef = useRef<Vec2 | null>(null);
   const moveDeltaRef = useRef<Vec2 | null>(null);
   const moveSpecRef = useRef<MoveSpec | null>(null);
+  /**
+   * The sheet without the items being dragged, painted once per drag.
+   *
+   * KiCad's static view under `SCH_MOVE_TOOL`'s preview group. Keyed on the
+   * move spec and the viewport, so it is rebuilt when the drag changes shape
+   * (a new stub, a split) or the view moves under it, and reused on every
+   * ordinary pointer move.
+   */
+  const dragBgRef = useRef<{ canvas: HTMLCanvasElement; view: Viewport; spec: MoveSpec } | null>(
+    null,
+  );
   // 'move' leaves connected wires behind (moveItems), 'drag' rubber-bands them
   // (moveWithConnections/orthoMove), SCH_MOVE_TOOL's two modes.
   const moveKindRef = useRef<'move' | 'drag'>('drag');
@@ -1271,15 +1305,79 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // release the stale one appeared to teleport.
     gl?.clear();
 
-    // An attached ghost moves with the cursor, so it is painted straight to the
-    // screen and the raster is dropped rather than having the ghost baked in.
+    // A drag repaints only what is moving, over a background painted once.
+    //
+    // This is KiCad's arrangement: `SCH_MOVE_TOOL` puts the dragged items in a
+    // preview group (`m_view->AddToPreview` / `ClearPreview`) over an otherwise
+    // static view, so a pointer move costs what the moving items cost and not
+    // what the sheet costs. Repainting the whole sheet per pointer move is why
+    // a dragged symbol trailed the cursor by the length of a full repaint,
+    // which grew with the size of the sheet rather than with what was dragged.
+    const moveSpec = modeRef.current === 'move' ? moveSpecRef.current : null;
+    if (ghosting && moveSpec) {
+      const moving = movingIds(moveSpec);
+      const bg = dragBgRef.current;
+      const reusable =
+        bg &&
+        bg.spec === moveSpec &&
+        bg.canvas.width === canvas.width &&
+        bg.canvas.height === canvas.height &&
+        bg.view.scale === vp.scale &&
+        bg.view.offsetX === vp.offsetX &&
+        bg.view.offsetY === vp.offsetY;
+      if (!reusable) {
+        // Once per drag (and again if the view moves under it): the sheet
+        // without the items being dragged.
+        const work = document.createElement('canvas');
+        work.width = canvas.width;
+        work.height = canvas.height;
+        const wctx = work.getContext('2d');
+        if (wctx) {
+          renderSchematic(
+            wctx,
+            moveBaseRef.current ?? schematicRef.current,
+            vp,
+            theme,
+            work.width,
+            work.height,
+            selection,
+            highlight,
+            { ...renderOpts, hiddenItems: moving },
+          );
+          dragBgRef.current = { canvas: work, view: { ...vp }, spec: moveSpec };
+        }
+      }
+      const ready = dragBgRef.current;
+      if (ready) {
+        sceneCacheRef.current = null;
+        rasterStaleRef.current = true;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(ready.canvas, 0, 0);
+        // Only the moving items, at the cursor. `movingSelection` is what draws
+        // a dragged field's umbilical back to its symbol.
+        renderSchematic(ctx, doc, vp, theme, canvas.width, canvas.height, selection, highlight, {
+          ...renderOpts,
+          onlyItems: moving,
+          movingSelection: true,
+        });
+        onScaleChange?.(vp.scale);
+        return;
+      }
+    }
+
+    // Any other ghost (a symbol attached to the cursor, a handle drag) still
+    // paints straight to the screen; the raster is dropped rather than having
+    // the ghost baked into it.
     if (ghosting) {
+      dragBgRef.current = null;
       sceneCacheRef.current = null;
       rasterStaleRef.current = true;
       paintSchematic(ctx, doc, vp, canvas.width, canvas.height, modeRef.current === 'move');
       onScaleChange?.(vp.scale);
       return;
     }
+    // The drag is over: the background is stale and must not be reused.
+    dragBgRef.current = null;
 
     // Sheets that can be repainted inside a frame always are, so panning and
     // zooming them is exact at every step and never has to resolve afterwards.
