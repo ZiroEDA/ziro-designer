@@ -118,6 +118,57 @@ import { SchematicGl } from '../../../render/gl/schematic_gl.js';
  * makes an A/B on the same document one edit of the address bar, and it does
  * not add a preference we would have to keep or remove later.
  */
+/**
+ * `?perf=1` records what each repaint cost and which path drew it, on
+ * `window.__perf`.
+ *
+ * Added because every performance claim made about this canvas so far was
+ * measured by calling the renderer directly from a script, which says nothing
+ * about what a frame costs in a browser. The first time it was measured here,
+ * a drag turned out not to repaint at all, which invalidated the conclusion it
+ * was supposed to support.
+ */
+const PERF = typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf');
+
+interface PerfCounters {
+  frames: number;
+  preview: number;
+  ghostFull: number;
+  blit: number;
+  full: number;
+  rebuilds: number;
+  totalMs: number;
+  maxMs: number;
+  last: number[];
+}
+
+const perf: PerfCounters = {
+  frames: 0,
+  preview: 0,
+  ghostFull: 0,
+  blit: 0,
+  full: 0,
+  rebuilds: 0,
+  totalMs: 0,
+  maxMs: 0,
+  last: [],
+};
+if (PERF && typeof window !== 'undefined') {
+  (window as unknown as { __perf: PerfCounters }).__perf = perf;
+}
+
+/** Record one repaint: which branch drew it, and how long it took. */
+function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full', t0: number): void {
+  if (!PERF) return;
+  const ms = performance.now() - t0;
+  perf.frames++;
+  perf[branch]++;
+  perf.totalMs += ms;
+  if (ms > perf.maxMs) perf.maxMs = ms;
+  perf.last.push(Math.round(ms * 10) / 10);
+  if (perf.last.length > 40) perf.last.shift();
+}
+
 const GL_RENDERER =
   typeof location !== 'undefined' && new URLSearchParams(location.search).get('renderer') === 'gl';
 
@@ -1261,6 +1312,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   /** The schematic layer: a blit of the retained raster, or a direct paint. */
   const drawScene = useCallback(() => {
+    const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
     const vp = viewportRef.current;
     if (!canvas || !vp) return;
@@ -1326,6 +1378,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         bg.view.offsetX === vp.offsetX &&
         bg.view.offsetY === vp.offsetY;
       if (!reusable) {
+        perf.rebuilds++;
         // Once per drag (and again if the view moves under it): the sheet
         // without the items being dragged.
         const work = document.createElement('canvas');
@@ -1360,6 +1413,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           onlyItems: moving,
           movingSelection: true,
         });
+        notePaint('preview', __t0);
         onScaleChange?.(vp.scale);
         return;
       }
@@ -1373,6 +1427,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       sceneCacheRef.current = null;
       rasterStaleRef.current = true;
       paintSchematic(ctx, doc, vp, canvas.width, canvas.height, modeRef.current === 'move');
+      notePaint('ghostFull', __t0);
       onScaleChange?.(vp.scale);
       return;
     }
@@ -1386,6 +1441,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       sceneCacheRef.current = null;
       rasterStaleRef.current = true;
       paintSchematic(ctx, doc, vp, canvas.width, canvas.height);
+      notePaint('full', __t0);
       onScaleChange?.(vp.scale);
       return;
     }
@@ -1421,6 +1477,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     ctx.drawImage(cache.canvas, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    notePaint('blit', __t0);
     onScaleChange?.(vp.scale);
 
     // A changed sheet is repainted at once; a moved view waits for the gesture
