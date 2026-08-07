@@ -176,6 +176,15 @@ export interface PcbDrawOptions {
   drawingSheet: boolean;
   trackOpacity: number;
   viaOpacity: number;
+  /**
+   * Minimum stroke width in IU, overriding the default "one device pixel at the
+   * current zoom".
+   *
+   * Only a retained backend should set this, and only to 0: the default depends
+   * on the view, so it makes recorded geometry zoom-dependent. See where it is
+   * read in `buildDrawSteps`.
+   */
+  minPenWidth?: number;
   padOpacity: number;
   /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks. Default on
    *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
@@ -1626,7 +1635,16 @@ export function buildDrawSteps(
     if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet, special.drawingSheet);
   });
 
-  const minPen = view.scale > 0 ? 1 / view.scale : 0; // 1 device px in IU
+  // KiCad's minimum pen: never stroke thinner than one device pixel, expressed
+  // in IU so it can go straight into `lineWidth`.
+  //
+  // A backend that retains geometry must opt out of it with `minPenWidth: 0`.
+  // The floor depends on the view, so baking it into a width makes the geometry
+  // depend on the zoom, and a retained buffer would then have to be rebuilt on
+  // every zoom step — which is the entire cost the WebGL backend exists to
+  // remove. Such a backend applies the same floor per frame instead, in the
+  // shader, exactly as KiCad's `u_minLinePixelWidth` does.
+  const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
 
   // High-contrast alpha for a whole layer (pcb_painter.cpp getColor): inactive
   // layers fade by m_hiContrastFactor (0.2) in dim mode and disappear in hide
