@@ -1365,3 +1365,32 @@ export {
   smartPadsSingle,
   SMART_PADS_FORBIDDEN_ANGLES,
 } from './router/pns_smart_pads.js';
+// The length-tuning placers: `PNS::MEANDER_PLACER_BASE` and its three
+// subclasses. `pns_meander.js` above is the geometry these drive.
+//
+// `MeanderPlacerHost` is the seam where `PNS::ROUTER`, `ROUTER_IFACE` and
+// `TOPOLOGY`'s two assemblers would be, none of which exist in this tree yet;
+// a caller supplies them. `chainSplitAt` / `chainSplitRange` are
+// `SHAPE_LINE_CHAIN::Split`, which `PnsLineChain` does not carry.
+export {
+  LENGTH_TARGET_TOLERANCE,
+  PnsMeanderPlacerBase,
+  PnsTuningStatus,
+  chainSplitAt,
+  chainSplitRange,
+  findAmplitudeBinarySearch,
+  findAmplitudeForLength,
+  getSnappedStartPoint,
+  segDistanceToPoint,
+  segNearestPoint,
+  segSide,
+  tuneLineLength,
+  type ChainSplit,
+  type MeanderClearanceResolver,
+  type MeanderPlacerHost,
+  type MeanderRouterIface,
+  type TuningPathResult,
+} from './router/pns_meander_placer_base.js';
+export { PnsMeanderPlacer } from './router/pns_meander_placer.js';
+export { PnsDpMeanderPlacer } from './router/pns_dp_meander_placer.js';
+export { PnsMeanderSkewPlacer } from './router/pns_meander_skew_placer.js';

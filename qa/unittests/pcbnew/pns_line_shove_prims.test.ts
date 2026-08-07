@@ -26,6 +26,8 @@ import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
 import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
 import { LineMarker } from '@ziroeda/pcbnew/src/router/pns_item.js';
+import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/src/router/shape_arc_ops.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
@@ -271,8 +273,31 @@ describe('SHAPE_LINE_CHAIN::NearestPoint', () => {
     expect(c.nearestPoint({ x: -500, y: 0 })).toEqual({ x: 0, y: 0 });
   });
 
-  it('rejects the un-ported arc-snapping arm loudly', () => {
-    const c = chain([0, 0], [2000, 0]);
-    expect(() => c.nearestPoint({ x: 0, y: 0 }, false)).toThrow(/not ported/);
+  it('is unchanged by the arc-snapping flag on a chain with no arcs', () => {
+    const c = chain([0, 0], [2000, 0], [2000, 2000]);
+
+    expect(c.nearestPoint({ x: 1000, y: 500 }, false)).toEqual({ x: 1000, y: 0 });
+  });
+
+  it('snaps out to an arc end when internal shape points are not allowed', () => {
+    // A quarter arc, preceded by a straight run: upstream's `nearest > 0` guard
+    // means an arc that *starts* the chain is never snapped, so the arc has to
+    // come second. The radius is in millimetres because a smaller one
+    // polygonises to a straight line and stops being an arc at all.
+    const c = new PnsLineChain();
+
+    c.appendPoint({ x: -1000000, y: 0 });
+    c.appendArcShape(
+      constructArcFromStartEndAngle({ x: 0, y: 0 }, { x: 1000000, y: 1000000 }, new EDA_ANGLE(90)),
+    );
+
+    // Allowed internal points: the answer lies on the arc's own polyline.
+    expect(c.nearestPoint({ x: 300000, y: 800000 }, true)).toEqual({ x: 829809, y: 445992 });
+    expect(c.nearestPoint({ x: 100000, y: 400000 }, true)).toEqual({ x: 176040, y: 17718 });
+
+    // Disallowed: pushed out to whichever end of the arc is nearer, so that a
+    // cut made there never has to bisect the arc.
+    expect(c.nearestPoint({ x: 300000, y: 800000 }, false)).toEqual({ x: 1000000, y: 1000000 });
+    expect(c.nearestPoint({ x: 100000, y: 400000 }, false)).toEqual({ x: 0, y: 0 });
   });
 });
