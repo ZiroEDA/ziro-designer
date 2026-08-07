@@ -1323,3 +1323,25 @@ export {
   type PnsShoveRootLineEntry,
   type PnsShoveSettings,
 } from './router/pns_shove.js';
+export { RangedNum } from './router/ranged_num.js';
+
+// `segLength`, `segLineProject`, `segContains`, `segApproxParallel` and
+// `rescale64` are NOT re-exported here: `pns_seg_ops.js` already exports those
+// names. This module imports them from there rather than defining rivals — with
+// one documented exception, its own private `segLength`, which rounds where
+// that one truncates.
+export {
+  chainLengthI,
+  chainSelfIntersecting,
+  chainsIntersect,
+  DiffPair,
+  DpGateway,
+  DpGateways,
+  DpPrimitivePair,
+  makeGapVector,
+  segCollinear,
+  segDistance,
+  segIntersect,
+  segIntersectLines,
+  type CoupledSegments,
+} from './router/pns_diff_pair.js';
