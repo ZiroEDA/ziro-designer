@@ -6495,15 +6495,29 @@ export function PcbEditor({
         <div className="ze-canvas-wrap" ref={wrapRef} style={{ position: 'relative' }}>
           <canvas
             ref={canvasRef}
-            // Hide the native pointer; KiCad draws its own crosshair on the canvas.
             style={{
               position: 'absolute',
               inset: 0,
-              // Picker tools show a real cursor: KICURSOR::BULLSEYE resolves
-              // to the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), which
-              // is the SYSTEM crosshair cursor, the same one CSS 'crosshair'
-              // uses, so the web cursor matches desktop KiCad exactly.
-              cursor: activeTool === 'localRatsnestTool' ? 'crosshair' : 'none',
+              // A real cursor, always.
+              //
+              // This was `none` for every tool but the picker, on the grounds
+              // that KiCad draws its own crosshair on the canvas, which it does
+              // (the crosshair pass is below). But desktop KiCad draws that
+              // crosshair *and* keeps the window's pointer: the crosshair marks
+              // the snapped point, the pointer shows where the mouse is.
+              //
+              // With `none` there is no pointer at all, so the only thing on
+              // screen that follows the mouse is painted by us, and it can move
+              // no faster than a frame. A native cursor is composited by the
+              // OS and tracks the mouse whatever the page is doing. That is the
+              // whole of the difference between a cursor that feels attached to
+              // your hand and one that feels dragged through mud, and no amount
+              // of renderer work reaches it.
+              //
+              // Picker tools keep `crosshair`: KICURSOR::BULLSEYE resolves to
+              // the stock wxCURSOR_BULLSEYE on GTK (IsStockCursorOk), the
+              // system crosshair, which is what CSS `crosshair` is too.
+              cursor: activeTool === 'localRatsnestTool' ? 'crosshair' : 'default',
             }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
