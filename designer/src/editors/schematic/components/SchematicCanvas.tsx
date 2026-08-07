@@ -1264,6 +1264,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onScaleChange?.(vp.scale);
       return;
     }
+    // Every path below paints the whole scene to the 2D canvas, and the GL
+    // layer sits *above* it. A buffer left on that layer keeps showing through:
+    // during a drag it put a second, stale copy of the symbol at its old
+    // position while the real one followed the cursor underneath, and on
+    // release the stale one appeared to teleport.
+    gl?.clear();
 
     // An attached ghost moves with the cursor, so it is painted straight to the
     // screen and the raster is dropped rather than having the ghost baked in.

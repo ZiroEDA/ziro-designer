@@ -269,6 +269,22 @@ export class GlDevice {
     gl.bindVertexArray(null);
   }
 
+  /**
+   * Blank the layer without drawing anything.
+   *
+   * Needed whenever a frame is painted by the Canvas2D path instead: this
+   * canvas sits *above* the 2D one, so a buffer left on it from an earlier
+   * frame keeps showing through. That is what put a second, stale copy of a
+   * dragged symbol on screen while the real one followed the cursor
+   * underneath.
+   */
+  clear(): void {
+    const gl = this.gl;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
   /** Whether the context has been lost; the caller falls back when it has. */
   get isLost(): boolean {
     return this.gl.isContextLost();
