@@ -1460,3 +1460,21 @@ export {
   directionOpposite,
   segLineDistance,
 } from './router/pns_multi_dragger.js';
+
+// `PNS::TOPOLOGY`, completed: cluster assembly, differential-pair recovery,
+// ratlines and tuning paths. `PnsTopology` itself is already exported above,
+// with the trivial-path walk; these are the names the rest of the file grew.
+//
+// `PnsCluster` here is `TOPOLOGY::CLUSTER`. `pns_shove.ts` exports a private
+// structural twin of the same struct under the same name from its own module;
+// that one is deliberately not re-exported through this file, so there is no
+// conflict to resolve.
+export {
+  DP_PARALLELITY_THRESHOLD,
+  type PnsBoardPadHandle,
+  type PnsBoardViaHandle,
+  type PnsCluster,
+  type PnsNearestUnconnected,
+  type PnsTuningHost,
+  type PnsUnconnectedAnchor,
+} from './router/pns_topology.js';

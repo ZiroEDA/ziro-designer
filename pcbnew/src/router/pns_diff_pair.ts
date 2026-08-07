@@ -791,6 +791,38 @@ export class DiffPair extends PnsLinkHolder {
     return new DiffPair(undefined, undefined, aGap);
   }
 
+  /**
+   * `DIFF_PAIR( const LINE& aLineP, const LINE& aLineN, int aGap = 0 )`
+   * (`pns_diff_pair.h:307-325`) — the constructor `TOPOLOGY::AssembleDiffPair`
+   * builds its result with.
+   *
+   * Two things it does that {@link setShape} plus {@link setNets} would not:
+   *
+   *  - the two cached `LINE`s are **copies of the arguments, links included**,
+   *    so `PLine()` answers a linked line and does *not* fall through to
+   *    {@link updateLine}. `DP_MEANDER_PLACER::Start` reads `PLine().GetLink(0)`
+   *    off exactly this, which is the whole reason the links have to survive.
+   *  - `m_gapConstraint` takes `aGap` while `m_gap` stays 0, the same split the
+   *    other constructors make — `AssembleDiffPair` then calls `SetGap` with the
+   *    measured gap, which is what finally builds the ±10000 band.
+   *
+   * The chains come from `CLine()`, so they are the lines' geometry at call
+   * time and not a live view of it.
+   */
+  static fromLines(aLineP: PnsLine, aLineN: PnsLine, aGap = 0): DiffPair {
+    const p = new DiffPair();
+
+    p.mLineP = aLineP.clone();
+    p.mLineN = aLineN.clone();
+    p.mNetP = aLineP.net();
+    p.mNetN = aLineN.net();
+    p.mP = aLineP.cLine().points();
+    p.mN = aLineN.cLine().points();
+    p.mGapConstraint = p.mGapConstraint.withValue(aGap);
+
+    return p;
+  }
+
   static classOf(aItem: PnsItem | null): boolean {
     return aItem !== null && aItem.kind() === PnsKind.DIFF_PAIR_T;
   }
