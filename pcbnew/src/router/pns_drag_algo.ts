@@ -137,6 +137,9 @@ export function toShoveSettings(aSettings: RoutingSettings): PnsShoveSettings {
 export abstract class PnsDragAlgo {
   protected mWorld: PnsNode | null = null;
 
+  /** `ALGO_BASE::m_debugDecorator`. */
+  protected mDebugDecorator: unknown = null;
+
   constructor(protected readonly mRouter: PnsRouterHost) {}
 
   /** `ALGO_BASE::Router()`. */
@@ -189,5 +192,26 @@ export abstract class PnsDragAlgo {
   /** Upstream returns an empty vector; only `MULTI_DRAGGER` overrides it. */
   getLastCommittedLeaderSegments(): PnsItem[] {
     return [];
+  }
+
+  /**
+   * `ALGO_BASE::SetDebugDecorator( DEBUG_DECORATOR* )` — `pns_algo_base.h`.
+   *
+   * On the shared base, not on `DRAG_ALGO` itself, but every dragger inherits
+   * it and `ROUTER::StartDragging` calls it on whichever one it just built
+   * (`pns_router.cpp:196`). Added when `PNS::ROUTER` landed and needed to make
+   * that call; it is part of the surface upstream already had, not a widening.
+   *
+   * `DEBUG_DECORATOR` is a pure drawing sink for the router's visual debugger
+   * and is not ported, so the decorator is carried as an opaque value: stored,
+   * handed back by {@link dbg}, and never interpreted.
+   */
+  setDebugDecorator(aDecorator: unknown): void {
+    this.mDebugDecorator = aDecorator;
+  }
+
+  /** `ALGO_BASE::Dbg()`. */
+  dbg(): unknown {
+    return this.mDebugDecorator;
   }
 }
