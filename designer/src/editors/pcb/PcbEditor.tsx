@@ -191,6 +191,7 @@ import { DialogCreateArray } from './dialogs/dialog_create_array.js';
 import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
 import { handleAtPoint, handleDragTarget, handleTolerance } from './point_edit_canvas.js';
 import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
+import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
@@ -956,6 +957,7 @@ export function PcbEditor({
   // function-static, so it reopens on whatever was typed last.
   const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | 'dogbone' | null>(null);
   const [outsetOpen, setOutsetOpen] = useState(false);
+  const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
@@ -5965,7 +5967,10 @@ export function PcbEditor({
         { label: 'Tune Length of a Differential Pair', disabled: dis },
         { label: 'Tune Skew of a Differential Pair', disabled: dis },
         { sep: true },
-        { label: 'Interactive Router Settings…', disabled: dis },
+        {
+          label: 'Interactive Router Settings…',
+          action: () => setPnsSettingsOpen(true),
+        },
       ],
     },
     {
@@ -7672,6 +7677,7 @@ export function PcbEditor({
           onClose={() => setArrayOpen(false)}
         />
       )}
+      {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
       {outsetOpen && board && (
         <DialogOutsetItems
           layers={board.layers.map((l) => l.name)}

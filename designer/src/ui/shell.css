@@ -1485,6 +1485,34 @@ body {
 .ze-update-pcb-body .ze-report-panel {
   min-height: 300px;
 }
+/* Interactive Router Settings (dialog_pns_settings_base.cpp): two columns,
+   Mode at its natural width and General Options taking the rest, the
+   proportions bColumns gives them (0 and 1). The mode-gated checkboxes are
+   indented under their radio button by the 20 px their sizer uses. */
+.ze-pns-dialog {
+  width: 620px;
+  height: auto;
+  max-height: 92vh;
+}
+.ze-pns-body {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.ze-pns-body fieldset.ze-pns-mode {
+  flex: 0 0 auto;
+}
+.ze-pns-body fieldset.ze-pns-options {
+  flex: 1 1 auto;
+}
+.ze-pns-body label.ze-pns-sub {
+  margin-left: 20px;
+}
+/* The 15 px spacer sbModeSizer puts between one mode's boxes and the next
+   radio button. */
+.ze-pns-body label.ze-pns-sub + label:not(.ze-pns-sub) {
+  margin-top: 11px;
+}
+
 /* DisplayErrorMessage's box: a short message with optional developer detail. */
 .ze-message-dialog {
   width: 520px;

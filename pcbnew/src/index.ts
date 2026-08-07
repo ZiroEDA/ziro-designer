@@ -1257,3 +1257,21 @@ export {
   itemHull,
 } from './router/pns_item_hull.js';
 export { PnsBoardRuleResolver, type PnsResolverHost } from './router/pns_rule_resolver.js';
+
+export {
+  DEFAULT_ROUTING_SETTINGS,
+  PNS_SCHEMA_VERSION,
+  PNS_SETTINGS_PATH,
+  PnsMode,
+  PnsOptimizationEffort,
+  pnsAllowDrcViolations,
+  pnsCycleMode,
+  pnsFollowMouse,
+  pnsInitialDirection,
+  pnsSettingsEnableState,
+  readRoutingSettings,
+  writeRoutingSettings,
+  type PnsSettingsEnableState,
+  type RoutingSettings,
+  type RoutingSettingsJson,
+} from './router/pns_routing_settings.js';
