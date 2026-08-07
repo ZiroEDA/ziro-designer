@@ -1298,3 +1298,28 @@ export {
   distanceFromPointToLine,
   getBezierPoint,
 } from './svg_import_plugin.js';
+// ----- PNS::SHOVE ----------------------------------------------------------------
+//
+// The push-and-shove core: given a head, push the nearest obstacle out of the
+// way, then whatever *that* now collides with, until nothing collides or the
+// cascade is abandoned. It runs entirely on a `PnsNode` branch, so a shove that
+// does not settle costs nothing — the branch is dropped and the board is
+// untouched.
+//
+// `PnsShoveStatus` and the heads-based entry points (`clearHeads`, `addHeads`,
+// `run`, `headsModified`, `getModifiedHead`) are the surface `PNS::LINE_PLACER`
+// calls. The `ShoveLines`/`ShoveMultiLines` API some callers may expect no
+// longer exists upstream; see the class doc.
+export {
+  DEFAULT_SHOVE_SETTINGS,
+  PnsOptimizerFlags,
+  PnsShove,
+  PnsShovePolicy,
+  PnsShoveStatus,
+  itemChangedArea,
+  lineChangedArea,
+  lineWalkaround,
+  viaChangedArea,
+  type PnsShoveRootLineEntry,
+  type PnsShoveSettings,
+} from './router/pns_shove.js';

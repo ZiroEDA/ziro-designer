@@ -55,7 +55,7 @@
  * hands to a node is closed. The branches are noted at their sites rather than
  * written.
  */
-import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
+import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { segReflectPoint } from './pns_seg_ops.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
@@ -730,6 +730,424 @@ export class PnsLineChain {
       width: a.width,
     }));
   }
+
+  // ----- the chain surface SHOVE needs -------------------------------------------
+
+  /**
+   * The raw points, for the free functions in `pns_chain.ts` that speak
+   * `Vec2[]`. Copies, so a caller cannot reach past the arc bookkeeping and
+   * desynchronise `mShapes`.
+   */
+  points(): Vec2[] {
+    return this.mPoints.map((p) => ({ x: p.x, y: p.y }));
+  }
+
+  /** `SHAPE_LINE_CHAIN::BBox()`, with no clearance argument. */
+  bbox(): { x: number; y: number; w: number; h: number } {
+    if (this.mPoints.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (const p of this.mPoints) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  /** `Insert( aVertex, aP )`: a plain point, belonging to no arc. */
+  insertPoint(aIndex: number, aP: Vec2): void {
+    this.mPoints.splice(aIndex, 0, { x: aP.x, y: aP.y });
+    this.mShapes.splice(aIndex, 0, shapesArePt());
+  }
+
+  /** `Remove( aIndex )`, single vertex. */
+  removePoint(aIndex: number): void {
+    if (aIndex < 0 || aIndex >= this.mPoints.length) return;
+
+    this.mPoints.splice(aIndex, 1);
+    this.mShapes.splice(aIndex, 1);
+  }
+
+  /**
+   * `SHAPE_LINE_CHAIN::Simplify2( aRemoveColinear )`.
+   *
+   * Two stages, and the early returns before them are not an optimisation:
+   * a chain of fewer than three points is left alone entirely, and a chain of
+   * exactly three has only its leading duplicate removed. Upstream returns
+   * `*this`; so does this, so `chain.simplify2()` reads the same either way.
+   *
+   * Stage 1 collapses runs of identical points, but only while the run belongs
+   * to one shape — or one end of it is a plain point. The kept shape index is
+   * the *first* point's unless that is a plain point, in which case it is the
+   * last of the run: a duplicate that straddles the boundary between a segment
+   * and an arc is folded into the arc, never the other way round.
+   *
+   * Stage 2 drops collinear runs, and only between plain points
+   * (`shapes[i]` and `shapes[i+1]` both `SHAPES_ARE_PT`) — an arc is never
+   * flattened. The `LineDistance <= 1` test is upstream's tolerance for integer
+   * rounding; the `Collinear` disjunct catches the exactly-parallel case the
+   * distance test misses when the outer points coincide.
+   */
+  simplify2(aRemoveColinear = true): PnsLineChain {
+    if (this.pointCount() < 3) return this;
+
+    if (this.pointCount() === 3) {
+      const p0 = this.mPoints[0] as Vec2;
+      const p1 = this.mPoints[1] as Vec2;
+
+      if (p0.x === p1.x && p0.y === p1.y) this.removePoint(1);
+
+      return this;
+    }
+
+    const ptsUnique: Vec2[] = [];
+    const shapesUnique: [number, number][] = [];
+
+    let i = 0;
+    let np = this.pointCount();
+
+    // stage 1: eliminate duplicate vertices
+    while (i < np) {
+      let j = i + 1;
+
+      const pi = this.mPoints[i] as Vec2;
+      const si = this.mShapes[i] as [number, number];
+
+      while (j < np) {
+        const pj = this.mPoints[j] as Vec2;
+        const sj = this.mShapes[j] as [number, number];
+
+        if (pi.x !== pj.x || pi.y !== pj.y) break;
+
+        const sameShape = si[0] === sj[0] && si[1] === sj[1];
+        const iIsPt = si[0] === SHAPE_IS_PT && si[1] === SHAPE_IS_PT;
+        const jIsPt = sj[0] === SHAPE_IS_PT && sj[1] === SHAPE_IS_PT;
+
+        if (!sameShape && !iIsPt && !jIsPt) break;
+
+        j++;
+      }
+
+      let shapeToKeep = si;
+
+      if (shapeToKeep[0] === SHAPE_IS_PT && shapeToKeep[1] === SHAPE_IS_PT)
+        shapeToKeep = this.mShapes[j - 1] as [number, number];
+
+      ptsUnique.push({ ...(this.mPoints[i] as Vec2) });
+      shapesUnique.push([shapeToKeep[0], shapeToKeep[1]]);
+
+      i = j;
+    }
+
+    this.mPoints = [];
+    this.mShapes = [];
+    np = ptsUnique.length;
+    i = 0;
+
+    const isPt = (s: [number, number]): boolean => s[0] === SHAPE_IS_PT && s[1] === SHAPE_IS_PT;
+
+    // stage 2: eliminate colinear segments
+    while (i < np - 2) {
+      const p0 = ptsUnique[i] as Vec2;
+      let n = i;
+      const next = shapesUnique[i + 1];
+
+      if (aRemoveColinear && isPt(shapesUnique[i] as [number, number]) && next && isPt(next)) {
+        while (
+          n < np - 2 &&
+          (segLineDistance(p0, ptsUnique[n + 2] as Vec2, ptsUnique[n + 1] as Vec2) <= 1 ||
+            segCollinear(p0, ptsUnique[n + 2] as Vec2, p0, ptsUnique[n + 1] as Vec2))
+        )
+          n++;
+      }
+
+      this.mPoints.push({ ...p0 });
+      this.mShapes.push([...(shapesUnique[i] as [number, number])] as [number, number]);
+
+      if (n > i) i = n;
+
+      if (n === np - 2) {
+        this.mPoints.push({ ...(ptsUnique[np - 1] as Vec2) });
+        this.mShapes.push([...(shapesUnique[np - 1] as [number, number])] as [number, number]);
+
+        return this;
+      }
+
+      i++;
+    }
+
+    if (np > 1) {
+      this.mPoints.push({ ...(ptsUnique[np - 2] as Vec2) });
+      this.mShapes.push([...(shapesUnique[np - 2] as [number, number])] as [number, number]);
+    }
+
+    this.mPoints.push({ ...(ptsUnique[np - 1] as Vec2) });
+    this.mShapes.push([...(shapesUnique[np - 1] as [number, number])] as [number, number]);
+
+    return this;
+  }
+
+  /**
+   * `SHAPE_LINE_CHAIN::Simplify( aTolerance = 0 )`: greedily extend a run of
+   * points that all lie within `aTolerance` of the chord from the run's start,
+   * and keep only the endpoints of each such run.
+   *
+   * A point that belongs to an arc terminates a run — only the *intermediate*
+   * test points are required to be plain, so a run may start or end on an arc
+   * endpoint and the arc itself survives. The two tail fix-ups matter: a chain
+   * that collapsed to a single point gets the original last point appended
+   * back, and an open chain always ends where it began ending.
+   *
+   * The closed-chain arms of upstream's modular arithmetic are unreachable
+   * here — no line the router builds is closed — so the `endIdx > startIdx`
+   * guard is written without the `|| m_closed` disjunct.
+   */
+  simplify(aTolerance = 0): void {
+    if (this.pointCount() < 3) return;
+
+    const newPoints: Vec2[] = [];
+    const newShapes: [number, number][] = [];
+    const n = this.mPoints.length;
+
+    for (let startIdx = 0; startIdx < n; ) {
+      newPoints.push({ ...(this.mPoints[startIdx] as Vec2) });
+      newShapes.push([...(this.mShapes[startIdx] as [number, number])] as [number, number]);
+
+      // Not closed: we need at least 3 points before simplifying.
+      if (startIdx === n - 2) break;
+
+      let endIdx = (startIdx + 2) % n;
+      let canSimplify = true;
+
+      while (canSimplify && endIdx !== startIdx && endIdx > startIdx) {
+        for (let testIdx = (startIdx + 1) % n; testIdx !== endIdx; testIdx = (testIdx + 1) % n) {
+          if ((this.mShapes[testIdx] as [number, number])[0] !== SHAPE_IS_PT) {
+            canSimplify = false;
+            break;
+          }
+
+          if (
+            !testSegmentHit(
+              this.mPoints[testIdx] as Vec2,
+              this.mPoints[startIdx] as Vec2,
+              this.mPoints[endIdx] as Vec2,
+              aTolerance,
+            )
+          ) {
+            canSimplify = false;
+            break;
+          }
+        }
+
+        if (canSimplify) endIdx = (endIdx + 1) % n;
+      }
+
+      if (endIdx === (startIdx + 2) % n) {
+        startIdx++;
+      } else {
+        const newStartIdx = (endIdx + n - 1) % n;
+
+        if (newStartIdx <= startIdx) break;
+
+        startIdx = newStartIdx;
+      }
+    }
+
+    const last = this.mPoints[n - 1] as Vec2;
+    const lastShape = this.mShapes[n - 1] as [number, number];
+
+    if (newPoints.length === 1) {
+      newPoints.push({ ...last });
+      newShapes.push([...lastShape] as [number, number]);
+    }
+
+    const tail = newPoints[newPoints.length - 1] as Vec2;
+
+    if (tail.x !== last.x || tail.y !== last.y) {
+      newPoints.push({ ...last });
+      newShapes.push([...lastShape] as [number, number]);
+    }
+
+    this.mPoints = newPoints;
+    this.mShapes = newShapes;
+  }
+
+  /**
+   * `SHAPE_LINE_CHAIN::CompareGeometry( aOther, aCyclicalCompare = false, aEpsilon = 0 )`,
+   * non-cyclical arm only — no caller in `SHOVE` passes `true`, and the cyclical
+   * arm sorts by angle about the centroid, which is meaningless for an open
+   * track.
+   *
+   * Both sides are `Simplify()`-ed first (the tolerance-0 pass, **not**
+   * `Simplify2`), so two chains that differ only by a redundant mid-point
+   * compare equal. That is the whole reason `reconstructHeads` uses it to decide
+   * `geometryModified` — a head that was merely re-vertexed did not move.
+   */
+  compareGeometry(aOther: PnsLineChain, aEpsilon = 0): boolean {
+    const a = this.clone();
+    const b = aOther.clone();
+
+    a.simplify();
+    b.simplify();
+
+    if (a.pointCount() !== b.pointCount()) return false;
+
+    for (let i = 0; i < a.pointCount(); i++) {
+      const pa = a.cPoint(i);
+      const pb = b.cPoint(i);
+
+      if (Math.abs(pa.x - pb.x) > aEpsilon || Math.abs(pa.y - pb.y) > aEpsilon) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * `SHAPE_LINE_CHAIN::SelfIntersecting()`: the first crossing between two
+   * non-adjacent segments, or null.
+   *
+   * `shoveLineToHullSet` uses it purely as a rejection test, so only the
+   * presence of a crossing and its point are ported; upstream's `INTERSECTION`
+   * also carries the two segment indices, which no caller in `SHOVE` reads.
+   * Segments sharing an endpoint are not a self-intersection — hence the
+   * `s2 === s1 + 1` arm, which still reports the degenerate case where the pair
+   * folds straight back on itself.
+   */
+  selfIntersecting(): Vec2 | null {
+    const segCount = this.segmentCount();
+
+    if (segCount < 2) return null;
+
+    for (let s1 = 0; s1 < segCount; s1++) {
+      const a1 = this.mPoints[s1] as Vec2;
+      const b1 = this.mPoints[s1 + 1] as Vec2;
+
+      for (let s2 = s1 + 1; s2 < segCount; s2++) {
+        const a2 = this.mPoints[s2] as Vec2;
+        const b2 = this.mPoints[s2 + 1] as Vec2;
+
+        if (s2 === s1 + 1) {
+          if (a1.x === b2.x && a1.y === b2.y) return { x: a1.x, y: a1.y };
+
+          continue;
+        }
+
+        const ip = segIntersect(a1, b1, a2, b2);
+
+        if (ip) return ip;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * `SHAPE_LINE_CHAIN::NearestPoint( aP, aAllowInternalShapePoints )`.
+   *
+   * `shoveLineToHullSet` calls it with `true`, which skips the arc-endpoint
+   * snapping entirely, so only that arm is ported. The `aAllowInternalShapePoints
+   * === false` arm is rejected loudly rather than silently returning the wrong
+   * point.
+   */
+  nearestPoint(aP: Vec2, aAllowInternalShapePoints = true): Vec2 {
+    if (!aAllowInternalShapePoints)
+      throw new Error('PNS: NearestPoint( aAllowInternalShapePoints = false ) is not ported');
+
+    if (this.pointCount() === 0) return { x: 0, y: 0 }; // upstream: "don't crash"
+
+    let minD = Number.POSITIVE_INFINITY;
+    let nearest = 0;
+
+    for (let i = 0; i < this.segmentCount(); i++) {
+      const d = segDistance(this.mPoints[i] as Vec2, this.mPoints[i + 1] as Vec2, aP);
+
+      if (d < minD) {
+        minD = d;
+        nearest = i;
+      }
+    }
+
+    if (this.segmentCount() === 0) return { ...(this.mPoints[0] as Vec2) };
+
+    return nearestOnSegment(this.mPoints[nearest] as Vec2, this.mPoints[nearest + 1] as Vec2, aP);
+  }
+}
+
+/** `SEG::LineDistance`: distance from `p` to the infinite line through a-b. */
+function segLineDistance(a: Vec2, b: Vec2, p: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  if (len === 0) return EuclideanNormI({ x: p.x - a.x, y: p.y - a.y });
+
+  return Math.abs(dx * (p.y - a.y) - dy * (p.x - a.x)) / len;
+}
+
+/** `SEG::Collinear`: both endpoints of the second segment on the first's line. */
+function segCollinear(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2): boolean {
+  const dx = b1.x - a1.x;
+  const dy = b1.y - a1.y;
+
+  const c1 = dx * (a2.y - a1.y) - dy * (a2.x - a1.x);
+  const c2 = dx * (b2.y - a1.y) - dy * (b2.x - a1.x);
+
+  return c1 === 0 && c2 === 0;
+}
+
+/** The point on segment a-b nearest `p`. */
+function nearestOnSegment(a: Vec2, b: Vec2, p: Vec2): Vec2 {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+
+  if (len2 === 0) return { x: a.x, y: a.y };
+
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+
+  return { x: Math.round(a.x + dx * t), y: Math.round(a.y + dy * t) };
+}
+
+/** `SEG::Distance`. */
+function segDistance(a: Vec2, b: Vec2, p: Vec2): number {
+  const n = nearestOnSegment(a, b, p);
+
+  return EuclideanNormI({ x: p.x - n.x, y: p.y - n.y });
+}
+
+/** `TestSegmentHit`: is `p` within `tolerance` of the segment a-b? */
+function testSegmentHit(p: Vec2, a: Vec2, b: Vec2, tolerance: number): boolean {
+  return segDistance(a, b, p) <= tolerance;
+}
+
+/** `SEG::Intersect`, proper crossings only. */
+function segIntersect(a1: Vec2, b1: Vec2, a2: Vec2, b2: Vec2): Vec2 | null {
+  const d1x = b1.x - a1.x;
+  const d1y = b1.y - a1.y;
+  const d2x = b2.x - a2.x;
+  const d2y = b2.y - a2.y;
+
+  const denom = d1x * d2y - d1y * d2x;
+
+  if (denom === 0) return null;
+
+  const ex = a2.x - a1.x;
+  const ey = a2.y - a1.y;
+
+  const t = (ex * d2y - ey * d2x) / denom;
+  const u = (ex * d1y - ey * d1x) / denom;
+
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+
+  return { x: Math.round(a1.x + d1x * t), y: Math.round(a1.y + d1y * t) };
 }
 
 /**
@@ -932,5 +1350,118 @@ export class PnsLine extends PnsLinkHolder {
 
   endsWithVia(): boolean {
     return this.mVia !== null;
+  }
+
+  // ----- the LINE surface SHOVE needs ---------------------------------------------
+
+  /**
+   * `LINE::LinkVia( VIA* )`: attach a via *and* link it as a constituent item.
+   *
+   * The reversal is the part that matters. A line's via is by convention at its
+   * **end**, and every consumer — `SHOVE::pushOrShoveVia`'s `segIndex == 0`
+   * normalisation, `replaceLine`'s via unlink, `unwindLineStack`'s tadpole
+   * branch — is written against that. So if the via turns out to sit on the
+   * line's *first* point, the whole line is turned round first. The
+   * `PointCount() > 1` guard means a one-point line is left alone: there is no
+   * "other end" to move the via to.
+   */
+  linkVia(aVia: PnsVia): void {
+    if (this.mLine.pointCount() > 1) {
+      const p0 = this.mLine.cPoint(0);
+      const vp = aVia.pos();
+
+      if (vp.x === p0.x && vp.y === p0.y) this.reverse();
+    }
+
+    this.mVia = aVia;
+    this.link(aVia);
+  }
+
+  /**
+   * `LINE::Mark`: the line's own marker *and* every link's are set to `aMarker`
+   * — assignment, not an OR.
+   */
+  override mark(aMarker: number): void {
+    super.mark(aMarker);
+
+    for (const s of this.mLinks) s.mark(aMarker);
+  }
+
+  /**
+   * `LINE::Unmark`: clear the given bits on every link, then zero the line's own
+   * marker outright. Note the asymmetry with `ITEM::Unmark` — the links get
+   * `&= ~aMarker`, the line gets `= 0` regardless of `aMarker`. Upstream's.
+   */
+  override unmark(aMarker = -1): void {
+    for (const s of this.mLinks) s.unmark(aMarker);
+
+    super.mark(0);
+  }
+
+  /** `LINE::Marker`: the line's own bits OR-ed with every link's. */
+  override marker(): number {
+    let m = super.marker();
+
+    for (const s of this.mLinks) m |= s.marker();
+
+    return m;
+  }
+
+  /** `LINE::SetRank`: written through to every link as well as to the line. */
+  override setRank(aRank: number): void {
+    super.setRank(aRank);
+
+    for (const s of this.mLinks) s.setRank(aRank);
+  }
+
+  /**
+   * `LINE::Rank`: the **minimum** rank over the links when the line is linked,
+   * the line's own field when it is not, and `-1` when the minimum came out as
+   * `INT_MAX` (an empty link list, which `IsLinked()` has already excluded — so
+   * that arm is dead upstream and dead here).
+   *
+   * The minimum, not the maximum: a line is only as high-ranking as its
+   * weakest segment, which is what makes `shoveIteration`'s
+   * `ni->Rank() > currentLine.Rank()` test conservative about calling something
+   * a reverse collision.
+   */
+  override rank(): number {
+    let minRank = Number.MAX_SAFE_INTEGER;
+
+    if (this.isLinked()) {
+      for (const item of this.mLinks) minRank = Math.min(minRank, item.rank());
+    } else {
+      minRank = super.rank();
+    }
+
+    return minRank === Number.MAX_SAFE_INTEGER ? -1 : minRank;
+  }
+
+  /** `LINE::HasLoops`: any two points at least two apart that coincide. */
+  hasLoops(): boolean {
+    for (let i = 0; i < this.pointCount(); i++) {
+      for (let j = i + 2; j < this.pointCount(); j++) {
+        const a = this.cPoint(i);
+        const b = this.cPoint(j);
+
+        if (a.x === b.x && a.y === b.y) return true;
+      }
+    }
+
+    return false;
+  }
+
+  /** `LINE::HasLockedSegments`: any link carrying `MK_LOCKED`. */
+  hasLockedSegments(): boolean {
+    for (const seg of this.mLinks) {
+      if (seg.marker() & LineMarker.MK_LOCKED) return true;
+    }
+
+    return false;
+  }
+
+  /** `LINE::CompareGeometry`, delegating to the chain. */
+  compareGeometry(aOther: PnsLine): boolean {
+    return this.mLine.compareGeometry(aOther.mLine);
   }
 }
