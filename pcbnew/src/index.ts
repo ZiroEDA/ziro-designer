@@ -1416,3 +1416,47 @@ export {
   pushoutForce,
   type DpPrimitivePairSearch,
 } from './router/pns_diff_pair_placer.js';
+// ---------------------------------------------------------------------------
+// PNS draggers: `pcbnew/router/pns_dragger.{h,cpp}`,
+// `pns_component_dragger.{h,cpp}` and `pns_multi_dragger.{h,cpp}`, plus the
+// `DRAG_ALGO` base they share and the two small collaborators they needed
+// (`LINE::DragCorner`/`DragSegment` as free functions, `MOUSE_TRAIL_TRACER`).
+//
+// `segDistance`, `segIntersectLines` and `segLineProject` are deliberately NOT
+// re-exported from `pns_multi_dragger.js`: the first two are already exported
+// above from `pns_diff_pair.js`, and re-exporting rivals under the same names
+// would break the barrel. Import them from their own module when the multi
+// dragger's integer conventions are what you want.
+export {
+  PNS_IU_PER_MM,
+  PNS_MAX_TANGENT_ANGLE_DEVIATION_DEG,
+  PNS_MAX_TRACK_LENGTH_TO_KEEP_MM,
+  PNS_UNDEFINED_LAYER,
+  PnsDragAlgo,
+  PnsDragMode,
+  makePnsRouterHost,
+  toShoveSettings,
+  type PnsRouterHost,
+} from './router/pns_drag_algo.js';
+export { PnsMouseTrailTracer } from './router/pns_mouse_trail_tracer.js';
+export {
+  chainSplit,
+  lineDragArc,
+  lineDragCorner,
+  lineDragSegment,
+  type LineDragArcFn,
+} from './router/pns_line_drag.js';
+export {
+  PnsDragger,
+  collectObstacleHulls,
+  viaPushoutForce,
+  viaPushoutForceAgainstItem,
+} from './router/pns_dragger.js';
+export { PnsComponentDragger } from './router/pns_component_dragger.js';
+export {
+  PnsMultiDragger,
+  chainPointAlong,
+  clipToOtherLine,
+  directionOpposite,
+  segLineDistance,
+} from './router/pns_multi_dragger.js';
