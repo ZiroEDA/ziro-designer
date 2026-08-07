@@ -800,6 +800,42 @@ export class DiffPair extends PnsLinkHolder {
     throw new Error('PNS: DIFF_PAIR::Clone() is not supported');
   }
 
+  /**
+   * `DIFF_PAIR( const DIFF_PAIR& )`, the *implicit* copy constructor — a
+   * different thing from {@link clone}, which is the `ITEM` virtual upstream
+   * asserts in.
+   *
+   * `DP_MEANDER_PLACER::Move` copies the origin pair by value and re-shapes the
+   * copy, so the copy has to carry the gap *constraint* the coupling search
+   * runs on. Rebuilding one with {@link setGap} would not do: that always
+   * produces a ±10000 band, and the band the copied pair needs is whichever one
+   * it was assembled with.
+   */
+  static copyOf(aOther: DiffPair): DiffPair {
+    const p = new DiffPair();
+
+    p.copyFrom(aOther);
+    p.copyLinks(aOther);
+
+    p.mP = aOther.mP.map((v) => ({ ...v }));
+    p.mN = aOther.mN.map((v) => ({ ...v }));
+    p.mLineP = aOther.mLineP.clone();
+    p.mLineN = aOther.mLineN.clone();
+    p.mViaP = aOther.mViaP;
+    p.mViaN = aOther.mViaN;
+    p.mHasVias = aOther.mHasVias;
+    p.mNetP = aOther.mNetP;
+    p.mNetN = aOther.mNetN;
+    p.mWidth = aOther.mWidth;
+    p.mGap = aOther.mGap;
+    p.mViaGap = aOther.mViaGap;
+    p.mMaxUncoupledLength = aOther.mMaxUncoupledLength;
+    p.mChamferLimit = aOther.mChamferLimit;
+    p.mGapConstraint = aOther.mGapConstraint;
+
+    return p;
+  }
+
   override clearLinks(): void {
     super.clearLinks();
     this.mLineP.clearLinks();

@@ -231,6 +231,30 @@ export class PnsLineChain {
   }
 
   /**
+   * `IsArcEnd`: this point is where an arc finishes.
+   *
+   * Not the mirror of {@link isArcStart}: it looks at the segment *before* the
+   * index, and index 0 wraps round to the last point — so on an open chain
+   * `isArcEnd( 0 )` asks about the final segment, which is upstream's closed-
+   * chain assumption showing through. An index past the end answers false.
+   */
+  isArcEnd(aIndex: number): boolean {
+    let prevIndex = aIndex - 1;
+
+    if (aIndex === 0) prevIndex = this.mPoints.length - 1;
+    else if (aIndex > this.mPoints.length - 1) return false; // invalid index requested
+
+    if (!this.isArcSegment(prevIndex)) return false;
+
+    if (this.isSharedPt(aIndex)) return true;
+
+    const arc = this.arc(this.arcIndex(aIndex));
+    const p = this.mPoints[aIndex] as Vec2;
+
+    return arc.p1.x === p.x && arc.p1.y === p.y;
+  }
+
+  /**
    * `Find`: the index of a **vertex**, or -1.
    *
    * A vertex search, not a hit test: a point lying halfway along a segment is
@@ -1051,15 +1075,22 @@ export class PnsLineChain {
   /**
    * `SHAPE_LINE_CHAIN::NearestPoint( aP, aAllowInternalShapePoints )`.
    *
-   * `shoveLineToHullSet` calls it with `true`, which skips the arc-endpoint
-   * snapping entirely, so only that arm is ported. The `aAllowInternalShapePoints
-   * === false` arm is rejected loudly rather than silently returning the wrong
-   * point.
+   * `shoveLineToHullSet` calls it with `true`; `SHAPE_LINE_CHAIN::Split( aStart,
+   * aEnd, … )`, and so the meander placers, call it with `false`. The two arms
+   * differ **only when the nearest segment belongs to an arc**: with internal
+   * shape points disallowed, the answer is snapped out to one end of that arc
+   * rather than landing on the curve, so that a cut made there does not have to
+   * bisect the arc.
+   *
+   * Two details of that snapping are upstream's and easy to lose:
+   *
+   *  - the walk to the arc's far end goes through the *segment's* endpoints
+   *    first (`nearest++` when `aP` is nearer to B than to A), and only then
+   *    asks whether the point it landed on is an arc start or end;
+   *  - the guard is `nearest > 0`, so a nearest segment of index 0 is never
+   *    snapped even when it is an arc.
    */
   nearestPoint(aP: Vec2, aAllowInternalShapePoints = true): Vec2 {
-    if (!aAllowInternalShapePoints)
-      throw new Error('PNS: NearestPoint( aAllowInternalShapePoints = false ) is not ported');
-
     if (this.pointCount() === 0) return { x: 0, y: 0 }; // upstream: "don't crash"
 
     let minD = Number.POSITIVE_INFINITY;
@@ -1075,6 +1106,35 @@ export class PnsLineChain {
     }
 
     if (this.segmentCount() === 0) return { ...(this.mPoints[0] as Vec2) };
+
+    if (!aAllowInternalShapePoints) {
+      // Snap to arc end points if the closest found segment is part of an arc.
+      if (nearest > 0 && nearest < this.pointCount() && this.isArcSegment(nearest)) {
+        const s = this.cSegment(nearest);
+        const toStart = Math.hypot(s.a.x - aP.x, s.a.y - aP.y);
+        const toEnd = Math.hypot(s.b.x - aP.x, s.b.y - aP.y);
+
+        // NOT PINNED. Flipping this comparison survives the suite, and for
+        // an arc of less than 180 degrees it is genuinely equivalent: the
+        // vertex either way is an arc terminus (returned directly) or an
+        // interior point (which falls through to the same nearer-terminus
+        // comparison below), and for a non-reflex arc both roads reach the same
+        // end. A reflex arc, where P1 curls back near P0, could separate them.
+        // Not investigated further.
+        if (toStart > toEnd) nearest++;
+
+        // Is this the start or end of an arc? If so, return it directly.
+        if (this.isArcStart(nearest) || this.isArcEnd(nearest)) {
+          return { ...(this.mPoints[nearest] as Vec2) };
+        }
+
+        const arc = this.arc(this.arcIndex(nearest));
+        const toArcStart = Math.hypot(arc.p0.x - aP.x, arc.p0.y - aP.y);
+        const toArcEnd = Math.hypot(arc.p1.x - aP.x, arc.p1.y - aP.y);
+
+        return toArcStart > toArcEnd ? { ...arc.p1 } : { ...arc.p0 };
+      }
+    }
 
     return nearestOnSegment(this.mPoints[nearest] as Vec2, this.mPoints[nearest + 1] as Vec2, aP);
   }
