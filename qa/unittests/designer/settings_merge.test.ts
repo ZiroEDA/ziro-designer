@@ -15,7 +15,12 @@
  * localStorage.
  */
 import { describe, it, expect } from 'vitest';
-import { deepMerge } from '@ziroeda/designer/src/prefs/settings.js';
+import { PCBNEW_DEFAULTS, deepMerge } from '@ziroeda/designer/src/prefs/settings.js';
+import {
+  DEFAULT_ROUTING_SETTINGS,
+  PnsMode,
+  readRoutingSettings,
+} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
 
 describe('what a stored value is allowed to override', () => {
   it('takes a stored value of the same type', () => {
@@ -58,5 +63,27 @@ describe('what a stored value is allowed to override', () => {
   it('survives a stored value that is not an object at all', () => {
     expect(deepMerge({ a: 1 }, null)).toEqual({ a: 1 });
     expect(deepMerge({ a: 1 }, 'garbage')).toEqual({ a: 1 });
+  });
+});
+
+/**
+ * The router settings are the one block of `pcbnew.json` whose keys are not
+ * written here but in pcbnew (they are KiCad's file format), so the two halves
+ * have to agree: what the defaults store must be what the model reads back.
+ */
+describe('the tools.pns block of the pcbnew defaults', () => {
+  it('reads back as the ROUTING_SETTINGS defaults', () => {
+    expect(readRoutingSettings(PCBNEW_DEFAULTS.tools.pns)).toEqual(DEFAULT_ROUTING_SETTINGS);
+  });
+
+  it('carries a stored setting through the merge', () => {
+    const stored = { tools: { pns: { mode: 0, fix_all_segments: false } } };
+    const merged = deepMerge(structuredClone(PCBNEW_DEFAULTS), stored);
+    const s = readRoutingSettings(merged.tools.pns);
+    expect(s.routingMode).toBe(PnsMode.RM_MarkObstacles);
+    expect(s.fixAllSegments).toBe(false);
+    // ...and every key the stored block omits still gets its default.
+    expect(s.shoveIterationLimit).toBe(250);
+    expect(s.autoPosture).toBe(true);
   });
 });

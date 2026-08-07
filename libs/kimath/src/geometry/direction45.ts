@@ -31,6 +31,23 @@ export enum Directions {
   UNDEFINED = -1,
 }
 
+/**
+ * DIRECTION_45::CORNER_MODE. Only MITERED_45 is implemented by
+ * `buildInitialTrace` (see the file comment); the whole enum is spelled out
+ * because `PNS::ROUTING_SETTINGS` persists the value, and a setting that could
+ * only ever hold its default would not round-trip a KiCad-written file.
+ */
+export enum CornerMode {
+  /** H/V/45 with mitered corners (default). */
+  MITERED_45 = 0,
+  /** H/V/45 with filleted corners. */
+  ROUNDED_45 = 1,
+  /** H/V only (90-degree corners). */
+  MITERED_90 = 2,
+  /** H/V with filleted corners. */
+  ROUNDED_90 = 3,
+}
+
 /** DIRECTION_45::AngleType, a bit mask, as upstream tests it with `&`. */
 export enum AngleType {
   ANG_OBTUSE = 0x01,

@@ -13,6 +13,12 @@
  * defaults on load so new keys pick up their defaults automatically.
  */
 
+import {
+  DEFAULT_ROUTING_SETTINGS,
+  writeRoutingSettings,
+  type RoutingSettingsJson,
+} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+
 // ----- COMMON_SETTINGS ---------------------------------------------------------
 
 /** MOUSE_DRAG_ACTION (common_settings.h). */
@@ -433,11 +439,24 @@ export interface PcbnewSettings {
     color_theme: string;
   };
   printing: PcbnewPrinting;
+  /**
+   * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
+   * which upstream builds as a NESTED_SETTINGS at exactly this path
+   * (pns_tool_base.cpp:103), so the sub-keys are KiCad's own spellings; the
+   * model, its defaults and the round-trip live in
+   * `@ziroeda/pcbnew/src/router/pns_routing_settings.ts`.
+   */
+  tools: {
+    pns: RoutingSettingsJson;
+  };
 }
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
   appearance: {
     color_theme: '_builtin_default',
+  },
+  tools: {
+    pns: writeRoutingSettings(DEFAULT_ROUTING_SETTINGS),
   },
   printing: {
     background: false,
