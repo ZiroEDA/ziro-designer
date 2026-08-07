@@ -5,10 +5,15 @@
  * Walking the connectivity graph past the end of a single line.
  * Counterpart: `pcbnew/router/pns_topology.cpp` (`TOPOLOGY`).
  *
- * Only `AssembleTrivialPath` and the two private walks it is built out of are
- * here. `TOPOLOGY` upstream is much larger — cluster assembly, diff pairs,
- * `SimplifyLine`, `NearestUnconnectedItem`, `AssembleTuningPath` — and every one
- * of those belongs to the change that needs it.
+ * `AssembleTrivialPath` (with the two private walks it is built out of) and
+ * `SimplifyLine` are here. `TOPOLOGY` upstream is much larger — cluster
+ * assembly, diff pairs, `NearestUnconnectedItem`, `AssembleTuningPath` — and
+ * every one of those belongs to the change that needs it.
+ *
+ * `LeadingRatLine` is the one a caller has already asked for and not got: it
+ * needs `NearestUnconnectedAnchorPoint`, which needs `NearestUnconnectedItem`,
+ * which needs board connectivity. `PNS::DIFF_PAIR_PLACER` reaches it through a
+ * host hook instead, because the only thing it does with the answer is draw it.
  *
  * ## What "trivial path" means, and why it is not trivial
  *
@@ -292,5 +297,56 @@ export class PnsTopology {
     }
 
     return best;
+  }
+
+  /**
+   * `TOPOLOGY::SimplifyLine`: collapse the colinear runs out of whatever line
+   * `aLine` belongs to, in the node.
+   *
+   * Three things about it are easy to get wrong:
+   *
+   *  1. **The argument is a handle, not the subject.** Only `aLine`'s *first
+   *     link* is read; the line that is actually simplified is the one
+   *     `assembleLine` builds from that link, which may be longer than `aLine`
+   *     at both ends. A caller that has just added two lines and simplifies each
+   *     in turn can therefore find the second call operating on a line the first
+   *     one already replaced.
+   *  2. The rewrite is **conditional on the point count changing**. `Simplify`
+   *     with the default tolerance only removes colinear vertices, so an
+   *     already-clean line is left in the node untouched — identity included,
+   *     which matters because the caller may still hold pointers into it.
+   *  3. `aLine` itself is never modified. The return value is the only signal
+   *     that anything happened, and `DIFF_PAIR_PLACER::FixRoute` ignores it.
+   *
+   * `assembleLine`'s fifth argument is passed explicitly: upstream's
+   * `AssembleLine( root, nullptr, false, false, false )` forbids a segment-size
+   * mismatch, where this port's default allows one.
+   */
+  simplifyLine(aLine: PnsLine): boolean {
+    if (!aLine.isLinked() || !aLine.segmentCount()) return false;
+
+    const root = aLine.getLink(0);
+
+    if (!root) return false;
+
+    const l = this.mWorld.assembleLine(root, null, false, false, false);
+    const simplified = l.cLine().clone();
+
+    simplified.simplify();
+
+    if (simplified.pointCount() !== l.pointCount()) {
+      this.mWorld.removeLine(l);
+
+      // `LINE lnew( l )` copies a line whose links `Remove` has just cleared,
+      // which is the only reason the `Add` below is legal.
+      const lnew = l.clone();
+
+      lnew.setShape(simplified);
+      this.mWorld.addLine(lnew);
+
+      return true;
+    }
+
+    return false;
   }
 }
