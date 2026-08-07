@@ -86,10 +86,28 @@ void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
 
-  // The clamp KiCad applies with u_minLinePixelWidth. Taking the larger of the
-  // scaled world width and the pixel floor is what keeps a hairline visible
-  // when zoomed out without the buffer depending on the zoom.
+  // The clamp KiCad applies with u_minLinePixelWidth: the larger of the scaled
+  // world width and the pixel floor, which keeps a hairline visible when zoomed
+  // out without the buffer depending on the zoom.
   float halfPx = max(a_halfWidth * abs(u_view.x), a_minPx);
+
+  // Then snap it, which is what makes thin strokes *legible* rather than merely
+  // present.
+  //
+  // A one-pixel line whose centre falls on a pixel boundary covers half of each
+  // neighbour, so the coverage term below gives two grey columns instead of one
+  // solid one. Across a sheet of stroke-font text that reads as washed out and
+  // slightly blurred, which is exactly how ours looked beside desktop KiCad at
+  // the same zoom.
+  //
+  // KiCad rounds the width to whole device pixels and snaps the line onto the
+  // pixel grid (roundr / roundv in common/gal/shaders/kicad_vert.glsl), then
+  // nudges odd widths by half a pixel so their centre lands on a pixel centre
+  // rather than a boundary. Same three steps here.
+  float widthPx = max(floor(halfPx * 2.0 + 0.5), 1.0);
+  halfPx = widthPx * 0.5;
+  // Odd widths are centred on a pixel centre, even widths on a boundary.
+  float nudge = mod(widthPx, 2.0) > 0.5 ? 0.5 : 0.0;
 
   // Half a pixel of slack so the antialiasing ramp is inside the quad rather
   // than clipped by its edge.
@@ -107,9 +125,23 @@ void main() {
            + along * a_corner.x * (len * 0.5 + pad)
            + perp  * a_corner.y * pad;
 
+  // Snap only the axis the stroke is thin along, so an axis-aligned run lands
+  // on whole pixels while a diagonal keeps its true angle. Snapping both axes
+  // would visibly kink diagonals, which is worse than a soft edge.
+  vec2 snapped0 = s0;
+  vec2 snapped1 = s1;
+  if (abs(along.y) < 0.001) {          // horizontal: snap y
+    snapped0.y = floor(s0.y) + nudge;
+    snapped1.y = floor(s1.y) + nudge;
+  } else if (abs(along.x) < 0.001) {   // vertical: snap x
+    snapped0.x = floor(s0.x) + nudge;
+    snapped1.x = floor(s1.x) + nudge;
+  }
+  pos += (snapped0 - s0);
+
   v_pixel = pos;
-  v_s0 = s0;
-  v_s1 = s1;
+  v_s0 = snapped0;
+  v_s1 = snapped1;
   v_halfPx = halfPx;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
@@ -137,6 +169,26 @@ float distToSegment(vec2 p, vec2 a, vec2 b) {
 
 void main() {
   float d = distToSegment(v_pixel, v_s0, v_s1);
+
+  // A hairline is drawn solid, not antialiased.
+  //
+  // The ramp below is right for anything with width to spare, but a stroke
+  // already clamped to a single pixel has none: the ramp spreads it over two
+  // columns at partial alpha, so it comes out grey. Stroke-font text is
+  // thousands of such strokes, which is why our sheet read as washed out beside
+  // desktop KiCad's black at the same zoom, and why snapping alone did not fix
+  // it: glyphs are mostly diagonals and curves, so an axis-aligned snap never
+  // touched them.
+  //
+  // KiCad splits the same way, with a separate path for lines at or below one
+  // pixel (SHADER_LINE_B in common/gal/shaders/kicad_vert.glsl) rather than
+  // thinning the antialiased one.
+  if (v_halfPx <= 0.51) {
+    if (d > 0.5) discard;
+    fragColor = v_color;
+    return;
+  }
+
   // One pixel of ramp: the coverage estimate that gives antialiased edges,
   // round caps and round joins in the same expression.
   float cover = clamp(v_halfPx + 0.5 - d, 0.0, 1.0);
