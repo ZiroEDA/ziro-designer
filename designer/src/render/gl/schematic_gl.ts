@@ -80,6 +80,18 @@ const sameContent = (a: ContentKey | null, b: ContentKey): boolean =>
   a.selection === b.selection &&
   a.highlight === b.highlight;
 
+/**
+ * The items being dragged, drawn over an untouched base.
+ *
+ * `doc` is the document with the move applied; `ids` are the items that moved,
+ * which the base was recorded *without*. The two are exact complements, so
+ * nothing is drawn twice and nothing goes missing.
+ */
+export interface PreviewSpec {
+  doc: Schematic;
+  ids: ReadonlySet<string>;
+}
+
 export interface GlViewport {
   scale: number;
   offsetX: number;
@@ -88,6 +100,9 @@ export interface GlViewport {
 
 export class SchematicGl {
   private readonly scene = new Scene();
+  /** The items being dragged, re-recorded on every pointer move. */
+  private readonly previewScene = new Scene();
+  private previewActive = false;
   private recorded: ContentKey | null = null;
   /** Timing of the last record, for the diagnostics overlay and for tests. */
   lastRecordMs = 0;
@@ -106,7 +121,7 @@ export class SchematicGl {
    * Pan is never a reason to re-record, and neither is a zoom inside the
    * current octave, which is what makes a wheel gesture cost nothing.
    */
-  render(content: ContentKey, view: GlViewport): void {
+  render(content: ContentKey, view: GlViewport, preview?: PreviewSpec | null): void {
     if (!sameContent(this.recorded, content)) {
       const t0 = performance.now();
       this.record(content, view.scale);
@@ -114,6 +129,24 @@ export class SchematicGl {
       this.recorded = content;
       this.lastRecordMs = performance.now() - t0;
     }
+
+    // The preview is re-recorded and re-uploaded every frame, and it never
+    // touches the base. That is what makes a drag cost what the dragged items
+    // cost: KiCad's `VIEW::AddToPreview` group over an untouched cached view.
+    if (preview) {
+      recordSchematicScene(
+        this.previewScene,
+        { ...content, doc: preview.doc, opts: { ...content.opts, onlyItems: preview.ids } },
+        view.scale,
+      );
+      this.device.uploadPreview(this.previewScene);
+      this.previewActive = true;
+    } else if (this.previewActive) {
+      this.device.clearPreview();
+      this.previewScene.clear();
+      this.previewActive = false;
+    }
+
     this.device.draw(
       {
         scaleX: view.scale,
