@@ -1345,3 +1345,23 @@ export {
   segIntersectLines,
   type CoupledSegments,
 } from './router/pns_diff_pair.js';
+
+// ----- OPTIMIZER's pad-aware passes (SMART_PADS, FANOUT_CLEANUP) -----------------
+//
+// Kept out of pns_optimizer.js because these take a PnsNode and a PnsLine where
+// the merge passes take a chain and a callback. BreakoutList and BreakoutRect
+// stay importable from './router/pns_smart_pads.js' alone.
+export {
+  approximateSegmentAsRect,
+  circleBreakouts,
+  computeBreakouts,
+  countCorners,
+  customBreakouts,
+  fanoutCleanup,
+  findPadOrVia,
+  polyAsAxisAlignedRect,
+  rectBreakouts,
+  runSmartPads,
+  smartPadsSingle,
+  SMART_PADS_FORBIDDEN_ANGLES,
+} from './router/pns_smart_pads.js';
