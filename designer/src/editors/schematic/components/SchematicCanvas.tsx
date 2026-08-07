@@ -1240,7 +1240,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // the ~70 ms unchunked repaint `startSceneRender` does after each gesture,
     // which is what makes the wheel feel like it stutters.
     const gl = glRef.current;
-    if (gl && !gl.isLost) {
+    // A ghost (a drag in flight, or a symbol attached to the cursor) rebuilds
+    // the document every frame, and the GL buffer is keyed on the document's
+    // identity, so it would re-record and re-upload the whole sheet on every
+    // pointer move: roughly 165 ms a frame, far worse than the Canvas2D path it
+    // is meant to replace. Ghost frames therefore go to Canvas2D below, which
+    // is also what draws a moving field's umbilical (`movingSelection`).
+    //
+    // The real answer is KiCad's: `VIEW::AddToPreview` / `ClearPreview` keep the
+    // items being dragged in a small group that is rebuilt each frame while the
+    // cached geometry for everything else is left alone. That needs a way to
+    // hide the moving items from the base recording, and is the next piece of
+    // work on #449.
+    if (gl && !gl.isLost && !ghosting) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = theme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
