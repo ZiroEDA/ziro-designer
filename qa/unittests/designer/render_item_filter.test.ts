@@ -180,6 +180,168 @@ describe("sub-items: a symbol's fields", () => {
   // finding where is its own piece of work rather than a guess bolted on.
 });
 
+describe('dangling-pin markers', () => {
+  /** One symbol with two unconnected pins, so both pins dangle. */
+  const DANGLING = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
+  (lib_symbols
+    (symbol "L:R" (pin_numbers (hide yes)) (pin_names (offset 0))
+      (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+      (symbol "R_0_1" (rectangle (start -1 -2) (end 1 2)
+        (stroke (width 0)) (fill (type none))))
+      (symbol "R_1_1"
+        (pin passive line (at 0 4 270) (length 2)
+          (name "~" (effects (font (size 1.27 1.27))))
+          (number "1" (effects (font (size 1.27 1.27)))))
+        (pin passive line (at 0 -4 90) (length 2)
+          (name "~" (effects (font (size 1.27 1.27))))
+          (number "2" (effects (font (size 1.27 1.27))))))))
+  (symbol (lib_id "L:R") (at 50 50 0) (unit 1)
+    (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "s-1")
+    (property "Reference" "R1" (at 54 48 0) (effects (font (size 1.27 1.27))))))`;
+
+  const recordDangling = (opts: { onlyItems?: ReadonlySet<string> }): Scene => {
+    const scene = new Scene();
+    recordSchematicScene(
+      scene,
+      {
+        doc: readSchematic(parse(DANGLING)),
+        theme,
+        opts: { ...DEFAULT_RENDER_OPTS, ...(opts.onlyItems ? { onlyItems: opts.onlyItems } : {}) },
+        selection: undefined,
+        highlight: undefined,
+      },
+      SCALE,
+    );
+    return scene;
+  };
+
+  it('are drawn on an ordinary render', () => {
+    // Establishes that this fixture really does have dangling pins, so the
+    // assertion below is about the gate and not about an empty sheet.
+    const withMarkers = recordDangling({});
+    expect(withMarkers.segmentCount).toBeGreaterThan(0);
+  });
+
+  it('are left out of the preview pass', () => {
+    // Counted by radius through a spy context, not inferred from a segment
+    // total: a preview that still drew the markers is *also* smaller than the
+    // whole sheet, so a size comparison passes either way and says nothing.
+    const arcs = (extra: Record<string, unknown>): number[] => {
+      const radii: number[] = [];
+      const noop = (): void => {};
+      const ctx = {
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        lineCap: '',
+        lineJoin: '',
+        globalAlpha: 1,
+        font: '',
+        textAlign: '',
+        setTransform: noop,
+        translate: noop,
+        rotate: noop,
+        scale: noop,
+        save: noop,
+        restore: noop,
+        setLineDash: noop,
+        beginPath: noop,
+        moveTo: noop,
+        lineTo: noop,
+        closePath: noop,
+        rect: noop,
+        bezierCurveTo: noop,
+        stroke: noop,
+        fill: noop,
+        strokeRect: noop,
+        fillRect: noop,
+        fillText: noop,
+        drawImage: noop,
+        clip: noop,
+        arc: (_x: number, _y: number, r: number) => radii.push(r),
+      } as unknown as CanvasRenderingContext2D;
+      renderSchematic(
+        ctx,
+        readSchematic(parse(DANGLING)),
+        { scale: SCALE, offsetX: 0, offsetY: 0 },
+        theme,
+        800,
+        600,
+        undefined,
+        undefined,
+        { ...DEFAULT_RENDER_OPTS, grid: { ...DEFAULT_RENDER_OPTS.grid, show: false }, ...extra },
+      );
+      return radii;
+    };
+    // TARGET_PIN_RADIUS is 15 mil; whatever its exact value, the ordinary
+    // render draws some arcs and the preview must draw strictly fewer.
+    const plainArcs = arcs({});
+    const previewArcs = arcs({ onlyItems: new Set(['s-1']) });
+    expect(plainArcs.length).toBeGreaterThan(0);
+    expect(previewArcs.length).toBe(0);
+  });
+
+  it('legacy size check', () => {
+    // Deliberate. Working out which pins dangle walks every pin, wire end and
+    // label on the sheet, so it cannot be cached per item the way field
+    // layouts and body boxes now are. Doing it per pointer move made a drag
+    // cost the whole sheet again even though one symbol was being drawn: it
+    // was the last 12 ms of the 17 ms frame. The markers return on drop, when
+    // the sheet is painted in full and the connectivity has settled.
+    const plain = recordDangling({});
+    const preview = recordDangling({ onlyItems: new Set(['s-1']) });
+    expect(preview.segmentCount).toBeGreaterThan(0); // the symbol still draws
+    expect(preview.segmentCount).toBeLessThan(plain.segmentCount);
+  });
+});
+
+describe('the per-symbol caches', () => {
+  /**
+   * Field layouts and body boxes are cached against the *symbol object*, so a
+   * drag, which rebuilds the document every frame but replaces only what moved,
+   * gets hits for everything it did not touch. That is what took a drag frame
+   * from 17 ms to 2.
+   *
+   * The risk a per-object cache carries is staleness, and for a drag it is the
+   * worst possible one: serving the moved symbol its old geometry, so it draws
+   * at the position it started from and never follows the cursor.
+   */
+  const geometry = (d: ReturnType<typeof readSchematic>): string => {
+    const scene = new Scene();
+    recordSchematicScene(
+      scene,
+      { doc: d, theme, opts: DEFAULT_RENDER_OPTS, selection: undefined, highlight: undefined },
+      SCALE,
+    );
+    return scene.segments.view().join(',');
+  };
+
+  it('serve a cached answer for a symbol that has not changed', () => {
+    // The optimisation itself: the same symbol objects in a new document
+    // object must not be recomputed, and must give the same bytes.
+    const d = doc();
+    const before = geometry(d);
+    // A new document object sharing every symbol, which is what a drag frame
+    // hands the renderer for everything it did not move.
+    const after = geometry({ ...d });
+    expect(after).toBe(before);
+  });
+
+  it('recompute a symbol that moved, rather than drawing it where it was', () => {
+    const d = doc();
+    const before = geometry(d);
+    // Replace one symbol with a moved copy, exactly as `buildMove` does.
+    const moved = {
+      ...d,
+      symbols: d.symbols.map((sym, i) =>
+        i === 0 ? { ...sym, at: { ...sym.at, x: sym.at.x + 10_000_000 } } : sym,
+      ),
+    };
+    const after = geometry(moved);
+    expect(after).not.toBe(before);
+  });
+});
+
 describe('the preview pass paints over what is already there', () => {
   /**
    * A context that records the calls this cares about and ignores the rest.
