@@ -1557,3 +1557,30 @@ export {
   type PnsSnapContext,
   type PnsSnapGridHelper,
 } from './router/pns_tool_base.js';
+// ----- PNS: interactive single-track placement (pns_line_placer) -------------------
+//
+// `LINE_PLACER` is what turns the finished `NODE` into a router a person can
+// drive: the head/tail split, the posture solver, the three routing modes, via
+// placement and the fix/unfix lifecycle. `SHOVE` is a sibling port, so the
+// placer's shove paths are written against `PnsShoveLike` — upstream's method
+// names, no implementation — and everything else is ported whole.
+export {
+  PnsFixedTail,
+  PnsLinePlacer,
+  PnsOptimizerEffort,
+  PnsWalkStatus,
+  optimizeLine,
+  viaObstaclePushout,
+  walkaroundRoute,
+  type PnsFixPoint,
+  type PnsFixedTailStage,
+  type PnsPlacerIface,
+  type PnsRouterLike,
+  type PnsShoveLike,
+  type PnsWalkPolicyResult,
+  type PnsWalkResult,
+} from './router/pns_line_placer.js';
+// `PnsMode`, `PnsOptimizationEffort` and `RoutingSettings` are already exported
+// above, from the routing-settings block this port builds on.
+export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
+export type { ChainIntersection } from './router/pns_line_item.js';

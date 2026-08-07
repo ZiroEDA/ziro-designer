@@ -56,8 +56,10 @@
  * written.
  */
 import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
-import { segReflectPoint } from './pns_seg_ops.js';
+import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
+import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
+import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ShapeArc } from './pns_arc.js';
@@ -88,6 +90,12 @@ export class PnsLineChain {
   private mPoints: Vec2[] = [];
   private mShapes: [number, number][] = [];
   private mArcs: ShapeArc[] = [];
+  /**
+   * `m_closed`. Only `area()` and the posture solver that calls it read this;
+   * `segmentCount()` deliberately still reports the open count (see the class
+   * docblock — closed chains are otherwise not modelled).
+   */
+  private mClosed = false;
 
   /**
    * A chain over a copy of the given points, none of them on an arc.
@@ -114,6 +122,7 @@ export class PnsLineChain {
       arcMid: { ...a.arcMid },
       p1: { ...a.p1 },
     }));
+    c.mClosed = this.mClosed;
     return c;
   }
 
@@ -675,6 +684,7 @@ export class PnsLineChain {
     this.mPoints = [];
     this.mShapes = [];
     this.mArcs = [];
+    this.mClosed = false;
   }
 
   /**
@@ -1406,6 +1416,284 @@ export class PnsLineChain {
 
     return nearestOnSegment(this.mPoints[nearest] as Vec2, this.mPoints[nearest + 1] as Vec2, aP);
   }
+
+  // ----- the chain surface LINE_PLACER needs ------------------------------------
+  //
+  // Upstream's arc bookkeeping in `Remove`, `Split` and `Replace` splits an arc
+  // that a cut lands inside; that path is NOT ported. Shape indices are carried
+  // along with the points so an arc-bearing chain is never *corrupted*, but a
+  // cut through the middle of an arc leaves the arc's remaining points pointing
+  // at it rather than splitting it in two. LINE_PLACER's own chains are
+  // arc-free — `Direction45` builds no arcs in the ported corner modes — and
+  // the one place arcs do reach it (`FixRoute` reading `arcIndex`) only reads.
+  //
+  // Deliberately absent: `points()`, `bbox()`, `nearestPoint()`, `insertPoint()`
+  // and `simplify()`/`simplify2()`. This port had its own of each and SHOVE's
+  // are the ones kept. `simplify` matters most: SHOVE's is
+  // `SHAPE_LINE_CHAIN::Simplify( int aTolerance )` (`shape_line_chain.h:358`),
+  // which is what `LINE_PLACER` actually calls, where this port had bound the
+  // name to `Simplify2( bool aRemoveColinear )` (`:362`) — a different function
+  // with a fixed one-IU band. SHOVE's is the faithful one.
+
+  /** `IsClosed()`. */
+  isClosed(): boolean {
+    return this.mClosed;
+  }
+
+  /**
+   * `SetClosed`. Only a flag: it does not append the wrap-around point, and
+   * `segmentCount()` here deliberately still reports the open count, matching
+   * how the ported callers use it.
+   */
+  setClosed(aClosed: boolean): void {
+    this.mClosed = aClosed;
+  }
+
+  /**
+   * `Area( aAbsolute = true )` (`shape_line_chain.cpp:2696-2718`): the shoelace
+   * area, **zero unless the chain is closed**. The posture solver leans on that
+   * — it closes its two candidate polygons before measuring, and a chain it
+   * forgot to close would silently compare 0 against 0.
+   */
+  area(aAbsolute = true): number {
+    if (!this.mClosed) return 0.0;
+
+    let area = 0.0;
+    const size = this.mPoints.length;
+
+    for (let i = 0, j = size - 1; i < size; ++i) {
+      const pi = this.mPoints[i] as Vec2;
+      const pj = this.mPoints[j] as Vec2;
+      area += (pj.x + pi.x) * (pj.y - pi.y);
+      j = i;
+    }
+
+    return aAbsolute ? Math.abs(area * 0.5) : -area * 0.5;
+  }
+
+  /** `SetPoint`: negative indices count back from the end. */
+  setPoint(aIndex: number, aPos: Vec2): void {
+    const i = aIndex < 0 ? this.mPoints.length + aIndex : aIndex;
+
+    if (i < 0 || i >= this.mPoints.length) return;
+
+    this.mPoints[i] = { x: aPos.x, y: aPos.y };
+  }
+
+  /**
+   * `ShapeCount()` (`shape_line_chain.cpp:1269-1281`): how many *shapes* — a
+   * segment run or a whole arc counting as one — the chain is made of.
+   *
+   * This is the quantity `mergeHead` thresholds on, and it is **not** the
+   * segment count: an arc of forty polyline segments is one shape. Fewer than
+   * two points is zero shapes, not one.
+   */
+  shapeCount(): number {
+    if (this.mPoints.length < 2) return 0;
+
+    let numShapes = 1;
+
+    for (let i = this.nextShape(0); i !== -1; i = this.nextShape(i)) numShapes++;
+
+    return numShapes;
+  }
+
+  /**
+   * `EdgeContainingPoint( aPt, aAccuracy )` (`shape_line_chain.cpp:2080-...`):
+   * the index of the segment the point lies on, or -1.
+   *
+   * The threshold is `aAccuracy + 1`, not `aAccuracy` — a point exactly on the
+   * edge of an exactly-zero-accuracy query still counts.
+   */
+  edgeContainingPoint(aPt: Vec2, aAccuracy = 0): number {
+    const threshold = aAccuracy + 1;
+    const thresholdSq = threshold * threshold;
+
+    if (this.mPoints.length === 0) return -1;
+
+    if (this.mPoints.length === 1) {
+      const p = this.mPoints[0] as Vec2;
+      const dSq = (p.x - aPt.x) ** 2 + (p.y - aPt.y) ** 2;
+      return dSq <= thresholdSq ? 0 : -1;
+    }
+
+    for (let i = 0; i < this.segmentCount(); i++) {
+      if (segSquaredDistanceToPointExact(this.cSegment(i), aPt) <= thresholdSq) return i;
+    }
+
+    return -1;
+  }
+
+  /** `PointOnEdge`. */
+  pointOnEdge(aPt: Vec2, aAccuracy = 0): boolean {
+    return this.edgeContainingPoint(aPt, aAccuracy) >= 0;
+  }
+
+  /**
+   * `RemoveShape( aPointIndex )` (`shape_line_chain.cpp:1380-1409`): remove the
+   * whole shape this point belongs to — one point if it is a plain vertex, the
+   * entire arc if it is on one.
+   *
+   * `handlePullback` calls this with -1 rather than `Remove(-1, -1)` precisely
+   * so that pulling back over an arc drops the arc rather than one of its
+   * polyline vertices.
+   */
+  removeShape(aPointIndex: number): void {
+    let idx = aPointIndex;
+
+    if (idx < 0) idx += this.pointCount();
+    if (idx >= this.pointCount() || idx < 0) return;
+
+    if (!this.isPtOnArc(idx)) {
+      this.remove(idx, idx);
+      return;
+    }
+
+    let start = idx;
+    let end = idx;
+    const arcIdx = this.arcIndex(idx);
+
+    if (!this.isArcStart(start)) {
+      while (start > 0 && this.arcIndex(start - 1) === arcIdx) start--;
+    }
+
+    const isArcEnd = this.isPtOnArc(end) && !this.isArcSegment(end);
+
+    if (!isArcEnd || start === end) {
+      const next = this.nextShape(end);
+      end = next === -1 ? this.pointCount() - 1 : next;
+    }
+
+    this.remove(start, end);
+  }
+
+  // `Replace` and `Remove` are ported in full above, both overloads, with the
+  // arc bookkeeping upstream maintains. A second narrower spelling landed here
+  // independently; main's is kept.
+
+  /**
+   * `Split( aP, aExact = false )` (`shape_line_chain.cpp:1181-1236`): insert
+   * `aP` as a vertex and return its index, or -1 if it is nowhere near the
+   * chain.
+   *
+   * `min_dist` starts at **2**, so the point must be within 1 IU of a segment —
+   * this is a snap onto an existing edge, not a projection. And a candidate
+   * segment is rejected when `aP` equals either of its ends (`:1195`), with the
+   * comment *"make sure we are not producing a 'slightly concave' primitive"*;
+   * the already-a-vertex case is then picked up by the `found_index` fallback,
+   * which returns that vertex's index without inserting anything.
+   */
+  split(aP: Vec2, aExact = false): number {
+    let ii = -1;
+    let minDist = 2;
+
+    const foundIndex = this.find(aP);
+
+    if (foundIndex >= 0 && aExact) return foundIndex;
+
+    for (let s = 0; s < this.segmentCount(); s++) {
+      const seg = this.cSegment(s);
+      const dist = Math.round(Math.sqrt(segSquaredDistanceToPointExact(seg, aP)));
+
+      if (
+        dist < minDist &&
+        !(seg.a.x === aP.x && seg.a.y === aP.y) &&
+        !(seg.b.x === aP.x && seg.b.y === aP.y)
+      ) {
+        minDist = dist;
+
+        if (foundIndex < 0) ii = s;
+        else if (s < foundIndex) ii = s;
+      }
+    }
+
+    if (ii < 0) ii = foundIndex;
+
+    if (ii >= 0) {
+      const at = this.mPoints[ii];
+
+      // Don't create duplicate points.
+      if (at !== undefined && at.x === aP.x && at.y === aP.y) return ii;
+
+      const newIndex = ii + 1;
+
+      // Splitting inside an arc is upstream's `splitArc` path, which is not
+      // ported; the point is inserted as a plain vertex instead.
+      this.insertPoint(newIndex, aP);
+
+      return newIndex;
+    }
+
+    return -1;
+  }
+
+  /**
+   * `Intersect( const SHAPE_LINE_CHAIN& aChain, INTERSECTIONS& aIp )`
+   * (`shape_line_chain.cpp:1802-1948`), the non-collinear arm plus the
+   * collinear-overlap arm.
+   *
+   * `index_our` is a *segment* index that is incremented to a *point* index when
+   * the hit lands on that segment's B end — the two index spaces are mixed on
+   * purpose, and `handleSelfIntersections` reads the result as a point index
+   * when it clips the tail.
+   */
+  intersect(aChain: PnsLineChain, aExcludeColinearAndTouching = false): ChainIntersection[] {
+    const out: ChainIntersection[] = [];
+    const ourSegCount = this.segmentCount();
+    const theirSegCount = aChain.segmentCount();
+
+    if (ourSegCount === 0 || theirSegCount === 0) return out;
+
+    for (let s1 = 0; s1 < ourSegCount; s1++) {
+      const a = this.cSegment(s1);
+
+      for (let s2 = 0; s2 < theirSegCount; s2++) {
+        const b = aChain.cSegment(s2);
+        const p = intersectSegs(a, b);
+        const base = {
+          indexOur: s1,
+          indexTheir: s2,
+          isCornerOur: false,
+          isCornerTheir: false,
+        };
+
+        if (!aExcludeColinearAndTouching && segCollinear(a.a, a.b, b.a, b.b)) {
+          if (segContains(a, b.a)) out.push({ ...base, p: { ...b.a }, isCornerTheir: true });
+          if (segContains(a, b.b))
+            out.push({ ...base, p: { ...b.b }, indexTheir: s2 + 1, isCornerTheir: true });
+          if (segContains(b, a.a)) out.push({ ...base, p: { ...a.a }, isCornerOur: true });
+          if (segContains(b, a.b))
+            out.push({ ...base, p: { ...a.b }, indexOur: s1 + 1, isCornerOur: true });
+        } else if (p) {
+          const is: ChainIntersection = { ...base, p };
+
+          if (p.x === a.a.x && p.y === a.a.y) is.isCornerOur = true;
+          if (p.x === a.b.x && p.y === a.b.y) {
+            is.isCornerOur = true;
+            is.indexOur = s1 + 1;
+          }
+          if (p.x === b.a.x && p.y === b.a.y) is.isCornerTheir = true;
+          if (p.x === b.b.x && p.y === b.b.y) {
+            is.isCornerTheir = true;
+            is.indexTheir = s2 + 1;
+          }
+
+          out.push(is);
+        }
+      }
+    }
+
+    return out;
+  }
+}
+
+/** `SHAPE_LINE_CHAIN::INTERSECTION` (`shape_line_chain.h:86-110`). */
+export interface ChainIntersection {
+  p: Vec2;
+  indexOur: number;
+  indexTheir: number;
+  isCornerOur: boolean;
+  isCornerTheir: boolean;
 }
 
 /** `SEG::LineDistance`: distance from `p` to the infinite line through a-b. */
@@ -1678,6 +1966,51 @@ export class PnsLine extends PnsLinkHolder {
 
   endsWithVia(): boolean {
     return this.mVia !== null;
+  }
+
+  // ----- added for LINE_PLACER (pns_line_placer.ts) -----------------------------
+
+  /**
+   * `LINE::Clear()` (`pns_line.cpp:1589-1594`): links, via, points — in that
+   * order, and **all three**.
+   *
+   * `splitHeadTail` leans on the fact that this leaves the width, layers and net
+   * alone: it builds the new head as a copy of the *old tail* and then clears
+   * it, precisely so the head inherits those three attributes from the tail
+   * rather than from the walked line it is about to be given.
+   */
+  clear(): void {
+    this.clearLinks();
+    this.removeVia();
+    this.mLine.clear();
+  }
+
+  /**
+   * `LINE::CountCorners( aAngles )` (`pns_line.cpp:218-237`): how many corners
+   * of this line form one of the angle types in the mask.
+   *
+   * `mergeHead` uses it as a veto — a head containing any acute, 180° or
+   * undefined corner is never promoted into the tail, because such a corner
+   * cannot be routed and would be frozen in place by the promotion.
+   *
+   * Arcs are not special-cased here, upstream included: the polyline segments
+   * standing in for an arc are compared like any others, so a polygonised arc
+   * contributes a run of obtuse corners.
+   */
+  countCorners(aAngles: number): number {
+    let count = 0;
+
+    for (let i = 0; i < this.mLine.segmentCount() - 1; i++) {
+      const seg1 = this.mLine.cSegment(i);
+      const seg2 = this.mLine.cSegment(i + 1);
+
+      const dir1 = Direction45.fromSeg(seg1.a, seg1.b);
+      const dir2 = Direction45.fromSeg(seg2.a, seg2.b);
+
+      if (dir1.angle(dir2) & aAngles) count++;
+    }
+
+    return count;
   }
 
   // ----- the LINE surface SHOVE needs ---------------------------------------------
