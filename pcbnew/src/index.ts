@@ -1163,3 +1163,35 @@ export {
   type PnsPathResult,
   type PnsTerminalJoints,
 } from './router/pns_topology.js';
+
+export {
+  DL_Attributes,
+  DL_CREATION_ADAPTER,
+  DL_Extrusion,
+  DL_NANDOUBLE,
+  DXF_READER,
+  stripWhiteSpace,
+  toInt,
+  toInt16,
+  toReal,
+} from './dxf_reader.js';
+
+export { SPLINE_ERROR, bsplineToBeziers } from './dxf_spline.js';
+
+export {
+  DXF2BRD_ENTITY_DATA,
+  DXF_IMPORT_BLOCK,
+  DXF_IMPORT_LAYER,
+  DXF_IMPORT_LINEWEIGHT_BY_BLOCK,
+  DXF_IMPORT_LINEWEIGHT_BY_LAYER,
+  DXF_IMPORT_LINEWEIGHT_BY_LW_DEFAULT,
+  DXF_IMPORT_PLUGIN,
+  DXF_IMPORT_STYLE,
+  DXF_IMPORT_UNITS,
+  matrixFromRows,
+  matrixMul,
+  matrixMulVec3,
+  matrixSetRotation,
+  matrixSetScale,
+  matrixZero,
+} from './dxf_import_plugin.js';
