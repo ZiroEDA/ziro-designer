@@ -43,6 +43,11 @@
 import { LINE_STYLE, type Color4d } from './plot_dxf.js';
 import type { PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import {
+  buildPolysetFromOrientedPaths,
+  fracture,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 
@@ -175,7 +180,7 @@ export class BOX2D {
     this.m_size = { x, y };
     this.m_init = true;
   }
-  private SetEnd(x: number, y: number): void {
+  SetEnd(x: number, y: number): void {
     this.m_size = { x: x - this.m_pos.x, y: y - this.m_pos.y };
     this.m_init = true;
   }
@@ -957,6 +962,180 @@ export class GRAPHICS_IMPORTER_BUFFER extends GRAPHICS_IMPORTER {
 
     aImporter.SetCurrentSourceLayer('');
   }
+
+  /**
+   * `GRAPHICS_IMPORTER_BUFFER::PostprocessNestedPolygons`.
+   *
+   * Only the SVG parser calls this, and only because SVG is the one format
+   * where several sub-paths of a single shape share a fill rule and are meant
+   * to be read together: the counter of a letter, the hole in a washer. Each
+   * such group arrives here as consecutive `IMPORTED_POLYGON`s carrying the
+   * same parent-shape index, and leaves as the fractured outlines of one
+   * polygon set — because KiCad's board model has no polygon-with-holes.
+   *
+   * Everything that is not a polygon, and every polygon with an index below
+   * zero, passes through untouched **in place**; a converted group is emitted
+   * where its last member was. So relative order is preserved except within a
+   * group.
+   *
+   * The group's stroke, fill flag and fill colour are taken from the **last**
+   * polygon of the group, not the first. Upstream's, and it matters whenever
+   * sub-paths of one shape disagree — which, coming from one SVG shape, they
+   * do not.
+   */
+  PostprocessNestedPolygons(): void {
+    let curShapeIdx = -1;
+    let lastStroke = new IMPORTED_STROKE();
+    let lastFilled = false;
+    let lastFillColor: Color4d = COLOR4D_UNSPECIFIED;
+
+    const newShapes: IMPORTED_SHAPE[] = [];
+    let polypaths: IMPORTED_POLYGON[] = [];
+
+    for (const shape of this.m_shapes) {
+      const poly = shape instanceof IMPORTED_POLYGON ? shape : null;
+
+      if (!poly || poly.GetParentShapeIndex() < 0) {
+        newShapes.push(shape.clone());
+        continue;
+      }
+
+      const index = poly.GetParentShapeIndex();
+
+      if (index !== curShapeIdx && curShapeIdx >= 0) {
+        convertPolygon(
+          newShapes,
+          polypaths,
+          this.m_shapeFillRules[curShapeIdx]!,
+          lastStroke,
+          lastFilled,
+          lastFillColor,
+        );
+
+        polypaths = [];
+      }
+
+      curShapeIdx = index;
+      lastStroke = poly.GetStroke();
+      lastFilled = poly.IsFilled();
+      lastFillColor = poly.GetFillColor();
+      polypaths.push(poly);
+    }
+
+    if (curShapeIdx >= 0) {
+      convertPolygon(
+        newShapes,
+        polypaths,
+        this.m_shapeFillRules[curShapeIdx]!,
+        lastStroke,
+        lastFilled,
+        lastFillColor,
+      );
+    }
+
+    this.m_shapes = newShapes;
+  }
+}
+
+/**
+ * `convertPolygon`: one SVG-style polygon — several outlines, holes implied by
+ * the fill rule — becomes the fractured single-outline polygons KiCad stores.
+ *
+ * The 1e9 upscale is the load-bearing part. Clipper works in integers, and the
+ * coordinates arriving here are millimetres, so a millimetre-scale drawing
+ * would collapse to a handful of distinct integer points. Everything is first
+ * mapped so the **longer** side of the group's bounding box spans 1e9 units,
+ * the boolean runs there, and the result is mapped back. The shorter side keeps
+ * the aspect ratio rather than being stretched to 1e9 as well.
+ *
+ * A group whose bounding box has zero width *or* zero height is dropped
+ * entirely — upstream's `wxCHECK( origH && origW )` returns before anything is
+ * emitted, taking the group's open sub-paths with it.
+ */
+function convertPolygon(
+  aShapes: IMPORTED_SHAPE[],
+  aPaths: IMPORTED_POLYGON[],
+  aFillRule: POLY_FILL_RULE,
+  aStroke: IMPORTED_STROKE,
+  aFilled: boolean,
+  aFillColor: Color4d,
+): void {
+  let minX = Number.MAX_VALUE;
+  let minY = minX;
+  // `std::numeric_limits<double>::min()` is the smallest *positive* double, not
+  // the most negative one, so a group lying entirely in negative coordinates
+  // never beats the seed and measures its box as ending at (near) zero. That
+  // is upstream's, and it is a precision bug rather than a correctness one:
+  // the same inflated `origW`/`origH` are used to map back out again, so the
+  // round trip is still exact and only the integer intermediate gets coarser.
+  let maxX = Number.MIN_VALUE;
+  let maxY = maxX;
+
+  // as Clipper/SHAPE_POLY_SET uses ints we first need to upscale to a
+  // reasonably large size (in integer coordinates) to avoid losing accuracy.
+  const convert_scale = 1000000000.0;
+
+  for (const path of aPaths) {
+    for (const v of path.Vertices()) {
+      minX = Math.min(minX, v.x);
+      minY = Math.min(minY, v.y);
+      maxX = Math.max(maxX, v.x);
+      maxY = Math.max(maxY, v.y);
+    }
+  }
+
+  const origW = maxX - minX;
+  const origH = maxY - minY;
+  let upscaledW: number;
+  let upscaledH: number;
+
+  if (!origH || !origW) return;
+
+  if (origW > origH) {
+    upscaledW = convert_scale;
+    upscaledH = origH === 0.0 ? 0.0 : (origH * convert_scale) / origW;
+  } else {
+    upscaledH = convert_scale;
+    upscaledW = origW === 0.0 ? 0.0 : (origW * convert_scale) / origH;
+  }
+
+  const openPaths: IMPORTED_POLYGON[] = [];
+  const upscaledPaths: Vec2[][] = [];
+
+  for (const path of aPaths) {
+    // Fewer than three vertices cannot bound anything; it is re-emitted as-is.
+    if (path.Vertices().length < 3) {
+      openPaths.push(path);
+      continue;
+    }
+
+    const lc: Vec2[] = [];
+
+    for (const v of path.Vertices()) {
+      lc.push({
+        x: KiROUND((v.x - minX) * (upscaledW / origW)),
+        y: KiROUND((v.y - minY) * (upscaledH / origH)),
+      });
+    }
+
+    upscaledPaths.push(lc);
+  }
+
+  const result = buildPolysetFromOrientedPaths(
+    upscaledPaths,
+    aFillRule === POLY_FILL_RULE.PF_EVEN_ODD,
+  );
+
+  for (const outline of fracture(result)) {
+    const pts: Vec2[] = outline.map((p) => ({
+      x: p.x * (origW / upscaledW) + minX,
+      y: p.y * (origH / upscaledH) + minY,
+    }));
+
+    aShapes.push(new IMPORTED_POLYGON(pts, aStroke, aFilled, aFillColor));
+  }
+
+  for (const openPath of openPaths) aShapes.push(openPath.clone());
 }
 
 /** `wxString::Format`'s `%f`: six decimals, always. */
