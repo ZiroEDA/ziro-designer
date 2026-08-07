@@ -1494,3 +1494,66 @@ export {
   optimizeDiffPair,
   verifyDpBypass,
 } from './router/pns_optimizer_diff_pair.js';
+
+// ----- PNS::ROUTER and PNS::TOOL_BASE -------------------------------------------
+//
+// The driver that ties the router together: a four-state machine (IDLE,
+// ROUTE_TRACK, DRAG_SEGMENT, DRAG_COMPONENT), the mode dispatch that picks a
+// placer, and the commit path that turns a placer's answers into board edits.
+//
+// `PnsRouterIface` is `PNS::ROUTER_IFACE`, **declared but not implemented** —
+// upstream's only implementation is `PNS_KICAD_IFACE`, 3293 lines of
+// wxWidgets/BOARD bridge this repo replaces with its own. Implementing it
+// against Ziro's `Board` is a separate PR, and this type is its contract.
+//
+// `PnsPlacementAlgo` is `PNS::PLACEMENT_ALGO`, which nothing else in this tree
+// declares. The four ported placers all satisfy it structurally, asserted at
+// compile time in `qa/unittests/pcbnew/pns_router.test.ts`.
+//
+// `PnsDragMode` and `PnsDragAlgo` are NOT exported from here — they are
+// `pns_drag_algo.js`'s, re-exported above, and `ROUTER` uses those directly.
+// This port added `setDebugDecorator`/`dbg` to that abstract class:
+// `ALGO_BASE` carries them upstream (`pns_algo_base.h`) and
+// `ROUTER::StartDragging` calls the setter on whichever dragger it just built
+// (`pns_router.cpp:196`).
+//
+// `PnsRouterSizes` extends `pns_diff_pair_placer.js`'s `DpPlacerSizes` rather
+// than creating a rival `pns_sizes_settings` module; see that file's note on
+// why a second module inventing the name costs a merge.
+export {
+  DEFAULT_ROUTER_SIZES,
+  PNS_HEAD_TRACE,
+  PNS_HOVER_ITEM,
+  PNS_SEMI_SOLID,
+  PnsRouter,
+  PnsRouterMode,
+  PnsRouterState,
+  type PnsPlacementAlgo,
+  type PnsRouterAlgoFactory,
+  type PnsRouterDeps,
+  type PnsRouterSizes,
+} from './router/pns_router.js';
+// `PnsRouterIface` is deliberately NOT re-exported here. `pns_collision.js`
+// already exports a type of that name — the one-member slice
+// (`isFlashedOnLayer`) the item model reaches through the router singleton —
+// and it is re-exported above. The full `ROUTER_IFACE` extends that slice, so
+// the two are compatible, but two modules exporting rival names through this
+// file is exactly the conflict that costs a merge. Import it from
+// `router/pns_router.js` directly.
+
+// `PNS::TOOL_BASE`, the three methods of it that are routing decisions rather
+// than wxWidgets event plumbing. `PCB_GRID_HELPER` shrinks to the three calls
+// `snapToItem` makes; the frame/view inputs `pickSingleItem` reads become
+// explicit context fields.
+export {
+  PNS_COORDS_PADDING,
+  PnsGridHelperGrid,
+  PnsMagneticOption,
+  checkSnap,
+  pickSingleItem,
+  snapToItem,
+  type PnsMagneticSettings,
+  type PnsPickContext,
+  type PnsSnapContext,
+  type PnsSnapGridHelper,
+} from './router/pns_tool_base.js';
