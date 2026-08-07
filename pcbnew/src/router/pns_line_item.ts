@@ -40,10 +40,13 @@
  * {@link PnsLineChain} carries upstream's exact arc representation — a point
  * array, a per-point pair of shape indices, and an arc array — because
  * `IsArcSegment` is read by `Add( LINE& )` and cannot be reconstructed from
- * points alone. What is **not** ported is `SHAPE_ARC::ConvertToPolyline`: turning
- * an arc into points is a `libs/kimath` job this repo has not done, so
- * {@link PnsLineChain.appendArc} takes the polyline as an argument instead of
- * computing it. Everything downstream of that — how the arc is filed, which
+ * points alone. `SHAPE_ARC::ConvertToPolyline` now exists twice over — as
+ * `convertArcToPolyline` here and as `arcConvertToPolyline` in
+ * `shape_arc_ops.ts`, ported independently and merged together; they are left
+ * side by side deliberately rather than reconciled during a merge.
+ * {@link PnsLineChain.appendArc} still takes the polyline as an argument, and
+ * {@link PnsLineChain.appendArcShape} is the overload that computes it.
+ * Everything downstream of that — how the arc is filed, which
  * segments then report as arc segments, how a shared endpoint is folded into the
  * previous point — is upstream's `Append( const SHAPE_LINE_CHAIN& )` verbatim.
  *
@@ -54,6 +57,8 @@
  */
 import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { segReflectPoint } from './pns_seg_ops.js';
+import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
+import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
@@ -110,6 +115,11 @@ export class PnsLineChain {
 
   pointCount(): number {
     return this.mPoints.length;
+  }
+
+  /** `CLastPoint`. */
+  cLastPoint(): Vec2 {
+    return this.cPoint(-1);
   }
 
   /** `CPoint`: negative indices count back from the end. */
@@ -207,6 +217,327 @@ export class PnsLineChain {
     this.mShapes.push(shapesArePt());
   }
 
+  /** `IsArcStart`: this point is where an arc begins. */
+  isArcStart(aIndex: number): boolean {
+    if (!this.isArcSegment(aIndex)) return false; // also does bound checking
+
+    if (this.isSharedPt(aIndex)) return true;
+
+    const arc = this.arc(this.arcIndex(aIndex));
+    const p = this.mPoints[aIndex] as Vec2;
+
+    return arc.p0.x === p.x && arc.p0.y === p.y;
+  }
+
+  /**
+   * `Find`: the index of a **vertex**, or -1.
+   *
+   * A vertex search, not a hit test: a point lying halfway along a segment is
+   * not found. `FindLinesBetweenJoints` depends on that — a joint that is not a
+   * corner of the assembled line is simply not in it.
+   */
+  find(aP: Vec2, aThreshold = 0): number {
+    for (let s = 0; s < this.pointCount(); s++) {
+      const p = this.cPoint(s);
+
+      if (aThreshold === 0) {
+        if (p.x === aP.x && p.y === aP.y) return s;
+      } else if (Math.hypot(p.x - aP.x, p.y - aP.y) <= aThreshold) {
+        return s;
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * `Length`: straight segments plus whole arcs.
+   *
+   * Note the arc terms are the arcs' *true* lengths, not the lengths of the
+   * polylines standing in for them, and every arc in the chain contributes
+   * whether or not the range being measured covers it.
+   *
+   * The accumulator is a `long long` upstream and every term is an integer
+   * distance (`SEG::Length` rounds; `SHAPE_ARC::GetLength` is a double that the
+   * `+=` truncates), so the arithmetic is reproduced integer-wise. It matters
+   * because `TOPOLOGY::followBranch` keeps the strictly longest path and a
+   * fractional difference would change which branch wins a near-tie.
+   */
+  length(): number {
+    let l = 0;
+
+    for (let i = 0; i < this.segmentCount(); i++) {
+      // Only include segments that aren't part of arc shapes.
+      if (!this.isArcSegment(i)) {
+        const s = this.cSegment(i);
+        l += Math.round(Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y));
+      }
+    }
+
+    for (const a of this.mArcs) l = Math.trunc(l + arcLength(a));
+
+    return l;
+  }
+
+  /**
+   * `Reverse`. The arc list is reversed too, so every stored shape index has to
+   * be renumbered, and a shared point's two indices swap round — the arc that
+   * *ended* there now starts there.
+   */
+  reverse(): PnsLineChain {
+    const a = this.clone();
+
+    a.mPoints.reverse();
+    a.mShapes.reverse();
+    a.mArcs.reverse();
+
+    const renumber = (i: number): number =>
+      i === SHAPE_IS_PT ? SHAPE_IS_PT : a.mArcs.length - i - 1;
+
+    for (const sh of a.mShapes) {
+      if (sh[0] === SHAPE_IS_PT && sh[1] === SHAPE_IS_PT) continue;
+
+      sh[0] = renumber(sh[0]);
+      sh[1] = renumber(sh[1]);
+
+      if (sh[1] !== SHAPE_IS_PT) {
+        const first = sh[0];
+        sh[0] = sh[1];
+        sh[1] = first;
+      }
+    }
+
+    // Upstream also reverses each SHAPE_ARC in place, so the curve is walked
+    // the other way round.
+    a.mArcs = a.mArcs.map(reversedArc);
+
+    return a;
+  }
+
+  /**
+   * `NextShape`: the index of the point where the next straight segment or arc
+   * begins, or -1 at the end of the chain.
+   *
+   * Walking a chain by `NextShape` rather than by `i++` is what makes an arc
+   * count as *one* shape however many points stand in for it, and it is the
+   * loop `LINE::ClipVertexRange` counts links with.
+   *
+   * The closed-chain arms (`m_closed` at `shape_line_chain.cpp:1320` and
+   * `:1352`) are not written: no line the router hands a node is closed.
+   */
+  nextShape(aPointIndex: number): number {
+    let i = aPointIndex;
+
+    if (i < 0) i += this.pointCount();
+
+    if (i < 0) return -1;
+
+    const lastIndex = this.pointCount() - 1;
+
+    // Last point? We don't want to wrap around.
+    if (i >= lastIndex) return -1;
+
+    const sh = this.mShapes[i] as [number, number];
+
+    if (sh[0] === SHAPE_IS_PT && sh[1] === SHAPE_IS_PT) {
+      return i === lastIndex - 1 ? -1 : i + 1;
+    }
+
+    const arcStart = i;
+
+    // The second element only gets populated when the point is shared between
+    // two shapes; otherwise the index is always on the first.
+    if (sh[0] === SHAPE_IS_PT) return -1; // malformed chain
+
+    const currentArcIdx = this.arcIndex(i);
+
+    // Now skip the rest of the arc.
+    while (i < lastIndex && this.arcIndex(i) === currentArcIdx) i += 1;
+
+    const at = this.mShapes[i] as [number, number];
+    const indexStillOnArc = at[0] === currentArcIdx || at[1] === currentArcIdx;
+
+    // We want the last vertex of the arc if the initial point was the start of
+    // one. Well-formed arcs generate more than one point to travel above.
+    if (i - arcStart > 1 && !indexStillOnArc) i -= 1;
+
+    if (i === lastIndex) return -1;
+
+    return i;
+  }
+
+  /**
+   * `Slice( aStartIndex, aEndIndex, aMaxError )`: the sub-chain between two
+   * **vertex** indices, inclusive at both ends.
+   *
+   * ### Disclosed gap: cutting through the middle of an arc
+   *
+   * Upstream's two arc-*splitting* arms (`shape_line_chain.cpp:1437-1464` and
+   * `:1486-1513`) rebuild a partial arc with
+   * `SHAPE_ARC::ConstructFromStartEndCenter`, which this repo has not ported
+   * and which is a `libs/kimath` job of its own. Both arms throw here.
+   *
+   * They are reached only when a cut index falls strictly inside an arc, which
+   * `LINE::ClipVertexRange` — the only caller in this port — documents as
+   * impossible: *"It is assumed that anything calling this method will have
+   * determined the vertex range to clip based on joints, meaning we will never
+   * clip in the middle of an arc."* Flagged rather than faked.
+   */
+  slice(aStartIndex: number, aEndIndex: number, aMaxError = ARC_HIGH_DEF): PnsLineChain {
+    const rv = new PnsLineChain();
+
+    let start = aStartIndex;
+    let end = aEndIndex;
+
+    if (end < 0) end += this.pointCount();
+
+    if (start < 0) start += this.pointCount();
+
+    // Bad programmer checks.
+    if (start < 0 || end < 0 || start >= this.pointCount() || end >= this.pointCount()) return rv;
+
+    if (end < start) return rv;
+
+    const numPoints = this.mPoints.length;
+
+    if (this.isArcSegment(start) && !this.isArcStart(start)) {
+      throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() starting inside an arc is not ported');
+    }
+
+    for (let i = start; i <= end && i < numPoints; i = this.nextShape(i)) {
+      if (i === -1) return rv; // NextShape reached the end
+
+      const nextShape = this.nextShape(i);
+      const isLastShape = nextShape < 0;
+
+      if (this.isArcStart(i)) {
+        if ((isLastShape && end !== numPoints - 1) || nextShape > end) {
+          if (i === end) {
+            // Single point on an arc, just append the single point.
+            rv.appendPoint(this.mPoints[i] as Vec2);
+            return rv;
+          }
+
+          throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() ending inside an arc is not ported');
+        }
+
+        // Append the whole arc.
+        rv.appendArcShape(this.arc(this.arcIndex(i)), aMaxError);
+
+        if (isLastShape) return rv;
+      } else {
+        if (i === start) rv.appendPoint(this.mPoints[i] as Vec2);
+
+        const nextPointIsArc = isLastShape ? false : this.isArcSegment(nextShape);
+
+        if (!nextPointIsArc && i < this.segmentCount() && i < end) {
+          rv.appendPoint(this.cSegment(i).b);
+        }
+      }
+    }
+
+    return rv;
+  }
+
+  /**
+   * `RemoveDuplicatePoints`: collapse runs of identical vertices.
+   *
+   * `AssembleLine` calls this and **only** this — never `Simplify`. Upstream's
+   * comment is emphatic (`pns_node.cpp:1203`): *"Remove duplicate verts, but do
+   * NOT remove colinear segments here!"* Simplifying would break the 1:1
+   * correspondence between the chain's vertices and the line's `Links()`, on
+   * which everything downstream of assembly depends.
+   *
+   * A run collapses only while the points are equal **and** either they carry
+   * the same shape indices or one of them is on no shape at all — so a vertex
+   * where an arc meets a coincident straight point survives with the arc's
+   * indices, not the plain one's.
+   *
+   * Chains shorter than three points are left alone: *"Always try to keep at
+   * least 2 points otherwise, we're not really a line."*
+   */
+  removeDuplicatePoints(): void {
+    const same = (a: [number, number], b: [number, number]): boolean =>
+      a[0] === b[0] && a[1] === b[1];
+    const isPt = (a: [number, number]): boolean => a[0] === SHAPE_IS_PT && a[1] === SHAPE_IS_PT;
+
+    if (this.pointCount() < 3) return;
+
+    if (this.pointCount() === 3) {
+      const p0 = this.mPoints[0] as Vec2;
+      const p1 = this.mPoints[1] as Vec2;
+
+      if (p0.x === p1.x && p0.y === p1.y) this.removeAt(1);
+
+      return;
+    }
+
+    const ptsUnique: Vec2[] = [];
+    const shapesUnique: [number, number][] = [];
+
+    let i = 0;
+
+    while (i < this.pointCount()) {
+      let j = i + 1;
+
+      const pi = this.mPoints[i] as Vec2;
+      const si = this.mShapes[i] as [number, number];
+
+      // Duplicate vertices can be eliminated as long as they are part of the
+      // same shape, OR one of them is part of a shape and one is not.
+      while (j < this.pointCount()) {
+        const pj = this.mPoints[j] as Vec2;
+        const sj = this.mShapes[j] as [number, number];
+
+        if (!(pi.x === pj.x && pi.y === pj.y && (same(si, sj) || isPt(si) || isPt(sj)))) break;
+
+        j++;
+      }
+
+      let shapeToKeep = si;
+
+      if (isPt(shapeToKeep)) shapeToKeep = this.mShapes[j - 1] as [number, number];
+
+      ptsUnique.push(this.cPoint(i));
+      shapesUnique.push([shapeToKeep[0], shapeToKeep[1]]);
+
+      i = j;
+    }
+
+    this.mPoints = ptsUnique;
+    this.mShapes = shapesUnique;
+  }
+
+  /**
+   * The one point of `SHAPE_LINE_CHAIN::Remove` that
+   * {@link removeDuplicatePoints} reaches.
+   *
+   * Upstream's `Remove( int, int )` also splits arcs that the range cuts
+   * through and renumbers the arc list; that is a `libs/kimath` port of its
+   * own, and the only call that gets here is `Remove( 1 )` on a three-point
+   * chain whose first two points coincide. A point on an arc therefore throws
+   * rather than silently corrupting the shape indices.
+   */
+  private removeAt(aIndex: number): void {
+    if (this.isPtOnArc(aIndex)) {
+      throw new Error('PNS: SHAPE_LINE_CHAIN::Remove() of a point on an arc is not ported');
+    }
+
+    this.mPoints.splice(aIndex, 1);
+    this.mShapes.splice(aIndex, 1);
+  }
+
+  /**
+   * `Append( const SHAPE_ARC&, int aMaxError )`: polygonize, then append.
+   *
+   * The counterpart of {@link appendArc} that upstream actually has. PR 2 made
+   * the polyline a parameter because `SHAPE_ARC::ConvertToPolyline` was not
+   * ported; it is now, in `pns_arc.ts`, and `AssembleLine` needs this spelling.
+   */
+  appendArcShape(aArc: ShapeArc, aMaxError = ARC_HIGH_DEF): void {
+    this.appendArc(aArc, convertArcToPolyline(aArc, aMaxError));
+  }
+
   /**
    * `Append( const SHAPE_ARC&, int aMaxError )`, with the polygonization handed
    * in rather than computed — see the module note.
@@ -272,11 +603,6 @@ export class PnsLineChain {
     this.mPoints = [];
     this.mShapes = [];
     this.mArcs = [];
-  }
-
-  /** `CLastPoint()`. */
-  cLastPoint(): Vec2 {
-    return this.cPoint(-1);
   }
 
   /**
@@ -365,9 +691,9 @@ export class PnsLineChain {
  * `LINE`: a track connecting two non-trivial joints, assembled on the fly from
  * whatever the node holds rather than stored in it.
  *
- * Ported to the extent `NODE`'s add/remove/replace paths need. Not here, and
- * belonging to the PRs that need them: `Walkaround`, `ClipVertexRange`,
- * `Reverse`, `CountCorners`, `Rank` propagation to links, the blocking-obstacle
+ * Ported to the extent `NODE`'s add/remove/replace and line-assembly paths
+ * need. Not here, and belonging to the PRs that need them: `Walkaround`,
+ * `CountCorners`, `Rank` propagation to links, the blocking-obstacle
  * bookkeeping, and the drag entry points — the last of which already exist as
  * free functions in `pns_line.ts`.
  */
@@ -425,6 +751,100 @@ export class PnsLine extends PnsLinkHolder {
 
   setShape(aLine: PnsLineChain): void {
     this.mLine = aLine;
+  }
+
+  pointCount(): number {
+    return this.mLine.pointCount();
+  }
+
+  segmentCount(): number {
+    return this.mLine.segmentCount();
+  }
+
+  cPoint(aIndex: number): Vec2 {
+    return this.mLine.cPoint(aIndex);
+  }
+
+  cLastPoint(): Vec2 {
+    return this.mLine.cLastPoint();
+  }
+
+  /** `LINE::Reverse()`: the chain and the link list both turn round. */
+  reverse(): void {
+    this.mLine = this.mLine.reverse();
+    this.mLinks.reverse();
+  }
+
+  /**
+   * `LINE::ClipVertexRange( aStart, aEnd )`: keep the vertices between two
+   * indices, and the links that span them.
+   *
+   * The link bookkeeping is the whole difficulty. The chain is walked one
+   * *shape* at a time — `nextShape`, so an arc counts once however many points
+   * represent it — and the walk records which link index is current when the
+   * walk passes `aStart`, and which when it reaches `aEnd - 1` or runs out of
+   * links. The surviving links are then rotated to the front and the list
+   * truncated.
+   *
+   * Upstream's own comment says the range is only ever chosen from joints, so a
+   * clip never lands inside an arc; {@link PnsLineChain.slice} throws if one
+   * ever does rather than silently producing a mangled arc.
+   *
+   * Note the walk starts at vertex **0**, not at `aStart`, and the loop
+   * condition already rejects `i < 0` — so the `i < 0` disjunct inside the body
+   * is dead. Both are upstream's and both are kept.
+   *
+   * ### Upstream bug: the rotate is one short, so clipping off the front
+   * ### produces the wrong links
+   *
+   * `pns_line.cpp:1457-1461` is
+   * `std::rotate( begin, begin + firstLink, begin + lastLink )` followed by
+   * `resize( lastLink - firstLink + 1 )`. The rotate's *last* iterator should
+   * be `begin + lastLink + 1` (or just `end()`): as written, the element at
+   * index `lastLink` never takes part in the rotation, so it is not brought
+   * into the kept prefix.
+   *
+   * With `firstLink === 0` — every caller that clips from the line's start —
+   * the rotate is a no-op and the result is right, which is why this survives.
+   * With `firstLink > 0` it is wrong: clipping a four-link line to vertices
+   * 1..3 keeps `[links[1], links[0]]` where the segments between those
+   * vertices are `links[1]` and `links[2]`. The clipped line's chain is
+   * correct and its `links()` are not.
+   *
+   * `NODE::FindLinesBetweenJoints` is the caller that reaches it, so a loop
+   * removal that starts mid-line reads a link list that includes a segment
+   * outside the clip and misses one inside it. Reproduced exactly, pinned by a
+   * test, and **not** corrected: the router's behaviour on those boards is what
+   * this port has to match.
+   */
+  clipVertexRange(aStart: number, aEnd: number): void {
+    let firstLink = 0;
+    let lastLink = Math.max(0, this.mLinks.length - 1);
+    let linkIdx = 0;
+
+    for (let i = 0; i >= 0 && i < this.mLine.pointCount(); i = this.mLine.nextShape(i)) {
+      if (i <= aStart) firstLink = linkIdx;
+
+      if (i < 0 || i >= aEnd - 1 || linkIdx >= lastLink) {
+        lastLink = linkIdx;
+        break;
+      }
+
+      linkIdx++;
+    }
+
+    this.mLine = this.mLine.slice(aStart, aEnd);
+
+    if (this.isLinked()) {
+      // Note: the range includes aEnd, but we have n-1 segments.
+      const rotated = [
+        ...this.mLinks.slice(firstLink, lastLink),
+        ...this.mLinks.slice(0, firstLink),
+        ...this.mLinks.slice(lastLink),
+      ];
+
+      this.mLinks = rotated.slice(0, lastLink - firstLink + 1);
+    }
   }
 
   /** `LINE::Width()`. `LINK_HOLDER` has none to override; `LINKED_ITEM` does. */

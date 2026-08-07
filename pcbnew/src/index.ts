@@ -1148,3 +1148,18 @@ export {
   type MeanderPlacer,
   type MeanderSettings,
 } from './router/pns_meander.js';
+// ----- PNS: branching, commit and line assembly (pns_node, pns_topology) ----------
+
+// `arcLength` is NOT re-exported here: shape_arc_ops.js (#453) already exports
+// that name for the same upstream function, SHAPE_ARC::GetLength(). The two
+// implementations differ — this one falls back to the chord length for a
+// degenerate arc, the other does not — so they are left side by side and
+// deduplicated deliberately rather than at a merge. pns_line_item imports
+// this one directly from './pns_arc.js'.
+export { convertArcToPolyline, reversedArc } from './router/pns_arc.js';
+export {
+  PnsTopology,
+  PNS_FOLLOW_BRANCH_TIMEOUT_MS,
+  type PnsPathResult,
+  type PnsTerminalJoints,
+} from './router/pns_topology.js';
