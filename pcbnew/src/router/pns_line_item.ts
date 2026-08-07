@@ -59,6 +59,7 @@ import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { segReflectPoint } from './pns_seg_ops.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
+import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
@@ -277,6 +278,50 @@ export class PnsLineChain {
     for (const a of this.mArcs) l = Math.trunc(l + arcLength(a));
 
     return l;
+  }
+
+  /**
+   * `PathLength( aP, aIndex )` (`shape_line_chain.cpp:1952`): how far along the
+   * chain a point lying on segment `aIndex` is.
+   *
+   * Whole segments before the named one are summed at full length, and the
+   * named one contributes the distance from **its A end** to the point — which
+   * is the only place the point is used, so a point that is not actually on
+   * that segment is measured to anyway rather than rejected.
+   *
+   * Three details are easy to lose and all three are upstream's:
+   *
+   *  - `aIndex < 0` does **not** count back from the end. The index test is
+   *    skipped entirely, so `indexMatch` stays true on the very first segment
+   *    and the answer is "distance from the start of segment 0". Every other
+   *    negative index in this class means "from the end"; this one does not.
+   *  - `aIndex === segmentCount()` — one past the last segment — is remapped
+   *    onto the **last** segment rather than running off the end. That is what
+   *    lets a caller pass a point index where a segment index is expected.
+   *  - a chain with no segments, or an `aIndex` past the remap, returns **-1**,
+   *    not 0. `NODE::NearestObstacle` compares that against `INT_MAX` and so
+   *    treats it as the *nearest possible* obstacle, which is upstream's
+   *    behaviour and not a defensive zero.
+   */
+  pathLength(aP: Vec2, aIndex: number): number {
+    let sum = 0;
+
+    for (let i = 0; i < this.segmentCount(); i++) {
+      const seg = this.cSegment(i);
+      let indexMatch = true;
+
+      if (aIndex >= 0) {
+        indexMatch = aIndex === this.segmentCount() ? i === this.segmentCount() - 1 : i === aIndex;
+      }
+
+      if (indexMatch) {
+        return sum + EuclideanNormI({ x: aP.x - seg.a.x, y: aP.y - seg.a.y });
+      }
+
+      sum += EuclideanNormI({ x: seg.a.x - seg.b.x, y: seg.a.y - seg.b.y });
+    }
+
+    return -1;
   }
 
   /**

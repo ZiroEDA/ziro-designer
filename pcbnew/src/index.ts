@@ -1236,3 +1236,24 @@ export {
   PNG_SIGNATURE,
   type PngEncodeOptions,
 } from './png_encoder.js';
+// ----- PNS: collision querying (pns_node, pns_rule_resolver, pns_item_hull) --------
+//
+// `PnsNode`'s three collision entry points are methods, so they arrive with the
+// class that #450 already exports. What is new here as free names is the
+// visitor base class the queries are written on, the corner-mode singleton
+// `NearestObstacle` reads, the `ITEM::Hull` dispatch, and the rule resolver
+// that turns a `.kicad_dru` rule set into the clearance a route must keep.
+export {
+  PnsCornerMode,
+  PnsObstacleVisitor,
+  getRouterCornerMode,
+  setRouterCornerMode,
+} from './router/pns_node.js';
+export {
+  ARC_LOW_DEF,
+  arcHull,
+  buildHullForPrimitiveShape,
+  convexHull,
+  itemHull,
+} from './router/pns_item_hull.js';
+export { PnsBoardRuleResolver, type PnsResolverHost } from './router/pns_rule_resolver.js';
