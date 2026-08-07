@@ -300,21 +300,62 @@ export interface BoardScene {
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
 }
 
+/**
+ * The browser geometry `buildScene` records into.
+ *
+ * A `Path2D` keeps its definition but will not hand the segments back, which is
+ * precisely what a GPU renderer needs from it. Recording through a factory lets
+ * a WebGL build substitute paths that retain their vertices, without
+ * `buildScene`'s logic or the `BoardScene` shape knowing that happened.
+ *
+ * The default is the real thing, so existing callers are untouched: `pcb3d.ts`,
+ * `FootprintCanvas.tsx` and `footprint_preview_widget.tsx` keep receiving
+ * concrete `Path2D` objects and keep drawing them onto a real canvas.
+ *
+ * `DOMMatrix` is here for the same reason — pad geometry is placed with one,
+ * and it is as browser-only as `Path2D` is.
+ */
+export interface ScenePathFactory {
+  path(): Path2D;
+  matrix(): DOMMatrix;
+}
+
+/** The browser's own implementations; the default for every caller. */
+export const DOM_PATH_FACTORY: ScenePathFactory = {
+  path: () => new Path2D(),
+  matrix: () => new DOMMatrix(),
+};
+
+/**
+ * The factory in force for the current `buildScene` call.
+ *
+ * Scoped rather than threaded as a parameter. Threading it would add an
+ * argument to thirteen internal helpers and their thirty-odd call sites, and
+ * bury a purely mechanical change inside the KiCad-derived drawing code it
+ * passes through — the one part of this file worth keeping readable against its
+ * C++ original. `buildScene` is synchronous, so the save/restore in the wrapper
+ * below is all the isolation this needs.
+ *
+ * Note `drawGrid` builds its own `Path2D` directly and deliberately: it paints
+ * to a real canvas at draw time and is not part of a scene.
+ */
+let pathFactory: ScenePathFactory = DOM_PATH_FACTORY;
+
 const newBuckets = (): LayerBuckets => ({
-  zones: new Path2D(),
+  zones: pathFactory.path(),
   hasZones: false,
-  zoneOutlines: new Path2D(),
+  zoneOutlines: pathFactory.path(),
   hasZoneOutlines: false,
-  clearance: new Path2D(),
+  clearance: pathFactory.path(),
   hasClearance: false,
-  trackOutlines: new Path2D(),
+  trackOutlines: pathFactory.path(),
   hasTrackOutlines: false,
   tracks: new Map(),
-  pads: new Path2D(),
+  pads: pathFactory.path(),
   hasPads: false,
-  vias: new Path2D(),
+  vias: pathFactory.path(),
   hasVias: false,
-  gfxFill: new Path2D(),
+  gfxFill: pathFactory.path(),
   hasGfxFill: false,
   gfxStrokes: new Map(),
   textRef: new Map(),
@@ -335,7 +376,7 @@ const buckets = (scene: BoardScene, layer: string): LayerBuckets => {
 const pathIn = (map: Map<number, Path2D>, width: number): Path2D => {
   let p = map.get(width);
   if (!p) {
-    p = new Path2D();
+    p = pathFactory.path();
     map.set(width, p);
   }
   return p;
@@ -411,10 +452,10 @@ function addPolylineOutline(path: Path2D, pts: Vec2[], r: number): void {
 
 /** Pad outline as a Path2D subpath in board coordinates. */
 function addPadShape(path: Path2D, pad: PcbPad): void {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
-  const sub = new Path2D();
+  const sub = pathFactory.path();
   switch (pad.shape) {
     case 'circle':
       sub.arc(0, 0, w / 2, 0, Math.PI * 2);
@@ -488,10 +529,10 @@ function addPadShape(path: Path2D, pad: PcbPad): void {
  * rounds the corners with radius clr).
  */
 function addPadClearanceShape(path: Path2D, pad: PcbPad, clr: number): void {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
-  const sub = new Path2D();
+  const sub = pathFactory.path();
   const x = -w / 2 - clr;
   const y = -h / 2 - clr;
   const rw = w + 2 * clr;
@@ -978,17 +1019,43 @@ function zoneHatchSegments(
   return out;
 }
 
-/** Compile the board into retained per-layer, per-object paths. */
-export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
+/**
+ * Compile the board into retained per-layer, per-object paths.
+ *
+ * `factory` decides what those paths *are*. It defaults to the browser's
+ * `Path2D`/`DOMMatrix`, so every existing caller behaves exactly as before; a
+ * GPU renderer passes one whose paths keep their vertices. See
+ * {@link ScenePathFactory}.
+ */
+export function buildScene(
+  board: Board,
+  filter: SceneFilter = {},
+  factory: ScenePathFactory = DOM_PATH_FACTORY,
+): BoardScene {
+  const prev = pathFactory;
+  pathFactory = factory;
+  try {
+    return compileScene(board, filter);
+  } finally {
+    // Belt and braces rather than load-bearing: every entry above reassigns
+    // `pathFactory`, so a build that throws cannot actually strand the wrong
+    // backend on the next caller. Restoring anyway keeps that an invariant of
+    // this function instead of a coincidence of its callers, which is what a
+    // future nested or early-returning build would need.
+    pathFactory = prev;
+  }
+}
+
+function compileScene(board: Board, filter: SceneFilter): BoardScene {
   const scene: BoardScene = {
     layers: new Map(),
-    viaHoles: new Path2D(),
-    viaHoleWalls: new Path2D(),
-    padHolesPlated: new Path2D(),
-    padHoleWalls: new Path2D(),
-    padHolesNP: new Path2D(),
+    viaHoles: pathFactory.path(),
+    viaHoleWalls: pathFactory.path(),
+    padHolesPlated: pathFactory.path(),
+    padHoleWalls: pathFactory.path(),
+    padHolesNP: pathFactory.path(),
     padText: new Map(),
-    holesSmall: new Path2D(),
+    holesSmall: pathFactory.path(),
     netLabels: [],
     images: [],
     bbox: null,
@@ -1199,8 +1266,8 @@ const addHole = (
   pad: PcbPad,
   drill: { oblong: boolean; w: number; h: number; offset?: Vec2 },
 ): void => {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
-  const sub = new Path2D();
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
   const ox = drill.offset?.x ?? 0;
   const oy = drill.offset?.y ?? 0;
   if (drill.oblong) {
@@ -1217,8 +1284,8 @@ const addSmallHole = (scene: BoardScene, pad: PcbPad): void => {
   if (!pad.drill) return;
   const r = Math.min(Math.min(pad.drill.w, pad.drill.h) / 2, 0.175 * MM);
   const off = pad.drill.offset;
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
-  const sub = new Path2D();
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
   sub.arc(off?.x ?? 0, off?.y ?? 0, r, 0, Math.PI * 2);
   scene.holesSmall.addPath(sub, m);
 };
