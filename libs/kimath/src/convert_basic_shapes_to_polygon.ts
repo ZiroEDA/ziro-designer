@@ -51,11 +51,29 @@ export function getArcToSegmentCount(
   return Math.max(segCount, 2);
 }
 
-/** CircleToEndSegmentDeltaRadius: how far a chord's midpoint falls inside. */
+/**
+ * `CircleToEndSegmentDeltaRadius` (geometry_utils.cpp): how far the polygon's
+ * *vertices* stand outside the circle its edges are tangent to.
+ *
+ * `aRadius` is the radius of the circle tangent to the middle of each segment,
+ * so `aRadius / cos(alpha)` is the radius through the segment ends and the
+ * difference between them is `r * (1 - 1/cos alpha)`. That is a **secant**
+ * relationship, not a cosine one: `r * (1 - cos alpha)` is the sagitta — how
+ * far a chord's midpoint falls *inside* the circle — which is a different
+ * quantity and always the smaller of the two.
+ *
+ * Getting this wrong is invisible except in size: the sole caller adds the
+ * result back to the radius for `ERROR_OUTSIDE`, so a sagitta under-inflates
+ * the polygon and it no longer encloses the circle it is standing in for. The
+ * ratio is exactly `1 / cos alpha`, so the shortfall is ~8.2% of the
+ * correction at the 8-segment floor, ~2.0% at 16 and ~0.5% at 32.
+ */
 export function circleToEndSegmentDeltaRadius(aRadius: number, aSegCount: number): number {
+  // The minimum is 3, or the result cannot be computed; in practice KiCad
+  // clamps to 8.
   const segCount = aSegCount <= 2 ? 3 : aSegCount;
-  const halfAngle = Math.PI / segCount;
-  return KiROUND(aRadius * (1.0 - Math.cos(halfAngle)));
+  const alpha = Math.PI / segCount;
+  return KiROUND(Math.abs(aRadius * (1.0 - 1.0 / Math.cos(alpha))));
 }
 
 /**

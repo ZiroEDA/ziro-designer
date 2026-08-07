@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
 import { chainArea, chainIntersect, segIntersect } from '@ziroeda/kimath/src/geometry/seg.js';
 import {
+  circleToEndSegmentDeltaRadius,
   ErrorLoc,
   getArcToSegmentCount,
   transformCircleToPolygon,
@@ -270,5 +271,25 @@ describe('BezierPoly', () => {
     expect(poly.length).toBeGreaterThan(2);
     expect(poly[0]).toEqual({ x: 0, y: 0 });
     expect(poly[poly.length - 1]).toEqual({ x: 100_000, y: 0 });
+  });
+});
+
+describe('circleToEndSegmentDeltaRadius', () => {
+  it('measures the secant overshoot, not the chord sagitta', () => {
+    // `aRadius` is the radius of the circle tangent to the middle of each
+    // segment, so the circle through the segment *ends* has radius
+    // r / cos(alpha) and the difference is r * (1 - 1/cos alpha). The
+    // plausible-looking r * (1 - cos alpha) is the sagitta — how far a chord's
+    // midpoint falls *inside* — a different quantity and always smaller.
+    // At the 8-segment floor the two differ by 82 vs 76 on a 1000 radius.
+    expect(circleToEndSegmentDeltaRadius(1000, 8)).toBe(82);
+    expect(circleToEndSegmentDeltaRadius(1000, 16)).toBe(20);
+  });
+
+  it('clamps a degenerate segment count to three', () => {
+    // Below three the quantity is not defined; upstream raises it to 3 rather
+    // than dividing by a smaller count.
+    expect(circleToEndSegmentDeltaRadius(1000, 2)).toBe(circleToEndSegmentDeltaRadius(1000, 3));
+    expect(circleToEndSegmentDeltaRadius(1000, 0)).toBe(circleToEndSegmentDeltaRadius(1000, 3));
   });
 });
