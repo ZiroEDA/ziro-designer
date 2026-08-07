@@ -127,13 +127,35 @@ import { PnsOptimizationEffort } from './pns_routing_settings.js';
 
 export { PnsOptimizationEffort };
 
-/** `OPTIMIZER::OptimizationEffort`, the flag bits `runOptimizer` composes. */
+/**
+ * `OPTIMIZER::OptimizationEffort` (`pns_optimizer.h:97-110`), the flag bits
+ * `runOptimizer` composes.
+ *
+ * The whole enum is spelled out even though shove composes only five of the
+ * bits, because these are a **mask**: leaving a member out does not remove its
+ * bit, it leaves that bit free to be claimed by the next member somebody adds.
+ * This enum previously carried `RESTRICT_AREA = 0x20` and
+ * `LIMIT_CORNER_COUNT = 0x80` — which are upstream's `PRESERVE_VERTEX` and
+ * `MERGE_COLINEAR` — so a mask built here meant something else to any code
+ * reading it against upstream's numbering.
+ */
 export enum PnsOptimizerFlags {
+  /** Reduce corner cost iteratively. */
   MERGE_SEGMENTS = 0x01,
+  /** Reroute pad exits. */
   SMART_PADS = 0x02,
+  /** Reduce corner cost by merging obtuse segments. */
   MERGE_OBTUSE = 0x04,
-  RESTRICT_AREA = 0x20,
-  LIMIT_CORNER_COUNT = 0x80,
+  /** Simplify pad-pad and pad-via connections if possible. */
+  FANOUT_CLEANUP = 0x08,
+  KEEP_TOPOLOGY = 0x10,
+  PRESERVE_VERTEX = 0x20,
+  RESTRICT_VERTEX_RANGE = 0x40,
+  /** Merge co-linear segments. */
+  MERGE_COLINEAR = 0x80,
+  RESTRICT_AREA = 0x100,
+  /** Do not optimize if the result's corner count leaves the allowed range. */
+  LIMIT_CORNER_COUNT = 0x200,
 }
 
 /**
