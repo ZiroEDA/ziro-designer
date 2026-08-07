@@ -86,10 +86,28 @@ void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
 
-  // The clamp KiCad applies with u_minLinePixelWidth. Taking the larger of the
-  // scaled world width and the pixel floor is what keeps a hairline visible
-  // when zoomed out without the buffer depending on the zoom.
+  // The clamp KiCad applies with u_minLinePixelWidth: the larger of the scaled
+  // world width and the pixel floor, which keeps a hairline visible when zoomed
+  // out without the buffer depending on the zoom.
   float halfPx = max(a_halfWidth * abs(u_view.x), a_minPx);
+
+  // Then snap it, which is what makes thin strokes *legible* rather than merely
+  // present.
+  //
+  // A one-pixel line whose centre falls on a pixel boundary covers half of each
+  // neighbour, so the coverage term below gives two grey columns instead of one
+  // solid one. Across a sheet of stroke-font text that reads as washed out and
+  // slightly blurred, which is exactly how ours looked beside desktop KiCad at
+  // the same zoom.
+  //
+  // KiCad rounds the width to whole device pixels and snaps the line onto the
+  // pixel grid (roundr / roundv in common/gal/shaders/kicad_vert.glsl), then
+  // nudges odd widths by half a pixel so their centre lands on a pixel centre
+  // rather than a boundary. Same three steps here.
+  float widthPx = max(floor(halfPx * 2.0 + 0.5), 1.0);
+  halfPx = widthPx * 0.5;
+  // Odd widths are centred on a pixel centre, even widths on a boundary.
+  float nudge = mod(widthPx, 2.0) > 0.5 ? 0.5 : 0.0;
 
   // Half a pixel of slack so the antialiasing ramp is inside the quad rather
   // than clipped by its edge.
@@ -107,9 +125,23 @@ void main() {
            + along * a_corner.x * (len * 0.5 + pad)
            + perp  * a_corner.y * pad;
 
+  // Snap only the axis the stroke is thin along, so an axis-aligned run lands
+  // on whole pixels while a diagonal keeps its true angle. Snapping both axes
+  // would visibly kink diagonals, which is worse than a soft edge.
+  vec2 snapped0 = s0;
+  vec2 snapped1 = s1;
+  if (abs(along.y) < 0.001) {          // horizontal: snap y
+    snapped0.y = floor(s0.y) + nudge;
+    snapped1.y = floor(s1.y) + nudge;
+  } else if (abs(along.x) < 0.001) {   // vertical: snap x
+    snapped0.x = floor(s0.x) + nudge;
+    snapped1.x = floor(s1.x) + nudge;
+  }
+  pos += (snapped0 - s0);
+
   v_pixel = pos;
-  v_s0 = s0;
-  v_s1 = s1;
+  v_s0 = snapped0;
+  v_s1 = snapped1;
   v_halfPx = halfPx;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
