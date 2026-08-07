@@ -75,9 +75,19 @@ interface State {
   dash: number[];
 }
 
-/** One subpath: its points, and whether `closePath` was called on it. */
+/**
+ * One subpath: its points interleaved as x, y, x, y, and whether `closePath`
+ * was called on it.
+ *
+ * A flat array rather than `{x, y}` objects because this is the hot path and
+ * almost all of it is text. The stroke font is polylines, so glyphs arrive here
+ * as `moveTo`/`lineTo` like everything else, and they are 88.8% of every
+ * segment a dense sheet records: an object per point meant tens of thousands of
+ * short-lived allocations per record, which is most of the garbage that turned
+ * a 60 ms record into a 260 ms one.
+ */
 interface SubPath {
-  pts: Pt[];
+  pts: number[];
   closed: boolean;
 }
 
@@ -186,13 +196,16 @@ export class GlRecorder {
     this.worldScale = opts.worldScale && opts.worldScale > 0 ? opts.worldScale : 1;
   }
 
-  /** Transform a point, then take the record-time view back out of it. */
-  private pt(x: number, y: number): Pt {
-    const p = apply(this.st.ctm, x, y);
-    return {
-      x: (p.x - this.originX) / this.worldScale,
-      y: (p.y - this.originY) / this.worldScale,
-    };
+  /**
+   * Transform a point and append it to `sub`, taking the record-time view back
+   * out of it. Writes two numbers; allocates nothing.
+   */
+  private pushPt(sub: SubPath, x: number, y: number): void {
+    const m = this.st.ctm;
+    sub.pts.push(
+      (m[0] * x + m[2] * y + m[4] - this.originX) / this.worldScale,
+      (m[1] * x + m[3] * y + m[5] - this.originY) / this.worldScale,
+    );
   }
 
   // ----- transform ---------------------------------------------------------
@@ -253,7 +266,8 @@ export class GlRecorder {
     this.cur = null;
   }
   moveTo(x: number, y: number): void {
-    this.cur = { pts: [this.pt(x, y)], closed: false };
+    this.cur = { pts: [], closed: false };
+    this.pushPt(this.cur, x, y);
     this.subs.push(this.cur);
   }
   lineTo(x: number, y: number): void {
@@ -262,10 +276,10 @@ export class GlRecorder {
       this.moveTo(x, y);
       return;
     }
-    this.cur.pts.push(this.pt(x, y));
+    this.pushPt(this.cur, x, y);
   }
   closePath(): void {
-    if (this.cur && this.cur.pts.length > 1) this.cur.closed = true;
+    if (this.cur && this.cur.pts.length > 2) this.cur.closed = true;
   }
   rect(x: number, y: number, w: number, h: number): void {
     this.moveTo(x, y);
@@ -276,14 +290,14 @@ export class GlRecorder {
     this.cur = null;
   }
   arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
-    const pts = arcToPolyline(cx, cy, r, a0, a1, ccw).map((p) => this.pt(p.x, p.y));
-    if (pts.length === 0) return;
+    const poly = arcToPolyline(cx, cy, r, a0, a1, ccw);
+    if (poly.length === 0) return;
     // Canvas joins an arc to the current subpath rather than starting one.
-    if (this.cur) this.cur.pts.push(...pts);
-    else {
-      this.cur = { pts, closed: false };
+    if (!this.cur) {
+      this.cur = { pts: [], closed: false };
       this.subs.push(this.cur);
     }
+    for (const p of poly) this.pushPt(this.cur, p.x, p.y);
   }
   /**
    * A cubic, flattened uniformly.
@@ -293,18 +307,30 @@ export class GlRecorder {
    */
   bezierCurveTo(c1x: number, c1y: number, c2x: number, c2y: number, x: number, y: number): void {
     if (!this.cur) this.moveTo(c1x, c1y);
-    const p0 = this.cur!.pts[this.cur!.pts.length - 1]!;
-    const p1 = this.pt(c1x, c1y);
-    const p2 = this.pt(c2x, c2y);
-    const p3 = this.pt(x, y);
+    const cur = this.cur!;
+    const n = cur.pts.length;
+    const x0 = cur.pts[n - 2]!;
+    const y0 = cur.pts[n - 1]!;
+    // The control points transformed once, without allocating a point each.
+    const m = this.st.ctm;
+    const tx = (px: number, py: number): number =>
+      (m[0] * px + m[2] * py + m[4] - this.originX) / this.worldScale;
+    const ty = (px: number, py: number): number =>
+      (m[1] * px + m[3] * py + m[5] - this.originY) / this.worldScale;
+    const x1 = tx(c1x, c1y),
+      y1 = ty(c1x, c1y);
+    const x2 = tx(c2x, c2y),
+      y2 = ty(c2x, c2y);
+    const x3 = tx(x, y),
+      y3 = ty(x, y);
     const STEPS = 16;
     for (let i = 1; i <= STEPS; i++) {
       const t = i / STEPS;
       const u = 1 - t;
-      this.cur!.pts.push({
-        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
-        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
-      });
+      cur.pts.push(
+        u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+        u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+      );
     }
   }
 
@@ -355,15 +381,34 @@ export class GlRecorder {
     this.sync();
     const { half, minPx } = this.pen();
     const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
+    const dashed = this.st.dash.length > 0 && this.st.dash.some((d) => d > 0);
     for (const sub of this.subs) {
-      const pts = sub.closed && sub.pts.length > 1 ? [...sub.pts, sub.pts[0]!] : sub.pts;
-      if (pts.length === 1) {
+      const p = sub.pts;
+      if (p.length === 2) {
         // A lone point strokes as a dot under a round cap, which is how the
         // stroke font draws a full stop.
-        const p = pts[0]!;
-        this.scene.segment(p.x, p.y, p.x, p.y, half, minPx, c);
+        this.scene.segment(p[0]!, p[1]!, p[0]!, p[1]!, half, minPx, c);
         continue;
       }
+      if (p.length < 4) continue;
+
+      if (!dashed) {
+        // The common path, and the one text takes: straight from the flat point
+        // list into instances, with nothing allocated in between.
+        for (let i = 2; i < p.length; i += 2) {
+          this.scene.segment(p[i - 2]!, p[i - 1]!, p[i]!, p[i + 1]!, half, minPx, c);
+        }
+        if (sub.closed) {
+          this.scene.segment(p[p.length - 2]!, p[p.length - 1]!, p[0]!, p[1]!, half, minPx, c);
+        }
+        continue;
+      }
+
+      // Dashed strokes are rare, so they can afford the point objects that
+      // `dashPolyline` works in.
+      const pts: Pt[] = [];
+      for (let i = 0; i < p.length; i += 2) pts.push({ x: p[i]!, y: p[i + 1]! });
+      if (sub.closed) pts.push({ x: p[0]!, y: p[1]! });
       for (const run of dashPolyline(pts, this.st.dash)) {
         for (let i = 1; i < run.length; i++) {
           const a = run[i - 1]!;
@@ -378,12 +423,17 @@ export class GlRecorder {
     this.sync();
     const c = this.color(this.st.fillStyle, this.st.globalAlpha);
     for (const sub of this.subs) {
-      if (sub.pts.length < 3) continue;
-      const tri = triangulatePolygon(sub.pts);
+      if (sub.pts.length < 6) continue;
+      // Fills are a few hundred triangles against tens of thousands of
+      // segments, so the point objects the triangulator works in cost nothing
+      // worth avoiding.
+      const poly: Pt[] = [];
+      for (let i = 0; i < sub.pts.length; i += 2) poly.push({ x: sub.pts[i]!, y: sub.pts[i + 1]! });
+      const tri = triangulatePolygon(poly);
       for (let i = 0; i + 2 < tri.length; i += 3) {
-        const a = sub.pts[tri[i]!]!;
-        const b = sub.pts[tri[i + 1]!]!;
-        const d = sub.pts[tri[i + 2]!]!;
+        const a = poly[tri[i]!]!;
+        const b = poly[tri[i + 1]!]!;
+        const d = poly[tri[i + 2]!]!;
         this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
       }
     }
