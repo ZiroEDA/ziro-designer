@@ -24,7 +24,13 @@
  * runs on, and code that matches a branch's items back to the root's by uid
  * behaves differently for the two. Reproduced deliberately.
  */
+import {
+  circleToEndSegmentDeltaRadius,
+  getArcToSegmentCount,
+} from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { arcShape } from '../drc/drc_engine.js';
+import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
 import type { PnsLine } from './pns_line_item.js';
 import type { Shape } from '../drc/drc_geometry.js';
@@ -51,6 +57,116 @@ const ZERO_ARC: ShapeArc = {
   arcMid: { x: 0, y: 0 },
   p1: { x: 0, y: 0 },
   width: 0,
+};
+
+/** `SHAPE_ARC::Reversed()`: the same curve, walked the other way. */
+export const reversedArc = (a: ShapeArc): ShapeArc => ({
+  p0: { ...a.p1 },
+  arcMid: { ...a.arcMid },
+  p1: { ...a.p0 },
+  width: a.width,
+});
+
+/** `SEG::Distance`: to the segment, clamped at the ends, rounded to an integer. */
+function segDistance(aA: Vec2, aB: Vec2, aP: Vec2): number {
+  const dx = aB.x - aA.x;
+  const dy = aB.y - aA.y;
+  const len2 = dx * dx + dy * dy;
+  const t =
+    len2 === 0 ? 0 : Math.max(0, Math.min(1, ((aP.x - aA.x) * dx + (aP.y - aA.y) * dy) / len2));
+
+  return Math.round(Math.hypot(aP.x - (aA.x + dx * t), aP.y - (aA.y + dy * t)));
+}
+
+/**
+ * `SHAPE_ARC::ConvertToPolyline` — `libs/kimath/src/geometry/shape_arc.cpp:1003-1064`.
+ *
+ * The one piece of `SHAPE_ARC` that `NODE::AssembleLine` cannot do without:
+ * appending an arc to a chain means appending the points it polygonizes to.
+ *
+ * Three details that are easy to lose and that change every vertex:
+ *
+ *  - The segment count comes from the **external** radius, `r + width/2`, not
+ *    from the radius. For a fat arc of small radius those differ a lot.
+ *  - The radius the interior points are placed at is then grown by *half* the
+ *    effective error, so the polyline straddles the true arc rather than
+ *    sitting inside it — while the first and last points are the arc's own
+ *    endpoints, untouched, which is what makes the end segments shorter.
+ *  - The loop steps `i += 2` over `n = 2 × segments`, so it samples the
+ *    *midpoint* of each segment's angular span.
+ *
+ * `if( n != 0 )` inside the loop is dead — `n === 0` means the body never runs
+ * — and is kept.
+ *
+ * A degenerate arc (three collinear points, so there is no centre) has no
+ * upstream counterpart: `GetCenter` divides by zero there. This port's
+ * `arcShape` reports a stadium instead, and the polyline is then the two
+ * endpoints, which is what the `n = 0` path would have produced anyway.
+ */
+export function convertArcToPolyline(aArc: ShapeArc, aMaxError = ARC_HIGH_DEF): Vec2[] {
+  const g = arcShape(aArc.p0, aArc.arcMid, aArc.p1, aArc.width);
+
+  if (g.kind !== 'arc') return [{ ...aArc.p0 }, { ...aArc.p1 }];
+
+  let r = g.rad;
+  const sa = g.a0;
+  const c = { x: KiROUND(g.c.x), y: KiROUND(g.c.y) };
+  const ca = g.sweep;
+  const caDeg = (ca * 180) / Math.PI;
+  const halfMaxError = Math.max(1.0, aMaxError / 2.0);
+
+  let n: number;
+
+  // To calculate the arc to segment count, use the external radius instead of
+  // the radius: for an arc with small radius and large width the difference can
+  // be significant.
+  const externalRadius = r + aArc.width / 2.0;
+  let effectiveError: number;
+
+  if (
+    externalRadius < halfMaxError ||
+    segDistance(aArc.p0, aArc.p1, aArc.arcMid) < halfMaxError // Should be a very rare case
+  ) {
+    // In this case the arc is approximated by one segment, with an effective
+    // error between -aMaxError/2 and +aMaxError/2, as expected.
+    n = 0;
+    effectiveError = externalRadius;
+  } else {
+    n = getArcToSegmentCount(externalRadius, aMaxError, caDeg);
+
+    // Recalculate the effective error of approximation, which can be < aMaxError.
+    const seg360 = Math.trunc((n * 360.0) / Math.abs(caDeg));
+    effectiveError = circleToEndSegmentDeltaRadius(externalRadius, seg360);
+  }
+
+  // Split the error on either side of the arc. Since we want the start and end
+  // points to be exactly on the arc, the first and last segments need to be
+  // shorter to stay within the error band.
+  r += effectiveError / 2;
+  n = n * 2;
+
+  const rv: Vec2[] = [{ ...aArc.p0 }];
+
+  for (let i = 1; i < n; i += 2) {
+    let a = sa;
+
+    if (n !== 0) a += (ca * i) / n;
+
+    rv.push({ x: KiROUND(c.x + r * Math.cos(a)), y: KiROUND(c.y + r * Math.sin(a)) });
+  }
+
+  rv.push({ ...aArc.p1 });
+
+  return rv;
+}
+
+/** `SHAPE_ARC::GetLength()`: the radius times the swept angle. */
+export const arcLength = (a: ShapeArc): number => {
+  const g = arcShape(a.p0, a.arcMid, a.p1, a.width);
+
+  if (g.kind !== 'arc') return Math.hypot(a.p1.x - a.p0.x, a.p1.y - a.p0.y);
+
+  return Math.abs(g.rad * g.sweep);
 };
 
 /** `ARC`. */

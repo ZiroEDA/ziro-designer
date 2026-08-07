@@ -33,6 +33,15 @@ interface PnsSegmentLike {
   seg(): Seg;
 }
 
+/**
+ * `const LINE&`, structurally: what the two cloning overloads need of it.
+ * Written this way so that `pns_line_item.ts` — which is far heavier than this
+ * file — does not have to be imported for its value.
+ */
+interface PnsLineLike {
+  clone(): PnsItem;
+}
+
 /** `ITEM_SET`. */
 export class PnsItemSet {
   private mItems: PnsItem[] = [];
@@ -143,6 +152,30 @@ export class PnsItemSet {
     this.mItems.unshift(aItem);
 
     if (aBecomeOwner) aItem.setOwner(this);
+  }
+
+  /**
+   * `Add( const LINE& )`: the LINE overload, which **clones**.
+   *
+   * The pointer overloads above store the caller's item; this one stores a copy
+   * owned by the set, because a `LINE` is a value on the caller's stack
+   * upstream and would dangle. A caller that mutates the line afterwards does
+   * not change what is in the set — the asymmetry with `add(item)` is real and
+   * is upstream's.
+   */
+  addLine(aLine: PnsLineLike): void {
+    const copy = aLine.clone();
+
+    copy.setOwner(this);
+    this.mItems.push(copy);
+  }
+
+  /** `Prepend( const LINE& )`. Clones, as {@link addLine} does. */
+  prependLine(aLine: PnsLineLike): void {
+    const copy = aLine.clone();
+
+    copy.setOwner(this);
+    this.mItems.unshift(copy);
   }
 
   clear(): void {
