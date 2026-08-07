@@ -1275,3 +1275,26 @@ export {
   type RoutingSettings,
   type RoutingSettingsJson,
 } from './router/pns_routing_settings.js';
+// --- SVG graphics import (svg_import_plugin) --------------------------------
+export {
+  NSVG_FLAGS_VISIBLE,
+  NSVGfillRule,
+  NSVGlineCap,
+  NSVGlineJoin,
+  NSVGpaintType,
+  nsvgParse,
+  type NSVGbounds,
+  type NSVGimage,
+  type NSVGpaint,
+  type NSVGpath,
+  type NSVGshape,
+} from './nanosvg.js';
+
+export {
+  GatherInterpolatedCubicBezierCurve,
+  GatherInterpolatedCubicBezierPath,
+  SVG_IMPORT_PLUGIN,
+  calculateBezierSegmentationThreshold,
+  distanceFromPointToLine,
+  getBezierPoint,
+} from './svg_import_plugin.js';

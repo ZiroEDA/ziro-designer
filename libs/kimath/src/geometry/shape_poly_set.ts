@@ -537,3 +537,35 @@ export const chamfer = (polygons: Polygon[], distance: number): Polygon[] =>
 /** SHAPE_POLY_SET::Fillet: round every corner to `radius`. */
 export const fillet = (polygons: Polygon[], radius: number, errorMax: number): Polygon[] =>
   polygons.map((poly) => chamferFilletPolygon(poly, CornerMode.FILLETED, radius, errorMax));
+
+/**
+ * `SHAPE_POLY_SET::BuildPolysetFromOrientedPaths`.
+ *
+ * A union of closed paths under a *chosen* fill rule, rather than the even-odd
+ * rule the rest of this file assumes. That choice is the whole point: an SVG
+ * says which of `nonzero` and `evenodd` decides what is inside its sub-paths,
+ * and two concentric rings wound the same way are a filled disc under one rule
+ * and an annulus under the other.
+ *
+ * Upstream reads Clipper's PolyTree to recover the outline/hole nesting; we get
+ * the same answer from {@link nestRings}, which measures containment instead of
+ * asking the tree — a ring inside an even number of others is an outline.
+ */
+export function buildPolysetFromOrientedPaths(paths: Vec2[][], evenOdd: boolean): Polygon[] {
+  const clipper = new ClipperLib.Clipper();
+
+  clipper.AddPaths(
+    paths.map((ring) => ring.map((p) => ({ X: p.x, Y: p.y }))),
+    ClipperLib.PolyType.ptSubject,
+    true,
+  );
+
+  const fillRule = evenOdd
+    ? ClipperLib.PolyFillType.pftEvenOdd
+    : ClipperLib.PolyFillType.pftNonZero;
+  const solution: { X: number; Y: number }[][] = [];
+
+  clipper.Execute(ClipperLib.ClipType.ctUnion, solution, fillRule, fillRule);
+
+  return nestRings(solution);
+}
