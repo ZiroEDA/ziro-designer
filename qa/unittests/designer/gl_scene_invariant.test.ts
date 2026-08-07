@@ -10,34 +10,38 @@
  * pins, wires, labels, sheet symbols, fills and several thousand stroke-font
  * glyph runs in one pass.
  *
- * Two things are asserted, and the second is the load-bearing one.
+ * It runs the *production* recorder, `recordSchematicScene`, rather than a
+ * copy of its setup. An earlier version of this file built its own recorder,
+ * which meant it checked the recorder and not the way the recorder is called,
+ * and the way it was called is where the bug was: recording at a nominal scale
+ * of 1 made every selection halo and field umbilical two internal units wide,
+ * a five-hundredth of a millimetre. They were drawn perfectly and were
+ * invisible, and every test passed, because no test recorded with a selection.
  *
- * **It records something substantial.** A recorder that quietly dropped every
- * call would satisfy any invariant perfectly, so the counts are checked first.
+ * Three things are asserted:
  *
- * **The bytes do not depend on the zoom.** This is the property the entire
- * WebGL backend is built on: if recorded geometry varies with the view, the
- * buffer has to be rebuilt on every zoom step, and rebuilding is the ~70 ms
- * repaint we are replacing. Then the backend would be no faster than the
- * Canvas2D one and a good deal more complicated.
+ * **It records something substantial.** A recorder that dropped every call
+ * would satisfy any invariant perfectly, so the counts are checked first.
  *
- * It is not obviously true, either. `renderer.ts` consults the view scale in
- * four places, and each one had to be turned into something the shader
- * re-derives per frame rather than something baked into a vertex.
+ * **The scale-derived decorations are visible.** The regression above.
+ *
+ * **How far the geometry depends on the zoom**, stated honestly rather than
+ * assumed away: it is deterministic at a fixed scale, and it *does* change
+ * across scales because of the text level of detail. That is what the zoom
+ * bucket in `SchematicGl` exists to bound.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema';
-import {
-  renderSchematic,
-  setVectorText,
-  DEFAULT_RENDER_OPTS,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { GlRecorder } from '@ziroeda/designer/src/render/gl/recorder.js';
+import { readSchematic, refId } from '@ziroeda/eeschema';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { recordSchematicScene } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
+
+/** A realistic view scale for this sheet: about 20 nm per device pixel. */
+const SCALE = 0.00002;
 
 const SRC = readFileSync(
   join(import.meta.dirname, '../../data/complex_hierarchy.kicad_sch'),
@@ -50,97 +54,112 @@ const theme = new Proxy(
   { get: (_t, k) => (k === 'background' ? '#f0f0f0' : '#008484') },
 ) as unknown as Theme;
 
-/**
- * Record the whole document at a given reference scale.
- *
- * The canvas is enormous and the view scale is 1, so `renderer.ts`'s own
- * viewport culling keeps everything: a retained buffer has to hold the whole
- * document, and the GPU does the culling afterwards for free.
- *
- * `referenceScale` is the only thing that varies between calls. It is what the
- * caller's `1 / scale` hairline requests were computed against, so if any zoom
- * dependence survives into the geometry, this is what will expose it.
- */
-function record(referenceScale: number): Scene {
+/** Record the whole document as it should look at `scale`. */
+function record(scale: number, selection?: ReadonlySet<string>): Scene {
   const scene = new Scene();
-  const rec = new GlRecorder(scene, { referenceScale, devicePixelRatio: 1 });
-  // Stroke text as raw segments rather than through a cached Path2D, the same
-  // mode the SVG plotter uses. Path2D is a browser type and carries no readable
-  // geometry, so a recording backend cannot see inside one.
-  setVectorText(true);
-  try {
-    const BIG = 1e9;
-    renderSchematic(
-      // The same cast `plot.ts` uses for its SVG, DXF and PostScript backends.
-      // `renderSchematic` declares the full `CanvasRenderingContext2D`, but
-      // touches 26 of its members; this backend is the fourth to supply those
-      // 26 and nothing else.
-      rec as unknown as CanvasRenderingContext2D,
-      readSchematic(parse(SRC)),
-      { scale: 1, offsetX: BIG / 2, offsetY: BIG / 2 },
+  recordSchematicScene(
+    scene,
+    {
+      doc: readSchematic(parse(SRC)),
       theme,
-      BIG,
-      BIG,
-      undefined,
-      undefined,
-      // The grid is left out on purpose. It is regular, cheap, and genuinely
-      // zoom-dependent (the spacing adapts), so it does not belong in a buffer
-      // whose whole value is not being rebuilt. It gets its own pass.
-      { ...DEFAULT_RENDER_OPTS, grid: { ...DEFAULT_RENDER_OPTS.grid, show: false } },
-    );
-  } finally {
-    setVectorText(false);
-  }
+      opts: DEFAULT_RENDER_OPTS,
+      selection,
+      highlight: selection,
+    },
+    scale,
+  );
   return scene;
 }
 
 describe('recording a real schematic', () => {
   it('produces a substantial scene', () => {
     // A recorder that dropped everything would pass the invariant below.
-    const s = record(0.00002);
+    const s = record(SCALE);
     expect(s.segmentCount).toBeGreaterThan(1000);
     expect(s.isEmpty).toBe(false);
   });
 
   it('stays small enough to keep resident', () => {
     // The point of uploading once is that it can stay uploaded.
-    const s = record(0.00002);
+    const s = record(SCALE);
     const floats = s.segments.length + s.discs.length + s.triangles.length;
     expect(floats * 4).toBeLessThan(32 * 1024 * 1024);
   });
 });
 
-describe('the recorded geometry does not depend on the zoom', () => {
-  it('is byte-identical across a 4x change of view scale', () => {
-    // If this fails, the buffer must be rebuilt on every zoom step and the
-    // WebGL backend has lost its reason to exist. Compared float by float
-    // rather than by count: a count can match while every coordinate has
-    // shifted.
-    const a = record(0.00002);
-    const b = record(0.00008);
+describe('how far the recorded geometry depends on the zoom', () => {
+  it('is byte-identical when re-recorded at the same scale', () => {
+    // Determinism, and the floor under everything else: a buffer is reused
+    // across many frames, so the same inputs must give the same bytes.
+    // Compared float by float rather than by count, since a count can match
+    // while every coordinate has shifted.
+    const a = record(SCALE);
+    const b = record(SCALE);
 
     expect(b.segmentCount).toBe(a.segmentCount);
-    expect(b.discCount).toBe(a.discCount);
-    expect(b.triangleVertexCount).toBe(a.triangleVertexCount);
-
     const va = a.segments.view();
     const vb = b.segments.view();
     let differing = 0;
     for (let i = 0; i < va.length; i++) if (va[i] !== vb[i]) differing++;
-    expect(differing, `${differing} of ${va.length} segment floats moved with the view`).toBe(0);
+    expect(differing).toBe(0);
+  });
 
-    const ta = a.triangles.view();
-    const tb = b.triangles.view();
-    let triDiff = 0;
-    for (let i = 0; i < ta.length; i++) if (ta[i] !== tb[i]) triDiff++;
-    expect(triDiff).toBe(0);
+  it('does depend on the zoom, through the text level of detail', () => {
+    // Stated as a fact rather than hidden, because an earlier version of this
+    // file recorded at scale 1 for both sides and so proved nothing: with the
+    // scale held fixed, of course nothing moved.
+    //
+    // Two things genuinely vary with the view scale.
+    //
+    //   1. `drawText` skips a run under 0.6 screen pixels, so a different zoom
+    //      records a different amount of text. This is the big one, and it is
+    //      why the counts below differ by nearly threefold.
+    //   2. Selection decorations: the halo width and a selected field's anchor
+    //      cross radius are computed from the scale.
+    //
+    // `SchematicGl` handles both by keying the buffer on the zoom *octave*, so
+    // a wheel gesture stays inside one bucket and a re-record happens only when
+    // the zoom has doubled or halved. Removing the dependence entirely means
+    // moving the text cull into the shader, which is worth doing and is not
+    // done yet.
+    //
+    // If this test ever starts passing, that work has landed: replace it with
+    // the byte-identical assertion across scales.
+    const a = record(SCALE);
+    const b = record(SCALE * 4);
+    expect(b.segmentCount).not.toBe(a.segmentCount);
+    expect(b.segmentCount).toBeGreaterThan(a.segmentCount);
+  });
+
+  it('draws a selection halo wide enough to see', () => {
+    // The bug this exists for. `renderer.ts` sizes the halo as
+    // `highlightThickness / scale + highlightThickness * MIL`, and a field's
+    // umbilical as `max(1, 1 / scale)`. Recording at scale 1 collapsed both to
+    // one or two internal units. A millimetre is a million of them, so they
+    // were drawn correctly and were invisible, and every test still passed
+    // because none of them recorded with a selection.
+    const doc = readSchematic(parse(SRC));
+    const selected = new Set(doc.lines.map((l, i) => refId('line', l.uuid, i)).slice(0, 5));
+    expect(selected.size).toBeGreaterThan(0);
+
+    const plain = record(SCALE);
+    const withHalo = record(SCALE, selected);
+    expect(withHalo.segmentCount).toBeGreaterThan(plain.segmentCount);
+
+    // The halo is the widest thing on the sheet by some way. Measured in world
+    // units, it has to be a real fraction of a millimetre, not a rounding error.
+    const v = withHalo.segments.view();
+    let widest = 0;
+    for (let i = 0; i < v.length; i += 10) widest = Math.max(widest, v[i + 4]!);
+    const MM = 1e6;
+    expect(widest, 'widest recorded stroke, in internal units').toBeGreaterThan(0.05 * MM);
   });
 
   it('records hairlines as a pixel floor rather than a world width', () => {
     // The mechanism that makes the above true: a `1 / scale` request becomes
     // "at least N device pixels", which the shader applies per frame, instead
     // of a world width that would grow as you zoom in.
-    const s = record(0.00002);
+    const s = record(SCALE);
     const v = s.segments.view();
     let pixelFloored = 0;
     for (let i = 0; i < v.length; i += 10) if (v[i + 4] === 0 && v[i + 5]! > 0) pixelFloored++;

@@ -115,6 +115,23 @@ export interface RecorderOptions {
    */
   originX?: number;
   originY?: number;
+  /**
+   * The view scale the caller recorded *through*, divided back out of every
+   * point and width so the buffer holds world units.
+   *
+   * Recording at scale 1 was the obvious thing and it was wrong. `renderer.ts`
+   * derives several screen-space quantities from the view scale, not just
+   * widths: the selection halo is
+   * `highlightThickness / scale + highlightThickness * MIL`, a field's
+   * umbilical is `max(1, 1 / scale)`, and a selected field's anchor cross has a
+   * zoom-compensated radius. At scale 1 those all collapse to one or two
+   * internal units, and since a millimetre is a million of them, they are drawn
+   * perfectly and are invisible.
+   *
+   * So recording runs at the real view scale, which makes those correct, and
+   * this takes the scale back out of the geometry.
+   */
+  worldScale?: number;
 }
 
 /**
@@ -144,6 +161,7 @@ export class GlRecorder {
   private readonly dpr: number;
   private readonly originX: number;
   private readonly originY: number;
+  private readonly worldScale: number;
   private pendingSkipFillRect: boolean;
 
   // Canvas2D exposes these as plain properties, so they are plain properties.
@@ -165,12 +183,16 @@ export class GlRecorder {
     this.pendingSkipFillRect = opts.skipFirstFillRect === true;
     this.originX = opts.originX ?? 0;
     this.originY = opts.originY ?? 0;
+    this.worldScale = opts.worldScale && opts.worldScale > 0 ? opts.worldScale : 1;
   }
 
-  /** Transform a point, then take the record-time shift back out. */
+  /** Transform a point, then take the record-time view back out of it. */
   private pt(x: number, y: number): Pt {
     const p = apply(this.st.ctm, x, y);
-    return { x: p.x - this.originX, y: p.y - this.originY };
+    return {
+      x: (p.x - this.originX) / this.worldScale,
+      y: (p.y - this.originY) / this.worldScale,
+    };
   }
 
   // ----- transform ---------------------------------------------------------
@@ -299,7 +321,7 @@ export class GlRecorder {
    * and what stops a hairline vanishing when zoomed out.
    */
   private pen(): { half: number; minPx: number } {
-    const world = Math.max(0, this.st.lineWidth) * matScale(this.st.ctm);
+    const world = (Math.max(0, this.st.lineWidth) * matScale(this.st.ctm)) / this.worldScale;
     const asPixels = world * this.refScale;
     // Within a whisker of an exact pixel request: treat it as one.
     if (asPixels <= 1.5) return { half: 0, minPx: (Math.max(asPixels, 1) * this.dpr) / 2 };
