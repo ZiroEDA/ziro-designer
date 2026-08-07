@@ -1478,3 +1478,19 @@ export {
   type PnsTuningHost,
   type PnsUnconnectedAnchor,
 } from './router/pns_topology.js';
+// `OPTIMIZER::Optimize( DIFF_PAIR* )` and the passes underneath it.
+//
+// `linesCollide` is exported alongside them because it is the local
+// stand-in for `LINE::Collide( LINE* )` that ZiroEDA issue #484 makes
+// unreachable, and anything else that hits the same wall should reuse it
+// rather than grow a third copy.
+export {
+  checkDpColliding,
+  coupledBypass,
+  findCoupledVertices,
+  linesCollide,
+  mergeDpSegments,
+  mergeDpStep,
+  optimizeDiffPair,
+  verifyDpBypass,
+} from './router/pns_optimizer_diff_pair.js';

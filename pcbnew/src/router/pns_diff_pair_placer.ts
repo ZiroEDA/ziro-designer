@@ -82,6 +82,7 @@ import { PnsTopology } from './pns_topology.js';
 import { PnsVia } from './pns_via.js';
 import { cpoint, csegment, segmentCount, type Chain } from './pns_line.js';
 import { itemHull } from './pns_item_hull.js';
+import { optimizeDiffPair } from './pns_optimizer_diff_pair.js';
 import { routeShortest } from './pns_walkaround.js';
 import { segLineProject } from './pns_seg_ops.js';
 import type { NetHandle } from './pns_collision.js';
@@ -1295,9 +1296,12 @@ export class PnsDiffPairPlacer {
     if (bestScore > 0.0) {
       aPair.setShapeFrom(best);
 
-      // `OPTIMIZER( m_currentNode ).Optimize( aPair )` — `mergeDpSegments` is
-      // not ported; see the module note. The shape is otherwise as upstream
-      // leaves it.
+      // `OPTIMIZER optimizer( m_currentNode ); optimizer.Optimize( &aPair )`.
+      // The upstream order is this way round — the pair is re-shaped from the
+      // best walk *before* the optimizer runs, so the optimizer works on the
+      // pair the caller will read, not on `best`.
+      optimizeDiffPair(this.mCurrentNode as PnsNode, aPair);
+
       return true;
     }
 
