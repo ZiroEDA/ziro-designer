@@ -53,6 +53,7 @@
  * written.
  */
 import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
+import { segReflectPoint } from './pns_seg_ops.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
@@ -79,11 +80,17 @@ export class PnsLineChain {
   private mShapes: [number, number][] = [];
   private mArcs: ShapeArc[] = [];
 
-  /** A chain over a copy of the given points, none of them on an arc. */
+  /**
+   * A chain over a copy of the given points, none of them on an arc.
+   *
+   * `aAllowDuplication` is `true` here because this stands in for
+   * `SHAPE_LINE_CHAIN( const std::vector<VECTOR2I>& )`, which assigns the
+   * vector wholesale and does *not* drop repeated points — unlike `Append`.
+   */
   static fromPoints(aPoints: readonly Vec2[]): PnsLineChain {
     const c = new PnsLineChain();
 
-    for (const p of aPoints) c.appendPoint(p);
+    for (const p of aPoints) c.appendPoint(p, true);
 
     return c;
   }
@@ -180,8 +187,22 @@ export class PnsLineChain {
     return this.isPtOnArc(aSegment) && next !== undefined && this.arcIndex(aSegment) === next[0];
   }
 
-  /** `Append( const VECTOR2I& )`. */
-  appendPoint(aPoint: Vec2): void {
+  /**
+   * `Append( const VECTOR2I& aP, bool aAllowDuplication )`.
+   *
+   * The default matters and is upstream's: **a point identical to the current
+   * last one is silently dropped**. The meander turtle relies on it — a mitre
+   * whose correction works out to zero appends the point it is already standing
+   * on, and a chamfered corner would otherwise come out as three doubled
+   * vertices rather than three.
+   */
+  appendPoint(aPoint: Vec2, aAllowDuplication = false): void {
+    const last = this.mPoints[this.mPoints.length - 1];
+
+    if (last !== undefined && last.x === aPoint.x && last.y === aPoint.y && !aAllowDuplication) {
+      return;
+    }
+
     this.mPoints.push({ x: aPoint.x, y: aPoint.y });
     this.mShapes.push(shapesArePt());
   }
@@ -242,6 +263,101 @@ export class PnsLineChain {
 
       this.mShapes.push(localArc !== SHAPE_IS_PT ? fix(s) : shapesArePt());
     }
+  }
+
+  // ----- added for the meander geometry (pns_meander.ts) ------------------------
+
+  /** `Clear()`. The accuracy and width upstream also resets live elsewhere. */
+  clear(): void {
+    this.mPoints = [];
+    this.mShapes = [];
+    this.mArcs = [];
+  }
+
+  /** `CLastPoint()`. */
+  cLastPoint(): Vec2 {
+    return this.cPoint(-1);
+  }
+
+  /**
+   * `Append( const SHAPE_LINE_CHAIN& aOtherLine )`.
+   *
+   * The same three moves as {@link appendArc}, which is upstream's arc overload
+   * expressed through this one: renumber the incoming arcs past ours, fold the
+   * joint point away when the two chains already meet there, and copy the rest.
+   * The one difference is the test for "does the incoming chain *start* on an
+   * arc" — the arc overload knows the answer from its polyline length, while
+   * here it has to be asked of the chain, because a chain arriving from
+   * `makeMiterShape` is a plain point followed by an arc.
+   *
+   * `mergeFirstLastPointIfNeeded` is not called: its open-chain arm only fires
+   * when point 0 is shared between two arcs, which cannot happen to a chain
+   * being appended *to* — that point came from this chain, not the other.
+   */
+  appendChain(aOther: PnsLineChain): void {
+    if (aOther.mPoints.length === 0) return;
+
+    const numArcs = this.mArcs.length;
+
+    for (const a of aOther.mArcs) {
+      this.mArcs.push({
+        p0: { ...a.p0 },
+        arcMid: { ...a.arcMid },
+        p1: { ...a.p1 },
+        width: a.width,
+      });
+    }
+
+    const fix = (s: [number, number]): [number, number] => [
+      s[0] === SHAPE_IS_PT ? SHAPE_IS_PT : s[0] + numArcs,
+      s[1] === SHAPE_IS_PT ? SHAPE_IS_PT : s[1] + numArcs,
+    ];
+
+    const first = aOther.mPoints[0] as Vec2;
+    const last = this.mPoints[this.mPoints.length - 1];
+
+    if (
+      this.mPoints.length === 0 ||
+      last === undefined ||
+      last.x !== first.x ||
+      last.y !== first.y
+    ) {
+      this.mPoints.push({ ...first });
+      this.mShapes.push(fix(aOther.mShapes[0] as [number, number]));
+    } else if (aOther.isArcSegment(0)) {
+      const back = this.mShapes[this.mShapes.length - 1] as [number, number];
+      const incoming = (aOther.mShapes[0] as [number, number])[0] + numArcs;
+
+      if (back[0] === SHAPE_IS_PT && back[1] === SHAPE_IS_PT) back[0] = incoming;
+      else back[1] = incoming;
+    }
+
+    for (let i = 1; i < aOther.mPoints.length; i++) {
+      this.mPoints.push({ ...(aOther.mPoints[i] as Vec2) });
+
+      this.mShapes.push(
+        aOther.arcIndex(i) !== SHAPE_IS_PT
+          ? fix(aOther.mShapes[i] as [number, number])
+          : shapesArePt(),
+      );
+    }
+  }
+
+  /**
+   * `Mirror( const SEG& axis )`: every point and every arc reflected across the
+   * axis. The shape indices are untouched, so which segments belong to which
+   * arc survives the flip — a mirrored arc is still the same arc, traversed the
+   * other way round.
+   */
+  mirror(aAxis: Seg): void {
+    this.mPoints = this.mPoints.map((p) => segReflectPoint(aAxis, p));
+
+    this.mArcs = this.mArcs.map((a) => ({
+      p0: segReflectPoint(aAxis, a.p0),
+      arcMid: segReflectPoint(aAxis, a.arcMid),
+      p1: segReflectPoint(aAxis, a.p1),
+      width: a.width,
+    }));
   }
 }
 
