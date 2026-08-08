@@ -12,7 +12,7 @@
  * on a vertex is classified the same way KiCad classifies it.
  */
 
-import { KiROUND, rescale } from '../math/util.js';
+import { KiROUND, rescale, rescale64 } from '../math/util.js';
 import type { VECTOR2I } from '../math/vector2.js';
 
 /** One crossing found by {@link chainIntersect}. */
@@ -246,4 +246,85 @@ export function segApproxCollinear(
   const thresholdSquared = big(aDistanceThreshold) * big(aDistanceThreshold);
 
   return d1 <= thresholdSquared && d2 <= thresholdSquared;
+}
+
+/** `std::numeric_limits<VECTOR2I::coord_type>` — the range an intersection must land in. */
+const COORD_MAX = 2147483647n;
+const COORD_MIN = -2147483648n;
+
+const bigCross = (ax: bigint, ay: bigint, bx: bigint, by: bigint): bigint => ax * by - ay * bx;
+
+/**
+ * `SEG::IntersectLines` — `Intersect( aSeg, false, true )` (`seg.cpp`).
+ *
+ * The intersection of the **infinite lines** through two segments, not of the
+ * segments themselves. That is a different question from {@link segIntersect}
+ * in three ways, and every one of them is load bearing:
+ *
+ * 1. **No bounding-box rejection.** Upstream skips it explicitly for line mode,
+ *    "since infinite lines can intersect anywhere". Two segments nowhere near
+ *    each other still have crossing lines.
+ * 2. **No parameter range check.** `segIntersect` refuses a result outside
+ *    `[0, 1]` on both segments; here that is the normal case.
+ * 3. **Collinear lines intersect.** Where `segIntersect` answers null, upstream
+ *    answers a point — and which point is spelled out rather than derived: a
+ *    degenerate `aSeg` gives its own start, a degenerate receiver gives *its*
+ *    start, and otherwise the **midpoint of the two starts**, which upstream's
+ *    comment calls "a reasonable choice" for an ambiguous answer. Parallel but
+ *    *not* collinear is still null.
+ *
+ * The arithmetic is exact. `determinant`, both parameter numerators and the
+ * scaled direction are computed in BigInt, because the determinant of two
+ * board-scale vectors is order 1e16 — already past 2^53, where a double stops
+ * representing consecutive integers and `rescale`'s half-away-from-zero
+ * correction stops landing where C++ lands it. A fractional implementation
+ * diverges by a unit and then feeds that unit into `LineProject`.
+ *
+ * The overflow guard is upstream's too: an intersection can exist
+ * mathematically and still not fit a 32-bit coordinate, and upstream answers
+ * "no intersection" rather than truncating. Two nearly-parallel lines are
+ * exactly the case that produces it.
+ */
+export function segIntersectLines(
+  a1: VECTOR2I,
+  a2: VECTOR2I,
+  b1: VECTOR2I,
+  b2: VECTOR2I,
+): VECTOR2I | null {
+  const d1x = BigInt(KiROUND(a2.x - a1.x));
+  const d1y = BigInt(KiROUND(a2.y - a1.y));
+  const d2x = BigInt(KiROUND(b2.x - b1.x));
+  const d2y = BigInt(KiROUND(b2.y - b1.y));
+  const ox = BigInt(KiROUND(b1.x - a1.x));
+  const oy = BigInt(KiROUND(b1.y - a1.y));
+
+  const determinant = bigCross(d2x, d2y, d1x, d1y);
+
+  if (determinant === 0n) {
+    // Parallel but not collinear: upstream returns nothing.
+    if (bigCross(d1x, d1y, ox, oy) !== 0n) return null;
+
+    // Collinear. The intersection of two identical infinite lines is the whole
+    // line, so upstream picks a representative rather than failing.
+    if (b1.x === b2.x && b1.y === b2.y) return { x: b1.x, y: b1.y };
+    if (a1.x === a2.x && a1.y === a2.y) return { x: a1.x, y: a1.y };
+
+    // `( A + aSeg.A ) / 2` is VECTOR2I's integer divide, truncating per
+    // component toward zero — not a rounded midpoint.
+    return {
+      x: Math.trunc((a1.x + b1.x) / 2),
+      y: Math.trunc((a1.y + b1.y) / 2),
+    };
+  }
+
+  // `param1_num = e x ac`, the parameter along *this* segment. Upstream then
+  // evaluates the point on the OTHER segment's line, `aSeg.A + (q/d) * f`.
+  const param1Num = bigCross(d1x, d1y, ox, oy);
+
+  const rx = BigInt(KiROUND(b1.x)) + rescale64(param1Num, d2x, determinant);
+  const ry = BigInt(KiROUND(b1.y)) + rescale64(param1Num, d2y, determinant);
+
+  if (rx > COORD_MAX || rx < COORD_MIN || ry > COORD_MAX || ry < COORD_MIN) return null;
+
+  return { x: Number(rx), y: Number(ry) };
 }
