@@ -1585,3 +1585,20 @@ export {
 // above, from the routing-settings block this port builds on.
 export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
 export type { ChainIntersection } from './router/pns_line_item.js';
+// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`. `PnsRouterIface`
+// itself is *not* re-exported: `pns_collision.ts` already exports a type of that
+// name (the one-member `isFlashedOnLayer` slice), and the full interface is
+// imported from `./router/pns_router.js` directly for the same reason
+// `DpPlacerHost` is.
+export {
+  PnsBoardIface,
+  PNS_ORPHANED_NET,
+  asBoardItem,
+  boardLayerFromPnsLayer,
+  padHoleShape,
+  pnsLayerFromBoardLayer,
+  solidShapeForPad,
+  type PnsBoardIfaceDeps,
+  type PnsBoardNet,
+  type PnsPendingChange,
+} from './router/pns_board_iface.js';
