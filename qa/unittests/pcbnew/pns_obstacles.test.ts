@@ -131,16 +131,17 @@ describe('a net is not an obstacle to itself', () => {
     expect(boardObstacleHulls(b, QUERY)).toHaveLength(1);
   });
 
-  it('does not let unassigned copper claim the exemption from unassigned copper', () => {
-    // Routing net 0 — a track drawn on no net at all, which pcbnew allows. The
-    // same-net exemption in `ITEM::collideSimple` is guarded by `aHead->Net()`
-    // being non-zero, so two net-0 items collide. Reading net 0 as an ordinary
-    // net makes every other unconnected trace invisible and the route runs
-    // through it; this is the one case where getting it wrong permits an
-    // illegal route rather than merely costing a legal one.
+  it('lets unassigned copper claim the exemption from unassigned copper', () => {
+    // Routing net 0 — a track drawn on no net at all, which pcbnew allows.
+    // `collideSimple`'s third term, `aHead->Net()`, is a **null-pointer** test,
+    // not a net-code test: `NET_HANDLE` is `void*`, and KiCad hands net code 0
+    // a real `NETINFO_ITEM` via `NETINFO_LIST::OrphanedItem()`. The items that
+    // term excludes are the net-less synthetic solids built for keepouts and
+    // the board outline, not net-0 copper. So two unconnected traces are on the
+    // same net as each other and do not collide.
     const b = board({ tracks: [track(20, 0, 20, 40, 0)] });
 
-    expect(boardObstacleHulls(b, { ...QUERY, net: 0 })).toHaveLength(1);
+    expect(boardObstacleHulls(b, { ...QUERY, net: 0 })).toEqual([]);
   });
 
   it('still blocks a net-0 route with ordinary copper', () => {
