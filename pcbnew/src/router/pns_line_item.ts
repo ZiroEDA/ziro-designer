@@ -61,6 +61,7 @@ import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { arcShape } from '../drc/drc_engine.js';
+import { arcIsClockwise, constructArcFromStartEndCenter, shapeArcCenter } from './shape_arc_ops.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Shape } from '../drc/drc_geometry.js';
@@ -453,18 +454,27 @@ export class PnsLineChain {
    * `Slice( aStartIndex, aEndIndex, aMaxError )`: the sub-chain between two
    * **vertex** indices, inclusive at both ends.
    *
-   * ### Disclosed gap: cutting through the middle of an arc
+   * ### Cutting through the middle of an arc
    *
    * Upstream's two arc-*splitting* arms (`shape_line_chain.cpp:1437-1464` and
    * `:1486-1513`) rebuild a partial arc with
-   * `SHAPE_ARC::ConstructFromStartEndCenter`, which this repo has not ported
-   * and which is a `libs/kimath` job of its own. Both arms throw here.
+   * `SHAPE_ARC::ConstructFromStartEndCenter`. Both are ported now that it is.
    *
    * They are reached only when a cut index falls strictly inside an arc, which
    * `LINE::ClipVertexRange` — the only caller in this port — documents as
    * impossible: *"It is assumed that anything calling this method will have
    * determined the vertex range to clip based on joints, meaning we will never
-   * clip in the middle of an arc."* Flagged rather than faked.
+   * clip in the middle of an arc."*
+   *
+   * Two details in these arms are easy to lose:
+   *
+   *  - the copied points are tagged with `rv.m_arcs.size()`, the index the
+   *    partial arc is *about to* take, not with the index it had here; and the
+   *    start arm then advances the loop's start by `rv.PointCount()`, which is
+   *    how the main loop resumes after a partial arc rather than re-walking it;
+   *  - the end arm's new endpoint is `m_points[aEndIndex]`, **not** the last
+   *    point it copied. Those differ whenever the requested end is the arc's
+   *    own last point.
    */
   slice(aStartIndex: number, aEndIndex: number, aMaxError = ARC_HIGH_DEF): PnsLineChain {
     const rv = new PnsLineChain();
@@ -484,7 +494,32 @@ export class PnsLineChain {
     const numPoints = this.mPoints.length;
 
     if (this.isArcSegment(start) && !this.isArcStart(start)) {
-      throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() starting inside an arc is not ported');
+      // Cutting in middle of an arc, lets split it.
+      const arcToSplitIndex = this.arcIndex(start);
+      const arcToSplit = this.arc(arcToSplitIndex);
+
+      // Copy the points as arc points.
+      for (let i = start; i < this.mPoints.length && arcToSplitIndex === this.arcIndex(i); i++) {
+        rv.mPoints.push({ ...(this.mPoints[i] as Vec2) });
+        rv.mShapes.push([rv.mArcs.length, SHAPE_IS_PT]);
+      }
+
+      // Create a new arc from the existing one, with a different start point.
+      rv.mArcs.push(
+        constructArcFromStartEndCenter(
+          this.mPoints[start] as Vec2,
+          arcToSplit.p1,
+          shapeArcCenter(arcToSplit),
+          arcIsClockwise(arcToSplit),
+        ),
+      );
+
+      // Not covered by a test: dropping this advance survives the suite. The
+      // main loop would then re-walk the arc points already copied above and
+      // append a duplicate of the first of them as a plain point. The slice's
+      // arc, its endpoints and its first and last points all stay correct, and
+      // those are what the test asserts; only the interior vertex count moves.
+      start += rv.pointCount();
     }
 
     for (let i = start; i <= end && i < numPoints; i = this.nextShape(i)) {
@@ -501,7 +536,29 @@ export class PnsLineChain {
             return rv;
           }
 
-          throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() ending inside an arc is not ported');
+          // Cutting in middle of an arc, lets split it.
+          const cutArcIndex = this.arcIndex(i);
+          const currentArc = this.arc(cutArcIndex);
+
+          // Copy the points as arc points.
+          for (let j = i; j <= end && j < numPoints; j++) {
+            if (cutArcIndex !== this.arcIndex(j)) break;
+
+            rv.mPoints.push({ ...(this.mPoints[j] as Vec2) });
+            rv.mShapes.push([rv.mArcs.length, SHAPE_IS_PT]);
+          }
+
+          // Create a new arc from the existing one, with a different end point.
+          rv.mArcs.push(
+            constructArcFromStartEndCenter(
+              currentArc.p0,
+              this.mPoints[end] as Vec2,
+              shapeArcCenter(currentArc),
+              arcIsClockwise(currentArc),
+            ),
+          );
+
+          return rv;
         }
 
         // Append the whole arc.
@@ -592,22 +649,38 @@ export class PnsLineChain {
   }
 
   /**
-   * The one point of `SHAPE_LINE_CHAIN::Remove` that
-   * {@link removeDuplicatePoints} reaches.
+   * `Remove( int aIndex )`, which upstream defines as `Remove( aIndex, aIndex )`
+   * — the single-vertex spelling {@link removeDuplicatePoints} reaches.
    *
-   * Upstream's `Remove( int, int )` also splits arcs that the range cuts
-   * through and renumbers the arc list; that is a `libs/kimath` port of its
-   * own, and the only call that gets here is `Remove( 1 )` on a three-point
-   * chain whose first two points coincide. A point on an arc therefore throws
-   * rather than silently corrupting the shape indices.
+   * It used to throw on a point that sits on an arc, because the range form
+   * needs `splitArc` and `splitArc` needed
+   * `SHAPE_ARC::ConstructFromStartEndCenter`. Both are ported, so this is now
+   * upstream's own one-liner and a coincident duplicate on an arc is trimmed
+   * with the arc re-cut around it instead of the shape indices being corrupted.
    */
   private removeAt(aIndex: number): void {
-    if (this.isPtOnArc(aIndex)) {
-      throw new Error('PNS: SHAPE_LINE_CHAIN::Remove() of a point on an arc is not ported');
-    }
+    this.remove(aIndex, aIndex);
+  }
 
-    this.mPoints.splice(aIndex, 1);
-    this.mShapes.splice(aIndex, 1);
+  /**
+   * The arc arm of `SHAPE_LINE_CHAIN::Split` (`shape_line_chain.cpp:1218-1224`),
+   * as a method so that the two ports of `Split` in this tree —
+   * `chainSplit` in `pns_line_drag.ts` and `chainSplitAt` in
+   * `pns_meander_placer_base.ts` — share one copy of it rather than growing a
+   * third.
+   *
+   * `aP` goes in at `aSegIndex + 1` carrying the *first* half's arc index, and
+   * then {@link splitArc} is asked for a **coincident** split, which is what
+   * makes the inserted point shared between the two halves: its `.first` stays
+   * the arc it was given here and its `.second` becomes the new arc.
+   */
+  insertPointOnArcSegment(aSegIndex: number, aP: Vec2): void {
+    const newIndex = aSegIndex + 1;
+
+    this.mPoints.splice(newIndex, 0, { x: aP.x, y: aP.y });
+    this.mShapes.splice(newIndex, 0, [this.arcIndex(aSegIndex), SHAPE_IS_PT]);
+
+    this.splitArc(newIndex, true); // Make the inserted point a shared point
   }
 
   /**
@@ -882,20 +955,83 @@ export class PnsLineChain {
   }
 
   /**
-   * `splitArc( ssize_t aPtIndex, bool aCoincident )` — the four early-outs.
+   * `amendArc( size_t aArcIndex, const VECTOR2I& aNewStart, const VECTOR2I&
+   * aNewEnd )` (`shape_line_chain.cpp:274-289`).
    *
-   * ### Disclosed gap: the same one {@link slice} has
+   * Re-cut an arc to new endpoints **keeping its centre and its handedness**.
+   * Upstream's comment says "try to preserve the centre of the original arc",
+   * and that is the whole design: the new endpoints come from points that were
+   * already on the old arc, so a construction through the same centre lands on
+   * the same curve, whereas a three-point construction through a fresh midpoint
+   * would drift.
    *
-   * Everything past the early-outs rebuilds a partial arc with
-   * `SHAPE_ARC::ConstructFromStartEndCenter` — directly in the two-arc arm, and
-   * through `amendArc` in the shared-point / arc-end arm. That primitive is not
-   * ported (it is a `libs/kimath` job of its own), so both arms throw here
-   * rather than approximate, exactly as {@link slice} already does.
+   * The width is *not* carried over — upstream default-constructs the
+   * replacement and calls `ConstructFromStartEndCenter` with its default zero
+   * width. Chain-held arcs already have zero width ({@link appendArc} strips
+   * it), so the loss is invisible here, but it is upstream's behaviour and not
+   * a simplification.
    *
-   * They are reached only when a {@link remove} or {@link replace} range cuts
-   * strictly through the interior of an arc. The diff-pair optimizer, which is
-   * what brought `Replace` into the port, never does: a `DIFF_PAIR` lane is a
-   * plain `Chain` and carries no arcs at all.
+   * **Not covered by a test:** negating `arcIsClockwise( theArc )` here survives
+   * the whole PNS suite. `amendArc` is reached only from {@link splitArc}'s
+   * shared-point / arc-end arm, and that arm needs a chain whose split index is
+   * where two arcs *meet* — which nothing in this tree builds yet, because the
+   * only producer of abutting arcs would be the `LINE_PLACER` that has not
+   * landed. The interior arm, which every current caller takes, is covered.
+   */
+  private amendArc(aArcIndex: number, aNewStart: Vec2, aNewEnd: Vec2): void {
+    const theArc = this.mArcs[aArcIndex];
+
+    if (!theArc) return; // wxCHECK_MSG( "Invalid arc index requested." )
+
+    this.mArcs[aArcIndex] = constructArcFromStartEndCenter(
+      aNewStart,
+      aNewEnd,
+      shapeArcCenter(theArc),
+      arcIsClockwise(theArc),
+    );
+  }
+
+  /**
+   * `splitArc( ssize_t aPtIndex, bool aCoincident )`
+   * (`shape_line_chain.cpp:292-365`).
+   *
+   * Cut the arc that owns point `aPtIndex` in two there. `aCoincident` says
+   * whether the point is to be *shared* by the two halves (both halves touch
+   * it) or whether the first half is to stop at the previous point instead —
+   * which is the difference between splitting a chain at a vertex that must
+   * survive and trimming an arc back off a vertex that is about to go away.
+   *
+   * Four early-outs, then two arms.
+   *
+   * ### The shared-point / arc-end arm
+   *
+   * There is no arc to cut *after* the index — the point is already the end of
+   * one — so all that happens is that the first arc is amended back to the
+   * previous point and the index stops pointing at it. `aCoincident` (or index
+   * 0, where there is no previous point) makes even that unnecessary.
+   *
+   * ### The interior arm
+   *
+   * Both halves are built from the *original* arc's centre and handedness, so
+   * they lie on the same circle. Then either:
+   *
+   *  - the point is the first of its arc's run and not coincident, so the first
+   *    half would have zero points — upstream's comment — and only the second
+   *    half is kept, in place; or
+   *  - both halves are kept, the second inserted directly after the first, and
+   *    **only the shape indices from `aPtIndex` onward** are bumped past the
+   *    insertion. Renumbering the whole chain would corrupt the first half.
+   *
+   * In the coincident case `m_shapes[aPtIndex].second` is set to the new arc
+   * *before* the index is advanced, so the split point ends up genuinely shared
+   * — first arc in `.first`, second in `.second` — and the renumbering starts
+   * past it.
+   *
+   * `arcIndex( aPtIndex - 1 )` at index 0 reads off the front of the array;
+   * upstream indexes a `std::vector` with `-1` there and gets whatever is in
+   * front of it, and {@link arcIndex} answers `SHAPE_IS_PT`, which is `-1` and
+   * so compares unequal to any real arc index — the same branch upstream takes
+   * in practice.
    */
   private splitArc(aPtIndex: number, aCoincident: boolean): void {
     let idx = aPtIndex;
@@ -908,14 +1044,67 @@ export class PnsLineChain {
 
     if (idx >= this.mShapes.length) return; // wxCHECK_MSG( "Invalid point index requested." )
 
-    if ((this.isSharedPt(idx) || this.isArcEnd(idx)) && (aCoincident || idx === 0)) {
-      return; // nothing to do
+    if (this.isSharedPt(idx) || this.isArcEnd(idx)) {
+      if (aCoincident || idx === 0) return; // nothing to do
+
+      const shape = this.mShapes[idx] as [number, number];
+      const firstArcIndex = shape[0];
+      const firstArc = this.mArcs[firstArcIndex] as ShapeArc;
+
+      // Don't amend the start.
+      this.amendArc(firstArcIndex, firstArc.p0, this.mPoints[idx - 1] as Vec2);
+
+      if (this.isSharedPt(idx)) {
+        shape[0] = shape[1];
+        shape[1] = SHAPE_IS_PT;
+      } else {
+        this.mShapes[idx] = shapesArePt();
+      }
+
+      return;
     }
 
-    throw new Error(
-      'PNS: SHAPE_LINE_CHAIN::splitArc() needs SHAPE_ARC::ConstructFromStartEndCenter, ' +
-        'which is not ported',
-    );
+    const currArcIdx = this.arcIndex(idx);
+    const currentArc = this.arc(currArcIdx);
+    const centre = shapeArcCenter(currentArc);
+    const clockwise = arcIsClockwise(currentArc);
+
+    const arc1End = aCoincident ? (this.mPoints[idx] as Vec2) : (this.mPoints[idx - 1] as Vec2);
+    const arc2Start = this.mPoints[idx] as Vec2;
+
+    const newArc1 = constructArcFromStartEndCenter(currentArc.p0, arc1End, centre, clockwise);
+    const newArc2 = constructArcFromStartEndCenter(arc2Start, currentArc.p1, centre, clockwise);
+
+    if (!aCoincident && this.arcIndex(idx - 1) !== currArcIdx) {
+      // Ignore newArc1 as it has zero points.
+      this.mArcs[currArcIdx] = newArc2;
+
+      return;
+    }
+
+    this.mArcs[currArcIdx] = newArc1;
+    this.mArcs.splice(currArcIdx + 1, 0, newArc2);
+
+    if (aCoincident) {
+      (this.mShapes[idx] as [number, number])[1] = currArcIdx + 1;
+
+      // Not covered by a test: dropping this `idx++` survives the suite. Without
+      // it the renumbering below also bumps the split point's own pair, so its
+      // `.first` stops naming the arc that ends there and its `.second` names an
+      // arc index one past the end. Nothing currently reads the split point's
+      // indices — the `Split` test asserts `IsSharedPt` (still true either way)
+      // and the two halves' endpoints, which live in `m_arcs`, not `m_shapes`.
+      idx++;
+    }
+
+    // Only change the arc indices for the second half of the point range.
+    for (let i = idx; i < this.pointCount(); i++) {
+      const sh = this.mShapes[i] as [number, number];
+
+      for (const k of [0, 1] as const) {
+        if (sh[k] !== SHAPE_IS_PT) sh[k] += 1;
+      }
+    }
   }
 
   /**

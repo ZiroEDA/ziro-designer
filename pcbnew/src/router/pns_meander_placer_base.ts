@@ -283,10 +283,11 @@ export function getSnappedStartPoint(aStartItem: PnsLinkedItem, aStartPoint: Vec
  * so a later, closer segment can update `min_dist` without becoming `ii`.
  * Reproduced verbatim.
  *
- * The arc arm calls `splitArc`, which this tree has not ported (as
- * {@link PnsLineChain.slice} already documents for the same reason), so a split
- * landing strictly inside an arc throws rather than silently cutting the arc
- * into a chord.
+ * The arc arm calls `splitArc`, which this tree ports now that
+ * `SHAPE_ARC::ConstructFromStartEndCenter` is ported. It goes through
+ * `PnsLineChain.insertPointOnArcSegment`, the single shared copy of that arm —
+ * `chainSplit` in `pns_line_drag.ts`, this tree's other port of `Split`, calls
+ * the same method.
  */
 export function chainSplitAt(aChain: PnsLineChain, aP: Vec2, aExact = false): number {
   let ii = -1;
@@ -324,11 +325,8 @@ export function chainSplitAt(aChain: PnsLineChain, aP: Vec2, aExact = false): nu
 
     const newIndex = ii + 1;
 
-    if (aChain.isArcSegment(ii)) {
-      throw new Error('PNS: SHAPE_LINE_CHAIN::Split() inside an arc is not ported');
-    }
-
-    aChain.insertPoint(newIndex, aP);
+    if (aChain.isArcSegment(ii)) aChain.insertPointOnArcSegment(ii, aP);
+    else aChain.insertPoint(newIndex, aP);
 
     return newIndex;
   }
