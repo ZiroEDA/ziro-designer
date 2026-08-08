@@ -116,6 +116,99 @@ describe('recordBoardScene', () => {
 });
 
 /**
+ * Painter's order across the three primitive kinds.
+ *
+ * Each buffer keeps its own order, but the device also has to know how they
+ * interleave. Drawing every fill, then every stroke, then every disc is a
+ * different picture on a board: `buildDrawSteps` paints layer by layer through
+ * `PCB_PAINT_ORDER`, so an inner-layer track belongs *under* the front copper
+ * pour, and hoisting every stroke above every fill lays every inner-layer track
+ * over the top of every pour.
+ *
+ * That shipped, and nothing here caught it, because nothing in Node composites
+ * anything. The *order*, though, is perfectly visible from Node — which is what
+ * these pin.
+ */
+const recordOrdered = (b: Board = board()): Scene => {
+  const s = new Scene(true);
+  recordBoardScene(
+    s,
+    {
+      scene: buildScene(b, {}, GL_PATH_FACTORY),
+      visible: VISIBLE,
+      opts: DEFAULT_DRAW_OPTIONS,
+      emphasis: 'none',
+    },
+    1e-5,
+  );
+  return s;
+};
+
+/** The same board with `n` extra tracks: more geometry, no more layers. */
+const boardWithTracks = (n: number): Board => {
+  const segs: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const y = 100 + (i % 50) * 0.4;
+    const x = 100 + Math.floor(i / 50) * 0.4;
+    segs.push(
+      `(segment (start ${x} ${y}) (end ${x + 0.3} ${y}) (width 0.25) (layer "F.Cu") (net 1))`,
+    );
+  }
+  return readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (net 1 "VCC")
+  (gr_line (start 90 90) (end 130 90) (stroke (width 0.15) (type solid)) (layer "Edge.Cuts"))
+  ${segs.join('\n  ')}
+)`),
+  );
+};
+
+describe('an ordered scene records painter order across the primitive kinds', () => {
+  it('partitions every buffer completely and contiguously', () => {
+    const s = recordOrdered();
+    // Nothing may be dropped, duplicated or reordered: read in sequence, the
+    // runs have to walk each buffer from its start to its end exactly once.
+    const next = { tri: 0, seg: 0, disc: 0 };
+    for (const run of s.runs) {
+      expect(run.start).toBe(next[run.kind]);
+      expect(run.count).toBeGreaterThan(0);
+      next[run.kind] = run.start + run.count;
+    }
+    expect(next.tri).toBe(s.triangleVertexCount);
+    expect(next.seg).toBe(s.segmentCount);
+    expect(next.disc).toBe(s.discCount);
+  });
+
+  it('keeps a fill recorded after a stroke after it', () => {
+    // The one thing the three-draw path cannot express, and the whole reason
+    // this exists: a board interleaves, each layer filling and stroking before
+    // the next one starts.
+    const kinds = recordOrdered().runs.map((r) => r.kind);
+    expect(kinds.length).toBeGreaterThan(1);
+    const firstSeg = kinds.indexOf('seg');
+    expect(firstSeg).toBeGreaterThanOrEqual(0);
+    expect(kinds.indexOf('tri', firstSeg)).toBeGreaterThan(firstSeg);
+  });
+
+  it('costs draw calls in layers and buckets, not in board size', () => {
+    // Runs become draw calls. If they grew with the geometry this would have
+    // traded one scaling cost for another and bought nothing.
+    const small = recordOrdered(boardWithTracks(20));
+    const large = recordOrdered(boardWithTracks(2000));
+    expect(large.segmentCount).toBeGreaterThan(small.segmentCount * 10);
+    expect(large.runs.length).toBe(small.runs.length);
+  });
+
+  it('leaves an unordered scene empty of runs, so the schematic still costs three draws', () => {
+    // Opt-in: a schematic alternates per *item*, so ordering it would cost
+    // thousands of draw calls a frame to fix a difference nobody can see.
+    expect(record(1e-5).runs).toHaveLength(0);
+  });
+});
+
+/**
  * Everything on a `BoardScene` that is *not* a path.
  *
  * `PcbEditor` swaps the factory the board is compiled through when the GL layer

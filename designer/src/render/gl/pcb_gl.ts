@@ -98,8 +98,13 @@ export interface BoardPreviewSpec {
 }
 
 export class PcbGl {
-  private readonly scene = new Scene();
-  private readonly previewScene = new Scene();
+  // Ordered, unlike the schematic's. A board is painted layer by layer through
+  // `PCB_PAINT_ORDER`, so an inner-layer track belongs *under* the front copper
+  // pour; a scene that keeps order only within each primitive kind draws every
+  // stroke after every fill and lifts every inner-layer track out on top of
+  // every pour. See the note on `Scene`.
+  private readonly scene = new Scene(true);
+  private readonly previewScene = new Scene(true);
   private previewActive = false;
   private recorded: BoardContentKey | null = null;
   /** Timing of the last record, for `?perf=1` and for tests. */
