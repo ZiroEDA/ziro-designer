@@ -917,8 +917,22 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
       at,
       angle,
       layer: '',
-      size: { x: glyph * Xscale, y: glyph },
-      thickness: (glyph * Xscale) / 6,
+      // KiCad draws these labels with `BitmapText`, which on the OpenGL GAL is a
+      // texture atlas: it takes the colour and the glyph size and **ignores**
+      // `SetLineWidth` and `SetFontBold` entirely, so the weight on screen is
+      // whatever the atlas bitmap has. We have no atlas and draw them with the
+      // stroke font, which does honour the pen — and a pen of a sixth of the
+      // glyph height, in bold, is heavy enough to swamp the copper underneath.
+      // A ground pad came out reading as a white blob with the red barely
+      // showing through, and neighbouring labels ran into each other.
+      //
+      // The two factors are KiCad's own rather than a guess: `GAL::BitmapText`
+      // stroke-renders this same call wherever the OpenGL path cannot, and
+      // compensates for exactly this difference — "Bitmap font has different
+      // metrics than the stroke font so we compensate a bit before stroking",
+      // height x 0.95 and pen x 0.74 (graphics_abstraction_layer.cpp).
+      size: { x: glyph * Xscale, y: glyph * 0.95 },
+      thickness: ((glyph * Xscale) / 6) * 0.74,
       bold: true,
     } as PcbTextItem);
   };
