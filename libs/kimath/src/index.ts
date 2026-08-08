@@ -39,3 +39,12 @@ export {
 } from './geometry/shape_poly_set.js';
 
 export { Vertex, VertexSet, type Box2 } from './geometry/vertex_set.js';
+
+// `CIRCLE`. Named exports rather than `export *` so that adding a member here
+// can never silently collide with a name already in the barrel.
+export {
+  circleIntersectLine,
+  circleNearestPoint,
+  constructFromTanTanPt,
+  type Circle,
+} from './geometry/circle.js';

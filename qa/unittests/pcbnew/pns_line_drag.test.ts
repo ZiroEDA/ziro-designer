@@ -102,8 +102,10 @@ describe('LINE::DragSegment as a method', () => {
   });
 });
 
-describe('LINE::DragArc is a declared gap', () => {
-  it('leaves the line unchanged', () => {
+describe('LINE::DragArc on a chain with no arcs', () => {
+  it('leaves the line unchanged, via the `ArcIndex < 0` early return', () => {
+    // `DragArc` proper is exercised in `pns_line_drag_arc.test.ts`. This case
+    // stays here because it is the one every *other* drag fixture would hit.
     const l = line([V(0, 0), V(1000, 0)]);
     const before = l.cLine().points();
 
