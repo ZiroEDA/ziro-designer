@@ -195,6 +195,62 @@ export function constructArcFromStartEndAngle(
   return { p0: { ...aStart }, arcMid: mid, p1: { ...aEnd }, width: aWidth };
 }
 
+/**
+ * `SHAPE_ARC::ConstructFromStartEndCenter` (`shape_arc.cpp:216-245`).
+ *
+ * Start, end and centre name *two* arcs — the short way round and the long way
+ * round — and `aClockwise` is what picks between them. The construction is
+ * therefore all about getting the swept angle's sign and magnitude right; the
+ * mid point falls out of it.
+ *
+ * Three details are load bearing:
+ *
+ *  - both endpoint angles are normalised into [0, 360) before subtracting.
+ *    This is upstream's spelling and is kept, but it is worth naming as
+ *    *redundant*: `Normalize` only adds whole turns, so the difference is the
+ *    same modulo 360° either way and the `Normalize()` two lines down
+ *    re-derives the identical sweep. Reproduced because it is what upstream
+ *    wrote, not because dropping it would change an answer.
+ *  - the clockwise branch is `Normalize() - 360°`, i.e. the *negative*
+ *    complement of the counter-clockwise sweep. A full-circle input (start ==
+ *    end) therefore yields 0° counter-clockwise and −360° clockwise, and the
+ *    mid point lands respectively on the start and diametrically opposite it.
+ *  - the mid point is the **integer** `RotatePoint` overload, which rounds. The
+ *    resulting arc does not pass exactly through the mathematical midpoint, and
+ *    that rounding is what keeps {@link arcCentralAngle} agreeing with upstream
+ *    on the reconstructed arc.
+ *
+ * Upstream's `aWidth` is a `double` and is stored into an `int` member; the
+ * default is 0, which is what every caller in `shape_line_chain.cpp` uses.
+ */
+export function constructArcFromStartEndCenter(
+  aStart: Vec2,
+  aEnd: Vec2,
+  aCenter: Vec2,
+  aClockwise: boolean,
+  aWidth = 0,
+): ShapeArc {
+  const startAngle = EDA_ANGLE.fromVector({
+    x: aStart.x - aCenter.x,
+    y: aStart.y - aCenter.y,
+  }).Normalize();
+  const endAngle = EDA_ANGLE.fromVector({
+    x: aEnd.x - aCenter.x,
+    y: aEnd.y - aCenter.y,
+  }).Normalize();
+
+  let angle = endAngle.sub(startAngle);
+
+  angle = aClockwise ? angle.Normalize().sub(ANGLE_360) : angle.Normalize();
+
+  const mid = RotatePoint({ ...aStart }, { ...aCenter }, angle.divide(2.0).negate());
+
+  return { p0: { ...aStart }, arcMid: mid, p1: { ...aEnd }, width: aWidth };
+}
+
+/** `SHAPE_ARC::IsClockwise()` (`shape_arc.h:319`): `!IsCCW()`. */
+export const arcIsClockwise = (aArc: ShapeArc): boolean => !arcIsCCW(aArc);
+
 /** `SHAPE_ARC::GetCenter()` — integral, as `update_values()` caches it. */
 export const shapeArcCenter = (aArc: ShapeArc): Vec2 => arcCenterI(aArc.p0, aArc.arcMid, aArc.p1);
 

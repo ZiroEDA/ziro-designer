@@ -87,12 +87,28 @@ describe('SHAPE_LINE_CHAIN::Remove( aStartIndex, aEndIndex )', () => {
     expect(c.points()).toEqual([V(-1000000, 0), V(2000000, 1000000)]);
   });
 
-  it('throws rather than split an arc the range cuts through', () => {
-    // `splitArc` needs `SHAPE_ARC::ConstructFromStartEndCenter`, which is not
-    // ported. Flagged, exactly as `Slice` already flags the same gap.
+  it('splits an arc the range cuts through and keeps the surviving half', () => {
+    // This used to throw: `splitArc` needs `ConstructFromStartEndCenter`, and
+    // that is ported now. Vertex 3 is strictly inside the arc, so the arc is
+    // cut there into (p0 → vertex 2) and (vertex 3 → p1); the range then
+    // swallows the second half, `convertArc` drops it, and what is left is the
+    // first half — still an arc, still starting where the original did, but now
+    // ending at vertex 2.
     const c = withArc();
+    const last = c.pointCount() - 1;
+    const cut = { ...c.cPoint(2) };
 
-    expect(() => c.remove(3, c.pointCount() - 1)).toThrow(/ConstructFromStartEndCenter/);
+    c.remove(3, last);
+
+    expect(c.pointCount()).toBe(3);
+    expect(c.arcCount()).toBe(1);
+    expect(c.arc(0).p0).toEqual(V(0, 0));
+    expect(c.arc(0).p1).toEqual(cut);
+
+    // The kept half is still on the original circle, so it is still a genuine
+    // arc rather than the chord between its endpoints.
+    expect(c.arc(0).arcMid).not.toEqual(V(0, 0));
+    expect(c.isArcStart(1)).toBe(true);
   });
 });
 

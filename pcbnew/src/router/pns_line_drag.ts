@@ -135,10 +135,10 @@ export const lineDragArc: LineDragArcFn = (_aLine, _aP, _aIndex) => {
  *   the earlier of the two indices wins — and with `aExact` false (the
  *   dragger's call) the vertex does *not* short-circuit the scan.
  *
- * The arc branch (`IsArcSegment( ii )` → `splitArc`) is **not ported**;
- * splitting inside an arc falls back to inserting a plain point, which is
- * consistent with the module-wide arc gap above. Returns −1 when nothing was
- * split, as upstream.
+ * The arc branch (`IsArcSegment( ii )` → `splitArc`) is ported now that
+ * `SHAPE_ARC::ConstructFromStartEndCenter` is; it goes through
+ * `PnsLineChain.insertPointOnArcSegment`, which is the shared copy of it.
+ * Returns −1 when nothing was split, as upstream.
  */
 export function chainSplit(aChain: PnsLineChain, aP: Vec2, aExact = false): number {
   const foundIndex = aChain.find(aP);
@@ -167,7 +167,8 @@ export function chainSplit(aChain: PnsLineChain, aP: Vec2, aExact = false): numb
 
     const newIndex = ii + 1;
 
-    aChain.insertPoint(newIndex, aP);
+    if (aChain.isArcSegment(ii)) aChain.insertPointOnArcSegment(ii, aP);
+    else aChain.insertPoint(newIndex, aP);
 
     return newIndex;
   }
