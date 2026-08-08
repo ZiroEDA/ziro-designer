@@ -1480,15 +1480,14 @@ export {
 } from './router/pns_topology.js';
 // `OPTIMIZER::Optimize( DIFF_PAIR* )` and the passes underneath it.
 //
-// `linesCollide` is exported alongside them because it is the local
-// stand-in for `LINE::Collide( LINE* )` that ZiroEDA issue #484 makes
-// unreachable, and anything else that hits the same wall should reuse it
-// rather than grow a third copy.
+// `linesCollide` used to be exported alongside them, as the local stand-in for
+// the `LINE::Collide( LINE* )` that ZiroEDA issue #484 made unreachable. That
+// issue is fixed — `PnsItem.shapes()` hands the collision path a LINE's chain —
+// so the stand-in is gone and its callers use `PnsItem.collide` directly.
 export {
   checkDpColliding,
   coupledBypass,
   findCoupledVertices,
-  linesCollide,
   mergeDpSegments,
   mergeDpStep,
   optimizeDiffPair,

@@ -37,19 +37,18 @@
  * the merge passes. Not in `pns_smart_pads.ts` either: that file is about pad
  * exits. A third module, and the pure optimizer stays callable with no world.
  *
- * ## Blocked by ZiroEDA issue #484, and worked around here
+ * ## The lane-versus-lane test used to be a local workaround
  *
  * `verifyDpBypass` opens by colliding the two candidate lanes against each
- * other. `PnsItem.shape()` returns `null` for a `PnsLine`, so `collideSimple`
- * bails at its `if (!shapeI || !shapeH)` and *line-versus-line* `collide()` is
- * unconditionally `false` in this port — `pns_shove.ts` has four calls with the
- * same silent hole. Fixing that is #484's job, not this change's, so
- * {@link linesCollide} does locally what upstream's chain-versus-chain
- * collision does: every segment of one lane against every segment of the other,
- * as `SEGMENT`s cut from the lines, which *do* carry a shape. The effective
- * clearance is the same quantity either way — upstream folds half of each
- * `LINE`'s width into the clearance and collides bare chains, while a
- * `SHAPE_SEGMENT` carries that width in its stadium radius.
+ * other. That was unconditionally `false` in this port until ZiroEDA issue #484
+ * was fixed — `PnsLine.shape()` answered null and `collideSimple` bailed at its
+ * `if (!shapeI || !shapeH)` — so this file carried a `linesCollide` that cut
+ * both lanes into `SEGMENT`s and collided those pairwise. `PnsItem.shapes()`
+ * now gives the collision path the chain itself, so the workaround is gone and
+ * the call site is upstream's plain `refLine.Collide( &coupledLine, ... )`.
+ * Note that this is not merely equivalent but strictly closer: the workaround
+ * asked the rule resolver about scratch `SEGMENT`s, where upstream asks it
+ * about the two `LINE`s.
  *
  * ## Not ported from the same file, and why
  *
@@ -62,7 +61,6 @@
  * labelled dead at its site rather than quietly dropped.
  */
 import { PnsLine, PnsLineChain } from './pns_line_item.js';
-import { PnsSegment } from './pns_segment.js';
 import { segApproxParallel, segLineProject } from './pns_seg_ops.js';
 import { segmentCount } from './pns_line.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
@@ -71,32 +69,6 @@ import type { DiffPair } from './pns_diff_pair.js';
 import type { PnsNode } from './pns_node.js';
 import type { Seg } from './pns_line.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-/**
- * The `LINE::Collide( LINE* )` that issue #484 makes unreachable — see the
- * module note.
- *
- * Upstream's `LINE` collides as a `SHAPE_LINE_CHAIN`, which is segment-by-
- * segment underneath. Cutting the two lines into `SEGMENT`s and colliding those
- * pairwise computes the same thing through machinery this port does have.
- * `false` for a line with no segments, as an empty chain collides with nothing.
- */
-export function linesCollide(aA: PnsLine, aB: PnsLine, aNode: PnsNode, aLayer: number): boolean {
-  const chainA = aA.cLine();
-  const chainB = aB.cLine();
-
-  for (let i = 0; i < chainA.segmentCount(); i++) {
-    const segA = PnsSegment.fromParentLine(aA, chainA.cSegment(i));
-
-    for (let j = 0; j < chainB.segmentCount(); j++) {
-      const segB = PnsSegment.fromParentLine(aB, chainB.cSegment(j));
-
-      if (segA.collide(segB, aNode, aLayer)) return true;
-    }
-  }
-
-  return false;
-}
 
 /**
  * `findCoupledVertices`: which vertices of the *other* lane sit at the pair's
@@ -149,8 +121,8 @@ export function findCoupledVertices(
  * which cached `LINE` each chain is dressed in — the net, width, layers and
  * links come from there, and they are what the collision tests actually read.
  *
- * The first of the three tests is the one issue #484 blocks; see the module
- * note and {@link linesCollide}.
+ * The first of the three tests was dead until issue #484 was fixed; see the
+ * module note.
  */
 export function verifyDpBypass(
   aNode: PnsNode,
@@ -162,7 +134,7 @@ export function verifyDpBypass(
   const refLine = PnsLine.fromBase(aRefIsP ? aPair.pLine() : aPair.nLine(), aNewRef);
   const coupledLine = PnsLine.fromBase(aRefIsP ? aPair.nLine() : aPair.pLine(), aNewCoupled);
 
-  if (linesCollide(refLine, coupledLine, aNode, refLine.layer())) return false;
+  if (refLine.collide(coupledLine, aNode, refLine.layer())) return false;
 
   if (aNode.checkColliding(refLine)) return false;
 

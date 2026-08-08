@@ -60,8 +60,10 @@ import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './
 import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
+import { arcShape } from '../drc/drc_engine.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
+import type { Shape } from '../drc/drc_geometry.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
@@ -1946,6 +1948,54 @@ export class PnsLine extends PnsLinkHolder {
   /** A LINE has no shape of its own that the index would take. */
   override shape(_aLayer: number): null {
     return null;
+  }
+
+  /**
+   * `LINE::Shape()`: `return &m_line;` — the chain the line is drawn on.
+   *
+   * Upstream that is one `SHAPE_LINE_CHAIN*` and `ITEM::collideSimple` hands it
+   * straight to `SHAPE::Collide`. This repo's `Shape` union has no open
+   * polyline, so the chain arrives as the list of primitives it is made of; see
+   * {@link PnsItem.shapes}. `shape()` still answers null, exactly as before,
+   * because that is what the spatial index reads and upstream does not index a
+   * LINE either.
+   *
+   * **Zero width, and that is not an oversight.** `collideSimple` computes
+   * `lineWidthI`/`lineWidthH` from `LINE::Width()` and adds them to the
+   * clearance, because — its own comment — *"collision routines ignore polyline
+   * widths, so we have to pass them in as part of the clearance value"*. Giving
+   * these primitives `r = width / 2` as well would count the width twice.
+   *
+   * **Arcs are emitted as arcs, and their polyline stand-ins are skipped.**
+   * That is upstream's split too: `Collide( SHAPE_LINE_CHAIN_BASE&,
+   * SHAPE_LINE_CHAIN_BASE& )` walks the segments with `IsArcSegment( i )`
+   * segments filtered out, then collides each `Arc( j )` against the other
+   * shape whole. Measuring the approximation *and* the true curve would report
+   * the approximation's error as geometry.
+   *
+   * The skip is not pinned and a mutant that deletes it survives, by
+   * construction: the stand-in is a run of chords *inside* the curve, so
+   * measuring it as well can only shorten a distance by up to `ARC_HIGH_DEF`.
+   * It changes how many primitives are measured, not the verdict.
+   */
+  override shapes(_aLayer: number): readonly Shape[] {
+    const out: Shape[] = [];
+
+    for (let i = 0; i < this.mLine.segmentCount(); i++) {
+      if (this.mLine.isArcSegment(i)) continue;
+
+      const s = this.mLine.cSegment(i);
+
+      out.push({ kind: 'stadium', a: s.a, b: s.b, r: 0 });
+    }
+
+    for (let i = 0; i < this.mLine.arcCount(); i++) {
+      const a = this.mLine.arc(i);
+
+      out.push(arcShape(a.p0, a.arcMid, a.p1, 0));
+    }
+
+    return out;
   }
 
   // ----- the via at the end -----------------------------------------------------
