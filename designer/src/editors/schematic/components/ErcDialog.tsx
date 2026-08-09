@@ -108,6 +108,15 @@ export interface ErcDialogNav {
   prev: () => void;
   /** ExcludeMarker with no marker given: whichever row the dialog has. */
   excludeCurrent: () => void;
+  /**
+   * `DIALOG_ERC::SelectMarker`: put the cursor on the row for this marker.
+   *
+   * `SCH_INSPECTION_TOOL::CrossProbe` calls it both when a marker is selected
+   * on the canvas and when one is double-clicked, so clicking a marker walks
+   * the dialog to its violation. Returns false if the row is filtered out of
+   * the current view, which is the caller's cue not to pretend it worked.
+   */
+  selectByKey: (key: string) => boolean;
 }
 
 const fmt = (iu: number): string => `${iuToMM(iu).toFixed(2)} mm`;
@@ -148,6 +157,7 @@ export function ErcDialog({
   const [tab, setTab] = useState<'violations' | 'ignored'>('violations');
   // RC_TREE_MODEL's selection: a marker row, or one of its item child rows.
   const [selected, setSelected] = useState<{ index: number; item: number | null } | null>(null);
+  const selectedRowRef = useRef<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; index: number } | null>(null);
 
   const markers = violations ?? [];
@@ -197,6 +207,12 @@ export function ErcDialog({
     [shown, selected],
   );
 
+  // EnsureVisible: keep whatever row is selected on screen, however it got
+  // selected — Prev/Next Marker, or a cross-probe from a marker on the sheet.
+  useEffect(() => {
+    selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
+
   useEffect(() => {
     if (!navRef) return;
     navRef.current = {
@@ -208,11 +224,20 @@ export function ErcDialog({
         // not a toggle, and onToggleExclude is one.
         if (v && !isExcl(v)) onToggleExclude(v);
       },
+      selectByKey: (key: string): boolean => {
+        // Only rows the filters are showing can be selected — the tree upstream
+        // does not hold hidden rows either.
+        const hit = shown.find(({ v }) => ercExclusionKey(v) === key);
+        if (!hit) return false;
+        setTab('violations');
+        setSelected({ index: hit.i, item: null });
+        return true;
+      },
     };
     return () => {
       navRef.current = null;
     };
-  }, [navRef, step, selected, violations, isExcl, onToggleExclude]);
+  }, [navRef, step, selected, shown, violations, isExcl, onToggleExclude]);
 
   // RC_TREE_MODEL::GetValue: "Error: " / "Warning: " / "Excluded error: ".
   const rowPrefix = (v: ErcViolation): string =>
@@ -512,6 +537,10 @@ export function ErcDialog({
           {shown.map(({ v, i }) => (
             <div key={`${i}:${v.code}`} className="ze-erc-item">
               <div
+                // `DIALOG_ERC::SelectMarker` ends in `EnsureVisible`, so a row
+                // reached by cross-probing from the canvas is scrolled to
+                // rather than merely marked selected somewhere off-screen.
+                ref={selected?.index === i ? selectedRowRef : undefined}
                 className={`ze-erc-row ${v.severity}${
                   selected?.index === i && selected.item === null ? ' selected' : ''
                 }${isExcl(v) ? ' excluded' : ''}`}

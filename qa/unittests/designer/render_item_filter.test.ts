@@ -166,11 +166,13 @@ describe("sub-items: a symbol's fields", () => {
   });
 
   it('take their selection halo with them', () => {
-    // A dragged symbol must not leave its fields glowing behind it.
+    // A dragged symbol must not leave its fields glowing behind it. Measured
+    // through the halo pass, which is where the glow is drawn: comparing the
+    // recorded buffer would prove nothing, since halos are deliberately kept
+    // out of it entirely.
     const moving = new Set([symbolIds()[0]!]);
-    const hiddenAndSelected = record({ selection: moving, hiddenItems: moving });
-    const hiddenNotSelected = record({ hiddenItems: moving });
-    expect(hiddenAndSelected.segmentCount).toBe(hiddenNotSelected.segmentCount);
+    expect(haloStrokes({ hiddenItems: moving }, moving)).toBe(0);
+    expect(haloStrokes({}, moving)).toBeGreaterThan(0);
   });
 
   // Not covered, and known: filtering a *field on its own*
@@ -343,6 +345,70 @@ describe('the per-symbol caches', () => {
   });
 });
 
+/** A Canvas2D stand-in that records the calls a pass makes. */
+function spy(): { fillRects: [number, number, number, number][]; ctx: CanvasRenderingContext2D } {
+  const fillRects: [number, number, number, number][] = [];
+  const noop = (): void => {};
+  const ctx = {
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    lineCap: '',
+    lineJoin: '',
+    globalAlpha: 1,
+    font: '',
+    textAlign: '',
+    setTransform: noop,
+    translate: noop,
+    rotate: noop,
+    scale: noop,
+    save: noop,
+    restore: noop,
+    setLineDash: noop,
+    beginPath: noop,
+    moveTo: noop,
+    lineTo: noop,
+    closePath: noop,
+    rect: noop,
+    arc: noop,
+    bezierCurveTo: noop,
+    stroke: noop,
+    fill: noop,
+    strokeRect: noop,
+    fillText: noop,
+    drawImage: noop,
+    clip: noop,
+    fillRect: (x: number, y: number, w: number, h: number) => fillRects.push([x, y, w, h]),
+  };
+  return { fillRects, ctx: ctx as unknown as CanvasRenderingContext2D };
+}
+
+/** Count the strokes the halo-only pass makes, through the spy context. */
+const haloStrokes = (opts: Partial<typeof DEFAULT_RENDER_OPTS>, selection: Set<string>): number => {
+  let strokes = 0;
+  const s = spy();
+  (s.ctx as unknown as { stroke: () => void }).stroke = () => {
+    strokes++;
+  };
+  renderSchematic(
+    s.ctx,
+    doc(),
+    { scale: SCALE, offsetX: 0, offsetY: 0 },
+    theme,
+    800,
+    600,
+    selection,
+    undefined,
+    {
+      ...DEFAULT_RENDER_OPTS,
+      grid: { ...DEFAULT_RENDER_OPTS.grid, show: false },
+      halos: 'only',
+      ...opts,
+    },
+  );
+  return strokes;
+};
+
 describe('the preview pass paints over what is already there', () => {
   /**
    * A context that records the calls this cares about and ignores the rest.
@@ -352,42 +418,6 @@ describe('the preview pass paints over what is already there', () => {
    * while the Canvas2D path went blank. A spy that sees every call is the only
    * thing that could have caught it.
    */
-  function spy(): { fillRects: [number, number, number, number][]; ctx: CanvasRenderingContext2D } {
-    const fillRects: [number, number, number, number][] = [];
-    const noop = (): void => {};
-    const ctx = {
-      fillStyle: '',
-      strokeStyle: '',
-      lineWidth: 1,
-      lineCap: '',
-      lineJoin: '',
-      globalAlpha: 1,
-      font: '',
-      textAlign: '',
-      setTransform: noop,
-      translate: noop,
-      rotate: noop,
-      scale: noop,
-      save: noop,
-      restore: noop,
-      setLineDash: noop,
-      beginPath: noop,
-      moveTo: noop,
-      lineTo: noop,
-      closePath: noop,
-      rect: noop,
-      arc: noop,
-      bezierCurveTo: noop,
-      stroke: noop,
-      fill: noop,
-      strokeRect: noop,
-      fillText: noop,
-      drawImage: noop,
-      clip: noop,
-      fillRect: (x: number, y: number, w: number, h: number) => fillRects.push([x, y, w, h]),
-    };
-    return { fillRects, ctx: ctx as unknown as CanvasRenderingContext2D };
-  }
 
   const W = 800;
   const H = 600;
@@ -434,19 +464,22 @@ describe('the selection shadow honours the filter too', () => {
     // The halo is drawn in its own pass. Filtering only the main pass would
     // leave a glow sitting at the old position for the length of the drag.
     const moving = new Set([symbolIds()[0]!]);
-    // Selecting an item that is hidden must add nothing at all. Comparing a
-    // selected background against an unselected one isolates the shadow pass:
-    // any halo it still drew would show up here as extra geometry, where
-    // comparing against the unfiltered sheet would pass on the main pass's
-    // filtering alone and say nothing about the shadow.
-    const hiddenAndSelected = record({ selection: moving, hiddenItems: moving });
-    const hiddenNotSelected = record({ hiddenItems: moving });
-    expect(hiddenAndSelected.segmentCount).toBe(hiddenNotSelected.segmentCount);
+    expect(haloStrokes({ hiddenItems: moving }, moving)).toBe(0);
+    // And the halo is real when the item is not hidden, so the zero above is
+    // not passing because nothing draws a halo in the first place.
+    expect(haloStrokes({}, moving)).toBeGreaterThan(0);
+  });
 
-    // And the halo is real when the item is not hidden, so the equality above
-    // is not passing because nothing draws a halo in the first place.
-    const visibleAndSelected = record({ selection: moving });
-    expect(visibleAndSelected.segmentCount).toBeGreaterThan(record({}).segmentCount);
+  it('is not in the recorded buffer at all', () => {
+    // `recordSchematicScene` records with `halos: 'skip'`. A halo's width is a
+    // fixed number of *screen pixels* plus a small world width
+    // (SCH_PAINTER::getShadowWidth), so it is the one thing on the sheet whose
+    // geometry depends on the zoom — and this buffer is deliberately never
+    // re-recorded on a zoom. Baking one in froze it at the width it had when it
+    // was recorded, which is a three-pixel glow at fit-to-page and a
+    // twenty-pixel bar once you zoom in on a part.
+    const moving = new Set([symbolIds()[0]!]);
+    expect(record({ selection: moving }).segmentCount).toBe(record({}).segmentCount);
   });
 });
 

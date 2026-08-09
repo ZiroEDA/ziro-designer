@@ -136,7 +136,20 @@ export class SchematicGl {
     if (preview) {
       recordSchematicScene(
         this.previewScene,
-        { ...content, doc: preview.doc, opts: { ...content.opts, onlyItems: preview.ids } },
+        {
+          ...content,
+          doc: preview.doc,
+          // A preview group *is* the moving selection, so it draws what
+          // `SCH_PAINTER::draw( SCH_FIELD )` draws for a moving field: the
+          // umbilical back to its parent, rather than the anchor cross.
+          //
+          //     if( aField->IsMoving() && !parentMoving && m_schematic )
+          //         m_gal->DrawLine( aField->GetPosition(), parentPos );
+          //
+          // Only the Canvas2D drag path set this, and the GL path is the
+          // default renderer — so dragging a field showed no umbilical at all.
+          opts: { ...content.opts, onlyItems: preview.ids, movingSelection: true },
+        },
         view.scale,
       );
       this.device.uploadPreview(this.previewScene);
@@ -242,7 +255,21 @@ export function recordSchematicScene(scene: Scene, content: ContentKey, viewScal
       // The grid is left to the 2D layer below. It is genuinely zoom-dependent
       // (its spacing adapts and it is drawn in device space), so it does not
       // belong in a buffer whose value is not being rebuilt.
-      { ...content.opts, grid: { ...content.opts.grid, show: false } },
+      //
+      // The selection and net-highlight halos go with it, for exactly the same
+      // reason: `getShadowWidth` is a fixed number of *screen pixels* plus a
+      // small world width, so a halo recorded at one zoom is the wrong width at
+      // every other one, and this buffer is deliberately never re-recorded on a
+      // zoom. The 2D layer draws them per frame, underneath this one.
+      //
+      // `halos` is defaulted rather than forced so a caller can record the
+      // halo pass on its own and measure it; nothing in the app does, and the
+      // GL buffer therefore always gets 'skip'.
+      {
+        ...content.opts,
+        grid: { ...content.opts.grid, show: false },
+        halos: content.opts.halos ?? 'skip',
+      },
     );
   } finally {
     setVectorText(false);

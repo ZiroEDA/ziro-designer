@@ -904,7 +904,10 @@ export function symbolBounds(
         inc(g.mid);
         inc(g.end);
       } else if (g.kind === 'polyline' || g.kind === 'bezier') g.points.forEach(inc);
-      else inc(g.at);
+      else if (g.kind === 'ellipse' || g.kind === 'ellipse_arc') {
+        inc({ x: g.center.x - g.majorRadius, y: g.center.y - g.majorRadius });
+        inc({ x: g.center.x + g.majorRadius, y: g.center.y + g.majorRadius });
+      } else inc(g.at);
     }
     for (const p of u.pins) {
       if (p.hidden) continue;

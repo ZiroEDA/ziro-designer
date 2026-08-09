@@ -12,6 +12,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import {
   defaultSelectionFilter,
   applySelectionFilter,
+  clickTarget,
   itemPassesFilter,
 } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
 
@@ -49,5 +50,31 @@ describe('applySelectionFilter', () => {
 
     const noLabels = { ...defaultSelectionFilter(), labels: false };
     expect(itemPassesFilter(doc, 'l1', noLabels)).toBe(false);
+  });
+});
+
+describe('clickTarget (collectSelectable + narrowSelection)', () => {
+  const noPins = { ...defaultSelectionFilter(), pins: false };
+
+  it('passes an item the filter accepts straight through', () => {
+    expect(clickTarget(doc, 'w1', defaultSelectionFilter())).toBe('w1');
+    expect(clickTarget(doc, 'r2:pin0', defaultSelectionFilter())).toBe('r2:pin0');
+  });
+
+  it('resolves a pin to its symbol when Pins is off', () => {
+    // "If pins are disabled in the filter, they will be removed later. Let's
+    // add the parent so that people can use pins to select symbols in this
+    // case." — SCH_SELECTION_TOOL::collectSelectable.
+    expect(clickTarget(doc, 'r2:pin0', noPins)).toBe('r2');
+  });
+
+  it('does not resurrect a pin whose symbol the filter also rejects', () => {
+    // R1 is locked, so the promoted parent fails the filter in its own right.
+    expect(clickTarget(doc, 'r1:pin0', noPins)).toBe(null);
+    expect(clickTarget(doc, 'r2:pin0', { ...noPins, symbols: false })).toBe(null);
+  });
+
+  it('rejects a filtered-out item that is not a pin', () => {
+    expect(clickTarget(doc, 'w1', { ...defaultSelectionFilter(), wires: false })).toBe(null);
   });
 });

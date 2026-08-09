@@ -294,13 +294,18 @@ describe('wire drag: dragging a symbol whose wire runs into a tee', () => {
 
   it('bridges the moved pin back to the tee', () => {
     const out = dragSymbolDown(teeSheet());
-    // A segment runs from the tee to where the pin end now sits.
-    const bridge = out.lines.some(
-      (l) =>
-        (same(l.start, at(120, 103.81)) && same(l.end, at(120, 113.81))) ||
-        (same(l.end, at(120, 103.81)) && same(l.start, at(120, 113.81))),
-    );
-    expect(bridge).toBe(true);
+    // Copper runs from the tee to where the pin end now sits. It is not
+    // necessarily its own segment: the ortho bend the drag adds here lies
+    // *inside* the drop branch that already ran from (120, 103.81) to
+    // (120, 130), and `SCH_LINE::MergeOverlap` merges a true overlap, so the
+    // bridge is the one wire covering both spans.
+    const covers = (l: (typeof out.lines)[number], a: Vec2, b: Vec2): boolean =>
+      l.start.x === l.end.x &&
+      l.start.x === a.x &&
+      a.x === b.x &&
+      Math.min(l.start.y, l.end.y) <= Math.min(a.y, b.y) &&
+      Math.max(l.start.y, l.end.y) >= Math.max(a.y, b.y);
+    expect(out.lines.some((l) => covers(l, at(120, 103.81), at(120, 113.81)))).toBe(true);
   });
 
   // DEFECT (cleanup, not the drag): the dot ends up on the two-wire corner the

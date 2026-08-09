@@ -13,8 +13,12 @@ import {
   useMemo,
 } from 'react';
 import {
-  hitTest,
+  GRIP_MARGIN_PX,
+  leftDragStart,
+  requestMovableSelection,
+  selectionContains,
   planMove,
+  planMoveFromPoints,
   moveItems,
   moveWithConnections,
   orthoMove,
@@ -55,8 +59,16 @@ import {
   type WireSeg,
   makeRectangle,
   makeCircle,
+  makeTableFromDrag,
+  makeEllipse,
+  makeEllipseArc,
   makeArc,
   makePolyline,
+  makeRuleArea,
+  makeSheet,
+  MIN_SHEET_WIDTH,
+  MIN_SHEET_HEIGHT,
+  makeRuleAreaPreview,
   makeBusEntry,
   makeBusEntryOrSegment,
   makeImage,
@@ -83,6 +95,7 @@ import {
   type MoveSpec,
   type EditCommand,
   type Schematic,
+  type SchImage,
   type SchSymbol,
   type LibSymbol,
   type LibGraphic,
@@ -94,11 +107,17 @@ import {
   collectAndGuess,
   getNode,
 } from '@ziroeda/eeschema';
+// Imported by module path rather than through the package barrel: Vite serves
+// a cached transform of `eeschema/src/index.ts` and does not re-transform it
+// when a new export appears, so a barrel import of anything added since the
+// dev server started resolves to `undefined` at runtime.
+import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
   renderSchematic,
   drawingSheetItems,
   drawErcMarkers,
+  hitTestErcMarker,
   fitToContent,
   fitToBBox,
   setRenderInvalidator,
@@ -108,7 +127,7 @@ import {
   type Viewport,
 } from '../render/renderer.js';
 import { SchematicGl } from '../../../render/gl/schematic_gl.js';
-import { movingIds } from '../moving_ids.js';
+import { dragSplit, movingIds, sameIds } from '../moving_ids.js';
 
 /**
  * `?perf=1` records what each repaint cost and which path drew it, on
@@ -193,7 +212,10 @@ const GL_RENDERER =
  * drawn by the preview and has nothing to hide from the background.
  */
 import { KICAD_DEFAULT, type Theme } from '../theme.js';
+import { editPointColors } from '../../../render/color4d.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
+import { remapEvent } from '../hotkey_bindings.js';
+import { settings } from '../../../prefs/settings.js';
 
 /** Mouse/input behaviour from the Preferences dialog (COMMON_SETTINGS m_Input + eeschema). */
 export interface InputPrefs {
@@ -267,8 +289,15 @@ const BULLSEYE_CURSOR = (() => {
 const WIRE_CURSOR = kiCursor('lineWire');
 
 /** The cursor a tool shows while it is active (SetCurrentCursor per tool). */
-function toolCursor(tool: string): string {
+function toolCursor(tool: string, attached = false): string {
   if (tool === 'highlightNet') return BULLSEYE_CURSOR;
+  // `setCursor` tests the attached item first, so every placement tool shows
+  // the place cursor once something is riding the pointer:
+  //
+  //     if( item )
+  //         m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::PLACE );
+  //     else if( isText ) ...
+  if (attached) return kiCursor('place');
   return kiToolCursor(tool);
 }
 
@@ -283,15 +312,36 @@ const LABEL_TOOLS: Record<string, LabelKind> = {
 };
 
 /** Right-toolbar shape/sheet drawing tools and their in-progress shape kind. */
-type ShapeKind = 'rectangle' | 'circle' | 'arc' | 'lines' | 'bezier' | 'sheet' | 'textbox';
+type ShapeKind =
+  | 'rectangle'
+  | 'table'
+  | 'ellipse'
+  | 'ellipseArc'
+  | 'circle'
+  | 'arc'
+  | 'lines'
+  | 'ruleArea'
+  | 'bezier'
+  | 'sheet'
+  | 'textbox';
 const SHAPE_TOOL: Record<string, ShapeKind> = {
   rectangle: 'rectangle',
+  // SCH_RULE_AREA is a POLY, so it is drawn exactly like the lines tool and
+  // only differs in what the finished outline is committed as.
+  drawRuleArea: 'ruleArea',
   circle: 'circle',
   arc: 'arc',
   lines: 'lines',
   bezier: 'bezier',
   drawSheet: 'sheet',
   textBox: 'textbox',
+  // SHAPE_T::ELLIPSE / ELLIPSE_ARC: drawn centre-out like a circle, the drag
+  // fixing each radius from its own axis.
+  ellipse: 'ellipse',
+  ellipseArc: 'ellipseArc',
+  // `DrawTable` derives the row/column counts from the dragged rectangle; it
+  // does not ask for them. So the table is a two-click drag like the text box.
+  table: 'table',
 };
 
 interface DrawState {
@@ -317,20 +367,6 @@ function arcFrom2(start: Vec2, end: Vec2): { start: Vec2; mid: Vec2; end: Vec2 }
   while (sweep > Math.PI) sweep -= 2 * Math.PI;
   const am = a0 + sweep / 2;
   return { start, mid: { x: c.x + radius * Math.cos(am), y: c.y + radius * Math.sin(am) }, end };
-}
-
-/** Flatten a quadratic bezier (start, control, end) to a polyline (bezier tool). */
-function quadPolyline(a: Vec2, ctrl: Vec2, b: Vec2, n = 24): Vec2[] {
-  const pts: Vec2[] = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n,
-      u = 1 - t;
-    pts.push({
-      x: u * u * a.x + 2 * u * t * ctrl.x + t * t * b.x,
-      y: u * u * a.y + 2 * u * t * ctrl.y + t * t * b.y,
-    });
-  }
-  return pts;
 }
 
 const clampN = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
@@ -366,6 +402,12 @@ function nearestSheetEdge(
   return best;
 }
 
+/** DEFAULT_SIZE_TEXT: 50 mils, the fallback if the caller passes no text size. */
+const DEFAULT_TEXT_SIZE_IU = 12700;
+
+/** The two tools whose outline is built click by click and ended explicitly. */
+const isPolyTool = (t: ShapeKind | undefined): boolean => t === 'lines' || t === 'ruleArea';
+
 /** The in-progress shape as a graphic, for live preview (built through the model). */
 function previewGraphic(ds: DrawState): LibGraphic | null {
   const c = ds.cursor;
@@ -374,18 +416,49 @@ function previewGraphic(ds: DrawState): LibGraphic | null {
     case 'sheet':
     case 'textbox':
       return makeRectangle(ds.start, c);
+    case 'table':
+      // Previewed as a real table by the caller, which has the text size and
+      // the grid step it needs to lay the cells out.
+      return null;
     case 'circle':
       return makeCircle(ds.start, Math.hypot(c.x - ds.start.x, c.y - ds.start.y));
+    case 'ellipse':
+      return makeEllipse(ds.start, Math.abs(c.x - ds.start.x), Math.abs(c.y - ds.start.y));
+    case 'ellipseArc':
+      // A quarter sweep while drawing, the way the arc tool previews one before
+      // its second click fixes the ends.
+      return makeEllipseArc(
+        ds.start,
+        Math.abs(c.x - ds.start.x),
+        Math.abs(c.y - ds.start.y),
+        0,
+        90,
+      );
     case 'arc': {
       const a = arcFrom2(ds.start, c);
       return a ? makeArc(a.start, a.mid, a.end) : null;
     }
     case 'lines':
       return makePolyline([...ds.points, c]);
-    case 'bezier':
-      return ds.points.length < 2
-        ? makePolyline([ds.points[0]!, c])
-        : makePolyline(quadPolyline(ds.points[0]!, c, ds.points[1]!));
+    case 'ruleArea':
+      // Open, with the enclosed area filled — see `makeRuleAreaPreview`. The
+      // outline only meets itself when the last point lands on the first.
+      return makeRuleAreaPreview([...ds.points, c]);
+    case 'bezier': {
+      // `BEZIER_GEOM_MANAGER`'s four steps, in its order:
+      //
+      //     SET_START, SET_CONTROL1, SET_END, SET_CONTROL2
+      //
+      // so the second click places the *first control point* and the third the
+      // far end. Before both control points exist there is no cubic to show, so
+      // the preview is the control polygon so far — which is what upstream's
+      // drawing assistant shows too.
+      const [p0, c1, p1] = ds.points;
+      if (!p0) return null;
+      if (!c1) return makePolyline([p0, c]);
+      if (!p1) return makePolyline([p0, c1, c]);
+      return makeBezier(p0, c1, c, p1);
+    }
   }
 }
 
@@ -423,6 +496,16 @@ export interface PendingDirective {
   netclass: string;
   angle: number;
   fontSize?: number;
+  /**
+   * Every field the dialog collected, not just the netclass.
+   *
+   * `createNewLabel` hands `DIALOG_LABEL_PROPERTIES` the real `SCH_LABEL_BASE`
+   * and the dialog edits it in place, so whatever the fields grid ends up
+   * holding — the netclass, the component class, anything added with the "+"
+   * button — is on the item that then follows the cursor. Carrying only the
+   * netclass across dropped the rest on the floor.
+   */
+  fields?: readonly EditedLabelField[];
 }
 
 /**
@@ -533,11 +616,26 @@ interface Props {
   /** ERC violations to draw as KiCad marker arrows (null = ERC not run);
    *  `excluded` picks LAYER_ERC_EXCLUSION's colour (SCH_MARKER::GetColorLayer). */
   ercMarkers?: readonly (ErcViolation & { excluded?: boolean; brightened?: boolean })[] | null;
+  /**
+   * A click landed on an ERC marker. `SCH_MARKER_T` is "always selectable" in
+   * `SCH_SELECTION_TOOL`, and selecting one cross-probes to the ERC dialog
+   * (`SCH_INSPECTION_TOOL::CrossProbe`); a double-click routes through
+   * `SCH_EDIT_TOOL::Properties`, which calls the same thing but opens the
+   * dialog first if it is closed.
+   */
+  onMarkerPick?: (violation: ErcViolation, doubleClick: boolean) => void;
   onCommand: (cmd: EditCommand) => void;
   /** WX_INFOBAR message from a tool ("Junction location contains no joinable
    *  wires and/or pins."); null dismisses it. */
   onInfoBar?: (message: string | null) => void;
-  onCursorMove?: (world: Vec2 | null) => void;
+  /**
+   * The pointer moved. `world` is the raw position; `snapped` is where the
+   * cursor actually *is* — `KIGFX::VIEW_CONTROLS::GetCursorPosition()`, which
+   * snaps to the grid (or, for the connection-snapping tools, to the anchor
+   * `BestSnapAnchor` picked). The status bar reads the snapped one, as
+   * `SCH_BASE_FRAME::UpdateStatusBar` does.
+   */
+  onCursorMove?: (world: Vec2 | null, snapped: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
   /** Active colour theme (Preferences > Colors). */
   theme?: Theme;
@@ -549,10 +647,18 @@ interface Props {
   onSheetDrawn?: (at: Vec2, size: { w: number; h: number }) => void;
   /** A text-box rectangle was drawn: prompt for its text and commit (SCH_TEXTBOX). */
   onTextBoxDrawn?: (start: Vec2, end: Vec2) => void;
+  /** A table dragged out: `DrawTable` derives its grid from the rectangle. */
+  onTableDrawn?: (start: Vec2, end: Vec2) => void;
   /** A sheet-pin click landed on a sheet edge: prompt for the pin name and add it. */
   onSheetPinClick?: (sheetIndex: number, at: Vec2, side: 0 | 90 | 180 | 270) => void;
+  /**
+   * `schematic->Settings().m_DefaultTextSize`, in IU. The table tool needs it:
+   * a column is fifteen characters wide and a row two high, so the grid a drag
+   * describes is a function of the text size.
+   */
+  tableFontSizeIU?: number;
   /** An image chosen in the editor, following the cursor until clicked to place. */
-  pendingImage?: { data: string } | null;
+  pendingImage?: SchImage | null;
   /** The pending image was dropped at `at`. */
   onImagePlaced?: (at: Vec2) => void;
   /** Keyboard-initiated grabbed move (SCH_MOVE_TOOL): 'move' leaves connected
@@ -589,16 +695,15 @@ const BOX_FILL_SUBTRACT = 'rgba(255, 128, 128, 0.5)'; // COLOR4D(1.0,0.5,0.5,0.5
 const BOX_OUTLINE_L2R = 'rgb(179, 179, 0)'; // window select: dark yellow
 const BOX_OUTLINE_R2L = 'rgb(26, 26, 255)'; // greedy select: blue
 
-// EDIT_POINT's screen sizes and LAYER_AUX_ITEMS colour (edit_points.h /
-// edit_points.cpp ViewDraw). The border is derived from the fill the way
-// upstream does it: white is bright, so it darkens by 0.7 / 0.5 at alpha 0.8.
-// Same values as the PCB point editor, so a handle looks the same in both.
+// EDIT_POINT's screen sizes (edit_points.h). The *colours* are derived from
+// the theme by `editPointColors`, exactly as EDIT_POINTS::ViewDraw derives them
+// from LAYER_AUX_ITEMS: they used to be hardcoded to a white square with a dark
+// border, which is upside down. LAYER_SCHEMATIC_AUX_ITEMS is black in both
+// builtin themes, so on a light sheet the handle is a black square with a pale
+// grey border, not a white one ringed in charcoal.
 const EDIT_POINT_SIZE = 8;
 const EDIT_POINT_BORDER_SIZE = 3;
 const EDIT_POINT_HOVER_SIZE = 6;
-const EDIT_POINT_FILL = 'rgb(255,255,255)';
-const EDIT_POINT_BORDER = 'rgba(77,77,77,0.8)';
-const EDIT_POINT_HOVER_BORDER = 'rgba(128,128,128,0.8)';
 
 /** Undo labels for a completed reshape, as KiCad names the commit. */
 const POINT_EDIT_LABELS: Record<PointEditTarget['kind'], string> = {
@@ -639,6 +744,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     pastePending,
     onPasteDone,
     ercMarkers,
+    onMarkerPick,
     onCommand,
     onInfoBar,
     onCursorMove,
@@ -648,7 +754,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     inputPrefs = DEFAULT_INPUT_PREFS,
     onSheetDrawn,
     onTextBoxDrawn,
+    onTableDrawn,
     onSheetPinClick,
+    tableFontSizeIU,
     pendingImage,
     onImagePlaced,
     grabRequest,
@@ -672,7 +780,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     )
       return o.wires;
     if ((activeTool === 'placeText' || activeTool === 'textBox') && o.text) return o.text;
-    if (['rectangle', 'circle', 'arc', 'lines', 'bezier'].includes(activeTool) && o.graphics)
+    if (
+      ['rectangle', 'circle', 'arc', 'lines', 'bezier', 'drawRuleArea'].includes(activeTool) &&
+      o.graphics
+    )
       return o.graphics;
     if (
       [
@@ -694,6 +805,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     x: Math.round(p.x / GRID) * GRID,
     y: Math.round(p.y / GRID) * GRID,
   });
+  // EDIT_POINTS::ViewDraw's colours, which depend on the theme's aux-items
+  // colour *and* on the canvas background it is compared against.
+  const editPointColor = useMemo(
+    () => editPointColors(theme.auxItems, theme.background),
+    [theme.auxItems, theme.background],
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // The scene canvas holds the schematic itself; the overlay on top carries the
   // things that follow the pointer (crosshair, rubber band, lasso, the wire
@@ -726,9 +843,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    * (a new stub, a split) or the view moves under it, and reused on every
    * ordinary pointer move.
    */
-  const dragBgRef = useRef<{ canvas: HTMLCanvasElement; view: Viewport; spec: MoveSpec } | null>(
-    null,
-  );
+  const dragBgRef = useRef<{
+    canvas: HTMLCanvasElement;
+    view: Viewport;
+    spec: MoveSpec;
+    /** The drag split the background was painted without; see `dragSplit`. */
+    split: ReadonlySet<string>;
+  } | null>(null);
   /**
    * The base render options for a drag, memoised by identity.
    *
@@ -743,6 +864,24 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     moving: ReadonlySet<string>;
     out: RenderOpts;
   } | null>(null);
+  /**
+   * The current drag split, held so its *identity* survives frames in which its
+   * contents did not change.
+   *
+   * `SchematicGl` decides whether to re-record the base by comparing the content
+   * key by reference, and the base's `hiddenItems` is this set. Recomputing it
+   * per frame is necessary (a bend appears the moment the drag leaves the wire's
+   * axis) but handing over a new `Set` each time would re-record the whole sheet
+   * on every pointer move — the exact cost the preview exists to avoid. So the
+   * contents are compared and the old instance kept when they match, which in a
+   * straight drag is every frame after the first.
+   */
+  const splitRef = useRef<ReadonlySet<string>>(new Set());
+  const stableSplit = useRef((next: ReadonlySet<string>): ReadonlySet<string> => {
+    if (!sameIds(splitRef.current, next)) splitRef.current = next;
+    return splitRef.current;
+  });
+
   const dragOptsRef = useRef((base: RenderOpts, moving: ReadonlySet<string>): RenderOpts => {
     const hit = dragOptsMemo.current;
     if (hit && hit.base === base && hit.moving === moving) return hit.out;
@@ -797,6 +936,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   // Box-selection drag (KiCad selectMultiple): origin/end in world coordinates.
   const boxHitRef = useRef<string | null>(null);
+  // What a press that started a move was over, so a press-and-release with no
+  // travel can be resolved as a click (upstream's TA_MOUSE_CLICK path).
+  const pressHitRef = useRef<string | null>(null);
   // Ambiguous-press candidates awaiting the Clarify Selection menu.
   const clarifyRef = useRef<ItemRef[] | null>(null);
   const boxOriginRef = useRef<Vec2 | null>(null);
@@ -840,6 +982,112 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   const entrySizeRef = useRef<Vec2>({ x: DEFAULT_ENTRY_SIZE, y: DEFAULT_ENTRY_SIZE });
 
   const dpr = () => window.devicePixelRatio || 1;
+
+  /**
+   * How far from an item a click still counts, in world units.
+   *
+   * `SCH_SELECTION_TOOL::CollectHits`:
+   *
+   *     int pixelThreshold = KiROUND( getView()->ToWorld( HITTEST_THRESHOLD_PIXELS ) );
+   *     int gridThreshold  = KiROUND( getView()->GetGAL()->GetGridSize().EuclideanNorm() / 2.0 );
+   *     aCollector.m_Threshold = std::max( pixelThreshold, gridThreshold );
+   *
+   * The grid term is the part that matters and the part we did not have: on a
+   * 1.27 mm grid it is about 0.9 mm *whatever the zoom*, so a click always
+   * reaches at least half a grid square. Without it the tolerance was five
+   * screen pixels and nothing else, so a near-miss on a symbol body — well
+   * inside the grid square that was clicked — selected nothing at all, which is
+   * most of what "clicking feels wrong" was.
+   */
+  const hitAccuracy = useCallback((): number => {
+    const vp = viewportRef.current;
+    const px = vp && vp.scale > 0 ? (5 * dpr()) / vp.scale : GRID;
+    return Math.max(px, Math.hypot(GRID, GRID) / 2);
+  }, [GRID]);
+  /**
+   * The extra leeway `GuessSelectionCandidates` gives lines when deciding what
+   * counts as an *exact* hit ("Lines are hard to hit"): six pixels, and not
+   * grid-floored, unlike the collection threshold above.
+   */
+  const lineSlop = useCallback((): number => {
+    const vp = viewportRef.current;
+    return vp && vp.scale > 0 ? (6 * dpr()) / vp.scale : GRID / 2;
+  }, [GRID]);
+  /**
+   * The item a click lands on, resolved the way `SelectPoint` resolves it:
+   * collect everything within the threshold, then let the
+   * GuessSelectionCandidates heuristics pick.
+   *
+   * Selection already went through this; the drag, delete and context-menu
+   * paths went through the plain `hitTest` priority order instead, so they
+   * could disagree with it about what was under the cursor.
+   */
+  const pickAt = useCallback(
+    (world: Vec2): ItemRef | null =>
+      collectAndGuess(schematic, libById, world, hitAccuracy(), lineSlop())[0] ?? null,
+    [schematic, libById, hitAccuracy, lineSlop],
+  );
+
+  /**
+   * The ERC marker under `world`, if any.
+   *
+   * Markers are tried before the document, because they are the top of
+   * `SCH_LAYER_ORDER` — LAYER_ERC_ERR / _WARN / _EXCLUSION sit above every item
+   * layer, and a marker is deliberately drawn over the thing it flags. Within
+   * the markers the same order applies, so an error wins over a warning on the
+   * same pin: the list is scanned back to front.
+   */
+  const pickMarker = useCallback(
+    (world: Vec2): ErcViolation | null => {
+      if (!ercMarkers?.length) return null;
+      const acc = hitAccuracy();
+      const rank = (m: { excluded?: boolean; severity: string }): number =>
+        m.excluded ? 0 : m.severity === 'error' ? 2 : 1;
+      let best: ErcViolation | null = null;
+      let bestRank = -1;
+      for (const m of ercMarkers) {
+        if (!hitTestErcMarker(m.at, world, acc)) continue;
+        if (rank(m) > bestRank) {
+          bestRank = rank(m);
+          best = m;
+        }
+      }
+      return best;
+    },
+    [ercMarkers, hitAccuracy],
+  );
+
+  /**
+   * The endpoint of a lone selected wire that a press at `world` grabbed, or
+   * null for "the whole wire".
+   *
+   * `SCH_SELECTION_TOOL::narrowSelection` decides this as the selection is
+   * made, using the same collector threshold the hit test uses:
+   *
+   *     if( line->GetStartPoint().Distance( aWhere ) <= aCollector.m_Threshold )
+   *         flags = STARTPOINT;
+   *     else if( line->GetEndPoint().Distance( aWhere ) <= aCollector.m_Threshold )
+   *         flags = ENDPOINT;
+   *     else
+   *         flags = STARTPOINT | ENDPOINT;
+   *
+   * Only for a single selected line: with several items picked, upstream drags
+   * the selection as a whole.
+   */
+  const wireEndUnderPress = useCallback(
+    (ids: ReadonlySet<string>, world: Vec2): Vec2 | null => {
+      if (ids.size !== 1) return null;
+      const id = [...ids][0]!;
+      const index = schematic.lines.findIndex((l, i) => refId('line', l.uuid, i) === id);
+      if (index < 0) return null;
+      const line = schematic.lines[index]!;
+      const tol = hitAccuracy();
+      if (Math.hypot(world.x - line.start.x, world.y - line.start.y) <= tol) return line.start;
+      if (Math.hypot(world.x - line.end.x, world.y - line.end.y) <= tol) return line.end;
+      return null;
+    },
+    [schematic, hitAccuracy],
+  );
 
   // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
   const danglingPins = useMemo(
@@ -1051,7 +1299,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // the editor's own Escape does not also clear the selection.
   useEffect(() => {
     const onEsc = (ev: KeyboardEvent): void => {
-      if (ev.key !== 'Escape' || !pointDragRef.current) return;
+      const e = remapEvent(ev, settings.hotkeys);
+      if (!e || e.key !== 'Escape' || !pointDragRef.current) return;
       ev.stopPropagation();
       pointDragRef.current = null;
       pointEditDocRef.current = null;
@@ -1063,16 +1312,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => window.removeEventListener('keydown', onEsc, true);
   }, []);
 
-  // SCH_POINT_EDITOR shows its points for a single selected item, and only with
-  // the selection tool: while a drawing tool is up the clicks belong to it.
+  /**
+   * Is something riding the pointer waiting to be dropped?
+   *
+   * `setCursor` asks exactly this before anything else, so a symbol, label,
+   * directive flag, image or pasted group all show KICURSOR::PLACE while they
+   * are attached, whatever tool put them there.
+   */
+  const attachedItem = !!(
+    placeLib ||
+    pendingLabel ||
+    pendingDirective ||
+    pendingImage ||
+    pastePending
+  );
+
+  /**
+   * `SCH_POINT_EDITOR::Main` shows its points for a single selected item of a
+   * point-editable type, and its only other condition is that the item is not
+   * still being drawn:
+   *
+   *     if( selection.Size() != 1 || !selection.Front()->IsType( pointEditorTypes ) )
+   *         return 0;
+   *
+   *     // Wait till drawing tool is done
+   *     if( selection.Front()->IsNew() )
+   *         return 0;
+   *
+   * Note what is *not* there: which tool is active. Requiring the selection
+   * tool — which this did — meant a freshly drawn shape showed no handles until
+   * Escape dropped the drawing tool, even though the shape was already selected.
+   * `IsNew()` is the flag an item carries while it is a ghost, so the equivalent
+   * here is "nothing is mid-draw and nothing is riding the cursor".
+   */
   useEffect(() => {
     const one = selection.size === 1 ? [...selection][0]! : null;
-    const target = one && activeTool === 'select' ? pointEditTarget(schematic, one) : null;
+    const stillDrawing = !!drawStateRef.current || attachedItem;
+    const target = one && !stillDrawing ? pointEditTarget(schematic, one) : null;
     pointTargetRef.current = target;
     pointHandlesRef.current = target ? editHandles(schematic, target) : [];
     if (!target) hoveredHandleRef.current = null;
     requestOverlayRef.current();
-  }, [selection, schematic, activeTool]);
+  }, [selection, schematic, activeTool, attachedItem]);
 
   /**
    * The handle under a world point. EDIT_POINTS::FindPoint hit-tests each point's
@@ -1103,7 +1384,23 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    * them applied, a ghost moves every frame, so it must never be baked into
    * the retained raster.
    */
-  const buildDisplayDoc = useCallback((): { doc: Schematic; ghosting: boolean } => {
+  /**
+   * The document as the screen shows it: the sheet plus whatever is riding the
+   * cursor. `ghostIds` names the riders, because upstream selects the item it
+   * is placing —
+   *
+   *     m_selectionTool->ClearSelection( true );
+   *     m_selectionTool->AddItemToSel( item );
+   *
+   * — so it is drawn with the selection halo until it is dropped. Ours drew it
+   * plain, which is why it did not stand out from the sheet under it.
+   */
+  const buildDisplayDoc = useCallback((): {
+    doc: Schematic;
+    ghosting: boolean;
+    ghostIds: Set<string>;
+  } => {
+    const ghostIds = new Set<string>();
     const md = moveDeltaRef.current;
     const spec = moveSpecRef.current;
     let ghosting = false;
@@ -1113,7 +1410,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // A handle drag in flight paints the reshaped document instead: it changes
     // every frame, so like every other ghost it must not be baked into the raster.
     if (pointEditDocRef.current) {
-      return { doc: pointEditDocRef.current, ghosting: true };
+      return { doc: pointEditDocRef.current, ghosting: true, ghostIds };
     }
     if (modeRef.current === 'move' && md && spec) {
       doc = buildMove(spec, md).apply(doc);
@@ -1148,9 +1445,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     }
     // Ghost: an image chosen in the editor follows the cursor until clicked.
     if (pendingImage && cursorRef.current) {
-      doc = addItems({ images: [makeImage(snap(cursorRef.current), pendingImage.data)] }).apply(
-        doc,
-      );
+      // Re-placed, not rebuilt: same uuid every frame, so the decoded bitmap is
+      // the cache's and the ghost is visible from the first move.
+      doc = addItems({
+        images: [
+          makeImage(
+            snap(cursorRef.current),
+            pendingImage.data,
+            pendingImage.scale,
+            pendingImage.uuid,
+          ),
+        ],
+      }).apply(doc);
       ghosting = true;
     }
     // Ghost: the bus-entry stub follows the cursor (R rotates its size vector).
@@ -1162,17 +1468,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     }
     // Ghost: the netclass flag rides the cursor until it is dropped.
     if (activeTool === 'placeClassLabel' && pendingDirective && cursorRef.current) {
-      doc = addItems({
-        directiveLabels: [
-          makeDirectiveLabel(snapConn(cursorRef.current), {
-            shape: pendingDirective.shape,
-            pinLength: pendingDirective.pinLength,
-            netclass: pendingDirective.netclass,
-            angle: pendingDirective.angle,
-            ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
-          }),
-        ],
-      }).apply(doc);
+      const flag = makeDirectiveLabel(snapConn(cursorRef.current), {
+        shape: pendingDirective.shape,
+        pinLength: pendingDirective.pinLength,
+        netclass: pendingDirective.netclass,
+        angle: pendingDirective.angle,
+        ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
+        ...(pendingDirective.fields ? { fields: pendingDirective.fields } : {}),
+      });
+      ghostIds.add(refId('directive', flag.uuid, (doc.directiveLabels ?? []).length));
+      doc = addItems({ directiveLabels: [flag] }).apply(doc);
       ghosting = true;
     }
     // Ghost: the junction dot and the no-connect X ride the cursor, so you see
@@ -1190,11 +1495,65 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // matches the final item exactly).
     const ds = drawStateRef.current;
     if (ds) {
-      const g = previewGraphic(ds);
-      if (g) doc = addItems({ graphics: [g] }).apply(doc);
+      if (ds.tool === 'sheet') {
+        // A sheet previews as a *sheet*, not as a rectangle:
+        //
+        //     sizeSheet( sheet, cursorPos );
+        //     m_view->AddToPreview( sheet->Clone() );
+        //
+        // so while you drag it out you see the sheet's own border and its
+        // Sheetname / Sheetfile text, rather than a plain notes-layer box that
+        // turns into something else on release. `sizeSheet` also holds it to
+        // MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT the whole time.
+        const at = { x: Math.min(ds.start.x, ds.cursor.x), y: Math.min(ds.start.y, ds.cursor.y) };
+        const size = {
+          w: Math.max(Math.abs(ds.cursor.x - ds.start.x), MIN_SHEET_WIDTH),
+          h: Math.max(Math.abs(ds.cursor.y - ds.start.y), MIN_SHEET_HEIGHT),
+        };
+        // Not added to `ghostIds`: `DrawSheet` previews a bare clone and only
+        // selects the sheet *after* the commit —
+        //
+        //     m_view->AddToPreview( sheet->Clone() );      // while sizing
+        //     ...
+        //     c.Push( "Draw Sheet" );
+        //     m_selectionTool->AddItemToSel( sheet );      // after placing
+        //
+        // which is the opposite way round from `TwoClickPlace`, where the item
+        // is selected the whole time it rides the cursor. So the outline stays
+        // in the plain sheet-border colour until it is dropped.
+        doc = addItems({ sheets: [makeSheet(at, size, 'Sheet', 'sheet.kicad_sch')] }).apply(doc);
+      } else if (ds.tool === 'table') {
+        // A table previews as a *table*, cells and all, not as a rectangle that
+        // turns into one on release. The motion branch of `DrawTable` rebuilds
+        // the whole grid on every mouse move and re-adds it to the preview:
+        //
+        //     table->ClearCells();
+        //     table->SetColCount( colCount );
+        //     … for each row/col: new SCH_TABLECELL …
+        //     m_view->ClearPreview();
+        //     m_view->AddToPreview( table->Clone() );
+        //
+        // so you can see how many rows and columns the drag has bought you
+        // while you are still dragging. The size passed here is the raw
+        // `cursorPos - origin`, unnormalized, exactly as upstream computes
+        // `requestedSize` — dragging up or left gives the 1x1 that
+        // `std::max( 1, … )` produces, and `Normalize()` only runs at the end.
+        const size = { x: ds.cursor.x - ds.start.x, y: ds.cursor.y - ds.start.y };
+        doc = addItems({
+          tables: [
+            makeTableFromDrag(ds.start, size, tableFontSizeIU ?? DEFAULT_TEXT_SIZE_IU, {
+              x: GRID,
+              y: GRID,
+            }),
+          ],
+        }).apply(doc);
+      } else {
+        const g = previewGraphic(ds);
+        if (g) doc = addItems({ graphics: [g] }).apply(doc);
+      }
       ghosting = true;
     }
-    return { doc, ghosting };
+    return { doc, ghosting, ghostIds };
   }, [
     schematic,
     libById,
@@ -1228,19 +1587,68 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       height: number,
       /** A field dragged on its own draws its umbilical back to its symbol. */
       moving = false,
+      /**
+       * The items riding the cursor, drawn selected: `prepItemForPlacement`
+       * ends with `AddItemToSel( item )`, so what you are about to place
+       * carries the selection halo until you drop it.
+       */
+      ghostIds?: ReadonlySet<string>,
     ) => {
       const t0 = performance.now();
       const opts = moving ? { ...renderOpts, movingSelection: true } : renderOpts;
-      renderSchematic(ctx, doc, view, theme, width, height, selection, highlight, opts);
-      // ERC markers (KiCad's bent-arrow fault indicators).
-      if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, view, theme);
+      const sel =
+        ghostIds && ghostIds.size > 0 ? new Set([...(selection ?? []), ...ghostIds]) : selection;
+      renderSchematic(ctx, doc, view, theme, width, height, sel, highlight, opts);
+      // ERC markers are *not* drawn here — see `drawOverlay`. They belong above
+      // the sheet, and this layer is below the GL one.
       // Track the worst recent cost, decaying slowly: one cheap frame (say a
       // view where almost everything is culled) must not talk us into direct
       // painting a sheet that is expensive as soon as it is zoomed out again.
       const cost = performance.now() - t0;
       paintCostRef.current = Math.max(cost, paintCostRef.current * 0.9);
     },
-    [theme, selection, highlight, renderOpts, ercMarkers],
+    // No `ercMarkers`: the overlay draws those now, and keeping them here
+    // would re-record the whole GL buffer every time ERC runs.
+    [theme, selection, highlight, renderOpts],
+  );
+
+  /**
+   * The selection and net-highlight halos alone, onto the 2D layer under the
+   * GL one.
+   *
+   * `SCH_PAINTER::getShadowWidth` is `screen_pixels + world_width`, so a halo
+   * is the one piece of the sheet whose geometry genuinely depends on the zoom.
+   * The GL buffer is recorded once and deliberately never re-recorded on a
+   * zoom, so a halo baked into it keeps the width it had when it was recorded:
+   * a three-pixel glow at fit-to-page becomes a twenty-pixel bar once you zoom
+   * in on a part, which is what "the halo swallows the geometry" was.
+   *
+   * Drawing it here costs what the selection costs, is always the right width,
+   * and lands *under* the item, which is where LAYER_SELECTION_SHADOWS goes.
+   */
+  const paintHalos = useCallback(
+    (ctx: CanvasRenderingContext2D, doc: Schematic, view: Viewport, w: number, h: number) => {
+      const spec = modeRef.current === 'move' ? moveSpecRef.current : null;
+      if (!selection?.size && !highlight?.size && !spec) return;
+      // Everything the drag picked up counts as selected while it runs, which
+      // is literally what upstream does: `getConnectedDragItems` hands its
+      // results to `m_selectionTool->AddItemToSel( item, QUIET_MODE )`, so the
+      // wires and labels a drag grabbed are `IsSelected()` and get the halo and
+      // the anchor cross that go with it.
+      //
+      // Ours only ever saw the app's selection — the symbol you grabbed — so no
+      // label could pass the gate and the crosses could not appear during a
+      // drag by construction.
+      const shown = spec ? movingIds(spec) : selection;
+      renderSchematic(ctx, doc, view, theme, w, h, shown, highlight, {
+        ...renderOpts,
+        halos: 'only',
+        // The anchored end of each stretching wire is marked while a drag runs;
+        // the plan is the only thing that knows which end is moving.
+        ...(spec ? { draggedEnds: { startMoving: spec.wireStart, endMoving: spec.wireEnd } } : {}),
+      });
+    },
+    [theme, selection, highlight, renderOpts],
   );
 
   /**
@@ -1337,7 +1745,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     if (!canvas || !vp) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const { doc, ghosting } = buildDisplayDoc();
+    const { doc, ghosting, ghostIds } = buildDisplayDoc();
 
     // The WebGL path (#449). The 2D canvas keeps the background and the grid,
     // which are cheap and genuinely zoom-dependent; the document goes to the
@@ -1364,21 +1772,28 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // The base is keyed on the *moving set*, not on the view, so panning and
     // zooming during a drag cost nothing.
     if (gl && !gl.isLost && ghosting && dragSpec) {
-      const moving = movingIds(dragSpec);
+      const base = moveBaseRef.current ?? schematicRef.current;
+      // One set drives both halves, so they are exact complements: the base is
+      // recorded without it, the preview draws only it.
+      const split = dragSplit(movingIds(dragSpec), base, doc);
+      // Only `hidden` needs a stable identity; the preview is re-recorded every
+      // frame regardless, so a fresh set there costs nothing.
+      const hidden = stableSplit.current(split.hidden);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = theme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      paintHalos(ctx, doc, vp, canvas.width, canvas.height);
       gl.render(
         {
-          doc: moveBaseRef.current ?? schematicRef.current,
+          doc: base,
           theme,
-          opts: dragOptsRef.current(renderOpts, moving),
+          opts: dragOptsRef.current(renderOpts, hidden),
           selection,
           highlight,
         },
         { scale: vp.scale, offsetX: vp.offsetX, offsetY: vp.offsetY },
-        { doc, ids: moving },
+        { doc, ids: split.preview },
       );
       notePaint('preview', __t0);
       onScaleChange?.(vp.scale);
@@ -1401,6 +1816,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.fillStyle = theme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      paintHalos(ctx, doc, vp, canvas.width, canvas.height);
       gl.render(
         { doc, theme, opts: renderOpts, selection, highlight },
         { scale: vp.scale, offsetX: vp.offsetX, offsetY: vp.offsetY },
@@ -1414,7 +1830,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // during a drag it put a second, stale copy of the symbol at its old
     // position while the real one followed the cursor underneath, and on
     // release the stale one appeared to teleport.
-    gl?.clear();
+    //
+    // Clear the *context*, not the local: `gl` above is null whenever this
+    // render is not allowed to use GL, and "the document now has an image" is
+    // one of those reasons. Reaching for `gl?.clear()` there is a no-op exactly
+    // when the buffer most needs clearing — attaching an image to the cursor
+    // switched the backend off mid-session and left the whole sheet's last GL
+    // frame frozen on top of the live 2D one.
+    glRef.current?.clear();
 
     // A drag repaints only what is moving, over a background painted once.
     //
@@ -1426,11 +1849,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // which grew with the size of the sheet rather than with what was dragged.
     const moveSpec = modeRef.current === 'move' ? moveSpecRef.current : null;
     if (ghosting && moveSpec) {
-      const moving = movingIds(moveSpec);
+      // The same split the GL path uses, so the background and the preview stay
+      // exact complements here too. It is part of the background's cache key:
+      // when a bend appears the background must be repainted without it, or the
+      // preview draws it a second time over a stale copy.
+      const split = dragSplit(
+        movingIds(moveSpec),
+        moveBaseRef.current ?? schematicRef.current,
+        doc,
+      );
+      const hidden = stableSplit.current(split.hidden);
       const bg = dragBgRef.current;
       const reusable =
         bg &&
         bg.spec === moveSpec &&
+        bg.split === hidden &&
         bg.canvas.width === canvas.width &&
         bg.canvas.height === canvas.height &&
         bg.view.scale === vp.scale &&
@@ -1454,9 +1887,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
             work.height,
             selection,
             highlight,
-            { ...renderOpts, hiddenItems: moving },
+            { ...renderOpts, hiddenItems: hidden },
           );
-          dragBgRef.current = { canvas: work, view: { ...vp }, spec: moveSpec };
+          dragBgRef.current = { canvas: work, view: { ...vp }, spec: moveSpec, split: hidden };
         }
       }
       const ready = dragBgRef.current;
@@ -1469,8 +1902,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // a dragged field's umbilical back to its symbol.
         renderSchematic(ctx, doc, vp, theme, canvas.width, canvas.height, selection, highlight, {
           ...renderOpts,
-          onlyItems: moving,
+          onlyItems: split.preview,
           movingSelection: true,
+          draggedEnds: { startMoving: moveSpec.wireStart, endMoving: moveSpec.wireEnd },
         });
         notePaint('preview', __t0);
         onScaleChange?.(vp.scale);
@@ -1485,7 +1919,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       dragBgRef.current = null;
       sceneCacheRef.current = null;
       rasterStaleRef.current = true;
-      paintSchematic(ctx, doc, vp, canvas.width, canvas.height, modeRef.current === 'move');
+      paintSchematic(
+        ctx,
+        doc,
+        vp,
+        canvas.width,
+        canvas.height,
+        modeRef.current === 'move',
+        ghostIds,
+      );
       notePaint('ghostFull', __t0);
       onScaleChange?.(vp.scale);
       return;
@@ -1546,6 +1988,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   }, [
     buildDisplayDoc,
     paintSchematic,
+    paintHalos,
     startSceneRender,
     scheduleViewRebuild,
     onScaleChange,
@@ -1568,6 +2011,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    // ERC markers (KiCad's bent-arrow fault indicators), on this layer rather
+    // than with the sheet.
+    //
+    // They used to be painted at the end of `paintSchematic`, which the GL
+    // paths never call — so running ERC on the default renderer produced no
+    // markers at all. Moving them down to the 2D scene layer would not have
+    // worked either: the GL canvas sits above it, so a marker would have been
+    // hidden by the very item it flags. LAYER_ERC_ERR / LAYER_ERC_WARN are
+    // above the items upstream, and this is the only layer above them here.
+    if (ercMarkers && ercMarkers.length > 0) drawErcMarkers(ctx, ercMarkers, vp, theme);
 
     // Box-selection rubber band, in KiCad's colours: the fill shows the mode
     // (normal/additive/subtractive) and the outline shows the direction,
@@ -1619,7 +2073,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       updateWireChain(snapConn(cur));
       ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
       ctx.strokeStyle = activeTool === 'drawBus' ? theme.bus : theme.wire;
-      ctx.lineWidth = (activeTool === 'drawBus' ? 0.3048 : 0.1524) * 10000; // bus 12 mil, wire 6 mil
+      // The same widths the committed wire or bus will have, so the preview
+      // does not change thickness the moment it is placed (it used to hardcode
+      // 6 and 12 mils while the renderer drew both at the graphic-line default).
+      ctx.lineWidth =
+        activeTool === 'drawBus'
+          ? (renderOpts.defaultBusIU ?? 0.3048 * 10000)
+          : (renderOpts.defaultWireIU ?? 0.1524 * 10000);
       ctx.beginPath();
       for (const seg of wiresRef.current) {
         if (segIsNull(seg)) continue;
@@ -1640,13 +2100,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const r = dpr();
         const half = (EDIT_POINT_SIZE / 2) * r;
         const hovered = pointDragRef.current ?? hoveredHandleRef.current;
-        ctx.fillStyle = EDIT_POINT_FILL;
+        ctx.fillStyle = editPointColor.fill;
         ctx.setLineDash([]);
         for (const h of handles) {
           const x = h.at.x * vp.scale + vp.offsetX;
           const y = h.at.y * vp.scale + vp.offsetY;
           const active = hovered?.kind === h.kind && hovered?.index === h.index;
-          ctx.strokeStyle = active ? EDIT_POINT_HOVER_BORDER : EDIT_POINT_BORDER;
+          ctx.strokeStyle = active ? editPointColor.highlight : editPointColor.border;
           ctx.lineWidth = (active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * r;
           ctx.beginPath();
           if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
@@ -1700,7 +2160,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.stroke();
       ctx.restore();
     }
-  }, [activeTool, updateWireChain, snapConn, theme, inputPrefs, GRID]);
+  }, [
+    activeTool,
+    updateWireChain,
+    snapConn,
+    theme,
+    editPointColor,
+    inputPrefs,
+    renderOpts,
+    ercMarkers,
+    GRID,
+  ]);
 
   /**
    * One repaint per animation frame, the way every other canvas in the app
@@ -1756,6 +2226,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     requestDraw();
   }, [requestDraw]);
 
+  /**
+   * Abandon whatever the pointer was doing, committing nothing.
+   *
+   * A button-drag is a tool loop upstream, and a loop that loses its input
+   * device ends: `TOOL_MANAGER` cancels the active tool and `SCH_MOVE_TOOL`'s
+   * commit is reverted, so the sheet goes back to how it was before the press.
+   * Here the ghost is the only thing that has changed, so dropping the move
+   * state is the whole revert.
+   *
+   * Reached from `pointercancel` and `lostpointercapture`, and from a
+   * `pointerup` that arrives after the tool changed. Without it a lost capture
+   * left `modeRef` on 'move' forever: the selection kept following the cursor
+   * with no button held, and the next click committed that drag — which is how
+   * a symbol ended up displaced with its wiring rewritten, and auto-saved.
+   */
+  const abortGesture = useCallback(() => {
+    grabbedRef.current = false;
+    modeRef.current = 'idle';
+    moveSpecRef.current = null;
+    moveDeltaRef.current = null;
+    moveStartRef.current = null;
+    breakCmdRef.current = null;
+    moveBaseRef.current = null;
+    axisLockRef.current = 'none';
+    lastArrowRef.current = null;
+    sheetPinDragRef.current = null;
+    pointDragRef.current = null;
+    pointEditDocRef.current = null;
+    boxHitRef.current = null;
+    pressHitRef.current = null;
+    clarifyRef.current = null;
+    boxOriginRef.current = null;
+    boxEndRef.current = null;
+    lassoPointsRef.current = [];
+    zoomAreaRef.current = false;
+    panLastRef.current = null;
+    dragBgRef.current = null;
+    const target = pointTargetRef.current;
+    if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+    requestDraw();
+  }, [requestDraw]);
+
   // Arrow keys nudge a grabbed move one grid square and lock the axis
   // (SCH_MOVE_TOOL's m_lastKeyboardCursorPosition block). Registered once, like
   // the Escape handler, so a restart cannot leave the move without a keyboard.
@@ -1766,11 +2278,48 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ArrowUp: 'up',
       ArrowDown: 'down',
     };
-    const onArrow = (ev: KeyboardEvent): void => {
+    /** One grid step in world units, per axis, as CursorControl uses. */
+    const stepFor = (key: ArrowKey, mult: number): Vec2 => ({
+      x: (key === 'left' ? -1 : key === 'right' ? 1 : 0) * GRID * mult,
+      y: (key === 'up' ? -1 : key === 'down' ? 1 : 0) * GRID * mult,
+    });
+
+    const onArrow = (rawArrow: KeyboardEvent): void => {
+      // Cursor Up/Down/Left/Right are ordinary registry actions, so a user who
+      // rebound or cleared one has to be obeyed here too.
+      const ev = remapEvent(rawArrow, settings.hotkeys);
+      if (!ev) return;
       const key = KEYS[ev.key];
-      // Alt+Arrow is already spoken for, and a nudge only means anything while
-      // something is actually on the cursor.
-      if (!key || ev.altKey || ev.ctrlKey || ev.metaKey || !grabbedRef.current) return;
+      if (!key || ev.altKey) return; // Alt+Arrow is sheet navigation
+
+      // With nothing grabbed the arrows drive the *crosshair*, which is
+      // `COMMON_TOOLS::CursorControl` / `PanControl`: one grid step, ten with
+      // Ctrl (`gridSize *= 10`), and Shift pans the view by ten instead.
+      //
+      // Browser delta, and it is unavoidable: upstream finishes with
+      // `SetCursorPosition( cursor, /* warpMouse */ true )`, and a page cannot
+      // move the OS pointer. The crosshair moves and everything that follows it
+      // follows, but the next real mouse move snaps it back under the pointer.
+      if (!grabbedRef.current) {
+        const vp = viewportRef.current;
+        if (!vp) return;
+        ev.preventDefault();
+        if (ev.shiftKey) {
+          const d = stepFor(key, 10);
+          viewportRef.current = { ...vp, offsetX: vp.offsetX - d.x, offsetY: vp.offsetY - d.y };
+          requestDraw();
+          return;
+        }
+        const at = cursorRef.current;
+        if (!at) return;
+        const d = stepFor(key, ev.ctrlKey || ev.metaKey ? 10 : 1);
+        cursorRef.current = { x: at.x + d.x, y: at.y + d.y };
+        requestDraw();
+        return;
+      }
+
+      // A grabbed move keeps upstream's axis-lock behaviour below.
+      if (ev.ctrlKey || ev.metaKey) return;
       const start = moveStartRef.current;
       const delta = moveDeltaRef.current;
       if (!start || !delta) return;
@@ -1800,7 +2349,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // (the grab effect) cannot leave the move without its escape hatch.
   useEffect(() => {
     const onEsc = (ev: KeyboardEvent): void => {
-      if (ev.key === 'Escape' && grabbedRef.current) {
+      const e = remapEvent(ev, settings.hotkeys);
+      if (e?.key === 'Escape' && grabbedRef.current) {
         ev.stopPropagation();
         endGrab();
       }
@@ -1828,6 +2378,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     [requestDraw],
   );
 
+  /** Zoom about the cursor, falling back to the viewport centre when it is off-canvas. */
+  const zoomAboutCursor = useCallback(
+    (factor: number) => {
+      const c = canvasRef.current;
+      const vp = viewportRef.current;
+      if (!c || !vp) return;
+      const cur = cursorRef.current;
+      if (cur) zoomAbout(cur.x * vp.scale + vp.offsetX, cur.y * vp.scale + vp.offsetY, factor);
+      else zoomAbout(c.width / 2, c.height / 2, factor);
+    },
+    [zoomAbout],
+  );
+
   // A fit requested before the canvas has been laid out (ResizeObserver hasn't
   // fired yet, so the canvas still has its default 300x150 size) is deferred
   // and honoured by the size effect below.
@@ -1853,14 +2416,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         requestDraw();
       },
       redraw: () => requestDraw(),
-      zoomIn: () => {
-        const c = canvasRef.current;
-        if (c) zoomAbout(c.width / 2, c.height / 2, 1.25);
-      },
-      zoomOut: () => {
-        const c = canvasRef.current;
-        if (c) zoomAbout(c.width / 2, c.height / 2, 0.8);
-      },
+      // ACTIONS::zoomIn / zoomOut are "Zoom In/Out **at Cursor**": F1 and F2
+      // both run COMMON_TOOLS::ZoomInOut, which calls doZoomToPreset with
+      // aCenterOnCursor true and so `view->SetScale( scale, GetCursorPosition() )`.
+      // (zoomInCenter / zoomOutCenter, which do zoom about the viewport centre,
+      // have no default hotkey at all.) With the pointer off the canvas there
+      // is no cursor to zoom about, so the centre is the fallback.
+      zoomIn: () => zoomAboutCursor(1.25),
+      zoomOut: () => zoomAboutCursor(0.8),
       centerOn: (p: Vec2) => {
         const c = canvasRef.current;
         const vp = viewportRef.current;
@@ -1875,7 +2438,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         requestDraw();
       },
     }),
-    [schematic, requestDraw, zoomAbout],
+    [schematic, libById, requestDraw, zoomAbout, zoomAboutCursor],
   );
 
   useEffect(() => {
@@ -1963,6 +2526,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   useEffect(() => {
     requestDraw();
   }, [drawScene, requestDraw]);
+  // The same for the overlay, which the scene repaint does not cover: it is a
+  // separate canvas, and the only thing that ever asked for one was a pointer
+  // event. So switching crosshair mode left the old crosshair on screen until
+  // the mouse moved — and switching it from the toolbar means the mouse is not
+  // over the canvas at all. `drawOverlay`'s identity tracks the tool, theme and
+  // input preferences, so it is the signal here just as `drawScene` is above.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: drawOverlay is the signal, not a callee
+  useEffect(() => {
+    requestOverlay();
+  }, [drawOverlay, requestOverlay]);
   // Embedded bitmaps decode asynchronously; repaint when one becomes ready.
   useEffect(() => {
     setRenderInvalidator(requestDraw);
@@ -1991,8 +2564,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     // picker the bullseye (sch_editor_control.cpp:1802), everything else the
     // plain crosshair the drawing tools show.
     const canvas = canvasRef.current;
-    if (canvas) canvas.style.cursor = toolCursor(activeTool);
-  }, [activeTool]);
+    if (canvas) canvas.style.cursor = toolCursor(activeTool, attachedItem);
+  }, [activeTool, attachedItem]);
 
   const toWorld = (clientX: number, clientY: number): Vec2 => {
     const canvas = canvasRef.current!;
@@ -2005,11 +2578,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   // Scroll gestures (PANEL_MOUSE_SETTINGS): the modifier held selects zoom /
   // pan up-down / pan left-right; zoom speed and reverse flags apply.
+  //
+  // Bound natively and non-passively in the effect below, the way every other
+  // canvas in the app binds it (PcbEditor, GerberCanvas, FootprintCanvas,
+  // DrawingSheetCanvas). React registers `onWheel` as a *passive* listener on
+  // the root container, so `preventDefault()` there is a no-op and the browser
+  // keeps its own gesture: Ctrl+wheel zooms the whole page, and a trackpad
+  // two-finger scroll can overscroll the window out from under the canvas.
   const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
       const canvas = canvasRef.current;
       const vp = viewportRef.current;
       if (!canvas || !vp) return;
+      e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const mod: 'none' | 'ctrl' | 'shift' | 'alt' =
         e.ctrlKey || e.metaKey ? 'ctrl' : e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none';
@@ -2050,6 +2631,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     [zoomAbout, requestDraw, inputPrefs],
   );
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [onWheel]);
+
   // Finish a rectangle/circle/arc (2nd click), a bezier (control click), or a
   // sheet rectangle (which hands off to the editor for its name/file dialog).
   const finalizeShape = useCallback(
@@ -2059,12 +2647,22 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (ds.tool === 'rectangle') g = makeRectangle(ds.start, p);
       else if (ds.tool === 'circle')
         g = makeCircle(ds.start, Math.hypot(p.x - ds.start.x, p.y - ds.start.y));
+      else if (ds.tool === 'ellipse')
+        g = makeEllipse(ds.start, Math.abs(p.x - ds.start.x), Math.abs(p.y - ds.start.y));
+      else if (ds.tool === 'ellipseArc')
+        g = makeEllipseArc(ds.start, Math.abs(p.x - ds.start.x), Math.abs(p.y - ds.start.y), 0, 90);
       else if (ds.tool === 'arc') {
         const a = arcFrom2(ds.start, p);
         if (a) g = makeArc(a.start, a.mid, a.end);
-      } else if (ds.tool === 'bezier')
-        g = makePolyline(quadPolyline(ds.points[0]!, p, ds.points[1]!));
-      else if (ds.tool === 'sheet') {
+      } else if (ds.tool === 'bezier') {
+        // start, C1, end, C2 — a cubic, stored as one, so the point editor
+        // gives it the four handles `EDA_BEZIER_POINT_EDIT_BEHAVIOR` gives it.
+        // It used to flatten a *quadratic* into a 25-point polyline, which is
+        // the wrong curve family, is not a bezier in the file, and leaves the
+        // point editor showing a handle on every flattened vertex.
+        const [p0, c1, p1] = ds.points;
+        if (p0 && c1 && p1) g = makeBezier(p0, c1, p, p1);
+      } else if (ds.tool === 'sheet') {
         const at = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
         const size = { w: Math.abs(p.x - ds.start.x), h: Math.abs(p.y - ds.start.y) };
         if (size.w > 0 && size.h > 0) onSheetDrawn?.(at, size);
@@ -2076,21 +2674,53 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (end.x > start.x && end.y > start.y) onTextBoxDrawn?.(start, end);
         requestDraw();
         return;
+      } else if (ds.tool === 'table') {
+        // "table->Normalize(); DIALOG_TABLE_PROPERTIES dlg( m_frame, table );"
+        // — the drag fixes the grid, then the dialog confirms it, and only OK
+        // commits.
+        const start = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
+        const end = { x: Math.max(ds.start.x, p.x), y: Math.max(ds.start.y, p.y) };
+        if (end.x > start.x && end.y > start.y) onTableDrawn?.(start, end);
+        requestDraw();
+        return;
       }
-      if (g) onCommand(addItems({ graphics: [g] }));
+      if (g) {
+        onCommand(addItems({ graphics: [g] }));
+        // `EE_GRAPHIC_TOOL::DrawShape` selects what it just drew:
+        //
+        //     m_selectionTool->AddItemToSel( item.get() );
+        //     SCH_COMMIT commit( m_toolMgr );
+        //     commitItem( commit, std::move( item ), … );
+        //
+        // and the arc, bezier, table, image, symbol and label paths all do the
+        // same. Graphics are addressed by index, so the new one is the length
+        // the array had before the command ran.
+        onSelect(refId('graphic', undefined, schematic.graphics.length), false);
+      }
       requestDraw();
     },
-    [onCommand, onSheetDrawn, onTextBoxDrawn, requestDraw],
+    [onCommand, onSelect, schematic, onSheetDrawn, onTextBoxDrawn, onTableDrawn, requestDraw],
   );
 
   // Finish an open polyline (lines tool): double-click / Enter / right-click.
   const finishPoly = useCallback(() => {
     const ds = drawStateRef.current;
-    if (ds?.tool !== 'lines') return;
+    if (ds?.tool !== 'lines' && ds?.tool !== 'ruleArea') return;
+    const rule = ds.tool === 'ruleArea';
     drawStateRef.current = null;
-    if (ds.points.length >= 2) onCommand(addItems({ graphics: [makePolyline(ds.points)] }));
+    // A rule area needs an area, so it takes three corners; an open polyline
+    // is happy with two points.
+    if (ds.points.length >= (rule ? 3 : 2)) {
+      onCommand(addItems({ graphics: [rule ? makeRuleArea(ds.points) : makePolyline(ds.points)] }));
+      // Every drawing tool selects what it just made — `AddItemToSel( item )`
+      // in `EE_GRAPHIC_TOOL::DrawShape`, `RunAction( selectItem, ruleArea )` in
+      // `RULE_AREA_CREATE_HELPER::commitRuleArea` — so it comes up with its halo
+      // and its edit points already on. Graphics are addressed by index, and the
+      // new one is appended, so its id is the length the array had before.
+      onSelect(refId('graphic', undefined, schematic.graphics.length), false);
+    }
     requestDraw();
-  }, [onCommand, requestDraw]);
+  }, [onCommand, onSelect, schematic, requestDraw]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -2213,6 +2843,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (pendingLabel) {
           const placed = buildPendingLabel(pendingLabel, snap(world), schematic, libById);
           onCommand(addItems({ labels: [placed] }));
+          // The label was selected while it rode the cursor
+          // (`prepItemForPlacement` -> `AddItemToSel`) and nothing deselects it
+          // when it is dropped, so it stays selected after placement.
+          onSelect(refId('label', placed.uuid, schematic.labels.length), false);
           // The placed label is done with; the tool takes the next one of a
           // multi-label run, or waits for a click to ask for another.
           // Its id is what F1 repeats (SCH_EDIT_FRAME's repeat list).
@@ -2226,19 +2860,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // Netclass directive label: the dialog names it, a click drops it.
       if (activeTool === 'placeClassLabel') {
         if (pendingDirective) {
-          onCommand(
-            addItems({
-              directiveLabels: [
-                makeDirectiveLabel(snapConn(world), {
-                  shape: pendingDirective.shape,
-                  pinLength: pendingDirective.pinLength,
-                  netclass: pendingDirective.netclass,
-                  angle: pendingDirective.angle,
-                  ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
-                }),
-              ],
-            }),
-          );
+          const flag = makeDirectiveLabel(snapConn(world), {
+            shape: pendingDirective.shape,
+            pinLength: pendingDirective.pinLength,
+            netclass: pendingDirective.netclass,
+            angle: pendingDirective.angle,
+            ...(pendingDirective.fontSize ? { fontSize: pendingDirective.fontSize } : {}),
+            ...(pendingDirective.fields ? { fields: pendingDirective.fields } : {}),
+          });
+          onCommand(addItems({ directiveLabels: [flag] }));
+          onSelect(refId('directive', flag.uuid, (schematic.directiveLabels ?? []).length), false);
           onLabelPlaced?.();
         } else {
           onLabelPrompt?.(snapConn(world));
@@ -2272,11 +2903,28 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const ds = drawStateRef.current;
         if (!ds) {
           drawStateRef.current = { tool: shapeKind, start: p, points: [p], cursor: p };
-        } else if (shapeKind === 'lines') {
+        } else if (shapeKind === 'lines' || shapeKind === 'ruleArea') {
+          // "Check if it is double click / closing line (so we have to finish
+          // the zone)": a rule area is finished by putting a point back on the
+          // one it started from.
+          //
+          //     bool POLYGON_GEOM_MANAGER::NewPointClosesOutline( const VECTOR2I& aPt ) const
+          //     { return m_lockedPoints.PointCount() > 0 && m_lockedPoints.CPoint( 0 ) == aPt; }
+          const first = ds.points[0]!;
+          if (
+            shapeKind === 'ruleArea' &&
+            ds.points.length >= 3 &&
+            first.x === p.x &&
+            first.y === p.y
+          ) {
+            finishPoly();
+            return;
+          }
           const last = ds.points[ds.points.length - 1]!;
           if (last.x !== p.x || last.y !== p.y) ds.points.push(p);
         } else if (shapeKind === 'bezier') {
-          if (ds.points.length < 2) ds.points.push(p);
+          // Four clicks: start, control 1, end, control 2.
+          if (ds.points.length < 3) ds.points.push(p);
           else finalizeShape(ds, p);
         } else {
           finalizeShape(ds, p);
@@ -2286,7 +2934,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
 
       if (activeTool === 'delete') {
-        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        const hit = pickAt(world);
         if (hit) onCommand(deleteByIds(new Set([hit.id])));
         return;
       }
@@ -2321,7 +2969,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // polygon trace; a plain click (no drag) selects the pressed item or clears.
       if (activeTool === 'selectLasso') {
         (e.target as Element).setPointerCapture(e.pointerId);
-        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        const hit = pickAt(world);
         modeRef.current = 'lasso';
         boxHitRef.current = hit ? hit.id : null;
         lassoPointsRef.current = [world];
@@ -2337,7 +2985,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // Ctrl/Cmd-click on text carrying a `(hyperlink …)` follows it, the way
       // SCH_EDIT_FRAME does: "#<page>" jumps to that sheet, a URL opens.
       if (e.ctrlKey || e.metaKey) {
-        const linked = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        const linked = pickAt(world);
         if (linked?.kind === 'label' || linked?.kind === 'textbox') {
           const link =
             linked.kind === 'label'
@@ -2360,10 +3008,23 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
+      // An ERC marker takes the press before anything in the document does: its
+      // layers are the top of SCH_LAYER_ORDER, and `SCH_MARKER_T` is "always
+      // selectable" in SCH_SELECTION_TOOL. Selecting one cross-probes to the
+      // ERC dialog, which is `SCH_INSPECTION_TOOL::CrossProbe` running off the
+      // selection change rather than off the click.
+      if (e.button === 0 && activeTool === 'select') {
+        const marker = pickMarker(world);
+        if (marker) {
+          onMarkerPick?.(marker, false);
+          return;
+        }
+      }
+
       // A sheet pin is constrained to its sheet's border, so dragging one is
       // not a move by a delta and does not go through the move tool.
       if (e.button === 0 && activeTool === 'select') {
-        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        const hit = pickAt(world);
         if (hit?.kind === 'sheetpin') {
           const ref = parseSheetPinId(schematic, hit.id);
           if (ref) {
@@ -2388,37 +3049,78 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         }
       }
 
-      // select / move, the left-drag semantics follow the "Left button drag"
-      // preference: SELECT always rubber-bands; DRAG_SELECTED moves only an
-      // already-selected item; DRAG_ANY moves whatever is under the cursor.
+      // select / move: the `evt->IsDrag( BUT_LEFT )` branch of
+      // SCH_SELECTION_TOOL::Main, whose decisive test is
+      // `selectionContains( DragOrigin() )` — is the press inside a *selected*
+      // item's box plus a 20-pixel grip margin — and not a hit test at all.
+      //
+      // Asking the hit test instead is what made a second press on the symbol
+      // you had just selected draw a rubber band: the press has to resolve to
+      // the exact same id, and a symbol's pins and its reference and value
+      // fields are separate candidates sitting on top of the body that win the
+      // closest-item race from a couple of pixels away.
       (e.target as Element).setPointerCapture(e.pointerId);
-      const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
-      const additive = e.shiftKey;
-      const canDrag =
-        hit !== null &&
-        inputPrefs.mouseLeft !== 'select' &&
-        (inputPrefs.mouseLeft === 'drag_any' || selection.has(hit.id));
-      if (hit && canDrag) {
-        const effSel: ReadonlySet<string> = additive
-          ? new Set([...selection, hit.id])
-          : selection.has(hit.id)
-            ? selection
-            : new Set([hit.id]);
-        onSelect(hit.id, additive);
+      const hit = pickAt(world);
+      // RequestSelection( MovableItems ): trim an existing selection to the
+      // movable kinds, or, with nothing selected, take what is under the press.
+      const requested = requestMovableSelection(selection, hit);
+      const gripped = selectionContains(
+        schematic,
+        libById,
+        requested,
+        world,
+        (GRIP_MARGIN_PX * dpr()) / vp.scale,
+      );
+      const start = leftDragStart({
+        hasModifier: e.shiftKey || e.ctrlKey || e.metaKey || e.altKey,
+        action: inputPrefs.mouseLeft,
+        dragIsMove: inputPrefs.dragIsMove,
+        selectionEmpty: selection.size === 0,
+        gripped,
+      });
+      if (start !== 'box') {
+        const effSel: ReadonlySet<string> = requested;
+        // Upstream only *trims* a non-empty selection here; it is `SelectPoint`
+        // inside RequestSelection that picks something up, and that only runs
+        // when nothing was selected. Re-selecting the pressed item would
+        // collapse a multi-item selection to the one you grabbed it by.
+        if (selection.size === 0 && hit) onSelect(hit.id, false);
+        // What the press was over, in case it turns out to be a click rather
+        // than a drag: upstream's `IsClick( BUT_LEFT )` runs SelectPoint, so
+        // clicking one member of a multi-item selection reduces the selection
+        // to it. Resolved on release, since only then is it known.
+        pressHitRef.current = hit ? hit.id : null;
         modeRef.current = 'move';
         // The drag gesture rubber-bands connected wires along unless the
         // "drag is move" preference turns it into a plain Move (SCH_MOVE_TOOL).
-        moveKindRef.current = inputPrefs.dragIsMove ? 'move' : 'drag';
-        effSelRef.current = effSel;
+        moveKindRef.current = start;
+        // A wire dragged near one of its ends moves *that end*, not the whole
+        // wire. Upstream flags it as the selection is made
+        // (SCH_SELECTION_TOOL::narrowSelection, "Handle line ends specially"):
+        //
+        //     if( line->GetStartPoint().Distance( aWhere ) <= m_Threshold )  flags = STARTPOINT;
+        //     else if( line->GetEndPoint().Distance( aWhere ) <= m_Threshold ) flags = ENDPOINT;
+        //     else flags = STARTPOINT | ENDPOINT;
+        //
+        // This is how eeschema reshapes a wire — there are no endpoint grips on
+        // one, which is why `pointEditTarget` no longer offers any.
+        const grabbedEnd = wireEndUnderPress(effSel, world);
+        effSelRef.current = grabbedEnd ? new Set<string>() : effSel;
         moveStartRef.current = world;
         moveDeltaRef.current = { x: 0, y: 0 };
-        const spec = planMove(schematic, libById, effSel);
+        // Nothing moves whole; the endpoint does, and every wire meeting it
+        // picks up STARTPOINT/ENDPOINT from that.
+        const spec = grabbedEnd
+          ? planMoveFromPoints(schematic, libById, new Set(), [grabbedEnd])
+          : planMove(schematic, libById, effSel);
         moveSpecRef.current = spec;
-        movePointsRef.current = selectionAnchors(schematic, libById, effSel);
+        movePointsRef.current = grabbedEnd
+          ? [grabbedEnd]
+          : selectionAnchors(schematic, libById, effSel);
         // Snap targets are the fixed anchors: exclude the selection AND the wires that
         // rubber-band with it (spec.wireStart/wireEnd), so a moved point never snaps
         // back onto a wire that is moving with it.
-        const moving = new Set([...effSel, ...spec.wireStart, ...spec.wireEnd]);
+        const moving = new Set([...effSelRef.current, ...spec.wireStart, ...spec.wireEnd]);
         moveAnchorsRef.current = collectAnchors(schematic, libById, moving);
       } else {
         // Empty canvas (or SELECT-mode drag): start a KiCad drag-box selection
@@ -2428,7 +3130,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // (SCH_SELECTION_TOOL::SelectPoint → GuessSelectionCandidates).
         (e.target as Element).setPointerCapture(e.pointerId);
         modeRef.current = 'box';
-        const cands = hit ? collectAndGuess(schematic, libById, world, (6 * dpr()) / vp.scale) : [];
+        const cands = hit
+          ? collectAndGuess(schematic, libById, world, hitAccuracy(), lineSlop())
+          : [];
         boxHitRef.current = cands[0]?.id ?? (hit ? hit.id : null);
         clarifyRef.current = cands.length > 1 ? cands : null;
         boxOriginRef.current = world;
@@ -2452,6 +3156,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       libById,
       selection,
       onSelect,
+      pickMarker,
+      onMarkerPick,
+      finishPoly,
       onHighlight,
       onRequestTool,
       onPasteDone,
@@ -2469,6 +3176,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       requestOverlay,
       handleAt,
       inputPrefs,
+      wireEndUnderPress,
     ],
   );
 
@@ -2478,7 +3186,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (!vp) return;
       const world = toWorld(e.clientX, e.clientY);
       cursorRef.current = world;
-      onCursorMove?.(world);
+      onCursorMove?.(world, CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(world) : snap(world));
 
       // Dragging a sheet pin slides it along its sheet's border, switching
       // edges when the cursor is nearest another one (ConstrainOnEdge).
@@ -2534,10 +3242,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
 
-      if (pendingLabel) {
+      if (pendingLabel || pendingDirective) {
         requestDraw();
         return;
-      } // update the attached label ghost
+      } // update the attached label / directive-flag ghost
       if (pastePending && modeRef.current !== 'pan') {
         requestDraw();
         return;
@@ -2630,6 +3338,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       activeTool,
       placeLib,
       pendingLabel,
+      pendingDirective,
       pastePending,
       pendingImage,
       danglingPinAt,
@@ -2703,7 +3412,16 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         requestDraw();
         return;
       }
-      if (activeTool !== 'select' && activeTool !== 'selectLasso') return;
+      // A press that is still in flight has to be resolved even if the tool has
+      // changed under it: a hotkey (or a hot reload) that switches tools during
+      // a drag used to fall out here with `modeRef` stuck on 'move', and every
+      // later pointer move went on dragging the selection with no button held.
+      // The drop itself belongs to the tool the press started in, so it is only
+      // *committed* for the selection tools; otherwise the gesture is dropped.
+      if (activeTool !== 'select' && activeTool !== 'selectLasso') {
+        if (modeRef.current !== 'idle') abortGesture();
+        return;
+      }
       (e.target as Element).releasePointerCapture(e.pointerId);
       let committedMove = false;
       if (modeRef.current === 'lasso') {
@@ -2735,7 +3453,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         if (d && spec && (d.x !== 0 || d.y !== 0)) {
           onCommand(buildMoveCommit(spec, d));
           committedMove = true;
+        } else {
+          // The press never became a drag, so it was a click: SelectPoint runs
+          // and the selection becomes the item under it (upstream splits these
+          // into TA_MOUSE_CLICK and TA_MOUSE_DRAG; here they are told apart by
+          // whether the move ever moved).
+          onSelect(pressHitRef.current, e.shiftKey);
         }
+        pressHitRef.current = null;
       } else if (modeRef.current === 'box') {
         const bo = boxOriginRef.current;
         const be = boxEndRef.current;
@@ -2778,8 +3503,26 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onSelectBox,
       onZoomArea,
       requestDraw,
+      abortGesture,
     ],
   );
+
+  /**
+   * The pointer went away mid-gesture: the browser cancelled it, or the capture
+   * moved elsewhere (a dev-server hot reload replacing the canvas node does
+   * exactly this). Either way `pointerup` is never coming, so end the gesture
+   * here rather than leaving it running with no button held.
+   */
+  const onPointerAbort = useCallback(() => {
+    // A keyboard grab (M/G) is not a pointer gesture: it holds no capture and
+    // commits on the next click, so it must survive one being released. And a
+    // normal `pointerup` releases its capture, which fires `lostpointercapture`
+    // straight after — by then the gesture is already over and there is nothing
+    // to abandon.
+    if (grabbedRef.current) return;
+    if (modeRef.current === 'idle' && !pointDragRef.current && !sheetPinDragRef.current) return;
+    abortGesture();
+  }, [abortGesture]);
 
   const onDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -2793,8 +3536,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         requestDraw();
         return;
       }
-      // Lines tool: a double-click ends the open polyline.
-      if (drawStateRef.current?.tool === 'lines') {
+      // Lines and rule-area tools: a double-click ends the outline.
+      if (isPolyTool(drawStateRef.current?.tool)) {
         finishPoly();
         return;
       }
@@ -2804,7 +3547,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const vp = viewportRef.current;
         if (!vp) return;
         const world = toWorld(e.clientX, e.clientY);
-        const hit = hitTest(schematic, libById, world, (6 * dpr()) / vp.scale);
+        // SCH_EDIT_TOOL::Properties, `case SCH_MARKER_T`: hand the marker to
+        // SCH_INSPECTION_TOOL::CrossProbe rather than opening a properties
+        // dialog, since a marker has none.
+        const marker = pickMarker(world);
+        if (marker) {
+          onMarkerPick?.(marker, true);
+          return;
+        }
+        const hit = pickAt(world);
         if (hit) {
           onEditItem?.(hit.id, hit.kind);
           return;
@@ -2827,6 +3578,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       libById,
       onEditItem,
       onEditDrawingSheet,
+      pickMarker,
+      onMarkerPick,
       renderOpts,
       finishPoly,
       updateWireChain,
@@ -2839,10 +3592,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // Backspace undoes the last segment while drawing; R/X/Y rotate/mirror
   // (KiCad hotkeys): the attached symbol while placing, else the selection.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (raw: KeyboardEvent) => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'schematic') !== 'schematic') return;
+      // The user's bindings, applied before the comparisons below — see
+      // hotkey_bindings.ts. This handler compares raw keys just as the editor's
+      // does, and the two must agree about what a key means.
+      const e = remapEvent(raw, settings.hotkeys);
+      if (!e) return;
       if (e.key === 'Escape' && wiresRef.current.length) {
         wiresRef.current = [];
         requestDraw();
@@ -2884,7 +3642,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         requestDraw();
         return;
       }
-      if ((e.key === 'Enter' || e.key === 'End') && drawStateRef.current?.tool === 'lines') {
+      if ((e.key === 'Enter' || e.key === 'End') && isPolyTool(drawStateRef.current?.tool)) {
         finishPoly();
         return;
       }
@@ -2948,7 +3706,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => window.removeEventListener('keydown', onKey);
   }, [requestDraw, activeTool, placeLib, finishPoly, finishWireChain]);
 
-  const cursor = toolCursor(activeTool);
+  const cursor = toolCursor(activeTool, attachedItem);
 
   return (
     <div
@@ -2958,17 +3716,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       <canvas
         ref={canvasRef}
         style={{ display: 'block', cursor, touchAction: 'none' }}
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerAbort}
+        onLostPointerCapture={onPointerAbort}
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault();
           if (activeTool === 'drawWire' || activeTool === 'drawBus') {
             wiresRef.current = [];
             requestDraw();
-          } else if (drawStateRef.current?.tool === 'lines') finishPoly();
+          } else if (isPolyTool(drawStateRef.current?.tool)) finishPoly();
           else if (drawStateRef.current) {
             drawStateRef.current = null;
             requestDraw();
@@ -2981,13 +3740,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
             // to select the item and pop the menu.
             const vp = viewportRef.current;
             if (!vp) return;
-            const hit = hitTest(
-              schematic,
-              libById,
-              toWorld(e.clientX, e.clientY),
-              (6 * dpr()) / vp.scale,
-            );
             const world = toWorld(e.clientX, e.clientY);
+            const hit = pickAt(world);
             onContextMenuRequest?.(e.clientX, e.clientY, hit, {
               world,
               handle: handleAt(world),
@@ -2997,7 +3751,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         }}
         onPointerLeave={() => {
           cursorRef.current = null;
-          onCursorMove?.(null);
+          onCursorMove?.(null, null);
           requestOverlay(); // drop the crosshair when the pointer leaves
         }}
       />

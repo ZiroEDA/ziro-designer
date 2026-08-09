@@ -150,9 +150,20 @@ function orthoLineDrag(
   delta: Vec2,
   work: Map<string, WorkLine>,
   cache: Map<string, Conn[]>,
-  bend: { x: number; y: number },
+  bend: BendState,
   gridIU: number,
   newLine: (at: Vec2, template: SchLine) => WorkLine,
+  /**
+   * Where a wire's *span* ended up, when the bend handed it to a new segment:
+   * old key -> new key. Upstream's
+   * `m_specialCaseLabels[label].attachedLine = a`, at the end of this function.
+   */
+  handover: Map<string, string>,
+  /** Labels that end up pinned to the dragged end (`trackMovingEnd`). */
+  trackMovingEnd: Set<string>,
+  /** Where each riding label sits, so the two cases above can be told apart. */
+  labelAt: Map<string, Vec2>,
+  ridersOf: Map<string, string[]>,
 ): void {
   const deltaAxis: Axis = delta.x !== 0 ? 'h' : 'v';
   const parallel = (a: Axis): boolean => a === deltaAxis;
@@ -250,12 +261,59 @@ function orthoLineDrag(
   if (lengthOf(line.start, line.end) === 0) return; // reuse the collapsed wire
 
   if (foundAttachment && lineAxis !== 'd') {
-    // A pin (or sheet pin, or anything else): two new segments make the 90°
-    // bend, offset one grid step per wire so parallel drags don't overlap.
+    // A pin (or sheet pin, or anything else): two new segments make the 90 degree
+    // bend, its elbow set back from the moved end so parallel drags do not
+    // overlap.
+    //
+    //     int xMove = ( xLength - ( xBendCount * lineGrid.x ) )
+    //                     * sign( selectedEnd.x - unselectedEnd.x );
+    //     ...
+    //     xBendCount += yMoveBit;
+    //
+    // Upstream advances these counters once per bending wire and never bounds
+    // them, which it can afford: `doMoveSelection` moves by `m_cursor - prevPos`
+    // — one frame's worth — mutates in place, and resets both counters to 1 each
+    // frame. A wire that bent on one frame has a riser parallel to the next
+    // frame's delta, so it takes the `foundLine` branch instead and never
+    // returns here. Ours is a pure function re-derived from the untouched sheet
+    // with the whole accumulated delta, so *every* connected wire arrives here
+    // in one pass — 73 of them when U102 of the coldfire demo is dragged, and
+    // the raw counter then sets the elbow back further than the wire is long,
+    // flipping `xMove`'s sign and throwing it past the moving end. A 5 mm drag
+    // moved a wire endpoint 77 mm that way.
+    //
+    // Clamping the set-back at the wire's length is worse than it looks: every
+    // wire that runs out of room parks on the same offset, one grid from its
+    // *anchored* end, which is exactly where a net label sits and where its text
+    // starts. It put 61 of 73 elbows on that one offset and 33 of 74 risers
+    // through label text.
+    //
+    // So the counter runs as upstream's does and is folded into the room this
+    // particular wire has. That keeps the property the counter exists for —
+    // "a group of wires all needing their offset one grid movement further out
+    // from each other to not overlap" — for every neighbouring pair, since
+    // consecutive wires in drag order differ by one step either way. Only wires
+    // a whole cycle apart share an offset, and those are far apart on the sheet.
     const xLength = Math.abs(unselectedEnd.x - selectedEnd.x);
     const yLength = Math.abs(unselectedEnd.y - selectedEnd.y);
-    const xMove = (xLength - bend.x * gridIU) * sign(selectedEnd.x - unselectedEnd.x);
-    const yMove = (yLength - bend.y * gridIU) * sign(selectedEnd.y - unselectedEnd.y);
+    const xDir = sign(selectedEnd.x - unselectedEnd.x);
+    const yDir = sign(selectedEnd.y - unselectedEnd.y);
+
+    /** Whole grid steps of set-back a wire this long can hold, at least one. */
+    const room = (length: number): number => Math.max(1, Math.floor(length / gridIU) - 1);
+    /** Upstream's count, folded back into that room. */
+    const fold = (count: number, length: number): number => 1 + ((count - 1) % room(length));
+
+    const xMove = (xLength - fold(bend.x, xLength) * gridIU) * xDir;
+    const yMove = (yLength - fold(bend.y, yLength) * gridIU) * yDir;
+
+    //     xBendCount += yMoveBit;
+    //     yBendCount += xMoveBit;
+    //
+    // Each axis is stepped by the *other* axis's motion: a drag straight down
+    // fans the elbows along x, and only a diagonal one fans both.
+    if (delta.y !== 0) bend.x += 1;
+    if (delta.x !== 0) bend.y += 1;
 
     const a = newLine(unselectedEnd, line.template);
     a.start = add(unselectedEnd, { x: xMove, y: yMove });
@@ -266,9 +324,6 @@ function orthoLineDrag(
     work.set(a.key, a);
     work.set(b.key, b);
 
-    bend.x += delta.y !== 0 ? 1 : 0;
-    bend.y += delta.x !== 0 ? 1 : 0;
-
     const shift = { x: delta.x !== 0 ? delta.x : xMove, y: delta.y !== 0 ? delta.y : yMove };
     if (line.startFlag) line.end = add(line.end, shift);
     else line.start = add(line.start, shift);
@@ -276,6 +331,27 @@ function orthoLineDrag(
     cache.set(a.key, conns);
     cache.set(b.key, [{ type: 'line', key: a.key }]);
     cache.set(line.key, [{ type: 'line', key: b.key }]);
+
+    // `a` now covers the span the original wire had, and the original has
+    // collapsed towards the pin. Upstream hands its labels over with it:
+    //
+    //     if( label->GetPosition() == selectedEnd )
+    //         m_specialCaseLabels[label].trackMovingEnd = true;
+    //     else {
+    //         m_specialCaseLabels[label].attachedLine = a;
+    //         m_specialCaseLabels[label].originalLineStart = a->GetStartPoint();
+    //         ...
+    //     }
+    //
+    // Without it a label keeps pointing at a wire that is no longer where it
+    // was: our "put the label back on its wire" repair then dragged every
+    // label on the sheet's incoming wires onto the stub beside the pin, one
+    // grid step apart, which is the row of labels piling up on a moved sheet.
+    for (const id of ridersOf.get(line.key) ?? []) {
+      const at = labelAt.get(id);
+      if (at && same(at, selectedEnd)) trackMovingEnd.add(id);
+      else handover.set(line.key, a.key);
+    }
     return;
   }
 
@@ -288,12 +364,32 @@ function orthoLineDrag(
 /** KiCad's connected-items grid (50 mil), the step bends are offset by. */
 const BEND_GRID_IU = 12700;
 
+/**
+ * `doMoveSelection`'s two bend counters, threaded through `performItemMove` into
+ * every `orthoLineDrag` of one pass:
+ *
+ *     // Used for tracking how far off a drag end should have its 90 degree elbow added
+ *     int xBendCount = 1;
+ *     int yBendCount = 1;
+ */
+interface BendState {
+  x: number;
+  y: number;
+}
+
 function computeOrtho(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
   spec: MoveSpec,
   delta: Vec2,
-): { adjust: EndAdjust[]; bends: SchLine[] } {
+): {
+  adjust: EndAdjust[];
+  bends: SchLine[];
+  /** Label id -> the uuid of the wire that ended up carrying its span. */
+  carrierOf: Map<string, string>;
+  /** Label ids pinned to the dragged end, which therefore move with it. */
+  trackMovingEnd: Set<string>;
+} {
   const work = new Map<string, WorkLine>();
   const originals = new Map<string, SchLine>();
 
@@ -344,12 +440,69 @@ function computeOrtho(
     { x: delta.x, y: 0 },
     { x: 0, y: delta.y },
   ].filter((d) => d.x !== 0 || d.y !== 0);
-  const bend = { x: 0, y: 0 };
+  const bend: BendState = { x: 1, y: 1 };
+
+  // Which labels ride which wire, by working-set key, so a handover knows what
+  // it is carrying (upstream reads this off `m_lineConnectionCache[line]`).
+  const ridersOf = new Map<string, string[]>();
+  const labelAt = new Map<string, Vec2>();
+  for (const ride of spec.labelRides) {
+    const key = [...work.keys()].find((k) => work.get(k)!.uuid === ride.lineUuid);
+    if (!key) continue;
+    ridersOf.set(key, [...(ridersOf.get(key) ?? []), ride.id]);
+  }
+  sch.labels.forEach((l, i) => labelAt.set(refId('label', l.uuid, i), l.at));
+  (sch.directiveLabels ?? []).forEach((d, i) => labelAt.set(refId('directive', d.uuid, i), d.at));
+  const handover = new Map<string, string>();
+  const trackMovingEnd = new Set<string>();
+
+  /**
+   * The order `performItemMove` walks the selection in:
+   *
+   *     for( EDA_ITEM* item : aSelection.GetItemsSortedByTypeAndXY( ( aDelta.x >= 0 ),
+   *                                                                 ( aDelta.y >= 0 ) ) )
+   *
+   * `SELECTION::GetItemsSortedByTypeAndXY` sorts by X, then Y, each in the
+   * direction of the drag, tie-breaking on uuid; a line sorts by its *midpoint*
+   * (`SCH_LINE::GetSortPosition`).
+   *
+   * That order is what turns the bend counter into a *linear* fan: dragging
+   * downwards, the lowest wire takes the first set-back and the highest the
+   * last, so the risers step monotonically one grid apart and never cross. We
+   * walked the document instead, which handed the counter an arbitrary
+   * sequence — the risers came out in file order, crossing each other, which is
+   * the tangle rather than the comb.
+   */
+  const leftBeforeRight = delta.x >= 0;
+  const topBeforeBottom = delta.y >= 0;
+  const sortPos = (w: WorkLine): Vec2 => ({
+    x: (w.start.x + w.end.x) / 2,
+    y: (w.start.y + w.end.y) / 2,
+  });
+  const inDragOrder = [...work.values()].sort((a, b) => {
+    const pa = sortPos(a);
+    const pb = sortPos(b);
+    if (pa.x !== pb.x) return leftBeforeRight ? pa.x - pb.x : pb.x - pa.x;
+    if (pa.y !== pb.y) return topBeforeBottom ? pa.y - pb.y : pb.y - pa.y;
+    return a.uuid < b.uuid ? -1 : a.uuid > b.uuid ? 1 : 0;
+  });
 
   for (const step of steps) {
-    for (const [, w] of [...work]) {
+    for (const w of inDragOrder) {
       if (w.isNew || (w.startFlag && w.endFlag) || (!w.startFlag && !w.endFlag)) continue;
-      orthoLineDrag(w, step, work, cache, bend, BEND_GRID_IU, newLine);
+      orthoLineDrag(
+        w,
+        step,
+        work,
+        cache,
+        bend,
+        BEND_GRID_IU,
+        newLine,
+        handover,
+        trackMovingEnd,
+        labelAt,
+        ridersOf,
+      );
     }
     // Then every selected item moves, including the dragged end of a partially
     // selected wire (the `moveItem` call after orthoLineDrag).
@@ -410,7 +563,23 @@ function computeOrtho(
         : makeWireWithUuid(w.start, w.end, w.uuid);
     bends.push(w.template.kind === 'bus' ? { ...base, uuid: w.uuid } : base);
   }
-  return { adjust, bends };
+  // Resolve each riding label to the wire that ended up with its span, following
+  // a chain of handovers (a wire can be handed on more than once, since the move
+  // runs as an X step and then a Y step).
+  const carrierOf = new Map<string, string>();
+  for (const ride of spec.labelRides) {
+    let key = [...work.keys()].find((k) => work.get(k)!.uuid === ride.lineUuid);
+    if (!key) continue;
+    const seen = new Set<string>();
+    while (handover.has(key) && !seen.has(key)) {
+      seen.add(key);
+      key = handover.get(key)!;
+    }
+    const w = work.get(key);
+    if (w) carrierOf.set(ride.id, w.uuid);
+  }
+
+  return { adjust, bends, carrierOf, trackMovingEnd };
 }
 
 const moveJunction = (j: SchJunction, d: Vec2): SchJunction => ({ ...j, at: add(j.at, d) });
@@ -424,6 +593,10 @@ function applyMove(
   addBends: SchLine[],
   removeBendIds: ReadonlySet<string>,
   undoing: boolean,
+  /** Label id -> uuid of the wire that ended up carrying its span. */
+  carrierOf: ReadonlyMap<string, string>,
+  /** Label ids pinned to the dragged end, which move with it. */
+  trackMovingEnd: ReadonlySet<string>,
 ): Schematic {
   const fullIds = spec.fullIds;
   const splitByUuid = new Map(spec.splits.map((sp) => [sp.lineUuid, sp]));
@@ -451,7 +624,10 @@ function applyMove(
     : spec.splits.map((sp) => makeJunctionWithUuid(sp.at, sp.junctionUuid));
 
   const movedByUuid = new Map<string, SchLine>();
-  for (const l of [...lines, ...splitHalves]) if (l.uuid !== undefined) movedByUuid.set(l.uuid, l);
+  // The bends are in here too: a handover points a label at the new segment
+  // that took over its wire's span, and that segment is one of them.
+  for (const l of [...lines, ...splitHalves, ...addBends])
+    if (l.uuid !== undefined) movedByUuid.set(l.uuid, l);
   const rideFor = new Map(spec.labelRides.map((r) => [r.id, r]));
 
   return {
@@ -477,9 +653,21 @@ function applyMove(
       // wire that moved whole, otherwise left in place and only pulled back on
       // when the wire no longer runs through them.
       const ride = rideFor.get(id);
-      const carrier = ride ? movedByUuid.get(ride.lineUuid) : undefined;
-      if (!ride || !carrier) return l;
+      if (!ride) return l;
+      // Pinned to the end that is being dragged: it follows it.
+      if (trackMovingEnd.has(id)) return moveLabel(l, delta);
+      // The span may have been handed to a segment the bend created.
+      const carrier = movedByUuid.get(carrierOf.get(id) ?? ride.lineUuid);
+      if (!carrier) return l;
       if (ride.rigid) return moveLabel(l, delta);
+      // The carrier collapsed to nothing. Upstream sees this coming and
+      // re-parents the label to the segment that took over the original span
+      // (`m_specialCaseLabels[label].attachedLine = a` at the end of
+      // orthoLineDrag), and that segment lies exactly where the old wire was —
+      // so the label is still on copper and must not be touched. Snapping it to
+      // the nearest point of a zero-length segment put it on the moved pin,
+      // which is the label teleporting across the sheet when a part is dragged.
+      if (carrier.start.x === carrier.end.x && carrier.start.y === carrier.end.y) return l;
       return onSegment(l.at, carrier.start, carrier.end)
         ? l
         : { ...l, at: nearestOnSegment(l.at, carrier.start, carrier.end) };
@@ -507,22 +695,42 @@ function nearestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
   return { x: Math.round(a.x + t * dx), y: Math.round(a.y + t * dy) };
 }
 
-function forward(spec: MoveSpec, delta: Vec2, adjust: EndAdjust[], bends: SchLine[]): EditCommand {
+/** Everything `computeOrtho` worked out, carried to both directions of the command. */
+interface OrthoPlan {
+  adjust: EndAdjust[];
+  bends: SchLine[];
+  carrierOf: ReadonlyMap<string, string>;
+  trackMovingEnd: ReadonlySet<string>;
+}
+
+function forward(spec: MoveSpec, delta: Vec2, plan: OrthoPlan): EditCommand {
   return {
     label: 'Move',
-    apply: (doc) => applyMove(doc, spec, delta, adjust, bends, new Set(), false),
-    invert: () => inverse(spec, delta, adjust, bends),
+    apply: (doc) =>
+      applyMove(
+        doc,
+        spec,
+        delta,
+        plan.adjust,
+        plan.bends,
+        new Set(),
+        false,
+        plan.carrierOf,
+        plan.trackMovingEnd,
+      ),
+    invert: () => inverse(spec, delta, plan),
   };
 }
 
-function inverse(spec: MoveSpec, delta: Vec2, adjust: EndAdjust[], bends: SchLine[]): EditCommand {
+function inverse(spec: MoveSpec, delta: Vec2, plan: OrthoPlan): EditCommand {
   const neg = { x: -delta.x, y: -delta.y };
-  const back = adjust.map((a) => ({ ...a, to: a.from, from: a.to }));
-  const bendIds = new Set(bends.map((b) => b.uuid!));
+  const back = plan.adjust.map((a) => ({ ...a, to: a.from, from: a.to }));
+  const bendIds = new Set(plan.bends.map((b) => b.uuid!));
   return {
     label: 'Move',
-    apply: (doc) => applyMove(doc, spec, neg, back, [], bendIds, true),
-    invert: () => forward(spec, delta, adjust, bends),
+    apply: (doc) =>
+      applyMove(doc, spec, neg, back, [], bendIds, true, plan.carrierOf, plan.trackMovingEnd),
+    invert: () => forward(spec, delta, plan),
   };
 }
 
@@ -537,6 +745,5 @@ export function orthoMove(
   delta: Vec2,
   libById: Map<string, LibSymbol> = new Map(),
 ): EditCommand {
-  const { adjust, bends } = computeOrtho(sch, libById, spec, delta);
-  return forward(spec, delta, adjust, bends);
+  return forward(spec, delta, computeOrtho(sch, libById, spec, delta));
 }

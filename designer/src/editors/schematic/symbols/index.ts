@@ -49,7 +49,8 @@ export function isPowerSymbol(entry: LibIndexEntry, symbolName: string): boolean
 
 // The hosted symbol library set, or the bundled subset when it is unreachable
 // (see libraryHosts.ts).
-const symbolsBase = (): string => libraryBase.symbols;
+/** Where the hosted (global-table stand-in) symbol libraries are served from. */
+export const symbolsBase = (): string => libraryBase.symbols;
 
 let indexPromise: Promise<LibIndexEntry[]> | null = null;
 /** Load the library index (library names + their symbol names) for search. */

@@ -87,7 +87,7 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
   },
   {
     group: 'Units',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres', toggle: true },
       { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches', toggle: true },
@@ -96,7 +96,7 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
   },
   {
     group: 'Crosshair modes',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs', toggle: true },
       { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs', toggle: true },
@@ -106,7 +106,7 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
   sep,
   {
     group: 'Line modes',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle', toggle: true },
       { id: 'lineMode90', icon: 'lineMode90', title: 'Line mode: 90°', toggle: true },

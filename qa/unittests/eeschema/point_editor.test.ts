@@ -75,8 +75,16 @@ describe('which items have handles', () => {
   it('gives them to the kinds SCH_POINT_EDITOR edits', () => {
     expect(pointEditTarget(sch, SHEET_ID)?.kind).toBe('sheet');
     expect(pointEditTarget(sch, RECT_ID)?.kind).toBe('graphic');
-    expect(pointEditTarget(sch, WIRE_ID)?.kind).toBe('line');
+    expect(pointEditTarget(sch, POLY_ID)?.kind).toBe('line');
     expect(pointEditTarget(sch, TEXTBOX_ID)?.kind).toBe('textbox');
+  });
+
+  it('gives none to a wire or a bus, only to a graphic line', () => {
+    // `pointEditorTypes` lists SCH_ITEM_LOCATE_GRAPHIC_LINE_T, not SCH_LINE_T,
+    // and `SCH_LINE::IsType` matches that pseudo-type only on LAYER_NOTES. So a
+    // selected wire carries no endpoint grips at all; you reshape it by
+    // dragging it. We put a box on the end of every selected wire.
+    expect(pointEditTarget(sch, WIRE_ID)).toBeNull();
   });
 
   it('gives none to anything else', () => {
@@ -184,13 +192,18 @@ describe('circles', () => {
 });
 
 describe('lines', () => {
-  it('drags a wire endpoint on its own', () => {
-    const out = dragHandle(sch, targetOf(WIRE_ID), handle(WIRE_ID, 'point', 1), {
-      x: mm(95),
+  it('drags a graphic line endpoint on its own', () => {
+    // A wire has no handles to drag (see above); a notes line does, and
+    // LINE_POINT_EDIT_BEHAVIOR moves the grabbed end alone.
+    const out = dragHandle(sch, targetOf(POLY_ID), handle(POLY_ID, 'point', 2), {
+      x: mm(25),
       y: mm(65),
     });
-    expect(out.lines[0]!.start).toEqual({ x: mm(80), y: mm(55) });
-    expect(out.lines[0]!.end).toEqual({ x: mm(95), y: mm(65) });
+    expect(out.lines[1]!.points).toEqual([
+      { x: mm(10), y: mm(40) },
+      { x: mm(20), y: mm(40) },
+      { x: mm(25), y: mm(65) },
+    ]);
   });
 
   it('drags one polyline vertex, leaving the rest', () => {
@@ -673,7 +686,8 @@ describe('adding and removing polyline corners', () => {
 
   it('offers Add Corner on nothing but a graphic polyline', () => {
     // Wires and buses are segments, not outlines; upstream gates on SHAPE_T::POLY.
-    expect(canAddCorner(sch, targetOf(WIRE_ID), { x: mm(85), y: mm(55) }, TOL)).toBe(false);
+    // A wire does not even reach here — it has no point-edit target at all.
+    expect(pointEditTarget(sch, WIRE_ID)).toBeNull();
     expect(canAddCorner(sch, targetOf(RECT_ID), { x: mm(10), y: mm(15) }, TOL)).toBe(false);
   });
 

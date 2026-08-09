@@ -150,6 +150,9 @@ function movePin(pin: LibPin, d: Vec2): LibPin {
 
 function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
   switch (g.kind) {
+    case 'ellipse':
+    case 'ellipse_arc':
+      return { ...g, center: translate(g.center, d) };
     case 'rectangle':
       return { ...g, start: translate(g.start, d), end: translate(g.end, d) };
     case 'circle':
@@ -184,6 +187,11 @@ function rotatePin(pin: LibPin, c: Vec2, ccw: boolean): LibPin {
 function rotateGraphic(g: LibGraphic, c: Vec2, ccw: boolean): LibGraphic {
   const r = (p: Vec2): Vec2 => (ccw ? rotCCW(p, c) : rotCW(p, c));
   switch (g.kind) {
+    case 'ellipse':
+    case 'ellipse_arc':
+      // The centre turns with everything else; the shape's own tilt turns with
+      // it, so the radii are untouched.
+      return { ...g, center: r(g.center), rotation: g.rotation + (ccw ? 90 : -90) };
     case 'rectangle':
       return { ...g, start: r(g.start), end: r(g.end) };
     case 'circle':
@@ -237,6 +245,11 @@ function mirrorPin(pin: LibPin, c: Vec2, horizontal: boolean): LibPin {
 function mirrorGraphic(g: LibGraphic, c: Vec2, horizontal: boolean): LibGraphic {
   const m = (p: Vec2): Vec2 => (horizontal ? mirX(p, c.x) : mirY(p, c.y));
   switch (g.kind) {
+    case 'ellipse':
+    case 'ellipse_arc':
+      // Reflecting negates the tilt about the mirror axis; the radii are
+      // unsigned lengths and do not change.
+      return { ...g, center: m(g.center), rotation: -g.rotation + (horizontal ? 180 : 0) };
     case 'rectangle':
       return { ...g, start: m(g.start), end: m(g.end) };
     case 'circle':
@@ -276,6 +289,8 @@ function itemPosition(sym: LibSymbol, ref: SymItemRef): Vec2 {
     case 'rectangle':
       return g.start;
     case 'circle':
+    case 'ellipse':
+    case 'ellipse_arc':
       return g.center;
     case 'arc':
       return g.start;
@@ -684,6 +699,21 @@ export function hitTestSymbol(
 
 function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
   switch (g.kind) {
+    case 'ellipse':
+    case 'ellipse_arc': {
+      // Rotate into the ellipse's frame and normalise each axis, so the shape
+      // becomes a unit circle and the test is a distance from 1.
+      const rad = (-g.rotation * Math.PI) / 180;
+      const dx = p.x - g.center.x;
+      const dy = p.y - g.center.y;
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+      const a = Math.max(1, g.majorRadius);
+      const b = Math.max(1, g.minorRadius);
+      const r = Math.hypot(lx / a, ly / b);
+      if (g.kind === 'ellipse' && g.fill && g.fill.type !== 'none' && r <= 1) return true;
+      return Math.abs(r - 1) * Math.min(a, b) <= tol;
+    }
     case 'rectangle': {
       const x0 = Math.min(g.start.x, g.end.x),
         x1 = Math.max(g.start.x, g.end.x);
@@ -829,6 +859,14 @@ export function boxSelectSymbol(
 
 function graphicPoints(g: LibGraphic): Vec2[] {
   switch (g.kind) {
+    case 'ellipse':
+    case 'ellipse_arc':
+      // The bounding square of the larger radius; enough for a box that is
+      // merged with everything else.
+      return [
+        { x: g.center.x - g.majorRadius, y: g.center.y - g.majorRadius },
+        { x: g.center.x + g.majorRadius, y: g.center.y + g.majorRadius },
+      ];
     case 'rectangle':
       return [g.start, g.end];
     case 'circle':

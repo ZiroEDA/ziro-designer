@@ -43,9 +43,22 @@ describe('bus connectivity', () => {
   });
 
   it('does not join a net that is not a member of the bus', () => {
+    // Neither CLK nor RST is a member of D[0..3], so the bus does not join the
+    // two taps. They must be differently named to test that: two taps labelled
+    // alike would be one net whatever the bus said, since labels connect by name
+    // (processSubGraphs absorbs same-sheet subgraphs with a matching driver).
+    const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'CLK', 'RST')), new Map());
+    expect(nl.nets.filter((n) => n.name === '/CLK').length).toBe(1);
+    expect(nl.nets.filter((n) => n.name === '/RST').length).toBe(1);
+    expect(nl.nets.find((n) => n.name === '/CLK')!.items).not.toContain('w2');
+  });
+
+  it('joins two same-named taps by their label, bus member or not', () => {
     const nl = computeNetlist(doc(BUS_WITH_TWO_TAPS('D[0..3]', 'CLK', 'CLK')), new Map());
-    // CLK is no member of D[0..3]: the two taps stay separate nets.
-    expect(nl.nets.filter((n) => n.name === '/CLK').length).toBe(2);
+    const clk = nl.nets.filter((n) => n.name === '/CLK');
+    expect(clk.length).toBe(1);
+    expect(clk[0]!.items).toContain('w1');
+    expect(clk[0]!.items).toContain('w2');
   });
 
   it('exposes the bus subgraph with its expanded members', () => {

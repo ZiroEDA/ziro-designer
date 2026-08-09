@@ -15,11 +15,109 @@
   --panel-list-bg: #3a3d42;
   /* Filled portion of an opacity slider, left of the thumb. */
   --slider-fill: #e8912b;
+
+  /* The shell is dark-only, and this is what tells the engine so: it paints
+     every *native* control, scrollbar and popup from its dark palette —
+     including the list a <select> opens, which no CSS rule can reach. Without
+     it the chrome was dark and every scrollbar and text box on top of it was
+     white. */
+  color-scheme: dark;
+  /* Firefox scrollbars: thin, thumb then track. Both inherit, so declaring them
+     here reaches every scroller without a universal selector (which would
+     outrank the rules below it). */
+  scrollbar-width: thin;
+  scrollbar-color: #5a5f66 var(--chrome-bg2);
 }
 
 html,
 body {
   background: var(--chrome-bg2);
+}
+
+/* ---------------------------------------------------------------------------
+   Dark form controls and scrollbars.
+
+   The chrome is painted by the rules in this file, but scrollbars, text fields,
+   comboboxes and the drop-down lists the browser opens are drawn by the *user
+   agent*, which defaults to the OS light theme — white boxes and pale scrollbars
+   over a dark shell. A handful of places had been themed one at a time
+   (`.ze-auxbar select`, `.ze-cell-input`, …); everything else was still white.
+
+   `color-scheme: dark` is the load-bearing line: it tells the engine to paint
+   every native control, scrollbar and popup in its dark palette, including the
+   open <select> list, which CSS cannot reach. The rest matches those controls to
+   KiCad's own greys rather than the browser's idea of dark.
+
+   All of it is element-level under `.ze-app`, so the specific rules further down
+   still win wherever a widget wants something different.
+   ------------------------------------------------------------------------- */
+/* Chromium/WebKit: KiCad's scrollbars are narrow with a flat grey thumb and no
+   arrow buttons. */
+.ze-app ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.ze-app ::-webkit-scrollbar-track {
+  background: var(--chrome-bg2);
+}
+.ze-app ::-webkit-scrollbar-thumb {
+  background: #5a5f66;
+  border: 3px solid var(--chrome-bg2);
+  border-radius: 6px;
+}
+.ze-app ::-webkit-scrollbar-thumb:hover {
+  background: #6f757d;
+}
+.ze-app ::-webkit-scrollbar-corner {
+  background: var(--chrome-bg2);
+}
+/* The buttons at the ends: KiCad has none, and the default pair is light. */
+.ze-app ::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Text fields and comboboxes. The `:not(…)` list keeps the controls that are
+   *drawn* rather than filled — a checkbox, a radio, a colour well, a slider —
+   out of it; giving those a background and a border destroys them. */
+.ze-app input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+.ze-app select,
+.ze-app textarea {
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font: inherit;
+  outline: none;
+}
+.ze-app
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+.ze-app select:focus,
+.ze-app textarea:focus {
+  border-color: var(--chrome-active-border);
+}
+.ze-app input:disabled,
+.ze-app select:disabled,
+.ze-app textarea:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.ze-app input::placeholder,
+.ze-app textarea::placeholder {
+  color: #8b9098;
+}
+/* The accent the browser paints inside a checkbox, radio or slider. */
+.ze-app input[type="checkbox"],
+.ze-app input[type="radio"],
+.ze-app input[type="range"] {
+  accent-color: #e07b1a;
+}
+/* The list a <select> opens is a native popup: `color-scheme` handles most
+   engines, and these keep the rows on KiCad's grey where it does not. */
+.ze-app option,
+.ze-app optgroup {
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
 }
 
 * {
@@ -298,13 +396,18 @@ body {
 }
 /* KiCad's native GTK/Adwaita disclosure arrow: a thin chevron outline (not a
    filled triangle) that rotates from pointing right (collapsed) to down. */
-.ze-tree-item .twisty {
+/* The disclosure chevron. Declared without an ancestor so every tree-ish
+   expander in the app is the same mark — the project tree, the net navigator and
+   the fields table's group rows — rather than a mix of chevrons and solid
+   triangles. */
+.twisty {
   position: relative;
+  display: inline-block;
   width: 12px;
   height: 12px;
   flex: 0 0 auto;
 }
-.ze-tree-item .twisty.expandable::before {
+.twisty.expandable::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -316,7 +419,7 @@ body {
   transform: translate(-65%, -50%) rotate(45deg);
   transition: transform 0.1s ease;
 }
-.ze-tree-item .twisty.expandable.open::before {
+.twisty.expandable.open::before {
   transform: translate(-50%, -70%) rotate(135deg);
 }
 
@@ -3493,6 +3596,37 @@ body {
   border-radius: 4px 4px 0 0;
   color: #9a9ca0;
 }
+/* Search pane rows. SEARCH_PANE_LISTVIEW is a wxListCtrl, so a picked row draws
+   in the platform's selection colour; ours is the same orange the ERC list uses,
+   so "which row is selected" reads the same wherever a list appears. */
+.ze-search-row {
+  cursor: pointer;
+}
+/* Painted on the cells, not the row: every other selected-row style in this file
+   does the same, because a background on a `tr` is unreliable once the cells
+   establish their own formatting (these carry `overflow: hidden` for the
+   ellipsis). `.ze-sft-table tr.selected td` is the same shape. */
+.ze-search-row:hover td {
+  background: var(--chrome-hover);
+}
+.ze-search-row.selected td {
+  background: #e07b1a;
+  color: #fff;
+}
+
+/* The docked Search pane is 240px wide, where four tabs at the dialog's padding
+   overflow and put a horizontal scrollbar under the whole panel. Upstream's
+   wxNotebook scrolls its own tab strip in that case; wrapping is the web
+   equivalent and costs no chrome. Scoped, so the dialogs keep one row. */
+.ze-erc-tabs.compact {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.ze-erc-tabs.compact .tab {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .ze-erc-tabs .tab.active {
   color: var(--chrome-fg);
   background: var(--chrome-hover);

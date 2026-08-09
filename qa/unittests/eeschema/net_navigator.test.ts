@@ -10,6 +10,7 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   buildNetNavigator,
+  buildNetNavigatorHierarchy,
   netNavigatorItemText,
   netNavigatorOrder,
   netNavigatorIndex,
@@ -84,13 +85,26 @@ describe('an item describes itself in words', () => {
 });
 
 describe('the tree', () => {
-  it('lists nets by name with their items under them', () => {
+  it('lists what a net reaches, not the connectivity that carries it', () => {
     const t = tree();
     const clk = t.find((n) => n.name.endsWith('CLK'))!;
     expect(clk).toBeDefined();
-    // The wire pair, the junction, the label and the resistor's top pin.
-    expect(clk.items.map((i) => i.id).sort()).toEqual(['j1', 'l1', 'r1:pin0', 'w1', 'w2']);
-    expect(clk.items.find((i) => i.id === 'l1')!.text).toContain("Label 'CLK'");
+    // The label and the resistor's top pin. MakeNetNavigatorNode `continue`s
+    // past SCH_LINE_T, SCH_JUNCTION_T and both bus-entry types before it
+    // appends anything, so the wire pair (w1, w2) and the junction (j1) that
+    // join them are deliberately absent.
+    // One sheet node under the net; MakeNetNavigatorNode always appends one.
+    expect(clk.sheets).toHaveLength(1);
+    const items = clk.sheets[0]!.items;
+    expect(items.map((i) => i.id).sort()).toEqual(['l1', 'r1:pin0']);
+    expect(items.find((i) => i.id === 'l1')!.text).toContain("Label 'CLK'");
+  });
+
+  it('sorts the items under a net by their text, as SortChildren does', () => {
+    for (const net of tree()) {
+      const texts = net.sheets.flatMap((sh) => sh.items.map((i) => i.text));
+      expect([...texts].sort(), net.name).toEqual(texts);
+    }
   });
 
   it('is sorted by net name, not by the order connectivity found them', () => {
@@ -101,8 +115,12 @@ describe('the tree', () => {
   });
 
   it('finds which net an item is on, for Find in Net Navigator', () => {
-    expect(netOfItem(tree(), 'j1')).toBe(tree().find((n) => n.name.endsWith('CLK'))!.name);
+    expect(netOfItem(tree(), 'l1')).toBe(tree().find((n) => n.name.endsWith('CLK'))!.name);
     expect(netOfItem(tree(), 'nothing')).toBeNull();
+    // A junction is on that net electrically but has no node in the tree, so
+    // there is nothing for a lookup to land on — the same as upstream, where
+    // SelectNetNavigatorItem can only match a node that was appended.
+    expect(netOfItem(tree(), 'j1')).toBeNull();
   });
 });
 
@@ -130,9 +148,11 @@ describe('Tab and Shift+Tab', () => {
   it('cross from one net to the next, because the tree is flattened first', () => {
     const t = tree();
     const flat = netNavigatorOrder(t);
-    expect(flat.length).toBe(t.reduce((n, x) => n + x.items.length, 0));
-    const lastOfFirst = t[0]!.items[t[0]!.items.length - 1]!.id;
-    if (t.length > 1) expect(stepNetItem(flat, lastOfFirst, true)).toBe(t[1]!.items[0]!.id);
+    const itemsOf = (n: (typeof t)[number]) => n.sheets.flatMap((sh) => sh.items);
+    expect(flat.length).toBe(t.reduce((n, x) => n + itemsOf(x).length, 0));
+    const firstItems = itemsOf(t[0]!);
+    const lastOfFirst = firstItems[firstItems.length - 1]!.id;
+    if (t.length > 1) expect(stepNetItem(flat, lastOfFirst, true)).toBe(itemsOf(t[1]!)[0]!.id);
   });
 });
 
@@ -181,8 +201,9 @@ describe('the tree is linear in the sheet, not quadratic', () => {
     expect(tree.length).toBeGreaterThan(1000);
     // And it still describes things correctly at that size.
     const first = tree.find((n) => n.name.endsWith('N0'))!;
-    expect(first.items.some((i) => i.text.startsWith("Label 'N0'"))).toBe(true);
-    expect(first.items.some((i) => i.text.startsWith("Symbol 'R0' pin '1'"))).toBe(true);
+    const firstItems = first.sheets.flatMap((sh) => sh.items);
+    expect(firstItems.some((i) => i.text.startsWith("Label 'N0'"))).toBe(true);
+    expect(firstItems.some((i) => i.text.startsWith("Symbol 'R0' pin '1'"))).toBe(true);
   });
 
   it('an index built once answers the same as one built per call', () => {
@@ -196,5 +217,87 @@ describe('the tree is linear in the sheet, not quadratic', () => {
         netNavigatorItemText(d, l, id, fmt),
       );
     }
+  });
+});
+
+/**
+ * The sheet level. `MakeNetNavigatorNode` appends a node per sheet path the net
+ * has a subgraph on and hangs the items beneath it — always, even when the
+ * schematic has one sheet (`aSingleSheetSchematic` only decides which node is
+ * auto-expanded). So the tree is Nets > net > sheet > item, and ours was one
+ * level short.
+ */
+describe('the sheet level', () => {
+  it('always puts a sheet node between a net and its items', () => {
+    for (const net of tree()) {
+      expect(net.sheets.length, net.name).toBeGreaterThan(0);
+      for (const sheet of net.sheets) expect(sheet.items.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('labels it with what the caller passes', () => {
+    const labelled = buildNetNavigator(doc(), libs(), fmt, 'board/sub');
+    for (const net of labelled) expect(net.sheets[0]!.label).toBe('board/sub');
+  });
+});
+
+/**
+ * The hierarchy-wide tree. `MakeNetNavigatorNode` gathers every subgraph of the
+ * net across all sheets and appends one node per sheet path, so a signal that
+ * crosses sheets shows a node for each — and it is grouped by the name the
+ * hierarchy settled on, not by each sheet's local name.
+ */
+describe('across the hierarchy', () => {
+  const CHILD = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
+    (hierarchical_label "SIG" (shape input) (at 10 10 0)
+      (effects (font (size 1.27 1.27))) (uuid "hl-sig"))
+    (wire (pts (xy 10 10) (xy 30 10)) (uuid "w-c"))
+    (label "SIG" (at 30 10 0) (effects (font (size 1.27 1.27))) (uuid "l-child")))`;
+
+  const ROOT = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
+    (label "SIG" (at 20 10 0) (effects (font (size 1.27 1.27))) (uuid "l-root"))
+    (wire (pts (xy 20 10) (xy 40 10)) (uuid "w-r"))
+    (sheet (at 40 5) (size 20 20) (uuid "s1")
+      (property "Sheetname" "Child" (at 40 4 0) (effects (font (size 1.27 1.27))))
+      (property "Sheetfile" "child.kicad_sch" (at 40 26 0) (effects (font (size 1.27 1.27))))
+      (pin "SIG" input (at 40 10 180) (uuid "sp-sig"))))`;
+
+  const sheets = () => [
+    { path: '/', file: 'root.kicad_sch', doc: readSchematic(parse(ROOT)), label: 'board' },
+    {
+      path: '/s1/',
+      file: 'child.kicad_sch',
+      doc: readSchematic(parse(CHILD)),
+      label: 'board/Child',
+    },
+  ];
+
+  it('gives a net a sheet node per sheet it appears on', () => {
+    const tree = buildNetNavigatorHierarchy(sheets(), () => new Map(), fmt);
+    const sig = tree.find((n) => n.name.endsWith('SIG'));
+    expect(sig, 'the hierarchical net should be one node').toBeDefined();
+    expect(sig!.sheets.map((sh) => sh.label)).toEqual(['board', 'board/Child']);
+  });
+
+  it('puts each sheet its own items and nothing else', () => {
+    const tree = buildNetNavigatorHierarchy(sheets(), () => new Map(), fmt);
+    const sig = tree.find((n) => n.name.endsWith('SIG'))!;
+    const [root, child] = sig.sheets;
+    expect(root!.items.map((i) => i.id)).toContain('l-root');
+    expect(root!.items.map((i) => i.id)).not.toContain('l-child');
+    expect(child!.items.map((i) => i.id)).toContain('l-child');
+  });
+
+  it('sorts the sheet nodes, as SortChildren does', () => {
+    const reversed = sheets().reverse();
+    const tree = buildNetNavigatorHierarchy(reversed, () => new Map(), fmt);
+    for (const net of tree) {
+      const labels = net.sheets.map((sh) => sh.label);
+      expect([...labels].sort(), net.name).toEqual(labels);
+    }
+  });
+
+  it('is empty for no sheets', () => {
+    expect(buildNetNavigatorHierarchy([], () => new Map(), fmt)).toEqual([]);
   });
 });

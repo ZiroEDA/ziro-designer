@@ -88,6 +88,9 @@ function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
     case 'rectangle':
       return { ...g, start: add(g.start, d), end: add(g.end, d) };
     case 'circle':
+    case 'ellipse':
+    case 'ellipse_arc':
+      // An ellipse is defined by its centre and two radii; only the centre moves.
       return { ...g, center: add(g.center, d) };
     case 'arc':
       return { ...g, start: add(g.start, d), mid: add(g.mid, d), end: add(g.end, d) };
@@ -298,6 +301,13 @@ function applyConnectedMove(
       // One end was dragged: upstream moves the label by the *fixed* end's
       // delta, zero, and only puts it back on the wire when the wire shrank
       // past it (SCH_MOVE_TOOL's special-case label handling).
+      //
+      // A carrier that collapsed to nothing has no "nearest point on the wire"
+      // worth having — SEG::NearestPoint on a degenerate segment is just the
+      // point itself, which is wherever the drag left the collapsed wire. The
+      // label stays where it is; upstream never reaches this because it
+      // re-parents the label to the segment that took the span over.
+      if (carrier.start.x === carrier.end.x && carrier.start.y === carrier.end.y) return l;
       return onSegment(l.at, carrier.start, carrier.end)
         ? l
         : { ...l, at: nearestOnSegment(l.at, carrier.start, carrier.end) };

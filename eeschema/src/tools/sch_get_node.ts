@@ -216,7 +216,14 @@ function collectAt(
                 ? [g.start, g.mid, g.end]
                 : g.kind === 'polyline' || g.kind === 'bezier'
                   ? g.points
-                  : [g.at];
+                  : g.kind === 'ellipse' || g.kind === 'ellipse_arc'
+                    ? // The bounding square of the larger radius: exact enough
+                      // for a box that is then merged with everything else.
+                      [
+                        { x: g.center.x - g.majorRadius, y: g.center.y - g.majorRadius },
+                        { x: g.center.x + g.majorRadius, y: g.center.y + g.majorRadius },
+                      ]
+                    : [g.at];
         for (const q of pts) {
           const w = localToWorld(sym.at, xf, q);
           box.minX = Math.min(box.minX, w.x);

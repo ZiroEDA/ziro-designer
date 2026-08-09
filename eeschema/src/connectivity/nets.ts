@@ -71,7 +71,7 @@ interface Driver {
  * is low quality, so a net with any *named* pin on it takes that pin's name,
  * `Net-(U1A-K)` rather than `Net-(R1-Pad2)`.
  */
-function compareNames(a: string, b: string): number {
+export function compareNames(a: string, b: string): number {
   const aLowQuality = a.includes('-Pad');
   const bLowQuality = b.includes('-Pad');
   if (aLowQuality !== bLowQuality) return aLowQuality ? 1 : -1;
@@ -99,6 +99,105 @@ function compareDrivers(a: Driver, b: Driver): number {
   }
 
   return compareNames(a.name, b.name);
+}
+
+/**
+ * CONNECTION_GRAPH::processSubGraphs' absorption, within one sheet: two
+ * strongly-driven subgraphs whose driver names match are one subgraph, and the
+ * loser is absorbed rather than merely renamed.
+ *
+ * Labels connect by name, so this is how a sheet that names the same net twice —
+ * a hierarchical label "UTXD0" on the wire leaving the sheet and a plain label
+ * "UTXD0" on the wire that feeds it — ends up with one net. It has to happen
+ * before the hierarchy is walked: only the subgraph carrying the hierarchical
+ * label is a candidate for propagation, so if the plain label's subgraph is still
+ * separate at that point it never learns the name the parent settled on and is
+ * left behind on "/Child/UTXD0" while the rest of the net becomes "/UTXD0".
+ *
+ * Upstream matches on `Name( true )` (the driver's own name, no sheet path) and
+ * skips weak drivers, `m_strong_driver` being `highest_priority >= HIER_LABEL`.
+ */
+function absorbSameSheetSubgraphs(allNets: Net[], netByItem: Map<string, number>): Net[] {
+  const nets = allNets.filter((n) => n.driverPriority >= Priority.HierLabel);
+  if (nets.length < 2) return allNets;
+
+  const classes = mergeBySharedDriverName(nets, Priority.HierLabel);
+  const absorbed = new Set<Net>();
+
+  for (const group of classes) {
+    const rep = group[0]!;
+    for (const net of group.slice(1)) {
+      for (const id of net.items) {
+        rep.items.push(id);
+        netByItem.set(id, rep.code);
+      }
+      // The absorbed subgraph's own drivers come too, so a third subgraph named
+      // by one of them still finds this one (add_connections_to_check recurses
+      // onto each candidate it absorbs).
+      for (const d of net.drivers)
+        if (!rep.drivers.some((x) => x.name === d.name)) rep.drivers.push(d);
+      absorbed.add(net);
+    }
+  }
+
+  return absorbed.size > 0 ? allNets.filter((n) => !absorbed.has(n)) : allNets;
+}
+
+/**
+ * Group subgraphs by the transitive closure of "shares a driver name at or above
+ * `aMinPriority`". Each returned group is ordered with the subgraph whose driver
+ * compareDrivers ranks first at the head, so callers can treat `group[0]` as the
+ * representative the merged net should be named after.
+ */
+export function mergeBySharedDriverName(nets: readonly Net[], minPriority: Priority): Net[][] {
+  const parent = new Map<number, number>();
+  const find = (i: number): number => {
+    let root = i;
+    while ((parent.get(root) ?? root) !== root) root = parent.get(root)!;
+    for (let cur = i; cur !== root; ) {
+      const next = parent.get(cur) ?? cur;
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  /** prefer_as_representative: whichever driver compareDrivers ranks first. */
+  const preferred = (a: number, b: number): boolean => {
+    const na = nets[a]!;
+    const nb = nets[b]!;
+    if (na.driverPriority !== nb.driverPriority) return na.driverPriority > nb.driverPriority;
+    return compareNames(na.name, nb.name) < 0;
+  };
+  const union = (a: number, b: number): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra === rb) return;
+    if (preferred(ra, rb)) parent.set(rb, ra);
+    else parent.set(ra, rb);
+  };
+
+  const byName = new Map<string, number[]>();
+  nets.forEach((net, i) => {
+    for (const d of net.drivers) {
+      if (d.priority < minPriority) continue;
+      const arr = byName.get(d.name);
+      if (arr) arr.push(i);
+      else byName.set(d.name, [i]);
+    }
+  });
+  for (const list of byName.values())
+    for (let i = 1; i < list.length; i++) union(list[0]!, list[i]!);
+
+  const groups = new Map<number, Net[]>();
+  for (let i = 0; i < nets.length; i++) {
+    const root = find(i);
+    const arr = groups.get(root);
+    // The root is the representative, so keep it at the head.
+    if (!arr) groups.set(root, [nets[i]!]);
+    else if (i === root) arr.unshift(nets[i]!);
+    else arr.push(nets[i]!);
+  }
+  return [...groups.values()].filter((g) => g.length > 1);
 }
 
 /** A connectable item (node in the union-find): a wire, label, junction, or symbol pin. */
@@ -129,6 +228,15 @@ export interface Net {
    *  >= HierLabel is a "strong" driver and < GlobalPowerPin a "local" one,
    *  exactly ResolveDrivers' m_strong_driver / m_local_driver. */
   driverPriority: Priority;
+  /**
+   * CONNECTION_SUBGRAPH::m_drivers: *every* driver on this subgraph, not just the
+   * one that won the naming. A wire carrying both a "VCCA" and a "VRH" label has
+   * two, and both are names this subgraph answers to — upstream feeds the
+   * non-chosen ones into processSubGraphs' connections_to_check, so any other
+   * subgraph named by either of them is the same net. Deduped by name, each
+   * keeping its highest priority.
+   */
+  drivers: { name: string; priority: Priority }[];
 }
 
 /** A bus subgraph: the bus lines/entries it spans and its expanded members. */
@@ -378,7 +486,11 @@ export function computeNetlist(
     nodes.push({
       id: refId('label', l.uuid, i),
       points: [l.at],
-      driver: { priority, name: l.text },
+      // CONNECTION_SUBGRAPH::driverName escapes a label's text for use as a net
+      // name (EscapeString CTX_NETNAME), so a label reading "CLKIN/EXTAL" names
+      // the net "CLKIN{slash}EXTAL" — the slash is the sheet-path separator and
+      // cannot survive raw.
+      driver: { priority, name: escapeNetName(l.text) },
     });
   });
 
@@ -415,7 +527,8 @@ export function computeNetlist(
       nodes.push({
         id,
         points: [p.at],
-        driver: { priority: Priority.SheetPin, name: p.name, shape: p.shape },
+        // …and the same for a sheet pin's name (driverName's SCH_SHEET_PIN_T arm).
+        driver: { priority: Priority.SheetPin, name: escapeNetName(p.name), shape: p.shape },
       });
     });
   });
@@ -534,6 +647,37 @@ export function computeNetlist(
     if (overlapping.length < 2) return;
     for (const id of overlapping) add(l.at, id);
   });
+
+  // Label-on-segment rule (SCH_LABEL_BASE::UpdateDanglingState): a label lying
+  // anywhere along a wire or bus segment connects to that line, not just at one
+  // of its ends. Upstream's connection_map only ties items that share an exact
+  // point, so the dangling pass contributes this edge itself ("Add the line to
+  // the connected items, since it won't be picked up by a search of intersecting
+  // connection points"), and CONNECTION_GRAPH::Recalculate runs it between
+  // updateItemConnectivity and buildConnectionGraph so the subgraph walk sees it.
+  //
+  // The order upstream tests in is load-bearing: an exact-position pin, label,
+  // sheet pin or no-connect settles the label and *no* line edge is added; only
+  // then bus segments, then wire segments, and only the first hit counts.
+  const labelsAtPoint = new Map<string, number>();
+  for (const l of sch.labels) {
+    if (l.kind === 'text') continue;
+    labelsAtPoint.set(key(l.at), (labelsAtPoint.get(key(l.at)) ?? 0) + 1);
+  }
+  const anchorPoints = new Set<string>();
+  for (const p of allPins) anchorPoints.add(key(p.at)); // PIN_END
+  for (const nc of sch.noConnects) anchorPoints.add(key(nc.at)); // NO_CONNECT_END
+  for (const sh of sch.sheets) for (const p of sh.pins) anchorPoints.add(key(p.at)); // SHEET_LABEL_END
+  for (const l of sch.labels) {
+    if (l.kind === 'text') continue;
+    const kk = key(l.at);
+    // LABEL_END counts only for a *different* label on the point; upstream skips
+    // the entry whose item is the label being tested.
+    if (anchorPoints.has(kk) || (labelsAtPoint.get(kk) ?? 0) > 1) continue;
+    if (busIndex.any(l.at)) continue; // BUS_END wins: it joins the bus, not a wire
+    const wireId = wireIndex.hits(l.at)[0];
+    if (wireId !== undefined) add(l.at, wireId);
+  }
 
   // Union items sharing a point; wires bridge their two endpoints automatically.
   const uf = new UnionFind();
@@ -696,8 +840,16 @@ export function computeNetlist(
     let autoPin: Node | null = null;
     // aForceNoConnect: a net carrying a no-connect flag names its pin "unconnected-".
     const forceNoConnect = group.some((n) => noConnectIds.has(n.id));
+    /** Every driver on the subgraph, the names it merges on (m_drivers). */
+    const drivers: { name: string; priority: Priority }[] = [];
     for (const n of group) {
-      if (n.driver?.name && (!best || compareDrivers(n.driver, best) < 0)) best = n.driver;
+      const d = n.driver;
+      if (d?.name && (!best || compareDrivers(d, best) < 0)) best = d;
+      if (d?.name) {
+        const seen = drivers.find((x) => x.name === d.name);
+        if (!seen) drivers.push({ name: d.name, priority: d.priority });
+        else if (d.priority > seen.priority) seen.priority = d.priority;
+      }
       // Pin candidates are ranked on the plain spelling, as ResolveDrivers ranks
       // them on GetNameForDriver; the "unconnected-" spelling of the winner is
       // only picked up once the winner is known.
@@ -718,10 +870,14 @@ export function computeNetlist(
       localName,
       items,
       driverPriority: best?.priority ?? Priority.None,
+      drivers,
     });
     for (const id of items) netByItem.set(id, code);
     code++;
   }
 
-  return { nets, netByItem, buses };
+  // processSubGraphs' absorption closes the graph for this sheet, so everything
+  // downstream — ERC re-graphing one sheet, the hierarchy walk — sees the same
+  // subgraphs KiCad would.
+  return { nets: absorbSameSheetSubgraphs(nets, netByItem), netByItem, buses };
 }

@@ -169,6 +169,31 @@ export function itemPassesFilter(doc: Schematic, id: string, o: SelectionFilterO
   return o[info.category];
 }
 
+/**
+ * What a *click* on `id` should actually select, or null for "nothing".
+ *
+ * `SCH_SELECTION_TOOL::collectSelectable` adds a pin's parent symbol to the
+ * collector whenever the Pins filter is off ("Let's add the parent so that
+ * people can use pins to select symbols in this case"), and `narrowSelection`
+ * then drops the pin itself. So turning Pins off does not make a symbol's pins
+ * dead area: clicking one picks the symbol.
+ *
+ * Only the point-click path does this. `SelectAll` and a box drag run their
+ * results through `applySelectionFilter` alone, and upstream's SelectAll does
+ * not promote pins to symbols either.
+ */
+export function clickTarget(doc: Schematic, id: string, o: SelectionFilterOptions): string | null {
+  if (itemPassesFilter(doc, id, o)) return id;
+  const info = resolveItem(doc, id);
+  if (info?.category !== 'pins') return null;
+  // A sheet pin has no promotable owner upstream (only SCH_PIN_T is walked).
+  const pinAt = id.lastIndexOf(':pin');
+  if (pinAt <= 0) return null;
+  const owner = id.slice(0, pinAt);
+  if (!doc.symbols.some((s, i) => refId('symbol', s.uuid, i) === owner)) return null;
+  return itemPassesFilter(doc, owner, o) ? owner : null;
+}
+
 /** Keep only the ids whose item passes the filter (SCH_SELECTION narrowing). */
 export function applySelectionFilter(
   doc: Schematic,

@@ -16,7 +16,15 @@
  * is not replicated.
  */
 
-import type { LibSymbol, SchLine, Schematic, Vec2 } from '../types.js';
+import type {
+  LibSymbol,
+  SchLabel,
+  SchLine,
+  SchSheet,
+  SchSymbol,
+  Schematic,
+  Vec2,
+} from '../types.js';
 import { symbolPinPositions } from './connect.js';
 
 export interface PointInfo {
@@ -62,6 +70,85 @@ function dirKey(p: Vec2, q: Vec2): string {
  *  (`NAME{A B}` / `{A B}`). */
 export function isBusLabelText(text: string): boolean {
   return /^[^\s]+\[\d+\.\.\d+\]$/.test(text) || /^[^\s{}]*\{[^{}]+\}$/.test(text);
+}
+
+/**
+ * Every connection point a *position-only* lookup needs, built once per
+ * document and reused.
+ *
+ * `analyzePoint` is called from the post-edit cleanup loop about a thousand
+ * times per pass — once per junction, twice per wire — and each call used to
+ * rescan the whole sheet. The symbol-pin walk was the expensive part:
+ * `symbolPinPositions` builds a transform and allocates one point per pin, so
+ * on the coldfire demo (118 symbols, up to 100 pins each) a single call
+ * allocated several thousand points. Dropping a dragged part spent **4.5
+ * seconds** in that loop, which is the freeze after a drop.
+ *
+ * The caches are keyed on the *arrays*, not on the `Schematic`. That is
+ * deliberate: the cleanup loop analyses a document it rebuilds on every call
+ * (`{ ...sch, lines, junctions }`), so a cache keyed on the document object
+ * could never hit — but `symbols`, `sheets` and `labels` keep their identity
+ * through that spread, and those are exactly the three walks worth caching.
+ * Lines and junctions genuinely change each pass and are still scanned.
+ */
+interface PointCounts {
+  symbolPins: Map<string, number>;
+  sheetPins: Map<string, number>;
+  labels: Map<string, SchLabel[]>;
+}
+const symbolPinCache = new WeakMap<
+  readonly SchSymbol[],
+  { lib: ReadonlyMap<string, LibSymbol> | undefined; at: Map<string, number> }
+>();
+const sheetPinCache = new WeakMap<readonly SchSheet[], Map<string, number>>();
+const labelCache = new WeakMap<readonly SchLabel[], Map<string, SchLabel[]>>();
+
+function pinCountsAt(
+  sch: Schematic,
+  libById: ReadonlyMap<string, LibSymbol> | undefined,
+): PointCounts {
+  let sym = symbolPinCache.get(sch.symbols);
+  // The library map is derived from the document's own `lib_symbols`, so a
+  // different one means different geometry and the entry has to be rebuilt.
+  if (!sym || sym.lib !== libById) {
+    const at = new Map<string, number>();
+    if (libById) {
+      for (const s of sch.symbols) {
+        for (const pin of symbolPinPositions(s, libById.get(s.libId))) {
+          const k = `${pin.x},${pin.y}`;
+          at.set(k, (at.get(k) ?? 0) + 1);
+        }
+      }
+    }
+    sym = { lib: libById, at };
+    symbolPinCache.set(sch.symbols, sym);
+  }
+
+  let sheetPins = sheetPinCache.get(sch.sheets);
+  if (!sheetPins) {
+    sheetPins = new Map<string, number>();
+    for (const sheet of sch.sheets) {
+      for (const pin of sheet.pins) {
+        const k = `${pin.at.x},${pin.at.y}`;
+        sheetPins.set(k, (sheetPins.get(k) ?? 0) + 1);
+      }
+    }
+    sheetPinCache.set(sch.sheets, sheetPins);
+  }
+
+  let labels = labelCache.get(sch.labels);
+  if (!labels) {
+    labels = new Map<string, SchLabel[]>();
+    for (const l of sch.labels) {
+      const k = `${l.at.x},${l.at.y}`;
+      const list = labels.get(k);
+      if (list) list.push(l);
+      else labels.set(k, [l]);
+    }
+    labelCache.set(sch.labels, labels);
+  }
+
+  return { symbolPins: sym.at, sheetPins, labels };
 }
 
 /**
@@ -123,22 +210,15 @@ export function analyzePoint(
     }
   }
 
-  if (libById) {
-    for (const sym of sch.symbols) {
-      for (const pin of symbolPinPositions(sym, libById.get(sym.libId))) {
-        if (eq(pin, p)) unique('wire');
-      }
-    }
-  }
-
-  for (const sheet of sch.sheets) {
-    for (const pin of sheet.pins) {
-      if (eq(pin.at, p)) unique('wire');
-    }
-  }
-
-  for (const label of sch.labels) {
-    if (!eq(label.at, p)) continue;
+  // Symbol pins, sheet pins and labels are looked up by position rather than
+  // rescanned. See `pinCountsAt` for why this matters so much: on a 118-symbol
+  // sheet the pin walk alone allocated a few thousand points *per call*, and
+  // the cleanup loop makes about a thousand calls per pass.
+  const pins = pinCountsAt(sch, libById);
+  const key = `${p.x},${p.y}`;
+  for (let n = pins.symbolPins.get(key) ?? 0; n > 0; n--) unique('wire');
+  for (let n = pins.sheetPins.get(key) ?? 0; n > 0; n--) unique('wire');
+  for (const label of pins.labels.get(key) ?? []) {
     if (label.kind === 'label') breakLines[isBusLabelText(label.text) ? 'bus' : 'wire'] = true;
     else if (label.kind === 'global_label' || label.kind === 'hierarchical_label')
       breakLines.wire = true;

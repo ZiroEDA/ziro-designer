@@ -447,6 +447,97 @@ function fieldRows(sch: Schematic, id: string): PropRow[] {
   ];
 }
 
+/** ELECTRICAL_PINTYPE / GRAPHIC_PINSHAPE / PIN_ORIENTATION labels (sch_pin.cpp ENUM_MAPs). */
+const PIN_TYPE_LABELS: Record<string, string> = {
+  input: 'Input',
+  output: 'Output',
+  bidirectional: 'Bidirectional',
+  tri_state: 'Tri-state',
+  passive: 'Passive',
+  free: 'Free',
+  unspecified: 'Unspecified',
+  power_in: 'Power input',
+  power_out: 'Power output',
+  open_collector: 'Open collector',
+  open_emitter: 'Open emitter',
+  no_connect: 'Unconnected',
+};
+const PIN_SHAPE_LABELS: Record<string, string> = {
+  line: 'Line',
+  inverted: 'Inverted',
+  clock: 'Clock',
+  inverted_clock: 'Inverted clock',
+  input_low: 'Input low',
+  clock_low: 'Clock low',
+  output_low: 'Output low',
+  edge_clock_high: 'Falling edge clock',
+  non_logic: 'NonLogic',
+};
+const PIN_ORIENTATION_LABELS: Record<number, string> = {
+  0: 'Right',
+  90: 'Up',
+  180: 'Left',
+  270: 'Down',
+};
+
+/**
+ * A placed symbol's pin. Every row is read-only, which is what the properties
+ * panel shows in the *schematic* editor: each of SCH_PIN's writeable
+ * properties carries `.SetWriteableFunc( isSymbolEditor )`, and the geometry
+ * ones (Position X/Y, the two text sizes, Visible) carry
+ * `.SetAvailableFunc( isSymbolEditor )` and so are not listed here at all.
+ * A pin's shape belongs to the library symbol, not to this instance of it.
+ *
+ * Without this case the panel had no rows for a pin and went blank on one,
+ * which read as the selection being broken rather than as the pin being
+ * uneditable here.
+ */
+function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): PropRow[] {
+  const cut = id.lastIndexOf(':pin');
+  if (cut <= 0) return [];
+  const index = Number(id.slice(cut + ':pin'.length));
+  const symId = id.slice(0, cut);
+  const si = sch.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
+  if (si < 0 || !Number.isInteger(index)) return [];
+  const sym = sch.symbols[si]!;
+  const lib = libById.get(sym.libId);
+  if (!lib) return [];
+  // The same walk `collectPinSegments` does, so the index means the same thing.
+  let k = 0;
+  for (const u of lib.units) {
+    if (
+      (u.unit !== 0 && u.unit !== sym.unit) ||
+      (u.bodyStyle !== 0 && u.bodyStyle !== sym.bodyStyle)
+    )
+      continue;
+    for (const pin of u.pins) {
+      if (pin.hidden) continue;
+      if (k++ !== index) continue;
+      // A placement can put the pin on one of the library pin's `(alternate …)`
+      // functions, which is what SCH_PIN::GetName/GetType then report.
+      const alt = sym.pins?.find((p) => p.number === pin.number)?.alternate;
+      const altDef = alt ? pin.alternates?.find((a) => a.name === alt) : undefined;
+      const type = altDef?.electricalType ?? pin.electricalType;
+      const shape = altDef?.shape ?? pin.shape;
+      const row = (name: string, value: string | number): PropRow => ({
+        group: '',
+        name,
+        kind: 'string',
+        value: String(value),
+      });
+      return [
+        row('Pin Name', alt || pin.name),
+        row('Pin Number', pin.number),
+        row('Electrical Type', PIN_TYPE_LABELS[type] ?? type),
+        row('Graphic Style', PIN_SHAPE_LABELS[shape] ?? shape),
+        row('Orientation', PIN_ORIENTATION_LABELS[((pin.angle % 360) + 360) % 360] ?? 'Right'),
+        { group: '', name: 'Length', kind: 'dist', value: pin.length },
+      ];
+    }
+  }
+  return [];
+}
+
 export function schPropertiesFor(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
@@ -459,6 +550,8 @@ export function schPropertiesFor(
   switch (ref.kind) {
     case 'field':
       return fieldRows(sch, ref.id);
+    case 'pin':
+      return pinRows(sch, libById, ref.id);
     case 'symbol': {
       const i = indexOf(sch.symbols, (t, k) => refId('symbol', t.uuid, k));
       return i < 0 ? [] : symbolRows(sch, libById, i);

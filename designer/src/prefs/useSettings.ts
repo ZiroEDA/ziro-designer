@@ -24,6 +24,12 @@ export function useEeschemaSettings(): typeof settings.eeschema {
   return settings.eeschema;
 }
 
+/** The user's hotkey overrides, so menus relabel the moment one is rebound. */
+export function useHotkeyOverrides(): typeof settings.hotkeys {
+  useSettingsVersion();
+  return settings.hotkeys;
+}
+
 /** Resolve the active theme (COLOR_SETTINGS lookup): builtin id, a PCM-installed
  *  theme, or the User theme. */
 export function resolveTheme(): Theme {

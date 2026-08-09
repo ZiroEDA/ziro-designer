@@ -8,6 +8,7 @@ import { toolbarIconUrl } from './toolbarIcons.js';
 // The data types live in toolbar_types.ts so toolbar inventory modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
 // every existing importer keeps working.
+import { nextInGroup } from './toolbar_types.js';
 import type { ToolButton, ToolGroup, ToolControl, ToolEntry } from './toolbar_types.js';
 export type { ToolButton, ToolGroup, ToolControl, ToolEntry };
 
@@ -141,8 +142,14 @@ export function Toolbar({
             suppressClick.current = false;
             return;
           }
-          if (g?.paletteOnClick && !opts.inPalette) {
-            openPalette(g, e.currentTarget);
+          // A click on a toggle group's button steps to the next option, the
+          // way ACTION_TOOLBAR::onToolEvent does. It used to open the palette
+          // instead, which left no way to *pick* anything with one click and
+          // made the long press pointless, since both gestures did the same.
+          if (g?.cycleOnClick && !opts.inPalette) {
+            const next = nextInGroup(g, b.id);
+            setGroupSel((p) => ({ ...p, [g.group]: next.id }));
+            onActivate?.(next.id);
             return;
           }
           if (opts.inPalette && g) {

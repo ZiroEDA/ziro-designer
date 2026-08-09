@@ -79,6 +79,50 @@ export function arcToPolyline(
 }
 
 /**
+ * An ellipse as a polyline, matching `CanvasRenderingContext2D.ellipse`.
+ *
+ * Same direction rule as `arcToPolyline` — Canvas sweeps counter-clockwise from
+ * `a0` to `a1` unless `ccw`, and a zero or negative sweep goes the long way
+ * round — with two differences: each axis has its own radius, and the whole
+ * thing is turned by `rotation` about the centre.
+ *
+ * The facet count comes from the *larger* radius, so the flatter end of a very
+ * elongated ellipse is over-tessellated rather than visibly faceted.
+ */
+export function ellipseToPolyline(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  rotation: number,
+  a0: number,
+  a1: number,
+  ccw = false,
+): Pt[] {
+  const TWO_PI = Math.PI * 2;
+  let sweep = a1 - a0;
+  if (!ccw) {
+    if (sweep <= 0) sweep = ((sweep % TWO_PI) + TWO_PI) % TWO_PI || TWO_PI;
+    else sweep = Math.min(sweep, TWO_PI);
+  } else {
+    if (sweep >= 0) sweep = -(((-sweep % TWO_PI) + TWO_PI) % TWO_PI || TWO_PI);
+    else sweep = Math.max(sweep, -TWO_PI);
+  }
+  const full = facetsForRadius(Math.max(Math.abs(rx), Math.abs(ry)));
+  const steps = Math.max(1, Math.ceil((Math.abs(sweep) / TWO_PI) * full));
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const out: Pt[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = a0 + (sweep * i) / steps;
+    const x = rx * Math.cos(a);
+    const y = ry * Math.sin(a);
+    out.push({ x: cx + x * cos - y * sin, y: cy + x * sin + y * cos });
+  }
+  return out;
+}
+
+/**
  * Split a polyline into the "on" runs of a dash pattern.
  *
  * The pattern is consumed by arc length across the whole polyline, so a dash

@@ -310,7 +310,8 @@ export function parsePastedText(
   // what `SCH_SHAPE::GetPosition` returns for it.
   for (const g of graphics) {
     if (g.kind === 'rectangle' || g.kind === 'arc') consider(g.start);
-    else if (g.kind === 'circle') consider(g.center);
+    else if (g.kind === 'circle' || g.kind === 'ellipse' || g.kind === 'ellipse_arc')
+      consider(g.center);
     else if (g.kind === 'text') consider(g.at);
     else if (g.points[0]) consider(g.points[0]);
   }
