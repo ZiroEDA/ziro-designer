@@ -249,3 +249,68 @@ describe('a GL-compiled scene keeps what the editor reads that is not a path', (
     expect(scene.images[0]!.layer).toBe('F.Cu');
   });
 });
+
+/**
+ * Which of KiCad's two rasterisers each stroke imitates.
+ *
+ * A **line** is clamped up to `u_minLinePixelWidth` and drawn solid, so a
+ * 0.05 mm courtyard rectangle is still a crisp magenta line on a board zoomed
+ * out to fit. **Bitmap text** takes no floor and simply gets fainter as it
+ * shrinks; we stroke those glyphs, so they have to fade instead.
+ *
+ * Recording every stroke the second way is what made courtyards, silkscreen
+ * outlines and zone borders disappear from a zoomed-out board that KiCad still
+ * draws them on. The sign of the per-vertex `minPx` carries the distinction, so
+ * it is visible from Node even though the consequence is not.
+ */
+describe('hairline rule per stroke', () => {
+  /** Distinct signed minPx values across the segment buffer. */
+  const minPxSigns = (s: Scene): Set<number> => {
+    const seg = s.segments.view();
+    const out = new Set<number>();
+    for (let i = 0; i < seg.length; i += SEGMENT_STRIDE) out.add(Math.sign(seg[i + 5]!));
+    return out;
+  };
+
+  it('records board geometry as solid lines', () => {
+    // A board with no pad numbers and no net names on it: every stroke is
+    // geometry, so every one must be negative (solid).
+    const b = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (net 0 "")
+  (gr_line (start 90 90) (end 130 90) (stroke (width 0.05) (type solid)) (layer "Edge.Cuts"))
+  (segment (start 100 100) (end 120 100) (width 0.25) (layer "F.Cu") (net 0))
+)`),
+    );
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(b, {}, GL_PATH_FACTORY),
+        visible: VISIBLE,
+        opts: DEFAULT_DRAW_OPTIONS,
+        emphasis: 'none',
+      },
+      1e-5,
+    );
+    expect(s.segmentCount).toBeGreaterThan(0);
+    expect(minPxSigns(s)).toEqual(new Set([-1]));
+  });
+
+  it('records pad net names as bitmap text', () => {
+    // The demo board's pads carry numbers and a net, so both rules appear.
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(board(), {}, GL_PATH_FACTORY),
+        visible: VISIBLE,
+        opts: DEFAULT_DRAW_OPTIONS,
+        emphasis: 'none',
+      },
+      1e-5,
+    );
+    expect(minPxSigns(s)).toEqual(new Set([-1, 1]));
+  });
+});

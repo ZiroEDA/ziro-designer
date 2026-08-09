@@ -105,6 +105,8 @@ export interface RecorderOptions {
   referenceScale?: number;
   /** Device pixel ratio, so a minimum pixel width means a *device* pixel. */
   devicePixelRatio?: number;
+  /** Initial value of {@link GlRecorder.hairlines}; defaults to `'fade'`. */
+  hairlines?: 'fade' | 'solid';
   /**
    * Drop the canvas-clearing `fillRect` that `renderSchematic` issues first.
    *
@@ -186,6 +188,24 @@ export class GlRecorder {
   font = '';
   textAlign = '';
 
+  /**
+   * What a stroke thinner than a device pixel should do.
+   *
+   * KiCad has two answers and they are not interchangeable. A **line** is
+   * clamped up to `u_minLinePixelWidth` and drawn at full strength, so a 0.05 mm
+   * courtyard stays a crisp magenta rectangle however far you zoom out. **Bitmap
+   * text** goes through `SHADER_FONT`, takes no floor, and simply gets smaller
+   * and fainter; we have no glyph atlas and stroke those glyphs instead, so
+   * `'fade'` stands in for the texture shrinking.
+   *
+   * `'fade'` is the default because it is what every caller did before the
+   * distinction existed, and because a renderer that gets this wrong in the
+   * `'solid'` direction glares rather than disappears. A caller that draws board
+   * geometry sets `'solid'` and flips to `'fade'` around its bitmap-text passes
+   * — which on a board is only the pad and via net names.
+   */
+  hairlines: 'fade' | 'solid' = 'fade';
+
   constructor(
     readonly scene: Scene,
     opts: RecorderOptions = {},
@@ -196,6 +216,7 @@ export class GlRecorder {
     this.originX = opts.originX ?? 0;
     this.originY = opts.originY ?? 0;
     this.worldScale = opts.worldScale && opts.worldScale > 0 ? opts.worldScale : 1;
+    this.hairlines = opts.hairlines ?? 'fade';
   }
 
   /**
@@ -401,7 +422,10 @@ export class GlRecorder {
     // letting the shader clamp makes the geometry genuinely independent of the
     // zoom, which is what lets the buffer be recorded once and never again.
     const world = (Math.max(0, this.st.lineWidth) * matScale(this.st.ctm)) / this.worldScale;
-    return { half: world / 2, minPx: this.dpr / 2 };
+    // The sign carries which of KiCad's two rasterisers this stroke imitates;
+    // see `hairlines` and the note in SEGMENT_VERT.
+    const minPx = this.dpr / 2;
+    return { half: world / 2, minPx: this.hairlines === 'solid' ? -minPx : minPx };
   }
 
   private color(css: string, alpha: number): Rgba {

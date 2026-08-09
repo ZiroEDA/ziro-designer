@@ -80,7 +80,7 @@ layout(location = 0) in vec2 a_corner;   // the shared quad, components in {-1, 
 layout(location = 1) in vec2 a_p0;       // world
 layout(location = 2) in vec2 a_p1;       // world
 layout(location = 3) in float a_halfWidth; // world
-layout(location = 4) in float a_minPx;     // device pixels
+layout(location = 4) in float a_minPx;     // device pixels; sign picks the rule below
 layout(location = 5) in vec4 a_color;
 
 out vec2 v_pixel;
@@ -94,6 +94,26 @@ void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
 
+  // KiCad rasterises a line and a piece of text by two different routes, and
+  // they behave differently below one pixel. The sign of a_minPx says which one
+  // this stroke is; the magnitude is the pixel floor either way.
+  //
+  //   a_minPx < 0  — a *line*. computeLineCoords clamps pixelWidth up to
+  //                  u_minLinePixelWidth and the fragment stage draws it solid,
+  //                  so a 0.05 mm courtyard is a crisp one-pixel magenta line at
+  //                  every zoom KiCad will let you reach. Nothing fades.
+  //
+  //   a_minPx > 0  — *bitmap text*. SHADER_FONT samples an atlas and takes no
+  //                  floor at all, so a glyph genuinely thins and greys out as
+  //                  it shrinks. We have no atlas and stroke these glyphs, so
+  //                  the fade below stands in for the texture getting smaller.
+  //                  Only the pad and via net names take this route.
+  //
+  // Fading lines as well is what made the courtyard rectangles disappear from a
+  // zoomed-out board that KiCad still draws them on.
+  bool bitmapText = a_minPx > 0.0;
+  float minPx = abs(a_minPx);
+
   // The width this stroke really has at this zoom, before any floor.
   //
   // Kept because the floor below is a fiction — it exists to stop a hairline
@@ -104,7 +124,7 @@ void main() {
   // The clamp KiCad applies with u_minLinePixelWidth: the larger of the scaled
   // world width and the pixel floor, which keeps a hairline visible when zoomed
   // out without the buffer depending on the zoom.
-  float halfPx = max(a_halfWidth * abs(u_view.x), a_minPx);
+  float halfPx = max(a_halfWidth * abs(u_view.x), minPx);
 
   // Then snap it, which is what makes thin strokes *legible* rather than merely
   // present.
@@ -203,7 +223,8 @@ void main() {
   // and harder than a linear ramp would.
   float trueWidthPx = trueHalfPx * 2.0;
   float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / GLARE_KNEE_PX, 0.0, 1.0) : 1.0;
-  v_widthFade = widthRatio * widthRatio;
+  // Only bitmap text pays; a line is solid at whatever width the floor gives it.
+  v_widthFade = bitmapText ? widthRatio * widthRatio : 1.0;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
 }

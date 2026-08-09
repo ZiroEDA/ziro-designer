@@ -231,6 +231,12 @@ export function recordBoardScene(
     worldScale: scale,
     devicePixelRatio: 1, // the canvas is already sized in device pixels
     skipFirstFillRect: true,
+    // A board is lines. Every one of them is clamped to a device pixel and drawn
+    // at full strength, which is what `computeLineCoords` does to a KiCad line
+    // and the reason a courtyard rectangle or a silkscreen outline stays crisp
+    // on a board zoomed out to fit. `buildDrawSteps` turns the fade back on
+    // around the two passes that stand in for KiCad's bitmap text.
+    hairlines: 'solid',
     // Recording runs through a shifted view so nothing at a negative coordinate
     // is culled; the origin takes the shift back out.
     originX: extent / 2,

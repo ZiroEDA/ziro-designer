@@ -1381,6 +1381,34 @@ const strokeAll = (ctx: CanvasRenderingContext2D, map: Map<number, Path2D>, minP
   }
 };
 
+/**
+ * Paint `fn`'s strokes as KiCad's `BitmapText` rather than as lines.
+ *
+ * The two differ below one device pixel and only there. A line is clamped up to
+ * `u_minLinePixelWidth` and drawn solid, so it survives any zoom; bitmap text is
+ * a texture that simply gets smaller and fainter. Almost everything on a board
+ * is a line — even silkscreen and fab *text*, which KiCad strokes with the
+ * Newstroke font like any other geometry. The exceptions are the pad and via net
+ * names, which `PCB_PAINTER` draws with `m_gal->BitmapText`, and which we stroke
+ * only because there is no atlas to sample.
+ *
+ * A retained backend needs to be told, because it applies the pixel floor per
+ * frame and cannot see which pass a stroke came from. `CanvasRenderingContext2D`
+ * has no such property and does not need one — its own rasteriser already fades
+ * a sub-pixel stroke — so the flag is set on whatever object is being painted
+ * through and ignored by a real canvas.
+ */
+function asBitmapText(ctx: CanvasRenderingContext2D, fn: () => void): void {
+  const target = ctx as { hairlines?: 'fade' | 'solid' };
+  const previous = target.hairlines;
+  if (previous !== undefined) target.hairlines = 'fade';
+  try {
+    fn();
+  } finally {
+    if (previous !== undefined) target.hairlines = previous;
+  }
+}
+
 // ----- drawing sheet (page frame + title block) ------------------------------
 // KiCad's default worksheet (common/drawing_sheet/drawing_sheet_default_
 // description.cpp): 10 mm margins, a double border 2 mm apart, a 50 mm
@@ -1859,7 +1887,7 @@ export function buildDrawSteps(
     steps.push(() => {
       ctx.globalAlpha = opts.padOpacity;
       ctx.strokeStyle = emphasize(special.padName, emphasis, true);
-      strokeAll(ctx, scene.padText, minPen);
+      asBitmapText(ctx, () => strokeAll(ctx, scene.padText, minPen));
       ctx.globalAlpha = 1;
     });
   }
@@ -1918,10 +1946,12 @@ export function buildDrawSteps(
         }
         addTrackNetName(map, label, viewport);
       }
-      for (const [color, map] of byColor) {
-        ctx.strokeStyle = color;
-        strokeAll(ctx, map, minPen);
-      }
+      asBitmapText(ctx, () => {
+        for (const [color, map] of byColor) {
+          ctx.strokeStyle = color;
+          strokeAll(ctx, map, minPen);
+        }
+      });
     });
   }
   return steps;
