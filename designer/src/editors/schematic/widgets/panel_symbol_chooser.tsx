@@ -33,7 +33,7 @@ import { FootprintSelectWidget } from '../../../widgets/footprint_select_widget.
 import { loadFootprintIndex, filterFootprints } from '../../../widgets/footprint_list.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '../generate_alias_info.js';
-import { isPowerSymbol, loadIndex, loadSymbol } from '../symbols/index.js';
+import { powerSymbolTest, loadIndex, loadSymbol } from '../symbols/index.js';
 import { settings } from '../../../prefs/settings.js';
 
 /** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
@@ -271,6 +271,10 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         .then((index) => {
           if (cancelled) return;
           const session = settings.common.system.session;
+          // Built from the whole index, not per entry: the generator omits
+          // `power` both for a library with none and for an index too old to
+          // carry the flag, and only the index as a whole separates the two.
+          const isPower = powerSymbolTest(index);
           for (const lib of index) {
             const pinned = session.pinned_symbol_libs.includes(lib.name);
             const libNode = adapter.addLibrary(lib.name, '', pinned);
@@ -281,7 +285,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
               item.name = name;
               item.libNickname = lib.name;
               item.libItemName = name;
-              item.isPower = isPowerSymbol(lib, name);
+              item.isPower = isPower(lib, name);
               item.sourceSearchTerms = [
                 searchTerm(lib.name, 4),
                 searchTerm(name, 8, true),

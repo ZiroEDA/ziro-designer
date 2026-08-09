@@ -28,23 +28,64 @@ export interface LibIndexEntry {
    * hold ordinary parts. Knowing it without loading the library needs the flag
    * in the index, which is what this is. Optional so an index generated before
    * it existed still loads; `isPowerSymbol` falls back in that case.
+   *
+   * **Absent for two unrelated reasons**, which is the whole reason
+   * `powerSymbolTest` exists: the generator omits the key for a library with no
+   * power symbols at all (`...(power.length ? { power } : {})`, to keep the
+   * index small), and an index written before the flag existed has it nowhere.
    */
   power?: string[];
 }
 
 /**
- * Whether a symbol is a power symbol, for the chooser's power filter.
+ * Whether a symbol is a power symbol, judged from **one** index entry.
  *
- * With the flag in the index this is exact. Without it, the only thing
- * available before the library loads is the library's *name*, which is a guess
- * in both directions: an ordinary part in a library called "power" passes, and
- * a real power symbol elsewhere is hidden until its library is read. KiCad has
- * no such problem because it holds the whole index in memory; we load lazily on
- * purpose, so the flag has to travel with the index.
+ * With the flag this is exact. Without it, the only thing available before the
+ * library loads is the library's *name*, which is a guess in both directions:
+ * an ordinary part in a library called "power" passes, and a real power symbol
+ * elsewhere is hidden until its library is read. KiCad has no such problem
+ * because it holds the whole index in memory; we load lazily on purpose, so the
+ * flag has to travel with the index.
+ *
+ * Prefer `powerSymbolTest`, which can tell the two kinds of absence apart. This
+ * is the primitive it falls back to.
  */
 export function isPowerSymbol(entry: LibIndexEntry, symbolName: string): boolean {
   if (entry.power) return entry.power.includes(symbolName);
   return /power/i.test(entry.name);
+}
+
+/**
+ * The power test for a whole index — the one the chooser should use.
+ *
+ * Reading `power` per entry cannot distinguish "this library has no power
+ * symbols" from "this index predates the flag", because the generator writes
+ * the same absence for both. The index as a whole can: if *any* library reports
+ * power symbols then the generator knew about the flag, so a library without
+ * the key has none, and the name guess must not be consulted.
+ *
+ * That distinction is not academic. KiCad's standard set ships **four**
+ * libraries matching `/power/i`, and only one of them holds power symbols:
+ *
+ *     power.kicad_sym               101 power symbols  -> has the key
+ *     Power_Management.kicad_sym      0                -> key omitted
+ *     Power_Protection.kicad_sym      0                -> key omitted
+ *     Power_Supervisor.kicad_sym      0                -> key omitted
+ *
+ * so falling back per entry put every ordinary power-management IC into the
+ * Place Power Port chooser — the exact complaint the flag was added to fix,
+ * surviving in the one case the "omit when empty" optimisation created.
+ *
+ * Returns a closure so the index-wide scan runs once rather than per symbol.
+ */
+export function powerSymbolTest(
+  index: readonly LibIndexEntry[],
+): (entry: LibIndexEntry, symbolName: string) => boolean {
+  const flagged = index.some((e) => e.power !== undefined);
+  return (entry, symbolName) => {
+    if (entry.power) return entry.power.includes(symbolName);
+    return flagged ? false : isPowerSymbol(entry, symbolName);
+  };
 }
 
 // The hosted symbol library set, or the bundled subset when it is unreachable
