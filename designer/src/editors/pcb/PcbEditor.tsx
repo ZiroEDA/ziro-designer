@@ -4559,6 +4559,21 @@ export function PcbEditor({
         const handle = editHandleAt(w);
         if (handle) {
           editHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          // Reshaping touches one item, so split the board the same way a move
+          // drag does: the rest of it is recorded once here and stays in the
+          // cached raster, and the item being reshaped rides the live overlay.
+          // Rebuilding the whole scene per pointermove instead costs a full
+          // buildScene *and* a full re-raster on every mouse event.
+          const id = editHandleItemRef.current;
+          if (brd && id) {
+            const only = new Set([id]);
+            sceneRef.current = buildScene(deleteBoardItems(brd, only), sceneFilter());
+            moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
+            // The overlay is drawn at absolute coords: a reshape moves points,
+            // not the item, so it carries no drag delta.
+            moveDeltaRef.current = { x: 0, y: 0 };
+            sceneDirtyRef.current = true;
+          }
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
           return;
         }
@@ -4614,8 +4629,9 @@ export function PcbEditor({
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
-        sceneRef.current = buildScene(next, sceneFilter());
-        sceneDirtyRef.current = true;
+        // Only the reshaped item is re-recorded; the base scene was captured
+        // without it at drag start and is not dirtied, so the raster survives.
+        moveSceneRef.current = buildScene(subsetBoardItems(next, new Set([id])), sceneFilter());
         requestDraw();
       }
       return;
@@ -4681,6 +4697,9 @@ export function PcbEditor({
       const preview = pointEditPreviewRef.current;
       editHandleDragRef.current = null;
       pointEditPreviewRef.current = null;
+      // Drop the reshape overlay: both paths below rebuild a full base scene
+      // that contains the item again, so leaving it up would double-draw it.
+      moveSceneRef.current = null;
       if (preview) commitBoard(preview);
       else if (boardRef.current) rebuildScene(boardRef.current);
       requestDraw();
