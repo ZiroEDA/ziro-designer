@@ -43,6 +43,13 @@ precision highp float;
 uniform vec4 u_view;      // xy: pixels per world unit, zw: pixel offset
 uniform vec2 u_viewport;  // drawing buffer size in device pixels
 
+// Below this true width, in device pixels, a stroke starts trading width for
+// alpha instead of being drawn solid at the one-pixel floor. Set so that an
+// ordinary 6-mil schematic line stays solid at the zooms a sheet is actually
+// read at, and only the far-zoomed-out case that piles thousands of glyph
+// strokes into one pixel is faded.
+const float GLARE_KNEE_PX = 0.35;
+
 vec2 worldToPixel(vec2 w) {
   return w * u_view.xy + u_view.zw;
 }
@@ -178,7 +185,24 @@ void main() {
   //
   // A zero-width stroke is exempt: it means "thinnest line that draws", not "a
   // line of no width", and fading it to nothing would delete board outlines.
-  float widthRatio = trueHalfPx > 0.0 ? clamp(trueHalfPx / halfPx, 0.0, 1.0) : 1.0;
+  //
+  // The knee is what keeps this from repainting the whole schematic grey.
+  // Measured against the *snapped* width — which is what this did — a stroke
+  // pays for the pixel-grid snapping as well as for the floor, and the snapping
+  // is a legibility feature KiCad also applies (roundr) without charging alpha
+  // for it. Worse, the ordinary case is sub-pixel: a 6-mil wire on an A3 sheet
+  // viewed whole is under half a device pixel, so an entire schematic came out
+  // at about a fifth strength beside desktop KiCad's solid black.
+  //
+  // So the comparison is against a fixed fraction of a pixel instead. At or
+  // above it a stroke is solid, which is what KiCad draws at every zoom
+  // (SHADER_LINE_B is unconditionally solid; KiCad sheds the excess weight in
+  // its SMAA pass, not in the line shader). Below it the quadratic falloff is
+  // unchanged, so the case this was added for — a board zoomed out far enough
+  // that thousands of sub-pixel glyph strokes pile up into glare — still fades,
+  // and harder than a linear ramp would.
+  float trueWidthPx = trueHalfPx * 2.0;
+  float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / GLARE_KNEE_PX, 0.0, 1.0) : 1.0;
   v_widthFade = widthRatio * widthRatio;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
