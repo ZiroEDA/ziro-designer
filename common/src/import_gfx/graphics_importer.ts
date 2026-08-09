@@ -40,16 +40,19 @@
  * box at the origin whenever the receiver is initialised.
  */
 
-import { LINE_STYLE, type Color4d } from './plot_dxf.js';
-import type { PcbShape, PcbTextItem, StrokeType } from './types.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { LINE_STYLE } from '../stroke_params.js';
+import type { Color4d } from '../color4d.js';
+import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
+import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
+import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {
   buildPolysetFromOrientedPaths,
   fracture,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
 
 /** `COLOR4D::UNSPECIFIED`, the fully transparent black the importer treats as "no colour". */
 export const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
@@ -256,9 +259,6 @@ export class BOX2D {
  * records, without a `source` node: whoever commits them (`addBoardShape`,
  * `addBoardText`) supplies that.
  */
-export type IMPORTED_ITEM =
-  | { type: 'shape'; shape: Omit<PcbShape, 'source'> }
-  | { type: 'text'; text: Omit<PcbTextItem, 'source'> };
 
 /**
  * `GRAPHICS_IMPORTER`, the interface a parser feeds and the placement model it
@@ -270,7 +270,7 @@ export type IMPORTED_ITEM =
  * `GetMillimeterToIuFactor()` — in that order, because the offset is expressed
  * in millimetres of the *scaled* drawing.
  */
-export abstract class GRAPHICS_IMPORTER {
+export abstract class GRAPHICS_IMPORTER<TItem = unknown> {
   /** `DEFAULT_LINE_WIDTH_DFX`, in mm. Upstream's spelling of DXF, kept. */
   static readonly DEFAULT_LINE_WIDTH_DFX = 1;
 
@@ -281,7 +281,7 @@ export abstract class GRAPHICS_IMPORTER {
   /** One entry per `NewShape` call, in call order. */
   protected m_shapeFillRules: POLY_FILL_RULE[] = [];
 
-  private m_items: IMPORTED_ITEM[] = [];
+  private m_items: TItem[] = [];
   private m_scale: Vec2 = { x: 1.0, y: 1.0 };
   private m_lineWidth: number = GRAPHICS_IMPORTER.DEFAULT_LINE_WIDTH_DFX;
 
@@ -333,7 +333,7 @@ export abstract class GRAPHICS_IMPORTER {
     return { x: this.m_scale.x * this.m_millimeterToIu, y: this.m_scale.y * this.m_millimeterToIu };
   }
 
-  GetItems(): IMPORTED_ITEM[] {
+  GetItems(): TItem[] {
     return this.m_items;
   }
   ClearItems(): void {
@@ -355,7 +355,7 @@ export abstract class GRAPHICS_IMPORTER {
   // biome-ignore lint/correctness/noUnusedFunctionParameters: upstream's base takes and ignores it
   SetCurrentSourceLayer(aSourceLayer: string): void {}
 
-  protected addItem(aItem: IMPORTED_ITEM): void {
+  protected addItem(aItem: TItem): void {
     this.m_items.push(aItem);
   }
 
@@ -1143,20 +1143,52 @@ const fmtF = (v: number): string => v.toFixed(6);
 
 const addVec = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 
-/** `LINE_STYLE` as the board file spells it. */
-export function lineStyleToStrokeType(aStyle: LINE_STYLE): StrokeType {
-  switch (aStyle) {
-    case LINE_STYLE.DEFAULT:
-      return 'default';
-    case LINE_STYLE.SOLID:
-      return 'solid';
-    case LINE_STYLE.DASH:
-      return 'dash';
-    case LINE_STYLE.DOT:
-      return 'dot';
-    case LINE_STYLE.DASHDOT:
-      return 'dash_dot';
-    case LINE_STYLE.DASHDOTDOT:
-      return 'dash_dot_dot';
+/**
+ * `GRAPHICS_IMPORTER::setupSplineOrLine`.
+ *
+ * Shared by every concrete sink, which is why it lives here rather than beside
+ * one of them. The accuracy is the caller's: pcbnew passes `ARC_HIGH_DEF`, and
+ * upstream's schematic sink passes half the stroke width.
+ *
+ * A cubic whose control points sit on the chord is a straight line drawn the
+ * long way round, and a spline the tessellator cannot resolve into more than
+ * two points is the same thing. Both are demoted to a segment; a demoted
+ * segment shorter than 20 nm is dropped, because it is a rounding artefact of
+ * the conversion rather than something the drawing contains.
+ *
+ * Returns null for "discard this shape".
+ */
+export function setupSplineOrLine(
+  aStart: VECTOR2I,
+  aBezierC1: VECTOR2I,
+  aBezierC2: VECTOR2I,
+  aEnd: VECTOR2I,
+  aAccuracy: number,
+): 'curve' | 'line' | null {
+  let degenerate = false;
+
+  if (
+    segApproxCollinear(aStart, aEnd, aStart, aBezierC1) &&
+    segApproxCollinear(aStart, aEnd, aEnd, aBezierC2)
+  ) {
+    degenerate = true;
   }
+
+  if (!degenerate) {
+    const bezierPoints = new BezierPoly([aStart, aBezierC1, aBezierC2, aEnd]).getPoly(aAccuracy);
+
+    if (bezierPoints.length <= 2) degenerate = true;
+  }
+
+  if (degenerate) {
+    /** `MIN_SEG_LEN_ACCEPTABLE_NM`. */
+    const MIN_SEG_LEN_ACCEPTABLE_NM = 20;
+
+    if (EuclideanNormI({ x: aStart.x - aEnd.x, y: aStart.y - aEnd.y }) < MIN_SEG_LEN_ACCEPTABLE_NM)
+      return null;
+
+    return 'line';
+  }
+
+  return 'curve';
 }

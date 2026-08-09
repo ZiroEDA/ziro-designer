@@ -84,7 +84,7 @@ import {
   type DL_VertexData,
 } from './dxf_reader.js';
 import { SPLINE_ERROR, bsplineToBeziers } from './dxf_spline.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
 import {
   ANGLE_0,
   ANGLE_180,

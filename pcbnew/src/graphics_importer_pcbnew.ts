@@ -38,12 +38,13 @@ import { ARC_HIGH_DEF } from './graphics_cleaner.js';
 import {
   GRAPHICS_IMPORTER,
   type IMPORTED_STROKE,
-  lineStyleToStrokeType,
   COLOR4D_UNSPECIFIED,
-} from './graphics_importer.js';
+  setupSplineOrLine,
+} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
 import type { PCB_LAYER_ID } from './layer_ids.js';
 import { joinJustify } from './textbox_properties.js';
-import type { StrokeType } from './types.js';
+import type { PcbShape, PcbTextItem, StrokeType } from './types.js';
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
@@ -53,6 +54,41 @@ import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import type { Color4d } from './plot_dxf.js';
+
+/**
+ * `LINE_STYLE` as the **board** file spells it.
+ *
+ * Stayed behind when the importer moved to `common`: the enum is shared, but the
+ * spelling of a stroke is per-format, and `StrokeType` is a pcbnew type. A
+ * schematic sink needs the same mapping against eeschema's own stroke type.
+ */
+export function lineStyleToStrokeType(aStyle: LINE_STYLE): StrokeType {
+  switch (aStyle) {
+    case LINE_STYLE.DEFAULT:
+      return 'default';
+    case LINE_STYLE.SOLID:
+      return 'solid';
+    case LINE_STYLE.DASH:
+      return 'dash';
+    case LINE_STYLE.DOT:
+      return 'dot';
+    case LINE_STYLE.DASHDOT:
+      return 'dash_dot';
+    case LINE_STYLE.DASHDOTDOT:
+      return 'dash_dot_dot';
+  }
+}
+
+/**
+ * What a board import produces: the board model's plain records, without a
+ * `source` node — whoever commits them supplies that.
+ *
+ * Board-shaped, so it stayed here when the base moved to `common` and became
+ * generic in its item type (`GRAPHICS_IMPORTER<TItem>`).
+ */
+export type IMPORTED_ITEM =
+  | { type: 'shape'; shape: Omit<PcbShape, 'source'> }
+  | { type: 'text'; text: Omit<PcbTextItem, 'source'> };
 
 /** `Dwgs_User`, the layer an import lands on until the caller says otherwise. */
 export const DEFAULT_IMPORT_LAYER: PCB_LAYER_ID = 'Dwgs.User';
@@ -76,53 +112,7 @@ export interface STROKE_PARAMS {
  */
 export type LayerMapTarget = PCB_LAYER_ID | null;
 
-/**
- * `GRAPHICS_IMPORTER::setupSplineOrLine`.
- *
- * A cubic whose control points sit on the chord is a straight line drawn the
- * long way round, and a spline the tessellator cannot resolve into more than
- * two points is the same thing. Both are demoted to a segment; a demoted
- * segment shorter than 20 nm is dropped, because it is a rounding artefact of
- * the conversion rather than something the drawing contains.
- *
- * Returns null for "discard this shape".
- */
-export function setupSplineOrLine(
-  aStart: VECTOR2I,
-  aBezierC1: VECTOR2I,
-  aBezierC2: VECTOR2I,
-  aEnd: VECTOR2I,
-  aAccuracy: number,
-): 'curve' | 'line' | null {
-  let degenerate = false;
-
-  if (
-    segApproxCollinear(aStart, aEnd, aStart, aBezierC1) &&
-    segApproxCollinear(aStart, aEnd, aEnd, aBezierC2)
-  ) {
-    degenerate = true;
-  }
-
-  if (!degenerate) {
-    const bezierPoints = new BezierPoly([aStart, aBezierC1, aBezierC2, aEnd]).getPoly(aAccuracy);
-
-    if (bezierPoints.length <= 2) degenerate = true;
-  }
-
-  if (degenerate) {
-    /** `MIN_SEG_LEN_ACCEPTABLE_NM`. */
-    const MIN_SEG_LEN_ACCEPTABLE_NM = 20;
-
-    if (EuclideanNormI({ x: aStart.x - aEnd.x, y: aStart.y - aEnd.y }) < MIN_SEG_LEN_ACCEPTABLE_NM)
-      return null;
-
-    return 'line';
-  }
-
-  return 'curve';
-}
-
-export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER {
+export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
   /** Target layer for the imported shapes. */
   protected m_layer: PCB_LAYER_ID = DEFAULT_IMPORT_LAYER;
   protected m_defaultLayer: PCB_LAYER_ID = DEFAULT_IMPORT_LAYER;

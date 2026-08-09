@@ -48,7 +48,8 @@ import {
 } from './graphics_importer.js';
 import { NSVG_FLAGS_VISIBLE, NSVGfillRule, NSVGpaintType, nsvgParse } from './nanosvg.js';
 import type { NSVGimage } from './nanosvg.js';
-import { COLOR4D_BLACK, LINE_STYLE, type Color4d } from './plot_dxf.js';
+import { LINE_STYLE } from '../stroke_params.js';
+import { COLOR4D_BLACK, type Color4d } from '../color4d.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `SVG_DPI`. Every SVG user unit is 1/96 inch unless the document says otherwise. */

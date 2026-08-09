@@ -12,13 +12,13 @@ import {
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   POLY_FILL_RULE,
-} from '@ziroeda/pcbnew/src/graphics_importer.js';
+} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import {
   NSVG_FLAGS_VISIBLE,
   NSVGfillRule,
   NSVGpaintType,
   nsvgParse,
-} from '@ziroeda/pcbnew/src/nanosvg.js';
+} from '@ziroeda/common/src/import_gfx/nanosvg.js';
 import {
   GatherInterpolatedCubicBezierCurve,
   GatherInterpolatedCubicBezierPath,
@@ -26,7 +26,7 @@ import {
   calculateBezierSegmentationThreshold,
   distanceFromPointToLine,
   getBezierPoint,
-} from '@ziroeda/pcbnew/src/svg_import_plugin.js';
+} from '@ziroeda/common/src/import_gfx/svg_import_plugin.js';
 
 // ---------------------------------------------------------------------------
 // harness

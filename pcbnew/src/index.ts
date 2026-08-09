@@ -951,17 +951,18 @@ export {
 // Graphics import (DXF/SVG into board graphics). Only the import-specific
 // names travel: BOX2D, MATRIX3x3D, the IMPORTED_* shape classes and
 // setupSplineOrLine are KiCad names another port will want and stay importable
-// from './graphics_importer.js' / './graphics_importer_pcbnew.js' alone.
+// from '@ziroeda/common/src/import_gfx/graphics_importer.js' / './graphics_importer_pcbnew.js' alone.
 export {
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   POLY_FILL_RULE,
-  type IMPORTED_ITEM,
-} from './graphics_importer.js';
+} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 
 export {
   GRAPHICS_IMPORTER_PCBNEW,
   DEFAULT_IMPORT_LAYER,
+  lineStyleToStrokeType,
+  type IMPORTED_ITEM,
   type LayerMapTarget,
 } from './graphics_importer_pcbnew.js';
 export { PnsLayerRange } from './router/pns_layerset.js';
@@ -1176,9 +1177,9 @@ export {
   toInt,
   toInt16,
   toReal,
-} from './dxf_reader.js';
+} from '@ziroeda/common/src/import_gfx/dxf_reader.js';
 
-export { SPLINE_ERROR, bsplineToBeziers } from './dxf_spline.js';
+export { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/src/import_gfx/dxf_spline.js';
 
 export {
   DXF2BRD_ENTITY_DATA,
@@ -1196,7 +1197,7 @@ export {
   matrixSetRotation,
   matrixSetScale,
   matrixZero,
-} from './dxf_import_plugin.js';
+} from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
 // And once more for the PNG back-end, the raster one. Only the PNG-prefixed
 // names travel; FILL_T, LINE_STYLE, Color4d, COLOR4D_BLACK/WHITE and the two
 // line-width sentinels stay importable from './plot_png.js' alone, because all
@@ -1290,7 +1291,7 @@ export {
   type NSVGpaint,
   type NSVGpath,
   type NSVGshape,
-} from './nanosvg.js';
+} from '@ziroeda/common/src/import_gfx/nanosvg.js';
 
 export {
   GatherInterpolatedCubicBezierCurve,
@@ -1299,7 +1300,7 @@ export {
   calculateBezierSegmentationThreshold,
   distanceFromPointToLine,
   getBezierPoint,
-} from './svg_import_plugin.js';
+} from '@ziroeda/common/src/import_gfx/svg_import_plugin.js';
 // ----- PNS::SHOVE ----------------------------------------------------------------
 //
 // The push-and-shove core: given a head, push the nearest obstacle out of the
