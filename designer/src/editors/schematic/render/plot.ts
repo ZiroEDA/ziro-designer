@@ -148,6 +148,12 @@ function monochromeTheme(): Theme {
     anchor: black,
     hidden: black,
     cursor: black,
+    auxItems: black,
+    // Nothing is ever brightened on a plot — `IsPrinting()` skips the shadow
+    // pass — but the field is required, and black keeps a monochrome plot
+    // monochrome if anything ever does reach it.
+    brightened: black,
+    ruleArea: black,
   };
 }
 

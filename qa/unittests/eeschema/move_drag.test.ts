@@ -33,6 +33,8 @@ import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });
+/** The connected-items grid a 90 degree elbow is set back by (50 mil). */
+const GRID = mmToIU(1.27);
 const EMPTY = (): Schematic => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));
 const lineId = (sch: Schematic, i: number): string => refId('line', sch.lines[i]!.uuid, i);
 
@@ -244,24 +246,41 @@ describe('orthoLineDrag: where the bend goes', () => {
     // straight down. Upstream treats the *unselected* end: the original span
     // survives as a new segment and a vertical one drops to the pin, so the
     // wire still meets the pin along its own direction — no bend at the pin.
+    //
+    // The riser lands one grid short of the moving end, not on it, because the
+    // bend counter starts at one:
+    //
+    //     // Used for tracking how far off a drag end should have its 90 degree elbow added
+    //     int xBendCount = 1;
+    //     int yBendCount = 1;
+    //
+    // so the wire keeps a one-grid stub running into the pin along its own
+    // axis. That stub is the small jog KiCad leaves at a dragged pin, and it
+    // survives the whole gesture: on the next frame the riser is parallel to
+    // the delta, so `orthoLineDrag` lengthens it instead of bending again.
     const { sch, libById, moving } = pinnedWire();
     const spec = planMove(sch, libById, new Set([moving]));
     const delta = at(0, 10);
     const moved = withCleanup(orthoMove(sch, spec, delta, libById), libById).apply(sch);
 
     const wires = moved.lines.filter((l) => l.kind === 'wire');
-    // The collapsed original is cleaned up; what is left is the old route plus
-    // the drop to the pin.
-    expect(wires).toHaveLength(2);
-    const horizontal = wires.find((l) => l.start.y === l.end.y)!;
+    // The old route, the riser, and the stub into the pin.
+    expect(wires).toHaveLength(3);
+    const elbowX = at(20, 0).x - GRID;
+    const horizontals = wires.filter((l) => l.start.y === l.end.y);
     const vertical = wires.find((l) => l.start.x === l.end.x)!;
-    // The old route, end to end, and the drop from it to the pin's new spot.
-    expect(new Set([horizontal.start.x, horizontal.end.x])).toEqual(
-      new Set([at(0, 0).x, at(20, 0).x]),
-    );
-    expect(horizontal.start.y).toBe(0);
+
+    // The old route, shortened by the one grid the elbow was set back.
+    const run = horizontals.find((l) => l.start.y === 0)!;
+    expect(new Set([run.start.x, run.end.x])).toEqual(new Set([at(0, 0).x, elbowX]));
+
+    // The riser, from the old route down to the pin's new row.
     expect(new Set([vertical.start.y, vertical.end.y])).toEqual(new Set([0, at(0, 10).y]));
-    expect(vertical.start.x).toBe(at(20, 0).x);
+    expect(vertical.start.x).toBe(elbowX);
+
+    // ...and the stub, meeting the pin along the wire's own direction.
+    const stub = horizontals.find((l) => l.start.y === at(0, 10).y)!;
+    expect(new Set([stub.start.x, stub.end.x])).toEqual(new Set([elbowX, at(20, 0).x]));
   });
 
   it('never flattens a vertical wire into a diagonal when its pin is dragged', () => {

@@ -267,9 +267,36 @@ function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
     case 'arc':
       // Approximate the arc by its start-mid-end chords (fine within tolerance).
       return distToSegment(p, g.start, g.mid) <= tol || distToSegment(p, g.mid, g.end) <= tol;
-    case 'polyline':
+    case 'ellipse':
+    case 'ellipse_arc': {
+      // Rotate the point into the ellipse's own frame, then scale each axis so
+      // the ellipse becomes a unit circle: the usual normalised-radius test.
+      const rad = (-g.rotation * Math.PI) / 180;
+      const dx = p.x - g.center.x;
+      const dy = p.y - g.center.y;
+      const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+      const a = Math.max(1, g.majorRadius);
+      const b = Math.max(1, g.minorRadius);
+      const r = Math.hypot(lx / a, ly / b);
+      if (g.kind === 'ellipse' && g.fill && g.fill.type !== 'none' && r <= 1) return true;
+      // Convert the normalised distance back to a world one along the local
+      // direction, so `tol` stays a real distance rather than a ratio.
+      const scale = Math.hypot((lx / a) * a, (ly / b) * b) || Math.min(a, b);
+      return Math.abs(r - 1) * scale <= tol;
+    }
     case 'bezier': {
-      // Béziers hit-test against their control polygon (fine within tolerance).
+      // The flattened curve, not the control polygon: a cubic's control points
+      // are off the curve, so the polygon between them can sit a long way from
+      // where the line is actually drawn. Upstream hit-tests the segments
+      // `RebuildBezierToSegmentsPointsList` produces, which is what this
+      // approximates.
+      const pts = g.points.length === 4 ? flattenCubic(g.points) : g.points;
+      for (let i = 1; i < pts.length; i++)
+        if (distToSegment(p, pts[i - 1]!, pts[i]!) <= tol) return true;
+      return false;
+    }
+    case 'polyline': {
       for (let i = 1; i < g.points.length; i++)
         if (distToSegment(p, g.points[i - 1]!, g.points[i]!) <= tol) return true;
       return false;
@@ -285,6 +312,29 @@ function hitGraphic(g: LibGraphic, p: Vec2, tol: number): boolean {
 
 export function refId(kind: ItemRef['kind'], uuid: string | undefined, index: number): string {
   return uuid ?? `${kind}:idx:${index}`;
+}
+
+/**
+ * A cubic Bézier as a polyline. Fixed subdivision: the curve is only ever a few
+ * millimetres of schematic, so a constant is both cheaper and steadier than one
+ * derived from a tolerance that would change with the zoom.
+ */
+function flattenCubic(pts: readonly Vec2[], steps = 24): Vec2[] {
+  const [p0, c1, c2, p1] = pts as [Vec2, Vec2, Vec2, Vec2];
+  const out: Vec2[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const d = t * t * t;
+    out.push({
+      x: a * p0.x + b * c1.x + c * c2.x + d * p1.x,
+      y: a * p0.y + b * c1.y + c * c2.y + d * p1.y,
+    });
+  }
+  return out;
 }
 
 /** Distance from point p to segment ab. */

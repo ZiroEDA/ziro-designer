@@ -11,9 +11,10 @@
  * (a, b) to (c, d)". The tree is how you walk a net without hunting the canvas,
  * and clicking a leaf selects the item it names.
  *
- * Upstream groups the leaves by sheet path under each net. We work on the open
- * sheet, like the rest of our connectivity, so a net's leaves sit directly
- * under it — the grouping level would have exactly one child.
+ * Upstream groups the leaves by sheet path under each net, so the tree is
+ * Nets > net > sheet > item. {@link buildNetNavigatorHierarchy} builds that
+ * across the whole hierarchy; {@link buildNetNavigator} is the single-sheet
+ * case, which still emits the sheet level so both feed the same renderer.
  *
  * Two behaviours are worth stating because they differ from their neighbours:
  *
@@ -26,7 +27,8 @@
  */
 
 import type { LibSymbol, Schematic } from '../types.js';
-import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
+import { computeNetlist, enumeratePins, type NetlistOptions } from '../connectivity/nets.js';
+import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
 import { refId } from './hittest.js';
 
 /** One leaf: an item on the net, and the words that describe it. */
@@ -36,10 +38,25 @@ export interface NetNavigatorItem {
   text: string;
 }
 
-/** One net node and its leaves, in the order the connectivity produced them. */
+/**
+ * A sheet node under a net: `MakeNetNavigatorNode` appends one per sheet path a
+ * subgraph of the net lives on, and hangs the items beneath it.
+ *
+ * It exists even when the schematic has a single sheet — `aSingleSheetSchematic`
+ * only decides which node gets auto-expanded, not whether the node is made — so
+ * the tree is always Nets > net > sheet > item.
+ */
+export interface NetNavigatorSheet {
+  /** The sheet's label: the root sheet's name (or its file name when it has
+   *  none), then one "/<name>" per level below it. */
+  label: string;
+  items: NetNavigatorItem[];
+}
+
+/** One net node and the sheets its items sit on. */
 export interface NetNavigatorNet {
   name: string;
-  items: NetNavigatorItem[];
+  sheets: NetNavigatorSheet[];
 }
 
 /**
@@ -175,27 +192,59 @@ export function netNavigatorItemText(
 }
 
 /**
+ * Whether an item gets a node in the tree.
+ *
+ * `MakeNetNavigatorNode` drops the connectivity itself before it appends
+ * anything:
+ *
+ *     if( item->Type() == SCH_LINE_T || item->Type() == SCH_JUNCTION_T
+ *             || item->Type() == SCH_BUS_WIRE_ENTRY_T
+ *             || item->Type() == SCH_BUS_BUS_ENTRY_T )
+ *         continue;
+ *
+ * so the navigator lists what a net *reaches* — pins, labels, sheet pins,
+ * no-connects, netclass flags — and not the wires and junctions that carry it.
+ * `GetNetNavigatorItemText` still has arms for all four, because it is called
+ * from elsewhere; the filtering is the tree's, which is why it lives here and
+ * not in {@link netNavigatorItemText}.
+ */
+function listedInTree(id: string, index: NetNavigatorIndex): boolean {
+  if (index.lines.has(id)) return false;
+  if (index.junctions.has(id)) return false;
+  if (index.busEntries.has(id)) return false;
+  return true;
+}
+
+/**
  * The whole tree: every net with a name, each carrying the items connectivity
  * put on it. Nets are listed in name order, as the navigator's root children
- * are.
+ * are, and so are the items under each net.
  */
 export function buildNetNavigator(
   sch: Schematic,
   libById: Map<string, LibSymbol>,
   fmt: ValueFormatter,
+  sheetLabel = '',
 ): NetNavigatorNet[] {
   const netlist = computeNetlist(sch, libById);
   // One index for the whole tree. Resolving each id by scanning made this
   // quadratic in the sheet, and the panel rebuilds on every document change.
   const index = netNavigatorIndex(sch, libById);
+  const byName = (a: { text: string }, b: { text: string }): number =>
+    a.text < b.text ? -1 : a.text > b.text ? 1 : 0;
+
   const out: NetNavigatorNet[] = [];
   for (const net of netlist.nets) {
     const items: NetNavigatorItem[] = [];
     for (const id of net.items) {
+      if (!listedInTree(id, index)) continue;
       const text = netNavigatorItemText(sch, libById, id, fmt, index);
       if (text !== null) items.push({ id, text });
     }
-    if (items.length) out.push({ name: net.name, items });
+    // `m_netNavigator->SortChildren( sheetId )`: a wxTreeCtrl sorts its children
+    // by label, so the items under a net are alphabetical, not in document order.
+    items.sort(byName);
+    if (items.length) out.push({ name: net.name, sheets: [{ label: sheetLabel, items }] });
   }
   return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
@@ -221,8 +270,79 @@ export function stepNetItem(
 
 /** Every leaf id in tree order, which is what `stepNetItem` walks. */
 export const netNavigatorOrder = (tree: readonly NetNavigatorNet[]): string[] =>
-  tree.flatMap((n) => n.items.map((i) => i.id));
+  tree.flatMap((n) => n.sheets.flatMap((sh) => sh.items.map((i) => i.id)));
 
 /** The net a given item belongs to, for "Find in Net Navigator". */
 export const netOfItem = (tree: readonly NetNavigatorNet[], id: string): string | null =>
-  tree.find((n) => n.items.some((i) => i.id === id))?.name ?? null;
+  tree.find((n) => n.sheets.some((sh) => sh.items.some((i) => i.id === id)))?.name ?? null;
+
+/** One sheet instance for {@link buildNetNavigatorHierarchy} to walk. */
+export interface NetNavigatorSheetInput extends HierSheet {
+  /** The node's label: MakeNetNavigatorNode's root-sheet name (or file name)
+   *  followed by one "/<name>" per level below it. */
+  label: string;
+}
+
+/**
+ * The tree across the whole hierarchy, which is what upstream shows.
+ *
+ * `MakeNetNavigatorNode` collects every subgraph of the net — over all sheets —
+ * and appends a node per sheet path, with that sheet's items beneath it. A net
+ * that crosses three sheets therefore has three sheet nodes, and the one-sheet
+ * builder above is just the degenerate case of this.
+ *
+ * Nets are grouped by the name the hierarchy settled on, so the two halves of a
+ * signal that a parent's label renamed end up under one node rather than two.
+ */
+export function buildNetNavigatorHierarchy(
+  sheets: readonly NetNavigatorSheetInput[],
+  libsFor: (sheet: HierSheet) => Map<string, LibSymbol>,
+  fmt: ValueFormatter,
+  opts: NetlistOptions = {},
+): NetNavigatorNet[] {
+  if (sheets.length === 0) return [];
+  const { bySheet } = computeHierarchyNetlist(sheets, libsFor, opts);
+
+  const byText = (a: { text: string }, b: { text: string }): number =>
+    a.text < b.text ? -1 : a.text > b.text ? 1 : 0;
+  const byLabel = (a: { label: string }, b: { label: string }): number =>
+    a.label < b.label ? -1 : a.label > b.label ? 1 : 0;
+
+  /** net name -> sheet label -> items, keeping one node per sheet path. */
+  const nets = new Map<string, Map<string, NetNavigatorItem[]>>();
+
+  for (const sheet of sheets) {
+    const netlist = bySheet.get(sheet.path);
+    if (!netlist) continue;
+    const libById = libsFor(sheet);
+    const index = netNavigatorIndex(sheet.doc, libById);
+
+    for (const net of netlist.nets) {
+      for (const id of net.items) {
+        if (!listedInTree(id, index)) continue;
+        const text = netNavigatorItemText(sheet.doc, libById, id, fmt, index);
+        if (text === null) continue;
+        let bySheetLabel = nets.get(net.name);
+        if (!bySheetLabel) {
+          bySheetLabel = new Map();
+          nets.set(net.name, bySheetLabel);
+        }
+        const items = bySheetLabel.get(sheet.label);
+        if (items) items.push({ id, text });
+        else bySheetLabel.set(sheet.label, [{ id, text }]);
+      }
+    }
+  }
+
+  const out: NetNavigatorNet[] = [];
+  for (const [name, bySheetLabel] of nets) {
+    const groups: NetNavigatorSheet[] = [];
+    for (const [label, items] of bySheetLabel) {
+      items.sort(byText); // SortChildren( sheetId )
+      groups.push({ label, items });
+    }
+    groups.sort(byLabel); // SortChildren( netId ): the sheet nodes too
+    out.push({ name, sheets: groups });
+  }
+  return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}

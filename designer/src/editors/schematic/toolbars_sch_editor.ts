@@ -41,7 +41,7 @@ export const TOP_TOOLBAR: ToolEntry[] = [
   { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh (Ctrl+R)' },
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom In' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom Out' },
-  { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to Fit (Ctrl+0)' },
+  { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to Fit (Home)' },
   { id: 'zoomFitObjects', icon: 'zoomFitObjects', title: 'Zoom to All Objects (Ctrl+Home)' },
   { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area (Ctrl+F5)' },
   sep,
@@ -85,7 +85,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   // (ACTION_TOOLBAR); group titles as in SCH_EDIT_TOOLBAR_SETTINGS.
   {
     group: 'Units',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       { id: 'unitsInches', icon: 'unitIn', title: 'Inches', toggle: true },
       { id: 'unitsMils', icon: 'unitMils', title: 'Mils', toggle: true },
@@ -94,7 +94,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   },
   {
     group: 'Crosshair modes',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs', toggle: true },
       { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-Window Crosshairs', toggle: true },
@@ -106,7 +106,7 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
   sep,
   {
     group: 'Line modes',
-    paletteOnClick: true,
+    cycleOnClick: true,
     actions: [
       {
         id: 'lineModeFree',
@@ -136,6 +136,23 @@ export const LEFT_TOOLBAR: ToolEntry[] = [
 ];
 
 /** Right vertical toolbar (TOOLBAR_LOC::RIGHT, drawing/placement tools). */
+/**
+ * Right-toolbar ids that are commands, not tools.
+ *
+ * Everything else on this toolbar is an AF_ACTIVATE placement tool: clicking it
+ * arms a cursor and the next click on the canvas does the work. Sync All Sheet
+ * Pins is not one of those — `SCH_DRAWING_TOOLS::SyncAllSheetsPins` collects
+ * the sheet paths, opens `DIALOG_SYNC_SHEET_PINS` and returns 0 without ever
+ * entering a tool loop:
+ *
+ *     if( sheetPaths.size() == 0 ) { … ShowInfoBarMsg( … ); return 0; }
+ *     return doSyncSheetsPins( std::move( sheetPaths ), selectedSheet );
+ *
+ * Routing it through the tool selector instead set `activeTool` to an id no
+ * tool answers to, which is why it changed the cursor and opened nothing.
+ */
+export const RIGHT_TOOLBAR_COMMANDS: ReadonlySet<string> = new Set(['syncAllSheetPins']);
+
 export const RIGHT_TOOLBAR: ToolEntry[] = [
   {
     group: 'Selection modes',
@@ -162,15 +179,14 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
       { id: 'placeHierLabel', icon: 'labelHier', title: 'Place Hierarchical Labels (H)' },
     ],
   },
-  { id: 'drawRuleArea', icon: 'ruleArea', title: 'Draw Rule Areas', disabled: true },
+  { id: 'drawRuleArea', icon: 'ruleArea', title: 'Draw Rule Areas' },
   { id: 'drawSheet', icon: 'sheet', title: 'Draw Hierarchical Sheets (S)' },
   { id: 'sheetPin', icon: 'sheetPin', title: 'Place Pins from Sheet' },
-  {
-    id: 'syncAllSheetsPins',
-    icon: 'syncSheetPins',
-    title: 'Sync All Sheet Pins...',
-    disabled: true,
-  },
+  // The id has to be the one `onTopAction` dispatches on — it was
+  // `syncAllSheetsPins` here and `syncAllSheetPins` in the handler, so the
+  // button could never have worked even had it been enabled. The dialog it
+  // opens has been implemented all along; only this button was held back.
+  { id: 'syncAllSheetPins', icon: 'syncSheetPins', title: 'Sync All Sheet Pins...' },
   sep,
   {
     group: 'Text objects',
@@ -185,14 +201,14 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
     group: 'Circle',
     actions: [
       { id: 'circle', icon: 'circle', title: 'Draw Circles' },
-      { id: 'ellipse', icon: 'ellipse', title: 'Draw Ellipses', disabled: true },
+      { id: 'ellipse', icon: 'ellipse', title: 'Draw Ellipses' },
     ],
   },
   {
     group: 'Arc',
     actions: [
       { id: 'arc', icon: 'arc', title: 'Draw Arcs' },
-      { id: 'ellipseArc', icon: 'ellipseArc', title: 'Draw Elliptical Arcs', disabled: true },
+      { id: 'ellipseArc', icon: 'ellipseArc', title: 'Draw Elliptical Arcs' },
     ],
   },
   { id: 'bezier', icon: 'bezier', title: 'Draw Bezier Curve' },

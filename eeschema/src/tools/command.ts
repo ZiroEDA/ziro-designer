@@ -10,7 +10,7 @@
  * scripting / AI-driven edits later, they all just submit commands.
  */
 
-import type { Schematic } from '../types.js';
+import type { Schematic, Vec2 } from '../types.js';
 
 export interface EditCommand {
   readonly label: string;
@@ -18,6 +18,17 @@ export interface EditCommand {
   apply(doc: Schematic): Schematic;
   /** The inverse command, computed against the document as it was *before* apply. */
   invert(before: Schematic): EditCommand;
+  /**
+   * Points where post-edit cleanup must *not* put a junction dot back.
+   *
+   * `SCHEMATIC::CleanUp` only ever removes junctions; nothing in it adds one.
+   * Dots are added by the operations that make connections —
+   * `AddJunctionsIfNeeded` after drawing or moving a wire — so deleting a dot
+   * upstream simply leaves it deleted. Ours adds them from cleanup instead,
+   * which is convenient everywhere except here: it undid the delete on the very
+   * next pass, and the dot looked impossible to remove.
+   */
+  readonly noAutoJunctionsAt?: readonly Vec2[];
 }
 
 /**

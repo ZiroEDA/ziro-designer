@@ -218,6 +218,17 @@ export function readLibPin(node: SList, invertY = false): LibPin {
 }
 
 /** Parse a graphic body item. Exported so the symbol-library writer can diff edits. */
+/** The shape nodes `saveShape` can emit, i.e. what a `(rule_area …)` wraps. */
+const SHAPE_KINDS = new Set([
+  'polyline',
+  'rectangle',
+  'circle',
+  'arc',
+  'bezier',
+  'ellipse',
+  'ellipse_arc',
+]);
+
 export function readGraphic(node: SList, invertY = false): LibGraphic | undefined {
   const kind = head(node);
   const stroke = readStroke(node);
@@ -264,6 +275,36 @@ export function readGraphic(node: SList, invertY = false): LibGraphic | undefine
         end: readPoint(end, 0, invertY),
         source: node,
       });
+    }
+    case 'ellipse':
+    case 'ellipse_arc': {
+      // `(ellipse (center x y) (major_radius r) (minor_radius r)
+      //  (rotation_angle a) [(start_angle a) (end_angle a)] …)`, as
+      // `formatEllipse` / `formatEllipseArc` write it.
+      const centerNode = childNamed(node, 'center');
+      if (!centerNode) return undefined;
+      const center = readPoint(centerNode, 0, invertY);
+      const numChild = (nm: string): number => {
+        const c = childNamed(node, nm);
+        return c ? (numArg(c, 0) ?? 0) : 0;
+      };
+      const base = {
+        center,
+        majorRadius: mmToIU(numChild('major_radius')),
+        minorRadius: mmToIU(numChild('minor_radius')),
+        rotation: numChild('rotation_angle'),
+      };
+      return withSF(
+        kind === 'ellipse'
+          ? { kind: 'ellipse' as const, ...base, source: node }
+          : {
+              kind: 'ellipse_arc' as const,
+              ...base,
+              startAngle: numChild('start_angle'),
+              endAngle: numChild('end_angle'),
+              source: node,
+            },
+      );
     }
     case 'polyline': {
       const pts = childNamed(node, 'pts');
@@ -658,7 +699,15 @@ function readSheet(node: SList): SchSheet {
       g = numArg(fillCol, 1) ?? 0,
       b = numArg(fillCol, 2) ?? 0,
       a = numArg(fillCol, 3) ?? 0;
-    if (a > 0) sheet.fillColor = [r, g, b, a];
+    // `COLOR4D::UNSPECIFIED` is `COLOR4D( 0, 0, 0, 0 )`, and that is what KiCad
+    // writes for a sheet with no background colour of its own — so *all four*
+    // components zero means unset, and the painter falls back to the theme.
+    // Any other value is a real colour and is kept, even at zero alpha: that is
+    // not unset to KiCad, it just does not get drawn ("only draw the background
+    // if it has a visible alpha value"). Testing alpha alone dropped such a
+    // colour on read, which both lost it on write and let the theme fill a
+    // sheet upstream leaves blank.
+    if (r !== 0 || g !== 0 || b !== 0 || a !== 0) sheet.fillColor = [r, g, b, a];
   }
   const uuid = stringField(node, 'uuid');
   if (uuid) sheet.uuid = uuid;
@@ -975,9 +1024,25 @@ export function readSchematic(root: SList): Schematic {
     else if (name === 'sheet') sheets.push(readSheet(item));
     else if (name === 'bus_entry') busEntries.push(readBusEntry(item));
     else if (name === 'image') images.push(readImage(item));
-    else if (name === 'rectangle' || name === 'circle' || name === 'arc') {
+    else if (
+      name === 'rectangle' ||
+      name === 'circle' ||
+      name === 'arc' ||
+      name === 'bezier' ||
+      name === 'ellipse' ||
+      name === 'ellipse_arc'
+    ) {
       const g = readGraphic(item, false); // sheet coordinates: +Y down, no invert
       if (g) graphics.push(g);
+    } else if (name === 'rule_area') {
+      // `(rule_area <attrs…> <shape>)`: SCH_RULE_AREA is a SCH_SHAPE, so the
+      // shape inside is read exactly as a free-standing one and only carries a
+      // flag saying which layer it belongs to. `saveRuleArea` wraps whatever
+      // `saveShape` produced, so the child is a normal polyline/rectangle node.
+      const shape = item.items.find((c): c is SList => isList(c) && SHAPE_KINDS.has(head(c) ?? ''));
+      const g = shape ? readGraphic(shape, false) : undefined;
+      // `readGraphic` never returns the text variant for these node names.
+      if (g && g.kind !== 'text') graphics.push({ ...g, ruleArea: true, ruleAreaSource: item });
     } else if (name === 'text_box') textBoxes.push(readTextBox(item));
     else if (name === 'table') tables.push(readTable(item));
     else if (name === 'group') groups.push(readGroup(item));

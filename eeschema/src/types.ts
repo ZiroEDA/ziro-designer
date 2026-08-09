@@ -102,6 +102,20 @@ export type LibGraphic =
       readonly end: Vec2;
       readonly stroke?: Stroke;
       readonly fill?: Fill;
+      /**
+       * A schematic rule area (`SCH_RULE_AREA`), not a plain drawing.
+       *
+       * Upstream models it as a shape and nothing more —
+       * `class SCH_RULE_AREA : public SCH_SHAPE` — always a POLY on
+       * LAYER_RULE_AREAS with no fill, so it inherits every shape behaviour:
+       * hit-testing, moving, the point editor, the clipboard. Modelling it here
+       * the same way inherits ours for free. Never set on a symbol library's
+       * graphics; a rule area only exists on a sheet.
+       */
+      readonly ruleArea?: boolean;
+      /** The `(rule_area …)` wrapper this shape was read from, so its
+       *  attribute children round-trip even though nothing edits them yet. */
+      readonly ruleAreaSource?: SList;
       readonly source: SList;
     }
   | {
@@ -110,6 +124,20 @@ export type LibGraphic =
       readonly radius: number;
       readonly stroke?: Stroke;
       readonly fill?: Fill;
+      /**
+       * A schematic rule area (`SCH_RULE_AREA`), not a plain drawing.
+       *
+       * Upstream models it as a shape and nothing more —
+       * `class SCH_RULE_AREA : public SCH_SHAPE` — always a POLY on
+       * LAYER_RULE_AREAS with no fill, so it inherits every shape behaviour:
+       * hit-testing, moving, the point editor, the clipboard. Modelling it here
+       * the same way inherits ours for free. Never set on a symbol library's
+       * graphics; a rule area only exists on a sheet.
+       */
+      readonly ruleArea?: boolean;
+      /** The `(rule_area …)` wrapper this shape was read from, so its
+       *  attribute children round-trip even though nothing edits them yet. */
+      readonly ruleAreaSource?: SList;
       readonly source: SList;
     }
   | {
@@ -119,6 +147,20 @@ export type LibGraphic =
       readonly end: Vec2;
       readonly stroke?: Stroke;
       readonly fill?: Fill;
+      /**
+       * A schematic rule area (`SCH_RULE_AREA`), not a plain drawing.
+       *
+       * Upstream models it as a shape and nothing more —
+       * `class SCH_RULE_AREA : public SCH_SHAPE` — always a POLY on
+       * LAYER_RULE_AREAS with no fill, so it inherits every shape behaviour:
+       * hit-testing, moving, the point editor, the clipboard. Modelling it here
+       * the same way inherits ours for free. Never set on a symbol library's
+       * graphics; a rule area only exists on a sheet.
+       */
+      readonly ruleArea?: boolean;
+      /** The `(rule_area …)` wrapper this shape was read from, so its
+       *  attribute children round-trip even though nothing edits them yet. */
+      readonly ruleAreaSource?: SList;
       readonly source: SList;
     }
   | {
@@ -126,6 +168,20 @@ export type LibGraphic =
       readonly points: readonly Vec2[];
       readonly stroke?: Stroke;
       readonly fill?: Fill;
+      /**
+       * A schematic rule area (`SCH_RULE_AREA`), not a plain drawing.
+       *
+       * Upstream models it as a shape and nothing more —
+       * `class SCH_RULE_AREA : public SCH_SHAPE` — always a POLY on
+       * LAYER_RULE_AREAS with no fill, so it inherits every shape behaviour:
+       * hit-testing, moving, the point editor, the clipboard. Modelling it here
+       * the same way inherits ours for free. Never set on a symbol library's
+       * graphics; a rule area only exists on a sheet.
+       */
+      readonly ruleArea?: boolean;
+      /** The `(rule_area …)` wrapper this shape was read from, so its
+       *  attribute children round-trip even though nothing edits them yet. */
+      readonly ruleAreaSource?: SList;
       readonly source: SList;
     }
   | {
@@ -134,6 +190,56 @@ export type LibGraphic =
       readonly points: readonly Vec2[];
       readonly stroke?: Stroke;
       readonly fill?: Fill;
+      /**
+       * A schematic rule area (`SCH_RULE_AREA`), not a plain drawing.
+       *
+       * Upstream models it as a shape and nothing more —
+       * `class SCH_RULE_AREA : public SCH_SHAPE` — always a POLY on
+       * LAYER_RULE_AREAS with no fill, so it inherits every shape behaviour:
+       * hit-testing, moving, the point editor, the clipboard. Modelling it here
+       * the same way inherits ours for free. Never set on a symbol library's
+       * graphics; a rule area only exists on a sheet.
+       */
+      readonly ruleArea?: boolean;
+      /** The `(rule_area …)` wrapper this shape was read from, so its
+       *  attribute children round-trip even though nothing edits them yet. */
+      readonly ruleAreaSource?: SList;
+      readonly source: SList;
+    }
+  | {
+      /**
+       * `SHAPE_T::ELLIPSE` — `(ellipse (center x y) (major_radius r)
+       * (minor_radius r) (rotation_angle a) …)`, written by `formatEllipse`.
+       * A circle with two radii and a tilt.
+       */
+      readonly kind: 'ellipse';
+      readonly center: Vec2;
+      readonly majorRadius: number;
+      readonly minorRadius: number;
+      /** `rotation_angle`, degrees; the major axis' tilt from +X. */
+      readonly rotation: number;
+      readonly stroke?: Stroke;
+      readonly fill?: Fill;
+      readonly ruleArea?: boolean;
+      readonly ruleAreaSource?: SList;
+      readonly source: SList;
+    }
+  | {
+      /**
+       * `SHAPE_T::ELLIPSE_ARC` — the same node plus `(start_angle a)` and
+       * `(end_angle a)`, so a sweep of the ellipse rather than the whole of it.
+       */
+      readonly kind: 'ellipse_arc';
+      readonly center: Vec2;
+      readonly majorRadius: number;
+      readonly minorRadius: number;
+      readonly rotation: number;
+      readonly startAngle: number;
+      readonly endAngle: number;
+      readonly stroke?: Stroke;
+      readonly fill?: Fill;
+      readonly ruleArea?: boolean;
+      readonly ruleAreaSource?: SList;
       readonly source: SList;
     }
   | {
@@ -142,6 +248,9 @@ export type LibGraphic =
       readonly at: Vec2;
       readonly angle: number;
       readonly effects?: TextEffects;
+      /** Never set: `SCH_RULE_AREA` is always a POLY. Declared so the flag can
+       *  be read off the union without narrowing the kind first. */
+      readonly ruleArea?: false;
       readonly source: SList;
     };
 

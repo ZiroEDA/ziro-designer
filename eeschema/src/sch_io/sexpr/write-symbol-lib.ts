@@ -190,6 +190,28 @@ export function buildLibGraphicNode(g: LibGraphic): SList {
         strokeNode(g.stroke),
         fillNode(g.fill),
       );
+    case 'ellipse':
+    case 'ellipse_arc':
+      // `formatEllipse` / `formatEllipseArc`. A symbol library can hold these
+      // too, so the same node is built here as on a sheet.
+      return {
+        kind: 'list',
+        items: [
+          atom(g.kind === 'ellipse' ? 'ellipse' : 'ellipse_arc'),
+          list(atom('center'), atom(fx(g.center)), atom(fy(g.center))),
+          list(atom('major_radius'), atom(fx({ x: g.majorRadius, y: 0 }))),
+          list(atom('minor_radius'), atom(fx({ x: g.minorRadius, y: 0 }))),
+          list(atom('rotation_angle'), atom(String(g.rotation))),
+          ...(g.kind === 'ellipse_arc'
+            ? [
+                list(atom('start_angle'), atom(String(g.startAngle))),
+                list(atom('end_angle'), atom(String(g.endAngle))),
+              ]
+            : []),
+          strokeNode(g.stroke),
+          fillNode(g.fill),
+        ],
+      };
     case 'text':
       return list(
         atom('text'),

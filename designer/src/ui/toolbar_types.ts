@@ -22,15 +22,54 @@ export interface ToolButton {
 /**
  * A TOOLBAR_GROUP_CONFIG / ACTION_GROUP: rendered as a single button showing
  * the selected action (first action by default) with a triangle in the
- * bottom-right corner. Click runs the selected action; pressing for 500 ms or
- * dragging off the button pops up a palette with every action in the group
+ * bottom-right corner. A click runs the selected action, or steps to the next
+ * one for a toggle group (`cycleOnClick`); pressing for 500 ms or dragging off
+ * the button pops up a palette with every action in the group
  * (common/tool/action_toolbar.cpp).
+ *
+ * A click never opens the palette. Upstream arms the palette timer on left
+ * *down* and cancels it on left *up*, so anything shorter than the delay falls
+ * through to the ordinary click:
+ *
+ *     if( aEvent.LeftDown() && ( m_actionGroups.find( item->GetId() ) != m_actionGroups.end() ) )
+ *         m_paletteTimer->StartOnce( PALETTE_OPEN_DELAY );
+ *
+ *     // Clear the popup conditions if it is a left up, because that implies a click happened
+ *     if( aEvent.LeftUp() )
+ *         m_paletteTimer->Stop();
  */
 export interface ToolGroup {
   group: string;
   actions: ToolButton[];
-  /** Open the palette on a normal click instead of activating the shown action. */
-  paletteOnClick?: boolean;
+  /**
+   * A *toggle* group rather than a tool group: units, crosshair modes, line
+   * modes. Upstream splits the two by whether any action in the group is an
+   * activation (`TOOL_ACTION::IsActivation`), and a click means different
+   * things either way (`ACTION_TOOLBAR::onToolEvent`):
+   *
+   *     // For non-tool toggle groups (units, crosshair, line modes), cycle to the next
+   *     // action on click. Tool groups (route track, etc.) fall through and just dispatch
+   *     // the currently displayed action.
+   *
+   * Either way a *click* never opens the palette; only a 500 ms press or a
+   * drag off the button does.
+   */
+  cycleOnClick?: boolean;
+}
+
+/**
+ * The action a click on `group`'s button steps to, given the one it currently
+ * shows: the next in declaration order, wrapping at the end.
+ *
+ *     next = actions[( i + 1 ) % actions.size()];
+ *
+ * Falls back to the first action when the shown id is not in the group, which
+ * is what upstream's loop does too (`next` is initialised to `actions[0]`).
+ */
+export function nextInGroup(group: ToolGroup, shownId: string): ToolButton {
+  const i = group.actions.findIndex((a) => a.id === shownId);
+  if (i === -1) return group.actions[0]!;
+  return group.actions[(i + 1) % group.actions.length]!;
 }
 
 /**

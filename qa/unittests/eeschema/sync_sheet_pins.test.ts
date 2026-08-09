@@ -10,9 +10,15 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import {
+  advanceSyncPlacement,
+  deleteSyncLabels,
+  deleteSyncPins,
   hasUnmatched,
+  reassociate,
+  splitAssociated,
   syncLabelsFromPin,
   syncPinFromLabel,
+  syncPlacementFor,
   syncSheetPinBuckets,
 } from '@ziroeda/eeschema/src/tools/sync_sheet_pins.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
@@ -173,5 +179,176 @@ describe('use the pin as the template', () => {
     expect(undone.labels[0]!.text).toBe('CLK');
     const redone = cmd.invert(sub).invert(after).apply(undone);
     expect(redone.labels[0]!.text).toBe('CLOCK');
+  });
+});
+
+describe('the two add buttons', () => {
+  it('queue the selected rows for interactive placement', () => {
+    // `PreparePlacementTemplate` takes the *set* of selected rows, and the tool
+    // places them one click at a time.
+    const p = syncPlacementFor('sheetPin', 0, 'top.kicad_sch', [
+      { text: 'CLK', shape: 'input' },
+      { text: 'RST', shape: 'input' },
+    ]);
+    expect(p?.queue.map((t) => t.text)).toEqual(['CLK', 'RST']);
+  });
+
+  it('and do nothing at all with an empty selection', () => {
+    // `if( selected_items_set.empty() ) return;` — the guard both buttons open
+    // with, so a stray click cannot arm a tool with nothing to place.
+    expect(syncPlacementFor('sheetPin', 0, 'top.kicad_sch', [])).toBe(null);
+  });
+
+  it('a placed item leaves the queue, and the last one ends the placement', () => {
+    const p = syncPlacementFor('hierLabel', 0, 'sub.kicad_sch', [
+      { text: 'A', shape: 'input' },
+      { text: 'B', shape: 'output' },
+    ])!;
+    const after = advanceSyncPlacement(p);
+    expect(after?.queue.map((t) => t.text)).toEqual(['B']);
+    // `if( m_placementTemplateSet.empty() ) EndPlacement();` — null is what
+    // brings the dialog back.
+    expect(advanceSyncPlacement(after!)).toBe(null);
+  });
+
+  it('pins are written to the parent, labels to the sub-sheet', () => {
+    // The two halves live in different files; upstream pops the sheet path for
+    // one direction and not the other.
+    expect(
+      syncPlacementFor('sheetPin', 0, 'top.kicad_sch', [{ text: 'A', shape: 'input' }])?.file,
+    ).toBe('top.kicad_sch');
+    expect(
+      syncPlacementFor('hierLabel', 0, 'sub.kicad_sch', [{ text: 'A', shape: 'input' }])?.file,
+    ).toBe('sub.kicad_sch');
+  });
+
+  it('carries the shape across, so the new item matches its template', () => {
+    const p = syncPlacementFor('sheetPin', 0, 'top.kicad_sch', [{ text: 'D', shape: 'tri_state' }]);
+    expect(p?.queue[0]?.shape).toBe('tri_state');
+  });
+});
+
+describe('the undo button', () => {
+  it('puts a matched pair back into the two unmatched lists', () => {
+    // `OnBtnUndoClicked` — the pair still agrees, it is simply no longer
+    // treated as settled.
+    const b = buckets(pin('CLK', 'input', 'p1'), hier('CLK', 'input', 'l1'));
+    expect(b.associated).toHaveLength(1);
+    const split = splitAssociated(b, new Set([b.associated[0]!.label.id]));
+    expect(split.associated).toEqual([]);
+    expect(split.labels.map((l) => l.text)).toEqual(['CLK']);
+    expect(split.pins.map((p) => p.text)).toEqual(['CLK']);
+  });
+
+  it('leaves the pairs it was not asked about alone', () => {
+    const b = buckets(
+      `${pin('CLK', 'input', 'p1')} ${pin('RST', 'input', 'p2', 25)}`,
+      `${hier('CLK', 'input', 'l1')} ${hier('RST', 'input', 'l2', 25)}`,
+    );
+    const split = splitAssociated(b, new Set([b.associated[0]!.label.id]));
+    expect(split.associated.map((a) => a.label.text)).toEqual(['RST']);
+    expect(split.labels.map((l) => l.text)).toEqual(['CLK']);
+  });
+
+  it('and an empty set is the identity', () => {
+    const b = buckets(pin('CLK', 'input', 'p1'), hier('CLK', 'input', 'l1'));
+    expect(splitAssociated(b, new Set())).toBe(b);
+  });
+});
+
+describe('the two delete buttons', () => {
+  it('drop the selected pins from the sheet symbol', () => {
+    const parent = parentWith(
+      `${pin('A', 'input', 'p1')} ${pin('B', 'input', 'p2', 25)} ${pin('C', 'input', 'p3', 30)}`,
+    );
+    const after = deleteSyncPins(0, [0, 2]).apply(parent);
+    expect(after.sheets[0]?.pins.map((p) => p.name)).toEqual(['B']);
+  });
+
+  it('back to front, so the indices do not shift underneath the deletion', () => {
+    // Deleting index 0 first would renumber everything above it and the second
+    // deletion would take the wrong pin.
+    const parent = parentWith(
+      `${pin('A', 'input', 'p1')} ${pin('B', 'input', 'p2', 25)} ${pin('C', 'input', 'p3', 30)}`,
+    );
+    expect(
+      deleteSyncPins(0, [0, 1])
+        .apply(parent)
+        .sheets[0]?.pins.map((p) => p.name),
+    ).toEqual(['C']);
+  });
+
+  it('and undo puts them back in their original order', () => {
+    const parent = parentWith(`${pin('A', 'input', 'p1')} ${pin('B', 'input', 'p2', 25)}`);
+    const cmd = deleteSyncPins(0, [0]);
+    const back = cmd.invert(parent).apply(cmd.apply(parent));
+    expect(back.sheets[0]?.pins.map((p) => p.name)).toEqual(['A', 'B']);
+  });
+
+  it('drop the selected labels from the sub-sheet, every copy of each', () => {
+    // The list is de-duplicated by text, so a row stands for all the labels
+    // carrying it — the same rule the rename direction follows.
+    const sub = subWith(
+      `${hier('CLK', 'input', 'l1')} ${hier('CLK', 'input', 'l2', 25)} ${hier('RST', 'input', 'l3', 30)}`,
+    );
+    const after = deleteSyncLabels(['CLK']).apply(sub);
+    expect(after.labels.map((l) => l.text)).toEqual(['RST']);
+  });
+
+  it('and leave anything that is not a hierarchical label alone', () => {
+    const sub = readSchematic(
+      parse(`(kicad_sch (version 20250114) (paper "A4") (lib_symbols)
+        ${hier('CLK', 'input', 'l1')}
+        (label "CLK" (at 40 20 0) (effects (font (size 1.27 1.27))) (uuid "l2")))`),
+    );
+    const after = deleteSyncLabels(['CLK']).apply(sub);
+    expect(after.labels.map((l) => l.kind)).toEqual(['label']);
+  });
+
+  it('a deleted label survives a round trip through the file', () => {
+    const sub = subWith(`${hier('CLK', 'input', 'l1')} ${hier('RST', 'input', 'l2', 25)}`);
+    const after = deleteSyncLabels(['CLK']).apply(sub);
+    const back = readSchematic(parse(serializeSchematic(after)));
+    expect(back.labels.map((l) => l.text)).toEqual(['RST']);
+  });
+
+  it('as does a deleted pin', () => {
+    const parent = parentWith(`${pin('A', 'input', 'p1')} ${pin('B', 'input', 'p2', 25)}`);
+    const after = deleteSyncPins(0, [0]).apply(parent);
+    const back = readSchematic(parse(serializeSchematic(after)));
+    expect(back.sheets[0]?.pins.map((p) => p.name)).toEqual(['B']);
+  });
+});
+
+describe('breaking a pair and then settling it again', () => {
+  // The sequence that made the two template buttons look dead: break a pair,
+  // point one of its halves at something else, press the button. The rename
+  // happens, the pair matches — and then `splitAssociated` pulls it straight
+  // back apart, because the label id is still in the broken set. Nothing on
+  // screen moves.
+  const b = () => buckets(pin('CLK', 'input', 'p1'), hier('CLK', 'input', 'l1'));
+
+  it('the pair is settled again, not re-broken', () => {
+    const start = b();
+    const id = start.associated[0]!.label.id;
+    const broken = new Set([id]);
+    expect(splitAssociated(start, broken).associated).toEqual([]);
+    // `AppendItem` — the pair goes back to the associated list.
+    const after = reassociate(broken, id);
+    expect(splitAssociated(start, after).associated).toHaveLength(1);
+    expect(splitAssociated(start, after).labels).toEqual([]);
+    expect(splitAssociated(start, after).pins).toEqual([]);
+  });
+
+  it('and the other broken pairs stay broken', () => {
+    const broken = new Set(['a', 'b']);
+    expect([...reassociate(broken, 'a')]).toEqual(['b']);
+  });
+
+  it('a label that was never broken changes nothing, and keeps the same set', () => {
+    // Same object back, so a render that did not change the pairs does not
+    // recompute the buckets.
+    const broken = new Set(['a']);
+    expect(reassociate(broken, 'zzz')).toBe(broken);
   });
 });

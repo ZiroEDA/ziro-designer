@@ -20,9 +20,9 @@
  * than mutating means a drag is a pure function of (document, handle, cursor),
  * so the preview during a drag and the committed result cannot disagree.
  *
- * Covered here: wires, buses, graphic polylines, rectangles, circles, arcs, text
- * boxes, sheets and images. Not yet: table cells, and ellipses and rule areas,
- * which we do not model at all. Arcs live in arc_edit.ts, since what a drag
+ * Covered here: wires, buses, graphic polylines, rectangles, circles, arcs,
+ * ellipses, elliptical arcs, table cells, text boxes, sheets and images. Rule
+ * areas edit through their polyline. Arcs live in arc_edit.ts, since what a drag
  * means there depends on the ARC_EDIT_MODE preference and takes real geometry.
  *
  * Note that a sheet-level `(polyline …)` is read into `lines`, not `graphics`
@@ -94,6 +94,9 @@ const LINE_START = 0;
 const LINE_END = 1;
 const CIRC_CENTER = 0;
 const CIRC_END = 1;
+/** An ellipse's two radius handles, one on each axis (SHAPE_T::ELLIPSE). */
+const ELLIPSE_MAJOR = 1;
+const ELLIPSE_MINOR = 2;
 const ARC_START = 0;
 const ARC_MID = 1;
 const ARC_END = 2;
@@ -102,9 +105,13 @@ const ARC_CENTER = 3;
 const CELL_COL_WIDTH = 0;
 const CELL_ROW_HEIGHT = 1;
 
-/** MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT (sch_sheet.h), in mils. */
-const MIN_SHEET_WIDTH = mmToIU(500 * 0.0254);
-const MIN_SHEET_HEIGHT = mmToIU(150 * 0.0254);
+/**
+ * MIN_SHEET_WIDTH / MIN_SHEET_HEIGHT (sch_sheet.h), in mils. Exported because
+ * `sizeSheet` holds a sheet to them while it is being *drawn* too, not only
+ * while its handles are dragged.
+ */
+export const MIN_SHEET_WIDTH = mmToIU(500 * 0.0254);
+export const MIN_SHEET_HEIGHT = mmToIU(150 * 0.0254);
 /** RECTANGLE_POINT_EDIT_BEHAVIOR floors every rectangle at one mil. */
 const ONE_MIL = mmToIU(0.0254);
 
@@ -132,8 +139,22 @@ export function pointEditTarget(doc: Schematic, id: string): PointEditTarget | n
   if (sheet !== -1) return { kind: 'sheet', index: sheet };
   const textbox = find(doc.textBoxes, 'textbox');
   if (textbox !== -1) return { kind: 'textbox', index: textbox };
+  // Lines, but only *graphic* ones. `pointEditorTypes` lists
+  // `SCH_ITEM_LOCATE_GRAPHIC_LINE_T`, not `SCH_LINE_T`, and
+  // `SCH_LINE::IsType` matches that pseudo-type only on `LAYER_NOTES`:
+  //
+  //     if ( scanType == SCH_ITEM_LOCATE_GRAPHIC_LINE_T && m_layer == LAYER_NOTES )
+  //         return true;
+  //
+  // So a selected wire or bus gets no endpoint handles at all upstream — it is
+  // reshaped by dragging it, not by grabbing a grip. We showed them on every
+  // line, which put a pair of boxes on the ends of every selected wire.
+  //
+  // `LINE_POINT_EDIT_BEHAVIOR` agrees from the other side: the neighbour it
+  // looks for to drag along skips anything that is not on LAYER_NOTES.
   const line = find(doc.lines, 'line');
-  if (line !== -1) return { kind: 'line', index: line };
+  if (line !== -1)
+    return doc.lines[line]!.kind === 'polyline' ? { kind: 'line', index: line } : null;
   const image = find(doc.images, 'image');
   if (image !== -1) return { kind: 'image', index: image };
   // Graphics carry no uuid of their own, so they are addressed by index.
@@ -470,6 +491,22 @@ function graphicHandles(g: LibGraphic): EditHandle[] {
         pt('point', CIRC_CENTER, g.center),
         pt('point', CIRC_END, { x: g.center.x + g.radius, y: g.center.y }),
       ];
+    case 'ellipse':
+    case 'ellipse_arc': {
+      // The centre, and one handle per axis at the end of each radius, turned by
+      // the ellipse's rotation. An `EDA_SHAPE` ellipse is centre + two radii +
+      // a tilt, so those three points describe it completely.
+      const rad = (g.rotation * Math.PI) / 180;
+      const along = (r: number, extra: number): Vec2 => ({
+        x: g.center.x + r * Math.cos(rad + extra),
+        y: g.center.y + r * Math.sin(rad + extra),
+      });
+      return [
+        pt('point', CIRC_CENTER, g.center),
+        pt('point', ELLIPSE_MAJOR, along(g.majorRadius, 0)),
+        pt('point', ELLIPSE_MINOR, along(g.minorRadius, Math.PI / 2)),
+      ];
+    }
     case 'arc': {
       // EDA_ARC_POINT_EDIT_BEHAVIOR: start, mid, end, centre. The two indicator
       // lines from the centre are drawn, not grabbed, so they are not handles.
@@ -481,11 +518,43 @@ function graphicHandles(g: LibGraphic): EditHandle[] {
         pt('point', ARC_CENTER, s.center),
       ];
     }
-    case 'polyline':
     case 'bezier':
-      // A vertex per point: EDA_POLYGON_POINT_EDIT_BEHAVIOR for a polyline, and
-      // for a bezier the two ends plus the two control points.
+      // `EDA_BEZIER_POINT_EDIT_BEHAVIOR::MakePoints` — four handles, in file
+      // order, and no edges to grab:
+      //
+      //     aPoints.AddPoint( m_bezier.GetStart() );
+      //     aPoints.AddPoint( m_bezier.GetBezierC1() );
+      //     aPoints.AddPoint( m_bezier.GetBezierC2() );
+      //     aPoints.AddPoint( m_bezier.GetEnd() );
+      //
+      // (It then adds two *indicator* lines, start→C1 and C2→end, which are
+      // drawn as leaders and never grabbed — the same refinement we leave out
+      // for the arc's centre lines.)
+      //
+      // This is one handle per stored point, which is right only because the
+      // four stored points *are* the control points. The bezier tool used to
+      // flatten a quadratic into a twenty-five point polyline, and then this
+      // put a handle on every one of those points.
       return g.points.map((p, i) => pt('point', i, p));
+    case 'polyline': {
+      // `EDA_POLYGON_POINT_EDIT_BEHAVIOR` -> `BuildForPolyOutline`, which adds a
+      // handle per corner *and* an EDIT_LINE per edge:
+      //
+      //     for( auto iterator = aOutline.CIterateWithHoles(); iterator; iterator++ )
+      //         aPoints.AddPoint( *iterator );
+      //     ...
+      //     for( int i = 0; i < cornersCount - 1; ++i )
+      //         aPoints.AddLine( aPoints.Point( i ), aPoints.Point( i + 1 ) );
+      //
+      // and `EDIT_POINTS::ViewDraw` draws a point as a square and a line as a
+      // circle at its midpoint, so a polygon shows both. Ours emitted the
+      // corners only, which is why a rule area came up with squares and nothing
+      // in between.
+      const out = g.points.map((p, i) => pt('point', i, p));
+      for (let i = 0; i + 1 < g.points.length; i++)
+        out.push(pt('line', i, mid(g.points[i]!, g.points[i + 1]!)));
+      return out;
+    }
     case 'text':
       return [];
   }
@@ -564,9 +633,46 @@ function dragGraphic(g: LibGraphic, h: EditHandle, pos: Vec2, arcMode: ArcEditMo
       // from the distance to the centre (EDA_SHAPE::SetEnd on a circle).
       if (h.index === CIRC_CENTER) return { ...g, center: { ...pos } };
       return { ...g, radius: Math.round(Math.hypot(pos.x - g.center.x, pos.y - g.center.y)) };
-    case 'polyline':
+    case 'ellipse':
+    case 'ellipse_arc': {
+      if (h.index === CIRC_CENTER) return { ...g, center: { ...pos } };
+      // Dragging a radius handle sets that radius from its distance to the
+      // centre, the way the circle's end handle sets its radius.
+      const r = Math.round(Math.hypot(pos.x - g.center.x, pos.y - g.center.y));
+      return h.index === ELLIPSE_MAJOR
+        ? { ...g, majorRadius: Math.max(1, r) }
+        : { ...g, minorRadius: Math.max(1, r) };
+    }
     case 'bezier':
       return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
+    case 'polyline': {
+      if (h.kind === 'point')
+        return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
+      // `EDIT_LINE::SetPosition` moves both ends so the midpoint lands on the
+      // cursor, i.e. the edge slides as a unit. (Upstream then re-applies an
+      // `EC_CONVERGING` constraint to the neighbouring edges; that refinement is
+      // not ported, so the two adjacent edges simply stretch to follow.)
+      const a = g.points[h.index];
+      const b = g.points[h.index + 1];
+      if (!a || !b) return g;
+      const m = mid(a, b);
+      const d = { x: pos.x - m.x, y: pos.y - m.y };
+      const first = g.points[0];
+      const last = g.points[g.points.length - 1];
+      // A closed outline repeats its first vertex, so moving one must move both
+      // or the polygon springs open.
+      const closed =
+        !!first && !!last && g.points.length > 2 && first.x === last.x && first.y === last.y;
+      const moves = new Set([h.index, h.index + 1]);
+      if (closed && (moves.has(0) || moves.has(g.points.length - 1))) {
+        moves.add(0);
+        moves.add(g.points.length - 1);
+      }
+      return {
+        ...g,
+        points: g.points.map((p, i) => (moves.has(i) ? { x: p.x + d.x, y: p.y + d.y } : p)),
+      };
+    }
     case 'text':
       return g;
   }

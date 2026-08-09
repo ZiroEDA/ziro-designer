@@ -100,6 +100,8 @@ const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
       (table_cell "c" (exclude_from_sim no) (at 70 30 0) (size 10 6)
         (fill (type none)) (effects (font (size 1.27 1.27)) (justify left top))
         (uuid "tc1"))))
+  (image (at 10 50) (scale 1) (uuid "im1")
+    (data "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
   (sheet (at 90 30) (size 10 6) (stroke (width 0) (type solid))
     (fill (color 0 0 0 0.0)) (uuid "sh1")
     (property "Sheetname" "sub" (at 90 29 0) (effects (font (size 1.27 1.27))))
@@ -112,7 +114,10 @@ const doc = (): Schematic => readSchematic(parse(SCH));
  * is drawn by re-stroking the item's own geometry in that colour, so "did this
  * kind glow?" is "were any drawing calls issued under it?".
  */
-function shadowCalls(selection: ReadonlySet<string>): Call[] {
+function shadowCalls(
+  selection: ReadonlySet<string>,
+  filter: { hiddenItems?: ReadonlySet<string>; onlyItems?: ReadonlySet<string> } = {},
+): Call[] {
   const ctx = recorder();
   renderSchematic(
     ctx,
@@ -123,14 +128,28 @@ function shadowCalls(selection: ReadonlySet<string>): Call[] {
     2000,
     selection,
     undefined,
-    { ...DEFAULT_RENDER_OPTS, showPageLimits: false, showDrawingSheet: false },
+    {
+      ...DEFAULT_RENDER_OPTS,
+      showPageLimits: false,
+      showDrawingSheet: false,
+      ...(filter.hiddenItems ? { hiddenItems: filter.hiddenItems } : {}),
+      ...(filter.onlyItems ? { onlyItems: filter.onlyItems } : {}),
+    },
   );
   const shadow = KICAD_DEFAULT.selectionShadow;
   const out: Call[] = [];
   let active = false;
+  let seen = false;
   for (const c of ctx.__calls) {
     if (c.op === 'set:strokeStyle' || c.op === 'set:fillStyle') {
       active = c.args[0] === shadow;
+      // drawSelectionShadows is one contiguous run: it opens by setting the
+      // shadow colour and everything after it paints in something else. Stopping
+      // at the end of that run matters — the normal pass inherits whatever
+      // colour was left set, so a few of its calls would otherwise be counted as
+      // halo calls and "the halo was skipped" would look like "two calls".
+      if (seen && !active) break;
+      seen ||= active;
       continue;
     }
     if (active && ['stroke', 'fill', 'strokeRect', 'fillRect', 'arc', 'lineTo'].includes(c.op)) {
@@ -155,6 +174,7 @@ describe('the halo reaches every selectable kind', () => {
     ['graphic', refId('graphic', undefined, 0)],
     ['directive label', 'd1'],
     ['table', refId('table', d.tables[0]!.uuid, 0)],
+    ['image', 'im1'],
   ];
 
   for (const [name, id] of cases) {
@@ -167,5 +187,54 @@ describe('the halo reaches every selectable kind', () => {
     // The guard above would pass for a renderer that painted the whole sheet in
     // the shadow colour; this is what stops that reading.
     expect(shadowCalls(new Set())).toHaveLength(0);
+  });
+});
+
+/**
+ * A halo belongs to its item, so it has to obey the same `hiddenItems` /
+ * `onlyItems` filter the item does.
+ *
+ * A drag paints the sheet once without the items being moved (`hiddenItems`)
+ * and then paints only those, at the cursor (`onlyItems`). Eleven of the
+ * seventeen kinds here re-stroked their halo without consulting the filter, so
+ * a dragged item's glow stayed baked into the background at the old position
+ * and only caught up when the drag ended and the background was rebuilt. It was
+ * loudest on an image, whose halo is a full rectangle around the bitmap.
+ */
+describe('the halo obeys the render filter', () => {
+  const d = doc();
+  const cases: [string, string][] = [
+    ['symbol', 'r1'],
+    ['wire', 'w1'],
+    ['junction', 'j1'],
+    ['no-connect', 'nc1'],
+    ['label', 'l1'],
+    ['sheet', 'sh1'],
+    ['bus entry', 'be1'],
+    ['text box', 'tb1'],
+    ['graphic', refId('graphic', undefined, 0)],
+    ['directive label', 'd1'],
+    ['table', refId('table', d.tables[0]!.uuid, 0)],
+    ['image', 'im1'],
+  ];
+
+  for (const [name, id] of cases) {
+    it(`leaves a hidden ${name}'s halo out`, () => {
+      const sel = new Set([id]);
+      // Sanity: it glows when nothing is filtered (guards the guard).
+      expect(shadowCalls(sel).length, name).toBeGreaterThan(0);
+      expect(shadowCalls(sel, { hiddenItems: sel }).length, name).toBe(0);
+    });
+
+    it(`draws a ${name}'s halo when it is the only item`, () => {
+      const sel = new Set([id]);
+      expect(shadowCalls(sel, { onlyItems: sel }).length, name).toBeGreaterThan(0);
+    });
+  }
+
+  it('keeps an unrelated selection glowing while one item is hidden', () => {
+    // The background of a drag still shows every *other* selected item's halo.
+    const both = new Set(['im1', 'w1']);
+    expect(shadowCalls(both, { hiddenItems: new Set(['im1']) }).length).toBeGreaterThan(0);
   });
 });

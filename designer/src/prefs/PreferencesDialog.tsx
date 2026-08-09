@@ -13,8 +13,9 @@ import {
   type PrivacySettings,
   type ScrollModifier,
 } from './settings.js';
+import { PanelHotkeysEditor } from './PanelHotkeysEditor.js';
+import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
-import { TOOL_HOTKEYS } from '../editors/schematic/menubar.js';
 import { pcm, usePcmVersion } from '../pcm/pcmStore.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
@@ -25,7 +26,7 @@ import { sentrySink } from '../telemetry/sentrySink.js';
  * right, transcribed from the wxFormBuilder panel sources:
  *   - Common                 <- panel_common_settings_base.cpp
  *   - Mouse and Touchpad     <- panel_mouse_settings_base.cpp
- *   - Hotkeys                <- panel_hotkeys_editor (read-only here)
+ *   - Hotkeys                <- panel_hotkeys_editor (editable)
  *   - Schematic Editor
  *     - Display Options      <- panel_eeschema_display_options_base.cpp (+ GAL options)
  *     - Grids                <- panel_grid_settings_base.cpp
@@ -257,36 +258,6 @@ const COLOR_LAYERS: [keyof Theme, string][] = [
   ['pageLimits', 'Page limits'],
 ];
 
-/** Fixed (non-tool) hotkeys shown on the read-only Hotkeys page. */
-const FIXED_HOTKEYS: [string, string][] = [
-  ['Ctrl+S', 'Save'],
-  ['Ctrl+O', 'Open'],
-  ['Ctrl+Z', 'Undo'],
-  ['Ctrl+Y / Ctrl+Shift+Z', 'Redo'],
-  ['Ctrl+C / Ctrl+X / Ctrl+V', 'Copy / Cut / Paste'],
-  ['Ctrl+D', 'Duplicate'],
-  ['Ctrl+,', 'Preferences'],
-  ['R', 'Rotate Counterclockwise'],
-  ['X', 'Mirror Vertically'],
-  ['Y', 'Mirror Horizontally'],
-  ['E', 'Properties'],
-  ['Delete', 'Delete selection'],
-  ['Escape', 'Cancel current tool / clear selection'],
-];
-
-const TOOL_HOTKEY_NAMES: Record<string, string> = {
-  placeSymbol: 'Add Symbol',
-  placePower: 'Add Power',
-  drawWire: 'Add Wire',
-  drawBus: 'Add Bus',
-  noConnect: 'Add No Connect Flag',
-  junction: 'Add Junction',
-  placeLabel: 'Add Label',
-  placeHierLabel: 'Add Hierarchical Label',
-  placeText: 'Add Text',
-  drawSheet: 'Add Hierarchical Sheet',
-};
-
 // ----- the dialog ---------------------------------------------------------------------
 
 export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
@@ -299,6 +270,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     ...settings.userColors,
   }));
   const [privacy, setPrivacy] = useState<PrivacySettings>(() => structuredClone(settings.privacy));
+  const [hotkeys, setHotkeys] = useState<HotkeyOverrides>(() => ({ ...settings.hotkeys }));
 
   const upC = (fn: (s: CommonSettings) => void): void =>
     setCommon((s) => {
@@ -317,6 +289,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     settings.updateCommon((s) => Object.assign(s, common));
     settings.updateEeschema((s) => Object.assign(s, eeschema));
     settings.setUserColors(userColors);
+    settings.setHotkeys(hotkeys);
     // Routed through the reporter rather than written directly: switching this
     // off has to tear the transport down now, not merely record a preference.
     if (privacy.crash_reports !== settings.privacy.crash_reports)
@@ -332,6 +305,11 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
         break;
       case 'mouse':
         setCommon(structuredClone(COMMON_DEFAULTS));
+        break;
+      // PANEL_HOTKEYS_EDITOR::ResetPanel -> ResetAllHotkeys( true ): every
+      // action back to its DefaultHotkey, which is an empty override map.
+      case 'hotkeys':
+        setHotkeys({});
         break;
       case 'sch-colors':
         setUserColors({});
@@ -846,35 +824,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
         );
 
       case 'hotkeys':
-        return (
-          <Group title="Hotkeys">
-            <div className="ze-muted">
-              Hotkeys follow KiCad's defaults. Custom bindings are not editable yet.
-            </div>
-            <table className="ze-pref-hotkeys">
-              <thead>
-                <tr>
-                  <th>Command</th>
-                  <th>Hotkey</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(TOOL_HOTKEYS).map(([key, toolId]) => (
-                  <tr key={key}>
-                    <td>{TOOL_HOTKEY_NAMES[toolId] ?? toolId}</td>
-                    <td>{key.toUpperCase()}</td>
-                  </tr>
-                ))}
-                {FIXED_HOTKEYS.map(([key, name]) => (
-                  <tr key={key}>
-                    <td>{name}</td>
-                    <td>{key}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Group>
-        );
+        return <PanelHotkeysEditor overrides={hotkeys} onChange={setHotkeys} />;
 
       case 'sch-display':
         return (

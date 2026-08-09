@@ -247,6 +247,18 @@ export function makeDirectiveLabel(
     netclass?: string;
     angle?: number;
     fontSize?: number;
+    /**
+     * Every field the properties dialog collected. `createNewLabel` starts a
+     * directive label with two —
+     *
+     *     labelItem->GetFields().emplace_back( labelItem, FIELD_T::USER, wxT( "Netclass" ) );
+     *     labelItem->GetFields().emplace_back( labelItem, FIELD_T::USER, wxT( "Component Class" ) );
+     *
+     * — and the dialog may add more, so the whole list is carried rather than
+     * the netclass alone. Empty ones are dropped, as an empty user field is
+     * not written out.
+     */
+    fields?: readonly { key: string; value: string; effects?: TextEffects }[];
   } = {},
 ): SchDirectiveLabel {
   const uuid = newUuid();
@@ -255,6 +267,12 @@ export function makeDirectiveLabel(
   const pinLength = opts.pinLength ?? DEFAULT_DIRECTIVE_PIN_LENGTH;
   const sizeIU = opts.fontSize ?? 12700;
   const fieldAt = { x: at.x, y: at.y };
+  // The netclass argument stays authoritative for the Netclass row so a caller
+  // that passes only it keeps working.
+  const declared = (opts.fields ?? []).map((f) =>
+    f.key === 'Netclass' ? { ...f, value: opts.netclass ?? f.value } : f,
+  );
+  const extras = declared.filter((f) => f.key !== 'Netclass' && f.value.trim() !== '');
   const netclassField = list(
     atom('property'),
     str('Netclass'),
@@ -265,6 +283,22 @@ export function makeDirectiveLabel(
       list(atom('font'), list(atom('size'), atom(mm(sizeIU)), atom(mm(sizeIU)))),
     ),
   );
+  const extraNode = (f: { key: string; value: string; effects?: TextEffects }): SList =>
+    list(
+      atom('property'),
+      str(f.key),
+      str(f.value),
+      list(atom('at'), atom(mm(fieldAt.x)), atom(mm(fieldAt.y)), atom(String(angle))),
+      list(atom('effects'), {
+        kind: 'list',
+        items: [
+          atom('font'),
+          list(atom('size'), atom(mm(sizeIU)), atom(mm(sizeIU))),
+          ...(f.effects?.italic ? [list(atom('italic'), atom('yes'))] : []),
+        ],
+      }),
+    );
+  const extraNodes = extras.map(extraNode);
   const source = list(
     atom('directive_label'),
     str(''),
@@ -277,6 +311,7 @@ export function makeDirectiveLabel(
     ),
     list(atom('uuid'), str(uuid)),
     netclassField,
+    ...extraNodes,
   );
   return {
     // The node above writes str('') as the first argument; keep the two in step.
@@ -294,6 +329,18 @@ export function makeDirectiveLabel(
         effects: { hidden: false, fontSize: [sizeIU, sizeIU] },
         source: netclassField,
       },
+      ...extras.map((f, i) => ({
+        key: f.key,
+        value: f.value,
+        at: fieldAt,
+        angle,
+        effects: {
+          hidden: false,
+          fontSize: [sizeIU, sizeIU] as [number, number],
+          ...(f.effects?.italic ? { italic: true } : {}),
+        },
+        source: extraNodes[i]!,
+      })),
     ],
     uuid,
     source,

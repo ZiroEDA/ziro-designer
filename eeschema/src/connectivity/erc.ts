@@ -33,12 +33,18 @@
 
 import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId } from '../tools/hittest.js';
-import { expandStackedPinNotation, unescapeString } from '@ziroeda/common/src/string_utils.js';
+import {
+  escapeNetName,
+  expandStackedPinNotation,
+  strNumCmp,
+  unescapeString,
+} from '@ziroeda/common/src/string_utils.js';
 import { compareLibSymbolsForErc } from '../lib_symbol_compare.js';
 import { checkSimModel } from '../sim/sim_model.js';
 import { isNetclassFieldName } from '../sch_field.js';
 import { computeNetlist, enumeratePins, onSegment, type PinNode } from './nets.js';
 import { expandBusLabel, isBusLabel } from './bus.js';
+import { wireDangleStates } from './dangling.js';
 import {
   OK,
   WAR,
@@ -223,6 +229,15 @@ export interface ErcRunOptions {
    */
   externalNetPins?: ReadonlyMap<string, readonly ExternalPin[]>;
   externalNetNoConnects?: ReadonlySet<string>;
+  /**
+   * This sheet's entry from `computeHierarchyNetlist`'s `hierNetNames`: the name
+   * this sheet's own graph gives a net -> the name the hierarchy settled on.
+   * The two lists above are keyed by the hierarchy's names, and re-graphing one
+   * sheet cannot reproduce them (a parent's local label outranks this sheet's
+   * hierarchical label, so the local "/Child/SIG" is really "/SIG"), so the
+   * lookups translate through this first.
+   */
+  hierNetNames?: ReadonlyMap<string, string>;
   /** The sheet file being checked; stamped onto every violation so a marker
    *  can be drawn (and cross-probed) on the sheet it belongs to. */
   sheetFile?: string;
@@ -361,11 +376,13 @@ export function* runErcSteps(
   for (const net of netlist.nets) {
     let g = groups.get(net.name);
     if (!g) {
+      // The external lists speak the hierarchy's net names, not this sheet's.
+      const hierName = opts.hierNetNames?.get(net.name) ?? net.name;
       g = {
         name: net.name,
         pins: [],
-        external: opts.externalNetPins?.get(net.name) ?? [],
-        hasNC: opts.externalNetNoConnects?.has(net.name) ?? false,
+        external: opts.externalNetPins?.get(hierName) ?? [],
+        hasNC: opts.externalNetNoConnects?.has(hierName) ?? false,
         labels: [],
         hasSheetPin: false,
       };
@@ -568,7 +585,10 @@ export function* runErcSteps(
       for (const id of net.items) {
         const l = labelIds.get(id);
         if (l) {
-          drivers.push({ id, name: l.text, at: l.at });
+          // GetNameForDriver escapes the label text, and `primary` below is a
+          // driver name too, so a label with a '/' in it must be compared escaped
+          // or it never matches the net it actually named.
+          drivers.push({ id, name: escapeNetName(l.text), at: l.at });
           continue;
         }
         const p = pinById.get(id);
@@ -717,15 +737,23 @@ export function* runErcSteps(
       bump(e.at);
       bump({ x: e.at.x + e.size.x, y: e.at.y + e.size.y });
     });
-    const wires = sch.lines
-      .map((l, i) => ({ l, id: refId('line', l.uuid, i) }))
+    const lines = sch.lines
+      .map((l, i) => ({ l, i, id: refId('line', l.uuid, i) }))
       .filter((x) => x.l.kind === 'wire' || x.l.kind === 'bus');
+    // Only wires are reported: ercCheckDanglingWireEndpoints skips anything whose
+    // layer is not LAYER_WIRE, so a bus left hanging is never a violation (its
+    // dangling state only drives the auto-start-a-line behaviour).
+    const wires = lines.filter((x) => x.l.kind === 'wire');
+    // Whether each end is dangling is SCH_LINE::UpdateDanglingState, which is
+    // already ported: an end is connected by any co-located end item other than a
+    // bus end, and a wire's own two ends never count.
+    const dangleStates = wireDangleStates(sch, libById);
     // A wire endpoint is dangling when nothing else lands on it: no item, and
     // no other wire touching it (mid-span contact counts, as SCH_LINE's
     // dangling state is cleared by any connection).
     const touches = (p: Vec2, self: string): boolean =>
       (endpointUsers.get(key(p)) ?? 0) > 0 ||
-      wires.some(
+      lines.some(
         (w) =>
           w.id !== self &&
           (onSegment(p, w.l.start, w.l.end) ||
@@ -733,8 +761,9 @@ export function* runErcSteps(
             (w.l.end.x === p.x && w.l.end.y === p.y)),
       );
     for (const w of wires) {
-      const startFree = !touches(w.l.start, w.id);
-      const endFree = !touches(w.l.end, w.id);
+      const state = dangleStates.get(w.i);
+      const startFree = state ? state.start : !touches(w.l.start, w.id);
+      const endFree = state ? state.end : !touches(w.l.end, w.id);
       // Both ends free: the wire is connected to nothing at all (floating).
       if (startFree && endFree) {
         out.push(violation('wire_dangling', 'Wires not connected to anything', w.l.start, [w.id]));
@@ -1185,8 +1214,11 @@ export function* runErcSteps(
         // the message is about); otherwise prefer a pin that is not on a power
         // symbol, so the marker sits on the consuming pin rather than a flag.
         // "Show all errors" marks the whole list instead of one representative.
+        // TestPinToPin sorts with StrNumCmp, which compares digit runs as
+        // numbers: R9 comes before R10, where a plain string compare puts R10
+        // first and marks the wrong pin.
         const byRefAndNumber = (a: PinNode, b: PinNode): number =>
-          a.ref.localeCompare(b.ref) || a.number.localeCompare(b.number);
+          strNumCmp(a.ref, b.ref) || strNumCmp(a.number, b.number);
         const powerIn = [...powerInPinsNeedingDrivers].sort(byRefAndNumber);
         const nonPower = [...nonPowerPinsNeedingDrivers].sort(byRefAndNumber);
         let marked: PinNode[];

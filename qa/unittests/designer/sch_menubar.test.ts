@@ -163,10 +163,7 @@ describe('no entry is silently inert', () => {
       'Show OP Voltages',
       'Show OP Currents',
       'Show Pin Alternate Icons',
-      'Draw Rule Areas',
       'Import Sheet...',
-      'Draw Ellipses',
-      'Draw Elliptical Arcs',
       'Show Bus Syntax Help',
       'Compare Symbol with Library',
       'Simulator',
@@ -179,7 +176,6 @@ describe('no entry is silently inert', () => {
       'Rename Design Variant...',
       'Copy Design Variant...',
       'Configure Paths...',
-      'Manage Symbol Libraries...',
       'Manage Design Block Libraries...',
       'About ZiroEDA',
     ]);
@@ -209,5 +205,83 @@ describe('the single-key tool hotkeys', () => {
   it('assigns each tool once', () => {
     const tools = Object.values(TOOL_HOTKEYS);
     expect(new Set(tools).size).toBe(tools.length);
+  });
+});
+
+/**
+ * Tools > Create Net Chain. `menubar.cpp:339` adds `SCH_ACTIONS::createNetChain`
+ * unconditionally, in its own separator group between Update Schematic from PCB
+ * and the Variants submenu.
+ *
+ * It is *not* the same entry as the context menu's, which upstream gates on a
+ * symbols-only selection (`sch_selection_tool.cpp:302`). The menu one has no
+ * gate: `SCH_EDITOR_CONTROL::ShowCreateNetChain` opens the dialog whatever is
+ * selected, and a symbol selection only pre-fills the from/to focus hint. Ours
+ * was reachable *only* from the context menu, so with nothing selected there was
+ * no way to open it at all.
+ */
+describe('Tools > Create Net Chain', () => {
+  const tools = (): MenuItem[] => {
+    const menu = menus().find((m) => m.label === 'Tools');
+    expect(menu, 'Tools menu').toBeDefined();
+    return menu!.items ?? [];
+  };
+
+  it('is in the Tools menu and enabled', () => {
+    const item = tools().find((i) => i.label === 'Create Net Chain...');
+    expect(item, 'Create Net Chain should be in Tools').toBeDefined();
+    expect(item!.disabled).toBeFalsy();
+  });
+
+  it('sits between Update Schematic from PCB and Variants', () => {
+    const labels = tools().map((i) => i.label ?? (i.sep ? '---' : ''));
+    const from = labels.indexOf('Update Schematic from PCB...');
+    const chain = labels.indexOf('Create Net Chain...');
+    const variants = labels.indexOf('Variants');
+    expect(from).toBeGreaterThan(-1);
+    expect(chain).toBeGreaterThan(from);
+    expect(variants).toBeGreaterThan(chain);
+  });
+});
+
+/**
+ * Tools > Project Manager. `menubar.cpp:310` adds `ACTIONS::showProjectManager`
+ * between "Switch to PCB Editor" and "Calculator Tools" when the frame runs
+ * under the project manager, which is always our case — the launcher is there.
+ */
+describe('Tools > Project Manager', () => {
+  const toolLabels = (): string[] => {
+    const menu = menus().find((m) => m.label === 'Tools');
+    return (menu?.items ?? []).map((i) => i.label ?? (i.sep ? '---' : ''));
+  };
+
+  it('sits between Switch to PCB Editor and Calculator Tools', () => {
+    const labels = toolLabels();
+    const pcb = labels.indexOf('Switch to PCB Editor');
+    const pm = labels.indexOf('Project Manager');
+    const calc = labels.indexOf('Calculator Tools');
+    expect(pm, 'Project Manager should be in Tools').toBeGreaterThan(-1);
+    expect(pm).toBe(pcb + 1);
+    expect(calc).toBe(pm + 1);
+  });
+
+  it('is enabled, not a stub', () => {
+    const menu = menus().find((m) => m.label === 'Tools');
+    const item = (menu?.items ?? []).find((i) => i.label === 'Project Manager');
+    expect(item!.disabled).toBeFalsy();
+  });
+});
+
+/**
+ * Help > Help. Upstream's `AddStandardHelpMenu` opens the product documentation
+ * ("Open product documentation in a web browser") as the *first* Help entry.
+ */
+describe('Help > Help', () => {
+  it('is the first entry in Help and enabled', () => {
+    const menu = menus().find((m) => m.label === 'Help');
+    expect(menu, 'Help menu').toBeDefined();
+    const first = (menu!.items ?? [])[0];
+    expect(first!.label).toBe('Help');
+    expect(first!.disabled).toBeFalsy();
   });
 });

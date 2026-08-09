@@ -30,8 +30,12 @@ export interface Theme {
   netclassFlag: string;
   netHighlight: string;
   selectionShadow: string;
+  /** LAYER_BRIGHTENED: what a cross-probed item turns while it is focused. */
+  brightened: string;
   noteLine: string;
   noText: string;
+  /** LAYER_RULE_AREAS: the outline of a schematic rule area. */
+  ruleArea: string;
   privateNote: string;
   noConnect: string;
   ercError: string;
@@ -53,6 +57,8 @@ export interface Theme {
   hidden: string;
   /** LAYER_SCHEMATIC_CURSOR: the crosshair cursor. */
   cursor: string;
+  /** LAYER_SCHEMATIC_AUX_ITEMS: what EDIT_POINTS derives its colours from. */
+  auxItems: string;
 }
 
 /** "KiCad Default", s_defaultTheme (the beige theme KiCad 9 ships as default). */
@@ -77,8 +83,10 @@ export const KICAD_DEFAULT: Theme = {
   netclassFlag: 'rgb(72, 72, 72)',
   netHighlight: 'rgb(255, 0, 255)', // LAYER_BRIGHTENED
   selectionShadow: 'rgba(102, 178, 255, 0.8)', // COLOR4D(.4,.7,1.0,0.8)
+  brightened: 'rgb(255, 0, 255)', // CSS_COLOR( 255, 0, 255, 1 )
   noteLine: 'rgb(0, 0, 194)',
   noText: 'rgb(0, 0, 194)',
+  ruleArea: 'rgb(255, 0, 0)', // CSS_COLOR( 255, 0, 0, 1 )
   privateNote: 'rgb(72, 72, 255)',
   noConnect: 'rgb(0, 0, 132)',
   ercError: 'rgba(230, 9, 13, 0.8)',
@@ -95,6 +103,7 @@ export const KICAD_DEFAULT: Theme = {
   anchor: 'rgb(0, 0, 255)',
   hidden: 'rgb(194, 194, 194)',
   cursor: 'rgb(15, 15, 15)',
+  auxItems: 'rgb(0, 0, 0)',
 };
 
 /** "KiCad Classic", s_classicTheme (the white legacy theme; legacy palette values). */
@@ -119,8 +128,10 @@ export const KICAD_CLASSIC: Theme = {
   netclassFlag: 'rgb(0, 0, 0)', // BLACK (legacy)
   netHighlight: 'rgb(255, 0, 255)', // PUREMAGENTA
   selectionShadow: 'rgba(102, 178, 255, 0.8)',
+  brightened: 'rgb(255, 0, 255)', // COLOR4D( PUREMAGENTA )
   noteLine: 'rgb(0, 0, 194)', // LIGHTBLUE (legacy)
   noText: 'rgb(0, 0, 194)',
+  ruleArea: 'rgb(255, 0, 0)', // COLOR4D( RED )
   privateNote: 'rgb(0, 0, 194)',
   noConnect: 'rgb(0, 0, 132)',
   ercError: 'rgba(255, 0, 0, 0.8)', // PURERED
@@ -137,6 +148,7 @@ export const KICAD_CLASSIC: Theme = {
   anchor: 'rgb(0, 0, 255)',
   hidden: 'rgb(194, 194, 194)', // LIGHTGRAY
   cursor: 'rgb(0, 0, 0)', // BLACK
+  auxItems: 'rgb(0, 0, 0)', // BLACK
 };
 
 /** Builtin themes by their KiCad settings ids. */

@@ -36,7 +36,13 @@
  * let the shader re-derive the value per frame.
  */
 
-import { arcToPolyline, dashPolyline, triangulatePolygon, type Pt } from './tessellate.js';
+import {
+  arcToPolyline,
+  dashPolyline,
+  ellipseToPolyline,
+  triangulatePolygon,
+  type Pt,
+} from './tessellate.js';
 import { parseColor, type Rgba, type Scene } from './scene.js';
 
 /** 2D affine transform as Canvas orders it: [a, b, c, d, e, f]. */
@@ -293,6 +299,36 @@ export class GlRecorder {
     const poly = arcToPolyline(cx, cy, r, a0, a1, ccw);
     if (poly.length === 0) return;
     // Canvas joins an arc to the current subpath rather than starting one.
+    if (!this.cur) {
+      this.cur = { pts: [], closed: false };
+      this.subs.push(this.cur);
+    }
+    for (const p of poly) this.pushPt(this.cur, p.x, p.y);
+  }
+  /**
+   * `CanvasRenderingContext2D.ellipse`, flattened the same way `arc` is.
+   *
+   * This class deliberately does not `implements CanvasRenderingContext2D` —
+   * that interface is enormous and mostly irrelevant here — which means a
+   * method the renderer calls and this class lacks is not a type error. It is
+   * nothing at all: the call finds `undefined`, the shape is silently absent
+   * from the buffer, and since the schematic draws through this recorder by
+   * default, the shape is simply invisible. That is exactly how the ellipse and
+   * elliptical-arc tools shipped drawing nothing.
+   */
+  ellipse(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    rotation: number,
+    a0: number,
+    a1: number,
+    ccw = false,
+  ): void {
+    const poly = ellipseToPolyline(cx, cy, rx, ry, rotation, a0, a1, ccw);
+    if (poly.length === 0) return;
+    // Canvas joins it to the current subpath rather than starting one, as arc does.
     if (!this.cur) {
       this.cur = { pts: [], closed: false };
       this.subs.push(this.cur);

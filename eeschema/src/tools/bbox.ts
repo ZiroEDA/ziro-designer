@@ -248,12 +248,19 @@ export function labelTextBox(
   // `text.Contains( "~{" )`: an overbar climbs above the nominal ascent.
   if (text.includes('~{')) sizeY += Math.round(extentsY / 6);
 
+  // GetTextBox's horizontal switch, unmirrored:
+  //
+  //   LEFT   — origin stays on the anchor
+  //   CENTER — bbox.SetX( bbox.GetX() - ( bbox.GetWidth() - italicOffset ) / 2 )
+  //   RIGHT  — bbox.SetX( bbox.GetX() - ( bbox.GetWidth() - italicOffset ) )
+  //
+  // A label only ever carries left or right (`SetSpinStyle` sets one or the
+  // other), but free text can be centred, and the centre arm used to return the
+  // anchor unchanged — the same expression on both sides of the conditional —
+  // so centred text was boxed entirely to its right.
   const right = justify?.includes('right') ?? false;
   const centreH = !right && !justify?.includes('left');
-  const left = right ? at.x - extentsX : centreH ? at.x : at.x;
-  // Only 'right' shifts the box in our model; 'left' and the absent case both
-  // start at the anchor, as GR_TEXT_H_ALIGN_LEFT does without mirroring.
-  const x0 = left;
+  const x0 = right ? at.x - extentsX : centreH ? at.x - extentsX / 2 : at.x;
 
   let y0: number;
   if (justify?.includes('top')) y0 = at.y - fudge;
@@ -291,19 +298,52 @@ export function labelBox(l: SchLabel): BBox {
   };
   out = inflate(out, pen);
 
-  if (((l.angle % 360) + 360) % 360 !== 0) {
+  const spinAngle = textAngleOf(l);
+  if (spinAngle !== 0) {
     const b = emptyBBox();
     for (const p of [
       { x: out.minX, y: out.minY },
       { x: out.maxX, y: out.maxY },
     ]) {
-      includePoint(b, rotateAbout(p, l.at, l.angle));
+      includePoint(b, rotateAbout(p, l.at, spinAngle));
     }
     out = b;
   }
 
   includePoint(out, l.at);
   return out;
+}
+
+/**
+ * `EDA_TEXT::GetTextAngle()` for a label: 0 or 90, never 180 or 270.
+ *
+ * A label's stored angle is not its text angle. `saveText` folds the spin style
+ * into the angle it writes, because a label's text is always drawn left-to-right
+ * or bottom-to-top while the item itself faces four ways:
+ *
+ *     // The angle of the text is always 0 or 90 degrees for readibility reasons,
+ *     // but the item itself can have more rotation (-90 and 180 deg)
+ *     case SPIN_STYLE::LEFT:   angle += ANGLE_180; break;
+ *     case SPIN_STYLE::BOTTOM: angle += ANGLE_180; break;
+ *
+ * and the parser undoes it on the way back in, mapping 0/90/180/270 straight to
+ * a spin style, which `SetSpinStyle` then splits into a text angle of 0 or 90
+ * plus a horizontal justification. So upstream's `GetTextAngle()` never sees the
+ * 180. We keep the file's angle on the item instead, which is fine everywhere
+ * that reads the spin (`labelSpin` takes `angle % 180` and the justify) — but
+ * `GetBodyBoundingBox` rotates by the *text* angle, and rotating by the stored
+ * 180 instead reflects the box through the anchor. The text of a spin-LEFT label
+ * is drawn to the left of its anchor while its box sat to the right: clicking
+ * the letters selected nothing, and clicking the empty space opposite selected
+ * the label. 829 labels in KiCad's own demos are stored at 180.
+ *
+ * Free text is not a label — `saveText` only folds the spin in `if( label )` —
+ * so it keeps whatever angle it was written with.
+ */
+function textAngleOf(l: SchLabel): number {
+  const a = (((l.angle ?? 0) % 360) + 360) % 360;
+  if (l.kind === 'text') return a;
+  return a % 180 === 90 ? 90 : 0;
 }
 
 /** `RotatePoint( point, centre, angle )`, degrees, screen axes. */
@@ -349,26 +389,32 @@ export function sheetPinBBox(pin: SheetPin): BBox {
   let y = pin.at.y;
   let dx: number;
   let dy: number;
+  // The edge decides the spin, and `SCH_SHEET_PIN::SetSide` *inverts* it so the
+  // pin faces into the sheet: LEFT -> RIGHT, RIGHT -> LEFT, TOP -> BOTTOM,
+  // BOTTOM -> UP. The bodies below are `SCH_HIERLABEL::GetBodyBoundingBox`'s,
+  // picked by that inverted spin. The two horizontal edges were already
+  // inverted; the vertical pair was not, so a pin on the top or bottom edge had
+  // its box on the wrong side of the border — outside the sheet instead of in.
   switch (pin.angle) {
-    case 90: // top edge, SPIN_STYLE::UP
-      dx = height;
-      dy = -length;
-      x -= height / 2;
-      y += DANGLING_SYMBOL_SIZE;
-      break;
-    case 180: // left edge, SPIN_STYLE::RIGHT
-      dx = length;
-      dy = height;
-      x -= DANGLING_SYMBOL_SIZE;
-      y -= height / 2;
-      break;
-    case 270: // bottom edge, SPIN_STYLE::BOTTOM
+    case 90: // top edge -> SPIN_STYLE::BOTTOM
       dx = height;
       dy = length;
       x -= height / 2;
       y -= DANGLING_SYMBOL_SIZE;
       break;
-    default: // right edge, SPIN_STYLE::LEFT
+    case 180: // left edge -> SPIN_STYLE::RIGHT
+      dx = length;
+      dy = height;
+      x -= DANGLING_SYMBOL_SIZE;
+      y -= height / 2;
+      break;
+    case 270: // bottom edge -> SPIN_STYLE::UP
+      dx = height;
+      dy = -length;
+      x -= height / 2;
+      y += DANGLING_SYMBOL_SIZE;
+      break;
+    default: // right edge -> SPIN_STYLE::LEFT
       dx = -length;
       dy = height;
       x += DANGLING_SYMBOL_SIZE;

@@ -32,6 +32,8 @@ export type KiCursor =
   | 'lineBus'
   | 'lineGraphic'
   | 'selectLasso'
+  | 'zoomIn'
+  | 'remove'
   | 'moving';
 
 /** Painted cursors, keyed by name, each XPM is rasterised once. */
@@ -87,8 +89,17 @@ export function toolCursorName(tool: string): KiCursor {
   switch (tool) {
     case 'select':
       return 'arrow';
+    // ZOOM_TOOL::Main sets KICURSOR::ZOOM_IN for as long as it runs, and puts
+    // the arrow back only on the way out.
+    case 'zoomTool':
+      return 'zoomIn';
     case 'selectLasso':
       return 'selectLasso';
+    // SCH_TOOL_BASE::InteractiveDelete's picker runs with KICURSOR::REMOVE, the
+    // eraser; without it the tool falls through to the pencil below and looks
+    // like a drawing tool.
+    case 'delete':
+      return 'remove';
     case 'drawWire':
       return 'lineWire';
     case 'drawBus':
@@ -108,6 +119,12 @@ export function toolCursorName(tool: string): KiCursor {
     case 'textBox':
       return 'text';
     case 'placeLabel':
+    // `SCH_DRAWING_TOOLS::TwoClickPlace`'s setCursor puts the net-label cursor
+    // on both, and only the shapes fall through to the pencil:
+    //
+    //     else if( isNetLabel || isClassLabel )
+    //         m_frame->GetCanvas()->SetCurrentCursor( KICURSOR::LABEL_NET );
+    case 'placeClassLabel':
       return 'labelNet';
     case 'placeGlobalLabel':
       return 'labelGlobal';

@@ -232,7 +232,17 @@ const ICONS: Record<string, JSX.Element> = {
       <path d="M4 8H1" />
     </g>
   ),
-  syncSheetPins: P('M4 5a5 5 0 0 1 8 0 M12 4v2h-2 M12 11a5 5 0 0 1-8 0 M4 12v-2h2'),
+  // Fallback only: the button itself wears KiCad's vendored
+  // `import_hierarchical_label.svg`. Shaped after it all the same — a sheet with
+  // a hierarchical label entering it, badged with the pair of circular arrows —
+  // since the bare arrows this used to be read as a generic "refresh".
+  syncSheetPins: (
+    <g>
+      <rect x="1.5" y="1.5" width="8" height="8" />
+      <path d="M1.5 5.5h-1 M9.5 3.5h2.5l1.5 2-1.5 2H9.5z" />
+      <path d="M8.5 12a3 3 0 0 1 5-1 M13.5 9.5V11h-1.5 M14.5 13a3 3 0 0 1-5 1 M9.5 15.5V14H11" />
+    </g>
+  ),
   text: P('M3 4h10 M8 4v9 M6 13h4'),
   textBox: (
     <g>

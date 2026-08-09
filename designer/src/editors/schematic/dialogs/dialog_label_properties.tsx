@@ -146,9 +146,21 @@ interface Props {
   initial: LabelPropsInitial;
   /** Existing label names of the same type, offered by the combo. */
   suggestions?: readonly string[];
+  /**
+   * The project's netclass names, offered in the Netclass field's cell.
+   *
+   * `FIELDS_GRID_TABLE` loads them from the project file — the default class
+   * first, then every class defined in Schematic Setup — and gives that row a
+   * `GRID_CELL_COMBOBOX`. Without them the cell is free text and there is
+   * nothing tying what you type to a class the project actually has.
+   */
+  netclasses?: readonly string[];
   onOk: (result: LabelPropsResult) => void;
   onCancel: () => void;
 }
+
+/** Id of the datalist backing the Netclass cell's dropdown. */
+const netclassListId = 'ze-netclass-options';
 
 const justifyOf = (f: EditedLabelField, axis: 'h' | 'v'): string => {
   const j = f.effects?.justify ?? [];
@@ -212,6 +224,7 @@ export function DialogLabelProperties({
   isNew,
   initial,
   suggestions,
+  netclasses,
   onOk,
   onCancel,
 }: Props): JSX.Element {
@@ -318,6 +331,13 @@ export function DialogLabelProperties({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
+      {netclasses && netclasses.length > 0 && (
+        <datalist id={netclassListId}>
+          {netclasses.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      )}
       <div className="ze-modal ze-label-props" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           {TITLES[kind]}
@@ -420,8 +440,24 @@ export function DialogLabelProperties({
                           />
                         </td>
                         <td>
+                          {/* The Netclass row is a combobox of the project's
+                              netclasses, not a free-text cell:
+
+                                existingNetclasses.push_back( settings->GetDefaultNetclass()->GetName() );
+                                for( const auto& [name, netclass] : settings->GetNetclasses() )
+                                    existingNetclasses.push_back( name );
+                                m_netclassAttr->SetEditor( new GRID_CELL_COMBOBOX( existingNetclasses ) );
+
+                              A datalist keeps it editable, which is what
+                              GRID_CELL_COMBOBOX is — a dropdown you may also
+                              type into. */}
                           <input
                             value={f.value}
+                            list={
+                              f.key === 'Netclass' && netclasses?.length
+                                ? netclassListId
+                                : undefined
+                            }
                             onChange={(e) => patchField(i, { ...f, value: e.target.value })}
                             onKeyDown={(e) => e.stopPropagation()}
                           />

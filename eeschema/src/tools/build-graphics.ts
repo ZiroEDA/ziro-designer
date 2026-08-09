@@ -116,6 +116,175 @@ export function makePolyline(points: readonly Vec2[], stroke?: Stroke, fill?: Fi
   return stroke || fill ? { ...g, ...(stroke ? { stroke } : {}), ...(fill ? { fill } : {}) } : g;
 }
 
+/**
+ * `SHAPE_T::BEZIER` — `(bezier (pts (xy start) (xy c1) (xy c2) (xy end)) …)`.
+ *
+ * A **cubic**, with two control points, exactly as `EDA_SHAPE` stores it:
+ *
+ *     aShape.SetStart( m_manager.GetStart() );
+ *     aShape.SetBezierC1( m_manager.GetControlC1() );
+ *     aShape.SetEnd( m_manager.GetEnd() );
+ *     aShape.SetBezierC2( m_manager.GetControlC2() );
+ *
+ * The four points are stored in file order — start, C1, C2, end — which is also
+ * the order `EDA_BEZIER_POINT_EDIT_BEHAVIOR::MakePoints` adds its handles in, so
+ * the point editor needs no mapping of its own.
+ */
+export function makeBezier(
+  start: Vec2,
+  c1: Vec2,
+  c2: Vec2,
+  end: Vec2,
+  stroke?: Stroke,
+  fill?: Fill,
+): LibGraphic {
+  const uuid = newUuid();
+  const points = [start, c1, c2, end];
+  const source = list(
+    atom('bezier'),
+    { kind: 'list', items: [atom('pts'), ...points.map(xy)] },
+    strokeNode(stroke),
+    fillNode(fill),
+    list(atom('uuid'), str(uuid)),
+  );
+  const g: LibGraphic = { kind: 'bezier', points, source };
+  return stroke || fill ? { ...g, ...(stroke ? { stroke } : {}), ...(fill ? { fill } : {}) } : g;
+}
+
+/**
+ * `SHAPE_T::ELLIPSE` — `(ellipse (center …) (major_radius …) (minor_radius …)
+ * (rotation_angle …) …)`, the node `formatEllipse` writes.
+ *
+ * Drawn like a circle: the first click fixes the centre, the drag fixes the
+ * radii. The two axes come from the drag's x and y extents, so a drag that is
+ * wider than it is tall gives a wide ellipse; an unrotated one is what the tool
+ * produces, and the rotation is editable afterwards.
+ */
+export function makeEllipse(
+  center: Vec2,
+  majorRadius: number,
+  minorRadius: number,
+  rotation = 0,
+  stroke?: Stroke,
+  fill?: Fill,
+): LibGraphic {
+  const uuid = newUuid();
+  const source = list(
+    atom('ellipse'),
+    list(atom('center'), atom(mm(center.x)), atom(mm(center.y))),
+    list(atom('major_radius'), atom(mm(majorRadius))),
+    list(atom('minor_radius'), atom(mm(minorRadius))),
+    list(atom('rotation_angle'), atom(String(rotation))),
+    strokeNode(stroke),
+    fillNode(fill),
+    list(atom('uuid'), str(uuid)),
+  );
+  const g: LibGraphic = {
+    kind: 'ellipse',
+    center,
+    majorRadius: Math.max(1, Math.round(majorRadius)),
+    minorRadius: Math.max(1, Math.round(minorRadius)),
+    rotation,
+    source,
+  };
+  return stroke || fill ? { ...g, ...(stroke ? { stroke } : {}), ...(fill ? { fill } : {}) } : g;
+}
+
+/**
+ * `SHAPE_T::ELLIPSE_ARC` — the same node plus `(start_angle …)` and
+ * `(end_angle …)`, so a sweep of the ellipse rather than the whole of it.
+ */
+export function makeEllipseArc(
+  center: Vec2,
+  majorRadius: number,
+  minorRadius: number,
+  startAngle: number,
+  endAngle: number,
+  rotation = 0,
+  stroke?: Stroke,
+  fill?: Fill,
+): LibGraphic {
+  const uuid = newUuid();
+  const source = list(
+    atom('ellipse_arc'),
+    list(atom('center'), atom(mm(center.x)), atom(mm(center.y))),
+    list(atom('major_radius'), atom(mm(majorRadius))),
+    list(atom('minor_radius'), atom(mm(minorRadius))),
+    list(atom('rotation_angle'), atom(String(rotation))),
+    list(atom('start_angle'), atom(String(startAngle))),
+    list(atom('end_angle'), atom(String(endAngle))),
+    strokeNode(stroke),
+    fillNode(fill),
+    list(atom('uuid'), str(uuid)),
+  );
+  const g: LibGraphic = {
+    kind: 'ellipse_arc',
+    center,
+    majorRadius: Math.max(1, Math.round(majorRadius)),
+    minorRadius: Math.max(1, Math.round(minorRadius)),
+    rotation,
+    startAngle,
+    endAngle,
+    source,
+  };
+  return stroke || fill ? { ...g, ...(stroke ? { stroke } : {}), ...(fill ? { fill } : {}) } : g;
+}
+
+/**
+ * A schematic rule area (`SCH_RULE_AREA`).
+ *
+ * Its constructor fixes everything except the outline —
+ *
+ *     SCH_SHAPE( SHAPE_T::POLY, LAYER_RULE_AREAS, 0, FILL_T::NO_FILL, SCH_RULE_AREA_T )
+ *
+ * (the 0 is the line width) — and the tool's helper adds the one thing that is
+ * not in the constructor:
+ *
+ *     ruleArea->SetLineStyle( LINE_STYLE::DASH );
+ *
+ * so it is a dashed closed polygon with no fill. `SHAPE_T::POLY` is closed by
+ * definition; ours is modelled as a polyline, so the closing vertex is written
+ * out explicitly.
+ */
+export function makeRuleArea(points: readonly Vec2[]): LibGraphic {
+  const closed = [...points];
+  const first = closed[0];
+  const last = closed[closed.length - 1];
+  if (first && last && (first.x !== last.x || first.y !== last.y)) closed.push({ ...first });
+  const g = makePolyline(closed, { width: 0, type: 'dash' }, { type: 'none' });
+  return { ...(g as Extract<LibGraphic, { kind: 'polyline' }>), ruleArea: true };
+}
+
+/**
+ * The rule area as it looks while it is still being drawn.
+ *
+ * `POLYGON_GEOM_MANAGER` hands `POLYGON_ITEM` three things, and it draws them
+ * differently: the locked-in points as an **open** polyline, the leader from the
+ * last one to the cursor, and the area enclosed so far as a translucent fill —
+ *
+ *     COLOR4D color = renderSettings.GetLayerColor( LAYER_RULE_AREAS );
+ *     m_previewItem.SetLineColor( color );
+ *     m_previewItem.SetLeaderColor( color );
+ *     m_previewItem.SetFillColor( color.WithAlpha( 0.2 ) );
+ *
+ * so the outline stays visibly *unclosed* until the last point meets the first,
+ * and it is the fill that shows what is being enclosed. Closing the preview
+ * outline instead — which is what this did — makes the shape look finished from
+ * the second click on.
+ */
+export function makeRuleAreaPreview(points: readonly Vec2[]): LibGraphic {
+  // LAYER_RULE_AREAS is red in both builtin themes; the fill is that at 20%.
+  const g = makePolyline(
+    [...points],
+    { width: 0, type: 'solid' },
+    {
+      type: 'color',
+      color: [255, 0, 0, 0.2],
+    },
+  );
+  return { ...(g as Extract<LibGraphic, { kind: 'polyline' }>), ruleArea: true };
+}
+
 // ----- bus entry (SCH_BUS_WIRE_ENTRY) -------------------------------------------
 
 /** DEFAULT_SCH_ENTRY_SIZE = 100 mils (default_values.h). */
@@ -139,11 +308,19 @@ export function makeBusEntry(
 
 // ----- hierarchical sheet (SCH_SHEET) -------------------------------------------
 
-function sheetProperty(key: string, value: string, at: Vec2, hide: boolean): SList {
+function sheetProperty(
+  key: string,
+  value: string,
+  at: Vec2,
+  hide: boolean,
+  justify?: readonly string[],
+): SList {
   const effects: SNode[] = [
     atom('effects'),
     list(atom('font'), list(atom('size'), atom('1.27'), atom('1.27'))),
   ];
+  if (justify?.length)
+    effects.push({ kind: 'list', items: [atom('justify'), ...justify.map((t) => atom(t))] });
   if (hide) effects.push(list(atom('hide'), atom('yes')));
   return list(
     atom('property'),
@@ -154,6 +331,29 @@ function sheetProperty(key: string, value: string, at: Vec2, hide: boolean): SLi
   );
 }
 
+/**
+ * Where `SCH_SHEET::AutoplaceFields` puts the two mandatory fields.
+ *
+ *     int borderMargin = KiROUND( GetPenWidth() / 2.0 ) + 4;
+ *     int margin = borderMargin + KiROUND( std::max( textSize.x, textSize.y ) * 0.5 );
+ *     sheetNameField->SetTextPos( m_pos + VECTOR2I( 0, -margin ) );
+ *     ...
+ *     margin = borderMargin + KiROUND( std::max( textSize.x, textSize.y ) * 0.4 );
+ *     sheetFilenameField->SetTextPos( m_pos + VECTOR2I( 0, m_size.y + margin ) );
+ *
+ * Both sit on the sheet's *left edge* and are **left**-justified — the name
+ * bottom-aligned above the top edge, the file top-aligned below the bottom one.
+ * Ours wrote no justification at all, so both were centred and their middles
+ * landed on the corner instead of their left ends starting there.
+ */
+const SHEET_FIELD_TEXT = 12700; // 1.27 mm, the size written above
+const SHEET_BORDER_IU = 1524; // the 0.1524 mm stroke written below
+
+function sheetFieldMargin(ratio: number): number {
+  const borderMargin = Math.round(SHEET_BORDER_IU / 2) + 4;
+  return borderMargin + Math.round(SHEET_FIELD_TEXT * ratio);
+}
+
 /** Create a hierarchical sub-sheet with Sheetname/Sheetfile fields (SCH_SHEET). */
 export function makeSheet(
   at: Vec2,
@@ -162,21 +362,33 @@ export function makeSheet(
   file: string,
 ): SchSheet {
   const uuid = newUuid();
+  const namePos = { x: at.x, y: at.y - sheetFieldMargin(0.5) };
+  const filePos = { x: at.x, y: at.y + size.h + sheetFieldMargin(0.4) };
+  const nameJustify = ['left', 'bottom'];
+  const fileJustify = ['left', 'top'];
   const nameField: SchField = {
     key: 'Sheetname',
     value: name,
-    at: { x: at.x, y: at.y - mmToIU(0.7) },
+    at: namePos,
     angle: 0,
-    effects: { hidden: false, fontSize: [12700, 12700] },
-    source: sheetProperty('Sheetname', name, { x: at.x, y: at.y - mmToIU(0.7) }, false),
+    effects: {
+      hidden: false,
+      fontSize: [SHEET_FIELD_TEXT, SHEET_FIELD_TEXT],
+      justify: nameJustify,
+    },
+    source: sheetProperty('Sheetname', name, namePos, false, nameJustify),
   };
   const fileField: SchField = {
     key: 'Sheetfile',
     value: file,
-    at: { x: at.x, y: at.y + size.h + mmToIU(0.7) },
+    at: filePos,
     angle: 0,
-    effects: { hidden: false, fontSize: [12700, 12700] },
-    source: sheetProperty('Sheetfile', file, { x: at.x, y: at.y + size.h + mmToIU(0.7) }, false),
+    effects: {
+      hidden: false,
+      fontSize: [SHEET_FIELD_TEXT, SHEET_FIELD_TEXT],
+      justify: fileJustify,
+    },
+    source: sheetProperty('Sheetfile', file, filePos, false, fileJustify),
   };
   const source = list(
     atom('sheet'),
@@ -359,15 +571,71 @@ function tableCellNode(
  * (top-left of cell 0,0). Borders and row/column separators are all on, matching
  * KiCad's SCH_TABLE defaults. `texts`, if given, fill cells row-major.
  */
+/**
+ * The table a drag of `size` from `origin` describes.
+ *
+ * `SCH_DRAWING_TOOLS::DrawTable` derives the grid from the dragged rectangle
+ * rather than asking for counts:
+ *
+ *     int colCount = std::max( 1, requestedSize.x / ( fontSize * 15 ) );
+ *     int rowCount = std::max( 1, requestedSize.y / ( fontSize * 2  ) );
+ *
+ *     VECTOR2I cellSize( std::max( gridSize.x * 5, requestedSize.x / colCount ),
+ *                        std::max( gridSize.y * 2, requestedSize.y / rowCount ) );
+ *
+ *     cellSize.x = KiROUND( (double) cellSize.x / gridSize.x ) * gridSize.x;
+ *     cellSize.y = KiROUND( (double) cellSize.y / gridSize.y ) * gridSize.y;
+ *
+ * so a column is fifteen characters wide and a row two high, each cell is at
+ * least five grid steps by two, and both are snapped to the grid. Integer
+ * division throughout, as upstream has it.
+ */
+export function tableGridFor(
+  size: Vec2,
+  fontSize: number,
+  gridSize: Vec2,
+): { rows: number; cols: number; cell: Vec2 } {
+  const cols = Math.max(1, Math.trunc(size.x / (fontSize * 15)));
+  const rows = Math.max(1, Math.trunc(size.y / (fontSize * 2)));
+  const cell = {
+    x: Math.max(gridSize.x * 5, Math.trunc(size.x / cols)),
+    y: Math.max(gridSize.y * 2, Math.trunc(size.y / rows)),
+  };
+  return {
+    rows,
+    cols,
+    cell: {
+      x: Math.round(cell.x / gridSize.x) * gridSize.x,
+      y: Math.round(cell.y / gridSize.y) * gridSize.y,
+    },
+  };
+}
+
+/**
+ * A table sized by dragging, built through `tableGridFor`. The counterpart of
+ * `makeTable`, which takes explicit counts and default cell sizes.
+ */
+export function makeTableFromDrag(
+  origin: Vec2,
+  size: Vec2,
+  fontSize: number,
+  gridSize: Vec2,
+): SchTable {
+  const { rows, cols, cell } = tableGridFor(size, fontSize, gridSize);
+  return makeTable(origin, rows, cols, [], cell);
+}
+
 export function makeTable(
   at: Vec2,
   rows: number,
   cols: number,
   texts: readonly string[] = [],
+  /** Cell size from a drag; the defaults are used when a caller gives counts. */
+  cell?: Vec2,
 ): SchTable {
   const uuid = newUuid();
-  const colWidths = Array.from({ length: cols }, () => DEFAULT_COL_WIDTH);
-  const rowHeights = Array.from({ length: rows }, () => DEFAULT_ROW_HEIGHT);
+  const colWidths = Array.from({ length: cols }, () => cell?.x ?? DEFAULT_COL_WIDTH);
+  const rowHeights = Array.from({ length: rows }, () => cell?.y ?? DEFAULT_ROW_HEIGHT);
   const margin = Math.round(mmToIU(1.27) * 0.75);
   const effects: TextEffects = { hidden: false, justify: ['left', 'top'] };
 
@@ -437,8 +705,16 @@ export function makeTable(
 // ----- image (SCH_BITMAP) --------------------------------------------------------
 
 /** Create an embedded bitmap at `at` from raw base64 PNG data (SCH_BITMAP). */
-export function makeImage(at: Vec2, base64: string, scale = 1): SchImage {
-  const uuid = newUuid();
+export function makeImage(at: Vec2, base64: string, scale = 1, keepUuid?: string): SchImage {
+  // `keepUuid` re-places an image that already exists rather than minting a new
+  // one. SCH_DRAWING_TOOLS::PlaceImage builds a single SCH_BITMAP and calls
+  // `image->SetPosition( cursorPos )` on it for the whole run, so the thing
+  // following the cursor is one object with one identity — which is also what
+  // lets the renderer's decoded-bitmap cache hold on to it. Rebuilding it per
+  // frame gave every frame a fresh uuid, so every frame was a cache miss that
+  // never finished decoding before the next replaced it, and the image only
+  // appeared once it was dropped.
+  const uuid = keepUuid ?? newUuid();
   // KiCad wraps the base64 payload; split into ~76-char chunks as separate strings.
   const chunks: SNode[] = [atom('data')];
   for (let i = 0; i < base64.length; i += 76) chunks.push(str(base64.slice(i, i + 76)));

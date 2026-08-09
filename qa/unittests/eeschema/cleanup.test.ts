@@ -125,3 +125,66 @@ describe('mergeColinearWires (KiCad SchematicCleanUp / MergeOverlap)', () => {
     expect(xs).toEqual([mmToIU(0), mmToIU(30)]);
   });
 });
+
+describe('a pass merges everything it can find, not just the first pair', () => {
+  /**
+   * Upstream marks a merged pair deleted, `break`s the *inner* loop only and
+   * carries on scanning, re-collecting the line list at the top of each
+   * `while( changed )` pass. Restarting the whole cleanup after one merge — as
+   * this used to — is quadratic in the number of merges, because the junction
+   * analysis re-runs over every wire endpoint on the sheet each time. Dropping a
+   * dragged part on a 100-pin symbol merges about 150 segments, and the sheet
+   * was analysed 150 times over: 3.4 seconds of frozen UI.
+   *
+   * The risk in batching them is that merging many pairs at once might not
+   * settle where merging them one at a time would. These pin that it does.
+   */
+  const chain = (n: number): Schematic =>
+    addItems({
+      lines: Array.from({ length: n }, (_, i) => makeWire(at(i * 10, 0), at((i + 1) * 10, 0))),
+    }).apply(EMPTY());
+
+  it('collapses a long chain to a single wire', () => {
+    // Needs cascading: each merge produces a segment that must merge again.
+    const merged = mergeColinearWires(chain(12));
+    expect(merged.lines.length).toBe(1);
+    const l = merged.lines[0]!;
+    const xs = [l.start.x, l.end.x].sort((a, b) => a - b);
+    expect(xs).toEqual([mmToIU(0), mmToIU(120)]);
+  });
+
+  it('collapses several independent chains in the same sheet', () => {
+    // Three parallel runs of four segments: a pass that stopped at the first
+    // merge would still get here eventually, but this pins that batching does
+    // not let one row swallow another.
+    const rows = [0, 20, 40];
+    const sch = addItems({
+      lines: rows.flatMap((y) =>
+        Array.from({ length: 4 }, (_, i) => makeWire(at(i * 10, y), at((i + 1) * 10, y))),
+      ),
+    }).apply(EMPTY());
+    const merged = mergeColinearWires(sch);
+    expect(merged.lines.length).toBe(3);
+    for (const y of rows) {
+      const row = merged.lines.find((l) => l.start.y === mmToIU(y));
+      expect(row, `no wire left on row ${y}`).toBeDefined();
+      const xs = [row!.start.x, row!.end.x].sort((a, b) => a - b);
+      expect(xs).toEqual([mmToIU(0), mmToIU(40)]);
+    }
+  });
+
+  it('leaves a chain broken where a tee puts a junction', () => {
+    // The junction still has to survive the batch: a dot between two collinear
+    // segments holds them apart, however many other merges happen that pass.
+    const sch = addItems({
+      lines: [
+        ...Array.from({ length: 6 }, (_, i) => makeWire(at(i * 10, 0), at((i + 1) * 10, 0))),
+        makeWire(at(30, 0), at(30, 20)),
+      ],
+    }).apply(EMPTY());
+    const merged = mergeColinearWires(sch);
+    const horizontal = merged.lines.filter((l) => l.start.y === l.end.y);
+    expect(horizontal.length).toBe(2);
+    expect(merged.junctions.some((j) => j.at.x === mmToIU(30) && j.at.y === 0)).toBe(true);
+  });
+});

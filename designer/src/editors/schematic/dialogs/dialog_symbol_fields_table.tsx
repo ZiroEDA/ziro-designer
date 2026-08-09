@@ -642,7 +642,9 @@ export function DialogSymbolFieldsTable({
           redraw();
         }}
       >
-        {group.flag === 'collapsed' ? '▶' : group.flag === 'expanded' ? '▼' : ''}
+        {group.flag === 'collapsed' || group.flag === 'expanded' ? (
+          <span className={`twisty expandable${group.flag === 'expanded' ? ' open' : ''}`} />
+        ) : null}
       </span>
     ) : null;
 

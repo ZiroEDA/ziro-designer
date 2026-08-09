@@ -25,11 +25,12 @@
  *  - **a pin is consumed by the first label that matches it**, so two identical
  *    labels cannot both claim the same pin.
  *
- * The two "add" buttons are **deliberately not modelled here**: upstream's
- * `PlaceSheetPin` / `PlaceHieraLable` hand off to the interactive placement
- * tool, so where the new item lands is a question the user answers with the
- * mouse. That needs a design decision rather than a port, and inventing a
- * position would be worse than leaving the button out.
+ * The panel has six buttons, not two. Besides the rename pair there are two
+ * that create the missing item and two that delete it, and leaving those out
+ * made the dialog useless in the ordinary case: a sheet whose labels have no
+ * pins yet has nothing in the pins list, so nothing can be selected there, so
+ * both rename buttons stay disabled and no button on the panel does anything.
+ * They are all here now — see "the four buttons that change what exists" below.
  */
 
 import type { LabelShape, SchLabel, Schematic, SchSheet, SheetPin } from '../types.js';
@@ -168,4 +169,189 @@ export function syncLabelsFromPin(label: SyncLabel, pin: SyncPin): EditCommand {
     // attempt to reverse the mapping.
     invert: (before: Schematic) => setLabels(before.labels),
   };
+}
+
+// ----- the four buttons that change what exists -------------------------------
+//
+// The panel's other buttons do not rename anything: two of them create the
+// missing item, two delete it. Ours had only the rename pair, which meant that
+// on the ordinary case — a sheet whose labels have no pins yet — every button
+// was disabled and the dialog could do nothing at all.
+
+/**
+ * One item queued for interactive placement: upstream's *placement template*
+ * (`DIALOG_SYNC_SHEET_PINS::PreparePlacementTemplate`).
+ *
+ * "Add" does not drop the new item somewhere chosen for you. The panel hides,
+ * the matching placement tool runs, and each click places one of these:
+ *
+ *     m_dialogSyncSheetPin->Hide();
+ *     m_dialogSyncSheetPin->PreparePlacementTemplate( sheet, kind, aTemplates );
+ *     m_toolMgr->RunAction( SCH_ACTIONS::placeSheetPin );
+ *
+ * and the panel comes back when the queue runs out (`CanPlaceMore`).
+ */
+export interface SyncTemplate {
+  text: string;
+  shape: LabelShape;
+}
+
+/**
+ * A placement in progress.
+ *
+ * `file` is the document the new items land in, and the two directions differ:
+ * a sheet pin belongs to the sheet symbol in the **parent**, a hierarchical
+ * label to the sheet's **own** document. Upstream makes the same distinction by
+ * popping the sheet path for one and not the other:
+ *
+ *     void …::PlaceSheetPin( … ) { SCH_SHEET_PATH cp = aPath; cp.pop_back(); … }
+ *     void …::PlaceHieraLable( … ) { m_doPlaceItem( aSheet, aPath, … ); }
+ */
+export interface SyncPlacement {
+  kind: 'sheetPin' | 'hierLabel';
+  /** The sheet symbol's index in the parent document. */
+  sheetIndex: number;
+  /** The file being written, per the rule above. */
+  file: string;
+  /** Still to place, in list order. The head is the one on the cursor. */
+  queue: readonly SyncTemplate[];
+}
+
+/**
+ * The placement for a set of selected rows, or null if nothing was selected —
+ * `if( selected_items_set.empty() ) return;`, the guard both add buttons open
+ * with.
+ */
+export function syncPlacementFor(
+  kind: SyncPlacement['kind'],
+  sheetIndex: number,
+  file: string,
+  items: readonly SyncTemplate[],
+): SyncPlacement | null {
+  if (items.length === 0) return null;
+  return { kind, sheetIndex, file, queue: items.map((t) => ({ ...t })) };
+}
+
+/**
+ * One item placed. Null means the queue is empty, i.e. `!CanPlaceMore()`, which
+ * is what ends the tool and brings the dialog back:
+ *
+ *     m_placementTemplateSet.erase( m_currentTemplate );
+ *     if( m_placementTemplateSet.empty() ) EndPlacement();
+ *     else m_currentTemplate = *m_placementTemplateSet.begin();
+ *
+ * (Upstream additionally copies back any name or shape the user changed in the
+ * placement dialog, so the template and the placed item agree. Ours places the
+ * template as-is, with no dialog in between, so there is nothing to copy.)
+ */
+export function advanceSyncPlacement(p: SyncPlacement): SyncPlacement | null {
+  const queue = p.queue.slice(1);
+  return queue.length ? { ...p, queue } : null;
+}
+
+/**
+ * `OnBtnUndoClicked`: put matched pairs back into the two unmatched lists.
+ *
+ * It edits nothing — the pin and the label still agree — it just stops the
+ * panel treating them as settled, so they can be re-targeted at something else.
+ * Upstream can move rows because its three lists are a mutable model; ours are
+ * derived from the document on every render, so the pairs the user pulled apart
+ * are carried alongside as a set of label ids and re-split here.
+ */
+export function splitAssociated(b: SyncBuckets, unassociated: ReadonlySet<string>): SyncBuckets {
+  if (unassociated.size === 0) return b;
+  const out: SyncBuckets = { labels: [...b.labels], pins: [...b.pins], associated: [] };
+  for (const pair of b.associated) {
+    if (unassociated.has(pair.label.id)) {
+      out.labels.push(pair.label);
+      out.pins.push(pair.pin);
+    } else {
+      out.associated.push(pair);
+    }
+  }
+  out.labels.sort((a, c) => strNumCmp(a.text, c.text, true));
+  out.pins.sort((a, c) => a.index - c.index);
+  return out;
+}
+
+/**
+ * `OnBtnRmPinsClicked` → `SHEET_SYNCHRONIZATION_AGENT::RemoveItem`: delete the
+ * selected pins from the sheet symbol, in the **parent** document.
+ *
+ * Removed back to front, because a pin's identity here is its index and
+ * deleting a low one would renumber every pin above it.
+ */
+export function deleteSyncPins(sheetIndex: number, pinIndices: readonly number[]): EditCommand {
+  const doomed = new Set(pinIndices);
+  const apply = (doc: Schematic): Schematic => {
+    const sheet = doc.sheets[sheetIndex];
+    if (!sheet) return doc;
+    return {
+      ...doc,
+      sheets: doc.sheets.map((s, i) =>
+        i === sheetIndex ? { ...s, pins: s.pins.filter((_, k) => !doomed.has(k)) } : s,
+      ),
+    };
+  };
+  return {
+    label: 'Delete Sheet Pins',
+    apply,
+    // The sheet's whole pin list, snapshotted: the inverse of "drop these
+    // indices" is "put the list back", which cannot get the order wrong.
+    invert: (before: Schematic) =>
+      restoreSheetPins(sheetIndex, before.sheets[sheetIndex]?.pins ?? []),
+  };
+}
+
+function restoreSheetPins(sheetIndex: number, pins: readonly SheetPin[]): EditCommand {
+  return {
+    label: 'Delete Sheet Pins',
+    apply: (doc: Schematic): Schematic => ({
+      ...doc,
+      sheets: doc.sheets.map((s, i) => (i === sheetIndex ? { ...s, pins: [...pins] } : s)),
+    }),
+    invert: (before: Schematic) =>
+      restoreSheetPins(sheetIndex, before.sheets[sheetIndex]?.pins ?? []),
+  };
+}
+
+/**
+ * `OnBtnRmLabelsClicked`: delete the selected hierarchical labels from the
+ * **sub-sheet** document.
+ *
+ * By text, and every label carrying it — the same rule the rename direction
+ * follows, and for the same reason: the row stands for all of them, since the
+ * list is de-duplicated by text. Deleting one and leaving its twins would leave
+ * the row on screen looking as though nothing had happened.
+ */
+export function deleteSyncLabels(texts: readonly string[]): EditCommand {
+  const doomed = new Set(texts);
+  return {
+    label: 'Delete Hierarchical Labels',
+    apply: (doc: Schematic): Schematic => ({
+      ...doc,
+      labels: doc.labels.filter((l) => !(l.kind === 'hierarchical_label' && doomed.has(l.text))),
+    }),
+    invert: (before: Schematic) => setLabels(before.labels),
+  };
+}
+
+/**
+ * `GenericSync`'s last act: the pair it just made agree goes back into the
+ * associated list.
+ *
+ *     m_models[…ASSOCIATED]->AppendItem(
+ *             std::make_shared<ASSOCIATED_SCH_LABEL_PIN>( label_ptr, pin_ptr ) );
+ *
+ * That matters because of `splitAssociated`. Upstream's Break moves rows once,
+ * out of a mutable model; ours is a set of label ids re-applied on every render,
+ * so without this the pair would be pulled apart again the instant it matched —
+ * you press "Use label", the pin really is renamed, and the two rows sit exactly
+ * where they were. The button looks dead.
+ */
+export function reassociate(broken: ReadonlySet<string>, labelId: string): ReadonlySet<string> {
+  if (!broken.has(labelId)) return broken;
+  const next = new Set(broken);
+  next.delete(labelId);
+  return next;
 }

@@ -197,20 +197,29 @@ export function collectAndGuess(
     }
   }
 
-  // Pins: GuessSelectionCandidates takes an exact pin hit outright, the same
+  // Pins: GuessSelectionCandidates takes an *exact* pin hit outright, the same
   // way it does a junction ("closest = item; break").
+  //
+  // Exact means `HitTest( aPos, 0 )`, which for a pin is not zero slop:
+  // SCH_PIN::HitTest floors the accuracy at m_PinSymbolSize / 4 so a pin with
+  // no name or number is still clickable. It is *only* that floor, though —
+  // not the collector's threshold, which is much larger and grows with the
+  // grid. Marking every collected pin exact let a pin win the click outright
+  // from most of a grid square away, so a wire the cursor was sitting exactly
+  // on could not be picked at all.
   for (const seg of collectPinSegments(sch, libById)) {
     const d = pinDistance(seg, p);
     const tol = pinAccuracy(accuracy);
     if (d > tol) continue;
+    const exact = d <= pinAccuracy(0);
     const sym = sch.symbols[seg.symbolIndex]!;
     cands.push({
       ref: { kind: 'pin', id: seg.id },
       index: seg.index,
-      exact: true,
+      exact,
       dist: d,
       dominating: false,
-      instant: true,
+      instant: exact,
       bbox: {
         minX: Math.min(seg.at.x, seg.bodyEnd.x),
         minY: Math.min(seg.at.y, seg.bodyEnd.y),

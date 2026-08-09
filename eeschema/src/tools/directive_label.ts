@@ -13,8 +13,18 @@ import type { DirectiveShape, SchDirectiveLabel, Schematic, Vec2 } from '../type
 import { refId } from './hittest.js';
 import { spinOfAngle, type LabelSpin } from './label_properties.js';
 
-/** m_symbolSize: SCH_DIRECTIVE_LABEL's default flag size (schIUScale, 50 mil). */
-export const DIRECTIVE_SYMBOL_SIZE = 12700;
+/**
+ * `m_symbolSize`: the size of the flag glyph on the end of a directive label's
+ * pin. `SCH_DIRECTIVE_LABEL`'s constructor sets it and nothing in the file
+ * format carries it, so it is always this:
+ *
+ *     m_pinLength   = schIUScale.MilsToIU( 100 );
+ *     m_symbolSize  = schIUScale.MilsToIU( 20 );
+ *
+ * Twenty mils, not fifty — this was 12700 IU, so every netclass flag was drawn
+ * two and a half times the size KiCad draws it.
+ */
+export const DIRECTIVE_SYMBOL_SIZE = 5080;
 
 /** The shape's outline, and whether it is a circle (dot/round) or a polygon. */
 export interface DirectiveGraphic {

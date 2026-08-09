@@ -4,19 +4,26 @@
 /**
  * Sync Sheet Pins. Counterpart: `DIALOG_SYNC_SHEET_PINS` over
  * `PANEL_SYNC_SHEET_PINS` — a page per sheet, each showing the three lists the
- * engine sorts out.
+ * engine sorts out and the six buttons that act on them.
  *
  * The two halves of a hierarchical connection live in different files: the pin
  * belongs to the sheet symbol in the *parent*, the label to the sheet's own
  * document. So each button writes to a different file, and the dialog says
  * which — a "sync" that silently edited a file you were not looking at would be
- * the wrong kind of helpful.
+ * the wrong kind of helpful. That is also why the columns are headed the way
+ * upstream heads them:
  *
- * Upstream's two "add" buttons are absent, and the panel says so rather than
- * showing something that cannot work: `PlaceSheetPin` / `PlaceHieraLable` hand
- * off to the interactive placement tool, so where a new item lands is a
- * question the user answers with the mouse. That is a design decision rather
- * than a port.
+ *     m_labelSymName->SetLabel( aSheet->GetShownName( true ) );   // the pins
+ *     m_labelSheetName->SetLabel( aSheet->GetFileName() );        // the labels
+ *
+ * Both lists are multi-select (`wxDV_MULTIPLE`), because four of the buttons act
+ * on a *set* of rows; the two template buttons take one row from each list.
+ *
+ * The two "Add" buttons do not drop the new item somewhere chosen for you.
+ * Upstream hides the panel, arms the matching placement tool with the selected
+ * rows as templates, and lets you click each one into place — so they close this
+ * dialog and hand the queue back to the editor, which reopens it when the last
+ * one lands.
  *
  * A sheet with nothing unmatched still gets its page, with its counts, exactly
  * as the notebook keeps every tab: a page that vanished when it agreed would
@@ -26,10 +33,13 @@
 import { useMemo, useState, type JSX } from 'react';
 import {
   hasUnmatched,
+  reassociate,
+  splitAssociated,
   syncSheetPinBuckets,
   type SyncBuckets,
   type SyncLabel,
   type SyncPin,
+  type SyncTemplate,
 } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
 
@@ -49,30 +59,89 @@ interface Props {
   /** The parent's own file, which is where a pin edit lands. */
   parentFile: string;
   sheets: readonly SyncSheetEntry[];
+  /** Which page to open on, if a sheet was selected when the tool ran. */
+  initialPage?: number;
   /** Give the pin the label's name and shape (writes the parent). */
   onUsePinTemplate: (entry: SyncSheetEntry, pin: SyncPin, label: SyncLabel) => void;
   /** Give the labels the pin's name and shape (writes the sub-sheet). */
   onUseLabelTemplate: (entry: SyncSheetEntry, label: SyncLabel, pin: SyncPin) => void;
+  /** Place a sheet pin per selected label, on the sheet symbol in the parent. */
+  onAddSheetPins: (entry: SyncSheetEntry, templates: readonly SyncTemplate[]) => void;
+  /** Place a hierarchical label per selected pin, inside the sub-sheet. */
+  onAddHierLabels: (entry: SyncSheetEntry, templates: readonly SyncTemplate[]) => void;
+  /** Delete the selected pins from the sheet symbol (writes the parent). */
+  onDeletePins: (entry: SyncSheetEntry, pinIndices: readonly number[]) => void;
+  /** Delete the selected labels from the sub-sheet (writes the sub-sheet). */
+  onDeleteLabels: (entry: SyncSheetEntry, texts: readonly string[]) => void;
   onClose: () => void;
 }
 
-function List<T extends { id: string; text: string; shape: string }>({
+interface Row {
+  id: string;
+  text: string;
+  shape: string;
+}
+
+/**
+ * One of the three `wxDataViewCtrl`s. Multi-select the usual way: a plain click
+ * replaces the selection, ctrl/cmd toggles a row, shift extends from the last
+ * one clicked.
+ */
+function List({
   title,
-  items,
+  subtitle,
+  rows,
   selected,
   onSelect,
+  children,
 }: {
   title: string;
-  items: readonly T[];
-  selected: string | null;
-  onSelect: (id: string) => void;
+  subtitle?: string;
+  rows: readonly Row[];
+  selected: ReadonlySet<string>;
+  onSelect: (next: Set<string>, anchor: string) => void;
+  children?: JSX.Element | JSX.Element[];
 }): JSX.Element {
+  const [anchor, setAnchor] = useState<string | null>(null);
+
+  const click = (e: React.MouseEvent, id: string) => {
+    const next = new Set(selected);
+    if (e.shiftKey && anchor) {
+      const from = rows.findIndex((r) => r.id === anchor);
+      const to = rows.findIndex((r) => r.id === id);
+      if (from >= 0 && to >= 0) {
+        next.clear();
+        for (let i = Math.min(from, to); i <= Math.max(from, to); i++) next.add(rows[i]!.id);
+        onSelect(next, anchor);
+        return;
+      }
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+    } else {
+      next.clear();
+      next.add(id);
+    }
+    setAnchor(id);
+    onSelect(next, id);
+  };
+
   return (
-    <div style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="ze-panel-header">
-        {title} ({items.length})
+        {title} ({rows.length})
       </div>
-      <div className="ze-props-grid-wrap" style={{ height: 200, overflow: 'auto' }}>
+      {subtitle && (
+        <div
+          className="ze-muted"
+          style={{ padding: '2px 4px', overflow: 'hidden' }}
+          title={subtitle}
+        >
+          {subtitle}
+        </div>
+      )}
+      <div className="ze-props-grid-wrap" style={{ height: 220, overflow: 'auto' }}>
         <table className="ze-props-grid">
           <thead>
             <tr>
@@ -81,20 +150,21 @@ function List<T extends { id: string; text: string; shape: string }>({
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
+            {rows.map((r) => (
               <tr
-                key={it.id}
-                className={selected === it.id ? 'sel' : ''}
-                onClick={() => onSelect(it.id)}
+                key={r.id}
+                className={selected.has(r.id) ? 'sel' : ''}
+                onClick={(e) => click(e, r.id)}
                 style={{ cursor: 'pointer' }}
               >
-                <td>{it.text}</td>
-                <td>{it.shape}</td>
+                <td>{r.text}</td>
+                <td>{r.shape}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {children}
     </div>
   );
 }
@@ -103,34 +173,58 @@ export function DialogSyncSheetPins({
   parent,
   parentFile,
   sheets,
+  initialPage = 0,
   onUsePinTemplate,
   onUseLabelTemplate,
+  onAddSheetPins,
+  onAddHierLabels,
+  onDeletePins,
+  onDeleteLabels,
   onClose,
 }: Props): JSX.Element {
-  const [page, setPage] = useState(0);
-  const [labelSel, setLabelSel] = useState<string | null>(null);
-  const [pinSel, setPinSel] = useState<string | null>(null);
+  const [page, setPage] = useState(initialPage);
+  const [labelSel, setLabelSel] = useState<ReadonlySet<string>>(new Set());
+  const [pinSel, setPinSel] = useState<ReadonlySet<string>>(new Set());
+  const [matchedSel, setMatchedSel] = useState<ReadonlySet<string>>(new Set());
+  // Pairs the Undo button pulled apart. Upstream can move rows because its
+  // lists are a mutable model; ours are derived from the document every render,
+  // so what was broken apart has to be remembered here.
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
 
   const entry = sheets[page];
   const buckets: SyncBuckets | null = useMemo(
     () =>
       entry
-        ? syncSheetPinBuckets(parent.sheets[entry.sheetIndex]!, entry.sheetIndex, entry.sub)
+        ? splitAssociated(
+            syncSheetPinBuckets(parent.sheets[entry.sheetIndex]!, entry.sheetIndex, entry.sub),
+            broken,
+          )
         : null,
-    [parent, entry],
+    [parent, entry, broken],
   );
 
-  const label = buckets?.labels.find((l) => l.id === labelSel) ?? null;
-  const pin = buckets?.pins.find((p) => p.id === pinSel) ?? null;
-  // GenericSync needs one of each: the buttons decide which of two disagreeing
-  // items is right, so with only one selected there is nothing to decide.
+  const clearSel = () => {
+    setLabelSel(new Set());
+    setPinSel(new Set());
+    setMatchedSel(new Set());
+  };
+
+  const selectedLabels = (buckets?.labels ?? []).filter((l) => labelSel.has(l.id));
+  const selectedPins = (buckets?.pins ?? []).filter((p) => pinSel.has(p.id));
+  // The template buttons take one row from each list — `GetSelection()`, not
+  // `GetSelections()` — so with several selected the first stands in.
+  const label = selectedLabels[0] ?? null;
+  const pin = selectedPins[0] ?? null;
   const canSync = !!label && !!pin;
+
+  const templates = (items: readonly { text: string; shape: string }[]): SyncTemplate[] =>
+    items.map((i) => ({ text: i.text, shape: i.shape as SyncTemplate['shape'] }));
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
         className="ze-modal"
-        style={{ width: 760, maxWidth: '96vw' }}
+        style={{ width: 960, maxWidth: '96vw' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
@@ -153,8 +247,7 @@ export function DialogSyncSheetPins({
                     className={`tab${i === page ? ' active' : ''}`}
                     onClick={() => {
                       setPage(i);
-                      setLabelSel(null);
-                      setPinSel(null);
+                      clearSel();
                     }}
                     title={s.file}
                   >
@@ -171,61 +264,142 @@ export function DialogSyncSheetPins({
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                {/* Pins: the parent's half. Headed by the sheet symbol's name. */}
                 <List
-                  title="Labels in the sheet"
-                  items={buckets.labels}
-                  selected={labelSel}
-                  onSelect={setLabelSel}
-                />
-                <List
-                  title="Pins on the sheet symbol"
-                  items={buckets.pins}
+                  title="Sheet pins"
+                  subtitle={entry.name}
+                  rows={buckets.pins}
                   selected={pinSel}
                   onSelect={setPinSel}
-                />
+                >
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={selectedPins.length === 0}
+                    onClick={() => onAddHierLabels(entry, templates(selectedPins))}
+                    title={`Places a hierarchical label per selected pin in ${entry.file}`}
+                  >
+                    Add Hierarchical Labels
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={selectedPins.length === 0}
+                    onClick={() => {
+                      onDeletePins(
+                        entry,
+                        selectedPins.map((p) => p.index),
+                      );
+                      clearSel();
+                    }}
+                    title={`Deletes them from the sheet symbol in ${parentFile}`}
+                  >
+                    Delete Sheet Pins
+                  </button>
+                </List>
+
+                {/* The three bitmap buttons upstream stacks between the lists. */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={!canSync}
+                    onClick={() => {
+                      if (!label || !pin) return;
+                      onUsePinTemplate(entry, pin, label);
+                      setBroken((b) => reassociate(b, label.id));
+                      clearSel();
+                    }}
+                    title={`Associate them using the label name — renames the pin in ${parentFile}`}
+                  >
+                    ← Use label
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={!canSync}
+                    onClick={() => {
+                      if (!label || !pin) return;
+                      onUseLabelTemplate(entry, label, pin);
+                      setBroken((b) => reassociate(b, label.id));
+                      clearSel();
+                    }}
+                    title={`Associate them using the pin name — renames the labels in ${entry.file}`}
+                  >
+                    Use pin →
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={matchedSel.size === 0}
+                    onClick={() => {
+                      setBroken((b) => new Set([...b, ...matchedSel]));
+                      clearSel();
+                    }}
+                    title="Break sheet pin and hierarchical label association(s)"
+                  >
+                    ⤺ Break
+                  </button>
+                </div>
+
+                {/* Labels: the sub-sheet's half. Headed by its file name. */}
                 <List
-                  title="Already matched"
-                  items={buckets.associated.map((a) => ({
+                  title="Hierarchical labels"
+                  subtitle={entry.file}
+                  rows={buckets.labels}
+                  selected={labelSel}
+                  onSelect={setLabelSel}
+                >
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={selectedLabels.length === 0}
+                    onClick={() => onAddSheetPins(entry, templates(selectedLabels))}
+                    title={`Places a pin per selected label on the sheet symbol in ${parentFile}`}
+                  >
+                    Add Sheet Pins
+                  </button>
+                  <button
+                    type="button"
+                    className="ze-btn"
+                    disabled={selectedLabels.length === 0}
+                    onClick={() => {
+                      onDeleteLabels(
+                        entry,
+                        selectedLabels.map((l) => l.text),
+                      );
+                      clearSel();
+                    }}
+                    title={`Deletes them from ${entry.file}`}
+                  >
+                    Delete Hierarchical Labels
+                  </button>
+                </List>
+
+                <List
+                  title="Associated"
+                  rows={buckets.associated.map((a) => ({
                     id: a.label.id,
                     text: a.label.text,
                     shape: a.label.shape,
                   }))}
-                  selected={null}
-                  onSelect={() => undefined}
+                  selected={matchedSel}
+                  onSelect={setMatchedSel}
                 />
               </div>
 
-              <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-                {/* Each button writes a different file, and says which. */}
-                <button
-                  type="button"
-                  className="ze-btn"
-                  disabled={!canSync}
-                  onClick={() => label && pin && onUsePinTemplate(entry, pin, label)}
-                  title={`Renames the pin in ${parentFile}`}
-                >
-                  Use label as template →
-                </button>
-                <button
-                  type="button"
-                  className="ze-btn"
-                  disabled={!canSync}
-                  onClick={() => label && pin && onUseLabelTemplate(entry, label, pin)}
-                  title={`Renames the labels in ${entry.file}`}
-                >
-                  ← Use pin as template
-                </button>
-                <span className="ze-muted">
-                  {canSync
-                    ? `'${label.text}' (${label.shape}) vs '${pin.text}' (${pin.shape})`
-                    : 'Select one label and one pin to reconcile them.'}
-                </span>
-              </div>
-
               <div className="ze-muted">
-                Adding a missing pin or label is not offered here: upstream places the new item with
-                the mouse, and guessing a position would be worse than leaving it out.
+                {canSync
+                  ? `'${label.text}' (${label.shape}) vs '${pin.text}' (${pin.shape})`
+                  : 'Select rows to act on. Ctrl-click adds to the selection, shift-click extends it.'}
               </div>
             </>
           )}

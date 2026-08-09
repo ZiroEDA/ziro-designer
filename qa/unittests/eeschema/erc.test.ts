@@ -139,6 +139,40 @@ describe('runErc', () => {
     expect(v2.find((x) => x.code === 'isolated_pin_label')!.severity).toBe('warning');
   });
 
+  // SCH_LABEL_BASE::UpdateDanglingState hit-tests a label against whole wire
+  // segments, so a label dropped anywhere along a wire is connected to it. Only
+  // matching at the endpoints leaves the label on a net of its own and reports
+  // every mid-wire label as unconnected.
+  it('does not report a label sitting mid-wire as unconnected', () => {
+    const midWire = sch(`
+      ${place('OUT', 'U1', 10, 10, 'u1')} ${place('IN', 'U2', 40, 10, 'u2')}
+      ${wire(10, 10, 40, 10, 'w1')}
+      (label "N1" (at 25 10 0) (uuid "l1"))`);
+    const v = runErc(midWire.doc, midWire.libById);
+    expect(codes(v)).not.toContain('label_dangling');
+    expect(codes(v)).not.toContain('isolated_pin_label');
+    // It named the wire's net, rather than sitting on one of its own.
+    const { nets } = computeNetlist(midWire.doc, midWire.libById);
+    expect(nets).toHaveLength(1);
+    expect(nets[0]!.name).toBe('/N1');
+  });
+
+  // ercCheckDanglingWireEndpoints skips anything whose layer is not LAYER_WIRE,
+  // so a bus left hanging is never reported; its dangling state only drives the
+  // auto-start-a-line behaviour.
+  it('reports a dangling wire end but not a dangling bus end', () => {
+    const withBus = sch(`
+      ${place('OUT', 'U1', 10, 10, 'u1')}
+      ${wire(10, 10, 30, 10, 'w1')}
+      (bus (pts (xy 10 40) (xy 30 40)) (uuid "b1"))
+      (label "D[0..1]" (at 10 40 0) (uuid "bl"))`);
+    const v = runErc(withBus.doc, withBus.libById);
+    const ends = v.filter((x) => x.code === 'unconnected_wire_endpoint');
+    // The wire's far end is free; neither end of the bus is reported.
+    expect(ends).toHaveLength(1);
+    expect(ends[0]!.at.y).toBe(mmToIU(10));
+  });
+
   it('stacked pins of one symbol are exempt from conflicts', () => {
     // Two outputs joined across two symbols errors (above); the same two pin
     // types stacked at one point of one symbol must not.

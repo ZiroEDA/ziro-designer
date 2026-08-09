@@ -26,6 +26,11 @@ import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
 import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
 import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
+import {
+  findSymLibRowByUri,
+  resolvedProjectSymLibs,
+} from '../schematic/symbols/project_sym_lib_table.js';
+import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import { useSchematicTheme } from '../../prefs/useSettings.js';
 import { pcm } from '../../pcm/pcmStore.js';
@@ -230,6 +235,8 @@ export function SymbolEditor({
   const [pinTableOpen, setPinTableOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
   const [newLibName, setNewLibName] = useState<string | null>(null);
+  /** DisplayErrorMessage for the MAIL_LIB_EDIT refusals below. */
+  const [libError, setLibError] = useState<{ title: string; message: string } | null>(null);
 
   const lastPin = useRef<LastPinState>({ ...DEFAULT_LAST_PIN });
   const controller = useRef<SymbolCanvasController>(null);
@@ -239,11 +246,14 @@ export function SymbolEditor({
 
   // ----- library bootstrap ------------------------------------------------------
   useEffect(() => {
-    // Project libraries (the open project's .kicad_sym files).
-    for (const f of initialProject ?? []) {
-      if (!/\.kicad_sym$/i.test(f.name)) continue;
-      const name = basename(f.name).replace(/\.kicad_sym$/i, '');
-      manager.current.addProjectLibrary(name, f.name, f.text);
+    // Project libraries: the rows of the project's `sym-lib-table`, under the
+    // nickname each row gives. SYMBOL_LIB_TABLE is what makes a library exist —
+    // a `.kicad_sym` sitting in the project folder that no row points at is a
+    // file, not a library, and must not appear in the tree. A disabled row is
+    // registered by neither (`HasLibrary( nickname, true )`).
+    for (const { row, file } of resolvedProjectSymLibs(initialProject ?? [])) {
+      if (row.disabled) continue;
+      manager.current.addProjectLibrary(row.name, file.name, file.text);
     }
     // Libraries installed through the Plugin and Content Manager (loaded eagerly
     // from their stored `.kicad_sym` text).
@@ -367,7 +377,29 @@ export function SymbolEditor({
   useEffect(() => {
     const file = openRequest?.file;
     if (!file) return;
-    const lib = basename(file).replace(/\.kicad_sym$/i, '');
+    // KiwayMailIn's MAIL_LIB_EDIT: the payload is a *URI*, resolved through the
+    // library table, and the nickname comes from the row it matches. A file no
+    // row points at is refused with upstream's message rather than opened.
+    const row = findSymLibRowByUri(initialProject ?? [], file);
+    if (!row) {
+      setLibError({
+        title: 'Library not found in symbol library table.',
+        message:
+          `The current configuration does not include the symbol library '${file}'.\n` +
+          'Use Manage Symbol Libraries to edit the configuration.',
+      });
+      return;
+    }
+    if (row.disabled) {
+      setLibError({
+        title: 'Symbol library not enabled.',
+        message:
+          `The symbol library '${unescapeString(row.name)}' is not enabled in the current configuration.\n` +
+          'Use Manage Symbol Libraries to edit the configuration.',
+      });
+      return;
+    }
+    const lib = row.name;
     void (async () => {
       const loaded = await manager.current.ensureLoaded(lib);
       if (!loaded) return;
@@ -1854,6 +1886,29 @@ export function SymbolEditor({
       )}
       {checkOpen && workSymbol && (
         <SymbolCheckDialog symbol={workSymbol} onClose={() => setCheckOpen(false)} />
+      )}
+
+      {libError && (
+        <div className="ze-modal-backdrop" onMouseDown={() => setLibError(null)}>
+          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="ze-modal-header">
+              {libError.title}
+              <span className="x" onClick={() => setLibError(null)}>
+                ✕
+              </span>
+            </div>
+            <div className="ze-label-dialog-body">
+              <div style={{ whiteSpace: 'pre-wrap', maxWidth: 460, fontSize: 12 }}>
+                {libError.message}
+              </div>
+            </div>
+            <div className="ze-modal-footer">
+              <button className="ze-btn primary" onClick={() => setLibError(null)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {newLibName !== null && (

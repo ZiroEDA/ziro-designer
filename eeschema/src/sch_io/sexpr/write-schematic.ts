@@ -590,10 +590,17 @@ function patchStroke(node: SList, stroke: Stroke | undefined): SList {
   if (childNamed(node, 'stroke')) {
     return mapChild(node, 'stroke', (s) => {
       let out = s;
-      if (childNamed(out, 'width'))
-        out = mapChild(out, 'width', () => list(atom('width'), atom(mm(stroke.width))));
-      if (childNamed(out, 'type'))
-        out = mapChild(out, 'type', () => list(atom('type'), atom(stroke.type)));
+      const width = list(atom('width'), atom(mm(stroke.width)));
+      const type = list(atom('type'), atom(stroke.type));
+      // STROKE_PARAMS::Format prints width, then type, then colour, and prints
+      // all three: a source that carried only some of them must gain the rest
+      // rather than swallow the edit.
+      out = childNamed(out, 'width')
+        ? mapChild(out, 'width', () => width)
+        : insertBeforeAny(out, width, ['type', 'color']);
+      out = childNamed(out, 'type')
+        ? mapChild(out, 'type', () => type)
+        : insertBeforeAny(out, type, ['color']);
       if (childNamed(out, 'color')) out = mapChild(out, 'color', () => colorNode(stroke.color));
       else if (stroke.color) out = { kind: 'list', items: [...out.items, colorNode(stroke.color)] };
       return out;
@@ -749,13 +756,23 @@ function writeSheet(sh: SchSheet): SList {
     node = patchSymbolBool(node, 'exclude_from_sim', sh.excludedFromSim, false);
   // Border width and colour live in the sheet's `(stroke …)`.
   node = patchStroke(node, sh.stroke);
-  if (childNamed(node, 'fill')) {
+  // `(fill (color r g b a))`; an absent background is alpha 0, which is how
+  // saveSheet writes COLOR4D::UNSPECIFIED.
+  //
+  // saveSheet prints this for every sheet, unconditionally:
+  //
+  //     m_out->Print( "(fill (color %d %d %d %s))", ... );
+  //
+  // Patching only an existing node — which is what this did — silently dropped
+  // any background colour set on a sheet whose source carried no `(fill …)`, or
+  // carried one without a `(color …)` inside it. Autosave re-reads what it
+  // wrote, so the colour survived the edit and vanished a second later.
+  const colour = colorNode(sh.fillColor ?? [0, 0, 0, 0]);
+  if (!childNamed(node, 'fill')) {
+    node = insertBeforeAny(node, list(atom('fill'), colour), ['uuid', 'property', 'pin']);
+  } else {
     node = mapChild(node, 'fill', (f) =>
-      // `(fill (color r g b a))`; an absent background is alpha 0, which is how
-      // saveSheet writes COLOR4D::UNSPECIFIED.
-      childNamed(f, 'color')
-        ? mapChild(f, 'color', () => colorNode(sh.fillColor ?? [0, 0, 0, 0]))
-        : f,
+      childNamed(f, 'color') ? mapChild(f, 'color', () => colour) : insertBeforeAny(f, colour, []),
     );
   }
   if (childNamed(node, 'instances') && sh.instances.length) {
@@ -763,23 +780,37 @@ function writeSheet(sh: SchSheet): SList {
     node = mapChild(node, 'instances', (inst) => patchInstancePages(inst, pages, true));
   }
   const byKey = new Map(sh.fields.map((f) => [f.key, f]));
-  let pinIdx = 0;
-  node = {
-    kind: 'list',
-    items: node.items.map((it) => {
-      if (isList(it) && head(it) === 'property') {
-        const key = it.items[1];
-        const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
-        return f ? patchProperty(it, f) : it;
+  // The pins come from the model, not from the source's pin nodes.
+  //
+  // `saveSheet` prints `aSheet->GetPins()`, so the object is what the file
+  // says. Patching the source's nodes one-for-one instead — which is what this
+  // did — worked only while the count never fell: delete a pin and the model
+  // shrank while the leftover node stayed behind, so the file came back with
+  // the old pin still on it and the deletion undid itself on the next load.
+  // Each pin carries its own `source`, so the ones that were already there
+  // still round-trip byte-for-byte.
+  const pinNodes = sh.pins.map((p) => writeSheetPin(p.source, p));
+  let emitted = false;
+  const items: SNode[] = [];
+  for (const it of node.items) {
+    if (isList(it) && head(it) === 'property') {
+      const key = it.items[1];
+      const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+      items.push(f ? patchProperty(it, f) : it);
+      continue;
+    }
+    if (isList(it) && head(it) === 'pin') {
+      // Where the first one was, so a sheet KiCad wrote keeps its node order.
+      if (!emitted) {
+        emitted = true;
+        items.push(...pinNodes);
       }
-      if (isList(it) && head(it) === 'pin') {
-        const pin = sh.pins[pinIdx++];
-        return pin ? writeSheetPin(it, pin) : it;
-      }
-      return it;
-    }),
-  };
-  return node;
+      continue;
+    }
+    items.push(it);
+  }
+  if (!emitted) items.push(...pinNodes);
+  return { kind: 'list', items };
 }
 
 function writeLabel(l: SchLabel): SList {
@@ -981,14 +1012,25 @@ function setFlagChild(node: SList, name: string, value: boolean): SList {
  */
 function writeTable(tb: SchTable): SList {
   let node = tb.source;
+  // The two `(stroke …)` children are patched alongside the flags. They were
+  // read and never written, which was invisible while nothing could change them
+  // — DIALOG_TABLE_PROPERTIES changes both, and it is also how "no line" is
+  // stored, as a width of −1. Without this a border switched off came back on
+  // at the next load.
   if (childNamed(node, 'border')) {
     node = mapChild(node, 'border', (b) =>
-      setFlagChild(setFlagChild(b, 'external', tb.borderExternal), 'header', tb.borderHeader),
+      patchStroke(
+        setFlagChild(setFlagChild(b, 'external', tb.borderExternal), 'header', tb.borderHeader),
+        tb.borderStroke,
+      ),
     );
   }
   if (childNamed(node, 'separators')) {
     node = mapChild(node, 'separators', (sep) =>
-      setFlagChild(setFlagChild(sep, 'rows', tb.separatorRows), 'cols', tb.separatorCols),
+      patchStroke(
+        setFlagChild(setFlagChild(sep, 'rows', tb.separatorRows), 'cols', tb.separatorCols),
+        tb.separatorsStroke,
+      ),
     );
   }
   // The shape of the table is patched too, not just each cell's contents. It
@@ -1023,6 +1065,14 @@ function writeTable(tb: SchTable): SList {
  * untouched. Sheet coordinates are +Y down, so unlike the symbol-library writer
  * there is no Y inversion here.
  */
+/** Replace a single-value child like `(major_radius 5.08)`, adding it if absent. */
+function patchNumberChild(node: SList, name: string, value: string): SList {
+  const next = list(atom(name), atom(value));
+  return childNamed(node, name)
+    ? mapChild(node, name, () => next)
+    : { kind: 'list', items: [...node.items, next] };
+}
+
 function writeGraphic(g: LibGraphic): SList {
   // Text is the one graphic with no border or fill; the rest carry both, and
   // DIALOG_SHAPE_PROPERTIES edits them, so they are patched alongside geometry.
@@ -1045,10 +1095,63 @@ function writeGraphic(g: LibGraphic): SList {
     case 'bezier':
       node = patchPts(g.source, g.points);
       break;
+    case 'ellipse':
+    case 'ellipse_arc': {
+      // `formatEllipse`:
+      //
+      //     "(ellipse %s (center %s) (major_radius %s) (minor_radius %s) (rotation_angle %s)"
+      //
+      // plus `(start_angle …)` / `(end_angle …)` for the arc form.
+      node = patchXY(g.source, 'center', g.center);
+      node = patchNumberChild(node, 'major_radius', mm(g.majorRadius));
+      node = patchNumberChild(node, 'minor_radius', mm(g.minorRadius));
+      node = patchNumberChild(node, 'rotation_angle', num(g.rotation));
+      if (g.kind === 'ellipse_arc') {
+        node = patchNumberChild(node, 'start_angle', num(g.startAngle));
+        node = patchNumberChild(node, 'end_angle', num(g.endAngle));
+      }
+      break;
+    }
   }
   node = patchStroke(node, g.stroke);
-  return patchShapeFill(node, g.fill);
+  node = patchShapeFill(node, g.fill);
+
+  // `saveRuleArea` is `saveShape` inside a wrapper that carries the four
+  // attribute flags:
+  //
+  //     m_out->Print( "(rule_area " );
+  //     ... FormatBool( exclude_from_sim / in_bom / on_board / dnp ) ...
+  //     saveShape( aRuleArea );
+  //     m_out->Print( ")" );
+  //
+  // A rule area read from a file keeps its wrapper, so those flags round-trip
+  // whatever they were set to; one drawn here gets a fresh wrapper with the
+  // defaults `SCH_RULE_AREA`'s constructor uses.
+  if (!g.ruleArea) return node;
+  const wrapper =
+    g.ruleAreaSource ??
+    list(
+      atom('rule_area'),
+      list(atom('exclude_from_sim'), atom('no')),
+      list(atom('in_bom'), atom('yes')),
+      list(atom('on_board'), atom('yes')),
+      list(atom('dnp'), atom('no')),
+    );
+  const shaped = node;
+  const items = wrapper.items.filter((it) => !(isList(it) && SHAPE_NODE_NAMES.has(head(it) ?? '')));
+  return { kind: 'list', items: [...items, shaped] };
 }
+
+/** The node names `saveShape` emits, i.e. the child a `(rule_area …)` wraps. */
+const SHAPE_NODE_NAMES = new Set([
+  'polyline',
+  'rectangle',
+  'circle',
+  'arc',
+  'bezier',
+  'ellipse',
+  'ellipse_arc',
+]);
 
 /**
  * Patch a shape's `(fill (type …) [(color …)])`.
@@ -1090,6 +1193,11 @@ function writeImage(im: SchImage): SList {
 
 const HEADER_ORDER = ['version', 'generator', 'generator_version', 'uuid', 'paper', 'title_block'];
 const STRUCTURAL = new Set([...HEADER_ORDER, 'lib_symbols']);
+/**
+ * Node names `writeSchematic` re-emits from the model. Anything *not* here is
+ * copied through from the source untouched, so a name missing from this set is
+ * written twice — once from the model, once as an unrecognised leftover.
+ */
 const ITEM_HEADS = new Set([
   'symbol',
   'wire',
@@ -1107,6 +1215,13 @@ const ITEM_HEADS = new Set([
   'rectangle',
   'circle',
   'arc',
+  'bezier',
+  'ellipse',
+  'ellipse_arc',
+  // A rule area is written from `sch.graphics` too (writeGraphic re-wraps it),
+  // so its original node must not also pass through below — that duplicated
+  // every rule area on save.
+  'rule_area',
   'text_box',
   'table',
   'group',

@@ -23,7 +23,12 @@
  * **It records something substantial.** A recorder that dropped every call
  * would satisfy any invariant perfectly, so the counts are checked first.
  *
- * **The scale-derived decorations are visible.** The regression above.
+ * **The scale-derived decorations are visible.** The regression above — now
+ * measured on the pass that actually draws them. Halos are no longer recorded
+ * into the buffer at all: their width is a fixed number of *screen* pixels
+ * (`SCH_PAINTER::getShadowWidth`), so one baked into a buffer that is never
+ * re-recorded on a zoom is the right width at exactly one zoom level and a fat
+ * bar at every closer one. The 2D layer under the GL one draws them per frame.
  *
  * **How far the geometry depends on the zoom**, stated honestly rather than
  * assumed away: it is deterministic at a fixed scale, and it *does* change
@@ -130,28 +135,72 @@ describe('how far the recorded geometry depends on the zoom', () => {
     expect(differing, `${differing} of ${va.length} segment floats moved with the view`).toBe(0);
   });
 
-  it('draws a selection halo wide enough to see', () => {
-    // The bug this exists for. `renderer.ts` sizes the halo as
-    // `highlightThickness / scale + highlightThickness * MIL`, and a field's
-    // umbilical as `max(1, 1 / scale)`. Recording at scale 1 collapsed both to
-    // one or two internal units. A millimetre is a million of them, so they
-    // were drawn correctly and were invisible, and every test still passed
-    // because none of them recorded with a selection.
+  it('leaves the selection halo out of the buffer entirely', () => {
+    // A halo's width is `getShadowWidth`: a fixed number of *screen pixels*
+    // plus a small world width. That is the one piece of a sheet whose
+    // geometry genuinely depends on the zoom, and the buffer above is
+    // deliberately never re-recorded on a zoom — so a halo recorded into it
+    // keeps the width it had when it was recorded. A three-pixel glow at
+    // fit-to-page became a twenty-pixel bar once you zoomed in on a part, which
+    // is the "the halo swallows the geometry" report.
+    //
+    // `recordSchematicScene` therefore records with `halos: 'skip'`, and the 2D
+    // layer underneath draws them per frame at the live scale. A selection
+    // must now change nothing at all in here.
     const doc = readSchematic(parse(SRC));
     const selected = new Set(doc.lines.map((l, i) => refId('line', l.uuid, i)).slice(0, 5));
     expect(selected.size).toBeGreaterThan(0);
 
     const plain = record(SCALE);
-    const withHalo = record(SCALE, selected);
-    expect(withHalo.segmentCount).toBeGreaterThan(plain.segmentCount);
+    const withSelection = record(SCALE, selected);
+    expect(withSelection.segmentCount).toBe(plain.segmentCount);
 
-    // The halo is the widest thing on the sheet by some way. Measured in world
-    // units, it has to be a real fraction of a millimetre, not a rounding error.
-    const v = withHalo.segments.view();
-    let widest = 0;
-    for (let i = 0; i < v.length; i += 10) widest = Math.max(widest, v[i + 4]!);
+    const va = plain.segments.view();
+    const vb = withSelection.segments.view();
+    let differing = 0;
+    for (let i = 0; i < va.length; i++) if (va[i] !== vb[i]) differing++;
+    expect(differing, 'segment floats a selection changed').toBe(0);
+  });
+
+  it('but the halo pass draws one, and sizes it against the live view', () => {
+    // The other half, and the regression the removed test guarded: the halo has
+    // to be *visible*. Recording at a nominal scale of 1 once made every halo
+    // two internal units wide — a five-hundredth of a millimetre — drawn
+    // perfectly and invisible, with every test passing because none of them
+    // recorded with a selection.
+    //
+    // Now it is measured where it is actually drawn. Its width is
+    // `mils / scale + mils * MIL`, so halving the scale must roughly double it:
+    // that is what makes it a constant number of screen pixels at every zoom.
+    const doc = readSchematic(parse(SRC));
+    const selected = new Set(doc.lines.map((l, i) => refId('line', l.uuid, i)).slice(0, 5));
+
+    const widest = (scale: number): number => {
+      const scene = new Scene();
+      recordSchematicScene(
+        scene,
+        {
+          doc,
+          theme,
+          opts: { ...DEFAULT_RENDER_OPTS, halos: 'only' },
+          selection: selected,
+          highlight: undefined,
+        },
+        scale,
+      );
+      const v = scene.segments.view();
+      let w = 0;
+      for (let i = 0; i < v.length; i += 10) w = Math.max(w, v[i + 4]!);
+      return w;
+    };
+
     const MM = 1e6;
-    expect(widest, 'widest recorded stroke, in internal units').toBeGreaterThan(0.05 * MM);
+    const atScale = widest(SCALE);
+    expect(atScale, 'widest halo stroke, in internal units').toBeGreaterThan(0.05 * MM);
+    // Zoomed out twice as far, the same halo is twice as wide in world units.
+    const zoomedOut = widest(SCALE / 2);
+    expect(zoomedOut / atScale).toBeGreaterThan(1.8);
+    expect(zoomedOut / atScale).toBeLessThan(2.2);
   });
 
   it('gives every segment the same constant pixel floor', () => {

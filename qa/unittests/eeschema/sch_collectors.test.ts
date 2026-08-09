@@ -9,7 +9,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { addItems, makeWire, makeJunction, makeLabel } from '@ziroeda/eeschema/src/tools/index.js';
 import { collectAndGuess, describeItem } from '@ziroeda/eeschema/src/tools/sch_collectors.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -79,5 +81,42 @@ describe('collectAndGuess', () => {
     expect(describeItem(sch, new Map(), jRef)).toBe('Junction');
     const labelRef = collectAndGuess(sch, new Map(), at(0, -1), ACC)[0]!;
     expect(describeItem(sch, new Map(), labelRef)).toBe("Label 'NETX'");
+  });
+});
+
+describe('collectAndGuess: a pin only wins outright on an exact hit', () => {
+  // R1 is vertical at (100, 100); its pins run from (100, 96.19) and
+  // (100, 103.81) inward for 1.27 mm. A wire runs horizontally through
+  // (100, 96.19), the way a rail does under a part's top pin.
+  const rawR = readFileSync(
+    fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),
+    'utf8',
+  );
+  const R = readSymbolLib(parse(rawR))[0]!;
+  const LIB = new Map([[R.libId, R]]);
+  const rBlock = rawR.slice(rawR.indexOf('(symbol "'), rawR.lastIndexOf(')'));
+  const withR = (body = ''): Schematic =>
+    readSchematic(
+      parse(`(kicad_sch (version 20250114) (lib_symbols ${rBlock})
+        (symbol (lib_id "R") (at 100 100 0) (unit 1) (uuid "r1")
+          (property "Reference" "R1" (at 106 100 90))
+          (property "Value" "R" (at 108 100 90)))
+        ${body})`),
+    );
+
+  it('takes the pin when the cursor is on it', () => {
+    const sch = withR();
+    const cands = collectAndGuess(sch, LIB, at(100, 96.6), mmToIU(0.9));
+    expect(cands[0]!.kind).toBe('pin');
+  });
+
+  it('takes the wire when the cursor is on the wire and merely near a pin', () => {
+    // SCH_PIN::HitTest( pos, 0 ) floors its accuracy at m_PinSymbolSize / 4
+    // (about 0.16 mm), so a pin 0.5 mm away is collected but is *not* an exact
+    // hit and does not short-circuit the closest-item race.
+    const sch = withR(`
+      (wire (pts (xy 90 95.5) (xy 110 95.5)) (stroke (width 0) (type default)) (uuid "rail"))`);
+    const cands = collectAndGuess(sch, LIB, at(100, 95.5), mmToIU(0.9));
+    expect(cands[0]!.kind).toBe('line');
   });
 });

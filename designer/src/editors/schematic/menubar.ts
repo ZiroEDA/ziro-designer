@@ -68,6 +68,19 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     checked: !!checks[id],
     action: () => h.toggle(id),
   });
+  /**
+   * An action that also shows a check mark, for a tool that keeps running.
+   * Upstream's `SetConditions( …, CHECK( cond.CurrentTool( … ) ) )` drives the
+   * menu item and the toolbar button from the one condition, so the tick and
+   * the highlight cannot disagree.
+   */
+  const actChecked = (label: string, icon: string, id: string, shortcut?: string): MenuItem => ({
+    label,
+    icon,
+    shortcut,
+    checked: !!checks[id],
+    action: () => h.action(id),
+  });
   /** Not implemented yet, greyed out, exactly where upstream puts it. */
   /** An action with no icon of its own (upstream's Inspect entries have none). */
   const actNoIcon = (label: string, id: string, shortcut?: string): MenuItem => ({
@@ -180,10 +193,10 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         SEP,
         act('Zoom In', 'zoomIn', 'zoomIn'),
         act('Zoom Out', 'zoomOut', 'zoomOut'),
-        act('Zoom to Fit', 'zoomFit', 'zoomFit', 'Ctrl+0'),
+        act('Zoom to Fit', 'zoomFit', 'zoomFit', 'Home'),
         act('Zoom to All Objects', 'zoomFitObjects', 'zoomFitObjects', 'Ctrl+Home'),
         act('Zoom to Selected Objects', 'zoomFitSelection', 'zoomFitSelection'),
-        act('Zoom to Selection Area', 'zoomTool', 'zoomTool', 'Ctrl+F5'),
+        actChecked('Zoom to Selection Area', 'zoomTool', 'zoomTool', 'Ctrl+F5'),
         act('Refresh', 'zoomRedraw', 'zoomRedraw', 'Ctrl+R'),
         SEP,
         act('Navigate Back', 'navBack', 'navBack', 'Alt+Left'),
@@ -217,7 +230,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Net Labels', 'labelLocal', 'placeLabel', 'L'),
         tool('Place Global Labels', 'labelGlobal', 'placeGlobalLabel', 'Ctrl+L'),
         tool('Place Directive Labels', 'labelClass', 'placeClassLabel'),
-        stub('Draw Rule Areas'),
+        tool('Draw Rule Areas', 'ruleArea', 'drawRuleArea'),
         SEP,
         tool('Place Hierarchical Labels', 'labelHier', 'placeHierLabel', 'H'),
         tool('Draw Hierarchical Sheets', 'sheet', 'drawSheet', 'S'),
@@ -231,8 +244,8 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Draw Tables', 'table', 'table'),
         tool('Draw Rectangles', 'rectangle', 'rectangle'),
         tool('Draw Circles', 'circle', 'circle'),
-        stub('Draw Ellipses'),
-        stub('Draw Elliptical Arcs'),
+        tool('Draw Ellipses', 'ellipse', 'ellipse'),
+        tool('Draw Elliptical Arcs', 'ellipseArc', 'ellipseArc'),
         tool('Draw Arcs', 'arc', 'arc'),
         tool('Draw Bezier Curve', 'bezier', 'bezier'),
         tool('Draw Lines', 'lines', 'lines', 'I'),
@@ -261,6 +274,14 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
       items: [
         act('Update PCB from Schematic...', 'updatePcbFromSch', 'updatePcbFromSch', 'F8'),
         act('Switch to PCB Editor', 'pcb', 'showPcbNew'),
+        // `ACTIONS::showProjectManager`, which upstream adds here when running
+        // under the project manager (`!Kiface().IsSingle()`, menubar.cpp:310) —
+        // our situation, since the launcher is always there.
+        //
+        // Single-window delta: KiCad *raises* the manager and leaves the editor
+        // open behind it. There is one page here, so this goes back to it the
+        // same way File > Close does, guard and all.
+        actNoIcon('Project Manager', 'showProjectManager'),
         act('Calculator Tools', 'calculator', 'showCalculator'),
         SEP,
         act('Symbol Editor', 'symbolEditor', 'symbolEditor'),
@@ -281,6 +302,13 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         SEP,
         actNoIcon('Update Schematic from PCB...', 'updateSchFromPcb'),
         SEP,
+        // `SCH_ACTIONS::createNetChain` is unconditional here (menubar.cpp:339).
+        // `ShowCreateNetChain` opens the dialog whatever is selected — a symbol
+        // selection only pre-fills the from/to focus hint — so unlike the
+        // context-menu entry (which upstream gates on a symbols-only selection,
+        // sch_selection_tool.cpp:302) this one is never disabled.
+        actNoIcon('Create Net Chain...', 'createNetChain'),
+        SEP,
         {
           label: 'Variants',
           items: [
@@ -297,7 +325,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
       label: 'Preferences',
       items: [
         stub('Configure Paths...'),
-        stub('Manage Symbol Libraries...'),
+        actNoIcon('Manage Symbol Libraries...', 'manageSymbolLibraries'),
         stub('Manage Design Block Libraries...'),
         act('Preferences...', 'preferences', 'openPreferences', 'Ctrl+,'),
       ],
@@ -305,6 +333,9 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
     {
       label: 'Help',
       items: [
+        // `ACTIONS::help`, upstream's first Help entry: "Open product
+        // documentation in a web browser".
+        actNoIcon('Help', 'help'),
         // ACTIONS::listHotKeys, which upstream also puts in Help.
         act('List Hotkeys...', 'listHotkeys', 'listHotkeys', 'Ctrl+F1'),
         SEP,

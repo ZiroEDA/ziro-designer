@@ -73,6 +73,16 @@ export interface CommonSettings {
     min_interval: number; // seconds
     limit_total_size: number; // bytes
   };
+  /** APP_SETTINGS_BASE::SEARCH_PANE, the docked Search pane's own options. */
+  search_pane: {
+    /**
+     * What picking a row does to the view (SEARCH_PANE::SELECTION_ZOOM), set
+     * from the pane's "Zoom to Selection" / "Pan to Selection" toggles.
+     * SCH_SEARCH_HANDLER::SelectItems runs ACTIONS::centerSelection for `pan`
+     * and ACTIONS::zoomFitSelection for `zoom`, after selecting the hits.
+     */
+    selection_zoom: 'none' | 'pan' | 'zoom';
+  };
 }
 
 export const COMMON_DEFAULTS: CommonSettings = {
@@ -115,6 +125,10 @@ export const COMMON_DEFAULTS: CommonSettings = {
     limit_daily_files: 5,
     min_interval: 300,
     limit_total_size: 104857600,
+  },
+  // KiCad's default is PAN (app_settings.cpp: search_pane.selection_zoom).
+  search_pane: {
+    selection_zoom: 'pan',
   },
 };
 
@@ -277,6 +291,28 @@ export interface EeschemaSettings {
       always_show_cursor: boolean;
     };
   };
+  /**
+   * The "Export to other sheets" ticks from Page Settings, remembered.
+   *
+   * They are preferences upstream, not per-dialog state, because
+   * `SCH_EDIT_FRAME::InitSheet` reads them when a *new* sheet is created:
+   *
+   *     if( cfg->m_PageSettings.export_paper )
+   *         newScreen->SetPageSettings( GetScreen()->GetPageSettings() );
+   *     if( cfg->m_PageSettings.export_title )
+   *         tb2.SetTitle( tb1.GetTitle() );
+   *
+   * Every one defaults to false, so a new sheet starts with its own empty title
+   * block unless you have asked for the parent's to carry over.
+   */
+  page_settings: {
+    export_paper: boolean;
+    export_revision: boolean;
+    export_date: boolean;
+    export_title: boolean;
+    export_company: boolean;
+    export_comments: boolean[];
+  };
 }
 
 export const EESCHEMA_DEFAULTS: EeschemaSettings = {
@@ -395,6 +431,16 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
       crosshair: 'small',
       always_show_cursor: true,
     },
+  },
+  // eeschema_settings.cpp declares every one of these false, so a new sheet
+  // starts with its own empty title block unless asked otherwise.
+  page_settings: {
+    export_paper: false,
+    export_revision: false,
+    export_date: false,
+    export_title: false,
+    export_company: false,
+    export_comments: [false, false, false, false, false, false, false, false, false],
   },
 };
 
@@ -549,7 +595,44 @@ export function deepMerge<T>(defaults: T, stored: unknown): T {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
+
+/**
+ * Apply every correction newer than `from` to one stored eeschema settings
+ * object, in place. Returns true if anything changed.
+ *
+ * Pure, and exported, so the corrections can be tested without a browser.
+ */
+export function migrateEeschemaSettings(s: EeschemaSettings, from: number): boolean {
+  let changed = false;
+
+  // v1: eeschema's crosshair defaulted to full-window lines, drawn on top of
+  // each tool's own cursor bitmap, two cursors at once. KiCad's default is
+  // the small cross.
+  if (from < 1 && s?.window?.cursor?.crosshair === 'full') {
+    s.window.cursor.crosshair = 'small';
+    s.window.cursor.always_show_cursor = true;
+    changed = true;
+  }
+
+  // v2: the same wrong default shipped `always_show_cursor: false` alongside
+  // it, and v1 only repaired it for someone still on the full-window mode.
+  // Anyone who had already picked Small from the toolbar kept `false` — and
+  // with the selection tool active that gates the crosshair off entirely:
+  //
+  //     if( cur && ( alwaysShowCrosshair || activeTool !== 'select' ) )
+  //
+  // so there was no crosshair at all, and the crosshair-mode buttons looked
+  // dead too, because the mode they set was never reached. `always_show_cursor`
+  // has no toolbar button, so it could not be turned back on by hand.
+  // KiCad's default is true (common/settings/app_settings.cpp:564).
+  if (from < 2 && s?.window?.cursor && s.window.cursor.always_show_cursor === false) {
+    s.window.cursor.always_show_cursor = true;
+    changed = true;
+  }
+
+  return changed;
+}
 
 function migrateStored(): void {
   const versionKey = 'ziroeda.settings_version';
@@ -557,19 +640,11 @@ function migrateStored(): void {
     const from = Number(localStorage.getItem(versionKey) ?? '0');
     if (from >= SETTINGS_VERSION) return;
 
-    // v1: eeschema's crosshair defaulted to full-window lines, drawn on top of
-    // each tool's own cursor bitmap, two cursors at once. KiCad's default is
-    // the small cross.
-    if (from < 1) {
-      const raw = localStorage.getItem('ziroeda.eeschema');
-      if (raw) {
-        const s = JSON.parse(raw) as EeschemaSettings;
-        if (s?.window?.cursor?.crosshair === 'full') {
-          s.window.cursor.crosshair = 'small';
-          s.window.cursor.always_show_cursor = true;
-          localStorage.setItem('ziroeda.eeschema', JSON.stringify(s));
-        }
-      }
+    const raw = localStorage.getItem('ziroeda.eeschema');
+    if (raw) {
+      const s = JSON.parse(raw) as EeschemaSettings;
+      if (migrateEeschemaSettings(s, from))
+        localStorage.setItem('ziroeda.eeschema', JSON.stringify(s));
     }
 
     localStorage.setItem(versionKey, String(SETTINGS_VERSION));
@@ -596,6 +671,34 @@ function store(key: string, value: unknown): void {
   }
 }
 
+/**
+ * The user's hotkey overrides — KiCad's `user.hotkeys`, which HOTKEY_STORE
+ * writes and reads separately from every other settings file.
+ *
+ * An action id maps to the combo the user chose, or to `null` when they cleared
+ * it. An action with no entry keeps its `TOOL_ACTION::DefaultHotkey`, so the map
+ * stays empty until someone changes something, and a new upstream default
+ * arrives without anyone having to migrate.
+ *
+ * Not `load()`ed: `deepMerge` keeps only keys present in the defaults, which is
+ * right for a fixed settings shape and wrong for a free-form map — every stored
+ * override would be dropped on the way back in.
+ */
+function loadHotkeys(): Record<string, string | null> {
+  try {
+    const raw = localStorage.getItem('ziroeda.hotkeys');
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const out: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>))
+      if (v === null || typeof v === 'string') out[k] = v;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 type Listener = () => void;
 
 /**
@@ -610,6 +713,8 @@ class SettingsManager {
   privacy: PrivacySettings = load('ziroeda.privacy', PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = load('ziroeda.colors.user', {});
+  /** HOTKEY_STORE's overrides: action id -> combo, or null for "no key". */
+  hotkeys: Record<string, string | null> = loadHotkeys();
   private listeners = new Set<Listener>();
   /** Monotonic snapshot id for useSyncExternalStore. */
   version = 0;
@@ -677,6 +782,35 @@ class SettingsManager {
   resetUserColors(): void {
     this.userColors = {};
     store('ziroeda.colors.user', this.userColors);
+    this.notify();
+  }
+
+  /**
+   * Bind an action to `keys`, or clear it with `null`.
+   *
+   * Passing `undefined` restores the default, which is a *deletion* rather than
+   * storing the default's value: PANEL_HOTKEYS_EDITOR's "Undo Changes" leaves no
+   * trace behind, so an action whose upstream default later changes follows it.
+   */
+  setHotkey(id: string, keys: string | null | undefined): void {
+    const next = { ...this.hotkeys };
+    if (keys === undefined) delete next[id];
+    else next[id] = keys;
+    this.hotkeys = next;
+    store('ziroeda.hotkeys', next);
+    this.notify();
+  }
+
+  /** Replace the whole override map — the Hotkeys page committing on OK. */
+  setHotkeys(overrides: Readonly<Record<string, string | null>>): void {
+    this.hotkeys = { ...overrides };
+    store('ziroeda.hotkeys', this.hotkeys);
+    this.notify();
+  }
+
+  resetHotkeys(): void {
+    this.hotkeys = {};
+    store('ziroeda.hotkeys', this.hotkeys);
     this.notify();
   }
 }

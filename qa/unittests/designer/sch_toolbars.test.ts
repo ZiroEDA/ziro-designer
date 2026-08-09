@@ -15,9 +15,11 @@ import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
   RIGHT_TOOLBAR,
+  RIGHT_TOOLBAR_COMMANDS,
 } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
 import { TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { nextInGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
 
 /** Every button, groups flattened; controls and separators contribute none. */
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
@@ -130,12 +132,114 @@ describe('no button is silently inert', () => {
         .filter((b) => b.disabled)
         .map((b) => b.id),
     );
-    expect(greyed).toEqual([
-      'simulator',
-      'drawRuleArea',
-      'syncAllSheetsPins',
-      'ellipse',
-      'ellipseArc',
-    ]);
+    // `drawRuleArea` came off this list when SCH_RULE_AREA was implemented.
+    // Three came off this list as they were built: `drawRuleArea`,
+    // `syncAllSheetsPins` (an id typo, not a missing feature), and the two
+    // ellipse shapes.
+    expect(greyed).toEqual(['simulator']);
+  });
+});
+
+describe('a group button: one click picks, a long press opens the palette', () => {
+  /**
+   * `ACTION_TOOLBAR::onMouseClick` arms the palette timer on left *down* and
+   * stops it on left *up*, so a click shorter than PALETTE_OPEN_DELAY never
+   * pops the palette — it falls through to the ordinary tool event. And for a
+   * group with no activation in it, `onToolEvent` says:
+   *
+   *     // For non-tool toggle groups (units, crosshair, line modes), cycle to the next
+   *     // action on click. Tool groups (route track, etc.) fall through and just dispatch
+   *     // the currently displayed action.
+   *
+   * Ours opened the palette on click *as well*, so both gestures did the same
+   * thing and a single click could not select anything.
+   */
+  const groups = (entries: readonly ToolEntry[]): ToolGroup[] =>
+    entries.filter((e): e is ToolGroup => e !== 'sep' && 'group' in e);
+
+  it('marks exactly the three toggle groups upstream names', () => {
+    const cycling = [...groups(LEFT_TOOLBAR), ...groups(RIGHT_TOOLBAR)]
+      .filter((g) => g.cycleOnClick)
+      .map((g) => g.group);
+    expect(cycling.sort()).toEqual(['Crosshair modes', 'Line modes', 'Units']);
+  });
+
+  it('and leaves tool groups alone, which dispatch what they show', () => {
+    // Selection modes is select/selectLasso — both activations, so upstream
+    // takes the fall-through branch and runs the displayed action.
+    const sel = groups(RIGHT_TOOLBAR).find((g) => g.group === 'Selection modes');
+    expect(sel).toBeDefined();
+    expect(sel?.cycleOnClick).toBeUndefined();
+  });
+
+  it('steps to the next action and wraps at the end', () => {
+    const modes = groups(LEFT_TOOLBAR).find((g) => g.group === 'Crosshair modes')!;
+    const order = modes.actions.map((a) => a.id);
+    expect(order).toEqual(['crosshairSmall', 'crosshairFull', 'crosshair45']);
+    expect(nextInGroup(modes, 'crosshairSmall').id).toBe('crosshairFull');
+    expect(nextInGroup(modes, 'crosshairFull').id).toBe('crosshair45');
+    expect(nextInGroup(modes, 'crosshair45').id).toBe('crosshairSmall');
+  });
+
+  it('and falls back to the first action for an id the group does not hold', () => {
+    const modes = groups(LEFT_TOOLBAR).find((g) => g.group === 'Line modes')!;
+    expect(nextInGroup(modes, 'nonsense').id).toBe(modes.actions[0]!.id);
+  });
+
+  it('every cycling group has at least two actions, or a click does nothing', () => {
+    for (const g of [...groups(LEFT_TOOLBAR), ...groups(RIGHT_TOOLBAR)].filter(
+      (g) => g.cycleOnClick,
+    ))
+      expect(g.actions.length, g.group).toBeGreaterThan(1);
+  });
+});
+
+describe('the zoom tool is the one top-toolbar button that stays lit', () => {
+  /**
+   * Everything on the top toolbar is a plain action except `zoomTool`, which is
+   * an AF_ACTIVATE tool: `ZOOM_TOOL::Main` keeps running until it is cancelled,
+   * and the button is checked for as long as it does —
+   *
+   *     mgr->SetConditions( ACTIONS::zoomTool, CHECK( cond.CurrentTool( ACTIONS::zoomTool ) ) );
+   *
+   * `Toolbar` lights a button when `activeTool === b.id`, so the toolbar only
+   * needs the current tool passed to it. That is safe precisely because no
+   * other id up there is a tool id — this test is what keeps it safe.
+   */
+  const idsOf = (entries: readonly ToolEntry[]): string[] =>
+    entries.flatMap((e) =>
+      e === 'sep' ? [] : 'group' in e ? e.actions.map((a) => a.id) : 'control' in e ? [] : [e.id],
+    );
+
+  it('names a tool the right toolbar also names', () => {
+    // The id has to match what `setActiveTool` stores, or nothing lights up.
+    expect(idsOf(TOP_TOOLBAR)).toContain('zoomTool');
+  });
+
+  it('and is the only top-toolbar id that collides with a tool id', () => {
+    const tools = new Set(idsOf(RIGHT_TOOLBAR));
+    const collisions = idsOf(TOP_TOOLBAR).filter((id) => tools.has(id));
+    // A new one would light up on its own the moment its tool was picked.
+    expect(collisions).toEqual([]);
+  });
+});
+
+describe('the right toolbar’s one non-tool button', () => {
+  it('Sync All Sheet Pins is a command, not a placement tool', () => {
+    // `SCH_DRAWING_TOOLS::SyncAllSheetsPins` opens DIALOG_SYNC_SHEET_PINS and
+    // returns; it never enters a tool loop. Sent to the tool selector it set an
+    // `activeTool` nothing answers to — a changed cursor and no dialog.
+    expect(RIGHT_TOOLBAR_COMMANDS.has('syncAllSheetPins')).toBe(true);
+  });
+
+  it('and every other button on it is a tool', () => {
+    const commands = ids(RIGHT_TOOLBAR).filter((id) => RIGHT_TOOLBAR_COMMANDS.has(id));
+    expect(commands).toEqual(['syncAllSheetPins']);
+  });
+
+  it('every command id is actually on the toolbar', () => {
+    // A typo here is invisible at runtime: the id simply falls through to the
+    // tool selector again, which is the bug this set exists to prevent.
+    for (const id of RIGHT_TOOLBAR_COMMANDS) expect(ids(RIGHT_TOOLBAR)).toContain(id);
   });
 });

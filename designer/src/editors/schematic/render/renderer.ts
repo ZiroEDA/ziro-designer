@@ -45,7 +45,9 @@ import {
   type BBox,
   type Schematic,
   type SchLabel,
+  type SchLine,
   type SheetPin,
+  type Stroke,
   type LibGraphic,
   type LibSymbol,
   type LibSymbolUnit,
@@ -56,6 +58,16 @@ import {
   iuPerPixel,
 } from '@ziroeda/eeschema';
 import type { Theme } from '../theme.js';
+import {
+  backgroundLayerAlpha,
+  backgroundLayerAlphaOverride,
+  brightened,
+  cssWithAlpha,
+  inverted,
+  isTransparent,
+  parseColor4d,
+  toCss,
+} from '../../../render/color4d.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
@@ -145,6 +157,8 @@ interface FieldDraw {
  * value is recorded here explicitly rather than left to be a leftover.
  */
 let g_fieldShowHidden = false;
+/** The drag's moving wire ends, for the anchored-end indicator. */
+let g_draggedEnds: RenderOpts['draggedEnds'];
 let g_subpart: RenderOpts['subpart'];
 
 /**
@@ -262,7 +276,6 @@ interface DanglingSets {
   wireEnds: readonly DanglingWireEnd[];
   labels: readonly { pos: Vec2; kind: string }[];
 }
-const EMPTY_DANGLING: DanglingSets = { pins: [], wireEnds: [], labels: [] };
 let g_dangleSch: Schematic | null = null;
 let g_dangle: DanglingSets = { pins: [], wireEnds: [], labels: [] };
 function danglingFor(sch: Schematic, libById: Map<string, LibSymbol>): DanglingSets {
@@ -275,6 +288,54 @@ function danglingFor(sch: Schematic, libById: Map<string, LibSymbol>): DanglingS
     };
   }
   return g_dangle;
+}
+
+/**
+ * A drag splits the dangling marks the way it splits everything else: the item
+ * being moved takes its own mark with it, and the sheet keeps the rest.
+ *
+ * The marks used to be computed from the untouched document for the base and
+ * skipped entirely for the preview, so a label's dangling square — or a moving
+ * field's anchor cross — stayed at the position the item had before the drag
+ * started, and only jumped to the cursor on drop.
+ *
+ * Only the moving item's mark is moved. Upstream does not re-test the rest of
+ * the sheet while a drag runs either — `TestDanglingEnds` is part of the
+ * commit — so a wire left behind keeps the state it had until the drop settles
+ * the connectivity. That also keeps base + preview drawing the sheet exactly
+ * once between them, which the whole split depends on.
+ */
+/** Only the marks whose position belongs to an item the preview is drawing. */
+function filterDangling(
+  all: DanglingSets,
+  keys: ReadonlySet<string>,
+  mode: 'keep' | 'drop',
+): DanglingSets {
+  const want = (p: { x: number; y: number }): boolean =>
+    keys.has(`${p.x},${p.y}`) === (mode === 'keep');
+  return {
+    pins: all.pins.filter(want),
+    wireEnds: all.wireEnds.filter((w) => want(w.pos)),
+    labels: all.labels.filter((l) => want(l.pos)),
+  };
+}
+
+/** The anchor points of the items a preview pass is drawing. */
+function previewAnchorKeys(sch: Schematic, only: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>();
+  const add = (p: { x: number; y: number }): void => {
+    out.add(`${p.x},${p.y}`);
+  };
+  sch.labels.forEach((l, i) => {
+    if (only.has(refId('label', l.uuid, i))) add(l.at);
+  });
+  sch.lines.forEach((l, i) => {
+    if (only.has(refId('line', l.uuid, i))) {
+      add(l.start);
+      add(l.end);
+    }
+  });
+  return out;
 }
 
 /** World(IU) -> screen(px): screenX = worldX * scale + offsetX. */
@@ -302,6 +363,11 @@ export interface RenderOpts {
   /** Pen width (IU) for zero-width strokes, the plot dialog's "Minimum line
    *  width" (default pen thickness). Unset = KiCad's 6-mil default. */
   defaultPenIU?: number;
+  /** Default wire / bus pen (IU) when neither the item nor its netclass sets
+   *  one (eeschema `m_Drawing.default_wire_thickness` / `default_bus_thickness`,
+   *  6 and 12 mils). Unset = those defaults. */
+  defaultWireIU?: number;
+  defaultBusIU?: number;
   /** Effective junction-dot diameter (IU) for junctions with no explicit
    *  diameter (SCHEMATIC_SETTINGS::GetJunctionSize()). A value ≤ 1 means the
    *  user chose "None", no dot is drawn. Unset = DEFAULT_JUNCTION_DIAM. */
@@ -391,6 +457,34 @@ export interface RenderOpts {
   selectionThicknessMils: number;
   /** selection.highlight_thickness (mils). */
   highlightThicknessMils: number;
+  /**
+   * The wire ends a drag is moving, by line id, so the *other* end of each can
+   * be marked. `SCH_PAINTER::draw( SCH_LINE )` puts an indicator on the end of a
+   * selected line that is **not** flagged, i.e. the one holding still:
+   *
+   *     if( ( aLine->IsWire() && aLine->IsStartDangling() )
+   *         || ( drawingShadows && aLine->IsSelected() && !aLine->HasFlag( STARTPOINT ) ) )
+   *
+   * Unset outside a drag.
+   */
+  draggedEnds?: { startMoving: ReadonlySet<string>; endMoving: ReadonlySet<string> };
+  /**
+   * Which of the two passes to run.
+   *
+   * `SCH_PAINTER::getShadowWidth` is
+   * `|screenWorldMatrix.scale.x * mils| + MilsToIU( mils )`: a fixed number of
+   * *screen pixels* plus a small world width. That is a zoom-dependent
+   * geometry, and the WebGL backend records geometry once and never re-records
+   * on a zoom, so baking a halo into the buffer freezes it at the width it had
+   * when it was recorded. Zoom in afterwards and a three-pixel glow becomes a
+   * twenty-pixel bar that swallows the item it is meant to be behind.
+   *
+   * So on the GL path the halos are left out of the recording (`'skip'`) and
+   * drawn per frame onto the 2D layer *underneath* it (`'only'`), which is
+   * where a shadow belongs and costs what the selection costs rather than what
+   * the sheet costs. Canvas2D repaints everything anyway and leaves this unset.
+   */
+  halos?: 'both' | 'skip' | 'only';
   grid: {
     show: boolean;
     sizeIU: number;
@@ -435,11 +529,37 @@ const STROKE_V_FUDGE = 0.052;
 const STROKE_H_FUDGE = 1.52;
 
 const MM = 10000; // IU per mm
-const DEFAULT_LINE_WIDTH = 0.1524 * MM; // ~6 mil, KiCad default
+const DEFAULT_LINE_WIDTH = 0.1524 * MM; // DEFAULT_LINE_WIDTH_MILS 6
+const DEFAULT_WIRE_WIDTH = 0.1524 * MM; // DEFAULT_WIRE_WIDTH_MILS 6
+const DEFAULT_BUS_WIDTH = 0.3048 * MM; // DEFAULT_BUS_WIDTH_MILS 12
+/** UNSELECTED_END_SIZE / 2 (eeschema/default_values.h: 4 mils). */
+const UNSELECTED_END_HALF = 2 * 0.0254 * MM;
 const DEFAULT_JUNCTION_DIAM = 0.9144 * MM; // 36 mil (eeschema/default_values.h)
 // The pen for zero-width strokes; plot/print override it per render via
 // RenderOpts.defaultPenIU (KiCad's plot "minimum line width" setting).
 let g_defaultPen = DEFAULT_LINE_WIDTH;
+/**
+ * The width a wire, a bus and a graphic line default to when they carry no
+ * stroke of their own and no netclass sets one.
+ *
+ * `SCH_LINE::GetPenWidth` resolves each layer separately — LAYER_WIRE from the
+ * netclass's wire width, LAYER_BUS from its bus width, everything else from
+ * `m_DefaultLineWidth` — and `SCH_LINE`'s constructor seeds each from its own
+ * default: DEFAULT_WIRE_WIDTH_MILS 6, DEFAULT_BUS_WIDTH_MILS **12**,
+ * DEFAULT_LINE_WIDTH_MILS 6 (eeschema/default_values.h).
+ *
+ * A bus is twice as thick as a wire, and that is most of how you tell them
+ * apart at a glance. Both were drawn at the graphic-line default, so a bus came
+ * out wire-thin — even though the wire tool's own preview already drew the
+ * in-progress bus at 12 mil, so it thinned the moment it was committed.
+ */
+let g_defaultWire = DEFAULT_WIRE_WIDTH;
+let g_defaultBus = DEFAULT_BUS_WIDTH;
+
+/** The default pen for a line of this kind, before any netclass override. */
+function lineDefaultWidth(kind: SchLine['kind']): number {
+  return kind === 'wire' ? g_defaultWire : kind === 'bus' ? g_defaultBus : g_defaultPen;
+}
 // The junction-dot diameter for diameter-0 junctions, from Schematic Setup >
 // Formatting (SCH_JUNCTION::getEffectiveShape falls back to settings size).
 let g_junctionDiam = DEFAULT_JUNCTION_DIAM;
@@ -558,6 +678,9 @@ export function renderSchematic(
 ): void {
   g_defaultPen =
     opts.defaultPenIU && opts.defaultPenIU > 0 ? opts.defaultPenIU : DEFAULT_LINE_WIDTH;
+  g_defaultWire =
+    opts.defaultWireIU && opts.defaultWireIU > 0 ? opts.defaultWireIU : DEFAULT_WIRE_WIDTH;
+  g_defaultBus = opts.defaultBusIU && opts.defaultBusIU > 0 ? opts.defaultBusIU : DEFAULT_BUS_WIDTH;
   g_junctionDiam =
     opts.junctionDiameterIU && opts.junctionDiameterIU > 0
       ? opts.junctionDiameterIU
@@ -582,6 +705,7 @@ export function renderSchematic(
   // Empty sets are normalised to null so the common case (draw everything)
   // costs a null check rather than a Set lookup per item per pass.
   g_fieldShowHidden = opts.showHiddenFields;
+  g_draggedEnds = opts.draggedEnds;
   g_hidden = opts.hiddenItems && opts.hiddenItems.size > 0 ? opts.hiddenItems : null;
   g_only = opts.onlyItems && opts.onlyItems.size > 0 ? opts.onlyItems : null;
   // The stroke font draws ~{...} overbars at the settings ratio (m_OverbarHeight).
@@ -595,8 +719,12 @@ export function renderSchematic(
   // background someone else has already drawn. Clearing the canvas here erased
   // it and left the sheet showing nothing but the item under the cursor. The
   // drawing sheet and the page limits are held back for the same reason.
+  // The halo-only pass is the same kind of overlay as `onlyItems`: it is
+  // painted onto a layer that already carries the background and the grid.
+  const halos = opts.halos ?? 'both';
+  const overlayPass = !!g_only || halos === 'only';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (!g_only) {
+  if (!overlayPass) {
     ctx.fillStyle = theme.background;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   }
@@ -615,10 +743,12 @@ export function renderSchematic(
   g_maxX = (canvasWidth - offsetX) / scale + cullMargin;
   g_maxY = (canvasHeight - offsetY) / scale + cullMargin;
 
-  if (opts.grid.show) drawGrid(ctx, viewport, theme, canvasWidth, canvasHeight, opts.grid);
+  // `drawGrid` honours `show` itself; the halo pass is the only thing this
+  // caller has to keep it out of.
+  if (halos !== 'only') drawGrid(ctx, viewport, theme, canvasWidth, canvasHeight, opts.grid);
   // Page limits (LAYER_SCHEMATIC_PAGE_LIMITS): the paper-edge outline,
   // toggled by "Show page limits" in the Display Options.
-  if (opts.showPageLimits && !g_only) {
+  if (opts.showPageLimits && !overlayPass) {
     const page = paperSizeIU(sch.paper);
     if (page) {
       ctx.strokeStyle = theme.pageLimits;
@@ -632,7 +762,7 @@ export function renderSchematic(
   // *only* the items named: including the frame would repaint it on every
   // pointer move of a drag, and draw it twice over the background that already
   // has it.
-  if (opts.showDrawingSheet !== false && !g_only)
+  if (opts.showDrawingSheet !== false && !overlayPass)
     drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
 
   const hl = (id: string): boolean => highlight?.has(id) ?? false;
@@ -645,7 +775,7 @@ export function renderSchematic(
   const SELECTION_THICKNESS_MILS = opts.selectionThicknessMils;
   const selShadowWidth =
     Math.abs(SELECTION_THICKNESS_MILS / scale) + SELECTION_THICKNESS_MILS * (0.0254 * MM);
-  if (selection && selection.size > 0)
+  if (selection && selection.size > 0 && halos !== 'skip')
     drawSelectionShadows(
       ctx,
       sch,
@@ -665,17 +795,16 @@ export function renderSchematic(
   // aDrawingShadows == false). getShadowWidth() adds highlight_thickness (2 mils,
   // eeschema_settings.cpp) both as a screen-space term (scaled by current zoom) and as
   // a fixed minimum in world units, so the halo doesn't vanish when zoomed out.
-  const HIGHLIGHT_THICKNESS_MILS = opts.highlightThicknessMils;
-  const MIL = 0.0254 * MM; // 1 mil in IU
-  const shadowWidth = Math.abs(HIGHLIGHT_THICKNESS_MILS / scale) + HIGHLIGHT_THICKNESS_MILS * MIL;
+  const shadowWidth = shadowWidthIU(opts.highlightThicknessMils, scale);
   const HALO_COLOR = 'rgba(255, 0, 255, 0.15)'; // LAYER_BRIGHTENED at 15% alpha
 
-  if (highlight && highlight.size > 0) {
+  if (highlight && highlight.size > 0 && halos !== 'skip') {
     ctx.strokeStyle = HALO_COLOR;
     sch.lines.forEach((line, i) => {
       const id = refId('line', line.uuid, i);
       if (!drawable(id) || !hl(id)) return;
-      const base = line.stroke && line.stroke.width > 0 ? line.stroke.width : g_defaultPen;
+      const base =
+        line.stroke && line.stroke.width > 0 ? line.stroke.width : lineDefaultWidth(line.kind);
       ctx.lineWidth = base + shadowWidth;
       strokeLine(ctx, line.start, line.end);
     });
@@ -736,6 +865,9 @@ export function renderSchematic(
     });
   }
 
+  // The halo-only pass is done: the items themselves are on the layer above.
+  if (halos === 'only') return;
+
   // Wires, buses and graphic polylines. Wires/buses use the theme net colours; a
   // graphic polyline uses its own stroke colour (KiCad graphics carry their colour)
   // and dash style, and draws all of its vertices, not just the first segment.
@@ -762,7 +894,9 @@ export function renderSchematic(
         ? g_netOverrides?.lines.get(refId('line', line.uuid, i))
         : undefined;
     const width =
-      line.stroke && line.stroke.width > 0 ? line.stroke.width : (nc?.widthIU ?? g_defaultPen);
+      line.stroke && line.stroke.width > 0
+        ? line.stroke.width
+        : (nc?.widthIU ?? lineDefaultWidth(line.kind));
     // An explicit stroke colour overrides the layer colour for wires and buses
     // too (SCH_PAINTER::getRenderColor honours SCH_LINE::GetLineColor()).
     // A highlighted chain with a colour override tints its member wires
@@ -1006,6 +1140,10 @@ export function renderSchematic(
             shadowWidth,
             opts.showHiddenPins,
             'bg',
+            backgroundLayerAlphaOverride(
+              selection?.has(symId) ?? false,
+              highlight?.has(symId) ?? false,
+            ),
           );
       }
       for (const unit of lib.units) {
@@ -1084,8 +1222,42 @@ export function renderSchematic(
       return;
     const border = sh.stroke?.color ? cssColor(sh.stroke.color) : theme.sheetBorder;
     const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
-    if (sh.fillColor) {
-      ctx.fillStyle = cssColor(sh.fillColor);
+    // LAYER_SHEET_BACKGROUND (SCH_PAINTER::draw(SCH_SHEET), first block): the
+    // sheet's own background colour, falling back to the theme's — which the
+    // fill used to skip entirely, so a sheet with no explicit colour was never
+    // filled at all. Upstream skips only a *transparent* colour
+    // ("only draw the background if it has a visible alpha value"), and both
+    // builtin themes do ship it transparent, so this shows up when the theme or
+    // the sheet sets one.
+    const sheetSelected = selection?.has(refId('sheet', sh.uuid, si)) ?? false;
+    // `COLOR4D::UNSPECIFIED` *is* `COLOR4D( 0, 0, 0, 0 )` (common/gal/color4d.cpp),
+    // and the sexpr writer emits an unset sheet background as
+    // `(fill (color 0 0 0 0.0000))`. So an all-zero fill is not "explicitly
+    // transparent", it is "not set" — and upstream then falls back to the
+    // theme:
+    //
+    //     if( m_OverrideItemColors || backgroundColor == COLOR4D::UNSPECIFIED )
+    //         backgroundColor = GetLayerColor( LAYER_SHEET_BACKGROUND );
+    //
+    // Taking it literally meant every sheet KiCad ever wrote counted as having
+    // its own transparent colour, so the theme's sheet background was never
+    // reached and no sheet was ever filled.
+    const own = sh.fillColor;
+    const unspecified =
+      !own || (own[0] === 0 && own[1] === 0 && own[2] === 0 && (own[3] ?? 0) === 0);
+    const sheetFill = unspecified ? theme.sheetBackground : cssColor(own);
+    if (!isTransparent(sheetFill)) {
+      // The gate above is `backgroundColor.a > 0.0` on the *unselected* colour,
+      // exactly as draw( SCH_SHEET ) has it: a sheet left on the theme's
+      // transparent default stays unfilled even while it is selected.
+      ctx.fillStyle = cssWithAlpha(
+        sheetFill,
+        backgroundLayerAlpha(
+          parseColor4d(sheetFill).a,
+          sheetSelected,
+          hl(refId('sheet', sh.uuid, si)),
+        ),
+      );
       ctx.fillRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
     }
     ctx.strokeStyle = border;
@@ -1141,7 +1313,15 @@ export function renderSchematic(
   // though one symbol was being drawn. The markers come back on drop, when the
   // sheet is next painted in full, which is also when the connectivity they
   // describe actually settles.
-  const dangling = g_only ? EMPTY_DANGLING : danglingFor(sch, libById);
+  // The preview draws the marks of the items it is carrying, at wherever the
+  // drag has put them; the base draws everyone else's, computed as if those
+  // items had already left the sheet. Between them each mark is drawn exactly
+  // once, and it travels with its item.
+  const moving = g_only ?? g_hidden;
+  const movingKeys = moving ? previewAnchorKeys(sch, moving) : null;
+  const dangling = movingKeys
+    ? filterDangling(danglingFor(sch, libById), movingKeys, g_only ? 'keep' : 'drop')
+    : danglingFor(sch, libById);
   if (dangling.pins.length > 0) {
     ctx.strokeStyle = brighten(theme.pin, 0.3);
     ctx.lineWidth = g_defaultPen / 3;
@@ -1199,7 +1379,14 @@ export function renderSchematic(
       const symId = refId('symbol', sym.uuid, si);
       if (selection.has(symId)) return; // parentMoving / parent selected
       for (const fd of fieldDraws[si] ?? []) {
-        if (!selection.has(fieldId(symId, fd.index))) continue;
+        const fid = fieldId(symId, fd.index);
+        if (!selection.has(fid)) continue;
+        // The anchor belongs to the field, so it goes wherever the field goes:
+        // the base must not draw it for a field a drag has taken, and the
+        // preview must draw it at the position the drag has moved it to. This
+        // pass used to walk the document unfiltered, so the cross stayed behind
+        // at the field's old position until the drop.
+        if (!drawableChild(symId, fid)) continue;
         const at = sym.fields[fd.index]?.at;
         if (!at) continue;
         if (opts.movingSelection) {
@@ -1218,6 +1405,48 @@ export function renderSchematic(
         }
       }
     });
+
+    // A selected label or free text gets the same anchor cross
+    // (`SCH_PAINTER::draw( SCH_TEXT )`, "Draw anchor"):
+    //
+    //     case SCH_TEXT_T:   showAnchor = true;
+    //     case SCH_LABEL_T:  // Don't clutter things up if we're already showing
+    //                        // a dangling indicator
+    //                        showAnchor = !label->IsDangling();
+    //     case SCH_DIRECTIVE_LABEL_T: case SCH_HIER_LABEL_T:
+    //     case SCH_GLOBAL_LABEL_T: case SCH_SHEET_PIN_T:
+    //                        // These all have shapes and so don't need anchors
+    //                        showAnchor = false;
+    //
+    // These are the crosses that appear all down a column of net labels while a
+    // part they feed is dragged: the drag selects each label it picks up, and a
+    // connected label is by definition not dangling.
+    const anchorRadius =
+      Math.round(((g_scale > 0 ? 1 / g_scale : 1) * TEXT_ANCHOR_SIZE_MILS) / 25) +
+      TEXT_ANCHOR_SIZE_MILS * MIL_IU;
+    ctx.lineWidth = g_defaultPen / 3;
+    sch.labels.forEach((l, i) => {
+      const id = refId('label', l.uuid, i);
+      if (!drawable(id) || !selection.has(id) || l.effects?.hidden) return;
+      // Only a plain label or free text: the flagged kinds carry a shape that
+      // already says where they are.
+      if (l.kind !== 'label' && l.kind !== 'text') return;
+      if (
+        l.kind === 'label' &&
+        dangling.labels.some((d) => d.pos.x === l.at.x && d.pos.y === l.at.y)
+      )
+        return;
+      strokeLine(
+        ctx,
+        { x: l.at.x - anchorRadius, y: l.at.y },
+        { x: l.at.x + anchorRadius, y: l.at.y },
+      );
+      strokeLine(
+        ctx,
+        { x: l.at.x, y: l.at.y - anchorRadius },
+        { x: l.at.x, y: l.at.y + anchorRadius },
+      );
+    });
   }
 }
 
@@ -1226,7 +1455,12 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
   if (g.kind === 'text') return; // free text arrives via labels, not graphics
   const stroke = g.stroke;
   const width = stroke && stroke.width > 0 ? stroke.width : g_defaultPen;
-  const color = stroke?.color ? cssColor(stroke.color) : theme.noteLine;
+  // A rule area is a shape on its own layer: `SCH_RULE_AREA`'s constructor
+  // pins it to LAYER_RULE_AREAS, which is red in both builtin themes, while an
+  // ordinary drawing takes LAYER_NOTES. An explicit stroke colour still wins,
+  // as it does for any shape.
+  const layerColor = g.ruleArea ? theme.ruleArea : theme.noteLine;
+  const color = stroke?.color ? cssColor(stroke.color) : layerColor;
   const fill = g.fill?.type === 'color' && g.fill.color ? cssColor(g.fill.color) : null;
 
   // Cheap culling per shape.
@@ -1250,7 +1484,20 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
     inc(g.start);
     inc(g.mid);
     inc(g.end);
-  } else if (g.kind === 'polyline') g.points.forEach(inc);
+  } else if (g.kind === 'ellipse' || g.kind === 'ellipse_arc') {
+    // The bounding box of the *unrotated* extents, widened by the tilt: taking
+    // the larger radius on both axes is a box that always contains the shape,
+    // and being slightly generous only costs a shape drawn a fraction early.
+    const r = Math.max(g.majorRadius, g.minorRadius);
+    inc({ x: g.center.x - r, y: g.center.y - r });
+    inc({ x: g.center.x + r, y: g.center.y + r });
+  } else if (g.kind === 'polyline' || g.kind === 'bezier') g.points.forEach(inc);
+  // A kind that contributes no points leaves the box empty — minX above maxX —
+  // and `inView` says no, so the shape is culled before it is ever drawn. That
+  // is not a cheap approximation, it is invisibility: it is why the ellipse and
+  // elliptical-arc tools drew nothing at all. Anything added to `LibGraphic`
+  // has to be given bounds here. A bezier's control points are outside the
+  // curve, so its box is generous — which is the safe direction.
   if (!inView(minX, minY, maxX, maxY)) return;
 
   ctx.strokeStyle = color;
@@ -1272,6 +1519,23 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
       );
     } else if (g.kind === 'circle') {
       ctx.arc(g.center.x, g.center.y, g.radius, 0, Math.PI * 2);
+    } else if (g.kind === 'ellipse' || g.kind === 'ellipse_arc') {
+      // `SHAPE_T::ELLIPSE` is a centre, two radii and a tilt; the arc form adds
+      // a start and end angle. Canvas' own `ellipse` takes exactly that, with
+      // angles in radians.
+      const rot = (g.rotation * Math.PI) / 180;
+      const from = g.kind === 'ellipse_arc' ? (g.startAngle * Math.PI) / 180 : 0;
+      const to = g.kind === 'ellipse_arc' ? (g.endAngle * Math.PI) / 180 : Math.PI * 2;
+      ctx.ellipse(g.center.x, g.center.y, g.majorRadius, g.minorRadius, rot, from, to);
+    } else if (g.kind === 'bezier' && g.points.length === 4) {
+      // A cubic through its two control points, not a polyline along them.
+      // `EDA_SHAPE` stores start, C1, C2, end in that order and
+      // `RebuildBezierToSegmentsPointsList` flattens exactly this curve; drawing
+      // the control polygon instead gives a three-segment zigzag that touches
+      // the curve only at its ends.
+      const [p0, c1, c2, p1] = g.points as [Vec2, Vec2, Vec2, Vec2];
+      ctx.moveTo(p0.x, p0.y);
+      ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y);
     } else {
       g.points.forEach((p: Vec2, i: number) =>
         i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
@@ -1462,9 +1726,30 @@ function drawTable(
   if (!inView(x0, y0, x1, y1)) return;
 
   const color = theme.noteLine;
-  const border = t.borderStroke && t.borderStroke.width > 0 ? t.borderStroke.width : g_defaultPen;
-  const sep =
-    t.separatorsStroke && t.separatorsStroke.width > 0 ? t.separatorsStroke.width : g_defaultPen;
+
+  /**
+   * A table line's colour, width and style, from the stroke that owns it.
+   *
+   *     int        lineWidth = stroke.GetWidth();
+   *     COLOR4D    color     = stroke.GetColor();
+   *     LINE_STYLE lineStyle = stroke.GetLineStyle();
+   *
+   *     if( lineWidth == 0 )                lineWidth = GetDefaultPenWidth();
+   *     if( color == COLOR4D::UNSPECIFIED ) color     = GetLayerColor( LAYER_NOTES );
+   *     if( lineStyle == LINE_STYLE::DEFAULT ) lineStyle = LINE_STYLE::SOLID;
+   *
+   * Note `== 0`, not `<= 0`: a *negative* width is not "use the default", it is
+   * how the properties dialog stores "no line", and `DrawBorders` skips those
+   * rather than drawing them at the default width.
+   */
+  const applyStroke = (stroke: Stroke | undefined): void => {
+    const w = stroke?.width;
+    ctx.lineWidth = w === undefined || w === 0 ? g_defaultPen : w;
+    ctx.strokeStyle = stroke?.color ? cssColor(stroke.color) : color;
+    setDash(ctx, stroke?.type, ctx.lineWidth);
+  };
+  /** `if( StrokeExternal() && GetBorderStroke().GetWidth() >= 0 )`. */
+  const drawn = (stroke: Stroke | undefined): boolean => (stroke?.width ?? 0) >= 0;
 
   // Cell text.
   const m = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -1483,40 +1768,64 @@ function drawTable(
     );
   }
 
-  ctx.strokeStyle = color;
   ctx.lineCap = 'butt';
 
-  // Column separators (internal vertical lines), from cumulative column widths.
-  if (t.separatorCols) {
-    ctx.lineWidth = sep;
+  // Column separators. Upstream walks them cell by cell rather than drawing one
+  // line down the whole table, because the segment inside the header row is
+  // drawn with the *border* stroke:
+  //
+  //     if( row == 0 && StrokeHeaderSeparator() ) stroke = GetBorderStroke();
+  //     else if( StrokeColumns() )                stroke = GetSeparatorsStroke();
+  //     else                                      continue;
+  //
+  // So a table with a header separator and no column lines still gets the short
+  // vertical ticks across its header, which drawing one full-height line per
+  // column either misses entirely or draws too far.
+  {
     let x = x0;
     for (let c = 0; c < t.colWidths.length - 1; c++) {
       x += t.colWidths[c]!;
-      ctx.beginPath();
-      ctx.moveTo(x, y0);
-      ctx.lineTo(x, y1);
-      ctx.stroke();
+      let y = y0;
+      for (let r = 0; r < t.rowHeights.length; r++) {
+        const h = t.rowHeights[r]!;
+        const header = r === 0 && t.borderHeader;
+        const stroke = header ? t.borderStroke : t.separatorsStroke;
+        if ((header || t.separatorCols) && drawn(stroke)) {
+          applyStroke(stroke);
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + h);
+          ctx.stroke();
+        }
+        y += h;
+      }
     }
   }
-  // Row separators (internal horizontal lines). The first one is the header separator.
-  let y = y0;
-  for (let r = 0; r < t.rowHeights.length - 1; r++) {
-    y += t.rowHeights[r]!;
-    const isHeader = r === 0;
-    if ((isHeader && t.borderHeader) || (!isHeader && t.separatorRows)) {
-      ctx.lineWidth = sep;
-      ctx.beginPath();
-      ctx.moveTo(x0, y);
-      ctx.lineTo(x1, y);
-      ctx.stroke();
+
+  // Row separators. The first is the header separator, and it too takes the
+  // border stroke rather than the separators one.
+  {
+    let y = y0;
+    for (let r = 0; r < t.rowHeights.length - 1; r++) {
+      y += t.rowHeights[r]!;
+      const header = r === 0 && t.borderHeader;
+      const stroke = header ? t.borderStroke : t.separatorsStroke;
+      if ((header || t.separatorRows) && drawn(stroke)) {
+        applyStroke(stroke);
+        ctx.beginPath();
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+        ctx.stroke();
+      }
     }
   }
 
   // External border around the whole table.
-  if (t.borderExternal) {
-    ctx.lineWidth = border;
+  if (t.borderExternal && drawn(t.borderStroke)) {
+    applyStroke(t.borderStroke);
     ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
   }
+  ctx.setLineDash([]);
 }
 
 // ----- embedded bitmaps -------------------------------------------------------
@@ -1587,6 +1896,78 @@ export interface MarkerDraw {
 }
 
 /** Draw ERC markers over the schematic (sets its own canvas transform). */
+/**
+ * `SCH_PAINTER::getShadowWidth`:
+ *
+ *     return fabs( matrix.GetScale().x * milsWidth ) + schIUScale.MilsToIU( milsWidth );
+ *
+ * a fixed number of *screen* pixels plus a small world width, so a halo neither
+ * vanishes when zoomed out nor swallows its item when zoomed in.
+ */
+/**
+ * `MARKER_BASE::HitTestMarker`: the marker's bounding box inflated by the
+ * accuracy for a fast reject, then the arrow polygon itself.
+ *
+ *     bool hit = bbox.Contains( aHitPosition );
+ *     if( hit )   // Fine test
+ *     {
+ *         SHAPE_LINE_CHAIN polygon;
+ *         ShapeToPolygon( polygon );
+ *         hit = polygon.PointInside( aHitPosition - m_Pos, aAccuracy );
+ *     }
+ *
+ * Exported so the canvas picks markers off the same geometry it draws them
+ * with; `SCH_MARKER_T` is "always selectable" in `SCH_SELECTION_TOOL`.
+ */
+export function hitTestErcMarker(at: Vec2, p: Vec2, accuracy = 0): boolean {
+  const rel = { x: (p.x - at.x) / MARKER_SCALE, y: (p.y - at.y) / MARKER_SCALE };
+  const slop = accuracy / MARKER_SCALE;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const [x, y] of MARKER_SHAPE) {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  if (rel.x < minX - slop || rel.x > maxX + slop || rel.y < minY - slop || rel.y > maxY + slop)
+    return false;
+
+  // Even-odd point-in-polygon on the arrow itself.
+  let inside = false;
+  for (let i = 0, j = MARKER_SHAPE.length - 1; i < MARKER_SHAPE.length; j = i++) {
+    const [xi, yi] = MARKER_SHAPE[i]!;
+    const [xj, yj] = MARKER_SHAPE[j]!;
+    if (yi > rel.y !== yj > rel.y && rel.x < ((xj - xi) * (rel.y - yi)) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  if (inside) return true;
+
+  // `PointInside( …, aAccuracy )` also accepts a point that misses but lies
+  // within the accuracy of an edge, which is what makes a small marker
+  // clickable at all when zoomed out.
+  if (slop <= 0) return false;
+  for (let i = 0, j = MARKER_SHAPE.length - 1; i < MARKER_SHAPE.length; j = i++) {
+    const [xi, yi] = MARKER_SHAPE[i]!;
+    const [xj, yj] = MARKER_SHAPE[j]!;
+    const dx = xj - xi;
+    const dy = yj - yi;
+    const len2 = dx * dx + dy * dy;
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((rel.x - xi) * dx + (rel.y - yi) * dy) / len2));
+    if (Math.hypot(rel.x - (xi + t * dx), rel.y - (yi + t * dy)) <= slop) return true;
+  }
+  return false;
+}
+
+const HIGHLIGHT_THICKNESS_MILS = 2; // eeschema_settings.cpp's default
+
+function shadowWidthIU(mils: number, scale: number): number {
+  return Math.abs(mils / scale) + mils * (0.0254 * MM);
+}
+
 export function drawErcMarkers(
   ctx: CanvasRenderingContext2D,
   markers: readonly MarkerDraw[],
@@ -1594,22 +1975,65 @@ export function drawErcMarkers(
   theme: Theme,
 ): void {
   ctx.setTransform(viewport.scale, 0, 0, viewport.scale, viewport.offsetX, viewport.offsetY);
-  for (const m of markers) {
+  // Markers are not one layer but three, and `SCH_LAYER_ORDER` (sch_view.h)
+  // stacks them errors over warnings over exclusions:
+  //
+  //     static const int SCH_LAYER_ORDER[] = { LAYER_GP_OVERLAY,
+  //                                            LAYER_SELECT_OVERLAY,
+  //                                            LAYER_ERC_ERR,
+  //                                            LAYER_ERC_WARN,
+  //                                            LAYER_ERC_EXCLUSION,
+  //
+  // Painting them in the order ERC produced them let a warning land on top of
+  // an error at the same point — which is common, since one bad pin raises
+  // both. The error underneath then could not be seen at all, and cross-probing
+  // to it looked broken: its own marker did brighten, under the warning.
+  // Canvas paints back to front, so this is that list reversed.
+  const layer = (m: MarkerDraw): number => (m.excluded ? 0 : m.severity === 'error' ? 2 : 1);
+  for (const m of [...markers].sort((a, b) => layer(a) - layer(b))) {
     const color = m.excluded
       ? theme.ercExclusion
       : m.severity === 'error'
         ? theme.ercError
         : theme.ercWarning;
-    // EDA_ITEM::SetBrightened, COLOR4D::Brightened( 0.5 ) at draw time.
-    ctx.fillStyle = m.brightened ? brighten(color, 0.5) : color;
-    ctx.beginPath();
-    MARKER_SHAPE.forEach(([x, y], i) => {
-      const px = m.at.x + x * MARKER_SCALE;
-      const py = m.at.y + y * MARKER_SCALE;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    });
-    ctx.closePath();
+
+    const path = (): void => {
+      ctx.beginPath();
+      MARKER_SHAPE.forEach(([x, y], i) => {
+        const px = m.at.x + x * MARKER_SCALE;
+        const py = m.at.y + y * MARKER_SCALE;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+    };
+
+    // `EDA_ITEM::SetBrightened`, which `SCH_EDIT_FRAME::FocusOnItem` puts on the
+    // item a cross-probe from the ERC dialog lands on. `getRenderColor` does not
+    // lighten the item's own colour for it — it *replaces* it with a layer of
+    // its own:
+    //
+    //     if( aItem->IsBrightened() )
+    //         color = m_schSettings.GetLayerColor( LAYER_BRIGHTENED );
+    //
+    // and LAYER_BRIGHTENED is pure magenta in both builtin themes, which is why
+    // a focused marker is unmistakable upstream. Lightening the marker's own red
+    // by half — which is what this did — is a shade of pink you cannot pick out
+    // of a sheet of red markers, so clicking a row looked like it did nothing.
+    if (m.brightened) {
+      // The shadow pass first: `draw( SCH_MARKER )` strokes the same polygon on
+      // LAYER_SELECTION_SHADOWS, and SCH_MARKER_T is in `g_ScaledSelectionTypes`
+      // so it gets `getShadowWidth()` of extra width. A brightened item that is
+      // not also selected takes `color.WithAlpha( 0.15 )`, so it reads as a glow
+      // around the marker rather than an outline on it.
+      path();
+      ctx.strokeStyle = cssWithAlpha(theme.brightened, 0.15);
+      ctx.lineWidth = shadowWidthIU(HIGHLIGHT_THICKNESS_MILS, viewport.scale);
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    ctx.fillStyle = m.brightened ? theme.brightened : color;
+    path();
     ctx.fill();
   }
 }
@@ -1708,17 +2132,69 @@ function spinRotate(p: Vec2, spin: number): Vec2 {
 /** When `shadow` is set, draw only the blue selection underglow (wider strokes, no text). */
 /** A sheet pin drawn as the hierarchical label it is (SCH_SHEET_PIN derives
  *  from SCH_HIERLABEL, and the painter draws it through that base). */
+/**
+ * A sheet pin drawn as the hierarchical label it is
+ * (`draw( static_cast<SCH_HIERLABEL*>( sheetPin ), ... )`).
+ *
+ * Its flag orientation is **not** the one a hierarchical label at the same
+ * place would have: `SCH_SHEET_PIN::SetSide` deliberately inverts it, so the
+ * arrow points *into* the sheet.
+ *
+ *     case SHEET_SIDE::LEFT:   SetSpinStyle( SPIN_STYLE::RIGHT );  // Orientation horiz inverse
+ *     case SHEET_SIDE::RIGHT:  SetSpinStyle( SPIN_STYLE::LEFT );   // Orientation horiz normal
+ *     case SHEET_SIDE::TOP:    SetSpinStyle( SPIN_STYLE::BOTTOM );
+ *     case SHEET_SIDE::BOTTOM: SetSpinStyle( SPIN_STYLE::UP );
+ *
+ * We collapsed the side to "horizontal or vertical" and let the spin fall out
+ * of the stored justification, which no sheet pin carries — so both vertical
+ * edges drew the same way and both horizontal ones did too, and half of them
+ * pointed the wrong way.
+ *
+ * `labelSpin` reads the spin back from angle + justify, so the mapping is
+ * expressed in those terms: horizontal + `right` is SPIN.LEFT, vertical +
+ * `right` is SPIN.BOTTOM.
+ */
+/**
+ * `SCH_SHEET_PIN::CreateGraphicShape`: a sheet pin borrows the hierarchical
+ * label's flag polygons, with input and output traded.
+ *
+ *     // These are the same icon shapes as SCH_HIERLABEL but the graphic icon is slightly
+ *     // different in 2 cases:
+ *     // for INPUT type the icon is the OUTPUT shape of SCH_HIERLABEL
+ *     // for OUTPUT type the icon is the INPUT shape of SCH_HIERLABEL
+ *     case LABEL_FLAG_SHAPE::L_INPUT:  shape = LABEL_FLAG_SHAPE::L_OUTPUT; break;
+ *     case LABEL_FLAG_SHAPE::L_OUTPUT: shape = LABEL_FLAG_SHAPE::L_INPUT;  break;
+ *
+ * A sheet pin and the hierarchical label it matches are the same signal seen
+ * from opposite sides of the sheet boundary, so the arrow has to reverse: an
+ * input to the sheet is drawn pointing *into* it. Passing the stored shape
+ * through unswapped drew every input as an output and every output as an input.
+ */
+function sheetPinFlagShape(shape: SheetPin['shape']): SheetPin['shape'] {
+  if (shape === 'input') return 'output';
+  if (shape === 'output') return 'input';
+  return shape;
+}
+
 function sheetPinAsLabel(p: SheetPin): SchLabel {
+  // Our pin angle encodes the edge: 0 = right, 90 = top, 180 = left, 270 = bottom.
+  const side = ((p.angle % 360) + 360) % 360;
+  const vertical = side === 90 || side === 270;
+  const justifyRight = side === 0 || side === 90;
   return {
     kind: 'hierarchical_label',
     text: p.name,
     at: p.at,
-    // Sheet-pin angle encodes the side (0=right, 90=top, 180=left, 270=bottom);
-    // the flag orientation comes from angle + justify like a hier label.
-    angle: p.angle === 90 || p.angle === 270 ? 90 : 0,
-    shape: p.shape,
+    angle: vertical ? 90 : 0,
+    shape: sheetPinFlagShape(p.shape),
     source: p.source,
-    ...(p.effects ? { effects: p.effects } : {}),
+    effects: {
+      hidden: false,
+      ...p.effects,
+      // SetSpinStyle owns the justification; whatever the file stored for this
+      // pin does not get a say in which way its arrow points.
+      justify: justifyRight ? ['right'] : [],
+    },
   };
 }
 
@@ -1972,10 +2448,41 @@ function drawSelectionShadows(
   sch.lines.forEach((l, i) => {
     const id = refId('line', l.uuid, i);
     if (!drawable(id) || !selection.has(id)) return;
-    const base = l.stroke && l.stroke.width > 0 ? l.stroke.width : g_defaultPen;
+    const base = l.stroke && l.stroke.width > 0 ? l.stroke.width : lineDefaultWidth(l.kind);
     ctx.lineWidth = base + width;
     strokeLine(ctx, l.start, l.end);
   });
+
+  // The anchored end of every wire a drag is stretching
+  // (`drawDanglingIndicator` with aDangling false): a small square marking the
+  // point the wire is pivoting about, which is where each new elbow lands.
+  //
+  //     int size = aDangling ? DANGLING_SYMBOL_SIZE : UNSELECTED_END_SIZE;  // 4 mils
+  //     if( !aDangling ) aWidth /= 2;
+  //     VECTOR2I radius( aWidth + MilsToIU( size / 2 ), ... );
+  //     SetStrokeColor( aColor.Brightened( 0.3 ) );  // the shadow colour, inverted
+  //     SetIsFill( false );
+  //     SetLineWidth( getShadowWidth( ... ) );
+  //     DrawRectangle( aPos - radius, aPos + radius );
+  const ends = g_draggedEnds;
+  if (ends) {
+    ctx.strokeStyle = toCss(brightened(inverted(parseColor4d(color)), 0.3));
+    ctx.lineWidth = width;
+    ctx.setLineDash([]);
+    sch.lines.forEach((l, i) => {
+      const id = refId('line', l.uuid, i);
+      if (!drawable(id)) return;
+      const startMoves = ends.startMoving.has(id);
+      const endMoves = ends.endMoving.has(id);
+      // Only a *partially* dragged wire has an anchored end to mark.
+      if (startMoves === endMoves) return;
+      const at = startMoves ? l.end : l.start;
+      const base = l.stroke && l.stroke.width > 0 ? l.stroke.width : lineDefaultWidth(l.kind);
+      const r = base / 2 + UNSELECTED_END_HALF;
+      ctx.strokeRect(at.x - r, at.y - r, r * 2, r * 2);
+    });
+    ctx.strokeStyle = color;
+  }
 
   // Junctions: a slightly larger filled disc under the dot.
   sch.junctions.forEach((j, i) => {
@@ -2018,9 +2525,10 @@ function drawSelectionShadows(
   // A pin picked on its own gets the glow by itself; a selected symbol already
   // strokes all of its pins through drawLibUnitShadow above.
   for (const seg of collectPinSegments(sch, libById, showHiddenPins)) {
+    const segSymId = refId('symbol', sch.symbols[seg.symbolIndex]!.uuid, seg.symbolIndex);
+    if (!drawableChild(segSymId, seg.id)) continue;
     if (!selection.has(seg.id)) continue;
-    if (selection.has(refId('symbol', sch.symbols[seg.symbolIndex]!.uuid, seg.symbolIndex)))
-      continue;
+    if (selection.has(segSymId)) continue;
     ctx.strokeStyle = color;
     ctx.lineWidth = g_defaultPen + width;
     strokeLine(ctx, seg.at, seg.bodyEnd);
@@ -2057,7 +2565,8 @@ function drawSelectionShadows(
 
   // Sheets: re-stroke the rectangle wider.
   sch.sheets.forEach((sh, i) => {
-    if (!selection.has(refId('sheet', sh.uuid, i))) return;
+    const id = refId('sheet', sh.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
     ctx.lineWidth = bw + width;
     ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
@@ -2069,7 +2578,8 @@ function drawSelectionShadows(
 
   // Bus entries: a wider stroke along the 45 degree stub.
   sch.busEntries.forEach((be, i) => {
-    if (!selection.has(refId('busentry', be.uuid, i))) return;
+    const id = refId('busentry', be.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const base = be.stroke && be.stroke.width > 0 ? be.stroke.width : g_defaultPen;
     ctx.strokeStyle = color;
     ctx.lineWidth = base + width;
@@ -2080,7 +2590,8 @@ function drawSelectionShadows(
   // box still glows — the halo is the only thing that says it is selected, so
   // it is drawn from the geometry rather than from the stroke setting.
   sch.textBoxes.forEach((tb, i) => {
-    if (!selection.has(refId('textbox', tb.uuid, i))) return;
+    const id = refId('textbox', tb.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const base = tb.stroke && tb.stroke.width > 0 ? tb.stroke.width : g_defaultPen;
     ctx.strokeStyle = color;
     ctx.lineWidth = base + width;
@@ -2088,7 +2599,8 @@ function drawSelectionShadows(
   });
 
   sch.tables.forEach((t, i) => {
-    if (!selection.has(refId('table', t.uuid, i)) || !t.cells.length) return;
+    const id = refId('table', t.uuid, i);
+    if (!drawable(id) || !selection.has(id) || !t.cells.length) return;
     const minX = Math.min(...t.cells.map((c) => Math.min(c.start.x, c.end.x)));
     const minY = Math.min(...t.cells.map((c) => Math.min(c.start.y, c.end.y)));
     const maxX = Math.max(...t.cells.map((c) => Math.max(c.start.x, c.end.x)));
@@ -2105,6 +2617,7 @@ function drawSelectionShadows(
   sch.tables.forEach((t, i) => {
     const tableId = refId('table', t.uuid, i);
     t.cells.forEach((c, k) => {
+      if (!drawableChild(tableId, tableCellId(tableId, k))) return;
       if (!selection.has(tableCellId(tableId, k))) return;
       const x0 = Math.min(c.start.x, c.end.x);
       const y0 = Math.min(c.start.y, c.end.y);
@@ -2118,7 +2631,8 @@ function drawSelectionShadows(
   // Images: SCH_PAINTER has no shadow geometry for a bitmap either, so upstream
   // draws its outline. Ours does the same rather than tinting the pixels.
   sch.images.forEach((im, i) => {
-    if (!selection.has(refId('image', im.uuid, i))) return;
+    const id = refId('image', im.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const sz = imageSizeIU(im);
     ctx.strokeStyle = color;
     ctx.lineWidth = g_defaultPen + width;
@@ -2127,7 +2641,8 @@ function drawSelectionShadows(
 
   // Sheet graphics: re-stroke the shape itself, so a circle glows as a circle.
   sch.graphics.forEach((g, i) => {
-    if (!selection.has(refId('graphic', undefined, i))) return;
+    const id = refId('graphic', undefined, i);
+    if (!drawable(id) || !selection.has(id)) return;
     ctx.strokeStyle = color;
     // A graphic text carries no stroke; every other shape may.
     const gw = 'stroke' in g && g.stroke && g.stroke.width > 0 ? g.stroke.width : g_defaultPen;
@@ -2137,7 +2652,8 @@ function drawSelectionShadows(
 
   // Directive labels: the pin line and the flag at its end.
   (sch.directiveLabels ?? []).forEach((d, i) => {
-    if (!selection.has(refId('directive', d.uuid, i))) return;
+    const id = refId('directive', d.uuid, i);
+    if (!drawable(id) || !selection.has(id)) return;
     const g = directiveGraphic(d);
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
@@ -2296,6 +2812,14 @@ function drawLibUnit(
   // can never cover another unit's outlines or pin text. Callers run the
   // 'bg' phase across all units first, then the 'fg' phase.
   phase: 'bg' | 'fg' | 'all' = 'all',
+  /**
+   * getRenderColor's alpha for LAYER_DEVICE_BACKGROUND: a selected symbol's
+   * body fill goes translucent, "so that non-selected overlapping objects are
+   * visible". `WithAlpha` replaces the alpha rather than scaling it, so this is
+   * the value each background shape is forced to; null leaves every shape the
+   * alpha of its own colour.
+   */
+  bgAlpha: number | null = null,
 ): number {
   // Two passes matching SCH_PAINTER's layer order: background/custom fills
   // first (LAYER_DEVICE_BACKGROUND), then outlines and outline-colour fills
@@ -2348,8 +2872,9 @@ function drawLibUnit(
       if (g.kind === 'text') continue;
       const fillType = g.fill?.type;
       if (fillType !== 'background' && fillType !== 'color') continue;
-      ctx.fillStyle =
+      const bodyFill =
         fillType === 'color' && g.fill?.color ? cssColor(g.fill.color) : theme.symbolFill;
+      ctx.fillStyle = bgAlpha === null ? bodyFill : cssWithAlpha(bodyFill, bgAlpha);
       if (g.kind === 'arc') {
         drawArc(
           ctx,
@@ -3010,6 +3535,12 @@ export function drawGrid(
   grid: RenderOpts['grid'],
 ): void {
   const { scale, offsetX, offsetY } = viewport;
+  // "Show Grid" is checked here rather than at the call sites. It used to be
+  // checked only by `renderSchematic`, which was the one caller — until the GL
+  // backend became the default renderer and the canvas started calling this
+  // directly, so it could paint the grid whatever the toggle said. The toggle
+  // has been dead on the GL path ever since.
+  if (!grid.show) return;
   if (scale <= 0 || grid.sizeIU <= 0) return;
   // GAL works in logical pixels; ours is a device-pixel canvas, so the
   // pixel-valued settings are scaled up by the content scale factor exactly
@@ -3159,6 +3690,9 @@ export function renderSymbolPreview(
         inc(g.start);
         inc(g.mid);
         inc(g.end);
+      } else if (g.kind === 'ellipse' || g.kind === 'ellipse_arc') {
+        inc({ x: g.center.x - g.majorRadius, y: g.center.y - g.majorRadius });
+        inc({ x: g.center.x + g.majorRadius, y: g.center.y + g.majorRadius });
       } else inc(g.at);
     }
     // Hidden pins (e.g. power) sit far from the body; excluding them keeps the
