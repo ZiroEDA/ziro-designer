@@ -83,6 +83,7 @@ import {
   translatePayload,
   pointEditTarget,
   editHandles,
+  indicatorLines,
   parseSheetPinId,
   moveSheetPin,
   moveSheetPinCommand,
@@ -916,10 +917,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // committed on release.
   const pointTargetRef = useRef<PointEditTarget | null>(null);
   const pointHandlesRef = useRef<readonly EditHandle[]>([]);
+  /** `EDIT_POINTS`' drawn-only leaders (a bezier's end→control lines). */
+  const pointLeadersRef = useRef<readonly [Vec2, Vec2][]>([]);
   const hoveredHandleRef = useRef<EditHandle | null>(null);
   const pointDragRef = useRef<EditHandle | null>(null);
   /** The reshaped document while a handle or sheet-pin drag is in flight. */
   const pointEditDocRef = useRef<Schematic | null>(null);
+  /**
+   * Re-derive both halves of `EDIT_POINTS` — the grabbable handles and the
+   * drawn-only leaders — from one document. They are always rebuilt together
+   * (a drag moves the leaders with the handles), so they are set together.
+   */
+  const setPointHandles = useCallback((doc: Schematic, target: PointEditTarget | null) => {
+    pointHandlesRef.current = target ? editHandles(doc, target) : [];
+    pointLeadersRef.current = target ? indicatorLines(doc, target) : [];
+  }, []);
   /**
    * Break / Slice split the wire *before* the drag starts, and upstream folds
    * both into one commit (`SCH_COMMIT` pushed as "Break Wire"). Until the drop
@@ -1314,12 +1326,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       pointDragRef.current = null;
       pointEditDocRef.current = null;
       const target = pointTargetRef.current;
-      if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+      if (target) setPointHandles(schematicRef.current, target);
       requestDrawRef.current();
     };
     window.addEventListener('keydown', onEsc, true);
     return () => window.removeEventListener('keydown', onEsc, true);
-  }, []);
+  }, [setPointHandles]);
 
   /**
    * Is something riding the pointer waiting to be dropped?
@@ -1359,10 +1371,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const stillDrawing = !!drawStateRef.current || attachedItem;
     const target = one && !stillDrawing ? pointEditTarget(schematic, one) : null;
     pointTargetRef.current = target;
-    pointHandlesRef.current = target ? editHandles(schematic, target) : [];
+    setPointHandles(schematic, target);
     if (!target) hoveredHandleRef.current = null;
     requestOverlayRef.current();
-  }, [selection, schematic, activeTool, attachedItem]);
+  }, [selection, schematic, activeTool, attachedItem, setPointHandles]);
 
   /**
    * The handle under a world point. EDIT_POINTS::FindPoint hit-tests each point's
@@ -2111,6 +2123,30 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const hovered = pointDragRef.current ?? hoveredHandleRef.current;
         ctx.fillStyle = editPointColor.fill;
         ctx.setLineDash([]);
+        // Indicator lines first, so a handle square sits on top of the leader
+        // that ends at it. `EDIT_POINTS::ViewDraw` strokes them at a quarter of
+        // the handle border width, in the border colour, and gives them no
+        // midpoint circle:
+        //
+        //     if( line.DrawLine() )
+        //     {
+        //         gal->SetLineWidth( borderSize / 4 );
+        //         gal->SetStrokeColor( borderColor );
+        //         gal->DrawLine( line.GetOrigin().GetPosition(), line.GetEnd().GetPosition() );
+        //     }
+        //
+        // Like the handles they are a fixed screen size, so this runs in device
+        // space rather than through the view transform.
+        if (pointLeadersRef.current.length > 0) {
+          ctx.strokeStyle = editPointColor.border;
+          ctx.lineWidth = (EDIT_POINT_BORDER_SIZE / 4) * r;
+          ctx.beginPath();
+          for (const [a, b] of pointLeadersRef.current) {
+            ctx.moveTo(a.x * vp.scale + vp.offsetX, a.y * vp.scale + vp.offsetY);
+            ctx.lineTo(b.x * vp.scale + vp.offsetX, b.y * vp.scale + vp.offsetY);
+          }
+          ctx.stroke();
+        }
         for (const h of handles) {
           const x = h.at.x * vp.scale + vp.offsetX;
           const y = h.at.y * vp.scale + vp.offsetY;
@@ -2273,9 +2309,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     panLastRef.current = null;
     dragBgRef.current = null;
     const target = pointTargetRef.current;
-    if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+    if (target) setPointHandles(schematicRef.current, target);
     requestDraw();
-  }, [requestDraw]);
+  }, [requestDraw, setPointHandles]);
 
   // Arrow keys nudge a grabbed move one grid square and lock the axis
   // (SCH_MOVE_TOOL's m_lastKeyboardCursorPosition block). Registered once, like
@@ -3236,7 +3272,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         pointEditDocRef.current = reshaped === schematic ? null : reshaped;
         // The handles move with the item, so the one being dragged is re-derived
         // to keep the hover highlight and the next frame's geometry in step.
-        pointHandlesRef.current = editHandles(reshaped, target);
+        setPointHandles(reshaped, target);
         requestDraw();
         return;
       }
@@ -3381,6 +3417,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       schematic,
       snap,
       arcEditMode,
+      setPointHandles,
       GRID,
     ],
   );

@@ -90,6 +90,8 @@ const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
     (effects (font (size 1.27 1.27)) (justify left top)) (uuid "tb1"))
   (rectangle (start 30 30) (end 40 36)
     (stroke (width 0.254) (type default)) (fill (type none)) (uuid "g1"))
+  (bezier (pts (xy 30 50) (xy 34 44) (xy 38 56) (xy 42 50))
+    (stroke (width 0.254) (type default)) (fill (type none)) (uuid "g2"))
   (netclass_flag "HV" (length 2.54) (shape round) (at 50 30 0)
     (effects (font (size 1.27 1.27)) (justify left)) (uuid "d1")
     (property "Netclass" "HV" (at 50 30 0) (effects (font (size 1.27 1.27)))))
@@ -152,7 +154,10 @@ function shadowCalls(
       seen ||= active;
       continue;
     }
-    if (active && ['stroke', 'fill', 'strokeRect', 'fillRect', 'arc', 'lineTo'].includes(c.op)) {
+    if (
+      active &&
+      ['stroke', 'fill', 'strokeRect', 'fillRect', 'arc', 'lineTo', 'bezierCurveTo'].includes(c.op)
+    ) {
       out.push(c);
     }
   }
@@ -201,6 +206,31 @@ describe('the halo reaches every selectable kind', () => {
  * and only caught up when the drag ended and the background was rebuilt. It was
  * loudest on an image, whose halo is a full rectangle around the bitmap.
  */
+describe("a bezier's halo follows the curve", () => {
+  // It followed the *control polygon*: `strokeGraphicOutline` sent bezier and
+  // polyline down the same branch, which walks the stored points with lineTo.
+  // For a polyline those points are the shape; for a bezier two of the four are
+  // control points off the curve, so selecting one lit up two fat straight
+  // leaders running out to them and left the curve itself unhaloed. KiCad's
+  // shadow is the item's own shape restroked wider, and a bezier's shape is the
+  // cubic.
+  const BEZ = refId('graphic', undefined, 1);
+
+  it('is stroked as a cubic', () => {
+    expect(shadowCalls(new Set([BEZ])).map((c) => c.op)).toContain('bezierCurveTo');
+  });
+
+  it('and never as straight segments between its control points', () => {
+    // The whole complaint: two thick straight lines to the control points.
+    expect(shadowCalls(new Set([BEZ])).map((c) => c.op)).not.toContain('lineTo');
+  });
+
+  it("with the curve's own control points, not a flattened copy", () => {
+    const curve = shadowCalls(new Set([BEZ])).find((c) => c.op === 'bezierCurveTo');
+    expect(curve?.args).toHaveLength(4 * 2 - 2);
+  });
+});
+
 describe('the halo obeys the render filter', () => {
   const d = doc();
   const cases: [string, string][] = [
