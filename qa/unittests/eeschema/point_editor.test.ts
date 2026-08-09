@@ -23,6 +23,7 @@ import {
   addCorner,
   removeCorner,
   editHandles,
+  indicatorLines,
   dragHandle,
   reshapeCommand,
   type EditHandle,
@@ -800,5 +801,78 @@ describe('image resolution', () => {
     const fine = imageSizeIU(img(PPI600));
     expect(fine.w).toBeCloseTo(plain.w / 2, 3);
     expect(fine.h).toBeCloseTo(plain.h / 2, 3);
+  });
+});
+
+/**
+ * `EDIT_POINTS` holds two kinds of thing: handles you grab, and leaders that
+ * are only drawn. `AddIndicatorLine` is what marks one of the latter —
+ * `SetHasCenterPoint( false ); SetDrawLine( true )` — so `ViewDraw` gives it no
+ * grabbable midpoint circle and strokes it at a quarter of the handle border
+ * width.
+ *
+ * We drew none of them, which left every off-shape handle floating: a bezier's
+ * two control points, and an arc's centre, all sitting in space with nothing
+ * tying them to the thing they steer.
+ */
+describe('indicator lines', () => {
+  const doc = readSchematic(
+    parse(
+      `(kicad_sch (version 1) (lib_symbols)
+         (arc (start 60 10) (mid 67.0711 12.9289) (end 70 20) (uuid "a1"))
+         (bezier (pts (xy 10 10) (xy 14 4) (xy 18 16) (xy 22 10)) (uuid "b1"))
+         (rectangle (start 30 30) (end 40 40) (uuid "r2")))`,
+    ),
+  );
+  const linesFor = (i: number): [P, P][] =>
+    indicatorLines(doc, pointEditTarget(doc, refId('graphic', undefined, i))!);
+
+  it('run from an arc’s centre out to each end', () => {
+    //     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_START ) );
+    //     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_END ) );
+    const g = doc.graphics[0];
+    if (g?.kind !== 'arc') throw new Error('expected an arc');
+    const centre = CalcArcCenter(g.start, g.mid, g.end);
+    const lines = linesFor(0);
+    expect(lines).toHaveLength(2);
+    for (const [from] of lines) {
+      expect(from.x).toBeCloseTo(centre.x, 3);
+      expect(from.y).toBeCloseTo(centre.y, 3);
+    }
+    expect(lines[0]![1]).toEqual(g.start);
+    expect(lines[1]![1]).toEqual(g.end);
+  });
+
+  it('and land on the same centre the ARC_CENTER handle does', () => {
+    // The leader has to end where the square is drawn, or it points at nothing.
+    const handles = editHandles(doc, pointEditTarget(doc, refId('graphic', undefined, 0))!);
+    const centreHandle = handles.find((h) => h.index === 3)!;
+    expect(linesFor(0)[0]![0]).toEqual(centreHandle.at);
+  });
+
+  it('tie each end of a bezier to the control point that steers it', () => {
+    const g = doc.graphics[1];
+    if (g?.kind !== 'bezier') throw new Error('expected a bezier');
+    const [start, c1, c2, end] = g.points as [P, P, P, P];
+    expect(linesFor(1)).toEqual([
+      [start, c1],
+      [c2, end],
+    ]);
+  });
+
+  it('and a shape whose handles are all on it gets none', () => {
+    // A rectangle's four corners and centre are all on the rectangle, so there
+    // is nothing to lead anywhere.
+    expect(linesFor(2)).toEqual([]);
+  });
+
+  it('are never handles: they cannot be grabbed', () => {
+    // The distinction that matters — a leader endpoint that became a handle
+    // would be a fifth grab target on a four-point shape.
+    for (const i of [0, 1]) {
+      const handles = editHandles(doc, pointEditTarget(doc, refId('graphic', undefined, i))!);
+      expect(handles).toHaveLength(4);
+      expect(handles.every((h) => h.kind === 'point')).toBe(true);
+    }
   });
 });

@@ -83,6 +83,7 @@ import {
   translatePayload,
   pointEditTarget,
   editHandles,
+  indicatorLines,
   parseSheetPinId,
   moveSheetPin,
   moveSheetPinCommand,
@@ -112,6 +113,13 @@ import {
 // when a new export appears, so a barrel import of anything added since the
 // dev server started resolves to `undefined` at runtime.
 import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
+import {
+  type BezierDraw,
+  beginBezier,
+  bezierPoints,
+  calcBezier,
+  continueBezier,
+} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
 import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
   renderSchematic,
@@ -349,6 +357,11 @@ interface DrawState {
   start: Vec2;
   points: Vec2[];
   cursor: Vec2;
+  /**
+   * The bezier tool's `EDA_SHAPE` edit state. It owns the four points and the
+   * step the gesture is on, so `points` is unused for that tool.
+   */
+  bezier?: BezierDraw;
 }
 
 /** KiCad's 2-click arc (EDA_SHAPE::calcEdit state 1): quarter-circle through start/end. */
@@ -445,19 +458,16 @@ function previewGraphic(ds: DrawState): LibGraphic | null {
       // outline only meets itself when the last point lands on the first.
       return makeRuleAreaPreview([...ds.points, c]);
     case 'bezier': {
-      // `BEZIER_GEOM_MANAGER`'s four steps, in its order:
-      //
-      //     SET_START, SET_CONTROL1, SET_END, SET_CONTROL2
-      //
-      // so the second click places the *first control point* and the third the
-      // far end. Before both control points exist there is no cubic to show, so
-      // the preview is the control polygon so far — which is what upstream's
-      // drawing assistant shows too.
-      const [p0, c1, p1] = ds.points;
-      if (!p0) return null;
-      if (!c1) return makePolyline([p0, c]);
-      if (!p1) return makePolyline([p0, c1, c]);
-      return makeBezier(p0, c1, c, p1);
+      // The preview is the shape itself at whatever its edit state has made of
+      // it — "item->CalcEdit( cursorPos ); m_view->AddToPreview( item->Clone() )".
+      // State 1 leaves C2 on the end point, so the cubic collapses onto a
+      // straight line and you see a line follow the cursor; states 2 and 3 bow
+      // it into a C and then an S. We used to show a control polygon instead
+      // and only reveal a curve after the last click.
+      const g = ds.bezier;
+      if (!g) return null;
+      const [p0, c1, c2, p1] = bezierPoints(g);
+      return makeBezier(p0, c1, c2, p1);
     }
   }
 }
@@ -907,10 +917,21 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // committed on release.
   const pointTargetRef = useRef<PointEditTarget | null>(null);
   const pointHandlesRef = useRef<readonly EditHandle[]>([]);
+  /** `EDIT_POINTS`' drawn-only leaders (a bezier's end→control lines). */
+  const pointLeadersRef = useRef<readonly [Vec2, Vec2][]>([]);
   const hoveredHandleRef = useRef<EditHandle | null>(null);
   const pointDragRef = useRef<EditHandle | null>(null);
   /** The reshaped document while a handle or sheet-pin drag is in flight. */
   const pointEditDocRef = useRef<Schematic | null>(null);
+  /**
+   * Re-derive both halves of `EDIT_POINTS` — the grabbable handles and the
+   * drawn-only leaders — from one document. They are always rebuilt together
+   * (a drag moves the leaders with the handles), so they are set together.
+   */
+  const setPointHandles = useCallback((doc: Schematic, target: PointEditTarget | null) => {
+    pointHandlesRef.current = target ? editHandles(doc, target) : [];
+    pointLeadersRef.current = target ? indicatorLines(doc, target) : [];
+  }, []);
   /**
    * Break / Slice split the wire *before* the drag starts, and upstream folds
    * both into one commit (`SCH_COMMIT` pushed as "Break Wire"). Until the drop
@@ -1305,12 +1326,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       pointDragRef.current = null;
       pointEditDocRef.current = null;
       const target = pointTargetRef.current;
-      if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+      if (target) setPointHandles(schematicRef.current, target);
       requestDrawRef.current();
     };
     window.addEventListener('keydown', onEsc, true);
     return () => window.removeEventListener('keydown', onEsc, true);
-  }, []);
+  }, [setPointHandles]);
 
   /**
    * Is something riding the pointer waiting to be dropped?
@@ -1350,10 +1371,10 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     const stillDrawing = !!drawStateRef.current || attachedItem;
     const target = one && !stillDrawing ? pointEditTarget(schematic, one) : null;
     pointTargetRef.current = target;
-    pointHandlesRef.current = target ? editHandles(schematic, target) : [];
+    setPointHandles(schematic, target);
     if (!target) hoveredHandleRef.current = null;
     requestOverlayRef.current();
-  }, [selection, schematic, activeTool, attachedItem]);
+  }, [selection, schematic, activeTool, attachedItem, setPointHandles]);
 
   /**
    * The handle under a world point. EDIT_POINTS::FindPoint hit-tests each point's
@@ -2102,6 +2123,30 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const hovered = pointDragRef.current ?? hoveredHandleRef.current;
         ctx.fillStyle = editPointColor.fill;
         ctx.setLineDash([]);
+        // Indicator lines first, so a handle square sits on top of the leader
+        // that ends at it. `EDIT_POINTS::ViewDraw` strokes them at a quarter of
+        // the handle border width, in the border colour, and gives them no
+        // midpoint circle:
+        //
+        //     if( line.DrawLine() )
+        //     {
+        //         gal->SetLineWidth( borderSize / 4 );
+        //         gal->SetStrokeColor( borderColor );
+        //         gal->DrawLine( line.GetOrigin().GetPosition(), line.GetEnd().GetPosition() );
+        //     }
+        //
+        // Like the handles they are a fixed screen size, so this runs in device
+        // space rather than through the view transform.
+        if (pointLeadersRef.current.length > 0) {
+          ctx.strokeStyle = editPointColor.border;
+          ctx.lineWidth = (EDIT_POINT_BORDER_SIZE / 4) * r;
+          ctx.beginPath();
+          for (const [a, b] of pointLeadersRef.current) {
+            ctx.moveTo(a.x * vp.scale + vp.offsetX, a.y * vp.scale + vp.offsetY);
+            ctx.lineTo(b.x * vp.scale + vp.offsetX, b.y * vp.scale + vp.offsetY);
+          }
+          ctx.stroke();
+        }
         for (const h of handles) {
           const x = h.at.x * vp.scale + vp.offsetX;
           const y = h.at.y * vp.scale + vp.offsetY;
@@ -2264,9 +2309,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     panLastRef.current = null;
     dragBgRef.current = null;
     const target = pointTargetRef.current;
-    if (target) pointHandlesRef.current = editHandles(schematicRef.current, target);
+    if (target) setPointHandles(schematicRef.current, target);
     requestDraw();
-  }, [requestDraw]);
+  }, [requestDraw, setPointHandles]);
 
   // Arrow keys nudge a grabbed move one grid square and lock the axis
   // (SCH_MOVE_TOOL's m_lastKeyboardCursorPosition block). Registered once, like
@@ -2638,7 +2683,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => canvas.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
-  // Finish a rectangle/circle/arc (2nd click), a bezier (control click), or a
+  // Finish a rectangle/circle/arc (2nd click), a bezier (4th click), or a
   // sheet rectangle (which hands off to the editor for its name/file dialog).
   const finalizeShape = useCallback(
     (ds: DrawState, p: Vec2) => {
@@ -2654,14 +2699,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       else if (ds.tool === 'arc') {
         const a = arcFrom2(ds.start, p);
         if (a) g = makeArc(a.start, a.mid, a.end);
-      } else if (ds.tool === 'bezier') {
-        // start, C1, end, C2 — a cubic, stored as one, so the point editor
-        // gives it the four handles `EDA_BEZIER_POINT_EDIT_BEHAVIOR` gives it.
-        // It used to flatten a *quadratic* into a 25-point polyline, which is
-        // the wrong curve family, is not a bezier in the file, and leaves the
-        // point editor showing a handle on every flattened vertex.
-        const [p0, c1, p1] = ds.points;
-        if (p0 && c1 && p1) g = makeBezier(p0, c1, p, p1);
+      } else if (ds.tool === 'bezier' && ds.bezier) {
+        // The four points the edit states have filled in: start, C1, C2, end —
+        // a real `SHAPE_T::BEZIER`, so the point editor gives it the four
+        // handles `EDA_BEZIER_POINT_EDIT_BEHAVIOR` gives it. It used to flatten
+        // a *quadratic* into a 25-point polyline, which is the wrong curve
+        // family, is not a bezier in the file, and puts a handle on every one
+        // of those flattened vertices.
+        const [p0, c1, c2, p1] = bezierPoints(ds.bezier);
+        g = makeBezier(p0, c1, c2, p1);
       } else if (ds.tool === 'sheet') {
         const at = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
         const size = { w: Math.abs(p.x - ds.start.x), h: Math.abs(p.y - ds.start.y) };
@@ -2902,7 +2948,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const p = snap(world);
         const ds = drawStateRef.current;
         if (!ds) {
-          drawStateRef.current = { tool: shapeKind, start: p, points: [p], cursor: p };
+          drawStateRef.current = {
+            tool: shapeKind,
+            start: p,
+            points: [p],
+            cursor: p,
+            // "item->BeginEdit( cursorPos )" — the bezier's first click puts all
+            // four of its points on the cursor and arms edit state 1.
+            ...(shapeKind === 'bezier' ? { bezier: beginBezier(p) } : {}),
+          };
         } else if (shapeKind === 'lines' || shapeKind === 'ruleArea') {
           // "Check if it is double click / closing line (so we have to finish
           // the zone)": a rule area is finished by putting a point back on the
@@ -2923,8 +2977,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           const last = ds.points[ds.points.length - 1]!;
           if (last.x !== p.x || last.y !== p.y) ds.points.push(p);
         } else if (shapeKind === 'bezier') {
-          // Four clicks: start, control 1, end, control 2.
-          if (ds.points.length < 3) ds.points.push(p);
+          // "finished = !item->ContinueEdit( cursorPos );" — each click after
+          // the first advances the edit state, and the one that finds it at 3
+          // ends the curve. Four clicks in all: start, end, C1, C2.
+          //
+          // The geometry is settled by `calcEdit` first. Upstream leaves that
+          // to the motion event that precedes the click; doing it here as well
+          // costs nothing (it is the same cursor position) and means a click
+          // with no motion before it — a tap — still lands its point.
+          ds.bezier = calcBezier(ds.bezier ?? beginBezier(p), p);
+          const next = continueBezier(ds.bezier);
+          if (next) ds.bezier = next;
           else finalizeShape(ds, p);
         } else {
           finalizeShape(ds, p);
@@ -3209,7 +3272,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         pointEditDocRef.current = reshaped === schematic ? null : reshaped;
         // The handles move with the item, so the one being dragged is re-derived
         // to keep the hover highlight and the next frame's geometry in step.
-        pointHandlesRef.current = editHandles(reshaped, target);
+        setPointHandles(reshaped, target);
         requestDraw();
         return;
       }
@@ -3233,7 +3296,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       // Shape/sheet drawing preview + bus-entry / image ghosts track the cursor.
       // These ride in the document, so the scene has to be rebuilt.
       if (drawStateRef.current) {
-        drawStateRef.current.cursor = snap(world);
+        const ds = drawStateRef.current;
+        ds.cursor = snap(world);
+        // "item->CalcEdit( cursorPos )": what a move drags depends on which
+        // edit state the bezier is in.
+        if (ds.bezier) ds.bezier = calcBezier(ds.bezier, ds.cursor);
         requestDraw();
         return;
       }
@@ -3350,6 +3417,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       schematic,
       snap,
       arcEditMode,
+      setPointHandles,
       GRID,
     ],
   );

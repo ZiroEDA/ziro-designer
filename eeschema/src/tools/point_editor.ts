@@ -867,6 +867,60 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
 }
 
 /**
+ * The item's *indicator* lines: leaders that are drawn between two handles but
+ * never grabbed.
+ *
+ * `EDIT_POINTS` keeps these alongside the handles, and `AddIndicatorLine` is
+ * what marks one as drawn-only:
+ *
+ *     EDIT_LINE& line = m_lines.emplace_back( aOrigin, aEnd );
+ *     line.SetHasCenterPoint( false );
+ *     line.SetDrawLine( true );
+ *
+ * so `ViewDraw` gives it no midpoint circle and strokes it thin — at a quarter
+ * of the handle border width, in the handle border colour.
+ *
+ * A bezier gets two, tying each end of the curve to the control point that
+ * governs it (`EDA_BEZIER_POINT_EDIT_BEHAVIOR::MakePoints`):
+ *
+ *     aPoints.AddIndicatorLine( aPoints.Point( BEZIER_START ), aPoints.Point( BEZIER_CTRL_PT1 ) );
+ *     aPoints.AddIndicatorLine( aPoints.Point( BEZIER_CTRL_PT2 ), aPoints.Point( BEZIER_END ) );
+ *
+ * Without them the two control handles float unattached, with nothing to say
+ * which end of the curve each one pulls on.
+ *
+ * An arc gets two of its own, from the centre out to each end
+ * (`EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints`):
+ *
+ *     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_START ) );
+ *     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_END ) );
+ *
+ * which is the same complaint: the centre handle sits well off the arc — often
+ * off screen on a shallow one — and nothing said it belonged to it.
+ */
+export function indicatorLines(doc: Schematic, t: PointEditTarget): [Vec2, Vec2][] {
+  if (t.kind !== 'graphic') return [];
+  const g = doc.graphics[t.index];
+  if (g?.kind === 'bezier' && g.points.length >= 4) {
+    const [start, c1, c2, end] = g.points as [Vec2, Vec2, Vec2, Vec2];
+    return [
+      [start, c1],
+      [c2, end],
+    ];
+  }
+  if (g?.kind === 'arc') {
+    // The same centre the ARC_CENTER handle is placed at, so the leaders land
+    // on it however the three stored points are arranged.
+    const { center } = arcState(g.start, g.mid, g.end);
+    return [
+      [center, g.start],
+      [center, g.end],
+    ];
+  }
+  return [];
+}
+
+/**
  * The document with `handle` dragged to `pos`. Pure: same inputs, same result.
  *
  * `arcMode` is the "Arc editing mode" preference

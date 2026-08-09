@@ -33,6 +33,13 @@ import {
   editHandles,
   pointEditTarget,
 } from '@ziroeda/eeschema/src/tools/point_editor.js';
+import {
+  type BezierDraw,
+  beginBezier,
+  bezierPoints,
+  calcBezier,
+  continueBezier,
+} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number): Vec2 => ({ x: mmToIU(x), y: mmToIU(y) });
@@ -124,6 +131,64 @@ describe('its edit points', () => {
     const out = dragHandle(d, t, hs[1]!, at(70, 30));
     const g = out.graphics[0]!;
     expect(g.kind === 'bezier' && g.points).toEqual([START, at(70, 30), C2, END]);
+  });
+});
+
+describe('drawing one (EDA_SHAPE edit states)', () => {
+  /** Click through a whole gesture, the way the tool feeds it: calc, then continue. */
+  const click = (g: BezierDraw, p: Vec2): BezierDraw | null => continueBezier(calcBezier(g, p));
+
+  it('is four clicks: start, end, C1, C2', () => {
+    // Not start, C1, end, C2. `beginEdit` arms state 1, `continueEdit` steps it
+    // to 2 and 3, and the click that finds it at 3 finishes the curve.
+    let g = beginBezier(START);
+    expect(g.state).toBe(1);
+    g = click(g, END)!;
+    expect(g.state).toBe(2);
+    g = click(g, C1)!;
+    expect(g.state).toBe(3);
+    expect(click(g, C2)).toBe(null);
+  });
+
+  it('and the first stage is a straight line following the cursor', () => {
+    // "case 1: SetBezierC2( aPosition ); SetEnd( aPosition );" — C2 sits on the
+    // end, so the cubic is degenerate and draws as a line. We used to show a
+    // bare control polygon here instead.
+    const g = calcBezier(beginBezier(START), END);
+    expect(bezierPoints(g)).toEqual([START, START, END, END]);
+  });
+
+  it('then the cursor bends it into a C, endpoints fixed', () => {
+    // "case 2: SetBezierC1( aPosition );" — only C1 moves, so both ends stay
+    // where they were put and the line bows towards the cursor.
+    const g = calcBezier(click(beginBezier(START), END)!, C1);
+    expect(bezierPoints(g)).toEqual([START, C1, END, END]);
+  });
+
+  it('then the cursor bends the far half into an S', () => {
+    // "case 3: SetBezierC2( aPosition );" — the raw cursor *is* C2. Master
+    // reflects it about the end point (BEZIER_GEOM_MANAGER::GetControlC2), so
+    // there the same move bends the tail the other way; 9.0.8 does not.
+    const g = calcBezier(click(click(beginBezier(START), END)!, C1)!, C2);
+    expect(bezierPoints(g)).toEqual([START, C1, C2, END]);
+  });
+
+  it('and commits a plain four-point bezier in file order', () => {
+    let g = calcBezier(beginBezier(START), END);
+    g = calcBezier(continueBezier(g)!, C1);
+    g = calcBezier(continueBezier(g)!, C2);
+    expect(continueBezier(g)).toBe(null);
+    const [p0, c1, c2, p1] = bezierPoints(g);
+    const shape = makeBezier(p0, c1, c2, p1);
+    expect(shape.kind === 'bezier' && shape.points).toEqual([START, C1, C2, END]);
+  });
+
+  it('and nothing is chained onto the end of it', () => {
+    // Master's DrawBezier re-enters the draw loop with the finished curve's end
+    // pre-loaded as the next one's start. 9.0.8's DrawShape sets `item` back to
+    // nullptr, so the tool waits for a fresh first click.
+    const g = calcBezier(click(click(beginBezier(START), END)!, C1)!, C2);
+    expect(continueBezier(g)).toBe(null);
   });
 });
 

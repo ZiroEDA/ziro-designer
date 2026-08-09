@@ -70,7 +70,7 @@ import {
 } from '../../../render/color4d.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { globalLabelShape, isEmpty } from '@ziroeda/eeschema/src/tools/bbox.js';
+import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 
@@ -2279,7 +2279,23 @@ function drawLabel(
       const pts: Vec2[] = [];
       for (let i = 0; i < tpl.length; i += 2)
         pts.push({ x: l.at.x + halfSize * tpl[i]!, y: l.at.y + halfSize * tpl[i + 1]! });
-      polygon(ctx, pts, false, true);
+      // A hierarchical label's flag is *filled with the background colour*, so a
+      // wire running behind it is hidden rather than crossing it:
+      //
+      //     m_gal->SetIsFill( true );
+      //     m_gal->SetFillColor( m_schSettings.GetLayerColor( LAYER_SCHEMATIC_BACKGROUND ) );
+      //     m_gal->DrawPolyline( d_pts );
+      //
+      // A *global* label is not: `SCH_PAINTER::draw( const SCH_GLOBALLABEL* )`
+      // sets `SetIsFill( false )` for the ordinary pass, filling only a selected
+      // one when "fill shapes" is on. The two flags differ, and ours drew both
+      // hollow. Not during the shadow pass, which paints the underglow only.
+      if (!shadow) {
+        ctx.fillStyle = theme.background;
+        polygon(ctx, pts, true, true);
+      } else {
+        polygon(ctx, pts, false, true);
+      }
       // Text sits just beyond the flag (which spans ~2*halfSize from the anchor).
       const off = 2 * halfSize + dist;
       paintText(
@@ -2698,8 +2714,22 @@ function strokeGraphicOutline(ctx: CanvasRenderingContext2D, g: LibGraphic): voi
       ctx.stroke();
       break;
     }
+    case 'bezier': {
+      // The halo follows the *curve*. Falling through to the polyline case —
+      // which this did — haloed the control polygon instead, so selecting a
+      // bezier lit up two fat straight leaders running out to the control
+      // points and left the curve itself unhaloed. KiCad's selection shadow is
+      // the item's own shape restroked wider, and a bezier's shape is the
+      // cubic (`RebuildBezierToSegmentsPointsList`), never its hull.
+      if (g.points.length < 4) break;
+      const [p0, c1, c2, p1] = g.points as [Vec2, Vec2, Vec2, Vec2];
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y);
+      ctx.stroke();
+      break;
+    }
     case 'polyline':
-    case 'bezier':
       if (!g.points.length) break;
       ctx.beginPath();
       g.points.forEach((p, n) => (n === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
@@ -2757,8 +2787,23 @@ function drawLibUnitShadow(
         polygon(ctx, corners, false, true);
         break;
       }
+      case 'bezier': {
+        // As in `strokeGraphicOutline`: the underglow is the cubic, not the
+        // control polygon it would get by sharing the polyline case.
+        if (g.points.length < 4) break;
+        const [p0, c1, c2, p1] = g.points.map((p) => localToWorld(origin, t, p)) as [
+          Vec2,
+          Vec2,
+          Vec2,
+          Vec2,
+        ];
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p1.x, p1.y);
+        ctx.stroke();
+        break;
+      }
       case 'polyline':
-      case 'bezier':
         polygon(
           ctx,
           g.points.map((p) => localToWorld(origin, t, p)),
@@ -2931,6 +2976,21 @@ function drawLibUnit(
   const DEFAULT_TEXT = 1.27 * MM;
   // getPinTextOffset: MilsToIU(round(24 * m_TextOffsetRatio)), default ratio 0.15.
   const TEXT_OFFSET = Math.round(24 * g_textOffsetRatio) * 254;
+  /**
+   * `PIN_TEXT_MARGIN` (sch_pin.cpp:107), 4 mils.
+   *
+   * The gap for text placed *outside* the body is the offset plus this margin
+   * plus the text's own pen, not the offset alone:
+   *
+   *     int name_offset = pinTextOffset + schIUScale.MilsToIU( PIN_TEXT_MARGIN ) + namePenWidth;
+   *     int num_offset  = pinTextOffset + schIUScale.MilsToIU( PIN_TEXT_MARGIN ) + numPenWidth;
+   *
+   * and `PIN_LAYOUT_CACHE` adds the same two terms when it centres a stacked
+   * name or number (`clearance + perpendicularHalf + m_numberThickness`). Ours
+   * used the offset on its own, which sat every outside name and number a few
+   * mils tighter to the pin than KiCad draws them.
+   */
+  const PIN_TEXT_MARGIN = 4 * 254;
   let pinIndex = pinIndexStart;
   for (const pin of unit.pins) {
     const idx = pinIndex++;
@@ -3087,7 +3147,7 @@ function drawLibUnit(
       // The number is centred along the pin: above it, or below when the name
       // is shown outside (name above / number below).
       const below = nameShown && !nameInside;
-      const off = (NUM / 2 + TEXT_OFFSET) * (below ? 1 : -1);
+      const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
       const anchor = horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y };
       drawText(
         ctx,
@@ -3121,7 +3181,7 @@ function drawLibUnit(
         );
       } else {
         // Outside: centred over the middle of the pin.
-        const off = NAME / 2 + TEXT_OFFSET;
+        const off = NAME / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NAME);
         const anchor = horiz ? { x: mid.x, y: mid.y - off } : { x: mid.x - off, y: mid.y };
         drawText(
           ctx,
