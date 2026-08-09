@@ -264,3 +264,47 @@ function rotateAboutOrigin(p: VECTOR2I, aAngle: EDA_ANGLE): VECTOR2I {
   const cos = angle.Cos();
   return VECTOR2I(Math.round(p.y * s + p.x * cos), Math.round(p.y * cos - p.x * s));
 }
+
+/**
+ * `CalcArcMid( aStart, aEnd, aCenter, aMinArcAngle )` (`trigo.cpp:205`): the
+ * point half-way round the arc from `aStart` to `aEnd` about `aCenter`.
+ *
+ * Not to be confused with {@link CalcArcCenter}, which solves the opposite
+ * problem (three points on the circle → its centre). This one already knows the
+ * centre and only has to bisect the angle.
+ *
+ * Two solutions exist — the short way round and the long way round — and
+ * `aMinArcAngle` picks between them by adding a half turn to the rotation.
+ * Upstream defaults it to `true`, the minor arc. Behaviour is undefined for a
+ * semicircle, as upstream's own comment says: `Normalize180` maps exactly ±180°
+ * to +180°, so a half-turn arc always bisects the same way regardless of which
+ * side it actually swept.
+ *
+ * The radius comes from `aStart`, not from `aEnd`: the result is `aStart`
+ * *rotated*, so if the two endpoints are not equidistant from the centre the
+ * mid-point sits at `aStart`'s radius.
+ */
+export function CalcArcMid(
+  aStart: VECTOR2I,
+  aEnd: VECTOR2I,
+  aCenter: VECTOR2I,
+  aMinArcAngle = true,
+): VECTOR2I {
+  const startVector = { x: aStart.x - aCenter.x, y: aStart.y - aCenter.y };
+  const endVector = { x: aEnd.x - aCenter.x, y: aEnd.y - aCenter.y };
+
+  const startAngle = EDA_ANGLE.fromVector(startVector);
+  const endAngle = EDA_ANGLE.fromVector(endVector);
+
+  // Mutation-testing note: dropping `Normalize180` survives every test here.
+  // `EDA_ANGLE( VECTOR2I )` already lands in (-180, 180], so the difference is
+  // in (-360, 360) and only leaves the half-turn window when the two endpoints
+  // are more than a half turn apart about the centre — which is exactly the
+  // case whose behaviour upstream's own comment calls undefined. Kept because
+  // it is upstream's, not because a case here separates the two.
+  let midPointRotAngle = startAngle.sub(endAngle).Normalize180().divide(2);
+
+  if (!aMinArcAngle) midPointRotAngle = midPointRotAngle.add(ANGLE_180);
+
+  return RotatePoint(VECTOR2I(aStart.x, aStart.y), aCenter, midPointRotAngle);
+}

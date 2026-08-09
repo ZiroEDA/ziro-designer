@@ -36,6 +36,11 @@ export enum Directions {
  * `buildInitialTrace` (see the file comment); the whole enum is spelled out
  * because `PNS::ROUTING_SETTINGS` persists the value, and a setting that could
  * only ever hold its default would not round-trip a KiCad-written file.
+ *
+ * `buildInitialTrace` now also implements MITERED_90 — see its docblock. The
+ * rounded modes remain unbuilt, and every *predicate* the router runs on this
+ * enum (LINE_PLACER tests for a 90° mode when snapping to a hull, and for a
+ * 45° mode when enabling SMART_PADS) is exact for all four values regardless.
  */
 export enum CornerMode {
   /** H/V/45 with mitered corners (default). */
@@ -47,6 +52,10 @@ export enum CornerMode {
   /** H/V with filleted corners. */
   ROUNDED_90 = 3,
 }
+
+/** Is this one of the two 90°-corner modes? `is90mode`, `direction_45.cpp:41`. */
+export const isCornerMode90 = (aMode: CornerMode): boolean =>
+  aMode === CornerMode.ROUNDED_90 || aMode === CornerMode.MITERED_90;
 
 /** DIRECTION_45::AngleType, a bit mask, as upstream tests it with `&`. */
 export enum AngleType {
@@ -156,27 +165,58 @@ export class Direction45 {
   }
 
   /**
-   * DIRECTION_45::BuildInitialTrace (CORNER_MODE::MITERED_45), the two-segment
-   * trace from `p0` to `p1`: one axis-aligned run and one diagonal, in whichever
-   * order this direction implies (or `startDiagonal` when it is undefined). A
-   * straight, diagonal or degenerate target needs only the single segment.
+   * `DIRECTION_45::BuildInitialTrace` (`direction_45.cpp:24-101`, `:222-235`):
+   * the two-segment trace from `p0` to `p1`, one axis-aligned run and one
+   * diagonal (or, in a 90° mode, two axis-aligned runs), in whichever order this
+   * direction implies — or `startDiagonal` when it is undefined.
+   *
+   * The single-segment shortcut is *not* symmetric between the modes. Upstream
+   * guards the `h === w` case with `!is90mode` (`:46`), because a 45° mode can
+   * draw an exact diagonal in one segment while a 90° mode still needs its two
+   * axis-aligned legs to get there. Dropping that guard turns every square
+   * displacement into an illegal diagonal in 90° mode.
+   *
+   * In 90° mode the leg is chosen by `startDiagonal === (h >= w)` (`:58`), which
+   * reads oddly — there is no diagonal involved — but it is what makes the
+   * posture toggle still flip which axis is travelled first.
+   *
+   * The rounded (arc-filleted) modes are not ported; see the file docblock. They
+   * build as their mitered counterparts, which is the shape of the corner minus
+   * the fillet.
    */
-  buildInitialTrace(p0: Vec2, p1: Vec2, startDiagonal = false): Vec2[] {
+  buildInitialTrace(
+    p0: Vec2,
+    p1: Vec2,
+    startDiagonal = false,
+    cornerMode: CornerMode = CornerMode.MITERED_45,
+  ): Vec2[] {
     const diagonalFirst = this.dir === Directions.UNDEFINED ? startDiagonal : this.isDiagonal();
 
     const w = Math.abs(p1.x - p0.x);
     const h = Math.abs(p1.y - p0.y);
     const sw = sign(p1.x - p0.x);
     const sh = sign(p1.y - p0.y);
+    const is90 = isCornerMode90(cornerMode);
 
-    // One segment does it when the run is straight, diagonal, or empty.
-    if (w === 0 || h === 0 || h === w) return [p0, p1];
+    // One segment does it when the run is straight or empty — and, in a 45°
+    // mode only, when it is an exact diagonal.
+    if (w === 0 || h === 0 || (!is90 && h === w)) return [p0, p1];
+
+    if (is90) {
+      const mp0 = diagonalFirst === h >= w ? { x: w * sw, y: 0 } : { x: 0, y: sh * h };
+      return [p0, { x: p0.x + mp0.x, y: p0.y + mp0.y }, p1];
+    }
 
     const mp0 = w > h ? { x: (w - h) * sw, y: 0 } : { x: 0, y: sh * (h - w) };
     const mp1 = w > h ? { x: h * sw, y: h * sh } : { x: sw * w, y: sh * w };
     const mid = diagonalFirst ? mp1 : mp0;
 
     return [p0, { x: p0.x + mid.x, y: p0.y + mid.y }, p1];
+  }
+
+  /** `DIRECTION_45::Format`, for messages and test failures. */
+  format(): string {
+    return Directions[this.dir] ?? 'UNDEFINED';
   }
 }
 

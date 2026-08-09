@@ -65,17 +65,21 @@ export function boardObstacleHulls(board: Board, q: ObstacleQuery): Hull[] {
   const out: Hull[] = [];
 
   // `ITEM::collideSimple` (pns_item.cpp:188) skips the clearance between two
-  // items only when `differentNetsOnly && Net() == aHead->Net() && aHead->Net()`
-  // — and that third term is the whole point. Net 0 is "no net", not a net, so
-  // it never earns the same-net exemption: two unconnected pieces of copper
-  // collide with each other exactly as if they belonged to different nets.
-  // Dropping the term is the natural way to write this and is wrong in the one
-  // direction that matters, letting a route run straight through copper the
-  // router should have walked around.
-  const foreign = (net: number | undefined): boolean => {
-    const n = net ?? 0;
-    return n === 0 || n !== q.net;
-  };
+  // items only when `differentNetsOnly && Net() == aHead->Net() && aHead->Net()`.
+  //
+  // That third term does **not** mean "net code is non-zero". `NET_HANDLE` is
+  // `typedef void*` (pns_item.h:55), `Net()` returns that pointer, and the
+  // board bridge assigns `aPad->GetNet()` — a `NETINFO_ITEM*` that KiCad
+  // allocates even for net code 0, as `NETINFO_LIST::OrphanedItem()`. So the
+  // truthiness test is a **null-pointer** test, and the items it excludes are
+  // the synthetic net-less solids `SetNet( nullptr )` builds for keepout rule
+  // areas and the board outline (pns_kicad_iface.cpp:1940, :1967, :2004).
+  //
+  // Net-0 copper therefore *does* earn the same-net exemption: two unconnected
+  // traces are not obstacles to each other. This file previously read `Net()`
+  // as an integer code and concluded the opposite; the divergence surfaced when
+  // the board bridge interned a handle per net code and the two disagreed.
+  const foreign = (net: number | undefined): boolean => (net ?? 0) !== q.net;
 
   for (const t of board.tracks) {
     if (t.layer !== q.layer || !foreign(t.net)) continue;

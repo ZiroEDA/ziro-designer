@@ -791,6 +791,38 @@ export class DiffPair extends PnsLinkHolder {
     return new DiffPair(undefined, undefined, aGap);
   }
 
+  /**
+   * `DIFF_PAIR( const LINE& aLineP, const LINE& aLineN, int aGap = 0 )`
+   * (`pns_diff_pair.h:307-325`) — the constructor `TOPOLOGY::AssembleDiffPair`
+   * builds its result with.
+   *
+   * Two things it does that {@link setShape} plus {@link setNets} would not:
+   *
+   *  - the two cached `LINE`s are **copies of the arguments, links included**,
+   *    so `PLine()` answers a linked line and does *not* fall through to
+   *    {@link updateLine}. `DP_MEANDER_PLACER::Start` reads `PLine().GetLink(0)`
+   *    off exactly this, which is the whole reason the links have to survive.
+   *  - `m_gapConstraint` takes `aGap` while `m_gap` stays 0, the same split the
+   *    other constructors make — `AssembleDiffPair` then calls `SetGap` with the
+   *    measured gap, which is what finally builds the ±10000 band.
+   *
+   * The chains come from `CLine()`, so they are the lines' geometry at call
+   * time and not a live view of it.
+   */
+  static fromLines(aLineP: PnsLine, aLineN: PnsLine, aGap = 0): DiffPair {
+    const p = new DiffPair();
+
+    p.mLineP = aLineP.clone();
+    p.mLineN = aLineN.clone();
+    p.mNetP = aLineP.net();
+    p.mNetN = aLineN.net();
+    p.mP = aLineP.cLine().points();
+    p.mN = aLineN.cLine().points();
+    p.mGapConstraint = p.mGapConstraint.withValue(aGap);
+
+    return p;
+  }
+
   static classOf(aItem: PnsItem | null): boolean {
     return aItem !== null && aItem.kind() === PnsKind.DIFF_PAIR_T;
   }
@@ -798,6 +830,42 @@ export class DiffPair extends PnsLinkHolder {
   /** Upstream asserts and returns nullptr; a pair is not clonable. */
   clone(): DiffPair {
     throw new Error('PNS: DIFF_PAIR::Clone() is not supported');
+  }
+
+  /**
+   * `DIFF_PAIR( const DIFF_PAIR& )`, the *implicit* copy constructor — a
+   * different thing from {@link clone}, which is the `ITEM` virtual upstream
+   * asserts in.
+   *
+   * `DP_MEANDER_PLACER::Move` copies the origin pair by value and re-shapes the
+   * copy, so the copy has to carry the gap *constraint* the coupling search
+   * runs on. Rebuilding one with {@link setGap} would not do: that always
+   * produces a ±10000 band, and the band the copied pair needs is whichever one
+   * it was assembled with.
+   */
+  static copyOf(aOther: DiffPair): DiffPair {
+    const p = new DiffPair();
+
+    p.copyFrom(aOther);
+    p.copyLinks(aOther);
+
+    p.mP = aOther.mP.map((v) => ({ ...v }));
+    p.mN = aOther.mN.map((v) => ({ ...v }));
+    p.mLineP = aOther.mLineP.clone();
+    p.mLineN = aOther.mLineN.clone();
+    p.mViaP = aOther.mViaP;
+    p.mViaN = aOther.mViaN;
+    p.mHasVias = aOther.mHasVias;
+    p.mNetP = aOther.mNetP;
+    p.mNetN = aOther.mNetN;
+    p.mWidth = aOther.mWidth;
+    p.mGap = aOther.mGap;
+    p.mViaGap = aOther.mViaGap;
+    p.mMaxUncoupledLength = aOther.mMaxUncoupledLength;
+    p.mChamferLimit = aOther.mChamferLimit;
+    p.mGapConstraint = aOther.mGapConstraint;
+
+    return p;
   }
 
   override clearLinks(): void {

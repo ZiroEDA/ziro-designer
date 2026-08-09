@@ -221,7 +221,11 @@ export function snapToNeighbourSegments(c: Chain, p: Vec2, index: number, thresh
  * back from the end for a knee whose leading direction still agrees with the
  * segment it replaces (or, failing that, one that leaves an obtuse corner).
  */
-export function dragCornerInternal(origin: Chain, p: Vec2): Chain {
+export function dragCornerInternal(
+  origin: Chain,
+  p: Vec2,
+  preferredEndingDirection: Direction45 = Direction45.UNDEFINED,
+): Chain {
   if (origin.length === 1) return Direction45.UNDEFINED.buildInitialTrace(origin[0]!, p);
 
   if (segmentCount(origin) === 1) {
@@ -250,10 +254,34 @@ export function dragCornerInternal(origin: Chain, p: Vec2): Chain {
       dirs.push(Direction45.fromSeg(csegment(path, 0).a, csegment(path, 0).b));
     }
 
-    for (let j = 0; j < dirs.length; j++) {
-      if (dirs[j]!.equals(dStart)) {
-        picked = paths[j]!;
-        break;
+    // A caller may name the direction it wants the *last* segment of the new
+    // knee to leave in; MULTI_DRAGGER asks for the primary line's direction so
+    // a whole bundle ends up parallel. Upstream guards the whole block on the
+    // hint being defined, so an absent hint is not "match UNDEFINED".
+    //
+    // Note what the hint can and cannot do. `buildInitialTrace` reads
+    // `startDiagonal` only when *its own* direction is undefined, and `dStart`
+    // here always comes from a real segment — so the two candidates built above
+    // are the same chain, and the hint can never choose between them. What it
+    // does is let a *lower* `i` win: without it this iteration only picks when
+    // the trace leaves along `dStart` or turns obtusely off `dPrev`, and
+    // otherwise the scan walks further back and re-cuts more of the line.
+    if (preferredEndingDirection.isDefined()) {
+      for (let j = 0; j < paths.length; j++) {
+        const last = csegment(paths[j]!, -1);
+        if (Direction45.fromSeg(last.a, last.b).equals(preferredEndingDirection)) {
+          picked = paths[j]!;
+          break;
+        }
+      }
+    }
+
+    if (!picked) {
+      for (let j = 0; j < dirs.length; j++) {
+        if (dirs[j]!.equals(dStart)) {
+          picked = paths[j]!;
+          break;
+        }
       }
     }
     if (picked) break;
@@ -281,17 +309,25 @@ export function dragCornerFree(c: Chain, p: Vec2, index: number): Chain {
 }
 
 /** LINE::dragCorner45. */
-export function dragCorner45(c: Chain, p: Vec2, index: number, snapThreshold = 0): Chain {
+export function dragCorner45(
+  c: Chain,
+  p: Vec2,
+  index: number,
+  snapThreshold = 0,
+  preferredEndingDirection: Direction45 = Direction45.UNDEFINED,
+): Chain {
   const snapped = snapDraggedCorner(c, p, index, snapThreshold);
   let path: Chain;
 
   if (index === 0) {
-    path = reverse(dragCornerInternal(reverse(c), snapped));
+    path = reverse(dragCornerInternal(reverse(c), snapped, preferredEndingDirection));
   } else if (index === segmentCount(c)) {
-    path = dragCornerInternal(c, snapped);
+    path = dragCornerInternal(c, snapped, preferredEndingDirection);
   } else {
-    path = dragCornerInternal(slice(c, 0, index), snapped);
-    const rev = reverse(dragCornerInternal(reverse(slice(c, index, -1)), snapped));
+    path = dragCornerInternal(slice(c, 0, index), snapped, preferredEndingDirection);
+    const rev = reverse(
+      dragCornerInternal(reverse(slice(c, index, -1)), snapped, preferredEndingDirection),
+    );
     path = appendChain(path, rev);
   }
   return simplify(path);
@@ -304,8 +340,11 @@ export function dragCorner(
   index: number,
   freeAngle: boolean,
   snapThreshold = 0,
+  preferredEndingDirection: Direction45 = Direction45.UNDEFINED,
 ): Chain {
-  return freeAngle ? dragCornerFree(c, p, index) : dragCorner45(c, p, index, snapThreshold);
+  return freeAngle
+    ? dragCornerFree(c, p, index)
+    : dragCorner45(c, p, index, snapThreshold, preferredEndingDirection);
 }
 
 // ----- segment drag -----------------------------------------------------------

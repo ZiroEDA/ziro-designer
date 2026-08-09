@@ -176,6 +176,15 @@ export interface PcbDrawOptions {
   drawingSheet: boolean;
   trackOpacity: number;
   viaOpacity: number;
+  /**
+   * Minimum stroke width in IU, overriding the default "one device pixel at the
+   * current zoom".
+   *
+   * Only a retained backend should set this, and only to 0: the default depends
+   * on the view, so it makes recorded geometry zoom-dependent. See where it is
+   * read in `buildDrawSteps`.
+   */
+  minPenWidth?: number;
   padOpacity: number;
   /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks. Default on
    *  (pcbnew_settings.cpp ships m_NetNames = 3, pads *and* tracks). */
@@ -300,21 +309,62 @@ export interface BoardScene {
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
 }
 
+/**
+ * The browser geometry `buildScene` records into.
+ *
+ * A `Path2D` keeps its definition but will not hand the segments back, which is
+ * precisely what a GPU renderer needs from it. Recording through a factory lets
+ * a WebGL build substitute paths that retain their vertices, without
+ * `buildScene`'s logic or the `BoardScene` shape knowing that happened.
+ *
+ * The default is the real thing, so existing callers are untouched: `pcb3d.ts`,
+ * `FootprintCanvas.tsx` and `footprint_preview_widget.tsx` keep receiving
+ * concrete `Path2D` objects and keep drawing them onto a real canvas.
+ *
+ * `DOMMatrix` is here for the same reason — pad geometry is placed with one,
+ * and it is as browser-only as `Path2D` is.
+ */
+export interface ScenePathFactory {
+  path(): Path2D;
+  matrix(): DOMMatrix;
+}
+
+/** The browser's own implementations; the default for every caller. */
+export const DOM_PATH_FACTORY: ScenePathFactory = {
+  path: () => new Path2D(),
+  matrix: () => new DOMMatrix(),
+};
+
+/**
+ * The factory in force for the current `buildScene` call.
+ *
+ * Scoped rather than threaded as a parameter. Threading it would add an
+ * argument to thirteen internal helpers and their thirty-odd call sites, and
+ * bury a purely mechanical change inside the KiCad-derived drawing code it
+ * passes through — the one part of this file worth keeping readable against its
+ * C++ original. `buildScene` is synchronous, so the save/restore in the wrapper
+ * below is all the isolation this needs.
+ *
+ * Note `drawGrid` builds its own `Path2D` directly and deliberately: it paints
+ * to a real canvas at draw time and is not part of a scene.
+ */
+let pathFactory: ScenePathFactory = DOM_PATH_FACTORY;
+
 const newBuckets = (): LayerBuckets => ({
-  zones: new Path2D(),
+  zones: pathFactory.path(),
   hasZones: false,
-  zoneOutlines: new Path2D(),
+  zoneOutlines: pathFactory.path(),
   hasZoneOutlines: false,
-  clearance: new Path2D(),
+  clearance: pathFactory.path(),
   hasClearance: false,
-  trackOutlines: new Path2D(),
+  trackOutlines: pathFactory.path(),
   hasTrackOutlines: false,
   tracks: new Map(),
-  pads: new Path2D(),
+  pads: pathFactory.path(),
   hasPads: false,
-  vias: new Path2D(),
+  vias: pathFactory.path(),
   hasVias: false,
-  gfxFill: new Path2D(),
+  gfxFill: pathFactory.path(),
   hasGfxFill: false,
   gfxStrokes: new Map(),
   textRef: new Map(),
@@ -335,7 +385,7 @@ const buckets = (scene: BoardScene, layer: string): LayerBuckets => {
 const pathIn = (map: Map<number, Path2D>, width: number): Path2D => {
   let p = map.get(width);
   if (!p) {
-    p = new Path2D();
+    p = pathFactory.path();
     map.set(width, p);
   }
   return p;
@@ -411,10 +461,10 @@ function addPolylineOutline(path: Path2D, pts: Vec2[], r: number): void {
 
 /** Pad outline as a Path2D subpath in board coordinates. */
 function addPadShape(path: Path2D, pad: PcbPad): void {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
-  const sub = new Path2D();
+  const sub = pathFactory.path();
   switch (pad.shape) {
     case 'circle':
       sub.arc(0, 0, w / 2, 0, Math.PI * 2);
@@ -488,10 +538,10 @@ function addPadShape(path: Path2D, pad: PcbPad): void {
  * rounds the corners with radius clr).
  */
 function addPadClearanceShape(path: Path2D, pad: PcbPad, clr: number): void {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
   const w = pad.size.x;
   const h = pad.size.y;
-  const sub = new Path2D();
+  const sub = pathFactory.path();
   const x = -w / 2 - clr;
   const y = -h / 2 - clr;
   const rw = w + 2 * clr;
@@ -867,8 +917,22 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
       at,
       angle,
       layer: '',
-      size: { x: glyph * Xscale, y: glyph },
-      thickness: (glyph * Xscale) / 6,
+      // KiCad draws these labels with `BitmapText`, which on the OpenGL GAL is a
+      // texture atlas: it takes the colour and the glyph size and **ignores**
+      // `SetLineWidth` and `SetFontBold` entirely, so the weight on screen is
+      // whatever the atlas bitmap has. We have no atlas and draw them with the
+      // stroke font, which does honour the pen — and a pen of a sixth of the
+      // glyph height, in bold, is heavy enough to swamp the copper underneath.
+      // A ground pad came out reading as a white blob with the red barely
+      // showing through, and neighbouring labels ran into each other.
+      //
+      // The two factors are KiCad's own rather than a guess: `GAL::BitmapText`
+      // stroke-renders this same call wherever the OpenGL path cannot, and
+      // compensates for exactly this difference — "Bitmap font has different
+      // metrics than the stroke font so we compensate a bit before stroking",
+      // height x 0.95 and pen x 0.74 (graphics_abstraction_layer.cpp).
+      size: { x: glyph * Xscale, y: glyph * 0.95 },
+      thickness: ((glyph * Xscale) / 6) * 0.74,
       bold: true,
     } as PcbTextItem);
   };
@@ -978,17 +1042,43 @@ function zoneHatchSegments(
   return out;
 }
 
-/** Compile the board into retained per-layer, per-object paths. */
-export function buildScene(board: Board, filter: SceneFilter = {}): BoardScene {
+/**
+ * Compile the board into retained per-layer, per-object paths.
+ *
+ * `factory` decides what those paths *are*. It defaults to the browser's
+ * `Path2D`/`DOMMatrix`, so every existing caller behaves exactly as before; a
+ * GPU renderer passes one whose paths keep their vertices. See
+ * {@link ScenePathFactory}.
+ */
+export function buildScene(
+  board: Board,
+  filter: SceneFilter = {},
+  factory: ScenePathFactory = DOM_PATH_FACTORY,
+): BoardScene {
+  const prev = pathFactory;
+  pathFactory = factory;
+  try {
+    return compileScene(board, filter);
+  } finally {
+    // Belt and braces rather than load-bearing: every entry above reassigns
+    // `pathFactory`, so a build that throws cannot actually strand the wrong
+    // backend on the next caller. Restoring anyway keeps that an invariant of
+    // this function instead of a coincidence of its callers, which is what a
+    // future nested or early-returning build would need.
+    pathFactory = prev;
+  }
+}
+
+function compileScene(board: Board, filter: SceneFilter): BoardScene {
   const scene: BoardScene = {
     layers: new Map(),
-    viaHoles: new Path2D(),
-    viaHoleWalls: new Path2D(),
-    padHolesPlated: new Path2D(),
-    padHoleWalls: new Path2D(),
-    padHolesNP: new Path2D(),
+    viaHoles: pathFactory.path(),
+    viaHoleWalls: pathFactory.path(),
+    padHolesPlated: pathFactory.path(),
+    padHoleWalls: pathFactory.path(),
+    padHolesNP: pathFactory.path(),
     padText: new Map(),
-    holesSmall: new Path2D(),
+    holesSmall: pathFactory.path(),
     netLabels: [],
     images: [],
     bbox: null,
@@ -1199,8 +1289,8 @@ const addHole = (
   pad: PcbPad,
   drill: { oblong: boolean; w: number; h: number; offset?: Vec2 },
 ): void => {
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
-  const sub = new Path2D();
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
   const ox = drill.offset?.x ?? 0;
   const oy = drill.offset?.y ?? 0;
   if (drill.oblong) {
@@ -1217,8 +1307,8 @@ const addSmallHole = (scene: BoardScene, pad: PcbPad): void => {
   if (!pad.drill) return;
   const r = Math.min(Math.min(pad.drill.w, pad.drill.h) / 2, 0.175 * MM);
   const off = pad.drill.offset;
-  const m = new DOMMatrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
-  const sub = new Path2D();
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
   sub.arc(off?.x ?? 0, off?.y ?? 0, r, 0, Math.PI * 2);
   scene.holesSmall.addPath(sub, m);
 };
@@ -1559,7 +1649,16 @@ export function buildDrawSteps(
     if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet, special.drawingSheet);
   });
 
-  const minPen = view.scale > 0 ? 1 / view.scale : 0; // 1 device px in IU
+  // KiCad's minimum pen: never stroke thinner than one device pixel, expressed
+  // in IU so it can go straight into `lineWidth`.
+  //
+  // A backend that retains geometry must opt out of it with `minPenWidth: 0`.
+  // The floor depends on the view, so baking it into a width makes the geometry
+  // depend on the zoom, and a retained buffer would then have to be rebuilt on
+  // every zoom step — which is the entire cost the WebGL backend exists to
+  // remove. Such a backend applies the same floor per frame instead, in the
+  // shader, exactly as KiCad's `u_minLinePixelWidth` does.
+  const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
 
   // High-contrast alpha for a whole layer (pcb_painter.cpp getColor): inactive
   // layers fade by m_hiContrastFactor (0.2) in dim mode and disappear in hide

@@ -274,10 +274,15 @@ import {
   drawDrcMarkers,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
+  DOM_PATH_FACTORY,
   type BoardScene,
   type PcbDrawOptions,
   type DrcMarkerDraw,
+  type ScenePathFactory,
+  type SceneFilter,
 } from './renderBoard.js';
+import { PcbGl } from '../../render/gl/pcb_gl.js';
+import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
 import type { Viewer3D } from './pcb3d.js';
 import {
   layerColor,
@@ -296,6 +301,70 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
+
+/**
+ * The WebGL board renderer, on by default; `?renderer=canvas` opts out.
+ *
+ * The schematic's flag was left opt-in past the point of decision and the
+ * result was that improvements got reported against a renderer that was not
+ * running (`SchematicCanvas.tsx`). So this one is on from the start, and the
+ * opt-out is kept for the two reasons that flag is still worth having: a
+ * renderer swap should be reversible without a deploy, and a browser with no
+ * WebGL2 has to keep working anyway — `PcbGl.create` returns null and every
+ * frame falls back to the raster path below.
+ */
+const GL_RENDERER =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('renderer') !== 'canvas';
+
+/**
+ * `?perf=1` publishes what each frame cost and which path drew it, on
+ * `window.__pcbPerf`.
+ *
+ * #481's own rule is that renderer numbers measured from Node mean nothing:
+ * everything in the port so far was provable off-screen, and this last step is
+ * not. A blank canvas and a correct board are indistinguishable to every test
+ * that can be written for it, so the only honest measurement is one taken in a
+ * browser against the 1,544 ms baseline in the issue.
+ */
+const PERF = typeof location !== 'undefined' && new URLSearchParams(location.search).has('perf');
+
+interface PcbPerfCounters {
+  /** Frames drawn by each path. */
+  gl: number;
+  raster: number;
+  /** GL re-records: the expensive half, and the one that should stay rare. */
+  records: number;
+  lastRecordMs: number;
+  totalMs: number;
+  maxMs: number;
+  /** The last 40 frame times, in ms. */
+  last: number[];
+}
+
+const pcbPerf: PcbPerfCounters = {
+  gl: 0,
+  raster: 0,
+  records: 0,
+  lastRecordMs: 0,
+  totalMs: 0,
+  maxMs: 0,
+  last: [],
+};
+if (PERF && typeof window !== 'undefined') {
+  (window as unknown as { __pcbPerf: PcbPerfCounters }).__pcbPerf = pcbPerf;
+}
+
+/** Record one frame: which path drew it, and how long it took. */
+function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
+  if (!PERF) return;
+  const ms = performance.now() - t0;
+  pcbPerf[path]++;
+  pcbPerf.totalMs += ms;
+  if (ms > pcbPerf.maxMs) pcbPerf.maxMs = ms;
+  pcbPerf.last.push(Math.round(ms * 10) / 10);
+  if (pcbPerf.last.length > 40) pcbPerf.last.shift();
+}
 
 // pcb_painter.cpp getColor: a selected item is drawn in its layer colour
 // Brightened(0.8) (per channel c·0.2 + 0.8), i.e. pushed 80% toward white.
@@ -1259,6 +1328,61 @@ export function PcbEditor({
     placeImageRef.current = startPlaceImage();
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
+  /**
+   * The WebGL layer, and whether it is the one drawing.
+   *
+   * `glOkRef` is what the *scene compiler* keys off, not `glRef.current`: a
+   * scene built through `GL_PATH_FACTORY` holds paths a 2D canvas cannot draw,
+   * and one built through `Path2D` holds paths the recorder reads as empty. So
+   * the two have to be decided together, and a context loss has to rebuild the
+   * scene rather than just switch the draw path — otherwise the fallback shows
+   * an empty board with no error, which is the failure mode this whole layer is
+   * most able to hide.
+   */
+  const glCanvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<PcbGl | null>(null);
+  const glOkRef = useRef(false);
+  /**
+   * Everything drawn *above* the board: selection, ratsnest, previews, markers,
+   * the crosshair.
+   *
+   * The board's own canvas keeps the background, the grid and the drawing
+   * sheet, which sit *below* it. Splitting the two is what lets a retained
+   * layer go between them at all, and the cut is exactly where the raster blit
+   * used to be, so nothing changes order. Mounted only with the GL renderer;
+   * without it `draw` gets the one context back and paints as it always did.
+   */
+  const overCanvasRef = useRef<HTMLCanvasElement>(null);
+  /**
+   * This board carries a reference image, so it stays on the 2D canvas.
+   *
+   * `GlRecorder.drawImage` is a no-op — the recorder has no way to put a bitmap
+   * in a vertex buffer — so a board with a picture on it would simply lose the
+   * picture. One-way on purpose: deleting the last image does not hand the
+   * board back to the GPU until the editor is reopened, which is worth it to
+   * keep every scene rebuild a single compile rather than a speculative one
+   * followed by a corrective one.
+   */
+  const glBlockedRef = useRef(false);
+  const sceneFactory = (): ScenePathFactory =>
+    glOkRef.current && !glBlockedRef.current ? GL_PATH_FACTORY : DOM_PATH_FACTORY;
+  /**
+   * Compile the board for whichever backend is drawing it.
+   *
+   * Only the *main* scene goes through this. The selection, move, highlight and
+   * net-colour scenes stay `Path2D`: they are painted onto the 2D overlay, they
+   * are small subsets, and the move overlay needs a translated view that the
+   * retained buffer has no way to express.
+   */
+  const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
+    const scene = buildScene(b, filter, sceneFactory());
+    if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
+    // Handing this scene to the raster path instead would be the worst of the
+    // three outcomes: GL paths draw as nothing on a 2D canvas, so the board
+    // would come up empty with no error at all. Recompile it for real.
+    glBlockedRef.current = true;
+    return buildScene(b, filter, DOM_PATH_FACTORY);
+  };
   const rafRef = useRef(0);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
@@ -1334,7 +1458,7 @@ export function PcbEditor({
         const b = { ...readBoard(parse(text)), fileName };
         if (cancelled) return;
         boardRef.current = b;
-        sceneRef.current = buildScene(b);
+        sceneRef.current = buildBoardScene(b);
         setBoard(b);
         setVisible(new Set(b.layers.map((l) => l.name)));
       } catch (e) {
@@ -1399,7 +1523,7 @@ export function PcbEditor({
         try {
           const b = { ...readBoard(parse(patched)), fileName };
           boardRef.current = b;
-          sceneRef.current = buildScene(b);
+          sceneRef.current = buildBoardScene(b);
           setBoard(b);
           // Newly enabled layers become visible; existing choices stay.
           setVisible((prev) => {
@@ -1447,7 +1571,7 @@ export function PcbEditor({
   // "Footprints Front/Back" hide whole footprints: rebuild the scene.
   useEffect(() => {
     if (!boardRef.current) return;
-    sceneRef.current = buildScene(boardRef.current, {
+    sceneRef.current = buildBoardScene(boardRef.current, {
       hideFrontFootprints: !objects.footprintsFront,
       hideBackFootprints: !objects.footprintsBack,
     });
@@ -1557,25 +1681,53 @@ export function PcbEditor({
   }, [visible, drawOpts]);
 
   const draw = useCallback(() => {
+    const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
-    if (!canvas || !sceneRef.current) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const scene = sceneRef.current;
+    if (!canvas || !scene) return;
+    // The background, the grid and the drawing sheet: everything the board is
+    // drawn *over*. With the GL renderer the board itself lands on a layer
+    // between this and `ctx`; without one the raster blits here, exactly where
+    // it always did.
+    const bctx = canvas.getContext('2d');
+    if (!bctx) return;
+    // Everything above the board. Its own canvas when the GL layer is mounted,
+    // and the same context as `bctx` when it is not — which is what keeps the
+    // Canvas2D path a single-canvas paint in the order it has always used.
+    const over = overCanvasRef.current;
+    const ctx = over?.getContext('2d') ?? bctx;
     const v = viewRef.current;
     // Signed X scale for the flipped (mirrored) view; world→screen X uses this.
     const sx = v.flipX ? -v.scale : v.scale;
-    if (!viewMatchesCache() || sceneDirtyRef.current) {
+    /** Whether the GPU draws the board this frame. */
+    const gl = glRef.current;
+    const useGl =
+      gl !== null &&
+      !gl.isLost &&
+      glOkRef.current &&
+      !glBlockedRef.current &&
+      // Belt and braces with `glBlockedRef`, and the invariant that actually
+      // matters: a scene holding images was compiled through `Path2D` and has
+      // no vertices for the recorder to find.
+      scene.images.length === 0;
+    // The retained buffer is keyed on the content, not on the view, so a pan or
+    // a zoom is a uniform update and there is nothing to chase.
+    if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
       viewChangedRef.current = true;
       startCrispRender();
     }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = 'rgb(0,16,35)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.fillStyle = 'rgb(0,16,35)';
+    bctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (ctx !== bctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on
     // top with a transparent background so the grid shows through empty areas.
     if (objects.grid && toggles.has('toggleGrid')) {
-      drawGrid(ctx, v, canvas.width, canvas.height, dpr, {
+      drawGrid(bctx, v, canvas.width, canvas.height, dpr, {
         ...DEFAULT_GRID_OPTIONS,
         size: gridIURef.current,
       });
@@ -1587,14 +1739,14 @@ export function PcbEditor({
     if (drawOpts.drawingSheet && boardRef.current) {
       const sheetColor = drawOpts.theme?.special.drawingSheet ?? PCB_SPECIAL.drawingSheet;
       const sheetTx = v.flipX ? canvas.width - v.tx : v.tx;
-      ctx.setTransform(v.scale, 0, 0, v.scale, sheetTx, v.ty);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      bctx.setTransform(v.scale, 0, 0, v.scale, sheetTx, v.ty);
+      bctx.lineCap = 'round';
+      bctx.lineJoin = 'round';
       // The sheet keeps its colour under a net highlight: DS_PROXY_VIEW_ITEM
       // reads GetLayerColor(LAYER_DRAWINGSHEET), the raw layer colour, not the
       // item-aware GetColor that does the brighten/darken.
       drawDrawingSheet(
-        ctx,
+        bctx,
         {
           paper: boardRef.current.paper,
           titleBlock: boardRef.current.titleBlock,
@@ -1602,19 +1754,50 @@ export function PcbEditor({
         },
         sheetColor,
       );
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
-    const c = cacheRef.current;
-    if (c) {
-      const k = v.scale / c.view.scale;
-      ctx.setTransform(k, 0, 0, k, v.tx - c.view.tx * k, v.ty - c.view.ty * k);
-      // While the crisp cache catches up: keep upscale (zoom-in) sharp with
-      // nearest-neighbour, but let downscale (zoom-out) stay smooth to avoid
-      // aliasing shimmer on thin traces.
-      ctx.imageSmoothingEnabled = k < 1;
-      ctx.drawImage(c.canvas, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // The board itself: one uniform and three draw calls on the GPU, or the
+    // raster blit it replaces.
+    //
+    // Every field of the content key is compared by *reference*, so each one has
+    // to be identity-stable across frames or the whole board re-records on every
+    // pointer move and shows up only as "it is still slow". `scene` is replaced
+    // on an edit and not otherwise; `visible` is state; `drawOpts` is memoised;
+    // the emphasis is a string. Do not inline an object or a `new Set` here.
+    if (useGl) {
+      gl.render(
+        {
+          scene,
+          visible,
+          opts: drawOpts,
+          // A net highlight darkens everything that is not on it
+          // (pcb_painter.cpp GetColor: Darkened(1 - m_highlightFactor)); the
+          // highlighted copper is repainted brightened on the overlay below.
+          emphasis: dimmedRef.current ? 'dimmed' : 'none',
+        },
+        v,
+      );
+      if (PERF) {
+        pcbPerf.records = gl.recordCount;
+        pcbPerf.lastRecordMs = gl.lastRecordMs;
+      }
+    } else {
+      // The GL layer sits *above* the background and below everything else, so
+      // a buffer left on it from an earlier frame keeps showing through: a
+      // stale second copy of the board under the live one.
+      gl?.clear();
+      const c = cacheRef.current;
+      if (c) {
+        const k = v.scale / c.view.scale;
+        bctx.setTransform(k, 0, 0, k, v.tx - c.view.tx * k, v.ty - c.view.ty * k);
+        // While the crisp cache catches up: keep upscale (zoom-in) sharp with
+        // nearest-neighbour, but let downscale (zoom-out) stay smooth to avoid
+        // aliasing shimmer on thin traces.
+        bctx.imageSmoothingEnabled = k < 1;
+        bctx.drawImage(c.canvas, 0, 0);
+        bctx.imageSmoothingEnabled = true;
+        bctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
     }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.
@@ -2115,6 +2298,7 @@ export function PcbEditor({
       }
       ctx.stroke();
     }
+    notePcbPaint(useGl ? 'gl' : 'raster', __t0);
     setScale(v.scale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startCrispRender]);
@@ -2181,7 +2365,7 @@ export function PcbEditor({
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
     (b: Board) => {
-      sceneRef.current = buildScene(b, {
+      sceneRef.current = buildBoardScene(b, {
         hideFrontFootprints: !objects.footprintsFront,
         hideBackFootprints: !objects.footprintsBack,
       });
@@ -2191,6 +2375,49 @@ export function PcbEditor({
     },
     [objects.footprintsFront, objects.footprintsBack, requestDraw, rebuildSelScene],
   );
+
+  const rebuildSceneRef = useRef(rebuildScene);
+  rebuildSceneRef.current = rebuildScene;
+
+  /**
+   * Bring the GL device up once its layer is mounted.
+   *
+   * A null device means this browser or this moment cannot give us WebGL2, and
+   * every frame then takes the raster path exactly as before: an editor that
+   * renders is worth more than one that renders quickly.
+   *
+   * `glOkRef` is set *before* anything compiles a scene — the board is parsed
+   * on a 30 ms timer and mount effects run well ahead of that — so the first
+   * scene is already built through the right factory.
+   */
+  useEffect(() => {
+    if (!GL_RENDERER) return;
+    const canvas = glCanvasRef.current;
+    if (!canvas || glRef.current) return;
+    glRef.current = PcbGl.create(canvas);
+    glOkRef.current = glRef.current !== null;
+    if (!glOkRef.current) console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
+    // A lost context is not something we can prevent, only something we can
+    // survive. Dropping the device is not enough: the scene on hand is full of
+    // GL paths that a 2D canvas draws as nothing, so it has to be recompiled
+    // through Path2D before the fallback can paint anything at all.
+    const onLost = (e: Event): void => {
+      e.preventDefault();
+      glRef.current?.dispose();
+      glRef.current = null;
+      glOkRef.current = false;
+      const brd = boardRef.current;
+      if (brd) rebuildSceneRef.current(brd);
+      requestDrawRef.current();
+    };
+    canvas.addEventListener('webglcontextlost', onLost);
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      glRef.current?.dispose();
+      glRef.current = null;
+      glOkRef.current = false;
+    };
+  }, []);
 
   const setBoardModel = useCallback(
     (b: Board) => {
@@ -3056,10 +3283,17 @@ export function PcbEditor({
       // left-toolbar toggle flickers the whole view.
       const changed = canvas.width !== w || canvas.height !== h;
       if (changed) {
-        canvas.width = w;
-        canvas.height = h;
-        canvas.style.width = `${r.width}px`;
-        canvas.style.height = `${r.height}px`;
+        // The GL and overlay layers are sized with the board canvas. The GL
+        // one's drawing buffer *is* the viewport its shaders project into, so a
+        // stale size shows up as a board drawn at the wrong scale rather than as
+        // nothing at all.
+        for (const c of [canvas, glCanvasRef.current, overCanvasRef.current]) {
+          if (!c) continue;
+          c.width = w;
+          c.height = h;
+          c.style.width = `${r.width}px`;
+          c.style.height = `${r.height}px`;
+        }
       }
       if (!fittedRef.current && sceneRef.current) {
         fittedRef.current = true;
@@ -3977,7 +4211,7 @@ export function PcbEditor({
       for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
     }
     dragAffectedRef.current = affected;
-    sceneRef.current = buildScene(deleteBoardItems(brd, affected), sceneFilter());
+    sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
     moveSceneRef.current = dragModeRef.current
       ? null
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
@@ -4018,7 +4252,7 @@ export function PcbEditor({
     const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
     movingSelRef.current = affected;
     dragAffectedRef.current = affected;
-    sceneRef.current = buildScene(deleteBoardItems(brd, affected), sceneFilter());
+    sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
     moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
     moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
@@ -4559,6 +4793,28 @@ export function PcbEditor({
         const handle = editHandleAt(w);
         if (handle) {
           editHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          // Reshaping touches one item, so split the board the same way a move
+          // drag does: the rest of it is recorded once here and stays in the
+          // cached raster, and the item being reshaped rides the live overlay.
+          // Rebuilding the whole scene per pointermove instead costs a full
+          // buildScene *and* a full re-raster on every mouse event.
+          const id = editHandleItemRef.current;
+          if (brd && id) {
+            const only = new Set([id]);
+            // The base goes through `buildBoardScene` so it is compiled for
+            // whichever backend draws it; the overlay stays `buildScene`,
+            // because it is painted onto the 2D layer and needs real `Path2D`.
+            // Getting this pair the wrong way round is silent: a GL scene drawn
+            // by the raster path, or a `Path2D` scene handed to the recorder,
+            // both come out as an empty board with no error at all. Neither of
+            // the two changes that met here shows it on its own.
+            sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
+            moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
+            // The overlay is drawn at absolute coords: a reshape moves points,
+            // not the item, so it carries no drag delta.
+            moveDeltaRef.current = { x: 0, y: 0 };
+            sceneDirtyRef.current = true;
+          }
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
           return;
         }
@@ -4614,8 +4870,13 @@ export function PcbEditor({
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
-        sceneRef.current = buildScene(next, sceneFilter());
-        sceneDirtyRef.current = true;
+        // Only the reshaped item is re-recorded; the base scene was captured
+        // without it at drag start and is not dirtied, so the raster survives.
+        // Under the GL renderer that is also what keeps the content key
+        // unchanged, so a handle drag stays a uniform update instead of a full
+        // re-record per mouse event. `buildScene`, not `buildBoardScene`: the
+        // move overlay is painted onto the 2D layer and needs real `Path2D`.
+        moveSceneRef.current = buildScene(subsetBoardItems(next, new Set([id])), sceneFilter());
         requestDraw();
       }
       return;
@@ -4681,6 +4942,9 @@ export function PcbEditor({
       const preview = pointEditPreviewRef.current;
       editHandleDragRef.current = null;
       pointEditPreviewRef.current = null;
+      // Drop the reshape overlay: both paths below rebuild a full base scene
+      // that contains the item again, so leaving it up would double-draw it.
+      moveSceneRef.current = null;
       if (preview) commitBoard(preview);
       else if (boardRef.current) rebuildScene(boardRef.current);
       requestDraw();
@@ -6526,6 +6790,29 @@ export function PcbEditor({
             onDoubleClick={onCanvasDoubleClick}
             onContextMenu={onCanvasContextMenu}
           />
+          {/* The board, on the GPU (#481). Transparent, so the background, the
+              grid and the drawing sheet painted on the canvas below show
+              through — the grid's spacing adapts to the zoom, which is the one
+              thing that genuinely cannot live in a retained buffer. Takes no
+              events, like the overlay above it, so pointer captures still land
+              on the canvas underneath. */}
+          {GL_RENDERER && (
+            <canvas
+              ref={glCanvasRef}
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+            />
+          )}
+          {/* Everything above the board: selection, ratsnest, umbilicals, the
+              in-flight previews, DRC markers and the crosshair. Split out only
+              because the GL layer has to go between it and the background;
+              without the GL renderer `draw` paints all of it onto the one
+              canvas as before. */}
+          {GL_RENDERER && (
+            <canvas
+              ref={overCanvasRef}
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+            />
+          )}
           {ctxMenu && (
             <ContextMenu
               x={ctxMenu.x}

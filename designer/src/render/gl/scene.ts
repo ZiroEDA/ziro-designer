@@ -169,17 +169,80 @@ export interface Rgba {
   a: number;
 }
 
+/** Which of the three programs draws a run. */
+export type RunKind = 'tri' | 'seg' | 'disc';
+
+/**
+ * A maximal stretch of consecutive primitives of one kind.
+ *
+ * `start` and `count` are in that kind's own units: vertices for `tri`,
+ * instances for `seg` and `disc`.
+ */
+export interface Run {
+  kind: RunKind;
+  start: number;
+  count: number;
+}
+
 /**
  * One frame's geometry.
  *
  * Everything is in **world** (internal) units. Nothing here knows the zoom,
  * which is the property that lets the same buffers serve every view of the
  * document.
+ *
+ * ### Painter's order across the three kinds
+ *
+ * The three buffers each keep the order they were recorded in, but between
+ * them the order is lost, and drawing all fills, then all strokes, then all
+ * discs is not the same picture. On a schematic it is: there is one layer, and
+ * a fill is nearly always under its own outline anyway. On a **board** it is
+ * badly wrong — `buildDrawSteps` walks the layers in `PCB_PAINT_ORDER`, so an
+ * inner-layer track is painted before, and therefore under, the front copper
+ * pour. Drawing every stroke after every fill lifts every inner-layer track out
+ * from under every pour, and a four-layer board comes out looking like a net of
+ * wires laid over the top of it.
+ *
+ * So an ordered scene also records **runs**: the boundaries where the kind
+ * changes. The device then issues one draw per run in record order instead of
+ * three draws in kind order, which reproduces the painter's sequence exactly.
+ *
+ * It is opt-in because the cost is a draw call per run, and the two callers sit
+ * at opposite ends. The board alternates per layer and per bucket, so its runs
+ * are bounded by layers x buckets — a few hundred, and crucially **independent
+ * of how much is on the board**, which is the property the retained buffer
+ * exists to protect. The schematic alternates per *item*, so ordering it would
+ * cost thousands of draw calls a frame to fix a difference nobody can see.
  */
 export class Scene {
   readonly segments = new F32Buffer(4096);
   readonly discs = new F32Buffer(256);
   readonly triangles = new F32Buffer(1024);
+  /** Empty on an unordered scene; the device then falls back to three draws. */
+  readonly runs: Run[] = [];
+
+  constructor(private readonly ordered = false) {}
+
+  /**
+   * Extend the open run, or start a new one when the kind changes.
+   *
+   * `count` is in the kind's own units, so a triangle adds three.
+   */
+  private note(kind: RunKind, count: number): void {
+    if (!this.ordered) return;
+    const last = this.runs[this.runs.length - 1];
+    if (last && last.kind === kind) {
+      last.count += count;
+      return;
+    }
+    const start =
+      kind === 'tri'
+        ? this.triangleVertexCount - count
+        : kind === 'seg'
+          ? this.segmentCount - count
+          : this.discCount - count;
+    this.runs.push({ kind, start, count });
+  }
 
   /**
    * A round-capped segment of world half-width `halfWidth`, never drawn
@@ -199,11 +262,13 @@ export class Scene {
     c: Rgba,
   ): void {
     this.segments.push10(x0, y0, x1, y1, halfWidth, minPx, c.r, c.g, c.b, c.a);
+    this.note('seg', 1);
   }
 
   /** A filled circle that stays round at every zoom. */
   disc(cx: number, cy: number, radius: number, minPx: number, c: Rgba): void {
     this.discs.push8(cx, cy, radius, minPx, c.r, c.g, c.b, c.a);
+    this.note('disc', 1);
   }
 
   /** One filled triangle. Callers triangulate; see `tessellate.ts`. */
@@ -211,6 +276,7 @@ export class Scene {
     this.triangles.push6(ax, ay, c.r, c.g, c.b, c.a);
     this.triangles.push6(bx, by, c.r, c.g, c.b, c.a);
     this.triangles.push6(cx, cy, c.r, c.g, c.b, c.a);
+    this.note('tri', 3);
   }
 
   get segmentCount(): number {
@@ -232,6 +298,7 @@ export class Scene {
     this.segments.clear();
     this.discs.clear();
     this.triangles.clear();
+    this.runs.length = 0;
   }
 }
 

@@ -1101,11 +1101,13 @@ export {
   arcCentralAngle,
   arcConvertToPolyline,
   arcIsCCW,
+  arcIsClockwise,
   arcLength,
   arcMirror,
   arcRadius,
   arcStartAngle,
   constructArcFromStartEndAngle,
+  constructArcFromStartEndCenter,
   shapeArcCenter,
   perpendicular,
   resizeD,
@@ -1365,3 +1367,238 @@ export {
   smartPadsSingle,
   SMART_PADS_FORBIDDEN_ANGLES,
 } from './router/pns_smart_pads.js';
+// The length-tuning placers: `PNS::MEANDER_PLACER_BASE` and its three
+// subclasses. `pns_meander.js` above is the geometry these drive.
+//
+// `MeanderPlacerHost` is the seam where `PNS::ROUTER`, `ROUTER_IFACE` and
+// `TOPOLOGY`'s two assemblers would be, none of which exist in this tree yet;
+// a caller supplies them. `chainSplitAt` / `chainSplitRange` are
+// `SHAPE_LINE_CHAIN::Split`, which `PnsLineChain` does not carry.
+export {
+  LENGTH_TARGET_TOLERANCE,
+  PnsMeanderPlacerBase,
+  PnsTuningStatus,
+  chainSplitAt,
+  chainSplitRange,
+  findAmplitudeBinarySearch,
+  findAmplitudeForLength,
+  getSnappedStartPoint,
+  segDistanceToPoint,
+  segNearestPoint,
+  segSide,
+  tuneLineLength,
+  type ChainSplit,
+  type MeanderClearanceResolver,
+  type MeanderPlacerHost,
+  type MeanderRouterIface,
+  type TuningPathResult,
+} from './router/pns_meander_placer_base.js';
+export { PnsMeanderPlacer } from './router/pns_meander_placer.js';
+export { PnsDpMeanderPlacer } from './router/pns_dp_meander_placer.js';
+export { PnsMeanderSkewPlacer } from './router/pns_meander_skew_placer.js';
+// `PNS::DIFF_PAIR_PLACER`, the interactive differential-pair routing session.
+//
+// `DpPlacerHost`, `DpPlacerSizes` and `DEFAULT_DP_PLACER_SIZES` are exported
+// from the module but deliberately **not** re-exported here. They stand in for
+// `PNS::ROUTER`, `PNS::PLACEMENT_ALGO` and `PNS::SIZES_SETTINGS`, none of which
+// is ported; `PNS::LINE_PLACER` needs the same three and will declare its own
+// until someone ports them properly, and two modules exporting rival names
+// through this file is exactly the conflict that costs a merge. Import them
+// from `router/pns_diff_pair_placer.js` directly.
+export {
+  DP_ERR_NO_COMPLEMENTARY_NET,
+  DP_ERR_NO_STARTING_POINT,
+  DpPlacerState,
+  PnsDiffPairPlacer,
+  diffPairViaGap,
+  dpErrNoCoupledStartingPoint,
+  effectiveDiffPairViaGap,
+  findDpPrimitivePair,
+  getDanglingAnchor,
+  pushoutForce,
+  type DpPrimitivePairSearch,
+} from './router/pns_diff_pair_placer.js';
+// ---------------------------------------------------------------------------
+// PNS draggers: `pcbnew/router/pns_dragger.{h,cpp}`,
+// `pns_component_dragger.{h,cpp}` and `pns_multi_dragger.{h,cpp}`, plus the
+// `DRAG_ALGO` base they share and the two small collaborators they needed
+// (`LINE::DragCorner`/`DragSegment` as free functions, `MOUSE_TRAIL_TRACER`).
+//
+// `segDistance`, `segIntersectLines` and `segLineProject` are deliberately NOT
+// re-exported from `pns_multi_dragger.js`: the first two are already exported
+// above from `pns_diff_pair.js`, and re-exporting rivals under the same names
+// would break the barrel. Import them from their own module when the multi
+// dragger's integer conventions are what you want.
+export {
+  PNS_IU_PER_MM,
+  PNS_MAX_TANGENT_ANGLE_DEVIATION_DEG,
+  PNS_MAX_TRACK_LENGTH_TO_KEEP_MM,
+  PNS_UNDEFINED_LAYER,
+  PnsDragAlgo,
+  PnsDragMode,
+  makePnsRouterHost,
+  toShoveSettings,
+  type PnsRouterHost,
+} from './router/pns_drag_algo.js';
+export { PnsMouseTrailTracer } from './router/pns_mouse_trail_tracer.js';
+export {
+  chainSplit,
+  lineDragArc,
+  lineDragCorner,
+  lineDragSegment,
+  type LineDragArcFn,
+} from './router/pns_line_drag.js';
+export {
+  PnsDragger,
+  collectObstacleHulls,
+  viaPushoutForce,
+  viaPushoutForceAgainstItem,
+} from './router/pns_dragger.js';
+export { PnsComponentDragger } from './router/pns_component_dragger.js';
+export {
+  PnsMultiDragger,
+  chainPointAlong,
+  clipToOtherLine,
+  directionOpposite,
+  segLineDistance,
+} from './router/pns_multi_dragger.js';
+
+// `PNS::TOPOLOGY`, completed: cluster assembly, differential-pair recovery,
+// ratlines and tuning paths. `PnsTopology` itself is already exported above,
+// with the trivial-path walk; these are the names the rest of the file grew.
+//
+// `PnsCluster` here is `TOPOLOGY::CLUSTER`. `pns_shove.ts` exports a private
+// structural twin of the same struct under the same name from its own module;
+// that one is deliberately not re-exported through this file, so there is no
+// conflict to resolve.
+export {
+  DP_PARALLELITY_THRESHOLD,
+  type PnsBoardPadHandle,
+  type PnsBoardViaHandle,
+  type PnsCluster,
+  type PnsNearestUnconnected,
+  type PnsTuningHost,
+  type PnsUnconnectedAnchor,
+} from './router/pns_topology.js';
+// `OPTIMIZER::Optimize( DIFF_PAIR* )` and the passes underneath it.
+//
+// `linesCollide` used to be exported alongside them, as the local stand-in for
+// the `LINE::Collide( LINE* )` that ZiroEDA issue #484 made unreachable. That
+// issue is fixed — `PnsItem.shapes()` hands the collision path a LINE's chain —
+// so the stand-in is gone and its callers use `PnsItem.collide` directly.
+export {
+  checkDpColliding,
+  coupledBypass,
+  findCoupledVertices,
+  mergeDpSegments,
+  mergeDpStep,
+  optimizeDiffPair,
+  verifyDpBypass,
+} from './router/pns_optimizer_diff_pair.js';
+
+// ----- PNS::ROUTER and PNS::TOOL_BASE -------------------------------------------
+//
+// The driver that ties the router together: a four-state machine (IDLE,
+// ROUTE_TRACK, DRAG_SEGMENT, DRAG_COMPONENT), the mode dispatch that picks a
+// placer, and the commit path that turns a placer's answers into board edits.
+//
+// `PnsRouterIface` is `PNS::ROUTER_IFACE`, **declared but not implemented** —
+// upstream's only implementation is `PNS_KICAD_IFACE`, 3293 lines of
+// wxWidgets/BOARD bridge this repo replaces with its own. Implementing it
+// against Ziro's `Board` is a separate PR, and this type is its contract.
+//
+// `PnsPlacementAlgo` is `PNS::PLACEMENT_ALGO`, which nothing else in this tree
+// declares. The four ported placers all satisfy it structurally, asserted at
+// compile time in `qa/unittests/pcbnew/pns_router.test.ts`.
+//
+// `PnsDragMode` and `PnsDragAlgo` are NOT exported from here — they are
+// `pns_drag_algo.js`'s, re-exported above, and `ROUTER` uses those directly.
+// This port added `setDebugDecorator`/`dbg` to that abstract class:
+// `ALGO_BASE` carries them upstream (`pns_algo_base.h`) and
+// `ROUTER::StartDragging` calls the setter on whichever dragger it just built
+// (`pns_router.cpp:196`).
+//
+// `PnsRouterSizes` extends `pns_diff_pair_placer.js`'s `DpPlacerSizes` rather
+// than creating a rival `pns_sizes_settings` module; see that file's note on
+// why a second module inventing the name costs a merge.
+export {
+  DEFAULT_ROUTER_SIZES,
+  PNS_HEAD_TRACE,
+  PNS_HOVER_ITEM,
+  PNS_SEMI_SOLID,
+  PnsRouter,
+  PnsRouterMode,
+  PnsRouterState,
+  type PnsPlacementAlgo,
+  type PnsRouterAlgoFactory,
+  type PnsRouterDeps,
+  type PnsRouterSizes,
+} from './router/pns_router.js';
+// `PnsRouterIface` is deliberately NOT re-exported here. `pns_collision.js`
+// already exports a type of that name — the one-member slice
+// (`isFlashedOnLayer`) the item model reaches through the router singleton —
+// and it is re-exported above. The full `ROUTER_IFACE` extends that slice, so
+// the two are compatible, but two modules exporting rival names through this
+// file is exactly the conflict that costs a merge. Import it from
+// `router/pns_router.js` directly.
+
+// `PNS::TOOL_BASE`, the three methods of it that are routing decisions rather
+// than wxWidgets event plumbing. `PCB_GRID_HELPER` shrinks to the three calls
+// `snapToItem` makes; the frame/view inputs `pickSingleItem` reads become
+// explicit context fields.
+export {
+  PNS_COORDS_PADDING,
+  PnsGridHelperGrid,
+  PnsMagneticOption,
+  checkSnap,
+  pickSingleItem,
+  snapToItem,
+  type PnsMagneticSettings,
+  type PnsPickContext,
+  type PnsSnapContext,
+  type PnsSnapGridHelper,
+} from './router/pns_tool_base.js';
+// ----- PNS: interactive single-track placement (pns_line_placer) -------------------
+//
+// `LINE_PLACER` is what turns the finished `NODE` into a router a person can
+// drive: the head/tail split, the posture solver, the three routing modes, via
+// placement and the fix/unfix lifecycle. `SHOVE` is a sibling port, so the
+// placer's shove paths are written against `PnsShoveLike` — upstream's method
+// names, no implementation — and everything else is ported whole.
+export {
+  PnsFixedTail,
+  PnsLinePlacer,
+  PnsOptimizerEffort,
+  PnsWalkStatus,
+  optimizeLine,
+  viaObstaclePushout,
+  walkaroundRoute,
+  type PnsFixPoint,
+  type PnsFixedTailStage,
+  type PnsPlacerIface,
+  type PnsRouterLike,
+  type PnsShoveLike,
+  type PnsWalkPolicyResult,
+  type PnsWalkResult,
+} from './router/pns_line_placer.js';
+// `PnsMode`, `PnsOptimizationEffort` and `RoutingSettings` are already exported
+// above, from the routing-settings block this port builds on.
+export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
+export type { ChainIntersection } from './router/pns_line_item.js';
+// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`. `PnsRouterIface`
+// itself is *not* re-exported: `pns_collision.ts` already exports a type of that
+// name (the one-member `isFlashedOnLayer` slice), and the full interface is
+// imported from `./router/pns_router.js` directly for the same reason
+// `DpPlacerHost` is.
+export {
+  PnsBoardIface,
+  PNS_ORPHANED_NET,
+  asBoardItem,
+  boardLayerFromPnsLayer,
+  padHoleShape,
+  pnsLayerFromBoardLayer,
+  solidShapeForPad,
+  type PnsBoardIfaceDeps,
+  type PnsBoardNet,
+  type PnsPendingChange,
+} from './router/pns_board_iface.js';

@@ -390,3 +390,53 @@ export const getShapeCollider = (): ShapeCollider => shapeCollider;
 export function setShapeCollider(aCollider: ShapeCollider | null): void {
   shapeCollider = aCollider ?? defaultShapeCollider;
 }
+
+/**
+ * One `SHAPE::Collide` between two *composite* shapes.
+ *
+ * Upstream a `SHAPE*` may be one primitive or many — a `SHAPE_LINE_CHAIN` is a
+ * run of segments and arcs, a `SHAPE_COMPOUND` an arbitrary bag. This repo's
+ * `Shape` union has only primitives, so "a shape that may be composite" is a
+ * *list* of them here, and this is the `Collide` that takes two of those.
+ *
+ * The verdict is upstream's, and it is upstream's for a reason that is worth
+ * stating: `Collide( SHAPE_LINE_CHAIN_BASE&, SHAPE_LINE_CHAIN_BASE& )` tracks
+ * `closest_dist` across every primitive pair and finishes on
+ * `closest_dist == 0 || closest_dist < aClearance`. The per-pair collider here
+ * answers that same predicate over an exact distance, and the predicate is
+ * monotone in the distance, so "some pair collides" and "the predicate holds of
+ * the minimum" are the same answer. Taking the disjunction lets a pair that
+ * collides settle it without the rest being measured being *observable* — it
+ * is not, because `actual` and `location` are still reported from the minimum.
+ *
+ * `location` comes from the minimising pair, first one winning a tie, which is
+ * upstream's `nearest`. Two empty lists, or one, collide with nothing: an empty
+ * chain has no segments to measure and upstream's `closest_dist` stays at its
+ * sentinel.
+ */
+export function collideShapeLists(
+  aA: readonly Shape[],
+  aB: readonly Shape[],
+  aClearance: number,
+): ShapeCollision {
+  const collider = getShapeCollider();
+
+  let collides = false;
+  let actual = Number.POSITIVE_INFINITY;
+  let location: Vec2 | null = null;
+
+  for (const a of aA) {
+    for (const b of aB) {
+      const hit = collider(a, b, aClearance);
+
+      collides = hit.collides || collides;
+
+      if (hit.actual < actual) {
+        actual = hit.actual;
+        location = hit.location;
+      }
+    }
+  }
+
+  return { collides, actual, location };
+}

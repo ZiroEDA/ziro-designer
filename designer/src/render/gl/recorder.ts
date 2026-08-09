@@ -36,14 +36,10 @@
  * let the shader re-derive the value per frame.
  */
 
-import {
-  arcToPolyline,
-  dashPolyline,
-  ellipseToPolyline,
-  triangulatePolygon,
-  type Pt,
-} from './tessellate.js';
+import { arcToPolyline, dashPolyline, ellipseToPolyline, type Pt } from './tessellate.js';
+import { triangulateRings } from './holes.js';
 import { parseColor, type Rgba, type Scene } from './scene.js';
+import type { GlPath } from './gl_path.js';
 
 /** 2D affine transform as Canvas orders it: [a, b, c, d, e, f]. */
 type Mat = [number, number, number, number, number, number];
@@ -413,12 +409,37 @@ export class GlRecorder {
     return alpha >= 1 ? c : { ...c, a: c.a * alpha };
   }
 
-  stroke(): void {
+  /**
+   * Convert a retained `GlPath` into this recorder's subpath form.
+   *
+   * The points go through `pushPt` like any other, which matters: a caller that
+   * set up a view transform (as `drawBoard` does) has that transform divided
+   * back out here, so an explicit path lands in world units exactly as a path
+   * built through `moveTo`/`lineTo` would. Doing it any other way would put the
+   * board's geometry in view space and re-record it on every zoom, which is the
+   * whole thing this backend exists to avoid.
+   */
+  private adopt(path: GlPath): SubPath[] {
+    const out: SubPath[] = [];
+    for (const sp of path.subpaths) {
+      const s: SubPath = { pts: [], closed: sp.closed };
+      for (const p of sp.pts) this.pushPt(s, p.x, p.y);
+      out.push(s);
+    }
+    return out;
+  }
+
+  /**
+   * `path` is the `Path2D` argument Canvas2D's `stroke` accepts. `renderer.ts`
+   * never passes one; `drawBoard` passes one almost every time, because the
+   * board is compiled into retained paths ahead of being drawn.
+   */
+  stroke(path?: GlPath): void {
     this.sync();
     const { half, minPx } = this.pen();
     const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
     const dashed = this.st.dash.length > 0 && this.st.dash.some((d) => d > 0);
-    for (const sub of this.subs) {
+    for (const sub of path ? this.adopt(path) : this.subs) {
       const p = sub.pts;
       if (p.length === 2) {
         // A lone point strokes as a dot under a round cap, which is how the
@@ -455,23 +476,39 @@ export class GlRecorder {
     }
   }
 
-  fill(): void {
+  /**
+   * All subpaths are triangulated **together**, so a ring inside another is a
+   * hole rather than a second filled island.
+   *
+   * That is `nonzero`, which is both Canvas2D's default and what `drawBoard`
+   * asks for explicitly. Triangulating each subpath on its own — which this did
+   * — is indistinguishable on a schematic, where a filled area is a single
+   * convex symbol body, and completely wrong on a board, where a copper pour
+   * carries a clearance ring around every pad and via.
+   *
+   * The `rule` argument is accepted for signature compatibility and ignored:
+   * every call in the codebase is `nonzero` or the default, and quietly doing
+   * the wrong winding would be worse than not offering the choice.
+   */
+  fill(path?: GlPath, _rule?: CanvasFillRule): void {
     this.sync();
     const c = this.color(this.st.fillStyle, this.st.globalAlpha);
-    for (const sub of this.subs) {
+    // Fills are a few hundred triangles against tens of thousands of segments,
+    // so the point objects the triangulator works in cost nothing worth
+    // avoiding.
+    const rings: Pt[][] = [];
+    for (const sub of path ? this.adopt(path) : this.subs) {
       if (sub.pts.length < 6) continue;
-      // Fills are a few hundred triangles against tens of thousands of
-      // segments, so the point objects the triangulator works in cost nothing
-      // worth avoiding.
       const poly: Pt[] = [];
       for (let i = 0; i < sub.pts.length; i += 2) poly.push({ x: sub.pts[i]!, y: sub.pts[i + 1]! });
-      const tri = triangulatePolygon(poly);
-      for (let i = 0; i + 2 < tri.length; i += 3) {
-        const a = poly[tri[i]!]!;
-        const b = poly[tri[i + 1]!]!;
-        const d = poly[tri[i + 2]!]!;
-        this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
-      }
+      rings.push(poly);
+    }
+    const tri = triangulateRings(rings);
+    for (let i = 0; i + 2 < tri.length; i += 3) {
+      const a = tri[i]!;
+      const b = tri[i + 1]!;
+      const d = tri[i + 2]!;
+      this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
     }
   }
 

@@ -26,7 +26,7 @@ import {
   TRIANGLE_FRAG,
   TRIANGLE_VERT,
 } from './shaders.js';
-import { DISC_STRIDE, SEGMENT_STRIDE, TRIANGLE_STRIDE, type Scene } from './scene.js';
+import { DISC_STRIDE, SEGMENT_STRIDE, TRIANGLE_STRIDE, type Run, type Scene } from './scene.js';
 
 /** The view as the shaders want it: pixels per world unit, and a pixel offset. */
 export interface GlView {
@@ -93,7 +93,33 @@ interface GlLayer {
   segCount: number;
   discCount: number;
   triVerts: number;
+  /** Painter's order across the three kinds; empty means "three draws". */
+  runs: Run[];
 }
+
+/**
+ * The per-instance attribute layout of each instanced program: (location, size,
+ * float offset within the stride).
+ *
+ * Named rather than inlined because a run has to re-point them at its own first
+ * instance: WebGL2 has no `baseInstance`, so an instanced draw always starts at
+ * instance zero and the only way to start elsewhere is to move the attribute
+ * pointers.
+ */
+const SEGMENT_ATTRS: [number, number, number][] = [
+  [1, 2, 0], // p0
+  [2, 2, 2], // p1
+  [3, 1, 4], // halfWidth
+  [4, 1, 5], // minPx
+  [5, 4, 6], // colour
+];
+
+const DISC_ATTRS: [number, number, number][] = [
+  [1, 2, 0], // centre
+  [2, 1, 2], // radius
+  [3, 1, 3], // minPx
+  [4, 4, 4], // colour
+];
 
 /** The unit quad every instanced primitive expands from. */
 const QUAD = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
@@ -115,13 +141,7 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, seg);
   const segStride = SEGMENT_STRIDE * F32;
-  for (const [loc, size, offset] of [
-    [1, 2, 0], // p0
-    [2, 2, 2], // p1
-    [3, 1, 4], // halfWidth
-    [4, 1, 5], // minPx
-    [5, 4, 6], // colour
-  ] as [number, number, number][]) {
+  for (const [loc, size, offset] of SEGMENT_ATTRS) {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, size, gl.FLOAT, false, segStride, offset * F32);
     gl.vertexAttribDivisor(loc, 1);
@@ -133,12 +153,7 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, disc);
   const discStride = DISC_STRIDE * F32;
-  for (const [loc, size, offset] of [
-    [1, 2, 0], // centre
-    [2, 1, 2], // radius
-    [3, 1, 3], // minPx
-    [4, 4, 4], // colour
-  ] as [number, number, number][]) {
+  for (const [loc, size, offset] of DISC_ATTRS) {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, size, gl.FLOAT, false, discStride, offset * F32);
     gl.vertexAttribDivisor(loc, 1);
@@ -153,7 +168,18 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   gl.vertexAttribPointer(1, 4, gl.FLOAT, false, triStride, 2 * F32);
 
   gl.bindVertexArray(null);
-  return { seg, disc, tri, vaoSeg, vaoDisc, vaoTri, segCount: 0, discCount: 0, triVerts: 0 };
+  return {
+    seg,
+    disc,
+    tri,
+    vaoSeg,
+    vaoDisc,
+    vaoTri,
+    segCount: 0,
+    discCount: 0,
+    triVerts: 0,
+    runs: [],
+  };
 }
 
 export class GlDevice {
@@ -239,6 +265,8 @@ export class GlDevice {
     layer.segCount = scene.segmentCount;
     layer.discCount = scene.discCount;
     layer.triVerts = scene.triangleVertexCount;
+    // Copied, not aliased: the scene is cleared and re-recorded in place.
+    layer.runs = scene.runs.map((r) => ({ ...r }));
   }
 
   /** Send the document. The expensive half, and the rare one. */
@@ -288,27 +316,96 @@ export class GlDevice {
       gl.uniform2f(u?.viewport ?? null, w, h);
     };
 
-    // The document, then the items being dragged over it. Fills before strokes
-    // within each, which is the order the Canvas2D renderer paints in and the
-    // order the result has to match.
+    // Only re-bind a program when it actually changes. An ordered layer walks
+    // hundreds of runs, and most of them share a program with their neighbour.
+    let current: WebGLProgram | null = null;
+    const bindProgram = (p: WebGLProgram): void => {
+      if (p === current) return;
+      setView(p);
+      current = p;
+    };
+
+    // The document, then the items being dragged over it.
     for (const layer of [this.base, this.preview]) {
+      if (layer.runs.length > 0) {
+        // Painter's order, reproduced exactly: one draw per stretch of one kind,
+        // in the sequence they were recorded.
+        //
+        // The three-draw path below cannot do this, and on a board it is not a
+        // subtlety: `buildDrawSteps` paints layer by layer through
+        // `PCB_PAINT_ORDER`, so an inner-layer track belongs *under* the front
+        // copper pour. Drawing every fill and then every stroke lifts every
+        // inner-layer track out from under every pour, and the board comes out
+        // looking like a net of wires laid over the top of it.
+        for (const run of layer.runs) {
+          if (run.count <= 0) continue;
+          if (run.kind === 'tri') {
+            bindProgram(this.progTri);
+            gl.bindVertexArray(layer.vaoTri);
+            // Non-instanced, so the first vertex is an argument and nothing has
+            // to be re-pointed.
+            gl.drawArrays(gl.TRIANGLES, run.start, run.count);
+          } else if (run.kind === 'seg') {
+            bindProgram(this.progSeg);
+            gl.bindVertexArray(layer.vaoSeg);
+            this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
+            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+          } else {
+            bindProgram(this.progDisc);
+            gl.bindVertexArray(layer.vaoDisc);
+            this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
+            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+          }
+        }
+        // Leave the pointers at zero so the next frame starts from a known
+        // state whichever path draws it.
+        this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
+        this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        continue;
+      }
+
+      // Unordered (the schematic): fills, then strokes, then discs. One layer,
+      // and a fill is nearly always under its own outline, so the sequence is
+      // not observable and three draws beat several hundred.
       if (layer.triVerts > 0) {
-        setView(this.progTri);
+        bindProgram(this.progTri);
         gl.bindVertexArray(layer.vaoTri);
         gl.drawArrays(gl.TRIANGLES, 0, layer.triVerts);
       }
       if (layer.segCount > 0) {
-        setView(this.progSeg);
+        bindProgram(this.progSeg);
         gl.bindVertexArray(layer.vaoSeg);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.segCount);
       }
       if (layer.discCount > 0) {
-        setView(this.progDisc);
+        bindProgram(this.progDisc);
         gl.bindVertexArray(layer.vaoDisc);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.discCount);
       }
     }
     gl.bindVertexArray(null);
+  }
+
+  /**
+   * Aim an instanced program's attributes at instance `first`.
+   *
+   * WebGL2 has no `baseInstance`: `drawArraysInstanced` always starts at
+   * instance zero, so the only way to draw a slice of a buffer is to move the
+   * pointers. The currently bound VAO records them, which is why this must run
+   * after the bind and not before.
+   */
+  private pointInstances(
+    buffer: WebGLBuffer,
+    attrs: [number, number, number][],
+    stride: number,
+    first: number,
+  ): void {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    const base = first * stride * F32;
+    for (const [loc, size, offset] of attrs) {
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride * F32, base + offset * F32);
+    }
   }
 
   /**
