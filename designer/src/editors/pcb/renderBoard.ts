@@ -53,6 +53,33 @@ import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
+/**
+ * GAL's screen DPI (advanced_config.cpp `m_ScreenDPI = 91`), the constant every
+ * level-of-detail threshold and the zoom factor itself are defined against. Not
+ * the browser's 96: KiCad chose 91 as "the closest match to the legacy
+ * renderer", and using 96 shifts every LOD gate by 5%.
+ */
+export const GAL_SCREEN_DPI = 91;
+
+/**
+ * The painted hole-wall ring (pcb_painter.cpp `draw(PCB_VIA)` LAYER_VIA_HOLEWALLS
+ * and `draw(PAD)` LAYER_PAD_HOLEWALLS).
+ *
+ * `m_holePlatingThickness` is `BOARD_DESIGN_SETTINGS::GetHolePlatingThickness`,
+ * advanced_config.cpp's `m_HoleWallThickness = 0.020` mm, and the painter widens
+ * it by `m_HoleWallPaintingMultiplier = 1.5` — so 0.030 mm of plating is drawn.
+ *
+ * That is a third of a screen pixel on a whole-board view, and the ring is
+ * nonetheless one of the most recognisable things about a KiCad board: GAL
+ * floors it at `u_minLinePixelWidth`, one device pixel (the `SHADER_HOLE_WALL`
+ * branch of kicad_vert.glsl clamps `pixelWidth` before adding it to the radius).
+ * So it is drawn here as a *stroke* rather than a fill, because a stroke is
+ * already subject to the same per-frame minimum pen in both backends. Filling a
+ * ring 0.03 mm wide instead makes every via and plated hole read as a black dot
+ * zoomed out, where KiCad shows amber.
+ */
+const HOLE_WALL_PAINT_WIDTH = 0.02 * 1.5 * MM;
+
 // Default net-class clearance (netclass.cpp DEFAULT_CLEARANCE = 0.2 mm). This
 // board carries no explicit net class (those live in the .kicad_pro), so KiCad
 // falls back to it for the pad-clearance outlines shown by default.
@@ -291,9 +318,11 @@ export interface TrackNetLabel {
 export interface BoardScene {
   layers: Map<string, LayerBuckets>;
   viaHoles: Path2D;
-  viaHoleWalls: Path2D;
+  /** Hole-wall rings, thickness → circle/slot centrelines. Stroked, not filled;
+   *  see {@link HOLE_WALL_PAINT_WIDTH}. */
+  viaHoleWalls: Map<number, Path2D>;
   padHolesPlated: Path2D;
-  padHoleWalls: Path2D;
+  padHoleWalls: Map<number, Path2D>;
   padHolesNP: Path2D;
   /** Pad number/name glyphs (thickness → strokes), drawn over the pads in a
    *  contrasting color (KiCad's LAYER_PAD numbers). */
@@ -1073,9 +1102,9 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
   const scene: BoardScene = {
     layers: new Map(),
     viaHoles: pathFactory.path(),
-    viaHoleWalls: pathFactory.path(),
+    viaHoleWalls: new Map(),
     padHolesPlated: pathFactory.path(),
-    padHoleWalls: pathFactory.path(),
+    padHoleWalls: new Map(),
     padHolesNP: pathFactory.path(),
     padText: new Map(),
     holesSmall: pathFactory.path(),
@@ -1143,8 +1172,13 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
       b.hasVias = true;
     }
     const hr = v.drill / 2;
-    scene.viaHoleWalls.moveTo(v.at.x + hr + 0.05 * MM, v.at.y);
-    scene.viaHoleWalls.arc(v.at.x, v.at.y, hr + 0.05 * MM, 0, Math.PI * 2);
+    // "Clamp the hole wall so it doesn't extend beyond the via's copper."
+    const wall = Math.min(HOLE_WALL_PAINT_WIDTH, r - hr);
+    if (wall > 0) {
+      const p = pathIn(scene.viaHoleWalls, wall);
+      p.moveTo(v.at.x + hr + wall / 2, v.at.y);
+      p.arc(v.at.x, v.at.y, hr + wall / 2, 0, Math.PI * 2);
+    }
     {
       const sr = Math.min(hr, 0.175 * MM);
       scene.holesSmall.moveTo(v.at.x + sr, v.at.y);
@@ -1236,11 +1270,18 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         }
       }
       if (pad.drill && pad.type === 'thru_hole') {
-        addHole(scene.padHoleWalls, pad, {
-          ...pad.drill,
-          w: pad.drill.w + 0.1 * MM,
-          h: pad.drill.h + 0.1 * MM,
-        });
+        // draw(PAD) LAYER_PAD_HOLEWALLS: the plating width, never more than
+        // half the pad. The ring is the hole outline pushed out by half of it,
+        // so stroking at that width lands its edges on the hole and on
+        // hole+wall exactly as KiCad's filled disc does.
+        const wall = Math.min(HOLE_WALL_PAINT_WIDTH, pad.size.x / 2, pad.size.y / 2);
+        if (wall > 0) {
+          addHole(pathIn(scene.padHoleWalls, wall), pad, {
+            ...pad.drill,
+            w: pad.drill.w + wall,
+            h: pad.drill.h + wall,
+          });
+        }
         addHole(scene.padHolesPlated, pad, pad.drill);
         addSmallHole(scene, pad);
       }
@@ -1718,18 +1759,26 @@ export function buildDrawSteps(
         ctx.stroke(b.trackOutlines);
       }
     }
-    if (opts.pads && b.hasPads) {
-      ctx.globalAlpha = opts.padOpacity * la;
-      if (opts.padFill) {
-        ctx.fillStyle = color;
-        ctx.fill(b.pads, 'nonzero');
-      } else {
-        ctx.lineWidth = minPen;
-        ctx.stroke(b.pads);
-      }
+    // Pad clearance outlines, the ring KiCad shows around every pad by default
+    // (m_Display.m_PadClearance ships true, pcbnew_settings.cpp). Stroked in the
+    // copper colour at `m_pcbSettings.m_outlineWidth` — which is 1 IU
+    // (render_settings.cpp), so it is GAL's minimum pen and nothing else — and
+    // at the layer's own opacity: `draw(PAD)`'s clearance branch sets a stroke
+    // colour and no alpha of its own.
+    //
+    // Below the vias and pads, not above: GAL_LAYER_ORDER stacks a copper layer
+    // as zone, layer, CLEARANCE_LAYER_FOR, VIA_COPPER_LAYER_FOR,
+    // PAD_COPPER_LAYER_FOR, netnames — so a clearance ring is drawn under the
+    // copper it belongs to and is hidden wherever another pad overlaps it.
+    if (opts.padClearance && b.hasClearance) {
+      ctx.globalAlpha = la;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = minPen;
+      ctx.stroke(b.clearance);
     }
     if (opts.vias && b.hasVias) {
       ctx.globalAlpha = opts.viaOpacity * la;
+      ctx.strokeStyle = color;
       if (opts.viaFill) {
         ctx.fillStyle = color;
         ctx.fill(b.vias, 'nonzero');
@@ -1738,15 +1787,16 @@ export function buildDrawSteps(
         ctx.stroke(b.vias);
       }
     }
-    // Pad clearance outlines: thin (min-pen) stroke in the copper color, the
-    // ring KiCad shows around every pad by default (m_Display.m_PadClearance).
-    // Drawn translucent so it reads as the light "glass" ring GAL's anti-aliased
-    // sub-pixel line gives, rather than a hard solid circle.
-    if (opts.padClearance && b.hasClearance) {
-      ctx.globalAlpha = 0.55 * la;
+    if (opts.pads && b.hasPads) {
+      ctx.globalAlpha = opts.padOpacity * la;
       ctx.strokeStyle = color;
-      ctx.lineWidth = minPen;
-      ctx.stroke(b.clearance);
+      if (opts.padFill) {
+        ctx.fillStyle = color;
+        ctx.fill(b.pads, 'nonzero');
+      } else {
+        ctx.lineWidth = minPen;
+        ctx.stroke(b.pads);
+      }
     }
     ctx.globalAlpha = 1;
   };
@@ -1780,21 +1830,22 @@ export function buildDrawSteps(
       ctx.fill(scene.holesSmall);
       return;
     }
+    // GAL_LAYER_ORDER, bottom-up: LAYER_NON_PLATEDHOLES, LAYER_PAD_HOLEWALLS,
+    // LAYER_PAD_PLATEDHOLES, LAYER_VIA_HOLEWALLS, LAYER_VIA_HOLES. Each hole is
+    // painted over its own wall, so the wall reads as a ring.
     if (opts.pads) {
-      ctx.fillStyle = sp(special.padHoleWall);
-      ctx.fill(scene.padHoleWalls);
+      ctx.fillStyle = sp(special.nonPlatedHole);
+      ctx.fill(scene.padHolesNP);
+      ctx.strokeStyle = sp(special.padHoleWall);
+      strokeAll(ctx, scene.padHoleWalls, minPen);
       ctx.fillStyle = sp(special.padPlatedHole);
       ctx.fill(scene.padHolesPlated);
     }
     if (opts.vias) {
-      ctx.fillStyle = sp(special.viaHoleWall);
-      ctx.fill(scene.viaHoleWalls);
+      ctx.strokeStyle = sp(special.viaHoleWall);
+      strokeAll(ctx, scene.viaHoleWalls, minPen);
       ctx.fillStyle = sp(special.viaHole);
       ctx.fill(scene.viaHoles);
-    }
-    if (opts.pads) {
-      ctx.fillStyle = sp(special.nonPlatedHole);
-      ctx.fill(scene.padHolesNP);
     }
   });
 
@@ -1913,11 +1964,15 @@ export function showsNetName(label: TrackNetLabel, view: PcbViewTransform): bool
 }
 
 /**
- * KiCad's 4 mm threshold in screen pixels. Its VIEW scale is normalised so that
- * scale 1 draws 1 mm at the screen's nominal DPI, which puts the gate at
- * 4 mm · (96 dpi / 25.4) ≈ 15 px of track width.
+ * KiCad's 4 mm threshold in screen pixels.
+ *
+ * `lodScaleForThreshold(view, what, threshold)` returns `threshold / what` and
+ * `VIEW` draws the item when that is below the view scale, so the gate is
+ * `what · zoom > threshold`. Turning GAL's zoom factor into pixels
+ * (`worldScale = screenDPI · worldUnitLength · zoom`) leaves the threshold as a
+ * pixel width: 4 mm at GAL's 91 dpi, ≈ 14.3 px of track.
  */
-const NETNAME_MIN_PX = (4 * 96) / 25.4;
+const NETNAME_MIN_PX = (4 * GAL_SCREEN_DPI) / 25.4;
 
 /**
  * PCB_PAINTER::renderNetNameForSegment: the text is the track's width tall
@@ -2039,11 +2094,12 @@ export interface DrcMarkerDraw {
  * SCALING_FACTOR / sqrt(zoom). The GAL zoom factor satisfies
  * worldScale = screenDPI · worldUnitLength · zoomFactor
  * (graphics_abstraction_layer.h) with worldUnitLength = 1 nm in inches
- * (1e-9 / 0.0254) and worldScale our view.scale in device px per IU
- * (1 IU = 100 nm); screenDPI is the monitor's, 96 CSS px/inch · dpr here.
+ * (1e-9 / 0.0254) and worldScale our view.scale in device px per IU; screenDPI
+ * is GAL's own constant, 91 (advanced_config.cpp m_ScreenDPI, "the closest
+ * match to the legacy renderer"), per physical pixel, hence the ÷ dpr.
  */
 const markerScaleIU = (view: PcbViewTransform, dpr: number): number => {
-  const zoom = (view.scale * MM * 25.4) / (96 * dpr);
+  const zoom = (view.scale * MM * 25.4) / (GAL_SCREEN_DPI * dpr);
   return MARKER_SCALING_FACTOR / Math.sqrt(Math.max(zoom, 1e-9));
 };
 

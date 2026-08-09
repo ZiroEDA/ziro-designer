@@ -275,6 +275,7 @@ import {
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
+  GAL_SCREEN_DPI,
   type BoardScene,
   type PcbDrawOptions,
   type DrcMarkerDraw,
@@ -392,12 +393,37 @@ const PCB_GRIDS: number[] = [
   ...[5.0, 2.5, 1.0, 0.5, 0.25, 0.2, 0.1, 0.05, 0.025, 0.01].map((mm) => mm * MM),
 ];
 
-// pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW). The status bar's Z
-// indicator is scale·1000, so a preset Z maps to view scale Z/1000.
+// pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW).
 const PCB_ZOOMS: number[] = [
   0.13, 0.22, 0.35, 0.6, 1.0, 1.5, 2.2, 3.5, 5.0, 8.0, 13.0, 20.0, 35.0, 50.0, 80.0, 130.0, 220.0,
   300.0,
 ];
+
+/**
+ * A GAL zoom factor turned into our view scale, and back.
+ *
+ * These are what the zoom selector and the status bar's `Z` field mean, and
+ * both are KiCad numbers rather than free-floating ones: `COMMON_TOOLS::
+ * doZoomToPreset` passes a preset straight to `VIEW::SetScale`, and
+ * `EDA_DRAW_FRAME::GetZoomLevelIndicator` prints `GAL::GetZoomFactor`. GAL
+ * relates the two by `worldScale = screenDPI · worldUnitLength · zoomFactor`
+ * (graphics_abstraction_layer.h `computeWorldScale`), with `worldUnitLength`
+ * one internal unit in inches — pcbnew's IU is 1 nm, so 1e-9/0.0254.
+ *
+ * `scale` here is *device* pixels per IU while GAL's is physical screen pixels,
+ * so the device-pixel ratio divides out; on a HiDPI display GAL renders into a
+ * larger framebuffer without changing the zoom it reports.
+ *
+ * The old mapping was `scale · 1000`, which is dimensionless nonsense: it put
+ * preset "Zoom 2.20" at 2200 px/mm where pcbnew puts it at 7.9, so choosing a
+ * preset landed inside a single pad and the status bar read `Z 0.00` on a board
+ * that pcbnew calls `Z 2.10`.
+ */
+const IU_PER_INCH = 25.4e6; // 1 inch in pcbnew IU (1 nm each)
+const zoomFactorForScale = (scale: number, dpr: number): number =>
+  (scale / Math.max(dpr, 1e-9)) * (IU_PER_INCH / GAL_SCREEN_DPI);
+const scaleForZoomFactor = (zoom: number, dpr: number): number =>
+  (zoom * GAL_SCREEN_DPI * Math.max(dpr, 1e-9)) / IU_PER_INCH;
 
 // Visibility (eye) toggle, drawn inline so it always renders (no asset-URL
 // resolution) and reads as KiCad's light-grey eye on the dark panel. `on`
@@ -3227,14 +3253,14 @@ export function PcbEditor({
     [requestDraw],
   );
 
-  // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre.
-  // The status bar Z indicator is scale·1000, so preset Z → scale Z/1000.
+  // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre,
+  // as COMMON_TOOLS::doZoomToPreset does with VIEW::SetScale.
   const setZoomPreset = useCallback(
     (z: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const v = viewRef.current;
-      const target = z / 1000;
+      const target = scaleForZoomFactor(z, window.devicePixelRatio || 1);
       const px = canvas.width / 2;
       const py = canvas.height / 2;
       const sx = v.flipX ? -v.scale : v.scale;
@@ -6307,7 +6333,7 @@ export function PcbEditor({
   const auxSepStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: '#333' };
   // Zoom selector value (EDA_DRAW_FRAME::OnUpdateSelectZoom): snap to a preset
   // within 1%, else surface the live zoom as a dynamic custom entry.
-  const zoomNow = scale * 1000;
+  const zoomNow = zoomFactorForScale(scale, window.devicePixelRatio || 1);
   const zoomPreset = PCB_ZOOMS.find((z) => Math.abs(z - zoomNow) / z < 0.01);
   const zoomCustom = scale > 0 && zoomPreset === undefined ? Number(zoomNow.toFixed(2)) : null;
   const zoomSelValue: string | number = zoomPreset ?? zoomCustom ?? 'auto';
@@ -8171,7 +8197,7 @@ export function PcbEditor({
       <div className="ze-statusbar">
         <span className="cell msg" data-testid="pcb-status-msg" />
         <StatusField template={STATUS_FIELD_TEMPLATES.zoom}>
-          Z {scale > 0 ? (scale * 1000).toFixed(2) : '-'}
+          Z {scale > 0 ? zoomFactorForScale(scale, window.devicePixelRatio || 1).toFixed(2) : '-'}
         </StatusField>
         <StatusField template={STATUS_FIELD_TEMPLATES.coords} testId="pcb-absolute-coords">
           {statusCoordText}

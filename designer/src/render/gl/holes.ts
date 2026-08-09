@@ -29,6 +29,31 @@
  * This module is the part earcut does not do: sorting a flat set of rings into
  * outlines and their holes. earcut is told which rings are holes; it does not
  * work that out.
+ *
+ * ### A ring is a hole because of its winding, never because it is nested
+ *
+ * `nonzero` and `evenodd` disagree precisely here, and it is the whole reason
+ * this file exists in the shape it does. Under `evenodd` any ring inside another
+ * is a hole. Under `nonzero` a ring is a hole only when it is wound *against*
+ * the rings enclosing it, so that the winding number inside it cancels to zero;
+ * a ring nested inside another with the *same* winding stays solid, and the two
+ * read as a union.
+ *
+ * That distinction is not academic on a board. Every bucket in `buildScene` is
+ * one `Path2D` holding many independent shapes — the whole layer's pads in
+ * `pads`, its vias in `vias` — and those shapes overlap constantly: a thermal
+ * pad with four paste windows over it, a fanout pad under a plane tie, the
+ * anchor and primitives of a custom pad. All of them are wound the same way, so
+ * `nonzero` unions them, which is what Canvas2D does and what KiCad draws.
+ * Deciding by nesting instead punched every overlapping pad out of the pad
+ * beneath it and let the solder-mask and paste layers *below* show through the
+ * gap — a copper pad reading as lavender rather than red.
+ *
+ * So the rule below is the winding number itself: sum the windings of every ring
+ * containing a ring's interior, plus its own. Non-zero is filled and becomes an
+ * outline; zero is a hole and is attached to the smallest ring around it.
+ * Fractured pours (KiCad writes `filled_polygon` already fractured, so its rings
+ * never nest) and genuine outline-plus-hole sets both come out unchanged.
  */
 
 import earcut from './vendor/earcut.js';
@@ -51,14 +76,17 @@ function pointInPolygon(p: Pt, poly: readonly Pt[]): boolean {
   return inside;
 }
 
-/** Twice the unsigned area, used only to pick the smallest enclosing ring. */
-function absArea2(poly: readonly Pt[]): number {
+/** Twice the signed area; its sign is the ring's winding direction. */
+function signedArea2(poly: readonly Pt[]): number {
   let s = 0;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     s += (poly[j]!.x - poly[i]!.x) * (poly[j]!.y + poly[i]!.y);
   }
-  return Math.abs(s);
+  return s;
 }
+
+/** Twice the unsigned area, used only to pick the smallest enclosing ring. */
+const absArea2 = (poly: readonly Pt[]): number => Math.abs(signedArea2(poly));
 
 /** Triangulate one outline with its holes, appending points to `out`. */
 function emit(outline: readonly Pt[], holes: readonly (readonly Pt[])[], out: Pt[]): void {
@@ -87,10 +115,18 @@ function emit(outline: readonly Pt[], holes: readonly (readonly Pt[])[], out: Pt
  * Returns a flat list of points, three per triangle, so a caller can walk it in
  * threes straight into `Scene.triangle`.
  *
- * Nesting is resolved by depth: a ring inside an odd number of others is a hole,
- * and it belongs to the smallest ring containing it. That covers a pour with
- * several islands each having its own clearances, and an island sitting inside a
- * hole — which is what a plane split around a connector produces.
+ * A ring is a hole when the winding number just inside it is zero — its own
+ * winding cancelled by the rings around it — and solid otherwise. Every solid
+ * ring is triangulated as an outline carrying the holes immediately inside it,
+ * so a pour with several islands, an island sitting inside a hole (a plane split
+ * around a connector) and a pad overlapping another pad all come out right.
+ *
+ * Two solid rings that overlap without either containing the other are each
+ * triangulated whole, so the shared area is covered twice rather than unioned.
+ * That is deliberate: containment is judged from one representative vertex, and
+ * dropping a ring believed redundant would erase whatever part of it stuck out.
+ * Overlapping opaque fills are identical either way, and KiCad draws each pad as
+ * its own primitive, so it blends translucent overlaps the same way.
  */
 export function triangulateRings(rings: readonly (readonly Pt[])[]): Pt[] {
   const valid = rings.filter((r) => r.length >= 3);
@@ -104,30 +140,39 @@ export function triangulateRings(rings: readonly (readonly Pt[])[]): Pt[] {
 
   // A vertex is a good enough representative: rings here nest strictly, so it
   // avoids needing a guaranteed-interior point.
-  const depth = valid.map((r, i) => {
-    let d = 0;
-    for (let j = 0; j < valid.length; j++) {
-      if (j !== i && pointInPolygon(r[0]!, valid[j]!)) d++;
-    }
-    return d;
-  });
+  const inside = valid.map((r, i) =>
+    valid.map((other, j) => j !== i && pointInPolygon(r[0]!, other)),
+  );
+  const winding = valid.map((r) => (signedArea2(r) > 0 ? 1 : -1));
   const area = valid.map(absArea2);
 
+  // The winding number of the region immediately inside each ring: its own turn
+  // plus every ring enclosing it. Zero means the enclosing rings cancel it out,
+  // which under `nonzero` is exactly what a hole is.
+  const windingNumber = valid.map((_, i) => {
+    let w = winding[i]!;
+    for (let j = 0; j < valid.length; j++) if (inside[i]![j]) w += winding[j]!;
+    return w;
+  });
+
+  /** The smallest ring enclosing ring `i`, or -1 when it is outermost. */
+  const parentOf = (i: number): number => {
+    let best = -1;
+    for (let j = 0; j < valid.length; j++) {
+      if (!inside[i]![j]) continue;
+      if (best < 0 || area[j]! < area[best]!) best = j;
+    }
+    return best;
+  };
+  const parent = valid.map((_, i) => parentOf(i));
+
   for (let i = 0; i < valid.length; i++) {
-    if (depth[i]! % 2 !== 0) continue; // odd depth: this ring is a hole
+    if (windingNumber[i] === 0) continue; // a hole; emitted with its outline
 
     const holes: (readonly Pt[])[] = [];
     for (let j = 0; j < valid.length; j++) {
-      if (j === i || depth[j]! % 2 === 0) continue;
-      if (!pointInPolygon(valid[j]![0]!, valid[i]!)) continue;
-      // Belongs to the smallest ring that contains it, so a hole inside an
-      // island inside a hole is attached to the island and not to the outside.
-      let smallest = i;
-      for (let k = 0; k < valid.length; k++) {
-        if (k === j || depth[k]! % 2 !== 0) continue;
-        if (pointInPolygon(valid[j]![0]!, valid[k]!) && area[k]! < area[smallest]!) smallest = k;
-      }
-      if (smallest === i) holes.push(valid[j]!);
+      if (windingNumber[j] !== 0) continue;
+      if (parent[j] === i) holes.push(valid[j]!);
     }
     emit(valid[i]!, holes, out);
   }

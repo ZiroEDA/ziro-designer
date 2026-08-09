@@ -19,6 +19,7 @@ import {
   darkenColor,
   dimmedColor,
   emphasize,
+  GAL_SCREEN_DPI,
   highlightedColor,
   selectedColor,
   showsNetName,
@@ -137,15 +138,17 @@ describe('track net names (PCB_TRACK::ViewGetLOD + renderNetNameForSegment)', ()
   });
   const view = (scale: number) => ({ scale, tx: 0, ty: 0, flipX: false });
 
-  it('hides the name until the track is ~15 px wide on screen (4 mm at scale 1)', () => {
-    // 0.25 mm track: needs scale where width·scale >= 4mm·96/25.4 ≈ 15.1 px.
-    const need = (4 * 96) / 25.4 / 2500;
+  it('hides the name until the track is ~14 px wide on screen (4 mm at GAL dpi)', () => {
+    // 0.25 mm track: needs scale where width·scale >= 4mm·91/25.4 ≈ 14.3 px.
+    // 91 is GAL's screen DPI (advanced_config.cpp m_ScreenDPI), the constant
+    // every lodScaleForThreshold gate is defined against — not the browser's 96.
+    const need = (4 * GAL_SCREEN_DPI) / 25.4 / 2500;
     expect(showsNetName(label(), view(need * 0.99))).toBe(false);
     expect(showsNetName(label(), view(need * 1.01))).toBe(true);
   });
 
   it('a wider track shows its name sooner', () => {
-    const scale = ((4 * 96) / 25.4 / 5000) * 1.001; // enough for a 0.5 mm track only
+    const scale = ((4 * GAL_SCREEN_DPI) / 25.4 / 5000) * 1.001; // enough for a 0.5 mm track only
     expect(showsNetName(label({ width: 5000 }), view(scale))).toBe(true);
     expect(showsNetName(label({ width: 2500 }), view(scale))).toBe(false);
   });

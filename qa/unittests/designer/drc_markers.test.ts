@@ -14,7 +14,7 @@
  */
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { describe, it, expect } from 'vitest';
-import { drawDrcMarkers } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { drawDrcMarkers, GAL_SCREEN_DPI } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { PCB_BACKGROUND, PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 
 interface Call {
@@ -60,9 +60,9 @@ describe('drawDrcMarkers', () => {
   const view = { scale: 0.01, tx: 5, ty: 7 };
   const dpr = 1;
   // MarkerScale() = mmToIU(0.1625) / sqrt(zoom); GAL zoom factor for a
-  // view at `scale` device px per IU (1 IU = 100 nm) on a 96 dpi screen:
-  // zoom = scale·IU_PER_MM·25.4/(96·dpr).
-  const zoom = (view.scale * PCB_IU_PER_MM * 25.4) / (96 * dpr);
+  // view at `scale` device px per IU on GAL's screen DPI (advanced_config.cpp
+  // m_ScreenDPI = 91): zoom = scale·IU_PER_MM·25.4/(91·dpr).
+  const zoom = (view.scale * PCB_IU_PER_MM * 25.4) / (GAL_SCREEN_DPI * dpr);
   const scaleIU = (0.1625 * PCB_IU_PER_MM) / Math.sqrt(zoom);
 
   it('paints nothing without markers', () => {
