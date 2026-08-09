@@ -140,7 +140,6 @@ describe('reading the index as a whole, not one entry at a time', () => {
   });
 });
 
-
 describe('the filter reaches the tree, not just the scores', () => {
   const makeTree = () => {
     const adapter = new LibTreeModelAdapter();
