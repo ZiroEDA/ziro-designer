@@ -3147,8 +3147,7 @@ function drawLibUnit(
       // The number is centred along the pin: above it, or below when the name
       // is shown outside (name above / number below).
       const below = nameShown && !nameInside;
-      const off =
-        (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
+      const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
       const anchor = horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y };
       drawText(
         ctx,
