@@ -80,11 +80,19 @@ out vec2 v_pixel;
 flat out vec2 v_s0;
 flat out vec2 v_s1;
 flat out float v_halfPx;
+flat out float v_widthFade;
 flat out vec4 v_color;
 
 void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
+
+  // The width this stroke really has at this zoom, before any floor.
+  //
+  // Kept because the floor below is a fiction — it exists to stop a hairline
+  // disappearing, not because the stroke is that wide — and the fragment stage
+  // has to know how large a fiction it was in order to pay for it in alpha.
+  float trueHalfPx = a_halfWidth * abs(u_view.x);
 
   // The clamp KiCad applies with u_minLinePixelWidth: the larger of the scaled
   // world width and the pixel floor, which keeps a hairline visible when zoomed
@@ -143,6 +151,35 @@ void main() {
   v_s0 = snapped0;
   v_s1 = snapped1;
   v_halfPx = halfPx;
+  // Pay for the widening in alpha.
+  //
+  // A stroke 0.2 px wide drawn 1 px wide puts five times the ink on screen that
+  // it should. One such stroke does not matter; a board carries thousands, and
+  // every pad number and net name on it is one, so zooming out turned a page of
+  // fine white text into a solid glare that KiCad does not have. KiCad's own
+  // fragment shader also draws lines solid (drawLine), but it then runs an
+  // SMAA pass over the whole frame, which is where its hairlines lose the
+  // weight ours were keeping.
+  //
+  // Fading by the ratio is the same trade every sub-pixel line rasteriser
+  // makes: below one pixel a stroke stops getting thinner and starts getting
+  // fainter, so the ink on screen stays proportional to the ink there should
+  // be. Text now recedes as you zoom out and sharpens as you zoom in, and a
+  // stroke that genuinely reaches a pixel is untouched — which is the case the
+  // solid-hairline path was added for.
+  //
+  // The ratio is squared rather than used straight, and that is not a taste
+  // knob. Alpha compositing does not add, it saturates: n strokes landing in
+  // the same pixel at alpha a come out at 1 - (1-a)^n, so three overlapping
+  // strokes at 0.2 give 0.49, not 0.2. Glyphs are exactly that case — every
+  // character is several strokes crossing within a pixel or two — so a linear
+  // fade still lets dense text pile up to near-solid. Squaring holds the
+  // accumulated result close to the ink the geometry actually asks for.
+  //
+  // A zero-width stroke is exempt: it means "thinnest line that draws", not "a
+  // line of no width", and fading it to nothing would delete board outlines.
+  float widthRatio = trueHalfPx > 0.0 ? clamp(trueHalfPx / halfPx, 0.0, 1.0) : 1.0;
+  v_widthFade = widthRatio * widthRatio;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
 }
@@ -155,6 +192,7 @@ in vec2 v_pixel;
 flat in vec2 v_s0;
 flat in vec2 v_s1;
 flat in float v_halfPx;
+flat in float v_widthFade;
 flat in vec4 v_color;
 
 out vec4 fragColor;
@@ -183,9 +221,14 @@ void main() {
   // KiCad splits the same way, with a separate path for lines at or below one
   // pixel (SHADER_LINE_B in common/gal/shaders/kicad_vert.glsl) rather than
   // thinning the antialiased one.
+  //
+  // Solid, but at the alpha the stroke's real width earns: v_widthFade is 1
+  // for anything that genuinely reaches a pixel, so a legible glyph is as crisp
+  // as it was, while one widened from a fifth of a pixel is drawn at a fifth
+  // the strength instead of at full glare.
   if (v_halfPx <= 0.51) {
     if (d > 0.5) discard;
-    fragColor = v_color;
+    fragColor = vec4(v_color.rgb, v_color.a * v_widthFade);
     return;
   }
 
@@ -193,7 +236,7 @@ void main() {
   // round caps and round joins in the same expression.
   float cover = clamp(v_halfPx + 0.5 - d, 0.0, 1.0);
   if (cover <= 0.0) discard;
-  fragColor = vec4(v_color.rgb, v_color.a * cover);
+  fragColor = vec4(v_color.rgb, v_color.a * cover * v_widthFade);
 }
 `;
 
@@ -208,16 +251,28 @@ layout(location = 4) in vec4 a_color;
 out vec2 v_pixel;
 flat out vec2 v_centre;
 flat out float v_radiusPx;
+flat out float v_areaFade;
 flat out vec4 v_color;
 
 void main() {
   vec2 centre = worldToPixel(a_centre);
+  float trueRadiusPx = a_radius * abs(u_view.x);
   float radiusPx = max(a_radius * abs(u_view.x), a_minPx);
   vec2 pos = centre + a_corner * (radiusPx + 1.0);
 
   v_pixel = pos;
   v_centre = centre;
   v_radiusPx = radiusPx;
+  // The same debt the segments pay, but a disc grows by AREA, so the ratio is
+  // squared: a via inflated from a third of a pixel to one puts nine times the
+  // ink down, not three.
+  //
+  // Unpaid, this is what makes a row of IC pins read as one solid bar when
+  // zoomed out — every via and round pad is held at the same minimum radius,
+  // at full strength, until neighbours touch and merge. Fading them keeps a
+  // dense row reading as a row.
+  float areaRatio = trueRadiusPx > 0.0 ? clamp(trueRadiusPx / radiusPx, 0.0, 1.0) : 1.0;
+  v_areaFade = areaRatio * areaRatio;
   v_color = a_color;
   gl_Position = pixelToClip(pos);
 }
@@ -229,6 +284,7 @@ precision highp float;
 in vec2 v_pixel;
 flat in vec2 v_centre;
 flat in float v_radiusPx;
+flat in float v_areaFade;
 flat in vec4 v_color;
 
 out vec4 fragColor;
@@ -236,7 +292,7 @@ out vec4 fragColor;
 void main() {
   float cover = clamp(v_radiusPx + 0.5 - distance(v_pixel, v_centre), 0.0, 1.0);
   if (cover <= 0.0) discard;
-  fragColor = vec4(v_color.rgb, v_color.a * cover);
+  fragColor = vec4(v_color.rgb, v_color.a * cover * v_areaFade);
 }
 `;
 
