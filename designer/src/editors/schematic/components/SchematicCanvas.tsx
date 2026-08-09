@@ -113,18 +113,11 @@ import {
 // dev server started resolves to `undefined` at runtime.
 import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
 import {
-  type BezierGeom,
-  BEZIER_SET_CONTROL1,
-  BEZIER_SET_CONTROL2,
-  bezierAddPoint,
-  bezierC2,
-  bezierChainFrom,
-  bezierIsComplete,
-  bezierIsReset,
-  bezierRemoveLastPoint,
-  bezierSetCursor,
-  bezierShapePoints,
-  newBezierGeom,
+  type BezierDraw,
+  beginBezier,
+  bezierPoints,
+  calcBezier,
+  continueBezier,
 } from '@ziroeda/eeschema/src/tools/bezier_geom.js';
 import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
@@ -364,10 +357,10 @@ interface DrawState {
   points: Vec2[];
   cursor: Vec2;
   /**
-   * The bezier tool's `BEZIER_GEOM_MANAGER`. It owns the four points and the
+   * The bezier tool's `EDA_SHAPE` edit state. It owns the four points and the
    * step the gesture is on, so `points` is unused for that tool.
    */
-  bezier?: BezierGeom;
+  bezier?: BezierDraw;
 }
 
 /** KiCad's 2-click arc (EDA_SHAPE::calcEdit state 1): quarter-circle through start/end. */
@@ -464,25 +457,15 @@ function previewGraphic(ds: DrawState): LibGraphic | null {
       // outline only meets itself when the last point lands on the first.
       return makeRuleAreaPreview([...ds.points, c]);
     case 'bezier': {
-      // The preview is the real cubic from the first click onwards, not a
-      // control polygon that becomes a curve at the end. Every acceptor in
-      // `BEZIER_GEOM_MANAGER` seeds the points it has not been given yet
-      // ("prevents weird-looking loops if the control points aren't
-      // initialized"), so `ApplyToShape` always has four points to hand the
-      // shape and `drawManagedShape` always previews a `SHAPE_T::BEZIER`:
-      //
-      //     aShape.SetStart( m_manager.GetStart() );
-      //     aShape.SetBezierC1( m_manager.GetControlC1() );
-      //     aShape.SetEnd( m_manager.GetEnd() );
-      //     aShape.SetBezierC2( m_manager.GetControlC2() );
-      //
-      // Degenerate stages collapse onto a straight line by themselves. Which
-      // matters most at SET_END: upstream is already showing the curve bending
-      // towards C1 while you pick the far end, where we showed two bare
-      // segments and only revealed the curve after the fourth click.
+      // The preview is the shape itself at whatever its edit state has made of
+      // it — "item->CalcEdit( cursorPos ); m_view->AddToPreview( item->Clone() )".
+      // State 1 leaves C2 on the end point, so the cubic collapses onto a
+      // straight line and you see a line follow the cursor; states 2 and 3 bow
+      // it into a C and then an S. We used to show a control polygon instead
+      // and only reveal a curve after the last click.
       const g = ds.bezier;
-      if (!g || bezierIsReset(g)) return null;
-      const [p0, c1, c2, p1] = bezierShapePoints(g);
+      if (!g) return null;
+      const [p0, c1, c2, p1] = bezierPoints(g);
       return makeBezier(p0, c1, c2, p1);
     }
   }
@@ -1373,14 +1356,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    */
   useEffect(() => {
     const one = selection.size === 1 ? [...selection][0]! : null;
-    // A chained bezier is mid-draw *and* has a finished curve selected — the
-    // one it is chained off — and upstream shows that one's handles the whole
-    // time ("PostAction( ACTIONS::activatePointEditor )" after each commit; the
-    // draw loop deliberately ignores the point editor's activation). So a
-    // bezier draw state is not a reason to hide them; the ghost is a separate
-    // item and is never the selected one.
-    const ds = drawStateRef.current;
-    const stillDrawing = (!!ds && !ds.bezier) || attachedItem;
+    const stillDrawing = !!drawStateRef.current || attachedItem;
     const target = one && !stillDrawing ? pointEditTarget(schematic, one) : null;
     pointTargetRef.current = target;
     pointHandlesRef.current = target ? editHandles(schematic, target) : [];
@@ -2122,46 +2098,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.stroke();
     }
 
-    // Bezier drawing assistant (KIGFX::PREVIEW::BEZIER_ASSISTANT): the control
-    // arms, dashed, on LAYER_AUX_ITEMS.
-    //
-    //     if( step >= SET_CONTROL1 )
-    //         preview_ctx.DrawLineDashed( start, GetControlC1(), dashSize, dashSize / 2, false );
-    //
-    //     if( step >= SET_CONTROL2 )
-    //     {
-    //         const VECTOR2I c2vec = GetControlC2() - GetEnd();
-    //         // Draw the second control point control line as a double length
-    //         // line centered on the end point
-    //         preview_ctx.DrawLineDashed( GetEnd() - c2vec, GetControlC2(), … );
-    //     }
-    //
-    // The second arm is the one that explains the gesture: it runs from the
-    // cursor, through the end point, out to the reflected control point, so you
-    // can see the tangent you are setting and which way the tail will bend.
-    {
-      const bez = drawStateRef.current?.bezier;
-      if (bez && !bezierIsReset(bez)) {
-        const dash = (12 * dpr()) / vp.scale;
-        ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
-        ctx.strokeStyle = theme.auxItems;
-        ctx.lineWidth = 1 / vp.scale;
-        ctx.setLineDash([dash / 2, dash / 2]);
-        ctx.beginPath();
-        if (bez.step >= BEZIER_SET_CONTROL1) {
-          ctx.moveTo(bez.start.x, bez.start.y);
-          ctx.lineTo(bez.c1.x, bez.c1.y);
-        }
-        if (bez.step >= BEZIER_SET_CONTROL2) {
-          const c2 = bezierC2(bez);
-          ctx.moveTo(2 * bez.end.x - c2.x, 2 * bez.end.y - c2.y);
-          ctx.lineTo(c2.x, c2.y);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-
     // Edit points (SCH_POINT_EDITOR): a square on every corner or vertex of the
     // one selected item and a circle at every edge midpoint, drawn at a fixed
     // screen size whatever the zoom, in LAYER_AUX_ITEMS white with the darker
@@ -2711,54 +2647,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     return () => canvas.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
-  /**
-   * Commit a finished bezier and start the next segment of the chain.
-   *
-   * `EE_GRAPHIC_TOOL::DrawBezier` does not drop back to a blank tool when a
-   * curve completes — it re-enters the draw loop with the finished curve's end
-   * pre-loaded as the new start and, if the last control arm had any length,
-   * the mirror of that arm pre-loaded as the new C1:
-   *
-   *     // Chain: next bezier starts at the end of this one
-   *     initialPts.clear();
-   *     initialPts.push_back( bezier->GetEnd() );
-   *
-   *     if( bezier->GetEnd() != bezier->GetBezierC2() )
-   *     {
-   *         VECTOR2D mirroredC1 = bezier->GetEnd() - ( bezier->GetBezierC2() - bezier->GetEnd() );
-   *         initialPts.push_back( mirroredC1 );
-   *     }
-   *
-   * so curves drawn one after another join smoothly and every segment after the
-   * first costs two clicks (its end and its C2) rather than four. Escape or a
-   * right-click ends the chain, as they end any other in-progress shape.
-   *
-   * (Upstream then calls `PrimeTool( aInitialPts.back() )`, which posts a
-   * synthetic left click — `TA_PRIME` carries the `TA_MOUSE_CLICK` bit — and so
-   * locks a third point in at wherever the mouse happens to be. That
-   * contradicts the comment right above it, "advancing the construction state
-   * machine so that the next user click adds the subsequent point", and would
-   * pin the chained segment's end on top of its C1. It is not reproduced here.)
-   */
-  const commitBezier = useCallback(
-    (g: BezierGeom) => {
-      const [p0, c1, c2, p1] = bezierShapePoints(g);
-      onCommand(addItems({ graphics: [makeBezier(p0, c1, c2, p1)] }));
-      onSelect(refId('graphic', undefined, schematic.graphics.length), false);
-      drawStateRef.current = {
-        tool: 'bezier',
-        start: g.end,
-        points: [],
-        cursor: g.end,
-        bezier: bezierChainFrom(g),
-      };
-      requestDraw();
-    },
-    [onCommand, onSelect, schematic, requestDraw],
-  );
-
-  // Finish a rectangle/circle/arc (2nd click), or a sheet rectangle (which
-  // hands off to the editor for its name/file dialog).
+  // Finish a rectangle/circle/arc (2nd click), a bezier (4th click), or a
+  // sheet rectangle (which hands off to the editor for its name/file dialog).
   const finalizeShape = useCallback(
     (ds: DrawState, p: Vec2) => {
       drawStateRef.current = null;
@@ -2773,6 +2663,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       else if (ds.tool === 'arc') {
         const a = arcFrom2(ds.start, p);
         if (a) g = makeArc(a.start, a.mid, a.end);
+      } else if (ds.tool === 'bezier' && ds.bezier) {
+        // The four points the edit states have filled in: start, C1, C2, end —
+        // a real `SHAPE_T::BEZIER`, so the point editor gives it the four
+        // handles `EDA_BEZIER_POINT_EDIT_BEHAVIOR` gives it. It used to flatten
+        // a *quadratic* into a 25-point polyline, which is the wrong curve
+        // family, is not a bezier in the file, and puts a handle on every one
+        // of those flattened vertices.
+        const [p0, c1, c2, p1] = bezierPoints(ds.bezier);
+        g = makeBezier(p0, c1, c2, p1);
       } else if (ds.tool === 'sheet') {
         const at = { x: Math.min(ds.start.x, p.x), y: Math.min(ds.start.y, p.y) };
         const size = { w: Math.abs(p.x - ds.start.x), h: Math.abs(p.y - ds.start.y) };
@@ -3013,20 +2912,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         const p = snap(world);
         const ds = drawStateRef.current;
         if (!ds) {
-          if (shapeKind === 'bezier') {
-            // "if( !started ) { m_toolMgr->RunAction( ACTIONS::selectionClear ); … }".
-            // It only shows on this tool, because only the bezier keeps drawing
-            // with a committed item selected (see `commitBezier`); without it
-            // the last run's curve would keep its edit points through the next.
-            onSelect(null, false);
-            drawStateRef.current = {
-              tool: shapeKind,
-              start: p,
-              points: [],
-              cursor: p,
-              bezier: bezierAddPoint(newBezierGeom(), p),
-            };
-          } else drawStateRef.current = { tool: shapeKind, start: p, points: [p], cursor: p };
+          drawStateRef.current = {
+            tool: shapeKind,
+            start: p,
+            points: [p],
+            cursor: p,
+            // "item->BeginEdit( cursorPos )" — the bezier's first click puts all
+            // four of its points on the cursor and arms edit state 1.
+            ...(shapeKind === 'bezier' ? { bezier: beginBezier(p) } : {}),
+          };
         } else if (shapeKind === 'lines' || shapeKind === 'ruleArea') {
           // "Check if it is double click / closing line (so we have to finish
           // the zone)": a rule area is finished by putting a point back on the
@@ -3047,18 +2941,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           const last = ds.points[ds.points.length - 1]!;
           if (last.x !== p.x || last.y !== p.y) ds.points.push(p);
         } else if (shapeKind === 'bezier') {
-          // Four clicks — start, C1, end, C2 — fed to the geometry manager,
-          // which decides what each one means and whether it counts:
+          // "finished = !item->ContinueEdit( cursorPos );" — each click after
+          // the first advances the edit state, and the one that finds it at 3
+          // ends the curve. Four clicks in all: start, end, C1, C2.
           //
-          //     aBehavior.AddPoint( cursorPos );
-          //     …
-          //     if( aBehavior.IsComplete() ) break;
-          //
-          // An end clicked on the start point is refused by `setEnd` and drops
-          // the gesture back a step rather than making a zero-length curve.
-          const next = bezierAddPoint(ds.bezier ?? newBezierGeom(), p);
-          ds.bezier = next;
-          if (bezierIsComplete(next)) commitBezier(next);
+          // The geometry is settled by `calcEdit` first. Upstream leaves that
+          // to the motion event that precedes the click; doing it here as well
+          // costs nothing (it is the same cursor position) and means a click
+          // with no motion before it — a tap — still lands its point.
+          ds.bezier = calcBezier(ds.bezier ?? beginBezier(p), p);
+          const next = continueBezier(ds.bezier);
+          if (next) ds.bezier = next;
+          else finalizeShape(ds, p);
         } else {
           finalizeShape(ds, p);
         }
@@ -3305,7 +3199,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       updateWireChain,
       finishWireChain,
       finalizeShape,
-      commitBezier,
       requestDraw,
       requestOverlay,
       handleAt,
@@ -3369,9 +3262,9 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (drawStateRef.current) {
         const ds = drawStateRef.current;
         ds.cursor = snap(world);
-        // "update, but don't step the manager state" — the bezier's preview is
-        // the manager's own geometry, so a move has to be fed to it.
-        if (ds.bezier) ds.bezier = bezierSetCursor(ds.bezier, ds.cursor);
+        // "item->CalcEdit( cursorPos )": what a move drags depends on which
+        // edit state the bezier is in.
+        if (ds.bezier) ds.bezier = calcBezier(ds.bezier, ds.cursor);
         requestDraw();
         return;
       }
@@ -3754,20 +3647,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         }
         e.preventDefault();
         requestDraw(); // 45° recomputes the break point from the flipped posture
-        return;
-      }
-      // ACTIONS::deleteLastPoint (Backspace) while drawing a bezier:
-      //
-      //     aBehavior.RemoveLastPoint();
-      //
-      // which steps the manager back and re-accepts the cursor in the step it
-      // has returned to, so a misplaced control point can be taken back without
-      // abandoning the whole curve.
-      const drawingBezier = drawStateRef.current?.bezier;
-      if (e.key === 'Backspace' && drawingBezier) {
-        drawStateRef.current!.bezier = bezierRemoveLastPoint(drawingBezier);
-        e.preventDefault();
-        requestDraw();
         return;
       }
       // SCH_ACTIONS::undoLastSegment (Backspace/Delete) while drawing.
