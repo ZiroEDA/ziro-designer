@@ -889,18 +889,35 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
  * Without them the two control handles float unattached, with nothing to say
  * which end of the curve each one pulls on.
  *
- * (An arc's centre gets the same treatment upstream — two leaders out to its
- * start and end. Not built here yet.)
+ * An arc gets two of its own, from the centre out to each end
+ * (`EDA_ARC_POINT_EDIT_BEHAVIOR::MakePoints`):
+ *
+ *     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_START ) );
+ *     aPoints.AddIndicatorLine( aPoints.Point( ARC_CENTER ), aPoints.Point( ARC_END ) );
+ *
+ * which is the same complaint: the centre handle sits well off the arc — often
+ * off screen on a shallow one — and nothing said it belonged to it.
  */
 export function indicatorLines(doc: Schematic, t: PointEditTarget): [Vec2, Vec2][] {
   if (t.kind !== 'graphic') return [];
   const g = doc.graphics[t.index];
-  if (g?.kind !== 'bezier' || g.points.length < 4) return [];
-  const [start, c1, c2, end] = g.points as [Vec2, Vec2, Vec2, Vec2];
-  return [
-    [start, c1],
-    [c2, end],
-  ];
+  if (g?.kind === 'bezier' && g.points.length >= 4) {
+    const [start, c1, c2, end] = g.points as [Vec2, Vec2, Vec2, Vec2];
+    return [
+      [start, c1],
+      [c2, end],
+    ];
+  }
+  if (g?.kind === 'arc') {
+    // The same centre the ARC_CENTER handle is placed at, so the leaders land
+    // on it however the three stored points are arranged.
+    const { center } = arcState(g.start, g.mid, g.end);
+    return [
+      [center, g.start],
+      [center, g.end],
+    ];
+  }
+  return [];
 }
 
 /**
