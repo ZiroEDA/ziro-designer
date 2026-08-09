@@ -268,6 +268,7 @@ import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
   buildScene,
   buildDrawSteps,
+  drawAnchors,
   drawBoard,
   drawGrid,
   drawDrawingSheet,
@@ -646,7 +647,6 @@ const OBJECT_ROWS: ObjectRow[] = [
     key: 'anchors',
     label: 'Anchors',
     tooltip: 'Show footprint and text origins as a cross',
-    disabled: true,
   },
   {
     key: 'points',
@@ -1841,6 +1841,21 @@ export function PcbEditor({
         bctx.imageSmoothingEnabled = true;
         bctx.setTransform(1, 0, 0, 1, 0, 0);
       }
+    }
+    // Footprint anchors (LAYER_ANCHOR): the small screen-space crosses at
+    // every footprint origin, on by default like pcbnew's Objects tab.
+    if (objects.anchors) {
+      drawAnchors(
+        ctx,
+        scene,
+        v,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+      );
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.

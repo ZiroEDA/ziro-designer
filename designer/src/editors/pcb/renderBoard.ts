@@ -354,6 +354,8 @@ export interface BoardScene {
   netLabels: TrackNetLabel[];
   /** Via net/layer labels, data for the same reason (PCB_VIA::ViewGetLOD). */
   viaNetLabels: ViaNetLabel[];
+  /** Footprint origins, for the LAYER_ANCHOR crosses (screen-space size). */
+  anchors: { x: number; y: number }[];
   /** Reference images, as payload + destination. The pixels live in the cache. */
   images: SceneImage[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
@@ -1131,6 +1133,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     holesSmall: pathFactory.path(),
     netLabels: [],
     viaNetLabels: [],
+    anchors: [],
     images: [],
     bbox: null,
   };
@@ -1279,6 +1282,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     for (const pt of s.pts ?? []) grow(pt.x, pt.y);
   }
   for (const fp of board.footprints) {
+    scene.anchors.push({ x: fp.at.x, y: fp.at.y });
     if (filter.hideFrontFootprints && fp.layer === 'F.Cu') continue;
     if (filter.hideBackFootprints && fp.layer === 'B.Cu') continue;
     for (const s of fp.shapes) addShape(scene, s);
@@ -2037,6 +2041,42 @@ export function drawNetNames(
     ctx.strokeStyle = color;
     strokeAll(ctx, map, minPen);
   });
+}
+
+/**
+ * The LAYER_ANCHOR crosses, draw(FOOTPRINT): a cross at every footprint
+ * origin, "size and width constant, not related to the scale because the
+ * anchor is just a marker on screen" — 5 px arms, 1 px pen. Screen-space, so
+ * it is a per-frame pass like the net names, never part of a retained scene.
+ */
+export function drawAnchors(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  emphasis: Emphasis = 'none',
+  dpr = 1,
+): void {
+  if (scene.anchors.length === 0) return;
+  const special = opts.theme?.special ?? PCB_SPECIAL;
+  const arm = 5 * dpr;
+  const sx = view.flipX ? -view.scale : view.scale;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = emphasize(special.anchor, emphasis);
+  ctx.lineWidth = Math.max(1, dpr);
+  ctx.beginPath();
+  for (const a of scene.anchors) {
+    const x = a.x * sx + view.tx;
+    const y = a.y * view.scale + view.ty;
+    if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
+    ctx.moveTo(x - arm, y);
+    ctx.lineTo(x + arm, y);
+    ctx.moveTo(x, y - arm);
+    ctx.lineTo(x, y + arm);
+  }
+  ctx.stroke();
 }
 
 /** The visible world rectangle, for the netname repeat/clip rules. */
