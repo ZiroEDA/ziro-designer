@@ -33,6 +33,21 @@ import {
   editHandles,
   pointEditTarget,
 } from '@ziroeda/eeschema/src/tools/point_editor.js';
+import {
+  BEZIER_COMPLETE,
+  BEZIER_SET_CONTROL1,
+  BEZIER_SET_CONTROL2,
+  BEZIER_SET_END,
+  BEZIER_SET_START,
+  bezierAddPoint,
+  bezierC2,
+  bezierChainFrom,
+  bezierIsComplete,
+  bezierRemoveLastPoint,
+  bezierSetCursor,
+  bezierShapePoints,
+  newBezierGeom,
+} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
 
 const at = (x: number, y: number): Vec2 => ({ x: mmToIU(x), y: mmToIU(y) });
@@ -124,6 +139,101 @@ describe('its edit points', () => {
     const out = dragHandle(d, t, hs[1]!, at(70, 30));
     const g = out.graphics[0]!;
     expect(g.kind === 'bezier' && g.points).toEqual([START, at(70, 30), C2, END]);
+  });
+});
+
+describe('drawing one (BEZIER_GEOM_MANAGER)', () => {
+  /** Click the four points of a gesture, in the manager's order. */
+  const draw = (...pts: Vec2[]) => pts.reduce((g, p) => bezierAddPoint(g, p), newBezierGeom());
+
+  it('takes four clicks, one per step', () => {
+    let g = newBezierGeom();
+    expect(g.step).toBe(BEZIER_SET_START);
+    g = bezierAddPoint(g, START);
+    expect(g.step).toBe(BEZIER_SET_CONTROL1);
+    g = bezierAddPoint(g, C1);
+    expect(g.step).toBe(BEZIER_SET_END);
+    g = bezierAddPoint(g, END);
+    expect(g.step).toBe(BEZIER_SET_CONTROL2);
+    expect(bezierIsComplete(g)).toBe(false);
+    g = bezierAddPoint(g, at(150, 60));
+    expect(g.step).toBe(BEZIER_COMPLETE);
+    expect(bezierIsComplete(g)).toBe(true);
+  });
+
+  it('reflects the fourth click about the end point to get C2', () => {
+    // `GetControlC2()` is `m_end - ( m_controlC2 - m_end )`, so a click 20 mm
+    // right and 40 mm up of the end puts C2 20 mm left and 40 mm down of it.
+    // Taking the click as C2 — what we did — bent the tail the other way, so
+    // the gesture that draws an S in KiCad drew a C here.
+    const g = draw(START, C1, END, at(150, 60));
+    expect(bezierC2(g)).toEqual(at(110, 140));
+    expect(bezierShapePoints(g)).toEqual([START, C1, at(110, 140), END]);
+  });
+
+  it('so the cursor lands on the next segment’s C1', () => {
+    // Which is the reason the reflection exists: "so that the cursor will be
+    // on the C1 point of the next bezier".
+    const click = at(150, 60);
+    expect(bezierChainFrom(draw(START, C1, END, click)).c1).toEqual(click);
+  });
+
+  it('previews a whole cubic from the first click, never a control polygon', () => {
+    // Every acceptor seeds the points it has not been given, so `ApplyToShape`
+    // always has four. The stages before the curve exists collapse onto a
+    // straight line by themselves.
+    const p0 = bezierSetCursor(bezierAddPoint(newBezierGeom(), START), at(60, 90));
+    expect(bezierShapePoints(p0)).toEqual([START, at(60, 90), at(60, 90), at(60, 90)]);
+    // At SET_END the curve is already bending towards C1 while the far end
+    // follows the cursor — where ours drew two bare segments until click four.
+    const p1 = bezierSetCursor(draw(START, C1), at(130, 100));
+    expect(bezierShapePoints(p1)).toEqual([START, C1, END, END]);
+  });
+
+  it('does not advance when the end is clicked on the start point', () => {
+    // `bool setEnd(…) { …; return m_end != m_start; }` — a rejected point
+    // steps the manager back, so the gesture waits for a usable end.
+    const g = bezierAddPoint(draw(START, C1), START);
+    expect(g.step).toBe(BEZIER_SET_CONTROL1);
+  });
+
+  it('Backspace takes the last point back a step', () => {
+    // ACTIONS::deleteLastPoint -> `aBehavior.RemoveLastPoint()`.
+    const g = bezierRemoveLastPoint(draw(START, C1, END));
+    expect(g.step).toBe(BEZIER_SET_END);
+    // and the point it steps back to follows the cursor again
+    expect(bezierShapePoints(bezierSetCursor(g, at(120, 90)))[3]).toEqual(at(120, 90));
+  });
+
+  it('chains the next curve off the end, tangent-continuous', () => {
+    const done = draw(START, C1, END, at(150, 60));
+    const next = bezierChainFrom(done);
+    // start = the finished curve's end, C1 = the mirror of its last arm, so
+    // two clicks (end, C2) finish the second segment rather than four.
+    expect(next.start).toEqual(END);
+    expect(next.step).toBe(BEZIER_SET_END);
+    // C1 continuity: the arm leaving END points the same way the arm arriving
+    // at it did.
+    const arriving = { x: END.x - bezierC2(done).x, y: END.y - bezierC2(done).y };
+    const leaving = { x: next.c1.x - END.x, y: next.c1.y - END.y };
+    expect(arriving.x * leaving.y - arriving.y * leaving.x).toBe(0);
+    expect(arriving.x * leaving.x + arriving.y * leaving.y).toBeGreaterThan(0);
+  });
+
+  it('and chains with only a start when the last arm had no length', () => {
+    // "if( bezier->GetEnd() != bezier->GetBezierC2() )" — a C2 clicked on the
+    // end point leaves no direction to continue, so nothing is pre-seeded.
+    const next = bezierChainFrom(draw(START, C1, END, END));
+    expect(next.start).toEqual(END);
+    expect(next.step).toBe(BEZIER_SET_CONTROL1);
+  });
+
+  it('and a chained curve is committed as a plain four-point bezier', () => {
+    const first = draw(START, C1, END, at(150, 60));
+    const second = bezierAddPoint(bezierAddPoint(bezierChainFrom(first), at(190, 100)), at(210, 60));
+    const [p0, c1, c2, p1] = bezierShapePoints(second);
+    const g = makeBezier(p0, c1, c2, p1);
+    expect(g.kind === 'bezier' && g.points).toEqual([END, at(150, 60), at(170, 140), at(190, 100)]);
   });
 });
 
