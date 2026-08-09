@@ -315,6 +315,25 @@ export interface TrackNetLabel {
   text: string;
 }
 
+/**
+ * One via's description text, the netname-layer branch of
+ * PCB_PAINTER::draw(PCB_VIA): the net's short name, and for a via that does not
+ * span the whole stack a second "top-bottom" line of copper-layer numbers.
+ * Like the track labels this is data, not baked glyphs — whether it shows at
+ * all is PCB_VIA::ViewGetLOD against the zoom.
+ */
+export interface ViaNetLabel {
+  at: { x: number; y: number };
+  /** The via diameter, which is both the LOD subject and the font basis. */
+  width: number;
+  /** Any copper layer the via spans; the label shows if one is visible. */
+  layers: string[];
+  /** GetDisplayNetname(); empty when the via has no (or the unconnected) net. */
+  text: string;
+  /** "top-bottom" copper layer numbers, empty for a through via. */
+  layerIds: string;
+}
+
 export interface BoardScene {
   layers: Map<string, LayerBuckets>;
   viaHoles: Path2D;
@@ -333,6 +352,8 @@ export interface BoardScene {
   /** Track net labels, kept as data rather than baked glyphs: where they go and
    *  whether they appear at all depends on the zoom (PCB_TRACK::ViewGetLOD). */
   netLabels: TrackNetLabel[];
+  /** Via net/layer labels, data for the same reason (PCB_VIA::ViewGetLOD). */
+  viaNetLabels: ViaNetLabel[];
   /** Reference images, as payload + destination. The pixels live in the cache. */
   images: SceneImage[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
@@ -1109,6 +1130,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     padText: new Map(),
     holesSmall: pathFactory.path(),
     netLabels: [],
+    viaNetLabels: [],
     images: [],
     bbox: null,
   };
@@ -1165,11 +1187,27 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
   }
   for (const v of board.vias) {
     const r = v.size / 2;
-    for (const layer of viaSpan(v.layers[0], v.layers[1], copperNames)) {
+    const span = viaSpan(v.layers[0], v.layers[1], copperNames);
+    for (const layer of span) {
       const b = buckets(scene, layer);
       b.vias.moveTo(v.at.x + r, v.at.y);
       b.vias.arc(v.at.x, v.at.y, r, 0, Math.PI * 2);
       b.hasVias = true;
+    }
+    {
+      // draw(PCB_VIA)'s netname layer: the short net name, and for a via that
+      // is not a full-stack through via a "top-bottom" line of copper layer
+      // numbers (F.Cu = 1 … B.Cu = copper count, matching the layer manager).
+      const name = (v.net ?? 0) > 0 ? (board.nets.get(v.net) ?? '') : '';
+      const text = name.slice(name.lastIndexOf('/') + 1);
+      let layerIds = '';
+      if (v.kind && v.kind !== 'through') {
+        const top = copperNames.indexOf(v.layers[0]) + 1;
+        const bottom = copperNames.indexOf(v.layers[1]) + 1;
+        if (top > 0 && bottom > 0) layerIds = `${top}-${bottom}`;
+      }
+      if (text !== '' || layerIds !== '')
+        scene.viaNetLabels.push({ at: v.at, width: v.size, layers: span, text, layerIds });
     }
     const hr = v.drill / 2;
     // "Clamp the hole wall so it doesn't extend beyond the via's copper."
@@ -1399,9 +1437,9 @@ const strokeAll = (ctx: CanvasRenderingContext2D, map: Map<number, Path2D>, minP
  * through and ignored by a real canvas.
  */
 function asBitmapText(ctx: CanvasRenderingContext2D, fn: () => void): void {
-  const target = ctx as { hairlines?: 'fade' | 'solid' };
+  const target = ctx as { hairlines?: 'fade' | 'solid' | 'bitmap' };
   const previous = target.hairlines;
-  if (previous !== undefined) target.hairlines = 'fade';
+  if (previous !== undefined) target.hairlines = 'bitmap';
   try {
     fn();
   } finally {
@@ -1925,36 +1963,80 @@ export function buildDrawSteps(
     });
   }
 
-  // Track net names, last: the label only exists at a high enough zoom, so its
-  // glyphs are laid out per frame rather than baked into the scene.
-  if (opts.netNames && scene.netLabels.length > 0) {
+  // Track and via net names, last: whether a label exists at all depends on
+  // the zoom (ViewGetLOD), so the pass is laid out per frame rather than baked.
+  //
+  // A *retained* recorder must not receive it: the recording would freeze the
+  // one zoom's answer forever, which on the GL path meant no net name could
+  // ever appear — the scene was recorded at the board-fit zoom, where every
+  // label fails its LOD, and zooming in never re-records. The GL caller draws
+  // this pass itself, per frame, on the overlay canvas (`drawNetNames`); the
+  // recorder is recognised by the `hairlines` switch only it carries.
+  const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
+  if (!retained && (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0)) {
     steps.push(() => {
-      const viewport = viewportInWorld(view, widthPx, heightPx);
-      const byColor = new Map<string, Map<number, Path2D>>();
-
-      // draw(PCB_TRACK) takes its color from GetColor(track, aLayer) with aLayer
-      // the *netname* layer, so the text is the theme's netnames color (white at
-      // 0.7), not the copper color, exactly as the pad net names are.
-      const color = emphasize(special.padName, emphasis, true);
-      for (const label of scene.netLabels) {
-        if (!visible.has(label.layer)) continue;
-        if (!showsNetName(label, view)) continue;
-        let map = byColor.get(color);
-        if (!map) {
-          map = new Map();
-          byColor.set(color, map);
-        }
-        addTrackNetName(map, label, viewport);
-      }
-      asBitmapText(ctx, () => {
-        for (const [color, map] of byColor) {
-          ctx.strokeStyle = color;
-          strokeAll(ctx, map, minPen);
-        }
-      });
+      drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
     });
   }
   return steps;
+}
+
+/**
+ * The zoom-dependent net-name pass: track net names (renderNetNameForSegment)
+ * and via net/layer descriptions (draw(PCB_VIA)'s netname branch), each behind
+ * its item's ViewGetLOD gate. Drawn per frame — on the Canvas2D path as the
+ * last `buildDrawSteps` step, on the GL path by `PcbEditor` on the overlay
+ * canvas, where the current zoom is actually known.
+ *
+ * `dpr` matters to the gates: GAL's screen DPI is per *physical* pixel, so on
+ * a scaled display the same board is "zoomed in" less than the device-pixel
+ * view scale suggests.
+ */
+export function drawNetNames(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  visible: ReadonlySet<string>,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  emphasis: Emphasis = 'none',
+  dpr = 1,
+): void {
+  const special = opts.theme?.special ?? PCB_SPECIAL;
+  const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
+  const viewport = viewportInWorld(view, widthPx, heightPx);
+  const map = new Map<number, Path2D>();
+  // Self-contained: the GL path calls this on the overlay canvas, whose
+  // transform is whatever the previous pass left. (On the Canvas2D path this
+  // re-states the transform the first step already set.)
+  ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // draw(PCB_TRACK) takes its color from GetColor(track, aLayer) with aLayer
+  // the *netname* layer, so the text is the theme's netnames color (white at
+  // 0.7), not the copper color, exactly as the pad net names are.
+  const color = emphasize(special.padName, emphasis, true);
+  if (opts.netNames) {
+    for (const label of scene.netLabels) {
+      if (!visible.has(label.layer)) continue;
+      if (!showsNetName(label, view, dpr)) continue;
+      addTrackNetName(map, label, viewport);
+    }
+  }
+  for (const label of scene.viaNetLabels) {
+    if (!showsViaNetName(label, view, dpr)) continue;
+    if (!label.layers.some((l) => visible.has(l))) continue;
+    if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
+    if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
+    addViaNetName(map, label, opts.netNames);
+  }
+  if (map.size === 0) return;
+  asBitmapText(ctx, () => {
+    ctx.strokeStyle = color;
+    strokeAll(ctx, map, minPen);
+  });
 }
 
 /** The visible world rectangle, for the netname repeat/clip rules. */
@@ -1982,7 +2064,7 @@ function viewportInWorld(
  * (view, m_width, mmToIU(4.0))`, compared against the view scale, and only when
  * the track is long enough to hold the text (`length² >= (width · chars)²`).
  */
-export function showsNetName(label: TrackNetLabel, view: PcbViewTransform): boolean {
+export function showsNetName(label: TrackNetLabel, view: PcbViewTransform, dpr = 1): boolean {
   if (label.width <= 0) return false;
 
   const dx = label.end.x - label.start.x;
@@ -1990,7 +2072,16 @@ export function showsNetName(label: TrackNetLabel, view: PcbViewTransform): bool
   const nameSize = label.text.length * label.width;
   if (dx * dx + dy * dy < nameSize * nameSize) return false;
 
-  return label.width * view.scale >= NETNAME_MIN_PX;
+  return label.width * view.scale >= NETNAME_MIN_PX * dpr;
+}
+
+/**
+ * PCB_VIA::ViewGetLOD for the netname layer: `lodScaleForThreshold(view,
+ * width, mmToIU(10))`, i.e. the description shows once the via is drawn as
+ * wide as 10 mm is at scale 1 — ≈ 35.8 physical px of via.
+ */
+export function showsViaNetName(label: ViaNetLabel, view: PcbViewTransform, dpr = 1): boolean {
+  return label.width > 0 && label.width * view.scale >= VIA_NETNAME_MIN_PX * dpr;
 }
 
 /**
@@ -2003,6 +2094,43 @@ export function showsNetName(label: TrackNetLabel, view: PcbViewTransform): bool
  * pixel width: 4 mm at GAL's 91 dpi, ≈ 14.3 px of track.
  */
 const NETNAME_MIN_PX = (4 * GAL_SCREEN_DPI) / 25.4;
+
+/** PCB_VIA::ViewGetLOD's 10 mm threshold, as pixels of via diameter. */
+const VIA_NETNAME_MIN_PX = (10 * GAL_SCREEN_DPI) / 25.4;
+
+/**
+ * Lay out one via's description, the netname branch of draw(PCB_VIA): the
+ * short net name centred on the via (nudged down when a second line exists),
+ * and the "top-bottom" copper-layer line above it for a via that does not span
+ * the whole stack. Sizes are KiCad's: room for at least 6 characters when both
+ * lines show (the layer line has at most 5), 3 otherwise, the result taken
+ * ×0.75 "to handle interline, pen size", capped at the via width, with a pen
+ * of a tenth of the glyph.
+ */
+function addViaNetName(map: Map<number, Path2D>, label: ViaNetLabel, netNames: boolean): void {
+  const showNet = netNames && label.text !== '';
+  const showLayers = label.layerIds !== '';
+  if (!showNet && !showLayers) return;
+  const size = Math.min(label.width, MAX_PAD_FONT);
+  const minCharCnt = showLayers ? 6 : 3;
+  let tsize = Math.min((1.5 * size) / Math.max(label.text.length, minCharCnt), size);
+  tsize *= 0.75;
+  const both = showNet && showLayers;
+  const netY = both ? (tsize * 1.3) / 2 : 0;
+  const put = (text: string, y: number): void => {
+    addText(map, {
+      kind: 'user',
+      text,
+      at: { x: label.at.x, y },
+      angle: 0,
+      layer: '',
+      size: { x: tsize, y: tsize },
+      thickness: tsize / 10,
+    } as PcbTextItem);
+  };
+  if (showNet) put(label.text, label.at.y + netY);
+  if (showLayers) put(label.layerIds, label.at.y + netY - (both ? tsize * 1.3 : 0));
+}
 
 /**
  * PCB_PAINTER::renderNetNameForSegment: the text is the track's width tall

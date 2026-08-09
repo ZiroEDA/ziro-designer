@@ -38,7 +38,7 @@
 
 import { arcToPolyline, dashPolyline, ellipseToPolyline, type Pt } from './tessellate.js';
 import { triangulateRings } from './holes.js';
-import { parseColor, type Rgba, type Scene } from './scene.js';
+import { BITMAP_MINPX_FLAG, parseColor, type Rgba, type Scene } from './scene.js';
 import type { GlPath } from './gl_path.js';
 
 /** 2D affine transform as Canvas orders it: [a, b, c, d, e, f]. */
@@ -106,7 +106,7 @@ export interface RecorderOptions {
   /** Device pixel ratio, so a minimum pixel width means a *device* pixel. */
   devicePixelRatio?: number;
   /** Initial value of {@link GlRecorder.hairlines}; defaults to `'fade'`. */
-  hairlines?: 'fade' | 'solid';
+  hairlines?: 'fade' | 'solid' | 'bitmap';
   /**
    * Drop the canvas-clearing `fillRect` that `renderSchematic` issues first.
    *
@@ -201,10 +201,14 @@ export class GlRecorder {
    * `'fade'` is the default because it is what every caller did before the
    * distinction existed, and because a renderer that gets this wrong in the
    * `'solid'` direction glares rather than disappears. A caller that draws board
-   * geometry sets `'solid'` and flips to `'fade'` around its bitmap-text passes
-   * — which on a board is only the pad and via net names.
+   * geometry sets `'solid'` and flips to `'bitmap'` around its bitmap-text
+   * passes — which on a board is only the pad and via net names. `'bitmap'`
+   * stands in for the OpenGL GAL's texture atlas, which loses its glyphs to
+   * mipmap minification far sooner than a stroke fades: the shader gives those
+   * strokes a higher knee and a harder falloff. `'fade'` keeps the schematic's
+   * original curve.
    */
-  hairlines: 'fade' | 'solid' = 'fade';
+  hairlines: 'fade' | 'solid' | 'bitmap' = 'fade';
 
   constructor(
     readonly scene: Scene,
@@ -422,9 +426,12 @@ export class GlRecorder {
     // letting the shader clamp makes the geometry genuinely independent of the
     // zoom, which is what lets the buffer be recorded once and never again.
     const world = (Math.max(0, this.st.lineWidth) * matScale(this.st.ctm)) / this.worldScale;
-    // The sign carries which of KiCad's two rasterisers this stroke imitates;
-    // see `hairlines` and the note in SEGMENT_VERT.
+    // The encoding carries which of KiCad's rasterisers this stroke imitates;
+    // see `hairlines` and the note in SEGMENT_VERT. Sign picks line vs faded
+    // text; the atlas ('bitmap') case rides an offset far above any real pixel
+    // floor, so the shader can recover both the flag and the value.
     const minPx = this.dpr / 2;
+    if (this.hairlines === 'bitmap') return { half: world / 2, minPx: minPx + BITMAP_MINPX_FLAG };
     return { half: world / 2, minPx: this.hairlines === 'solid' ? -minPx : minPx };
   }
 

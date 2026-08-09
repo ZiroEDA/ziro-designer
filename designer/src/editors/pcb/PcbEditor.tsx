@@ -271,6 +271,7 @@ import {
   drawBoard,
   drawGrid,
   drawDrawingSheet,
+  drawNetNames,
   drawDrcMarkers,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
@@ -1807,6 +1808,22 @@ export function PcbEditor({
         pcbPerf.records = gl.recordCount;
         pcbPerf.lastRecordMs = gl.lastRecordMs;
       }
+      // Track and via net names exist only past their ViewGetLOD zoom, so they
+      // cannot live in the retained scene — the recording would freeze one
+      // zoom's answer. Laid out here per frame instead, on the overlay, which
+      // is the same place KiCad puts them (netname layers sit above copper).
+      drawNetNames(
+        ctx,
+        scene,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+      );
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
       // The GL layer sits *above* the background and below everything else, so
       // a buffer left on it from an earlier frame keeps showing through: a

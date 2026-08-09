@@ -49,6 +49,9 @@ uniform vec2 u_viewport;  // drawing buffer size in device pixels
 // read at, and only the far-zoomed-out case that piles thousands of glyph
 // strokes into one pixel is faded.
 const float GLARE_KNEE_PX = 0.35;
+// The knee for strokes standing in for the OpenGL GAL's texture atlas (pad and
+// via net names); see the a_minPx decoding note in SEGMENT_VERT.
+const float BITMAP_KNEE_PX = 1.0;
 
 vec2 worldToPixel(vec2 w) {
   return w * u_view.xy + u_view.zw;
@@ -94,25 +97,35 @@ void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
 
-  // KiCad rasterises a line and a piece of text by two different routes, and
-  // they behave differently below one pixel. The sign of a_minPx says which one
-  // this stroke is; the magnitude is the pixel floor either way.
+  // KiCad rasterises a line and a piece of text by different routes, and they
+  // behave differently below one pixel. a_minPx encodes which route this
+  // stroke imitates; its magnitude (after decoding) is the pixel floor.
   //
-  //   a_minPx < 0  — a *line*. computeLineCoords clamps pixelWidth up to
+  //   a_minPx < 0    — a *line*. computeLineCoords clamps pixelWidth up to
   //                  u_minLinePixelWidth and the fragment stage draws it solid,
   //                  so a 0.05 mm courtyard is a crisp one-pixel magenta line at
   //                  every zoom KiCad will let you reach. Nothing fades.
   //
-  //   a_minPx > 0  — *bitmap text*. SHADER_FONT samples an atlas and takes no
-  //                  floor at all, so a glyph genuinely thins and greys out as
-  //                  it shrinks. We have no atlas and stroke these glyphs, so
-  //                  the fade below stands in for the texture getting smaller.
-  //                  Only the pad and via net names take this route.
+  //   0 < a_minPx < 512 — *faded text*, SHADER_FONT: no floor, and the glyph
+  //                  thins and greys out as it shrinks. The schematic records
+  //                  everything this way.
+  //
+  //   a_minPx > 512  — *atlas text* (the value carries a +1024 flag). The
+  //                  OpenGL GAL draws pad and via net names from a mipmapped
+  //                  texture atlas, which loses its ink to minification much
+  //                  sooner than a stroke fades: at a board-fit zoom pcbnew's
+  //                  pads are clean while a stroke-font rendering of the same
+  //                  labels composited to near-solid clutter. So these strokes
+  //                  take a one-pixel knee and a cubic falloff — mipmap
+  //                  averaging includes the transparent texels around every
+  //                  stroke, so ink drops faster than raw coverage.
   //
   // Fading lines as well is what made the courtyard rectangles disappear from a
   // zoomed-out board that KiCad still draws them on.
-  bool bitmapText = a_minPx > 0.0;
-  float minPx = abs(a_minPx);
+  bool atlasText = a_minPx > 512.0;
+  float signedMinPx = atlasText ? a_minPx - 1024.0 : a_minPx;
+  bool bitmapText = signedMinPx > 0.0;
+  float minPx = abs(signedMinPx);
 
   // The width this stroke really has at this zoom, before any floor.
   //
@@ -222,9 +235,16 @@ void main() {
   // that thousands of sub-pixel glyph strokes pile up into glare — still fades,
   // and harder than a linear ramp would.
   float trueWidthPx = trueHalfPx * 2.0;
-  float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / GLARE_KNEE_PX, 0.0, 1.0) : 1.0;
-  // Only bitmap text pays; a line is solid at whatever width the floor gives it.
-  v_widthFade = bitmapText ? widthRatio * widthRatio : 1.0;
+  // Atlas text takes a much higher knee than faded text, because the atlas
+  // keys on glyph size, not pen width: a BitmapText glyph is drawn with a pen
+  // of roughly an eighth of its height, so a glyph shrunk to the ~6 px where
+  // the atlas mipmaps blur it toward nothing has a pen of ~0.8 px.
+  float knee = atlasText ? BITMAP_KNEE_PX : GLARE_KNEE_PX;
+  float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / knee, 0.0, 1.0) : 1.0;
+  // Only text pays; a line is solid at whatever width the floor gives it. The
+  // schematic's faded text keeps its original square; atlas text cubes.
+  float sq = widthRatio * widthRatio;
+  v_widthFade = atlasText ? sq * widthRatio : (bitmapText ? sq : 1.0);
   v_color = a_color;
   gl_Position = pixelToClip(pos);
 }

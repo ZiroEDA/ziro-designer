@@ -154,6 +154,14 @@ export class F32Buffer {
   }
 }
 
+/**
+ * Added to a segment's positive `minPx` to mark it as *atlas* text (the pad
+ * and via net-name strokes that stand in for the OpenGL GAL's mipmapped
+ * bitmap-font atlas). Far above any real pixel floor, so the shader can
+ * recover both the flag and the value; see SEGMENT_VERT.
+ */
+export const BITMAP_MINPX_FLAG = 1024;
+
 /** Floats per segment instance: p0(2) p1(2) halfWidth minPx rgba(4). */
 export const SEGMENT_STRIDE = 10;
 /** Floats per disc instance: centre(2) radius minPx rgba(4). */

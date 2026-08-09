@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Track and via net names against their ViewGetLOD gates.
+ *
+ * The regression this file exists for: net names were baked into the retained
+ * GL scene as a `buildDrawSteps` step, so they were evaluated once, at the
+ * zoom the board happened to be recorded at — where every label fails its LOD
+ * — and could then never appear at any zoom. The pass is per-frame now
+ * (`drawNetNames`), and a retained recording must contain no netname glyphs at
+ * any recording scale.
+ */
+import { describe, expect, it } from 'vitest';
+import { parse } from '@ziroeda/sexpr/src/index.js';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import {
+  buildScene,
+  drawNetNames,
+  showsNetName,
+  showsViaNetName,
+} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
+import { BITMAP_MINPX_FLAG, Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
+import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
+
+/** GAL's 91 dpi: KiCad zoom z draws 1 mm as 91/25.4·z px (see GAL_SCREEN_DPI). */
+const PX_PER_MM_AT_Z1 = 91 / 25.4;
+const MM = 1e6;
+
+// A 4-layer board: one long fat track, a through via and a blind via, no pads
+// (pad text would muddy the "no atlas strokes in a recording" assertion).
+const board = (): Board =>
+  readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (1 "In1.Cu" signal) (2 "In2.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "/uart/RXD1")
+  (segment (start 100 100) (end 180 100) (width 2) (layer "F.Cu") (net 1))
+  (via (at 120 100) (size 1.6) (drill 0.8) (layers "F.Cu" "B.Cu") (net 1))
+  (via blind (at 140 100) (size 1.6) (drill 0.8) (layers "F.Cu" "In1.Cu") (net 1))
+)`),
+  );
+
+const VISIBLE = new Set(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']);
+
+describe('scene net-label data', () => {
+  const scene = buildScene(board(), {}, GL_PATH_FACTORY);
+
+  it('keeps track labels as data with the short net name', () => {
+    expect(scene.netLabels).toHaveLength(1);
+    expect(scene.netLabels[0]!.text).toBe('RXD1');
+    expect(scene.netLabels[0]!.width).toBe(2 * MM);
+  });
+
+  it('gives a via its net name, and layer numbers only when not through', () => {
+    expect(scene.viaNetLabels).toHaveLength(2);
+    const through = scene.viaNetLabels.find((l) => l.at.x === 120 * MM)!;
+    const blind = scene.viaNetLabels.find((l) => l.at.x === 140 * MM)!;
+    expect(through.text).toBe('RXD1');
+    expect(through.layerIds).toBe('');
+    // F.Cu is copper layer 1, In1.Cu is 2 (the layer-manager numbering).
+    expect(blind.layerIds).toBe('1-2');
+  });
+});
+
+describe('ViewGetLOD gates', () => {
+  // PCB_TRACK: show once width · zoom > 4 mm, i.e. 14.33 px of track.
+  it('shows a track name at 14.33 px of width, per physical pixel', () => {
+    const label = {
+      start: { x: 0, y: 0 },
+      end: { x: 400 * MM, y: 0 },
+      width: 1 * MM,
+      layer: 'F.Cu',
+      text: 'RXD1',
+    };
+    const at = (px: number): number => px / 1; // width is 1 mm, so scale = px/mm
+    expect(showsNetName(label, { scale: at(14.0) / MM, tx: 0, ty: 0 })).toBe(false);
+    expect(showsNetName(label, { scale: at(14.7) / MM, tx: 0, ty: 0 })).toBe(true);
+    // A device pixel is not a physical pixel: at dpr 2 the same on-screen size
+    // needs twice the device pixels.
+    expect(showsNetName(label, { scale: at(14.7) / MM, tx: 0, ty: 0 }, 2)).toBe(false);
+    expect(showsNetName(label, { scale: at(29.4) / MM, tx: 0, ty: 0 }, 2)).toBe(true);
+  });
+
+  it('hides a track name when the segment is shorter than the text', () => {
+    const label = {
+      start: { x: 0, y: 0 },
+      end: { x: 3 * MM, y: 0 },
+      width: 1 * MM,
+      layer: 'F.Cu',
+      text: 'RXD1', // 4 chars · 1 mm > 3 mm of track
+    };
+    expect(showsNetName(label, { scale: 1, tx: 0, ty: 0 })).toBe(false);
+  });
+
+  // PCB_VIA: show once width · zoom > 10 mm, i.e. 35.83 px of via.
+  it('shows a via description at 35.83 px of diameter', () => {
+    const label = { at: { x: 0, y: 0 }, width: 1.6 * MM, layers: ['F.Cu'], text: 'RXD1', layerIds: '' };
+    const scaleFor = (px: number): number => px / (1.6 * MM);
+    expect(showsViaNetName(label, { scale: scaleFor(35), tx: 0, ty: 0 })).toBe(false);
+    expect(showsViaNetName(label, { scale: scaleFor(36.5), tx: 0, ty: 0 })).toBe(true);
+    expect(showsViaNetName(label, { scale: scaleFor(36.5), tx: 0, ty: 0 }, 2)).toBe(false);
+  });
+
+  it("derives both thresholds from GAL's 91 dpi", () => {
+    // 4 mm and 10 mm at zoom 1, in pixels — the constants the gates compare to.
+    expect(4 * PX_PER_MM_AT_Z1).toBeCloseTo(14.33, 2);
+    expect(10 * PX_PER_MM_AT_Z1).toBeCloseTo(35.83, 2);
+  });
+});
+
+describe('retained recording vs the per-frame pass', () => {
+  const atlasSegments = (s: Scene): number => {
+    const a = s.segments.view();
+    let n = 0;
+    for (let i = 0; i < a.length; i += SEGMENT_STRIDE)
+      if (a[i + 5]! > BITMAP_MINPX_FLAG / 2) n++;
+    return n;
+  };
+
+  it('records no netname glyphs at any scale — the pass is per-frame', () => {
+    const scene = buildScene(board(), {}, GL_PATH_FACTORY);
+    for (const scale of [0.001, 1.0]) {
+      const gl = new Scene(true);
+      recordBoardScene(gl, { scene, visible: VISIBLE, opts: undefined as never, emphasis: 'none' }, scale);
+      expect(atlasSegments(gl)).toBe(0);
+    }
+  });
+
+  it('draws labels per frame once the zoom passes the gates', () => {
+    const scene = buildScene(board(), {}, GL_PATH_FACTORY);
+    // A minimal 2D-context stand-in; glyph paths are Path2D, stubbed for Node.
+    const strokes: unknown[] = [];
+    const ctx = {
+      setTransform: () => {},
+      lineCap: '',
+      lineJoin: '',
+      strokeStyle: '',
+      lineWidth: 0,
+      stroke: (p: unknown) => strokes.push(p),
+    } as unknown as CanvasRenderingContext2D;
+    const path2d = globalThis.Path2D;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).Path2D = class {
+      moveTo(): void {}
+      lineTo(): void {}
+    };
+    try {
+      // Board-fit-ish zoom: 0.02 px per mm — every gate fails, nothing drawn.
+      drawNetNames(ctx, scene, { scale: 0.02 / MM, tx: 0, ty: 0 }, VISIBLE, 800, 600);
+      expect(strokes).toHaveLength(0);
+      // 40 px/mm with the view centred on the track: it is 80 px wide on
+      // screen and the 1.6 mm via 64 px, so both gates pass.
+      const scale = 40 / MM;
+      drawNetNames(
+        ctx,
+        scene,
+        { scale, tx: 400 - 140 * MM * scale, ty: 300 - 100 * MM * scale },
+        VISIBLE,
+        800,
+        600,
+      );
+      expect(strokes.length).toBeGreaterThan(0);
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).Path2D = path2d;
+    }
+  });
+});
