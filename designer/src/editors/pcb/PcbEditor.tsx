@@ -4793,6 +4793,28 @@ export function PcbEditor({
         const handle = editHandleAt(w);
         if (handle) {
           editHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          // Reshaping touches one item, so split the board the same way a move
+          // drag does: the rest of it is recorded once here and stays in the
+          // cached raster, and the item being reshaped rides the live overlay.
+          // Rebuilding the whole scene per pointermove instead costs a full
+          // buildScene *and* a full re-raster on every mouse event.
+          const id = editHandleItemRef.current;
+          if (brd && id) {
+            const only = new Set([id]);
+            // The base goes through `buildBoardScene` so it is compiled for
+            // whichever backend draws it; the overlay stays `buildScene`,
+            // because it is painted onto the 2D layer and needs real `Path2D`.
+            // Getting this pair the wrong way round is silent: a GL scene drawn
+            // by the raster path, or a `Path2D` scene handed to the recorder,
+            // both come out as an empty board with no error at all. Neither of
+            // the two changes that met here shows it on its own.
+            sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
+            moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
+            // The overlay is drawn at absolute coords: a reshape moves points,
+            // not the item, so it carries no drag delta.
+            moveDeltaRef.current = { x: 0, y: 0 };
+            sceneDirtyRef.current = true;
+          }
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
           return;
         }
@@ -4848,8 +4870,13 @@ export function PcbEditor({
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
-        sceneRef.current = buildBoardScene(next, sceneFilter());
-        sceneDirtyRef.current = true;
+        // Only the reshaped item is re-recorded; the base scene was captured
+        // without it at drag start and is not dirtied, so the raster survives.
+        // Under the GL renderer that is also what keeps the content key
+        // unchanged, so a handle drag stays a uniform update instead of a full
+        // re-record per mouse event. `buildScene`, not `buildBoardScene`: the
+        // move overlay is painted onto the 2D layer and needs real `Path2D`.
+        moveSceneRef.current = buildScene(subsetBoardItems(next, new Set([id])), sceneFilter());
         requestDraw();
       }
       return;
@@ -4915,6 +4942,9 @@ export function PcbEditor({
       const preview = pointEditPreviewRef.current;
       editHandleDragRef.current = null;
       pointEditPreviewRef.current = null;
+      // Drop the reshape overlay: both paths below rebuild a full base scene
+      // that contains the item again, so leaving it up would double-draw it.
+      moveSceneRef.current = null;
       if (preview) commitBoard(preview);
       else if (boardRef.current) rebuildScene(boardRef.current);
       requestDraw();

@@ -56,10 +56,15 @@
  * written.
  */
 import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
-import { segReflectPoint } from './pns_seg_ops.js';
+import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
+import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
+import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
+import { arcShape } from '../drc/drc_engine.js';
+import { arcIsClockwise, constructArcFromStartEndCenter, shapeArcCenter } from './shape_arc_ops.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
+import type { Shape } from '../drc/drc_geometry.js';
 import type { ShapeArc } from './pns_arc.js';
 import type { PnsVia } from './pns_via.js';
 import type { Seg } from './pns_line.js';
@@ -74,6 +79,9 @@ const SHAPE_IS_PT = -1;
 /** `SHAPE_LINE_CHAIN::SHAPES_ARE_PT`. */
 const shapesArePt = (): [number, number] => [SHAPE_IS_PT, SHAPE_IS_PT];
 
+/** `VECTOR2I::operator==`. */
+const samePt = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
 /**
  * The point chain a `LINE` is drawn on, with upstream's arc bookkeeping.
  *
@@ -85,6 +93,12 @@ export class PnsLineChain {
   private mPoints: Vec2[] = [];
   private mShapes: [number, number][] = [];
   private mArcs: ShapeArc[] = [];
+  /**
+   * `m_closed`. Only `area()` and the posture solver that calls it read this;
+   * `segmentCount()` deliberately still reports the open count (see the class
+   * docblock — closed chains are otherwise not modelled).
+   */
+  private mClosed = false;
 
   /**
    * A chain over a copy of the given points, none of them on an arc.
@@ -111,6 +125,7 @@ export class PnsLineChain {
       arcMid: { ...a.arcMid },
       p1: { ...a.p1 },
     }));
+    c.mClosed = this.mClosed;
     return c;
   }
 
@@ -439,18 +454,27 @@ export class PnsLineChain {
    * `Slice( aStartIndex, aEndIndex, aMaxError )`: the sub-chain between two
    * **vertex** indices, inclusive at both ends.
    *
-   * ### Disclosed gap: cutting through the middle of an arc
+   * ### Cutting through the middle of an arc
    *
    * Upstream's two arc-*splitting* arms (`shape_line_chain.cpp:1437-1464` and
    * `:1486-1513`) rebuild a partial arc with
-   * `SHAPE_ARC::ConstructFromStartEndCenter`, which this repo has not ported
-   * and which is a `libs/kimath` job of its own. Both arms throw here.
+   * `SHAPE_ARC::ConstructFromStartEndCenter`. Both are ported now that it is.
    *
    * They are reached only when a cut index falls strictly inside an arc, which
    * `LINE::ClipVertexRange` — the only caller in this port — documents as
    * impossible: *"It is assumed that anything calling this method will have
    * determined the vertex range to clip based on joints, meaning we will never
-   * clip in the middle of an arc."* Flagged rather than faked.
+   * clip in the middle of an arc."*
+   *
+   * Two details in these arms are easy to lose:
+   *
+   *  - the copied points are tagged with `rv.m_arcs.size()`, the index the
+   *    partial arc is *about to* take, not with the index it had here; and the
+   *    start arm then advances the loop's start by `rv.PointCount()`, which is
+   *    how the main loop resumes after a partial arc rather than re-walking it;
+   *  - the end arm's new endpoint is `m_points[aEndIndex]`, **not** the last
+   *    point it copied. Those differ whenever the requested end is the arc's
+   *    own last point.
    */
   slice(aStartIndex: number, aEndIndex: number, aMaxError = ARC_HIGH_DEF): PnsLineChain {
     const rv = new PnsLineChain();
@@ -470,7 +494,32 @@ export class PnsLineChain {
     const numPoints = this.mPoints.length;
 
     if (this.isArcSegment(start) && !this.isArcStart(start)) {
-      throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() starting inside an arc is not ported');
+      // Cutting in middle of an arc, lets split it.
+      const arcToSplitIndex = this.arcIndex(start);
+      const arcToSplit = this.arc(arcToSplitIndex);
+
+      // Copy the points as arc points.
+      for (let i = start; i < this.mPoints.length && arcToSplitIndex === this.arcIndex(i); i++) {
+        rv.mPoints.push({ ...(this.mPoints[i] as Vec2) });
+        rv.mShapes.push([rv.mArcs.length, SHAPE_IS_PT]);
+      }
+
+      // Create a new arc from the existing one, with a different start point.
+      rv.mArcs.push(
+        constructArcFromStartEndCenter(
+          this.mPoints[start] as Vec2,
+          arcToSplit.p1,
+          shapeArcCenter(arcToSplit),
+          arcIsClockwise(arcToSplit),
+        ),
+      );
+
+      // Not covered by a test: dropping this advance survives the suite. The
+      // main loop would then re-walk the arc points already copied above and
+      // append a duplicate of the first of them as a plain point. The slice's
+      // arc, its endpoints and its first and last points all stay correct, and
+      // those are what the test asserts; only the interior vertex count moves.
+      start += rv.pointCount();
     }
 
     for (let i = start; i <= end && i < numPoints; i = this.nextShape(i)) {
@@ -487,7 +536,29 @@ export class PnsLineChain {
             return rv;
           }
 
-          throw new Error('PNS: SHAPE_LINE_CHAIN::Slice() ending inside an arc is not ported');
+          // Cutting in middle of an arc, lets split it.
+          const cutArcIndex = this.arcIndex(i);
+          const currentArc = this.arc(cutArcIndex);
+
+          // Copy the points as arc points.
+          for (let j = i; j <= end && j < numPoints; j++) {
+            if (cutArcIndex !== this.arcIndex(j)) break;
+
+            rv.mPoints.push({ ...(this.mPoints[j] as Vec2) });
+            rv.mShapes.push([rv.mArcs.length, SHAPE_IS_PT]);
+          }
+
+          // Create a new arc from the existing one, with a different end point.
+          rv.mArcs.push(
+            constructArcFromStartEndCenter(
+              currentArc.p0,
+              this.mPoints[end] as Vec2,
+              shapeArcCenter(currentArc),
+              arcIsClockwise(currentArc),
+            ),
+          );
+
+          return rv;
         }
 
         // Append the whole arc.
@@ -578,22 +649,38 @@ export class PnsLineChain {
   }
 
   /**
-   * The one point of `SHAPE_LINE_CHAIN::Remove` that
-   * {@link removeDuplicatePoints} reaches.
+   * `Remove( int aIndex )`, which upstream defines as `Remove( aIndex, aIndex )`
+   * — the single-vertex spelling {@link removeDuplicatePoints} reaches.
    *
-   * Upstream's `Remove( int, int )` also splits arcs that the range cuts
-   * through and renumbers the arc list; that is a `libs/kimath` port of its
-   * own, and the only call that gets here is `Remove( 1 )` on a three-point
-   * chain whose first two points coincide. A point on an arc therefore throws
-   * rather than silently corrupting the shape indices.
+   * It used to throw on a point that sits on an arc, because the range form
+   * needs `splitArc` and `splitArc` needed
+   * `SHAPE_ARC::ConstructFromStartEndCenter`. Both are ported, so this is now
+   * upstream's own one-liner and a coincident duplicate on an arc is trimmed
+   * with the arc re-cut around it instead of the shape indices being corrupted.
    */
   private removeAt(aIndex: number): void {
-    if (this.isPtOnArc(aIndex)) {
-      throw new Error('PNS: SHAPE_LINE_CHAIN::Remove() of a point on an arc is not ported');
-    }
+    this.remove(aIndex, aIndex);
+  }
 
-    this.mPoints.splice(aIndex, 1);
-    this.mShapes.splice(aIndex, 1);
+  /**
+   * The arc arm of `SHAPE_LINE_CHAIN::Split` (`shape_line_chain.cpp:1218-1224`),
+   * as a method so that the two ports of `Split` in this tree —
+   * `chainSplit` in `pns_line_drag.ts` and `chainSplitAt` in
+   * `pns_meander_placer_base.ts` — share one copy of it rather than growing a
+   * third.
+   *
+   * `aP` goes in at `aSegIndex + 1` carrying the *first* half's arc index, and
+   * then {@link splitArc} is asked for a **coincident** split, which is what
+   * makes the inserted point shared between the two halves: its `.first` stays
+   * the arc it was given here and its `.second` becomes the new arc.
+   */
+  insertPointOnArcSegment(aSegIndex: number, aP: Vec2): void {
+    const newIndex = aSegIndex + 1;
+
+    this.mPoints.splice(newIndex, 0, { x: aP.x, y: aP.y });
+    this.mShapes.splice(newIndex, 0, [this.arcIndex(aSegIndex), SHAPE_IS_PT]);
+
+    this.splitArc(newIndex, true); // Make the inserted point a shared point
   }
 
   /**
@@ -672,6 +759,7 @@ export class PnsLineChain {
     this.mPoints = [];
     this.mShapes = [];
     this.mArcs = [];
+    this.mClosed = false;
   }
 
   /**
@@ -797,6 +885,387 @@ export class PnsLineChain {
 
     this.mPoints.splice(aIndex, 1);
     this.mShapes.splice(aIndex, 1);
+  }
+
+  // ----- added for the diff-pair optimizer (pns_optimizer_diff_pair.ts) --------
+
+  /**
+   * `Insert( size_t aVertex, const VECTOR2I& aP )`, upstream's full spelling.
+   *
+   * {@link insertPoint} above is a *partial* one — it has neither the append
+   * arm (which drops a duplicate of the current last point, because `Append`
+   * does) nor the arc split. Its two callers (`pns_shove.ts`,
+   * `pns_meander_placer_base.ts`) reach neither arm, and turning a currently
+   * silent splice into a throw for them is not this change's business, so the
+   * faithful version goes in beside it rather than over it. Used only by
+   * {@link replace}.
+   */
+  private insertVertex(aVertex: number, aP: Vec2): void {
+    if (aVertex === this.mPoints.length) {
+      this.appendPoint(aP);
+      return;
+    }
+
+    if (aVertex >= this.mPoints.length) return; // wxCHECK
+
+    if (aVertex > 0 && this.isPtOnArc(aVertex)) this.splitArc(aVertex, false);
+
+    // Upstream's `//@todo need to check we aren't creating duplicate points`.
+    this.mPoints.splice(aVertex, 0, { x: aP.x, y: aP.y });
+    this.mShapes.splice(aVertex, 0, shapesArePt());
+  }
+
+  /**
+   * `convertArc( ssize_t aArcIndex )`: forget that an arc was ever an arc.
+   *
+   * Pure index bookkeeping and therefore fully portable. Two things about it
+   * are load-bearing and easy to lose:
+   *
+   *  - the two tests run in sequence on the *same* slot, so a slot equal to
+   *    `aArcIndex` is first set to `SHAPE_IS_PT` and then fails the `>` test
+   *    (`-1 > idx` is false for any real arc index). Writing them as an
+   *    `else if` would be equivalent here and is not what upstream wrote;
+   *  - the swap afterwards restores the class invariant that `second` is
+   *    `SHAPE_IS_PT` whenever `first` is. Without it a point whose *first* arc
+   *    was the one converted would report `IsPtOnArc() == true` with a
+   *    meaningless `ArcIndex()`.
+   */
+  private convertArc(aArcIndex: number): void {
+    let idx = aArcIndex;
+
+    if (idx < 0) idx += this.mArcs.length;
+
+    if (idx >= this.mArcs.length) return;
+
+    for (const sh of this.mShapes) {
+      for (const k of [0, 1] as const) {
+        if (sh[k] === idx) sh[k] = SHAPE_IS_PT;
+
+        if (sh[k] > idx) sh[k] -= 1;
+      }
+
+      if (sh[1] !== SHAPE_IS_PT && sh[0] === SHAPE_IS_PT) {
+        const t = sh[0];
+        sh[0] = sh[1];
+        sh[1] = t;
+      }
+    }
+
+    this.mArcs.splice(idx, 1);
+  }
+
+  /**
+   * `amendArc( size_t aArcIndex, const VECTOR2I& aNewStart, const VECTOR2I&
+   * aNewEnd )` (`shape_line_chain.cpp:274-289`).
+   *
+   * Re-cut an arc to new endpoints **keeping its centre and its handedness**.
+   * Upstream's comment says "try to preserve the centre of the original arc",
+   * and that is the whole design: the new endpoints come from points that were
+   * already on the old arc, so a construction through the same centre lands on
+   * the same curve, whereas a three-point construction through a fresh midpoint
+   * would drift.
+   *
+   * The width is *not* carried over — upstream default-constructs the
+   * replacement and calls `ConstructFromStartEndCenter` with its default zero
+   * width. Chain-held arcs already have zero width ({@link appendArc} strips
+   * it), so the loss is invisible here, but it is upstream's behaviour and not
+   * a simplification.
+   *
+   * **Not covered by a test:** negating `arcIsClockwise( theArc )` here survives
+   * the whole PNS suite. `amendArc` is reached only from {@link splitArc}'s
+   * shared-point / arc-end arm, and that arm needs a chain whose split index is
+   * where two arcs *meet* — which nothing in this tree builds yet, because the
+   * only producer of abutting arcs would be the `LINE_PLACER` that has not
+   * landed. The interior arm, which every current caller takes, is covered.
+   */
+  private amendArc(aArcIndex: number, aNewStart: Vec2, aNewEnd: Vec2): void {
+    const theArc = this.mArcs[aArcIndex];
+
+    if (!theArc) return; // wxCHECK_MSG( "Invalid arc index requested." )
+
+    this.mArcs[aArcIndex] = constructArcFromStartEndCenter(
+      aNewStart,
+      aNewEnd,
+      shapeArcCenter(theArc),
+      arcIsClockwise(theArc),
+    );
+  }
+
+  /**
+   * `splitArc( ssize_t aPtIndex, bool aCoincident )`
+   * (`shape_line_chain.cpp:292-365`).
+   *
+   * Cut the arc that owns point `aPtIndex` in two there. `aCoincident` says
+   * whether the point is to be *shared* by the two halves (both halves touch
+   * it) or whether the first half is to stop at the previous point instead —
+   * which is the difference between splitting a chain at a vertex that must
+   * survive and trimming an arc back off a vertex that is about to go away.
+   *
+   * Four early-outs, then two arms.
+   *
+   * ### The shared-point / arc-end arm
+   *
+   * There is no arc to cut *after* the index — the point is already the end of
+   * one — so all that happens is that the first arc is amended back to the
+   * previous point and the index stops pointing at it. `aCoincident` (or index
+   * 0, where there is no previous point) makes even that unnecessary.
+   *
+   * ### The interior arm
+   *
+   * Both halves are built from the *original* arc's centre and handedness, so
+   * they lie on the same circle. Then either:
+   *
+   *  - the point is the first of its arc's run and not coincident, so the first
+   *    half would have zero points — upstream's comment — and only the second
+   *    half is kept, in place; or
+   *  - both halves are kept, the second inserted directly after the first, and
+   *    **only the shape indices from `aPtIndex` onward** are bumped past the
+   *    insertion. Renumbering the whole chain would corrupt the first half.
+   *
+   * In the coincident case `m_shapes[aPtIndex].second` is set to the new arc
+   * *before* the index is advanced, so the split point ends up genuinely shared
+   * — first arc in `.first`, second in `.second` — and the renumbering starts
+   * past it.
+   *
+   * `arcIndex( aPtIndex - 1 )` at index 0 reads off the front of the array;
+   * upstream indexes a `std::vector` with `-1` there and gets whatever is in
+   * front of it, and {@link arcIndex} answers `SHAPE_IS_PT`, which is `-1` and
+   * so compares unequal to any real arc index — the same branch upstream takes
+   * in practice.
+   */
+  private splitArc(aPtIndex: number, aCoincident: boolean): void {
+    let idx = aPtIndex;
+
+    if (idx < 0) idx += this.mShapes.length;
+
+    if (!this.isSharedPt(idx) && this.isArcStart(idx)) return; // Nothing to do
+
+    if (!this.isPtOnArc(idx)) return; // Nothing to do
+
+    if (idx >= this.mShapes.length) return; // wxCHECK_MSG( "Invalid point index requested." )
+
+    if (this.isSharedPt(idx) || this.isArcEnd(idx)) {
+      if (aCoincident || idx === 0) return; // nothing to do
+
+      const shape = this.mShapes[idx] as [number, number];
+      const firstArcIndex = shape[0];
+      const firstArc = this.mArcs[firstArcIndex] as ShapeArc;
+
+      // Don't amend the start.
+      this.amendArc(firstArcIndex, firstArc.p0, this.mPoints[idx - 1] as Vec2);
+
+      if (this.isSharedPt(idx)) {
+        shape[0] = shape[1];
+        shape[1] = SHAPE_IS_PT;
+      } else {
+        this.mShapes[idx] = shapesArePt();
+      }
+
+      return;
+    }
+
+    const currArcIdx = this.arcIndex(idx);
+    const currentArc = this.arc(currArcIdx);
+    const centre = shapeArcCenter(currentArc);
+    const clockwise = arcIsClockwise(currentArc);
+
+    const arc1End = aCoincident ? (this.mPoints[idx] as Vec2) : (this.mPoints[idx - 1] as Vec2);
+    const arc2Start = this.mPoints[idx] as Vec2;
+
+    const newArc1 = constructArcFromStartEndCenter(currentArc.p0, arc1End, centre, clockwise);
+    const newArc2 = constructArcFromStartEndCenter(arc2Start, currentArc.p1, centre, clockwise);
+
+    if (!aCoincident && this.arcIndex(idx - 1) !== currArcIdx) {
+      // Ignore newArc1 as it has zero points.
+      this.mArcs[currArcIdx] = newArc2;
+
+      return;
+    }
+
+    this.mArcs[currArcIdx] = newArc1;
+    this.mArcs.splice(currArcIdx + 1, 0, newArc2);
+
+    if (aCoincident) {
+      (this.mShapes[idx] as [number, number])[1] = currArcIdx + 1;
+
+      // Not covered by a test: dropping this `idx++` survives the suite. Without
+      // it the renumbering below also bumps the split point's own pair, so its
+      // `.first` stops naming the arc that ends there and its `.second` names an
+      // arc index one past the end. Nothing currently reads the split point's
+      // indices — the `Split` test asserts `IsSharedPt` (still true either way)
+      // and the two halves' endpoints, which live in `m_arcs`, not `m_shapes`.
+      idx++;
+    }
+
+    // Only change the arc indices for the second half of the point range.
+    for (let i = idx; i < this.pointCount(); i++) {
+      const sh = this.mShapes[i] as [number, number];
+
+      for (const k of [0, 1] as const) {
+        if (sh[k] !== SHAPE_IS_PT) sh[k] += 1;
+      }
+    }
+  }
+
+  /**
+   * `Remove( int aStartIndex, int aEndIndex )`: drop a **vertex** range,
+   * inclusive at both ends, converting away any arc the range touches.
+   *
+   * Upstream brackets the whole body in `SetClosed(false)` / restore so that an
+   * arc wrapping the seam of a closed chain is handled; closed chains are not
+   * modelled here (see the module note) and the bracketing is a no-op, so it is
+   * named rather than written.
+   *
+   * Three of upstream's own quirks are reproduced:
+   *
+   *  - **a shared point strictly inside the range logs no arc at all.** The
+   *    `if( IsSharedPt( i ) )` block only `continue`s on the two ends; a shared
+   *    point in the middle falls out of it *and* skips the `else`, so neither
+   *    of its arcs is converted before the points vanish underneath them;
+   *  - **`extra_arcs` is collected before any conversion happens**, and every
+   *    {@link convertArc} renumbers the arcs above it downwards. Converting 1
+   *    and then 3 therefore converts what *was* arc 4;
+   *  - the two `IsSharedPt` adjustments move the range's ends inwards so a
+   *    shared point survives, which is how the range can come out empty
+   *    (`start > end`) and the call become a no-op.
+   */
+  remove(aStartIndex: number, aEndIndex: number): void {
+    let start = aStartIndex;
+    let end = aEndIndex;
+
+    if (end < 0) end += this.pointCount();
+
+    if (start < 0) start += this.pointCount();
+
+    if (start >= this.pointCount() || end >= this.pointCount() || start > end) return;
+
+    // Split arcs, making arcs coincident.
+    if (!this.isArcStart(start) && this.isPtOnArc(start)) this.splitArc(start, false);
+
+    if (this.isSharedPt(start)) start += 1; // Don't delete the shared point
+
+    if (!this.isArcEnd(end) && this.isPtOnArc(end) && end < this.pointCount() - 1) {
+      this.splitArc(end + 1, true);
+    }
+
+    if (this.isSharedPt(end)) end -= 1; // Don't delete the shared point
+
+    if (start > end) return;
+
+    const extraArcs = new Set<number>();
+    const logArcIdxRemoval = (aShapeIndex: number): void => {
+      if (aShapeIndex !== SHAPE_IS_PT) extraArcs.add(aShapeIndex);
+    };
+
+    // Remove any overlapping arcs in the point range.
+    for (let i = start; i <= end; i++) {
+      const sh = this.mShapes[i] as [number, number];
+
+      if (this.isSharedPt(i)) {
+        if (i === start) {
+          logArcIdxRemoval(sh[1]); // Only remove the arc on the second index
+        } else if (i === end) {
+          logArcIdxRemoval(sh[0]); // Only remove the arc on the first index
+        }
+      } else {
+        logArcIdxRemoval(sh[0]);
+        logArcIdxRemoval(sh[1]);
+      }
+    }
+
+    // `std::set<size_t>` iterates ascending; a JS Set iterates in insertion
+    // order, and the difference is observable through convertArc's renumbering.
+    for (const arc of [...extraArcs].sort((a, b) => a - b)) this.convertArc(arc);
+
+    this.mShapes.splice(start, end - start + 1);
+    this.mPoints.splice(start, end - start + 1);
+  }
+
+  /**
+   * `Replace( aStartIndex, aEndIndex, const VECTOR2I& )` and
+   * `Replace( aStartIndex, aEndIndex, const SHAPE_LINE_CHAIN& )`.
+   *
+   * Both take **vertex** indices, inclusive at both ends.
+   *
+   * The chain overload's shape is entirely about not doubling a point that is
+   * already there: if the replacement starts where the range starts, the range
+   * is narrowed by one and the replacement loses its first point; likewise at
+   * the far end, and there guarded by `aEndIndex > 0`. That is what lets the
+   * diff-pair optimizer hand in a bypass whose two ends *are* the chain's own
+   * vertices and get back a chain with only the bypass's interior spliced in.
+   *
+   * The arc indices of the incoming chain are rebased by the arc count **after**
+   * the removal, not before — `prev_arc_count` is read once the hole has been
+   * made, so an arc that the removal converted away has already stopped
+   * counting.
+   *
+   * Upstream's `wxASSERT( aStartIndex <= aEndIndex )` and
+   * `wxASSERT( aEndIndex < m_points.size() )` are assertions, not guards: a
+   * release build falls through them into {@link remove}, which has real guards
+   * of its own and returns without doing anything. Not re-spelled as throws.
+   */
+  replace(aStartIndex: number, aEndIndex: number, aP: Vec2): void;
+  replace(aStartIndex: number, aEndIndex: number, aLine: PnsLineChain): void;
+  replace(aStartIndex: number, aEndIndex: number, aPOrLine: Vec2 | PnsLineChain): void {
+    if (!(aPOrLine instanceof PnsLineChain)) {
+      this.remove(aStartIndex, aEndIndex);
+      this.insertVertex(aStartIndex, aPOrLine);
+      return;
+    }
+
+    let start = aStartIndex;
+    let end = aEndIndex;
+
+    if (end < 0) end += this.pointCount();
+
+    if (start < 0) start += this.pointCount();
+
+    // The argument is copied, never mutated — callers reuse it.
+    const newLine = aPOrLine.clone();
+
+    // Zero points to add?
+    if (newLine.pointCount() === 0) {
+      this.remove(start, end);
+      return;
+    }
+
+    // Remove coincident points in the new line.
+    const atStart = this.mPoints[start];
+
+    if (atStart !== undefined && samePt(newLine.mPoints[0] as Vec2, atStart)) {
+      start++;
+      newLine.remove(0, 0);
+
+      // Zero points to add?
+      if (newLine.pointCount() === 0) {
+        this.remove(start, end);
+        return;
+      }
+    }
+
+    const atEnd = this.mPoints[end];
+    const back = newLine.mPoints[newLine.mPoints.length - 1] as Vec2;
+
+    if (atEnd !== undefined && samePt(back, atEnd) && end > 0) {
+      end--;
+      newLine.remove(-1, -1);
+    }
+
+    this.remove(start, end);
+
+    // Zero points to add?
+    if (newLine.pointCount() === 0) return;
+
+    // The total new arcs index is added to the new arc indices.
+    const prevArcCount = this.mArcs.length;
+    const newShapes = newLine.mShapes.map((s): [number, number] => [
+      s[0] === SHAPE_IS_PT ? SHAPE_IS_PT : s[0] + prevArcCount,
+      s[1] === SHAPE_IS_PT ? SHAPE_IS_PT : s[1] + prevArcCount,
+    ]);
+
+    this.mShapes.splice(start, 0, ...newShapes);
+    this.mPoints.splice(start, 0, ...newLine.mPoints.map((p) => ({ x: p.x, y: p.y })));
+    this.mArcs.push(...newLine.mArcs);
   }
 
   /**
@@ -1138,6 +1607,284 @@ export class PnsLineChain {
 
     return nearestOnSegment(this.mPoints[nearest] as Vec2, this.mPoints[nearest + 1] as Vec2, aP);
   }
+
+  // ----- the chain surface LINE_PLACER needs ------------------------------------
+  //
+  // Upstream's arc bookkeeping in `Remove`, `Split` and `Replace` splits an arc
+  // that a cut lands inside; that path is NOT ported. Shape indices are carried
+  // along with the points so an arc-bearing chain is never *corrupted*, but a
+  // cut through the middle of an arc leaves the arc's remaining points pointing
+  // at it rather than splitting it in two. LINE_PLACER's own chains are
+  // arc-free — `Direction45` builds no arcs in the ported corner modes — and
+  // the one place arcs do reach it (`FixRoute` reading `arcIndex`) only reads.
+  //
+  // Deliberately absent: `points()`, `bbox()`, `nearestPoint()`, `insertPoint()`
+  // and `simplify()`/`simplify2()`. This port had its own of each and SHOVE's
+  // are the ones kept. `simplify` matters most: SHOVE's is
+  // `SHAPE_LINE_CHAIN::Simplify( int aTolerance )` (`shape_line_chain.h:358`),
+  // which is what `LINE_PLACER` actually calls, where this port had bound the
+  // name to `Simplify2( bool aRemoveColinear )` (`:362`) — a different function
+  // with a fixed one-IU band. SHOVE's is the faithful one.
+
+  /** `IsClosed()`. */
+  isClosed(): boolean {
+    return this.mClosed;
+  }
+
+  /**
+   * `SetClosed`. Only a flag: it does not append the wrap-around point, and
+   * `segmentCount()` here deliberately still reports the open count, matching
+   * how the ported callers use it.
+   */
+  setClosed(aClosed: boolean): void {
+    this.mClosed = aClosed;
+  }
+
+  /**
+   * `Area( aAbsolute = true )` (`shape_line_chain.cpp:2696-2718`): the shoelace
+   * area, **zero unless the chain is closed**. The posture solver leans on that
+   * — it closes its two candidate polygons before measuring, and a chain it
+   * forgot to close would silently compare 0 against 0.
+   */
+  area(aAbsolute = true): number {
+    if (!this.mClosed) return 0.0;
+
+    let area = 0.0;
+    const size = this.mPoints.length;
+
+    for (let i = 0, j = size - 1; i < size; ++i) {
+      const pi = this.mPoints[i] as Vec2;
+      const pj = this.mPoints[j] as Vec2;
+      area += (pj.x + pi.x) * (pj.y - pi.y);
+      j = i;
+    }
+
+    return aAbsolute ? Math.abs(area * 0.5) : -area * 0.5;
+  }
+
+  /** `SetPoint`: negative indices count back from the end. */
+  setPoint(aIndex: number, aPos: Vec2): void {
+    const i = aIndex < 0 ? this.mPoints.length + aIndex : aIndex;
+
+    if (i < 0 || i >= this.mPoints.length) return;
+
+    this.mPoints[i] = { x: aPos.x, y: aPos.y };
+  }
+
+  /**
+   * `ShapeCount()` (`shape_line_chain.cpp:1269-1281`): how many *shapes* — a
+   * segment run or a whole arc counting as one — the chain is made of.
+   *
+   * This is the quantity `mergeHead` thresholds on, and it is **not** the
+   * segment count: an arc of forty polyline segments is one shape. Fewer than
+   * two points is zero shapes, not one.
+   */
+  shapeCount(): number {
+    if (this.mPoints.length < 2) return 0;
+
+    let numShapes = 1;
+
+    for (let i = this.nextShape(0); i !== -1; i = this.nextShape(i)) numShapes++;
+
+    return numShapes;
+  }
+
+  /**
+   * `EdgeContainingPoint( aPt, aAccuracy )` (`shape_line_chain.cpp:2080-...`):
+   * the index of the segment the point lies on, or -1.
+   *
+   * The threshold is `aAccuracy + 1`, not `aAccuracy` — a point exactly on the
+   * edge of an exactly-zero-accuracy query still counts.
+   */
+  edgeContainingPoint(aPt: Vec2, aAccuracy = 0): number {
+    const threshold = aAccuracy + 1;
+    const thresholdSq = threshold * threshold;
+
+    if (this.mPoints.length === 0) return -1;
+
+    if (this.mPoints.length === 1) {
+      const p = this.mPoints[0] as Vec2;
+      const dSq = (p.x - aPt.x) ** 2 + (p.y - aPt.y) ** 2;
+      return dSq <= thresholdSq ? 0 : -1;
+    }
+
+    for (let i = 0; i < this.segmentCount(); i++) {
+      if (segSquaredDistanceToPointExact(this.cSegment(i), aPt) <= thresholdSq) return i;
+    }
+
+    return -1;
+  }
+
+  /** `PointOnEdge`. */
+  pointOnEdge(aPt: Vec2, aAccuracy = 0): boolean {
+    return this.edgeContainingPoint(aPt, aAccuracy) >= 0;
+  }
+
+  /**
+   * `RemoveShape( aPointIndex )` (`shape_line_chain.cpp:1380-1409`): remove the
+   * whole shape this point belongs to — one point if it is a plain vertex, the
+   * entire arc if it is on one.
+   *
+   * `handlePullback` calls this with -1 rather than `Remove(-1, -1)` precisely
+   * so that pulling back over an arc drops the arc rather than one of its
+   * polyline vertices.
+   */
+  removeShape(aPointIndex: number): void {
+    let idx = aPointIndex;
+
+    if (idx < 0) idx += this.pointCount();
+    if (idx >= this.pointCount() || idx < 0) return;
+
+    if (!this.isPtOnArc(idx)) {
+      this.remove(idx, idx);
+      return;
+    }
+
+    let start = idx;
+    let end = idx;
+    const arcIdx = this.arcIndex(idx);
+
+    if (!this.isArcStart(start)) {
+      while (start > 0 && this.arcIndex(start - 1) === arcIdx) start--;
+    }
+
+    const isArcEnd = this.isPtOnArc(end) && !this.isArcSegment(end);
+
+    if (!isArcEnd || start === end) {
+      const next = this.nextShape(end);
+      end = next === -1 ? this.pointCount() - 1 : next;
+    }
+
+    this.remove(start, end);
+  }
+
+  // `Replace` and `Remove` are ported in full above, both overloads, with the
+  // arc bookkeeping upstream maintains. A second narrower spelling landed here
+  // independently; main's is kept.
+
+  /**
+   * `Split( aP, aExact = false )` (`shape_line_chain.cpp:1181-1236`): insert
+   * `aP` as a vertex and return its index, or -1 if it is nowhere near the
+   * chain.
+   *
+   * `min_dist` starts at **2**, so the point must be within 1 IU of a segment —
+   * this is a snap onto an existing edge, not a projection. And a candidate
+   * segment is rejected when `aP` equals either of its ends (`:1195`), with the
+   * comment *"make sure we are not producing a 'slightly concave' primitive"*;
+   * the already-a-vertex case is then picked up by the `found_index` fallback,
+   * which returns that vertex's index without inserting anything.
+   */
+  split(aP: Vec2, aExact = false): number {
+    let ii = -1;
+    let minDist = 2;
+
+    const foundIndex = this.find(aP);
+
+    if (foundIndex >= 0 && aExact) return foundIndex;
+
+    for (let s = 0; s < this.segmentCount(); s++) {
+      const seg = this.cSegment(s);
+      const dist = Math.round(Math.sqrt(segSquaredDistanceToPointExact(seg, aP)));
+
+      if (
+        dist < minDist &&
+        !(seg.a.x === aP.x && seg.a.y === aP.y) &&
+        !(seg.b.x === aP.x && seg.b.y === aP.y)
+      ) {
+        minDist = dist;
+
+        if (foundIndex < 0) ii = s;
+        else if (s < foundIndex) ii = s;
+      }
+    }
+
+    if (ii < 0) ii = foundIndex;
+
+    if (ii >= 0) {
+      const at = this.mPoints[ii];
+
+      // Don't create duplicate points.
+      if (at !== undefined && at.x === aP.x && at.y === aP.y) return ii;
+
+      const newIndex = ii + 1;
+
+      // Splitting inside an arc is upstream's `splitArc` path, which is not
+      // ported; the point is inserted as a plain vertex instead.
+      this.insertPoint(newIndex, aP);
+
+      return newIndex;
+    }
+
+    return -1;
+  }
+
+  /**
+   * `Intersect( const SHAPE_LINE_CHAIN& aChain, INTERSECTIONS& aIp )`
+   * (`shape_line_chain.cpp:1802-1948`), the non-collinear arm plus the
+   * collinear-overlap arm.
+   *
+   * `index_our` is a *segment* index that is incremented to a *point* index when
+   * the hit lands on that segment's B end — the two index spaces are mixed on
+   * purpose, and `handleSelfIntersections` reads the result as a point index
+   * when it clips the tail.
+   */
+  intersect(aChain: PnsLineChain, aExcludeColinearAndTouching = false): ChainIntersection[] {
+    const out: ChainIntersection[] = [];
+    const ourSegCount = this.segmentCount();
+    const theirSegCount = aChain.segmentCount();
+
+    if (ourSegCount === 0 || theirSegCount === 0) return out;
+
+    for (let s1 = 0; s1 < ourSegCount; s1++) {
+      const a = this.cSegment(s1);
+
+      for (let s2 = 0; s2 < theirSegCount; s2++) {
+        const b = aChain.cSegment(s2);
+        const p = intersectSegs(a, b);
+        const base = {
+          indexOur: s1,
+          indexTheir: s2,
+          isCornerOur: false,
+          isCornerTheir: false,
+        };
+
+        if (!aExcludeColinearAndTouching && segCollinear(a.a, a.b, b.a, b.b)) {
+          if (segContains(a, b.a)) out.push({ ...base, p: { ...b.a }, isCornerTheir: true });
+          if (segContains(a, b.b))
+            out.push({ ...base, p: { ...b.b }, indexTheir: s2 + 1, isCornerTheir: true });
+          if (segContains(b, a.a)) out.push({ ...base, p: { ...a.a }, isCornerOur: true });
+          if (segContains(b, a.b))
+            out.push({ ...base, p: { ...a.b }, indexOur: s1 + 1, isCornerOur: true });
+        } else if (p) {
+          const is: ChainIntersection = { ...base, p };
+
+          if (p.x === a.a.x && p.y === a.a.y) is.isCornerOur = true;
+          if (p.x === a.b.x && p.y === a.b.y) {
+            is.isCornerOur = true;
+            is.indexOur = s1 + 1;
+          }
+          if (p.x === b.a.x && p.y === b.a.y) is.isCornerTheir = true;
+          if (p.x === b.b.x && p.y === b.b.y) {
+            is.isCornerTheir = true;
+            is.indexTheir = s2 + 1;
+          }
+
+          out.push(is);
+        }
+      }
+    }
+
+    return out;
+  }
+}
+
+/** `SHAPE_LINE_CHAIN::INTERSECTION` (`shape_line_chain.h:86-110`). */
+export interface ChainIntersection {
+  p: Vec2;
+  indexOur: number;
+  indexTheir: number;
+  isCornerOur: boolean;
+  isCornerTheir: boolean;
 }
 
 /** `SEG::LineDistance`: distance from `p` to the infinite line through a-b. */
@@ -1392,6 +2139,54 @@ export class PnsLine extends PnsLinkHolder {
     return null;
   }
 
+  /**
+   * `LINE::Shape()`: `return &m_line;` — the chain the line is drawn on.
+   *
+   * Upstream that is one `SHAPE_LINE_CHAIN*` and `ITEM::collideSimple` hands it
+   * straight to `SHAPE::Collide`. This repo's `Shape` union has no open
+   * polyline, so the chain arrives as the list of primitives it is made of; see
+   * {@link PnsItem.shapes}. `shape()` still answers null, exactly as before,
+   * because that is what the spatial index reads and upstream does not index a
+   * LINE either.
+   *
+   * **Zero width, and that is not an oversight.** `collideSimple` computes
+   * `lineWidthI`/`lineWidthH` from `LINE::Width()` and adds them to the
+   * clearance, because — its own comment — *"collision routines ignore polyline
+   * widths, so we have to pass them in as part of the clearance value"*. Giving
+   * these primitives `r = width / 2` as well would count the width twice.
+   *
+   * **Arcs are emitted as arcs, and their polyline stand-ins are skipped.**
+   * That is upstream's split too: `Collide( SHAPE_LINE_CHAIN_BASE&,
+   * SHAPE_LINE_CHAIN_BASE& )` walks the segments with `IsArcSegment( i )`
+   * segments filtered out, then collides each `Arc( j )` against the other
+   * shape whole. Measuring the approximation *and* the true curve would report
+   * the approximation's error as geometry.
+   *
+   * The skip is not pinned and a mutant that deletes it survives, by
+   * construction: the stand-in is a run of chords *inside* the curve, so
+   * measuring it as well can only shorten a distance by up to `ARC_HIGH_DEF`.
+   * It changes how many primitives are measured, not the verdict.
+   */
+  override shapes(_aLayer: number): readonly Shape[] {
+    const out: Shape[] = [];
+
+    for (let i = 0; i < this.mLine.segmentCount(); i++) {
+      if (this.mLine.isArcSegment(i)) continue;
+
+      const s = this.mLine.cSegment(i);
+
+      out.push({ kind: 'stadium', a: s.a, b: s.b, r: 0 });
+    }
+
+    for (let i = 0; i < this.mLine.arcCount(); i++) {
+      const a = this.mLine.arc(i);
+
+      out.push(arcShape(a.p0, a.arcMid, a.p1, 0));
+    }
+
+    return out;
+  }
+
   // ----- the via at the end -----------------------------------------------------
 
   appendVia(aVia: PnsVia): void {
@@ -1410,6 +2205,51 @@ export class PnsLine extends PnsLinkHolder {
 
   endsWithVia(): boolean {
     return this.mVia !== null;
+  }
+
+  // ----- added for LINE_PLACER (pns_line_placer.ts) -----------------------------
+
+  /**
+   * `LINE::Clear()` (`pns_line.cpp:1589-1594`): links, via, points — in that
+   * order, and **all three**.
+   *
+   * `splitHeadTail` leans on the fact that this leaves the width, layers and net
+   * alone: it builds the new head as a copy of the *old tail* and then clears
+   * it, precisely so the head inherits those three attributes from the tail
+   * rather than from the walked line it is about to be given.
+   */
+  clear(): void {
+    this.clearLinks();
+    this.removeVia();
+    this.mLine.clear();
+  }
+
+  /**
+   * `LINE::CountCorners( aAngles )` (`pns_line.cpp:218-237`): how many corners
+   * of this line form one of the angle types in the mask.
+   *
+   * `mergeHead` uses it as a veto — a head containing any acute, 180° or
+   * undefined corner is never promoted into the tail, because such a corner
+   * cannot be routed and would be frozen in place by the promotion.
+   *
+   * Arcs are not special-cased here, upstream included: the polyline segments
+   * standing in for an arc are compared like any others, so a polygonised arc
+   * contributes a run of obtuse corners.
+   */
+  countCorners(aAngles: number): number {
+    let count = 0;
+
+    for (let i = 0; i < this.mLine.segmentCount() - 1; i++) {
+      const seg1 = this.mLine.cSegment(i);
+      const seg2 = this.mLine.cSegment(i + 1);
+
+      const dir1 = Direction45.fromSeg(seg1.a, seg1.b);
+      const dir2 = Direction45.fromSeg(seg2.a, seg2.b);
+
+      if (dir1.angle(dir2) & aAngles) count++;
+    }
+
+    return count;
   }
 
   // ----- the LINE surface SHOVE needs ---------------------------------------------

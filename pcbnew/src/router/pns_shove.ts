@@ -1296,6 +1296,11 @@ export class PnsShove {
 
     if (!samePoint(aObstacleLine.cPoint(0), aResultLine.cLine().cPoint(0))) return false;
 
+    // Live since ZiroEDA issue #484 — a LINE had no shape, so this answered
+    // `false` whatever the geometry. Forcing it back to that answer still leaves
+    // the whole suite green: no fixture walks a line round a via and lands it
+    // back on the line it was avoiding. Named rather than contrived, and the
+    // same is true of the three sister guards in this file.
     if (aResultLine.collide(aCurLine, this.mCurrentNode, aResultLine.layer())) return false;
 
     return true;
@@ -1457,6 +1462,7 @@ export class PnsShove {
 
       if (path.selfIntersecting()) continue;
 
+      // Live since issue #484, uncovered — see the note in shoveLineFromLoneVia.
       if (l.collide(aCurLine, this.mCurrentNode, l.layer())) continue;
 
       aResultLine.setShape(l.cLine().clone());
@@ -1774,6 +1780,7 @@ export class PnsShove {
       if (this.mLineStack.length > 0) {
         const lastLine = this.mLineStack[0] as PnsLine;
 
+        // Live since issue #484, uncovered — see the note in shoveLineFromLoneVia.
         if (lastLine.collide(walkaroundLine, this.mCurrentNode, lastLine.layer())) {
           const dummy = lastLine.clone();
 
@@ -2173,6 +2180,8 @@ export class PnsShove {
       const vtest = v.clone();
       vtest.setDiameter(sl, s.width());
 
+      // `aCurrent` is a LINE, so this too was dead before issue #484, and it too
+      // is uncovered — see the note in shoveLineFromLoneVia.
       if (vtest.collide(aCurrent, this.mCurrentNode, aCurrent.layer())) {
         // Drop the segment from this iteration and force-propagate the via.
         obs.item = v;
@@ -2581,11 +2590,24 @@ export class PnsShove {
    * `OPTIMIZER::Optimize( LINE*, LINE*, LINE* aRoot )`, to the extent the free
    * functions in `pns_optimizer.ts` can express it. Null means "no improvement",
    * which is upstream's `false` return.
+   *
+   * `bool hasArcs = aLine->ArcCount()` (`pns_optimizer.cpp:617`) gates both
+   * merge passes with a "TODO: Fix for arcs", and it is not decoration: the
+   * passes reason over a plain point array and would straighten an arc's
+   * polyline into the chords it stands for, destroying the arc. The dragger's
+   * copy of this bridge already carried the guard; this one did not.
+   *
+   * **Not covered by a test:** removing `!hasArcs` from either arm survives the
+   * suite. Every shove fixture routes plain 45° track, so no test ever hands
+   * this bridge a line whose `ArcCount()` is non-zero — the guard is here
+   * because upstream has it, not because a test found it missing.
    */
   private optimizeLine(aLine: PnsLine, aEffortLevel: number, aNode: PnsNode): PnsLine | null {
     const chain = aLine.cLine().points();
 
     if (chain.length < 3) return null;
+
+    const hasArcs = aLine.cLine().arcCount() > 0;
 
     const collides = (path: Vec2[]): boolean => {
       const probe = PnsLine.fromBase(aLine, PnsLineChain.fromPoints(path));
@@ -2596,9 +2618,10 @@ export class PnsShove {
 
     let out: Vec2[] = chain;
 
-    if (aEffortLevel & PnsOptimizerFlags.MERGE_SEGMENTS) out = mergeFull(out, collides);
-    else if (aEffortLevel & PnsOptimizerFlags.MERGE_OBTUSE) out = mergeObtuse(out, collides);
-    else return null;
+    if (!hasArcs && aEffortLevel & PnsOptimizerFlags.MERGE_SEGMENTS) out = mergeFull(out, collides);
+    else if (!hasArcs && aEffortLevel & PnsOptimizerFlags.MERGE_OBTUSE) {
+      out = mergeObtuse(out, collides);
+    } else return null;
 
     if (out.length === chain.length) return null;
 

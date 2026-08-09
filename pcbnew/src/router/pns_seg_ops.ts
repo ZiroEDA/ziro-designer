@@ -102,26 +102,13 @@ export const segLength = (aSeg: Seg): number =>
   EuclideanNormI({ x: aSeg.a.x - aSeg.b.x, y: aSeg.a.y - aSeg.b.y });
 
 /**
- * `SEG::LineProject`: the foot of the perpendicular from `aP` onto the
- * segment's **infinite** line.
- *
- * A zero-length segment has no line, and upstream answers `A` rather than
- * dividing by zero.
+ * `SEG::LineProject` and `SEG::ApproxParallel` now **live in kimath**
+ * (`libs/kimath/src/geometry/seg.ts`), because `CIRCLE::ConstructFromTanTanPt`
+ * needs them and kimath cannot import from pcbnew. The bodies moved unchanged;
+ * they are re-exported here so every existing caller and the barrel keep
+ * working, and so that no second implementation appears.
  */
-export function segLineProject(aSeg: Seg, aP: Vec2): Vec2 {
-  const dx = big(aSeg.b.x) - big(aSeg.a.x);
-  const dy = big(aSeg.b.y) - big(aSeg.a.y);
-  const lSquared = dx * dx + dy * dy;
-
-  if (lSquared === 0n) return { x: aSeg.a.x, y: aSeg.a.y };
-
-  const t = dx * (big(aP.x) - big(aSeg.a.x)) + dy * (big(aP.y) - big(aSeg.a.y));
-
-  return {
-    x: num(big(aSeg.a.x) + rescale64(t, dx, lSquared)),
-    y: num(big(aSeg.a.y) + rescale64(t, dy, lSquared)),
-  };
-}
+export { segApproxParallel, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 
 /**
  * `SEG::ReflectPoint`: `aP` mirrored across the segment's infinite line.
@@ -198,62 +185,4 @@ export function segSquaredDistanceToPointExact(aSeg: Seg, aP: Vec2): number {
   if (g < 0 || g > 2 ** 63) return 0;
 
   return KiROUND(g);
-}
-
-/**
- * `SEG::mutualDistanceSquared`: the two *signed* squared distances from the
- * shorter segment's endpoints to the longer segment's line, or `null` when the
- * longer segment is degenerate and defines no line.
- *
- * The longer segment supplies the line; ties keep `this`, because upstream
- * swaps only on a strict `<`.
- */
-function mutualDistanceSquared(aA: Seg, aB: Seg): { d1: bigint; d2: bigint } | null {
-  let a = aA;
-  let b = aB;
-
-  if (segSquaredLength(a) < segSquaredLength(b)) {
-    const t = a;
-    a = b;
-    b = t;
-  }
-
-  const p = big(a.a.y) - big(a.b.y);
-  const q = big(a.b.x) - big(a.a.x);
-  const r = -p * big(a.a.x) - q * big(a.a.y);
-  const l = p * p + q * q;
-
-  if (l === 0n) return null;
-
-  const det1 = p * big(b.a.x) + q * big(b.a.y) + r;
-  const det2 = p * big(b.b.x) + q * big(b.b.y) + r;
-
-  const sgn = (v: bigint): bigint => (v > 0n ? 1n : v < 0n ? -1n : 0n);
-
-  return {
-    d1: sgn(det1) * rescale64(det1, det1, l),
-    d2: sgn(det2) * rescale64(det2, det2, l),
-  };
-}
-
-/**
- * `SEG::ApproxParallel`: the two endpoints of the shorter segment sit at
- * (near enough) the *same signed* distance from the longer one's line.
- *
- * Signed is what makes this "parallel" rather than "collinear or crossing": a
- * segment that crosses the other's line has endpoints at equal magnitude but
- * opposite sign when it crosses at its midpoint, and the subtraction then gives
- * twice the distance rather than zero.
- *
- * A degenerate longer segment answers false.
- */
-export function segApproxParallel(aA: Seg, aB: Seg, aDistanceThreshold = 1): boolean {
-  const d = mutualDistanceSquared(aA, aB);
-
-  if (!d) return false;
-
-  const diff = d.d1 - d.d2;
-  const abs = diff < 0n ? -diff : diff;
-
-  return abs <= big(aDistanceThreshold) * big(aDistanceThreshold);
 }
