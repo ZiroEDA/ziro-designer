@@ -1007,6 +1007,15 @@ export interface SceneFilter {
   /** Appearance>Objects "Footprints Front/Back": hide whole footprints per side. */
   hideFrontFootprints?: boolean;
   hideBackFootprints?: boolean;
+  /**
+   * The clearance the pad-clearance outline is inflated by, resolved per net
+   * name the way BOARD_CONNECTED_ITEM::GetOwnClearance ends up doing for the
+   * common case: the net's class clearance, floored by the board's minimum
+   * clearance rule. Absent, the outlines fall back to netclass.cpp's 0.2 mm
+   * default — which on any board whose Default class says otherwise draws
+   * every ring visibly off (this board's says 0.15 mm).
+   */
+  clearanceForNet?: (netName: string) => number;
 }
 
 /** Even-odd ray cast: is point `p` inside the closed polygon `poly`? */
@@ -1300,6 +1309,8 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         }
         continue;
       }
+      const padClr =
+        filter.clearanceForNet?.(board.nets.get(pad.net ?? 0) ?? '') ?? DEFAULT_PAD_CLEARANCE;
       for (const layer of expandLayers(pad.layers, copperNames)) {
         const b = buckets(scene, layer);
         addPadShape(b.pads, pad);
@@ -1307,7 +1318,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         // Pad clearance outline is drawn per copper layer the pad flashes on
         // (not the mask layers), in that layer's color.
         if (copperNames.includes(layer)) {
-          addPadClearanceShape(b.clearance, pad, DEFAULT_PAD_CLEARANCE);
+          addPadClearanceShape(b.clearance, pad, padClr);
           b.hasClearance = true;
         }
       }

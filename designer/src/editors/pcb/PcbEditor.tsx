@@ -203,7 +203,7 @@ import {
 } from './dialogs/dialog_position_relative.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
-import { netclassesForNet } from './netclass_resolve.js';
+import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -1401,7 +1401,23 @@ export function PcbEditor({
    * are small subsets, and the move overlay needs a translated view that the
    * retained buffer has no way to express.
    */
+  /**
+   * GetOwnClearance for the pad-clearance outlines, the common-case rule: the
+   * net's class clearance (first matching assignment, else Default), floored
+   * by the board's minimum-clearance rule. Values come from Board Setup, so
+   * boards whose Default class is not netclass.cpp's 0.2 mm draw their rings
+   * at the size pcbnew does (this demo's Default says 0.15 mm).
+   */
+  const clearanceForNet = (netName: string): number => {
+    const nc = boardSetupRef.current.netClasses;
+    const minClr = (boardSetupRef.current.constraints.minClearanceMM ?? 0) * MM;
+    const className = netClassFor(netName, nc.assignments);
+    const cls = nc.classes.find((c) => c.name === className) ?? nc.classes[0];
+    const clr = Number.parseFloat(cls?.clearance ?? '');
+    return Math.max(Number.isFinite(clr) ? clr * MM : 0.2 * MM, minClr);
+  };
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
+    if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
     const scene = buildScene(b, filter, sceneFactory());
     if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
     // Handing this scene to the raster path instead would be the worst of the
