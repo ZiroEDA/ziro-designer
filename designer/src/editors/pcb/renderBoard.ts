@@ -2021,7 +2021,15 @@ export function drawNetNames(
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
   const viewport = viewportInWorld(view, widthPx, heightPx);
-  const map = new Map<number, Path2D>();
+  const byColor = new Map<string, Map<number, Path2D>>();
+  const mapFor = (color: string): Map<number, Path2D> => {
+    let m = byColor.get(color);
+    if (!m) {
+      m = new Map();
+      byColor.set(color, m);
+    }
+    return m;
+  };
   // Self-contained: the GL path calls this on the overlay canvas, whose
   // transform is whatever the previous pass left. (On the Canvas2D path this
   // re-states the transform the first step already set.)
@@ -2030,28 +2038,56 @@ export function drawNetNames(
   ctx.lineJoin = 'round';
 
   // draw(PCB_TRACK) takes its color from GetColor(track, aLayer) with aLayer
-  // the *netname* layer, so the text is the theme's netnames color (white at
-  // 0.7), not the copper color, exactly as the pad net names are.
-  const color = emphasize(special.padName, emphasis, true);
+  // the *netname* layer — per copper layer, the theme's netnames color or its
+  // inverse (see netnameColorFor). A via's description is LAYER_VIA_NETNAMES,
+  // near-black over the via copper.
   if (opts.netNames) {
     for (const label of scene.netLabels) {
       if (!visible.has(label.layer)) continue;
       if (!showsNetName(label, view, dpr)) continue;
-      addTrackNetName(map, label, viewport);
+      const color = emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true);
+      addTrackNetName(mapFor(color), label, viewport);
     }
   }
-  for (const label of scene.viaNetLabels) {
-    if (!showsViaNetName(label, view, dpr)) continue;
-    if (!label.layers.some((l) => visible.has(l))) continue;
-    if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
-    if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
-    addViaNetName(map, label, opts.netNames);
+  {
+    const viaColor = emphasize(special.viaName ?? special.padName, emphasis, true);
+    for (const label of scene.viaNetLabels) {
+      if (!showsViaNetName(label, view, dpr)) continue;
+      if (!label.layers.some((l) => visible.has(l))) continue;
+      if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
+      if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
+      addViaNetName(mapFor(viaColor), label, opts.netNames);
+    }
   }
-  if (map.size === 0) return;
+  if (byColor.size === 0) return;
   asBitmapText(ctx, () => {
-    ctx.strokeStyle = color;
-    strokeAll(ctx, map, minPen);
+    for (const [color, map] of byColor) {
+      ctx.strokeStyle = color;
+      strokeAll(ctx, map, minPen);
+    }
   });
+}
+
+/**
+ * The netname-layer color for one copper layer, RENDER_SETTINGS::update():
+ * `lightLabel` is the theme's netnames color, `darkLabel` its RGB inverse, and
+ * a layer whose own color has a W3C brightness over 0.5 takes the dark one —
+ * so names on F.Cu's dark red are white while names on In1.Cu's light green
+ * are near-black, which doubles as KiCad's way of making inner-layer names
+ * read quieter than front ones.
+ */
+export function netnameColorFor(layer: string, theme?: PcbColorTheme): string {
+  const special = theme?.special ?? PCB_SPECIAL;
+  const light = special.netName ?? special.padName;
+  const layerCss = theme?.layerColors?.[layer] ?? layerColor(layer);
+  const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(layerCss);
+  if (!m) return light;
+  const brightness = (0.299 * +m[1]! + 0.587 * +m[2]! + 0.117 * +m[3]!) / 255;
+  if (brightness <= 0.5) return light;
+  const lm = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(light);
+  if (!lm) return light;
+  const a = lm[4] !== undefined ? +lm[4] : 1;
+  return `rgba(${255 - +lm[1]!},${255 - +lm[2]!},${255 - +lm[3]!},${a})`;
 }
 
 /**

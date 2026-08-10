@@ -99,10 +99,15 @@ export const PCB_SPECIAL = {
   ratsnest: rgba(0, 248, 255, 0.35),
   anchor: rgba(255, 38, 226),
   drawingSheet: rgba(200, 114, 171),
-  // Pad number / net-name text over the pad copper. pcb_painter.cpp overrides
-  // LAYER_PAD_NETNAMES with the theme's "netnames" color, white at alpha 0.7
-  // (builtin_color_themes.h NETNAMES_LAYER_ID_START), the glassy KiCad look.
-  padName: rgba(255, 255, 255, 0.7),
+  // Netname text colors (builtin_color_themes.h):
+  //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
+  //    the painter inverts it per copper layer whose color is brighter than
+  //    0.5, which is what makes names on a light green In1.Cu read dark.
+  //  - padName is LAYER_PAD_NETNAMES, the through-hole pad text.
+  //  - viaName is LAYER_VIA_NETNAMES, near-black over the via copper.
+  netName: rgba(255, 255, 255, 0.7),
+  padName: rgba(255, 255, 255, 0.9),
+  viaName: rgba(50, 50, 50, 0.9),
   // DRC marker layers (LAYER_DRC_ERROR / _WARNING / _EXCLUSION /
   // _HIGHLIGHTED, s_defaultTheme). The active marker repaints in the
   // highlighted color (pcb_painter.cpp GetColor: brightened/selected
@@ -232,7 +237,9 @@ const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
   ratsnest: C.white, // LAYER_RATSNEST = WHITE
   anchor: C.blue, // LAYER_ANCHOR = BLUE
   drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
-  padName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
+  netName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
+  padName: rgba(255, 255, 255, 0.9), // LAYER_PAD_NETNAMES (same as default)
+  viaName: rgba(50, 50, 50, 0.9), // LAYER_VIA_NETNAMES (same as default)
   // s_classicTheme: PURERED / PUREGREEN at 0.8, WHITE, PUREMAGENTA (color4d.cpp
   // colorRefs, the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).
   drcError: rgba(255, 0, 0, 0.8),
@@ -284,7 +291,9 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     ratsnest: C.black,
     anchor: C.black,
     drawingSheet: C.black,
+    netName: C.white,
     padName: C.white,
+    viaName: C.black,
     // Markers aren't printed (BOARD_PRINTOUT draws board layers only), but
     // every palette carries the full special set.
     drcError: C.black,
