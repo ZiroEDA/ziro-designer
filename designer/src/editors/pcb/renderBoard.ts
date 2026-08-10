@@ -360,9 +360,6 @@ export interface BoardScene {
   padHolesPlated: Path2D;
   padHoleWalls: Map<number, Path2D>;
   padHolesNP: Path2D;
-  /** Pad number/name glyphs (thickness → strokes), drawn over the pads in a
-   *  contrasting color (KiCad's LAYER_PAD numbers). */
-  padText: Map<number, Path2D>;
   /** Every hole redrawn at the SMALL_DRILL cap (0.35 mm), print's
    *  "Drill marks: Small mark" (pcbplot.h SMALL_DRILL). */
   holesSmall: Path2D;
@@ -936,7 +933,8 @@ const MAX_PAD_FONT = 10 * MM;
  * netname-layer branch of PCB_PAINTER::draw(PAD): the text runs along the pad's
  * longer axis, both are bold and centred, and the sizes come from KiCad's
  * "magic numbers" (1.5·along / max(chars, 3|5), halved and offset when both are
- * shown). Rendered into the scene's padText stroke map.
+ * shown). Kept as data for the per-frame pass, not baked: whether a pad's
+ * text shows at all depends on the zoom (PAD::ViewGetLOD).
  */
 function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: string[]): void {
   const padNumber = pad.number ?? '';
@@ -994,7 +992,6 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
   const items: PcbTextItem[] = [];
   const label = (text: string, at: Vec2, glyph: number): void => {
     items.push(mkItem(text, at, glyph));
-    addText(scene.padText, mkItem(text, at, glyph));
   };
   const mkItem = (text: string, at: Vec2, glyph: number): PcbTextItem =>
     ({
@@ -1173,7 +1170,6 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     padHolesPlated: pathFactory.path(),
     padHoleWalls: new Map(),
     padHolesNP: pathFactory.path(),
-    padText: new Map(),
     holesSmall: pathFactory.path(),
     netLabels: [],
     viaNetLabels: [],
