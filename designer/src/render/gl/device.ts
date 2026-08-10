@@ -359,20 +359,18 @@ export class GlDevice {
             gl.drawArrays(gl.TRIANGLES, run.start, run.count);
           } else if (run.kind === 'seg') {
             bindProgram(this.progSeg);
-            gl.bindVertexArray(layer.vaoSeg);
-            this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
+            this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
             gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
           } else {
             bindProgram(this.progDisc);
-            gl.bindVertexArray(layer.vaoDisc);
-            this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
+            this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
             gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
           }
         }
         // Leave the pointers at zero so the next frame starts from a known
-        // state whichever path draws it.
-        this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
-        this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        // state whichever path draws it. Each rewinds its *own* VAO.
+        this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
+        this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
         continue;
       }
 
@@ -403,16 +401,31 @@ export class GlDevice {
    *
    * WebGL2 has no `baseInstance`: `drawArraysInstanced` always starts at
    * instance zero, so the only way to draw a slice of a buffer is to move the
-   * pointers. The currently bound VAO records them, which is why this must run
-   * after the bind and not before.
+   * pointers.
+   *
+   * **Takes the VAO and binds it itself.** `vertexAttribPointer` writes into
+   * whichever VAO happens to be bound, so a call that assumed the caller had
+   * already bound the right one could silently rewrite another program's
+   * attributes — and did: the two "reset the pointers" calls at the end of an
+   * ordered draw ran with whatever the last run left bound. When that was a
+   * triangle run, the disc reset landed in `vaoTri`, where location 1 is the
+   * triangle colour, and re-pointed it at the (empty) disc buffer. WebGL then
+   * fed every triangle a colour of zeros, defaulting z and w to (0, 1): opaque
+   * black. Every zone pour turned into a black rectangle and everything under
+   * it in `PCB_PAINT_ORDER` disappeared behind it. Strokes survived because
+   * `vaoSeg` is re-pointed per run on the next frame; nothing ever repaired
+   * `vaoTri`, so the damage stuck for the life of the context and looked for
+   * all the world like a cache. Passing the VAO makes that unrepresentable.
    */
   private pointInstances(
+    vao: WebGLVertexArrayObject,
     buffer: WebGLBuffer,
     attrs: [number, number, number][],
     stride: number,
     first: number,
   ): void {
     const gl = this.gl;
+    gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const base = first * stride * F32;
     for (const [loc, size, offset] of attrs) {
