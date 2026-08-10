@@ -65,7 +65,8 @@ import {
   type RoutingSettings,
 } from './pns_routing_settings.js';
 import { PnsSegment } from './pns_segment.js';
-import { PnsSizesSettings } from './pns_sizes_settings.js';
+import { PnsSizesSettings, type PnsPlainSizes } from './pns_sizes_settings.js';
+import { PnsItemSet } from './pns_itemset.js';
 import { PnsMouseTrailTracer } from './pns_mouse_trail_tracer.js';
 import { PnsVia } from './pns_via.js';
 import { arcCenterI, arcIsCCW } from './shape_arc_ops.js';
@@ -836,9 +837,19 @@ export class PnsLinePlacer {
     return tmp;
   }
 
-  traces(): PnsLine {
+  /**
+   * `LINE_PLACER::Traces()` (`:1266-1270`) — `ITEM_SET( &m_currentTrace )`.
+   *
+   * A **set**, not the line, which is what `PLACEMENT_ALGO::Traces()` promises
+   * and what every other placer and dragger in this directory returns. This one
+   * handed back the bare `PnsLine` for as long as nothing called it through the
+   * interface — `ROUTER::movePlacing` walks `Traces().CItems()` and died on the
+   * first move of the first real route.
+   */
+  traces(): PnsItemSet {
     this.mCurrentTrace = this.trace();
-    return this.mCurrentTrace;
+
+    return new PnsItemSet(this.mCurrentTrace);
   }
 
   // ----- posture ---------------------------------------------------------------
@@ -2694,8 +2705,11 @@ export class PnsLinePlacer {
    * segment is fixed would mean going back to rip up track or accepting a DRC
    * error.
    */
-  updateSizes(aSizes: PnsSizesSettings): void {
-    this.mSizes = aSizes;
+  updateSizes(aSizes: PnsPlainSizes | PnsSizesSettings): void {
+    // `ROUTER::UpdateSizes` passes `m_sizes`, which this port spells as a plain
+    // object; `PLACEMENT_ALGO::UpdateSizes` upstream takes the one class there
+    // is. This is the edge where the two meet — see `PnsSizesSettings.from`.
+    this.mSizes = PnsSizesSettings.from(aSizes);
 
     if (!this.mIdle) {
       if (
