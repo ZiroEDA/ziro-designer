@@ -371,8 +371,12 @@ export interface BoardScene {
   netLabels: TrackNetLabel[];
   /** Via net/layer labels, data for the same reason (PCB_VIA::ViewGetLOD). */
   viaNetLabels: ViaNetLabel[];
-  /** Footprint origins, for the LAYER_ANCHOR crosses (screen-space size). */
-  anchors: { x: number; y: number }[];
+  /**
+   * Footprint origins for the LAYER_ANCHOR crosses, with the layer each
+   * footprint sits on: FOOTPRINT::ViewGetLOD shows an anchor only while that
+   * layer is visible.
+   */
+  anchors: { x: number; y: number; layer: string }[];
   /**
    * Pad number / net-name text, as data for the per-frame pass: whether a
    * pad's text shows depends on the zoom (PAD::ViewGetLOD, 0.5 mm against the
@@ -1323,9 +1327,12 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     for (const pt of s.pts ?? []) grow(pt.x, pt.y);
   }
   for (const fp of board.footprints) {
-    scene.anchors.push({ x: fp.at.x, y: fp.at.y });
     if (filter.hideFrontFootprints && fp.layer === 'F.Cu') continue;
     if (filter.hideBackFootprints && fp.layer === 'B.Cu') continue;
+    // After the hide checks, not before: FOOTPRINT::ViewGetLOD resolves the
+    // anchor against LAYER_FOOTPRINTS_FR/BK, so hiding Footprints Front or
+    // Back takes their anchors with them.
+    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer });
     for (const s of fp.shapes) addShape(scene, s);
     for (const t of fp.texts) {
       if (t.hide) continue;
@@ -2216,6 +2223,7 @@ export function drawAnchors(
   ctx: CanvasRenderingContext2D,
   scene: BoardScene,
   view: PcbViewTransform,
+  visible: ReadonlySet<string>,
   widthPx: number,
   heightPx: number,
   opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
@@ -2223,6 +2231,13 @@ export function drawAnchors(
   dpr = 1,
 ): void {
   if (scene.anchors.length === 0) return;
+  // FOOTPRINT::ViewGetLOD returns MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY for the
+  // anchor layer, and VIEW draws an item when its LOD is below the view scale
+  // — which is the zoom factor the toolbar shows (UpdateZoomSelectBox reads
+  // GetGAL()->GetZoomFactor()). So anchors appear only past zoom 1.5, i.e.
+  // once you are closer in than a whole-board view. Without this the board
+  // came up under a couple of hundred crosses that pcbnew does not draw.
+  if (zoomFactor(view, dpr) <= MINIMAL_ZOOM_FOR_ANCHORS) return;
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const arm = 5 * dpr;
   const sx = view.flipX ? -view.scale : view.scale;
@@ -2230,7 +2245,10 @@ export function drawAnchors(
   ctx.strokeStyle = emphasize(special.anchor, emphasis);
   ctx.lineWidth = Math.max(1, dpr);
   ctx.beginPath();
+  let drawn = 0;
   for (const a of scene.anchors) {
+    // "Only show anchors if the layer the footprint is on is visible."
+    if (!visible.has(a.layer)) continue;
     const x = a.x * sx + view.tx;
     const y = a.y * view.scale + view.ty;
     if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
@@ -2238,8 +2256,9 @@ export function drawAnchors(
     ctx.lineTo(x + arm, y);
     ctx.moveTo(x, y - arm);
     ctx.lineTo(x, y + arm);
+    drawn++;
   }
-  ctx.stroke();
+  if (drawn > 0) ctx.stroke();
 }
 
 /**
@@ -2284,6 +2303,21 @@ export function drawOriginMarker(
 
 /** ORIGIN_VIEWITEM's default `aSize = 16`, in screen pixels. */
 const ORIGIN_MARKER_PX = 16;
+
+/** FOOTPRINT::ViewGetLOD's `MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY`. */
+const MINIMAL_ZOOM_FOR_ANCHORS = 1.5;
+
+/**
+ * GAL's zoom factor for this view — the number the zoom selector shows.
+ *
+ * `worldScale = screenDPI · worldUnitLength · zoomFactor`
+ * (graphics_abstraction_layer.h) with `worldUnitLength` 1 nm in inches and
+ * `worldScale` our device px per IU, so the DPI divides back out. Per
+ * *physical* pixel, hence the ÷ dpr.
+ */
+export function zoomFactor(view: PcbViewTransform, dpr = 1): number {
+  return (view.scale * MM * 25.4) / (GAL_SCREEN_DPI * dpr);
+}
 
 /** The visible world rectangle, for the netname repeat/clip rules. */
 function viewportInWorld(

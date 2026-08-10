@@ -1922,6 +1922,7 @@ export function PcbEditor({
         ctx,
         scene,
         v,
+        visible,
         canvas.width,
         canvas.height,
         drawOpts,

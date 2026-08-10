@@ -13,7 +13,11 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import { layoutText, splitTextLines } from '@ziroeda/common/src/font/stroke_font.js';
-import { buildScene, drawNetNames } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import {
+  buildScene,
+  drawAnchors,
+  drawNetNames,
+} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
 const MM = 1e6;
@@ -120,5 +124,55 @@ describe('pad text follows copper-layer visibility', () => {
     const hidden = recordingCtx();
     withPath2D(() => drawNetNames(hidden.ctx, scene, view, new Set(['Edge.Cuts']), 800, 600));
     expect(hidden.strokes()).toBe(0);
+  });
+});
+
+const anchorBoard = (): Board =>
+  readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (footprint "R" (layer "F.Cu") (at 100 100))
+  (footprint "C" (layer "B.Cu") (at 120 100))
+)`),
+  );
+
+describe('footprint anchors (FOOTPRINT::ViewGetLOD)', () => {
+  const scene = buildScene(anchorBoard(), {}, GL_PATH_FACTORY);
+  // zoom factor z ⇒ view.scale = z · 91/25.4 px per mm
+  const at = (z: number): { scale: number; tx: number; ty: number } => ({
+    scale: (z * 91) / 25.4 / MM,
+    tx: 0,
+    ty: 0,
+  });
+  const both = new Set(['F.Cu', 'B.Cu']);
+
+  it('records each anchor with its footprint side', () => {
+    expect(scene.anchors.map((a) => a.layer).sort()).toEqual(['B.Cu', 'F.Cu']);
+  });
+
+  it('draws nothing at or below zoom 1.5, and draws past it', () => {
+    const below = recordingCtx();
+    drawAnchors(below.ctx, scene, at(1.4), both, 4000, 4000);
+    expect(below.strokes()).toBe(0);
+
+    const above = recordingCtx();
+    drawAnchors(above.ctx, scene, at(2.05), both, 4000, 4000);
+    expect(above.strokes()).toBeGreaterThan(0);
+  });
+
+  it('hides an anchor whose footprint layer is hidden', () => {
+    const front = recordingCtx();
+    drawAnchors(front.ctx, scene, at(2.05), new Set(['F.Cu']), 4000, 4000);
+    expect(front.strokes()).toBeGreaterThan(0);
+
+    const none = recordingCtx();
+    drawAnchors(none.ctx, scene, at(2.05), new Set(['Edge.Cuts']), 4000, 4000);
+    expect(none.strokes()).toBe(0);
+  });
+
+  it('drops anchors of footprints hidden by the Footprints Front/Back toggles', () => {
+    const noFront = buildScene(anchorBoard(), { hideFrontFootprints: true }, GL_PATH_FACTORY);
+    expect(noFront.anchors.map((a) => a.layer)).toEqual(['B.Cu']);
   });
 });
