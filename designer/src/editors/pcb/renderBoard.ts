@@ -1895,7 +1895,11 @@ export function buildDrawSteps(
     // as zone, layer, CLEARANCE_LAYER_FOR, VIA_COPPER_LAYER_FOR,
     // PAD_COPPER_LAYER_FOR, netnames — so a clearance ring is drawn under the
     // copper it belongs to and is hidden wherever another pad overlaps it.
-    if (opts.padClearance && b.hasClearance) {
+    // `opts.pads` gates this too: PAD::ViewGetLOD opens with a meta control,
+    // "if( !aView->IsLayerVisibleCached( LAYER_PADS ) ) return LOD_HIDE", which
+    // applies to every layer the pad draws on — its clearance layer included.
+    // Without that, hiding Pads left a copper-coloured ring around every pad.
+    if (opts.pads && opts.padClearance && b.hasClearance) {
       ctx.globalAlpha = la;
       ctx.strokeStyle = color;
       ctx.lineWidth = minPen;
@@ -2240,17 +2244,18 @@ export function drawAnchors(
   if (zoomFactor(view, dpr) <= MINIMAL_ZOOM_FOR_ANCHORS) return;
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const arm = 5 * dpr;
+  const pen = Math.max(1, dpr);
   const sx = view.flipX ? -view.scale : view.scale;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.strokeStyle = emphasize(special.anchor, emphasis);
-  ctx.lineWidth = Math.max(1, dpr);
+  ctx.lineWidth = pen;
   ctx.beginPath();
   let drawn = 0;
   for (const a of scene.anchors) {
     // "Only show anchors if the layer the footprint is on is visible."
     if (!visible.has(a.layer)) continue;
-    const x = a.x * sx + view.tx;
-    const y = a.y * view.scale + view.ty;
+    const x = snapPx(a.x * sx + view.tx, pen);
+    const y = snapPx(a.y * view.scale + view.ty, pen);
     if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
     ctx.moveTo(x - arm, y);
     ctx.lineTo(x + arm, y);
@@ -2283,13 +2288,14 @@ export function drawOriginMarker(
   if (at.x === 0 && at.y === 0) return;
   const size = ORIGIN_MARKER_PX * dpr;
   const sx = view.flipX ? -view.scale : view.scale;
-  const x = at.x * sx + view.tx;
-  const y = at.y * view.scale + view.ty;
+  // SetLineWidth(1) is one internal unit, i.e. nothing: the pen floor draws it.
+  const pen = Math.max(1, dpr);
+  const x = snapPx(at.x * sx + view.tx, pen);
+  const y = snapPx(at.y * view.scale + view.ty, pen);
   if (x < -size || x > widthPx + size || y < -size || y > heightPx + size) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.strokeStyle = PCB_PLACE_ORIGIN;
-  // SetLineWidth(1) is one internal unit, i.e. nothing: the pen floor draws it.
-  ctx.lineWidth = Math.max(1, dpr);
+  ctx.lineWidth = pen;
   ctx.beginPath();
   ctx.moveTo(x - size, y);
   ctx.lineTo(x + size, y);
@@ -2303,6 +2309,16 @@ export function drawOriginMarker(
 
 /** ORIGIN_VIEWITEM's default `aSize = 16`, in screen pixels. */
 const ORIGIN_MARKER_PX = 16;
+
+/**
+ * Put a device-space coordinate where a stroke of `width` lands on whole
+ * pixels: an odd width wants a pixel centre, an even one a boundary. This is
+ * `roundr`/`roundv` in KiCad's kicad_vert.glsl, and without it a one-pixel
+ * overlay line spreads across two columns at half strength and reads soft
+ * beside pcbnew's.
+ */
+const snapPx = (v: number, width: number): number =>
+  Math.floor(v) + (Math.round(width) % 2 === 1 ? 0.5 : 0);
 
 /** FOOTPRINT::ViewGetLOD's `MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY`. */
 const MINIMAL_ZOOM_FOR_ANCHORS = 1.5;

@@ -14,7 +14,9 @@ import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import { layoutText, splitTextLines } from '@ziroeda/common/src/font/stroke_font.js';
 import {
+  buildDrawSteps,
   buildScene,
+  DEFAULT_DRAW_OPTIONS,
   drawAnchors,
   drawNetNames,
 } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
@@ -174,5 +176,66 @@ describe('footprint anchors (FOOTPRINT::ViewGetLOD)', () => {
   it('drops anchors of footprints hidden by the Footprints Front/Back toggles', () => {
     const noFront = buildScene(anchorBoard(), { hideFrontFootprints: true }, GL_PATH_FACTORY);
     expect(noFront.anchors.map((a) => a.layer)).toEqual(['B.Cu']);
+  });
+});
+
+describe('hiding Pads hides everything the pad draws', () => {
+  // PAD::ViewGetLOD's meta control: !IsLayerVisibleCached( LAYER_PADS ) hides
+  // the pad on *every* layer it draws on, clearance ring included. Ours kept
+  // stroking that ring in the copper colour, so a board with Pads switched
+  // off still showed a copper outline around every pad.
+  const scene = buildScene(padBoard(), {}, GL_PATH_FACTORY);
+  const view = { scale: 40 / MM, tx: 0, ty: 0 };
+
+  const strokesWith = (opts: Record<string, unknown>): number => {
+    let n = 0;
+    const ctx = {
+      setTransform: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      arc: () => {},
+      rect: () => {},
+      save: () => {},
+      restore: () => {},
+      fill: () => {
+        n++;
+      },
+      stroke: () => {
+        n++;
+      },
+      fillRect: () => {},
+      strokeRect: () => {},
+      drawImage: () => {},
+      lineCap: '',
+      lineJoin: '',
+      strokeStyle: '',
+      fillStyle: '',
+      lineWidth: 0,
+      globalAlpha: 1,
+    } as unknown as CanvasRenderingContext2D;
+    withPath2D(() => {
+      for (const step of buildDrawSteps(ctx, scene, view, new Set(['F.Cu']), 800, 600, {
+        ...DEFAULT_DRAW_OPTIONS,
+        ...opts,
+      }))
+        step();
+    });
+    return n;
+  };
+
+  it('draws fewer passes with pads off than with pads on', () => {
+    expect(strokesWith({ pads: false })).toBeLessThan(strokesWith({ pads: true }));
+  });
+
+  it('draws no clearance ring once pads are hidden', () => {
+    // With pads off, turning the clearance option on must change nothing.
+    expect(strokesWith({ pads: false, padClearance: true })).toBe(
+      strokesWith({ pads: false, padClearance: false }),
+    );
+    // With pads on it still does, so the option itself is not simply dead.
+    expect(strokesWith({ pads: true, padClearance: true })).toBeGreaterThan(
+      strokesWith({ pads: true, padClearance: false }),
+    );
   });
 });
