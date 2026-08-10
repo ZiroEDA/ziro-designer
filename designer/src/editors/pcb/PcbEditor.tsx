@@ -208,6 +208,7 @@ import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.j
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
+import { snapToGridSize } from './pcb_grid.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -377,18 +378,7 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 // pcb_painter.cpp getColor: a selected item is drawn in its layer colour
 // Brightened(0.8) (per channel c·0.2 + 0.8), i.e. pushed 80% toward white.
 
-// Snap a world point to the given grid (GAL GetGridPoint). Shared by the
-// crosshair and the move so a dragged item follows the snapped crosshair and
-// lands on grid nodes, like KiCad (edit_tool_move_fct.cpp: m_cursor =
-// grid.BestSnapAnchor(mousePos); movement = m_cursor - prevPos). The editor
-// shadows this with a component-local `snapToGrid` bound to the live grid size.
-const snapToGridSize = (p: { x: number; y: number }, size: number): { x: number; y: number } => {
-  const { origin } = DEFAULT_GRID_OPTIONS;
-  return {
-    x: Math.round((p.x - origin.x) / size) * size + origin.x,
-    y: Math.round((p.y - origin.y) / size) * size + origin.y,
-  };
-};
+// Snapping lives in pcb_grid.ts; see the note there on the board grid origin.
 
 // One mil in IU.
 const MIL = 0.0254 * MM;
@@ -1066,10 +1056,19 @@ export function PcbEditor({
   const [gridIU, setGridIU] = useState(DEFAULT_GRID_OPTIONS.size);
   const gridIURef = useRef(gridIU);
   gridIURef.current = gridIU;
-  // Grid-size-aware snap: shadows the module-level helper with the live size so
-  // every existing call site follows the selected grid.
+  // The board's own grid origin (`(setup (grid_origin))`), which pcbnew hands
+  // to the GAL on open (pcb_base_edit_frame.cpp) and which both the dots and
+  // the snap are measured from. A ref because `draw` and the pointer handlers
+  // read it without wanting to be rebuilt when the board object is replaced.
+  const gridOriginRef = useRef<{ x: number; y: number }>(DEFAULT_GRID_OPTIONS.origin);
+  gridOriginRef.current = useMemo(
+    () => (board ? boardGridOrigin(board) : DEFAULT_GRID_OPTIONS.origin),
+    [board],
+  );
+  // Grid-aware snap: binds the live grid size and the board's origin, so every
+  // existing call site follows the selected grid where KiCad puts it.
   const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
-    snapToGridSize(p, gridIURef.current);
+    snapToGridSize(p, gridIURef.current, gridOriginRef.current);
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
   // 1.. = the pre-defined list entries (BOARD_DESIGN_SETTINGS m_TrackWidthList /
   // m_ViasDimensionsList; ours come from the project's netclasses).
@@ -1801,6 +1800,7 @@ export function PcbEditor({
       drawGrid(bctx, v, canvas.width, canvas.height, dpr, {
         ...DEFAULT_GRID_OPTIONS,
         size: gridIURef.current,
+        origin: gridOriginRef.current,
       });
     }
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
