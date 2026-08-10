@@ -577,6 +577,16 @@ export class GlRecorder {
   }
 
   /**
+   * Note a depth in the recording, for a pass drawn between layers.
+   *
+   * A real canvas has no such notion, so `buildDrawSteps` calls it optionally
+   * and a 2D target simply never sees it.
+   */
+  mark(name: string): void {
+    this.scene.mark(name);
+  }
+
+  /**
    * Filled text is not recorded.
    *
    * Every glyph the schematic renderer draws goes through the stroke font,

@@ -249,6 +249,17 @@ export class Scene {
   readonly runs: Run[] = [];
   /** Vertex ranges per board item; empty unless the recorder named owners. */
   readonly itemRanges = new Map<string, ItemRanges>();
+  /**
+   * Named points in the run list, for drawing something else at that depth.
+   *
+   * KiCad interleaves by giving every layer a depth over one buffer
+   * (`VIEW::redrawRect` → `SetLayerDepth`). We draw in painter's order, so the
+   * equivalent is to stop the run walk at a known layer boundary, draw the
+   * per-frame pass, and carry on — which is what lets back-side net names sit
+   * under the inner layers and the front pour, where pcbnew puts them, instead
+   * of being faked with a fixed attenuation.
+   */
+  readonly marks = new Map<string, number>();
   private owner: string | undefined;
   private segMark = 0;
   private discMark = 0;
@@ -269,6 +280,11 @@ export class Scene {
     this.segMark = this.segmentCount;
     this.discMark = this.discCount;
     this.triMark = this.triangleVertexCount;
+  }
+
+  /** Remember that `name` falls here in the run list. */
+  mark(name: string): void {
+    if (this.ordered) this.marks.set(name, this.runs.length);
   }
 
   /** Close the open item's ranges; call once when a recording finishes. */
@@ -365,6 +381,7 @@ export class Scene {
     this.discs.clear();
     this.triangles.clear();
     this.runs.length = 0;
+    this.marks.clear();
     this.itemRanges.clear();
     this.owner = undefined;
     this.segMark = 0;

@@ -43,6 +43,7 @@
  */
 
 import {
+  BACK_NETNAMES_MARK,
   buildDrawSteps,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
@@ -127,6 +128,32 @@ export class PcbGl {
     return device ? new PcbGl(device) : null;
   }
 
+  /** Geometry drawn between the board's layers, rebuilt every frame. */
+  private readonly innerScene = new Scene(true);
+
+  /**
+   * Record the back-side net names for this frame and draw them at the depth
+   * pcbnew files them at — above the back copper, below the inner layers and
+   * the front pour. Cheap because the pass only lays out labels that passed
+   * their zoom gate and fall inside the viewport.
+   */
+  recordInner(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
+    this.innerScene.clear();
+    const scale = viewScale > 0 && Number.isFinite(viewScale) ? viewScale : 1;
+    const extent = 2 * WORLD_HALF * scale;
+    const rec = new GlRecorder(this.innerScene, {
+      referenceScale: scale,
+      worldScale: scale,
+      devicePixelRatio: 1,
+      hairlines: 'solid',
+      originX: extent / 2,
+      originY: extent / 2,
+    });
+    fn(rec as unknown as CanvasRenderingContext2D);
+    this.innerScene.closeItem();
+    this.device.uploadInner(this.innerScene);
+  }
+
   render(
     content: BoardContentKey,
     view: PcbViewTransform,
@@ -156,7 +183,7 @@ export class PcbGl {
       this.previewActive = false;
     }
 
-    this.device.draw(
+    this.device.drawWithInner(
       {
         // A flipped board view negates the X scale, as SetMirror on X does.
         scaleX: view.flipX ? -view.scale : view.scale,
@@ -167,6 +194,7 @@ export class PcbGl {
       // Transparent: the 2D canvas underneath has painted the background, the
       // grid and the drawing sheet already.
       null,
+      this.innerScene.isEmpty ? undefined : this.scene.marks.get(BACK_NETNAMES_MARK),
     );
   }
 

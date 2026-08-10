@@ -205,6 +205,7 @@ export class GlDevice {
     private readonly quad: WebGLBuffer,
     private readonly base: GlLayer,
     private readonly preview: GlLayer,
+    private readonly inner: GlLayer,
   ) {
     for (const p of [progSeg, progDisc, progTri]) {
       this.uniforms.set(p, {
@@ -264,9 +265,13 @@ export class GlDevice {
 
     const base = createLayer(gl, quad);
     const preview = createLayer(gl, quad);
-    if (!base || !preview) return null;
+    // A third small buffer for the pass drawn *inside* the board — the
+    // back-side net names, which belong between the back copper and the inner
+    // layers rather than over everything.
+    const inner = createLayer(gl, quad);
+    if (!base || !preview || !inner) return null;
 
-    return new GlDevice(gl, progSeg, progDisc, progTri, quad, base, preview);
+    return new GlDevice(gl, progSeg, progDisc, progTri, quad, base, preview, inner);
   }
 
   /**
@@ -337,6 +342,31 @@ export class GlDevice {
   }
 
   /** Drop the preview, at the end of a drag. */
+  /** Send the pass that draws between the board's layers. */
+  uploadInner(scene: Scene): void {
+    this.uploadInto(this.inner, scene);
+  }
+
+  /**
+   * Draw, with the inner pass placed at `mark` if the recording named one.
+   * Falls back to drawing it over everything when the mark is missing, which
+   * is what an unordered scene gives.
+   */
+  drawWithInner(
+    view: GlView,
+    clear: { r: number; g: number; b: number; a: number } | null,
+    at: number | undefined,
+  ): void {
+    this.draw(view, clear, at === undefined ? null : { at, layer: this.inner });
+  }
+
+  clearInner(): void {
+    this.inner.segCount = 0;
+    this.inner.discCount = 0;
+    this.inner.triVerts = 0;
+    this.inner.runs.length = 0;
+  }
+
   clearPreview(): void {
     this.preview.segCount = 0;
     this.preview.discCount = 0;
@@ -347,7 +377,11 @@ export class GlDevice {
    * Redraw at the given view. The cheap half: one uniform per program and three
    * draw calls, whatever the sheet contains.
    */
-  draw(view: GlView, clear: { r: number; g: number; b: number; a: number } | null): void {
+  draw(
+    view: GlView,
+    clear: { r: number; g: number; b: number; a: number } | null,
+    interleave?: { at: number; layer: GlLayer } | null,
+  ): void {
     const gl = this.gl;
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
@@ -390,6 +424,38 @@ export class GlDevice {
         // copper pour. Drawing every fill and then every stroke lifts every
         // inner-layer track out from under every pour, and the board comes out
         // looking like a net of wires laid over the top of it.
+        const stopAt = interleave && layer === this.base ? interleave.at : -1;
+        const drawRuns = (runs: readonly Run[], src: GlLayer): void => {
+          for (const run of runs) {
+            if (run.count <= 0) continue;
+            if (run.kind === 'tri') {
+              bindProgram(this.progTri);
+              gl.bindVertexArray(src.vaoTri);
+              gl.drawArrays(gl.TRIANGLES, run.start, run.count);
+            } else if (run.kind === 'seg') {
+              bindProgram(this.progSeg);
+              this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+            } else {
+              bindProgram(this.progDisc);
+              this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, run.start);
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+            }
+          }
+          this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
+          this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        };
+        if (stopAt >= 0 && interleave) {
+          // The per-frame pass belongs *inside* the board, at the depth it was
+          // marked at: above the back copper, below the inner layers and the
+          // front pour. Two draw ranges and one small buffer, which is what
+          // gets back-side net names to their true depth rather than faking it
+          // with a fixed attenuation.
+          drawRuns(layer.runs.slice(0, stopAt), layer);
+          drawRuns(interleave.layer.runs, interleave.layer);
+          drawRuns(layer.runs.slice(stopAt), layer);
+          continue;
+        }
         for (const run of layer.runs) {
           if (run.count <= 0) continue;
           if (run.kind === 'tri') {

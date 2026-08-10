@@ -1957,7 +1957,17 @@ export function buildDrawSteps(
   };
 
   const fCuIndex = PCB_PAINT_ORDER.indexOf('F.Cu');
-  for (let i = 0; i <= fCuIndex; i++) pushLayer(PCB_PAINT_ORDER[i]!);
+  for (let i = 0; i <= fCuIndex; i++) {
+    pushLayer(PCB_PAINT_ORDER[i]!);
+    // Right above the back copper, where GAL_LAYER_ORDER files
+    // LAYER_PAD_BK_NETNAMES and the back netnames layer: above their own
+    // B.Cu, below every inner layer and the front pour. A retained backend
+    // notes the depth and draws that pass here itself; a canvas has no marks
+    // and simply never sees the call.
+    if (PCB_PAINT_ORDER[i] === 'B.Cu') {
+      (ctx as { mark?: (name: string) => void }).mark?.(BACK_NETNAMES_MARK);
+    }
+  }
 
   steps.push(() => {
     // Print's drill-marks modes: 'none' suppresses every hole; 'small' draws
@@ -2072,8 +2082,12 @@ export function drawNetNames(
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
   const viewport = viewportInWorld(view, widthPx, heightPx);
   const byColor = new Map<string, Map<number, Path2D>>();
+  // A retained backend draws this pass at its real depth (see the mark in
+  // buildDrawSteps), so it needs no stand-in; only a flat canvas, which has no
+  // depth to draw into, pays for the layers above in alpha.
+  const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
   const attenuate = (color: string): string => {
-    if (where === 'over') return color;
+    if (where === 'over' || retained) return color;
     const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
     if (!m) return color;
     return `rgba(${m[1]},${m[2]},${m[3]},${(m[4] !== undefined ? +m[4] : 1) * UNDER_PASS_TRANSMISSION})`;
@@ -2224,6 +2238,12 @@ export type NetNamePass = 'over' | 'under';
  * pale ghost it is.
  */
 const UNDER_PASS_TRANSMISSION = 0.4;
+
+/**
+ * The depth the back-side net names are drawn at, for a retained backend that
+ * splits its run walk there. See `NetNamePass`.
+ */
+export const BACK_NETNAMES_MARK = 'backNetNames';
 
 /** PAD::ViewGetLOD's 0.5 mm threshold, as pixels of pad. */
 const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;

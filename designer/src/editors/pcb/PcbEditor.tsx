@@ -1904,6 +1904,24 @@ export function PcbEditor({
     // on an edit and not otherwise; `visible` is state; `drawOpts` is memoised;
     // the emphasis is a string. Do not inline an object or a `new Set` here.
     if (useGl) {
+      // The back-side names are laid out for this frame and handed to the GPU
+      // as geometry, so they can be drawn *between* the board's layers rather
+      // than over them. Only labels past their zoom gate and inside the
+      // viewport contribute, so this is a few hundred segments a frame.
+      gl.recordInner((rec) => {
+        drawNetNames(
+          rec,
+          scene,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          { ...drawOpts, minPenWidth: 0 },
+          dimmedRef.current ? 'dimmed' : 'none',
+          dpr,
+          'under',
+        );
+      }, v.scale);
       gl.render(
         {
           scene,
@@ -1963,23 +1981,26 @@ export function PcbEditor({
     // like them, drawn above the board (LAYER_GP_OVERLAY).
     drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // Back and inner net names, after the board on either path: on the 2D path
-    // the overlay *is* the canvas the raster blits onto, so drawing them any
-    // earlier would bury them again. Dimmed by what pcbnew stacks over them —
-    // see NetNamePass.
-    drawNetNames(
-      ctx,
-      scene,
-      v,
-      visible,
-      canvas.width,
-      canvas.height,
-      drawOpts,
-      dimmedRef.current ? 'dimmed' : 'none',
-      dpr,
-      'under',
-    );
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Back and inner net names. On the GPU they were recorded into the board's
+    // own draw at the depth pcbnew files them at (see the `recordInner` call
+    // above), so nothing is drawn here. The Canvas2D path has no such depth to
+    // draw into, so it keeps the attenuated stand-in — dimmed by what pcbnew
+    // stacks over them, which is the best a single flat raster can do.
+    if (!useGl) {
+      drawNetNames(
+        ctx,
+        scene,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+        'under',
+      );
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.
     for (const cs of coloredScenesRef.current) {
