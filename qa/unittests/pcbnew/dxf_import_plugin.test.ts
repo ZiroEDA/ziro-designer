@@ -18,15 +18,15 @@ import {
   matrixSetRotation,
   matrixSetScale,
   matrixZero,
-} from '@ziroeda/pcbnew/src/dxf_import_plugin.js';
-import { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/pcbnew/src/dxf_spline.js';
+} from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
+import { SPLINE_ERROR, bsplineToBeziers } from '@ziroeda/common/src/import_gfx/dxf_spline.js';
 import {
   DXF_READER,
   stripWhiteSpace,
   toInt,
   toInt16,
   toReal,
-} from '@ziroeda/pcbnew/src/dxf_reader.js';
+} from '@ziroeda/common/src/import_gfx/dxf_reader.js';
 import {
   IMPORTED_ARC,
   IMPORTED_CIRCLE,
@@ -34,7 +34,7 @@ import {
   IMPORTED_SPLINE,
   IMPORTED_TEXT,
   type IMPORTED_SHAPE,
-} from '@ziroeda/pcbnew/src/graphics_importer.js';
+} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
 import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/src/graphics_importer_pcbnew.js';
 
 /** Build DXF text from group couplets. */

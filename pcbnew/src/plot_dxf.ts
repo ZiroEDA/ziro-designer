@@ -43,6 +43,14 @@
  * port defect.
  */
 
+// `LINE_STYLE` and `COLOR4D` moved to `common` when the graphics importers did:
+// they are shared with eeschema, which cannot import from pcbnew. Re-exported
+// here so every existing consumer of `plot_dxf` is unaffected.
+export { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EDA_ANGLE, ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -90,14 +98,6 @@ export enum FILL_T {
 }
 
 /** `LINE_STYLE` (stroke_params.h). */
-export enum LINE_STYLE {
-  DEFAULT = -1,
-  SOLID = 0,
-  DASH,
-  DOT,
-  DASHDOT,
-  DASHDOTDOT,
-}
 
 /**
  * Oblique angle for DXF native text. Upstream's comment: "I don't remember if
@@ -117,15 +117,6 @@ export const USE_DEFAULT_LINE_WIDTH = -1;
 const DXF_LINE_WIDTH = DO_NOT_SET_LINE_WIDTH;
 
 /** COLOR4D, components in 0..1. Equality below includes alpha, as upstream's does. */
-export interface Color4d {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
-
-export const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
-export const COLOR4D_WHITE: Color4d = { r: 1, g: 1, b: 1, a: 1 };
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
