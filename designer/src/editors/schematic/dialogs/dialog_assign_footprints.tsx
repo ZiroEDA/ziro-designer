@@ -51,6 +51,7 @@ import {
   collectCvpcbComponents,
   formatFootprintDesc,
   formatSymbolDesc,
+  nextUnassociated,
   type CvpcbComponent,
 } from '../cvpcb_components.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
@@ -454,15 +455,12 @@ export function DialogAssignFootprints({
   };
 
   /** gotoNextNA / gotoPreviousNA, the next symbol with no assignment. */
+  /** `CVPCB_CONTROL::ToNA`; the rule, and why it does not wrap, is on the helper. */
   const gotoNA = (dir: 1 | -1): void => {
-    if (components.length === 0) return;
-    for (let step = 1; step <= components.length; step++) {
-      const i = (curComp + dir * step + components.length * step) % components.length;
-      if (!footprintOf(components[i]!)) {
-        setCurComp(i);
-        return;
-      }
-    }
+    const target = nextUnassociated(components.length, curComp, dir, (i) =>
+      Boolean(footprintOf(components[i]!)),
+    );
+    if (target !== null) setCurComp(target);
   };
 
   /** The Footprint field edits the assignments amount to, one per unit. */
