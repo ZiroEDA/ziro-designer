@@ -2576,6 +2576,9 @@ export function PcbEditor({
    * the rebuild path (Canvas2D, a router drag, or items with no ranges).
    */
   const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
+  /** The nets the moving items belong to, and the airwires of all the others. */
+  const movingNetsRef = useRef<ReadonlySet<number>>(new Set());
+  const ratsOtherRef = useRef<RatsnestEdge[]>([]);
 
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
@@ -4463,6 +4466,31 @@ export function PcbEditor({
       sceneIsGlRef.current &&
       gl.canMoveItems(affected);
     inPlaceMoveRef.current = inPlace ? { x: 0, y: 0 } : null;
+    if (inPlace && liveRatsRef.current) {
+      // Only the moving items' nets change while they move, so the rest of the
+      // airwires are computed once here and reused every frame — the same
+      // scoping KiCad does, and what keeps a live ratsnest inside a frame.
+      const mine = new Set<number>();
+      for (const id of sel) {
+        const ref = parseBoardItemId(id);
+        if (!ref) continue;
+        if (ref.kind === 'footprint') {
+          for (const pad of brd.footprints[ref.index]?.pads ?? [])
+            if (pad.net && pad.net > 0) mine.add(pad.net);
+        } else if (ref.kind === 'pad') {
+          const pad = brd.footprints[ref.index]?.pads[ref.sub ?? 0];
+          if (pad?.net && pad.net > 0) mine.add(pad.net);
+        } else if (ref.kind === 'track') {
+          const n = brd.tracks[ref.index]?.net;
+          if (n && n > 0) mine.add(n);
+        } else if (ref.kind === 'via') {
+          const n = brd.vias[ref.index]?.net;
+          if (n && n > 0) mine.add(n);
+        }
+      }
+      movingNetsRef.current = mine;
+      ratsOtherRef.current = ratsnestEdgesRef.current.filter((e) => !mine.has(e.net));
+    }
     if (inPlace) {
       moveSceneRef.current = null;
       requestDraw();
@@ -4880,6 +4908,18 @@ export function PcbEditor({
       const gl = glRef.current;
       if (gl && gl.moveItems(dragAffectedRef.current, delta.x - applied.x, delta.y - applied.y)) {
         inPlaceMoveRef.current = delta;
+        // The airwires follow the part, as they do in pcbnew — the shortcut
+        // past the rebuild must not skip this, or the ratsnest stays pinned to
+        // where the footprint used to be.
+        if (liveRatsRef.current) {
+          const mine = buildRatsnest(moveBoardItems(brd, movingSelRef.current, delta), {
+            onlyNets: movingNetsRef.current,
+          });
+          ratsDrawRef.current = filterRatsRef.current(
+            [...ratsOtherRef.current, ...mine],
+            selectedNetsRef.current,
+          );
+        }
         requestDraw();
         return;
       }

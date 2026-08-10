@@ -18,6 +18,7 @@ import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
+import { buildRatsnest } from '@ziroeda/pcbnew/src/ratsnest.js';
 
 const MM = 1e6;
 const board = (): Board =>
@@ -92,5 +93,23 @@ describe('items are addressable in the recorded buffer', () => {
 
   it('reports nothing for an item it never recorded', () => {
     expect(record().translateItem('footprint:99', 1, 1)).toBeNull();
+  });
+});
+
+describe('the live ratsnest is scoped to the nets that moved', () => {
+  it('computes only the requested nets, and the same edges for them', () => {
+    const b = board();
+    const all = buildRatsnest(b);
+    const nets = new Set(all.map((e) => e.net));
+    expect(nets.size).toBeGreaterThan(0);
+    const one = [...nets][0]!;
+    const scoped = buildRatsnest(b, { onlyNets: new Set([one]) });
+    // Nothing outside the set, and inside it exactly what the full pass found.
+    expect(scoped.every((e) => e.net === one)).toBe(true);
+    expect(scoped.length).toBe(all.filter((e) => e.net === one).length);
+  });
+
+  it('an empty set computes nothing', () => {
+    expect(buildRatsnest(board(), { onlyNets: new Set() })).toEqual([]);
   });
 });

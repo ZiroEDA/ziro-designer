@@ -95,7 +95,21 @@ interface NetGeometry {
 }
 
 /** Build the airwire list for every net on the board. */
-export function buildRatsnest(board: Board): RatsnestEdge[] {
+export interface RatsnestOptions {
+  /**
+   * Only compute these nets, leaving the rest to the caller.
+   *
+   * A drag moves a handful of nets and leaves the other few hundred exactly as
+   * they were, so recomputing all of them every frame is wasted work — 20 ms a
+   * frame on the coldfire demo, which is most of a frame's budget. KiCad
+   * likewise recomputes only the nets its moved items belong to. Bucketing the
+   * board is still linear and cheap; it is the per-net clustering and spanning
+   * tree that this skips.
+   */
+  onlyNets?: ReadonlySet<number>;
+}
+
+export function buildRatsnest(board: Board, opts: RatsnestOptions = {}): RatsnestEdge[] {
   const edges: RatsnestEdge[] = [];
 
   // Bucket the board's connected items per net code (net 0 = no net).
@@ -168,6 +182,7 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
   }
 
   for (const [net, g] of nets) {
+    if (opts.onlyNets && !opts.onlyNets.has(net)) continue;
     // ----- cluster the items whose copper touches (CN_CONNECTIVITY_ALGO) -----
     const parent = Array.from({ length: g.items }, (_, i) => i);
     const find = (i: number): number => {
