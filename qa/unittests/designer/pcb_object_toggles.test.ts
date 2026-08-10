@@ -6,15 +6,15 @@
  * (APPEARANCE_CONTROLS::onObjectVisibilityChanged).
  */
 import { describe, expect, it } from 'vitest';
-import { toggleObject } from '@ziroeda/designer/src/editors/pcb/PcbEditor.js';
+import { toggleObject, type ObjectState } from '@ziroeda/designer/src/editors/pcb/pcb_objects.js';
 import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
 
-const base = { fpText: true, fpValues: true, fpReferences: true, tracks: true } as never;
-const pick = (s: Record<string, unknown>): [boolean, boolean, boolean] => [
-  s.fpText as boolean,
-  s.fpValues as boolean,
-  s.fpReferences as boolean,
+const base = { fpText: true, fpValues: true, fpReferences: true, tracks: true } as ObjectState;
+const pick = (s: ObjectState): [boolean, boolean, boolean] => [
+  s.fpText,
+  s.fpValues,
+  s.fpReferences,
 ];
 
 describe('Footprint Text meta-control', () => {
@@ -41,7 +41,7 @@ describe('Footprint Text meta-control', () => {
   });
 
   it('leaves unrelated rows alone', () => {
-    expect((toggleObject(base, 'tracks') as Record<string, unknown>).tracks).toBe(false);
+    expect(toggleObject(base, 'tracks').tracks).toBe(false);
     expect(pick(toggleObject(base, 'tracks'))).toEqual([true, true, true]);
   });
 });

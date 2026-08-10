@@ -207,6 +207,7 @@ import {
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
+import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -690,31 +691,6 @@ const OBJECT_ROWS: ObjectRow[] = [
   { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
 ];
 
-interface ObjectState {
-  tracks: boolean;
-  vias: boolean;
-  pads: boolean;
-  zones: boolean;
-  filledShapes: boolean;
-  images: boolean;
-  footprintsFront: boolean;
-  footprintsBack: boolean;
-  fpValues: boolean;
-  fpReferences: boolean;
-  fpText: boolean;
-  ratsnest: boolean;
-  drcWarnings: boolean;
-  drcErrors: boolean;
-  drcExclusions: boolean;
-  anchors: boolean;
-  points: boolean;
-  lockedShadow: boolean;
-  collidingCourtyards: boolean;
-  constrainedShadow: boolean;
-  boardAreaShadow: boolean;
-  drawingSheet: boolean;
-  grid: boolean;
-}
 const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
   vias: true,
@@ -741,29 +717,6 @@ const DEFAULT_OBJECTS: ObjectState = {
   grid: true,
 };
 // project_local_settings.cpp defaults.
-/**
- * Flip one Objects row, with the Footprint Text meta-control
- * (appearance_controls.cpp onObjectVisibilityChanged).
- *
- * "Because Footprint Text is a meta-control that also can disable
- * values/references, drag them along here so that the user is less likely to
- * be confused" — and the other way, turning a value or reference back *on*
- * restores the meta-control, "in case that user changes Footprint
- * Value/References when the Footprint Text meta-control is disabled". Turning
- * one of them off deliberately does not, which is what leaves you free to show
- * references alone.
- */
-export function toggleObject(prev: ObjectState, key: keyof ObjectState): ObjectState {
-  const on = !prev[key];
-  const next: ObjectState = { ...prev, [key]: on };
-  if (key === 'fpText') {
-    next.fpReferences = on;
-    next.fpValues = on;
-  } else if ((key === 'fpReferences' || key === 'fpValues') && on) {
-    next.fpText = true;
-  }
-  return next;
-}
 
 const DEFAULT_OPACITY = {
   tracks: 1.0,
