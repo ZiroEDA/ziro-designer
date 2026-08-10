@@ -187,13 +187,22 @@ function buildEffects(fx: TextEffects | undefined): SList | null {
   const just = justifyNode(fx?.justify);
   if (
     !fx ||
-    (!nonDefaultSize && !fx.bold && !fx.italic && !fx.hidden && !just && !fx.color && !fx.face)
+    (!nonDefaultSize &&
+      !fx.bold &&
+      !fx.italic &&
+      !fx.hidden &&
+      !just &&
+      !fx.color &&
+      !fx.face &&
+      fx.thickness === undefined)
   ) {
     return null;
   }
   const font: SNode[] = [atom('font')];
   if (fx.face) font.push(list(atom('face'), str(fx.face)));
   font.push(sizeNode(size[0], size[1]));
+  // EDA_TEXT::Format writes thickness straight after the size, before bold.
+  if (fx.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(fx.thickness))));
   if (fx.bold) font.push(list(atom('bold'), atom('yes')));
   if (fx.italic) font.push(list(atom('italic'), atom('yes')));
   if (fx.color) font.push(colorNode(fx.color));
@@ -217,7 +226,15 @@ function patchEffects(effectsNode: SList, fx: TextEffects, orig: TextEffects | u
     a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]);
   const colorChanged = !sameColor(fx.color, orig?.color);
   const faceChanged = (fx.face ?? '') !== (orig?.face ?? '');
-  if (sizeChanged || boldChanged || italicChanged || colorChanged || faceChanged) {
+  const thicknessChanged = fx.thickness !== orig?.thickness;
+  if (
+    sizeChanged ||
+    boldChanged ||
+    italicChanged ||
+    colorChanged ||
+    faceChanged ||
+    thicknessChanged
+  ) {
     if (!childNamed(e, 'font'))
       e = { kind: 'list', items: [e.items[0]!, list(atom('font')), ...e.items.slice(1)] };
     e = mapChild(e, 'font', (font) => {
@@ -226,6 +243,14 @@ function patchEffects(effectsNode: SList, fx: TextEffects, orig: TextEffects | u
         f = childNamed(f, 'size')
           ? mapChild(f, 'size', () => sizeNode(size[0], size[1]))
           : { kind: 'list', items: [f.items[0]!, sizeNode(size[0], size[1]), ...f.items.slice(1)] };
+      }
+      if (thicknessChanged) {
+        f = stripToken(f, 'thickness');
+        if (fx.thickness !== undefined)
+          f = {
+            kind: 'list',
+            items: [...f.items, list(atom('thickness'), atom(mm(fx.thickness)))],
+          };
       }
       if (boldChanged) f = setToken(f, 'bold', !!fx.bold);
       if (italicChanged) f = setToken(f, 'italic', !!fx.italic);

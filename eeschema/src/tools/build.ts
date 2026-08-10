@@ -169,6 +169,14 @@ export interface LabelOptions {
   justify?: readonly string[];
   /** `(font … (color r g b a))` — rgb 0-255, alpha 0-1. */
   color?: readonly [number, number, number, number];
+  /**
+   * `(font … (thickness …))` in IU — an explicit glyph pen.
+   *
+   * Left out, the pen is derived from the size the way
+   * `EDA_TEXT::GetEffectiveTextPenWidth` derives it, which is what every
+   * interactive caller wants; a graphics import is the case that knows better.
+   */
+  thickness?: number;
 }
 
 /**
@@ -196,6 +204,9 @@ export function makeLabel(
   ];
   if (opts.bold) fontItems.push(list(atom('bold'), atom('yes')));
   if (opts.italic) fontItems.push(list(atom('italic'), atom('yes')));
+  // EDA_TEXT::Format order: size, thickness, bold, italic, color.
+  if (opts.thickness !== undefined)
+    fontItems.splice(2, 0, list(atom('thickness'), atom(mm(opts.thickness))));
   if (opts.color) {
     const [r, g, b, alpha] = opts.color;
     fontItems.push(
@@ -220,6 +231,7 @@ export function makeLabel(
   if (opts.bold) modelEffects.bold = true;
   if (opts.italic) modelEffects.italic = true;
   if (opts.color) modelEffects.color = opts.color;
+  if (opts.thickness !== undefined) modelEffects.thickness = opts.thickness;
   const label: { -readonly [K in keyof SchLabel]: SchLabel[K] } = {
     kind,
     text,

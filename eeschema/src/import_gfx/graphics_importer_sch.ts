@@ -259,11 +259,11 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
    *     textItem->SetTextWidth( aWidth * ImportScalingFactor().x );
    *     textItem->SetTextHeight( aHeight * ImportScalingFactor().y );
    *
-   * The ninth, **thickness**, is dropped because the model has nowhere to put
-   * it: there is no pen width on schematic text in `TextEffects`, and the
-   * reader and writer have no `(thickness …)` either. That is a model gap
-   * rather than a mapping choice, so it is the one thing here that cannot be
-   * made identical without widening the format support.
+   * The ninth, **thickness**, is `MapLineWidth( aThickness )` like any other
+   * pen — averaged across the two axis factors, because a stroke has no
+   * direction. `TextEffects.thickness` and the `(font … (thickness …))` token
+   * were added for this: the format always had it, we simply had not read or
+   * written it.
    *
    * Sizes are taken absolute: a mirrored import gives a negative scale factor,
    * and a negative glyph box is not a size.
@@ -273,7 +273,6 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
     aText: string,
     aHeight: number,
     aWidth: number,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: no pen width on schematic text
     aThickness: number,
     aOrientation: number,
     aHJustify: GR_TEXT_H_ALIGN_T,
@@ -288,6 +287,7 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
         angle: aOrientation,
         fontSize: Math.abs(KiROUND(aHeight * factor.y)),
         fontWidth: Math.abs(KiROUND(aWidth * factor.x)),
+        thickness: this.MapLineWidth(aThickness),
         justify: [hJustifyToken(aHJustify), vJustifyToken(aVJustify)],
         ...(color ? { color } : {}),
       }),

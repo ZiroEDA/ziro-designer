@@ -213,6 +213,16 @@ describe('text', () => {
     expect(textOf(imp2)!.effects?.justify).toEqual(['center', 'center']);
   });
 
+  it('carries the thickness through as a mapped pen', () => {
+    // Averaged across the two axis factors like any other stroke, because a pen
+    // has no direction. Needed `(font … (thickness …))` in the model, reader and
+    // writer first — the format always had it; we did not.
+    const imp = importer();
+    imp.SetScale({ x: 2, y: 4 }); // averaged: 3
+    imp.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0.5, 0, -1, -1, COLOR4D_BLACK);
+    expect(textOf(imp)!.effects?.thickness).toBe(Math.trunc(0.5 * 3 * mmToIU(1)));
+  });
+
   it('carries the angle and the colour through', () => {
     const imp = importer();
     imp.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0, 90, -1, -1, { r: 1, g: 0, b: 0, a: 1 });
