@@ -1391,6 +1391,8 @@ export function PcbEditor({
    * followed by a corrective one.
    */
   const glBlockedRef = useRef(false);
+  /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
+  const sceneIsGlRef = useRef(false);
   const sceneFactory = (): ScenePathFactory =>
     glOkRef.current && !glBlockedRef.current ? GL_PATH_FACTORY : DOM_PATH_FACTORY;
   /**
@@ -1419,11 +1421,13 @@ export function PcbEditor({
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
     if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
     const scene = buildScene(b, filter, sceneFactory());
+    sceneIsGlRef.current = sceneFactory() === GL_PATH_FACTORY;
     if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
     // Handing this scene to the raster path instead would be the worst of the
     // three outcomes: GL paths draw as nothing on a 2D canvas, so the board
     // would come up empty with no error at all. Recompile it for real.
     glBlockedRef.current = true;
+    sceneIsGlRef.current = false;
     return buildScene(b, filter, DOM_PATH_FACTORY);
   };
   const rafRef = useRef(0);
@@ -1753,6 +1757,32 @@ export function PcbEditor({
       // matters: a scene holding images was compiled through `Path2D` and has
       // no vertices for the recorder to find.
       scene.images.length === 0;
+    // A device that dies *between* events — evicted by a starved Chrome, or
+    // flagged unhealthy by its own first-frames probe — never fires
+    // `webglcontextlost`, so the fallback in that listener never runs and the
+    // 2D path would be handed a scene full of GL paths it draws as nothing
+    // (that shipped once as a board with strokes but no fills). Do the same
+    // recovery here, keyed on what the scene was actually compiled with.
+    if (!useGl && sceneIsGlRef.current) {
+      glRef.current?.dispose();
+      glRef.current = null;
+      glOkRef.current = false;
+      sceneIsGlRef.current = false;
+      console.warn('WebGL device unhealthy; drawing the board with Canvas2D');
+      // A dead context cannot clear its canvas; resizing it can.
+      const gcv = glCanvasRef.current;
+      if (gcv) {
+        const w = gcv.width;
+        gcv.width = 0;
+        gcv.width = w;
+      }
+      const brd = boardRef.current;
+      if (brd) {
+        rebuildSceneRef.current(brd);
+        requestDrawRef.current();
+        return;
+      }
+    }
     // The retained buffer is keyed on the content, not on the view, so a pan or
     // a zoom is a uniform update and there is nothing to chase.
     if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
@@ -1824,6 +1854,10 @@ export function PcbEditor({
         pcbPerf.records = gl.recordCount;
         pcbPerf.lastRecordMs = gl.lastRecordMs;
       }
+      // The health probe inside upload/draw may have just condemned the
+      // device; come straight back for the Canvas2D recovery frame rather
+      // than leaving this half-drawn one up until the next interaction.
+      if (gl.isLost) requestDrawRef.current();
       // Track and via net names exist only past their ViewGetLOD zoom, so they
       // cannot live in the retained scene — the recording would freeze one
       // zoom's answer. Laid out here per frame instead, on the overlay, which

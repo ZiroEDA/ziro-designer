@@ -232,6 +232,9 @@ export class GlDevice {
       return null;
     }
     if (!gl) return null;
+    // Chrome over its context budget can hand out a context that is lost from
+    // birth — no `webglcontextlost` event will ever fire for it.
+    if (gl.isContextLost()) return null;
 
     const progSeg = link(gl, SEGMENT_VERT, SEGMENT_FRAG);
     const progDisc = link(gl, DISC_VERT, DISC_FRAG);
@@ -272,6 +275,9 @@ export class GlDevice {
   /** Send the document. The expensive half, and the rare one. */
   upload(scene: Scene): void {
     this.uploadInto(this.base, scene);
+    // Buffer allocation is where a starved context fails first.
+    this.healthChecks = Math.max(this.healthChecks, 1);
+    this.checkHealth();
   }
 
   /**
@@ -384,6 +390,7 @@ export class GlDevice {
       }
     }
     gl.bindVertexArray(null);
+    this.checkHealth();
   }
 
   /**
@@ -424,9 +431,26 @@ export class GlDevice {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  /** Whether the context has been lost; the caller falls back when it has. */
+  /**
+   * A context can also come up "half dead" — creation and program linking
+   * succeed, but draws or buffer uploads fail from then on (seen when Chrome
+   * is starved of GPU contexts: strokes still drew while every triangle
+   * silently vanished, a board with no fills). `gl.getError()` after the
+   * first few frames catches that; it forces a sync, so it is not something
+   * to pay on every frame of a healthy device.
+   */
+  private healthChecks = 3;
+  private broken = false;
+
+  private checkHealth(): void {
+    if (this.healthChecks <= 0 || this.broken) return;
+    this.healthChecks--;
+    if (this.gl.getError() !== this.gl.NO_ERROR) this.broken = true;
+  }
+
+  /** Whether the context is lost or unhealthy; the caller falls back then. */
   get isLost(): boolean {
-    return this.gl.isContextLost();
+    return this.broken || this.gl.isContextLost();
   }
 
   dispose(): void {
