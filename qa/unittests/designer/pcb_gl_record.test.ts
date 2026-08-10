@@ -298,8 +298,12 @@ describe('hairline rule per stroke', () => {
     expect(minPxSigns(s)).toEqual(new Set([-1]));
   });
 
-  it('records pad net names as bitmap text', () => {
-    // The demo board's pads carry numbers and a net, so both rules appear.
+  it('records no pad text at all — that pass is per-frame now', () => {
+    // Pad numbers and net names are gated by PAD::ViewGetLOD against the
+    // *current* zoom and must not compound where they overlap, so they draw
+    // with the track and via names in the per-frame netname pass
+    // (drawNetNames) and never enter a retained recording. A recording of a
+    // board with pads therefore carries only lines.
     const s = new Scene(true);
     recordBoardScene(
       s,
@@ -311,6 +315,6 @@ describe('hairline rule per stroke', () => {
       },
       1e-5,
     );
-    expect(minPxSigns(s)).toEqual(new Set([-1, 1]));
+    expect(minPxSigns(s)).toEqual(new Set([-1]));
   });
 });

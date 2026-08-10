@@ -305,6 +305,16 @@ export interface SceneImage {
   box: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
+/** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
+export interface PadTextLabel {
+  /** The pad centre, for viewport culling. */
+  at: { x: number; y: number };
+  /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
+  minSide: number;
+  /** The number and/or net-name glyph runs, in world coordinates. */
+  items: PcbTextItem[];
+}
+
 /** One track's net label, ready for the zoom-dependent pass to place. */
 export interface TrackNetLabel {
   start: { x: number; y: number };
@@ -356,6 +366,14 @@ export interface BoardScene {
   viaNetLabels: ViaNetLabel[];
   /** Footprint origins, for the LAYER_ANCHOR crosses (screen-space size). */
   anchors: { x: number; y: number }[];
+  /**
+   * Pad number / net-name text, as data for the per-frame pass: whether a
+   * pad's text shows depends on the zoom (PAD::ViewGetLOD, 0.5 mm against the
+   * pad's shorter side), so like the track and via names it cannot live in a
+   * retained scene. The glyph items are laid out once here; the pass only
+   * gates, places and strokes them.
+   */
+  padLabels: PadTextLabel[];
   /** Reference images, as payload + destination. The pixels live in the cache. */
   images: SceneImage[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
@@ -962,8 +980,13 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
   // case) maps to world coords about the pad centre.
   const anchor = (dy: number): Vec2 =>
     angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
+  const items: PcbTextItem[] = [];
   const label = (text: string, at: Vec2, glyph: number): void => {
-    addText(scene.padText, {
+    items.push(mkItem(text, at, glyph));
+    addText(scene.padText, mkItem(text, at, glyph));
+  };
+  const mkItem = (text: string, at: Vec2, glyph: number): PcbTextItem =>
+    ({
       kind: 'user',
       text,
       at,
@@ -986,8 +1009,7 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
       size: { x: glyph * Xscale, y: glyph * 0.95 },
       thickness: ((glyph * Xscale) / 6) * 0.74,
       bold: true,
-    } as PcbTextItem);
-  };
+    }) as PcbTextItem;
 
   if (showNet) {
     let tsize = Math.min((1.5 * along) / Math.max(netLabel.length + 1, 5), size);
@@ -1001,6 +1023,8 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
     tsize = Math.min(tsize * 0.85, size);
     label(padNumber, anchor(-yOffNum), tsize);
   }
+  if (items.length > 0)
+    scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), items });
 }
 
 export interface SceneFilter {
@@ -1143,6 +1167,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     netLabels: [],
     viaNetLabels: [],
     anchors: [],
+    padLabels: [],
     images: [],
     bbox: null,
   };
@@ -1932,18 +1957,10 @@ export function buildDrawSteps(
 
   for (let i = fCuIndex + 1; i < PCB_PAINT_ORDER.length; i++) pushLayer(PCB_PAINT_ORDER[i]!);
 
-  // Pad numbers and net names on top, in a bright contrasting color (KiCad
-  // draws them over the pad copper). Only *selection* leaves them alone: the
-  // net-name skip lives in RENDER_SETTINGS::update()'s m_layerColorsSel, so a
-  // net highlight still brightens and dims this text with everything else.
-  if (opts.pads && scene.padText.size > 0) {
-    steps.push(() => {
-      ctx.globalAlpha = opts.padOpacity;
-      ctx.strokeStyle = emphasize(special.padName, emphasis, true);
-      asBitmapText(ctx, () => strokeAll(ctx, scene.padText, minPen));
-      ctx.globalAlpha = 1;
-    });
-  }
+  // Pad numbers and net names draw with the track and via names in the
+  // per-frame netname pass at the end of this function: whether they show at
+  // all is PAD::ViewGetLOD against the zoom, and overlapping labels must not
+  // compound (see drawNetNames), neither of which a baked stroke pass can do.
 
   // Reference images. Painted before the net names but after the copper, which
   // is where PCB_PAINTER puts them: a reference image is something to trace
@@ -2059,13 +2076,96 @@ export function drawNetNames(
       addViaNetName(mapFor(viaColor), label, opts.netNames);
     }
   }
-  if (byColor.size === 0) return;
-  asBitmapText(ctx, () => {
-    for (const [color, map] of byColor) {
-      ctx.strokeStyle = color;
-      strokeAll(ctx, map, minPen);
+  // Pad text, gated like everything else here (PAD::ViewGetLOD: the pad's
+  // shorter side against 0.5 mm) — plus a legibility floor standing in for the
+  // OpenGL GAL's atlas, whose mipmaps blur a glyph to nothing below a few
+  // pixels. The floor is what keeps a board-fit view's pads clean, and what
+  // bounds this pass: at any zoom where text draws at all, only the pads in
+  // the viewport and big enough to read contribute.
+  if (opts.pads && scene.padLabels.length > 0) {
+    const padColor = emphasize(special.padName, emphasis, true);
+    const map = mapFor(padColor);
+    const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
+    for (const label of scene.padLabels) {
+      if (!pad(label.minSide)) continue;
+      const m = label.minSide;
+      if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
+      if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
+      for (const item of label.items) {
+        if (item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
+        addText(map, item);
+      }
     }
-  });
+  }
+  if (byColor.size === 0) return;
+
+  // Composite each color group through a scratch canvas: strokes drawn at
+  // full ink, the union stamped once at the group's alpha. This is KiCad's
+  // own overlap behaviour arrived at differently — the OpenGL GAL draws all
+  // netname text at one layer depth, so a second glyph's fragments fail the
+  // depth test where a first already drew and translucent text never
+  // compounds. Stroking the same glyphs straight onto the board at 0.7 alpha
+  // made every crossing brighter than its surroundings, which is exactly the
+  // "text overlapping" a side-by-side against pcbnew shows.
+  const sc = scratchFor(widthPx, heightPx);
+  if (!sc) {
+    // No DOM (tests, workers): stroke directly; overlaps compound, gates don't.
+    asBitmapText(ctx, () => {
+      for (const [color, map] of byColor) {
+        ctx.strokeStyle = color;
+        strokeAll(ctx, map, minPen);
+      }
+    });
+    return;
+  }
+  for (const [color, map] of byColor) {
+    const parsed = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
+    const ink = parsed ? `rgb(${parsed[1]},${parsed[2]},${parsed[3]})` : color;
+    const alpha = parsed?.[4] !== undefined ? +parsed[4] : 1;
+    sc.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    sc.ctx.clearRect(0, 0, widthPx, heightPx);
+    sc.ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+    sc.ctx.lineCap = 'round';
+    sc.ctx.lineJoin = 'round';
+    sc.ctx.strokeStyle = ink;
+    strokeAll(sc.ctx, map, minPen);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sc.canvas, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+}
+
+/** PAD::ViewGetLOD's 0.5 mm threshold, as pixels of pad. */
+const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;
+
+/**
+ * Below this glyph height the OpenGL GAL's bitmap-font atlas is mipmapped
+ * into an illegible smudge, so drawing nothing is the closer match — and the
+ * bound that keeps the per-frame pad-text pass cheap.
+ */
+const GLYPH_LEGIBLE_PX = 2.5;
+
+/** The cached scratch canvas the netname pass unions each color group on. */
+let scratch: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+
+function scratchFor(
+  w: number,
+  h: number,
+): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null {
+  if (typeof document === 'undefined') return null;
+  if (!scratch) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    scratch = { canvas, ctx };
+  }
+  if (scratch.canvas.width < w || scratch.canvas.height < h) {
+    scratch.canvas.width = Math.max(w, scratch.canvas.width);
+    scratch.canvas.height = Math.max(h, scratch.canvas.height);
+  }
+  return scratch;
 }
 
 /**
