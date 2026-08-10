@@ -14,6 +14,7 @@ import {
   collectCvpcbComponents,
   formatFootprintDesc,
   formatSymbolDesc,
+  nextUnassociated,
 } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 
 // A dual triode (two units + a power unit), a resistor, and a power symbol.
@@ -102,5 +103,49 @@ describe('cvpcb row formats', () => {
     expect(formatFootprintDesc(1, 'Audio_Module:Reverb_BTDR-1H')).toBe(
       '  1 Audio_Module:Reverb_BTDR-1H',
     );
+  });
+});
+
+/**
+ * `CVPCB_CONTROL::ToNA`, the next/previous unassociated component.
+ *
+ * Recorded on #88 as a divergence rather than a bug: ours wrapped, upstream
+ * stops. Settled in favour of upstream — the point of this app is to be the
+ * application, and a wrap silently returns you to the top of a board you
+ * thought you had finished.
+ */
+describe('walking to the next unassociated component', () => {
+  // Four components; 0 and 2 are assigned, 1 and 3 are not.
+  const assigned = (i: number): boolean => i === 0 || i === 2;
+
+  it('goes forward to the next one that has no footprint', () => {
+    expect(nextUnassociated(4, 0, 1, assigned)).toBe(1);
+    expect(nextUnassociated(4, 1, 1, assigned)).toBe(3);
+  });
+
+  it('goes backward the same way', () => {
+    expect(nextUnassociated(4, 3, -1, assigned)).toBe(1);
+  });
+
+  it('stops at the end rather than wrapping', () => {
+    // `changeSel` stays false, so the selection holds and the button is dead.
+    // This is the whole decision: ours used to return 1 here.
+    expect(nextUnassociated(4, 3, 1, assigned)).toBe(null);
+  });
+
+  it('and stops at the start rather than wrapping', () => {
+    expect(nextUnassociated(4, 1, -1, assigned)).toBe(null);
+  });
+
+  it('does nothing when every component is assigned', () => {
+    // `if( naComp.empty() ) return 0;`
+    expect(nextUnassociated(4, 0, 1, () => true)).toBe(null);
+    expect(nextUnassociated(4, 3, -1, () => true)).toBe(null);
+  });
+
+  it('skips over assigned ones rather than stepping by one', () => {
+    // 0 assigned, 1..3 assigned, 4 not: forward from 0 lands on 4, not 1.
+    const onlyLast = (i: number): boolean => i !== 4;
+    expect(nextUnassociated(5, 0, 1, onlyLast)).toBe(4);
   });
 });
