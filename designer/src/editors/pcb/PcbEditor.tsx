@@ -739,6 +739,30 @@ const DEFAULT_OBJECTS: ObjectState = {
   grid: true,
 };
 // project_local_settings.cpp defaults.
+/**
+ * Flip one Objects row, with the Footprint Text meta-control
+ * (appearance_controls.cpp onObjectVisibilityChanged).
+ *
+ * "Because Footprint Text is a meta-control that also can disable
+ * values/references, drag them along here so that the user is less likely to
+ * be confused" — and the other way, turning a value or reference back *on*
+ * restores the meta-control, "in case that user changes Footprint
+ * Value/References when the Footprint Text meta-control is disabled". Turning
+ * one of them off deliberately does not, which is what leaves you free to show
+ * references alone.
+ */
+export function toggleObject(prev: ObjectState, key: keyof ObjectState): ObjectState {
+  const on = !prev[key];
+  const next: ObjectState = { ...prev, [key]: on };
+  if (key === 'fpText') {
+    next.fpReferences = on;
+    next.fpValues = on;
+  } else if ((key === 'fpReferences' || key === 'fpValues') && on) {
+    next.fpText = true;
+  }
+  return next;
+}
+
 const DEFAULT_OPACITY = {
   tracks: 1.0,
   vias: 1.0,
@@ -7098,7 +7122,7 @@ export function PcbEditor({
                             type="button"
                             className="ze-eye-btn"
                             onClick={() => {
-                              if (!disabled) setObjects((p) => ({ ...p, [key]: !p[key] }));
+                              if (!disabled) setObjects((p) => toggleObject(p, key));
                             }}
                             title={`Show or hide ${label.toLowerCase()}`}
                           >
