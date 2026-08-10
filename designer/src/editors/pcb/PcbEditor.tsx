@@ -2543,9 +2543,19 @@ export function PcbEditor({
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
+  /**
+   * Generation counter for the off-critical-path scene rebuild a drag starts.
+   * Any newer rebuild supersedes an older one, so a stale result cannot land
+   * on top of a committed edit and two drags cannot race.
+   */
+  const baseRebuildRef = useRef(0);
+
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
     (b: Board) => {
+      // Supersede anything a drag left in flight, so it cannot land on top of
+      // this scene a moment later.
+      baseRebuildRef.current++;
       sceneRef.current = buildBoardScene(b, {
         hideFrontFootprints: !objects.footprintsFront,
         hideBackFootprints: !objects.footprintsBack,
@@ -4365,6 +4375,23 @@ export function PcbEditor({
   // Start a move/drag of `sel` from world grab point `origin`. 'move' leaves the
   // routing behind; 'drag' stretches the traces attached to moving footprints.
   // Splits the scene into a backdrop (everything else) + a live moving overlay.
+  /**
+   * Rebuild the board scene without `affected`, off the critical path.
+   *
+   * This is the expensive half of starting a drag and none of it is needed to
+   * *start* one — only to stop the original showing under the preview.
+   */
+  const scheduleBaseWithout = (brd: Board, affected: ReadonlySet<string>): void => {
+    const token = ++baseRebuildRef.current;
+    setTimeout(() => {
+      if (token !== baseRebuildRef.current) return;
+      if (movingSelRef.current.size === 0) return; // the drag already finished
+      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+      sceneDirtyRef.current = true;
+      requestDraw();
+    }, 0);
+  };
+
   const beginMove = (
     sel0: ReadonlySet<string>,
     kind: 'move' | 'drag',
@@ -4392,12 +4419,21 @@ export function PcbEditor({
       for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
     }
     dragAffectedRef.current = affected;
-    sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+    // The moving items first, because they are the cheap half and the drag
+    // cannot start without them: one footprint compiles in about 2 ms.
     moveSceneRef.current = dragModeRef.current
       ? null
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
     moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
+    requestDraw();
+    // The expensive half — the whole board again, minus what is moving — is
+    // what made grabbing a part freeze the editor: measured at 589 ms on the
+    // coldfire demo (160 footprints, 2935 tracks) before the GPU re-record on
+    // top, all to take one footprint out of a retained buffer. It is not
+    // needed to *start* the drag, only to stop the original showing under the
+    // preview, so it runs off the critical path and swaps in when ready.
+    scheduleBaseWithout(brd, affected);
   };
 
   /**
