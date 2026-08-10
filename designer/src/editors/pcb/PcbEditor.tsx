@@ -1872,6 +1872,29 @@ export function PcbEditor({
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
+    // Footprint anchors (LAYER_ANCHOR), *under* the board rather than over it.
+    //
+    // They belong here rather than on the overlay because that is where pcbnew
+    // puts them in practice: with the copper pours switched on its anchors all
+    // but disappear — a translucent zone fill washes the magenta out to a faint
+    // grey tick you only find by zooming right in — and they come back cleanly
+    // the moment the pours are hidden. Drawn on the overlay they sat above the
+    // pours, the silkscreen and the footprint text, so a whole-board view was
+    // covered in crosses that pcbnew does not show.
+    if (objects.anchors) {
+      drawAnchors(
+        bctx,
+        scene,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+      );
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     // The board itself: one uniform and three draw calls on the GPU, or the
     // raster blit it replaces.
     //
@@ -1939,22 +1962,6 @@ export function PcbEditor({
     // like them, drawn above the board (LAYER_GP_OVERLAY).
     drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // Footprint anchors (LAYER_ANCHOR): the small screen-space crosses at
-    // every footprint origin, on by default like pcbnew's Objects tab.
-    if (objects.anchors) {
-      drawAnchors(
-        ctx,
-        scene,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        drawOpts,
-        dimmedRef.current ? 'dimmed' : 'none',
-        dpr,
-      );
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.
     for (const cs of coloredScenesRef.current) {
