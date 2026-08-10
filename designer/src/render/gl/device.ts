@@ -216,10 +216,19 @@ export class GlDevice {
         // grid is genuinely zoom-dependent, so keeping it out of the retained
         // buffer is right rather than a compromise.
         alpha: true,
-        // The fragment shader emits straight (non-premultiplied) alpha, which
-        // is what the coverage term produces naturally, so the compositor has
-        // to be told not to expect premultiplied.
-        premultipliedAlpha: false,
+        // Premultiplied, because that is what ends up in the buffer.
+        //
+        // The fragment shader emits straight alpha, but the blend equation
+        // below (SRC_ALPHA, ONE_MINUS_SRC_ALPHA over a transparent canvas)
+        // stores `alpha·colour` — premultiplied by definition. Declaring
+        // `false` made the compositor multiply by the buffer's alpha a second
+        // time, so anything not fully opaque came out too dark: a lone zone
+        // fill at 0.6 composited as 0.36·colour. Measured against pcbnew, that
+        // put a B.Cu pour at (28,52,85) where KiCad draws (46,83,132), and the
+        // error tracked the buffer's own alpha exactly — 0.6 under one zone,
+        // 0.84 under two, and none at all on opaque tracks, which is why they
+        // matched pixel for pixel while every pour was visibly dark.
+        premultipliedAlpha: true,
         antialias: false, // the distance test antialiases; MSAA on top costs for nothing
         depth: false,
         stencil: false,
