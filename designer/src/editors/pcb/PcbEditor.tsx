@@ -122,6 +122,7 @@ import {
   type ImageValues,
   cancelPlaceImage,
   clickImage,
+  boardAuxOrigin,
   fileChosen,
   imageBBox,
   moveImage,
@@ -273,6 +274,7 @@ import {
   drawGrid,
   drawDrawingSheet,
   drawNetNames,
+  drawOriginMarker,
   drawDrcMarkers,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
@@ -1727,6 +1729,23 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, drawOpts]);
 
+  /**
+   * The board's drill/place file origin, cached per board object.
+   *
+   * `boardAuxOrigin` walks the raw s-expression, and the root's child list is
+   * every item on the board, so this is not something to repeat per frame.
+   */
+  const auxOriginRef = useRef<{ board: Board | null; at: { x: number; y: number } }>({
+    board: null,
+    at: { x: 0, y: 0 },
+  });
+  const auxOriginOf = (): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (auxOriginRef.current.board !== brd)
+      auxOriginRef.current = { board: brd, at: brd ? boardAuxOrigin(brd) : { x: 0, y: 0 } };
+    return auxOriginRef.current.at;
+  };
+
   const draw = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
@@ -1892,6 +1911,10 @@ export function PcbEditor({
         bctx.setTransform(1, 0, 0, 1, 0, 0);
       }
     }
+    // The drill/place file origin marker, screen-space like the anchors and,
+    // like them, drawn above the board (LAYER_GP_OVERLAY).
+    drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     // Footprint anchors (LAYER_ANCHOR): the small screen-space crosses at
     // every footprint origin, on by default like pcbnew's Objects tab.
     if (objects.anchors) {

@@ -47,6 +47,7 @@ import {
   PCB_SPECIAL,
   layerColor,
   PCB_GRID,
+  PCB_PLACE_ORIGIN,
   type PcbColorTheme,
 } from './pcbTheme.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -311,6 +312,12 @@ export interface PadTextLabel {
   at: { x: number; y: number };
   /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
   minSide: number;
+  /**
+   * The copper layers the pad flashes on. PAD::ViewGetLOD hides the text
+   * unless the pad is flashed to a *visible* layer, so hiding every copper
+   * layer must take the numbers and net names with it.
+   */
+  layers: string[];
   /** The number and/or net-name glyph runs, in world coordinates. */
   items: PcbTextItem[];
 }
@@ -927,7 +934,7 @@ const MAX_PAD_FONT = 10 * MM;
  * "magic numbers" (1.5·along / max(chars, 3|5), halved and offset when both are
  * shown). Rendered into the scene's padText stroke map.
  */
-function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
+function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: string[]): void {
   const padNumber = pad.number ?? '';
   // Net label per PCB_PAINTER::draw(PAD): the display netname is the SHORT net
   // name (NETINFO's part after the last '/'); a no-connect pad overrides it
@@ -1024,7 +1031,7 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string): void {
     label(padNumber, anchor(-yOffNum), tsize);
   }
   if (items.length > 0)
-    scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), items });
+    scene.padLabels.push({ at: pad.at, minSide: Math.min(px, py), layers, items });
 }
 
 export interface SceneFilter {
@@ -1364,7 +1371,12 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         addSmallHole(scene, pad);
       }
       // Pad number + net name text (PCB_PAINTER::draw(PAD) netname layer).
-      addPadLabels(scene, pad, board.nets.get(pad.net ?? 0) ?? '');
+      addPadLabels(
+        scene,
+        pad,
+        board.nets.get(pad.net ?? 0) ?? '',
+        expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
+      );
       grow(pad.at.x, pad.at.y, Math.max(pad.size.x, pad.size.y) / 2);
     }
     grow(fp.at.x, fp.at.y);
@@ -2088,6 +2100,10 @@ export function drawNetNames(
     const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
     for (const label of scene.padLabels) {
       if (!pad(label.minSide)) continue;
+      // PAD::ViewGetLOD: "Hide netnames unless pad is flashed to a visible
+      // layer." Without this the numbers and net names survived hiding every
+      // copper layer, floating over an otherwise empty board.
+      if (!label.layers.some((l) => visible.has(l))) continue;
       const m = label.minSide;
       if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
       if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
@@ -2225,6 +2241,49 @@ export function drawAnchors(
   }
   ctx.stroke();
 }
+
+/**
+ * The drill/place file origin marker, `BOARD_EDITOR_CONTROL`'s `m_placeOrigin`
+ * (board_editor_control.cpp): an `ORIGIN_VIEWITEM` in `CIRCLE_CROSS` style,
+ * `COLOR4D(0.8, 0, 0)`, size 16 — and the size is a *screen* size, because
+ * `ORIGIN_VIEWITEM::ViewDraw` runs it through `aView->ToWorld(..., false)`, so
+ * the marker keeps its size at every zoom like the anchor crosses do. Drawn on
+ * LAYER_GP_OVERLAY, i.e. above the board.
+ *
+ * `m_drawAtZero` is false by default, so a board that never set an auxiliary
+ * origin (it sits at 0,0) shows no marker at all.
+ */
+export function drawOriginMarker(
+  ctx: CanvasRenderingContext2D,
+  at: { x: number; y: number },
+  view: PcbViewTransform,
+  widthPx: number,
+  heightPx: number,
+  dpr = 1,
+): void {
+  if (at.x === 0 && at.y === 0) return;
+  const size = ORIGIN_MARKER_PX * dpr;
+  const sx = view.flipX ? -view.scale : view.scale;
+  const x = at.x * sx + view.tx;
+  const y = at.y * view.scale + view.ty;
+  if (x < -size || x > widthPx + size || y < -size || y > heightPx + size) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = PCB_PLACE_ORIGIN;
+  // SetLineWidth(1) is one internal unit, i.e. nothing: the pen floor draws it.
+  ctx.lineWidth = Math.max(1, dpr);
+  ctx.beginPath();
+  ctx.moveTo(x - size, y);
+  ctx.lineTo(x + size, y);
+  ctx.moveTo(x, y - size);
+  ctx.lineTo(x, y + size);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/** ORIGIN_VIEWITEM's default `aSize = 16`, in screen pixels. */
+const ORIGIN_MARKER_PX = 16;
 
 /** The visible world rectangle, for the netname repeat/clip rules. */
 function viewportInWorld(

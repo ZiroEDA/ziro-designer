@@ -18,6 +18,13 @@ export const PCB_GRID = 'rgb(132,132,132)';
 export const PCB_GRID_AXES = 'rgb(194,194,194)';
 export const PCB_CURSOR = 'rgb(255,255,255)';
 
+/**
+ * The drill/place file origin marker (BOARD_EDITOR_CONTROL's `m_placeOrigin`,
+ * `COLOR4D( 0.8, 0.0, 0.0, 1.0 )`). Not theme-able upstream: it is constructed
+ * with this literal rather than read from the colour settings.
+ */
+export const PCB_PLACE_ORIGIN = 'rgb(204,0,0)';
+
 const rgba = (r: number, g: number, b: number, a = 1): string =>
   a >= 1 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${a})`;
 

@@ -182,9 +182,25 @@ function layoutRun(run: MarkupRun, size: number, cursorX: number, out?: Vec2[][]
  * so a multi-line text had a box several times too wide, and picked up clicks
  * a long way to its right.
  */
+/**
+ * Split text into lines the way KiCad does (`wxStringSplit`, string_utils.cpp).
+ *
+ * The C++ loop appends the pending buffer only `if( !tmp.IsEmpty() )`, so a
+ * **trailing** newline does not open a final empty line — while an interior
+ * blank line is kept. JavaScript's `split` disagrees on exactly that case, and
+ * the difference is visible: the coldfire demo has `(gr_text "JTAG_EN\n")`,
+ * and counting two lines centres a two-line block on the anchor, lifting the
+ * text by half an interline (0.84 · size) above where pcbnew draws it.
+ */
+export function splitTextLines(text: string): string[] {
+  const lines = text.split('\n');
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
 export function measureText(text: string, size: number): number {
   let widest = 0;
-  for (const line of text.split('\n')) {
+  for (const line of splitTextLines(text)) {
     let w = 0;
     for (const run of parseMarkup(line)) w = layoutRun(run, size, w);
     if (w > widest) widest = w;
@@ -203,8 +219,9 @@ const INTERLINE_PITCH = 1.68;
 
 export function layoutText(text: string, size: number): { strokes: Vec2[][]; width: number } {
   // KiCad draws multi-line text (EDA_TEXT with embedded \n) as stacked lines
-  // spaced by GetInterline(); a lone newline must not render as a glyph.
-  const lines = text.split('\n');
+  // spaced by GetInterline(); a lone newline must not render as a glyph, and a
+  // trailing one must not add a line (see splitTextLines).
+  const lines = splitTextLines(text);
 
   // Pass 1: lay each line out left-aligned from x=0, keep its strokes + width.
   // Markup runs (~{overbar}, _{sub}, ^{super}) are resolved here.
