@@ -91,6 +91,8 @@ interface State {
 interface SubPath {
   pts: number[];
   closed: boolean;
+  /** The board item this run came from, carried through from `GlPath`. */
+  owner?: string;
 }
 
 export interface RecorderOptions {
@@ -453,7 +455,7 @@ export class GlRecorder {
   private adopt(path: GlPath): SubPath[] {
     const out: SubPath[] = [];
     for (const sp of path.subpaths) {
-      const s: SubPath = { pts: [], closed: sp.closed };
+      const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner };
       for (const p of sp.pts) this.pushPt(s, p.x, p.y);
       out.push(s);
     }
@@ -471,6 +473,7 @@ export class GlRecorder {
     const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
     const dashed = this.st.dash.length > 0 && this.st.dash.some((d) => d > 0);
     for (const sub of path ? this.adopt(path) : this.subs) {
+      this.scene.setItem(sub.owner);
       const p = sub.pts;
       if (p.length === 2) {
         // A lone point strokes as a dot under a round cap, which is how the
@@ -527,19 +530,33 @@ export class GlRecorder {
     // Fills are a few hundred triangles against tens of thousands of segments,
     // so the point objects the triangulator works in cost nothing worth
     // avoiding.
-    const rings: Pt[][] = [];
+    // Rings are grouped by the item that recorded them, so each item's
+    // triangles land in one range of the buffer and a move can rewrite them
+    // (see `Scene.itemRanges`). Grouping is also what keeps the winding rule
+    // honest: the shapes that genuinely have to be triangulated *together* —
+    // a pad and its own paste windows, a custom pad's anchor and primitives —
+    // all belong to the same item, so they stay in the same group.
+    const groups = new Map<string | undefined, Pt[][]>();
     for (const sub of path ? this.adopt(path) : this.subs) {
       if (sub.pts.length < 6) continue;
       const poly: Pt[] = [];
       for (let i = 0; i < sub.pts.length; i += 2) poly.push({ x: sub.pts[i]!, y: sub.pts[i + 1]! });
-      rings.push(poly);
+      let g = groups.get(sub.owner);
+      if (!g) {
+        g = [];
+        groups.set(sub.owner, g);
+      }
+      g.push(poly);
     }
-    const tri = triangulateRings(rings);
-    for (let i = 0; i + 2 < tri.length; i += 3) {
-      const a = tri[i]!;
-      const b = tri[i + 1]!;
-      const d = tri[i + 2]!;
-      this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
+    for (const [owner, rings] of groups) {
+      this.scene.setItem(owner);
+      const tri = triangulateRings(rings);
+      for (let i = 0; i + 2 < tri.length; i += 3) {
+        const a = tri[i]!;
+        const b = tri[i + 1]!;
+        const d = tri[i + 2]!;
+        this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
+      }
     }
   }
 

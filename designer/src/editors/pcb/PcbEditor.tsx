@@ -2549,6 +2549,12 @@ export function PcbEditor({
    * on top of a committed edit and two drags cannot race.
    */
   const baseRebuildRef = useRef(0);
+  /**
+   * The delta already applied to the retained buffer, when a move is running
+   * in place instead of through a rebuild. `null` means the gesture is using
+   * the rebuild path (Canvas2D, a router drag, or items with no ranges).
+   */
+  const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
 
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
@@ -4419,12 +4425,33 @@ export function PcbEditor({
       for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
     }
     dragAffectedRef.current = affected;
+    moveDeltaRef.current = { x: 0, y: 0 };
+    // The fast path, and what KiCad does: the items keep their place in the
+    // retained buffer and their vertices are shifted there each frame, so
+    // nothing is rebuilt, re-recorded or drawn twice. Only when the GPU cannot
+    // address every moving item — a router drag re-cuts geometry rather than
+    // translating it, and the Canvas2D fallback has no buffer at all — does
+    // the old rebuild-and-preview path run.
+    const gl = glRef.current;
+    const inPlace =
+      !dragModeRef.current &&
+      gl !== null &&
+      !gl.isLost &&
+      glOkRef.current &&
+      !glBlockedRef.current &&
+      sceneIsGlRef.current &&
+      gl.canMoveItems(affected);
+    inPlaceMoveRef.current = inPlace ? { x: 0, y: 0 } : null;
+    if (inPlace) {
+      moveSceneRef.current = null;
+      requestDraw();
+      return;
+    }
     // The moving items first, because they are the cheap half and the drag
     // cannot start without them: one footprint compiles in about 2 ms.
     moveSceneRef.current = dragModeRef.current
       ? null
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
-    moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
     requestDraw();
     // The expensive half — the whole board again, minus what is moving — is
@@ -4826,6 +4853,18 @@ export function PcbEditor({
     const to = snapToGrid(cur);
     const delta = { x: to.x - from.x, y: to.y - from.y };
     moveDeltaRef.current = delta;
+    const applied = inPlaceMoveRef.current;
+    if (applied) {
+      // Only the change since the last frame: the buffer already holds the rest.
+      const gl = glRef.current;
+      if (gl && gl.moveItems(dragAffectedRef.current, delta.x - applied.x, delta.y - applied.y)) {
+        inPlaceMoveRef.current = delta;
+        requestDraw();
+        return;
+      }
+      // The GPU could not take it after all; fall back for the rest of the drag.
+      inPlaceMoveRef.current = null;
+    }
     if (trackDragRef.current) {
       // The line is re-cut from scratch against the cursor each frame: a router
       // drag is not a translation, so the overlay carries the new absolute
@@ -4868,7 +4907,9 @@ export function PcbEditor({
     const delta = moveDeltaRef.current;
     const kind = moveKindRef.current;
     const sel = movingSelRef.current;
-    const hadOverlay = moveSceneRef.current !== null || dragModeRef.current;
+    const hadOverlay =
+      moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
+    inPlaceMoveRef.current = null;
     const trackDrag = trackDragRef.current;
     trackDragRef.current = null;
     dragModeRef.current = false;
@@ -4899,6 +4940,13 @@ export function PcbEditor({
     const brd = boardRef.current;
     trackDragRef.current = null;
     restoreDragHighlight();
+    // An in-place move only ever shifted vertices, so undoing it is the same
+    // shift back — far cheaper than rebuilding a board that never changed.
+    const applied = inPlaceMoveRef.current;
+    inPlaceMoveRef.current = null;
+    if (applied && (applied.x !== 0 || applied.y !== 0)) {
+      glRef.current?.moveItems(dragAffectedRef.current, -applied.x, -applied.y);
+    }
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
@@ -4909,6 +4957,12 @@ export function PcbEditor({
         ratsnestEdgesRef.current,
         selectedNetsRef.current,
       );
+    if (applied) {
+      moveSceneRef.current = null;
+      moveOriginRef.current = null;
+      requestDraw();
+      return;
+    }
     if (brd) rebuildScene(brd);
   };
 

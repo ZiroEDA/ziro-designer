@@ -405,6 +405,14 @@ export interface BoardScene {
 export interface ScenePathFactory {
   path(): Path2D;
   matrix(): DOMMatrix;
+  /**
+   * Name the board item everything recorded next belongs to.
+   *
+   * Only the GL factory keeps it — the browser's `Path2D` has nowhere to put
+   * it — and it is what lets a move rewrite one footprint's vertices instead
+   * of the board, the way KiCad's per-item cache chunks do.
+   */
+  setOwner?(id: string | undefined): void;
 }
 
 /** The browser's own implementations; the default for every caller. */
@@ -1194,7 +1202,8 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     if (y + pad > maxY) maxY = y + pad;
   };
 
-  for (const t of board.tracks) {
+  for (const [ti, t] of board.tracks.entries()) {
+    pathFactory.setOwner?.(`track:${ti}`);
     const b = buckets(scene, t.layer);
     const p = pathIn(b.tracks, Math.max(t.width, 1));
     p.moveTo(t.start.x, t.start.y);
@@ -1218,7 +1227,8 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
         });
     }
   }
-  for (const a of board.arcs) {
+  for (const [ai, a] of board.arcs.entries()) {
+    pathFactory.setOwner?.(`arc:${ai}`);
     const pts = tessellateArc(a.start, a.mid, a.end);
     const b = buckets(scene, a.layer);
     const p = pathIn(b.tracks, Math.max(a.width, 1));
@@ -1229,7 +1239,8 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     grow(a.start.x, a.start.y, a.width);
     grow(a.end.x, a.end.y, a.width);
   }
-  for (const v of board.vias) {
+  for (const [vi, v] of board.vias.entries()) {
+    pathFactory.setOwner?.(`via:${vi}`);
     const r = v.size / 2;
     const span = viaSpan(v.layers[0], v.layers[1], copperNames);
     for (const layer of span) {
@@ -1322,7 +1333,8 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     if (s.center) grow(s.center.x, s.center.y);
     for (const pt of s.pts ?? []) grow(pt.x, pt.y);
   }
-  for (const fp of board.footprints) {
+  for (const [fi, fp] of board.footprints.entries()) {
+    pathFactory.setOwner?.(`footprint:${fi}`);
     if (filter.hideFrontFootprints && fp.layer === 'F.Cu') continue;
     if (filter.hideBackFootprints && fp.layer === 'B.Cu') continue;
     // After the hide checks, not before: FOOTPRINT::ViewGetLOD resolves the
@@ -1384,6 +1396,7 @@ function compileScene(board: Board, filter: SceneFilter): BoardScene {
     }
     grow(fp.at.x, fp.at.y);
   }
+  pathFactory.setOwner?.(undefined);
   for (const t of board.texts) {
     if (!t.hide) addText(buckets(scene, t.layer).textBoard, t);
   }

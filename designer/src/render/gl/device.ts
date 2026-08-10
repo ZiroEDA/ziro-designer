@@ -26,7 +26,14 @@ import {
   TRIANGLE_FRAG,
   TRIANGLE_VERT,
 } from './shaders.js';
-import { DISC_STRIDE, SEGMENT_STRIDE, TRIANGLE_STRIDE, type Run, type Scene } from './scene.js';
+import {
+  DISC_STRIDE,
+  SEGMENT_STRIDE,
+  TRIANGLE_STRIDE,
+  type ItemRanges,
+  type Run,
+  type Scene,
+} from './scene.js';
 
 /** The view as the shaders want it: pixels per world unit, and a pixel offset. */
 export interface GlView {
@@ -284,6 +291,40 @@ export class GlDevice {
   /** Send the document. The expensive half, and the rare one. */
   upload(scene: Scene): void {
     this.uploadInto(this.base, scene);
+  }
+
+  /**
+   * Re-send just one item's vertices after `Scene.translateItem` moved them.
+   *
+   * This is the point of the per-item ranges, and KiCad's own answer to the
+   * same problem: `VIEW::Update` re-caches the moved item alone rather than
+   * rebuilding the buffer. A footprint is a few hundred floats out of a
+   * million, so a drag costs a handful of `bufferSubData` calls instead of a
+   * 1228 ms re-record.
+   */
+  updateItem(scene: Scene, ranges: ItemRanges): void {
+    const gl = this.gl;
+    const send = (
+      buffer: WebGLBuffer,
+      data: Float32Array,
+      stride: number,
+      list: readonly (readonly [number, number])[],
+    ): void => {
+      if (list.length === 0) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      for (const [first, count] of list) {
+        gl.bufferSubData(
+          gl.ARRAY_BUFFER,
+          first * stride * F32,
+          data,
+          first * stride,
+          count * stride,
+        );
+      }
+    };
+    send(this.base.seg, scene.segments.view(), SEGMENT_STRIDE, ranges.seg);
+    send(this.base.disc, scene.discs.view(), DISC_STRIDE, ranges.disc);
+    send(this.base.tri, scene.triangles.view(), TRIANGLE_STRIDE, ranges.tri);
   }
 
   /**

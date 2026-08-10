@@ -171,6 +171,38 @@ export class PcbGl {
   }
 
   /**
+   * Shift board items by (dx, dy) without re-recording anything.
+   *
+   * KiCad's `VIEW::Update` re-caches only the item that moved; this is the
+   * same idea against our buffer. A drag was costing a full re-record — 1228 ms
+   * on the coldfire demo — because the only way to take a footprint out of the
+   * board was to rebuild the board. Now its vertices are found by id and moved
+   * in place, which is a fraction of a millisecond and a few `bufferSubData`
+   * calls.
+   *
+   * Returns whether anything moved: an item recorded before the ranges existed
+   * (or one the builder never named, like a zone) has none, and the caller
+   * falls back to the rebuild.
+   */
+  moveItems(ids: Iterable<string>, dx: number, dy: number): boolean {
+    if (dx === 0 && dy === 0) return true;
+    let moved = false;
+    for (const id of ids) {
+      const ranges = this.scene.translateItem(id, dx, dy);
+      if (!ranges) continue;
+      this.device.updateItem(this.scene, ranges);
+      moved = true;
+    }
+    return moved;
+  }
+
+  /** Whether every one of `ids` can be moved in place. */
+  canMoveItems(ids: Iterable<string>): boolean {
+    for (const id of ids) if (!this.scene.itemRanges.has(id)) return false;
+    return true;
+  }
+
+  /**
    * Blank the layer for a frame the Canvas2D path is painting instead. The
    * recorded buffer survives, so the next GL frame is a draw and not a record.
    */
@@ -268,4 +300,6 @@ export function recordBoardScene(
     content.emphasis,
   );
   for (const step of steps) step();
+  // Close the last item's ranges; nothing else marks the end of a recording.
+  scene.closeItem();
 }

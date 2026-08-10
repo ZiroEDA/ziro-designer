@@ -222,14 +222,72 @@ export interface Run {
  * exists to protect. The schematic alternates per *item*, so ordering it would
  * cost thousands of draw calls a frame to fix a difference nobody can see.
  */
+/**
+ * Where one board item's vertices live, per buffer.
+ *
+ * Each entry is `[first, count]` in that buffer's own units — instances for
+ * segments and discs, vertices for triangles. An item usually has several,
+ * because its geometry is spread over the layers and buckets it draws on.
+ *
+ * This is our answer to KiCad's `CACHED_CONTAINER`, which gives every item a
+ * chunk of the cached vertex buffer so that moving one rewrites only its own
+ * vertices (`VIEW::Update` → "recache it immediately"). Without it, nudging a
+ * footprint means re-recording the whole board — measured at 1228 ms on the
+ * coldfire demo, which is the freeze that made dragging unusable.
+ */
+export interface ItemRanges {
+  seg: [number, number][];
+  disc: [number, number][];
+  tri: [number, number][];
+}
+
 export class Scene {
   readonly segments = new F32Buffer(4096);
   readonly discs = new F32Buffer(256);
   readonly triangles = new F32Buffer(1024);
   /** Empty on an unordered scene; the device then falls back to three draws. */
   readonly runs: Run[] = [];
+  /** Vertex ranges per board item; empty unless the recorder named owners. */
+  readonly itemRanges = new Map<string, ItemRanges>();
+  private owner: string | undefined;
+  private segMark = 0;
+  private discMark = 0;
+  private triMark = 0;
 
   constructor(private readonly ordered = false) {}
+
+  /**
+   * Attribute everything recorded from here on to `id`.
+   *
+   * Closing the previous item's ranges here rather than tracking every push
+   * keeps the hot path — a million triangle vertices — free of bookkeeping.
+   */
+  setItem(id: string | undefined): void {
+    if (id === this.owner) return;
+    this.closeItem();
+    this.owner = id;
+    this.segMark = this.segmentCount;
+    this.discMark = this.discCount;
+    this.triMark = this.triangleVertexCount;
+  }
+
+  /** Close the open item's ranges; call once when a recording finishes. */
+  closeItem(): void {
+    const id = this.owner;
+    if (id === undefined) return;
+    let r = this.itemRanges.get(id);
+    if (!r) {
+      r = { seg: [], disc: [], tri: [] };
+      this.itemRanges.set(id, r);
+    }
+    if (this.segmentCount > this.segMark)
+      r.seg.push([this.segMark, this.segmentCount - this.segMark]);
+    if (this.discCount > this.discMark)
+      r.disc.push([this.discMark, this.discCount - this.discMark]);
+    if (this.triangleVertexCount > this.triMark)
+      r.tri.push([this.triMark, this.triangleVertexCount - this.triMark]);
+    this.owner = undefined;
+  }
 
   /**
    * Extend the open run, or start a new one when the kind changes.
@@ -307,6 +365,50 @@ export class Scene {
     this.discs.clear();
     this.triangles.clear();
     this.runs.length = 0;
+    this.itemRanges.clear();
+    this.owner = undefined;
+    this.segMark = 0;
+    this.discMark = 0;
+    this.triMark = 0;
+  }
+
+  /**
+   * Shift one item's vertices by (dx, dy), in place.
+   *
+   * The whole point of the per-item ranges: a drag is a translation, so the
+   * item's recorded geometry does not have to be rebuilt, only moved. Returns
+   * the ranges touched so the caller can re-upload exactly those bytes.
+   */
+  translateItem(id: string, dx: number, dy: number): ItemRanges | null {
+    const r = this.itemRanges.get(id);
+    if (!r) return null;
+    const seg = this.segments.view();
+    for (const [first, count] of r.seg) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * SEGMENT_STRIDE;
+        seg[o] = (seg[o] ?? 0) + dx;
+        seg[o + 1] = (seg[o + 1] ?? 0) + dy;
+        seg[o + 2] = (seg[o + 2] ?? 0) + dx;
+        seg[o + 3] = (seg[o + 3] ?? 0) + dy;
+      }
+    }
+    const disc = this.discs.view();
+    for (const [first, count] of r.disc) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * DISC_STRIDE;
+        disc[o] = (disc[o] ?? 0) + dx;
+        disc[o + 1] = (disc[o + 1] ?? 0) + dy;
+      }
+    }
+    const tri = this.triangles.view();
+    for (const [first, count] of r.tri) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * TRIANGLE_STRIDE;
+        tri[o] = (tri[o] ?? 0) + dx;
+        tri[o + 1] = (tri[o + 1] ?? 0) + dy;
+      }
+    }
+    return r;
   }
 }
 
