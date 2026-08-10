@@ -245,3 +245,53 @@ describe('which side of the board a name is painted on', () => {
     expect(drawnOn('under')).toBeGreaterThan(0);
   });
 });
+
+describe('the under pass pays for its depth in alpha', () => {
+  it('dims a back-side name by one pour of transmission, and leaves front alone', () => {
+    // A zone composites at 0.6, so what pcbnew stacks beneath it keeps 0.4.
+    // Both passes draw on the same canvas: burying the under pass beneath the
+    // board hid a back pad's text under its own (opaque) pad.
+    const colours: string[] = [];
+    const ctx = {
+      setTransform: () => {},
+      lineCap: '',
+      lineJoin: '',
+      lineWidth: 0,
+      get strokeStyle() {
+        return '';
+      },
+      set strokeStyle(v: string) {
+        colours.push(v);
+      },
+      stroke: () => {},
+    } as unknown as CanvasRenderingContext2D;
+    const scene = buildScene(
+      readBoard(
+        parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "VCC")
+  (segment (start 100 100) (end 180 100) (width 2) (layer "B.Cu") (net 1))
+)`),
+      ),
+      {},
+      GL_PATH_FACTORY,
+    );
+    const path2d = globalThis.Path2D;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).Path2D = class {
+      moveTo(): void {}
+      lineTo(): void {}
+    };
+    try {
+      const scale = 40 / MM;
+      const view = { scale, tx: 400 - 140 * MM * scale, ty: 300 - 100 * MM * scale };
+      drawNetNames(ctx, scene, view, new Set(['B.Cu']), 800, 600, undefined, 'none', 1, 'under');
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).Path2D = path2d;
+    }
+    // B.Cu's netnames are the light label at 0.7; under the pour, 0.7 · 0.4.
+    expect(colours.some((c) => c.includes('0.27999999999999997') || c.includes('0.28'))).toBe(true);
+  });
+});

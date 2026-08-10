@@ -2063,6 +2063,12 @@ export function drawNetNames(
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
   const viewport = viewportInWorld(view, widthPx, heightPx);
   const byColor = new Map<string, Map<number, Path2D>>();
+  const attenuate = (color: string): string => {
+    if (where === 'over') return color;
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
+    if (!m) return color;
+    return `rgba(${m[1]},${m[2]},${m[3]},${(m[4] !== undefined ? +m[4] : 1) * UNDER_PASS_TRANSMISSION})`;
+  };
   const mapFor = (color: string): Map<number, Path2D> => {
     let m = byColor.get(color);
     if (!m) {
@@ -2089,7 +2095,7 @@ export function drawNetNames(
       // layer's netnames sit with their own copper — under the front pour.
       if ((label.layer === 'F.Cu') !== (where === 'over')) continue;
       if (!showsNetName(label, view, dpr)) continue;
-      const color = emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true);
+      const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
       addTrackNetName(mapFor(color), label, viewport);
     }
   }
@@ -2133,7 +2139,9 @@ export function drawNetNames(
       // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
       // pad's text follows the same per-layer light/dark rule as a track's:
       // dark over a copper colour bright enough to need it.
-      const map = mapFor(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true));
+      const map = mapFor(
+        attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
+      );
       for (const item of label.items) {
         if (item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
         addText(map, item);
@@ -2184,10 +2192,29 @@ export function drawNetNames(
  * Which side of the board raster a net-name pass paints on.
  *
  * `'over'` is everything KiCad puts above the copper — through-hole pad text,
- * via descriptions and front-layer names; `'under'` is what it files with the
- * back and inner copper, where the layers above wash it out.
+ * via descriptions and front-layer names. `'under'` is what it files with the
+ * back and inner copper, beneath the layers stacked above.
+ *
+ * Both draw on the *same* canvas, and `'under'` pays for its depth in alpha
+ * instead. Painting it beneath the board raster was the obvious move and it is
+ * wrong: a back pad's text then sits under the very pad it labels, which is
+ * opaque, so it disappears altogether — pcbnew draws it above its own B.Cu and
+ * only *then* under the inner layers and the front pour. Our board is one
+ * retained raster, so a per-frame pass cannot slot inside it; attenuating by
+ * one pour's worth of transmission reproduces what that stack does to it
+ * without pretending to be it.
  */
 export type NetNamePass = 'over' | 'under';
+
+/**
+ * What a back-side name keeps once the layers above have had their turn.
+ *
+ * A zone fill composites at `zoneOpacity` (0.6 by default), so what lies under
+ * it keeps 1 - 0.6 of its strength. One pour is the common case on a board
+ * with a ground plane, and it is what makes pcbnew's back-side pad text the
+ * pale ghost it is.
+ */
+const UNDER_PASS_TRANSMISSION = 0.4;
 
 /** PAD::ViewGetLOD's 0.5 mm threshold, as pixels of pad. */
 const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;

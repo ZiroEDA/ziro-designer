@@ -1881,21 +1881,6 @@ export function PcbEditor({
     // the moment the pours are hidden. Drawn on the overlay they sat above the
     // pours, the silkscreen and the footprint text, so a whole-board view was
     // covered in crosses that pcbnew does not show.
-    // Back and inner net names go under the board with the anchors: pcbnew
-    // files them with their own copper, so the layers above wash them out.
-    drawNetNames(
-      bctx,
-      scene,
-      v,
-      visible,
-      canvas.width,
-      canvas.height,
-      drawOpts,
-      dimmedRef.current ? 'dimmed' : 'none',
-      dpr,
-      'under',
-    );
-    bctx.setTransform(1, 0, 0, 1, 0, 0);
     if (objects.anchors) {
       drawAnchors(
         bctx,
@@ -1977,6 +1962,23 @@ export function PcbEditor({
     // The drill/place file origin marker, screen-space like the anchors and,
     // like them, drawn above the board (LAYER_GP_OVERLAY).
     drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Back and inner net names, after the board on either path: on the 2D path
+    // the overlay *is* the canvas the raster blits onto, so drawing them any
+    // earlier would bury them again. Dimmed by what pcbnew stacks over them —
+    // see NetNamePass.
+    drawNetNames(
+      ctx,
+      scene,
+      v,
+      visible,
+      canvas.width,
+      canvas.height,
+      drawOpts,
+      dimmedRef.current ? 'dimmed' : 'none',
+      dpr,
+      'under',
+    );
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.
