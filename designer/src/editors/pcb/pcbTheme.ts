@@ -113,7 +113,14 @@ export const PCB_SPECIAL = {
   //  - padName is LAYER_PAD_NETNAMES, the through-hole pad text.
   //  - viaName is LAYER_VIA_NETNAMES, near-black over the via copper.
   netName: rgba(255, 255, 255, 0.7),
-  padName: rgba(255, 255, 255, 0.9),
+  // LAYER_PAD_NETNAMES is listed as white 0.9 in builtin_color_themes.h, but
+  // RENDER_SETTINGS::update() then overwrites it with the netnames colour
+  // — `m_layerColors[LAYER_PAD_NETNAMES] = GetColor( NETNAMES_LAYER_ID_START )`
+  // — so 0.7 is what actually reaches the screen. Taking the theme's 0.9 at
+  // face value put our pad text at (250,235,235) over a red pad where pcbnew
+  // draws (234,178,178). LAYER_VIA_NETNAMES gets no such override, so it does
+  // keep its 0.9.
+  padName: rgba(255, 255, 255, 0.7),
   viaName: rgba(50, 50, 50, 0.9),
   // DRC marker layers (LAYER_DRC_ERROR / _WARNING / _EXCLUSION /
   // _HIGHLIGHTED, s_defaultTheme). The active marker repaints in the
@@ -245,7 +252,7 @@ const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
   anchor: C.blue, // LAYER_ANCHOR = BLUE
   drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
   netName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
-  padName: rgba(255, 255, 255, 0.9), // LAYER_PAD_NETNAMES (same as default)
+  padName: rgba(255, 255, 255, 0.7), // LAYER_PAD_NETNAMES, after the override
   viaName: rgba(50, 50, 50, 0.9), // LAYER_VIA_NETNAMES (same as default)
   // s_classicTheme: PURERED / PUREGREEN at 0.8, WHITE, PUREMAGENTA (color4d.cpp
   // colorRefs, the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).

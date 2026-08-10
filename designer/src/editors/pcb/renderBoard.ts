@@ -2106,18 +2106,22 @@ export function drawNetNames(
   // bounds this pass: at any zoom where text draws at all, only the pads in
   // the viewport and big enough to read contribute.
   if (opts.pads && scene.padLabels.length > 0) {
-    const padColor = emphasize(special.padName, emphasis, true);
-    const map = mapFor(padColor);
     const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
     for (const label of scene.padLabels) {
       if (!pad(label.minSide)) continue;
       // PAD::ViewGetLOD: "Hide netnames unless pad is flashed to a visible
       // layer." Without this the numbers and net names survived hiding every
       // copper layer, floating over an otherwise empty board.
-      if (!label.layers.some((l) => visible.has(l))) continue;
+      const shownOn = label.layers.find((l) => visible.has(l));
+      if (shownOn === undefined) continue;
       const m = label.minSide;
       if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
       if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
+      // draw(PAD)'s netname branch resolves LAYER_PAD_FR_NETNAMES and
+      // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
+      // pad's text follows the same per-layer light/dark rule as a track's:
+      // dark over a copper colour bright enough to need it.
+      const map = mapFor(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true));
       for (const item of label.items) {
         if (item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
         addText(map, item);
@@ -2203,9 +2207,9 @@ function scratchFor(
  * are near-black, which doubles as KiCad's way of making inner-layer names
  * read quieter than front ones.
  */
-export function netnameColorFor(layer: string, theme?: PcbColorTheme): string {
+export function netnameColorFor(layer: string, theme?: PcbColorTheme, forPad = false): string {
   const special = theme?.special ?? PCB_SPECIAL;
-  const light = special.netName ?? special.padName;
+  const light = forPad ? special.padName : (special.netName ?? special.padName);
   const layerCss = theme?.layerColors?.[layer] ?? layerColor(layer);
   const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(layerCss);
   if (!m) return light;
