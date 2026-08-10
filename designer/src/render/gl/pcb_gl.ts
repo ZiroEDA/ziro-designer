@@ -43,6 +43,7 @@
  */
 
 import {
+  BACK_NETNAMES_MARK,
   buildDrawSteps,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
@@ -127,6 +128,60 @@ export class PcbGl {
     return device ? new PcbGl(device) : null;
   }
 
+  /** Geometry drawn between the board's layers, rebuilt every frame. */
+  private readonly innerScene = new Scene(true);
+  /** Geometry drawn over the board, rebuilt every frame. */
+  private readonly textScene = new Scene(true);
+
+  /**
+   * A recorder over `scene`, set up for a per-frame pass at `viewScale`.
+   *
+   * No origin shift, unlike `recordBoardScene`: that one records the whole
+   * board through a synthetic view offset by half the world so nothing at a
+   * negative coordinate is culled, and takes the shift back out here. A
+   * per-frame pass has already decided what is on screen — it culls against the
+   * *real* viewport, which is the point of laying it out per frame — so it
+   * hands over plain world coordinates and the device applies the view.
+   */
+  private perFrame(scene: Scene, viewScale: number): GlRecorder {
+    const scale = viewScale > 0 && Number.isFinite(viewScale) ? viewScale : 1;
+    return new GlRecorder(scene, {
+      referenceScale: scale,
+      worldScale: scale,
+      devicePixelRatio: 1,
+      hairlines: 'solid',
+    });
+  }
+
+  /**
+   * Record the back-side net names for this frame and draw them at the depth
+   * pcbnew files them at — above the back copper, below the inner layers and
+   * the front pour. Cheap because the pass only lays out labels that passed
+   * their zoom gate and fall inside the viewport.
+   */
+  recordInner(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
+    this.innerScene.clear();
+    fn(this.perFrame(this.innerScene, viewScale) as unknown as CanvasRenderingContext2D);
+    this.innerScene.closeItem();
+    this.device.uploadInner(this.innerScene);
+  }
+
+  /**
+   * The same, for the pass drawn *over* the board: track and via net names and
+   * through-hole pad text.
+   *
+   * It is on the GPU rather than on the 2D overlay because the glyphs come from
+   * a texture: a multi-channel distance field needs a shader to decode, and
+   * Canvas2D has nowhere to put one. Being here also lets the depth test do
+   * what KiCad's layer depths do and stop crossing labels compounding.
+   */
+  recordText(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
+    this.textScene.clear();
+    fn(this.perFrame(this.textScene, viewScale) as unknown as CanvasRenderingContext2D);
+    this.textScene.closeItem();
+    this.device.uploadText(this.textScene);
+  }
+
   render(
     content: BoardContentKey,
     view: PcbViewTransform,
@@ -156,7 +211,7 @@ export class PcbGl {
       this.previewActive = false;
     }
 
-    this.device.draw(
+    this.device.drawWithInner(
       {
         // A flipped board view negates the X scale, as SetMirror on X does.
         scaleX: view.flipX ? -view.scale : view.scale,
@@ -167,7 +222,40 @@ export class PcbGl {
       // Transparent: the 2D canvas underneath has painted the background, the
       // grid and the drawing sheet already.
       null,
+      this.innerScene.isEmpty ? undefined : this.scene.marks.get(BACK_NETNAMES_MARK),
     );
+  }
+
+  /**
+   * Shift board items by (dx, dy) without re-recording anything.
+   *
+   * KiCad's `VIEW::Update` re-caches only the item that moved; this is the
+   * same idea against our buffer. A drag was costing a full re-record — 1228 ms
+   * on the coldfire demo — because the only way to take a footprint out of the
+   * board was to rebuild the board. Now its vertices are found by id and moved
+   * in place, which is a fraction of a millisecond and a few `bufferSubData`
+   * calls.
+   *
+   * Returns whether anything moved: an item recorded before the ranges existed
+   * (or one the builder never named, like a zone) has none, and the caller
+   * falls back to the rebuild.
+   */
+  moveItems(ids: Iterable<string>, dx: number, dy: number): boolean {
+    if (dx === 0 && dy === 0) return true;
+    let moved = false;
+    for (const id of ids) {
+      const ranges = this.scene.translateItem(id, dx, dy);
+      if (!ranges) continue;
+      this.device.updateItem(this.scene, ranges);
+      moved = true;
+    }
+    return moved;
+  }
+
+  /** Whether every one of `ids` can be moved in place. */
+  canMoveItems(ids: Iterable<string>): boolean {
+    for (const id of ids) if (!this.scene.itemRanges.has(id)) return false;
+    return true;
   }
 
   /**
@@ -181,6 +269,19 @@ export class PcbGl {
   /** Force a re-record on the next draw; for a context loss or a resize. */
   invalidate(): void {
     this.recorded = null;
+  }
+
+  /**
+   * Ask for one more frame once the bitmap-font sheet has been decoded.
+   *
+   * The image is fetched asynchronously, and a board is normally drawn several
+   * times before it lands. Glyph runs are skipped until the texture exists — an
+   * untextured quad would be a black box over every pad — so the first frame
+   * after it arrives has to be asked for, or the net names wait for whatever
+   * the user does next.
+   */
+  set onAtlasLoaded(fn: (() => void) | null) {
+    this.device.onAtlasLoaded = fn;
   }
 
   get isLost(): boolean {
@@ -231,6 +332,12 @@ export function recordBoardScene(
     worldScale: scale,
     devicePixelRatio: 1, // the canvas is already sized in device pixels
     skipFirstFillRect: true,
+    // A board is lines. Every one of them is clamped to a device pixel and drawn
+    // at full strength, which is what `computeLineCoords` does to a KiCad line
+    // and the reason a courtyard rectangle or a silkscreen outline stays crisp
+    // on a board zoomed out to fit. `buildDrawSteps` turns the fade back on
+    // around the two passes that stand in for KiCad's bitmap text.
+    hairlines: 'solid',
     // Recording runs through a shifted view so nothing at a negative coordinate
     // is culled; the origin takes the shift back out.
     originX: extent / 2,
@@ -262,4 +369,6 @@ export function recordBoardScene(
     content.emphasis,
   );
   for (const step of steps) step();
+  // Close the last item's ranges; nothing else marks the end of a recording.
+  scene.closeItem();
 }

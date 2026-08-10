@@ -21,12 +21,24 @@
 import {
   DISC_FRAG,
   DISC_VERT,
+  GLYPH_FRAG,
+  GLYPH_VERT,
   SEGMENT_FRAG,
   SEGMENT_VERT,
   TRIANGLE_FRAG,
   TRIANGLE_VERT,
 } from './shaders.js';
-import { DISC_STRIDE, SEGMENT_STRIDE, TRIANGLE_STRIDE, type Run, type Scene } from './scene.js';
+import { ATLAS_HEIGHT, ATLAS_WIDTH } from './bitmap_font.js';
+import { loadFontAtlas } from './font_atlas.js';
+import {
+  DISC_STRIDE,
+  GLYPH_VERTEX_STRIDE,
+  SEGMENT_STRIDE,
+  TRIANGLE_STRIDE,
+  type ItemRanges,
+  type Run,
+  type Scene,
+} from './scene.js';
 
 /** The view as the shaders want it: pixels per world unit, and a pixel offset. */
 export interface GlView {
@@ -87,13 +99,16 @@ interface GlLayer {
   seg: WebGLBuffer;
   disc: WebGLBuffer;
   tri: WebGLBuffer;
+  glyph: WebGLBuffer;
   vaoSeg: WebGLVertexArrayObject;
   vaoDisc: WebGLVertexArrayObject;
   vaoTri: WebGLVertexArrayObject;
+  vaoGlyph: WebGLVertexArrayObject;
   segCount: number;
   discCount: number;
   triVerts: number;
-  /** Painter's order across the three kinds; empty means "three draws". */
+  glyphVerts: number;
+  /** Painter's order across the four kinds; empty means "draw by kind". */
   runs: Run[];
 }
 
@@ -129,10 +144,12 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   const seg = gl.createBuffer();
   const disc = gl.createBuffer();
   const tri = gl.createBuffer();
+  const glyph = gl.createBuffer();
   const vaoSeg = gl.createVertexArray();
   const vaoDisc = gl.createVertexArray();
   const vaoTri = gl.createVertexArray();
-  if (!seg || !disc || !tri || !vaoSeg || !vaoDisc || !vaoTri) return null;
+  const vaoGlyph = gl.createVertexArray();
+  if (!seg || !disc || !tri || !glyph || !vaoSeg || !vaoDisc || !vaoTri || !vaoGlyph) return null;
 
   // Segments: location 0 is the shared quad (divisor 0), 1..5 are per-instance.
   gl.bindVertexArray(vaoSeg);
@@ -167,17 +184,33 @@ function createLayer(gl: WebGL2RenderingContext, quad: WebGLBuffer): GlLayer | n
   gl.enableVertexAttribArray(1);
   gl.vertexAttribPointer(1, 4, gl.FLOAT, false, triStride, 2 * F32);
 
+  // Glyphs: position, texture coords and colour, one vertex each. Not
+  // instanced — every corner carries its own atlas coordinate, and the box can
+  // be rotated with the track it labels, so there is no unit quad to expand.
+  gl.bindVertexArray(vaoGlyph);
+  gl.bindBuffer(gl.ARRAY_BUFFER, glyph);
+  const glyphStride = GLYPH_VERTEX_STRIDE * F32;
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, glyphStride, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 2, gl.FLOAT, false, glyphStride, 2 * F32);
+  gl.enableVertexAttribArray(2);
+  gl.vertexAttribPointer(2, 4, gl.FLOAT, false, glyphStride, 4 * F32);
+
   gl.bindVertexArray(null);
   return {
     seg,
     disc,
     tri,
+    glyph,
     vaoSeg,
     vaoDisc,
     vaoTri,
+    vaoGlyph,
     segCount: 0,
     discCount: 0,
     triVerts: 0,
+    glyphVerts: 0,
     runs: [],
   };
 }
@@ -190,21 +223,92 @@ export class GlDevice {
     { view: WebGLUniformLocation | null; viewport: WebGLUniformLocation | null }
   >();
 
+  /**
+   * The bitmap-font sheet, once it has been fetched and decoded.
+   *
+   * Null until then, and glyph runs are skipped while it is — a board can be
+   * drawn several times before an image round-trip completes, and drawing
+   * untextured quads in the meantime would put black rectangles over every pad.
+   */
+  private atlas: WebGLTexture | null = null;
+
+  /** `u_depth` on the glyph program; set per pass, so see {@link glyphDepth}. */
+  private readonly depthLoc: WebGLUniformLocation | null;
+
+  /**
+   * The clip-space depth a pass's glyphs are filed at.
+   *
+   * Two passes, two depths, and the order matters: the pass drawn *inside* the
+   * board (back and inner net names) must not block the one drawn over it, so
+   * it sits further back and the later pass still passes `LESS`. Within a pass
+   * every glyph shares a depth, which is the part that stops crossing labels
+   * from compounding. This is `GAL_LAYER_ORDER` in miniature — the same trick,
+   * for the two layers we actually interleave.
+   */
+  private glyphDepth(layer: GlLayer): number {
+    return layer === this.inner ? 0.5 : 0;
+  }
+
+  /**
+   * Called when the atlas finishes loading, so the owner can ask for the one
+   * extra frame that puts the net names on screen.
+   */
+  onAtlasLoaded: (() => void) | null = null;
+
   private constructor(
     private readonly gl: WebGL2RenderingContext,
     private readonly progSeg: WebGLProgram,
     private readonly progDisc: WebGLProgram,
     private readonly progTri: WebGLProgram,
+    private readonly progGlyph: WebGLProgram,
     private readonly quad: WebGLBuffer,
     private readonly base: GlLayer,
     private readonly preview: GlLayer,
+    private readonly inner: GlLayer,
+    private readonly text: GlLayer,
   ) {
-    for (const p of [progSeg, progDisc, progTri]) {
+    this.depthLoc = gl.getUniformLocation(progGlyph, 'u_depth');
+    for (const p of [progSeg, progDisc, progTri, progGlyph]) {
       this.uniforms.set(p, {
         view: gl.getUniformLocation(p, 'u_view'),
         viewport: gl.getUniformLocation(p, 'u_viewport'),
       });
     }
+    // The glyph program's other two uniforms never change: texture unit zero,
+    // and the sheet's size, which the fragment shader needs to turn a texture
+    // coordinate derivative back into texels.
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is WebGL, not a React hook
+    gl.useProgram(progGlyph);
+    gl.uniform1i(gl.getUniformLocation(progGlyph, 'u_atlas'), 0);
+    gl.uniform2f(gl.getUniformLocation(progGlyph, 'u_atlasSize'), ATLAS_WIDTH, ATLAS_HEIGHT);
+
+    void loadFontAtlas().then((image) => {
+      if (image && !gl.isContextLost()) this.uploadAtlas(image);
+      this.onAtlasLoaded?.();
+    });
+  }
+
+  /**
+   * Hand the decoded sheet to the GPU.
+   *
+   * Linear filtering and no mipmaps, both deliberate: a signed distance field is
+   * interpolated, not averaged, so bilinear between two texels gives the right
+   * answer at any scale, while a mipmap chain would blend distances from
+   * different glyphs and blur the field into mush. The clamp matters for the
+   * same reason — a glyph at the sheet's edge must not sample its neighbour.
+   */
+  private uploadAtlas(image: ImageBitmap): void {
+    const gl = this.gl;
+    const tex = gl.createTexture();
+    if (!tex) return;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    this.atlas = tex;
   }
 
   static create(canvas: HTMLCanvasElement): GlDevice | null {
@@ -216,12 +320,29 @@ export class GlDevice {
         // grid is genuinely zoom-dependent, so keeping it out of the retained
         // buffer is right rather than a compromise.
         alpha: true,
-        // The fragment shader emits straight (non-premultiplied) alpha, which
-        // is what the coverage term produces naturally, so the compositor has
-        // to be told not to expect premultiplied.
-        premultipliedAlpha: false,
+        // Premultiplied, because that is what ends up in the buffer.
+        //
+        // The fragment shader emits straight alpha, but the blend equation
+        // below (SRC_ALPHA, ONE_MINUS_SRC_ALPHA over a transparent canvas)
+        // stores `alpha·colour` — premultiplied by definition. Declaring
+        // `false` made the compositor multiply by the buffer's alpha a second
+        // time, so anything not fully opaque came out too dark: a lone zone
+        // fill at 0.6 composited as 0.36·colour. Measured against pcbnew, that
+        // put a B.Cu pour at (28,52,85) where KiCad draws (46,83,132), and the
+        // error tracked the buffer's own alpha exactly — 0.6 under one zone,
+        // 0.84 under two, and none at all on opaque tracks, which is why they
+        // matched pixel for pixel while every pour was visibly dark.
+        premultipliedAlpha: true,
         antialias: false, // the distance test antialiases; MSAA on top costs for nothing
-        depth: false,
+        // Only the bitmap-text passes use it, and they are the reason it is
+        // here: KiCad files every layer at its own depth over one buffer
+        // (`VIEW::redrawRect` → `SetLayerDepth`), so where two net names cross,
+        // the second glyph's fragments fail the depth test and the ink does not
+        // compound. Without that, translucent text doubles in strength at every
+        // crossing and a dense board grows bright knots pcbnew does not have.
+        // The test stays *disabled* for everything else — with it off nothing
+        // writes depth either, so the rest of the pipeline is untouched.
+        depth: true,
         stencil: false,
         // The scene persists between frames and we always redraw it in full,
         // so there is nothing to preserve and preserving costs a copy.
@@ -232,11 +353,15 @@ export class GlDevice {
       return null;
     }
     if (!gl) return null;
+    // Chrome over its context budget can hand out a context that is lost from
+    // birth — no `webglcontextlost` event will ever fire for it.
+    if (gl.isContextLost()) return null;
 
     const progSeg = link(gl, SEGMENT_VERT, SEGMENT_FRAG);
     const progDisc = link(gl, DISC_VERT, DISC_FRAG);
     const progTri = link(gl, TRIANGLE_VERT, TRIANGLE_FRAG);
-    if (!progSeg || !progDisc || !progTri) return null;
+    const progGlyph = link(gl, GLYPH_VERT, GLYPH_FRAG);
+    if (!progSeg || !progDisc || !progTri || !progGlyph) return null;
 
     const quad = gl.createBuffer();
     if (!quad) return null;
@@ -245,9 +370,27 @@ export class GlDevice {
 
     const base = createLayer(gl, quad);
     const preview = createLayer(gl, quad);
-    if (!base || !preview) return null;
+    // A third small buffer for the pass drawn *inside* the board — the
+    // back-side net names, which belong between the back copper and the inner
+    // layers rather than over everything.
+    const inner = createLayer(gl, quad);
+    // And a fourth for the pass drawn *over* it: track and via net names and
+    // through-hole pad text, which KiCad files above every copper layer.
+    const text = createLayer(gl, quad);
+    if (!base || !preview || !inner || !text) return null;
 
-    return new GlDevice(gl, progSeg, progDisc, progTri, quad, base, preview);
+    return new GlDevice(
+      gl,
+      progSeg,
+      progDisc,
+      progTri,
+      progGlyph,
+      quad,
+      base,
+      preview,
+      inner,
+      text,
+    );
   }
 
   /**
@@ -262,9 +405,12 @@ export class GlDevice {
     gl.bufferData(gl.ARRAY_BUFFER, scene.discs.view(), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, layer.tri);
     gl.bufferData(gl.ARRAY_BUFFER, scene.triangles.view(), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, layer.glyph);
+    gl.bufferData(gl.ARRAY_BUFFER, scene.glyphs.view(), gl.DYNAMIC_DRAW);
     layer.segCount = scene.segmentCount;
     layer.discCount = scene.discCount;
     layer.triVerts = scene.triangleVertexCount;
+    layer.glyphVerts = scene.glyphVertexCount;
     // Copied, not aliased: the scene is cleared and re-recorded in place.
     layer.runs = scene.runs.map((r) => ({ ...r }));
   }
@@ -272,6 +418,40 @@ export class GlDevice {
   /** Send the document. The expensive half, and the rare one. */
   upload(scene: Scene): void {
     this.uploadInto(this.base, scene);
+  }
+
+  /**
+   * Re-send just one item's vertices after `Scene.translateItem` moved them.
+   *
+   * This is the point of the per-item ranges, and KiCad's own answer to the
+   * same problem: `VIEW::Update` re-caches the moved item alone rather than
+   * rebuilding the buffer. A footprint is a few hundred floats out of a
+   * million, so a drag costs a handful of `bufferSubData` calls instead of a
+   * 1228 ms re-record.
+   */
+  updateItem(scene: Scene, ranges: ItemRanges): void {
+    const gl = this.gl;
+    const send = (
+      buffer: WebGLBuffer,
+      data: Float32Array,
+      stride: number,
+      list: readonly (readonly [number, number])[],
+    ): void => {
+      if (list.length === 0) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      for (const [first, count] of list) {
+        gl.bufferSubData(
+          gl.ARRAY_BUFFER,
+          first * stride * F32,
+          data,
+          first * stride,
+          count * stride,
+        );
+      }
+    };
+    send(this.base.seg, scene.segments.view(), SEGMENT_STRIDE, ranges.seg);
+    send(this.base.disc, scene.discs.view(), DISC_STRIDE, ranges.disc);
+    send(this.base.tri, scene.triangles.view(), TRIANGLE_STRIDE, ranges.tri);
   }
 
   /**
@@ -284,17 +464,61 @@ export class GlDevice {
   }
 
   /** Drop the preview, at the end of a drag. */
+  /** Send the pass that draws between the board's layers. */
+  uploadInner(scene: Scene): void {
+    this.uploadInto(this.inner, scene);
+  }
+
+  /** Send the pass that draws over the board — net names and pad text. */
+  uploadText(scene: Scene): void {
+    this.uploadInto(this.text, scene);
+  }
+
+  clearText(): void {
+    this.text.segCount = 0;
+    this.text.discCount = 0;
+    this.text.triVerts = 0;
+    this.text.glyphVerts = 0;
+    this.text.runs.length = 0;
+  }
+
+  /**
+   * Draw, with the inner pass placed at `mark` if the recording named one.
+   * Falls back to drawing it over everything when the mark is missing, which
+   * is what an unordered scene gives.
+   */
+  drawWithInner(
+    view: GlView,
+    clear: { r: number; g: number; b: number; a: number } | null,
+    at: number | undefined,
+  ): void {
+    this.draw(view, clear, at === undefined ? null : { at, layer: this.inner });
+  }
+
+  clearInner(): void {
+    this.inner.segCount = 0;
+    this.inner.discCount = 0;
+    this.inner.triVerts = 0;
+    this.inner.glyphVerts = 0;
+    this.inner.runs.length = 0;
+  }
+
   clearPreview(): void {
     this.preview.segCount = 0;
     this.preview.discCount = 0;
     this.preview.triVerts = 0;
+    this.preview.glyphVerts = 0;
   }
 
   /**
    * Redraw at the given view. The cheap half: one uniform per program and three
    * draw calls, whatever the sheet contains.
    */
-  draw(view: GlView, clear: { r: number; g: number; b: number; a: number } | null): void {
+  draw(
+    view: GlView,
+    clear: { r: number; g: number; b: number; a: number } | null,
+    interleave?: { at: number; layer: GlLayer } | null,
+  ): void {
     const gl = this.gl;
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
@@ -302,7 +526,10 @@ export class GlDevice {
     // Null clears to transparent, which is what a layer over the grid wants.
     if (clear) gl.clearColor(clear.r, clear.g, clear.b, clear.a);
     else gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    // The depth buffer is cleared with the colour but tested only around the
+    // glyph runs, so everything else draws exactly as it did.
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST);
 
     gl.enable(gl.BLEND);
     // Straight (non-premultiplied) alpha, matching how the colours are parsed.
@@ -325,8 +552,32 @@ export class GlDevice {
       current = p;
     };
 
-    // The document, then the items being dragged over it.
-    for (const layer of [this.base, this.preview]) {
+    /**
+     * A stretch of glyphs, drawn against the depth buffer.
+     *
+     * `LESS` against a constant depth per pass is the whole mechanism: the
+     * first fragment to reach a pixel writes the pass's depth and every later
+     * one at the same depth is rejected, so two net names crossing paint the
+     * ink of one. The alpha test in the fragment shader is what keeps the
+     * *transparent* part of a glyph's box from claiming pixels it does not
+     * cover — without the discard, each glyph would blank out its neighbours'
+     * ascenders.
+     */
+    const drawGlyphs = (src: GlLayer, start: number, count: number): void => {
+      if (!this.atlas || count <= 0) return;
+      bindProgram(this.progGlyph);
+      gl.uniform1f(this.depthLoc, this.glyphDepth(src));
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LESS);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+      gl.bindVertexArray(src.vaoGlyph);
+      gl.drawArrays(gl.TRIANGLES, start, count);
+      gl.disable(gl.DEPTH_TEST);
+    };
+
+    // The document, the items being dragged over it, then the per-frame text.
+    for (const layer of [this.base, this.preview, this.text]) {
       if (layer.runs.length > 0) {
         // Painter's order, reproduced exactly: one draw per stretch of one kind,
         // in the sequence they were recorded.
@@ -337,6 +588,40 @@ export class GlDevice {
         // copper pour. Drawing every fill and then every stroke lifts every
         // inner-layer track out from under every pour, and the board comes out
         // looking like a net of wires laid over the top of it.
+        const stopAt = interleave && layer === this.base ? interleave.at : -1;
+        const drawRuns = (runs: readonly Run[], src: GlLayer): void => {
+          for (const run of runs) {
+            if (run.count <= 0) continue;
+            if (run.kind === 'tri') {
+              bindProgram(this.progTri);
+              gl.bindVertexArray(src.vaoTri);
+              gl.drawArrays(gl.TRIANGLES, run.start, run.count);
+            } else if (run.kind === 'glyph') {
+              drawGlyphs(src, run.start, run.count);
+            } else if (run.kind === 'seg') {
+              bindProgram(this.progSeg);
+              this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+            } else {
+              bindProgram(this.progDisc);
+              this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, run.start);
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
+            }
+          }
+          this.pointInstances(src.vaoSeg, src.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
+          this.pointInstances(src.vaoDisc, src.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        };
+        if (stopAt >= 0 && interleave) {
+          // The per-frame pass belongs *inside* the board, at the depth it was
+          // marked at: above the back copper, below the inner layers and the
+          // front pour. Two draw ranges and one small buffer, which is what
+          // gets back-side net names to their true depth rather than faking it
+          // with a fixed attenuation.
+          drawRuns(layer.runs.slice(0, stopAt), layer);
+          drawRuns(interleave.layer.runs, interleave.layer);
+          drawRuns(layer.runs.slice(stopAt), layer);
+          continue;
+        }
         for (const run of layer.runs) {
           if (run.count <= 0) continue;
           if (run.kind === 'tri') {
@@ -345,22 +630,22 @@ export class GlDevice {
             // Non-instanced, so the first vertex is an argument and nothing has
             // to be re-pointed.
             gl.drawArrays(gl.TRIANGLES, run.start, run.count);
+          } else if (run.kind === 'glyph') {
+            drawGlyphs(layer, run.start, run.count);
           } else if (run.kind === 'seg') {
             bindProgram(this.progSeg);
-            gl.bindVertexArray(layer.vaoSeg);
-            this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
+            this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
             gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
           } else {
             bindProgram(this.progDisc);
-            gl.bindVertexArray(layer.vaoDisc);
-            this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
+            this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
             gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
           }
         }
         // Leave the pointers at zero so the next frame starts from a known
-        // state whichever path draws it.
-        this.pointInstances(layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
-        this.pointInstances(layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        // state whichever path draws it. Each rewinds its *own* VAO.
+        this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
+        this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
         continue;
       }
 
@@ -382,6 +667,9 @@ export class GlDevice {
         gl.bindVertexArray(layer.vaoDisc);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, layer.discCount);
       }
+      // Text last: it is the one thing that is meant to sit over everything
+      // else in an unordered scene.
+      drawGlyphs(layer, 0, layer.glyphVerts);
     }
     gl.bindVertexArray(null);
   }
@@ -391,16 +679,31 @@ export class GlDevice {
    *
    * WebGL2 has no `baseInstance`: `drawArraysInstanced` always starts at
    * instance zero, so the only way to draw a slice of a buffer is to move the
-   * pointers. The currently bound VAO records them, which is why this must run
-   * after the bind and not before.
+   * pointers.
+   *
+   * **Takes the VAO and binds it itself.** `vertexAttribPointer` writes into
+   * whichever VAO happens to be bound, so a call that assumed the caller had
+   * already bound the right one could silently rewrite another program's
+   * attributes — and did: the two "reset the pointers" calls at the end of an
+   * ordered draw ran with whatever the last run left bound. When that was a
+   * triangle run, the disc reset landed in `vaoTri`, where location 1 is the
+   * triangle colour, and re-pointed it at the (empty) disc buffer. WebGL then
+   * fed every triangle a colour of zeros, defaulting z and w to (0, 1): opaque
+   * black. Every zone pour turned into a black rectangle and everything under
+   * it in `PCB_PAINT_ORDER` disappeared behind it. Strokes survived because
+   * `vaoSeg` is re-pointed per run on the next frame; nothing ever repaired
+   * `vaoTri`, so the damage stuck for the life of the context and looked for
+   * all the world like a cache. Passing the VAO makes that unrepresentable.
    */
   private pointInstances(
+    vao: WebGLVertexArrayObject,
     buffer: WebGLBuffer,
     attrs: [number, number, number][],
     stride: number,
     first: number,
   ): void {
     const gl = this.gl;
+    gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const base = first * stride * F32;
     for (const [loc, size, offset] of attrs) {
@@ -424,25 +727,39 @@ export class GlDevice {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  /** Whether the context has been lost; the caller falls back when it has. */
+  /**
+   * Whether the context has been lost; the caller falls back when it has.
+   *
+   * Deliberately just `isContextLost`. A `getError()` probe lived here
+   * briefly, meant to catch a context that creates and links but then fails
+   * every draw — except `getError` reports *any* error since the last call,
+   * including harmless ones from elsewhere, and a false positive drops the
+   * board to the software renderer permanently. The case it was added for
+   * turned out to be a stale tab rather than a sick device.
+   */
   get isLost(): boolean {
     return this.gl.isContextLost();
   }
 
   dispose(): void {
     const gl = this.gl;
+    this.onAtlasLoaded = null;
     gl.deleteBuffer(this.quad);
-    for (const layer of [this.base, this.preview]) {
+    for (const layer of [this.base, this.preview, this.inner]) {
       gl.deleteBuffer(layer.seg);
       gl.deleteBuffer(layer.disc);
       gl.deleteBuffer(layer.tri);
+      gl.deleteBuffer(layer.glyph);
       gl.deleteVertexArray(layer.vaoSeg);
       gl.deleteVertexArray(layer.vaoDisc);
       gl.deleteVertexArray(layer.vaoTri);
+      gl.deleteVertexArray(layer.vaoGlyph);
     }
+    if (this.atlas) gl.deleteTexture(this.atlas);
     gl.deleteProgram(this.progSeg);
     gl.deleteProgram(this.progDisc);
     gl.deleteProgram(this.progTri);
+    gl.deleteProgram(this.progGlyph);
   }
 }
 

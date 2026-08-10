@@ -165,6 +165,52 @@ describe('triangulateRings', () => {
     expect(covers(tris, { x: 80, y: 80 })).toBe(false); // the notch, outside
   });
 
+  it('keeps a ring nested in a same-wound ring solid', () => {
+    // The `nonzero` rule this whole module hangs on, and the bug it shipped
+    // with. Every bucket in `buildScene` is one path holding a whole layer's
+    // shapes, and they overlap all the time — here a paste window inside the
+    // thermal pad it belongs to. Both are wound the same way, so the winding
+    // number inside the small ring is 2, not 0, and `nonzero` fills it. Judging
+    // by nesting instead makes it a hole and the pad shows the layers *under*
+    // it through the gap.
+    const tris = triangulateRings([ring(0, 0, 100, 100), ring(40, 40, 20, 20)]);
+
+    expect(covers(tris, { x: 50, y: 50 })).toBe(true); // inside both rings
+    expect(covers(tris, { x: 10, y: 10 })).toBe(true); // the pad around it
+    expect(covers(tris, { x: 150, y: 50 })).toBe(false);
+  });
+
+  it('unions two partly overlapping rings', () => {
+    // Neither contains the other. Both must be covered whole: dropping one as
+    // redundant would erase the part of it sticking out.
+    const tris = triangulateRings([ring(0, 0, 60, 60), ring(40, 40, 60, 60)]);
+
+    expect(covers(tris, { x: 10, y: 10 })).toBe(true); // only the first
+    expect(covers(tris, { x: 90, y: 90 })).toBe(true); // only the second
+    expect(covers(tris, { x: 50, y: 50 })).toBe(true); // the shared corner
+    expect(covers(tris, { x: 10, y: 90 })).toBe(false); // neither
+  });
+
+  it('counts winding rather than depth when a hole sits under two rings', () => {
+    // Two same-wound rings and one reversed ring inside both. The winding number
+    // there is 1 + 1 - 1 = 1, so `nonzero` — and Canvas2D — keep it filled: one
+    // reversal cancels one covering ring, not both. Depth parity would call it
+    // solid too, but for the wrong reason, and gets the sibling case below
+    // backwards.
+    const twoDeep = triangulateRings([
+      ring(0, 0, 100, 100),
+      ring(20, 20, 60, 60),
+      reversed(ring(45, 45, 10, 10)),
+    ]);
+    expect(covers(twoDeep, { x: 50, y: 50 })).toBe(true);
+
+    // The same reversed ring under a single covering ring cancels to zero, and
+    // is a hole.
+    const oneDeep = triangulateRings([ring(0, 0, 100, 100), reversed(ring(45, 45, 10, 10))]);
+    expect(covers(oneDeep, { x: 50, y: 50 })).toBe(false);
+    expect(covers(oneDeep, { x: 5, y: 5 })).toBe(true);
+  });
+
   it('is unchanged for a single ring with no holes', () => {
     const tris = triangulateRings([ring(0, 0, 10, 10)]);
     expect(area(tris)).toBeCloseTo(100, 6);

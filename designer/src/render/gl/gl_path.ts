@@ -60,6 +60,17 @@ const apply = (m: Mat, p: Pt): Pt => ({
 export interface SubPath {
   pts: Pt[];
   closed: boolean;
+  /**
+   * The board item this run belongs to, when the builder named one.
+   *
+   * KiCad keeps each item's vertices in its own chunk of the cached container
+   * (`CACHED_CONTAINER::SetItem`), which is why moving a footprint there
+   * rewrites that footprint and nothing else. Our buckets merge every item on
+   * a layer into one path, so ownership is carried per run instead and the
+   * recorder groups them back out — same addressability, without giving every
+   * item its own object.
+   */
+  owner?: string;
 }
 
 /**
@@ -86,13 +97,27 @@ export class GlMatrix {
   }
 }
 
+/**
+ * The item every new run is attributed to, for the length of one `buildScene`.
+ *
+ * Scoped like `renderBoard`'s own path factory rather than threaded: the
+ * builder is synchronous, and threading an owner through thirteen helpers
+ * would bury a bookkeeping detail inside the KiCad-derived geometry.
+ */
+let currentOwner: string | undefined;
+
+/** Attribute everything recorded from here on to `id` (undefined clears it). */
+export const setPathOwner = (id: string | undefined): void => {
+  currentOwner = id;
+};
+
 export class GlPath {
   readonly subpaths: SubPath[] = [];
   /** The open subpath being appended to, if any. */
   private cur: SubPath | null = null;
 
   private startNew(p: Pt): SubPath {
-    const sp: SubPath = { pts: [p], closed: false };
+    const sp: SubPath = { pts: [p], closed: false, owner: currentOwner };
     this.subpaths.push(sp);
     this.cur = sp;
     return sp;
@@ -256,6 +281,10 @@ export class GlPath {
       this.subpaths.push({
         pts: t ? sp.pts.map((p) => apply(t, p)) : sp.pts.map((p) => ({ ...p })),
         closed: sp.closed,
+        // Ownership survives the copy, or every pad — which reaches its bucket
+        // through `addPath` from a scratch path — would land in the buffer
+        // unattributed, and a footprint could not be moved in place.
+        owner: sp.owner ?? currentOwner,
       });
     }
     // An appended path leaves no current point, matching Path2D.
@@ -279,6 +308,7 @@ export class GlPath {
 export const GL_PATH_FACTORY = {
   path: (): Path2D => new GlPath() as unknown as Path2D,
   matrix: (): DOMMatrix => new GlMatrix() as unknown as DOMMatrix,
+  setOwner: setPathOwner,
 };
 
 /** Read a bucket back as what the factory actually created. */

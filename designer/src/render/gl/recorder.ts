@@ -38,7 +38,8 @@
 
 import { arcToPolyline, dashPolyline, ellipseToPolyline, type Pt } from './tessellate.js';
 import { triangulateRings } from './holes.js';
-import { parseColor, type Rgba, type Scene } from './scene.js';
+import { layoutBitmapText, type BitmapTextPlacement } from './bitmap_text.js';
+import { BITMAP_MINPX_FLAG, parseColor, type Rgba, type Scene } from './scene.js';
 import type { GlPath } from './gl_path.js';
 
 /** 2D affine transform as Canvas orders it: [a, b, c, d, e, f]. */
@@ -91,6 +92,8 @@ interface State {
 interface SubPath {
   pts: number[];
   closed: boolean;
+  /** The board item this run came from, carried through from `GlPath`. */
+  owner?: string;
 }
 
 export interface RecorderOptions {
@@ -105,6 +108,8 @@ export interface RecorderOptions {
   referenceScale?: number;
   /** Device pixel ratio, so a minimum pixel width means a *device* pixel. */
   devicePixelRatio?: number;
+  /** Initial value of {@link GlRecorder.hairlines}; defaults to `'fade'`. */
+  hairlines?: 'fade' | 'solid' | 'bitmap';
   /**
    * Drop the canvas-clearing `fillRect` that `renderSchematic` issues first.
    *
@@ -186,6 +191,28 @@ export class GlRecorder {
   font = '';
   textAlign = '';
 
+  /**
+   * What a stroke thinner than a device pixel should do.
+   *
+   * KiCad has two answers and they are not interchangeable. A **line** is
+   * clamped up to `u_minLinePixelWidth` and drawn at full strength, so a 0.05 mm
+   * courtyard stays a crisp magenta rectangle however far you zoom out. **Bitmap
+   * text** goes through `SHADER_FONT`, takes no floor, and simply gets smaller
+   * and fainter; we have no glyph atlas and stroke those glyphs instead, so
+   * `'fade'` stands in for the texture shrinking.
+   *
+   * `'fade'` is the default because it is what every caller did before the
+   * distinction existed, and because a renderer that gets this wrong in the
+   * `'solid'` direction glares rather than disappears. A caller that draws board
+   * geometry sets `'solid'` and flips to `'bitmap'` around its bitmap-text
+   * passes — which on a board is only the pad and via net names. `'bitmap'`
+   * stands in for the OpenGL GAL's texture atlas, which loses its glyphs to
+   * mipmap minification far sooner than a stroke fades: the shader gives those
+   * strokes a higher knee and a harder falloff. `'fade'` keeps the schematic's
+   * original curve.
+   */
+  hairlines: 'fade' | 'solid' | 'bitmap' = 'fade';
+
   constructor(
     readonly scene: Scene,
     opts: RecorderOptions = {},
@@ -196,6 +223,7 @@ export class GlRecorder {
     this.originX = opts.originX ?? 0;
     this.originY = opts.originY ?? 0;
     this.worldScale = opts.worldScale && opts.worldScale > 0 ? opts.worldScale : 1;
+    this.hairlines = opts.hairlines ?? 'fade';
   }
 
   /**
@@ -401,7 +429,13 @@ export class GlRecorder {
     // letting the shader clamp makes the geometry genuinely independent of the
     // zoom, which is what lets the buffer be recorded once and never again.
     const world = (Math.max(0, this.st.lineWidth) * matScale(this.st.ctm)) / this.worldScale;
-    return { half: world / 2, minPx: this.dpr / 2 };
+    // The encoding carries which of KiCad's rasterisers this stroke imitates;
+    // see `hairlines` and the note in SEGMENT_VERT. Sign picks line vs faded
+    // text; the atlas ('bitmap') case rides an offset far above any real pixel
+    // floor, so the shader can recover both the flag and the value.
+    const minPx = this.dpr / 2;
+    if (this.hairlines === 'bitmap') return { half: world / 2, minPx: minPx + BITMAP_MINPX_FLAG };
+    return { half: world / 2, minPx: this.hairlines === 'solid' ? -minPx : minPx };
   }
 
   private color(css: string, alpha: number): Rgba {
@@ -422,7 +456,7 @@ export class GlRecorder {
   private adopt(path: GlPath): SubPath[] {
     const out: SubPath[] = [];
     for (const sp of path.subpaths) {
-      const s: SubPath = { pts: [], closed: sp.closed };
+      const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner };
       for (const p of sp.pts) this.pushPt(s, p.x, p.y);
       out.push(s);
     }
@@ -440,6 +474,7 @@ export class GlRecorder {
     const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
     const dashed = this.st.dash.length > 0 && this.st.dash.some((d) => d > 0);
     for (const sub of path ? this.adopt(path) : this.subs) {
+      this.scene.setItem(sub.owner);
       const p = sub.pts;
       if (p.length === 2) {
         // A lone point strokes as a dot under a round cap, which is how the
@@ -496,19 +531,33 @@ export class GlRecorder {
     // Fills are a few hundred triangles against tens of thousands of segments,
     // so the point objects the triangulator works in cost nothing worth
     // avoiding.
-    const rings: Pt[][] = [];
+    // Rings are grouped by the item that recorded them, so each item's
+    // triangles land in one range of the buffer and a move can rewrite them
+    // (see `Scene.itemRanges`). Grouping is also what keeps the winding rule
+    // honest: the shapes that genuinely have to be triangulated *together* —
+    // a pad and its own paste windows, a custom pad's anchor and primitives —
+    // all belong to the same item, so they stay in the same group.
+    const groups = new Map<string | undefined, Pt[][]>();
     for (const sub of path ? this.adopt(path) : this.subs) {
       if (sub.pts.length < 6) continue;
       const poly: Pt[] = [];
       for (let i = 0; i < sub.pts.length; i += 2) poly.push({ x: sub.pts[i]!, y: sub.pts[i + 1]! });
-      rings.push(poly);
+      let g = groups.get(sub.owner);
+      if (!g) {
+        g = [];
+        groups.set(sub.owner, g);
+      }
+      g.push(poly);
     }
-    const tri = triangulateRings(rings);
-    for (let i = 0; i + 2 < tri.length; i += 3) {
-      const a = tri[i]!;
-      const b = tri[i + 1]!;
-      const d = tri[i + 2]!;
-      this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
+    for (const [owner, rings] of groups) {
+      this.scene.setItem(owner);
+      const tri = triangulateRings(rings);
+      for (let i = 0; i + 2 < tri.length; i += 3) {
+        const a = tri[i]!;
+        const b = tri[i + 1]!;
+        const d = tri[i + 2]!;
+        this.scene.triangle(a.x, a.y, b.x, b.y, d.x, d.y, c);
+      }
     }
   }
 
@@ -526,6 +575,58 @@ export class GlRecorder {
     this.beginPath();
     this.rect(x, y, w, h);
     this.fill();
+  }
+
+  /**
+   * Note a depth in the recording, for a pass drawn between layers.
+   *
+   * A real canvas has no such notion, so `buildDrawSteps` calls it optionally
+   * and a 2D target simply never sees it.
+   */
+  mark(name: string): void {
+    this.scene.mark(name);
+  }
+
+  /**
+   * `m_gal->BitmapText()`: a run of text sampled from the font atlas.
+   *
+   * The one kind of drawing that has no Canvas2D spelling at all, which is why
+   * it is a method of its own rather than something that falls out of `stroke`.
+   * KiCad's own split is the same: pad numbers and net names go through
+   * `BitmapText` and everything else on the board is stroked, and the visible
+   * consequence is that these labels ignore the pen width the painter sets
+   * around them.
+   *
+   * Positions come out of `layoutBitmapText` already in world units, but they
+   * still go through the recorder's transform: a caller that set up a view
+   * matrix (as the net-name pass does) needs it divided back out, or the text
+   * would be the one thing in the buffer that depended on the zoom.
+   */
+  bitmapText(text: string, place: BitmapTextPlacement): void {
+    this.sync();
+    const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
+    const m = this.st.ctm;
+    const wx = (x: number, y: number): number =>
+      (m[0] * x + m[2] * y + m[4] - this.originX) / this.worldScale;
+    const wy = (x: number, y: number): number =>
+      (m[1] * x + m[3] * y + m[5] - this.originY) / this.worldScale;
+    layoutBitmapText(text, place, (x0, y0, x1, y1, x2, y2, x3, y3, u0, v0, u1, v1) => {
+      this.scene.glyph(
+        wx(x0, y0),
+        wy(x0, y0),
+        wx(x1, y1),
+        wy(x1, y1),
+        wx(x2, y2),
+        wy(x2, y2),
+        wx(x3, y3),
+        wy(x3, y3),
+        u0,
+        v0,
+        u1,
+        v1,
+        c,
+      );
+    });
   }
 
   /**

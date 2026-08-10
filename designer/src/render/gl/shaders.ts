@@ -49,6 +49,9 @@ uniform vec2 u_viewport;  // drawing buffer size in device pixels
 // read at, and only the far-zoomed-out case that piles thousands of glyph
 // strokes into one pixel is faded.
 const float GLARE_KNEE_PX = 0.35;
+// The knee for strokes standing in for the OpenGL GAL's texture atlas (pad and
+// via net names); see the a_minPx decoding note in SEGMENT_VERT.
+const float BITMAP_KNEE_PX = 1.0;
 
 vec2 worldToPixel(vec2 w) {
   return w * u_view.xy + u_view.zw;
@@ -80,7 +83,7 @@ layout(location = 0) in vec2 a_corner;   // the shared quad, components in {-1, 
 layout(location = 1) in vec2 a_p0;       // world
 layout(location = 2) in vec2 a_p1;       // world
 layout(location = 3) in float a_halfWidth; // world
-layout(location = 4) in float a_minPx;     // device pixels
+layout(location = 4) in float a_minPx;     // device pixels; sign picks the rule below
 layout(location = 5) in vec4 a_color;
 
 out vec2 v_pixel;
@@ -94,6 +97,36 @@ void main() {
   vec2 s0 = worldToPixel(a_p0);
   vec2 s1 = worldToPixel(a_p1);
 
+  // KiCad rasterises a line and a piece of text by different routes, and they
+  // behave differently below one pixel. a_minPx encodes which route this
+  // stroke imitates; its magnitude (after decoding) is the pixel floor.
+  //
+  //   a_minPx < 0    — a *line*. computeLineCoords clamps pixelWidth up to
+  //                  u_minLinePixelWidth and the fragment stage draws it solid,
+  //                  so a 0.05 mm courtyard is a crisp one-pixel magenta line at
+  //                  every zoom KiCad will let you reach. Nothing fades.
+  //
+  //   0 < a_minPx < 512 — *faded text*, SHADER_FONT: no floor, and the glyph
+  //                  thins and greys out as it shrinks. The schematic records
+  //                  everything this way.
+  //
+  //   a_minPx > 512  — *atlas text* (the value carries a +1024 flag). The
+  //                  OpenGL GAL draws pad and via net names from a mipmapped
+  //                  texture atlas, which loses its ink to minification much
+  //                  sooner than a stroke fades: at a board-fit zoom pcbnew's
+  //                  pads are clean while a stroke-font rendering of the same
+  //                  labels composited to near-solid clutter. So these strokes
+  //                  take a one-pixel knee and a cubic falloff — mipmap
+  //                  averaging includes the transparent texels around every
+  //                  stroke, so ink drops faster than raw coverage.
+  //
+  // Fading lines as well is what made the courtyard rectangles disappear from a
+  // zoomed-out board that KiCad still draws them on.
+  bool atlasText = a_minPx > 512.0;
+  float signedMinPx = atlasText ? a_minPx - 1024.0 : a_minPx;
+  bool bitmapText = signedMinPx > 0.0;
+  float minPx = abs(signedMinPx);
+
   // The width this stroke really has at this zoom, before any floor.
   //
   // Kept because the floor below is a fiction — it exists to stop a hairline
@@ -104,7 +137,7 @@ void main() {
   // The clamp KiCad applies with u_minLinePixelWidth: the larger of the scaled
   // world width and the pixel floor, which keeps a hairline visible when zoomed
   // out without the buffer depending on the zoom.
-  float halfPx = max(a_halfWidth * abs(u_view.x), a_minPx);
+  float halfPx = max(a_halfWidth * abs(u_view.x), minPx);
 
   // Then snap it, which is what makes thin strokes *legible* rather than merely
   // present.
@@ -202,8 +235,16 @@ void main() {
   // that thousands of sub-pixel glyph strokes pile up into glare — still fades,
   // and harder than a linear ramp would.
   float trueWidthPx = trueHalfPx * 2.0;
-  float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / GLARE_KNEE_PX, 0.0, 1.0) : 1.0;
-  v_widthFade = widthRatio * widthRatio;
+  // Atlas text takes a much higher knee than faded text, because the atlas
+  // keys on glyph size, not pen width: a BitmapText glyph is drawn with a pen
+  // of roughly an eighth of its height, so a glyph shrunk to the ~6 px where
+  // the atlas mipmaps blur it toward nothing has a pen of ~0.8 px.
+  float knee = atlasText ? BITMAP_KNEE_PX : GLARE_KNEE_PX;
+  float widthRatio = trueHalfPx > 0.0 ? clamp(trueWidthPx / knee, 0.0, 1.0) : 1.0;
+  // Only text pays; a line is solid at whatever width the floor gives it. The
+  // schematic's faded text keeps its original square; atlas text cubes.
+  float sq = widthRatio * widthRatio;
+  v_widthFade = atlasText ? sq * widthRatio : (bitmapText ? sq : 1.0);
   v_color = a_color;
   gl_Position = pixelToClip(pos);
 }
@@ -345,5 +386,72 @@ in vec4 v_color;
 out vec4 fragColor;
 void main() {
   fragColor = v_color;
+}
+`;
+
+/**
+ * Bitmap-font glyphs: one textured quad each, sampled from the MSDF atlas.
+ *
+ * This is KiCad's `SHADER_FONT` branch (`common/gal/shaders/kicad_frag.glsl`)
+ * and nothing else. The atlas is a *multi-channel* signed distance field, so a
+ * glyph is one texture fetch and a threshold whatever the zoom: no mipmap
+ * chain, no re-rasterising, and corners stay sharp where a plain distance field
+ * rounds them off. It is also why pad numbers do not thicken with the pen width
+ * the painter sets — there is no pen.
+ */
+export const GLYPH_VERT = `${COMMON}
+layout(location = 0) in vec2 a_pos;   // world
+layout(location = 1) in vec2 a_uv;    // atlas, normalised
+layout(location = 2) in vec4 a_color;
+
+// The pass's layer depth, in clip space. Every glyph of one pass shares it, so
+// the depth test keeps the first fragment to reach a pixel and rejects the
+// rest — which is how KiCad stops crossing net names from compounding their
+// alpha. See u_depth's use in device.ts.
+uniform float u_depth;
+
+out vec2 v_uv;
+out vec4 v_color;
+
+void main() {
+  v_uv = a_uv;
+  v_color = a_color;
+  vec4 p = pixelToClip(worldToPixel(a_pos));
+  gl_Position = vec4(p.xy, u_depth, p.w);
+}
+`;
+
+export const GLYPH_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+in vec4 v_color;
+
+uniform sampler2D u_atlas;
+uniform vec2 u_atlasSize;   // texels, for the derivative below
+
+out vec4 fragColor;
+
+/** The middle of the three distance channels — msdfgen's decoder. */
+float median(vec3 v) {
+  return max(min(v.r, v.g), min(max(v.r, v.g), v.b));
+}
+
+void main() {
+  // Zoom-adaptive filtering: how far the distance field moves per screen pixel
+  // sets the width of the threshold ramp, so a glyph is crisp when large and
+  // fades honestly when small, with no explicit level of detail anywhere.
+  //
+  // KiCad writes this as length(dFdx(tex)) * u_fontTextureWidth / 4, taking the
+  // *width* as the scale for a derivative that has a v component too. That is
+  // near enough on its 1024 x 1107 sheet, where the two axes are within 8% of
+  // each other, but ours is repacked to 512 x 135 and it would be off by four.
+  // Converting to texels first is the same quantity the C++ is reaching for and
+  // is independent of how the atlas happens to be packed.
+  float derivative = length(dFdx(v_uv * u_atlasSize)) / 4.0;
+  float dist = median(texture(u_atlas, v_uv).rgb);
+  float alpha = smoothstep(0.5 - derivative, 0.5 + derivative, dist) * v_color.a;
+  if (alpha <= 0.0) discard;
+  fragColor = vec4(v_color.rgb, alpha);
 }
 `;

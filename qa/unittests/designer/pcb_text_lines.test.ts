@@ -1,0 +1,241 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Line splitting, pad-text visibility and the place-origin marker.
+ *
+ * All three came out of putting our board beside pcbnew's with everything but
+ * Edge.Cuts and the copper graphics hidden — a view small enough to measure
+ * exactly, where each of these was a visible, reproducible difference.
+ */
+import { describe, expect, it } from 'vitest';
+import { parse } from '@ziroeda/sexpr/src/index.js';
+import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { layoutText, splitTextLines } from '@ziroeda/common/src/font/stroke_font.js';
+import {
+  buildDrawSteps,
+  buildScene,
+  DEFAULT_DRAW_OPTIONS,
+  drawAnchors,
+  drawNetNames,
+} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
+
+const MM = 1e6;
+
+describe('splitTextLines (wxStringSplit)', () => {
+  it('drops a trailing empty line but keeps interior ones', () => {
+    // The coldfire demo's `(gr_text "JTAG_EN\n")`: one line, not two.
+    expect(splitTextLines('JTAG_EN\n')).toEqual(['JTAG_EN']);
+    expect(splitTextLines('a\n\nb')).toEqual(['a', '', 'b']);
+    // Only ONE trailing empty goes, exactly as the C++ loop leaves things.
+    expect(splitTextLines('a\n\n')).toEqual(['a', '']);
+    expect(splitTextLines('plain')).toEqual(['plain']);
+  });
+
+  it('does not shift a trailing-newline text off its anchor', () => {
+    // A block of n lines is centred on the anchor, so counting one line too
+    // many lifts the text by half an interline (1.68 · size / 2).
+    const size = 1 * MM;
+    const one = layoutText('JTAG_EN', size);
+    const trailing = layoutText('JTAG_EN\n', size);
+    const top = (r: { strokes: { y: number }[][] }): number =>
+      Math.min(...r.strokes.flat().map((p) => p.y));
+    expect(top(trailing)).toBeCloseTo(top(one), 6);
+    // Two real lines still centre as a block: the first rises by 0.84 · size.
+    const two = layoutText('JTAG_EN\nX', size);
+    expect(top(one) - top(two)).toBeCloseTo(0.84 * size, 0);
+  });
+});
+
+const padBoard = (): Board =>
+  readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (net 1 "VCC")
+  (setup (aux_axis_origin 65.151 148.4122))
+  (footprint "R"
+    (layer "F.Cu")
+    (at 100 100)
+    (pad "1" smd rect (at 0 0) (size 2 2) (layers "F.Cu") (net 1 "VCC")))
+)`),
+  );
+
+/**
+ * The per-frame pass builds its glyph runs with `Path2D`, which Node has no
+ * business owning; the geometry is irrelevant here, only whether anything was
+ * handed to `stroke` at all.
+ */
+const withPath2D = (fn: () => void): void => {
+  const real = globalThis.Path2D;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).Path2D = class {
+    moveTo(): void {}
+    lineTo(): void {}
+  };
+  try {
+    fn();
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).Path2D = real;
+  }
+};
+
+/** A 2D-context stand-in that counts stroked paths. */
+const recordingCtx = (): { ctx: CanvasRenderingContext2D; strokes: () => number } => {
+  let n = 0;
+  const ctx = {
+    setTransform: () => {},
+    beginPath: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
+    arc: () => {},
+    lineCap: '',
+    lineJoin: '',
+    strokeStyle: '',
+    lineWidth: 0,
+    stroke: () => {
+      n++;
+    },
+    // renderBoard strokes glyph runs through Path2D objects it builds itself.
+    fill: () => {},
+  } as unknown as CanvasRenderingContext2D;
+  return { ctx, strokes: () => n };
+};
+
+describe('pad text follows copper-layer visibility', () => {
+  // GL paths, so no browser Path2D is needed to hold the geometry.
+  const scene = buildScene(padBoard(), {}, GL_PATH_FACTORY);
+
+  it('records the pad label with the copper layers it flashes on', () => {
+    expect(scene.padLabels).toHaveLength(1);
+    expect(scene.padLabels[0]!.layers).toEqual(['F.Cu']);
+  });
+
+  it('draws pad text when its layer is visible and not when it is hidden', () => {
+    // 40 px/mm: the 2 mm pad is 80 px, far past PAD::ViewGetLOD's 0.5 mm.
+    const view = { scale: 40 / MM, tx: 400 - 100 * MM * (40 / MM), ty: 300 - 100 * MM * (40 / MM) };
+    const shown = recordingCtx();
+    withPath2D(() => drawNetNames(shown.ctx, scene, view, new Set(['F.Cu']), 800, 600));
+    expect(shown.strokes()).toBeGreaterThan(0);
+
+    // Hiding every copper layer must take the numbers and net names with it —
+    // they used to keep drawing over an otherwise empty board.
+    const hidden = recordingCtx();
+    withPath2D(() => drawNetNames(hidden.ctx, scene, view, new Set(['Edge.Cuts']), 800, 600));
+    expect(hidden.strokes()).toBe(0);
+  });
+});
+
+const anchorBoard = (): Board =>
+  readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
+  (net 0 "")
+  (footprint "R" (layer "F.Cu") (at 100 100))
+  (footprint "C" (layer "B.Cu") (at 120 100))
+)`),
+  );
+
+describe('footprint anchors (FOOTPRINT::ViewGetLOD)', () => {
+  const scene = buildScene(anchorBoard(), {}, GL_PATH_FACTORY);
+  // zoom factor z ⇒ view.scale = z · 91/25.4 px per mm
+  const at = (z: number): { scale: number; tx: number; ty: number } => ({
+    scale: (z * 91) / 25.4 / MM,
+    tx: 0,
+    ty: 0,
+  });
+  const both = new Set(['F.Cu', 'B.Cu']);
+
+  it('records each anchor with its footprint side', () => {
+    expect(scene.anchors.map((a) => a.layer).sort()).toEqual(['B.Cu', 'F.Cu']);
+  });
+
+  it('draws nothing at or below zoom 1.5, and draws past it', () => {
+    const below = recordingCtx();
+    drawAnchors(below.ctx, scene, at(1.4), both, 4000, 4000);
+    expect(below.strokes()).toBe(0);
+
+    const above = recordingCtx();
+    drawAnchors(above.ctx, scene, at(2.05), both, 4000, 4000);
+    expect(above.strokes()).toBeGreaterThan(0);
+  });
+
+  it('hides an anchor whose footprint layer is hidden', () => {
+    const front = recordingCtx();
+    drawAnchors(front.ctx, scene, at(2.05), new Set(['F.Cu']), 4000, 4000);
+    expect(front.strokes()).toBeGreaterThan(0);
+
+    const none = recordingCtx();
+    drawAnchors(none.ctx, scene, at(2.05), new Set(['Edge.Cuts']), 4000, 4000);
+    expect(none.strokes()).toBe(0);
+  });
+
+  it('drops anchors of footprints hidden by the Footprints Front/Back toggles', () => {
+    const noFront = buildScene(anchorBoard(), { hideFrontFootprints: true }, GL_PATH_FACTORY);
+    expect(noFront.anchors.map((a) => a.layer)).toEqual(['B.Cu']);
+  });
+});
+
+describe('hiding Pads hides everything the pad draws', () => {
+  // PAD::ViewGetLOD's meta control: !IsLayerVisibleCached( LAYER_PADS ) hides
+  // the pad on *every* layer it draws on, clearance ring included. Ours kept
+  // stroking that ring in the copper colour, so a board with Pads switched
+  // off still showed a copper outline around every pad.
+  const scene = buildScene(padBoard(), {}, GL_PATH_FACTORY);
+  const view = { scale: 40 / MM, tx: 0, ty: 0 };
+
+  const strokesWith = (opts: Record<string, unknown>): number => {
+    let n = 0;
+    const ctx = {
+      setTransform: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      arc: () => {},
+      rect: () => {},
+      save: () => {},
+      restore: () => {},
+      fill: () => {
+        n++;
+      },
+      stroke: () => {
+        n++;
+      },
+      fillRect: () => {},
+      strokeRect: () => {},
+      drawImage: () => {},
+      lineCap: '',
+      lineJoin: '',
+      strokeStyle: '',
+      fillStyle: '',
+      lineWidth: 0,
+      globalAlpha: 1,
+    } as unknown as CanvasRenderingContext2D;
+    withPath2D(() => {
+      for (const step of buildDrawSteps(ctx, scene, view, new Set(['F.Cu']), 800, 600, {
+        ...DEFAULT_DRAW_OPTIONS,
+        ...opts,
+      }))
+        step();
+    });
+    return n;
+  };
+
+  it('draws fewer passes with pads off than with pads on', () => {
+    expect(strokesWith({ pads: false })).toBeLessThan(strokesWith({ pads: true }));
+  });
+
+  it('draws no clearance ring once pads are hidden', () => {
+    // With pads off, turning the clearance option on must change nothing.
+    expect(strokesWith({ pads: false, padClearance: true })).toBe(
+      strokesWith({ pads: false, padClearance: false }),
+    );
+    // With pads on it still does, so the option itself is not simply dead.
+    expect(strokesWith({ pads: true, padClearance: true })).toBeGreaterThan(
+      strokesWith({ pads: true, padClearance: false }),
+    );
+  });
+});

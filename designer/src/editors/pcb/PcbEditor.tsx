@@ -60,6 +60,8 @@ import {
   setBoardPageSettings,
   serializeBoard,
   buildRatsnest,
+  prepareLocalRatsnest,
+  type LocalRatsnest,
   addBoardShape,
   addBoardTrack,
   addBoardVia,
@@ -122,6 +124,7 @@ import {
   type ImageValues,
   cancelPlaceImage,
   clickImage,
+  boardAuxOrigin,
   fileChosen,
   imageBBox,
   moveImage,
@@ -203,7 +206,8 @@ import {
 } from './dialogs/dialog_position_relative.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
-import { netclassesForNet } from './netclass_resolve.js';
+import { netClassFor, netclassesForNet } from './netclass_resolve.js';
+import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -268,13 +272,17 @@ import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
   buildScene,
   buildDrawSteps,
+  drawAnchors,
   drawBoard,
   drawGrid,
   drawDrawingSheet,
+  drawNetNames,
+  drawOriginMarker,
   drawDrcMarkers,
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
+  GAL_SCREEN_DPI,
   type BoardScene,
   type PcbDrawOptions,
   type DrcMarkerDraw,
@@ -392,12 +400,37 @@ const PCB_GRIDS: number[] = [
   ...[5.0, 2.5, 1.0, 0.5, 0.25, 0.2, 0.1, 0.05, 0.025, 0.01].map((mm) => mm * MM),
 ];
 
-// pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW). The status bar's Z
-// indicator is scale·1000, so a preset Z maps to view scale Z/1000.
+// pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW).
 const PCB_ZOOMS: number[] = [
   0.13, 0.22, 0.35, 0.6, 1.0, 1.5, 2.2, 3.5, 5.0, 8.0, 13.0, 20.0, 35.0, 50.0, 80.0, 130.0, 220.0,
   300.0,
 ];
+
+/**
+ * A GAL zoom factor turned into our view scale, and back.
+ *
+ * These are what the zoom selector and the status bar's `Z` field mean, and
+ * both are KiCad numbers rather than free-floating ones: `COMMON_TOOLS::
+ * doZoomToPreset` passes a preset straight to `VIEW::SetScale`, and
+ * `EDA_DRAW_FRAME::GetZoomLevelIndicator` prints `GAL::GetZoomFactor`. GAL
+ * relates the two by `worldScale = screenDPI · worldUnitLength · zoomFactor`
+ * (graphics_abstraction_layer.h `computeWorldScale`), with `worldUnitLength`
+ * one internal unit in inches — pcbnew's IU is 1 nm, so 1e-9/0.0254.
+ *
+ * `scale` here is *device* pixels per IU while GAL's is physical screen pixels,
+ * so the device-pixel ratio divides out; on a HiDPI display GAL renders into a
+ * larger framebuffer without changing the zoom it reports.
+ *
+ * The old mapping was `scale · 1000`, which is dimensionless nonsense: it put
+ * preset "Zoom 2.20" at 2200 px/mm where pcbnew puts it at 7.9, so choosing a
+ * preset landed inside a single pad and the status bar read `Z 0.00` on a board
+ * that pcbnew calls `Z 2.10`.
+ */
+const IU_PER_INCH = 25.4e6; // 1 inch in pcbnew IU (1 nm each)
+const zoomFactorForScale = (scale: number, dpr: number): number =>
+  (scale / Math.max(dpr, 1e-9)) * (IU_PER_INCH / GAL_SCREEN_DPI);
+const scaleForZoomFactor = (zoom: number, dpr: number): number =>
+  (zoom * GAL_SCREEN_DPI * Math.max(dpr, 1e-9)) / IU_PER_INCH;
 
 // Visibility (eye) toggle, drawn inline so it always renders (no asset-URL
 // resolution) and reads as KiCad's light-grey eye on the dark panel. `on`
@@ -619,7 +652,6 @@ const OBJECT_ROWS: ObjectRow[] = [
     key: 'anchors',
     label: 'Anchors',
     tooltip: 'Show footprint and text origins as a cross',
-    disabled: true,
   },
   {
     key: 'points',
@@ -659,31 +691,6 @@ const OBJECT_ROWS: ObjectRow[] = [
   { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
 ];
 
-interface ObjectState {
-  tracks: boolean;
-  vias: boolean;
-  pads: boolean;
-  zones: boolean;
-  filledShapes: boolean;
-  images: boolean;
-  footprintsFront: boolean;
-  footprintsBack: boolean;
-  fpValues: boolean;
-  fpReferences: boolean;
-  fpText: boolean;
-  ratsnest: boolean;
-  drcWarnings: boolean;
-  drcErrors: boolean;
-  drcExclusions: boolean;
-  anchors: boolean;
-  points: boolean;
-  lockedShadow: boolean;
-  collidingCourtyards: boolean;
-  constrainedShadow: boolean;
-  boardAreaShadow: boolean;
-  drawingSheet: boolean;
-  grid: boolean;
-}
 const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
   vias: true,
@@ -710,6 +717,7 @@ const DEFAULT_OBJECTS: ObjectState = {
   grid: true,
 };
 // project_local_settings.cpp defaults.
+
 const DEFAULT_OPACITY = {
   tracks: 1.0,
   vias: 1.0,
@@ -1364,6 +1372,8 @@ export function PcbEditor({
    * followed by a corrective one.
    */
   const glBlockedRef = useRef(false);
+  /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
+  const sceneIsGlRef = useRef(false);
   const sceneFactory = (): ScenePathFactory =>
     glOkRef.current && !glBlockedRef.current ? GL_PATH_FACTORY : DOM_PATH_FACTORY;
   /**
@@ -1374,13 +1384,31 @@ export function PcbEditor({
    * are small subsets, and the move overlay needs a translated view that the
    * retained buffer has no way to express.
    */
+  /**
+   * GetOwnClearance for the pad-clearance outlines, the common-case rule: the
+   * net's class clearance (first matching assignment, else Default), floored
+   * by the board's minimum-clearance rule. Values come from Board Setup, so
+   * boards whose Default class is not netclass.cpp's 0.2 mm draw their rings
+   * at the size pcbnew does (this demo's Default says 0.15 mm).
+   */
+  const clearanceForNet = (netName: string): number => {
+    const nc = boardSetupRef.current.netClasses;
+    const minClr = (boardSetupRef.current.constraints.minClearanceMM ?? 0) * MM;
+    const className = netClassFor(netName, nc.assignments);
+    const cls = nc.classes.find((c) => c.name === className) ?? nc.classes[0];
+    const clr = Number.parseFloat(cls?.clearance ?? '');
+    return Math.max(Number.isFinite(clr) ? clr * MM : 0.2 * MM, minClr);
+  };
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
+    if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
     const scene = buildScene(b, filter, sceneFactory());
+    sceneIsGlRef.current = sceneFactory() === GL_PATH_FACTORY;
     if (scene.images.length === 0 || !glOkRef.current || glBlockedRef.current) return scene;
     // Handing this scene to the raster path instead would be the worst of the
     // three outcomes: GL paths draw as nothing on a 2D canvas, so the board
     // would come up empty with no error at all. Recompile it for real.
     glBlockedRef.current = true;
+    sceneIsGlRef.current = false;
     return buildScene(b, filter, DOM_PATH_FACTORY);
   };
   const rafRef = useRef(0);
@@ -1680,6 +1708,23 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, drawOpts]);
 
+  /**
+   * The board's drill/place file origin, cached per board object.
+   *
+   * `boardAuxOrigin` walks the raw s-expression, and the root's child list is
+   * every item on the board, so this is not something to repeat per frame.
+   */
+  const auxOriginRef = useRef<{ board: Board | null; at: { x: number; y: number } }>({
+    board: null,
+    at: { x: 0, y: 0 },
+  });
+  const auxOriginOf = (): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (auxOriginRef.current.board !== brd)
+      auxOriginRef.current = { board: brd, at: brd ? boardAuxOrigin(brd) : { x: 0, y: 0 } };
+    return auxOriginRef.current.at;
+  };
+
   const draw = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
@@ -1710,6 +1755,32 @@ export function PcbEditor({
       // matters: a scene holding images was compiled through `Path2D` and has
       // no vertices for the recorder to find.
       scene.images.length === 0;
+    // A device that dies *between* events — evicted by a starved Chrome, or
+    // flagged unhealthy by its own first-frames probe — never fires
+    // `webglcontextlost`, so the fallback in that listener never runs and the
+    // 2D path would be handed a scene full of GL paths it draws as nothing
+    // (that shipped once as a board with strokes but no fills). Do the same
+    // recovery here, keyed on what the scene was actually compiled with.
+    if (!useGl && sceneIsGlRef.current) {
+      glRef.current?.dispose();
+      glRef.current = null;
+      glOkRef.current = false;
+      sceneIsGlRef.current = false;
+      console.warn('WebGL device unhealthy; drawing the board with Canvas2D');
+      // A dead context cannot clear its canvas; resizing it can.
+      const gcv = glCanvasRef.current;
+      if (gcv) {
+        const w = gcv.width;
+        gcv.width = 0;
+        gcv.width = w;
+      }
+      const brd = boardRef.current;
+      if (brd) {
+        rebuildSceneRef.current(brd);
+        requestDrawRef.current();
+        return;
+      }
+    }
     // The retained buffer is keyed on the content, not on the view, so a pan or
     // a zoom is a uniform update and there is nothing to chase.
     if (!useGl && (!viewMatchesCache() || sceneDirtyRef.current)) {
@@ -1756,6 +1827,29 @@ export function PcbEditor({
       );
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
+    // Footprint anchors (LAYER_ANCHOR), *under* the board rather than over it.
+    //
+    // They belong here rather than on the overlay because that is where pcbnew
+    // puts them in practice: with the copper pours switched on its anchors all
+    // but disappear — a translucent zone fill washes the magenta out to a faint
+    // grey tick you only find by zooming right in — and they come back cleanly
+    // the moment the pours are hidden. Drawn on the overlay they sat above the
+    // pours, the silkscreen and the footprint text, so a whole-board view was
+    // covered in crosses that pcbnew does not show.
+    if (objects.anchors) {
+      drawAnchors(
+        bctx,
+        scene,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+      );
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     // The board itself: one uniform and three draw calls on the GPU, or the
     // raster blit it replaces.
     //
@@ -1765,6 +1859,42 @@ export function PcbEditor({
     // on an edit and not otherwise; `visible` is state; `drawOpts` is memoised;
     // the emphasis is a string. Do not inline an object or a `new Set` here.
     if (useGl) {
+      // The back-side names are laid out for this frame and handed to the GPU
+      // as geometry, so they can be drawn *between* the board's layers rather
+      // than over them. Only labels past their zoom gate and inside the
+      // viewport contribute, so this is a few hundred segments a frame.
+      gl.recordInner((rec) => {
+        drawNetNames(
+          rec,
+          scene,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          { ...drawOpts, minPenWidth: 0 },
+          dimmedRef.current ? 'dimmed' : 'none',
+          dpr,
+          'under',
+        );
+      }, v.scale);
+      // And the pass drawn over it — track and via names and through-hole pad
+      // text. On the GPU rather than on the 2D overlay because these are the
+      // labels KiCad draws with `BitmapText`, and a distance-field atlas needs
+      // a shader to decode: Canvas2D has nowhere to put one.
+      gl.recordText((rec) => {
+        drawNetNames(
+          rec,
+          scene,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          { ...drawOpts, minPenWidth: 0 },
+          dimmedRef.current ? 'dimmed' : 'none',
+          dpr,
+          'over',
+        );
+      }, v.scale);
       gl.render(
         {
           scene,
@@ -1781,6 +1911,10 @@ export function PcbEditor({
         pcbPerf.records = gl.recordCount;
         pcbPerf.lastRecordMs = gl.lastRecordMs;
       }
+      // The health probe inside upload/draw may have just condemned the
+      // device; come straight back for the Canvas2D recovery frame rather
+      // than leaving this half-drawn one up until the next interaction.
+      if (gl.isLost) requestDrawRef.current();
     } else {
       // The GL layer sits *above* the background and below everything else, so
       // a buffer left on it from an earlier frame keeps showing through: a
@@ -1798,6 +1932,30 @@ export function PcbEditor({
         bctx.imageSmoothingEnabled = true;
         bctx.setTransform(1, 0, 0, 1, 0, 0);
       }
+    }
+    // The drill/place file origin marker, screen-space like the anchors and,
+    // like them, drawn above the board (LAYER_GP_OVERLAY).
+    drawOriginMarker(ctx, auxOriginOf(), v, canvas.width, canvas.height, dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Back and inner net names. On the GPU they were recorded into the board's
+    // own draw at the depth pcbnew files them at (see the `recordInner` call
+    // above), so nothing is drawn here. The Canvas2D path has no such depth to
+    // draw into, so it keeps the attenuated stand-in — dimmed by what pcbnew
+    // stacks over them, which is the best a single flat raster can do.
+    if (!useGl) {
+      drawNetNames(
+        ctx,
+        scene,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        dimmedRef.current ? 'dimmed' : 'none',
+        dpr,
+        'under',
+      );
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Net-color overlay (net colors mode "All"): copper items of colored nets
     // repainted in their net color over the raster.
@@ -2362,9 +2520,28 @@ export function PcbEditor({
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
+  /**
+   * Generation counter for the off-critical-path scene rebuild a drag starts.
+   * Any newer rebuild supersedes an older one, so a stale result cannot land
+   * on top of a committed edit and two drags cannot race.
+   */
+  const baseRebuildRef = useRef(0);
+  /**
+   * The delta already applied to the retained buffer, when a move is running
+   * in place instead of through a rebuild. `null` means the gesture is using
+   * the rebuild path (Canvas2D, a router drag, or items with no ranges).
+   */
+  const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
+  /** The moving items' airwires, bucketed once at grab and only moved after. */
+  const localRatsRef = useRef<LocalRatsnest | null>(null);
+  const ratsOtherRef = useRef<RatsnestEdge[]>([]);
+
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
     (b: Board) => {
+      // Supersede anything a drag left in flight, so it cannot land on top of
+      // this scene a moment later.
+      baseRebuildRef.current++;
       sceneRef.current = buildBoardScene(b, {
         hideFrontFootprints: !objects.footprintsFront,
         hideBackFootprints: !objects.footprintsBack,
@@ -2397,6 +2574,11 @@ export function PcbEditor({
     glRef.current = PcbGl.create(canvas);
     glOkRef.current = glRef.current !== null;
     if (!glOkRef.current) console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
+    // The bitmap-font sheet is fetched and decoded asynchronously, and the
+    // board is normally on screen before it lands. Glyph runs are skipped until
+    // it does, so the frame that finally shows the net names has to be asked
+    // for; without this they wait for the next pan or zoom.
+    if (glRef.current) glRef.current.onAtlasLoaded = () => requestDrawRef.current();
     // A lost context is not something we can prevent, only something we can
     // survive. Dropping the device is not enough: the scene on hand is full of
     // GL paths that a 2D canvas draws as nothing, so it has to be recompiled
@@ -3227,14 +3409,14 @@ export function PcbEditor({
     [requestDraw],
   );
 
-  // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre.
-  // The status bar Z indicator is scale·1000, so preset Z → scale Z/1000.
+  // The TOP_AUX zoom selector: set an absolute zoom about the viewport centre,
+  // as COMMON_TOOLS::doZoomToPreset does with VIEW::SetScale.
   const setZoomPreset = useCallback(
     (z: number) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const v = viewRef.current;
-      const target = z / 1000;
+      const target = scaleForZoomFactor(z, window.devicePixelRatio || 1);
       const px = canvas.width / 2;
       const py = canvas.height / 2;
       const sx = v.flipX ? -v.scale : v.scale;
@@ -4184,6 +4366,23 @@ export function PcbEditor({
   // Start a move/drag of `sel` from world grab point `origin`. 'move' leaves the
   // routing behind; 'drag' stretches the traces attached to moving footprints.
   // Splits the scene into a backdrop (everything else) + a live moving overlay.
+  /**
+   * Rebuild the board scene without `affected`, off the critical path.
+   *
+   * This is the expensive half of starting a drag and none of it is needed to
+   * *start* one — only to stop the original showing under the preview.
+   */
+  const scheduleBaseWithout = (brd: Board, affected: ReadonlySet<string>): void => {
+    const token = ++baseRebuildRef.current;
+    setTimeout(() => {
+      if (token !== baseRebuildRef.current) return;
+      if (movingSelRef.current.size === 0) return; // the drag already finished
+      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+      sceneDirtyRef.current = true;
+      requestDraw();
+    }, 0);
+  };
+
   const beginMove = (
     sel0: ReadonlySet<string>,
     kind: 'move' | 'drag',
@@ -4211,12 +4410,56 @@ export function PcbEditor({
       for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
     }
     dragAffectedRef.current = affected;
-    sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
+    moveDeltaRef.current = { x: 0, y: 0 };
+    // The fast path, and what KiCad does: the items keep their place in the
+    // retained buffer and their vertices are shifted there each frame, so
+    // nothing is rebuilt, re-recorded or drawn twice. Only when the GPU cannot
+    // address every moving item — a router drag re-cuts geometry rather than
+    // translating it, and the Canvas2D fallback has no buffer at all — does
+    // the old rebuild-and-preview path run.
+    const gl = glRef.current;
+    const inPlace =
+      !dragModeRef.current &&
+      gl !== null &&
+      !gl.isLost &&
+      glOkRef.current &&
+      !glBlockedRef.current &&
+      sceneIsGlRef.current &&
+      gl.canMoveItems(affected);
+    inPlaceMoveRef.current = inPlace ? { x: 0, y: 0 } : null;
+    if (inPlace && liveRatsRef.current) {
+      // Bucket once here and only translate afterwards, which is what
+      // `calculateSelectionRatsnest` does: build the moving items' connectivity
+      // on the first frame, block them out of the board's own graph, then only
+      // `Move( aDelta )` for the rest of the gesture.
+      const local = prepareLocalRatsnest(
+        deleteBoardItems(brd, affected),
+        subsetBoardItems(brd, affected),
+      );
+      localRatsRef.current = local;
+      ratsOtherRef.current = ratsnestEdgesRef.current.filter((e) => !local.nets.has(e.net));
+    } else {
+      localRatsRef.current = null;
+    }
+    if (inPlace) {
+      moveSceneRef.current = null;
+      requestDraw();
+      return;
+    }
+    // The moving items first, because they are the cheap half and the drag
+    // cannot start without them: one footprint compiles in about 2 ms.
     moveSceneRef.current = dragModeRef.current
       ? null
       : buildScene(subsetBoardItems(brd, sel), sceneFilter());
-    moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
+    requestDraw();
+    // The expensive half — the whole board again, minus what is moving — is
+    // what made grabbing a part freeze the editor: measured at 589 ms on the
+    // coldfire demo (160 footprints, 2935 tracks) before the GPU re-record on
+    // top, all to take one footprint out of a retained buffer. It is not
+    // needed to *start* the drag, only to stop the original showing under the
+    // preview, so it runs off the critical path and swaps in when ready.
+    scheduleBaseWithout(brd, affected);
   };
 
   /**
@@ -4609,6 +4852,28 @@ export function PcbEditor({
     const to = snapToGrid(cur);
     const delta = { x: to.x - from.x, y: to.y - from.y };
     moveDeltaRef.current = delta;
+    const applied = inPlaceMoveRef.current;
+    if (applied) {
+      // Only the change since the last frame: the buffer already holds the rest.
+      const gl = glRef.current;
+      if (gl && gl.moveItems(dragAffectedRef.current, delta.x - applied.x, delta.y - applied.y)) {
+        inPlaceMoveRef.current = delta;
+        // The airwires follow the part, as they do in pcbnew — the shortcut
+        // past the rebuild must not skip this, or the ratsnest stays pinned to
+        // where the footprint used to be.
+        const local = localRatsRef.current;
+        if (local) {
+          ratsDrawRef.current = filterRatsRef.current(
+            [...ratsOtherRef.current, ...local.at(delta)],
+            local.nets,
+          );
+        }
+        requestDraw();
+        return;
+      }
+      // The GPU could not take it after all; fall back for the rest of the drag.
+      inPlaceMoveRef.current = null;
+    }
     if (trackDragRef.current) {
       // The line is re-cut from scratch against the cursor each frame: a router
       // drag is not a translation, so the overlay carries the new absolute
@@ -4651,7 +4916,10 @@ export function PcbEditor({
     const delta = moveDeltaRef.current;
     const kind = moveKindRef.current;
     const sel = movingSelRef.current;
-    const hadOverlay = moveSceneRef.current !== null || dragModeRef.current;
+    const hadOverlay =
+      moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
+    inPlaceMoveRef.current = null;
+    localRatsRef.current = null;
     const trackDrag = trackDragRef.current;
     trackDragRef.current = null;
     dragModeRef.current = false;
@@ -4682,16 +4950,27 @@ export function PcbEditor({
     const brd = boardRef.current;
     trackDragRef.current = null;
     restoreDragHighlight();
+    // An in-place move only ever shifted vertices, so undoing it is the same
+    // shift back — far cheaper than rebuilding a board that never changed.
+    const applied = inPlaceMoveRef.current;
+    inPlaceMoveRef.current = null;
+    localRatsRef.current = null;
+    if (applied && (applied.x !== 0 || applied.y !== 0)) {
+      glRef.current?.moveItems(dragAffectedRef.current, -applied.x, -applied.y);
+    }
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
-    // Undo the live-ratsnest preview (the board didn't change).
-    if (liveRatsRef.current)
-      ratsDrawRef.current = filterRatsRef.current(
-        ratsnestEdgesRef.current,
-        selectedNetsRef.current,
-      );
+    // Undo the live-ratsnest preview (the board didn't change). Back at rest,
+    // so the moving items' airwires go away with the gesture.
+    if (liveRatsRef.current) ratsDrawRef.current = filterRatsRef.current(ratsnestEdgesRef.current);
+    if (applied) {
+      moveSceneRef.current = null;
+      moveOriginRef.current = null;
+      requestDraw();
+      return;
+    }
     if (brd) rebuildScene(brd);
   };
 
@@ -5731,9 +6010,15 @@ export function PcbEditor({
   // Airwires filtered/colored for display, kept in a ref for the draw pass.
   const ratsDrawRef = useRef<{ e: RatsnestEdge; color: string }[]>([]);
   useEffect(() => {
-    ratsDrawRef.current = filterRats(ratsnestEdges, selectedNets);
+    // No forced nets at rest. KiCad's local ratsnest is *dynamic* — its own
+    // comment calls it "the ratsnest for objects that may be currently being
+    // moved" — and `updateLocalRatsnest` is posted only by the move tool and by
+    // the Local Ratsnest tool, never by a selection change. Passing the
+    // selection here made simply clicking a footprint light up its airwires
+    // with the ratsnest switched off, which pcbnew does not do.
+    ratsDrawRef.current = filterRats(ratsnestEdges);
     requestDraw();
-  }, [ratsnestEdges, selectedNets, filterRats, requestDraw]);
+  }, [ratsnestEdges, filterRats, requestDraw]);
 
   // Net colors mode "All": copper items of explicitly-colored nets get an
   // overlay tint (tracks/arcs/vias/zones; pads keep their layer color for now).
@@ -6307,7 +6592,7 @@ export function PcbEditor({
   const auxSepStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: '#333' };
   // Zoom selector value (EDA_DRAW_FRAME::OnUpdateSelectZoom): snap to a preset
   // within 1%, else surface the live zoom as a dynamic custom entry.
-  const zoomNow = scale * 1000;
+  const zoomNow = zoomFactorForScale(scale, window.devicePixelRatio || 1);
   const zoomPreset = PCB_ZOOMS.find((z) => Math.abs(z - zoomNow) / z < 0.01);
   const zoomCustom = scale > 0 && zoomPreset === undefined ? Number(zoomNow.toFixed(2)) : null;
   const zoomSelValue: string | number = zoomPreset ?? zoomCustom ?? 'auto';
@@ -6966,7 +7251,7 @@ export function PcbEditor({
                             type="button"
                             className="ze-eye-btn"
                             onClick={() => {
-                              if (!disabled) setObjects((p) => ({ ...p, [key]: !p[key] }));
+                              if (!disabled) setObjects((p) => toggleObject(p, key));
                             }}
                             title={`Show or hide ${label.toLowerCase()}`}
                           >
@@ -8171,7 +8456,7 @@ export function PcbEditor({
       <div className="ze-statusbar">
         <span className="cell msg" data-testid="pcb-status-msg" />
         <StatusField template={STATUS_FIELD_TEMPLATES.zoom}>
-          Z {scale > 0 ? (scale * 1000).toFixed(2) : '-'}
+          Z {scale > 0 ? zoomFactorForScale(scale, window.devicePixelRatio || 1).toFixed(2) : '-'}
         </StatusField>
         <StatusField template={STATUS_FIELD_TEMPLATES.coords} testId="pcb-absolute-coords">
           {statusCoordText}

@@ -18,6 +18,13 @@ export const PCB_GRID = 'rgb(132,132,132)';
 export const PCB_GRID_AXES = 'rgb(194,194,194)';
 export const PCB_CURSOR = 'rgb(255,255,255)';
 
+/**
+ * The drill/place file origin marker (BOARD_EDITOR_CONTROL's `m_placeOrigin`,
+ * `COLOR4D( 0.8, 0.0, 0.0, 1.0 )`). Not theme-able upstream: it is constructed
+ * with this literal rather than read from the colour settings.
+ */
+export const PCB_PLACE_ORIGIN = 'rgb(204,0,0)';
+
 const rgba = (r: number, g: number, b: number, a = 1): string =>
   a >= 1 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${a})`;
 
@@ -99,10 +106,22 @@ export const PCB_SPECIAL = {
   ratsnest: rgba(0, 248, 255, 0.35),
   anchor: rgba(255, 38, 226),
   drawingSheet: rgba(200, 114, 171),
-  // Pad number / net-name text over the pad copper. pcb_painter.cpp overrides
-  // LAYER_PAD_NETNAMES with the theme's "netnames" color, white at alpha 0.7
-  // (builtin_color_themes.h NETNAMES_LAYER_ID_START), the glassy KiCad look.
+  // Netname text colors (builtin_color_themes.h):
+  //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
+  //    the painter inverts it per copper layer whose color is brighter than
+  //    0.5, which is what makes names on a light green In1.Cu read dark.
+  //  - padName is LAYER_PAD_NETNAMES, the through-hole pad text.
+  //  - viaName is LAYER_VIA_NETNAMES, near-black over the via copper.
+  netName: rgba(255, 255, 255, 0.7),
+  // LAYER_PAD_NETNAMES is listed as white 0.9 in builtin_color_themes.h, but
+  // RENDER_SETTINGS::update() then overwrites it with the netnames colour
+  // — `m_layerColors[LAYER_PAD_NETNAMES] = GetColor( NETNAMES_LAYER_ID_START )`
+  // — so 0.7 is what actually reaches the screen. Taking the theme's 0.9 at
+  // face value put our pad text at (250,235,235) over a red pad where pcbnew
+  // draws (234,178,178). LAYER_VIA_NETNAMES gets no such override, so it does
+  // keep its 0.9.
   padName: rgba(255, 255, 255, 0.7),
+  viaName: rgba(50, 50, 50, 0.9),
   // DRC marker layers (LAYER_DRC_ERROR / _WARNING / _EXCLUSION /
   // _HIGHLIGHTED, s_defaultTheme). The active marker repaints in the
   // highlighted color (pcb_painter.cpp GetColor: brightened/selected
@@ -232,7 +251,9 @@ const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
   ratsnest: C.white, // LAYER_RATSNEST = WHITE
   anchor: C.blue, // LAYER_ANCHOR = BLUE
   drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
-  padName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
+  netName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
+  padName: rgba(255, 255, 255, 0.7), // LAYER_PAD_NETNAMES, after the override
+  viaName: rgba(50, 50, 50, 0.9), // LAYER_VIA_NETNAMES (same as default)
   // s_classicTheme: PURERED / PUREGREEN at 0.8, WHITE, PUREMAGENTA (color4d.cpp
   // colorRefs, the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).
   drcError: rgba(255, 0, 0, 0.8),
@@ -284,7 +305,9 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     ratsnest: C.black,
     anchor: C.black,
     drawingSheet: C.black,
+    netName: C.white,
     padName: C.white,
+    viaName: C.black,
     // Markers aren't printed (BOARD_PRINTOUT draws board layers only), but
     // every palette carries the full special set.
     drcError: C.black,

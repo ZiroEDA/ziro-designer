@@ -21,6 +21,7 @@
 import { arcShape, padShapes } from './drc/drc_engine.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import type { Board, PcbPad } from './types.js';
+import type { Vec2 } from '@ziroeda/kimath';
 
 /** Copper scope of a shape or anchor: one layer, or through-hole (all). */
 type AnchorLayer = string | 'through';
@@ -95,10 +96,34 @@ interface NetGeometry {
 }
 
 /** Build the airwire list for every net on the board. */
-export function buildRatsnest(board: Board): RatsnestEdge[] {
-  const edges: RatsnestEdge[] = [];
+export interface RatsnestOptions {
+  /**
+   * Only compute these nets, leaving the rest to the caller.
+   *
+   * A drag moves a handful of nets and leaves the other few hundred exactly as
+   * they were, so recomputing all of them every frame is wasted work — 20 ms a
+   * frame on the coldfire demo, which is most of a frame's budget. KiCad
+   * likewise recomputes only the nets its moved items belong to. Bucketing the
+   * board is still linear and cheap; it is the per-net clustering and spanning
+   * tree that this skips.
+   */
+  onlyNets?: ReadonlySet<number>;
+}
 
-  // Bucket the board's connected items per net code (net 0 = no net).
+export function buildRatsnest(board: Board, opts: RatsnestOptions = {}): RatsnestEdge[] {
+  return solveNets(bucketNets(board), opts.onlyNets);
+}
+
+/**
+ * Bucket the board's connected copper per net code (net 0 = no net).
+ *
+ * Split from the solve so a drag can do it once instead of once a frame, which
+ * is what KiCad's connectivity does: `calculateSelectionRatsnest` builds the
+ * moving items' `CONNECTIVITY_DATA` on the first frame, blocks them out of the
+ * board's own graph with `BlockRatsnestItems`, and thereafter only calls
+ * `m_dynamicData->Move( aDelta )`.
+ */
+function bucketNets(board: Board): Map<number, NetGeometry> {
   const nets = new Map<number, NetGeometry>();
   const forNet = (net: number): NetGeometry => {
     let n = nets.get(net);
@@ -167,7 +192,14 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
     }
   }
 
+  return nets;
+}
+
+/** Turn bucketed nets into airwires, optionally only for some of them. */
+function solveNets(nets: Map<number, NetGeometry>, onlyNets?: ReadonlySet<number>): RatsnestEdge[] {
+  const edges: RatsnestEdge[] = [];
   for (const [net, g] of nets) {
+    if (onlyNets && !onlyNets.has(net)) continue;
     // ----- cluster the items whose copper touches (CN_CONNECTIVITY_ALGO) -----
     const parent = Array.from({ length: g.items }, (_, i) => i);
     const find = (i: number): number => {
@@ -269,4 +301,65 @@ export function buildRatsnest(board: Board): RatsnestEdge[] {
   }
 
   return edges;
+}
+
+/**
+ * A drag's airwires, bucketed once and thereafter only moved.
+ *
+ * This is KiCad's shape exactly. `calculateSelectionRatsnest` builds a
+ * `CONNECTIVITY_DATA` holding just the moving items on the first frame and
+ * calls `BlockRatsnestItems` so the board's own graph no longer contains them;
+ * every frame after that it only calls `m_dynamicData->Move( aDelta )` before
+ * joining the two with `ComputeLocalRatsnest`. Nothing is re-bucketed while
+ * the mouse is down.
+ *
+ * Ours: the static board and the moving items are each bucketed once, and each
+ * frame copies the handful of affected nets, appends the moving geometry
+ * shifted by the delta, and solves only those. On the coldfire demo that takes
+ * a drag frame from 13.1 ms to 8.1 ms; bucketing the whole board was most of
+ * what it used to spend.
+ */
+export interface LocalRatsnest {
+  /** The nets the moving items belong to; no others can change. */
+  readonly nets: ReadonlySet<number>;
+  /** Airwires for those nets, with the moving items shifted by `delta`. */
+  at(delta: Vec2): RatsnestEdge[];
+}
+
+const shiftShape = (s: Shape, dx: number, dy: number): Shape => {
+  switch (s.kind) {
+    case 'stadium':
+      return { ...s, a: { x: s.a.x + dx, y: s.a.y + dy }, b: { x: s.b.x + dx, y: s.b.y + dy } };
+    case 'circle':
+    case 'arc':
+      return { ...s, c: { x: s.c.x + dx, y: s.c.y + dy } };
+    case 'poly':
+      return { ...s, pts: s.pts.map((p: Vec2) => ({ x: p.x + dx, y: p.y + dy })) };
+  }
+};
+
+export function prepareLocalRatsnest(staticBoard: Board, movingBoard: Board): LocalRatsnest {
+  const staticNets = bucketNets(staticBoard);
+  const movingNets = bucketNets(movingBoard);
+  return {
+    nets: new Set(movingNets.keys()),
+    at(delta: Vec2): RatsnestEdge[] {
+      const merged = new Map<number, NetGeometry>();
+      for (const [net, moving] of movingNets) {
+        const base = staticNets.get(net);
+        // The moving items' union-find indices continue after the static ones.
+        const offset = base?.items ?? 0;
+        const pieces = base ? base.pieces.slice() : [];
+        const anchors = base ? base.anchors.slice() : [];
+        for (const p of moving.pieces) {
+          const shape = shiftShape(p.shape, delta.x, delta.y);
+          pieces.push({ item: p.item + offset, layer: p.layer, shape, box: shapeBBox(shape) });
+        }
+        for (const a of moving.anchors)
+          anchors.push({ ...a, x: a.x + delta.x, y: a.y + delta.y, item: a.item + offset });
+        merged.set(net, { pieces, anchors, items: offset + moving.items });
+      }
+      return solveNets(merged);
+    },
+  };
 }

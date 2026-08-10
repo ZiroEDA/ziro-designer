@@ -144,6 +144,31 @@ export class F32Buffer {
     this.len = n;
   }
 
+  /** Append one glyph vertex: position(2), texture coords(2), rgba(4). */
+  pushGlyph(
+    x: number,
+    y: number,
+    u: number,
+    v: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+  ): void {
+    this.ensure(8);
+    const t = this.data;
+    let n = this.len;
+    t[n++] = x;
+    t[n++] = y;
+    t[n++] = u;
+    t[n++] = v;
+    t[n++] = r;
+    t[n++] = g;
+    t[n++] = b;
+    t[n++] = a;
+    this.len = n;
+  }
+
   /** A view of exactly the written floats. Not a copy: valid until the next push. */
   view(): Float32Array {
     return this.data.subarray(0, this.len);
@@ -154,12 +179,24 @@ export class F32Buffer {
   }
 }
 
+/**
+ * Added to a segment's positive `minPx` to mark it as *atlas* text (the pad
+ * and via net-name strokes that stand in for the OpenGL GAL's mipmapped
+ * bitmap-font atlas). Far above any real pixel floor, so the shader can
+ * recover both the flag and the value; see SEGMENT_VERT.
+ */
+export const BITMAP_MINPX_FLAG = 1024;
+
 /** Floats per segment instance: p0(2) p1(2) halfWidth minPx rgba(4). */
 export const SEGMENT_STRIDE = 10;
 /** Floats per disc instance: centre(2) radius minPx rgba(4). */
 export const DISC_STRIDE = 8;
 /** Floats per triangle vertex: position(2) rgba(4). */
 export const TRIANGLE_STRIDE = 6;
+/** Floats per glyph vertex: position(2) texture coords(2) rgba(4). */
+export const GLYPH_VERTEX_STRIDE = 8;
+/** Vertices per glyph: two triangles, not indexed. */
+export const GLYPH_VERTICES = 6;
 
 /** Premultiplied-alpha-free RGBA, each channel 0..1. */
 export interface Rgba {
@@ -169,8 +206,8 @@ export interface Rgba {
   a: number;
 }
 
-/** Which of the three programs draws a run. */
-export type RunKind = 'tri' | 'seg' | 'disc';
+/** Which program draws a run. */
+export type RunKind = 'tri' | 'seg' | 'disc' | 'glyph';
 
 /**
  * A maximal stretch of consecutive primitives of one kind.
@@ -214,14 +251,96 @@ export interface Run {
  * exists to protect. The schematic alternates per *item*, so ordering it would
  * cost thousands of draw calls a frame to fix a difference nobody can see.
  */
+/**
+ * Where one board item's vertices live, per buffer.
+ *
+ * Each entry is `[first, count]` in that buffer's own units — instances for
+ * segments and discs, vertices for triangles. An item usually has several,
+ * because its geometry is spread over the layers and buckets it draws on.
+ *
+ * This is our answer to KiCad's `CACHED_CONTAINER`, which gives every item a
+ * chunk of the cached vertex buffer so that moving one rewrites only its own
+ * vertices (`VIEW::Update` → "recache it immediately"). Without it, nudging a
+ * footprint means re-recording the whole board — measured at 1228 ms on the
+ * coldfire demo, which is the freeze that made dragging unusable.
+ */
+export interface ItemRanges {
+  seg: [number, number][];
+  disc: [number, number][];
+  tri: [number, number][];
+}
+
 export class Scene {
   readonly segments = new F32Buffer(4096);
   readonly discs = new F32Buffer(256);
   readonly triangles = new F32Buffer(1024);
+  /**
+   * Textured quads sampled from the bitmap-font atlas — the pad numbers and net
+   * names KiCad draws with `BitmapText` rather than with the stroke font.
+   *
+   * Only the per-frame net-name passes record these, so the buffer starts small
+   * and is rebuilt each frame from what is actually on screen.
+   */
+  readonly glyphs = new F32Buffer(512);
   /** Empty on an unordered scene; the device then falls back to three draws. */
   readonly runs: Run[] = [];
+  /** Vertex ranges per board item; empty unless the recorder named owners. */
+  readonly itemRanges = new Map<string, ItemRanges>();
+  /**
+   * Named points in the run list, for drawing something else at that depth.
+   *
+   * KiCad interleaves by giving every layer a depth over one buffer
+   * (`VIEW::redrawRect` → `SetLayerDepth`). We draw in painter's order, so the
+   * equivalent is to stop the run walk at a known layer boundary, draw the
+   * per-frame pass, and carry on — which is what lets back-side net names sit
+   * under the inner layers and the front pour, where pcbnew puts them, instead
+   * of being faked with a fixed attenuation.
+   */
+  readonly marks = new Map<string, number>();
+  private owner: string | undefined;
+  private segMark = 0;
+  private discMark = 0;
+  private triMark = 0;
 
   constructor(private readonly ordered = false) {}
+
+  /**
+   * Attribute everything recorded from here on to `id`.
+   *
+   * Closing the previous item's ranges here rather than tracking every push
+   * keeps the hot path — a million triangle vertices — free of bookkeeping.
+   */
+  setItem(id: string | undefined): void {
+    if (id === this.owner) return;
+    this.closeItem();
+    this.owner = id;
+    this.segMark = this.segmentCount;
+    this.discMark = this.discCount;
+    this.triMark = this.triangleVertexCount;
+  }
+
+  /** Remember that `name` falls here in the run list. */
+  mark(name: string): void {
+    if (this.ordered) this.marks.set(name, this.runs.length);
+  }
+
+  /** Close the open item's ranges; call once when a recording finishes. */
+  closeItem(): void {
+    const id = this.owner;
+    if (id === undefined) return;
+    let r = this.itemRanges.get(id);
+    if (!r) {
+      r = { seg: [], disc: [], tri: [] };
+      this.itemRanges.set(id, r);
+    }
+    if (this.segmentCount > this.segMark)
+      r.seg.push([this.segMark, this.segmentCount - this.segMark]);
+    if (this.discCount > this.discMark)
+      r.disc.push([this.discMark, this.discCount - this.discMark]);
+    if (this.triangleVertexCount > this.triMark)
+      r.tri.push([this.triMark, this.triangleVertexCount - this.triMark]);
+    this.owner = undefined;
+  }
 
   /**
    * Extend the open run, or start a new one when the kind changes.
@@ -240,7 +359,9 @@ export class Scene {
         ? this.triangleVertexCount - count
         : kind === 'seg'
           ? this.segmentCount - count
-          : this.discCount - count;
+          : kind === 'glyph'
+            ? this.glyphVertexCount - count
+            : this.discCount - count;
     this.runs.push({ kind, start, count });
   }
 
@@ -279,8 +400,44 @@ export class Scene {
     this.note('tri', 3);
   }
 
+  /**
+   * One glyph from the bitmap-font atlas: the four corners of its box, already
+   * placed in world coordinates by `layoutBitmapText`, and its atlas window.
+   *
+   * Two triangles rather than an instanced quad, because unlike a segment or a
+   * disc every corner carries its own texture coordinate and the rectangle can
+   * be rotated — there is no shared unit quad to expand from.
+   */
+  glyph(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    u0: number,
+    v0: number,
+    u1: number,
+    v1: number,
+    c: Rgba,
+  ): void {
+    const g = this.glyphs;
+    g.pushGlyph(x0, y0, u0, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x1, y1, u1, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x2, y2, u0, v1, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x1, y1, u1, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x2, y2, u0, v1, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x3, y3, u1, v1, c.r, c.g, c.b, c.a);
+    this.note('glyph', GLYPH_VERTICES);
+  }
+
   get segmentCount(): number {
     return this.segments.length / SEGMENT_STRIDE;
+  }
+  get glyphVertexCount(): number {
+    return this.glyphs.length / GLYPH_VERTEX_STRIDE;
   }
   get discCount(): number {
     return this.discs.length / DISC_STRIDE;
@@ -291,14 +448,65 @@ export class Scene {
 
   /** Whether anything at all was recorded. */
   get isEmpty(): boolean {
-    return this.segments.length === 0 && this.discs.length === 0 && this.triangles.length === 0;
+    return (
+      this.segments.length === 0 &&
+      this.discs.length === 0 &&
+      this.triangles.length === 0 &&
+      this.glyphs.length === 0
+    );
   }
 
   clear(): void {
     this.segments.clear();
     this.discs.clear();
     this.triangles.clear();
+    this.glyphs.clear();
     this.runs.length = 0;
+    this.marks.clear();
+    this.itemRanges.clear();
+    this.owner = undefined;
+    this.segMark = 0;
+    this.discMark = 0;
+    this.triMark = 0;
+  }
+
+  /**
+   * Shift one item's vertices by (dx, dy), in place.
+   *
+   * The whole point of the per-item ranges: a drag is a translation, so the
+   * item's recorded geometry does not have to be rebuilt, only moved. Returns
+   * the ranges touched so the caller can re-upload exactly those bytes.
+   */
+  translateItem(id: string, dx: number, dy: number): ItemRanges | null {
+    const r = this.itemRanges.get(id);
+    if (!r) return null;
+    const seg = this.segments.view();
+    for (const [first, count] of r.seg) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * SEGMENT_STRIDE;
+        seg[o] = (seg[o] ?? 0) + dx;
+        seg[o + 1] = (seg[o + 1] ?? 0) + dy;
+        seg[o + 2] = (seg[o + 2] ?? 0) + dx;
+        seg[o + 3] = (seg[o + 3] ?? 0) + dy;
+      }
+    }
+    const disc = this.discs.view();
+    for (const [first, count] of r.disc) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * DISC_STRIDE;
+        disc[o] = (disc[o] ?? 0) + dx;
+        disc[o + 1] = (disc[o + 1] ?? 0) + dy;
+      }
+    }
+    const tri = this.triangles.view();
+    for (const [first, count] of r.tri) {
+      for (let i = 0; i < count; i++) {
+        const o = (first + i) * TRIANGLE_STRIDE;
+        tri[o] = (tri[o] ?? 0) + dx;
+        tri[o + 1] = (tri[o + 1] ?? 0) + dy;
+      }
+    }
+    return r;
   }
 }
 

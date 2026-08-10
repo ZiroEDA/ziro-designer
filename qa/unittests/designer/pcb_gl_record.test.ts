@@ -26,7 +26,7 @@ import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
-import { Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
+import { Scene, SEGMENT_STRIDE, type RunKind } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
 
 const board = (): Board =>
@@ -170,7 +170,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     const s = recordOrdered();
     // Nothing may be dropped, duplicated or reordered: read in sequence, the
     // runs have to walk each buffer from its start to its end exactly once.
-    const next = { tri: 0, seg: 0, disc: 0 };
+    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, glyph: 0 };
     for (const run of s.runs) {
       expect(run.start).toBe(next[run.kind]);
       expect(run.count).toBeGreaterThan(0);
@@ -179,6 +179,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     expect(next.tri).toBe(s.triangleVertexCount);
     expect(next.seg).toBe(s.segmentCount);
     expect(next.disc).toBe(s.discCount);
+    expect(next.glyph).toBe(s.glyphVertexCount);
   });
 
   it('keeps a fill recorded after a stroke after it', () => {
@@ -247,5 +248,74 @@ describe('a GL-compiled scene keeps what the editor reads that is not a path', (
     const scene = buildScene(boardWithImage(), {}, GL_PATH_FACTORY);
     expect(scene.images).toHaveLength(1);
     expect(scene.images[0]!.layer).toBe('F.Cu');
+  });
+});
+
+/**
+ * Which of KiCad's two rasterisers each stroke imitates.
+ *
+ * A **line** is clamped up to `u_minLinePixelWidth` and drawn solid, so a
+ * 0.05 mm courtyard rectangle is still a crisp magenta line on a board zoomed
+ * out to fit. **Bitmap text** takes no floor and simply gets fainter as it
+ * shrinks; we stroke those glyphs, so they have to fade instead.
+ *
+ * Recording every stroke the second way is what made courtyards, silkscreen
+ * outlines and zone borders disappear from a zoomed-out board that KiCad still
+ * draws them on. The sign of the per-vertex `minPx` carries the distinction, so
+ * it is visible from Node even though the consequence is not.
+ */
+describe('hairline rule per stroke', () => {
+  /** Distinct signed minPx values across the segment buffer. */
+  const minPxSigns = (s: Scene): Set<number> => {
+    const seg = s.segments.view();
+    const out = new Set<number>();
+    for (let i = 0; i < seg.length; i += SEGMENT_STRIDE) out.add(Math.sign(seg[i + 5]!));
+    return out;
+  };
+
+  it('records board geometry as solid lines', () => {
+    // A board with no pad numbers and no net names on it: every stroke is
+    // geometry, so every one must be negative (solid).
+    const b = readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (net 0 "")
+  (gr_line (start 90 90) (end 130 90) (stroke (width 0.05) (type solid)) (layer "Edge.Cuts"))
+  (segment (start 100 100) (end 120 100) (width 0.25) (layer "F.Cu") (net 0))
+)`),
+    );
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(b, {}, GL_PATH_FACTORY),
+        visible: VISIBLE,
+        opts: DEFAULT_DRAW_OPTIONS,
+        emphasis: 'none',
+      },
+      1e-5,
+    );
+    expect(s.segmentCount).toBeGreaterThan(0);
+    expect(minPxSigns(s)).toEqual(new Set([-1]));
+  });
+
+  it('records no pad text at all — that pass is per-frame now', () => {
+    // Pad numbers and net names are gated by PAD::ViewGetLOD against the
+    // *current* zoom and must not compound where they overlap, so they draw
+    // with the track and via names in the per-frame netname pass
+    // (drawNetNames) and never enter a retained recording. A recording of a
+    // board with pads therefore carries only lines.
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(board(), {}, GL_PATH_FACTORY),
+        visible: VISIBLE,
+        opts: DEFAULT_DRAW_OPTIONS,
+        emphasis: 'none',
+      },
+      1e-5,
+    );
+    expect(minPxSigns(s)).toEqual(new Set([-1]));
   });
 });

@@ -30,7 +30,14 @@ export interface Pt {
  * is a shape at all, and beyond 256 the extra vertices buy nothing a reader
  * will see.
  */
-const TOLERANCE = 500; // internal units; 1 mm is 1e6, so this is 0.0005 mm.
+// KiCad's own arc tolerance: ARC_HIGH_DEF, 0.005 mm (base_units.h), which is
+// what BOARD_DESIGN_SETTINGS::m_MaxError ships as and what every pad, via and
+// rounded corner is approximated to before it reaches the screen. We used
+// 0.0005 mm — ten times finer — and since facet count goes as 1/sqrt(tolerance)
+// that is about three times the triangles KiCad draws, for a sagitta far below
+// a pixel at any zoom. On the coldfire demo the pads alone were 640k triangle
+// vertices of the million in a recording.
+const TOLERANCE = 5000; // internal units; 1 mm is 1e6, so this is 0.005 mm.
 const MIN_FACETS = 3;
 const MAX_FACETS = 256;
 
