@@ -25,6 +25,15 @@ import { readSchematic } from '../sch_io/sexpr/read-schematic.js';
 import type { Schematic, SchSymbol, SchField, LibSymbol, Vec2 } from '../types.js';
 import { writeSchematic } from '../sch_io/sexpr/write-schematic.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
+import {
+  moveBusEntry,
+  moveDirectiveLabel,
+  moveGraphic,
+  moveImage,
+  moveSheet,
+  moveTable,
+  moveTextBox,
+} from './move.js';
 import { refId } from './hittest.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import { newUuid, makeLabel, nodeWithUuid, symbolNodeWithFreshUuids } from './build.js';
@@ -357,13 +366,19 @@ export function translatePayload(p: PastePayload, delta: Vec2): PastePayload {
       junctions: p.batch.junctions.map((j) => ({ ...j, at: mv(j.at) })),
       noConnects: p.batch.noConnects.map((nc) => ({ ...nc, at: mv(nc.at) })),
       labels: p.batch.labels.map((l) => ({ ...l, at: mv(l.at) })),
-      sheets: [],
-      busEntries: [],
-      images: [],
-      graphics: [],
-      textBoxes: [],
-      directiveLabels: [],
-      tables: [],
+      // The other seven kinds used to be dropped here — hardcoded to `[]` —
+      // even though `copySelection` collects them and `PastePayload.batch` is a
+      // `Required<ItemsBatch>` that carries them. So a copied rectangle, sheet,
+      // image, text box, table, bus entry or netclass flag survived the copy
+      // and vanished the moment the paste moved, which is every paste.
+      // `move.ts` already knew how to translate each of them.
+      sheets: p.batch.sheets.map((x) => moveSheet(x, delta)),
+      busEntries: p.batch.busEntries.map((x) => moveBusEntry(x, delta)),
+      images: p.batch.images.map((x) => moveImage(x, delta)),
+      graphics: p.batch.graphics.map((x) => moveGraphic(x, delta)),
+      textBoxes: p.batch.textBoxes.map((x) => moveTextBox(x, delta)),
+      directiveLabels: p.batch.directiveLabels.map((x) => moveDirectiveLabel(x, delta)),
+      tables: p.batch.tables.map((x) => moveTable(x, delta)),
     },
   };
 }
@@ -384,6 +399,17 @@ export function pasteItems(payload: PastePayload): EditCommand {
         junctions: [...doc.junctions, ...batch.junctions],
         noConnects: [...doc.noConnects, ...batch.noConnects],
         labels: [...doc.labels, ...batch.labels],
+        // …and the same seven here: they were collected, carried, and then not
+        // added, so pasting one produced nothing at all.
+        sheets: [...doc.sheets, ...batch.sheets],
+        busEntries: [...doc.busEntries, ...batch.busEntries],
+        images: [...doc.images, ...batch.images],
+        graphics: [...doc.graphics, ...batch.graphics],
+        textBoxes: [...doc.textBoxes, ...batch.textBoxes],
+        tables: [...doc.tables, ...batch.tables],
+        ...(batch.directiveLabels.length
+          ? { directiveLabels: [...(doc.directiveLabels ?? []), ...batch.directiveLabels] }
+          : {}),
       };
     },
     invert(before: Schematic): EditCommand {
@@ -395,6 +421,12 @@ export function pasteItems(payload: PastePayload): EditCommand {
       batch.junctions.forEach((j) => ids.add(j.uuid!));
       batch.noConnects.forEach((nc) => ids.add(nc.uuid!));
       batch.labels.forEach((l) => ids.add(l.uuid!));
+      batch.sheets.forEach((x) => ids.add(x.uuid!));
+      batch.busEntries.forEach((x) => ids.add(x.uuid!));
+      batch.images.forEach((x) => ids.add(x.uuid!));
+      batch.textBoxes.forEach((x) => ids.add(x.uuid!));
+      batch.directiveLabels.forEach((x) => ids.add(x.uuid!));
+      batch.tables.forEach((x) => ids.add(x.uuid!));
       return unpasteItems(payload, ids, addedLibs);
     },
   };
@@ -416,6 +448,23 @@ function unpasteItems(
         junctions: doc.junctions.filter((j) => !ids.has(j.uuid ?? '')),
         noConnects: doc.noConnects.filter((nc) => !ids.has(nc.uuid ?? '')),
         labels: doc.labels.filter((l) => !ids.has(l.uuid ?? '')),
+        // Undo has to remove everything the paste added, or the seven kinds
+        // above would stay behind while their neighbours went.
+        sheets: doc.sheets.filter((x) => !ids.has(x.uuid ?? '')),
+        busEntries: doc.busEntries.filter((x) => !ids.has(x.uuid ?? '')),
+        images: doc.images.filter((x) => !ids.has(x.uuid ?? '')),
+        // A graphic carries its uuid in its source node, not on the model, so
+        // it cannot be matched by id the way the others are. The paste appends
+        // them, so undo drops the same number off the end — exact for an
+        // append, and this runs as that command's own inverse.
+        graphics: payload.batch.graphics.length
+          ? doc.graphics.slice(0, doc.graphics.length - payload.batch.graphics.length)
+          : doc.graphics,
+        textBoxes: doc.textBoxes.filter((x) => !ids.has(x.uuid ?? '')),
+        tables: doc.tables.filter((x) => !ids.has(x.uuid ?? '')),
+        ...(doc.directiveLabels
+          ? { directiveLabels: doc.directiveLabels.filter((x) => !ids.has(x.uuid ?? '')) }
+          : {}),
       };
     },
     invert(): EditCommand {
