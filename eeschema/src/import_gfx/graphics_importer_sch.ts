@@ -83,6 +83,16 @@ function lineStyleToSchStroke(aStyle: LINE_STYLE): string {
   }
 }
 
+/** `GR_TEXT_H_ALIGN_T` as the `(justify …)` token the file spells it with. */
+function hJustifyToken(a: GR_TEXT_H_ALIGN_T): string {
+  return a === -1 ? 'left' : a === 1 ? 'right' : 'center';
+}
+
+/** `GR_TEXT_V_ALIGN_T`, likewise. */
+function vJustifyToken(a: GR_TEXT_V_ALIGN_T): string {
+  return a === -1 ? 'top' : a === 1 ? 'bottom' : 'center';
+}
+
 /** `COLOR4D` (components 0..1) as the model's `[r, g, b, a]` with rgb 0..255. */
 function toModelColor(c: Color4d): readonly [number, number, number, number] | undefined {
   // COLOR4D::UNSPECIFIED is alpha 0, meaning "no colour given" rather than
@@ -123,11 +133,32 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
     return color ? { width, type, color } : { width, type };
   }
 
-  /** The `(fill …)` a shape gets, from the two arguments every `Add…` carries. */
-  private mapFill(aFilled: boolean, aFillColor: Color4d): Fill | undefined {
-    if (!aFilled) return { type: 'none' };
+  /**
+   * The `(fill …)` a **circle, arc or ellipse** gets.
+   *
+   *     circle->SetFillColor( aFillColor );
+   *     circle->SetFilled( aFilled );
+   *
+   * `SetFilled( true )` is `FILL_T::FILLED_SHAPE` — `outline` in the file — and
+   * the colour is stored alongside it whatever the mode. Note this is *not* the
+   * polygon rule below: a filled circle that came with a colour is still
+   * `outline`, not `color`.
+   */
+  private mapFill(aFilled: boolean, aFillColor: Color4d): Fill {
     const color = toModelColor(aFillColor);
-    // FILL_T::FILLED_WITH_COLOR when a colour came with it, else FILLED_SHAPE.
+    const type = aFilled ? 'outline' : 'none';
+    return color ? { type, color } : { type };
+  }
+
+  /**
+   * The `(fill …)` a **polygon** gets, which upstream decides differently:
+   *
+   *     polygon->SetFillMode( aFillColor != COLOR4D::UNSPECIFIED ? FILL_T::FILLED_WITH_COLOR
+   *                                                              : FILL_T::FILLED_SHAPE );
+   */
+  private mapPolygonFill(aFilled: boolean, aFillColor: Color4d): Fill {
+    const color = toModelColor(aFillColor);
+    if (!aFilled) return color ? { type: 'none', color } : { type: 'none' };
     return color ? { type: 'color', color } : { type: 'outline' };
   }
 
@@ -212,7 +243,7 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
       graphic: makePolyline(
         [...points, points[0]!],
         this.MapStrokeParams(aStroke),
-        this.mapFill(aFilled, aFillColor),
+        this.mapPolygonFill(aFilled, aFillColor),
       ),
     });
   }
@@ -220,45 +251,45 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
   /**
    * Free text as a `SCH_TEXT`.
    *
-   * Upstream sets nine things on it; `makeLabel` can carry three, and the rest
-   * are dropped **deliberately and visibly** rather than approximated:
+   * Upstream sets nine things on it and eight of them survive: position, the
+   * string, the angle, height and width (each scaled by *its own* axis factor,
+   * because text has a direction where a stroke does not), both justifications
+   * and the colour.
    *
-   *   - **width** — upstream sets height and width independently
-   *     (`SetTextWidth`/`SetTextHeight`, each scaled by its own axis factor).
-   *     Our `(effects (font (size h w)))` is written from one `fontSize`, so a
-   *     non-square glyph box cannot be expressed and the height wins.
-   *   - **thickness** — no pen width on schematic text in this model.
-   *   - **justification** and **colour** — `makeLabel` fixes the justify node
-   *     per label kind and writes no colour.
+   *     textItem->SetTextWidth( aWidth * ImportScalingFactor().x );
+   *     textItem->SetTextHeight( aHeight * ImportScalingFactor().y );
    *
-   * Each is a factory limit, not a parse limit: the values arrive here intact,
-   * so widening `LabelOptions` later picks them up without touching the plugins.
+   * The ninth, **thickness**, is dropped because the model has nowhere to put
+   * it: there is no pen width on schematic text in `TextEffects`, and the
+   * reader and writer have no `(thickness …)` either. That is a model gap
+   * rather than a mapping choice, so it is the one thing here that cannot be
+   * made identical without widening the format support.
+   *
+   * Sizes are taken absolute: a mirrored import gives a negative scale factor,
+   * and a negative glyph box is not a size.
    */
   AddText(
     aOrigin: Vec2,
     aText: string,
     aHeight: number,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: see the header — one font size
     aWidth: number,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: schematic text has no pen width
+    // biome-ignore lint/correctness/noUnusedFunctionParameters: no pen width on schematic text
     aThickness: number,
     aOrientation: number,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: makeLabel fixes justify per kind
     aHJustify: GR_TEXT_H_ALIGN_T,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: makeLabel fixes justify per kind
     aVJustify: GR_TEXT_V_ALIGN_T,
-    // biome-ignore lint/correctness/noUnusedFunctionParameters: no colour on schematic text
     aColor: Color4d = COLOR4D_UNSPECIFIED,
   ): void {
-    // Scaled by the Y axis factor alone, not the averaged one a line width
-    // gets: text has a direction, a stroke does not. Absolute, because a
-    // mirrored import gives a negative factor and a negative size is not a size.
     const factor = this.ImportScalingFactor();
+    const color = toModelColor(aColor);
     this.addItem({
       type: 'text',
       text: makeLabel('text', aText, this.MapCoordinate(aOrigin), {
         angle: aOrientation,
         fontSize: Math.abs(KiROUND(aHeight * factor.y)),
+        fontWidth: Math.abs(KiROUND(aWidth * factor.x)),
+        justify: [hJustifyToken(aHJustify), vJustifyToken(aVJustify)],
+        ...(color ? { color } : {}),
       }),
     });
   }

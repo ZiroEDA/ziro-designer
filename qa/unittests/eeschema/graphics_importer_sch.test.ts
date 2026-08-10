@@ -18,7 +18,7 @@ import { IMPORTED_STROKE } from '@ziroeda/common/src/import_gfx/graphics_importe
 import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
 import { COLOR4D_BLACK } from '@ziroeda/common/src/color4d.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { LibGraphic, Stroke } from '@ziroeda/eeschema/src/types.js';
+import type { Fill, LibGraphic, SchLabel, Stroke } from '@ziroeda/eeschema/src/types.js';
 
 const plain = () => new IMPORTED_STROKE(0.2, LINE_STYLE.SOLID);
 
@@ -36,6 +36,13 @@ const graphics = (items: readonly SchImportedItem[]) =>
 
 /** `LibGraphic` is a union and not every arm is stroked (text is not). */
 const strokeOf = (g: LibGraphic): Stroke | undefined => ('stroke' in g ? g.stroke : undefined);
+const fillOf = (g: LibGraphic): Fill | undefined => ('fill' in g ? g.fill : undefined);
+
+/** The single text item an importer produced. */
+function textOf(imp: GRAPHICS_IMPORTER_SCH): SchLabel | undefined {
+  const item = imp.GetItems()[0];
+  return item?.type === 'text' ? item.text : undefined;
+}
 
 describe('mapping into schematic internal units', () => {
   it('uses schIUScale, not the board scale', () => {
@@ -173,14 +180,98 @@ describe('text', () => {
     expect(items[0]!.text.at).toEqual({ x: mmToIU(1), y: mmToIU(2) });
   });
 
-  it('takes its size from the Y factor alone, and never negative', () => {
-    // Text has a direction, so it is not scaled by the averaged factor a stroke
-    // gets; a mirrored import gives a negative factor and a size cannot be one.
+  it('scales height and width by their own axis factors, independently', () => {
+    //     textItem->SetTextWidth( aWidth * ImportScalingFactor().x );
+    //     textItem->SetTextHeight( aHeight * ImportScalingFactor().y );
+    // Text has a direction, so unlike a stroke it is not given the averaged
+    // factor — and a non-square source box must stay non-square.
     const imp = importer();
-    imp.SetScale({ x: 1, y: -2 });
-    imp.AddText({ x: 0, y: 0 }, 'x', 3, 1, 0, 0, -1, -1, COLOR4D_BLACK);
-    const items = imp.GetItems();
-    if (items[0]!.type !== 'text') throw new Error('expected text');
-    expect(items[0]!.text.effects?.fontSize?.[1]).toBe(mmToIU(6));
+    imp.SetScale({ x: 2, y: 3 });
+    imp.AddText({ x: 0, y: 0 }, 'x', 4, 5, 0, 0, -1, -1, COLOR4D_BLACK);
+    const t = textOf(imp)!;
+    expect(t.effects?.fontSize).toEqual([mmToIU(12), mmToIU(10)]);
+  });
+
+  it('and never a negative size, however the import is mirrored', () => {
+    const imp = importer();
+    imp.SetScale({ x: -1, y: -2 });
+    imp.AddText({ x: 0, y: 0 }, 'x', 3, 3, 0, 0, -1, -1, COLOR4D_BLACK);
+    const t = textOf(imp)!;
+    expect(t.effects?.fontSize).toEqual([mmToIU(6), mmToIU(3)]);
+  });
+
+  it('carries both justifications through', () => {
+    // GR_TEXT_H_ALIGN_T / GR_TEXT_V_ALIGN_T are -1 / 0 / 1; the file spells
+    // them. The label factory's per-kind default must not override what the
+    // source drawing actually said.
+    const imp = importer();
+    imp.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0, 0, 1, 1, COLOR4D_BLACK);
+    expect(textOf(imp)!.effects?.justify).toEqual(['right', 'bottom']);
+
+    const imp2 = importer();
+    imp2.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0, 0, 0, 0, COLOR4D_BLACK);
+    expect(textOf(imp2)!.effects?.justify).toEqual(['center', 'center']);
+  });
+
+  it('carries the angle and the colour through', () => {
+    const imp = importer();
+    imp.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0, 90, -1, -1, { r: 1, g: 0, b: 0, a: 1 });
+    const t = textOf(imp)!;
+    expect(t.angle).toBe(90);
+    expect(t.effects?.color).toEqual([255, 0, 0, 1]);
+  });
+
+  it('and writes no colour when the source gave none', () => {
+    // COLOR4D::UNSPECIFIED is alpha 0 — "no colour given", not "transparent".
+    const imp = importer();
+    imp.AddText({ x: 0, y: 0 }, 'x', 2, 2, 0, 0, -1, -1, { r: 0, g: 0, b: 0, a: 0 });
+    expect(textOf(imp)!.effects?.color).toBeUndefined();
+  });
+});
+
+describe('the two fill rules, which are not the same rule', () => {
+  it('a filled circle with a colour is `outline`, and keeps the colour', () => {
+    //     circle->SetFillColor( aFillColor );
+    //     circle->SetFilled( aFilled );
+    // SetFilled(true) is FILL_T::FILLED_SHAPE whatever the colour — the
+    // FILLED_WITH_COLOR choice belongs to AddPolygon alone.
+    const imp = importer();
+    imp.AddCircle({ x: 0, y: 0 }, 5, plain(), true, { r: 0, g: 1, b: 0, a: 1 });
+    const g = graphics(imp.GetItems())[0]!;
+    expect(fillOf(g)).toEqual({ type: 'outline', color: [0, 255, 0, 1] });
+  });
+
+  it('but a filled polygon with a colour is `color`', () => {
+    //     polygon->SetFillMode( aFillColor != UNSPECIFIED ? FILLED_WITH_COLOR
+    //                                                     : FILLED_SHAPE );
+    const imp = importer();
+    imp.AddPolygon(
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      plain(),
+      true,
+      { r: 0, g: 1, b: 0, a: 1 },
+    );
+    const g = graphics(imp.GetItems())[0]!;
+    expect(fillOf(g)).toEqual({ type: 'color', color: [0, 255, 0, 1] });
+  });
+
+  it('and a filled polygon with no colour is `outline`', () => {
+    const imp = importer();
+    imp.AddPolygon(
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      plain(),
+      true,
+      { r: 0, g: 0, b: 0, a: 0 },
+    );
+    const g = graphics(imp.GetItems())[0]!;
+    expect(fillOf(g)?.type).toBe('outline');
   });
 });
