@@ -1881,6 +1881,21 @@ export function PcbEditor({
     // the moment the pours are hidden. Drawn on the overlay they sat above the
     // pours, the silkscreen and the footprint text, so a whole-board view was
     // covered in crosses that pcbnew does not show.
+    // Back and inner net names go under the board with the anchors: pcbnew
+    // files them with their own copper, so the layers above wash them out.
+    drawNetNames(
+      bctx,
+      scene,
+      v,
+      visible,
+      canvas.width,
+      canvas.height,
+      drawOpts,
+      dimmedRef.current ? 'dimmed' : 'none',
+      dpr,
+      'under',
+    );
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
     if (objects.anchors) {
       drawAnchors(
         bctx,
@@ -1938,6 +1953,7 @@ export function PcbEditor({
         drawOpts,
         dimmedRef.current ? 'dimmed' : 'none',
         dpr,
+        'over',
       );
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {

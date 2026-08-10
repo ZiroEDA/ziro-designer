@@ -97,7 +97,13 @@ describe('ViewGetLOD gates', () => {
 
   // PCB_VIA: show once width · zoom > 10 mm, i.e. 35.83 px of via.
   it('shows a via description at 35.83 px of diameter', () => {
-    const label = { at: { x: 0, y: 0 }, width: 1.6 * MM, layers: ['F.Cu'], text: 'RXD1', layerIds: '' };
+    const label = {
+      at: { x: 0, y: 0 },
+      width: 1.6 * MM,
+      layers: ['F.Cu'],
+      text: 'RXD1',
+      layerIds: '',
+    };
     const scaleFor = (px: number): number => px / (1.6 * MM);
     expect(showsViaNetName(label, { scale: scaleFor(35), tx: 0, ty: 0 })).toBe(false);
     expect(showsViaNetName(label, { scale: scaleFor(36.5), tx: 0, ty: 0 })).toBe(true);
@@ -115,8 +121,7 @@ describe('retained recording vs the per-frame pass', () => {
   const atlasSegments = (s: Scene): number => {
     const a = s.segments.view();
     let n = 0;
-    for (let i = 0; i < a.length; i += SEGMENT_STRIDE)
-      if (a[i + 5]! > BITMAP_MINPX_FLAG / 2) n++;
+    for (let i = 0; i < a.length; i += SEGMENT_STRIDE) if (a[i + 5]! > BITMAP_MINPX_FLAG / 2) n++;
     return n;
   };
 
@@ -124,7 +129,11 @@ describe('retained recording vs the per-frame pass', () => {
     const scene = buildScene(board(), {}, GL_PATH_FACTORY);
     for (const scale of [0.001, 1.0]) {
       const gl = new Scene(true);
-      recordBoardScene(gl, { scene, visible: VISIBLE, opts: undefined as never, emphasis: 'none' }, scale);
+      recordBoardScene(
+        gl,
+        { scene, visible: VISIBLE, opts: undefined as never, emphasis: 'none' },
+        scale,
+      );
       expect(atlasSegments(gl)).toBe(0);
     }
   });
@@ -167,5 +176,72 @@ describe('retained recording vs the per-frame pass', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (globalThis as any).Path2D = path2d;
     }
+  });
+});
+
+describe('which side of the board a name is painted on', () => {
+  // GAL_LAYER_ORDER: LAYER_PAD_NETNAMES and LAYER_VIA_NETNAMES sit up with the
+  // overlays; LAYER_PAD_FR_NETNAMES just above F.Cu; LAYER_PAD_BK_NETNAMES
+  // down in the back-copper block, beneath the inner layers and the front
+  // pour — which is why pcbnew shows back-side pad text as a pale ghost while
+  // ours read as brightly as the front.
+  const sideBoard = (): Board =>
+    readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (1 "In1.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "VCC")
+  (segment (start 100 100) (end 180 100) (width 2) (layer "F.Cu") (net 1))
+  (segment (start 100 110) (end 180 110) (width 2) (layer "B.Cu") (net 1))
+  (footprint "F" (layer "F.Cu") (at 120 120)
+    (pad "1" smd rect (at 0 0) (size 2 2) (layers "F.Cu") (net 1 "VCC")))
+  (footprint "B" (layer "B.Cu") (at 140 120)
+    (pad "1" smd rect (at 0 0) (size 2 2) (layers "B.Cu") (net 1 "VCC")))
+)`),
+    );
+
+  const drawnOn = (where: 'over' | 'under'): number => {
+    const scene = buildScene(sideBoard(), {}, GL_PATH_FACTORY);
+    let n = 0;
+    const ctx = {
+      setTransform: () => {},
+      lineCap: '',
+      lineJoin: '',
+      strokeStyle: '',
+      lineWidth: 0,
+      stroke: () => {
+        n++;
+      },
+    } as unknown as CanvasRenderingContext2D;
+    const path2d = globalThis.Path2D;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).Path2D = class {
+      moveTo(): void {}
+      lineTo(): void {}
+    };
+    try {
+      const scale = 40 / MM;
+      drawNetNames(
+        ctx,
+        scene,
+        { scale, tx: 400 - 130 * MM * scale, ty: 300 - 112 * MM * scale },
+        new Set(['F.Cu', 'In1.Cu', 'B.Cu']),
+        4000,
+        4000,
+        undefined,
+        'none',
+        1,
+        where,
+      );
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).Path2D = path2d;
+    }
+    return n;
+  };
+
+  it('paints something on each side, so neither pass is dead', () => {
+    expect(drawnOn('over')).toBeGreaterThan(0);
+    expect(drawnOn('under')).toBeGreaterThan(0);
   });
 });

@@ -2057,6 +2057,7 @@ export function drawNetNames(
   opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
   emphasis: Emphasis = 'none',
   dpr = 1,
+  where: NetNamePass = 'over',
 ): void {
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
@@ -2084,12 +2085,16 @@ export function drawNetNames(
   if (opts.netNames) {
     for (const label of scene.netLabels) {
       if (!visible.has(label.layer)) continue;
+      // NETNAMES_LAYER_INDEX( F_Cu ) sits above F.Cu, but each inner and back
+      // layer's netnames sit with their own copper — under the front pour.
+      if ((label.layer === 'F.Cu') !== (where === 'over')) continue;
       if (!showsNetName(label, view, dpr)) continue;
       const color = emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true);
       addTrackNetName(mapFor(color), label, viewport);
     }
   }
-  {
+  // LAYER_VIA_NETNAMES is up with the overlays, above every copper layer.
+  if (where === 'over') {
     const viaColor = emphasize(special.viaName ?? special.padName, emphasis, true);
     for (const label of scene.viaNetLabels) {
       if (!showsViaNetName(label, view, dpr)) continue;
@@ -2114,6 +2119,13 @@ export function drawNetNames(
       // copper layer, floating over an otherwise empty board.
       const shownOn = label.layers.find((l) => visible.has(l));
       if (shownOn === undefined) continue;
+      // A through-hole pad's text is LAYER_PAD_NETNAMES, up with the overlays;
+      // an SMD pad's is LAYER_PAD_FR_NETNAMES just above F.Cu, or
+      // LAYER_PAD_BK_NETNAMES down in the back-copper block, beneath the inner
+      // layers and the front pour. That last one is why pcbnew shows back-side
+      // pad text as a pale ghost under the pour while ours read as brightly as
+      // the front.
+      if (label.layers.includes('F.Cu') !== (where === 'over')) continue;
       const m = label.minSide;
       if (label.at.x + m < viewport.minX || label.at.x - m > viewport.maxX) continue;
       if (label.at.y + m < viewport.minY || label.at.y - m > viewport.maxY) continue;
@@ -2167,6 +2179,15 @@ export function drawNetNames(
   }
   ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
 }
+
+/**
+ * Which side of the board raster a net-name pass paints on.
+ *
+ * `'over'` is everything KiCad puts above the copper — through-hole pad text,
+ * via descriptions and front-layer names; `'under'` is what it files with the
+ * back and inner copper, where the layers above wash it out.
+ */
+export type NetNamePass = 'over' | 'under';
 
 /** PAD::ViewGetLOD's 0.5 mm threshold, as pixels of pad. */
 const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;
