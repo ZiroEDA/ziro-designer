@@ -144,6 +144,14 @@ interface FieldDraw {
   rot: 0 | 90;
   bold: boolean;
   italic: boolean;
+  /**
+   * `(font (thickness …))`, when the field carries one.
+   *
+   * `SCH_PAINTER::getTextThickness` gives `SCH_FIELD_T` its own
+   * `GetEffectiveTextPenWidth`, so a field's explicit pen wins over the
+   * default the same way a label's does.
+   */
+  pen?: number;
   cssColor?: string;
   /** Hidden field, drawn ghosted only when "Show hidden fields" is on. */
   hidden?: boolean;
@@ -253,6 +261,7 @@ function fieldDrawsFor(
         bold: !!f.effects?.bold,
         italic: !!f.effects?.italic,
       };
+      if (f.effects?.thickness !== undefined) fd.pen = f.effects.thickness;
       if (f.effects?.hidden) fd.hidden = true;
       if (f.effects?.color) fd.cssColor = cssColor(f.effects.color);
       out.push(fd);
@@ -1094,6 +1103,7 @@ export function renderSchematic(
         0,
         !!f.effects?.bold,
         !!f.effects?.italic,
+        f.effects?.thickness,
       );
     }
   }
@@ -1187,7 +1197,18 @@ export function renderSchematic(
               : fd.key === 'Value'
                 ? theme.value
                 : theme.fields));
-      drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic);
+      drawText(
+        ctx,
+        fd.shown,
+        fd.centre,
+        fd.h,
+        color,
+        undefined,
+        fd.rot,
+        fd.bold,
+        fd.italic,
+        fd.pen,
+      );
     }
     // Locked symbols show a small padlock at the body's top-left corner
     // (SCH_PAINTER draws a lock overlay for SCH_ITEM::IsLocked items).
@@ -1286,6 +1307,7 @@ export function renderSchematic(
         f.angle % 180 === 90 ? 90 : 0,
         f.effects?.bold,
         f.effects?.italic,
+        f.effects?.thickness,
       );
     }
 
@@ -1697,6 +1719,7 @@ function drawBoxText(
       0,
       effects?.bold ?? false,
       effects?.italic ?? false,
+      effects?.thickness,
     );
   });
 }
@@ -2970,6 +2993,9 @@ function drawLibUnit(
         theme.symbolOutline,
         g.effects?.justify,
         g.angle,
+        g.effects?.bold,
+        g.effects?.italic,
+        g.effects?.thickness,
       );
       continue;
     }
