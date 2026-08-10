@@ -162,7 +162,6 @@ describe('no entry is silently inert', () => {
       'Show OP Voltages',
       'Show OP Currents',
       'Show Pin Alternate Icons',
-      'Import Sheet...',
       'Show Bus Syntax Help',
       'Compare Symbol with Library',
       'Simulator',

@@ -1064,6 +1064,14 @@ export function SchematicEditor({
   const [ercRunning, setErcRunning] = useState<readonly string[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * `SCH_ACTIONS::importSheet`'s file picker.
+   *
+   * Deliberately not `fileInputRef`: that one runs `openFile`, which *replaces*
+   * the open document. Importing brings another schematic's contents *into* this
+   * one, so the two must not share an input.
+   */
+  const importSheetInputRef = useRef<HTMLInputElement>(null);
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   const libById = useMemo<Map<string, LibSymbol>>(
@@ -5110,6 +5118,13 @@ export function SchematicEditor({
           syncPage.current = sel >= 0 ? sel : 0;
           setSyncPinsOpen(entries);
         }
+      } else if (id === 'importSheet') {
+        // `SCH_DRAWING_TOOLS::ImportSheet`. Upstream loads the file, selects
+        // everything it brought in and moves it to the cursor — which is what
+        // paste already does here, so this is paste sourced from a file rather
+        // than from the clipboard. `parsePastedText` already accepts a whole
+        // `(kicad_sch …)` document, so the reader needs nothing new.
+        importSheetInputRef.current?.click();
       } else if (id === 'importGraphics') {
         // SCH_ACTIONS::importGraphics -> EE_GRAPHIC_TOOL::ImportGraphics: the
         // dialog parses, and only its OK produces anything to place.
@@ -6688,6 +6703,32 @@ export function SchematicEditor({
           const f = e.target.files?.[0];
           if (f) openFile(f);
           e.target.value = '';
+        }}
+      />
+      <input
+        ref={importSheetInputRef}
+        type="file"
+        accept=".kicad_sch"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          void f.text().then((text) => {
+            setDoc((d) => {
+              // 'unique' is upstream's default: `keep_annotations` off, so the
+              // imported symbols are re-annotated rather than arriving with the
+              // source sheet's references and colliding with this one's.
+              const payload = d ? parsePastedText(text, d, 'unique') : null;
+              if (payload) {
+                setActiveTool('select');
+                setPastePending(payload);
+              } else {
+                setInfoBar('No schematic items found in that file.');
+              }
+              return d;
+            });
+          });
         }}
       />
       <input

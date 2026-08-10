@@ -237,7 +237,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Pins from Sheet', 'sheetPin', 'sheetPin'),
         actNoIcon('Sync Sheet Pins...', 'syncSheetPins'),
         actNoIcon('Sync All Sheet Pins...', 'syncAllSheetPins'),
-        stub('Import Sheet...'),
+        actNoIcon('Import Sheet...', 'importSheet'),
         SEP,
         tool('Draw Text', 'text', 'placeText', 'T'),
         tool('Draw Text Boxes', 'textBox', 'textBox'),
