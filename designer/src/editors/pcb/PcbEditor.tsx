@@ -5012,12 +5012,9 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
-    // Undo the live-ratsnest preview (the board didn't change).
-    if (liveRatsRef.current)
-      ratsDrawRef.current = filterRatsRef.current(
-        ratsnestEdgesRef.current,
-        selectedNetsRef.current,
-      );
+    // Undo the live-ratsnest preview (the board didn't change). Back at rest,
+    // so the moving items' airwires go away with the gesture.
+    if (liveRatsRef.current) ratsDrawRef.current = filterRatsRef.current(ratsnestEdgesRef.current);
     if (applied) {
       moveSceneRef.current = null;
       moveOriginRef.current = null;
@@ -6063,9 +6060,15 @@ export function PcbEditor({
   // Airwires filtered/colored for display, kept in a ref for the draw pass.
   const ratsDrawRef = useRef<{ e: RatsnestEdge; color: string }[]>([]);
   useEffect(() => {
-    ratsDrawRef.current = filterRats(ratsnestEdges, selectedNets);
+    // No forced nets at rest. KiCad's local ratsnest is *dynamic* — its own
+    // comment calls it "the ratsnest for objects that may be currently being
+    // moved" — and `updateLocalRatsnest` is posted only by the move tool and by
+    // the Local Ratsnest tool, never by a selection change. Passing the
+    // selection here made simply clicking a footprint light up its airwires
+    // with the ratsnest switched off, which pcbnew does not do.
+    ratsDrawRef.current = filterRats(ratsnestEdges);
     requestDraw();
-  }, [ratsnestEdges, selectedNets, filterRats, requestDraw]);
+  }, [ratsnestEdges, filterRats, requestDraw]);
 
   // Net colors mode "All": copper items of explicitly-colored nets get an
   // overlay tint (tracks/arcs/vias/zones; pads keep their layer color for now).
