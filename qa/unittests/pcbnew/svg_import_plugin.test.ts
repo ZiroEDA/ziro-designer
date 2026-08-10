@@ -67,6 +67,14 @@ class RECORDING_IMPORTER extends GRAPHICS_IMPORTER {
   ): void {
     this.calls.push({ kind: 'circle', center, radius, stroke, filled });
   }
+  // SVG has no ellipse primitive of its own — nanosvg turns one into cubics —
+  // so these exist only to satisfy the base class.
+  AddEllipse(): void {
+    throw new Error('an SVG import should never produce an ellipse');
+  }
+  AddEllipseArc(): void {
+    throw new Error('an SVG import should never produce an elliptical arc');
+  }
   AddArc(center: Vec2, start: Vec2, _angle: EDA_ANGLE, stroke: IMPORTED_STROKE): void {
     this.calls.push({ kind: 'arc', center, start, stroke });
   }

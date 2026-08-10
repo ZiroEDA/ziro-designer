@@ -259,6 +259,41 @@ export class GRAPHICS_IMPORTER_PCBNEW extends GRAPHICS_IMPORTER<IMPORTED_ITEM> {
    * degrades to the chord rather than being dropped: upstream cannot test the
    * final coordinates because the arc may still be moved before it is placed.
    */
+  /**
+   * `AddEllipse`, which a board cannot yet hold.
+   *
+   * Upstream builds a `PCB_SHAPE` of `SHAPE_T::ELLIPSE`. Our board model has no
+   * such shape — `PcbShape.kind` runs line, arc, circle, rect, poly, curve — so
+   * there is nothing to map onto, and an ellipse flattened to a polygon here
+   * would be an editing dead end rather than a shape. It is reported and
+   * dropped, which is what the DXF plugin used to do one layer lower; the
+   * schematic, whose model does have an ellipse, imports it properly.
+   */
+  AddEllipse(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+    aFilled: boolean,
+    aFillColor: Color4d,
+  ): void {
+    this.ReportMsg('Ellipses are not supported on a board and were not imported.');
+  }
+
+  /** `AddEllipseArc`. Dropped for the same reason as {@link AddEllipse}. */
+  AddEllipseArc(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStartAngle: EDA_ANGLE,
+    aEndAngle: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+  ): void {
+    this.ReportMsg('Ellipses are not supported on a board and were not imported.');
+  }
+
   AddArc(aCenter: Vec2, aStart: Vec2, aAngle: EDA_ANGLE, aStroke: IMPORTED_STROKE): void {
     const end = RotatePointD(aStart, aCenter, aAngle.negate());
     const mid = RotatePointD(aStart, aCenter, aAngle.negate().divide(2.0));
