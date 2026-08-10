@@ -60,6 +60,8 @@ import {
   setBoardPageSettings,
   serializeBoard,
   buildRatsnest,
+  prepareLocalRatsnest,
+  type LocalRatsnest,
   addBoardShape,
   addBoardTrack,
   addBoardVia,
@@ -2576,8 +2578,8 @@ export function PcbEditor({
    * the rebuild path (Canvas2D, a router drag, or items with no ranges).
    */
   const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
-  /** The nets the moving items belong to, and the airwires of all the others. */
-  const movingNetsRef = useRef<ReadonlySet<number>>(new Set());
+  /** The moving items' airwires, bucketed once at grab and only moved after. */
+  const localRatsRef = useRef<LocalRatsnest | null>(null);
   const ratsOtherRef = useRef<RatsnestEdge[]>([]);
 
   // Recompile the render scene for a new board and repaint (edits change geometry).
@@ -4467,29 +4469,18 @@ export function PcbEditor({
       gl.canMoveItems(affected);
     inPlaceMoveRef.current = inPlace ? { x: 0, y: 0 } : null;
     if (inPlace && liveRatsRef.current) {
-      // Only the moving items' nets change while they move, so the rest of the
-      // airwires are computed once here and reused every frame — the same
-      // scoping KiCad does, and what keeps a live ratsnest inside a frame.
-      const mine = new Set<number>();
-      for (const id of sel) {
-        const ref = parseBoardItemId(id);
-        if (!ref) continue;
-        if (ref.kind === 'footprint') {
-          for (const pad of brd.footprints[ref.index]?.pads ?? [])
-            if (pad.net && pad.net > 0) mine.add(pad.net);
-        } else if (ref.kind === 'pad') {
-          const pad = brd.footprints[ref.index]?.pads[ref.sub ?? 0];
-          if (pad?.net && pad.net > 0) mine.add(pad.net);
-        } else if (ref.kind === 'track') {
-          const n = brd.tracks[ref.index]?.net;
-          if (n && n > 0) mine.add(n);
-        } else if (ref.kind === 'via') {
-          const n = brd.vias[ref.index]?.net;
-          if (n && n > 0) mine.add(n);
-        }
-      }
-      movingNetsRef.current = mine;
-      ratsOtherRef.current = ratsnestEdgesRef.current.filter((e) => !mine.has(e.net));
+      // Bucket once here and only translate afterwards, which is what
+      // `calculateSelectionRatsnest` does: build the moving items' connectivity
+      // on the first frame, block them out of the board's own graph, then only
+      // `Move( aDelta )` for the rest of the gesture.
+      const local = prepareLocalRatsnest(
+        deleteBoardItems(brd, affected),
+        subsetBoardItems(brd, affected),
+      );
+      localRatsRef.current = local;
+      ratsOtherRef.current = ratsnestEdgesRef.current.filter((e) => !local.nets.has(e.net));
+    } else {
+      localRatsRef.current = null;
     }
     if (inPlace) {
       moveSceneRef.current = null;
@@ -4911,13 +4902,11 @@ export function PcbEditor({
         // The airwires follow the part, as they do in pcbnew — the shortcut
         // past the rebuild must not skip this, or the ratsnest stays pinned to
         // where the footprint used to be.
-        if (liveRatsRef.current) {
-          const mine = buildRatsnest(moveBoardItems(brd, movingSelRef.current, delta), {
-            onlyNets: movingNetsRef.current,
-          });
+        const local = localRatsRef.current;
+        if (local) {
           ratsDrawRef.current = filterRatsRef.current(
-            [...ratsOtherRef.current, ...mine],
-            selectedNetsRef.current,
+            [...ratsOtherRef.current, ...local.at(delta)],
+            local.nets,
           );
         }
         requestDraw();
@@ -4971,6 +4960,7 @@ export function PcbEditor({
     const hadOverlay =
       moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
     inPlaceMoveRef.current = null;
+    localRatsRef.current = null;
     const trackDrag = trackDragRef.current;
     trackDragRef.current = null;
     dragModeRef.current = false;
@@ -5005,6 +4995,7 @@ export function PcbEditor({
     // shift back — far cheaper than rebuilding a board that never changed.
     const applied = inPlaceMoveRef.current;
     inPlaceMoveRef.current = null;
+    localRatsRef.current = null;
     if (applied && (applied.x !== 0 || applied.y !== 0)) {
       glRef.current?.moveItems(dragAffectedRef.current, -applied.x, -applied.y);
     }

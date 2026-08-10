@@ -18,7 +18,16 @@ import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
-import { buildRatsnest } from '@ziroeda/pcbnew/src/ratsnest.js';
+import {
+  buildRatsnest,
+  prepareLocalRatsnest,
+  type RatsnestEdge,
+} from '@ziroeda/pcbnew/src/ratsnest.js';
+import {
+  deleteBoardItems,
+  moveBoardItems,
+  subsetBoardItems,
+} from '@ziroeda/pcbnew/src/edit-board.js';
 
 const MM = 1e6;
 const board = (): Board =>
@@ -111,5 +120,52 @@ describe('the live ratsnest is scoped to the nets that moved', () => {
 
   it('an empty set computes nothing', () => {
     expect(buildRatsnest(board(), { onlyNets: new Set() })).toEqual([]);
+  });
+});
+
+describe('the drag ratsnest is bucketed once and then only moved', () => {
+  // KiCad's calculateSelectionRatsnest builds the moving items' connectivity on
+  // the first frame, blocks them out of the board's graph, and thereafter only
+  // calls Move( aDelta ). This checks ours lands on the same airwires as a full
+  // recompute would — an airwire is undirected, so the endpoints are normalised
+  // before comparing, which is exactly the trap that made a correct
+  // implementation look broken.
+  const key = (e: RatsnestEdge): string => {
+    const a = `${Math.round(e.ax)},${Math.round(e.ay)}`;
+    const b = `${Math.round(e.bx)},${Math.round(e.by)}`;
+    return `${e.net}:${a < b ? `${a}|${b}` : `${b}|${a}`}`;
+  };
+
+  it('gives the same airwires as recomputing the whole board', () => {
+    const b = board();
+    const sel = new Set(['footprint:0']);
+    const local = prepareLocalRatsnest(deleteBoardItems(b, sel), subsetBoardItems(b, sel));
+    for (const d of [
+      { x: 0, y: 0 },
+      { x: 3 * MM, y: -1 * MM },
+      { x: -4 * MM, y: 6 * MM },
+    ]) {
+      const incremental = local.at(d).map(key).sort();
+      const full = buildRatsnest(moveBoardItems(b, sel, d), { onlyNets: local.nets })
+        .map(key)
+        .sort();
+      expect(incremental, `delta ${d.x},${d.y}`).toEqual(full);
+    }
+  });
+
+  it('translates from the original each time rather than compounding', () => {
+    const b = board();
+    const sel = new Set(['footprint:0']);
+    const local = prepareLocalRatsnest(deleteBoardItems(b, sel), subsetBoardItems(b, sel));
+    local.at({ x: 10 * MM, y: 10 * MM });
+    const second = local
+      .at({ x: 1 * MM, y: 0 })
+      .map(key)
+      .sort();
+    const fresh = prepareLocalRatsnest(deleteBoardItems(b, sel), subsetBoardItems(b, sel))
+      .at({ x: 1 * MM, y: 0 })
+      .map(key)
+      .sort();
+    expect(second).toEqual(fresh);
   });
 });
