@@ -388,3 +388,70 @@ void main() {
   fragColor = v_color;
 }
 `;
+
+/**
+ * Bitmap-font glyphs: one textured quad each, sampled from the MSDF atlas.
+ *
+ * This is KiCad's `SHADER_FONT` branch (`common/gal/shaders/kicad_frag.glsl`)
+ * and nothing else. The atlas is a *multi-channel* signed distance field, so a
+ * glyph is one texture fetch and a threshold whatever the zoom: no mipmap
+ * chain, no re-rasterising, and corners stay sharp where a plain distance field
+ * rounds them off. It is also why pad numbers do not thicken with the pen width
+ * the painter sets — there is no pen.
+ */
+export const GLYPH_VERT = `${COMMON}
+layout(location = 0) in vec2 a_pos;   // world
+layout(location = 1) in vec2 a_uv;    // atlas, normalised
+layout(location = 2) in vec4 a_color;
+
+// The pass's layer depth, in clip space. Every glyph of one pass shares it, so
+// the depth test keeps the first fragment to reach a pixel and rejects the
+// rest — which is how KiCad stops crossing net names from compounding their
+// alpha. See u_depth's use in device.ts.
+uniform float u_depth;
+
+out vec2 v_uv;
+out vec4 v_color;
+
+void main() {
+  v_uv = a_uv;
+  v_color = a_color;
+  vec4 p = pixelToClip(worldToPixel(a_pos));
+  gl_Position = vec4(p.xy, u_depth, p.w);
+}
+`;
+
+export const GLYPH_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+in vec4 v_color;
+
+uniform sampler2D u_atlas;
+uniform vec2 u_atlasSize;   // texels, for the derivative below
+
+out vec4 fragColor;
+
+/** The middle of the three distance channels — msdfgen's decoder. */
+float median(vec3 v) {
+  return max(min(v.r, v.g), min(max(v.r, v.g), v.b));
+}
+
+void main() {
+  // Zoom-adaptive filtering: how far the distance field moves per screen pixel
+  // sets the width of the threshold ramp, so a glyph is crisp when large and
+  // fades honestly when small, with no explicit level of detail anywhere.
+  //
+  // KiCad writes this as length(dFdx(tex)) * u_fontTextureWidth / 4, taking the
+  // *width* as the scale for a derivative that has a v component too. That is
+  // near enough on its 1024 x 1107 sheet, where the two axes are within 8% of
+  // each other, but ours is repacked to 512 x 135 and it would be off by four.
+  // Converting to texels first is the same quantity the C++ is reaching for and
+  // is independent of how the atlas happens to be packed.
+  float derivative = length(dFdx(v_uv * u_atlasSize)) / 4.0;
+  float dist = median(texture(u_atlas, v_uv).rgb);
+  float alpha = smoothstep(0.5 - derivative, 0.5 + derivative, dist) * v_color.a;
+  if (alpha <= 0.0) discard;
+  fragColor = vec4(v_color.rgb, alpha);
+}
+`;

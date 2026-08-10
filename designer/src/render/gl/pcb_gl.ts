@@ -130,6 +130,28 @@ export class PcbGl {
 
   /** Geometry drawn between the board's layers, rebuilt every frame. */
   private readonly innerScene = new Scene(true);
+  /** Geometry drawn over the board, rebuilt every frame. */
+  private readonly textScene = new Scene(true);
+
+  /**
+   * A recorder over `scene`, set up for a per-frame pass at `viewScale`.
+   *
+   * No origin shift, unlike `recordBoardScene`: that one records the whole
+   * board through a synthetic view offset by half the world so nothing at a
+   * negative coordinate is culled, and takes the shift back out here. A
+   * per-frame pass has already decided what is on screen — it culls against the
+   * *real* viewport, which is the point of laying it out per frame — so it
+   * hands over plain world coordinates and the device applies the view.
+   */
+  private perFrame(scene: Scene, viewScale: number): GlRecorder {
+    const scale = viewScale > 0 && Number.isFinite(viewScale) ? viewScale : 1;
+    return new GlRecorder(scene, {
+      referenceScale: scale,
+      worldScale: scale,
+      devicePixelRatio: 1,
+      hairlines: 'solid',
+    });
+  }
 
   /**
    * Record the back-side net names for this frame and draw them at the depth
@@ -139,19 +161,25 @@ export class PcbGl {
    */
   recordInner(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
     this.innerScene.clear();
-    const scale = viewScale > 0 && Number.isFinite(viewScale) ? viewScale : 1;
-    const extent = 2 * WORLD_HALF * scale;
-    const rec = new GlRecorder(this.innerScene, {
-      referenceScale: scale,
-      worldScale: scale,
-      devicePixelRatio: 1,
-      hairlines: 'solid',
-      originX: extent / 2,
-      originY: extent / 2,
-    });
-    fn(rec as unknown as CanvasRenderingContext2D);
+    fn(this.perFrame(this.innerScene, viewScale) as unknown as CanvasRenderingContext2D);
     this.innerScene.closeItem();
     this.device.uploadInner(this.innerScene);
+  }
+
+  /**
+   * The same, for the pass drawn *over* the board: track and via net names and
+   * through-hole pad text.
+   *
+   * It is on the GPU rather than on the 2D overlay because the glyphs come from
+   * a texture: a multi-channel distance field needs a shader to decode, and
+   * Canvas2D has nowhere to put one. Being here also lets the depth test do
+   * what KiCad's layer depths do and stop crossing labels compounding.
+   */
+  recordText(fn: (ctx: CanvasRenderingContext2D) => void, viewScale: number): void {
+    this.textScene.clear();
+    fn(this.perFrame(this.textScene, viewScale) as unknown as CanvasRenderingContext2D);
+    this.textScene.closeItem();
+    this.device.uploadText(this.textScene);
   }
 
   render(
@@ -241,6 +269,19 @@ export class PcbGl {
   /** Force a re-record on the next draw; for a context loss or a resize. */
   invalidate(): void {
     this.recorded = null;
+  }
+
+  /**
+   * Ask for one more frame once the bitmap-font sheet has been decoded.
+   *
+   * The image is fetched asynchronously, and a board is normally drawn several
+   * times before it lands. Glyph runs are skipped until the texture exists — an
+   * untextured quad would be a black box over every pad — so the first frame
+   * after it arrives has to be asked for, or the net names wait for whatever
+   * the user does next.
+   */
+  set onAtlasLoaded(fn: (() => void) | null) {
+    this.device.onAtlasLoaded = fn;
   }
 
   get isLost(): boolean {

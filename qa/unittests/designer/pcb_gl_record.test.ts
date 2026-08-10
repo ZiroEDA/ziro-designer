@@ -26,7 +26,7 @@ import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
-import { Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
+import { Scene, SEGMENT_STRIDE, type RunKind } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
 
 const board = (): Board =>
@@ -170,7 +170,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     const s = recordOrdered();
     // Nothing may be dropped, duplicated or reordered: read in sequence, the
     // runs have to walk each buffer from its start to its end exactly once.
-    const next = { tri: 0, seg: 0, disc: 0 };
+    const next: Record<RunKind, number> = { tri: 0, seg: 0, disc: 0, glyph: 0 };
     for (const run of s.runs) {
       expect(run.start).toBe(next[run.kind]);
       expect(run.count).toBeGreaterThan(0);
@@ -179,6 +179,7 @@ describe('an ordered scene records painter order across the primitive kinds', ()
     expect(next.tri).toBe(s.triangleVertexCount);
     expect(next.seg).toBe(s.segmentCount);
     expect(next.disc).toBe(s.discCount);
+    expect(next.glyph).toBe(s.glyphVertexCount);
   });
 
   it('keeps a fill recorded after a stroke after it', () => {

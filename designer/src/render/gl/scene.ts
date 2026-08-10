@@ -144,6 +144,31 @@ export class F32Buffer {
     this.len = n;
   }
 
+  /** Append one glyph vertex: position(2), texture coords(2), rgba(4). */
+  pushGlyph(
+    x: number,
+    y: number,
+    u: number,
+    v: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+  ): void {
+    this.ensure(8);
+    const t = this.data;
+    let n = this.len;
+    t[n++] = x;
+    t[n++] = y;
+    t[n++] = u;
+    t[n++] = v;
+    t[n++] = r;
+    t[n++] = g;
+    t[n++] = b;
+    t[n++] = a;
+    this.len = n;
+  }
+
   /** A view of exactly the written floats. Not a copy: valid until the next push. */
   view(): Float32Array {
     return this.data.subarray(0, this.len);
@@ -168,6 +193,10 @@ export const SEGMENT_STRIDE = 10;
 export const DISC_STRIDE = 8;
 /** Floats per triangle vertex: position(2) rgba(4). */
 export const TRIANGLE_STRIDE = 6;
+/** Floats per glyph vertex: position(2) texture coords(2) rgba(4). */
+export const GLYPH_VERTEX_STRIDE = 8;
+/** Vertices per glyph: two triangles, not indexed. */
+export const GLYPH_VERTICES = 6;
 
 /** Premultiplied-alpha-free RGBA, each channel 0..1. */
 export interface Rgba {
@@ -177,8 +206,8 @@ export interface Rgba {
   a: number;
 }
 
-/** Which of the three programs draws a run. */
-export type RunKind = 'tri' | 'seg' | 'disc';
+/** Which program draws a run. */
+export type RunKind = 'tri' | 'seg' | 'disc' | 'glyph';
 
 /**
  * A maximal stretch of consecutive primitives of one kind.
@@ -245,6 +274,14 @@ export class Scene {
   readonly segments = new F32Buffer(4096);
   readonly discs = new F32Buffer(256);
   readonly triangles = new F32Buffer(1024);
+  /**
+   * Textured quads sampled from the bitmap-font atlas — the pad numbers and net
+   * names KiCad draws with `BitmapText` rather than with the stroke font.
+   *
+   * Only the per-frame net-name passes record these, so the buffer starts small
+   * and is rebuilt each frame from what is actually on screen.
+   */
+  readonly glyphs = new F32Buffer(512);
   /** Empty on an unordered scene; the device then falls back to three draws. */
   readonly runs: Run[] = [];
   /** Vertex ranges per board item; empty unless the recorder named owners. */
@@ -322,7 +359,9 @@ export class Scene {
         ? this.triangleVertexCount - count
         : kind === 'seg'
           ? this.segmentCount - count
-          : this.discCount - count;
+          : kind === 'glyph'
+            ? this.glyphVertexCount - count
+            : this.discCount - count;
     this.runs.push({ kind, start, count });
   }
 
@@ -361,8 +400,44 @@ export class Scene {
     this.note('tri', 3);
   }
 
+  /**
+   * One glyph from the bitmap-font atlas: the four corners of its box, already
+   * placed in world coordinates by `layoutBitmapText`, and its atlas window.
+   *
+   * Two triangles rather than an instanced quad, because unlike a segment or a
+   * disc every corner carries its own texture coordinate and the rectangle can
+   * be rotated — there is no shared unit quad to expand from.
+   */
+  glyph(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    x3: number,
+    y3: number,
+    u0: number,
+    v0: number,
+    u1: number,
+    v1: number,
+    c: Rgba,
+  ): void {
+    const g = this.glyphs;
+    g.pushGlyph(x0, y0, u0, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x1, y1, u1, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x2, y2, u0, v1, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x1, y1, u1, v0, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x2, y2, u0, v1, c.r, c.g, c.b, c.a);
+    g.pushGlyph(x3, y3, u1, v1, c.r, c.g, c.b, c.a);
+    this.note('glyph', GLYPH_VERTICES);
+  }
+
   get segmentCount(): number {
     return this.segments.length / SEGMENT_STRIDE;
+  }
+  get glyphVertexCount(): number {
+    return this.glyphs.length / GLYPH_VERTEX_STRIDE;
   }
   get discCount(): number {
     return this.discs.length / DISC_STRIDE;
@@ -373,13 +448,19 @@ export class Scene {
 
   /** Whether anything at all was recorded. */
   get isEmpty(): boolean {
-    return this.segments.length === 0 && this.discs.length === 0 && this.triangles.length === 0;
+    return (
+      this.segments.length === 0 &&
+      this.discs.length === 0 &&
+      this.triangles.length === 0 &&
+      this.glyphs.length === 0
+    );
   }
 
   clear(): void {
     this.segments.clear();
     this.discs.clear();
     this.triangles.clear();
+    this.glyphs.clear();
     this.runs.length = 0;
     this.marks.clear();
     this.itemRanges.clear();

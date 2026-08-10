@@ -111,6 +111,22 @@ excluded from formatting and linting so it stays byte-identical to upstream.
 > OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
+## Ubuntu (bitmap font atlas)
+
+`designer/src/render/gl/bitmap_font.png` and the metrics in `bitmap_font.ts` are
+generated from KiCad's `common/gal/opengl/bitmap_font_img.c` and
+`bitmap_font_desc.c`, a signed-distance-field atlas of the **Ubuntu** typeface
+baked by msdf-atlasgen. KiCad's OpenGL GAL draws pad numbers and net names from
+it rather than from the stroke font, so matching what pcbnew puts on screen means
+shipping the same glyphs. `tools/gen_bitmap_font.mjs` regenerates both from a
+KiCad checkout; it repacks the printable ASCII range into a smaller sheet and
+copies the texels unchanged.
+
+Ubuntu is Copyright 2010, 2011 Canonical Ltd, licensed under the Ubuntu Font
+Licence 1.0.
+
+- Licence text: `designer/src/render/gl/bitmap_font-LICENCE.txt`
+
 ## Runtime dependencies
 
 The npm packages listed in each `package.json` carry their own licences. Run

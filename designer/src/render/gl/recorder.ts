@@ -38,6 +38,7 @@
 
 import { arcToPolyline, dashPolyline, ellipseToPolyline, type Pt } from './tessellate.js';
 import { triangulateRings } from './holes.js';
+import { layoutBitmapText, type BitmapTextPlacement } from './bitmap_text.js';
 import { BITMAP_MINPX_FLAG, parseColor, type Rgba, type Scene } from './scene.js';
 import type { GlPath } from './gl_path.js';
 
@@ -584,6 +585,48 @@ export class GlRecorder {
    */
   mark(name: string): void {
     this.scene.mark(name);
+  }
+
+  /**
+   * `m_gal->BitmapText()`: a run of text sampled from the font atlas.
+   *
+   * The one kind of drawing that has no Canvas2D spelling at all, which is why
+   * it is a method of its own rather than something that falls out of `stroke`.
+   * KiCad's own split is the same: pad numbers and net names go through
+   * `BitmapText` and everything else on the board is stroked, and the visible
+   * consequence is that these labels ignore the pen width the painter sets
+   * around them.
+   *
+   * Positions come out of `layoutBitmapText` already in world units, but they
+   * still go through the recorder's transform: a caller that set up a view
+   * matrix (as the net-name pass does) needs it divided back out, or the text
+   * would be the one thing in the buffer that depended on the zoom.
+   */
+  bitmapText(text: string, place: BitmapTextPlacement): void {
+    this.sync();
+    const c = this.color(this.st.strokeStyle, this.st.globalAlpha);
+    const m = this.st.ctm;
+    const wx = (x: number, y: number): number =>
+      (m[0] * x + m[2] * y + m[4] - this.originX) / this.worldScale;
+    const wy = (x: number, y: number): number =>
+      (m[1] * x + m[3] * y + m[5] - this.originY) / this.worldScale;
+    layoutBitmapText(text, place, (x0, y0, x1, y1, x2, y2, x3, y3, u0, v0, u1, v1) => {
+      this.scene.glyph(
+        wx(x0, y0),
+        wy(x0, y0),
+        wx(x1, y1),
+        wy(x1, y1),
+        wx(x2, y2),
+        wy(x2, y2),
+        wx(x3, y3),
+        wy(x3, y3),
+        u0,
+        v0,
+        u1,
+        v1,
+        c,
+      );
+    });
   }
 
   /**

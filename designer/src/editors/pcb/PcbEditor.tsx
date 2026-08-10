@@ -1877,6 +1877,24 @@ export function PcbEditor({
           'under',
         );
       }, v.scale);
+      // And the pass drawn over it — track and via names and through-hole pad
+      // text. On the GPU rather than on the 2D overlay because these are the
+      // labels KiCad draws with `BitmapText`, and a distance-field atlas needs
+      // a shader to decode: Canvas2D has nowhere to put one.
+      gl.recordText((rec) => {
+        drawNetNames(
+          rec,
+          scene,
+          v,
+          visible,
+          canvas.width,
+          canvas.height,
+          { ...drawOpts, minPenWidth: 0 },
+          dimmedRef.current ? 'dimmed' : 'none',
+          dpr,
+          'over',
+        );
+      }, v.scale);
       gl.render(
         {
           scene,
@@ -1897,23 +1915,6 @@ export function PcbEditor({
       // device; come straight back for the Canvas2D recovery frame rather
       // than leaving this half-drawn one up until the next interaction.
       if (gl.isLost) requestDrawRef.current();
-      // Track and via net names exist only past their ViewGetLOD zoom, so they
-      // cannot live in the retained scene — the recording would freeze one
-      // zoom's answer. Laid out here per frame instead, on the overlay, which
-      // is the same place KiCad puts them (netname layers sit above copper).
-      drawNetNames(
-        ctx,
-        scene,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        drawOpts,
-        dimmedRef.current ? 'dimmed' : 'none',
-        dpr,
-        'over',
-      );
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
     } else {
       // The GL layer sits *above* the background and below everything else, so
       // a buffer left on it from an earlier frame keeps showing through: a
@@ -2573,6 +2574,11 @@ export function PcbEditor({
     glRef.current = PcbGl.create(canvas);
     glOkRef.current = glRef.current !== null;
     if (!glOkRef.current) console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
+    // The bitmap-font sheet is fetched and decoded asynchronously, and the
+    // board is normally on screen before it lands. Glyph runs are skipped until
+    // it does, so the frame that finally shows the net names has to be asked
+    // for; without this they wait for the next pan or zoom.
+    if (glRef.current) glRef.current.onAtlasLoaded = () => requestDrawRef.current();
     // A lost context is not something we can prevent, only something we can
     // survive. Dropping the device is not enough: the scene on hand is full of
     // GL paths that a 2D canvas draws as nothing, so it has to be recompiled

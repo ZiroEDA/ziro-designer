@@ -51,6 +51,7 @@ import {
   type PcbColorTheme,
 } from './pcbTheme.js';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import type { BitmapTextPlacement } from '../../render/gl/bitmap_text.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -306,6 +307,23 @@ export interface SceneImage {
   box: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
+/**
+ * One line of a pad's text: the stroke-font item, and beside it the glyph size
+ * `draw(PAD)` actually set.
+ *
+ * They differ, and neither is redundant. KiCad calls `BitmapText`, which takes
+ * the glyph size and samples an atlas; a backend without that atlas has to
+ * stroke the same call, and `GAL::BitmapText` compensates for the metrics
+ * mismatch when it does the same thing (height x 0.95, pen x 0.74). `size`
+ * carries that compensation baked in, so the atlas path — which needs no
+ * compensation, because it is the thing being compensated for — reads
+ * {@link PadTextItem.glyph} instead.
+ */
+export interface PadTextItem extends PcbTextItem {
+  /** `GetGlyphSize().y` as the painter set it, before any compensation. */
+  glyph: number;
+}
+
 /** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
 export interface PadTextLabel {
   /** The pad centre, for viewport culling. */
@@ -319,7 +337,7 @@ export interface PadTextLabel {
    */
   layers: string[];
   /** The number and/or net-name glyph runs, in world coordinates. */
-  items: PcbTextItem[];
+  items: PadTextItem[];
 }
 
 /** One track's net label, ready for the zoom-dependent pass to place. */
@@ -997,11 +1015,11 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
   // case) maps to world coords about the pad centre.
   const anchor = (dy: number): Vec2 =>
     angle === 90 ? { x: pad.at.x + dy, y: pad.at.y } : { x: pad.at.x, y: pad.at.y + dy };
-  const items: PcbTextItem[] = [];
+  const items: PadTextItem[] = [];
   const label = (text: string, at: Vec2, glyph: number): void => {
     items.push(mkItem(text, at, glyph));
   };
-  const mkItem = (text: string, at: Vec2, glyph: number): PcbTextItem =>
+  const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
     ({
       kind: 'user',
       text,
@@ -1025,7 +1043,10 @@ function addPadLabels(scene: BoardScene, pad: PcbPad, netName: string, layers: s
       size: { x: glyph * Xscale, y: glyph * 0.95 },
       thickness: ((glyph * Xscale) / 6) * 0.74,
       bold: true,
-    }) as PcbTextItem;
+      // What `SetGlyphSize` was handed, for the backend that has the atlas and
+      // so needs none of the compensation above.
+      glyph,
+    }) as PadTextItem;
 
   if (showNet) {
     let tsize = Math.min((1.5 * along) / Math.max(netLabel.length + 1, 5), size);
@@ -2081,29 +2102,40 @@ export function drawNetNames(
   const special = opts.theme?.special ?? PCB_SPECIAL;
   const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
   const viewport = viewportInWorld(view, widthPx, heightPx);
-  const byColor = new Map<string, Map<number, Path2D>>();
+  const byColor = new Map<string, NetTextRun[]>();
   // A retained backend draws this pass at its real depth (see the mark in
   // buildDrawSteps), so it needs no stand-in; only a flat canvas, which has no
   // depth to draw into, pays for the layers above in alpha.
   const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
+  // ...and only a backend with the font atlas can draw these the way pcbnew
+  // does. The rest stroke them; see `NetTextRun`.
+  const atlas = atlasTarget(ctx);
   const attenuate = (color: string): string => {
     if (where === 'over' || retained) return color;
     const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
     if (!m) return color;
     return `rgba(${m[1]},${m[2]},${m[3]},${(m[4] !== undefined ? +m[4] : 1) * UNDER_PASS_TRANSMISSION})`;
   };
-  const mapFor = (color: string): Map<number, Path2D> => {
+  const runsFor = (color: string): NetTextRun[] => {
     let m = byColor.get(color);
     if (!m) {
-      m = new Map();
+      m = [];
       byColor.set(color, m);
     }
     return m;
   };
-  // Self-contained: the GL path calls this on the overlay canvas, whose
-  // transform is whatever the previous pass left. (On the Canvas2D path this
-  // re-states the transform the first step already set.)
-  ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+  // Self-contained: the transform is whatever the previous pass left, so state
+  // it. (On the Canvas2D path this re-states what the first step already set.)
+  //
+  // A retained target gets the scale and *nothing else*. Its buffer holds world
+  // coordinates and the device applies the view — the pan and the mirror
+  // included — so baking them in here would apply both twice. It did: the
+  // per-frame pass was recorded through the real view and un-shifted by a fixed
+  // origin that assumed the synthetic one `recordBoardScene` uses, which landed
+  // every glyph about two billion units off the board, far outside any viewport.
+  // The scale stays because the recorder derives pen widths from it.
+  if (retained) ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
+  else ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -2119,7 +2151,7 @@ export function drawNetNames(
       if ((label.layer === 'F.Cu') !== (where === 'over')) continue;
       if (!showsNetName(label, view, dpr)) continue;
       const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
-      addTrackNetName(mapFor(color), label, viewport);
+      addTrackNetName(runsFor(color), label, viewport);
     }
   }
   // LAYER_VIA_NETNAMES is up with the overlays, above every copper layer.
@@ -2130,15 +2162,14 @@ export function drawNetNames(
       if (!label.layers.some((l) => visible.has(l))) continue;
       if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
       if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
-      addViaNetName(mapFor(viaColor), label, opts.netNames);
+      addViaNetName(runsFor(viaColor), label, opts.netNames);
     }
   }
-  // Pad text, gated like everything else here (PAD::ViewGetLOD: the pad's
-  // shorter side against 0.5 mm) — plus a legibility floor standing in for the
-  // OpenGL GAL's atlas, whose mipmaps blur a glyph to nothing below a few
-  // pixels. The floor is what keeps a board-fit view's pads clean, and what
-  // bounds this pass: at any zoom where text draws at all, only the pads in
-  // the viewport and big enough to read contribute.
+  // Pad text, gated like everything else here, and on PAD::ViewGetLOD's own
+  // terms: the pad bounding box's shorter side against 0.5 mm, which is the
+  // only zoom rule the C++ has for these. A target without the atlas takes one
+  // more floor on top; see GLYPH_LEGIBLE_PX for why that is a property of
+  // stroking and not of KiCad.
   if (opts.pads && scene.padLabels.length > 0) {
     const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
     for (const label of scene.padLabels) {
@@ -2162,37 +2193,60 @@ export function drawNetNames(
       // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
       // pad's text follows the same per-layer light/dark rule as a track's:
       // dark over a copper colour bright enough to need it.
-      const map = mapFor(
+      const runs = runsFor(
         attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
       );
       for (const item of label.items) {
-        if (item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
-        addText(map, item);
+        if (!atlas && item.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
+        runs.push({ text: item.text, at: item.at, angle: item.angle, glyph: item.glyph, item });
       }
     }
   }
   if (byColor.size === 0) return;
 
-  // Composite each color group through a scratch canvas: strokes drawn at
-  // full ink, the union stamped once at the group's alpha. This is KiCad's
-  // own overlap behaviour arrived at differently — the OpenGL GAL draws all
-  // netname text at one layer depth, so a second glyph's fragments fail the
-  // depth test where a first already drew and translucent text never
-  // compounds. Stroking the same glyphs straight onto the board at 0.7 alpha
-  // made every crossing brighter than its surroundings, which is exactly the
-  // "text overlapping" a side-by-side against pcbnew shows.
+  // The atlas path: each run is one `BitmapText` call and the GPU does the
+  // rest, including the overlap — every glyph of a pass is filed at one depth,
+  // so the second label to reach a pixel is rejected rather than added to the
+  // first. That is KiCad's own mechanism, not an imitation of it.
+  if (atlas) {
+    for (const [color, runs] of byColor) {
+      ctx.strokeStyle = color;
+      for (const run of runs)
+        atlas.bitmapText(run.text, {
+          x: run.at.x,
+          y: run.at.y,
+          angle: run.angle,
+          glyphSize: run.glyph,
+          flipX: view.flipX,
+        });
+    }
+    return;
+  }
+
+  // Without it, stroke the same calls from the Newstroke font, and composite
+  // each colour group through a scratch canvas: strokes drawn at full ink, the
+  // union stamped once at the group's alpha. That reproduces the same
+  // no-compounding behaviour on a backend that has no depth to test against.
+  // Stroking straight onto the board at 0.7 alpha made every crossing brighter
+  // than its surroundings, which is exactly the "text overlapping" a
+  // side-by-side against pcbnew shows.
+  const strokeRuns = (target: CanvasRenderingContext2D, runs: NetTextRun[]): void => {
+    const map = new Map<number, Path2D>();
+    for (const run of runs) addText(map, run.item);
+    strokeAll(target, map, minPen);
+  };
   const sc = scratchFor(widthPx, heightPx);
   if (!sc) {
     // No DOM (tests, workers): stroke directly; overlaps compound, gates don't.
     asBitmapText(ctx, () => {
-      for (const [color, map] of byColor) {
+      for (const [color, runs] of byColor) {
         ctx.strokeStyle = color;
-        strokeAll(ctx, map, minPen);
+        strokeRuns(ctx, runs);
       }
     });
     return;
   }
-  for (const [color, map] of byColor) {
+  for (const [color, runs] of byColor) {
     const parsed = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
     const ink = parsed ? `rgb(${parsed[1]},${parsed[2]},${parsed[3]})` : color;
     const alpha = parsed?.[4] !== undefined ? +parsed[4] : 1;
@@ -2202,7 +2256,7 @@ export function drawNetNames(
     sc.ctx.lineCap = 'round';
     sc.ctx.lineJoin = 'round';
     sc.ctx.strokeStyle = ink;
-    strokeAll(sc.ctx, map, minPen);
+    strokeRuns(sc.ctx, runs);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
     ctx.drawImage(sc.canvas, 0, 0);
@@ -2249,9 +2303,17 @@ export const BACK_NETNAMES_MARK = 'backNetNames';
 const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;
 
 /**
- * Below this glyph height the OpenGL GAL's bitmap-font atlas is mipmapped
- * into an illegible smudge, so drawing nothing is the closer match — and the
- * bound that keeps the per-frame pad-text pass cheap.
+ * Below this glyph height a *stroked* label is dropped rather than drawn.
+ *
+ * There is no such rule in KiCad, and this applies only to the backends that
+ * have no font atlas. The OpenGL GAL's glyphs come from a distance field
+ * sampled with `GL_LINEAR` and **no mipmaps** (`opengl_gal.cpp`), so a glyph
+ * shrinking past legibility widens the shader's threshold ramp and fades to a
+ * soft grey — it never piles up. Stroke-font glyphs do pile up: every character
+ * is several sub-pixel strokes crossing, alpha compositing saturates, and a
+ * board-fit view turns into a sheet of glare that pcbnew does not have. This is
+ * the floor that stops that, and it goes away as soon as the real atlas is
+ * doing the drawing.
  */
 const GLYPH_LEGIBLE_PX = 2.5;
 
@@ -2484,7 +2546,38 @@ const VIA_NETNAME_MIN_PX = (10 * GAL_SCREEN_DPI) / 25.4;
  * ×0.75 "to handle interline, pen size", capped at the via width, with a pen
  * of a tenth of the glyph.
  */
-function addViaNetName(map: Map<number, Path2D>, label: ViaNetLabel, netNames: boolean): void {
+/**
+ * One `m_gal->BitmapText()` call, before a backend decides how to draw it.
+ *
+ * The painter makes no distinction — it sets a glyph size, a colour and an
+ * angle and calls `BitmapText`, and what happens next is the GAL's business.
+ * Ours is split the same way: the pass below gates and places the calls, and
+ * only at the end does it matter whether the target has the font atlas (draw
+ * the quads) or not (stroke `item` from the Newstroke font instead).
+ */
+interface NetTextRun {
+  text: string;
+  at: { x: number; y: number };
+  /** Degrees, as the painter's `EDA_ANGLE`. */
+  angle: number;
+  /** `GetGlyphSize().y`; the x component is ignored, as it is in the C++. */
+  glyph: number;
+  /** The same call spelled as a stroke-font item, for a target without the atlas. */
+  item: PcbTextItem;
+}
+
+/** A drawing target that can draw from the bitmap-font atlas — the GL recorder. */
+interface AtlasTarget {
+  bitmapText(text: string, place: BitmapTextPlacement): void;
+}
+
+/** That target, if this is one. Ordinary `CanvasRenderingContext2D`s are not. */
+function atlasTarget(ctx: CanvasRenderingContext2D): AtlasTarget | null {
+  const c = ctx as unknown as Partial<AtlasTarget>;
+  return typeof c.bitmapText === 'function' ? (c as AtlasTarget) : null;
+}
+
+function addViaNetName(out: NetTextRun[], label: ViaNetLabel, netNames: boolean): void {
   const showNet = netNames && label.text !== '';
   const showLayers = label.layerIds !== '';
   if (!showNet && !showLayers) return;
@@ -2495,15 +2588,22 @@ function addViaNetName(map: Map<number, Path2D>, label: ViaNetLabel, netNames: b
   const both = showNet && showLayers;
   const netY = both ? (tsize * 1.3) / 2 : 0;
   const put = (text: string, y: number): void => {
-    addText(map, {
-      kind: 'user',
+    const at = { x: label.at.x, y };
+    out.push({
       text,
-      at: { x: label.at.x, y },
+      at,
       angle: 0,
-      layer: '',
-      size: { x: tsize, y: tsize },
-      thickness: tsize / 10,
-    } as PcbTextItem);
+      glyph: tsize,
+      item: {
+        kind: 'user',
+        text,
+        at,
+        angle: 0,
+        layer: '',
+        size: { x: tsize, y: tsize },
+        thickness: tsize / 10,
+      } as PcbTextItem,
+    });
   };
   if (showNet) put(label.text, label.at.y + netY);
   if (showLayers) put(label.layerIds, label.at.y + netY - (both ? tsize * 1.3 : 0));
@@ -2516,7 +2616,7 @@ function addViaNetName(map: Map<number, Path2D>, label: ViaNetLabel, netNames: b
  * wherever you are looking. Positions outside the viewport are skipped.
  */
 function addTrackNetName(
-  map: Map<number, Path2D>,
+  out: NetTextRun[],
   label: TrackNetLabel,
   viewport: { minX: number; minY: number; maxX: number; maxY: number },
 ): void {
@@ -2549,16 +2649,23 @@ function addTrackNetName(
     const x = label.start.x + (dx * i) / divisions;
     const y = label.start.y + (dy * i) / divisions;
     if (x < viewport.minX || x > viewport.maxX || y < viewport.minY || y > viewport.maxY) continue;
-    addText(map, {
-      kind: 'user',
+    out.push({
       text: label.text,
       at: { x, y },
       angle,
-      layer: label.layer,
-      // GAL glyph size is 0.55 · textSize; the pen is textSize/12.
-      size: { x: textSize * 0.55, y: textSize * 0.55 },
-      thickness: textSize / 12,
-      source: { kind: 'list', items: [] },
+      // SetGlyphSize( textSize * 0.55 ) in renderNetNameForSegment.
+      glyph: textSize * 0.55,
+      item: {
+        kind: 'user',
+        text: label.text,
+        at: { x, y },
+        angle,
+        layer: label.layer,
+        // GAL glyph size is 0.55 · textSize; the pen is textSize/12.
+        size: { x: textSize * 0.55, y: textSize * 0.55 },
+        thickness: textSize / 12,
+        source: { kind: 'list', items: [] },
+      },
     });
   }
 }
