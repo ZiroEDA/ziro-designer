@@ -284,9 +284,6 @@ export class GlDevice {
   /** Send the document. The expensive half, and the rare one. */
   upload(scene: Scene): void {
     this.uploadInto(this.base, scene);
-    // Buffer allocation is where a starved context fails first.
-    this.healthChecks = Math.max(this.healthChecks, 1);
-    this.checkHealth();
   }
 
   /**
@@ -399,7 +396,6 @@ export class GlDevice {
       }
     }
     gl.bindVertexArray(null);
-    this.checkHealth();
   }
 
   /**
@@ -441,25 +437,17 @@ export class GlDevice {
   }
 
   /**
-   * A context can also come up "half dead" — creation and program linking
-   * succeed, but draws or buffer uploads fail from then on (seen when Chrome
-   * is starved of GPU contexts: strokes still drew while every triangle
-   * silently vanished, a board with no fills). `gl.getError()` after the
-   * first few frames catches that; it forces a sync, so it is not something
-   * to pay on every frame of a healthy device.
+   * Whether the context has been lost; the caller falls back when it has.
+   *
+   * Deliberately just `isContextLost`. A `getError()` probe lived here
+   * briefly, meant to catch a context that creates and links but then fails
+   * every draw — except `getError` reports *any* error since the last call,
+   * including harmless ones from elsewhere, and a false positive drops the
+   * board to the software renderer permanently. The case it was added for
+   * turned out to be a stale tab rather than a sick device.
    */
-  private healthChecks = 3;
-  private broken = false;
-
-  private checkHealth(): void {
-    if (this.healthChecks <= 0 || this.broken) return;
-    this.healthChecks--;
-    if (this.gl.getError() !== this.gl.NO_ERROR) this.broken = true;
-  }
-
-  /** Whether the context is lost or unhealthy; the caller falls back then. */
   get isLost(): boolean {
-    return this.broken || this.gl.isContextLost();
+    return this.gl.isContextLost();
   }
 
   dispose(): void {
