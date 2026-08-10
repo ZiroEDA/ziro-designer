@@ -150,6 +150,33 @@ export interface LabelOptions {
   italic?: boolean;
   /** Text size in IU (both dimensions); default 1.27 mm. */
   fontSize?: number;
+  /**
+   * Glyph *width* in IU, when it differs from the height.
+   *
+   * `(font (size H W))` carries two numbers and KiCad sets them independently
+   * (`SetTextHeight` / `SetTextWidth`); a graphics import is the case where they
+   * differ, because the source drawing's X and Y scales need not match.
+   * Defaults to `fontSize`, which is the square box every other caller wants.
+   */
+  fontWidth?: number;
+  /**
+   * `(justify …)`, replacing the per-kind default.
+   *
+   * A net label defaults to `left bottom` and everything else to `left`,
+   * because that is where the placement tool puts them. An importer knows the
+   * justification the source file specified and must not be overridden by it.
+   */
+  justify?: readonly string[];
+  /** `(font … (color r g b a))` — rgb 0-255, alpha 0-1. */
+  color?: readonly [number, number, number, number];
+  /**
+   * `(font … (thickness …))` in IU — an explicit glyph pen.
+   *
+   * Left out, the pen is derived from the size the way
+   * `EDA_TEXT::GetEffectiveTextPenWidth` derives it, which is what every
+   * interactive caller wants; a graphics import is the case that knows better.
+   */
+  thickness?: number;
 }
 
 /**
@@ -168,16 +195,24 @@ export function makeLabel(
   const hasShape = kind === 'global_label' || kind === 'hierarchical_label';
   const shape: LabelShape = opts.shape ?? 'bidirectional';
   const sizeIU = opts.fontSize ?? 12700;
-  const justify =
-    kind === 'label'
-      ? list(atom('justify'), atom('left'), atom('bottom'))
-      : list(atom('justify'), atom('left'));
+  const widthIU = opts.fontWidth ?? sizeIU;
+  const justifyTokens = opts.justify ?? (kind === 'label' ? ['left', 'bottom'] : ['left']);
+  const justify = list(atom('justify'), ...justifyTokens.map((t) => atom(t)));
   const fontItems: SList['items'] = [
     atom('font'),
-    list(atom('size'), atom(mm(sizeIU)), atom(mm(sizeIU))),
+    list(atom('size'), atom(mm(sizeIU)), atom(mm(widthIU))),
   ];
   if (opts.bold) fontItems.push(list(atom('bold'), atom('yes')));
   if (opts.italic) fontItems.push(list(atom('italic'), atom('yes')));
+  // EDA_TEXT::Format order: size, thickness, bold, italic, color.
+  if (opts.thickness !== undefined)
+    fontItems.splice(2, 0, list(atom('thickness'), atom(mm(opts.thickness))));
+  if (opts.color) {
+    const [r, g, b, alpha] = opts.color;
+    fontItems.push(
+      list(atom('color'), atom(String(r)), atom(String(g)), atom(String(b)), atom(String(alpha))),
+    );
+  }
   const effects = list(atom('effects'), { kind: 'list', items: fontItems }, justify);
   const items: SList['items'] = [atom(kind), str(text)];
   if (hasShape) items.push(list(atom('shape'), atom(shape)));
@@ -190,11 +225,13 @@ export function makeLabel(
     -readonly [K in keyof TextEffects]?: TextEffects[K];
   } & { hidden: boolean } = {
     hidden: false,
-    fontSize: [sizeIU, sizeIU],
-    justify: kind === 'label' ? ['left', 'bottom'] : ['left'],
+    fontSize: [sizeIU, widthIU],
+    justify: [...justifyTokens],
   };
   if (opts.bold) modelEffects.bold = true;
   if (opts.italic) modelEffects.italic = true;
+  if (opts.color) modelEffects.color = opts.color;
+  if (opts.thickness !== undefined) modelEffects.thickness = opts.thickness;
   const label: { -readonly [K in keyof SchLabel]: SchLabel[K] } = {
     kind,
     text,

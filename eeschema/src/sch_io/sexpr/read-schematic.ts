@@ -131,6 +131,10 @@ export function readEffects(node: SList): TextEffects | undefined {
     if (bareBold || boolField(font, 'bold', false)) effects.bold = true;
     const bareItalic = font.items.some((it) => it.kind === 'atom' && it.value === 'italic');
     if (bareItalic || boolField(font, 'italic', false)) effects.italic = true;
+    // `(thickness …)`: an explicit glyph pen. Only written when it is not auto,
+    // so its absence is meaningful and must stay absent rather than become 0.
+    const thick = childNamed(font, 'thickness');
+    if (thick) effects.thickness = mmToIU(numArg(thick, 0) ?? 0);
     const col = childNamed(font, 'color');
     if (col) {
       const r = numArg(col, 0) ?? 0,

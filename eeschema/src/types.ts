@@ -51,6 +51,14 @@ export interface TextEffects {
   readonly bold?: boolean;
   /** Italic face (KiCad `(font ... italic)`): glyphs sheared by ITALIC_TILT (1/8). */
   readonly italic?: boolean;
+  /**
+   * `(font … (thickness …))` — an explicit stroke pen for the glyphs, in IU.
+   *
+   * Absent means *auto*, which is the usual case: KiCad only writes the token
+   * when `GetAutoThickness()` is false, and `GetEffectiveTextPenWidth` then
+   * derives a pen from the size (and from bold). Present, it overrides both.
+   */
+  readonly thickness?: number;
   /** Explicit text colour [r,g,b,a] from `(font ... (color ...))`, if any. */
   readonly color?: readonly [number, number, number, number];
   readonly hidden: boolean;

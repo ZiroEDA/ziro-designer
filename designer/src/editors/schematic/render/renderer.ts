@@ -2256,8 +2256,24 @@ function drawLabel(
     angleDeg = 0,
     bold = false,
     italic = false,
+    /**
+     * `(font … (thickness …))`, when the item carries one.
+     *
+     *     int penWidth = GetTextThickness();
+     *     if( penWidth <= 1 ) { … derive from size and bold … }
+     *
+     * so an explicit pen wins over both the default and the bold rule, and a
+     * value of 1 or less is not a pen at all — it is the "auto" the token's
+     * absence normally says.
+     */
+    thickness?: number,
   ): void => {
-    const pen = bold ? size / 5 : Math.min(g_defaultPen, size * 0.25);
+    const pen =
+      thickness !== undefined && thickness > 1
+        ? thickness
+        : bold
+          ? size / 5
+          : Math.min(g_defaultPen, size * 0.25);
     drawText(
       ctx,
       text,
@@ -2416,6 +2432,7 @@ function drawLabel(
     vertical ? 90 : 0,
     l.effects?.bold ?? false,
     l.effects?.italic ?? false,
+    l.effects?.thickness,
   );
 }
 
