@@ -397,6 +397,41 @@ export abstract class GRAPHICS_IMPORTER<TItem = unknown> {
     aEnd: Vec2,
     aStroke: IMPORTED_STROKE,
   ): void;
+
+  /**
+   * A closed ellipse.
+   *
+   * @param aCenter the centre, in mm.
+   * @param aMajorRadius the semi-major radius, in mm.
+   * @param aMinorRadius the semi-minor radius, in mm.
+   * @param aRotation the major axis's rotation from +X, counter-clockwise.
+   */
+  abstract AddEllipse(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+    aFilled: boolean,
+    aFillColor: Color4d,
+  ): void;
+
+  /**
+   * An elliptical arc.
+   *
+   * @param aStartAngle the parametric angle of the arc start, counter-clockwise
+   *   from the *major axis* rather than from +X.
+   * @param aEndAngle the parametric angle of the arc end.
+   */
+  abstract AddEllipseArc(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStartAngle: EDA_ANGLE,
+    aEndAngle: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+  ): void;
 }
 
 /**
@@ -733,6 +768,168 @@ export class IMPORTED_SPLINE extends IMPORTED_SHAPE {
 }
 
 /**
+ * `IMPORTED_ELLIPSE`.
+ *
+ * The axes are held as radii and a rotation rather than as vectors, so
+ * `Transform` has to rebuild them: it sends a major-axis vector and a
+ * minor-axis vector through the matrix and reads the new lengths and tilt back
+ * off them. That is exact for a rotation and for any scale along those axes,
+ * and wrong for a shear — which upstream says in as many words ("no shear
+ * support") because a sheared ellipse is still an ellipse but not one these
+ * three numbers can describe.
+ */
+export class IMPORTED_ELLIPSE extends IMPORTED_SHAPE {
+  constructor(
+    private m_center: Vec2,
+    private m_majorRadius: number,
+    private m_minorRadius: number,
+    private m_rotation: EDA_ANGLE,
+    private m_stroke: IMPORTED_STROKE,
+    private m_filled: boolean,
+    private m_fillColor: Color4d,
+  ) {
+    super();
+  }
+
+  ImportTo(aImporter: GRAPHICS_IMPORTER): void {
+    aImporter.AddEllipse(
+      this.m_center,
+      this.m_majorRadius,
+      this.m_minorRadius,
+      this.m_rotation,
+      this.m_stroke,
+      this.m_filled,
+      this.m_fillColor,
+    );
+  }
+
+  clone(): IMPORTED_SHAPE {
+    return this.copyMetaTo(
+      new IMPORTED_ELLIPSE(
+        { ...this.m_center },
+        this.m_majorRadius,
+        this.m_minorRadius,
+        this.m_rotation,
+        this.m_stroke,
+        this.m_filled,
+        this.m_fillColor,
+      ),
+    );
+  }
+
+  Transform(aTransform: MATRIX3x3D, aTranslation: Vec2): void {
+    const t = transformEllipseAxes(
+      aTransform,
+      this.m_majorRadius,
+      this.m_minorRadius,
+      this.m_rotation,
+    );
+    this.m_center = addVec(matrixMulVec2(aTransform, this.m_center), aTranslation);
+    this.m_majorRadius = t.majorRadius;
+    this.m_minorRadius = t.minorRadius;
+    this.m_rotation = t.rotation;
+  }
+
+  GetBoundingBox(): BOX2D {
+    return ellipseBBox(this.m_center, this.m_majorRadius, this.m_minorRadius);
+  }
+}
+
+/** `IMPORTED_ELLIPSE_ARC`. A sweep of an ellipse, and otherwise its twin. */
+export class IMPORTED_ELLIPSE_ARC extends IMPORTED_SHAPE {
+  constructor(
+    private m_center: Vec2,
+    private m_majorRadius: number,
+    private m_minorRadius: number,
+    private m_rotation: EDA_ANGLE,
+    private m_startAngle: EDA_ANGLE,
+    private m_endAngle: EDA_ANGLE,
+    private m_stroke: IMPORTED_STROKE,
+  ) {
+    super();
+  }
+
+  ImportTo(aImporter: GRAPHICS_IMPORTER): void {
+    aImporter.AddEllipseArc(
+      this.m_center,
+      this.m_majorRadius,
+      this.m_minorRadius,
+      this.m_rotation,
+      this.m_startAngle,
+      this.m_endAngle,
+      this.m_stroke,
+    );
+  }
+
+  clone(): IMPORTED_SHAPE {
+    return this.copyMetaTo(
+      new IMPORTED_ELLIPSE_ARC(
+        { ...this.m_center },
+        this.m_majorRadius,
+        this.m_minorRadius,
+        this.m_rotation,
+        this.m_startAngle,
+        this.m_endAngle,
+        this.m_stroke,
+      ),
+    );
+  }
+
+  Transform(aTransform: MATRIX3x3D, aTranslation: Vec2): void {
+    // The sweep angles are parametric and measured from the major axis, so
+    // they survive a transform that the axes absorb. Upstream leaves them
+    // alone for the same reason.
+    const t = transformEllipseAxes(
+      aTransform,
+      this.m_majorRadius,
+      this.m_minorRadius,
+      this.m_rotation,
+    );
+    this.m_center = addVec(matrixMulVec2(aTransform, this.m_center), aTranslation);
+    this.m_majorRadius = t.majorRadius;
+    this.m_minorRadius = t.minorRadius;
+    this.m_rotation = t.rotation;
+  }
+
+  GetBoundingBox(): BOX2D {
+    return ellipseBBox(this.m_center, this.m_majorRadius, this.m_minorRadius);
+  }
+}
+
+/** Both ellipse shapes rebuild their axes this way; see `IMPORTED_ELLIPSE`. */
+function transformEllipseAxes(
+  aTransform: MATRIX3x3D,
+  aMajorRadius: number,
+  aMinorRadius: number,
+  aRotation: EDA_ANGLE,
+): { majorRadius: number; minorRadius: number; rotation: EDA_ANGLE } {
+  const major = matrixMulVec2(aTransform, {
+    x: aMajorRadius * aRotation.Cos(),
+    y: aMajorRadius * aRotation.Sin(),
+  });
+  const minor = matrixMulVec2(aTransform, {
+    x: -aMinorRadius * aRotation.Sin(),
+    y: aMinorRadius * aRotation.Cos(),
+  });
+  return {
+    majorRadius: Math.hypot(major.x, major.y),
+    minorRadius: Math.hypot(minor.x, minor.y),
+    rotation: EDA_ANGLE.fromVector(major),
+  };
+}
+
+/**
+ * The square box of the larger radius, which is what upstream uses: never too
+ * small whatever the rotation, and never mistaken for a tight fit.
+ */
+function ellipseBBox(aCenter: Vec2, aMajorRadius: number, aMinorRadius: number): BOX2D {
+  const r = Math.max(aMajorRadius, aMinorRadius);
+  return new BOX2D()
+    .MergePoint({ x: aCenter.x - r, y: aCenter.y - r })
+    .MergePoint({ x: aCenter.x + r, y: aCenter.y + r });
+}
+
+/**
  * `GRAPHICS_IMPORTER_BUFFER`: an importer that records instead of converting,
  * then replays into a real one.
  *
@@ -773,6 +970,50 @@ export class GRAPHICS_IMPORTER_BUFFER extends GRAPHICS_IMPORTER {
 
   AddArc(aCenter: Vec2, aStart: Vec2, aAngle: EDA_ANGLE, aStroke: IMPORTED_STROKE): void {
     this.push(new IMPORTED_ARC(aCenter, aStart, aAngle, aStroke));
+  }
+
+  AddEllipse(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+    aFilled: boolean,
+    aFillColor: Color4d = COLOR4D_UNSPECIFIED,
+  ): void {
+    this.push(
+      new IMPORTED_ELLIPSE(
+        aCenter,
+        aMajorRadius,
+        aMinorRadius,
+        aRotation,
+        aStroke,
+        aFilled,
+        aFillColor,
+      ),
+    );
+  }
+
+  AddEllipseArc(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStartAngle: EDA_ANGLE,
+    aEndAngle: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+  ): void {
+    this.push(
+      new IMPORTED_ELLIPSE_ARC(
+        aCenter,
+        aMajorRadius,
+        aMinorRadius,
+        aRotation,
+        aStartAngle,
+        aEndAngle,
+        aStroke,
+      ),
+    );
   }
 
   /**

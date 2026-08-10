@@ -15,6 +15,8 @@ import {
   type SchImportedItem,
 } from '@ziroeda/eeschema/src/import_gfx/graphics_importer_sch.js';
 import { IMPORTED_STROKE } from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+import { DXF_IMPORT_PLUGIN } from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { LINE_STYLE } from '@ziroeda/common/src/stroke_params.js';
 import { COLOR4D_BLACK } from '@ziroeda/common/src/color4d.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -283,5 +285,100 @@ describe('the two fill rules, which are not the same rule', () => {
     );
     const g = graphics(imp.GetItems())[0]!;
     expect(fillOf(g)?.type).toBe('outline');
+  });
+});
+
+describe('an ellipse, which a schematic can hold and a board cannot', () => {
+  it('keeps both radii and its rotation', () => {
+    // `SetEllipseMajorRadius( KiROUND( aMajorRadius * ImportScalingFactor().x ) )`.
+    const imp = importer();
+    imp.SetScale({ x: 2, y: 2 });
+    imp.AddEllipse({ x: 0, y: 0 }, 10, 4, new EDA_ANGLE(30), plain(), false);
+
+    const g = graphics(imp.GetItems())[0];
+    expect(g?.kind).toBe('ellipse');
+    if (g?.kind === 'ellipse') {
+      expect(g.majorRadius).toBe(mmToIU(20));
+      expect(g.minorRadius).toBe(mmToIU(8));
+      expect(g.rotation).toBe(30);
+    }
+  });
+
+  it('each radius takes its own axis factor, as upstream does', () => {
+    // A stroke is averaged across the two axes because it has no direction; a
+    // radius has one, so a non-uniform import stretches the two differently.
+    const imp = importer();
+    imp.SetScale({ x: 2, y: 3 });
+    imp.AddEllipse({ x: 0, y: 0 }, 10, 10, new EDA_ANGLE(0), plain(), false);
+
+    const g = graphics(imp.GetItems())[0];
+    if (g?.kind === 'ellipse') {
+      expect(g.majorRadius).toBe(mmToIU(20));
+      expect(g.minorRadius).toBe(mmToIU(30));
+    }
+  });
+
+  it('and an elliptical arc carries its sweep across untouched', () => {
+    // The angles are parametric and measured from the major axis, so whatever
+    // the axes absorb they do not.
+    const imp = importer();
+    imp.AddEllipseArc(
+      { x: 0, y: 0 },
+      10,
+      4,
+      new EDA_ANGLE(0),
+      new EDA_ANGLE(15),
+      new EDA_ANGLE(95),
+      plain(),
+    );
+
+    const g = graphics(imp.GetItems())[0];
+    expect(g?.kind).toBe('ellipse_arc');
+    if (g?.kind === 'ellipse_arc') {
+      expect(g.startAngle).toBe(15);
+      expect(g.endAngle).toBe(95);
+    }
+  });
+
+  it('so a DXF ELLIPSE reaches the sheet instead of being reported away', () => {
+    // The whole point of the pair: `addEllipse` used to end at
+    // "DXF ellipses are not currently supported." for anything non-circular.
+    const dxf = [
+      '0',
+      'SECTION',
+      '2',
+      'ENTITIES',
+      '0',
+      'ELLIPSE',
+      '10',
+      '0',
+      '20',
+      '0',
+      '11',
+      '10',
+      '21',
+      '0',
+      '40',
+      '0.5',
+      '0',
+      'ENDSEC',
+      '0',
+      'EOF',
+    ].join('\n');
+
+    const imp = importer();
+    const plugin = new DXF_IMPORT_PLUGIN();
+    plugin.SetImporter(imp);
+    expect(plugin.Load(dxf)).toBe(true);
+    plugin.Import();
+
+    const g = graphics(imp.GetItems());
+    expect(g).toHaveLength(1);
+    expect(g[0]?.kind).toBe('ellipse');
+    if (g[0]?.kind === 'ellipse') {
+      expect(g[0].majorRadius).toBe(mmToIU(10));
+      expect(g[0].minorRadius).toBe(mmToIU(5));
+    }
+    expect(plugin.GetMessages()).not.toContain('not currently supported');
   });
 });

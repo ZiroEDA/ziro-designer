@@ -10,6 +10,7 @@
  * normalise and would launder a wrong coordinate into a plausible one.
  */
 import { describe, expect, it } from 'vitest';
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
 import {
   DXF_IMPORT_PLUGIN,
@@ -30,6 +31,8 @@ import {
 import {
   IMPORTED_ARC,
   IMPORTED_CIRCLE,
+  IMPORTED_ELLIPSE,
+  IMPORTED_ELLIPSE_ARC,
   IMPORTED_LINE,
   IMPORTED_SPLINE,
   IMPORTED_TEXT,
@@ -530,8 +533,51 @@ describe('DXF_IMPORT_PLUGIN: circles and arcs', () => {
       ]),
     );
 
-    expect(shapesOf(oval)).toHaveLength(0);
-    expect(oval.GetMessages()).toContain('DXF ellipses are not currently supported.');
+    // The minor axis is a *ratio* of the major, so both radii come out of the
+    // one vector the file gives.
+    expect(shapesOf(oval)[0]).toBeInstanceOf(IMPORTED_ELLIPSE);
+    expect(geom(shapesOf(oval)[0]!, 'm_majorRadius')).toBeCloseTo(3, 12);
+    expect(geom(shapesOf(oval)[0]!, 'm_minorRadius')).toBeCloseTo(1.5, 12);
+  });
+
+  it('and a partial one becomes an elliptical arc, its angles kept in radians', () => {
+    // "DXF elliptical arcs store their angles in radians (unlike circular arcs
+    // which use degrees)".
+    const arc = load(
+      entities([
+        [0, 'ELLIPSE'],
+        [10, '0'],
+        [20, '0'],
+        [11, '4'],
+        [21, '0'],
+        [40, '0.25'],
+        [41, '0'],
+        [42, `${Math.PI / 2}`],
+      ]),
+    );
+
+    const shape = shapesOf(arc)[0]!;
+    expect(shape).toBeInstanceOf(IMPORTED_ELLIPSE_ARC);
+    expect(geom(shape, 'm_minorRadius')).toBeCloseTo(1, 12);
+    expect((geom(shape, 'm_endAngle') as EDA_ANGLE).AsDegrees()).toBeCloseTo(90, 9);
+  });
+
+  it('a tilted ellipse takes its rotation from the major axis vector', () => {
+    // The major axis points up the DXF page, so down ours: -90 degrees.
+    const tilted = load(
+      entities([
+        [0, 'ELLIPSE'],
+        [10, '0'],
+        [20, '0'],
+        [11, '0'],
+        [21, '5'],
+        [40, '0.4'],
+      ]),
+    );
+
+    const shape = shapesOf(tilted)[0]!;
+    expect(geom(shape, 'm_majorRadius')).toBeCloseTo(5, 12);
+    expect((geom(shape, 'm_rotation') as EDA_ANGLE).AsDegrees()).toBeCloseTo(-90, 9);
   });
 });
 

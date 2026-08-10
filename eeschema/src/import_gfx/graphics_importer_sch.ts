@@ -49,7 +49,14 @@ import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
-import { makeArc, makeBezier, makeCircle, makePolyline } from '../tools/build-graphics.js';
+import {
+  makeArc,
+  makeBezier,
+  makeCircle,
+  makeEllipse,
+  makeEllipseArc,
+  makePolyline,
+} from '../tools/build-graphics.js';
 import { makeLabel } from '../tools/build.js';
 import type { Fill, LibGraphic, SchLabel, Stroke } from '../types.js';
 
@@ -192,6 +199,70 @@ export class GRAPHICS_IMPORTER_SCH extends GRAPHICS_IMPORTER<SchImportedItem> {
         radius,
         this.MapStrokeParams(aStroke),
         this.mapFill(aFilled, aFillColor),
+      ),
+    });
+  }
+
+  /**
+   * `AddEllipse`.
+   *
+   * The radii take **their own axis factor** — x for the major, y for the minor
+   * — rather than the averaged one a stroke gets, because they are lengths in a
+   * direction and a non-uniform import should stretch them differently:
+   *
+   *     ellipse->SetEllipseMajorRadius( KiROUND( aMajorRadius * ImportScalingFactor().x ) );
+   *     ellipse->SetEllipseMinorRadius( KiROUND( aMinorRadius * ImportScalingFactor().y ) );
+   *
+   * That is upstream's simplification, and it is only exact when the ellipse is
+   * unrotated; the rotation is carried across untouched either way.
+   */
+  AddEllipse(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+    aFilled: boolean,
+    aFillColor: Color4d = COLOR4D_UNSPECIFIED,
+  ): void {
+    const factor = this.ImportScalingFactor();
+    this.addItem({
+      type: 'graphic',
+      graphic: makeEllipse(
+        this.MapCoordinate(aCenter),
+        Math.abs(KiROUND(aMajorRadius * factor.x)),
+        Math.abs(KiROUND(aMinorRadius * factor.y)),
+        aRotation.AsDegrees(),
+        this.MapStrokeParams(aStroke),
+        this.mapFill(aFilled, aFillColor),
+      ),
+    });
+  }
+
+  /**
+   * `AddEllipseArc`. The sweep angles are parametric and measured from the
+   * major axis, so they cross unchanged; only the radii are scaled.
+   */
+  AddEllipseArc(
+    aCenter: Vec2,
+    aMajorRadius: number,
+    aMinorRadius: number,
+    aRotation: EDA_ANGLE,
+    aStartAngle: EDA_ANGLE,
+    aEndAngle: EDA_ANGLE,
+    aStroke: IMPORTED_STROKE,
+  ): void {
+    const factor = this.ImportScalingFactor();
+    this.addItem({
+      type: 'graphic',
+      graphic: makeEllipseArc(
+        this.MapCoordinate(aCenter),
+        Math.abs(KiROUND(aMajorRadius * factor.x)),
+        Math.abs(KiROUND(aMinorRadius * factor.y)),
+        aStartAngle.AsDegrees(),
+        aEndAngle.AsDegrees(),
+        aRotation.AsDegrees(),
+        this.MapStrokeParams(aStroke),
       ),
     });
   }

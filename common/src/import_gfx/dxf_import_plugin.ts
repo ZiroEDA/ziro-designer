@@ -852,26 +852,23 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
   }
 
   /**
-   * An ELLIPSE, but only the degenerate case.
+   * An ELLIPSE.
    *
    * A ratio of exactly 1 is a circle, and upstream reroutes it to `addCircle` or
    * `addArc` — including the detail that an elliptical arc's angles are stored in
    * *radians* and are relative to the major axis, so they need the major axis'
    * own angle subtracted before they can be handed to a circular arc.
    *
-   * **The general ellipse is not ported.** Upstream calls
-   * `GRAPHICS_IMPORTER_BUFFER::AddEllipse` / `AddEllipseArc`, and neither exists
-   * in the ported importer half (`graphics_importer.ts` has no `IMPORTED_ELLIPSE`
-   * and `GRAPHICS_IMPORTER_PCBNEW` has no `AddEllipse`). Adding them is the
-   * importer half's work, not the parser's; until then a non-circular ellipse is
-   * reported and dropped rather than silently drawn wrong.
+   * Anything else is a real ellipse. The file gives the major axis as a vector
+   * from the centre and the minor as a *ratio* of it, so the radii and the tilt
+   * all come out of that one vector.
    */
   override addEllipse(aData: DL_EllipseData): void {
     const arbAxis = this.getArbitraryAxis(this.getExtrusion());
-    // Upstream also maps the centre here, for the ellipse it then buffers and
-    // for the image limits. Neither happens on the ported path, so the centre is
-    // only computed inside the reroute below.
+    const centerCoords = this.ocsToWcs(arbAxis, { x: aData.cx, y: aData.cy, z: aData.cz });
     const majorCoords = this.ocsToWcs(arbAxis, { x: aData.mx, y: aData.my, z: aData.mz });
+
+    const center: Vec2 = { x: this.mapX(centerCoords.x), y: this.mapY(centerCoords.y) };
 
     const major: Vec2 = { x: this.mapX(majorCoords.x), y: this.mapY(majorCoords.y) };
 
@@ -902,7 +899,47 @@ export class DXF_IMPORT_PLUGIN extends DL_CREATION_ADAPTER {
       return;
     }
 
-    this.ReportMsg('DXF ellipses are not currently supported.');
+    const layer = this.getImportLayer(this.getAttributes().getLayer());
+    const lineWidth = this.lineWeightToWidth(this.getAttributes().getWidth(), layer);
+    const sourceLayer = this.getDxfLayerName(this.getAttributes().getLayer());
+
+    const majorRadius = Math.hypot(major.x, major.y);
+    const minorRadius = majorRadius * aData.ratio;
+    const rotation = EDA_ANGLE.fromVector(major);
+
+    const buffer = this.bufferToUse();
+    buffer.SetCurrentSourceLayer(sourceLayer);
+
+    // A sweep of a full turn is the whole ellipse, and a file may spell that
+    // either way round.
+    const whole =
+      startAngle.equals(endAngle) || Math.abs(endAngle.sub(startAngle).AsDegrees() - 360.0) < 1e-9;
+
+    if (whole) {
+      buffer.AddEllipse(
+        center,
+        majorRadius,
+        minorRadius,
+        rotation,
+        new IMPORTED_STROKE(lineWidth),
+        false /* aFilled */,
+      );
+    } else {
+      buffer.AddEllipseArc(
+        center,
+        majorRadius,
+        minorRadius,
+        rotation,
+        startAngle,
+        endAngle,
+        new IMPORTED_STROKE(lineWidth),
+      );
+    }
+
+    // "Naive bounding": the major axis in both directions, which is never too
+    // small and never claims to be tight.
+    this.updateImageLimits({ x: center.x + major.x, y: center.y + major.y });
+    this.updateImageLimits({ x: center.x - major.x, y: center.y - major.y });
   }
 
   /**

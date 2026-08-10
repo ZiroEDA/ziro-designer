@@ -56,34 +56,34 @@ const moveJunction = (j: SchJunction, d: Vec2): SchJunction => ({ ...j, at: add(
 const moveNoConnect = (nc: SchNoConnect, d: Vec2): SchNoConnect => ({ ...nc, at: add(nc.at, d) });
 const moveLabel = (l: SchLabel, d: Vec2): SchLabel => ({ ...l, at: add(l.at, d) });
 // A directive label's fields ride with it (they are positioned absolutely).
-const moveDirectiveLabel = (l: SchDirectiveLabel, d: Vec2): SchDirectiveLabel => ({
+export const moveDirectiveLabel = (l: SchDirectiveLabel, d: Vec2): SchDirectiveLabel => ({
   ...l,
   at: add(l.at, d),
   fields: l.fields.map((f) => (f.at ? { ...f, at: add(f.at, d) } : f)),
 });
 // A sheet moves as one rigid part: rectangle, fields, and pins (all absolute).
-const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
+export const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
   ...s,
   at: add(s.at, d),
   fields: s.fields.map((f) => moveField(f, d)),
   pins: s.pins.map((p) => ({ ...p, at: add(p.at, d) })),
 });
 // `at` is the entry's corner and `size` its signed extent, so only `at` moves.
-const moveBusEntry = (b: SchBusEntry, d: Vec2): SchBusEntry => ({ ...b, at: add(b.at, d) });
-const moveImage = (im: SchImage, d: Vec2): SchImage => ({ ...im, at: add(im.at, d) });
-const moveTextBox = (tb: SchTextBox, d: Vec2): SchTextBox => ({
+export const moveBusEntry = (b: SchBusEntry, d: Vec2): SchBusEntry => ({ ...b, at: add(b.at, d) });
+export const moveImage = (im: SchImage, d: Vec2): SchImage => ({ ...im, at: add(im.at, d) });
+export const moveTextBox = (tb: SchTextBox, d: Vec2): SchTextBox => ({
   ...tb,
   start: add(tb.start, d),
   end: add(tb.end, d),
 });
 // A table's geometry lives entirely in its cells' corners.
-const moveTable = (t: SchTable, d: Vec2): SchTable => ({
+export const moveTable = (t: SchTable, d: Vec2): SchTable => ({
   ...t,
   cells: t.cells.map((c) => ({ ...c, start: add(c.start, d), end: add(c.end, d) })),
 });
 
 /** A graphic shape, translated by whichever points its kind is defined by. */
-function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
+export function moveGraphic(g: LibGraphic, d: Vec2): LibGraphic {
   switch (g.kind) {
     case 'rectangle':
       return { ...g, start: add(g.start, d), end: add(g.end, d) };
