@@ -150,7 +150,6 @@ describe('no entry is silently inert', () => {
       'Revert',
       'Non-KiCad Schematic...',
       'Footprint Assignments...',
-      'Graphics...',
       'Drawing to Clipboard',
       'Symbols...',
       'Design Blocks',

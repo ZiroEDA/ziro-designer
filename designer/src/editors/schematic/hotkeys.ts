@@ -61,6 +61,13 @@ export const HOTKEYS: readonly Hotkey[] = [
   { id: 'save', label: 'Save', keys: 'Ctrl+S', section: 'File', upstream: 'ACTIONS::save' },
   { id: 'open', label: 'Open...', keys: 'Ctrl+O', section: 'File', upstream: 'ACTIONS::open' },
   { id: 'print', label: 'Print...', keys: 'Ctrl+P', section: 'File', upstream: 'ACTIONS::print' },
+  {
+    id: 'importGraphics',
+    label: 'Import Graphics...',
+    keys: 'Ctrl+Shift+F',
+    section: 'File',
+    upstream: 'SCH_ACTIONS::importGraphics',
+  },
   { id: 'close', label: 'Close', keys: 'Ctrl+W', section: 'File', upstream: 'ACTIONS::quit' },
   {
     id: 'preferences',

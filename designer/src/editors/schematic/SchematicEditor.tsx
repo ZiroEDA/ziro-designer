@@ -416,6 +416,7 @@ import {
   type SchTableValues,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
 import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
+import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -1020,6 +1021,8 @@ export function SchematicEditor({
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
   const [pastePending, setPastePending] = useState<PastePayload | null>(null);
+  /** File > Import > Graphics (Ctrl+Shift+F): the open DIALOG_IMPORT_GFX_SCH. */
+  const [importGfxOpen, setImportGfxOpen] = useState(false);
   // ERC markers: null until a run has happened. They live on past the dialog
   // closing, exactly like the SCH_MARKERs upstream appends to the screen,
   // only Delete All Markers (or a new run) clears them.
@@ -5107,6 +5110,10 @@ export function SchematicEditor({
           syncPage.current = sel >= 0 ? sel : 0;
           setSyncPinsOpen(entries);
         }
+      } else if (id === 'importGraphics') {
+        // SCH_ACTIONS::importGraphics -> EE_GRAPHIC_TOOL::ImportGraphics: the
+        // dialog parses, and only its OK produces anything to place.
+        setImportGfxOpen(true);
       } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'updateSchFromPcb') {
@@ -6094,6 +6101,17 @@ export function SchematicEditor({
         // SCH_ACTIONS::placeGlobalLabel default hotkey (Ctrl+L).
         e.preventDefault();
         onToolSelect('placeGlobalLabel');
+      } else if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === 'f'
+      ) {
+        // SCH_ACTIONS::importGraphics (Ctrl+Shift+F). Checked before the two
+        // find arms below, which do not test shift, so it cannot be swallowed
+        // by Ctrl+F.
+        e.preventDefault();
+        setImportGfxOpen(true);
       } else if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'f') {
         // ACTIONS::findAndReplace (Ctrl+Alt+F).
         e.preventDefault();
@@ -8293,6 +8311,76 @@ export function SchematicEditor({
       )}
 
       {/* Table: choose the grid size, then place the table (SCH_TABLE). */}
+      {importGfxOpen && (
+        <DialogImportGfx
+          onCancel={() => setImportGfxOpen(false)}
+          onOk={(graphics, labels, interactive) => {
+            setImportGfxOpen(false);
+            if (graphics.length === 0 && labels.length === 0) return;
+            if (!interactive) {
+              runCommand(addItems({ graphics, labels }));
+              return;
+            }
+            // Interactive placement: the drawing rides the cursor and a click
+            // drops it, which is the paste gesture — upstream likewise hands
+            // the imported items to the placement loop as a preview.
+            //
+            //     m_toolMgr->RunAction( ACTIONS::cancelInteractive );
+            //     … preview … commitImport( newItems );
+            //
+            // The anchor is the drawing's top-left, as a paste's is
+            // (SCH_SELECTION::GetTopLeftItem).
+            let minX = Infinity;
+            let minY = Infinity;
+            for (const g of graphics) {
+              const pts =
+                g.kind === 'polyline' || g.kind === 'bezier'
+                  ? g.points
+                  : g.kind === 'circle'
+                    ? [{ x: g.center.x - g.radius, y: g.center.y - g.radius }]
+                    : g.kind === 'arc'
+                      ? [g.start, g.mid, g.end]
+                      : g.kind === 'ellipse' || g.kind === 'ellipse_arc'
+                        ? [
+                            {
+                              x: g.center.x - Math.max(g.majorRadius, g.minorRadius),
+                              y: g.center.y - Math.max(g.majorRadius, g.minorRadius),
+                            },
+                          ]
+                        : [];
+              for (const p of pts) {
+                minX = Math.min(minX, p.x);
+                minY = Math.min(minY, p.y);
+              }
+            }
+            for (const l of labels) {
+              minX = Math.min(minX, l.at.x);
+              minY = Math.min(minY, l.at.y);
+            }
+            setPastePending({
+              batch: {
+                symbols: [],
+                lines: [],
+                junctions: [],
+                noConnects: [],
+                labels,
+                sheets: [],
+                busEntries: [],
+                images: [],
+                graphics,
+                textBoxes: [],
+                directiveLabels: [],
+                tables: [],
+              },
+              libs: [],
+              refPoint: {
+                x: Number.isFinite(minX) ? minX : 0,
+                y: Number.isFinite(minY) ? minY : 0,
+              },
+            });
+          }}
+        />
+      )}
       {tableProps && tablePropsInitial && (
         <DialogTableProperties
           initial={tablePropsInitial.values}

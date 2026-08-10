@@ -114,7 +114,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
           items: [
             stub('Non-KiCad Schematic...'),
             stub('Footprint Assignments...'),
-            stub('Graphics...', 'Ctrl+Shift+F'),
+            actNoIcon('Graphics...', 'importGraphics', 'Ctrl+Shift+F'),
           ],
         },
         {
