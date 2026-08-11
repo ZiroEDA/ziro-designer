@@ -248,6 +248,25 @@ describe('a push', () => {
   });
 });
 
+describe('asking whether a blob is there', () => {
+  it('does not treat a store that cannot answer as an empty store', async () => {
+    // The real backend answers this with a HEAD on the object. It used to list
+    // the whole `<user>/blobs/` prefix, which grew with every file the user had
+    // ever saved and began returning 504 once there were a few thousand. What
+    // must never happen is a failure being read as "absent": the commit
+    // verification would then pass by concluding nothing is there.
+    const f = install();
+    await cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA' }));
+    f.failOn(/^hasObject:/);
+
+    await expect(
+      cloudUpsert(USER, project({ 'a.kicad_sch': 'BBB' }, { id: 'p2' })),
+    ).rejects.toThrow(/refused/);
+    // And nothing was committed on the strength of an unanswered question.
+    expect(f.rows.has('p2')).toBe(false);
+  });
+});
+
 describe('a pull', () => {
   it('returns the files that were pushed', async () => {
     install();

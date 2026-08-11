@@ -174,7 +174,12 @@ export function HomePage({
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
-  onOpenProject?: (files: PickedHomeFile[], startFile?: string, readOnly?: boolean) => void;
+  onOpenProject?: (
+    files: PickedHomeFile[],
+    startFile?: string,
+    /** The demo this came from, when it is one: not saved until copied. */
+    demo?: DemoMeta | null,
+  ) => void;
   onOpenPcb?: (file: PickedHomeFile, files?: PickedHomeFile[]) => void;
   /** Launch the Symbol Editor (with the open project's libraries, if any).
    *  `startFile` is a `.kicad_sym` to open straight away (KiCad's MAIL_LIB_EDIT). */
@@ -232,6 +237,8 @@ export function HomePage({
    * opened after a demo.
    */
   const [demoOpen, setDemoOpen] = useState(false);
+  /** The open demo's manifest, so saving a copy can complete it. */
+  const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
@@ -333,18 +340,12 @@ export function HomePage({
       false,
     );
     setDemoOpen(true);
-
-    // The 3D bodies and datasheets follow once the board is on screen: most of
-    // a demo's bytes, none of what it takes to show one. They join the open
-    // file set in memory, so the 3D view works and a saved copy is complete.
-    // Failure leaves a demo with no 3D models, worth a console warning and not
-    // worth interrupting anyone over.
-    void fetchDemoExtras(d)
-      .then((extra) => {
-        if (extra.length === 0) return;
-        setPicked((prev) => (prev ? [...prev, ...extra] : extra));
-      })
-      .catch((e) => console.warn(`Demo extras for "${d.title}" did not finish:`, e));
+    // The 3D bodies and the datasheet are not fetched at all. They are 40.7 MB
+    // of the CM5 carrier's 46 MB and nothing reads them to show a schematic or
+    // a board, so downloading them in the background to look at a demo is the
+    // same waste as downloading them up front, just less visible. They are
+    // fetched when the user keeps the project, in `saveDemoCopy`.
+    setDemoSource(d);
   };
   // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
   const [panelWidth, setPanelWidth] = useState(290);
@@ -430,6 +431,7 @@ export function HomePage({
     try {
       let saved: string | null = null;
       setDemoOpen(false);
+      setDemoSource(null);
       const out: PickedHomeFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]!;
@@ -733,7 +735,7 @@ export function HomePage({
       : 'Project';
 
   const launchSchematic = (startFile?: string): void => {
-    if (picked && onOpenProject) onOpenProject(picked, startFile, demoOpen);
+    if (picked && onOpenProject) onOpenProject(picked, startFile, demoOpen ? demoSource : null);
     else onOpenSchematic();
   };
 
