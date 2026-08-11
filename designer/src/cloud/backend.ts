@@ -117,4 +117,21 @@ export interface CloudBackend {
    * yet must still sync rather than fail. See `supabase/manifest.sql`.
    */
   recordVersion?(userId: string, row: ProjectRow): Promise<void>;
+
+  /**
+   * The project's committed manifests, newest first.
+   *
+   * The read half of `recordVersion`, and the reason keeping history was worth
+   * anything: when the current row turns out to reference blobs that are not in
+   * the store, an earlier manifest may name blobs that still are. Blobs are
+   * content-addressed and only ever collected when no row references them, so an
+   * older version's objects frequently outlive the row that replaced it.
+   *
+   * Optional for the same reason as `recordVersion`: a database whose migration
+   * has not been run has no such table, and must still sync.
+   */
+  listVersions?(
+    userId: string,
+    projectId: string,
+  ): Promise<{ name: string; files: RowFile[]; committed_at: string }[]>;
 }

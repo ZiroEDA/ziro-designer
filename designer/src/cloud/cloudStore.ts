@@ -179,6 +179,58 @@ export async function cloudMissingObjects(
 }
 
 /**
+ * Roll a project back to the newest committed version whose blobs are all still
+ * in the store.
+ *
+ * This is what history was kept for. When the current row references objects
+ * that are gone, an earlier manifest often does not: blobs are content-addressed
+ * and are only collected when no row references them, so the objects of a
+ * version that was replaced routinely outlive it. Walking back until every hash
+ * of a version is present recovers the most recent state that can actually be
+ * read, which for a project damaged before the commit protocol existed may be
+ * the only copy left anywhere.
+ *
+ * Writes the recovered manifest as the current row, so every client sees the
+ * same thing afterwards, and returns what it restored. Null when there is no
+ * history, no version is intact, or the database has no history table.
+ *
+ * Only ever moves a project from unreadable to readable. A row whose blobs are
+ * all present is not touched: the caller checks that first, and passing one here
+ * would replace a working copy with an older working copy.
+ */
+export async function restoreFromHistory(
+  userId: string,
+  id: string,
+): Promise<{ name: string; committedAt: string; files: number } | null> {
+  const be = need();
+  if (!be.listVersions) return null;
+  const versions = await be.listVersions(userId, id);
+
+  for (const version of versions) {
+    const entries = (version.files ?? []).filter(isManifestEntry);
+    // Older shapes name no blobs to check, so nothing can be proven about them.
+    if (entries.length === 0 || entries.length !== (version.files ?? []).length) continue;
+
+    const present = await Promise.all(entries.map((f) => be.hasObject(blobPath(userId, f.hash))));
+    if (!present.every(Boolean)) continue;
+
+    const row = await be.getProject(id);
+    await be.putProject({
+      id,
+      user_id: userId,
+      name: version.name || row?.name || 'Recovered project',
+      created_at: row?.created_at ?? version.committed_at,
+      // The recovered state is current as of now; keeping the old timestamp
+      // would leave every client believing it already has this version.
+      updated_at: new Date().toISOString(),
+      files: entries,
+    });
+    return { name: version.name, committedAt: version.committed_at, files: entries.length };
+  }
+  return null;
+}
+
+/**
  * Every file of this project is a zero-length blob.
  *
  * gzip of even an empty file is around twenty bytes, so this is not a project

@@ -17,7 +17,7 @@
  */
 
 import { supabase } from '../auth/supabaseClient.js';
-import type { CloudBackend, ProjectRow } from './backend.js';
+import type { CloudBackend, ProjectRow, RowFile } from './backend.js';
 
 /**
  * Bucket for file blobs. Without it there is no object store to address, and
@@ -126,6 +126,19 @@ export function supabaseBackend(): CloudBackend {
       });
       if (error)
         console.warn(`project history unavailable (run supabase/manifest.sql): ${error.message}`);
+    },
+
+    async listVersions(userId, projectId) {
+      const { data, error } = await db
+        .from('project_versions')
+        .select('name, files, committed_at')
+        .eq('user_id', userId)
+        .eq('project_id', projectId)
+        .order('version_id', { ascending: false });
+      // A database without the migration has no table. That is not a failure to
+      // report: there simply is no history to offer, and the caller falls back.
+      if (error) return [];
+      return (data ?? []) as { name: string; files: RowFile[]; committed_at: string }[];
     },
   };
 }
