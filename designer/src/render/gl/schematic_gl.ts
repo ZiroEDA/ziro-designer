@@ -55,6 +55,7 @@ import type { Theme } from '../../editors/schematic/theme.js';
 import { createGlDevice, type GlDevice } from './device.js';
 import { Scene } from './scene.js';
 import { GlRecorder } from './recorder.js';
+import { SCH_ARC_TOLERANCE } from './tessellate.js';
 
 /**
  * Half the world extent recording covers, in internal units. Two metres each
@@ -237,6 +238,10 @@ export function recordSchematicScene(scene: Scene, content: ContentKey, viewScal
     originX: extent / 2,
     originY: extent / 2,
   });
+  // 0.005 mm of sagitta in *schematic* internal units. The recorder defaults to
+  // the board's 5000, which is 0.5 mm here — coarser than a junction dot is
+  // wide, so every circle in the schematic flattened to the three-facet floor.
+  rec.arcTolerance = SCH_ARC_TOLERANCE;
   // Stroke text as raw segments. The canvas fast path builds a Path2D, which is
   // opaque to anything that is not a real 2D context.
   setVectorText(true);

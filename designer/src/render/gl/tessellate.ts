@@ -17,6 +17,8 @@
  *  - **Polygons** are triangulated by ear clipping.
  */
 
+import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+
 export interface Pt {
   x: number;
   y: number;
@@ -37,15 +39,33 @@ export interface Pt {
 // that is about three times the triangles KiCad draws, for a sagitta far below
 // a pixel at any zoom. On the coldfire demo the pads alone were 640k triangle
 // vertices of the million in a recording.
-const TOLERANCE = 5000; // internal units; 1 mm is 1e6, so this is 0.005 mm.
+//
+// 0.005 mm is a *length*, and how many internal units that is depends on which
+// editor is drawing: the board has 1 mm = 1e6 IU, the schematic 1 mm = 1e4.
+// Hard-coding the board's number made the schematic's tolerance 0.5 mm, which
+// is larger than most things a schematic draws round — a junction dot is about
+// 0.18 mm of radius and a power symbol's circle about 1 mm, and both fell to
+// MIN_FACETS. Every circle in eeschema came out a triangle.
+export const PCB_ARC_TOLERANCE = 0.005 * PCB_IU_PER_MM;
+export const SCH_ARC_TOLERANCE = 0.005 * SCH_IU_PER_MM;
+
 const MIN_FACETS = 3;
 const MAX_FACETS = 256;
 
-export function facetsForRadius(radius: number): number {
+/**
+ * Facets per full circle for a world radius, at a sagitta tolerance given in
+ * the same internal units as the radius.
+ *
+ * The two must share a scale. Passing a board tolerance with a schematic radius
+ * does not fail, it just quietly returns 3 — which is why the default is spelled
+ * out at every call site's owner rather than left to be assumed here.
+ */
+export function facetsForRadius(radius: number, tolerance = PCB_ARC_TOLERANCE): number {
   const r = Math.abs(radius);
-  if (!Number.isFinite(r) || r <= TOLERANCE) return MIN_FACETS;
+  const tol = tolerance > 0 ? tolerance : PCB_ARC_TOLERANCE;
+  if (!Number.isFinite(r) || r <= tol) return MIN_FACETS;
   // sagitta = r (1 - cos(pi/n)), solved for n.
-  const n = Math.ceil(Math.PI / Math.acos(Math.max(-1, Math.min(1, 1 - TOLERANCE / r))));
+  const n = Math.ceil(Math.PI / Math.acos(Math.max(-1, Math.min(1, 1 - tol / r))));
   return Math.max(MIN_FACETS, Math.min(MAX_FACETS, n));
 }
 
@@ -65,6 +85,7 @@ export function arcToPolyline(
   a0: number,
   a1: number,
   ccw = false,
+  tolerance = PCB_ARC_TOLERANCE,
 ): Pt[] {
   const TWO_PI = Math.PI * 2;
   let sweep = a1 - a0;
@@ -75,7 +96,7 @@ export function arcToPolyline(
     if (sweep >= 0) sweep = -(((-sweep % TWO_PI) + TWO_PI) % TWO_PI || TWO_PI);
     else sweep = Math.max(sweep, -TWO_PI);
   }
-  const full = facetsForRadius(radius);
+  const full = facetsForRadius(radius, tolerance);
   const steps = Math.max(1, Math.ceil((Math.abs(sweep) / TWO_PI) * full));
   const out: Pt[] = [];
   for (let i = 0; i <= steps; i++) {
@@ -105,6 +126,7 @@ export function ellipseToPolyline(
   a0: number,
   a1: number,
   ccw = false,
+  tolerance = PCB_ARC_TOLERANCE,
 ): Pt[] {
   const TWO_PI = Math.PI * 2;
   let sweep = a1 - a0;
@@ -115,7 +137,7 @@ export function ellipseToPolyline(
     if (sweep >= 0) sweep = -(((-sweep % TWO_PI) + TWO_PI) % TWO_PI || TWO_PI);
     else sweep = Math.max(sweep, -TWO_PI);
   }
-  const full = facetsForRadius(Math.max(Math.abs(rx), Math.abs(ry)));
+  const full = facetsForRadius(Math.max(Math.abs(rx), Math.abs(ry)), tolerance);
   const steps = Math.max(1, Math.ceil((Math.abs(sweep) / TWO_PI) * full));
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
