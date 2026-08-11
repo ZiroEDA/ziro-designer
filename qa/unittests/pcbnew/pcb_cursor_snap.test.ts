@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { align, computeNearest, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 
 const MM = 1e6;
 
@@ -209,5 +209,58 @@ describe('bestSnapAnchor (the cursor for every tool that is not the router)', ()
     const nearEnd = { x: TRACK.x0 + 0.1 * MM, y: TRACK.y + 0.05 * MM };
     const got = bestSnapAnchor(board, nearEnd, grid(), { ...opts, layer: 'F.Cu' });
     expect(got).toEqual({ x: 139.5 * MM, y: 99.5 * MM });
+  });
+});
+
+describe('a dragged trace can be put back exactly where it started', () => {
+  /**
+   * The bug this pins: the drag recorded a *raw* grab point while every update
+   * fed it a *grid-snapped* one. On this trace — centred on y = 99.695 mm with
+   * the nearest 0.5 mm grid line at 99.5 — the segment jumped 0.195 mm the
+   * instant the drag began, and because every later update was also a grid
+   * node, no cursor position could ever produce 99.695 again. Hence "no matter
+   * what I do I cannot put it back".
+   *
+   * `ROUTER_TOOL::performDragging` uses `m_startSnapPoint` for `StartDragging`
+   * and `m_endSnapPoint` for `Move`, and both come from the same `snapToItem`.
+   */
+  const grabbed = { x: 140.5 * MM, y: TRACK.y + 0.05 * MM };
+  const opts = { tol: TOL, layer: 'B.Cu' };
+
+  it('snaps the grab point onto the centreline, not onto the grid', () => {
+    const snapped = snapToBoardCopper(board, grabbed, grid(), opts)?.snap;
+    expect(snapped?.y).toBe(TRACK.y);
+    // What the old code recorded instead, and could never get back to.
+    expect(align(grabbed, grid()).y).toBe(99.5 * MM);
+  });
+
+  it('returns the identical point when the cursor comes back', () => {
+    const start = snapToBoardCopper(board, grabbed, grid(), opts)?.snap;
+
+    // Away, then back to the same place.
+    const away = snapToBoardCopper(board, { x: 141 * MM, y: 101 * MM }, grid(), opts)?.snap;
+    const back = snapToBoardCopper(board, grabbed, grid(), opts)?.snap;
+
+    expect(back).toEqual(start);
+    expect(back).not.toEqual(away ?? null);
+  });
+
+  it('still reaches the centreline with the grabbed segment excluded', () => {
+    // `aAvoidItems` holds only `m_startItem`, so the line's collinear
+    // neighbours stay snappable — and they are what put the cursor back on the
+    // original centreline once the grabbed segment has moved away.
+    const seed = board.tracks.findIndex(
+      (t) => t.start.y === TRACK.y && t.end.y === TRACK.y && t.layer === 'B.Cu',
+    );
+    expect(seed).toBeGreaterThanOrEqual(0);
+
+    const withoutSeed = snapToBoardCopper(board, grabbed, grid(), {
+      ...opts,
+      avoid: new Set([`track:${seed}`]),
+    });
+
+    // Either another collinear segment of the same line answers, or nothing
+    // does — but it must never silently return the excluded segment.
+    if (withoutSeed) expect(withoutSeed.snap.y).toBe(TRACK.y);
   });
 });

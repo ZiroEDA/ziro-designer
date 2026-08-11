@@ -1165,6 +1165,11 @@ export function PcbEditor({
   // A router drag of a trace (EDIT_TOOL::Drag → PNS::DRAGGER): the whole line is
   // re-cut every frame rather than translated, so it runs beside the move refs.
   const trackDragRef = useRef<TrackDrag | null>(null);
+  // `TOOL_BASE::m_startItem` — the one segment the drag grabbed, and the whole
+  // of `pickSingleItem`'s `aAvoidItems`. Its *neighbours* stay snappable on
+  // purpose: they still hold the line's original geometry, so bringing the
+  // cursor back over them lands it on the centreline the trace started on.
+  const dragSeedIdRef = useRef<string | null>(null);
   /** The net highlight to restore when a track drag ends, or null if none. */
   const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
   // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
@@ -4014,6 +4019,28 @@ export function PcbEditor({
     });
   };
 
+  /**
+   * `TOOL_BASE::updateStartItem` / `updateEndItem` for a drag: the snapped
+   * cursor, over copper when there is any and on the grid otherwise.
+   *
+   * `aAvoid` is `pickSingleItem`'s `aAvoidItems` — the line being dragged, so
+   * the gesture cannot snap to itself.
+   */
+  const dragSnap = (
+    w: { x: number; y: number },
+    aAvoid: ReadonlySet<string> | null,
+  ): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (!brd) return snapToGrid(w);
+    return (
+      snapToBoardCopper(brd, w, gridState(), {
+        tol: tolOf(),
+        layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
+        avoid: aAvoid ?? undefined,
+      })?.snap ?? snapToGrid(w)
+    );
+  };
+
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
   routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
@@ -4531,8 +4558,16 @@ export function PcbEditor({
   ): boolean => {
     const brd = boardRef.current;
     if (!brd) return false;
-    const drag = startTrackDrag(brd, trackIndex, origin, { freeAngle });
+    // `ROUTER_TOOL::performDragging` starts the drag at `m_startSnapPoint` —
+    // the *snapped* cursor from `updateStartItem`, not the raw pointer. Both
+    // ends of the gesture must use the same snap or the geometry can never be
+    // reproduced: a raw origin with grid-snapped updates jumps the line onto
+    // the grid the instant you move, and no cursor position afterwards gets
+    // back to where the track actually was.
+    const drag = startTrackDrag(brd, trackIndex, dragSnap(origin, null), { freeAngle });
     if (!drag) return false;
+
+    dragSeedIdRef.current = boardItemId('track', trackIndex);
 
     trackDragRef.current = drag;
     moveKindRef.current = 'drag';
@@ -4935,7 +4970,12 @@ export function PcbEditor({
       // drag is not a translation, so the overlay carries the new absolute
       // geometry and the draw path applies no offset to it.
       const drag = trackDragRef.current;
-      const chain = updateTrackDrag(drag, to);
+      // `updateEndItem` again, with the dragged line in `aAvoidItems` so the
+      // cursor cannot snap to the thing it is moving. Snapping to the line's
+      // own collinear neighbours is what lets a trace go back exactly where it
+      // came from, which a grid-only cursor cannot do for off-grid copper.
+      const seed = dragSeedIdRef.current;
+      const chain = updateTrackDrag(drag, dragSnap(cur, seed ? new Set([seed]) : null));
       const line = trackDragSegments(brd, drag, chain);
       moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
       if (liveRatsRef.current) {
@@ -4984,9 +5024,15 @@ export function PcbEditor({
     moveOriginRef.current = null;
     if (trackDrag) {
       const cur = cursorRef.current;
+      const seed = dragSeedIdRef.current;
+      dragSeedIdRef.current = null;
       restoreDragHighlight();
       if (brd && cur && delta && (delta.x !== 0 || delta.y !== 0)) {
-        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, snapToGrid(cur))));
+        // The same snap the preview used. A grid-only snap here would commit
+        // geometry the user never saw, and would land off the copper the
+        // preview was sitting on.
+        const at = dragSnap(cur, seed ? new Set([seed]) : null);
+        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, at)));
       } else if (brd) {
         rebuildScene(brd);
       }

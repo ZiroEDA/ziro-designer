@@ -55,6 +55,14 @@ export interface BoardSnapOptions {
    * snapToBoardCopper} reproduces that ordering with two passes.
    */
   layer?: string;
+  /**
+   * `pickSingleItem`'s `aAvoidItems`, as board item ids.
+   *
+   * `updateEndItem` passes `{ m_startItem }` so a drag cannot snap to the very
+   * item it is dragging. Without it the cursor latches onto the moving line and
+   * the drag locks onto itself.
+   */
+  avoid?: ReadonlySet<string>;
 }
 
 /**
@@ -118,6 +126,8 @@ function pickOnLayer(
   if (pad) return pad;
 
   for (const id of boardHitCandidates(aBoard, aWhere, aOpts.tol)) {
+    if (aOpts.avoid?.has(id)) continue;
+
     const r = parseBoardItemId(id);
 
     if (r?.kind === 'via') {
