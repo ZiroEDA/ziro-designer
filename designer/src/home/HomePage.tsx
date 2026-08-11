@@ -11,6 +11,7 @@ import {
   deleteProject,
   renameProject,
   touchOpened,
+  updateProjectFiles,
   type ProjectMeta,
 } from './projectStore.js';
 import { useAuth } from '../auth/AuthProvider.js';
@@ -21,7 +22,7 @@ import type { SyncResult } from '../cloud/sync.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import { loadTemplates, createFromTemplate, type TemplateMeta } from './templates.js';
-import { loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -282,7 +283,27 @@ export function HomePage({
       setLoading(null);
     }
     if (files.length === 0) return;
-    await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
+    const pid = await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
+
+    // The 3D bodies and datasheets follow once the board is on screen. They are
+    // most of a demo's bytes and none of what it takes to show one, but the
+    // project still has to end up complete: it appears in Recent, it syncs, and
+    // its 3D view has to work. Failure here leaves a demo that opens and has no
+    // 3D models, which is worth a console warning and not worth interrupting
+    // anyone over.
+    if (pid) {
+      void fetchDemoExtras(d)
+        .then(async (extra) => {
+          if (extra.length === 0) return;
+          await updateProjectFiles(
+            pid,
+            extra.map((f) => ({ name: f.name, bytes: f.bytes! })),
+          );
+          refreshSaved();
+          if (userId) await pushProject(userId, pid);
+        })
+        .catch((e) => console.warn(`Demo extras for "${d.title}" did not finish:`, e));
+    }
   };
   // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
   const [panelWidth, setPanelWidth] = useState(290);
@@ -362,10 +383,11 @@ export function HomePage({
   // survives a save, archive, and reopen instead of collapsing to sch+pcb. The
   // storage layer gzips text ~10x, so keeping the libs is cheap. The project is
   // persisted to IndexedDB so it survives a reload with no login.
-  const ingest = async (files: IngestFile[], persist = true): Promise<void> => {
+  const ingest = async (files: IngestFile[], persist = true): Promise<string | null> => {
     setLoading({ message: 'Reading files…', value: 0 });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
+      let saved: string | null = null;
       const out: PickedHomeFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]!;
@@ -379,7 +401,7 @@ export function HomePage({
           value: (i + 1) / files.length,
         });
       }
-      if (out.length === 0) return;
+      if (out.length === 0) return null;
       setPicked(out);
       if (persist && storageAvailable()) {
         try {
@@ -396,6 +418,7 @@ export function HomePage({
               withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
               existing?.id,
             );
+            saved = pid;
             refreshSaved();
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
@@ -405,6 +428,7 @@ export function HomePage({
           /* storage disabled (private mode), the app still works */
         }
       }
+      return saved;
     } finally {
       setLoading(null);
     }

@@ -98,7 +98,9 @@ export async function getObject(key) {
   const kSigning = hmac(hmac(hmac(hmac(`AWS4${SECRET}`, date), 'auto'), 's3'), 'aws4_request');
   const signature = createHmac('sha256', kSigning).update(toSign).digest('hex');
   const auth = `AWS4-HMAC-SHA256 Credential=${KEY}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-  const res = await fetch(`https://${HOST}${canonicalUri}`, { headers: { ...headers, authorization: auth } });
+  const res = await fetch(`https://${HOST}${canonicalUri}`, {
+    headers: { ...headers, authorization: auth },
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`GET ${key}: ${res.status} ${await res.text()}`);
   return await res.text();
