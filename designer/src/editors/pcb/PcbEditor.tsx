@@ -208,8 +208,7 @@ import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.j
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
-import { snapToGridSize } from './pcb_grid.js';
-import type { PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
@@ -1076,10 +1075,12 @@ export function PcbEditor({
     () => (board ? boardGridOrigin(board) : DEFAULT_GRID_OPTIONS.origin),
     [board],
   );
-  // Grid-aware snap: binds the live grid size and the board's origin, so every
-  // existing call site follows the selected grid where KiCad puts it.
-  const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
-    snapToGridSize(p, gridIURef.current, gridOriginRef.current);
+  // `GRID_HELPER::m_auxAxis` — the point the current gesture started from, kept
+  // reachable for its whole duration so an off-grid item can be put back
+  // exactly where it came from. Set at the start of a move/drag and cleared
+  // when it ends, as `ROUTER_TOOL` (router_tool.cpp:2190, :2654) and
+  // `EDIT_TOOL` (edit_tool_move_fct.cpp:1401) do.
+  const auxAxisRef = useRef<{ x: number; y: number } | null>(null);
   // `PCB_GRID_HELPER`'s state, as the ported Align / AlignToSegment /
   // AlignToArc read it. Rebuilt per call rather than held, because the two
   // flags upstream pokes onto a long-lived helper (`SetUseGrid`, `SetSnap`)
@@ -1091,7 +1092,14 @@ export function PcbEditor({
     origin: gridOriginRef.current,
     enableGrid: true,
     enableSnap: !shiftDownRef.current,
+    auxAxis: auxAxisRef.current,
   });
+  // Every grid snap in the editor, through the one function upstream uses.
+  // Calling `computeNearest` directly anywhere would bypass the auxiliary axis
+  // and quantise the gesture's origin away again — which is the bug this is
+  // here to prevent, so there is deliberately no other route to the grid.
+  const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
+    align(p, gridState());
   // Where the routing crosshair actually goes — `controls()->ForceCursorPosition(
   // true, m_endSnapPoint )` at the end of `TOOL_BASE::updateEndItem`. `draw` is
   // memoised long before `copperAt` exists, so it reads the live one off a ref
@@ -2492,6 +2500,29 @@ export function PcbEditor({
       background: PCB_BACKGROUND,
       ...PCB_SPECIAL,
     });
+    // `GRID_HELPER::m_viewAxis` (pcb_grid_helper.cpp:167-172): the auxiliary
+    // axis, drawn at the origin of the gesture in progress as a CROSS in the
+    // aux-items colour at 40% alpha. `SetSize( 20000 )` is in *screen* pixels
+    // (`ORIGIN_VIEWITEM::ViewDraw` puts it through `ToWorld`), so at any real
+    // zoom it spans the whole canvas. It is the cue that says this point is
+    // still reachable however far the cursor wanders off the grid.
+    const aux = auxAxisRef.current;
+    if (aux) {
+      const ax = aux.x * sx + v.tx;
+      const ay = aux.y * v.scale + v.ty;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = PCB_CURSOR;
+      ctx.lineWidth = Math.max(1, dpr);
+      ctx.beginPath();
+      ctx.moveTo(0, ay);
+      ctx.lineTo(canvas.width, ay);
+      ctx.moveTo(ax, 0);
+      ctx.lineTo(ax, canvas.height);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Crosshair cursor (GAL blitCursor): a white cross at the grid-snapped
     // cursor. crosshairSmall = an 80px cross (default), crosshairFull = full
     // screen lines, crosshair45 = a big diagonal X. Drawn topmost.
@@ -4482,6 +4513,11 @@ export function PcbEditor({
     if (selection) setSelection(selection);
     moveKindRef.current = kind;
     moveOriginRef.current = origin;
+    // `EDIT_TOOL` sets the axis to `dragOrigin` (edit_tool_move_fct.cpp:1401).
+    // The move path is delta-based and was already reversible, but the axis
+    // also makes the *zero* delta land exactly rather than merely nearly.
+    auxAxisRef.current = null;
+    auxAxisRef.current = snapToGrid(origin);
     const fpIdx = new Set<number>();
     for (const id of sel) {
       const r = parseBoardItemId(id);
@@ -4564,9 +4600,15 @@ export function PcbEditor({
     // reproduced: a raw origin with grid-snapped updates jumps the line onto
     // the grid the instant you move, and no cursor position afterwards gets
     // back to where the track actually was.
-    const drag = startTrackDrag(brd, trackIndex, dragSnap(origin, null), { freeAngle });
+    // Cleared first so the origin is snapped without a stale axis biasing it,
+    // then installed as the axis for the rest of the gesture — upstream's
+    // `SetAuxAxes( true, m_startSnapPoint )`.
+    auxAxisRef.current = null;
+    const start = dragSnap(origin, null);
+    const drag = startTrackDrag(brd, trackIndex, start, { freeAngle });
     if (!drag) return false;
 
+    auxAxisRef.current = start;
     dragSeedIdRef.current = boardItemId('track', trackIndex);
 
     trackDragRef.current = drag;
@@ -5022,6 +5064,8 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    // The gesture is over: `SetAuxAxes( false )`.
+    auxAxisRef.current = null;
     if (trackDrag) {
       const cur = cursorRef.current;
       const seed = dragSeedIdRef.current;
@@ -5064,12 +5108,16 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    // The gesture is over: `SetAuxAxes( false )`.
+    auxAxisRef.current = null;
     // Undo the live-ratsnest preview (the board didn't change). Back at rest,
     // so the moving items' airwires go away with the gesture.
     if (liveRatsRef.current) ratsDrawRef.current = filterRatsRef.current(ratsnestEdgesRef.current);
     if (applied) {
       moveSceneRef.current = null;
       moveOriginRef.current = null;
+      // The gesture is over: `SetAuxAxes( false )`.
+      auxAxisRef.current = null;
       requestDraw();
       return;
     }

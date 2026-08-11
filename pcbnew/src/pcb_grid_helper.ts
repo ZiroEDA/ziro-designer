@@ -16,7 +16,8 @@
  *
  * ### What is ported
  *
- * - `computeNearest` / `AlignGrid` / `Align` — the grid round.
+ * - `computeNearest` / `AlignGrid` / `Align` — the grid round, and the
+ *   auxiliary axis that keeps a gesture's origin reachable off-grid.
  * - `AlignToSegment` (cpp:350-402) — the cursor on a track centreline.
  * - `AlignToArc` (cpp:405-447) — the same for a curved track.
  *
@@ -78,6 +79,18 @@ export interface PcbGridState {
   enableGrid: boolean;
   /** `GetSnap()` — false while Shift is held, which disables item snapping. */
   enableSnap: boolean;
+  /**
+   * `GRID_HELPER::m_auxAxis` — the point a gesture started from, which stays
+   * reachable for the whole gesture even when it is nowhere near a grid line.
+   *
+   * This is what lets an off-grid item be put back exactly where it came from.
+   * Every tool that moves something sets it to the gesture's origin and clears
+   * it at the end: `ROUTER_TOOL` to `m_startSnapPoint` (router_tool.cpp:2190)
+   * and to the inline-drag origin (:2654), `EDIT_TOOL` to `dragOrigin`
+   * (edit_tool_move_fct.cpp:1401), `PCB_POINT_EDITOR` to the original position
+   * (pcb_point_editor.cpp:2366).
+   */
+  auxAxis?: Vec2 | null;
 }
 
 /** `AlignToSegment`'s `c_gridSnapEpsilon_sq` (cpp:352). */
@@ -111,15 +124,30 @@ export function computeNearest(aPoint: Vec2, aGrid: number, aOffset: Vec2): Vec2
 }
 
 /**
- * `GRID_HELPER::Align` (`grid_helper.cpp:452-470`).
+ * `GRID_HELPER::Align` (`grid_helper.cpp:458-476`).
  *
- * The aux-axis branch after the grid round is not ported: `SetAuxAxes` is
- * driven by the drill/place-file origin tools, which this editor does not have.
+ * The grid round, and then the auxiliary axis — which is the half that makes a
+ * gesture reversible. Each coordinate is tested on its own: if the aux axis is
+ * *closer to the raw cursor* than the nearest grid line is, the aux coordinate
+ * wins. So the point a drag began at stays reachable for the whole drag, no
+ * matter where it sits relative to the grid, and an off-grid track can be put
+ * back exactly where it was.
+ *
+ * Note the comparison is against `aPoint`, the unsnapped cursor, not against
+ * each other — a strict `<`, so an exact tie leaves the grid node in place.
  */
 export function align(aPoint: Vec2, aGrid: PcbGridState): Vec2 {
   if (!aGrid.enableGrid) return { x: aPoint.x, y: aPoint.y };
 
-  return computeNearest(aPoint, aGrid.size, aGrid.origin);
+  const nearest = computeNearest(aPoint, aGrid.size, aGrid.origin);
+  const aux = aGrid.auxAxis;
+
+  if (!aux) return nearest;
+
+  return {
+    x: Math.abs(aux.x - aPoint.x) < Math.abs(nearest.x - aPoint.x) ? aux.x : nearest.x,
+    y: Math.abs(aux.y - aPoint.y) < Math.abs(nearest.y - aPoint.y) ? aux.y : nearest.y,
+  };
 }
 
 /**

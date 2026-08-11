@@ -209,3 +209,57 @@ describe('PcbGridHelper (the PnsSnapGridHelper the router asks for)', () => {
     });
   });
 });
+
+describe('the auxiliary axis (GRID_HELPER::m_auxAxis)', () => {
+  /**
+   * The reported failure, with the real numbers: an F.Cu trace whose ends sit
+   * at y = 102.489 mm and y = 102.4636 mm on a 0.5 mm grid. Drag it and bring
+   * the mouse back to the identical pixel and it came back at y = 102.5 — every
+   * reachable point was a multiple of 0.5 mm, and 102.4636 is not one.
+   *
+   * `SetAuxAxes( true, <gesture origin> )` is what upstream uses to keep the
+   * start of a gesture reachable: `ROUTER_TOOL` (router_tool.cpp:2190 and
+   * :2654), `EDIT_TOOL` (edit_tool_move_fct.cpp:1401), `PCB_POINT_EDITOR`
+   * (pcb_point_editor.cpp:2366). It was the half of `Align` this port dropped.
+   */
+  const ORIGIN_Y = 102.4636 * MM;
+  const plain = gridState();
+  const withAxis = gridState({ auxAxis: { x: 143.129 * MM, y: ORIGIN_Y } });
+
+  it('cannot reach an off-grid origin without it', () => {
+    expect(align({ x: 143.129 * MM, y: ORIGIN_Y }, plain).y).toBe(102.5 * MM);
+  });
+
+  it('returns the exact origin when the cursor comes back to it', () => {
+    expect(align({ x: 143.129 * MM, y: ORIGIN_Y }, withAxis)).toEqual({
+      x: 143.129 * MM,
+      y: ORIGIN_Y,
+    });
+  });
+
+  it('wins only while it is nearer the raw cursor than the grid line is', () => {
+    // 0.02 mm from the axis, 0.016 mm from the 102.5 grid line — grid wins.
+    expect(align({ x: 143.129 * MM, y: 102.4836 * MM }, withAxis).y).toBe(102.5 * MM);
+    // 0.005 mm from the axis, 0.031 mm from the grid line — the axis wins.
+    expect(align({ x: 143.129 * MM, y: 102.4686 * MM }, withAxis).y).toBe(ORIGIN_Y);
+  });
+
+  it('decides each coordinate on its own', () => {
+    // Near the axis in y, but a long way from it in x: y takes the axis, x
+    // takes the grid. Upstream tests the two independently.
+    const got = align({ x: 150.24 * MM, y: 102.4686 * MM }, withAxis);
+    expect(got.y).toBe(ORIGIN_Y);
+    expect(got.x).toBe(150 * MM);
+  });
+
+  it('leaves the grid node alone on an exact tie, as the strict < does', () => {
+    // The axis and the grid line are equidistant from the cursor.
+    const axis = gridState({ auxAxis: { x: 0, y: 0 } });
+    expect(align({ x: 0.25 * MM, y: 0 }, axis).x).toBe(0.5 * MM);
+  });
+
+  it('is ignored entirely when the grid is off, as canUseGrid gates first', () => {
+    const off = gridState({ enableGrid: false, auxAxis: { x: 0, y: 0 } });
+    expect(align({ x: 7, y: 9 }, off)).toEqual({ x: 7, y: 9 });
+  });
+});
