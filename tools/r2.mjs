@@ -10,7 +10,17 @@ const KEY = process.env.R2_ACCESS_KEY_ID;
 const SECRET = process.env.R2_SECRET_ACCESS_KEY;
 export const BUCKET = process.env.R2_BUCKET ?? 'ziro-3dmodels';
 if (!ACCOUNT || !KEY || !SECRET) {
-  console.error('Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY.');
+  console.error(
+    'Missing R2 credentials. Copy .env.example to .env, fill it in, and run this\n' +
+      'through one of the root scripts (pnpm libraries:upload), which loads .env.\n' +
+      '\n' +
+      'These are R2 API tokens (an S3 key pair from R2 -> Manage API tokens), not\n' +
+      'a Cloudflare API token: this client signs SigV4 against the S3 endpoint.\n' +
+      '\n' +
+      `  R2_ACCOUNT_ID        ${ACCOUNT ? 'ok' : 'missing'}\n` +
+      `  R2_ACCESS_KEY_ID     ${KEY ? 'ok' : 'missing'}\n` +
+      `  R2_SECRET_ACCESS_KEY ${SECRET ? 'ok' : 'missing'}`,
+  );
   process.exit(1);
 }
 const HOST = `${ACCOUNT}.r2.cloudflarestorage.com`;

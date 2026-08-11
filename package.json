@@ -10,7 +10,10 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "libraries:upload": "node --env-file=.env tools/libraries/upload.mjs",
+    "libraries:verify": "node --env-file=.env tools/libraries/verify.mjs",
+    "demos:upload": "node --env-file=.env tools/demos/upload.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",
