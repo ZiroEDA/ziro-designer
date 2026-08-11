@@ -209,12 +209,8 @@ import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { snapToGridSize } from './pcb_grid.js';
-import {
-  alignToArc,
-  alignToSegment,
-  gridArcFromPoints,
-  type PcbGridState,
-} from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import type { PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -921,6 +917,11 @@ export function PcbEditor({
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set());
   const [activeLayer, setActiveLayer] = useState('F.Cu');
+  // `getView()->GetTopLayer()`, which every snap reads to prefer items on the
+  // layer being worked on. A ref because `draw` reads it without wanting to be
+  // rebuilt when the layer changes.
+  const activeLayerRef = useRef(activeLayer);
+  activeLayerRef.current = activeLayer;
   // Selected layer preset; '---' is the separator row, the default selection
   // like rebuildLayerPresetsWidget.
   const [preset, setPreset] = useState('---');
@@ -1108,10 +1109,27 @@ export function PcbEditor({
   // dependency list and rebuild the whole draw pass on every keystroke.
   const cursorSnapRef =
     useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
-  cursorSnapRef.current = (w) =>
-    activeToolRef.current === 'routeSingleTrack' || routeRef.current
-      ? routeSnapRef.current(w)
-      : snapToGrid(w);
+  cursorSnapRef.current = (w) => {
+    if (activeToolRef.current === 'routeSingleTrack' || routeRef.current)
+      return routeSnapRef.current(w);
+
+    // The plain selection tool does not snap to items on hover in pcbnew:
+    // nothing in `PCB_SELECTION_TOOL`'s motion path calls `BestSnapAnchor`,
+    // while the drawing, placement, picker and move tools all do.
+    if (!isClickTool(activeToolRef.current)) return snapToGrid(w);
+
+    const brd = boardRef.current;
+
+    if (!brd) return snapToGrid(w);
+
+    return bestSnapAnchor(brd, w, gridState(), {
+      // `view->ToWorld( 25 )` and `view->ToWorld( m_SnapHysteresis )`.
+      snapScale: 25 / viewRef.current.scale,
+      hysteresis: 5 / viewRef.current.scale,
+      visibleGrid: gridIURef.current,
+      layer: activeLayerRef.current,
+    });
+  };
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
   // 1.. = the pre-defined list entries (BOARD_DESIGN_SETTINGS m_TrackWidthList /
   // m_ViasDimensionsList; ours come from the project's netclasses).
@@ -3978,50 +3996,22 @@ export function PcbEditor({
     return null;
   };
 
-  // Net + snap point of the copper item under the cursor (pads first, then
-  // vias and tracks via the hit-tester).
+  // Net + snap point of the copper item under the cursor —
+  // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
+  // in pcbnew so it can be tested against a real board; this is only the
+  // component's view of the world handed to it.
   const copperAt = (w: {
     x: number;
     y: number;
   }): { net: number; snap: { x: number; y: number } } | null => {
     const brd = boardRef.current;
     if (!brd) return null;
-    const pad = padAt(w);
-    if (pad) return { net: pad.net ?? 0, snap: { ...pad.at } };
-    for (const id of boardHitCandidates(brd, w, tolOf())) {
-      const r = parseBoardItemId(id);
-      if (r?.kind === 'via') {
-        const v = brd.vias[r.index];
-        if (v) return { net: v.net, snap: { ...v.at } };
-      } else if (r?.kind === 'track' || r?.kind === 'arc') {
-        const t = r.kind === 'track' ? brd.tracks[r.index] : brd.arcs[r.index];
-        if (t) {
-          // `TOOL_BASE::snapToItem`, the SEGMENT_T / ARC_T arm
-          // (pns_tool_base.cpp:480-505): an end wins only while the cursor is
-          // within *half the track width* of it — not within a screen
-          // tolerance — and everywhere else the cursor rides the centreline via
-          // AlignToSegment / AlignToArc. Without that second half the cursor
-          // could only ever sit on a grid node, which is above or below the
-          // copper unless the track happens to lie on a grid line.
-          const wSq = Math.trunc(t.width / 2) ** 2;
-          const distASq = (w.x - t.start.x) ** 2 + (w.y - t.start.y) ** 2;
-          const distBSq = (w.x - t.end.x) ** 2 + (w.y - t.end.y) ** 2;
-          if (distASq < wSq || distBSq < wSq) {
-            return { net: t.net, snap: { ...(distASq < distBSq ? t.start : t.end) } };
-          }
-          const g = gridState();
-          const curved = r.kind === 'arc' ? brd.arcs[r.index] : null;
-          if (curved) {
-            const arc = gridArcFromPoints(curved.start, curved.mid, curved.end);
-            // Three collinear points have no centre; upstream degenerates the
-            // SHAPE_ARC to a straight one, so treat it as the segment it is.
-            if (arc) return { net: t.net, snap: alignToArc(w, arc, g) };
-          }
-          return { net: t.net, snap: alignToSegment(w, { a: t.start, b: t.end }, g) };
-        }
-      }
-    }
-    return null;
+    return snapToBoardCopper(brd, w, gridState(), {
+      tol: tolOf(),
+      // `pickSingleItem`'s `tl`, the view's top layer. A preference, not a
+      // filter: an item elsewhere is still picked when this layer has none.
+      layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
+    });
   };
 
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
