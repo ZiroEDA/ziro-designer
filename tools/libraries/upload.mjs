@@ -19,45 +19,11 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { putObject, uploadAll } from '../r2.mjs';
+import { perSymbolFiles, stagedFileName, topLevelSymbols, wrapLib } from './split.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SYM_SRC = join(ROOT, 'kicad-symbols-src');
 const FP_SRC = join(ROOT, 'kicad-footprints-src');
-
-/** Extract top-level `(symbol "Name" …)` blocks byte-exactly. */
-function topLevelSymbols(text) {
-  const out = [];
-  let i = text.indexOf('(');
-  if (i < 0) return out;
-  // walk children of the root list
-  let depth = 0;
-  let start = -1;
-  let inStr = false;
-  for (; i < text.length; i++) {
-    const c = text[i];
-    if (inStr) {
-      if (c === '\\') i++;
-      else if (c === '"') inStr = false;
-      continue;
-    }
-    if (c === '"') inStr = true;
-    else if (c === '(') {
-      depth++;
-      if (depth === 2) start = i;
-    } else if (c === ')') {
-      if (depth === 2 && start >= 0) {
-        const block = text.slice(start, i + 1);
-        if (/^\(\s*symbol\s/.test(block)) {
-          const name = block.match(/^\(\s*symbol\s+"((?:[^"\\]|\\.)*)"/)?.[1];
-          out.push({ name: name ?? '?', block });
-        }
-        start = -1;
-      }
-      depth--;
-    }
-  }
-  return out;
-}
 
 // --- symbols: merge each .kicad_symdir into one library file ------------------
 const symEntries = [];
@@ -86,8 +52,32 @@ for (const dir of symDirs.sort()) {
   };
   const power = names.filter((n) => isPower(n));
   const body = parts.map((p) => `\t${p.block}`).join('\n');
-  const merged = `(kicad_symbol_lib\n\t(version 20241209)\n\t(generator "ziro_library_merge")\n\t(generator_version "1.0")\n${body}\n)\n`;
+  const merged = wrapLib('ziro_library_merge', body);
   symEntries.push([`symbols/${lib}.kicad_sym`, Buffer.from(merged), 'text/plain']);
+
+  // --- one file per symbol ----------------------------------------------------
+  // Placing a part used to fetch its whole library: 7.0 MB for one connector
+  // out of Connector_Generic, 5.2 MB out of Connector. These are the same
+  // blocks, byte for byte, split so the app can ask for exactly the symbol it
+  // is placing. The merged library above stays, for the library browser (which
+  // legitimately wants all of a library) and as the fallback.
+  //
+  // A derived symbol carries no geometry of its own, so its file must also hold
+  // the chain it extends. `LIB_SYMBOL::Flatten` (our `resolveExtends`) looks the
+  // parent up **by name within the same file** and, finding nothing, silently
+  // keeps the child's own empty body: the symbol parses, places, and has no
+  // pins. Parents are emitted before the child, matching the order the merged
+  // file relies on.
+  const oneDir = join(ROOT, 'tools/libraries/out/symbols', lib);
+  mkdirSync(oneDir, { recursive: true });
+  for (const { name, text } of perSymbolFiles(parts)) {
+    // The key holds the symbol name raw; the app percent-encodes it into the
+    // request path, which the object store decodes back to this key.
+    symEntries.push([`symbols/${lib}/${name}.kicad_sym`, Buffer.from(text), 'text/plain']);
+    // Staged so the qa sweep can check every one of them with our own reader
+    // before any of it is uploaded.
+    writeFileSync(join(oneDir, stagedFileName(name)), text);
+  }
   symIndex.push({
     name: lib,
     count: names.length,

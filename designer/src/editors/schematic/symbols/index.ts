@@ -115,7 +115,16 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
       'symbols',
       `Loading ${name}…`,
       fetch(`${symbolsBase()}/${name}.kicad_sym`)
-        .then((r) => r.text())
+        .then((r) => {
+          // Without this the body of a 404 or an error page reached the parser,
+          // and a missing library surfaced as `Expected a top-level list
+          // starting with "("` — a message that says nothing about which
+          // library failed, or that the failure was a fetch at all.
+          if (!r.ok) {
+            throw new Error(`symbol library "${name}" could not be loaded (HTTP ${r.status})`);
+          }
+          return r.text();
+        })
         .then((text) => {
           const map = new Map<string, LibSymbol>();
           for (const sym of readSymbolLib(parse(text))) {
@@ -130,12 +139,77 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
   return p;
 }
 
-/** Load one symbol by library and name (fetches+caches the library on demand). */
+/**
+ * Whether the host serves one file per symbol.
+ *
+ * Starts optimistic and is turned off for the session by the first miss that
+ * the whole library then answers, which is the signature of a host laid out the
+ * old way (the bundled subset under `public/symbols` is exactly that). A miss on
+ * a symbol the library does not have either does *not* flip it: that is a
+ * missing symbol, not a missing layout, and one bad name must not push every
+ * later placement back onto multi-megabyte library fetches.
+ */
+let perSymbolFiles = true;
+
+/**
+ * One symbol's own file: `<base>/<Library>/<Symbol>.kicad_sym`, holding the
+ * symbol and the parent chain it extends (see tools/libraries/upload.mjs).
+ * Undefined means "not served that way", not "no such symbol".
+ *
+ * The name is percent-encoded into the path, which the object store decodes
+ * back to the key it was uploaded under. 111 of the symbols in the standard set
+ * contain a `+`.
+ */
+async function fetchOneSymbol(library: string, symbolName: string): Promise<LibSymbol | undefined> {
+  const url = `${symbolsBase()}/${library}/${encodeURIComponent(symbolName)}.kicad_sym`;
+  const res = await fetch(url);
+  if (!res.ok) return undefined;
+  const text = await res.text();
+  // The file holds the parent chain too, so pick out the one that was asked
+  // for; `readSymbolLib` has already flattened it against those parents.
+  for (const sym of readSymbolLib(parse(text))) {
+    if (sym.libId === symbolName) return { ...sym, libId: `${library}:${sym.libId}` };
+  }
+  return undefined;
+}
+
+const symbolCache = new Map<string, Promise<LibSymbol | undefined>>();
+
+/**
+ * Load one symbol by library and name.
+ *
+ * Fetches just that symbol where the host serves it that way, which is the
+ * difference between about a kilobyte and, for Connector_Generic, 7.0 MB of
+ * library that is then parsed in full to use one part. Falls back to the whole
+ * library, which is also what the library browser and any host without the
+ * per-symbol layout use, so nothing depends on the split having happened.
+ */
 export async function loadSymbol(
   library: string,
   symbolName: string,
 ): Promise<LibSymbol | undefined> {
-  return (await loadLibrary(library)).get(symbolName);
+  // Already paid for the whole library (the browser opened it, or an earlier
+  // fallback): read it from there rather than fetching again.
+  const whole = libCache.get(library);
+  if (whole) return (await whole).get(symbolName);
+  if (!perSymbolFiles) return (await loadLibrary(library)).get(symbolName);
+
+  const key = `${library}:${symbolName}`;
+  let p = symbolCache.get(key);
+  if (!p) {
+    p = fetchOneSymbol(library, symbolName)
+      .catch(() => undefined) // network or parse failure: let the library answer
+      .then(async (sym) => {
+        if (sym) return sym;
+        const fromLib = (await loadLibrary(library)).get(symbolName);
+        // The library has it and the per-symbol path did not, so this host does
+        // not serve them individually. Stop asking for the rest of the session.
+        if (fromLib) perSymbolFiles = false;
+        return fromLib;
+      });
+    symbolCache.set(key, p);
+  }
+  return p;
 }
 
 /**
