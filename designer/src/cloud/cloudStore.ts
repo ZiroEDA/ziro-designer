@@ -35,7 +35,15 @@
 
 import type { CloudBackend, ManifestEntry, ProjectRow, RowFile } from './backend.js';
 import { isInlineFile, isManifestEntry } from './backend.js';
-import { blobPath, getBlob, legacyPath, putBlob, sha256Hex } from './blobStore.js';
+import {
+  blobExists,
+  blobPath,
+  flatBlobPath,
+  getBlob,
+  legacyPath,
+  putBlob,
+  sha256Hex,
+} from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
 
 let backend: CloudBackend | null = null;
@@ -170,12 +178,15 @@ export async function cloudMissingObjects(
     return { name: row.name, missing: 0, total: files.length };
   }
 
-  const paths = isManifestEntry(files[0]!)
-    ? (files as ManifestEntry[]).map((f) => blobPath(userId, f.hash))
-    : files.map((f) => legacyPath(userId, row.id, f.name));
-  const present = await Promise.all(paths.map((p) => be.hasObject(p)));
+  // Manifest rows address blobs by hash, which may be stored under either
+  // layout; the older shapes address a path built from the project id. A blob
+  // reported missing merely because it predates the sharded layout would be a
+  // loss this app then "repairs" by overwriting the cloud, so both are checked.
+  const present = isManifestEntry(files[0]!)
+    ? await Promise.all((files as ManifestEntry[]).map((f) => blobExists(be, userId, f.hash)))
+    : await Promise.all(files.map((f) => be.hasObject(legacyPath(userId, row.id, f.name))));
   // The row's own name, so a report can say which project rather than which key.
-  return { name: row.name, missing: present.filter((ok) => !ok).length, total: paths.length };
+  return { name: row.name, missing: present.filter((ok) => !ok).length, total: present.length };
 }
 
 /**
@@ -211,7 +222,11 @@ export async function restoreFromHistory(
     // Older shapes name no blobs to check, so nothing can be proven about them.
     if (entries.length === 0 || entries.length !== (version.files ?? []).length) continue;
 
-    const present = await Promise.all(entries.map((f) => be.hasObject(blobPath(userId, f.hash))));
+    // Both layouts. The projects this exists to rescue are the oldest ones in
+    // the account, so their surviving blobs are the most likely to be sitting
+    // at the pre-split path; asking only about the new one would find nothing
+    // and declare exactly those unrecoverable.
+    const present = await Promise.all(entries.map((f) => blobExists(be, userId, f.hash)));
     if (!present.every(Boolean)) continue;
 
     const row = await be.getProject(id);
@@ -371,5 +386,12 @@ export async function cloudDelete(id: string): Promise<void> {
     return; // Cannot prove they are unreferenced, so leave them.
   }
   const orphans = [...new Set(doomed)].filter((h) => !stillUsed.has(h));
-  if (orphans.length > 0) await be.removeObjects(orphans.map((h) => blobPath(userId, h)));
+  // Both layouts: an orphan may still be sitting at the pre-split path, and
+  // removing a key that is not there is not an error.
+  if (orphans.length > 0) {
+    await be.removeObjects([
+      ...orphans.map((h) => blobPath(userId, h)),
+      ...orphans.map((h) => flatBlobPath(userId, h)),
+    ]);
+  }
 }
