@@ -231,6 +231,13 @@ export interface BestSnapOptions {
   magneticTracks?: MagneticOption;
   /** `MAGNETIC_SETTINGS::allLayers`, which defeats the layer filter. */
   allLayers?: boolean;
+  /**
+   * `BestSnapAnchor`'s `aSkip`, as board item ids — the items whose anchors are
+   * left out. `PCB_POINT_EDITOR` passes `{ item }` (pcb_point_editor.cpp:2594,
+   * :2621, :2644) so a point being dragged cannot snap to the very shape it is
+   * reshaping, which would pin it in place.
+   */
+  avoid?: ReadonlySet<string>;
 }
 
 const sqDist = (a: Vec2, b: Vec2): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
@@ -262,8 +269,13 @@ export function computeCopperAnchors(
   const onLayer = (itemLayer: string): boolean =>
     !!aOpts.allLayers || !aOpts.layer || layerMatches(itemLayer, aOpts.layer);
 
+  const skipped = (kind: string, index: number): boolean =>
+    aOpts.avoid?.has(`${kind}:${index}`) ?? false;
+
   if (pads === MagneticOption.CAPTURE_ALWAYS) {
-    for (const fp of aBoard.footprints) {
+    for (const [fpIndex, fp] of aBoard.footprints.entries()) {
+      if (skipped('footprint', fpIndex)) continue;
+
       for (const pad of fp.pads) {
         if (!pad.layers.some(onLayer)) continue;
 
@@ -274,13 +286,22 @@ export function computeCopperAnchors(
   }
 
   if (tracks === MagneticOption.CAPTURE_ALWAYS) {
-    for (const v of aBoard.vias) {
+    for (const [i, v] of aBoard.vias.entries()) {
+      if (skipped('via', i)) continue;
+
       // A via spans layers, so the layer filter never excludes one.
       if (inRange(v.at))
         anchors.push({ pos: v.at, flags: ANCHOR_ORIGIN | ANCHOR_CORNER | ANCHOR_SNAPPABLE });
     }
 
-    for (const t of [...aBoard.tracks, ...aBoard.arcs]) {
+    const wires: { kind: string; index: number; t: (typeof aBoard.tracks)[number] }[] = [
+      ...aBoard.tracks.map((t, index) => ({ kind: 'track', index, t })),
+      ...aBoard.arcs.map((a, index) => ({ kind: 'arc', index, t: a })),
+    ];
+
+    for (const { kind, index, t } of wires) {
+      if (skipped(kind, index)) continue;
+
       if (!onLayer(t.layer)) continue;
 
       for (const end of [t.start, t.end]) {

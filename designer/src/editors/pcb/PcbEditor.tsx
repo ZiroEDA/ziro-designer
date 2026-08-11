@@ -1057,10 +1057,20 @@ export function PcbEditor({
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
-  // Shift, read off the live pointer event exactly as `TOOL_BASE` reads it off
-  // the tool event: holding it disables snapping to items, leaving the plain
-  // grid (`m_gridHelper->SetSnap( !aEvent.Modifier( MD_SHIFT ) )`).
+  // The two snap modifiers, as the tool events carry them.
+  //
+  // Shift disables snapping to *items*, leaving the plain grid
+  // (`m_gridHelper->SetSnap( !aEvent.Modifier( MD_SHIFT ) )`); Ctrl disables
+  // the *grid*, which is `TOOL_EVENT::DisableGridSnapping()` — literally
+  // `Modifier( MD_CTRL )` (tool_event.h:367) — and every tool feeds it to
+  // `SetUseGrid( GetGridSnapping() && !evt->DisableGridSnapping() )`.
+  //
+  // Both are tracked on key events as well as pointer events. Sampling them
+  // only on pointer move means pressing or releasing a modifier with the mouse
+  // held still changes nothing until the pointer is jiggled, and upstream
+  // reacts at once because the modifier arrives as its own tool event.
   const shiftDownRef = useRef(false);
+  const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
   const [gridIU, setGridIU] = useState(DEFAULT_GRID_OPTIONS.size);
@@ -1090,7 +1100,11 @@ export function PcbEditor({
   const gridState = (): PcbGridState => ({
     size: gridIURef.current,
     origin: gridOriginRef.current,
-    enableGrid: true,
+    // `canUseGrid()` = the grid-snapping setting AND no Ctrl. We have no
+    // grid-snapping preference of our own yet, so the modifier is the whole of
+    // it — but it is the half users reach for, and without it there is no way
+    // at all to place something off the lattice.
+    enableGrid: !ctrlDownRef.current,
     enableSnap: !shiftDownRef.current,
     auxAxis: auxAxisRef.current,
   });
@@ -4635,6 +4649,28 @@ export function PcbEditor({
     return true;
   };
 
+  /**
+   * The cursor while a point/handle is being dragged —
+   * `grid.BestSnapAnchor( pos, snapLayers, GetItemGrid( item ), { item } )`
+   * (pcb_point_editor.cpp:2644).
+   *
+   * The point editor snapped to the bare grid before this, which meant a
+   * reshaped point could neither land on a pad centre or another track's end,
+   * nor go back to an off-grid position it started at.
+   */
+  const handleSnap = (w: { x: number; y: number }): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (!brd) return snapToGrid(w);
+    const id = editHandleItemRef.current;
+    return bestSnapAnchor(brd, w, gridState(), {
+      snapScale: 25 / viewRef.current.scale,
+      hysteresis: 5 / viewRef.current.scale,
+      visibleGrid: gridIURef.current,
+      layer: activeLayerRef.current,
+      avoid: id ? new Set([id]) : undefined,
+    });
+  };
+
   /** The handle under a world point (EDIT_POINTS::FindPoint). */
   const editHandleAt = (p: { x: number; y: number }): BoardEditHandle | null =>
     handleAtPoint(
@@ -5221,7 +5257,13 @@ export function PcbEditor({
       if (w && !isClickTool(activeToolRef.current)) {
         const handle = editHandleAt(w);
         if (handle) {
-          editHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          // `PCB_POINT_EDITOR` puts the auxiliary axis on the point's *original
+          // position* — `SetAuxAxes( true, m_original.GetPosition() )`
+          // (pcb_point_editor.cpp:2366) — not on the cursor. So a handle that
+          // started off-grid stays reachable for the whole drag, and a track
+          // endpoint or zone corner can be put back exactly where it was.
+          auxAxisRef.current = { x: handle.at.x, y: handle.at.y };
+          editHandleDragRef.current = { handle, origin: handleSnap(w) };
           // Reshaping touches one item, so split the board the same way a move
           // drag does: the rest of it is recorded once here and stays in the
           // cached raster, and the item being reshaped rides the live overlay.
@@ -5265,6 +5307,7 @@ export function PcbEditor({
   };
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
+    ctrlDownRef.current = e.ctrlKey || e.metaKey;
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
@@ -5295,7 +5338,7 @@ export function PcbEditor({
       const brd = boardRef.current;
       const id = editHandleItemRef.current;
       if (cur && brd && id) {
-        const to = snapToGrid(cur);
+        const to = handleSnap(cur);
         const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
@@ -5371,6 +5414,8 @@ export function PcbEditor({
     if (editHandleDragRef.current) {
       const preview = pointEditPreviewRef.current;
       editHandleDragRef.current = null;
+      // The gesture is over: `SetAuxAxes( false )`.
+      auxAxisRef.current = null;
       pointEditPreviewRef.current = null;
       // Drop the reshape overlay: both paths below rebuild a full base scene
       // that contains the item again, so leaving it up would double-draw it.
@@ -5716,6 +5761,37 @@ export function PcbEditor({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [zoomToFit, undo, redo, deleteSel, rotateSel, duplicateSel]);
+
+  // The snap modifiers, tracked on the keyboard as well as the pointer.
+  // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
+  // Ctrl changes the snap immediately; sampling them only on pointer move
+  // leaves the snap stale until the mouse is nudged. A repaint follows so the
+  // crosshair and any in-flight preview move the moment the key does.
+  useEffect(() => {
+    const sync = (e: KeyboardEvent): void => {
+      const shift = e.shiftKey;
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (shift === shiftDownRef.current && ctrl === ctrlDownRef.current) return;
+      shiftDownRef.current = shift;
+      ctrlDownRef.current = ctrl;
+      requestDrawRef.current();
+    };
+    // A window that loses focus mid-chord never sees the keyup, which would
+    // otherwise leave snapping disabled until the key is pressed and released
+    // again.
+    const clear = (): void => {
+      shiftDownRef.current = false;
+      ctrlDownRef.current = false;
+    };
+    window.addEventListener('keydown', sync);
+    window.addEventListener('keyup', sync);
+    window.addEventListener('blur', clear);
+    return () => {
+      window.removeEventListener('keydown', sync);
+      window.removeEventListener('keyup', sync);
+      window.removeEventListener('blur', clear);
+    };
+  }, []);
 
   const [viewer3dReady, setViewer3dReady] = useState(false);
   // Mount the three.js 3D viewer while the overlay is open. Lazy-imported so

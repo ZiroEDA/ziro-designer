@@ -161,6 +161,8 @@ export interface RecorderOptions {
  * checks against the source rather than against a promise in a comment.
  */
 export class GlRecorder {
+  /** One warning per session, not one per path per frame. */
+  private static warnedForeignPath = false;
   private st: State = {
     ctm: IDENT,
     fillStyle: '#000',
@@ -455,6 +457,28 @@ export class GlRecorder {
    */
   private adopt(path: GlPath): SubPath[] {
     const out: SubPath[] = [];
+    // A DOM `Path2D` has no `subpaths`, and iterating `undefined` throws out of
+    // the whole draw call — one mismatched path takes the entire canvas with
+    // it. The pairing this protects is genuinely easy to get wrong:
+    // `buildScene` compiles DOM paths for the 2D overlay and `buildBoardScene`
+    // compiles GL paths for the recorder, they are chosen at a dozen call
+    // sites, and `renderBoard`'s path factory is module-global mutable state
+    // that a hot reload can leave pointing at the other one.
+    //
+    // Warned rather than swallowed: dropping the path silently is the existing
+    // failure mode for the mirror-image mistake (a GL scene drawn by the raster
+    // path renders an empty board with no error at all), and a silent empty
+    // board is a worse bug to chase than a loud one.
+    if (!path?.subpaths?.[Symbol.iterator]) {
+      if (!GlRecorder.warnedForeignPath) {
+        GlRecorder.warnedForeignPath = true;
+        console.warn(
+          '[gl] a path without subpaths reached the recorder and was skipped — ' +
+            'this is a Path2D from buildScene where buildBoardScene was needed',
+        );
+      }
+      return out;
+    }
     for (const sp of path.subpaths) {
       const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner };
       for (const p of sp.pts) this.pushPt(s, p.x, p.y);

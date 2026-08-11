@@ -264,3 +264,48 @@ describe('a dragged trace can be put back exactly where it started', () => {
     if (withoutSeed) expect(withoutSeed.snap.y).toBe(TRACK.y);
   });
 });
+
+describe('bestSnapAnchor aSkip (PCB_POINT_EDITOR passes { item })', () => {
+  const twoTracks = readBoard(
+    parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "") (net 1 "a") (net 2 "b")
+  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1))
+  (segment (start 10.1 10.1) (end 20 10.1) (width 0.25) (layer "F.Cu") (net 2))
+)`),
+  );
+  const opts = { snapScale: 1 * MM, visibleGrid: 0.5 * MM, layer: 'F.Cu', hysteresis: 0 };
+  const near = { x: 10.02 * MM, y: 10.02 * MM };
+
+  it('snaps to the nearest end with nothing skipped', () => {
+    expect(bestSnapAnchor(twoTracks, near, grid(), opts)).toEqual({ x: 10 * MM, y: 10 * MM });
+  });
+
+  it('skips the item being reshaped, so a point cannot pin itself', () => {
+    // Without this a dragged endpoint snaps to where it already is and the
+    // reshape cannot move at all.
+    const got = bestSnapAnchor(twoTracks, near, grid(), {
+      ...opts,
+      avoid: new Set(['track:0']),
+    });
+    expect(got).toEqual({ x: 10.1 * MM, y: 10.1 * MM });
+  });
+
+  it('falls back to the grid when everything nearby is skipped', () => {
+    const got = bestSnapAnchor(twoTracks, near, grid(), {
+      ...opts,
+      avoid: new Set(['track:0', 'track:1']),
+    });
+    expect(got).toEqual({ x: 10 * MM, y: 10 * MM });
+  });
+});
+
+describe('Ctrl disables the grid (TOOL_EVENT::DisableGridSnapping)', () => {
+  it('leaves the raw point alone, so anything is placeable', () => {
+    // `SetUseGrid( GetGridSnapping() && !evt->DisableGridSnapping() )`, and
+    // `DisableGridSnapping()` is `Modifier( MD_CTRL )` (tool_event.h:367).
+    const raw = { x: 10_123_456, y: 9_876_543 };
+    expect(align(raw, grid({ enableGrid: false }))).toEqual(raw);
+    expect(align(raw, grid())).toEqual({ x: 10 * MM, y: 10 * MM });
+  });
+});
