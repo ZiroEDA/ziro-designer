@@ -4656,3 +4656,25 @@ body {
   height: auto;
   max-height: 92vh;
 }
+
+/* Read-only strip (a demo, until it is copied). Same skin as WX_INFOBAR, with
+   the action on the right; it takes a row above the canvas rather than floating
+   over it, which is where KiCad shows "Schematic is read only.". */
+.ze-readonly-infobar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ze-readonly-infobar button {
+  margin-left: auto;
+  padding: 3px 10px;
+  font: inherit;
+  color: #f4eeda;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #7a6a20;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ze-readonly-infobar button:hover {
+  background: rgba(0, 0, 0, 0.5);
+}

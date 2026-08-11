@@ -874,6 +874,7 @@ export function PcbEditor({
   onOutputFile,
   crossProbeNet,
   updateFromSchematic,
+  readOnlyNotice,
 }: {
   fileName: string;
   text: string;
@@ -904,6 +905,8 @@ export function PcbEditor({
    *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
    *  null clears the highlight (SendCrossProbeClearHighlight). */
   crossProbeNet?: string | null;
+  /** A strip to show above the canvas, e.g. "this demo is not being saved". */
+  readOnlyNotice?: JSX.Element | null;
   /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
    *  which switches here and then runs the same dialog this frame's own F8 does
    *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
@@ -7269,6 +7272,7 @@ export function PcbEditor({
         />
 
         <div className="ze-canvas-wrap" ref={wrapRef} style={{ position: 'relative' }}>
+          {readOnlyNotice}
           <canvas
             ref={canvasRef}
             style={{

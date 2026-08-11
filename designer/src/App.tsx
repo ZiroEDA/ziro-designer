@@ -30,6 +30,7 @@ import {
   reportSignedIn,
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
+import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
 import './ui/shell.css';
 
 /**
@@ -78,6 +79,45 @@ const ImageConverter = lazy(() =>
 const GerberViewer = lazy(() =>
   import('./editors/gerbview/GerberViewer.js').then((m) => ({ default: m.GerberViewer })),
 );
+
+/**
+ * Warm the editor chunks once the launcher is up and the main thread is idle.
+ *
+ * Splitting the frames took the first load from 982 kB to 241 kB gzipped, but
+ * moved the wait: clicking into the schematic editor then fetched 200 kB before
+ * anything appeared, and on a cold cache that is a blank frame and a spinner
+ * where there used to be none. The download is the same either way, so it
+ * happens while the user is reading the launcher rather than while they are
+ * waiting for a board.
+ *
+ * `requestIdleCallback` so it never competes with the launcher's own work, and
+ * one at a time, in the order they are actually reached for. Failures are
+ * ignored: this is a cache warm, and the real import will report anything that
+ * matters.
+ */
+function prefetchEditors(): () => void {
+  const load: (() => Promise<unknown>)[] = [
+    () => import('./editors/schematic/SchematicEditor.js'),
+    () => import('./editors/pcb/PcbEditor.js'),
+    () => import('./editors/symbol/SymbolEditor.js'),
+    () => import('./editors/footprint/FootprintEditor.js'),
+  ];
+  let cancelled = false;
+  let i = 0;
+  const idle: (cb: () => void) => number =
+    (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ??
+    ((cb) => setTimeout(cb, 300) as unknown as number);
+  const next = (): void => {
+    if (cancelled || i >= load.length) return;
+    void load[i++]!()
+      .catch(() => undefined)
+      .then(() => idle(next));
+  };
+  idle(next);
+  return () => {
+    cancelled = true;
+  };
+}
 
 /** Fallback while a frame's chunk is in flight, in the app's own overlay style. */
 const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Loading ${what}…`} />;
@@ -192,6 +232,9 @@ export function App(): JSX.Element {
    * downloading.
    */
   const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
+  // Fetch the editors in the background while the launcher is on screen, so
+  // opening one is not the first time its code is asked for.
+  useEffect(() => prefetchEditors(), []);
   // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
   // sends "$NET: <name>" between the frames; here both are mounted together).
   const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
@@ -590,6 +633,16 @@ export function App(): JSX.Element {
     })();
   }, [demoSource]);
 
+  /** KiCad shows "Schematic is read only." as a strip above the canvas; this is
+   *  the same place and the same skin, plus the action that resolves it. */
+  const demoNotice = demoProject ? (
+    <ReadOnlyNotice
+      message="Demo project. Edits are not being saved."
+      actionLabel="Save a copy"
+      onAction={saveDemoCopy}
+    />
+  ) : null;
+
   const goHome = useCallback(() => {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
@@ -778,17 +831,6 @@ export function App(): JSX.Element {
   return (
     <>
       <SaveIndicator />
-      {demoProject && (
-        <div className="ze-demo-banner" role="status">
-          <span className="ze-demo-banner-text">
-            <b>Demo project</b>
-            Edits are not being saved. Save a copy to keep your changes.
-          </span>
-          <button type="button" onClick={saveDemoCopy}>
-            Save a copy
-          </button>
-        </div>
-      )}
       {schMounted && (
         <div style={{ display: view === 'schematic' ? 'contents' : 'none' }}>
           <Suspense fallback={frameLoading('the schematic editor')}>
@@ -847,6 +889,7 @@ export function App(): JSX.Element {
               registerAutosaveFlush={registerSchFlush}
               extraSheetFiles={sessionSheets}
               projectName={projectName}
+              readOnlyNotice={demoNotice}
               onCrossProbeNet={setCrossProbeNet}
             />
           </Suspense>
@@ -876,6 +919,7 @@ export function App(): JSX.Element {
               onOutputFile={onOutputFile}
               crossProbeNet={crossProbeNet}
               updateFromSchematic={updatePcbNonce}
+              readOnlyNotice={demoNotice}
             />
           </Suspense>
         </div>
