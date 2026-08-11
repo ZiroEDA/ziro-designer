@@ -241,7 +241,9 @@ describe('a push', () => {
     // not happen and leave the two sides marked as disagreeing when they agree.
     const f = install();
     f.failOn(/^recordVersion:/);
-    await expect(cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA' }))).resolves.toBeUndefined();
+    // Resolves with the manifest it committed, history or no history.
+    const manifest = await cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA' }));
+    expect(manifest.map((m) => m.name)).toEqual(['a.kicad_sch']);
     expect(f.rows.has('p1')).toBe(true);
   });
 });

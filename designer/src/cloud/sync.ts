@@ -31,6 +31,7 @@ import {
   forkLocalCopy,
   hasDivergedLocally,
   importProject,
+  knownPushedHashes,
   listSyncMeta,
   localCopyName,
   markSynced,
@@ -144,12 +145,18 @@ export async function syncAllProjects(
 async function pushOne(userId: string, id: string): Promise<Outcome> {
   const p = await exportProject(id);
   if (!p) return 'pushed';
-  await cloudUpsert(userId, p);
+  // What the last landed push put in the store. Those blobs are still
+  // referenced by the cloud row, so they need neither storing nor confirming
+  // again, which is most of the cost of pushing a project that barely changed.
+  const committed = await cloudUpsert(userId, p, await knownPushedHashes(id));
   // Only after the write lands: a project that has been pushed belongs to this
   // account, so the next person to sign in on this browser does not inherit it.
   await claimProject(id, userId);
-  // The two sides agree as of this push (#367).
-  await markSynced(id);
+  // The two sides agree as of this push (#367), and this is what it agrees on.
+  await markSynced(
+    id,
+    committed.map((m) => m.hash),
+  );
   return 'pushed';
 }
 
