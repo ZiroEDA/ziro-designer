@@ -26,6 +26,7 @@ import {
   type StorageStatus,
 } from './storageHealth.js';
 import { withRecordLock } from './record_lock.js';
+import { sha256Hex } from '../cloud/blobStore.js';
 
 export interface StoredFile {
   name: string;
@@ -60,7 +61,16 @@ interface StoredRecord {
    * would fork every project the first time somebody signs in.
    */
   syncedAt?: number;
-  files: { name: string; gz: Uint8Array }[];
+  /**
+   * `hash` is the SHA-256 of `gz`, the key the blob is stored under in the
+   * cloud. Computed here, once, when the bytes are written, rather than in the
+   * push, which was hashing every file of the project on every sync even when
+   * one line of one schematic had changed.
+   *
+   * Optional: records written before this existed have none, and the push falls
+   * back to hashing those.
+   */
+  files: { name: string; gz: Uint8Array; hash?: string }[];
   /**
    * The account this project belongs to, once it has been associated with one.
    *
@@ -76,6 +86,20 @@ interface StoredRecord {
    * either it predates this field, or it was made while signed out.
    */
   ownerId?: string;
+  /**
+   * The blob hashes of the last push that landed.
+   *
+   * Every one of them is referenced by this project's cloud row, so the store
+   * still holds them: the delete path only collects blobs no row references.
+   * That makes them safe to take as already present, which is what turns a push
+   * of an unchanged project from two round trips per file into none.
+   *
+   * Scoped to the record rather than kept as one global set, deliberately. A
+   * hash this project does not reference could have been collected when some
+   * other project was deleted, and trusting it then would commit a row pointing
+   * at an object that is gone.
+   */
+  pushedHashes?: string[];
 }
 
 /**
@@ -197,7 +221,10 @@ export async function saveProject(name: string, files: StoredFile[], id?: string
   const now = Date.now();
   const pid = id ?? crypto.randomUUID?.() ?? `p${now}-${Math.random().toString(36).slice(2)}`;
   const gzFiles = await Promise.all(
-    files.map(async (f) => ({ name: f.name, gz: await gzip(f.bytes) })),
+    files.map(async (f) => {
+      const gz = await gzip(f.bytes);
+      return { name: f.name, gz, hash: await sha256Hex(gz) };
+    }),
   );
   // This rebuilds the record rather than patching it, so anything not carried
   // across here is silently dropped on every save. `createdAt` was already
@@ -218,6 +245,10 @@ export async function saveProject(name: string, files: StoredFile[], id?: string
     // thing the comparison is against, and the conflict protection (#367)
     // would be inert exactly when it is needed.
     ...(existing?.syncedAt !== undefined ? { syncedAt: existing.syncedAt } : {}),
+    // Carried for the same reason as the watermark above: this save changes
+    // what is on this machine, not which blobs the cloud row points at. Dropping
+    // it would make every save re-examine every file on the next push.
+    ...(existing?.pushedHashes ? { pushedHashes: existing.pushedHashes } : {}),
     // Falls back to the record's existing owner rather than dropping it: an
     // unowned record is visible to every account on the browser, so saving
     // while signed out must not un-own somebody's project.
@@ -261,7 +292,10 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     const byName = new Map(r.files.map((f) => [f.name, f]));
-    for (const f of changed) byName.set(f.name, { name: f.name, gz: await gzip(f.bytes) });
+    for (const f of changed) {
+      const gz = await gzip(f.bytes);
+      byName.set(f.name, { name: f.name, gz, hash: await sha256Hex(gz) });
+    }
     r.files = [...byName.values()];
     r.updatedAt = Date.now();
     await tx('readwrite', (s) => s.put(r));
@@ -321,13 +355,25 @@ export async function claimProject(id: string, userId: string): Promise<void> {
  * right — the watermark has to move on every successful push, not only the
  * first one.
  */
-export async function markSynced(id: string): Promise<void> {
+export async function markSynced(id: string, pushedHashes?: string[]): Promise<void> {
   await withRecordLock(id, async () => {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     r.syncedAt = r.updatedAt;
+    // Recorded together with the watermark, and only here, so the two cannot
+    // disagree: these are the blobs the row that just landed refers to.
+    if (pushedHashes) r.pushedHashes = pushedHashes;
     await tx('readwrite', (s) => s.put(r));
   });
+}
+
+/**
+ * Blob hashes this project's cloud row is known to reference, from the last
+ * push that landed. Empty when it has never pushed.
+ */
+export async function knownPushedHashes(id: string): Promise<Set<string>> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  return new Set(r?.pushedHashes ?? []);
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -353,7 +399,7 @@ export interface SyncableProject {
   name: string;
   createdAt: number;
   updatedAt: number;
-  files: { name: string; gzB64: string }[];
+  files: { name: string; gzB64: string; hash?: string }[];
 }
 
 function bytesToB64(u8: Uint8Array): string {
@@ -393,7 +439,11 @@ export async function exportProject(id: string): Promise<SyncableProject | null>
     name: r.name,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-    files: r.files.map((f) => ({ name: f.name, gzB64: bytesToB64(f.gz) })),
+    files: r.files.map((f) => ({
+      name: f.name,
+      gzB64: bytesToB64(f.gz),
+      ...(f.hash ? { hash: f.hash } : {}),
+    })),
   };
 }
 
@@ -413,7 +463,11 @@ export const isHollowRecord = (files: { gz: Uint8Array }[]): boolean =>
 
 /** Write a project from its serializable form, preserving its timestamps. */
 export async function importProject(p: SyncableProject): Promise<void> {
-  const files = p.files.map((f) => ({ name: f.name, gz: b64ToBytes(f.gzB64) }));
+  const files = p.files.map((f) => ({
+    name: f.name,
+    gz: b64ToBytes(f.gzB64),
+    ...(f.hash ? { hash: f.hash } : {}),
+  }));
 
   // The last line of defence, and the one that would have held when the others
   // did not. Whatever the layers above believe, an incoming copy with no
@@ -438,6 +492,10 @@ export async function importProject(p: SyncableProject): Promise<void> {
     // two sides agree.
     syncedAt: p.updatedAt,
     ...(currentOwner ? { ownerId: currentOwner } : {}),
+    // The row this came from names exactly these blobs, so they are the ones a
+    // later push can take as already stored. Absent when the cloud copy was in
+    // one of the older shapes, which carry no hashes.
+    ...(p.files.every((f) => f.hash) ? { pushedHashes: p.files.map((f) => f.hash!) } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
 }

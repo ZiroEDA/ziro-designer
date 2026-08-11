@@ -18,6 +18,17 @@ import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
+import { pushProject } from './cloud/sync.js';
+import { useAuth } from './auth/AuthProvider.js';
+import {
+  reportCloudFailed,
+  reportCloudOk,
+  reportCloudPending,
+  reportLocalFailed,
+  reportLocalPending,
+  reportSignedIn,
+} from './home/save_state.js';
+import { SaveIndicator } from './ui/SaveIndicator.js';
 import './ui/shell.css';
 
 /**
@@ -73,6 +84,16 @@ const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Load
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
+/**
+ * How long edits settle before the project is pushed to the account.
+ *
+ * Longer than the 1.2 s local autosave deliberately. Local storage is where the
+ * work is made safe and should happen as soon as the user stops typing; the
+ * account copy is a second home, and one request per keystroke would be a poor
+ * trade for a copy that is a few seconds fresher.
+ */
+const CLOUD_PUSH_IDLE_MS = 4000;
+
 // Non-text project files (plot / export outputs) that must stay raw bytes,
 // decoding them as UTF-8 would corrupt them.
 const BINARY_RE = /\.(png|jpe?g|gif|bmp|pdf|zip|step|stp|stl|wrl|glb)$/i;
@@ -119,6 +140,15 @@ const projectDirPrefix = (files: PickedFile[]): string => {
  * with CSS so heavy documents are parsed only once.
  */
 export function App(): JSX.Element {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  // Read from inside debounced callbacks that must not be rebuilt on sign-in.
+  const userIdRef = useRef<string | null>(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+    reportSignedIn(!!userId);
+  }, [userId]);
+
   const [view, setView] = useState<
     | 'home'
     | 'schematic'
@@ -240,6 +270,41 @@ export function App(): JSX.Element {
   // Pending autosave (file name → bytes), coalesced until the timer fires or a
   // flush forces it out.
   const pendingWrite = useRef<Map<string, Uint8Array>>(new Map());
+  /**
+   * Push the open project to the account, once edits have settled.
+   *
+   * On a longer timer than the local write on purpose: local storage is where
+   * the work is made safe and wants to happen immediately, while the cloud copy
+   * is a second home and is not worth a request per keystroke. The id is kept in
+   * a ref so a burst of edits collapses into one push of the latest state.
+   */
+  const cloudTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cloudTarget = useRef<string | null>(null);
+  const pushNow = useCallback(() => {
+    const id = cloudTarget.current;
+    const uid = userIdRef.current;
+    if (!id || !uid) return;
+    cloudTarget.current = null;
+    reportCloudPending(true);
+    void pushProject(uid, id).then(
+      () => reportCloudOk(),
+      (e: unknown) => {
+        reportCloudFailed();
+        console.warn('Cloud push failed:', e);
+      },
+    );
+  }, []);
+  const scheduleCloudPush = useCallback(
+    (id: string) => {
+      if (!userIdRef.current) return; // signed out: local is the whole story
+      cloudTarget.current = id;
+      reportCloudPending(true);
+      clearTimeout(cloudTimer.current);
+      cloudTimer.current = setTimeout(pushNow, CLOUD_PUSH_IDLE_MS);
+    },
+    [pushNow],
+  );
+
   const writePending = useCallback(() => {
     const cur = projectFilesRef.current;
     if (!cur || pendingWrite.current.size === 0 || !storageAvailable()) return;
@@ -248,12 +313,28 @@ export function App(): JSX.Element {
     void (async () => {
       try {
         const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
-        if (rec) await updateProjectFiles(rec.id, files);
-      } catch {
-        /* storage disabled */
+        if (rec) {
+          await updateProjectFiles(rec.id, files);
+          reportLocalFailed(false);
+          reportLocalPending(false);
+          // The work is on this machine; now get it into the account. Until
+          // this existed, `pushProject` ran when a project was opened or renamed
+          // and nowhere else, so an editing session reached the cloud only if
+          // the user happened to sign in again afterwards.
+          scheduleCloudPush(rec.id);
+        } else {
+          // No record to write to: an unsaved demo, or a project that has not
+          // been persisted. Not a failure, but not saved either.
+          reportLocalPending(false);
+        }
+      } catch (e) {
+        // Swallowed before, which is how a full or read-only origin looked
+        // exactly like a successful save.
+        reportLocalFailed(true);
+        console.warn('Autosave failed:', e);
       }
     })();
-  }, []);
+  }, [scheduleCloudPush]);
   const onProjectChange = useCallback(
     (changed: PickedFile[]) => {
       const cur = projectFilesRef.current;
@@ -267,6 +348,7 @@ export function App(): JSX.Element {
         queued = true;
       }
       if (!queued) return;
+      reportLocalPending(true);
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(writePending, 1200);
     },
@@ -288,7 +370,13 @@ export function App(): JSX.Element {
     for (const [name, bytes] of pendingWrite.current)
       liveEdits.current.set(name, dec.decode(bytes));
     writePending();
-  }, [writePending]);
+    // And do not sit out the cloud timer: `hidden` is the last callback a page
+    // is guaranteed, so a scheduled push that has not fired yet has to be given
+    // its chance here or the session's last edits reach the account only if the
+    // user comes back.
+    clearTimeout(cloudTimer.current);
+    pushNow();
+  }, [writePending, pushNow]);
   useEffect(() => {
     liveEdits.current.clear();
   }, [projectFiles]);
@@ -672,6 +760,7 @@ export function App(): JSX.Element {
 
   return (
     <>
+      <SaveIndicator />
       {demoProject && (
         <div className="ze-demo-banner" role="status">
           <span className="ze-demo-banner-text">

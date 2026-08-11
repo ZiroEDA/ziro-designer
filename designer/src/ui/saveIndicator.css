@@ -1,0 +1,64 @@
+/* Save state, bottom-right, above whichever frame is mounted.
+   Sits clear of the demo banner (bottom-centre) so the two can coexist: a demo
+   that is being edited has something to say in both. */
+
+.ze-save-indicator {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 8998;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 8px 12px;
+  font:
+    12.5px / 1.4 system-ui,
+    "Segoe UI",
+    sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Saving is deliberately the quietest thing on screen: it happens constantly
+   and means nothing is wrong. */
+.ze-save-indicator.saving {
+  color: #cfd2d8;
+  background: #23252b;
+  border: 1px solid #34373f;
+}
+
+.ze-save-indicator.retrying {
+  color: #f4e6c8;
+  background: #4a3a22;
+  border: 1px solid #8a6a3a;
+}
+
+/* Escalated: a timestamp and a way out. */
+.ze-save-indicator.stale,
+.ze-save-indicator.failed {
+  color: #fff;
+  background: #7a2d2d;
+  border: 1px solid #b45252;
+}
+
+.ze-save-indicator-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ze-save-indicator button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ze-save-indicator button:hover {
+  background: rgba(0, 0, 0, 0.45);
+}

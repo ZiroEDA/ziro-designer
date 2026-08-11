@@ -66,6 +66,11 @@ const EXCUSED: Record<string, Record<string, string>> = {
   },
   forkLocalCopy: {
     id: 'a fresh id — the copy is a new project',
+    pushedHashes:
+      'deliberately absent: those blobs are known present because the ' +
+      'original’s cloud row references them, and this copy has no row. ' +
+      'Carrying them would let its first push commit a row naming a blob ' +
+      'nothing had checked was there',
     name: 'the argument: "<name> (local copy, <date>)"',
     syncedAt: 'deliberately absent: the copy has never agreed with the cloud',
     lastOpenedAt: 'never opened; it sorts by updatedAt beside its original',

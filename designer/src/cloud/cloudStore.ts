@@ -35,7 +35,7 @@
 
 import type { CloudBackend, ManifestEntry, ProjectRow, RowFile } from './backend.js';
 import { isInlineFile, isManifestEntry } from './backend.js';
-import { blobPath, getBlob, legacyPath, putBlob } from './blobStore.js';
+import { blobPath, getBlob, legacyPath, putBlob, sha256Hex } from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
 
 let backend: CloudBackend | null = null;
@@ -192,12 +192,17 @@ const isHollow = (files: { gzB64: string }[]): boolean =>
 
 /**
  * Commit a project: store every blob, confirm every blob, then write the row.
+ * Returns the manifest it committed.
  *
  * The ordering is the whole point. Uploading is additive and safe to retry;
  * writing the row is the single moment the project's contents change, and it
  * happens only once there is nothing left that can fail.
  */
-export async function cloudUpsert(userId: string, p: SyncableProject): Promise<void> {
+export async function cloudUpsert(
+  userId: string,
+  p: SyncableProject,
+  knownPresent: ReadonlySet<string> = new Set(),
+): Promise<ManifestEntry[]> {
   const be = need();
 
   if (isHollow(p.files)) {
@@ -206,22 +211,39 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
     );
   }
 
-  // 1. Store the blobs. Content-addressed, so this cannot overwrite anything,
-  //    and an unchanged file is recognised and skipped.
-  const manifest: ManifestEntry[] = await Promise.all(
+  // 1. Work out what this project is made of. The hash comes from the store
+  //    where it was computed when the bytes were written; only a file older
+  //    than that field is hashed here.
+  const files = await Promise.all(
     p.files.map(async (f) => {
       const bytes = b64ToBytes(f.gzB64);
-      return { name: f.name, hash: await putBlob(be, userId, bytes), size: bytes.length };
+      return { name: f.name, bytes, hash: f.hash ?? (await sha256Hex(bytes)) };
     }),
   );
+  const manifest: ManifestEntry[] = files.map((f) => ({
+    name: f.name,
+    hash: f.hash,
+    size: f.bytes.length,
+  }));
 
-  // 2. Confirm every blob is readable before anything references it. `putBlob`
-  //    already rejects on a failed upload; this catches the rarer case of a
-  //    write that reports success and does not land, which is exactly the class
-  //    of failure that started all this.
+  // 2. Store, and confirm, only the blobs not already known to be there.
+  //
+  //    `knownPresent` is the manifest of this project's last landed push, so
+  //    every hash in it is referenced by the row currently in the cloud and
+  //    cannot have been collected. Re-asking about them was two round trips per
+  //    file, on every sync, for files that had not changed: a 107-file project
+  //    spent 214 requests to push nothing.
+  //
+  //    Everything else goes through the original path. `putBlob` skips the
+  //    upload when the object is there, and the confirm below catches the rarer
+  //    case of a write that reports success and does not land, which is exactly
+  //    the class of failure that started all this.
+  const fresh = files.filter((f) => !knownPresent.has(f.hash));
+  await Promise.all(fresh.map((f) => putBlob(be, userId, f.bytes)));
+
   const missing = (
     await Promise.all(
-      manifest.map(async (m) => ((await be.hasObject(blobPath(userId, m.hash))) ? null : m.name)),
+      fresh.map(async (f) => ((await be.hasObject(blobPath(userId, f.hash))) ? null : f.name)),
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {
@@ -253,6 +275,12 @@ export async function cloudUpsert(userId: string, p: SyncableProject): Promise<v
   } catch (e) {
     console.warn(`project history not recorded for "${p.name}":`, e);
   }
+
+  // What was committed, including hashes computed here for files stored before
+  // they carried one. The caller records these as known-present; deriving them
+  // from its own copy instead would miss exactly those files and leave them
+  // re-checked on every sync forever.
+  return manifest;
 }
 
 /**
