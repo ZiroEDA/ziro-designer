@@ -13,7 +13,8 @@
     "format": "biome check --write .",
     "libraries:upload": "node --env-file=.env tools/libraries/upload.mjs",
     "libraries:verify": "node --env-file=.env tools/libraries/verify.mjs",
-    "demos:upload": "node --env-file=.env tools/demos/upload.mjs"
+    "demos:upload": "node --env-file=.env tools/demos/upload.mjs",
+    "libraries:split": "node --env-file=.env tools/libraries/split_upload.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",

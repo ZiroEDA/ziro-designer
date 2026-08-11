@@ -74,6 +74,36 @@ export async function putObject(key, body, contentType) {
   if (!res.ok) throw new Error(`PUT ${key}: ${res.status} ${await res.text()}`);
 }
 
+/** Fetch an object's body as text, or null when it is not there. */
+export async function getObject(key) {
+  const amzDate = `${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`;
+  const date = amzDate.slice(0, 8);
+  const canonicalUri = `/${BUCKET}/${encPath(key)}`;
+  const empty = sha256('');
+  const headers = { host: HOST, 'x-amz-content-sha256': empty, 'x-amz-date': amzDate };
+  const signedHeaders = Object.keys(headers).sort().join(';');
+  const canonical = [
+    'GET',
+    canonicalUri,
+    '',
+    ...Object.keys(headers)
+      .sort()
+      .map((h) => `${h}:${headers[h]}`),
+    '',
+    signedHeaders,
+    empty,
+  ].join('\n');
+  const scope = `${date}/auto/s3/aws4_request`;
+  const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256(canonical)].join('\n');
+  const kSigning = hmac(hmac(hmac(hmac(`AWS4${SECRET}`, date), 'auto'), 's3'), 'aws4_request');
+  const signature = createHmac('sha256', kSigning).update(toSign).digest('hex');
+  const auth = `AWS4-HMAC-SHA256 Credential=${KEY}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const res = await fetch(`https://${HOST}${canonicalUri}`, { headers: { ...headers, authorization: auth } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GET ${key}: ${res.status} ${await res.text()}`);
+  return await res.text();
+}
+
 /** Upload [key, body, type] entries with limited concurrency and retries. */
 export async function uploadAll(entries, { concurrency = 8, onProgress } = {}) {
   let done = 0;
