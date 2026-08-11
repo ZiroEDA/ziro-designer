@@ -43,6 +43,7 @@ import {
   cloudListMeta,
   cloudMissingObjects,
   cloudUpsert,
+  restoreFromHistory,
 } from './cloudStore.js';
 
 /** Progress callback: `done` of `total` transfers finished so far. */
@@ -50,6 +51,25 @@ export type SyncProgress = (done: number, total: number) => void;
 
 /** What one transfer turned out to be. A pull can become a repair. */
 type Outcome = 'pushed' | 'pulled' | 'healed';
+
+/**
+ * A cloud copy that is damaged beyond any recovery this app can perform: its
+ * blobs are gone, this machine has no copy, and no earlier version is intact.
+ *
+ * Distinguished from an ordinary failure because the two call for opposite
+ * responses. An ordinary failure is worth retrying, and does on the next sync. A
+ * project in this state will report the same thing on every sign-in for the life
+ * of the account, so the only useful thing left is to let the user clear it out.
+ */
+export class UnrecoverableProject extends Error {
+  constructor(
+    readonly id: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'UnrecoverableProject';
+  }
+}
 
 /** What a completed reconcile did, and what it could not do. */
 export interface SyncResult {
@@ -62,7 +82,13 @@ export interface SyncResult {
    */
   healed: number;
   /** One entry per project that failed. Empty means everything landed. */
-  failures: { id: string; direction: 'push' | 'pull'; message: string }[];
+  failures: {
+    id: string;
+    direction: 'push' | 'pull';
+    message: string;
+    /** Set when retrying can never help; the caller can offer to remove it. */
+    unrecoverable?: boolean;
+  }[];
 }
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -109,7 +135,12 @@ export async function syncAllProjects(
           tick();
         },
         (e) => {
-          result.failures.push({ id, direction, message: message(e) });
+          result.failures.push({
+            id,
+            direction,
+            message: message(e),
+            ...(e instanceof UnrecoverableProject ? { unrecoverable: true } : {}),
+          });
           tick();
         },
       ),
@@ -226,10 +257,22 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
   const local = await exportProject(id);
   const usable = !!local && local.files.some((f) => f.gzB64.length > 0);
   if (!usable) {
-    throw new Error(
-      `the cloud copy of "${damage.name || local?.name || id}" is damaged: ` +
+    // Nothing on this machine to restore from, so the last place to look is the
+    // project's own history. Blobs are only collected when no row references
+    // them, so an older manifest's objects often outlive the row that replaced
+    // it, and for a project damaged before the commit protocol existed that
+    // version may be the only readable copy anywhere.
+    const restored = await restoreFromHistory(userId, id);
+    if (restored) {
+      const p = await cloudGet(id);
+      if (p) await importProject(p);
+      return 'healed';
+    }
+    throw new UnrecoverableProject(
+      id,
+      `the cloud copy of "${damage.name || local?.name || id}" cannot be recovered: ` +
         `${damage.missing} of ${damage.total} files are missing from storage, ` +
-        `and there is no local copy to restore it from`,
+        `there is no copy on this device, and no earlier version is intact`,
     );
   }
 

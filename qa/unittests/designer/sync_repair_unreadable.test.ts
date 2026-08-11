@@ -195,7 +195,9 @@ describe('a cloud copy whose objects are gone', () => {
 
     expect(result.healed).toBe(0);
     expect(result.failures).toHaveLength(1);
-    expect(result.failures[0]!.message).toContain('no local copy');
+    // Refused, and said so: an empty local copy is not something to repair from.
+    expect(result.failures[0]!.message).toContain('no copy on this device');
+    expect(result.failures[0]!.unrecoverable).toBe(true);
   });
 
   it('still reports an ordinary failure when the copy is readable', async () => {

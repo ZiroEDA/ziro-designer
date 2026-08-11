@@ -266,6 +266,38 @@ export function HomePage({
   useEffect(() => {
     void loadDemos().then(setDemos);
   }, []);
+  /**
+   * Delete the cloud rows that cannot be recovered.
+   *
+   * Destructive, so it asks first and names what it is removing. What it deletes
+   * is a row whose blobs are absent from storage and whose history holds no
+   * intact version: it cannot be downloaded by this or any other client, and
+   * keeping it costs the user the same error on every sign-in.
+   */
+  const removeUnrecoverable = async (failures: SyncFailure[]): Promise<void> => {
+    const doomed = failures.filter((f) => f.unrecoverable);
+    if (doomed.length === 0) return;
+    const ok = window.confirm(
+      `Remove ${doomed.length} damaged project${doomed.length === 1 ? '' : 's'} from the cloud?\n\n` +
+        'Their files are missing from storage and no earlier version is intact, so ' +
+        'they cannot be opened on any device. Anything still on this device is left alone.',
+    );
+    if (!ok) return;
+    const failed: string[] = [];
+    for (const f of doomed) {
+      try {
+        await deleteCloudProject(f.id);
+      } catch (e) {
+        failed.push(f.message);
+        console.warn(`Could not remove damaged project ${f.id}:`, e);
+      }
+    }
+    refreshSaved();
+    setSyncState(
+      failed.length > 0 ? { failures: failures.filter((f) => failed.includes(f.message)) } : null,
+    );
+  };
+
   const openDemoProject = async (id: string): Promise<void> => {
     const d = demos.find((x) => x.id === id);
     if (!d) return;
@@ -1153,6 +1185,20 @@ export function HomePage({
                 {syncState.failures.length === 1 ? 'project' : 'projects'} did not sync:{' '}
                 {syncState.failures[0]!.message}
               </span>
+              {/* A damaged copy that cannot be recovered reports the same thing
+                  on every sign-in, forever. Dismiss only silences it until the
+                  next one, so there is also a way to be rid of it: the rows are
+                  provably unreadable and have no recoverable version, so
+                  removing them loses nothing that still exists. */}
+              {syncState.failures.some((f) => f.unrecoverable) && (
+                <button
+                  type="button"
+                  className="ze-sync-dismiss"
+                  onClick={() => void removeUnrecoverable(syncState.failures)}
+                >
+                  Remove damaged
+                </button>
+              )}
               <button type="button" className="ze-sync-dismiss" onClick={() => setSyncState(null)}>
                 Dismiss
               </button>
