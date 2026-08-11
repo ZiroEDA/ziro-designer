@@ -384,6 +384,20 @@ export interface SchSymbolPin {
 /** A placed symbol on the schematic. Mirrors KiCad `SCH_SYMBOL`. */
 export interface SchSymbol {
   readonly libId: string;
+  /**
+   * `(lib_name …)`: the key this placement's definition is filed under in the
+   * sheet's `lib_symbols`, when that differs from `libId`.
+   *
+   * KiCad writes it when a symbol's cached definition has diverged from the
+   * library it came from, so the sheet can hold two different symbols that
+   * share one library id. `SCH_SYMBOL::GetSchSymbolLibraryName` returns this in
+   * preference to the id, and every lookup into `lib_symbols` goes through it.
+   *
+   * Ignoring it is not a cosmetic loss: the placement resolves to no definition
+   * at all, so the symbol has no body **and no pins**, which silently changes
+   * what the netlist says. Use `schSymbolLibraryName` rather than reading it.
+   */
+  readonly libName?: string;
   readonly at: Vec2;
   /** Orientation in degrees: 0 | 90 | 180 | 270. Combined with `mirror` to render. */
   readonly angle: number;

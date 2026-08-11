@@ -19,6 +19,7 @@ import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import { pushProject } from './cloud/sync.js';
+import { fetchDemoExtras, type DemoMeta } from './home/demos.js';
 import { useAuth } from './auth/AuthProvider.js';
 import {
   reportCloudFailed,
@@ -182,6 +183,15 @@ export function App(): JSX.Element {
    * happens to miss.
    */
   const [demoProject, setDemoProject] = useState(false);
+  /**
+   * The demo's manifest, when one is open.
+   *
+   * Its heavy files (3D bodies, datasheets) were never fetched: they are most
+   * of a demo's bytes and none of what it takes to show one. Saving a copy is
+   * the moment the user asks to keep it, and the moment they are worth
+   * downloading.
+   */
+  const [demoSource, setDemoSource] = useState<DemoMeta | null>(null);
   // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
   // sends "$NET: <name>" between the frames; here both are mounted together).
   const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
@@ -562,7 +572,11 @@ export function App(): JSX.Element {
     if (!name) return;
     void (async () => {
       try {
-        const files = cur
+        // Complete it first. The 3D bodies and datasheets were skipped on open
+        // and are wanted now: a copy the user keeps should be the whole demo,
+        // not the part of it that happened to be needed to draw a schematic.
+        const extras = demoSource ? await fetchDemoExtras(demoSource) : [];
+        const files = [...cur, ...extras]
           .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
           .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));
         await saveProject(name, files);
@@ -574,7 +588,7 @@ export function App(): JSX.Element {
         window.alert(`Could not save a copy: ${e instanceof Error ? e.message : String(e)}`);
       }
     })();
-  }, []);
+  }, [demoSource]);
 
   const goHome = useCallback(() => {
     flushSaves(); // persist pending edits before the tree/reopen can read them
@@ -693,9 +707,10 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
-        onOpenProject={(files, start, readOnly) => {
+        onOpenProject={(files, start, demo) => {
           setProjectFiles(files);
-          setDemoProject(!!readOnly);
+          setDemoProject(!!demo);
+          setDemoSource(demo ?? null);
           setStandalonePcb(null);
           setStartFile(start ?? null);
           setSchMounted(true);
@@ -703,6 +718,7 @@ export function App(): JSX.Element {
         }}
         onOpenPcb={(file, files) => {
           setDemoProject(false);
+          setDemoSource(null);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);
@@ -715,6 +731,7 @@ export function App(): JSX.Element {
         }}
         onOpenSymbolEditor={(files, startFile) => {
           setDemoProject(false);
+          setDemoSource(null);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);

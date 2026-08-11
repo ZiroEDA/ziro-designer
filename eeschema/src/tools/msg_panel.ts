@@ -15,6 +15,7 @@ import { refId, type ItemRef } from './hittest.js';
 import { resolveCell } from './table_cells.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { imagePPI, imageSizeIU } from './image_size.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** `EDA_SHAPE::getFriendlyName`, for the kinds a schematic can hold. */
 const SHAPE_NAMES: Record<string, string> = {
@@ -107,7 +108,7 @@ export function getMsgPanelItems(
       const i = indexOf(sch.symbols, (t, k) => refId('symbol', t.uuid, k));
       if (i < 0) return [];
       const s = sch.symbols[i]!;
-      const lib = libById.get(s.libId);
+      const lib = libById.get(schSymbolLibraryName(s));
       const field = (key: string): string => s.fields.find((f) => f.key === key)?.value ?? '';
       const libProp = (key: string): string =>
         lib?.properties.find((f) => f.key === key)?.value ?? '';

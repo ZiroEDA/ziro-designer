@@ -46,6 +46,7 @@ import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { refId } from './hittest.js';
 import type { Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** The paddings, all "arbitrarily chosen for aesthetics" upstream. */
 const FIELD_PADDING = mmToIU(15 * 0.0254);
@@ -225,7 +226,7 @@ function possibleColliders(sheet: AutoplaceSheet, self: SchSymbol): Collider[] {
 
   doc.symbols.forEach((s) => {
     if (s === self || (s.uuid !== undefined && s.uuid === self.uuid)) return;
-    const lib = libById.get(s.libId);
+    const lib = libById.get(schSymbolLibraryName(s));
     out.push({ box: symbolBodyBBox(s, lib) });
     for (const fb of symbolFieldBoxes(s, lib)) {
       const f = s.fields[fb.index];
@@ -557,7 +558,7 @@ export function autoplaceFields(
   const placed = new Map<number, SchField[]>();
   for (const i of targets) {
     const s = doc.symbols[i]!;
-    placed.set(i, autoplacedFields(s, libById.get(s.libId), opts, sheet));
+    placed.set(i, autoplacedFields(s, libById.get(schSymbolLibraryName(s)), opts, sheet));
   }
 
   return {

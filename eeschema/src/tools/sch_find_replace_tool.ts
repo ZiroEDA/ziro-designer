@@ -19,6 +19,7 @@ import type { LibSymbol, SchField, Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
 import { EdaCombinedMatcher } from '@ziroeda/common/src/eda_pattern_match.js';
 import { refId } from './hittest.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /**
  * EDA_SEARCH_MATCH_MODE. `permissive` is the Search panel's mode — upstream's
@@ -171,7 +172,7 @@ export function findMatches(
       }
     }
     if (d.searchAllPins && !out.some((m) => m.id === id)) {
-      const lib = libById.get(sym.libId);
+      const lib = libById.get(schSymbolLibraryName(sym));
       const pins = lib?.units.flatMap((u) => u.pins) ?? [];
       if (pins.some((p) => matchesText(p.name, d) || matchesText(p.number, d)))
         out.push({ id, kind: 'symbol', pos: sym.at, text: sym.libId });

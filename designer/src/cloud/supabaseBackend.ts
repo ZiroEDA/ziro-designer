@@ -44,6 +44,9 @@ function isAlreadyExists(error: { message?: string; statusCode?: string } | null
   return error.statusCode === '409' || msg.includes('already exists') || msg.includes('duplicate');
 }
 
+/** So a database without the history migration says so once, not every save. */
+let warnedNoHistory = false;
+
 export function supabaseBackend(): CloudBackend {
   const db = supabase;
   if (!db) throw new Error('supabaseBackend: Supabase is not configured');
@@ -96,15 +99,21 @@ export function supabaseBackend(): CloudBackend {
     },
 
     async hasObject(path) {
-      const slash = path.lastIndexOf('/');
-      const dir = slash < 0 ? '' : path.slice(0, slash);
-      const base = path.slice(slash + 1);
-      const { data, error } = await store().list(dir, { search: base, limit: 1 });
-      // A failure to *ask* is not an answer. Reporting "absent" would send the
-      // caller into a re-upload, which is harmless; reporting "present" on an
-      // error would let a commit reference an object nobody has seen.
-      if (error) throw new Error(`stat ${path}: ${error.message}`);
-      return (data ?? []).some((o) => o.name === base);
+      // A HEAD on the object itself, not a listing of the folder it is in.
+      //
+      // This used to `list(dir, { search: base })`, which is O(objects under
+      // the prefix): every blob of every project of one user lives under
+      // `<user>/blobs/`, so the cost of asking about one object grew with the
+      // number of objects, and at a few thousand it started returning 504 and
+      // failing pushes outright.
+      //
+      // `exists` keeps the contract this interface needs: it answers true, or
+      // false for a definite 404, and **throws** for anything else. A failure to
+      // ask is not an answer — reporting "absent" would send the caller into a
+      // harmless re-upload, but reporting "present" on an error would let a
+      // commit reference an object nobody has seen.
+      const { data } = await store().exists(path);
+      return data === true;
     },
 
     async removeObjects(paths) {
@@ -124,8 +133,16 @@ export function supabaseBackend(): CloudBackend {
         files: row.files,
         committed_at: row.updated_at,
       });
-      if (error)
-        console.warn(`project history unavailable (run supabase/manifest.sql): ${error.message}`);
+      // Once per session, not per push. Every save reports the same missing
+      // table, and a console that scrolls is a console nobody reads.
+      if (error && !warnedNoHistory) {
+        warnedNoHistory = true;
+        console.warn(
+          `Project history is off: ${error.message}. ` +
+            'Run supabase/manifest.sql to enable version history and the recovery ' +
+            'it makes possible for damaged projects.',
+        );
+      }
     },
 
     async listVersions(userId, projectId) {

@@ -27,6 +27,7 @@ import {
   pinAccuracy,
 } from './hittest.js';
 import { contains, inflate, labelBox, symbolBodyBBox, type BBox } from './bbox.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 interface Candidate {
   ref: ItemRef;
@@ -249,7 +250,7 @@ export function collectAndGuess(
 
   for (let i = 0; i < sch.symbols.length; i++) {
     const s = sch.symbols[i]!;
-    const bbox = symbolBodyBBox(s, libById.get(s.libId));
+    const bbox = symbolBodyBBox(s, libById.get(schSymbolLibraryName(s)));
     if (contains(inflate(bbox, accuracy / 2), p)) {
       cands.push({
         ref: { kind: 'symbol', id: refId('symbol', s.uuid, i) },

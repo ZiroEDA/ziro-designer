@@ -37,6 +37,7 @@ import { moveItems } from './move.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { transformItems } from './transform.js';
 import { bulkEditFieldsCommand } from './properties.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One grid row: `coord`/`dist` are IU numbers the panel renders in the
  *  current units; `choice` renders a dropdown over `choices`. A row without
@@ -110,7 +111,7 @@ function symbolRows(sch: Schematic, libById: Map<string, LibSymbol>, index: numb
   const id = refId('symbol', s.uuid, index);
   const ids = new Set([id]);
   const field = (key: string): string => s.fields.find((f) => f.key === key)?.value ?? '';
-  const lib = libById.get(s.libId);
+  const lib = libById.get(schSymbolLibraryName(s));
   const patch = (label: string, p: Partial<SchSymbol>): EditCommand => ({
     label,
     apply: (doc) => ({
@@ -500,7 +501,7 @@ function pinRows(sch: Schematic, libById: Map<string, LibSymbol>, id: string): P
   const si = sch.symbols.findIndex((s, i) => refId('symbol', s.uuid, i) === symId);
   if (si < 0 || !Number.isInteger(index)) return [];
   const sym = sch.symbols[si]!;
-  const lib = libById.get(sym.libId);
+  const lib = libById.get(schSymbolLibraryName(sym));
   if (!lib) return [];
   // The same walk `collectPinSegments` does, so the index means the same thing.
   let k = 0;

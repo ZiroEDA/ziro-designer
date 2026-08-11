@@ -22,6 +22,7 @@ import { buildPropertyNode, patchProperty } from '../sch_io/sexpr/write-schemati
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { symbolPinPositions } from './connect.js';
 import { refId } from './hittest.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /**
  * SPIN_STYLE (eeschema/sch_item.h): which way a label points. The dialog's four
@@ -180,7 +181,7 @@ export function labelOrientationForPoint(
   // A symbol pin at the point: the label points away from the symbol body.
   if (libById) {
     for (const sym of sch.symbols) {
-      const lib = libById.get(sym.libId);
+      const lib = libById.get(schSymbolLibraryName(sym));
       if (!lib) continue;
       const pins = symbolPins(sym, lib);
       for (const pin of pins) {

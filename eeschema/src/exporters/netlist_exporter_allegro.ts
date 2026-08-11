@@ -44,6 +44,7 @@ import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
 import { GENERATOR_APPLICATION } from '@ziroeda/common/src/generator.js';
 import type { LibPin, LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { boardSymbols, netPinsByName, symbolField, type NetlistMeta } from './netlist.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One file the export produces. `path` is relative to the netlist's folder. */
 export interface AllegroFile {
@@ -196,7 +197,7 @@ function groupField(
     }
   }
   for (const sym of group.symbols) {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     for (const name of names) {
       const f = lib?.properties.find((x) => x.key.toLowerCase() === name.toLowerCase());
       if (f?.value) return pick(f.value);
@@ -211,7 +212,9 @@ function groupField(
  * *prefix* all match the group's first member.
  */
 function componentGroups(sch: Schematic, libById: Map<string, LibSymbol>): Group[] {
-  const pending = boardSymbols(sch).filter(({ sym }) => packagePins(libById.get(sym.libId)).length);
+  const pending = boardSymbols(sch).filter(
+    ({ sym }) => packagePins(libById.get(schSymbolLibraryName(sym))).length,
+  );
   const groups: Group[] = [];
 
   while (pending.length) {
@@ -253,7 +256,7 @@ function componentGroups(sch: Schematic, libById: Map<string, LibSymbol>): Group
 
 /** One `devices/<type>.txt`. */
 function deviceFile(group: Group, libById: Map<string, LibSymbol>): AllegroFile {
-  const lib = libById.get(group.head.libId);
+  const lib = libById.get(schSymbolLibraryName(group.head));
   // The footprint's bare name; "Lib:Foot" keeps only "Foot".
   let footprint = symbolField(group.head, 'Footprint').split(':').pop() ?? '';
   // Wildcard filters are not footprint names, so they are not candidates.

@@ -26,6 +26,7 @@ import type {
   Vec2,
 } from '../types.js';
 import { symbolPinPositions } from './connect.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 export interface PointInfo {
   /** 3+ same-layer exit directions meet here (wires or buses). */
@@ -114,7 +115,7 @@ function pinCountsAt(
     const at = new Map<string, number>();
     if (libById) {
       for (const s of sch.symbols) {
-        for (const pin of symbolPinPositions(s, libById.get(s.libId))) {
+        for (const pin of symbolPinPositions(s, libById.get(schSymbolLibraryName(s)))) {
           const k = `${pin.x},${pin.y}`;
           at.set(k, (at.get(k) ?? 0) + 1);
         }

@@ -18,6 +18,7 @@ import { addItems } from './mutate.js';
 import { needsJunction } from './mutate.js';
 import { makeWire, makeBus, makeJunction } from './build.js';
 import type { EditCommand } from './command.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** EESCHEMA_SETTINGS m_Drawing.line_mode (sch_line.h LINE_MODE). */
 export type WireLineMode = 'free' | '90' | '45';
@@ -180,7 +181,7 @@ function onSegment(p: Vec2, a: Vec2, b: Vec2): boolean {
 function allPinPositions(sch: Schematic, libById: Map<string, LibSymbol>): Vec2[] {
   const out: Vec2[] = [];
   for (const sym of sch.symbols) {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib) continue;
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const u of lib.units) {

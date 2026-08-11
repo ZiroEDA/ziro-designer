@@ -44,6 +44,7 @@ import { refId } from '../tools/hittest.js';
 import { subReference } from '../fieldbox.js';
 import { expandBusLabel, isBusLabel } from './bus.js';
 import { SegmentIndex, onSegment as segmentContains } from './segment_index.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** KiCad CONNECTION_SUBGRAPH::PRIORITY (higher wins when naming a net). */
 export enum Priority {
@@ -332,7 +333,7 @@ export interface PinNode {
 export function enumeratePins(sch: Schematic, libById: Map<string, LibSymbol>): PinNode[] {
   const out: PinNode[] = [];
   sch.symbols.forEach((sym, si) => {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib) return;
     const symId = refId('symbol', sym.uuid, si);
     const t = symbolTransform(sym.angle, sym.mirror);

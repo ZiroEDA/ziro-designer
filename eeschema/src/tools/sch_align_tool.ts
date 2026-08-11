@@ -27,6 +27,7 @@ import { directiveBox } from './directive_label.js';
 import { imageSizeIU } from './image_size.js';
 import { moveItems } from './move.js';
 import { composeCommands, type EditCommand } from './command.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** The six alignments, named as SCH_ACTIONS names them. */
 export type AlignMode = 'top' | 'bottom' | 'left' | 'right' | 'centerX' | 'centerY';
@@ -89,7 +90,7 @@ export function alignBoxes(
     add(
       'symbol',
       refId('symbol', s.uuid, i),
-      symbolBodyBBox(s, libById.get(s.libId)),
+      symbolBodyBBox(s, libById.get(schSymbolLibraryName(s))),
       s.at,
       true,
       !!s.locked,

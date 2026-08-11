@@ -39,6 +39,7 @@ import { symbolPinPositions } from './connect.js';
 import { moveSymbolOrFields, moveRigidItems } from './move.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 const add = (p: Vec2, d: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
 
@@ -131,7 +132,8 @@ function buildCache(
       if (sch.junctions.some((j) => same(j.at, p))) conns.push({ type: 'junction', far });
       let pinHere = false;
       for (const sym of sch.symbols) {
-        if (symbolPinPositions(sym, libById.get(sym.libId)).some((q) => same(q, p))) pinHere = true;
+        if (symbolPinPositions(sym, libById.get(schSymbolLibraryName(sym))).some((q) => same(q, p)))
+          pinHere = true;
       }
       for (const sh of sch.sheets) if (sh.pins.some((q) => same(q.at, p))) pinHere = true;
       if (pinHere) conns.push({ type: 'pin', far });

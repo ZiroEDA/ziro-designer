@@ -18,6 +18,7 @@
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /**
  * `LIB_SYMBOL::GetBodyStyleCount`: the highest body style any unit declares, or
@@ -47,7 +48,7 @@ export function cycleBodyStyle(
   const next = new Map<number, number>();
   doc.symbols.forEach((s, i) => {
     if (!ids.has(refId('symbol', s.uuid, i))) return;
-    const count = bodyStyleCount(libById.get(s.libId));
+    const count = bodyStyleCount(libById.get(schSymbolLibraryName(s)));
     if (count < 2) return;
     // Numbered from 1, wrapping past the last.
     const n = s.bodyStyle + 1 > count ? 1 : s.bodyStyle + 1;

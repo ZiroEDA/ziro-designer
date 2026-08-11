@@ -93,7 +93,16 @@ describe('opening a demo', () => {
     expect(state.peak).toBeGreaterThan(1);
   });
 
-  it('still offers the deferred half, so the project ends up complete', async () => {
+  it('does not fetch the deferred half merely because a demo was opened', async () => {
+    // Fetching 40 MB of 3D bodies in the background to look at a demo is the
+    // same waste as fetching them up front, only less visible. They are fetched
+    // when the user keeps the project, not when they glance at it.
+    const state = serve();
+    await openDemo(demo);
+    expect(state.urls).toHaveLength(4);
+  });
+
+  it('still offers the deferred half, so a kept copy is complete', async () => {
     serve();
 
     const extras = await fetchDemoExtras(demo);

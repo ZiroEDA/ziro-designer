@@ -58,6 +58,7 @@ import {
   type ErcSeverity,
   type ErcSettings,
 } from '../erc/erc_settings.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 // Re-export the ERC settings surface so `@ziroeda/eeschema` consumers keep
 // importing these names from the ERC module (the Schematic Setup panels do).
@@ -864,7 +865,7 @@ export function* runErcSteps(
     // and pin numbers are library-symbol properties, so upstream walks unique
     // screens rather than sheet paths, one sheet's run is one screen here.)
     sch.symbols.forEach((sym, i) => {
-      const lib = libById.get(sym.libId);
+      const lib = libById.get(schSymbolLibraryName(sym));
       const maps = lib?.pinMaps ?? [];
       if (!lib || maps.length === 0) return;
       const id = refId('symbol', sym.uuid, i);
@@ -918,7 +919,7 @@ export function* runErcSteps(
       };
 
       sch.symbols.forEach((sym, i) => {
-        const lib = libById.get(sym.libId);
+        const lib = libById.get(schSymbolLibraryName(sym));
         if (!lib) return;
         const id = refId('symbol', sym.uuid, i);
         const maps = lib.pinMaps ?? [];
@@ -1424,7 +1425,7 @@ export function* runErcSteps(
         if (reference.startsWith('#') || sym.excludedFromSim) return;
         const issues = checkSimModel(
           sym,
-          libById.get(sym.libId),
+          libById.get(schSymbolLibraryName(sym)),
           opts.simLibraryText ?? (() => undefined),
         );
         if (issues.length === 0) return;
@@ -1494,8 +1495,8 @@ export function* runErcSteps(
     // library's copy (LIB_SYMBOL::Compare under EQUALITY | ERC).
     if (opts.librarySymbols) {
       sch.symbols.forEach((sym, i) => {
-        const cached = libById.get(sym.libId);
-        const library = opts.librarySymbols?.get(sym.libId);
+        const cached = libById.get(schSymbolLibraryName(sym));
+        const library = opts.librarySymbols?.get(schSymbolLibraryName(sym));
         if (!cached || !library) return;
         if (compareLibSymbolsForErc(cached, library) === null) return;
         const [libName, symbolName] = splitLibId(sym.libId);
@@ -1564,7 +1565,7 @@ export function* runErcSteps(
     // `ki_fp_filters` globs, the whole LIB_ID when the filter carries a ':',
     // otherwise the footprint name alone. Everything is compared lower-cased.
     sch.symbols.forEach((sym, i) => {
-      const lib = libById.get(sym.libId);
+      const lib = libById.get(schSymbolLibraryName(sym));
       const filters = (lib?.properties.find((f) => f.key === 'ki_fp_filters')?.value ?? '')
         .split(/\s+/)
         .filter(Boolean);
@@ -1803,7 +1804,7 @@ export function* runErcSteps(
   const checkAnnotation = (): void => {
     for (const [ref, group] of byRef) {
       const first = group[0]!;
-      const lib = libById.get(first.libId);
+      const lib = libById.get(schSymbolLibraryName(first));
       const libUnits = lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1;
       // Unannotated (CheckAnnotation's first pass). The unit number is named
       // only when the library part actually has several units.
@@ -1877,7 +1878,7 @@ export function* runErcSteps(
   const testMultiunitFootprints = (): void => {
     for (const [ref, group] of byRef) {
       if (ref.includes('?')) continue;
-      const lib = libById.get(group[0]!.libId);
+      const lib = libById.get(schSymbolLibraryName(group[0]!));
       const multiUnit = (lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1) > 1;
       // GetRef( sheet, true ), the reference with its unit suffix.
       const name = (g: RefEntry): string => (multiUnit ? `${ref}${unitLabel(g.unit)}` : ref);
@@ -1907,7 +1908,7 @@ export function* runErcSteps(
       // The whole hierarchy's placements decide what is missing, but only the
       // sheet holding the first unit raises the marker.
       if (!first.sym) continue;
-      const lib = libById.get(first.libId);
+      const lib = libById.get(schSymbolLibraryName(first));
       const libUnits = lib ? Math.max(1, ...lib.units.map((u) => u.unit)) : 1;
       if (libUnits > 1 && lib) {
         const placed = new Set(group.map((g) => g.unit));

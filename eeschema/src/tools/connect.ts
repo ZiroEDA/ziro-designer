@@ -22,6 +22,7 @@ import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js'
 import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { newUuid } from './build.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 function unitMatches(
   unit: number,
@@ -118,7 +119,7 @@ export function connectionPoints(
   const out: Vec2[] = [];
   sch.symbols.forEach((s, i) => {
     if (ids.has(refId('symbol', s.uuid, i)))
-      for (const p of symbolPinPositions(s, libById.get(s.libId))) out.push(p);
+      for (const p of symbolPinPositions(s, libById.get(schSymbolLibraryName(s)))) out.push(p);
   });
   sch.lines.forEach((l, i) => {
     if (ids.has(refId('line', l.uuid, i))) {
@@ -238,7 +239,7 @@ export function planMoveFromPoints(
   const fixedPoints = new Set<string>(junctionPts);
   sch.symbols.forEach((s, i) => {
     if (ids.has(refId('symbol', s.uuid, i))) return;
-    for (const p of symbolPinPositions(s, libById.get(s.libId))) {
+    for (const p of symbolPinPositions(s, libById.get(schSymbolLibraryName(s)))) {
       const k = key(p);
       if (points.has(k)) fixedPoints.add(k);
     }
