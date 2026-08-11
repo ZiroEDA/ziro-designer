@@ -608,6 +608,7 @@ export function SchematicEditor({
   onUpdatePcb,
   onEditSymbolInEditor,
   editedSymbol,
+  readOnlyNotice,
   readBoardFootprints,
   autosaveActive,
   onShowSymbolEditor,
@@ -646,6 +647,8 @@ export function SchematicEditor({
    *  board could not be read, which the caller reports. Asynchronous because the
    *  host loads the board reader on use, keeping it out of the entry chunk. */
   readBoardFootprints?: () => Promise<PcbFootprintData[] | null>;
+  /** A strip to show above the canvas, e.g. "this demo is not being saved". */
+  readOnlyNotice?: JSX.Element | null;
   /**
    * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
    * without a project, or when IndexedDB is unavailable — in which case nothing
@@ -6945,6 +6948,7 @@ export function SchematicEditor({
         />
 
         <div className="ze-canvas-wrap">
+          {readOnlyNotice}
           {/* WX_INFOBAR: the strip a tool posts an error into, dismissed with
               its ✕ or by the next successful action. */}
           {infoBar && (

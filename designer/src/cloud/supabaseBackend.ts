@@ -99,21 +99,29 @@ export function supabaseBackend(): CloudBackend {
     },
 
     async hasObject(path) {
-      // A HEAD on the object itself, not a listing of the folder it is in.
+      // Deliberately a listing, not `exists()`.
       //
-      // This used to `list(dir, { search: base })`, which is O(objects under
-      // the prefix): every blob of every project of one user lives under
-      // `<user>/blobs/`, so the cost of asking about one object grew with the
-      // number of objects, and at a few thousand it started returning 504 and
-      // failing pushes outright.
+      // `exists()` HEADs /object/<bucket>/<path>, which this project's storage
+      // answers with 400, and storage-js maps both 400 and 404 to "absent". So
+      // every blob read as missing: uploads were repeated, and then the commit
+      // verification refused every push, because nothing it had just stored
+      // could be found. A wrong answer here is far worse than a slow one.
       //
-      // `exists` keeps the contract this interface needs: it answers true, or
-      // false for a definite 404, and **throws** for anything else. A failure to
-      // ask is not an answer — reporting "absent" would send the caller into a
-      // harmless re-upload, but reporting "present" on an error would let a
-      // commit reference an object nobody has seen.
-      const { data } = await store().exists(path);
-      return data === true;
+      // The listing is O(objects under the prefix) and returned 504 on accounts
+      // holding thousands of blobs. That is mitigated rather than solved: a push
+      // now asks only about blobs it has not already recorded as stored, so a
+      // project that has not changed asks nothing at all. Sharding the blob
+      // prefix by hash is the real fix and needs a read path that accepts both
+      // layouts.
+      const slash = path.lastIndexOf('/');
+      const dir = slash < 0 ? '' : path.slice(0, slash);
+      const base = path.slice(slash + 1);
+      const { data, error } = await store().list(dir, { search: base, limit: 1 });
+      // A failure to *ask* is not an answer. Reporting "absent" would send the
+      // caller into a re-upload, which is harmless; reporting "present" on an
+      // error would let a commit reference an object nobody has seen.
+      if (error) throw new Error(`stat ${path}: ${error.message}`);
+      return (data ?? []).some((o) => o.name === base);
     },
 
     async removeObjects(paths) {
