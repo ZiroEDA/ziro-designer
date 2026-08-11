@@ -23,6 +23,23 @@ import type { PcbVia } from '../types.js';
 /** `VIATYPE`, spelled as this repo already spells it on a board via. */
 export type PnsViaTypeSetting = PcbVia['kind'];
 
+/**
+ * The plain-object spelling of the same settings, as `PnsRouter` stores them.
+ *
+ * Structural rather than an import of `PnsRouterSizes`, which would be a cycle:
+ * `pns_router.ts` reaches this module through the line placer. `PnsRouterSizes`
+ * is a superset, so it satisfies this.
+ */
+export interface PnsPlainSizes {
+  trackWidth: number;
+  trackWidthIsExplicit: boolean;
+  viaDiameter: number;
+  viaDrill: number;
+  viaType: PnsViaTypeSetting;
+  layerTop: number;
+  layerBottom: number;
+}
+
 export class PnsSizesSettings {
   private mTrackWidth = 0;
   private mTrackWidthIsExplicit = true;
@@ -88,6 +105,42 @@ export class PnsSizesSettings {
 
   setLayerBottom(aLayer: number): void {
     this.mLayerBottom = aLayer;
+  }
+
+  /**
+   * The same settings, as `ROUTER` stores them.
+   *
+   * Upstream has exactly one `SIZES_SETTINGS`, and `ROUTER::UpdateSizes` hands
+   * `m_sizes` straight to whichever placer is running. This port grew two
+   * spellings of it independently — a plain object shaped for
+   * `DIFF_PAIR_PLACER` (`PnsRouterSizes`, a superset that also carries the
+   * diff-pair gaps and the board minimums) and this class, ported later for
+   * `LINE_PLACER`. Nothing had ever driven the line placer *through* the
+   * router, so the two never met, and when they finally did the placer got a
+   * plain object and died on `this.mSizes.trackWidth is not a function`.
+   *
+   * Rather than rewrite one of the two, this is the conversion, in one place,
+   * on the one edge where a plain settings object reaches this class. Every
+   * field here exists in the plain shape, so nothing is lost.
+   */
+  static fromRouterSizes(aSizes: PnsPlainSizes): PnsSizesSettings {
+    const s = new PnsSizesSettings();
+    s.mTrackWidth = aSizes.trackWidth;
+    s.mTrackWidthIsExplicit = aSizes.trackWidthIsExplicit;
+    s.mViaDiameter = aSizes.viaDiameter;
+    s.mViaDrill = aSizes.viaDrill;
+    s.mViaType = aSizes.viaType;
+    s.mLayerTop = aSizes.layerTop;
+    s.mLayerBottom = aSizes.layerBottom;
+    return s;
+  }
+
+  /**
+   * Normalise either spelling to this one. A no-op on an instance, so a caller
+   * that already holds one pays nothing and keeps its identity.
+   */
+  static from(aSizes: PnsPlainSizes | PnsSizesSettings): PnsSizesSettings {
+    return aSizes instanceof PnsSizesSettings ? aSizes : PnsSizesSettings.fromRouterSizes(aSizes);
   }
 
   clone(): PnsSizesSettings {

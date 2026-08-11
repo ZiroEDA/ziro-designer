@@ -294,6 +294,18 @@ export interface PnsBoardIfaceDeps {
   isLayerVisible?: (aBoardLayer: string) => boolean;
   /** `KIGFX::VIEW::IsVisible( BOARD_ITEM* )`. Absent means visible. */
   isItemVisible?: (aItem: PnsItem) => boolean;
+  /**
+   * Called at each end-of-transaction boundary with the batch being closed,
+   * just before it is dropped — upstream's `BOARD_COMMIT::Push()`.
+   *
+   * A hook rather than a return value because {@link PnsBoardIface.commit} is
+   * called by `ROUTER::CommitRouting` itself, from inside the placer's own
+   * commit, with no caller of ours on the stack to hand anything back to.
+   * Without it the changes the router decided on were recorded and then thrown
+   * away, which is exactly how far the port had got: everything up to the
+   * boundary, and nothing across it.
+   */
+  onCommit?: (aChanges: readonly PnsPendingChange[]) => void;
 }
 
 /** One board mutation the router asked for, held rather than applied. */
@@ -1005,11 +1017,18 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 
   /**
    * `Commit()`: upstream pushes the `BOARD_COMMIT` at the undo stack and opens
-   * a fresh one. Here it drops the recorded changes, which is the same
-   * end-of-transaction boundary with nothing behind it yet.
+   * a fresh one. Here the batch goes to {@link PnsBoardIfaceDeps.onCommit} and
+   * a fresh one is opened — the same end-of-transaction boundary, with somebody
+   * on the other side of it at last.
+   *
+   * An empty batch still fires nothing: `ROUTER::CommitRouting` calls this on
+   * every commit path, including the ones that decided to change nothing.
    */
   commit(): void {
+    const batch = this.mPending;
     this.mPending = [];
+
+    if (batch.length > 0) this.mDeps.onCommit?.(batch);
   }
 
   // ----- the view, which does not exist here ---------------------------------

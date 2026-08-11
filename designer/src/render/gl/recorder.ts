@@ -36,7 +36,13 @@
  * let the shader re-derive the value per frame.
  */
 
-import { arcToPolyline, dashPolyline, ellipseToPolyline, type Pt } from './tessellate.js';
+import {
+  arcToPolyline,
+  dashPolyline,
+  ellipseToPolyline,
+  PCB_ARC_TOLERANCE,
+  type Pt,
+} from './tessellate.js';
 import { triangulateRings } from './holes.js';
 import { layoutBitmapText, type BitmapTextPlacement } from './bitmap_text.js';
 import { BITMAP_MINPX_FLAG, parseColor, type Rgba, type Scene } from './scene.js';
@@ -161,6 +167,15 @@ export interface RecorderOptions {
  * checks against the source rather than against a promise in a comment.
  */
 export class GlRecorder {
+  /** One warning per session, not one per path per frame. */
+  private static warnedForeignPath = false;
+  /**
+   * Sagitta tolerance for flattening arcs, in the internal units of whatever is
+   * being drawn — 0.005 mm, which is 5000 IU on a board and 50 in a schematic.
+   * Defaults to the board because the board is what the recorder was written
+   * for; `SchematicGl` sets the other.
+   */
+  arcTolerance = PCB_ARC_TOLERANCE;
   private st: State = {
     ctm: IDENT,
     fillStyle: '#000',
@@ -320,7 +335,7 @@ export class GlRecorder {
     this.cur = null;
   }
   arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
-    const poly = arcToPolyline(cx, cy, r, a0, a1, ccw);
+    const poly = arcToPolyline(cx, cy, r, a0, a1, ccw, this.arcTolerance);
     if (poly.length === 0) return;
     // Canvas joins an arc to the current subpath rather than starting one.
     if (!this.cur) {
@@ -350,7 +365,7 @@ export class GlRecorder {
     a1: number,
     ccw = false,
   ): void {
-    const poly = ellipseToPolyline(cx, cy, rx, ry, rotation, a0, a1, ccw);
+    const poly = ellipseToPolyline(cx, cy, rx, ry, rotation, a0, a1, ccw, this.arcTolerance);
     if (poly.length === 0) return;
     // Canvas joins it to the current subpath rather than starting one, as arc does.
     if (!this.cur) {
@@ -455,6 +470,28 @@ export class GlRecorder {
    */
   private adopt(path: GlPath): SubPath[] {
     const out: SubPath[] = [];
+    // A DOM `Path2D` has no `subpaths`, and iterating `undefined` throws out of
+    // the whole draw call — one mismatched path takes the entire canvas with
+    // it. The pairing this protects is genuinely easy to get wrong:
+    // `buildScene` compiles DOM paths for the 2D overlay and `buildBoardScene`
+    // compiles GL paths for the recorder, they are chosen at a dozen call
+    // sites, and `renderBoard`'s path factory is module-global mutable state
+    // that a hot reload can leave pointing at the other one.
+    //
+    // Warned rather than swallowed: dropping the path silently is the existing
+    // failure mode for the mirror-image mistake (a GL scene drawn by the raster
+    // path renders an empty board with no error at all), and a silent empty
+    // board is a worse bug to chase than a loud one.
+    if (!path?.subpaths?.[Symbol.iterator]) {
+      if (!GlRecorder.warnedForeignPath) {
+        GlRecorder.warnedForeignPath = true;
+        console.warn(
+          '[gl] a path without subpaths reached the recorder and was skipped — ' +
+            'this is a Path2D from buildScene where buildBoardScene was needed',
+        );
+      }
+      return out;
+    }
     for (const sp of path.subpaths) {
       const s: SubPath = { pts: [], closed: sp.closed, owner: sp.owner };
       for (const p of sp.pts) this.pushPt(s, p.x, p.y);

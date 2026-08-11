@@ -208,6 +208,8 @@ import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.j
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -377,18 +379,7 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 // pcb_painter.cpp getColor: a selected item is drawn in its layer colour
 // Brightened(0.8) (per channel c·0.2 + 0.8), i.e. pushed 80% toward white.
 
-// Snap a world point to the given grid (GAL GetGridPoint). Shared by the
-// crosshair and the move so a dragged item follows the snapped crosshair and
-// lands on grid nodes, like KiCad (edit_tool_move_fct.cpp: m_cursor =
-// grid.BestSnapAnchor(mousePos); movement = m_cursor - prevPos). The editor
-// shadows this with a component-local `snapToGrid` bound to the live grid size.
-const snapToGridSize = (p: { x: number; y: number }, size: number): { x: number; y: number } => {
-  const { origin } = DEFAULT_GRID_OPTIONS;
-  return {
-    x: Math.round((p.x - origin.x) / size) * size + origin.x,
-    y: Math.round((p.y - origin.y) / size) * size + origin.y,
-  };
-};
+// Snapping lives in pcb_grid.ts; see the note there on the board grid origin.
 
 // One mil in IU.
 const MIL = 0.0254 * MM;
@@ -925,6 +916,11 @@ export function PcbEditor({
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set());
   const [activeLayer, setActiveLayer] = useState('F.Cu');
+  // `getView()->GetTopLayer()`, which every snap reads to prefer items on the
+  // layer being worked on. A ref because `draw` reads it without wanting to be
+  // rebuilt when the layer changes.
+  const activeLayerRef = useRef(activeLayer);
+  activeLayerRef.current = activeLayer;
   // Selected layer preset; '---' is the separator row, the default selection
   // like rebuildLayerPresetsWidget.
   const [preset, setPreset] = useState('---');
@@ -1061,15 +1057,101 @@ export function PcbEditor({
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
+  // The two snap modifiers, as the tool events carry them.
+  //
+  // Shift disables snapping to *items*, leaving the plain grid
+  // (`m_gridHelper->SetSnap( !aEvent.Modifier( MD_SHIFT ) )`); Ctrl disables
+  // the *grid*, which is `TOOL_EVENT::DisableGridSnapping()` — literally
+  // `Modifier( MD_CTRL )` (tool_event.h:367) — and every tool feeds it to
+  // `SetUseGrid( GetGridSnapping() && !evt->DisableGridSnapping() )`.
+  //
+  // Both are tracked on key events as well as pointer events. Sampling them
+  // only on pointer move means pressing or releasing a modifier with the mouse
+  // held still changes nothing until the pointer is jiggled, and upstream
+  // reacts at once because the modifier arrives as its own tool event.
+  const shiftDownRef = useRef(false);
+  const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
   const [gridIU, setGridIU] = useState(DEFAULT_GRID_OPTIONS.size);
   const gridIURef = useRef(gridIU);
   gridIURef.current = gridIU;
-  // Grid-size-aware snap: shadows the module-level helper with the live size so
-  // every existing call site follows the selected grid.
+  // The board's own grid origin (`(setup (grid_origin))`), which pcbnew hands
+  // to the GAL on open (pcb_base_edit_frame.cpp) and which both the dots and
+  // the snap are measured from. A ref because `draw` and the pointer handlers
+  // read it without wanting to be rebuilt when the board object is replaced.
+  const gridOriginRef = useRef<{ x: number; y: number }>(DEFAULT_GRID_OPTIONS.origin);
+  gridOriginRef.current = useMemo(
+    () => (board ? boardGridOrigin(board) : DEFAULT_GRID_OPTIONS.origin),
+    [board],
+  );
+  // `GRID_HELPER::m_auxAxis` — the point the current gesture started from, kept
+  // reachable for its whole duration so an off-grid item can be put back
+  // exactly where it came from. Set at the start of a move/drag and cleared
+  // when it ends, as `ROUTER_TOOL` (router_tool.cpp:2190, :2654) and
+  // `EDIT_TOOL` (edit_tool_move_fct.cpp:1401) do.
+  const auxAxisRef = useRef<{ x: number; y: number } | null>(null);
+  // `PCB_GRID_HELPER`'s state, as the ported Align / AlignToSegment /
+  // AlignToArc read it. Rebuilt per call rather than held, because the two
+  // flags upstream pokes onto a long-lived helper (`SetUseGrid`, `SetSnap`)
+  // are both derived here: grid snapping follows the toggle, and `enableSnap`
+  // is cleared while Shift is held, exactly as `TOOL_BASE::updateEndItem` does
+  // with `SetSnap( !aEvent.Modifier( MD_SHIFT ) )`.
+  const gridState = (): PcbGridState => ({
+    size: gridIURef.current,
+    origin: gridOriginRef.current,
+    // `canUseGrid()` = the grid-snapping setting AND no Ctrl. We have no
+    // grid-snapping preference of our own yet, so the modifier is the whole of
+    // it — but it is the half users reach for, and without it there is no way
+    // at all to place something off the lattice.
+    enableGrid: !ctrlDownRef.current,
+    enableSnap: !shiftDownRef.current,
+    auxAxis: auxAxisRef.current,
+  });
+  // Every grid snap in the editor, through the one function upstream uses.
+  // Calling `computeNearest` directly anywhere would bypass the auxiliary axis
+  // and quantise the gesture's origin away again — which is the bug this is
+  // here to prevent, so there is deliberately no other route to the grid.
   const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
-    snapToGridSize(p, gridIURef.current);
+    align(p, gridState());
+  // Where the routing crosshair actually goes — `controls()->ForceCursorPosition(
+  // true, m_endSnapPoint )` at the end of `TOOL_BASE::updateEndItem`. `draw` is
+  // memoised long before `copperAt` exists, so it reads the live one off a ref
+  // that is re-pointed below once `copperAt` is in scope.
+  const routeSnapRef =
+    useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
+  // The crosshair sticks to copper only while routing. In pcbnew the general
+  // cursor does not: a track contributes its two ends as `CORNER | SNAPPABLE`
+  // anchors and its midpoint as `ORIGIN` *without* `SNAPPABLE`
+  // (pcb_grid_helper.cpp:1796-1808), and `BestSnapAnchor` weighs only the
+  // snappable ones — so nothing there can pull the selection cursor onto the
+  // middle of a track. That behaviour belongs to the router alone.
+  // Held in a ref, like everything else `draw` reads: `draw` is a useCallback,
+  // and closing over a function rebuilt each render would put it in the
+  // dependency list and rebuild the whole draw pass on every keystroke.
+  const cursorSnapRef =
+    useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
+  cursorSnapRef.current = (w) => {
+    if (activeToolRef.current === 'routeSingleTrack' || routeRef.current)
+      return routeSnapRef.current(w);
+
+    // The plain selection tool does not snap to items on hover in pcbnew:
+    // nothing in `PCB_SELECTION_TOOL`'s motion path calls `BestSnapAnchor`,
+    // while the drawing, placement, picker and move tools all do.
+    if (!isClickTool(activeToolRef.current)) return snapToGrid(w);
+
+    const brd = boardRef.current;
+
+    if (!brd) return snapToGrid(w);
+
+    return bestSnapAnchor(brd, w, gridState(), {
+      // `view->ToWorld( 25 )` and `view->ToWorld( m_SnapHysteresis )`.
+      snapScale: 25 / viewRef.current.scale,
+      hysteresis: 5 / viewRef.current.scale,
+      visibleGrid: gridIURef.current,
+      layer: activeLayerRef.current,
+    });
+  };
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
   // 1.. = the pre-defined list entries (BOARD_DESIGN_SETTINGS m_TrackWidthList /
   // m_ViasDimensionsList; ours come from the project's netclasses).
@@ -1105,6 +1187,11 @@ export function PcbEditor({
   // A router drag of a trace (EDIT_TOOL::Drag → PNS::DRAGGER): the whole line is
   // re-cut every frame rather than translated, so it runs beside the move refs.
   const trackDragRef = useRef<TrackDrag | null>(null);
+  // `TOOL_BASE::m_startItem` — the one segment the drag grabbed, and the whole
+  // of `pickSingleItem`'s `aAvoidItems`. Its *neighbours* stay snappable on
+  // purpose: they still hold the line's original geometry, so bringing the
+  // cursor back over them lands it on the centreline the trace started on.
+  const dragSeedIdRef = useRef<string | null>(null);
   /** The net highlight to restore when a track drag ends, or null if none. */
   const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
   // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
@@ -1801,6 +1888,7 @@ export function PcbEditor({
       drawGrid(bctx, v, canvas.width, canvas.height, dpr, {
         ...DEFAULT_GRID_OPTIONS,
         size: gridIURef.current,
+        origin: gridOriginRef.current,
       });
     }
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
@@ -2150,7 +2238,9 @@ export function PcbEditor({
       const r = routeRef.current;
       const cur0 = cursorRef.current;
       if (r && cur0) {
-        const end = snapToGrid(cur0);
+        // The same point the crosshair is drawn at, so the preview ends under
+        // it rather than beside it.
+        const end = cursorSnapRef.current(cur0);
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
         ctx.strokeStyle = layerColor(r.layer);
@@ -2424,12 +2514,35 @@ export function PcbEditor({
       background: PCB_BACKGROUND,
       ...PCB_SPECIAL,
     });
+    // `GRID_HELPER::m_viewAxis` (pcb_grid_helper.cpp:167-172): the auxiliary
+    // axis, drawn at the origin of the gesture in progress as a CROSS in the
+    // aux-items colour at 40% alpha. `SetSize( 20000 )` is in *screen* pixels
+    // (`ORIGIN_VIEWITEM::ViewDraw` puts it through `ToWorld`), so at any real
+    // zoom it spans the whole canvas. It is the cue that says this point is
+    // still reachable however far the cursor wanders off the grid.
+    const aux = auxAxisRef.current;
+    if (aux) {
+      const ax = aux.x * sx + v.tx;
+      const ay = aux.y * v.scale + v.ty;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = PCB_CURSOR;
+      ctx.lineWidth = Math.max(1, dpr);
+      ctx.beginPath();
+      ctx.moveTo(0, ay);
+      ctx.lineTo(canvas.width, ay);
+      ctx.moveTo(ax, 0);
+      ctx.lineTo(ax, canvas.height);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Crosshair cursor (GAL blitCursor): a white cross at the grid-snapped
     // cursor. crosshairSmall = an 80px cross (default), crosshairFull = full
     // screen lines, crosshair45 = a big diagonal X. Drawn topmost.
     const cur = cursorRef.current;
     if (cur && activeToolRef.current !== 'localRatsnestTool') {
-      const snapped = snapToGrid(cur);
+      const snapped = cursorSnapRef.current(cur);
       const px = snapped.x * sx + v.tx;
       const py = snapped.y * v.scale + v.ty;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3933,33 +4046,48 @@ export function PcbEditor({
     return null;
   };
 
-  // Net + snap point of the copper item under the cursor (pads first, then
-  // vias and tracks via the hit-tester).
+  // Net + snap point of the copper item under the cursor —
+  // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
+  // in pcbnew so it can be tested against a real board; this is only the
+  // component's view of the world handed to it.
   const copperAt = (w: {
     x: number;
     y: number;
   }): { net: number; snap: { x: number; y: number } } | null => {
     const brd = boardRef.current;
     if (!brd) return null;
-    const pad = padAt(w);
-    if (pad) return { net: pad.net ?? 0, snap: { ...pad.at } };
-    for (const id of boardHitCandidates(brd, w, tolOf())) {
-      const r = parseBoardItemId(id);
-      if (r?.kind === 'via') {
-        const v = brd.vias[r.index];
-        if (v) return { net: v.net, snap: { ...v.at } };
-      } else if (r?.kind === 'track' || r?.kind === 'arc') {
-        const t = r.kind === 'track' ? brd.tracks[r.index] : brd.arcs[r.index];
-        if (t) {
-          // Snap to a nearby endpoint, else stay on the grid point.
-          const ends = [t.start, t.end];
-          const near = ends.find((p) => Math.hypot(w.x - p.x, w.y - p.y) <= tolOf());
-          return { net: t.net, snap: near ? { ...near } : snapToGrid(w) };
-        }
-      }
-    }
-    return null;
+    return snapToBoardCopper(brd, w, gridState(), {
+      tol: tolOf(),
+      // `pickSingleItem`'s `tl`, the view's top layer. A preference, not a
+      // filter: an item elsewhere is still picked when this layer has none.
+      layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
+    });
   };
+
+  /**
+   * `TOOL_BASE::updateStartItem` / `updateEndItem` for a drag: the snapped
+   * cursor, over copper when there is any and on the grid otherwise.
+   *
+   * `aAvoid` is `pickSingleItem`'s `aAvoidItems` — the line being dragged, so
+   * the gesture cannot snap to itself.
+   */
+  const dragSnap = (
+    w: { x: number; y: number },
+    aAvoid: ReadonlySet<string> | null,
+  ): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (!brd) return snapToGrid(w);
+    return (
+      snapToBoardCopper(brd, w, gridState(), {
+        tol: tolOf(),
+        layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
+        avoid: aAvoid ?? undefined,
+      })?.snap ?? snapToGrid(w)
+    );
+  };
+
+  // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
+  routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
   /**
    * The route from `from` to `to`, bent around anything in the way.
@@ -4399,6 +4527,11 @@ export function PcbEditor({
     if (selection) setSelection(selection);
     moveKindRef.current = kind;
     moveOriginRef.current = origin;
+    // `EDIT_TOOL` sets the axis to `dragOrigin` (edit_tool_move_fct.cpp:1401).
+    // The move path is delta-based and was already reversible, but the axis
+    // also makes the *zero* delta land exactly rather than merely nearly.
+    auxAxisRef.current = null;
+    auxAxisRef.current = snapToGrid(origin);
     const fpIdx = new Set<number>();
     for (const id of sel) {
       const r = parseBoardItemId(id);
@@ -4475,8 +4608,22 @@ export function PcbEditor({
   ): boolean => {
     const brd = boardRef.current;
     if (!brd) return false;
-    const drag = startTrackDrag(brd, trackIndex, origin, { freeAngle });
+    // `ROUTER_TOOL::performDragging` starts the drag at `m_startSnapPoint` —
+    // the *snapped* cursor from `updateStartItem`, not the raw pointer. Both
+    // ends of the gesture must use the same snap or the geometry can never be
+    // reproduced: a raw origin with grid-snapped updates jumps the line onto
+    // the grid the instant you move, and no cursor position afterwards gets
+    // back to where the track actually was.
+    // Cleared first so the origin is snapped without a stale axis biasing it,
+    // then installed as the axis for the rest of the gesture — upstream's
+    // `SetAuxAxes( true, m_startSnapPoint )`.
+    auxAxisRef.current = null;
+    const start = dragSnap(origin, null);
+    const drag = startTrackDrag(brd, trackIndex, start, { freeAngle });
     if (!drag) return false;
+
+    auxAxisRef.current = start;
+    dragSeedIdRef.current = boardItemId('track', trackIndex);
 
     trackDragRef.current = drag;
     moveKindRef.current = 'drag';
@@ -4500,6 +4647,28 @@ export function PcbEditor({
     moveDeltaRef.current = { x: 0, y: 0 };
     sceneDirtyRef.current = true;
     return true;
+  };
+
+  /**
+   * The cursor while a point/handle is being dragged —
+   * `grid.BestSnapAnchor( pos, snapLayers, GetItemGrid( item ), { item } )`
+   * (pcb_point_editor.cpp:2644).
+   *
+   * The point editor snapped to the bare grid before this, which meant a
+   * reshaped point could neither land on a pad centre or another track's end,
+   * nor go back to an off-grid position it started at.
+   */
+  const handleSnap = (w: { x: number; y: number }): { x: number; y: number } => {
+    const brd = boardRef.current;
+    if (!brd) return snapToGrid(w);
+    const id = editHandleItemRef.current;
+    return bestSnapAnchor(brd, w, gridState(), {
+      snapScale: 25 / viewRef.current.scale,
+      hysteresis: 5 / viewRef.current.scale,
+      visibleGrid: gridIURef.current,
+      layer: activeLayerRef.current,
+      avoid: id ? new Set([id]) : undefined,
+    });
   };
 
   /** The handle under a world point (EDIT_POINTS::FindPoint). */
@@ -4879,7 +5048,12 @@ export function PcbEditor({
       // drag is not a translation, so the overlay carries the new absolute
       // geometry and the draw path applies no offset to it.
       const drag = trackDragRef.current;
-      const chain = updateTrackDrag(drag, to);
+      // `updateEndItem` again, with the dragged line in `aAvoidItems` so the
+      // cursor cannot snap to the thing it is moving. Snapping to the line's
+      // own collinear neighbours is what lets a trace go back exactly where it
+      // came from, which a grid-only cursor cannot do for off-grid copper.
+      const seed = dragSeedIdRef.current;
+      const chain = updateTrackDrag(drag, dragSnap(cur, seed ? new Set([seed]) : null));
       const line = trackDragSegments(brd, drag, chain);
       moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
       if (liveRatsRef.current) {
@@ -4926,11 +5100,19 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    // The gesture is over: `SetAuxAxes( false )`.
+    auxAxisRef.current = null;
     if (trackDrag) {
       const cur = cursorRef.current;
+      const seed = dragSeedIdRef.current;
+      dragSeedIdRef.current = null;
       restoreDragHighlight();
       if (brd && cur && delta && (delta.x !== 0 || delta.y !== 0)) {
-        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, snapToGrid(cur))));
+        // The same snap the preview used. A grid-only snap here would commit
+        // geometry the user never saw, and would land off the copper the
+        // preview was sitting on.
+        const at = dragSnap(cur, seed ? new Set([seed]) : null);
+        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, at)));
       } else if (brd) {
         rebuildScene(brd);
       }
@@ -4962,12 +5144,16 @@ export function PcbEditor({
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
     moveOriginRef.current = null;
+    // The gesture is over: `SetAuxAxes( false )`.
+    auxAxisRef.current = null;
     // Undo the live-ratsnest preview (the board didn't change). Back at rest,
     // so the moving items' airwires go away with the gesture.
     if (liveRatsRef.current) ratsDrawRef.current = filterRatsRef.current(ratsnestEdgesRef.current);
     if (applied) {
       moveSceneRef.current = null;
       moveOriginRef.current = null;
+      // The gesture is over: `SetAuxAxes( false )`.
+      auxAxisRef.current = null;
       requestDraw();
       return;
     }
@@ -5071,7 +5257,13 @@ export function PcbEditor({
       if (w && !isClickTool(activeToolRef.current)) {
         const handle = editHandleAt(w);
         if (handle) {
-          editHandleDragRef.current = { handle, origin: snapToGrid(w) };
+          // `PCB_POINT_EDITOR` puts the auxiliary axis on the point's *original
+          // position* — `SetAuxAxes( true, m_original.GetPosition() )`
+          // (pcb_point_editor.cpp:2366) — not on the cursor. So a handle that
+          // started off-grid stays reachable for the whole drag, and a track
+          // endpoint or zone corner can be put back exactly where it was.
+          auxAxisRef.current = { x: handle.at.x, y: handle.at.y };
+          editHandleDragRef.current = { handle, origin: handleSnap(w) };
           // Reshaping touches one item, so split the board the same way a move
           // drag does: the rest of it is recorded once here and stays in the
           // cached raster, and the item being reshaped rides the live overlay.
@@ -5114,6 +5306,8 @@ export function PcbEditor({
     }
   };
   const onPointerMove = (e: React.PointerEvent): void => {
+    shiftDownRef.current = e.shiftKey;
+    ctrlDownRef.current = e.ctrlKey || e.metaKey;
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
@@ -5144,7 +5338,7 @@ export function PcbEditor({
       const brd = boardRef.current;
       const id = editHandleItemRef.current;
       if (cur && brd && id) {
-        const to = snapToGrid(cur);
+        const to = handleSnap(cur);
         const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
         const next = dragBoardHandle(brd, id, handleDrag.handle, target);
         pointEditPreviewRef.current = next;
@@ -5220,6 +5414,8 @@ export function PcbEditor({
     if (editHandleDragRef.current) {
       const preview = pointEditPreviewRef.current;
       editHandleDragRef.current = null;
+      // The gesture is over: `SetAuxAxes( false )`.
+      auxAxisRef.current = null;
       pointEditPreviewRef.current = null;
       // Drop the reshape overlay: both paths below rebuild a full base scene
       // that contains the item again, so leaving it up would double-draw it.
@@ -5565,6 +5761,37 @@ export function PcbEditor({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [zoomToFit, undo, redo, deleteSel, rotateSel, duplicateSel]);
+
+  // The snap modifiers, tracked on the keyboard as well as the pointer.
+  // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
+  // Ctrl changes the snap immediately; sampling them only on pointer move
+  // leaves the snap stale until the mouse is nudged. A repaint follows so the
+  // crosshair and any in-flight preview move the moment the key does.
+  useEffect(() => {
+    const sync = (e: KeyboardEvent): void => {
+      const shift = e.shiftKey;
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (shift === shiftDownRef.current && ctrl === ctrlDownRef.current) return;
+      shiftDownRef.current = shift;
+      ctrlDownRef.current = ctrl;
+      requestDrawRef.current();
+    };
+    // A window that loses focus mid-chord never sees the keyup, which would
+    // otherwise leave snapping disabled until the key is pressed and released
+    // again.
+    const clear = (): void => {
+      shiftDownRef.current = false;
+      ctrlDownRef.current = false;
+    };
+    window.addEventListener('keydown', sync);
+    window.addEventListener('keyup', sync);
+    window.addEventListener('blur', clear);
+    return () => {
+      window.removeEventListener('keydown', sync);
+      window.removeEventListener('keyup', sync);
+      window.removeEventListener('blur', clear);
+    };
+  }, []);
 
   const [viewer3dReady, setViewer3dReady] = useState(false);
   // Mount the three.js 3D viewer while the overlay is open. Lazy-imported so
