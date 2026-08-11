@@ -10,6 +10,7 @@ import {
   storageAvailable,
   listProjects,
   loadProject,
+  saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
 import { saveSession, loadSession } from './home/session.js';
@@ -141,6 +142,16 @@ export function App(): JSX.Element {
   const [activePro, setActivePro] = useState<string | null>(null);
   // A board opened directly (no schematic project around it).
   const [standalonePcb, setStandalonePcb] = useState<PickedFile | null>(null);
+  /**
+   * The open project is a demo: nothing it edits is written anywhere.
+   *
+   * Autosave finds its record by project name, and a demo has none, so edits
+   * were already going nowhere. What was missing is that the editor looked
+   * exactly like one that was saving. This drives the banner and turns autosave
+   * off explicitly, so "not saved" is a stated mode rather than a lookup that
+   * happens to miss.
+   */
+  const [demoProject, setDemoProject] = useState(false);
   // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
   // sends "$NET: <name>" between the frames; here both are mounted together).
   const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
@@ -445,6 +456,38 @@ export function App(): JSX.Element {
     setActivePro(proFullName);
   }, []);
 
+  /**
+   * Save a copy of the open demo, which is what turns it into the user's own
+   * project: it gets a record, autosave starts writing to it, and the banner
+   * goes away. Deliberately the same shape as KiCad's answer to editing a demo
+   * in its read-only stock folder, save it somewhere of your own first.
+   *
+   * The whole open file set is written, including the 3D bodies that arrived
+   * after the board did, so the copy is the demo and not the part of it that
+   * had downloaded by the time the button was pressed.
+   */
+  const saveDemoCopy = useCallback(() => {
+    const cur = projectFilesRef.current;
+    if (!cur || cur.length === 0) return;
+    const suggested = projectNameOf(cur);
+    const name = (window.prompt('Save a copy of this demo as:', suggested) ?? '').trim();
+    if (!name) return;
+    void (async () => {
+      try {
+        const files = cur
+          .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
+          .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));
+        await saveProject(name, files);
+        // Only now: until the record exists there is nothing for autosave to
+        // find, and clearing the banner first would claim edits were being kept
+        // while they still were not.
+        setDemoProject(false);
+      } catch (e) {
+        window.alert(`Could not save a copy: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    })();
+  }, []);
+
   const goHome = useCallback(() => {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
@@ -562,14 +605,16 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
-        onOpenProject={(files, start) => {
+        onOpenProject={(files, start, readOnly) => {
           setProjectFiles(files);
+          setDemoProject(!!readOnly);
           setStandalonePcb(null);
           setStartFile(start ?? null);
           setSchMounted(true);
           setView('schematic');
         }}
         onOpenPcb={(file, files) => {
+          setDemoProject(false);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);
@@ -581,6 +626,7 @@ export function App(): JSX.Element {
           setView('pcb');
         }}
         onOpenSymbolEditor={(files, startFile) => {
+          setDemoProject(false);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);
@@ -626,6 +672,17 @@ export function App(): JSX.Element {
 
   return (
     <>
+      {demoProject && (
+        <div className="ze-demo-banner" role="status">
+          <span className="ze-demo-banner-text">
+            <b>Demo project</b>
+            Edits are not being saved. Save a copy to keep your changes.
+          </span>
+          <button type="button" onClick={saveDemoCopy}>
+            Save a copy
+          </button>
+        </div>
+      )}
       {schMounted && (
         <div style={{ display: view === 'schematic' ? 'contents' : 'none' }}>
           <Suspense fallback={frameLoading('the schematic editor')}>
@@ -678,7 +735,7 @@ export function App(): JSX.Element {
               // passed but no-ops without an open project or without IndexedDB,
               // and the editor cannot see that from its side — so it is told,
               // rather than left to infer that its work is being saved.
-              autosaveActive={!!projectFiles && storageAvailable()}
+              autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
               onPersistFiles={persistFilesNow}
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}

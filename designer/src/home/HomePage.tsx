@@ -11,7 +11,6 @@ import {
   deleteProject,
   renameProject,
   touchOpened,
-  updateProjectFiles,
   type ProjectMeta,
 } from './projectStore.js';
 import { useAuth } from '../auth/AuthProvider.js';
@@ -175,7 +174,7 @@ export function HomePage({
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
-  onOpenProject?: (files: PickedHomeFile[], startFile?: string) => void;
+  onOpenProject?: (files: PickedHomeFile[], startFile?: string, readOnly?: boolean) => void;
   onOpenPcb?: (file: PickedHomeFile, files?: PickedHomeFile[]) => void;
   /** Launch the Symbol Editor (with the open project's libraries, if any).
    *  `startFile` is a `.kicad_sym` to open straight away (KiCad's MAIL_LIB_EDIT). */
@@ -223,6 +222,16 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
+  /**
+   * Whether what is open came from the demo library.
+   *
+   * A demo is not the user's project: it is not written to the store, so
+   * nothing it edits is kept until they save a copy of it, which is how KiCad
+   * treats the demos in its read-only stock folder. Reset in `ingest`, the
+   * funnel every open goes through, so it cannot survive into the next project
+   * opened after a demo.
+   */
+  const [demoOpen, setDemoOpen] = useState(false);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
@@ -283,27 +292,27 @@ export function HomePage({
       setLoading(null);
     }
     if (files.length === 0) return;
-    const pid = await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
+    // Not persisted: a demo is something to look at and try, not a project in
+    // the user's account, and copying every one they open into it (and then up
+    // to their cloud storage, 46 MB for the CM5 carrier) is not what opening a
+    // demo asks for. Editing still works; saving a copy is what keeps it.
+    await ingest(
+      files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })),
+      false,
+    );
+    setDemoOpen(true);
 
-    // The 3D bodies and datasheets follow once the board is on screen. They are
-    // most of a demo's bytes and none of what it takes to show one, but the
-    // project still has to end up complete: it appears in Recent, it syncs, and
-    // its 3D view has to work. Failure here leaves a demo that opens and has no
-    // 3D models, which is worth a console warning and not worth interrupting
-    // anyone over.
-    if (pid) {
-      void fetchDemoExtras(d)
-        .then(async (extra) => {
-          if (extra.length === 0) return;
-          await updateProjectFiles(
-            pid,
-            extra.map((f) => ({ name: f.name, bytes: f.bytes! })),
-          );
-          refreshSaved();
-          if (userId) await pushProject(userId, pid);
-        })
-        .catch((e) => console.warn(`Demo extras for "${d.title}" did not finish:`, e));
-    }
+    // The 3D bodies and datasheets follow once the board is on screen: most of
+    // a demo's bytes, none of what it takes to show one. They join the open
+    // file set in memory, so the 3D view works and a saved copy is complete.
+    // Failure leaves a demo with no 3D models, worth a console warning and not
+    // worth interrupting anyone over.
+    void fetchDemoExtras(d)
+      .then((extra) => {
+        if (extra.length === 0) return;
+        setPicked((prev) => (prev ? [...prev, ...extra] : extra));
+      })
+      .catch((e) => console.warn(`Demo extras for "${d.title}" did not finish:`, e));
   };
   // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
   const [panelWidth, setPanelWidth] = useState(290);
@@ -388,6 +397,7 @@ export function HomePage({
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
       let saved: string | null = null;
+      setDemoOpen(false);
       const out: PickedHomeFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]!;
@@ -691,7 +701,7 @@ export function HomePage({
       : 'Project';
 
   const launchSchematic = (startFile?: string): void => {
-    if (picked && onOpenProject) onOpenProject(picked, startFile);
+    if (picked && onOpenProject) onOpenProject(picked, startFile, demoOpen);
     else onOpenSchematic();
   };
 

@@ -150,3 +150,58 @@
 .ze-storage-banner button:hover {
   background: rgba(0, 0, 0, 0.45);
 }
+
+/* ----- demo-project banner --------------------------------------------------
+   A demo opens as itself and is not the user's project: nothing it edits is
+   written anywhere, the way KiCad's demos sit in a read-only stock folder and
+   have to be saved elsewhere first. So the banner is not an error and not
+   dismissible either, because the moment it is gone the editor looks exactly
+   like one that is saving. Same geometry as the storage banner, calmer colour;
+   they never appear together, since a demo writes nothing to fail at. */
+
+.ze-demo-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 8999;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 12px 16px;
+  font:
+    13px / 1.45 system-ui,
+    "Segoe UI",
+    sans-serif;
+  color: #f2ede4;
+  background: #4a3a22;
+  border: 1px solid #8a6a3a;
+  border-radius: 8px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+}
+
+.ze-demo-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ze-demo-banner-text b {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ze-demo-banner button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 14px;
+  font: inherit;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ze-demo-banner button:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
