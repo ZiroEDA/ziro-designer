@@ -293,7 +293,7 @@ export function HomePage({
   // Cloud sync status pill (non-blocking, bottom-right): transfers done/total
   // while projects reconcile on sign-in, then a brief "synced" confirmation.
   const [syncState, setSyncState] = useState<
-    { done: number; total: number } | { failures: SyncFailure[] } | 'done' | null
+    { done: number; total: number } | { failures: SyncFailure[] } | { healed: number } | null
   >(null);
   const refreshSaved = (): void => {
     if (storageAvailable()) void listProjects().then(setSaved);
@@ -325,7 +325,10 @@ export function HomePage({
           setSyncState({ failures: r.failures });
           return;
         }
-        setSyncState('done');
+        // `healed` is a repair, not a save: a cloud copy that could not be
+        // downloaded by anything has been replaced with this machine's. Worth
+        // saying, because the user has been watching those projects fail.
+        setSyncState({ healed: r.healed });
         setTimeout(() => {
           if (!cancelled) setSyncState(null);
         }, 2500);
@@ -1097,12 +1100,18 @@ export function HomePage({
           that their work is not where they think it is. */}
       {syncState && (
         <div
-          className={`ze-sync-pill${syncState === 'done' ? ' done' : ''}${
-            typeof syncState === 'object' && 'failures' in syncState ? ' failed' : ''
+          className={`ze-sync-pill${'healed' in syncState ? ' done' : ''}${
+            'failures' in syncState ? ' failed' : ''
           }`}
         >
-          {syncState === 'done' ? (
-            <>✓ Projects synced</>
+          {'healed' in syncState ? (
+            <>
+              ✓ Projects synced
+              {syncState.healed > 0 &&
+                ` (${syncState.healed} damaged cloud ${
+                  syncState.healed === 1 ? 'copy' : 'copies'
+                } restored from this device)`}
+            </>
           ) : 'failures' in syncState ? (
             <>
               <span>

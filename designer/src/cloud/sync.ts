@@ -40,16 +40,26 @@ import {
   cloudDelete,
   cloudGet,
   cloudListMeta,
+  cloudMissingObjects,
   cloudUpsert,
 } from './cloudStore.js';
 
 /** Progress callback: `done` of `total` transfers finished so far. */
 export type SyncProgress = (done: number, total: number) => void;
 
+/** What one transfer turned out to be. A pull can become a repair. */
+type Outcome = 'pushed' | 'pulled' | 'healed';
+
 /** What a completed reconcile did, and what it could not do. */
 export interface SyncResult {
   pushed: number;
   pulled: number;
+  /**
+   * Projects whose cloud copy was unreadable and has been replaced with the
+   * local one. Counted apart from `pushed` because it is a repair, not a save:
+   * it is worth telling the user that a broken copy in their account was fixed.
+   */
+  healed: number;
   /** One entry per project that failed. Empty means everything landed. */
   failures: { id: string; direction: 'push' | 'pull'; message: string }[];
 }
@@ -61,7 +71,7 @@ export async function syncAllProjects(
   userId: string,
   onProgress?: SyncProgress,
 ): Promise<SyncResult> {
-  const result: SyncResult = { pushed: 0, pulled: 0, failures: [] };
+  const result: SyncResult = { pushed: 0, pulled: 0, healed: 0, failures: [] };
   if (!cloudBackendInstalled()) return result;
 
   const [localMeta, cloudMeta] = await Promise.all([listSyncMeta(), cloudListMeta()]);
@@ -85,12 +95,16 @@ export async function syncAllProjects(
    * is a fact to report, not a reason to abandon the other nineteen. It reaches
    * the user through `SyncResult.failures`.
    */
-  const track = (id: string, direction: 'push' | 'pull', p: Promise<void>): void => {
+  const track = (id: string, direction: 'push' | 'pull', p: Promise<Outcome>): void => {
     ops.push(
       p.then(
-        () => {
-          if (direction === 'push') result.pushed++;
-          else result.pulled++;
+        // What happened, not what was planned: a pull whose cloud copy turns out
+        // to be unreadable is completed by pushing the local one, and reporting
+        // that as a pull would describe the opposite of what took place.
+        (outcome) => {
+          if (outcome === 'pushed') result.pushed++;
+          else if (outcome === 'pulled') result.pulled++;
+          else result.healed++;
           tick();
         },
         (e) => {
@@ -106,10 +120,10 @@ export async function syncAllProjects(
     const ct = cloud.get(id);
 
     if (lt !== undefined && ct === undefined) track(id, 'push', pushOne(userId, id));
-    else if (lt === undefined && ct !== undefined) track(id, 'pull', pullOne(id));
+    else if (lt === undefined && ct !== undefined) track(id, 'pull', pullOne(userId, id));
     else if (lt !== undefined && ct !== undefined && lt !== ct) {
       if (lt > ct) track(id, 'push', pushOne(userId, id));
-      else track(id, 'pull', pullOne(id));
+      else track(id, 'pull', pullOne(userId, id));
     }
   }
 
@@ -127,15 +141,16 @@ export async function syncAllProjects(
  * "these sides agree" after a failed push is what let a damaged copy be treated
  * as the agreed one.
  */
-async function pushOne(userId: string, id: string): Promise<void> {
+async function pushOne(userId: string, id: string): Promise<Outcome> {
   const p = await exportProject(id);
-  if (!p) return;
+  if (!p) return 'pushed';
   await cloudUpsert(userId, p);
   // Only after the write lands: a project that has been pushed belongs to this
   // account, so the next person to sign in on this browser does not inherit it.
   await claimProject(id, userId);
   // The two sides agree as of this push (#367).
   await markSynced(id);
+  return 'pushed';
 }
 
 /**
@@ -154,13 +169,65 @@ async function pushOne(userId: string, id: string): Promise<void> {
  * and throws on any that is missing or corrupt, so a partial fetch cannot reach
  * `importProject` disguised as a complete one.
  */
-async function pullOne(id: string): Promise<void> {
-  const p = await cloudGet(id);
-  if (!p) return;
-  if (await hasDivergedLocally(id)) {
-    await forkLocalCopy(id, localCopyName(p.name, new Date()));
+async function pullOne(userId: string, id: string): Promise<Outcome> {
+  try {
+    const p = await cloudGet(id);
+    if (!p) return 'pulled';
+    if (await hasDivergedLocally(id)) {
+      await forkLocalCopy(id, localCopyName(p.name, new Date()));
+    }
+    await importProject(p);
+    return 'pulled';
+  } catch (e) {
+    return await repairUnreadable(userId, id, e);
   }
-  await importProject(p);
+}
+
+/**
+ * A pull failed. If the cloud copy is unreadable *because its objects are not
+ * there*, replace it with the local one; otherwise re-throw.
+ *
+ * A row that references objects the store does not have cannot be downloaded by
+ * anyone, ever. It is not a copy of anything, so there is nothing to weigh
+ * against the local copy and nothing to lose by overwriting it — and leaving it
+ * alone means the same project fails on every sync for the life of the account,
+ * which is exactly what was happening to eleven projects written before the
+ * commit protocol existed.
+ *
+ * Three conditions, all required, because this is the one place a sync
+ * overwrites the cloud with something the user did not ask it to:
+ *
+ *  - the store must *definitely* answer "absent" (`cloudMissingObjects`
+ *    propagates anything that could not be asked, so a dropped connection or an
+ *    expired token is never mistaken for damage);
+ *  - the local copy must exist and have contents, checked with the same
+ *    predicate that guards imports, so a damaged local copy cannot be promoted
+ *    over a damaged remote one;
+ *  - and the push itself is the ordinary commit protocol, which verifies every
+ *    blob before it writes the row.
+ *
+ * When there is nothing local to repair from, the copy really is gone, and the
+ * error says so in terms of the project rather than of a storage path.
+ */
+async function repairUnreadable(userId: string, id: string, cause: unknown): Promise<Outcome> {
+  const damage = await cloudMissingObjects(id); // throws on "could not ask"
+  if (!damage || damage.missing === 0) throw cause; // readable copy, real failure
+
+  // "Has contents" rather than "exists": a local copy whose files are all empty
+  // is the same damage in the other direction, and promoting it over the remote
+  // one would destroy the last thing a recovery could come from.
+  const local = await exportProject(id);
+  const usable = !!local && local.files.some((f) => f.gzB64.length > 0);
+  if (!usable) {
+    throw new Error(
+      `the cloud copy of "${damage.name || local?.name || id}" is damaged: ` +
+        `${damage.missing} of ${damage.total} files are missing from storage, ` +
+        `and there is no local copy to restore it from`,
+    );
+  }
+
+  await pushOne(userId, id);
+  return 'healed';
 }
 
 /** Mirror a single saved project up to the cloud. Throws if it did not land. */
