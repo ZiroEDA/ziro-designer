@@ -462,6 +462,70 @@ const DEFAULT_TEXT_HEIGHT = mmToIU(1.27);
 /** DEFAULT_LINE_WIDTH_MILS = 6 mils, a text box's default border width. */
 const DEFAULT_TEXTBOX_STROKE = mmToIU(0.1524);
 
+/**
+ * `SHAPE_T`-less: a symbol body's `(text "…" (at x y angle) (effects …))`.
+ *
+ * A `LIB_SYMBOL` holds text as a draw item alongside its shapes, which is why
+ * this returns a `LibGraphic` of kind `text` rather than a label — upstream's
+ * `GRAPHICS_IMPORTER_LIB_SYMBOL::AddText` builds an `SCH_TEXT` on
+ * `LAYER_DEVICE` and hands it to the symbol, not to a screen.
+ *
+ * Carries everything `TextEffects` can hold, because a graphics import is the
+ * caller that knows all of it: an explicit glyph pen (`thickness`), a non-square
+ * glyph box (`fontWidth`, since the two axes scale independently), both
+ * justifications and a colour.
+ */
+export function makeSymbolText(
+  text: string,
+  at: Vec2,
+  angle: number,
+  opts: {
+    fontSize?: number;
+    fontWidth?: number;
+    thickness?: number;
+    justify?: readonly string[];
+    color?: readonly [number, number, number, number];
+  } = {},
+): LibGraphic {
+  const h = opts.fontSize ?? DEFAULT_TEXT_HEIGHT;
+  const w = opts.fontWidth ?? h;
+  const font: SNode[] = [atom('font'), list(atom('size'), atom(mm(h)), atom(mm(w)))];
+  if (opts.thickness !== undefined) font.push(list(atom('thickness'), atom(mm(opts.thickness))));
+  if (opts.color) {
+    const [r, g, b, a] = opts.color;
+    font.push(
+      list(atom('color'), atom(String(r)), atom(String(g)), atom(String(b)), atom(String(a))),
+    );
+  }
+  const items: SNode[] = [atom('effects'), { kind: 'list', items: font }];
+  const justify = (opts.justify ?? []).filter((t) => t !== 'center');
+  if (justify.length)
+    items.push({ kind: 'list', items: [atom('justify'), ...justify.map((t) => atom(t))] });
+  const effectsNode: SList = { kind: 'list', items };
+
+  const effects: TextEffects = {
+    hidden: false,
+    fontSize: [h, w],
+    ...(opts.thickness !== undefined ? { thickness: opts.thickness } : {}),
+    ...(opts.justify ? { justify: [...opts.justify] } : {}),
+    ...(opts.color ? { color: opts.color } : {}),
+  };
+
+  return {
+    kind: 'text',
+    text,
+    at,
+    angle,
+    effects,
+    source: list(
+      atom('text'),
+      str(text),
+      list(atom('at'), atom(mm(at.x)), atom(mm(at.y)), atom(String(angle))),
+      effectsNode,
+    ),
+  };
+}
+
 /** Build the `(effects (font (size h w)) (justify ..))` node for a text box. */
 function textEffectsNode(effects: TextEffects): SList {
   const size = effects.fontSize ?? [DEFAULT_TEXT_HEIGHT, DEFAULT_TEXT_HEIGHT];
