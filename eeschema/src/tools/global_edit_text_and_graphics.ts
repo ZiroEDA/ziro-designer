@@ -34,6 +34,7 @@ import type {
 } from '../types.js';
 import type { EditCommand } from './command.js';
 import { isBusLabelText } from './junction_helpers.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** Which items the sweep visits (the dialog's Scope box, in its order). */
 export interface GlobalEditScope {
@@ -312,7 +313,7 @@ export function globalEdit(
   const symbols = doc.symbols.map((sym, i) => {
     const id = refIdOf('symbol', sym.uuid, i);
     if (!netPasses(id)) return sym;
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!symbolPasses(sym, lib, filters)) return sym;
     // A field on a mirrored symbol is justified in the symbol's frame.
     const mirrored = { x: sym.mirror === 'y', y: sym.mirror === 'x' };

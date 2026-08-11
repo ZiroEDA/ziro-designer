@@ -27,6 +27,7 @@ import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
 import { alignBoxes } from './sch_align_tool.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 const boxContains = (r: BBox, b: BBox): boolean =>
   b.minX >= r.minX && b.maxX <= r.maxX && b.minY >= r.minY && b.maxY <= r.maxY;
@@ -135,7 +136,7 @@ export function boxSelect(
   const ids = new Set<string>();
 
   sch.symbols.forEach((s, i) => {
-    const body = symbolBodyBBox(s, libById.get(s.libId));
+    const body = symbolBodyBBox(s, libById.get(schSymbolLibraryName(s)));
     if (contained ? boxContains(rect, body) : boxIntersects(rect, body))
       ids.add(refId('symbol', s.uuid, i));
   });
@@ -292,7 +293,7 @@ export function lassoSelect(
   if (polygon.length < 3) return ids;
 
   sch.symbols.forEach((s, i) => {
-    if (polyTouchesBox(polygon, symbolBodyBBox(s, libById.get(s.libId))))
+    if (polyTouchesBox(polygon, symbolBodyBBox(s, libById.get(schSymbolLibraryName(s)))))
       ids.add(refId('symbol', s.uuid, i));
   });
   sch.lines.forEach((l, i) => {

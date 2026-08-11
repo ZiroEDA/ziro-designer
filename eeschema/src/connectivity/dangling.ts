@@ -14,6 +14,7 @@
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { SegmentIndex, onSegment } from './segment_index.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
 
@@ -39,7 +40,8 @@ function symbolPinWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
 /** All (visible) pin connection points on the sheet, in world coordinates. */
 export function allPinPositions(sch: Schematic, libById: Map<string, LibSymbol>): Vec2[] {
   const pts: Vec2[] = [];
-  for (const sym of sch.symbols) pts.push(...symbolPinWorld(sym, libById.get(sym.libId)));
+  for (const sym of sch.symbols)
+    pts.push(...symbolPinWorld(sym, libById.get(schSymbolLibraryName(sym))));
   return pts;
 }
 
@@ -146,7 +148,7 @@ function endEntriesByPos(sch: Schematic, libById: Map<string, LibSymbol>): Map<s
   }
   for (const j of sch.junctions) add(j.at, 'junction', j);
   for (const s of sch.symbols)
-    for (const p of allPinsWorld(s, libById.get(s.libId))) add(p, 'pin', s);
+    for (const p of allPinsWorld(s, libById.get(schSymbolLibraryName(s)))) add(p, 'pin', s);
   for (const l of sch.labels) if (l.kind !== 'text') add(l.at, 'label', l);
   for (const sh of sch.sheets) for (const p of sh.pins) add(p.at, 'sheet_label', sh);
   for (const nc of sch.noConnects) add(nc.at, 'no_connect', nc);

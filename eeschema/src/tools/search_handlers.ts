@@ -24,6 +24,7 @@
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { matchesText, type SchSearchData, defaultSearchData } from './sch_find_replace_tool.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** Which tab a hit belongs to (one handler each). */
 export type SearchKind = 'symbol' | 'power' | 'text' | 'label';
@@ -96,7 +97,7 @@ export function searchSchematic(
   const hits: SearchHit[] = [];
 
   sch.symbols.forEach((sym, i) => {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     // IsPower depends on a resolved library symbol; an unresolved one is not
     // treated as power, which is upstream's !IsMissingLibSymbol() guard.
     const isPower = lib?.isPower ?? false;

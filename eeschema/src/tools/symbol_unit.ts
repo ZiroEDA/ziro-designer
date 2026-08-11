@@ -30,6 +30,7 @@ import type { EditCommand } from './command.js';
 import { symbolNodeWithFreshUuids } from './build.js';
 import { childNamed } from '@ziroeda/sexpr/src/query.js';
 import { isList, type SList } from '@ziroeda/sexpr';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** How many distinct units the library part has (SCH_SYMBOL::GetUnitCount). */
 export function symbolUnitCount(lib: LibSymbol | undefined): number {
@@ -101,7 +102,7 @@ export function unplacedUnits(
   const unannotated = ref.endsWith('?');
 
   const missing = new Set<number>();
-  for (let u = 1; u <= symbolUnitCount(libById.get(sym.libId)); u++) missing.add(u);
+  for (let u = 1; u <= symbolUnitCount(libById.get(schSymbolLibraryName(sym))); u++) missing.add(u);
 
   for (const sheet of hierarchy) {
     for (const other of sheet.symbols) {
@@ -173,7 +174,7 @@ export function planNextSymbolUnit(
   if (!sym) return { ok: false, message: PLACE_NEXT_UNIT_MESSAGES.needsSingleSymbol };
 
   // SCH_SYMBOL::IsMultiUnit() — GetUnitCount() > 1.
-  if (symbolUnitCount(libById.get(sym.libId)) < 2)
+  if (symbolUnitCount(libById.get(schSymbolLibraryName(sym))) < 2)
     return { ok: false, message: PLACE_NEXT_UNIT_MESSAGES.singleUnit };
 
   const missing = unplacedUnits(doc, symbolIndex, libById, hierarchy);

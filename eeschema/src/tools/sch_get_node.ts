@@ -27,6 +27,7 @@ import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { localToWorld, symbolTransform } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
 import { contains, inflate, labelBox, type BBox } from './bbox.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 export type NodeHitKind =
   | 'pin'
@@ -111,7 +112,7 @@ function collectAt(
   // --- pins (SCH_PIN_T): the whole pin line, not just the connection point ---
   for (let si = 0; si < sch.symbols.length; si++) {
     const sym = sch.symbols[si]!;
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib) continue;
     const symId = refId('symbol', sym.uuid, si);
     const xf = symbolTransform(sym.angle, sym.mirror);
@@ -191,7 +192,7 @@ function collectAt(
   // which is how clicking a GND flag highlights GND.
   for (let si = 0; si < sch.symbols.length; si++) {
     const sym = sch.symbols[si]!;
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib?.isPower) continue;
     const symId = refId('symbol', sym.uuid, si);
     const xf = symbolTransform(sym.angle, sym.mirror);

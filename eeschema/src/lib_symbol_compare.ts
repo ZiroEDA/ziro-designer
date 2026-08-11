@@ -183,3 +183,22 @@ export function compareLibSymbolsForErc(
 
   return null;
 }
+
+/**
+ * The key a placement's definition is filed under in the sheet's `lib_symbols`.
+ *
+ * `SCH_SYMBOL::GetSchSymbolLibraryName`: the `(lib_name …)` when the placement
+ * carries one, otherwise the `lib_id`. Every lookup into `lib_symbols` has to go
+ * through this rather than reading `libId` directly.
+ *
+ * The failure it prevents is quiet. A sheet can file a symbol under a name that
+ * is not its library id (KiCad writes one when the cached definition has
+ * diverged from the library, so one id can have two definitions in a sheet), and
+ * a lookup by id then finds nothing. The placement is left with no body and no
+ * pins: it vanishes from the canvas, and it stops contributing to the netlist,
+ * with nothing reported anywhere. One symbol in KiCad's own multichannel mixer
+ * demo is stored exactly that way.
+ */
+export function schSymbolLibraryName(sym: { libId: string; libName?: string }): string {
+  return sym.libName || sym.libId;
+}

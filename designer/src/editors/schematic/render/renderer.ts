@@ -73,6 +73,7 @@ import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
+import { schSymbolLibraryName } from '@ziroeda/eeschema';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -191,7 +192,7 @@ const g_bboxBySymbol = new WeakMap<object, { lib: LibSymbol | undefined; box: BB
 
 function bodyBoxesFor(sch: Schematic, libById: Map<string, LibSymbol>): BBox[] {
   return sch.symbols.map((sym) => {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     const hit = g_bboxBySymbol.get(sym);
     if (hit && hit.lib === lib) return hit.box;
     const box = symbolBodyBBox(sym, lib);
@@ -227,7 +228,7 @@ function fieldDrawsFor(
   showHidden: boolean,
 ): FieldDraw[][] {
   return sch.symbols.map((sym) => {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     const hit = g_fieldsBySymbol.get(sym);
     if (
       hit &&
@@ -1121,7 +1122,7 @@ export function renderSchematic(
     const fieldDrawable = (index: number): boolean =>
       drawableChild(refId('symbol', sym.uuid, si), fieldId(refId('symbol', sym.uuid, si), index));
     if (!symDrawable && !(fieldDraws[si] ?? []).some((fd) => fieldDrawable(fd.index))) return;
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     const bb: BBox = bodyBoxes[si]!;
     const bodyVisible = symDrawable && inView(bb.minX, bb.minY, bb.maxX, bb.maxY);
     if (lib && bodyVisible) {
@@ -2570,7 +2571,7 @@ function drawSelectionShadows(
   sch.symbols.forEach((sym, i) => {
     const id = refId('symbol', sym.uuid, i);
     if (!drawable(id) || !selection.has(id)) return;
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib) return;
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const unit of lib.units)

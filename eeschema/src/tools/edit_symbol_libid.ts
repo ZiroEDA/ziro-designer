@@ -22,6 +22,7 @@
 import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** `GetLibIdForbiddenChars`. A library id may not contain any of these. */
 const FORBIDDEN = '<>"\\:\t\n\r';
@@ -82,7 +83,7 @@ export function symbolLibIdRows(
   doc.symbols.forEach((sym, i) => {
     const id = refId('symbol', sym.uuid, i);
     const ref = fieldOf(sym.fields, 'Reference')?.value ?? '';
-    let row = byLibId.get(sym.libId);
+    let row = byLibId.get(schSymbolLibraryName(sym));
     if (!row) {
       row = {
         current: sym.libId,
@@ -149,7 +150,7 @@ export function applyLibIdChanges(
   let changed = 0;
 
   const symbols = doc.symbols.map((sym) => {
-    const next = changes.get(sym.libId);
+    const next = changes.get(schSymbolLibraryName(sym));
     if (next === undefined || next === '' || next === sym.libId) return sym;
 
     if (!isValidLibId(next)) {

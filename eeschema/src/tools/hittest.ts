@@ -20,6 +20,7 @@ import { cellAt, tableCellId } from './table_cells.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** The id of a placed symbol's field: `<symbolRefId>:field<k>`, as sheet pins
  *  are `<sheetRefId>:sheetpin<k>`. */
@@ -136,7 +137,7 @@ function computePinSegments(
 ): PinSegment[] {
   const out: PinSegment[] = [];
   sch.symbols.forEach((sym, si) => {
-    const lib = libById.get(sym.libId);
+    const lib = libById.get(schSymbolLibraryName(sym));
     if (!lib) return;
     const symId = refId('symbol', sym.uuid, si);
     const t = symbolTransform(sym.angle, sym.mirror);
@@ -205,7 +206,7 @@ function computeFieldBoxes(
   }[] = [];
   sch.symbols.forEach((sym, si) => {
     const symId = refId('symbol', sym.uuid, si);
-    for (const f of symbolFieldBoxes(sym, libById.get(sym.libId))) {
+    for (const f of symbolFieldBoxes(sym, libById.get(schSymbolLibraryName(sym)))) {
       out.push({
         id: fieldId(symId, f.index),
         symbolIndex: si,
@@ -426,7 +427,7 @@ export function hitTest(
 
   for (let i = 0; i < sch.symbols.length; i++) {
     const s = sch.symbols[i]!;
-    const box = inflate(symbolBodyBBox(s, libById.get(s.libId)), accuracy / 2);
+    const box = inflate(symbolBodyBBox(s, libById.get(schSymbolLibraryName(s))), accuracy / 2);
     if (contains(box, p)) return { kind: 'symbol', id: refId('symbol', s.uuid, i) };
   }
 

@@ -12,6 +12,7 @@
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** All connection points of a placed symbol (pin tips through the placement transform). */
 function symbolPins(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
@@ -42,7 +43,7 @@ export function collectAnchors(
   const pts: Vec2[] = [];
   sch.symbols.forEach((sym, i) => {
     if (!exclude?.has(refId('symbol', sym.uuid, i)))
-      pts.push(...symbolPins(sym, libById.get(sym.libId)));
+      pts.push(...symbolPins(sym, libById.get(schSymbolLibraryName(sym))));
   });
   sch.lines.forEach((l, i) => {
     if (!exclude?.has(refId('line', l.uuid, i))) {
@@ -83,7 +84,8 @@ export function selectionAnchors(
 ): Vec2[] {
   const pts: Vec2[] = [];
   sch.symbols.forEach((sym, i) => {
-    if (ids.has(refId('symbol', sym.uuid, i))) pts.push(...symbolPins(sym, libById.get(sym.libId)));
+    if (ids.has(refId('symbol', sym.uuid, i)))
+      pts.push(...symbolPins(sym, libById.get(schSymbolLibraryName(sym))));
   });
   sch.lines.forEach((l, i) => {
     if (ids.has(refId('line', l.uuid, i))) {

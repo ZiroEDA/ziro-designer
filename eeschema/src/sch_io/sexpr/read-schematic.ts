@@ -527,6 +527,12 @@ function readSymbol(node: SList): SchSymbol {
   const mirror = mirrorChild ? arg(mirrorChild, 0) : undefined;
   const sym: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
     libId: stringField(node, 'lib_id') ?? '',
+    ...(() => {
+      const libName = stringField(node, 'lib_name');
+      // Only when it says something the id does not, matching the condition
+      // KiCad writes it under.
+      return libName && libName !== stringField(node, 'lib_id') ? { libName } : {};
+    })(),
     at,
     angle,
     unit: numArg(childNamed(node, 'unit') ?? node, 0) ?? 1,

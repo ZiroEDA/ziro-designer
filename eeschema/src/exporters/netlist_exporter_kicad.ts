@@ -35,6 +35,7 @@ import { enumeratePins, type Netlist, type PinNode } from '../connectivity/nets.
 import { resolvePadNumbers } from '../sch_pin.js';
 import { refId } from '../tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 // ----- XNODE (common/xnode.cpp), as an S-expression tree ----------------------
 
@@ -232,7 +233,7 @@ function addSymbolFields(
   let datasheet = '';
   let description = '';
 
-  const unitCount = libById.get(instance.sym.libId)?.units.length ?? 1;
+  const unitCount = libById.get(schSymbolLibraryName(instance.sym))?.units.length ?? 1;
 
   if (unitCount > 1) {
     let minUnit = instance.sym.unit;
@@ -304,7 +305,7 @@ function makeSymbols(input: KicadNetlistInput, usedLibIds: Set<string>): XNODE {
       xcomp.attr('ref', instance.ref);
       addSymbolFields(xcomp, instance, libById);
 
-      const lib = libById.get(sym.libId);
+      const lib = libById.get(schSymbolLibraryName(sym));
       const { lib: libName, part: partName } = splitLibId(sym.libId);
       usedLibIds.add(sym.libId);
 
@@ -561,7 +562,7 @@ function makeListOfNets(input: KicadNetlistInput): XNODE {
       // forBoard: pins of symbols excluded from the board are not nodes.
       if (!sym.onBoard) continue;
       const arr = nodesByNet.get(name) ?? [];
-      arr.push({ sheet, sym, lib: libById.get(sym.libId), pin });
+      arr.push({ sheet, sym, lib: libById.get(schSymbolLibraryName(sym)), pin });
       nodesByNet.set(name, arr);
     }
 

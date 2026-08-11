@@ -420,6 +420,7 @@ import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
 import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
+import { schSymbolLibraryName } from '@ziroeda/eeschema';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -1479,7 +1480,7 @@ export function SchematicEditor({
       for (const s of d.symbols) {
         if (seen.has(s.libId)) continue;
         seen.add(s.libId);
-        const lib = libs.get(s.libId);
+        const lib = libs.get(schSymbolLibraryName(s));
         if (lib && lib.isPower === powerOnly) out.push({ libId: s.libId, unit: 1, fields: [] });
       }
     }
@@ -1587,7 +1588,7 @@ export function SchematicEditor({
         setInfoBar(plan.message);
         return;
       }
-      const lib = libById.get(doc.symbols[symbolIndex]!.libId);
+      const lib = libById.get(schSymbolLibraryName(doc.symbols[symbolIndex]!));
       if (!lib) return;
       placeFlags.current = { keepSymbol: false, placeAllUnits: false, unitCount: 1 };
       setPlaceUnit(plan.unit);
@@ -2251,7 +2252,7 @@ export function SchematicEditor({
       if (!d || !onEditSymbolInEditor) return;
       const si = d.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === id);
       const sym = si === -1 ? undefined : d.symbols[si];
-      const lib = sym && libById.get(sym.libId);
+      const lib = sym && libById.get(schSymbolLibraryName(sym));
       if (!sym || !lib) {
         setInfoBar('That symbol is not in any loaded library.');
         return;
@@ -3689,7 +3690,7 @@ export function SchematicEditor({
         for (const sym of d.symbols) {
           const fp = sym.fields.find((f) => f.key === 'Footprint')?.value ?? '';
           if (fp.includes(':')) wantedFootprints.add(fp);
-          for (const assoc of libs.get(sym.libId)?.associatedFootprints ?? []) {
+          for (const assoc of libs.get(schSymbolLibraryName(sym))?.associatedFootprints ?? []) {
             if (assoc.footprintLibId.includes(':')) wantedFootprints.add(assoc.footprintLibId);
           }
         }
@@ -5545,7 +5546,7 @@ export function SchematicEditor({
           (sy, i) => refId('symbol', sy.uuid, i) === [...selection][0],
         );
         const sym = si === -1 ? undefined : doc.symbols[si];
-        const lib = sym ? libById.get(sym.libId) : undefined;
+        const lib = sym ? libById.get(schSymbolLibraryName(sym)) : undefined;
         const count = symbolUnitCount(lib);
         if (sym && count > 1) {
           const missing = unplacedUnits(doc, si, libById, liveDocs().values());
@@ -5588,7 +5589,7 @@ export function SchematicEditor({
         const si = doc.symbols.findIndex((sy, i) => refId('symbol', sy.uuid, i) === owner);
         if (si !== -1) {
           const sym = doc.symbols[si]!;
-          const isPower = !!libById.get(sym.libId)?.isPower;
+          const isPower = !!libById.get(schSymbolLibraryName(sym))?.isPower;
           const entries: MenuItem[] = [];
           for (const [key, label, shortcut] of [
             ['Reference', 'Edit Reference...', 'U'],
@@ -6519,7 +6520,7 @@ export function SchematicEditor({
               e.preventDefault();
               const sym = doc.symbols[si]!;
               // Footprint is meaningless on a power symbol, so upstream skips it.
-              const isPower = !!libById.get(sym.libId)?.isPower;
+              const isPower = !!libById.get(schSymbolLibraryName(sym))?.isPower;
               if (!(want === 'Footprint' && isPower)) {
                 const fi = sym.fields.findIndex((f) => f.key === want);
                 if (fi !== -1) setFieldEdit({ symbol: si, index: fi });
@@ -7808,9 +7809,9 @@ export function SchematicEditor({
       {/* Double-click / E on a symbol: KiCad's Symbol Properties dialog. */}
       {propsSymbol && propsTarget !== null && (
         <SymbolPropertiesDialog
-          hasAlternate={hasAlternateBodyStyle(libById.get(propsSymbol.libId))}
+          hasAlternate={hasAlternateBodyStyle(libById.get(schSymbolLibraryName(propsSymbol)))}
           symbol={propsSymbol}
-          lib={libById.get(propsSymbol.libId)}
+          lib={libById.get(schSymbolLibraryName(propsSymbol))}
           fieldTemplates={setup.fieldTemplates}
           subpart={subpartSettings(setup.annotation)}
           onOk={(edit: SymbolEdit) => {
