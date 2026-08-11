@@ -209,6 +209,12 @@ import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { snapToGridSize } from './pcb_grid.js';
+import {
+  alignToArc,
+  alignToSegment,
+  gridArcFromPoints,
+  type PcbGridState,
+} from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -1051,6 +1057,10 @@ export function PcbEditor({
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
+  // Shift, read off the live pointer event exactly as `TOOL_BASE` reads it off
+  // the tool event: holding it disables snapping to items, leaving the plain
+  // grid (`m_gridHelper->SetSnap( !aEvent.Modifier( MD_SHIFT ) )`).
+  const shiftDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
   const [gridIU, setGridIU] = useState(DEFAULT_GRID_OPTIONS.size);
@@ -1069,6 +1079,39 @@ export function PcbEditor({
   // existing call site follows the selected grid where KiCad puts it.
   const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
     snapToGridSize(p, gridIURef.current, gridOriginRef.current);
+  // `PCB_GRID_HELPER`'s state, as the ported Align / AlignToSegment /
+  // AlignToArc read it. Rebuilt per call rather than held, because the two
+  // flags upstream pokes onto a long-lived helper (`SetUseGrid`, `SetSnap`)
+  // are both derived here: grid snapping follows the toggle, and `enableSnap`
+  // is cleared while Shift is held, exactly as `TOOL_BASE::updateEndItem` does
+  // with `SetSnap( !aEvent.Modifier( MD_SHIFT ) )`.
+  const gridState = (): PcbGridState => ({
+    size: gridIURef.current,
+    origin: gridOriginRef.current,
+    enableGrid: true,
+    enableSnap: !shiftDownRef.current,
+  });
+  // Where the routing crosshair actually goes — `controls()->ForceCursorPosition(
+  // true, m_endSnapPoint )` at the end of `TOOL_BASE::updateEndItem`. `draw` is
+  // memoised long before `copperAt` exists, so it reads the live one off a ref
+  // that is re-pointed below once `copperAt` is in scope.
+  const routeSnapRef =
+    useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
+  // The crosshair sticks to copper only while routing. In pcbnew the general
+  // cursor does not: a track contributes its two ends as `CORNER | SNAPPABLE`
+  // anchors and its midpoint as `ORIGIN` *without* `SNAPPABLE`
+  // (pcb_grid_helper.cpp:1796-1808), and `BestSnapAnchor` weighs only the
+  // snappable ones — so nothing there can pull the selection cursor onto the
+  // middle of a track. That behaviour belongs to the router alone.
+  // Held in a ref, like everything else `draw` reads: `draw` is a useCallback,
+  // and closing over a function rebuilt each render would put it in the
+  // dependency list and rebuild the whole draw pass on every keystroke.
+  const cursorSnapRef =
+    useRef<(w: { x: number; y: number }) => { x: number; y: number }>(snapToGrid);
+  cursorSnapRef.current = (w) =>
+    activeToolRef.current === 'routeSingleTrack' || routeRef.current
+      ? routeSnapRef.current(w)
+      : snapToGrid(w);
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
   // 1.. = the pre-defined list entries (BOARD_DESIGN_SETTINGS m_TrackWidthList /
   // m_ViasDimensionsList; ours come from the project's netclasses).
@@ -2150,7 +2193,9 @@ export function PcbEditor({
       const r = routeRef.current;
       const cur0 = cursorRef.current;
       if (r && cur0) {
-        const end = snapToGrid(cur0);
+        // The same point the crosshair is drawn at, so the preview ends under
+        // it rather than beside it.
+        const end = cursorSnapRef.current(cur0);
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
         ctx.strokeStyle = layerColor(r.layer);
@@ -2429,7 +2474,7 @@ export function PcbEditor({
     // screen lines, crosshair45 = a big diagonal X. Drawn topmost.
     const cur = cursorRef.current;
     if (cur && activeToolRef.current !== 'localRatsnestTool') {
-      const snapped = snapToGrid(cur);
+      const snapped = cursorSnapRef.current(cur);
       const px = snapped.x * sx + v.tx;
       const py = snapped.y * v.scale + v.ty;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3951,15 +3996,36 @@ export function PcbEditor({
       } else if (r?.kind === 'track' || r?.kind === 'arc') {
         const t = r.kind === 'track' ? brd.tracks[r.index] : brd.arcs[r.index];
         if (t) {
-          // Snap to a nearby endpoint, else stay on the grid point.
-          const ends = [t.start, t.end];
-          const near = ends.find((p) => Math.hypot(w.x - p.x, w.y - p.y) <= tolOf());
-          return { net: t.net, snap: near ? { ...near } : snapToGrid(w) };
+          // `TOOL_BASE::snapToItem`, the SEGMENT_T / ARC_T arm
+          // (pns_tool_base.cpp:480-505): an end wins only while the cursor is
+          // within *half the track width* of it — not within a screen
+          // tolerance — and everywhere else the cursor rides the centreline via
+          // AlignToSegment / AlignToArc. Without that second half the cursor
+          // could only ever sit on a grid node, which is above or below the
+          // copper unless the track happens to lie on a grid line.
+          const wSq = Math.trunc(t.width / 2) ** 2;
+          const distASq = (w.x - t.start.x) ** 2 + (w.y - t.start.y) ** 2;
+          const distBSq = (w.x - t.end.x) ** 2 + (w.y - t.end.y) ** 2;
+          if (distASq < wSq || distBSq < wSq) {
+            return { net: t.net, snap: { ...(distASq < distBSq ? t.start : t.end) } };
+          }
+          const g = gridState();
+          const curved = r.kind === 'arc' ? brd.arcs[r.index] : null;
+          if (curved) {
+            const arc = gridArcFromPoints(curved.start, curved.mid, curved.end);
+            // Three collinear points have no centre; upstream degenerates the
+            // SHAPE_ARC to a straight one, so treat it as the segment it is.
+            if (arc) return { net: t.net, snap: alignToArc(w, arc, g) };
+          }
+          return { net: t.net, snap: alignToSegment(w, { a: t.start, b: t.end }, g) };
         }
       }
     }
     return null;
   };
+
+  // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
+  routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
   /**
    * The route from `from` to `to`, bent around anything in the way.
@@ -5114,6 +5180,7 @@ export function PcbEditor({
     }
   };
   const onPointerMove = (e: React.PointerEvent): void => {
+    shiftDownRef.current = e.shiftKey;
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
