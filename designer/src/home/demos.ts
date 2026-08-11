@@ -39,22 +39,90 @@ export async function loadDemos(): Promise<DemoMeta[]> {
 
 const encodeRel = (rel: string): string => rel.split('/').map(encodeURIComponent).join('/');
 
-/** Fetch a demo's files, nested under a folder named for the demo.
- *  `onProgress(done, total, file)` ticks per downloaded file so the caller can
- *  show a determinate "Downloading… n of m" gauge while the CDN responds. */
+/**
+ * Files a demo carries that nothing needs in order to *open* it.
+ *
+ * 3D models dominate: the CM5 Minima demo is 46 MB, of which 40.7 MB is STEP
+ * bodies and a datasheet PDF, against 5 MB of schematic, board and footprints.
+ * None of it is read to show a schematic or a board, only to render the 3D view
+ * or to open the document from the project tree, so waiting for it before the
+ * editor appears is 89% of the wait for nothing.
+ */
+export const isDeferrableDemoFile = (rel: string): boolean =>
+  /\.(step|stp|wrl|glb|pdf|bin)$/i.test(rel);
+
+/** Run `work` over `items`, at most `limit` in flight. */
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  work: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await work(items[i]!);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+/**
+ * How many files are fetched at once.
+ *
+ * The cost of a demo is round trips, not bytes: the files are small and there
+ * are up to 128 of them, so fetching them one after another spent the whole
+ * open waiting on latency. Browsers cap connections per host at around six, so
+ * asking for much more than that buys nothing.
+ */
+const FETCH_CONCURRENCY = 8;
+
+async function fetchDemoFiles(
+  d: DemoMeta,
+  rels: readonly string[],
+  onProgress?: (done: number, total: number, file: string) => void,
+): Promise<PickedHomeFile[]> {
+  let done = 0;
+  const fetched = await mapLimit(rels, FETCH_CONCURRENCY, async (rel) => {
+    const res = await fetch(`${DEMOS_BASE}/${encodeRel(d.id)}/${encodeRel(rel)}`);
+    done++;
+    // Completion order, not request order: the gauge tracks what has arrived.
+    onProgress?.(done, rels.length, rel);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return { name: `${d.base}/${rel}`, text: dec.decode(bytes), bytes } as PickedHomeFile;
+  });
+  return fetched.filter((f): f is PickedHomeFile => f !== null);
+}
+
+/**
+ * Fetch what a demo needs to open: everything except the deferrable files.
+ *
+ * `onProgress(done, total, file)` ticks as each arrives, so the caller can show
+ * a determinate gauge.
+ */
 export async function openDemo(
   d: DemoMeta,
   onProgress?: (done: number, total: number, file: string) => void,
 ): Promise<PickedHomeFile[]> {
-  const out: PickedHomeFile[] = [];
-  let done = 0;
-  for (const rel of d.files) {
-    const res = await fetch(`${DEMOS_BASE}/${encodeRel(d.id)}/${encodeRel(rel)}`);
-    done++;
-    onProgress?.(done, d.files.length, rel);
-    if (!res.ok) continue;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    out.push({ name: `${d.base}/${rel}`, text: dec.decode(bytes), bytes });
-  }
-  return out;
+  return fetchDemoFiles(
+    d,
+    d.files.filter((rel) => !isDeferrableDemoFile(rel)),
+    onProgress,
+  );
+}
+
+/**
+ * The rest of a demo's files, fetched after it is already on screen.
+ *
+ * The project is still expected to be complete: it lands in Recent, it syncs,
+ * and its 3D view has to work. So these arrive too, just not in the way of the
+ * user seeing their board. Returns an empty list when there are none.
+ */
+export async function fetchDemoExtras(d: DemoMeta): Promise<PickedHomeFile[]> {
+  const rels = d.files.filter(isDeferrableDemoFile);
+  return rels.length === 0 ? [] : fetchDemoFiles(d, rels);
 }

@@ -6,6 +6,13 @@ const ACCOUNT = process.env.R2_ACCOUNT_ID;
 const KEY = process.env.R2_ACCESS_KEY_ID;
 const SECRET = process.env.R2_SECRET_ACCESS_KEY;
 const BUCKET = process.env.R2_BUCKET ?? 'ziro-3dmodels';
+if (!ACCOUNT || !KEY || !SECRET) {
+  // Without this the missing credentials surface as a signature mismatch from
+  // the S3 endpoint, which reads like a broken uploader rather than an empty
+  // .env. See .env.example; `pnpm libraries:verify` loads it.
+  console.error('Missing R2 credentials. Copy .env.example to .env, then: pnpm libraries:verify');
+  process.exit(1);
+}
 const HOST = `${ACCOUNT}.r2.cloudflarestorage.com`;
 const sha256 = (b) => createHash('sha256').update(b).digest('hex');
 const hmac = (k, s) => createHmac('sha256', k).update(s).digest();

@@ -21,7 +21,7 @@ import type { SyncResult } from '../cloud/sync.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import { loadTemplates, createFromTemplate, type TemplateMeta } from './templates.js';
-import { loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -174,7 +174,7 @@ export function HomePage({
   onSwitchProject,
 }: {
   onOpenSchematic: () => void;
-  onOpenProject?: (files: PickedHomeFile[], startFile?: string) => void;
+  onOpenProject?: (files: PickedHomeFile[], startFile?: string, readOnly?: boolean) => void;
   onOpenPcb?: (file: PickedHomeFile, files?: PickedHomeFile[]) => void;
   /** Launch the Symbol Editor (with the open project's libraries, if any).
    *  `startFile` is a `.kicad_sym` to open straight away (KiCad's MAIL_LIB_EDIT). */
@@ -222,6 +222,16 @@ export function HomePage({
   const zipInputRef = useRef<HTMLInputElement>(null);
   // The picked project's files (shown in the tree until the editor is launched).
   const [picked, setPicked] = useState<PickedHomeFile[] | null>(initialFiles ?? null);
+  /**
+   * Whether what is open came from the demo library.
+   *
+   * A demo is not the user's project: it is not written to the store, so
+   * nothing it edits is kept until they save a copy of it, which is how KiCad
+   * treats the demos in its read-only stock folder. Reset in `ingest`, the
+   * funnel every open goes through, so it cannot survive into the next project
+   * opened after a demo.
+   */
+  const [demoOpen, setDemoOpen] = useState(false);
   // Saved projects (IndexedDB), the offline half of cloud persistence.
   const [saved, setSaved] = useState<ProjectMeta[]>([]);
   // Expanded directory-tree folder paths (collapsed by default, like KiCad).
@@ -282,7 +292,27 @@ export function HomePage({
       setLoading(null);
     }
     if (files.length === 0) return;
-    await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
+    // Not persisted: a demo is something to look at and try, not a project in
+    // the user's account, and copying every one they open into it (and then up
+    // to their cloud storage, 46 MB for the CM5 carrier) is not what opening a
+    // demo asks for. Editing still works; saving a copy is what keeps it.
+    await ingest(
+      files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })),
+      false,
+    );
+    setDemoOpen(true);
+
+    // The 3D bodies and datasheets follow once the board is on screen: most of
+    // a demo's bytes, none of what it takes to show one. They join the open
+    // file set in memory, so the 3D view works and a saved copy is complete.
+    // Failure leaves a demo with no 3D models, worth a console warning and not
+    // worth interrupting anyone over.
+    void fetchDemoExtras(d)
+      .then((extra) => {
+        if (extra.length === 0) return;
+        setPicked((prev) => (prev ? [...prev, ...extra] : extra));
+      })
+      .catch((e) => console.warn(`Demo extras for "${d.title}" did not finish:`, e));
   };
   // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
   const [panelWidth, setPanelWidth] = useState(290);
@@ -293,7 +323,7 @@ export function HomePage({
   // Cloud sync status pill (non-blocking, bottom-right): transfers done/total
   // while projects reconcile on sign-in, then a brief "synced" confirmation.
   const [syncState, setSyncState] = useState<
-    { done: number; total: number } | { failures: SyncFailure[] } | 'done' | null
+    { done: number; total: number } | { failures: SyncFailure[] } | { healed: number } | null
   >(null);
   const refreshSaved = (): void => {
     if (storageAvailable()) void listProjects().then(setSaved);
@@ -325,7 +355,10 @@ export function HomePage({
           setSyncState({ failures: r.failures });
           return;
         }
-        setSyncState('done');
+        // `healed` is a repair, not a save: a cloud copy that could not be
+        // downloaded by anything has been replaced with this machine's. Worth
+        // saying, because the user has been watching those projects fail.
+        setSyncState({ healed: r.healed });
         setTimeout(() => {
           if (!cancelled) setSyncState(null);
         }, 2500);
@@ -359,10 +392,12 @@ export function HomePage({
   // survives a save, archive, and reopen instead of collapsing to sch+pcb. The
   // storage layer gzips text ~10x, so keeping the libs is cheap. The project is
   // persisted to IndexedDB so it survives a reload with no login.
-  const ingest = async (files: IngestFile[], persist = true): Promise<void> => {
+  const ingest = async (files: IngestFile[], persist = true): Promise<string | null> => {
     setLoading({ message: 'Reading files…', value: 0 });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
+      let saved: string | null = null;
+      setDemoOpen(false);
       const out: PickedHomeFile[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i]!;
@@ -376,7 +411,7 @@ export function HomePage({
           value: (i + 1) / files.length,
         });
       }
-      if (out.length === 0) return;
+      if (out.length === 0) return null;
       setPicked(out);
       if (persist && storageAvailable()) {
         try {
@@ -393,6 +428,7 @@ export function HomePage({
               withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
               existing?.id,
             );
+            saved = pid;
             refreshSaved();
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
@@ -402,6 +438,7 @@ export function HomePage({
           /* storage disabled (private mode), the app still works */
         }
       }
+      return saved;
     } finally {
       setLoading(null);
     }
@@ -664,7 +701,7 @@ export function HomePage({
       : 'Project';
 
   const launchSchematic = (startFile?: string): void => {
-    if (picked && onOpenProject) onOpenProject(picked, startFile);
+    if (picked && onOpenProject) onOpenProject(picked, startFile, demoOpen);
     else onOpenSchematic();
   };
 
@@ -1097,12 +1134,18 @@ export function HomePage({
           that their work is not where they think it is. */}
       {syncState && (
         <div
-          className={`ze-sync-pill${syncState === 'done' ? ' done' : ''}${
-            typeof syncState === 'object' && 'failures' in syncState ? ' failed' : ''
+          className={`ze-sync-pill${'healed' in syncState ? ' done' : ''}${
+            'failures' in syncState ? ' failed' : ''
           }`}
         >
-          {syncState === 'done' ? (
-            <>✓ Projects synced</>
+          {'healed' in syncState ? (
+            <>
+              ✓ Projects synced
+              {syncState.healed > 0 &&
+                ` (${syncState.healed} damaged cloud ${
+                  syncState.healed === 1 ? 'copy' : 'copies'
+                } restored from this device)`}
+            </>
           ) : 'failures' in syncState ? (
             <>
               <span>

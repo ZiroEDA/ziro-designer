@@ -136,6 +136,49 @@ export async function cloudGet(id: string): Promise<SyncableProject | null> {
 }
 
 /**
+ * How much of a cloud copy is not actually in the object store.
+ *
+ * A row can outlive its objects. Rows written before the commit protocol
+ * existed named files at a mutable `<user>/<project>/<file>.gz` path and were
+ * rewritten without those objects ever landing, so they reference bytes nobody
+ * has: every download of them fails with "Object not found", forever, on every
+ * sync. Nothing writes rows like that any more (see `cloudUpsert`), but the ones
+ * already out there are stuck, and a stuck project reports the same error every
+ * time the app starts.
+ *
+ * Answering "is this copy readable at all" needs a different question from
+ * "download it". `hasObject` throws when it cannot ask, and that distinction is
+ * the whole safety of this function: an object that is **definitely absent** is
+ * damage worth repairing, while a network or auth failure is not, and treating
+ * the second as the first would overwrite a good cloud copy from a stale local
+ * one. Anything that fails to answer propagates instead of counting as missing.
+ *
+ * Returns null when there is no such row.
+ */
+export async function cloudMissingObjects(
+  id: string,
+): Promise<{ name: string; missing: number; total: number } | null> {
+  const be = need();
+  const row = await be.getProject(id);
+  if (!row) return null;
+
+  const files: RowFile[] = row.files ?? [];
+  const userId = row.user_id ?? '';
+  // An inline row carries its bytes in the row itself, so it has no objects to
+  // be missing; without a user id nothing can be addressed to check.
+  if (files.length === 0 || !userId || isInlineFile(files[0]!)) {
+    return { name: row.name, missing: 0, total: files.length };
+  }
+
+  const paths = isManifestEntry(files[0]!)
+    ? (files as ManifestEntry[]).map((f) => blobPath(userId, f.hash))
+    : files.map((f) => legacyPath(userId, row.id, f.name));
+  const present = await Promise.all(paths.map((p) => be.hasObject(p)));
+  // The row's own name, so a report can say which project rather than which key.
+  return { name: row.name, missing: present.filter((ok) => !ok).length, total: paths.length };
+}
+
+/**
  * Every file of this project is a zero-length blob.
  *
  * gzip of even an empty file is around twenty bytes, so this is not a project

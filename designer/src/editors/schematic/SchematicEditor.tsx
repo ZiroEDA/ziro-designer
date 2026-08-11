@@ -641,9 +641,10 @@ export function SchematicEditor({
    *  fresh nonce so a second save of the same symbol still applies. */
   editedSymbol?: { symbol: LibSymbol; targetId: string; nonce: number } | null;
   /** Tools > Update Schematic from PCB: the board's footprints, read on demand
-   *  so a project with no board simply has no entry. Returning null means the
-   *  board could not be read, which the caller reports. */
-  readBoardFootprints?: () => PcbFootprintData[] | null;
+   *  so a project with no board simply has no entry. Resolving to null means the
+   *  board could not be read, which the caller reports. Asynchronous because the
+   *  host loads the board reader on use, keeping it out of the entry chunk. */
+  readBoardFootprints?: () => Promise<PcbFootprintData[] | null>;
   /**
    * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
    * without a project, or when IndexedDB is unavailable — in which case nothing
@@ -5132,11 +5133,16 @@ export function SchematicEditor({
       } else if (id === 'showPcbNew') onShowPcb?.();
       else if (id === 'updatePcbFromSch') onUpdatePcb?.();
       else if (id === 'updateSchFromPcb') {
-        const fps = readBoardFootprints?.() ?? null;
-        // A board that cannot be read is worth saying so about; an empty one is
-        // a legitimate answer and the dialog reports "no changes".
-        if (fps) setBackAnnotateFps(fps);
-        else setInfoBar('No board to read, or the board could not be parsed.');
+        // The host loads the board reader on use, so the first invocation waits
+        // on a fetch. Everything below is state, so there is nothing for the
+        // command handler itself to return or await.
+        void (async () => {
+          const fps = (await readBoardFootprints?.()) ?? null;
+          // A board that cannot be read is worth saying so about; an empty one is
+          // a legitimate answer and the dialog reports "no changes".
+          if (fps) setBackAnnotateFps(fps);
+          else setInfoBar('No board to read, or the board could not be parsed.');
+        })();
       } else if (id === 'symbolEditor') onShowSymbolEditor?.();
       else if (id === 'footprintEditor') onShowFootprintEditor?.();
       else if (id === 'bom') openFieldsTable('bom');

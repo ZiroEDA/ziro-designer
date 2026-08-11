@@ -1,24 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
-import { readBoard } from '@ziroeda/pcbnew';
-import { parse as parseSexpr } from '@ziroeda/sexpr';
-import { boardFootprintData } from './editors/schematic/back_annotate_source.js';
 import { HomePage } from './home/HomePage.js';
-import { SchematicEditor, type PickedFile } from './editors/schematic/SchematicEditor.js';
-import { PcbEditor } from './editors/pcb/PcbEditor.js';
-import { SymbolEditor } from './editors/symbol/SymbolEditor.js';
-import { FootprintEditor } from './editors/footprint/FootprintEditor.js';
-import { CalculatorTools } from './editors/calculator/CalculatorTools.js';
-import { DrawingSheetEditor } from './editors/drawingsheet/DrawingSheetEditor.js';
-import { ImageConverter } from './editors/image/ImageConverter.js';
-import { GerberViewer } from './editors/gerbview/GerberViewer.js';
+import type { PickedFile } from './editors/schematic/SchematicEditor.js';
+import { LoadingOverlay } from './ui/LoadingOverlay.js';
 import {
   storageAvailable,
   listProjects,
   loadProject,
+  saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
 import { saveSession, loadSession } from './home/session.js';
@@ -27,6 +19,56 @@ import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
 import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
 import './ui/shell.css';
+
+/**
+ * The editor frames load on demand, one chunk each.
+ *
+ * They used to be static imports, which put all eight of them into the entry
+ * bundle: a visitor downloaded the schematic editor, the board editor, the
+ * symbol and footprint editors, the gerber viewer, the calculator, the drawing
+ * sheet editor and the image converter before the sign-in screen could paint,
+ * whichever one they were coming to use. The 3D viewer (`pcb3d.js`) was already
+ * split this way and is the pattern being followed here.
+ *
+ * The `*Mounted` flags below already gate each frame on first use and keep it
+ * mounted afterwards, so the download happens exactly once, at the moment the
+ * user first asks for that frame. Each frame gets its own `Suspense` boundary at
+ * its render site rather than one boundary around all of them: a shared boundary
+ * would unmount every already-open editor while a newly requested one loaded,
+ * throwing away the parsed document each was holding.
+ *
+ * `PickedFile` is imported as a type above, which erases at build time and so
+ * does not pull the schematic editor back into the entry chunk.
+ */
+const SchematicEditor = lazy(() =>
+  import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
+);
+const PcbEditor = lazy(() =>
+  import('./editors/pcb/PcbEditor.js').then((m) => ({ default: m.PcbEditor })),
+);
+const SymbolEditor = lazy(() =>
+  import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
+);
+const FootprintEditor = lazy(() =>
+  import('./editors/footprint/FootprintEditor.js').then((m) => ({ default: m.FootprintEditor })),
+);
+const CalculatorTools = lazy(() =>
+  import('./editors/calculator/CalculatorTools.js').then((m) => ({ default: m.CalculatorTools })),
+);
+const DrawingSheetEditor = lazy(() =>
+  import('./editors/drawingsheet/DrawingSheetEditor.js').then((m) => ({
+    default: m.DrawingSheetEditor,
+  })),
+);
+const ImageConverter = lazy(() =>
+  import('./editors/image/ImageConverter.js').then((m) => ({ default: m.ImageConverter })),
+);
+const GerberViewer = lazy(() =>
+  import('./editors/gerbview/GerberViewer.js').then((m) => ({ default: m.GerberViewer })),
+);
+
+/** Fallback while a frame's chunk is in flight, in the app's own overlay style. */
+const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Loading ${what}…`} />;
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
@@ -100,6 +142,16 @@ export function App(): JSX.Element {
   const [activePro, setActivePro] = useState<string | null>(null);
   // A board opened directly (no schematic project around it).
   const [standalonePcb, setStandalonePcb] = useState<PickedFile | null>(null);
+  /**
+   * The open project is a demo: nothing it edits is written anywhere.
+   *
+   * Autosave finds its record by project name, and a demo has none, so edits
+   * were already going nowhere. What was missing is that the editor looked
+   * exactly like one that was saving. This drives the banner and turns autosave
+   * off explicitly, so "not saved" is a stated mode rather than a lookup that
+   * happens to miss.
+   */
+  const [demoProject, setDemoProject] = useState(false);
   // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
   // sends "$NET: <name>" between the frames; here both are mounted together).
   const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
@@ -404,6 +456,38 @@ export function App(): JSX.Element {
     setActivePro(proFullName);
   }, []);
 
+  /**
+   * Save a copy of the open demo, which is what turns it into the user's own
+   * project: it gets a record, autosave starts writing to it, and the banner
+   * goes away. Deliberately the same shape as KiCad's answer to editing a demo
+   * in its read-only stock folder, save it somewhere of your own first.
+   *
+   * The whole open file set is written, including the 3D bodies that arrived
+   * after the board did, so the copy is the demo and not the part of it that
+   * had downloaded by the time the button was pressed.
+   */
+  const saveDemoCopy = useCallback(() => {
+    const cur = projectFilesRef.current;
+    if (!cur || cur.length === 0) return;
+    const suggested = projectNameOf(cur);
+    const name = (window.prompt('Save a copy of this demo as:', suggested) ?? '').trim();
+    if (!name) return;
+    void (async () => {
+      try {
+        const files = cur
+          .filter((f) => (f.bytes && f.bytes.length > 0) || f.text.length > 0)
+          .map((f) => ({ name: f.name, bytes: f.bytes ?? enc.encode(f.text) }));
+        await saveProject(name, files);
+        // Only now: until the record exists there is nothing for autosave to
+        // find, and clearing the banner first would claim edits were being kept
+        // while they still were not.
+        setDemoProject(false);
+      } catch (e) {
+        window.alert(`Could not save a copy: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    })();
+  }, []);
+
   const goHome = useCallback(() => {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
@@ -521,14 +605,16 @@ export function App(): JSX.Element {
           setSchMounted(true);
           setView('schematic');
         }}
-        onOpenProject={(files, start) => {
+        onOpenProject={(files, start, readOnly) => {
           setProjectFiles(files);
+          setDemoProject(!!readOnly);
           setStandalonePcb(null);
           setStartFile(start ?? null);
           setSchMounted(true);
           setView('schematic');
         }}
         onOpenPcb={(file, files) => {
+          setDemoProject(false);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);
@@ -540,6 +626,7 @@ export function App(): JSX.Element {
           setView('pcb');
         }}
         onOpenSymbolEditor={(files, startFile) => {
+          setDemoProject(false);
           if (files) {
             setProjectFiles(files);
             setStandalonePcb(null);
@@ -585,128 +672,165 @@ export function App(): JSX.Element {
 
   return (
     <>
+      {demoProject && (
+        <div className="ze-demo-banner" role="status">
+          <span className="ze-demo-banner-text">
+            <b>Demo project</b>
+            Edits are not being saved. Save a copy to keep your changes.
+          </span>
+          <button type="button" onClick={saveDemoCopy}>
+            Save a copy
+          </button>
+        </div>
+      )}
       {schMounted && (
         <div style={{ display: view === 'schematic' ? 'contents' : 'none' }}>
-          <SchematicEditor
-            onExitToHome={goHome}
-            onShowPcb={pcbFile ? showPcb : undefined}
-            onEditSymbolInEditor={editSymbolInEditor}
-            editedSymbol={editedSymbol}
-            // Tools > Update Schematic from PCB: read the board here, so the
-            // schematic editor never has to know the board model — the adapter
-            // is the whole coupling between the two.
-            readBoardFootprints={
-              pcbFile
-                ? () => {
-                    try {
-                      return boardFootprintData(readBoard(parseSexpr(pcbFile.text)));
-                    } catch {
-                      return null;
+          <Suspense fallback={frameLoading('the schematic editor')}>
+            <SchematicEditor
+              onExitToHome={goHome}
+              onShowPcb={pcbFile ? showPcb : undefined}
+              onEditSymbolInEditor={editSymbolInEditor}
+              editedSymbol={editedSymbol}
+              // Tools > Update Schematic from PCB: read the board here, so the
+              // schematic editor never has to know the board model — the adapter
+              // is the whole coupling between the two.
+              readBoardFootprints={
+                pcbFile
+                  ? async () => {
+                      try {
+                        // Pulled in on use rather than imported at the top of
+                        // this file: statically, it put the whole .kicad_pcb
+                        // parser into the entry chunk for every visitor,
+                        // including the ones who never open a board.
+                        const [{ readBoard }, { parse }, { boardFootprintData }] =
+                          await Promise.all([
+                            import('@ziroeda/pcbnew'),
+                            import('@ziroeda/sexpr'),
+                            import('./editors/schematic/back_annotate_source.js'),
+                          ]);
+                        return boardFootprintData(readBoard(parse(pcbFile.text)));
+                      } catch {
+                        return null;
+                      }
                     }
-                  }
-                : undefined
-            }
-            onUpdatePcb={
-              pcbFile
-                ? () => {
-                    showPcb();
-                    setUpdatePcbNonce((n) => (n ?? 0) + 1);
-                  }
-                : undefined
-            }
-            onShowSymbolEditor={showSymbolEditor}
-            onShowFootprintEditor={showFootprintEditor}
-            onShowCalculator={showCalculator}
-            initialProject={projectFiles}
-            initialFile={startFile}
-            rootPro={activeBase || undefined}
-            placeRequest={placeRequest}
-            onProjectChange={onProjectChange}
-            // Whether edits actually reach storage. `onProjectChange` is always
-            // passed but no-ops without an open project or without IndexedDB,
-            // and the editor cannot see that from its side — so it is told,
-            // rather than left to infer that its work is being saved.
-            autosaveActive={!!projectFiles && storageAvailable()}
-            onPersistFiles={persistFilesNow}
-            onOutputFile={onOutputFile}
-            registerAutosaveFlush={registerSchFlush}
-            extraSheetFiles={sessionSheets}
-            projectName={projectName}
-            onCrossProbeNet={setCrossProbeNet}
-          />
+                  : undefined
+              }
+              onUpdatePcb={
+                pcbFile
+                  ? () => {
+                      showPcb();
+                      setUpdatePcbNonce((n) => (n ?? 0) + 1);
+                    }
+                  : undefined
+              }
+              onShowSymbolEditor={showSymbolEditor}
+              onShowFootprintEditor={showFootprintEditor}
+              onShowCalculator={showCalculator}
+              initialProject={projectFiles}
+              initialFile={startFile}
+              rootPro={activeBase || undefined}
+              placeRequest={placeRequest}
+              onProjectChange={onProjectChange}
+              // Whether edits actually reach storage. `onProjectChange` is always
+              // passed but no-ops without an open project or without IndexedDB,
+              // and the editor cannot see that from its side — so it is told,
+              // rather than left to infer that its work is being saved.
+              autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
+              onPersistFiles={persistFilesNow}
+              onOutputFile={onOutputFile}
+              registerAutosaveFlush={registerSchFlush}
+              extraSheetFiles={sessionSheets}
+              projectName={projectName}
+              onCrossProbeNet={setCrossProbeNet}
+            />
+          </Suspense>
         </div>
       )}
       {pcbMounted && pcbFile && (
         <div style={{ display: view === 'pcb' ? 'contents' : 'none' }}>
-          <PcbEditor
-            fileName={pcbBasename(pcbFile.name)}
-            text={pcbFile.text}
-            onExit={goHome}
-            onShowSchematic={hasSchematic ? showSchematic : undefined}
-            onShowFootprintEditor={showFootprintEditor}
-            onBoardChange={(text: string) => onProjectChange([{ name: pcbFile.name, text }])}
-            onSaveBoard={(text: string) => {
-              const name = pcbFile.name;
-              setProjectFiles((prev) =>
-                prev ? prev.map((f) => (f.name === name ? { ...f, text } : f)) : prev,
-              );
-              persistFilesNow([{ name, text }]);
-            }}
-            projectName={projectName}
-            projectFiles={projectFiles ?? undefined}
-            rootPro={activeBase || undefined}
-            onPersistFiles={persistFilesNow}
-            onOutputFile={onOutputFile}
-            crossProbeNet={crossProbeNet}
-            updateFromSchematic={updatePcbNonce}
-          />
+          <Suspense fallback={frameLoading('the board editor')}>
+            <PcbEditor
+              fileName={pcbBasename(pcbFile.name)}
+              text={pcbFile.text}
+              onExit={goHome}
+              onShowSchematic={hasSchematic ? showSchematic : undefined}
+              onShowFootprintEditor={showFootprintEditor}
+              onBoardChange={(text: string) => onProjectChange([{ name: pcbFile.name, text }])}
+              onSaveBoard={(text: string) => {
+                const name = pcbFile.name;
+                setProjectFiles((prev) =>
+                  prev ? prev.map((f) => (f.name === name ? { ...f, text } : f)) : prev,
+                );
+                persistFilesNow([{ name, text }]);
+              }}
+              projectName={projectName}
+              projectFiles={projectFiles ?? undefined}
+              rootPro={activeBase || undefined}
+              onPersistFiles={persistFilesNow}
+              onOutputFile={onOutputFile}
+              crossProbeNet={crossProbeNet}
+              updateFromSchematic={updatePcbNonce}
+            />
+          </Suspense>
         </div>
       )}
       {symMounted && (
         <div style={{ display: view === 'symbols' ? 'contents' : 'none' }}>
-          <SymbolEditor
-            onExitToHome={goHome}
-            initialProject={projectFiles}
-            onAddSymbolToSchematic={addSymbolToSchematic}
-            projectName={projectName}
-            openRequest={symRequest}
-            schematicSymbol={symFromSchematic}
-            onSaveToSchematic={saveSymbolToSchematic}
-          />
+          <Suspense fallback={frameLoading('the symbol editor')}>
+            <SymbolEditor
+              onExitToHome={goHome}
+              initialProject={projectFiles}
+              onAddSymbolToSchematic={addSymbolToSchematic}
+              projectName={projectName}
+              openRequest={symRequest}
+              schematicSymbol={symFromSchematic}
+              onSaveToSchematic={saveSymbolToSchematic}
+            />
+          </Suspense>
         </div>
       )}
       {fpMounted && (
         <div style={{ display: view === 'footprints' ? 'contents' : 'none' }}>
-          <FootprintEditor
-            onExitToHome={goHome}
-            initialProject={projectFiles}
-            openRequest={fpRequest}
-          />
+          <Suspense fallback={frameLoading('the footprint editor')}>
+            <FootprintEditor
+              onExitToHome={goHome}
+              initialProject={projectFiles}
+              openRequest={fpRequest}
+            />
+          </Suspense>
         </div>
       )}
       {calcMounted && (
         <div style={{ display: view === 'calculator' ? 'contents' : 'none' }}>
-          <CalculatorTools onExitToHome={goHome} />
+          <Suspense fallback={frameLoading('the calculator')}>
+            <CalculatorTools onExitToHome={goHome} />
+          </Suspense>
         </div>
       )}
       {dsMounted && (
         <div style={{ display: view === 'drawingsheet' ? 'contents' : 'none' }}>
-          <DrawingSheetEditor
-            onExitToHome={goHome}
-            projectName={projectName}
-            onSaveToProject={projectFiles ? onSaveToProject : undefined}
-            openRequest={dsRequest}
-          />
+          <Suspense fallback={frameLoading('the drawing sheet editor')}>
+            <DrawingSheetEditor
+              onExitToHome={goHome}
+              projectName={projectName}
+              onSaveToProject={projectFiles ? onSaveToProject : undefined}
+              openRequest={dsRequest}
+            />
+          </Suspense>
         </div>
       )}
       {imgMounted && (
         <div style={{ display: view === 'image' ? 'contents' : 'none' }}>
-          <ImageConverter onExitToHome={goHome} />
+          <Suspense fallback={frameLoading('the image converter')}>
+            <ImageConverter onExitToHome={goHome} />
+          </Suspense>
         </div>
       )}
       {gbMounted && (
         <div style={{ display: view === 'gerber' ? 'contents' : 'none' }}>
-          <GerberViewer onExitToHome={goHome} projectName={projectName} />
+          <Suspense fallback={frameLoading('the gerber viewer')}>
+            <GerberViewer onExitToHome={goHome} projectName={projectName} />
+          </Suspense>
         </div>
       )}
     </>
