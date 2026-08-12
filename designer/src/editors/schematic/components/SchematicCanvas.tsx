@@ -15,6 +15,7 @@ import {
 import {
   GRIP_MARGIN_PX,
   leftDragStart,
+  expandSelectionToGroups,
   requestMovableSelection,
   selectionContains,
   planMove,
@@ -3142,7 +3143,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const hit = pickAt(world);
       // RequestSelection( MovableItems ): trim an existing selection to the
       // movable kinds, or, with nothing selected, take what is under the press.
-      const requested = requestMovableSelection(selection, hit);
+      // `RequestSelection` picks the press up through `SelectPoint` when
+      // nothing is selected, and SelectPoint promotes to the top-level group —
+      // so a press on a grouped item grabs the whole group in the same gesture
+      // that would otherwise have dragged one member out of it.
+      const requested = expandSelectionToGroups(schematic, requestMovableSelection(selection, hit));
       const gripped = selectionContains(
         schematic,
         libById,
