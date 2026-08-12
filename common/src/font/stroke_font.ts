@@ -217,7 +217,49 @@ export function measureText(text: string, size: number): number {
 // KiCad FONT_METRICS::m_InterlinePitch (font_metrics.h): line pitch = 1.68·height.
 const INTERLINE_PITCH = 1.68;
 
-export function layoutText(text: string, size: number): { strokes: Vec2[][]; width: number } {
+/**
+ * How the lines of a multi-line run sit against each other.
+ *
+ * `FONT::getLinePositions` places every line from the *item's* justification,
+ * against the anchor, one line at a time:
+ *
+ *     case GR_TEXT_H_ALIGN_LEFT:                                   break;
+ *     case GR_TEXT_H_ALIGN_CENTER: lineOffset.x = -lineSize.x / 2;  break;
+ *     case GR_TEXT_H_ALIGN_RIGHT:  lineOffset.x = -( lineSize.x + offset.x );
+ *
+ * so a left-justified block has every line starting at the anchor, and only a
+ * centred one has short lines pulled in. Laying every line out centred — which
+ * is what this did — draws a left-justified heading floating in the middle of
+ * the paragraph under it.
+ *
+ * Expressed here as a shift *within the block* (whose left edge is x=0 and
+ * whose width is the widest line), so a caller that positions the block by its
+ * total width lands each line exactly where upstream puts it, whichever of the
+ * three it asks for.
+ */
+export type TextHAlign = 'left' | 'center' | 'right';
+
+export interface TextLayout {
+  strokes: Vec2[][];
+  /** The widest line: the block's width, which is what a caller positions by. */
+  width: number;
+  /** Lines actually drawn, for the caller's block-height maths. */
+  lineCount: number;
+}
+
+/**
+ * @param vBlock how the *stack* sits on the baseline. `'center'` (the default)
+ * centres it, which is the only behaviour this had; `'first-line'` leaves line
+ * 0 on the baseline and grows downwards, which is what `getLinePositions` does
+ * — there the vertical alignment is applied by the caller, from a block height
+ * it works out itself.
+ */
+export function layoutText(
+  text: string,
+  size: number,
+  hAlign: TextHAlign = 'center',
+  vBlock: 'center' | 'first-line' = 'center',
+): TextLayout {
   // KiCad draws multi-line text (EDA_TEXT with embedded \n) as stacked lines
   // spaced by GetInterline(); a lone newline must not render as a glyph, and a
   // trailing one must not add a line (see splitTextLines).
@@ -233,15 +275,18 @@ export function layoutText(text: string, size: number): { strokes: Vec2[][]; wid
   });
 
   const maxWidth = Math.max(0, ...laid.map((l) => l.width));
-  // KiCad centres each line horizontally and centres the whole block vertically
-  // for the default (centre) justify, so a short second line sits centred under
-  // a long first line, not left-aligned.
-  const vShift = -((lines.length - 1) * INTERLINE_PITCH * size) / 2;
+  const vShift = vBlock === 'center' ? -((lines.length - 1) * INTERLINE_PITCH * size) / 2 : 0;
   const out: Vec2[][] = [];
   laid.forEach((ld, li) => {
-    const dx = (maxWidth - ld.width) / 2;
+    const dx =
+      hAlign === 'left' ? 0 : hAlign === 'right' ? maxWidth - ld.width : (maxWidth - ld.width) / 2;
     const dy = li * INTERLINE_PITCH * size + vShift;
     for (const s of ld.strokes) out.push(s.map((p) => ({ x: p.x + dx, y: p.y + dy })));
   });
-  return { strokes: out, width: maxWidth };
+  return { strokes: out, width: maxWidth, lineCount: lines.length };
+}
+
+/** `FONT::GetInterline` for the stroke font: the pitch between two baselines. */
+export function interline(size: number): number {
+  return INTERLINE_PITCH * size;
 }

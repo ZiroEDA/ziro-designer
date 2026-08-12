@@ -21,6 +21,9 @@
  * re-encoding is not applied, our net names stay raw.)
  */
 
+import type { Schematic, Vec2 } from '../types.js';
+import { SegmentIndex } from './segment_index.js';
+
 const isSuperSubOverbar = (c: string | undefined): boolean => c === '^' || c === '_' || c === '~';
 
 const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
@@ -293,4 +296,46 @@ export function expandBusLabel(
 /** SCH_CONNECTION::MightBeBusLabel equivalent: does the label parse as a bus? */
 export function isBusLabel(label: string): boolean {
   return parseBusVector(label) !== null || parseBusGroup(label) !== null;
+}
+
+/**
+ * Whether a label-like item is drawn in the *bus* colour.
+ *
+ * `SCH_PAINTER::draw( const SCH_TEXT* )` picks the layer from the item's type —
+ * LAYER_SHEETLABEL for a sheet pin, LAYER_HIERLABEL for a hierarchical label,
+ * and so on — and then overrides it from the connection:
+ *
+ *     if( conn && conn->IsBus() )
+ *         color = getRenderColor( aText, LAYER_BUS, drawingShadows, aDimmed );
+ *
+ * so a sheet pin named `USB_PI{USB}` comes out in the bus blue while the plain
+ * ones beside it stay sheet-label teal. Missing that override painted every
+ * sheet pin the same colour, which is the sort of thing you only notice next to
+ * KiCad — and it is exactly the cue that tells you which pins carry a bus.
+ *
+ * Two ways an item's connection is a bus, and both are needed:
+ *   - its own name parses as a bus vector or group (`MightBeBusLabel`), which
+ *     is what drives the connection when the item is the driver, and
+ *   - it sits on a bus, which is what a plain name on a bus line gets.
+ *
+ * The connectivity graph is the real source upstream reads; a renderer has no
+ * netlist in hand, and these two rules are what it resolves to for a label.
+ */
+export function labelDrawsAsBus(
+  text: string,
+  at: Vec2,
+  onBus: (p: Vec2) => boolean = () => false,
+): boolean {
+  return isBusLabel(text) || onBus(at);
+}
+
+/**
+ * A reusable "is this point on a bus?" test for one sheet, indexed so a render
+ * pass does not rescan every line for every label.
+ */
+export function busTouchTest(sch: Schematic): (p: Vec2) => boolean {
+  const buses = sch.lines.filter((l) => l.kind === 'bus');
+  if (buses.length === 0) return () => false;
+  const index = new SegmentIndex(buses.map((l) => ({ item: l, a: l.start, b: l.end })));
+  return (p) => index.any(p);
 }
