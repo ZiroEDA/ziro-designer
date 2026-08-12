@@ -15,7 +15,13 @@
  * draws what the schematic draws".
  */
 import { describe, it, expect } from 'vitest';
-import { defaultDrawingSheet, layoutDrawingSheet, type WksResolveContext } from '@ziroeda/common';
+import {
+  defaultDrawingSheet,
+  layoutDrawingSheet,
+  PCB_IU_PER_MM,
+  type WksResolveContext,
+} from '@ziroeda/common';
+import { drawDrawingSheet } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 
@@ -78,5 +84,82 @@ describe('the board page frame', () => {
     };
 
     expect(far(a3)).toBeGreaterThan(far(a4));
+  });
+});
+
+/**
+ * A canvas that records where the drawing actually lands, in the units the
+ * board's own transform is in.
+ *
+ * The engine lays out in schematic internal units and the board canvas is in
+ * board units, a hundred times finer. Testing `layoutDrawingSheet` on its own
+ * says nothing about that: the first version of this change asked for the page
+ * in the wrong units *and* drew the result at 1/100 scale, and every assertion
+ * against the engine still passed while the sheet was invisible on screen.
+ */
+function recordingCtx(): { ctx: CanvasRenderingContext2D; extent: () => number } {
+  let scale = 1;
+  let max = 0;
+  const note = (x: number): void => {
+    max = Math.max(max, Math.abs(x) * scale);
+  };
+  const ctx = {
+    save() {},
+    restore() {},
+    scale(sx: number) {
+      scale *= sx;
+    },
+    beginPath() {},
+    closePath() {},
+    stroke() {},
+    fill() {},
+    moveTo: (x: number) => note(x),
+    lineTo: (x: number) => note(x),
+    rect: (x: number, _y: number, w: number) => note(x + w),
+    strokeRect: (x: number, _y: number, w: number) => note(x + w),
+    fillRect: (x: number, _y: number, w: number) => note(x + w),
+    arc: (x: number) => note(x),
+    quadraticCurveTo: (_cx: number, _cy: number, x: number) => note(x),
+    bezierCurveTo: (_a: number, _b: number, _c: number, _d: number, x: number) => note(x),
+    setTransform() {},
+    translate() {},
+    rotate() {},
+    measureText: () => ({ width: 0 }),
+    fillText: (_t: string, x: number) => note(x),
+    strokeText: (_t: string, x: number) => note(x),
+    set lineWidth(_v: number) {},
+    set strokeStyle(_v: string) {},
+    set fillStyle(_v: string) {},
+    set font(_v: string) {},
+    set lineCap(_v: string) {},
+    set lineJoin(_v: string) {},
+    set textAlign(_v: string) {},
+    set textBaseline(_v: string) {},
+  } as unknown as CanvasRenderingContext2D;
+  return { ctx, extent: () => max };
+}
+
+describe('the board page frame, as the board draws it', () => {
+  it('lands at board scale, spanning the page', () => {
+    const { ctx, extent } = recordingCtx();
+
+    drawDrawingSheet(ctx, {
+      paper: 'A4',
+      titleBlock: { title: 'Carrier' },
+      fileName: 'b.kicad_pcb',
+    });
+
+    // An A4 page is 297 mm wide, so the frame has to reach most of the way
+    // across it in board units. A hundredfold error in either direction — the
+    // page size or the item scale — fails this by orders of magnitude.
+    const mm = extent() / PCB_IU_PER_MM;
+    expect(mm).toBeGreaterThan(250);
+    expect(mm).toBeLessThan(300);
+  });
+
+  it('draws nothing for a page size it does not know', () => {
+    const { ctx, extent } = recordingCtx();
+    drawDrawingSheet(ctx, { paper: 'Origami' });
+    expect(extent()).toBe(0);
   });
 });

@@ -24,7 +24,12 @@
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { drawDrawingSheetItems } from '../drawingsheet/wksRender.js';
-import { defaultDrawingSheet, iuToMM, layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
+import {
+  defaultDrawingSheet,
+  layoutDrawingSheet,
+  SCH_IU_PER_MM,
+  type WksSheet,
+} from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
@@ -1652,9 +1657,15 @@ export function drawDrawingSheet(
   const page = paperSizeIU(info.paper);
   if (!page) return;
   const tb = info.titleBlock ?? {};
+  // Page size in millimetres, from *this* file's internal units.
+  //
+  // `iuToMM` is the schematic scale (1e4/mm) and `page` is in board units
+  // (1e6/mm), so putting one through the other asked for a page a hundred times
+  // too large: a 297 mm sheet became a 29.7 metre one, laid out so far outside
+  // the board that nothing was visible on screen at all.
   const items = layoutDrawingSheet(
     sheet ?? defaultDrawingSheet(),
-    { widthMM: iuToMM(page.w), heightMM: iuToMM(page.h) },
+    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
     {
       // A board is one page: pcbnew has no sheet hierarchy to number.
       pageNumber: 1,
@@ -1671,7 +1682,15 @@ export function drawDrawingSheet(
     },
   );
   if (items.length === 0) return;
-  drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth });
+  // The layout comes back in schematic internal units, because that is what the
+  // shared engine works in; this canvas is in board units. Scaling the context
+  // rather than every coordinate also scales the pen widths, which are in the
+  // same units and would otherwise be a hundred times too fine.
+  const toPcb = PCB_IU_PER_MM / SCH_IU_PER_MM;
+  ctx.save();
+  ctx.scale(toPcb, toPcb);
+  drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth: minWidth / toPcb });
+  ctx.restore();
 }
 
 export interface PcbGridOptions {
