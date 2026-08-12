@@ -3593,7 +3593,17 @@ export function PcbEditor({
           c.style.height = `${r.height}px`;
         }
       }
-      if (!fittedRef.current && sceneRef.current) {
+      // Only a fit against a viewport that exists counts.
+      //
+      // The frames stay mounted and are toggled with CSS, so this observer also
+      // fires while the board editor is hidden behind the schematic, and a
+      // hidden element measures 0 x 0 — which `Math.max(1, …)` above turns into
+      // a 1 x 1 canvas. Fitting to that produced a scale and an offset that
+      // meant nothing, and recording it as done meant the real layout, when the
+      // user finally switched over, never fitted at all: an empty sheet with the
+      // origin marker sitting in it until they pressed Zoom to Fit themselves.
+      const measured = r.width > 0 && r.height > 0;
+      if (!fittedRef.current && sceneRef.current && measured) {
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {
@@ -3604,6 +3614,25 @@ export function PcbEditor({
     ro.observe(wrap);
     return () => ro.disconnect();
   }, [dpr, requestDraw, zoomToFit, board]);
+
+  // The other half of the same race: a board can finish parsing after the last
+  // resize the observer will ever see, and then nothing is left to trigger the
+  // first fit. Runs on the frame after the board changes, does nothing once a
+  // real fit has happened, and does nothing while the frame is hidden — so the
+  // fit lands on whichever of the two events happens last.
+  useEffect(() => {
+    if (!board) return;
+    let raf = 0;
+    const tryFit = (): void => {
+      if (fittedRef.current || !sceneRef.current) return;
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (!r || r.width === 0 || r.height === 0) return;
+      fittedRef.current = true;
+      zoomToFit();
+    };
+    raf = requestAnimationFrame(tryFit);
+    return () => cancelAnimationFrame(raf);
+  }, [board, zoomToFit]);
 
   // Flip board view (PCB_ACTIONS::flipBoard → VIEW::SetMirror on X): toggle the
   // view's horizontal mirror, re-centring so the board stays put, and rebuild
