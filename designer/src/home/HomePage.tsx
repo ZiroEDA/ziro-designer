@@ -52,6 +52,7 @@ import { PluginManagerDialog } from '../pcm/PluginManagerDialog.js';
 import { buildManagerMenus } from './menubar.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
 import { TemplateDialog } from './dialogs/dialog_template_selector.js';
+import { CommandPalette, ContextHint, OnboardingPanel, openP1External, p1SupportUrls, type GuidanceAction } from '../ui/P1Guidance.js';
 import { ProjectTreePane, TreeIcon, mgrUrl } from './project_tree_pane.js';
 import {
   filesFromFileList,
@@ -260,6 +261,7 @@ export function HomePage({
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [pcmOpen, setPcmOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const [tplOpen, setTplOpen] = useState(false);
@@ -847,6 +849,21 @@ export function HomePage({
     refreshSaved();
   };
 
+  const openDiscord = (): void => openP1External(p1SupportUrls.discord);
+  const openDocs = (): void => openP1External(p1SupportUrls.docs);
+  const reportBug = (): void => openP1External(p1SupportUrls.bug);
+  const commandActions: GuidanceAction[] = [
+    { id: 'new-project', label: 'Create new project', description: 'Start with a blank KiCad project', shortcut: 'Ctrl+N', keywords: 'new blank board', run: openNewProjectDialog },
+    { id: 'open-project', label: 'Import KiCad project', description: 'Open a folder or select project files', shortcut: 'Ctrl+O', keywords: 'open import folder', run: () => void openProjectPicker() },
+    { id: 'open-demo', label: 'Try a demo project', description: 'Explore a ready-made design without importing files', keywords: 'example sample demo', run: () => { const first = demos[0]; if (first) void openDemoProject(first.id); } },
+    { id: 'schematic', label: 'Open Schematic Editor', description: 'Design and edit the project schematic', shortcut: 'Ctrl+E', keywords: 'schematic circuit', run: () => launchSchematic() },
+    { id: 'pcb', label: 'Open PCB Editor', description: 'Place footprints and route the board', shortcut: 'Ctrl+P', keywords: 'pcb layout routing', disabled: !picked, run: launchPcb },
+    { id: 'shortcuts', label: 'Open Preferences and shortcuts', description: 'View or customize keyboard shortcuts', shortcut: 'Ctrl+,', keywords: 'hotkeys keyboard', run: () => setPrefsOpen(true) },
+    { id: 'docs', label: 'Open documentation', description: 'Learn import, editor, and export workflows', keywords: 'help guide docs', run: openDocs },
+    { id: 'discord', label: 'Join ZIRO Discord', description: 'Get help from the community and team', keywords: 'community support chat', run: openDiscord },
+    { id: 'bug', label: 'Report a bug', description: 'Open the public issue tracker', keywords: 'feedback issue problem', run: reportBug },
+  ];
+
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => void openProjectPicker(),
@@ -873,6 +890,18 @@ export function HomePage({
     recent: saved,
     demos,
   });
+
+  // P1 command search: available from every manager screen with Ctrl+K/Cmd+K.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Manager hotkeys, matching the upstream defaults (Ctrl+N/O/E/L/P/F). F5 is
   // left to the browser (reload) rather than hijacked for tree refresh.
@@ -1022,6 +1051,17 @@ export function HomePage({
 
         {/* launcher tiles (fixed) with the Recent Projects list scrolling below */}
         <div className="ze-launchers">
+          {!picked && <ContextHint>New here? Press <b>Ctrl+K</b> to search commands, or use the quick-start checklist below.</ContextHint>}
+          <OnboardingPanel
+            hasProject={!!picked}
+            hasSavedProject={saved.length > 0}
+            onNewProject={openNewProjectDialog}
+            onOpenProject={() => void openProjectPicker()}
+            onOpenDemo={() => { const first = demos[0]; if (first) void openDemoProject(first.id); }}
+            onOpenDocs={openDocs}
+            onOpenDiscord={openDiscord}
+            onReportBug={reportBug}
+          />
           <div className="ze-tiles">
             {TILES.map((t) => {
               const hasSch = !!picked?.some((f) => /\.kicad_sch$/i.test(f.name));
@@ -1146,6 +1186,7 @@ export function HomePage({
       )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {pcmOpen && <PluginManagerDialog onClose={() => setPcmOpen(false)} />}
+      {commandPaletteOpen && <CommandPalette actions={commandActions} onClose={() => setCommandPaletteOpen(false)} />}
 
       {/* Guest nudge: once there's real work at stake (a saved project) and no
           account, offer, never force, signing in so it's backed up. */}

@@ -175,12 +175,16 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       items: [
         {
           label: 'Documentation',
-          action: () => window.open('https://github.com/RukadeAkshay01/ziro-designer', '_blank'),
+          action: () => window.open('https://designer.ziroeda.com/docs', '_blank', 'noopener,noreferrer'),
         },
         {
           label: 'Report Bug',
           action: () =>
-            window.open('https://github.com/RukadeAkshay01/ziro-designer/issues', '_blank'),
+            window.open('https://github.com/ZiroEDA/ziro-designer/issues', '_blank', 'noopener,noreferrer'),
+        },
+        {
+          label: 'Join ZIRO Discord',
+          action: () => window.open('https://discord.gg/e97xkc2GV', '_blank', 'noopener,noreferrer'),
         },
         SEP,
         // Our compatibility promise includes funding upstream development.
