@@ -7962,6 +7962,18 @@ export function SchematicEditor({
                 }
               : undefined
           }
+          // "Edit Library Symbol...": upstream opens the *library* part rather
+          // than this sheet's cached copy, so an edit there reaches every use
+          // of it. Same hand-off as Edit Symbol until the editor can be told
+          // which of the two to open.
+          onEditLibrarySymbol={
+            onShowSymbolEditor
+              ? () => {
+                  setPropsTarget(null);
+                  onShowSymbolEditor();
+                }
+              : undefined
+          }
         />
       )}
 

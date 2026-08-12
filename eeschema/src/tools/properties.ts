@@ -15,9 +15,10 @@
  *     are never dropped.
  */
 
-import type { Schematic, SchSymbol, SchSymbolPin, SchField } from '../types.js';
+import type { Schematic, SchSymbol, SchSymbolPin, SchField, LibSymbol } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import { refId } from './hittest.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 import type { EditCommand } from './command.js';
 
 /** KiCad SCH_FIELD::IsMandatory, by canonical name (we have no FIELD_T ids). */
@@ -45,6 +46,16 @@ export interface SymbolEdit {
   /** The Pin Functions page's alternate selections. Undefined leaves the
    *  placement's pin list exactly as the file had it. */
   readonly pins?: readonly SchSymbolPin[];
+  /**
+   * The dialog's "Show pin numbers" / "Show pin names".
+   *
+   * `TransferDataFromWindow` writes these onto the placement's cached library
+   * symbol (`m_symbol->SetShowPinNumbers(...)`), not onto the placement, so one
+   * symbol can hide its pin text without every other use of the same part
+   * changing. Undefined leaves the cached copy exactly as it was.
+   */
+  readonly showPinNumbers?: boolean;
+  readonly showPinNames?: boolean;
 }
 
 /** TransferDataFromWindow's field post-processing + rel→abs position conversion. */
@@ -65,8 +76,33 @@ export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand 
   return {
     label: 'Edit Symbol Properties',
     apply(doc: Schematic): Schematic {
+      // The pin-text flags live on the sheet's cached definition, not on the
+      // placement: TransferDataFromWindow calls m_symbol->SetShowPinNumbers,
+      // and SCH_SYMBOL forwards it to the LIB_SYMBOL it owns a copy of. So they
+      // are applied to lib_symbols, and only to the definition this placement
+      // uses — hiding one symbol's pin numbers must not change every other use
+      // of the same part.
+      const target = doc.symbols.find((s, i) => refId('symbol', s.uuid, i) === id);
+      const pinFlags = edit.showPinNumbers !== undefined || edit.showPinNames !== undefined;
+      const libSymbols =
+        target && pinFlags
+          ? doc.libSymbols.map((l) =>
+              l.libId === schSymbolLibraryName(target)
+                ? {
+                    ...l,
+                    ...(edit.showPinNumbers !== undefined
+                      ? { pinNumbersHidden: !edit.showPinNumbers }
+                      : {}),
+                    ...(edit.showPinNames !== undefined
+                      ? { pinNamesHidden: !edit.showPinNames }
+                      : {}),
+                  }
+                : l,
+            )
+          : doc.libSymbols;
       return {
         ...doc,
+        libSymbols,
         symbols: doc.symbols.map((s, i) => {
           if (refId('symbol', s.uuid, i) !== id) return s;
           const next: SchSymbol = {
@@ -92,7 +128,17 @@ export function editSymbolProperties(id: string, edit: SymbolEdit): EditCommand 
     },
     invert(before: Schematic): EditCommand {
       const prev = before.symbols.map((s, i) => [refId('symbol', s.uuid, i), s] as const);
-      return restoreSymbols(new Map(prev.filter(([rid]) => rid === id)));
+      const target = before.symbols.find((s, i) => refId('symbol', s.uuid, i) === id);
+      const pinFlags = edit.showPinNumbers !== undefined || edit.showPinNames !== undefined;
+      const libs =
+        target && pinFlags
+          ? new Map(
+              before.libSymbols
+                .filter((l) => l.libId === schSymbolLibraryName(target))
+                .map((l) => [l.libId, l] as const),
+            )
+          : undefined;
+      return restoreSymbols(new Map(prev.filter(([rid]) => rid === id)), libs);
     },
   };
 }
@@ -187,19 +233,31 @@ export function bulkEditSymbolAttributesCommand(
 }
 
 /** Restore captured symbols verbatim (the inverse of a properties edit). */
-function restoreSymbols(saved: ReadonlyMap<string, SchSymbol>): EditCommand {
+function restoreSymbols(
+  saved: ReadonlyMap<string, SchSymbol>,
+  // The cached definitions as they were, when the edit touched any. Undo has to
+  // put these back too: the pin-text flags live on lib_symbols, so restoring
+  // only the placements left "Show pin numbers" off after an undo.
+  savedLibs?: ReadonlyMap<string, LibSymbol>,
+): EditCommand {
   return {
     label: 'Edit Symbol Properties',
     apply(doc: Schematic): Schematic {
       return {
         ...doc,
+        ...(savedLibs && savedLibs.size > 0
+          ? { libSymbols: doc.libSymbols.map((l) => savedLibs.get(l.libId) ?? l) }
+          : {}),
         symbols: doc.symbols.map((s, i) => saved.get(refId('symbol', s.uuid, i)) ?? s),
       };
     },
     invert(before: Schematic): EditCommand {
       const ids = new Set(saved.keys());
       const prev = before.symbols.map((s, i) => [refId('symbol', s.uuid, i), s] as const);
-      return restoreSymbols(new Map(prev.filter(([rid]) => ids.has(rid))));
+      const libs = savedLibs
+        ? new Map(before.libSymbols.filter((l) => savedLibs.has(l.libId)).map((l) => [l.libId, l]))
+        : undefined;
+      return restoreSymbols(new Map(prev.filter(([rid]) => ids.has(rid))), libs);
     },
   };
 }
