@@ -97,6 +97,7 @@ import {
   selectionHasGroup,
   setSymbolsLockedCommand,
   expandSelectionToGroups,
+  screenHasItems,
   getNode,
   selectConnection,
   planNetclassAssignment,
@@ -6037,14 +6038,55 @@ export function SchematicEditor({
       );
     } else {
       items.push(tool('Draw Wires', 'drawWire', 'W'), tool('Draw Buses', 'drawBus', 'B'));
-      if (parentPath(currentPath) !== null)
-        items.push({
+      // Leave Sheet is always on the menu, greyed on the sheet you cannot leave.
+      // The two halves of that come from different conditions, and the reason
+      // they differ is the virtual root `SCHEMATIC::ensureVirtualRoot` puts
+      // above the top-level sheets:
+      //
+      //   menu.AddItem( leaveSheet, belowRootSheetCondition, 150 );   // shown
+      //       -> GetCurrentSheet().Last() != &Schematic().Root()
+      //   mgr->SetConditions( leaveSheet, ENABLE( CanGoUp() ) );      // enabled
+      //       -> Last() is not one of GetTopLevelSheets()
+      //
+      // On the top-level schematic the first is *true* — the invisible root
+      // sits above it — while the second is false. Hence shown and greyed.
+      // We have no virtual root, so the shown half is always true for us and
+      // only the enable is left to compute.
+      items.push(
+        { sep: true },
+        {
           label: 'Leave Sheet',
           icon: 'navUp',
-          shortcut: 'Alt+Bksp',
+          // As KiCad prints it, and as our own hotkey list already does.
+          shortcut: 'Alt+Backspace',
           action: () => onTopAction('navUp'),
-        });
-      items.push({ sep: true }, act('Paste', 'paste', 'Ctrl+V'));
+          disabled: parentPath(currentPath) === null,
+        },
+      );
+      // The clipboard block, rank 300 in sch_edit_tool.cpp. Cut / Copy / Copy
+      // as Text / Delete are conditioned on a selection (`IdleSelection`,
+      // `NotEmpty`) and so drop out here, but these three are not:
+      //
+      //   selToolMenu.AddItem( ACTIONS::paste,        S_C::Idle,          300 );
+      //   selToolMenu.AddItem( ACTIONS::pasteSpecial, S_C::Idle,          300 );
+      //   selToolMenu.AddItem( ACTIONS::duplicate,    duplicateCondition, 300 );
+      //
+      // Duplicate over empty canvas looks odd until you read what gates it:
+      // `duplicateCondition` only asks that no wire is being drawn, and its
+      // enable is `ENABLE( hasElements )` — a property of the sheet, not of the
+      // selection. So it is offered, and greyed only on an empty sheet.
+      items.push(
+        { sep: true },
+        act('Paste', 'paste', 'Ctrl+V'),
+        act('Paste Special...', 'pasteSpecial', 'Ctrl+Shift+V'),
+        {
+          label: 'Duplicate',
+          icon: 'duplicate',
+          shortcut: 'Ctrl+D',
+          action: duplicateSelection,
+          disabled: !doc || !screenHasItems(doc),
+        },
+      );
     }
     items.push(
       { sep: true },

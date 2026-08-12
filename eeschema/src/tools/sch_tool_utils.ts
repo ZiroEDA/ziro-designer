@@ -104,3 +104,29 @@ export function nextFreeUnit(
   while (unit <= unitCount && isUnannotatedUnitOccupied(symbols, reference, libId, unit)) unit++;
   return unit > unitCount ? 1 : unit;
 }
+
+/**
+ * `SCH_EDIT_FRAME::setupUIConditions`' `hasElements`, without its selection
+ * half: does the current screen hold anything at all?
+ *
+ *     return GetScreen() && ( !GetScreen()->Items().empty() || !Idle( aSel ) );
+ *
+ * It gates Cut / Copy / Delete / Duplicate, which is why a menu can offer
+ * Duplicate over empty canvas: the test is about the sheet, not the selection.
+ */
+export function screenHasItems(sch: Schematic): boolean {
+  return (
+    sch.symbols.length > 0 ||
+    sch.lines.length > 0 ||
+    sch.junctions.length > 0 ||
+    sch.noConnects.length > 0 ||
+    sch.labels.length > 0 ||
+    sch.sheets.length > 0 ||
+    sch.busEntries.length > 0 ||
+    sch.images.length > 0 ||
+    sch.graphics.length > 0 ||
+    sch.textBoxes.length > 0 ||
+    sch.tables.length > 0 ||
+    (sch.directiveLabels?.length ?? 0) > 0
+  );
+}
