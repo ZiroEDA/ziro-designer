@@ -95,3 +95,20 @@ export function perSymbolFiles(parts) {
  * nothing can address.
  */
 export const stagedFileName = (name) => `${name.replace(/\//g, '%2F')}.kicad_sym`;
+
+/**
+ * How many units a symbol has.
+ *
+ * `LIB_SYMBOL::GetUnitCount`: the unit sub-symbols are named
+ * `<stem>_<unit>_<bodyStyle>`, so the count is the largest unit number that
+ * appears. Unit 0 is the "common to all units" body and does not count towards
+ * it, which is why a plain resistor (`R_0_1`, `R_1_1`) is one unit and not two.
+ */
+export function unitCountOf(block) {
+  let max = 0;
+  for (const m of block.matchAll(/\(\s*symbol\s+"(?:[^"\\]|\\.)*_(\d+)_(\d+)"/g)) {
+    const unit = Number(m[1]);
+    if (Number.isFinite(unit)) max = Math.max(max, unit);
+  }
+  return Math.max(1, max);
+}

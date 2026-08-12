@@ -136,19 +136,40 @@ function populateItemNode(node: LibTreeNode, sym: LibSymbol, adapter?: LibTreeMo
   if (adapter) for (const name of node.fields.keys()) adapter.addColumnIfNecessary(name);
   node.rebuildSearchTerms(adapter?.getShownColumns() ?? []);
 
-  const units = unitCountOf(sym);
-  if (units > 1 && node.children.length === 0) {
-    for (let u = 1; u <= units; ++u) {
-      const unit = new LibTreeNode();
-      unit.type = LibTreeNodeType.UNIT;
-      unit.parent = node;
-      unit.name = `Unit ${letterSubReference(u)}`;
-      unit.unit = u;
-      unit.libNickname = node.libNickname;
-      unit.libItemName = node.libItemName;
-      unit.intrinsicRank = -u;
-      node.children.push(unit);
-    }
+  addUnitRows(node, unitCountOf(sym));
+}
+
+/**
+ * `LIB_TREE_NODE_ITEM::Update`'s tail: a symbol with more than one unit gets a
+ * child row per unit.
+ *
+ *   if( aItem->GetSubUnitCount() > 1 )
+ *       for( int u = 1; u <= aItem->GetSubUnitCount(); ++u )
+ *           AddUnit( aItem, u );
+ *
+ * Upstream does this as the node is built, so the expander arrow is on the row
+ * from the moment the tree appears. This ran only when a row was selected,
+ * because a unit count needed the symbol and the symbol needed a fetch — so the
+ * arrow appeared after the click that was supposed to follow it. The count now
+ * travels in the library index, and the tree calls this directly.
+ *
+ * Idempotent: the on-selection hydrate calls it again with the count read from
+ * the real symbol, which corrects an index that disagrees and does nothing when
+ * it does not.
+ */
+function addUnitRows(node: LibTreeNode, units: number): void {
+  if (units <= 1 || node.children.length === units) return;
+  node.children.length = 0;
+  for (let u = 1; u <= units; ++u) {
+    const unit = new LibTreeNode();
+    unit.type = LibTreeNodeType.UNIT;
+    unit.parent = node;
+    unit.name = `Unit ${letterSubReference(u)}`;
+    unit.unit = u;
+    unit.libNickname = node.libNickname;
+    unit.libItemName = node.libItemName;
+    unit.intrinsicRank = -u;
+    node.children.push(unit);
   }
 }
 
@@ -291,6 +312,11 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
                 searchTerm(name, 8, true),
                 searchTerm(`${lib.name}:${name}`, 16, true),
               ];
+              // The unit rows are built with the node, from the count the index
+              // carries, so a multi-unit part shows its expander before anything
+              // is fetched. An index without the field simply has no counts and
+              // the rows appear on selection as they used to.
+              addUnitRows(item, lib.units?.[name] ?? 1);
               libNode.children.push(item);
             }
             adapter.finishLibrary(libNode);

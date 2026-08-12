@@ -35,6 +35,21 @@ export interface LibIndexEntry {
    * index small), and an index written before the flag existed has it nowhere.
    */
   power?: string[];
+  /**
+   * Unit count per symbol, for the symbols that have more than one.
+   *
+   * The chooser needs this before anything is fetched. KiCad builds a symbol's
+   * unit rows when it builds the node (`LIB_TREE_NODE_ITEM::Update` calling
+   * `AddUnit`), so a multi-unit part shows its expander arrow as soon as the
+   * tree does. Without the count in the index the only way to know was to
+   * download the symbol, so the arrow appeared only after the row was clicked
+   * and the fetch came back.
+   *
+   * Absent for a library with no multi-unit parts, and absent altogether from
+   * an index generated before the field existed — in which case the tree falls
+   * back to discovering units on selection, as it used to.
+   */
+  units?: Record<string, number>;
 }
 
 /**

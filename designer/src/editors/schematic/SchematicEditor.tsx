@@ -245,6 +245,7 @@ import {
   type PropRow,
   getMsgPanelItems,
   type MsgPanelItem,
+  nextFreeUnit,
 } from '@ziroeda/eeschema';
 import {
   SchematicCanvas,
@@ -786,6 +787,10 @@ export function SchematicEditor({
   // Unit attached to the cursor, and the chooser's checkbox state driving the
   // after-placement continuation (KeepSymbol / PlaceAllUnits stepping).
   const [placeUnit, setPlaceUnit] = useState(1);
+  // Read by the after-placement continuation, which must see the library that
+  // is on the cursor now rather than the one its closure was built with.
+  const placeLibRef = useRef<LibSymbol | null>(null);
+  placeLibRef.current = placeLib;
   const placeFlags = useRef({ keepSymbol: true, placeAllUnits: false, unitCount: 1 });
   const [pendingLabel, setPendingLabel] = useState<PendingLabel | null>(null);
   // The rest of a "Multiple label input" run: KiCad hands TwoClickPlace a list
@@ -1549,6 +1554,17 @@ export function SchematicEditor({
     [activeTool],
   );
 
+  /**
+   * The reference string a fresh placement of `lib` carries: its prefix with a
+   * '?', or the number it was given if it was annotated on the way in. Matching
+   * on it is what keeps two different multi-unit parts, which before annotation
+   * both read "U?", from stepping over each other's units.
+   */
+  const referenceForPlacement = useCallback((lib: LibSymbol): string => {
+    const prefix = lib.properties.find((p) => p.key === 'Reference')?.value ?? 'U';
+    return /\?$/.test(prefix) ? prefix : `${prefix}?`;
+  }, []);
+
   // After each placement: step to the next unit ("Place all units"), keep the
   // symbol attached ("Place repeated copies"), or clear it so the chooser
   // reopens, mirroring the continuation in SCH_DRAWING_TOOLS::PlaceSymbol.
@@ -1564,12 +1580,29 @@ export function SchematicEditor({
     }
     const { keepSymbol, placeAllUnits, unitCount } = placeFlags.current;
     if (placeAllUnits && unitCount > 1) {
-      if (placeUnit < unitCount) {
-        setPlaceUnit(placeUnit + 1);
+      // The next unit that is not already on the sheet, not simply the next
+      // number: upstream walks past the taken ones
+      //
+      //   while( unit <= unitCount && unitOccupied( unit ) ) unit++;
+      //   if( unit > unitCount ) unit = 1;
+      //
+      // Incrementing blindly meant the count restarted whenever the chooser
+      // reopened, so placing a 4001, closing the chooser and placing it again
+      // put a second unit A on the sheet instead of moving on to B.
+      const lib = placeLibRef.current;
+      const d = docRef.current;
+      const next =
+        lib && d
+          ? nextFreeUnit(d.symbols, referenceForPlacement(lib), lib.libId, unitCount, placeUnit + 1)
+          : placeUnit + 1;
+      if (next > 1) {
+        setPlaceUnit(next);
         return;
       }
+      // Wrapped: every unit is placed. Upstream keeps cycling from 1 only when
+      // the symbol is staying on the cursor.
       if (keepSymbol) {
-        setPlaceUnit(1); // wrap around and keep cycling
+        setPlaceUnit(1);
         return;
       }
     } else if (keepSymbol) {
@@ -1577,7 +1610,7 @@ export function SchematicEditor({
     }
     setPlaceLib(null);
     setPlaceUnit(1);
-  }, [placeUnit, placeInstance, setPlaceLib]);
+  }, [placeUnit, placeInstance, setPlaceLib, referenceForPlacement]);
 
   /**
    * SCH_DRAWING_TOOLS::PlaceNextSymbolUnit: attach a copy of the symbol at
