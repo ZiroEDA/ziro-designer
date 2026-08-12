@@ -189,7 +189,7 @@ describe('a cloud copy whose objects are gone', () => {
       files: [{ name: 'board.kicad_pcb', gzB64: '' }],
     });
     const local = await exportProject(id);
-    expect(local!.files.every((f) => f.gzB64.length === 0)).toBe(true);
+    expect(local!.files.every((f) => (f.gzB64?.length ?? 0) === 0)).toBe(true);
     await legacyRowWithNoObjects(id, 'CM5');
 
     const result = await syncAllProjects(USER);

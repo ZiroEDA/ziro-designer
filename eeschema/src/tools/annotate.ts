@@ -54,6 +54,16 @@ export interface AnnotateOptions {
   /** aRegroupUnits: don't collect the locked (already-shared) multi-unit sets,
    *  so units regroup freely by placement. Only meaningful with resetExisting. */
   regroupUnits?: boolean;
+  /**
+   * `SYMBOL_FILTER_T`: whether power symbols are numbered too.
+   *
+   * KiCad passes `SYMBOL_FILTER_NON_POWER` from the Annotate dialog, and
+   * `SYMBOL_FILTER_ALL` when a newly placed symbol is annotated
+   * (`sch_drawing_tools.cpp`), which is how a power symbol gets its `#PWR01`
+   * without ever appearing in the dialog's report. Defaults to the dialog's
+   * filter, so nothing changes for the paths that had no such option.
+   */
+  includePower?: boolean;
   /** REFDES_TRACKER (schematic.used_designators): with reuseRefDes false,
    *  previously-used-but-freed numbers are skipped; every accepted number is
    *  recorded (GetNextRefDesForUnits' m_allRefDes gate + insert). */
@@ -192,7 +202,11 @@ export function annotateHierarchy(
       const ref = referenceOf(sym);
       if (!ref) return;
       const { prefix, num } = splitReference(ref.value);
-      if (prefix.startsWith('#')) return; // power / flag symbols keep their refs
+      // Power and flag symbols keep their references unless the caller asked
+      // for SYMBOL_FILTER_ALL. Note this returns before the reservation below,
+      // so with the filter on they also start reserving their numbers, which is
+      // what stops a second #PWR being handed one that is taken.
+      if (prefix.startsWith('#') && !opts.includePower) return;
       const multiUnit = unitCount(sym.libId, libById) > 1;
       const inScope =
         sheet.scope === 'full' ||

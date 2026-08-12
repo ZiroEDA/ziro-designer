@@ -107,6 +107,7 @@ import {
   type ItemRef,
   collectAndGuess,
   getNode,
+  makeSymbol,
 } from '@ziroeda/eeschema';
 // Imported by module path rather than through the package barrel: Vite serves
 // a cached transform of `eeschema/src/index.ts` and does not re-transform it
@@ -584,6 +585,13 @@ interface Props {
    *  with the entry's far end already placed). A fresh nonce re-arms it. */
   wireStartRequest?: { at: Vec2; nonce: number } | null;
   placeLib: LibSymbol | null;
+  /**
+   * Give a symbol its reference as it is placed, when the "Annotate
+   * Automatically" toggle (or a power symbol) calls for it. Returns the symbol
+   * unchanged otherwise. Applied before the placement command is built, so the
+   * placement and its number are one undo step, as KiCad's single COMMIT is.
+   */
+  onAnnotatePlacement?: (sym: SchSymbol, lib: LibSymbol) => SchSymbol;
   /** Unit of `placeLib` attached to the cursor ("Place all units" stepping). */
   placeUnit?: number;
   /** A ready-built symbol to place instead of one made from `placeLib`'s
@@ -737,6 +745,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     arcEditMode,
     wireStartRequest,
     placeLib,
+    onAnnotatePlacement,
     placeUnit = 1,
     placeInstance = null,
     onSymbolPlaced,
@@ -3016,11 +3025,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (activeTool === 'placeSymbol' || activeTool === 'placePower') {
         if (placeLib) {
           const inst = placeInstanceRef.current;
-          onCommand(
-            inst
-              ? placeSymbolInstance(placeLib, moveSymbolTo(inst, snap(world)))
-              : placeSymbol(placeLib, snap(world), placeOrientRef.current, placeUnit),
-          );
+          // Built, then annotated, then placed. `placeSymbol` makes the symbol
+          // internally, so the pre-built form is used to get the reference on
+          // before the command exists — sch_drawing_tools.cpp annotates inside
+          // the same commit, and this is how that stays one undo step.
+          //
+          // "Place next unit" keeps the reference it is copying (upstream
+          // passes reannotate = false), so it is not touched here.
+          const built = inst
+            ? moveSymbolTo(inst, snap(world))
+            : makeSymbol(placeLib, snap(world), placeOrientRef.current, placeUnit);
+          const ready = inst || !onAnnotatePlacement ? built : onAnnotatePlacement(built, placeLib);
+          onCommand(placeSymbolInstance(placeLib, ready));
           // The editor steps to the next unit, keeps placing copies, or
           // reopens the chooser (sch_drawing_tools.cpp after commit.Push).
           onSymbolPlaced?.();

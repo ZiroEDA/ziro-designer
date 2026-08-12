@@ -139,7 +139,7 @@ describe('blobs written before the split', () => {
     await legacyRow('p-old', 'a.kicad_sch', 'ORIGINAL');
 
     const p = await cloudGet('p-old');
-    expect(Buffer.from(p!.files[0]!.gzB64, 'base64').toString('utf8')).toBe('ORIGINAL');
+    expect(Buffer.from(p!.files[0]!.gzB64 ?? '', 'base64').toString('utf8')).toBe('ORIGINAL');
   });
 
   it('are not reported as missing', async () => {

@@ -114,6 +114,8 @@ import {
   replaceCommand,
   defaultSearchData,
   annotateHierarchy,
+  annotateSymbols,
+  defaultAnnotateOptions,
   incrementAnnotations,
   globalEdit,
   changeSymbols,
@@ -2360,6 +2362,76 @@ export function SchematicEditor({
     [annotateSheets, hierarchyLibs, applySheetDocument, currentFile, selection, onProjectChange],
   );
 
+  /**
+   * Give a symbol being placed its reference, when KiCad would.
+   *
+   * `sch_drawing_tools.cpp`, after the symbol is added and inside the same
+   * commit:
+   *
+   *   if( cfg->m_AnnotatePanel.automatic || newReference.AlwaysAnnotate() )
+   *       refs.ReannotateByOptions( … );
+   *
+   * so the "Annotate Automatically" toggle is not the only gate:
+   * `SCH_REFERENCE::AlwaysAnnotate` is true for a power symbol or a reference
+   * beginning with '#', and those are numbered whatever the toggle says.
+   *
+   * The numbering itself goes through the same pass the Annotate dialog uses,
+   * rather than a second "find the next free number" of its own, so the sort
+   * order, the algorithm, the start number and the designator tracker all apply
+   * exactly as they do there. The symbol is annotated *before* it is placed:
+   * KiCad annotates after adding but within one COMMIT, and building it
+   * annotated is how that comes out as a single undo step here.
+   */
+  const annotatePlacement = useCallback(
+    (sym: SchSymbol, lib: LibSymbol): SchSymbol => {
+      const d = docRef.current;
+      if (!d) return sym;
+      const reference = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+      const alwaysAnnotate = lib.isPower === true || reference.startsWith('#');
+      if (!es.annotation.automatic && !alwaysAnnotate) return sym;
+
+      const tracker = new RefDesTracker();
+      tracker.deserialize(setup.usedDesignators);
+      tracker.reuseRefDes = setup.annotation.allowReuse;
+
+      // Annotate it in a document that already holds it, scoped to it alone, so
+      // every existing reference on the sheet is seen as taken.
+      const staged: Schematic = { ...d, symbols: [...d.symbols, sym] };
+      const libs = new Map(
+        hierarchyLibs([{ file: currentFile, doc: staged, sheetNumber: 1, scope: 'full' }]),
+      );
+      if (!libs.has(lib.libId)) libs.set(lib.libId, lib);
+      const index = staged.symbols.length - 1;
+      const only = new Set([refId('symbol', sym.uuid, index)]);
+      const annotated = annotateSymbols(
+        staged,
+        libs,
+        {
+          ...defaultAnnotateOptions(),
+          scope: 'selection',
+          // The same project settings DIALOG_ANNOTATE seeds itself from.
+          order: setup.annotation.sortOrder,
+          algo:
+            setup.annotation.numbering === 'sheetX100'
+              ? 'sheet_100'
+              : setup.annotation.numbering === 'sheetX1000'
+                ? 'sheet_1000'
+                : 'incremental',
+          startNumber: setup.annotation.firstFreeAfter,
+          resetExisting: false,
+          // SYMBOL_FILTER_ALL: the placement path numbers power symbols too,
+          // which is how a freshly placed GND becomes #PWR01 rather than
+          // staying #PWR? and colliding with the next one.
+          includePower: true,
+          tracker,
+        },
+        only,
+      );
+      return annotated[index] ?? sym;
+    },
+    [setup, es.annotation.automatic, hierarchyLibs, currentFile],
+  );
+
   // Annotate (SCH_EDIT_FRAME::AnnotateSymbols): one numbering pass across the
   // sheets in scope, then the report loop and CheckAnnotate's final control.
   // The REFDES_TRACKER is deserialized from schematic.used_designators, gated
@@ -3432,7 +3504,20 @@ export function SchematicEditor({
   // the copy at the connection point closest to the cursor so it doesn't jump.
   const duplicateSelection = useCallback(() => {
     if (!doc || selection.size === 0) return;
-    const payload = parsePastedText(copySelectionText(doc, selection), doc);
+    // sch_edit_tool.cpp, DUPLICATE: the copy is re-annotated only when the
+    // toggle is on —
+    //
+    //   if( m_frame->eeconfig()->m_AnnotatePanel.automatic )
+    //   { ClearAnnotation(...); AnnotateSymbols( ANNOTATE_SELECTION, ... ); }
+    //
+    // and keeps the reference it was copied from otherwise, duplicate and all,
+    // which is the state the annotate check is there to report. This always
+    // re-annotated, so the toggle made no difference here either.
+    const payload = parsePastedText(
+      copySelectionText(doc, selection),
+      doc,
+      es.annotation.automatic ? 'unique' : 'keep',
+    );
     if (!payload) return;
     let refPoint = payload.refPoint;
     const cursor = cursorRef.current;
@@ -3463,7 +3548,7 @@ export function SchematicEditor({
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
-  }, [doc, selection]);
+  }, [doc, selection, es.annotation.automatic]);
 
   // The paste was dropped: keep the pasted items selected, as KiCad does.
   const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
@@ -7057,6 +7142,7 @@ export function SchematicEditor({
                 pendingErcSelect.current = ercExclusionKey(v);
             }}
             onCommand={runCommand}
+            onAnnotatePlacement={annotatePlacement}
             onEditDrawingSheet={() => setPageSettingsOpen(true)}
             onCursorMove={onCursorMove}
             onScaleChange={onScaleChange}
