@@ -17,7 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, refId } from '@ziroeda/eeschema';
+import { danglingPinPositions, readSchematic, refId } from '@ziroeda/eeschema';
 import {
   DEFAULT_RENDER_OPTS,
   renderSchematic,
@@ -25,7 +25,7 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** Records the centre of every stroked rectangle (the dangling squares). */
 function spy(): { rects: { x: number; y: number }[]; ctx: CanvasRenderingContext2D } {
@@ -226,5 +226,99 @@ describe("dragging a symbol's reference or value text", () => {
     const base = crosses(withSymbol(105), { hiddenItems: new Set([FIELD]) });
     const plain = crosses(withSymbol(105), {});
     expect(base).toBeLessThan(plain);
+  });
+});
+
+describe('dragging a symbol whose pins are not wired up', () => {
+  /**
+   * The reported case, and the one the split was written for: a group of
+   * symbols moved together left a trail of open circles at the position they
+   * started from, which only vanished on the drop.
+   *
+   * A label's mark is at its anchor and a wire's is at its endpoint, so
+   * `previewAnchorKeys` could read both straight off the item. A symbol's marks
+   * are on its *pin tips* — nowhere near its origin — and the walk simply did
+   * not visit symbols, so no key ever matched: the base kept every circle
+   * (`drop` matched nothing) and the preview drew none of them (`keep` likewise).
+   */
+  const withPin = (at: { x: number; y: number }): Schematic =>
+    readSchematic(
+      parse(`(kicad_sch (version 20250114)
+        (lib_symbols
+          (symbol "Device:R"
+            (property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+            (symbol "R_1_1"
+              (pin passive line (at 0 3.81 270) (length 1.27)
+                (name "~" (effects (font (size 1.27 1.27))))
+                (number "1" (effects (font (size 1.27 1.27))))))))
+        (symbol (lib_id "Device:R") (at ${at.x} ${at.y} 0) (unit 1) (uuid "s1")
+          (property "Reference" "R1" (at ${at.x} ${at.y - 5} 0)
+            (effects (font (size 1.27 1.27))))))`),
+    );
+
+  const SYM = 's1';
+  const libsOf = (d: Schematic): Map<string, LibSymbol> =>
+    new Map(d.libSymbols.map((l) => [l.libId, l]));
+
+  /** Where the engine says this sheet's open circles belong. */
+  const marks = (d: Schematic): { x: number; y: number }[] => danglingPinPositions(d, libsOf(d));
+
+  /** Centres of the arcs a paint actually drew. */
+  const circles = (
+    doc: Schematic,
+    extra: Partial<typeof DEFAULT_RENDER_OPTS>,
+  ): { x: number; y: number }[] => {
+    const out: { x: number; y: number }[] = [];
+    const s = spy();
+    (s.ctx as unknown as { arc: (x: number, y: number) => void }).arc = (x, y) => {
+      out.push({ x, y });
+    };
+    setVectorText(true);
+    try {
+      renderSchematic(
+        s.ctx,
+        doc,
+        { scale: 0.0005, offsetX: 0, offsetY: 0 },
+        KICAD_DEFAULT,
+        1400,
+        1000,
+        undefined,
+        undefined,
+        {
+          ...DEFAULT_RENDER_OPTS,
+          grid: { ...DEFAULT_RENDER_OPTS.grid, show: false },
+          showDrawingSheet: false,
+          ...extra,
+        },
+      );
+    } finally {
+      setVectorText(false);
+    }
+    return out;
+  };
+
+  const base = withPin({ x: 100, y: 100 });
+  const moved = withPin({ x: 130, y: 100 });
+  const at = (d: Schematic) => marks(d)[0]!;
+
+  it('the sheet draws the circle at the pin when no drag is running', () => {
+    expect(near(circles(base, {}), at(base))).toBe(true);
+  });
+
+  it('the base drops it once the symbol is being dragged', () => {
+    expect(near(circles(base, { hiddenItems: new Set([SYM]) }), at(base))).toBe(false);
+  });
+
+  it('and the preview carries it to where the symbol now is', () => {
+    expect(near(circles(moved, { onlyItems: new Set([SYM]) }), at(moved))).toBe(true);
+  });
+
+  it('so it is drawn once across the two halves, at the cursor', () => {
+    const all = [
+      ...circles(base, { hiddenItems: new Set([SYM]) }),
+      ...circles(moved, { onlyItems: new Set([SYM]) }),
+    ];
+    expect(near(all, at(base))).toBe(false);
+    expect(all.filter((c) => near([c], at(moved)))).toHaveLength(1);
   });
 });

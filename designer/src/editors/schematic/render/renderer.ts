@@ -32,6 +32,7 @@ import {
   refId,
   symbolBodyBBox,
   danglingPinPositions,
+  symbolPinWorld,
   danglingWireEnds,
   danglingLabelAnchors,
   type DanglingWireEnd,
@@ -331,7 +332,11 @@ function filterDangling(
 }
 
 /** The anchor points of the items a preview pass is drawing. */
-function previewAnchorKeys(sch: Schematic, only: ReadonlySet<string>): Set<string> {
+function previewAnchorKeys(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  only: ReadonlySet<string>,
+): Set<string> {
   const out = new Set<string>();
   const add = (p: { x: number; y: number }): void => {
     out.add(`${p.x},${p.y}`);
@@ -344,6 +349,15 @@ function previewAnchorKeys(sch: Schematic, only: ReadonlySet<string>): Set<strin
       add(l.start);
       add(l.end);
     }
+  });
+  // A symbol's marks sit on its pin tips, not on its origin, so the symbol has
+  // to contribute every pin point it owns. Without this a moving symbol left
+  // its open circles behind at the position it started from, and they caught up
+  // only on the drop — the one kind of item this split was written for, and the
+  // one it did not cover.
+  sch.symbols.forEach((sym, i) => {
+    if (!only.has(refId('symbol', sym.uuid, i))) return;
+    for (const p of symbolPinWorld(sym, libById.get(schSymbolLibraryName(sym)))) add(p);
   });
   return out;
 }
@@ -1341,7 +1355,7 @@ export function renderSchematic(
   // items had already left the sheet. Between them each mark is drawn exactly
   // once, and it travels with its item.
   const moving = g_only ?? g_hidden;
-  const movingKeys = moving ? previewAnchorKeys(sch, moving) : null;
+  const movingKeys = moving ? previewAnchorKeys(sch, libById, moving) : null;
   const dangling = movingKeys
     ? filterDangling(danglingFor(sch, libById), movingKeys, g_only ? 'keep' : 'drop')
     : danglingFor(sch, libById);
