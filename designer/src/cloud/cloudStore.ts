@@ -254,8 +254,15 @@ export async function restoreFromHistory(
  * have come from, so the push refuses and says why. The matching guard on the
  * receiving side lives in `importProject`.
  */
-const isHollow = (files: { gzB64: string }[]): boolean =>
-  files.length > 0 && files.every((f) => f.gzB64.length === 0);
+const isHollow = (files: { gzB64?: string; size?: number }[]): boolean =>
+  files.length > 0 && files.every((f) => (f.size ?? f.gzB64?.length ?? 0) === 0);
+
+/** A manifest carries no bytes; this is how it gets them when one is needed. */
+async function needBytes(p: SyncableProject, name: string): Promise<Uint8Array> {
+  if (!p.bytesOf)
+    throw new Error(`project ${p.id}: no bytes for "${name}" and no way to read them`);
+  return p.bytesOf(name);
+}
 
 /**
  * Commit a project: store every blob, confirm every blob, then write the row.
@@ -278,20 +285,26 @@ export async function cloudUpsert(
     );
   }
 
-  // 1. Work out what this project is made of. The hash comes from the store
-  //    where it was computed when the bytes were written; only a file older
-  //    than that field is hashed here.
-  const files = await Promise.all(
+  // 1. Work out what this project is made of, without reading it.
+  //
+  //    The hash and the size come from the local store, where they were
+  //    computed when the bytes were written. Materialising every file to find
+  //    that out is what made a save expensive: a 10 MB project became a 13 MB
+  //    base64 string and about 400 ms of main-thread work, on every push, even
+  //    when nothing needed uploading. Bytes are fetched below, for the files
+  //    that actually have to be stored.
+  const bytesFor = async (f: { name: string; gzB64?: string }): Promise<Uint8Array> =>
+    f.gzB64 !== undefined ? b64ToBytes(f.gzB64) : await needBytes(p, f.name);
+
+  const manifest: ManifestEntry[] = await Promise.all(
     p.files.map(async (f) => {
-      const bytes = b64ToBytes(f.gzB64);
-      return { name: f.name, bytes, hash: f.hash ?? (await sha256Hex(bytes)) };
+      if (f.hash !== undefined && f.size !== undefined) {
+        return { name: f.name, hash: f.hash, size: f.size };
+      }
+      const bytes = await bytesFor(f);
+      return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
     }),
   );
-  const manifest: ManifestEntry[] = files.map((f) => ({
-    name: f.name,
-    hash: f.hash,
-    size: f.bytes.length,
-  }));
 
   // 2. Store, and confirm, only the blobs not already known to be there.
   //
@@ -305,12 +318,17 @@ export async function cloudUpsert(
   //    upload when the object is there, and the confirm below catches the rarer
   //    case of a write that reports success and does not land, which is exactly
   //    the class of failure that started all this.
-  const fresh = files.filter((f) => !knownPresent.has(f.hash));
-  await Promise.all(fresh.map((f) => putBlob(be, userId, f.bytes)));
+  const fresh = manifest.filter((m) => !knownPresent.has(m.hash));
+  await Promise.all(
+    fresh.map(async (m) => {
+      const src = p.files.find((f) => f.name === m.name)!;
+      return putBlob(be, userId, await bytesFor(src));
+    }),
+  );
 
   const missing = (
     await Promise.all(
-      fresh.map(async (f) => ((await be.hasObject(blobPath(userId, f.hash))) ? null : f.name)),
+      fresh.map(async (m) => ((await be.hasObject(blobPath(userId, m.hash))) ? null : m.name)),
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {

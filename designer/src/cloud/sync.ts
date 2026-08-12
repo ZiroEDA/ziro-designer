@@ -27,6 +27,7 @@
 
 import {
   claimProject,
+  exportManifest,
   exportProject,
   forkLocalCopy,
   hasDivergedLocally,
@@ -174,7 +175,11 @@ export async function syncAllProjects(
  * as the agreed one.
  */
 async function pushOne(userId: string, id: string): Promise<Outcome> {
-  const p = await exportProject(id);
+  // A manifest, not the whole project: names, hashes and sizes, with the bytes
+  // left in the store until a blob actually has to be uploaded. Encoding every
+  // file to base64 to find out that none of them changed cost about 400 ms of
+  // main thread on a 10 MB project, every time edits settled.
+  const p = await exportManifest(id);
   if (!p) return 'pushed';
   // What the last landed push put in the store. Those blobs are still
   // referenced by the cloud row, so they need neither storing nor confirming
@@ -255,7 +260,7 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
   // is the same damage in the other direction, and promoting it over the remote
   // one would destroy the last thing a recovery could come from.
   const local = await exportProject(id);
-  const usable = !!local && local.files.some((f) => f.gzB64.length > 0);
+  const usable = !!local && local.files.some((f) => (f.gzB64?.length ?? 0) > 0);
   if (!usable) {
     // Nothing on this machine to restore from, so the last place to look is the
     // project's own history. Blobs are only collected when no row references
