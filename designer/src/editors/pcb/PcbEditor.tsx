@@ -278,6 +278,7 @@ import {
   drawBoard,
   drawGrid,
   drawDrawingSheet,
+  drawPageLimits,
   drawNetNames,
   drawOriginMarker,
   drawDrcMarkers,
@@ -1907,15 +1908,18 @@ export function PcbEditor({
       // The sheet keeps its colour under a net highlight: DS_PROXY_VIEW_ITEM
       // reads GetLayerColor(LAYER_DRAWINGSHEET), the raw layer colour, not the
       // item-aware GetColor that does the brighten/darken.
-      drawDrawingSheet(
-        bctx,
-        {
-          paper: boardRef.current.paper,
-          titleBlock: boardRef.current.titleBlock,
-          fileName,
-        },
-        sheetColor,
-      );
+      const sheetInfo = {
+        paper: boardRef.current.paper,
+        titleBlock: boardRef.current.titleBlock,
+        fileName,
+      };
+      // The paper edge first, in its own colour, the way DrawBorder runs after
+      // the sheet's items in DS_PROXY_VIEW_ITEM::ViewDraw. This is the call the
+      // board actually makes: the GL recorder disables the sheet
+      // (`drawingSheet: false`) because it stays on this 2D layer, so anything
+      // added to `buildDrawSteps` alone never reaches the screen.
+      drawPageLimits(bctx, sheetInfo, drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits);
+      drawDrawingSheet(bctx, sheetInfo, sheetColor);
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Footprint anchors (LAYER_ANCHOR), *under* the board rather than over it.
