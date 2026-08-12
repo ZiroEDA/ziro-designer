@@ -106,6 +106,9 @@ export const PCB_SPECIAL = {
   ratsnest: rgba(0, 248, 255, 0.35),
   anchor: rgba(255, 38, 226),
   drawingSheet: rgba(200, 114, 171),
+  // LAYER_PAGE_LIMITS: the paper edge, drawn outside the sheet's own frame and
+  // in its own grey, the way eeschema already does it.
+  pageLimits: rgba(181, 181, 181),
   // Netname text colors (builtin_color_themes.h):
   //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
   //    the painter inverts it per copper layer whose color is brighter than
@@ -251,6 +254,7 @@ const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
   ratsnest: C.white, // LAYER_RATSNEST = WHITE
   anchor: C.blue, // LAYER_ANCHOR = BLUE
   drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
+  pageLimits: rgba(181, 181, 181), // LAYER_PAGE_LIMITS
   netName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
   padName: rgba(255, 255, 255, 0.7), // LAYER_PAD_NETNAMES, after the override
   viaName: rgba(50, 50, 50, 0.9), // LAYER_VIA_NETNAMES (same as default)
@@ -305,6 +309,7 @@ export const PCB_BW_PRINT_THEME: PcbColorTheme = {
     ratsnest: C.black,
     anchor: C.black,
     drawingSheet: C.black,
+    pageLimits: C.black,
     netName: C.white,
     padName: C.white,
     viaName: C.black,
@@ -334,6 +339,7 @@ export const PCB_OBJECT_COLORS: Record<string, string> = {
   constrainedShadow: rgba(80, 160, 240, 0.5),
   boardAreaShadow: rgba(100, 100, 100, 0.35),
   drawingSheet: rgba(200, 114, 171),
+  pageLimits: rgba(181, 181, 181),
   grid: rgba(132, 132, 132),
 };
 

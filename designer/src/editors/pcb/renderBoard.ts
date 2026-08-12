@@ -1630,6 +1630,32 @@ const DRAWINGSHEET_COLOR = 'rgb(200,114,171)';
 const NO_DS_SELECTION: ReadonlySet<number> = new Set();
 
 /**
+ * The paper edge (LAYER_PAGE_LIMITS): a rectangle from the page origin to the
+ * page size, in its own colour.
+ *
+ * `DS_PAINTER::draw( DS_DRAW_ITEM_PAGE* )` draws this separately from the
+ * drawing sheet, which is why it is a separate call here rather than something
+ * the sheet description could carry. The schematic has drawn it all along; the
+ * board did not, so the outermost line on a board was the sheet's frame, a
+ * 10 mm margin inside where the page actually ends.
+ */
+export function drawPageLimits(
+  ctx: CanvasRenderingContext2D,
+  info: SheetInfo,
+  color: string,
+  minWidth = 0,
+): void {
+  const page = paperSizeIU(info.paper);
+  if (!page) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.1 * MM, minWidth);
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, page.w, page.h);
+  ctx.restore();
+}
+
+/**
  * The page frame and title block, through the same engine eeschema and
  * pl_editor use.
  *
@@ -1837,7 +1863,14 @@ export function buildDrawSteps(
     ctx.lineJoin = 'round';
     // Drawing sheet (page frame + title block) behind the board, like pcbnew,
     // in the theme's LAYER_DRAWINGSHEET color (classic: dark red; B&W: black).
-    if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet, special.drawingSheet);
+    if (!overlay && sheet && opts.drawingSheet) {
+      // LAYER_PAGE_LIMITS first: the paper edge is its own rectangle in its own
+      // grey, drawn outside the sheet's frame, and pcbnew shows it exactly as
+      // eeschema does. Without it the outermost line on a board was the frame,
+      // 10 mm inside where KiCad's page ends.
+      drawPageLimits(ctx, sheet, special.pageLimits);
+      drawDrawingSheet(ctx, sheet, special.drawingSheet);
+    }
   });
 
   // KiCad's minimum pen: never stroke thinner than one device pixel, expressed

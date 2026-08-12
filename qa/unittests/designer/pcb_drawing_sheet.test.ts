@@ -21,7 +21,7 @@ import {
   PCB_IU_PER_MM,
   type WksResolveContext,
 } from '@ziroeda/common';
-import { drawDrawingSheet } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { drawDrawingSheet, drawPageLimits } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 
@@ -122,6 +122,7 @@ function recordingCtx(): { ctx: CanvasRenderingContext2D; extent: () => number }
     quadraticCurveTo: (_cx: number, _cy: number, x: number) => note(x),
     bezierCurveTo: (_a: number, _b: number, _c: number, _d: number, x: number) => note(x),
     setTransform() {},
+    setLineDash() {},
     translate() {},
     rotate() {},
     measureText: () => ({ width: 0 }),
@@ -160,6 +161,31 @@ describe('the board page frame, as the board draws it', () => {
   it('draws nothing for a page size it does not know', () => {
     const { ctx, extent } = recordingCtx();
     drawDrawingSheet(ctx, { paper: 'Origami' });
+    expect(extent()).toBe(0);
+  });
+});
+
+describe('the paper edge', () => {
+  it('is drawn at the page size, outside the sheet frame', () => {
+    // KiCad draws LAYER_PAGE_LIMITS as its own rectangle (DS_PAINTER::draw of
+    // DS_DRAW_ITEM_PAGE), and eeschema has always shown it. The board did not,
+    // so the outermost line on a board was the sheet's frame — a 10 mm margin
+    // inside where the page actually ends, which is the gap against KiCad that
+    // is visible the moment the two are put side by side.
+    const limits = recordingCtx();
+    drawPageLimits(limits.ctx, { paper: 'A4' }, 'rgb(181,181,181)');
+    const frame = recordingCtx();
+    drawDrawingSheet(frame.ctx, { paper: 'A4' });
+
+    const pageMM = limits.extent() / PCB_IU_PER_MM;
+    expect(pageMM).toBeCloseTo(297, 0);
+    // And it sits outside the frame, by the sheet's margin.
+    expect(limits.extent()).toBeGreaterThan(frame.extent());
+  });
+
+  it('draws nothing for a page size it does not know', () => {
+    const { ctx, extent } = recordingCtx();
+    drawPageLimits(ctx, { paper: 'Origami' }, 'rgb(181,181,181)');
     expect(extent()).toBe(0);
   });
 });
