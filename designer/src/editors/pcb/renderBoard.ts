@@ -1633,11 +1633,15 @@ const NO_DS_SELECTION: ReadonlySet<number> = new Set();
  * The paper edge (LAYER_PAGE_LIMITS): a rectangle from the page origin to the
  * page size, in its own colour.
  *
- * `DS_PAINTER::draw( DS_DRAW_ITEM_PAGE* )` draws this separately from the
- * drawing sheet, which is why it is a separate call here rather than something
- * the sheet description could carry. The schematic has drawn it all along; the
- * board did not, so the outermost line on a board was the sheet's frame, a
- * 10 mm margin inside where the page actually ends.
+ * `DS_PAINTER::DrawBorder`, called from `DS_PROXY_VIEW_ITEM::ViewDraw` after the
+ * sheet's own items and gated on `GetShowPageLimits()`. Every editor that shows
+ * a drawing sheet goes through that proxy item, so pcbnew draws this exactly as
+ * eeschema does — it is not part of the sheet description, which is why it is a
+ * separate call here.
+ *
+ * (`DS_DRAW_ITEM_PAGE`, which also draws a page rectangle plus a corner marker,
+ * is built only by `pl_draw_panel_gal.cpp`: it belongs to the drawing sheet
+ * editor and is not what a board shows.)
  */
 export function drawPageLimits(
   ctx: CanvasRenderingContext2D,

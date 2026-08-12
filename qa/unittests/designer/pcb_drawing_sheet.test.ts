@@ -167,8 +167,9 @@ describe('the board page frame, as the board draws it', () => {
 
 describe('the paper edge', () => {
   it('is drawn at the page size, outside the sheet frame', () => {
-    // KiCad draws LAYER_PAGE_LIMITS as its own rectangle (DS_PAINTER::draw of
-    // DS_DRAW_ITEM_PAGE), and eeschema has always shown it. The board did not,
+    // KiCad draws LAYER_PAGE_LIMITS as its own rectangle: DS_PAINTER::DrawBorder,
+    // from DS_PROXY_VIEW_ITEM::ViewDraw, for every editor that shows a sheet.
+    // eeschema has always shown it here and the board did not,
     // so the outermost line on a board was the sheet's frame — a 10 mm margin
     // inside where the page actually ends, which is the gap against KiCad that
     // is visible the moment the two are put side by side.
