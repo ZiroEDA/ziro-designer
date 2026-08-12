@@ -1918,8 +1918,26 @@ export function PcbEditor({
       // board actually makes: the GL recorder disables the sheet
       // (`drawingSheet: false`) because it stays on this 2D layer, so anything
       // added to `buildDrawSteps` alone never reaches the screen.
-      drawPageLimits(bctx, sheetInfo, drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits);
-      drawDrawingSheet(bctx, sheetInfo, sheetColor);
+      // One device pixel, as the world width that is one pixel at this zoom.
+      //
+      // CAIRO_GAL_BASE::syncLineWidth floors every stroke at a pixel:
+      //
+      //   double w = floor( xform( m_lineWidth ) + 0.5 );
+      //   if( w <= 1.0 ) { w = 1.0; ... }
+      //
+      // The sheet's own pen is 0.15 mm and pcbnew's on-screen default pen is 0,
+      // so at any normal board zoom the frame is well under a pixel wide. KiCad
+      // draws it as a crisp one-pixel line; we drew it at its true 0.6 px and
+      // got a dim half-transparent grey, which is the whole of why the frame
+      // looked washed out next to KiCad's.
+      const hairline = v.scale > 0 ? 1 / v.scale : 0;
+      drawPageLimits(
+        bctx,
+        sheetInfo,
+        drawOpts.theme?.special.pageLimits ?? PCB_SPECIAL.pageLimits,
+        hairline,
+      );
+      drawDrawingSheet(bctx, sheetInfo, sheetColor, undefined, hairline);
       bctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // Footprint anchors (LAYER_ANCHOR), *under* the board rather than over it.
