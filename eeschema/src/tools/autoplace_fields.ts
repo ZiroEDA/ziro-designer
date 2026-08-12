@@ -37,7 +37,7 @@
  *       to fixed one-wire-per-field spacing.
  */
 
-import type { LibSymbol, SchField, SchSymbol, SchLine, Vec2 } from '../types.js';
+import type { LibSymbol, SchField, SchSheet, SchSymbol, SchLine, Vec2 } from '../types.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
 import { symbolFieldBoxes } from '../fieldbox.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -47,6 +47,7 @@ import { refId } from './hittest.js';
 import type { Schematic } from '../types.js';
 import type { EditCommand } from './command.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 
 /** The paddings, all "arbitrarily chosen for aesthetics" upstream. */
 const FIELD_PADDING = mmToIU(15 * 0.0254);
@@ -582,6 +583,100 @@ export function autoplaceFields(
           ),
         }),
         invert: () => autoplaceFields(doc, ids, libById, opts)!,
+      };
+    },
+  };
+}
+
+/**
+ * `SCH_SHEET::AutoplaceFields` (sch_sheet.cpp:897): the sheet name goes above
+ * the box and the filename below it, both left-justified against its left edge,
+ * clear of the border by half a text height.
+ *
+ * A sheet with pins only on its top and bottom edges is "vertically oriented",
+ * and then the two fields stand on end beside it instead
+ * (`IsVerticalOrientation`: `topBottom > 0 && leftRight == 0`).
+ */
+function autoplacedSheetFields(sheet: SchSheet, defaultLineWidth: number): SchField[] {
+  const penWidth =
+    sheet.stroke?.width && sheet.stroke.width > 0 ? sheet.stroke.width : defaultLineWidth;
+  const borderMargin = Math.round(penWidth / 2) + 4;
+  // A pin's `angle` encodes its side: 0 = right, 90 = top, 180 = left,
+  // 270 = bottom (SHEET_SIDE).
+  let leftRight = 0;
+  let topBottom = 0;
+  for (const p of sheet.pins) {
+    if (p.angle === 0 || p.angle === 180) leftRight++;
+    else if (p.angle === 90 || p.angle === 270) topBottom++;
+  }
+  const vertical = topBottom > 0 && leftRight === 0;
+
+  const place = (f: SchField, isName: boolean): SchField => {
+    const [h = 0, w = 0] = f.effects?.fontSize ?? [];
+    // The name clears the border by half a text size, the filename by 0.4 of it.
+    const margin = borderMargin + Math.round(Math.max(w, h) * (isName ? 0.5 : 0.4));
+    const at = isName
+      ? vertical
+        ? { x: sheet.at.x - margin, y: sheet.at.y + sheet.size.h }
+        : { x: sheet.at.x, y: sheet.at.y - margin }
+      : vertical
+        ? { x: sheet.at.x + sheet.size.w + margin, y: sheet.at.y + sheet.size.h }
+        : { x: sheet.at.x, y: sheet.at.y + sheet.size.h + margin };
+    // Both are left-justified; the name sits on its baseline above the box and
+    // the filename hangs below its own.
+    const justify = ['left', isName ? 'bottom' : 'top'];
+    const next: SchField = {
+      ...f,
+      at,
+      angle: vertical ? 90 : 0,
+      effects: { ...(f.effects ?? { hidden: false }), justify },
+    };
+    return { ...next, source: buildPropertyNode(next) };
+  };
+
+  return sheet.fields.map((f) =>
+    f.key === 'Sheetname' ? place(f, true) : f.key === 'Sheetfile' ? place(f, false) : f,
+  );
+}
+
+/**
+ * Autoplace the fields of every selected sheet, the sheet half of
+ * SCH_ACTIONS::autoplaceFields (`autoplaceCondition` is `FieldOwners`, which is
+ * symbols, sheets and labels — not symbols alone).
+ */
+export function autoplaceSheetFields(
+  doc: Schematic,
+  ids: ReadonlySet<string>,
+  defaultLineWidth: number,
+): EditCommand | null {
+  const placed = new Map<number, SchField[]>();
+  doc.sheets.forEach((sh, i) => {
+    if (ids.has(refId('sheet', sh.uuid, i)))
+      placed.set(i, autoplacedSheetFields(sh, defaultLineWidth));
+  });
+  if (placed.size === 0) return null;
+
+  return {
+    label: 'Autoplace Fields',
+    apply(d) {
+      return {
+        ...d,
+        sheets: d.sheets.map((sh, i) => {
+          const fields = placed.get(i);
+          return fields ? { ...sh, fields } : sh;
+        }),
+      };
+    },
+    invert(before) {
+      return {
+        label: 'Autoplace Fields',
+        apply: (d) => ({
+          ...d,
+          sheets: d.sheets.map((sh, i) =>
+            placed.has(i) ? { ...sh, fields: before.sheets[i]!.fields } : sh,
+          ),
+        }),
+        invert: () => autoplaceSheetFields(doc, ids, defaultLineWidth)!,
       };
     },
   };

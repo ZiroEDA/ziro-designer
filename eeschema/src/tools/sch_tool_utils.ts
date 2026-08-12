@@ -9,7 +9,7 @@
  */
 
 import type { Schematic, SchSymbol } from '../types.js';
-import { refId } from './hittest.js';
+import { itemRefById, refId } from './hittest.js';
 
 /** GetSelectedItemsAsText: the selected items' texts joined with newlines. */
 export function getSelectedItemsAsText(sch: Schematic, ids: ReadonlySet<string>): string {
@@ -129,4 +129,57 @@ export function screenHasItems(sch: Schematic): boolean {
     sch.tables.length > 0 ||
     (sch.directiveLabels?.length ?? 0) > 0
   );
+}
+
+/**
+ * `SCH_CONDITIONS::HasTypes( expandConnectionGraphTypes )`, the condition on
+ * Select/Expand Connection (sch_selection_tool.cpp:531).
+ *
+ * The list is the connectivity-carrying kinds. A hierarchical sheet is not one
+ * of them — a sheet's connections are its pins — so the entry is absent from a
+ * sheet's menu even though a sheet is very much connected to things.
+ */
+export function selectionIsExpandable(sch: Schematic, ids: ReadonlySet<string>): boolean {
+  const EXPANDABLE = new Set([
+    'symbol',
+    'pin',
+    'line',
+    'busentry',
+    'label',
+    'directive',
+    'sheetpin',
+    'junction',
+    'noconnect',
+    'graphic',
+  ]);
+  for (const id of ids) {
+    const ref = itemRefById(sch, id);
+    if (ref && EXPANDABLE.has(ref.kind)) return true;
+  }
+  return false;
+}
+
+/**
+ * `canCopyText` (sch_edit_tool.cpp), an **Only**Types condition: Copy as Text is
+ * offered when everything selected carries text. One symbol or sheet in the
+ * selection removes it, since there would be nothing to put on the clipboard
+ * for that item.
+ */
+export function selectionCanCopyAsText(sch: Schematic, ids: ReadonlySet<string>): boolean {
+  const TEXTUAL = new Set([
+    'label',
+    'directive',
+    'textbox',
+    'table',
+    'tablecell',
+    'field',
+    'pin',
+    'sheetpin',
+  ]);
+  if (ids.size === 0) return false;
+  for (const id of ids) {
+    const ref = itemRefById(sch, id);
+    if (!ref || !TEXTUAL.has(ref.kind)) return false;
+  }
+  return true;
 }

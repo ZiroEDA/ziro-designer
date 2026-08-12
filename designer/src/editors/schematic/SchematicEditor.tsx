@@ -43,6 +43,7 @@ import {
   alignItems,
   alignToGridCommand,
   autoplaceFields,
+  autoplaceSheetFields,
   ALIGN_LABELS,
   type AlignMode,
   attributeIsSet,
@@ -98,6 +99,8 @@ import {
   setSymbolsLockedCommand,
   expandSelectionToGroups,
   screenHasItems,
+  selectionCanCopyAsText,
+  selectionIsExpandable,
   getNode,
   selectConnection,
   planNetclassAssignment,
@@ -296,6 +299,7 @@ import {
   RIGHT_TOOLBAR_COMMANDS,
 } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
+import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
@@ -944,7 +948,13 @@ export function SchematicEditor({
     null,
   );
   // Editing the current sheet's page number (SCH_ACTIONS::editPageNumber).
-  const [pageEdit, setPageEdit] = useState<{ page: string } | null>(null);
+  // The page-number dialog. `sheet` is the selected sheet's index and uuid when
+  // the edit targets a *sub*-sheet from the context menu; without it the open
+  // sheet's own page number is edited, which is what the Edit menu does.
+  const [pageEdit, setPageEdit] = useState<{
+    page: string;
+    sheet?: { index: number; uuid: string };
+  } | null>(null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
   const [lineEdit, setLineEdit] = useState<{
@@ -1675,7 +1685,22 @@ export function SchematicEditor({
   // SCH_SHEET_PATH::SetPageNumber). The root edits its own document; a sub-sheet
   // edits its object in the *parent* document (through that doc's own history).
   const editPageNumber = useCallback(
-    (page: string) => {
+    (page: string, target?: { index: number; uuid: string }) => {
+      // SCH_EDIT_TOOL::EditPageNumber with a sheet selected edits *that*
+      // sheet's instance under the open sheet, not the open sheet's own:
+      //
+      //   SCH_SHEET_PATH instance = m_frame->GetCurrentSheet();
+      //   instance.push_back( sheet );
+      //
+      // so the path is the current one with the selected sheet pushed on.
+      if (target) {
+        const docs = liveDocs();
+        const rootUuid = docs.get(project.current.root)?.uuid;
+        if (!rootUuid) return;
+        const chain = [...currentPath.split('/').filter(Boolean), target.uuid];
+        runCommand(setSheetPageNumberCommand(target.index, instanceKey(rootUuid, chain), page));
+        return;
+      }
       if (currentPath === '/') {
         runCommand(setRootPageNumberCommand(page));
         return;
@@ -5495,11 +5520,41 @@ export function SchematicEditor({
       shortcut,
       action: () => onToolSelect(id),
     });
-    const items: MenuItem[] = [];
+    // KiCad does not build this menu in reading order: every entry is filed
+    // under a rank (`CONDITIONAL_MENU::AddItem`'s last argument) and the menu is
+    // the ranks concatenated, with the separators declared as entries of their
+    // own. `addEntry` inserts after everything of the same rank, so within a
+    // rank the order is the order the *tools* registered in — selection tool,
+    // then edit tool, then move tool, then group tool.
+    //
+    // Ranks used below, with where they come from:
+    //     1   symbol unit / body style menus      sch_edit_tool.cpp
+    //     2   Select/Expand Connection            sch_selection_tool.cpp
+    //    50   point-editor corners                sch_point_editor.cpp (ANY_ORDER)
+    //   100   Draw Wires / Draw Buses             sch_selection_tool.cpp
+    //   101   Grouping, Align, Table, Unfold      group_tool.cpp / align / table
+    //   150   Enter/Leave Sheet, Move, Drag       sch_selection_tool / sch_move_tool
+    //   200   Transform, Attributes, Properties…  sch_edit_tool.cpp
+    //   250   sheet pins, labels, netclass, Lock  sch_selection_tool / sch_edit_tool
+    //   300   the clipboard block                 sch_edit_tool.cpp
+    //   400   net chain menu                      sch_selection_tool.cpp
+    //   401   Select All / Unselect All           sch_edit_tool.cpp
+    //  1000   Zoom / Grid                         AddStandardSubMenus
+    //
+    // Ranks 100 and 101 are one rank upstream; they are split here because the
+    // second `AddSeparator( 100 )` falls between them, and that separator is
+    // the line under Draw Buses. The fractions on 250 are the same trick: they
+    // are not upstream ranks, they encode the order insertion gives that block
+    // (labels, break/slice, sheet pins, netclass, page number, then the edit
+    // tool's own cleanup and lock entries).
+    const entries: RankedItem[] = [];
+    const add = (order: number, ...list: MenuItem[]): void => {
+      for (const item of list) entries.push({ order, item });
+    };
     if (selection.size > 0) {
       // GROUP_CONTEXT_MENU: all four items always shown, greyed per condition
       // (GROUP_TOOL::update Enable()). Labels are the actions' FriendlyNames.
-      items.push({
+      add(101, {
         label: 'Grouping',
         items: [
           { ...act('Group Items', 'group'), disabled: selection.size < 2 },
@@ -5524,9 +5579,10 @@ export function SchematicEditor({
         if (anyUnlocked) lockItems.push(act('Lock', 'lock'));
         if (anyLocked) lockItems.push(act('Unlock', 'unlock'));
         lockItems.push(act('Toggle Lock', 'toggleLock'));
-        items.push({ label: 'Locking', items: lockItems });
+        add(250.5, { label: 'Locking', items: lockItems });
       }
-      items.push(
+      add(
+        150,
         {
           label: 'Move',
           icon: 'move',
@@ -5541,12 +5597,17 @@ export function SchematicEditor({
         },
       );
       if (netlist && selectedNets(netlist, selection).length > 0)
-        items.push({ label: 'Assign Netclass...', icon: 'assignNetclass', action: assignNetclass });
+        add(250.3, {
+          label: 'Assign Netclass...',
+          icon: 'assignNetclass',
+          action: assignNetclass,
+        });
       // SCH_ACTIONS::breakWire / ::slice, both offered whenever a line is
       // selected (SCH_SELECTION_TOOL's `linesSelection` condition). Break
       // divides into connected segments, Slice into unconnected ones.
       if (doc && [...selection].some((id) => id.startsWith('line:')))
-        items.push(
+        add(
+          250.1,
           {
             label: 'Break',
             icon: 'break',
@@ -5558,13 +5619,16 @@ export function SchematicEditor({
             action: () => setGrabRequest((p) => ({ kind: 'slice', nonce: (p?.nonce ?? 0) + 1 })),
           },
         );
-      if (hit?.kind === 'sheet')
-        items.push(
-          {
-            label: 'Enter Sheet',
-            icon: 'enterSheet',
-            action: () => onEditItem(hit.id, 'sheet'),
-          },
+      if (hit?.kind === 'sheet') {
+        add(150, {
+          label: 'Enter Sheet',
+          icon: 'enterSheet',
+          action: () => onEditItem(hit.id, 'sheet'),
+        });
+        // SCH_ACTIONS::placeSheetPin, the first of the sheet block at rank 250.
+        add(250.2, tool('Place Pins from Sheet', 'sheetPin'));
+        add(
+          250.2,
           // SCH_ACTIONS::autoplaceAllSheetPins: a pin for every hierarchical
           // label inside the sheet that has none yet.
           {
@@ -5589,26 +5653,57 @@ export function SchematicEditor({
               if (cmd) runCommand(cmd);
             },
           },
-          // SCH_ACTIONS::cleanupSheetPins: drop the pins that no longer name a
-          // hierarchical label inside the sheet.
+          // SCH_ACTIONS::syncSheetPins ("Sync Selected Sheet Pins..."), the
+          // one-sheet form of the toolbar's Sync All.
           {
-            label: 'Cleanup Sheet Pins',
-            icon: 'cleanupSheetPins',
-            action: () => {
-              if (!doc) return;
-              const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
-              const sh = doc.sheets[si];
-              if (!sh) return;
-              const file = sh.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
-              const child = liveDocs().get(file);
-              // Without the child document there is nothing to check against,
-              // and dropping every pin would be worse than doing nothing.
-              if (!child) return;
-              const cmd = cleanupSheetPins(doc, si, hierarchicalLabelNames(child));
-              if (cmd) runCommand(cmd);
-            },
+            label: 'Sync Selected Sheet Pins...',
+            icon: 'syncSheetPins',
+            action: () => onTopAction('syncSheetPins'),
           },
         );
+        // SCH_ACTIONS::editPageNumber, whose condition here is
+        // `schEditSheetPageNumberCondition` — at most one sheet selected. Last
+        // of the selection tool's rank-250 block, after the sheet-pin actions.
+        add(250.4, {
+          label: 'Edit Sheet Page Number...',
+          icon: 'editPageNumber',
+          action: () => {
+            if (!doc) return;
+            const si = doc.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id);
+            const sh = doc.sheets[si];
+            if (!sh?.uuid) return;
+            const rootUuid = liveDocs().get(project.current.root)?.uuid;
+            const chain = [...currentPath.split('/').filter(Boolean), sh.uuid];
+            const key = rootUuid ? instanceKey(rootUuid, chain) : '';
+            setPageEdit({
+              page: sh.instances.find((i) => i.path === key)?.page ?? '',
+              sheet: { index: si, uuid: sh.uuid },
+            });
+          },
+        });
+        // SCH_ACTIONS::cleanupSheetPins is the one sheet entry with a condition
+        // of its own (`sheetHasUndefinedPins`): it is offered only when the
+        // sheet actually carries a pin that no longer names a hierarchical
+        // label inside it. `cleanupSheetPins` returning null is that test.
+        {
+          const si = doc?.sheets.findIndex((s, i) => refId('sheet', s.uuid, i) === hit.id) ?? -1;
+          const sh = si >= 0 ? doc?.sheets[si] : undefined;
+          const file = sh?.fields.find((f) => f.key === 'Sheetfile')?.value ?? '';
+          // Without the child document there is nothing to check against, and
+          // dropping every pin would be worse than doing nothing.
+          const child = file ? liveDocs().get(file) : undefined;
+          const cmd =
+            doc && child && si >= 0
+              ? cleanupSheetPins(doc, si, hierarchicalLabelNames(child))
+              : null;
+          if (cmd)
+            add(250.5, {
+              label: 'Cleanup Sheet Pins',
+              icon: 'cleanupSheetPins',
+              action: () => runCommand(cmd),
+            });
+        }
+      }
       // SCH_POINT_EDITOR's own two menu items, shown for a polyline under the
       // same conditions upstream gates them on: the cursor has to be on the
       // shape to add a corner, and on one of its vertices to remove one.
@@ -5618,7 +5713,7 @@ export function SchematicEditor({
           doc && selection.size === 1 ? pointEditTarget(doc, [...selection][0]!) : null;
         if (doc && target && pe) {
           if (canAddCorner(doc, target, pe.world, pe.tolerance))
-            items.push({
+            add(50, {
               label: 'Add Corner',
               icon: 'addCorner',
               action: () => {
@@ -5627,7 +5722,7 @@ export function SchematicEditor({
               },
             });
           if (pe.handle && canRemoveCorner(doc, target, pe.handle))
-            items.push({
+            add(50, {
               label: 'Remove Corner',
               icon: 'removeCorner',
               action: () => {
@@ -5637,29 +5732,52 @@ export function SchematicEditor({
             });
         }
       }
-      // SCH_ACTIONS::autoplaceFields, offered whenever a symbol is selected.
-      if (
-        doc &&
-        [...selection].some((id) => doc.symbols.some((sy, i) => refId('symbol', sy.uuid, i) === id))
-      )
-        items.push({
-          label: 'Autoplace Fields',
-          icon: 'autoplaceFields',
-          shortcut: 'O',
-          action: () => {
-            const cmd = autoplaceFields(
-              doc,
-              selection,
-              libById,
-              {
-                allowRejustify: es.autoplace_fields.allow_rejustify,
-                alignToGrid: es.autoplace_fields.align_to_grid,
-              },
-              drawableArea(doc),
-            );
-            if (cmd) runCommand(cmd);
-          },
-        });
+      // SCH_ACTIONS::autoplaceFields. `autoplaceCondition` is `FieldOwners` —
+      // symbols, sheets and labels — not symbols alone, so a sheet gets the
+      // entry too and it moves the Sheetname/Sheetfile text back to the box.
+      //
+      // Labels are the part of FieldOwners still missing:
+      // `SCH_LABEL_BASE::AutoplaceFields` places its fields off the direction
+      // the label's connection leaves in, which we have not ported. Offering a
+      // menu entry that does nothing would be worse than leaving it out.
+      {
+        const symbolSel =
+          doc?.symbols.some((sy, i) => selection.has(refId('symbol', sy.uuid, i))) ?? false;
+        const sheetSel = doc?.sheets.some((sh, i) => selection.has(refId('sheet', sh.uuid, i)));
+        if (doc && (symbolSel || sheetSel))
+          add(200, {
+            label: 'Autoplace Fields',
+            icon: 'autoplaceFields',
+            shortcut: 'O',
+            action: () => {
+              const cmds = [
+                symbolSel
+                  ? autoplaceFields(
+                      doc,
+                      selection,
+                      libById,
+                      {
+                        allowRejustify: es.autoplace_fields.allow_rejustify,
+                        alignToGrid: es.autoplace_fields.align_to_grid,
+                      },
+                      drawableArea(doc),
+                    )
+                  : null,
+                sheetSel
+                  ? // `SCH_SHEET::GetPenWidth` falls back to the schematic's
+                    // default line width, which this setting holds in mils.
+                    autoplaceSheetFields(
+                      doc,
+                      selection,
+                      es.drawing.default_line_thickness * IU_PER_MILS,
+                    )
+                  : null,
+              ].filter((c): c is EditCommand => c !== null);
+              if (cmds.length === 1) runCommand(cmds[0]!);
+              else if (cmds.length > 1) runCommand(composeCommands('Autoplace Fields', cmds));
+            },
+          });
+      }
       // SYMBOL_UNIT_MENU: which unit of a multi-unit part this placement is.
       // Units already on the sheet are annotated rather than disabled, since
       // re-picking one is legitimate when swapping two of them over.
@@ -5689,13 +5807,13 @@ export function SchematicEditor({
                 action: () => placeNextSymbolUnit(si, u),
               });
           }
-          items.push({ label: 'Symbol Unit', items: unitItems });
+          add(1, { label: 'Symbol Unit', items: unitItems });
         }
       }
       // SCH_EDIT_TOOL's Attributes submenu, the same five item edits the Edit
       // menu carries (SCH_EDIT_TOOL::SetAttribute).
       if (doc && Object.values(ATTRIBUTE_IDS).some((a) => canSetAttribute(doc, selection, a)))
-        items.push({
+        add(200, {
           label: 'Attributes',
           items: ATTRIBUTE_MENU.map(({ id, label }) => ({
             label,
@@ -5712,7 +5830,7 @@ export function SchematicEditor({
         if (si !== -1) {
           const sym = doc.symbols[si]!;
           const isPower = !!libById.get(schSymbolLibraryName(sym))?.isPower;
-          const entries: MenuItem[] = [];
+          const fieldEntries: MenuItem[] = [];
           for (const [key, label, shortcut] of [
             ['Reference', 'Edit Reference...', 'U'],
             ['Value', 'Edit Value...', 'V'],
@@ -5721,14 +5839,15 @@ export function SchematicEditor({
           ] as [string, string, string][]) {
             const fi = sym.fields.findIndex((f) => f.key === key);
             if (fi !== -1)
-              entries.push({
+              fieldEntries.push({
                 label,
                 shortcut,
                 action: () => setFieldEdit({ symbol: si, index: fi }),
               });
           }
-          if (entries.length > 0) items.push({ label: 'Edit Main Fields', items: entries });
-          items.push(
+          if (fieldEntries.length > 0) add(200, { label: 'Edit Main Fields', items: fieldEntries });
+          add(
+            200,
             {
               label: 'Change Symbol...',
               action: () => {
@@ -5786,11 +5905,11 @@ export function SchematicEditor({
             },
           },
         ];
-        items.push({ label: 'Table', items: cellItems });
+        add(101, { label: 'Table', items: cellItems });
       }
       // SCH_ACTIONS::cycleBodyStyle: step to the De Morgan alternate.
       if (doc && cycleBodyStyle(doc, selection, libById))
-        items.push({
+        add(1, {
           label: 'Cycle Body Style',
           icon: 'cycleBodyStyle',
           action: () => {
@@ -5800,7 +5919,7 @@ export function SchematicEditor({
         });
       // SCH_ACTIONS::swap (Alt+S).
       if (doc && canSwap(doc, selection))
-        items.push({
+        add(200, {
           label: 'Swap',
           icon: 'swap',
           shortcut: 'Alt+S',
@@ -5813,7 +5932,7 @@ export function SchematicEditor({
       // whenever there is something movable selected. It drags each item onto
       // the grid, so connected wiring comes along.
       if (doc && selection.size > 0)
-        items.push({
+        add(150, {
           label: 'Align Items to Grid',
           action: () => {
             const grid = gridSizeToIU(
@@ -5827,7 +5946,7 @@ export function SchematicEditor({
       // line up. The click position is the target hint (selectTarget prefers
       // the item under the cursor), so it is passed through.
       if (selection.size > 1)
-        items.push({
+        add(101, {
           label: 'Align Items',
           items: (['top', 'bottom', 'left', 'right', 'centerX', 'centerY'] as AlignMode[]).map(
             (mode) => ({
@@ -5852,18 +5971,15 @@ export function SchematicEditor({
         });
       // KiCad groups the four transforms into a submenu rather than listing
       // them flat (SCH_EDIT_TOOL's Transform Selection menu).
-      items.push(
-        { sep: true },
-        {
-          label: 'Transform Selection',
-          items: [
-            act('Rotate Counterclockwise', 'rotateCCW', 'R'),
-            act('Rotate Clockwise', 'rotateCW', 'Shift+R'),
-            act('Mirror Vertically', 'mirrorV', 'Y'),
-            act('Mirror Horizontally', 'mirrorH', 'X'),
-          ],
-        },
-      );
+      add(200, {
+        label: 'Transform Selection',
+        items: [
+          act('Rotate Counterclockwise', 'rotateCCW', 'R'),
+          act('Rotate Clockwise', 'rotateCW', 'Shift+R'),
+          act('Mirror Vertically', 'mirrorV', 'Y'),
+          act('Mirror Horizontally', 'mirrorH', 'X'),
+        ],
+      });
       // SCH_EDIT_TOOL's "Change To" submenu (toLabel / toGLabel / toHLabel /
       // toDLabel / toText / toTextBox), shown when the selection holds
       // anything convertible. Each entry greys out for a selection that is
@@ -5873,7 +5989,7 @@ export function SchematicEditor({
         const anyText =
           convertible || (doc ? changeTextType(doc, selection, 'label') !== null : false);
         if (anyText)
-          items.push({
+          add(200, {
             label: 'Change To',
             items: (
               [
@@ -5898,7 +6014,7 @@ export function SchematicEditor({
           });
       }
       if (selection.size === 1)
-        items.push({
+        add(200, {
           label: 'Properties...',
           icon: 'properties',
           shortcut: 'E',
@@ -5910,7 +6026,7 @@ export function SchematicEditor({
         const bi = doc.lines.findIndex((l, i) => refId('line', l.uuid, i) === hit.id);
         const members = bi === -1 ? [] : busUnfoldMembers(doc, bi, busAliases);
         if (members.length)
-          items.push({
+          add(101, {
             label: 'Unfold from Bus',
             items: members.map((net) => ({
               label: net,
@@ -5937,14 +6053,14 @@ export function SchematicEditor({
           });
       }
       if (hit?.kind === 'line')
-        items.push(
-          { sep: true },
+        add(
+          250,
           tool('Place Junction', 'junction', 'J'),
           tool('Place Net Label', 'placeLabel', 'L'),
+          // placeClassLabel sits between the net and global labels upstream.
+          tool('Place Netclass Directive Label', 'placeClassLabel'),
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
-          // placeClassLabel sits with the other label tools on a wire.
-          tool('Place Netclass Directive Label', 'placeClassLabel'),
         );
       // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
       // selections; Highlight / Remove-from / Name when the hit item's net
@@ -6011,21 +6127,23 @@ export function SchematicEditor({
             label: 'Clear Net Highlighting',
             action: clearHighlight,
           });
-        if (chainItems.length > 0) items.push({ sep: true }, ...chainItems);
+        if (chainItems.length > 0) add(400, ...chainItems);
       }
-      items.push(
-        { sep: true },
-        {
-          // SCH_ACTIONS::selectConnection, on the selection context menu as
-          // well as Ctrl+4 (sch_selection_tool.cpp's expandableSelection).
+      // SCH_ACTIONS::selectConnection, gated on `expandableSelection` — the
+      // connectivity-carrying kinds. A sheet is not one of them.
+      if (doc && selectionIsExpandable(doc, selection))
+        add(2, {
           label: 'Select/Expand Connection',
           shortcut: 'Ctrl+4',
           action: expandSelectionAlongConnection,
-        },
-        { sep: true },
-        act('Cut', 'cut', 'Ctrl+X'),
-        act('Copy', 'copy', 'Ctrl+C'),
-        act('Copy as Text', 'copyAsText', 'Ctrl+Shift+C'),
+        });
+      add(300, act('Cut', 'cut', 'Ctrl+X'), act('Copy', 'copy', 'Ctrl+C'));
+      // `canCopyText` is an OnlyTypes condition: every selected item has to
+      // carry text, so one symbol or sheet in the selection removes it.
+      if (doc && selectionCanCopyAsText(doc, selection))
+        add(300, act('Copy as Text', 'copyAsText', 'Ctrl+Shift+C'));
+      add(
+        300,
         act('Paste', 'paste', 'Ctrl+V'),
         act('Paste Special...', 'pasteSpecial', 'Ctrl+Shift+V'),
         act('Delete', 'delete', 'Delete'),
@@ -6037,32 +6155,7 @@ export function SchematicEditor({
         },
       );
     } else {
-      items.push(tool('Draw Wires', 'drawWire', 'W'), tool('Draw Buses', 'drawBus', 'B'));
-      // Leave Sheet is always on the menu, greyed on the sheet you cannot leave.
-      // The two halves of that come from different conditions, and the reason
-      // they differ is the virtual root `SCHEMATIC::ensureVirtualRoot` puts
-      // above the top-level sheets:
-      //
-      //   menu.AddItem( leaveSheet, belowRootSheetCondition, 150 );   // shown
-      //       -> GetCurrentSheet().Last() != &Schematic().Root()
-      //   mgr->SetConditions( leaveSheet, ENABLE( CanGoUp() ) );      // enabled
-      //       -> Last() is not one of GetTopLevelSheets()
-      //
-      // On the top-level schematic the first is *true* — the invisible root
-      // sits above it — while the second is false. Hence shown and greyed.
-      // We have no virtual root, so the shown half is always true for us and
-      // only the enable is left to compute.
-      items.push(
-        { sep: true },
-        {
-          label: 'Leave Sheet',
-          icon: 'navUp',
-          // As KiCad prints it, and as our own hotkey list already does.
-          shortcut: 'Alt+Backspace',
-          action: () => onTopAction('navUp'),
-          disabled: parentPath(currentPath) === null,
-        },
-      );
+      add(100, tool('Draw Wires', 'drawWire', 'W'), tool('Draw Buses', 'drawBus', 'B'));
       // The clipboard block, rank 300 in sch_edit_tool.cpp. Cut / Copy / Copy
       // as Text / Delete are conditioned on a selection (`IdleSelection`,
       // `NotEmpty`) and so drop out here, but these three are not:
@@ -6075,8 +6168,8 @@ export function SchematicEditor({
       // `duplicateCondition` only asks that no wire is being drawn, and its
       // enable is `ENABLE( hasElements )` — a property of the sheet, not of the
       // selection. So it is offered, and greyed only on an empty sheet.
-      items.push(
-        { sep: true },
+      add(
+        300,
         act('Paste', 'paste', 'Ctrl+V'),
         act('Paste Special...', 'pasteSpecial', 'Ctrl+Shift+V'),
         {
@@ -6088,15 +6181,37 @@ export function SchematicEditor({
         },
       );
     }
-    items.push(
-      { sep: true },
+    // Leave Sheet is on the menu whatever is selected, greyed on the sheet you
+    // cannot leave. The two halves of that come from different conditions, and
+    // what pulls them apart is the virtual root `SCHEMATIC::ensureVirtualRoot`
+    // puts above the top-level sheets:
+    //
+    //   menu.AddItem( leaveSheet, belowRootSheetCondition, 150 );   // shown
+    //       -> GetCurrentSheet().Last() != &Schematic().Root()
+    //   mgr->SetConditions( leaveSheet, ENABLE( CanGoUp() ) );      // enabled
+    //       -> Last() is not one of GetTopLevelSheets()
+    //
+    // On the top-level schematic the first is *true* — the invisible root sits
+    // above it — while the second is false. Hence shown and greyed. We have no
+    // virtual root, so the shown half is always true for us and only the enable
+    // is left to compute.
+    add(150, {
+      label: 'Leave Sheet',
+      icon: 'navUp',
+      // As KiCad prints it, and as our own hotkey list already does.
+      shortcut: 'Alt+Backspace',
+      action: () => onTopAction('navUp'),
+      disabled: parentPath(currentPath) === null,
+    });
+    add(
+      401,
       act('Select All', 'selectAll', 'Ctrl+A'),
       act('Unselect All', 'unselectAll', 'Ctrl+Shift+A'),
     );
     // EDA_DRAW_FRAME::AddStandardSubMenus, rank 1000: every canvas context
     // menu in KiCad ends with these two, whatever is selected.
-    items.push(
-      { sep: true },
+    add(
+      1000,
       {
         label: 'Zoom',
         items: [
@@ -6127,7 +6242,11 @@ export function SchematicEditor({
         ],
       },
     );
-    return items;
+
+    // The separators this menu declares: two at rank 100 (the second is the
+    // line under Draw Buses), then 200, 300, 400, the edit tool's own at 400
+    // that lands after the net chain menu, and AddStandardSubMenus' at 1000.
+    return assembleMenu(entries, [100, 101, 200, 300, 400, 401, 1000]);
   };
 
   /**
@@ -8322,7 +8441,7 @@ export function SchematicEditor({
                   onKeyDown={(e) => {
                     e.stopPropagation();
                     if (e.key === 'Enter') {
-                      editPageNumber(pageEdit.page.trim());
+                      editPageNumber(pageEdit.page.trim(), pageEdit.sheet);
                       setPageEdit(null);
                     }
                   }}
@@ -8337,7 +8456,7 @@ export function SchematicEditor({
                 className="ze-btn primary"
                 disabled={!pageEdit.page.trim()}
                 onClick={() => {
-                  editPageNumber(pageEdit.page.trim());
+                  editPageNumber(pageEdit.page.trim(), pageEdit.sheet);
                   setPageEdit(null);
                 }}
               >
