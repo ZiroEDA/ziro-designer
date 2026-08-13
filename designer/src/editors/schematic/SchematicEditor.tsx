@@ -101,6 +101,7 @@ import {
   screenHasItems,
   selectionCanCopyAsText,
   selectionIsExpandable,
+  syncSelectionParts,
   getNode,
   selectConnection,
   planNetclassAssignment,
@@ -633,6 +634,7 @@ export function SchematicEditor({
   projectName,
   rootPro,
   onCrossProbeNet,
+  onSelectOnPcb,
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
@@ -698,6 +700,9 @@ export function SchematicEditor({
    *  (SCH_EDIT_FRAME::SendCrossProbeConnection / SendCrossProbeClearHighlight);
    *  null when the highlight is cleared. */
   onCrossProbeNet?: (net: string | null) => void;
+  /** Select on PCB (SCH_ACTIONS::selectOnPCB): the `$SELECT:` parts of the
+   *  current selection, for the board frame to resolve and select. */
+  onSelectOnPcb?: (parts: readonly string[]) => void;
 }): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -5543,10 +5548,21 @@ export function SchematicEditor({
     //
     // Ranks 100 and 101 are one rank upstream; they are split here because the
     // second `AddSeparator( 100 )` falls between them, and that separator is
-    // the line under Draw Buses. The fractions on 250 are the same trick: they
-    // are not upstream ranks, they encode the order insertion gives that block
-    // (labels, break/slice, sheet pins, netclass, page number, then the edit
-    // tool's own cleanup and lock entries).
+    // the line under Draw Buses.
+    //
+    // The fractions are not upstream ranks. Within one rank KiCad's order is
+    // the order the *tools* registered, and a port that adds its entries in
+    // source order gets that wrong in a way only a side-by-side screenshot
+    // shows. The fraction pins each entry to the line it holds upstream:
+    //
+    //   150.1‥.3  enterSheet, selectOnPCB, leaveSheet   sch_selection_tool:716
+    //   150.4‥.6  move, drag, alignToGrid               sch_move_tool:202
+    //   200.1‥.9  transform, attributes, swap,          sch_edit_tool:902
+    //             properties, editFields, autoplace,
+    //             editWithLibEdit, change/update, convertTo
+    //   250.0‥.5  labels, break/slice, sheet pins,      sch_selection_tool:721
+    //             netclass, page number, then the
+    //             edit tool's cleanup and lock entries
     const entries: RankedItem[] = [];
     const add = (order: number, ...list: MenuItem[]): void => {
       for (const item of list) entries.push({ order, item });
@@ -5582,7 +5598,7 @@ export function SchematicEditor({
         add(250.5, { label: 'Locking', items: lockItems });
       }
       add(
-        150,
+        150.4,
         {
           label: 'Move',
           icon: 'move',
@@ -5596,6 +5612,17 @@ export function SchematicEditor({
           action: () => setGrabRequest((p) => ({ kind: 'drag', nonce: (p?.nonce ?? 0) + 1 })),
         },
       );
+      // SCH_ACTIONS::selectOnPCB, gated on `crossProbingSelection` — the kinds
+      // that name something on the board (symbols, pins, sheets). A selection
+      // of wires or labels has nothing to send, so the entry is absent.
+      if (doc && onSelectOnPcb) {
+        const parts = syncSelectionParts(doc, selection, currentPath, libById);
+        if (parts.length > 0)
+          add(150.2, {
+            label: 'Select on PCB',
+            action: () => onSelectOnPcb(parts),
+          });
+      }
       if (netlist && selectedNets(netlist, selection).length > 0)
         add(250.3, {
           label: 'Assign Netclass...',
@@ -5620,7 +5647,7 @@ export function SchematicEditor({
           },
         );
       if (hit?.kind === 'sheet') {
-        add(150, {
+        add(150.1, {
           label: 'Enter Sheet',
           icon: 'enterSheet',
           action: () => onEditItem(hit.id, 'sheet'),
@@ -5745,7 +5772,7 @@ export function SchematicEditor({
           doc?.symbols.some((sy, i) => selection.has(refId('symbol', sy.uuid, i))) ?? false;
         const sheetSel = doc?.sheets.some((sh, i) => selection.has(refId('sheet', sh.uuid, i)));
         if (doc && (symbolSel || sheetSel))
-          add(200, {
+          add(200.6, {
             label: 'Autoplace Fields',
             icon: 'autoplaceFields',
             shortcut: 'O',
@@ -5813,7 +5840,7 @@ export function SchematicEditor({
       // SCH_EDIT_TOOL's Attributes submenu, the same five item edits the Edit
       // menu carries (SCH_EDIT_TOOL::SetAttribute).
       if (doc && Object.values(ATTRIBUTE_IDS).some((a) => canSetAttribute(doc, selection, a)))
-        add(200, {
+        add(200.2, {
           label: 'Attributes',
           items: ATTRIBUTE_MENU.map(({ id, label }) => ({
             label,
@@ -5845,9 +5872,17 @@ export function SchematicEditor({
                 action: () => setFieldEdit({ symbol: si, index: fi }),
               });
           }
-          if (fieldEntries.length > 0) add(200, { label: 'Edit Main Fields', items: fieldEntries });
+          if (fieldEntries.length > 0)
+            add(200.5, { label: 'Edit Main Fields', items: fieldEntries });
+          // editWithLibEdit is registered *before* changeSymbol upstream
+          // (sch_edit_tool.cpp:909 against :910), so it sits above the pair.
+          add(200.7, {
+            label: 'Edit with Symbol Editor',
+            shortcut: 'Ctrl+E',
+            action: () => editSymbolInEditor(owner),
+          });
           add(
-            200,
+            200.8,
             {
               label: 'Change Symbol...',
               action: () => {
@@ -5861,11 +5896,6 @@ export function SchematicEditor({
                 setChangeSymbolsMessages([]);
                 setChangeSymbolsMode('update');
               },
-            },
-            {
-              label: 'Edit with Symbol Editor',
-              shortcut: 'Ctrl+E',
-              action: () => editSymbolInEditor(owner),
             },
           );
         }
@@ -5919,7 +5949,7 @@ export function SchematicEditor({
         });
       // SCH_ACTIONS::swap (Alt+S).
       if (doc && canSwap(doc, selection))
-        add(200, {
+        add(200.3, {
           label: 'Swap',
           icon: 'swap',
           shortcut: 'Alt+S',
@@ -5932,7 +5962,7 @@ export function SchematicEditor({
       // whenever there is something movable selected. It drags each item onto
       // the grid, so connected wiring comes along.
       if (doc && selection.size > 0)
-        add(150, {
+        add(150.6, {
           label: 'Align Items to Grid',
           action: () => {
             const grid = gridSizeToIU(
@@ -5971,7 +6001,7 @@ export function SchematicEditor({
         });
       // KiCad groups the four transforms into a submenu rather than listing
       // them flat (SCH_EDIT_TOOL's Transform Selection menu).
-      add(200, {
+      add(200.1, {
         label: 'Transform Selection',
         items: [
           act('Rotate Counterclockwise', 'rotateCCW', 'R'),
@@ -5989,7 +6019,7 @@ export function SchematicEditor({
         const anyText =
           convertible || (doc ? changeTextType(doc, selection, 'label') !== null : false);
         if (anyText)
-          add(200, {
+          add(200.9, {
             label: 'Change To',
             items: (
               [
@@ -6014,7 +6044,7 @@ export function SchematicEditor({
           });
       }
       if (selection.size === 1)
-        add(200, {
+        add(200.4, {
           label: 'Properties...',
           icon: 'properties',
           shortcut: 'E',
@@ -6195,7 +6225,7 @@ export function SchematicEditor({
     // above it — while the second is false. Hence shown and greyed. We have no
     // virtual root, so the shown half is always true for us and only the enable
     // is left to compute.
-    add(150, {
+    add(150.3, {
       label: 'Leave Sheet',
       icon: 'navUp',
       // As KiCad prints it, and as our own hotkey list already does.

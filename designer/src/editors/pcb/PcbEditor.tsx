@@ -130,6 +130,8 @@ import {
   moveImage,
   startPlaceImage,
   type ImagePlaceState,
+  findItemsFromSyncSelection,
+  crossProbeZoomScale,
 } from '@ziroeda/pcbnew';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
@@ -874,6 +876,7 @@ export function PcbEditor({
   onPersistFiles,
   onOutputFile,
   crossProbeNet,
+  syncSelection,
   updateFromSchematic,
   readOnlyNotice,
 }: {
@@ -906,6 +909,10 @@ export function PcbEditor({
    *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
    *  null clears the highlight (SendCrossProbeClearHighlight). */
   crossProbeNet?: string | null;
+  /** Select on PCB from the schematic: the `$SELECT:` parts to resolve against
+   *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
+   *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
+  syncSelection?: { parts: readonly string[]; nonce: number } | null;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
@@ -3397,6 +3404,78 @@ export function PcbEditor({
   );
   const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
   const zoomFitObjects = useCallback(() => zoomToFitImpl(false), [zoomToFitImpl]);
+
+  // Select on PCB, arriving from the schematic frame: pcbnew's "$SELECT:"
+  // handler, `FindItemsFromSyncSelection` then `doSyncSelection` — replace the
+  // selection with what the parts name, then zoom and centre on it. Both
+  // cross-probe settings default on upstream, so both steps run.
+  //
+  // Keyed on the nonce alone: the parts of a repeated request are equal, and
+  // re-running on every render would fight the user's own clicks.
+  const syncNonce = syncSelection?.nonce;
+  const syncPartsRef = useRef(syncSelection?.parts);
+  syncPartsRef.current = syncSelection?.parts;
+  useEffect(() => {
+    if (syncNonce === undefined) return;
+    const brd = boardRef.current;
+    const canvas = canvasRef.current;
+    if (!brd) return;
+
+    const ids = findItemsFromSyncSelection(brd, syncPartsRef.current ?? []);
+    setSelection(new Set(ids));
+    if (ids.length === 0 || !canvas) return;
+
+    let box: BoardBBox | null = null;
+    for (const id of ids) {
+      const b = boardItemBBox(brd, id);
+      if (!b) continue;
+      box = box
+        ? {
+            minX: Math.min(box.minX, b.minX),
+            minY: Math.min(box.minY, b.minY),
+            maxX: Math.max(box.maxX, b.maxX),
+            maxY: Math.max(box.maxY, b.maxY),
+          }
+        : b;
+    }
+    // `bbox.GetWidth() != 0 && GetHeight() != 0` — a zero-area selection has
+    // nothing to aim at.
+    if (!box || box.maxX <= box.minX || box.maxY <= box.minY) return;
+
+    const view = viewRef.current;
+    // Where the view is looking now. The zoom changes first and keeps this
+    // point (`VIEW::SetScale` scales about the centre), so it is read off the
+    // old scale and re-applied under the new one.
+    const viewCx = (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale);
+    const viewCy = (canvas.height / 2 - view.ty) / view.scale;
+    const scale =
+      crossProbeZoomScale(
+        box,
+        { x: canvas.width / view.scale, y: canvas.height / view.scale },
+        view.scale,
+      ) ?? view.scale;
+
+    // EDA_DRAW_FRAME::FocusOnLocation: centre only when the target is outside
+    // the viewport, which is first shrunk by a tenth of its *width* — on both
+    // axes, as `r.Inflate( -r.GetWidth() / 10 )` does — so a probe onto
+    // something already on screen leaves the view where the user put it.
+    const cx = (box.minX + box.maxX) / 2;
+    const cy = (box.minY + box.maxY) / 2;
+    const halfW = canvas.width / scale / 2;
+    const halfH = canvas.height / scale / 2;
+    const inset = halfW * 0.2;
+    const outside = Math.abs(cx - viewCx) > halfW - inset || Math.abs(cy - viewCy) > halfH - inset;
+    const centreX = outside ? cx : viewCx;
+    const centreY = outside ? cy : viewCy;
+
+    viewRef.current = {
+      scale,
+      flipX: view.flipX,
+      tx: canvas.width / 2 - centreX * (view.flipX ? -scale : scale),
+      ty: canvas.height / 2 - centreY * scale,
+    };
+    requestDraw();
+  }, [syncNonce, requestDraw]);
 
   // DIALOG_FIND::search: collect hits in upstream order, footprint reference
   // designators, footprint values, other text items (footprint text, board

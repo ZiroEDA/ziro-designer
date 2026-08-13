@@ -95,6 +95,7 @@ export {
   type BoardItemRef,
   type BoardBBox,
 } from './edit-board.js';
+export { findItemsFromSyncSelection, crossProbeZoomScale } from './cross_probe.js';
 export {
   plotGerberLayer,
   plotExcellonDrill,
