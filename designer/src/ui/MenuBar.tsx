@@ -37,7 +37,10 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
       </span>
       <span className="lbl">{item.label}</span>
       {item.shortcut && <span className="sc">{item.shortcut}</span>}
-      {hasSub && <span className="sub-arrow">▸</span>}
+      {/* The same drawn chevron the project tree's twisty uses, rather than a
+          glyph: a solid ▸ is a different weight from every other expander in
+          the app, and its size is at the mercy of whichever font has it. */}
+      {hasSub && <span className="twisty expandable sub-arrow" />}
       {hasSub && subOpen && !item.disabled && (
         <div
           className="ze-dropdown ze-submenu"
@@ -89,10 +92,17 @@ export function ContextMenu({
     };
   }, [onClose]);
 
+  // Whether this menu is taller than the screen. It is not styled as scrollable
+  // unconditionally: a scroll container clips its overflow on *both* axes, and
+  // the flyout submenus hang off the right edge, so a menu that fits must stay
+  // unclipped or Grouping and Zoom would lose their submenus.
+  const [tooTall, setTooTall] = useState(false);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    setTooTall(r.height > window.innerHeight - 8);
     setPos({
       left: Math.min(x, Math.max(4, window.innerWidth - r.width - 4)),
       top: Math.min(y, Math.max(4, window.innerHeight - r.height - 4)),
@@ -103,7 +113,17 @@ export function ContextMenu({
     <div
       ref={ref}
       className="ze-dropdown ze-context"
-      style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 1000 }}
+      style={{
+        position: 'fixed',
+        left: pos.left,
+        top: pos.top,
+        zIndex: 1000,
+        // A menu taller than the screen used to be clamped to top: 4 and then
+        // simply run off the bottom, with everything past the edge unreachable
+        // — and the selection menu over a symbol is 28 entries, which is taller
+        // than a 1200px screen. wx scrolls a menu that does not fit; so do we.
+        ...(tooTall ? { maxHeight: 'calc(100vh - 8px)', overflowY: 'auto' as const } : {}),
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((it, i) => (

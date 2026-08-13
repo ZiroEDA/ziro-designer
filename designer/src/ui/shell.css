@@ -1197,11 +1197,24 @@ body {
   padding: 4px 0;
   cursor: default;
 }
+/* The row pitch is stated, not left to fall out of the font.
+
+   It used to be padding around whatever line box the inherited font produced —
+   and the page sets no font-size, so that was the browser's 16px default, about
+   29px a row. KiCad's is 26. Two pixels of padding could never fix that, since
+   the text was setting the height; declaring the height is what fixes it, and
+   it stops the menu changing shape on a machine with different fonts.
+
+   26px matters here because this menu is long: the schematic's selection menu
+   runs past twenty entries, and three pixels a row is most of a screenful. */
 .ze-mitem {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 8px;
-  padding: 5px 12px;
+  height: 26px;
+  padding: 0 12px;
+  font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1235,10 +1248,12 @@ body {
   font-size: 11px;
   padding-left: 20px;
 }
+/* A separator costs its own line plus both margins, so on a menu with five of
+   them the margins alone were a row and a half. GTK's are thin. */
 .ze-msep {
   height: 1px;
   background: var(--chrome-border);
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
@@ -1537,9 +1552,11 @@ body {
   font-size: 12px;
   line-height: 1;
 }
+/* The flyout marker is `.twisty`, so it is drawn by the same rule as the
+   project tree's expander; only the gap to the label is menu-specific. It never
+   opens in place, so it never takes the `.open` rotation. */
 .ze-mitem .sub-arrow {
-  color: #8a8c90;
-  padding-left: 20px;
+  margin-left: 20px;
 }
 .ze-msub {
   position: relative;
