@@ -190,6 +190,42 @@ export async function cloudMissingObjects(
 }
 
 /**
+ * Prove the object store is answering truthfully before anything acts on a
+ * "missing" answer.
+ *
+ * A listing under row-level security returns *rows you are allowed to see*, and
+ * a request with no valid session is allowed to see none — with no error. So
+ * "the store says absent" and "the store cannot see anything" arrive here as
+ * the same value, and the second one, read as the first, says every blob of
+ * every project is gone: which is what happened, on an account whose data was
+ * entirely intact, with 138 versions of the project it condemned.
+ *
+ * The control is a fixed, tiny object of our own. Writing it is idempotent
+ * (content-addressed, same bytes, same key) and reading it back must say
+ * present. If it does not, the answer "absent" carries no information at all
+ * and every caller must refuse to act on one.
+ *
+ * Throws rather than returning false: a caller that cannot ask must not
+ * continue down a path whose whole premise is a reliable answer.
+ */
+const PROBE_BYTES = new TextEncoder().encode('ziro-store-probe-v1');
+
+export async function assertStoreAnswers(userId: string): Promise<void> {
+  const be = need();
+  const hash = await sha256Hex(PROBE_BYTES);
+  const path = blobPath(userId, hash);
+  // Written every time: the probe is what proves writes land *and* are visible,
+  // and it is one small idempotent object per account.
+  await be.putObject(path, PROBE_BYTES);
+  if (!(await be.hasObject(path))) {
+    throw new Error(
+      'the object store is not answering reliably (a blob just written reads as absent), ' +
+        'so nothing can be concluded about what is or is not stored',
+    );
+  }
+}
+
+/**
  * Roll a project back to the newest committed version whose blobs are all still
  * in the store.
  *
@@ -381,7 +417,7 @@ export async function cloudUpsert(
  * objects cost storage, and this is the only code path in the module that can
  * destroy anything.
  */
-export async function cloudDelete(id: string): Promise<void> {
+export async function cloudDelete(id: string, opts: { keepBlobs?: boolean } = {}): Promise<void> {
   const be = need();
   const row = await be.getProject(id);
   if (!row) return;
@@ -390,7 +426,10 @@ export async function cloudDelete(id: string): Promise<void> {
 
   await be.deleteProject(id);
 
-  if (!userId || doomed.length === 0) return;
+  // `keepBlobs` is for removing a row that is *believed* damaged. Its blobs are
+  // supposed to be gone already, so there is nothing to reclaim, and if the
+  // belief was ever wrong this is the one step that would make it true.
+  if (opts.keepBlobs || !userId || doomed.length === 0) return;
   let stillUsed: Set<string>;
   try {
     const others = await be.listProjects();
@@ -400,6 +439,22 @@ export async function cloudDelete(id: string): Promise<void> {
     stillUsed = new Set(
       rows.flatMap((r) => (r?.files ?? []).filter(isManifestEntry).map((f) => f.hash)),
     );
+    // Past versions reference blobs too, and that is the entire point of them:
+    // `restoreFromHistory` walks back to a manifest whose objects are still
+    // there. Counting only current rows collected exactly the objects that make
+    // a recovery possible — so deleting one project quietly took the history of
+    // every other one with it, and nobody would find out until the day it was
+    // needed.
+    if (be.listVersions) {
+      const histories = await Promise.all(
+        others.map((o) => be.listVersions!(userId, o.id).catch(() => [])),
+      );
+      for (const versions of histories) {
+        for (const v of versions) {
+          for (const f of (v.files ?? []).filter(isManifestEntry)) stillUsed.add(f.hash);
+        }
+      }
+    }
   } catch {
     return; // Cannot prove they are unreferenced, so leave them.
   }
