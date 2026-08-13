@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://designer.ziroeda.com/sitemap.xml
