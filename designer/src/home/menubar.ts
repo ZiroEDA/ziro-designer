@@ -180,7 +180,11 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         {
           label: 'Report Bug',
           action: () =>
-            window.open('https://github.com/ZiroEDA/ziro-designer/issues', '_blank', 'noopener,noreferrer'),
+            window.open(
+              'https://github.com/ZiroEDA/ziro-designer/issues',
+              '_blank',
+              'noopener,noreferrer',
+            ),
         },
         SEP,
         // Our compatibility promise includes funding upstream development.
