@@ -1255,6 +1255,20 @@ const ITEM_HEADS = new Set([
 ]);
 
 /** Rebuild the `(kicad_sch ...)` root list from the current model. */
+/**
+ * A `(symbol "NAME" …)` node with its top-level name replaced and everything
+ * else left byte-identical. Unchanged when the name already matches, so a file
+ * that was already right round-trips untouched.
+ */
+function renameLibSymbol(source: SNode, libId: string): SNode {
+  if (!isList(source)) return source;
+  // The name is a quoted string, not a bare atom; both are accepted so an
+  // unquoted one is still renamed rather than silently passed through.
+  const name = source.items[1];
+  if (name === undefined || name.kind === 'list' || name.value === libId) return source;
+  return { kind: 'list', items: [source.items[0]!, str(libId), ...source.items.slice(2)] };
+}
+
 export function writeSchematic(sch: Schematic): SList {
   const out: SNode[] = [atom('kicad_sch')];
 
@@ -1276,7 +1290,25 @@ export function writeSchematic(sch: Schematic): SList {
     if (c) out.push(c);
   }
 
-  out.push(list(atom('lib_symbols'), ...sch.libSymbols.map((l) => l.source)));
+  // The cache is keyed by the placement's lib_id, so that is the name each entry
+  // has to be written under.
+  //
+  // `source` is the node the definition was read from, and for one that came out
+  // of a library file that name is bare — `(symbol "R" …)`, because a .kicad_sym
+  // does not repeat its own nickname. Writing it through unchanged produced a
+  // sheet whose cache held "R" while its placements asked for "Device:R", so on
+  // the next open every symbol placed that session resolved to nothing: no body,
+  // no pins, only the Reference and Value text that lives on the placement.
+  // Placing the part again re-cached it under the right name, and both copies
+  // appeared at once.
+  //
+  // KiCad writes the map key (SCH_IO_KICAD_SEXPR::saveSymbol over
+  // SCH_SCREEN::m_libSymbols), which is the full LIB_ID. A real file reads
+  // `(symbol "complex_hierarchy:+12V" (symbol "+12V_0_1" …))`: only the
+  // top-level name carries the nickname, the unit sub-symbols keep the stem.
+  out.push(
+    list(atom('lib_symbols'), ...sch.libSymbols.map((l) => renameLibSymbol(l.source, l.libId))),
+  );
 
   // KiCad sorts the screen's items into a multiset keyed on (type ordinal,
   // uuid) before writing — "Enforce item ordering" in

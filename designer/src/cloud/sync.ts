@@ -27,6 +27,7 @@
 
 import {
   claimProject,
+  exportManifest,
   exportProject,
   forkLocalCopy,
   hasDivergedLocally,
@@ -41,6 +42,7 @@ import {
   cloudDelete,
   cloudGet,
   cloudListMeta,
+  assertStoreAnswers,
   cloudMissingObjects,
   cloudUpsert,
   restoreFromHistory,
@@ -174,7 +176,11 @@ export async function syncAllProjects(
  * as the agreed one.
  */
 async function pushOne(userId: string, id: string): Promise<Outcome> {
-  const p = await exportProject(id);
+  // A manifest, not the whole project: names, hashes and sizes, with the bytes
+  // left in the store until a blob actually has to be uploaded. Encoding every
+  // file to base64 to find out that none of them changed cost about 400 ms of
+  // main thread on a 10 MB project, every time edits settled.
+  const p = await exportManifest(id);
   if (!p) return 'pushed';
   // What the last landed push put in the store. Those blobs are still
   // referenced by the cloud row, so they need neither storing nor confirming
@@ -251,11 +257,21 @@ async function repairUnreadable(userId: string, id: string, cause: unknown): Pro
   const damage = await cloudMissingObjects(id); // throws on "could not ask"
   if (!damage || damage.missing === 0) throw cause; // readable copy, real failure
 
+  // Everything below treats "absent" as fact — it overwrites the cloud copy,
+  // and failing that, tells the user their project is gone. So the answer has
+  // to be worth that: a listing under row-level security returns nothing at all
+  // when the request is not authorised, and returns it *without an error*, so a
+  // session that lapsed mid-pass reads exactly like an emptied bucket.
+  //
+  // That is not a hypothetical. It condemned a project with 138 intact versions
+  // whose blobs were all present, and offered to delete it.
+  await assertStoreAnswers(userId);
+
   // "Has contents" rather than "exists": a local copy whose files are all empty
   // is the same damage in the other direction, and promoting it over the remote
   // one would destroy the last thing a recovery could come from.
   const local = await exportProject(id);
-  const usable = !!local && local.files.some((f) => f.gzB64.length > 0);
+  const usable = !!local && local.files.some((f) => (f.gzB64?.length ?? 0) > 0);
   if (!usable) {
     // Nothing on this machine to restore from, so the last place to look is the
     // project's own history. Blobs are only collected when no row references
@@ -290,4 +306,16 @@ export async function pushProject(userId: string, id: string): Promise<void> {
 export async function deleteCloudProject(id: string): Promise<void> {
   if (!cloudBackendInstalled()) return;
   await cloudDelete(id);
+}
+
+/**
+ * Drop a row the sync pass reported as unrecoverable, and *only* the row.
+ *
+ * The blobs it names are supposed to be missing already, so there is nothing to
+ * reclaim by collecting them — and if the report was wrong, collecting them is
+ * what would turn a false alarm into the real thing.
+ */
+export async function forgetDamagedProject(id: string): Promise<void> {
+  if (!cloudBackendInstalled()) return;
+  await cloudDelete(id, { keepBlobs: true });
 }

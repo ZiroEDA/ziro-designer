@@ -273,7 +273,7 @@ describe('a pull', () => {
     await cloudUpsert(USER, project({ 'a.kicad_sch': 'AAA', 'b.kicad_pcb': 'BBB' }));
     const p = await cloudGet('p1');
     expect(p!.name).toBe('Amp');
-    expect(p!.files.map((f) => [f.name, Buffer.from(f.gzB64, 'base64').toString()])).toEqual([
+    expect(p!.files.map((f) => [f.name, Buffer.from(f.gzB64 ?? '', 'base64').toString()])).toEqual([
       ['a.kicad_sch', 'AAA'],
       ['b.kicad_pcb', 'BBB'],
     ]);

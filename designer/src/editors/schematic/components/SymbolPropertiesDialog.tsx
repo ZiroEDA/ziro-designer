@@ -83,6 +83,8 @@ interface Props {
   onChangeSymbol?: () => void;
   onUpdateSymbol?: () => void;
   onEditSymbol?: () => void;
+  /** "Edit Library Symbol...": open the library part, not this placement's copy. */
+  onEditLibrarySymbol?: () => void;
 }
 
 const mmStr = (iu: number): string => {
@@ -115,6 +117,7 @@ export function SymbolPropertiesDialog({
   onChangeSymbol,
   onUpdateSymbol,
   onEditSymbol,
+  onEditLibrarySymbol,
 }: Props): JSX.Element {
   const unitCount = useMemo(
     () => (lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1),
@@ -138,6 +141,13 @@ export function SymbolPropertiesDialog({
   const [excludeBoard, setExcludeBoard] = useState(!symbol.onBoard);
   const [dnp, setDnp] = useState(symbol.dnp);
   const [excludePosFiles, setExcludePosFiles] = useState(!!symbol.excludedFromPosFiles);
+  // dialog_symbol_properties.cpp reads these off the library symbol
+  //   m_ShowPinNumButt->SetValue( m_part->GetShowPinNumbers() );
+  //   m_ShowPinNameButt->SetValue( m_part->GetShowPinNames() );
+  // and writes them back to the placement's cached copy on OK, so a symbol can
+  // hide its pin text without the library changing for every other use of it.
+  const [showPinNumbers, setShowPinNumbers] = useState(!lib?.pinNumbersHidden);
+  const [showPinNames, setShowPinNames] = useState(!lib?.pinNamesHidden);
   const [error, setError] = useState<string | null>(null);
   // The notebook. Upstream has a third page, Pin Map; we model
   // (pin_map_override …) but have no editor for it yet, so it is not offered
@@ -256,6 +266,10 @@ export function SymbolPropertiesDialog({
       // symbol whose pins the file never listed does not gain a list from
       // merely opening the dialog.
       pins: pinSym === symbol ? undefined : pinSym.pins,
+      // Only when changed, so opening the dialog on a symbol whose library copy
+      // says nothing about pin text does not start writing the flags out.
+      showPinNumbers: showPinNumbers === !lib?.pinNumbersHidden ? undefined : showPinNumbers,
+      showPinNames: showPinNames === !lib?.pinNamesHidden ? undefined : showPinNames,
     });
   };
 
@@ -583,16 +597,21 @@ export function SymbolPropertiesDialog({
                   </select>
                 </label>
                 <label className="row">
-                  {/* DIALOG_SYMBOL_PROPERTIES' "Alternate symbol (De Morgan)":
-                    body style 2 is the same gate drawn with its inputs and
-                    output inverted. Greyed when the symbol has no alternate. */}
-                  <input
-                    type="checkbox"
+                  {/* A choice, not a checkbox: DIALOG_SYMBOL_PROPERTIES builds
+                    m_bodyStyleChoice with "Standard" and "Alternate" (the De
+                    Morgan form, the same gate with its inputs and output
+                    inverted) and selects GetBodyStyle() - 1. Disabled when the
+                    symbol defines no alternate. */}
+                  <span>Body style:</span>
+                  <select
+                    className="ze-select"
                     disabled={!hasAlternate}
-                    checked={bodyStyle === 2}
-                    onChange={(e) => setBodyStyle(e.target.checked ? 2 : 1)}
-                  />
-                  <span>Alternate symbol (De Morgan)</span>
+                    value={bodyStyle}
+                    onChange={(e) => setBodyStyle(Number(e.target.value))}
+                  >
+                    <option value={1}>Standard</option>
+                    <option value={2}>Alternate</option>
+                  </select>
                 </label>
                 <label className="row">
                   <span>Angle:</span>
@@ -623,6 +642,22 @@ export function SymbolPropertiesDialog({
 
               <fieldset className="ze-props-group">
                 <legend>Attributes</legend>
+                <label title="Show or hide pin numbers">
+                  <input
+                    type="checkbox"
+                    checked={showPinNumbers}
+                    onChange={(e) => setShowPinNumbers(e.target.checked)}
+                  />{' '}
+                  Show pin numbers
+                </label>
+                <label title="Show or hide pin names">
+                  <input
+                    type="checkbox"
+                    checked={showPinNames}
+                    onChange={(e) => setShowPinNames(e.target.checked)}
+                  />{' '}
+                  Show pin names
+                </label>
                 {/* Upstream's order (dialog_symbol_properties_base.cpp): simulation,
                   board, do-not-populate, bill of materials, position files. */}
                 <label>
@@ -690,6 +725,17 @@ export function SymbolPropertiesDialog({
               Edit Symbol...
             </button>
           )}
+          {onEditLibrarySymbol && (
+            <button className="ze-btn" onClick={onEditLibrarySymbol}>
+              Edit Library Symbol...
+            </button>
+          )}
+          {/* Upstream's last hand-off. There is no simulator here, so it is
+            shown and disabled rather than dropped: the row then says what the
+            dialog does not do instead of quietly lacking it. */}
+          <button className="ze-btn" disabled title="Simulation is not available yet">
+            Simulation Model...
+          </button>
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>

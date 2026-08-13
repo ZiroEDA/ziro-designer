@@ -23,6 +23,13 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { drawDrawingSheetItems } from '../drawingsheet/wksRender.js';
+import {
+  defaultDrawingSheet,
+  layoutDrawingSheet,
+  SCH_IU_PER_MM,
+  type WksSheet,
+} from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   dimensionBBox,
@@ -1571,7 +1578,14 @@ const paperSizeIU = (paper: string | undefined): { w: number; h: number } | null
 
 export interface SheetInfo {
   paper?: string;
-  titleBlock?: { title?: string; date?: string; rev?: string; company?: string };
+  titleBlock?: {
+    title?: string;
+    date?: string;
+    rev?: string;
+    company?: string;
+    /** `(comment N "text")`, index 0 = comment 1. The title block shows them. */
+    comments?: string[];
+  };
   fileName?: string;
 }
 
@@ -1613,91 +1627,102 @@ function sheetText(
 
 const DRAWINGSHEET_COLOR = 'rgb(200,114,171)';
 
+const NO_DS_SELECTION: ReadonlySet<number> = new Set();
+
+/**
+ * The paper edge (LAYER_PAGE_LIMITS): a rectangle from the page origin to the
+ * page size, in its own colour.
+ *
+ * `DS_PAINTER::DrawBorder`, called from `DS_PROXY_VIEW_ITEM::ViewDraw` after the
+ * sheet's own items and gated on `GetShowPageLimits()`. Every editor that shows
+ * a drawing sheet goes through that proxy item, so pcbnew draws this exactly as
+ * eeschema does — it is not part of the sheet description, which is why it is a
+ * separate call here.
+ *
+ * (`DS_DRAW_ITEM_PAGE`, which also draws a page rectangle plus a corner marker,
+ * is built only by `pl_draw_panel_gal.cpp`: it belongs to the drawing sheet
+ * editor and is not what a board shows.)
+ */
+export function drawPageLimits(
+  ctx: CanvasRenderingContext2D,
+  info: SheetInfo,
+  color: string,
+  minWidth = 0,
+): void {
+  const page = paperSizeIU(info.paper);
+  if (!page) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.1 * MM, minWidth);
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, page.w, page.h);
+  ctx.restore();
+}
+
+/**
+ * The page frame and title block, through the same engine eeschema and
+ * pl_editor use.
+ *
+ * This was a hand-drawn approximation: fixed margins, a fixed double border and
+ * a title block laid out from remembered dimensions. It looked close and was
+ * not the same drawing, so a board next to the same board in KiCad did not
+ * match, and none of it responded to a project's own `.kicad_wks`.
+ *
+ * `layoutDrawingSheet` is document-agnostic — a sheet description, a page size
+ * and the values to substitute — so the board feeds it exactly what the
+ * schematic does. Every title-block field, including the comment lines, is
+ * resolved by the same code path rather than by a second implementation that
+ * has to be kept in step.
+ */
 export function drawDrawingSheet(
   ctx: CanvasRenderingContext2D,
   info: SheetInfo,
   // LAYER_DRAWINGSHEET from the active theme (print passes the print theme's).
   color: string = DRAWINGSHEET_COLOR,
+  // The project's own drawing sheet, when it has one; KiCad's default when not.
+  sheet?: WksSheet,
+  // World width of one device pixel, so hairlines stay visible when zoomed out.
+  minWidth = 0,
 ): void {
   const page = paperSizeIU(info.paper);
   if (!page) return;
-  const M = 10 * MM;
-  const L = M,
-    T = M,
-    R = page.w - M,
-    B = page.h - M;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 0.15 * MM;
-  ctx.setLineDash([]);
-  ctx.strokeRect(L, T, R - L, B - T);
-  const i2 = 2 * MM;
-  ctx.strokeRect(L + i2, T + i2, R - L - 2 * i2, B - T - 2 * i2);
-
-  // Coordinate band (numbers across, letters down), 50 mm divisions.
-  const refH = 1.3 * MM;
-  const step = 50 * MM;
-  ctx.beginPath();
-  for (let x = L + step; x < R - i2; x += step) {
-    ctx.moveTo(x, T);
-    ctx.lineTo(x, T + i2);
-    ctx.moveTo(x, B);
-    ctx.lineTo(x, B - i2);
-  }
-  for (let y = T + step; y < B - i2; y += step) {
-    ctx.moveTo(L, y);
-    ctx.lineTo(L + i2, y);
-    ctx.moveTo(R, y);
-    ctx.lineTo(R - i2, y);
-  }
-  ctx.stroke();
-  let n = 1;
-  for (let x = L; x < R - i2; x += step, n++) {
-    const cx = Math.min(x + step / 2, (x + R) / 2);
-    sheetText(ctx, String(n), cx, T + i2 / 2 + refH / 2, refH, 'center');
-    sheetText(ctx, String(n), cx, B - i2 / 2 + refH / 2, refH, 'center');
-  }
-  let li = 0;
-  for (let y = T; y < B - i2; y += step, li++) {
-    const cy = Math.min(y + step / 2, (y + B) / 2);
-    const ch = String.fromCharCode(65 + (li % 26));
-    sheetText(ctx, ch, L + i2 / 2, cy + refH / 2, refH, 'center');
-    sheetText(ctx, ch, R - i2 / 2, cy + refH / 2, refH, 'center');
-  }
-
-  // Title block, default description (110×34 off the bottom-right corner).
-  const rx = (d: number): number => R - d * MM;
-  const ry = (d: number): number => B - d * MM;
-  ctx.strokeRect(rx(110), ry(34), 108 * MM, 32 * MM);
-  ctx.beginPath();
-  for (const yy of [5.5, 8.5, 12.5, 18.5]) {
-    ctx.moveTo(rx(110), ry(yy));
-    ctx.lineTo(rx(2), ry(yy));
-  }
-  ctx.moveTo(rx(90), ry(8.5));
-  ctx.lineTo(rx(90), ry(5.5));
-  ctx.moveTo(rx(26), ry(8.5));
-  ctx.lineTo(rx(26), ry(2));
-  ctx.stroke();
-
-  // Field layout + weights are the KiCad default worksheet
-  // (drawing_sheet_default_description.cpp): Title is bold italic, Rev and
-  // Company are bold, the rest normal.
-  const tb = info.titleBlock;
-  const t15 = 1.5 * MM;
-  sheetText(ctx, `Date: ${tb?.date ?? ''}`, rx(87), ry(6.9), t15);
-  sheetText(ctx, 'ZiroEDA', rx(109), ry(4.1), t15);
-  sheetText(ctx, `Rev: ${tb?.rev ?? ''}`, rx(24), ry(6.9), t15, 'left', true);
-  sheetText(ctx, `Size: ${info.paper ?? ''}`, rx(109), ry(6.9), t15);
-  sheetText(ctx, 'Id: 1/1', rx(24), ry(4.1), t15);
-  sheetText(ctx, `Title: ${tb?.title ?? ''}`, rx(109), ry(10.7), 2 * MM, 'left', true, true);
-  sheetText(ctx, `File: ${info.fileName ?? ''}`, rx(109), ry(14.3), t15);
-  sheetText(ctx, 'Sheet: /', rx(109), ry(17), t15);
-  sheetText(ctx, tb?.company ?? '', rx(109), ry(20), t15, 'left', true);
+  const tb = info.titleBlock ?? {};
+  // Page size in millimetres, from *this* file's internal units.
+  //
+  // `iuToMM` is the schematic scale (1e4/mm) and `page` is in board units
+  // (1e6/mm), so putting one through the other asked for a page a hundred times
+  // too large: a 297 mm sheet became a 29.7 metre one, laid out so far outside
+  // the board that nothing was visible on screen at all.
+  const items = layoutDrawingSheet(
+    sheet ?? defaultDrawingSheet(),
+    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
+    {
+      // A board is one page: pcbnew has no sheet hierarchy to number.
+      pageNumber: 1,
+      sheetCount: 1,
+      title: tb.title ?? '',
+      rev: tb.rev ?? '',
+      date: tb.date ?? '',
+      company: tb.company ?? '',
+      comments: [...(tb.comments ?? [])],
+      paper: info.paper ?? '',
+      fileName: info.fileName ?? '',
+      sheetPath: '/',
+      appVersion: 'ZiroEDA',
+    },
+  );
+  if (items.length === 0) return;
+  // The layout comes back in schematic internal units, because that is what the
+  // shared engine works in; this canvas is in board units. Scaling the context
+  // rather than every coordinate also scales the pen widths, which are in the
+  // same units and would otherwise be a hundred times too fine.
+  const toPcb = PCB_IU_PER_MM / SCH_IU_PER_MM;
+  ctx.save();
+  ctx.scale(toPcb, toPcb);
+  drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth: minWidth / toPcb });
+  ctx.restore();
 }
 
-// ----- grid (GAL DrawGrid) ---------------------------------------------------
-
-/** Grid render options, the GAL DOTS grid with KiCad's pcbnew defaults. */
 export interface PcbGridOptions {
   /** Grid spacing in IU (world units). pcbnew default grid = 0.5 mm. */
   size: number;
@@ -1842,7 +1867,14 @@ export function buildDrawSteps(
     ctx.lineJoin = 'round';
     // Drawing sheet (page frame + title block) behind the board, like pcbnew,
     // in the theme's LAYER_DRAWINGSHEET color (classic: dark red; B&W: black).
-    if (!overlay && sheet && opts.drawingSheet) drawDrawingSheet(ctx, sheet, special.drawingSheet);
+    if (!overlay && sheet && opts.drawingSheet) {
+      // LAYER_PAGE_LIMITS first: the paper edge is its own rectangle in its own
+      // grey, drawn outside the sheet's frame, and pcbnew shows it exactly as
+      // eeschema does. Without it the outermost line on a board was the frame,
+      // 10 mm inside where KiCad's page ends.
+      drawPageLimits(ctx, sheet, special.pageLimits);
+      drawDrawingSheet(ctx, sheet, special.drawingSheet);
+    }
   });
 
   // KiCad's minimum pen: never stroke thinner than one device pixel, expressed

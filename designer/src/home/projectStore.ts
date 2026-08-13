@@ -399,7 +399,20 @@ export interface SyncableProject {
   name: string;
   createdAt: number;
   updatedAt: number;
-  files: { name: string; gzB64: string; hash?: string }[];
+  /**
+   * `gzB64` is the file's stored bytes, base64 encoded — and is optional
+   * because encoding them is expensive enough to matter. A 10 MB project turns
+   * into a 13 MB string and about 400 ms of main-thread work, which a push was
+   * paying on every save even when one file had changed and nothing needed
+   * uploading at all.
+   *
+   * A manifest omits it and supplies `bytesOf` instead, so only the files that
+   * actually have to be stored are ever read. `hash` and `size` come from the
+   * local store, where they were computed when the bytes were written.
+   */
+  files: { name: string; gzB64?: string; hash?: string; size?: number }[];
+  /** Read one file's stored bytes, for a manifest that carries none. */
+  bytesOf?: (name: string) => Promise<Uint8Array>;
 }
 
 function bytesToB64(u8: Uint8Array): string {
@@ -463,9 +476,10 @@ export const isHollowRecord = (files: { gz: Uint8Array }[]): boolean =>
 
 /** Write a project from its serializable form, preserving its timestamps. */
 export async function importProject(p: SyncableProject): Promise<void> {
+  // A pull always carries bytes; a manifest (the push shape) never reaches here.
   const files = p.files.map((f) => ({
     name: f.name,
-    gz: b64ToBytes(f.gzB64),
+    gz: b64ToBytes(f.gzB64 ?? ''),
     ...(f.hash ? { hash: f.hash } : {}),
   }));
 
@@ -498,6 +512,44 @@ export async function importProject(p: SyncableProject): Promise<void> {
     ...(p.files.every((f) => f.hash) ? { pushedHashes: p.files.map((f) => f.hash!) } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
+}
+
+/**
+ * The project as a manifest: names, hashes and sizes, with the bytes left in
+ * the store until something asks for them.
+ *
+ * `exportProject` base64-encodes every file, which is the right shape for a
+ * pull and the wrong one for a push: the push needs bytes only for files it is
+ * going to upload, and usually that is none of them.
+ *
+ * A file stored before hashes were recorded has none, so its bytes are read and
+ * hashed here. That is the old cost, paid once per file rather than every save.
+ */
+export async function exportManifest(id: string): Promise<SyncableProject | null> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) return null;
+  const files = await Promise.all(
+    r.files.map(async (f) => ({
+      name: f.name,
+      hash: f.hash ?? (await sha256Hex(f.gz)),
+      size: f.gz.byteLength,
+    })),
+  );
+  return {
+    id: r.id,
+    name: r.name,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    files,
+    bytesOf: async (name: string) => {
+      // Re-read rather than close over the record: a push runs alongside
+      // autosave, and the bytes wanted are the ones in the store now.
+      const cur = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+      const hit = cur?.files.find((f) => f.name === name);
+      if (!hit) throw new Error(`"${name}" is no longer in project ${id}`);
+      return hit.gz;
+    },
+  };
 }
 
 /**

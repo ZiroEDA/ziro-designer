@@ -8,8 +8,8 @@
  * as tab-separated rows); everything else yields nothing, exactly upstream.
  */
 
-import type { Schematic } from '../types.js';
-import { refId } from './hittest.js';
+import type { Schematic, SchSymbol } from '../types.js';
+import { itemRefById, refId } from './hittest.js';
 
 /** GetSelectedItemsAsText: the selected items' texts joined with newlines. */
 export function getSelectedItemsAsText(sch: Schematic, ids: ReadonlySet<string>): string {
@@ -51,4 +51,135 @@ export function getSelectedItemsAsText(sch: Schematic, ids: ReadonlySet<string>)
   });
 
   return texts.join('\n');
+}
+
+/**
+ * Whether a unit of this part is already on the sheet under this reference.
+ *
+ * `IsUnannotatedUnitOccupied` (sch_tool_utils.cpp): a placement occupies a unit
+ * when its unit number, its reference string and its library id all match. The
+ * library id is the part that matters and the reason upstream wrote a helper
+ * for it — before annotation every symbol reads `U?`, so two different
+ * multi-unit parts on one sheet share a reference string, and matching on the
+ * reference alone would have a 4001 skip units occupied by an unrelated 4011.
+ */
+export function isUnannotatedUnitOccupied(
+  symbols: readonly SchSymbol[],
+  reference: string,
+  libId: string,
+  unit: number,
+): boolean {
+  return symbols.some(
+    (s) =>
+      s.unit === unit &&
+      s.libId === libId &&
+      (s.fields.find((f) => f.key === 'Reference')?.value ?? '') === reference,
+  );
+}
+
+/**
+ * The unit to place next, stepping past the ones already taken.
+ *
+ * `SCH_DRAWING_TOOLS::PlaceSymbol`'s continuation, for "Place all units":
+ *
+ *   while( unit <= unitCount && unitOccupied( unit ) ) unit++;
+ *   if( unit > unitCount ) unit = 1;
+ *
+ * Blindly incrementing instead — which is what this replaced — meant reopening
+ * the chooser restarted at unit 1, so placing a 4001 twice from the chooser put
+ * two unit-A gates on the sheet instead of A and then B.
+ *
+ * An annotated placement is matched on its own reference, an unannotated one
+ * additionally on the library id; both come out of the same predicate here
+ * because the reference carries the distinction.
+ */
+export function nextFreeUnit(
+  symbols: readonly SchSymbol[],
+  reference: string,
+  libId: string,
+  unitCount: number,
+  from: number,
+): number {
+  let unit = from;
+  while (unit <= unitCount && isUnannotatedUnitOccupied(symbols, reference, libId, unit)) unit++;
+  return unit > unitCount ? 1 : unit;
+}
+
+/**
+ * `SCH_EDIT_FRAME::setupUIConditions`' `hasElements`, without its selection
+ * half: does the current screen hold anything at all?
+ *
+ *     return GetScreen() && ( !GetScreen()->Items().empty() || !Idle( aSel ) );
+ *
+ * It gates Cut / Copy / Delete / Duplicate, which is why a menu can offer
+ * Duplicate over empty canvas: the test is about the sheet, not the selection.
+ */
+export function screenHasItems(sch: Schematic): boolean {
+  return (
+    sch.symbols.length > 0 ||
+    sch.lines.length > 0 ||
+    sch.junctions.length > 0 ||
+    sch.noConnects.length > 0 ||
+    sch.labels.length > 0 ||
+    sch.sheets.length > 0 ||
+    sch.busEntries.length > 0 ||
+    sch.images.length > 0 ||
+    sch.graphics.length > 0 ||
+    sch.textBoxes.length > 0 ||
+    sch.tables.length > 0 ||
+    (sch.directiveLabels?.length ?? 0) > 0
+  );
+}
+
+/**
+ * `SCH_CONDITIONS::HasTypes( expandConnectionGraphTypes )`, the condition on
+ * Select/Expand Connection (sch_selection_tool.cpp:531).
+ *
+ * The list is the connectivity-carrying kinds. A hierarchical sheet is not one
+ * of them — a sheet's connections are its pins — so the entry is absent from a
+ * sheet's menu even though a sheet is very much connected to things.
+ */
+export function selectionIsExpandable(sch: Schematic, ids: ReadonlySet<string>): boolean {
+  const EXPANDABLE = new Set([
+    'symbol',
+    'pin',
+    'line',
+    'busentry',
+    'label',
+    'directive',
+    'sheetpin',
+    'junction',
+    'noconnect',
+    'graphic',
+  ]);
+  for (const id of ids) {
+    const ref = itemRefById(sch, id);
+    if (ref && EXPANDABLE.has(ref.kind)) return true;
+  }
+  return false;
+}
+
+/**
+ * `canCopyText` (sch_edit_tool.cpp), an **Only**Types condition: Copy as Text is
+ * offered when everything selected carries text. One symbol or sheet in the
+ * selection removes it, since there would be nothing to put on the clipboard
+ * for that item.
+ */
+export function selectionCanCopyAsText(sch: Schematic, ids: ReadonlySet<string>): boolean {
+  const TEXTUAL = new Set([
+    'label',
+    'directive',
+    'textbox',
+    'table',
+    'tablecell',
+    'field',
+    'pin',
+    'sheetpin',
+  ]);
+  if (ids.size === 0) return false;
+  for (const id of ids) {
+    const ref = itemRefById(sch, id);
+    if (!ref || !TEXTUAL.has(ref.kind)) return false;
+  }
+  return true;
 }

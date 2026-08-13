@@ -16,7 +16,12 @@ import {
 import { useAuth } from '../auth/AuthProvider.js';
 import { authEnabled } from '../auth/supabaseClient.js';
 import { SignInDialog } from '../auth/SignIn.js';
-import { syncAllProjects, pushProject, deleteCloudProject } from '../cloud/sync.js';
+import {
+  syncAllProjects,
+  pushProject,
+  deleteCloudProject,
+  forgetDamagedProject,
+} from '../cloud/sync.js';
 import type { SyncResult } from '../cloud/sync.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
@@ -293,7 +298,8 @@ export function HomePage({
     const failed: string[] = [];
     for (const f of doomed) {
       try {
-        await deleteCloudProject(f.id);
+        // The row only: see `forgetDamagedProject`.
+        await forgetDamagedProject(f.id);
       } catch (e) {
         failed.push(f.message);
         console.warn(`Could not remove damaged project ${f.id}:`, e);

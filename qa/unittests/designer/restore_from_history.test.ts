@@ -23,7 +23,7 @@ import {
 } from '@ziroeda/designer/src/home/projectStore.js';
 import { setCloudBackend, restoreFromHistory } from '@ziroeda/designer/src/cloud/cloudStore.js';
 import { syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
-import { sha256Hex } from '@ziroeda/designer/src/cloud/blobStore.js';
+import { blobPath, sha256Hex } from '@ziroeda/designer/src/cloud/blobStore.js';
 import type { CloudBackend, ProjectRow, RowFile } from '@ziroeda/designer/src/cloud/backend.js';
 
 const USER = 'user-1';
@@ -90,7 +90,7 @@ afterEach(() => setCloudBackend(null));
 async function blob(name: string, text: string): Promise<RowFile> {
   const bytes = gz(text);
   const hash = await sha256Hex(bytes);
-  backend.objects.set(`${USER}/blobs/${hash}`, bytes);
+  backend.objects.set(blobPath(USER, hash), bytes);
   return { name, hash, size: bytes.length };
 }
 
@@ -128,7 +128,7 @@ describe('restoring a damaged project from its history', () => {
     // And the row now names blobs that exist, so any client can read it.
     const row = backend.rows.get(ID)!;
     for (const f of row.files as { hash: string }[]) {
-      expect(backend.objects.has(`${USER}/blobs/${f.hash}`)).toBe(true);
+      expect(backend.objects.has(blobPath(USER, f.hash))).toBe(true);
     }
   });
 

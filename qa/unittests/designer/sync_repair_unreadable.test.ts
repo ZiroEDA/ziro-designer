@@ -30,6 +30,7 @@ import {
 } from '@ziroeda/designer/src/home/projectStore.js';
 import { setCloudBackend } from '@ziroeda/designer/src/cloud/cloudStore.js';
 import { syncAllProjects } from '@ziroeda/designer/src/cloud/sync.js';
+import { blobPath } from '@ziroeda/designer/src/cloud/blobStore.js';
 import { isManifestEntry } from '@ziroeda/designer/src/cloud/backend.js';
 import type { CloudBackend, ProjectRow } from '@ziroeda/designer/src/cloud/backend.js';
 
@@ -128,7 +129,7 @@ describe('a cloud copy whose objects are gone', () => {
     expect(row.files.every(isManifestEntry)).toBe(true);
     expect(row.files).toHaveLength(1);
     for (const f of row.files) {
-      expect(backend.objects.has(`${USER}/blobs/${(f as { hash: string }).hash}`)).toBe(true);
+      expect(backend.objects.has(blobPath(USER, (f as { hash: string }).hash))).toBe(true);
     }
   });
 
@@ -188,7 +189,7 @@ describe('a cloud copy whose objects are gone', () => {
       files: [{ name: 'board.kicad_pcb', gzB64: '' }],
     });
     const local = await exportProject(id);
-    expect(local!.files.every((f) => f.gzB64.length === 0)).toBe(true);
+    expect(local!.files.every((f) => (f.gzB64?.length ?? 0) === 0)).toBe(true);
     await legacyRowWithNoObjects(id, 'CM5');
 
     const result = await syncAllProjects(USER);

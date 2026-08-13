@@ -184,7 +184,9 @@ describe("sub-items: a symbol's fields", () => {
 });
 
 describe('dangling-pin markers', () => {
-  /** One symbol with two unconnected pins, so both pins dangle. */
+  /** Two symbols, four unconnected pins, so every pin dangles. The second one
+   *  never moves, which is what makes "only the moving symbol's marks"
+   *  measurable rather than the same number counted twice. */
   const DANGLING = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
   (lib_symbols
     (symbol "L:R" (pin_numbers (hide yes)) (pin_names (offset 0))
@@ -200,7 +202,10 @@ describe('dangling-pin markers', () => {
           (number "2" (effects (font (size 1.27 1.27))))))))
   (symbol (lib_id "L:R") (at 50 50 0) (unit 1)
     (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "s-1")
-    (property "Reference" "R1" (at 54 48 0) (effects (font (size 1.27 1.27))))))`;
+    (property "Reference" "R1" (at 54 48 0) (effects (font (size 1.27 1.27)))))
+  (symbol (lib_id "L:R") (at 90 50 0) (unit 1)
+    (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (uuid "s-2")
+    (property "Reference" "R2" (at 94 48 0) (effects (font (size 1.27 1.27))))))`;
 
   const recordDangling = (opts: { onlyItems?: ReadonlySet<string> }): Scene => {
     const scene = new Scene();
@@ -225,10 +230,16 @@ describe('dangling-pin markers', () => {
     expect(withMarkers.segmentCount).toBeGreaterThan(0);
   });
 
-  it('are left out of the preview pass', () => {
-    // Counted by radius through a spy context, not inferred from a segment
-    // total: a preview that still drew the markers is *also* smaller than the
-    // whole sheet, so a size comparison passes either way and says nothing.
+  it('travel with the symbol that is being dragged', () => {
+    // Counted through a spy context, not inferred from a segment total: a
+    // preview drawing the wrong markers is *also* smaller than the whole
+    // sheet, so a size comparison passes either way and says nothing.
+    //
+    // This used to assert that a preview drew none at all, on the reasoning
+    // that connectivity settles at the drop (`TestDanglingEnds` is part of the
+    // commit). It does — but the marks of the item on the cursor belong to the
+    // item, and leaving them out stranded a dragged symbol's open circles at
+    // the position it started from until it was dropped.
     const arcs = (extra: Record<string, unknown>): number[] => {
       const radii: number[] = [];
       const noop = (): void => {};
@@ -276,12 +287,16 @@ describe('dangling-pin markers', () => {
       );
       return radii;
     };
-    // TARGET_PIN_RADIUS is 15 mil; whatever its exact value, the ordinary
-    // render draws some arcs and the preview must draw strictly fewer.
+    // Four dangling pins on the sheet, two of them on the symbol being
+    // dragged. The preview draws that symbol's two, the base behind it draws
+    // the other two, and between them each mark is drawn exactly once.
     const plainArcs = arcs({});
     const previewArcs = arcs({ onlyItems: new Set(['s-1']) });
-    expect(plainArcs.length).toBeGreaterThan(0);
-    expect(previewArcs.length).toBe(0);
+    const baseArcs = arcs({ hiddenItems: new Set(['s-1']) });
+
+    expect(plainArcs).toHaveLength(4);
+    expect(previewArcs).toHaveLength(2);
+    expect(baseArcs).toHaveLength(2);
   });
 
   it('legacy size check', () => {

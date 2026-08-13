@@ -138,6 +138,20 @@ export function ungroupItemsCommand(ids: ReadonlySet<string>): EditCommand {
 }
 
 /**
+ * The symbol a child id belongs to, or null when the id is not one.
+ *
+ * Children are addressed as `<symbolRefId>:field<k>` and `<symbolRefId>:pin<n>`
+ * (see `hittest.ts`), so the parent is the part before the marker.
+ */
+function parentSymbolOf(id: string): string | null {
+  for (const marker of [':field', ':pin']) {
+    const at = id.lastIndexOf(marker);
+    if (at > 0) return id.slice(0, at);
+  }
+  return null;
+}
+
+/**
  * Selection promotion: expand `ids` so that touching any member (or a group's
  * own uuid) selects every member of that group, resolving nested groups
  * transitively, the whole-group selection SCH_SELECTION_TOOL produces.
@@ -147,8 +161,28 @@ export function expandSelectionToGroups(
   ids: ReadonlySet<string>,
 ): ReadonlySet<string> {
   if (doc.groups.length === 0) return ids;
-  const out = new Set(ids);
   const byUuid = new Map(doc.groups.filter((g) => g.uuid).map((g) => [g.uuid!, g]));
+  const members = new Set(doc.groups.flatMap((g) => g.members));
+  // A hit on a child of a symbol looks the group up from the *symbol*, which is
+  // what a group actually holds. `SCH_SELECTION_TOOL::filterCollectedItems`:
+  //
+  //   SCH_ITEM* start = item;
+  //   if( !m_isSymbolEditor && sym ) start = sym;
+  //   if( EDA_GROUP* top = SCH_GROUP::TopLevelGroup( start, … ) ) …
+  //
+  // Without it a field is not a group member — the symbol is — so clicking a
+  // grouped symbol's reference selected the text alone and let it be dragged
+  // out of the group it was supposed to be locked into.
+  //
+  // Only when the symbol is in a group, since `start` is upstream's lookup key
+  // and nothing more: a field of an ungrouped symbol is still selected, and
+  // moved, on its own.
+  const out = new Set<string>(ids);
+  for (const id of ids) {
+    if (members.has(id) || byUuid.has(id)) continue;
+    const parent = parentSymbolOf(id);
+    if (parent !== null && members.has(parent)) out.add(parent);
+  }
   let changed = true;
   while (changed) {
     changed = false;

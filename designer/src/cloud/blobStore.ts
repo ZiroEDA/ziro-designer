@@ -48,7 +48,48 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
  * `<userId>/<projectId>/<file>.gz` objects, which are left exactly where they
  * are — they may be the only remaining copy of something.
  */
-export const blobPath = (userId: string, hash: string): string => `${userId}/blobs/${hash}`;
+/**
+ * Where a blob lives: `<user>/blobs/<first two hex>/<hash>`.
+ *
+ * The two-character level is not decoration. Asking whether an object exists
+ * costs a directory listing, and every blob of every project of one user used to
+ * sit in one folder, so that listing grew with everything the account had ever
+ * saved and began answering 504. Sixteen-squared prefixes spread them evenly by
+ * construction, since the name is already a uniformly distributed hash, and the
+ * folder a lookup has to scan stays about 1/256 the size.
+ */
+export const blobPath = (userId: string, hash: string): string =>
+  `${userId}/blobs/${hash.slice(0, 2)}/${hash}`;
+
+/**
+ * Where blobs written before the split live: `<user>/blobs/<hash>`.
+ *
+ * Still read, never written. Migrating them would mean copying every object
+ * every user has, so instead a blob is re-stored under the new path the next
+ * time a project referencing it is pushed, and rows already naming the old one
+ * keep working meanwhile. Both layouts have to be readable indefinitely: a row
+ * committed years ago is still a row.
+ */
+export const flatBlobPath = (userId: string, hash: string): string => `${userId}/blobs/${hash}`;
+
+/**
+ * Whether a blob is in the store under either layout.
+ *
+ * The sharded path is asked first because it is the cheap one and where
+ * everything new goes; the flat path is only consulted when that says no, which
+ * for an account with no legacy blobs never happens. Use this wherever the
+ * answer decides whether data exists — `cloudMissingObjects` drives a repair
+ * that overwrites the cloud, and a blob reported missing merely because it
+ * predates the split would be a fabricated loss.
+ */
+export async function blobExists(
+  backend: CloudBackend,
+  userId: string,
+  hash: string,
+): Promise<boolean> {
+  if (await backend.hasObject(blobPath(userId, hash))) return true;
+  return backend.hasObject(flatBlobPath(userId, hash));
+}
 
 /** The legacy, mutable path. Read-only now; nothing writes here any more. */
 export const legacyPath = (userId: string, projectId: string, name: string): string =>
@@ -70,6 +111,11 @@ export async function putBlob(
   const hash = await sha256Hex(bytes);
   const path = blobPath(userId, hash);
   if (await backend.hasObject(path)) return hash;
+  // The flat path is deliberately not consulted here. Asking is the expensive
+  // operation this layout exists to avoid, and the worst case of not asking is
+  // storing a second copy of bytes that are already there — which also moves
+  // the blob to the new layout, so the flat folder stops being consulted for
+  // this project at all. Content addressing makes the duplicate harmless.
   await backend.putObject(path, bytes);
   return hash;
 }
@@ -88,7 +134,11 @@ export async function getBlob(
   userId: string,
   hash: string,
 ): Promise<Uint8Array> {
-  const bytes = await backend.getObject(blobPath(userId, hash));
+  // Sharded first, then the layout blobs were written in before the split. A
+  // fetch, not a listing, so trying both is cheap and exact.
+  const bytes = await backend
+    .getObject(blobPath(userId, hash))
+    .catch(() => backend.getObject(flatBlobPath(userId, hash)));
   const actual = await sha256Hex(bytes);
   if (actual !== hash) {
     throw new Error(

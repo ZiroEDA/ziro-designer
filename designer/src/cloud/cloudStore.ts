@@ -35,7 +35,15 @@
 
 import type { CloudBackend, ManifestEntry, ProjectRow, RowFile } from './backend.js';
 import { isInlineFile, isManifestEntry } from './backend.js';
-import { blobPath, getBlob, legacyPath, putBlob, sha256Hex } from './blobStore.js';
+import {
+  blobExists,
+  blobPath,
+  flatBlobPath,
+  getBlob,
+  legacyPath,
+  putBlob,
+  sha256Hex,
+} from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
 
 let backend: CloudBackend | null = null;
@@ -170,12 +178,51 @@ export async function cloudMissingObjects(
     return { name: row.name, missing: 0, total: files.length };
   }
 
-  const paths = isManifestEntry(files[0]!)
-    ? (files as ManifestEntry[]).map((f) => blobPath(userId, f.hash))
-    : files.map((f) => legacyPath(userId, row.id, f.name));
-  const present = await Promise.all(paths.map((p) => be.hasObject(p)));
+  // Manifest rows address blobs by hash, which may be stored under either
+  // layout; the older shapes address a path built from the project id. A blob
+  // reported missing merely because it predates the sharded layout would be a
+  // loss this app then "repairs" by overwriting the cloud, so both are checked.
+  const present = isManifestEntry(files[0]!)
+    ? await Promise.all((files as ManifestEntry[]).map((f) => blobExists(be, userId, f.hash)))
+    : await Promise.all(files.map((f) => be.hasObject(legacyPath(userId, row.id, f.name))));
   // The row's own name, so a report can say which project rather than which key.
-  return { name: row.name, missing: present.filter((ok) => !ok).length, total: paths.length };
+  return { name: row.name, missing: present.filter((ok) => !ok).length, total: present.length };
+}
+
+/**
+ * Prove the object store is answering truthfully before anything acts on a
+ * "missing" answer.
+ *
+ * A listing under row-level security returns *rows you are allowed to see*, and
+ * a request with no valid session is allowed to see none — with no error. So
+ * "the store says absent" and "the store cannot see anything" arrive here as
+ * the same value, and the second one, read as the first, says every blob of
+ * every project is gone: which is what happened, on an account whose data was
+ * entirely intact, with 138 versions of the project it condemned.
+ *
+ * The control is a fixed, tiny object of our own. Writing it is idempotent
+ * (content-addressed, same bytes, same key) and reading it back must say
+ * present. If it does not, the answer "absent" carries no information at all
+ * and every caller must refuse to act on one.
+ *
+ * Throws rather than returning false: a caller that cannot ask must not
+ * continue down a path whose whole premise is a reliable answer.
+ */
+const PROBE_BYTES = new TextEncoder().encode('ziro-store-probe-v1');
+
+export async function assertStoreAnswers(userId: string): Promise<void> {
+  const be = need();
+  const hash = await sha256Hex(PROBE_BYTES);
+  const path = blobPath(userId, hash);
+  // Written every time: the probe is what proves writes land *and* are visible,
+  // and it is one small idempotent object per account.
+  await be.putObject(path, PROBE_BYTES);
+  if (!(await be.hasObject(path))) {
+    throw new Error(
+      'the object store is not answering reliably (a blob just written reads as absent), ' +
+        'so nothing can be concluded about what is or is not stored',
+    );
+  }
 }
 
 /**
@@ -211,7 +258,11 @@ export async function restoreFromHistory(
     // Older shapes name no blobs to check, so nothing can be proven about them.
     if (entries.length === 0 || entries.length !== (version.files ?? []).length) continue;
 
-    const present = await Promise.all(entries.map((f) => be.hasObject(blobPath(userId, f.hash))));
+    // Both layouts. The projects this exists to rescue are the oldest ones in
+    // the account, so their surviving blobs are the most likely to be sitting
+    // at the pre-split path; asking only about the new one would find nothing
+    // and declare exactly those unrecoverable.
+    const present = await Promise.all(entries.map((f) => blobExists(be, userId, f.hash)));
     if (!present.every(Boolean)) continue;
 
     const row = await be.getProject(id);
@@ -239,8 +290,15 @@ export async function restoreFromHistory(
  * have come from, so the push refuses and says why. The matching guard on the
  * receiving side lives in `importProject`.
  */
-const isHollow = (files: { gzB64: string }[]): boolean =>
-  files.length > 0 && files.every((f) => f.gzB64.length === 0);
+const isHollow = (files: { gzB64?: string; size?: number }[]): boolean =>
+  files.length > 0 && files.every((f) => (f.size ?? f.gzB64?.length ?? 0) === 0);
+
+/** A manifest carries no bytes; this is how it gets them when one is needed. */
+async function needBytes(p: SyncableProject, name: string): Promise<Uint8Array> {
+  if (!p.bytesOf)
+    throw new Error(`project ${p.id}: no bytes for "${name}" and no way to read them`);
+  return p.bytesOf(name);
+}
 
 /**
  * Commit a project: store every blob, confirm every blob, then write the row.
@@ -263,20 +321,26 @@ export async function cloudUpsert(
     );
   }
 
-  // 1. Work out what this project is made of. The hash comes from the store
-  //    where it was computed when the bytes were written; only a file older
-  //    than that field is hashed here.
-  const files = await Promise.all(
+  // 1. Work out what this project is made of, without reading it.
+  //
+  //    The hash and the size come from the local store, where they were
+  //    computed when the bytes were written. Materialising every file to find
+  //    that out is what made a save expensive: a 10 MB project became a 13 MB
+  //    base64 string and about 400 ms of main-thread work, on every push, even
+  //    when nothing needed uploading. Bytes are fetched below, for the files
+  //    that actually have to be stored.
+  const bytesFor = async (f: { name: string; gzB64?: string }): Promise<Uint8Array> =>
+    f.gzB64 !== undefined ? b64ToBytes(f.gzB64) : await needBytes(p, f.name);
+
+  const manifest: ManifestEntry[] = await Promise.all(
     p.files.map(async (f) => {
-      const bytes = b64ToBytes(f.gzB64);
-      return { name: f.name, bytes, hash: f.hash ?? (await sha256Hex(bytes)) };
+      if (f.hash !== undefined && f.size !== undefined) {
+        return { name: f.name, hash: f.hash, size: f.size };
+      }
+      const bytes = await bytesFor(f);
+      return { name: f.name, hash: f.hash ?? (await sha256Hex(bytes)), size: bytes.length };
     }),
   );
-  const manifest: ManifestEntry[] = files.map((f) => ({
-    name: f.name,
-    hash: f.hash,
-    size: f.bytes.length,
-  }));
 
   // 2. Store, and confirm, only the blobs not already known to be there.
   //
@@ -290,12 +354,17 @@ export async function cloudUpsert(
   //    upload when the object is there, and the confirm below catches the rarer
   //    case of a write that reports success and does not land, which is exactly
   //    the class of failure that started all this.
-  const fresh = files.filter((f) => !knownPresent.has(f.hash));
-  await Promise.all(fresh.map((f) => putBlob(be, userId, f.bytes)));
+  const fresh = manifest.filter((m) => !knownPresent.has(m.hash));
+  await Promise.all(
+    fresh.map(async (m) => {
+      const src = p.files.find((f) => f.name === m.name)!;
+      return putBlob(be, userId, await bytesFor(src));
+    }),
+  );
 
   const missing = (
     await Promise.all(
-      fresh.map(async (f) => ((await be.hasObject(blobPath(userId, f.hash))) ? null : f.name)),
+      fresh.map(async (m) => ((await be.hasObject(blobPath(userId, m.hash))) ? null : m.name)),
     )
   ).filter((n): n is string => n !== null);
   if (missing.length > 0) {
@@ -348,7 +417,7 @@ export async function cloudUpsert(
  * objects cost storage, and this is the only code path in the module that can
  * destroy anything.
  */
-export async function cloudDelete(id: string): Promise<void> {
+export async function cloudDelete(id: string, opts: { keepBlobs?: boolean } = {}): Promise<void> {
   const be = need();
   const row = await be.getProject(id);
   if (!row) return;
@@ -357,7 +426,10 @@ export async function cloudDelete(id: string): Promise<void> {
 
   await be.deleteProject(id);
 
-  if (!userId || doomed.length === 0) return;
+  // `keepBlobs` is for removing a row that is *believed* damaged. Its blobs are
+  // supposed to be gone already, so there is nothing to reclaim, and if the
+  // belief was ever wrong this is the one step that would make it true.
+  if (opts.keepBlobs || !userId || doomed.length === 0) return;
   let stillUsed: Set<string>;
   try {
     const others = await be.listProjects();
@@ -367,9 +439,32 @@ export async function cloudDelete(id: string): Promise<void> {
     stillUsed = new Set(
       rows.flatMap((r) => (r?.files ?? []).filter(isManifestEntry).map((f) => f.hash)),
     );
+    // Past versions reference blobs too, and that is the entire point of them:
+    // `restoreFromHistory` walks back to a manifest whose objects are still
+    // there. Counting only current rows collected exactly the objects that make
+    // a recovery possible — so deleting one project quietly took the history of
+    // every other one with it, and nobody would find out until the day it was
+    // needed.
+    if (be.listVersions) {
+      const histories = await Promise.all(
+        others.map((o) => be.listVersions!(userId, o.id).catch(() => [])),
+      );
+      for (const versions of histories) {
+        for (const v of versions) {
+          for (const f of (v.files ?? []).filter(isManifestEntry)) stillUsed.add(f.hash);
+        }
+      }
+    }
   } catch {
     return; // Cannot prove they are unreferenced, so leave them.
   }
   const orphans = [...new Set(doomed)].filter((h) => !stillUsed.has(h));
-  if (orphans.length > 0) await be.removeObjects(orphans.map((h) => blobPath(userId, h)));
+  // Both layouts: an orphan may still be sitting at the pre-split path, and
+  // removing a key that is not there is not an error.
+  if (orphans.length > 0) {
+    await be.removeObjects([
+      ...orphans.map((h) => blobPath(userId, h)),
+      ...orphans.map((h) => flatBlobPath(userId, h)),
+    ]);
+  }
 }

@@ -19,7 +19,7 @@ import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 const key = (p: Vec2): string => `${p.x},${p.y}`;
 
 /** World connection points of a placed symbol's pins (pin tips through the transform). */
-function symbolPinWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
+export function symbolPinWorld(sym: SchSymbol, lib: LibSymbol | undefined): Vec2[] {
   if (!lib) return [];
   const t = symbolTransform(sym.angle, sym.mirror);
   const out: Vec2[] = [];

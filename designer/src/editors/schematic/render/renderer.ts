@@ -32,8 +32,11 @@ import {
   refId,
   symbolBodyBBox,
   danglingPinPositions,
+  symbolPinWorld,
   danglingWireEnds,
   danglingLabelAnchors,
+  busTouchTest,
+  labelDrawsAsBus,
   type DanglingWireEnd,
   fieldShownText,
   fieldBoundingBox,
@@ -69,7 +72,12 @@ import {
   toCss,
 } from '../../../render/color4d.js';
 import { drawDrawingSheetItems } from '../../drawingsheet/wksRender.js';
-import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import {
+  interline,
+  layoutText,
+  measureText,
+  type TextHAlign,
+} from '@ziroeda/common/src/font/stroke_font.js';
 import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
@@ -286,6 +294,20 @@ interface DanglingSets {
   wireEnds: readonly DanglingWireEnd[];
   labels: readonly { pos: Vec2; kind: string }[];
 }
+// "Is this point on a bus?", per document. `SCH_PAINTER` reads the item's
+// connection for this; a render pass has no netlist, so it is resolved from the
+// sheet and cached by document identity, exactly like the dangling sets below.
+let g_busSch: Schematic | null = null;
+let g_onBus: (p: Vec2) => boolean = () => false;
+
+function onBusTest(sch: Schematic): (p: Vec2) => boolean {
+  if (g_busSch !== sch) {
+    g_busSch = sch;
+    g_onBus = busTouchTest(sch);
+  }
+  return g_onBus;
+}
+
 let g_dangleSch: Schematic | null = null;
 let g_dangle: DanglingSets = { pins: [], wireEnds: [], labels: [] };
 function danglingFor(sch: Schematic, libById: Map<string, LibSymbol>): DanglingSets {
@@ -331,7 +353,11 @@ function filterDangling(
 }
 
 /** The anchor points of the items a preview pass is drawing. */
-function previewAnchorKeys(sch: Schematic, only: ReadonlySet<string>): Set<string> {
+function previewAnchorKeys(
+  sch: Schematic,
+  libById: Map<string, LibSymbol>,
+  only: ReadonlySet<string>,
+): Set<string> {
   const out = new Set<string>();
   const add = (p: { x: number; y: number }): void => {
     out.add(`${p.x},${p.y}`);
@@ -344,6 +370,15 @@ function previewAnchorKeys(sch: Schematic, only: ReadonlySet<string>): Set<strin
       add(l.start);
       add(l.end);
     }
+  });
+  // A symbol's marks sit on its pin tips, not on its origin, so the symbol has
+  // to contribute every pin point it owns. Without this a moving symbol left
+  // its open circles behind at the position it started from, and they caught up
+  // only on the drop — the one kind of item this split was written for, and the
+  // one it did not cover.
+  sch.symbols.forEach((sym, i) => {
+    if (!only.has(refId('symbol', sym.uuid, i))) return;
+    for (const p of symbolPinWorld(sym, libById.get(schSymbolLibraryName(sym)))) add(p);
   });
   return out;
 }
@@ -722,6 +757,8 @@ export function renderSchematic(
   setOverbarHeightRatio(opts.overbarHeightRatio);
   const libById = new Map<string, LibSymbol>();
   for (const lib of sch.libSymbols) libById.set(lib.libId, lib);
+  // Primes `g_onBus`, which the label pass reads for the bus-colour override.
+  onBusTest(sch);
 
   // Background.
   //
@@ -1341,7 +1378,7 @@ export function renderSchematic(
   // items had already left the sheet. Between them each mark is drawn exactly
   // once, and it travels with its item.
   const moving = g_only ?? g_hidden;
-  const movingKeys = moving ? previewAnchorKeys(sch, moving) : null;
+  const movingKeys = moving ? previewAnchorKeys(sch, libById, moving) : null;
   const dangling = movingKeys
     ? filterDangling(danglingFor(sch, libById), movingKeys, g_only ? 'keep' : 'drop')
     : danglingFor(sch, libById);
@@ -2237,19 +2274,31 @@ function drawLabel(
   const spin = labelSpin(l.angle, l.effects?.justify);
   // Free text uses its own font colour when set, else the notes-layer blue
   // (LAYER_NOTES, rgb(0,0,194) in KiCad's default theme), not the label black.
+  //
+  // A label or sheet pin whose *connection* is a bus is drawn in the bus colour
+  // instead of its own layer's, whatever its type:
+  //
+  //     if( conn && conn->IsBus() )
+  //         color = getRenderColor( aText, LAYER_BUS, drawingShadows, aDimmed );
+  //
+  // which is what makes a `USB_PI{USB}` sheet pin blue among teal ones. Plain
+  // free text has no connection and is left alone.
+  const busColored = l.kind !== 'text' && labelDrawsAsBus(l.text, l.at, g_onBus);
   const color = shadow
     ? shadow.color
     : brightened
       ? brightened
-      : l.kind === 'global_label'
-        ? theme.globalLabel
-        : l.kind === 'hierarchical_label'
-          ? theme.hierLabel
-          : l.kind === 'text'
-            ? l.effects?.color
-              ? cssColor(l.effects.color)
-              : theme.noText
-            : theme.label;
+      : busColored
+        ? theme.bus
+        : l.kind === 'global_label'
+          ? theme.globalLabel
+          : l.kind === 'hierarchical_label'
+            ? theme.hierLabel
+            : l.kind === 'text'
+              ? l.effects?.color
+                ? cssColor(l.effects.color)
+                : theme.noText
+              : theme.label;
   // SCH_LABEL_BASE::GetSchematicTextOffset: lift the text clear of the wire by
   // m_TextOffsetRatio x text size plus the pen width (sch_label.cpp).
   const dist = Math.round(g_textOffsetRatio * h) + g_defaultPen;
@@ -3363,7 +3412,9 @@ function drawText(
   // once into a Path2D (baseline-left origin, italic shear baked in) and cached
   // by text+size, then placed per call with a canvas transform, retained paths
   // make dense sheets (hundreds of labels/pin names) pan smoothly.
-  const width = glyphRun(text, heightIU, italic).width;
+  const hAlign: TextHAlign = right ? 'right' : left ? 'left' : 'center';
+  const run = glyphRun(text, heightIU, italic, hAlign);
+  const width = run.width;
   // KiCad text pen: normal text uses the constant default pen (6 mil,
   // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
   // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
@@ -3379,9 +3430,17 @@ function drawText(
   // 0.17 × the height, not on it. That gap is what lifts a net label clear of
   // the wire it names; placing the baseline on the anchor draws the wire
   // straight through the glyphs.
-  const blockH = cap * SINGLE_LINE_BLOCK;
+  //
+  // For more than one line the block is taller by a full interline each
+  // (`getLinePositions`: `if( i == 0 ) height += size * 1.17; else height +=
+  // interline;`), so the vertical justification has more to subtract. Leaving
+  // that out centred every stack whatever it asked for, which put a
+  // bottom-justified two-line note half a line low.
+  const blockH = cap * SINGLE_LINE_BLOCK + (run.lineCount - 1) * interline(cap);
   const offY = (top ? cap : bottom ? cap - blockH : cap - blockH / 2) - pen * STROKE_V_FUDGE;
   const fudgeX = pen / STROKE_H_FUDGE;
+  // The block is placed by its widest line; `layoutText` has already shifted
+  // each line inside it, so the two compose to upstream's per-line offset.
   const offX = right ? -(width + fudgeX) : left ? fudgeX : -width / 2;
 
   ctx.save();
@@ -3394,8 +3453,8 @@ function drawText(
   ctx.lineJoin = 'round';
   // Vector-text mode strokes segments directly (capturable by the SVG adapter);
   // canvas keeps the retained Path2D fast path.
-  if (g_vectorText) strokeGlyphs(ctx, text, heightIU, italic);
-  else ctx.stroke(textPath(text, heightIU, italic).path);
+  if (g_vectorText) strokeGlyphs(ctx, text, heightIU, italic, hAlign);
+  else ctx.stroke(textPath(text, heightIU, italic, hAlign).path);
   ctx.restore();
 }
 
@@ -3410,17 +3469,20 @@ export function setVectorText(on: boolean): void {
 // Retained glyph runs: text+size+italic -> sheared polylines (baseline-left
 // origin) + advance width, cached by text+size. (A crude size cap resets the
 // cache; real sheets stay well under it.)
-const g_glyphRuns = new Map<string, { strokes: Vec2[][]; width: number }>();
+const g_glyphRuns = new Map<string, { strokes: Vec2[][]; width: number; lineCount: number }>();
 
 function glyphRun(
   text: string,
   size: number,
   italic: boolean,
-): { strokes: Vec2[][]; width: number } {
-  const key = `${size}|${italic ? 1 : 0}|${text}`;
+  hAlign: TextHAlign = 'center',
+): { strokes: Vec2[][]; width: number; lineCount: number } {
+  const key = `${hAlign}|${size}|${italic ? 1 : 0}|${text}`;
   let entry = g_glyphRuns.get(key);
   if (!entry) {
-    const { strokes, width } = layoutText(text, size);
+    // 'first-line': the block's vertical placement is this file's job, from a
+    // height that counts the extra lines (`getLinePositions` does the same).
+    const { strokes, width, lineCount } = layoutText(text, size, hAlign, 'first-line');
     // Italic: STROKE_GLYPH::Transform shears each point right by y·ITALIC_TILT
     // (y is negative above the baseline, so tops lean right), glyph.cpp.
     const tilt = italic ? ITALIC_TILT : 0;
@@ -3428,7 +3490,7 @@ function glyphRun(
       stroke.map((pt) => ({ x: pt.x - pt.y * tilt, y: pt.y })),
     );
     if (g_glyphRuns.size > 6000) g_glyphRuns.clear();
-    entry = { strokes: sheared, width };
+    entry = { strokes: sheared, width, lineCount };
     g_glyphRuns.set(key, entry);
   }
   return entry;
@@ -3437,9 +3499,14 @@ function glyphRun(
 // Retained Path2D per glyph run (canvas fast path only).
 const g_textPaths = new Map<string, Path2D>();
 
-function textPath(text: string, size: number, italic: boolean): { path: Path2D; width: number } {
-  const { strokes, width } = glyphRun(text, size, italic);
-  const key = `${size}|${italic ? 1 : 0}|${text}`;
+function textPath(
+  text: string,
+  size: number,
+  italic: boolean,
+  hAlign: TextHAlign = 'center',
+): { path: Path2D; width: number } {
+  const { strokes, width } = glyphRun(text, size, italic, hAlign);
+  const key = `${hAlign}|${size}|${italic ? 1 : 0}|${text}`;
   let path = g_textPaths.get(key);
   if (!path) {
     path = new Path2D();
@@ -3463,8 +3530,9 @@ function strokeGlyphs(
   text: string,
   size: number,
   italic: boolean,
+  hAlign: TextHAlign = 'center',
 ): void {
-  const { strokes } = glyphRun(text, size, italic);
+  const { strokes } = glyphRun(text, size, italic, hAlign);
   for (const stroke of strokes) {
     if (stroke.length === 0) continue;
     ctx.beginPath();

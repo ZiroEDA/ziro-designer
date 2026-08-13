@@ -19,7 +19,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { putObject, uploadAll } from '../r2.mjs';
-import { perSymbolFiles, stagedFileName, topLevelSymbols, wrapLib } from './split.mjs';
+import { perSymbolFiles, stagedFileName, topLevelSymbols, unitCountOf, wrapLib } from './split.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SYM_SRC = join(ROOT, 'kicad-symbols-src');
@@ -78,12 +78,26 @@ for (const dir of symDirs.sort()) {
     // before any of it is uploaded.
     writeFileSync(join(oneDir, stagedFileName(name)), text);
   }
+  // Unit counts, for the symbols that have more than one.
+  //
+  // The chooser tree needs them before anything is fetched: KiCad builds a
+  // symbol's unit rows when it builds the node (LIB_TREE_NODE_ITEM::Update ->
+  // AddUnit), so a multi-unit part shows its expander arrow immediately. Ours
+  // could only learn the count by downloading the symbol, so the arrow appeared
+  // after the row was clicked. Carried like `power`: only the entries that need
+  // it, so a library of ordinary parts adds nothing.
+  const units = {};
+  for (const name of names) {
+    const n = unitCountOf(blockByName.get(name) ?? '');
+    if (n > 1) units[name] = n;
+  }
   symIndex.push({
     name: lib,
     count: names.length,
     symbols: names,
     // Omitted entirely when a library has none, keeping the index small.
     ...(power.length ? { power } : {}),
+    ...(Object.keys(units).length ? { units } : {}),
   });
   // stage the merged lib so the qa sweep can validate it with our engines
   mkdirSync(join(ROOT, 'tools/libraries/out/symbols'), { recursive: true });
