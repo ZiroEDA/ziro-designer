@@ -55,6 +55,7 @@ import {
   type LibGraphic,
   type LibSymbol,
   type LibSymbolUnit,
+  type LibPin,
   directiveGraphic,
   directiveBox,
   imageSizeIU,
@@ -2673,7 +2674,7 @@ function drawSelectionShadows(
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const unit of lib.units)
       if (libUnitMatches(unit, sym.unit, sym.bodyStyle))
-        drawLibUnitShadow(ctx, unit, sym.at, t, color, width);
+        drawLibUnitShadow(ctx, unit, sym.at, t, color, width, showHiddenPins);
   });
 
   // A pin picked on its own gets the glow by itself; a selected symbol already
@@ -2954,6 +2955,144 @@ function pinDir(angle: number): Vec2 {
 }
 
 /** Underglow for a selected symbol: re-stroke its body graphics and pins wider in `color`. */
+/** The default pin name/number height, 1.27 mm (DEFAULT_TEXT_SIZE). */
+const DEFAULT_PIN_TEXT = 1.27 * MM;
+
+/** The geometry `SCH_PAINTER::draw( const SCH_PIN* )` lays a pin out from. */
+interface PinStrokeGeometry {
+  /** The connection point, upstream's `pos`. */
+  readonly pos: Vec2;
+  /** The pin root against the body, upstream's `p0`. */
+  readonly p0: Vec2;
+  /** Root towards tip, in world space after the symbol transform. */
+  readonly dir: Vec2;
+  /** externalPinDecoSize: the negation bubble and polarity slopes. */
+  readonly radius: number;
+  readonly diam: number;
+  /** internalPinDecoSize: the clock notch inside the body. */
+  readonly clockSize: number;
+}
+
+/** Where a pin's line and decorations sit, before anything is stroked. */
+function pinStrokeGeometry(pin: LibPin, origin: Vec2, t: Transform): PinStrokeGeometry {
+  // A stored size of 0 means "not drawn" rather than "default", so the fallback
+  // is only for a pin that carries no size at all.
+  const NUM = pin.numberSize ?? DEFAULT_PIN_TEXT;
+  const NAME = pin.nameSize ?? DEFAULT_PIN_TEXT;
+  const radius = g_pinSymbolSize > 0 ? g_pinSymbolSize : NUM / 2;
+  const clockSize = g_pinSymbolSize > 0 ? g_pinSymbolSize : NAME !== 0 ? NAME / 2 : NUM / 2;
+  const pos = localToWorld(origin, t, pin.at);
+  const p0 = localToWorld(origin, t, pinBodyEnd(pin.at, pin.angle, pin.length));
+  const dir =
+    pin.length > 0
+      ? { x: Math.sign(pos.x - p0.x), y: Math.sign(pos.y - p0.y) }
+      : { x: -pinDir(pin.angle).x, y: -pinDir(pin.angle).y };
+  return { pos, p0, dir, radius, diam: radius * 2, clockSize };
+}
+
+/**
+ * The pin line plus its GRAPHIC_PINSHAPE decoration, stroked with whatever
+ * colour and width the context already carries.
+ *
+ * One function for the pin, its brightened redraw and its selection halo,
+ * because upstream has one: `SCH_PAINTER::draw( const SCH_PIN* )` runs the same
+ * switch for the shadow layer and only changes the colour and the width
+ * (`getLineWidth( aPin, drawingShadows )`). The halo used to be drawn from its
+ * own idea of a pin -- a plain line from root to tip -- so on an inverted pin
+ * it ran straight through the negation bubble, where the pin draws no line at
+ * all, and left the bubble itself unlit.
+ */
+function strokePinShape(ctx: CanvasRenderingContext2D, pin: LibPin, g: PinStrokeGeometry): void {
+  const { pos, p0, dir, radius, diam, clockSize } = g;
+  const line = (ax: number, ay: number, bx: number, by: number) => {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+  };
+  const triLine = (a1: Vec2, a2: Vec2, a3: Vec2) => {
+    ctx.beginPath();
+    ctx.moveTo(a1.x, a1.y);
+    ctx.lineTo(a2.x, a2.y);
+    ctx.lineTo(a3.x, a3.y);
+    ctx.stroke();
+  };
+  if (pin.electricalType === 'no_connect') {
+    // N.C. pins draw the line plus an X at the connection point, with
+    // arms of TARGET_PIN_RADIUS (15 mil, sch_pin.h).
+    const R = TARGET_PIN_RADIUS;
+    line(p0.x, p0.y, pos.x, pos.y);
+    line(pos.x - R, pos.y - R, pos.x + R, pos.y + R);
+    line(pos.x + R, pos.y - R, pos.x - R, pos.y + R);
+    return;
+  }
+
+  const clockNotch = () => {
+    // Triangle pointing into the body at the pin root.
+    const pc = { x: p0.x - dir.x * clockSize, y: p0.y - dir.y * clockSize };
+    triLine({ x: p0.x + dir.y * clockSize, y: p0.y - dir.x * clockSize }, pc, {
+      x: p0.x - dir.y * clockSize,
+      y: p0.y + dir.x * clockSize,
+    });
+  };
+  const lowSlope = () => {
+    // IEEE active-low input slope outside the body.
+    if (!dir.y) {
+      triLine({ x: p0.x + dir.x * diam, y: p0.y }, { x: p0.x + dir.x * diam, y: p0.y - diam }, p0);
+    } else {
+      triLine({ x: p0.x, y: p0.y + dir.y * diam }, { x: p0.x - diam, y: p0.y + dir.y * diam }, p0);
+    }
+  };
+
+  switch (pin.shape) {
+    case 'inverted':
+    case 'inverted_clock': {
+      ctx.beginPath();
+      ctx.arc(p0.x + dir.x * radius, p0.y + dir.y * radius, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      line(p0.x + dir.x * diam, p0.y + dir.y * diam, pos.x, pos.y);
+      if (pin.shape === 'inverted_clock') clockNotch();
+      break;
+    }
+    case 'clock':
+      line(p0.x, p0.y, pos.x, pos.y);
+      clockNotch();
+      break;
+    case 'clock_low':
+    case 'edge_clock_high': // FALLING_EDGE_CLOCK draws identically upstream
+      clockNotch();
+      lowSlope();
+      line(p0.x, p0.y, pos.x, pos.y);
+      break;
+    case 'input_low':
+      line(p0.x, p0.y, pos.x, pos.y);
+      lowSlope();
+      break;
+    case 'output_low':
+      line(p0.x, p0.y, pos.x, pos.y);
+      if (!dir.y) line(p0.x, p0.y - diam, p0.x + dir.x * diam, p0.y);
+      else line(p0.x - diam, p0.y, p0.x, p0.y + dir.y * diam);
+      break;
+    case 'non_logic':
+      line(p0.x, p0.y, pos.x, pos.y);
+      line(
+        p0.x - (dir.x + dir.y) * radius,
+        p0.y - (dir.y - dir.x) * radius,
+        p0.x + (dir.x + dir.y) * radius,
+        p0.y + (dir.y - dir.x) * radius,
+      );
+      line(
+        p0.x - (dir.x - dir.y) * radius,
+        p0.y - (dir.x + dir.y) * radius,
+        p0.x + (dir.x - dir.y) * radius,
+        p0.y + (dir.x + dir.y) * radius,
+      );
+      break;
+    default:
+      line(p0.x, p0.y, pos.x, pos.y);
+  }
+}
+
 function drawLibUnitShadow(
   ctx: CanvasRenderingContext2D,
   unit: LibSymbolUnit,
@@ -2961,6 +3100,9 @@ function drawLibUnitShadow(
   t: Transform,
   color: string,
   width: number,
+  /** Whether hidden pins are being drawn at all; a pin nobody draws gets no
+   *  halo, and one drawn ghosted gets the same halo as any other. */
+  showHiddenPins = false,
 ): void {
   ctx.strokeStyle = color;
   for (const g of unit.graphics) {
@@ -3022,12 +3164,17 @@ function drawLibUnitShadow(
         break; // text has no stroke halo
     }
   }
+  // The halo is the pin's own geometry re-stroked, not a line from root to tip:
+  // `SCH_PAINTER::draw( const SCH_PIN* )` runs the same GRAPHIC_PINSHAPE switch
+  // for LAYER_SELECTION_SHADOWS and changes only the colour and the width. An
+  // inverted pin draws no line where its negation bubble is
+  // (`DrawLine( p0 + dir * diam, pos )`), so a straight halo ran through the
+  // hole in the middle of the bubble and left the bubble itself unlit — a glow
+  // along an invisible line, which is exactly how it looked.
   ctx.lineWidth = g_defaultPen + width;
   for (const pin of unit.pins) {
-    if (pin.hidden) continue;
-    const a = localToWorld(origin, t, pin.at);
-    const b = localToWorld(origin, t, pinBodyEnd(pin.at, pin.angle, pin.length));
-    strokeLine(ctx, a, b);
+    if (pin.hidden && !showHiddenPins) continue;
+    strokePinShape(ctx, pin, pinStrokeGeometry(pin, origin, t));
   }
 }
 
@@ -3167,7 +3314,7 @@ function drawLibUnit(
   }
 
   // Pins (SCH_PAINTER::draw(SCH_PIN) + PIN_LAYOUT_CACHE placement).
-  const DEFAULT_TEXT = 1.27 * MM;
+  const DEFAULT_TEXT = DEFAULT_PIN_TEXT;
   // getPinTextOffset: MilsToIU(round(24 * m_TextOffsetRatio)), default ratio 0.15.
   const TEXT_OFFSET = Math.round(24 * g_textOffsetRatio) * 254;
   /**
@@ -3217,105 +3364,8 @@ function drawLibUnit(
         ? { x: Math.sign(pos.x - p0.x), y: Math.sign(pos.y - p0.y) }
         : { x: -pinDir(pin.angle).x, y: -pinDir(pin.angle).y };
 
-    const line = (ax: number, ay: number, bx: number, by: number) => {
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(bx, by);
-      ctx.stroke();
-    };
-    const triLine = (a1: Vec2, a2: Vec2, a3: Vec2) => {
-      ctx.beginPath();
-      ctx.moveTo(a1.x, a1.y);
-      ctx.lineTo(a2.x, a2.y);
-      ctx.lineTo(a3.x, a3.y);
-      ctx.stroke();
-    };
-
-    /** The pin line plus its GRAPHIC_PINSHAPE decoration (sch_painter.cpp). */
-    const strokePinBody = (): void => {
-      if (pin.electricalType === 'no_connect') {
-        // N.C. pins draw the line plus an X at the connection point, with
-        // arms of TARGET_PIN_RADIUS (15 mil, sch_pin.h).
-        const R = TARGET_PIN_RADIUS;
-        line(p0.x, p0.y, pos.x, pos.y);
-        line(pos.x - R, pos.y - R, pos.x + R, pos.y + R);
-        line(pos.x + R, pos.y - R, pos.x - R, pos.y + R);
-        return;
-      }
-
-      const clockNotch = () => {
-        // Triangle pointing into the body at the pin root.
-        const pc = { x: p0.x - dir.x * clockSize, y: p0.y - dir.y * clockSize };
-        triLine({ x: p0.x + dir.y * clockSize, y: p0.y - dir.x * clockSize }, pc, {
-          x: p0.x - dir.y * clockSize,
-          y: p0.y + dir.x * clockSize,
-        });
-      };
-      const lowSlope = () => {
-        // IEEE active-low input slope outside the body.
-        if (!dir.y) {
-          triLine(
-            { x: p0.x + dir.x * diam, y: p0.y },
-            { x: p0.x + dir.x * diam, y: p0.y - diam },
-            p0,
-          );
-        } else {
-          triLine(
-            { x: p0.x, y: p0.y + dir.y * diam },
-            { x: p0.x - diam, y: p0.y + dir.y * diam },
-            p0,
-          );
-        }
-      };
-
-      switch (pin.shape) {
-        case 'inverted':
-        case 'inverted_clock': {
-          ctx.beginPath();
-          ctx.arc(p0.x + dir.x * radius, p0.y + dir.y * radius, radius, 0, Math.PI * 2);
-          ctx.stroke();
-          line(p0.x + dir.x * diam, p0.y + dir.y * diam, pos.x, pos.y);
-          if (pin.shape === 'inverted_clock') clockNotch();
-          break;
-        }
-        case 'clock':
-          line(p0.x, p0.y, pos.x, pos.y);
-          clockNotch();
-          break;
-        case 'clock_low':
-        case 'edge_clock_high': // FALLING_EDGE_CLOCK draws identically upstream
-          clockNotch();
-          lowSlope();
-          line(p0.x, p0.y, pos.x, pos.y);
-          break;
-        case 'input_low':
-          line(p0.x, p0.y, pos.x, pos.y);
-          lowSlope();
-          break;
-        case 'output_low':
-          line(p0.x, p0.y, pos.x, pos.y);
-          if (!dir.y) line(p0.x, p0.y - diam, p0.x + dir.x * diam, p0.y);
-          else line(p0.x - diam, p0.y, p0.x, p0.y + dir.y * diam);
-          break;
-        case 'non_logic':
-          line(p0.x, p0.y, pos.x, pos.y);
-          line(
-            p0.x - (dir.x + dir.y) * radius,
-            p0.y - (dir.y - dir.x) * radius,
-            p0.x + (dir.x + dir.y) * radius,
-            p0.y + (dir.y - dir.x) * radius,
-          );
-          line(
-            p0.x - (dir.x - dir.y) * radius,
-            p0.y - (dir.x + dir.y) * radius,
-            p0.x + (dir.x - dir.y) * radius,
-            p0.y + (dir.x + dir.y) * radius,
-          );
-          break;
-        default:
-          line(p0.x, p0.y, pos.x, pos.y);
-      }
-    };
+    const geom = pinStrokeGeometry(pin, origin, t);
+    const strokePinBody = (): void => strokePinShape(ctx, pin, geom);
 
     // Brightened pin (on the highlighted net): shadow-pass halo behind, then the
     // pin redrawn in the brightened colour, exactly like the wire/junction pass.
