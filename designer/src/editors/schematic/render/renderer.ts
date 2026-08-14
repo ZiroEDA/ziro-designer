@@ -42,6 +42,7 @@ import {
   fieldBoundingBox,
   fieldDrawRotation,
   fieldId,
+  sheetPinId,
   collectPinSegments,
   getPageSettings,
   ITALIC_TILT,
@@ -2669,13 +2670,66 @@ function drawSelectionShadows(
     drawLabel(ctx, l, theme, { color, width });
   });
 
-  // Sheets: re-stroke the rectangle wider.
+  // Sheets: the rectangle, and everything the sheet owns.
+  //
+  // A sheet's children are selected with it. `SCH_SELECTION_TOOL::highlight`
+  // runs `RunOnChildren` over the item it just selected and sets SELECTED on
+  // each child — for a sheet that is its two fields and every one of its pins —
+  // and the painter then draws them on the shadow layer:
+  //
+  //     if( !drawingShadows || eeconfig()->m_Selection.draw_selected_children )
+  //     {
+  //         for( const SCH_FIELD& field : aSheet->GetFields() )
+  //             draw( &field, aLayer, DNP );
+  //         for( SCH_SHEET_PIN* sheetPin : aSheet->GetPins() )
+  //             draw( static_cast<SCH_HIERLABEL*>( sheetPin ), aLayer, DNP );
+  //     }
+  //
+  // `draw_selected_children` defaults to true (eeschema_settings.cpp:437). We
+  // lit the box alone, so picking a sheet left its name, its filename and every
+  // pin label looking untouched — the symbol path had this and the sheet path
+  // never did.
   sch.sheets.forEach((sh, i) => {
     const id = refId('sheet', sh.uuid, i);
-    if (!drawable(id) || !selection.has(id)) return;
-    const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
-    ctx.lineWidth = bw + width;
-    ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+    if (!drawable(id)) return;
+    const sheetSelected = selection.has(id);
+
+    if (sheetSelected) {
+      const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = bw + width;
+      ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+
+      // Laid out exactly as the sheet's own field pass lays them out, prefix
+      // included: a halo that disagrees with the glyphs sits beside the text
+      // instead of under it.
+      for (const f of sh.fields) {
+        if (!f.at || f.effects?.hidden || f.value === '') continue;
+        const text = f.key === 'Sheetfile' ? `File: ${f.value}` : f.value;
+        drawText(
+          ctx,
+          text,
+          f.at,
+          f.effects?.fontSize?.[0] ?? 1.27 * MM,
+          color,
+          f.effects?.justify,
+          f.angle % 180 === 90 ? 90 : 0,
+          f.effects?.bold,
+          f.effects?.italic,
+          width,
+        );
+      }
+    }
+
+    // A pin picked on its own glows by itself; a selected sheet glows all of
+    // them. Same split as a symbol's fields, and for the same reason: the halo
+    // has to follow whichever of the two is being dragged.
+    sh.pins.forEach((p, k) => {
+      const pid = sheetPinId(id, k);
+      if (!drawableChild(id, pid)) return;
+      if (!sheetSelected && !selection.has(pid)) return;
+      drawLabel(ctx, sheetPinAsLabel(p), theme, { color, width });
+    });
   });
 
   // Everything below here was missing, and every one of them could already be
