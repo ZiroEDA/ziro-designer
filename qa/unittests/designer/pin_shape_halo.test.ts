@@ -114,7 +114,9 @@ function spy(): { strokes: Stroke[]; ctx: CanvasRenderingContext2D } {
 /**
  * One symbol, one pin, drawn with the shape the caller names.
  *
- * The reference field is hidden so that the only ink on the canvas is the pin's.
+ * The reference field is hidden, and the pin's name and number are both "~"
+ * (KiCad's "nothing here"), so the only ink on the canvas is the pin's own
+ * geometry — which is what these assertions measure.
  * Glyphs are drawn with the context translated to the text anchor, and this spy
  * does not track the transform — a visible field would drop letter-shaped
  * strokes near the origin and swamp every span measured below.
@@ -128,7 +130,7 @@ const oneP2in = (shape: string): Schematic =>
           (symbol "U_1_1"
             (pin input ${shape} (at -12.7 0 0) (length 5.08)
               (name "~" (effects (font (size 1.27 1.27))))
-              (number "1" (effects (font (size 1.27 1.27))))))))
+              (number "~" (effects (font (size 1.27 1.27))))))))
       (symbol (lib_id "Device:U") (at 50 50 0) (unit 1) (uuid "sym-1")
         (property "Reference" "U1" (at 50 45 0)
           (effects (font (size 1.27 1.27)) (hide yes)))))`),

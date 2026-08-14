@@ -2680,7 +2680,11 @@ function drawSelectionShadows(
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const unit of lib.units)
       if (libUnitMatches(unit, sym.unit, sym.bodyStyle))
-        drawLibUnitShadow(ctx, unit, sym.at, t, color, width, showHiddenPins);
+        drawLibUnitShadow(ctx, unit, sym.at, t, color, width, showHiddenPins, {
+          numbersHidden: lib.pinNumbersHidden,
+          namesHidden: lib.pinNamesHidden,
+          nameOffset: lib.pinNameOffset,
+        });
   });
 
   // A pin picked on its own gets the glow by itself; a selected symbol already
@@ -3112,6 +3116,96 @@ function strokePinShape(ctx: CanvasRenderingContext2D, pin: LibPin, g: PinStroke
   }
 }
 
+/** One run of a pin's text, placed but not yet coloured. */
+interface PinTextRun {
+  readonly text: string;
+  readonly at: Vec2;
+  readonly size: number;
+  readonly justify?: readonly string[];
+  readonly angle: number;
+  readonly kind: 'name' | 'number';
+}
+
+/**
+ * Where a pin's name and number go, PIN_LAYOUT_CACHE.
+ *
+ * Shared with the selection halo for the reason the pin's own shape is: a pin's
+ * name and number are its children, so selecting the symbol selects them, and
+ * the painter carries straight on into the labels for the shadow layer —
+ *
+ *     if( drawingShadows && !eeconfig()->m_Selection.draw_selected_children )
+ *         return;
+ *
+ *     // Draw the labels
+ *     …
+ *     if( drawingShadows )
+ *         shadowWidth = getShadowWidth( aPin->IsBrightened() );
+ *
+ * — with `draw_selected_children` on by default. A second copy of this
+ * placement would drift from the first, which is exactly how the pin shapes
+ * came to disagree.
+ */
+function pinTextRuns(pin: LibPin, g: PinStrokeGeometry, pins: PinDisplay): PinTextRun[] {
+  const NUM = pin.numberSize ?? DEFAULT_PIN_TEXT;
+  const NAME = pin.nameSize ?? DEFAULT_PIN_TEXT;
+  const nameShown = !pins.namesHidden && NAME > 0 && !!pin.name && pin.name !== '~';
+  const numberShown = !pins.numbersHidden && NUM > 0 && !!pin.number && pin.number !== '~';
+  if (!nameShown && !numberShown) return [];
+
+  // getPinTextOffset: MilsToIU(round(24 * m_TextOffsetRatio)), default 0.15.
+  const TEXT_OFFSET = Math.round(24 * g_textOffsetRatio) * 254;
+  // PIN_TEXT_MARGIN (sch_pin.cpp:107), 4 mils; text placed outside the body
+  // clears it by the offset plus this plus the text's own pen.
+  const PIN_TEXT_MARGIN = 4 * 254;
+
+  const { pos, p0, dir } = g;
+  const horiz = dir.y === 0;
+  const angle = horiz ? 0 : 90;
+  const mid = { x: (pos.x + p0.x) / 2, y: (pos.y + p0.y) / 2 };
+  const nameInside = pins.nameOffset > 0;
+  const out: PinTextRun[] = [];
+
+  if (numberShown) {
+    // Centred along the pin: above it, or below when the name is outside
+    // (name above / number below).
+    const below = nameShown && !nameInside;
+    const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
+    out.push({
+      text: pin.number,
+      at: horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y },
+      size: NUM,
+      angle,
+      kind: 'number',
+    });
+  }
+
+  if (nameShown && nameInside) {
+    // Inside the body, just past the pin root, reading outward. Rotated text
+    // advances upward on screen, so the side it extends toward flips with the
+    // pin direction.
+    out.push({
+      text: pin.name,
+      at: { x: p0.x - dir.x * pins.nameOffset, y: p0.y - dir.y * pins.nameOffset },
+      size: NAME,
+      justify: horiz ? [dir.x < 0 ? 'left' : 'right'] : [dir.y < 0 ? 'right' : 'left'],
+      angle,
+      kind: 'name',
+    });
+  } else if (nameShown) {
+    // Outside: centred over the middle of the pin.
+    const off = NAME / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NAME);
+    out.push({
+      text: pin.name,
+      at: horiz ? { x: mid.x, y: mid.y - off } : { x: mid.x - off, y: mid.y },
+      size: NAME,
+      angle,
+      kind: 'name',
+    });
+  }
+
+  return out;
+}
+
 function drawLibUnitShadow(
   ctx: CanvasRenderingContext2D,
   unit: LibSymbolUnit,
@@ -3122,6 +3216,9 @@ function drawLibUnitShadow(
   /** Whether hidden pins are being drawn at all; a pin nobody draws gets no
    *  halo, and one drawn ghosted gets the same halo as any other. */
   showHiddenPins = false,
+  /** The symbol's pin-text settings, so the halo places a pin's name and
+   *  number exactly where the pin's own pass places them. */
+  pins?: PinDisplay,
 ): void {
   ctx.strokeStyle = color;
   for (const g of unit.graphics) {
@@ -3193,7 +3290,29 @@ function drawLibUnitShadow(
   ctx.lineWidth = g_defaultPen + width;
   for (const pin of unit.pins) {
     if (pin.hidden && !showHiddenPins) continue;
-    strokePinShape(ctx, pin, pinStrokeGeometry(pin, origin, t));
+    const g = pinStrokeGeometry(pin, origin, t);
+    strokePinShape(ctx, pin, g);
+    // A pin's name and number are its children, selected with the symbol, and
+    // the painter carries on into them for the shadow layer whenever
+    // `draw_selected_children` is on — which it is by default. We stopped at
+    // the pin line, so selecting a part lit its body and left every pin name
+    // and number looking untouched.
+    if (pins)
+      for (const run of pinTextRuns(pin, g, pins))
+        drawText(
+          ctx,
+          run.text,
+          run.at,
+          run.size,
+          color,
+          run.justify,
+          run.angle,
+          false,
+          false,
+          undefined,
+          width,
+        );
+    ctx.lineWidth = g_defaultPen + width;
   }
 }
 
@@ -3398,64 +3517,18 @@ function drawLibUnit(
     ctx.lineWidth = g_defaultPen;
     strokePinBody();
 
-    // ----- pin name/number placement (PIN_LAYOUT_CACHE) ----------------------
-    const horiz = dir.y === 0;
-    const textAngle = horiz ? 0 : 90;
-    const mid = { x: (pos.x + p0.x) / 2, y: (pos.y + p0.y) / 2 };
-    const nameShown = !pins.namesHidden && NAME > 0 && !!pin.name && pin.name !== '~';
-    const numberShown = !pins.numbersHidden && NUM > 0 && !!pin.number && pin.number !== '~';
-    const nameInside = pins.nameOffset > 0;
-
-    if (numberShown) {
-      // The number is centred along the pin: above it, or below when the name
-      // is shown outside (name above / number below).
-      const below = nameShown && !nameInside;
-      const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
-      const anchor = horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y };
+    // Pin name and number, placed by `pinTextRuns` so the halo can place them
+    // the same way.
+    for (const run of pinTextRuns(pin, geom, pins)) {
       drawText(
         ctx,
-        pin.number,
-        anchor,
-        NUM,
-        hiddenGhost ? theme.hidden : theme.pinNumber,
-        undefined,
-        textAngle,
+        run.text,
+        run.at,
+        run.size,
+        hiddenGhost ? theme.hidden : run.kind === 'name' ? theme.pinName : theme.pinNumber,
+        run.justify,
+        run.angle,
       );
-    }
-
-    if (nameShown) {
-      if (nameInside) {
-        // Inside the body, just past the pin root, reading outward.
-        const anchor = {
-          x: p0.x - dir.x * pins.nameOffset,
-          y: p0.y - dir.y * pins.nameOffset,
-        };
-        // Rotated (vertical) text advances upward on screen, so the side the
-        // text extends toward flips with the pin direction.
-        const justify = horiz ? [dir.x < 0 ? 'left' : 'right'] : [dir.y < 0 ? 'right' : 'left'];
-        drawText(
-          ctx,
-          pin.name,
-          anchor,
-          NAME,
-          hiddenGhost ? theme.hidden : theme.pinName,
-          justify,
-          textAngle,
-        );
-      } else {
-        // Outside: centred over the middle of the pin.
-        const off = NAME / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NAME);
-        const anchor = horiz ? { x: mid.x, y: mid.y - off } : { x: mid.x - off, y: mid.y };
-        drawText(
-          ctx,
-          pin.name,
-          anchor,
-          NAME,
-          hiddenGhost ? theme.hidden : theme.pinName,
-          undefined,
-          textAngle,
-        );
-      }
     }
   }
   return pinIndex;

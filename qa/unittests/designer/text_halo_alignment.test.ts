@@ -243,6 +243,108 @@ describe('the glow under a centred run', () => {
   });
 });
 
+describe('the glow under a pin’s name and number', () => {
+  // A pin's name and number are the pin's children, and the pin is the symbol's,
+  // so selecting the symbol selects them. `SCH_PAINTER::draw( const SCH_PIN* )`
+  // carries straight on past the shape into the labels for the shadow layer:
+  //
+  //     if( drawingShadows && !eeconfig()->m_Selection.draw_selected_children )
+  //         return;
+  //     // Draw the labels
+  //     …
+  //     if( drawingShadows )
+  //         shadowWidth = getShadowWidth( aPin->IsBrightened() );
+  //
+  // We stopped at the pin line, so selecting a part lit its body and its pins
+  // and left every pin name and number looking untouched.
+  const withPin = readSchematic(
+    parse(`(kicad_sch (version 20250114)
+      (lib_symbols
+        (symbol "Device:U" (pin_names (offset 0.508))
+          (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+          (symbol "U_1_1"
+            (pin input line (at -12.7 0 0) (length 5.08)
+              (name "RESET" (effects (font (size 1.27 1.27))))
+              (number "7" (effects (font (size 1.27 1.27))))))))
+      (symbol (lib_id "Device:U") (at 60 60 0) (unit 1) (uuid "sym-1")
+        (property "Reference" "U1" (at 60 55 0)
+          (effects (font (size 1.27 1.27)) (hide yes)))))`),
+  );
+
+  const boxes = paint(withPin, new Set(['sym-1']), 0.0005);
+
+  it('reaches the name', () => {
+    const name = boxes.get(KICAD_DEFAULT.pinName)!;
+    const halo = boxes.get(HALO)!;
+    expect(name).toBeDefined();
+    expect(halo.minX).toBeLessThanOrEqual(name.minX);
+    expect(halo.maxX).toBeGreaterThanOrEqual(name.maxX);
+    // The name is the rightmost thing on this symbol, so the halo can only
+    // reach its right edge by having drawn the name itself.
+    expect(halo.maxX).toBeCloseTo(name.maxX, 6);
+    // Vertically the glow rides upstream's uncompensated `m_StrokeWidth *
+    // 0.052`, about a fifth of a pixel; see the label cases above.
+    expect(Math.abs(halo.maxY - name.maxY)).toBeLessThan(0.25);
+  });
+
+  it('reaches the number', () => {
+    const num = boxes.get(KICAD_DEFAULT.pinNumber)!;
+    const halo = boxes.get(HALO)!;
+    expect(num).toBeDefined();
+    // The number sits above the pin, so this is the halo's top edge: the pin
+    // line alone would never reach it.
+    expect(halo.minY).toBeLessThanOrEqual(num.minY);
+  });
+
+  it('sets an inside name in from the body by the library’s offset', () => {
+    // The other half of the placement, and the other thing nothing else pins.
+    // Measured as a difference between two offsets rather than against a
+    // number worked out here: doubling `pin_names (offset …)` has to move the
+    // name by exactly the extra, whatever the glyphs' own bearings are.
+    const at = (offsetMm: number): number => {
+      const doc = readSchematic(
+        parse(`(kicad_sch (version 20250114)
+          (lib_symbols
+            (symbol "Device:U" (pin_names (offset ${offsetMm}))
+              (property "Reference" "U" (at 0 0 0) (effects (font (size 1.27 1.27))))
+              (symbol "U_1_1"
+                (pin input line (at -12.7 0 0) (length 5.08)
+                  (name "RESET" (effects (font (size 1.27 1.27))))
+                  (number "~" (effects (font (size 1.27 1.27))))))))
+          (symbol (lib_id "Device:U") (at 60 60 0) (unit 1) (uuid "sym-1")
+            (property "Reference" "U1" (at 60 55 0)
+              (effects (font (size 1.27 1.27)) (hide yes)))))`),
+      );
+      return paint(doc, new Set(), 0.0005).get(KICAD_DEFAULT.pinName)!.minX;
+    };
+
+    // 0.508 mm of extra offset, in canvas units at this scale.
+    const expected = 0.508 * 10_000 * 0.0005;
+    expect(Math.abs(at(1.016) - at(0.508))).toBeCloseTo(expected, 6);
+  });
+
+  it('clears the pin by the offset and the margin, not by half its height', () => {
+    // Placement, not just the halo. Nothing else in the suite pins this, and it
+    // became shared code the moment the halo started using it — so a change
+    // here would move the pin text and the glow together, invisibly to every
+    // other assertion in this file.
+    //
+    //     int num_offset = pinTextOffset + MilsToIU( PIN_TEXT_MARGIN ) + numPenWidth;
+    //
+    // pinTextOffset is round(24 × 0.15) = 4 mils and PIN_TEXT_MARGIN is 4
+    // mils, and the number's own pen is added on top; against the half-height
+    // the glyphs sit above their anchor, that leaves a gap of about 4110 IU —
+    // 2.05 canvas units here. Dropping the offset and the margin leaves 0.54,
+    // which is what the band below is drawn around.
+    const num = boxes.get(KICAD_DEFAULT.pinNumber)!;
+    const pinLineY = 60 /* mm */ * 10_000 /* IU per mm */ * 0.0005; /* scale */
+    const gap = pinLineY - num.maxY;
+
+    expect(gap).toBeGreaterThan(1.5);
+    expect(gap).toBeLessThan(2.5);
+  });
+});
+
 describe('the glow under a sheet', () => {
   const sheet = readSchematic(
     parse(`(kicad_sch (version 20250114) (lib_symbols)
