@@ -10,6 +10,7 @@
  */
 
 import type { Schematic, SchSheet } from './types.js';
+import { comparePageNum, getRootPageNumber, getSheetPageNumber } from './tools/sch_sheet_path.js';
 
 /** The "Sheetname" field value (KiCad's mandatory sheet-name field). */
 export function sheetName(sheet: SchSheet): string {
@@ -36,6 +37,8 @@ export interface SheetTreeNode {
    * apart even though they share one document.
    */
   path: string;
+  /** Stored page number (SCH_SHEET_PATH::GetPageNumber), '' if unset. */
+  page: string;
   children: SheetTreeNode[];
 }
 
@@ -43,32 +46,66 @@ export interface SheetTreeNode {
  * Build the hierarchy tree from the root document, following each sheet's
  * Sheetfile into `docs`. A missing document still appears (as a leaf) so broken
  * links are visible; recursion guards against self-referencing cycles.
+ *
+ * Siblings are sorted by their stored page number (SCH_SHEET::ComparePageNum,
+ * via HIERARCHY_TREE::OnCompareItems) rather than by sheet-symbol placement
+ * order: KiCad's tree only uses placement position to seed page numbers when
+ * they're first assigned, but always displays siblings in page-number order.
  */
 export function buildSheetTree(
   docs: ReadonlyMap<string, Schematic>,
   rootFile: string,
 ): SheetTreeNode {
+  const rootDoc = docs.get(rootFile);
+  const rootUuid = rootDoc?.uuid ?? '';
+  // The instance path of the sheets placed directly inside `ancestorUuids`'
+  // screen (SCH_SHEET_PATH::Path() then pop_back()): "/<rootUuid>" for the
+  // root screen's own sheets, one segment deeper per level of nesting.
+  const containingPath = (ancestorUuids: readonly string[]): string =>
+    `/${[rootUuid, ...ancestorUuids].join('/')}`;
   const build = (
     file: string,
     name: string,
     path: string,
+    page: string,
     stack: readonly string[],
+    ancestorUuids: readonly string[],
   ): SheetTreeNode => {
-    const node: SheetTreeNode = { file, name, path, children: [] };
+    const node: SheetTreeNode = { file, name, path, page, children: [] };
     if (stack.includes(file)) return node; // recursion guard (KiCad TestForRecursion)
     const doc = docs.get(file);
     if (!doc) return node;
+    const key = containingPath(ancestorUuids);
     doc.sheets.forEach((sh, i) => {
       const child = sheetFile(sh);
       if (child === '') return;
       // Append this sheet symbol's uuid (falling back to its index) so each
       // instance of a shared file gets its own path.
-      const childPath = `${path}${sh.uuid || `i${i}`}/`;
-      node.children.push(build(child, sheetName(sh) || child, childPath, [...stack, file]));
+      const uuid = sh.uuid || `i${i}`;
+      const childPath = `${path}${uuid}/`;
+      const childName = sheetName(sh) || child.replace(/\.kicad_sch$/i, '');
+      node.children.push(
+        build(
+          child,
+          childName,
+          childPath,
+          getSheetPageNumber(sh, key),
+          [...stack, file],
+          [...ancestorUuids, uuid],
+        ),
+      );
     });
+    node.children.sort((a, b) => comparePageNum(a.page, b.page));
     return node;
   };
-  return build(rootFile, rootFile.replace(/\.kicad_sch$/i, ''), '/', []);
+  return build(
+    rootFile,
+    rootFile.replace(/\.kicad_sch$/i, ''),
+    '/',
+    rootDoc ? getRootPageNumber(rootDoc) : '',
+    [],
+    [],
+  );
 }
 
 /**

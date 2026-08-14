@@ -1013,6 +1013,51 @@ export function SchematicEditor({
   } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [localToggles, setLocalToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  // Collapsed nodes in the Schematic Hierarchy tree (HIERARCHY_TREE twisties),
+  // keyed by SheetTreeNode.path; a node not in the set is expanded.
+  const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(new Set());
+
+  // Left dock sizing (KiCad's default AUI perspective for the Properties /
+  // Net Navigator / Schematic Hierarchy / Selection Filter column: bestw=300,
+  // and PropertiesManager's minw=240 is the binding constraint on the whole
+  // column). Height is per stacked pane; Selection Filter (prop=0 in KiCad's
+  // perspective) never grows, so it's excluded from panelHeights.
+  const [leftDockWidth, setLeftDockWidth] = useState(300);
+  const [panelHeights, setPanelHeights] = useState<Record<string, number>>({});
+  const startLeftDockResize = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = leftDockWidth;
+    const onMove = (ev: MouseEvent): void =>
+      setLeftDockWidth(Math.min(800, Math.max(240, startW + ev.clientX - startX)));
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+  };
+  // Drags the pane immediately above the sash (KiCad's HIERARCHY_TREE /
+  // PROPERTIES_PANEL / NET_NAVIGATOR sashes); the pane below it keeps filling
+  // the rest via flex:1, same chain KiCad's wxAUI splitters produce.
+  const startPanelResize = (key: string, e: React.MouseEvent): void => {
+    e.preventDefault();
+    const paneEl = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement | null;
+    const startY = e.clientY;
+    const startH = panelHeights[key] ?? paneEl?.getBoundingClientRect().height ?? 200;
+    const onMove = (ev: MouseEvent): void =>
+      setPanelHeights((p) => ({ ...p, [key]: Math.max(60, startH + ev.clientY - startY) }));
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'row-resize';
+  };
   const [prefsOpen, setPrefsOpen] = useState(false);
   const common = useCommonSettings();
   const es = useEeschemaSettings();
@@ -7138,152 +7183,208 @@ export function SchematicEditor({
       />
 
       <div className="ze-body">
-        {(toggles.has('showProperties') ||
-          toggles.has('showHierarchy') ||
-          toggles.has('showSearch') ||
-          toggles.has('showNetNavigator')) && (
-          <div className="ze-leftdock">
-            {toggles.has('showSearch') && doc && (
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Search</div>
-                <div className="ze-panel-body">
-                  <SearchPanel
-                    doc={doc}
-                    libById={libById}
-                    fmt={fmt}
-                    selectionZoom={settings.common.search_pane.selection_zoom}
-                    onSelectionZoomChange={(mode) =>
-                      settings.updateCommon((c) => {
-                        c.search_pane.selection_zoom = mode;
-                      })
-                    }
-                    selection={selection}
-                    onClearSelection={() => setSelection(new Set())}
-                    onSelect={(id) => setSelection(new Set([id]))}
-                    onCenter={(_id, at) => controller.current?.centerOn(at)}
-                    onZoomFit={(id) => {
-                      // ACTIONS::zoomFitSelection, the same extent walk the View
-                      // menu's Zoom to Selected Objects uses.
-                      const box = doc ? selectionBBox(doc, new Set([id]), libById) : emptyBBox();
-                      if (!isEmpty(box)) controller.current?.zoomToBox(box);
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            {toggles.has('showProperties') && (
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Properties</div>
-                <div className="ze-panel-body">
-                  {propRows.length > 0 ? (
-                    <SchPropertiesPanel
-                      rows={propRows}
-                      fmt={(iu) => fmt(iu)}
-                      parse={parseDist}
-                      onCommand={runCommand}
-                    />
-                  ) : (
-                    <div className="ze-muted">
-                      {selection.size === 0
-                        ? 'No objects selected'
-                        : `${selection.size} item(s) selected`}
+        {(() => {
+          // Adjacent visible grow panes get a drag sash between them, top pane
+          // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
+          // KiCad's perspective) never grows, so it's never in this list.
+          const visibleGrowKeys = [
+            toggles.has('showSearch') && doc ? 'search' : null,
+            toggles.has('showProperties') ? 'properties' : null,
+            toggles.has('showNetNavigator') && doc ? 'netNavigator' : null,
+            toggles.has('showHierarchy') ? 'hierarchy' : null,
+          ].filter((k): k is string => k !== null);
+          const sashAfter = (key: string): JSX.Element | null =>
+            visibleGrowKeys.indexOf(key) < visibleGrowKeys.length - 1 ? (
+              <div
+                className="ze-splitter horizontal"
+                onMouseDown={(e) => startPanelResize(key, e)}
+                title="Drag to resize"
+              />
+            ) : null;
+          const heightStyle = (key: string): React.CSSProperties | undefined =>
+            panelHeights[key] != null ? { flex: `0 0 ${panelHeights[key]}px` } : undefined;
+          return (
+            (toggles.has('showProperties') ||
+              toggles.has('showHierarchy') ||
+              toggles.has('showSearch') ||
+              toggles.has('showNetNavigator')) && (
+              <>
+                <div className="ze-leftdock sch-leftdock" style={{ width: leftDockWidth }}>
+                  {toggles.has('showSearch') && doc && (
+                    <>
+                      <div className="ze-panel grow" style={heightStyle('search')}>
+                        <div className="ze-panel-header">Search</div>
+                        <div className="ze-panel-body">
+                          <SearchPanel
+                            doc={doc}
+                            libById={libById}
+                            fmt={fmt}
+                            selectionZoom={settings.common.search_pane.selection_zoom}
+                            onSelectionZoomChange={(mode) =>
+                              settings.updateCommon((c) => {
+                                c.search_pane.selection_zoom = mode;
+                              })
+                            }
+                            selection={selection}
+                            onClearSelection={() => setSelection(new Set())}
+                            onSelect={(id) => setSelection(new Set([id]))}
+                            onCenter={(_id, at) => controller.current?.centerOn(at)}
+                            onZoomFit={(id) => {
+                              // ACTIONS::zoomFitSelection, the same extent walk the View
+                              // menu's Zoom to Selected Objects uses.
+                              const box = doc
+                                ? selectionBBox(doc, new Set([id]), libById)
+                                : emptyBBox();
+                              if (!isEmpty(box)) controller.current?.zoomToBox(box);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {sashAfter('search')}
+                    </>
+                  )}
+                  {toggles.has('showProperties') && (
+                    <>
+                      <div className="ze-panel grow" style={heightStyle('properties')}>
+                        <div className="ze-panel-header">Properties</div>
+                        <div className="ze-panel-body">
+                          {propRows.length > 0 ? (
+                            <SchPropertiesPanel
+                              rows={propRows}
+                              fmt={(iu) => fmt(iu)}
+                              parse={parseDist}
+                              onCommand={runCommand}
+                            />
+                          ) : (
+                            <div className="ze-muted">
+                              {selection.size === 0
+                                ? 'No objects selected'
+                                : `${selection.size} item(s) selected`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {sashAfter('properties')}
+                    </>
+                  )}
+                  {toggles.has('showNetNavigator') && doc && (
+                    <>
+                      <div className="ze-panel grow" style={heightStyle('netNavigator')}>
+                        <div className="ze-panel-header">Net Navigator</div>
+                        <div className="ze-panel-body">
+                          <NetNavigatorPanel
+                            doc={doc}
+                            libById={libById}
+                            fmt={fmt}
+                            selectedId={selection.size === 1 ? [...selection][0] : undefined}
+                            highlightedNet={highlightedChain}
+                            prebuilt={netNavigatorTree}
+                            onSelect={(id) => {
+                              // onNetNavigatorSelection ends in
+                              // `FocusOnLocation( item->GetBoundingBox().Centre() )`, so
+                              // picking a leaf brings the item under the crosshair even
+                              // though the pointer is still in the panel.
+                              setSelection(new Set([id]));
+                              const box = doc
+                                ? selectionBBox(doc, new Set([id]), libById)
+                                : emptyBBox();
+                              if (!isEmpty(box))
+                                controller.current?.centerOn({
+                                  x: (box.minX + box.maxX) / 2,
+                                  y: (box.minY + box.maxY) / 2,
+                                });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {sashAfter('netNavigator')}
+                    </>
+                  )}
+                  {toggles.has('showHierarchy') && (
+                    <>
+                      <div className="ze-panel grow" style={heightStyle('hierarchy')}>
+                        <div className="ze-panel-header">Schematic Hierarchy</div>
+                        <div className="ze-panel-body">
+                          {sheetTree &&
+                            renderSheetNode(
+                              sheetTree,
+                              0,
+                              currentPath,
+                              switchSheet,
+                              collapsedSheets,
+                              setCollapsedSheets,
+                            )}
+                        </div>
+                      </div>
+                      {sashAfter('hierarchy')}
+                    </>
+                  )}
+                  {toggles.has('showProperties') && (
+                    <div className="ze-panel">
+                      <div className="ze-panel-header">Selection Filter</div>
+                      <div className="ze-panel-body">
+                        {/* "All items" toggles every category (not Locked items),
+                      exactly like PANEL_SCH_SELECTION_FILTER::OnFilterChanged. */}
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={selectionFilterAll(selFilter)}
+                            onChange={() => {
+                              const next = !selectionFilterAll(selFilter);
+                              setSelFilter((p) => ({
+                                ...p,
+                                symbols: next,
+                                text: next,
+                                wires: next,
+                                labels: next,
+                                pins: next,
+                                graphics: next,
+                                images: next,
+                                ruleAreas: next,
+                                otherItems: next,
+                              }));
+                            }}
+                          />
+                          All items
+                        </label>
+                        {/* Locked items is special (allows selecting locked items). */}
+                        <label title="Allow selection of locked items">
+                          <input
+                            type="checkbox"
+                            checked={selFilter.lockedItems}
+                            onChange={(e) =>
+                              setSelFilter((p) => ({ ...p, lockedItems: e.target.checked }))
+                            }
+                          />
+                          Locked items
+                        </label>
+                        <div className="ze-selfilter">
+                          {FILTER_CATS.map(([key, label]) => (
+                            <label key={key}>
+                              <input
+                                type="checkbox"
+                                checked={selFilter[key]}
+                                onChange={(e) =>
+                                  setSelFilter((p) => ({ ...p, [key]: e.target.checked }))
+                                }
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-            {toggles.has('showNetNavigator') && doc && (
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Net Navigator</div>
-                <div className="ze-panel-body">
-                  <NetNavigatorPanel
-                    doc={doc}
-                    libById={libById}
-                    fmt={fmt}
-                    selectedId={selection.size === 1 ? [...selection][0] : undefined}
-                    highlightedNet={highlightedChain}
-                    prebuilt={netNavigatorTree}
-                    onSelect={(id) => {
-                      // onNetNavigatorSelection ends in
-                      // `FocusOnLocation( item->GetBoundingBox().Centre() )`, so
-                      // picking a leaf brings the item under the crosshair even
-                      // though the pointer is still in the panel.
-                      setSelection(new Set([id]));
-                      const box = doc ? selectionBBox(doc, new Set([id]), libById) : emptyBBox();
-                      if (!isEmpty(box))
-                        controller.current?.centerOn({
-                          x: (box.minX + box.maxX) / 2,
-                          y: (box.minY + box.maxY) / 2,
-                        });
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            {toggles.has('showHierarchy') && (
-              <div className="ze-panel grow">
-                <div className="ze-panel-header">Schematic Hierarchy</div>
-                <div className="ze-panel-body">
-                  {sheetTree && renderSheetNode(sheetTree, 0, currentPath, switchSheet)}
-                </div>
-              </div>
-            )}
-            {toggles.has('showProperties') && (
-              <div className="ze-panel">
-                <div className="ze-panel-header">Selection Filter</div>
-                <div className="ze-panel-body">
-                  {/* "All items" toggles every category (not Locked items),
-                      exactly like PANEL_SCH_SELECTION_FILTER::OnFilterChanged. */}
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectionFilterAll(selFilter)}
-                      onChange={() => {
-                        const next = !selectionFilterAll(selFilter);
-                        setSelFilter((p) => ({
-                          ...p,
-                          symbols: next,
-                          text: next,
-                          wires: next,
-                          labels: next,
-                          pins: next,
-                          graphics: next,
-                          images: next,
-                          ruleAreas: next,
-                          otherItems: next,
-                        }));
-                      }}
-                    />
-                    All items
-                  </label>
-                  {/* Locked items is special (allows selecting locked items). */}
-                  <label title="Allow selection of locked items">
-                    <input
-                      type="checkbox"
-                      checked={selFilter.lockedItems}
-                      onChange={(e) =>
-                        setSelFilter((p) => ({ ...p, lockedItems: e.target.checked }))
-                      }
-                    />
-                    Locked items
-                  </label>
-                  <div className="ze-selfilter">
-                    {FILTER_CATS.map(([key, label]) => (
-                      <label key={key}>
-                        <input
-                          type="checkbox"
-                          checked={selFilter[key]}
-                          onChange={(e) => setSelFilter((p) => ({ ...p, [key]: e.target.checked }))}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                <div
+                  className="ze-splitter"
+                  onMouseDown={startLeftDockResize}
+                  title="Drag to resize"
+                />
+              </>
+            )
+          );
+        })()}
 
         <Toolbar
           entries={LEFT_TOOLBAR}
@@ -8811,25 +8912,68 @@ export function SchematicEditor({
 }
 
 /** One row of the hierarchy tree; children indent one level (KiCad's navigator). */
+/**
+ * One row of the hierarchy tree (HIERARCHY_TREE): ancestor columns carry a
+ * dotted guide line for every level whose parent still has siblings below it,
+ * and this node's own column elbows into its row - straight through for a
+ * middle child, cut off halfway down for the last one - matching KiCad's
+ * wxTreeCtrl connector lines.
+ */
 function renderSheetNode(
   node: SheetTreeNode,
   depth: number,
   currentPath: string,
   onOpen: (path: string, file: string) => void,
+  collapsedPaths: ReadonlySet<string>,
+  setCollapsedPaths: (updater: (prev: Set<string>) => Set<string>) => void,
+  guides: readonly boolean[] = [],
+  isLast = true,
 ): JSX.Element {
+  const hasChildren = node.children.length > 0;
+  const collapsed = collapsedPaths.has(node.path);
+  const toggle = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    setCollapsedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(node.path)) next.delete(node.path);
+      else next.add(node.path);
+      return next;
+    });
+  };
   return (
     <div key={node.path}>
       <div
         className={`ze-tree-item ${node.path === currentPath ? 'active' : ''}`}
-        style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => onOpen(node.path, node.file)}
         title={node.file}
       >
+        {guides.map((line, i) => (
+          <span key={i} className={`ze-tree-guide${line ? ' line' : ''}`} />
+        ))}
+        {depth > 0 && <span className={`ze-tree-guide line branch${isLast ? ' last' : ''}`} />}
+        {hasChildren ? (
+          <span className={`twisty expandable${collapsed ? '' : ' open'}`} onClick={toggle} />
+        ) : (
+          <span className="ze-tree-spacer" />
+        )}
         📄 {node.name}
+        {node.page && ` (page ${node.page})`}
       </div>
-      {node.children.map((c) => (
-        <div key={c.path}>{renderSheetNode(c, depth + 1, currentPath, onOpen)}</div>
-      ))}
+      {!collapsed &&
+        node.children.map((c, i) => (
+          <div key={c.path}>
+            {renderSheetNode(
+              c,
+              depth + 1,
+              currentPath,
+              onOpen,
+              collapsedPaths,
+              setCollapsedPaths,
+              depth > 0 ? [...guides, !isLast] : guides,
+              i === node.children.length - 1,
+            )}
+          </div>
+        ))}
     </div>
   );
 }

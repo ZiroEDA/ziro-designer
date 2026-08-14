@@ -428,6 +428,43 @@ body {
   transform: translate(-50%, -70%) rotate(135deg);
 }
 
+/* Hierarchy tree connector lines (HIERARCHY_TREE): one 16px gutter column per
+   ancestor level. A plain ancestor column ("line") runs the dotted guide the
+   full row height - its parent still has siblings coming up below this
+   subtree. The node's own column ("branch") elbows into the row: a middle
+   child's guide runs top-to-bottom, the last child's stops halfway down. */
+.ze-tree-guide {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+.ze-tree-guide.line::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted #6b6f76;
+}
+.ze-tree-guide.branch::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 9px;
+  border-top: 1px dotted #6b6f76;
+}
+.ze-tree-guide.branch.last::before {
+  bottom: 50%;
+}
+.ze-tree-spacer {
+  display: inline-block;
+  width: 12px;
+  flex: 0 0 auto;
+}
+
 .ze-prop-row {
   display: flex;
   justify-content: space-between;
@@ -634,6 +671,15 @@ body {
 .ze-splitter:hover {
   background: var(--chrome-active);
 }
+/* Horizontal variant: the sash between stacked panes in a dock column
+   (Properties / Net Navigator / Schematic Hierarchy). */
+.ze-splitter.horizontal {
+  width: auto;
+  height: 5px;
+  margin-left: 0;
+  margin-top: -1px;
+  cursor: row-resize;
+}
 .ze-launchers {
   flex: 1;
   min-width: 0;
@@ -826,6 +872,21 @@ body {
   flex-direction: column;
   width: 240px;
   border-right: 1px solid var(--chrome-border);
+}
+/* Schematic Editor's left dock only: real eeschema's own chrome colors
+   (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
+   not our app's blue-tinted chrome, and its orange row/checkbox highlight
+   instead of our blue --chrome-active), scoped via custom-property
+   shadowing so every descendant rule (.ze-panel, .ze-panel-header,
+   .ze-tree-item.active/:hover, twisty, checkboxes...) picks it up for free. */
+.sch-leftdock {
+  --panel-bg: #272727;
+  --panel-header: #2e2e2e;
+  --panel-list-bg: #373737;
+  --chrome-border: #1e1e1e;
+  --chrome-hover: #3a3a3a;
+  --chrome-active: #e95420;
+  --chrome-active-border: #e95420;
 }
 
 /* Right dock (LayersManager + SelectionFilter panes): at the window edge,

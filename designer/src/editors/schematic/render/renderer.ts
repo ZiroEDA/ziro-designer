@@ -2401,7 +2401,13 @@ function drawLabel(
       angleDeg,
       bold,
       italic,
-      shadow ? pen + shadow.width : undefined,
+      // The item's own pen, and the glow's width in its own slot. Handing the
+      // *sum* over as the pen — which is what this did — thickens the stroke
+      // and moves it, because `getLinePositions` offsets a run by
+      // `m_StrokeWidth / 1.52`; the glow then sat to the right of the label it
+      // belonged under.
+      pen,
+      shadow ? shadow.width : 0,
     );
   };
 
@@ -2707,7 +2713,19 @@ function drawSelectionShadows(
       // symbol must take its fields' halos with it.
       if (!drawableChild(symId, fieldId(symId, fd.index))) continue;
       if (!symbolSelected && !selection.has(fieldId(symId, fd.index))) continue;
-      drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic, width);
+      drawText(
+        ctx,
+        fd.shown,
+        fd.centre,
+        fd.h,
+        color,
+        undefined,
+        fd.rot,
+        fd.bold,
+        fd.italic,
+        fd.pen,
+        width,
+      );
     }
   });
 
@@ -2764,6 +2782,7 @@ function drawSelectionShadows(
           f.angle % 180 === 90 ? 90 : 0,
           f.effects?.bold,
           f.effects?.italic,
+          f.effects?.thickness,
           width,
         );
       }
@@ -3526,8 +3545,29 @@ function drawText(
   angleDeg = 0,
   bold = false,
   italic = false,
-  /** Explicit pen width; the selection shadow strokes the glyphs wider. */
+  /** Explicit pen width, when the item carries one. */
   penIU?: number,
+  /**
+   * Selection-shadow width. Its presence means "this run is the glow under a
+   * stroke", and it does two things upstream does:
+   *
+   *     attrs.m_StrokeWidth += KiROUND( getShadowWidth( … ) );
+   *     …
+   *     // New text stroking has width dependent offset but we need to center
+   *     // the shadow on the stroke.  NB this offset is in font.cpp also.
+   *     int fudge = KiROUND( getShadowWidth( … ) / 1.52 );
+   *     if( m_Halign == LEFT  && m_Angle == ANGLE_0  ) text_offset.x -= fudge;
+   *     else if( m_Halign == RIGHT && m_Angle == ANGLE_0 ) text_offset.x += fudge;
+   *     …
+   *
+   * The glow is the item's own pen *plus* this, not this on its own — and
+   * because `FONT::getLinePositions` shifts a stroke run by `m_StrokeWidth /
+   * 1.52`, thickening the pen walks the glow off the glyphs it belongs under.
+   * The second half puts it back. We did neither, so every left-justified label
+   * had its glow sitting a little to the right of the text, by more the further
+   * you zoomed out.
+   */
+  shadowIU = 0,
 ): void {
   if (text === '' || text === '~') return;
 
@@ -3569,7 +3609,7 @@ function drawText(
   // KiCad text pen: normal text uses the constant default pen (6 mil,
   // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
   // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
-  const pen = penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25));
+  const pen = (penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25))) + shadowIU;
 
   // Where the baseline lands, per FONT::getLinePositions (common/font/font.cpp):
   // the draw origin starts one text height below the anchor, then the vertical
@@ -3592,7 +3632,12 @@ function drawText(
   const fudgeX = pen / STROKE_H_FUDGE;
   // The block is placed by its widest line; `layoutText` has already shifted
   // each line inside it, so the two compose to upstream's per-line offset.
-  const offX = right ? -(width + fudgeX) : left ? fudgeX : -width / 2;
+  // …and the shadow's share of that shift, taken straight back out along the
+  // reading direction. Centred text needs none: `getLinePositions` *assigns*
+  // `-lineSize.x / 2` there rather than adding to the offset, so the width
+  // never reached the position in the first place.
+  const unfudge = shadowIU / STROKE_H_FUDGE;
+  const offX = right ? -(width + fudgeX) + unfudge : left ? fudgeX - unfudge : -width / 2;
 
   ctx.save();
   ctx.translate(at.x, at.y);

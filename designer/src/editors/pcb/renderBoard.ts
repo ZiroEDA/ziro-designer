@@ -2017,8 +2017,16 @@ export function buildDrawSteps(
     // B.Cu, below every inner layer and the front pour. A retained backend
     // notes the depth and draws that pass here itself; a canvas has no marks
     // and simply never sees the call.
+    //
+    // It has to be *pushed as a step*, not called here. This function only
+    // builds the closures; nothing has been recorded when it runs, so marking
+    // inline filed the depth at run zero and the recorder dutifully drew the
+    // whole under pass beneath the entire board — every back pad number hidden
+    // under its own opaque pad.
     if (PCB_PAINT_ORDER[i] === 'B.Cu') {
-      (ctx as { mark?: (name: string) => void }).mark?.(BACK_NETNAMES_MARK);
+      steps.push(() => {
+        (ctx as { mark?: (name: string) => void }).mark?.(BACK_NETNAMES_MARK);
+      });
     }
   }
 

@@ -125,6 +125,34 @@ describe('project hierarchy (SCH_SHEET_LIST equivalent)', () => {
     expect(new Set(tree.children.map((c) => c.path)).size).toBe(2);
   });
 
+  it('orders siblings by stored page number, not by placement order in the file', () => {
+    // Same bug as the real kit-dev-coldfire-xilinx_5213 demo: the sheet symbols
+    // are placed in the file with "inout_user" before "xilinx", but xilinx is
+    // page 2 and inout_user is page 3 - the tree must show xilinx first.
+    const ROOT = 'root-uuid';
+    const misordered = readSchematic(
+      parse(`(kicad_sch (version 20230121) (generator eeschema) (uuid "${ROOT}") (lib_symbols)
+        (sheet (at 10 10) (size 20 20) (uuid "u-inout")
+          (property "Sheetname" "inout_user" (at 0 0 0))
+          (property "Sheetfile" "inout_user.kicad_sch" (at 0 0 0))
+          (instances (project "p" (path "/${ROOT}" (page "3")))))
+        (sheet (at 50 10) (size 20 20) (uuid "u-xilinx")
+          (property "Sheetname" "xilinx" (at 0 0 0))
+          (property "Sheetfile" "xilinx.kicad_sch" (at 0 0 0))
+          (instances (project "p" (path "/${ROOT}" (page "2")))))
+        (sheet_instances (path "/" (page "1"))))`),
+    );
+    const docs = new Map([
+      ['main.kicad_sch', misordered],
+      ['inout_user.kicad_sch', doc('')],
+      ['xilinx.kicad_sch', doc('')],
+    ]);
+    const tree = buildSheetTree(docs, 'main.kicad_sch');
+    expect(tree.page).toBe('1');
+    expect(tree.children.map((c) => c.name)).toEqual(['xilinx', 'inout_user']);
+    expect(tree.children.map((c) => c.page)).toEqual(['2', '3']);
+  });
+
   it('survives a recursive sheet reference', () => {
     const selfRef = doc(`(sheet (at 10 10) (size 20 20) (uuid "sx")
       (property "Sheetname" "Loop" (at 0 0 0)) (property "Sheetfile" "loop.kicad_sch" (at 0 0 0)))`);

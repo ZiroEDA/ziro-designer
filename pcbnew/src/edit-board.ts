@@ -389,6 +389,56 @@ const zoneHit = (z: PcbZone, pos: Vec2, tol: number): boolean => {
   return false;
 };
 
+/**
+ * The zone's *border* for hit-testing: `ZONE::m_Poly`, the user-drawn outline.
+ *
+ * `HitTestForCorner` and `HitTestForEdge` run on this and never on the fill.
+ * The distinction is not academic — the fill is inset from the outline by the
+ * clearance and knocked out around every pad and thermal, so testing the fill
+ * boundary puts the one place a zone can be grabbed somewhere the user cannot
+ * see. A zone with no stored outline (some keepouts, older files) falls back to
+ * its fill boundary, which is all there is to aim at.
+ */
+const zoneBorderPolys = (z: PcbZone): Vec2[][] =>
+  z.outline && z.outline.length >= 2 ? [z.outline] : z.fills.flatMap((f) => f.polys);
+
+/** Nearest distance from `pos` to any outline vertex (`SHAPE_POLY_SET::CollideVertex`). */
+const zoneCornerDist = (z: PcbZone, pos: Vec2): number => {
+  let best = Number.POSITIVE_INFINITY;
+  for (const poly of zoneBorderPolys(z)) for (const v of poly) best = Math.min(best, dist(pos, v));
+  return best;
+};
+
+/**
+ * Nearest distance from `pos` to any outline edge (`SHAPE_POLY_SET::CollideEdge`).
+ *
+ * The polygon closes, so the last-to-first segment counts like any other; a
+ * click on the bottom edge of a rectangular pour is not a special case.
+ */
+const zoneEdgeDist = (z: PcbZone, pos: Vec2): number => {
+  let best = Number.POSITIVE_INFINITY;
+  for (const poly of zoneBorderPolys(z)) {
+    if (poly.length < 2) continue;
+    for (let i = 0; i < poly.length; i++)
+      best = Math.min(best, distToSeg(pos, poly[i]!, poly[(i + 1) % poly.length]!));
+  }
+  return best;
+};
+
+/**
+ * `ZONE::HitTest( aPosition, aAccuracy )` — a corner at twice the accuracy or
+ * an outline edge at it. Deliberately *not* the filled area: KiCad only ever
+ * treats a zone as "hit exactly" on its border, and that is what makes a pour
+ * something you grab by its edge rather than something you shove around by
+ * pressing anywhere inside it.
+ */
+export function zoneBorderHit(z: PcbZone, pos: Vec2, accuracy = 0): boolean {
+  // "When looking for an 'exact' hit aAccuracy will be 0 which works poorly for
+  // very thin lines. Give it a floor." (zone.cpp)
+  const acc = Math.max(accuracy, mmToIU(0.1));
+  return zoneCornerDist(z, pos) <= acc * 2 || zoneEdgeDist(z, pos) <= acc;
+}
+
 // ----- collection & priority --------------------------------------------------
 //
 // Transcribed from PCB_SELECTION_TOOL::selectPoint / GuessSelectionCandidates /
@@ -507,6 +557,19 @@ export interface BoardHitOpts {
   visibleLayers?: ReadonlySet<string>;
   /** Viewport size in IU: footprints larger than it are last-resort picks. */
   viewportIU?: { w: number; h: number };
+  /**
+   * PCB_SELECTION_TOOL's `zoneFilledAreaFilter`: drop any zone the point does
+   * not hit on a corner or an outline edge.
+   *
+   * Upstream hands this to `selectPoint` for one gesture only — the left-drag
+   * that would start a move — under the comment "Don't allow starting a drag
+   * from a zone filled area that isn't already selected". Clicking inside a
+   * pour still selects it; it is *grabbing* it there that is refused, so a drag
+   * begun over a pour rubber-bands a selection box instead of shoving the pour
+   * across the board. `selectionContains` enforces the same rule on the other
+   * branch, because it asks `ZONE::HitTest`, which is corner-or-edge as well.
+   */
+  excludeZoneFills?: boolean;
 }
 
 /**
@@ -657,16 +720,23 @@ export function boardHitCandidates(
     }
   });
   board.zones.forEach((z, i) => {
-    // Zone edges are very specific; the filled interior is an exact hit too.
-    let edge = Infinity;
+    // hitTestDistance(PCB_ZONE_T): "Zone borders are very specific" — an edge
+    // within half the slop is exact, within the full slop is half-sloppy, and
+    // only then does the filled interior count (HitTestFilledArea). Border here
+    // means the drawn outline; see zoneBorderPolys. (A corner lies on an edge,
+    // so HitTestForCorner's wider radius only ever matters to the border gate
+    // below, never to this distance.)
+    const edge = zoneEdgeDist(z, pos);
     let inside = false;
     for (const f of z.fills)
-      for (const poly of f.polys) {
+      for (const poly of f.polys)
         if (!inside && poly.length >= 3 && pointInPolygon(pos, poly)) inside = true;
-        for (let j = 1; j < poly.length; j++)
-          edge = Math.min(edge, distToSeg(pos, poly[j - 1]!, poly[j]!));
-      }
     const d = edge <= tol / 2 ? 0 : edge <= tol ? tol / 2 : inside ? 0 : Infinity;
+    // PCB_SELECTION_TOOL's `zoneFilledAreaFilter`, run here because upstream
+    // runs it as a CLIENT_SELECTION_FILTER — after the stateful filter, before
+    // GuessSelectionCandidates — so the zone must be gone before the coverage
+    // heuristics get to weigh it against whatever else is under the cursor.
+    if (opts.excludeZoneFills && !zoneBorderHit(z, pos, tol)) return;
     if (d <= tol) {
       const filled = z.fills.reduce((s, f) => s + f.polys.reduce((q, p) => q + polyArea(p), 0), 0);
       hits.push({
