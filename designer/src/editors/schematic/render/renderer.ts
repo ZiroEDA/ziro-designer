@@ -1352,12 +1352,17 @@ export function renderSchematic(
 
     const shId = refId('sheet', sh.uuid, si);
     sh.pins.forEach((p, k) => {
+      // The theme goes through untouched. Overriding `hierLabel` used to be how
+      // a sheet pin's text was made sheet-label teal, but that key is also the
+      // flag's layer, so it dragged the arrow along with the text — and gave
+      // every bus-named pin a blue arrow once the bus override landed.
       drawLabel(
         ctx,
         sheetPinAsLabel(p),
-        { ...theme, hierLabel: theme.sheetLabel },
+        theme,
         undefined,
         hl(`${shId}:sheetpin${k}`) ? theme.netHighlight : undefined,
+        theme.sheetLabel,
       );
     });
   });
@@ -2267,6 +2272,13 @@ function drawLabel(
   shadow?: { color: string; width: number },
   /** LAYER_BRIGHTENED override for a label on the highlighted net. */
   brightened?: string,
+  /**
+   * The layer colour for the *text*, when the item's own kind is not what
+   * decides it. A sheet pin is drawn through the hierarchical-label path but
+   * its text is LAYER_SHEETLABEL, not LAYER_HIERLABEL
+   * (`SCH_PAINTER::draw( const SCH_TEXT* )`, sch_painter.cpp:2318).
+   */
+  textLayer?: string,
 ): void {
   // GetShownText: labels and free text expand `${VAR}` before layout, so the
   // flag box and centring use the substituted width.
@@ -2291,15 +2303,45 @@ function drawLabel(
       ? brightened
       : busColored
         ? theme.bus
-        : l.kind === 'global_label'
-          ? theme.globalLabel
-          : l.kind === 'hierarchical_label'
-            ? theme.hierLabel
-            : l.kind === 'text'
-              ? l.effects?.color
-                ? cssColor(l.effects.color)
-                : theme.noText
-              : theme.label;
+        : (textLayer ??
+          (l.kind === 'global_label'
+            ? theme.globalLabel
+            : l.kind === 'hierarchical_label'
+              ? theme.hierLabel
+              : l.kind === 'text'
+                ? l.effects?.color
+                  ? cssColor(l.effects.color)
+                  : theme.noText
+                : theme.label));
+
+  /**
+   * The colour of the flag *shape*, which is not the colour of the text.
+   *
+   *     COLOR4D color = getRenderColor( aLabel, LAYER_HIERLABEL, drawingShadows,
+   *                                     aDimmed, true );
+   *     …
+   *     m_gal->SetStrokeColor( color );
+   *     m_gal->DrawPolyline( d_pts );
+   *     draw( static_cast<const SCH_TEXT*>( aLabel ), aLayer, aDimmed );
+   *
+   * Two things in that one call. The layer is LAYER_HIERLABEL whatever the item
+   * is, so a sheet pin's flag is the hierarchical-label olive while its text is
+   * the sheet-label teal. And the last argument is `aIgnoreNets`, which sends
+   * getRenderColor down the branch that takes the plain layer colour — so no
+   * net, netclass or bus colouring reaches the flag at all.
+   *
+   * We stroked the flag in the text's colour, which made every bus-named sheet
+   * pin's arrow blue and every ordinary one's teal, where KiCad's are all olive.
+   */
+  const flagColor = shadow
+    ? shadow.color
+    : brightened
+      ? brightened
+      : // An explicit `(effects (font (color …)))` still wins: getRenderColor
+        // tests the item's own text colour before it consults aIgnoreNets.
+        l.effects?.color
+        ? cssColor(l.effects.color)
+        : theme.hierLabel;
   // SCH_LABEL_BASE::GetSchematicTextOffset: lift the text clear of the wire by
   // m_TextOffsetRatio x text size plus the pen width (sch_label.cpp).
   const dist = Math.round(g_textOffsetRatio * h) + g_defaultPen;
@@ -2380,6 +2422,11 @@ function drawLabel(
       // sets `SetIsFill( false )` for the ordinary pass, filling only a selected
       // one when "fill shapes" is on. The two flags differ, and ours drew both
       // hollow. Not during the shadow pass, which paints the underglow only.
+      //
+      // The flag is stroked in the hierarchical-label colour, not the text's;
+      // see `flagColor`. Nothing restores `color` afterwards because `drawText`
+      // sets the stroke itself, and the flag is the last non-text thing here.
+      ctx.strokeStyle = flagColor;
       if (!shadow) {
         ctx.fillStyle = theme.background;
         polygon(ctx, pts, true, true);
