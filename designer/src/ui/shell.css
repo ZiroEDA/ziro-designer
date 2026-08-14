@@ -16,6 +16,11 @@
   /* Filled portion of an opacity slider, left of the thumb. */
   --slider-fill: #e8912b;
 
+  /* Height of one menu row, and the size everything inside it is derived from.
+     One number so the whole app's menus stay one density — change it here and
+     the icons, the checkmark column and the flyout marker follow. */
+  --menu-row: 22px;
+
   /* The shell is dark-only, and this is what tells the engine so: it paints
      every *native* control, scrollbar and popup from its dark palette —
      including the list a <select> opens, which no CSS rule can reach. Without
@@ -592,6 +597,12 @@ body {
 /* Legacy single-grow class kept for the schematic/other editors. */
 .ze-statusbar .cell.grow {
   flex: 1;
+}
+/* A pane whose width KiCad states in pixels rather than deriving from a
+   template string — EDA_3D_VIEWER_FRAME's status_dims { -1, 170, 130, 130,
+   130 }. The width comes from the element's own style attribute. */
+.ze-statusbar .cell.pane {
+  flex: 0 0 auto;
 }
 
 /* Non-fatal open-error banner (dismiss on click). */
@@ -1197,22 +1208,25 @@ body {
   padding: 4px 0;
   cursor: default;
 }
-/* The row pitch is stated, not left to fall out of the font.
+/* The row pitch is one number, stated here, and everything inside the row is
+   sized off it.
 
-   It used to be padding around whatever line box the inherited font produced —
-   and the page sets no font-size, so that was the browser's 16px default, about
-   29px a row. KiCad's is 26. Two pixels of padding could never fix that, since
-   the text was setting the height; declaring the height is what fixes it, and
-   it stops the menu changing shape on a machine with different fonts.
+   It used to fall out of the font — padding around whatever line box the
+   inherited size produced, and the page declares no font-size at all, so that
+   was the browser's 16px default. Adjusting the padding barely moved it,
+   because the 18px icon box was the real floor: a row could not be shorter than
+   its icon however little padding it had. That is why two rounds of padding
+   tweaks changed nothing anyone could see.
 
-   26px matters here because this menu is long: the schematic's selection menu
-   runs past twenty entries, and three pixels a row is most of a screenful. */
+   Pitch matters here out of proportion to its size, because these menus are
+   long: the schematic's selection menu over a symbol is 27 entries, so every
+   pixel a row is another 27 down the screen. */
 .ze-mitem {
   display: flex;
   align-items: center;
   box-sizing: border-box;
   gap: 8px;
-  height: 26px;
+  height: var(--menu-row, 22px);
   padding: 0 12px;
   font-size: 13px;
   cursor: pointer;
@@ -1228,17 +1242,20 @@ body {
 .ze-mitem.disabled:hover {
   background: transparent;
 }
+/* The icon is what sets the floor on the row height, so it is derived from the
+   row rather than fixed: at 18px in a 22px row the icons would touch the rows
+   above and below. 16px is also what a wx menu bitmap is. */
 .ze-mitem .mico {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
 }
 .ze-mitem .mico img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .ze-mitem .lbl {
   flex: 1;
@@ -1249,11 +1266,11 @@ body {
   padding-left: 20px;
 }
 /* A separator costs its own line plus both margins, so on a menu with five of
-   them the margins alone were a row and a half. GTK's are thin. */
+   them the margins alone were most of two rows. GTK's are thin. */
 .ze-msep {
   height: 1px;
   background: var(--chrome-border);
-  margin: 3px 0;
+  margin: 2px 0;
 }
 
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
@@ -4694,4 +4711,31 @@ body {
 }
 .ze-readonly-infobar button:hover {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   EDA_3D_VIEWER_FRAME.
+
+   Upstream this is a sibling top-level window (a KIWAY_PLAYER parented to the
+   PCB frame, so the window manager floats it above pcbnew) sized 1280x720 on
+   first run — it is NOT maximised, because m_maximizeByDefault stays false for
+   it while pcbnew sets it true (pcbnew/pcb_edit_frame.cpp:215). One browser
+   tab has no window manager to delegate that to, so the frame fills the
+   viewport and keeps its own chrome instead: menu bar, the single TOP_MAIN
+   toolbar (3d-viewer returns std::nullopt for LEFT/RIGHT/TOP_AUX) and the
+   5-pane status bar.
+   --------------------------------------------------------------------------- */
+.ze-frame-3d {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome-bg);
+}
+/* The canvas host must be allowed to shrink inside the flex column, or the
+   three.js canvas pushes the status bar off-screen as it grows. */
+.ze-frame-3d > .ze-frame-canvas {
+  min-height: 0;
+  overflow: hidden;
 }
