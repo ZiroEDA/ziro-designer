@@ -301,6 +301,7 @@ import {
 } from './toolbars_sch_editor.js';
 import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
+import { isHoverSelection, rightClickSelection } from './hover_selection.js';
 import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
@@ -747,6 +748,34 @@ export function SchematicEditor({
     histories.current.set(DEFAULT_FILE, history.current);
   }, []);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * The selection a right-click made just to have something to aim the menu at
+   * — `SELECTION::SetIsHover`.
+   *
+   * `SCH_SELECTION_TOOL::Main`'s right-click branch only picks an item when
+   * nothing is selected yet, and marks what it picked as a hover:
+   *
+   *     if( m_selection.Empty() )
+   *     {
+   *         ClearSelection();
+   *         SelectPoint( evt->Position(), { SCH_LOCATE_ANY_T }, nullptr, &selCancelled );
+   *         m_selection.SetIsHover( true );
+   *     }
+   *
+   * A hover selection is disposable: every action that acts on one clears it
+   * when it finishes (`if( selection.IsHover() ) … selectionClear`), and the
+   * point editor's handles never come up on it — which is why right-clicking a
+   * sheet cold shows the menu with no resize grips, while right-clicking one
+   * that was already selected leaves the grips it already had.
+   *
+   * Held as the set itself rather than a flag, so it stops applying the moment
+   * the selection becomes anything else.
+   */
+  const [hoverSelection, setHoverSelection] = useState<ReadonlySet<string> | null>(null);
+  const selectionRef = useRef<ReadonlySet<string>>(selection);
+  selectionRef.current = selection;
+  const hoverSelectionRef = useRef<ReadonlySet<string> | null>(hoverSelection);
+  hoverSelectionRef.current = hoverSelection;
   // The item whose net is highlighted by the Highlight-Net tool (KiCad's
   // m_highlightedConn). Distinct from selection: plain selection is never a net
   // highlight in KiCad; it's the explicit highlight action that brightens a net.
@@ -1366,8 +1395,16 @@ export function SchematicEditor({
       hit: ItemRef | null,
       pointEdit: { world: Vec2; handle: EditHandle | null; tolerance: number },
     ) => {
-      if (hit)
-        setSelection((prev) => (prev.has(hit.id) ? prev : new Set(promote(new Set([hit.id])))));
+      // Only an *unselected* item is picked up here, and what gets picked up is
+      // a hover selection. Right-clicking something already selected leaves the
+      // selection exactly as it was, hover flag included — which is what keeps
+      // the point editor's handles on screen in that case and not in the other.
+      const before = { selection: selectionRef.current, hover: hoverSelectionRef.current };
+      const after = rightClickSelection(before, hit?.id ?? null, (id) => promote(new Set([id])));
+      if (after !== before) {
+        setSelection(after.selection);
+        setHoverSelection(after.hover);
+      }
       setCtxMenu({ x, y, hit, pointEdit });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7311,6 +7348,7 @@ export function SchematicEditor({
             onImagePlaced={onImagePlaced}
             grabRequest={grabRequest}
             onContextMenuRequest={onContextMenuRequest}
+            isHoverSelection={isHoverSelection({ selection, hover: hoverSelection })}
             onClarify={(x, y, items, additive) => setClarify({ x, y, items, additive })}
             onZoomArea={(box) => {
               // The tool stays armed after a zoom. `ZOOM_TOOL::Main` loops on
