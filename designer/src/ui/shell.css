@@ -2296,11 +2296,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A separator costs its own line plus both margins, so on a menu with five of
    them the margins alone were most of two rows. GTK's are thin. */
-/* Spans every column, or it would be laid into the icon column alone. */
+/* Spans every column, or it would be laid into the icon column alone.
+
+   #4b4b4b, the same grey as the popup's own frame - sampled off a real menu,
+   where the rule above "About KiCad" is one row of rgb(75,75,75) edge to edge.
+   It was --chrome-border (#1e1e1e), which had been picked against the #2c2c2c
+   the popup used to be. Darkening the popup to #1d1d1d left the separator one
+   value away from its background: still drawn, and invisible. */
 .ze-msep {
   grid-column: 1 / -1;
   height: 1px;
-  background: var(--chrome-border);
+  background: #4b4b4b;
   margin: 2px 0;
 }
 

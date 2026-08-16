@@ -32,6 +32,9 @@ export interface ManagerMenuHandlers {
   editPcb: () => void;
   editFootprints: () => void;
   openImageConverter: () => void;
+  openGerberViewer: () => void;
+  openCalculator: () => void;
+  openDrawingSheetEditor: () => void;
   openPreferences: () => void;
   showAbout: () => void;
   /** ACTIONS::listHotKeys. */
@@ -103,11 +106,11 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         SEP,
         // Upstream disables this when no local history exists; ours is
         // disabled until the snapshot subsystem lands (tracked issue).
-        { label: 'Restore Local History…', disabled: true },
+        { label: 'Restore Project from Local History…', disabled: true },
         SEP,
-        { label: 'Save As…', action: h.saveAs, disabled: !h.hasProject },
+        { label: 'Save As…', shortcut: 'Shift+Ctrl+S', action: h.saveAs, disabled: !h.hasProject },
         SEP,
-        { label: 'Import Non-KiCad Project', submenu: IMPORT_SUBMENU },
+        { label: 'Import Non-KiCad Project…', submenu: IMPORT_SUBMENU },
         SEP,
         { label: 'Archive Project…', action: h.archiveProject, disabled: !h.hasProject },
         { label: 'Unarchive Project…', action: h.unarchiveProject },
@@ -132,7 +135,8 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         },
         SEP,
         { label: 'Refresh', shortcut: 'F5', action: h.refresh },
-        SEP,
+        // No separator here: upstream runs Refresh straight into Open Text
+        // Editor and Browse Project Files with no rule between them.
         // "Open Text Editor" reinterpreted: view the selected text file in-app.
         {
           label: 'Open Text Viewer',
@@ -150,10 +154,14 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         { label: 'PCB Editor', shortcut: 'Ctrl+P', action: h.editPcb, disabled: !h.hasProject },
         { label: 'Footprint Editor', shortcut: 'Ctrl+F', action: h.editFootprints },
         SEP,
-        { label: 'Gerber Viewer', shortcut: 'Ctrl+G', disabled: true },
+        // These three were left disabled from before their editors existed, and
+        // stayed that way after they shipped - the launcher tiles beside this
+        // menu have been opening them the whole time. Upstream has all three
+        // enabled and so do we now.
+        { label: 'Gerber Viewer', shortcut: 'Ctrl+G', action: h.openGerberViewer },
         { label: 'Image Converter', shortcut: 'Ctrl+B', action: h.openImageConverter },
-        { label: 'Calculator Tools', disabled: true },
-        { label: 'Drawing Sheet Editor', shortcut: 'Ctrl+Y', disabled: true },
+        { label: 'Calculator Tools', action: h.openCalculator },
+        { label: 'Drawing Sheet Editor', shortcut: 'Ctrl+Y', action: h.openDrawingSheetEditor },
         SEP,
         { label: 'Edit Local File…', disabled: true }, // becomes the text viewer picker
       ],
