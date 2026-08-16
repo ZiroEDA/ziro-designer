@@ -51,6 +51,14 @@ export interface SheetTreeNode {
  * via HIERARCHY_TREE::OnCompareItems) rather than by sheet-symbol placement
  * order: KiCad's tree only uses placement position to seed page numbers when
  * they're first assigned, but always displays siblings in page-number order.
+ *
+ * A file saved before KiCad tracked per-instance page numbers (or never
+ * re-saved since) has none stored anywhere at all; SCH_SHEET_LIST's own
+ * AllSheetPageNumbersEmpty() guard catches exactly that and, in that case
+ * only, seeds them (SetInitialPageNumbers) by numbering a canvas-position
+ * DFS - the same traversal SCH_SCREEN::GetSheets() sorts by (x, then y, then
+ * uuid) - sequentially from the root. A file with even one stored page number
+ * skips this entirely and shows the rest blank, same as upstream.
  */
 export function buildSheetTree(
   docs: ReadonlyMap<string, Schematic>,
@@ -63,6 +71,8 @@ export function buildSheetTree(
   // root screen's own sheets, one segment deeper per level of nesting.
   const containingPath = (ancestorUuids: readonly string[]): string =>
     `/${[rootUuid, ...ancestorUuids].join('/')}`;
+  const byPosition = (a: SchSheet, b: SchSheet): number =>
+    a.at.x - b.at.x || a.at.y - b.at.y || (a.uuid ?? '').localeCompare(b.uuid ?? '');
   const build = (
     file: string,
     name: string,
@@ -70,13 +80,15 @@ export function buildSheetTree(
     page: string,
     stack: readonly string[],
     ancestorUuids: readonly string[],
+    positionOrder: boolean,
   ): SheetTreeNode => {
     const node: SheetTreeNode = { file, name, path, page, children: [] };
     if (stack.includes(file)) return node; // recursion guard (KiCad TestForRecursion)
     const doc = docs.get(file);
     if (!doc) return node;
     const key = containingPath(ancestorUuids);
-    doc.sheets.forEach((sh, i) => {
+    const sheets = positionOrder ? [...doc.sheets].sort(byPosition) : doc.sheets;
+    sheets.forEach((sh, i) => {
       const child = sheetFile(sh);
       if (child === '') return;
       // Append this sheet symbol's uuid (falling back to its index) so each
@@ -92,20 +104,41 @@ export function buildSheetTree(
           getSheetPageNumber(sh, key),
           [...stack, file],
           [...ancestorUuids, uuid],
+          positionOrder,
         ),
       );
     });
-    node.children.sort((a, b) => comparePageNum(a.page, b.page));
+    if (!positionOrder) node.children.sort((a, b) => comparePageNum(a.page, b.page));
     return node;
   };
-  return build(
+  const rootPage = rootDoc ? getRootPageNumber(rootDoc) : '';
+  const stored = build(
     rootFile,
     rootFile.replace(/\.kicad_sch$/i, ''),
     '/',
-    rootDoc ? getRootPageNumber(rootDoc) : '',
+    rootPage,
     [],
     [],
+    false,
   );
+  const allEmpty = (n: SheetTreeNode): boolean => n.page === '' && n.children.every(allEmpty);
+  if (!allEmpty(stored)) return stored;
+
+  const seeded = build(
+    rootFile,
+    rootFile.replace(/\.kicad_sch$/i, ''),
+    '/',
+    rootPage,
+    [],
+    [],
+    true,
+  );
+  let pageNumber = 0;
+  const numberFrom = (n: SheetTreeNode): SheetTreeNode => {
+    pageNumber += 1;
+    return { ...n, page: String(pageNumber), children: n.children.map(numberFrom) };
+  };
+  return numberFrom(seeded);
 }
 
 /**
