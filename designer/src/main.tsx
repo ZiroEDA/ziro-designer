@@ -10,6 +10,7 @@ import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
 import { TooltipLayer } from './ui/Tooltip.js';
+import { HotkeyListHost } from './ui/dialog_hotkey_list.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
@@ -93,6 +94,9 @@ if (missing.length > 0) {
               project manager, so a layer in its final return never reaches
               either of them. */}
           <TooltipLayer />
+          {/* ACTIONS::listHotKeys is AS_GLOBAL: one dialog and one Ctrl+F1, above
+            every frame, rather than a copy in each editor. */}
+          <HotkeyListHost />
         </DesktopGate>
       </ErrorBoundary>
     </StrictMode>,

@@ -29,6 +29,36 @@
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { buildHotkeySections, filterHotkeys } from './hotkeys_inventory.js';
+import { onShowHotkeyList } from './hotkey_list_action.js';
+
+/**
+ * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so
+ * the action and its Ctrl+F1 are global exactly as `.Scope( AS_GLOBAL )` says -
+ * the registry it subscribes to lives in hotkey_list_action.ts, which the menu
+ * builders can import without pulling JSX into qa's typecheck.
+ */
+export function HotkeyListHost(): JSX.Element | null {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const off = onShowHotkeyList(() => setOpen(true));
+    // Upstream registers this accelerator with the tool manager once, not in
+    // each frame's key handler.
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === 'F1') {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      off();
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  return open ? <HotkeyListDialog onClose={() => setOpen(false)} /> : null;
+}
 
 export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const [filter, setFilter] = useState('');

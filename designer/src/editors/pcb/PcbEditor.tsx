@@ -319,6 +319,8 @@ import {
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -7198,7 +7200,7 @@ export function PcbEditor({
       label: 'Preferences',
       items: [{ label: 'Preferences…', disabled: dis, shortcut: 'Ctrl+,' }],
     },
-    { label: 'Help', items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }] },
+    standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
 
   // ----- unit display ---------------------------------------------------------

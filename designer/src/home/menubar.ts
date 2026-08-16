@@ -10,6 +10,7 @@
  */
 
 import type { Menu, MenuItem } from '../ui/menu_types.js';
+import { standardHelpMenu } from '../ui/help_menu.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
 
@@ -178,58 +179,8 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         { label: 'Set Language', submenu: [{ label: 'English', disabled: true }] },
       ],
     },
-    {
-      label: 'Help',
-      items: [
-        // AddStandardHelpMenu, in its order: help, gettingStarted, listHotKeys,
-        // getInvolved, donate, reportBug, separator, about. Every link points at
-        // us rather than at KiCad - the entries are upstream's, the destinations
-        // are ours, which is the same call as dropping Donate below.
-        {
-          label: 'Documentation',
-          action: () => window.open('https://docs.ziroeda.com/', '_blank', 'noopener,noreferrer'),
-        },
-        {
-          label: 'Getting Started',
-          action: () =>
-            window.open(
-              'https://docs.ziroeda.com/getting-started',
-              '_blank',
-              'noopener,noreferrer',
-            ),
-        },
-        // ACTIONS::listHotKeys: "List Hotkeys...", Ctrl+F1, between the
-        // documentation entries and Report Bug, exactly where
-        // AddStandardHelpMenu puts it.
-        {
-          label: 'List Hotkeys…',
-          shortcut: 'Ctrl+F1',
-          action: h.showHotkeys,
-        },
-        {
-          label: 'Get Involved',
-          action: () =>
-            window.open(
-              'https://github.com/ZiroEDA/ziro-designer',
-              '_blank',
-              'noopener,noreferrer',
-            ),
-        },
-        // ACTIONS::donate sits here upstream and is deliberately not carried: a
-        // donation prompt for another project is theirs to put in their Help
-        // menu, not ours to put in ours.
-        {
-          label: 'Report Bug',
-          action: () =>
-            window.open(
-              'https://github.com/ZiroEDA/ziro-designer/issues',
-              '_blank',
-              'noopener,noreferrer',
-            ),
-        },
-        SEP,
-        { label: 'About Ziro Designer', action: h.showAbout },
-      ],
-    },
+    // EDA_BASE_FRAME::AddStandardHelpMenu - see ui/help_menu.ts. Shared with
+    // every editor, because upstream has exactly one of these.
+    standardHelpMenu({ showHotkeys: h.showHotkeys, showAbout: h.showAbout }),
   ];
 }

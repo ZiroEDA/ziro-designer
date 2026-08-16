@@ -20,6 +20,8 @@
  */
 
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 export interface MenuHandlers {
   tool: (id: string) => void;
@@ -330,17 +332,12 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Preferences...', 'preferences', 'openPreferences', 'Ctrl+,'),
       ],
     },
-    {
-      label: 'Help',
-      items: [
-        // `ACTIONS::help`, upstream's first Help entry: "Open product
-        // documentation in a web browser".
-        actNoIcon('Help', 'help'),
-        // ACTIONS::listHotKeys, which upstream also puts in Help.
-        act('List Hotkeys...', 'listHotkeys', 'listHotkeys', 'Ctrl+F1'),
-        SEP,
-        { label: 'About ZiroEDA', disabled: true },
-      ],
-    },
+    // EDA_BASE_FRAME::AddStandardHelpMenu, the same seven entries every KiCad
+    // frame appends last. This one had drifted to three of its own, with About
+    // disabled.
+    standardHelpMenu({
+      showHotkeys: showHotkeyList,
+      showAbout: () => h.action('about'),
+    }),
   ];
 }

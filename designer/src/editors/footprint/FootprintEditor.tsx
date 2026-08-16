@@ -45,6 +45,8 @@ import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -980,10 +982,7 @@ export function FootprintEditor({
         ],
       },
       { label: 'Preferences', items: [{ label: 'Preferences…', disabled: true }] },
-      {
-        label: 'Help',
-        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
-      },
+      standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
     ],
     [
       save,

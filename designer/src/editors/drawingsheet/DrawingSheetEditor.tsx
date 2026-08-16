@@ -52,6 +52,8 @@ import {
 import { imageFileToPng, decodeImageMeta } from './wksBitmap.js';
 import { drawDrawingSheetItems, DS_PAGE_COLOR } from './wksRender.js';
 import '../../ui/shell.css';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -1115,13 +1117,13 @@ export function DrawingSheetEditor({
         label: 'Preferences',
         items: [{ label: 'Preferences…', action: () => setShowPrefs(true) }],
       },
-      {
-        label: 'Help',
-        items: [
-          { label: 'Syntax Help (text variables)', action: () => setShowSyntaxHelp(true) },
-          { label: 'About ZiroEDA', action: () => setStatus('ZiroEDA Drawing Sheet Editor') },
-        ],
-      },
+      // "Syntax Help" is not a Help-menu entry upstream: pl_editor puts it in
+      // the properties panel as a hyperlink (properties_frame_base.cpp,
+      // m_syntaxHelpLink), which is where ours lives now too.
+      standardHelpMenu({
+        showHotkeys: showHotkeyList,
+        showAbout: () => setStatus('ZiroEDA Drawing Sheet Editor'),
+      }),
     ],
     [
       newSheet,

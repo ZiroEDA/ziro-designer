@@ -63,7 +63,7 @@ import {
 export type { PickedHomeFile } from './files.js';
 import { archiveEntries, zipArchive, expandArchive } from './project_archiver.js';
 import { AboutDialog } from './dialogs/dialog_about.js';
-import { HotkeyListDialog } from '../ui/dialog_hotkey_list.js';
+import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
@@ -331,8 +331,6 @@ export function HomePage({
   const [rootOpen, setRootOpen] = useState(true);
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
-  /** ACTIONS::listHotKeys - Help > List Hotkeys..., Ctrl+F1. */
-  const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   // Open Project: the account's project list, standing in for the native
@@ -1099,7 +1097,7 @@ export function HomePage({
     openDrawingSheetEditor: () => onOpenDrawingSheetEditor?.(),
     openPreferences: () => setPrefsOpen(true),
     showAbout: () => setAboutOpen(true),
-    showHotkeys: () => setHotkeysOpen(true),
+    showHotkeys: showHotkeyList,
     openDemo: (id) => void openDemoProject(id),
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
@@ -1125,10 +1123,8 @@ export function HomePage({
       else if (k === 'f') run(() => onOpenFootprintEditor?.(picked ?? undefined));
       else if (k === 'b') run(() => onOpenImageConverter?.());
       else if (k === ',') run(() => setPrefsOpen(true));
-      // ACTIONS::listHotKeys: .DefaultHotkey( MD_CTRL + WXK_F1 ). `e.key` is
-      // "F1" rather than a letter, so it is compared before lowercasing would
-      // matter; the Ctrl guard above already holds.
-      else if (e.key === 'F1') run(() => setHotkeysOpen(true));
+      // ACTIONS::listHotKeys is AS_GLOBAL and its Ctrl+F1 is handled once, by
+      // HotkeyListHost above the app, so there is nothing to bind here.
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1385,7 +1381,6 @@ export function HomePage({
 
       {/* KiCad's "Load Schematic" progress dialog, web-style. */}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
-      {hotkeysOpen && <HotkeyListDialog onClose={() => setHotkeysOpen(false)} />}
       {textView && (
         <TextViewerDialog
           name={textView.name}

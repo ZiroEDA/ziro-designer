@@ -26,6 +26,8 @@ import { PanelColorCode } from './panels/panel_color_code.js';
 import { PanelBoardClass } from './panels/panel_board_class.js';
 import { PanelGalvanicCorrosion } from './panels/panel_galvanic_corrosion.js';
 import './calculator.css';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 interface TreeItem {
   id: string;
@@ -94,15 +96,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
         },
       ],
     },
-    {
-      label: 'Help',
-      items: [
-        {
-          label: 'About Calculator Tools',
-          action: () => setAboutOpen(true),
-        },
-      ],
-    },
+    standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
 
   const item = TREE.flatMap((g) => g.items).find((i) => i.id === active) ?? TREE[0]!.items[0]!;

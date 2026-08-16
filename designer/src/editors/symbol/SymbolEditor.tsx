@@ -65,6 +65,8 @@ import {
 } from './components/dialogs.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -1499,10 +1501,7 @@ export function SymbolEditor({
         label: 'Preferences',
         items: [{ label: 'Preferences…', disabled: true }],
       },
-      {
-        label: 'Help',
-        items: [{ label: 'About Ziro Designer', action: () => setAboutOpen(true) }],
-      },
+      standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
     ],
     [
       save,

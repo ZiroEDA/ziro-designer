@@ -41,6 +41,8 @@ import {
   type SizeUnit,
 } from './imageSize.js';
 import './imageConverter.css';
+import { standardHelpMenu } from '../../ui/help_menu.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -372,10 +374,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         { label: 'Set Language', submenu: [{ label: 'English', disabled: true }] },
       ],
     },
-    {
-      label: 'Help',
-      items: [{ label: 'About Image Converter', action: () => setAboutOpen(true) }],
-    },
+    standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
 
   const footprint = format === 'footprint';

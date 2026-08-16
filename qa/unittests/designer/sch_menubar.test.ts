@@ -175,7 +175,9 @@ describe('no entry is silently inert', () => {
       'Copy Design Variant...',
       'Configure Paths...',
       'Manage Design Block Libraries...',
-      'About ZiroEDA',
+      // "About ZiroEDA" used to be greyed out here. The Help menu is now the
+      // shared AddStandardHelpMenu port, where About is a live action - as it
+      // is in every KiCad frame.
     ]);
   });
 });
