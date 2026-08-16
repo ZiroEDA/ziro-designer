@@ -436,27 +436,39 @@ export function HomePage({
   /**
    * Project-tree pane width (px), draggable like KiCad's wxAUI sash.
    *
-   * 250 is KICAD_MANAGER_FRAME's `defaultLeftWinWidth = FromDIP( 250 )`, used
-   * for the pane's `MinSize` and as `m_leftWinWidth`'s initial value — but only
-   * on a first run. Every later run reads it back:
+   * The first-run width is **200**, not the 250 the constructor appears to set.
+   * KICAD_MANAGER_FRAME opens with
+   *
+   *     const int defaultLeftWinWidth = FromDIP( 250 );
+   *     m_leftWinWidth = defaultLeftWinWidth;   // "Default value"
+   *
+   * but then calls `LoadSettings( config() )` (line 216) *before* it builds the
+   * pane (line 239), and LoadSettings ends `m_leftWinWidth =
+   * settings->m_LeftWinWidth` — whose PARAM default is 200
+   * (kicad_settings.cpp: `"appearance.left_frame_width", &m_LeftWinWidth, 200`).
+   * So the 250 is overwritten before anything reads it, and only survives as the
+   * pane's post-layout MinSize. Confirmed against the app: a fresh
+   * KICAD_CONFIG_HOME writes `"left_frame_width": 200` on startup and saves the
+   * same 200 back on exit.
+   *
+   * Every later run reads it back:
    *
    *     m_leftWinWidth = settings->m_LeftWinWidth;            // LoadSettings
    *     settings->m_LeftWinWidth = m_projectTreePane->GetSize().x;  // SaveSettings
    *
-   * We had the 250 and not the two lines around it, so the pane reset on every
-   * reload and long project filenames stayed clipped no matter how often the
-   * user widened it. localStorage is this app's KICAD_SETTINGS.
+   * localStorage is this app's KICAD_SETTINGS.
    */
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       // Clamped to the sash's own range, so a hand-edited or stale value can
-      // never leave the pane wider than the window or too narrow to hit.
+      // never leave the pane wider than the window or too narrow to hit. 200 is
+      // the floor because that is the first-run width; a dragged one is >= 250.
       const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
-      if (Number.isFinite(saved) && saved >= 180 && saved <= 600) return saved;
+      if (Number.isFinite(saved) && saved >= 200 && saved <= 600) return saved;
     } catch {
       /* storage blocked: fall through to the first-run default */
     }
-    return 250;
+    return 200;
   });
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
@@ -801,8 +813,12 @@ export function HomePage({
     e.preventDefault();
     const startX = e.clientX;
     const startW = panelWidth;
+    // 250 is the pane's MinSize, applied straight after the first layout:
+    //   m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, ... )
+    // It is deliberately wider than the 200 the pane opens at, so the first drag
+    // cannot put it back as narrow as it started. That asymmetry is upstream's.
     const onMove = (ev: MouseEvent): void =>
-      setPanelWidth(Math.min(600, Math.max(180, startW + ev.clientX - startX)));
+      setPanelWidth(Math.min(600, Math.max(250, startW + ev.clientX - startX)));
     const onUp = (): void => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
