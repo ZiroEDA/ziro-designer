@@ -309,7 +309,7 @@ export function TemplateSelectorDialog({
               <div className="ze-tplsel-searchwrap">
                 <span className="mag" aria-hidden="true" />
                 <input
-                  className="ze-tplsel-search"
+                  className="ze-tplsel-search ze-bare"
                   type="text"
                   placeholder="Search"
                   value={searchText}
@@ -534,7 +534,7 @@ export function TemplateSelectorDialog({
             <input
               ref={nameRef}
               id="ze-tplsel-projname"
-              className="ze-tplsel-nameinput"
+              className="ze-tplsel-nameinput ze-bare"
               value={projectName}
               disabled={!selected}
               placeholder={selected ? selected.id : 'Select a template first'}

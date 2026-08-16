@@ -118,8 +118,18 @@ body {
 
 /* Text fields and comboboxes. The `:not(…)` list keeps the controls that are
    *drawn* rather than filled — a checkbox, a radio, a colour well, a slider —
-   out of it; giving those a background and a border destroys them. */
-.ze-app input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+   out of it; giving those a background and a border destroys them.
+
+   `.ze-bare` is the explicit opt-out, for an entry that sits *inside* a frame
+   its wrapper draws — a search box with a magnifier beside it, a filename with
+   a fixed extension after it. Those need no background, border or padding of
+   their own, and every `:not()` here counts toward specificity, which puts this
+   rule at (0,5,1) and out of reach of any sensible stack of classes. Opting out
+   by name beats each such entry having to find an id to win with. */
+.ze-app
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not(
+  .ze-bare
+),
 .ze-app select,
 .ze-app textarea {
   background: var(--chrome-bg2);
@@ -1204,17 +1214,10 @@ body {
    descendant type selector has to be qualified with .ze-app to outrank the
    shell's blanket `.ze-app input`, and that lands high enough to make every
    later plain `input` rule in this file report as descending specificity. */
-/* Addressed by id, which is the one thing specific enough to win here.
-   The shell's blanket entry rule is
-
-     .ze-app input:not([type="checkbox"]):not([type="radio"])
-                  :not([type="color"]):not([type="range"])
-
-   and each :not() carries its argument's weight, so that is (0,5,1) - past any
-   sensible stack of classes. Left to win it painted the entry's own background
-   and border inside the wrapper's, which is the box-inside-a-box, and its 5px
-   padding is the gap that opened between the caret and the dot. */
-.ze-app #ze-tplsel-projname {
+/* The entry inside the framed name box: no chrome of its own, because the
+   wrapper draws it. `.ze-bare` on the element is what keeps the shell's blanket
+   entry rule off it - see that rule for why a class alone could not. */
+.ze-tplsel-nameinput {
   box-sizing: border-box;
   /* Fills the box, so the extension parks at the right edge rather than
      following the caret. Sizing the entry to its content (field-sizing) put
@@ -1249,6 +1252,90 @@ body {
 }
 .ze-tplsel-nameerr {
   margin-top: 6px;
+}
+/* ---------------------------------------------------------------------------
+   Hotkey List (DIALOG_LIST_HOTKEYS + PANEL_HOTKEYS_EDITOR).
+
+   `main_sizer->SetMinSize( 600, 400 )` is the only size upstream states, and
+   DIALOG_SHIM is resizable, so 600x400 is both the opening size and the floor.
+   ------------------------------------------------------------------------- */
+.ze-modal.ze-hotkeys {
+  width: 600px;
+  height: 400px;
+  min-width: 600px;
+  min-height: 400px;
+  resize: both;
+  overflow: hidden;
+}
+.ze-hotkeys-body {
+  flex-direction: column;
+  /* bMargins carries wxTOP|wxRIGHT 5 on both children; the panel itself is
+     added with KIUI::GetStdMargin(), which is 5 on GTK. */
+  padding: 5px;
+  gap: 5px;
+}
+.ze-hotkeys-filter {
+  flex: 0 0 auto;
+  margin: 0;
+  width: auto;
+}
+.ze-hotkeys-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--panel-bg);
+  border: 1px solid #181818;
+  border-radius: 4px;
+}
+/* The wxTreeListCtrl's column header. */
+.ze-hotkeys-head {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--content-bg);
+  border-bottom: 1px solid #181818;
+  padding: 5px 8px;
+  font-size: var(--ui-font-size);
+  color: #f3f4f5;
+}
+.ze-hotkeys-head .cmd,
+.ze-hotkeys-row .cmd {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-hotkeys-head .key,
+.ze-hotkeys-row .key {
+  flex: 0 0 170px;
+}
+/* A section is a top-level tree row: bold, and its children indented under it. */
+.ze-hotkeys-sectionhead {
+  padding: 6px 8px 4px;
+  font-size: var(--ui-font-size);
+  font-weight: 700;
+  color: #f3f4f5;
+}
+.ze-hotkeys-row {
+  display: flex;
+  padding: 3px 8px 3px 24px;
+  font-size: 10pt;
+  color: var(--chrome-fg);
+}
+.ze-hotkeys-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-hotkeys-empty {
+  padding: 14px;
+  font-size: 10pt;
+  color: #9a9a9a;
+}
+.ze-hotkeys-count {
+  font-size: 10pt;
+  color: #9a9a9a;
 }
 /* A wxMenu takes the pointer grab, so a click anywhere else dismisses it. */
 .ze-tplsel-ctxscrim {

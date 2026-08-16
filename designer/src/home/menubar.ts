@@ -34,6 +34,8 @@ export interface ManagerMenuHandlers {
   openImageConverter: () => void;
   openPreferences: () => void;
   showAbout: () => void;
+  /** ACTIONS::listHotKeys. */
+  showHotkeys: () => void;
   openDemo: (id: string) => void;
   hasProject: boolean;
   hasTextFileSelected: boolean;
@@ -175,6 +177,14 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
           label: 'Documentation',
           action: () => window.open('https://docs.ziroeda.com/', '_blank', 'noopener,noreferrer'),
         },
+        // ACTIONS::listHotKeys: "List Hotkeys...", Ctrl+F1, between the
+        // documentation entries and Report Bug, exactly where
+        // AddStandardHelpMenu puts it.
+        {
+          label: 'List Hotkeys…',
+          shortcut: 'Ctrl+F1',
+          action: h.showHotkeys,
+        },
         {
           label: 'Report Bug',
           action: () =>
@@ -184,12 +194,9 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
               'noopener,noreferrer',
             ),
         },
-        SEP,
-        // Our compatibility promise includes funding upstream development.
-        {
-          label: 'Donate to KiCad',
-          action: () => window.open('https://go.kicad.org/donate', '_blank'),
-        },
+        // ACTIONS::donate is upstream's next entry and is deliberately not
+        // carried: a donation prompt in someone else's product is theirs to
+        // put there, not ours, and it read as ours.
         SEP,
         { label: 'About Ziro Designer', action: h.showAbout },
       ],
