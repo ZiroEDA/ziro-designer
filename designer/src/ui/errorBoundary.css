@@ -62,7 +62,7 @@
   background: #3a3d42;
   border: 1px solid #17181b;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-crash-btn.primary {
   background: #1b598f;
@@ -84,7 +84,7 @@
   color: #8b8f96;
 }
 .ze-crash-details summary {
-  cursor: pointer;
+  cursor: default;
 }
 .ze-crash-details pre {
   margin: 10px 0 0;
@@ -145,7 +145,7 @@
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-storage-banner button:hover {
   background: rgba(0, 0, 0, 0.45);

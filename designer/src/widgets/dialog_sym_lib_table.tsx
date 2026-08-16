@@ -266,7 +266,7 @@ export function DialogSymLibTable({
                       <div
                         key={d.file}
                         className="ze-menu-item"
-                        style={{ padding: '4px 12px', cursor: 'pointer' }}
+                        style={{ padding: '4px 12px', cursor: 'default' }}
                         onClick={() => {
                           addRow({
                             name: d.file,

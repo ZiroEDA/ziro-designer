@@ -80,7 +80,7 @@ export function DialogDrc({
         borderBottom: '1px solid var(--chrome-border)',
         fontSize: 12,
         background: selected === i ? 'var(--chrome-active, rgba(90,140,255,0.18))' : undefined,
-        cursor: 'pointer',
+        cursor: 'default',
       }}
       onClick={() => onSelect(i, v.pos)}
       onDoubleClick={onClose}

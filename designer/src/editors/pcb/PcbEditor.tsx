@@ -7811,7 +7811,7 @@ export function PcbEditor({
                       flex: 1,
                       padding: '4px 0',
                       fontSize: 12,
-                      cursor: 'pointer',
+                      cursor: 'default',
                       background: tab === t ? '#2a2a2e' : 'transparent',
                       color: 'inherit',
                       border: 'none',
@@ -8397,7 +8397,7 @@ export function PcbEditor({
           >
             <div
               className="ze-tree-item"
-              style={{ padding: '3px 12px', cursor: 'pointer' }}
+              style={{ padding: '3px 12px', cursor: 'default' }}
               onClick={() => {
                 setSelFilter(new Set([filterMenu.key]));
                 setFilterMenu(null);
@@ -8443,7 +8443,7 @@ export function PcbEditor({
                   <div
                     key={item.label}
                     className="ze-tree-item"
-                    style={{ padding: '3px 12px', cursor: 'pointer' }}
+                    style={{ padding: '3px 12px', cursor: 'default' }}
                     onClick={() => {
                       item.run();
                       setLayerMenu(null);
@@ -8491,7 +8491,7 @@ export function PcbEditor({
               <div
                 key={p.name}
                 className="ze-tree-item"
-                style={{ padding: '3px 12px', cursor: 'pointer' }}
+                style={{ padding: '3px 12px', cursor: 'default' }}
                 onClick={() => {
                   if (deleteChooser === 'presets') {
                     setUserPresets((u) => u.filter((x) => x.name !== p.name));

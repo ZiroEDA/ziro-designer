@@ -7058,7 +7058,7 @@ export function SchematicEditor({
     return error ? (
       <pre style={{ color: 'crimson', padding: 16 }}>Failed to load schematic: {error}</pre>
     ) : (
-      <div className="ze-app">
+      <div className="ze-app sch-theme">
         <LoadingOverlay label={loading ?? 'Loading schematic…'} />
       </div>
     );
@@ -7094,7 +7094,7 @@ export function SchematicEditor({
   };
 
   return (
-    <div className="ze-app" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
+    <div className="ze-app sch-theme" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
       <input
         ref={fileInputRef}
         type="file"
@@ -7405,7 +7405,7 @@ export function SchematicEditor({
                 className="x"
                 title="Close"
                 onClick={() => setInfoBar(null)}
-                style={{ marginLeft: 'auto', cursor: 'pointer' }}
+                style={{ marginLeft: 'auto', cursor: 'default' }}
               >
                 ✕
               </span>
@@ -8928,9 +8928,11 @@ function renderSheetNode(
   setCollapsedPaths: (updater: (prev: Set<string>) => Set<string>) => void,
   guides: readonly boolean[] = [],
   isLast = true,
+  isFirst = true,
 ): JSX.Element {
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedPaths.has(node.path);
+  const active = node.path === currentPath;
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
     setCollapsedPaths((prev) => {
@@ -8942,22 +8944,27 @@ function renderSheetNode(
   };
   return (
     <div key={node.path}>
-      <div
-        className={`ze-tree-item ${node.path === currentPath ? 'active' : ''}`}
-        onClick={() => onOpen(node.path, node.file)}
-        title={node.file}
-      >
+      <div className="ze-tree-item" onClick={() => onOpen(node.path, node.file)} title={node.file}>
         {guides.map((line, i) => (
           <span key={i} className={`ze-tree-guide${line ? ' line' : ''}`} />
         ))}
-        {depth > 0 && <span className={`ze-tree-guide line branch${isLast ? ' last' : ''}`} />}
+        {depth > 0 && (
+          <span
+            className={`ze-tree-guide line branch${isLast ? ' last' : ''}${isFirst ? ' first' : ''}`}
+          />
+        )}
         {hasChildren ? (
           <span className={`twisty expandable${collapsed ? '' : ' open'}`} onClick={toggle} />
         ) : (
           <span className="ze-tree-spacer" />
         )}
-        📄 {node.name}
-        {node.page && ` (page ${node.page})`}
+        <span className="ze-tree-sheet-icon" />
+        {/* Only the label pills orange when selected (HIERARCHY_TREE's row
+            highlight hugs the text, not the twisty/icon/guide gutter). */}
+        <span className={`ze-tree-label${active ? ' active' : ''}`}>
+          {node.name}
+          {node.page && ` (page ${node.page})`}
+        </span>
       </div>
       {!collapsed &&
         node.children.map((c, i) => (
@@ -8971,6 +8978,7 @@ function renderSheetNode(
               setCollapsedPaths,
               depth > 0 ? [...guides, !isLast] : guides,
               i === node.children.length - 1,
+              i === 0,
             )}
           </div>
         ))}

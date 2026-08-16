@@ -575,7 +575,7 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
               <div
                 key={cmd}
                 className="ze-menu-item"
-                style={{ padding: '4px 12px', cursor: 'pointer' }}
+                style={{ padding: '4px 12px', cursor: 'default' }}
                 onClick={() => menuCmd(cmd!)}
               >
                 {label}

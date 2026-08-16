@@ -106,7 +106,7 @@ export function NetNavigatorPanel({
       <div key={net.name}>
         <div
           className="ze-tree-item"
-          style={{ cursor: 'pointer', paddingLeft: indent }}
+          style={{ cursor: 'default', paddingLeft: indent }}
           onClick={() => toggle(net.name)}
         >
           <span className={`twisty expandable${netOpen ? ' open' : ''}`} />
@@ -120,7 +120,7 @@ export function NetNavigatorPanel({
               <div key={key}>
                 <div
                   className="ze-tree-item"
-                  style={{ cursor: 'pointer', paddingLeft: indent + 14 }}
+                  style={{ cursor: 'default', paddingLeft: indent + 14 }}
                   onClick={() => toggle(key)}
                 >
                   <span className={`twisty expandable${sheetOpen ? ' open' : ''}`} />
@@ -131,7 +131,7 @@ export function NetNavigatorPanel({
                     <div
                       key={item.id}
                       className={`ze-tree-item ${selectedId === item.id ? 'active' : ''}`}
-                      style={{ cursor: 'pointer', paddingLeft: indent + 42 }}
+                      style={{ cursor: 'default', paddingLeft: indent + 42 }}
                       onClick={() => onSelect(item.id)}
                     >
                       {item.text}
@@ -167,7 +167,7 @@ export function NetNavigatorPanel({
           <>
             <div
               className="ze-tree-item"
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'default' }}
               onClick={() => toggle('\u0000root')}
             >
               <span className={`twisty expandable${collapsed.has('\u0000root') ? '' : ' open'}`} />

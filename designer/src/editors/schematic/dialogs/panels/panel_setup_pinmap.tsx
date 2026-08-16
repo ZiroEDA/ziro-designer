@@ -154,7 +154,7 @@ export function PanelSetupPinmap({ settings, onChange }: Props): JSX.Element {
                         background: 'transparent',
                         border: '1px solid var(--chrome-border)',
                         borderRadius: 3,
-                        cursor: 'pointer',
+                        cursor: 'default',
                       }}
                     >
                       <Mark state={v} />

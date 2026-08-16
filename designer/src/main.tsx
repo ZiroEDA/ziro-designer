@@ -9,6 +9,7 @@ import { AuthGate } from './auth/AuthGate.js';
 import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
+import { TooltipLayer } from './ui/Tooltip.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
@@ -75,6 +76,14 @@ if (missing.length > 0) {
             </AuthGate>
           </AuthProvider>
           <StorageBanner />
+          {/* One tooltip layer for the whole document. It draws every tooltip
+              in the app, including the ~460 plain `title` attributes across the
+              editors and dialogs, by borrowing the attribute for the duration
+              of the hover (see ui/Tooltip.tsx). Mounted here rather than inside
+              App because App returns early for the restore screen and for the
+              project manager, so a layer in its final return never reaches
+              either of them. */}
+          <TooltipLayer />
         </DesktopGate>
       </ErrorBoundary>
     </StrictMode>,

@@ -81,7 +81,7 @@
   background: #3a3d42;
   border: 1px solid #17181b;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: default;
   -webkit-tap-highlight-color: transparent;
 }
 .ze-gate-btn.primary {
@@ -107,7 +107,7 @@
   background: none;
   border: 0;
   text-decoration: underline;
-  cursor: pointer;
+  cursor: default;
   -webkit-tap-highlight-color: transparent;
 }
 .ze-gate-anyway:active {

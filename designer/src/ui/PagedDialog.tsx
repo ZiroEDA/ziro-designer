@@ -185,7 +185,7 @@ export function PagedDialog({
                         style={{
                           paddingLeft: 26,
                           opacity: p.disabled ? 0.45 : 1,
-                          cursor: p.disabled ? 'default' : 'pointer',
+                          cursor: 'default',
                         }}
                         onClick={() => !p.disabled && setPage(p.id)}
                         title={p.disabled ? 'Not implemented yet' : p.label}

@@ -36,7 +36,7 @@
   background: none;
   border: none;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   padding: 0 3px;
 }
@@ -57,7 +57,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 6px;
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   border-bottom: 1px solid #232529;
 }
@@ -75,7 +75,7 @@
   background: none;
   border: none;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   width: 18px;
   font-size: 12px;
   padding: 0;
@@ -86,7 +86,7 @@
   height: 14px;
   border: 1px solid #0007;
   border-radius: 2px;
-  cursor: pointer;
+  cursor: default;
   padding: 0;
   flex: 0 0 auto;
 }
@@ -108,7 +108,7 @@
   background: none;
   border: none;
   color: #c8d0dc;
-  cursor: pointer;
+  cursor: default;
   font-size: 10px;
   padding: 0 2px;
   line-height: 1;
@@ -129,7 +129,7 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .ze-gbr-combo {

@@ -38,7 +38,7 @@ const tabBtn = (active: boolean): React.CSSProperties => ({
   background: active ? 'var(--chrome-bg)' : 'var(--chrome-bg2)',
   borderTopLeftRadius: 4,
   borderTopRightRadius: 4,
-  cursor: 'pointer',
+  cursor: 'default',
   marginBottom: -1,
 });
 
