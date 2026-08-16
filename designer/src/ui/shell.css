@@ -1171,17 +1171,13 @@ body {
   flex: 0 0 auto;
   color: #f3f4f5;
 }
-/* The frame is on the wrapper, so the fixed .kicad_pro suffix sits inside the
-   same box as the entry and the two read as one filename - the way a file
-   manager's rename field shows "report.pdf", not a name box with a badge
-   after it. */
+/* The frame is on the wrapper, so there is one box around the whole field -
+   the entry and the fixed .kicad_pro that ends it - rather than a box around
+   the typed text with the extension sitting outside it. */
 .ze-tplsel-namewrap {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  /* Packed left, so the extension follows the text instead of being pushed to
-     the far edge of the box. */
-  justify-content: flex-start;
   flex: 1 1 auto;
   min-width: 0;
   height: 34px;
@@ -1212,12 +1208,13 @@ body {
    padding is the gap that opened between the caret and the dot. */
 .ze-app #ze-tplsel-projname {
   box-sizing: border-box;
-  /* Sized to what has been typed rather than stretched to fill the box, so the
-     extension after it moves with the text. `flex: 0 1 auto` lets it give way
-     once the name is longer than the box. */
-  flex: 0 1 auto;
-  field-sizing: content;
-  min-width: 3ch;
+  /* Fills the box, so the extension parks at the right edge rather than
+     following the caret. Sizing the entry to its content (field-sizing) put
+     ".kicad_pro" immediately after the text, which is what a rename field does,
+     but it moves as you type and reads worse here than a fixed suffix at the
+     end. Anchored, it is a property of the field rather than of the text. */
+  flex: 1 1 auto;
+  min-width: 0;
   height: 100%;
   padding: 0;
   margin: 0;
@@ -1227,16 +1224,6 @@ body {
   border: none;
   border-radius: 0;
   outline: none;
-}
-/* Where field-sizing is not implemented the entry keeps its intrinsic width, so
-   the extension would sit in the middle of the box with a gap before it. Fill
-   the box instead and let it sit at the right edge - less pretty, still legible,
-   and nothing overlaps. */
-@supports not (field-sizing: content) {
-  .ze-app #ze-tplsel-projname {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
 }
 /* Part of the same filename, so it is the same size and weight as the text; a
    touch dimmer only to say it is not the part being edited. */
