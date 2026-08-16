@@ -66,6 +66,72 @@ export const isHiddenFile = (base: string): boolean =>
   base === 'sym-lib-table' ||
   /-backups?$/i.test(base);
 
+/**
+ * `s_allowedExtensionsToList` (kicad/project_tree_pane.cpp), transcribed.
+ *
+ * The project tree is an *allow* list, not a deny list: addItemToProjectTree
+ * runs every candidate past these patterns and returns an empty id - adding
+ * nothing - unless one matches. Anything not named here simply is not a file
+ * the project window shows.
+ *
+ * The visible consequence is the one that gives the game away at a glance:
+ * there is no `.step`, `.stp` or `.wrl` in this list, so a `.3dshapes` folder
+ * has no listable children and gets no expander, while a `.pretty` full of
+ * `.kicad_mod` does. We had been listing 3D bodies, so every 3dshapes folder
+ * grew a twisty KiCad does not draw.
+ *
+ * A few are patterns rather than plain extensions and are kept as such: the
+ * `[^$]` guards drop autosave/lock siblings, and the Protel-era Gerber layer
+ * extensions are numbered ranges.
+ */
+const TREE_FILE_PATTERNS: readonly RegExp[] = [
+  /^.*\.pro$/i,
+  /^.*\.kicad_pro$/i,
+  /^.*\.pdf$/i,
+  /^.*\.sch$/i, // legacy Eeschema
+  /^.*\.kicad_sch$/i,
+  /^[^$].*\.brd$/i, // legacy Pcbnew
+  /^[^$].*\.kicad_pcb$/i,
+  /^[^$].*\.kicad_dru$/i,
+  /^[^$].*\.kicad_wks$/i,
+  /^[^$].*\.kicad_mod$/i,
+  /^.*\.net$/i,
+  /^.*\.cir$/i, // Spice netlist
+  /^.*\.lib$/i, // legacy schematic library
+  /^.*\.kicad_sym$/i,
+  /^.*\.txt$/i,
+  /^.*\.md$/i,
+  /^.*\.pho$/i, // Gerber (old KiCad extension)
+  /^.*\.gbr$/i,
+  /^.*\.gbrjob$/i,
+  /^.*\.gb[alops]$/i, // Protel back-layer Gerbers
+  /^.*\.gt[alops]$/i, // Protel front-layer Gerbers
+  /^.*\.g[0-9]{1,2}$/i, // Protel inner layers
+  /^.*\.gm[0-9]{1,2}$/i, // Protel mechanical layers
+  /^.*\.gko$/i, // Protel keepout layer
+  /^.*\.odt$/i,
+  /^.*\.htm$/i,
+  /^.*\.html$/i,
+  /^.*\.rpt$/i,
+  /^.*\.csv$/i,
+  /^.*\.pos$/i, // footprint position files
+  /^.*\.cmp$/i, // CvPcb footprint links
+  /^.*\.drl$/i, // Excellon drill
+  /^.*\.nc$/i,
+  /^.*\.xnc$/i,
+  /^.*\.svg$/i,
+  /^.*\.ps$/i,
+  /^.*\.zip$/i,
+  /^.*\.kicad_jobset/i,
+];
+
+/** Whether the project tree lists this file at all. Directories are exempt:
+ *  upstream adds every one it finds and only filters their contents. */
+export const inTreeAllowList = (name: string): boolean => {
+  const base = name.split(/[\\/]/).pop() ?? name;
+  return TREE_FILE_PATTERNS.some((re) => re.test(base));
+};
+
 // KiCad's PROJECT_ARCHIVER::Archive allow-list (common/project/project_archiver.cpp)
 // with aIncludeExtraFiles=true, the flag the manager passes for "Archive Project"
 // (kicad/project_tree_pane.cpp). Extension strings from wildcards_and_files_ext.cpp.

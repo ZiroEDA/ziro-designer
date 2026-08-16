@@ -1,20 +1,48 @@
 /* KiCad-eeschema-like application chrome. Dark theme by default, matching
    KiCad's dark mode. */
 :root {
-  --chrome-bg: #2f3136;
-  --chrome-bg2: #24262a;
-  --chrome-border: #17181b;
+  /* GTK dark chrome greys, sampled off a live KiCad 10 project-manager window
+     on this machine (Ubuntu/Yaru dark). KiCad paints none of these itself -
+     they come from wxSystemSettings / the GTK theme - so a screenshot of the
+     real frame is the only ground truth there is for them.
+
+     Every one is neutral (r == g == b). The values these replaced carried a
+     blue tint (blue 4-6 above red), which is the thing that read as "not
+     KiCad" before a single widget had been compared. */
+  --chrome-bg: #2c2c2c; /* menu bar, status bar, toolbars */
+  --chrome-bg2: #262626; /* inset surfaces: text fields, scrollbar tracks */
+  --chrome-border: #1e1e1e;
   --chrome-fg: #ffffff;
-  --chrome-hover: #37506b;
-  --chrome-active: #1b598f;
-  --chrome-active-border: #4a86c5;
-  --panel-bg: #2a2c30;
-  --panel-header: #34363b;
+  /* Hover and selection. KiCad takes these from the GTK theme too: a plain
+     lighter grey for hover, and the desktop accent (Yaru orange) for anything
+     selected or active. .sch-theme had already sampled both off a live
+     eeschema window for the Schematic Editor alone; they are the whole app's
+     now, so that override no longer has to carry them. */
+  --chrome-hover: #3a3a3a;
+  --chrome-active: #e95420;
+  --chrome-active-border: #e95420;
+  --panel-bg: #272727; /* docked pane body (project tree, properties...) */
+  --panel-header: #2e2e2e; /* wxAUI pane caption bar */
+  /* The frame background a docked canvas or notebook sits on. *Lighter* than
+     the panes - which is the relationship KiCad has, and which we had
+     inverted: our tree pane was lighter than the launcher beside it. */
+  --content-bg: #373737;
+  /* wxSYS_DEFAULT_GUI_FONT, the size every KiCad frame draws its menus, trees,
+     labels and status text at. 11pt on a stock GTK desktop; CSS pt is defined
+     against 96 dpi, so this is exactly the 14.67 px the real app uses.
+     Applied per-widget as we port each one rather than to the whole shell,
+     which still runs at the 13 px base it was built around. */
+  --ui-font-size: 11pt;
   /* KiCad's Appearance list background (m_layerPanelColour): a mid grey,
      lighter than the chrome so the layer/object rows read as a list. */
   --panel-list-bg: #3a3d42;
   /* Filled portion of an opacity slider, left of the thumb. */
   --slider-fill: #e8912b;
+
+  /* Height of one menu row, and the size everything inside it is derived from.
+     One number so the whole app's menus stay one density — change it here and
+     the icons, the checkmark column and the flyout marker follow. */
+  --menu-row: 22px;
 
   /* The shell is dark-only, and this is what tells the engine so: it paints
      every *native* control, scrollbar and popup from its dark palette —
@@ -27,6 +55,18 @@
      outrank the rules below it). */
   scrollbar-width: thin;
   scrollbar-color: #5a5f66 var(--chrome-bg2);
+}
+
+/* Schematic Editor only: real eeschema's own chrome colors on this machine
+   (sampled off a live 9.0.8 window, GTK/Yaru dark theme) - neutral greys
+   instead of our app's blue-tinted chrome, and its orange selected/active/
+   hover accent instead of our blue --chrome-active. Scoped via custom-
+   property shadowing on the editor's root so every descendant that already
+   reads these vars (toolbars, menus, panels, tree rows...) picks it up for
+   free, without touching any other editor. */
+.sch-theme {
+  /* Everything this used to shadow is now the shell default; kept as the hook
+     for anything eeschema-specific that turns up next to it. */
 }
 
 html,
@@ -134,6 +174,10 @@ body {
     sans-serif;
   color: var(--chrome-fg);
   user-select: none;
+  /* `cursor` inherits, so with no `pointer` left anywhere this one declaration
+     is what keeps every descendant on the arrow - including elements that
+     would otherwise fall back to `auto` and turn into an I-beam over text. */
+  cursor: default;
 }
 
 /* Menu bar */
@@ -141,19 +185,28 @@ body {
   display: flex;
   align-items: stretch;
   background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-border);
+  /* Sampled off the real frame: the rule under the menu bar is #282828, a
+     shade lighter than a window border. --chrome-border read as black here. */
+  border-bottom: 1px solid #282828;
   height: 26px;
   position: relative;
 }
+/* Top-level bar items only (the drop-downs below still run at the shell's 13px
+   and its --menu-row geometry). GTK draws these at the default GUI font with
+   8px of padding either side: measured against a real KiCad menu bar, that
+   puts every label within a pixel or two of where the desktop app has it. */
 .ze-menubar .ze-menu {
-  padding: 0 10px;
+  padding: 0 8px;
+  font-size: var(--ui-font-size);
+  /* GTK's menu label peaks at 247, not 255 (the tree really is pure white). */
+  color: #f7f7f7;
   display: flex;
   align-items: center;
   cursor: default;
 }
-.ze-menubar .ze-menu:hover {
-  background: var(--chrome-hover);
-}
+/* No hover prelight on a menu bar item: the only state one shows is open (the
+   #4a4a4a fill plus the accent rule below). We were tinting it grey the moment
+   the pointer crossed it, which reads as a web menu, not a GTK one. */
 /* KiCad window-title info in the menu bar: "<project>, <Editor>", centred like
    a window title. Absolute + pointer-events:none so it doesn't block menus. */
 .ze-menubar-title {
@@ -212,7 +265,7 @@ body {
   border-radius: 3px;
   color: var(--chrome-fg);
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   flex: 0 0 auto;
   padding: 0;
 }
@@ -351,12 +404,21 @@ body {
 .ze-panel.right {
   border-left: 1px solid var(--chrome-border);
 }
+/* A docked pane's caption, drawn by WX_AUI_DOCK_ART (wx_aui_art_providers.cpp).
+   It subclasses wxAuiDefaultDockArt and, off Windows, keeps that class's
+   defaults: a 17px caption bar and the 8pt *normal weight* caption font. KiCad
+   only overrides the text colour (to wxSYS_COLOUR_BTNTEXT, i.e. undimmed) and
+   kills the gradient, so the fill is flat. Ours was a 26px bold 12px bar. */
 .ze-panel-header {
-  padding: 5px 9px;
-  font-weight: 600;
-  font-size: 12px;
+  /* 17px of fill plus the 1px rule under it, measured across the real pane. */
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-weight: 400;
+  font-size: 8pt;
   background: var(--panel-header);
-  border-bottom: 1px solid var(--chrome-border);
+  border-bottom: 1px solid #181818;
 }
 .ze-panel-body {
   padding: 6px 8px;
@@ -389,6 +451,8 @@ body {
 .ze-tree-item.active {
   background: var(--chrome-active);
   color: #fff;
+  /* KiCad's native wxTreeCtrl bolds whichever row is selected. */
+  font-weight: 700;
 }
 .ze-tree-item.root {
   font-weight: 700;
@@ -407,13 +471,17 @@ body {
   height: 12px;
   flex: 0 0 auto;
 }
+/* GTK's expander, measured off the real tree: the arms span 11px and stand 6px
+   proud - 6x11 collapsed, 11x6 open. The 5px square we had rendered 8x5, a
+   visibly smaller and thinner chevron than the one KiCad draws. GTK paints one
+   expander for every tree, so the two scoped copies below match. */
 .twisty.expandable::before {
   content: "";
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-top: 1.5px solid #b8bcc2;
   border-right: 1.5px solid #b8bcc2;
   transform: translate(-65%, -50%) rotate(45deg);
@@ -421,6 +489,68 @@ body {
 }
 .twisty.expandable.open::before {
   transform: translate(-50%, -70%) rotate(135deg);
+}
+
+/* Hierarchy tree connector lines (HIERARCHY_TREE): one 16px gutter column per
+   ancestor level. A plain ancestor column ("line") runs the dotted guide the
+   full row height - its parent still has siblings coming up below this
+   subtree. The node's own column ("branch") elbows into the row: a middle
+   child's guide runs top-to-bottom, the last child's stops halfway down. */
+.ze-tree-guide {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  align-self: stretch;
+  flex: 0 0 auto;
+  /* align-self: stretch only reaches the row's padded content box; cancel
+     .ze-tree-item's 3px vertical padding so this - and the "first" branch's
+     -50% reach into the row above - are measured against the true row
+     height, not the shrunken one. */
+  margin: -3px 0;
+}
+.ze-tree-guide.line::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted #6b6f76;
+}
+.ze-tree-guide.branch::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 9px;
+  border-top: 1px dotted #6b6f76;
+}
+.ze-tree-guide.branch.last::before {
+  bottom: 50%;
+}
+/* A first child's branch has nothing above it to butt against - the row
+   above is its *parent*, whose twisty sits half a row height higher, not
+   flush with this row's top. Stretch the line up to meet it so the trunk
+   runs unbroken from the twisty's own center through every descendant. */
+.ze-tree-guide.branch.first::before {
+  top: -50%;
+}
+/* HIERARCHY_TREE's row highlight hugs just the sheet name, not the twisty,
+   icon or connector gutter. */
+.ze-tree-label {
+  padding: 1px 6px;
+}
+.ze-tree-label.active {
+  background: var(--chrome-active);
+  color: #fff;
+  font-weight: 700;
+}
+.ze-tree-item:hover .ze-tree-label:not(.active) {
+  background: var(--chrome-hover);
+}
+.ze-tree-spacer {
+  display: inline-block;
+  width: 12px;
+  flex: 0 0 auto;
 }
 
 .ze-prop-row {
@@ -470,8 +600,8 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-top: 1.5px solid #b8bcc2;
   border-right: 1.5px solid #b8bcc2;
   transform: translate(-65%, -50%) rotate(45deg);
@@ -562,17 +692,32 @@ body {
 .ze-msgpanel-lower {
   color: #f0f2f4;
 }
+/* KIUI::GetStatusFont() is getGUIFont( win, 0 ) off macOS - the same
+   wxSYS_DEFAULT_GUI_FONT at the same size as the menus and trees, drawn in the
+   normal foreground colour. Ours was a size down and dimmed to #b6b8bb, which
+   made the one line telling you which project is open the faintest thing on
+   screen. */
 .ze-statusbar {
   display: flex;
   align-items: center;
-  height: 24px;
+  /* 23px of bar under a #292929 rule, measured off the real frame (the bar
+     runs y=1177..1199 with the rule on 1176). Ours was 24 under a near-black
+     --chrome-border. */
+  height: 23px;
   background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
-  font-size: 12px;
-  color: #b6b8bb;
+  border-top: 1px solid #292929;
+  font-size: var(--ui-font-size);
+  /* Not pure white. Same font (system-ui resolves to Ubuntu here, which is what
+     KiCad draws with), same size - measured glyph-for-glyph, "Project:" is 51px
+     in KiCad and 49px in ours - but we were painting it #fff where GTK's status
+     label peaks at 243. On a #2c2c2c bar that extra contrast is what reads as a
+     bigger, heavier font: same widths, 10% more ink (222 lit pixels against
+     201). Dropping the white is the whole fix. */
+  color: #f3f3f3;
 }
 .ze-statusbar .cell {
-  padding: 0 10px;
+  /* The real bar's first field starts 6px in, not 10. */
+  padding: 0 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -593,6 +738,12 @@ body {
 .ze-statusbar .cell.grow {
   flex: 1;
 }
+/* A pane whose width KiCad states in pixels rather than deriving from a
+   template string — EDA_3D_VIEWER_FRAME's status_dims { -1, 170, 130, 130,
+   130 }. The width comes from the element's own style attribute. */
+.ze-statusbar .cell.pane {
+  flex: 0 0 auto;
+}
 
 /* Non-fatal open-error banner (dismiss on click). */
 .ze-error-banner {
@@ -600,8 +751,55 @@ body {
   background: #6e2020;
   color: #ffd9d9;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
   border-bottom: 1px solid #8a2a2a;
+}
+
+/* ---------------------------------------------------------------------------
+   Cursor.
+
+   KiCad is a native GTK app and the pointer stays the plain arrow across the
+   whole frame - the menu bar, an open menu, the launchers, the tree, dialog
+   buttons, the status bar. It never becomes a hand over something clickable,
+   because GTK does not do that for a button. Ours did, in about a hundred
+   places, and it is one of the loudest "this is a web page" tells there is.
+
+   So the rule is a policy rather than a selector: nothing in this app declares
+   `cursor: pointer`. What may still declare a cursor is anything that is a real
+   affordance rather than a hint that a thing is clickable -
+
+     - col-resize / row-resize on a sash,
+     - move on a drag handle,
+     - progress while something is working,
+     - text inside a text field (GTK does show an I-beam there),
+
+   and the drawing canvases, which swap cursor per tool exactly as the desktop
+   app does. Those set theirs inline from JS, so no rule here can reach them. */
+
+/* ---------------------------------------------------------------------------
+   Tooltip (see ui/Tooltip.tsx).
+
+   Measured off a real GTK tooltip over a launcher: a 46px-tall box for one
+   line of 11pt text, filled #0b0b0b and outlined 1px #4b4b4b. Chrome's native
+   `title` box is 28px tall with a white outline, which is why this is drawn
+   rather than delegated. */
+.ze-tooltip {
+  position: fixed;
+  z-index: 500;
+  pointer-events: none;
+  background: #0b0b0b;
+  border: 1px solid #4b4b4b;
+  border-radius: 5px;
+  padding: 13px 10px;
+  font-size: var(--ui-font-size);
+  line-height: 1.15;
+  color: #f7f7f7;
+  /* Toolbar tooltips are two lines separated by \n, with a tab before the
+     hotkey (TOOL_ACTION::GetButtonTooltip). */
+  white-space: pre;
+  tab-size: 4;
+  max-width: 60vw;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* ---- Project manager (home) ---- */
@@ -609,161 +807,495 @@ body {
   flex: 1;
   display: flex;
   min-height: 0;
-  background: var(--chrome-bg2);
+  background: var(--content-bg);
 }
 /* Draggable sash between the project tree and the launchers (KiCad wxAUI pane). */
 .ze-splitter {
   flex: 0 0 auto;
   width: 5px;
-  margin-left: -1px;
   cursor: col-resize;
   background: transparent;
   z-index: 2;
 }
-.ze-splitter:hover {
-  background: var(--chrome-active);
+/* A wxAUI sash does not light up under the pointer; the resize cursor is the
+   whole affordance. */
+/* Horizontal variant: the sash between stacked panes in a dock column
+   (Properties / Net Navigator / Schematic Hierarchy). */
+.ze-splitter.horizontal {
+  width: auto;
+  height: 5px;
+  margin-top: -1px;
+  cursor: row-resize;
 }
 .ze-launchers {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 10px 14px;
+  /* PANEL_KICAD_LAUNCHER_BASE: bSizerInner->Add( m_toolsSizer, 1,
+     wxALL|wxEXPAND, 5 ) - 5px of border on every side of the tool grid. */
+  padding: 5px;
   display: flex;
   flex-direction: column;
+  background: var(--content-bg);
+  /* The notebook's own edge, on the far side of the sash. */
+  border-left: 1px solid #292929;
 }
+/* m_toolsSizer is a wxFlexGridSizer( 0, 2, 2, 10 ): 2 columns, a 2px vertical
+   gap between rows and a 10px horizontal one between the icon and its text. */
 .ze-tiles {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .ze-launcher {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 10px;
   width: 100%;
   max-width: 760px;
-  padding: 9px 14px;
+  /* The row *is* the grid row: the 4px of padding around the icon belongs to
+     the BITMAP_BUTTON (see .ico below), not to the row, so putting it here
+     would double-count it. 56px button + the sizer's 2px vgap = the 58px row
+     pitch the desktop app lays these out on. */
+  padding: 0;
   margin: 0;
   border: none;
   border-radius: 4px;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   text-align: left;
   color: var(--chrome-fg);
   font: inherit;
 }
-.ze-launcher:hover:not(:disabled) {
-  background: var(--chrome-hover);
+/* Square: every hover and selection KiCad paints in this frame goes through
+   dc.DrawRectangle. */
+.ze-launcher,
+.ze-launcher .ico {
+  border-radius: 0;
+}
+/* BITMAP_BUTTON::OnPaint draws dc.DrawRectangle( rect ) over the *button* -
+   the 48px bitmap plus its 4px padding - and nothing over the label or help
+   text. The fill is wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( 40 ) in dark mode,
+   which scales each channel to 40% (#e95420 -> #5d220d), outlined in the
+   highlight colour itself. We were painting a 4px-rounded bar across the whole
+   760px row, which is most of what read as "rounded" next to the real thing. */
+.ze-launcher:not(:disabled) .ico:hover {
+  /* Sampled off a hovered launcher: fill rgb(93,33,12), outlined 1px in the
+     highlight colour itself. That fill is
+     wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( 40 ) - each channel to 40%, so
+     #e95420 -> (93,34,13) - which lands within one level of the measurement.
+
+     Keyed off the icon's own :hover, not the row's. Upstream this rectangle is
+     painted by BITMAP_BUTTON::OnPaint for the button it belongs to; the title
+     and help text beside it are separate wxStaticTexts and moving over them
+     does nothing to the button. */
+  background: #5d210c;
+  box-shadow: inset 0 0 0 1px var(--chrome-active);
 }
 .ze-launcher:disabled {
   opacity: 0.45;
   cursor: default;
 }
+/* The BITMAP_BUTTON itself: a 48px bitmap inside BITMAP_BUTTON::SetPadding( 4 ),
+   so the button - and therefore the hover rectangle it paints - is 56x56, not
+   48x48. Measured on a hovered launcher, the real outline is exactly 56 tall. */
 .ze-launcher .ico {
   flex: 0 0 auto;
   display: flex;
-  width: 44px;
-  height: 44px;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
 }
 .ze-launcher .ico img {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
 }
 .ze-launcher .txt {
   display: flex;
   flex-direction: column;
 }
+/* CreateLaunchers() builds both labels from wxSYS_DEFAULT_GUI_FONT and only
+   ever changes weight and slant: the title is that font bolded (the +2 point
+   bump is #ifndef __WXGTK__, so it does not apply here) and the help line is
+   the same size in italic, at the same undimmed colour. Ours had the title a
+   size up and the help line a size down in grey. */
 .ze-launcher .name {
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--ui-font-size);
 }
 .ze-launcher .desc {
-  color: #9a9ca0;
-  font-size: 13px;
+  font-size: var(--ui-font-size);
   font-style: italic;
-  margin-top: 1px;
-}
-.ze-launcher .soon {
-  margin-left: auto;
-  font-size: 11px;
-  color: #7a7c80;
-  align-self: center;
 }
 
-/* Recent Projects (offline IndexedDB store): below the tiles, list scrolls alone */
-.ze-recent {
-  margin-top: 16px;
-  max-width: 720px;
-  flex: 1 1 auto;
-  min-height: 0;
+/* ---------------------------------------------------------------------------
+   Project Template Selector (dialogs/dialog_template_selector.tsx).
+
+   Geometry from dialog_template_selector_base.cpp: SetSizeHints( 500, 400 ),
+   an m_panelMRU of min width 220, a splitter at sash gravity 0.35, and 5px of
+   border on everything inside the right panel. Colours sampled off the real
+   window: the dialog is #2c2c2c, the card list and the cards themselves
+   #373737, ruled #181818, and the search field #272727. */
+/* Measured off the real dialog: 650 wide by 399 tall overall, of which the
+   title bar is 37. (900x600 is the wxFormBuilder default in the base class;
+   finishDialogSettings and the persisted m_TemplateWindowSize is what the
+   window actually opens at.) SetSizeHints( 500, 400 ) is the floor. */
+.ze-modal.ze-tplsel {
+  /* +2 on each axis for our own 1px border, which the window manager draws
+     outside the client area upstream. */
+  width: 652px;
+  height: 401px;
+  min-width: 500px;
+  min-height: 400px;
+}
+/* No padding of its own: bmainSizer->Add( m_mainContent, 1, wxEXPAND, 5 ) has
+   no wxALL, so wx ignores that border. The 5px belongs to m_mainContent's
+   children, which carry it individually. Ours had it here as well, which cost
+   the template list 12 of its 400px. */
+.ze-tplsel-body {
+  flex-direction: row;
+  padding: 0;
+  gap: 0;
+}
+/* m_panelMRU: SetMinSize( 220, -1 ). */
+.ze-tplsel-mru {
+  flex: 0 0 220px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  margin: 5px;
 }
-.ze-recent-head {
-  flex: 0 0 auto;
-  font-weight: 700;
-  font-size: 13px;
-  color: #9a9ca0;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
+.ze-tplsel-mru-head {
+  padding: 5px;
+  font-size: var(--ui-font-size);
+  /* The dialog's own label colour, measured at 243, not the shell's pure white. */
+  color: #f3f4f5;
 }
-.ze-recent-list {
+.ze-tplsel-mru-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  margin: 5px;
+  /* m_sizerMRU adds each row with wxBOTTOM, 2. */
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.ze-recent-item {
+/* TEMPLATE_MRU_WIDGET: a 16px icon and a KIUI::GetInfoFont label, 6px borders. */
+.ze-tplsel-mru-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  font-size: 10pt;
+  flex: 0 0 auto;
+}
+.ze-tplsel-mru-row img,
+.ze-tplsel-mru-row .noicon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+.ze-tplsel-mru-row .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* OnEnter paints HIGHLIGHT.ChangeLightness( 150 ), i.e. half way to white. */
+.ze-tplsel-mru-row:hover:not(.active) {
+  background: #f4a98f;
+  color: #1a1a1a;
+}
+.ze-tplsel-mru-row.active {
+  background: var(--chrome-active);
+  color: #fff;
+}
+/* m_splitter, sash position 300 with the preview taking the rest. */
+.ze-tplsel-splitter {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  margin: 5px;
+  gap: 4px;
+}
+.ze-tplsel-templates {
+  flex: 1 1 300px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+}
+/* Both are 34px tall, measured. m_searchCtrl is a text entry so it is faced in
+   the entry colour and added wxEXPAND - 400px, the width of the list below it.
+   m_filterChoice is a wxChoice, faced like a button, added *without* wxEXPAND
+   so it keeps its own 160. */
+/* Prefixed with .ze-app so these outrank the shell's blanket
+   `.ze-app input` / `.ze-app select` rules, which are (0,1,1) and were quietly
+   winning: the filter was coming out --chrome-bg2 (#262626) instead of the
+   button face the real wxChoice has. */
+.ze-app .ze-tplsel-search,
+.ze-app .ze-tplsel-filter {
+  box-sizing: border-box;
+  height: 34px;
+  color: var(--chrome-fg);
+  border: 1px solid #181818;
+  border-radius: 4px;
+  padding: 0 8px;
+  font: inherit;
+  margin: 5px;
+  /* Never let the column's flex shrink these: they are fixed-height controls,
+     and a shrink here is what silently turned the 34px search box into 21. */
+  flex: 0 0 auto;
+}
+/* m_searchCtrl is added wxEXPAND; m_filterChoice is not, so it keeps its own
+   width instead of stretching. */
+/* m_searchCtrl is a text entry: the entry face, #272727. */
+.ze-app .ze-tplsel-search {
+  width: calc(100% - 10px);
+  background: var(--panel-bg);
+}
+/* m_filterChoice is a wxChoice: the *button* face, #373737. */
+.ze-app .ze-tplsel-filter {
+  align-self: flex-start;
+  width: 160px;
+  background: var(--content-bg);
+}
+.ze-tplsel-list {
+  flex: 1 1 auto;
+  min-height: 200px;
+  overflow-y: auto;
+  background: var(--content-bg);
+  margin: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* TEMPLATE_WIDGET_BASE: wxBORDER_THEME, an icon with wxTOP|wxBOTTOM|wxLEFT 5,
+   then the title over the description with wxALL 5. SetMinSize( 200, -1 ). */
+.ze-tplsel-card {
+  display: flex;
+  align-items: flex-start;
+  background: var(--content-bg);
+  border: 1px solid #181818;
+  /* wxBORDER_THEME draws the GTK frame, which is rounded: tracing the border on
+     a real card, it arcs over about 5px at every corner. */
+  border-radius: 5px;
+  min-width: 200px;
+  flex: 0 0 auto;
+}
+.ze-tplsel-card img,
+.ze-tplsel-card .noicon {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  margin: 5px 0 5px 5px;
+}
+.ze-tplsel-card .txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 5px;
+}
+/* Both labels are KIUI::GetInfoFont - one point down - the title bolded. */
+.ze-tplsel-card .name {
+  font-size: 10pt;
+  font-weight: 700;
+}
+.ze-tplsel-card .desc {
+  font-size: 10pt;
+}
+.ze-tplsel-card.active {
+  background: var(--chrome-active);
+  color: #fff;
+}
+
+/* m_panelPreview, split in only from the Preview states. */
+.ze-tplsel-preview {
+  flex: 1 1 auto;
+  min-width: 200px;
+  display: flex;
+  overflow: auto;
+  background: var(--panel-bg);
+  border: 1px solid #181818;
+  border-radius: 4px;
+  margin: 5px;
+}
+.ze-tplsel-info {
+  padding: 18px 20px;
+  line-height: 1.55;
+}
+.ze-tplsel-info h2 {
+  margin: 0 0 10px;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+.ze-tplsel-info p {
+  margin: 0 0 12px;
+  color: #c9cbce;
+}
+.ze-tplsel-info ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #9a9ca0;
+  font-size: 10pt;
+}
+.ze-tplsel-info.welcome {
+  margin: auto;
+  text-align: center;
+}
+
+/* The name step, upstream's wxFileDialog( "New Project Folder" ). */
+.ze-modal.ze-newprjfolder {
+  width: 460px;
+  height: auto;
+}
+.ze-newprjfolder-body {
+  padding: 18px;
+}
+.ze-newprjfolder-body label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.ze-newprjfolder-body input {
+  flex: 1 1 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Open Project (dialogs/dialog_open_project.tsx).
+
+   Standing in for the native wxFileDialog KICAD_MANAGER_ACTIONS::openProject
+   puts up, so it is shaped like a file dialog rather than a dashboard: a
+   name/files/size/modified list you can double-click, and the ways *in* along
+   the bottom edge where a file dialog keeps them. This is the one place the
+   project list lives now - it used to sit permanently on the launcher page,
+   which no KiCad frame has. */
+.ze-modal.ze-open-project {
+  /* A file dialog is the one place the app asks the user to *find* something,
+     so it gets room to show it. 640x460 held nine rows in a 1920px window with
+     most of the screen empty behind it. */
+  width: 920px;
+  height: 620px;
+}
+.ze-openprj-body {
+  flex-direction: column;
+  padding: 12px 14px;
+  gap: 0;
+}
+.ze-openprj-head,
+.ze-openprj-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  height: 30px;
+  flex: 0 0 auto;
+}
+.ze-openprj-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #9a9ca0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: var(--panel-header);
+  border-bottom: 1px solid #181818;
+  border-radius: 6px 6px 0 0;
+}
+/* The list sits in its own frame, the same one the project tree's control has:
+   a 1px #181818 outline with 6px corners. It is what makes the dialog read as a
+   chooser with a list in it rather than rows floating on a panel. */
+.ze-openprj-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0 2px;
+  background: var(--panel-bg);
+  border: 1px solid #181818;
+  border-radius: 6px;
+}
+.ze-openprj-row.active {
+  background: var(--chrome-active);
+  color: #fff;
+}
+.ze-openprj-row .c-name {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
+  min-width: 0;
 }
-.ze-recent-item:hover {
-  background: var(--chrome-hover);
-}
-.ze-recent-item img {
-  width: 18px;
-  height: 18px;
+.ze-openprj-row .c-name img {
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
 }
-.ze-recent-name {
-  font-weight: 600;
-  font-size: 14px;
+.ze-openprj-row .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.ze-recent-meta {
-  color: #7a7c80;
-  font-size: 12px;
-  margin-left: 4px;
+.c-name {
+  flex: 1 1 auto;
+  min-width: 0;
 }
-.ze-recent-del {
-  margin-left: auto;
+.c-files {
+  flex: 0 0 66px;
+  text-align: right;
+}
+.c-size {
+  flex: 0 0 84px;
+  text-align: right;
+}
+.c-when {
+  flex: 0 0 104px;
+  text-align: right;
+}
+/* The row actions keep their column whether or not they are showing, so the
+   Modified figures never shift sideways as the pointer moves down the list. */
+.c-acts {
+  flex: 0 0 56px;
+}
+.ze-openprj-row .c-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
   visibility: hidden;
-  background: none;
-  border: none;
-  color: #9a9ca0;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
 }
-.ze-recent-item:hover .ze-recent-del {
+.ze-openprj-row:hover .c-acts,
+.ze-openprj-row.active .c-acts {
   visibility: visible;
 }
-.ze-recent-del:hover {
-  background: #5a2a2a;
+.ze-openprj-row .c-acts button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.ze-openprj-row .c-acts button:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+.ze-openprj-row .c-acts button.del:hover {
+  background: #7a2a2a;
   color: #fff;
+}
+.ze-openprj-empty {
+  margin: auto;
+  text-align: center;
+  color: #9a9ca0;
+  padding: 0 40px;
+  line-height: 1.6;
 }
 
 .ze-home-link {
   padding: 0 12px;
   display: flex;
   align-items: center;
-  cursor: pointer;
+  cursor: default;
   font-weight: 700;
   color: #4a86c5;
 }
@@ -771,15 +1303,102 @@ body {
   background: var(--chrome-hover);
 }
 
+/* The project manager's own tree (PROJECT_TREE, kicad/project_tree.cpp).
+   Scoped to this pane because its two metrics are set on the control itself and
+   are not shared with the editors' trees: SetFont( KIUI::GetControlFont() ),
+   which is wxSYS_DEFAULT_GUI_FONT at its default size, and LoadIcons()'s
+   c_fileDefSize = 22 for the per-row file icons (18px here before). The 1px
+   row padding is what keeps the pitch at the 24px the real tree lays out on
+   once the icon is 22px tall. */
+/* The wxTreeCtrl's own GTK frame, and the reason the pane looks subtly
+   *curved* next to ours: the control is not a flush panel, it is a box filling
+   the pane under the caption with a 1px #181818 outline and ~6px rounded
+   corners. Traced off the real frame - the top rule stops at x=105 and the
+   left rule starts at y=117, a 6x6 arc, mirrored at all four corners.
+   The pane therefore carries no border of its own and the caption no rule
+   under it; both of those lines *are* this box's top and side edges. */
+.ze-panel.left.ze-projecttree {
+  border-right: none;
+}
+.ze-projecttree .ze-panel-header {
+  border-bottom: none;
+}
+.ze-projecttree .ze-panel-body {
+  border: 1px solid #181818;
+  border-radius: 6px;
+  /* Vertically the rows butt straight onto the frame - the first row starts on
+     the pixel after the top rule. The 9px of lead-in puts the root row's
+     twisty 15px from the frame, where the real control's root indent puts it. */
+  padding: 0 0 0 9px;
+}
+.ze-projecttree .ze-tree-item {
+  font-size: var(--ui-font-size);
+  /* A 24px row holding a 22px icon: the icon centres with a pixel either side,
+     and the highlight - which is the full row height in the real tree - can
+     stretch to all 24 rather than to the 22 a padded row would leave it. */
+  height: 24px;
+  padding-top: 0;
+  padding-bottom: 0;
+  /* Measured: the highlight begins 4px past the icon's right edge. */
+  gap: 4px;
+  border-radius: 0;
+  background: none;
+}
+/* PROJECT_TREE is built with PLATFORM_STYLE | wxTR_HAS_BUTTONS |
+   wxTR_MULTIPLE. wxTR_FULL_ROW_HIGHLIGHT is absent - and appears nowhere in
+   KiCad at all - so the highlight is not the row. Measured on a real selected
+   row: it starts 4px *after* the icon ends and runs to just past the text,
+   square, first=171 last=425 on every one of its 24 rows. So it belongs to the
+   label alone; the icon and the twisty stay on the tree background. */
+.ze-projecttree .ze-tree-name {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+}
+.ze-projecttree .ze-tree-item.active {
+  background: none;
+}
+.ze-projecttree .ze-tree-item.active .ze-tree-name {
+  background: var(--chrome-active);
+  /* Not bold. The shared .ze-tree-item.active rule claims "KiCad's native
+     wxTreeCtrl bolds whichever row is selected"; measured against a real
+     selected row that is simply untrue - "…kicad_sym" selected is 246px and
+     "…kicad_sch" unselected is 242px, and the 4px is 'm' against 'h'. Bold
+     would have cost about ten. (Trees elsewhere really do bold a row, but via
+     SetItemBold on the *active* item, which is a different thing to
+     selection.) */
+  font-weight: 400;
+  /* 2px of highlight.ChangeLightness( 120 ) - each channel to 80% toward
+     white, so #e95420 -> #ed764d - inset so the box stays exactly one row. */
+  box-shadow: inset 0 0 0 2px #ed764d;
+  color: #fff;
+}
+/* wxTreeCtrl marks selection and nothing else - moving the pointer over a row
+   leaves it exactly as it was. Both the row and the label are pinned to no
+   background here so the shared .ze-tree-item:hover rule cannot reach them. */
+.ze-projecttree .ze-tree-item:hover:not(.active),
+.ze-projecttree .ze-tree-item:hover:not(.active) .ze-tree-name {
+  background: none;
+}
+.ze-projecttree .ze-tree-item img {
+  width: 22px;
+  height: 22px;
+}
+
 /* Project-manager left toolbar (narrow vertical strip) */
+/* An EDA_PANE().VToolbar() docked on the frame, so it sits on the frame
+   background rather than the menu/status bar grey. */
 .ze-mgrbar {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 40px;
-  padding: 5px 0;
-  gap: 2px;
-  background: var(--chrome-bg);
+  /* Measured off the real pane: 34px wide, 32px button pitch (so no gap
+     between them), 4px of lead-in at the top. */
+  width: 34px;
+  padding: 4px 0;
+  gap: 0;
+  background: var(--content-bg);
   border-right: 1px solid var(--chrome-border);
 }
 .ze-mgrbar button {
@@ -787,25 +1406,29 @@ body {
   height: 32px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .ze-mgrbar button:hover {
-  background: var(--chrome-hover);
-  border-color: var(--chrome-border);
+  background: #5d220d;
+  border-color: var(--chrome-active);
 }
+/* common_settings.cpp: appearance.toolbar_icon_size defaults to 24. */
 .ze-mgrbar img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
+/* wxAuiToolBar draws its separators a good deal lighter than a window border -
+   #5f5f5f on the #373737 bar. Ours used --chrome-border, which read as a black
+   gouge across the strip rather than a hairline. */
 .ze-mgrbar .sep {
   width: 22px;
   height: 1px;
-  background: var(--chrome-border);
+  background: #5f5f5f;
   margin: 3px 0;
 }
 
@@ -815,6 +1438,45 @@ body {
   flex-direction: column;
   width: 240px;
   border-right: 1px solid var(--chrome-border);
+}
+/* Schematic Editor's left dock only: real eeschema's own chrome colors
+   (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
+   not our app's blue-tinted chrome, and its orange row/checkbox highlight
+   instead of our blue --chrome-active), scoped via custom-property
+   shadowing so every descendant rule (.ze-panel, .ze-panel-header,
+   .ze-tree-item.active/:hover, twisty, checkboxes...) picks it up for free. */
+.sch-leftdock {
+  --panel-bg: #272727;
+  --panel-header: #2e2e2e;
+  --panel-list-bg: #373737;
+}
+/* The rest of the app's checkboxes use a slightly different orange
+   (#e07b1a); this is the precise shade sampled off real eeschema. */
+.sch-leftdock input[type="checkbox"] {
+  accent-color: #e95420;
+}
+/* wxTreeCtrl's row selection is a sharp-edged rectangle, not rounded. */
+.sch-leftdock .ze-tree-item {
+  border-radius: 0;
+}
+/* The row highlight lives on .ze-tree-label now (label-only, not the whole
+   strip); drop the shared whole-row hover so it doesn't paint underneath. */
+.sch-leftdock .ze-tree-item:hover {
+  background: none;
+}
+/* KiCad's pane caption is barely taller than a tree row; our default
+   .ze-panel-header padding (5px) reads noticeably taller by comparison. */
+.sch-leftdock .ze-panel-header {
+  padding: 3px 9px;
+}
+/* HIERARCHY_PANE's row icon: a plain filled circle, not a document glyph. */
+.ze-tree-sheet-icon {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #9a9a9a;
+  flex: 0 0 auto;
 }
 
 /* Right dock (LayersManager + SelectionFilter panes): at the window edge,
@@ -863,7 +1525,7 @@ body {
   padding: 1px 5px 1px 2px;
   font-size: 13px;
   line-height: 1.35;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
 }
 .ze-layer-row:hover {
@@ -910,7 +1572,7 @@ body {
   padding: 0;
   border: none;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   color: #d6d8db;
 }
 .ze-eye-btn:hover {
@@ -955,7 +1617,7 @@ body {
   appearance: none;
   background: #55585d;
   border-radius: 2px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-opacity::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -964,7 +1626,7 @@ body {
   height: 11px;
   border-radius: 50%;
   background: #d0d3d7;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-opacity::-moz-range-thumb {
   width: 11px;
@@ -972,7 +1634,7 @@ body {
   border: none;
   border-radius: 50%;
   background: #d0d3d7;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-opacity:disabled {
   opacity: 0.5;
@@ -981,7 +1643,7 @@ body {
 /* Color swatch that opens a picker (COLOR_SWATCH): the native color input is
    hidden inside the swatch label so clicking the square opens the dialog. */
 .ze-layer-swatch.picker {
-  cursor: pointer;
+  cursor: default;
   position: relative;
   overflow: hidden;
 }
@@ -989,7 +1651,7 @@ body {
   position: absolute;
   inset: 0;
   opacity: 0;
-  cursor: pointer;
+  cursor: default;
   padding: 0;
   border: none;
 }
@@ -1048,7 +1710,7 @@ body {
   border: none;
   color: inherit;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
   padding: 2px 0;
 }
 .ze-collapse-arrow {
@@ -1069,7 +1731,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-info {
   font-size: 12px;
@@ -1145,7 +1807,7 @@ body {
   gap: 6px;
   padding: 2px 0;
   font-size: 13px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-muted {
   color: #9a9ca0;
@@ -1182,7 +1844,22 @@ body {
 .ze-menu {
   position: relative;
 }
-.ze-menu.open {
+/* An open menu bar item. GTK marks it with a lighter background and a 2px
+   accent rule along the bottom edge - measured on a real open menu: the item
+   fills #4a4a4a and rows 23-24 of the 26px bar are #e95420, with one row of
+   grey left below them. We were flooding the whole item with the accent
+   colour, which is why opening a menu read as a flash rather than a state. */
+.ze-menubar .ze-menu.open {
+  background: #4a4a4a;
+  position: relative;
+}
+.ze-menubar .ze-menu.open::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 2px;
   background: var(--chrome-active);
 }
 .ze-dropdown {
@@ -1197,12 +1874,28 @@ body {
   padding: 4px 0;
   cursor: default;
 }
+/* The row pitch is one number, stated here, and everything inside the row is
+   sized off it.
+
+   It used to fall out of the font — padding around whatever line box the
+   inherited size produced, and the page declares no font-size at all, so that
+   was the browser's 16px default. Adjusting the padding barely moved it,
+   because the 18px icon box was the real floor: a row could not be shorter than
+   its icon however little padding it had. That is why two rounds of padding
+   tweaks changed nothing anyone could see.
+
+   Pitch matters here out of proportion to its size, because these menus are
+   long: the schematic's selection menu over a symbol is 27 entries, so every
+   pixel a row is another 27 down the screen. */
 .ze-mitem {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 8px;
-  padding: 5px 12px;
-  cursor: pointer;
+  height: var(--menu-row, 22px);
+  padding: 0 12px;
+  font-size: 13px;
+  cursor: default;
   white-space: nowrap;
 }
 .ze-mitem:hover {
@@ -1215,17 +1908,20 @@ body {
 .ze-mitem.disabled:hover {
   background: transparent;
 }
+/* The icon is what sets the floor on the row height, so it is derived from the
+   row rather than fixed: at 18px in a 22px row the icons would touch the rows
+   above and below. 16px is also what a wx menu bitmap is. */
 .ze-mitem .mico {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
 }
 .ze-mitem .mico img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 .ze-mitem .lbl {
   flex: 1;
@@ -1235,10 +1931,12 @@ body {
   font-size: 11px;
   padding-left: 20px;
 }
+/* A separator costs its own line plus both margins, so on a menu with five of
+   them the margins alone were most of two rows. GTK's are thin. */
 .ze-msep {
   height: 1px;
   background: var(--chrome-border);
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 /* Modeless Find dialog (DIALOG_SCH_FIND): floats over the canvas, top-right. */
@@ -1537,9 +2235,11 @@ body {
   font-size: 12px;
   line-height: 1;
 }
+/* The flyout marker is `.twisty`, so it is drawn by the same rule as the
+   project tree's expander; only the gap to the label is menu-specific. It never
+   opens in place, so it never takes the `.open` rotation. */
 .ze-mitem .sub-arrow {
-  color: #8a8c90;
-  padding-left: 20px;
+  margin-left: 20px;
 }
 .ze-msub {
   position: relative;
@@ -1751,7 +2451,7 @@ body {
   padding: 2px 8px;
   font: inherit;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   background: transparent;
   border: 1px solid currentColor;
   border-radius: 4px;
@@ -1792,12 +2492,15 @@ body {
   border: 1px solid var(--chrome-border);
   border-radius: 3px;
   color: #ddd;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-group-editing button:hover {
   background: #3a3a42;
 }
+/* GTK draws dialog text at about 243, not pure white - the same gap that made
+   the status bar look a size too big. Set here so every dialog inherits it. */
 .ze-modal {
+  color: #f3f4f5;
   width: 860px;
   height: 580px;
   max-width: 92vw;
@@ -1809,16 +2512,31 @@ body {
   flex-direction: column;
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
 }
+/* A KiCad dialog's title is its *window* title, drawn by the desktop: a 37px
+   bar of #222222 under a 1px black rule, with the text centred. Measured off a
+   real dialog; ours was --chrome-bg with the title hard left. */
 .ze-modal-header {
-  padding: 8px 12px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--chrome-border);
+  position: relative;
+  box-sizing: border-box;
+  height: 37px;
+  padding: 0 12px;
+  /* Measured against a real title bar: 175px wide and 15 tall for this string,
+     against 156/12 at the shell's 13px. It is the dialog font, bold. */
+  font-size: var(--ui-font-size);
+  font-weight: 700;
+  color: #f7f7f7;
+  background: #222222;
+  border-bottom: 1px solid #000000;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 .ze-modal-header .x {
-  margin-left: auto;
-  cursor: pointer;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: default;
   padding: 0 6px;
   color: #9a9ca0;
 }
@@ -1963,7 +2681,7 @@ body {
   border: 1px solid var(--chrome-border);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
-  cursor: pointer;
+  cursor: default;
   margin-bottom: -1px;
 }
 .ze-sft-tabs .ze-sft-tab.active {
@@ -2024,7 +2742,7 @@ body {
 .ze-sft-menu > div {
   padding: 4px 10px;
   font-size: 12.5px;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
 }
 .ze-sft-menu > div:hover {
@@ -2049,7 +2767,7 @@ body {
 }
 .ze-sft-table th {
   height: 24px;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -2082,7 +2800,7 @@ body {
 .ze-sft-twisty {
   flex: 0 0 auto;
   width: 14px;
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   opacity: 0.85;
   font-size: 10px;
@@ -2320,7 +3038,7 @@ body {
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   opacity: 0.8;
 }
@@ -2342,7 +3060,7 @@ body {
   border: 1px solid var(--chrome-border);
   border-radius: 4px;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
 }
 .ze-libtree-sortbtn:hover {
@@ -2464,8 +3182,8 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-top: 1.5px solid #b8bcc2;
   border-right: 1.5px solid #b8bcc2;
   transform: translate(-65%, -50%) rotate(45deg);
@@ -2616,9 +3334,12 @@ body {
   margin-top: 3px;
   font-style: italic;
 }
+/* No rule above the buttons. m_sizerButtons is just the last row of
+   bmainSizer, on the same surface as everything above it - scanning a real
+   dialog top to bottom finds #2c2c2c unbroken from under the title bar past
+   the buttons to the bottom edge. */
 .ze-modal-footer {
   padding: 8px 12px;
-  border-top: 1px solid var(--chrome-border);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2739,7 +3460,7 @@ body {
   border: 1px solid var(--chrome-border);
   border-radius: 4px;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
 }
 .ze-gridbtn:hover:not(:disabled) {
   background: var(--chrome-hover);
@@ -2765,13 +3486,22 @@ body {
 }
 
 .ze-btn {
-  padding: 5px 16px;
-  background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
+  /* A wxButton on this theme, measured off a real dialog's footer: 34px tall
+     and about 85 wide for a one-word label, faced #373737 over a #181818 edge.
+     Ours were shorter and faced --chrome-bg2. */
+  box-sizing: border-box;
+  height: 34px;
+  min-width: 85px;
+  padding: 0 14px;
+  background: var(--content-bg);
+  border: 1px solid #181818;
   border-radius: 4px;
-  color: var(--chrome-fg);
-  cursor: pointer;
+  color: inherit;
+  cursor: default;
+  /* The dialog font, not the shell's 13px base: measured against a real
+     footer, "Go Back" is 52px wide there and was 45 here. */
   font: inherit;
+  font-size: var(--ui-font-size);
 }
 .ze-btn:hover:not(:disabled) {
   background: var(--chrome-hover);
@@ -2781,7 +3511,10 @@ body {
   border-color: var(--chrome-active-border);
 }
 .ze-btn:disabled {
-  opacity: 0.5;
+  /* A disabled wxButton faces #2a2a2a with its label dimmed, rather than the
+     whole control being made translucent. */
+  background: #2a2a2a;
+  color: #8a8a8a;
   cursor: default;
 }
 
@@ -2991,7 +3724,7 @@ body {
   border: 1px solid transparent;
   border-radius: 3px;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
 }
 .ze-lp-iconbtn img {
   width: 16px;
@@ -3173,7 +3906,7 @@ body {
   gap: 10px;
   padding: 6px 8px;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: default;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -3225,7 +3958,7 @@ body {
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 13px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-props-grid-wrap {
   overflow: auto;
@@ -3417,7 +4150,7 @@ body {
   border: 1px solid transparent;
   border-radius: 3px;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
 }
 .ze-erc-menu-btn:hover {
   background: var(--chrome-hover);
@@ -3438,7 +4171,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-erc-subrow:hover {
   background: var(--chrome-hover);
@@ -3527,7 +4260,7 @@ body {
   align-items: baseline;
   padding: 4px 12px;
   font-size: 12.5px;
-  cursor: pointer;
+  cursor: default;
   line-height: 1.35;
 }
 .ze-erc-row:hover {
@@ -3563,7 +4296,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-erc-footer .badge {
   min-width: 20px;
@@ -3590,7 +4323,7 @@ body {
 .ze-erc-tabs .tab {
   padding: 5px 12px;
   font-size: 12.5px;
-  cursor: pointer;
+  cursor: default;
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: 4px 4px 0 0;
@@ -3600,7 +4333,7 @@ body {
    in the platform's selection colour; ours is the same orange the ERC list uses,
    so "which row is selected" reads the same wherever a list appears. */
 .ze-search-row {
-  cursor: pointer;
+  cursor: default;
 }
 /* Painted on the cells, not the row: every other selected-row style in this file
    does the same, because a background on a `tr` is unreliable once the cells
@@ -3649,7 +4382,7 @@ body {
   border-radius: 3px;
   background: transparent;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   opacity: 0;
 }
 .ze-erc-row:hover .ze-erc-exclude {
@@ -3672,7 +4405,7 @@ body {
   padding: 6px 12px;
   font-size: 12.5px;
   color: #6ea8fe;
-  cursor: pointer;
+  cursor: default;
   text-decoration: underline;
 }
 /* WX_INFOBAR-style warning strip (annotation incomplete) */
@@ -3688,7 +4421,7 @@ body {
 .ze-infobar .lnk {
   margin-left: 8px;
   color: #6ea8fe;
-  cursor: pointer;
+  cursor: default;
   text-decoration: underline;
 }
 
@@ -3771,7 +4504,7 @@ body {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-auth-submit:hover {
   background: #1e6bab;
@@ -3789,7 +4522,7 @@ body {
   background: none;
   border: none;
   padding: 0;
-  cursor: pointer;
+  cursor: default;
   color: var(--chrome-active-border);
   font: inherit;
   font-size: inherit;
@@ -3843,7 +4576,7 @@ body {
   position: absolute;
   top: 10px;
   right: 12px;
-  cursor: pointer;
+  cursor: default;
   color: #b7bcc4;
   font-size: 13px;
 }
@@ -3863,7 +4596,7 @@ body {
   font: inherit;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-auth-google:hover {
   background: #f2f2f2;
@@ -3918,7 +4651,7 @@ body {
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }
 .ze-guest-nudge .x {
-  cursor: pointer;
+  cursor: default;
   color: #b7bcc4;
   padding: 0 2px;
 }
@@ -3950,7 +4683,7 @@ body {
   padding: 3px 10px;
   font: inherit;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-account-signout:hover {
   background: var(--chrome-hover);
@@ -3985,7 +4718,7 @@ body {
 .ze-prefs-page {
   padding: 5px 10px;
   font-size: 13px;
-  cursor: pointer;
+  cursor: default;
   border-left: 2px solid transparent;
 }
 .ze-prefs-page.indent {
@@ -4134,7 +4867,7 @@ body {
   border: none;
   border-bottom: 2px solid transparent;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-ds-tabs button.active {
   border-bottom-color: #4aa3ff;
@@ -4310,7 +5043,7 @@ body {
 }
 .ze-cvpcb-caption .x {
   margin-left: auto;
-  cursor: pointer;
+  cursor: default;
   padding: 0 2px;
 }
 .ze-cvpcb-list {
@@ -4392,7 +5125,7 @@ body {
   border: 1px solid var(--chrome-border);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
-  cursor: pointer;
+  cursor: default;
   margin-bottom: -1px;
 }
 .ze-tabbar .ze-tab.active {
@@ -4530,7 +5263,7 @@ body {
   border: none;
   color: var(--accent, #4a9eff);
   text-decoration: underline;
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   padding: 0;
 }
@@ -4570,7 +5303,7 @@ body {
   border: 1px solid var(--chrome-border);
   background: var(--input-bg, #2b2d31);
   color: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-teardrops-body .ze-tristate:disabled {
   opacity: 0.4;
@@ -4673,8 +5406,35 @@ body {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid #7a6a20;
   border-radius: 3px;
-  cursor: pointer;
+  cursor: default;
 }
 .ze-readonly-infobar button:hover {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   EDA_3D_VIEWER_FRAME.
+
+   Upstream this is a sibling top-level window (a KIWAY_PLAYER parented to the
+   PCB frame, so the window manager floats it above pcbnew) sized 1280x720 on
+   first run — it is NOT maximised, because m_maximizeByDefault stays false for
+   it while pcbnew sets it true (pcbnew/pcb_edit_frame.cpp:215). One browser
+   tab has no window manager to delegate that to, so the frame fills the
+   viewport and keeps its own chrome instead: menu bar, the single TOP_MAIN
+   toolbar (3d-viewer returns std::nullopt for LEFT/RIGHT/TOP_AUX) and the
+   5-pane status bar.
+   --------------------------------------------------------------------------- */
+.ze-frame-3d {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--chrome-bg);
+}
+/* The canvas host must be allowed to shrink inside the flex column, or the
+   three.js canvas pushes the status bar off-screen as it grows. */
+.ze-frame-3d > .ze-frame-canvas {
+  min-height: 0;
+  overflow: hidden;
 }

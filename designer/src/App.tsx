@@ -242,6 +242,14 @@ export function App(): JSX.Element {
   // the PCB frame and bump this, which is what runs the dialog there. KiCad's
   // SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way.
   const [updatePcbNonce, setUpdatePcbNonce] = useState<number | null>(null);
+  // Select on PCB from the schematic's context menu: the `$SELECT:` parts go to
+  // the board frame, which resolves them to footprints and pads. The nonce is
+  // what makes selecting the same items twice arrive twice, since the request
+  // is an event and not a state the board should keep re-applying.
+  const [pcbSyncSelection, setPcbSyncSelection] = useState<{
+    parts: readonly string[];
+    nonce: number;
+  } | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -655,6 +663,16 @@ export function App(): JSX.Element {
     setSchMounted(true);
     setView('schematic');
   }, []);
+  // KiCad raises the board frame as part of handling the packet
+  // (PCB_EDIT_FRAME::KiwayMailIn -> `Raise()`), so the switch belongs here and
+  // not in the schematic's action.
+  const selectOnPcb = useCallback(
+    (parts: readonly string[]) => {
+      showPcb();
+      setPcbSyncSelection((p) => ({ parts, nonce: (p?.nonce ?? 0) + 1 }));
+    },
+    [showPcb],
+  );
   // Edit with Symbol Editor, both legs. The schematic hands a library-shaped
   // symbol over and remembers which placement it came from; the symbol editor
   // hands the edit back and eeschema applies it.
@@ -891,6 +909,7 @@ export function App(): JSX.Element {
               projectName={projectName}
               readOnlyNotice={demoNotice}
               onCrossProbeNet={setCrossProbeNet}
+              onSelectOnPcb={selectOnPcb}
             />
           </Suspense>
         </div>
@@ -918,6 +937,7 @@ export function App(): JSX.Element {
               onPersistFiles={persistFilesNow}
               onOutputFile={onOutputFile}
               crossProbeNet={crossProbeNet}
+              syncSelection={pcbSyncSelection}
               updateFromSchematic={updatePcbNonce}
               readOnlyNotice={demoNotice}
             />

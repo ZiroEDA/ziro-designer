@@ -44,8 +44,6 @@ import {
   isHiddenFile,
   inArchiveAllowList,
   basename,
-  fmtBytes,
-  fmtWhen,
   type DirNode,
 } from './project_tree.js';
 
@@ -53,11 +51,16 @@ export type { PickedHomeFile } from './files.js';
 import { archiveEntries, zipArchive, expandArchive } from './project_archiver.js';
 import { AboutDialog } from './dialogs/dialog_about.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
-import { PluginManagerDialog } from '../pcm/PluginManagerDialog.js';
 import { buildManagerMenus } from './menubar.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
-import { TemplateDialog } from './dialogs/dialog_template_selector.js';
-import { ProjectTreePane, TreeIcon, mgrUrl } from './project_tree_pane.js';
+import {
+  NewProjectFolderDialog,
+  TemplateSelectorDialog,
+} from './dialogs/dialog_template_selector.js';
+import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
+import { EllipsizedField } from '../ui/EllipsizedField.js';
+import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
+import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import {
   filesFromFileList,
   walkDirectoryHandle,
@@ -84,74 +87,129 @@ const tileUrl = (id: string): string | undefined => TILE_ICONS[`../assets/launch
 interface Tile {
   id: string;
   name: string;
+  /** The help line printed under the title (CreateLaunchers' aHelpText). */
   desc: string;
-  enabled?: boolean;
+  /** The action's own `.Tooltip(...)`, which is what the tooltip shows -
+   *  a different string from the help line, and the one we were missing. */
+  tip: string;
+  /** `.DefaultHotkey(...)`; GetTooltip() appends it in parentheses. */
+  hotkey?: string;
 }
 
+// PANEL_KICAD_LAUNCHER::CreateLaunchers(), in order, with each launcher's help
+// string verbatim. Upstream passes these as TOOL_ACTION friendly names plus a
+// _( "..." ) help line; the only one it ever disables is the plugin manager,
+// and only when the PCM admin policy is off.
 const TILES: Tile[] = [
-  { id: 'schematic', name: 'Schematic Editor', desc: 'Edit the project schematic', enabled: true },
+  {
+    id: 'schematic',
+    name: 'Schematic Editor',
+    desc: 'Edit the project schematic',
+    tip: 'Edit schematic in schematic editor',
+    hotkey: 'Ctrl+E',
+  },
   {
     id: 'symbols',
     name: 'Symbol Editor',
     desc: 'Edit global and/or project schematic symbol libraries',
-    enabled: true,
+    tip: 'Create, delete and edit schematic symbols',
+    hotkey: 'Ctrl+L',
   },
-  { id: 'pcb', name: 'PCB Editor', desc: 'Edit the project PCB design' },
+  {
+    id: 'pcb',
+    name: 'PCB Editor',
+    desc: 'Edit the project PCB design',
+    tip: 'Edit PCB in PCB editor',
+    hotkey: 'Ctrl+P',
+  },
   {
     id: 'footprints',
     name: 'Footprint Editor',
     desc: 'Edit global and/or project PCB footprint libraries',
-    enabled: true,
+    tip: 'Create, delete and edit PCB footprints',
+    hotkey: 'Ctrl+F',
   },
-  { id: 'gerber', name: 'Gerber Viewer', desc: 'Preview Gerber files', enabled: true },
+  {
+    id: 'gerber',
+    name: 'Gerber Viewer',
+    desc: 'Preview Gerber files',
+    tip: 'Preview Gerber output files',
+    hotkey: 'Ctrl+G',
+  },
   {
     id: 'image',
     name: 'Image Converter',
     desc: 'Convert bitmap images to schematic symbols or PCB footprints',
-    enabled: true,
+    tip: 'Convert bitmap images to schematic or PCB components',
+    hotkey: 'Ctrl+B',
   },
   {
     id: 'calculator',
     name: 'Calculator Tools',
     desc: 'Show tools for calculating resistance, current capacity, etc.',
-    enabled: true,
+    tip: 'Run component calculations, track width calculations, etc.',
   },
   {
     id: 'drawingsheet',
     name: 'Drawing Sheet Editor',
     desc: 'Edit drawing sheet borders and title blocks for use in schematics and PCB designs',
-    enabled: true,
+    tip: 'Edit drawing sheet borders and title block',
+    hotkey: 'Ctrl+Y',
   },
-  {
-    // Greyed out for now: the plugin/content manager still needs a lot of work,
-    // so it ships after the web-app launch. No `enabled` → "coming soon".
-    id: 'pcm',
-    name: 'Plugin and Content Manager',
-    desc: 'Manage downloadable packages from KiCad and 3rd party repositories',
-  },
+  // Upstream's 9th launcher, showPluginManager, is deliberately absent: the
+  // plugin/content manager still needs a lot of work and ships after the
+  // web-app launch. It was here greyed out with a "coming soon" badge, which
+  // is a tell no KiCad frame has - a disabled launcher upstream means the PCM
+  // *policy* is off, and it never grows extra chrome. Better to show eight
+  // launchers that all work than nine where one is visibly ours.
 ];
 
 // KiCad project-manager left toolbar (toolbars_kicad_manager.cpp). "Browse
 // Project Files" is dropped: a browser can't open the OS file manager, and the
 // left panel already is the project tree.
 type MgrAction = 'open' | 'new' | 'archive' | 'unarchive' | 'refresh';
-const MGR_TOOLS: ({ icon: string; title: string; action: MgrAction } | 'sep')[] = [
-  { icon: 'new_project', title: 'New Project\u2026', action: 'new' },
-  { icon: 'open_project', title: 'Open Project\u2026', action: 'open' },
+interface MgrTool {
+  icon: string;
+  /** TOOL_ACTION::GetFriendlyName(). */
+  name: string;
+  action: MgrAction;
+  hotkey?: string;
+  /** TOOL_ACTION::Tooltip(); absent on openProject upstream. */
+  tip?: string;
+}
+const MGR_TOOLS: (MgrTool | 'sep')[] = [
+  // KICAD_MANAGER_ACTIONS::newProject is .Icon( BITMAPS::new_project_from_template )
+  // - not new_project, which is the plain notepad-and-sparkle with no badge.
+  {
+    icon: 'new_project_from_template',
+    name: 'New Project\u2026',
+    action: 'new',
+    hotkey: 'Ctrl+N',
+    tip: 'Create a new project based on an existing project',
+  },
+  { icon: 'open_project', name: 'Open Project\u2026', action: 'open', hotkey: 'Ctrl+O' },
   'sep',
-  { icon: 'zip', title: 'Archive Project\u2026', action: 'archive' },
-  { icon: 'unzip', title: 'Unarchive Project\u2026', action: 'unarchive' },
-  'sep',
-  { icon: 'refresh', title: 'Refresh', action: 'refresh' },
+  {
+    icon: 'zip',
+    name: 'Archive Project\u2026',
+    action: 'archive',
+    tip: 'Archive all project files',
+  },
+  {
+    icon: 'unzip',
+    name: 'Unarchive Project\u2026',
+    action: 'unarchive',
+    tip: 'Unarchive project files from zip archive',
+  },
+  // The Refresh button is ACTIONS::zoomRedraw, not a manager action.
+  { icon: 'refresh', name: 'Refresh', action: 'refresh', hotkey: 'Ctrl+R' },
 ];
 
-// Upstream v10: File > New Project opens the template selector itself, with a
-// built-in blank "Default" template first in the list.
-const DEFAULT_TEMPLATE: TemplateMeta = {
-  id: '\0default',
-  title: 'Default',
-  description: 'An empty project: a project file, a root schematic and a board.',
-} as TemplateMeta;
+// KiCad's own "default" template, seeded into the user template directory as
+// `default/` with a lone default.kicad_pro and a meta/info.html. It is imported
+// with the rest by tools/templates/import.mjs, so there is no synthetic entry
+// here any more - it is a real template like every other one in the list.
+const DEFAULT_TEMPLATE_ID = 'default';
 
 const tileIcon = (id: string): JSX.Element => {
   const url = tileUrl(id);
@@ -264,10 +322,32 @@ export function HomePage({
   const [aboutOpen, setAboutOpen] = useState(false);
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
-  const [pcmOpen, setPcmOpen] = useState(false);
+  // Open Project: the account's project list, standing in for the native
+  // wxFileDialog upstream opens (see dialog_open_project.tsx).
+  const [openPrjOpen, setOpenPrjOpen] = useState(false);
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const [tplOpen, setTplOpen] = useState(false);
+  // NewProject is two windows upstream: the template selector, then the
+  // "New Project Folder" file dialog. `tplStep` is which one is up.
+  const [tplStep, setTplStep] = useState<'none' | 'template' | 'name'>('none');
+  /** settings->m_RecentTemplates: template ids, newest first. */
+  const [recentTemplates, setRecentTemplates] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('ziro.recentTemplates');
+      const ids: unknown = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(ids)) return ids.filter((x): x is string => typeof x === 'string');
+    } catch {
+      /* storage blocked or the value is not ours */
+    }
+    return [];
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('ziro.recentTemplates', JSON.stringify(recentTemplates));
+    } catch {
+      /* storage blocked; recents just won't survive the reload */
+    }
+  }, [recentTemplates]);
   const [tplSel, setTplSel] = useState<TemplateMeta | null>(null);
   const [tplName, setTplName] = useState('');
   useEffect(() => {
@@ -353,8 +433,31 @@ export function HomePage({
     // fetched when the user keeps the project, in `saveDemoCopy`.
     setDemoSource(d);
   };
-  // Project-tree pane width (px), draggable like KiCad's wxAUI sash.
-  const [panelWidth, setPanelWidth] = useState(290);
+  /**
+   * Project-tree pane width (px), draggable like KiCad's wxAUI sash.
+   *
+   * 250 is KICAD_MANAGER_FRAME's `defaultLeftWinWidth = FromDIP( 250 )`, used
+   * for the pane's `MinSize` and as `m_leftWinWidth`'s initial value — but only
+   * on a first run. Every later run reads it back:
+   *
+   *     m_leftWinWidth = settings->m_LeftWinWidth;            // LoadSettings
+   *     settings->m_LeftWinWidth = m_projectTreePane->GetSize().x;  // SaveSettings
+   *
+   * We had the 250 and not the two lines around it, so the pane reset on every
+   * reload and long project filenames stayed clipped no matter how often the
+   * user widened it. localStorage is this app's KICAD_SETTINGS.
+   */
+  const [panelWidth, setPanelWidth] = useState(() => {
+    try {
+      // Clamped to the sash's own range, so a hand-edited or stale value can
+      // never leave the pane wider than the window or too narrow to hit.
+      const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
+      if (Number.isFinite(saved) && saved >= 180 && saved <= 600) return saved;
+    } catch {
+      /* storage blocked: fall through to the first-run default */
+    }
+    return 250;
+  });
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
   // frozen mid-load.
@@ -489,9 +592,9 @@ export function HomePage({
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
   const openNewProjectDialog = (): void => {
-    setTplSel(DEFAULT_TEMPLATE);
+    setTplSel(null);
     setTplName('');
-    setTplOpen(true);
+    setTplStep('template');
   };
 
   // Upstream v10 NewProject flow: the template selector creates the project,
@@ -500,11 +603,13 @@ export function HomePage({
   const createFromTpl = async (): Promise<void> => {
     const name = sanitizeProjectName(tplName);
     if (!name || !tplSel) return;
-    setTplOpen(false);
+    setTplStep('none');
     setExpanded(new Set());
     const files =
-      tplSel.id === DEFAULT_TEMPLATE.id
-        ? newProjectFiles(name)
+      tplSel.id === DEFAULT_TEMPLATE_ID
+        ? // The default template ships only a .kicad_pro; CreateNewProject is
+          // what fills in the root sheet and the board beside it.
+          newProjectFiles(name)
         : await createFromTemplate(tplSel, name);
     if (files.length === 0) return;
     await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
@@ -565,8 +670,7 @@ export function HomePage({
    * A trimmed-empty name is a cancel, not a rename to "": a project with no
    * name is unfindable in the list it lives in.
    */
-  const renameStored = async (id: string, current: string, e: React.MouseEvent): Promise<void> => {
-    e.stopPropagation();
+  const renameStored = async (id: string, current: string): Promise<void> => {
     const next = window.prompt('Rename project', current)?.trim();
     if (!next || next === current) return;
     await renameProject(id, next);
@@ -577,8 +681,18 @@ export function HomePage({
       void pushProject(userId, id).catch((err) => console.warn('Cloud rename failed:', err));
   };
 
-  const removeStored = async (id: string, e: React.MouseEvent): Promise<void> => {
-    e.stopPropagation();
+  /**
+   * Delete a stored project.
+   *
+   * This used to be a ✕ that appeared on hover over a recent-projects row and
+   * deleted on the first click, with the cloud copy going too. In a dialog the
+   * user is deliberately browsing, that is one stray click away from losing a
+   * board, so it names what it is deleting and where from first.
+   */
+  const removeStored = async (id: string): Promise<void> => {
+    const p = saved.find((x) => x.id === id);
+    const where = userId ? 'this browser and your account' : 'this browser';
+    if (!window.confirm(`Delete "${p?.name ?? 'this project'}" from ${where}?`)) return;
     await deleteProject(id);
     refreshSaved();
     if (userId) void deleteCloudProject(id).catch((e) => console.warn('Cloud delete failed:', e));
@@ -665,7 +779,7 @@ export function HomePage({
   const runMgrAction = (action: MgrAction): void => {
     switch (action) {
       case 'open':
-        void openProjectPicker();
+        setOpenPrjOpen(true);
         break;
       case 'new':
         openNewProjectDialog();
@@ -693,6 +807,17 @@ export function HomePage({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
+      // KICAD_MANAGER_FRAME::SaveSettings writes the pane's width back on the
+      // way out; written on mouse-up rather than every mousemove so a drag is
+      // one store write, not a hundred.
+      setPanelWidth((w) => {
+        try {
+          localStorage.setItem('ziro.leftWinWidth', String(w));
+        } catch {
+          /* storage blocked (private mode): the drag still works this session */
+        }
+        return w;
+      });
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -855,7 +980,7 @@ export function HomePage({
 
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
-    openProject: () => void openProjectPicker(),
+    openProject: () => setOpenPrjOpen(true),
     selectProjectFiles: () => filesInputRef.current?.click(),
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
@@ -871,7 +996,6 @@ export function HomePage({
     editFootprints: () => onOpenFootprintEditor?.(picked ?? undefined),
     openImageConverter: () => onOpenImageConverter?.(),
     openPreferences: () => setPrefsOpen(true),
-    openPluginManager: () => setPcmOpen(true),
     showAbout: () => setAboutOpen(true),
     openDemo: (id) => void openDemoProject(id),
     hasProject: !!picked,
@@ -891,13 +1015,12 @@ export function HomePage({
         fn();
       };
       if (k === 'n') run(openNewProjectDialog);
-      else if (k === 'o') run(() => void openProjectPicker());
+      else if (k === 'o') run(() => setOpenPrjOpen(true));
       else if (k === 'e') run(() => launchSchematic());
       else if (k === 'l') run(() => onOpenSymbolEditor?.(picked ?? undefined));
       else if (k === 'p' && picked) run(launchPcb);
       else if (k === 'f') run(() => onOpenFootprintEditor?.(picked ?? undefined));
       else if (k === 'b') run(() => onOpenImageConverter?.());
-      else if (k === 'm') run(() => setPcmOpen(true));
       else if (k === ',') run(() => setPrefsOpen(true));
     };
     window.addEventListener('keydown', onKey);
@@ -942,11 +1065,7 @@ export function HomePage({
 
       <MenuBar
         menus={menus}
-        title={
-          <>
-            <b>{picked && projName ? projName : 'No project'}</b>&nbsp;-&nbsp;Ziro Designer
-          </>
-        }
+        title={<>{picked && projName ? projName : 'No project'}&nbsp;&mdash;&nbsp;Ziro Designer</>}
         rightSlot={
           session ? (
             <div className="ze-account">
@@ -978,8 +1097,8 @@ export function HomePage({
             ) : (
               <button
                 key={t.icon}
-                title={t.title}
-                aria-label={t.title}
+                data-tip={buttonTooltipFor(t.name, t.hotkey, t.tip)}
+                aria-label={t.name}
                 disabled={(t.action === 'archive' || t.action === 'refresh') && !picked}
                 onClick={() => runMgrAction(t.action)}
               >
@@ -1019,7 +1138,7 @@ export function HomePage({
               ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
               : undefined
           }
-          onOpenProjectPicker={() => void openProjectPicker()}
+          onOpenProjectPicker={() => setOpenPrjOpen(true)}
           onSelectFiles={() => filesInputRef.current?.click()}
         />
 
@@ -1035,9 +1154,8 @@ export function HomePage({
               // Schematic/PCB edit a project, so they need one open (like KiCad's
               // project manager). Symbol Editor is a library editor, standalone.
               const needsProject = t.id === 'schematic' || t.id === 'pcb';
-              const implemented = t.id === 'schematic' || t.id === 'pcb' || !!t.enabled;
-              const enabled =
-                implemented && (!needsProject || (t.id === 'schematic' ? hasSch : hasPcb));
+              const enabled = !needsProject || (t.id === 'schematic' ? hasSch : hasPcb);
+              const tip = enabled ? tooltipFor(t.tip, t.hotkey) : 'Open or create a project first';
               const launch =
                 t.id === 'pcb'
                   ? launchPcb
@@ -1053,73 +1171,45 @@ export function HomePage({
                             ? (): void => onOpenImageConverter?.()
                             : t.id === 'gerber'
                               ? (): void => onOpenGerberViewer?.()
-                              : t.id === 'pcm'
-                                ? (): void => setPcmOpen(true)
-                                : (): void => launchSchematic();
+                              : (): void => launchSchematic();
               return (
                 <button
                   key={t.id}
                   className="ze-launcher"
                   disabled={!enabled}
-                  title={
-                    !implemented ? t.desc : enabled ? t.desc : 'Open or create a project first'
-                  }
                   onClick={enabled ? launch : undefined}
                 >
-                  <span className="ico">{tileIcon(t.id)}</span>
+                  {/* CreateLaunchers gives the tooltip to the button and to the
+                      title label, and to neither the help line nor the row:
+                        btn->SetToolTip( aAction.GetTooltip() );
+                        label->SetToolTip( aAction.GetTooltip() );
+                      That matters for placement as much as for coverage - the
+                      box is centred under whatever carries it, so hanging it
+                      off the whole 760px row put it half a screen from the
+                      icon the pointer was actually on. */}
+                  <span className="ico" data-tip={tip}>
+                    {tileIcon(t.id)}
+                  </span>
                   <span className="txt">
-                    <span className="name">{t.name}</span>
+                    <span className="name" data-tip={tip}>
+                      {t.name}
+                    </span>
                     <span className="desc">{t.desc}</span>
                   </span>
-                  {!implemented && <span className="soon">coming soon</span>}
                 </button>
               );
             })}
           </div>
-
-          {saved.length > 0 && (
-            <div className="ze-recent">
-              <div className="ze-recent-head">Recent Projects</div>
-              <div className="ze-recent-list">
-                {saved.map((p) => (
-                  <div
-                    key={p.id}
-                    className="ze-recent-item"
-                    onClick={() => void openStored(p.id)}
-                    title={`Reopen ${p.name}, saved in this browser`}
-                  >
-                    <TreeIcon name="project" />
-                    <span className="ze-recent-name">{p.name}</span>
-                    <span className="ze-recent-meta">
-                      {p.fileCount} file{p.fileCount === 1 ? '' : 's'} · {fmtBytes(p.bytes)} ·{' '}
-                      {fmtWhen(p.updatedAt)}
-                    </span>
-                    <button
-                      className="ze-recent-del"
-                      title="Rename this project"
-                      onClick={(e) => void renameStored(p.id, p.name, e)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="ze-recent-del"
-                      title="Remove from this browser"
-                      onClick={(e) => void removeStored(p.id, e)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       <div className="ze-statusbar">
-        <span className="cell grow">
-          {picked ? `Project: ${proFile?.name ?? projName ?? '-'}` : 'No project loaded'}
-        </span>
+        {/* KICAD_MANAGER_FRAME::PrintPrjInfo formats _( "Project: %s" ) with the
+            project's full name and hands it to SetEllipsedTextField, which
+            middle-ellipsizes it to the field. */}
+        <EllipsizedField
+          text={picked ? `Project: ${proFile?.name ?? projName ?? '-'}` : 'No project loaded'}
+        />
         <span className="cell">
           {storageAvailable()
             ? session
@@ -1129,14 +1219,55 @@ export function HomePage({
         </span>
       </div>
 
-      {tplOpen && (
-        <TemplateDialog
-          templates={[DEFAULT_TEMPLATE, ...templates]}
-          selected={tplSel}
+      {openPrjOpen && (
+        <OpenProjectDialog
+          projects={saved}
+          signedIn={!!session}
+          onOpen={(id) => {
+            setOpenPrjOpen(false);
+            void openStored(id);
+          }}
+          onOpenFromComputer={() => {
+            setOpenPrjOpen(false);
+            void openProjectPicker();
+          }}
+          onSelectFiles={() => {
+            setOpenPrjOpen(false);
+            filesInputRef.current?.click();
+          }}
+          onRename={(id, current) => void renameStored(id, current)}
+          onDelete={(id) => void removeStored(id)}
+          onCancel={() => setOpenPrjOpen(false)}
+        />
+      )}
+
+      {tplStep === 'template' && (
+        <TemplateSelectorDialog
+          templates={templates}
+          recentTemplates={recentTemplates}
+          onCancel={() => setTplStep('none')}
+          onOk={(t) => {
+            if (!t) {
+              // KICAD_MANAGER_CONTROL::NewProject's own answer when the dialog
+              // returns wxID_OK with no template chosen.
+              window.alert('No project template was selected.  Cannot generate new project.');
+              return;
+            }
+            setTplSel(t);
+            // settings->m_RecentTemplates, newest first and deduplicated.
+            setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 8));
+            setTplStep('name');
+          }}
+        />
+      )}
+
+      {tplStep === 'name' && (
+        <NewProjectFolderDialog
           name={tplName}
-          onSelect={setTplSel}
           onName={setTplName}
-          onCancel={() => setTplOpen(false)}
+          // Cancelling the folder step drops back to the selector, which is
+          // where upstream's Go Back would have put you.
+          onCancel={() => setTplStep('template')}
           onCreate={() => void createFromTpl()}
         />
       )}
@@ -1151,7 +1282,6 @@ export function HomePage({
         />
       )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
-      {pcmOpen && <PluginManagerDialog onClose={() => setPcmOpen(false)} />}
 
       {/* Guest nudge: once there's real work at stake (a saved project) and no
           account, offer, never force, signing in so it's backed up. */}

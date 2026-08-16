@@ -16,7 +16,9 @@ import { parse } from '@ziroeda/sexpr/src/index.js';
 import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 import {
+  BACK_NETNAMES_MARK,
   buildScene,
+  DEFAULT_DRAW_OPTIONS,
   drawNetNames,
   showsNetName,
   showsViaNetName,
@@ -293,5 +295,73 @@ describe('the under pass pays for its depth in alpha', () => {
     }
     // B.Cu's netnames are the light label at 0.7; under the pour, 0.7 · 0.4.
     expect(colours.some((c) => c.includes('0.27999999999999997') || c.includes('0.28'))).toBe(true);
+  });
+});
+
+describe('the depth the retained backend draws the under pass at', () => {
+  /**
+   * `BACK_NETNAMES_MARK` is where the GL device splits the board's run list to
+   * draw the under pass — back and inner net names, and every back-side pad
+   * number. It has to name the point *after* B.Cu was painted.
+   *
+   * It named run zero. `buildDrawSteps` only builds closures, and the mark was
+   * emitted while building rather than pushed as a step, so it was taken
+   * against an empty run list every time. The device then drew the whole under
+   * pass before the first run — beneath the entire board, back pad numbers
+   * included, each one hidden under its own opaque pad.
+   */
+  const sided = (): Board =>
+    readBoard(
+      parse(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (net 0 "")
+  (net 1 "VCC")
+  (segment (start 100 100) (end 180 100) (width 0.25) (layer "B.Cu") (net 1))
+  (segment (start 100 110) (end 180 110) (width 0.25) (layer "F.Cu") (net 1))
+  (footprint "R1" (layer "F.Cu") (at 100 110)
+    (pad "1" smd rect (at 0 0) (size 2 2) (layers "F.Cu" "F.Paste" "F.Mask") (net 1 "VCC")))
+  (footprint "R2" (layer "B.Cu") (at 110 100)
+    (pad "9" smd rect (at 0 0) (size 2 2) (layers "B.Cu" "B.Paste" "B.Mask") (net 1 "VCC")))
+)`),
+    );
+
+  const recorded = (): Scene => {
+    const s = new Scene(true);
+    recordBoardScene(
+      s,
+      {
+        scene: buildScene(sided(), {}, GL_PATH_FACTORY),
+        visible: new Set(['F.Cu', 'B.Cu']),
+        opts: DEFAULT_DRAW_OPTIONS,
+        emphasis: 'none',
+      },
+      40 / MM,
+    );
+    return s;
+  };
+
+  it('falls after the back copper and before the front', () => {
+    const s = recorded();
+    const at = s.marks.get(BACK_NETNAMES_MARK);
+    expect(at).toBeGreaterThan(0);
+    expect(at).toBeLessThan(s.runs.length);
+  });
+
+  it('starts a fresh run, so nothing recorded after it draws before it', () => {
+    // `note` extends the open run whenever the kind repeats, and the front
+    // layers follow the back ones with the same kinds. Without the break the
+    // mark's own boundary would have front geometry on the back side of it.
+    const s = recorded();
+    const at = s.marks.get(BACK_NETNAMES_MARK) ?? 0;
+    const before = s.runs.slice(0, at);
+    const after = s.runs.slice(at);
+    // Every vertex recorded before the mark comes before every vertex after it,
+    // per buffer — which is what makes the split a depth and not just an index.
+    for (const kind of ['seg', 'tri', 'disc'] as const) {
+      const ends = before.filter((r) => r.kind === kind).map((r) => r.start + r.count);
+      const starts = after.filter((r) => r.kind === kind).map((r) => r.start);
+      if (ends.length === 0 || starts.length === 0) continue;
+      expect(Math.max(...ends)).toBeLessThanOrEqual(Math.min(...starts));
+    }
   });
 });

@@ -261,7 +261,7 @@ export function DialogPcbPlot({
                     <div
                       key={f || '.'}
                       className="ze-menu-item"
-                      style={{ padding: '4px 12px', cursor: 'pointer' }}
+                      style={{ padding: '4px 12px', cursor: 'default' }}
                       onClick={() => {
                         setOutputDir(f);
                         setBrowseOpen(false);

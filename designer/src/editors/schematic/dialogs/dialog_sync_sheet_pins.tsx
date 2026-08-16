@@ -155,7 +155,7 @@ function List({
                 key={r.id}
                 className={selected.has(r.id) ? 'sel' : ''}
                 onClick={(e) => click(e, r.id)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'default' }}
               >
                 <td>{r.text}</td>
                 <td>{r.shape}</td>

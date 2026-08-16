@@ -768,7 +768,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
                     {materialsFor(matType).map((m) => (
                       <tr
                         key={m.name}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'default' }}
                         onClick={() => setMatDraft({ ...m })}
                         onDoubleClick={() => {
                           setMatDraft({ ...m });

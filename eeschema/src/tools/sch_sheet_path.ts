@@ -52,6 +52,22 @@ export function getRootPageNumber(doc: Schematic, path = '/'): string {
   return doc.sheetInstances.find((i) => i.path === path)?.page ?? '';
 }
 
+/**
+ * Order two page numbers the way the hierarchy tree sorts siblings
+ * (SCH_SHEET::ComparePageNum): numeric pages compare by value, a numeric page
+ * always sorts before a non-numeric one (including an unset ''), and two
+ * non-numeric pages fall back to a natural string compare.
+ */
+export function comparePageNum(a: string, b: string): number {
+  if (a === b) return 0;
+  const isIntA = /^[+-]?\d+$/.test(a);
+  const isIntB = /^[+-]?\d+$/.test(b);
+  if (isIntA && isIntB) return parseInt(a, 10) - parseInt(b, 10);
+  if (isIntA) return -1;
+  if (isIntB) return 1;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
 const setPageOnSource = (pathNode: SList, page: string): SList => {
   const hasPage = pathNode.items.some(
     (it) => it.kind === 'list' && it.items[0]?.kind === 'atom' && it.items[0].value === 'page',

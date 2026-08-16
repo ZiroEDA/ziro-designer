@@ -328,4 +328,32 @@ export const BITMAP: Record<string, string> = {
   pinorient_down: 'pinorient_down',
   pinorient_left: 'pinorient_left',
   pinorient_right: 'pinorient_right',
+
+  // 3D viewer (EDA_3D_ACTIONS, 3d-viewer/3d_viewer/tools/eda_3d_actions.cpp).
+  // The ids match `EDA_3D_ACTIONS::<name>` so the toolbar and menu transcripts
+  // read against the upstream source.
+  reloadBoard3d: 'import3d',
+  copyToClipboard3d: 'copy',
+  exportImage3d: 'export_file',
+  toggleRaytracing: 'ray_tracing',
+  rotateXCW: 'rotate_cw_x',
+  rotateXCCW: 'rotate_ccw_x',
+  rotateYCW: 'rotate_cw_y',
+  rotateYCCW: 'rotate_ccw_y',
+  rotateZCW: 'rotate_cw_z',
+  rotateZCCW: 'rotate_ccw_z',
+  // `flipView` is already gerbview's mirror action, and `showLayersManager` is
+  // shared with the PCB appearance pane — the 3D one takes a suffix.
+  flipView3d: 'flip_board',
+  moveLeft3d: 'left',
+  moveRight3d: 'right',
+  moveUp3d: 'up',
+  moveDown3d: 'down',
+  toggleOrtho: 'ortho',
+  viewTop: 'axis3d_top',
+  viewBottom: 'axis3d_bottom',
+  viewLeft: 'axis3d_left',
+  viewRight: 'axis3d_right',
+  viewFront: 'axis3d_front',
+  viewBack: 'axis3d_back',
 };

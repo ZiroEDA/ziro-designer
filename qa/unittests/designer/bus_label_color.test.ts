@@ -115,8 +115,39 @@ const withLabel = (name: string, onBus: boolean): Schematic =>
       (label "${name}" (at 60 60 0) (effects (font (size 1.27 1.27))) (uuid "l1")))`),
   );
 
+/**
+ * The same sheet with both of its fields hidden.
+ *
+ * The Sheetname field is rgb(0,100,100), the very colour a sheet pin's text is,
+ * and the Sheetfile field is rgb(114,86,0), the very colour its flag is. Asking
+ * "was there any teal on this sheet" therefore answers yes whatever the pin is
+ * painted — which is how the first version of these assertions passed against a
+ * renderer that got both wrong.
+ */
+const withBareSheetPin = (name: string): Schematic =>
+  readSchematic(
+    parse(`(kicad_sch (version 20250114) (lib_symbols)
+      (sheet (at 50 50) (size 30 20) (uuid "sh1")
+        (property "Sheetname" "sub" (at 50 49 0)
+          (effects (font (size 1.27 1.27)) (hide yes)))
+        (property "Sheetfile" "sub.kicad_sch" (at 50 71 0)
+          (effects (font (size 1.27 1.27)) (hide yes)))
+        (pin "${name}" input (at 50 55 180) (uuid "p1")
+          (effects (font (size 1.27 1.27))))))`),
+  );
+
+/** A hierarchical label, which carries the same flag but is not a sheet's. */
+const withHierLabel = (name: string, onBus: boolean): Schematic =>
+  readSchematic(
+    parse(`(kicad_sch (version 20250114) (lib_symbols)
+      ${onBus ? '(bus (pts (xy 40 60) (xy 90 60)) (stroke (width 0) (type default)) (uuid "b1"))' : ''}
+      (hierarchical_label "${name}" (shape input) (at 60 60 0)
+        (effects (font (size 1.27 1.27))) (uuid "h1")))`),
+  );
+
 const BUS = KICAD_DEFAULT.bus;
 const SHEET_LABEL = KICAD_DEFAULT.sheetLabel;
+const HIER_LABEL = KICAD_DEFAULT.hierLabel;
 const LABEL = KICAD_DEFAULT.label;
 
 describe('a sheet pin', () => {
@@ -138,6 +169,54 @@ describe('a sheet pin', () => {
   it('keeps the sheet-label colour for an ordinary name', () => {
     const colors = paint(withSheetPin('USBOTG_ID'));
     expect(colors.has(SHEET_LABEL)).toBe(true);
+  });
+});
+
+describe('the flag a hierarchical label and a sheet pin are drawn with', () => {
+  // `SCH_PAINTER::draw( const SCH_HIERLABEL* )` colours the shape and the text
+  // in two separate calls:
+  //
+  //     COLOR4D color = getRenderColor( aLabel, LAYER_HIERLABEL, drawingShadows,
+  //                                     aDimmed, true );
+  //     … m_gal->SetStrokeColor( color ); m_gal->DrawPolyline( d_pts );
+  //     draw( static_cast<const SCH_TEXT*>( aLabel ), aLayer, aDimmed );
+  //
+  // The shape is LAYER_HIERLABEL whatever the item is, and the `true` is
+  // `aIgnoreNets` — the branch of getRenderColor that takes the plain layer
+  // colour and never consults the connection. Sampled out of KiCad: an
+  // `IRQ-1` sheet pin and an `AN[0..7]` one both have rgb(114,86,0) arrows,
+  // while their text is rgb(0,100,100) and rgb(0,0,132).
+
+  it('is the hierarchical-label colour even when the text is a bus', () => {
+    const colors = paint(withHierLabel('MEM{A B}', false));
+    expect(colors.has(HIER_LABEL)).toBe(true);
+    expect(colors.has(BUS)).toBe(true);
+  });
+
+  it('is that colour for a label sitting on a bus, too', () => {
+    // The other half of `conn->IsBus()`: the text goes blue from the bus under
+    // it, and the flag still does not.
+    const colors = paint(withHierLabel('PLAIN', true));
+    expect(colors.has(HIER_LABEL)).toBe(true);
+    expect(colors.has(BUS)).toBe(true);
+  });
+
+  it('sits beside sheet-label text on the same pin', () => {
+    // The pin's *text* is LAYER_SHEETLABEL and its flag is not, so an ordinary
+    // pin puts both colours on the sheet at once. With the sheet's own fields
+    // hidden, each colour has exactly one thing that could have drawn it.
+    const colors = paint(withBareSheetPin('USBOTG_ID'));
+    expect(colors.has(HIER_LABEL)).toBe(true);
+    expect(colors.has(SHEET_LABEL)).toBe(true);
+  });
+
+  it('stays olive on a bus-named pin whose text has gone blue', () => {
+    // The strongest form of it: nothing on this sheet is teal any more, the
+    // text is the bus colour, and the arrow is unmoved.
+    const colors = paint(withBareSheetPin('D[0..7]'));
+    expect(colors.has(HIER_LABEL)).toBe(true);
+    expect(colors.has(BUS)).toBe(true);
+    expect(colors.has(SHEET_LABEL)).toBe(false);
   });
 });
 

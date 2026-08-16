@@ -37,7 +37,7 @@
 
 .imgc-tab {
   padding: 6px 16px;
-  cursor: pointer;
+  cursor: default;
   background: var(--chrome-bg2);
   border: 1px solid var(--chrome-border);
   border-bottom: none;
@@ -235,7 +235,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .imgc-check input,
@@ -251,7 +251,7 @@
   border-radius: 3px;
   padding: 6px 14px;
   font: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 
 .imgc-btn:hover:not(:disabled) {
@@ -331,7 +331,7 @@
   background: none;
   border: none;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
   font-size: 14px;
 }
 

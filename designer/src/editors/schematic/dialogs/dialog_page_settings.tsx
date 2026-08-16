@@ -210,7 +210,7 @@ export function DialogPageSettings({
   };
   const lab: React.CSSProperties = { width: 78, fontSize: 12, flex: '0 0 auto' };
   const customEnabled = size === 'User';
-  const disabledStyle: React.CSSProperties = { opacity: 0.45, cursor: 'not-allowed' };
+  const disabledStyle: React.CSSProperties = { opacity: 0.45 };
   const heading: React.CSSProperties = {
     fontWeight: 600,
     fontSize: 12,

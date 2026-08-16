@@ -16,6 +16,7 @@ import { useEffect, useState, type JSX } from 'react';
 import type { PickedHomeFile } from './files.js';
 import {
   basename,
+  inTreeAllowList,
   isHiddenFile,
   isViewableTextFile,
   treeIconFor,
@@ -110,7 +111,10 @@ export function ProjectTreePane({
       const stem = base.replace(/\.kicad_sch$/i, '').toLowerCase();
       return !projectNames.has(stem);
     }
-    return isHiddenFile(name);
+    if (isHiddenFile(name)) return true;
+    // The tree is an allow list; anything not in s_allowedExtensionsToList is
+    // not shown at all (3D bodies among them - see inTreeAllowList).
+    return !inTreeAllowList(name);
   };
 
   // Right-click context menu (upstream popup, web-applicable subset).
@@ -135,22 +139,38 @@ export function ProjectTreePane({
   const renderDir = (node: DirNode, depth: number): JSX.Element | null => {
     if (node.isDir) {
       const kids = node.children.filter((c) => c.isDir || !isHiddenNode(c.name));
-      if (kids.length === 0) return null;
-      const open = expanded.has(node.path);
+      // Upstream lists every directory it finds and only filters the contents,
+      // so a folder whose files are all filtered out (a .3dshapes full of STEP
+      // bodies) is still a row - it just has nothing to expand and therefore no
+      // twisty. We used to drop such folders from the tree entirely.
+      const hasKids = kids.length > 0;
+      const open = hasKids && expanded.has(node.path);
       return (
         <div key={node.path}>
           <div
             className={`ze-tree-item${selected.has(node.path) ? ' active' : ''}`}
-            style={{ paddingLeft: 8 + depth * 16, cursor: 'pointer' }}
-            onClick={(e) =>
-              e.ctrlKey || e.metaKey ? onSelect(node.path, true) : onToggleDir(node.path)
-            }
+            style={{ paddingLeft: 8 + depth * 16 }}
+            // A single click selects, like every other row; expanding is the
+            // twisty or a double click (wxTreeCtrl's own behaviour). It used to
+            // toggle on single click, so a folder could never be selected and
+            // never showed the highlight.
+            onClick={(e) => onSelect(node.path, e.ctrlKey || e.metaKey)}
+            onDoubleClick={() => hasKids && onToggleDir(node.path)}
             onContextMenu={(e) => openContextMenu(e, node.path)}
-            title={node.path}
           >
-            <span className={`twisty expandable${open ? ' open' : ''}`} />
+            {hasKids ? (
+              <span
+                className={`twisty expandable${open ? ' open' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleDir(node.path);
+                }}
+              />
+            ) : (
+              <span className="ze-tree-spacer" />
+            )}
             <TreeIcon name={open ? 'directory_open' : 'directory'} />
-            <span>{node.name}</span>
+            <span className="ze-tree-name">{node.name}</span>
           </div>
           {open && kids.map((c) => renderDir(c, depth + 1))}
         </div>
@@ -181,38 +201,28 @@ export function ProjectTreePane({
                 : isPro && onSwitchProject && node.file
                   ? () => onSwitchProject(node.file!.name)
                   : undefined;
-    const openTitle = isPcb
-      ? 'Double-click to open in the PCB Editor'
-      : isSch
-        ? 'Double-click to open in the Schematic Editor'
-        : isSym
-          ? 'Double-click to open in the Symbol Editor'
-          : isMod
-            ? 'Double-click to open in the Footprint Editor'
-            : isWks
-              ? 'Double-click to open in the Drawing Sheet Editor'
-              : isPro
-                ? 'Double-click to switch to this project'
-                : node.path;
     // KiCad's project tree: single click selects, double click opens the file.
+    // No tooltip on either kind of row - there is no SetToolTip anywhere in
+    // project_tree_pane.cpp, project_tree.cpp or project_tree_item.cpp, so a
+    // KiCad tree never explains itself on hover. Ours had been captioning every
+    // file with "Double-click to open in the ... Editor", which is a web habit.
     return (
       <div
         key={node.path}
         className={`ze-tree-item${selected.has(node.path) ? ' active' : ''}`}
-        style={{ paddingLeft: 8 + depth * 16 + 15, cursor: openFn ? 'pointer' : 'default' }}
-        title={openTitle}
+        style={{ paddingLeft: 8 + depth * 16 + 15 }}
         onClick={(e) => onSelect(node.path, e.ctrlKey || e.metaKey)}
         onContextMenu={(e) => openContextMenu(e, node.path)}
         onDoubleClick={openFn}
       >
         <TreeIcon name={treeIconFor(node.name)} />
-        <span>{node.name}</span>
+        <span className="ze-tree-name">{node.name}</span>
       </div>
     );
   };
 
   return (
-    <div className="ze-panel left" style={{ width }}>
+    <div className="ze-panel left ze-projecttree" style={{ width }}>
       <div className="ze-panel-header">Project Files</div>
       <div className="ze-panel-body">
         {picked ? (
@@ -221,7 +231,6 @@ export function ProjectTreePane({
                 collapses the whole tree, like KiCad's tree root. */}
             <div
               className={`ze-tree-item root${selected.has(ROOT_SELECTION) ? ' active' : ''}`}
-              style={{ cursor: 'pointer' }}
               onClick={() => onSelect(ROOT_SELECTION, false)}
             >
               <span
@@ -232,7 +241,7 @@ export function ProjectTreePane({
                 }}
               />
               <TreeIcon name="project" />
-              <span>{rootLabel}</span>
+              <span className="ze-tree-name">{rootLabel}</span>
             </div>
             {/* project directory contents, flat and KiCad-sorted */}
             {rootOpen && dirRoot?.children.map((c) => renderDir(c, 1))}
@@ -254,7 +263,7 @@ export function ProjectTreePane({
             >
               🗂 Select Project Files…
             </div>
-            <div className="ze-tree-item" style={{ opacity: 0.6, cursor: 'default' }}>
+            <div className="ze-tree-item" style={{ opacity: 0.6 }}>
               …or drag the project folder here
             </div>
           </>

@@ -33,7 +33,7 @@
   align-items: center;
   gap: 4px;
   padding: 4px 6px;
-  cursor: pointer;
+  cursor: default;
   font-weight: 600;
 }
 
@@ -64,7 +64,7 @@
 
 .calc-tree-item {
   padding: 4px 8px 4px 40px;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
 }
 
@@ -205,7 +205,7 @@
   background: none;
   border: none;
   color: var(--chrome-fg);
-  cursor: pointer;
+  cursor: default;
   font-size: 14px;
 }
 
@@ -238,7 +238,7 @@
 
 .calc-tab {
   padding: 6px 16px;
-  cursor: pointer;
+  cursor: default;
   background: var(--chrome-bg2);
   border: 1px solid var(--chrome-border);
   border-bottom: none;
@@ -284,7 +284,7 @@
   border-radius: 3px;
   padding: 4px 14px;
   font: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 
 .calc-btn:hover {
@@ -305,7 +305,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .calc-error {

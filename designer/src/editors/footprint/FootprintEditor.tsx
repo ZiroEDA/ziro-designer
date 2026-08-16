@@ -1241,7 +1241,7 @@ export function FootprintEditor({
                     <div
                       key={name}
                       className={`ze-tree-item ${name === activeLayer ? 'active' : ''}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'default' }}
                       onClick={() => setActiveLayer(name)}
                       title="Click to make active; click the swatch to show/hide"
                     >

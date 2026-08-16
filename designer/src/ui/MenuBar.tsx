@@ -10,6 +10,24 @@ import { toolbarIconUrl } from './toolbarIcons.js';
 import type { Menu, MenuItem } from './menu_types.js';
 export type { Menu, MenuItem };
 
+/** Case-insensitive single-character key match, as wx matches an accelerator. */
+const sameKey = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+/** A label with its mnemonic underlined — wx's rendering of the `&` in an
+ *  ACTION_MENU string. The first occurrence wins, matched case-insensitively. */
+function withMnemonic(label: string | undefined, mnemonic: string | undefined): ReactNode {
+  if (!label || !mnemonic) return label;
+  const i = label.toLowerCase().indexOf(mnemonic.toLowerCase());
+  if (i < 0) return label;
+  return (
+    <>
+      {label.slice(0, i)}
+      <u>{label[i]}</u>
+      {label.slice(i + 1)}
+    </>
+  );
+}
+
 /** One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. */
 function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
   const [subOpen, setSubOpen] = useState(false);
@@ -20,8 +38,14 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
     <div
       className={`ze-mitem${item.disabled ? ' disabled' : ''}${hasSub ? ' has-sub' : ''}`}
       style={hasSub ? { position: 'relative' } : undefined}
-      onMouseEnter={hasSub ? () => setSubOpen(true) : undefined}
-      onMouseLeave={hasSub ? () => setSubOpen(false) : undefined}
+      onMouseEnter={() => {
+        if (hasSub) setSubOpen(true);
+        item.onHover?.(true);
+      }}
+      onMouseLeave={() => {
+        if (hasSub) setSubOpen(false);
+        item.onHover?.(false);
+      }}
       onClick={() => {
         if (item.disabled || hasSub) return;
         close();
@@ -35,9 +59,12 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
           <img src={toolbarIconUrl(item.icon)} alt="" />
         ) : null}
       </span>
-      <span className="lbl">{item.label}</span>
+      <span className="lbl">{withMnemonic(item.label, item.mnemonic)}</span>
       {item.shortcut && <span className="sc">{item.shortcut}</span>}
-      {hasSub && <span className="sub-arrow">▸</span>}
+      {/* The same drawn chevron the project tree's twisty uses, rather than a
+          glyph: a solid ▸ is a different weight from every other expander in
+          the app, and its size is at the mercy of whichever font has it. */}
+      {hasSub && <span className="twisty expandable sub-arrow" />}
       {hasSub && subOpen && !item.disabled && (
         <div
           className="ze-dropdown ze-submenu"
@@ -79,7 +106,21 @@ export function ContextMenu({
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
+        return;
       }
+      // The `\tA` half of an ACTION_MENU label is a live key while the menu is
+      // up, not decoration: KiCad's disambiguation menu is worked by typing the
+      // row number. Only single-character hints qualify — "Ctrl+S" is a hint
+      // about a global hotkey, and swallowing it here would break it.
+      if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+      const hit = items.find(
+        (it) => !it.sep && !it.disabled && it.shortcut?.length === 1 && sameKey(it.shortcut, e.key),
+      );
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+      hit.action?.();
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey, true);
@@ -87,12 +128,19 @@ export function ContextMenu({
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey, true);
     };
-  }, [onClose]);
+  }, [onClose, items]);
+
+  // Whether this menu is taller than the screen. It is not styled as scrollable
+  // unconditionally: a scroll container clips its overflow on *both* axes, and
+  // the flyout submenus hang off the right edge, so a menu that fits must stay
+  // unclipped or Grouping and Zoom would lose their submenus.
+  const [tooTall, setTooTall] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    setTooTall(r.height > window.innerHeight - 8);
     setPos({
       left: Math.min(x, Math.max(4, window.innerWidth - r.width - 4)),
       top: Math.min(y, Math.max(4, window.innerHeight - r.height - 4)),
@@ -103,7 +151,17 @@ export function ContextMenu({
     <div
       ref={ref}
       className="ze-dropdown ze-context"
-      style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 1000 }}
+      style={{
+        position: 'fixed',
+        left: pos.left,
+        top: pos.top,
+        zIndex: 1000,
+        // A menu taller than the screen used to be clamped to top: 4 and then
+        // simply run off the bottom, with everything past the edge unreachable
+        // — and the selection menu over a symbol is 28 entries, which is taller
+        // than a 1200px screen. wx scrolls a menu that does not fit; so do we.
+        ...(tooTall ? { maxHeight: 'calc(100vh - 8px)', overflowY: 'auto' as const } : {}),
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((it, i) => (

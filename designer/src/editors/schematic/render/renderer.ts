@@ -42,6 +42,7 @@ import {
   fieldBoundingBox,
   fieldDrawRotation,
   fieldId,
+  sheetPinId,
   collectPinSegments,
   getPageSettings,
   ITALIC_TILT,
@@ -54,6 +55,7 @@ import {
   type LibGraphic,
   type LibSymbol,
   type LibSymbolUnit,
+  type LibPin,
   directiveGraphic,
   directiveBox,
   imageSizeIU,
@@ -1351,12 +1353,17 @@ export function renderSchematic(
 
     const shId = refId('sheet', sh.uuid, si);
     sh.pins.forEach((p, k) => {
+      // The theme goes through untouched. Overriding `hierLabel` used to be how
+      // a sheet pin's text was made sheet-label teal, but that key is also the
+      // flag's layer, so it dragged the arrow along with the text — and gave
+      // every bus-named pin a blue arrow once the bus override landed.
       drawLabel(
         ctx,
         sheetPinAsLabel(p),
-        { ...theme, hierLabel: theme.sheetLabel },
+        theme,
         undefined,
         hl(`${shId}:sheetpin${k}`) ? theme.netHighlight : undefined,
+        theme.sheetLabel,
       );
     });
   });
@@ -2266,6 +2273,13 @@ function drawLabel(
   shadow?: { color: string; width: number },
   /** LAYER_BRIGHTENED override for a label on the highlighted net. */
   brightened?: string,
+  /**
+   * The layer colour for the *text*, when the item's own kind is not what
+   * decides it. A sheet pin is drawn through the hierarchical-label path but
+   * its text is LAYER_SHEETLABEL, not LAYER_HIERLABEL
+   * (`SCH_PAINTER::draw( const SCH_TEXT* )`, sch_painter.cpp:2318).
+   */
+  textLayer?: string,
 ): void {
   // GetShownText: labels and free text expand `${VAR}` before layout, so the
   // flag box and centring use the substituted width.
@@ -2290,15 +2304,45 @@ function drawLabel(
       ? brightened
       : busColored
         ? theme.bus
-        : l.kind === 'global_label'
-          ? theme.globalLabel
-          : l.kind === 'hierarchical_label'
-            ? theme.hierLabel
-            : l.kind === 'text'
-              ? l.effects?.color
-                ? cssColor(l.effects.color)
-                : theme.noText
-              : theme.label;
+        : (textLayer ??
+          (l.kind === 'global_label'
+            ? theme.globalLabel
+            : l.kind === 'hierarchical_label'
+              ? theme.hierLabel
+              : l.kind === 'text'
+                ? l.effects?.color
+                  ? cssColor(l.effects.color)
+                  : theme.noText
+                : theme.label));
+
+  /**
+   * The colour of the flag *shape*, which is not the colour of the text.
+   *
+   *     COLOR4D color = getRenderColor( aLabel, LAYER_HIERLABEL, drawingShadows,
+   *                                     aDimmed, true );
+   *     …
+   *     m_gal->SetStrokeColor( color );
+   *     m_gal->DrawPolyline( d_pts );
+   *     draw( static_cast<const SCH_TEXT*>( aLabel ), aLayer, aDimmed );
+   *
+   * Two things in that one call. The layer is LAYER_HIERLABEL whatever the item
+   * is, so a sheet pin's flag is the hierarchical-label olive while its text is
+   * the sheet-label teal. And the last argument is `aIgnoreNets`, which sends
+   * getRenderColor down the branch that takes the plain layer colour — so no
+   * net, netclass or bus colouring reaches the flag at all.
+   *
+   * We stroked the flag in the text's colour, which made every bus-named sheet
+   * pin's arrow blue and every ordinary one's teal, where KiCad's are all olive.
+   */
+  const flagColor = shadow
+    ? shadow.color
+    : brightened
+      ? brightened
+      : // An explicit `(effects (font (color …)))` still wins: getRenderColor
+        // tests the item's own text colour before it consults aIgnoreNets.
+        l.effects?.color
+        ? cssColor(l.effects.color)
+        : theme.hierLabel;
   // SCH_LABEL_BASE::GetSchematicTextOffset: lift the text clear of the wire by
   // m_TextOffsetRatio x text size plus the pen width (sch_label.cpp).
   const dist = Math.round(g_textOffsetRatio * h) + g_defaultPen;
@@ -2357,7 +2401,13 @@ function drawLabel(
       angleDeg,
       bold,
       italic,
-      shadow ? pen + shadow.width : undefined,
+      // The item's own pen, and the glow's width in its own slot. Handing the
+      // *sum* over as the pen — which is what this did — thickens the stroke
+      // and moves it, because `getLinePositions` offsets a run by
+      // `m_StrokeWidth / 1.52`; the glow then sat to the right of the label it
+      // belonged under.
+      pen,
+      shadow ? shadow.width : 0,
     );
   };
 
@@ -2379,6 +2429,11 @@ function drawLabel(
       // sets `SetIsFill( false )` for the ordinary pass, filling only a selected
       // one when "fill shapes" is on. The two flags differ, and ours drew both
       // hollow. Not during the shadow pass, which paints the underglow only.
+      //
+      // The flag is stroked in the hierarchical-label colour, not the text's;
+      // see `flagColor`. Nothing restores `color` afterwards because `drawText`
+      // sets the stroke itself, and the flag is the last non-text thing here.
+      ctx.strokeStyle = flagColor;
       if (!shadow) {
         ctx.fillStyle = theme.background;
         polygon(ctx, pts, true, true);
@@ -2625,7 +2680,11 @@ function drawSelectionShadows(
     const t = symbolTransform(sym.angle, sym.mirror);
     for (const unit of lib.units)
       if (libUnitMatches(unit, sym.unit, sym.bodyStyle))
-        drawLibUnitShadow(ctx, unit, sym.at, t, color, width);
+        drawLibUnitShadow(ctx, unit, sym.at, t, color, width, showHiddenPins, {
+          numbersHidden: lib.pinNumbersHidden,
+          namesHidden: lib.pinNamesHidden,
+          nameOffset: lib.pinNameOffset,
+        });
   });
 
   // A pin picked on its own gets the glow by itself; a selected symbol already
@@ -2658,7 +2717,19 @@ function drawSelectionShadows(
       // symbol must take its fields' halos with it.
       if (!drawableChild(symId, fieldId(symId, fd.index))) continue;
       if (!symbolSelected && !selection.has(fieldId(symId, fd.index))) continue;
-      drawText(ctx, fd.shown, fd.centre, fd.h, color, undefined, fd.rot, fd.bold, fd.italic, width);
+      drawText(
+        ctx,
+        fd.shown,
+        fd.centre,
+        fd.h,
+        color,
+        undefined,
+        fd.rot,
+        fd.bold,
+        fd.italic,
+        fd.pen,
+        width,
+      );
     }
   });
 
@@ -2669,13 +2740,67 @@ function drawSelectionShadows(
     drawLabel(ctx, l, theme, { color, width });
   });
 
-  // Sheets: re-stroke the rectangle wider.
+  // Sheets: the rectangle, and everything the sheet owns.
+  //
+  // A sheet's children are selected with it. `SCH_SELECTION_TOOL::highlight`
+  // runs `RunOnChildren` over the item it just selected and sets SELECTED on
+  // each child — for a sheet that is its two fields and every one of its pins —
+  // and the painter then draws them on the shadow layer:
+  //
+  //     if( !drawingShadows || eeconfig()->m_Selection.draw_selected_children )
+  //     {
+  //         for( const SCH_FIELD& field : aSheet->GetFields() )
+  //             draw( &field, aLayer, DNP );
+  //         for( SCH_SHEET_PIN* sheetPin : aSheet->GetPins() )
+  //             draw( static_cast<SCH_HIERLABEL*>( sheetPin ), aLayer, DNP );
+  //     }
+  //
+  // `draw_selected_children` defaults to true (eeschema_settings.cpp:437). We
+  // lit the box alone, so picking a sheet left its name, its filename and every
+  // pin label looking untouched — the symbol path had this and the sheet path
+  // never did.
   sch.sheets.forEach((sh, i) => {
     const id = refId('sheet', sh.uuid, i);
-    if (!drawable(id) || !selection.has(id)) return;
-    const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
-    ctx.lineWidth = bw + width;
-    ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+    if (!drawable(id)) return;
+    const sheetSelected = selection.has(id);
+
+    if (sheetSelected) {
+      const bw = sh.stroke && sh.stroke.width > 0 ? sh.stroke.width : g_defaultPen;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = bw + width;
+      ctx.strokeRect(sh.at.x, sh.at.y, sh.size.w, sh.size.h);
+
+      // Laid out exactly as the sheet's own field pass lays them out, prefix
+      // included: a halo that disagrees with the glyphs sits beside the text
+      // instead of under it.
+      for (const f of sh.fields) {
+        if (!f.at || f.effects?.hidden || f.value === '') continue;
+        const text = f.key === 'Sheetfile' ? `File: ${f.value}` : f.value;
+        drawText(
+          ctx,
+          text,
+          f.at,
+          f.effects?.fontSize?.[0] ?? 1.27 * MM,
+          color,
+          f.effects?.justify,
+          f.angle % 180 === 90 ? 90 : 0,
+          f.effects?.bold,
+          f.effects?.italic,
+          f.effects?.thickness,
+          width,
+        );
+      }
+    }
+
+    // A pin picked on its own glows by itself; a selected sheet glows all of
+    // them. Same split as a symbol's fields, and for the same reason: the halo
+    // has to follow whichever of the two is being dragged.
+    sh.pins.forEach((p, k) => {
+      const pid = sheetPinId(id, k);
+      if (!drawableChild(id, pid)) return;
+      if (!sheetSelected && !selection.has(pid)) return;
+      drawLabel(ctx, sheetPinAsLabel(p), theme, { color, width });
+    });
   });
 
   // Everything below here was missing, and every one of them could already be
@@ -2853,6 +2978,234 @@ function pinDir(angle: number): Vec2 {
 }
 
 /** Underglow for a selected symbol: re-stroke its body graphics and pins wider in `color`. */
+/** The default pin name/number height, 1.27 mm (DEFAULT_TEXT_SIZE). */
+const DEFAULT_PIN_TEXT = 1.27 * MM;
+
+/** The geometry `SCH_PAINTER::draw( const SCH_PIN* )` lays a pin out from. */
+interface PinStrokeGeometry {
+  /** The connection point, upstream's `pos`. */
+  readonly pos: Vec2;
+  /** The pin root against the body, upstream's `p0`. */
+  readonly p0: Vec2;
+  /** Root towards tip, in world space after the symbol transform. */
+  readonly dir: Vec2;
+  /** externalPinDecoSize: the negation bubble and polarity slopes. */
+  readonly radius: number;
+  readonly diam: number;
+  /** internalPinDecoSize: the clock notch inside the body. */
+  readonly clockSize: number;
+}
+
+/** Where a pin's line and decorations sit, before anything is stroked. */
+function pinStrokeGeometry(pin: LibPin, origin: Vec2, t: Transform): PinStrokeGeometry {
+  // A stored size of 0 means "not drawn" rather than "default", so the fallback
+  // is only for a pin that carries no size at all.
+  const NUM = pin.numberSize ?? DEFAULT_PIN_TEXT;
+  const NAME = pin.nameSize ?? DEFAULT_PIN_TEXT;
+  const radius = g_pinSymbolSize > 0 ? g_pinSymbolSize : NUM / 2;
+  const clockSize = g_pinSymbolSize > 0 ? g_pinSymbolSize : NAME !== 0 ? NAME / 2 : NUM / 2;
+  const pos = localToWorld(origin, t, pin.at);
+  const p0 = localToWorld(origin, t, pinBodyEnd(pin.at, pin.angle, pin.length));
+  const dir =
+    pin.length > 0
+      ? { x: Math.sign(pos.x - p0.x), y: Math.sign(pos.y - p0.y) }
+      : { x: -pinDir(pin.angle).x, y: -pinDir(pin.angle).y };
+  return { pos, p0, dir, radius, diam: radius * 2, clockSize };
+}
+
+/**
+ * The pin line plus its GRAPHIC_PINSHAPE decoration, stroked with whatever
+ * colour and width the context already carries.
+ *
+ * One function for the pin, its brightened redraw and its selection halo,
+ * because upstream has one: `SCH_PAINTER::draw( const SCH_PIN* )` runs the same
+ * switch for the shadow layer and only changes the colour and the width
+ * (`getLineWidth( aPin, drawingShadows )`). The halo used to be drawn from its
+ * own idea of a pin -- a plain line from root to tip -- so on an inverted pin
+ * it ran straight through the negation bubble, where the pin draws no line at
+ * all, and left the bubble itself unlit.
+ */
+function strokePinShape(ctx: CanvasRenderingContext2D, pin: LibPin, g: PinStrokeGeometry): void {
+  const { pos, p0, dir, radius, diam, clockSize } = g;
+  const line = (ax: number, ay: number, bx: number, by: number) => {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+  };
+  const triLine = (a1: Vec2, a2: Vec2, a3: Vec2) => {
+    ctx.beginPath();
+    ctx.moveTo(a1.x, a1.y);
+    ctx.lineTo(a2.x, a2.y);
+    ctx.lineTo(a3.x, a3.y);
+    ctx.stroke();
+  };
+  if (pin.electricalType === 'no_connect') {
+    // N.C. pins draw the line plus an X at the connection point, with
+    // arms of TARGET_PIN_RADIUS (15 mil, sch_pin.h).
+    const R = TARGET_PIN_RADIUS;
+    line(p0.x, p0.y, pos.x, pos.y);
+    line(pos.x - R, pos.y - R, pos.x + R, pos.y + R);
+    line(pos.x + R, pos.y - R, pos.x - R, pos.y + R);
+    return;
+  }
+
+  const clockNotch = () => {
+    // Triangle pointing into the body at the pin root.
+    const pc = { x: p0.x - dir.x * clockSize, y: p0.y - dir.y * clockSize };
+    triLine({ x: p0.x + dir.y * clockSize, y: p0.y - dir.x * clockSize }, pc, {
+      x: p0.x - dir.y * clockSize,
+      y: p0.y + dir.x * clockSize,
+    });
+  };
+  const lowSlope = () => {
+    // IEEE active-low input slope outside the body.
+    if (!dir.y) {
+      triLine({ x: p0.x + dir.x * diam, y: p0.y }, { x: p0.x + dir.x * diam, y: p0.y - diam }, p0);
+    } else {
+      triLine({ x: p0.x, y: p0.y + dir.y * diam }, { x: p0.x - diam, y: p0.y + dir.y * diam }, p0);
+    }
+  };
+
+  switch (pin.shape) {
+    case 'inverted':
+    case 'inverted_clock': {
+      ctx.beginPath();
+      ctx.arc(p0.x + dir.x * radius, p0.y + dir.y * radius, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      line(p0.x + dir.x * diam, p0.y + dir.y * diam, pos.x, pos.y);
+      if (pin.shape === 'inverted_clock') clockNotch();
+      break;
+    }
+    case 'clock':
+      line(p0.x, p0.y, pos.x, pos.y);
+      clockNotch();
+      break;
+    case 'clock_low':
+    case 'edge_clock_high': // FALLING_EDGE_CLOCK draws identically upstream
+      clockNotch();
+      lowSlope();
+      line(p0.x, p0.y, pos.x, pos.y);
+      break;
+    case 'input_low':
+      line(p0.x, p0.y, pos.x, pos.y);
+      lowSlope();
+      break;
+    case 'output_low':
+      line(p0.x, p0.y, pos.x, pos.y);
+      if (!dir.y) line(p0.x, p0.y - diam, p0.x + dir.x * diam, p0.y);
+      else line(p0.x - diam, p0.y, p0.x, p0.y + dir.y * diam);
+      break;
+    case 'non_logic':
+      line(p0.x, p0.y, pos.x, pos.y);
+      line(
+        p0.x - (dir.x + dir.y) * radius,
+        p0.y - (dir.y - dir.x) * radius,
+        p0.x + (dir.x + dir.y) * radius,
+        p0.y + (dir.y - dir.x) * radius,
+      );
+      line(
+        p0.x - (dir.x - dir.y) * radius,
+        p0.y - (dir.x + dir.y) * radius,
+        p0.x + (dir.x - dir.y) * radius,
+        p0.y + (dir.x + dir.y) * radius,
+      );
+      break;
+    default:
+      line(p0.x, p0.y, pos.x, pos.y);
+  }
+}
+
+/** One run of a pin's text, placed but not yet coloured. */
+interface PinTextRun {
+  readonly text: string;
+  readonly at: Vec2;
+  readonly size: number;
+  readonly justify?: readonly string[];
+  readonly angle: number;
+  readonly kind: 'name' | 'number';
+}
+
+/**
+ * Where a pin's name and number go, PIN_LAYOUT_CACHE.
+ *
+ * Shared with the selection halo for the reason the pin's own shape is: a pin's
+ * name and number are its children, so selecting the symbol selects them, and
+ * the painter carries straight on into the labels for the shadow layer —
+ *
+ *     if( drawingShadows && !eeconfig()->m_Selection.draw_selected_children )
+ *         return;
+ *
+ *     // Draw the labels
+ *     …
+ *     if( drawingShadows )
+ *         shadowWidth = getShadowWidth( aPin->IsBrightened() );
+ *
+ * — with `draw_selected_children` on by default. A second copy of this
+ * placement would drift from the first, which is exactly how the pin shapes
+ * came to disagree.
+ */
+function pinTextRuns(pin: LibPin, g: PinStrokeGeometry, pins: PinDisplay): PinTextRun[] {
+  const NUM = pin.numberSize ?? DEFAULT_PIN_TEXT;
+  const NAME = pin.nameSize ?? DEFAULT_PIN_TEXT;
+  const nameShown = !pins.namesHidden && NAME > 0 && !!pin.name && pin.name !== '~';
+  const numberShown = !pins.numbersHidden && NUM > 0 && !!pin.number && pin.number !== '~';
+  if (!nameShown && !numberShown) return [];
+
+  // getPinTextOffset: MilsToIU(round(24 * m_TextOffsetRatio)), default 0.15.
+  const TEXT_OFFSET = Math.round(24 * g_textOffsetRatio) * 254;
+  // PIN_TEXT_MARGIN (sch_pin.cpp:107), 4 mils; text placed outside the body
+  // clears it by the offset plus this plus the text's own pen.
+  const PIN_TEXT_MARGIN = 4 * 254;
+
+  const { pos, p0, dir } = g;
+  const horiz = dir.y === 0;
+  const angle = horiz ? 0 : 90;
+  const mid = { x: (pos.x + p0.x) / 2, y: (pos.y + p0.y) / 2 };
+  const nameInside = pins.nameOffset > 0;
+  const out: PinTextRun[] = [];
+
+  if (numberShown) {
+    // Centred along the pin: above it, or below when the name is outside
+    // (name above / number below).
+    const below = nameShown && !nameInside;
+    const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
+    out.push({
+      text: pin.number,
+      at: horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y },
+      size: NUM,
+      angle,
+      kind: 'number',
+    });
+  }
+
+  if (nameShown && nameInside) {
+    // Inside the body, just past the pin root, reading outward. Rotated text
+    // advances upward on screen, so the side it extends toward flips with the
+    // pin direction.
+    out.push({
+      text: pin.name,
+      at: { x: p0.x - dir.x * pins.nameOffset, y: p0.y - dir.y * pins.nameOffset },
+      size: NAME,
+      justify: horiz ? [dir.x < 0 ? 'left' : 'right'] : [dir.y < 0 ? 'right' : 'left'],
+      angle,
+      kind: 'name',
+    });
+  } else if (nameShown) {
+    // Outside: centred over the middle of the pin.
+    const off = NAME / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NAME);
+    out.push({
+      text: pin.name,
+      at: horiz ? { x: mid.x, y: mid.y - off } : { x: mid.x - off, y: mid.y },
+      size: NAME,
+      angle,
+      kind: 'name',
+    });
+  }
+
+  return out;
+}
+
 function drawLibUnitShadow(
   ctx: CanvasRenderingContext2D,
   unit: LibSymbolUnit,
@@ -2860,6 +3213,12 @@ function drawLibUnitShadow(
   t: Transform,
   color: string,
   width: number,
+  /** Whether hidden pins are being drawn at all; a pin nobody draws gets no
+   *  halo, and one drawn ghosted gets the same halo as any other. */
+  showHiddenPins = false,
+  /** The symbol's pin-text settings, so the halo places a pin's name and
+   *  number exactly where the pin's own pass places them. */
+  pins?: PinDisplay,
 ): void {
   ctx.strokeStyle = color;
   for (const g of unit.graphics) {
@@ -2921,12 +3280,39 @@ function drawLibUnitShadow(
         break; // text has no stroke halo
     }
   }
+  // The halo is the pin's own geometry re-stroked, not a line from root to tip:
+  // `SCH_PAINTER::draw( const SCH_PIN* )` runs the same GRAPHIC_PINSHAPE switch
+  // for LAYER_SELECTION_SHADOWS and changes only the colour and the width. An
+  // inverted pin draws no line where its negation bubble is
+  // (`DrawLine( p0 + dir * diam, pos )`), so a straight halo ran through the
+  // hole in the middle of the bubble and left the bubble itself unlit — a glow
+  // along an invisible line, which is exactly how it looked.
   ctx.lineWidth = g_defaultPen + width;
   for (const pin of unit.pins) {
-    if (pin.hidden) continue;
-    const a = localToWorld(origin, t, pin.at);
-    const b = localToWorld(origin, t, pinBodyEnd(pin.at, pin.angle, pin.length));
-    strokeLine(ctx, a, b);
+    if (pin.hidden && !showHiddenPins) continue;
+    const g = pinStrokeGeometry(pin, origin, t);
+    strokePinShape(ctx, pin, g);
+    // A pin's name and number are its children, selected with the symbol, and
+    // the painter carries on into them for the shadow layer whenever
+    // `draw_selected_children` is on — which it is by default. We stopped at
+    // the pin line, so selecting a part lit its body and left every pin name
+    // and number looking untouched.
+    if (pins)
+      for (const run of pinTextRuns(pin, g, pins))
+        drawText(
+          ctx,
+          run.text,
+          run.at,
+          run.size,
+          color,
+          run.justify,
+          run.angle,
+          false,
+          false,
+          undefined,
+          width,
+        );
+    ctx.lineWidth = g_defaultPen + width;
   }
 }
 
@@ -3066,7 +3452,7 @@ function drawLibUnit(
   }
 
   // Pins (SCH_PAINTER::draw(SCH_PIN) + PIN_LAYOUT_CACHE placement).
-  const DEFAULT_TEXT = 1.27 * MM;
+  const DEFAULT_TEXT = DEFAULT_PIN_TEXT;
   // getPinTextOffset: MilsToIU(round(24 * m_TextOffsetRatio)), default ratio 0.15.
   const TEXT_OFFSET = Math.round(24 * g_textOffsetRatio) * 254;
   /**
@@ -3116,105 +3502,8 @@ function drawLibUnit(
         ? { x: Math.sign(pos.x - p0.x), y: Math.sign(pos.y - p0.y) }
         : { x: -pinDir(pin.angle).x, y: -pinDir(pin.angle).y };
 
-    const line = (ax: number, ay: number, bx: number, by: number) => {
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(bx, by);
-      ctx.stroke();
-    };
-    const triLine = (a1: Vec2, a2: Vec2, a3: Vec2) => {
-      ctx.beginPath();
-      ctx.moveTo(a1.x, a1.y);
-      ctx.lineTo(a2.x, a2.y);
-      ctx.lineTo(a3.x, a3.y);
-      ctx.stroke();
-    };
-
-    /** The pin line plus its GRAPHIC_PINSHAPE decoration (sch_painter.cpp). */
-    const strokePinBody = (): void => {
-      if (pin.electricalType === 'no_connect') {
-        // N.C. pins draw the line plus an X at the connection point, with
-        // arms of TARGET_PIN_RADIUS (15 mil, sch_pin.h).
-        const R = TARGET_PIN_RADIUS;
-        line(p0.x, p0.y, pos.x, pos.y);
-        line(pos.x - R, pos.y - R, pos.x + R, pos.y + R);
-        line(pos.x + R, pos.y - R, pos.x - R, pos.y + R);
-        return;
-      }
-
-      const clockNotch = () => {
-        // Triangle pointing into the body at the pin root.
-        const pc = { x: p0.x - dir.x * clockSize, y: p0.y - dir.y * clockSize };
-        triLine({ x: p0.x + dir.y * clockSize, y: p0.y - dir.x * clockSize }, pc, {
-          x: p0.x - dir.y * clockSize,
-          y: p0.y + dir.x * clockSize,
-        });
-      };
-      const lowSlope = () => {
-        // IEEE active-low input slope outside the body.
-        if (!dir.y) {
-          triLine(
-            { x: p0.x + dir.x * diam, y: p0.y },
-            { x: p0.x + dir.x * diam, y: p0.y - diam },
-            p0,
-          );
-        } else {
-          triLine(
-            { x: p0.x, y: p0.y + dir.y * diam },
-            { x: p0.x - diam, y: p0.y + dir.y * diam },
-            p0,
-          );
-        }
-      };
-
-      switch (pin.shape) {
-        case 'inverted':
-        case 'inverted_clock': {
-          ctx.beginPath();
-          ctx.arc(p0.x + dir.x * radius, p0.y + dir.y * radius, radius, 0, Math.PI * 2);
-          ctx.stroke();
-          line(p0.x + dir.x * diam, p0.y + dir.y * diam, pos.x, pos.y);
-          if (pin.shape === 'inverted_clock') clockNotch();
-          break;
-        }
-        case 'clock':
-          line(p0.x, p0.y, pos.x, pos.y);
-          clockNotch();
-          break;
-        case 'clock_low':
-        case 'edge_clock_high': // FALLING_EDGE_CLOCK draws identically upstream
-          clockNotch();
-          lowSlope();
-          line(p0.x, p0.y, pos.x, pos.y);
-          break;
-        case 'input_low':
-          line(p0.x, p0.y, pos.x, pos.y);
-          lowSlope();
-          break;
-        case 'output_low':
-          line(p0.x, p0.y, pos.x, pos.y);
-          if (!dir.y) line(p0.x, p0.y - diam, p0.x + dir.x * diam, p0.y);
-          else line(p0.x - diam, p0.y, p0.x, p0.y + dir.y * diam);
-          break;
-        case 'non_logic':
-          line(p0.x, p0.y, pos.x, pos.y);
-          line(
-            p0.x - (dir.x + dir.y) * radius,
-            p0.y - (dir.y - dir.x) * radius,
-            p0.x + (dir.x + dir.y) * radius,
-            p0.y + (dir.y - dir.x) * radius,
-          );
-          line(
-            p0.x - (dir.x - dir.y) * radius,
-            p0.y - (dir.x + dir.y) * radius,
-            p0.x + (dir.x - dir.y) * radius,
-            p0.y + (dir.x + dir.y) * radius,
-          );
-          break;
-        default:
-          line(p0.x, p0.y, pos.x, pos.y);
-      }
-    };
+    const geom = pinStrokeGeometry(pin, origin, t);
+    const strokePinBody = (): void => strokePinShape(ctx, pin, geom);
 
     // Brightened pin (on the highlighted net): shadow-pass halo behind, then the
     // pin redrawn in the brightened colour, exactly like the wire/junction pass.
@@ -3228,64 +3517,18 @@ function drawLibUnit(
     ctx.lineWidth = g_defaultPen;
     strokePinBody();
 
-    // ----- pin name/number placement (PIN_LAYOUT_CACHE) ----------------------
-    const horiz = dir.y === 0;
-    const textAngle = horiz ? 0 : 90;
-    const mid = { x: (pos.x + p0.x) / 2, y: (pos.y + p0.y) / 2 };
-    const nameShown = !pins.namesHidden && NAME > 0 && !!pin.name && pin.name !== '~';
-    const numberShown = !pins.numbersHidden && NUM > 0 && !!pin.number && pin.number !== '~';
-    const nameInside = pins.nameOffset > 0;
-
-    if (numberShown) {
-      // The number is centred along the pin: above it, or below when the name
-      // is shown outside (name above / number below).
-      const below = nameShown && !nameInside;
-      const off = (NUM / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NUM)) * (below ? 1 : -1);
-      const anchor = horiz ? { x: mid.x, y: mid.y + off } : { x: mid.x + off, y: mid.y };
+    // Pin name and number, placed by `pinTextRuns` so the halo can place them
+    // the same way.
+    for (const run of pinTextRuns(pin, geom, pins)) {
       drawText(
         ctx,
-        pin.number,
-        anchor,
-        NUM,
-        hiddenGhost ? theme.hidden : theme.pinNumber,
-        undefined,
-        textAngle,
+        run.text,
+        run.at,
+        run.size,
+        hiddenGhost ? theme.hidden : run.kind === 'name' ? theme.pinName : theme.pinNumber,
+        run.justify,
+        run.angle,
       );
-    }
-
-    if (nameShown) {
-      if (nameInside) {
-        // Inside the body, just past the pin root, reading outward.
-        const anchor = {
-          x: p0.x - dir.x * pins.nameOffset,
-          y: p0.y - dir.y * pins.nameOffset,
-        };
-        // Rotated (vertical) text advances upward on screen, so the side the
-        // text extends toward flips with the pin direction.
-        const justify = horiz ? [dir.x < 0 ? 'left' : 'right'] : [dir.y < 0 ? 'right' : 'left'];
-        drawText(
-          ctx,
-          pin.name,
-          anchor,
-          NAME,
-          hiddenGhost ? theme.hidden : theme.pinName,
-          justify,
-          textAngle,
-        );
-      } else {
-        // Outside: centred over the middle of the pin.
-        const off = NAME / 2 + TEXT_OFFSET + PIN_TEXT_MARGIN + textPenWidth(NAME);
-        const anchor = horiz ? { x: mid.x, y: mid.y - off } : { x: mid.x - off, y: mid.y };
-        drawText(
-          ctx,
-          pin.name,
-          anchor,
-          NAME,
-          hiddenGhost ? theme.hidden : theme.pinName,
-          undefined,
-          textAngle,
-        );
-      }
     }
   }
   return pinIndex;
@@ -3375,8 +3618,29 @@ function drawText(
   angleDeg = 0,
   bold = false,
   italic = false,
-  /** Explicit pen width; the selection shadow strokes the glyphs wider. */
+  /** Explicit pen width, when the item carries one. */
   penIU?: number,
+  /**
+   * Selection-shadow width. Its presence means "this run is the glow under a
+   * stroke", and it does two things upstream does:
+   *
+   *     attrs.m_StrokeWidth += KiROUND( getShadowWidth( … ) );
+   *     …
+   *     // New text stroking has width dependent offset but we need to center
+   *     // the shadow on the stroke.  NB this offset is in font.cpp also.
+   *     int fudge = KiROUND( getShadowWidth( … ) / 1.52 );
+   *     if( m_Halign == LEFT  && m_Angle == ANGLE_0  ) text_offset.x -= fudge;
+   *     else if( m_Halign == RIGHT && m_Angle == ANGLE_0 ) text_offset.x += fudge;
+   *     …
+   *
+   * The glow is the item's own pen *plus* this, not this on its own — and
+   * because `FONT::getLinePositions` shifts a stroke run by `m_StrokeWidth /
+   * 1.52`, thickening the pen walks the glow off the glyphs it belongs under.
+   * The second half puts it back. We did neither, so every left-justified label
+   * had its glow sitting a little to the right of the text, by more the further
+   * you zoomed out.
+   */
+  shadowIU = 0,
 ): void {
   if (text === '' || text === '~') return;
 
@@ -3418,7 +3682,7 @@ function drawText(
   // KiCad text pen: normal text uses the constant default pen (6 mil,
   // EDA_TEXT::GetEffectiveTextPenWidth), capped by ClampTextPenSize at
   // 0.25 × size for tiny text; bold = size/5 (GetPenSizeForBold).
-  const pen = penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25));
+  const pen = (penIU ?? (bold ? heightIU / 5 : Math.min(g_defaultPen, heightIU * 0.25))) + shadowIU;
 
   // Where the baseline lands, per FONT::getLinePositions (common/font/font.cpp):
   // the draw origin starts one text height below the anchor, then the vertical
@@ -3441,7 +3705,12 @@ function drawText(
   const fudgeX = pen / STROKE_H_FUDGE;
   // The block is placed by its widest line; `layoutText` has already shifted
   // each line inside it, so the two compose to upstream's per-line offset.
-  const offX = right ? -(width + fudgeX) : left ? fudgeX : -width / 2;
+  // …and the shadow's share of that shift, taken straight back out along the
+  // reading direction. Centred text needs none: `getLinePositions` *assigns*
+  // `-lineSize.x / 2` there rather than adding to the offset, so the width
+  // never reached the position in the first place.
+  const unfudge = shadowIU / STROKE_H_FUDGE;
+  const offX = right ? -(width + fudgeX) + unfudge : left ? fudgeX - unfudge : -width / 2;
 
   ctx.save();
   ctx.translate(at.x, at.y);

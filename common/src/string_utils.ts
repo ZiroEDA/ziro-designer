@@ -58,6 +58,23 @@ export function strNumCmp(a: string, b: string, ignoreCase = false): number {
   return a.length - i - (b.length - j);
 }
 
+/**
+ * EscapeString( …, CTX_IPC ), make a string safe to put in a cross-probe packet.
+ * The packet joins its parts with commas and splits a path on slashes, and a
+ * quote would end a quoted field early — so those three, and only those three,
+ * are escaped. `{` is left alone here, unlike the file contexts.
+ */
+export function escapeIpc(source: string): string {
+  let out = '';
+  for (const c of source) {
+    if (c === '/') out += '{slash}';
+    else if (c === ',') out += '{comma}';
+    else if (c === '"') out += '{dblquote}';
+    else out += c;
+  }
+  return out;
+}
+
 /** UnescapeString's `{token}` -> character table. */
 const UNESCAPE_TOKENS: Record<string, string> = {
   dblquote: '"',

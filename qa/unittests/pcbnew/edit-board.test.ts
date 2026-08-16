@@ -22,6 +22,7 @@ import {
   filterSelectionForFreePads,
   filterSelectionForDelete,
   zoneHandles,
+  zoneBorderHit,
   moveZoneCorner,
   moveZoneEdge,
   groupContaining,
@@ -254,6 +255,88 @@ describe('zone hit-test (point in filled polygon)', () => {
   });
   it('misses outside the pour', () => {
     expect(hitTestBoard(b, { x: 9000, y: 10500 }, 0)).toBeNull();
+  });
+});
+
+describe("a pour is grabbed by its border, PCB_SELECTION_TOOL's zoneFilledAreaFilter", () => {
+  // Real millimetres, because ZONE::HitTest floors its accuracy at 0.1 mm and
+  // the toy coordinates elsewhere in this file sit well inside that floor.
+  const mm = 1e6;
+  // Outline and fill differ, as they do on any real board: the fill is inset
+  // from the drawn boundary by the clearance. Grabbing has to follow the
+  // outline — the hatched line the user can see — not the copper's edge.
+  const pour: PcbZone = {
+    ...zone([
+      { x: 11 * mm, y: 11 * mm },
+      { x: 19 * mm, y: 11 * mm },
+      { x: 19 * mm, y: 19 * mm },
+      { x: 11 * mm, y: 19 * mm },
+    ]),
+    outline: [
+      { x: 10 * mm, y: 10 * mm },
+      { x: 20 * mm, y: 10 * mm },
+      { x: 20 * mm, y: 20 * mm },
+      { x: 10 * mm, y: 20 * mm },
+    ],
+  };
+  const b = board({ zones: [pour] });
+  const tol = 0.25 * mm; // MAX_SLOP = 5 px, at a zoom where a pixel is 50 um
+
+  it('selects on a plain click in the middle of the fill', () => {
+    // Upstream only refuses to *grab* there; HitTestFilledArea still selects,
+    // and M then moves what the click picked up.
+    expect(boardHitCandidates(b, { x: 15 * mm, y: 15 * mm }, tol)).toEqual(['zone:0']);
+  });
+
+  it('refuses to grab it there, so the drag rubber-bands instead', () => {
+    expect(
+      boardHitCandidates(b, { x: 15 * mm, y: 15 * mm }, tol, { excludeZoneFills: true }),
+    ).toEqual([]);
+  });
+
+  it('still grabs it on an outline edge', () => {
+    expect(
+      boardHitCandidates(b, { x: 15 * mm, y: 10 * mm }, tol, { excludeZoneFills: true }),
+    ).toEqual(['zone:0']);
+  });
+
+  it('still grabs it on an outline corner', () => {
+    expect(
+      boardHitCandidates(b, { x: 20 * mm, y: 20 * mm }, tol, { excludeZoneFills: true }),
+    ).toEqual(['zone:0']);
+  });
+
+  it('treats the closing edge like any other', () => {
+    // The last-to-first segment: a rectangle's bottom edge is not a special
+    // case, though a loop that stops at poly.length - 1 makes it one.
+    expect(
+      boardHitCandidates(b, { x: 15 * mm, y: 20 * mm }, tol, { excludeZoneFills: true }),
+    ).toEqual(['zone:0']);
+  });
+
+  it('reads the border off the outline, not off the fill', () => {
+    // The fill's own edge, 1 mm inside the outline: copper, not border.
+    expect(zoneBorderHit(pour, { x: 15 * mm, y: 11 * mm }, 0)).toBe(false);
+    expect(zoneBorderHit(pour, { x: 15 * mm, y: 10 * mm }, 0)).toBe(true);
+  });
+
+  it('leaves everything that is not a zone alone', () => {
+    const withTrack = board({
+      zones: [pour],
+      tracks: [
+        {
+          start: { x: 14 * mm, y: 15 * mm },
+          end: { x: 16 * mm, y: 15 * mm },
+          width: 0.2 * mm,
+          layer: 'F.Cu',
+          net: 0,
+          source: EMPTY,
+        },
+      ],
+    });
+    expect(
+      boardHitCandidates(withTrack, { x: 15 * mm, y: 15 * mm }, tol, { excludeZoneFills: true }),
+    ).toEqual(['track:0']);
   });
 });
 

@@ -298,6 +298,8 @@ export class Scene {
    */
   readonly marks = new Map<string, number>();
   private owner: string | undefined;
+  /** Set by {@link mark}: the next primitive starts a run rather than joining one. */
+  private breakRun = false;
   private segMark = 0;
   private discMark = 0;
   private triMark = 0;
@@ -321,7 +323,14 @@ export class Scene {
 
   /** Remember that `name` falls here in the run list. */
   mark(name: string): void {
-    if (this.ordered) this.marks.set(name, this.runs.length);
+    if (!this.ordered) return;
+    this.marks.set(name, this.runs.length);
+    // A mark names a boundary in the run list, so nothing recorded after it may
+    // join the run before it: `note` extends the open run whenever the kind
+    // repeats, and the front silkscreen following the back copper's strokes is
+    // exactly that case. Folded together they draw as one range, on the wrong
+    // side of the boundary.
+    this.breakRun = true;
   }
 
   /** Close the open item's ranges; call once when a recording finishes. */
@@ -350,10 +359,11 @@ export class Scene {
   private note(kind: RunKind, count: number): void {
     if (!this.ordered) return;
     const last = this.runs[this.runs.length - 1];
-    if (last && last.kind === kind) {
+    if (last && last.kind === kind && !this.breakRun) {
       last.count += count;
       return;
     }
+    this.breakRun = false;
     const start =
       kind === 'tri'
         ? this.triangleVertexCount - count
@@ -465,6 +475,7 @@ export class Scene {
     this.marks.clear();
     this.itemRanges.clear();
     this.owner = undefined;
+    this.breakRun = false;
     this.segMark = 0;
     this.discMark = 0;
     this.triMark = 0;

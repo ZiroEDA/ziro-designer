@@ -28,9 +28,20 @@ import {
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import { fetchNetlistFromSchematic } from '@ziroeda/designer/src/editors/pcb/netlist_from_schematic.js';
 
-const PROJECT = fileURLToPath(
-  new URL('../../../designer/public/templates/Arduino_Uno/', import.meta.url),
-);
+/**
+ * A KiCad 6-era copy of the Arduino_Uno template, held here rather than read out
+ * of designer/public/templates.
+ *
+ * Half of what this file tests is migration behaviour that only a pre-PCB-fields
+ * board can exercise: version 20221018 keeps its sheet name and file in
+ * `(property "Sheetname" ...)` with no `(sheetname ...)` token, and the updater
+ * must neither duplicate nor churn them. Pointing at the shipped template made
+ * those tests hostage to the bundle - re-importing it from a current KiCad
+ * (tools/templates/import.mjs) swapped in a 20241229 board that already carries
+ * `(sheetfile ...)`, and the assertions became meaningless rather than failing
+ * for any reason to do with the code.
+ */
+const PROJECT = fileURLToPath(new URL('./fixtures/Arduino_Uno_kicad6/', import.meta.url));
 
 /** The project as the editor sees it: `{ name, text }` for every file. */
 function projectFiles(): { name: string; text: string }[] {

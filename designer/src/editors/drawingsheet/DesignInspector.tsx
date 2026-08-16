@@ -91,7 +91,7 @@ export function DesignInspector({
                 <tr
                   key={i}
                   style={{
-                    cursor: 'pointer',
+                    cursor: 'default',
                     background: selection.has(i) ? 'rgba(74,163,255,0.18)' : undefined,
                   }}
                   onClick={() => {

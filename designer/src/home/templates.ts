@@ -19,6 +19,9 @@ export interface TemplateMeta {
   title: string;
   description: string;
   icon: string | null;
+  /** TEMPLATE_WIDGET::m_isUserTemplate, which m_filterChoice filters on.
+   *  Everything we bundle comes out of KiCad's system template directory. */
+  category?: 'user' | 'system';
   files: string[]; // project files, relative to the template folder
 }
 

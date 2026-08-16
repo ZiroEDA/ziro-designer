@@ -130,6 +130,8 @@ import {
   moveImage,
   startPlaceImage,
   type ImagePlaceState,
+  findItemsFromSyncSelection,
+  crossProbeZoomScale,
 } from '@ziroeda/pcbnew';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
@@ -155,6 +157,10 @@ import { newTable, type TableDefaults } from '@ziroeda/pcbnew/src/draw_table.js'
 
 /** An empty source node, for an item that has not been saved yet. */
 const EMPTY_SLIST = { kind: 'list' as const, items: [] };
+
+/** Stable empty/`toggleOrtho`-only sets for the 3D toolbar's `toggled` prop. */
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
   applyDimensionValues,
   collectDimensionValues,
@@ -221,6 +227,7 @@ import {
   type FootprintValues,
 } from '@ziroeda/pcbnew/src/footprint_properties.js';
 import { flipBoardItems } from '@ziroeda/pcbnew/src/edit-board.js';
+import { zoneItemDescription } from '@ziroeda/pcbnew/src/item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
 import {
   DialogShapeProperties,
@@ -294,7 +301,9 @@ import {
 } from './renderBoard.js';
 import { PcbGl } from '../../render/gl/pcb_gl.js';
 import { GL_PATH_FACTORY } from '../../render/gl/gl_path.js';
-import type { Viewer3D } from './pcb3d.js';
+import type { Viewer3D, Viewer3DStatus, Grid3D, View3DDir } from './pcb3d.js';
+import { VIEWER3D_TOP_TOOLBAR } from './viewer3dToolbars.js';
+import { buildViewer3DMenus } from './viewer3dMenus.js';
 import {
   layerColor,
   PCB_BACKGROUND,
@@ -874,6 +883,7 @@ export function PcbEditor({
   onPersistFiles,
   onOutputFile,
   crossProbeNet,
+  syncSelection,
   updateFromSchematic,
   readOnlyNotice,
 }: {
@@ -906,6 +916,10 @@ export function PcbEditor({
    *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
    *  null clears the highlight (SendCrossProbeClearHighlight). */
   crossProbeNet?: string | null;
+  /** Select on PCB from the schematic: the `$SELECT:` parts to resolve against
+   *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
+   *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
+  syncSelection?: { parts: readonly string[]; nonce: number } | null;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
@@ -1225,8 +1239,14 @@ export function PcbEditor({
   // Whole-board snapshot undo/redo (EDIT_TOOL's SaveCopyInUndoList).
   const undoRef = useRef<Board[]>([]);
   const redoRef = useRef<Board[]>([]);
-  // Item the disambiguation menu is hovering, brightened in the overlay pass.
-  const hoverRef = useRef<string | null>(null);
+  // The rows the disambiguation menu is pointing at, and their geometry.
+  //
+  // `doSelectionMenu` answers TA_CHOICE_MENU_UPDATE with
+  // `highlight( item, BRIGHTENED, &highlightGroup )` — the item itself,
+  // repainted brighter on the select overlay. A set, not one id, because
+  // pointing at "Select All" brightens every candidate at once.
+  const hoverRef = useRef<ReadonlySet<string> | null>(null);
+  const hoverSceneRef = useRef<BoardScene | null>(null);
   // Mirror of `disambig` open-state for the global Escape handler (no re-subscribe).
   const disambigRef = useRef(false);
   disambigRef.current = !!disambig;
@@ -2509,27 +2529,28 @@ export function PcbEditor({
       ctx.fillRect(x, y, w, h);
       ctx.strokeRect(x, y, w, h);
     }
-    // Disambiguation hover: brighten the item the menu is pointing at.
-    const hover = hoverRef.current;
-    if (brd && hover) {
-      const hb = boardItemBBox(brd, hover);
-      if (hb) {
-        const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
-          x: p.x * sx + v.tx,
-          y: p.y * v.scale + v.ty,
-        });
-        const q0 = toPx({ x: hb.minX, y: hb.minY }),
-          q1 = toPx({ x: hb.maxX, y: hb.maxY });
-        const pad = 2 * dpr;
-        ctx.strokeStyle = 'rgba(120,230,255,1)';
-        ctx.lineWidth = Math.max(1.5, 1.5 * dpr);
-        ctx.strokeRect(
-          Math.min(q0.x, q1.x) - pad,
-          Math.min(q0.y, q1.y) - pad,
-          Math.abs(q1.x - q0.x) + 2 * pad,
-          Math.abs(q1.y - q0.y) + 2 * pad,
-        );
-      }
+    // Disambiguation hover: the pointed-at items repainted BRIGHTENED, which is
+    // `highlight( current, BRIGHTENED, &highlightGroup )` — their own geometry
+    // in their own colours, lifted. A bounding box was what stood here, and on
+    // the case this menu exists for it says nothing at all: three pours stacked
+    // through a board share a bounding box almost exactly, so every row of the
+    // menu drew the same rectangle and none of them told you which pour it was.
+    if (hoverSceneRef.current) {
+      ctx.save();
+      drawBoard(
+        ctx,
+        hoverSceneRef.current,
+        v,
+        visible,
+        canvas.width,
+        canvas.height,
+        drawOpts,
+        undefined,
+        true,
+        'highlighted',
+      );
+      ctx.restore();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // DRC markers (PCB_MARKER, GAL overlay target): painted above the board
     // and every editing overlay, under the cursor. The ref holds the already
@@ -2655,6 +2676,29 @@ export function PcbEditor({
     rebuildSelScene();
     requestDraw();
   }, [selection, disambig, requestDraw, rebuildSelScene]);
+
+  /**
+   * Point the disambiguation menu at some items (`null` = at none).
+   *
+   * Compiling their geometry here rather than in the paint keeps the per-frame
+   * cost where it belongs: this runs once per row the pointer crosses, and the
+   * overlay then draws a scene that is already built.
+   */
+  const setDisambigHover = useCallback(
+    (ids: ReadonlySet<string> | null) => {
+      const brd = boardRef.current;
+      hoverRef.current = ids && ids.size > 0 ? ids : null;
+      hoverSceneRef.current =
+        brd && hoverRef.current
+          ? buildScene(subsetBoardItems(brd, hoverRef.current), {
+              hideFrontFootprints: !objects.footprintsFront,
+              hideBackFootprints: !objects.footprintsBack,
+            })
+          : null;
+      requestDraw();
+    },
+    [objects.footprintsFront, objects.footprintsBack, requestDraw],
+  );
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
@@ -3398,6 +3442,78 @@ export function PcbEditor({
   const zoomToFit = useCallback(() => zoomToFitImpl(true), [zoomToFitImpl]);
   const zoomFitObjects = useCallback(() => zoomToFitImpl(false), [zoomToFitImpl]);
 
+  // Select on PCB, arriving from the schematic frame: pcbnew's "$SELECT:"
+  // handler, `FindItemsFromSyncSelection` then `doSyncSelection` — replace the
+  // selection with what the parts name, then zoom and centre on it. Both
+  // cross-probe settings default on upstream, so both steps run.
+  //
+  // Keyed on the nonce alone: the parts of a repeated request are equal, and
+  // re-running on every render would fight the user's own clicks.
+  const syncNonce = syncSelection?.nonce;
+  const syncPartsRef = useRef(syncSelection?.parts);
+  syncPartsRef.current = syncSelection?.parts;
+  useEffect(() => {
+    if (syncNonce === undefined) return;
+    const brd = boardRef.current;
+    const canvas = canvasRef.current;
+    if (!brd) return;
+
+    const ids = findItemsFromSyncSelection(brd, syncPartsRef.current ?? []);
+    setSelection(new Set(ids));
+    if (ids.length === 0 || !canvas) return;
+
+    let box: BoardBBox | null = null;
+    for (const id of ids) {
+      const b = boardItemBBox(brd, id);
+      if (!b) continue;
+      box = box
+        ? {
+            minX: Math.min(box.minX, b.minX),
+            minY: Math.min(box.minY, b.minY),
+            maxX: Math.max(box.maxX, b.maxX),
+            maxY: Math.max(box.maxY, b.maxY),
+          }
+        : b;
+    }
+    // `bbox.GetWidth() != 0 && GetHeight() != 0` — a zero-area selection has
+    // nothing to aim at.
+    if (!box || box.maxX <= box.minX || box.maxY <= box.minY) return;
+
+    const view = viewRef.current;
+    // Where the view is looking now. The zoom changes first and keeps this
+    // point (`VIEW::SetScale` scales about the centre), so it is read off the
+    // old scale and re-applied under the new one.
+    const viewCx = (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale);
+    const viewCy = (canvas.height / 2 - view.ty) / view.scale;
+    const scale =
+      crossProbeZoomScale(
+        box,
+        { x: canvas.width / view.scale, y: canvas.height / view.scale },
+        view.scale,
+      ) ?? view.scale;
+
+    // EDA_DRAW_FRAME::FocusOnLocation: centre only when the target is outside
+    // the viewport, which is first shrunk by a tenth of its *width* — on both
+    // axes, as `r.Inflate( -r.GetWidth() / 10 )` does — so a probe onto
+    // something already on screen leaves the view where the user put it.
+    const cx = (box.minX + box.maxX) / 2;
+    const cy = (box.minY + box.maxY) / 2;
+    const halfW = canvas.width / scale / 2;
+    const halfH = canvas.height / scale / 2;
+    const inset = halfW * 0.2;
+    const outside = Math.abs(cx - viewCx) > halfW - inset || Math.abs(cy - viewCy) > halfH - inset;
+    const centreX = outside ? cx : viewCx;
+    const centreY = outside ? cy : viewCy;
+
+    viewRef.current = {
+      scale,
+      flipX: view.flipX,
+      tx: canvas.width / 2 - centreX * (view.flipX ? -scale : scale),
+      ty: canvas.height / 2 - centreY * scale,
+    };
+    requestDraw();
+  }, [syncNonce, requestDraw]);
+
   // DIALOG_FIND::search: collect hits in upstream order, footprint reference
   // designators, footprint values, other text items (footprint text, board
   // text, zone names), then net names, and walk the list with Find Next /
@@ -3759,7 +3875,7 @@ export function PcbEditor({
   // all transcribed in boardHitCandidates. One id = unambiguous click; several
   // = KiCad would pop the disambiguation menu. Finally, a hit on a group
   // member resolves to its top-level group (PCB_GROUP::TopLevelGroup).
-  const hitCandidates = (w: { x: number; y: number }): string[] => {
+  const hitCandidates = (w: { x: number; y: number }, excludeZoneFills = false): string[] => {
     const brd = boardRef.current;
     if (!brd) return [];
     const canvas = canvasRef.current;
@@ -3769,6 +3885,7 @@ export function PcbEditor({
       activeLayer,
       visibleLayers: visible,
       viewportIU: canvas ? { w: canvas.width / v.scale, h: canvas.height / v.scale } : undefined,
+      excludeZoneFills,
     });
     const out: string[] = [];
     for (const id of cands) {
@@ -5345,8 +5462,20 @@ export function PcbEditor({
         }
       }
       // The zoom tool always rubber-bands: never grab the item under the cursor.
+      //
+      // What the press *grabs* is not what a click on it would *select*. The
+      // drag branch of PCB_SELECTION_TOOL::Main runs selectPoint through
+      // `zoneFilledAreaFilter` — "Don't allow starting a drag from a zone
+      // filled area that isn't already selected" — and its other branch,
+      // selectionContains, asks ZONE::HitTest, which is corner-or-edge too. So
+      // a pour is grabbable only by its outline either way, while a plain click
+      // anywhere inside it still selects it (and M then moves it). Without this
+      // a stray drag over a ground pour picked the pour up and slid it off the
+      // board, which is not something pcbnew will let you do.
       const hitId =
-        activeToolRef.current !== 'zoomTool' && w && brd ? (hitCandidates(w)[0] ?? null) : null;
+        activeToolRef.current !== 'zoomTool' && w && brd
+          ? (hitCandidates(w, true)[0] ?? null)
+          : null;
       downRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -5768,6 +5897,7 @@ export function PcbEditor({
         }
         if (disambigRef.current) {
           hoverRef.current = null;
+          hoverSceneRef.current = null;
           setDisambig(null);
         } else if (routeRef.current) {
           // Esc ends the route in progress; committed segments stay.
@@ -5848,6 +5978,17 @@ export function PcbEditor({
   }, []);
 
   const [viewer3dReady, setViewer3dReady] = useState(false);
+  // The mounted viewer, so the 3D menu bar / toolbar / hotkeys can drive it.
+  const viewer3dApi = useRef<Viewer3D | null>(null);
+  // EDA_3D_VIEWER_STATUSBAR's X_POS / Y_POS / ZOOM_LEVEL panes.
+  const [view3dStatus, setView3dStatus] = useState<Viewer3DStatus>({ x: null, y: null, zoom: 1 });
+  // Check-item state for the View / Preferences menus.
+  const [grid3d, setGrid3d] = useState<Grid3D>('none');
+  const [ortho3d, setOrtho3d] = useState(false);
+  const [showMissing3d, setShowMissing3d] = useState(true);
+  // Reload counter: bumping it remounts the viewer (EDA_3D_ACTIONS::reloadBoard).
+  const [reload3d, setReload3d] = useState(0);
+
   // Mount the three.js 3D viewer while the overlay is open. Lazy-imported so
   // three.js only downloads when the user actually opens the 3D view.
   useEffect(() => {
@@ -5864,13 +6005,226 @@ export function PcbEditor({
       } catch {
         viewer = null;
       }
+      if (viewer) {
+        viewer.onStatus = setView3dStatus;
+        // Re-apply the sticky view settings across a remount/reload.
+        viewer.setGrid(grid3d);
+        viewer.setOrtho(ortho3d);
+      }
+      viewer3dApi.current = viewer;
       setViewer3dReady(true);
     });
     return () => {
       cancelled = true;
       viewer?.dispose();
+      viewer3dApi.current = null;
     };
-  }, [show3D, projectFiles]);
+    // grid3d/ortho3d are applied live by their own handlers; re-reading them
+    // here would remount the whole scene on every toggle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show3D, projectFiles, reload3d]);
+
+  // ----- 3D viewer commands ---------------------------------------------------
+  // EDA_3D_ACTIONS::exportImage — "Export the Current View as an image file".
+  const export3dImage = useCallback((): void => {
+    void viewer3dApi.current?.snapshot().then((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}-3d.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }, [projectName, fileName]);
+
+  // EDA_3D_ACTIONS::copyToClipboard.
+  const copy3dToClipboard = useCallback((): void => {
+    void viewer3dApi.current?.snapshot().then((blob) => {
+      if (!blob || !navigator.clipboard?.write) return;
+      void navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
+    });
+  }, []);
+
+  const apply3dGrid = useCallback((g: Grid3D): void => {
+    setGrid3d(g);
+    viewer3dApi.current?.setGrid(g);
+  }, []);
+
+  const toggle3dOrtho = useCallback((): void => {
+    setOrtho3d((on) => {
+      viewer3dApi.current?.setOrtho(!on);
+      return !on;
+    });
+  }, []);
+
+  /** Dispatch for both the 3D top toolbar and its menu bar. */
+  const on3dAction = useCallback(
+    (id: string): void => {
+      const v = viewer3dApi.current;
+      switch (id) {
+        case 'reloadBoard3d':
+          setReload3d((n) => n + 1);
+          return;
+        case 'copyToClipboard3d':
+          copy3dToClipboard();
+          return;
+        case 'zoomRedraw':
+          v?.redraw();
+          return;
+        case 'zoomIn':
+          v?.zoomIn();
+          return;
+        case 'zoomOut':
+          v?.zoomOut();
+          return;
+        case 'zoomFit':
+          v?.zoomFit();
+          return;
+        case 'rotateXCW':
+          v?.rotate('x', true);
+          return;
+        case 'rotateXCCW':
+          v?.rotate('x', false);
+          return;
+        case 'rotateYCW':
+          v?.rotate('y', true);
+          return;
+        case 'rotateYCCW':
+          v?.rotate('y', false);
+          return;
+        case 'rotateZCW':
+          v?.rotate('z', true);
+          return;
+        case 'rotateZCCW':
+          v?.rotate('z', false);
+          return;
+        case 'flipView3d':
+          v?.flip();
+          return;
+        case 'moveLeft3d':
+          v?.move('left');
+          return;
+        case 'moveRight3d':
+          v?.move('right');
+          return;
+        case 'moveUp3d':
+          v?.move('up');
+          return;
+        case 'moveDown3d':
+          v?.move('down');
+          return;
+        case 'toggleOrtho':
+          toggle3dOrtho();
+          return;
+        default:
+          return; // greyed/unported entries
+      }
+    },
+    [copy3dToClipboard, toggle3dOrtho],
+  );
+
+  const menus3d = useMemo(
+    () =>
+      buildViewer3DMenus(
+        {
+          grid: grid3d,
+          ortho: ortho3d,
+          showMissingModels: showMissing3d,
+          raytracing: false,
+          showAppearanceManager: false,
+        },
+        {
+          exportImage: export3dImage,
+          close: () => setShow3D(false),
+          copyToClipboard: copy3dToClipboard,
+          zoomIn: () => viewer3dApi.current?.zoomIn(),
+          zoomOut: () => viewer3dApi.current?.zoomOut(),
+          zoomFit: () => viewer3dApi.current?.zoomFit(),
+          redraw: () => viewer3dApi.current?.redraw(),
+          setGrid: apply3dGrid,
+          setView: (d) => viewer3dApi.current?.setView(d),
+          rotate: (axis, cw) => viewer3dApi.current?.rotate(axis, cw),
+          flip: () => viewer3dApi.current?.flip(),
+          move: (d) => viewer3dApi.current?.move(d),
+          toggleShowMissingModels: () => setShowMissing3d((s) => !s),
+          openPreferences: () => setShow3D(false),
+          resetToDefaults: () => {
+            apply3dGrid('none');
+            setOrtho3d(false);
+            viewer3dApi.current?.setOrtho(false);
+            viewer3dApi.current?.home();
+          },
+        },
+      ),
+    [grid3d, ortho3d, showMissing3d, export3dImage, copy3dToClipboard, apply3dGrid],
+  );
+
+  /**
+   * 3D viewer hotkeys (the `.DefaultHotkey()` of each EDA_3D_ACTIONS entry).
+   * Bound on the overlay rather than the document so they never reach the
+   * board canvas underneath.
+   */
+  useEffect(() => {
+    if (!show3D) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const v = viewer3dApi.current;
+      const views: Record<string, View3DDir> = { z: 'top', x: 'right', y: 'front' };
+      const shifted: Record<string, View3DDir> = { z: 'bottom', x: 'left', y: 'back' };
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      switch (k) {
+        case 'Escape':
+          setShow3D(false);
+          break;
+        case 'z':
+        case 'x':
+        case 'y':
+          v?.setView((e.shiftKey ? shifted : views)[k]!);
+          break;
+        case 'r':
+          v?.rotate('z', e.shiftKey);
+          break;
+        case 'f':
+          v?.flip();
+          break;
+        case ' ':
+          break; // pivotCenter: needs the picking ray, not ported — swallow it
+        case 'Home':
+          v?.home();
+          break;
+        case 'F5':
+          v?.redraw();
+          break;
+        case 'ArrowLeft':
+          v?.move('left');
+          break;
+        case 'ArrowRight':
+          v?.move('right');
+          break;
+        case 'ArrowUp':
+          v?.move('up');
+          break;
+        case 'ArrowDown':
+          v?.move('down');
+          break;
+        default:
+          break; // fall through to the swallow below
+      }
+      // Swallow *every* unmodified key, not only the ones bound above.
+      // Upstream the 3D viewer is a separate top-level window, so pcbnew's
+      // hotkeys cannot reach the board while it has focus. Our overlay shares
+      // the document with the board canvas, whose own window-level keydown
+      // handlers would otherwise still fire — Delete would delete the selected
+      // footprint behind a viewer that shows no selection at all.
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    // Capture phase on window runs before the board canvas's bubble-phase
+    // handlers on the same target, so stopPropagation() there is enough.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [show3D]);
 
   // ----- appearance data ------------------------------------------------------
 
@@ -7457,7 +7811,7 @@ export function PcbEditor({
                       flex: 1,
                       padding: '4px 0',
                       fontSize: 12,
-                      cursor: 'pointer',
+                      cursor: 'default',
                       background: tab === t ? '#2a2a2e' : 'transparent',
                       color: 'inherit',
                       border: 'none',
@@ -7902,34 +8256,40 @@ export function PcbEditor({
         )}
       </div>
 
+      {/* EDA_3D_VIEWER_FRAME. Upstream this is a sibling top-level window
+          (KIWAY_PLAYER parented to the PCB frame); in one browser tab it is a
+          full-viewport overlay, but it carries the frame's own chrome: menu
+          bar, the single TOP_MAIN toolbar (3d-viewer has no side toolbars) and
+          the 5-pane status bar. */}
       {show3D && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 50,
-            background: 'rgb(13,15,23)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '6px 12px',
-              borderBottom: '1px solid #333',
-              fontSize: 13,
-            }}
-          >
-            <b>3D Viewer</b>
-            <span style={{ opacity: 0.6 }}>drag to orbit · wheel to zoom · Esc to close</span>
-            <span style={{ flex: 1 }} />
-            <button onClick={() => setShow3D(false)}>Close ✕</button>
-          </div>
+        <div className="ze-frame ze-frame-3d" role="dialog" aria-label="3D Viewer">
+          <MenuBar
+            menus={menus3d}
+            leftSlot={
+              <div
+                className="ze-home-link"
+                onClick={() => setShow3D(false)}
+                title="Close 3D Viewer"
+              >
+                ← PCB Editor
+              </div>
+            }
+            title={
+              <>
+                <b>{projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'No project'}</b>
+                &nbsp;-&nbsp;3D Viewer
+              </>
+            }
+          />
+          <Toolbar
+            entries={VIEWER3D_TOP_TOOLBAR}
+            orientation="horizontal"
+            toggled={ortho3d ? ORTHO_ON : EMPTY_IDS}
+            onActivate={on3dAction}
+          />
           <div
             ref={viewer3dRef}
+            className="ze-frame-canvas"
             style={{
               flex: 1,
               minHeight: 0,
@@ -7944,64 +8304,67 @@ export function PcbEditor({
               </div>
             )}
           </div>
+          {/* EDA_3D_VIEWER_STATUSBAR: ACTIVITY, HOVERED_ITEM, X_POS, Y_POS,
+              ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
+              ({ -1, 170, 130, 130, 130 }). */}
+          <div className="ze-statusbar">
+            <span className="cell msg" data-testid="view3d-activity" />
+            <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
+            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
+              {view3dStatus.x === null ? '' : `X ${view3dStatus.x.toFixed(4)}`}
+            </span>
+            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-y">
+              {view3dStatus.y === null ? '' : `Y ${view3dStatus.y.toFixed(4)}`}
+            </span>
+            <span className="cell pane" style={{ width: 130 }} data-testid="view3d-zoom">
+              Z {view3dStatus.zoom.toFixed(2)}
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): pick which of
-          several overlapping items to select; hovering a row previews it. */}
+      {/* Disambiguation menu (SELECTION_TOOL::doSelectionMenu): which of several
+          overlapping items to select.
+
+          Same rows as every other menu in the app, because upstream's is an
+          ordinary ACTION_MENU: the first nine are numbered `&n  <description>`
+          with the number repeated as the accelerator, then a separator and
+          "Select &All\tA". No title — pcbnew never sets `m_MenuTitle`, so the
+          "Clarify Selection" caption we had was ours, not KiCad's. Pointing at
+          a row brightens what it refers to on the board. */}
       {disambig && board && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 60 }}
-            onMouseDown={() => {
-              hoverRef.current = null;
-              setDisambig(null);
-              requestDraw();
-            }}
-          />
-          <div
-            style={{
-              position: 'fixed',
-              left: Math.min(disambig.x, window.innerWidth - 220),
-              top: disambig.y,
-              zIndex: 61,
-              background: '#26262b',
-              border: '1px solid #444',
-              borderRadius: 4,
-              minWidth: 190,
-              padding: '4px 0',
-              fontSize: 12,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div style={{ padding: '2px 12px 4px', opacity: 0.6 }}>Clarify Selection</div>
-            {disambig.ids.map((id) => (
-              <div
-                key={id}
-                className="ze-tree-item"
-                style={{ padding: '3px 12px', cursor: 'pointer' }}
-                onMouseEnter={() => {
-                  hoverRef.current = id;
-                  requestDraw();
-                }}
-                onMouseLeave={() => {
-                  if (hoverRef.current === id) {
-                    hoverRef.current = null;
-                    requestDraw();
-                  }
-                }}
-                onClick={() => {
-                  hoverRef.current = null;
-                  applySelect(id, disambig.additive);
-                  setDisambig(null);
-                }}
-              >
-                {describeBoardItem(board, id)}
-              </div>
-            ))}
-          </div>
-        </>
+        <ContextMenu
+          x={disambig.x}
+          y={disambig.y}
+          onClose={() => {
+            setDisambigHover(null);
+            setDisambig(null);
+          }}
+          items={[
+            ...disambig.ids.map((id, i) => ({
+              // Past nine, upstream drops the number and the accelerator: there
+              // are only nine digit keys.
+              label:
+                i < 9 ? `${i + 1}  ${describeBoardItem(board, id)}` : describeBoardItem(board, id),
+              ...(i < 9 ? { mnemonic: String(i + 1), shortcut: String(i + 1) } : {}),
+              onHover: (over: boolean) => setDisambigHover(over ? new Set([id]) : null),
+              action: () => applySelect(id, disambig.additive),
+            })),
+            { sep: true },
+            {
+              label: 'Select All',
+              mnemonic: 'A',
+              shortcut: 'A',
+              onHover: (over: boolean) => setDisambigHover(over ? new Set(disambig.ids) : null),
+              action: () =>
+                setSelection((prev) => {
+                  const next = new Set(disambig.additive ? prev : []);
+                  for (const id of disambig.ids) next.add(id);
+                  return next;
+                }),
+            },
+          ]}
+        />
       )}
 
       {/* Selection Filter right-click menu (PANEL_SELECTION_FILTER::onRightClick):
@@ -8034,7 +8397,7 @@ export function PcbEditor({
           >
             <div
               className="ze-tree-item"
-              style={{ padding: '3px 12px', cursor: 'pointer' }}
+              style={{ padding: '3px 12px', cursor: 'default' }}
               onClick={() => {
                 setSelFilter(new Set([filterMenu.key]));
                 setFilterMenu(null);
@@ -8080,7 +8443,7 @@ export function PcbEditor({
                   <div
                     key={item.label}
                     className="ze-tree-item"
-                    style={{ padding: '3px 12px', cursor: 'pointer' }}
+                    style={{ padding: '3px 12px', cursor: 'default' }}
                     onClick={() => {
                       item.run();
                       setLayerMenu(null);
@@ -8128,7 +8491,7 @@ export function PcbEditor({
               <div
                 key={p.name}
                 className="ze-tree-item"
-                style={{ padding: '3px 12px', cursor: 'pointer' }}
+                style={{ padding: '3px 12px', cursor: 'default' }}
                 onClick={() => {
                   if (deleteChooser === 'presets') {
                     setUserPresets((u) => u.filter((x) => x.name !== p.name));
@@ -8785,8 +9148,11 @@ function describeBoardItem(board: Board, id: string): string {
       return f ? `Footprint ${f.reference || f.lib}` : 'Footprint';
     }
     case 'zone': {
+      // ZONE::GetItemDescription — net, layers *and* priority. Three pours of
+      // the same net stacked through a board are one menu row repeated three
+      // times without the last two.
       const z = board.zones[r.index];
-      return z ? `Zone · ${z.netName ?? net(z.net)}` : 'Zone';
+      return z ? zoneItemDescription(board, z) : 'Zone';
     }
     case 'shape': {
       const s = board.shapes[r.index];

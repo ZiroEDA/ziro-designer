@@ -702,6 +702,9 @@ interface Props {
   /** An ambiguous click (several candidates after GuessSelectionCandidates):
    *  the editor pops the Clarify Selection menu at the client point. */
   onClarify?: (clientX: number, clientY: number, candidates: ItemRef[], additive: boolean) => void;
+  /** The current selection is one a right-click made for its menu
+   *  (`SELECTION::IsHover`), which gets no point-editor handles. */
+  isHoverSelection?: boolean;
 }
 
 type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'lasso';
@@ -782,6 +785,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     grabRequest,
     onZoomArea,
     onContextMenuRequest,
+    isHoverSelection,
     onClarify,
     onEditDrawingSheet,
   },
@@ -1379,12 +1383,18 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   useEffect(() => {
     const one = selection.size === 1 ? [...selection][0]! : null;
     const stillDrawing = !!drawStateRef.current || attachedItem;
-    const target = one && !stillDrawing ? pointEditTarget(schematic, one) : null;
+    // A hover selection gets no handles. A right-click on an unselected item
+    // picks it up only so the menu has something to act on, and upstream never
+    // brings the point editor up on one — right-clicking a sheet cold shows the
+    // menu with no grips on it, while right-clicking a sheet that was already
+    // selected leaves the grips it already had.
+    const target =
+      one && !stillDrawing && !isHoverSelection ? pointEditTarget(schematic, one) : null;
     pointTargetRef.current = target;
     setPointHandles(schematic, target);
     if (!target) hoveredHandleRef.current = null;
     requestOverlayRef.current();
-  }, [selection, schematic, activeTool, attachedItem, setPointHandles]);
+  }, [selection, schematic, activeTool, attachedItem, isHoverSelection, setPointHandles]);
 
   /**
    * The handle under a world point. EDIT_POINTS::FindPoint hit-tests each point's
