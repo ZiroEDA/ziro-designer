@@ -173,9 +173,22 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
     {
       label: 'Help',
       items: [
+        // AddStandardHelpMenu, in its order: help, gettingStarted, listHotKeys,
+        // getInvolved, donate, reportBug, separator, about. Every link points at
+        // us rather than at KiCad - the entries are upstream's, the destinations
+        // are ours, which is the same call as dropping Donate below.
         {
           label: 'Documentation',
           action: () => window.open('https://docs.ziroeda.com/', '_blank', 'noopener,noreferrer'),
+        },
+        {
+          label: 'Getting Started',
+          action: () =>
+            window.open(
+              'https://docs.ziroeda.com/getting-started',
+              '_blank',
+              'noopener,noreferrer',
+            ),
         },
         // ACTIONS::listHotKeys: "List Hotkeys...", Ctrl+F1, between the
         // documentation entries and Report Bug, exactly where
@@ -186,6 +199,18 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
           action: h.showHotkeys,
         },
         {
+          label: 'Get Involved',
+          action: () =>
+            window.open(
+              'https://github.com/ZiroEDA/ziro-designer',
+              '_blank',
+              'noopener,noreferrer',
+            ),
+        },
+        // ACTIONS::donate sits here upstream and is deliberately not carried: a
+        // donation prompt for another project is theirs to put in their Help
+        // menu, not ours to put in ours.
+        {
           label: 'Report Bug',
           action: () =>
             window.open(
@@ -194,9 +219,6 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
               'noopener,noreferrer',
             ),
         },
-        // ACTIONS::donate is upstream's next entry and is deliberately not
-        // carried: a donation prompt in someone else's product is theirs to
-        // put there, not ours, and it read as ours.
         SEP,
         { label: 'About Ziro Designer', action: h.showAbout },
       ],
