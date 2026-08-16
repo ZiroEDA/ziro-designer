@@ -2185,7 +2185,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 250px;
+  /* No minimum width. GTK sizes a menu to its widest row and nothing else, so
+     a short menu is a short menu: KiCad's Edit, with the same three entries
+     ours has, is about 151px. There used to be a 250px floor here, which meant
+     Edit and View were not sized at all - they sat on it, 99px wider than the
+     desktop app's, while the menus with more in them came out narrower. Both
+     complaints, opposite directions, one cause. */
   background: #1d1d1d;
   border: 1px solid #4b4b4b;
   border-radius: 6px;
