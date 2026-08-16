@@ -83,6 +83,10 @@ export function TemplateSelectorDialog({
   const [state, setState] = useState<DialogState>('initial');
   const [selected, setSelected] = useState<TemplateMeta | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  /** TEMPLATE_WIDGET::onRightClick's wxMenu, which it PopupMenu()s at the cursor. */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; template: TemplateMeta } | null>(
+    null,
+  );
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS);
@@ -140,7 +144,11 @@ export function TemplateSelectorDialog({
         className="ze-modal ze-tplsel"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
+          // A popped-up wxMenu grabs the keyboard, so Escape dismisses the menu
+          // before it can reach the dialog.
+          if (e.key !== 'Escape') return;
+          if (ctxMenu) setCtxMenu(null);
+          else onCancel();
         }}
       >
         <div className="ze-modal-header">
@@ -175,13 +183,28 @@ export function TemplateSelectorDialog({
           {/* m_splitter: m_panelTemplates always, m_panelPreview only once split. */}
           <div className="ze-tplsel-splitter">
             <div className="ze-tplsel-templates">
-              <input
-                className="ze-tplsel-search"
-                type="search"
-                placeholder="Search"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-              />
+              {/* wxSearchCtrl with both affordances turned on in the ctor:
+                    m_searchCtrl->ShowSearchButton( true );
+                    m_searchCtrl->ShowCancelButton( true );
+                  so the magnifier sits inside the field and the cancel button
+                  appears with the text. OnSearchCtrlCancel clears it. */}
+              <div className="ze-tplsel-searchwrap">
+                <span className="mag" aria-hidden="true" />
+                <input
+                  className="ze-tplsel-search"
+                  type="text"
+                  placeholder="Search"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                />
+                {searchText !== '' && (
+                  <span
+                    className="cancel"
+                    title="Clear the search"
+                    onClick={() => setSearchText('')}
+                  />
+                )}
+              </div>
               <select
                 className="ze-tplsel-filter"
                 value={filterChoice}
@@ -217,6 +240,12 @@ export function TemplateSelectorDialog({
                     className={`ze-tplsel-card${selected?.id === t.id ? ' active' : ''}`}
                     onClick={() => selectWidget(t)}
                     onDoubleClick={() => onOk(t)}
+                    // onRightClick is bound on the panel and on all three of its
+                    // children, so anywhere in the card opens the menu.
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setCtxMenu({ x: e.clientX, y: e.clientY, template: t });
+                    }}
                   >
                     {t.icon ? <img src={t.icon} alt="" /> : <span className="noicon" />}
                     <span className="txt">
@@ -257,6 +286,52 @@ export function TemplateSelectorDialog({
             )}
           </div>
         </div>
+
+        {/* TEMPLATE_WIDGET::onRightClick's menu. Every one of its three actions
+            needs a template *directory* on disk that the user can write to:
+            onEditTemplate opens the template's own .kicad_pro in place,
+            onOpenFolder calls wxLaunchDefaultApplication on the folder, and
+            onDuplicateTemplate copies the tree into the user templates path.
+            Templates here are read-only assets served over HTTP and there is no
+            user templates directory, so the menu is present where KiCad puts it
+            with its own labels, and every row is disabled - the same way the
+            other host-only actions are carried in their upstream slots.
+
+            The first label follows m_isUserTemplate, which is false for all of
+            ours: KiCad shows "Edit Template" only for a user template. */}
+        {ctxMenu && (
+          <>
+            <div className="ze-tplsel-ctxscrim" onMouseDown={() => setCtxMenu(null)} />
+            <div
+              className="ze-dropdown"
+              style={{ position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 1000 }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {[
+                {
+                  label:
+                    ctxMenu.template.category === 'user'
+                      ? 'Edit Template'
+                      : 'Open Template (Read-Only)',
+                  why: 'Templates are served read-only here, so there is no copy on disk to open',
+                },
+                {
+                  label: 'Open Template Folder',
+                  why: 'Opening a folder needs the desktop file manager, which a browser cannot reach',
+                },
+                {
+                  label: 'Duplicate Template',
+                  why: 'Duplicating writes into the user templates directory, which does not exist here',
+                },
+              ].map(({ label, why }) => (
+                <div key={label} className="ze-mitem disabled" title={why}>
+                  <span className="mico" />
+                  <span className="lbl">{label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
           <button className="ze-btn" disabled={state === 'initial'} onClick={goBack}>

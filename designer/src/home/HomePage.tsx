@@ -1270,8 +1270,10 @@ export function HomePage({
               return;
             }
             setTplSel(t);
-            // settings->m_RecentTemplates, newest first and deduplicated.
-            setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 8));
+            // settings->m_RecentTemplates: erase the duplicate, insert at the
+            // front, then `if( recentTemplates.size() > 5 ) resize( 5 )`. We had
+            // been keeping 8, so the recent list grew three rows past KiCad's.
+            setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 5));
             setTplStep('name');
           }}
         />

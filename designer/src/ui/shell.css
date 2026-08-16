@@ -1035,14 +1035,13 @@ body {
    `.ze-app input` / `.ze-app select` rules, which are (0,1,1) and were quietly
    winning: the filter was coming out --chrome-bg2 (#262626) instead of the
    button face the real wxChoice has. */
-.ze-app .ze-tplsel-search,
+.ze-tplsel-searchwrap,
 .ze-app .ze-tplsel-filter {
   box-sizing: border-box;
   height: 34px;
   color: var(--chrome-fg);
   border: 1px solid #181818;
   border-radius: 4px;
-  padding: 0 8px;
   font: inherit;
   margin: 5px;
   /* Never let the column's flex shrink these: they are fixed-height controls,
@@ -1051,10 +1050,67 @@ body {
 }
 /* m_searchCtrl is added wxEXPAND; m_filterChoice is not, so it keeps its own
    width instead of stretching. */
-/* m_searchCtrl is a text entry: the entry face, #272727. */
-.ze-app .ze-tplsel-search {
+/* m_searchCtrl is a text entry: the entry face, #272727. The wrapper carries the
+   frame because the control owns two painted buttons inside it - the magnifier
+   from ShowSearchButton and the ✕ from ShowCancelButton. */
+.ze-tplsel-searchwrap {
   width: calc(100% - 10px);
   background: var(--panel-bg);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 7px;
+}
+.ze-app .ze-tplsel-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+.ze-app .ze-tplsel-search:focus {
+  outline: none;
+}
+/* GTK renders both as symbolic icons in the entry's own text colour, dimmed. */
+.ze-tplsel-searchwrap .mag,
+.ze-tplsel-searchwrap .cancel {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  opacity: 0.65;
+  background: currentColor;
+}
+/* Adwaita's system-search-symbolic and edit-clear-symbolic, the two GTK hands
+   wxSearchCtrl, traced as paths so they tint with currentColor. */
+.ze-tplsel-searchwrap .mag {
+  -webkit-mask:
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23000' stroke-width='1.6' d='M7 2.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6zm3.6 8.4L14 14'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+  mask:
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23000' stroke-width='1.6' d='M7 2.2a4.8 4.8 0 1 0 0 9.6 4.8 4.8 0 0 0 0-9.6zm3.6 8.4L14 14'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+}
+.ze-tplsel-searchwrap .cancel {
+  -webkit-mask:
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 .8a7.2 7.2 0 1 0 0 14.4A7.2 7.2 0 0 0 8 .8zm3 9.1-1.1 1.1L8 9.1l-1.9 1.9L5 9.9 6.9 8 5 6.1 6.1 5 8 6.9 9.9 5 11 6.1 9.1 8z'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+  mask:
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 .8a7.2 7.2 0 1 0 0 14.4A7.2 7.2 0 0 0 8 .8zm3 9.1-1.1 1.1L8 9.1l-1.9 1.9L5 9.9 6.9 8 5 6.1 6.1 5 8 6.9 9.9 5 11 6.1 9.1 8z'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+}
+.ze-tplsel-searchwrap .cancel:hover {
+  opacity: 1;
+}
+/* A wxMenu takes the pointer grab, so a click anywhere else dismisses it. */
+.ze-tplsel-ctxscrim {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
 }
 /* m_filterChoice is a wxChoice: the *button* face, #373737. */
 .ze-app .ze-tplsel-filter {
