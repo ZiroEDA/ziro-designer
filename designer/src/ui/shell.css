@@ -1172,11 +1172,16 @@ body {
   color: #f3f4f5;
 }
 /* The frame is on the wrapper, so the fixed .kicad_pro suffix sits inside the
-   same box as the entry and reads as one control. */
+   same box as the entry and the two read as one filename - the way a file
+   manager's rename field shows "report.pdf", not a name box with a badge
+   after it. */
 .ze-tplsel-namewrap {
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  /* Packed left, so the extension follows the text instead of being pushed to
+     the far edge of the box. */
+  justify-content: flex-start;
   flex: 1 1 auto;
   min-width: 0;
   height: 34px;
@@ -1184,6 +1189,7 @@ body {
   background: var(--panel-bg);
   border: 1px solid #181818;
   border-radius: 4px;
+  cursor: text;
 }
 /* GTK marks an entry that failed validation with the error colour, not a shake
    or an icon. */
@@ -1194,10 +1200,24 @@ body {
    descendant type selector has to be qualified with .ze-app to outrank the
    shell's blanket `.ze-app input`, and that lands high enough to make every
    later plain `input` rule in this file report as descending specificity. */
-.ze-app .ze-tplsel-nameinput {
+/* Addressed by id, which is the one thing specific enough to win here.
+   The shell's blanket entry rule is
+
+     .ze-app input:not([type="checkbox"]):not([type="radio"])
+                  :not([type="color"]):not([type="range"])
+
+   and each :not() carries its argument's weight, so that is (0,5,1) - past any
+   sensible stack of classes. Left to win it painted the entry's own background
+   and border inside the wrapper's, which is the box-inside-a-box, and its 5px
+   padding is the gap that opened between the caret and the dot. */
+.ze-app #ze-tplsel-projname {
   box-sizing: border-box;
-  flex: 1 1 auto;
-  min-width: 0;
+  /* Sized to what has been typed rather than stretched to fill the box, so the
+     extension after it moves with the text. `flex: 0 1 auto` lets it give way
+     once the name is longer than the box. */
+  flex: 0 1 auto;
+  field-sizing: content;
+  min-width: 3ch;
   height: 100%;
   padding: 0;
   margin: 0;
@@ -1206,15 +1226,25 @@ body {
   background: none;
   border: none;
   border-radius: 0;
-}
-.ze-app .ze-tplsel-nameinput:focus {
   outline: none;
 }
-/* Dimmed, because it is not editable and should not read as typed text. */
+/* Where field-sizing is not implemented the entry keeps its intrinsic width, so
+   the extension would sit in the middle of the box with a gap before it. Fill
+   the box instead and let it sit at the right edge - less pretty, still legible,
+   and nothing overlaps. */
+@supports not (field-sizing: content) {
+  .ze-app #ze-tplsel-projname {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+/* Part of the same filename, so it is the same size and weight as the text; a
+   touch dimmer only to say it is not the part being edited. */
 .ze-tplsel-namewrap .ext {
   flex: 0 0 auto;
-  color: #9a9a9a;
+  color: #b9b9b9;
   user-select: none;
+  white-space: nowrap;
 }
 .ze-tplsel-name .err,
 .ze-tplsel-nameerr {

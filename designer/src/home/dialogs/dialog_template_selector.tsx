@@ -116,6 +116,7 @@ export function TemplateSelectorDialog({
    * instead, and OK does what OK plus that dialog used to.
    */
   const [projectName, setProjectName] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
   /** onDuplicateTemplate's wxTextEntryDialog, defaulted to `<name>_copy`. */
   const [dupFor, setDupFor] = useState<TemplateMeta | null>(null);
 
@@ -517,8 +518,20 @@ export function TemplateSelectorDialog({
               FILEEXT::ProjectFileExtension whatever was typed. It is here at all
               because a bare name box does not say what is being named; with
               ".kicad_pro" fixed to the end of it, it plainly does. */}
-          <div className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}`}>
+          {/* The box is wider than the filename inside it, so a click on the
+              empty part - or on the extension - has to land in the entry, the
+              way clicking anywhere in a rename field does. */}
+          <div
+            className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}`}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget || (e.target as HTMLElement).className === 'ext') {
+                e.preventDefault();
+                nameRef.current?.focus();
+              }
+            }}
+          >
             <input
+              ref={nameRef}
               id="ze-tplsel-projname"
               className="ze-tplsel-nameinput"
               value={projectName}
