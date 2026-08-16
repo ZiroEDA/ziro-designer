@@ -118,7 +118,7 @@
       "description": "Default KiCad project template.",
       "icon": null,
       "html": "/templates/default/meta/info.html",
-      "category": "system",
+      "category": "user",
       "files": [
         "default.kicad_pro"
       ]

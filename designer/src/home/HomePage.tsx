@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { MenuBar, type Menu } from '../ui/MenuBar.js';
 import {
   storageAvailable,
@@ -25,7 +25,19 @@ import {
 import type { SyncResult } from '../cloud/sync.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
-import { loadTemplates, createFromTemplate, type TemplateMeta } from './templates.js';
+import {
+  loadTemplates,
+  createFromTemplate,
+  templateSourceFiles,
+  renameRel as renameTemplateRel,
+  type TemplateMeta,
+} from './templates.js';
+import {
+  deleteUserTemplate,
+  duplicateTemplate,
+  listUserTemplates,
+  userTemplateFiles,
+} from './user_templates.js';
 import { fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
@@ -53,10 +65,7 @@ import { AboutDialog } from './dialogs/dialog_about.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
-import {
-  NewProjectFolderDialog,
-  TemplateSelectorDialog,
-} from './dialogs/dialog_template_selector.js';
+import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
@@ -348,11 +357,41 @@ export function HomePage({
       /* storage blocked; recents just won't survive the reload */
     }
   }, [recentTemplates]);
-  const [tplSel, setTplSel] = useState<TemplateMeta | null>(null);
-  const [tplName, setTplName] = useState('');
-  useEffect(() => {
-    void loadTemplates().then(setTemplates);
+  // The selected template and the typed name used to be held here, between the
+  // selector closing and the "New Project Folder" window opening. With both on
+  // one window there is nothing to carry across, so OK hands them straight to
+  // createFromTpl.
+  /**
+   * The project names already in use, lowercased.
+   *
+   * `ingest` reuses an existing record of the same name so that reopening a
+   * folder updates it instead of piling up duplicates - which is right for
+   * reopening and wrong for creating, where it silently replaced the project
+   * that was already there. The selector refuses a taken name rather than
+   * letting it reach that path.
+   */
+  const takenProjectNames = useMemo(() => new Set(saved.map((p) => p.name.toLowerCase())), [saved]);
+  /**
+   * BuildTemplateList scans both roots every time, and RefreshTemplateList
+   * re-runs it whenever the watcher sees the directories change. Duplicating or
+   * deleting is that change here, so the list is rebuilt from both sources.
+   */
+  const refreshTemplates = useCallback(async (): Promise<void> => {
+    const [bundled, mine] = await Promise.all([loadTemplates(), listUserTemplates()]);
+    setTemplates([...bundled, ...mine]);
   }, []);
+  useEffect(() => {
+    void refreshTemplates();
+  }, [refreshTemplates]);
+  /** onDuplicateTemplate, once its wxTextEntryDialog has a name. */
+  const duplicateTpl = async (source: TemplateMeta, newId: string): Promise<void> => {
+    await duplicateTemplate(source, newId, async (t) => {
+      const files =
+        t.source === 'user' ? await userTemplateFiles(t.id) : await templateSourceFiles(t);
+      return files.map((f) => ({ name: f.name, bytes: f.bytes! }));
+    });
+    await refreshTemplates();
+  };
   // Bundled demo projects (File > Open Demo Project).
   const [demos, setDemos] = useState<DemoMeta[]>([]);
   useEffect(() => {
@@ -604,25 +643,33 @@ export function HomePage({
   // manager tree, and persist it like an opened project. KiCad leaves the new
   // project in the manager; the user then launches an editor from a tile.
   const openNewProjectDialog = (): void => {
-    setTplSel(null);
-    setTplName('');
     setTplStep('template');
   };
 
   // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
   // real templates copy their contents (renamed, like CreateProject).
-  const createFromTpl = async (): Promise<void> => {
-    const name = sanitizeProjectName(tplName);
-    if (!name || !tplSel) return;
+  const createFromTpl = async (template: TemplateMeta, rawName: string): Promise<void> => {
+    const name = sanitizeProjectName(rawName);
+    if (!name) return;
     setTplStep('none');
     setExpanded(new Set());
-    const files =
-      tplSel.id === DEFAULT_TEMPLATE_ID
-        ? // The default template ships only a .kicad_pro; CreateNewProject is
-          // what fills in the root sheet and the board beside it.
-          newProjectFiles(name)
-        : await createFromTemplate(tplSel, name);
+    let files: PickedHomeFile[];
+    if (template.id === DEFAULT_TEMPLATE_ID) {
+      // The default template ships only a .kicad_pro; CreateNewProject is
+      // what fills in the root sheet and the board beside it.
+      files = newProjectFiles(name);
+    } else if (template.source === 'user') {
+      // A stored template's files are already the template's own; the same
+      // CreateProject rename applies on the way into a project.
+      const stored = await userTemplateFiles(template.id);
+      files = stored.map((f) => ({
+        ...f,
+        name: `${name}/${renameTemplateRel(f.name, template.base, name)}`,
+      }));
+    } else {
+      files = await createFromTemplate(template, name);
+    }
     if (files.length === 0) return;
     await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
   };
@@ -1261,32 +1308,31 @@ export function HomePage({
         <TemplateSelectorDialog
           templates={templates}
           recentTemplates={recentTemplates}
+          takenNames={takenProjectNames}
           onCancel={() => setTplStep('none')}
-          onOk={(t) => {
+          onOk={(t, name) => {
             if (!t) {
               // KICAD_MANAGER_CONTROL::NewProject's own answer when the dialog
               // returns wxID_OK with no template chosen.
               window.alert('No project template was selected.  Cannot generate new project.');
               return;
             }
-            setTplSel(t);
             // settings->m_RecentTemplates: erase the duplicate, insert at the
             // front, then `if( recentTemplates.size() > 5 ) resize( 5 )`. We had
             // been keeping 8, so the recent list grew three rows past KiCad's.
             setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 5));
-            setTplStep('name');
+            void createFromTpl(t, name);
           }}
-        />
-      )}
-
-      {tplStep === 'name' && (
-        <NewProjectFolderDialog
-          name={tplName}
-          onName={setTplName}
-          // Cancelling the folder step drops back to the selector, which is
-          // where upstream's Go Back would have put you.
-          onCancel={() => setTplStep('template')}
-          onCreate={() => void createFromTpl()}
+          // onEditTemplate: find the template's .kicad_pro and LoadProject it.
+          // The original is read-only here, so what opens is a copy under the
+          // template's own name - you can look at exactly what it contains, and
+          // the template itself cannot be damaged.
+          onOpenTemplate={(t) => void createFromTpl(t, t.id)}
+          onDuplicate={duplicateTpl}
+          onDelete={async (t) => {
+            await deleteUserTemplate(t.id);
+            await refreshTemplates();
+          }}
         />
       )}
 

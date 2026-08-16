@@ -163,9 +163,29 @@ console.log(`Scanning ${SYSTEM_DIR}`);
 const system = collect(SYSTEM_DIR, 'system');
 console.log(`  ${system.length} system templates`);
 console.log(`Scanning ${USER_DIR}`);
-// The built-in default is treated as a system template, not a user one
-// (BuildTemplateList: "Treated as a built-in, not a user template").
-const user = collect(USER_DIR, 'system');
+/*
+ * `default` is a USER template on a stock install, despite BuildTemplateList's
+ * "Treated as a built-in, not a user template" comment. That line describes
+ * scanDirectory( m_defaultTemplatesPath, false ), and on a stock install that
+ * scan never happens.
+ *
+ * KICAD_USER_TEMPLATE_DIR is not an opt-in variable. common_settings.cpp
+ * registers it with a default:
+ *
+ *     addVar( wxT( "KICAD_USER_TEMPLATE_DIR" ), PATHS::GetUserTemplatesPath() );
+ *
+ * so it is always set, even with `"vars": null` in kicad_common.json. NewProject
+ * therefore fills userTemplatesPath with ~/.local/share/kicad/<ver>/template/,
+ * and then blanks the separate default scan because the seeded default lives
+ * inside it:
+ *
+ *     if( defaultRoot == userTemplatesPath || defaultRoot == systemTemplatesPath )
+ *         defaultTemplatesPath = wxEmptyString;
+ *
+ * What is left is scanDirectory( m_userTemplatesPath, true ). The "built-in"
+ * path only applies when someone repoints KICAD_USER_TEMPLATE_DIR elsewhere.
+ */
+const user = collect(USER_DIR, 'user');
 console.log(`  ${user.length} templates`);
 
 const all = [...system, ...user];

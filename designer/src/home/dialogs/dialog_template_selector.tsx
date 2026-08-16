@@ -61,16 +61,28 @@ type DialogState = 'initial' | 'preview' | 'mruWithPreview';
 export function TemplateSelectorDialog({
   templates,
   recentTemplates,
+  takenNames,
   onCancel,
   onOk,
+  onOpenTemplate,
+  onDuplicate,
+  onDelete,
 }: {
   templates: readonly TemplateMeta[];
   /** settings->m_RecentTemplates, newest first. */
   recentTemplates?: readonly string[];
+  /** Existing project names, lowercased, so a clash can be caught before Create. */
+  takenNames?: ReadonlySet<string>;
   onCancel: () => void;
   /** wxID_OK. `null` when nothing is selected, which upstream allows and the
    *  caller answers with "No project template was selected." */
-  onOk: (template: TemplateMeta | null) => void;
+  onOk: (template: TemplateMeta | null, projectName: string) => void;
+  /** wxID_APPLY: onEditTemplate loaded a project instead of creating one. */
+  onOpenTemplate?: (template: TemplateMeta) => void;
+  /** onDuplicateTemplate, once the new name has been accepted. */
+  onDuplicate?: (template: TemplateMeta, newId: string) => Promise<void>;
+  /** Removing a stored template; upstream leaves this to the file manager. */
+  onDelete?: (template: TemplateMeta) => Promise<void>;
 }): JSX.Element {
   // m_filterChoice's selection is persisted as m_TemplateFilterChoice.
   const [filterChoice, setFilterChoice] = useState(() => {
@@ -92,6 +104,18 @@ export function TemplateSelectorDialog({
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; template: TemplateMeta } | null>(
     null,
   );
+  /**
+   * The project name, which upstream asks for in a second window - a
+   * wxFileDialog titled "New Project Folder". That dialog is a filesystem
+   * browser: a folder tree, a shortcut to the default projects path, and a
+   * "Create a new folder for the project" checkbox. None of it means anything
+   * against an account, so replacing it with a lone text box left a second
+   * window carrying one field. The field lives in this dialog's button row
+   * instead, and OK does what OK plus that dialog used to.
+   */
+  const [projectName, setProjectName] = useState('');
+  /** onDuplicateTemplate's wxTextEntryDialog, defaulted to `<name>_copy`. */
+  const [dupFor, setDupFor] = useState<TemplateMeta | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS);
@@ -177,15 +201,45 @@ export function TemplateSelectorDialog({
     setSelected(mru[0]!);
   }, [mru]);
 
-  /** TEMPLATE_WIDGET::Select -> DIALOG::SetWidget -> SetState( Preview ). */
+  /**
+   * TEMPLATE_WIDGET::Select -> DIALOG::SetWidget -> SetState( Preview ).
+   *
+   * The name follows the template until the user types over it, the way the
+   * file dialog opened on the template's own name.
+   */
+  const nameEdited = useRef(false);
   const selectWidget = (t: TemplateMeta): void => {
     setSelected(t);
     setState('preview');
+    if (!nameEdited.current) setProjectName(t.id);
   };
 
   /** SelectTemplateByPath( path, true ): select, keep the MRU, no preview. */
   const selectKeepingMru = (t: TemplateMeta): void => {
     setSelected(t);
+    if (!nameEdited.current) setProjectName(t.id);
+  };
+
+  const cleanName = sanitizeProjectName(projectName);
+  const nameTaken = cleanName !== '' && !!takenNames?.has(cleanName.toLowerCase());
+  const canCreate = !!selected && cleanName !== '' && !nameTaken;
+
+  /**
+   * OnDoubleClick: `m_dialog->EndModal( wxID_OK )`.
+   *
+   * Upstream could close on the double click alone because the name was still
+   * to come, in the file dialog after it. The name is on this window now, so a
+   * double click on a template whose name is not usable yet selects it and
+   * leaves the name field to be dealt with, rather than closing on a name that
+   * would be refused.
+   */
+  const confirmWith = (t: TemplateMeta): void => {
+    const name = sanitizeProjectName(nameEdited.current ? projectName : t.id);
+    if (name === '' || takenNames?.has(name.toLowerCase())) {
+      selectWidget(t);
+      return;
+    }
+    onOk(t, name);
   };
 
   /** OnBackClicked. */
@@ -230,7 +284,7 @@ export function TemplateSelectorDialog({
                     // TEMPLATE_MRU_WIDGET::OnClick selects without showing the
                     // preview; OnDoubleClick selects and closes with wxID_OK.
                     onClick={() => selectKeepingMru(t)}
-                    onDoubleClick={() => onOk(t)}
+                    onDoubleClick={() => confirmWith(t)}
                   >
                     <img src={t.icon ?? kicadIcon} alt="" />
                     <span className="nm">{t.title}</span>
@@ -299,7 +353,7 @@ export function TemplateSelectorDialog({
                     key={t.id}
                     className={`ze-tplsel-card${selected?.id === t.id ? ' active' : ''}`}
                     onClick={() => selectWidget(t)}
-                    onDoubleClick={() => onOk(t)}
+                    onDoubleClick={() => confirmWith(t)}
                     // onRightClick is bound on the panel and on all three of its
                     // children, so anywhere in the card opens the menu.
                     onContextMenu={(e) => {
@@ -392,22 +446,54 @@ export function TemplateSelectorDialog({
             >
               {[
                 {
+                  // menu.Append( wxID_EDIT, m_isUserTemplate ? _( "Edit Template" )
+                  //                                          : _( "Open Template (Read-Only)" ) );
                   label:
                     ctxMenu.template.category === 'user'
                       ? 'Edit Template'
                       : 'Open Template (Read-Only)',
-                  why: 'Templates are served read-only here, so there is no copy on disk to open',
+                  run: onOpenTemplate ? () => onOpenTemplate(ctxMenu.template) : undefined,
+                  why: undefined as string | undefined,
                 },
                 {
                   label: 'Open Template Folder',
+                  run: undefined,
+                  // wxLaunchDefaultApplication on the template directory. This
+                  // is the one action with no browser equivalent at all: a page
+                  // cannot ask the desktop to open a file manager. It stays in
+                  // its upstream slot, disabled, rather than being quietly
+                  // repurposed into something KiCad does not do.
                   why: 'Opening a folder needs the desktop file manager, which a browser cannot reach',
                 },
                 {
                   label: 'Duplicate Template',
-                  why: 'Duplicating writes into the user templates directory, which does not exist here',
+                  run: onDuplicate ? () => setDupFor(ctxMenu.template) : undefined,
+                  why: undefined,
                 },
-              ].map(({ label, why }) => (
-                <div key={label} className="ze-mitem disabled" title={why}>
+                ...(ctxMenu.template.source === 'user' && onDelete
+                  ? [
+                      {
+                        // Not an upstream menu entry: there, a template is
+                        // removed with the file manager the row above opens.
+                        // With no file manager to send anyone to, deleting has
+                        // to be reachable from here or a duplicate is forever.
+                        label: 'Delete Template',
+                        run: () => void onDelete(ctxMenu.template),
+                        why: undefined,
+                      },
+                    ]
+                  : []),
+              ].map(({ label, run, why }) => (
+                <div
+                  key={label}
+                  className={`ze-mitem${run ? '' : ' disabled'}`}
+                  title={why}
+                  onClick={() => {
+                    if (!run) return;
+                    setCtxMenu(null);
+                    run();
+                  }}
+                >
                   <span className="mico" />
                   <span className="lbl">{label}</span>
                 </div>
@@ -415,6 +501,28 @@ export function TemplateSelectorDialog({
             </div>
           </>
         )}
+
+        {/* The name row, standing in for the whole "New Project Folder" window.
+            A wxFileDialog's job is to choose a directory and a filename; here
+            there is no directory, so all that survives is the name - and a
+            second window for one field was the wrong shape for it. */}
+        <div className="ze-tplsel-name">
+          <label htmlFor="ze-tplsel-projname">Project name</label>
+          <input
+            id="ze-tplsel-projname"
+            className={`ze-tplsel-nameinput${nameTaken ? ' bad' : ''}`}
+            value={projectName}
+            placeholder={selected ? selected.id : 'Select a template first'}
+            onChange={(e) => {
+              nameEdited.current = true;
+              setProjectName(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && canCreate) onOk(selected, cleanName);
+            }}
+          />
+          {nameTaken && <span className="err">A project named “{cleanName}” already exists.</span>}
+        </div>
 
         <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
           <button className="ze-btn" disabled={state === 'initial'} onClick={goBack}>
@@ -429,69 +537,94 @@ export function TemplateSelectorDialog({
                 measured on a real dialog, OK and Cancel are the same grey. Ours
                 was .primary, so it wore an orange ring the whole time.
 
-                It is also never disabled. Upstream lets OK through with nothing
-                selected and the caller reports it:
-                  wxMessageBox( _( "No project template was selected.  Cannot
-                                    generate new project." ), ... ) */}
-            <button className="ze-btn" onClick={() => onOk(selected)}>
+                Upstream leaves OK always enabled because the checks it needs -
+                a template, a name, a name that is free - all live in the file
+                dialog and the message boxes after it. Those checks are on this
+                window now, so the button carries them. */}
+            <button
+              className="ze-btn"
+              disabled={!canCreate}
+              onClick={() => onOk(selected, cleanName)}
+            >
               OK
             </button>
           </div>
         </div>
+
+        {dupFor && (
+          <DuplicateTemplateDialog
+            source={dupFor}
+            taken={new Set(templates.map((t) => t.id.toLowerCase()))}
+            onCancel={() => setDupFor(null)}
+            onConfirm={async (newId) => {
+              setDupFor(null);
+              await onDuplicate?.(dupFor, newId);
+            }}
+          />
+        )}
       </div>
     </div>
   );
 }
 
 /**
- * The second window: upstream's wxFileDialog( _( "New Project Folder" ) ), which
- * asks for a name and a location. A project lives in the account here rather
- * than a directory, so only the name is asked; the title is upstream's so the
- * step is recognisable.
+ * onDuplicateTemplate's name prompt.
+ *
+ *     wxTextEntryDialog nameDlg( m_dialog, _( "Enter name for the new template:" ),
+ *                                _( "Duplicate Template" ), srcTemplateName + _( "_copy" ) );
+ *
+ * Upstream refuses an empty name with "Template name cannot be empty."; a name
+ * already in the list is refused here too, because two templates sharing a
+ * directory name is exactly what a filesystem would have prevented.
  */
-export function NewProjectFolderDialog({
-  name,
-  onName,
+export function DuplicateTemplateDialog({
+  source,
+  taken,
   onCancel,
-  onCreate,
+  onConfirm,
 }: {
-  name: string;
-  onName: (name: string) => void;
+  source: TemplateMeta;
+  taken: ReadonlySet<string>;
   onCancel: () => void;
-  onCreate: () => void;
+  onConfirm: (newId: string) => void;
 }): JSX.Element {
-  const ok = !!sanitizeProjectName(name);
+  const [name, setName] = useState(`${source.id}_copy`);
+  const clean = sanitizeProjectName(name);
+  const clash = clean !== '' && taken.has(clean.toLowerCase());
+  const ok = clean !== '' && !clash;
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div className="ze-modal ze-newprjfolder" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          New Project Folder
+          Duplicate Template
           <span className="x" title="Cancel" onClick={onCancel}>
             ✕
           </span>
         </div>
         <div className="ze-modal-body ze-newprjfolder-body">
           <label>
-            <span>Project name</span>
+            <span>Enter name for the new template:</span>
             <input
               className="ze-search"
               autoFocus
-              placeholder="untitled"
               value={name}
-              onChange={(e) => onName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && ok) onCreate();
+                if (e.key === 'Enter' && ok) onConfirm(clean);
                 else if (e.key === 'Escape') onCancel();
               }}
             />
           </label>
+          {clash && (
+            <div className="ze-tplsel-nameerr">A template named “{clean}” already exists.</div>
+          )}
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={onCancel}>
             Cancel
           </button>
-          <button className="ze-btn primary" disabled={!ok} onClick={onCreate}>
-            Save
+          <button className="ze-btn" disabled={!ok} onClick={() => onConfirm(clean)}>
+            OK
           </button>
         </div>
       </div>
