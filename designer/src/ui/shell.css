@@ -1192,6 +1192,14 @@ body {
 .ze-tplsel-namewrap.bad {
   border-color: #c01c28;
 }
+/* Insensitive until a template is chosen, faded the way the shell fades every
+   other disabled control (`.ze-app input:disabled` is opacity 0.55). The
+   wrapper carries it because the frame and the extension are the wrapper's, and
+   only the entry inside it is really disabled. */
+.ze-tplsel-namewrap.disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 /* Carried on the input's own class rather than as `.ze-tplsel-name input`: a
    descendant type selector has to be qualified with .ze-app to outrank the
    shell's blanket `.ze-app input`, and that lands high enough to make every

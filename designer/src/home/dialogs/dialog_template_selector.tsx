@@ -459,16 +459,12 @@ export function TemplateSelectorDialog({
                   run: onOpenTemplate ? () => onOpenTemplate(ctxMenu.template) : undefined,
                   why: undefined as string | undefined,
                 },
-                {
-                  label: 'Open Template Folder',
-                  run: undefined,
-                  // wxLaunchDefaultApplication on the template directory. This
-                  // is the one action with no browser equivalent at all: a page
-                  // cannot ask the desktop to open a file manager. It stays in
-                  // its upstream slot, disabled, rather than being quietly
-                  // repurposed into something KiCad does not do.
-                  why: 'Opening a folder needs the desktop file manager, which a browser cannot reach',
-                },
+                // Upstream's second entry, "Open Template Folder", is dropped
+                // rather than carried disabled. It is wxLaunchDefaultApplication
+                // on the template directory, and there is no version of that a
+                // page can ever do - unlike the greyed entries elsewhere in this
+                // app, which mark work that is still to come. A row that can
+                // never be enabled is just noise in the menu.
                 {
                   label: 'Duplicate Template',
                   run: onDuplicate ? () => setDupFor(ctxMenu.template) : undefined,
@@ -478,9 +474,9 @@ export function TemplateSelectorDialog({
                   ? [
                       {
                         // Not an upstream menu entry: there, a template is
-                        // removed with the file manager the row above opens.
-                        // With no file manager to send anyone to, deleting has
-                        // to be reachable from here or a duplicate is forever.
+                        // removed with the file manager. With no file manager to
+                        // send anyone to, deleting has to be reachable from here
+                        // or a duplicate is forever.
                         label: 'Delete Template',
                         run: () => void onDelete(ctxMenu.template),
                         why: undefined,
@@ -521,9 +517,14 @@ export function TemplateSelectorDialog({
           {/* The box is wider than the filename inside it, so a click on the
               empty part - or on the extension - has to land in the entry, the
               way clicking anywhere in a rename field does. */}
+          {/* Naming comes second. There is nothing to name until a template is
+              picked - the name defaults from the template and the files created
+              are the template's - so the field is dead until then and says why,
+              rather than accepting a name that the next click would overwrite. */}
           <div
-            className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}`}
+            className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}${selected ? '' : ' disabled'}`}
             onMouseDown={(e) => {
+              if (!selected) return;
               if (e.target === e.currentTarget || (e.target as HTMLElement).className === 'ext') {
                 e.preventDefault();
                 nameRef.current?.focus();
@@ -535,6 +536,7 @@ export function TemplateSelectorDialog({
               id="ze-tplsel-projname"
               className="ze-tplsel-nameinput"
               value={projectName}
+              disabled={!selected}
               placeholder={selected ? selected.id : 'Select a template first'}
               onChange={(e) => {
                 nameEdited.current = true;
