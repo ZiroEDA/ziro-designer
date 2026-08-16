@@ -63,6 +63,11 @@ const EXCUSED: Record<string, Record<string, string>> = {
     lastOpenedAt:
       'deliberately not carried: a pulled project sorts by its new updatedAt, ' +
       'which is what "someone else just changed this" should do to Recent',
+    templateId:
+      'nothing to carry: the cloud row has no such field. The link from a ' +
+      'project to the template it edits is local, so a project pulled onto a ' +
+      'second machine arrives as an ordinary project. The template itself ' +
+      'syncs (templateSync.ts), so Edit Template there makes a bound one again',
   },
   forkLocalCopy: {
     id: 'a fresh id — the copy is a new project',
@@ -74,6 +79,10 @@ const EXCUSED: Record<string, Record<string, string>> = {
     name: 'the argument: "<name> (local copy, <date>)"',
     syncedAt: 'deliberately absent: the copy has never agreed with the cloud',
     lastOpenedAt: 'never opened; it sorts by updatedAt beside its original',
+    templateId:
+      'deliberately absent: a fork is a new project, and two projects both ' +
+      'bound to one template would each mirror their saves into it and ' +
+      'overwrite each other. The original keeps the binding',
   },
 };
 

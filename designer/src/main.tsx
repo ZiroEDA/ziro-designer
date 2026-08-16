@@ -14,7 +14,8 @@ import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
-import { checkStorageHealth } from './home/projectStore.js';
+import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
+import { updateUserTemplateFiles } from './home/user_templates.js';
 import { authEnabled } from './auth/supabaseClient.js';
 import { setCloudBackend } from './cloud/cloudStore.js';
 import { supabaseBackend } from './cloud/supabaseBackend.js';
@@ -36,6 +37,14 @@ installGlobalErrorHandlers();
 // Fire-and-forget on purpose: a rejection is already reported through the
 // health layer, and a storage probe must never be able to stop the app booting.
 void checkStorageHealth().catch(() => undefined);
+
+// Edit Template opens a template as a project; this is what sends each save
+// back into the template it came from, so editing a template edits the template
+// rather than forking it. Installed here rather than imported by the project
+// store, which would point that dependency backwards - see setTemplateSink.
+setTemplateSink((templateId, files, projectName) =>
+  updateUserTemplateFiles(templateId, files, projectName).then(() => undefined),
+);
 
 // The cloud store works against an interface so its failure paths are reachable
 // from tests; this is where the real transport goes in. Without Supabase

@@ -100,6 +100,31 @@ interface StoredRecord {
    * at an object that is gone.
    */
   pushedHashes?: string[];
+  /**
+   * The user template this project *is*, when it was opened with Edit Template.
+   *
+   * KiCad's onEditTemplate opens the template's own .kicad_pro in place, so the
+   * template directory and the project directory are the same thing and editing
+   * one edits the other. There is no shared directory here, so the link is
+   * recorded and `updateProjectFiles` mirrors each save back into the template
+   * store. Absent on every ordinary project, which is nearly all of them.
+   */
+  templateId?: string;
+}
+
+/**
+ * Where a save of a template-backed project is mirrored to.
+ *
+ * A hook rather than a direct call: the template store is a feature built on
+ * top of the project store, and having the project store import it would point
+ * the dependency the wrong way and drag the template code into every context
+ * that touches a project. Installed once, in main.tsx.
+ */
+type TemplateSink = (templateId: string, files: StoredFile[], projectName: string) => Promise<void>;
+let templateSink: TemplateSink | null = null;
+
+export function setTemplateSink(sink: TemplateSink | null): void {
+  templateSink = sink;
 }
 
 /**
@@ -217,7 +242,12 @@ export function storageAvailable(): boolean {
 }
 
 /** Create/replace a project record. Returns the id (generated when omitted). */
-export async function saveProject(name: string, files: StoredFile[], id?: string): Promise<string> {
+export async function saveProject(
+  name: string,
+  files: StoredFile[],
+  id?: string,
+  templateId?: string,
+): Promise<string> {
   const now = Date.now();
   const pid = id ?? crypto.randomUUID?.() ?? `p${now}-${Math.random().toString(36).slice(2)}`;
   const gzFiles = await Promise.all(
@@ -255,6 +285,13 @@ export async function saveProject(name: string, files: StoredFile[], id?: string
     ...((currentOwner ?? existing?.ownerId)
       ? { ownerId: (currentOwner ?? existing?.ownerId)! }
       : {}),
+    // Carried for the same reason again: the link back to the template this
+    // project is editing is a property of the record, not of one save, and the
+    // save path below is what mirrors the files into the template store. Drop
+    // it here and Edit Template would edit the template exactly once.
+    ...((templateId ?? existing?.templateId)
+      ? { templateId: (templateId ?? existing?.templateId)! }
+      : {}),
   };
   await tx('readwrite', (s) => s.put(record));
   return pid;
@@ -288,6 +325,8 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
   // Read-modify-write over the whole record: without the lock, a second tab
   // saving between the read and the put loses everything the first tab wrote,
   // including files it never touched.
+  let mirrorTo: string | undefined;
+  let mirrorName = '';
   await withRecordLock(id, async () => {
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
@@ -299,7 +338,18 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
     r.files = [...byName.values()];
     r.updatedAt = Date.now();
     await tx('readwrite', (s) => s.put(r));
+    mirrorTo = r.templateId;
+    mirrorName = r.name;
   });
+  // Outside the record lock: the template store is a different database, and
+  // holding this project's lock across a write to it only widens the window in
+  // which a second tab is blocked. Best-effort - a template that fails to
+  // update must not fail the project save that already committed.
+  if (mirrorTo && templateSink) {
+    await templateSink(mirrorTo, changed, mirrorName).catch((e) =>
+      console.warn('Template mirror failed:', e),
+    );
+  }
 }
 
 /** Mark a project as just opened (reorders Recent without touching updatedAt,

@@ -30,7 +30,7 @@
  * anything left relative would render broken.
  */
 import type { PickedHomeFile } from './files.js';
-import type { TemplateMeta } from './templates.js';
+import { renameRel, type TemplateMeta } from './templates.js';
 
 const DB_NAME = 'ziroeda-templates';
 const STORE = 'templates';
@@ -49,7 +49,24 @@ export interface UserTemplateRecord {
   html: string;
   files: { name: string; bytes: Uint8Array }[];
   createdAt: number;
+  /**
+   * Last change, and what the cloud merge orders by. Absent on records written
+   * before syncing existed, which `touch` treats as `createdAt`.
+   */
+  updatedAt?: number;
+  /**
+   * A tombstone. A deleted template has to stay listed, with its files dropped,
+   * or the next pull would see the record still present in the cloud index and
+   * put it back. Cleared only when the row is genuinely gone from every device,
+   * which nothing here tries to work out - the rows are tiny.
+   */
+  deletedAt?: number;
+  /** The moment this record and the cloud index last agreed. */
+  syncedAt?: number;
 }
+
+/** `updatedAt`, defaulting to the creation time for a pre-sync record. */
+export const templateStamp = (r: UserTemplateRecord): number => r.updatedAt ?? r.createdAt;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -87,7 +104,12 @@ function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T
   );
 }
 
-/** Every stored template, newest first. Empty when storage is unavailable. */
+/**
+ * Every stored template, newest first, tombstones included.
+ *
+ * The sync layer needs the tombstones; everything user-facing goes through
+ * `listUserTemplates` below, which drops them.
+ */
 export async function listUserTemplateRecords(): Promise<UserTemplateRecord[]> {
   try {
     const all = await tx<UserTemplateRecord[]>('readonly', (s) => s.getAll());
@@ -95,6 +117,16 @@ export async function listUserTemplateRecords(): Promise<UserTemplateRecord[]> {
   } catch {
     return [];
   }
+}
+
+/** Write a record, stamping it as changed now. */
+export async function putUserTemplate(rec: UserTemplateRecord): Promise<void> {
+  await tx('readwrite', (s) => s.put({ ...rec, updatedAt: Date.now() }));
+}
+
+/** Write a record exactly as given - used by a pull, which must not restamp. */
+export async function putUserTemplateVerbatim(rec: UserTemplateRecord): Promise<void> {
+  await tx('readwrite', (s) => s.put(rec));
 }
 
 /**
@@ -105,7 +137,7 @@ export async function listUserTemplateRecords(): Promise<UserTemplateRecord[]> {
  * given an opaque origin that `allow-same-origin` cannot reopen.
  */
 export async function listUserTemplates(): Promise<TemplateMeta[]> {
-  const recs = await listUserTemplateRecords();
+  const recs = (await listUserTemplateRecords()).filter((r) => !r.deletedAt);
   return recs.map((r) => ({
     id: r.id,
     base: r.base,
@@ -121,14 +153,76 @@ export async function listUserTemplates(): Promise<TemplateMeta[]> {
 
 export async function getUserTemplate(id: string): Promise<UserTemplateRecord | null> {
   try {
+    const rec = await tx<UserTemplateRecord | undefined>('readonly', (s) => s.get(id));
+    return rec && !rec.deletedAt ? rec : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The raw row, tombstone or not. For the sync layer's merge. */
+export async function getUserTemplateRow(id: string): Promise<UserTemplateRecord | null> {
+  try {
     return (await tx<UserTemplateRecord | undefined>('readonly', (s) => s.get(id))) ?? null;
   } catch {
     return null;
   }
 }
 
+/**
+ * Merge changed files into a stored template, which is what makes Edit Template
+ * genuinely edit rather than fork.
+ *
+ * A merge by name rather than a replacement, because the caller is an autosave
+ * carrying only the files that changed - the schematic, say, while the board
+ * and the footprint library are untouched and absent from the call. Replacing
+ * would delete everything the editor did not happen to write.
+ *
+ * The project that was opened from the template carries the project's name in
+ * its paths, so the leading directory is stripped back off: a template's files
+ * are relative to the template, exactly as GetFileList() returns them.
+ *
+ * Only the files move. The page, the icon and the description belong to the
+ * template, not to the project opened from it.
+ */
+export async function updateUserTemplateFiles(
+  id: string,
+  files: { name: string; bytes: Uint8Array }[],
+  projectName: string,
+): Promise<boolean> {
+  const rec = await getUserTemplate(id);
+  if (!rec) return false;
+  const byName = new Map(rec.files.map((f) => [f.name, f]));
+  for (const f of files) {
+    // Strip the project directory, then undo CreateProject's rename. That
+    // rename is `base -> projectName` over names and directory segments, so
+    // running renameRel with the two swapped puts the path back: a project file
+    // "MyCopy/MyCopy.kicad_sch" is the template's "API_Series-500.kicad_sch".
+    const stripped = f.name.replace(/\\/g, '/').split('/').slice(1).join('/') || f.name;
+    const rel = renameRel(stripped, projectName, rec.base);
+    // Only files the template already has: a project may grow files of its own
+    // (a netlist, an export) and those are not part of the template.
+    if (byName.has(rel)) byName.set(rel, { name: rel, bytes: f.bytes });
+  }
+  await putUserTemplate({ ...rec, files: [...byName.values()] });
+  return true;
+}
+
+/**
+ * Delete, as a tombstone rather than a removal.
+ *
+ * Dropping the row outright would be undone by the next pull: the cloud index
+ * would still list the template, and nothing in the merge could tell "deleted
+ * here" from "not yet arrived here". The files go, so the space is reclaimed;
+ * what stays is a few fields saying when it went.
+ */
 export async function deleteUserTemplate(id: string): Promise<void> {
-  await tx('readwrite', (s) => s.delete(id));
+  const rec = await getUserTemplate(id);
+  if (!rec) return;
+  const now = Date.now();
+  await tx('readwrite', (s) =>
+    s.put({ ...rec, files: [], html: '', icon: null, deletedAt: now, updatedAt: now }),
+  );
 }
 
 /** A stored template's files, ready for the same rename CreateProject applies. */
@@ -235,6 +329,6 @@ export async function duplicateTemplate(
     files,
     createdAt: Date.now(),
   };
-  await tx('readwrite', (s) => s.put(rec));
+  await putUserTemplate(rec);
   return rec;
 }

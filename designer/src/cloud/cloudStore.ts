@@ -45,6 +45,7 @@ import {
   sha256Hex,
 } from './blobStore.js';
 import type { SyncableProject } from '../home/projectStore.js';
+import { syncUserTemplates, type TemplateSyncResult } from './templateSync.js';
 
 let backend: CloudBackend | null = null;
 
@@ -66,6 +67,19 @@ export const cloudBackendInstalled = (): boolean => backend !== null;
 function need(): CloudBackend {
   if (!backend) throw new Error('cloud: no backend installed');
   return backend;
+}
+
+/**
+ * Reconcile the user's templates with the account.
+ *
+ * Here rather than in `templateSync.ts` because the installed transport is
+ * private to this module, the same reason `cloudUpsert` and friends live here
+ * and not beside their callers. A no-op with no backend, so signing in to a
+ * deployment without cloud configured does nothing rather than throwing.
+ */
+export async function syncTemplates(userId: string): Promise<TemplateSyncResult> {
+  if (!backend) return { pushed: 0, pulled: 0 };
+  return syncUserTemplates(backend, userId);
 }
 
 const b64ToBytes = (b64: string): Uint8Array => {

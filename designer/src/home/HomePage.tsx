@@ -23,6 +23,7 @@ import {
   forgetDamagedProject,
 } from '../cloud/sync.js';
 import type { SyncResult } from '../cloud/sync.js';
+import { syncTemplates as syncUserTemplates } from '../cloud/cloudStore.js';
 import { LoadingOverlay, nextPaint } from '../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../ui/progress_reporter.js';
 import {
@@ -537,9 +538,20 @@ export function HomePage({
         if (done > 0) refreshSaved();
       }
     })
-      .then((r) => {
+      .then(async (r) => {
         if (cancelled) return;
         refreshSaved();
+        // Templates ride the same account, through the same blob store, but a
+        // separate index object (templateSync.ts). Awaited after the projects
+        // rather than beside them so a template failure cannot mask a project
+        // one, and swallowed: a template that will not sync is worth a console
+        // line, not a red banner over the user's projects.
+        try {
+          const t = await syncUserTemplates(userId);
+          if (!cancelled && t.pulled > 0) await refreshTemplates();
+        } catch (e) {
+          console.warn('Template sync failed:', e);
+        }
         // A failure has to stay on screen. The previous version logged to the
         // console and then showed the success tick regardless, so a sync in
         // which every project failed was indistinguishable from a clean one.
@@ -567,7 +579,9 @@ export function HomePage({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+    // refreshTemplates is a useCallback with no dependencies of its own, so
+    // naming it here is free: the effect still runs once per sign-in.
+  }, [userId, refreshTemplates]);
 
   // Derive a project name from the .kicad_pro (else the root .kicad_sch, else folder).
   const projectNameOf = (files: PickedHomeFile[]): string => {
@@ -585,7 +599,11 @@ export function HomePage({
   // survives a save, archive, and reopen instead of collapsing to sch+pcb. The
   // storage layer gzips text ~10x, so keeping the libs is cheap. The project is
   // persisted to IndexedDB so it survives a reload with no login.
-  const ingest = async (files: IngestFile[], persist = true): Promise<string | null> => {
+  const ingest = async (
+    files: IngestFile[],
+    persist = true,
+    templateId?: string,
+  ): Promise<string | null> => {
     setLoading({ message: 'Reading files…', value: 0 });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
@@ -621,6 +639,7 @@ export function HomePage({
               name,
               withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
               existing?.id,
+              templateId,
             );
             saved = pid;
             refreshSaved();
@@ -649,7 +668,17 @@ export function HomePage({
   // Upstream v10 NewProject flow: the template selector creates the project,
   // the built-in "Default" template scaffolds the three blank project files,
   // real templates copy their contents (renamed, like CreateProject).
-  const createFromTpl = async (template: TemplateMeta, rawName: string): Promise<void> => {
+  const createFromTpl = async (
+    template: TemplateMeta,
+    rawName: string,
+    /**
+     * onEditTemplate rather than OK: the project that comes out is bound to the
+     * template, so every save is mirrored back into it (see setTemplateSink).
+     * Only a user template can be edited - a bundled one is served read-only,
+     * which is why upstream's label for those is "Open Template (Read-Only)".
+     */
+    editing = false,
+  ): Promise<void> => {
     const name = sanitizeProjectName(rawName);
     if (!name) return;
     setTplStep('none');
@@ -671,7 +700,11 @@ export function HomePage({
       files = await createFromTemplate(template, name);
     }
     if (files.length === 0) return;
-    await ingest(files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })));
+    await ingest(
+      files.map((f) => ({ name: f.name, bytesOf: async () => f.bytes! })),
+      true,
+      editing && template.source === 'user' ? template.id : undefined,
+    );
   };
 
   // File > Save As: copy the whole project under a new name and persist it.
@@ -1327,7 +1360,10 @@ export function HomePage({
           // The original is read-only here, so what opens is a copy under the
           // template's own name - you can look at exactly what it contains, and
           // the template itself cannot be damaged.
-          onOpenTemplate={(t) => void createFromTpl(t, t.id)}
+          // Opened under the template's own basename, so CreateProject's rename
+          // is a no-op and the files line up 1:1 with the template's - which is
+          // what lets a save be mirrored straight back.
+          onOpenTemplate={(t) => void createFromTpl(t, t.base || t.id, true)}
           onDuplicate={duplicateTpl}
           onDelete={async (t) => {
             await deleteUserTemplate(t.id);
