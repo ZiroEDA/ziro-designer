@@ -43,6 +43,7 @@ import type { TemplateMeta } from '../templates.js';
 //   bundle = KiBitmapBundleDef( BITMAPS::icon_kicad, c_bitmapSizes[0] );  // 48
 // `default` and STM32H7_DevEBox ship without one, so they wear this.
 import kicadIcon from '../../assets/icon_kicad.png';
+import { styleTemplatePreview } from './template_preview_styles.js';
 import {
   FILTERS,
   SEARCH_DEBOUNCE_MS,
@@ -337,7 +338,15 @@ export function TemplateSelectorDialog({
                     className="ze-tplsel-html"
                     src={selected.html}
                     title={`${selected.title} template information`}
-                    sandbox=""
+                    // allow-same-origin, and nothing else. It is what lets us
+                    // reach contentDocument to append the stylesheet, the way
+                    // OnWebViewLoaded's RunScriptAsync does. Without
+                    // allow-scripts the page still cannot execute anything of
+                    // its own - no scripts, no forms, no popups, no navigating
+                    // the top frame - and these files are our own vendored
+                    // copies of KiCad's, served from this origin.
+                    sandbox="allow-same-origin"
+                    onLoad={(e) => styleTemplatePreview(e.currentTarget)}
                   />
                 ) : selected ? (
                   // GetTemplateInfoHtml( title, dark ): the generated stand-in

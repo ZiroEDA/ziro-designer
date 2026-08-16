@@ -1034,18 +1034,29 @@ body {
   margin: 5px;
   gap: 4px;
 }
-/* EnsurePreviewSplit puts the sash a third of the way across the first time the
-   preview appears:
+/* The sash lands at 300, and the `width / 3` in EnsurePreviewSplit is a
+   fallback that never runs. Reading that function alone gives the wrong answer:
 
-     int width = m_splitter->GetClientSize().GetWidth();
-     sashPos = width > 0 ? width / 3 : FromDIP( 300 );
+     int sashPos = m_previewSashPos;
+     if( sashPos <= 0 ) { ... sashPos = width / 3; }
 
-   so the template list keeps a third and the preview takes two. We had both
-   panes on `flex: 1 1`, which split them down the middle and made the list
-   jump much further than KiCad's does when a template is clicked.
-   200 is the splitter's SetMinimumPaneSize( 200 ), which both panes obey. */
+   m_previewSashPos is not 0 by the time a template is first clicked. The base
+   class splits at 300 in its constructor -
+   SplitVertically( m_panelTemplates, m_panelPreview, 300 ) - and SetState(
+   Initial ), which the dialog's constructor calls, reads that position back
+   before it unsplits:
+
+     m_previewSashPos = m_splitter->GetSashPosition();   // 300
+     m_splitter->Unsplit( m_panelPreview );
+
+   so the preview always re-splits at 300. m_splitterOnIdle sets the same 300 on
+   the first idle event. A third of 640 is 213, which is why the list looked
+   too narrow.
+
+   0 1 300px, not 0 0: 200 is SetMinimumPaneSize( 200 ) and the pane has to be
+   able to give way to it once the dialog is near its 500px floor. */
 .ze-tplsel-templates {
-  flex: 1 1 33.333%;
+  flex: 0 1 300px;
   min-width: 200px;
   display: flex;
   flex-direction: column;
@@ -1204,8 +1215,8 @@ body {
 
 /* m_panelPreview, split in only from the Preview states. */
 .ze-tplsel-preview {
-  /* The other two thirds of the sash position; see .ze-tplsel-templates. */
-  flex: 1 1 66.667%;
+  /* Whatever the sash leaves; see .ze-tplsel-templates. */
+  flex: 1 1 auto;
   min-width: 200px;
   display: flex;
   overflow: auto;
@@ -1214,13 +1225,14 @@ body {
   border-radius: 4px;
   margin: 5px;
 }
-/* The WEBVIEW_PANEL. The template's own page paints its own background, so this
-   carries no colour of its own and no border - the pane already drew one. */
+/* The WEBVIEW_PANEL. The page paints its own background once OnWebViewLoaded's
+   stylesheet is in - see template_preview_styles.ts - so the frame only needs
+   to match --bg-primary for the moment before that lands. */
 .ze-tplsel-html {
   flex: 1 1 auto;
   min-width: 0;
   border: none;
-  background: #fff;
+  background: #1e1e1e;
 }
 .ze-tplsel-info {
   padding: 18px 20px;
