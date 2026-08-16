@@ -84,6 +84,7 @@ import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/t
 import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
 import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
+import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -1921,7 +1922,7 @@ function imageFor(im: { data: string; uuid?: string }): ImageEntry | null {
       entry!.ready = true;
       g_invalidate?.();
     };
-    img.src = `data:image/png;base64,${im.data}`;
+    img.src = imageDataUrl(im.data);
     g_images.set(key, entry);
   }
   return entry.ready ? entry : null;

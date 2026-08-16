@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
+import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
 
 export interface ImagePropsResult {
   at: { x: number; y: number };
@@ -69,7 +70,7 @@ export function DialogImageProperties({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
     };
-    img.src = `data:image/png;base64,${data}`;
+    img.src = imageDataUrl(data);
   }, [data]);
 
   /**
@@ -97,7 +98,7 @@ export function DialogImageProperties({
       ctx.putImageData(pixels, 0, 0);
       setData(work.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''));
     };
-    img.src = `data:image/png;base64,${data}`;
+    img.src = imageDataUrl(data);
   };
 
   const submit = (): void => {
