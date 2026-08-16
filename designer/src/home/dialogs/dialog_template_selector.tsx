@@ -97,6 +97,60 @@ export function TemplateSelectorDialog({
     return () => clearTimeout(id);
   }, [searchText]);
 
+  /**
+   * settings->m_TemplateWindowSize, read into the constructor and written back
+   * once the dialog is done - not while it is being dragged:
+   *
+   *     result = ps.ShowModal();
+   *     templateWindowSize = ps.GetSize();
+   *     ...
+   *     settings->m_TemplateWindowSize = templateWindowSize;
+   *
+   * So the restore happens on mount and the store on unmount, which is what
+   * ShowModal returning means here. Its default is wxDefaultSize, which is why
+   * a fresh profile opens at the sizer's best fit rather than a stored number.
+   * m_TemplateWindowPos is kept alongside it upstream; a modal here is centred
+   * by the backdrop, so there is no position to keep.
+   */
+  const frameRef = useRef<HTMLDivElement>(null);
+  const size = useRef<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    try {
+      const saved = localStorage.getItem('ziro.templateWindowSize');
+      if (saved) {
+        const { w, h } = JSON.parse(saved) as { w: number; h: number };
+        // Clamped to SetSizeHints' floor so a stale or hand-edited value cannot
+        // open the dialog smaller than upstream allows.
+        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 400) {
+          el.style.width = `${w}px`;
+          el.style.height = `${h}px`;
+        }
+      }
+    } catch {
+      /* storage blocked or corrupt: open at the default size */
+    }
+    // The size has to be sampled while the element is still in the document:
+    // by the time the cleanup runs React has already detached it, and reading
+    // offsetWidth then yields 0. A resize drag ends in a mouseup, so that is
+    // when the current size is worth recording.
+    const onMouseUp = (): void => {
+      if (el.offsetWidth > 0) size.current = { w: el.offsetWidth, h: el.offsetHeight };
+    };
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mouseup', onMouseUp);
+      const s = size.current;
+      if (!s) return;
+      try {
+        localStorage.setItem('ziro.templateWindowSize', JSON.stringify(s));
+      } catch {
+        /* storage blocked: the resize still works for this session */
+      }
+    };
+  }, []);
+
   const sorted = useMemo(() => sortTemplates(templates), [templates]);
   const shown = useMemo(
     () => applyFilter(sorted, filterChoice, debouncedSearch),
@@ -145,6 +199,7 @@ export function TemplateSelectorDialog({
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
+        ref={frameRef}
         className="ze-modal ze-tplsel"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {

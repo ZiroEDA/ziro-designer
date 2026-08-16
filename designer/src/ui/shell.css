@@ -948,8 +948,17 @@ body {
      outside the client area upstream. */
   width: 652px;
   height: 401px;
+  /* SetSizeHints( wxSize( 500, 400 ), wxDefaultSize ) - the floor, and the
+     reason 401 is the opening height: the sizer's best fit lands on it. */
   min-width: 500px;
   min-height: 400px;
+  /* The dialog's style is wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER, and the size
+     it is dragged to is kept in settings->m_TemplateWindowSize. Without this
+     the dialog was stuck at its opening size, and at that size the template
+     list is narrow enough to clip a card - which upstream answers by letting
+     you widen the window. */
+  resize: both;
+  overflow: hidden;
 }
 /* No padding of its own: bmainSizer->Add( m_mainContent, 1, wxEXPAND, 5 ) has
    no wxALL, so wx ignores that border. The 5px belongs to m_mainContent's
@@ -974,10 +983,12 @@ body {
   /* The dialog's own label colour, measured at 243, not the shell's pure white. */
   color: #f3f4f5;
 }
+/* m_scrolledMRU is wxVSCROLL with SetScrollRate( 0, 25 ) too. */
 .ze-tplsel-mru-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   margin: 5px;
   /* m_sizerMRU adds each row with wxBOTTOM, 2. */
   display: flex;
@@ -1135,10 +1146,17 @@ body {
   width: 160px;
   background: var(--content-bg);
 }
+/* m_scrolledTemplates is created wxVSCROLL and given SetScrollRate( 0, 25 ):
+   a zero rate on x means it never scrolls sideways. A card keeps its
+   SetMinSize( FromDIP( wxSize( 200, -1 ) ) ) and is simply clipped when the
+   pane is narrower - which it is once the preview takes two thirds, and again
+   at the dialog's 500px minimum. Without this the min-width pushed a
+   horizontal scrollbar into a list that has never had one. */
 .ze-tplsel-list {
   flex: 1 1 auto;
   min-height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--content-bg);
   margin: 5px;
   display: flex;
