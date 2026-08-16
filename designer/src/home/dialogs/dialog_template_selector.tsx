@@ -39,6 +39,10 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { sanitizeProjectName } from '../new_project.js';
 import type { TemplateMeta } from '../templates.js';
+// SetTemplate's fallback when the template has no meta/icon.png:
+//   bundle = KiBitmapBundleDef( BITMAPS::icon_kicad, c_bitmapSizes[0] );  // 48
+// `default` and STM32H7_DevEBox ship without one, so they wear this.
+import kicadIcon from '../../assets/icon_kicad.png';
 import {
   FILTERS,
   SEARCH_DEBOUNCE_MS,
@@ -172,7 +176,7 @@ export function TemplateSelectorDialog({
                     onClick={() => selectKeepingMru(t)}
                     onDoubleClick={() => onOk(t)}
                   >
-                    {t.icon ? <img src={t.icon} alt="" /> : <span className="noicon" />}
+                    <img src={t.icon ?? kicadIcon} alt="" />
                     <span className="nm">{t.title}</span>
                   </div>
                 ))}
@@ -247,7 +251,7 @@ export function TemplateSelectorDialog({
                       setCtxMenu({ x: e.clientX, y: e.clientY, template: t });
                     }}
                   >
-                    {t.icon ? <img src={t.icon} alt="" /> : <span className="noicon" />}
+                    <img src={t.icon ?? kicadIcon} alt="" />
                     <span className="txt">
                       <span className="name">{t.title}</span>
                       <span className="desc">{truncateDescription(t.description)}</span>
@@ -259,22 +263,37 @@ export function TemplateSelectorDialog({
 
             {previewVisible && (
               <div className="ze-tplsel-preview">
-                {/* LoadTemplatePreview loads the template's meta/info.html, or
-                    GetTemplateInfoHtml when it has none. Ours have a
-                    description rather than a page, so this renders that. */}
-                {selected ? (
+                {/* LoadTemplatePreview points the WebView at the template's own
+                    meta/info.html:
+                      wxString url = wxFileName::FileNameToURL( htmlFile );
+                      m_webviewPanel->LoadURL( url );
+                    That page is the preview - KiCad is not summarising the
+                    template, it is showing the author's HTML, images and all.
+                    We had been rendering a title, the description and a file
+                    list instead, which is why the right-hand pane looked
+                    nothing like KiCad's.
+
+                    An iframe is the WEBVIEW_PANEL here. It is sandboxed with no
+                    allow-scripts: these pages are vendored KiCad documentation,
+                    but they are still third-party HTML being given a frame, and
+                    they only need to lay out text and images. */}
+                {selected?.html ? (
+                  <iframe
+                    className="ze-tplsel-html"
+                    src={selected.html}
+                    title={`${selected.title} template information`}
+                    sandbox=""
+                  />
+                ) : selected ? (
+                  // GetTemplateInfoHtml( title, dark ): the generated stand-in
+                  // for a template whose info.html is missing or unreadable.
                   <div className="ze-tplsel-info">
+                    <div className="badge">Template</div>
                     <h2>{selected.title}</h2>
-                    <p>{selected.description}</p>
-                    {/* The built-in Default is a synthetic TemplateMeta with
-                        no file list, so this is optional, not just empty. */}
-                    {selected.files && selected.files.length > 0 && (
-                      <ul>
-                        {selected.files.map((f) => (
-                          <li key={f}>{f}</li>
-                        ))}
-                      </ul>
-                    )}
+                    <p>
+                      This template does not include a description. You can still use it to create a
+                      new project.
+                    </p>
                   </div>
                 ) : (
                   <div className="ze-tplsel-info welcome">

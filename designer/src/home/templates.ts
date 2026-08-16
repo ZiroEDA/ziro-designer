@@ -19,6 +19,8 @@ export interface TemplateMeta {
   title: string;
   description: string;
   icon: string | null;
+  /** PROJECT_TEMPLATE::GetHtmlFile(): meta/info.html, which the preview loads. */
+  html?: string;
   /** TEMPLATE_WIDGET::m_isUserTemplate, which m_filterChoice filters on.
    *  Everything we bundle comes out of KiCad's system template directory. */
   category?: 'user' | 'system';

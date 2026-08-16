@@ -139,6 +139,9 @@ function collect(rootDir, category) {
     try {
       statSync(join(dir, 'meta', 'icon.png'));
     } catch {
+      // No meta/icon.png: SetTemplate falls back to the KiCad application icon,
+      //   bundle = KiBitmapBundleDef( BITMAPS::icon_kicad, 48 );
+      // which is what `default` and STM32H7_DevEBox actually show.
       hasIcon = false;
     }
     const files = listFiles(dir);
@@ -183,14 +186,21 @@ for (const t of all) {
     mkdirSync(join(to, '..'), { recursive: true });
     cpSync(join(t.dir, rel), to);
   }
-  if (t.hasIcon) cpSync(join(t.dir, 'meta', 'icon.png'), join(dest, 'icon.png'));
+  // The whole meta directory, not just the icon. LoadTemplatePreview points the
+  // WebView at meta/info.html itself, and those pages carry their own images -
+  // STM32H7_DevEBox's references DevEBox_Board.png and a PDF beside it - so
+  // copying info.html alone would render it with broken images.
+  cpSync(join(t.dir, 'meta'), join(dest, 'meta'), { recursive: true });
 
+  const base = `/templates/${encodeURIComponent(t.id)}`;
   manifest.push({
     id: t.id,
     base: t.base,
     title: t.title,
     description: t.description,
-    icon: t.hasIcon ? `/templates/${encodeURIComponent(t.id)}/icon.png` : null,
+    icon: t.hasIcon ? `${base}/meta/icon.png` : null,
+    /** PROJECT_TEMPLATE::GetHtmlFile(), what the preview pane actually loads. */
+    html: `${base}/meta/info.html`,
     category: t.category,
     files: t.files,
   });

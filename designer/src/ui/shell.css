@@ -993,8 +993,10 @@ body {
   font-size: 10pt;
   flex: 0 0 auto;
 }
-.ze-tplsel-mru-row img,
-.ze-tplsel-mru-row .noicon {
+/* icon->SetMinSize( FromDIP( wxSize( 16, 16 ) ) ) in TEMPLATE_MRU_WIDGET. Every
+   row has a bitmap now: without meta/icon.png it is KiCad's own app icon, so
+   there is no iconless case to style. */
+.ze-tplsel-mru-row img {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
@@ -1021,11 +1023,26 @@ body {
   margin: 5px;
   gap: 4px;
 }
+/* EnsurePreviewSplit puts the sash a third of the way across the first time the
+   preview appears:
+
+     int width = m_splitter->GetClientSize().GetWidth();
+     sashPos = width > 0 ? width / 3 : FromDIP( 300 );
+
+   so the template list keeps a third and the preview takes two. We had both
+   panes on `flex: 1 1`, which split them down the middle and made the list
+   jump much further than KiCad's does when a template is clicked.
+   200 is the splitter's SetMinimumPaneSize( 200 ), which both panes obey. */
 .ze-tplsel-templates {
-  flex: 1 1 300px;
+  flex: 1 1 33.333%;
   min-width: 200px;
   display: flex;
   flex-direction: column;
+}
+/* Unsplit, the list is the whole splitter - the preview pane starts Hidden and
+   only SplitVertically brings it in. */
+.ze-tplsel-splitter > .ze-tplsel-templates:only-child {
+  flex-basis: 100%;
 }
 /* Both are 34px tall, measured. m_searchCtrl is a text entry so it is faced in
    the entry colour and added wxEXPAND - 400px, the width of the list below it.
@@ -1141,8 +1158,8 @@ body {
   min-width: 200px;
   flex: 0 0 auto;
 }
-.ze-tplsel-card img,
-.ze-tplsel-card .noicon {
+/* c_bitmapSizes[0] = 48, and the icon's border is wxTOP|wxBOTTOM|wxLEFT, 5. */
+.ze-tplsel-card img {
   width: 48px;
   height: 48px;
   flex: 0 0 auto;
@@ -1169,7 +1186,8 @@ body {
 
 /* m_panelPreview, split in only from the Preview states. */
 .ze-tplsel-preview {
-  flex: 1 1 auto;
+  /* The other two thirds of the sash position; see .ze-tplsel-templates. */
+  flex: 1 1 66.667%;
   min-width: 200px;
   display: flex;
   overflow: auto;
@@ -1177,6 +1195,14 @@ body {
   border: 1px solid #181818;
   border-radius: 4px;
   margin: 5px;
+}
+/* The WEBVIEW_PANEL. The template's own page paints its own background, so this
+   carries no colour of its own and no border - the pane already drew one. */
+.ze-tplsel-html {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: #fff;
 }
 .ze-tplsel-info {
   padding: 18px 20px;

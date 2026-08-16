@@ -5,7 +5,8 @@
       "base": "API_Series-500",
       "title": "API_Series-500",
       "description": "WHAT IS This project template provides the outline of a standard 3U API Series 500 Compatible . Automated Processes, Inc. ( A.P.I. ) created this standard for audio devices. The board is compatible with the audio Lunchboxes made by A.P.I. of course, ...",
-      "icon": "/templates/API_Series-500/icon.png",
+      "icon": "/templates/API_Series-500/meta/icon.png",
+      "html": "/templates/API_Series-500/meta/info.html",
       "category": "system",
       "files": [
         "API_Series-500.kicad_pcb",
@@ -18,7 +19,8 @@
       "base": "Arduino_Mega",
       "title": "Arduino_Mega",
       "description": "This project template is the basis of an expansion board for the Arduino Mega 2560 . It includes a PCB edge matching the outline of the Arduino Mega 2560 Rev3 PCB with connectors and mounting holes placed correctly to align the two boards.",
-      "icon": "/templates/Arduino_Mega/icon.png",
+      "icon": "/templates/Arduino_Mega/meta/icon.png",
+      "html": "/templates/Arduino_Mega/meta/info.html",
       "category": "system",
       "files": [
         "Arduino_Mega.kicad_pcb",
@@ -35,7 +37,8 @@
       "base": "Arduino_Micro",
       "title": "Arduino_Micro",
       "description": "This template forms the basis for a board with the same layout as an Arduino Micro , including the appropriate board outline, header locations, and annotations denoting the location of the USB port, reset button, and ICSP header.",
-      "icon": "/templates/Arduino_Micro/icon.png",
+      "icon": "/templates/Arduino_Micro/meta/icon.png",
+      "html": "/templates/Arduino_Micro/meta/info.html",
       "category": "system",
       "files": [
         "Arduino_Micro.kicad_pcb",
@@ -51,7 +54,8 @@
       "base": "Arduino_Nano",
       "title": "Arduino_Nano",
       "description": "This template forms the basis for a board with the same layout as the Arduino Nano , including the appropriate board outline, header locations, and annotations denoting the location of the USB and ICSP header.",
-      "icon": "/templates/Arduino_Nano/icon.png",
+      "icon": "/templates/Arduino_Nano/meta/icon.png",
+      "html": "/templates/Arduino_Nano/meta/info.html",
       "category": "system",
       "files": [
         "Arduino_MountingHole.pretty/MountingHole_1.2mm.kicad_mod",
@@ -67,7 +71,8 @@
       "base": "Arduino_Pro_Mini",
       "title": "Arduino_Pro_Mini",
       "description": "This template forms the basis for a board with the same layout as the Arduino Pro Mini , including the appropriate board outline and header locations.",
-      "icon": "/templates/Arduino_Pro_Mini/icon.png",
+      "icon": "/templates/Arduino_Pro_Mini/meta/icon.png",
+      "html": "/templates/Arduino_Pro_Mini/meta/info.html",
       "category": "system",
       "files": [
         "Arduino_Pro_Mini.kicad_pcb",
@@ -80,7 +85,8 @@
       "base": "Arduino_Uno",
       "title": "Arduino_Uno",
       "description": "This project template is the basis of an expansion board for the Arduino Uno Rev3 . It includes a PCB edge matching the outline of the Arduino Uno PCB with connectors and mounting holes placed correctly to align the two boards.",
-      "icon": "/templates/Arduino_Uno/icon.png",
+      "icon": "/templates/Arduino_Uno/meta/icon.png",
+      "html": "/templates/Arduino_Uno/meta/info.html",
       "category": "system",
       "files": [
         "Arduino_MountingHole.pretty/MountingHole_1.2mm.kicad_mod",
@@ -96,7 +102,8 @@
       "base": "BeagleBone-Black-Cape",
       "title": "BeagleBone-Black-Cape",
       "description": "This project template is the basis of an expansion board for the BeagleBone Black .",
-      "icon": "/templates/BeagleBone-Black-Cape/icon.png",
+      "icon": "/templates/BeagleBone-Black-Cape/meta/icon.png",
+      "html": "/templates/BeagleBone-Black-Cape/meta/info.html",
       "category": "system",
       "files": [
         "BeagleBone-Black-Cape.kicad_pcb",
@@ -110,6 +117,7 @@
       "title": "default",
       "description": "Default KiCad project template.",
       "icon": null,
+      "html": "/templates/default/meta/info.html",
       "category": "system",
       "files": [
         "default.kicad_pro"
@@ -120,7 +128,8 @@
       "base": "Edgeberry_cartridge_template",
       "title": "Edgeberry_Cartridge",
       "description": "Design your own Edgeberry Hardware Cartridge using this template. With an Edgeberry Hardware Cartridge you expand the hardware features of your Edgeberry device. The Edgeberry Hardware is a 'HAT' for the Raspberry Pi &#174; B models (or compatible de...",
-      "icon": "/templates/Edgeberry_Cartridge/icon.png",
+      "icon": "/templates/Edgeberry_Cartridge/meta/icon.png",
+      "html": "/templates/Edgeberry_Cartridge/meta/info.html",
       "category": "system",
       "files": [
         "Edgeberry.kicad_sym",
@@ -138,7 +147,8 @@
       "base": "EuroCard160mmX100mm",
       "title": "EuroCard160mmX100mm",
       "description": "This project template provides the outline of a standard 3U EuroCard measuring 160mm by 100mm. This design is based on IEEE Std 1101.1-1998 , and has keepout zones for the mounting rails (optional) mounting holes placed appropriately. Note that the IEEE standard also includes a 3x32 DIN41612 Type C connector (Connector_DIN:DIN41612_C_3x32_Male_Horizontal_THT in the footprint library) that is not part of the original EuroCard standard.",
-      "icon": "/templates/EuroCard160mmX100mm/icon.png",
+      "icon": "/templates/EuroCard160mmX100mm/meta/icon.png",
+      "html": "/templates/EuroCard160mmX100mm/meta/info.html",
       "category": "system",
       "files": [
         "EuroCard160mmX100mm.kicad_pcb",
@@ -151,7 +161,8 @@
       "base": "Hammond_1593K_Enclosure",
       "title": "Hammond_1593K_Enclosure",
       "description": "This project template is the basis of a PCB that fits inside a Hammond Manufacturing 1593K Enclosure .",
-      "icon": "/templates/Hammond_1593K_Enclosure/icon.png",
+      "icon": "/templates/Hammond_1593K_Enclosure/meta/icon.png",
+      "html": "/templates/Hammond_1593K_Enclosure/meta/info.html",
       "category": "system",
       "files": [
         "Hammond_1593K_Enclosure.kicad_pcb",
@@ -164,7 +175,8 @@
       "base": "mr_diagrams_large_parts",
       "title": "KiCad_MR_diagrams_large_parts",
       "description": "This project template is for quickly creating diagrams for Kicad symbols and footprints. It is designed for \"large\" parts and has larger graphical arrows by default.",
-      "icon": "/templates/KiCad_MR_diagrams_large_parts/icon.png",
+      "icon": "/templates/KiCad_MR_diagrams_large_parts/meta/icon.png",
+      "html": "/templates/KiCad_MR_diagrams_large_parts/meta/info.html",
       "category": "system",
       "files": [
         "mr_diagrams_large_parts.kicad_pcb",
@@ -177,7 +189,8 @@
       "base": "mr_diagrams_small_parts",
       "title": "KiCad_MR_diagrams_small_parts",
       "description": "This project template is for quickly creating diagrams for Kicad symbols and footprints. It is designed for \"small\" parts and has small graphical arrow sizes by default.",
-      "icon": "/templates/KiCad_MR_diagrams_small_parts/icon.png",
+      "icon": "/templates/KiCad_MR_diagrams_small_parts/meta/icon.png",
+      "html": "/templates/KiCad_MR_diagrams_small_parts/meta/info.html",
       "category": "system",
       "files": [
         "mr_diagrams_small_parts.kicad_pcb",
@@ -190,7 +203,8 @@
       "base": "RaspberryPi-HAT",
       "title": "RaspberryPi-HAT",
       "description": "This project template forms the basis of an expansion board (HAT) for the Raspberry Pi single board computers with a 40-pin GPIO header. This includes the following models: Pi 1 Model A+/B+ Pi 2 Model B Pi 3 Model A+/B/B+ Pi 4 Model B",
-      "icon": "/templates/RaspberryPi-HAT/icon.png",
+      "icon": "/templates/RaspberryPi-HAT/meta/icon.png",
+      "html": "/templates/RaspberryPi-HAT/meta/info.html",
       "category": "system",
       "files": [
         "RaspberryPi-HAT.kicad_pcb",
@@ -203,7 +217,8 @@
       "base": "RaspberryPi-uHAT",
       "title": "RaspberryPi-uHAT",
       "description": "This project template forms the basis of an expansion board (HAT) for the Raspberry Pi single board computers with a 40-pin GPIO header. This includes the following models: Pi Zero Pi Zero W",
-      "icon": "/templates/RaspberryPi-uHAT/icon.png",
+      "icon": "/templates/RaspberryPi-uHAT/meta/icon.png",
+      "html": "/templates/RaspberryPi-uHAT/meta/info.html",
       "category": "system",
       "files": [
         "RaspberryPi-uHAT.kicad_pcb",
@@ -216,7 +231,8 @@
       "base": "STM_Nucleo64_Morpho",
       "title": "STM32_Nucleo-64_Morpho",
       "description": "This project is a template of an expansion board for the STM32 Nucleo-64 Boards .",
-      "icon": "/templates/STM32_Nucleo-64_Morpho/icon.png",
+      "icon": "/templates/STM32_Nucleo-64_Morpho/meta/icon.png",
+      "html": "/templates/STM32_Nucleo-64_Morpho/meta/info.html",
       "category": "system",
       "files": [
         "STM_Nucleo64_Morpho.kicad_pcb",
@@ -231,7 +247,8 @@
       "base": "stm32f100-discovery-shield",
       "title": "stm32f100-discovery-shield",
       "description": "STM32 Value Line Discovery - STM32F100 Cortex-M3&trade; Microcontroller Board Expansion Board This project is a template of an expansion board for the STM32 Value Line Discovery board. This project includes a PCB edge defined as the same size as the ...",
-      "icon": "/templates/stm32f100-discovery-shield/icon.png",
+      "icon": "/templates/stm32f100-discovery-shield/meta/icon.png",
+      "html": "/templates/stm32f100-discovery-shield/meta/info.html",
       "category": "system",
       "files": [
         "fp-info-cache",
@@ -246,6 +263,7 @@
       "title": "STM32H7_DevEBox",
       "description": "Project template for cheap STM32H7xx DevEBox development boards. Includes PCB edge matching the DevEBOx outline with IO connectors and corner mounting holes.",
       "icon": null,
+      "html": "/templates/STM32H7_DevEBox/meta/info.html",
       "category": "system",
       "files": [
         "DevEBox.kicad_pcb",
@@ -259,7 +277,8 @@
       "base": "TI-LaunchPad-BoosterPack-20pin",
       "title": "TI-LaunchPad-BoosterPack-20pin",
       "description": "This template forms the basis of a PCB compatible with the Texas Instruments BoosterPack specification; compatible with the TI LaunchPad family of development boards. The PCB includes the required headers and the a LaunchPad compatibility logo provided by TI. This is the 20-pin variant, used on some of the smaller MSP430 LaunchPads.",
-      "icon": "/templates/TI-LaunchPad-BoosterPack-20pin/icon.png",
+      "icon": "/templates/TI-LaunchPad-BoosterPack-20pin/meta/icon.png",
+      "html": "/templates/TI-LaunchPad-BoosterPack-20pin/meta/info.html",
       "category": "system",
       "files": [
         "TI-LaunchPad-BoosterPack-20pin.kicad_pcb",
@@ -272,7 +291,8 @@
       "base": "TI-LaunchPad-BoosterPack-40pin",
       "title": "TI-LaunchPad-BoosterPack-40pin",
       "description": "This template forms the basis of a PCB compatible with the Texas Instruments BoosterPack specification; compatible with the TI LaunchPad family of development boards. The PCB includes the required headers and the a LaunchPad compatibility logo provided by TI. This is the 40-pin variant, used on a majority of the LaunchPad boards.",
-      "icon": "/templates/TI-LaunchPad-BoosterPack-40pin/icon.png",
+      "icon": "/templates/TI-LaunchPad-BoosterPack-40pin/meta/icon.png",
+      "html": "/templates/TI-LaunchPad-BoosterPack-40pin/meta/info.html",
       "category": "system",
       "files": [
         "TI-LaunchPad-BoosterPack-40pin.kicad_pcb",
