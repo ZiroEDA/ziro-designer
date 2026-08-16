@@ -26,6 +26,26 @@ export type TemplateCategory = 'user' | 'system';
 /** m_searchTimer.StartOnce( 200 ) in OnSearchCtrl. */
 export const SEARCH_DEBOUNCE_MS = 200;
 
+/** FILEEXT::ProjectFileExtension, the extension the name always ends up with. */
+export const PROJECT_FILE_EXT = '.kicad_pro';
+
+/**
+ * The name half of what NewProject does to the path the file dialog returns.
+ *
+ *     if( !fn.GetExt().IsEmpty() && fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+ *         fn.SetName( fn.GetName() + wxT( "." ) + fn.GetExt() );
+ *
+ *     fn.SetExt( FILEEXT::ProjectFileExtension );
+ *
+ * Read together: a `.kicad_pro` the user typed is replaced by SetExt and so
+ * disappears, while any *other* extension is folded back into the name - a
+ * project typed as "rev.2" is called "rev.2", not "rev". So this strips only
+ * `.kicad_pro`, and leaves every other dot alone.
+ */
+export function projectNameFrom(typed: string): string {
+  return typed.replace(/\.kicad_pro$/i, '');
+}
+
 /** TEMPLATE_WIDGET::SetDescription truncates to 120 characters. */
 export const truncateDescription = (description: string): string =>
   description.length > 120 ? `${description.slice(0, 120)}...` : description;

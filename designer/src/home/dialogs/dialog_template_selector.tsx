@@ -46,7 +46,9 @@ import kicadIcon from '../../assets/icon_kicad.png';
 import { styleTemplatePreview } from './template_preview_styles.js';
 import {
   FILTERS,
+  PROJECT_FILE_EXT,
   SEARCH_DEBOUNCE_MS,
+  projectNameFrom,
   applyFilter,
   sortTemplates,
   truncateDescription,
@@ -147,8 +149,9 @@ export function TemplateSelectorDialog({
       if (saved) {
         const { w, h } = JSON.parse(saved) as { w: number; h: number };
         // Clamped to SetSizeHints' floor so a stale or hand-edited value cannot
-        // open the dialog smaller than upstream allows.
-        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 400) {
+        // open the dialog smaller than upstream allows - 400 plus the 39px the
+        // project-name row adds, which is why this is not upstream's number.
+        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 439) {
           el.style.width = `${w}px`;
           el.style.height = `${h}px`;
         }
@@ -220,7 +223,7 @@ export function TemplateSelectorDialog({
     if (!nameEdited.current) setProjectName(t.id);
   };
 
-  const cleanName = sanitizeProjectName(projectName);
+  const cleanName = sanitizeProjectName(projectNameFrom(projectName));
   const nameTaken = cleanName !== '' && !!takenNames?.has(cleanName.toLowerCase());
   const canCreate = !!selected && cleanName !== '' && !nameTaken;
 
@@ -234,7 +237,7 @@ export function TemplateSelectorDialog({
    * would be refused.
    */
   const confirmWith = (t: TemplateMeta): void => {
-    const name = sanitizeProjectName(nameEdited.current ? projectName : t.id);
+    const name = sanitizeProjectName(projectNameFrom(nameEdited.current ? projectName : t.id));
     if (name === '' || takenNames?.has(name.toLowerCase())) {
       selectWidget(t);
       return;
@@ -508,19 +511,30 @@ export function TemplateSelectorDialog({
             second window for one field was the wrong shape for it. */}
         <div className="ze-tplsel-name">
           <label htmlFor="ze-tplsel-projname">Project name</label>
-          <input
-            id="ze-tplsel-projname"
-            className={`ze-tplsel-nameinput${nameTaken ? ' bad' : ''}`}
-            value={projectName}
-            placeholder={selected ? selected.id : 'Select a template first'}
-            onChange={(e) => {
-              nameEdited.current = true;
-              setProjectName(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && canCreate) onOk(selected, cleanName);
-            }}
-          />
+          {/* The extension is a label beside the entry, not text inside it, so
+              there is nothing to select or backspace over - the same guarantee
+              wxFileDialog gets from its wildcard, where SetExt forces
+              FILEEXT::ProjectFileExtension whatever was typed. It is here at all
+              because a bare name box does not say what is being named; with
+              ".kicad_pro" fixed to the end of it, it plainly does. */}
+          <div className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}`}>
+            <input
+              id="ze-tplsel-projname"
+              className="ze-tplsel-nameinput"
+              value={projectName}
+              placeholder={selected ? selected.id : 'Select a template first'}
+              onChange={(e) => {
+                nameEdited.current = true;
+                setProjectName(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && canCreate) onOk(selected, cleanName);
+              }}
+            />
+            <span className="ext" aria-hidden="true">
+              {PROJECT_FILE_EXT}
+            </span>
+          </div>
           {nameTaken && <span className="err">A project named “{cleanName}” already exists.</span>}
         </div>
 

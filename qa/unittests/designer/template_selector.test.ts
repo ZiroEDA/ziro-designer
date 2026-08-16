@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyFilter,
+  projectNameFrom,
   sortTemplates,
   truncateDescription,
 } from '@ziroeda/designer/src/home/dialogs/template_selector.js';
@@ -92,6 +93,34 @@ describe('sortTemplates (BuildTemplateList)', () => {
     const input = [t('zeta'), t('Alpha')];
     sortTemplates(input);
     expect(input.map((x) => x.title)).toEqual(['zeta', 'Alpha']);
+  });
+});
+
+describe("projectNameFrom (NewProject's extension handling)", () => {
+  it('leaves a plain name alone', () => {
+    expect(projectNameFrom('Arduino_Mega')).toBe('Arduino_Mega');
+    expect(projectNameFrom('')).toBe('');
+  });
+
+  it('drops a .kicad_pro the user typed, whatever its case', () => {
+    // fn.SetExt( FILEEXT::ProjectFileExtension ) replaces it, so it never
+    // survives into the name and must not be doubled by the fixed suffix.
+    expect(projectNameFrom('board.kicad_pro')).toBe('board');
+    expect(projectNameFrom('board.KiCad_Pro')).toBe('board');
+  });
+
+  it('keeps any other extension as part of the name', () => {
+    // The line above SetExt folds a non-project extension back in:
+    //   fn.SetName( fn.GetName() + wxT( "." ) + fn.GetExt() );
+    // so "rev.2" is a project called "rev.2", not one called "rev".
+    expect(projectNameFrom('rev.2')).toBe('rev.2');
+    expect(projectNameFrom('board.kicad_sch')).toBe('board.kicad_sch');
+    expect(projectNameFrom('my.board.v3')).toBe('my.board.v3');
+  });
+
+  it('only strips the extension at the end', () => {
+    expect(projectNameFrom('kicad_pro')).toBe('kicad_pro');
+    expect(projectNameFrom('a.kicad_pro.b')).toBe('a.kicad_pro.b');
   });
 });
 

@@ -947,11 +947,16 @@ body {
   /* +2 on each axis for our own 1px border, which the window manager draws
      outside the client area upstream. */
   width: 652px;
-  height: 401px;
-  /* SetSizeHints( wxSize( 500, 400 ), wxDefaultSize ) - the floor, and the
-     reason 401 is the opening height: the sizer's best fit lands on it. */
+  /* 401 is upstream's opening height, plus 39 for the project-name row - a 34px
+     entry over its 5px bottom border. That row is ours: upstream asks for the
+     name in a second window, so the height it needs has to be added here rather
+     than taken out of the template list, which has a 200px floor of its own and
+     was being overrun by it. */
+  height: 440px;
+  /* SetSizeHints( wxSize( 500, 400 ), wxDefaultSize ) - the floor, carrying the
+     same 39px, for the same reason. */
   min-width: 500px;
-  min-height: 400px;
+  min-height: 439px;
   /* The dialog's style is wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER, and the size
      it is dragged to is kept in settings->m_TemplateWindowSize. Without this
      the dialog was stuck at its opening size, and at that size the template
@@ -1155,10 +1160,35 @@ body {
   padding: 0 10px 5px;
   font-size: var(--ui-font-size);
   flex: 0 0 auto;
+  /* Opaque, and the dialog's own face rather than a colour of its own. The row
+     sat transparent over the body, so the last card in the template list read
+     straight through the "Project name" label. */
+  background: var(--chrome-bg);
+  position: relative;
+  z-index: 1;
 }
 .ze-tplsel-name label {
   flex: 0 0 auto;
   color: #f3f4f5;
+}
+/* The frame is on the wrapper, so the fixed .kicad_pro suffix sits inside the
+   same box as the entry and reads as one control. */
+.ze-tplsel-namewrap {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  background: var(--panel-bg);
+  border: 1px solid #181818;
+  border-radius: 4px;
+}
+/* GTK marks an entry that failed validation with the error colour, not a shake
+   or an icon. */
+.ze-tplsel-namewrap.bad {
+  border-color: #c01c28;
 }
 /* Carried on the input's own class rather than as `.ze-tplsel-name input`: a
    descendant type selector has to be qualified with .ze-app to outrank the
@@ -1168,18 +1198,23 @@ body {
   box-sizing: border-box;
   flex: 1 1 auto;
   min-width: 0;
-  height: 34px;
-  padding: 0 8px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
   font: inherit;
   color: var(--chrome-fg);
-  background: var(--panel-bg);
-  border: 1px solid #181818;
-  border-radius: 4px;
+  background: none;
+  border: none;
+  border-radius: 0;
 }
-/* GTK marks an entry that failed validation with the error colour, not a shake
-   or an icon. */
-.ze-app .ze-tplsel-nameinput.bad {
-  border-color: #c01c28;
+.ze-app .ze-tplsel-nameinput:focus {
+  outline: none;
+}
+/* Dimmed, because it is not editable and should not read as typed text. */
+.ze-tplsel-namewrap .ext {
+  flex: 0 0 auto;
+  color: #9a9a9a;
+  user-select: none;
 }
 .ze-tplsel-name .err,
 .ze-tplsel-nameerr {
