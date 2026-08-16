@@ -28,12 +28,15 @@
  * template menu.
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { HOTKEY_SECTIONS, filterHotkeys } from './hotkeys_table.js';
+import { buildHotkeySections, filterHotkeys } from './hotkeys_inventory.js';
 
 export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const [filter, setFilter] = useState('');
-  const shown = useMemo(() => filterHotkeys(HOTKEY_SECTIONS, filter), [filter]);
+  const all = useMemo(() => buildHotkeySections(), []);
+  const shown = useMemo(() => filterHotkeys(all, filter), [all, filter]);
   const searchRef = useRef<HTMLInputElement>(null);
+  /** Every section starts expanded, as the tree does when the dialog opens. */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 
   // The filter box takes focus, which is what a dialog whose only control is a
   // filter should do.
@@ -41,7 +44,7 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
     searchRef.current?.focus();
   }, []);
 
-  const total = useMemo(() => HOTKEY_SECTIONS.reduce((n, s) => n + s.entries.length, 0), []);
+  const total = useMemo(() => all.reduce((n, s) => n + s.entries.length, 0), [all]);
   const showing = shown.reduce((n, s) => n + s.entries.length, 0);
 
   return (
@@ -83,24 +86,51 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
           <div className="ze-hotkeys-list">
             {/* WIDGET_HOTKEY_LIST is a wxTreeListCtrl with two columns,
                 "Command" and "Hotkey", and one collapsible row per section. */}
+            {/* AppendColumn( "Command", 450 ), ( "Hotkey", 120 ),
+                ( "Alternate", 120 ), ( "Description", 900 ). The header reads
+                "Command" rather than "Command (double-click to edit)" because
+                this dialog builds the panel read-only. */}
             <div className="ze-hotkeys-head">
               <span className="cmd">Command</span>
               <span className="key">Hotkey</span>
+              <span className="alt">Alternate</span>
+              <span className="desc">Description</span>
             </div>
             {shown.length === 0 ? (
               <div className="ze-hotkeys-empty">No hotkeys match “{filter}”.</div>
             ) : (
-              shown.map((s) => (
-                <div className="ze-hotkeys-section" key={s.name}>
-                  <div className="ze-hotkeys-sectionhead">{s.name}</div>
-                  {s.entries.map((e) => (
-                    <div className="ze-hotkeys-row" key={`${s.name}/${e.command}/${e.keys}`}>
-                      <span className="cmd">{e.command}</span>
-                      <span className="key">{e.keys}</span>
+              shown.map((s) => {
+                // A filter that matched something opens the section it matched
+                // in, so a search never hides its own results behind a twisty.
+                const shut = filter === '' && collapsed.has(s.name);
+                return (
+                  <div className="ze-hotkeys-section" key={s.name}>
+                    <div
+                      className="ze-hotkeys-sectionhead"
+                      onClick={() =>
+                        setCollapsed((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(s.name)) next.delete(s.name);
+                          else next.add(s.name);
+                          return next;
+                        })
+                      }
+                    >
+                      <span className={`twisty expandable${shut ? '' : ' open'}`} />
+                      {s.name}
                     </div>
-                  ))}
-                </div>
-              ))
+                    {!shut &&
+                      s.entries.map((e) => (
+                        <div className="ze-hotkeys-row" key={`${s.name}/${e.command}`}>
+                          <span className="cmd">{e.command}</span>
+                          <span className="key">{e.keys}</span>
+                          <span className="alt">{e.alt}</span>
+                          <span className="desc">{e.description}</span>
+                        </div>
+                      ))}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -112,9 +142,26 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
           <span className="ze-hotkeys-count">
             {filter === '' ? `${total} commands` : `${showing} of ${total} commands`}
           </span>
-          <button className="ze-btn" onClick={onClose}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {/* PANEL_HOTKEYS_EDITOR::installButtons puts these two on the left
+                and DIALOG_LIST_HOTKEYS adds OK/Cancel on the right. Both edit
+                the hotkey configuration, which this dialog builds the panel
+                read-only to prevent, so they are here in their own slots and
+                disabled rather than absent - the shape of the window is the
+                thing being matched, and a hotkey editor is its own feature. */}
+            <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
+              Undo All Changes
+            </button>
+            <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
+              Import Hotkeys…
+            </button>
+            <button className="ze-btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="ze-btn" onClick={onClose}>
+              OK
+            </button>
+          </div>
         </div>
       </div>
     </div>

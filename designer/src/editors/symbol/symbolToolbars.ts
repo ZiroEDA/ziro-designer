@@ -14,7 +14,7 @@
  * mirroring the rest faithfully.
  */
 
-import type { ToolEntry } from '../../ui/Toolbar.js';
+import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
 

@@ -1264,8 +1264,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    DIALOG_SHIM is resizable, so 600x400 is both the opening size and the floor.
    ------------------------------------------------------------------------- */
 .ze-modal.ze-hotkeys {
-  width: 600px;
-  height: 400px;
+  /* main_sizer->SetMinSize( 600, 400 ) is the floor; the four columns upstream
+     declares total 1590 (450+120+120+900), so the window opens wide enough to
+     show Command, Hotkey and Alternate with the description running on. */
+  width: 1000px;
+  height: 560px;
   min-width: 600px;
   min-height: 400px;
   resize: both;
@@ -1304,20 +1307,41 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-size: var(--ui-font-size);
   color: #f3f4f5;
 }
+/* AppendColumn's widths - 450 / 120 / 120 / 900 - as proportions, so they hold
+   as the window is resized. The description is the one that gives way. */
 .ze-hotkeys-head .cmd,
 .ze-hotkeys-row .cmd {
-  flex: 1 1 auto;
+  flex: 0 0 300px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ze-hotkeys-head .key,
-.ze-hotkeys-row .key {
-  flex: 0 0 170px;
+.ze-hotkeys-row .key,
+.ze-hotkeys-head .alt,
+.ze-hotkeys-row .alt {
+  flex: 0 0 110px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ze-hotkeys-head .desc,
+.ze-hotkeys-row .desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9a9a9a;
 }
 /* A section is a top-level tree row: bold, and its children indented under it. */
+/* A top-level tree row: the twisty, then the section name. */
 .ze-hotkeys-sectionhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
   padding: 6px 8px 4px;
   font-size: var(--ui-font-size);
   font-weight: 700;
