@@ -15,18 +15,23 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/sch_navigate_tool.js';
 import type { SheetTreeNode } from '@ziroeda/eeschema';
 
+// Page numbers are the ones SetInitialPageNumbers would seed: a depth-first
+// walk numbered from the root. flattenHierarchy follows child order, not the
+// page number, so they only have to be present and consistent.
 const tree: SheetTreeNode = {
   file: 'root.kicad_sch',
   name: 'Root',
   path: '/',
+  page: '1',
   children: [
     {
       file: 'power.kicad_sch',
       name: 'Power',
       path: '/a/',
-      children: [{ file: 'reg.kicad_sch', name: 'Reg', path: '/a/c/', children: [] }],
+      page: '2',
+      children: [{ file: 'reg.kicad_sch', name: 'Reg', path: '/a/c/', page: '3', children: [] }],
     },
-    { file: 'io.kicad_sch', name: 'IO', path: '/b/', children: [] },
+    { file: 'io.kicad_sch', name: 'IO', path: '/b/', page: '4', children: [] },
   ],
 };
 
