@@ -716,6 +716,24 @@ export const HOTKEYS: readonly Hotkey[] = [
   },
 ];
 
+/**
+ * The app prefix every one of these actions is named with.
+ *
+ * `TOOL_ACTION::GetName()` is app-qualified - `eeschema.InteractiveDrawing.
+ * drawWire` - and that name is the key for all three of the store, the settings
+ * file and `ACTION_MANAGER`'s dispatch. The `id`s above are short because this
+ * table was the schematic's alone; the moment a second editor's commands are
+ * listed beside them, `save` is ambiguous and `eeschema.save` is not.
+ *
+ * This is the one place the two are joined, so the id stays readable in the
+ * table and the *name* is what leaves this module. Nothing outside should key
+ * anything on a bare id.
+ */
+export const HOTKEY_APP = 'eeschema';
+
+/** `TOOL_ACTION::GetName()` for a row of this table. */
+export const actionName = (id: string): string => `${HOTKEY_APP}.${id}`;
+
 /** The sections in the order the dialog shows them. */
 export const HOTKEY_SECTIONS: readonly HotkeySection[] = [
   'File',

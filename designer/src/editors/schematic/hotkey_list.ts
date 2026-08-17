@@ -18,10 +18,10 @@
 
 import type { HotkeyOverrides } from './hotkey_bindings.js';
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
-import { HOTKEYS, HOTKEY_SECTIONS } from './hotkeys.js';
+import { HOTKEYS, HOTKEY_SECTIONS, actionName } from './hotkeys.js';
 
 export interface HotkeyRow {
-  /** The action id, for a row the user can rebind. */
+  /** `TOOL_ACTION::GetName()` - `eeschema.save` - for a row the user can rebind. */
   id: string;
   /** The menu label, without its trailing ellipsis. */
   action: string;
@@ -66,12 +66,15 @@ function flatten(items: readonly MenuItem[]): MenuItem[] {
 export function buildHotkeyList(overrides: HotkeyOverrides = {}): HotkeySection[] {
   const sections: HotkeySection[] = [];
   for (const name of HOTKEY_SECTIONS) {
-    const rows = HOTKEYS.filter((h) => h.section === name).map((h) => ({
-      id: h.id,
-      action: cleanLabel(h.label),
-      keys: (Object.hasOwn(overrides, h.id) ? overrides[h.id] : h.keys) ?? '',
-      defaultKeys: h.keys,
-    }));
+    const rows = HOTKEYS.filter((h) => h.section === name).map((h) => {
+      const id = actionName(h.id);
+      return {
+        id,
+        action: cleanLabel(h.label),
+        keys: (Object.hasOwn(overrides, id) ? overrides[id] : h.keys) ?? '',
+        defaultKeys: h.keys,
+      };
+    });
     if (rows.length > 0) sections.push({ name, rows });
   }
   return sections;
@@ -91,11 +94,11 @@ export function hotkeyConflicts(
 ): { action: string; section: string }[] {
   if (keys === '') return [];
   const want = keys.toLowerCase();
-  return HOTKEYS.filter((h) => h.id !== exceptId)
-    .filter(
-      (h) =>
-        ((Object.hasOwn(overrides, h.id) ? overrides[h.id] : h.keys) ?? '').toLowerCase() === want,
-    )
+  return HOTKEYS.filter((h) => actionName(h.id) !== exceptId)
+    .filter((h) => {
+      const id = actionName(h.id);
+      return ((Object.hasOwn(overrides, id) ? overrides[id] : h.keys) ?? '').toLowerCase() === want;
+    })
     .map((h) => ({ action: cleanLabel(h.label), section: h.section }));
 }
 
@@ -153,7 +156,7 @@ export function applyHotkeyOverrides(menus: readonly Menu[], overrides: HotkeyOv
           );
     if (!hit) return next;
 
-    const keys = effective(hit.id, hit.keys);
+    const keys = effective(actionName(hit.id), hit.keys);
     // A cleared action loses the shortcut text entirely, as an unbound
     // ACTION_MENU entry has none.
     if (keys === '') delete next.shortcut;

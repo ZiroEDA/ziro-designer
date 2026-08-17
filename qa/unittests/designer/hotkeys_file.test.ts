@@ -15,7 +15,6 @@ import {
   buildHotkeySections,
   type HotkeySection,
 } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
-import { toRowNames, toStoredKeys } from '@ziroeda/designer/src/ui/hotkey_key_space.js';
 
 describe('parseHotkeyFile (ReadHotKeyConfig)', () => {
   it('reads a command, its key and its alternate off one tab-separated line', () => {
@@ -154,35 +153,5 @@ describe('the inventory under overrides (HOTKEY_STORE built from current binding
     const before = buildHotkeySections().find((s) => s.name === 'Gestures');
     const after = buildHotkeySections({ '': 'Ctrl+Z' }).find((s) => s.name === 'Gestures');
     expect(after?.entries).toEqual(before?.entries);
-  });
-});
-
-describe('the two key spaces (hotkey_key_space.ts)', () => {
-  it('round-trips a schematic command between the row name and the settings key', () => {
-    // The dispatcher reads settings.hotkeys['save']; the row is eeschema.save.
-    expect(toStoredKeys({ 'eeschema.save': 'Ctrl+S' })).toEqual({ save: 'Ctrl+S' });
-    expect(toRowNames({ save: 'Ctrl+S' })).toEqual({ 'eeschema.save': 'Ctrl+S' });
-  });
-
-  it('shows a key set in Preferences, which writes bare ids', () => {
-    // Preferences and this dialog share one settings map, so a change in one
-    // has to appear in the other - the point of converting rather than keeping
-    // a second store.
-    const rows = toRowNames({ zoomIn: 'F1' });
-    const shown = buildHotkeySections(rows)
-      .flatMap((s) => s.entries)
-      .find((e) => e.name === 'eeschema.zoomIn');
-    expect(shown?.keys).toBe('F1');
-  });
-
-  it('leaves another app’s name qualified, having no dispatcher to hand it to', () => {
-    expect(toStoredKeys({ 'pcbnew.route': 'X' })).toEqual({ 'pcbnew.route': 'X' });
-    expect(toRowNames({ 'pcbnew.route': 'X' })).toEqual({ 'pcbnew.route': 'X' });
-  });
-
-  it('carries a cleared binding through as null, not as absent', () => {
-    // null is "bound to nothing" and undefined is "keeps its default"; losing
-    // the difference would silently restore a key the user cleared.
-    expect(toStoredKeys({ 'eeschema.save': null })).toEqual({ save: null });
   });
 });

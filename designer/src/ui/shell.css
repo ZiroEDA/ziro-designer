@@ -1276,9 +1276,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-hotkeys-body {
   flex-direction: column;
-  /* bMargins carries wxTOP|wxRIGHT 5 on both children; the panel itself is
-     added with KIUI::GetStdMargin(), which is 5 on GTK. */
+  /* The panel is added with KIUI::GetStdMargin(), which is 5 on GTK. */
   padding: 5px;
+  gap: 5px;
+}
+/* PANEL_HOTKEYS_EDITOR's own mainSizer, which both the Hotkey List and the
+   Preferences page host. Its three children are the filter box, the tree, and
+   the button row - and only the tree grows, so the buttons stay put as the
+   window resizes. */
+.ze-hotkeys-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* bMargins carries wxTOP|wxRIGHT 5 on both children. */
   gap: 5px;
 }
 .ze-hotkeys-filter {
@@ -1373,6 +1384,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-hotkeys-row.selected .desc {
   color: #ffe6d9;
+}
+/* updateFromClientData paints a rebound row's key in bold:
+
+       if( changed ) SetItemText( i, 1, ... ) with a bold attr
+
+   so a user can see at a glance which bindings are theirs rather than KiCad's,
+   without comparing every row against a default they cannot see. */
+.ze-hotkeys-row.changed .key {
+  font-weight: 600;
+}
+/* Double-click to rebind is the editable panel's gesture, so the rows say so
+   with the cursor; the read-only list keeps the arrow. */
+.ze-hotkeys-row[title] {
+  cursor: default;
 }
 /* The two button groups: the panel's own row on the left, the dialog's
    wxStdDialogButtonSizer on the right.
@@ -5174,6 +5199,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow-y: auto;
   padding: 10px 16px;
   min-width: 0;
+}
+/* The Hotkeys page is a PANEL_HOTKEYS_EDITOR, whose tree scrolls inside itself
+   and whose button row sits under it. Without a height to fill it would size to
+   its content and let the page scroll instead, carrying "Undo All Changes" off
+   the bottom - the one control on the page that has to stay reachable. */
+.ze-prefs-panel > .ze-hotkeys-panel {
+  height: 100%;
 }
 .ze-pref-columns {
   display: flex;

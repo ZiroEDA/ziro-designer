@@ -675,10 +675,16 @@ function store(key: string, value: unknown): void {
  * The user's hotkey overrides — KiCad's `user.hotkeys`, which HOTKEY_STORE
  * writes and reads separately from every other settings file.
  *
- * An action id maps to the combo the user chose, or to `null` when they cleared
- * it. An action with no entry keeps its `TOOL_ACTION::DefaultHotkey`, so the map
+ * An action *name* - `TOOL_ACTION::GetName()`, so `eeschema.save` rather than
+ * `save` - maps to the combo the user chose, or to `null` when they cleared it.
+ * An action with no entry keeps its `TOOL_ACTION::DefaultHotkey`, so the map
  * stays empty until someone changes something, and a new upstream default
  * arrives without anyone having to migrate.
+ *
+ * The names used to be bare, because this table was the schematic's alone and
+ * nothing else could collide with it. Keys stored under the old spelling are
+ * migrated on the way in rather than dropped: a user who rebound Save a month
+ * ago should not silently get Ctrl+S back because the key space grew a prefix.
  *
  * Not `load()`ed: `deepMerge` keeps only keys present in the defaults, which is
  * right for a fixed settings shape and wrong for a free-form map — every stored
@@ -691,8 +697,13 @@ function loadHotkeys(): Record<string, string | null> {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
     const out: Record<string, string | null> = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>))
-      if (v === null || typeof v === 'string') out[k] = v;
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (v !== null && typeof v !== 'string') continue;
+      // Every action name carries an app prefix, so a key without one was
+      // written before the schematic's ids were qualified and can only have
+      // been the schematic's.
+      out[k.includes('.') ? k : `eeschema.${k}`] = v;
+    }
     return out;
   } catch {
     return {};
@@ -713,7 +724,7 @@ class SettingsManager {
   privacy: PrivacySettings = load('ziroeda.privacy', PRIVACY_DEFAULTS);
   /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
   userColors: Record<string, string> = load('ziroeda.colors.user', {});
-  /** HOTKEY_STORE's overrides: action id -> combo, or null for "no key". */
+  /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
   hotkeys: Record<string, string | null> = loadHotkeys();
   private listeners = new Set<Listener>();
   /** Monotonic snapshot id for useSyncExternalStore. */

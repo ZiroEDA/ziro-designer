@@ -25,7 +25,7 @@ import {
   buildHotkeyList,
   hotkeyConflicts,
 } from '@ziroeda/designer/src/editors/schematic/hotkey_list.js';
-import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
+import { HOTKEYS, actionName } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import type { Menu } from '@ziroeda/designer/src/ui/menu_types.js';
 
 const ev = (key: string, mods: Partial<KeyLike> = {}): KeyLike => ({
@@ -93,8 +93,10 @@ describe('with nothing customised', () => {
   });
 
   it('reports each action on its default', () => {
+    // Keyed on TOOL_ACTION::GetName(), which is what the store, the settings
+    // file and the Hotkey List's rows all key on.
     const bindings = effectiveBindings();
-    for (const h of HOTKEYS) expect(bindings.get(h.id), h.id).toBe(h.keys);
+    for (const h of HOTKEYS) expect(bindings.get(actionName(h.id)), h.id).toBe(h.keys);
   });
 });
 
@@ -102,12 +104,12 @@ describe('clearing a hotkey', () => {
   it('stops the key reaching the editor at all', () => {
     // WIDGET_HOTKEY_LIST's "Clear Assigned Hotkey": the action stays, the key
     // goes. Ctrl+S must now do nothing.
-    expect(remapEvent(ev('s', { ctrlKey: true }), { save: null })).toBeNull();
+    expect(remapEvent(ev('s', { ctrlKey: true }), { 'eeschema.save': null })).toBeNull();
   });
 
   it('leaves every other key alone', () => {
     const e = ev('o', { ctrlKey: true });
-    expect(remapEvent(e, { save: null })).toBe(e);
+    expect(remapEvent(e, { 'eeschema.save': null })).toBe(e);
   });
 
   it('would have matched without the remap', () => {
@@ -118,15 +120,15 @@ describe('clearing a hotkey', () => {
   });
 
   it('drops a cleared action from the list without dropping its row', () => {
-    const rows = buildHotkeyList({ save: null }).flatMap((s) => s.rows);
-    const save = rows.find((r) => r.id === 'save');
+    const rows = buildHotkeyList({ 'eeschema.save': null }).flatMap((s) => s.rows);
+    const save = rows.find((r) => r.id === 'eeschema.save');
     expect(save?.keys).toBe('');
     expect(save?.defaultKeys).toBe('Ctrl+S');
   });
 });
 
 describe('rebinding a hotkey', () => {
-  const moved = { save: 'Ctrl+Q' };
+  const moved = { 'eeschema.save': 'Ctrl+Q' };
 
   it('makes the new key arrive spelled as the old one', () => {
     // The editor's chain still matches Ctrl+S; it never learns bindings moved.
@@ -156,12 +158,12 @@ describe('rebinding a hotkey', () => {
   it('wins over whatever held the key by default', () => {
     // Bind Save to R, which Rotate Clockwise owns. Upstream keeps both and runs
     // one; the explicit user binding is the one that runs.
-    expect(combo(remapEvent(ev('r'), { save: 'R' }))).toBe('Ctrl+S');
+    expect(combo(remapEvent(ev('r'), { 'eeschema.save': 'R' }))).toBe('Ctrl+S');
   });
 
   it('is a no-op when rebound to the key it already had', () => {
     const e = ev('s', { ctrlKey: true });
-    expect(remapEvent(e, { save: 'Ctrl+S' })).toBe(e);
+    expect(remapEvent(e, { 'eeschema.save': 'Ctrl+S' })).toBe(e);
   });
 
   it('restores the default once the override is removed', () => {
@@ -179,25 +181,29 @@ describe('rebinding a hotkey', () => {
 
 describe('conflicts', () => {
   it('name the action and the section already holding the key', () => {
-    const [hit] = hotkeyConflicts('Ctrl+S', 'undo');
+    const [hit] = hotkeyConflicts('Ctrl+S', 'eeschema.undo');
     expect(hit?.action).toBe('Save');
     expect(hit?.section).toBe('File');
   });
 
   it('ignore the row being edited', () => {
-    expect(hotkeyConflicts('Ctrl+S', 'save')).toEqual([]);
+    expect(hotkeyConflicts('Ctrl+S', 'eeschema.save')).toEqual([]);
   });
 
   it('see through an override, both ways', () => {
     // Ctrl+S is free once Save has moved off it...
-    expect(hotkeyConflicts('Ctrl+S', 'undo', { save: 'Ctrl+Q' })).toEqual([]);
+    expect(hotkeyConflicts('Ctrl+S', 'eeschema.undo', { 'eeschema.save': 'Ctrl+Q' })).toEqual([]);
     // ...and Ctrl+Q is taken once it has moved on to it.
-    expect(hotkeyConflicts('Ctrl+Q', 'undo', { save: 'Ctrl+Q' })[0]?.action).toBe('Save');
+    expect(
+      hotkeyConflicts('Ctrl+Q', 'eeschema.undo', { 'eeschema.save': 'Ctrl+Q' })[0]?.action,
+    ).toBe('Save');
   });
 
   it('never reports the empty binding as a conflict', () => {
     // Several actions can be cleared at once; that is not a collision.
-    expect(hotkeyConflicts('', 'undo', { save: null, undo: null })).toEqual([]);
+    expect(
+      hotkeyConflicts('', 'eeschema.undo', { 'eeschema.save': null, 'eeschema.undo': null }),
+    ).toEqual([]);
   });
 });
 
@@ -217,21 +223,25 @@ describe('the menus follow the bindings', () => {
       ?.shortcut;
 
   it('relabels a moved shortcut', () => {
-    expect(shortcutOf(applyHotkeyOverrides(menus, { save: 'Ctrl+Q' }), 'Save')).toBe('Ctrl+Q');
-  });
-
-  it('removes a cleared one instead of showing a stale key', () => {
-    expect(shortcutOf(applyHotkeyOverrides(menus, { save: null }), 'Save')).toBeUndefined();
-  });
-
-  it('reaches into submenus', () => {
-    expect(shortcutOf(applyHotkeyOverrides(menus, { print: 'Ctrl+Alt+P' }), 'Print...')).toBe(
-      'Ctrl+Alt+P',
+    expect(shortcutOf(applyHotkeyOverrides(menus, { 'eeschema.save': 'Ctrl+Q' }), 'Save')).toBe(
+      'Ctrl+Q',
     );
   });
 
+  it('removes a cleared one instead of showing a stale key', () => {
+    expect(
+      shortcutOf(applyHotkeyOverrides(menus, { 'eeschema.save': null }), 'Save'),
+    ).toBeUndefined();
+  });
+
+  it('reaches into submenus', () => {
+    expect(
+      shortcutOf(applyHotkeyOverrides(menus, { 'eeschema.print': 'Ctrl+Alt+P' }), 'Print...'),
+    ).toBe('Ctrl+Alt+P');
+  });
+
   it('leaves untouched entries and the original tree alone', () => {
-    const out = applyHotkeyOverrides(menus, { save: 'Ctrl+Q' });
+    const out = applyHotkeyOverrides(menus, { 'eeschema.save': 'Ctrl+Q' });
     expect(shortcutOf(out, 'Open...')).toBe('Ctrl+O');
     expect(menus[0]!.items[0]!.shortcut).toBe('Ctrl+S');
   });

@@ -15,8 +15,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildHotkeySections,
   filterHotkeys,
+  hotkeyConflicts,
   type HotkeySection,
 } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
+import { HOTKEYS, actionName } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
@@ -164,18 +166,29 @@ describe('the hotkey inventory', () => {
   });
 
   it('fills the alternate column only where a second key is bound', () => {
-    // PSEUDO_ACTION's second keycode is the alternate:
+    // Two rows carry a DefaultHotkeyAlt. The PSEUDO_ACTION
     //   new PSEUDO_ACTION( _( "Accept Autocomplete" ), WXK_RETURN, WXK_NUMPAD_ENTER )
-    // which is the one row with it. Everything else has a single binding.
+    // and Zoom to Fit, whose Ctrl+0 is upstream's macOS binding for the action
+    // Home already answers to. Everything else has a single binding, and a
+    // column filled where nothing is bound would be noise.
     const withAlt = rows.filter((e) => e.alt !== '');
-    expect(withAlt.map((e) => e.command)).toEqual(['Accept Autocomplete']);
-    expect(withAlt[0]?.alt).toBe('Numpad Enter');
+    expect(withAlt.map((e) => e.command).sort()).toEqual(['Accept Autocomplete', 'Zoom to Fit']);
+    expect(rows.find((e) => e.command === 'Accept Autocomplete')?.alt).toBe('Numpad Enter');
   });
 
   it('has no duplicate command within a section', () => {
     for (const s of sections) {
       const names = s.entries.map((e) => e.command);
       expect(new Set(names).size, `${s.name} lists a command twice`).toBe(names.length);
+    }
+  });
+
+  it('has no duplicate action name within a section', () => {
+    // The store's own invariant: its map is keyed on the name, so two rows
+    // sharing one would be two rows one override moves together.
+    for (const s of sections) {
+      const named = s.entries.map((e) => e.name).filter((n) => n !== '');
+      expect(new Set(named).size, `${s.name} names an action twice`).toBe(named.length);
     }
   });
 });
@@ -206,5 +219,141 @@ describe('filterHotkeys (WIDGET_HOTKEY_LIST::updateShownItems)', () => {
 
   it('returns nothing for a filter nothing matches', () => {
     expect(filterHotkeys(sections, 'zzzz-no-such-command')).toEqual([]);
+  });
+});
+
+describe('the schematic registry as a source', () => {
+  const sections = buildHotkeySections();
+  const rows = sections.flatMap((s) => s.entries);
+  const names = new Set(rows.map((e) => e.name));
+
+  it('lists every action the key handler dispatches', () => {
+    // hotkeys.ts is what remapEvent resolves against, so an action missing here
+    // is one a user cannot see and cannot rebind - and roughly half of it is
+    // reachable from no menu and no toolbar at all, so collecting from those
+    // two alone found 48 of 98.
+    //
+    // "Listed" means a row of its own or the Alternate cell of the row for the
+    // same TOOL_ACTION, which is where a second binding belongs.
+    const alts = new Set(rows.filter((e) => e.alt !== '').map((e) => e.alt));
+    const missing = HOTKEYS.filter((h) => !names.has(actionName(h.id)) && !alts.has(h.keys));
+    expect(missing.map((h) => h.id)).toEqual([]);
+  });
+
+  it('shows a second binding for one action as its alternate, not as a second row', () => {
+    // zoomFit (Home) and zoomFitScreenMac (Ctrl+0) are both
+    // ACTIONS::zoomFitScreen; upstream holds one action with a DefaultHotkey
+    // and a DefaultHotkeyAlt. Two rows would read as two commands with the
+    // same name.
+    const fit = rows.filter((e) => e.command === 'Zoom to Fit' && e.name.startsWith('eeschema.'));
+    expect(fit).toHaveLength(1);
+    expect(fit[0]?.keys).toBe('Home');
+    expect(fit[0]?.alt).toBe('Ctrl+0');
+  });
+
+  it('carries the bindings that exist in no menu and on no toolbar', () => {
+    // The ones a user is least likely to discover unaided, which is exactly why
+    // a list assembled from menus being blind to them mattered.
+    for (const id of ['cursorUp', 'gridNext', 'panLeft', 'move', 'drag', 'cancel']) {
+      expect(names.has(actionName(id)), `${id} is not listed`).toBe(true);
+    }
+  });
+
+  it('gives a row the registry’s name, not the menu icon’s', () => {
+    // Rebinding writes an override under this name and the dispatcher reads it
+    // back under the same one; a row named after a picture would be a binding
+    // nothing honours.
+    const save = rows.find((e) => e.command === 'Save' && e.name.startsWith('eeschema.'));
+    expect(save?.name).toBe('eeschema.save');
+  });
+
+  it('takes the registry’s key over a menu’s, which can be stale', () => {
+    for (const h of HOTKEYS) {
+      const row = rows.find((e) => e.name === actionName(h.id));
+      // Skipped for the one action folded into another's Alternate cell.
+      if (!row) continue;
+      expect(row.defaultKeys, `${h.id} disagrees with the registry`).toBe(h.keys);
+    }
+  });
+});
+
+describe('an icon is not an action id', () => {
+  const sch = buildHotkeySections().find((s) => s.name === 'Schematic Editor')?.entries ?? [];
+  const find = (command: string): (typeof sch)[number] | undefined =>
+    sch.find((e) => e.command === command);
+
+  it('keeps two commands that share a picture apart', () => {
+    // The Edit menu draws Copy and Copy as Text with icon: 'copy', and Paste
+    // and Paste Special with icon: 'paste'. Keying identity on the icon merged
+    // each pair, so the list showed Copy as Text on Ctrl+C and never mentioned
+    // Copy - two commands collapsed into one, which is worse than the duplicate
+    // rows the key was meant to prevent.
+    expect(find('Copy')?.keys).toBe('Ctrl+C');
+    expect(find('Copy as Text')?.keys).toBe('Ctrl+Shift+C');
+    expect(find('Paste')?.keys).toBe('Ctrl+V');
+    expect(find('Paste Special')?.keys).toBe('Ctrl+Shift+V');
+  });
+
+  it('still merges a menu entry with its toolbar button', () => {
+    // The guard only fires where an icon is claimed by two labels; an icon used
+    // once is still the action id, which is what makes one row out of two
+    // sources.
+    expect(find('Undo')?.keys).toBe('Ctrl+Z');
+    expect(sch.filter((e) => e.command === 'Undo')).toHaveLength(1);
+  });
+});
+
+describe('a toolbar title that carries its accelerator', () => {
+  const rows = buildHotkeySections().flatMap((s) => s.entries);
+
+  it('puts the key in the Hotkey column, not in the command name', () => {
+    // wxWidgets appends the key to a tool's short help for display; the
+    // action's name is the part in front. Listing "Draw Arcs (Ctrl+Shift+A)"
+    // whole put the key in the one column a reader does not look for it in and
+    // left the Hotkey column empty.
+    const arcs = rows.find((e) => e.name === 'pcbnew.drawArc');
+    expect(arcs?.command).toBe('Draw Arcs');
+    expect(arcs?.keys).toBe('Ctrl+Shift+A');
+  });
+
+  it('leaves no command name ending in a parenthesised key', () => {
+    for (const e of rows) {
+      expect(e.command, `${e.command} keeps its accelerator`).not.toMatch(
+        /\((Ctrl|Alt|Shift|F\d)[^)]*\)$/i,
+      );
+    }
+  });
+});
+
+describe('hotkeyConflicts (WIDGET_HOTKEY_LIST::resolveKeyConflicts)', () => {
+  const sections = buildHotkeySections();
+
+  it('names what already holds a combo', () => {
+    const hit = hotkeyConflicts(sections, 'Ctrl+Z', 'eeschema.nothing-holds-this')[0];
+    expect(hit?.command).toBe('Undo');
+  });
+
+  it('ignores the row being rebound', () => {
+    const undo = sections
+      .flatMap((s) => s.entries)
+      .find((e) => e.command === 'Undo' && e.name.startsWith('eeschema.'));
+    const hits = hotkeyConflicts(sections, 'Ctrl+Z', undo?.name ?? '');
+    expect(hits.every((h) => h.section !== 'Schematic Editor' || h.command !== 'Undo')).toBe(true);
+  });
+
+  it('searches the whole store, so a cross-editor collision is still reported', () => {
+    // resolveKeyConflicts walks GetSections(), not the one being edited. R is
+    // Rotate Clockwise in the schematic and a rotation in the 3D viewer, which
+    // is the sort of pair a user rebinding one would want named.
+    const hits = hotkeyConflicts(sections, 'R', 'eeschema.rotateCW');
+    expect(hits.some((h) => h.section === '3D Viewer')).toBe(true);
+  });
+
+  it('never reports a gesture, which is not a keystroke to take a key from', () => {
+    expect(hotkeyConflicts(sections, 'Ctrl+Click', 'x')).toEqual([]);
+  });
+
+  it('is not a conflict to bind nothing', () => {
+    expect(hotkeyConflicts(sections, '', 'eeschema.undo')).toEqual([]);
   });
 });

@@ -34,6 +34,7 @@ import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
+import { HOTKEYS, actionName } from '../editors/schematic/hotkeys.js';
 import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
@@ -172,6 +173,23 @@ const stripEllipsis = (s: string): string => s.replace(/\.\.\.|…/g, '').trim()
  */
 const isPlaceholder = (label: string): boolean => /^\(.*\)$/.test(label.trim());
 
+/**
+ * Split a toolbar title that carries its accelerator, "Paste (Ctrl+V)".
+ *
+ * wxWidgets appends the key to a tool's short help for display; the action's
+ * `GetFriendlyName()` is the part in front, and the key belongs in the Hotkey
+ * column. Fifteen of our titles are written that way, and listing them whole
+ * put the key in the Command column and left the Hotkey column empty - the one
+ * place a reader looks for it.
+ */
+const ACCEL_SUFFIX = /\s*\((Ctrl|Alt|Shift|F\d|Del|Esc|Tab|Space)[^)]*\)\s*$/i;
+
+function splitToolTitle(title: string): { name: string; keys: string } {
+  const m = ACCEL_SUFFIX.exec(title);
+  if (!m) return { name: title, keys: '' };
+  return { name: title.slice(0, m.index).trim(), keys: m[0].trim().replace(/^\(|\)$/g, '') };
+}
+
 /** Every leaf item of a built menu, submenus included. */
 function walkMenus(menus: readonly Menu[]): MenuItem[] {
   const out: MenuItem[] = [];
@@ -298,8 +316,30 @@ function section(
   extraKeys: Readonly<Record<string, string>> = {},
 ): Collected[] {
   const byKey = new Map<string, Collected>();
+
+  /**
+   * An icon two menu entries share is a picture, not an action id.
+   *
+   * The schematic's Edit menu draws Copy and Copy as Text with `icon: 'copy'`,
+   * and Paste and Paste Special with `icon: 'paste'` - reasonably, they are the
+   * same picture. Keying identity on it merged each pair into a single row, so
+   * the list showed Copy as Text bound to Ctrl+C and never mentioned Copy at
+   * all. Two commands became one, which is worse than the duplicate rows the
+   * key was introduced to prevent.
+   *
+   * So an icon only counts as an id while exactly one label claims it.
+   */
+  const iconLabels = new Map<string, Set<string>>();
+  for (const it of items) {
+    if (!it.icon || !it.label) continue;
+    const seen = iconLabels.get(it.icon) ?? new Set<string>();
+    seen.add(stripEllipsis(it.label).toLowerCase());
+    iconLabels.set(it.icon, seen);
+  }
+  const isPicture = (id: string): boolean => (iconLabels.get(id)?.size ?? 0) > 1;
+
   const keyOf = (id: string | undefined, label: string): string =>
-    id && id !== '' ? `#${id}` : label.toLowerCase();
+    id && id !== '' && !isPicture(id) ? `#${id}` : label.toLowerCase();
 
   const add = (
     key: string,
@@ -352,9 +392,10 @@ function section(
   // which differ, so the title is only kept as a description where it is not
   // simply the command again.
   for (const b of toolbars) {
-    const key = keyOf(b.id, b.title);
+    const { name: title, keys } = splitToolTitle(b.title);
+    const key = keyOf(b.id, title);
     const existing = byKey.get(key);
-    add(key, b.title, extraKeys[b.id] ?? '', existing ? b.title : '', false);
+    add(key, title, extraKeys[b.id] ?? keys, existing ? title : '', false);
   }
 
   return [...byKey.values()];
@@ -491,6 +532,112 @@ const PLATFORM_COMMANDS: HotkeyEntry[] = [
 export type HotkeyOverrides = Readonly<Record<string, string | null>>;
 
 /**
+ * The schematic's action registry, folded into its section.
+ *
+ * This is the closest thing the app has to a list of `TOOL_ACTION`s, and it is
+ * the only source here that is not a menu or a toolbar - which matters, because
+ * roughly half of what it holds appears in neither. The cursor keys, the grid
+ * keys, pan, Move, Drag, Cancel, Leave Sheet, Select Node: bound by the canvas,
+ * dispatched every day, and invisible to a list collected from menus. Upstream
+ * has no such gap because a menu entry *is* a TOOL_ACTION there, so walking the
+ * actions finds everything whether or not anything points at it.
+ *
+ * It is also the naming authority. `hotkeys.ts` is what the key handler
+ * dispatches on, so where a registry action and a collected row are the same
+ * command, the row takes the registry's name - otherwise rebinding it from this
+ * window would write an override the dispatcher never reads.
+ *
+ * Matched by id first. A menu's `icon` is usually the action id and sometimes
+ * only a picture, so a registry action whose id matched nothing falls back to
+ * its label - which catches Copy as Text, Paste Special, Zoom to Fit and List
+ * Hotkeys, four commands the two sides spell differently.
+ */
+function registryRows(): Collected[] {
+  const out: Collected[] = [];
+  const byUpstream = new Map<string, Collected>();
+
+  for (const h of HOTKEYS) {
+    // Two entries citing one TOOL_ACTION are one command with two bindings, not
+    // two commands. `zoomFit` on Home and `zoomFitScreenMac` on Ctrl+0 are both
+    // ACTIONS::zoomFitScreen - upstream holds that as one action with a
+    // DefaultHotkey and a DefaultHotkeyAlt, which is what the Alternate column
+    // exists to show. Listed as two rows they read as two commands sharing a
+    // name, which is the one thing a hotkey list must not be ambiguous about.
+    // They remain two ids because the key handler dispatches on them
+    // separately; only the row is one.
+    const same = h.upstream === '' ? undefined : byUpstream.get(h.upstream);
+    if (same) {
+      if (same.alt === '') same.alt = h.keys;
+      continue;
+    }
+    const row: Collected = {
+      name: actionName(h.id),
+      command: stripEllipsis(h.label),
+      keys: h.keys,
+      defaultKeys: h.keys,
+      alt: '',
+      description: '',
+      // A declared action id, never an icon name.
+      nameFromIcon: false,
+    };
+    out.push(row);
+    if (h.upstream !== '') byUpstream.set(h.upstream, row);
+  }
+
+  return out;
+}
+
+/**
+ * Fold the registry into rows collected from menus and toolbars.
+ *
+ * The registry wins on identity - its name and its default key - and the
+ * collected row wins on presentation, because a menu label is written for a
+ * reader and a toolbar title is a tooltip. A registry action nothing points at
+ * is added on its own, which is the point.
+ */
+function withRegistry(collected: readonly Collected[]): Collected[] {
+  const out = [...collected];
+  const byName = new Map(out.map((e) => [e.name, e]));
+  const byLabel = new Map(out.map((e) => [e.command.toLowerCase(), e]));
+  /**
+   * A collected row answers to one registry action.
+   *
+   * Two actions can carry the same FriendlyName - Zoom to Fit is both `zoomFit`
+   * on Home and `zoomFitScreenMac` on Ctrl+0 - and without this the second to
+   * be walked took the row the first had already claimed, renaming it and
+   * leaving `eeschema.zoomFit` to be picked up later by whichever toolbar
+   * button happened to share the id, unbound.
+   */
+  const claimed = new Set<Collected>();
+
+  for (const reg of registryRows()) {
+    const byNameHit = byName.get(reg.name);
+    const byLabelHit = byLabel.get(reg.command.toLowerCase());
+    const candidate = byNameHit ?? byLabelHit;
+    const hit = candidate && !claimed.has(candidate) ? candidate : undefined;
+    if (!hit) {
+      out.push(reg);
+      claimed.add(reg);
+      byName.set(reg.name, reg);
+      if (!byLabel.has(reg.command.toLowerCase())) byLabel.set(reg.command.toLowerCase(), reg);
+      continue;
+    }
+    claimed.add(hit);
+    // Adopting the registry's name is what joins this row to the dispatcher.
+    hit.name = reg.name;
+    hit.nameFromIcon = false;
+    // A collected row's accelerator comes from a menu, which can be stale; the
+    // registry's is the one the key handler actually honours - as is the second
+    // binding, which no menu or toolbar has anywhere to put.
+    hit.keys = reg.keys;
+    hit.defaultKeys = reg.keys;
+    hit.alt = reg.alt;
+  }
+
+  return out;
+}
+
+/**
  * The sections, in HOTKEY_STORE::Init's order, with Gestures last.
  *
  * `HOTKEY_STORE::Init` reads `action->GetHotKey()`, which is the *current*
@@ -556,11 +703,13 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
   // section rather than getting one of their own - as they do upstream.
   put(
     'eeschema',
-    section(
-      'eeschema',
-      schematicItems(),
-      [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
-      TOOL_HOTKEYS,
+    withRegistry(
+      section(
+        'eeschema',
+        schematicItems(),
+        [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
+        TOOL_HOTKEYS,
+      ),
     ),
   );
   put(
@@ -642,10 +791,21 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
    */
   const collapseByLabel = (entries: readonly Collected[]): Collected[] => {
     const byLabel = new Map<string, Collected>();
+    const kept: Collected[] = [];
     for (const e of entries) {
       const held = byLabel.get(e.command);
       if (!held) {
         byLabel.set(e.command, e);
+        kept.push(e);
+        continue;
+      }
+      // Two rows that both carry a *declared* name are two commands that happen
+      // to share a FriendlyName - Zoom to Fit is `zoomFit` on Home and
+      // `zoomFitScreenMac` on Ctrl+0 - and upstream lists both, because its
+      // store is keyed on the name and never consults the label. Only a name
+      // guessed from an icon is worth collapsing away.
+      if (!held.nameFromIcon && !e.nameFromIcon) {
+        kept.push(e);
         continue;
       }
       const keep = held.nameFromIcon && !e.nameFromIcon ? e : held;
@@ -656,8 +816,11 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
       }
       if (keep.description === '' && drop.description !== '') keep.description = drop.description;
       byLabel.set(e.command, keep);
+      // `keep` is already in `kept` when it is the row we held; when the new row
+      // wins it takes the held one's place rather than being appended.
+      if (keep === e) kept[kept.indexOf(drop)] = e;
     }
-    return [...byLabel.values()];
+    return kept;
   };
 
   // A PSEUDO_ACTION has no name, so nothing can be bound onto it - which is
@@ -702,4 +865,33 @@ export function filterHotkeys(sections: readonly HotkeySection[], filter: string
       ),
     }))
     .filter((s) => s.entries.length > 0);
+}
+
+/**
+ * Commands already answering to `keys`, ignoring the one being rebound.
+ *
+ * `WIDGET_HOTKEY_LIST::resolveKeyConflicts` names what holds a combo before
+ * assigning it, because "already taken" is the one thing a user cannot see for
+ * themselves while typing one into a row. It searches the whole store rather
+ * than the section, so a schematic binding that collides with a PCB one is
+ * still reported.
+ *
+ * A PSEUDO_ACTION is skipped: a gesture is not something a key can be taken
+ * from, and Ctrl+Click is not a keystroke.
+ */
+export function hotkeyConflicts(
+  sections: readonly HotkeySection[],
+  keys: string,
+  exceptName: string,
+): { command: string; section: string }[] {
+  if (keys === '') return [];
+  const want = keys.toLowerCase();
+  const out: { command: string; section: string }[] = [];
+  for (const s of sections) {
+    for (const e of s.entries) {
+      if (e.name === '' || e.name === exceptName) continue;
+      if (e.keys.toLowerCase() === want) out.push({ command: e.command, section: s.name });
+    }
+  }
+  return out;
 }

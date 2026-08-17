@@ -30,11 +30,12 @@
  *  - a stand-in carrying the *default* combo of the bound action.
  */
 
-import { HOTKEYS } from './hotkeys.js';
+import { HOTKEYS, actionName } from './hotkeys.js';
 
 /**
- * A per-action override. `null` clears the action's key; a string rebinds it.
- * An action with no entry keeps its default.
+ * A per-action override, keyed on `TOOL_ACTION::GetName()` - `eeschema.save`,
+ * not `save`. `null` clears the action's key; a string rebinds it. An action
+ * with no entry keeps its default.
  */
 export type HotkeyOverrides = Readonly<Record<string, string | null>>;
 
@@ -134,18 +135,24 @@ export const RESERVED_HOTKEYS: readonly string[] = ['Ctrl+Tab', 'Ctrl+Shift+Tab'
 export const isReservedHotkey = (combo: string): boolean =>
   RESERVED_HOTKEYS.some((r) => r.toLowerCase() === combo.toLowerCase());
 
-/** The combo each action answers to, after overrides. `null` means cleared. */
+/**
+ * The combo each action answers to, after overrides. `null` means cleared.
+ *
+ * Keyed on the action's name, as HOTKEY_STORE's map is, so the same key opens
+ * this and the settings file and the Hotkey List's rows.
+ */
 export function effectiveBindings(overrides: HotkeyOverrides = {}): Map<string, string | null> {
   const out = new Map<string, string | null>();
   for (const h of HOTKEYS) {
-    out.set(h.id, Object.hasOwn(overrides, h.id) ? overrides[h.id]! : h.keys);
+    const name = actionName(h.id);
+    out.set(name, Object.hasOwn(overrides, name) ? overrides[name]! : h.keys);
   }
   return out;
 }
 
-/** Actions whose default combo is this one. */
+/** Actions whose default combo is this one, by name. */
 const defaultsFor = (combo: string): string[] =>
-  HOTKEYS.filter((h) => h.keys.toLowerCase() === combo.toLowerCase()).map((h) => h.id);
+  HOTKEYS.filter((h) => h.keys.toLowerCase() === combo.toLowerCase()).map((h) => actionName(h.id));
 
 /**
  * Translate an event into what the editor's key chain should see.
@@ -167,10 +174,10 @@ export function remapEvent<T extends KeyLike>(
 
   // Is some action bound *to* this combo? A user rebinding wins over whatever
   // holds the combo by default.
-  for (const [id, keys] of bindings) {
-    if (keys === null || !Object.hasOwn(overrides, id)) continue;
+  for (const [name, keys] of bindings) {
+    if (keys === null || !Object.hasOwn(overrides, name)) continue;
     if (keys.toLowerCase() !== combo.toLowerCase()) continue;
-    const def = HOTKEYS.find((h) => h.id === id)?.keys;
+    const def = HOTKEYS.find((h) => actionName(h.id) === name)?.keys;
     if (!def) continue;
     // Already the default combo: no translation needed.
     return def.toLowerCase() === combo.toLowerCase() ? e : eventFromCombo(def, e);
@@ -182,7 +189,7 @@ export function remapEvent<T extends KeyLike>(
   const owners = defaultsFor(combo);
   if (
     owners.length > 0 &&
-    owners.every((id) => bindings.get(id)?.toLowerCase() !== combo.toLowerCase())
+    owners.every((name) => bindings.get(name)?.toLowerCase() !== combo.toLowerCase())
   )
     return null;
 
