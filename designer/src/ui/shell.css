@@ -1286,11 +1286,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 0;
   width: auto;
 }
+/* Scrolls both ways: the columns total 1590 and the window opens narrower. */
 .ze-hotkeys-list {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
   background: var(--panel-bg);
   border: 1px solid #181818;
   border-radius: 4px;
@@ -1298,6 +1298,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* The wxTreeListCtrl's column header. */
 .ze-hotkeys-head {
   display: flex;
+  width: max-content;
+  min-width: 100%;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -1307,11 +1309,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-size: var(--ui-font-size);
   color: #f3f4f5;
 }
-/* AppendColumn's widths - 450 / 120 / 120 / 900 - as proportions, so they hold
-   as the window is resized. The description is the one that gives way. */
+/* AppendColumn's widths, verbatim: 450 / 120 / 120 / 900. A wxTreeListCtrl
+   keeps its column widths and scrolls sideways when the window is narrower than
+   their sum (1590), which is why a real Hotkey List truncates "Show 3D Models
+   even if..." in the Command column and carries a horizontal scrollbar. Ours
+   shrank the columns to fit instead, so nothing ever truncated and the
+   proportions were never upstream's. */
 .ze-hotkeys-head .cmd,
 .ze-hotkeys-row .cmd {
-  flex: 0 0 300px;
+  flex: 0 0 450px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1321,14 +1327,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-hotkeys-row .key,
 .ze-hotkeys-head .alt,
 .ze-hotkeys-row .alt {
-  flex: 0 0 110px;
+  flex: 0 0 120px;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
 }
 .ze-hotkeys-head .desc,
 .ze-hotkeys-row .desc {
-  flex: 1 1 auto;
+  flex: 0 0 900px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1349,6 +1355,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-hotkeys-row {
   display: flex;
+  width: max-content;
+  min-width: 100%;
   padding: 3px 8px 3px 24px;
   font-size: 10pt;
   color: var(--chrome-fg);
@@ -1379,10 +1387,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-hotkeys-empty {
   padding: 14px;
-  font-size: 10pt;
-  color: #9a9a9a;
-}
-.ze-hotkeys-count {
   font-size: 10pt;
   color: #9a9a9a;
 }

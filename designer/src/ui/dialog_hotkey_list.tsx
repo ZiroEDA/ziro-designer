@@ -90,9 +90,6 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
     searchRef.current?.focus();
   }, []);
 
-  const total = useMemo(() => all.reduce((n, s) => n + s.entries.length, 0), [all]);
-  const showing = shown.reduce((n, s) => n + s.entries.length, 0);
-
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
@@ -200,12 +197,6 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
             <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
               Import Hotkeys…
             </button>
-            {/* Not upstream, which has nothing here. A filtered list that is
-                simply short gives no clue whether it is short because the
-                filter worked or because the list is thin. */}
-            <span className="ze-hotkeys-count">
-              {filter === '' ? `${total} commands` : `${showing} of ${total} commands`}
-            </span>
           </div>
           <div className="right">
             <button className="ze-btn" onClick={onClose}>

@@ -45,6 +45,7 @@ import {
   PCB_RIGHT_TOOLBAR,
 } from '../editors/pcb/pcbToolbars.js';
 import { VIEWER3D_TOP_TOOLBAR } from '../editors/pcb/viewer3dToolbars.js';
+import { buildViewer3DMenus } from '../editors/pcb/viewer3dMenus.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -204,6 +205,30 @@ function managerItems(): MenuItem[] {
   );
 }
 
+/**
+ * The 3D viewer's menus, which is where its accelerators are - the toolbar has
+ * the buttons but no keys, so reading only that left every 3D Viewer row
+ * blank while a real KiCad lists D, P, V, S, T, F, Home and the four arrows.
+ */
+function viewer3dItems(): MenuItem[] {
+  try {
+    return walkMenus(
+      buildViewer3DMenus(
+        {
+          grid: 'none' as never,
+          ortho: false,
+          showMissingModels: false,
+          raytracing: false,
+          showAppearanceManager: false,
+        },
+        new Proxy({} as Record<string, unknown>, { get: () => noop }) as never,
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
 function schematicItems(): MenuItem[] {
   // Every handler is the same no-op; the builder only stores them on the items.
   const h = new Proxy({} as Record<string, unknown>, {
@@ -218,41 +243,70 @@ function schematicItems(): MenuItem[] {
   }
 }
 
-/** Merge menu items and toolbar buttons into one row per command. */
+/**
+ * Merge menu items and toolbar buttons into one row per *action*.
+ *
+ * HOTKEY_STORE::Init keys its map on `action->GetName()`, so a command reached
+ * from both a menu and a toolbar is one HOTKEY with one row, however the two
+ * spell its label. We have the same key: a MenuItem's `icon` and a ToolButton's
+ * `id` are both the action id - `copyToClipboard3d`, `rotateXCW` - so they
+ * merge on that and fall back to the label only when there is no id.
+ *
+ * Keying on the label instead left the 3D viewer listing "Copy 3D image to
+ * clipboard" and "Copy 3D Image to Clipboard" as two commands, and "Move Board
+ * Down" beside "Move down".
+ *
+ * When the two sides meet, the menu supplies the command name - it is the
+ * friendly name, the toolbar's is a tooltip - and the toolbar supplies the
+ * description, which is what fills a column that was otherwise empty.
+ */
 function section(
   items: readonly MenuItem[],
   toolbars: readonly { title: string; id: string }[],
   extraKeys: Readonly<Record<string, string>> = {},
 ): HotkeySection {
-  const byName = new Map<string, HotkeyEntry>();
+  const byKey = new Map<string, HotkeyEntry>();
+  const keyOf = (id: string | undefined, label: string): string =>
+    id && id !== '' ? `#${id}` : label.toLowerCase();
 
-  const add = (rawName: string, keys: string, description: string): void => {
-    const command = stripEllipsis(rawName);
-    if (command === '') return;
-    const prev = byName.get(command);
-    if (prev) {
-      // First non-empty wins for each field, so a toolbar's description fills
-      // in a menu row and a menu's accelerator fills in a toolbar row.
-      if (prev.keys === '') prev.keys = keys;
-      if (prev.description === '') prev.description = description;
+  const add = (
+    key: string,
+    command: string,
+    keys: string,
+    description: string,
+    fromMenu: boolean,
+  ): void => {
+    const name = stripEllipsis(command);
+    if (name === '') return;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, { command: name, keys, alt: '', description });
       return;
     }
-    byName.set(command, { command, keys, alt: '', description });
+    // A menu label outranks a toolbar title as the command's name, and each
+    // field is filled by whichever side has one.
+    if (fromMenu) prev.command = name;
+    if (prev.keys === '') prev.keys = keys;
+    if (prev.description === '' && description !== '') prev.description = description;
+    // A description that is just the command again says nothing, and happens
+    // whenever a menu label and its toolbar tooltip are the same string.
+    if (prev.description === prev.command) prev.description = '';
   };
 
-  for (const it of items) add(it.label ?? '', it.shortcut ?? '', '');
-  // A ToolButton carries one string, `title`, which is both its name and its
-  // tooltip. Upstream's two columns come from GetFriendlyName() and
-  // GetDescription(), which differ - "Annotate Schematic" against "Fill in
-  // schematic symbol reference designators". Repeating the name in the
-  // description column would fill it without saying anything, so a description
-  // is only kept where it is not simply the command again.
+  for (const it of items) {
+    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', it.shortcut ?? '', '', true);
+  }
+  // A ToolButton carries one string, `title`, as both its name and its tooltip.
+  // Upstream's two columns come from GetFriendlyName() and GetDescription(),
+  // which differ, so the title is only kept as a description where it is not
+  // simply the command again.
   for (const b of toolbars) {
-    const command = stripEllipsis(b.title);
-    add(b.title, extraKeys[b.id] ?? '', b.title === command ? '' : b.title);
+    const key = keyOf(b.id, b.title);
+    const existing = byKey.get(key);
+    add(key, b.title, extraKeys[b.id] ?? '', existing ? b.title : '', false);
   }
 
-  return { name: '', entries: [...byName.values()] };
+  return { name: '', entries: [...byKey.values()] };
 }
 
 /**
@@ -358,7 +412,7 @@ export function buildHotkeySections(): HotkeySection[] {
       ],
     ).entries,
   );
-  put('3DViewer', section([], walkToolbar(VIEWER3D_TOP_TOOLBAR)).entries);
+  put('3DViewer', section(viewer3dItems(), walkToolbar(VIEWER3D_TOP_TOOLBAR)).entries);
   put(
     'gerbview',
     section(
