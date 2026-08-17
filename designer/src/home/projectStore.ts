@@ -27,6 +27,7 @@ import {
 } from './storageHealth.js';
 import { withRecordLock } from './record_lock.js';
 import { sha256Hex } from '../cloud/blobStore.js';
+import { gunzip, gzip } from './gzip.js';
 
 export interface StoredFile {
   name: string;
@@ -210,24 +211,6 @@ function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBReque
 /** Boot check: prove a real write/read/delete round-trip works. */
 export function checkStorageHealth(): Promise<StorageStatus> {
   return probeStorage(openDB, STORE);
-}
-
-// ----- gzip helpers ----------------------------------------------------------
-
-const hasCompression = typeof CompressionStream !== 'undefined';
-
-async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
-  if (!hasCompression) return bytes;
-  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-async function gunzip(data: Uint8Array): Promise<Uint8Array> {
-  // gzip magic 0x1f 0x8b; anything else is stored raw (older browsers).
-  const isGz = data.length > 2 && data[0] === 0x1f && data[1] === 0x8b;
-  if (!isGz || typeof DecompressionStream === 'undefined') return data;
-  const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 // ----- public API ------------------------------------------------------------

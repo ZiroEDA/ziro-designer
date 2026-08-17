@@ -5921,3 +5921,85 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   overflow: hidden;
 }
+
+/* -----------------------------------------------------------------------------
+   LOCAL_HISTORY_PANE (kicad/local_history_pane.cpp), a two-column wxListCtrl in
+   report mode:
+
+       m_list->AppendColumn( _( "Title" ) );
+       m_list->AppendColumn( _( "Time" ) );
+       m_list->SetColumnWidth( 0, FromDIP( 200 ) );
+       m_list->SetColumnWidth( 1, FromDIP( 150 ) );
+   -------------------------------------------------------------------------- */
+.ze-lhist {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel-bg);
+  border-right: 1px solid var(--chrome-border);
+}
+.ze-lhist-head,
+.ze-lhist-row {
+  display: grid;
+  /* The two declared widths, as a ratio so the pane can be resized without the
+     Time column being cut off first. */
+  grid-template-columns: minmax(0, 200fr) minmax(0, 150fr);
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 10pt;
+}
+.ze-lhist-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  color: var(--chrome-fg);
+  font-weight: 600;
+}
+.ze-lhist-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.ze-lhist-row {
+  color: var(--chrome-fg);
+  cursor: default;
+}
+.ze-lhist-row .title,
+.ze-lhist-row .time,
+.ze-lhist-head .title,
+.ze-lhist-head .time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-lhist-row:hover {
+  background: var(--chrome-hover);
+}
+.ze-lhist-row.selected,
+.ze-lhist-row.selected:hover {
+  background: var(--chrome-active);
+  color: #fff;
+}
+/* SetItemTextColour( row, wxSystemSettings::GetColour( wxSYS_COLOUR_GRAYTEXT ) )
+   for a snapshot whose summary starts "Autosave" - it happened without anyone
+   asking, so it reads as background noise until it is wanted. */
+.ze-lhist-row.autosave {
+  color: #9a9a9a;
+}
+/* SetItemTextColour( row, wxColour( 80, 120, 200 ) ) for "Backup". A literal in
+   the source rather than a system colour, so a literal here. */
+.ze-lhist-row.backup {
+  color: rgb(80 120 200);
+}
+.ze-lhist-row.selected.autosave,
+.ze-lhist-row.selected.backup {
+  color: #fff;
+}
+.ze-lhist-empty {
+  padding: 14px 8px;
+  font-size: 10pt;
+  color: #9a9a9a;
+}

@@ -202,6 +202,8 @@ function managerItems(): MenuItem[] {
       archiveProject: noop,
       unarchiveProject: noop,
       refresh: noop,
+      toggleLocalHistory: noop,
+      localHistoryShown: false,
       openTextViewer: noop,
       editSchematic: noop,
       editSymbols: noop,

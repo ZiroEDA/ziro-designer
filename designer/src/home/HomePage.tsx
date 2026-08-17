@@ -72,6 +72,19 @@ import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
+import { LocalHistoryPane } from './LocalHistoryPane.js';
+import { commitSnapshot, deleteProjectHistory, enforceSizeLimit } from './local_history_store.js';
+
+/**
+ * How much of the origin's storage the history of one project may use.
+ *
+ * `EnforceSizeLimit( aProjectPath, aMaxBytes, ... )` upstream, whose budget is
+ * a user setting. Ours is a constant until there is a page to put it on, and it
+ * is deliberately generous: blobs are shared between snapshots, so this is the
+ * distinct content of a project's whole history rather than the sum of its
+ * snapshots, and a project of any size only grows it by what actually changed.
+ */
+const HISTORY_MAX_BYTES = 64 * 1024 * 1024;
 import {
   filesFromFileList,
   walkDirectoryHandle,
@@ -335,6 +348,20 @@ export function HomePage({
     });
   // Whether the project root node is expanded (its twisty collapses the tree).
   const [rootOpen, setRootOpen] = useState(true);
+  /**
+   * Whether View > Panels > Local History is checked.
+   *
+   * Upstream persists it - the pane is an AUI pane and the perspective is
+   * saved with the frame - so it is remembered rather than reset on every
+   * load. Off by default, as an unopened AUI pane is.
+   */
+  const [historyShown, setHistoryShown] = useState<boolean>(
+    () => localStorage.getItem('ziroeda.localHistoryShown') === '1',
+  );
+  useEffect(() => {
+    localStorage.setItem('ziroeda.localHistoryShown', historyShown ? '1' : '0');
+  }, [historyShown]);
+
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
@@ -650,6 +677,17 @@ export function HomePage({
             );
             saved = pid;
             refreshSaved();
+            // LOCAL_HISTORY::CommitSnapshot, which upstream runs from the same
+            // place a save does. Declines by itself when nothing changed, so
+            // reopening a folder does not add a row saying nothing happened.
+            void commitSnapshot(
+              pid,
+              withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
+              'save',
+              name,
+            ).then(async (snap) => {
+              if (snap) await enforceSizeLimit(pid, HISTORY_MAX_BYTES);
+            });
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
               void pushProject(userId, pid).catch((e) => console.warn('Cloud push failed:', e));
@@ -793,6 +831,8 @@ export function HomePage({
     const where = userId ? 'this browser and your account' : 'this browser';
     if (!window.confirm(`Delete "${p?.name ?? 'this project'}" from ${where}?`)) return;
     await deleteProject(id);
+    // Nothing else will ever reference these snapshots again.
+    await deleteProjectHistory(id);
     refreshSaved();
     if (userId) void deleteCloudProject(id).catch((e) => console.warn('Cloud delete failed:', e));
   };
@@ -944,6 +984,19 @@ export function HomePage({
     [proFile, picked],
   );
   const projLower = projName.toLowerCase();
+  /**
+   * The stored record the open project is, which is what its history is keyed
+   * on.
+   *
+   * Derived from the name rather than tracked, because that is already how the
+   * store identifies a project: `ingest` reuses "an existing record of the same
+   * name so reopening a folder updates it rather than piling up duplicates".
+   * Anything else here would be a second answer to the same question.
+   */
+  const openProjectId = useMemo(
+    () => (projName ? (saved.find((p) => p.name === projName)?.id ?? null) : null),
+    [saved, projName],
+  );
   // KiCad's getProjects(dir): the basenames of every .kicad_pro in the folder.
   // A folder may hold several projects (e.g. the ecc83 demo's ecc83-pp and
   // ecc83-pp_v2); the tree shows the root sheet of each, so this set, not just
@@ -1077,7 +1130,10 @@ export function HomePage({
       )
     )
       return;
-    for (const pr of saved) await deleteProject(pr.id);
+    for (const pr of saved) {
+      await deleteProject(pr.id);
+      await deleteProjectHistory(pr.id);
+    }
     refreshSaved();
   };
 
@@ -1092,6 +1148,8 @@ export function HomePage({
     archiveProject: () => void archiveProject(),
     unarchiveProject: () => zipInputRef.current?.click(),
     refresh: refreshSaved,
+    toggleLocalHistory: () => setHistoryShown((v) => !v),
+    localHistoryShown: historyShown,
     openTextViewer: () => setTextView(selectedTextFile),
     editSchematic: () => launchSchematic(),
     editSymbols: () => onOpenSymbolEditor?.(picked ?? undefined),
@@ -1259,6 +1317,11 @@ export function HomePage({
             ),
           )}
         </div>
+
+        {/* The AUI pane, docked left of the project tree. Upstream's is a
+            LOCAL_HISTORY_PANE added to the frame's AUI manager; ours is a
+            sibling of the tree in the same row. */}
+        {historyShown && <LocalHistoryPane projectId={openProjectId} />}
 
         <ProjectTreePane
           picked={picked}

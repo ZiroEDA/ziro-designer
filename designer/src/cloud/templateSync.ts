@@ -50,6 +50,7 @@ import {
   putUserTemplateVerbatim,
   templateStamp,
 } from '../home/user_templates.js';
+import { gunzip, gzip } from '../home/gzip.js';
 
 /** One template as the index records it: metadata plus a blob manifest. */
 export interface TemplateIndexEntry {
@@ -74,21 +75,6 @@ export const templateIndexPath = (userId: string): string => `${userId}/template
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-
-const hasCompression = typeof CompressionStream !== 'undefined';
-
-async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
-  if (!hasCompression) return bytes;
-  const s = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(s).arrayBuffer());
-}
-
-async function gunzip(data: Uint8Array): Promise<Uint8Array> {
-  const isGz = data.length > 2 && data[0] === 0x1f && data[1] === 0x8b;
-  if (!isGz || typeof DecompressionStream === 'undefined') return data;
-  const s = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(s).arrayBuffer());
-}
 
 /** The stored index, or an empty one when the user has never pushed. */
 export async function readIndex(backend: CloudBackend, userId: string): Promise<TemplateIndex> {

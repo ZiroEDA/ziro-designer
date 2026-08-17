@@ -27,6 +27,9 @@ export interface ManagerMenuHandlers {
   archiveProject: () => void;
   unarchiveProject: () => void;
   refresh: () => void;
+  /** KICAD_MANAGER_ACTIONS::showLocalHistory, a CHECK item. */
+  toggleLocalHistory: () => void;
+  localHistoryShown: boolean;
   openTextViewer: () => void; // reinterprets "Open Text Editor"
   editSchematic: () => void;
   editSymbols: () => void;
@@ -176,8 +179,17 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       label: 'View',
       items: [
         {
+          // panelsMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory,
+          //                  ACTION_MENU::CHECK );
+          // A check item, so the row shows whether the pane is up.
           label: 'Panels',
-          submenu: [{ label: 'Local History', disabled: true }], // tracked issue
+          submenu: [
+            {
+              label: 'Local History',
+              checked: h.localHistoryShown,
+              action: h.toggleLocalHistory,
+            },
+          ],
         },
         SEP,
         // ACTIONS::zoomRedraw. FriendlyName "Refresh", and F5 everywhere except
