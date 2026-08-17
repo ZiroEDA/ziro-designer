@@ -1375,8 +1375,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #ffe6d9;
 }
 /* The two button groups: the panel's own row on the left, the dialog's
-   wxStdDialogButtonSizer on the right. */
-.ze-hotkeys-foot {
+   wxStdDialogButtonSizer on the right.
+
+   Qualified with .ze-modal-footer deliberately. That rule sets
+   `justify-content: flex-end` and sits ~2400 lines further down this file; at
+   equal specificity the later one wins, so a bare .ze-hotkeys-foot lost and
+   both groups packed right - which is what they were still doing. */
+.ze-modal-footer.ze-hotkeys-foot {
   justify-content: space-between;
 }
 .ze-hotkeys-foot .left,
