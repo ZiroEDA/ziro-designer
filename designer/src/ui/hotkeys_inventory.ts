@@ -34,7 +34,14 @@ import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
-import { HOTKEYS, actionName } from '../editors/schematic/hotkeys.js';
+import {
+  APP_ORDER,
+  APP_REGISTRIES,
+  SECTION_NAMES,
+  qualify,
+  type AppKey,
+  type RegistryAction,
+} from './hotkey_apps.js';
 import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
@@ -115,44 +122,6 @@ interface Collected extends HotkeyEntry {
 
 /** Drop the collection bookkeeping, so the exported row is only the row. */
 const strip = ({ nameFromIcon: _drop, ...e }: Collected): HotkeyEntry => e;
-
-/**
- * HOTKEY_STORE::Init walks a `std::map<std::string, HOTKEY>` keyed by the
- * action's *name*, so it is sorted by that key, and a section is created the
- * first time a new app prefix appears in that walk. The section order is
- * therefore the app prefixes in ASCII order:
- *
- *     3DViewer  common  eeschema  gerbview  kicad  pcbnew  plEditor
- *
- * which is why a real Hotkey List reads 3D Viewer, Common, Schematic Editor,
- * Gerber Viewer, Project Manager, PCB Editor, Drawing Sheet Editor - not
- * alphabetically by the names shown, and not in the order the editors appear
- * anywhere else. Gestures is appended after the loop, so it is always last.
- *
- * The symbol and footprint editors get no section of their own: their actions
- * are named `eeschema.*` and `pcbnew.*`, so they fold into those two.
- */
-const APP_ORDER = [
-  '3DViewer',
-  'common',
-  'eeschema',
-  'gerbview',
-  'kicad',
-  'pcbnew',
-  'plEditor',
-] as const;
-type AppKey = (typeof APP_ORDER)[number];
-
-/** HOTKEY_STORE::GetSectionName's s_AppNames, verbatim. */
-const SECTION_NAMES: Record<AppKey, string> = {
-  '3DViewer': '3D Viewer',
-  common: 'Common',
-  eeschema: 'Schematic Editor',
-  gerbview: 'Gerber Viewer',
-  kicad: 'Project Manager',
-  pcbnew: 'PCB Editor',
-  plEditor: 'Drawing Sheet Editor',
-};
 
 /**
  * updateFromClientData:
@@ -552,11 +521,12 @@ export type HotkeyOverrides = Readonly<Record<string, string | null>>;
  * its label - which catches Copy as Text, Paste Special, Zoom to Fit and List
  * Hotkeys, four commands the two sides spell differently.
  */
-function registryRows(): Collected[] {
+function registryRows(app: AppKey): Collected[] {
+  const registry: readonly RegistryAction[] = APP_REGISTRIES[app] ?? [];
   const out: Collected[] = [];
   const byUpstream = new Map<string, Collected>();
 
-  for (const h of HOTKEYS) {
+  for (const h of registry) {
     // Two entries citing one TOOL_ACTION are one command with two bindings, not
     // two commands. `zoomFit` on Home and `zoomFitScreenMac` on Ctrl+0 are both
     // ACTIONS::zoomFitScreen - upstream holds that as one action with a
@@ -571,7 +541,7 @@ function registryRows(): Collected[] {
       continue;
     }
     const row: Collected = {
-      name: actionName(h.id),
+      name: qualify(app, h.id),
       command: stripEllipsis(h.label),
       keys: h.keys,
       defaultKeys: h.keys,
@@ -595,7 +565,7 @@ function registryRows(): Collected[] {
  * reader and a toolbar title is a tooltip. A registry action nothing points at
  * is added on its own, which is the point.
  */
-function withRegistry(collected: readonly Collected[]): Collected[] {
+function withRegistry(app: AppKey, collected: readonly Collected[]): Collected[] {
   const out = [...collected];
   const byName = new Map(out.map((e) => [e.name, e]));
   const byLabel = new Map(out.map((e) => [e.command.toLowerCase(), e]));
@@ -610,7 +580,7 @@ function withRegistry(collected: readonly Collected[]): Collected[] {
    */
   const claimed = new Set<Collected>();
 
-  for (const reg of registryRows()) {
+  for (const reg of registryRows(app)) {
     const byNameHit = byName.get(reg.name);
     const byLabelHit = byLabel.get(reg.command.toLowerCase());
     const candidate = byNameHit ?? byLabelHit;
@@ -703,13 +673,11 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
   // section rather than getting one of their own - as they do upstream.
   put(
     'eeschema',
-    withRegistry(
-      section(
-        'eeschema',
-        schematicItems(),
-        [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
-        TOOL_HOTKEYS,
-      ),
+    section(
+      'eeschema',
+      schematicItems(),
+      [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
+      TOOL_HOTKEYS,
     ),
   );
   put(
@@ -832,8 +800,12 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
 
   const out: HotkeySection[] = [];
   for (const app of APP_ORDER) {
-    const entries = byApp.get(app);
-    if (entries && entries.length > 0) {
+    // The registry is folded in per app rather than at one call site, so an
+    // editor that gains one appears here without this function learning its
+    // name. Run after everything collected for the app, so a registry action
+    // can claim a row from any of its menus or toolbars.
+    const entries = withRegistry(app, byApp.get(app) ?? []);
+    if (entries.length > 0) {
       out.push({
         name: SECTION_NAMES[app],
         entries: collapseByLabel(entries)

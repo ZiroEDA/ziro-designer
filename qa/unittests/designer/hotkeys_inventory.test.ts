@@ -19,6 +19,13 @@ import {
   type HotkeySection,
 } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import { HOTKEYS, actionName } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
+import {
+  APP_ORDER,
+  APP_REGISTRIES,
+  SECTION_NAMES,
+  hasRegistry,
+  qualify,
+} from '@ziroeda/designer/src/ui/hotkey_apps.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
@@ -355,5 +362,38 @@ describe('hotkeyConflicts (WIDGET_HOTKEY_LIST::resolveKeyConflicts)', () => {
 
   it('is not a conflict to bind nothing', () => {
     expect(hotkeyConflicts(sections, '', 'eeschema.undo')).toEqual([]);
+  });
+});
+
+describe('the app table (hotkey_apps.ts)', () => {
+  it('is what decides which editors have a registry, not a name in the code', () => {
+    // The whole point of the table: an editor gains the Hotkey List, rebinding,
+    // import and conflict reporting by appearing here, without hotkeys_inventory
+    // or hotkey_bindings learning its name.
+    expect(Object.keys(APP_REGISTRIES)).toEqual(['eeschema']);
+    expect(hasRegistry('eeschema')).toBe(true);
+    expect(hasRegistry('pcbnew')).toBe(false);
+  });
+
+  it('names a section for every app it can order', () => {
+    for (const app of APP_ORDER) expect(SECTION_NAMES[app], app).toBeTruthy();
+  });
+
+  it('folds a registry in for whichever app declares one', () => {
+    // buildHotkeySections walks APP_ORDER and folds APP_REGISTRIES[app]; the
+    // schematic is the one that has rows from neither a menu nor a toolbar, so
+    // it is the one whose section is bigger than what was collected.
+    const sch = buildHotkeySections().find((s) => s.name === 'Schematic Editor');
+    for (const id of ['cursorUp', 'panLeft', 'gridNext']) {
+      expect(
+        sch?.entries.some((e) => e.name === qualify('eeschema', id)),
+        id,
+      ).toBe(true);
+    }
+  });
+
+  it('qualifies a name the same way the schematic module does', () => {
+    // Two spellings of the same thing is how the key spaces diverged before.
+    expect(qualify('eeschema', 'save')).toBe(actionName('save'));
   });
 });

@@ -30,7 +30,8 @@
  *  - a stand-in carrying the *default* combo of the bound action.
  */
 
-import { HOTKEYS, actionName } from './hotkeys.js';
+import { APP_REGISTRIES, qualify, type AppKey, type RegistryAction } from '../../ui/hotkey_apps.js';
+import { HOTKEY_APP } from './hotkeys.js';
 
 /**
  * A per-action override, keyed on `TOOL_ACTION::GetName()` - `eeschema.save`,
@@ -136,23 +137,37 @@ export const isReservedHotkey = (combo: string): boolean =>
   RESERVED_HOTKEYS.some((r) => r.toLowerCase() === combo.toLowerCase());
 
 /**
+ * The editor whose registry a call is about.
+ *
+ * Defaults to the schematic because it is the only editor wired up today, and
+ * because every existing caller means it. An editor being brought onto the
+ * store passes its own - see ui/hotkey_apps.ts, which is the table of them.
+ */
+const registryOf = (app: AppKey): readonly RegistryAction[] => APP_REGISTRIES[app] ?? [];
+
+/**
  * The combo each action answers to, after overrides. `null` means cleared.
  *
  * Keyed on the action's name, as HOTKEY_STORE's map is, so the same key opens
  * this and the settings file and the Hotkey List's rows.
  */
-export function effectiveBindings(overrides: HotkeyOverrides = {}): Map<string, string | null> {
+export function effectiveBindings(
+  overrides: HotkeyOverrides = {},
+  app: AppKey = HOTKEY_APP,
+): Map<string, string | null> {
   const out = new Map<string, string | null>();
-  for (const h of HOTKEYS) {
-    const name = actionName(h.id);
+  for (const h of registryOf(app)) {
+    const name = qualify(app, h.id);
     out.set(name, Object.hasOwn(overrides, name) ? overrides[name]! : h.keys);
   }
   return out;
 }
 
 /** Actions whose default combo is this one, by name. */
-const defaultsFor = (combo: string): string[] =>
-  HOTKEYS.filter((h) => h.keys.toLowerCase() === combo.toLowerCase()).map((h) => actionName(h.id));
+const defaultsFor = (combo: string, app: AppKey): string[] =>
+  registryOf(app)
+    .filter((h) => h.keys.toLowerCase() === combo.toLowerCase())
+    .map((h) => qualify(app, h.id));
 
 /**
  * Translate an event into what the editor's key chain should see.
@@ -164,20 +179,21 @@ const defaultsFor = (combo: string): string[] =>
 export function remapEvent<T extends KeyLike>(
   e: T,
   overrides: HotkeyOverrides = {},
+  app: AppKey = HOTKEY_APP,
 ): KeyLike | null {
   // Nothing customised: the overwhelmingly common case, and it must cost
   // nothing — this runs on every keystroke.
   if (Object.keys(overrides).length === 0) return e;
 
   const combo = comboFromEvent(e);
-  const bindings = effectiveBindings(overrides);
+  const bindings = effectiveBindings(overrides, app);
 
   // Is some action bound *to* this combo? A user rebinding wins over whatever
   // holds the combo by default.
   for (const [name, keys] of bindings) {
     if (keys === null || !Object.hasOwn(overrides, name)) continue;
     if (keys.toLowerCase() !== combo.toLowerCase()) continue;
-    const def = HOTKEYS.find((h) => actionName(h.id) === name)?.keys;
+    const def = registryOf(app).find((h) => qualify(app, h.id) === name)?.keys;
     if (!def) continue;
     // Already the default combo: no translation needed.
     return def.toLowerCase() === combo.toLowerCase() ? e : eventFromCombo(def, e);
@@ -186,7 +202,7 @@ export function remapEvent<T extends KeyLike>(
   // No action claims it. If it is the default combo of an action that has been
   // cleared or moved away, the key must now do nothing — otherwise the chain
   // would still match it and "clear" would have changed nothing.
-  const owners = defaultsFor(combo);
+  const owners = defaultsFor(combo, app);
   if (
     owners.length > 0 &&
     owners.every((name) => bindings.get(name)?.toLowerCase() !== combo.toLowerCase())

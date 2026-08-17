@@ -731,7 +731,14 @@ export const HOTKEYS: readonly Hotkey[] = [
  */
 export const HOTKEY_APP = 'eeschema';
 
-/** `TOOL_ACTION::GetName()` for a row of this table. */
+/**
+ * `TOOL_ACTION::GetName()` for a row of this table.
+ *
+ * Spelled out rather than calling `qualify` from ui/hotkey_apps.ts, which is
+ * the general form: that module imports this one for the registry table, and
+ * importing it back would close a cycle around the file whose whole point is
+ * being data with no imports.
+ */
 export const actionName = (id: string): string => `${HOTKEY_APP}.${id}`;
 
 /** The sections in the order the dialog shows them. */
