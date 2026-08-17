@@ -47,6 +47,7 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { ABOUT_TITLES } from '../../ui/about_titles.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -1331,7 +1332,9 @@ export function FootprintEditor({
         />
       )}
 
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <AboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
+      )}
       {propsOpen && workFp && (
         <FootprintPropertiesDialog
           footprint={workFp}

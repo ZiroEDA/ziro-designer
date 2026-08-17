@@ -67,6 +67,7 @@ import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { ABOUT_TITLES } from '../../ui/about_titles.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -1858,7 +1859,7 @@ export function SymbolEditor({
             />
           );
         })()}
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
       {newSymbolOpen && (
         <NewSymbolDialog
           symbolNames={targetLib ? manager.current.symbolNames(targetLib) : []}

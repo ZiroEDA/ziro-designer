@@ -306,7 +306,7 @@ import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
-import { DialogListHotkeys } from './dialogs/dialog_list_hotkeys.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
@@ -925,7 +925,6 @@ export function SchematicEditor({
   const [pendingImage, setPendingImage] = useState<SchImage | null>(null);
   // Keyboard-initiated grabbed move (SCH_MOVE_TOOL): M leaves connected wires
   // behind, G drags them along. A fresh nonce restarts the grab.
-  const [hotkeyListOpen, setHotkeyListOpen] = useState(false);
   /** DIALOG_TABLECELL_PROPERTIES: the cell ids it is editing. */
   const [cellPropsIds, setCellPropsIds] = useState<string[] | null>(null);
   // Assign Netclass: the patterns the selection produced, awaiting a class.
@@ -5265,7 +5264,7 @@ export function SchematicEditor({
     (id: string) => {
       // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
       if (id === 'listHotkeys') {
-        setHotkeyListOpen(true);
+        showHotkeyList();
         return;
       }
       if (id === 'assignNetclass') {
@@ -6650,10 +6649,11 @@ export function SchematicEditor({
           if (r.clampedAtZero) setError('Label value cannot go below zero');
         }
       } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
-        // ACTIONS::listHotKeys (Ctrl+F1). Checked before the bare-F1 zoom arm
-        // below, which requires no modifiers, so the two cannot collide.
+        // ACTIONS::listHotKeys is AS_GLOBAL and HotkeyListHost binds Ctrl+F1
+        // once, above every frame. The arm stays so the bare-F1 zoom below - a
+        // *different* action that requires no modifiers - is still reached only
+        // when Ctrl is absent; without it, Ctrl+F1 would fall through and zoom.
         e.preventDefault();
-        setHotkeyListOpen(true);
       } else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         // ACTIONS::zoomIn, "Zoom In at Cursor" (F1 off macOS). It is not
         // zoomInCenter, which this used to be labelled: that action zooms about
@@ -8561,7 +8561,6 @@ export function SchematicEditor({
           }}
         />
       )}
-      {hotkeyListOpen && <DialogListHotkeys onClose={() => setHotkeyListOpen(false)} />}
 
       {/* A bus entry's stroke (DIALOG_WIRE_BUS_PROPERTIES, E on an entry). */}
       {busEntryEdit && (

@@ -12,20 +12,29 @@
  *     ...
  *     main_sizer->SetMinSize( 600, 400 );
  *
- * and the panel is a filter box over a two-column tree, grouped by section:
+ * and the panel is a filter box over a four-column tree, grouped by section:
  *
  *     m_filterSearch = CreateTextFilterBox( this, _( "Type filter text" ) );
  *     bMargins->Add( m_filterSearch, 0, wxEXPAND | wxTOP | wxRIGHT, 5 );
  *     m_hotkeyListCtrl = new WIDGET_HOTKEY_LIST( this, m_hotkeyStore, readOnly );
  *     bMargins->Add( m_hotkeyListCtrl, 1, wxEXPAND | wxTOP | wxRIGHT, 5 );
  *
- * Left out: the panel's own button row, "Undo All Changes" and
- * "Import Hotkeys...". Both edit the hotkey configuration, and this dialog
- * builds the panel read-only precisely so nothing here can - upstream installs
- * them unconditionally because the same panel is also the Preferences page,
- * where they do work. There is no hotkey editor here to undo into, and carrying
- * two buttons that can never do anything is the noise we took out of the
- * template menu.
+ * WIDGET_HOTKEY_LIST is a wxTreeListCtrl of four columns, and the header of the
+ * first depends on whether the panel is editable:
+ *
+ *     AppendColumn( command_header, 450, ... );   // "Command", read-only here
+ *     AppendColumn( _( "Hotkey" ), 120, ... );
+ *     AppendColumn( _( "Alternate" ), 120, ... );
+ *     AppendColumn( _( "Description" ), 900, ... );
+ *
+ * The rows come from hotkeys_inventory.ts, which collects them from the menu
+ * builders and toolbar tables rather than from a list typed out here.
+ *
+ * "Undo All Changes" and "Import Hotkeys..." are present and disabled.
+ * PANEL_HOTKEYS_EDITOR::installButtons adds them unconditionally, because the
+ * same panel is also the Preferences page where they work; this dialog builds
+ * it read-only precisely so nothing in it can edit, so they keep their slots
+ * and say why they are dead.
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { buildHotkeySections, filterHotkeys } from './hotkeys_inventory.js';
@@ -67,6 +76,13 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
   const searchRef = useRef<HTMLInputElement>(null);
   /** Every section starts expanded, as the tree does when the dialog opens. */
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * wxTL_SINGLE: the tree carries one selected row, drawn in the system
+   * highlight. Nothing here acts on the selection - the list is read-only - but
+   * without it the rows do not respond to a click at all, which is the one way
+   * this window did not behave like a list.
+   */
+  const [selected, setSelected] = useState<string | null>(null);
 
   // The filter box takes focus, which is what a dialog whose only control is a
   // filter should do.
@@ -151,7 +167,13 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
                     </div>
                     {!shut &&
                       s.entries.map((e) => (
-                        <div className="ze-hotkeys-row" key={`${s.name}/${e.command}`}>
+                        <div
+                          className={`ze-hotkeys-row${
+                            selected === `${s.name}/${e.command}` ? ' selected' : ''
+                          }`}
+                          key={`${s.name}/${e.command}`}
+                          onMouseDown={() => setSelected(`${s.name}/${e.command}`)}
+                        >
                           <span className="cmd">{e.command}</span>
                           <span className="key">{e.keys}</span>
                           <span className="alt">{e.alt}</span>
@@ -165,26 +187,27 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
           </div>
         </div>
 
-        <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
-          {/* Not upstream, which has nothing here. A filtered list that is
-              simply short gives no clue whether it is short because the filter
-              worked or because the list is thin. */}
-          <span className="ze-hotkeys-count">
-            {filter === '' ? `${total} commands` : `${showing} of ${total} commands`}
-          </span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {/* PANEL_HOTKEYS_EDITOR::installButtons puts these two on the left
-                and DIALOG_LIST_HOTKEYS adds OK/Cancel on the right. Both edit
-                the hotkey configuration, which this dialog builds the panel
-                read-only to prevent, so they are here in their own slots and
-                disabled rather than absent - the shape of the window is the
-                thing being matched, and a hotkey editor is its own feature. */}
+        {/* PANEL_HOTKEYS_EDITOR::installButtons puts its two on the left
+            (BUTTON_ROW_PANEL's l_btn_defs, with an empty r_btn_defs), and
+            DIALOG_LIST_HOTKEYS adds the wxStdDialogButtonSizer after it, which
+            GTK lays out on the right. Ours had all four bunched right with the
+            count where the left pair belongs. */}
+        <div className="ze-modal-footer ze-hotkeys-foot">
+          <div className="left">
             <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
               Undo All Changes
             </button>
             <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
               Import Hotkeys…
             </button>
+            {/* Not upstream, which has nothing here. A filtered list that is
+                simply short gives no clue whether it is short because the
+                filter worked or because the list is thin. */}
+            <span className="ze-hotkeys-count">
+              {filter === '' ? `${total} commands` : `${showing} of ${total} commands`}
+            </span>
+          </div>
+          <div className="right">
             <button className="ze-btn" onClick={onClose}>
               Cancel
             </button>

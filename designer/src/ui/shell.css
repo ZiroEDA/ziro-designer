@@ -1356,6 +1356,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-hotkeys-row:hover {
   background: var(--chrome-hover);
 }
+/* wxTL_SINGLE's selected row, painted in wxSYS_COLOUR_HIGHLIGHT - the same
+   orange the project tree and the template cards select with. */
+.ze-hotkeys-row.selected,
+.ze-hotkeys-row.selected:hover {
+  background: var(--chrome-active);
+  color: #fff;
+}
+.ze-hotkeys-row.selected .desc {
+  color: #ffe6d9;
+}
+/* The two button groups: the panel's own row on the left, the dialog's
+   wxStdDialogButtonSizer on the right. */
+.ze-hotkeys-foot {
+  justify-content: space-between;
+}
+.ze-hotkeys-foot .left,
+.ze-hotkeys-foot .right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .ze-hotkeys-empty {
   padding: 14px;
   font-size: 10pt;

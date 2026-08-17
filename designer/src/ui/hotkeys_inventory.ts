@@ -78,9 +78,48 @@ export interface HotkeyEntry {
 }
 
 export interface HotkeySection {
+  /** GetSectionName( action ) - what the tree row says. */
   name: string;
   entries: HotkeyEntry[];
 }
+
+/**
+ * HOTKEY_STORE::Init walks a `std::map<std::string, HOTKEY>` keyed by the
+ * action's *name*, so it is sorted by that key, and a section is created the
+ * first time a new app prefix appears in that walk. The section order is
+ * therefore the app prefixes in ASCII order:
+ *
+ *     3DViewer  common  eeschema  gerbview  kicad  pcbnew  plEditor
+ *
+ * which is why a real Hotkey List reads 3D Viewer, Common, Schematic Editor,
+ * Gerber Viewer, Project Manager, PCB Editor, Drawing Sheet Editor - not
+ * alphabetically by the names shown, and not in the order the editors appear
+ * anywhere else. Gestures is appended after the loop, so it is always last.
+ *
+ * The symbol and footprint editors get no section of their own: their actions
+ * are named `eeschema.*` and `pcbnew.*`, so they fold into those two.
+ */
+const APP_ORDER = [
+  '3DViewer',
+  'common',
+  'eeschema',
+  'gerbview',
+  'kicad',
+  'pcbnew',
+  'plEditor',
+] as const;
+type AppKey = (typeof APP_ORDER)[number];
+
+/** HOTKEY_STORE::GetSectionName's s_AppNames, verbatim. */
+const SECTION_NAMES: Record<AppKey, string> = {
+  '3DViewer': '3D Viewer',
+  common: 'Common',
+  eeschema: 'Schematic Editor',
+  gerbview: 'Gerber Viewer',
+  kicad: 'Project Manager',
+  pcbnew: 'PCB Editor',
+  plEditor: 'Drawing Sheet Editor',
+};
 
 /**
  * updateFromClientData:
@@ -181,7 +220,6 @@ function schematicItems(): MenuItem[] {
 
 /** Merge menu items and toolbar buttons into one row per command. */
 function section(
-  name: string,
   items: readonly MenuItem[],
   toolbars: readonly { title: string; id: string }[],
   extraKeys: Readonly<Record<string, string>> = {},
@@ -214,77 +252,148 @@ function section(
     add(b.title, extraKeys[b.id] ?? '', b.title === command ? '' : b.title);
   }
 
-  return {
-    name,
-    entries: [...byName.values()].sort((a, b) => a.command.localeCompare(b.command)),
-  };
+  return { name: '', entries: [...byName.values()] };
 }
 
 /**
- * The sections, named as HOTKEY_STORE::GetSectionName names them:
+ * g_gesturePseudoActions, verbatim. HOTKEY_STORE::Init appends these as a
+ * "Gestures" section after every app section, when the list is read-only - which
+ * this dialog's is. They are PSEUDO_ACTIONs: things the canvas does that have no
+ * TOOL_ACTION behind them, so nothing else in the app could report them.
  *
- *     { "common",   _( "Common" ) },       { "kicad",    _( "Project Manager" ) },
- *     { "eeschema", _( "Schematic Editor" ) }, { "pcbnew", _( "PCB Editor" ) },
- *     { "plEditor", _( "Drawing Sheet Editor" ) }, { "3DViewer", _( "3D Viewer" ) },
- *     { "gerbview", _( "Gerber Viewer" ) }
+ *     new PSEUDO_ACTION( _( "Accept Autocomplete" ), WXK_RETURN, WXK_NUMPAD_ENTER ),
+ *     new PSEUDO_ACTION( _( "Cancel Autocomplete" ), WXK_ESCAPE ),
+ *     ...
+ *
+ * The second key of a PSEUDO_ACTION is its *alternate*, which is why Accept
+ * Autocomplete is the one row here with the Alternate column filled.
  */
+const GESTURES: HotkeyEntry[] = [
+  { command: 'Accept Autocomplete', keys: 'Return', alt: 'Numpad Enter', description: '' },
+  { command: 'Cancel Autocomplete', keys: 'Esc', alt: '', description: '' },
+  { command: 'Toggle Checkbox', keys: 'Space', alt: '', description: '' },
+  { command: 'Pan Left/Right', keys: 'Ctrl+Wheel', alt: '', description: '' },
+  { command: 'Pan Up/Down', keys: 'Shift+Wheel', alt: '', description: '' },
+  { command: 'Finish Drawing', keys: 'Double-click', alt: '', description: '' },
+  { command: 'Add to Selection', keys: 'Shift+Click', alt: '', description: '' },
+  { command: 'Highlight Net', keys: 'Ctrl+Click', alt: '', description: '' },
+  { command: 'Remove from Selection', keys: 'Ctrl+Shift+Click', alt: '', description: '' },
+  { command: 'Ignore Grid Snaps', keys: 'Ctrl', alt: '', description: '' },
+  { command: 'Ignore Other Snaps', keys: 'Shift', alt: '', description: '' },
+];
+
+/**
+ * g_standardPlatformCommands, which Init folds into the Common section:
+ *
+ *     #ifndef __WINDOWS__
+ *         new PSEUDO_ACTION( _( "Close" ), MD_CTRL + 'W' ),
+ *     #endif
+ *     new PSEUDO_ACTION( _( "Quit" ), MD_CTRL + 'Q' )
+ *
+ * Quit is left out: a browser tab has no Quit, and Ctrl+Q belongs to the
+ * browser. Close stays, because closing a project back to the manager is a
+ * thing here.
+ */
+const PLATFORM_COMMANDS: HotkeyEntry[] = [
+  { command: 'Close', keys: 'Ctrl+W', alt: '', description: '' },
+];
+
+/** The sections, in HOTKEY_STORE::Init's order, with Gestures last. */
 export function buildHotkeySections(): HotkeySection[] {
-  const sections: HotkeySection[] = [
-    section('Project Manager', managerItems(), []),
+  const byApp = new Map<AppKey, HotkeyEntry[]>();
+  const put = (app: AppKey, entries: readonly HotkeyEntry[]): void => {
+    const prev = byApp.get(app) ?? [];
+    const seen = new Set(prev.map((e) => e.command));
+    for (const e of entries) {
+      if (seen.has(e.command)) continue;
+      seen.add(e.command);
+      prev.push(e);
+    }
+    byApp.set(app, prev);
+  };
+
+  put('common', PLATFORM_COMMANDS);
+  put('kicad', section(managerItems(), []).entries);
+  // The symbol editor's actions are eeschema.*, so they share eeschema's
+  // section rather than getting one of their own - as they do upstream.
+  put(
+    'eeschema',
     section(
-      'Schematic Editor',
       schematicItems(),
       [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
       TOOL_HOTKEYS,
-    ),
+    ).entries,
+  );
+  put(
+    'eeschema',
     section(
-      'PCB Editor',
-      [],
-      [
-        ...walkToolbar(PCB_TOP_TOOLBAR),
-        ...walkToolbar(PCB_LEFT_TOOLBAR),
-        ...walkToolbar(PCB_RIGHT_TOOLBAR),
-      ],
-    ),
-    section('3D Viewer', [], walkToolbar(VIEWER3D_TOP_TOOLBAR)),
-    section(
-      'Symbol Editor',
       [],
       [
         ...walkToolbar(SYM_TOP_TOOLBAR),
         ...walkToolbar(SYM_LEFT_TOOLBAR),
         ...walkToolbar(SYM_RIGHT_TOOLBAR),
       ],
-    ),
+    ).entries,
+  );
+  // Likewise the footprint editor's are pcbnew.*.
+  put(
+    'pcbnew',
     section(
-      'Footprint Editor',
+      [],
+      [
+        ...walkToolbar(PCB_TOP_TOOLBAR),
+        ...walkToolbar(PCB_LEFT_TOOLBAR),
+        ...walkToolbar(PCB_RIGHT_TOOLBAR),
+      ],
+    ).entries,
+  );
+  put(
+    'pcbnew',
+    section(
       [],
       [
         ...walkToolbar(FP_TOP_TOOLBAR),
         ...walkToolbar(FP_LEFT_TOOLBAR),
         ...walkToolbar(FP_RIGHT_TOOLBAR),
       ],
-    ),
+    ).entries,
+  );
+  put('3DViewer', section([], walkToolbar(VIEWER3D_TOP_TOOLBAR)).entries);
+  put(
+    'gerbview',
     section(
-      'Gerber Viewer',
       [],
       [
         ...walkToolbar(GBR_TOP_TOOLBAR),
         ...walkToolbar(GBR_LEFT_TOOLBAR),
         ...walkToolbar(GBR_RIGHT_TOOLBAR),
       ],
-    ),
+    ).entries,
+  );
+  put(
+    'plEditor',
     section(
-      'Drawing Sheet Editor',
       [],
       [
         ...walkToolbar(DS_TOP_TOOLBAR),
         ...walkToolbar(DS_LEFT_TOOLBAR),
         ...walkToolbar(DS_RIGHT_TOOLBAR),
       ],
-    ),
-  ];
-  return sections.filter((s) => s.entries.length > 0);
+    ).entries,
+  );
+
+  const out: HotkeySection[] = [];
+  for (const app of APP_ORDER) {
+    const entries = byApp.get(app);
+    if (entries && entries.length > 0) {
+      out.push({
+        name: SECTION_NAMES[app],
+        entries: [...entries].sort((a, b) => a.command.localeCompare(b.command)),
+      });
+    }
+  }
+  out.push({ name: 'Gestures', entries: GESTURES });
+  return out;
 }
 
 /**

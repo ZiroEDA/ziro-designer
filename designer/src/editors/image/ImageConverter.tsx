@@ -43,6 +43,7 @@ import {
 import './imageConverter.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -589,7 +590,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         <div className="imgc-modal-backdrop" onMouseDown={() => setAboutOpen(false)}>
           <div className="imgc-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="imgc-modal-head">
-              <span>About Image Converter</span>
+              <span>{aboutWindowTitle(ABOUT_TITLES.imageConverter)}</span>
               <button
                 type="button"
                 className="imgc-modal-x"

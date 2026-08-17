@@ -11,18 +11,32 @@
  * names the two distinct sources and their two distinct licences. */
 
 import type { JSX } from 'react';
+import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 
 declare const __BUILD_STAMP__: string;
 
 const link = { color: '#7fb4e6' };
 
-export function AboutDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function AboutDialog({
+  onClose,
+  /**
+   * The frame's own name - EDA_BASE_FRAME::m_aboutTitle. DIALOG_ABOUT titles
+   * itself `About %s` of it, so the PCB editor's About window says
+   * "About <product> PCB Editor" while the menu entry that opened it still
+   * reads "About <product>". Defaults to the manager's, which is the bare
+   * product name, as kicad_manager_frame.cpp sets it.
+   */
+  title = ABOUT_TITLES.manager,
+}: {
+  onClose: () => void;
+  title?: string;
+}): JSX.Element {
   const build = typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev';
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          About Ziro Designer
+          {aboutWindowTitle(title)}
           <span className="x" title="Close" onClick={onClose}>
             ✕
           </span>

@@ -71,20 +71,39 @@ describe('the hotkey inventory', () => {
     for (const s of sections) expect(s.entries.length, `${s.name} is empty`).toBeGreaterThan(0);
   });
 
-  it('names its sections the way HOTKEY_STORE::GetSectionName does', () => {
-    const known = new Set([
+  it('orders its sections the way HOTKEY_STORE::Init emits them', () => {
+    // Init walks a std::map keyed by the *action name*, so sections appear in
+    // the order their app prefix first shows up in that sorted walk:
+    //   3DViewer  common  eeschema  gerbview  kicad  pcbnew  plEditor
+    // and Gestures is appended after the loop. It is deliberately neither
+    // alphabetical by the names shown nor the order the editors appear
+    // anywhere else, which is exactly why it is easy to get wrong.
+    expect(sections.map((s) => s.name)).toEqual([
+      '3D Viewer',
       'Common',
-      'Project Manager',
       'Schematic Editor',
+      'Gerber Viewer',
+      'Project Manager',
       'PCB Editor',
       'Drawing Sheet Editor',
-      '3D Viewer',
-      'Gerber Viewer',
-      'Symbol Editor',
-      'Footprint Editor',
-      'Image Converter',
+      'Gestures',
     ]);
-    for (const s of sections) expect(known, `unexpected section ${s.name}`).toContain(s.name);
+  });
+
+  it('gives the symbol and footprint editors no section of their own', () => {
+    // Their actions are named eeschema.* and pcbnew.*, so GetAppName folds them
+    // into those two sections rather than making new ones.
+    const names = sections.map((s) => s.name);
+    expect(names).not.toContain('Symbol Editor');
+    expect(names).not.toContain('Footprint Editor');
+  });
+
+  it('ends with the Gestures section, as Init appends it after the loop', () => {
+    const last = sections[sections.length - 1];
+    expect(last?.name).toBe('Gestures');
+    // g_gesturePseudoActions, which have no TOOL_ACTION behind them.
+    expect(last?.entries.map((e) => e.command)).toContain('Highlight Net');
+    expect(last?.entries.find((e) => e.command === 'Pan Left/Right')?.keys).toBe('Ctrl+Wheel');
   });
 
   it('strips the ellipsis, as updateFromClientData does', () => {
@@ -144,8 +163,13 @@ describe('the hotkey inventory', () => {
     }
   });
 
-  it('leaves the alternate column empty, because nothing binds a second key', () => {
-    for (const e of rows) expect(e.alt).toBe('');
+  it('fills the alternate column only where a second key is bound', () => {
+    // PSEUDO_ACTION's second keycode is the alternate:
+    //   new PSEUDO_ACTION( _( "Accept Autocomplete" ), WXK_RETURN, WXK_NUMPAD_ENTER )
+    // which is the one row with it. Everything else has a single binding.
+    const withAlt = rows.filter((e) => e.alt !== '');
+    expect(withAlt.map((e) => e.command)).toEqual(['Accept Autocomplete']);
+    expect(withAlt[0]?.alt).toBe('Numpad Enter');
   });
 
   it('has no duplicate command within a section', () => {

@@ -28,6 +28,7 @@ import { PanelGalvanicCorrosion } from './panels/panel_galvanic_corrosion.js';
 import './calculator.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 
 interface TreeItem {
   id: string;
@@ -150,7 +151,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
       </div>
       {aboutOpen && (
         <Modal
-          title="About Calculator Tools"
+          title={aboutWindowTitle(ABOUT_TITLES.calculator)}
           onClose={() => setAboutOpen(false)}
           footer={
             <button type="button" className="calc-btn primary" onClick={() => setAboutOpen(false)}>
