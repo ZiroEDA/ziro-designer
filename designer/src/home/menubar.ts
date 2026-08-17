@@ -119,12 +119,53 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       ],
     },
     {
+      /**
+       * All three are permanently greyed out, which is what upstream does and
+       * not an oversight.
+       *
+       * kicad/menubar.cpp adds them with a comment saying why they are there:
+       *
+       *     // While we don't presently use these, they need to be here so that
+       *     // cut/copy/paste work in things like search boxes in file open
+       *     // dialogs.
+       *     editMenu->Add( ACTIONS::cut );
+       *     editMenu->Add( ACTIONS::copy );
+       *     editMenu->Add( ACTIONS::paste );
+       *
+       * and kicad_manager_frame.cpp then disables all three outright:
+       *
+       *     #define ENABLE( x ) ACTION_CONDITIONS().Enable( x )
+       *     ...
+       *     // These are just here for text boxes, search boxes, etc. in places
+       *     // such as the standard file dialogs.
+       *     manager->SetConditions( ACTIONS::cut,   ENABLE( SELECTION_CONDITIONS::ShowNever ) );
+       *     manager->SetConditions( ACTIONS::copy,  ENABLE( SELECTION_CONDITIONS::ShowNever ) );
+       *     manager->SetConditions( ACTIONS::paste, ENABLE( SELECTION_CONDITIONS::ShowNever ) );
+       *
+       * `ShowNever` is `return false`, so the enable condition never holds. The
+       * project manager has no selection to cut and nowhere to paste to; the
+       * entries exist so the accelerators are registered, because
+       * `ACTIONS::cut` carries `.UIId( wxID_CUT )` and wxWidgets routes that
+       * standard id to whichever text control has focus. The menu row itself is
+       * never meant to be clicked.
+       *
+       * Ours ran `document.execCommand('cut' | 'copy' | 'paste')`, which was
+       * both wrong and dead. Wrong, because it made three rows look like
+       * commands the project manager offers. Dead, because by the time a menu
+       * click lands the field that held the selection has lost it, and because
+       * no browser has permitted `execCommand('paste')` from page script for
+       * years - it fails silently and returns false.
+       *
+       * A browser needs no help with the *keys*: Ctrl+X/C/V in a focused input
+       * are handled by the browser itself, and nothing here intercepts them. So
+       * the entries carry exactly what upstream's carry - a label, an
+       * accelerator, and no way to invoke them.
+       */
       label: 'Edit',
       items: [
-        // Upstream keeps these so cut/copy/paste work in dialog text fields.
-        { label: 'Cut', shortcut: 'Ctrl+X', action: () => document.execCommand('cut') },
-        { label: 'Copy', shortcut: 'Ctrl+C', action: () => document.execCommand('copy') },
-        { label: 'Paste', shortcut: 'Ctrl+V', action: () => document.execCommand('paste') },
+        { label: 'Cut', shortcut: 'Ctrl+X', disabled: true },
+        { label: 'Copy', shortcut: 'Ctrl+C', disabled: true },
+        { label: 'Paste', shortcut: 'Ctrl+V', disabled: true },
       ],
     },
     {
@@ -135,16 +176,40 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
           submenu: [{ label: 'Local History', disabled: true }], // tracked issue
         },
         SEP,
+        // ACTIONS::zoomRedraw. FriendlyName "Refresh", and F5 everywhere except
+        // macOS, where it is Ctrl+R:
+        //     #if defined( __WXMAC__ )
+        //         .DefaultHotkey( MD_CTRL + 'R' )
+        //     #else
+        //         .DefaultHotkey( WXK_F5 )
+        //     #endif
         { label: 'Refresh', shortcut: 'F5', action: h.refresh },
-        // No separator here: upstream runs Refresh straight into Open Text
-        // Editor and Browse Project Files with no rule between them.
-        // "Open Text Editor" reinterpreted: view the selected text file in-app.
+        // There *is* a rule here. kicad/menubar.cpp:
+        //     viewMenu->Add( ACTIONS::zoomRedraw );
+        //
+        //     viewMenu->AppendSeparator();
+        //     viewMenu->Add( KICAD_MANAGER_ACTIONS::openTextEditor );
+        //     viewMenu->Add( KICAD_MANAGER_ACTIONS::openProjectDirectory );
+        // A comment here used to claim the opposite - that Refresh ran straight
+        // into the next group - which is not what the source does. The two
+        // groups are separate: one redraws the tree, the other leaves the app.
+        SEP,
+        // KICAD_MANAGER_ACTIONS::openTextEditor, "Open Text Editor", whose
+        // tooltip is "Launch preferred text editor". There is no preferred
+        // external editor to launch from a tab, so this opens the selected file
+        // in the viewer we have - the one deliberate reinterpretation here.
         {
           label: 'Open Text Viewer',
           action: h.openTextViewer,
           disabled: !h.hasTextFileSelected,
         },
-        // "Open Project Directory" (OS file manager) has no web equivalent.
+        // KICAD_MANAGER_ACTIONS::openProjectDirectory is deliberately absent.
+        // Its FriendlyName is platform-conditional - "Reveal Project in Finder"
+        // on macOS, "Browse Project Files" elsewhere - and both open the OS
+        // file manager on the project folder. A browser tab cannot, and there
+        // is no folder to open: the project lives in the file pane already on
+        // screen. Carried as a permanently greyed row it would be worse than
+        // absent, because upstream's is live and useful.
       ],
     },
     {
@@ -163,8 +228,15 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         { label: 'Image Converter', shortcut: 'Ctrl+B', action: h.openImageConverter },
         { label: 'Calculator Tools', action: h.openCalculator },
         { label: 'Drawing Sheet Editor', shortcut: 'Ctrl+Y', action: h.openDrawingSheetEditor },
-        SEP,
-        { label: 'Edit Local File…', disabled: true }, // becomes the text viewer picker
+        // Upstream ends this menu with a separator and
+        //     toolsMenu->Add( _( "Edit Local File..." ),
+        //                     _( "Edit local file in text editor" ),
+        //                     ID_EDIT_LOCAL_FILE_IN_TEXT_EDITOR, BITMAPS::editor );
+        // which picks a file and hands it to the OS text editor. Dropped rather
+        // than carried greyed: there is no external editor to hand a file to,
+        // and View > Open Text Viewer already opens the selected file in the
+        // one we have. The separator goes with it - a rule below the last row
+        // is a group boundary with nothing after it.
       ],
     },
     {
