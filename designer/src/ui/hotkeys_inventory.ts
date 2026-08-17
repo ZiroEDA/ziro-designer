@@ -68,10 +68,25 @@ import {
 } from '../editors/drawingsheet/drawingSheetToolbars.js';
 
 export interface HotkeyEntry {
+  /**
+   * `TOOL_ACTION::GetName()` - the key HOTKEY_STORE's map is keyed on, which is
+   * what an override, an import and a reset all match a row by.
+   *
+   * Upstream's is `<app>.<Tool>.<action>`; we have the app and the action id but
+   * no tool, so ours is `<app>.<id>` - `kicad.newProject`, `eeschema.drawWire`.
+   * What matters is that it is stable and app-qualified, so the same id in two
+   * editors is two rows rather than one.
+   *
+   * '' for a PSEUDO_ACTION - the gestures and the platform commands - which has
+   * no name upstream either, and so can be neither rebound nor imported onto.
+   */
+  name: string;
   /** GetFriendlyName(), with the ellipsis stripped as updateFromClientData does. */
   command: string;
-  /** The primary accelerator, or '' where the command has none. */
+  /** The primary accelerator in force: the override where there is one, else the default. */
   keys: string;
+  /** `GetDefaultHotKey()`, which is what "Undo All Changes" and a reset restore. */
+  defaultKeys: string;
   /** m_EditKeycodeAlt. Nothing here binds a second key yet, so always ''. */
   alt: string;
   /** GetDescription(), flattened to one line. */
@@ -83,6 +98,22 @@ export interface HotkeySection {
   name: string;
   entries: HotkeyEntry[];
 }
+
+/**
+ * A row while it is still being collected, carrying where its name came from.
+ *
+ * A MenuItem has no action id - only `icon`, the name of the picture it draws -
+ * and for most commands the two coincide. For nine they do not: the menu draws
+ * `assignFp` where the toolbar declares `assignFootprints`, and the two are the
+ * same command under two spellings. A ToolButton's `id` is the declared one, so
+ * where a label is claimed by both, the toolbar's wins.
+ */
+interface Collected extends HotkeyEntry {
+  nameFromIcon: boolean;
+}
+
+/** Drop the collection bookkeeping, so the exported row is only the row. */
+const strip = ({ nameFromIcon: _drop, ...e }: Collected): HotkeyEntry => e;
 
 /**
  * HOTKEY_STORE::Init walks a `std::map<std::string, HOTKEY>` keyed by the
@@ -261,11 +292,12 @@ function schematicItems(): MenuItem[] {
  * description, which is what fills a column that was otherwise empty.
  */
 function section(
+  app: AppKey,
   items: readonly MenuItem[],
   toolbars: readonly { title: string; id: string }[],
   extraKeys: Readonly<Record<string, string>> = {},
-): HotkeySection {
-  const byKey = new Map<string, HotkeyEntry>();
+): Collected[] {
+  const byKey = new Map<string, Collected>();
   const keyOf = (id: string | undefined, label: string): string =>
     id && id !== '' ? `#${id}` : label.toLowerCase();
 
@@ -280,13 +312,32 @@ function section(
     if (name === '') return;
     const prev = byKey.get(key);
     if (!prev) {
-      byKey.set(key, { command: name, keys, alt: '', description });
+      // `#id` where the action has one, so the store key survives a label
+      // change; the slugged label only where there is no id to use.
+      const slug = key.startsWith('#') ? key.slice(1) : key.replace(/[^a-z0-9]+/g, '-');
+      byKey.set(key, {
+        name: `${app}.${slug}`,
+        command: name,
+        keys,
+        defaultKeys: keys,
+        alt: '',
+        description,
+        // Provisional: an icon name is a guess at the action id, and stays one
+        // until a toolbar declaring the same id confirms it.
+        nameFromIcon: fromMenu,
+      });
       return;
     }
     // A menu label outranks a toolbar title as the command's name, and each
     // field is filled by whichever side has one.
     if (fromMenu) prev.command = name;
-    if (prev.keys === '') prev.keys = keys;
+    // A ToolButton's `id` is a declared action id rather than an icon name, so
+    // a toolbar reaching this row settles what the command is called.
+    else prev.nameFromIcon = false;
+    if (prev.keys === '') {
+      prev.keys = keys;
+      prev.defaultKeys = keys;
+    }
     if (prev.description === '' && description !== '') prev.description = description;
     // A description that is just the command again says nothing, and happens
     // whenever a menu label and its toolbar tooltip are the same string.
@@ -306,7 +357,7 @@ function section(
     add(key, b.title, extraKeys[b.id] ?? '', existing ? b.title : '', false);
   }
 
-  return { name: '', entries: [...byKey.values()] };
+  return [...byKey.values()];
 }
 
 /**
@@ -323,17 +374,94 @@ function section(
  * Autocomplete is the one row here with the Alternate column filled.
  */
 const GESTURES: HotkeyEntry[] = [
-  { command: 'Accept Autocomplete', keys: 'Return', alt: 'Numpad Enter', description: '' },
-  { command: 'Cancel Autocomplete', keys: 'Esc', alt: '', description: '' },
-  { command: 'Toggle Checkbox', keys: 'Space', alt: '', description: '' },
-  { command: 'Pan Left/Right', keys: 'Ctrl+Wheel', alt: '', description: '' },
-  { command: 'Pan Up/Down', keys: 'Shift+Wheel', alt: '', description: '' },
-  { command: 'Finish Drawing', keys: 'Double-click', alt: '', description: '' },
-  { command: 'Add to Selection', keys: 'Shift+Click', alt: '', description: '' },
-  { command: 'Highlight Net', keys: 'Ctrl+Click', alt: '', description: '' },
-  { command: 'Remove from Selection', keys: 'Ctrl+Shift+Click', alt: '', description: '' },
-  { command: 'Ignore Grid Snaps', keys: 'Ctrl', alt: '', description: '' },
-  { command: 'Ignore Other Snaps', keys: 'Shift', alt: '', description: '' },
+  {
+    name: '',
+    command: 'Accept Autocomplete',
+    keys: 'Return',
+    defaultKeys: 'Return',
+    alt: 'Numpad Enter',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Cancel Autocomplete',
+    keys: 'Esc',
+    defaultKeys: 'Esc',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Toggle Checkbox',
+    keys: 'Space',
+    defaultKeys: 'Space',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Pan Left/Right',
+    keys: 'Ctrl+Wheel',
+    defaultKeys: 'Ctrl+Wheel',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Pan Up/Down',
+    keys: 'Shift+Wheel',
+    defaultKeys: 'Shift+Wheel',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Finish Drawing',
+    keys: 'Double-click',
+    defaultKeys: 'Double-click',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Add to Selection',
+    keys: 'Shift+Click',
+    defaultKeys: 'Shift+Click',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Highlight Net',
+    keys: 'Ctrl+Click',
+    defaultKeys: 'Ctrl+Click',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Remove from Selection',
+    keys: 'Ctrl+Shift+Click',
+    defaultKeys: 'Ctrl+Shift+Click',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Ignore Grid Snaps',
+    keys: 'Ctrl',
+    defaultKeys: 'Ctrl',
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Ignore Other Snaps',
+    keys: 'Shift',
+    defaultKeys: 'Shift',
+    alt: '',
+    description: '',
+  },
 ];
 
 /**
@@ -349,92 +477,195 @@ const GESTURES: HotkeyEntry[] = [
  * thing here.
  */
 const PLATFORM_COMMANDS: HotkeyEntry[] = [
-  { command: 'Close', keys: 'Ctrl+W', alt: '', description: '' },
+  { name: '', command: 'Close', keys: 'Ctrl+W', defaultKeys: 'Ctrl+W', alt: '', description: '' },
 ];
 
-/** The sections, in HOTKEY_STORE::Init's order, with Gestures last. */
-export function buildHotkeySections(): HotkeySection[] {
-  const byApp = new Map<AppKey, HotkeyEntry[]>();
-  const put = (app: AppKey, entries: readonly HotkeyEntry[]): void => {
+/**
+ * The user's overrides, as `user.hotkeys` holds them: a map from a command's
+ * name to the key it is bound to, with `null` meaning "bound to nothing".
+ *
+ * An action with no entry keeps its `DefaultHotkey`, which is why this is a
+ * sparse map rather than a full copy of the table - the same reason upstream
+ * writes only the changed lines.
+ */
+export type HotkeyOverrides = Readonly<Record<string, string | null>>;
+
+/**
+ * The sections, in HOTKEY_STORE::Init's order, with Gestures last.
+ *
+ * `HOTKEY_STORE::Init` reads `action->GetHotKey()`, which is the *current*
+ * binding - `ReadHotKeyConfigIntoActions` has already overlaid the user's file
+ * onto the defaults by the time the store is built. Passing the overrides here
+ * is that overlay: the collected accelerator is the default, and an entry in
+ * the map replaces it.
+ */
+export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySection[] {
+  const byApp = new Map<AppKey, Collected[]>();
+  /**
+   * Fold a group of collected rows into an app's section, one row per command.
+   *
+   * The key is the *name*, because HOTKEY_STORE's is:
+   *
+   *     std::map<std::string, HOTKEY> m_actions;
+   *     ...
+   *     m_actions[action->GetName()].m_Actions.push_back( action );
+   *
+   * so an action reached from two places is one HOTKEY however its two labels
+   * are spelled. This deduplicated on the label instead, which held within one
+   * toolbar but not across the four groups that share a section: the symbol
+   * editor's Zoom In and the schematic's are the same action under labels that
+   * differ by a word, and both were listed. Twenty-eight rows in this table
+   * were a second copy of a row already in it - and, once a row could be
+   * rebound, twenty-eight commands whose override would have been written
+   * against one copy and read back by the other.
+   *
+   * A PSEUDO_ACTION has no name, so the gestures fall back to their label.
+   */
+  const put = (app: AppKey, rows: readonly (HotkeyEntry | Collected)[]): void => {
+    // A PSEUDO_ACTION table is written as plain rows; it has no id to have come
+    // from an icon.
+    const entries: Collected[] = rows.map((e) =>
+      'nameFromIcon' in e ? e : { ...e, nameFromIcon: false },
+    );
     const prev = byApp.get(app) ?? [];
-    const seen = new Set(prev.map((e) => e.command));
+    const keyOf = (e: Collected): string => (e.name !== '' ? e.name : `label:${e.command}`);
+    const byName = new Map(prev.map((e) => [keyOf(e), e]));
+
     for (const e of entries) {
-      if (seen.has(e.command)) continue;
-      seen.add(e.command);
-      prev.push(e);
+      const existing = byName.get(keyOf(e));
+      if (!existing) {
+        byName.set(keyOf(e), e);
+        prev.push(e);
+        continue;
+      }
+      // Whichever copy has a field, the merged row keeps - the same rule the
+      // menu/toolbar merge inside a section uses, applied across sections.
+      if (existing.keys === '' && e.keys !== '') {
+        existing.keys = e.keys;
+        existing.defaultKeys = e.defaultKeys;
+      }
+      if (existing.description === '' && e.description !== '') existing.description = e.description;
     }
+
     byApp.set(app, prev);
   };
 
   put('common', PLATFORM_COMMANDS);
-  put('kicad', section(managerItems(), []).entries);
+  put('kicad', section('kicad', managerItems(), []));
   // The symbol editor's actions are eeschema.*, so they share eeschema's
   // section rather than getting one of their own - as they do upstream.
   put(
     'eeschema',
     section(
+      'eeschema',
       schematicItems(),
       [...walkToolbar(TOP_TOOLBAR), ...walkToolbar(LEFT_TOOLBAR), ...walkToolbar(RIGHT_TOOLBAR)],
       TOOL_HOTKEYS,
-    ).entries,
+    ),
   );
   put(
     'eeschema',
     section(
+      'eeschema',
       [],
       [
         ...walkToolbar(SYM_TOP_TOOLBAR),
         ...walkToolbar(SYM_LEFT_TOOLBAR),
         ...walkToolbar(SYM_RIGHT_TOOLBAR),
       ],
-    ).entries,
+    ),
   );
   // Likewise the footprint editor's are pcbnew.*.
   put(
     'pcbnew',
     section(
+      'pcbnew',
       [],
       [
         ...walkToolbar(PCB_TOP_TOOLBAR),
         ...walkToolbar(PCB_LEFT_TOOLBAR),
         ...walkToolbar(PCB_RIGHT_TOOLBAR),
       ],
-    ).entries,
+    ),
   );
   put(
     'pcbnew',
     section(
+      'pcbnew',
       [],
       [
         ...walkToolbar(FP_TOP_TOOLBAR),
         ...walkToolbar(FP_LEFT_TOOLBAR),
         ...walkToolbar(FP_RIGHT_TOOLBAR),
       ],
-    ).entries,
+    ),
   );
-  put('3DViewer', section(viewer3dItems(), walkToolbar(VIEWER3D_TOP_TOOLBAR)).entries);
+  put('3DViewer', section('3DViewer', viewer3dItems(), walkToolbar(VIEWER3D_TOP_TOOLBAR)));
   put(
     'gerbview',
     section(
+      'gerbview',
       [],
       [
         ...walkToolbar(GBR_TOP_TOOLBAR),
         ...walkToolbar(GBR_LEFT_TOOLBAR),
         ...walkToolbar(GBR_RIGHT_TOOLBAR),
       ],
-    ).entries,
+    ),
   );
   put(
     'plEditor',
     section(
+      'plEditor',
       [],
       [
         ...walkToolbar(DS_TOP_TOOLBAR),
         ...walkToolbar(DS_LEFT_TOOLBAR),
         ...walkToolbar(DS_RIGHT_TOOLBAR),
       ],
-    ).entries,
+    ),
   );
+
+  /**
+   * The second half of the store's deduplication: one row per *command*, once
+   * the name has done what it can.
+   *
+   * Nine commands are declared with one id in a menu and another in a toolbar -
+   * `assignFp` beside `assignFootprints`, `page` beside `pageSettings` - so
+   * their two rows have two names and survive the name dedup above. Upstream
+   * cannot have this: a MenuItem there *is* a TOOL_ACTION, so the menu and the
+   * toolbar cite the same object and there is only ever one name.
+   *
+   * Where two rows in one section share a label, the toolbar's id wins, because
+   * a ToolButton's `id` is a declared action id and a MenuItem's `icon` is the
+   * name of a picture that usually - not always - matches it.
+   */
+  const collapseByLabel = (entries: readonly Collected[]): Collected[] => {
+    const byLabel = new Map<string, Collected>();
+    for (const e of entries) {
+      const held = byLabel.get(e.command);
+      if (!held) {
+        byLabel.set(e.command, e);
+        continue;
+      }
+      const keep = held.nameFromIcon && !e.nameFromIcon ? e : held;
+      const drop = keep === held ? e : held;
+      if (keep.keys === '' && drop.keys !== '') {
+        keep.keys = drop.keys;
+        keep.defaultKeys = drop.defaultKeys;
+      }
+      if (keep.description === '' && drop.description !== '') keep.description = drop.description;
+      byLabel.set(e.command, keep);
+    }
+    return [...byLabel.values()];
+  };
+
+  // A PSEUDO_ACTION has no name, so nothing can be bound onto it - which is
+  // also why the gestures survive an import untouched.
+  const bind = (e: Collected): HotkeyEntry =>
+    e.name !== '' && Object.hasOwn(overrides, e.name)
+      ? { ...strip(e), keys: overrides[e.name] ?? '' }
+      : strip(e);
 
   const out: HotkeySection[] = [];
   for (const app of APP_ORDER) {
@@ -442,7 +673,9 @@ export function buildHotkeySections(): HotkeySection[] {
     if (entries && entries.length > 0) {
       out.push({
         name: SECTION_NAMES[app],
-        entries: [...entries].sort((a, b) => a.command.localeCompare(b.command)),
+        entries: collapseByLabel(entries)
+          .map(bind)
+          .sort((a, b) => a.command.localeCompare(b.command)),
       });
     }
   }

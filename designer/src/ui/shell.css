@@ -1390,6 +1390,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 8px;
 }
+/* What an import did. Upstream drops an unmatched name silently, which it can
+   afford because the file it reads was written by the same action names; a file
+   from a real KiCad names actions we do not have, and a button that quietly
+   changes nothing reads as a broken one. */
+.ze-hotkeys-imported {
+  font-size: 9pt;
+  color: #9a9a9a;
+}
 .ze-hotkeys-empty {
   padding: 14px;
   font-size: 10pt;

@@ -30,15 +30,32 @@
  * The rows come from hotkeys_inventory.ts, which collects them from the menu
  * builders and toolbar tables rather than from a list typed out here.
  *
- * "Undo All Changes" and "Import Hotkeys..." are present and disabled.
- * PANEL_HOTKEYS_EDITOR::installButtons adds them unconditionally, because the
- * same panel is also the Preferences page where they work; this dialog builds
- * it read-only precisely so nothing in it can edit, so they keep their slots
- * and say why they are dead.
+ * "Undo All Changes" and "Import Hotkeys..." work here, and it is worth being
+ * precise about why, because "the list is read-only" suggests they should not.
+ * `installButtons` adds both unconditionally, and `readOnly` is passed only to
+ * WIDGET_HOTKEY_LIST, where it gates exactly three things:
+ *
+ *     if( readOnly ) command_header = _( "Command" );
+ *     else           command_header = _( "Command (double-click to edit)" );
+ *     ...
+ *     if( !readOnly )
+ *     {
+ *         Bind( wxEVT_TREELIST_ITEM_ACTIVATED, ... );   // double-click to rebind
+ *         Bind( wxEVT_TREELIST_ITEM_CONTEXT_MENU, ... );
+ *         Bind( wxEVT_MENU, ... );
+ *     }
+ *
+ * So the read-only list is read-only against the *mouse*: you cannot pick a row
+ * and type a new key. Replacing every binding at once from a file, or throwing
+ * the lot away, both still work, and OK still commits - DIALOG_LIST_HOTKEYS
+ * forwards TransferDataFromWindow to the panel.
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { buildHotkeySections, filterHotkeys } from './hotkeys_inventory.js';
+import { buildHotkeySections, filterHotkeys, type HotkeyOverrides } from './hotkeys_inventory.js';
+import { importOntoNames, parseHotkeyFile } from './hotkeys_file.js';
+import { toRowNames, toStoredKeys } from './hotkey_key_space.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
+import { settings } from '../prefs/settings.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so
@@ -71,7 +88,25 @@ export function HotkeyListHost(): JSX.Element | null {
 
 export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const [filter, setFilter] = useState('');
-  const all = useMemo(() => buildHotkeySections(), []);
+  /**
+   * `HOTKEY::m_EditKeycode` - the pending value, which the tree shows and OK
+   * commits. Upstream keeps it beside `m_Actions[0]->GetHotKey()` in the store
+   * for exactly this reason: everything the dialog does happens to the edit
+   * copy, and the stored binding does not move until TransferDataFromWindow.
+   */
+  const [edit, setEdit] = useState<HotkeyOverrides>(() => toRowNames(settings.hotkeys));
+  /**
+   * What the bindings were when the dialog opened, which is what
+   * `ResetAllHotkeysToOriginal` - "Undo All Changes" - puts back. Note it is
+   * *not* the defaults; that is `ResetAllHotkeysToDefault`, the other argument
+   * to ResetAllHotkeys, which only the row context menu reaches.
+   */
+  const [opened] = useState<HotkeyOverrides>(() => toRowNames(settings.hotkeys));
+  /** What the last import did, so a file that matched nothing says so. */
+  const [imported, setImported] = useState<string>('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const all = useMemo(() => buildHotkeySections(edit), [edit]);
   const shown = useMemo(() => filterHotkeys(all, filter), [all, filter]);
   const searchRef = useRef<HTMLInputElement>(null);
   /** Every section starts expanded, as the tree does when the dialog opens. */
@@ -89,6 +124,42 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
   useEffect(() => {
     searchRef.current?.focus();
   }, []);
+
+  /**
+   * `m_hotkeyListCtrl->ResetAllHotkeys( false )` - back to what was stored when
+   * this window opened, not to the defaults.
+   */
+  const undoAllChanges = (): void => {
+    setEdit({ ...opened });
+    setImported('');
+  };
+
+  /**
+   * `ImportHotKeys`. `wxFileSelector( _( "Import Hotkeys File:" ), ... )` is a
+   * hidden file input here - the one way a browser lets a page read a file the
+   * user picked, and it needs the click to come from the button, which it does.
+   */
+  const onFilePicked = async (file: File | undefined): Promise<void> => {
+    if (!file) return;
+    const parsed = parseHotkeyFile(await file.text());
+    const names = all.flatMap((s) => s.entries.map((e) => e.name)).filter((n) => n !== '');
+    const result = importOntoNames(parsed, names);
+
+    // The overlay is onto the *edit* copy, so an import is undone by Undo All
+    // Changes and discarded by Cancel, as upstream's is.
+    setEdit((prev) => ({ ...prev, ...result.overrides }));
+    setImported(
+      result.matched === 0
+        ? `${file.name}: none of its ${result.total} commands are ones this app has.`
+        : `${file.name}: ${result.matched} of ${result.total} commands applied.`,
+    );
+  };
+
+  /** DIALOG_LIST_HOTKEYS::TransferDataFromWindow, forwarded to the panel. */
+  const onOk = (): void => {
+    settings.setHotkeys(toStoredKeys(edit));
+    onClose();
+  };
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
@@ -191,18 +262,40 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
             count where the left pair belongs. */}
         <div className="ze-modal-footer ze-hotkeys-foot">
           <div className="left">
-            <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
+            {/* The two BTN_DEF_LIST entries, with their tooltips verbatim. */}
+            <button
+              className="ze-btn"
+              title="Undo all changes made so far in this dialog"
+              onClick={undoAllChanges}
+            >
               Undo All Changes
             </button>
-            <button className="ze-btn" disabled title="Editing hotkeys is not built yet">
+            <button
+              className="ze-btn"
+              title="Import hotkey definitions from an external file, replacing the current values"
+              onClick={() => fileRef.current?.click()}
+            >
               Import Hotkeys…
             </button>
+            <input
+              ref={fileRef}
+              type="file"
+              // FILEEXT::HotkeyFileExtension.
+              accept=".hotkeys,text/plain"
+              hidden
+              onChange={(e) => {
+                void onFilePicked(e.target.files?.[0]);
+                // So picking the same file twice fires twice.
+                e.target.value = '';
+              }}
+            />
+            {imported !== '' && <span className="ze-hotkeys-imported">{imported}</span>}
           </div>
           <div className="right">
             <button className="ze-btn" onClick={onClose}>
               Cancel
             </button>
-            <button className="ze-btn" onClick={onClose}>
+            <button className="ze-btn" onClick={onOk}>
               OK
             </button>
           </div>
