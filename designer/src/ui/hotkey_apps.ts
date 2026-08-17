@@ -33,6 +33,15 @@
  * The point of writing this down is that the machinery was built while only one
  * editor could use it, and the cost of the second one should be a registry file
  * rather than a rediscovery of how any of this fits together.
+ *
+ * Issue #525 tracks the rest: a registry per editor, the five frames whose
+ * menus are still declared inline and so cannot be collected, and the smaller
+ * gaps (the row context menu, Restore All to Defaults, writing `.hotkeys`).
+ * One decision there is worth making before the *second* registry rather than
+ * after: whether a name carries upstream's tool segment
+ * (`eeschema.InteractiveDrawing.drawWire`) or stays `<app>.<id>` as it is here.
+ * Adopting it is the parity answer and it costs nothing while one registry
+ * exists.
  */
 import { HOTKEYS as EESCHEMA_HOTKEYS } from '../editors/schematic/hotkeys.js';
 
