@@ -1105,16 +1105,51 @@ export function HomePage({
     demos,
   });
 
-  // Manager hotkeys, matching the upstream defaults (Ctrl+N/O/E/L/P/F). F5 is
-  // left to the browser (reload) rather than hijacked for tree refresh.
+  /**
+   * The manager's accelerators, which are whatever its menu says they are.
+   *
+   * Every combo here is one `buildManagerMenus` puts beside a row, and the menu
+   * is upstream's. Three were written into the menu and never bound - Ctrl+G
+   * for the Gerber Viewer, Ctrl+Y for the Drawing Sheet Editor, and Shift+Ctrl+S
+   * for Save As, which the Shift guard below excluded outright - so the rows
+   * advertised keys that fell through to the browser. Ctrl+G in particular
+   * landed on Chrome's find-next, which is what made the conflict visible.
+   *
+   * `preventDefault` here stops our own default; ui/browser_hotkeys.ts stops
+   * the *browser's*, for these and for every other combo the app binds. Ctrl+N
+   * is the exception that cannot be fixed from a page: it is
+   * ACTIONS::newProject and it is also Chrome's new window, and the browser
+   * does not yield it. See BROWSER_RESERVED.
+   */
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-      const k = e.key.toLowerCase();
       const run = (fn: () => void): void => {
         e.preventDefault();
         fn();
       };
+
+      // ACTIONS::zoomRedraw, "Refresh", whose DefaultHotkey is WXK_F5 off
+      // macOS - and what View > Refresh has always said. It was left to the
+      // browser's reload on the grounds that a tab needs one, which was true
+      // while nothing suppressed the browser's default and false once the
+      // hotkey guard did: the menu would have promised a key that reloaded the
+      // page, then a key that did nothing at all. Ctrl+R still reloads, and it
+      // is upstream's macOS binding for this same action rather than a
+      // consolation.
+      if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        run(refreshSaved);
+        return;
+      }
+
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+
+      if (e.shiftKey) {
+        // Shift+Ctrl+S, the only shifted accelerator the menu declares.
+        if (k === 's' && picked) run(() => void saveAsProject());
+        return;
+      }
+
       if (k === 'n') run(openNewProjectDialog);
       else if (k === 'o') run(() => setOpenPrjOpen(true));
       else if (k === 'e') run(() => launchSchematic());
@@ -1122,6 +1157,8 @@ export function HomePage({
       else if (k === 'p' && picked) run(launchPcb);
       else if (k === 'f') run(() => onOpenFootprintEditor?.(picked ?? undefined));
       else if (k === 'b') run(() => onOpenImageConverter?.());
+      else if (k === 'g') run(() => onOpenGerberViewer?.());
+      else if (k === 'y') run(() => onOpenDrawingSheetEditor?.());
       else if (k === ',') run(() => setPrefsOpen(true));
       // ACTIONS::listHotKeys is AS_GLOBAL and its Ctrl+F1 is handled once, by
       // HotkeyListHost above the app, so there is nothing to bind here.

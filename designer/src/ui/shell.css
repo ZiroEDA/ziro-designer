@@ -1394,6 +1394,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-hotkeys-row.changed .key {
   font-weight: 600;
 }
+/* A combo the browser reserves - Ctrl+N, Ctrl+W - which reaches the app only in
+   fullscreen. Struck through rather than hidden: the binding is real and is
+   what upstream uses, and a row with an empty Hotkey cell would read as a
+   command with no key at all. */
+.ze-hotkeys-row .key.taken {
+  text-decoration: line-through;
+  text-decoration-color: #7a7a7a;
+  color: #9a9a9a;
+}
+.ze-hotkeys-row.selected .key.taken {
+  color: #ffd9c6;
+  text-decoration-color: #ffd9c6;
+}
 /* Double-click to rebind is the editable panel's gesture, so the rows say so
    with the cursor; the read-only list keeps the arrow. */
 .ze-hotkeys-row[title] {

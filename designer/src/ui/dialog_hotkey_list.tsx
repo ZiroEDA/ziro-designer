@@ -30,7 +30,8 @@
  */
 import { useEffect, useState, type JSX } from 'react';
 import { PanelHotkeysEditor } from '../prefs/PanelHotkeysEditor.js';
-import type { HotkeyOverrides } from './hotkeys_inventory.js';
+import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.js';
+import { claimBrowserHotkeys, lockReservedKeysWhileFullscreen } from './browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
 import { settings } from '../prefs/settings.js';
 
@@ -42,6 +43,33 @@ import { settings } from '../prefs/settings.js';
  */
 export function HotkeyListHost(): JSX.Element | null {
   const [open, setOpen] = useState(false);
+
+  /**
+   * Stop the browser acting on the keys the app has bound.
+   *
+   * Mounted here because this component is already the one thing above the
+   * whole app, and because the set it claims comes from the same inventory the
+   * Hotkey List shows - so a command that appears in that window with a key
+   * beside it is a command whose key the browser has been told to leave alone.
+   * Rebuilt when the overrides change, since a rebound command claims a
+   * different combo.
+   *
+   * See ui/browser_hotkeys.ts for what a page can and cannot take. The short
+   * version is that Ctrl+N is `ACTIONS::newProject` and also Chrome's new
+   * window, and no page can have it.
+   */
+  useEffect(() => {
+    const { release } = claimBrowserHotkeys(
+      buildHotkeySections(settings.hotkeys).flatMap((s) => s.entries.map((e) => e.keys)),
+    );
+    // And take the ones no page is given, for as long as the app is fullscreen,
+    // which is the only circumstance a browser permits it.
+    const unwatch = lockReservedKeysWhileFullscreen();
+    return () => {
+      release();
+      unwatch();
+    };
+  }, []);
 
   useEffect(() => {
     const off = onShowHotkeyList(() => setOpen(true));

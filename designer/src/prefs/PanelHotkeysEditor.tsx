@@ -43,6 +43,7 @@ import {
   type HotkeyOverrides,
 } from '../ui/hotkeys_inventory.js';
 import { importOntoNames, parseHotkeyFile } from '../ui/hotkeys_file.js';
+import { isBrowserReserved } from '../ui/browser_hotkeys.js';
 import { comboFromEvent, isReservedHotkey } from '../editors/schematic/hotkey_bindings.js';
 
 interface Props {
@@ -303,7 +304,23 @@ export function PanelHotkeysEditor({
                         }
                       >
                         <span className="cmd">{e.command}</span>
-                        <span className="key">{e.keys}</span>
+                        {/* A combo the browser keeps for itself reaches this
+                            app only while it is fullscreen, and never in a
+                            plain tab - Ctrl+N is ACTIONS::newProject and also
+                            Chrome's new window. Saying so on the row is the
+                            only place a user looking up a key would find out;
+                            without it the list promises a key that opens
+                            something else entirely. */}
+                        <span
+                          className={`key${isBrowserReserved(e.keys) ? ' taken' : ''}`}
+                          title={
+                            isBrowserReserved(e.keys)
+                              ? `${e.keys} belongs to the browser and cannot be intercepted by a page. It reaches Ziro Designer only in fullscreen.`
+                              : undefined
+                          }
+                        >
+                          {e.keys}
+                        </span>
                         <span className="alt">{e.alt}</span>
                         <span className="desc">{e.description}</span>
                       </div>
