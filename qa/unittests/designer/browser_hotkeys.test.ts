@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BROWSER_RESERVED,
+  browserSafeKey,
   isBrowserReserved,
   isTypingTarget,
   planClaim,
@@ -83,10 +84,32 @@ describe('fed from the app’s own inventory', () => {
   it('claims the keys the Hotkey List shows, so the two cannot disagree', () => {
     const r = planClaim(combos);
     // Every command the app advertises a key for is one the browser has been
-    // told to leave alone - except the reserved ones, which it keeps.
+    // told to leave alone.
     expect(r.claimed).toContain('ctrl+g');
     expect(r.claimed).toContain('f5');
-    expect(r.reserved).toContain('Ctrl+N');
+    expect(r.claimed).toContain('ctrl+alt+n');
+  });
+
+  it('binds nothing on a reserved combo but the two documented cases', () => {
+    // The guard against this quietly coming back. A command bound to a combo
+    // the browser keeps does not work in a tab, whatever the menu says, so
+    // every one of these has to be a deliberate entry in BROWSER_REBINDS or a
+    // known exception:
+    //
+    //   Ctrl+W        the platform's own close-this-window, which a browser
+    //                 spells close-this-tab - the faithful analogue, left alone
+    //   Ctrl+Shift+T  PCB_ACTIONS::placeText, advertised on the PCB toolbar and
+    //                 read by no dispatcher yet - decided in #525
+    expect(planClaim(combos).reserved.sort()).toEqual(['Ctrl+Shift+T', 'Ctrl+W']);
+  });
+
+  it('has moved New Project off the browser’s new window', () => {
+    // KICAD_MANAGER_ACTIONS::newProject is Ctrl+N upstream, which Chrome
+    // handles before the page sees the key.
+    expect(browserSafeKey('Ctrl+N')).toBe('Ctrl+Alt+N');
+    expect(isBrowserReserved(browserSafeKey('Ctrl+N'))).toBe(false);
+    expect(combos).toContain('Ctrl+Alt+N');
+    expect(combos).not.toContain('Ctrl+N');
   });
 
   it('claims nothing empty, since most commands have no key at all', () => {

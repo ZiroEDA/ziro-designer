@@ -12,6 +12,7 @@
 
 import type { JSX } from 'react';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 declare const __BUILD_STAMP__: string;
 
@@ -31,6 +32,10 @@ export function AboutDialog({
   onClose: () => void;
   title?: string;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const build = typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev';
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>

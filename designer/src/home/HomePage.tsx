@@ -195,7 +195,8 @@ const MGR_TOOLS: (MgrTool | 'sep')[] = [
     icon: 'new_project_from_template',
     name: 'New Project\u2026',
     action: 'new',
-    hotkey: 'Ctrl+N',
+    // Ctrl+N upstream; the browser keeps that one. See BROWSER_REBINDS.
+    hotkey: 'Ctrl+Alt+N',
     tip: 'Create a new project based on an existing project',
   },
   { icon: 'open_project', name: 'Open Project\u2026', action: 'open', hotkey: 'Ctrl+O' },
@@ -212,8 +213,13 @@ const MGR_TOOLS: (MgrTool | 'sep')[] = [
     action: 'unarchive',
     tip: 'Unarchive project files from zip archive',
   },
-  // The Refresh button is ACTIONS::zoomRedraw, not a manager action.
-  { icon: 'refresh', name: 'Refresh', action: 'refresh', hotkey: 'Ctrl+R' },
+  // The Refresh button is ACTIONS::zoomRedraw, not a manager action - the same
+  // action View > Refresh runs, so it answers to the same key. It advertised
+  // Ctrl+R while the menu advertised F5: one action, two promises, and Ctrl+R
+  // is upstream's macOS binding rather than the general one.
+  //     #if defined( __WXMAC__ ) .DefaultHotkey( MD_CTRL + 'R' )
+  //     #else                    .DefaultHotkey( WXK_F5 )
+  { icon: 'refresh', name: 'Refresh', action: 'refresh', hotkey: 'F5' },
 ];
 
 // KiCad's own "default" template, seeded into the user template directory as
@@ -1141,8 +1147,11 @@ export function HomePage({
         return;
       }
 
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      // Alt is only part of the substituted combos, so every other branch below
+      // requires it to be absent.
       const k = e.key.toLowerCase();
+      if (e.altKey && k !== 'n') return;
 
       if (e.shiftKey) {
         // Shift+Ctrl+S, the only shifted accelerator the menu declares.
@@ -1150,7 +1159,10 @@ export function HomePage({
         return;
       }
 
-      if (k === 'n') run(openNewProjectDialog);
+      // Ctrl+Alt+N, not Ctrl+N: see BROWSER_REBINDS. Alt is required, so the
+      // plain Ctrl+N that the browser is about to act on does not also open
+      // the dialog on the browsers that do deliver it.
+      if (k === 'n' && e.altKey) run(openNewProjectDialog);
       else if (k === 'o') run(() => setOpenPrjOpen(true));
       else if (k === 'e') run(() => launchSchematic());
       else if (k === 'l') run(() => onOpenSymbolEditor?.(picked ?? undefined));

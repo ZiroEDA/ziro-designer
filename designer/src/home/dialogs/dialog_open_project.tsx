@@ -26,6 +26,7 @@ import { useState, type JSX } from 'react';
 import type { ProjectMeta } from '../projectStore.js';
 import { fmtBytes, fmtWhen } from '../project_tree.js';
 import { TreeIcon } from '../project_tree_pane.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 export function OpenProjectDialog({
   projects,
@@ -55,14 +56,17 @@ export function OpenProjectDialog({
     if (id) onOpen(id);
   };
 
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div
         className="ze-modal ze-open-project"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
-          else if (e.key === 'Enter') open(sel);
+          if (e.key === 'Enter') open(sel);
         }}
       >
         <div className="ze-modal-header">

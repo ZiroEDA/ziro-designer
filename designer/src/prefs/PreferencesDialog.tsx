@@ -19,6 +19,7 @@ import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../editors/schematic/
 import { pcm, usePcmVersion } from '../pcm/pcmStore.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 /**
  * The Preferences dialog, the web mirror of KiCad's PAGED_DIALOG preferences
@@ -261,6 +262,10 @@ const COLOR_LAYERS: [keyof Theme, string][] = [
 // ----- the dialog ---------------------------------------------------------------------
 
 export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [page, setPage] = useState<PageId>('common');
   const [common, setCommon] = useState<CommonSettings>(() => structuredClone(settings.common));
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>

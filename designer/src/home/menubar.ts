@@ -86,7 +86,11 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
     {
       label: 'File',
       items: [
-        { label: 'New Project…', shortcut: 'Ctrl+N', action: h.newProject },
+        // KICAD_MANAGER_ACTIONS::newProject is .DefaultHotkey( MD_CTRL + 'N' ),
+        // which a browser will not give up - Ctrl+N is its new window, handled
+        // before the page sees the key. BROWSER_REBINDS in ui/browser_hotkeys.ts
+        // holds the substitution and the reasoning.
+        { label: 'New Project…', shortcut: 'Ctrl+Alt+N', action: h.newProject },
         // "Clone Project from Repository…" is git-gated upstream and hidden
         // when git is off, omitted until version control lands.
         // Upstream shows this only when the stock demos path exists; ours

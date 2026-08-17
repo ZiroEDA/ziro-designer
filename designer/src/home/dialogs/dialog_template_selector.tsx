@@ -53,6 +53,7 @@ import {
   sortTemplates,
   truncateDescription,
 } from './template_selector.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 export type { TemplateCategory } from './template_selector.js';
 export { applyFilter, sortTemplates, truncateDescription } from './template_selector.js';
@@ -106,6 +107,16 @@ export function TemplateSelectorDialog({
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; template: TemplateMeta } | null>(
     null,
   );
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. The context menu takes it first, because a popped-up
+  // wxMenu grabs the keyboard and the dialog never sees the key - the same
+  // rule the onKeyDown below implemented, now applied wherever focus is rather
+  // than only inside the frame.
+  useModalEscape(() => {
+    if (ctxMenu) setCtxMenu(null);
+    else onCancel();
+  });
   /**
    * The project name, which upstream asks for in a second window - a
    * wxFileDialog titled "New Project Folder". That dialog is a filesystem
@@ -257,18 +268,7 @@ export function TemplateSelectorDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        ref={frameRef}
-        className="ze-modal ze-tplsel"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          // A popped-up wxMenu grabs the keyboard, so Escape dismisses the menu
-          // before it can reach the dialog.
-          if (e.key !== 'Escape') return;
-          if (ctxMenu) setCtxMenu(null);
-          else onCancel();
-        }}
-      >
+      <div ref={frameRef} className="ze-modal ze-tplsel" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Project Template Selector
           <span className="x" title="Cancel" onClick={onCancel}>

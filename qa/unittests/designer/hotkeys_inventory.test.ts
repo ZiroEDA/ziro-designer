@@ -207,8 +207,8 @@ describe('filterHotkeys (WIDGET_HOTKEY_LIST::updateShownItems)', () => {
   });
 
   it('matches the keystroke, so searching a key finds its command', () => {
-    const out = filterHotkeys(sections, 'ctrl+n');
-    expect(out.flatMap((s) => s.entries).some((e) => e.keys === 'Ctrl+N')).toBe(true);
+    const out = filterHotkeys(sections, 'ctrl+o');
+    expect(out.flatMap((s) => s.entries).some((e) => e.keys === 'Ctrl+O')).toBe(true);
   });
 
   it('is case-insensitive and ignores surrounding space', () => {

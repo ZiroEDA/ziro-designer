@@ -6,6 +6,7 @@
  * the OS text editor). Shows a project text file in a monospace modal. */
 
 import type { JSX } from 'react';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 export function TextViewerDialog({
   name,
@@ -16,6 +17,10 @@ export function TextViewerDialog({
   text: string;
   onClose: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div

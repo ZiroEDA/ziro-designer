@@ -34,6 +34,7 @@ import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.j
 import { claimBrowserHotkeys, lockReservedKeysWhileFullscreen } from './browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';
 import { settings } from '../prefs/settings.js';
+import { useModalEscape } from './useModalEscape.js';
 
 /**
  * The host for ACTIONS::listHotKeys. One of these is mounted above the app, so
@@ -100,6 +101,10 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
    */
   const [edit, setEdit] = useState<HotkeyOverrides>(() => ({ ...settings.hotkeys }));
 
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   /** DIALOG_LIST_HOTKEYS::TransferDataFromWindow, forwarded to the panel. */
   const onOk = (): void => {
     settings.setHotkeys(edit);
@@ -108,13 +113,7 @@ export function HotkeyListDialog({ onClose }: { onClose: () => void }): JSX.Elem
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="ze-modal ze-hotkeys"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
-        }}
-      >
+      <div className="ze-modal ze-hotkeys" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Hotkey List
           <span className="x" title="Close" onClick={onClose}>

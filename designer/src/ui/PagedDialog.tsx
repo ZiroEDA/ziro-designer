@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { useModalEscape } from './useModalEscape.js';
 
 export interface PagedDialogPage {
   /** Stable page id (also the selection key). */
@@ -83,6 +84,10 @@ export function PagedDialog({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const order = enabledOrder(sections);
   const firstEnabled = order[0] ?? '';
 
