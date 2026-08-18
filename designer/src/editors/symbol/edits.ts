@@ -20,6 +20,10 @@ import {
   type LibSymbolUnit,
   type SchField,
 } from '@ziroeda/eeschema';
+import {
+  nearestGridPosition,
+  nearestHalfGridPosition,
+} from '@ziroeda/common/src/eda_draw_frame.js';
 import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import {
@@ -44,15 +48,10 @@ export function parseItemId(id: string): SymItemRef | null {
   return { kind: m[1] as SymItemKind, unitIdx: Number(m[2]), itemIdx: Number(m[3]) };
 }
 
-const snap = (p: Vec2): Vec2 => ({
-  x: Math.round(p.x / GRID) * GRID,
-  y: Math.round(p.y / GRID) * GRID,
-});
+/** GetNearestGridPosition, on the symbol editor's own pin grid. */
+const snap = (p: Vec2): Vec2 => nearestGridPosition(p, GRID);
 /** GetNearestHalfGridPosition: multi-item rotate/mirror centres snap to grid/2. */
-const snapHalf = (p: Vec2): Vec2 => ({
-  x: Math.round(p.x / (GRID / 2)) * (GRID / 2),
-  y: Math.round(p.y / (GRID / 2)) * (GRID / 2),
-});
+const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, GRID);
 
 // ----- structural helpers ------------------------------------------------------
 

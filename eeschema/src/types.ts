@@ -562,6 +562,18 @@ export interface SchTableCell {
   readonly text: string;
   readonly start: Vec2;
   readonly end: Vec2;
+  /**
+   * The cell's text angle, 0 or 90 (`(at x y ANGLE)`), absent when 0.
+   *
+   * A table has no rotation of its own: `SCH_TABLE::Rotate` (sch_table.cpp:226)
+   * turns every cell — which toggles each one's text angle, exactly as
+   * `SCH_TEXTBOX::Rotate` does (sch_textbox.cpp:139) — and then `Normalize()`
+   * (:152) re-lays the grid out about the first cell, rotating each laid-out
+   * rectangle by *that cell's text angle*. So the angle is the whole record of
+   * which way the table faces, and dropping it made a rotate un-rotate itself
+   * on the next load.
+   */
+  readonly angle?: number;
   readonly colSpan: number;
   readonly rowSpan: number;
   readonly margins?: TextBoxMargins;

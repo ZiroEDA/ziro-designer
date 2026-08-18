@@ -34,9 +34,10 @@
  *
  * Upstream swaps the two axes when the cell text is not horizontal
  * (`!GetTextAngle().IsHorizontal()`), because the grid is drawn turned on its
- * side. We do not model a rotated table — `transformItems` has no table arm at
- * all yet (see #178) — so there is nothing here to swap. When rotation lands,
- * this is the function that has to learn about it.
+ * side. `resizeCellEdge` still does not swap them: a drag on a rotated table's
+ * edge sets the wrong one of the two. `normalizeTable` *does* now, because
+ * `SCH_TABLE::Rotate` is nothing but "turn every cell, then Normalize", and
+ * Normalize is where the turn is actually recorded in the geometry.
  */
 
 import type { SchTable, SchTableCell } from '../types.js';
@@ -44,6 +45,22 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Which edge of a cell was dragged. */
 export type CellEdge = 'right' | 'bottom';
+
+/**
+ * `RotatePoint( p, c, aAngle )` for the cardinal angles a table cell can carry.
+ * ANGLE_90 is (x,y) -> (y,-x) (trigo.cpp:241), which in +Y-down sheet space
+ * turns anticlockwise on screen.
+ */
+function turn(p: Vec2, c: Vec2, angle: number): Vec2 {
+  const a = ((angle % 360) + 360) % 360;
+  if (a === 0) return p;
+  const dx = p.x - c.x;
+  const dy = p.y - c.y;
+  if (a === 90) return { x: c.x + dy, y: c.y - dx };
+  if (a === 180) return { x: c.x - dx, y: c.y - dy };
+  if (a === 270) return { x: c.x - dy, y: c.y + dx };
+  return p;
+}
 
 /** The table's origin: where `Normalize` starts laying cells out. */
 export function tableOrigin(t: SchTable): Vec2 {
@@ -72,7 +89,12 @@ export function normalizeTable(t: SchTable, at?: Vec2): SchTable {
   // edit and put back after. Deleting the first row would otherwise re-anchor
   // the table on what used to be the second row, and the whole table would jump
   // up the sheet.
-  const origin = at ?? tableOrigin(t);
+  // Upstream's origin is `GetPosition()`, i.e. the *first cell's* `m_start`
+  // (sch_table.cpp:115). On an unrotated table that is also the minimum corner,
+  // which is what `tableOrigin` answers; on a rotated one it is not, because
+  // `EDA_SHAPE::rotate` leaves a rectangle's start and end as the rotated
+  // corners rather than re-ordering them (eda_shape.cpp:957).
+  const origin = at ?? (t.cells[0]?.angle ? t.cells[0].start : tableOrigin(t));
   const rows = Math.ceil(t.cells.length / t.columnCount);
   const colWidth = (c: number): number => t.colWidths[c] ?? 0;
   const rowHeight = (r: number): number => t.rowHeights[r] ?? 0;
@@ -91,8 +113,12 @@ export function normalizeTable(t: SchTable, at?: Vec2): SchTable {
       // A merged cell reaches across the columns and rows it swallowed.
       for (let ii = col + 1; ii < col + cell.colSpan; ii++) w += colWidth(ii);
       for (let ii = row + 1; ii < row + cell.rowSpan; ii++) h += rowHeight(ii);
-      const start = { x, y };
-      const end = { x: x + w, y: y + h };
+      // `RotatePoint( pos, GetPosition(), cell->GetTextAngle() )`
+      // (sch_table.cpp:172/191): the grid is laid out square and then turned
+      // about the table's origin by the cell's own text angle, which is the
+      // only place a rotated table's geometry comes from.
+      const start = turn({ x, y }, origin, cell.angle ?? 0);
+      const end = turn({ x: x + w, y: y + h }, origin, cell.angle ?? 0);
       if (
         cell.start.x !== start.x ||
         cell.start.y !== start.y ||
