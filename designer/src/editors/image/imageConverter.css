@@ -66,10 +66,11 @@
   border-radius: 0;
   color: inherit;
   font: inherit;
-  /* The accent bar replaces the strip's bottom border rather than stacking on
-     top of it, so the label does not shift when a tab is selected. */
-  margin-bottom: calc(-1px - var(--tab-underline));
-  padding-bottom: calc(1px + var(--tab-underline));
+  /* The accent bar replaces the strip's own bottom border rather than stacking
+     under it: the tab hangs 1 px past the strip so its bottom edge lands on the
+     border row, exactly where KiCad's bar is. Any more than that and the next
+     element paints over it. */
+  margin-bottom: -1px;
 }
 
 .imgc-tab.active {
@@ -295,23 +296,34 @@
   margin-bottom: var(--wx-border);
 }
 
+/* GTK insets the trough 12 px from each end of the scale's own box, and lets
+   the thumb hang half over it. A range input confines its thumb inside the
+   track instead, so the two cannot both be exact: this matches the TROUGH,
+   which is on screen at every value, and accepts that the thumb centre stops
+   half a thumb short of the trough's ends (10 px at 0 and at 100, 2 px at the
+   default 50, none in between). */
 .imgc-frame .imgc-slider input[type='range'] {
   display: block;
-  width: 100%;
+  width: calc(100% - 2 * var(--slider-track-inset));
+  margin: 0 var(--slider-track-inset);
   height: calc(var(--slider-thumb-size) + 7px);
-  margin: 0;
   padding: 0;
   appearance: none;
   background: transparent;
 }
 
+/* scale highlight is the accent, scale trough the flat grey behind it. The
+   stop follows the thumb's real centre, so fill and thumb never disagree. */
 .imgc-frame .imgc-slider input[type='range']::-webkit-slider-runnable-track {
+  --imgc-thumb-x: calc(
+    var(--slider-thumb-size) / 2 + var(--imgc-thumb-frac) * (100% - var(--slider-thumb-size))
+  );
   height: var(--slider-track-height);
   border-radius: calc(var(--slider-track-height) / 2);
   background: linear-gradient(
     to right,
-    var(--chrome-active) 0 var(--imgc-thumb-pos),
-    var(--slider-track-bg) var(--imgc-thumb-pos) 100%
+    var(--chrome-active) 0 var(--imgc-thumb-x),
+    var(--slider-track-bg) var(--imgc-thumb-x) 100%
   );
 }
 
@@ -326,16 +338,35 @@
   margin-top: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
 }
 
+/* GTK greys a disabled scale by colour: scale trough:disabled #2a2a2a, and
+   scale highlight:disabled goes transparent. The shell's blanket rule fades
+   every disabled control to 55% opacity instead, which washes the accent and
+   the track together into one muddy orange. */
+.imgc-frame .imgc-slider input[type='range']:disabled {
+  opacity: 1;
+}
+
+.imgc-frame .imgc-slider input[type='range']:disabled::-webkit-slider-runnable-track {
+  background: var(--ctl-face-disabled);
+}
+
 .imgc-frame .imgc-slider input[type='range']:disabled::-webkit-slider-thumb {
   background: var(--ctl-face-disabled);
 }
 
+/* Centred on the thumb, wherever the thumb actually is: the slider's own left
+   padding, plus the trough inset, plus half a thumb, plus the fraction of the
+   travel the value stands at. */
 .imgc-slider-val {
   position: absolute;
   top: 0;
   left: calc(
-    var(--wx-border) + var(--imgc-thumb-pos) + (0.5 - var(--imgc-thumb-frac)) *
-      var(--slider-thumb-size)
+    var(--wx-border) + var(--slider-track-inset) + var(--slider-thumb-size) / 2 +
+      var(--imgc-thumb-frac) *
+      (
+        100% - 2 * var(--wx-border) - 2 * var(--slider-track-inset) -
+          var(--slider-thumb-size)
+      )
   );
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;

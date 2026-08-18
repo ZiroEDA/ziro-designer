@@ -131,6 +131,10 @@
      declares #222222 for the trough, which is not what the live window draws. */
   --slider-track-height: 4px;
   --slider-track-bg: #4b4b4b;
+  /* [css] scale { padding: 12px } insets the trough from the widget's own box.
+     [px] the real trough runs 1671..1893 inside a slider box of 1659..1903,
+     i.e. 12 px in at each end. */
+  --slider-track-inset: 12px;
   --slider-thumb-size: 20px;
   --slider-thumb-bg: #fcfcfc; /* [css] scale slider { background-image: image(#fcfcfc) } */
   --slider-thumb-border: #101010; /* [css] scale slider { border: 1px solid #101010 } */

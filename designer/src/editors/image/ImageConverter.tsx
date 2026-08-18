@@ -620,10 +620,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             <div
               className="imgc-slider"
               style={
-                {
-                  '--imgc-thumb-pos': `${threshold}%`,
-                  '--imgc-thumb-frac': threshold / 100,
-                } as CSSProperties
+                { '--imgc-thumb-frac': threshold / 100 } as CSSProperties
               }
             >
               <span className="imgc-slider-val">{threshold}</span>
