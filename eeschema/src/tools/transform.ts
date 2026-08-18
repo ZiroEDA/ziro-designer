@@ -16,7 +16,15 @@
  * spin; a mirror is its own inverse.
  */
 
-import type { Schematic, SchSymbol, SchField, LibGraphic, TextEffects, Vec2 } from '../types.js';
+import type {
+  Schematic,
+  SchSymbol,
+  SchField,
+  SchDirectiveLabel,
+  LibGraphic,
+  TextEffects,
+  Vec2,
+} from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
 import { refId } from './hittest.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
@@ -65,12 +73,22 @@ export function transformSymbol(s: SchSymbol, op: TransformOp, center: Vec2): Sc
           ? mirrorOrientation({ angle: s.angle, mirror: s.mirror }, 'x')
           : mirrorOrientation({ angle: s.angle, mirror: s.mirror }, 'y');
 
-  // The symbol and its name fields are one rigid part: orbit each field's position
-  // about the same center as the body. The field text orientation then turns with the
-  // symbol via GetDrawRotation at render time, so position + text rotate together.
-  const fields = s.fields.map((f: SchField) =>
-    f.at ? { ...f, at: movePoint(f.at, op, center) } : f,
-  );
+  // `SCH_SYMBOL::Rotate` (sch_symbol.cpp:2837), `::MirrorHorizontally` (:2801) and
+  // `::MirrorVertically` (:2819) all transform `m_pos` alone and then *translate*
+  // each field by the symbol's own delta ("move the fields to the new position
+  // because the symbol itself has moved"). The fields do not orbit the centre.
+  //
+  // The consequence upstream intends: rotating a single symbol turns it about its
+  // own position, so the delta is zero and the fields do not move at all — the
+  // reference stays on the side of the body the user put it on, turn after turn.
+  const dx = at.x - s.at.x;
+  const dy = at.y - s.at.y;
+  const fields =
+    dx === 0 && dy === 0
+      ? s.fields
+      : s.fields.map((f: SchField) =>
+          f.at ? { ...f, at: { x: f.at.x + dx, y: f.at.y + dy } } : f,
+        );
   const next: { -readonly [K in keyof SchSymbol]: SchSymbol[K] } = {
     ...s,
     at,
@@ -132,7 +150,10 @@ export function rotateText90<T extends TextLike>(item: T, clockwise: boolean): T
 
 /**
  * `SCH_TEXT::MirrorSpinStyle`: the same justify flip without the angle change.
- * `leftRight` is true for a horizontal mirror (X), false for a vertical one.
+ *
+ * `leftRight` is upstream's `!vertical` — true for the Mirror **Horizontally**
+ * command, false for Mirror Vertically. Note that this is not the name of our
+ * op: our `mirrorY` is Mirror Horizontally (it flips X). See `isLeftRight`.
  */
 export function mirrorTextSpin<T extends TextLike>(item: T, leftRight: boolean): T {
   const vertical = isVertical(item.angle);
@@ -146,12 +167,94 @@ export function mirrorTextSpin<T extends TextLike>(item: T, leftRight: boolean):
   } as T;
 }
 
+/**
+ * `EDA_TEXT::FlipHJustify` on an item's effects, leaving the item alone when
+ * there is nothing to swap — so a text box with no `(justify …)` does not gain
+ * an empty `(effects …)` node on the way through a mirror.
+ */
+function flipEffectsHJustify<T extends { readonly effects?: TextEffects }>(item: T): T {
+  const justify = flipHJustify(item.effects?.justify);
+  if (justify === item.effects?.justify) return item;
+  return { ...item, effects: { ...(item.effects ?? { hidden: false }), justify } };
+}
+
+/**
+ * Which of our two mirror ops is the *left-right* one.
+ *
+ * `SCH_EDIT_TOOL::Mirror` reads `vertical = event matches mirrorV` and passes
+ * `MirrorSpinStyle( !vertical )` (sch_edit_tool.cpp:1341). Our `mirrorX` is the
+ * mirrorV command (SchematicEditor.tsx:5278 maps mirrorV → 'mirrorX'; it flips Y
+ * and sets SYM_MIRROR_X), so `mirrorY` — the mirrorH command — is the left-right
+ * one. The call site used to pass `op === 'mirrorX'`, i.e. exactly backwards:
+ * mirroring a horizontal label with X did nothing and with Y flipped it.
+ */
+const isLeftRight = (op: TransformOp): boolean => op === 'mirrorY';
+
 /** Apply one op to a text-like item, in place. */
 function transformTextItem<T extends TextLike>(item: T, op: TransformOp): T {
   if (op === 'rotateCW') return rotateText90(item, true);
   if (op === 'rotateCCW') return rotateText90(item, false);
-  // MirrorHorizontally is the left-right one (X); MirrorVertically is not.
-  return mirrorTextSpin(item, op === 'mirrorX');
+  return mirrorTextSpin(item, isLeftRight(op));
+}
+
+/**
+ * `SCH_DIRECTIVE_LABEL::MirrorSpinStyle` (sch_label.cpp:1745), which runs the
+ * whole rule at the *opposite* handedness to a plain label: "the text is in fact
+ * a graphic shape … so the mirroring is not exactly similar to a SCH_TEXT item",
+ * hence `SCH_TEXT::MirrorSpinStyle( !aLeftRight )`.
+ *
+ * Upstream carries a label's spin as (text angle 0|90) + horizontal justify, so
+ * the spin flip lands on the justify. A `SchDirectiveLabel` has no justify of its
+ * own: its spin is the whole file angle, 0/90/180/270, which `spinOfAngle` reads
+ * back and `directiveGraphic` points the stick with. The same flip is therefore a
+ * half turn here — RIGHT↔LEFT is 0↔180, UP↔BOTTOM is 90↔270. Sharing the label
+ * path meant a mirror only ever fabricated an empty `effects` on it, and the flag
+ * kept pointing the way it did before.
+ *
+ * The fields then flip their horizontal justify and mirror about the label's own
+ * anchor along the mirror axis — that half keys off `aLeftRight` undoubled.
+ */
+export function mirrorDirectiveLabel(d: SchDirectiveLabel, leftRight: boolean): SchDirectiveLabel {
+  const a = ((d.angle % 360) + 360) % 360;
+  const vertical = a === 90 || a === 270;
+  // SCH_TEXT::MirrorSpinStyle( !aLeftRight ): flip a horizontal spin on the
+  // up-down mirror and a vertical one on the left-right mirror, not the reverse.
+  const angle = (vertical ? leftRight : !leftRight) ? (a + 180) % 360 : a;
+  const fields = d.fields.map((f: SchField) => {
+    const next: { -readonly [K in keyof SchField]: SchField[K] } = { ...f };
+    if ((leftRight && !isVertical(f.angle)) || (!leftRight && isVertical(f.angle))) {
+      next.effects = {
+        ...(f.effects ?? { hidden: false }),
+        justify: directiveFieldJustify(f.effects?.justify),
+      };
+    }
+    if (f.at) {
+      next.at = leftRight
+        ? { x: 2 * d.at.x - f.at.x, y: f.at.y }
+        : { x: f.at.x, y: 2 * d.at.y - f.at.y };
+    }
+    return next;
+  });
+  return { ...d, angle, fields };
+}
+
+/**
+ * The field rule inside `SCH_DIRECTIVE_LABEL::MirrorSpinStyle`: LEFT becomes
+ * RIGHT and *anything else* — centre included — becomes LEFT. Upstream's `else`
+ * arm is unconditional here, unlike `EDA_TEXT::FlipHJustify`'s two-sided swap,
+ * so this deliberately is not `flipHJustify`.
+ */
+function directiveFieldJustify(justify: readonly string[] | undefined): readonly string[] {
+  const to = justify?.includes('left') ? 'right' : 'left';
+  const rest = (justify ?? []).filter((t) => t !== 'left' && t !== 'right' && t !== 'center');
+  return [to, ...rest];
+}
+
+/** Rotate shares the label path; only the mirror is a directive label's own. */
+function transformDirectiveLabel(d: SchDirectiveLabel, op: TransformOp): SchDirectiveLabel {
+  if (op === 'rotateCW') return rotateText90(d, true);
+  if (op === 'rotateCCW') return rotateText90(d, false);
+  return mirrorDirectiveLabel(d, isLeftRight(op));
 }
 
 /**
@@ -268,7 +371,7 @@ export function transformItems(
           ids.has(refId('label', l.uuid, i)) ? transformTextItem(l, op) : l,
         ),
         directiveLabels: doc.directiveLabels?.map((d, i) =>
-          ids.has(refId('directive', d.uuid, i)) ? transformTextItem(d, op) : d,
+          ids.has(refId('directive', d.uuid, i)) ? transformDirectiveLabel(d, op) : d,
         ),
         // The geometric kinds share one rule: move every point that defines
         // them (`head->Rotate( rotPoint, !clockwise )` and its mirror pair).
@@ -300,7 +403,16 @@ export function transformItems(
           const start = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) };
           const end = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) };
           const angle = op.startsWith('rotate') ? (t.angle === 90 ? 0 : 90) : t.angle;
-          return { ...t, start, end, angle };
+          // `SCH_TEXTBOX::MirrorHorizontally` / `::MirrorVertically`
+          // (sch_textbox.cpp:109/124) mirror the shape and then note that "text is
+          // NOT really mirrored; it just has its justification flipped" — but only
+          // when the text reads *along* the mirror axis: H flips a horizontal box,
+          // V flips a vertical one. Until now the corners moved and the text stayed
+          // hard against the same edge, so a left-justified box mirrored into a box
+          // whose text sat on the wrong side of it.
+          const flipsText = op === 'mirrorY' ? t.angle === 0 : op === 'mirrorX' && t.angle === 90;
+          const box = { ...t, start, end, angle };
+          return flipsText ? flipEffectsHJustify(box) : box;
         }),
         graphics: doc.graphics.map((g, i) =>
           ids.has(refId('graphic', undefined, i)) ? transformGraphic(g, op, c) : g,

@@ -172,11 +172,15 @@ describe('the symbol the placement carries', () => {
       y: plan.symbol.fields[0]!.at!.y + dy,
     });
 
-    // R turns the copy about its own position: the body stays, the fields orbit.
+    // R turns the copy about its own position, so `SCH_SYMBOL::Rotate`'s move
+    // vector for the fields is zero (sch_symbol.cpp:2837) — the body turns and
+    // the fields hold their offset. This used to assert the opposite, that the
+    // fields orbit the anchor, which threw the reference to a different side of
+    // the symbol on every press before it was even placed.
     const turned = transformSymbol(moved, 'rotateCCW', moved.at);
     expect(turned.at).toEqual(at);
     expect(turned.angle).toBe(90);
-    expect(turned.fields[0]!.at).not.toEqual(moved.fields[0]!.at);
+    expect(turned.fields[0]!.at).toEqual(moved.fields[0]!.at);
   });
 
   it('is added undoably, leaving the original untouched', () => {

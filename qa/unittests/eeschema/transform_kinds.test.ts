@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { serializeSchematic } from '@ziroeda/eeschema';
 import { transformItems } from '@ziroeda/eeschema/src/tools/transform.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -198,5 +199,75 @@ describe('undo', () => {
     expect(back.lines[0]!.end).toEqual(d.lines[0]!.end);
     expect(back.junctions[0]!.at).toEqual(d.junctions[0]!.at);
     expect(back.busEntries[0]!.size).toEqual(d.busEntries[0]!.size);
+  });
+});
+
+/**
+ * `SCH_TEXTBOX::MirrorHorizontally` / `::MirrorVertically` (sch_textbox.cpp:109/124)
+ * mirror the shape and then note that "text is NOT really mirrored; it just has
+ * its justification flipped" — but only when the text reads *along* the mirror
+ * axis: the H mirror flips a horizontal box, the V mirror a vertical one. We used
+ * to move the corners and leave the effects untouched, so the text stayed hard
+ * against the same edge and ended up on the wrong side of its own box.
+ *
+ * A wire rides along in the selection so the assertions read the axis off the
+ * geometry rather than trusting either op's name.
+ */
+describe('mirroring a text box', () => {
+  const box = (angle: number): Schematic =>
+    sheet(
+      [
+        `(wire (pts (xy ${10 * 1.27} ${10 * 1.27}) (xy ${20 * 1.27} ${16 * 1.27})) (uuid "w-1"))`,
+        `(text_box "hi" (at ${2 * 1.27} ${2 * 1.27} ${angle}) (size ${4 * 1.27} ${2 * 1.27})
+           (stroke (width 0) (type solid)) (fill (type none))
+           (effects (font (size 1.27 1.27)) (justify left top)) (uuid "tb-1"))`,
+      ].join('\n'),
+    );
+
+  const mirror = (d: Schematic, op: 'mirrorX' | 'mirrorY'): Schematic =>
+    transformItems(new Set([refId('line', 'w-1', 0), refId('textbox', 'tb-1', 0)]), op).apply(d);
+
+  /** true when this op moved the wire in X — i.e. it is Mirror Horizontally. */
+  const flipsX = (before: Schematic, after: Schematic): boolean =>
+    before.lines[0]!.start.x !== after.lines[0]!.start.x;
+
+  for (const op of ['mirrorX', 'mirrorY'] as const) {
+    it(`${op}: a horizontal box flips its justify iff it is the X mirror`, () => {
+      const d = box(0);
+      const after = mirror(d, op);
+      expect(after.textBoxes[0]!.effects?.justify).toEqual(
+        flipsX(d, after) ? ['right', 'top'] : ['left', 'top'],
+      );
+    });
+
+    it(`${op}: a vertical box flips its justify iff it is the Y mirror`, () => {
+      const d = box(90);
+      const after = mirror(d, op);
+      expect(after.textBoxes[0]!.effects?.justify).toEqual(
+        flipsX(d, after) ? ['left', 'top'] : ['right', 'top'],
+      );
+    });
+  }
+
+  it('leaves the vertical justify and the angle alone', () => {
+    const d = box(0);
+    const after = mirror(d, 'mirrorY').textBoxes[0]!;
+    expect(after.effects?.justify).toContain('top');
+    expect(after.angle).toBe(0);
+  });
+
+  it('is its own inverse', () => {
+    const d = box(0);
+    const ids = new Set([refId('line', 'w-1', 0), refId('textbox', 'tb-1', 0)]);
+    const back = transformItems(ids, 'mirrorY').apply(transformItems(ids, 'mirrorY').apply(d));
+    expect(back.textBoxes[0]!.effects?.justify).toEqual(['left', 'top']);
+    expect(back.textBoxes[0]!.start).toEqual(d.textBoxes[0]!.start);
+  });
+
+  it('reaches the file', () => {
+    const d = box(0);
+    const after = mirror(d, 'mirrorY');
+    expect(flipsX(d, after)).toBe(true);
+    expect(serializeSchematic(after)).toContain('(justify right top)');
   });
 });

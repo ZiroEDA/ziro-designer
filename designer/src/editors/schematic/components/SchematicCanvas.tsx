@@ -3783,8 +3783,11 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // MirrorVertically (hotkey Y), see common/transform.ts.
         const inst = placeInstanceRef.current;
         if (inst) {
-          // A copied symbol turns exactly as a placed one does, about its own
-          // position, so its fields ride around with the body.
+          // A copied symbol turns exactly as a placed one does: about its own
+          // position, so `SCH_SYMBOL::Rotate`'s field move vector is zero and the
+          // fields hold their offset from the body (sch_symbol.cpp:2837). They
+          // used to orbit the anchor instead, which threw the reference to a
+          // different side of the symbol on every press before it was placed.
           const op =
             k === 'r' ? (e.shiftKey ? 'rotateCW' : 'rotateCCW') : k === 'x' ? 'mirrorY' : 'mirrorX';
           placeInstanceRef.current = transformSymbol(inst, op, inst.at);
