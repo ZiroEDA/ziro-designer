@@ -160,13 +160,27 @@ describe('copy/paste (doCopy / Paste port)', () => {
     expect(payload.batch.labels[0]!.text).toBe('hello world');
   });
 
-  it('does not duplicate lib_symbols the sheet already has', () => {
+  // This assertion used to read "does not duplicate lib_symbols the sheet
+  // already has", and required `payload.libs` to be empty whenever the
+  // destination held the same name. That is the inverse of KiCad's rule.
+  // `ChoosePasteLibSymbol` (sch_editor_control.cpp:2033-2062) tries the
+  // clipboard's cache FIRST and documents why: its cached definition is a
+  // matched pair with the pasted instance, so preferring the destination's
+  // silently remaps the instance to a different definition and reverts
+  // in-place edits — renumbered pins (issue 21401), a changed power type
+  // (issue 22162). The clipboard now carries every definition it copied; what
+  // must not grow is the destination's cache, since a name it already has is
+  // replaced rather than appended (SCH_SCREEN::AddLibSymbol, sch_screen.cpp:1463).
+  it('does not add a second lib_symbols entry for a name the sheet already has', () => {
     const doc = sch();
     const text = copySelectionText(doc, new Set([refId('symbol', doc.symbols[0]!.uuid, 0)]));
     const payload = parsePastedText(text, doc)!;
-    expect(payload.libs.length).toBe(0); // Conn_01x02 already embedded
+    expect(payload.libs.map((l) => l.libId)).toContain('Connector_Generic:Conn_01x02');
     const next = pasteItems(payload).apply(doc);
     expect(next.libSymbols.length).toBe(doc.libSymbols.length);
+    expect(next.libSymbols.filter((l) => l.libId === 'Connector_Generic:Conn_01x02')).toHaveLength(
+      1,
+    );
   });
 
   // PASTE_MODE (DIALOG_PASTE_SPECIAL): keep vs clear reference designators.
@@ -175,7 +189,7 @@ describe('copy/paste (doCopy / Paste port)', () => {
     const sym = doc.symbols[0]!;
     const ref = sym.fields.find((f) => f.key === 'Reference')!.value;
     const text = copySelectionText(doc, new Set([refId('symbol', sym.uuid, 0)]));
-    const payload = parsePastedText(text, doc, 'keep')!;
+    const payload = parsePastedText(text, doc, { mode: 'keep' })!;
     expect(payload.batch.symbols[0]!.fields.find((f) => f.key === 'Reference')!.value).toBe(ref);
   });
 
@@ -183,7 +197,7 @@ describe('copy/paste (doCopy / Paste port)', () => {
     const doc = sch();
     const sym = doc.symbols[0]!;
     const text = copySelectionText(doc, new Set([refId('symbol', sym.uuid, 0)]));
-    const payload = parsePastedText(text, doc, 'remove')!;
+    const payload = parsePastedText(text, doc, { mode: 'remove' })!;
     expect(payload.batch.symbols[0]!.fields.find((f) => f.key === 'Reference')!.value).toBe('J?');
   });
 });

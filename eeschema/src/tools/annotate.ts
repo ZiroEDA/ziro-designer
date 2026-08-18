@@ -49,6 +49,19 @@ export interface AnnotateOptions {
   resetExisting: boolean;
   /** aStartNumber (incremental algo only); the first assigned number is +1. */
   startNumber: number;
+  /**
+   * `aStartAtCurrent` (SCH_REFERENCE_LIST::Annotate): a reference that already
+   * carries a number restarts the search at that number rather than at
+   * `startNumber + 1`, so a re-annotated R5 stays R5 when 5 is free and becomes
+   * R6 when it is not — it never drops back to R1.
+   *
+   * `ReannotateDuplicates` (sch_reference_list.cpp:359) is the only caller that
+   * passes it, which is why paste's duplicate pass keeps numbers near where the
+   * user copied them. `AnnotateByOptions` forces it off for the sheet-× algos
+   * (`aStartAtCurrent = false; // Not implemented for sheet # * 100`), so it is
+   * ignored there here too.
+   */
+  startAtCurrent?: boolean;
   /** The current sheet's number for the sheet-× algos; defaults to 1. */
   sheetNumber?: number;
   /** aRegroupUnits: don't collect the locked (already-shared) multi-unit sets,
@@ -261,7 +274,11 @@ export function annotateHierarchy(
       case 'sheet_1000':
         return c.sheetNumber * 1000 + 1;
       default:
-        return opts.startNumber + 1;
+        // `if( aStartAtCurrent && ref_unit.m_numRef > 0 ) minRefId = ref_unit.m_numRef;`
+        // — the search starts at the number the reference already carries.
+        return opts.startAtCurrent && c.num !== undefined && c.num > 0
+          ? c.num
+          : opts.startNumber + 1;
     }
   };
   // REFDES_TRACKER::GetNextRefDesForUnits + areUnitsAvailable: the first

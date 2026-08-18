@@ -73,7 +73,7 @@ describe('what a picked file turns into', () => {
   it('is a placeable payload, not a replacement document', () => {
     // The distinction the separate file input exists to protect: importing adds
     // to the open sheet, opening replaces it.
-    const payload = parsePastedText(SRC, target(), 'unique');
+    const payload = parsePastedText(SRC, target(), { mode: 'unique' });
     expect(payload).not.toBeNull();
     expect(payload!.batch.lines).toHaveLength(1);
     expect(payload!.batch.junctions).toHaveLength(1);
@@ -84,7 +84,7 @@ describe('what a picked file turns into', () => {
     const payload = parsePastedText(
       `(kicad_sch (version 20250114) (paper "A4") (lib_symbols))`,
       target(),
-      'unique',
+      { mode: 'unique' },
     );
     expect(payload?.batch.lines ?? []).toHaveLength(0);
   });

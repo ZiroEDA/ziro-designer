@@ -76,9 +76,29 @@ export function symbolNodeWithFreshUuids(node: SList): SList {
   const n = nodeWithUuid(node, newUuid());
   return {
     kind: 'list',
-    items: n.items
-      .filter((it) => !(isList(it) && head(it) === 'instances'))
-      .map((it) => (isList(it) && head(it) === 'pin' ? nodeWithUuid(it, newUuid()) : it)),
+    items: symbolNodeWithoutInstances(n).items.map((it) =>
+      isList(it) && head(it) === 'pin' ? nodeWithUuid(it, newUuid()) : it,
+    ),
+  };
+}
+
+/**
+ * `prunePastedSymbolInstances` (sch_editor_control.cpp:2011-2030): a pasted
+ * symbol drops the instance records the clipboard brought, which belong to
+ * another project or to a sheet path that has nothing to do with the
+ * destination. Upstream then rebuilds the destination's record with
+ * `AddHierarchicalReference` (:1910); we have no per-sheet-path model to
+ * rebuild into, so the Reference field alone carries the annotation — the
+ * fallback `SCH_SYMBOL::GetRef` takes when no record matches the current path.
+ *
+ * Split out of {@link symbolNodeWithFreshUuids} because a paste that *keeps*
+ * the symbol's KIID (:2354-2364) still has to prune: without this it would
+ * paste a symbol whose records annotate a sheet path in the source project.
+ */
+export function symbolNodeWithoutInstances(node: SList): SList {
+  return {
+    kind: 'list',
+    items: node.items.filter((it) => !(isList(it) && head(it) === 'instances')),
   };
 }
 

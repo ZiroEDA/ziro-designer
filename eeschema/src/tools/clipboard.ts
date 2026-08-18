@@ -36,9 +36,22 @@ import {
 } from './move.js';
 import { refId } from './hittest.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
-import { newUuid, makeLabel, nodeWithUuid, symbolNodeWithFreshUuids } from './build.js';
+import {
+  newUuid,
+  makeLabel,
+  nodeWithUuid,
+  symbolNodeWithFreshUuids,
+  symbolNodeWithoutInstances,
+} from './build.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
+import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import {
+  annotateHierarchy,
+  splitReference,
+  type AnnotateOptions,
+  type AnnotateSheet,
+} from './annotate.js';
 
 // ----- copy -------------------------------------------------------------------
 
@@ -67,8 +80,21 @@ export function copySelectionText(sch: Schematic, rawIds: ReadonlySet<string>): 
   );
   const tables = sch.tables.filter((t, i) => ids.has(refId('table', t.uuid, i)));
 
-  const usedLibIds = new Set(symbols.map((s) => s.libId));
-  const libs = sch.libSymbols.filter((l) => usedLibIds.has(l.libId));
+  // SCH_IO_KICAD_SEXPR::Format(SCH_SELECTION*) looks the definition up under
+  // the name the placement files it under, not under its lib_id:
+  //
+  //   wxString libSymbolLookup = symbol->GetLibId().Format().wx_str();
+  //   if( !symbol->UseLibIdLookup() )
+  //       libSymbolLookup = symbol->GetSchSymbolLibraryName();
+  //
+  // and `UseLibIdLookup()` is false exactly when the placement carries a
+  // `(lib_name …)`, so the lookup is `GetSchSymbolLibraryName()` either way.
+  // Keying on `libId` instead missed every symbol whose cached definition had
+  // diverged from its library — after Update Symbol, or in any sheet holding
+  // two different definitions of one lib_id — and copied it with no definition
+  // at all, so it pasted body-less and pin-less.
+  const usedLibNames = new Set(symbols.map((s) => schSymbolLibraryName(s)));
+  const libs = sch.libSymbols.filter((l) => usedLibNames.has(l.libId));
 
   // Round the subset through the writer so item nodes carry current geometry.
   // `doCopy` copies whatever is selected, so every kind that can be selected
@@ -137,41 +163,6 @@ export interface PastePayload {
   refPoint: Vec2;
 }
 
-/** `R12` -> { prefix: 'R', n: 12 }; `R?` / `R` -> { prefix: 'R' }. */
-function splitRef(ref: string): { prefix: string; n?: number } {
-  const m = /^(.*?)(\d+)$/.exec(ref);
-  if (m) return { prefix: m[1]!, n: Number(m[2]) };
-  return { prefix: ref.replace(/\?+$/, '') };
-}
-
-/**
- * PASTE_MODE::UNIQUE_ANNOTATIONS (ReannotateDuplicates): keep a pasted reference
- * if it is free; a duplicate or un-annotated one gets the first free number for
- * its prefix. Returns a new source node + fields when the reference changed.
- */
-function reannotate(sym: SchSymbol, taken: Set<string>): SchSymbol {
-  const refField = sym.fields.find((f) => f.key === 'Reference');
-  if (!refField) return sym;
-  const ref = refField.value;
-  const unannotated = ref.endsWith('?');
-  if (!unannotated && !taken.has(ref)) {
-    taken.add(ref);
-    return sym;
-  }
-  const { prefix } = splitRef(ref);
-  if (prefix === '' || prefix === '#') {
-    taken.add(ref);
-    return sym;
-  }
-  let n = 1;
-  while (taken.has(`${prefix}${n}`)) n++;
-  const newRef = `${prefix}${n}`;
-  taken.add(newRef);
-
-  const fields = sym.fields.map((f) => (f.key === 'Reference' ? setFieldValue(f, newRef) : f));
-  return { ...sym, fields };
-}
-
 function setFieldValue(f: SchField, value: string): SchField {
   const items = f.source.items.slice();
   items[2] = str(value);
@@ -191,10 +182,149 @@ export type PasteMode = 'unique' | 'keep' | 'remove';
 function clearAnnotation(sym: SchSymbol): SchSymbol {
   const refField = sym.fields.find((f) => f.key === 'Reference');
   if (!refField || refField.value.endsWith('?')) return sym;
-  const { prefix } = splitRef(refField.value);
+  const { prefix } = splitReference(refField.value);
   const newRef = `${prefix || refField.value}?`;
   const fields = sym.fields.map((f) => (f.key === 'Reference' ? setFieldValue(f, newRef) : f));
   return { ...sym, fields };
+}
+
+const referenceOf = (sym: SchSymbol): string | undefined =>
+  sym.fields.find((f) => f.key === 'Reference')?.value;
+
+/** Everything `SCH_EDITOR_CONTROL::Paste` reads off the frame and the project. */
+export interface PasteOptions {
+  /**
+   * The chosen PASTE_MODE. Upstream derives it from the annotation toggle —
+   * `pasteMode = annotateAutomatic ? UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`
+   * (sch_editor_control.cpp:2203) — and DIALOG_PASTE_SPECIAL overrides it.
+   */
+  mode?: PasteMode;
+  /**
+   * Every sheet of the project, `Schematic().Hierarchy()` (:2222). Reference
+   * uniqueness is a hierarchy-wide question: upstream builds `existingRefs`
+   * with `hierarchy.GetSymbols( existingRefs, SYMBOL_FILTER_ALL )` (:2249).
+   * Pass the sheets with scope 'out' — they only reserve their numbers, which
+   * is upstream's additionalRefs. Defaults to the destination sheet alone,
+   * which is what a caller without a hierarchy to hand can honestly claim.
+   */
+  hierarchy?: readonly AnnotateSheet[];
+  /**
+   * SCHEMATIC_SETTINGS' annotation settings, read at :2201 and :2604-2606:
+   * `m_AnnotateSortOrder`, `m_AnnotateMethod`, `m_AnnotateStartNum` and
+   * `m_refDesTracker`. Defaults to KiCad's own defaults.
+   */
+  annotate?: Partial<Pick<AnnotateOptions, 'order' | 'algo' | 'startNumber' | 'tracker'>>;
+  /** The destination sheet's page number, for the sheet-× algos. */
+  sheetNumber?: number;
+  /**
+   * `forceRemoveAnnotations` (:2213): true only when DIALOG_PASTE_SPECIAL
+   * explicitly chose "remove annotations" *and* that was not already the
+   * default. It is what stops the "already in the schematic" rule below from
+   * putting the annotations back.
+   */
+  forceRemoveAnnotations?: boolean;
+}
+
+/** The key the pasted items are filed under in the annotation pass; it must not
+ *  collide with a real sheet file name. */
+const CLIPBOARD_SHEET = '<clipboard>';
+
+/**
+ * The re-annotation pass at the tail of `Paste` (:2583-2652).
+ *
+ * Upstream collects the pasted symbols into `annotatedSymbols` and hands them
+ * to the same `SCH_REFERENCE_LIST` machinery the Annotate dialog uses, so the
+ * project's sort order, algorithm, start number and REFDES_TRACKER all apply:
+ *
+ *   annotatedSymbols[path].SetRefDesTracker( schematicSettings.m_refDesTracker );
+ *   if( pasteMode == PASTE_MODE::UNIQUE_ANNOTATIONS )
+ *       annotatedSymbols[path].ReannotateDuplicates( existingRefs, annotateAlgo );
+ *   else
+ *       annotatedSymbols[path].ReannotateByOptions( annotateOrder, annotateAlgo,
+ *                                                   annotateStartNum, existingRefs,
+ *                                                   false, &hierarchy );
+ *
+ * This used to be a bare `while (taken.has(prefix + n)) n++` starting at 1,
+ * which ignored every one of those settings: a project on "sheet number × 100"
+ * got R1 where KiCad gives R201, and retired designators were handed straight
+ * back out.
+ *
+ * Which symbols take part differs by mode (:2586-2596): UNIQUE_ANNOTATIONS
+ * renumbers everything pasted, every other mode only the ones
+ * `SCH_REFERENCE::AlwaysAnnotate()` (sch_reference_list.cpp:826) is true for —
+ * a power symbol or a `#`-prefixed reference — which is how a pasted `#PWR?`
+ * still comes out numbered while `R?` stays `R?` for the user to annotate.
+ */
+function reannotatePasted(
+  symbols: SchSymbol[],
+  clip: Schematic,
+  hierarchy: readonly AnnotateSheet[],
+  mode: PasteMode,
+  opts: PasteOptions,
+): SchSymbol[] {
+  if (symbols.length === 0) return symbols;
+
+  const libById = new Map<string, LibSymbol>();
+  for (const sheet of hierarchy)
+    for (const l of sheet.doc.libSymbols) if (!libById.has(l.libId)) libById.set(l.libId, l);
+  for (const l of clip.libSymbols) libById.set(l.libId, l);
+
+  const pasted: AnnotateSheet = {
+    file: CLIPBOARD_SHEET,
+    doc: { ...clip, symbols },
+    sheetNumber: opts.sheetNumber ?? 1,
+    // UNIQUE_ANNOTATIONS renumbers the whole paste; the other modes only the
+    // AlwaysAnnotate ones, which `selected` below narrows it to.
+    scope: mode === 'unique' ? 'full' : 'selected',
+  };
+  let selected: Set<string> | undefined;
+  if (mode !== 'unique') {
+    const ids = new Set<string>();
+    symbols.forEach((sym, i) => {
+      const ref = referenceOf(sym) ?? '';
+      const lib = libById.get(schSymbolLibraryName(sym));
+      if (lib?.isPower === true || ref.startsWith('#')) ids.add(refId('symbol', sym.uuid, i));
+    });
+    if (ids.size === 0) return symbols;
+    selected = ids;
+  }
+
+  // The hierarchy only reserves its numbers here (upstream's additionalRefs,
+  // `AddItem` with `m_isNew = false`); nothing already on a sheet is renumbered
+  // by a paste.
+  const sheets: AnnotateSheet[] = [
+    pasted,
+    ...hierarchy.map((s) => ({ ...s, scope: 'out' as const })),
+  ];
+
+  const next = annotateHierarchy(
+    sheets,
+    libById,
+    {
+      scope: mode === 'unique' ? 'all' : 'selection',
+      // `ReannotateDuplicates` passes UNSORTED, but `AnnotateByOptions`'s sort
+      // switch has no UNSORTED case and falls through `default:` to
+      // `SortByXCoordinate()` (sch_reference_list.cpp:372-377), so the
+      // duplicate pass ends up sorted by X after all.
+      order: mode === 'unique' ? 'x' : (opts.annotate?.order ?? 'x'),
+      algo: opts.annotate?.algo ?? 'incremental',
+      startNumber: mode === 'unique' ? 0 : (opts.annotate?.startNumber ?? 0),
+      // `ReannotateByOptions` sets `ref.m_isNew = true` on every annotated
+      // reference it is given ("We want to reannotate all references",
+      // sch_reference_list.cpp:349), so a pasted R5 is re-issued rather than
+      // left alone.
+      resetExisting: true,
+      // Only ReannotateDuplicates passes aStartAtCurrent.
+      startAtCurrent: mode === 'unique',
+      // SYMBOL_FILTER_ALL: `pastedSymbols` is built with it (:2385), and the
+      // AlwaysAnnotate branch above exists precisely to number power symbols.
+      includePower: true,
+      ...(opts.annotate?.tracker ? { tracker: opts.annotate.tracker } : {}),
+    },
+    selected,
+  );
+  const out = next.get(CLIPBOARD_SHEET);
+  return out ? [...out] : symbols;
 }
 
 /**
@@ -205,8 +335,9 @@ function clearAnnotation(sym: SchSymbol): SchSymbol {
 export function parsePastedText(
   text: string,
   existing: Schematic,
-  mode: PasteMode = 'unique',
+  opts: PasteOptions = {},
 ): PastePayload | null {
+  const mode: PasteMode = opts.mode ?? 'unique';
   const trimmed = text.trim();
   if (trimmed === '') return null;
 
@@ -243,21 +374,64 @@ export function parsePastedText(
     return asTextItem();
   }
 
-  // Fresh UUIDs for everything (clipboard KIIDs may already live in this sheet).
-  const taken = new Set<string>();
-  for (const s of existing.symbols) {
-    const r = s.fields.find((f) => f.key === 'Reference');
-    if (r) taken.add(r.value);
-  }
+  // `hierarchy.GetSymbols( existingRefs, SYMBOL_FILTER_ALL )` (:2249): every
+  // reference in the *project*, not just this sheet's. Copying R5 on sheet 2
+  // and pasting on sheet 1 used to keep R5 and collide hierarchy-wide.
+  const hierarchy: readonly AnnotateSheet[] = opts.hierarchy ?? [
+    { file: '', doc: existing, sheetNumber: opts.sheetNumber ?? 1, scope: 'out' },
+  ];
+  const existingRefs = new Set<string>();
+  for (const sheet of hierarchy)
+    for (const s of sheet.doc.symbols) {
+      const r = referenceOf(s);
+      if (r !== undefined) existingRefs.add(r);
+    }
+
+  // `bool forceKeepAnnotations = pasteMode != PASTE_MODE::REMOVE_ANNOTATIONS;`
+  // (:2218), then, inside the per-item loop and *never reset* (:2338-2348):
+  //
+  //   for( const SCH_SYMBOL_INSTANCE& instance : symbol->GetInstances() )
+  //       if( !existingRefsSet.contains( instance.m_Reference ) )
+  //       { forceKeepAnnotations = !forceRemoveAnnotations; break; }
+  //
+  // So one pasted symbol whose reference the project has never seen makes the
+  // whole rest of the paste keep its annotations. It is sticky and it is
+  // order-dependent — a symbol processed before that one is still cleared —
+  // which is why this runs as a single forward pass rather than a precomputed
+  // flag. We have no `(instances …)` on a pasted symbol yet (audit finding 7),
+  // and upstream falls back to the same place when the clipboard carries none:
+  // `newInstance.m_Reference = aSymbol->GetField( FIELD_T::REFERENCE )->GetText()`
+  // (updatePastedSymbol, :1903).
+  let forceKeepAnnotations = mode !== 'remove';
 
   const symbols = doc.symbols.map((s) => {
-    const source = symbolNodeWithFreshUuids(s.source);
-    const uuid = (childNamed(source, 'uuid')!.items[1] as { value: string }).value;
-    // Re-read fields from the fresh source so field.source identity stays aligned.
-    const withIds: SchSymbol = { ...s, uuid, source };
-    if (mode === 'keep') return withIds;
-    if (mode === 'remove') return clearAnnotation(withIds);
-    return reannotate(withIds, taken);
+    const ref = referenceOf(s);
+    if (ref !== undefined && !existingRefs.has(ref))
+      forceKeepAnnotations = !opts.forceRemoveAnnotations;
+
+    // ":2354-2364" — most modes need new KIIDs, but a paste that is not
+    // re-annotating and whose reference the hierarchy does not already hold is
+    // most likely the same symbol being moved, so it keeps its KIID (and its
+    // pins'). Re-uuiding it there breaks board cross-probing and the
+    // symbol↔footprint link on what the user experienced as a move.
+    const needsNewKiid = mode === 'unique' || (ref !== undefined && existingRefs.has(ref));
+    // `prunePastedSymbolInstances` (:2011-2030) drops the clipboard's instance
+    // records from every pasted symbol, whatever happened to its KIID: they
+    // annotate a sheet path of the source project, not of the destination.
+    const { instances: _pruned, ...bare } = s;
+    let withIds: SchSymbol;
+    if (needsNewKiid) {
+      const source = symbolNodeWithFreshUuids(s.source);
+      const uuid = (childNamed(source, 'uuid')!.items[1] as { value: string }).value;
+      // Re-read fields from the fresh source so field.source identity stays aligned.
+      withIds = { ...bare, uuid, source };
+    } else {
+      withIds = { ...bare, source: symbolNodeWithoutInstances(s.source) };
+    }
+
+    // `if( !aForceKeepAnnotations ) aSymbol->ClearAnnotation( &aPastePath, false );`
+    // (updatePastedSymbol, :1911).
+    return forceKeepAnnotations ? withIds : clearAnnotation(withIds);
   });
   const reuuid = <T extends { source: SList; uuid?: string }>(item: T): T => {
     const uuid = newUuid();
@@ -296,9 +470,22 @@ export function parsePastedText(
   )
     return null;
 
-  // Only bring along lib definitions the target sheet doesn't already have.
-  const have = new Set(existing.libSymbols.map((l) => l.libId));
-  const libs = doc.libSymbols.filter((l) => !have.has(l.libId));
+  const annotated = reannotatePasted(symbols, doc, hierarchy, mode, opts);
+
+  // `ChoosePasteLibSymbol` (:2033-2062) tries the *clipboard's* cache first and
+  // only falls back to the destination's, and says why:
+  //
+  //   The clipboard's cached library symbol is a matched pair with the pasted
+  //   instance, so it must win over the destination's same-named cache.
+  //   Pasting from the destination cache would silently remap the instance to
+  //   a different definition and drop in-place edits such as renumbered pins
+  //   (issue 21401) or a changed power type (issue 22162).
+  //
+  // We used to do the exact opposite — drop any clipboard definition whose id
+  // the destination already had — so an edited symbol pasted back as the
+  // unedited one. Every clipboard definition is carried; `pasteItems` decides
+  // what to do with a name the destination also holds.
+  const libs = [...doc.libSymbols];
 
   // KiCad sets the move reference to the top-left item: smallest x, then y
   // (SCH_SELECTION::GetTopLeftItem), preferring connectable items.
@@ -306,7 +493,7 @@ export function parsePastedText(
   const consider = (p: Vec2): void => {
     if (!refPoint || p.x < refPoint.x || (p.x === refPoint.x && p.y < refPoint.y)) refPoint = p;
   };
-  for (const s of symbols) consider(s.at);
+  for (const s of annotated) consider(s.at);
   for (const l of lines) consider(l.start);
   for (const j of junctions) consider(j.at);
   for (const nc of noConnects) consider(nc.at);
@@ -327,7 +514,7 @@ export function parsePastedText(
 
   return {
     batch: {
-      symbols,
+      symbols: annotated,
       lines,
       junctions,
       noConnects,
@@ -389,11 +576,20 @@ export function pasteItems(payload: PastePayload): EditCommand {
   return {
     label: 'Paste',
     apply(doc: Schematic): Schematic {
+      // ChoosePasteLibSymbol (:2033-2062): the clipboard's cached definition
+      // wins over the destination's same-named one, so an in-place edit
+      // (renumbered pins, a changed power type) survives a copy/paste instead
+      // of being silently reverted. Upstream hands it to the pasted SCH_SYMBOL
+      // alone; a definition here is shared by every placement of the name, so
+      // the merge is `SCH_SCREEN::AddLibSymbol`'s (sch_screen.cpp:1463), which
+      // erases the existing entry for a name before inserting the new one.
+      const fromClip = new Map(libs.map((l) => [l.libId, l]));
+      const merged = doc.libSymbols.map((l) => fromClip.get(l.libId) ?? l);
       const have = new Set(doc.libSymbols.map((l) => l.libId));
       const newLibs = libs.filter((l) => !have.has(l.libId));
       return {
         ...doc,
-        libSymbols: newLibs.length ? [...doc.libSymbols, ...newLibs] : doc.libSymbols,
+        libSymbols: [...merged, ...newLibs],
         symbols: [...doc.symbols, ...batch.symbols],
         lines: [...doc.lines, ...batch.lines],
         junctions: [...doc.junctions, ...batch.junctions],
@@ -413,8 +609,13 @@ export function pasteItems(payload: PastePayload): EditCommand {
       };
     },
     invert(before: Schematic): EditCommand {
-      const had = new Set(before.libSymbols.map((l) => l.libId));
+      const had = new Map(before.libSymbols.map((l) => [l.libId, l]));
       const addedLibs = libs.filter((l) => !had.has(l.libId)).map((l) => l.libId);
+      // Undo has to put back the definitions the paste replaced, not only drop
+      // the ones it added.
+      const replacedLibs = libs
+        .map((l) => had.get(l.libId))
+        .filter((l): l is LibSymbol => l !== undefined);
       const ids = new Set<string>();
       batch.symbols.forEach((s) => ids.add(s.uuid!));
       batch.lines.forEach((l) => ids.add(l.uuid!));
@@ -427,7 +628,7 @@ export function pasteItems(payload: PastePayload): EditCommand {
       batch.textBoxes.forEach((x) => ids.add(x.uuid!));
       batch.directiveLabels.forEach((x) => ids.add(x.uuid!));
       batch.tables.forEach((x) => ids.add(x.uuid!));
-      return unpasteItems(payload, ids, addedLibs);
+      return unpasteItems(payload, ids, addedLibs, replacedLibs);
     },
   };
 }
@@ -436,13 +637,17 @@ function unpasteItems(
   payload: PastePayload,
   ids: ReadonlySet<string>,
   libIds: readonly string[],
+  replacedLibs: readonly LibSymbol[],
 ): EditCommand {
   return {
     label: 'Paste',
     apply(doc: Schematic): Schematic {
+      const restore = new Map(replacedLibs.map((l) => [l.libId, l]));
       return {
         ...doc,
-        libSymbols: doc.libSymbols.filter((l) => !libIds.includes(l.libId)),
+        libSymbols: doc.libSymbols
+          .filter((l) => !libIds.includes(l.libId))
+          .map((l) => restore.get(l.libId) ?? l),
         symbols: doc.symbols.filter((s) => !ids.has(s.uuid ?? '')),
         lines: doc.lines.filter((l) => !ids.has(l.uuid ?? '')),
         junctions: doc.junctions.filter((j) => !ids.has(j.uuid ?? '')),
