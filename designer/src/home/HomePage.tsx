@@ -562,6 +562,33 @@ export function HomePage({
     }
     return 250;
   });
+  /**
+   * Height of the Local History pane, or null for the even split two panes get
+   * when they share a dock row. AUI puts a draggable sash between them; this is
+   * that sash's state.
+   */
+  const [historyHeight, setHistoryHeight] = useState<number | null>(null);
+  const leftDockRef = useRef<HTMLDivElement>(null);
+  const startHistoryResize = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const dock = leftDockRef.current;
+    const startH = historyHeight ?? (dock ? (dock.clientHeight - 5) / 2 : 300);
+    const onMove = (ev: MouseEvent): void => {
+      const dockH = dock?.clientHeight ?? 0;
+      // Both panes keep a floor, the way a dock refuses to collapse a pane.
+      setHistoryHeight(Math.max(60, Math.min(dockH - 80, startH - (ev.clientY - startY))));
+    };
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.body.style.cursor = 'row-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
   // frozen mid-load.
@@ -1358,7 +1385,7 @@ export function HomePage({
             Project Files and shares its width — it is not a second column. Ours
             used to be a horizontal sibling rendered before the tree, which put
             it on the wrong side and the wrong axis. */}
-        <div className="ze-leftdock" style={{ width: panelWidth }}>
+        <div className="ze-leftdock" ref={leftDockRef} style={{ width: panelWidth }}>
           <ProjectTreePane
             picked={picked}
             dirRoot={dirRoot}
@@ -1395,7 +1422,20 @@ export function HomePage({
           {/* Position( 1 ): second in the same dock row, so it sits under the
               tree. `.Hide()` at construction and shown only when the setting
               says so, which is what `historyShown` carries here. */}
-          {historyShown && <LocalHistoryPane projectId={openProjectId} />}
+          {historyShown && (
+            <>
+              <div
+                className="ze-hsplitter"
+                onMouseDown={startHistoryResize}
+                title="Drag to resize"
+              />
+              <LocalHistoryPane
+                projectId={openProjectId}
+                onClose={() => setHistoryShown(false)}
+                height={historyHeight}
+              />
+            </>
+          )}
         </div>
 
         {/* draggable sash between the tree and the launchers (KiCad's wxAUI pane) */}

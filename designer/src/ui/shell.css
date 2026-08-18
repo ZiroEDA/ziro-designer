@@ -428,7 +428,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 18px;
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  /* 3px of lead-in, not 8. Measured on the real caption: the pane's left edge
+     is x=100 and the caption's first ink is x=103, so the title starts hard
+     against the edge. There is no side rule on the caption row either — the
+     frame belongs to the control below it (see .ze-lhist-head). */
+  padding: 0 3px;
   font-weight: 400;
   font-size: 8pt;
   background: var(--panel-header);
@@ -1732,8 +1736,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-bottom: none;
 }
 .ze-projecttree .ze-panel-body {
+  /* Square, not rounded. Measured across a running pane at y=300: a 1px
+     rgb(24,24,24) rule at x=100 and x=494 with rgb(39,39,39) between, running
+     straight into the corners — the tree control's own frame, edge to edge
+     under the caption. The 6px radius here made the body read as a floating
+     card and left the caption looking detached from it. */
   border: 1px solid #181818;
-  border-radius: 6px;
   /* Vertically the rows butt straight onto the frame - the first row starts on
      the pixel after the top rule. The 9px of lead-in puts the root row's
      twisty 15px from the frame, where the real control's root indent puts it. */
@@ -5957,22 +5965,82 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
   min-height: 0;
 }
-.ze-leftdock > .ze-panel {
-  flex: 1 1 auto;
+/* Two panes sharing a dock row get equal shares of it. Measured off a running
+   frame with both shown at 1854x1131: Project Files y95..632 and Local History
+   y638..1175 — an even split either side of the sash. */
+.ze-leftdock > .ze-panel,
+.ze-leftdock > .ze-lhist {
+  flex: 1 1 0;
   min-height: 0;
   width: auto !important;
+}
+/* The sash AUI draws between two panes sharing a dock row: measured as a 5px
+   band of rgb(55,55,55) directly above the Local History caption (y633..637),
+   the horizontal twin of .ze-splitter. */
+.ze-hsplitter {
+  flex: 0 0 5px;
+  height: 5px;
+  background: #373737;
+  cursor: row-resize;
+}
+/* The pane caption's close box: upstream's `.CloseButton( true )`, which only
+   Local History carries — the project tree's caption has none. */
+.ze-lhist-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* Measured on the real caption: an 11x11 glyph whose right edge sits ~5px in
+   from the pane's right edge. Ours inherited the 8pt caption font and came out
+   noticeably smaller than that. */
+.ze-pane-close {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-right: 1px;
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 11px;
+  color: inherit;
+  cursor: default;
+}
+.ze-pane-close:hover {
+  background: var(--chrome-hover);
 }
 .ze-lhist {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* A docked pane below the tree, not a full-height column of its own. AUI
-     gives it its best size and a sash; we have no sash yet, so this is a
-     documented approximation of that height and NOT a measured value —
-     upstream's split still needs measuring against a running frame. */
-  flex: 0 0 240px;
+  /* A docked pane below the tree, not a full-height column of its own. The
+     even split with the tree is set on .ze-leftdock's children above, from a
+     measured frame. Still missing: the draggable horizontal sash AUI puts
+     between the two panes. */
   background: var(--panel-bg);
-  border-top: 1px solid var(--chrome-border);
+}
+/* The frame belongs to the LIST CONTROL, not to the pane. Measured across the
+   real pane at three rows:
+
+     caption      y=645: x=100 goes straight from the gap to rgb(46,46,46) —
+                         no side rule at all, the caption runs edge to edge
+     list header  y=668: x=100 and x=494 are rgb(24,24,24)
+     list body    y=700: same
+
+   Putting the border on `.ze-lhist` drew it across the caption too, which is
+   what made the title bar read as a detached box instead of part of the pane.
+   The project tree already had this right: `.ze-panel-header` carries no side
+   rule and `.ze-panel-body` carries the frame. Square corners — see the tree. */
+.ze-lhist-head,
+.ze-lhist-list {
+  border-left: 1px solid #181818;
+  border-right: 1px solid #181818;
+  border-radius: 0;
+}
+.ze-lhist-list {
+  border-bottom: 1px solid #181818;
 }
 .ze-lhist-head,
 .ze-lhist-row {
@@ -5981,17 +6049,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      Time column being cut off first. */
   grid-template-columns: minmax(0, 200fr) minmax(0, 150fr);
   gap: 8px;
-  padding: 3px 8px;
+  /* 5px inside the control's 1px frame: measured x=100 border, "Title" ink at
+     x=106. */
+  padding: 3px 5px;
   font-size: 10pt;
 }
+/* The wxListCtrl's column header. Measured off a running frame (the Local
+   History pane, empty, at 1854x1131):
+
+     header band  y656..678, rgb(39,39,39)  — the SAME fill as the list body,
+                                              not a darker strip of its own
+     rule under   y679,      rgb(44,44,44)  — one hairline, lighter than the
+                                              pane border we were using
+     "Title" ink  y660..671 (12px), x106..135; "Time" starts at x306, i.e. the
+                  200px first column of SetColumnWidth( 0, FromDIP( 200 ) )
+
+   It was drawing a #2c2c2c strip with a #1e1e1e border in semibold — a header
+   three ways darker, harder and heavier than the real one. */
 .ze-lhist-head {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-border);
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--chrome-bg);
   color: var(--chrome-fg);
-  font-weight: 600;
+  font-weight: 400;
 }
 .ze-lhist-list {
   flex: 1 1 auto;
