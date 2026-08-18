@@ -2,80 +2,58 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Violation Severity panel. Counterpart: `common/dialogs/panel_setup_severities.cpp`
- * (PANEL_SETUP_SEVERITIES) as used by the Schematic Setup dialog, one row per
- * ERC rule with an Error / Warning / Ignore choice. The chosen severities feed
- * straight into runErc.
+ * Schematic Setup > Violation Severity.
+ *
+ * `DIALOG_SCHEMATIC_SETUP` does not have a severities panel of its own: it
+ * instantiates the shared `PANEL_SETUP_SEVERITIES` with
+ * `ERC_ITEM::GetItemsWithSeverities()` and `ercSettings.m_ERCSeverities`
+ * (dialog_schematic_setup.cpp:96-100). This is that call, and nothing else —
+ * the panel itself lives in `designer/src/dialogs/panels/`.
+ *
+ * Upstream also passes `m_pinToPinError.get()` as the pin-map special case, so
+ * that one ERC item is dropped from the list and re-added at the bottom with
+ * "From Pin Conflicts Map" / "Ignore" instead of the three. We do not model
+ * that row yet; `ERC_ITEMS` stops above `heading_internal` and so never
+ * contains it.
  */
 
-import { Fragment, type JSX } from 'react';
+import { useMemo, type JSX } from 'react';
 import { ERC_ITEMS, type ErcSettings, type ErcSeverityLevel } from '@ziroeda/eeschema';
+import { PanelSetupSeverities as SharedPanelSetupSeverities } from '../../../../dialogs/panels/panel_setup_severities.js';
+import {
+  groupSeverityItems,
+  type SeverityGroup,
+} from '../../../../dialogs/panels/severity_items.js';
 
 interface Props {
   settings: ErcSettings;
   onChange: (next: ErcSettings) => void;
 }
 
-const LEVELS: { id: ErcSeverityLevel; label: string }[] = [
-  { id: 'error', label: 'Error' },
-  { id: 'warning', label: 'Warning' },
-  { id: 'ignore', label: 'Ignore' },
-];
+/**
+ * `ERC_ITEM::allItemTypes` is one flat list in which a zero-code entry is a
+ * heading (`heading_connections` / `_conflicts` / `_misc`); ours carries the
+ * heading on each row as `group`, so fold it back into the shape the panel
+ * takes, keeping upstream's order.
+ */
+export function ercSeverityGroups(): SeverityGroup[] {
+  return groupSeverityItems(ERC_ITEMS);
+}
 
 export function PanelSetupSeverities({ settings, onChange }: Props): JSX.Element {
-  const set = (code: (typeof ERC_ITEMS)[number]['code'], level: ErcSeverityLevel): void => {
-    onChange({ ...settings, severities: { ...settings.severities, [code]: level } });
-  };
+  const groups = useMemo(ercSeverityGroups, []);
 
   return (
-    <div style={{ padding: '4px 2px' }}>
-      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 8 }}>Electrical Rules</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {ERC_ITEMS.map(({ code, title, group }, i) => (
-          <Fragment key={code}>
-            {/* ERC_ITEM's heading rows (heading_connections / _conflicts /
-                _misc) open each group of the list. */}
-            {ERC_ITEMS[i - 1]?.group !== group && (
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 12,
-                  color: '#8a8c90',
-                  marginTop: i === 0 ? 0 : 10,
-                  paddingBottom: 2,
-                  borderBottom: '1px solid var(--chrome-border)',
-                }}
-              >
-                {group}
-              </div>
-            )}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: '3px 0',
-              }}
-            >
-              <span style={{ fontSize: 12, flex: 1 }}>{title}</span>
-              <div style={{ display: 'flex', gap: 10, flex: '0 0 auto' }}>
-                {LEVELS.map((lv) => (
-                  <label key={lv.id} style={{ fontSize: 12, display: 'flex', gap: 3 }}>
-                    <input
-                      type="radio"
-                      name={`sev-${code}`}
-                      checked={settings.severities[code] === lv.id}
-                      onChange={() => set(code, lv.id)}
-                    />
-                    {lv.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </Fragment>
-        ))}
-      </div>
-    </div>
+    <SharedPanelSetupSeverities
+      groups={groups}
+      severities={settings.severities}
+      namePrefix="erc"
+      onChange={(code, level) =>
+        onChange({
+          ...settings,
+          severities: { ...settings.severities, [code]: level as ErcSeverityLevel },
+        })
+      }
+    />
   );
 }

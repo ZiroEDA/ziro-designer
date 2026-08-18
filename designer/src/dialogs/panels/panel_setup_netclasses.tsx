@@ -11,14 +11,14 @@
  */
 
 import { useState, type JSX } from 'react';
-import { Icon } from '../../../../ui/icons.js';
+import { Icon } from '../../ui/icons.js';
 import {
   LINE_STYLES,
   blankNetClass as blankClass,
   type NetClass,
   type NetClassAssignment,
   type NetClassesData,
-} from '../../schematic_settings.js';
+} from '../../editors/schematic/schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
@@ -28,7 +28,7 @@ export {
   type NetClass,
   type NetClassAssignment,
   type NetClassesData,
-} from '../../schematic_settings.js';
+} from '../../editors/schematic/schematic_settings.js';
 
 interface Props {
   value: NetClassesData;
