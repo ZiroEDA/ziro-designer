@@ -14,6 +14,13 @@
  * Assignments", "Filtered Footprints" (30%), the three status lines, and the
  * button row "Apply, Save Schematic & Continue" / Cancel / OK.
  *
+ * The commands the toolbar, menus, keyboard and button row run are in
+ * `cvpcb_commands.ts`, ported from CVPCB_ASSOCIATION_TOOL / CVPCB_CONTROL; this
+ * file is the window they drive. In particular OK does **not** write the
+ * `.kicad_sch` files — it mails the links to eeschema and leaves it dirty, so
+ * the assignment is still undoable there — and only "Apply, Save Schematic &
+ * Continue" saves. See that module's header.
+ *
  * The rows are formatted exactly as upstream (CVPCB_MAINFRAME::formatSymbolDesc
  * and FOOTPRINTS_LISTBOX::SetFootprints), the assignment list is the netlist's
  * one-row-per-symbol view (multi-unit parts merged), and a row whose footprint
@@ -51,11 +58,31 @@ import {
   collectCvpcbComponents,
   formatFootprintDesc,
   formatSymbolDesc,
-  nextUnassociated,
   type CvpcbComponent,
 } from '../cvpcb_components.js';
+import {
+  associate as associateCommand,
+  closeWindow as closeWindowCommand,
+  deleteAll as deleteAllCommand,
+  deleteAssoc as deleteAssocCommand,
+  emptyAssociations,
+  footprintOf as associationFootprintOf,
+  gotoNA as gotoNACommand,
+  markSaved,
+  okCommand,
+  redoAssociation,
+  resolveUnsavedChanges,
+  saveAndContinueCommand,
+  saveToSchematicCommand,
+  undoAssociation,
+  UNSAVED_ASSOCIATIONS_MESSAGE,
+  type CvpcbAssociations,
+  type CvpcbSaveCommand,
+} from '../cvpcb_commands.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { UnsavedChangesDialog } from '../../../ui/dialog_unsaved_changes.js';
+import type { UnsavedChangesResult } from '../../../ui/confirm.js';
 
 /** FOOTPRINTS_LISTBOX filter flags (listboxes.h). */
 const FILTER_BY_FP_FILTERS = 0x0001;
@@ -86,9 +113,6 @@ interface Props {
   onSaveLibTable?: (rows: FpLibRow[]) => void;
   onClose: () => void;
 }
-
-/** One undo/redo step: the associations it changed (CVPCB_UNDO_REDO_ENTRIES). */
-type UndoEntry = { reference: string; from: string; to: string }[];
 
 /** A fixed-row-height windowed list, the virtual wxListView the panes use. */
 function VirtualList({
@@ -247,11 +271,18 @@ export function DialogAssignFootprints({
       return cache.get(libId) ?? null;
     };
   }, [projectLibs]);
-  // Pending assignments by reference; absent = the schematic's own value.
-  const [assigned, setAssigned] = useState<Map<string, string>>(new Map());
-  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<UndoEntry[]>([]);
-  const [curComp, setCurComp] = useState(0);
+  // The associations, the undo lists and the symbol selection: one state,
+  // because the commands in cvpcb_commands.ts move them together (DeleteAll
+  // rewrites every FPID *and* resets the selection as a single step).
+  const [model, setModel] = useState<CvpcbAssociations>(() => emptyAssociations(0));
+  const { assigned, undoStack, redoStack } = model;
+  const curComp = model.selected;
+  const setCurComp = (index: number): void =>
+    setModel((m) => (m.selected === index ? m : { ...m, selected: index }));
+  /** Set by a save, cleared the next time DisplayStatus would run. */
+  const [savedStatus, setSavedStatus] = useState<string | null>(null);
+  /** HandleUnsavedChanges is on screen (canCloseWindow is waiting for it). */
+  const [unsavedPrompt, setUnsavedPrompt] = useState(false);
   const [curLib, setCurLib] = useState<number>(-1);
   const [curFp, setCurFp] = useState(0);
   const [filterFlags, setFilterFlags] = useState(0);
@@ -277,8 +308,8 @@ export function DialogAssignFootprints({
   const libNames = useMemo(() => index.map((l) => l.name), [index]);
   const selectedLibrary = curLib >= 0 ? (libNames[curLib] ?? '') : '';
 
-  const footprintOf = (c: CvpcbComponent): string => assigned.get(c.reference) ?? c.footprint;
-  const component = components[curComp];
+  const footprintOf = (c: CvpcbComponent): string => associationFootprintOf(model, c);
+  const component = curComp >= 0 ? components[curComp] : undefined;
 
   /** Every "Lib:Footprint" id known to the libraries, in index order. */
   const allFootprints = useMemo(() => {
@@ -385,84 +416,23 @@ export function DialogAssignFootprints({
 
   // ----- associations ------------------------------------------------------
 
-  /** AssociateFootprint: set the FPID of the selected symbol (all its units)
-   *  and push an undo entry. CVPCB_ASSOCIATION_TOOL::Associate then posts
-   *  gotoNextNA, so assigning walks the unassigned symbols. */
-  const associate = (reference: string, fpid: string, advance = false): void => {
-    const comp = components.find((c) => c.reference === reference);
-    if (!comp) return;
-    const from = footprintOf(comp);
-    if (from === fpid) return;
-    const next = new Map(assigned);
-    if (comp.footprint === fpid) next.delete(reference);
-    else next.set(reference, fpid);
-    setAssigned(next);
-    setUndoStack((prev) => [...prev, [{ reference, from, to: fpid }]]);
-    setRedoStack([]);
-    if (!advance) return;
-    // The next symbol still without an assignment, given this new one.
-    const fpOf = (c: CvpcbComponent): string => next.get(c.reference) ?? c.footprint;
-    for (let step = 1; step <= components.length; step++) {
-      const i = (curComp + step) % components.length;
-      if (!fpOf(components[i]!)) {
-        setCurComp(i);
-        return;
-      }
-    }
-  };
+  /** CVPCB_ASSOCIATION_TOOL::Associate — assign the given footprint to the
+   *  selected symbol, then move on to the next unassigned one. */
+  const associate = (fpid: string): void =>
+    setModel((m) => associateCommand(m, components, fpid));
 
-  const applyEntry = (entry: UndoEntry, direction: 'undo' | 'redo'): void => {
-    setAssigned((prev) => {
-      const next = new Map(prev);
-      for (const a of entry) {
-        const target = direction === 'undo' ? a.from : a.to;
-        const comp = components.find((c) => c.reference === a.reference);
-        if (comp && comp.footprint === target) next.delete(a.reference);
-        else next.set(a.reference, target);
-      }
-      return next;
-    });
-  };
+  const undo = (): void => setModel((m) => undoAssociation(m, components));
+  const redo = (): void => setModel((m) => redoAssociation(m, components));
 
-  const undo = (): void => {
-    const entry = undoStack[undoStack.length - 1];
-    if (!entry) return;
-    applyEntry(entry, 'undo');
-    setUndoStack((u) => u.slice(0, -1));
-    setRedoStack((r) => [...r, entry]);
-  };
-  const redo = (): void => {
-    const entry = redoStack[redoStack.length - 1];
-    if (!entry) return;
-    applyEntry(entry, 'redo');
-    setRedoStack((r) => r.slice(0, -1));
-    setUndoStack((u) => [...u, entry]);
-  };
-
-  /** DeleteAll: clear every assignment as one undo entry. */
-  const deleteAll = (): void => {
-    const entry: UndoEntry = components
-      .filter((c) => footprintOf(c))
-      .map((c) => ({ reference: c.reference, from: footprintOf(c), to: '' }));
-    if (entry.length === 0) return;
-    setAssigned(() => new Map(components.map((c) => [c.reference, ''])));
-    setUndoStack((prev) => [...prev, entry]);
-    setRedoStack([]);
-  };
+  /** DeleteAll: clear every assignment as one undo entry, behind IsOK. */
+  const deleteAll = (): void =>
+    setModel((m) => deleteAllCommand(m, components, (msg) => window.confirm(msg)));
 
   /** Delete the selected symbol's assignment (CVPCB_ACTIONS::deleteAssoc). */
-  const deleteAssoc = (): void => {
-    if (component) associate(component.reference, '');
-  };
+  const deleteAssoc = (): void => setModel((m) => deleteAssocCommand(m, components));
 
   /** gotoNextNA / gotoPreviousNA, the next symbol with no assignment. */
-  /** `CVPCB_CONTROL::ToNA`; the rule, and why it does not wrap, is on the helper. */
-  const gotoNA = (dir: 1 | -1): void => {
-    const target = nextUnassociated(components.length, curComp, dir, (i) =>
-      Boolean(footprintOf(components[i]!)),
-    );
-    if (target !== null) setCurComp(target);
-  };
+  const gotoNA = (dir: 1 | -1): void => setModel((m) => gotoNACommand(m, components, dir));
 
   /** The Footprint field edits the assignments amount to, one per unit. */
   const buildEdits = (): FieldsEdits => {
@@ -478,33 +448,34 @@ export function DialogAssignFootprints({
     return edits;
   };
 
-  const changed = useMemo(
-    () =>
-      components.some(
-        (c) => assigned.has(c.reference) && assigned.get(c.reference) !== c.footprint,
-      ),
-    [components, assigned],
-  );
+  /** CVPCB_MAINFRAME::m_modified. */
+  const changed = model.modified;
 
-  const apply = (opts: { save: boolean; close: boolean }): void => {
-    onApply(buildEdits(), opts);
-    if (!opts.close) {
-      // Saved assignments are the schematic's values now.
-      setAssigned(new Map());
-      setUndoStack([]);
-      setRedoStack([]);
-    }
+  /**
+   * Run a save command. `assign` is the MAIL_ASSIGN_FOOTPRINTS half — always
+   * sent, and here that is `onApply`, which applies the Footprint fields to the
+   * open schematic as an undoable command. `saveSchematic` is the MAIL_SCH_SAVE
+   * half, which is the only thing that writes the `.kicad_sch` files.
+   */
+  const runSave = (cmd: CvpcbSaveCommand): void => {
+    onApply(buildEdits(), { save: cmd.effect.saveSchematic, close: cmd.close });
+    if (cmd.effect.status !== null) setSavedStatus(cmd.effect.status);
+    if (!cmd.close) setModel((m) => markSaved(m));
   };
 
-  /** canCloseWindow: unsaved links prompt before the window goes away. */
+  /** canCloseWindow: unsaved links are asked about before the window goes. */
   const closeWindow = (): void => {
-    if (
-      changed &&
-      !window.confirm('Symbol to Footprint links have been modified. Discard changes?')
-    ) {
-      return;
-    }
-    onClose();
+    const step = closeWindowCommand(model.modified);
+    if (step.prompt) setUnsavedPrompt(true);
+    else if (step.close) onClose();
+  };
+
+  /** The answer to that prompt, through HandleUnsavedChanges. */
+  const answerUnsavedChanges = (result: UnsavedChangesResult): void => {
+    setUnsavedPrompt(false);
+    const { close, effect } = resolveUnsavedChanges(result);
+    if (effect) onApply(buildEdits(), { save: effect.saveSchematic, close });
+    else if (close) onClose();
   };
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
@@ -564,10 +535,18 @@ export function DialogAssignFootprints({
     scanTooLarge,
   ]);
 
+  // SetStatusText( _( "Schematic saved" ), 1 ) writes over the description
+  // line, and the next DisplayStatus puts the description back. DisplayStatus
+  // runs on every selection and filter change, so those are what clear it.
+  useEffect(() => {
+    setSavedStatus(null);
+  }, [curComp, selectedFootprint, filterFlags, filterText]);
+
   const statusLine2 =
-    fpInfo && (fpInfo.desc || fpInfo.keywords)
+    savedStatus ??
+    (fpInfo && (fpInfo.desc || fpInfo.keywords)
       ? `Description: ${fpInfo.desc};  Keywords: ${fpInfo.keywords}`
-      : '';
+      : '');
 
   const statusLine3 = useMemo(() => {
     let lib = '';
@@ -592,7 +571,7 @@ export function DialogAssignFootprints({
           icon: 'cvpcbSaveToSchematic',
           shortcut: 'Ctrl+S',
           disabled: !changed,
-          action: () => apply({ save: false, close: false }),
+          action: () => runSave(saveToSchematicCommand()),
         },
         { sep: true },
         { label: 'Close Assign Footprints', action: closeWindow },
@@ -684,7 +663,7 @@ export function DialogAssignFootprints({
   const onToolbar = (id: string): void => {
     switch (id) {
       case 'cvpcbSaveToSchematic':
-        apply({ save: false, close: false });
+        runSave(saveToSchematicCommand());
         break;
       case 'cvpcbLibTable':
         setLibTableOpen(true);
@@ -727,8 +706,11 @@ export function DialogAssignFootprints({
     // Escape never reaches here: it is the dialog's Cancel and the modal stack
     // takes it in the capture phase. See useModalEscape above.
     if (e.target instanceof HTMLInputElement) return;
-    if (e.key === 'Enter' && component && selectedFootprint) {
-      associate(component.reference, selectedFootprint, true);
+    if (e.key === 'Enter') {
+      // Whether there is anything to assign is Associate's own rule, not a
+      // condition on the key: it ignores an empty footprint and otherwise
+      // always advances to the next unassigned symbol.
+      associate(selectedFootprint);
       e.preventDefault();
     } else if (e.key === 'Delete') {
       deleteAssoc();
@@ -739,7 +721,7 @@ export function DialogAssignFootprints({
       redo();
       e.preventDefault();
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-      apply({ save: false, close: false });
+      runSave(saveToSchematicCommand());
       e.preventDefault();
     }
   };
@@ -871,7 +853,7 @@ export function DialogAssignFootprints({
               onSelect={setCurFp}
               onActivate={(i) => {
                 const id = filtered[i];
-                if (component && id) associate(component.reference, id, true);
+                if (id) associate(id);
               }}
               render={(i) => <span>{formatFootprintDesc(i + 1, filtered[i]!)}</span>}
             />
@@ -917,6 +899,14 @@ export function DialogAssignFootprints({
             onClose={() => setLibTableOpen(false)}
           />
         )}
+        {/* canCloseWindow's HandleUnsavedChanges. Rendered inside the window so
+            a click on its buttons cannot reach the backdrop behind. */}
+        {unsavedPrompt && (
+          <UnsavedChangesDialog
+            message={UNSAVED_ASSOCIATIONS_MESSAGE}
+            onResult={answerUnsavedChanges}
+          />
+        )}
         <div className="ze-modal-footer">
           <span className="ze-muted" style={{ marginRight: 'auto', fontSize: 12 }}>
             {assignedCount} of {components.length} assigned
@@ -924,14 +914,14 @@ export function DialogAssignFootprints({
           <button
             className="ze-btn"
             disabled={!changed}
-            onClick={() => apply({ save: true, close: false })}
+            onClick={() => runSave(saveAndContinueCommand())}
           >
             Apply, Save Schematic &amp; Continue
           </button>
           <button className="ze-btn" onClick={closeWindow}>
             Cancel
           </button>
-          <button className="ze-btn primary" onClick={() => apply({ save: true, close: true })}>
+          <button className="ze-btn primary" onClick={() => runSave(okCommand())}>
             OK
           </button>
         </div>

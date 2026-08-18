@@ -6003,3 +6003,69 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-size: 10pt;
   color: #9a9a9a;
 }
+
+/* ---------------------------------------------------------------------------
+   Message dialog (common/confirm.cpp, KICAD_MESSAGE_DIALOG_BASE): the shared
+   "Save Changes?" prompt and anything else built from wxMessageDialog.
+
+   A message dialog sizes itself to its text rather than to a layout, and the
+   platform - not the dialog - lays the buttons out: on GTK they are one row
+   spanning the full width, separated by hairlines, with the affirmative answer
+   last and focused. Hence the full-width row here instead of the usual
+   right-aligned .ze-modal-footer. Measured off the real dialog: 614 x 199. */
+.ze-modal.ze-msgdlg {
+  width: 614px;
+  height: auto;
+  max-width: 92vw;
+}
+.ze-msgdlg-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px 22px;
+}
+.ze-msgdlg-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  color: #f3f4f5;
+}
+.ze-msgdlg-text {
+  flex: 1;
+  min-width: 0;
+}
+/* The main message is the dialog font, bold and a size up; the extended
+   message is the plain face, dimmed. */
+.ze-msgdlg-message {
+  font-size: calc(var(--ui-font-size) * 1.15);
+  font-weight: 700;
+  line-height: 1.35;
+}
+.ze-msgdlg-extended {
+  margin-top: 10px;
+  font-size: var(--ui-font-size);
+  color: #c8c9cb;
+  line-height: 1.35;
+}
+.ze-msgdlg-buttons {
+  display: flex;
+  border-top: 1px solid var(--chrome-border);
+}
+.ze-msgdlg-buttons .ze-btn {
+  flex: 1 1 0;
+  border: none;
+  border-radius: 0;
+  padding: 12px 8px;
+  background: transparent;
+}
+.ze-msgdlg-buttons .ze-btn + .ze-btn {
+  border-left: 1px solid var(--chrome-border);
+}
+.ze-msgdlg-buttons .ze-btn.primary {
+  background: transparent;
+}
+.ze-msgdlg-buttons .ze-btn:focus-visible,
+.ze-msgdlg-buttons .ze-btn.primary:focus {
+  outline: 2px solid var(--chrome-active-border);
+  outline-offset: -3px;
+}
