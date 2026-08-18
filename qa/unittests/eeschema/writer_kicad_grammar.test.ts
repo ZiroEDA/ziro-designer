@@ -37,6 +37,13 @@ import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/src/tools/annotate.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import {
+  copySelectionText,
+  parsePastedText,
+  translatePayload,
+  pasteItems,
+} from '@ziroeda/eeschema/src/tools/clipboard.js';
+import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
 
 /** A whole, loadable document: KiCad needs the header, not just the items. */
 const sch = (body: string): Schematic =>
@@ -562,5 +569,44 @@ describe('a sheet pin’s effects', () => {
 
   it.skipIf(!KICAD_CLI)('and the result opens in real KiCad', () => {
     expectKiCadLoads(italicised());
+  });
+});
+
+describe('a pasted symbol carries no instance record of where it came from', () => {
+  // `prunePastedSymbolInstances` (sch_editor_control.cpp:2011-2030) removes
+  // every instance record the clipboard brought — they annotate a sheet path of
+  // the source project. Upstream rebuilds the destination's record with
+  // `AddHierarchicalReference` (:1910); we have no per-sheet-path model to
+  // rebuild into, so the Reference property carries the annotation and KiCad
+  // takes GetRef's fallback.
+  //
+  // This is only visible from outside: our own reader reports the property
+  // whatever the records say, so a paste that leaked "P102" from the source
+  // file would look perfect here and open as P102 in KiCad. The check that
+  // matters is what real KiCad reads back.
+  const pasted = (): Schematic => {
+    const src = corpus('complex_hierarchy.kicad_sch');
+    const i = src.symbols.findIndex(
+      (s) => s.fields.find((f) => f.key === 'Reference')?.value === 'P102',
+    );
+    expect(i, 'the fixture must still hold P102').toBeGreaterThan(-1);
+    const text = copySelectionText(src, new Set([refId('symbol', src.symbols[i]!.uuid, i)]));
+    const dest = sch('');
+    const payload = parsePastedText(text, dest, { mode: 'keep' });
+    expect(payload).not.toBeNull();
+    return pasteItems(translatePayload(payload!, { x: mmToIU(10), y: 0 })).apply(dest);
+  };
+
+  it('has none, however the clipboard symbol was annotated', () => {
+    const doc = pasted();
+    expect(doc.symbols).toHaveLength(1);
+    expect(doc.symbols[0]!.instances ?? []).toEqual([]);
+    expect(write(doc)).not.toContain('(instances');
+  });
+
+  it.skipIf(!KICAD_CLI)('and real KiCad loads it and reads the pasted reference', () => {
+    const doc = pasted();
+    expectKiCadLoads(doc);
+    expect(kicadRefs(doc)).toEqual(['P102']);
   });
 });

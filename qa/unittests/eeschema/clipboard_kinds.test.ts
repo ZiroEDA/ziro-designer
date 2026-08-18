@@ -27,7 +27,7 @@ const sheet = (body: string): Schematic =>
 /** Copy everything on the sheet, then paste it into an empty one. */
 const roundTrip = (d: Schematic, ids: Set<string>) => {
   const text = copySelectionText(d, ids);
-  return parsePastedText(text, sheet(''), 'keep');
+  return parsePastedText(text, sheet(''), { mode: 'keep' });
 };
 
 const BUS_ENTRY = `(bus_entry (at 10 10) (size 2.54 2.54)

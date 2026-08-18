@@ -114,6 +114,7 @@ import {
   type SelectionFilterOptions,
   getSelectedItemsAsText,
   type PasteMode,
+  type PasteOptions,
   type PageSettings,
   findMatches,
   replaceCommand,
@@ -2237,6 +2238,58 @@ export function SchematicEditor({
     [libById],
   );
 
+  /**
+   * Everything `SCH_EDITOR_CONTROL::Paste` reads off the frame and the project
+   * before it starts (sch_editor_control.cpp:2199-2257, :2604-2606):
+   *
+   *   - the PASTE_MODE the annotation toggle implies —
+   *     `pasteMode = annotateAutomatic ? UNIQUE_ANNOTATIONS : REMOVE_ANNOTATIONS`
+   *     (:2203). Plain Ctrl+V used to ignore the toggle entirely and always
+   *     re-annotate;
+   *   - the whole hierarchy, `Schematic().Hierarchy()` (:2222), because
+   *     reference uniqueness is a hierarchy-wide question (:2249). It used to
+   *     be computed against the one open sheet, so copying R5 on sheet 2 and
+   *     pasting on sheet 1 kept R5 and collided;
+   *   - the project's annotation settings and REFDES_TRACKER, so the paste's
+   *     re-annotation numbers the way the Annotate dialog would.
+   *
+   * `mode` overrides the toggle, which is what DIALOG_PASTE_SPECIAL does.
+   */
+  const pasteOptions = useCallback(
+    (mode?: PasteMode): PasteOptions => {
+      const tracker = new RefDesTracker();
+      tracker.deserialize(setup.usedDesignators);
+      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const defaultMode: PasteMode = es.annotation.automatic ? 'unique' : 'remove';
+      const page = flatSheets.findIndex((s) => s.path === currentPath);
+      return {
+        mode: mode ?? defaultMode,
+        // Every sheet only reserves its references here; a paste renumbers
+        // nothing that was already on a sheet.
+        hierarchy: annotateSheets('all', true).map((s) => ({ ...s, scope: 'out' as const })),
+        sheetNumber: page >= 0 ? page + 1 : 1,
+        annotate: {
+          // The same project settings DIALOG_ANNOTATE seeds itself from.
+          order: setup.annotation.sortOrder,
+          algo:
+            setup.annotation.numbering === 'sheetX100'
+              ? 'sheet_100'
+              : setup.annotation.numbering === 'sheetX1000'
+                ? 'sheet_1000'
+                : 'incremental',
+          startNumber: setup.annotation.firstFreeAfter,
+          tracker,
+        },
+        // `forceRemoveAnnotations` (:2213): only an *explicit* Paste Special
+        // choice of "remove annotations" that was not already the default, and
+        // it is what stops the "already in the schematic" rule putting them
+        // back.
+        forceRemoveAnnotations: mode === 'remove' && defaultMode !== 'remove',
+      };
+    },
+    [setup, es.annotation.automatic, annotateSheets, flatSheets, currentPath],
+  );
+
   /** Apply one sheet's new symbol list, on its own undo history when off-screen. */
   /**
    * Run an edit against any sheet of the project, not just the open one.
@@ -3617,12 +3670,32 @@ export function SchematicEditor({
     const hidden = (): boolean => (document.body.dataset.activeView ?? 'schematic') !== 'schematic';
     const onCopy = (e: ClipboardEvent): void => {
       if (hidden() || isTyping() || propsTarget !== null || selection.size === 0 || !doc) return;
-      e.clipboardData?.setData('text/plain', copySelectionText(doc, selection));
+      const text = copySelectionText(doc, selection);
+      // Nothing the clipboard can carry: leave the system clipboard alone
+      // rather than overwriting whatever is on it with an empty string.
+      if (text === '') return;
+      e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
     };
     const onCut = (e: ClipboardEvent): void => {
       if (hidden() || isTyping() || propsTarget !== null || selection.size === 0 || !doc) return;
-      e.clipboardData?.setData('text/plain', copySelectionText(doc, selection));
+      // TEMPORARY DIVERGENCE from KiCad, whose Cut always succeeds because its
+      // copy carries sheets: SCH_EDITOR_CONTROL::doCopy stashes each sheet's
+      // screen in m_supplementaryClipboard (sch_editor_control.cpp:1667) and
+      // Paste rebuilds it (:2377-2472). We have not ported that yet, so
+      // `copySelectionText` writes `sheets: []` — cutting a sheet would delete
+      // it with nothing on the clipboard to paste back, and no undo path
+      // through the clipboard at all. Refuse the cut instead of destroying it.
+      // Delete this the moment the supplementary clipboard lands (finding 6 of
+      // the M2 clipboard audit; sheet paste is its own branch).
+      if (doc.sheets.some((sh, i) => selection.has(refId('sheet', sh.uuid, i)))) {
+        e.preventDefault();
+        setInfoBar('Cut cannot carry a sheet yet. Copy its contents, or use Delete.');
+        return;
+      }
+      const text = copySelectionText(doc, selection);
+      if (text === '') return;
+      e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
       runCommand(deleteItems(doc, selection));
       setSelection(new Set());
@@ -3630,7 +3703,7 @@ export function SchematicEditor({
     const onPaste = (e: ClipboardEvent): void => {
       if (hidden() || isTyping() || propsTarget !== null || !doc) return;
       const text = e.clipboardData?.getData('text/plain') ?? '';
-      const payload = parsePastedText(text, doc);
+      const payload = parsePastedText(text, doc, pasteOptions());
       if (!payload) return;
       e.preventDefault();
       setActiveTool('select');
@@ -3644,7 +3717,7 @@ export function SchematicEditor({
       document.removeEventListener('cut', onCut);
       document.removeEventListener('paste', onPaste);
     };
-  }, [doc, selection, propsTarget, runCommand]);
+  }, [doc, selection, propsTarget, runCommand, pasteOptions]);
 
   // Select/Expand Connection (Ctrl+4 and the context menu). Each press widens
   // the selection by one stage; the walk itself lives in eeschema.
@@ -3678,7 +3751,7 @@ export function SchematicEditor({
     const payload = parsePastedText(
       copySelectionText(doc, selection),
       doc,
-      es.annotation.automatic ? 'unique' : 'keep',
+      pasteOptions(es.annotation.automatic ? 'unique' : 'keep'),
     );
     if (!payload) return;
     let refPoint = payload.refPoint;
@@ -3710,7 +3783,7 @@ export function SchematicEditor({
     }
     setActiveTool('select');
     setPastePending({ ...payload, refPoint });
-  }, [doc, selection, es.annotation.automatic]);
+  }, [doc, selection, es.annotation.automatic, pasteOptions]);
 
   // The paste was dropped: keep the pasted items selected, as KiCad does.
   const onPasteDone = useCallback((ids: ReadonlySet<string>) => {
@@ -5545,7 +5618,7 @@ export function SchematicEditor({
       else if (id === 'paste')
         void navigator.clipboard?.readText().then((text) => {
           setDoc((d) => {
-            const payload = d ? parsePastedText(text, d) : null;
+            const payload = d ? parsePastedText(text, d, pasteOptions()) : null;
             if (payload) {
               setActiveTool('select');
               setPastePending(payload);
@@ -5585,6 +5658,7 @@ export function SchematicEditor({
       selection,
       libById,
       pageNumberOf,
+      pasteOptions,
     ],
   );
 
@@ -7137,7 +7211,7 @@ export function SchematicEditor({
               // 'unique' is upstream's default: `keep_annotations` off, so the
               // imported symbols are re-annotated rather than arriving with the
               // source sheet's references and colliding with this one's.
-              const payload = d ? parsePastedText(text, d, 'unique') : null;
+              const payload = d ? parsePastedText(text, d, pasteOptions('unique')) : null;
               if (payload) {
                 setActiveTool('select');
                 setPastePending(payload);
@@ -7919,7 +7993,7 @@ export function SchematicEditor({
                 setPasteSpecialOpen(false);
                 void navigator.clipboard?.readText().then((text) => {
                   setDoc((d) => {
-                    const payload = d ? parsePastedText(text, d, mode) : null;
+                    const payload = d ? parsePastedText(text, d, pasteOptions(mode)) : null;
                     if (payload) {
                       setActiveTool('select');
                       setPastePending(payload);
