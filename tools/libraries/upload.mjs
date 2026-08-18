@@ -11,7 +11,7 @@
  * Uploads:
  *   symbols/<Lib>.kicad_sym + symbols/index.json   [{name,count,symbols}]
  *   footprints/<Lib>.pretty/<FP>.kicad_mod + footprints/index.json
- *                                          [{name,footprints,pads}]
+ *                             [{name,footprints,pads,descr,tags}]
  *
  * Usage: R2_* env vars (see tools/r2.mjs), then `node tools/libraries/upload.mjs`.
  */
@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { putObject, uploadAll } from '../r2.mjs';
 import { perSymbolFiles, stagedFileName, topLevelSymbols, unitCountOf, wrapLib } from './split.mjs';
+import { footprintIndexInfo } from './fp_index.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SYM_SRC = join(ROOT, 'kicad-symbols-src');
@@ -111,41 +112,33 @@ console.log(
 const fpEntries = [];
 const fpIndex = [];
 const pretties = readdirSync(FP_SRC).filter((d) => d.endsWith('.pretty'));
-/**
- * Distinct numbered pads in a `.kicad_mod`, the way
- * `FOOTPRINT_INFO::GetUniquePadCount` counts them: by pad *number*, so a
- * two-pad SMD resistor is 2, the four numbered pads of a quad package are 4,
- * and the unnumbered mechanical pads on a connector shell (`(pad ""`) add
- * nothing.
- *
- * Counted here rather than in the browser on purpose: the alternative is
- * downloading and parsing every candidate footprint to answer "how many pads",
- * which is what the Assign Footprints dialog has to do and is far too much to
- * run behind a symbol preview.
- */
-function uniquePadCount(text) {
-  const numbers = new Set();
-  for (const m of text.matchAll(/\(pad\s+"((?:[^"\\]|\\.)*)"/g)) {
-    if (m[1] !== '') numbers.add(m[1]);
-  }
-  return numbers.size;
-}
-
 for (const dir of pretties.sort()) {
   const lib = dir.replace(/\.pretty$/, '');
   const mods = readdirSync(join(FP_SRC, dir))
     .filter((f) => f.endsWith('.kicad_mod'))
     .sort();
+  // FOOTPRINT_INFO's three cached fields, computed here rather than in the
+  // browser: the alternative is downloading and parsing every candidate to
+  // answer "how many pads" / "does it mention SMD", which is what the Assign
+  // Footprints dialog used to do and is far too much to run behind a filter
+  // box. See tools/libraries/fp_index.mjs.
   const pads = [];
+  const descr = [];
+  const tags = [];
   for (const f of mods) {
     const bytes = readFileSync(join(FP_SRC, dir, f));
     fpEntries.push([`footprints/${dir}/${f}`, bytes, 'text/plain']);
-    pads.push(uniquePadCount(bytes.toString('utf8')));
+    const info = footprintIndexInfo(bytes.toString('utf8'));
+    pads.push(info.pads);
+    descr.push(info.descr);
+    tags.push(info.tags);
   }
   fpIndex.push({
     name: lib,
     footprints: mods.map((f) => f.replace(/\.kicad_mod$/, '')),
     pads,
+    descr,
+    tags,
   });
 }
 console.log(`footprints: ${fpIndex.length} libraries, ${fpEntries.length} footprints`);

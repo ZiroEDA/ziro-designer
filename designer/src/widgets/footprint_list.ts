@@ -12,6 +12,7 @@
  * as the symbol libraries (FOOTPRINTS_BASE / VITE_FOOTPRINTS_URL).
  */
 import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { EdaCombinedMatcher, searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
 import { trackLibraryLoad } from './library_loading.js';
 import { parseFootprint } from '../editors/footprint/footprintBoard.js';
@@ -32,6 +33,93 @@ export interface FpIndexEntry {
    * pads on a connector shell add nothing.
    */
   pads?: number[];
+  /**
+   * `(descr …)` and `(tags …)` per footprint, parallel to `footprints`:
+   * FOOTPRINT_INFO's `m_doc` and `m_keywords` (`footprint_info_impl.cpp:53-55`).
+   *
+   * They are here for the same reason `pads` is. `FOOTPRINT_INFO::GetSearchTerms`
+   * scores the keywords and the description alongside the name, so a filter box
+   * that cannot see them can never match "smd" or a manufacturer's name — and
+   * fetching 15 000 `.kicad_mod` files to find out is not an option. Carrying
+   * them costs the index about 220 kB gzipped, measured over the 15 447
+   * footprints of the official library.
+   *
+   * Absent on an index generated before these fields existed, in which case the
+   * search degrades to matching the nickname, the name and the LIB_ID — the
+   * three terms that need no extra data.
+   */
+  descr?: string[];
+  tags?: string[];
+}
+
+/**
+ * `FOOTPRINT_INFO::GetSearchTerms` (common/footprint_info.cpp:67-86) — what the
+ * filter box actually matches against, with upstream's weights:
+ *
+ *     nickname            4
+ *     name                8   (a "name" term: only these can be an exact match)
+ *     LIB_ID              16  (likewise)
+ *     each keyword token  4
+ *     the whole keywords  1   ("just in case", upstream's comment)
+ *     the description     1
+ *
+ * Matching only the `Lib:Name` string, as this dialog did, throws away four of
+ * the six: typing `smd`, `handsolder` or a manufacturer's name found nothing
+ * here and dozens of footprints in KiCad.
+ */
+export function footprintSearchTerms(
+  nickname: string,
+  name: string,
+  keywords = '',
+  description = '',
+): SearchTerm[] {
+  const terms: SearchTerm[] = [
+    searchTerm(nickname, 4),
+    searchTerm(name, 8, true),
+    searchTerm(`${nickname}:${name}`, 16, true),
+  ];
+  for (const token of keywords.split(/[\s\r\n\t]+/)) {
+    if (token) terms.push(searchTerm(token, 4));
+  }
+  // Also include keywords as one long string, just in case.
+  terms.push(searchTerm(keywords, 1));
+  terms.push(searchTerm(description, 1));
+  return terms;
+}
+
+/**
+ * `FOOTPRINT_FILTER::FilterByTextPattern` (common/footprint_filter.cpp:214-227):
+ * the box is split on whitespace and **each** token becomes its own
+ * EDA_COMBINED_MATCHER, lower-cased, in the CTX_LIBITEM context (regex, then
+ * wildcard, then plain substring — "whatever syntax users prefer, it shall be
+ * matched"). An empty box produces no matchers, which matches everything.
+ */
+export function footprintTextMatchers(pattern: string): EdaCombinedMatcher[] {
+  return pattern
+    .toLowerCase()
+    .split(/[\s\r\n\t]+/)
+    .filter(Boolean)
+    .map((term) => new EdaCombinedMatcher(term));
+}
+
+/**
+ * The text-pattern half of `FOOTPRINT_FILTER::ITERATOR::increment`
+ * (footprint_filter.cpp:86-101): a candidate is excluded as soon as **one**
+ * matcher scores zero against its search terms, so every token in the box has
+ * to hit something — but each token may hit a *different* term. `smd 0402`
+ * keeps a footprint whose keywords say "smd" and whose name says "0402".
+ *
+ * Note this is a score test, not a position test: a hit anywhere in any term
+ * counts. Substring, not anchored.
+ */
+export function matchesFootprintText(
+  matchers: readonly EdaCombinedMatcher[],
+  terms: SearchTerm[],
+): boolean {
+  for (const matcher of matchers) {
+    if (matcher.scoreTerms(terms).score === 0) return false;
+  }
+  return true;
 }
 
 let indexPromise: Promise<FpIndexEntry[]> | null = null;
