@@ -5948,13 +5948,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
        m_list->SetColumnWidth( 0, FromDIP( 200 ) );
        m_list->SetColumnWidth( 1, FromDIP( 150 ) );
    -------------------------------------------------------------------------- */
+/* The left dock: both panes of kicad_manager_frame.cpp:236-245, which share a
+   direction, a layer and a row, so they stack vertically in Position order —
+   ProjectTree (0) above LocalHistory (1) — and share the dock's width. */
+.ze-leftdock {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.ze-leftdock > .ze-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: auto !important;
+}
 .ze-lhist {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
+  /* A docked pane below the tree, not a full-height column of its own. AUI
+     gives it its best size and a sash; we have no sash yet, so this is a
+     documented approximation of that height and NOT a measured value —
+     upstream's split still needs measuring against a running frame. */
+  flex: 0 0 240px;
   background: var(--panel-bg);
-  border-right: 1px solid var(--chrome-border);
+  border-top: 1px solid var(--chrome-border);
 }
 .ze-lhist-head,
 .ze-lhist-row {

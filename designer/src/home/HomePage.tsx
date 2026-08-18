@@ -1347,42 +1347,56 @@ export function HomePage({
           )}
         </div>
 
-        {/* The AUI pane, docked left of the project tree. Upstream's is a
-            LOCAL_HISTORY_PANE added to the frame's AUI manager; ours is a
-            sibling of the tree in the same row. */}
-        {historyShown && <LocalHistoryPane projectId={openProjectId} />}
+        {/* The left dock. Upstream puts BOTH panes in it, same direction, same
+            layer, same row:
 
-        <ProjectTreePane
-          picked={picked}
-          dirRoot={dirRoot}
-          rootLabel={rootLabel}
-          projectNames={projectNames}
-          width={panelWidth}
-          expanded={expanded}
-          onToggleDir={toggleDir}
-          selected={selected}
-          onSelect={selectPath}
-          onRenamePath={renamePath}
-          onDeletePaths={deletePaths}
-          onViewTextPath={(path) => setTextView(fileAtPath(path))}
-          onDownloadPath={(path) => downloadFileAtPath(path)}
-          rootOpen={rootOpen}
-          onToggleRoot={() => setRootOpen((o) => !o)}
-          onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}
-          onOpenSchematic={launchSchematic}
-          onOpenSymbolFile={
-            onOpenSymbolEditor ? (f) => onOpenSymbolEditor(picked ?? undefined, f.name) : undefined
-          }
-          onOpenDrawingSheetFile={
-            onOpenDrawingSheetEditor ? (f) => onOpenDrawingSheetEditor(f) : undefined
-          }
-          onSwitchProject={onSwitchProject}
-          onOpenFootprintFile={
-            onOpenFootprintEditor
-              ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
-              : undefined
-          }
-        />
+              AddPane( m_projectTreePane, EDA_PANE()...Left().Layer( 1 ) )
+              AddPane( m_historyPane,     EDA_PANE()...Left().Layer( 1 ).Position( 1 ) )
+
+            (kicad_manager_frame.cpp:236-245). Panes sharing a row in a left dock
+            stack vertically in Position order, so Local History sits *below*
+            Project Files and shares its width — it is not a second column. Ours
+            used to be a horizontal sibling rendered before the tree, which put
+            it on the wrong side and the wrong axis. */}
+        <div className="ze-leftdock" style={{ width: panelWidth }}>
+          <ProjectTreePane
+            picked={picked}
+            dirRoot={dirRoot}
+            rootLabel={rootLabel}
+            projectNames={projectNames}
+            width={panelWidth}
+            expanded={expanded}
+            onToggleDir={toggleDir}
+            selected={selected}
+            onSelect={selectPath}
+            onRenamePath={renamePath}
+            onDeletePaths={deletePaths}
+            onViewTextPath={(path) => setTextView(fileAtPath(path))}
+            onDownloadPath={(path) => downloadFileAtPath(path)}
+            rootOpen={rootOpen}
+            onToggleRoot={() => setRootOpen((o) => !o)}
+            onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}
+            onOpenSchematic={launchSchematic}
+            onOpenSymbolFile={
+              onOpenSymbolEditor
+                ? (f) => onOpenSymbolEditor(picked ?? undefined, f.name)
+                : undefined
+            }
+            onOpenDrawingSheetFile={
+              onOpenDrawingSheetEditor ? (f) => onOpenDrawingSheetEditor(f) : undefined
+            }
+            onSwitchProject={onSwitchProject}
+            onOpenFootprintFile={
+              onOpenFootprintEditor
+                ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
+                : undefined
+            }
+          />
+          {/* Position( 1 ): second in the same dock row, so it sits under the
+              tree. `.Hide()` at construction and shown only when the setting
+              says so, which is what `historyShown` carries here. */}
+          {historyShown && <LocalHistoryPane projectId={openProjectId} />}
+        </div>
 
         {/* draggable sash between the tree and the launchers (KiCad's wxAUI pane) */}
         <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />
