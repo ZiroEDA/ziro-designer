@@ -424,12 +424,19 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   s += `\t(generator_version "${GENERATOR_VERSION}")\n`;
   s += `\t(setup\n\t\t(textsize 1.5 1.5)\n\t\t(linewidth 0.15)\n\t\t(textlinewidth 0.15)\n`;
   s += `\t\t(left_margin 10)\n\t\t(right_margin 10)\n\t\t(top_margin 10)\n\t\t(bottom_margin 10)\n\t)\n`;
+  // One drawing-sheet item, whatever the image holds. outputDataHeader opens
+  // `(polygon (name "") (pos 0 0) (linewidth 0.01)` once
+  // (bitmap2component.cpp:193), outputOnePolygon adds one `(pts …)` per traced
+  // region (:322-346), and outputDataEnd closes it (:250-252). Emitting one
+  // polygon per region instead gives a multi-shape logo N sheet items, which
+  // select, move and repeat separately in the drawing sheet editor.
+  s += `\t(polygon\n\t\t(name "")\n\t\t(pos 0 0)\n\t\t(linewidth 0.01)\n`;
   for (const region of regions) {
-    // KiCad's DS_DATA_ITEM_POLYGONS gets m_LineWidth = 0.01 and a closed ring.
-    s += `\t(polygon\n\t\t(name "")\n\t\t(pos 0 0)\n\t\t(linewidth 0.01)\n\t\t(pts\n`;
+    s += `\t\t(pts\n`;
     s += ringXY(region, xf, '\t\t\t', true);
-    s += `\t\t)\n\t)\n`;
+    s += `\t\t)\n`;
   }
+  s += `\t)\n`;
   s += `)\n`;
   return s;
 }

@@ -18,6 +18,7 @@ import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
 import { readSymbolLib } from '@ziroeda/eeschema';
+import { readDrawingSheet } from '@ziroeda/common/src/drawing_sheet/read.js';
 import { Bitmap } from '@ziroeda/designer/src/editors/image/potrace.js';
 import {
   convert,
@@ -45,6 +46,10 @@ function filledRect(w: number, h: number, x0: number, y0: number, x1: number, y1
 }
 
 const NAME = 'LOGO';
+
+/** A file written by the real bitmap2component 10.0.5; see the data README. */
+const readRef = (name: string): string =>
+  readFileSync(fileURLToPath(new URL(`../../data/bitmap2component/${name}`, import.meta.url)), 'utf8');
 
 describe('tracing', () => {
   it('traces a solid square into one outline with no holes', () => {
@@ -335,6 +340,39 @@ describe('postscript & drawing-sheet output', () => {
     expect(text).toContain('moveto');
     expect(text).toContain('closepath fill');
     expect(text.trimEnd().endsWith('%%EOF')).toBe(true);
+  });
+
+  it('emits ONE drawing-sheet polygon item, with one (pts) per traced region', () => {
+    // outputDataHeader opens `(polygon …)` once and outputOnePolygon adds a
+    // `(pts …)` inside it per region, so a two-blob logo is one sheet item with
+    // two contours — not two items that select and move separately. Reference:
+    // qa/data/bitmap2component/kicad_twoblob_300dpi.kicad_wks, written by
+    // bitmap2component 10.0.5 from the same 40×20 two-blob bitmap.
+    const two = new Bitmap(40, 20);
+    for (let y = 5; y < 15; y++) {
+      for (let x = 4; x < 12; x++) two.data[y * 40 + x] = 1;
+      for (let x = 28; x < 36; x++) two.data[y * 40 + x] = 1;
+    }
+    const { text } = convert(two, {
+      format: 'drawingsheet',
+      layer: 'F.SilkS',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(text.match(/\(polygon/g)).toHaveLength(1);
+    expect(text.match(/\(pts/g)).toHaveLength(2);
+
+    const sheet = readDrawingSheet(parse(text));
+    const polys = sheet.items.filter((i) => i.type === 'polygon');
+    expect(polys).toHaveLength(1);
+    expect(polys[0]!.contours).toHaveLength(2);
+
+    // The same shape as KiCad's own file for this bitmap.
+    const ref = readDrawingSheet(parse(readRef('kicad_twoblob_300dpi.kicad_wks')));
+    const refPolys = ref.items.filter((i) => i.type === 'polygon');
+    expect(refPolys).toHaveLength(1);
+    expect(refPolys[0]!.contours).toHaveLength(2);
   });
 
   it('emits a parseable drawing sheet with a polygon', () => {
