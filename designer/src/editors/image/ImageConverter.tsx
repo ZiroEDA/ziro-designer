@@ -17,12 +17,15 @@ import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { imageMeta } from './imageMeta.js';
 import {
   loadBitmap2CmpSettings,
-  loadRecentImages,
-  pushRecentImage,
+  recentImages,
+  RECENT_MAX_DATA,
   saveBitmap2CmpSettings,
-  saveRecentImages,
-  type RecentImage,
 } from './bitmap2cmpSettings.js';
+import { MISSING_FILE_EXTENDED, missingFileMessage, openRecentMenuItem } from '../../ui/file_history.js';
+import { useFileHistory } from '../../ui/useFileHistory.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { settings } from '../../prefs/settings.js';
+import { useCommonSettings } from '../../prefs/useSettings.js';
 import {
   convert,
   grayToMono,
@@ -132,7 +135,9 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   const [layerIdx, setLayerIdx] = useState(() =>
     cfg.last_mod_layer >= 0 && cfg.last_mod_layer < OUTLINE_LAYERS.length ? cfg.last_mod_layer : 0,
   );
-  const [recent, setRecent] = useState<RecentImage[]>(loadRecentImages);
+  // BITMAP2CMP_FRAME's file history, the shared FILE_HISTORY port.
+  const recent = useFileHistory(recentImages);
+  const common = useCommonSettings();
   const [convertedName, setConvertedName] = useState(cfg.converted_file_name);
   // KiCad's status bar starts empty and shows the loaded file (OnLoadFile).
   const [status, setStatus] = useState('');
@@ -222,14 +227,8 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         // KiCad shows the opened file in the status bar (OnLoadFile) and
         // records it in the file history (UpdateFileHistory).
         setStatus(file.name);
-        setRecent((prev) => {
-          const next = pushRecentImage(prev, {
-            name: file.name,
-            data: bytesToDataUrl(bytes, file.type),
-          });
-          saveRecentImages(next);
-          return next;
-        });
+        const data = bytesToDataUrl(bytes, file.type);
+        if (data.length <= RECENT_MAX_DATA) recentImages.addFileToHistory({ name: file.name, data });
       } catch (e) {
         setStatus(`Could not load image: ${(e as Error).message}`);
       }
@@ -237,8 +236,22 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     [unit],
   );
 
+  /**
+   * EDA_BASE_FRAME::GetFileFromHistory (eda_base_frame.cpp:1486-1523): a row
+   * whose file is gone gets the "File '%s' was not found." dialog with the
+   * Remove / Keep buttons, and opens nothing whichever the user picks.
+   *
+   * Our rows carry their own bytes, so "gone" means the data URL failed to
+   * survive storage. The dialog is a window.confirm until the shared
+   * KICAD_MESSAGE_DIALOG port lands (Image Converter finding B5).
+   */
   const openRecent = useCallback(
-    async (r: RecentImage) => {
+    async (index: number) => {
+      const r = recentImages.getFileFromHistory(index, {
+        exists: (e) => e.data.length > 0,
+        confirmRemove: (e) => window.confirm(`${missingFileMessage(e.name)}\n${MISSING_FILE_EXTENDED}`),
+      });
+      if (!r) return;
       const blob = await (await fetch(r.data)).blob();
       await loadFile(new File([blob], r.name, { type: blob.type }));
     },
@@ -399,27 +412,18 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
   // doReCreateMenuBar: File (Open… / Open Recent / Quit), Preferences
   // (Preferences… / language list), then the standard Help menu.
-  const recentItems: MenuItem[] =
-    recent.length > 0
-      ? [
-          ...recent.map((r) => ({ label: r.name, action: () => void openRecent(r) })),
-          { sep: true },
-          {
-            label: 'Clear Recent Files',
-            action: () => {
-              setRecent([]);
-              saveRecentImages([]);
-            },
-          },
-        ]
-      : [{ label: '(empty)', disabled: true, action: () => {} }];
+  const openRecentItem: MenuItem = openRecentMenuItem({
+    files: recent,
+    onOpen: (i) => void openRecent(i),
+    onClear: () => recentImages.clearFileHistory(),
+  });
 
   const menus: Menu[] = [
     {
       label: 'File',
       items: [
         { label: 'Open…', shortcut: 'Ctrl+O', action: () => fileInputRef.current?.click() },
-        { label: 'Open Recent', submenu: recentItems },
+        openRecentItem,
         { sep: true },
         { label: 'Close Image Converter', action: onExitToHome },
       ],
@@ -429,7 +433,13 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
       items: [
         { label: 'Preferences…', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
-        { label: 'Set Language', submenu: [{ label: 'English', disabled: true }] },
+        setLanguageMenuItem({
+          current: common.system.language,
+          onSelect: (label) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+        }),
       ],
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),

@@ -10,8 +10,12 @@
  *
  * The file-history side (KiCad's FILE_HISTORY, surfaced as File → Open Recent)
  * has no path-based equivalent in a browser, so recent images are kept as data
- * URLs, same pattern as the Drawing Sheet Editor's recent files.
+ * URLs. The store itself is the shared port in `ui/file_history.ts` — this file
+ * used to carry a private twelfth-of-a-FILE_HISTORY that capped at 5 and had
+ * drifted from the Drawing Sheet Editor's private copy of the same idea.
  */
+import { FileHistory } from '../../ui/file_history.js';
+import { settings } from '../../prefs/settings.js';
 
 export interface Bitmap2CmpSettings {
   bitmap_file_name: string;
@@ -60,35 +64,27 @@ export function saveBitmap2CmpSettings(s: Bitmap2CmpSettings): void {
 // ----- recent images (FILE_HISTORY) -------------------------------------------
 
 export interface RecentImage {
+  /** FILE_HISTORY's wxString row: what the menu shows and dedupes on. */
   name: string;
   /** The image bytes as a data URL, so Open Recent can reload them. */
   data: string;
 }
 
-const RECENT_KEY = 'ziroeda.bitmap2cmp.recent';
-const RECENT_MAX = 5;
-/** Skip storing images whose data URL would blow the localStorage quota. */
-const RECENT_MAX_DATA = 1_500_000;
+/**
+ * Skip storing images whose data URL would blow the localStorage quota.
+ *
+ * No upstream counterpart: a `FILE_HISTORY` row is a path, so it costs nothing
+ * to keep. Ours has to carry the bytes, and a 12 MP photograph would evict the
+ * whole history on the next write.
+ */
+export const RECENT_MAX_DATA = 1_500_000;
 
-export function loadRecentImages(): RecentImage[] {
-  try {
-    const v = localStorage.getItem(RECENT_KEY);
-    return v ? (JSON.parse(v) as RecentImage[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveRecentImages(list: RecentImage[]): void {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
-  } catch {
-    /* quota exceeded, drop the history rather than the session */
-  }
-}
-
-/** Prepend a file to the history (deduplicated by name), UpdateFileHistory-style. */
-export function pushRecentImage(list: RecentImage[], entry: RecentImage): RecentImage[] {
-  if (entry.data.length > RECENT_MAX_DATA) return list;
-  return [entry, ...list.filter((r) => r.name !== entry.name)].slice(0, RECENT_MAX);
-}
+/**
+ * BITMAP2CMP_FRAME's `m_fileHistory`, allocated once the way
+ * `EDA_BASE_FRAME::LoadSettings` (eda_base_frame.cpp:1282-1286) allocates it,
+ * from the user's `system.file_history_size`.
+ */
+export const recentImages = new FileHistory<RecentImage>({
+  storageKey: 'ziroeda.bitmap2cmp.recent',
+  maxFiles: settings.common.system.file_history_size,
+});

@@ -182,15 +182,3 @@ export function setLanguageMenuItem(opts: LanguageMenuOptions): MenuItem {
     ),
   };
 }
-
-/**
- * The tail of a Preferences menu: a separator and the language submenu.
- *
- * Every frame that has a Preferences menu ends it this way — see
- * `cvpcb/menubar.cpp:67-75`, `pagelayout_editor/menubar.cpp`,
- * `bitmap2component/bitmap2cmp_frame.cpp:305-311` — so the separator belongs
- * here rather than being re-typed at each call site.
- */
-export function languageMenuTail(opts: LanguageMenuOptions): MenuItem[] {
-  return [{ sep: true }, setLanguageMenuItem(opts)];
-}

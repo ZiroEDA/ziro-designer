@@ -32,6 +32,7 @@
  */
 import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
+import { DEFAULT_LANGUAGE } from './language_menu.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
 import {
@@ -197,6 +198,8 @@ function managerItems(): MenuItem[] {
       selectProjectFiles: noop,
       openRecent: noop,
       clearRecent: noop,
+      language: DEFAULT_LANGUAGE,
+      setLanguage: noop,
       closeProject: noop,
       saveAs: noop,
       archiveProject: noop,

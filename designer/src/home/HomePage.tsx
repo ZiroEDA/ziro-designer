@@ -67,6 +67,8 @@ import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
+import { settings } from '../prefs/settings.js';
+import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
@@ -1137,6 +1139,7 @@ export function HomePage({
     refreshSaved();
   };
 
+  const common = useCommonSettings();
   const menus: Menu[] = buildManagerMenus({
     newProject: openNewProjectDialog,
     openProject: () => setOpenPrjOpen(true),
@@ -1166,6 +1169,14 @@ export function HomePage({
     hasProject: !!picked,
     hasTextFileSelected: !!selectedTextFile,
     recent: saved,
+    // COMMON_SETTINGS: how many rows Open Recent shows, and the checked
+    // language row (EDA_BASE_FRAME::AddMenuLanguageList).
+    fileHistorySize: common.system.file_history_size,
+    language: common.system.language,
+    setLanguage: (label) =>
+      settings.updateCommon((c) => {
+        c.system.language = label;
+      }),
     demos,
   });
 

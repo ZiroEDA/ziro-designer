@@ -16,6 +16,8 @@ const handlers = {
   selectProjectFiles: noop,
   openRecent: noop,
   clearRecent: noop,
+  language: 'Default',
+  setLanguage: noop,
   closeProject: noop,
   saveAs: noop,
   archiveProject: noop,
