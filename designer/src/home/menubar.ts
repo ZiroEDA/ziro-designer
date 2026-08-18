@@ -11,6 +11,8 @@
 
 import type { Menu, MenuItem } from '../ui/menu_types.js';
 import { standardHelpMenu } from '../ui/help_menu.js';
+import { DEFAULT_FILE_HISTORY_SIZE, openRecentMenuItem } from '../ui/file_history.js';
+import { setLanguageMenuItem } from '../ui/language_menu.js';
 import type { ProjectMeta } from './projectStore.js';
 import type { DemoMeta } from './demos.js';
 
@@ -22,6 +24,16 @@ export interface ManagerMenuHandlers {
   selectProjectFiles: () => void; // web-only fallback for blocked folder pickers
   openRecent: (id: string) => void;
   clearRecent: () => void;
+  /** COMMON_SETTINGS system.language, the stored LANGUAGE_DESCR::m_Lang_Label. */
+  language: string;
+  /** AddMenuLanguageList's handler; PGM_BASE::SetLanguageIdentifier upstream. */
+  setLanguage: (label: string) => void;
+  /**
+   * COMMON_SETTINGS system.file_history_size — how many rows Open Recent shows.
+   * KICAD_MANAGER_FRAME's FILE_HISTORY is capped by it like every other frame's
+   * (eda_base_frame.cpp:1282-1286); ours listed every stored project.
+   */
+  fileHistorySize?: number;
   closeProject: () => void;
   saveAs: () => void;
   archiveProject: () => void;
@@ -76,14 +88,20 @@ function buildDemoSubmenu(h: ManagerMenuHandlers): MenuItem[] {
 
 export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
   // File > Open Recent, KiCad's FILE_HISTORY menu, fed from our project store.
-  const recentSub: MenuItem[] =
-    h.recent.length === 0
-      ? [{ label: '(no recent projects)', disabled: true }]
-      : [
-          ...h.recent.map((p): MenuItem => ({ label: p.name, action: () => h.openRecent(p.id) })),
-          SEP,
-          { label: 'Clear Recent Projects', action: () => h.clearRecent() },
-        ];
+  // The submenu itself is the shared ui/file_history.ts port, so the greyed-out
+  // parent row and the "No Files" placeholder are the same here as in every
+  // other frame; this file used to invent a "(no recent projects)" child.
+  // kicad/menubar.cpp:64 is the one frame that overrides m_clearText.
+  const shown = h.recent.slice(0, h.fileHistorySize ?? DEFAULT_FILE_HISTORY_SIZE);
+  const openRecentItem = openRecentMenuItem({
+    files: shown,
+    onOpen: (i) => {
+      const project = shown[i];
+      if (project) h.openRecent(project.id);
+    },
+    onClear: () => h.clearRecent(),
+    clearText: 'Clear Recent Projects',
+  });
 
   return [
     {
@@ -105,7 +123,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         { label: 'Open Project…', icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
         // Web-only: fallback when the browser blocks the folder picker.
         { label: 'Select Project Files…', action: h.selectProjectFiles },
-        { label: 'Open Recent', submenu: recentSub },
+        openRecentItem,
         SEP,
         { label: 'New Jobset File…', disabled: true }, // jobs system not yet built
         { label: 'Open Jobset File…', disabled: true },
@@ -264,7 +282,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         { label: 'Manage Design Block Libraries…', disabled: true },
         { label: 'Preferences…', shortcut: 'Ctrl+,', action: h.openPreferences },
         SEP,
-        { label: 'Set Language', submenu: [{ label: 'English', disabled: true }] },
+        setLanguageMenuItem({ current: h.language, onSelect: h.setLanguage }),
       ],
     },
     // EDA_BASE_FRAME::AddStandardHelpMenu - see ui/help_menu.ts. Shared with

@@ -55,6 +55,16 @@ import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import {
+  FileHistory,
+  MISSING_FILE_EXTENDED,
+  missingFileMessage,
+  openRecentMenuItem,
+} from '../../ui/file_history.js';
+import { useFileHistory } from '../../ui/useFileHistory.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { settings } from '../../prefs/settings.js';
+import { useCommonSettings } from '../../prefs/useSettings.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -73,28 +83,21 @@ const ORIGIN_CHOICES = [
   'Left Top page corner',
 ];
 
-/** Recent-files store (FILE_HISTORY), kept in localStorage. */
-const RECENT_KEY = 'ziroeda.drawingsheet.recent';
+/**
+ * PL_EDITOR_FRAME's `m_fileHistory`, allocated once the way
+ * `EDA_BASE_FRAME::LoadSettings` (eda_base_frame.cpp:1282-1286) allocates it.
+ * This file used to carry a private copy of the store — cap 5, dedupe by name
+ * — that had drifted from the Image Converter's private copy of the same idea;
+ * both are now the shared `ui/file_history.ts` port.
+ */
 interface RecentFile {
   name: string;
   text: string;
 }
-function loadRecent(): RecentFile[] {
-  try {
-    const v = localStorage.getItem(RECENT_KEY);
-    const list = v ? (JSON.parse(v) as RecentFile[]) : [];
-    return Array.isArray(list) ? list.slice(0, 5) : [];
-  } catch {
-    return [];
-  }
-}
-function saveRecent(list: RecentFile[]): void {
-  try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 5)));
-  } catch {
-    /* storage disabled */
-  }
-}
+const recentFiles = new FileHistory<RecentFile>({
+  storageKey: 'ziroeda.drawingsheet.recent',
+  maxFiles: settings.common.system.file_history_size,
+});
 
 const download = (fileName: string, text: string): void => {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
@@ -174,7 +177,8 @@ export function DrawingSheetEditor({
   const [showPageDialog, setShowPageDialog] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
-  const [recent, setRecent] = useState<RecentFile[]>(loadRecent);
+  const recent = useFileHistory(recentFiles);
+  const common = useCommonSettings();
 
   const controller = useRef<DrawingSheetCanvasController>(null);
   const openInputRef = useRef<HTMLInputElement>(null);
@@ -267,12 +271,9 @@ export function DrawingSheetEditor({
   }, []);
 
   // ---- file ops ----
+  // EDA_BASE_FRAME::UpdateFileHistory.
   const addRecent = useCallback((name: string, text: string) => {
-    setRecent((prev) => {
-      const next = [{ name, text }, ...prev.filter((r) => r.name !== name)].slice(0, 5);
-      saveRecent(next);
-      return next;
-    });
+    recentFiles.addFileToHistory({ name, text });
   }, []);
 
   const newSheet = useCallback(() => {
@@ -304,6 +305,25 @@ export function DrawingSheetEditor({
       }
     },
     [addRecent],
+  );
+
+  /**
+   * EDA_BASE_FRAME::GetFileFromHistory (eda_base_frame.cpp:1486-1523). A row
+   * whose file is gone gets the "File '%s' was not found." dialog with the
+   * Remove / Keep buttons and opens nothing either way; ours holds the sheet
+   * text itself, so "gone" is an entry that lost its payload in storage. The
+   * dialog is a window.confirm until the KICAD_MESSAGE_DIALOG port lands.
+   */
+  const openRecent = useCallback(
+    async (index: number) => {
+      const r = recentFiles.getFileFromHistory(index, {
+        exists: (e) => e.text.length > 0,
+        confirmRemove: (e) =>
+          window.confirm(`${missingFileMessage(e.name)}\n${MISSING_FILE_EXTENDED}`),
+      });
+      if (r) await openText(r.name, r.text);
+    },
+    [openText],
   );
 
   const openFile = useCallback(
@@ -980,23 +1000,11 @@ export function DrawingSheetEditor({
   }, [addBitmapFromFile, centreOrCursorPoint, pasteWksText, pasteClipboard]);
 
   // ---- menus (menubar.cpp) ----
-  const recentItems: MenuItem[] =
-    recent.length > 0
-      ? [
-          ...recent.map((r) => ({
-            label: r.name,
-            action: () => void openText(r.name, r.text),
-          })),
-          { sep: true },
-          {
-            label: 'Clear Recent Files',
-            action: () => {
-              setRecent([]);
-              saveRecent([]);
-            },
-          },
-        ]
-      : [{ label: '(empty)', disabled: true, action: () => {} }];
+  const openRecentItem: MenuItem = openRecentMenuItem({
+    files: recent,
+    onOpen: (i) => void openRecent(i),
+    onClear: () => recentFiles.clearFileHistory(),
+  });
 
   const menus: Menu[] = useMemo(
     () => [
@@ -1010,7 +1018,7 @@ export function DrawingSheetEditor({
             action: () => openInputRef.current?.click(),
             shortcut: 'Ctrl+O',
           },
-          { label: 'Open Recent', submenu: recentItems },
+          openRecentItem,
           { sep: true },
           { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
           { label: 'Save As…', icon: 'saveAs', action: saveAs },
@@ -1116,7 +1124,18 @@ export function DrawingSheetEditor({
       },
       {
         label: 'Preferences',
-        items: [{ label: 'Preferences…', action: () => setShowPrefs(true) }],
+        // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
+        // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
+        items: [
+          { label: 'Preferences…', action: () => setShowPrefs(true) },
+          setLanguageMenuItem({
+            current: common.system.language,
+            onSelect: (label) =>
+              settings.updateCommon((c) => {
+                c.system.language = label;
+              }),
+          }),
+        ],
       },
       // "Syntax Help" is not a Help-menu entry upstream: pl_editor puts it in
       // the properties panel as a hyperlink (properties_frame_base.cpp,
@@ -1139,7 +1158,8 @@ export function DrawingSheetEditor({
       deleteSelection,
       selection,
       onExitToHome,
-      recentItems,
+      openRecentItem,
+      common.system.language,
     ],
   );
 

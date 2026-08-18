@@ -58,6 +58,13 @@ export interface CommonSettings {
   };
   system: {
     file_history_size: number;
+    /**
+     * COMMON_SETTINGS `system.language` (common_settings.cpp:355-356), default
+     * "Default". Upstream stores the LANGUAGE_DESCR::m_Lang_Label rather than a
+     * language code — pgm_base.cpp:592-596 matches the stored string against
+     * m_Lang_Label — so ours holds a label from `ui/language_menu.ts`.
+     */
+    language: string;
     autosave_interval: number; // seconds; 0 = disabled
     session: {
       remember_open_files: boolean;
@@ -115,6 +122,7 @@ export const COMMON_DEFAULTS: CommonSettings = {
   },
   system: {
     file_history_size: 9,
+    language: 'Default',
     autosave_interval: 600,
     session: { remember_open_files: false, pinned_symbol_libs: [] },
   },
