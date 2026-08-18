@@ -38,7 +38,10 @@ import { PanelBomPresets } from './panels/panel_bom_presets.js';
 import { PanelSetupBuses } from './panels/panel_setup_buses.js';
 import { PanelSetupNetChains } from './panels/panel_setup_net_chains.js';
 import { PanelSetupNetclasses } from '../../../dialogs/panels/panel_setup_netclasses.js';
-import { PanelEmbeddedFiles, type EmbeddedFile } from '../../../dialogs/panels/panel_embedded_files.js';
+import {
+  PanelEmbeddedFiles,
+  type EmbeddedFile,
+} from '../../../dialogs/panels/panel_embedded_files.js';
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.

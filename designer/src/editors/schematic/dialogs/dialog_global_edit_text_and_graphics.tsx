@@ -43,7 +43,6 @@ type Tri = 'indeterminate' | 'yes' | 'no';
 
 const INDETERMINATE = '-- leave unchanged --';
 
-
 /** SPIN_STYLE, in the orientation dropdown's order. */
 const ORIENTATIONS = ['Right', 'Up', 'Left', 'Down'];
 
@@ -210,7 +209,11 @@ export function DialogGlobalEditTextAndGraphics({
   const lineStyleChoice = (): JSX.Element => (
     <label className="row">
       <span>Line style:</span>
-      <select className="ze-select" value={lineStyle} onChange={(e) => setLineStyle(e.target.value)}>
+      <select
+        className="ze-select"
+        value={lineStyle}
+        onChange={(e) => setLineStyle(e.target.value)}
+      >
         {LINE_STYLE_NAMES.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

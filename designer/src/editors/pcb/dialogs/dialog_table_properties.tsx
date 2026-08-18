@@ -24,7 +24,6 @@ import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
-
 interface Props {
   initial: TableValues;
   layers: readonly string[];
