@@ -165,7 +165,7 @@ describe('canCloseWindow / HandleUnsavedChanges', () => {
     expect(handleUnsavedChanges('save', () => false)).toBe(false);
   });
 
-  it('asks upstream\'s question, with a Save answer among the buttons', () => {
+  it("asks upstream's question, with a Save answer among the buttons", () => {
     expect(UNSAVED_ASSOCIATIONS_MESSAGE).toBe(
       'Symbol to Footprint links have been modified. Save changes?',
     );

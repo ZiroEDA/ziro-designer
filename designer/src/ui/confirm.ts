@@ -48,10 +48,7 @@ export const UNSAVED_CHANGES_CANCEL_LABEL = 'Cancel';
  * `save` returns whether the save succeeded; a failed save keeps the window
  * open, because the alternative is throwing the work away on the user's behalf.
  */
-export function handleUnsavedChanges(
-  result: UnsavedChangesResult,
-  save: () => boolean,
-): boolean {
+export function handleUnsavedChanges(result: UnsavedChangesResult, save: () => boolean): boolean {
   switch (result) {
     case 'save':
       return save();

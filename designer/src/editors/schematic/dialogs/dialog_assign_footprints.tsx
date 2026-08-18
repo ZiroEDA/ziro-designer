@@ -418,8 +418,7 @@ export function DialogAssignFootprints({
 
   /** CVPCB_ASSOCIATION_TOOL::Associate — assign the given footprint to the
    *  selected symbol, then move on to the next unassigned one. */
-  const associate = (fpid: string): void =>
-    setModel((m) => associateCommand(m, components, fpid));
+  const associate = (fpid: string): void => setModel((m) => associateCommand(m, components, fpid));
 
   const undo = (): void => setModel((m) => undoAssociation(m, components));
   const redo = (): void => setModel((m) => redoAssociation(m, components));
@@ -538,6 +537,7 @@ export function DialogAssignFootprints({
   // SetStatusText( _( "Schematic saved" ), 1 ) writes over the description
   // line, and the next DisplayStatus puts the description back. DisplayStatus
   // runs on every selection and filter change, so those are what clear it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the deps are the DisplayStatus triggers, not values the effect reads
   useEffect(() => {
     setSavedStatus(null);
   }, [curComp, selectedFootprint, filterFlags, filterText]);

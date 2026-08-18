@@ -219,10 +219,8 @@ function stepHistory(
 
   return {
     assigned,
-    undoStack:
-      direction === 'undo' ? state.undoStack.slice(0, -1) : [...state.undoStack, entry],
-    redoStack:
-      direction === 'undo' ? [...state.redoStack, entry] : state.redoStack.slice(0, -1),
+    undoStack: direction === 'undo' ? state.undoStack.slice(0, -1) : [...state.undoStack, entry],
+    redoStack: direction === 'undo' ? [...state.redoStack, entry] : state.redoStack.slice(0, -1),
     selected: state.selected,
     // AssociateFootprint sets m_modified before the undo bookkeeping, so
     // stepping the history leaves the frame modified either way.
