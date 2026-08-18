@@ -512,8 +512,23 @@ export function HomePage({
   /**
    * Project-tree pane width (px), draggable like KiCad's wxAUI sash.
    *
-   * The first-run width is **200**, not the 250 the constructor appears to set.
-   * KICAD_MANAGER_FRAME opens with
+   * The first-run width **on screen is 250**, even though the settings file
+   * says 200. Measured 2026-08-19 against a fresh `KICAD_CONFIG_HOME`: the pane
+   * renders x34..x283 inclusive of its borders — 250 px — while
+   * `10.0/kicad.json` holds `"left_frame_width": 200` both on first write and
+   * on exit. The settings number never described what is drawn, so matching it
+   * (as we did) made our pane visibly narrower than KiCad's.
+   *
+   * Why they differ: the pane is added with `.MinSize( m_leftWinWidth, -1 )`
+   * (the 200 just loaded) and laid out, and only *then*
+   *
+   *     m_auimgr.Update();
+   *     // "Now the actual m_projectTreePane size is set, give it a reasonable min width"
+   *     m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, FromDIP( 80 ) );
+   *
+   * raises the minimum to 250 (kicad_manager_frame.cpp:272-274). The next
+   * layout enforces it, so the user sees 250 and every later drag is floored
+   * there. KICAD_MANAGER_FRAME opens with
    *
    *     const int defaultLeftWinWidth = FromDIP( 250 );
    *     m_leftWinWidth = defaultLeftWinWidth;   // "Default value"
@@ -537,14 +552,15 @@ export function HomePage({
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       // Clamped to the sash's own range, so a hand-edited or stale value can
-      // never leave the pane wider than the window or too narrow to hit. 200 is
-      // the floor because that is the first-run width; a dragged one is >= 250.
+      // never leave the pane wider than the window or too narrow to hit. 250 is
+      // the floor because that is the pane's post-layout MinSize upstream, which
+      // is also what a first run renders.
       const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
-      if (Number.isFinite(saved) && saved >= 200 && saved <= 600) return saved;
+      if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
     } catch {
       /* storage blocked: fall through to the first-run default */
     }
-    return 200;
+    return 250;
   });
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
@@ -944,8 +960,10 @@ export function HomePage({
     const startW = panelWidth;
     // 250 is the pane's MinSize, applied straight after the first layout:
     //   m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, ... )
-    // It is deliberately wider than the 200 the pane opens at, so the first drag
-    // cannot put it back as narrow as it started. That asymmetry is upstream's.
+    // The same 250 is what a first run renders (measured 2026-08-19 against a
+    // fresh KICAD_CONFIG_HOME: pane x34..x283), so the floor and the opening
+    // width agree — there is no asymmetry here, contrary to what this comment
+    // used to claim.
     const onMove = (ev: MouseEvent): void =>
       setPanelWidth(Math.min(600, Math.max(250, startW + ev.clientX - startX)));
     const onUp = (): void => {
@@ -1364,8 +1382,6 @@ export function HomePage({
               ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
               : undefined
           }
-          onOpenProjectPicker={() => setOpenPrjOpen(true)}
-          onSelectFiles={() => filesInputRef.current?.click()}
         />
 
         {/* draggable sash between the tree and the launchers (KiCad's wxAUI pane) */}
