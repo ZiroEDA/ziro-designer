@@ -152,8 +152,9 @@ describe('KiStatusBar is updateStatusBarWidths', () => {
     // eda_draw_frame.cpp:792 fills `dims` in this order and nothing reorders
     // it: message, zoom, coords, deltas, grid, units, tool, constraint.
     const list = /export const KISTATUSBAR_FIELDS = \[([\s\S]*?)\] as const;/.exec(src);
-    expect(list).not.toBeNull();
-    const names = [...list![1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+    const body = list?.[1];
+    expect(body).toBeDefined();
+    const names = [...(body ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
     expect(names).toEqual([
       'message',
       'zoom',
@@ -284,9 +285,7 @@ describe('the status bar and the message panel exist once', () => {
       const text = readFileSync(f, 'utf8');
       const rel = relative(SRC, f).split('\\').join('/');
       if (rel === 'ui/shell.css') continue;
-      expect(text, `${rel} styles a status bar of its own`).not.toMatch(
-        /^\.[\w-]*statusbar\s*\{/m,
-      );
+      expect(text, `${rel} styles a status bar of its own`).not.toMatch(/^\.[\w-]*statusbar\s*\{/m);
       expect(text, `${rel} styles a message panel of its own`).not.toMatch(
         /^\.[\w-]*msgpanel\s*\{/m,
       );

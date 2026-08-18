@@ -306,7 +306,6 @@ import {
   DEFAULT_GRID_OPTIONS,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
-  GAL_SCREEN_DPI,
   type BoardScene,
   type PcbDrawOptions,
   type DrcMarkerDraw,

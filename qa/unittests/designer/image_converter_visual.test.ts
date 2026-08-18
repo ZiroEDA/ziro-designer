@@ -184,8 +184,16 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     expect(exportBtn).not.toContain('primary');
   });
 
-  it('keeps the status bar at a native fixed height', () => {
-    expect(rule('.imgc-statusbar')['min-height']).toBe('24px');
+  it('takes the shared status bar rather than styling one of its own', () => {
+    // BM2CMP_FRAME::CreateStatusBar( 1, wxSTB_SIZEGRIP )
+    // (bitmap2cmp_frame.cpp:181) is the same wxStatusBar every other frame
+    // gets, at the same GTK metrics, so it has nothing of its own to style -
+    // it instantiates the shared KiStatusBar (.ze-statusbar, ui/shell.css).
+    // What IS local: a native status bar never shrinks, and the frame is a
+    // flex column, so the flex-basis has to be pinned here.
+    expect(TSX).toContain('<KiStatusBar>');
+    expect(CSS_CODE).not.toMatch(/\n\.imgc-statusbar\s*\{/);
+    expect(rule('.imgc-frame > .ze-statusbar').flex).toBe('none');
   });
 
   it('draws flat notebook tabs with an accent underline on the selected one', () => {

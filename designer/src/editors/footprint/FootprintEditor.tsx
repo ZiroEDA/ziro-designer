@@ -1057,8 +1057,6 @@ export function FootprintEditor({
     return [...cu, ...tech];
   }, []);
 
-  const padCount = workFp?.pads.length ?? 0;
-
   /**
    * FOOTPRINT::GetMsgPanelInfo's FRAME_FOOTPRINT_EDITOR branch
    * (pcbnew/footprint.cpp:2140-2157): reference/value, Library, Footprint
