@@ -2298,9 +2298,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   z-index: 100;
   padding: 4px 0;
   cursor: default;
-  /* The rows are square and run the full width, so the corners have to clip
-     them or a hovered first row paints over the rounding. */
-  overflow: hidden;
+  /* The rows are square and run the full width, so a hovered first or last row
+     would paint over the rounding. It is rounded per row rather than clipped
+     with `overflow: hidden`: a flyout submenu is a child of its row positioned
+     at `left: 100%`, i.e. wholly outside this box, so ANY overflow clip erases
+     it. `overflow: hidden` here made every submenu in the app invisible -
+     View > Panels, Preferences > Set Language, File > Open Recent - while the
+     rows still rendered in the DOM, which is why it read as "the menu opens and
+     there is nothing in it". */
+  overflow: visible;
   /* Four columns shared by every row - icon, label, accelerator, submenu arrow -
      so each is as wide as the widest thing in it *across the menu*, which is how
      GTK lays a menu out and why its popups are wider than ours were.
@@ -2314,6 +2320,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      that was wrong here. */
   display: grid;
   grid-template-columns: auto 1fr auto;
+}
+/* What `overflow: hidden` used to do, without eating the flyouts: only the
+   first and last rows can reach the rounding, so only they need it. 5px is the
+   6px outer radius less the 1px border. */
+.ze-dropdown > :first-child {
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+.ze-dropdown > :last-child {
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
 }
 /* The row pitch is one number, stated here, and everything inside the row is
    sized off it.
