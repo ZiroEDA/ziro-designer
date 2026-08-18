@@ -2,18 +2,33 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Rotate / mirror command for placed symbols.
+ * The schematic's one rotate / mirror path. Counterparts: `SCH_EDIT_TOOL::Rotate`
+ * and `::Mirror` (eeschema/tools/sch_edit_tool.cpp) together with each type's own
+ * `Rotate` / `MirrorHorizontally` / `MirrorVertically`.
  *
- * Grounded in KiCad's SCH_SYMBOL::Rotate / MirrorHorizontally / MirrorVertically:
- *  - the symbol's orientation (angle + mirror) is advanced via the same transform
- *    algebra KiCad uses (see geom/transform.ts);
- *  - the symbol's position is rotated/mirrored about a center point;
- *  - fields are *translated* by the symbol's position delta (they do not spin),
- *    keeping their offset from the symbol and staying readable.
+ * Upstream's two tools are one big switch each, and the shape of that switch is
+ * the shape of this file:
  *
- * The center is captured at construction so undo is exact (the inverse op about the
- * same center restores positions and fields). Rotation's inverse is the opposite
- * spin; a mirror is its own inverse.
+ *  - **which point** the transform turns about is decided first, and it is not
+ *    one rule. With a single item it is per type — a connectable item's own
+ *    `GetPosition()`, or the half-grid-snapped centre of its bounding box, or
+ *    (for a wire) the endpoint that is not selected. With more than one it is
+ *    `GetNearestHalfGridPosition( selection.GetCenter() )`. See `transformCenter`;
+ *  - **what each type does** with that point differs. Most move every geometric
+ *    point that defines them; a symbol advances its orientation instead and
+ *    translates its fields by its own delta; a label turns in place when it is
+ *    alone and moves as well when it is not; a sheet turns its size vector; a
+ *    table turns its cells and re-lays itself out; a table's mirror is
+ *    deliberately nothing at all.
+ *
+ * The centre is captured at construction so undo is exact (the inverse op about
+ * the same centre restores positions and fields). Rotation's inverse is the
+ * opposite spin; a mirror is its own inverse.
+ *
+ * Two things upstream does that we cannot yet. `AUTOPLACE` state is not on the
+ * model (audit finding 11), so every "re-autoplace the fields" arm takes its
+ * else branch and translates them instead. And a bitmap's *pixels* do not turn:
+ * see `transformImage`.
  */
 
 import type {
@@ -42,9 +57,13 @@ import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import type { EditCommand } from './command.js';
 
 /**
- * The schematic's default grid step, 50 mil, which is what
- * `GetNearestHalfGridPosition` halves when no caller says otherwise. The live
- * grid is a per-window setting (`es.window.grid`), so the editor passes its own.
+ * The schematic's default grid step, 50 mil — what `GetNearestHalfGridPosition`
+ * halves when no caller says otherwise.
+ *
+ * Upstream reads the live grid off the frame's GAL, and ours is a per-window
+ * setting (`es.window.grid`). Threading that through from `SchematicEditor` is a
+ * follow-up: until then a user who has changed the grid gets the default grid's
+ * snap, which is the same answer for every grid that divides 50 mil.
  */
 export const DEFAULT_GRID_IU = 12700; // 1.27 mm = 50 mil, in schematic IU (100 nm)
 
@@ -427,6 +446,9 @@ function tableCenter(t: SchTable): Vec2 {
  * selection.GetCenter() )`. Missing that snap is what left a rotated group half
  * a grid step off, so its wires no longer met the pins they were drawn to.
  */
+const boxesOf = (doc: Schematic, ids: ReadonlySet<string>): ItemBox[] =>
+  alignBoxes(doc, ids, new Map<string, LibSymbol>(doc.libSymbols.map((l) => [l.libId, l])));
+
 function transformCenter(
   doc: Schematic,
   op: TransformOp,
@@ -809,12 +831,13 @@ export function transformItems(
     label: op.startsWith('rotate') ? 'Rotate' : 'Mirror',
     apply(doc: Schematic): Schematic {
       if (ids.size === 0) return doc;
-      const libById = new Map<string, LibSymbol>(doc.libSymbols.map((l) => [l.libId, l]));
-      const boxes = alignBoxes(doc, ids, libById);
       // `principalItemCount == 1` / `selection.GetSize() == 1`. Fields and sheet
       // pins carry no box of their own, so they are counted off the id set.
       const single = ids.size === 1 ? [...ids][0] : undefined;
-      const c = center ?? transformCenter(doc, op, boxes, single, grid);
+      // `alignBoxes` is the one walk that knows every kind's extent, and it is
+      // not cheap — it measures every symbol's body. Only ask it when the centre
+      // has to be derived; undo and redo replay a centre that is already known.
+      const c = center ?? transformCenter(doc, op, boxesOf(doc, ids), single, grid);
       const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, grid);
       return {
         ...doc,
@@ -931,13 +954,11 @@ export function transformItems(
     invert(before: Schematic): EditCommand {
       // Reuse the same center so the inverse exactly retraces the positions.
       if (center) return transformItems(ids, INVERSE[op], center, grid);
-      const libById = new Map<string, LibSymbol>(before.libSymbols.map((l) => [l.libId, l]));
-      const boxes = alignBoxes(before, ids, libById);
       const single = ids.size === 1 ? [...ids][0] : undefined;
       return transformItems(
         ids,
         INVERSE[op],
-        transformCenter(before, op, boxes, single, grid),
+        transformCenter(before, op, boxesOf(before, ids), single, grid),
         grid,
       );
     },
