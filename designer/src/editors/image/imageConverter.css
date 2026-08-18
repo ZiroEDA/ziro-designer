@@ -1,15 +1,25 @@
-/* Image Converter frame, matches the app chrome (shell.css variables) and the
-   Calculator Tools styling, laid out like KiCad's bitmap2cmp panel. */
+/* The Image Converter frame.
+
+   Every control metric, font and colour in here comes from the shared GTK
+   control-theme tokens in ui/shell.css - the same way wxWidgets takes them from
+   the GTK theme once and every KiCad launcher inherits the identical result.
+   Nothing below re-states a number that belongs to the theme.
+
+   What IS stated below is the arrangement BITMAP2CMP_PANEL_BASE specifies for
+   this app alone: which groups exist and in what order, the width of the right
+   column, where the stretch spacer goes, and the wxFormBuilder border on each
+   sizer item. Those cite bitmap2cmp_panel_base.cpp by line and belong to no
+   other editor. */
 
 .imgc-frame {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--panel-bg);
+  background: var(--chrome-bg);
   color: var(--chrome-fg);
-  font:
-    13px / 1.45 system-ui,
-    sans-serif;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
+  line-height: var(--ui-line-height);
 }
 
 .imgc-body {
@@ -19,43 +29,55 @@
 }
 
 /* --- left preview notebook --- */
+/* bMainSizer->Add( m_Notebook, 1, wxEXPAND|wxBOTTOM|wxLEFT, 10 )
+   (bitmap2cmp_panel_base.cpp:30): the notebook is inset 10 px from the window's
+   left and bottom edges, with the window background showing through, and GTK
+   draws its own 1 px frame around it. */
 .imgc-notebook {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--chrome-border);
+  margin: 0 0 10px 10px;
+  border: 1px solid var(--ctl-border);
 }
 
 /* The wxNotebook tab strip. A GTK notebook draws no tab cards: the strip is
-   flat and the selected tab carries a 2 px accent underline, which is what the
-   real bitmap2component window shows. */
+   flat and the selected tab carries an accent bar in place of the strip's
+   bottom border, which is what the real bitmap2component window shows. */
 .imgc-tabs {
   display: flex;
   gap: 0;
   padding: 0;
-  background: var(--chrome-bg2);
-  border-bottom: 1px solid var(--chrome-border);
+  height: var(--tab-strip-height);
+  flex: none;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--ctl-border);
 }
 
 .imgc-tab {
-  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--tab-pad-x);
   cursor: default;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: var(--tab-underline) solid transparent;
   border-radius: 0;
-  color: #b8bcc4;
+  color: inherit;
   font: inherit;
+  /* The accent bar replaces the strip's bottom border rather than stacking on
+     top of it, so the label does not shift when a tab is selected. */
+  margin-bottom: calc(-1px - var(--tab-underline));
+  padding-bottom: calc(1px + var(--tab-underline));
 }
 
 .imgc-tab.active {
-  color: var(--chrome-fg);
   border-bottom-color: var(--chrome-active);
 }
 
 .imgc-tab:disabled {
-  opacity: 0.45;
+  color: var(--ctl-fg-disabled);
   cursor: default;
 }
 
@@ -99,42 +121,42 @@
   image-rendering: pixelated;
 }
 
-.imgc-drop {
-  grid-area: 1 / 1;
-  place-self: center;
-  text-align: center;
-  color: #9096a0;
-  line-height: 1.6;
-}
-
-.imgc-drop-title {
-  font-size: 14px;
-  color: #b8bcc4;
-  margin-bottom: 4px;
-}
-
 /* --- right control column --- */
+/* bMainSizer->Add( brightSizer, 0, wxEXPAND|wxALL, 5 ) plus the wxALL 5 that
+   every item inside brightSizer carries: 10 px from the column's edge to the
+   first group, and 10 px between any two items. Measured on the real window:
+   the column is 277 px of content and the group boxes inside it are 257 px. */
 .imgc-side {
   flex: none;
-  width: 316px;
+  width: 277px;
   overflow-y: auto;
-  padding: 10px 12px 12px;
-  background: var(--chrome-bg2);
+  padding: calc(2 * var(--wx-border));
+  background: var(--chrome-bg);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: calc(2 * var(--wx-border));
 }
 
+/* A GTK frame: square, one hairline, and the label straddling the top edge at
+   its very left. The label is NOT bold - measuring ink density in the real
+   window put "Options" at 0.203 against "Negative" at 0.235, i.e. the same
+   weight - and the frame carries no padding of its own, because in wx every
+   child inside it brings its own wxFormBuilder border instead. */
 .imgc-group {
-  border: 1px solid #55585e;
-  border-radius: 3px;
-  padding: 8px 12px 10px;
+  border: 1px solid var(--ctl-border);
+  border-radius: 0;
+  padding: 0;
   margin: 0;
   min-inline-size: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+}
+
+.imgc-group legend {
+  padding: 0;
+  margin-left: -1px;
+  font-weight: normal;
 }
 
 /* brightSizer->Add( 0, 0, 1, wxEXPAND ) (bitmap2cmp_panel_base.cpp:79) sits
@@ -153,21 +175,19 @@
   justify-content: flex-start;
 }
 
-.imgc-group legend {
-  padding: 0 6px;
-  font-weight: 600;
-}
-
-/* Image Information: 4-column grid (label | X | Y | unit) */
+/* Image Information: a 4-column wxFlexGridSizer whose cells each carry a 5 px
+   border (bitmap2cmp_panel_base.cpp:47-88). One row is therefore one GtkLabel
+   tall with 5 px under it, which is the 23 px pitch the real window measures. */
 .imgc-info {
   display: grid;
   grid-template-columns: auto 1fr 1fr auto;
-  gap: 4px 10px;
+  padding: var(--wx-border);
+  gap: var(--wx-border);
   align-items: center;
 }
 
 .imgc-info .k {
-  color: #c6cad2;
+  padding-right: var(--wx-border);
 }
 
 /* A wxFlexGridSizer cell is left-aligned; only wxALIGN_RIGHT would move it. */
@@ -176,135 +196,267 @@
   font-variant-numeric: tabular-nums;
 }
 
-.imgc-info .u {
-  color: #9096a0;
-}
-
-/* Output Size row */
-.imgc-sizerow,
-.imgc-layerrow {
+/* Output Size row. bSizerRes: the label carries wxRIGHT|wxLEFT 5 and each of
+   the three controls wxRIGHT 5, and the sizer itself wxBOTTOM 5
+   (bitmap2cmp_panel_base.cpp:113-134). */
+.imgc-sizerow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  padding: 0 var(--wx-border) var(--wx-border);
+  gap: var(--wx-border);
 }
 
 .imgc-sizerow .lbl {
-  min-width: 34px;
+  padding-left: var(--wx-border);
 }
 
+/* m_layerLabel is indented 28 px, not the usual 5
+   (bitmap2cmp_panel_base.cpp:177), so it hangs under the Footprint radio's
+   label rather than under its button. */
 .imgc-layerrow {
-  margin: 4px 0 2px 24px;
+  display: flex;
+  align-items: center;
+  padding-left: 28px;
+  padding-right: var(--wx-border);
+  gap: var(--wx-border);
 }
 
-.imgc-layerrow .lbl {
-  color: #c6cad2;
+/* m_layerLabel->Enable( m_rbFootprint->GetValue() ) (bitmap2cmp_panel.cpp:571):
+   the label greys with its control. */
+.imgc-layerrow.disabled .lbl {
+  color: var(--ctl-fg-disabled);
 }
 
-.imgc-input {
-  flex: 1;
-  min-width: 0;
-  background: #1d1f23;
+/* Text fields and combos are the same height as a button, which is what makes a
+   mixed row line up. m_UnitSizeX/Y SetMinSize( 60, -1 ) and m_PixelUnit
+   SetMinSize( 80, -1 ), all three at sizer proportion 0, so the row packs left
+   and the slack stays on the right.
+
+   These rules carry .imgc-frame, and the entries carry `ze-bare`, purely to get
+   out from under the shell's blanket entry rule: that one is deliberately built
+   at (0,5,1) and documents `ze-bare` as its opt-out. Without both, the shell
+   paints these fields --chrome-bg2 with a 3 px radius and the GTK field metrics
+   below never reach the screen. */
+.imgc-frame .imgc-input,
+.imgc-frame .imgc-select {
+  background: var(--field-bg);
   color: var(--chrome-fg);
-  border: 1px solid #55585e;
-  border-radius: 2px;
-  padding: 3px 6px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  height: var(--ctl-height);
+  padding: 0 var(--field-pad-x);
   font: inherit;
+  flex: none;
+}
+
+.imgc-frame .imgc-input {
+  width: 60px;
   font-variant-numeric: tabular-nums;
 }
 
-.imgc-input:focus {
+.imgc-frame .imgc-select {
+  width: 80px;
+}
+
+.imgc-frame .imgc-input:focus,
+.imgc-frame .imgc-select:focus {
   outline: 1px solid var(--chrome-active-border);
 }
 
-.imgc-input:disabled {
-  opacity: 0.5;
-}
-
-.imgc-select {
-  background: #1d1f23;
-  color: var(--chrome-fg);
-  border: 1px solid #55585e;
-  border-radius: 2px;
-  padding: 3px 6px;
-  font: inherit;
-}
-
-.imgc-select.grow {
+/* m_layerCtrl is the one control here at sizer proportion 1. */
+.imgc-frame .imgc-select.grow {
   flex: 1;
+  width: auto;
 }
 
-.imgc-select:disabled {
-  opacity: 0.5;
+/* GTK greys a disabled control by colour, not by fading the whole widget: the
+   background and border stay put and only the text changes. */
+.imgc-frame .imgc-input:disabled,
+.imgc-frame .imgc-select:disabled {
+  color: var(--ctl-fg-disabled);
+  opacity: 1;
 }
 
-/* Options: threshold + negative */
+/* Options. The label carries wxRIGHT|wxLEFT 5, the slider
+   wxBOTTOM|wxLEFT|wxRIGHT 5 and the checkbox wxBOTTOM|wxRIGHT|wxLEFT 5
+   (bitmap2cmp_panel_base.cpp:144-156). */
 .imgc-thresh-label {
-  color: #c6cad2;
+  padding: 0 var(--wx-border);
 }
 
-/* wxSL_LABELS (bitmap2cmp_panel_base.cpp:124): GTK draws the current value
+/* wxSL_LABELS (bitmap2cmp_panel_base.cpp:150): GTK draws the current value
    centred ABOVE the thumb and the two range ends, 0 and 100, at the ends of the
-   track BELOW it. --imgc-thumb-width is the browser's range thumb; the thumb
-   centre travels only between half a thumb in from each end, which is what the
-   second term of the calc() corrects for. */
+   track BELOW it, each on its own label line. --slider-thumb-size is the
+   browser's range thumb; the thumb centre travels only between half a thumb in
+   from each end, which is what the second term of the calc() corrects for. */
 .imgc-slider {
-  --imgc-thumb-width: 16px;
   position: relative;
-  padding: 17px 0 16px;
+  padding: var(--ui-line-height) var(--wx-border);
+  margin-bottom: var(--wx-border);
 }
 
-.imgc-slider input[type="range"] {
+.imgc-frame .imgc-slider input[type='range'] {
   display: block;
   width: 100%;
+  height: calc(var(--slider-thumb-size) + 7px);
   margin: 0;
-  accent-color: var(--chrome-active-border);
+  padding: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.imgc-frame .imgc-slider input[type='range']::-webkit-slider-runnable-track {
+  height: var(--slider-track-height);
+  border-radius: calc(var(--slider-track-height) / 2);
+  background: linear-gradient(
+    to right,
+    var(--chrome-active) 0 var(--imgc-thumb-pos),
+    var(--slider-track-bg) var(--imgc-thumb-pos) 100%
+  );
+}
+
+.imgc-frame .imgc-slider input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+  border: 1px solid var(--slider-thumb-border);
+  box-sizing: border-box;
+  margin-top: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
+}
+
+.imgc-frame .imgc-slider input[type='range']:disabled::-webkit-slider-thumb {
+  background: var(--ctl-face-disabled);
 }
 
 .imgc-slider-val {
   position: absolute;
   top: 0;
-  left: calc(var(--imgc-thumb-pos) + (0.5 - var(--imgc-thumb-frac)) * var(--imgc-thumb-width));
+  left: calc(
+    var(--wx-border) + var(--imgc-thumb-pos) + (0.5 - var(--imgc-thumb-frac)) *
+      var(--slider-thumb-size)
+  );
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
-  color: var(--chrome-fg);
 }
 
 .imgc-slider-ends {
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: var(--wx-border);
+  right: var(--wx-border);
   display: flex;
   justify-content: space-between;
   font-variant-numeric: tabular-nums;
-  color: var(--chrome-fg);
 }
 
+/* GtkCheckButton / GtkRadioButton: a 22 px row with a 16 px indicator that
+   carries a 4 px margin either side. */
 .imgc-check,
 .imgc-radio {
   display: flex;
   align-items: center;
-  gap: 7px;
+  height: var(--check-row);
   cursor: default;
 }
 
-.imgc-check input,
-.imgc-radio input {
-  accent-color: var(--chrome-active-border);
+.imgc-frame .imgc-check input,
+.imgc-frame .imgc-radio input {
+  appearance: none;
+  flex: none;
+  width: var(--check-size);
+  height: var(--check-size);
+  margin: 0 var(--check-margin);
+  box-sizing: border-box;
+  background: var(--check-face);
+  border: 1px solid var(--ctl-border);
+  border-radius: 3px;
+}
+
+.imgc-frame .imgc-radio input {
+  border-radius: 50%;
+}
+
+.imgc-frame .imgc-check input:checked,
+.imgc-frame .imgc-radio input:checked {
+  background: var(--chrome-active);
+  border-color: var(--chrome-active);
+}
+
+/* The check mark and the radio dot GTK draws inside the accent square. */
+.imgc-frame .imgc-check input:checked::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 8px;
+  margin: 1px auto 0;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.imgc-frame .imgc-radio input:checked::after {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 4px auto;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/* wxALL 5 on m_aspectRatioCheckbox; wxBOTTOM|wxRIGHT|wxLEFT 5 on
+   m_checkNegative (bitmap2cmp_panel_base.cpp:135,156). */
+.imgc-group > .imgc-check {
+  margin: 0 var(--wx-border) var(--wx-border);
+}
+
+.imgc-sizerow + .imgc-check {
+  margin-top: var(--wx-border);
+}
+
+/* Output Format: wxFlexGridSizer( 5, 1, 2, 0 ), so a 2 px gap between rows, and
+   then the per-row wxFormBuilder borders on top of it
+   (bitmap2cmp_panel_base.cpp:161-193). Row 3 - the Layer row - is the one added
+   with no border at all. */
+.imgc-formats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--wx-border);
+}
+
+.imgc-formats > :nth-child(1) {
+  margin-bottom: var(--wx-border); /* wxBOTTOM|wxRIGHT, 5 */
+}
+
+.imgc-formats > :nth-child(2) {
+  margin-top: var(--wx-border); /* wxTOP|wxRIGHT, 5 */
+}
+
+.imgc-formats > :nth-child(4) {
+  margin: var(--wx-border) 0; /* wxTOP|wxBOTTOM|wxRIGHT, 5 */
+}
+
+.imgc-formats > :nth-child(5) {
+  margin-top: var(--wx-border); /* wxTOP|wxRIGHT, 5 */
 }
 
 /* Buttons */
-.imgc-btn {
-  background: #3a3d43;
+.imgc-frame .imgc-btn {
+  background: var(--ctl-face);
   color: var(--chrome-fg);
-  border: 1px solid #55585e;
-  border-radius: 3px;
-  padding: 6px 14px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  height: var(--ctl-height);
+  padding: 0 var(--ctl-pad-x);
   font: inherit;
   cursor: default;
+  flex: none;
 }
 
-.imgc-btn:hover:not(:disabled) {
+.imgc-frame .imgc-btn:hover:not(:disabled) {
   background: var(--chrome-hover);
 }
 
@@ -312,18 +464,17 @@
   width: 100%;
 }
 
-.imgc-btn.primary {
-  background: var(--chrome-active);
-  border-color: var(--chrome-active-border);
-}
-
-.imgc-btn.primary:hover:not(:disabled) {
-  background: #2069ad;
-}
-
-.imgc-btn:disabled {
-  opacity: 0.45;
+.imgc-frame .imgc-btn:disabled {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
   cursor: default;
+}
+
+/* m_buttonExportClipboard is added wxBOTTOM|wxRIGHT|wxLEFT - no wxTOP - so it
+   sits 5 px under Export to File, half the column's usual 10
+   (bitmap2cmp_panel_base.cpp:205). */
+.imgc-btn.block + .imgc-btn.block {
+  margin-top: calc(-1 * var(--wx-border));
 }
 
 /* --- status bar (matches the other editors) --- */
@@ -336,14 +487,12 @@
   align-items: center;
   min-height: 24px;
   background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
-  font-size: 12px;
+  border-top: 1px solid var(--ctl-border);
 }
 
 .imgc-statusbar .cell {
   padding: 4px 10px;
-  border-right: 1px solid var(--chrome-border);
-  color: #c6cad2;
+  border-right: 1px solid var(--ctl-border);
   font-variant-numeric: tabular-nums;
 }
 
@@ -364,8 +513,8 @@
 
 .imgc-modal {
   background: var(--panel-bg);
-  border: 1px solid var(--chrome-active-border);
-  border-radius: 5px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   width: 460px;
   max-width: 92vw;
@@ -378,7 +527,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--chrome-border);
+  border-bottom: 1px solid var(--ctl-border);
   font-weight: 600;
 }
 
@@ -387,7 +536,7 @@
   border: none;
   color: var(--chrome-fg);
   cursor: default;
-  font-size: 14px;
+  font: inherit;
 }
 
 .imgc-modal-body {
@@ -399,5 +548,5 @@
   display: flex;
   justify-content: flex-end;
   padding: 8px 12px;
-  border-top: 1px solid var(--chrome-border);
+  border-top: 1px solid var(--ctl-border);
 }
