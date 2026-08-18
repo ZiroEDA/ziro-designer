@@ -730,14 +730,16 @@ function transformDirectiveLabelAbout(
   center: Vec2,
 ): SchDirectiveLabel {
   const at = movePoint(d.at, op, center);
-  const field = (f: SchField, next: SchField): SchField =>
+  // `pos.x = GetPosition().x + delta.x` with `delta = old_pos - pos`: the field
+  // is mirrored about the flag's *old* anchor and then translated onto the new
+  // one, so it keeps its offset. Only the mirror arms use this.
+  const field = (f: SchField, next: SchField, leftRight: boolean): SchField =>
     f.at
       ? {
           ...next,
-          at:
-            op === 'mirrorY' || op === 'rotateCW' || op === 'rotateCCW'
-              ? { x: at.x + (d.at.x - f.at.x), y: f.at.y }
-              : { x: f.at.x, y: at.y + (d.at.y - f.at.y) },
+          at: leftRight
+            ? { x: at.x + (d.at.x - f.at.x), y: f.at.y }
+            : { x: f.at.x, y: at.y + (d.at.y - f.at.y) },
         }
       : next;
 
@@ -749,7 +751,7 @@ function transformDirectiveLabelAbout(
       ...d,
       angle: mirrorDirectiveLabel(d, true).angle,
       at,
-      fields: d.fields.map((f) => field(f, flipEffectsHJustify(f))),
+      fields: d.fields.map((f) => field(f, flipEffectsHJustify(f), true)),
     };
   }
   if (op === 'mirrorX') {
@@ -758,7 +760,7 @@ function transformDirectiveLabelAbout(
       ...d,
       angle: mirrorDirectiveLabel(d, false).angle,
       at,
-      fields: d.fields.map((f) => field(f, f)),
+      fields: d.fields.map((f) => field(f, f, false)),
     };
   }
   // `SCH_LABEL_BASE::Rotate`: spin the flag, rotate each field about the flag's
