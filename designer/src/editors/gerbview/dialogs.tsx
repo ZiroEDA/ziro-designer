@@ -18,6 +18,7 @@ import {
   IU_PER_MM,
 } from '@ziroeda/gerbview';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import type { MsgPanelItem } from '../../ui/MsgPanel.js';
 
 const shapeName: Record<APERTURE_T, string> = {
   [APERTURE_T.APT_CIRCLE]: 'Round',
@@ -114,14 +115,16 @@ export function DCodeListDialog({
 }
 
 /** Item inspector, the message-panel info for a picked graphic item. */
-export function ItemInfoPanel({
-  item,
-  unit,
-}: {
-  item: GERBER_DRAW_ITEM | null;
-  unit: 'mm' | 'in' | 'mils';
-}): JSX.Element | null {
-  if (!item) return null;
+/**
+ * `GERBER_DRAW_ITEM::GetMsgPanelInfo` (gerbview/gerber_draw_item.cpp), the rows
+ * GerbView puts in the shared EDA_MSG_PANEL when an item is picked. Returns the
+ * MSG_PANEL_ITEMs rather than markup, so the panel itself is the shared one.
+ */
+export function itemInfoRows(
+  item: GERBER_DRAW_ITEM | null,
+  unit: 'mm' | 'in' | 'mils',
+): MsgPanelItem[] {
+  if (!item) return [];
   const toU = (iu: number): string => {
     const mm = iu / IU_PER_MM;
     if (unit === 'mm') return `${mm.toFixed(3)} mm`;
@@ -129,22 +132,13 @@ export function ItemInfoPanel({
     return `${((mm / 25.4) * 1000).toFixed(2)} mils`;
   };
   const meta = item.netMetadata;
-  const rows: [string, string][] = [['Type', item.describe()]];
-  if (item.dcodeNum) rows.push(['DCode', `D${item.dcodeNum}`]);
-  if (item.width) rows.push(['Width', toU(item.width)]);
-  rows.push(['Position', `${toU(item.start.x)}, ${toU(item.start.y)}`]);
-  rows.push(['Polarity', item.layerPolarity ? 'Dark' : 'Clear']);
-  if (meta.netName) rows.push(['Net', meta.netName]);
-  if (meta.componentRef) rows.push(['Component', meta.componentRef]);
-  if (meta.padName) rows.push(['Pad', meta.padName]);
-
-  return (
-    <div className="ze-gbr-iteminfo">
-      {rows.map(([k, v]) => (
-        <span key={k} className="ze-gbr-info-cell">
-          <b>{k}:</b> {v}
-        </span>
-      ))}
-    </div>
-  );
+  const rows: MsgPanelItem[] = [{ upper: 'Type', lower: item.describe() }];
+  if (item.dcodeNum) rows.push({ upper: 'DCode', lower: `D${item.dcodeNum}` });
+  if (item.width) rows.push({ upper: 'Width', lower: toU(item.width) });
+  rows.push({ upper: 'Position', lower: `${toU(item.start.x)}, ${toU(item.start.y)}` });
+  rows.push({ upper: 'Polarity', lower: item.layerPolarity ? 'Dark' : 'Clear' });
+  if (meta.netName) rows.push({ upper: 'Net', lower: meta.netName });
+  if (meta.componentRef) rows.push({ upper: 'Component', lower: meta.componentRef });
+  if (meta.padName) rows.push({ upper: 'Pad', lower: meta.padName });
+  return rows;
 }
