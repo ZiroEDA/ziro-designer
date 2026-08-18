@@ -13,6 +13,7 @@
 
 import { useState, type JSX } from 'react';
 import type { BoardLayer, CopperLayerType, LayersSetup } from '../../board_settings.js';
+import { useModalEscape } from '../../../../ui/useModalEscape.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -37,6 +38,11 @@ export function PanelPcbLayers({ value, onChange }: Props): JSX.Element {
   // addUserDefinedLayer: an EDA_LIST_DIALOG of the User.1-45 layers not yet on
   // the board ("Select layer to add:"); the picked one appends, enabled.
   const [addOpen, setAddOpen] = useState(false);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the picker is up, so it does not
+  // take the key meant for the Board Setup dialog behind it.
+  useModalEscape(() => setAddOpen(false), addOpen);
   const [addSel, setAddSel] = useState('');
   const availableUserLayers = Array.from({ length: 45 }, (_, i) => `User.${i + 1}`).filter(
     (id) => !value.layers.some((l) => l.id === id),

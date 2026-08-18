@@ -37,6 +37,7 @@ import {
   type RoutingSettings,
 } from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
 import { settings } from '../../../prefs/settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   onClose: () => void;
@@ -50,6 +51,10 @@ const MODES: readonly (readonly [PnsMode, string])[] = [
 ];
 
 export function DialogPnsSettings({ onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<RoutingSettings>(() => readRoutingSettings(settings.pcbnew.tools.pns));
   const set = (patch: Partial<RoutingSettings>): void => setV({ ...v, ...patch });
 

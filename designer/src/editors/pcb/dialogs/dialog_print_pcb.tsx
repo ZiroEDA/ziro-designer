@@ -39,6 +39,7 @@ import type { Board } from '@ziroeda/pcbnew';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const DPI = 300;
@@ -186,6 +187,11 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
     saveSettings();
     onClose();
   };
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Esc is the Close button, which stores the print
+  // options on the way out as the dialog's own close does.
+  useModalEscape(saveAndClose);
 
   // "Print" auto-opens the browser print flow on load; "Print Preview" (KiCad's
   // Apply / preview frame) just shows the composed pages so they can be reviewed.

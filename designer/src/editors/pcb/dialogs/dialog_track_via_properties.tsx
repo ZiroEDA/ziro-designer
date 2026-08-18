@@ -23,6 +23,7 @@ import type {
   TrackViaValues,
 } from '@ziroeda/pcbnew/src/track_via_properties.js';
 import { collectTrackViaValues } from '@ziroeda/pcbnew/src/track_via_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   selection: TrackViaSelection;
@@ -71,6 +72,10 @@ export function DialogTrackViaProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const seed = useMemo(() => collectTrackViaValues(selection), [selection]);
 
   const hasTracks = selection.tracks.length > 0 || selection.arcs.length > 0;

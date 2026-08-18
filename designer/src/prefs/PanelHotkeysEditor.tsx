@@ -45,6 +45,7 @@ import {
 import { importOntoNames, parseHotkeyFile } from '../ui/hotkeys_file.js';
 import { isBrowserReserved } from '../ui/browser_hotkeys.js';
 import { comboFromEvent, isReservedHotkey } from '../editors/schematic/hotkey_bindings.js';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 interface Props {
   overrides: HotkeyOverrides;
@@ -76,15 +77,23 @@ function HotkeyPrompt({
   onPick: (keys: string | null) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Modifiers alone are not a hotkey; upstream's MapKeypressToKeycode
       // returns 0 for them and the dialog keeps waiting.
       if (['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'OS'].includes(e.key)) return;
+      // Escape is not a hotkey being assigned, it is the dialog's Cancel -
+      // "the ESC key was used to close the dialog" in PromptForKey. The modal
+      // stack owns it (see useModalEscape above), so leave it alone here
+      // rather than race that listener for it.
+      if (e.key === 'Escape') return;
       e.preventDefault();
       e.stopPropagation();
-      if (e.key === 'Escape') onCancel();
-      else onPick(comboFromEvent(e));
+      onPick(comboFromEvent(e));
     };
     // Capture, so the combo being assigned cannot also fire whatever it is
     // currently bound to on the way past.
@@ -146,6 +155,13 @@ export function PanelHotkeysEditor({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the dialog is up, so a
+  // closed one does not sit on the stack swallowing the key.
+  // The conflict box's Esc is its "No", the button that changes nothing.
+  useModalEscape(() => setConflict(null), conflict !== null);
+  useModalEscape(() => setError(null), error !== null);
   /** What the last import did, so a file that matched nothing says so. */
   const [imported, setImported] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);

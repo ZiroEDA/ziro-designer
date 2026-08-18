@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
 export const parseNum = (s: string): number => {
@@ -222,16 +223,9 @@ export function Modal({
   footer?: ReactNode;
   width?: number;
 }): JSX.Element {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      // Hidden frames must not act on global hotkeys (editors stay mounted
-      // behind display:none; no stamp = standalone build, always active).
-      if ((document.body.dataset.activeView ?? 'calculator') !== 'calculator') return;
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
 
   return (
     <div className="calc-modal-backdrop" onMouseDown={onClose}>

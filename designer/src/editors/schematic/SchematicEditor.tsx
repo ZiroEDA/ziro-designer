@@ -431,6 +431,7 @@ import { StatusReadout, type StatusReadoutHandle } from './components/StatusRead
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -887,6 +888,12 @@ export function SchematicEditor({
     name: string;
     file: string;
   } | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the dialog is up, so a
+  // closed one does not sit on the stack swallowing the key.
+  useModalEscape(() => setSheetDraw(null), sheetDraw !== null);
+
   const [sheetPinDraw, setSheetPinDraw] = useState<{
     index: number;
     at: Vec2;
@@ -988,6 +995,11 @@ export function SchematicEditor({
     page: string;
     sheet?: { index: number; uuid: string };
   } | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the dialog is up, so a
+  // closed one does not sit on the stack swallowing the key.
+  useModalEscape(() => setPageEdit(null), pageEdit !== null);
   // Editing a wire/bus stroke (DIALOG_WIRE_BUS_PROPERTIES) or a junction's
   // diameter (DIALOG_JUNCTION_PROPS).
   const [lineEdit, setLineEdit] = useState<{
@@ -1913,6 +1925,11 @@ export function SchematicEditor({
   // Name Net Chain prompt (NameNetChain's wxGetTextFromUser).
   const [createChainOpen, setCreateChainOpen] = useState(false);
   const [chainRename, setChainRename] = useState<{ orig: string; name: string } | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the dialog is up, so a
+  // closed one does not sit on the stack swallowing the key.
+  useModalEscape(() => setChainRename(null), chainRename !== null);
   // Generate Bill of Materials (Symbol Fields Table export) dialog.
   const [bomOpen, setBomOpen] = useState(false);
   // Export Netlist (DIALOG_EXPORT_NETLIST) dialog.

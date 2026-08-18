@@ -39,6 +39,7 @@ import {
   type PhysicalStackup,
   type StackupLayer,
 } from '../../board_settings.js';
+import { useModalEscape } from '../../../../ui/useModalEscape.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -227,6 +228,13 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
   const [listSel, setListSel] = useState(0);
   const [matTarget, setMatTarget] = useState<MaterialTarget | null>(null);
   const [matDraft, setMatDraft] = useState<Substrate>({ name: '', epsilonR: 0, lossTan: 0 });
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Each is registered only while it is up, so neither
+  // sits on the stack taking the key meant for the Board Setup dialog behind
+  // them.
+  useModalEscape(() => setMatTarget(null), matTarget !== null);
+  useModalEscape(() => setListPick(null), listPick !== null);
 
   // onAddDielectricLayer: every dielectric sublayer is an insert position.
   const onAddDielectric = (): void => {

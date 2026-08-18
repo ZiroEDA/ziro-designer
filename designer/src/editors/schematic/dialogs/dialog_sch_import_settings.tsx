@@ -12,6 +12,7 @@
  */
 
 import { useRef, useState, type JSX } from 'react';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export interface SchImportOptions {
   formatting: boolean;
@@ -60,6 +61,10 @@ interface Props {
 }
 
 export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [opts, setOpts] = useState<SchImportOptions>(defaultSchImportOptions);
   const [fileName, setFileName] = useState('');
   const [fileText, setFileText] = useState<string | null>(null);

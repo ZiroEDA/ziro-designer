@@ -23,6 +23,7 @@ import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { TextEffects } from '@ziroeda/eeschema';
 import type { ItemColor } from './dialog_line_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** DEFAULT_SIZE_TEXT, 50 mil, the size a field falls back to. */
 const DEFAULT_TEXT_SIZE = mmToIU(1.27);
@@ -66,6 +67,10 @@ const alignOf = (fx: TextEffects, axis: 'h' | 'v'): string => {
 };
 
 export function DialogFieldProperties({ initial, mandatory, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [key, setKey] = useState(initial.key);
   const [value, setValue] = useState(initial.value);
   const [x, setX] = useState(String(iuToMM(initial.at.x)));

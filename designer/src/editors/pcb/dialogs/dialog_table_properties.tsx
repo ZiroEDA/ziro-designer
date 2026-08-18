@@ -21,6 +21,7 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { TableValues } from '@ziroeda/pcbnew/src/table_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 const STROKE_STYLES: StrokeType[] = ['solid', 'dash', 'dot', 'dash_dot', 'dash_dot_dot'];
 
@@ -32,6 +33,10 @@ interface Props {
 }
 
 export function DialogTableProperties({ initial, layers, onApply, onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<TableValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
   const set = (patch: Partial<TableValues>): void => setV((p) => ({ ...p, ...patch }));

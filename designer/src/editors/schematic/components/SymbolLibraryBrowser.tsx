@@ -32,6 +32,7 @@ import {
 import { settings } from '../../../prefs/settings.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;
@@ -92,6 +93,10 @@ const filterTerms = (filter: string): string[] => filter.split(/[ \t\r\n]+/).fil
 const symbolName = (sym: LibSymbol): string => sym.libId.split(':').pop() ?? sym.libId;
 
 export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const theme = useSchematicTheme();
   const cfg = settings.eeschema.lib_view;
 
@@ -412,9 +417,9 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // Escape is the dialog's Cancel and belongs to the modal stack, not here
+      // - see ui/modal_escape.ts, and useModalEscape above.
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         const delta = e.key === 'ArrowUp' ? -1 : 1;
         if (libPaneFocused.current) {
           const at = libs.findIndex((l) => l.name === curLib);

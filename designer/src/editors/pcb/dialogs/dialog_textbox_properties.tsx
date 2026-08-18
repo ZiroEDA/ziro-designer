@@ -28,6 +28,7 @@ import type {
   VertJustify,
 } from '@ziroeda/pcbnew/src/textbox_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 const STROKE_STYLES: StrokeType[] = ['solid', 'dash', 'dot', 'dash_dot', 'dash_dot_dot'];
 const H_JUSTIFY: HorizJustify[] = ['left', 'center', 'right'];
@@ -59,6 +60,10 @@ export function DialogTextBoxProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<TextBoxValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
   const set = (patch: Partial<TextBoxValues>): void => setV((p) => ({ ...p, ...patch }));

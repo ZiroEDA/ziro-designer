@@ -40,6 +40,7 @@ import {
 } from '@ziroeda/eeschema';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import type { ItemColor } from './dialog_line_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A flag shape: a label's electrical one, or a directive label's outline. */
 export type AnyLabelShape = LabelShape | DirectiveShape;
@@ -228,6 +229,10 @@ export function DialogLabelProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [text, setText] = useState(initial.text);
   const [multi, setMulti] = useState(false);
   const [shape, setShape] = useState<AnyLabelShape>(initial.shape);
@@ -294,9 +299,6 @@ export function DialogLabelProperties({
     if (e.key === 'Enter' && !multi) {
       e.preventDefault();
       submit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
     }
   };
 
@@ -357,10 +359,7 @@ export function DialogLabelProperties({
                   className="ze-lp-value ze-lp-multiline"
                   rows={4}
                   defaultValue={text}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Escape') onCancel();
-                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
                 />
               ) : (
                 <input

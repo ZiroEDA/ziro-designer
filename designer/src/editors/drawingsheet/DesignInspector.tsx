@@ -11,6 +11,7 @@
 
 import type { JSX } from 'react';
 import type { WksItem, WksText } from '@ziroeda/common';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 const TYPE_LABEL: Record<WksItem['type'], string> = {
   line: 'Line',
@@ -43,6 +44,10 @@ export function DesignInspector({
   onSelect: (index: number) => void;
   onClose: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const cell: React.CSSProperties = {
     padding: '4px 8px',
     borderBottom: '1px solid rgba(128,128,128,0.2)',

@@ -14,6 +14,7 @@
  */
 import { useState, type JSX } from 'react';
 import { isSplitNeeded } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export interface IncrementAnnotationsResult {
   startRef: string;
@@ -28,6 +29,10 @@ interface Props {
 }
 
 export function DialogIncrementAnnotations({ onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [startRef, setStartRef] = useState('');
   const [increment, setIncrement] = useState('1');
   const [allSheets, setAllSheets] = useState(false);

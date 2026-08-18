@@ -14,6 +14,7 @@
  */
 import { useMemo, useState, type JSX } from 'react';
 import { isValidLibId, type LibIdRow } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   rows: readonly LibIdRow[];
@@ -33,6 +34,10 @@ export function DialogEditSymbolsLibId({
   onClose,
   errors,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [newIds, setNewIds] = useState<Record<string, string>>({});
   const [note, setNote] = useState<string | null>(null);
 

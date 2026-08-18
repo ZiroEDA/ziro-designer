@@ -68,6 +68,7 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -240,6 +241,13 @@ export function SymbolEditor({
   const [newLibName, setNewLibName] = useState<string | null>(null);
   /** DisplayErrorMessage for the MAIL_LIB_EDIT refusals below. */
   const [libError, setLibError] = useState<{ title: string; message: string } | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the dialog is up, so a
+  // closed one does not sit on the stack swallowing the key.
+  // The error box is OK-only, and wx still sends wxID_CANCEL on Esc there.
+  useModalEscape(() => setNewLibName(null), newLibName !== null);
+  useModalEscape(() => setLibError(null), libError !== null);
 
   const lastPin = useRef<LastPinState>({ ...DEFAULT_LAST_PIN });
   const controller = useRef<SymbolCanvasController>(null);
@@ -1936,7 +1944,7 @@ export function SymbolEditor({
                       setExpanded((p) => new Set([...p, newLibName.trim()]));
                       setNewLibName(null);
                       bump();
-                    } else if (e.key === 'Escape') setNewLibName(null);
+                    }
                   }}
                 />
               </div>

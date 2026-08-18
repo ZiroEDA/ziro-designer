@@ -38,6 +38,7 @@ import {
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_NAMES, PIN_TYPE_NAMES } from '../../symbol/render/symbolRenderer.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /**
  * Symbol Properties dialog, ported from KiCad's DIALOG_SYMBOL_PROPERTIES
@@ -119,6 +120,10 @@ export function SymbolPropertiesDialog({
   onEditSymbol,
   onEditLibrarySymbol,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const unitCount = useMemo(
     () => (lib ? lib.units.reduce((m, u) => Math.max(m, u.unit), 0) : 1),
     [lib],

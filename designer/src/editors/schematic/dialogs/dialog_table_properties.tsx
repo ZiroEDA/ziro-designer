@@ -28,6 +28,7 @@ import {
   type TableColor,
   type TableStrokeStyle,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The combo's labels, in `lineTypeNames` order. */
 const STYLE_LABELS: Record<TableStrokeStyle, string> = {
@@ -85,6 +86,10 @@ export function DialogTableProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [v, setV] = useState<SchTableValues>(initial);
   // The width fields are held as text while they are being typed, so a half
   // typed "0." is not rounded away under the cursor.

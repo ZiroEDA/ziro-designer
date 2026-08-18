@@ -16,6 +16,7 @@ import type { PageSettings } from '@ziroeda/eeschema';
 import { defaultDrawingSheet, layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
 import { PAPER_CHOICES, PAPER_MM } from '../../drawingsheet/PageSettingsDialog.js';
 import { drawDrawingSheetItems, DS_ITEM_COLOR } from '../../drawingsheet/wksRender.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** No preview item is ever selected. */
 const NO_PREVIEW_SELECTION: ReadonlySet<number> = new Set();
@@ -87,6 +88,10 @@ export function DialogPageSettings({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const seed = fromToken(value.paper);
   const [size, setSize] = useState(seed.size);
   const [portrait, setPortrait] = useState(seed.portrait);

@@ -15,6 +15,7 @@ import {
 } from '../render/symbolRenderer.js';
 import { allPins, unitCount, hasAlternateBodyStyle } from '../edits.js';
 import { KICAD_CLASSIC } from '../../schematic/theme.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /**
  * The Symbol Editor's dialogs, ported from KiCad:
@@ -100,6 +101,10 @@ export function PinPropertiesDialog({
   onOk: (r: PinDialogResult) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [name, setName] = useState(pin.name);
   const [number, setNumber] = useState(pin.number);
   const [etype, setEtype] = useState(pin.electricalType);
@@ -340,6 +345,10 @@ export function NewSymbolDialog({
   onOk: (r: NewSymbolResult) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [name, setName] = useState('');
   const [parent, setParent] = useState(inheritFrom ?? '');
   const [reference, setReference] = useState('U');
@@ -571,6 +580,10 @@ export function LibSymbolPropertiesDialog({
   onOk: (r: LibSymbolPropsResult) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   interface Row {
     key: string;
     value: string;
@@ -835,6 +848,10 @@ export function SymbolTextDialog({
   onOk: (r: { text: string; fontSize: number; bold: boolean; italic: boolean }) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [text, setText] = useState(initial?.text ?? '');
   const [size, setSize] = useState(initial?.fontSize ?? 1.27 * MM);
   const [bold, setBold] = useState(initial?.bold ?? false);
@@ -865,7 +882,6 @@ export function SymbolTextDialog({
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') submit();
-                if (e.key === 'Escape') onCancel();
               }}
             />
           </label>
@@ -915,6 +931,10 @@ export function ShapePropertiesDialog({
   onOk: (r: ShapePropsResult) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [width, setWidth] = useState(initial.strokeWidth);
   const [type, setType] = useState(initial.strokeType || 'default');
   const [fill, setFill] = useState<ShapePropsResult['fillType']>(
@@ -985,6 +1005,10 @@ export function PinTableDialog({
   onOk: (next: LibSymbol) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   interface Row {
     unitIdx: number;
     pinIdx: number;
@@ -1218,6 +1242,10 @@ export function SymbolCheckDialog({
   symbol: LibSymbol;
   onClose: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const messages = useMemo(() => checkLibSymbol(symbol), [symbol]);
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>

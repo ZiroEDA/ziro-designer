@@ -23,6 +23,7 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import { shapePointsUsed } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A millimetre text box bound to an IU value. */
 function useMmText(): [Record<string, string>, (k: string, s: string) => void] {
@@ -43,6 +44,10 @@ export function DialogTextProperties({
   onApply,
   onClose,
 }: TextProps): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<TextValues>(initial);
   const [text, setText] = useMmText();
   const set = (patch: Partial<TextValues>): void => setV((p) => ({ ...p, ...patch }));
@@ -187,6 +192,10 @@ export function DialogShapeProperties({
   onApply,
   onClose,
 }: ShapeProps): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<ShapeValues>(initial);
   const [text, setText] = useMmText();
   const set = (patch: Partial<ShapeValues>): void => setV((p) => ({ ...p, ...patch }));

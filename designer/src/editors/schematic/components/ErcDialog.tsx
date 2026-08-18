@@ -14,6 +14,7 @@ import {
 import { ContextMenu, type MenuItem } from '../../../ui/MenuBar.js';
 import { ERC_PHASES } from '@ziroeda/eeschema';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /**
  * Electrical Rules Checker. Counterpart: `eeschema/dialogs/dialog_erc.cpp`
@@ -357,14 +358,11 @@ export function ErcDialog({
     window.addEventListener('pointerup', up);
   };
 
-  // Escape closes, as the dialog's Cancel/Close button does.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Escape closes, as the dialog's Cancel/Close button does. On the shared
+  // stack rather than a listener of its own (ui/modal_escape.ts): ERC opens
+  // Severities, the Pin Conflicts Map and the Connection Grid on top of
+  // itself, and a plain window listener closed those *and* ERC with one key.
+  useModalEscape(onClose);
 
   /** OnERCItemRClick's menu for one violation. */
   const rowMenu = (index: number): MenuItem[] => {

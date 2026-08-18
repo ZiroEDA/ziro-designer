@@ -41,6 +41,7 @@ import {
   DXF_IMPORT_UNITS,
 } from '@ziroeda/common/src/import_gfx/dxf_import_plugin.js';
 import type { LibGraphic, SchLabel } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   /**
@@ -149,6 +150,10 @@ function runImport(name: string, text: string, p: Params): Imported {
 }
 
 export function DialogImportGfx({ onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [interactive, setInteractive] = useState(true);
   const [params, setParams] = useState<Params>(DEFAULT_PARAMS);

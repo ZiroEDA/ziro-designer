@@ -21,6 +21,7 @@ import {
   type CommittedNetChain,
   type DetectedNetChain,
 } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** DIALOG_CREATE_NET_CHAIN::FOCUS_HINT. */
 export interface CreateChainFocusHint {
@@ -51,6 +52,10 @@ export function DialogCreateNetChain({
   onCreate,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [filter, setFilter] = useState('');
   const [sel, setSel] = useState(0);
   const [nameInput, setNameInput] = useState('');

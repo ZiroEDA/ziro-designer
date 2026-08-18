@@ -16,6 +16,7 @@ import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import { settings } from '../../../prefs/settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The project-persisted slice of the dialog (SCHEMATIC_SETTINGS: sort order,
  *  numbering method, start number, DIALOG_ANNOTATE reads them on open and
@@ -97,6 +98,11 @@ export function DialogAnnotate({
     });
     onClose({ order: order === 'unsorted' ? 'x' : order, algo, startNumber });
   };
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Esc is the Close button, which saves the dialog's
+  // settings on the way out exactly as OnCancelClick does.
+  useModalEscape(close);
 
   const run: AnnotateRun = {
     scope,

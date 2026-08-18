@@ -9,6 +9,7 @@
  * enabled list.
  */
 import { useState } from 'react';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 export interface SelectColumnsDialogProps {
   /** Every column the tree can show (m_availableItems). */
@@ -25,6 +26,10 @@ export function SelectColumnsDialog({
   onOk,
   onCancel,
 }: SelectColumnsDialogProps): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [enabledList, setEnabledList] = useState<string[]>([...enabled]);
   const [selAvailable, setSelAvailable] = useState<string | null>(null);
   const [selEnabled, setSelEnabled] = useState<string | null>(null);
@@ -62,13 +67,7 @@ export function SelectColumnsDialog({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-select-columns"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
-        }}
-      >
+      <div className="ze-modal ze-select-columns" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           Select Columns
           <span className="x" onClick={onCancel}>

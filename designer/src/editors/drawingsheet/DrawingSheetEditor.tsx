@@ -54,6 +54,7 @@ import { drawDrawingSheetItems, DS_PAGE_COLOR } from './wksRender.js';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 export interface DrawingSheetEditorFile {
   name: string;
@@ -1436,6 +1437,10 @@ function PreferencesDialog({
   onFullCrosshair: (v: boolean) => void;
   onClose: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>

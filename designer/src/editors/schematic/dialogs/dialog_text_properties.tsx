@@ -31,6 +31,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import type { ItemColor } from './dialog_line_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** KiCad line styles (`(stroke (type ..))`), in the border-style dropdown order. */
 const LINE_STYLES: { value: string; label: string }[] = [
@@ -167,6 +168,10 @@ function Swatch({
 }
 
 export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [text, setText] = useState(initial.text);
   const [bold, setBold] = useState(initial.bold);
   const [italic, setItalic] = useState(initial.italic);
@@ -242,10 +247,7 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
               className="ze-lp-value ze-tp-text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Escape') onCancel();
-              }}
+              onKeyDown={(e) => e.stopPropagation()}
             />
           </div>
 

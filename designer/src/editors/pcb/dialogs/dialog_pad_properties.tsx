@@ -17,6 +17,7 @@
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { PadValues } from '@ziroeda/pcbnew/src/pad_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   initial: PadValues;
@@ -57,6 +58,10 @@ export function DialogPadProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState<PadValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});

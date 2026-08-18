@@ -30,6 +30,7 @@ import { useState, type JSX } from 'react';
 import type { PlotOpts } from '../render/plot.js';
 import { BUILTIN_THEMES } from '../theme.js';
 import { settings } from '../../../prefs/settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   onPrint: (opts: PlotOpts, themeId?: string) => void;
@@ -80,6 +81,11 @@ export function DialogPrint({ onPrint, onPreview, themeId, onClose }: Props): JS
     savePrintOptions();
     onClose();
   };
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Esc is the Close button, which stores the print
+  // options on the way out as the dialog's own close does.
+  useModalEscape(saveAndClose);
 
   const run = (fn?: (opts: PlotOpts, themeId?: string) => void): void => {
     savePrintOptions();

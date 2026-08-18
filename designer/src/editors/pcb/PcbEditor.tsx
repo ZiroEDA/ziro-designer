@@ -322,6 +322,7 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -1355,6 +1356,11 @@ export function PcbEditor({
     message: string;
     details?: string;
   } | null>(null);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. An OK-only message box still cancels on Esc: wx sends
+  // wxID_CANCEL whether or not a Cancel button exists.
+  useModalEscape(() => setUpdatePcbError(null), updatePcbError !== null);
   const [drcResults, setDrcResults] = useState<DrcViolation[] | null>(null);
   const [drcSelected, setDrcSelected] = useState<number | null>(null);
   const drcMarkersRef = useRef<DrcMarkerDraw[]>([]);

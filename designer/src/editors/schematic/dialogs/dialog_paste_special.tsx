@@ -15,6 +15,7 @@
 
 import { useState, type JSX } from 'react';
 import type { PasteMode } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   /** `eeschema.annotation.automatic`, which decides the mode the dialog opens on. */
@@ -30,6 +31,10 @@ const OPTIONS: { mode: PasteMode; label: string }[] = [
 ];
 
 export function DialogPasteSpecial({ annotateAutomatic, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [mode, setMode] = useState<PasteMode>(annotateAutomatic ? 'unique' : 'remove');
 
   return (

@@ -45,6 +45,7 @@ import {
   type BomPreset,
   type BomPresets,
 } from '../schematic_settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */
 export type FieldsEdits = FieldsTableEdits['fields'];
@@ -549,6 +550,11 @@ export function DialogSymbolFieldsTable({
     }
     onClose();
   };
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Esc is the Cancel button, which asks before discarding
+  // edited fields exactly as OnCancel does.
+  useModalEscape(onCancel);
 
   const onExport = (): void => {
     if (

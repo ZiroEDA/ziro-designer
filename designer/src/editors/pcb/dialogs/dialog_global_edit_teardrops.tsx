@@ -22,6 +22,7 @@ import type {
 } from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
 import { DEFAULT_GLOBAL_TEARDROP_EDIT } from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   /** Net codes and names for the "Filter items by net" choice. */
@@ -59,6 +60,10 @@ export function DialogGlobalEditTeardrops({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [opts, setOpts] = useState<GlobalTeardropEditOptions>({
     ...DEFAULT_GLOBAL_TEARDROP_EDIT,
     ...initialScope,

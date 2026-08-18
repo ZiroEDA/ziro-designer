@@ -21,6 +21,7 @@ import {
   type ChangeSymbolsOptions,
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   mode: ChangeSymbolsMode;
@@ -50,6 +51,10 @@ export function DialogChangeSymbols({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [opts, setOpts] = useState<ChangeSymbolsOptions>(() => defaultChangeSymbolsOptions(mode));
   const [matchText, setMatchText] = useState('');
   const [newLibId, setNewLibId] = useState('');

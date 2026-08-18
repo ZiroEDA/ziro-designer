@@ -16,6 +16,7 @@
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { FootprintValues } from '@ziroeda/pcbnew/src/footprint_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   initial: FootprintValues;
@@ -33,6 +34,10 @@ export function DialogFootprintProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState<FootprintValues>(initial);
   // Millimetre boxes keep their text so a half-typed number survives the caret.

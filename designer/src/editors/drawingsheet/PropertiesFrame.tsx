@@ -31,6 +31,7 @@ import type {
   WksOption,
   WksColor,
 } from '@ziroeda/common';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** TB_DEFAULT_TEXTSIZE and the standard default pen widths (ds_data_model). */
 const DEFAULT_TEXTSIZE = 1.5;
@@ -643,6 +644,10 @@ function GeneralOptions({
 
 /** The Syntax Help dialog body (the panel's "Predefined Keywords" message). */
 export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const keywords: [string, string][] = [
     ['KICAD_VERSION', 'application version'],
     ['#', 'sheet number'],

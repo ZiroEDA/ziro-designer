@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export interface ImagePropsResult {
   at: { x: number; y: number };
@@ -49,6 +50,10 @@ export function DialogImageProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [x, setX] = useState(String(iuToMM(at.x)));
   const [y, setY] = useState(String(iuToMM(at.y)));
   const [scale, setScale] = useState(String(scale0));

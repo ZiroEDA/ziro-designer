@@ -15,6 +15,7 @@
 import { useState, type JSX, type Ref } from 'react';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { OutsetSettings } from '../outset_settings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   /** Layers offered when not copying from the source. */
@@ -35,6 +36,10 @@ export function DialogOutsetItems({
   onClose,
   rootRef,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [s, setS] = useState<OutsetSettings>(initial);
   const [distanceText, setDistanceText] = useState(mm(initial.distanceIU));
   const [widthText, setWidthText] = useState(mm(initial.lineWidthIU));
