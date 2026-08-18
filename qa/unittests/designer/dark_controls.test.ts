@@ -24,12 +24,18 @@ const CSS = readFileSync(
   'utf8',
 );
 
+/** The stylesheet with its comments taken out, so a brace inside one cannot
+    read as the end of a rule. The :root block documents the GTK rules its
+    values come from, quoted verbatim - `button { min-height: 24px; ... }` - and
+    the `[^}]*` below stopped dead at the first of those. */
+const CSS_CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+
 /** The body of the first rule whose selector matches exactly. */
 const rule = (selector: string): string => {
   const rx = new RegExp(
     `(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`,
   );
-  return rx.exec(CSS)?.[2] ?? '';
+  return rx.exec(CSS_CODE)?.[2] ?? '';
 };
 
 describe('the shell tells the browser it is dark', () => {

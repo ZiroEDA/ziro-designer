@@ -2,18 +2,33 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Rotate / mirror command for placed symbols.
+ * The schematic's one rotate / mirror path. Counterparts: `SCH_EDIT_TOOL::Rotate`
+ * and `::Mirror` (eeschema/tools/sch_edit_tool.cpp) together with each type's own
+ * `Rotate` / `MirrorHorizontally` / `MirrorVertically`.
  *
- * Grounded in KiCad's SCH_SYMBOL::Rotate / MirrorHorizontally / MirrorVertically:
- *  - the symbol's orientation (angle + mirror) is advanced via the same transform
- *    algebra KiCad uses (see geom/transform.ts);
- *  - the symbol's position is rotated/mirrored about a center point;
- *  - fields are *translated* by the symbol's position delta (they do not spin),
- *    keeping their offset from the symbol and staying readable.
+ * Upstream's two tools are one big switch each, and the shape of that switch is
+ * the shape of this file:
  *
- * The center is captured at construction so undo is exact (the inverse op about the
- * same center restores positions and fields). Rotation's inverse is the opposite
- * spin; a mirror is its own inverse.
+ *  - **which point** the transform turns about is decided first, and it is not
+ *    one rule. With a single item it is per type — a connectable item's own
+ *    `GetPosition()`, or the half-grid-snapped centre of its bounding box, or
+ *    (for a wire) the endpoint that is not selected. With more than one it is
+ *    `GetNearestHalfGridPosition( selection.GetCenter() )`. See `transformCenter`;
+ *  - **what each type does** with that point differs. Most move every geometric
+ *    point that defines them; a symbol advances its orientation instead and
+ *    translates its fields by its own delta; a label turns in place when it is
+ *    alone and moves as well when it is not; a sheet turns its size vector; a
+ *    table turns its cells and re-lays itself out; a table's mirror is
+ *    deliberately nothing at all.
+ *
+ * The centre is captured at construction so undo is exact (the inverse op about
+ * the same centre restores positions and fields). Rotation's inverse is the
+ * opposite spin; a mirror is its own inverse.
+ *
+ * Two things upstream does that we cannot yet. `AUTOPLACE` state is not on the
+ * model (audit finding 11), so every "re-autoplace the fields" arm takes its
+ * else branch and translates them instead. And a bitmap's *pixels* do not turn:
+ * see `transformImage`.
  */
 
 import type {
@@ -21,14 +36,36 @@ import type {
   SchSymbol,
   SchField,
   SchDirectiveLabel,
+  SchImage,
+  SchLabel,
+  SchSheet,
+  SchTable,
+  SheetPin,
   LibGraphic,
+  LibSymbol,
   TextEffects,
   Vec2,
 } from '../types.js';
 import { rotateOrientation, mirrorOrientation } from '@ziroeda/common/src/transform.js';
-import { refId } from './hittest.js';
+import { nearestHalfGridPosition } from '@ziroeda/common/src/eda_draw_frame.js';
+import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
+import { fieldId, refId, sheetPinId } from './hittest.js';
+import { alignBoxes, type ItemBox } from './sch_align_tool.js';
+import { normalizeTable } from './table_layout.js';
+import { angleOfSide, constrainOnEdge, sideOfAngle, type SheetEdge } from './sch_sheet_pin_tool.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import type { EditCommand } from './command.js';
+
+/**
+ * The schematic's default grid step, 50 mil — what `GetNearestHalfGridPosition`
+ * halves when no caller says otherwise.
+ *
+ * Upstream reads the live grid off the frame's GAL, and ours is a per-window
+ * setting (`es.window.grid`). Threading that through from `SchematicEditor` is a
+ * follow-up: until then a user who has changed the grid gets the default grid's
+ * snap, which is the same answer for every grid that divides 50 mil.
+ */
+export const DEFAULT_GRID_IU = 12700; // 1.27 mm = 50 mil, in schematic IU (100 nm)
 
 export type TransformOp = 'rotateCW' | 'rotateCCW' | 'mirrorX' | 'mirrorY';
 
@@ -294,59 +331,498 @@ function transformGraphic(g: LibGraphic, op: TransformOp, center: Vec2): LibGrap
 }
 
 /**
- * Anchor points of everything selected, whatever kind it is.
+ * `SELECTION::GetCenter` (common/tool/selection.cpp:92), which we got wrong
+ * three ways at once.
  *
- * This used to look at symbols alone, which made the centre `{0,0}` for any
- * selection without one — so a pair of wires rotated about the page origin
- * rather than about themselves.
+ *  - the boxes merged are each item's **`GetBoundingBox()`**, not its anchor
+ *    point. A wire pair whose anchors happen to coincide has a real extent;
+ *  - `SCH_TEXT_T` and `SCH_LABEL_LOCATE_ANY_T` are **excluded** from the merge,
+ *    with the reason spelled out upstream: "otherwise rotating the selection
+ *    will also translate it". A label's box is wide and lopsided, so counting
+ *    it drags the whole group sideways on every turn;
+ *  - when the selection is *nothing but* text the box is not used at all and
+ *    the centre is the mean of the items' own positions.
+ *
+ * The result is then snapped by the caller — see `transformCenter`.
+ *
+ * Our `label` kind covers SCH_TEXT and every SCH_LABEL_BASE except the
+ * directive, and `directive` is the last of them, so those two are the excluded
+ * set. A text *box* is SCH_TEXTBOX_T and is deliberately not excluded.
  */
-function selectionPoints(doc: Schematic, ids: ReadonlySet<string>): Vec2[] {
-  const pts: Vec2[] = [];
-  doc.symbols.forEach((s, i) => {
-    if (ids.has(refId('symbol', s.uuid, i))) pts.push(s.at);
-  });
-  doc.lines.forEach((l, i) => {
-    if (ids.has(refId('line', l.uuid, i))) pts.push(l.start, l.end);
-  });
-  doc.junctions.forEach((j, i) => {
-    if (ids.has(refId('junction', j.uuid, i))) pts.push(j.at);
-  });
-  doc.noConnects.forEach((n, i) => {
-    if (ids.has(refId('noconnect', n.uuid, i))) pts.push(n.at);
-  });
-  doc.busEntries.forEach((b, i) => {
-    if (ids.has(refId('busentry', b.uuid, i)))
-      pts.push(b.at, { x: b.at.x + b.size.x, y: b.at.y + b.size.y });
-  });
-  doc.textBoxes.forEach((t, i) => {
-    if (ids.has(refId('textbox', t.uuid, i))) pts.push(t.start, t.end);
-  });
-  doc.labels.forEach((l, i) => {
-    if (ids.has(refId('label', l.uuid, i))) pts.push(l.at);
-  });
-  return pts;
+function selectionCenter(boxes: readonly ItemBox[]): Vec2 {
+  const isText = (b: ItemBox): boolean => b.kind === 'label' || b.kind === 'directive';
+  if (boxes.every(isText)) {
+    // `center += item->GetPosition(); center = center / size` on VECTOR2I, so
+    // the division truncates toward zero rather than rounding.
+    let x = 0;
+    let y = 0;
+    for (const b of boxes) {
+      x += b.anchor.x;
+      y += b.anchor.y;
+    }
+    return { x: Math.trunc(x / boxes.length), y: Math.trunc(y / boxes.length) };
+  }
+  const merged = boxes.filter((b) => !isText(b));
+  const minX = Math.min(...merged.map((b) => b.box.minX));
+  const maxX = Math.max(...merged.map((b) => b.box.maxX));
+  const minY = Math.min(...merged.map((b) => b.box.minY));
+  const maxY = Math.max(...merged.map((b) => b.box.maxY));
+  // BOX2I::GetCenter is GetOrigin() + GetSize() / 2 on integers, so it too
+  // truncates rather than rounding.
+  return { x: minX + Math.trunc((maxX - minX) / 2), y: minY + Math.trunc((maxY - minY) / 2) };
 }
 
-/** Bounding-box center of the selection (snapped is the caller's job). */
-function selectionCenter(doc: Schematic, ids: ReadonlySet<string>): Vec2 {
-  const pts = selectionPoints(doc, ids);
-  if (pts.length === 0) return { x: 0, y: 0 };
-  const minX = Math.min(...pts.map((p) => p.x));
-  const maxX = Math.max(...pts.map((p) => p.x));
-  const minY = Math.min(...pts.map((p) => p.y));
-  const maxY = Math.max(...pts.map((p) => p.y));
-  return { x: Math.round((minX + maxX) / 2), y: Math.round((minY + maxY) / 2) };
+/** The `LibGraphic` a graphic selection id names. */
+function graphicById(doc: Schematic, id: string): LibGraphic | undefined {
+  const i = doc.graphics.findIndex((_g, k) => refId('graphic', undefined, k) === id);
+  return i < 0 ? undefined : doc.graphics[i];
+}
+
+/** The `SchSheet` a sheet selection id names. */
+function sheetById(doc: Schematic, id: string): SchSheet | undefined {
+  const i = doc.sheets.findIndex((sh, k) => refId('sheet', sh.uuid, k) === id);
+  return i < 0 ? undefined : doc.sheets[i];
 }
 
 /**
- * Rotate or mirror every selected symbol about the selection center. For a single
- * symbol the center is its own position, so only its orientation changes (KiCad's
- * single-item behaviour). `center` may be supplied to keep undo exact.
+ * `EDA_ITEM::GetPosition()` for one selected item — the anchor a single-item
+ * mirror turns about (`sch_edit_tool.cpp:1404`).
+ *
+ * `alignBoxes` already carries each kind's anchor and it is upstream's
+ * `GetPosition()` in every case but one: `EDA_SHAPE::getPosition`
+ * (eda_shape.cpp:432) answers an arc with its *computed centre*, not with its
+ * first stored point.
+ */
+function itemPosition(doc: Schematic, b: ItemBox): Vec2 {
+  if (b.kind === 'graphic') {
+    const g = graphicById(doc, b.id);
+    if (g?.kind === 'arc') {
+      const c = CalcArcCenter(g.start, g.mid, g.end);
+      return { x: Math.round(c.x), y: Math.round(c.y) };
+    }
+  }
+  return b.anchor;
+}
+
+/** BOX2I::GetCenter, which truncates toward zero on integers. */
+const boxCenter = (b: ItemBox['box']): Vec2 => ({
+  x: b.minX + Math.trunc((b.maxX - b.minX) / 2),
+  y: b.minY + Math.trunc((b.maxY - b.minY) / 2),
+});
+
+/** A sheet's body rectangle, `BOX2I( m_pos, m_size )`. */
+const sheetBodyCenter = (sh: SchSheet): Vec2 => ({
+  x: sh.at.x + Math.trunc(sh.size.w / 2),
+  y: sh.at.y + Math.trunc(sh.size.h / 2),
+});
+
+/** `SCH_TABLE::GetCenter` (sch_table.cpp:124): the box over every cell corner. */
+function tableCenter(t: SchTable): Vec2 {
+  const xs = t.cells.flatMap((c) => [c.start.x, c.end.x]);
+  const ys = t.cells.flatMap((c) => [c.start.y, c.end.y]);
+  if (xs.length === 0) return { x: 0, y: 0 };
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  return { x: minX + Math.trunc((maxX - minX) / 2), y: minY + Math.trunc((maxY - minY) / 2) };
+}
+
+/**
+ * The point a transform turns about.
+ *
+ * Upstream has two entirely separate answers and we only ever had the second.
+ *
+ * **One item** (`sch_edit_tool.cpp:1004-1010` for rotate, `:1404` for mirror):
+ * a connectable item turns about its own `GetPosition()`, anything else about
+ * the half-grid-snapped centre of its bounding box; then several types override
+ * that in their own `case`. A `SCH_LINE` is the loud one — it rotates about
+ * whichever endpoint is *not* selected, and with both flags set that is the end
+ * point (`:1064-1077`), so a wire pivots on one end rather than on its middle.
+ * A mirror ignores all of it and uses `GetPosition()` for everything except a
+ * sheet.
+ *
+ * **More than one** (`:1171`, `:1417`): `GetNearestHalfGridPosition(
+ * selection.GetCenter() )`. Missing that snap is what left a rotated group half
+ * a grid step off, so its wires no longer met the pins they were drawn to.
+ */
+const boxesOf = (doc: Schematic, ids: ReadonlySet<string>): ItemBox[] =>
+  alignBoxes(doc, ids, new Map<string, LibSymbol>(doc.libSymbols.map((l) => [l.libId, l])));
+
+function transformCenter(
+  doc: Schematic,
+  op: TransformOp,
+  boxes: readonly ItemBox[],
+  singleId: string | undefined,
+  grid: number,
+): Vec2 {
+  const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, grid);
+  const one = singleId === undefined ? undefined : boxes.find((b) => b.id === singleId);
+
+  if (one) {
+    if (op === 'mirrorX' || op === 'mirrorY') {
+      // "Mirror the sheet on itself. Sheets do not have a anchor point."
+      // (The bounding box upstream merges here is the body plus the sheet's
+      // field boxes; we measure the body alone, which we do not draw fields
+      // outside of.)
+      if (one.kind === 'sheet') {
+        const sh = sheetById(doc, one.id);
+        return sh ? snapHalf(sheetBodyCenter(sh)) : snapHalf(boxCenter(one.box));
+      }
+      return itemPosition(doc, one);
+    }
+    switch (one.kind) {
+      case 'line': {
+        // `if( line->HasFlag( STARTPOINT ) ) rotPoint = line->GetEndPoint();`
+        // — undo leaves both flags clear, so the tool sets both, and the first
+        // arm wins. A lone wire pivots on its end point.
+        const i = doc.lines.findIndex((l, k) => refId('line', l.uuid, k) === one.id);
+        return i < 0 ? one.anchor : doc.lines[i]!.end;
+      }
+      case 'sheet': {
+        // `GetNearestHalfGridPosition( sheet->GetRotationCenter() )`, and
+        // GetRotationCenter is `BOX2I( m_pos, m_size ).GetCenter()`.
+        const sh = sheetById(doc, one.id);
+        return sh ? snapHalf(sheetBodyCenter(sh)) : snapHalf(boxCenter(one.box));
+      }
+      case 'table': {
+        const t = doc.tables.find((tt, k) => refId('table', tt.uuid, k) === one.id);
+        return t ? snapHalf(tableCenter(t)) : snapHalf(boxCenter(one.box));
+      }
+      default:
+        // Connectable items rotate about their anchor; everything else about
+        // the snapped centre of its box.
+        return one.connectable ? itemPosition(doc, one) : snapHalf(boxCenter(one.box));
+    }
+  }
+
+  if (boxes.length === 0) return { x: 0, y: 0 };
+  return snapHalf(selectionCenter(boxes));
+}
+
+/**
+ * `SCH_SHEET_PIN::Rotate` (sch_sheet_pin.cpp:250) and `::MirrorVertically` /
+ * `::MirrorHorizontally` (:220/:235).
+ *
+ * A sheet pin cannot leave its sheet's border, so it is not moved by the rigid
+ * transform at all: it is rotated, dropped back onto whichever edge is nearest
+ * through `ConstrainOnEdge`, and then — because that alone would pile every pin
+ * at a corner — mirrored back along the edge it landed on. Which mirror depends
+ * on how far it turned: the same side re-mirrors about the centre, the opposite
+ * side keeps its offset.
+ *
+ * `sheet` must already be the *transformed* sheet: `ConstrainOnEdge` measures
+ * against the rectangle, and upstream updates `m_pos`/`m_size` before the pin
+ * loop for exactly that reason.
+ */
+function transformSheetPin(
+  pin: SheetPin,
+  sheet: SchSheet,
+  op: TransformOp,
+  center: Vec2,
+): SheetPin {
+  const OPPOSITE: Record<SheetEdge, SheetEdge> = {
+    top: 'bottom',
+    bottom: 'top',
+    left: 'right',
+    right: 'left',
+  };
+  const side = sideOfAngle(pin.angle);
+
+  if (op === 'mirrorX') {
+    // MirrorVertically: the y mirrors, TOP and BOTTOM swap, and `SetSide` then
+    // plants the pin on that edge of the (already mirrored) sheet.
+    const flipped = side === 'top' || side === 'bottom' ? OPPOSITE[side] : side;
+    const y =
+      flipped === 'top'
+        ? sheet.at.y
+        : flipped === 'bottom'
+          ? sheet.at.y + sheet.size.h
+          : 2 * center.y - pin.at.y;
+    return { ...pin, at: { x: pin.at.x, y }, angle: angleOfSide(flipped) };
+  }
+  if (op === 'mirrorY') {
+    const flipped = side === 'left' || side === 'right' ? OPPOSITE[side] : side;
+    const x =
+      flipped === 'left'
+        ? sheet.at.x
+        : flipped === 'right'
+          ? sheet.at.x + sheet.size.w
+          : 2 * center.x - pin.at.x;
+    return { ...pin, at: { x, y: pin.at.y }, angle: angleOfSide(flipped) };
+  }
+
+  const delta = { x: pin.at.x - center.x, y: pin.at.y - center.y };
+  const moved = constrainOnEdge(sheet, pin, movePoint(pin.at, op, center), true);
+  const to = sideOfAngle(moved.angle);
+  const vertical = to === 'top' || to === 'bottom';
+  if (to === side) {
+    return vertical
+      ? { ...moved, at: { x: center.x - delta.x, y: moved.at.y } }
+      : { ...moved, at: { x: moved.at.x, y: center.y - delta.y } };
+  }
+  if (to === OPPOSITE[side]) {
+    return vertical
+      ? { ...moved, at: { x: center.x + delta.x, y: moved.at.y } }
+      : { ...moved, at: { x: moved.at.x, y: center.y + delta.y } };
+  }
+  return moved;
+}
+
+/**
+ * `SCH_SHEET::Rotate` (sch_sheet.cpp:1070), `::MirrorVertically` (:1112) and
+ * `::MirrorHorizontally` (:1132). R, X and Y did nothing at all to a sheet
+ * before this, although a sheet has always been selectable.
+ *
+ * A sheet is an axis-aligned rectangle, so the rotation turns the *size vector*
+ * as well as the position and then re-normalises a negative extent back onto
+ * the anchor. Mirroring keeps the size and slides the anchor to the far corner.
+ *
+ * The `AUTOPLACE_AUTO`/`AUTOPLACE_MANUAL` arm re-runs `AutoplaceFields`; we do
+ * not model that state (audit finding 11), so this is always the else arm —
+ * "Move the fields to the new position because the parent itself has moved".
+ */
+function transformSheet(sh: SchSheet, op: TransformOp, center: Vec2): SchSheet {
+  let at: Vec2;
+  let size = sh.size;
+
+  if (op === 'rotateCW' || op === 'rotateCCW') {
+    at = movePoint(sh.at, op, center);
+    // `RotatePoint( &m_size.x, &m_size.y, … )` turns the extent as a free
+    // vector, about the origin rather than about the centre.
+    const v = movePoint({ x: sh.size.w, y: sh.size.h }, op, { x: 0, y: 0 });
+    let w = v.x;
+    let h = v.y;
+    if (w < 0) {
+      at = { x: at.x + w, y: at.y };
+      w = -w;
+    }
+    if (h < 0) {
+      at = { x: at.x, y: at.y + h };
+      h = -h;
+    }
+    size = { w, h };
+  } else if (op === 'mirrorX') {
+    // `MIRROR( m_pos.y, aCenter ); m_pos.y -= m_size.y;`
+    at = { x: sh.at.x, y: 2 * center.y - sh.at.y - sh.size.h };
+  } else {
+    at = { x: 2 * center.x - sh.at.x - sh.size.w, y: sh.at.y };
+  }
+
+  const moved: SchSheet = { ...sh, at, size };
+  // "Pins must be rotated first as that's how we determine vertical vs
+  // horizontal orientation for auto-placement."
+  const pins = sh.pins.map((p) => transformSheetPin(p, moved, op, center));
+  const dx = at.x - sh.at.x;
+  const dy = at.y - sh.at.y;
+  const fields =
+    dx === 0 && dy === 0
+      ? sh.fields
+      : sh.fields.map((f) => (f.at ? { ...f, at: { x: f.at.x + dx, y: f.at.y + dy } } : f));
+  return { ...moved, pins, fields };
+}
+
+/**
+ * `SCH_TABLE::Rotate` (sch_table.cpp:226): turn every cell, then `Normalize()`.
+ *
+ * Mirroring is deliberately a no-op upstream — "We could mirror all the cells,
+ * but it doesn't seem useful...." (:213/:219) — and stays one here.
+ *
+ * `compensate` is the `Move` that follows the rotation in both call sites: a
+ * table has no anchor point, so the rotation is allowed to put it wherever the
+ * grid re-layout lands and the table is then slid back onto the centre the
+ * rotation was supposed to give it (`sch_edit_tool.cpp:1127` for one item,
+ * `:1226` for a group).
+ */
+function transformTable(
+  t: SchTable,
+  op: TransformOp,
+  center: Vec2,
+  compensate: (before: Vec2, after: Vec2) => Vec2,
+): SchTable {
+  if (op === 'mirrorX' || op === 'mirrorY') return t;
+  const before = tableCenter(t);
+  const turned = normalizeTable({
+    ...t,
+    cells: t.cells.map((c) => ({
+      ...c,
+      start: movePoint(c.start, op, center),
+      end: movePoint(c.end, op, center),
+      // `SCH_TEXTBOX::Rotate` toggles the text angle (sch_textbox.cpp:142).
+      angle: (c.angle ?? 0) === 90 ? 0 : 90,
+    })),
+  });
+  const d = compensate(before, tableCenter(turned));
+  if (d.x === 0 && d.y === 0) return turned;
+  return {
+    ...turned,
+    cells: turned.cells.map((c) => ({
+      ...c,
+      start: { x: c.start.x + d.x, y: c.start.y + d.y },
+      end: { x: c.end.x + d.x, y: c.end.y + d.y },
+    })),
+  };
+}
+
+/**
+ * `SCH_BITMAP::Rotate` / `::MirrorVertically` / `::MirrorHorizontally`
+ * (sch_bitmap.cpp:135/123/129), which delegate to `REFERENCE_IMAGE::Rotate` and
+ * `::Flip` (common/reference_image.cpp:283/268).
+ *
+ * Only the geometric half is portable. Upstream also turns the *pixels*:
+ * `BITMAP_BASE::Rotate`/`::Mirror` (bitmap_base.cpp:514/497) rewrite the
+ * wxImage and clear the cached PNG bytes, so the file is written out
+ * re-encoded — there is no rotation token in `(image …)` to carry it. Doing the
+ * same here means decoding and re-encoding a PNG inside a synchronous, pure
+ * `EditCommand`, which is its own change; until then a lone image barely moves
+ * on R (its rotation centre is its own snapped centre) while a group rotate
+ * does carry it round correctly.
+ */
+const transformImage = (im: SchImage, op: TransformOp, center: Vec2): SchImage => ({
+  ...im,
+  at: movePoint(im.at, op, center),
+});
+
+/**
+ * A label, a hierarchical/global label or a free text inside a *group*
+ * transform: `SCH_TEXT::Rotate` (sch_text.cpp:201), `SCH_LABEL_BASE::Rotate`
+ * (sch_label.cpp:483) and `SCH_TEXT::MirrorHorizontally` / `::MirrorVertically`
+ * (:123/:162).
+ *
+ * These are not the functions the single-item arm calls. With one item selected
+ * `SCH_EDIT_TOOL` runs `Rotate90` / `MirrorSpinStyle`, which turn the label
+ * where it stands; with more than one it falls through to the generic
+ * `item->Rotate( rotPoint, … )`, which *also* moves it. So a label caught in a
+ * group rotate used to be the only thing left behind while everything around it
+ * swung round it.
+ *
+ * The spin half is identical between the two — `SCH_TEXT::MirrorHorizontally`
+ * flips the justify on a horizontal text exactly as `MirrorSpinStyle( true )`
+ * does — so only the position is added here.
+ */
+function transformLabelAbout(l: SchLabel, op: TransformOp, center: Vec2): SchLabel {
+  const at = movePoint(l.at, op, center);
+  if (op === 'mirrorX' || op === 'mirrorY') return { ...mirrorTextSpin(l, isLeftRight(op)), at };
+  // `SCH_TEXT::Rotate` spins with `Rotate90( false )` — hard-coded, not the
+  // command's direction, so a group rotate turns free text the same way either
+  // way round. `SCH_LABEL_BASE::Rotate` overrides it with `Rotate90( !aRotateCCW )`,
+  // which is the command's direction. Our free text is the `text` kind.
+  return { ...rotateText90(l, l.kind === 'text' ? false : op === 'rotateCW'), at };
+}
+
+/**
+ * A directive label inside a group transform: `SCH_DIRECTIVE_LABEL::
+ * MirrorHorizontally` (sch_label.cpp:1776) and `::MirrorVertically` (:1804),
+ * with rotation inherited from `SCH_LABEL_BASE::Rotate`.
+ *
+ * The flag's spin turns the same way it does alone — `GetSpinStyle().MirrorX()`
+ * swaps UP and BOTTOM on the *horizontal* mirror, which is the same inversion
+ * `MirrorSpinStyle` makes — so `mirrorDirectiveLabel` still decides the angle.
+ * What the group path adds, and what differs from `MirrorSpinStyle`, is the
+ * position: the flag moves, and each field keeps its offset by being mirrored
+ * about the flag's *old* anchor and then translated onto the new one. The
+ * vertical mirror also leaves the fields' justify alone, where `MirrorSpinStyle`
+ * flips it.
+ */
+function transformDirectiveLabelAbout(
+  d: SchDirectiveLabel,
+  op: TransformOp,
+  center: Vec2,
+): SchDirectiveLabel {
+  const at = movePoint(d.at, op, center);
+  // `pos.x = GetPosition().x + delta.x` with `delta = old_pos - pos`: the field
+  // is mirrored about the flag's *old* anchor and then translated onto the new
+  // one, so it keeps its offset. Only the mirror arms use this.
+  const field = (f: SchField, next: SchField, leftRight: boolean): SchField =>
+    f.at
+      ? {
+          ...next,
+          at: leftRight
+            ? { x: at.x + (d.at.x - f.at.x), y: f.at.y }
+            : { x: f.at.x, y: at.y + (d.at.y - f.at.y) },
+        }
+      : next;
+
+  if (op === 'mirrorY') {
+    // MirrorHorizontally: the fields' horizontal justify swaps both ways
+    // (`FlipHJustify`, not MirrorSpinStyle's unconditional "anything else
+    // becomes LEFT"), and it swaps for every field regardless of its angle.
+    return {
+      ...d,
+      angle: mirrorDirectiveLabel(d, true).angle,
+      at,
+      fields: d.fields.map((f) => field(f, flipEffectsHJustify(f), true)),
+    };
+  }
+  if (op === 'mirrorX') {
+    // MirrorVertically touches no justify at all.
+    return {
+      ...d,
+      angle: mirrorDirectiveLabel(d, false).angle,
+      at,
+      fields: d.fields.map((f) => field(f, f, false)),
+    };
+  }
+  // `SCH_LABEL_BASE::Rotate`: spin the flag, rotate each field about the flag's
+  // own (old) anchor with `SCH_FIELD::Rotate`, then translate both by the
+  // anchor's delta.
+  const cw = op === 'rotateCW';
+  const spun = rotateText90(d, cw);
+  const dx = at.x - d.at.x;
+  const dy = at.y - d.at.y;
+  return {
+    ...spun,
+    at,
+    fields: d.fields.map((f) => {
+      const turned = rotateText90(f, cw);
+      if (!f.at) return turned;
+      const p = movePoint(f.at, op, d.at);
+      return { ...turned, at: { x: p.x + dx, y: p.y + dy } };
+    }),
+  };
+}
+
+/**
+ * `SCH_FIELD` alone (`sch_edit_tool.cpp:1088-1100` / `:1364-1375`).
+ *
+ * A selected field does **not** move: a rotate only toggles its text angle
+ * between horizontal and vertical, and a mirror only flips the justify on the
+ * mirrored axis. Both then set the parent's `AUTOPLACE_NONE`, which we cannot
+ * record (audit finding 11).
+ */
+function transformField(f: SchField, op: TransformOp): SchField {
+  if (op === 'rotateCW' || op === 'rotateCCW') {
+    return { ...f, angle: f.angle === 90 ? 0 : 90 };
+  }
+  if (op === 'mirrorY') return flipEffectsHJustify(f);
+  // `GetFlippedAlignment( GetVertJustify() )` on the vertical mirror.
+  return flipVJustify(f);
+}
+
+/** `EDA_TEXT::FlipVJustify`'s pair: top and bottom swap, centre stays. */
+function flipVJustify<T extends { readonly effects?: TextEffects }>(item: T): T {
+  const justify = item.effects?.justify;
+  if (!justify || (!justify.includes('top') && !justify.includes('bottom'))) return item;
+  return {
+    ...item,
+    effects: {
+      ...(item.effects ?? { hidden: false }),
+      justify: justify.map((t) => (t === 'top' ? 'bottom' : t === 'bottom' ? 'top' : t)),
+    },
+  };
+}
+
+/**
+ * Rotate or mirror every selected item about the transform centre.
+ *
+ * `center` may be supplied to keep undo exact; `grid` is the window's grid step,
+ * which the half-grid snap of a multi-item centre is derived from.
  */
 export function transformItems(
   rawIds: ReadonlySet<string>,
   op: TransformOp,
   center?: Vec2,
+  grid: number = DEFAULT_GRID_IU,
 ): EditCommand {
   // sch_edit_tool's rotatable/mirrorable type list is annotated
   // "will be promoted to parent table(s)". A cell cannot leave its table, so a
@@ -357,21 +833,45 @@ export function transformItems(
     label: op.startsWith('rotate') ? 'Rotate' : 'Mirror',
     apply(doc: Schematic): Schematic {
       if (ids.size === 0) return doc;
-      const c = center ?? selectionCenter(doc, ids);
+      // `principalItemCount == 1` / `selection.GetSize() == 1`. Fields and sheet
+      // pins carry no box of their own, so they are counted off the id set.
+      const single = ids.size === 1 ? [...ids][0] : undefined;
+      // `alignBoxes` is the one walk that knows every kind's extent, and it is
+      // not cheap — it measures every symbol's body. Only ask it when the centre
+      // has to be derived; undo and redo replay a centre that is already known.
+      const c = center ?? transformCenter(doc, op, boxesOf(doc, ids), single, grid);
+      const snapHalf = (p: Vec2): Vec2 => nearestHalfGridPosition(p, grid);
       return {
         ...doc,
-        symbols: doc.symbols.map((s, i) =>
-          ids.has(refId('symbol', s.uuid, i)) ? transformSymbol(s, op, c) : s,
-        ),
-        // Labels, hierarchical/global labels and free text all rotate in place
-        // via Rotate90 / MirrorSpinStyle rather than about the selection centre
-        // (SCH_EDIT_TOOL::Rotate's SCH_TEXT_T ... SCH_DIRECTIVE_LABEL_T arm).
-        // Until now R, X and Y simply did nothing to any of them.
+        symbols: doc.symbols.map((s, i) => {
+          const id = refId('symbol', s.uuid, i);
+          const turned = ids.has(id) ? transformSymbol(s, op, c) : s;
+          // A field selected on its own is an item in its own right, and
+          // upstream skips it when its parent is selected too ("parent will
+          // rotate us").
+          if (ids.has(id)) return turned;
+          const fields = turned.fields.map((f, k) =>
+            ids.has(fieldId(id, k)) ? transformField(f, op) : f,
+          );
+          return fields.some((f, k) => f !== turned.fields[k]) ? { ...turned, fields } : turned;
+        }),
+        // Alone, a label turns where it stands (`Rotate90` / `MirrorSpinStyle`,
+        // the SCH_TEXT_T … SCH_DIRECTIVE_LABEL_T arm of the single-item
+        // switch). In a group it goes through `item->Rotate( rotPoint, … )`
+        // instead, which moves it as well — and it never did.
         labels: doc.labels.map((l, i) =>
-          ids.has(refId('label', l.uuid, i)) ? transformTextItem(l, op) : l,
+          ids.has(refId('label', l.uuid, i))
+            ? single !== undefined
+              ? transformTextItem(l, op)
+              : transformLabelAbout(l, op, c)
+            : l,
         ),
         directiveLabels: doc.directiveLabels?.map((d, i) =>
-          ids.has(refId('directive', d.uuid, i)) ? transformDirectiveLabel(d, op) : d,
+          ids.has(refId('directive', d.uuid, i))
+            ? single !== undefined
+              ? transformDirectiveLabel(d, op)
+              : transformDirectiveLabelAbout(d, op, c)
+            : d,
         ),
         // The geometric kinds share one rule: move every point that defines
         // them (`head->Rotate( rotPoint, !clockwise )` and its mirror pair).
@@ -417,11 +917,52 @@ export function transformItems(
         graphics: doc.graphics.map((g, i) =>
           ids.has(refId('graphic', undefined, i)) ? transformGraphic(g, op, c) : g,
         ),
+        // A sheet, an image and a table were all selectable and all silently
+        // ignored: R, X and Y did nothing whatever to them.
+        sheets: doc.sheets.map((sh, i) => {
+          const id = refId('sheet', sh.uuid, i);
+          if (ids.has(id)) return transformSheet(sh, op, c);
+          // A sheet pin selected without its parent turns within the sheet,
+          // about the sheet's own body centre rather than about the selection
+          // ("rotate within parent", sch_edit_tool.cpp:1200 / :1425).
+          const own = sheetBodyCenter(sh);
+          const pins = sh.pins.map((p, k) =>
+            ids.has(sheetPinId(id, k)) ? transformSheetPin(p, sh, op, own) : p,
+          );
+          return pins.some((p, k) => p !== sh.pins[k]) ? { ...sh, pins } : sh;
+        }),
+        images: doc.images.map((im, i) =>
+          ids.has(refId('image', im.uuid, i))
+            ? // `head->Rotate( rotPoint, clockwise )` — the one type in the
+              // single-item switch whose direction is *not* negated
+              // (sch_edit_tool.cpp:1140).
+              transformImage(im, single !== undefined ? INVERSE[op] : op, c)
+            : im,
+        ),
+        tables: doc.tables.map((t, i) =>
+          ids.has(refId('table', t.uuid, i))
+            ? transformTable(t, op, c, (before, after) =>
+                single !== undefined
+                  ? { x: c.x - snapHalf(after).x, y: c.y - snapHalf(after).y }
+                  : (() => {
+                      const want = movePoint(before, op, c);
+                      return { x: want.x - after.x, y: want.y - after.y };
+                    })(),
+              )
+            : t,
+        ),
       };
     },
     invert(before: Schematic): EditCommand {
       // Reuse the same center so the inverse exactly retraces the positions.
-      return transformItems(ids, INVERSE[op], center ?? selectionCenter(before, ids));
+      if (center) return transformItems(ids, INVERSE[op], center, grid);
+      const single = ids.size === 1 ? [...ids][0] : undefined;
+      return transformItems(
+        ids,
+        INVERSE[op],
+        transformCenter(before, op, boxesOf(before, ids), single, grid),
+        grid,
+      );
     },
   };
 }

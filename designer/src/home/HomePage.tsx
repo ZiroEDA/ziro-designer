@@ -513,8 +513,23 @@ export function HomePage({
   /**
    * Project-tree pane width (px), draggable like KiCad's wxAUI sash.
    *
-   * The first-run width is **200**, not the 250 the constructor appears to set.
-   * KICAD_MANAGER_FRAME opens with
+   * The first-run width **on screen is 250**, even though the settings file
+   * says 200. Measured 2026-08-19 against a fresh `KICAD_CONFIG_HOME`: the pane
+   * renders x34..x283 inclusive of its borders — 250 px — while
+   * `10.0/kicad.json` holds `"left_frame_width": 200` both on first write and
+   * on exit. The settings number never described what is drawn, so matching it
+   * (as we did) made our pane visibly narrower than KiCad's.
+   *
+   * Why they differ: the pane is added with `.MinSize( m_leftWinWidth, -1 )`
+   * (the 200 just loaded) and laid out, and only *then*
+   *
+   *     m_auimgr.Update();
+   *     // "Now the actual m_projectTreePane size is set, give it a reasonable min width"
+   *     m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, FromDIP( 80 ) );
+   *
+   * raises the minimum to 250 (kicad_manager_frame.cpp:272-274). The next
+   * layout enforces it, so the user sees 250 and every later drag is floored
+   * there. KICAD_MANAGER_FRAME opens with
    *
    *     const int defaultLeftWinWidth = FromDIP( 250 );
    *     m_leftWinWidth = defaultLeftWinWidth;   // "Default value"
@@ -538,15 +553,43 @@ export function HomePage({
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       // Clamped to the sash's own range, so a hand-edited or stale value can
-      // never leave the pane wider than the window or too narrow to hit. 200 is
-      // the floor because that is the first-run width; a dragged one is >= 250.
+      // never leave the pane wider than the window or too narrow to hit. 250 is
+      // the floor because that is the pane's post-layout MinSize upstream, which
+      // is also what a first run renders.
       const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
-      if (Number.isFinite(saved) && saved >= 200 && saved <= 600) return saved;
+      if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
     } catch {
       /* storage blocked: fall through to the first-run default */
     }
-    return 200;
+    return 250;
   });
+  /**
+   * Height of the Local History pane, or null for the even split two panes get
+   * when they share a dock row. AUI puts a draggable sash between them; this is
+   * that sash's state.
+   */
+  const [historyHeight, setHistoryHeight] = useState<number | null>(null);
+  const leftDockRef = useRef<HTMLDivElement>(null);
+  const startHistoryResize = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const dock = leftDockRef.current;
+    const startH = historyHeight ?? (dock ? (dock.clientHeight - 5) / 2 : 300);
+    const onMove = (ev: MouseEvent): void => {
+      const dockH = dock?.clientHeight ?? 0;
+      // Both panes keep a floor, the way a dock refuses to collapse a pane.
+      setHistoryHeight(Math.max(60, Math.min(dockH - 80, startH - (ev.clientY - startY))));
+    };
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.body.style.cursor = 'row-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
   // Non-null while opening/saving a project, drives KiCad's "Load Schematic"
   // style progress overlay (message + optional gauge) so the UI doesn't look
   // frozen mid-load.
@@ -945,8 +988,10 @@ export function HomePage({
     const startW = panelWidth;
     // 250 is the pane's MinSize, applied straight after the first layout:
     //   m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, ... )
-    // It is deliberately wider than the 200 the pane opens at, so the first drag
-    // cannot put it back as narrow as it started. That asymmetry is upstream's.
+    // The same 250 is what a first run renders (measured 2026-08-19 against a
+    // fresh KICAD_CONFIG_HOME: pane x34..x283), so the floor and the opening
+    // width agree — there is no asymmetry here, contrary to what this comment
+    // used to claim.
     const onMove = (ev: MouseEvent): void =>
       setPanelWidth(Math.min(600, Math.max(250, startW + ev.clientX - startX)));
     const onUp = (): void => {
@@ -1330,44 +1375,69 @@ export function HomePage({
           )}
         </div>
 
-        {/* The AUI pane, docked left of the project tree. Upstream's is a
-            LOCAL_HISTORY_PANE added to the frame's AUI manager; ours is a
-            sibling of the tree in the same row. */}
-        {historyShown && <LocalHistoryPane projectId={openProjectId} />}
+        {/* The left dock. Upstream puts BOTH panes in it, same direction, same
+            layer, same row:
 
-        <ProjectTreePane
-          picked={picked}
-          dirRoot={dirRoot}
-          rootLabel={rootLabel}
-          projectNames={projectNames}
-          width={panelWidth}
-          expanded={expanded}
-          onToggleDir={toggleDir}
-          selected={selected}
-          onSelect={selectPath}
-          onRenamePath={renamePath}
-          onDeletePaths={deletePaths}
-          onViewTextPath={(path) => setTextView(fileAtPath(path))}
-          onDownloadPath={(path) => downloadFileAtPath(path)}
-          rootOpen={rootOpen}
-          onToggleRoot={() => setRootOpen((o) => !o)}
-          onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}
-          onOpenSchematic={launchSchematic}
-          onOpenSymbolFile={
-            onOpenSymbolEditor ? (f) => onOpenSymbolEditor(picked ?? undefined, f.name) : undefined
-          }
-          onOpenDrawingSheetFile={
-            onOpenDrawingSheetEditor ? (f) => onOpenDrawingSheetEditor(f) : undefined
-          }
-          onSwitchProject={onSwitchProject}
-          onOpenFootprintFile={
-            onOpenFootprintEditor
-              ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
-              : undefined
-          }
-          onOpenProjectPicker={() => setOpenPrjOpen(true)}
-          onSelectFiles={() => filesInputRef.current?.click()}
-        />
+              AddPane( m_projectTreePane, EDA_PANE()...Left().Layer( 1 ) )
+              AddPane( m_historyPane,     EDA_PANE()...Left().Layer( 1 ).Position( 1 ) )
+
+            (kicad_manager_frame.cpp:236-245). Panes sharing a row in a left dock
+            stack vertically in Position order, so Local History sits *below*
+            Project Files and shares its width — it is not a second column. Ours
+            used to be a horizontal sibling rendered before the tree, which put
+            it on the wrong side and the wrong axis. */}
+        <div className="ze-leftdock" ref={leftDockRef} style={{ width: panelWidth }}>
+          <ProjectTreePane
+            picked={picked}
+            dirRoot={dirRoot}
+            rootLabel={rootLabel}
+            projectNames={projectNames}
+            width={panelWidth}
+            expanded={expanded}
+            onToggleDir={toggleDir}
+            selected={selected}
+            onSelect={selectPath}
+            onRenamePath={renamePath}
+            onDeletePaths={deletePaths}
+            onViewTextPath={(path) => setTextView(fileAtPath(path))}
+            onDownloadPath={(path) => downloadFileAtPath(path)}
+            rootOpen={rootOpen}
+            onToggleRoot={() => setRootOpen((o) => !o)}
+            onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}
+            onOpenSchematic={launchSchematic}
+            onOpenSymbolFile={
+              onOpenSymbolEditor
+                ? (f) => onOpenSymbolEditor(picked ?? undefined, f.name)
+                : undefined
+            }
+            onOpenDrawingSheetFile={
+              onOpenDrawingSheetEditor ? (f) => onOpenDrawingSheetEditor(f) : undefined
+            }
+            onSwitchProject={onSwitchProject}
+            onOpenFootprintFile={
+              onOpenFootprintEditor
+                ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
+                : undefined
+            }
+          />
+          {/* Position( 1 ): second in the same dock row, so it sits under the
+              tree. `.Hide()` at construction and shown only when the setting
+              says so, which is what `historyShown` carries here. */}
+          {historyShown && (
+            <>
+              <div
+                className="ze-hsplitter"
+                onMouseDown={startHistoryResize}
+                title="Drag to resize"
+              />
+              <LocalHistoryPane
+                projectId={openProjectId}
+                onClose={() => setHistoryShown(false)}
+                height={historyHeight}
+              />
+            </>
+          )}
+        </div>
 
         {/* draggable sash between the tree and the launchers (KiCad's wxAUI pane) */}
         <div className="ze-splitter" onMouseDown={startResize} title="Drag to resize" />

@@ -28,6 +28,17 @@ const read = (rel: string): string =>
 
 const CSS = read('../../../designer/src/editors/image/imageConverter.css');
 const TSX = read('../../../designer/src/editors/image/ImageConverter.tsx');
+const SHELL = read('../../../designer/src/ui/shell.css');
+
+/** The shared GTK control-theme tokens, as a name -> value map. */
+const TOKENS: Record<string, string> = (() => {
+  const at = SHELL.indexOf(':root {');
+  expect(at, 'shell.css has no :root block').toBeGreaterThanOrEqual(0);
+  const body = SHELL.slice(at, SHELL.indexOf('\n}', at)).replace(/\/\*[\s\S]*?\*\//g, '');
+  const out: Record<string, string> = {};
+  for (const m of body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[m[1]!] = m[2]!.trim();
+  return out;
+})();
 
 /** The stylesheet with its comments taken out, so they cannot read as values. */
 const CSS_CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -115,7 +126,9 @@ describe('D6: the preview pages are flat', () => {
     const view = rule('.imgc-view');
     expect(view['background-image']).toBeUndefined();
     expect(view.background).toBe('var(--panel-bg)');
-    expect(CSS).not.toContain('linear-gradient');
+    // The only gradient in the file is the slider's own accent fill.
+    expect(CSS_CODE.match(/linear-gradient/g)?.length ?? 0).toBe(1);
+    expect(rule('.imgc-pages')['background-image']).toBeUndefined();
   });
 });
 
@@ -149,10 +162,16 @@ describe('B2: the threshold slider carries wxSL_LABELS', () => {
     const val = rule('.imgc-slider-val');
     expect(val.position).toBe('absolute');
     expect(val.transform).toBe('translateX(-50%)');
-    expect(val.left).toContain('var(--imgc-thumb-pos)');
-    // The thumb centre only travels between half a thumb in from each end.
-    expect(val.left).toContain('var(--imgc-thumb-frac)');
-    expect(TSX).toContain("'--imgc-thumb-pos': `${threshold}%`");
+    // The thumb centre travels only over the trough, which is itself inset from
+    // the slider's box, and only between half a thumb in from each of its ends.
+    for (const term of [
+      'var(--wx-border)',
+      'var(--slider-track-inset)',
+      'var(--slider-thumb-size)',
+      'var(--imgc-thumb-frac)',
+    ]) {
+      expect(val.left).toContain(term);
+    }
     expect(TSX).toContain("'--imgc-thumb-frac': threshold / 100");
   });
 
@@ -200,7 +219,7 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     const tab = rule('.imgc-tab');
     expect(tab.background).toBe('transparent');
     expect(tab.border).toBe('none');
-    expect(tab['border-bottom']).toBe('2px solid transparent');
+    expect(tab['border-bottom']).toBe('var(--tab-underline) solid transparent');
     expect(tab['border-radius']).toBe('0');
     const active = rule('.imgc-tab.active');
     expect(active['border-bottom-color']).toBe('var(--chrome-active)');
@@ -246,5 +265,236 @@ describe('D9: BPP is wxBitmap::GetDepth(), not the canvas buffer depth', () => {
 
   it('is what the panel actually shows', () => {
     expect(TSX).toContain('bpp: bitmapDepth(original.data),');
+  });
+});
+
+/**
+ * Measured metrics.
+ *
+ * Two ground truths behind every number here. [css] is the Yaru-dark stylesheet
+ * wxWidgets draws KiCad's controls from, extracted with
+ *   gresource extract /usr/share/themes/Yaru-dark/gtk-3.0/gtk.gresource \
+ *     /com/ubuntu/themes/Yaru-dark/3.0/gtk-dark.css
+ * [px] is a pixel sampled off a live, focused bitmap2component window at
+ * 1920x1200, Xft.dpi 96, gtk-font-name Cantarell 11.
+ *
+ * A test file cannot see a rendered glyph or a sampled colour, so what it pins
+ * is the declaration: that the value we measured is the value in the stylesheet,
+ * and - the point of the exercise - that the Image Converter reads it from the
+ * shared token layer instead of restating it. The rendering itself was checked
+ * by screenshotting the page over CDP and re-running the same pixel profiles
+ * that measured KiCad; that evidence is the before/after table in the PR.
+ */
+describe('the shared GTK control-theme tokens hold the measured values', () => {
+  it('carries the font wxSYS_DEFAULT_GUI_FONT resolves to', () => {
+    // 11pt at 96 dpi = 14.667 px, the size Cantarell 11 renders at.
+    expect(TOKENS['--ui-font-size']).toBe('11pt');
+    // [px] The Image Information rows repeat every 23 px and each cell carries a
+    // 5 px wxFormBuilder border, so one GtkLabel is 18 px tall.
+    expect(TOKENS['--ui-line-height']).toBe('18px');
+  });
+
+  it('carries the one border colour every framed GTK control uses', () => {
+    // [css] frame > border, button, entry, check, radio all take #181818.
+    expect(TOKENS['--ctl-border']).toBe('#181818');
+  });
+
+  it('makes a button, a text field and a combo the same height', () => {
+    // [css] button { min-height: 24px; padding: 4px 9px; border: 1px } and
+    // entry { min-height: 32px; border: 1px } are both 34. [px] agrees.
+    expect(TOKENS['--ctl-height']).toBe('34px');
+    expect(TOKENS['--ctl-radius']).toBe('6px');
+    expect(TOKENS['--ctl-face']).toBe('#373737');
+    expect(TOKENS['--ctl-face-disabled']).toBe('#2a2a2a');
+    expect(TOKENS['--ctl-fg-disabled']).toBe('#929292');
+    expect(TOKENS['--field-bg']).toBe('#282828');
+    expect(TOKENS['--field-pad-x']).toBe('8px');
+  });
+
+  it('sizes a checkbox and a radio the way GTK does', () => {
+    // [css] check, radio { min-height: 14px; min-width: 14px; border: 1px }.
+    expect(TOKENS['--check-size']).toBe('16px');
+    expect(TOKENS['--check-margin']).toBe('4px');
+    // [px] the Output Format radios repeat every 34 px against 5 + 5 of wx
+    // border and a 2 px flexgrid vgap, so the control itself is 22.
+    expect(TOKENS['--check-row']).toBe('22px');
+  });
+
+  it('sizes the slider from the scale the real window draws', () => {
+    // [px] a 4 px flat track, a 20 px circle, the trough inset 12 px at each end
+    // ([css] scale { padding: 12px }, scale slider { min-height: 18px }).
+    expect(TOKENS['--slider-track-height']).toBe('4px');
+    expect(TOKENS['--slider-track-bg']).toBe('#4b4b4b');
+    expect(TOKENS['--slider-thumb-size']).toBe('20px');
+    expect(TOKENS['--slider-thumb-bg']).toBe('#fcfcfc');
+    expect(TOKENS['--slider-track-inset']).toBe('12px');
+  });
+
+  it('carries the notebook tab strip and the wxFormBuilder border', () => {
+    expect(TOKENS['--tab-strip-height']).toBe('36px');
+    // [css] notebook > header.top > tabs > tab:checked { box-shadow: inset 0 -3px }.
+    expect(TOKENS['--tab-underline']).toBe('3px');
+    expect(TOKENS['--tab-pad-x']).toBe('12px');
+    // Every sizer item in every KiCad dialog is added with wxALL, 5.
+    expect(TOKENS['--wx-border']).toBe('5px');
+  });
+});
+
+describe('the Image Converter reads its metrics from the tokens', () => {
+  it('states no colour of its own', () => {
+    // A hex literal here is a value that has escaped the theme layer and will
+    // drift away from every other editor, which is how we got here.
+    const stripped = CSS_CODE.replace(/#[0-9a-f]{3,8}\b/gi, (m) =>
+      // The check mark and the radio dot are drawn in the indicator's
+      // foreground, which GTK paints white on the accent.
+      m.toLowerCase() === '#ffffff' ? '' : m,
+    );
+    expect(stripped).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  });
+
+  it('states no font size of its own', () => {
+    expect(rule('.imgc-frame')['font-size']).toBe('var(--ui-font-size)');
+    expect(rule('.imgc-frame')['line-height']).toBe('var(--ui-line-height)');
+    expect(rule('.imgc-frame')['font-family']).toBe('var(--ui-font-family)');
+    expect(CSS_CODE).not.toMatch(/font-size:\s*\d/);
+  });
+
+  it('paints the column and the tab strip the window colour, not the inset one', () => {
+    // [px] KiCad paints the menu bar, the tab strip, the right column and the
+    // status bar all #2c2c2c; only the notebook pages are darker.
+    expect(rule('.imgc-side').background).toBe('var(--chrome-bg)');
+    expect(rule('.imgc-tabs').background).toBe('var(--chrome-bg)');
+    expect(rule('.imgc-view').background).toBe('var(--panel-bg)');
+  });
+
+  it('gives the fields, the combos and the buttons the token height', () => {
+    const field = rule('.imgc-frame .imgc-select');
+    expect(field.height).toBe('var(--ctl-height)');
+    expect(field.background).toBe('var(--field-bg)');
+    expect(field.border).toBe('1px solid var(--ctl-border)');
+    expect(field['border-radius']).toBe('var(--ctl-radius)');
+    expect(field.padding).toBe('0 var(--field-pad-x)');
+    const btn = rule('.imgc-frame .imgc-btn');
+    expect(btn.height).toBe('var(--ctl-height)');
+    expect(btn.background).toBe('var(--ctl-face)');
+    expect(btn['border-radius']).toBe('var(--ctl-radius)');
+  });
+
+  it('greys a disabled control by colour, never by fading it', () => {
+    // GTK has no opacity in any :disabled rule; it swaps the colour. Fading
+    // washes out the control's own background and border with it.
+    expect(rule('.imgc-frame .imgc-select:disabled').color).toBe('var(--ctl-fg-disabled)');
+    expect(rule('.imgc-frame .imgc-select:disabled').opacity).toBe('1');
+    expect(rule('.imgc-frame .imgc-btn:disabled').background).toBe('var(--ctl-face-disabled)');
+    expect(rule('.imgc-frame .imgc-btn:disabled').color).toBe('var(--ctl-fg-disabled)');
+    expect(CSS_CODE).not.toMatch(/opacity:\s*0/);
+  });
+
+  it('gives the check and radio indicators the token size', () => {
+    const box = rule('.imgc-frame .imgc-radio input');
+    expect(box.width).toBe('var(--check-size)');
+    expect(box.height).toBe('var(--check-size)');
+    expect(box.margin).toBe('0 var(--check-margin)');
+    expect(box.background).toBe('var(--check-face)');
+    expect(rule('.imgc-radio').height).toBe('var(--check-row)');
+  });
+
+  it('builds the slider out of the token track and thumb', () => {
+    const thumb = rule('.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-thumb');
+    expect(thumb.width).toBe('var(--slider-thumb-size)');
+    expect(thumb.background).toBe('var(--slider-thumb-bg)');
+    const track = rule(
+      '.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-runnable-track',
+    );
+    expect(track.height).toBe('var(--slider-track-height)');
+    expect(track.background).toContain('var(--slider-track-bg)');
+    expect(track.background).toContain('var(--chrome-active)');
+    // scale { padding: 12px }: the trough stops short of the widget's ends.
+    const range = rule('.imgc-frame .imgc-slider input[type="range"]');
+    expect(range.width).toBe('calc(100% - 2 * var(--slider-track-inset))');
+    expect(range.margin).toBe('0 var(--slider-track-inset)');
+  });
+
+  it('sizes the tab strip and its accent bar from the tokens', () => {
+    expect(rule('.imgc-tabs').height).toBe('var(--tab-strip-height)');
+    expect(rule('.imgc-tab').padding).toBe('0 var(--tab-pad-x)');
+    // The bar has to sit ON the strip's border row; one pixel lower and the
+    // notebook page paints over it and the selected tab carries no mark at all.
+    expect(rule('.imgc-tab')['margin-bottom']).toBe('-1px');
+  });
+});
+
+describe('the arrangement bitmap2cmp_panel_base gives this panel alone', () => {
+  it('is 277 px wide with 257 px group boxes inside it', () => {
+    // bMainSizer->Add( brightSizer, 0, wxEXPAND|wxALL, 5 ) and then wxALL 5 on
+    // every item inside it: 10 px in from the edge, 10 px between two items.
+    const side = rule('.imgc-side');
+    expect(side.width).toBe('277px');
+    expect(side.padding).toBe('calc(2 * var(--wx-border))');
+    expect(side.gap).toBe('calc(2 * var(--wx-border))');
+  });
+
+  it('draws a square GTK frame with a plain-weight label', () => {
+    const group = rule('.imgc-group');
+    expect(group.border).toBe('1px solid var(--ctl-border)');
+    expect(group['border-radius']).toBe('0');
+    // The frame has no padding: each child brings its own wx border instead,
+    // and they differ per child, which is what puts every row where KiCad has it.
+    expect(group.padding).toBe('0');
+    expect(rule('.imgc-group legend')['font-weight']).toBe('normal');
+  });
+
+  it('insets the notebook 10 px from the left and bottom edges', () => {
+    // bitmap2cmp_panel_base.cpp:30, Add( m_Notebook, 1, wxEXPAND|wxBOTTOM|wxLEFT, 10 ).
+    expect(rule('.imgc-notebook').margin).toBe('0 0 10px 10px');
+    expect(rule('.imgc-notebook').border).toBe('1px solid var(--ctl-border)');
+  });
+
+  it('gives the Size fields their SetMinSize widths and lets neither grow', () => {
+    // bitmap2cmp_panel_base.cpp:112,118,126 - 60, 60 and 80, all at sizer
+    // proportion 0, so the row packs left and the slack stays on the right.
+    expect(rule('.imgc-sizerow .imgc-input').width).toBe('60px');
+    expect(rule('.imgc-sizerow .imgc-select').width).toBe('80px');
+    expect(rule('.imgc-frame .imgc-select').flex).toBe('none');
+    // m_layerCtrl is the one control here at proportion 1.
+    expect(rule('.imgc-frame .imgc-select.grow').flex).toBe('1');
+  });
+
+  it('indents the Layer label 28 px, and greys it with its combo', () => {
+    // bitmap2cmp_panel_base.cpp:177, Add( m_layerLabel, 0, ...|wxLEFT, 28 ).
+    expect(rule('.imgc-layerrow')['padding-left']).toBe('28px');
+    // bitmap2cmp_panel.cpp:571, m_layerLabel->Enable( m_rbFootprint->GetValue() ).
+    expect(rule('.imgc-layerrow.disabled .lbl').color).toBe('var(--ctl-fg-disabled)');
+    expect(TSX).toContain("`imgc-layerrow${footprint ? '' : ' disabled'}`");
+  });
+
+  it('spaces the Output Format rows by the flexgrid vgap plus each wx border', () => {
+    // wxFlexGridSizer( 5, 1, 2, 0 ), then wxBOTTOM / wxTOP / none / both / wxTOP
+    // (bitmap2cmp_panel_base.cpp:161-193). The five rows must be siblings for
+    // the positional rules to reach them.
+    expect(rule('.imgc-formats').gap).toBe('2px');
+    expect(rule('.imgc-formats > :nth-child(1)')['margin-bottom']).toBe('var(--wx-border)');
+    expect(rule('.imgc-formats > :nth-child(2)')['margin-top']).toBe('var(--wx-border)');
+    expect(rule('.imgc-formats > :nth-child(4)').margin).toBe('var(--wx-border) 0');
+    expect(rule('.imgc-formats > :nth-child(5)')['margin-top']).toBe('var(--wx-border)');
+    expect(TSX).toContain('className="imgc-formats"');
+  });
+
+  it('puts Export to Clipboard 5 px under Export to File, not 10', () => {
+    // It is the one item added wxBOTTOM|wxRIGHT|wxLEFT, with no wxTOP
+    // (bitmap2cmp_panel_base.cpp:205).
+    expect(rule('.imgc-btn.block + .imgc-btn.block')['margin-top']).toBe(
+      'calc(-1 * var(--wx-border))',
+    );
+  });
+});
+
+describe('B4: the preview panes are blank before a file is loaded', () => {
+  it('paints no placeholder over the three scrolled windows', () => {
+    // bitmap2cmp_panel_base.cpp:21,24,27 build three empty wxScrolledWindows and
+    // nothing draws into them until OnLoadFile; KiCad prints no prompt.
+    expect(TSX).not.toContain('No image loaded');
+    expect(TSX).not.toContain('imgc-drop');
+    expect(CSS_CODE).not.toContain('.imgc-drop');
   });
 });

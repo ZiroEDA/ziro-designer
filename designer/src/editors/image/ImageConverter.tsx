@@ -11,6 +11,7 @@
  */
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -528,12 +529,9 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             <div className={`imgc-view${tab === 'bw' ? ' active' : ''}`}>
               {loaded && <canvas ref={bwCanvasRef} className="imgc-canvas" />}
             </div>
-            {!loaded && (
-              <div className="imgc-drop">
-                <div className="imgc-drop-title">No image loaded</div>
-                <div>Click “Load Source Image”, or drop a bitmap here.</div>
-              </div>
-            )}
+            {/* Before a file is loaded the three wxScrolledWindows are simply
+                blank (bitmap2cmp_panel_base.cpp:21,24,27). KiCad paints no
+                placeholder over them, so neither do we. */}
           </div>
         </div>
 
@@ -579,14 +577,14 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             <div className="imgc-sizerow">
               <span className="lbl">Size:</span>
               <input
-                className="imgc-input"
+                className="imgc-input ze-bare"
                 value={outX}
                 disabled={!loaded}
                 onChange={(e) => changeX(e.target.value)}
                 spellCheck={false}
               />
               <input
-                className="imgc-input"
+                className="imgc-input ze-bare"
                 value={outY}
                 disabled={!loaded}
                 onChange={(e) => changeY(e.target.value)}
@@ -622,12 +620,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 ends sit under the ends of the track. */}
             <div
               className="imgc-slider"
-              style={
-                {
-                  '--imgc-thumb-pos': `${threshold}%`,
-                  '--imgc-thumb-frac': threshold / 100,
-                } as CSSProperties
-              }
+              style={{ '--imgc-thumb-frac': threshold / 100 } as CSSProperties}
             >
               <span className="imgc-slider-val">{threshold}</span>
               <input
@@ -656,36 +649,42 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
           <fieldset className="imgc-group imgc-format">
             <legend>Output Format</legend>
-            {FORMATS.map((f) => (
-              <div key={f.id}>
-                <label className="imgc-radio">
-                  <input
-                    type="radio"
-                    name="imgc-format"
-                    checked={format === f.id}
-                    onChange={() => setFormat(f.id)}
-                  />
-                  {f.label}
-                </label>
-                {f.id === 'footprint' && (
-                  <div className="imgc-layerrow">
-                    <span className="lbl">Layer:</span>
-                    <select
-                      className="imgc-select grow"
-                      value={layerIdx}
-                      disabled={!footprint}
-                      onChange={(e) => setLayerIdx(Number(e.target.value))}
-                    >
-                      {OUTLINE_LAYERS.map((l, i) => (
-                        <option key={l.id} value={i}>
-                          {l.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            ))}
+            {/* fgSizer2 is a wxFlexGridSizer( 5, 1, 2, 0 ): five sibling rows,
+                the Layer row third. They must stay siblings, because each row's
+                wxFormBuilder border differs and the stylesheet addresses them by
+                position (bitmap2cmp_panel_base.cpp:161-193). */}
+            <div className="imgc-formats">
+              {FORMATS.map((f) => (
+                <Fragment key={f.id}>
+                  <label className="imgc-radio">
+                    <input
+                      type="radio"
+                      name="imgc-format"
+                      checked={format === f.id}
+                      onChange={() => setFormat(f.id)}
+                    />
+                    {f.label}
+                  </label>
+                  {f.id === 'footprint' && (
+                    <div className={`imgc-layerrow${footprint ? '' : ' disabled'}`}>
+                      <span className="lbl">Layer:</span>
+                      <select
+                        className="imgc-select grow"
+                        value={layerIdx}
+                        disabled={!footprint}
+                        onChange={(e) => setLayerIdx(Number(e.target.value))}
+                      >
+                        {OUTLINE_LAYERS.map((l, i) => (
+                          <option key={l.id} value={i}>
+                            {l.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </Fragment>
+              ))}
+            </div>
           </fieldset>
 
           <button

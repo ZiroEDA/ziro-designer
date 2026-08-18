@@ -22,6 +22,7 @@ import {
   flipHJustify,
 } from '@ziroeda/eeschema/src/tools/transform.js';
 import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const sheet = (body: string): Schematic =>
@@ -238,6 +239,15 @@ describe('a directive label mirrors opposite to a label', () => {
   const mirror = (d: Schematic, op: 'mirrorX' | 'mirrorY') =>
     transformItems(new Set([refId('line', 'w-1', 0), refId('directive', 'd-1', 0)]), op).apply(d);
 
+  // MirrorSpinStyle is the *single-item* arm of SCH_EDIT_TOOL::Mirror
+  // (sch_edit_tool.cpp:1341). With anything else in the selection the tool falls
+  // through to SCH_DIRECTIVE_LABEL::MirrorHorizontally / ::MirrorVertically
+  // (sch_label.cpp:1776/1804) instead, which agree about the flag's angle but
+  // move it, and treat its fields differently. Tests that are about
+  // MirrorSpinStyle itself therefore have to select the flag on its own.
+  const mirrorAlone = (d: Schematic, op: 'mirrorX' | 'mirrorY') =>
+    transformItems(new Set([refId('directive', 'd-1', 0)]), op).apply(d);
+
   const movedX = (before: Schematic, after: Schematic): boolean =>
     before.lines[0]!.start.x !== after.lines[0]!.start.x;
 
@@ -286,7 +296,7 @@ describe('a directive label mirrors opposite to a label', () => {
     // a horizontal field flips on the left-right mirror.
     const d = flag(0);
     const before = d.directiveLabels![0]!;
-    const after = mirror(d, 'mirrorY').directiveLabels![0]!; // the X mirror
+    const after = mirrorAlone(d, 'mirrorY').directiveLabels![0]!; // the X mirror
     const f = after.fields[0]!;
     expect(f.at).toEqual({
       x: 2 * before.at.x - before.fields[0]!.at!.x,
@@ -297,7 +307,7 @@ describe('a directive label mirrors opposite to a label', () => {
 
   it('reaches the file — the flag angle and the field both persist', () => {
     const d = flag(0);
-    const after = mirror(d, 'mirrorX'); // the Y mirror
+    const after = mirrorAlone(d, 'mirrorX'); // the Y mirror
     const text = serializeSchematic(after);
     expect(text).toContain('(at 50 50 180)');
     const back = readSchematic(parse(text));
@@ -312,5 +322,63 @@ describe('a directive label mirrors opposite to a label', () => {
       expect(back.directiveLabels![0]!.angle).toBe(90);
       expect(back.directiveLabels![0]!.fields[0]!.at).toEqual(d.directiveLabels![0]!.fields[0]!.at);
     }
+  });
+});
+
+/**
+ * Audit finding 3: a label in a *group* transform.
+ *
+ * `SCH_EDIT_TOOL` runs `Rotate90` / `MirrorSpinStyle` on a single text item,
+ * which turns it where it stands. With anything else in the selection it falls
+ * through to the generic `item->Rotate( rotPoint, !clockwise )`, which is
+ * `SCH_LABEL_BASE::Rotate` (sch_label.cpp:483) or `SCH_TEXT::Rotate`
+ * (sch_text.cpp:201) and moves the label as well. We only ever ran the first,
+ * so a label caught in a group rotate was the one thing left behind while
+ * everything it was attached to swung round it.
+ */
+describe('a label swept up in a group transform', () => {
+  const withWire = (kind: string, at: string, angle = 0) =>
+    sheet(
+      [
+        `(wire (pts (xy 0 0) (xy 25.4 0)) (uuid "w-1"))`,
+        `(${kind} "CLK" (at ${at} ${angle})
+           (effects (font (size 1.27 1.27)) (justify left)) (uuid "l-1"))`,
+      ].join('\n'),
+    );
+  const ids = new Set([refId('line', 'w-1', 0), refId('label', 'l-1', 0)]);
+  const mm = mmToIU;
+
+  it('moves with the group instead of standing still', () => {
+    const d = withWire('label', '0 0');
+    const after = transformItems(ids, 'mirrorY').apply(d);
+    // The wire spans x 0..25.4 and the label is excluded from the box merge, so
+    // the centre is 12.7 and the label reflects from 0 to 25.4.
+    expect(after.labels[0]!.at).toEqual({ x: mm(25.4), y: 0 });
+  });
+
+  it('rotates about the group centre as well as turning', () => {
+    const d = withWire('label', '0 0');
+    const after = transformItems(ids, 'rotateCW').apply(d);
+    expect(after.labels[0]!.at).toEqual({ x: mm(12.7), y: mm(-12.7) });
+    expect(after.labels[0]!.angle).toBe(90);
+  });
+
+  it('free text spins the same way whichever direction the command was', () => {
+    // SCH_TEXT::Rotate hard-codes `Rotate90( false )` (sch_text.cpp:205) rather
+    // than passing the command's direction, unlike SCH_LABEL_BASE::Rotate.
+    const cw = transformItems(ids, 'rotateCW').apply(withWire('text', '0 0'));
+    const ccw = transformItems(ids, 'rotateCCW').apply(withWire('text', '0 0'));
+    expect(cw.labels[0]!.effects?.justify).toEqual(ccw.labels[0]!.effects?.justify);
+    // A plain label does follow the command's direction, so the two differ.
+    const lcw = transformItems(ids, 'rotateCW').apply(withWire('label', '0 0'));
+    const lccw = transformItems(ids, 'rotateCCW').apply(withWire('label', '0 0'));
+    expect(lcw.labels[0]!.effects?.justify).not.toEqual(lccw.labels[0]!.effects?.justify);
+  });
+
+  it('a single label still turns in place, as MirrorSpinStyle does', () => {
+    const d = withWire('label', '0 0');
+    const alone = new Set([refId('label', 'l-1', 0)]);
+    expect(transformItems(alone, 'mirrorY').apply(d).labels[0]!.at).toEqual(d.labels[0]!.at);
+    expect(transformItems(alone, 'rotateCW').apply(d).labels[0]!.at).toEqual(d.labels[0]!.at);
   });
 });

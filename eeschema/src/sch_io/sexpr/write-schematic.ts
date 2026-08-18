@@ -419,6 +419,13 @@ export function patchProperty(propNode: SList, field: SchField, invertY = false)
 }
 
 /** Set the rotation angle (3rd element) of an `(at x y angle)` child. */
+/** The angle already in a node's `(at x y [angle])`, or 0 when the slot is absent. */
+function sourceAtAngle(node: SList): number {
+  const at = childNamed(node, 'at');
+  const a = at ? numArg(at, 2) : undefined;
+  return a ?? 0;
+}
+
 function patchAtAngle(node: SList, angle: number): SList {
   return mapChild(node, 'at', (at) => {
     const items = at.items.slice();
@@ -1187,6 +1194,14 @@ function writeGroup(g: SchGroup): SList {
 function writeTableCell(cell: SchTableCell): SList {
   let node = setItem(cell.source, 1, str(cell.text));
   node = patchAt(node, cell.start);
+  // The text angle only ever changes when the table is rotated, and only the
+  // angle slot of `(at x y ANGLE)` carries it. Patched against the source's own
+  // value rather than written unconditionally, so a table that was never turned
+  // is still byte-stable — including one whose `(at ...)` had no angle slot at
+  // all, which is how every cell KiCad writes at angle 0 reads back.
+  if ((cell.angle ?? 0) !== sourceAtAngle(cell.source)) {
+    node = patchAtAngle(node, cell.angle ?? 0);
+  }
   const size = { x: cell.end.x - cell.start.x, y: cell.end.y - cell.start.y };
   if (childNamed(node, 'size')) {
     node = mapChild(node, 'size', () => list(atom('size'), atom(mm(size.x)), atom(mm(size.y))));

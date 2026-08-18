@@ -3,8 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The launcher's project-files pane (upstream counterpart:
- * kicad/project_tree_pane.cpp). Renders the .kicad_pro root row, the
- * KiCad-sorted directory tree, and the empty-state open/select/drop hints.
+ * kicad/project_tree_pane.cpp). Renders the .kicad_pro root row and the
+ * KiCad-sorted directory tree; with no project it renders nothing at all,
+ * as `ReCreateTreePrj` leaves the real tree.
  * Single click selects, double click routes each document type to its editor
  * (PROJECT_TREE_ITEM::Activate). State stays in the launcher, this pane is
  * fully controlled. Ctrl/Cmd-click multi-selects; right-click opens the
@@ -62,8 +63,6 @@ export function ProjectTreePane({
   onOpenFootprintFile,
   onOpenDrawingSheetFile,
   onSwitchProject,
-  onOpenProjectPicker,
-  onSelectFiles,
 }: {
   picked: PickedHomeFile[] | null;
   dirRoot: DirNode | null;
@@ -93,8 +92,6 @@ export function ProjectTreePane({
   onOpenDrawingSheetFile?: (file: PickedHomeFile) => void;
   /** Switch to another project (double-clicking its .kicad_pro in the tree). */
   onSwitchProject?: (proFullName: string) => void;
-  onOpenProjectPicker: () => void;
-  onSelectFiles: () => void;
 }): JSX.Element {
   // KiCad's addItemToProjectTree: a .kicad_sch is listed only when its basename
   // is one of the folder's project names (getProjects), i.e. the root sheet of
@@ -246,28 +243,14 @@ export function ProjectTreePane({
             {/* project directory contents, flat and KiCad-sorted */}
             {rootOpen && dirRoot?.children.map((c) => renderDir(c, 1))}
           </>
-        ) : (
-          <>
-            <div
-              className="ze-tree-item"
-              style={{ fontWeight: 600 }}
-              onClick={onOpenProjectPicker}
-              title="Open a KiCad project (the folder holding the .kicad_pro and its sheets)"
-            >
-              📂 Open KiCad Project…
-            </div>
-            <div
-              className="ze-tree-item"
-              onClick={onSelectFiles}
-              title="If the browser blocks the folder (Downloads, Desktop…), select all the project files instead (Ctrl+A in the dialog)"
-            >
-              🗂 Select Project Files…
-            </div>
-            <div className="ze-tree-item" style={{ opacity: 0.6 }}>
-              …or drag the project folder here
-            </div>
-          </>
-        )}
+        ) : /* No project: the tree is empty, exactly as upstream leaves it.
+             `PROJECT_TREE_PANE::ReCreateTreePrj` (project_tree_pane.cpp:664)
+             calls `m_TreeProject->DeleteAllItems()` and then returns early on
+             `if( !pro_dir )`, so KiCad draws no root, no placeholder and no
+             hint text. The ways in are the same as upstream's: File ▸ Open
+             Project… (Ctrl+O), the launcher's own Open Project tile, and
+             dropping a folder on the window. */
+        null}
       </div>
       {menu && (
         <div

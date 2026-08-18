@@ -882,7 +882,7 @@ function readTextBox(node: SList): SchTextBox {
 
 /** `(table_cell "text" (at ..)(size ..)(margins ..)(span c r)(fill)(effects)(uuid))`, SCH_TABLECELL. */
 function readTableCell(node: SList): SchTableCell {
-  const { at } = readAt(node);
+  const { at, angle } = readAt(node);
   const startNode = childNamed(node, 'start');
   const start = startNode ? readPoint(startNode, 0) : at;
   const sizeNode = childNamed(node, 'size');
@@ -902,6 +902,10 @@ function readTableCell(node: SList): SchTableCell {
     rowSpan: spanNode ? (numArg(spanNode, 1) ?? 1) : 1,
     source: node,
   };
+  // The text angle of a rotated table's cells (SCH_TABLE::Rotate). Kept off the
+  // object when zero so an unrotated cell compares equal to one read before the
+  // field existed.
+  if (angle) cell.angle = angle;
   const marginsNode = childNamed(node, 'margins');
   if (marginsNode) {
     cell.margins = {

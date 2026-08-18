@@ -87,6 +87,94 @@ describe('cvpcb component list', () => {
   });
 });
 
+/**
+ * A7: the pin count "Filter by pin count" matches against a footprint's unique
+ * pad count. `netlist_exporter_xml.cpp:1040-1060` dedupes the whole part's pins
+ * by *number* and then expands stacked-pin notation; we used to key the set on
+ * `unit + number`, which multiplied every pin a multi-unit part repeats.
+ */
+describe('symbol pin count (netlist <pins>)', () => {
+  // A quad op-amp drawn the way real ones are: V+ (4) and V- (11) appear on
+  // every one of the four units, and the netlist counts them once each. 14
+  // distinct numbers, which is exactly the DIP-14 the part ships in.
+  const QUAD = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
+  (lib_symbols
+    (symbol "Amplifier_Operational:LM324" (property "Reference" "U" (at 0 0 0))
+      (symbol "LM324_1_1"
+        (pin output line (at 0 0 0) (length 1) (name "~") (number "1"))
+        (pin input line (at 0 0 0) (length 1) (name "-") (number "2"))
+        (pin input line (at 0 0 0) (length 1) (name "+") (number "3"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V+") (number "4"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V-") (number "11")))
+      (symbol "LM324_2_1"
+        (pin output line (at 0 0 0) (length 1) (name "~") (number "7"))
+        (pin input line (at 0 0 0) (length 1) (name "-") (number "6"))
+        (pin input line (at 0 0 0) (length 1) (name "+") (number "5"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V+") (number "4"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V-") (number "11")))
+      (symbol "LM324_3_1"
+        (pin output line (at 0 0 0) (length 1) (name "~") (number "8"))
+        (pin input line (at 0 0 0) (length 1) (name "-") (number "9"))
+        (pin input line (at 0 0 0) (length 1) (name "+") (number "10"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V+") (number "4"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V-") (number "11")))
+      (symbol "LM324_4_1"
+        (pin output line (at 0 0 0) (length 1) (name "~") (number "14"))
+        (pin input line (at 0 0 0) (length 1) (name "-") (number "13"))
+        (pin input line (at 0 0 0) (length 1) (name "+") (number "12"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V+") (number "4"))
+        (pin power_in line (at 0 0 0) (length 1) (name "V-") (number "11"))))
+    (symbol "Logic:74LS00" (property "Reference" "U" (at 0 0 0))
+      (symbol "74LS00_1_1"
+        (pin input line (at 0 0 0) (length 1) (name "A") (number "1"))
+        (pin input line (at 0 0 0) (length 1) (name "B") (number "2"))
+        (pin output line (at 0 0 0) (length 1) (name "Y") (number "3")))
+      (symbol "74LS00_1_2"
+        (pin input line (at 0 0 0) (length 1) (name "A") (number "1"))
+        (pin input line (at 0 0 0) (length 1) (name "B") (number "2"))
+        (pin output line (at 0 0 0) (length 1) (name "Y") (number "3"))))
+    (symbol "Connector:Shield" (property "Reference" "J" (at 0 0 0))
+      (symbol "Shield_1_1"
+        (pin passive line (at 0 0 0) (length 1) (name "S") (number "[1-4]"))
+        (pin passive line (at 0 0 0) (length 1) (name "T") (number "[MP1,MP2]"))
+        (pin passive line (at 0 0 0) (length 1) (name "U") (number "5")))))
+  (symbol (lib_id "Amplifier_Operational:LM324") (at 10 10 0) (unit 1) (uuid "u1a")
+    (property "Reference" "U1" (at 0 0 0)) (property "Value" "LM324" (at 0 0 0)))
+  (symbol (lib_id "Amplifier_Operational:LM324") (at 30 10 0) (unit 2) (uuid "u1b")
+    (property "Reference" "U1" (at 0 0 0)) (property "Value" "LM324" (at 0 0 0)))
+  (symbol (lib_id "Amplifier_Operational:LM324") (at 50 10 0) (unit 3) (uuid "u1c")
+    (property "Reference" "U1" (at 0 0 0)) (property "Value" "LM324" (at 0 0 0)))
+  (symbol (lib_id "Amplifier_Operational:LM324") (at 70 10 0) (unit 4) (uuid "u1d")
+    (property "Reference" "U1" (at 0 0 0)) (property "Value" "LM324" (at 0 0 0)))
+  (symbol (lib_id "Logic:74LS00") (at 10 40 0) (unit 1) (uuid "u2a")
+    (property "Reference" "U2" (at 0 0 0)) (property "Value" "74LS00" (at 0 0 0)))
+  (symbol (lib_id "Connector:Shield") (at 10 70 0) (unit 1) (uuid "j1")
+    (property "Reference" "J1" (at 0 0 0)) (property "Value" "Shield" (at 0 0 0))))`;
+
+  const quad = new Map([['q.kicad_sch', readSchematic(parse(QUAD))]]);
+  const byRef = (ref: string): number =>
+    collectCvpcbComponents(quad, ['q.kicad_sch']).find((c) => c.reference === ref)!.pinCount;
+
+  it('counts a pin shared between units once, not once per unit', () => {
+    // 4 units x 5 drawn pins = 20 pin items, but only 14 distinct numbers:
+    // V+ (4) and V- (11) are drawn on all four units. Keying the set on
+    // `unit + number` gave 20 and no 20-pad footprint exists, so the filter
+    // silently matched nothing.
+    expect(byRef('U1')).toBe(14);
+  });
+
+  it('counts a De Morgan body style once as well', () => {
+    // 74LS00_1_2 repeats 1/2/3 with different shapes; upstream's comment names
+    // this as the other reason a pin appears twice in GetGraphicalPins(0,0).
+    expect(byRef('U2')).toBe(3);
+  });
+
+  it('expands stacked-pin notation into individual pins', () => {
+    // "[1-4]" is four pads, "[MP1,MP2]" is two, "5" is one: 7 <pin> nodes.
+    expect(byRef('J1')).toBe(7);
+  });
+});
+
 describe('cvpcb row formats', () => {
   it('formatSymbolDesc lays the columns out like KiCad', () => {
     // "%3d " + reference right-aligned in 8 + " - " + value right-aligned in

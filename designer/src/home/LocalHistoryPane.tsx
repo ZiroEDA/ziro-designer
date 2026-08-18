@@ -43,6 +43,10 @@ interface Props {
   projectId: string | null;
   /** Restore Commit. Absent while the restore flow is not wired up. */
   onRestore?: (snapshot: Snapshot) => void;
+  /** The pane's close box; upstream's `.CloseButton( true )`. */
+  onClose?: () => void;
+  /** Height in px once the sash has been dragged; null keeps the even split. */
+  height?: number | null;
 }
 
 /**
@@ -54,7 +58,7 @@ interface Props {
  */
 const REFRESH_MS = 60_000;
 
-export function LocalHistoryPane({ projectId, onRestore }: Props): JSX.Element {
+export function LocalHistoryPane({ projectId, onRestore, onClose, height }: Props): JSX.Element {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; snapshot: Snapshot } | null>(null);
@@ -90,7 +94,21 @@ export function LocalHistoryPane({ projectId, onRestore }: Props): JSX.Element {
   }, []);
 
   return (
-    <div className="ze-lhist">
+    <div className="ze-lhist" style={height ? { flex: `0 0 ${height}px` } : undefined}>
+      {/* The AUI pane caption. Upstream gives this pane
+          `.Caption( _( "Local History" ) ).CloseButton( true )`
+          (kicad_manager_frame.cpp:243-245), so it carries a title bar with a
+          close box — unlike the project tree, whose caption has no close
+          button. Closing it is the same toggle as View > Panels > Local
+          History, which is why the check item tracks it. */}
+      <div className="ze-panel-header ze-lhist-caption">
+        <span>Local History</span>
+        {onClose && (
+          <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+            ⊠
+          </button>
+        )}
+      </div>
       {/* The wxListCtrl's header. */}
       <div className="ze-lhist-head">
         <span className="title">Title</span>
@@ -98,30 +116,28 @@ export function LocalHistoryPane({ projectId, onRestore }: Props): JSX.Element {
       </div>
 
       <div className="ze-lhist-list">
-        {snapshots.length === 0 ? (
-          // Upstream shows an empty list; a project with no history yet is the
-          // normal state before the first save rather than an error.
-          <div className="ze-lhist-empty">
-            {projectId ? 'No snapshots yet.' : 'No project open.'}
-          </div>
-        ) : (
-          snapshots.map((s) => (
-            <div
-              key={s.id}
-              className={`ze-lhist-row ${s.kind}${selected === s.id ? ' selected' : ''}`}
-              title={snapshotTooltip(s)}
-              onMouseDown={() => setSelected(s.id)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setSelected(s.id);
-                setMenu({ x: e.clientX, y: e.clientY, snapshot: s });
-              }}
-            >
-              <span className="title">{s.title}</span>
-              <span className="time">{relativeTime(s.at, now)}</span>
-            </div>
-          ))
-        )}
+        {snapshots.length === 0
+          ? // Nothing at all. Upstream's wxListCtrl with no rows draws an empty
+            // client area under the header — it has no placeholder string, and
+            // the "No snapshots yet." / "No project open." lines here were ours.
+            // Verified against a running frame with an empty history.
+            null
+          : snapshots.map((s) => (
+              <div
+                key={s.id}
+                className={`ze-lhist-row ${s.kind}${selected === s.id ? ' selected' : ''}`}
+                title={snapshotTooltip(s)}
+                onMouseDown={() => setSelected(s.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSelected(s.id);
+                  setMenu({ x: e.clientX, y: e.clientY, snapshot: s });
+                }}
+              >
+                <span className="title">{s.title}</span>
+                <span className="time">{relativeTime(s.at, now)}</span>
+              </div>
+            ))}
       </div>
 
       {menu && (
