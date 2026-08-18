@@ -25,6 +25,8 @@ import {
   traceRegions,
   OUTLINE_LAYERS,
 } from '@ziroeda/designer/src/editors/image/bitmap2component.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   convertOutputSize,
   formatOutputSize,
@@ -430,5 +432,30 @@ describe('threshold & negative', () => {
     const fp = readFootprintFile(parse(text));
     expect(fp).not.toBeNull();
     expect(fp!.shapes.filter((s) => s.kind === 'poly')).toHaveLength(0);
+  });
+});
+
+describe('output size field wiring (BITMAP2CMP_PANEL::OnSizeChangeX)', () => {
+  // The frame is a .tsx that qa's tsc cannot compile, so it is read as text,
+  // the way canvas_props_wired.test.ts reads its pair. Crude, and still the
+  // only check that sees whether the field feeds the export the way KiCad's
+  // does: through m_outputSizeX, updated only when ToDouble succeeds.
+  const FRAME = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/editors/image/ImageConverter.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  it('parses the size fields with ToDouble semantics, never Number(text) || 0', () => {
+    expect(FRAME).toContain('parseOutputSize');
+    // `Number(text) || 0` turns a cleared or half-typed field into a zero size,
+    // which GetOutputDPI then exports at 1 DPI.
+    expect(FRAME).not.toMatch(/Number\((?:text|outX|outY)\)\s*\|\|\s*0/);
+  });
+
+  it('keeps the export size apart from the field text (ChangeValue, not the field)', () => {
+    // m_outputSizeX / m_outputSizeY, full precision, are what GetOutputDPI reads.
+    expect(FRAME).toMatch(/const \[sizeX, setSizeX\] = useState/);
+    expect(FRAME).toMatch(/outputDpi\(sizeX, loaded\.w, unit\)/);
+    expect(FRAME).toMatch(/outputDpi\(sizeY, loaded\.h, unit\)/);
   });
 });

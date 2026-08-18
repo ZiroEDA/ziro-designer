@@ -37,6 +37,7 @@ import {
   formatOutputSize,
   initialOutputSize,
   outputDpi,
+  parseOutputSize,
   SIZE_UNITS,
   type SizeUnit,
 } from './imageSize.js';
@@ -112,8 +113,15 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [tab, setTab] = useState<Tab>('bw');
   const [unit, setUnit] = useState<SizeUnit>(() => SIZE_UNITS[cfg.units]?.id ?? 'mm');
+  // The two IMAGE_SIZEs and the two text fields are separate state, exactly as
+  // in KiCad: m_outputSizeX holds the full-precision size the export uses, and
+  // m_UnitSizeX is only its display (ChangeValue, so writing it fires nothing).
+  // A field the user has half-typed, or cleared, therefore cannot move the
+  // export until it parses (BITMAP2CMP_PANEL::OnSizeChangeX).
   const [outX, setOutX] = useState(() => formatOutputSize(0, SIZE_UNITS[cfg.units]?.id ?? 'mm'));
   const [outY, setOutY] = useState(() => formatOutputSize(0, SIZE_UNITS[cfg.units]?.id ?? 'mm'));
+  const [sizeX, setSizeX] = useState(0);
+  const [sizeY, setSizeY] = useState(0);
   const [lock, setLock] = useState(true);
   const [threshold, setThreshold] = useState(() =>
     Math.min(100, Math.max(0, Math.round(cfg.threshold))),
@@ -199,9 +207,16 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
           original,
           gray,
         });
-        // Seed the output size from the image at its native PPI (current unit).
-        setOutX(formatOutputSize(initialOutputSize(w, meta.dpiX, unit), unit));
-        setOutY(formatOutputSize(initialOutputSize(h, meta.dpiY, unit), unit));
+        // SetOutputSizeFromInitialImageSize: the image at its native PPI. The
+        // size kept is the full-precision one; only the field is rounded, so a
+        // 24 px image at 300 PPI still exports at 300 DPI and not at the 304
+        // that reading "2.0" back out of the field would give.
+        const sx = initialOutputSize(w, meta.dpiX, unit);
+        const sy = initialOutputSize(h, meta.dpiY, unit);
+        setSizeX(sx);
+        setOutX(formatOutputSize(sx, unit));
+        setSizeY(sy);
+        setOutY(formatOutputSize(sy, unit));
         setTab('bw');
         // KiCad shows the opened file in the status bar (OnLoadFile) and
         // records it in the file history (UpdateFileHistory).
@@ -261,42 +276,57 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   };
 
   // ---- Output Size box (KiCad's IMAGE_SIZE behaviour) ----
-  const numX = Number(outX) || 0;
-  const numY = Number(outY) || 0;
   const aspect = loaded ? loaded.w / loaded.h : 1; // KiCad m_aspectRatio = w / h
+
+  const setSize = (axis: 'x' | 'y', size: number, u: SizeUnit): void => {
+    // IMAGE_SIZE::SetOutputSize + m_UnitSizeX->ChangeValue.
+    if (axis === 'x') {
+      setSizeX(size);
+      setOutX(formatOutputSize(size, u));
+    } else {
+      setSizeY(size);
+      setOutY(formatOutputSize(size, u));
+    }
+  };
 
   const changeUnit = (next: SizeUnit): void => {
     if (loaded) {
-      setOutX(formatOutputSize(convertOutputSize(numX, loaded.w, unit, next), next));
-      setOutY(formatOutputSize(convertOutputSize(numY, loaded.h, unit, next), next));
+      setSize('x', convertOutputSize(sizeX, loaded.w, unit, next), next);
+      setSize('y', convertOutputSize(sizeY, loaded.h, unit, next), next);
     }
     setUnit(next);
   };
   const changeX = (text: string): void => {
-    setOutX(text);
-    if (!lock) return;
-    const v = Number(text) || 0;
-    const y = unit === 'dpi' ? (numX ? (numY * v) / numX : v) : v / aspect;
-    setOutY(formatOutputSize(y, unit));
+    setOutX(text); // the field always shows what was typed
+    const v = parseOutputSize(text);
+    if (v === null) return; // ToDouble failed: m_outputSizeX keeps its value
+    if (lock) {
+      const y = unit === 'dpi' ? (sizeX ? (sizeY * v) / sizeX : v) : v / aspect;
+      setSize('y', y, unit);
+    }
+    setSizeX(v);
   };
   const changeY = (text: string): void => {
     setOutY(text);
-    if (!lock) return;
-    const v = Number(text) || 0;
-    // DPI mode reproduces OnSizeChangeY verbatim: the ratio is computed against
-    // the X size, so the locked X ends up set to the newly typed value.
-    const x = unit === 'dpi' ? v : v * aspect;
-    setOutX(formatOutputSize(x, unit));
+    const v = parseOutputSize(text);
+    if (v === null) return;
+    if (lock) {
+      // DPI mode reproduces OnSizeChangeY verbatim: the ratio is computed
+      // against the X size, so the locked X ends up set to the typed value.
+      const x = unit === 'dpi' ? v : v * aspect;
+      setSize('x', x, unit);
+    }
+    setSizeY(v);
   };
   const toggleLock = (on: boolean): void => {
     setLock(on);
     // ToggleAspectRatioLock: re-locking snaps Y back into ratio with X (in DPI
     // mode OnSizeChangeX's ratio against X is 1, so Y stays as it is).
-    if (on && unit !== 'dpi') setOutY(formatOutputSize(numX / aspect, unit));
+    if (on && unit !== 'dpi') setSize('y', sizeX / aspect, unit);
   };
 
-  const dpiX = loaded ? outputDpi(numX, loaded.w, unit) : DEFAULT_DPI;
-  const dpiY = loaded ? outputDpi(numY, loaded.h, unit) : DEFAULT_DPI;
+  const dpiX = loaded ? outputDpi(sizeX, loaded.w, unit) : DEFAULT_DPI;
+  const dpiY = loaded ? outputDpi(sizeY, loaded.h, unit) : DEFAULT_DPI;
 
   const buildOutput = useCallback(
     (paste = false) => {
