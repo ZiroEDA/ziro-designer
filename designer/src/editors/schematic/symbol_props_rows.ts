@@ -42,6 +42,10 @@ export interface FieldRow {
   doNotAutoplace?: boolean;
   /** `(show_in_chooser yes)`. No column — carried so OK cannot drop it. */
   showInChooser?: boolean;
+  /** The bare `private` flag. No column either (KiCad's grid has none), and it
+   *  moves the name and value slots in the file, so dropping it here would
+   *  rename the field on the next save. */
+  isPrivate?: boolean;
   source?: SchField['source'];
 }
 
@@ -62,6 +66,7 @@ export function rowsFromSymbol(
     nameShown: !!f.nameShown,
     doNotAutoplace: f.doNotAutoplace,
     showInChooser: f.showInChooser,
+    isPrivate: f.isPrivate,
     source: f.source,
   }));
   const defined = new Set(out.map((r) => r.key));
@@ -96,6 +101,7 @@ export function fieldsFromRows(rows: readonly FieldRow[]): EditedField[] {
       nameShown: r.nameShown || undefined,
       doNotAutoplace: r.doNotAutoplace,
       showInChooser: r.showInChooser,
+      isPrivate: r.isPrivate,
       source: r.source,
     }));
 }

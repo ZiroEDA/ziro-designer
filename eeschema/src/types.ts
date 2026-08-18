@@ -364,6 +364,15 @@ export interface SchField {
   /** `(do_not_autoplace yes)`, stored inverted from SCH_FIELD::CanAutoplace;
    *  undefined when the token is absent, which means the field may autoplace. */
   readonly doNotAutoplace?: boolean;
+  /**
+   * The bare `private` flag (SCH_FIELD::IsPrivate). Unlike every other flag it
+   * is an atom written *before* the name — `(property private "Name" "Value" …)`
+   * — so it shifts the name and value one slot along. That is why it has to be
+   * modelled rather than left to pass through: `saveField`
+   * (sch_io_kicad_sexpr.cpp:1011) prints it first, and `parseSchField`
+   * (sch_io_kicad_sexpr_parser.cpp:2289) consumes it before reading the name.
+   */
+  readonly isPrivate?: boolean;
   readonly source: SList;
 }
 

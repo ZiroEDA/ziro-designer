@@ -31,7 +31,9 @@ const SRC = `(kicad_sch (version 20250114)
     (property "Value" "10k" (at 53.34 52.07 0) (effects (font (size 1.27 1.27))))
     (property "Footprint" "R_0603" (at 53.34 54.61 0) (do_not_autoplace yes)
       (show_in_chooser yes)
-      (effects (font (size 1.27 1.27) (color 255 0 0 1)) (hide yes)))))`;
+      (effects (font (size 1.27 1.27) (color 255 0 0 1)) (hide yes)))
+    (property private "Sim.Params" "r=10k" (at 53.34 57.15 0)
+      (effects (font (size 1.27 1.27)) (hide yes)))))`;
 
 const sheet = (): Schematic => readSchematic(parse(SRC));
 // refId returns the uuid itself when the item has one; a decorated id would
@@ -46,6 +48,17 @@ describe('a row carries every flag the file does', () => {
     expect(fp.doNotAutoplace).toBe(true);
     expect(fp.showInChooser).toBe(true);
     expect(fp.effects.color).toEqual([255, 0, 0, 1]);
+  });
+
+  it('shows a `private` field under its own name, and carries the flag', () => {
+    // The flag is a bare atom BEFORE the name, so reading the first positional
+    // slot as the name put "private" in the grid's Name column and the real
+    // name in its Value column.
+    const rows = rowsFromSymbol(sheet().symbols[0]!);
+    expect(rows.map((r) => r.key)).not.toContain('private');
+    const sim = rows.find((r) => r.key === 'Sim.Params')!;
+    expect(sim.value).toBe('r=10k');
+    expect(sim.isPrivate).toBe(true);
   });
 
   it('hands them back unchanged when nothing was edited', () => {
@@ -75,6 +88,8 @@ describe('a row carries every flag the file does', () => {
     expect(out).toContain('(do_not_autoplace yes)');
     expect(out).toContain('(show_in_chooser yes)');
     expect(out).toContain('(color 255 0 0 1)');
+    // The `private` flag stays ahead of the name; the field is not renamed.
+    expect(out).toContain('(property private "Sim.Params"');
   });
 
   it('clearing Allow Autoplacement drops the token, as the checkbox says', () => {

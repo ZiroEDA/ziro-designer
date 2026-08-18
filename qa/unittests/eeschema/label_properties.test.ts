@@ -209,13 +209,17 @@ describe('font face, hyperlinks and sheet-pin fields', () => {
     const sch = load();
     const text = { ...buildLabel('text', 'see page 3', { x: 0, y: 0 }), hyperlink: '#3' };
     const out = serializeSchematic({ ...sch, labels: [text] });
-    expect(out).toContain('(hyperlink "#3")');
+    // `(href "…")` inside `(effects …)`, which is where EDA_TEXT::Format puts
+    // it. We used to write a direct `(hyperlink "…")` child, a token the
+    // schematic lexer does not have at all.
+    expect(out).toContain('(href "#3")');
+    expect(out).not.toContain('hyperlink');
     const read = readSchematic(parse(out)).labels[0]!;
     expect(read.hyperlink).toBe('#3');
     // Removing it drops the token again.
     expect(
       serializeSchematic({ ...sch, labels: [{ ...read, hyperlink: undefined }] }),
-    ).not.toContain('(hyperlink');
+    ).not.toContain('(href');
   });
 });
 

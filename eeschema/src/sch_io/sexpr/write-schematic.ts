@@ -18,10 +18,10 @@
  */
 
 import { head, isList, list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
-import { arg, childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
+import { arg, childNamed, numArg, stringField } from '@ziroeda/sexpr/src/query.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
-import { readEffects, readField } from './read-schematic.js';
+import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
   SchSymbol,
@@ -296,17 +296,33 @@ function patchEffects(effectsNode: SList, fx: TextEffects, orig: TextEffects | u
 export function buildPropertyNode(field: Omit<SchField, 'source'>, invertY = false): SList {
   const at = field.at ?? { x: 0, y: 0 };
   const y = invertY ? -at.y : at.y;
-  const items: SNode[] = [
-    atom('property'),
+  const items: SNode[] = [atom('property')];
+  // saveField prints the bare `private` flag first, before the name
+  // (sch_io_kicad_sexpr.cpp:1011).
+  if (field.isPrivate) items.push(atom('private'));
+  items.push(
     str(field.key),
     str(field.value),
     list(atom('at'), atom(mm(at.x)), atom(mm(y)), atom(String(field.angle))),
-  ];
+  );
   if (field.nameShown) items.push(list(atom('show_name'), atom('yes')));
   if (field.doNotAutoplace) items.push(list(atom('do_not_autoplace'), atom('yes')));
   const fx = buildEffects(field.effects);
   if (fx) items.push(fx);
   return { kind: 'list', items };
+}
+
+/**
+ * The name of a `(property [private] "Name" "Value" …)` node.
+ *
+ * The bare `private` flag is an atom in the first positional slot, so reading
+ * `items[1]` blind gets "private" instead of the name and the field is then
+ * matched against nothing and left unpatched.
+ */
+function propertyName(node: SList): string | undefined {
+  const at = fieldIsPrivate(node) ? 2 : 1;
+  const name = node.items[at];
+  return name && name.kind === 'string' ? name.value : undefined;
 }
 
 /**
@@ -319,8 +335,17 @@ export function patchProperty(propNode: SList, field: SchField, invertY = false)
   const orig = readField(propNode, invertY);
   const fileAt = (p: Vec2): Vec2 => (invertY ? { x: p.x, y: -p.y } : p);
   let n = propNode;
-  if (field.key !== orig.key) n = setItem(n, 1, str(field.key));
-  if (field.value !== orig.value) n = setItem(n, 2, str(field.value)); // the value
+  // The bare `private` atom sits before the name, so setting or clearing it
+  // moves the name and value slots along with it (saveField prints it first,
+  // parseSchField consumes it first). Do it before touching either slot.
+  if (!!field.isPrivate !== !!orig.isPrivate) {
+    n = field.isPrivate
+      ? { kind: 'list', items: [n.items[0]!, atom('private'), ...n.items.slice(1)] }
+      : { kind: 'list', items: [n.items[0]!, ...n.items.slice(2)] };
+  }
+  const keyIdx = field.isPrivate ? 2 : 1;
+  if (field.key !== orig.key) n = setItem(n, keyIdx, str(field.key));
+  if (field.value !== orig.value) n = setItem(n, keyIdx + 1, str(field.value)); // the value
   if (field.at && childNamed(n, 'at')) {
     if (field.at.x !== orig.at?.x || field.at.y !== orig.at?.y) n = patchAt(n, fileAt(field.at));
     if (field.angle !== orig.angle) n = patchAtAngle(n, field.angle);
@@ -328,7 +353,11 @@ export function patchProperty(propNode: SList, field: SchField, invertY = false)
     // Field had no (at ...): insert one right after the value.
     const items = n.items.slice();
     const p = fileAt(field.at);
-    items.splice(3, 0, list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(field.angle))));
+    items.splice(
+      keyIdx + 2,
+      0,
+      list(atom('at'), atom(mm(p.x)), atom(mm(p.y)), atom(String(field.angle))),
+    );
     n = { kind: 'list', items };
   }
   // show_name sits between (at ...) and (effects ...) in KiCad's canonical order.
@@ -749,8 +778,8 @@ function writeSheetPin(node: SList, pin: SheetPin): SList {
   const items: SNode[] = [];
   for (const it of n.items) {
     if (isList(it) && head(it) === 'property') {
-      const key = it.items[1];
-      const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+      const key = propertyName(it);
+      const f = key !== undefined ? byKey.get(key) : undefined;
       if (!f) continue;
       written.add(f.key);
       items.push(patchProperty(it, f));
@@ -819,8 +848,8 @@ function writeSheet(sh: SchSheet): SList {
   const items: SNode[] = [];
   for (const it of node.items) {
     if (isList(it) && head(it) === 'property') {
-      const key = it.items[1];
-      const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+      const key = propertyName(it);
+      const f = key !== undefined ? byKey.get(key) : undefined;
       items.push(f ? patchProperty(it, f) : it);
       continue;
     }
@@ -838,6 +867,38 @@ function writeSheet(sh: SchSheet): SList {
   return { kind: 'list', items };
 }
 
+/**
+ * The `(effects (font (size …)))` that `EDA_TEXT::Format` (common/eda_text.cpp:1060)
+ * prints unconditionally, at the default text size.
+ */
+function defaultEffectsNode(): SList {
+  return list(atom('effects'), list(atom('font'), sizeNode(DEFAULT_TEXT_SIZE, DEFAULT_TEXT_SIZE)));
+}
+
+/**
+ * Patch a text item's `(effects …)`, adding the node when the source lacks one.
+ *
+ * `EDA_TEXT::Format` prints it for every text item, so a formatting edit on an
+ * item whose file carried no `(effects …)` — one from another tool, a
+ * hand-edited file, an older format revision — had nowhere to go and was
+ * silently dropped. `before` is the set of children it must precede in the
+ * matching `SCH_IO_KICAD_SEXPR::save*`.
+ */
+function patchOrAddEffects(
+  node: SList,
+  fx: TextEffects,
+  orig: TextEffects | undefined,
+  before: readonly string[],
+): SList {
+  const n = childNamed(node, 'effects')
+    ? node
+    : insertBeforeAny(node, defaultEffectsNode(), before);
+  return mapChild(n, 'effects', (e) => patchEffects(e, fx, orig));
+}
+
+/** What `(effects …)` precedes in saveText: the uuid and the label's fields. */
+const LABEL_AFTER_EFFECTS = ['uuid', 'property'];
+
 function writeLabel(l: SchLabel): SList {
   let node = patchAt(setItem(l.source, 1, str(l.text)), l.at);
   // Orientation is the third `(at x y angle)` argument.
@@ -853,28 +914,46 @@ function writeLabel(l: SchLabel): SList {
   }
   // Formatting edits (bold/italic/size/justify) patch the `(effects …)` node
   // against the source's parsed effects, keeping everything else byte-stable.
-  if (l.effects && childNamed(node, 'effects')) {
+  // saveText prints it after (at …) and before (uuid …) and the label's fields.
+  if (l.effects) {
     const orig = readEffects(l.source);
-    node = mapChild(node, 'effects', (e) => patchEffects(e, l.effects!, orig));
+    node = patchOrAddEffects(node, l.effects, orig, LABEL_AFTER_EFFECTS);
   }
   // `(exclude_from_sim yes|no)`, written only once the model carries it, so a
   // file that never had the token keeps not having it.
   if (l.excludedFromSim !== undefined) node = setToken(node, 'exclude_from_sim', l.excludedFromSim);
-  node = setHyperlink(node, l.hyperlink);
+  node = setHyperlink(node, l.hyperlink, LABEL_AFTER_EFFECTS);
   return node;
 }
 
-/** `(hyperlink "…")`, written only while one is set (SCH_TEXT::Format). */
-function setHyperlink(node: SList, link: string | undefined): SList {
-  const have = childNamed(node, 'hyperlink');
-  const current = have ? (arg(have, 0) ?? '') : '';
-  if ((link ?? '') === current) return node;
-  const stripped: SList = {
+/**
+ * A text item's hyperlink: `(href "…")` **inside** `(effects …)`, written only
+ * while one is set (`EDA_TEXT::Format`, common/eda_text.cpp:1116).
+ *
+ * ZiroEDA used to append a direct `(hyperlink "…")` child instead. There is no
+ * such token in eeschema/schematic.keywords, and `parseSchText` /
+ * `parseSchTextBoxContent` throw a PARSE_ERROR on anything they do not know —
+ * so ticking the Hyperlink box and saving produced a file KiCad refuses to
+ * open. The stale token is stripped whatever happens; it is never written
+ * again, though `readHyperlink` still reads it so files we already wrote open
+ * here.
+ */
+function setHyperlink(node: SList, link: string | undefined, before: readonly string[]): SList {
+  let n: SList = {
     kind: 'list',
     items: node.items.filter((it) => !(isList(it) && head(it) === 'hyperlink')),
   };
-  if (!link) return stripped;
-  return { kind: 'list', items: [...stripped.items, list(atom('hyperlink'), str(link))] };
+  const effects = childNamed(n, 'effects');
+  const current = effects ? (stringField(effects, 'href') ?? '') : '';
+  if ((link ?? '') === current) return n;
+  if (!effects) n = insertBeforeAny(n, defaultEffectsNode(), before);
+  return mapChild(n, 'effects', (e) => {
+    const stripped = stripToken(e, 'href');
+    // Format prints it last inside (effects …), after (justify …).
+    return link
+      ? { kind: 'list', items: [...stripped.items, list(atom('href'), str(link))] }
+      : stripped;
+  });
 }
 
 /**
@@ -906,8 +985,8 @@ function writeDirectiveLabel(l: SchDirectiveLabel): SList {
     kind: 'list',
     items: node.items.map((it) => {
       if (isList(it) && head(it) === 'property') {
-        const key = it.items[1];
-        const f = key && key.kind === 'string' ? byKey.get(key.value) : undefined;
+        const key = propertyName(it);
+        const f = key !== undefined ? byKey.get(key) : undefined;
         return f ? patchProperty(it, f) : it;
       }
       return it;
@@ -944,20 +1023,34 @@ function writeTextBox(tb: SchTextBox): SList {
       ? mapChild(node, 'margins', () => margins)
       : insertBeforeAny(node, margins, ['stroke', 'fill', 'effects', 'uuid']);
   }
-  if (tb.effects && childNamed(node, 'effects')) {
+  // saveTextBox prints (effects …) after the fill and before (uuid …), and
+  // EDA_TEXT::Format prints it whether or not the item has anything to say —
+  // so a formatting edit on a box whose file carried no (effects …) used to be
+  // dropped instead of introducing one.
+  if (tb.effects) {
     const orig = readEffects(tb.source);
-    node = mapChild(node, 'effects', (e) => patchEffects(e, tb.effects!, orig));
+    node = patchOrAddEffects(node, tb.effects, orig, TEXTBOX_AFTER_EFFECTS);
   }
   if (tb.stroke) node = patchStroke(node, tb.stroke);
-  if (tb.fill && childNamed(node, 'fill')) {
-    node = mapChild(node, 'fill', () => textBoxFillNode(tb.fill!));
+  // formatFill (sch_io_kicad_sexpr_common.cpp:33) always prints (fill (type …)),
+  // right before the effects, so a fill set on a box that had none is written
+  // rather than lost.
+  if (tb.fill) {
+    const fill = textBoxFillNode(tb.fill);
+    node = childNamed(node, 'fill')
+      ? mapChild(node, 'fill', () => fill)
+      : insertBeforeAny(node, fill, TEXTBOX_AFTER_FILL);
   }
   if (tb.excludedFromSim !== undefined) {
     node = setToken(node, 'exclude_from_sim', tb.excludedFromSim);
   }
-  node = setHyperlink(node, tb.hyperlink);
+  node = setHyperlink(node, tb.hyperlink, TEXTBOX_AFTER_EFFECTS);
   return node;
 }
+
+/** What (fill …) and (effects …) precede in saveTextBox. */
+const TEXTBOX_AFTER_FILL = ['effects', 'uuid'];
+const TEXTBOX_AFTER_EFFECTS = ['uuid'];
 
 /** Patch a table cell: content (item 1), position and size (like a text box). */
 /** `(group "name" (uuid …) [(locked yes)] [(lib_id "…")] (members …))` with the
@@ -1001,12 +1094,18 @@ function writeTableCell(cell: SchTableCell): SList {
       ? mapChild(node, 'margins', () => margins)
       : insertBeforeAny(node, margins, ['fill', 'effects', 'uuid']);
   }
-  if (cell.fill && childNamed(node, 'fill')) {
-    node = mapChild(node, 'fill', () => textBoxFillNode(cell.fill!));
+  // Both are printed unconditionally by saveTextBox — formatFill always emits
+  // (fill (type …)) and EDA_TEXT::Format always emits (effects …) — so a cell
+  // whose source carried neither still takes the dialog's edit.
+  if (cell.fill) {
+    const fill = textBoxFillNode(cell.fill);
+    node = childNamed(node, 'fill')
+      ? mapChild(node, 'fill', () => fill)
+      : insertBeforeAny(node, fill, TEXTBOX_AFTER_FILL);
   }
-  if (cell.effects && childNamed(node, 'effects')) {
+  if (cell.effects) {
     const orig = readEffects(cell.source);
-    node = mapChild(node, 'effects', (e) => patchEffects(e, cell.effects!, orig));
+    node = patchOrAddEffects(node, cell.effects, orig, TEXTBOX_AFTER_EFFECTS);
   }
   return node;
 }

@@ -225,13 +225,16 @@ export function buildLibGraphicNode(g: LibGraphic): SList {
 /** Build a `(property ...)` node for a library field (Y-up, effects always emitted). */
 export function buildLibPropertyNode(field: Omit<SchField, 'source'>): SList {
   const at = field.at ?? { x: 0, y: 0 };
-  const items: SNode[] = [
-    atom('property'),
+  const items: SNode[] = [atom('property')];
+  // The bare `private` flag precedes the name, as parseProperty reads it
+  // (sch_io_kicad_sexpr_parser.cpp:1061).
+  if (field.isPrivate) items.push(atom('private'));
+  items.push(
     str(field.key),
     str(field.value),
     list(atom('at'), atom(mm(at.x)), atom(mm(-at.y)), atom(String(field.angle))),
     effectsNode(field.effects),
-  ];
+  );
   return { kind: 'list', items };
 }
 

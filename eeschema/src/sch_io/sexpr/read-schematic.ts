@@ -147,15 +147,50 @@ export function readEffects(node: SList): TextEffects | undefined {
   return effects;
 }
 
+/**
+ * A text item's hyperlink: `(href "…")` **inside** `(effects …)`.
+ *
+ * `EDA_TEXT::Format` (common/eda_text.cpp:1116) writes it there, and
+ * `parseEDA_TEXT` (sch_io_kicad_sexpr_parser.cpp:869) is the only place that
+ * reads it. ZiroEDA used to write a direct `(hyperlink "…")` child instead,
+ * which is not in the schematic grammar at all — so those files are still read
+ * here, to keep them openable, but the writer never emits that form again.
+ */
+export function readHyperlink(node: SList): string | undefined {
+  const effects = childNamed(node, 'effects');
+  const href = effects ? stringField(effects, 'href') : undefined;
+  return href ?? stringField(node, 'hyperlink');
+}
+
+/**
+ * True when a `(property …)` node carries the bare `private` flag.
+ *
+ * `parseSchField` (sch_io_kicad_sexpr_parser.cpp:2289) and `parseProperty`
+ * (:1061) both take a `T_private` token *before* the name, so the flag is not a
+ * child list but an atom occupying the first positional slot. Reading it as the
+ * name — which is what `args()` gives you, since it does not distinguish an
+ * atom from a quoted string — makes the name read as "private" and the value as
+ * the name, and then a value edit rewrites the name instead.
+ *
+ * Exported so the writer can put the flag back in the same slot.
+ */
+export function fieldIsPrivate(node: SList): boolean {
+  const first = node.items[1];
+  return first?.kind === 'atom' && first.value === 'private';
+}
+
 /** Parse a `(property ...)` node. Exported so the writer can diff edits against the source. */
 export function readField(node: SList, invertY = false): SchField {
   const { at, angle } = readAt(node, invertY);
+  const isPrivate = fieldIsPrivate(node);
+  const slot = isPrivate ? 1 : 0; // the flag shifts name and value along one
   const field: { -readonly [K in keyof SchField]: SchField[K] } = {
-    key: arg(node, 0) ?? '',
-    value: arg(node, 1) ?? '',
+    key: arg(node, slot) ?? '',
+    value: arg(node, slot + 1) ?? '',
     angle,
     source: node,
   };
+  if (isPrivate) field.isPrivate = true;
   if (childNamed(node, 'at')) field.at = at;
   const effects = readEffects(node);
   // KiCad 7 files place the field's `(hide yes)` (or bare `hide`) as a DIRECT
@@ -808,7 +843,7 @@ function readTextBox(node: SList): SchTextBox {
     tb.excludedFromSim = boolField(node, 'exclude_from_sim', false);
   const uuid = stringField(node, 'uuid');
   if (uuid) tb.uuid = uuid;
-  const hyperlink = stringField(node, 'hyperlink');
+  const hyperlink = readHyperlink(node);
   if (hyperlink) tb.hyperlink = hyperlink;
   return tb;
 }
@@ -911,7 +946,7 @@ function readLabel(node: SList, kind: LabelKind): SchLabel {
   if (childNamed(node, 'exclude_from_sim')) {
     label.excludedFromSim = boolField(node, 'exclude_from_sim', false);
   }
-  const hyperlink = stringField(node, 'hyperlink');
+  const hyperlink = readHyperlink(node);
   if (hyperlink) label.hyperlink = hyperlink;
   const uuid = stringField(node, 'uuid');
   if (uuid) label.uuid = uuid;
