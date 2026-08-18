@@ -11,6 +11,7 @@
  */
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
@@ -10431,16 +10432,9 @@ function GraphicShapeProps({
           <PgChoice
             label="Line Style"
             value={v.strokeType}
-            options={
-              [
-                ['default', 'Default'],
-                ['solid', 'Solid'],
-                ['dash', 'Dashed'],
-                ['dot', 'Dotted'],
-                ['dash_dot', 'Dash-Dot'],
-                ['dash_dot_dot', 'Dash-Dot-Dot'],
-              ] as const
-            }
+            // ENUM_MAP<LINE_STYLE> (common/eda_shape.cpp:2833) is what the
+            // properties manager offers: the five lineTypeNames, no DEFAULT.
+            options={LINE_STYLE_CHOICES}
             onCommit={commit ? (strokeType) => commit({ strokeType }) : undefined}
           />
           <PgCheck

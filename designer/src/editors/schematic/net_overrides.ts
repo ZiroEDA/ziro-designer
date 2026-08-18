@@ -19,6 +19,7 @@ import {
   type Netlist,
   type Schematic,
 } from '@ziroeda/eeschema';
+import { LINE_STYLE, LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import {
   IU_PER_MILS,
   LINE_STYLES,
@@ -35,14 +36,15 @@ export interface NetClassOverrides {
   junctions: ReadonlyMap<string, number>;
 }
 
-/** LINE_STYLES name -> the renderer's stroke-type token (solid = undefined). */
-const DASH_TOKENS: Record<string, string | undefined> = {
-  Solid: undefined,
-  Dashed: 'dash',
-  Dotted: 'dot',
-  'Dash-Dot': 'dash_dot',
-  'Dash-Dot-Dot': 'dash_dot_dot',
-};
+/**
+ * A net class's line-style *name* -> the renderer's stroke-type token. Built
+ * from the one upstream table (`lineTypeNames`, common/stroke_params.cpp:39) so
+ * this cannot drift from the names the netclass grid offers. Solid maps to
+ * `undefined`: it is the renderer's default and overriding it would be a no-op.
+ */
+const DASH_TOKENS: Record<string, string | undefined> = Object.fromEntries(
+  LINE_STYLE_NAMES.map((d) => [d.label, d.style === LINE_STYLE.SOLID ? undefined : d.value]),
+);
 
 /** True when no class carries a visual parameter, the whole pass can skip. */
 function nothingToApply(s: SchematicSetup): boolean {

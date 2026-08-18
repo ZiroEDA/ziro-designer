@@ -23,6 +23,7 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import { shapePointsUsed } from '@ziroeda/pcbnew/src/graphic_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** A millimetre text box bound to an IU value. */
@@ -196,7 +197,12 @@ export function DialogShapeProperties({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const [v, setV] = useState<ShapeValues>(initial);
+  // A stroke with no style of its own selects Solid, since the combo cannot
+  // express DEFAULT (dialog_shape_properties.cpp:1129-1132, `else SetSelection( 0 )`).
+  const [v, setV] = useState<ShapeValues>({
+    ...initial,
+    strokeType: lineStyleComboValue(initial.strokeType),
+  });
   const [text, setText] = useMmText();
   const set = (patch: Partial<ShapeValues>): void => setV((p) => ({ ...p, ...patch }));
 
@@ -281,12 +287,13 @@ export function DialogShapeProperties({
                 value={v.strokeType}
                 onChange={(e) => set({ strokeType: e.target.value as ShapeValues['strokeType'] })}
               >
-                <option value="default">Default</option>
-                <option value="solid">Solid</option>
-                <option value="dash">Dashed</option>
-                <option value="dot">Dotted</option>
-                <option value="dash_dot">Dash-Dot</option>
-                <option value="dash_dot_dot">Dash-Dot-Dot</option>
+                {/* lineTypeNames — pcbnew/dialogs/dialog_shape_properties.cpp:1024.
+                    Five entries; the board's shape dialog has no "Default". */}
+                {LINE_STYLE_NAMES.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label>

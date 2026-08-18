@@ -18,18 +18,12 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { ItemColor } from './dialog_line_properties.js';
+import {
+  LINE_STYLE_NAMES,
+  lineStyleComboValue,
+  type LineStyleToken,
+} from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-/** `lineTypeNames` (common/stroke_params.cpp) in the combo's order, with
- *  KiCad's leading "Default" entry for a stroke that has no explicit style. */
-const LINE_STYLES: { value: string; label: string }[] = [
-  { value: 'default', label: 'Default' },
-  { value: 'solid', label: 'Solid' },
-  { value: 'dash', label: 'Dashed' },
-  { value: 'dot', label: 'Dotted' },
-  { value: 'dash_dot', label: 'Dash-Dot' },
-  { value: 'dash_dot_dot', label: 'Dash-Dot-Dot' },
-];
 
 /**
  * UI_FILL_MODE (include/eda_shape.h) in its declared order, which is the
@@ -80,7 +74,10 @@ export function DialogShapeProperties({ shapeName, initial, onOk, onCancel }: Pr
   const [width, setWidth] = useState(
     initial.borderWidthIU <= 0 ? '0' : String(iuToMM(initial.borderWidthIU)),
   );
-  const [style, setStyle] = useState(initial.borderStyle);
+  // DIALOG_SHAPE_PROPERTIES fills the combo from `lineTypeNames` alone, so it
+  // cannot say DEFAULT; a shape that has no style of its own shows Solid
+  // (dialog_shape_properties.cpp:147) and is written back as solid.
+  const [style, setStyle] = useState(lineStyleComboValue(initial.borderStyle));
   const [borderColor, setBorderColor] = useState(initial.borderColor);
   const [fillType, setFillType] = useState(initial.fillType);
   const [fillColor, setFillColor] = useState(initial.fillColor);
@@ -157,9 +154,9 @@ export function DialogShapeProperties({ shapeName, initial, onOk, onCancel }: Pr
               className="ze-select"
               disabled={!border}
               value={style}
-              onChange={(e) => setStyle(e.target.value)}
+              onChange={(e) => setStyle(e.target.value as LineStyleToken)}
             >
-              {LINE_STYLES.map((s) => (
+              {LINE_STYLE_NAMES.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}
                 </option>

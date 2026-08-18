@@ -31,17 +31,12 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { toolbarIconUrl } from '../../../ui/toolbarIcons.js';
 import type { ItemColor } from './dialog_line_properties.js';
+import {
+  LINE_STYLE_NAMES,
+  lineStyleComboValue,
+  type LineStyleToken,
+} from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-/** KiCad line styles (`(stroke (type ..))`), in the border-style dropdown order. */
-const LINE_STYLES: { value: string; label: string }[] = [
-  { value: 'default', label: 'Default' },
-  { value: 'solid', label: 'Solid' },
-  { value: 'dash', label: 'Dashed' },
-  { value: 'dot', label: 'Dotted' },
-  { value: 'dash_dot', label: 'Dash-Dot' },
-  { value: 'dash_dot_dot', label: 'Dash-Dot-Dot' },
-];
 
 export type HAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'center' | 'bottom';
@@ -187,7 +182,10 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
   const [border, setBorder] = useState(initial.border ?? false);
   const [borderWidth, setBorderWidth] = useState(mmText(initial.borderWidthIU ?? 0));
   const [borderColor, setBorderColor] = useState<ItemColor | undefined>(initial.borderColor);
-  const [borderStyle, setBorderStyle] = useState(initial.borderStyle ?? 'default');
+  // Like DIALOG_SHAPE_PROPERTIES, the text-box border combo is filled from
+  // `lineTypeNames` alone (dialog_text_properties.cpp:66), so a border with no
+  // style of its own shows Solid rather than a "Default" entry upstream lacks.
+  const [borderStyle, setBorderStyle] = useState(lineStyleComboValue(initial.borderStyle));
   const [filled, setFilled] = useState(initial.filled ?? false);
   const [fillColor, setFillColor] = useState<ItemColor | undefined>(initial.fillColor);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -387,9 +385,9 @@ export function DialogTextProperties({ kind, initial, pages, onOk, onCancel }: P
                   className="ze-lp-font"
                   value={borderStyle}
                   disabled={!border}
-                  onChange={(e) => setBorderStyle(e.target.value)}
+                  onChange={(e) => setBorderStyle(e.target.value as LineStyleToken)}
                 >
-                  {LINE_STYLES.map((s) => (
+                  {LINE_STYLE_NAMES.map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>

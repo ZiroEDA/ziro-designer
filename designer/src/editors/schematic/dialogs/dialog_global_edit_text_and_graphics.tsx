@@ -15,6 +15,7 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { GlobalEditAction, GlobalEditScope } from '@ziroeda/eeschema';
+import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export interface GlobalEditResult {
@@ -42,8 +43,6 @@ type Tri = 'indeterminate' | 'yes' | 'no';
 
 const INDETERMINATE = '-- leave unchanged --';
 
-/** LINE_STYLE, in the dropdown's order. */
-const LINE_STYLES = ['default', 'solid', 'dash', 'dot', 'dash_dot', 'dash_dot_dot'];
 
 /** SPIN_STYLE, in the orientation dropdown's order. */
 const ORIENTATIONS = ['Right', 'Up', 'Left', 'Down'];
@@ -200,6 +199,28 @@ export function DialogGlobalEditTextAndGraphics({
     </label>
   );
 
+  /**
+   * The line-style choice. `DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS` fills
+   * `m_lineStyle` with the five `lineTypeNames` display names
+   * (dialog_global_edit_text_and_graphics_base.cpp:368) and then *appends*
+   * INDETERMINATE_ACTION (dialog_global_edit_text_and_graphics.cpp:96) — so
+   * "-- leave unchanged --" is last here, not first, and there is no "Default":
+   * a global edit sets a style, it cannot clear one.
+   */
+  const lineStyleChoice = (): JSX.Element => (
+    <label className="row">
+      <span>Line style:</span>
+      <select className="ze-select" value={lineStyle} onChange={(e) => setLineStyle(e.target.value)}>
+        {LINE_STYLE_NAMES.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+        <option value={INDETERMINATE}>{INDETERMINATE}</option>
+      </select>
+    </label>
+  );
+
   const sizeField = (label: string, value: string, set: (v: string) => void): JSX.Element => (
     <label className="row">
       <span>{label}</span>
@@ -345,7 +366,7 @@ export function DialogGlobalEditTextAndGraphics({
               note="(fields only)"
             />
             {sizeField('Line width:', lineWidth, setLineWidth)}
-            {choice('Line style:', lineStyle, setLineStyle, LINE_STYLES)}
+            {lineStyleChoice()}
             {sizeField('Junction size:', junctionSize, setJunctionSize)}
           </fieldset>
         </div>

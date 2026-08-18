@@ -28,9 +28,9 @@ import type {
   VertJustify,
 } from '@ziroeda/pcbnew/src/textbox_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
+import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
-const STROKE_STYLES: StrokeType[] = ['solid', 'dash', 'dot', 'dash_dot', 'dash_dot_dot'];
 const H_JUSTIFY: HorizJustify[] = ['left', 'center', 'right'];
 const V_JUSTIFY: VertJustify[] = ['top', 'center', 'bottom'];
 
@@ -218,9 +218,9 @@ export function DialogTextBoxProperties({
                 value={v.borderStyle}
                 onChange={(e) => set({ borderStyle: e.target.value as StrokeType })}
               >
-                {STROKE_STYLES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {LINE_STYLE_NAMES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
                   </option>
                 ))}
               </select>

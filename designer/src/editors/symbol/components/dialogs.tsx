@@ -15,6 +15,7 @@ import {
 } from '../render/symbolRenderer.js';
 import { allPins, unitCount, hasAlternateBodyStyle } from '../edits.js';
 import { KICAD_CLASSIC } from '../../schematic/theme.js';
+import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /**
@@ -936,7 +937,7 @@ export function ShapePropertiesDialog({
   useModalEscape(onCancel);
 
   const [width, setWidth] = useState(initial.strokeWidth);
-  const [type, setType] = useState(initial.strokeType || 'default');
+  const [type, setType] = useState<string>(lineStyleComboValue(initial.strokeType));
   const [fill, setFill] = useState<ShapePropsResult['fillType']>(
     initial.fillType === 'outline' || initial.fillType === 'background' ? initial.fillType : 'none',
   );
@@ -957,12 +958,14 @@ export function ShapePropertiesDialog({
           <label className="row">
             <span>Line style:</span>
             <select className="ze-select" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="default">Default</option>
-              <option value="solid">Solid</option>
-              <option value="dash">Dashed</option>
-              <option value="dot">Dotted</option>
-              <option value="dash_dot">Dash-Dot</option>
-              <option value="dash_dot_dot">Dash-Dot-Dot</option>
+              {/* The symbol editor opens the same DIALOG_SHAPE_PROPERTIES as
+                  eeschema (dialog_shape_properties.cpp:60), whose combo is
+                  lineTypeNames alone — five entries, no "Default". */}
+              {LINE_STYLE_NAMES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="row">

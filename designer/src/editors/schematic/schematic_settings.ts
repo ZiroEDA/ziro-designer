@@ -13,6 +13,7 @@
  * conventional import site for panel-specific types.
  */
 
+import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { defaultErcSettings, type ErcSettings } from '@ziroeda/eeschema';
 
 // ---------------------------------------------------------------------------
@@ -413,8 +414,14 @@ export interface NetClassesData {
   assignments: NetClassAssignment[];
 }
 
-/** Wire line styles in file order (stroke_params.h LINE_STYLE: line_style 0-4). */
-export const LINE_STYLES = ['Solid', 'Dashed', 'Dotted', 'Dash-Dot', 'Dash-Dot-Dot'];
+/**
+ * The net class grid's line-style names, in file order (`line_style` 0-4).
+ * `g_lineStyleNames` (common/dialogs/panel_setup_netclasses.cpp:99-110) is the
+ * same five display strings as `lineTypeNames`, so it is built from the one
+ * table rather than restated. (Upstream also prepends a `<Not defined>` row for
+ * a class that sets no style; we do not model that yet.)
+ */
+export const LINE_STYLES: string[] = LINE_STYLE_NAMES.map((d) => d.label);
 
 export function blankNetClass(name: string): NetClass {
   return {
