@@ -21,7 +21,11 @@ import {
   RECENT_MAX_DATA,
   saveBitmap2CmpSettings,
 } from './bitmap2cmpSettings.js';
-import { MISSING_FILE_EXTENDED, missingFileMessage, openRecentMenuItem } from '../../ui/file_history.js';
+import {
+  MISSING_FILE_EXTENDED,
+  missingFileMessage,
+  openRecentMenuItem,
+} from '../../ui/file_history.js';
 import { useFileHistory } from '../../ui/useFileHistory.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { settings } from '../../prefs/settings.js';
@@ -228,7 +232,8 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         // records it in the file history (UpdateFileHistory).
         setStatus(file.name);
         const data = bytesToDataUrl(bytes, file.type);
-        if (data.length <= RECENT_MAX_DATA) recentImages.addFileToHistory({ name: file.name, data });
+        if (data.length <= RECENT_MAX_DATA)
+          recentImages.addFileToHistory({ name: file.name, data });
       } catch (e) {
         setStatus(`Could not load image: ${(e as Error).message}`);
       }
@@ -249,7 +254,8 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     async (index: number) => {
       const r = recentImages.getFileFromHistory(index, {
         exists: (e) => e.data.length > 0,
-        confirmRemove: (e) => window.confirm(`${missingFileMessage(e.name)}\n${MISSING_FILE_EXTENDED}`),
+        confirmRemove: (e) =>
+          window.confirm(`${missingFileMessage(e.name)}\n${MISSING_FILE_EXTENDED}`),
       });
       if (!r) return;
       const blob = await (await fetch(r.data)).blob();

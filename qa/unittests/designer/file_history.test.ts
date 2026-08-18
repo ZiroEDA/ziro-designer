@@ -23,20 +23,17 @@ import type { ProjectMeta } from '@ziroeda/designer/src/home/projectStore.js';
 import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
 /** An in-memory Storage, so no test touches the real localStorage. */
-function fakeStorage(seed?: Record<string, string>): FileHistoryStorage & { dump(): string | null } {
+function fakeStorage(seed?: Record<string, string>): FileHistoryStorage {
   const map = new Map(Object.entries(seed ?? {}));
   return {
     getItem: (k) => map.get(k) ?? null,
     setItem: (k, v) => {
       map.set(k, v);
     },
-    dump: () => map.get('k') ?? null,
   };
 }
 
-function history(
-  opts: { maxFiles?: number; seed?: Record<string, string> } = {},
-): FileHistory {
+function history(opts: { maxFiles?: number; seed?: Record<string, string> } = {}): FileHistory {
   return new FileHistory({
     storageKey: 'k',
     storage: fakeStorage(opts.seed),
