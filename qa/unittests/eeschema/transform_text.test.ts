@@ -238,6 +238,15 @@ describe('a directive label mirrors opposite to a label', () => {
   const mirror = (d: Schematic, op: 'mirrorX' | 'mirrorY') =>
     transformItems(new Set([refId('line', 'w-1', 0), refId('directive', 'd-1', 0)]), op).apply(d);
 
+  // MirrorSpinStyle is the *single-item* arm of SCH_EDIT_TOOL::Mirror
+  // (sch_edit_tool.cpp:1341). With anything else in the selection the tool falls
+  // through to SCH_DIRECTIVE_LABEL::MirrorHorizontally / ::MirrorVertically
+  // (sch_label.cpp:1776/1804) instead, which agree about the flag's angle but
+  // move it, and treat its fields differently. Tests that are about
+  // MirrorSpinStyle itself therefore have to select the flag on its own.
+  const mirrorAlone = (d: Schematic, op: 'mirrorX' | 'mirrorY') =>
+    transformItems(new Set([refId('directive', 'd-1', 0)]), op).apply(d);
+
   const movedX = (before: Schematic, after: Schematic): boolean =>
     before.lines[0]!.start.x !== after.lines[0]!.start.x;
 
@@ -286,7 +295,7 @@ describe('a directive label mirrors opposite to a label', () => {
     // a horizontal field flips on the left-right mirror.
     const d = flag(0);
     const before = d.directiveLabels![0]!;
-    const after = mirror(d, 'mirrorY').directiveLabels![0]!; // the X mirror
+    const after = mirrorAlone(d, 'mirrorY').directiveLabels![0]!; // the X mirror
     const f = after.fields[0]!;
     expect(f.at).toEqual({
       x: 2 * before.at.x - before.fields[0]!.at!.x,
@@ -297,7 +306,7 @@ describe('a directive label mirrors opposite to a label', () => {
 
   it('reaches the file — the flag angle and the field both persist', () => {
     const d = flag(0);
-    const after = mirror(d, 'mirrorX'); // the Y mirror
+    const after = mirrorAlone(d, 'mirrorX'); // the Y mirror
     const text = serializeSchematic(after);
     expect(text).toContain('(at 50 50 180)');
     const back = readSchematic(parse(text));

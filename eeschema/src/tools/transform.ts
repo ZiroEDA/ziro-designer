@@ -22,6 +22,7 @@ import type {
   SchField,
   SchDirectiveLabel,
   SchImage,
+  SchLabel,
   SchSheet,
   SchTable,
   SheetPin,
@@ -46,7 +47,7 @@ import type { EditCommand } from './command.js';
  * `GetNearestHalfGridPosition` halves when no caller says otherwise. The live
  * grid is a per-window setting (`es.window.grid`), so the editor passes its own.
  */
-export const DEFAULT_GRID_IU = 1270; // 1.27 mm = 50 mil, in schematic IU (100 nm)
+export const DEFAULT_GRID_IU = 12700; // 1.27 mm = 50 mil, in schematic IU (100 nm)
 
 export type TransformOp = 'rotateCW' | 'rotateCCW' | 'mirrorX' | 'mirrorY';
 
@@ -657,6 +658,103 @@ const transformImage = (im: SchImage, op: TransformOp, center: Vec2): SchImage =
 });
 
 /**
+ * A label, a hierarchical/global label or a free text inside a *group*
+ * transform: `SCH_TEXT::Rotate` (sch_text.cpp:201), `SCH_LABEL_BASE::Rotate`
+ * (sch_label.cpp:483) and `SCH_TEXT::MirrorHorizontally` / `::MirrorVertically`
+ * (:123/:162).
+ *
+ * These are not the functions the single-item arm calls. With one item selected
+ * `SCH_EDIT_TOOL` runs `Rotate90` / `MirrorSpinStyle`, which turn the label
+ * where it stands; with more than one it falls through to the generic
+ * `item->Rotate( rotPoint, … )`, which *also* moves it. So a label caught in a
+ * group rotate used to be the only thing left behind while everything around it
+ * swung round it.
+ *
+ * The spin half is identical between the two — `SCH_TEXT::MirrorHorizontally`
+ * flips the justify on a horizontal text exactly as `MirrorSpinStyle( true )`
+ * does — so only the position is added here.
+ */
+function transformLabelAbout(l: SchLabel, op: TransformOp, center: Vec2): SchLabel {
+  const at = movePoint(l.at, op, center);
+  if (op === 'mirrorX' || op === 'mirrorY') return { ...mirrorTextSpin(l, isLeftRight(op)), at };
+  // `SCH_TEXT::Rotate` spins with `Rotate90( false )` — hard-coded, not the
+  // command's direction, so a group rotate turns free text the same way either
+  // way round. `SCH_LABEL_BASE::Rotate` overrides it with `Rotate90( !aRotateCCW )`,
+  // which is the command's direction. Our free text is the `text` kind.
+  return { ...rotateText90(l, l.kind === 'text' ? false : op === 'rotateCW'), at };
+}
+
+/**
+ * A directive label inside a group transform: `SCH_DIRECTIVE_LABEL::
+ * MirrorHorizontally` (sch_label.cpp:1776) and `::MirrorVertically` (:1804),
+ * with rotation inherited from `SCH_LABEL_BASE::Rotate`.
+ *
+ * The flag's spin turns the same way it does alone — `GetSpinStyle().MirrorX()`
+ * swaps UP and BOTTOM on the *horizontal* mirror, which is the same inversion
+ * `MirrorSpinStyle` makes — so `mirrorDirectiveLabel` still decides the angle.
+ * What the group path adds, and what differs from `MirrorSpinStyle`, is the
+ * position: the flag moves, and each field keeps its offset by being mirrored
+ * about the flag's *old* anchor and then translated onto the new one. The
+ * vertical mirror also leaves the fields' justify alone, where `MirrorSpinStyle`
+ * flips it.
+ */
+function transformDirectiveLabelAbout(
+  d: SchDirectiveLabel,
+  op: TransformOp,
+  center: Vec2,
+): SchDirectiveLabel {
+  const at = movePoint(d.at, op, center);
+  const field = (f: SchField, next: SchField): SchField =>
+    f.at
+      ? {
+          ...next,
+          at:
+            op === 'mirrorY' || op === 'rotateCW' || op === 'rotateCCW'
+              ? { x: at.x + (d.at.x - f.at.x), y: f.at.y }
+              : { x: f.at.x, y: at.y + (d.at.y - f.at.y) },
+        }
+      : next;
+
+  if (op === 'mirrorY') {
+    // MirrorHorizontally: the fields' horizontal justify swaps both ways
+    // (`FlipHJustify`, not MirrorSpinStyle's unconditional "anything else
+    // becomes LEFT"), and it swaps for every field regardless of its angle.
+    return {
+      ...d,
+      angle: mirrorDirectiveLabel(d, true).angle,
+      at,
+      fields: d.fields.map((f) => field(f, flipEffectsHJustify(f))),
+    };
+  }
+  if (op === 'mirrorX') {
+    // MirrorVertically touches no justify at all.
+    return {
+      ...d,
+      angle: mirrorDirectiveLabel(d, false).angle,
+      at,
+      fields: d.fields.map((f) => field(f, f)),
+    };
+  }
+  // `SCH_LABEL_BASE::Rotate`: spin the flag, rotate each field about the flag's
+  // own (old) anchor with `SCH_FIELD::Rotate`, then translate both by the
+  // anchor's delta.
+  const cw = op === 'rotateCW';
+  const spun = rotateText90(d, cw);
+  const dx = at.x - d.at.x;
+  const dy = at.y - d.at.y;
+  return {
+    ...spun,
+    at,
+    fields: d.fields.map((f) => {
+      const turned = rotateText90(f, cw);
+      if (!f.at) return turned;
+      const p = movePoint(f.at, op, d.at);
+      return { ...turned, at: { x: p.x + dx, y: p.y + dy } };
+    }),
+  };
+}
+
+/**
  * `SCH_FIELD` alone (`sch_edit_tool.cpp:1088-1100` / `:1364-1375`).
  *
  * A selected field does **not** move: a rotate only toggles its text angle
@@ -728,20 +826,22 @@ export function transformItems(
           );
           return fields.some((f, k) => f !== turned.fields[k]) ? { ...turned, fields } : turned;
         }),
-        // Labels, hierarchical/global labels and free text rotate in place via
-        // Rotate90 / MirrorSpinStyle *and* move with the selection: SCH_TEXT::
-        // Rotate (sch_text.cpp:201) and SCH_LABEL_BASE::Rotate (sch_label.cpp:483)
-        // rotate the position about aCenter before calling Rotate90. For a
-        // single item the centre is the item's own anchor, so it stays put;
-        // in a group it travelled nowhere at all until now.
+        // Alone, a label turns where it stands (`Rotate90` / `MirrorSpinStyle`,
+        // the SCH_TEXT_T … SCH_DIRECTIVE_LABEL_T arm of the single-item
+        // switch). In a group it goes through `item->Rotate( rotPoint, … )`
+        // instead, which moves it as well — and it never did.
         labels: doc.labels.map((l, i) =>
           ids.has(refId('label', l.uuid, i))
-            ? { ...transformTextItem(l, op), at: movePoint(l.at, op, c) }
+            ? single !== undefined
+              ? transformTextItem(l, op)
+              : transformLabelAbout(l, op, c)
             : l,
         ),
         directiveLabels: doc.directiveLabels?.map((d, i) =>
           ids.has(refId('directive', d.uuid, i))
-            ? { ...transformDirectiveLabel(d, op), at: movePoint(d.at, op, c) }
+            ? single !== undefined
+              ? transformDirectiveLabel(d, op)
+              : transformDirectiveLabelAbout(d, op, c)
             : d,
         ),
         // The geometric kinds share one rule: move every point that defines
