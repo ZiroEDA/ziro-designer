@@ -48,6 +48,111 @@
      22, which is why our menus read as a size smaller than the desktop app's. */
   --menu-row: 26px;
 
+  /* ---------------------------------------------------------------------
+     GTK control theme.
+
+     KiCad declares none of its control metrics. wxWidgets asks GTK, GTK
+     answers out of the active desktop theme, and that single answer is why
+     every KiCad launcher looks exactly like every other one. We had been
+     re-inventing a number per editor instead — ~193 hardcoded font sizes
+     across eight distinct values, against 15 uses of --ui-font-size — so
+     this block is our equivalent of the theme: one value per property,
+     consumed by name, never copied.
+
+     Two ground truths, marked per value:
+       [css] the theme stylesheet itself. Yaru-dark ships it inside a
+             gresource bundle; extract with
+               gresource extract \
+                 /usr/share/themes/Yaru-dark/gtk-3.0/gtk.gresource \
+                 /com/ubuntu/themes/Yaru-dark/3.0/gtk-dark.css
+       [px]  a pixel sampled off a live, focused bitmap2component window
+             (1920x1200, unscaled, Xft.dpi 96, gtk-font-name Cantarell 11).
+
+     Where the two agree the value is certain; where they differ the sampled
+     one wins, because it is what the user sees, and the comment says so.
+     --------------------------------------------------------------------- */
+
+  /* Chrome's system-ui on Linux resolves to GTK's gtk-font-name, which is the
+     same family wxSYS_DEFAULT_GUI_FONT hands KiCad. Measuring one string in
+     both ("Black & White Picture": 142 px in KiCad at 11pt, 124 px in ours at
+     13px, ratio 1.145 against a font-size ratio of 1.128) confirmed the
+     families already match; only the size was wrong. */
+  --ui-font-family: system-ui, sans-serif;
+  /* The natural height of one GtkLabel at --ui-font-size, i.e. Pango's logical
+     extent for Cantarell 11 = ascent + descent. [px] the Image Information
+     grid's rows repeat every 23 px and wxFormBuilder gives each a 5 px bottom
+     border (bitmap2cmp_panel_base.cpp:47-88), so the label itself is 18. */
+  --ui-line-height: 18px;
+
+  /* The border colour of every framed thing: static box, button, text field,
+     checkbox, radio. [css] `frame > border`, `button`, `entry`, `check`,
+     `radio` all resolve to Yaru's $borders_color. [px] agrees exactly.
+     NOTE this is NOT the same value as --chrome-border (#1e1e1e) above, which
+     was sampled off the project manager; in the GTK theme there is only one
+     border colour and it is this one. Flagged rather than unified, because
+     changing --chrome-border moves every launcher at once. */
+  --ctl-border: #181818;
+  /* [css] button, entry: border-radius: 6px. Our controls used 2-3px. */
+  --ctl-radius: 6px;
+  /* Outer height of a button, a text field and a combo — all three are the
+     same, which is why a KiCad row of mixed controls lines up.
+     [css] button { min-height: 24px; padding: 4px 9px; border: 1px }  = 34
+           entry  { min-height: 32px; border: 1px }                    = 34
+     [px] 34 for the Load Source Image button and for the Size fields. */
+  --ctl-height: 34px;
+  --ctl-pad-x: 9px; /* [css] button { padding: 4px 9px } */
+  --ctl-face: #373737; /* [css] button { background-image: image(#373737) } [px] agrees */
+  --ctl-face-disabled: #2a2a2a; /* [css] button:disabled [px] agrees */
+  /* [css] label:disabled, entry:disabled and button:disabled all take this.
+     GTK dims by colour, never by opacity: an opacity fade also washes out the
+     control's background and border, which ours did. */
+  --ctl-fg-disabled: #929292;
+  /* [px] the interior of a wxTextCtrl. Yaru declares #272727 for a bare
+     GtkEntry; wx renders one level lighter and the sampled value is what the
+     user sees. (--chrome-bg2 #262626 is documented as the "inset surface"
+     colour and is two levels off this one — flagged, not changed.) */
+  --field-bg: #282828;
+  --field-pad-x: 8px; /* [css] entry { padding-left/right: 8px } */
+
+  /* [css] check, radio { min-height: 14px; min-width: 14px; border: 1px }
+     [px] the Negative box and the Symbol dot both measure 16 across. */
+  --check-size: 16px;
+  --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
+  --check-margin: 4px; /* [css] check, radio { margin: 0 4px } */
+  /* The row a checkbox or radio occupies, indicator centred in it. [px] the
+     Output Format radios repeat every 34 px and wxFormBuilder gives them
+     5 top + 5 bottom + a 2 px flexgrid vgap (bitmap2cmp_panel_base.cpp:161-193),
+     so the control itself is 22. */
+  --check-row: 22px;
+
+  /* [px] the wxSlider track is 4 px of flat #4b4b4b with the filled part in the
+     desktop accent; the thumb is a 20 px circle. [css] agrees on the thumb —
+     scale slider { min-height: 18px; border: 1px } — and on its colours, but
+     declares #222222 for the trough, which is not what the live window draws. */
+  --slider-track-height: 4px;
+  --slider-track-bg: #4b4b4b;
+  /* [css] scale { padding: 12px } insets the trough from the widget's own box.
+     [px] the real trough runs 1671..1893 inside a slider box of 1659..1903,
+     i.e. 12 px in at each end. */
+  --slider-track-inset: 12px;
+  --slider-thumb-size: 20px;
+  --slider-thumb-bg: #fcfcfc; /* [css] scale slider { background-image: image(#fcfcfc) } */
+  --slider-thumb-border: #101010; /* [css] scale slider { border: 1px solid #101010 } */
+
+  /* A wxNotebook's tab strip. [px] 36 px tall over a 1 px bottom border, the
+     selected tab marked by a 3 px accent bar that replaces that border;
+     [css] notebook > header.top > tabs > tab:checked { box-shadow: inset 0 -3px }
+     confirms the 3. [px] 12 px of padding either side of the tab label. */
+  --tab-strip-height: 36px;
+  --tab-underline: 3px;
+  --tab-pad-x: 12px;
+
+  /* The border wxFormBuilder puts around a sizer item — `wxALL, 5` — which is
+     the spacing unit of every KiCad dialog and panel, not a per-editor choice.
+     Two stacked items are therefore 10 px apart, one against the frame edge
+     is 5 px in. */
+  --wx-border: 5px;
+
   /* The shell is dark-only, and this is what tells the engine so: it paints
      every *native* control, scrollbar and popup from its dark palette —
      including the list a <select> opens, which no CSS rule can reach. Without
