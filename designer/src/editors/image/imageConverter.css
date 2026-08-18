@@ -250,12 +250,14 @@
   flex: none;
 }
 
-.imgc-frame .imgc-input {
+/* The three controls of the Output Size row, at the widths
+   bitmap2cmp_panel_base.cpp:112,118,126 give them. */
+.imgc-sizerow .imgc-input {
   width: 60px;
   font-variant-numeric: tabular-nums;
 }
 
-.imgc-frame .imgc-select {
+.imgc-sizerow .imgc-select {
   width: 80px;
 }
 
@@ -302,7 +304,7 @@
    which is on screen at every value, and accepts that the thumb centre stops
    half a thumb short of the trough's ends (10 px at 0 and at 100, 2 px at the
    default 50, none in between). */
-.imgc-frame .imgc-slider input[type='range'] {
+.imgc-frame .imgc-slider input[type="range"] {
   display: block;
   width: calc(100% - 2 * var(--slider-track-inset));
   margin: 0 var(--slider-track-inset);
@@ -314,9 +316,12 @@
 
 /* scale highlight is the accent, scale trough the flat grey behind it. The
    stop follows the thumb's real centre, so fill and thumb never disagree. */
-.imgc-frame .imgc-slider input[type='range']::-webkit-slider-runnable-track {
+.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-runnable-track {
   --imgc-thumb-x: calc(
-    var(--slider-thumb-size) / 2 + var(--imgc-thumb-frac) * (100% - var(--slider-thumb-size))
+    var(--slider-thumb-size) /
+    2 +
+    var(--imgc-thumb-frac) *
+    (100% - var(--slider-thumb-size))
   );
   height: var(--slider-track-height);
   border-radius: calc(var(--slider-track-height) / 2);
@@ -327,7 +332,7 @@
   );
 }
 
-.imgc-frame .imgc-slider input[type='range']::-webkit-slider-thumb {
+.imgc-frame .imgc-slider input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: var(--slider-thumb-size);
   height: var(--slider-thumb-size);
@@ -342,15 +347,15 @@
    scale highlight:disabled goes transparent. The shell's blanket rule fades
    every disabled control to 55% opacity instead, which washes the accent and
    the track together into one muddy orange. */
-.imgc-frame .imgc-slider input[type='range']:disabled {
+.imgc-frame .imgc-slider input[type="range"]:disabled {
   opacity: 1;
 }
 
-.imgc-frame .imgc-slider input[type='range']:disabled::-webkit-slider-runnable-track {
+.imgc-frame .imgc-slider input[type="range"]:disabled::-webkit-slider-runnable-track {
   background: var(--ctl-face-disabled);
 }
 
-.imgc-frame .imgc-slider input[type='range']:disabled::-webkit-slider-thumb {
+.imgc-frame .imgc-slider input[type="range"]:disabled::-webkit-slider-thumb {
   background: var(--ctl-face-disabled);
 }
 
@@ -361,12 +366,12 @@
   position: absolute;
   top: 0;
   left: calc(
-    var(--wx-border) + var(--slider-track-inset) + var(--slider-thumb-size) / 2 +
-      var(--imgc-thumb-frac) *
-      (
-        100% - 2 * var(--wx-border) - 2 * var(--slider-track-inset) -
-          var(--slider-thumb-size)
-      )
+    var(--wx-border) +
+    var(--slider-track-inset) +
+    var(--slider-thumb-size) /
+    2 +
+    var(--imgc-thumb-frac) *
+    (100% - 2 * var(--wx-border) - 2 * var(--slider-track-inset) - var(--slider-thumb-size))
   );
   transform: translateX(-50%);
   font-variant-numeric: tabular-nums;
@@ -417,7 +422,7 @@
 
 /* The check mark and the radio dot GTK draws inside the accent square. */
 .imgc-frame .imgc-check input:checked::after {
-  content: '';
+  content: "";
   display: block;
   width: 4px;
   height: 8px;
@@ -428,7 +433,7 @@
 }
 
 .imgc-frame .imgc-radio input:checked::after {
-  content: '';
+  content: "";
   display: block;
   width: 6px;
   height: 6px;

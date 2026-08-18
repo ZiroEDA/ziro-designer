@@ -619,9 +619,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 ends sit under the ends of the track. */}
             <div
               className="imgc-slider"
-              style={
-                { '--imgc-thumb-frac': threshold / 100 } as CSSProperties
-              }
+              style={{ '--imgc-thumb-frac': threshold / 100 } as CSSProperties}
             >
               <span className="imgc-slider-val">{threshold}</span>
               <input
