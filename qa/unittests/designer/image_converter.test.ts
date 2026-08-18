@@ -49,7 +49,10 @@ const NAME = 'LOGO';
 
 /** A file written by the real bitmap2component 10.0.5; see the data README. */
 const readRef = (name: string): string =>
-  readFileSync(fileURLToPath(new URL(`../../data/bitmap2component/${name}`, import.meta.url)), 'utf8');
+  readFileSync(
+    fileURLToPath(new URL(`../../data/bitmap2component/${name}`, import.meta.url)),
+    'utf8',
+  );
 
 describe('tracing', () => {
   it('traces a solid square into one outline with no holes', () => {
@@ -479,7 +482,9 @@ describe('threshold & negative', () => {
     expect(reporter.hasMessage()).toBe(true);
     expect(reporter.lines.map((l) => l.message)).toEqual([NO_OUTLINE_ERROR]);
     expect(reporter.count(RPT_SEVERITY_ERROR)).toBe(1);
-    expect(NO_OUTLINE_ERROR).toBe('No shape in black and white image to convert: no outline created.');
+    expect(NO_OUTLINE_ERROR).toBe(
+      'No shape in black and white image to convert: no outline created.',
+    );
 
     const fp = readFootprintFile(parse(text));
     expect(fp).not.toBeNull();
@@ -503,7 +508,9 @@ describe('output size field wiring (BITMAP2CMP_PANEL::OnSizeChangeX)', () => {
   // only check that sees whether the field feeds the export the way KiCad's
   // does: through m_outputSizeX, updated only when ToDouble succeeds.
   const FRAME = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/image/ImageConverter.tsx', import.meta.url)),
+    fileURLToPath(
+      new URL('../../../designer/src/editors/image/ImageConverter.tsx', import.meta.url),
+    ),
     'utf8',
   );
 
@@ -551,8 +558,16 @@ describe("matches KiCad's own bitmap2component output", () => {
     expect(xySet(text)).toEqual(xySet(readRef('kicad_square24_300dpi.kicad_mod')));
     // ± half of 12 px at 300 DPI, and the edge midpoints on the axes.
     expect(xySet(text)).toEqual(
-      new Set(['-0.508,0.508', '0,0.508', '0.508,0.508', '0.508,0', '0.508,-0.508',
-               '0,-0.508', '-0.508,-0.508', '-0.508,0']),
+      new Set([
+        '-0.508,0.508',
+        '0,0.508',
+        '0.508,0.508',
+        '0.508,0',
+        '0.508,-0.508',
+        '0,-0.508',
+        '-0.508,-0.508',
+        '-0.508,0',
+      ]),
     );
   });
 
@@ -634,9 +649,95 @@ describe("matches KiCad's own bitmap2component output", () => {
     });
     const points = (src: string): Set<string> => {
       const out = new Set<string>();
-      for (const m of src.matchAll(/(-?\d+) (-?\d+) (?:moveto|lineto)/g)) out.add(`${m[1]},${m[2]}`);
+      for (const m of src.matchAll(/(-?\d+) (-?\d+) (?:moveto|lineto)/g))
+        out.add(`${m[1]},${m[2]}`);
       return out;
     };
     expect(points(text)).toEqual(points(readRef('kicad_twoblob_300dpi.ps')));
+  });
+});
+
+describe('printf formats (bitmap2component prints each writer differently)', () => {
+  const square = filledRect(24, 24, 6, 6, 18, 18);
+
+  it('symbol xy is {:f}: always six decimals, zeros and all', () => {
+    // `(xy {:f} {:f})` (bitmap2component.cpp:358-360). KiCad's own file for
+    // this bitmap reads `(xy 0.508000 0.000000)`; trimming to `0.508 0` is a
+    // different text for the same number, and the point of a port is the text.
+    const { text } = convert(square, {
+      format: 'symbol',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(readRef('kicad_square24_300dpi.kicad_sym')).toContain('(xy 0.508000 0.000000)');
+    expect(text).toContain('(xy 0.508000 0.000000)');
+    for (const m of text.matchAll(/\(xy (-?[\d.]+) (-?[\d.]+)\)/g)) {
+      expect(m[1]).toMatch(/^-?\d+\.\d{6}$/);
+      expect(m[2]).toMatch(/^-?\d+\.\d{6}$/);
+    }
+  });
+
+  it('symbol field positions are {:g}: six significant digits, trimmed', () => {
+    // `(at 0 {:g} 0)` (:208-219). KiCad wrote `(at 0 0.381 0)` for this one.
+    const { text } = convert(square, {
+      format: 'symbol',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(readRef('kicad_square24_300dpi.kicad_sym')).toContain('(at 0 0.381 0)');
+    expect(text).toContain('(at 0 0.381 0)');
+    expect(text).toContain('(at 0 -0.381 0)');
+    // %g is six SIGNIFICANT digits, not six decimals: a tall image's field
+    // position is 41.6983, where %f would print 41.698333.
+    const tall = filledRect(1000, 1000, 100, 100, 900, 900);
+    const big = convert(tall, {
+      format: 'symbol',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    }).text;
+    expect(big).toContain('(at 0 41.6983 0)');
+  });
+
+  it('drawing-sheet xy is {:.3f}: three decimals, its internal unit', () => {
+    // `(xy {:.3f} {:.3f})` (:331-333); PL internal units are microns, so three
+    // decimals is exactly lossless there.
+    const two = new Bitmap(40, 20);
+    for (let y = 5; y < 15; y++) {
+      for (let x = 4; x < 12; x++) two.data[y * 40 + x] = 1;
+      for (let x = 28; x < 36; x++) two.data[y * 40 + x] = 1;
+    }
+    const { text } = convert(two, {
+      format: 'drawingsheet',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(readRef('kicad_twoblob_300dpi.kicad_wks')).toContain('(xy -0.677 -0.001)');
+    for (const m of text.matchAll(/\(xy (-?[\d.]+) (-?[\d.]+)\)/g)) {
+      expect(m[1]).toMatch(/^-?\d+\.\d{3}$/);
+      expect(m[2]).toMatch(/^-?\d+\.\d{3}$/);
+    }
+    expect(text).toContain('(xy -0.677 -0.001)');
+
+    // %.3f keeps the zeros a trimming formatter would drop: the 24 px square's
+    // edge midpoints land on the centre line, and KiCad writes that ordinate
+    // `0.000`, not `0`.
+    const sq = convert(square, {
+      format: 'drawingsheet',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    }).text;
+    expect(sq).toContain('(xy 0.000 0.508)');
+    expect(sq).toContain('(xy 0.508 0.000)');
+    expect(sq).not.toMatch(/\(xy 0 /);
   });
 });

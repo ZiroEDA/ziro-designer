@@ -279,12 +279,46 @@ function regionsFromPaths(paths: Path[]): Region[] {
 
 // ----- coordinate transforms per output format --------------------------------
 
-/** Number → trimmed decimal string (KiCad's formatInternalUnits, no trailing zeros). */
+/**
+ * The number formats `bitmap2component` prints with. They are not one format:
+ * each writer names its own, and the file text differs accordingly.
+ *
+ * `fmt` is fmt's default `{}` for a double, the shortest representation that
+ * round-trips, which is what `fp_poly`'s `(xy {} {})` uses (`:309-311`). Ours
+ * approximates it with six trimmed decimals; after internal-unit quantisation
+ * the two agree, since every value is a whole number of IU (the exception is
+ * the sub-1e-4 range, where C++ would switch to `1e-06` and we print
+ * `0.000001` — the same number to any reader).
+ */
 function fmt(v: number): string {
   if (!Number.isFinite(v)) v = 0;
   let s = v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
   if (s === '' || s === '-0') s = '0';
   return s;
+}
+
+/** `{:f}`, printf's `%f`: always six decimals, zeros included (`:358-360`). */
+function fmtF(v: number): string {
+  return (Number.isFinite(v) ? v : 0).toFixed(6);
+}
+
+/** `{:.3f}`, the drawing sheet's micron-resolution coordinates (`:331-333`). */
+function fmt3(v: number): string {
+  return (Number.isFinite(v) ? v : 0).toFixed(3);
+}
+
+/**
+ * `{:g}`, printf's `%g`: six significant digits with trailing zeros trimmed,
+ * which is what the symbol's field positions are printed with (`:208-219`).
+ * `toPrecision` is `%g` bar the threshold at which it switches to an exponent
+ * (1e-7 rather than 1e-5), a range no field position reaches.
+ */
+function fmtG(v: number): string {
+  if (!Number.isFinite(v)) v = 0;
+  let s = v.toPrecision(6);
+  if (s.includes('e')) return s;
+  if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
+  return s === '-0' ? '0' : s;
 }
 
 /**
@@ -358,7 +392,13 @@ function uuid(): string {
  * the first point, KiCad closes the polygon for symbol and drawing-sheet
  * output but not for `fp_poly` ("No need to close polygon").
  */
-function ringXY(region: Region, xf: XForm, indent: string, close = false): string {
+function ringXY(
+  region: Region,
+  xf: XForm,
+  indent: string,
+  fmtXY: (v: number) => string,
+  close = false,
+): string {
   // Quantise before bridging, as KiCad does: SHAPE_POLY_SET holds integer IU,
   // and Simplify/BooleanSubtract/Fracture all run on those integers.
   const ring = fractureWithHoles(
@@ -366,7 +406,7 @@ function ringXY(region: Region, xf: XForm, indent: string, close = false): strin
     region.holes.map((hole) => hole.map(xf.toIU)),
   );
   const xy = (p: Pt): string =>
-    `${indent}(xy ${fmt((p.x - xf.offsetX) / xf.iuPerMM)} ${fmt((p.y - xf.offsetY) / xf.iuPerMM)})\n`;
+    `${indent}(xy ${fmtXY((p.x - xf.offsetX) / xf.iuPerMM)} ${fmtXY((p.y - xf.offsetY) / xf.iuPerMM)})\n`;
   let out = '';
   for (const p of ring) out += xy(p);
   if (close && ring.length > 0) out += xy(ring[0]!);
@@ -400,7 +440,7 @@ function writeFootprint(regions: Region[], o: ConvertOptions, w: number, h: numb
   s += `\t)\n`;
   for (const region of regions) {
     s += `\t(fp_poly\n\t\t(pts\n`;
-    s += ringXY(region, xf, '\t\t\t');
+    s += ringXY(region, xf, '\t\t\t', fmt);
     s += `\t\t)\n`;
     s += `\t\t(stroke\n\t\t\t(width 0)\n\t\t\t(type solid)\n\t\t)\n`;
     s += `\t\t(fill solid)\n`;
@@ -430,15 +470,15 @@ function writeSymbol(regions: Region[], o: ConvertOptions, w: number, h: number)
   s += `\t\t(pin_names\n\t\t\t(offset 1.016)\n\t\t)\n`;
   s += `\t\t(in_bom yes)\n`;
   s += `\t\t(on_board yes)\n`;
-  s += `\t\t(property "Reference" "#G"\n\t\t\t(at 0 ${fmt(ypos)} 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
-  s += `\t\t(property "Value" "${o.name}"\n\t\t\t(at 0 ${fmt(-ypos)} 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
+  s += `\t\t(property "Reference" "#G"\n\t\t\t(at 0 ${fmtG(ypos)} 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
+  s += `\t\t(property "Value" "${o.name}"\n\t\t\t(at 0 ${fmtG(-ypos)} 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
   s += `\t\t(property "Footprint" ""\n\t\t\t(at 0 0 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
   s += `\t\t(property "Datasheet" ""\n\t\t\t(at 0 0 0)\n\t\t\t(effects\n\t\t\t\t(font\n\t\t\t\t\t(size ${fieldSize} ${fieldSize})\n\t\t\t\t)\n\t\t\t\t(hide yes)\n\t\t\t)\n\t\t)\n`;
   s += `\t\t(symbol "${o.name}_0_0"\n`;
   for (const region of regions) {
     // Symbols cannot cut holes, so bridge them into the single filled outline.
     s += `\t\t\t(polyline\n\t\t\t\t(pts\n`;
-    s += ringXY(region, xf, '\t\t\t\t\t', true);
+    s += ringXY(region, xf, '\t\t\t\t\t', fmtF, true);
     s += `\t\t\t\t)\n`;
     s += `\t\t\t\t(stroke\n\t\t\t\t\t(width ${SCH_LINE_THICKNESS_MM})\n\t\t\t\t\t(type default)\n\t\t\t\t)\n`;
     s += `\t\t\t\t(fill\n\t\t\t\t\t(type outline)\n\t\t\t\t)\n`;
@@ -468,7 +508,7 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   s += `\t(polygon\n\t\t(name "")\n\t\t(pos 0 0)\n\t\t(linewidth 0.01)\n`;
   for (const region of regions) {
     s += `\t\t(pts\n`;
-    s += ringXY(region, xf, '\t\t\t', true);
+    s += ringXY(region, xf, '\t\t\t', fmt3, true);
     s += `\t\t)\n`;
   }
   s += `\t)\n`;
@@ -476,10 +516,14 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
   return s;
 }
 
-function writePostScript(regions: Region[], o: ConvertOptions, w: number, h: number): string {
-  // POSTSCRIPT_FMT keeps m_ScaleX = m_ScaleY = 1.0 (ConvertBitmap:124-127), so
-  // the internal units are whole pixels; there is no offsetX, and offsetY is
-  // `(int)( m_PixmapHeight * m_ScaleY )`, the page height (outputOnePolygon:282).
+/**
+ * POSTSCRIPT_FMT keeps m_ScaleX = m_ScaleY = 1.0 (ConvertBitmap:124-127), so
+ * its internal units are whole pixels and the Output Size never reaches it —
+ * which is why the options go unread here. There is no offsetX either, and
+ * offsetY is `(int)( m_PixmapHeight * m_ScaleY )`, the page height
+ * (outputOnePolygon:282).
+ */
+function writePostScript(regions: Region[], _o: ConvertOptions, w: number, h: number): string {
   const xf = (p: Pt): { x: number; y: number } => ({
     x: Math.trunc(p.x),
     y: h - Math.trunc(p.y),
@@ -524,8 +568,7 @@ export interface ConvertResult {
  * (`bitmap2component.cpp:402-406`), which `ExportToBuffer` then puts up in a
  * `wxMessageBox( …, _( "Errors" ) )` (`bitmap2cmp_panel.cpp:562-563`).
  */
-export const NO_OUTLINE_ERROR =
-  'No shape in black and white image to convert: no outline created.';
+export const NO_OUTLINE_ERROR = 'No shape in black and white image to convert: no outline created.';
 
 /**
  * Convert a thresholded bitmap into the chosen output format's file text.
