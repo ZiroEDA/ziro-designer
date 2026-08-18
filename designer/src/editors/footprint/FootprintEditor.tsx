@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
-import { iuToMM, mmToIU } from '@ziroeda/common';
+import { iuToMM, mmToIU, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import {
@@ -17,6 +17,7 @@ import {
   addShape,
   setFootprintReference,
   setFootprintValue,
+  footprintStringChild,
   setFootprintDescription,
   setFootprintKeywords,
   patchPad,
@@ -36,6 +37,18 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import {
+  coordsMsg,
+  deltasMsg,
+  gridMsg,
+  messageTextFromValue,
+  type StatusUnits,
+  unitsMsg,
+  zoomFactorForScale,
+  zoomMsg,
+} from '../../ui/status_format.js';
 import { FP_TOP_TOOLBAR, FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from './footprintToolbars.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
@@ -66,7 +79,14 @@ export interface FootprintEditorFile {
 }
 
 const _MM = 10000;
-const _PX_PER_MM = 3.7795;
+
+/**
+ * The footprint editor's grid. FOOTPRINT_EDITOR_SETTINGS' default grid is
+ * 25 mils (pcbnew/footprint_editor_settings.cpp), which is the value the grid
+ * combo has always shown; it is one constant now so the combo and the status
+ * pane cannot disagree, and so the pane is not a string literal.
+ */
+const FP_GRID = 0.635 * _MM;
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
@@ -190,7 +210,7 @@ export function FootprintEditor({
   const controller = useRef<FootprintCanvasController>(null);
   const addLibInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const _dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   // ----- library bootstrap ------------------------------------------------------
   useEffect(() => {
@@ -1020,14 +1040,15 @@ export function FootprintEditor({
   useUnsavedGuard(manager.current.hasModifications());
 
   // ----- unit display -----------------------------------------------------------
-  const unitLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
-  const fmt = (iu: number): string => {
-    const mm = iuToMM(iu);
-    if (unitLabel === 'in') return (mm / 25.4).toFixed(4);
-    if (unitLabel === 'mils') return ((mm / 25.4) * 1000).toFixed(2);
-    return mm.toFixed(4);
-  };
-  const zoomZ = scale > 0 ? (scale * 1000).toFixed(2) : '-';
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  // FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so MessageTextFromValue
+  // takes its long form off pcbIUScale — mm %.4f, mils %.2f, inches %.4f —
+  // even though our geometry is held at the schematic IU scale.
+  const fmt = (iu: number): string => messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
   const layerRows = useMemo(() => {
     const known = new Set(ALL_FP_LAYERS);
@@ -1037,6 +1058,25 @@ export function FootprintEditor({
   }, []);
 
   const padCount = workFp?.pads.length ?? 0;
+
+  /**
+   * FOOTPRINT::GetMsgPanelInfo's FRAME_FOOTPRINT_EDITOR branch
+   * (pcbnew/footprint.cpp:2140-2157): reference/value, Library, Footprint
+   * Name, Pads, then the Doc/Keywords pair.
+   */
+  const fpMsgPanelItems = useMemo((): MsgPanelItem[] => {
+    if (!workFp) return [];
+    return [
+      { upper: workFp.reference ?? '', lower: workFp.value ?? '' },
+      { upper: 'Library', lower: curLib ?? '' },
+      { upper: 'Footprint Name', lower: curName ?? '' },
+      { upper: 'Pads', lower: String(workFp.pads.length) },
+      {
+        upper: `Doc: ${footprintStringChild(workFp, 'descr')}`,
+        lower: `Keywords: ${footprintStringChild(workFp, 'tags')}`,
+      },
+    ];
+  }, [workFp, curLib, curName]);
 
   return (
     <div className="ze-app">
@@ -1082,7 +1122,9 @@ export function FootprintEditor({
         <Toolbar entries={FP_TOP_TOOLBAR} orientation="horizontal" onActivate={onTopAction} />
         <span style={{ width: 8 }} />
         <select className="ze-select" disabled title="Grid" style={{ margin: '0 4px' }}>
-          <option>Grid: 0.635 mm (25 mils)</option>
+          <option>{`Grid: ${iuToMM(FP_GRID).toFixed(3)} mm (${Math.round(
+            (iuToMM(FP_GRID) / 25.4) * 1000,
+          )} mils)`}</option>
         </select>
         <select className="ze-select" disabled title="Zoom" style={{ margin: '0 4px' }}>
           <option>Zoom Auto</option>
@@ -1280,24 +1322,30 @@ export function FootprintEditor({
       </div>
 
       {/* pcbnew-style status bar. */}
-      <div className="ze-statusbar" style={{ gap: 18 }}>
-        <span className="cell">
-          <b>Pads</b> {padCount}
-        </span>
-        {selection.size > 0 && (
-          <span className="cell">
-            <b>Selected</b> {selection.size}
-          </span>
-        )}
-        <span className="cell grow">{status}</span>
-        <span className="cell">{curName ? `${curLib}:${curName}` : '-'}</span>
-      </div>
-      <div className="ze-statusbar">
-        <span className="cell">Z {zoomZ}</span>
-        <span className="cell">{cursor ? `X ${fmt(cursor.x)} Y ${fmt(cursor.y)}` : 'X, Y -'}</span>
-        <span className="cell grow">{activeLayer}</span>
-        <span className="cell">{unitLabel}</span>
-      </div>
+      <MsgPanel items={fpMsgPanelItems} testId="fp-message-panel" />
+
+      {/* FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so it gets
+          EDA_DRAW_FRAME's eight panes unchanged
+          (pcbnew/pcb_base_frame.cpp:761). */}
+      <KiStatusBar
+        testIds={{ message: 'fp-status-msg', coords: 'fp-coords', tool: 'fp-tool-msg' }}
+        fields={{
+          message: status,
+          // `scale` is device px per *our* IU, so the zoom factor is derived
+          // against the scale our geometry is held at, not pcbnew's.
+          zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
+          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
+          // BOARD::m_LocalOrigin, which the footprint editor never moves (no
+          // ACTIONS::resetLocalCoords binding yet), so deltas run from the
+          // footprint origin.
+          deltas: cursor
+            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
+            : deltasMsg(null),
+          grid: gridMsg(fmt(FP_GRID)),
+          units: unitsMsg(unitLabel),
+          tool: activeLayer,
+        }}
+      />
 
       {/* New Library dialog. */}
       {newLibName !== null && (
