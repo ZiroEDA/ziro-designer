@@ -236,7 +236,12 @@ export {
   newUuid as newBoardUuid,
   type PlaceFootprintOptions,
 } from './board_exchange_footprint.js';
-export { computeFootprintShift, type FootprintShift } from './footprint_utils.js';
+export {
+  computeFootprintShift,
+  uniquePadCount,
+  uniquePadNumbers,
+  type FootprintShift,
+} from './footprint_utils.js';
 export {
   spreadFootprints,
   spreadBoardFootprints,
