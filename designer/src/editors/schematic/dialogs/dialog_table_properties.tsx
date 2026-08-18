@@ -23,21 +23,12 @@ import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
 import {
   borderControlsEnabled,
   separatorControlsEnabled,
-  TABLE_STROKE_STYLES,
   type SchTableValues,
   type TableColor,
   type TableStrokeStyle,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
+import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-/** The combo's labels, in `lineTypeNames` order. */
-const STYLE_LABELS: Record<TableStrokeStyle, string> = {
-  solid: 'Solid',
-  dash: 'Dashed',
-  dot: 'Dotted',
-  dash_dot: 'Dash-Dot',
-  dash_dot_dot: 'Dash-Dot-Dot',
-};
 
 const hex = (c: TableColor | undefined): string =>
   c
@@ -152,9 +143,9 @@ export function DialogTableProperties({
           set({ [key]: e.target.value as TableStrokeStyle } as Partial<SchTableValues>)
         }
       >
-        {TABLE_STROKE_STYLES.map((s) => (
-          <option key={s} value={s}>
-            {STYLE_LABELS[s]}
+        {LINE_STYLE_NAMES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
           </option>
         ))}
       </select>

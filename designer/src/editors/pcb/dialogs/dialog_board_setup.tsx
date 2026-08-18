@@ -55,9 +55,9 @@ function ConIcon({ name }: { name: string }): JSX.Element | null {
   const url = file ? CON_ICON_URLS[`../../../assets/constraints/${file}.svg`] : undefined;
   return url ? <img src={url} width={20} height={20} alt="" aria-hidden="true" /> : null;
 }
-import { PanelTextVariables } from '../../schematic/dialogs/panels/panel_text_variables.js';
-import { PanelSetupNetclasses } from '../../schematic/dialogs/panels/panel_setup_netclasses.js';
-import { PanelEmbeddedFiles } from '../../schematic/dialogs/panels/panel_embedded_files.js';
+import { PanelTextVariables } from '../../../dialogs/panels/panel_text_variables.js';
+import { PanelSetupNetclasses } from '../../../dialogs/panels/panel_setup_netclasses.js';
+import { PanelEmbeddedFiles } from '../../../dialogs/panels/panel_embedded_files.js';
 import { PanelPcbSeverities } from './panels/panel_pcb_severities.js';
 import { PanelPcbTextGraphics } from './panels/panel_pcb_text_graphics.js';
 import { PanelPcbFormatting } from './panels/panel_pcb_formatting.js';

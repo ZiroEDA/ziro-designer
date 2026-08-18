@@ -30,15 +30,18 @@ import { readSchematicSetupText } from '../project_settings.js';
 import { DialogSchImportSettings, type SchImportOptions } from './dialog_sch_import_settings.js';
 import { PanelSetupSeverities } from './panels/panel_setup_severities.js';
 import { PanelSetupPinmap } from './panels/panel_setup_pinmap.js';
-import { PanelTextVariables } from './panels/panel_text_variables.js';
+import { PanelTextVariables } from '../../../dialogs/panels/panel_text_variables.js';
 import { PanelTemplateFieldnames } from './panels/panel_template_fieldnames.js';
 import { PanelEeschemaAnnotationOptions } from './panels/panel_eeschema_annotation_options.js';
 import { PanelSetupFormatting } from './panels/panel_setup_formatting.js';
 import { PanelBomPresets } from './panels/panel_bom_presets.js';
 import { PanelSetupBuses } from './panels/panel_setup_buses.js';
 import { PanelSetupNetChains } from './panels/panel_setup_net_chains.js';
-import { PanelSetupNetclasses } from './panels/panel_setup_netclasses.js';
-import { PanelEmbeddedFiles, type EmbeddedFile } from './panels/panel_embedded_files.js';
+import { PanelSetupNetclasses } from '../../../dialogs/panels/panel_setup_netclasses.js';
+import {
+  PanelEmbeddedFiles,
+  type EmbeddedFile,
+} from '../../../dialogs/panels/panel_embedded_files.js';
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.

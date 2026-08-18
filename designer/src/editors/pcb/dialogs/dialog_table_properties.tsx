@@ -21,9 +21,8 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { TableValues } from '@ziroeda/pcbnew/src/table_properties.js';
 import type { StrokeType } from '@ziroeda/pcbnew/src/types.js';
+import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-const STROKE_STYLES: StrokeType[] = ['solid', 'dash', 'dot', 'dash_dot', 'dash_dot_dot'];
 
 interface Props {
   initial: TableValues;
@@ -88,9 +87,9 @@ export function DialogTableProperties({ initial, layers, onApply, onClose }: Pro
         value={v[key]}
         onChange={(e) => set({ [key]: e.target.value as StrokeType } as Partial<TableValues>)}
       >
-        {STROKE_STYLES.map((s) => (
-          <option key={s} value={s}>
-            {s}
+        {LINE_STYLE_NAMES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
           </option>
         ))}
       </select>

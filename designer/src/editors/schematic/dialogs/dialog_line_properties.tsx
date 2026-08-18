@@ -15,18 +15,8 @@
  */
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
+import { WIRE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
-
-/** KiCad line styles (`(stroke (type ..))`) with the upstream display names
- *  (common/stroke_params.cpp lineTypeNames), in the dialog's dropdown order. */
-const LINE_STYLES: { value: string; label: string }[] = [
-  { value: 'default', label: 'Default' },
-  { value: 'solid', label: 'Solid' },
-  { value: 'dash', label: 'Dashed' },
-  { value: 'dot', label: 'Dotted' },
-  { value: 'dash_dot', label: 'Dash-Dot' },
-  { value: 'dash_dot_dot', label: 'Dash-Dot-Dot' },
-];
 
 /** Item colour as stored: [r, g, b] 0-255 plus alpha 0-1; unset = layer colour. */
 export type ItemColor = readonly [number, number, number, number];
@@ -142,7 +132,11 @@ export function DialogLineProperties(props: WireProps | JunctionProps): JSX.Elem
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
                 >
-                  {LINE_STYLES.map((s) => (
+                  {/* lineTypeNames, then "Default" appended after them —
+                      dialog_wire_bus_properties.cpp:56-59. Only a wire or bus
+                      takes its style from its net class, so only this dialog
+                      offers Default, and upstream puts it last. */}
+                  {WIRE_STYLE_NAMES.map((s) => (
                     <option key={s.value} value={s.value}>
                       {s.label}
                     </option>
