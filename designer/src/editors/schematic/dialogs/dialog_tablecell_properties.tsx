@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { applyCellProps, cellPropsFromSelection, type CellProps } from '@ziroeda/eeschema';
 import type { SchTableCell } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   cells: readonly SchTableCell[];
@@ -132,6 +133,10 @@ export function DialogTableCellProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const initial = useMemo(() => cellPropsFromSelection(cells), [cells]);
   const [props, setProps] = useState<CellProps>(() => ({}));
   const set = <K extends keyof CellProps>(k: K, v: CellProps[K]): void =>

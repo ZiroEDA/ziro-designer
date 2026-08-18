@@ -30,6 +30,7 @@ import {
   projectSymbolFiles,
   rowSymLibName,
 } from '../editors/schematic/symbols/project_sym_lib_table.js';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 interface Props {
   /** The open project's files (`.kicad_sym`, the table, the `.kicad_pro`). */
@@ -50,6 +51,10 @@ export function DialogSymLibTable({
   onSave,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [tab, setTab] = useState<'global' | 'project'>('project');
   const [rows, setRows] = useState<FpLibRow[]>(() => projectSymLibTable(projectFiles));
   const [sel, setSel] = useState<number | null>(null);

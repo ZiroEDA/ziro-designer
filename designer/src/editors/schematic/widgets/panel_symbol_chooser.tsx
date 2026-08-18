@@ -56,8 +56,6 @@ export interface PanelSymbolChooserProps {
   getPlacedLibSymbol?: (libId: string) => LibSymbol | undefined;
   /** Accept handler, double-click/Enter chose a symbol. */
   onAccept: () => void;
-  /** Escape handler, Esc with an empty search box. */
-  onEscape: () => void;
   /** Lazy-load handler: item count changed (updates the dialog title). */
   onItemCountChanged?: (count: number) => void;
 }
@@ -182,7 +180,6 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
       alreadyPlaced,
       getPlacedLibSymbol,
       onAccept,
-      onEscape,
       onItemCountChanged,
     },
     ref,
@@ -592,7 +589,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     if (showFp) {
       // Footprints layout: tree | sash | symbol preview over fp select + preview.
       return (
-        <div className="ze-chooser-panel" ref={bodyRef} onKeyDown={onEscapeKey(onEscape)}>
+        <div className="ze-chooser-panel" ref={bodyRef}>
           {tree}
           <div className="ze-sash v" onMouseDown={dragSash('h')} />
           <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
@@ -617,7 +614,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
 
     // No-footprints layout: details pane spans the whole bottom of the window.
     return (
-      <div className="ze-chooser-panel column" ref={bodyRef} onKeyDown={onEscapeKey(onEscape)}>
+      <div className="ze-chooser-panel column" ref={bodyRef}>
         <div className="ze-chooser-upper">
           {tree}
           <div className="ze-sash v" onMouseDown={dragSash('h')} />
@@ -641,13 +638,3 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
     );
   },
 );
-
-/** OnChar: Esc reaches the dialog only when the search box is empty. */
-function onEscapeKey(onEscape: () => void) {
-  return (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onEscape();
-    }
-  };
-}

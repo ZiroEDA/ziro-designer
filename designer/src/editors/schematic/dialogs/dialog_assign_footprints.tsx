@@ -55,6 +55,7 @@ import {
   type CvpcbComponent,
 } from '../cvpcb_components.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** FOOTPRINTS_LISTBOX filter flags (listboxes.h). */
 const FILTER_BY_FP_FILTERS = 0x0001;
@@ -506,6 +507,11 @@ export function DialogAssignFootprints({
     onClose();
   };
 
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Esc is the Cancel button, which asks before
+  // discarding modified links exactly as OnCancel does.
+  useModalEscape(closeWindow);
+
   // ----- status lines (CVPCB_MAINFRAME::DisplayStatus) ----------------------
 
   const [fpInfo, setFpInfo] = useState<{ id: string; desc: string; keywords: string } | null>(null);
@@ -718,7 +724,9 @@ export function DialogAssignFootprints({
   // Keyboard: Enter assigns the selected footprint, Delete clears the
   // assignment, Ctrl+Z / Ctrl+Y undo and redo (CVPCB_ACTIONS' hotkeys).
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.target instanceof HTMLInputElement && e.key !== 'Escape') return;
+    // Escape never reaches here: it is the dialog's Cancel and the modal stack
+    // takes it in the capture phase. See useModalEscape above.
+    if (e.target instanceof HTMLInputElement) return;
     if (e.key === 'Enter' && component && selectedFootprint) {
       associate(component.reference, selectedFootprint, true);
       e.preventDefault();
@@ -733,8 +741,6 @@ export function DialogAssignFootprints({
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       apply({ save: false, close: false });
       e.preventDefault();
-    } else if (e.key === 'Escape') {
-      closeWindow();
     }
   };
 

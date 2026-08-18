@@ -34,6 +34,7 @@ import {
   type ImageValues,
 } from '@ziroeda/pcbnew/src/image_properties.js';
 import type { PcbImage } from '@ziroeda/pcbnew/src/types.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   image: PcbImage;
@@ -50,6 +51,10 @@ export function DialogReferenceImageProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<ImageValues>(initial);
   // The raw text of whichever field has the caret, so it is not reformatted
   // out from under the typist.

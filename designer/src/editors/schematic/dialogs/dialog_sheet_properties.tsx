@@ -22,6 +22,7 @@ import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { SchField, TextEffects } from '@ziroeda/eeschema';
 import type { ItemColor } from './dialog_line_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The two rows that always exist and cannot be renamed, deleted or reordered
  *  (SCH_SHEET's mandatory fields). */
@@ -88,6 +89,10 @@ export function DialogSheetProperties({
   onOk,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [rows, setRows] = useState<SheetFieldRow[]>(initial.fields.map((f) => ({ ...f })));
   const [selRow, setSelRow] = useState(0);
   const [borderWidth, setBorderWidth] = useState(

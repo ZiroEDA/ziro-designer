@@ -8,6 +8,7 @@ import { toolbarIconUrl } from './toolbarIcons.js';
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
 // every existing importer keeps working.
 import type { Menu, MenuItem } from './menu_types.js';
+import { useModalEscape } from './useModalEscape.js';
 export type { Menu, MenuItem };
 
 /** Case-insensitive single-character key match, as wx matches an accelerator. */
@@ -96,18 +97,18 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
 
+  // A popped-up wxMenu grabs the keyboard, so Escape dismisses the menu before
+  // the dialog under it ever sees the key. That is the modal stack's rule -
+  // last mounted wins - so the menu registers there rather than running its own
+  // listener beside it, which would have closed both at once. It also keeps
+  // Escape off the editor's hotkey handler, which would clear the selection.
+  useModalEscape(onClose);
+
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
-    // Capture phase so Escape closes the menu without also reaching the
-    // editor's hotkey handler (which would clear the selection).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-        return;
-      }
       // The `\tA` half of an ACTION_MENU label is a live key while the menu is
       // up, not decoration: KiCad's disambiguation menu is worked by typing the
       // row number. Only single-character hints qualify — "Ctrl+S" is a hint

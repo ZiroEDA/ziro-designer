@@ -16,6 +16,7 @@
 import { useState, type JSX, type Ref } from 'react';
 import { moveKeepsSelectionInBounds, polarTranslation, type RotationAnchor } from '@ziroeda/pcbnew';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export interface MoveExactValues {
   translation: { x: number; y: number };
@@ -48,6 +49,10 @@ export function DialogMoveExact({
   onClose,
   rootRef,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [polar, setPolar] = useState(false);
   // Held as typed text, so a half-entered "-" or "1." does not get rewritten
   // under the cursor.

@@ -6,6 +6,7 @@ import type { PadEdit } from '@ziroeda/pcbnew';
 import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import { footprintStringChild } from '@ziroeda/pcbnew';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /**
  * Footprint properties, the working subset of KiCad's
@@ -22,6 +23,10 @@ export function FootprintPropertiesDialog({
   onOk: (r: { reference: string; value: string; description: string; keywords: string }) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [reference, setReference] = useState(footprint.reference ?? '');
   const [value, setValue] = useState(footprint.value ?? '');
   const [description, setDescription] = useState(footprintStringChild(footprint, 'descr'));
@@ -57,7 +62,6 @@ export function FootprintPropertiesDialog({
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === 'Enter') submit();
-              else if (e.key === 'Escape') onCancel();
             }}
           />
           <label>Value</label>
@@ -68,7 +72,6 @@ export function FootprintPropertiesDialog({
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === 'Enter') submit();
-              else if (e.key === 'Escape') onCancel();
             }}
           />
           <label>Description</label>
@@ -136,6 +139,10 @@ export function PadPropertiesDialog({
   onOk: (e: PadEdit) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [number, setNumber] = useState(pad.number);
   const [type, setType] = useState<PcbPad['type']>(pad.type);
   const [shape, setShape] = useState<PcbPad['shape']>(pad.shape);
@@ -200,7 +207,6 @@ export function PadPropertiesDialog({
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') submit();
-                else if (e.key === 'Escape') onCancel();
               }}
             />
           </Row>

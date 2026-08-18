@@ -14,6 +14,7 @@
  */
 import type { JSX, Ref } from 'react';
 import { allItemsState, type SelectionFilter, setAllFilterItems } from '@ziroeda/pcbnew';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   filter: SelectionFilter;
@@ -33,6 +34,10 @@ export function DialogFilterSelection({
   onClose,
   rootRef,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const all = allItemsState(filter);
 
   const box = (

@@ -11,6 +11,7 @@
  */
 
 import { useState, type JSX } from 'react';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** Standard paper sizes, in mm (landscape W×H), as page_info defines them. */
 export const PAPER_MM: Record<string, [number, number]> = {
@@ -99,6 +100,10 @@ export function PageSettingsDialog({
   onOk: (next: PreviewSettings) => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [s, setS] = useState<PreviewSettings>({ ...value, comments: [...value.comments] });
   const set = (patch: Partial<PreviewSettings>): void => setS((cur) => ({ ...cur, ...patch }));
 

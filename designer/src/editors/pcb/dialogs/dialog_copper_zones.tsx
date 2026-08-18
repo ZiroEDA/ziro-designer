@@ -16,6 +16,7 @@
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { ZoneValues } from '@ziroeda/pcbnew/src/zone_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   initial: ZoneValues;
@@ -28,6 +29,10 @@ interface Props {
 }
 
 export function DialogCopperZones({ initial, nets, layers, onApply, onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<ZoneValues>(initial);
   // Millimetre boxes are held as text so a half-typed number survives the caret.
   const [mmText, setMmText] = useState<Record<string, string>>({});

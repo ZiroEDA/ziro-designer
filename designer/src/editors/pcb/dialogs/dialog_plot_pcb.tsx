@@ -41,6 +41,7 @@ import {
 } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { Icon } from '../../../ui/icons.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   board: Board;
@@ -74,6 +75,10 @@ export function DialogPcbPlot({
   onRunDrc,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const layerNames = board.layers.map((l) => l.name);
   const displayName = new Map(board.layers.map((l) => [l.name, l.userName ?? l.name]));
   // KiCad defaults to the fab set; seed with the visible layers intersection.

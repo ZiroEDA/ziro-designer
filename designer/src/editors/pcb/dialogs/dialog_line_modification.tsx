@@ -16,6 +16,7 @@
  */
 import { useState, type JSX, type Ref } from 'react';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   title: string;
@@ -35,6 +36,10 @@ export function DialogLineModification({
   onClose,
   rootRef,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [text, setText] = useState(String(iuToMM(value)));
 
   const parsed = Number.parseFloat(text);

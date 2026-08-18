@@ -18,6 +18,7 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { ItemColor } from './dialog_line_properties.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** `lineTypeNames` (common/stroke_params.cpp) in the combo's order, with
  *  KiCad's leading "Default" entry for a stroke that has no explicit style. */
@@ -71,6 +72,10 @@ const fromHex = (h: string): ItemColor => [
 ];
 
 export function DialogShapeProperties({ shapeName, initial, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [border, setBorder] = useState(initial.border);
   const [width, setWidth] = useState(
     initial.borderWidthIU <= 0 ? '0' : String(iuToMM(initial.borderWidthIU)),

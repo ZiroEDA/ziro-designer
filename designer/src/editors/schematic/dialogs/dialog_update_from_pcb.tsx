@@ -39,6 +39,7 @@ import {
   RPT_SEVERITY_WARNING,
   type ReportLine,
 } from '@ziroeda/common/src/reporter.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   doc: Schematic;
@@ -75,6 +76,10 @@ export function DialogUpdateFromPcb({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [opts, setOpts] = useState<BackAnnotateOptions>(() => defaultBackAnnotateOptions());
   const [severities, setSeverities] = useState(RPT_SEVERITY_ALL);
 

@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import type { ReportLine, Severity } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The option set BOARD_NETLIST_UPDATER is driven with (the dialog's checkboxes). */
 export interface UpdatePcbOptions {
@@ -66,6 +67,10 @@ export function DialogUpdatePcb({
   onClose,
   designBlocksSupported = false,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [options, setOptions] = useState<UpdatePcbOptions>(DEFAULT_UPDATE_PCB_OPTIONS);
   const [messages, setMessages] = useState<readonly ReportLine[]>([]);
   const [severities, setSeverities] = useState<Severity>(RPT_SEVERITY_ALL);

@@ -13,6 +13,7 @@ import { type LibTreeNode, LibTreeNodeType } from './lib_tree_model.js';
 import { type LibTreeModelAdapter, SortMode, PINNING_SYMBOL } from './lib_tree_model_adapter.js';
 import { SelectColumnsDialog } from './select_columns_dialog.js';
 import { LibraryLoadingPanel } from './library_loading_panel.js';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 /** LIB_TREE::RECENT_SEARCHES_MAX. */
 const RECENT_SEARCHES_MAX = 10;
@@ -176,6 +177,12 @@ export function LibTree({
     window.clearTimeout(debounce.current);
     debounce.current = window.setTimeout(() => regenerate(value, true), 200);
   };
+
+  // PANEL_SYMBOL_CHOOSER::OnChar: "first escape cancels search string value",
+  // and only then does Esc reach the dialog. That ordering is exactly what the
+  // modal stack expresses - the tree registers above the dialog that contains
+  // it, and drops off again the moment the box is empty.
+  useModalEscape(() => onQueryText(''), search !== '');
 
   const setSortMode = (mode: SortMode) => {
     adapter.setSortMode(mode);
@@ -450,14 +457,6 @@ export function LibTree({
           placeholder="Filter"
           value={search}
           onChange={(e) => onQueryText(e.target.value)}
-          onKeyDown={(e) => {
-            // First escape cancels the search string (OnChar in the panel);
-            // an empty box lets it bubble up to close the dialog.
-            if (e.key === 'Escape' && search) {
-              e.stopPropagation();
-              onQueryText('');
-            }
-          }}
         />
         <div className="ze-libtree-sortbtn-wrap">
           <button

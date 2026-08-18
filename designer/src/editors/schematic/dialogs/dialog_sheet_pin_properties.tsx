@@ -14,6 +14,7 @@
 import { useState, type JSX } from 'react';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LabelShape, TextEffects } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** The flag shapes, in the dialog's order (LABEL_FLAG_SHAPE). */
 const SHAPES: { value: LabelShape; label: string }[] = [
@@ -40,6 +41,10 @@ interface Props {
 }
 
 export function DialogSheetPinProperties({ initial, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [name, setName] = useState(initial.name);
   const [shape, setShape] = useState<LabelShape>(initial.shape);
   const [size, setSize] = useState(

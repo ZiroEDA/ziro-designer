@@ -23,6 +23,7 @@
  * imports is preserved-opaque board data this clone does not model yet.
  */
 import { useRef, useState, type JSX } from 'react';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** One checkbox per importable group (DIALOG_IMPORT_SETTINGS_BASE order). */
 export interface ImportSettingsOpts {
@@ -72,6 +73,10 @@ interface Props {
 }
 
 export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [files, setFiles] = useState<{ name: string; text: string }[]>(g_lastFiles);
   const [opts, setOpts] = useState<ImportSettingsOpts>(emptyImportOpts);
   // m_showSelectAllOnBtn: what the toggle button will do next.

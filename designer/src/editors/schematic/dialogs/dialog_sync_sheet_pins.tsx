@@ -42,6 +42,7 @@ import {
   type SyncTemplate,
 } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 /** One sheet in the dialog: the parent's sheet symbol and the sheet's document. */
 export interface SyncSheetEntry {
@@ -182,6 +183,10 @@ export function DialogSyncSheetPins({
   onDeleteLabels,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [page, setPage] = useState(initialPage);
   const [labelSel, setLabelSel] = useState<ReadonlySet<string>>(new Set());
   const [pinSel, setPinSel] = useState<ReadonlySet<string>>(new Set());

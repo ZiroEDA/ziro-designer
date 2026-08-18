@@ -35,6 +35,7 @@ import { BUILTIN_THEMES } from '../theme.js';
 import { settings } from '../../../prefs/settings.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
 import { Icon } from '../../../ui/icons.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export type PlotFormat = 'ps' | 'pdf' | 'svg' | 'dxf' | 'png';
 
@@ -84,6 +85,10 @@ const PEN_WIDTH_FORMATS: PlotFormat[] = ['ps', 'pdf', 'svg', 'png'];
 const VIEWABLE_FORMATS: PlotFormat[] = ['pdf', 'svg', 'png'];
 
 export function DialogPlot({ themeId, projectFolders = [], onPlot, onClose }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [format, setFormat] = useState<PlotFormat>('pdf');
   const [pageSize, setPageSize] = useState<PlotPageSize>('auto');
   const [color, setColor] = useState(true);

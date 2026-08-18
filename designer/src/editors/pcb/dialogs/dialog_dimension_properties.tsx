@@ -29,6 +29,7 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { DimensionValues } from '@ziroeda/pcbnew/src/dimension_properties.js';
 import type { DimensionKind } from '@ziroeda/pcbnew/src/types.js';
 import { dimensionDialogFields } from '../dimension_tools.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 const UNITS = ['Inches', 'Mils', 'Millimeters', 'Automatic'];
 const FORMATS = ['1234', '1234 mm', '1234 (mm)'];
@@ -62,6 +63,10 @@ export function DialogDimensionProperties({
   onApply,
   onClose,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const [v, setV] = useState<DimensionValues>(initial);
   const [text, setText] = useState<Record<string, string>>({});
   const set = (patch: Partial<DimensionValues>): void => setV((p) => ({ ...p, ...patch }));

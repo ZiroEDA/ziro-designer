@@ -16,6 +16,7 @@
  */
 import { useState, type JSX } from 'react';
 import { conflictKey, type FieldCaseAction, type FieldCaseConflict } from '@ziroeda/eeschema';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   conflicts: readonly FieldCaseConflict[];
@@ -29,6 +30,10 @@ export function DialogResolveFieldCaseConflicts({
   onApply,
   onCancel,
 }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [actions, setActions] = useState<Record<string, FieldCaseAction>>({});
   const [bulk, setBulk] = useState(true);
   const [separator, setSeparator] = useState(', ');

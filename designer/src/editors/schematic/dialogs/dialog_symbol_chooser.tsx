@@ -15,6 +15,7 @@ import {
   type PanelSymbolChooserHandle,
   type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 export type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
 
@@ -54,6 +55,10 @@ export function DialogSymbolChooser({
   onOk,
   onCancel,
 }: DialogSymbolChooserProps): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const panelRef = useRef<PanelSymbolChooserHandle>(null);
   const [itemCount, setItemCount] = useState(0);
   const [keepSymbol, setKeepSymbol] = useState(false);
@@ -79,13 +84,7 @@ export function DialogSymbolChooser({
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="ze-modal ze-symbol-chooser"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onCancel();
-        }}
-      >
+      <div className="ze-modal ze-symbol-chooser" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
           {title}
           <span className="x" onClick={onCancel}>
@@ -101,7 +100,6 @@ export function DialogSymbolChooser({
             alreadyPlaced={alreadyPlaced}
             getPlacedLibSymbol={getPlacedLibSymbol}
             onAccept={accept}
-            onEscape={onCancel}
             onItemCountChanged={setItemCount}
           />
         </div>

@@ -48,6 +48,7 @@ import { AboutDialog } from '../../home/dialogs/dialog_about.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -1374,6 +1375,10 @@ function SimplePrompt({
   onOk: () => void;
   onCancel: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={onCancel}>
       <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
@@ -1395,7 +1400,6 @@ function SimplePrompt({
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') onOk();
-                else if (e.key === 'Escape') onCancel();
               }}
             />
           </div>

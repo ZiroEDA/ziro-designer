@@ -3,6 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useState, type FormEvent, type JSX } from 'react';
 import { useAuth } from './AuthProvider.js';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 /**
  * Sign-in dialog. Methods, easiest first:
@@ -28,6 +29,13 @@ export function SignInDialog({
   gate?: boolean;
 }): JSX.Element {
   const close = onClose ?? ((): void => {});
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Gate mode is the exception: it has no Cancel button
+  // and no dismissable backdrop, so there is nothing for Esc to press - the
+  // same reason a wxDialog with SetEscapeId( wxID_NONE ) ignores the key.
+  useModalEscape(close, !gate);
+
   const { signIn, signUp, signInWithGoogle, sendOtp, verifyOtp } = useAuth();
   // 'code' = passwordless email code (default); 'password' = classic fallback.
   const [method, setMethod] = useState<'code' | 'password'>('code');

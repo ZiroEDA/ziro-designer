@@ -21,6 +21,7 @@ import { settings } from '../prefs/settings.js';
 import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './pcmStore.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
+import { useModalEscape } from '../ui/useModalEscape.js';
 
 type Tab = PackageKind | 'installed' | 'pending';
 
@@ -55,6 +56,10 @@ function ThemeSwatches({ pkg }: { pkg: RepoPackage }): JSX.Element | null {
 }
 
 export function PluginManagerDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   usePcmVersion();
   const [tab, setTab] = useState<Tab>('library');
   const [repoUrl, setRepoUrl] = useState<string>('');

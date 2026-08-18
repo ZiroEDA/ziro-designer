@@ -17,6 +17,7 @@ import {
   type GERBER_FILE_IMAGE,
   IU_PER_MM,
 } from '@ziroeda/gerbview';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 const shapeName: Record<APERTURE_T, string> = {
   [APERTURE_T.APT_CIRCLE]: 'Round',
@@ -49,6 +50,10 @@ export function DCodeListDialog({
   unit: 'mm' | 'in' | 'mils';
   onClose: () => void;
 }): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onClose);
+
   const used = image?.usedDcodes() ?? new Set<number>();
   const codes = image
     ? [...image.apertures.values()]

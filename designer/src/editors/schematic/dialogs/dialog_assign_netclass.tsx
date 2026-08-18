@@ -16,6 +16,7 @@
  */
 
 import { useState, type JSX } from 'react';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   /** Patterns from `planNetclassAssignment`, already sorted and de-duplicated. */
@@ -27,6 +28,10 @@ interface Props {
 }
 
 export function DialogAssignNetclass({ patterns, netClasses, onOk, onCancel }: Props): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
   const [netClass, setNetClass] = useState(netClasses[0] ?? 'Default');
 
   return (

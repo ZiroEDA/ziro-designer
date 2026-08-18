@@ -44,6 +44,7 @@ import './imageConverter.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
+import { useModalEscape } from '../../ui/useModalEscape.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -127,6 +128,11 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   // KiCad's status bar starts empty and shows the loaded file (OnLoadFile).
   const [status, setStatus] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
+
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts. Registered only while the box is up, so it does not
+  // sit on the stack swallowing the key for the frame behind it.
+  useModalEscape(() => setAboutOpen(false), aboutOpen);
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   // SaveSettings: persist the panel state whenever it changes.
