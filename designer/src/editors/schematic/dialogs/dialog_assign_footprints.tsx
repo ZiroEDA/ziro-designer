@@ -42,11 +42,15 @@ import { FootprintPreviewWidget } from '../../../widgets/footprint_preview_widge
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import {
+  footprintSearchTerms,
+  footprintTextMatchers,
   loadFootprint,
   loadFootprintIndex,
+  matchesFootprintText,
   type FpIndexEntry,
 } from '../../../widgets/footprint_list.js';
 import { parseFootprint } from '../../footprint/footprintBoard.js';
+import { uniquePadCount } from '@ziroeda/pcbnew';
 import {
   projectFpLibTable,
   projectLibraryNickname,
@@ -91,9 +95,6 @@ const FILTER_BY_LIBRARY = 0x0004;
 
 /** Row height of the three virtual lists, in px (a monospaced text row). */
 const ROW_H = 18;
-/** Candidate count above which the pin-count filter would need a footprint
- *  download per candidate; upstream reads a cached scan of every library. */
-const PIN_COUNT_SCAN_LIMIT = 800;
 
 interface Props {
   /** Every sheet of the open project, keyed by file name. */
@@ -250,9 +251,28 @@ export function DialogAssignFootprints({
 
   const [hostedIndex, setHostedIndex] = useState<FpIndexEntry[]>([]);
   const [indexLoaded, setIndexLoaded] = useState(false);
+  // The hosted index carries each footprint's pad count, description and
+  // keywords (FOOTPRINT_INFO's cached fields, see tools/libraries/fp_index.mjs);
+  // the project's own `.pretty` files are already in memory, so theirs are
+  // computed here the same way FOOTPRINT_INFO_IMPL::load does.
   const index = useMemo<FpIndexEntry[]>(
     () => [
-      ...[...projectLibs].map(([name, fps]) => ({ name, footprints: [...fps.keys()] })),
+      ...[...projectLibs].map(([name, fps]) => {
+        const entry: FpIndexEntry = {
+          name,
+          footprints: [...fps.keys()],
+          pads: [],
+          descr: [],
+          tags: [],
+        };
+        for (const text of fps.values()) {
+          const fp = parseFootprint(text);
+          entry.pads!.push(fp ? uniquePadCount(fp) : 0);
+          entry.descr!.push(fp?.descr ?? '');
+          entry.tags!.push(fp?.tags ?? '');
+        }
+        return entry;
+      }),
       ...hostedIndex,
     ],
     [projectLibs, hostedIndex],
@@ -289,11 +309,6 @@ export function DialogAssignFootprints({
   const [filterText, setFilterText] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [libTableOpen, setLibTableOpen] = useState(false);
-  // Pad counts of footprints fetched for the pin-count filter.
-  const [padCounts, setPadCounts] = useState<Map<string, number>>(new Map());
-  const [scanning, setScanning] = useState(0);
-  /** The pin-count filter needs more footprint downloads than is reasonable. */
-  const [scanTooLarge, setScanTooLarge] = useState(false);
   // Focused pane, the third status line names the library of the focused
   // pane's selection (CVPCB_MAINFRAME::GetFocusedControl).
   const [focus, setFocus] = useState<'library' | 'symbol' | 'footprint'>('symbol');
@@ -311,16 +326,55 @@ export function DialogAssignFootprints({
   const footprintOf = (c: CvpcbComponent): string => associationFootprintOf(model, c);
   const component = curComp >= 0 ? components[curComp] : undefined;
 
-  /** Every "Lib:Footprint" id known to the libraries, in index order. */
-  const allFootprints = useMemo(() => {
-    const out: string[] = [];
-    for (const lib of index) for (const name of lib.footprints) out.push(`${lib.name}:${name}`);
+  /**
+   * The FOOTPRINT_LIST the filter walks: every footprint the libraries know, in
+   * index order, with the FOOTPRINT_INFO fields the filters read
+   * (`common/footprint_info.cpp`). `descr`/`tags` are '' and `pads` undefined on
+   * an index generated before those fields existed.
+   */
+  const catalog = useMemo(() => {
+    const out: {
+      id: string;
+      lib: string;
+      name: string;
+      pads: number | undefined;
+      descr: string;
+      tags: string;
+    }[] = [];
+    for (const lib of index) {
+      lib.footprints.forEach((name, i) => {
+        out.push({
+          id: `${lib.name}:${name}`,
+          lib: lib.name,
+          name,
+          pads: lib.pads?.[i],
+          descr: lib.descr?.[i] ?? '',
+          tags: lib.tags?.[i] ?? '',
+        });
+      });
+    }
     return out;
   }, [index]);
+
+  /** Every "Lib:Footprint" id known to the libraries, in index order. */
+  const allFootprints = useMemo(() => catalog.map((fp) => fp.id), [catalog]);
   const knownFootprints = useMemo(() => new Set(allFootprints), [allFootprints]);
 
-  // FOOTPRINT_FILTER: pin count, library, the symbol's fp_filters, then the
-  // search terms (all terms must match, case-insensitively).
+  /**
+   * `FOOTPRINT_FILTER::ITERATOR::increment` (common/footprint_filter.cpp:50-104),
+   * in its order: pin count, library, the symbol's fp_filters, then the search
+   * text. A candidate has to survive all four.
+   *
+   * The search text is the part that was wrong. Upstream splits the box on
+   * whitespace, makes one EDA_COMBINED_MATCHER per token, and scores each of
+   * them against `FOOTPRINT_INFO::GetSearchTerms()` — nickname, name, LIB_ID,
+   * every keyword token, the whole keyword string and the description. We
+   * matched the tokens as plain substrings of the `Lib:Name` string alone, so
+   * `smd` found nothing here and hundreds of footprints in KiCad.
+   *
+   * Building the search terms is the expensive step, so it runs last, exactly
+   * where upstream's iterator puts it.
+   */
   const filtered = useMemo(() => {
     const patterns =
       filterFlags & FILTER_BY_FP_FILTERS && component
@@ -329,75 +383,31 @@ export function DialogAssignFootprints({
             re: wildcardToRegExp(p),
           }))
         : null;
-    const terms = filterText.toLowerCase().split(/\s+/).filter(Boolean);
+    const matchers = footprintTextMatchers(filterText);
     const out: string[] = [];
-    for (const id of allFootprints) {
-      const sep = id.indexOf(':');
-      const lib = id.slice(0, sep);
-      const name = id.slice(sep + 1);
-      if (filterFlags & FILTER_BY_LIBRARY && selectedLibrary && lib !== selectedLibrary) continue;
+    for (const fp of catalog) {
       if (filterFlags & FILTER_BY_PIN_COUNT && component) {
-        const pads = padCounts.get(id);
-        if (pads === undefined || pads !== component.pinCount) continue;
+        // `PinCountMatch`. An index generated before pad counts existed cannot
+        // answer, and does not veto: degrading to "no pin filter" beats
+        // degrading to "nothing matches".
+        if (fp.pads !== undefined && fp.pads !== component.pinCount) continue;
       }
+      if (filterFlags & FILTER_BY_LIBRARY && selectedLibrary && fp.lib !== selectedLibrary)
+        continue;
       if (patterns && patterns.length > 0) {
         const hit = patterns.some((p) =>
-          p.re.test(p.withLib ? `${lib}:${name}`.toLowerCase() : name.toLowerCase()),
+          p.re.test(p.withLib ? fp.id.toLowerCase() : fp.name.toLowerCase()),
         );
         if (!hit) continue;
       }
-      if (terms.length > 0) {
-        const hay = id.toLowerCase();
-        if (!terms.every((t) => hay.includes(t))) continue;
+      if (matchers.length > 0) {
+        const terms = footprintSearchTerms(fp.lib, fp.name, fp.tags, fp.descr);
+        if (!matchesFootprintText(matchers, terms)) continue;
       }
-      out.push(id);
+      out.push(fp.id);
     }
     return out;
-  }, [allFootprints, filterFlags, component, selectedLibrary, filterText, padCounts]);
-
-  // The pin-count filter needs each candidate's pad count, which upstream has
-  // from its cached library scan; here the .kicad_mod files are fetched (and
-  // cached) for the candidate set, six at a time.
-  useEffect(() => {
-    if (!(filterFlags & FILTER_BY_PIN_COUNT) || !component) return;
-    const candidates: string[] = [];
-    for (const id of allFootprints) {
-      const lib = id.slice(0, id.indexOf(':'));
-      if (filterFlags & FILTER_BY_LIBRARY && selectedLibrary && lib !== selectedLibrary) continue;
-      if (!padCounts.has(id)) candidates.push(id);
-      if (candidates.length > PIN_COUNT_SCAN_LIMIT) {
-        // Upstream reads pad counts from its cached scan of every library;
-        // here each one is a download, so the set has to be narrowed first.
-        setScanTooLarge(true);
-        return;
-      }
-    }
-    setScanTooLarge(false);
-    if (candidates.length === 0) return;
-    let cancelled = false;
-    setScanning(candidates.length);
-    void (async () => {
-      const found = new Map<string, number>();
-      const queue = [...candidates];
-      const worker = async (): Promise<void> => {
-        for (let id = queue.pop(); id !== undefined; id = queue.pop()) {
-          const fp = await resolveFootprint(id);
-          if (cancelled) return;
-          found.set(id, fp ? new Set(fp.pads.map((p) => p.number)).size : -1);
-          setScanning(queue.length);
-        }
-      };
-      await Promise.all(Array.from({ length: 6 }, worker));
-      if (!cancelled) {
-        setPadCounts((prev) => new Map([...prev, ...found]));
-        setScanning(0);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      setScanning(0);
-    };
-  }, [filterFlags, component, selectedLibrary, allFootprints, padCounts]);
+  }, [catalog, filterFlags, component, selectedLibrary, filterText]);
 
   const selectedFootprint = filtered[curFp] ?? '';
 
@@ -519,20 +529,11 @@ export function DialogAssignFootprints({
     }
     if (filterText) parts.push(`Search Text (${filterText})`);
     const head = parts.length === 0 ? 'No Filtering' : `Filtered by ${parts.join(', ')}`;
-    let tail = '';
-    if (scanning > 0) tail = `, reading ${scanning} footprints…`;
-    else if (scanTooLarge && filterFlags & FILTER_BY_PIN_COUNT)
-      tail = ', select a library to filter by pin count';
-    return `${head}: ${filtered.length} matching footprints${tail}`;
-  }, [
-    filterFlags,
-    component,
-    selectedLibrary,
-    filterText,
-    filtered.length,
-    scanning,
-    scanTooLarge,
-  ]);
+    // `msg += _( ": %i matching footprints" )` and nothing else: there is no
+    // spinner and no "select a library first" here, because the pad counts come
+    // from the index rather than from a download per candidate.
+    return `${head}: ${filtered.length} matching footprints`;
+  }, [filterFlags, component, selectedLibrary, filterText, filtered.length]);
 
   // SetStatusText( _( "Schematic saved" ), 1 ) writes over the description
   // line, and the next DisplayStatus puts the description back. DisplayStatus
