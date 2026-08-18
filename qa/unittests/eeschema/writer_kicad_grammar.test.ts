@@ -35,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/src/tools/annotate.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 /** A whole, loadable document: KiCad needs the header, not just the items. */
@@ -58,33 +59,51 @@ const KICAD_CLI = (() => {
 })();
 
 /**
- * Load `text` with real KiCad. Returns null when it parsed, the tool's own
- * complaint otherwise. `sch export netlist` runs the full
- * SCH_IO_KICAD_SEXPR_PARSER and needs no display.
+ * Load `text` with real KiCad and export its netlist. `sch export netlist` runs
+ * the full SCH_IO_KICAD_SEXPR_PARSER and needs no display; the netlist it
+ * writes is built from the loaded model, so it also reports what KiCad *reads*
+ * — `(ref "…")` in it is `SCH_SYMBOL::GetRef` for the sheet path in question.
  */
-function kicadLoadError(text: string): string | null {
+function kicadExport(text: string): { net: string } | { error: string } {
   const dir = mkdtempSync(join(tmpdir(), 'ziro-grammar-'));
   try {
     const file = join(dir, 'out.kicad_sch');
+    const netFile = join(dir, 'out.net');
     writeFileSync(file, text);
-    execFileSync(
-      'kicad-cli',
-      ['sch', 'export', 'netlist', '--output', join(dir, 'out.net'), file],
-      {
-        stdio: 'pipe',
-        timeout: 120_000,
-      },
-    );
-    return null;
+    execFileSync('kicad-cli', ['sch', 'export', 'netlist', '--output', netFile, file], {
+      stdio: 'pipe',
+      timeout: 120_000,
+    });
+    return { net: readFileSync(netFile, 'utf8') };
   } catch (e) {
     const err = e as { stdout?: Buffer; stderr?: Buffer; message?: string };
-    return (
-      `${err.stdout?.toString() ?? ''}${err.stderr?.toString() ?? ''}`.trim() ||
-      (err.message ?? 'kicad-cli refused the file')
-    );
+    return {
+      error:
+        `${err.stdout?.toString() ?? ''}${err.stderr?.toString() ?? ''}`.trim() ||
+        (err.message ?? 'kicad-cli refused the file'),
+    };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/** Null when real KiCad parsed the text, the tool's own complaint otherwise. */
+function kicadLoadError(text: string): string | null {
+  const r = kicadExport(text);
+  return 'error' in r ? r.error : null;
+}
+
+/**
+ * The distinct references real KiCad reads out of our output, sorted.
+ *
+ * This is the only check that can see finding 1 at all: our own reader would
+ * happily report the Reference property, while KiCad resolves a symbol's name
+ * through its `(instances …)` records first.
+ */
+function kicadRefs(s: Schematic): string[] {
+  const r = kicadExport(write(s));
+  if ('error' in r) throw new Error(r.error);
+  return [...new Set([...r.net.matchAll(/\(ref "([^"]+)"\)/g)].map((m) => m[1]!))].sort();
 }
 
 /** Assert real KiCad parses the document, quoting its own message when it does not. */
@@ -119,6 +138,12 @@ const unknownTokens = (s: Schematic): string[] =>
   [...headTokens(write(s))].filter((t) => !KEYWORDS.has(t)).sort();
 
 // ----- the documents --------------------------------------------------------
+
+/** A whole document KiCad itself wrote, from qa/data. */
+const corpus = (name: string): Schematic =>
+  readSchematic(
+    parse(readFileSync(fileURLToPath(new URL(`../../data/${name}`, import.meta.url)), 'utf8')),
+  );
 
 const TEXT_UUID = '00000000-0000-0000-0000-0000000000ab';
 
@@ -334,11 +359,6 @@ describe('children upstream formats unconditionally', () => {
 });
 
 describe('an untouched document still writes tokens KiCad knows', () => {
-  const corpus = (name: string): Schematic =>
-    readSchematic(
-      parse(readFileSync(fileURLToPath(new URL(`../../data/${name}`, import.meta.url)), 'utf8')),
-    );
-
   for (const name of ['nfc-antenna.kicad_sch', 'complex_hierarchy.kicad_sch']) {
     it(`${name} re-writes inside the grammar`, () => {
       expect(unknownTokens(corpus(name))).toEqual([]);
@@ -348,4 +368,199 @@ describe('an untouched document still writes tokens KiCad knows', () => {
       expectKiCadLoads(corpus(name));
     });
   }
+});
+
+describe('a symbol reference lives in its (instances …), not its property', () => {
+  // SCH_SYMBOL::GetRef (eeschema/sch_symbol.cpp:646) looks the current sheet
+  // path up in the symbol's instance list and only falls back to the Reference
+  // property when nothing matches, and saveSymbol (sch_io_kicad_sexpr.cpp:940)
+  // writes `(path … (reference …) (unit …))` for every path. Our writer patched
+  // every child of `(symbol …)` except `(instances …)`, so annotating a
+  // KiCad-authored file produced a property saying "P501" beside a record still
+  // saying "P102" — and KiCad, on reopening, showed P102 again. Nothing in the
+  // suite looked at the instance records, and our own reader cannot see the
+  // difference, so the assertions that matter here go through real KiCad.
+  const annotated = (): Schematic => {
+    const d = corpus('complex_hierarchy.kicad_sch');
+    return {
+      ...d,
+      symbols: annotateSymbols(d, new Map(), {
+        ...defaultAnnotateOptions(),
+        resetExisting: true,
+        startNumber: 500,
+      }),
+    };
+  };
+
+  it('has instance records to begin with', () => {
+    // If the fixture ever loses them this whole describe silently proves nothing.
+    const d = corpus('complex_hierarchy.kicad_sch');
+    const p102 = d.symbols.find(
+      (s) => s.fields.find((f) => f.key === 'Reference')?.value === 'P102',
+    );
+    expect(p102?.instances?.map((i) => [i.project, i.reference, i.unit])).toEqual([
+      ['complex_hierarchy', 'P102', 1],
+    ]);
+  });
+
+  it.skipIf(!KICAD_CLI)('KiCad reads back the reference we annotated with', () => {
+    const refs = kicadRefs(annotated());
+    expect(refs).toContain('P501');
+    expect(refs).toContain('P502');
+    expect(refs).not.toContain('P102');
+    expect(refs).not.toContain('P101');
+  });
+
+  it('writes the new reference into the record, keeping the record’s path', () => {
+    const back = readSchematic(parse(write(annotated())));
+    const p502 = back.symbols.find(
+      (s) => s.fields.find((f) => f.key === 'Reference')?.value === 'P502',
+    );
+    expect(p502?.instances).toEqual([
+      expect.objectContaining({
+        project: 'complex_hierarchy',
+        path: '/5b9623a5-6d01-41fc-9865-e1bc779418c8',
+        reference: 'P502',
+        unit: 1,
+      }),
+    ]);
+  });
+
+  it('leaves an untouched document’s records exactly as it found them', () => {
+    // The writer is patch-based: reading and writing without editing anything
+    // must not move a single reference.
+    expect(write(corpus('complex_hierarchy.kicad_sch'))).toContain('(reference "P102")');
+  });
+
+  // A symbol placed on two sheet paths. Our model has one reference per symbol
+  // and no current sheet path (tools/annotate.ts documents the difference), so
+  // the edit goes to the record the model's reference came from — the other
+  // path keeps the annotation the file gave it rather than being overwritten
+  // with a reference that was never about it.
+  const twoPaths = (refA: string, refB: string, property = refA): Schematic =>
+    sch(`(symbol (lib_id "Device:R") (at 50 50 0) (unit 1)
+        (uuid "00000000-0000-0000-0000-0000000000c0")
+        (property "Reference" "${property}" (at 50 45 0))
+        (property "Value" "10k" (at 50 55 0))
+        (instances (project "p"
+          (path "/00000000-0000-0000-0000-0000000000a1" (reference "${refA}") (unit 1))
+          (path "/00000000-0000-0000-0000-0000000000a2" (reference "${refB}") (unit 1)))))`);
+
+  const withReference = (d: Schematic, ref: string, unit?: number): Schematic => {
+    const sym = d.symbols[0]!;
+    return {
+      ...d,
+      symbols: [
+        {
+          ...sym,
+          ...(unit === undefined ? {} : { unit }),
+          fields: sym.fields.map((f) => (f.key === 'Reference' ? { ...f, value: ref } : f)),
+        },
+      ],
+    };
+  };
+
+  it('moves only the record the model’s reference came from', () => {
+    const out = write(withReference(twoPaths('R1', 'R2'), 'R9'));
+    expect(out).toContain('(reference "R9")');
+    expect(out).toContain('(reference "R2")');
+    expect(out).not.toContain('(reference "R1")');
+  });
+
+  it('moves every record when none of them carried the old reference', () => {
+    // The file already disagreed with its own property; leaving the records
+    // would mean KiCad reads back a reference this app has never shown.
+    const out = write(withReference(twoPaths('R1', 'R2', 'R7'), 'R9'));
+    expect(out).not.toContain('(reference "R1")');
+    expect(out).not.toContain('(reference "R2")');
+    expect([...out.matchAll(/\(reference "R9"\)/g)]).toHaveLength(2);
+  });
+
+  it('follows a unit change into the record', () => {
+    // SCH_SYMBOL_INSTANCE::m_Unit, which is what GetRef appends the A/B suffix
+    // from; leaving it stale put the symbol back on unit 1 in KiCad.
+    const out = write(withReference(twoPaths('R1', 'R2'), 'R1', 2));
+    expect(out).toContain('(unit 2)');
+    expect([...out.matchAll(/\(unit 1\)/g)]).toHaveLength(1);
+  });
+
+  it.skipIf(!KICAD_CLI)('the patched records still load', () => {
+    expectKiCadLoads(withReference(twoPaths('R1', 'R2'), 'R9', 2));
+  });
+
+  it.skipIf(!KICAD_CLI)('a symbol with no records at all keeps the field fallback', () => {
+    // tools/build.ts strips `(instances …)` from a symbol we place, exactly as
+    // KiCad's PruneOrphanedSymbolInstances does on paste, so such a symbol has
+    // no record to patch and GetRef reads its Reference property instead. That
+    // has to keep working, or every newly placed symbol loses its annotation.
+    const root = parse(
+      readFileSync(
+        fileURLToPath(new URL('../../data/complex_hierarchy.kicad_sch', import.meta.url)),
+        'utf8',
+      ),
+    );
+    const d = readSchematic({
+      kind: 'list',
+      items: root.items.map((it) =>
+        isList(it) && head(it) === 'symbol'
+          ? {
+              kind: 'list' as const,
+              items: it.items.filter((c) => !(isList(c) && head(c) === 'instances')),
+            }
+          : it,
+      ),
+    });
+    expect(d.symbols.every((s) => s.instances === undefined)).toBe(true);
+    const refs = kicadRefs({
+      ...d,
+      symbols: annotateSymbols(d, new Map(), {
+        ...defaultAnnotateOptions(),
+        resetExisting: true,
+        startNumber: 700,
+      }),
+    });
+    expect(refs).toContain('P701');
+    expect(refs).not.toContain('P102');
+  });
+});
+
+describe('a sheet pin’s effects', () => {
+  // The fourth of the guarded patchers from the same audit: writeSheetPin only
+  // patched `(effects …)` when the source node already had one, so a formatting
+  // edit on a pin from a file that carried none was dropped. saveSheet prints
+  // the pin's `(at …)`, its uuid and then EDA_TEXT::Format unconditionally
+  // (sch_io_kicad_sexpr.cpp:1117-1130), so the node has one right place to go.
+  const bareSheetPin = (): Schematic =>
+    sch(`(sheet (at 100 100) (size 20 20)
+        (stroke (width 0) (type solid)) (fill (color 0 0 0 0.0000))
+        (uuid "00000000-0000-0000-0000-0000000000d0")
+        (property "Sheetname" "sub" (at 100 99.4 0))
+        (property "Sheetfile" "sub.kicad_sch" (at 100 120.7 0))
+        (pin "IN" input (at 100 105 180)
+          (uuid "00000000-0000-0000-0000-0000000000d1")))`);
+
+  const italicised = (): Schematic => {
+    const d = bareSheetPin();
+    const sheet = d.sheets[0]!;
+    const pin = sheet.pins[0]!;
+    return {
+      ...d,
+      sheets: [{ ...sheet, pins: [{ ...pin, effects: { hidden: false, italic: true } }] }],
+    };
+  };
+
+  it('is added when the source had none', () => {
+    expect(bareSheetPin().sheets[0]!.pins[0]!.effects).toBeUndefined();
+    expect(readSchematic(parse(write(italicised()))).sheets[0]!.pins[0]!.effects?.italic).toBe(
+      true,
+    );
+  });
+
+  it('goes after the uuid, where saveSheet prints it', () => {
+    expect(write(italicised())).toMatch(/\(uuid "[^"]+"\)\s*\(effects\b/);
+  });
+
+  it.skipIf(!KICAD_CLI)('and the result opens in real KiCad', () => {
+    expectKiCadLoads(italicised());
+  });
 });

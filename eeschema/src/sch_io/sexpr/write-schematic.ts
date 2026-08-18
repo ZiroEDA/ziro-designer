@@ -25,6 +25,7 @@ import { fieldIsPrivate, readEffects, readField } from './read-schematic.js';
 import type {
   Schematic,
   SchSymbol,
+  SchSymbolInstance,
   SchSymbolPin,
   SchLine,
   SchJunction,
@@ -325,6 +326,13 @@ function propertyName(node: SList): string | undefined {
   return name && name.kind === 'string' ? name.value : undefined;
 }
 
+/** The value slot of a `(property [private] "Name" "Value" …)` node. */
+function propertyValue(node: SList): string | undefined {
+  const at = fieldIsPrivate(node) ? 3 : 2;
+  const value = node.items[at];
+  return value && value.kind === 'string' ? value.value : undefined;
+}
+
 /**
  * Patch a `(property ...)` node to match the typed field, changing only what
  * differs. `invertY` writes Y negated, symbol-*library* fields are stored +Y-up
@@ -541,6 +549,103 @@ function patchBodyStyle(node: SList, bodyStyle: number): SList {
   return insertCanonical(node, list(atom('body_style'), atom(String(bodyStyle))));
 }
 
+/** The `(property "Reference" "…")` value of the node this symbol was read from. */
+function sourceReference(node: SList): string | undefined {
+  for (const it of node.items) {
+    if (isList(it) && head(it) === 'property' && propertyName(it) === 'Reference')
+      return propertyValue(it);
+  }
+  return undefined;
+}
+
+/**
+ * The `(instances …)` records to write, with the symbol's reference/unit edit
+ * carried into the record it came from.
+ *
+ * KiCad annotates *per sheet path*: `SCH_SYMBOL::SetRef` (sch_symbol.cpp:706)
+ * writes the reference into the instance for the current `SCH_SHEET_PATH` and
+ * `GetRef` (:646) reads it back out of there, treating the Reference property
+ * as a fallback for files with no instance data. Our model has one reference
+ * per symbol and no notion of a current sheet path (see `tools/annotate.ts`),
+ * so this reconciles the two: the edit is applied to the instance whose
+ * reference is the one the model started from — the record the model's single
+ * reference *is*. Other sheet paths, which our model cannot represent, keep the
+ * annotation the file gave them rather than being overwritten with it.
+ *
+ * If no instance carries the old reference the file was already inconsistent
+ * with its own Reference property; then every record takes the new value,
+ * because leaving them would mean KiCad reads back a reference this app has
+ * never shown. Same rule for the unit.
+ *
+ * A symbol with no `(instances …)` at all — every symbol *we* place, since
+ * `tools/build.ts` strips the block on creation — has nothing to reconcile and
+ * keeps relying on KiCad's Reference-property fallback.
+ */
+function symbolInstancesForWrite(sym: SchSymbol): readonly SchSymbolInstance[] {
+  const instances = sym.instances ?? [];
+  if (instances.length === 0) return instances;
+  const wasRef = sourceReference(sym.source);
+  const wasUnit = numArg(childNamed(sym.source, 'unit') ?? sym.source, 0) ?? 1;
+  const newRef = sym.fields.find((f) => f.key === 'Reference')?.value;
+  const refChanged = newRef !== undefined && wasRef !== undefined && newRef !== wasRef;
+  const unitChanged = sym.unit !== wasUnit;
+  if (!refChanged && !unitChanged) return instances;
+  const matched = instances.some((i) => i.reference === wasRef);
+  return instances.map((i) => {
+    if (matched && i.reference !== wasRef) return i;
+    return {
+      ...i,
+      ...(refChanged && newRef !== undefined ? { reference: newRef } : {}),
+      ...(unitChanged ? { unit: sym.unit } : {}),
+    };
+  });
+}
+
+/** Patch `(path "…" (reference "…") (unit N))` to the model's record, leaving
+ *  any `(variant …)` children of that path alone. saveSymbol prints the
+ *  reference then the unit then the variants (sch_io_kicad_sexpr.cpp:952). */
+function patchInstancePath(node: SList, inst: SchSymbolInstance): SList {
+  let n = node;
+  if (stringField(n, 'reference') !== inst.reference) {
+    const ref = list(atom('reference'), str(inst.reference));
+    n = childNamed(n, 'reference')
+      ? mapChild(n, 'reference', () => ref)
+      : insertBeforeAny(n, ref, ['unit', 'variant']);
+  }
+  if ((numArg(childNamed(n, 'unit') ?? n, 0) ?? 1) !== inst.unit) {
+    const unit = list(atom('unit'), atom(String(inst.unit)));
+    n = childNamed(n, 'unit')
+      ? mapChild(n, 'unit', () => unit)
+      : insertBeforeAny(n, unit, ['variant']);
+  }
+  return n;
+}
+
+/** Patch a symbol's `(instances …)` block from the typed records, keyed by
+ *  project + path so a file carrying several projects' data stays intact. */
+function patchSymbolInstances(node: SList, sym: SchSymbol): SList {
+  if (!childNamed(node, 'instances')) return node;
+  const wanted = new Map(
+    symbolInstancesForWrite(sym).map((i) => [`${i.project}\u0000${i.path}`, i]),
+  );
+  if (wanted.size === 0) return node;
+  return mapChild(node, 'instances', (instancesNode) => ({
+    kind: 'list',
+    items: instancesNode.items.map((proj) => {
+      if (!isList(proj) || head(proj) !== 'project') return proj;
+      const project = arg(proj, 0) ?? '';
+      return {
+        kind: 'list' as const,
+        items: proj.items.map((p) => {
+          if (!isList(p) || head(p) !== 'path') return p;
+          const inst = wanted.get(`${project}\u0000${arg(p, 0) ?? ''}`);
+          return inst ? patchInstancePath(p, inst) : p;
+        }),
+      };
+    }),
+  }));
+}
+
 function writeSymbol(sym: SchSymbol): SList {
   let node = patchAt(sym.source, sym.at);
   node = patchAtAngle(node, sym.angle);
@@ -558,6 +663,7 @@ function writeSymbol(sym: SchSymbol): SList {
   node = patchPassthrough(node, sym.passthrough);
   node = patchSymbolBool(node, 'locked', sym.locked ?? false, false);
   node = patchSymbolPins(node, sym.pins);
+  node = patchSymbolInstances(node, sym);
 
   // Rewrite the property block from the model's field list (order preserved), so
   // renamed/added/removed fields land exactly where KiCad writes them.
@@ -759,16 +865,30 @@ function textBoxFillNode(fill: Fill): SList {
   return { kind: 'list', items };
 }
 
+/**
+ * What a sheet pin's `(effects …)` has to precede.
+ *
+ * saveSheet prints `(pin "name" shape (at …)`, then the uuid, then
+ * `EDA_TEXT::Format` (sch_io_kicad_sexpr.cpp:1117-1130) — so on a sheet pin the
+ * effects come last, after the uuid, not before it as on a label.
+ * `parseSchSheetPin` (parser:2478) takes only `at`, `uuid` and `effects`; the
+ * `(property …)` nodes our writer keeps exist solely for pins another tool gave
+ * fields to, and the effects still go ahead of them.
+ */
+const SHEET_PIN_AFTER_EFFECTS = ['property'];
+
 function writeSheetPin(node: SList, pin: SheetPin): SList {
   let n = setItem(node, 1, str(pin.name));
   n = setItem(n, 2, atom(pin.shape));
   n = patchAt(n, pin.at);
   n = mapChild(n, 'at', (at) => setItem(at, 3, atom(String(pin.angle))));
   // Formatting, the same way a label patches it: the pin's text is editable
-  // through its properties dialog and through Edit Text & Graphics.
-  if (pin.effects && childNamed(n, 'effects')) {
+  // through its properties dialog and through Edit Text & Graphics. Added when
+  // the source carried none — EDA_TEXT::Format prints it for every text item,
+  // so an edit that introduces it must have somewhere to go.
+  if (pin.effects) {
     const orig = readEffects(node);
-    n = mapChild(n, 'effects', (e) => patchEffects(e, pin.effects!, orig));
+    n = patchOrAddEffects(n, pin.effects, orig, SHEET_PIN_AFTER_EFFECTS);
   }
   const fields = pin.fields ?? [];
   const byKey = new Map(fields.map((f) => [f.key, f]));

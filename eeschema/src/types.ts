@@ -435,6 +435,35 @@ export interface SchSymbol {
    *  placement, carrying the pin's own uuid and, when the user picked one, the
    *  library alternate it is serving (`SCH_PIN::GetAlt`). */
   readonly pins?: readonly SchSymbolPin[];
+  /**
+   * `(instances (project "…" (path "/uuid/uuid" (reference "R1") (unit 2))))`.
+   *
+   * This — not the Reference property — is what KiCad reads a symbol's
+   * reference back out of: `SCH_SYMBOL::GetRef` (eeschema/sch_symbol.cpp:646)
+   * looks the current sheet path up in the instance list and falls back to the
+   * Reference field only when no instance matches. A file whose instances still
+   * say `R?` therefore opens in KiCad as `R?`, however the property reads.
+   */
+  readonly instances?: readonly SchSymbolInstance[];
+  readonly source: SList;
+}
+
+/**
+ * One `(path … (reference …) (unit …))` record of a symbol's `(instances …)`.
+ * Mirrors KiCad `SCH_SYMBOL_INSTANCE` (eeschema/sch_symbol.h), minus the
+ * per-path `(variant …)` overrides, which pass through on the source node.
+ */
+export interface SchSymbolInstance {
+  /** The enclosing `(project "…")` name; a file can carry instance data for
+   *  several projects that share the sheet (`SCH_SYMBOL_INSTANCE::m_ProjectName`). */
+  readonly project: string;
+  /** KIID path of the sheet path this record annotates, e.g. `/uuid/uuid`. */
+  readonly path: string;
+  /** `SCH_SYMBOL_INSTANCE::m_Reference` — what KiCad shows on that sheet path. */
+  readonly reference: string;
+  /** `SCH_SYMBOL_INSTANCE::m_Unit`, 1-based. */
+  readonly unit: number;
+  /** The `(path …)` node, kept so `(variant …)` children survive a patch. */
   readonly source: SList;
 }
 

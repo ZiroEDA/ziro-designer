@@ -53,6 +53,14 @@ const EXCLUDED: Record<string, string> = {
   // to. Renaming the number does not rename a pin — it points the record at a
   // pin that does not exist, and the reader drops it.
   'symbols.pins.number': 'identity: which library pin this record is for',
+  // A symbol instance is keyed by project + sheet path — `m_instancePathIndex`
+  // in SCH_SYMBOL is exactly that map. Assigning either one does not move a
+  // record, it names a sheet path that has no record, so the writer matches
+  // nothing and leaves the block alone. Adding or removing a *record* is
+  // AddHierarchicalReference / RemoveInstance, not a field edit. The record's
+  // content — `reference` and `unit` — is swept and does round-trip.
+  'symbols.instances.project': 'identity: which project’s instance data this is',
+  'symbols.instances.path': 'identity: which sheet path this record annotates',
   // Sheetname/Sheetfile are mandatory and looked up by name; the field dialog
   // refuses to rename them for the same reason. A *symbol* field's key does
   // round-trip, and is deliberately not excluded here.

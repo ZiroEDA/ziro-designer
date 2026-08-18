@@ -42,6 +42,7 @@ import type {
   SchNoConnect,
   SchSheet,
   SchSymbol,
+  SchSymbolInstance,
   SchSymbolPin,
   SchTable,
   SchGroup,
@@ -555,6 +556,35 @@ function resolveExtends(symbols: LibSymbol[]): LibSymbol[] {
 
 // ----- instance items -------------------------------------------------------
 
+/**
+ * A symbol's `(instances (project "…" (path … (reference …) (unit …))))`.
+ *
+ * KiCad's per-sheet-path annotation (`SCH_SYMBOL::GetInstances`). It is the
+ * authority on what a symbol is called: `SCH_SYMBOL::GetRef` (sch_symbol.cpp:646)
+ * consults the Reference property only when the current sheet path has no
+ * record here. Reading it is what lets the writer keep it in step with an
+ * annotation, instead of leaving a stale `R?` behind for KiCad to read back.
+ */
+function readSymbolInstances(node: SList): SchSymbolInstance[] {
+  const instancesNode = childNamed(node, 'instances');
+  if (!instancesNode) return [];
+  const out: SchSymbolInstance[] = [];
+  for (const proj of childrenNamed(instancesNode, 'project')) {
+    const project = arg(proj, 0) ?? '';
+    for (const p of childrenNamed(proj, 'path')) {
+      out.push({
+        project,
+        path: arg(p, 0) ?? '',
+        reference: stringField(p, 'reference') ?? '',
+        // saveSymbol always prints (unit N); a file missing it means unit 1.
+        unit: numArg(childNamed(p, 'unit') ?? p, 0) ?? 1,
+        source: p,
+      });
+    }
+  }
+  return out;
+}
+
 function readSymbol(node: SList): SchSymbol {
   const { at, angle } = readAt(node);
   const fields = childrenNamed(node, 'property').map((p) => readField(p));
@@ -626,6 +656,8 @@ function readSymbol(node: SList): SchSymbol {
     sym.excludedFromPosFiles = !boolField(node, 'in_pos_files', true);
   const uuid = stringField(node, 'uuid');
   if (uuid) sym.uuid = uuid;
+  const instances = readSymbolInstances(node);
+  if (instances.length) sym.instances = instances;
   return sym;
 }
 
