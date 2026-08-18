@@ -521,3 +521,122 @@ describe('output size field wiring (BITMAP2CMP_PANEL::OnSizeChangeX)', () => {
     expect(FRAME).toMatch(/outputDpi\(sizeY, loaded\.h, unit\)/);
   });
 });
+
+describe("matches KiCad's own bitmap2component output", () => {
+  // Every file read here was written by the installed bitmap2component 10.0.5,
+  // driven through its GUI on this machine; see qa/data/bitmap2component/.
+  //
+  // The comparison is on the coordinate SET, not the sequence: KiCad's points
+  // come out of SHAPE_POLY_SET::Fracture, which normalises winding and start
+  // vertex and bridges holes its own way, and we bridge with earcut's linked
+  // list. What has to agree to the last digit is the value of each coordinate,
+  // which is exactly what the internal-unit quantisation decides.
+  const xySet = (text: string): Set<string> => {
+    const out = new Set<string>();
+    for (const m of text.matchAll(/\(xy (-?[\d.]+) (-?[\d.]+)\)/g))
+      out.add(`${Number(m[1])},${Number(m[2])}`);
+    return out;
+  };
+
+  const square = filledRect(24, 24, 6, 6, 18, 18);
+
+  it('footprint, 24 px square at 300 DPI', () => {
+    const { text } = convert(square, {
+      format: 'footprint',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(xySet(text)).toEqual(xySet(readRef('kicad_square24_300dpi.kicad_mod')));
+    // ± half of 12 px at 300 DPI, and the edge midpoints on the axes.
+    expect(xySet(text)).toEqual(
+      new Set(['-0.508,0.508', '0,0.508', '0.508,0.508', '0.508,0', '0.508,-0.508',
+               '0,-0.508', '-0.508,-0.508', '-0.508,0']),
+    );
+  });
+
+  it('footprint, the same square asked for at 2.1 mm', () => {
+    // The Output Size box: 24 px over 2.1 mm truncates to 290 DPI, and the
+    // half-width lands on 0.525517 mm — not the 0.525 an untruncated 290.2857
+    // DPI, or unquantised millimetres, would give.
+    const dpi = outputDpi(2.1, 24, 'mm');
+    expect(dpi).toBe(290);
+    const { text } = convert(square, {
+      format: 'footprint',
+      layer: 'F.Cu',
+      dpiX: dpi,
+      dpiY: dpi,
+      name: NAME,
+    });
+    expect(xySet(text)).toEqual(xySet(readRef('kicad_square24_2.1mm.kicad_mod')));
+    expect(text).toContain('0.525517');
+    expect(text).not.toContain('0.5255172');
+  });
+
+  it('symbol, 24 px square at 300 DPI', () => {
+    const { text } = convert(square, {
+      format: 'symbol',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(xySet(text)).toEqual(xySet(readRef('kicad_square24_300dpi.kicad_sym')));
+  });
+
+  it('drawing sheet, two blobs at 300 DPI (the truncation is asymmetric)', () => {
+    const two = new Bitmap(40, 20);
+    for (let y = 5; y < 15; y++) {
+      for (let x = 4; x < 12; x++) two.data[y * 40 + x] = 1;
+      for (let x = 28; x < 36; x++) two.data[y * 40 + x] = 1;
+    }
+    const { text } = convert(two, {
+      format: 'drawingsheet',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(xySet(text)).toEqual(xySet(readRef('kicad_twoblob_300dpi.kicad_wks')));
+    // int() truncates toward zero, so the centre row is -0.001 and the two
+    // edges are +0.423 and -0.424. Millimetre floats would give 0 and ±0.4233.
+    expect(text).toContain('-0.001');
+    expect(text).toContain('0.423');
+    expect(text).toContain('-0.424');
+  });
+
+  it('ring with a hole: every coordinate KiCad emits, bridged our own way', () => {
+    const ring = filledRect(30, 30, 4, 4, 26, 26);
+    for (let y = 11; y < 19; y++) for (let x = 11; x < 19; x++) ring.data[y * 30 + x] = 0;
+    const { text } = convert(ring, {
+      format: 'footprint',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    expect(xySet(text)).toEqual(xySet(readRef('kicad_ring30_300dpi.kicad_mod')));
+  });
+
+  it('postscript, two blobs: whole pixels, Y flipped in the page height', () => {
+    const two = new Bitmap(40, 20);
+    for (let y = 5; y < 15; y++) {
+      for (let x = 4; x < 12; x++) two.data[y * 40 + x] = 1;
+      for (let x = 28; x < 36; x++) two.data[y * 40 + x] = 1;
+    }
+    const { text } = convert(two, {
+      format: 'postscript',
+      layer: 'F.Cu',
+      dpiX: 300,
+      dpiY: 300,
+      name: NAME,
+    });
+    const points = (src: string): Set<string> => {
+      const out = new Set<string>();
+      for (const m of src.matchAll(/(-?\d+) (-?\d+) (?:moveto|lineto)/g)) out.add(`${m[1]},${m[2]}`);
+      return out;
+    };
+    expect(points(text)).toEqual(points(readRef('kicad_twoblob_300dpi.ps')));
+  });
+});

@@ -18,6 +18,7 @@
 
 import { traceBitmap, Bitmap, Pt, DEFAULT_TRACE_PARAMS, type Path } from './potrace.js';
 import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
 
@@ -286,25 +287,58 @@ function fmt(v: number): string {
   return s;
 }
 
-type XForm = (p: Pt) => { x: number; y: number };
+/**
+ * Internal units per millimetre for each target (`include/base_units.h:70-72`).
+ * The exported geometry is quantised to these, not to millimetres: whichever
+ * editor opens the file would snap it to them on load anyway.
+ */
+const IU_PER_MM: Record<Exclude<OutputFormat, 'postscript'>, number> = {
+  symbol: 1e4, // SCH_IU_PER_MM, 100 nm
+  footprint: 1e6, // PCB_IU_PER_MM, 1 nm
+  drawingsheet: 1e3, // PL_IU_PER_MM, 1 micron
+};
 
-function makeXForm(fmtId: OutputFormat, w: number, h: number, dpiX: number, dpiY: number): XForm {
-  const cx = w / 2;
-  const cy = h / 2;
-  const sx = 25.4 / dpiX;
-  const sy = 25.4 / dpiY;
-  switch (fmtId) {
-    case 'symbol':
-      // Schematic libraries are Y-up: negate Y so the image reads upright.
-      return (p) => ({ x: (p.x - cx) * sx, y: -(p.y - cy) * sy });
-    case 'footprint':
-    case 'drawingsheet':
-      return (p) => ({ x: (p.x - cx) * sx, y: (p.y - cy) * sy });
-    case 'postscript':
-      // PostScript is Y-up from the origin; flip within the page height. KiCad
-      // works in integer units at scale 1.0, so coordinates are whole pixels.
-      return (p) => ({ x: Math.trunc(p.x), y: h - Math.trunc(p.y) });
-  }
+/**
+ * The pixel → file-coordinate transform, in KiCad's two steps.
+ *
+ * `createOutputData` appends **integer internal units**,
+ * `polyset_areas.Append( int( pt.x * m_ScaleX ), int( pt.y * m_ScaleY ) )`
+ * (`bitmap2component.cpp:442-443`), where `int(…)` truncates toward zero; the
+ * millimetre number in the file is only produced at print time, as
+ * `( currpoint − offset ) / IU_PER_MM` (`:309-311`, `:331-333`, `:358-360`),
+ * with `offset = KiROUND( pixels / 2 · scale )` (`:274-275`).
+ *
+ * Computing the millimetres directly in floating point gives a different file:
+ * the truncation is toward zero, so it is asymmetric about the centre. KiCad's
+ * own output for a 40×20 bitmap at 300 DPI has the centre row at `-0.001`, not
+ * at `0`, and the two edges at `+0.423` and `-0.424`.
+ */
+interface XForm {
+  /** pixel → integer internal units. */
+  toIU: (p: Pt) => Pt;
+  offsetX: number;
+  offsetY: number;
+  iuPerMM: number;
+}
+
+function makeXForm(
+  fmtId: Exclude<OutputFormat, 'postscript'>,
+  w: number,
+  h: number,
+  dpiX: number,
+  dpiY: number,
+): XForm {
+  const iuPerMM = IU_PER_MM[fmtId];
+  const sx = (iuPerMM * 25.4) / dpiX;
+  // Y is bottom-to-top for symbols in libraries, so m_ScaleY is negated there
+  // (ConvertBitmap:132-133) — including inside the offset and the truncation.
+  const sy = fmtId === 'symbol' ? -(iuPerMM * 25.4) / dpiY : (iuPerMM * 25.4) / dpiY;
+  return {
+    toIU: (p) => new Pt(Math.trunc(p.x * sx), Math.trunc(p.y * sy)),
+    offsetX: KiROUND((w / 2) * sx),
+    offsetY: KiROUND((h / 2) * sy),
+    iuPerMM,
+  };
 }
 
 // ----- output writers ---------------------------------------------------------
@@ -325,16 +359,17 @@ function uuid(): string {
  * output but not for `fp_poly` ("No need to close polygon").
  */
 function ringXY(region: Region, xf: XForm, indent: string, close = false): string {
-  const ring = fractureWithHoles(region.outer, region.holes);
+  // Quantise before bridging, as KiCad does: SHAPE_POLY_SET holds integer IU,
+  // and Simplify/BooleanSubtract/Fracture all run on those integers.
+  const ring = fractureWithHoles(
+    region.outer.map(xf.toIU),
+    region.holes.map((hole) => hole.map(xf.toIU)),
+  );
+  const xy = (p: Pt): string =>
+    `${indent}(xy ${fmt((p.x - xf.offsetX) / xf.iuPerMM)} ${fmt((p.y - xf.offsetY) / xf.iuPerMM)})\n`;
   let out = '';
-  for (const p of ring) {
-    const q = xf(p);
-    out += `${indent}(xy ${fmt(q.x)} ${fmt(q.y)})\n`;
-  }
-  if (close && ring.length > 0) {
-    const q = xf(ring[0]!);
-    out += `${indent}(xy ${fmt(q.x)} ${fmt(q.y)})\n`;
-  }
+  for (const p of ring) out += xy(p);
+  if (close && ring.length > 0) out += xy(ring[0]!);
   return out;
 }
 
@@ -442,7 +477,13 @@ function writeDrawingSheet(regions: Region[], o: ConvertOptions, w: number, h: n
 }
 
 function writePostScript(regions: Region[], o: ConvertOptions, w: number, h: number): string {
-  const xf = makeXForm('postscript', w, h, o.dpiX, o.dpiY);
+  // POSTSCRIPT_FMT keeps m_ScaleX = m_ScaleY = 1.0 (ConvertBitmap:124-127), so
+  // the internal units are whole pixels; there is no offsetX, and offsetY is
+  // `(int)( m_PixmapHeight * m_ScaleY )`, the page height (outputOnePolygon:282).
+  const xf = (p: Pt): { x: number; y: number } => ({
+    x: Math.trunc(p.x),
+    y: h - Math.trunc(p.y),
+  });
   let s = '';
   s += `%!PS-Adobe-3.0 EPSF-3.0\n`;
   s += `%%BoundingBox: 0 0 ${w} ${h}\n`;
