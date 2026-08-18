@@ -14,6 +14,7 @@ import {
   GENERATOR_VERSION,
 } from '@ziroeda/common/src/generator.js';
 import { describe, it, expect } from 'vitest';
+import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/src/reporter.js';
 import { parse } from '@ziroeda/sexpr';
 import { readFootprintFile } from '@ziroeda/pcbnew';
 import { readSymbolLib } from '@ziroeda/eeschema';
@@ -23,6 +24,7 @@ import {
   grayToMono,
   imageToGray,
   traceRegions,
+  NO_OUTLINE_ERROR,
   OUTLINE_LAYERS,
 } from '@ziroeda/designer/src/editors/image/bitmap2component.js';
 import { readFileSync } from 'node:fs';
@@ -420,18 +422,40 @@ describe('threshold & negative', () => {
     expect(grayToMono(opaque, 128, false).data[0]).toBe(1);
   });
 
-  it('a blank bitmap yields an empty but valid footprint', () => {
+  it('a blank bitmap reports "no outline created" and still writes the file', () => {
+    // createOutputData reports at RPT_SEVERITY_ERROR when potrace found no
+    // paths (bitmap2component.cpp:402-406) and ExportToBuffer then shows it in
+    // a wxMessageBox captioned "Errors". This test used to assert our silence.
+    //
+    // The file is still written: bitmap2component 10.0.5, driven on a 10x10
+    // all-white PNG, wrote a 500-byte .kicad_mod holding the header, the two
+    // fp_texts and the closing paren, and no fp_poly — qa/data/bitmap2component
+    // /kicad_blank10_300dpi.kicad_mod is that file.
     const bm = new Bitmap(10, 10);
-    const { text } = convert(bm, {
-      format: 'footprint',
-      layer: 'F.SilkS',
-      dpiX: 300,
-      dpiY: 300,
-      name: NAME,
-    });
+    const reporter = new Reporter();
+    const { text } = convert(
+      bm,
+      { format: 'footprint', layer: 'F.SilkS', dpiX: 300, dpiY: 300, name: NAME },
+      reporter,
+    );
+    expect(reporter.hasMessage()).toBe(true);
+    expect(reporter.lines.map((l) => l.message)).toEqual([NO_OUTLINE_ERROR]);
+    expect(reporter.count(RPT_SEVERITY_ERROR)).toBe(1);
+    expect(NO_OUTLINE_ERROR).toBe('No shape in black and white image to convert: no outline created.');
+
     const fp = readFootprintFile(parse(text));
     expect(fp).not.toBeNull();
     expect(fp!.shapes.filter((s) => s.kind === 'poly')).toHaveLength(0);
+  });
+
+  it('reports nothing when the image does have a shape', () => {
+    const reporter = new Reporter();
+    convert(
+      filledRect(24, 24, 6, 6, 18, 18),
+      { format: 'footprint', layer: 'F.SilkS', dpiX: 300, dpiY: 300, name: NAME },
+      reporter,
+    );
+    expect(reporter.hasMessage()).toBe(false);
   });
 });
 

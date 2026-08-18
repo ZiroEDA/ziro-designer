@@ -19,6 +19,7 @@
 import { traceBitmap, Bitmap, Pt, DEFAULT_TRACE_PARAMS, type Path } from './potrace.js';
 import { fractureWithHoles, signedArea, pointInPolygon } from './geometry.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/src/reporter.js';
 
 const SEXPR_SYMBOL_LIB_FILE_VERSION = 20241209;
 const SEXPR_FOOTPRINT_FILE_VERSION = 20241229;
@@ -225,7 +226,10 @@ export interface Region {
  * `SHAPE_POLY_SET` boolean does.
  */
 export function traceRegions(bm: Bitmap): Region[] {
-  const paths = traceBitmap(bm, DEFAULT_TRACE_PARAMS);
+  return regionsFromPaths(traceBitmap(bm, DEFAULT_TRACE_PARAMS));
+}
+
+function regionsFromPaths(paths: Path[]): Region[] {
   const polys: Poly[] = [];
   for (const p of paths) {
     const pts = tessellatePath(p);
@@ -467,9 +471,29 @@ export interface ConvertResult {
   mime: string;
 }
 
-/** Convert a thresholded bitmap into the chosen output format's file text. */
-export function convert(bm: Bitmap, o: ConvertOptions): ConvertResult {
-  const regions = traceRegions(bm);
+/**
+ * The one message `BITMAPCONV_INFO::createOutputData` reports
+ * (`bitmap2component.cpp:402-406`), which `ExportToBuffer` then puts up in a
+ * `wxMessageBox( …, _( "Errors" ) )` (`bitmap2cmp_panel.cpp:562-563`).
+ */
+export const NO_OUTLINE_ERROR =
+  'No shape in black and white image to convert: no outline created.';
+
+/**
+ * Convert a thresholded bitmap into the chosen output format's file text.
+ *
+ * The reporter is `BITMAPCONV_INFO`'s: an all-background image traces to no
+ * paths at all, and KiCad reports that at RPT_SEVERITY_ERROR. It still writes
+ * the file — verified against bitmap2component 10.0.5, which emits the header
+ * and closing paren with no fp_poly in them — so the caller is told, and the
+ * empty-but-valid artwork is emitted, not one or the other.
+ */
+export function convert(bm: Bitmap, o: ConvertOptions, reporter?: Reporter): ConvertResult {
+  const paths = traceBitmap(bm, DEFAULT_TRACE_PARAMS);
+
+  if (paths.length === 0) reporter?.report(NO_OUTLINE_ERROR, RPT_SEVERITY_ERROR);
+
+  const regions = regionsFromPaths(paths);
   const w = bm.w;
   const h = bm.h;
   const stem = o.fileStem ?? o.name;

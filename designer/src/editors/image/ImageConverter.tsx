@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
+import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { imageMeta } from './imageMeta.js';
 import {
   loadBitmap2CmpSettings,
@@ -331,29 +332,44 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   const buildOutput = useCallback(
     (paste = false) => {
       if (!loaded || !mono) return null;
+      // ExportToBuffer's WX_STRING_REPORTER: whatever the conversion reports
+      // is shown afterwards in a message box captioned "Errors".
+      const reporter = new Reporter();
       // KiCad names the emitted symbol/footprint "LOGO" (BITMAPCONV_INFO's
       // m_CmpName is fixed); only the download file takes the image's name.
-      return convert(mono, {
-        format,
-        layer: OUTLINE_LAYERS[layerIdx]!.id,
-        // ExportToBuffer passes GetOutputDPI() straight through; it can no
-        // longer be zero, so there is no "sensible default" substitution here.
-        dpiX,
-        dpiY,
-        name: 'LOGO',
-        fileStem: loaded.name || 'LOGO',
-        paste,
-      });
+      const out = convert(
+        mono,
+        {
+          format,
+          layer: OUTLINE_LAYERS[layerIdx]!.id,
+          // ExportToBuffer passes GetOutputDPI() straight through; it can no
+          // longer be zero, so there is no "sensible default" substitution here.
+          dpiX,
+          dpiY,
+          name: 'LOGO',
+          fileStem: loaded.name || 'LOGO',
+          paste,
+        },
+        reporter,
+      );
+      return { out, reporter };
     },
     [loaded, mono, format, layerIdx, dpiX, dpiY],
   );
 
+  /** ExportToBuffer's tail: `if( reporter.HasMessage() ) wxMessageBox( …, "Errors" )`. */
+  const showReport = (reporter: Reporter): void => {
+    if (reporter.hasMessage()) window.alert(reporter.lines.map((l) => l.message).join('\n'));
+  };
+
   const exportToFile = (): void => {
-    const out = buildOutput();
-    if (!out) {
+    const built = buildOutput();
+    if (!built) {
       setStatus('Load a source image before exporting.');
       return;
     }
+    const { out, reporter } = built;
+    showReport(reporter);
     const url = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
     const a = document.createElement('a');
     a.href = url;
@@ -366,11 +382,13 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   const exportToClipboard = async (): Promise<void> => {
     // OnExportToClipboard: a symbol copies as SYMBOL_PASTE_FMT, the bare
     // symbol fragment, ready to paste into an open schematic.
-    const out = buildOutput(format === 'symbol');
-    if (!out) {
+    const built = buildOutput(format === 'symbol');
+    if (!built) {
       setStatus('Load a source image before exporting.');
       return;
     }
+    const { out, reporter } = built;
+    showReport(reporter);
     try {
       await navigator.clipboard.writeText(out.text);
       setStatus('Copied output to the clipboard.');
