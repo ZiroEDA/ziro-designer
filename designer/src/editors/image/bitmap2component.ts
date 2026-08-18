@@ -104,13 +104,20 @@ export function imageToGray(data: Uint8ClampedArray, w: number, h: number): Gray
  * `BITMAP2CMP_PANEL::binarize` exactly: with `negative` the greyscale is
  * negated first (`negateGreyscaleImage`), then a pixel is foreground when it is
  * darker than the threshold *and* opaque enough (`alpha > 0.7 · threshold`).
+ *
+ * Both thresholds are **whole grey levels**: `binarize` holds them in
+ * `unsigned char` (`bitmap2cmp_panel.cpp:405-406`), so the slider's
+ * `value / max · 255` truncates — the default 50 gives 127, not 127.5, and the
+ * alpha cut 0.7 · 127 = 88, not 89.25. A pixel sitting exactly on a truncated
+ * boundary classifies the other way, which is a visible edge pixel.
  */
 export function grayToMono(img: GrayImage, threshold: number, negative: boolean): Bitmap {
-  const alphaThresh = 0.7 * threshold;
+  const th = Math.trunc(threshold);
+  const alphaThresh = Math.trunc(0.7 * th);
   const bm = new Bitmap(img.w, img.h);
   for (let i = 0; i < img.w * img.h; i++) {
     const pixel = negative ? 255 - img.gray[i]! : img.gray[i]!;
-    bm.data[i] = pixel < threshold && img.alpha[i]! > alphaThresh ? 1 : 0;
+    bm.data[i] = pixel < th && img.alpha[i]! > alphaThresh ? 1 : 0;
   }
   return bm;
 }

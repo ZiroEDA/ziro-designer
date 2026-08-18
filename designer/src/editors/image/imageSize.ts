@@ -15,6 +15,8 @@
  *  - convertOutputSize ↔ SetUnit (preserve the physical size across a unit swap)
  */
 
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+
 export type SizeUnit = 'mm' | 'inch' | 'dpi';
 
 /** The unit dropdown, in KiCad's order (mm, Inch, DPI); index 0 is the default. */
@@ -32,11 +34,40 @@ export function initialOutputSize(pixels: number, dpi: number, unit: SizeUnit): 
   return d; // 'dpi': the output size *is* the DPI
 }
 
-/** The effective DPI this axis exports at (KiCad's GetOutputDPI). */
+/**
+ * The effective DPI this axis exports at, `IMAGE_SIZE::GetOutputDPI`
+ * (`bitmap2cmp_frame.cpp:73-90`).
+ *
+ * The result is an **int**: C++ assigns the division to `int outputDPI`, which
+ * truncates toward zero, so 200 px at 21 mm is 241 DPI and not 241.9 — a scale
+ * the exported geometry then carries (`bitmap2component.cpp:132-141`). The
+ * final `std::max( 1, outputDPI )` is not cosmetic either: a zero or negative
+ * size divides by zero, whose double→int conversion lands out of range, and
+ * KiCad then exports at 1 DPI rather than at any "sensible" default.
+ */
 export function outputDpi(size: number, pixels: number, unit: SizeUnit): number {
-  if (unit === 'mm') return size > 0 ? pixels / (size / 25.4) : 0;
-  if (unit === 'inch') return size > 0 ? pixels / size : 0;
-  return Math.round(size);
+  let dpi: number;
+  if (unit === 'dpi') dpi = KiROUND(size);
+  else dpi = Math.trunc(pixels / (unit === 'mm' ? size / 25.4 : size));
+  // ±Infinity / NaN stand in for C++'s out-of-range double→int conversion; the
+  // std::max( 1, … ) clamp below is what the user actually sees either way.
+  if (!Number.isFinite(dpi)) dpi = 1;
+  return Math.max(1, dpi);
+}
+
+/**
+ * Parse an Output Size field, `wxString::ToDouble` (`bitmap2cmp_panel.cpp:315`,
+ * `:344`): `strtod` over the *whole* string, so trailing junk or an empty field
+ * is a failure, not a zero. KiCad acts only when the parse succeeds and
+ * otherwise keeps the previous `m_outputSize`, which is why clearing the field
+ * must not retarget the export. `null` is that failure.
+ */
+export function parseOutputSize(text: string): number | null {
+  // strtod skips leading whitespace but stops at trailing whitespace, and
+  // wxString::ToDouble requires the end pointer to reach the end of the string.
+  if (!/^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(text)) return null;
+  const v = Number(text);
+  return Number.isFinite(v) ? v : null;
 }
 
 /** Re-express an output size in a different unit, keeping the physical size fixed. */
@@ -63,6 +94,6 @@ export function convertOutputSize(
  */
 export function formatOutputSize(size: number, unit: SizeUnit): string {
   if (!Number.isFinite(size)) size = 0;
-  if (unit === 'dpi') return String(Math.round(size));
+  if (unit === 'dpi') return String(KiROUND(size));
   return unit === 'mm' ? size.toFixed(1) : size.toFixed(2);
 }

@@ -149,7 +149,8 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   }, [cfg, loaded, convertedName, unit, threshold, negative, format, layerIdx]);
 
   // The 1-bit bitmap shared by the Black & White preview and every export.
-  // KiCad binarizes at threshold/max of the greyscale (0..255).
+  // BITMAP2CMP_PANEL::binarize takes the slider as a fraction of its maximum
+  // (`value / max`) and turns it into a whole grey level itself.
   const mono = useMemo(
     () => (loaded ? grayToMono(loaded.gray, (threshold / 100) * 255, negative) : null),
     [loaded, threshold, negative],
@@ -305,8 +306,10 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
       return convert(mono, {
         format,
         layer: OUTLINE_LAYERS[layerIdx]!.id,
-        dpiX: dpiX > 0 ? dpiX : DEFAULT_DPI,
-        dpiY: dpiY > 0 ? dpiY : DEFAULT_DPI,
+        // ExportToBuffer passes GetOutputDPI() straight through; it can no
+        // longer be zero, so there is no "sensible default" substitution here.
+        dpiX,
+        dpiY,
         name: 'LOGO',
         fileStem: loaded.name || 'LOGO',
         paste,

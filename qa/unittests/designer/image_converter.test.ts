@@ -30,6 +30,7 @@ import {
   formatOutputSize,
   initialOutputSize,
   outputDpi,
+  parseOutputSize,
 } from '@ziroeda/designer/src/editors/image/imageSize.js';
 
 /** A bitmap with a filled rectangle [x0,x1) × [y0,y1). */
@@ -100,7 +101,38 @@ describe('output size (KiCad IMAGE_SIZE)', () => {
   });
 
   it('doubling the physical size halves the export DPI (bigger artwork)', () => {
-    expect(outputDpi(50.8, 300, 'mm')).toBeCloseTo(150, 6);
+    expect(outputDpi(50.8, 300, 'mm')).toBe(150);
+  });
+
+  it('truncates the output DPI to an int, as GetOutputDPI does', () => {
+    // int outputDPI = GetOriginalSizePixels() / ( m_outputSize / 25.4 ):
+    // 200 px over 21 mm is 241.9 DPI, and KiCad exports at 241.
+    expect(outputDpi(21, 200, 'mm')).toBe(241);
+    // The same in inches, and in DPI (KiROUND, halves away from zero).
+    expect(outputDpi(0.827, 200, 'inch')).toBe(241);
+    expect(outputDpi(241.5, 200, 'dpi')).toBe(242);
+  });
+
+  it('never returns a DPI below 1 (std::max( 1, outputDPI ))', () => {
+    // A zero or negative size divides by zero; KiCad clamps to 1 DPI rather
+    // than falling back to any default, so the export is tiny, not resized.
+    expect(outputDpi(0, 200, 'mm')).toBe(1);
+    expect(outputDpi(-5, 200, 'mm')).toBe(1);
+    expect(outputDpi(0, 200, 'inch')).toBe(1);
+    expect(outputDpi(0, 0, 'mm')).toBe(1);
+    expect(outputDpi(0, 200, 'dpi')).toBe(1);
+  });
+
+  it('parses a size field like wxString::ToDouble (whole string or nothing)', () => {
+    expect(parseOutputSize('25.4')).toBe(25.4);
+    expect(parseOutputSize('.5')).toBe(0.5);
+    expect(parseOutputSize('-3')).toBe(-3);
+    // A field the user has cleared, or typed junk into, is not a zero.
+    expect(parseOutputSize('')).toBeNull();
+    expect(parseOutputSize('  ')).toBeNull();
+    expect(parseOutputSize('abc')).toBeNull();
+    expect(parseOutputSize('12abc')).toBeNull();
+    expect(parseOutputSize('12 ')).toBeNull();
   });
 
   it('converts between units keeping the physical size', () => {
@@ -117,6 +149,10 @@ describe('output size (KiCad IMAGE_SIZE)', () => {
     expect(formatOutputSize(0, 'mm')).toBe('0.0');
     expect(formatOutputSize(1, 'inch')).toBe('1.00');
     expect(formatOutputSize(299.6, 'dpi')).toBe('300');
+    // %d of KiROUND, which rounds halves away from zero — Math.round would
+    // print -241 here and disagree with wxWidgets on every negative half.
+    expect(formatOutputSize(241.5, 'dpi')).toBe('242');
+    expect(formatOutputSize(-241.5, 'dpi')).toBe('-242');
   });
 });
 
@@ -357,6 +393,21 @@ describe('threshold & negative', () => {
     const gray = imageToGray(rgba, 1, 1);
     expect(grayToMono(gray, 50, false).data[0]).toBe(0);
     expect(grayToMono(gray, 50, true).data[0]).toBe(1);
+  });
+
+  it('truncates the threshold to a whole grey level (unsigned char)', () => {
+    // The default slider position, 50 of 100, is 0.5 · 255 = 127.5 in doubles;
+    // binarize holds it in an unsigned char, so the comparison is against 127.
+    const grey = (v: number) => imageToGray(new Uint8ClampedArray([v, v, v, 255]), 1, 1);
+    expect(grayToMono(grey(127), 127.5, false).data[0]).toBe(0); // 127 < 127 is false
+    expect(grayToMono(grey(126), 127.5, false).data[0]).toBe(1);
+  });
+
+  it('truncates the alpha cut too (alpha_thresh = 0.7 · truncated threshold)', () => {
+    // 0.7 · 127 = 88.9 → 88, not 0.7 · 127.5 = 89.25: alpha 89 is opaque enough.
+    const black = (a: number) => imageToGray(new Uint8ClampedArray([0, 0, 0, a]), 1, 1);
+    expect(grayToMono(black(89), 127.5, false).data[0]).toBe(1);
+    expect(grayToMono(black(88), 127.5, false).data[0]).toBe(0);
   });
 
   it('drops pixels that are too transparent (alpha ≤ 0.7·threshold)', () => {
