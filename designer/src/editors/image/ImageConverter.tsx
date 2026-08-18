@@ -10,11 +10,19 @@
  * footprint Layer choice), then Export to File / Export to Clipboard.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type JSX,
+} from 'react';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
-import { imageMeta } from './imageMeta.js';
+import { bitmapDepth, imageMeta } from './imageMeta.js';
 import {
   loadBitmap2CmpSettings,
   loadRecentImages,
@@ -55,6 +63,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'greyscale', label: 'Greyscale Picture' },
   { id: 'bw', label: 'Black & White Picture' },
 ];
+
+// A page's wxEVT_PAINT handler: PrepareDC then DrawBitmap( bmp, 0, 0 ). The
+// canvas is sized to the bitmap itself, never to the pane, so the preview is
+// 1:1 and the pane scrolls (bitmap2cmp_panel.cpp:120-171, :231-233).
+const paintPage = (cv: HTMLCanvasElement | null, data: ImageData | null): void => {
+  if (!cv || !data) return;
+  cv.width = data.width;
+  cv.height = data.height;
+  cv.getContext('2d')?.putImageData(data, 0, 0);
+};
 
 // KiCad's Output Format radio group (bitmap2cmp_panel_base), with the file
 // extensions it shows and the engine format id each maps to.
@@ -106,7 +124,12 @@ interface Loaded {
 
 export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // One canvas per notebook page, mirroring the three wxScrolledWindows and the
+  // three bitmaps (m_Pict_Bitmap / m_Greyscale_Bitmap / m_BN_Bitmap) that
+  // BITMAP2CMP_PANEL keeps alive at once. Each page then scrolls on its own.
+  const originalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const greyscaleCanvasRef = useRef<HTMLCanvasElement>(null);
+  const bwCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // BITMAP2CMP_SETTINGS: units, threshold, negative, format and layer survive
   // restarts (LoadSettings); the aspect-ratio lock always starts locked.
@@ -165,19 +188,20 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     [loaded, threshold, negative],
   );
 
-  // Paint the active preview tab. The Greyscale tab shows the negated image when
-  // Negative is on, exactly as KiCad negates the greyscale before binarizing.
+  // OnPaintInit / OnPaintGreyscale / OnPaintBW each draw their own bitmap at
+  // (0, 0) into their own page; none of them depends on which page is showing,
+  // and a threshold change rebuilds only the black & white one. The Greyscale
+  // page shows the negated image when Negative is on, exactly as KiCad negates
+  // the greyscale before binarizing.
   useEffect(() => {
-    const cv = canvasRef.current;
-    if (!cv || !loaded) return;
-    cv.width = loaded.w;
-    cv.height = loaded.h;
-    const cx = cv.getContext('2d');
-    if (!cx) return;
-    if (tab === 'original') cx.putImageData(loaded.original, 0, 0);
-    else if (tab === 'greyscale') cx.putImageData(grayToRGBA(loaded.gray, negative), 0, 0);
-    else if (mono) cx.putImageData(monoToRGBA(mono), 0, 0);
-  }, [tab, loaded, mono, negative]);
+    paintPage(originalCanvasRef.current, loaded?.original ?? null);
+  }, [loaded]);
+  useEffect(() => {
+    paintPage(greyscaleCanvasRef.current, loaded ? grayToRGBA(loaded.gray, negative) : null);
+  }, [loaded, negative]);
+  useEffect(() => {
+    paintPage(bwCanvasRef.current, mono ? monoToRGBA(mono) : null);
+  }, [mono]);
 
   const loadFile = useCallback(
     async (file: File) => {
@@ -202,7 +226,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
           fullName: file.name,
           w,
           h,
-          bpp: meta.bpp,
+          bpp: bitmapDepth(original.data),
           originalDPIX: meta.dpiX,
           originalDPIY: meta.dpiY,
           original,
@@ -446,7 +470,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             ⌂ ZiroEDA
           </div>
         }
-        title={loaded ? `${loaded.fullName}, Image Converter` : 'Image Converter'}
+        title={loaded ? `${loaded.fullName} \u2014 Image Converter` : 'Image Converter'}
       />
       <input
         ref={fileInputRef}
@@ -474,10 +498,20 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
               </button>
             ))}
           </div>
-          <div className="imgc-view" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-            {loaded ? (
-              <canvas ref={canvasRef} className="imgc-canvas" />
-            ) : (
+          <div className="imgc-pages" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+            {/* All three pages stay mounted, as AddPage() keeps all three
+                wxScrolledWindows alive; only the selected one is visible, and
+                each holds its own scroll offset across a tab switch. */}
+            <div className={`imgc-view${tab === 'original' ? ' active' : ''}`}>
+              {loaded && <canvas ref={originalCanvasRef} className="imgc-canvas" />}
+            </div>
+            <div className={`imgc-view${tab === 'greyscale' ? ' active' : ''}`}>
+              {loaded && <canvas ref={greyscaleCanvasRef} className="imgc-canvas" />}
+            </div>
+            <div className={`imgc-view${tab === 'bw' ? ' active' : ''}`}>
+              {loaded && <canvas ref={bwCanvasRef} className="imgc-canvas" />}
+            </div>
+            {!loaded && (
               <div className="imgc-drop">
                 <div className="imgc-drop-title">No image loaded</div>
                 <div>Click “Load Source Image”, or drop a bitmap here.</div>
@@ -502,10 +536,13 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
               <span className="v">{loaded ? loaded.originalDPIY : '0000'}</span>
               <span className="u">PPI</span>
 
+              {/* Three cells then fgSizerInfo->Add( 0, 0, ... ), so "bits" is
+                  in column 3 and the empty cell trails it
+                  (bitmap2cmp_panel_base.cpp:76-92). */}
               <span className="k">BPP:</span>
               <span className="v">{loaded ? loaded.bpp : '0000'}</span>
-              <span className="v" />
               <span className="u">bits</span>
+              <span />
             </div>
           </fieldset>
 
@@ -516,6 +553,9 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
           >
             Load Source Image
           </button>
+
+          {/* brightSizer->Add( 0, 0, 1, wxEXPAND ) */}
+          <div className="imgc-spacer" />
 
           <fieldset className="imgc-group">
             <legend>Output Size</legend>
@@ -561,7 +601,18 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
           <fieldset className="imgc-group">
             <legend>Options</legend>
             <span className="imgc-thresh-label">Black / white threshold:</span>
-            <div className="imgc-slider">
+            {/* wxSL_LABELS: the value rides above the thumb and the two range
+                ends sit under the ends of the track. */}
+            <div
+              className="imgc-slider"
+              style={
+                {
+                  '--imgc-thumb-pos': `${threshold}%`,
+                  '--imgc-thumb-frac': threshold / 100,
+                } as CSSProperties
+              }
+            >
+              <span className="imgc-slider-val">{threshold}</span>
               <input
                 type="range"
                 min={0}
@@ -571,7 +622,10 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 title="Adjust the level to convert the greyscale picture to a black and white picture."
                 onChange={(e) => setThreshold(Number(e.target.value))}
               />
-              <span className="imgc-slider-val">{threshold}</span>
+              <span className="imgc-slider-ends">
+                <span>0</span>
+                <span>100</span>
+              </span>
             </div>
             <label className="imgc-check">
               <input
@@ -583,7 +637,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             </label>
           </fieldset>
 
-          <fieldset className="imgc-group">
+          <fieldset className="imgc-group imgc-format">
             <legend>Output Format</legend>
             {FORMATS.map((f) => (
               <div key={f.id}>
@@ -619,7 +673,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
           <button
             type="button"
-            className="imgc-btn block primary"
+            className="imgc-btn block"
             onClick={exportToFile}
             disabled={!loaded}
           >
