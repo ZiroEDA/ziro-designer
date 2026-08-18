@@ -38,7 +38,6 @@ import { fieldId, refId, sheetPinId } from './hittest.js';
 import { alignBoxes, type ItemBox } from './sch_align_tool.js';
 import { normalizeTable } from './table_layout.js';
 import { angleOfSide, constrainOnEdge, sideOfAngle, type SheetEdge } from './sch_sheet_pin_tool.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import type { EditCommand } from './command.js';
 
@@ -494,7 +493,12 @@ function transformCenter(
  * against the rectangle, and upstream updates `m_pos`/`m_size` before the pin
  * loop for exactly that reason.
  */
-function transformSheetPin(pin: SheetPin, sheet: SchSheet, op: TransformOp, center: Vec2): SheetPin {
+function transformSheetPin(
+  pin: SheetPin,
+  sheet: SchSheet,
+  op: TransformOp,
+  center: Vec2,
+): SheetPin {
   const OPPOSITE: Record<SheetEdge, SheetEdge> = {
     top: 'bottom',
     bottom: 'top',
@@ -930,7 +934,12 @@ export function transformItems(
       const libById = new Map<string, LibSymbol>(before.libSymbols.map((l) => [l.libId, l]));
       const boxes = alignBoxes(before, ids, libById);
       const single = ids.size === 1 ? [...ids][0] : undefined;
-      return transformItems(ids, INVERSE[op], transformCenter(before, op, boxes, single, grid), grid);
+      return transformItems(
+        ids,
+        INVERSE[op],
+        transformCenter(before, op, boxes, single, grid),
+        grid,
+      );
     },
   };
 }

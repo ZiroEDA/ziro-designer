@@ -42,27 +42,27 @@ describe('a symbol field on its own', () => {
         (effects (font (size 1.27 1.27)) (justify left)))
       (property "Value" "10k" (at 53 52 0) (effects (font (size 1.27 1.27)))))`;
   const d = () => doc(SYM);
-  const ref = (s: Schematic) => new Set([fieldId(refId('symbol', 'r-1', 0), 0)]);
+  const ref = (): Set<string> => new Set([fieldId(refId('symbol', 'r-1', 0), 0)]);
 
   it('toggles its text angle and does not move', () => {
     // "if( field->GetTextAngle().IsHorizontal() ) SetTextAngle( ANGLE_VERTICAL )"
     // — and nothing else. The field stays exactly where the user put it.
     const before = d();
-    const after = run(before, ref(before), 'rotateCW').symbols[0]!.fields[0]!;
+    const after = run(before, ref(), 'rotateCW').symbols[0]!.fields[0]!;
     expect(after.angle).toBe(90);
     expect(after.at).toEqual(before.symbols[0]!.fields[0]!.at);
   });
 
   it('toggles back on the second turn', () => {
     let s = d();
-    s = run(s, ref(s), 'rotateCW');
-    s = run(s, ref(s), 'rotateCW');
+    s = run(s, ref(), 'rotateCW');
+    s = run(s, ref(), 'rotateCW');
     expect(s.symbols[0]!.fields[0]!.angle).toBe(0);
   });
 
   it('leaves the symbol and its other fields alone', () => {
     const before = d();
-    const after = run(before, ref(before), 'rotateCW').symbols[0]!;
+    const after = run(before, ref(), 'rotateCW').symbols[0]!;
     expect(after.at).toEqual(before.symbols[0]!.at);
     expect(after.angle).toBe(before.symbols[0]!.angle);
     expect(after.fields[1]).toEqual(before.symbols[0]!.fields[1]);
@@ -71,7 +71,7 @@ describe('a symbol field on its own', () => {
   it('flips horizontal justify on the left-right mirror, and does not move', () => {
     // `field->SetHorizJustify( GetFlippedAlignment( GetHorizJustify() ) )`.
     const before = d();
-    const after = run(before, ref(before), 'mirrorY').symbols[0]!.fields[0]!;
+    const after = run(before, ref(), 'mirrorY').symbols[0]!.fields[0]!;
     expect(after.effects?.justify).toEqual(['right']);
     expect(after.at).toEqual(before.symbols[0]!.fields[0]!.at);
   });
@@ -83,13 +83,13 @@ describe('a symbol field on its own', () => {
         '(property "Reference" "R1" (at 53 50 0)',
       ),
     );
-    const after = run(before, ref(before), 'mirrorX').symbols[0]!.fields[0]!;
+    const after = run(before, ref(), 'mirrorX').symbols[0]!.fields[0]!;
     expect(after.effects?.justify).toEqual(['left', 'bottom']);
   });
 
   it('did nothing at all before: R now changes it', () => {
     const before = d();
-    expect(run(before, ref(before), 'rotateCW').symbols[0]!.fields[0]).not.toEqual(
+    expect(run(before, ref(), 'rotateCW').symbols[0]!.fields[0]).not.toEqual(
       before.symbols[0]!.fields[0],
     );
   });
@@ -174,9 +174,7 @@ describe('a sheet pin on its own', () => {
   it('did nothing at all before: every op now changes it', () => {
     const before = doc(SHEET);
     for (const op of ['rotateCW', 'rotateCCW', 'mirrorX', 'mirrorY'] as const) {
-      expect(run(before, pinIds, op).sheets[0]!.pins[0], op).not.toEqual(
-        before.sheets[0]!.pins[0],
-      );
+      expect(run(before, pinIds, op).sheets[0]!.pins[0], op).not.toEqual(before.sheets[0]!.pins[0]);
     }
   });
 

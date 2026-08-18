@@ -210,7 +210,8 @@ describe('a table', () => {
     // transform.ts already promoted a cell selection to its table id, into a
     // branch that ignored tables.
     const d = doc(TABLE);
-    const after = run(d, new Set([tableCellId(refId('table', 't-1', 0), 0)]), 'rotateCW').tables[0]!;
+    const after = run(d, new Set([tableCellId(refId('table', 't-1', 0), 0)]), 'rotateCW')
+      .tables[0]!;
     expect(after.cells[0]!.angle).toBe(90);
   });
 
@@ -229,6 +230,8 @@ describe('a table', () => {
 
   it('an unrotated table is still byte-stable through the writer', () => {
     const d = doc(TABLE);
-    expect(serializeSchematic(d)).toBe(serializeSchematic(readSchematic(parse(serializeSchematic(d)))));
+    expect(serializeSchematic(d)).toBe(
+      serializeSchematic(readSchematic(parse(serializeSchematic(d)))),
+    );
   });
 });

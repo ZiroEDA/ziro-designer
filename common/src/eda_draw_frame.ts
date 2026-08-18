@@ -28,7 +28,11 @@ const snapAxis = (v: number, size: number, origin: number): number => {
 };
 
 /** `EDA_DRAW_FRAME::GetNearestGridPosition`: the nearest point on the grid. */
-export function nearestGridPosition(p: Vec2, grid: number, gridOrigin: Vec2 = { x: 0, y: 0 }): Vec2 {
+export function nearestGridPosition(
+  p: Vec2,
+  grid: number,
+  gridOrigin: Vec2 = { x: 0, y: 0 },
+): Vec2 {
   return {
     x: snapAxis(p.x, grid, gridOrigin.x),
     y: snapAxis(p.y, grid, gridOrigin.y),
