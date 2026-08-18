@@ -33,6 +33,7 @@ import { settings } from '../../../prefs/settings.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { MsgPanel } from '../../../ui/MsgPanel.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;
@@ -648,33 +649,20 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
         </div>
 
         {/* EDA_MSG_PANEL: updatePreviewSymbol's Name / Parent / Description / Keywords. */}
-        <div className="ze-msgpanel" data-testid="lib-viewer-message-panel">
-          {previewSym && (
-            <>
-              <div className="ze-msgpanel-item">
-                <div className="ze-msgpanel-upper">Name</div>
-                <div className="ze-msgpanel-lower">{symbolName(previewSym)}</div>
-              </div>
-              <div className="ze-msgpanel-item">
-                <div className="ze-msgpanel-upper">Parent</div>
-                <div className="ze-msgpanel-lower">{parent || ' '}</div>
-              </div>
-              <div className="ze-msgpanel-item">
-                <div className="ze-msgpanel-upper">Description</div>
-                <div className="ze-msgpanel-lower">{description || ' '}</div>
-              </div>
-              <div className="ze-msgpanel-item">
-                <div className="ze-msgpanel-upper">Keywords</div>
-                <div className="ze-msgpanel-lower">{keywords || ' '}</div>
-              </div>
-            </>
-          )}
-          {status && (
-            <div className="ze-msgpanel-item">
-              <div className="ze-msgpanel-lower">{status}</div>
-            </div>
-          )}
-        </div>
+        <MsgPanel
+          testId="lib-viewer-message-panel"
+          items={[
+            ...(previewSym
+              ? [
+                  { upper: 'Name', lower: symbolName(previewSym) },
+                  { upper: 'Parent', lower: parent },
+                  { upper: 'Description', lower: description },
+                  { upper: 'Keywords', lower: keywords },
+                ]
+              : []),
+            ...(status ? [{ upper: '', lower: status }] : []),
+          ]}
+        />
       </div>
     </div>
   );

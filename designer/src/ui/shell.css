@@ -736,21 +736,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* KiCad's KISTATUSBAR has two stretching fields: field 0 (the message area,
-   weight -2) on the far left and field 6 (the "current tool" panel, weight -1)
-   before the constraint field. In the dark theme the field separators are
-   invisible, so we draw none, the two stretch fields position the cluster. */
-.ze-statusbar .cell.msg {
-  flex: 1 1 0;
+/* KiCad's KISTATUSBAR has three stretching fields, and updateStatusBarWidths
+   (common/eda_draw_frame.cpp:792) states their weights exactly: field 0 (the
+   message area) is -3, field 6 (the "current tool" panel) and field 7 (the
+   constraint mode) are -2 each. So the leftover width splits 3:2:2 and that,
+   not a 1:1 guess, is what positions the fixed cluster in the middle. In the
+   dark theme the field separators are invisible, so we draw none. */
+.ze-statusbar .cell.stretch3 {
+  flex: 3 1 0;
   min-width: 0;
 }
-.ze-statusbar .cell.tool {
-  flex: 1 1 0;
+.ze-statusbar .cell.stretch2 {
+  flex: 2 1 0;
   min-width: 0;
 }
-/* Legacy single-grow class kept for the schematic/other editors. */
+/* EDA_3D_VIEWER_STATUSBAR and the frames that are not EDA_DRAW_FRAMEs state a
+   single stretch field instead (kicad_manager_frame.cpp:395 makes field 0 "the
+   only stretchable field"). */
+.ze-statusbar .cell.msg,
 .ze-statusbar .cell.grow {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
 }
 /* A pane whose width KiCad states in pixels rather than deriving from a
    template string — EDA_3D_VIEWER_FRAME's status_dims { -1, 170, 130, 130,

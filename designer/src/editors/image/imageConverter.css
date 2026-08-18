@@ -326,29 +326,13 @@
   cursor: default;
 }
 
-/* --- status bar (matches the other editors) --- */
-/* CreateStatusBar( 1, wxSTB_SIZEGRIP ) (bitmap2cmp_frame.cpp:181) is a native
-   bar at a fixed height whether or not it has any text in it; ours collapsed to
-   the line box and the window grew a 9px strip that came and went. */
-.imgc-statusbar {
+/* The status bar is the shared KiStatusBar (.ze-statusbar in ui/shell.css) —
+   BM2CMP_FRAME's CreateStatusBar( 1, wxSTB_SIZEGRIP ) is the same wx status bar
+   every other frame gets, at the same GTK metrics, so it has no private style.
+   The one thing that is local: the frame is a flex column, and a native status
+   bar never shrinks, so pin the shared bar's flex-basis here. */
+.imgc-frame > .ze-statusbar {
   flex: none;
-  display: flex;
-  align-items: center;
-  min-height: 24px;
-  background: var(--chrome-bg);
-  border-top: 1px solid var(--chrome-border);
-  font-size: 12px;
-}
-
-.imgc-statusbar .cell {
-  padding: 4px 10px;
-  border-right: 1px solid var(--chrome-border);
-  color: #c6cad2;
-  font-variant-numeric: tabular-nums;
-}
-
-.imgc-statusbar .cell.grow {
-  flex: 1;
 }
 
 /* --- about modal (same pattern as the calculator's Modal) --- */

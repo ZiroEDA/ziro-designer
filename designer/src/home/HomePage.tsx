@@ -72,6 +72,7 @@ import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
+import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
@@ -1429,7 +1430,11 @@ export function HomePage({
         </div>
       </div>
 
-      <div className="ze-statusbar">
+      {/* KICAD_MANAGER_FRAME is an EDA_BASE_FRAME, not a draw frame: it calls
+          CreateStatusBar( 2 ) (kicad/kicad_manager_frame.cpp:176) and gets its
+          own two panes rather than EDA_DRAW_FRAME's eight, so it uses
+          KiStatusBar's children form for the same bar chrome. */}
+      <KiStatusBar>
         {/* KICAD_MANAGER_FRAME::PrintPrjInfo formats _( "Project: %s" ) with the
             project's full name and hands it to SetEllipsedTextField, which
             middle-ellipsizes it to the field. */}
@@ -1443,7 +1448,7 @@ export function HomePage({
               : 'Saved in browser'
             : 'In-memory only (storage unavailable)'}
         </span>
-      </div>
+      </KiStatusBar>
 
       {openPrjOpen && (
         <OpenProjectDialog

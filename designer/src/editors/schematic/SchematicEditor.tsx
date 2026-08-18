@@ -8,6 +8,7 @@ import {
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
   type ReportLine,
+  SCH_IU_PER_MM,
   type WksSheet,
 } from '@ziroeda/common';
 import {
@@ -271,7 +272,6 @@ import {
   type TextPropsResult,
   type VAlign,
 } from './dialogs/dialog_text_properties.js';
-import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
 import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
 import {
@@ -428,7 +428,15 @@ import {
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
 import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
 import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
-import { StatusReadout, type StatusReadoutHandle } from './components/StatusReadout.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel } from '../../ui/MsgPanel.js';
+import {
+  gridMsg,
+  messageTextFromValue,
+  type StatusUnits,
+  unitsMsg,
+} from '../../ui/status_format.js';
+import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
@@ -1119,18 +1127,38 @@ export function SchematicEditor({
   // and pushed straight into that widget. Routing them through this frame's
   // state would re-render the whole editor for every mouse move.
   const cursorRef = useRef<Vec2 | null>(null);
-  const statusRef = useRef<StatusReadoutHandle>(null);
-  const onCursorMove = useCallback((world: Vec2 | null, snapped: Vec2 | null) => {
-    cursorRef.current = world;
-    // SCH_BASE_FRAME::UpdateStatusBar reads GetViewControls()->GetCursorPosition(),
-    // which is the *snapped* cursor, so the coordinate panes are always on the
-    // grid. Ours showed the raw pointer position, which is why the readout sat
-    // on values like 110.0250 on a 1.27 mm grid.
-    statusRef.current?.setCursor(snapped ?? world);
-  }, []);
-  const onScaleChange = useCallback((s: number) => {
-    statusRef.current?.setScale(s);
-  }, []);
+  // ACTIONS::toggleUnits / the imperial-unit pair, and the display's device
+  // pixel ratio: both feed the live status panes, so they are resolved before
+  // the readout that writes them.
+  const units: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const statusReadout = useStatusReadout({
+    units,
+    localOrigin,
+    devicePixelRatio: dpr,
+    iuPerMM: SCH_IU_PER_MM,
+  });
+  const onCursorMove = useCallback(
+    (world: Vec2 | null, snapped: Vec2 | null) => {
+      cursorRef.current = world;
+      // SCH_BASE_FRAME::UpdateStatusBar reads GetViewControls()->GetCursorPosition(),
+      // which is the *snapped* cursor, so the coordinate panes are always on the
+      // grid. Ours showed the raw pointer position, which is why the readout sat
+      // on values like 110.0250 on a 1.27 mm grid.
+      statusReadout.setCursor(snapped ?? world);
+    },
+    [statusReadout],
+  );
+  const onScaleChange = useCallback(
+    (s: number) => {
+      statusReadout.setScale(s);
+    },
+    [statusReadout],
+  );
   // The symbol whose properties dialog is open (its refId), or null.
   const [propsTarget, setPropsTarget] = useState<string | null>(null);
   // Items parsed from the clipboard, attached to the cursor until dropped.
@@ -1186,7 +1214,6 @@ export function SchematicEditor({
    * one, so the two must not share an input.
    */
   const importSheetInputRef = useRef<HTMLInputElement>(null);
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   const libById = useMemo<Map<string, LibSymbol>>(
     () => new Map((doc?.libSymbols ?? []).map((l) => [l.libId, l])),
@@ -7088,7 +7115,6 @@ export function SchematicEditor({
     endSyncPlacement,
   ]);
 
-  const units = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
   const fmt = (iu: number): string => {
     const mm = iuToMM(iu);
     if (units === 'mm') return `${mm.toFixed(4)}`;
@@ -8293,48 +8319,24 @@ export function SchematicEditor({
       {/* EDA_DRAW_FRAME hosts a message panel above the 8-field status bar:
           a single selected item's GetMsgPanelInfo rows; anything else clears
           it (SCH_INSPECTION_TOOL::UpdateMessagePanel). */}
-      <div className="ze-msgpanel" data-testid="sch-message-panel">
-        {msgPanelItems.map((item) => (
-          <div className="ze-msgpanel-item" key={`${item.upper}:${item.lower}`}>
-            <div className="ze-msgpanel-upper">{item.upper}</div>
-            <div className="ze-msgpanel-lower">{item.lower || ' '}</div>
-          </div>
-        ))}
-      </div>
+      <MsgPanel items={msgPanelItems} testId="sch-message-panel" />
 
       {/* KISTATUSBAR's 8 fields (eda_draw_frame.cpp): message (grows), the
           net-highlight text lands here (UpdateNetHighlightStatus) | Z zoom |
           absolute X/Y | relative dx/dy/dist | grid | units | current-tool
-          (grows) | constraint (unused by eeschema). */}
-      <div className="ze-statusbar">
-        <span className="cell msg" data-testid="sch-status-msg">
-          {highlightName ? `Highlighted net: ${highlightName}` : ''}
-        </span>
-        <StatusReadout
-          ref={statusRef}
-          units={units}
-          localOrigin={localOrigin}
-          devicePixelRatio={dpr}
-        />
-        <StatusField template={STATUS_FIELD_TEMPLATES.grid}>
-          grid {(() => {
-            const iu = renderOpts.grid.sizeIU;
-            const mm = iuToMM(iu);
-            return units === 'mm'
-              ? mm.toFixed(4)
-              : units === 'mils'
-                ? (mm / 0.0254).toFixed(0)
-                : (mm / 25.4).toFixed(4);
-          })()}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.units}>
-          {units === 'in' ? 'inches' : units}
-        </StatusField>
-        <span className="cell tool" data-testid="sch-tool-msg">
-          {SCH_TOOL_MSGS[activeTool] ?? ''}
-        </span>
-        <StatusField template={STATUS_FIELD_TEMPLATES.constraint} />
-      </div>
+          (grows) | constraint (eeschema never writes it). */}
+      <KiStatusBar
+        testIds={{ message: 'sch-status-msg', tool: 'sch-tool-msg' }}
+        fields={{
+          message: highlightName ? `Highlighted net: ${highlightName}` : '',
+          zoom: <span ref={statusReadout.zoomRef} />,
+          coords: <span ref={statusReadout.coordsRef} />,
+          deltas: <span ref={statusReadout.deltasRef} />,
+          grid: gridMsg(messageTextFromValue(iuToMM(renderOpts.grid.sizeIU), units, SCH_IU_PER_MM)),
+          units: unitsMsg(units),
+          tool: SCH_TOOL_MSGS[activeTool] ?? '',
+        }}
+      />
 
       {chooserOpen && (
         <DialogSymbolChooser

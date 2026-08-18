@@ -62,6 +62,7 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -706,10 +707,13 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         </div>
       </div>
 
-      {/* KiCad's single-field status bar (CreateStatusBar(1, ...)). */}
-      <div className="imgc-statusbar">
+      {/* BM2CMP_FRAME::CreateStatusBar( 1, wxSTB_SIZEGRIP ) — one pane, the
+          loaded file name (bitmap2component/bitmap2cmp_frame.cpp:181/:417).
+          Not an EDA_DRAW_FRAME, so it takes KiStatusBar's children form and
+          the shared bar chrome instead of a private .imgc-statusbar. */}
+      <KiStatusBar>
         <span className="cell grow">{status}</span>
-      </div>
+      </KiStatusBar>
 
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 

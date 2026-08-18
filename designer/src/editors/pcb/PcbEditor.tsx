@@ -172,7 +172,20 @@ import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { StatusField, STATUS_FIELD_TEMPLATES } from '../../ui/StatusField.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import {
+  coordsMsg,
+  deltasMsg,
+  gridMsg,
+  messageTextFromValue,
+  polarMsg,
+  scaleForZoomFactor,
+  type StatusUnits,
+  unitsMsg,
+  zoomFactorForScale,
+  zoomMsg,
+} from '../../ui/status_format.js';
 import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '../schematic/dialogs/dialog_page_settings.js';
 import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
@@ -432,11 +445,6 @@ const PCB_ZOOMS: number[] = [
  * preset landed inside a single pad and the status bar read `Z 0.00` on a board
  * that pcbnew calls `Z 2.10`.
  */
-const IU_PER_INCH = 25.4e6; // 1 inch in pcbnew IU (1 nm each)
-const zoomFactorForScale = (scale: number, dpr: number): number =>
-  (scale / Math.max(dpr, 1e-9)) * (IU_PER_INCH / GAL_SCREEN_DPI);
-const scaleForZoomFactor = (zoom: number, dpr: number): number =>
-  (zoom * GAL_SCREEN_DPI * Math.max(dpr, 1e-9)) / IU_PER_INCH;
 
 // Visibility (eye) toggle, drawn inline so it always renders (no asset-URL
 // resolution) and reads as KiCad's light-grey eye on the dark panel. `on`
@@ -516,7 +524,6 @@ const defaultShapeWidth = (layer: string): number => {
 };
 
 type AlignAction = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom';
-type MsgPanelItem = { upper: string; lower: string };
 
 const bboxCenter = (b: BoardBBox): { x: number; y: number } => ({
   x: (b.minX + b.maxX) / 2,
@@ -7213,23 +7220,29 @@ export function PcbEditor({
 
   // ----- unit display ---------------------------------------------------------
 
-  const fmtCoord = (iu: number): string => {
-    const mm = iuToMM(iu);
-    if (toggles.has('unitsInches')) return (mm / 25.4).toFixed(4);
-    if (toggles.has('unitsMils')) return ((mm / 25.4) * 1000).toFixed(2);
-    return mm.toFixed(4);
-  };
-  const fmtAngle = (rad: number): string => `${((rad * 180) / Math.PI).toFixed(3)}`;
-  const unitLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
-  const statusCoordText = cursor ? `X ${fmtCoord(cursor.x)}  Y ${fmtCoord(cursor.y)}` : 'X, Y -';
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
+  // long form: mm %.4f, mils %.2f, inches %.4f.
+  const fmtCoord = (iu: number): string =>
+    messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
+  const statusCoordText = cursor
+    ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y))
+    : coordsMsg(null);
   const statusDeltaText = cursor
     ? toggles.has('togglePolarCoords')
-      ? `r ${fmtCoord(Math.hypot(cursor.x, cursor.y))}  theta ${fmtAngle(Math.atan2(-cursor.y, cursor.x))}`
-      : `dx ${fmtCoord(cursor.x)}  dy ${fmtCoord(cursor.y)}  dist ${fmtCoord(Math.hypot(cursor.x, cursor.y))}`
+      ? polarMsg(
+          fmtCoord(Math.hypot(cursor.x, cursor.y)),
+          (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
+        )
+      : deltasMsg(fmtCoord(cursor.x), fmtCoord(cursor.y), fmtCoord(Math.hypot(cursor.x, cursor.y)))
     : toggles.has('togglePolarCoords')
-      ? 'r, theta -'
-      : 'dx, dy, dist -';
-  const gridText = `grid ${fmtCoord(gridIU)}`;
+      ? polarMsg(null)
+      : deltasMsg(null);
+  const gridText = gridMsg(fmtCoord(gridIU));
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
   const auxMM = (iu: number): string => iuToMM(iu).toFixed(3);
@@ -8317,7 +8330,7 @@ export function PcbEditor({
           {/* EDA_3D_VIEWER_STATUSBAR: ACTIVITY, HOVERED_ITEM, X_POS, Y_POS,
               ZOOM_LEVEL, at the widths eda_3d_viewer_frame.cpp:112 states
               ({ -1, 170, 130, 130, 130 }). */}
-          <div className="ze-statusbar">
+          <KiStatusBar>
             <span className="cell msg" data-testid="view3d-activity" />
             <span className="cell pane" style={{ width: 170 }} data-testid="view3d-hovered" />
             <span className="cell pane" style={{ width: 130 }} data-testid="view3d-x">
@@ -8329,7 +8342,7 @@ export function PcbEditor({
             <span className="cell pane" style={{ width: 130 }} data-testid="view3d-zoom">
               Z {view3dStatus.zoom.toFixed(2)}
             </span>
-          </div>
+          </KiStatusBar>
         </div>
       )}
 
@@ -9096,40 +9109,28 @@ export function PcbEditor({
       )}
 
       {/* EDA_DRAW_FRAME hosts a message panel above pcbnew's 8-field status bar. */}
-      <div className="ze-msgpanel" data-testid="pcb-message-panel">
-        {messagePanelItems.map((item) => (
-          <div className="ze-msgpanel-item" key={`${item.upper}:${item.lower}`}>
-            <div className="ze-msgpanel-upper">{item.upper}</div>
-            <div className="ze-msgpanel-lower">{item.lower || '\u00a0'}</div>
-          </div>
-        ))}
-      </div>
+      <MsgPanel items={messagePanelItems} testId="pcb-message-panel" />
 
-      {/* pcbnew's 8-field KISTATUSBAR (eda_draw_frame.cpp updateStatusBarWidths):
-          message (grows) | Z zoom | absolute X/Y | relative dx/dy/dist or polar
-          r/theta | grid | units | current-tool (grows) | constraint mode. */}
-      <div className="ze-statusbar">
-        <span className="cell msg" data-testid="pcb-status-msg" />
-        <StatusField template={STATUS_FIELD_TEMPLATES.zoom}>
-          Z {scale > 0 ? zoomFactorForScale(scale, window.devicePixelRatio || 1).toFixed(2) : '-'}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.coords} testId="pcb-absolute-coords">
-          {statusCoordText}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.deltas} testId="pcb-relative-coords">
-          {statusDeltaText}
-        </StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.grid}>{gridText}</StatusField>
-        <StatusField template={STATUS_FIELD_TEMPLATES.units}>
-          {unitLabel === 'in' ? 'inches' : unitLabel}
-        </StatusField>
-        <span className="cell tool" data-testid="pcb-tool-msg">
-          {toolMsg}
-        </span>
-        <StatusField template={STATUS_FIELD_TEMPLATES.constraint} testId="pcb-constraint-msg">
-          {constraintMsg}
-        </StatusField>
-      </div>
+      {/* pcbnew's 8-field KISTATUSBAR — the pane order and widths are
+          KiStatusBar's, shared with every other draw frame. */}
+      <KiStatusBar
+        testIds={{
+          message: 'pcb-status-msg',
+          coords: 'pcb-absolute-coords',
+          deltas: 'pcb-relative-coords',
+          tool: 'pcb-tool-msg',
+          constraint: 'pcb-constraint-msg',
+        }}
+        fields={{
+          zoom: zoomMsg(zoomFactorForScale(scale, window.devicePixelRatio || 1)),
+          coords: statusCoordText,
+          deltas: statusDeltaText,
+          grid: gridText,
+          units: unitsMsg(unitLabel),
+          tool: toolMsg,
+          constraint: constraintMsg,
+        }}
+      />
     </div>
   );
 }

@@ -8,6 +8,10 @@
  * 00000.0000  Y 00000.0000", …) plus an "M"-width spacer, so the live values
  * never shift their neighbours as they change. The template renders invisibly
  * under the value to reserve exactly that width in the page font.
+ *
+ * Panes 0, 6 and 7 have no template: upstream gives them the proportional
+ * widths -3, -2 and -2, so they stretch. {@link KiStatusBar} lays out all
+ * eight; this is the fixed-width four (plus units) it uses for the rest.
  */
 
 import type { JSX, ReactNode } from 'react';
@@ -19,7 +23,6 @@ export const STATUS_FIELD_TEMPLATES = {
   deltas: 'dx 00000.0000  dy 00000.0000  dist 00000.0000',
   grid: 'grid 0000.0000 x 0000.0000',
   units: 'Inches',
-  constraint: 'Constrain to H, V, 45',
 } as const;
 
 export function StatusField({
