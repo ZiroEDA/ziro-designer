@@ -59,6 +59,16 @@ describe('the two Setup dialogs share one severities panel', () => {
     }
   });
 
+  it('hands each editor its own rule table', () => {
+    // The whole point of the collapse: the panel is generic, the table is not.
+    expect(SCH).toMatch(/groups=\{groups\}/);
+    expect(SCH).toContain('ercSeverityGroups');
+    expect(SCH).toContain('ERC_ITEMS');
+    expect(SCH).not.toContain('DRC_CATEGORIES');
+    expect(PCB).toMatch(/groups=\{DRC_CATEGORIES\}/);
+    expect(PCB).not.toContain('ERC_ITEMS');
+  });
+
   it('passes a different name prefix from each, so the radio groups cannot merge', () => {
     // Upstream gets distinct IDs from `baseID + errorCode * 10 + i` (:97).
     expect(SCH).toContain('namePrefix="erc"');
