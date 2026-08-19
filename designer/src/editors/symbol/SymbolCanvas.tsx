@@ -2,10 +2,19 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { Vec2 } from '@ziroeda/kimath';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { LibGraphic, LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
+import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 import {
   fitSymbol,
   renderSymbolScene,
@@ -337,19 +346,43 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
     return { x: (px - vp.offsetX) / vp.scale, y: (py - vp.offsetY) / vp.scale };
   };
 
+  // WX_VIEW_CONTROLS::onWheel. The symbol editor is an EDA_DRAW_FRAME like any
+  // other, so Preferences -> Mouse and Touchpad applies here too; this used to
+  // be a fixed exp(-delta * 0.001) that read no setting at all.
+  const inputPrefs = useMemo(() => commonInputPrefs(), []);
+
   const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      const vp = viewportRef.current;
+      if (!canvas || !vp) return;
+      e.preventDefault();
+      const action = wheelAction(e, inputPrefs, { width: canvas.width, height: canvas.height });
+      if (action.kind === 'none') return;
+      if (action.kind === 'pan') {
+        viewportRef.current = {
+          ...vp,
+          offsetX: vp.offsetX + action.dx,
+          offsetY: vp.offsetY + action.dy,
+        };
+        draw();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
-      zoomAbout(
-        (e.clientX - rect.left) * dpr(),
-        (e.clientY - rect.top) * dpr(),
-        Math.exp(-e.deltaY * 0.001),
-      );
+      zoomAbout((e.clientX - rect.left) * dpr(), (e.clientY - rect.top) * dpr(), action.factor);
     },
-    [zoomAbout],
+    [zoomAbout, draw, inputPrefs],
   );
+
+  // Bound natively and non-passively: React's onWheel is a passive listener on
+  // the root container, so preventDefault() there is a no-op and the browser
+  // keeps Ctrl+wheel page zoom and trackpad overscroll for itself.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [onWheel]);
 
   const finishPoly = useCallback(
     (closed: boolean) => {
@@ -662,7 +695,6 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       <canvas
         ref={canvasRef}
         style={{ display: 'block', cursor, touchAction: 'none' }}
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

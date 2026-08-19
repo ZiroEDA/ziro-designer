@@ -163,8 +163,11 @@ describe('scroll_modifier_zoom / _pan_h / _pan_v', () => {
 
 describe('modifier resolution - "Shift beats control beats alt"', () => {
   it('picks shift over control and control over alt', () => {
-    // wx_view_controls.cpp:458-480. Reading ctrl first, as our old handlers
-    // did, makes Shift+Ctrl+wheel a horizontal pan instead of a skipped event.
+    // wx_view_controls.cpp:458-480. Note that the stated precedence is not
+    // actually observable, upstream or here: any second modifier trips the
+    // nMods > 1 bail-out below before the order can matter. Mutating the order
+    // leaves every test green, correctly - what our old handlers really got
+    // wrong was having no bail-out at all, which the next block covers.
     expect(wheelModifier(wheel({ shiftKey: true }))).toBe('shift');
     expect(wheelModifier(wheel({ ctrlKey: true }))).toBe('ctrl');
     expect(wheelModifier(wheel({ altKey: true }))).toBe('alt');
