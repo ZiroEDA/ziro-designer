@@ -209,6 +209,49 @@ describe('KiStatusBar is updateStatusBarWidths', () => {
   });
 });
 
+describe('the bar height is a property of the frame', () => {
+  // KiCad has exactly four CreateStatusBar call sites and only two override
+  // OnCreateStatusBar, so there are two kinds of status bar and they do not
+  // measure the same. Both numbers below are measured off real KiCad windows
+  // at 1920x1200; see --statusbar-height in ui/shell.css for the pixel runs.
+  const shell = read('ui/shell.css');
+  const imgc = read('editors/image/imageConverter.css');
+
+  it('defaults to KISTATUSBAR\u2019s measured 23px', () => {
+    // Every EDA_DRAW_FRAME (eda_draw_frame.cpp:136) and KICAD_MANAGER_FRAME
+    // (kicad_manager_frame.cpp:176) gets a KISTATUSBAR.
+    expect(shell).toMatch(/--statusbar-height:\s*23px;/);
+  });
+
+  it('reads the token rather than hard-coding a height', () => {
+    // A constant here would silently override whatever a frame declares.
+    expect(shell).toMatch(/\.ze-statusbar \{[^}]*height: var\(--statusbar-height\);/s);
+    expect(shell).not.toMatch(/\.ze-statusbar \{[^}]*height: \d+px;/s);
+  });
+
+  it('gives the Image Converter the plain wxStatusBar\u2019s measured 33px', () => {
+    // BITMAP2CMP_FRAME is one of only two frames that does NOT get a
+    // KISTATUSBAR (bitmap2cmp_frame.cpp:181), and it measures 10px taller.
+    expect(imgc).toMatch(/\.imgc-frame \{[^}]*--statusbar-height:\s*33px;/s);
+  });
+
+  it('records where each number came from, so neither is re-unified', () => {
+    // The obvious mechanisms are all disproved (see the token comment); an
+    // undocumented number invites the next person to "fix" the difference.
+    // Both numbers, each with its own pixel run - one MEASURED marker is not
+    // enough, since either frame's provenance could be dropped on its own.
+    expect(shell).toContain('MEASURED on the project manager');
+    expect(shell).toContain('MEASURED on');
+    expect(shell.match(/MEASURED/g)?.length ?? 0).toBe(2);
+    expect(shell).toContain('y=1177..1199 -> 23px');
+    expect(shell).toContain('y=1167..1199\n             -> 33px');
+    expect(shell).toContain('kistatusbar.cpp');
+    expect(shell).toContain('bitmap2cmp_frame.cpp:181');
+    expect(imgc).toMatch(/33px/);
+    expect(imgc).toContain('bitmap2cmp_frame.cpp:181');
+  });
+});
+
 describe('MsgPanel is EDA_MSG_PANEL', () => {
   const src = read('ui/MsgPanel.tsx');
 

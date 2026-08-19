@@ -30,6 +30,31 @@
  * A frame that is not an `EDA_DRAW_FRAME` has its own field list
  * (`KICAD_MANAGER_FRAME` has two, `BM2CMP_FRAME` one); those pass `children`
  * instead of `fields` and get the same bar chrome with their own panes.
+ *
+ * ## Height is a property of the frame, not of this component
+ *
+ * There are exactly four `CreateStatusBar` call sites in KiCad and only two
+ * override `OnCreateStatusBar`, so the app has two kinds of status bar and they
+ * do not measure the same:
+ *
+ *  - `KISTATUSBAR` — every `EDA_DRAW_FRAME` (`eda_draw_frame.cpp:136`) and
+ *    `KICAD_MANAGER_FRAME` (`kicad_manager_frame.cpp:176`). **23 px**, measured
+ *    on the project manager.
+ *  - a plain `wxStatusBar` — `BITMAP2CMP_FRAME` (`bitmap2cmp_frame.cpp:181`)
+ *    and `EDA_3D_VIEWER_FRAME` (`eda_3d_viewer_frame.cpp:118`), which is a
+ *    `KIWAY_PLAYER` rather than a draw frame. **33 px**, measured on
+ *    bitmap2component.
+ *
+ * So the frame sets `--statusbar-height`; the default in `ui/shell.css`'s
+ * `:root` is the `KISTATUSBAR` 23 px, and `.imgc-frame` overrides it to 33.
+ * Both measurements, and the explanations already disproved, are recorded on
+ * the token. A frame that has not been measured stays on the default.
+ *
+ * NOT YET MEASURED: our 3D viewer pane. Upstream it is the *other* kind of bar
+ * — `EDA_3D_VIEWER_FRAME` takes the same plain `wxStatusBar` as
+ * bitmap2component, so it is likely 33 px rather than the default 23 — but no
+ * screenshot of a real 3D viewer was available to measure, so it is left on the
+ * default rather than guessed at. Measure it before changing it.
  */
 
 import type { JSX, ReactNode } from 'react';

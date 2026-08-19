@@ -203,15 +203,22 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     expect(exportBtn).not.toContain('primary');
   });
 
-  it('takes the shared status bar rather than styling one of its own', () => {
-    // BM2CMP_FRAME::CreateStatusBar( 1, wxSTB_SIZEGRIP )
-    // (bitmap2cmp_frame.cpp:181) is the same wxStatusBar every other frame
-    // gets, at the same GTK metrics, so it has nothing of its own to style -
-    // it instantiates the shared KiStatusBar (.ze-statusbar, ui/shell.css).
-    // What IS local: a native status bar never shrinks, and the frame is a
-    // flex column, so the flex-basis has to be pinned here.
+  it('takes the shared status bar, at its own measured height', () => {
+    // The widget is shared - BM2CMP_FRAME gets the same panes, colours and
+    // font as everything else, so .imgc-statusbar is gone and the frame
+    // renders the shared KiStatusBar (.ze-statusbar, ui/shell.css).
     expect(TSX).toContain('<KiStatusBar>');
     expect(CSS_CODE).not.toMatch(/\n\.imgc-statusbar\s*\{/);
+
+    // The HEIGHT is not shared, and this is the one frame that proves it.
+    // BITMAP2CMP_FRAME calls plain CreateStatusBar( 1, wxSTB_SIZEGRIP )
+    // (bitmap2cmp_frame.cpp:181) and never overrides OnCreateStatusBar, so it
+    // gets a plain wxStatusBar rather than a KISTATUSBAR. Measured off a real
+    // window at 1920x1200, x=600: bar (44,44,44) y=1167..1199 -> 33px, against
+    // the project manager's 23. The 24px this file used to assert was neither.
+    expect(rule('.imgc-frame')['--statusbar-height']).toBe('33px');
+
+    // A native status bar never shrinks, and the frame is a flex column.
     expect(rule('.imgc-frame > .ze-statusbar').flex).toBe('none');
   });
 
