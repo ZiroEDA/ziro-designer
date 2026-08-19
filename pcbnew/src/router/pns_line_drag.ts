@@ -223,12 +223,7 @@ export const lineDragArc: LineDragArcFn = (aLine, aP, aIndex) => {
     if (isCollinearTo(candidate, arcLineEnd, maxDeviation)) useChainEnd = true;
   }
 
-  const arcOwnTanIntersect = segIntersectLines(
-    arcLineStart.a,
-    arcLineStart.b,
-    arcLineEnd.a,
-    arcLineEnd.b,
-  );
+  const arcOwnTanIntersect = segIntersectLines(arcLineStart, arcLineEnd);
 
   let tanStartSeg: Seg;
   let tanEndSeg: Seg;
@@ -249,7 +244,7 @@ export const lineDragArc: LineDragArcFn = (aLine, aP, aIndex) => {
     tanEndSeg = { a: arcOwnTanIntersect, b: oldArc.p1 };
   }
 
-  const tanIntersect = segIntersectLines(tanStartSeg.a, tanStartSeg.b, tanEndSeg.a, tanEndSeg.b);
+  const tanIntersect = segIntersectLines(tanStartSeg, tanEndSeg);
 
   if (!tanIntersect) return; // parallel tangents have no tangent-circle solution
 

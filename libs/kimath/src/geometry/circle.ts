@@ -248,7 +248,7 @@ export function constructFromTanTanPt(aLineA: Seg, aLineB: Seg, aP: Vec2): Circl
   }
 
   // General case, using homothety.
-  const intersectCalc = segIntersectLines(aLineA.a, aLineA.b, aLineB.a, aLineB.b);
+  const intersectCalc = segIntersectLines(aLineA, aLineB);
 
   if (!intersectCalc) return out; // "Lines do not intersect but are not parallel?"
 
@@ -298,18 +298,13 @@ export function constructFromTanTanPt(aLineA: Seg, aLineB: Seg, aP: Vec2): Circl
     // Find the tangent at line A by homothetic inversion.
     const hT: Seg = { a: hTanLineA, b: hSelected };
     const hTParallel = segParallelSeg(hT, aP);
-    const actTanA = segIntersectLines(hTParallel.a, hTParallel.b, aLineA.a, aLineA.b);
+    const actTanA = segIntersectLines(hTParallel, aLineA);
 
     if (!actTanA) return out; // "No solutions exist!"
 
     // The centre is where the perpendicular meets the angle bisector.
     const perpendicularToTanA = segPerpendicularSeg(aLineA, actTanA);
-    const actCenter = segIntersectLines(
-      perpendicularToTanA.a,
-      perpendicularToTanA.b,
-      anglebisector.a,
-      anglebisector.b,
-    );
+    const actCenter = segIntersectLines(perpendicularToTanA, anglebisector);
 
     if (!actCenter) return out; // "No solutions exist!"
 
@@ -322,17 +317,12 @@ export function constructFromTanTanPt(aLineA: Seg, aLineB: Seg, aP: Vec2): Circl
   // Find the tangent at line B by inversion.
   const hT: Seg = { a: hTanLineB, b: hSelected };
   const hTParallel = segParallelSeg(hT, aP);
-  const actTanB = segIntersectLines(hTParallel.a, hTParallel.b, aLineB.a, aLineB.b);
+  const actTanB = segIntersectLines(hTParallel, aLineB);
 
   if (!actTanB) return out; // "No solutions exist!"
 
   const perpendicularToTanB = segPerpendicularSeg(aLineB, actTanB);
-  const actCenter = segIntersectLines(
-    perpendicularToTanB.a,
-    perpendicularToTanB.b,
-    anglebisector.a,
-    anglebisector.b,
-  );
+  const actCenter = segIntersectLines(perpendicularToTanB, anglebisector);
 
   if (!actCenter) return out; // "No solutions exist!"
 

@@ -619,7 +619,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         // clearance and reported instead of it: the centrelines actually
         // intersect, so "how close are they" is not the useful question.
         if (A.it.track && B.it.track) {
-          const at = segIntersect(A.it.track.a, A.it.track.b, B.it.track.a, B.it.track.b);
+          const at = segIntersect(A.it.track, B.it.track);
           if (at) {
             out.push({
               code: 'tracks_crossing',
@@ -909,11 +909,13 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         // the same joint twice.
         if (a.layer !== b.layer || a.net !== b.net) continue;
 
-        // segIntersect returns null for collinear segments — deliberately, for
-        // its teardrop caller. SEG::Intersect resolves them, so a shared
-        // endpoint is picked up here: that is what makes a straight-through
-        // joint read 180° and a hairpin 0° rather than both being skipped.
-        const at = segIntersect(a.start, a.end, b.start, b.end) ?? sharedEndpoint(a, b);
+        // `SEG::Intersect` resolves a collinear overlap to the midpoint of the
+        // overlap region, so two segments meeting end-to-end already answer
+        // here; `sharedEndpoint` remains for the pairs that miss entirely, which
+        // is what makes a straight-through joint read 180° and a hairpin 0°
+        // rather than both being skipped.
+        const at =
+          segIntersect({ a: a.start, b: a.end }, { a: b.start, b: b.end }) ?? sharedEndpoint(a, b);
         if (!at) continue;
 
         // A corner inside a pad is deliberate, not a mitre problem.

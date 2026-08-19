@@ -43,7 +43,7 @@
  * so every value entering BigInt goes through `KiROUND` first — exactly as
  * `seg.ts` does, and for the same reason (`BigInt()` throws on a fraction).
  */
-import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { KiROUND, rescale64 } from '@ziroeda/kimath/src/math/util.js';
 import type { Seg } from './pns_line.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -55,24 +55,6 @@ const noNegZero = (v: number): number => (v === 0 ? 0 : v);
 
 /** A number back out of BigInt. Board coordinates fit a double exactly. */
 const num = (v: bigint): number => noNegZero(Number(v));
-
-/**
- * `rescale< int64_t >( a, b, d )` (math/util.cpp): `(a*b ± d/2) / d`, rounding
- * half **away from zero**, with the sign of the correction following
- * `(numerator < 0) ^ (denominator < 0)`.
- *
- * `d / 2` is itself a truncating integer division, which is why the rounding is
- * not exactly half for an odd denominator. BigInt `/` truncates toward zero,
- * matching C++.
- */
-export function rescale64(aNumerator: bigint, aValue: bigint, aDenominator: bigint): bigint {
-  const numerator = aNumerator * aValue;
-  const half = aDenominator / 2n;
-
-  return numerator < 0n !== aDenominator < 0n
-    ? (numerator - half) / aDenominator
-    : (numerator + half) / aDenominator;
-}
 
 /** `SEG::SquaredLength`. */
 export const segSquaredLength = (aSeg: Seg): number => {
@@ -111,6 +93,19 @@ export const segLength = (aSeg: Seg): number =>
 export { segApproxParallel, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 
 /**
+ * `SEG::Contains( const VECTOR2I& )` and `SEG::SquaredDistance( const VECTOR2I& )`
+ * live in kimath alongside the rest of `SEG`, and so does the `int64_t`
+ * specialisation of `rescale`. They are re-exported here so the router's
+ * existing importers and the pcbnew barrel keep working, and so that no second
+ * implementation of any of them can appear.
+ */
+export {
+  segContains,
+  segSquaredDistanceToPoint as segSquaredDistanceToPointExact,
+} from '@ziroeda/kimath/src/geometry/seg.js';
+export { rescale64 } from '@ziroeda/kimath/src/math/util.js';
+
+/**
  * `SEG::ReflectPoint`: `aP` mirrored across the segment's infinite line.
  *
  * Note it is *not* `2 * LineProject( aP ) - aP` written out: upstream reflects
@@ -135,54 +130,4 @@ export function segReflectPoint(aSeg: Seg, aP: Vec2): Vec2 {
   }
 
   return { x: num(2n * cx - big(aP.x)), y: num(2n * cy - big(aP.y)) };
-}
-
-/**
- * `SEG::Contains( const VECTOR2I& )`: `SquaredDistance( aP ) <= 3`.
- *
- * Three square IU, an absolute tolerance rather than a relative one — so a
- * point 1 IU off the line counts as on it and a point 2 IU off does not.
- */
-export function segContains(aSeg: Seg, aP: Vec2): boolean {
-  return segSquaredDistanceToPointExact(aSeg, aP) <= 3;
-}
-
-/**
- * `SEG::SquaredDistance( const VECTOR2I& )` (seg.cpp:710).
- *
- * The two clamped cases are exact integer arithmetic; the interior case is
- * `|ap|² - e²/f` with the **division done in double** and the result
- * `KiROUND`ed, which is upstream's own arithmetic and not an approximation of
- * it. Upstream's guard against a negative `g` — impossible in exact arithmetic,
- * reachable only through that double — is kept, along with its overflow arm.
- */
-export function segSquaredDistanceToPointExact(aSeg: Seg, aP: Vec2): number {
-  const abx = big(aSeg.b.x) - big(aSeg.a.x);
-  const aby = big(aSeg.b.y) - big(aSeg.a.y);
-  const apx = big(aP.x) - big(aSeg.a.x);
-  const apy = big(aP.y) - big(aSeg.a.y);
-
-  const e = apx * abx + apy * aby;
-
-  if (e <= 0n) return num(apx * apx + apy * apy);
-
-  const f = abx * abx + aby * aby;
-
-  if (e >= f) {
-    const bpx = big(aP.x) - big(aSeg.b.x);
-    const bpy = big(aP.y) - big(aSeg.b.y);
-
-    return num(bpx * bpx + bpy * bpy);
-  }
-
-  const eD = Number(e);
-  const g = Number(apx * apx + apy * apy) - (eD * eD) / Number(f);
-
-  // `ECOORD_MAX` is `std::numeric_limits<int64_t>::max()`. Written as `2 ** 63`
-  // because that is the double the literal 9223372036854775807 rounds to
-  // anyway — the comparison is against int64's ceiling, not against an exactly
-  // representable integer.
-  if (g < 0 || g > 2 ** 63) return 0;
-
-  return KiROUND(g);
 }

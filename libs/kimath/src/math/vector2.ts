@@ -9,7 +9,7 @@
  * see units.ts for our IU).
  */
 
-import { KiROUND } from './util.js';
+import { KiROUND, rescale64 } from './util.js';
 
 /** 2D point/vector in integer internal units (100 nm). Immutable variant. */
 export interface Vec2 {
@@ -75,29 +75,6 @@ export const Perpendicular = (v: VECTOR2I): VECTOR2I => ({ x: -v.y, y: v.x });
 
 /** `sign`: -1, 0 or +1. Upstream's `(T(0) < val) - (val < T(0))`. */
 const sgn = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
-
-/**
- * `rescale( int64_t, int64_t, int64_t )` (math/util.cpp): `n * v / d` rounded
- * half **away from zero**, computed without overflowing.
- *
- * `rescale` in `util.ts` is the floating-point form and is the right one for
- * operands that stay inside 2^53. This one exists for {@link ResizeI}, whose
- * product does not.
- *
- * Deliberately **not exported**. `pcbnew/src/router/pns_seg_ops.ts` exports a
- * `rescale64` of its own with identical semantics, and that is the one router
- * code should reach for. This copy exists only because `libs/kimath` cannot
- * import from `pcbnew` — the dependency runs the other way — and keeping it
- * private means the two never appear as rival public names.
- */
-const rescale64 = (aNumerator: bigint, aValue: bigint, aDenominator: bigint): bigint => {
-  const numerator = aNumerator * aValue;
-  const half = aDenominator / 2n; // truncating, as C++ integer division
-
-  return numerator < 0n !== aDenominator < 0n
-    ? (numerator - half) / aDenominator
-    : (numerator + half) / aDenominator;
-};
 
 /**
  * `VECTOR2<int>::Resize`: the same direction, the given length.

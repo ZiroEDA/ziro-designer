@@ -54,6 +54,13 @@ import type { PnsSegment } from './pns_segment.js';
 import { PnsShove, PnsShovePolicy, PnsShoveStatus } from './pns_shove.js';
 import { routeShortest } from './pns_walkaround.js';
 import type { Seg } from './pns_line.js';
+import {
+  segContains,
+  segDistanceToPoint as segDistance,
+  segIntersectLines,
+  segLineDistance,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 
 /** `MULTI_DRAGGER::MDRAG_LINE`, field for field. */
 interface MdragLine {
@@ -137,69 +144,27 @@ function resizeVec(v: Vec2, aNewLength: number): Vec2 {
 }
 
 /**
- * `SEG::LineDistance( aP, aDetermineSide )`: the distance to the segment's
- * *infinite* line, signed by which side `aP` falls on when asked.
+ * `SEG::LineDistance`, `SEG::LineProject`, `SEG::Distance( const VECTOR2I& )`,
+ * `SEG::Contains` and `SEG::IntersectLines` are kimath's — upstream's
+ * `MULTI_DRAGGER` calls the one `SEG` in `libs/kimath` and so does this. They
+ * are re-exported so this module's existing importers and the pcbnew barrel
+ * keep working.
  *
- * The sign is `sgn( det )` where `det` is the same determinant `SEG::Side`
- * uses, so it agrees with `Side`'s left/right convention. Every call in
- * `MULTI_DRAGGER` passes `true`, and the sign is what makes lines on opposite
- * sides of the primary stay on opposite sides.
+ * The four that used to live here were plain-`double` shortcuts and each one
+ * disagreed with upstream in a way a router can act on: `Distance` rounded where
+ * `isqrt` floors, `LineProject` rounded half toward `+∞` where `rescale` rounds
+ * half away from zero, `LineDistance` truncated `sqrt( det² / l )` where
+ * upstream floors `sqrt` of a *rounded* `rescale( det, det, l )`, and
+ * `IntersectLines` answered null for two collinear lines where upstream answers
+ * their representative point.
  */
-export function segLineDistance(aSeg: Seg, aP: Vec2, aDetermineSide = false): number {
-  const p = aSeg.a.y - aSeg.b.y;
-  const q = aSeg.b.x - aSeg.a.x;
-  const r = -p * aSeg.a.x - q * aSeg.a.y;
-  const l = p * p + q * q;
-  const det = p * aP.x + q * aP.y + r;
-
-  const dist = l > 0 ? Math.trunc(Math.sqrt((det * det) / l)) : 0;
-
-  return aDetermineSide ? sign(det) * dist : Math.abs(dist);
-}
-
-/** `SEG::LineProject( aP )`: the projection onto the *infinite* line. */
-export function segLineProject(aSeg: Seg, aP: Vec2): Vec2 {
-  const d = sub(aSeg.b, aSeg.a);
-  const lSquared = dot(d, d);
-
-  if (lSquared === 0) return { ...aSeg.a };
-
-  const t = dot(d, sub(aP, aSeg.a));
-
-  return {
-    x: Math.round(aSeg.a.x + (t * d.x) / lSquared),
-    y: Math.round(aSeg.a.y + (t * d.y) / lSquared),
-  };
-}
-
-/** `SEG::Distance( aP )`: to the segment, clamped at its ends. */
-export function segDistance(aSeg: Seg, aP: Vec2): number {
-  const d = sub(aSeg.b, aSeg.a);
-  const len2 = dot(d, d);
-
-  if (len2 === 0) return Math.round(Math.hypot(aP.x - aSeg.a.x, aP.y - aSeg.a.y));
-
-  let t = dot(sub(aP, aSeg.a), d) / len2;
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-
-  return Math.round(Math.hypot(aP.x - (aSeg.a.x + d.x * t), aP.y - (aSeg.a.y + d.y * t)));
-}
-
-/** `SEG::Contains( aP )`, which is `Distance( aP ) <= 1`. */
-const segContains = (aSeg: Seg, aP: Vec2): boolean => segDistance(aSeg, aP) <= 1;
-
-/** `SEG::IntersectLines`: where the two *infinite* lines meet, or null. */
-export function segIntersectLines(aA: Seg, aB: Seg): Vec2 | null {
-  const d1 = sub(aA.b, aA.a);
-  const d2 = sub(aB.b, aB.a);
-  const denom = d1.x * d2.y - d1.y * d2.x;
-
-  if (denom === 0) return null;
-
-  const t = ((aB.a.x - aA.a.x) * d2.y - (aB.a.y - aA.a.y) * d2.x) / denom;
-
-  return { x: Math.round(aA.a.x + d1.x * t), y: Math.round(aA.a.y + d1.y * t) };
-}
+export {
+  segContains,
+  segDistanceToPoint as segDistance,
+  segIntersectLines,
+  segLineDistance,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 
 /**
  * `DIRECTION_45::Opposite()`.
