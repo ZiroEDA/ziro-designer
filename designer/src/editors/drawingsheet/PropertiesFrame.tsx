@@ -38,7 +38,8 @@ import type {
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
-import type { EdaUnits } from '../../ui/unit_binder.js';
+import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
+import { MessageDialogError } from '../../ui/dialog_message.js';
 
 /**
  * The font faces the Text page offers. Default Font is the stroke font, which
@@ -55,6 +56,36 @@ const FACE_CHOICES: readonly ComboOption[] = [
 /** TB_DEFAULT_TEXTSIZE and the standard default pen widths (ds_data_model). */
 const DEFAULT_TEXTSIZE = 1.5;
 const DEFAULT_WIDTH = 0.15;
+
+/*
+ * The `validateMM` ranges, in millimetres — `validateMM( binder, min, max )`
+ * is `UNIT_BINDER::Validate( min, max, EDA_UNITS::MM )`, so the limits stay in
+ * mm however the field is displayed. Every call site upstream is listed; a
+ * field NOT in this list is deliberately unchecked there, and adding a range
+ * to one would be as wrong as dropping one from these.
+ */
+
+/** DLG_MIN_TEXTSIZE / DLG_MAX_TEXTSIZE (properties_frame.cpp:49-50). */
+const DLG_MIN_TEXTSIZE = 0.01;
+const DLG_MAX_TEXTSIZE = 100.0;
+
+/** An item's pen width (:529) and the sheet's default line width (:204). */
+const LINE_WIDTH_RANGE: UnitRange = { min: 0.0, max: 10.0 };
+
+/**
+ * An item's own text size (:611, :614). Zero is legal here and means "use the
+ * sheet default", which is why the minimum is 0 and not DLG_MIN_TEXTSIZE.
+ */
+const ITEM_TEXT_SIZE_RANGE: UnitRange = { min: 0.0, max: DLG_MAX_TEXTSIZE };
+
+/**
+ * The sheet's DEFAULT text size (:207, :210). This one cannot be zero — there
+ * is no further default to fall back to — so an emptied field is refused.
+ */
+const DEFAULT_TEXT_SIZE_RANGE: UnitRange = { min: DLG_MIN_TEXTSIZE, max: DLG_MAX_TEXTSIZE };
+
+/** The sheet's default text thickness (:213). */
+const DEFAULT_TEXT_THICKNESS_RANGE: UnitRange = { min: 0.0, max: 5.0 };
 
 const TYPE_LABEL: Record<WksItem['type'], string> = {
   line: 'Line',
@@ -250,6 +281,12 @@ export function PropertiesFrame({
   onShowSyntaxHelp: () => void;
 }): JSX.Element {
   const [tab, setTab] = useState<'item' | 'general'>('item');
+  /**
+   * UNIT_BINDER::delayedFocusHandler's DisplayErrorMessage box. One per panel,
+   * not one per field: only one binder can be failing at a time, because the
+   * check runs on the focus that leaves it.
+   */
+  const [error, setError] = useState<string | null>(null);
   const item = selectedIndex >= 0 ? sheet.items[selectedIndex] : undefined;
 
   return (
@@ -275,6 +312,7 @@ export function PropertiesFrame({
             <ItemProperties
               item={item}
               units={units}
+              onError={setError}
               onChange={onItemChange}
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
@@ -284,9 +322,15 @@ export function PropertiesFrame({
             </div>
           )
         ) : (
-          <GeneralOptions setup={sheet.setup} units={units} onChange={onSetupChange} />
+          <GeneralOptions
+            setup={sheet.setup}
+            units={units}
+            onError={setError}
+            onChange={onSetupChange}
+          />
         )}
       </div>
+      {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
     </div>
   );
 }
@@ -294,11 +338,13 @@ export function PropertiesFrame({
 function ItemProperties({
   item,
   units,
+  onError,
   onChange,
   onShowSyntaxHelp,
 }: {
   item: WksItem;
   units: EdaUnits;
+  onError: (message: string) => void;
   onChange: (patch: Partial<WksItem>) => void;
   onShowSyntaxHelp: () => void;
 }): JSX.Element {
@@ -442,6 +488,8 @@ function ItemProperties({
             <UnitField
               label="Text width:"
               units={units}
+              range={ITEM_TEXT_SIZE_RANGE}
+              onError={onError}
               value={t.fontW}
               onCommit={(fontW) => patch({ fontW })}
             />
@@ -450,6 +498,8 @@ function ItemProperties({
             <UnitField
               label="Text height:"
               units={units}
+              range={ITEM_TEXT_SIZE_RANGE}
+              onError={onError}
               value={t.fontH}
               onCommit={(fontH) => patch({ fontH })}
             />
@@ -512,6 +562,8 @@ function ItemProperties({
             <UnitField
               label="Line thickness:"
               units={units}
+              range={LINE_WIDTH_RANGE}
+              onError={onError}
               value={shape.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -524,6 +576,8 @@ function ItemProperties({
             <UnitField
               label="Text thickness:"
               units={units}
+              range={LINE_WIDTH_RANGE}
+              onError={onError}
               value={t.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -542,6 +596,8 @@ function ItemProperties({
             <UnitField
               label="Line thickness:"
               units={units}
+              range={LINE_WIDTH_RANGE}
+              onError={onError}
               value={poly.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -613,10 +669,12 @@ function ItemProperties({
 function GeneralOptions({
   setup,
   units,
+  onError,
   onChange,
 }: {
   setup: WksSheet['setup'];
   units: EdaUnits;
+  onError: (message: string) => void;
   onChange: (patch: Partial<WksSheet['setup']>) => void;
 }): JSX.Element {
   return (
@@ -626,6 +684,8 @@ function GeneralOptions({
           <UnitField
             label="Text width:"
             units={units}
+            range={DEFAULT_TEXT_SIZE_RANGE}
+            onError={onError}
             value={setup.textW}
             onCommit={(textW) => onChange({ textW })}
           />
@@ -634,6 +694,8 @@ function GeneralOptions({
           <UnitField
             label="Text height:"
             units={units}
+            range={DEFAULT_TEXT_SIZE_RANGE}
+            onError={onError}
             value={setup.textH}
             onCommit={(textH) => onChange({ textH })}
           />
@@ -642,6 +704,8 @@ function GeneralOptions({
           <UnitField
             label="Line thickness:"
             units={units}
+            range={LINE_WIDTH_RANGE}
+            onError={onError}
             value={setup.lineWidth}
             onCommit={(lineWidth) => onChange({ lineWidth })}
           />
@@ -650,6 +714,8 @@ function GeneralOptions({
           <UnitField
             label="Text thickness:"
             units={units}
+            range={DEFAULT_TEXT_THICKNESS_RANGE}
+            onError={onError}
             value={setup.textLineWidth}
             onCommit={(textLineWidth) => onChange({ textLineWidth })}
           />

@@ -18,7 +18,13 @@
  */
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
-import { type MessageDialogIcon, type YesNoResult, yesNoButtons } from './message_dialog.js';
+import {
+  ERROR_CAPTION,
+  type MessageDialogIcon,
+  OK_LABEL,
+  type YesNoResult,
+  yesNoButtons,
+} from './message_dialog.js';
 import { useModalEscape } from './useModalEscape.js';
 
 /** The `wxICON_*` glyphs, drawn at the 44 px `.ze-msgdlg-icon` box. */
@@ -65,6 +71,51 @@ function DialogIcon({ icon }: { icon: MessageDialogIcon }): JSX.Element {
       <path d="M24 18v11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
       <circle cx="24" cy="36" r="1.9" fill="currentColor" />
     </svg>
+  );
+}
+
+/**
+ * `DisplayErrorMessage( aParent, aText, aExtraInfo )` (common/confirm.cpp) —
+ * the same `KICAD_MESSAGE_DIALOG` shell with `wxOK | wxICON_ERROR` and the
+ * caption `_( "Error" )`. wx maps Esc to the sole button here, so dismissing
+ * it is the same as pressing OK.
+ */
+export function MessageDialogError({
+  message,
+  extendedMessage,
+  onClose,
+}: {
+  /** `aText`, the error itself. */
+  message: string;
+  /** `SetExtendedMessage( aExtraInfo )`, omitted by most call sites. */
+  extendedMessage?: string;
+  onClose: () => void;
+}): JSX.Element {
+  useModalEscape(onClose);
+
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    okRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-msgdlg" role="dialog" aria-modal="true">
+        <div className="ze-modal-header">{ERROR_CAPTION}</div>
+        <div className="ze-msgdlg-body">
+          <DialogIcon icon="error" />
+          <div className="ze-msgdlg-text">
+            <div className="ze-msgdlg-message">{message}</div>
+            {extendedMessage && <div className="ze-msgdlg-extended">{extendedMessage}</div>}
+          </div>
+        </div>
+        <div className="ze-msgdlg-buttons">
+          <button type="button" className="ze-btn primary" ref={okRef} onClick={onClose}>
+            {OK_LABEL}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
