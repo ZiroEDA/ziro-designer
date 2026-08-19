@@ -15,29 +15,8 @@
  * FOOTPRINT_PREVIEW_PANEL::onSize / fitToCurrentFootprint).
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { InputPrefs } from '../editors/schematic/components/SchematicCanvas.js';
-import { DEFAULT_INPUT_PREFS } from '../editors/schematic/components/SchematicCanvas.js';
-import { settings } from '../prefs/settings.js';
-
-/** The mouse settings the preview panes use when their owner passes none,
- *  COMMON_SETTINGS m_Input, the same source WX_VIEW_CONTROLS reads. */
-export function commonInputPrefs(): InputPrefs {
-  const input = settings.common.input;
-  return {
-    ...DEFAULT_INPUT_PREFS,
-    zoomSpeed: input.zoom_speed,
-    zoomSpeedAuto: input.zoom_speed_auto,
-    centerOnZoom: input.center_on_zoom,
-    reverseZoom: input.reverse_scroll_zoom,
-    scrollModZoom: input.scroll_modifier_zoom,
-    scrollModPanH: input.scroll_modifier_pan_h,
-    scrollModPanV: input.scroll_modifier_pan_v,
-    reverseScrollPanH: input.reverse_scroll_pan_h,
-    horizontalPan: input.horizontal_pan,
-    mouseMiddle: input.mouse_middle as InputPrefs['mouseMiddle'],
-    mouseRight: input.mouse_right as InputPrefs['mouseRight'],
-  };
-}
+import type { InputPrefs } from '../ui/view_controls.js';
+import { commonInputPrefs } from '../ui/view_controls.js';
 
 /** A canvas transform in device pixels: world -> screen. */
 export interface PreviewView {

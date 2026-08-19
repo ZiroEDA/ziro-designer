@@ -226,49 +226,8 @@ import { editPointColors } from '../../../render/color4d.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
-
-/** Mouse/input behaviour from the Preferences dialog (COMMON_SETTINGS m_Input + eeschema). */
-export interface InputPrefs {
-  zoomSpeed: number; // 1..10 (input.zoom_speed)
-  zoomSpeedAuto: boolean;
-  centerOnZoom: boolean;
-  reverseZoom: boolean;
-  scrollModZoom: 'none' | 'ctrl' | 'shift' | 'alt';
-  scrollModPanH: 'none' | 'ctrl' | 'shift' | 'alt';
-  scrollModPanV: 'none' | 'ctrl' | 'shift' | 'alt';
-  reverseScrollPanH: boolean;
-  horizontalPan: boolean;
-  mouseLeft: 'select' | 'drag_selected' | 'drag_any';
-  mouseMiddle: 'pan' | 'zoom' | 'none';
-  mouseRight: 'pan' | 'zoom' | 'none';
-  /** eeschema input.drag_is_move: the mouse-drag gesture performs a Move
-   *  (leave wires behind) instead of a Drag (rubber-band them along). */
-  dragIsMove: boolean;
-  autoStartWires: boolean;
-  crosshair: 'small' | 'full' | '45';
-  alwaysShowCrosshair: boolean;
-}
-
-export const DEFAULT_INPUT_PREFS: InputPrefs = {
-  zoomSpeed: 1,
-  zoomSpeedAuto: true,
-  centerOnZoom: true,
-  reverseZoom: false,
-  scrollModZoom: 'none',
-  scrollModPanH: 'ctrl',
-  scrollModPanV: 'shift',
-  reverseScrollPanH: false,
-  horizontalPan: false,
-  mouseLeft: 'drag_selected',
-  mouseMiddle: 'pan',
-  mouseRight: 'pan',
-  dragIsMove: false,
-  autoStartWires: true,
-  // KiCad's defaults (app_settings.cpp): SMALL_CROSS, and the crosshair shown
-  // whatever tool is active.
-  crosshair: 'small',
-  alwaysShowCrosshair: true,
-};
+import type { InputPrefs } from '../../../ui/view_controls.js';
+import { DEFAULT_INPUT_PREFS } from '../../../ui/view_controls.js';
 
 /** The small crosshair is 80 screen px across, at any zoom (OPENGL_GAL::DrawCursor). */
 const SMALL_CROSS_PX = 80;

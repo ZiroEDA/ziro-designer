@@ -16,7 +16,7 @@ import {
   usePreviewViewControls,
   type PreviewView,
 } from '../../../widgets/preview_view_controls.js';
-import type { InputPrefs } from '../components/SchematicCanvas.js';
+import type { InputPrefs } from '../../../ui/view_controls.js';
 
 export interface SymbolPreviewWidgetProps {
   /** Symbol to display, or null to show the status text instead. */
