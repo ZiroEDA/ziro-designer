@@ -64,4 +64,5 @@ export {
 } from './drawing_sheet/index.js';
 
 export * from './array_options.js';
+export * from './table.js';
 export { pngPixelSize, pngPPI, DEFAULT_PPI } from './png_meta.js';

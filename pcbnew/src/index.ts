@@ -596,9 +596,11 @@ export {
   tableBBox,
   tableBorderSegments,
   tableCell,
-  tableRowCount,
   type TableSegment,
 } from './table_geometry.js';
+// tableRowCount is not re-exported here: it is the same statement in
+// SCH_TABLE::GetRowCount and PCB_TABLE::GetRowCount, so it lives in
+// @ziroeda/common/src/table.js and both editors import it from there.
 
 export {
   tableAt,

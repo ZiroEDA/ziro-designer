@@ -41,6 +41,7 @@
  * the combo falls back to index 0 for anything out of range.
  */
 
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import type { Schematic, SchTable, Stroke } from '../types.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
@@ -70,9 +71,6 @@ export interface SchTableValues {
   readonly separatorColor?: TableColor;
 }
 
-/** How many rows the table has, given its cells and column count. */
-export const tableRowCount = (t: SchTable): number =>
-  Math.max(1, Math.ceil(t.cells.length / Math.max(1, t.columnCount)));
 
 /**
  * The style a stored stroke selects in the combo.

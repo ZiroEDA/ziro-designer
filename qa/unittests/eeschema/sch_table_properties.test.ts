@@ -25,10 +25,10 @@ import {
   collectSchTableValues,
   separatorControlsEnabled,
   tableAt,
-  tableRowCount,
   tableStrokeStyle,
   tableWithValues,
 } from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import type { Schematic } from '@ziroeda/eeschema/src/types.js';
 
 const EMPTY = `(kicad_sch (version 20250114) (paper "A4") (lib_symbols))`;
@@ -52,6 +52,23 @@ describe('reading a table into the dialog', () => {
 
   it('and the row count comes from the cells and the column count', () => {
     expect(tableRowCount(doc().tables[0]!)).toBe(2);
+  });
+
+  /**
+   * `TransferDataToWindow` fills the grid with `GetRowCount()` rows, and
+   * SCH_TABLE::GetRowCount (eeschema/sch_table.h:122) is integer division. The
+   * schematic copy of that arithmetic used to round up and to floor the answer
+   * at one, so a table whose cells did not fill its last row was shown an extra
+   * row of blanks -- and typing in it silently went nowhere, because there is no
+   * cell behind it.
+   */
+  it('shows no row the cells do not fill', () => {
+    const t = doc().tables[0]!;
+
+    expect(collectSchTableValues({ ...t, cells: t.cells.slice(0, 4) }).cellText).toEqual([
+      ['a', 'b', 'c'],
+    ]);
+    expect(collectSchTableValues({ ...t, cells: [] }).cellText).toEqual([]);
   });
 
   it('carries the border and separator flags across', () => {

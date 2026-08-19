@@ -30,7 +30,7 @@
  */
 import { atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { dropChild, mm, parseBoardItemId, patchChild } from './edit-board.js';
-import { tableRowCount } from './table_geometry.js';
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import type { Board, PcbTable, PcbTableCell, StrokeType } from './types.js';
 
 const list = (...items: SNode[]): SList => ({ kind: 'list', items });
