@@ -48,6 +48,32 @@
      22, which is why our menus read as a size smaller than the desktop app's. */
   --menu-row: 26px;
 
+  /* Status-bar height. A property of the FRAME, because KiCad has two kinds of
+     status bar and they do not measure the same:
+
+       23px  KISTATUSBAR (common/widgets/kistatusbar.cpp). Every EDA_DRAW_FRAME
+             gets one (eda_draw_frame.cpp:136) and so does KICAD_MANAGER_FRAME
+             (kicad_manager_frame.cpp:176). MEASURED on the project manager at
+             1920x1200, column x=900: content (55,55,55) to y=1175, a (41,41,41)
+             rule at y=1176, bar (44,44,44) y=1177..1199 -> 23px.
+
+       33px  a plain wxStatusBar. Only two frames in the whole of KiCad get one,
+             because only EDA_DRAW_FRAME and KICAD_MANAGER_FRAME override
+             OnCreateStatusBar: BITMAP2CMP_FRAME (bitmap2cmp_frame.cpp:181) and
+             EDA_3D_VIEWER_FRAME (eda_3d_viewer_frame.cpp:118). MEASURED on
+             bitmap2component at 1920x1200, column x=600: content (39,39,39) to
+             y=1165, a (24,24,24) rule at y=1166, bar (44,44,44) y=1167..1199
+             -> 33px.
+
+     Do NOT "unify" these. The obvious explanations are all disproved: a probe
+     built against this machine's own wx 3.2.4/GTK3 (see the PR) gives an
+     IDENTICAL height for wxSTB_SIZEGRIP vs none, 1 field vs 8, wxSB_FLAT vs
+     wxSB_NORMAL, and SetFont vs not - and KIUI::GetStatusFont is a no-op off
+     macOS anyway (getGUIFont( win, 0 ) returns the window's own font, and
+     apply_icon_scale_to_fonts is off here). The one difference that survives is
+     the widget class itself, so that is what this token keys on. */
+  --statusbar-height: 23px;
+
   /* ---------------------------------------------------------------------
      GTK control theme.
 
@@ -888,10 +914,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-statusbar {
   display: flex;
   align-items: center;
-  /* 23px of bar under a #292929 rule, measured off the real frame (the bar
-     runs y=1177..1199 with the rule on 1176). Ours was 24 under a near-black
-     --chrome-border. */
-  height: 23px;
+  /* The bar's height is a property of the FRAME, not a constant: KiCad's two
+     kinds of status bar do not measure the same. See --statusbar-height. */
+  height: var(--statusbar-height);
   background: var(--chrome-bg);
   border-top: 1px solid #292929;
   font-size: var(--ui-font-size);
@@ -910,21 +935,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* KiCad's KISTATUSBAR has two stretching fields: field 0 (the message area,
-   weight -2) on the far left and field 6 (the "current tool" panel, weight -1)
-   before the constraint field. In the dark theme the field separators are
-   invisible, so we draw none, the two stretch fields position the cluster. */
-.ze-statusbar .cell.msg {
-  flex: 1 1 0;
+/* KiCad's KISTATUSBAR has three stretching fields, and updateStatusBarWidths
+   (common/eda_draw_frame.cpp:792) states their weights exactly: field 0 (the
+   message area) is -3, field 6 (the "current tool" panel) and field 7 (the
+   constraint mode) are -2 each. So the leftover width splits 3:2:2 and that,
+   not a 1:1 guess, is what positions the fixed cluster in the middle. In the
+   dark theme the field separators are invisible, so we draw none. */
+.ze-statusbar .cell.stretch3 {
+  flex: 3 1 0;
   min-width: 0;
 }
-.ze-statusbar .cell.tool {
-  flex: 1 1 0;
+.ze-statusbar .cell.stretch2 {
+  flex: 2 1 0;
   min-width: 0;
 }
-/* Legacy single-grow class kept for the schematic/other editors. */
+/* EDA_3D_VIEWER_STATUSBAR and the frames that are not EDA_DRAW_FRAMEs state a
+   single stretch field instead (kicad_manager_frame.cpp:395 makes field 0 "the
+   only stretchable field"). */
+.ze-statusbar .cell.msg,
 .ze-statusbar .cell.grow {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
 }
 /* A pane whose width KiCad states in pixels rather than deriving from a
    template string — EDA_3D_VIEWER_FRAME's status_dims { -1, 170, 130, 130,

@@ -12,6 +12,11 @@
    other editor. */
 
 .imgc-frame {
+  /* This frame's status bar is 10px taller than every other frame's, because
+     BITMAP2CMP_FRAME is one of only two in KiCad that gets a plain
+     wxStatusBar rather than a KISTATUSBAR. Measured, and explained, at the
+     .ze-statusbar rule near the bottom of this file. */
+  --statusbar-height: 33px;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -513,27 +518,26 @@
   margin-top: calc(-1 * var(--wx-border));
 }
 
-/* --- status bar (matches the other editors) --- */
-/* CreateStatusBar( 1, wxSTB_SIZEGRIP ) (bitmap2cmp_frame.cpp:181) is a native
-   bar at a fixed height whether or not it has any text in it; ours collapsed to
-   the line box and the window grew a 9px strip that came and went. */
-.imgc-statusbar {
+/* The status bar is the shared KiStatusBar (.ze-statusbar in ui/shell.css) -
+   the widget, the panes and the colours are all the shared ones. What this
+   frame does NOT share is the HEIGHT, and the difference is real and measured.
+
+   BITMAP2CMP_FRAME calls plain CreateStatusBar( 1, wxSTB_SIZEGRIP, wxID_ANY )
+   (bitmap2component/bitmap2cmp_frame.cpp:181) and does not override
+   OnCreateStatusBar, so it is one of only two frames in KiCad that get a plain
+   wxStatusBar instead of a KISTATUSBAR. Measured off a real bitmap2component
+   window at 1920x1200, column x=600: content (39,39,39) to y=1165, a (24,24,24)
+   rule at y=1166, bar (44,44,44) from y=1167 to 1199 -> 33px, against the
+   project manager's 23. The 24px this file used to force was closer to right
+   than the shared 23; both were wrong.
+
+   See --statusbar-height in ui/shell.css for why the two differ and for the
+   list of explanations that have already been disproved. Do not unify them.
+
+   Also local: the frame is a flex column and a native status bar never
+   shrinks, so its flex-basis has to be pinned. */
+.imgc-frame > .ze-statusbar {
   flex: none;
-  display: flex;
-  align-items: center;
-  min-height: 24px;
-  background: var(--chrome-bg);
-  border-top: 1px solid var(--ctl-border);
-}
-
-.imgc-statusbar .cell {
-  padding: 4px 10px;
-  border-right: 1px solid var(--ctl-border);
-  font-variant-numeric: tabular-nums;
-}
-
-.imgc-statusbar .cell.grow {
-  flex: 1;
 }
 
 /* --- about modal (same pattern as the calculator's Modal) --- */

@@ -41,7 +41,16 @@ import { Toolbar } from '../../ui/Toolbar.js';
 import { GBR_TOP_TOOLBAR, GBR_LEFT_TOOLBAR, GBR_RIGHT_TOOLBAR } from './gerberToolbars.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, type LayerInfo } from './LayerManager.js';
-import { DCodeListDialog, ItemInfoPanel } from './dialogs.js';
+import { DCodeListDialog, itemInfoRows } from './dialogs.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel } from '../../ui/MsgPanel.js';
+import {
+  coordsMsg,
+  deltasMsg,
+  polarMsg,
+  zoomFactorForScale,
+  zoomMsg,
+} from '../../ui/status_format.js';
 import { defaultLayerColor, GERBER_BG_COLOR } from './gerberColors.js';
 import { exportLayersToPcb } from './exportToPcbnew.js';
 import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
@@ -630,6 +639,7 @@ export function GerberViewer({
   );
 
   // ---- status bar --------------------------------------------------------
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const fmtCoord = useCallback(
     (iu: number): string => {
       const mm = iu / IU_PER_MM;
@@ -641,20 +651,31 @@ export function GerberViewer({
   );
 
   const polar = toggles.has('togglePolar');
-  const coordText = cursor
-    ? polar
-      ? `r ${fmtCoord(Math.hypot(cursor.x, cursor.y))}  θ ${((Math.atan2(cursor.y, cursor.x) * 180) / Math.PI).toFixed(1)}°`
-      : `X ${fmtCoord(cursor.x)}  Y ${fmtCoord(cursor.y)}`
-    : 'X, Y -';
+  // GERBVIEW_FRAME::UpdateStatusBar (gerbview/gerbview_frame.cpp:962) writes
+  // X/Y into pane 2 *unconditionally*; the polar switch only changes pane 3,
+  // from "dx dy dist" to "r theta". Ours put the polar reading in pane 2 and
+  // so lost the absolute coordinates whenever polar mode was on.
+  const coordText = cursor ? coordsMsg(fmtCoord(cursor.x), fmtCoord(cursor.y)) : coordsMsg(null);
 
-  const measureText = measure
-    ? (() => {
-        const dx = measure.b.x - measure.a.x;
-        const dy = measure.b.y - measure.a.y;
-        const dist = Math.hypot(dx, dy);
-        return `dist ${fmtCoord(dist)}  dx ${fmtCoord(dx)}  dy ${fmtCoord(dy)}`;
-      })()
-    : '';
+  const deltaText = (() => {
+    if (polar) {
+      return cursor
+        ? polarMsg(
+            fmtCoord(Math.hypot(cursor.x, cursor.y)),
+            (Math.atan2(-cursor.y, cursor.x) * 180) / Math.PI,
+          )
+        : polarMsg(null);
+    }
+    if (measure) {
+      const dx = measure.b.x - measure.a.x;
+      const dy = measure.b.y - measure.a.y;
+      return deltasMsg(fmtCoord(dx), fmtCoord(dy), fmtCoord(Math.hypot(dx, dy)));
+    }
+    // BASE_SCREEN::m_LocalOrigin, which GerbView never moves here.
+    return cursor
+      ? deltasMsg(fmtCoord(cursor.x), fmtCoord(cursor.y), fmtCoord(Math.hypot(cursor.x, cursor.y)))
+      : deltasMsg(null);
+  })();
 
   const unitLabel = unit === 'mm' ? 'mm' : unit === 'in' ? 'in' : 'mils';
 
@@ -883,36 +904,36 @@ export function GerberViewer({
         />
       </div>
 
-      {/* Item inspector row (message panel). */}
-      {picked && (
-        <div className="ze-gbr-msgpanel">
-          <ItemInfoPanel item={picked} unit={unit} />
-        </div>
-      )}
+      {/* EDA_MSG_PANEL: GERBER_DRAW_ITEM::GetMsgPanelInfo for the picked item,
+          plus the layer count GerbView keeps on the frame. */}
+      <MsgPanel
+        testId="gbr-message-panel"
+        items={[
+          ...itemInfoRows(picked, unit),
+          { upper: 'Layers', lower: String(layers.length) },
+          ...(highlight.mode !== 'none'
+            ? [{ upper: 'Highlight', lower: `${highlight.mode} ${highlight.value}` }]
+            : []),
+        ]}
+      />
 
-      {/* Status bar rows. */}
-      <div className="ze-statusbar" style={{ gap: 18 }}>
-        <span className="cell grow">{status}</span>
-        <span className="cell">
-          {layers.length} layer{layers.length === 1 ? '' : 's'}
-        </span>
-        {highlight.mode !== 'none' && (
-          <span className="cell">
-            Highlight: {highlight.mode} {highlight.value}
-          </span>
-        )}
-      </div>
-      <div className="ze-statusbar">
-        <span className="cell">Z {scale > 0 ? (scale * 1e6).toFixed(1) : '-'}</span>
-        <span className="cell" data-testid="gbr-coords">
-          {coordText}
-        </span>
-        {measureText && <span className="cell">{measureText}</span>}
-        <span className="cell grow">
-          {activeTool === 'measure' ? 'Measure tool' : 'Select tool'}
-        </span>
-        <span className="cell">{unitLabel}</span>
-      </div>
+      {/* GERBVIEW_FRAME is an EDA_DRAW_FRAME, so it gets the same eight panes.
+          Field 0 carries UpdateTitleAndInfo's image/layer-name line
+          (gerbview/gerbview_frame.cpp:699). */}
+      <KiStatusBar
+        testIds={{ message: 'gbr-status-msg', coords: 'gbr-coords', tool: 'gbr-tool-msg' }}
+        fields={{
+          message: status,
+          zoom: zoomMsg(zoomFactorForScale(scale, dpr, IU_PER_MM)),
+          coords: coordText,
+          deltas: deltaText,
+          // GERBVIEW_FRAME::DisplayGridMsg (gerbview_frame.cpp:948) prints both
+          // axes as "grid X %s  Y %s", not GRID::MessageText's collapsed form.
+          grid: `grid X ${fmtCoord(gridIU)}  Y ${fmtCoord(gridIU)}`,
+          units: unit === 'in' ? 'inches' : unitLabel,
+          tool: activeTool === 'measure' ? 'Measure tool' : 'Select tool',
+        }}
+      />
 
       {showDcodeList && (
         <DCodeListDialog image={activeImage} unit={unit} onClose={() => setShowDcodeList(false)} />

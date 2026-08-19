@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { iuToMM } from '@ziroeda/common';
+import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +23,18 @@ import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import {
+  coordsMsg,
+  deltasMsg,
+  gridMsg,
+  messageTextFromValue,
+  type StatusUnits,
+  unitsMsg,
+  zoomFactorForScale,
+  zoomMsg,
+} from '../../ui/status_format.js';
 import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
 import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
@@ -50,7 +62,7 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { MM, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { GRID, MM, type SymbolViewOptions } from './render/symbolRenderer.js';
 import type { SymbolHit } from './edits.js';
 import {
   LibSymbolPropertiesDialog,
@@ -123,7 +135,25 @@ const RADIO_GROUPS: string[][] = [
   ['showDeMorganStandard', 'showDeMorganAlternate'],
 ];
 
-const PX_PER_MM_100 = 3.7795;
+/**
+ * Field 6, the "Current Tool" pane: TOOLS_HOLDER::SetTool hands
+ * `TOOL_ACTION::GetFriendlyName()` to `EDA_DRAW_FRAME::DisplayToolMsg`
+ * (common/tool/tools_holder.cpp:72). These are SCH_ACTIONS' names verbatim
+ * (eeschema/tools/sch_actions.cpp:376-426, :685-704; the selection and delete
+ * tools are ACTIONS' own, common/tool/actions.cpp:416/:1230).
+ */
+const SYM_TOOL_MSGS: Record<string, string> = {
+  select: 'Select item(s)',
+  placePin: 'Draw Pins',
+  placeText: 'Draw Text',
+  drawRectangle: 'Draw Rectangles',
+  drawCircle: 'Draw Circles',
+  drawArc: 'Draw Arcs',
+  drawLines: 'Draw Lines',
+  drawPolygon: 'Draw Polygons',
+  placeAnchor: 'Move Symbol Anchor',
+  deleteTool: 'Interactive Delete Tool',
+};
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
@@ -1547,14 +1577,42 @@ export function SymbolEditor({
   // the easier mistake to make.
   useUnsavedGuard(manager.current.hasModifications());
 
-  const unitsLabel = toggles.has('unitsInches') ? 'in' : toggles.has('unitsMils') ? 'mils' : 'mm';
-  const fmt = (iu: number): string => {
-    const mm = iuToMM(iu);
-    if (unitsLabel === 'mm') return mm.toFixed(4);
-    if (unitsLabel === 'mils') return (mm / 0.0254).toFixed(2);
-    return (mm / 25.4).toFixed(4);
-  };
-  const zoomPct = Math.round(((scale * 10000 * dpr) / PX_PER_MM_100) * 100);
+  const unitsLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+  // MessageTextFromValue at the eeschema IU scale, which is the short form:
+  // mm %.3f (trimmed), mils %.0f, inches %.3f.
+  const fmt = (iu: number): string => messageTextFromValue(iuToMM(iu), unitsLabel, SCH_IU_PER_MM);
+
+  /**
+   * SYMBOL_EDIT_FRAME::UpdateSymbolMsgPanelInfo
+   * (eeschema/symbol_editor/symbol_editor.cpp:1740): Name, Parent (derived
+   * symbols only), Type, Description, Keywords, Datasheet.
+   */
+  const symbolMsgPanelItems = useMemo((): MsgPanelItem[] => {
+    if (!workSymbol) return [];
+
+    const field = (key: string): string =>
+      workSymbol.properties.find((f) => f.key === key)?.value ?? '';
+
+    return [
+      { upper: 'Name', lower: curName ?? workSymbol.libId },
+      ...(isAlias ? [{ upper: 'Parent', lower: workSymbol.extends ?? 'Undefined!' }] : []),
+      {
+        upper: 'Type',
+        lower: workSymbol.isPower
+          ? workSymbol.isLocalPower
+            ? 'Power Symbol (Local)'
+            : 'Power Symbol'
+          : 'Symbol',
+      },
+      { upper: 'Description', lower: field('ki_description') },
+      { upper: 'Keywords', lower: field('ki_keywords') },
+      { upper: 'Datasheet', lower: field('Datasheet') },
+    ];
+  }, [workSymbol, curName, isAlias]);
 
   const propsSummary = useMemo(() => {
     if (!workSymbol || selection.size !== 1) return null;
@@ -1803,20 +1861,27 @@ export function SymbolEditor({
         />
       </div>
 
-      <div className="ze-statusbar">
-        <span className="cell">
-          Z {Number.isFinite(zoomPct) ? (zoomPct / 100).toFixed(2) : '1.00'}
-        </span>
-        <span className="cell">
-          X {cursor ? fmt(cursor.x) : '-'} Y {cursor ? fmt(cursor.y) : '-'}
-        </span>
-        <span className="cell">
-          grid {unitsLabel === 'mm' ? '1.2700' : unitsLabel === 'mils' ? '50' : '0.0500'}
-        </span>
-        <span className="cell">{isAlias ? `derived from ${workSymbol?.extends}` : ''}</span>
-        <span className="cell grow">{status}</span>
-        <span className="cell">{unitsLabel}</span>
-      </div>
+      <MsgPanel items={symbolMsgPanelItems} testId="sym-message-panel" />
+
+      {/* SYMBOL_EDIT_FRAME is a SCH_BASE_FRAME, so it gets EDA_DRAW_FRAME's
+          eight panes unchanged (eeschema/sch_base_frame.cpp:252). */}
+      <KiStatusBar
+        testIds={{ message: 'sym-status-msg', tool: 'sym-tool-msg' }}
+        fields={{
+          message: status,
+          zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
+          coords: cursor ? coordsMsg(fmt(cursor.x), fmt(cursor.y)) : coordsMsg(null),
+          // SCH_SCREEN::m_LocalOrigin, which the symbol editor never moves
+          // (it has no ACTIONS::resetLocalCoords binding yet), so the deltas
+          // are measured from the symbol anchor.
+          deltas: cursor
+            ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
+            : deltasMsg(null),
+          grid: gridMsg(fmt(GRID)),
+          units: unitsMsg(unitsLabel),
+          tool: SYM_TOOL_MSGS[activeTool] ?? '',
+        }}
+      />
 
       {/* ----- dialogs ----- */}
       {pinDialog && workSymbol && (

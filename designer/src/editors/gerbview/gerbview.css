@@ -144,24 +144,9 @@
   max-width: 160px;
 }
 
-.ze-gbr-msgpanel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 3px 10px;
-  background: var(--panel-header);
-  border-top: 1px solid var(--chrome-border);
-  font-size: 11px;
-}
-.ze-gbr-iteminfo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-.ze-gbr-info-cell b {
-  color: #9fb4cc;
-  font-weight: 600;
-}
+/* The item inspector is the shared EDA_MSG_PANEL (.ze-msgpanel in
+   ui/shell.css) - GerbView instantiates the same widget as every other draw
+   frame, so it has no message panel of its own to style. */
 
 .ze-gbr-dcode-table {
   width: 100%;

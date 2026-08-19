@@ -67,8 +67,13 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  * level-of-detail threshold and the zoom factor itself are defined against. Not
  * the browser's 96: KiCad chose 91 as "the closest match to the legacy
  * renderer", and using 96 shifts every LOD gate by 5%.
+ *
+ * Declared with the shared status-bar formatters, which need the same number to
+ * report a zoom factor, and re-exported here so board code keeps one import.
  */
-export const GAL_SCREEN_DPI = 91;
+import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
+
+export { GAL_SCREEN_DPI };
 
 /**
  * The painted hole-wall ring (pcb_painter.cpp `draw(PCB_VIA)` LAYER_VIA_HOLEWALLS

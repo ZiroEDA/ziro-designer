@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `EDA_MSG_PANEL` (common/widgets/msgpanel.cpp), the strip of two-row cells
+ * `EDA_DRAW_FRAME` builds once (common/eda_draw_frame.cpp:145) and every draw
+ * frame instantiates. Written once here for the same reason.
+ *
+ * The upstream layout, which this reproduces:
+ *   - one `MSG_PANEL_ITEM` per cell, packed left to right in insertion order,
+ *     no columns and no separators (`updateItemPos`);
+ *   - upper text on the top row, lower text on the bottom row, each exactly one
+ *     control-font line high, and the panel's best height is `2 * fontSize.y`
+ *     *whatever the items contain* (`DoGetBestSize`) — an item with an empty
+ *     row still occupies both rows, so an empty value must be a non-breaking
+ *     space here or HTML collapses the row and the panel loses height;
+ *   - the first cell is inset by one 'W' width and cells are separated by one
+ *     'W' width plus the item's padding.
+ */
+
+import type { JSX } from 'react';
+
+/** `MSG_PANEL_ITEM` (include/widgets/msgpanel.h). */
+export interface MsgPanelItem {
+  /** `m_UpperText`, the label row. */
+  upper: string;
+  /** `m_LowerText`, the value row. */
+  lower: string;
+}
+
+/**
+ * What an empty upper/lower text renders as. `EDA_MSG_PANEL::showItem` simply
+ * skips drawing an empty string and the cell keeps both of its rows; a bare
+ * space in HTML collapses, so the row would lose its height.
+ */
+export const MSG_PANEL_EMPTY = ' ';
+
+export function MsgPanel({
+  items,
+  testId,
+}: {
+  items: readonly MsgPanelItem[];
+  testId?: string;
+}): JSX.Element {
+  return (
+    <div className="ze-msgpanel" data-testid={testId}>
+      {items.map((item, i) => (
+        // Upstream keys nothing: items are positional and duplicates are legal
+        // (two pads can report the same net). Index is the identity.
+        // biome-ignore lint/suspicious/noArrayIndexKey: MSG_PANEL_ITEMs are positional
+        <div className="ze-msgpanel-item" key={`${i}:${item.upper}`}>
+          <div className="ze-msgpanel-upper">{item.upper || MSG_PANEL_EMPTY}</div>
+          <div className="ze-msgpanel-lower">{item.lower || MSG_PANEL_EMPTY}</div>
+        </div>
+      ))}
+    </div>
+  );
+}

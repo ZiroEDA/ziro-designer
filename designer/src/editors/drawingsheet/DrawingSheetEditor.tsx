@@ -25,6 +25,7 @@ import {
   translateItem,
   mmToIU,
   iuToMM,
+  SCH_IU_PER_MM,
   type WksSheet,
   type WksItem,
   type WksCorner,
@@ -38,6 +39,14 @@ import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
+import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import {
+  gridMsg,
+  messageTextFromValue,
+  zoomFactorForScale,
+  zoomMsg,
+} from '../../ui/status_format.js';
 import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
@@ -1172,6 +1181,7 @@ export function DrawingSheetEditor({
   useUnsavedGuard(dirty);
 
   // ---- status bar (UpdateStatusBar) ----
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const unit = toggles.has('unitsInches') ? 'inches' : toggles.has('unitsMils') ? 'mils' : 'mm';
   const toUser = useCallback(
     (iu: number): number => {
@@ -1216,7 +1226,35 @@ export function DrawingSheetEditor({
 
   // Grid: 1 mm in metric, 0.1 in imperial (about the pl_editor defaults).
   const gridIU = unit === 'mm' ? mmToIU(1) : mmToIU(2.54);
-  const gridLabel = `grid ${unit === 'mm' ? '1.0000' : unit === 'inches' ? '0.100' : '100.0'}`;
+  // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
+  // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
+  // than going through GRID::MessageText, which is what MessageTextFromValue's
+  // long form prints anyway. Ours was a string literal per unit.
+  const gridLabel = gridMsg(
+    unit === 'inches'
+      ? (iuToMM(gridIU) / 25.4).toFixed(3)
+      : unit === 'mils'
+        ? ((iuToMM(gridIU) / 25.4) * 1000).toFixed(1)
+        : iuToMM(gridIU).toFixed(4),
+  );
+
+  /**
+   * PL_EDITOR_FRAME::UpdateMsgPanelInfo
+   * (pagelayout_editor/pl_editor_frame.cpp:968): Page Width and Page Height.
+   * The selection count is ours - upstream shows the selected item's own
+   * GetMsgPanelInfo rows there instead.
+   */
+  const dsMsgPanelItems = useMemo((): MsgPanelItem[] => {
+    const w = messageTextFromValue(pageMM[0], unit === 'inches' ? 'in' : unit);
+    const h = messageTextFromValue(pageMM[1], unit === 'inches' ? 'in' : unit);
+    return [
+      { upper: 'Page Width', lower: w },
+      { upper: 'Page Height', lower: h },
+      { upper: 'Paper', lower: paperDescription(preview) },
+      { upper: 'Page', lower: pageNumber === 1 ? 'Page 1' : 'Other pages' },
+      ...(selection.size > 0 ? [{ upper: 'Selected', lower: String(selection.size) }] : []),
+    ];
+  }, [pageMM, unit, preview, pageNumber, selection.size]);
 
   return (
     <div className="ze-app">
@@ -1369,27 +1407,25 @@ export function DrawingSheetEditor({
         />
       </div>
 
-      {/* Status bar rows (UpdateStatusBar field order). */}
-      <div className="ze-statusbar" style={{ gap: 18 }}>
-        <span className="cell grow">{status}</span>
-        {selection.size > 0 && (
-          <span className="cell">
-            <b>Selected</b> {selection.size}
-          </span>
-        )}
-        <span className="cell">{paperDescription(preview)}</span>
-        <span className="cell">{pageNumber === 1 ? 'Page 1' : 'Other pages'}</span>
-      </div>
-      <div className="ze-statusbar">
-        <span className="cell">Z {scale > 0 ? (scale * 1000).toFixed(2) : '-'}</span>
-        <span className="cell" data-testid="ds-coords">
-          {absCoord}
-        </span>
-        <span className="cell">{relCoord}</span>
-        <span className="cell">{gridLabel}</span>
-        <span className="cell grow">coord origin: {ORIGIN_CHOICES[originChoice]}</span>
-        <span className="cell">{unit}</span>
-      </div>
+      <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" />
+
+      {/* PL_EDITOR_FRAME::UpdateStatusBar (pl_editor_frame.cpp:730) keeps
+          EDA_DRAW_FRAME's eight panes and their widths but writes two of them
+          differently: pane 5, the one sized by the "Inches" template, carries
+          "coord origin: <corner>" (:803), and the units land in pane 6, the
+          stretch pane the other frames use for the current tool (:776). */}
+      <KiStatusBar
+        testIds={{ message: 'ds-status-msg', coords: 'ds-coords' }}
+        fields={{
+          message: status,
+          zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
+          coords: absCoord,
+          deltas: relCoord,
+          grid: gridLabel,
+          units: `coord origin: ${ORIGIN_CHOICES[originChoice]}`,
+          tool: unit,
+        }}
+      />
 
       {showPageDialog && (
         <PageSettingsDialog

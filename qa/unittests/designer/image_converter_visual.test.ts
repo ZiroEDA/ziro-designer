@@ -203,8 +203,23 @@ describe('D4/D5/D7/C2: the rest of the chrome', () => {
     expect(exportBtn).not.toContain('primary');
   });
 
-  it('keeps the status bar at a native fixed height', () => {
-    expect(rule('.imgc-statusbar')['min-height']).toBe('24px');
+  it('takes the shared status bar, at its own measured height', () => {
+    // The widget is shared - BM2CMP_FRAME gets the same panes, colours and
+    // font as everything else, so .imgc-statusbar is gone and the frame
+    // renders the shared KiStatusBar (.ze-statusbar, ui/shell.css).
+    expect(TSX).toContain('<KiStatusBar>');
+    expect(CSS_CODE).not.toMatch(/\n\.imgc-statusbar\s*\{/);
+
+    // The HEIGHT is not shared, and this is the one frame that proves it.
+    // BITMAP2CMP_FRAME calls plain CreateStatusBar( 1, wxSTB_SIZEGRIP )
+    // (bitmap2cmp_frame.cpp:181) and never overrides OnCreateStatusBar, so it
+    // gets a plain wxStatusBar rather than a KISTATUSBAR. Measured off a real
+    // window at 1920x1200, x=600: bar (44,44,44) y=1167..1199 -> 33px, against
+    // the project manager's 23. The 24px this file used to assert was neither.
+    expect(rule('.imgc-frame')['--statusbar-height']).toBe('33px');
+
+    // A native status bar never shrinks, and the frame is a flex column.
+    expect(rule('.imgc-frame > .ze-statusbar').flex).toBe('none');
   });
 
   it('draws flat notebook tabs with an accent underline on the selected one', () => {
