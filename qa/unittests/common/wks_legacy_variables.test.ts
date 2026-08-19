@@ -187,12 +187,15 @@ describe('the overbar upgrade the version gates', () => {
   });
 
   it('runs AFTER the legacy % conversion, not before', () => {
-    // Order is load-bearing: `${…}` introduces braces, and the overbar pass
-    // treats `}` as an overbar terminator. Running it first would see none of
-    // them; running it second must leave them alone.
-    expect(textOf(SRC('(page_layout').replace('~RESET and ~OE', '~A %T ~B'))).toBe(
-      '~{A} ${TITLE} ~{B}',
-    );
+    // Order is load-bearing, and only a case where the expansion lands INSIDE
+    // an open overbar shows it. `~A%TB`:
+    //   % first  (upstream) -> `~A${TITLE}B`, and the overbar pass then ends
+    //                          the bar on the variable's own `}` -> the B is
+    //                          outside the bar.
+    //   overbar first       -> `~{A%TB}`, and the B is inside it.
+    // Most inputs give the same answer either way, so an ordering test built
+    // from `~A %T ~B` passes against both and proves nothing.
+    expect(textOf(SRC('(page_layout').replace('~RESET and ~OE', '~A%TB'))).toBe('~{A${TITLE}}B');
   });
 });
 
