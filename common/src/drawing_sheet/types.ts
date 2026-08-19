@@ -194,6 +194,3 @@ export const DEFAULT_SETUP: WksSetup = {
  * SEXPR_WORKSHEET_FILE_VERSION: 20231118 = generator_version + V8 cleanup).
  */
 export const WKS_FILE_VERSION = 20231118;
-
-/** `(generator_version …)` string written alongside the generator token. */
-export const WKS_GENERATOR_VERSION = '10.0';

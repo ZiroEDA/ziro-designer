@@ -36,7 +36,6 @@ export {
   replaceItem as replaceWksItem,
   DEFAULT_SETUP,
   WKS_FILE_VERSION,
-  WKS_GENERATOR_VERSION,
   type WksColor,
   type WksSheet,
   type WksItem,

@@ -23,7 +23,6 @@ import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
 import {
   WKS_FILE_VERSION,
-  WKS_GENERATOR_VERSION,
   type WksSheet,
   type WksItem,
   type WksPoint,

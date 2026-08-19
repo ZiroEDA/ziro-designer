@@ -20,6 +20,7 @@ import {
   type CSSProperties,
   type JSX,
 } from 'react';
+import { Combo } from '../../ui/Combo.js';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { MessageDialogYesNo } from '../../ui/dialog_message.js';
 import type { YesNoResult } from '../../ui/message_dialog.js';
@@ -632,17 +633,12 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 onChange={(e) => changeY(e.target.value)}
                 spellCheck={false}
               />
-              <select
+              <Combo
                 className="imgc-select"
                 value={unit}
-                onChange={(e) => changeUnit(e.target.value as SizeUnit)}
-              >
-                {SIZE_UNITS.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => changeUnit(v as SizeUnit)}
+                options={SIZE_UNITS.map((u) => ({ value: u.id, label: u.label }))}
+              />
             </div>
             <label className="imgc-check">
               <input
@@ -708,18 +704,16 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                   {f.id === 'footprint' && (
                     <div className={`imgc-layerrow${footprint ? '' : ' disabled'}`}>
                       <span className="lbl">Layer:</span>
-                      <select
+                      <Combo
                         className="imgc-select grow"
-                        value={layerIdx}
+                        value={String(layerIdx)}
                         disabled={!footprint}
-                        onChange={(e) => setLayerIdx(Number(e.target.value))}
-                      >
-                        {OUTLINE_LAYERS.map((l, i) => (
-                          <option key={l.id} value={i}>
-                            {l.label}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => setLayerIdx(Number(v))}
+                        options={OUTLINE_LAYERS.map((l, i) => ({
+                          value: String(i),
+                          label: l.label,
+                        }))}
+                      />
                     </div>
                   )}
                 </Fragment>

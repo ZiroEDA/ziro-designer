@@ -77,7 +77,10 @@ const SIZE_X = 'value={outX}';
 const SIZE_Y = 'value={outY}';
 const UNIT_CHOICE = 'value={unit}';
 const THRESHOLD_SLIDER = 'type="range"';
-const LAYER_CHOICE = 'value={layerIdx}';
+// The Layer choice is now the shared `Combo` (ui/Combo.tsx) rather than a
+// native <select>, so its value is stringified. The marker moved with it; the
+// behaviour this pins - disabled off the FORMAT, never off the image - did not.
+const LAYER_CHOICE = 'value={String(layerIdx)}';
 const EXPORT_FILE = 'onClick={exportToFile}';
 const EXPORT_CLIPBOARD = 'exportToClipboard()}';
 
