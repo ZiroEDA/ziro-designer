@@ -215,7 +215,9 @@ interface PaneBars {
   readonly vertical: HTMLElement;
   readonly horizontal: HTMLElement;
   state: IndicatorState;
-  over: boolean;
+  /** Proximity is per bar: in GTK the pointer near the right edge thickens the
+      vertical scrollbar and leaves the horizontal one a hairline. */
+  over: { v: boolean; h: boolean };
   dragging: 'x' | 'y' | null;
   fadeTimer: number;
   frame: number;
@@ -269,10 +271,10 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
   };
 
   const applyState = (b: PaneBars) => {
-    for (const bar of [b.vertical, b.horizontal]) {
-      bar.classList.toggle('is-visible', b.state !== 'hidden');
-      bar.classList.toggle('is-over', b.state === 'over');
-    }
+    b.vertical.classList.toggle('is-visible', b.state !== 'hidden');
+    b.horizontal.classList.toggle('is-visible', b.state !== 'hidden');
+    b.vertical.classList.toggle('is-over', b.state !== 'hidden' && b.over.v);
+    b.horizontal.classList.toggle('is-over', b.state !== 'hidden' && b.over.h);
   };
 
   /** Position both bars over the pane and size their thumbs. */
@@ -326,7 +328,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
       b.fadeTimer = 0;
       if (b.dragging) return;
       b.state = 'hidden';
-      b.over = false;
+      b.over = { v: false, h: false };
       applyState(b);
     }, GTK_OVERLAY.fadeDelayMs);
   };
@@ -345,9 +347,9 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
    * proximity zone the bar was still fully drawn at 8.5 s, because that is when
    * you are aiming at it.
    */
-  const show = (b: PaneBars, over: boolean) => {
+  const show = (b: PaneBars, over: { v: boolean; h: boolean }) => {
     b.over = over;
-    b.state = over ? 'over' : 'indicator';
+    b.state = over.v || over.h ? 'over' : 'indicator';
     applyState(b);
     schedule(b);
     if (fadeRuns(b.state, b.dragging !== null)) armFade(b);
@@ -367,7 +369,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
    */
   const hide = (b: PaneBars) => {
     if (b.dragging) return;
-    show(b, false);
+    show(b, { v: false, h: false });
   };
 
   const onScroll = (ev: Event) => {
@@ -376,7 +378,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     if (!(pane instanceof HTMLElement)) return;
     const b = bars.get(pane);
     if (!b) return;
-    show(b, b.over && b === active);
+    show(b, b === active ? b.over : { v: false, h: false });
   };
 
   const attach = (pane: HTMLElement): PaneBars => {
@@ -387,7 +389,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
       vertical: makeBar('y'),
       horizontal: makeBar('x'),
       state: 'hidden',
-      over: false,
+      over: { v: false, h: false },
       dragging: null,
       fadeTimer: 0,
       frame: 0,
@@ -419,7 +421,12 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     if (target instanceof Element && target.closest(`.${BAR_CLASS}`)) {
       // Over one of our own bars: that is GTK's "hovering" state, not a
       // different pane.
-      if (active) show(active, true);
+      // Over one of our own bars: whichever one it is stays thick.
+      if (active) {
+        const bar = target.closest(`.${BAR_CLASS}`) as HTMLElement;
+        const isV = bar.classList.contains(`${BAR_CLASS}-v`);
+        show(active, { v: isV || active.over.v, h: !isV || active.over.h });
+      }
       return;
     }
     let pane: HTMLElement | null;
@@ -443,7 +450,10 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     if (active && active !== b) hide(active);
     active = b;
     const d = distanceToEdges(b, ev.clientX, ev.clientY);
-    show(b, nextOverState(Math.min(d.v, d.h), b.over));
+    show(b, {
+      v: nextOverState(d.v, b.over.v),
+      h: nextOverState(d.h, b.over.h),
+    });
   };
 
   const onPointerLeave = () => {
@@ -474,7 +484,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     const grab = inThumb ? pos - start : len / 2;
     drag = { bars: b, axis, grab };
     b.dragging = axis;
-    show(b, true);
+    show(b, { v: axis === 'y' || b.over.v, h: axis === 'x' || b.over.h });
     bar.setPointerCapture(ev.pointerId);
     if (!inThumb) applyDrag(pos, rect, axis, b, grab);
     ev.preventDefault();
