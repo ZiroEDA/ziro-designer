@@ -606,3 +606,94 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   margin: 0;
   tab-size: 8;
 }
+
+/* --- Electrical Spacing (panel_electrical_spacing_*_base.cpp) --- */
+.es-panel,
+.es-ipc,
+.es-iec {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.es-ipc {
+  flex-direction: row;
+  gap: var(--wx-border);
+}
+
+/* bLeftSizerElectricalClearance: proportion 0, so it is only as wide as the
+   unit selector and the Update Values button need. */
+.es-ipc-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-border);
+  flex: 0 0 auto;
+  min-width: 130px;
+}
+
+.es-ipc-right {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* wxFont( …, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_BOLD ), wxALIGN_CENTER_HORIZONTAL. */
+.es-ipc-note {
+  font-style: italic;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: var(--wx-border);
+}
+
+/* SetColSize( n, 100 ) on all seven data columns; the row-label column is
+   wxGRID_AUTOSIZE. */
+.es-ipc-grid td,
+.es-ipc-grid th {
+  width: 100px;
+}
+
+.es-ipc-grid .es-ipc-rowhead {
+  width: auto;
+  text-align: right;
+  font-weight: 700;
+  background: var(--panel-header);
+}
+
+.es-ipc-help {
+  margin: var(--wx-border) 0 0;
+  font: inherit;
+  white-space: pre;
+}
+
+.es-iec-title {
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: var(--wx-border);
+}
+
+/* Each of the two boxes is a HORIZONTAL sizer: the entry column on the left of
+   the box and the read-only column on the right of the SAME box. */
+.es-iec-split {
+  display: flex;
+  gap: 40px;
+}
+
+.es-iec-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.es-iec-figure {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  margin-top: 10px;
+}
+
+.es-iec-help {
+  flex: 1 1 auto;
+}
+
+.es-iec-legend {
+  white-space: nowrap;
+}
