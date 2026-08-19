@@ -86,10 +86,35 @@ describe('shared view controls', () => {
     ['editors/drawingsheet/DrawingSheetCanvas.tsx', "'pl_editor'"],
   ];
 
-  it.each(FRAMES)('%s asks for its own upstream frame type, %s', (rel, frame) => {
+  /** Every FitFrame in the union, so a file can be checked for foreign ones. */
+  const ALL_FRAMES = [
+    "'sch'",
+    "'sch_viewer'",
+    "'symbol_editor'",
+    "'pcb'",
+    "'footprint_editor'",
+    "'footprint_viewer'",
+    "'gerber'",
+    "'pl_editor'",
+  ];
+
+  it.each(FRAMES)('%s asks for its own upstream frame type, %s, and no other', (rel, frame) => {
     // Wiring the wrong frame silently swaps 1.04 for 1.48 and back; the
-    // library editors are the only two that get the wide margin.
-    expect(read(rel)).toContain(frame);
+    // library editors are the only two that get the wide margin. Checking only
+    // that the right name is present is not enough - these files fit more than
+    // once (fitToContent and fitToBBox; zoomToFit and zoomToSelection), so one
+    // call can be mis-wired while a sibling keeps the name in the file.
+    const src = read(rel);
+    expect(src).toContain(frame);
+    for (const other of ALL_FRAMES) {
+      if (other !== frame) expect(src, `${rel} names ${other}`).not.toContain(other);
+    }
+  });
+
+  it.each(CANVASES)('%s applies the pan action, not only the zoom', (rel) => {
+    // A canvas that handles `zoom` and drops `pan` looks wired but silently
+    // eats every shift/ctrl+wheel.
+    expect(read(rel)).toMatch(/action\.kind === 'pan'/);
   });
 
   it('no canvas invents its own fit margin any more', () => {
