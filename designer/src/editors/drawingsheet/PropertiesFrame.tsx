@@ -35,6 +35,7 @@ import type {
   WksOption,
   WksColor,
 } from '@ziroeda/common';
+import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
@@ -42,15 +43,24 @@ import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 
 /**
- * The font faces the Text page offers. Default Font is the stroke font, which
- * an empty face selects; a named face switches the item to that outline font,
- * as in KiCad.
+ * The font faces the Text page offers — `FONT_CHOICE`
+ * (common/widgets/font_choice.cpp:240-258), which appends "Default Font" and
+ * KICAD_FONT_NAME as two SEPARATE entries before the installed faces.
+ *
+ * They are not the same value. The first leaves `m_Font` null and writes no
+ * `(face …)`; the second names the stroke font and writes
+ * `(face "KiCad Font")`, because `write_face` is
+ * `m_Font && !GetName().IsEmpty()` and the stroke font's own `m_fontName` IS
+ * that string (stroke_font.cpp:189).
+ *
+ * The installed faces are the one divergence we cannot close: a browser cannot
+ * enumerate system fonts without the Local Font Access permission and its
+ * prompt. So the list stops at the two KiCad entries — the same pair our own
+ * schematic text and label dialogs already offer.
  */
 const FACE_CHOICES: readonly ComboOption[] = [
-  { value: '', label: 'Default Font (KiCad Font)' },
-  { value: 'sans-serif', label: 'Sans-serif' },
-  { value: 'serif', label: 'Serif' },
-  { value: 'monospace', label: 'Monospace' },
+  { value: '', label: 'Default Font' },
+  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },
 ];
 
 /** TB_DEFAULT_TEXTSIZE and the standard default pen widths (ds_data_model). */
@@ -352,11 +362,20 @@ function ItemProperties({
   const shape = item.type === 'line' || item.type === 'rect' ? (item as WksLine | WksRect) : null;
   const bitmap = item.type === 'bitmap' ? (item as WksBitmap) : null;
   const poly = item.type === 'polygon' ? (item as WksPoly) : null;
+  /** DS_DATA_ITEM::m_LineWidth — every type but a bitmap has one. */
+  const pen: WksText | WksLine | WksRect | WksPoly | null = t ?? shape ?? poly;
   const patch = onChange as (p: Record<string, unknown>) => void;
 
   return (
     <div>
-      <div className="ze-ds-row" style={{ justifyContent: 'space-between' }}>
+      {/* bSizerButt (properties_frame_base.cpp:25-44): the item type, the
+          Syntax Help link and the page-option choice share one row, and the
+          choice carries NO label - the three entries say what it is. It wraps
+          here rather than clipping, which a wxBoxSizer does not have to do. */}
+      <div
+        className="ze-ds-row"
+        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
+      >
         <b style={{ fontSize: 12 }}>Type: {TYPE_LABEL[item.type]}</b>
         <a
           href="#syntax"
@@ -368,15 +387,14 @@ function ItemProperties({
         >
           Syntax Help
         </a>
-      </div>
-      <Row label="Show:">
         <Combo
-          style={{ flex: 1, minWidth: 0 }}
+          style={{ flex: '1 1 100%', minWidth: 0 }}
+          ariaLabel="First page option"
           value={item.option}
           options={PAGE_CHOICES}
           onChange={(v) => patch({ option: v as WksOption })}
         />
-      </Row>
+      </div>
 
       {t && (
         <>
@@ -558,71 +576,56 @@ function ItemProperties({
             point={shape.end}
             onChange={(end) => patch({ end })}
           />
-          <Row label="Line thickness:" hint="Set to 0 to use default values">
-            <UnitField
-              label="Line thickness:"
-              units={units}
-              range={LINE_WIDTH_RANGE}
-              onError={onError}
-              value={shape.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
         </>
       )}
-      {t && (
-        <>
-          <Row label="Text thickness:" hint="Set to 0 to use default values">
-            <UnitField
-              label="Text thickness:"
-              units={units}
-              range={LINE_WIDTH_RANGE}
-              onError={onError}
-              value={t.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
-          <Row label="Rotation:">
-            <NumField step={90} value={t.rotate} onCommit={(rotate) => patch({ rotate })} />
-            <span className="ze-muted" style={{ fontSize: 11 }}>
-              deg
-            </span>
-          </Row>
-        </>
+
+      {/*
+       * gbSizer1 (properties_frame_base.cpp:350-380): Line width, Rotation and
+       * Bitmap DPI, in that order and outside every type branch, because
+       * upstream builds each of them ONCE and Show()s it per type
+       * (properties_frame.cpp:359-379).
+       *
+       * m_lineWidth is a single binder over DS_DATA_ITEM::m_LineWidth, so a
+       * line, a rectangle, a text and a polygon all label it "Line width:".
+       * We used to split it into "Line thickness:" for shapes and an invented
+       * "Text thickness:" row for text - and "Text thickness:" is a real
+       * label, but it belongs to General Options > Default Values, over the
+       * sheet's m_DefaultTextThickness, which is a different value entirely.
+       */}
+      {!bitmap && pen && (
+        <Row label="Line width:" hint="Set to 0 to use default values">
+          <UnitField
+            label="Line width:"
+            units={units}
+            range={LINE_WIDTH_RANGE}
+            onError={onError}
+            value={pen.lineWidth}
+            onCommit={(lineWidth) => patch({ lineWidth })}
+          />
+        </Row>
       )}
-      {poly && (
-        <>
-          <Row label="Line thickness:">
-            <UnitField
-              label="Line thickness:"
-              units={units}
-              range={LINE_WIDTH_RANGE}
-              onError={onError}
-              value={poly.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
-          <Row label="Rotation:">
-            <NumField step={90} value={poly.rotate} onCommit={(rotate) => patch({ rotate })} />
-            <span className="ze-muted" style={{ fontSize: 11 }}>
-              deg
-            </span>
-          </Row>
-        </>
+      {/* Rotation carries no unit label: m_textCtrlRotation has no
+          m_*Units static text beside it, and its value goes through
+          DoubleValueFromString with EDA_UNITS::UNSCALED. */}
+      {(t || poly) && (
+        <Row label="Rotation:">
+          <NumField
+            step={90}
+            value={(t ?? poly)!.rotate}
+            onCommit={(rotate) => patch({ rotate })}
+          />
+        </Row>
       )}
+      {/* A bitmap gets Bitmap DPI and nothing else - there is no Scale row
+          upstream, because the scale IS the DPI (DS_DATA_ITEM_BITMAP::SetPPI). */}
       {bitmap && (
-        <>
-          <Row label="Bitmap DPI:">
-            <NumField
-              step={1}
-              value={bitmap.ppi}
-              onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
-            />
-          </Row>
-          <Row label="Scale:">
-            <NumField step={0.1} value={bitmap.scale} onCommit={(scale) => patch({ scale })} />
-          </Row>
-        </>
+        <Row label="Bitmap DPI:">
+          <NumField
+            step={1}
+            value={bitmap.ppi}
+            onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
+          />
+        </Row>
       )}
 
       <Group title="Repeat Parameters">

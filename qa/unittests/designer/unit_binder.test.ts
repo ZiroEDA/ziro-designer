@@ -139,7 +139,7 @@ describe('the panel no longer hardcodes a unit', () => {
     const tags = PANEL.split('<UnitField')
       .slice(1)
       .map((t) => t.slice(0, t.indexOf('/>')));
-    expect(tags.length).toBe(19);
+    expect(tags.length).toBe(17);
     expect(tags.filter((t) => t.includes('units={units}'))).toHaveLength(tags.length);
     // …and every one names itself, which is what the error message quotes.
     expect(tags.filter((t) => /\blabel="/.test(t))).toHaveLength(tags.length);

@@ -189,7 +189,7 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /* ------------------------------------------------------------------------- *
  * The ratchet.
  *
- * 414 hardcoded font sizes are still in the tree across 29 distinct values.
+ * 412 hardcoded font sizes are still in the tree across 29 distinct values.
  * They come out per launcher, as each launcher's parity work reaches it and
  * can be verified against that launcher's own side-by-side captures - a
  * 414-site sweep can only be verified in aggregate, which is not verification.
@@ -207,9 +207,11 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 const BASELINE: Record<string, number> = {
   dialogs: 5,
   'editors/calculator': 5,
-  // 14 before the unit-binder pass: MmField's literal "mm" span carried one,
-  // and it moved to ui/'s .ze-unit-label when UnitField replaced it.
-  'editors/drawingsheet': 13,
+  // 14 before the unit-binder pass. MmField's literal "mm" span carried one
+  // and moved to ui/'s .ze-unit-label when UnitField replaced it; the two
+  // invented "deg" spans beside Rotation went with the B5 label pass, since
+  // m_textCtrlRotation has no units static text upstream.
+  'editors/drawingsheet': 11,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -327,6 +329,7 @@ describe('hardcoded font sizes do not grow', () => {
   });
 
   it('the total is what the PR reported, so the number in the PR stays true', () => {
-    expect(sites.length).toBe(414);
+    // 414 before the drawing sheet's unit-binder pass: -3 there, +1 in ui/.
+    expect(sites.length).toBe(412);
   });
 });
