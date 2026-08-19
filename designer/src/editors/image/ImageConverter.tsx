@@ -488,7 +488,12 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         // anyway because the declaration is what the menu, the Hotkey List and
         // the dispatcher all read, and a key we decline to declare is one that
         // certainly does nothing.
-        { label: 'Quit', shortcut: 'Ctrl+Q', tooltip: 'Quit Image Converter', action: onExitToHome },
+        {
+          label: 'Quit',
+          shortcut: 'Ctrl+Q',
+          tooltip: 'Quit Image Converter',
+          action: onExitToHome,
+        },
       ],
     },
     {

@@ -156,11 +156,9 @@ const ev = (key: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
  */
 function managerFixture(hasProject: boolean) {
   const calls: string[] = [];
-  const spy =
-    (name: string) =>
-    (): void => {
-      calls.push(name);
-    };
+  const spy = (name: string) => (): void => {
+    calls.push(name);
+  };
   const menus = buildManagerMenus({
     newProject: spy('newProject'),
     openProject: spy('openProject'),
@@ -258,7 +256,8 @@ describe('the project manager, pressed for real', () => {
     // Edit > Cut/Copy/Paste are disabled upstream too. Swallowing Ctrl+C here
     // would break copying a project name out of the tree.
     const { menus, calls } = managerFixture(true);
-    for (const k of ['x', 'c', 'v']) expect(dispatchMenuHotkey(menus, ev(k, { ctrlKey: true }))).toBe(false);
+    for (const k of ['x', 'c', 'v'])
+      expect(dispatchMenuHotkey(menus, ev(k, { ctrlKey: true }))).toBe(false);
     expect(calls).toEqual([]);
   });
 

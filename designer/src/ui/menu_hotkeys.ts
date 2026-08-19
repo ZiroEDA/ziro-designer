@@ -180,8 +180,10 @@ export function parseAccelerator(shortcut: string | undefined): Accelerator | nu
   let key = text;
 
   for (;;) {
-    // The `(?=.)` keeps a trailing modifier name from being eaten as one: the
-    // key half of `Ctrl+Shift` would otherwise vanish.
+    // The `(?=.)` keeps a string that is nothing but modifiers - `Ctrl+Alt+` -
+    // from being peeled down to an empty key. `eventFromCombo` guards the same
+    // way. The `Ctrl++` case is handled by peeling from the front rather than
+    // by the lookahead: a naive `split('+')` is what loses it.
     const m = /^(ctrl|control|cmd|command|meta|shift|alt|option)\+(?=.)/i.exec(key);
     if (!m) break;
     const mod = m[1]!.toLowerCase();

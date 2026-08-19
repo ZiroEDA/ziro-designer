@@ -96,16 +96,18 @@ describe('matching an event against it', () => {
     expect(matchesAccelerator(acc('Ctrl+Q'), ev('q', {}))).toBe(false);
     // And the shifted binding does not fire without Shift.
     expect(matchesAccelerator(acc('Ctrl+Shift+M'), ev('m', { ctrlKey: true }))).toBe(false);
-    expect(matchesAccelerator(acc('Ctrl+Shift+M'), ev('M', { ctrlKey: true, shiftKey: true }))).toBe(
-      true,
-    );
+    expect(
+      matchesAccelerator(acc('Ctrl+Shift+M'), ev('M', { ctrlKey: true, shiftKey: true })),
+    ).toBe(true);
   });
 
   it('does not count Shift twice for a punctuation key', () => {
     // '+' is Shift+'=' on a US layout, so the character already carries the
     // modifier. Requiring Shift to be absent would make Ctrl++ unpressable.
     // comboFromEvent draws the line in the same place (`shiftNames`).
-    expect(matchesAccelerator(acc('Ctrl++'), ev('+', { ctrlKey: true, shiftKey: true }))).toBe(true);
+    expect(matchesAccelerator(acc('Ctrl++'), ev('+', { ctrlKey: true, shiftKey: true }))).toBe(
+      true,
+    );
     expect(matchesAccelerator(acc('Ctrl+,'), ev(',', { ctrlKey: true }))).toBe(true);
   });
 
@@ -248,9 +250,9 @@ describe('what focus is allowed to keep', () => {
 describe('what an open dialog does to the frame beneath it', () => {
   it('silences it, as a wx modal event loop does', () => {
     const calls: string[] = [];
-    expect(dispatchMenuHotkey(imageMenus(calls), ev('o', { ctrlKey: true }), { modalCount: 1 })).toBe(
-      false,
-    );
+    expect(
+      dispatchMenuHotkey(imageMenus(calls), ev('o', { ctrlKey: true }), { modalCount: 1 }),
+    ).toBe(false);
     expect(calls).toEqual([]);
   });
 

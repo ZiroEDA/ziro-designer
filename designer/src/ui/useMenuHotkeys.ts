@@ -46,7 +46,8 @@ export function useMenuHotkeys(menus: readonly Menu[], view?: string): void {
       if (e.defaultPrevented) return;
       // No stamp at all is a standalone build, where this frame is the app.
       if (view !== undefined && (document.body.dataset.activeView ?? view) !== view) return;
-      if (!dispatchMenuHotkey(menusRef.current, e, { target: e.target as FocusLike | null })) return;
+      if (!dispatchMenuHotkey(menusRef.current, e, { target: e.target as FocusLike | null }))
+        return;
       e.preventDefault();
       e.stopPropagation();
     };
