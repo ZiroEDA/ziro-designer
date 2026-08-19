@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { Combo } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
@@ -173,17 +174,12 @@ export function NumField({
         onChange={readOnly ? undefined : (e) => emit(e.target.value)}
       />
       {units.length > 1 ? (
-        <select
-          className="calc-select calc-unit-select"
-          value={idx}
-          onChange={(e) => switchUnit(Number(e.target.value))}
-        >
-          {units.map((u, i) => (
-            <option key={u.label} value={i}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <Combo
+          style={{ minWidth: 62 }}
+          value={String(idx)}
+          options={units.map((u, i) => ({ value: String(i), label: u.label }))}
+          onChange={(v) => switchUnit(Number(v))}
+        />
       ) : (
         <span className="calc-unit">{units[0]?.label}</span>
       )}

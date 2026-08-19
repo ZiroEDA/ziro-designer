@@ -2,7 +2,12 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, expect, it } from 'vitest';
-import { RegulatorSolve, RegulatorType, solveRegulator } from '@ziroeda/pcb_calculator';
+import {
+  RegulatorSolve,
+  RegulatorType,
+  printfG,
+  solveRegulator,
+} from '@ziroeda/pcb_calculator';
 
 const lm317 = {
   type: RegulatorType.THREE_TERMINAL,
@@ -122,5 +127,88 @@ describe('regulator calculator', () => {
       voutTyp: 1.0, // below Vref
     });
     expect(r.error).toBeTruthy();
+  });
+});
+
+/**
+ * The five guards KiCad checks, in KiCad's order, with KiCad's exact wording.
+ * These strings go on screen verbatim in `m_RegulMessage`
+ * (panel_regulator.cpp:398-437), so a reworded one is a parity defect even when
+ * it says the same thing. Confirmed against the running 10.0.5 binary: entering
+ * Vref typ = 0 there prints "Vref set to 0 !", space before the bang included.
+ */
+describe('regulator validation messages are KiCad’s, character for character', () => {
+  const base = {
+    ...lm317,
+    solve: RegulatorSolve.R1,
+    r1Typ: 240,
+    r2Typ: 720,
+    voutTyp: 5,
+  };
+
+  it('Vout below any of the three Vrefs, when not solving for Vout', () => {
+    expect(solveRegulator({ ...base, voutTyp: 1 }).error).toBe('Vout must be greater than Vref');
+  });
+
+  it('...and that check does NOT run when Vout is the unknown', () => {
+    expect(solveRegulator({ ...base, solve: RegulatorSolve.VOUT, voutTyp: 1 }).error).toBeUndefined();
+  });
+
+  it('any of the three Vref cells at zero', () => {
+    expect(solveRegulator({ ...base, vrefTyp: 0 }).error).toBe('Vref set to 0 !');
+    expect(solveRegulator({ ...base, vrefMin: 0 }).error).toBe('Vref set to 0 !');
+    expect(solveRegulator({ ...base, vrefMax: 0 }).error).toBe('Vref set to 0 !');
+  });
+
+  it('Vout is checked BEFORE Vref = 0, so the Vout message wins a tie', () => {
+    expect(solveRegulator({ ...base, voutTyp: 1, vrefTyp: 0 }).error).toBe(
+      'Vout must be greater than Vref',
+    );
+  });
+
+  it('Vref out of order', () => {
+    expect(solveRegulator({ ...base, vrefMin: 1.4 }).error).toBe(
+      'Vref must VrefMin < VrefTyp < VrefMax',
+    );
+  });
+
+  it('R2 at or below zero while R2 is not the unknown', () => {
+    expect(solveRegulator({ ...base, r2Typ: 0 }).error).toBe('Incorrect value for R1 R2');
+    expect(solveRegulator({ ...base, solve: RegulatorSolve.R2, r2Typ: 0 }).error).toBeUndefined();
+  });
+
+  it('R1 below zero while R1 is not the unknown', () => {
+    expect(solveRegulator({ ...base, solve: RegulatorSolve.R2, r1Typ: -1 }).error).toBe(
+      'Incorrect value for R1 R2',
+    );
+  });
+
+  it('Iadj out of order — three-terminal only', () => {
+    expect(solveRegulator({ ...base, iadjTyp: 200e-6 }).error).toBe('Iadj must IadjTyp < IadjMax');
+    expect(
+      solveRegulator({ ...base, type: RegulatorType.STANDARD, iadjTyp: 200e-6 }).error,
+    ).toBeUndefined();
+  });
+
+  it('the defaults compute, and print exactly what the real binary prints', () => {
+    // Driven side by side against pcb_calculator 10.0.5: defaults, 3 Terminal
+    // Type, solving for R1, Calculate -> R1 0.24/0.242/0.245 kΩ,
+    // R2 0.713/0.72/0.727 kΩ, Vout 4.73/5/5.313 V, tolerance -5.39/5.9 %.
+    const r = solveRegulator(base);
+    expect(r.error).toBeUndefined();
+    const g = (v: number, step = 0.001): string =>
+      printfG(Number((Math.round(v / step) * step).toPrecision(12)));
+    expect([g(r.r1.min / 1000), g(r.r1.typ / 1000), g(r.r1.max / 1000)]).toStrictEqual([
+      '0.24',
+      '0.242',
+      '0.245',
+    ]);
+    expect([g(r.r2.min / 1000), g(r.r2.typ / 1000), g(r.r2.max / 1000)]).toStrictEqual([
+      '0.713',
+      '0.72',
+      '0.727',
+    ]);
+    expect([g(r.vout.min), g(r.vout.typ), g(r.vout.max)]).toStrictEqual(['4.73', '5', '5.313']);
+    expect([g(r.tolNegPct, 0.01), g(r.tolPosPct, 0.01)]).toStrictEqual(['-5.39', '5.9']);
   });
 });

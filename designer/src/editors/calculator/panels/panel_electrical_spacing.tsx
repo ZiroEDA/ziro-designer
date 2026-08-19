@@ -24,6 +24,7 @@ import {
   ipc2221Spacing,
   ratedImpulseWithstandVoltageV,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, Group, fmt, parseNum } from '../fields.js';
 
 function PanelIpc2221(): JSX.Element {
@@ -138,17 +139,11 @@ function Select<T>({
   return (
     <label className="calc-field">
       <span className="calc-field-label">{label}</span>
-      <select
-        className="calc-select"
-        value={idx}
-        onChange={(e) => onChange(options[Number(e.target.value)]!.v)}
-      >
-        {options.map((o, i) => (
-          <option key={o.label} value={i}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Combo
+        value={String(idx)}
+        options={options.map((o, i) => ({ value: String(i), label: o.label }))}
+        onChange={(v) => onChange(options[Number(v)]!.v)}
+      />
     </label>
   );
 }

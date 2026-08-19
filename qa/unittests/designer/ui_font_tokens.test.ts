@@ -206,7 +206,7 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /** Every hardcoded font size in the tree today, by owning area. */
 const BASELINE: Record<string, number> = {
   dialogs: 5,
-  'editors/calculator': 5,
+  'editors/calculator': 1,
   'editors/drawingsheet': 14,
   'editors/footprint': 1,
   'editors/gerbview': 9,
@@ -325,6 +325,6 @@ describe('hardcoded font sizes do not grow', () => {
   });
 
   it('the total is what the PR reported, so the number in the PR stays true', () => {
-    expect(sites.length).toBe(414);
+    expect(sites.length).toBe(410);
   });
 });

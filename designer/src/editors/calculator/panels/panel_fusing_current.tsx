@@ -9,6 +9,7 @@
 
 import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, LEN_UNITS, type UnitOpt, fmt, parseNum } from '../fields.js';
 
 const LEN_SHORT: UnitOpt[] = LEN_UNITS.filter((u) => ['mm', 'µm', 'mil'].includes(u.label));
@@ -50,17 +51,12 @@ function LenRow({
         spellCheck={false}
         onChange={(e) => onBaseM(parseNum(e.target.value) * mult)}
       />
-      <select
-        className="calc-select calc-unit-select"
-        value={unitIdx}
-        onChange={(e) => setUnitIdx(Number(e.target.value))}
-      >
-        {LEN_SHORT.map((u, i) => (
-          <option key={u.label} value={i}>
-            {u.label}
-          </option>
-        ))}
-      </select>
+      <Combo
+        style={{ minWidth: 62 }}
+        value={String(unitIdx)}
+        options={LEN_SHORT.map((u, i) => ({ value: String(i), label: u.label }))}
+        onChange={(v) => setUnitIdx(Number(v))}
+      />
     </div>
   );
 }

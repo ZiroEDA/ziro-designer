@@ -131,9 +131,19 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
     error: msg,
   });
 
-  if (!(vrefTyp > 0)) return fail('Vref must be greater than 0.');
-  if (!(vrefMin <= vrefTyp && vrefTyp <= vrefMax))
-    return fail('Vref must satisfy VrefMin ≤ VrefTyp ≤ VrefMax.');
+  // KiCad's five guards, in KiCad's order, with KiCad's exact wording
+  // (panel_regulator.cpp:398-437). The order is load-bearing: a page with both
+  // Vout < Vref AND Vref = 0 shows the Vout message, not the Vref one, and
+  // these strings go on screen verbatim.
+  if ((vout < vrefMin || vout < vrefTyp || vout < vrefMax) && p.solve !== RegulatorSolve.VOUT)
+    return fail('Vout must be greater than Vref');
+
+  if (vrefMin === 0 || vrefTyp === 0 || vrefMax === 0) return fail('Vref set to 0 !');
+
+  if (vrefMin > vrefTyp || vrefTyp > vrefMax) return fail('Vref must VrefMin < VrefTyp < VrefMax');
+
+  if ((r1 < 0 && p.solve !== RegulatorSolve.R1) || (r2 <= 0 && p.solve !== RegulatorSolve.R2))
+    return fail('Incorrect value for R1 R2');
 
   let voutMin: number;
   let voutMax: number;
@@ -141,19 +151,15 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
   if (p.type === RegulatorType.THREE_TERMINAL) {
     const iadjTyp = p.iadjTyp;
     const iadjMax = p.iadjMax;
-    if (!(iadjTyp <= iadjMax)) return fail('Iadj must satisfy IadjTyp ≤ IadjMax.');
+    if (iadjTyp > iadjMax) return fail('Iadj must IadjTyp < IadjMax');
 
     if (p.solve === RegulatorSolve.R1) {
-      const denom = vout - vrefTyp - r2 * iadjTyp;
-      if (!(denom > 0)) return fail('Vout must be greater than Vref.');
-      r1 = (vrefTyp * r2) / denom;
+      r1 = (vrefTyp * r2) / (vout - vrefTyp - r2 * iadjTyp);
     } else if (p.solve === RegulatorSolve.R2) {
       r2 = (vout - vrefTyp) / (iadjTyp + vrefTyp / r1);
     } else {
       vout = (vrefTyp * (r1 + r2)) / r1 + r2 * iadjTyp;
     }
-    if (!(r1 > 0) || !(r2 > 0) || !(vout > 0)) return fail('No valid solution for these values.');
-
     const r1min = r1 - r1 * restol;
     const r1max = r1 + r1 * restol;
     const r2min = r2 - r2 * restol;
@@ -165,13 +171,10 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
     if (p.solve === RegulatorSolve.R1) {
       r1 = (vout / vrefTyp - 1) * r2;
     } else if (p.solve === RegulatorSolve.R2) {
-      const k = vout / vrefTyp - 1;
-      if (!(k > 0)) return fail('Vout must be greater than Vref.');
-      r2 = r1 / k;
+      r2 = r1 / (vout / vrefTyp - 1);
     } else {
       vout = (vrefTyp * (r1 + r2)) / r2;
     }
-    if (!(r1 > 0) || !(r2 > 0) || !(vout > 0)) return fail('No valid solution for these values.');
 
     const r1min = r1 - r1 * restol;
     const r1max = r1 + r1 * restol;

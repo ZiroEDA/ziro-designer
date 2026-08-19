@@ -28,6 +28,7 @@ import {
   cableRadiusFromVDrop,
   cableUpdateAll,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { type UnitOpt, fmt, parseNum } from '../fields.js';
 
 // Unit selectors, as in KiCad's UNIT_SELECTOR widgets (unit_selector.cpp).
@@ -110,17 +111,12 @@ function LinkedRow(p: LinkedRowProps): JSX.Element {
         }}
       />
       {p.units.length > 1 ? (
-        <select
-          className="calc-select calc-unit-select"
-          value={p.unitIdx}
-          onChange={(e) => p.onUnitIdx(Number(e.target.value))}
-        >
-          {p.units.map((u, i) => (
-            <option key={u.label} value={i}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <Combo
+          style={{ minWidth: 62 }}
+          value={String(p.unitIdx)}
+          options={p.units.map((u, i) => ({ value: String(i), label: u.label }))}
+          onChange={(v) => p.onUnitIdx(Number(v))}
+        />
       ) : (
         <span className="calc-unit">{p.units[0]?.label}</span>
       )}
@@ -215,18 +211,14 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-field-label" style={{ minWidth: 190 }}>
               Standard Size:
             </span>
-            <select
-              className="calc-select"
-              value={awgSel}
-              onChange={(e) => pickAwg(Number(e.target.value))}
-            >
-              <option value={-1}>---</option>
-              {AWG_NAMES.map((n, i) => (
-                <option key={n} value={i}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(awgSel)}
+              options={[
+                { value: '-1', label: '---' },
+                ...AWG_NAMES.map((n, i) => ({ value: String(i), label: n })),
+              ]}
+              onChange={(v) => pickAwg(Number(v))}
+            />
           </div>
           {linked('Diameter:', 'dia', s?.diameterM ?? NaN, DIA_UNITS, diaUnit, setDiaUnit, (v) =>
             commitRadius(cableRadiusFromDiameter(v)),
@@ -244,17 +236,14 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-field-label" style={{ minWidth: 190 }}>
               Conductor material:
             </span>
-            <select
-              className="calc-select"
-              value={materialSel}
-              onChange={(e) => pickMaterial(Number(e.target.value))}
-            >
-              {CABLE_CONDUCTOR_MATERIALS.map((m, i) => (
-                <option key={m.name} value={i}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(materialSel)}
+              options={CABLE_CONDUCTOR_MATERIALS.map((m, i) => ({
+                value: String(i),
+                label: m.name,
+              }))}
+              onChange={(v) => pickMaterial(Number(v))}
+            />
           </div>
           <div className="calc-field">
             <span className="calc-field-label" style={{ minWidth: 190 }}>
@@ -363,17 +352,12 @@ export function PanelCableSize(): JSX.Element {
               spellCheck={false}
               onChange={(e) => setLengthText(e.target.value)}
             />
-            <select
-              className="calc-select calc-unit-select"
-              value={lengthUnit}
-              onChange={(e) => setLengthUnit(Number(e.target.value))}
-            >
-              {CABLE_LEN_UNITS.map((u, i) => (
-                <option key={u.label} value={i}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+            <Combo
+              style={{ minWidth: 62 }}
+              value={String(lengthUnit)}
+              options={CABLE_LEN_UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
+              onChange={(v) => setLengthUnit(Number(v))}
+            />
           </div>
           {linked(
             'Resistance DC:',

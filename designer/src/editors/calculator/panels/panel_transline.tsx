@@ -34,6 +34,7 @@ import {
   twistedPairSynthesize,
   type TranslineAnalysis,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, FREQ_UNITS, Group, LEN_UNITS, NumField, fmt, parseNum } from '../fields.js';
 
 type LineType =
@@ -171,21 +172,18 @@ function PresetField({
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
       />
-      <select
-        className="calc-select calc-unit-select"
+      <Combo
+        style={{ minWidth: 62 }}
         value=""
         title="Standard materials"
-        onChange={(e) => {
-          if (e.target.value !== '') onChange(e.target.value);
+        options={[
+          { value: '', label: '…' },
+          ...presets.map((p) => ({ value: String(p.value), label: `${p.value}, ${p.name}` })),
+        ]}
+        onChange={(v) => {
+          if (v !== '') onChange(v);
         }}
-      >
-        <option value="">…</option>
-        {presets.map((p) => (
-          <option key={`${p.name}`} value={String(p.value)}>
-            {p.value}, {p.name}
-          </option>
-        ))}
-      </select>
+      />
       <span className="calc-unit">{unit}</span>
     </div>
   );
@@ -481,17 +479,11 @@ export function PanelTransline(): JSX.Element {
       <h3>Transmission Lines</h3>
       <div className="calc-field">
         <span className="calc-field-label">Line type:</span>
-        <select
-          className="calc-select"
+        <Combo
           value={type}
-          onChange={(e) => pick(e.target.value as LineType)}
-        >
-          {LINE_TYPES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+          options={LINE_TYPES.map((t) => ({ value: t.id, label: t.name }))}
+          onChange={(v) => pick(v as LineType)}
+        />
       </div>
 
       <div className="calc-row">
@@ -525,14 +517,14 @@ export function PanelTransline(): JSX.Element {
             }
           >
             <span className="calc-field-label">Dielectric model:</span>
-            <select
-              className="calc-select"
+            <Combo
               value={dielModel}
-              onChange={(e) => setDielModel(e.target.value as 'constant' | 'djordjevic_sarkar')}
-            >
-              <option value="constant">Constant</option>
-              <option value="djordjevic_sarkar">Djordjevic-Sarkar</option>
-            </select>
+              options={[
+                { value: 'constant', label: 'Constant' },
+                { value: 'djordjevic_sarkar', label: 'Djordjevic-Sarkar' },
+              ]}
+              onChange={(v) => setDielModel(v as 'constant' | 'djordjevic_sarkar')}
+            />
           </div>
           {dielModel === 'djordjevic_sarkar' && (
             <NumField

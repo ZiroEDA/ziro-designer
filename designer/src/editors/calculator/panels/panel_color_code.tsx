@@ -14,6 +14,7 @@ import {
   TOLERANCE_COLORS,
   colorCode,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, Group, fmt, parseNum } from '../fields.js';
 
 export function PanelColorCode(): JSX.Element {
@@ -43,17 +44,14 @@ export function PanelColorCode(): JSX.Element {
         <Field label="Resistance:" value={value} onChange={setValue} unit="Ω" />
         <div className="calc-field">
           <span className="calc-field-label">Tolerance:</span>
-          <select
-            className="calc-select"
-            value={tolerance}
-            onChange={(e) => setTolerance(Number(e.target.value))}
-          >
-            {TOLERANCE_COLORS.map((t) => (
-              <option key={t.pct} value={t.pct}>
-                ±{t.pct} % ({t.name})
-              </option>
-            ))}
-          </select>
+          <Combo
+            value={String(tolerance)}
+            options={TOLERANCE_COLORS.map((t) => ({
+              value: String(t.pct),
+              label: `±${t.pct} % (${t.name})`,
+            }))}
+            onChange={(v) => setTolerance(Number(v))}
+          />
         </div>
         <div className="calc-field">
           <span className="calc-field-label">Bands:</span>
@@ -88,17 +86,14 @@ export function PanelColorCode(): JSX.Element {
         {bands === 6 && (
           <div className="calc-field">
             <span className="calc-field-label">Temp. coefficient:</span>
-            <select
-              className="calc-select"
-              value={tempco}
-              onChange={(e) => setTempco(Number(e.target.value))}
-            >
-              {TEMPCO_COLORS.map((t) => (
-                <option key={t.ppm} value={t.ppm}>
-                  {t.ppm} ppm/K ({t.name})
-                </option>
-              ))}
-            </select>
+            <Combo
+              value={String(tempco)}
+              options={TEMPCO_COLORS.map((t) => ({
+                value: String(t.ppm),
+                label: `${t.ppm} ppm/K (${t.name})`,
+              }))}
+              onChange={(v) => setTempco(Number(v))}
+            />
           </div>
         )}
       </Group>
