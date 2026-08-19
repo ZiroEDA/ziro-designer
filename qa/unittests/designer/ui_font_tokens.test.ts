@@ -61,7 +61,7 @@ const PT = 96 / 72;
 function token(name: string): string {
   const m = SHELL_CSS.match(new RegExp(`^\\s*--${name}\\s*:\\s*([^;]+);`, 'm'));
   if (!m) throw new Error(`token --${name} is not declared in ui/shell.css`);
-  return m[1].trim();
+  return (m[1] ?? '').trim();
 }
 
 describe('the three chrome text sizes KiCad derives from the GTK font', () => {
@@ -173,13 +173,14 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
     let selector = '';
     SHELL_CSS.split('\n').forEach((line, i) => {
       const open = line.match(/^(\S[^{]*)\{\s*$/);
-      if (open) selector = open[1].trim();
+      if (open) selector = (open[1] ?? '').trim();
       const decl = line.match(/(?<![-\w])font-size:\s*([^;]+);/);
       if (!decl) return;
       if (!/\.ze-menu|\.ze-mitem|\.ze-dropdown|\.ze-menubar/.test(selector)) return;
-      if (decl[1].includes('var(--ui-font-size)')) return;
+      const declared = (decl[1] ?? '').trim();
+      if (declared.includes('var(--ui-font-size)')) return;
       if (MENU_FONT_EXCEPTIONS.has(selector)) return;
-      offenders.push(`ui/shell.css:${i + 1}  ${selector} { font-size: ${decl[1].trim()} }`);
+      offenders.push(`ui/shell.css:${i + 1}  ${selector} { font-size: ${declared} }`);
     });
     expect(offenders).toStrictEqual([]);
   });
@@ -278,7 +279,7 @@ function scan(): Site[] {
   for (const file of files) {
     const rel = relative(SRC, file);
     const parts = rel.split('/');
-    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : parts[0];
+    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : (parts[0] ?? '');
     const isCss = file.endsWith('.css');
     readFileSync(file, 'utf8')
       .split('\n')
@@ -289,7 +290,7 @@ function scan(): Site[] {
           ? line.match(/(?<![-\w])font-size:\s*([^;]+);/)
           : line.match(/fontSize:\s*(-?[\d.]+|'[^']+'|"[^"]+")\s*[,}]/);
         if (!m) return;
-        const value = m[1].replace(/['"]/g, '').trim();
+        const value = (m[1] ?? '').replace(/['"]/g, '').trim();
         if (value.includes('var(') || value === 'inherit') return;
         sites.push({ area, where: `${rel}:${i + 1}`, value });
       });
