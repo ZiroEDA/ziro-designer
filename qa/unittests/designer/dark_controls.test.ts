@@ -44,26 +44,13 @@ describe('the shell tells the browser it is dark', () => {
     expect(rule(':root')).toMatch(/color-scheme:\s*dark/);
   });
 
-  it('sets the Firefox scrollbar properties where they can inherit', () => {
-    // Both inherit, so declaring them on :root reaches every scroller without a
+  it('switches the native scrollbars off where the property can inherit', () => {
+    // It inherits, so declaring it on :root reaches every scroller without a
     // universal selector (which would outrank later rules and trip the
-    // descending-specificity lint).
-    const root = rule(':root');
-    expect(root).toMatch(/scrollbar-width:\s*thin/);
-    expect(root).toMatch(/scrollbar-color:/);
+    // descending-specificity lint). `thin` used to be the value here and still
+    // reserved a gutter; see overlay_scrollbars.test.ts for what replaced it.
+    expect(rule(':root')).toMatch(/scrollbar-width:\s*none/);
     expect(CSS).not.toContain('.ze-app * {');
-  });
-});
-
-describe('scrollbars are KiCad grey, not the browser default', () => {
-  for (const part of ['', '-track', '-thumb', '-corner']) {
-    it(`styles ::-webkit-scrollbar${part}`, () => {
-      expect(CSS).toContain(`.ze-app ::-webkit-scrollbar${part}`);
-    });
-  }
-
-  it('hides the end buttons, which KiCad has none of', () => {
-    expect(rule('.ze-app ::-webkit-scrollbar-button')).toMatch(/display:\s*none/);
   });
 });
 

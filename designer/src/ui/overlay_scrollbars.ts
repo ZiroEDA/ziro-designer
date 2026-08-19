@@ -102,10 +102,16 @@ export interface ThumbGeometry {
 /**
  * GTK's slider geometry for one axis.
  *
- * `GtkRange` sizes the slider to the visible fraction of the content, clamps it
- * to `min-height`/`min-width` (40 px), and insets the whole track by the
- * slider's margin (2 px at each end). Returns null when the axis does not
- * scroll, which is GTK's `policy == AUTOMATIC` hiding the bar outright.
+ * `GtkRange` allocates the slider the visible fraction of the *whole* trough —
+ * `viewport / content * viewport` — clamps it to `min-height`/`min-width`
+ * (40 px), and the slider's own 2 px margin then insets what is drawn inside
+ * that allocation. Both halves matter: a 400 px viewport over 2000 px of
+ * content allocates 80 px and draws 76 of it, which is exactly the y2..y77 the
+ * live probe measured. Computing straight into a shortened track would give 79
+ * and be a pixel out at both ends.
+ *
+ * Returns null when the axis does not scroll, which is GTK's
+ * `policy == AUTOMATIC` hiding the bar outright.
  */
 export const thumbGeometry = (
   viewport: number,
@@ -115,21 +121,20 @@ export const thumbGeometry = (
   minLength = GTK_OVERLAY.minLength,
 ): ThumbGeometry | null => {
   if (!(content > viewport) || viewport <= 0) return null;
-  const track = viewport - 2 * margin;
-  if (track <= 0) return null;
-  const length = Math.max(Math.min(minLength, track), Math.round((viewport / content) * track));
+  const length = Math.max(minLength, Math.round((viewport / content) * viewport) - 2 * margin);
+  const allocation = length + 2 * margin;
+  // A trough too short to hold the minimum-length slider still gets one; it
+  // just cannot move, which is what GtkRange does rather than shrinking below
+  // the minimum.
+  const travel = Math.max(0, viewport - allocation);
   const scrollable = content - viewport;
-  const travel = track - length;
-  // A track too short to hold the minimum-length slider still gets one; it just
-  // cannot move, which is what GtkRange does rather than shrinking below the
-  // minimum.
   const frac = scrollable > 0 ? Math.min(1, Math.max(0, scrollPos / scrollable)) : 0;
-  return { offset: margin + Math.round(frac * Math.max(0, travel)), length };
+  return { offset: margin + Math.round(frac * travel), length };
 };
 
 /**
  * The inverse of {@link thumbGeometry}: the scroll position that puts the start
- * of the indicator at `offset`. Used while dragging the bar.
+ * of the drawn indicator at `offset`. Used while dragging the bar.
  */
 export const scrollPosForThumbOffset = (
   viewport: number,
@@ -140,11 +145,10 @@ export const scrollPosForThumbOffset = (
 ): number => {
   const geo = thumbGeometry(viewport, content, 0, margin, minLength);
   if (!geo) return 0;
-  const travel = viewport - 2 * margin - geo.length;
-  const scrollable = content - viewport;
+  const travel = viewport - (geo.length + 2 * margin);
   if (travel <= 0) return 0;
   const frac = Math.min(1, Math.max(0, (offset - margin) / travel));
-  return frac * scrollable;
+  return frac * (content - viewport);
 };
 
 /**
