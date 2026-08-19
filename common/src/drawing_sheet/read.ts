@@ -24,6 +24,7 @@
  */
 
 import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { convertToNewOverbarNotation } from '../string_utils.js';
 import { childNamed, childrenNamed, args, arg, numArg } from '@ziroeda/sexpr/src/query.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
 import {
@@ -42,6 +43,21 @@ import {
 } from './types.js';
 
 const CORNERS = new Set<WksCorner>(['ltcorner', 'rtcorner', 'lbcorner', 'rbcorner']);
+
+/**
+ * The format version at which `~{…}` replaced the bare-`~` overbar toggle.
+ * `drawing_sheet_parser.cpp:699` upgrades any file below it.
+ */
+const OVERBAR_NOTATION_VERSION = 20210606;
+
+/**
+ * The roots that carry a `(version …)`. `parseHeader`
+ * (`drawing_sheet_parser.cpp:298-327`) requires one under `kicad_wks` and
+ * `drawing_sheet` — `Expecting( T_version )` otherwise — and assigns version 0
+ * to anything else, i.e. to the bare `page_layout` root that predates
+ * worksheet versioning entirely.
+ */
+const VERSIONED_ROOTS = ['kicad_wks', 'drawing_sheet'];
 
 function readCorner(token: string | undefined): WksCorner {
   return token && CORNERS.has(token as WksCorner) ? (token as WksCorner) : 'rbcorner';
@@ -142,7 +158,95 @@ function hexToBase64(hex: string): string {
   return out;
 }
 
-function readItem(node: SList): WksItem | null {
+/**
+ * `convertLegacyVariableRefs` (`common/drawing_sheet/drawing_sheet_parser.cpp:
+ * 128-198`): rewrite the `%`-prefixed variable syntax every drawing sheet KiCad
+ * ships still uses into the `${…}` form the renderer resolves. Upstream applies
+ * it to EVERY `(tbtext …)`, unconditionally and regardless of file version
+ * (`:286`), so this is a parse-time normalisation and not a compatibility mode.
+ *
+ * The parts of the C++ that a paraphrase of the table gets wrong:
+ *  - `%%` is the escape for a literal `%`;
+ *  - a `%` in the last position of the string is DROPPED (`if( ++ii >= Len() )
+ *    break;` leaves the loop without emitting anything);
+ *  - an unrecognised `%x` emits NOTHING — the `default:` arm is a bare `break`,
+ *    so both the `%` and the character after it disappear;
+ *  - `%C` unconditionally consumes the character after it even when that is not
+ *    a digit (`format = aTextbase[++ii]`), and only `0`..`8` map to a comment —
+ *    `%C9` therefore vanishes despite the comment above the switch claiming
+ *    `x = 0 to 9`.
+ */
+export function convertLegacyVariableRefs(textbase: string): string {
+  let msg = '';
+
+  for (let ii = 0; ii < textbase.length; ii++) {
+    if (textbase[ii] !== '%') {
+      msg += textbase[ii];
+      continue;
+    }
+
+    if (++ii >= textbase.length) break;
+
+    switch (textbase[ii]) {
+      case '%':
+        msg += '%';
+        break;
+      case 'D':
+        msg += '${ISSUE_DATE}';
+        break;
+      case 'R':
+        msg += '${REVISION}';
+        break;
+      case 'K':
+        msg += '${KICAD_VERSION}';
+        break;
+      case 'Z':
+        msg += '${PAPER}';
+        break;
+      case 'S':
+        msg += '${#}';
+        break;
+      case 'N':
+        msg += '${##}';
+        break;
+      case 'F':
+        msg += '${FILENAME}';
+        break;
+      case 'L':
+        msg += '${LAYER}';
+        break;
+      case 'P':
+        msg += '${SHEETPATH}';
+        break;
+      case 'Y':
+        msg += '${COMPANY}';
+        break;
+      case 'T':
+        msg += '${TITLE}';
+        break;
+      case 'C': {
+        // Upstream indexes one past the '%C' with no bounds check and switches
+        // on the result, so the character is consumed whatever it is.
+        const digit = textbase[++ii];
+        if (digit !== undefined && digit >= '0' && digit <= '8') {
+          msg += `\${COMMENT${digit.charCodeAt(0) - 0x30 + 1}}`;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return msg;
+}
+
+/**
+ * `requiredVersion` is the FILE's version, which is 0 for the unversioned
+ * legacy roots — not the current format version. It gates the overbar upgrade
+ * in `parseText` (`drawing_sheet_parser.cpp:699-701`).
+ */
+function readItem(node: SList, requiredVersion: number): WksItem | null {
   const kind = head(node);
   const base = readBase(node);
 
@@ -161,7 +265,12 @@ function readItem(node: SList): WksItem | null {
 
   if (kind === 'tbtext') {
     // The text string is the first non-list positional argument after the head.
-    const text = args(node)[0] ?? '';
+    // Upstream converts the legacy `%` refs as the item is CONSTRUCTED (`:286`)
+    // and only then, inside `parseText`, upgrades the overbar notation of a
+    // pre-20210606 file (`:699-701`). That order is load-bearing: running the
+    // overbar pass first would see none of the braces `${…}` introduces.
+    let text = convertLegacyVariableRefs(args(node)[0] ?? '');
+    if (requiredVersion < OVERBAR_NOTATION_VERSION) text = convertToNewOverbarNotation(text);
     const pos = childNamed(node, 'pos');
     const font = childNamed(node, 'font');
     const size = font && childNamed(font, 'size');
@@ -291,18 +400,25 @@ export function readDrawingSheet(root: SList): WksSheet {
   if (!ROOTS.includes(rootToken)) {
     throw new Error(`readDrawingSheet: expected one of ${ROOTS.join(', ')}, got (${rootToken} …)`);
   }
-  // A legacy file has no `(version …)` at all, and reading one off the root
-  // instead would pick up whatever leading atom happened to be there. Missing
-  // means current, the same assumption KiCad makes when it upgrades one.
+  // `parseHeader`: the version is the FILE's, and a legacy `page_layout` root
+  // gets 0 — not the current version. Treating a missing version as current
+  // silently skips every "file older than X" upgrade the reader owes it, of
+  // which the overbar rewrite below is one.
   const versionNode = childNamed(root, 'version');
-  const version = versionNode ? (numArg(versionNode, 0) ?? WKS_FILE_VERSION) : WKS_FILE_VERSION;
+  let version: number;
+  if (VERSIONED_ROOTS.includes(rootToken)) {
+    if (!versionNode) throw new Error(`readDrawingSheet: expected (version …) in (${rootToken} …)`);
+    version = numArg(versionNode, 0) ?? WKS_FILE_VERSION;
+  } else {
+    version = 0;
+  }
   const gen = childNamed(root, 'generator');
   const items: WksItem[] = [];
   for (const child of root.items) {
     if (!isList(child)) continue;
     const h = head(child);
     if (h === 'line' || h === 'rect' || h === 'tbtext' || h === 'polygon' || h === 'bitmap') {
-      const it = readItem(child);
+      const it = readItem(child, version);
       if (it) items.push(it);
     }
   }

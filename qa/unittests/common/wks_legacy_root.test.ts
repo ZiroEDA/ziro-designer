@@ -80,16 +80,30 @@ describe('reading it', () => {
     // The legacy spelling. The modern one is `(bold yes)`, and a reader that
     // only knew that would parse this file and quietly lose the emphasis on
     // the title block's rev/title/company lines.
+    //
+    // The texts read back in the `${…}` form, not the `%R`/`%T`/`%Y` the file
+    // literally contains: `drawing_sheet_parser.cpp:286` converts every tbtext
+    // as it builds the item, so nothing downstream ever sees a `%` ref.
     const bold = legacy().items.filter((i) => i.type === 'text' && (i as WksText).bold);
-    expect(bold.map((i) => (i as WksText).text)).toEqual(['Rev: %R', 'Title: %T', '%Y']);
+    expect(bold.map((i) => (i as WksText).text)).toEqual([
+      'Rev: ${REVISION}',
+      'Title: ${TITLE}',
+      '${COMPANY}',
+    ]);
   });
 
-  it('is treated as current, since the legacy form carries no version', () => {
-    // Not zero: a missing version means "before versioning existed", and the
-    // only sensible reading is the current one, which is also what saving it
-    // will stamp. Zero would leak into the writer and produce a file claiming
-    // a version that never shipped.
-    expect(legacy().version).toBe(WKS_FILE_VERSION);
+  it('is version 0, because the legacy form predates worksheet versioning', () => {
+    // `parseHeader` (`drawing_sheet_parser.cpp:298-327`) requires a `(version
+    // …)` under `kicad_wks`/`drawing_sheet` and assigns 0 to anything else.
+    // Zero is the whole point: it is what makes `m_requiredVersion < 20210606`
+    // true, and every "file older than X" upgrade in the reader hangs off that
+    // comparison. Calling a missing version "current" reads as harmless and
+    // silently disables all of them.
+    //
+    // It cannot leak into a saved file: the writer stamps WKS_FILE_VERSION
+    // unconditionally, which is asserted below.
+    expect(legacy().version).toBe(0);
+    expect(WKS_FILE_VERSION).toBeGreaterThan(20210606);
   });
 });
 
@@ -100,6 +114,9 @@ describe('saving it', () => {
     const out = serializeDrawingSheet(parseDrawingSheet(LEGACY));
     expect(out.trimStart().startsWith('(kicad_wks')).toBe(true);
     expect(parseDrawingSheet(out).items).toHaveLength(31);
+    // The version 0 the reader assigns this file is the FILE's, and stops
+    // there: the writer stamps the current one, so the upgrade is real.
+    expect(parseDrawingSheet(out).version).toBe(WKS_FILE_VERSION);
     // And the second save is a fixed point, so a file does not keep drifting
     // every time it is opened.
     expect(serializeDrawingSheet(parseDrawingSheet(out))).toBe(out);

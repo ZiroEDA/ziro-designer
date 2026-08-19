@@ -7,7 +7,7 @@
  * + editing geometry.
  */
 export * from './types.js';
-export { readDrawingSheet, parseDrawingSheet } from './read.js';
+export { readDrawingSheet, parseDrawingSheet, convertLegacyVariableRefs } from './read.js';
 export { writeDrawingSheet, serializeDrawingSheet } from './write.js';
 export { defaultDrawingSheet, emptyDrawingSheet } from './default-sheet.js';
 export {

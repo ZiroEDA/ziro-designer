@@ -269,3 +269,77 @@ export function countStackedPinNotation(pinName: string): { count: number; valid
   const { numbers, valid } = expandStackedPinNotation(pinName);
   return { count: numbers.length, valid };
 }
+
+/**
+ * ConvertToNewOverbarNotation (`common/string_utils.cpp:88-156`): rewrite the
+ * pre-2021 overbar spelling, where a bare `~` toggled an overbar on and off
+ * (and a space, `}` or `)` also ended one), into the current `~{…}` form.
+ *
+ * Every reader of a file older than its format's cut-over runs its text
+ * through this; without it a legacy `~RESET` keeps its tilde as a literal
+ * character and draws with no bar at all.
+ *
+ * The details that a paraphrase loses, all from the C++:
+ *  - the lone `~` is the legacy empty-string token and is returned untouched;
+ *  - `~~` is an escaped tilde, but `~~{` becomes `~~{}` so that the `{` which
+ *    follows cannot open an overbar;
+ *  - `~{` means the string has already been converted, so the WHOLE string is
+ *    returned unchanged rather than converted twice;
+ *  - an overbar left open at the end of the string is closed explicitly.
+ */
+export function convertToNewOverbarNotation(oldStr: string): string {
+  // Don't get tripped up by the legacy empty-string token.
+  if (oldStr === '~') return oldStr;
+
+  let newStr = '';
+  let inOverbar = false;
+
+  for (let i = 0; i < oldStr.length; i++) {
+    const ch = oldStr[i]!;
+
+    if (ch === '~') {
+      const next = oldStr[i + 1];
+
+      if (next === '~') {
+        if (oldStr[i + 2] === '{') {
+          // This way the subsequent opening curly brace will not start an
+          // overbar.
+          newStr += '~~{}';
+          continue;
+        }
+        // Two subsequent tildes mean a tilde.
+        newStr += '~';
+        i++;
+        continue;
+      }
+
+      if (next === '{') {
+        // Could mean the user wants "{" with an overbar, but more likely this
+        // is a case of double notation conversion. Bail out.
+        return oldStr;
+      }
+
+      if (inOverbar) {
+        newStr += '}';
+        inOverbar = false;
+      } else {
+        newStr += '~{';
+        inOverbar = true;
+      }
+      continue;
+    }
+
+    if ((ch === ' ' || ch === '}' || ch === ')') && inOverbar) {
+      // Spaces were used to terminate overbar as well.
+      newStr += '}';
+      inOverbar = false;
+    }
+
+    newStr += ch;
+  }
+
+  // Explicitly end the overbar even if there was no terminating '~'.
+  if (inOverbar) newStr += '}';
+
+  return newStr;
+}
