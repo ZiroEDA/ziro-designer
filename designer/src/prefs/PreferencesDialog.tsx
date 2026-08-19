@@ -1306,6 +1306,17 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
                   })
                 }
               />
+              {/*
+                PANEL_GRID_SETTINGS never disables these rows: the label and the
+                five checkbox/choice pairs are always live
+                (common/dialogs/panel_grid_settings_base.cpp:109-163, and
+                panel_grid_settings.cpp only ever calls Show(false) on rows an
+                editor has no use for). `overrides_enabled` is not part of that
+                panel at all upstream — it is ACTIONS::toggleGridOverrides, on
+                the View menu — so greying the rows out when it is off was ours,
+                not KiCad's, and it is what made a fresh install show a page of
+                dead controls.
+              */}
               {(
                 [
                   ['connected', 'Connected items:'],
@@ -1318,7 +1329,6 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
                   <Check
                     label={label}
                     checked={grid.overrides[key].enabled}
-                    disabled={!grid.overrides_enabled}
                     onChange={(v) =>
                       upE((s) => {
                         s.window.grid.overrides[key].enabled = v;
@@ -1329,7 +1339,6 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
                     className="ze-search"
                     value={grid.overrides[key].size}
                     style={{ width: 100 }}
-                    disabled={!grid.overrides_enabled || !grid.overrides[key].enabled}
                     onChange={(e) =>
                       upE((s) => {
                         s.window.grid.overrides[key].size = e.target.value;

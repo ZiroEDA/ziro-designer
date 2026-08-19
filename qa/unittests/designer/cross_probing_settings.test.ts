@@ -17,6 +17,8 @@
  * centring off must leave the zoom alone too, not merely skip the pan.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
@@ -245,5 +247,53 @@ describe('flash_selection blinks the new selection three times', () => {
       if (crossProbeFlashSelection(p, ids).length === 0) blinks++;
     expect(blinks).toBe(3);
     expect(CROSS_PROBE_FLASH_LAST_PHASE * CROSS_PROBE_FLASH_INTERVAL_MS).toBe(3000);
+  });
+});
+
+// ----- the wiring in PcbEditor ------------------------------------------------
+
+/**
+ * The pure functions above answer correctly; this checks the board editor
+ * actually asks them, and asks with the right settings object.
+ *
+ * The file is read as text because `qa`'s tsconfig cannot compile a `.tsx`;
+ * `clipboard_wired.test.ts` covers the same blind spot the same way. The failure
+ * being guarded is silent: dropping a gate here leaves every unit test green
+ * while the preference stops doing anything, which is how the group came to be
+ * four disabled checkboxes in the first place.
+ */
+const PCB_EDITOR = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  'utf8',
+);
+
+describe('PcbEditor routes its cross-probes through the settings', () => {
+  it('reads pcbnew’s copy, not the schematic’s', () => {
+    // Upstream the frame that RECEIVES the probe owns the settings that decide
+    // what it does (pcbnew/cross-probing.cpp:734 `GetPcbNewSettings()`), and
+    // Select on PCB is received here.
+    expect(PCB_EDITOR).toContain('settings.pcbnew.cross_probing');
+    expect(PCB_EDITOR).not.toContain('settings.eeschema.cross_probing');
+  });
+
+  it('asks crossProbeSelection rather than selecting the parts directly', () => {
+    expect(PCB_EDITOR).toContain('crossProbeSelection(');
+    // The un-gated form must not survive anywhere in the editor.
+    expect(PCB_EDITOR).not.toContain('findItemsFromSyncSelection(');
+  });
+
+  it('asks crossProbeHighlightNet rather than walking the net table itself', () => {
+    expect(PCB_EDITOR).toContain('crossProbeHighlightNet(');
+  });
+
+  it('asks crossProbeViewChange rather than zooming unconditionally', () => {
+    expect(PCB_EDITOR).toContain('crossProbeViewChange(');
+    expect(PCB_EDITOR).not.toContain('crossProbeZoomScale(');
+  });
+
+  it('honours flash_selection on the timer it starts', () => {
+    expect(PCB_EDITOR).toContain('cfg.flash_selection');
+    expect(PCB_EDITOR).toContain('crossProbeFlashSelection(');
+    expect(PCB_EDITOR).toContain('CROSS_PROBE_FLASH_INTERVAL_MS');
   });
 });
