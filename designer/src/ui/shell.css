@@ -589,8 +589,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* No hover prelight on a menu bar item: the only state one shows is open (the
    #4a4a4a fill plus the accent rule below). We were tinting it grey the moment
    the pointer crossed it, which reads as a web menu, not a GTK one. */
-/* KiCad window-title info in the menu bar: "<project>, <Editor>", centred like
-   a window title. Absolute + pointer-events:none so it doesn't block menus. */
 /* Title bar + menu bar as one chrome block, the way a WM-decorated frame is a
    title bar above the application's own menu bar. */
 .ze-framechrome {
@@ -629,25 +627,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--titlebar-fg);
   font-weight: var(--titlebar-font-weight);
 }
-.ze-menubar-title {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #c9cbce;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.ze-menubar-title b {
-  color: #fff;
-  font-weight: 600;
-}
-
 /* Toolbars */
 .ze-toolbar {
   display: flex;
