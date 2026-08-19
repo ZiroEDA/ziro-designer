@@ -278,6 +278,31 @@ describe('a converted frame has no listener of its own', () => {
     expect(Object.keys(MODIFIER_EXCEPTIONS).filter((rel) => !CONVERTED.includes(rel))).toEqual([]);
   });
 
+  it('never reads defaultPrevented without asking whose it was', () => {
+    // The bug that took every hotkey in the app down (c4a00590): our own
+    // browser suppressor runs in the capture phase and `preventDefault()`s
+    // every combo the app claims, purely to stop the browser. A frame that
+    // reads `defaultPrevented` as "somebody handled this" therefore stands
+    // down on exactly the set of keys it exists to serve - and it fails
+    // *silently*, which is why it needs a test rather than a review.
+    //
+    // The four canvas frames converted here all open their chain with that
+    // read, for a real reason: the library tree and the 3D viewer overlay both
+    // claim keys by cancelling them. So the invariant is per-line - a
+    // `defaultPrevented` that does not also consult `wasBrowserSuppressed` is
+    // the bug, whichever frame it is in.
+    const bare = CONVERTED.flatMap((rel) =>
+      source(rel)
+        .split('\n')
+        .map((line) => line.trim())
+        // Code, not the comment above it that explains why the code is there.
+        .filter((line) => /\bdefaultPrevented\b/.test(line) && !line.startsWith('//'))
+        .filter((line) => !/wasBrowserSuppressed/.test(line))
+        .map((line) => `${rel}: ${line}`),
+    );
+    expect(bare, 'reads our own browser suppression as another handler').toEqual([]);
+  });
+
   it('keeps only the keys that have no menu row', () => {
     // What is left in the Gerber Viewer is the canvas: measure, cancel, zoom
     // in, zoom out - GERBVIEW_ACTIONS / ACTIONS its View menu never lists.
