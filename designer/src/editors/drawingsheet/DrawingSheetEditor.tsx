@@ -37,7 +37,12 @@ import {
 import type { Vec2 } from '@ziroeda/kimath';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import {
+  FRAME_TITLE_SEPARATOR,
+  formatTitle,
+  frameTitleName,
+  useDocumentTitle,
+} from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
@@ -59,7 +64,7 @@ import {
   type PreviewSettings,
 } from './PageSettingsDialog.js';
 import { imageFileToPng, decodeImageMeta } from './wksBitmap.js';
-import { drawDrawingSheetItems, DS_PAGE_COLOR } from './wksRender.js';
+import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from './wksRender.js';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
@@ -85,7 +90,18 @@ export interface DrawingSheetEditorFile {
 }
 
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'layoutNormalMode']);
+/*
+ * APP_SETTINGS_BASE (common/settings/app_settings.cpp:227-237) gives
+ * "system.units" a per-app default, and pl_editor is one of the three apps on
+ * the imperial side of that branch:
+ *
+ *   if( m_filename == "pl_editor" || m_filename == "eeschema"
+ *       || m_filename == "symbol_editor" )  -> EDA_UNITS::MILS
+ *   else                                    -> EDA_UNITS::MM
+ *
+ * So the Drawing Sheet Editor opens in mils, not mm.
+ */
+const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMils', 'layoutNormalMode']);
 
 /** The 5 status-bar coordinate origins (PL_EDITOR_FRAME::m_originChoiceList). */
 const ORIGIN_CHOICES = [
@@ -401,7 +417,7 @@ export function DrawingSheetEditor({
     cv.height = Math.round(pageH * scalePx);
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = DS_PAGE_COLOR;
+    ctx.fillStyle = DS_PRINT_PAPER_COLOR;
     ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
     drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx });
@@ -874,7 +890,10 @@ export function DrawingSheetEditor({
           controller.current?.zoomToFit();
           break;
         case 'zoomTool':
-          controller.current?.zoomToSelection();
+          // ACTIONS::zoomTool is AF_ACTIVATE with ToolbarState TOGGLE
+          // (actions.cpp:817-826): the button ARMS the rubber-band tool, it
+          // does not act on the selection.
+          setActiveTool('zoomTool');
           break;
         case 'inspect':
           setShowInspector(true);
@@ -1027,7 +1046,7 @@ export function DrawingSheetEditor({
       {
         label: 'File',
         items: [
-          { label: 'New', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
+          { label: 'New…', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
           {
             label: 'Open…',
             icon: 'open',
@@ -1037,9 +1056,9 @@ export function DrawingSheetEditor({
           openRecentItem,
           { sep: true },
           { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
-          { label: 'Save As…', icon: 'saveAs', action: saveAs },
+          { label: 'Save As…', icon: 'saveAs', action: saveAs, shortcut: 'Shift+Ctrl+S' },
           { sep: true },
-          { label: 'Print…', icon: 'print', action: printSheet },
+          { label: 'Print…', icon: 'print', action: printSheet, shortcut: 'Ctrl+P' },
           { sep: true },
           addClose('Drawing Sheet Editor', onExitToHome),
           addQuit('Drawing Sheet Editor', onExitToHome),
@@ -1079,7 +1098,7 @@ export function DrawingSheetEditor({
             label: 'Delete',
             icon: 'dsDelete',
             action: deleteSelection,
-            shortcut: 'Del',
+            shortcut: 'Delete',
             disabled: selection.size === 0,
           },
         ],
@@ -1096,12 +1115,17 @@ export function DrawingSheetEditor({
             shortcut: 'Home',
           },
           {
-            label: 'Zoom to Selection',
+            label: 'Zoom to Selection Area',
             icon: 'zoomTool',
-            action: () => controller.current?.zoomToSelection(),
-            disabled: selection.size === 0,
+            action: () => setActiveTool('zoomTool'),
+            shortcut: 'Ctrl+F5',
           },
-          { label: 'Redraw View', icon: 'zoomRedraw', action: () => controller.current?.redraw() },
+          {
+            label: 'Refresh',
+            icon: 'zoomRedraw',
+            action: () => controller.current?.redraw(),
+            shortcut: 'F5',
+          },
           { sep: true },
           {
             label: 'Page Preview Settings…',
@@ -1135,6 +1159,15 @@ export function DrawingSheetEditor({
             icon: 'appendSheet',
             action: () => appendInputRef.current?.click(),
           },
+          { sep: true },
+          // PL_EDITOR_CONTROL::GridResetOrigin (pl_editor_control.cpp) is
+          // SetGridOrigin( 0, 0 ) followed by ForceRefresh(). Our grid is
+          // anchored at (0, 0) and there is no gridSetOrigin to move it, so
+          // only the refresh half is observable here - see the PR.
+          {
+            label: 'Reset Grid Origin',
+            action: () => controller.current?.redraw(),
+          },
         ],
       },
       {
@@ -1148,7 +1181,7 @@ export function DrawingSheetEditor({
         // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
         // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
         items: [
-          { label: 'Preferences…', action: () => setShowPrefs(true) },
+          { label: 'Preferences…', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
           setLanguageMenuItem({
             current: common.system.language,
             onSelect: (label) =>
@@ -1188,6 +1221,21 @@ export function DrawingSheetEditor({
   menusRef.current = menus;
 
   // ---- title ----
+  /*
+   * PL_EDITOR_FRAME::UpdateTitleAndInfo (pl_editor_frame.cpp:570-586):
+   *
+   *   if( IsContentModified() )  title = "*";
+   *   if( file.IsOk() )          title += file.GetName();
+   *   else                       title += _( "[no drawing sheet loaded]" );
+   *   title += " \u2014 " + _( "Drawing Sheet Editor" );
+   *
+   * `wxFileName::GetName()` is the base name WITHOUT the extension, and the
+   * dash is an EM DASH with a space either side, not an ASCII hyphen. The
+   * empty-name branch is reachable: File > New does
+   * SetCurrentFileName( wxEmptyString ) (pagelayout_editor/files.cpp).
+   */
+  const titleName = frameTitleName(fileName, '[no drawing sheet loaded]');
+
   useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));
 
   // This editor has no autosave: a sheet reaches the project only when Save is
@@ -1239,8 +1287,19 @@ export function DrawingSheetEditor({
       )}`
     : 'dx, dy -';
 
-  // Grid: 1 mm in metric, 0.1 in imperial (about the pl_editor defaults).
-  const gridIU = unit === 'mm' ? mmToIU(1) : mmToIU(2.54);
+  /*
+   * The grid is a WINDOW setting, not a unit-derived one: pl_editor's default
+   * comes from grid.last_size = 4 (app_settings.cpp:466-472) indexing
+   * DefaultGridSizeList()'s pl_editor list (:605-614), whose entry 4 is
+   * "0.50 mm". It does not change when the display unit does - the readout
+   * just re-expresses the same spacing, which is why a live pl_editor in mils
+   * shows "grid 19.685039".
+   *
+   * Ours derived the spacing from the unit, so the mils default above would
+   * otherwise have moved the grid from 1 mm to 2.54 mm. Pinning it to the
+   * upstream default keeps the two independent, as they are upstream.
+   */
+  const gridIU = mmToIU(0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
@@ -1272,7 +1331,8 @@ export function DrawingSheetEditor({
   }, [pageMM, unit, preview, pageNumber, selection.size]);
 
   return (
-    <div className="ze-app">
+    // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
+    <div className="ze-app ze-wks">
       <input
         ref={openInputRef}
         type="file"
@@ -1318,19 +1378,23 @@ export function DrawingSheetEditor({
           <>
             <b>
               {dirty ? '*' : ''}
-              {fileName}
+              {titleName}
             </b>
-            &nbsp;-&nbsp;Drawing Sheet Editor
+            {FRAME_TITLE_SEPARATOR}
+            Drawing Sheet Editor
           </>
         }
       />
 
-      {/* Top toolbar + the origin / page selector combos. */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Top toolbar + the origin / page selector combos. Upstream these two
+          are toolbar CONTROLS on the one ACTION_TOOLBAR
+          (toolbars_pl_editor.cpp), so the row is a single strip: the wrapper
+          carries the same face as the toolbar it continues. */}
+      <div className="ze-wks-topbar">
         <Toolbar
           entries={DS_TOP_TOOLBAR}
           orientation="horizontal"
-          toggled={toggles}
+          toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
           onActivate={onTopAction}
         />
         <span style={{ width: 10 }} />
@@ -1396,6 +1460,7 @@ export function DrawingSheetEditor({
           onPointDrag={onPointDrag}
           onPointDragEnd={onPointDragEnd}
           onSetLocalOrigin={setLocalOrigin}
+          onToolDone={() => setActiveTool('select')}
           onMoveDrop={(d) => {
             moveSelection(d);
             setMoveMode(false);

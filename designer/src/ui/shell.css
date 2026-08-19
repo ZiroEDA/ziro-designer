@@ -6633,3 +6633,85 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   outline: 2px solid var(--chrome-active-border);
   outline-offset: -3px;
 }
+
+/* ---------------------------------------------------------------------------
+   Drawing Sheet Editor (PL_EDITOR_FRAME) chrome.
+
+   D5/D6 of the drawing-sheet audit, measured off a live pl_editor 10.0.5 at
+   1854x1057 against ours at the same client size:
+
+     surface           KiCad     ours     property
+     top toolbar       #373737   #2c2c2c  background
+     left toolbar      #373737   #2c2c2c  background
+     message panel     #373737   #2c2c2c  background
+     menu bar          #2c2c2c   #2c2c2c  background   (already right)
+     status bar        #2c2c2c   #2c2c2c  background   (already right)
+     top toolbar       39px      32px     height
+     right toolbar     39px      32px     width
+     message panel     ~37px     32px     height
+
+   KiCad declares none of this. An ACTION_TOOLBAR and an EDA_MSG_PANEL are
+   docked wxAUI panes, so GTK paints them the FRAME background; only the menu
+   bar and the status bar get the darker chrome. That frame background is
+   already a token here - `--content-bg: #373737` - and it is what the project
+   manager's own docked toolbar (`.ze-mgrbar`) sits on, so the two launchers
+   now agree. (`--ctl-face` carries the same #373737 from the Yaru stylesheet,
+   but that one is the BUTTON face; our toolbar buttons are transparent until
+   hovered, and conflating the strip with the face would make a later change to
+   either one move the other.)
+
+   Scoped to this frame rather than changed on `.ze-toolbar` / `.ze-msgpanel`
+   themselves: the same six numbers are almost certainly wrong in the other
+   five draw frames for the same reason, but only pl_editor was measured, and
+   flipping the shared rule would move five editors on one editor's evidence.
+   See the PR - the shared change is a two-line diff waiting on measurements.
+   --------------------------------------------------------------------------- */
+.ze-wks .ze-toolbar {
+  background: var(--content-bg);
+}
+.ze-wks .ze-toolbar.horizontal {
+  height: 39px;
+}
+.ze-wks .ze-toolbar.vertical {
+  width: 39px;
+}
+.ze-wks .ze-msgpanel {
+  background: var(--content-bg);
+  min-height: 37px;
+}
+/* D4. `.ze-select` is `flex: 1` because in a dialog a combo fills its column;
+   in a TOOLBAR it must not. wxChoice sizes itself to its content, and
+   PL_EDITOR_FRAME::UpdateToolbarControlSizes
+   (pagelayout_editor/toolbars_pl_editor.cpp) then pins the origin box to a
+   minimum of its WIDEST of the five origin strings:
+
+       for( int ii = 0; ii < 5; ii++ )
+           minwidth = std::max( minwidth, KIUI::GetTextSize( m_originChoiceList[ii], ... ).x );
+       m_originSelectBox->SetMinSize( wxSize( minwidth, -1 ) );
+
+   `width: max-content` is that rule, computed by the layout engine instead of
+   by KIUI::GetTextSize - so it stays right if the font changes, which a pasted
+   pixel width would not. Measured targets are 214 px for the origin box and
+   122 px for the page box, against the 684 px each was stretching to.
+
+   Height is the shared GTK control height: KiCad's combo, button and text
+   field are all one height, which is why a row of mixed controls lines up.
+   Measured 34 px against our 23 px, and `--ctl-height` already carries it. */
+.ze-wks-topbar .ze-select {
+  flex: 0 0 auto;
+  width: max-content;
+  height: var(--ctl-height);
+  padding: 0 var(--ctl-pad-x);
+}
+
+/* The top toolbar and the two combos beside it are one strip upstream. */
+.ze-wks-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--content-bg);
+  border-bottom: 1px solid var(--chrome-border);
+}
+.ze-wks-topbar .ze-toolbar.horizontal {
+  border-bottom: none;
+}

@@ -34,14 +34,12 @@ import {
   DS_CURSOR_COLOR_ON_LIGHT,
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
-  DS_PAGE_COLOR,
+  DS_PAGE_BORDER_COLOR,
   DS_HILITE_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
-
-const MM = 10000;
 
 // A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
 // cursor for the interactive delete picker (KICURSOR::REMOVE).
@@ -86,6 +84,8 @@ export interface DrawingSheetCanvasProps {
   onScaleChange?: (scale: number) => void;
   onSelect?: (src: number | null, additive: boolean) => void;
   onSelectBox?: (srcs: number[], additive: boolean) => void;
+  /** The active tool finished and handed back to the arrow (PopTool). */
+  onToolDone?: () => void;
   onMoveItems?: (deltaIU: Vec2) => void;
   /** One-click placement (text / bitmap). */
   onPlacePoint?: (tool: string, atIU: Vec2) => void;
@@ -126,6 +126,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       onScaleChange,
       onSelect,
       onSelectBox,
+      onToolDone,
       onMoveItems,
       onPlacePoint,
       onDrawFirst,
@@ -186,11 +187,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // World transform (IU → device px).
       ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
 
-      // Page with a soft drop shadow.
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(3 * MM, 3 * MM, pageW, pageH);
-      ctx.fillStyle = DS_PAGE_COLOR;
-      ctx.fillRect(0, 0, pageW, pageH);
+      // No paper rectangle and no drop shadow: `DS_PAINTER::draw( const
+      // DS_DRAW_ITEM_PAGE* )` (common/drawing_sheet/ds_painter.cpp:357-382)
+      // sets `SetIsFill( false )` and only STROKES the page rectangle, in
+      // `m_pageBorderColor`. The paper is the cleared background, which is why
+      // pl_editor's canvas and page are the same colour.
 
       // GAL::DrawGrid, over the whole canvas rather than only the sheet: the
       // grid belongs to the view, not to the page, and pl_editor's grid runs
@@ -209,6 +210,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
 
       const worldPen = 1 / v.scale; // 1 device px in world units
+
+      // The page outline (ds_painter.cpp:361-368). One device pixel, drawn on
+      // top of the grid the way the LAYER_DRAWINGSHEET page item is.
+      ctx.strokeStyle = DS_PAGE_BORDER_COLOR;
+      ctx.lineWidth = worldPen;
+      ctx.strokeRect(0, 0, pageW, pageH);
 
       // Clip page content to the page rectangle.
       ctx.save();
@@ -379,6 +386,44 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       requestDraw();
     }, [requestDraw]);
 
+    /*
+     * ZOOM_TOOL::selectRegion's tail (common/tool/zoom_tool.cpp:130-158):
+     *
+     *   VECTOR2D sSize = view->ToWorld( canvas->GetClientSize(), false );
+     *   VECTOR2D vSize = selectionBox.GetSize();
+     *   double ratio = std::max( fabs( vSize.x / sSize.x ), fabs( vSize.y / sSize.y ) );
+     *   scale = IsMouseUp( BUT_LEFT ) ? view->GetScale() / ratio
+     *                                 : view->GetScale() * ratio;
+     *   view->SetScale( scale );
+     *   view->SetCenter( selectionBox.Centre() );
+     *
+     * A zero-width or zero-height box does nothing at all (`break` before the
+     * else), so a plain click inside the tool is not a zoom.
+     */
+    const zoomToRegion = useCallback(
+      (box: { a: Vec2; b: Vec2 } | null, out: boolean) => {
+        const canvas = canvasRef.current;
+        if (!canvas || !box) return;
+        const v = viewRef.current;
+        const w = Math.abs(box.b.x - box.a.x);
+        const h = Math.abs(box.b.y - box.a.y);
+        if (w === 0 || h === 0) return;
+        // The client size in WORLD units, view->ToWorld( ..., false ).
+        const sw = canvas.width / v.scale;
+        const sh = canvas.height / v.scale;
+        const ratio = Math.max(Math.abs(w / sw), Math.abs(h / sh));
+        if (!Number.isFinite(ratio) || ratio === 0) return;
+        const scale = out ? v.scale * ratio : v.scale / ratio;
+        const cx = (box.a.x + box.b.x) / 2;
+        const cy = (box.a.y + box.b.y) / 2;
+        v.scale = scale;
+        v.tx = canvas.width / 2 - cx * scale;
+        v.ty = canvas.height / 2 - cy * scale;
+        requestDraw();
+      },
+      [requestDraw],
+    );
+
     const zoomStep = useCallback(
       (factor: number) => {
         const canvas = canvasRef.current;
@@ -499,6 +544,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       | { mode: 'box'; start: Vec2; additive: boolean }
       | { mode: 'move'; start: Vec2; moved: boolean }
       | { mode: 'point'; index: number }
+      | { mode: 'zoom'; start: Vec2; out: boolean }
       | null
     >(null);
 
@@ -532,6 +578,25 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         gestureRef.current = { mode: 'pan', last: { x: e.clientX, y: e.clientY } };
         return;
       }
+
+      /*
+       * ZOOM_TOOL (common/tool/zoom_tool.cpp:62-95). The tool waits for a
+       * DRAG, with the two buttons meaning opposite directions:
+       *
+       *     else if( evt->IsDrag( BUT_LEFT ) || evt->IsDrag( BUT_RIGHT ) )
+       *         if( selectRegion() ) break;
+       *
+       * and in selectRegion the rubber band is a SELECTION_AREA preview item
+       * live-updated on every drag event. It is not "zoom to what is
+       * selected": nothing has to be selected for it to work, which is why
+       * ACTIONS::zoomTool is always enabled.
+       */
+      if (activeTool === 'zoomTool' && (e.button === 0 || e.button === 2)) {
+        gestureRef.current = { mode: 'zoom', start: world, out: e.button === 2 };
+        boxRef.current = { a: world, b: world };
+        return;
+      }
+
       if (e.button !== 0) return;
 
       // Move mode: the click drops the selection.
@@ -636,7 +701,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         v.ty += (e.clientY - g.last.y) * dpr;
         g.last = { x: e.clientX, y: e.clientY };
         requestDraw();
-      } else if (g.mode === 'box') {
+      } else if (g.mode === 'box' || g.mode === 'zoom') {
         boxRef.current = { a: g.start, b: world };
         requestDraw();
       } else if (g.mode === 'point') {
@@ -652,7 +717,15 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       const g = gestureRef.current;
       gestureRef.current = null;
       if (!g) return;
-      if (g.mode === 'box') {
+      if (g.mode === 'zoom') {
+        const b = boxRef.current;
+        boxRef.current = null;
+        zoomToRegion(b, g.out);
+        // selectRegion() returns after ONE region and Main breaks out of its
+        // loop, so the tool hands back to the arrow rather than staying armed.
+        onToolDone?.();
+        requestDraw();
+      } else if (g.mode === 'box') {
         const b = boxRef.current;
         boxRef.current = null;
         if (b) {
@@ -684,13 +757,15 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
     const placing = TWO_CLICK.has(activeTool) || ONE_CLICK.has(activeTool);
     const cursor =
-      activeTool === 'dsDelete'
-        ? REMOVE_CURSOR
-        : placing
-          ? PENCIL_CURSOR
-          : moveMode
-            ? 'move'
-            : 'crosshair';
+      activeTool === 'zoomTool'
+        ? 'zoom-in'
+        : activeTool === 'dsDelete'
+          ? REMOVE_CURSOR
+          : placing
+            ? PENCIL_CURSOR
+            : moveMode
+              ? 'move'
+              : 'crosshair';
     return (
       <div
         className="ze-canvas-wrap"
@@ -703,6 +778,10 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onContextMenu={(e) => {
+            // BUT_RIGHT is the zoom-out drag while this tool is armed.
+            if (activeTool === 'zoomTool') e.preventDefault();
+          }}
           onPointerLeave={() => {
             onCursorMove?.(null);
             cursorWorldRef.current = null;
