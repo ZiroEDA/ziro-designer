@@ -13,6 +13,7 @@
  * conventional import site for panel-specific types.
  */
 
+import { netclassPatternMatches } from '@ziroeda/common/src/eda_pattern_match.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/src/stroke_params.js';
 import { defaultErcSettings, type ErcSettings } from '@ziroeda/eeschema';
 
@@ -481,20 +482,6 @@ export interface EffectiveNetClass {
   lineStyle: string;
 }
 
-/** EDA_COMBINED_MATCHER::StartsWith with CTX_NETCLASS: a plain pattern is a
- *  prefix match; `*` / `?` wildcards match per EDA_PATTERN_MATCH_WILDCARD. */
-export function netClassPatternMatches(pattern: string, netName: string): boolean {
-  if (!pattern) return false;
-  if (!/[*?]/.test(pattern)) return netName.startsWith(pattern);
-  const rx = new RegExp(
-    `^${pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.')}`,
-  );
-  return rx.test(netName);
-}
-
 /**
  * NET_SETTINGS::GetEffectiveNetClass, over the dialog's netclass grid: collect
  * every class whose pattern assignment matches the net, sort by priority
@@ -521,7 +508,7 @@ export function resolveEffectiveNetClass(
       if (!a.netClass) continue;
       const cls = data.classes.find((c) => c.name === a.netClass);
       if (!cls || matched.includes(cls)) continue;
-      if (netClassPatternMatches(a.pattern, netName)) matched.push(cls);
+      if (netclassPatternMatches(a.pattern, netName)) matched.push(cls);
     }
   }
   const constituents = matched.length > 0 ? [...matched] : [dflt];

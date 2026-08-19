@@ -232,7 +232,7 @@ import {
 } from './dialogs/dialog_position_relative.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
-import { netClassFor, netclassesForNet, netclassMatches } from './netclass_resolve.js';
+import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
@@ -6458,9 +6458,7 @@ export function PcbEditor({
       classClearance.set(c.name, mmVal(c.clearance) ?? dfltClearance);
     }
     if (!classes.includes('Default')) classes.unshift('Default');
-    const patterns = boardSetup.netClasses.assignments
-      .filter((a) => a.pattern && a.netClass)
-      .map((a) => ({ netclass: a.netClass, pattern: a.pattern }));
+    const patterns = boardSetup.netClasses.assignments.filter((a) => a.pattern && a.netClass);
     return { classes, classColors, classDims, classClearance, patterns };
   }, [boardSetup.netClasses]);
 
@@ -6493,10 +6491,7 @@ export function PcbEditor({
   const netClassOf = useMemo(() => {
     const m = new Map<number, string>();
     if (board) {
-      for (const [code, name] of board.nets) {
-        const hit = netclassInfo.patterns.find((p) => netclassMatches(p.pattern, name));
-        m.set(code, hit?.netclass ?? 'Default');
-      }
+      for (const [code, name] of board.nets) m.set(code, netClassFor(name, netclassInfo.patterns));
     }
     return m;
   }, [board, netclassInfo]);

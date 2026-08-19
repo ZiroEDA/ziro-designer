@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CombinedMatcherContext,
   EdaCombinedMatcher,
+  netclassPatternMatches,
   searchTerm,
   type SearchTerm,
 } from '@ziroeda/common/src/eda_pattern_match.js';
@@ -109,5 +110,108 @@ describe('EdaCombinedMatcher in CTX_NETCLASS', () => {
     expect(netclass('a|b').startsWith('xb')).toBe(false);
     expect(netclass('a|b').startsWith('a')).toBe(true);
     expect(netclass('a|b').startsWith('b')).toBe(true);
+  });
+});
+
+/**
+ * `EDA_COMBINED_MATCHER( pattern, CTX_NETCLASS )` (net_settings.cpp:614) is an
+ * anchored REGEX matcher plus an anchored WILDCARD matcher, and StartsWith()
+ * (net_settings.cpp:807) takes either. It is not a glob, and it is not
+ * case-insensitive.
+ */
+describe('netclassPatternMatches', () => {
+  it('anchors the pattern', () => {
+    expect(netclassPatternMatches('VCC', 'VCC')).toBe(true);
+    expect(netclassPatternMatches('VCC', 'XVCC')).toBe(false);
+    expect(netclassPatternMatches('VCC', 'VCCX')).toBe(false);
+  });
+
+  it('handles * and ?', () => {
+    expect(netclassPatternMatches('V*', 'VBUS')).toBe(true);
+    expect(netclassPatternMatches('D?', 'D1')).toBe(true);
+    expect(netclassPatternMatches('D?', 'D12')).toBe(false);
+  });
+
+  it('reads regex metacharacters as regex AND as literals, because both matchers run', () => {
+    // The wildcard matcher escapes the brackets, so the literal net still
+    // matches; the anchored regex matcher does not, so "NET1" matches too.
+    expect(netclassPatternMatches('NET(1)', 'NET(1)')).toBe(true);
+    expect(netclassPatternMatches('NET(1)', 'NET1')).toBe(true);
+  });
+
+  it('selects on a regular expression, which a plain glob silently could not', () => {
+    // Every one of these matched NOTHING under the old glob, so the nets fell
+    // through to Default and were fabricated with Default's clearances.
+    expect(['GND', 'VCC', 'SDA'].filter((n) => netclassPatternMatches('VCC|GND', n))).toEqual([
+      'GND',
+      'VCC',
+    ]);
+    expect(['LED1', 'LED2', 'LED10'].filter((n) => netclassPatternMatches('LED[12]', n))).toEqual([
+      'LED1',
+      'LED2',
+    ]);
+    expect(['CLK', 'CLK_P', 'CLK_N'].filter((n) => netclassPatternMatches('CLK_[PN]', n))).toEqual([
+      'CLK_P',
+      'CLK_N',
+    ]);
+    expect(netclassPatternMatches('^GND$', 'GND')).toBe(true);
+    expect(netclassPatternMatches('.*', 'anything')).toBe(true);
+    expect(netclassPatternMatches('LED.', 'LEDA')).toBe(true);
+  });
+
+  it('lets a regex quantifier widen the selection past the literal net', () => {
+    // `GND+` is a plausible net name AND a valid regex. KiCad takes both.
+    expect(
+      ['GND', 'GNDD', 'GNDDD', 'GND+', 'GN'].filter((n) => netclassPatternMatches('GND+', n)),
+    ).toEqual(['GND', 'GNDD', 'GNDDD', 'GND+']);
+  });
+
+  it('matches case-sensitively, as wxRegEx without wxRE_ICASE does', () => {
+    expect(netclassPatternMatches('GND', 'gnd')).toBe(false);
+    expect(netclassPatternMatches('gnd', 'GND')).toBe(false);
+    expect(netclassPatternMatches('GND*', 'gnd')).toBe(false);
+    expect(netclassPatternMatches('usb_d*', 'USB_D+')).toBe(false);
+    expect(netclassPatternMatches('USB_D*', 'USB_D+')).toBe(true);
+  });
+
+  it('takes a trailing /* as both "any child" and "the parent itself"', () => {
+    // The wildcard matcher gives ^/Power/.*$; the regex matcher reads the `/*`
+    // as "zero or more slashes" and gives ^/Powe r/*$, which also spans /Power.
+    expect(netclassPatternMatches('/Power/*', '/Power/VCC')).toBe(true);
+    expect(netclassPatternMatches('/Power/*', '/Power')).toBe(true);
+  });
+
+  it('drops a pattern that will not compile rather than matching everything', () => {
+    // AddMatcher only keeps a matcher whose SetPattern succeeded; the wildcard
+    // matcher escapes the bracket and survives, so the literal still matches.
+    expect(netclassPatternMatches('LED[', 'LED[')).toBe(true);
+    expect(netclassPatternMatches('LED[', 'LEDX')).toBe(false);
+  });
+});
+
+describe('netclassPatternMatches is a whole-name test, not a prefix test', () => {
+  it('does not select every net that merely begins with the pattern', () => {
+    // The schematic editor read EDA_COMBINED_MATCHER::StartsWith as "the
+    // pattern is a prefix of the net name" and returned netName.startsWith().
+    // StartsWith actually means "a matcher matched from position 0", and both
+    // CTX_NETCLASS matchers are anchored at BOTH ends.
+    const nets = ['GND', 'GNDA', 'GND_ANALOG', 'AGND'];
+    expect(nets.filter((n) => netclassPatternMatches('GND', n))).toEqual(['GND']);
+    expect(nets.filter((n) => netclassPatternMatches('GND*', n))).toEqual([
+      'GND',
+      'GNDA',
+      'GND_ANALOG',
+    ]);
+  });
+
+  it('anchors a wildcard pattern at the end too', () => {
+    expect(netclassPatternMatches('*_P', 'CLK_P')).toBe(true);
+    expect(netclassPatternMatches('CLK_*', 'CLK_P_EXTRA')).toBe(true);
+    expect(netclassPatternMatches('*_P', 'CLK_P_EXTRA')).toBe(false);
+  });
+
+  it('rejects an empty pattern outright', () => {
+    expect(netclassPatternMatches('', '')).toBe(false);
+    expect(netclassPatternMatches('', 'GND')).toBe(false);
   });
 });

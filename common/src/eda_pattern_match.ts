@@ -222,3 +222,29 @@ export class EdaCombinedMatcher {
     return { score, exact };
   }
 }
+
+/**
+ * Upstream keeps one EDA_COMBINED_MATCHER per netclass assignment for the life
+ * of the NET_SETTINGS (net_settings.cpp:614); callers here are handed plain
+ * strings, so cache by pattern rather than recompile two regexes per net.
+ */
+const NETCLASS_MATCHERS = new Map<string, EdaCombinedMatcher>();
+
+/**
+ * `EDA_COMBINED_MATCHER( pattern, CTX_NETCLASS ).StartsWith( netName )` — the
+ * predicate NET_SETTINGS::GetEffectiveNetClass applies to every
+ * `netclass_patterns` row (net_settings.cpp:807).
+ *
+ * Note what StartsWith means here: "some matcher matched from position 0", and
+ * both CTX_NETCLASS matchers are anchored at BOTH ends. It is not a prefix
+ * test, it is not a plain glob, and it does not fold case.
+ */
+export function netclassPatternMatches(pattern: string, netName: string): boolean {
+  if (!pattern) return false;
+  let matcher = NETCLASS_MATCHERS.get(pattern);
+  if (!matcher) {
+    matcher = new EdaCombinedMatcher(pattern, CombinedMatcherContext.NETCLASS);
+    NETCLASS_MATCHERS.set(pattern, matcher);
+  }
+  return matcher.startsWith(netName);
+}
