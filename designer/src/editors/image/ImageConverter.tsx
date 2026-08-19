@@ -288,8 +288,11 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
    * Remove / Keep buttons, and opens nothing whichever the user picks.
    *
    * Our rows carry their own bytes, so "gone" means the data URL failed to
-   * survive storage. The dialog is a window.confirm until the shared
-   * KICAD_MESSAGE_DIALOG port lands (Image Converter finding B5).
+   * survive storage. Still a window.confirm, and deliberately: it is a
+   * KICAD_MESSAGE_DIALOG like the drop prompt (eda_base_frame.cpp:1502-1508),
+   * but one with `SetYesNoLabels( "Remove", "Keep" )`, which
+   * ui/dialog_message.tsx does not carry yet — and it belongs to the shared
+   * FILE_HISTORY port, whose four other callers want the same dialog.
    */
   const openRecent = useCallback(
     async (index: number) => {
@@ -364,7 +367,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   };
 
   const changeUnit = (next: SizeUnit): void => {
-    // OnSizeUnitChange (bitmap2cmp_panel.cpp:390-398) is unconditional: it
+    // OnSizeUnitChange (bitmap2cmp_panel.cpp:373-381) is unconditional: it
     // SetUnit()s both IMAGE_SIZEs and rewrites both fields whether or not a
     // bitmap is loaded. With no image m_originalSizePixels is 0, IMAGE_SIZE::
     // SetUnit's `if( m_outputSize )` guards fall to the else branch and both
@@ -614,9 +617,9 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 m_buttonExportFile and m_buttonExportClipboard
                 (bitmap2cmp_panel.cpp:65-66). Both size fields, the unit choice
                 and the threshold slider are live from the first frame: the two
-                IMAGE_SIZEs simply hold 0 (`SetOutputSize( 0, … )`, :58-59) and
+                IMAGE_SIZEs simply hold 0 (`SetOutputSize( 0, … )`, :59-60) and
                 the fields read "0.0". Loading an image then overwrites both
-                sizes from the bitmap (:264-268), so anything typed here before
+                sizes from the bitmap (:264-267), so anything typed here before
                 a load is discarded by the load, not refused by the widget. */}
             <div className="imgc-sizerow">
               <span className="lbl">Size:</span>

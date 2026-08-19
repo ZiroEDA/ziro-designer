@@ -132,10 +132,10 @@ describe('Image Converter: only the two export buttons start disabled', () => {
 
 describe('Image Converter: what a live control does with no bitmap', () => {
   it('re-formats both Size fields on a unit change even with no image', () => {
-    // OnSizeUnitChange (bitmap2cmp_panel.cpp:390-398) is unconditional: it
+    // OnSizeUnitChange (bitmap2cmp_panel.cpp:373-381) is unconditional: it
     // SetUnit()s both IMAGE_SIZEs and ChangeValue()s both fields whatever is
     // loaded. With no image m_originalSizePixels is 0, so IMAGE_SIZE::SetUnit
-    // (bitmap2cmp_frame.cpp:92-137) falls to its `else size_mm = 0` branches and
+    // (bitmap2cmp_frame.cpp:92-138) falls to its `else size_mm = 0` branches and
     // the size stays 0 - but the field still re-formats to the new unit's
     // precision. Our changeUnit must therefore not be guarded on `loaded`.
     expect(formatOutputSize(convertOutputSize(0, 0, 'mm', 'mm'), 'mm')).toBe('0.0');
@@ -149,7 +149,7 @@ describe('Image Converter: what a live control does with no bitmap', () => {
 
   it('starts both fields at the "0.0" KiCad shows, not blank', () => {
     // m_outputSizeX.SetOutputSize( 0, … ) then ChangeValue( formatOutputSize(…) )
-    // (bitmap2cmp_panel.cpp:58-62).
+    // (bitmap2cmp_panel.cpp:59-63).
     expect(formatOutputSize(0, 'mm')).toBe('0.0');
     expect(TSX).toContain('useState(() => formatOutputSize(0,');
   });
