@@ -31,6 +31,7 @@ import {
   resolveUnsavedChanges,
   saveAndContinueCommand,
   saveToSchematicCommand,
+  selectedComponent,
   undoAssociation,
   DELETE_ALL_CONFIRMATION,
   SCHEMATIC_SAVED_STATUS,
@@ -57,7 +58,7 @@ const comp = (reference: string, footprint = ''): CvpcbComponent => ({
 /** R1 assigned, R2 and R3 not. */
 const SHEET: CvpcbComponent[] = [comp('R1', 'Resistor:R_0805'), comp('R2'), comp('R3')];
 
-const at = (selected: number): CvpcbAssociations => emptyAssociations(selected);
+const at = (...selected: number[]): CvpcbAssociations => emptyAssociations(selected);
 
 const fpids = (state: CvpcbAssociations, components: readonly CvpcbComponent[]): string[] =>
   components.map((c) => footprintOf(state, c));
@@ -213,12 +214,12 @@ describe('DeleteAll', () => {
   it('selects the first symbol afterwards', () => {
     // SetSelectedComponent( -1, true ) then SetSelectedComponent( 0 ).
     const after = deleteAll(at(2), SHEET, () => true);
-    expect(after.selected).toBe(0);
+    expect(selectedComponent(after)).toBe(0);
   });
 
   it('selects nothing when there are no symbols', () => {
     // SetSelectedComponent( 0 ) is a no-op past the end of the list.
-    expect(deleteAll(at(0), [], () => true).selected).toBe(-1);
+    expect(selectedComponent(deleteAll(at(0), [], () => true))).toBe(-1);
   });
 
   it('one undo puts every association back', () => {
@@ -240,7 +241,7 @@ describe('Associate', () => {
     // CVPCB_ASSOCIATION_TOOL::Associate posts gotoNextNA unconditionally, so
     // Enter on the footprint R1 already has accepts it and moves to R2.
     const after = associate(at(0), SHEET, 'Resistor:R_0805');
-    expect(after.selected).toBe(1);
+    expect(selectedComponent(after)).toBe(1);
     expect(fpids(after, SHEET)).toEqual(['Resistor:R_0805', '', '']);
   });
 
@@ -256,7 +257,7 @@ describe('Associate', () => {
   it('assigns a new footprint and moves to the next unassigned symbol', () => {
     const after = associate(at(1), SHEET, 'Resistor:R_0603');
     expect(fpids(after, SHEET)).toEqual(['Resistor:R_0805', 'Resistor:R_0603', '']);
-    expect(after.selected).toBe(2);
+    expect(selectedComponent(after)).toBe(2);
   });
 
   it('ignores an empty footprint (nothing selected in the footprint pane)', () => {
@@ -268,14 +269,14 @@ describe('Associate', () => {
     // CVPCB_CONTROL::ToNA leaves the selection alone when the forward scan
     // finds nothing, so finishing the board does not send you back to the top.
     const after = associate(at(2), SHEET, 'Resistor:R_0603');
-    expect(after.selected).toBe(2);
+    expect(selectedComponent(after)).toBe(2);
   });
 
   it('assigning back to the schematic value keeps the frame modified', () => {
     // m_modified is set by AssociateFootprint before anything else, and only a
     // save clears it.
     const changed = associate(at(0), SHEET, 'Resistor:R_0603');
-    const back = associate({ ...changed, selected: 0 }, SHEET, 'Resistor:R_0805');
+    const back = associate({ ...changed, selection: [0] }, SHEET, 'Resistor:R_0805');
     expect(footprintOf(back, SHEET[0]!)).toBe('Resistor:R_0805');
     expect(back.modified).toBe(true);
   });
@@ -285,14 +286,14 @@ describe('DeleteAssoc and ToNA', () => {
   it('clears the selected symbol without moving the selection', () => {
     const after = deleteAssoc(at(0), SHEET);
     expect(fpids(after, SHEET)).toEqual(['', '', '']);
-    expect(after.selected).toBe(0);
+    expect(selectedComponent(after)).toBe(0);
   });
 
   it('walks the unassigned symbols in both directions without wrapping', () => {
-    expect(gotoNA(at(0), SHEET, 1).selected).toBe(1);
-    expect(gotoNA(at(1), SHEET, 1).selected).toBe(2);
-    expect(gotoNA(at(2), SHEET, 1).selected).toBe(2);
-    expect(gotoNA(at(2), SHEET, -1).selected).toBe(1);
-    expect(gotoNA(at(1), SHEET, -1).selected).toBe(1);
+    expect(selectedComponent(gotoNA(at(0), SHEET, 1))).toBe(1);
+    expect(selectedComponent(gotoNA(at(1), SHEET, 1))).toBe(2);
+    expect(selectedComponent(gotoNA(at(2), SHEET, 1))).toBe(2);
+    expect(selectedComponent(gotoNA(at(2), SHEET, -1))).toBe(1);
+    expect(selectedComponent(gotoNA(at(1), SHEET, -1))).toBe(1);
   });
 });

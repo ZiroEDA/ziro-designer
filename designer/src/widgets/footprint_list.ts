@@ -124,6 +124,25 @@ export function matchesFootprintText(
 
 let indexPromise: Promise<FpIndexEntry[]> | null = null;
 
+/**
+ * `FOOTPRINT_LIST::GetFootprintInfo` (common/footprint_info.cpp:37-64) — is
+ * this FPID one of the loaded libraries' footprints?
+ *
+ * The empty-name early return matters and is the whole of CvPcb finding B2:
+ *
+ *     if( aFootprintName.IsEmpty() )
+ *         return nullptr;
+ *
+ * so an **unassigned** symbol answers "no" exactly as a symbol pointing at a
+ * footprint that has gone missing does, and CvPcb's
+ * `SYMBOLS_LISTBOX::AppendWarning` (readwrite_dlgs.cpp:277-278,
+ * cvpcb_mainframe.cpp:662-666) is written on that answer alone.
+ */
+export function hasFootprintInfo(known: ReadonlySet<string>, fpid: string): boolean {
+  if (!fpid) return false;
+  return known.has(fpid);
+}
+
 /** Load the footprint-library index (library → footprint names). */
 export function loadFootprintIndex(): Promise<FpIndexEntry[]> {
   if (!indexPromise) {

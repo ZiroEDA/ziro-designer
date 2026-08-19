@@ -44,6 +44,7 @@ import type { PcbFootprint } from '@ziroeda/pcbnew';
 import {
   footprintSearchTerms,
   footprintTextMatchers,
+  hasFootprintInfo,
   loadFootprint,
   loadFootprintIndex,
   matchesFootprintText,
@@ -60,12 +61,20 @@ import { DialogFpLibTable } from '../../../widgets/dialog_fp_lib_table.js';
 import { footprintsBase } from '../../footprint/libraryManager.js';
 import {
   collectCvpcbComponents,
+  firstUnassignedComponent,
   formatFootprintDesc,
   formatSymbolDesc,
   type CvpcbComponent,
 } from '../cvpcb_components.js';
 import {
+  buildLibrariesList,
+  footprintSelectionAfterRebuild,
+  selectedLibraryOf,
+  typeAheadRow,
+} from '../cvpcb_listbox.js';
+import {
   associate as associateCommand,
+  changeFocus,
   closeWindow as closeWindowCommand,
   deleteAll as deleteAllCommand,
   deleteAssoc as deleteAssocCommand,
@@ -78,11 +87,14 @@ import {
   resolveUnsavedChanges,
   saveAndContinueCommand,
   saveToSchematicCommand,
+  selectedComponent,
   undoAssociation,
   UNSAVED_ASSOCIATIONS_MESSAGE,
   type CvpcbAssociations,
+  type CvpcbControl,
   type CvpcbSaveCommand,
 } from '../cvpcb_commands.js';
+import { settings } from '../../../prefs/settings.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
@@ -98,6 +110,12 @@ const FILTER_BY_LIBRARY = 0x0004;
 
 /** Row height of the three virtual lists, in px (a monospaced text row). */
 const ROW_H = 18;
+
+/** `m_filterTimer->StartOnce( 200 )` (cvpcb_mainframe.cpp:438-446). */
+const FILTER_DEBOUNCE_MS = 200;
+
+/** `m_tcFilterString->SetMinSize( wxSize( 150, -1 ) )` (toolbars_cvpcb.cpp:112). */
+const FILTER_BOX_WIDTH = 150;
 
 interface Props {
   /** Every sheet of the open project, keyed by file name. */
@@ -118,28 +136,52 @@ interface Props {
   onClose: () => void;
 }
 
-/** A fixed-row-height windowed list, the virtual wxListView the panes use. */
+/**
+ * A fixed-row-height windowed list: the virtual `wxListView` all three panes
+ * are (`ITEMS_LISTBOX_BASE`, `cvpcb/listboxes.h`).
+ *
+ * One component for three panes, as upstream has one base class for three
+ * listboxes — and, unlike upstream, one copy of the keyboard handling instead
+ * of three. `typeAheadRow` (cvpcb_listbox.ts) is the loop `SYMBOLS_LISTBOX`,
+ * `FOOTPRINTS_LISTBOX` and `LIBRARY_LISTBOX` each carry their own copy of; the
+ * Home/End/Up/Down/PageUp/PageDown block is what all three `OnChar`s
+ * `event.Skip()` back to the list itself.
+ *
+ * `multi` is `wxLC_SINGLE_SEL`, inverted: the symbols pane is built without
+ * that style (symbols_listbox.cpp:37) and the other two with it
+ * (footprints_listbox.cpp:35, library_listbox.cpp:37).
+ */
 function VirtualList({
-  count,
-  selected,
+  rows: text,
+  selection,
+  focused,
+  multi = false,
   render,
-  onSelect,
+  onSelectRows,
   onActivate,
-  scrollTo,
-  widthCh,
+  listRef,
+  onFocus,
 }: {
-  count: number;
-  selected: number;
+  /** Every row's text — the list's contents, `m_SymbolList` and friends. */
+  rows: readonly string[];
+  /** Every selected row (`GetFirstSelected`/`GetNextSelected`). */
+  selection: ReadonlySet<number>;
+  /** The row `EnsureVisible` follows, and the anchor a Shift+click ranges from. */
+  focused: number;
+  multi?: boolean;
   render: (i: number) => JSX.Element;
-  onSelect: (i: number) => void;
+  onSelectRows: (rows: number[], focused: number) => void;
   onActivate?: (i: number) => void;
-  /** Row to scroll into view (EnsureVisible). */
-  scrollTo?: number;
-  /** Longest row in characters, ITEMS_LISTBOX_BASE::UpdateWidth, which sizes
-   *  the virtual list so long rows scroll horizontally instead of clipping. */
-  widthCh?: number;
+  /** The pane's scroller, so `SetFocusedControl` can focus it. */
+  listRef?: React.RefObject<HTMLDivElement>;
+  onFocus?: () => void;
 }): JSX.Element {
-  const ref = useRef<HTMLDivElement>(null);
+  const count = text.length;
+  // ITEMS_LISTBOX_BASE::UpdateWidth — the longest row sizes the virtual list,
+  // so long rows scroll horizontally instead of clipping.
+  const widthCh = useMemo(() => text.reduce((n, row) => Math.max(n, row.length), 0), [text]);
+  const ownRef = useRef<HTMLDivElement>(null);
+  const ref = listRef ?? ownRef;
   const [view, setView] = useState({ top: 0, height: 400 });
 
   useEffect(() => {
@@ -150,17 +192,83 @@ function VirtualList({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [ref]);
 
   // EnsureVisible( index ) after a selection change made elsewhere.
   useEffect(() => {
     const el = ref.current;
-    if (!el || scrollTo === undefined || scrollTo < 0) return;
-    const top = scrollTo * ROW_H;
+    if (!el || focused < 0) return;
+    const top = focused * ROW_H;
     if (top < el.scrollTop) el.scrollTop = top;
     else if (top + ROW_H > el.scrollTop + el.clientHeight)
       el.scrollTop = top + ROW_H - el.clientHeight;
-  }, [scrollTo]);
+  }, [focused, ref]);
+
+  /** A click, with wxListCtrl's modifiers: Ctrl toggles, Shift ranges. */
+  const clickRow = (i: number, e: React.MouseEvent): void => {
+    if (multi && (e.ctrlKey || e.metaKey)) {
+      const next = new Set(selection);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      onSelectRows([...next].sort((a, b) => a - b), i);
+      return;
+    }
+    if (multi && e.shiftKey && focused >= 0) {
+      const lo = Math.min(focused, i);
+      const hi = Math.max(focused, i);
+      const next: number[] = [];
+      for (let k = lo; k <= hi; k++) next.push(k);
+      onSelectRows(next, i);
+      return;
+    }
+    onSelectRows([i], i);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (count === 0) return;
+    const rows = Math.max(1, Math.floor(view.height / ROW_H));
+    const here = focused < 0 ? 0 : focused;
+    let to: number | null = null;
+
+    switch (e.key) {
+      // The keys all three OnChar()s hand straight back to the list.
+      case 'Home':
+        to = 0;
+        break;
+      case 'End':
+        to = count - 1;
+        break;
+      case 'ArrowUp':
+        to = Math.max(0, here - 1);
+        break;
+      case 'ArrowDown':
+        to = Math.min(count - 1, here + 1);
+        break;
+      case 'PageUp':
+        to = Math.max(0, here - rows);
+        break;
+      case 'PageDown':
+        to = Math.min(count - 1, here + rows);
+        break;
+      default:
+        break;
+    }
+
+    if (to !== null) {
+      onSelectRows([to], to);
+      e.preventDefault();
+      return;
+    }
+
+    // The type-ahead. Modified keys are commands, not characters.
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const hit = typeAheadRow(text, e.key);
+    if (hit === null) return;
+    // `SetSelection( ii, true )` is a bare Select(): in the multi-select
+    // symbols pane the jump *adds* the row rather than replacing the selection.
+    onSelectRows(multi ? [...new Set([...selection, hit])].sort((a, b) => a - b) : [hit], hit);
+    e.preventDefault();
+  };
 
   const first = Math.max(0, Math.floor(view.top / ROW_H) - 4);
   const last = Math.min(count, Math.ceil((view.top + view.height) / ROW_H) + 4);
@@ -169,10 +277,10 @@ function VirtualList({
     rows.push(
       <div
         key={i}
-        className={`ze-cvpcb-row${i === selected ? ' selected' : ''}`}
+        className={`ze-cvpcb-row${selection.has(i) ? ' selected' : ''}`}
         style={{ top: i * ROW_H, height: ROW_H }}
-        // biome-ignore lint/a11y/useKeyWithClickEvents: rows follow the list's keyboard handling
-        onClick={() => onSelect(i)}
+        // biome-ignore lint/a11y/useKeyWithClickEvents: the list owns the keyboard, see onKeyDown
+        onClick={(e) => clickRow(i, e)}
         onDoubleClick={onActivate ? () => onActivate(i) : undefined}
       >
         {render(i)}
@@ -184,6 +292,9 @@ function VirtualList({
     <div
       className="ze-cvpcb-list"
       ref={ref}
+      tabIndex={0}
+      onFocus={onFocus}
+      onKeyDown={onKeyDown}
       // Read the offset during dispatch: `currentTarget` is null by the time a
       // lazy state updater runs.
       onScroll={(e) => {
@@ -297,24 +408,50 @@ export function DialogAssignFootprints({
   // The associations, the undo lists and the symbol selection: one state,
   // because the commands in cvpcb_commands.ts move them together (DeleteAll
   // rewrites every FPID *and* resets the selection as a single step).
-  const [model, setModel] = useState<CvpcbAssociations>(() => emptyAssociations(0));
+  // `ReadNetListAndFpFiles` selects the first symbol with no footprint, and
+  // selects nothing at all when every symbol already has one. Computed once, as
+  // upstream computes it once while it fills the pane.
+  const [model, setModel] = useState<CvpcbAssociations>(() => {
+    const first = firstUnassignedComponent(components);
+    return emptyAssociations(first >= 0 ? [first] : []);
+  });
   const { assigned, undoStack, redoStack } = model;
-  const curComp = model.selected;
-  const setCurComp = (index: number): void =>
-    setModel((m) => (m.selected === index ? m : { ...m, selected: index }));
+  const curComp = selectedComponent(model);
+  const symbolSelection = useMemo(() => new Set(model.selection), [model.selection]);
+  /** `SetSelectedComponent` / the pane's own click and key handling. */
+  const setSymbolSelection = (rows: readonly number[]): void =>
+    setModel((m) => ({ ...m, selection: rows }));
   /** Set by a save, cleared the next time DisplayStatus would run. */
   const [savedStatus, setSavedStatus] = useState<string | null>(null);
   /** HandleUnsavedChanges is on screen (canCloseWindow is waiting for it). */
   const [unsavedPrompt, setUnsavedPrompt] = useState(false);
   const [curLib, setCurLib] = useState<number>(-1);
-  const [curFp, setCurFp] = useState(0);
+  // The footprint pane's row, kept in a ref as well: the rebuild rule below
+  // reads the row it had *before* the rebuild, and reading it out of state
+  // would make the effect re-run every time the user clicks a footprint.
+  const [curFp, setCurFpState] = useState(-1);
+  const curFpRef = useRef(-1);
+  const setCurFp = (index: number): void => {
+    curFpRef.current = index;
+    setCurFpState(index);
+  };
   const [filterFlags, setFilterFlags] = useState(0);
+  // What the box shows, and what the list is filtered by: `onTextFilterChanged`
+  // only restarts a 200 ms `wxTimer` (cvpcb_mainframe.cpp:438-446) and it is
+  // `onTextFilterChangedTimer` that rebuilds the list, so a fast typist filters
+  // fifteen thousand footprints once instead of once per keystroke.
+  const [filterInput, setFilterInput] = useState('');
   const [filterText, setFilterText] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [libTableOpen, setLibTableOpen] = useState(false);
   // Focused pane, the third status line names the library of the focused
   // pane's selection (CVPCB_MAINFRAME::GetFocusedControl).
-  const [focus, setFocus] = useState<'library' | 'symbol' | 'footprint'>('symbol');
+  // `SYMBOLS_LISTBOX::OnSelectComponent` calls `SetFocus()`, and the startup
+  // selection goes through it, so the window opens with the symbols pane
+  // focused — unless nothing was selected, which is CONTROL_NONE.
+  const [focus, setFocus] = useState<CvpcbControl | null>(() =>
+    firstUnassignedComponent(components) >= 0 ? 'symbol' : null,
+  );
 
   useEffect(() => {
     void loadFootprintIndex().then((idx) => {
@@ -323,8 +460,25 @@ export function DialogAssignFootprints({
     });
   }, []);
 
-  const libNames = useMemo(() => index.map((l) => l.name), [index]);
-  const selectedLibrary = curLib >= 0 ? (libNames[curLib] ?? '') : '';
+  // `onTextFilterChanged` -> `m_filterTimer->StartOnce( 200 )`: each keystroke
+  // restarts the timer, and only its expiry rebuilds the list. Enter is bound
+  // straight to the same handler (`wxTE_PROCESS_ENTER`,
+  // toolbars_cvpcb.cpp:106-113), which is why the box has an explicit Enter
+  // path below rather than waiting the 200 ms out.
+  useEffect(() => {
+    if (filterInput === filterText) return;
+    const timer = setTimeout(() => setFilterText(filterInput), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filterInput, filterText]);
+
+  /** `BuildLibrariesList`: pinned libraries first, both groups StrNumCmp'd. */
+  const libRows = useMemo(
+    () => buildLibrariesList(index.map((l) => l.name), settings.common.system.session.pinned_fp_libs),
+    [index],
+  );
+  /** The nicknames themselves, for the "Library location:" status line. */
+  const libNames = useMemo(() => libRows.map(selectedLibraryOf), [libRows]);
+  const selectedLibrary = selectedLibraryOf(curLib >= 0 ? libRows[curLib] : undefined);
 
   const footprintOf = (c: CvpcbComponent): string => associationFootprintOf(model, c);
   const component = curComp >= 0 ? components[curComp] : undefined;
@@ -412,20 +566,33 @@ export function DialogAssignFootprints({
     return out;
   }, [catalog, filterFlags, component, selectedLibrary, filterText]);
 
-  const selectedFootprint = filtered[curFp] ?? '';
+  const selectedFootprint = curFp >= 0 ? (filtered[curFp] ?? '') : '';
 
-  // FOOTPRINTS_LISTBOX::SetSelectedFootprint, selecting a symbol highlights
-  // its own footprint in the list when that footprint is among the matches.
-  const componentRef = component?.reference;
+  /** FOOTPRINTS_LISTBOX::SetFootprints' rows, `"%3d Lib:Footprint"`. */
+  const footprintRows = useMemo(
+    () => filtered.map((id, i) => formatFootprintDesc(i + 1, id)),
+    [filtered],
+  );
+
+  // Which footprint stays selected when the list is rebuilt. See
+  // footprintSelectionAfterRebuild: the old row is remembered by its *text*, a
+  // row that did not survive the filter falls back to row 0, and the selected
+  // symbol's own footprint overrides both — or, when it has none, the pane is
+  // left with nothing selected at all.
   const componentFp = component ? footprintOf(component) : '';
+  const symbolSelectionKey = model.selection.join(',');
+  const previousFootprintRows = useRef<readonly string[]>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: symbolSelectionKey stands for the EVT_LIST_ITEM_SELECTED that runs this upstream
   useEffect(() => {
-    if (!componentFp) return;
-    const at = filtered.indexOf(componentFp);
-    if (at >= 0) setCurFp(at);
-    // Upstream re-selects after every SetFootprints, so a changed filter (or a
-    // changed symbol) both land here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [componentRef, componentFp, filtered]);
+    const next = footprintSelectionAfterRebuild(
+      previousFootprintRows.current,
+      curFpRef.current,
+      footprintRows,
+      componentFp,
+    );
+    previousFootprintRows.current = footprintRows;
+    setCurFp(next);
+  }, [footprintRows, componentFp, symbolSelectionKey]);
 
   // ----- associations ------------------------------------------------------
 
@@ -563,6 +730,28 @@ export function DialogAssignFootprints({
     const uri = projectLibUris.get(lib);
     return `Library location: ${uri ?? `${footprintsBase()}/${lib}.pretty`}`;
   }, [selectedFootprint, focus, component, selectedLibrary, libNames, assigned, projectLibUris]);
+
+  // ----- focus (CVPCB_MAINFRAME::GetFocusedControl / SetFocusedControl) -----
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const libraryListRef = useRef<HTMLDivElement>(null);
+  const symbolListRef = useRef<HTMLDivElement>(null);
+  const footprintListRef = useRef<HTMLDivElement>(null);
+  const paneRefs: Record<CvpcbControl, React.RefObject<HTMLDivElement>> = {
+    library: libraryListRef,
+    symbol: symbolListRef,
+    footprint: footprintListRef,
+  };
+
+  // The window takes focus on open so its hotkeys (Enter / Delete / Ctrl+Z)
+  // work without clicking first. `SYMBOLS_LISTBOX::OnSelectComponent` runs
+  // `SetFocus()` and the startup selection goes through it, so when a symbol
+  // was selected the focus is the symbols pane rather than the frame.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the mount-time focus, not a value the effect tracks
+  useEffect(() => {
+    if (focus === 'symbol') symbolListRef.current?.focus();
+    else frameRef.current?.focus();
+  }, []);
 
   // ----- menus, toolbar ----------------------------------------------------
 
@@ -730,6 +919,30 @@ export function DialogAssignFootprints({
       return;
     }
     if (e.target instanceof HTMLInputElement) return;
+
+    // CVPCB_ACTIONS::changeFocusRight / changeFocusLeft — Tab and Shift+Tab are
+    // their default hotkeys, and CVPCB_CONTROL::Main posts the same two actions
+    // for the right and left arrows.
+    const dir =
+      e.key === 'Tab' && !e.shiftKey
+        ? 'right'
+        : e.key === 'Tab' && e.shiftKey
+          ? 'left'
+          : e.key === 'ArrowRight'
+            ? 'right'
+            : e.key === 'ArrowLeft'
+              ? 'left'
+              : null;
+    if (dir) {
+      const next = changeFocus(focus, dir);
+      if (next) {
+        setFocus(next);
+        paneRefs[next].current?.focus();
+      }
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Enter') {
       // Whether there is anything to assign is Associate's own rule, not a
       // condition on the key: it ignores an empty footprint and otherwise
@@ -739,21 +952,16 @@ export function DialogAssignFootprints({
     }
   };
 
-  // The window takes focus on open so its hotkeys (Enter / Delete / Ctrl+Z)
-  // work without clicking first.
-  const frameRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    frameRef.current?.focus();
-  }, []);
-
   const assignedCount = components.filter((c) => footprintOf(c)).length;
-  // Longest row of each pane, so the lists scroll horizontally like upstream's.
-  const libWidthCh = libNames.reduce((n, l) => Math.max(n, l.length), 0);
-  const symWidthCh = components.reduce(
-    (n, c, i) => Math.max(n, formatSymbolDesc(i + 1, c.reference, c.value, footprintOf(c)).length),
-    0,
+
+  /** SYMBOLS_LISTBOX's rows (`formatSymbolDesc`), which the pane renders and
+   *  the type-ahead reads. */
+  const symbolRows = components.map((c, i) =>
+    formatSymbolDesc(i + 1, c.reference, c.value, footprintOf(c)),
   );
-  const fpWidthCh = filtered.reduce((n, id) => Math.max(n, id.length + 4), 0);
+  // The two wxLC_SINGLE_SEL panes: at most one row, none when it is -1.
+  const libSelection = new Set(curLib >= 0 ? [curLib] : []);
+  const footprintSelection = new Set(curFp >= 0 ? [curFp] : []);
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={closeWindow}>
@@ -783,10 +991,18 @@ export function DialogAssignFootprints({
             filterText: (
               <input
                 className="ze-search"
-                style={{ width: 190 }}
-                value={filterText}
+                style={{ width: FILTER_BOX_WIDTH }}
+                value={filterInput}
                 placeholder=""
-                onChange={(e) => setFilterText(e.target.value)}
+                onFocus={() => setFocus(null)}
+                onChange={(e) => setFilterInput(e.target.value)}
+                onKeyDown={(e) => {
+                  // wxTE_PROCESS_ENTER + the explicit wxEVT_TEXT_ENTER bind:
+                  // Enter runs the same handler the timer does, now.
+                  if (e.key !== 'Enter') return;
+                  setFilterText(e.currentTarget.value);
+                  e.preventDefault();
+                }}
               />
             ),
           }}
@@ -794,26 +1010,22 @@ export function DialogAssignFootprints({
 
         <div className="ze-cvpcb-body">
           {/* Footprint Libraries (LIBRARY_LISTBOX) */}
-          <section
-            className="ze-cvpcb-pane"
-            style={{ flex: '0 0 20%' }}
-            onMouseDown={() => setFocus('library')}
-          >
+          <section className="ze-cvpcb-pane" style={{ flex: '0 0 20%' }}>
             <div className="ze-cvpcb-caption">Footprint Libraries</div>
             <VirtualList
-              count={libNames.length}
-              selected={curLib}
-              scrollTo={curLib}
-              widthCh={libWidthCh}
-              onSelect={(i) => {
+              rows={libRows}
+              selection={libSelection}
+              focused={curLib}
+              listRef={libraryListRef}
+              onFocus={() => setFocus('library')}
+              onSelectRows={(rows) => {
                 // LIBRARY_LISTBOX::OnSelectLibrary turns the library filter on
                 // as it selects, so picking a library narrows the footprint
                 // list right away (and lights the toolbar's toggle).
-                setCurLib(i);
-                setCurFp(0);
+                setCurLib(rows[0] ?? -1);
                 setFilterFlags((f) => f | FILTER_BY_LIBRARY);
               }}
-              render={(i) => <span>{libNames[i]}</span>}
+              render={(i) => <span>{libRows[i]}</span>}
             />
             {!indexLoaded && (
               <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries…" />
@@ -821,28 +1033,26 @@ export function DialogAssignFootprints({
           </section>
 
           {/* Symbol : Footprint Assignments (SYMBOLS_LISTBOX) */}
-          <section
-            className="ze-cvpcb-pane"
-            style={{ flex: 1 }}
-            onMouseDown={() => setFocus('symbol')}
-          >
+          <section className="ze-cvpcb-pane" style={{ flex: 1 }}>
             <div className="ze-cvpcb-caption">Symbol : Footprint Assignments</div>
             <VirtualList
-              count={components.length}
-              selected={curComp}
-              scrollTo={curComp}
-              widthCh={symWidthCh}
-              onSelect={setCurComp}
+              rows={symbolRows}
+              selection={symbolSelection}
+              focused={curComp}
+              // SYMBOLS_LISTBOX is the one pane built without wxLC_SINGLE_SEL.
+              multi
+              listRef={symbolListRef}
+              onFocus={() => setFocus('symbol')}
+              onSelectRows={setSymbolSelection}
               render={(i) => {
                 const c = components[i]!;
                 const fpid = footprintOf(c);
-                // SYMBOLS_LISTBOX::OnGetItemAttr: a footprint that is not in
-                // the loaded libraries gets the warning background.
-                const warn = !!fpid && indexLoaded && !knownFootprints.has(fpid);
+                // SYMBOLS_LISTBOX::OnGetItemAttr: every row FOOTPRINT_LIST has
+                // no FOOTPRINT_INFO for gets the warning background — which an
+                // *unassigned* symbol is too, GetFootprintInfo("") being null.
+                const warn = indexLoaded && !hasFootprintInfo(knownFootprints, fpid);
                 return (
-                  <span className={warn ? 'ze-cvpcb-warn' : undefined}>
-                    {formatSymbolDesc(i + 1, c.reference, c.value, fpid)}
-                  </span>
+                  <span className={warn ? 'ze-cvpcb-warn' : undefined}>{symbolRows[i]}</span>
                 );
               }}
             />
@@ -855,20 +1065,20 @@ export function DialogAssignFootprints({
           <section
             className="ze-cvpcb-pane last"
             style={{ flex: '0 0 30%', position: 'relative' }}
-            onMouseDown={() => setFocus('footprint')}
           >
             <div className="ze-cvpcb-caption">Filtered Footprints</div>
             <VirtualList
-              count={filtered.length}
-              selected={curFp}
-              scrollTo={curFp}
-              widthCh={fpWidthCh}
-              onSelect={setCurFp}
+              rows={footprintRows}
+              selection={footprintSelection}
+              focused={curFp}
+              listRef={footprintListRef}
+              onFocus={() => setFocus('footprint')}
+              onSelectRows={(rows) => setCurFp(rows[0] ?? -1)}
               onActivate={(i) => {
                 const id = filtered[i];
                 if (id) associate(id);
               }}
-              render={(i) => <span>{formatFootprintDesc(i + 1, filtered[i]!)}</span>}
+              render={(i) => <span>{footprintRows[i]}</span>}
             />
             {!indexLoaded && (
               <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries…" />
