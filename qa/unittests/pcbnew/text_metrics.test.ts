@@ -15,7 +15,23 @@ import {
 } from '@ziroeda/pcbnew/src/text_metrics.js';
 import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
 import { kiRound } from '@ziroeda/common/src/font/text_box.js';
-import type { PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+import { fpItemBBox, fpItemId, hitTestFootprint } from '@ziroeda/pcbnew/src/edit-footprint.js';
+import { boardItemBBox, boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
+import { footprintExtent } from '@ziroeda/pcbnew/src/autoplace_footprints.js';
+import type { Board, PcbFootprint, PcbPad, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+
+/** A 1 mm pad at the origin, so a footprint has drawable geometry. */
+const padAt = (): PcbPad => ({
+  number: '1',
+  type: 'smd',
+  shape: 'rect',
+  at: { x: 0, y: 0 },
+  angle: 0,
+  size: { x: MM, y: MM },
+  layers: ['F.Cu'],
+  net: 0,
+  source: { kind: 'list', items: [] } as unknown as PcbPad['source'],
+});
 
 const MM = 1e6;
 const SIZE = { x: MM, y: MM };
@@ -166,5 +182,122 @@ describe('PCB_TEXT::TextHitTest', () => {
     expect(textItemHitTest(turned, along, 0)).toBe(false);
     // ...and the same distance along the rotated axis hits the turned one.
     expect(textItemHitTest(turned, { x: 0, y: -(box.w / 2 - 1) }, 0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The four call sites. None of them had a text case before, which is why the
+// `chars x size.x x 0.6` guess survived: nothing ever asked it for a number.
+
+const EMPTY = { kind: 'list' as const, items: [] };
+
+const footprint = (over: Partial<PcbFootprint> = {}): PcbFootprint => ({
+  lib: 'L:F',
+  reference: 'U1',
+  at: { x: 0, y: 0 },
+  angle: 0,
+  layer: 'F.Cu',
+  pads: [],
+  shapes: [],
+  texts: [],
+  models: [],
+  source: EMPTY,
+  ...over,
+});
+
+const board = (texts: PcbTextItem[]): Board => ({
+  version: 20240108,
+  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
+  nets: new Map([[0, '']]),
+  footprints: [],
+  tracks: [],
+  arcs: [],
+  vias: [],
+  zones: [],
+  shapes: [],
+  texts,
+  dimensions: [],
+  textBoxes: [],
+  tables: [],
+  images: [],
+  groups: [],
+  source: EMPTY,
+});
+
+describe('edit-footprint.ts fpItemBBox (the selection highlight)', () => {
+  it('boxes a text item with GetTextBox, not a character count', () => {
+    const t = text({ text: 'IIII' });
+    const fp = footprint({ texts: [t] });
+    const b = fpItemBBox(fp, fpItemId('text', 0))!;
+    const want = textItemBBox(t);
+    expect(b).toEqual({ minX: want.x, minY: want.y, maxX: want.x + want.w, maxY: want.y + want.h });
+    // The old guess drew the halo from -2.4 mm to +2.4 mm; the glyphs only
+    // reach 1.08 mm, so the highlight was more than twice the text.
+    expect(b.maxX - b.minX).toBeLessThan(oldHalfWidth('IIII'));
+  });
+
+  it('follows the text height, which the guess had 41% short', () => {
+    const fp = footprint({ texts: [text()] });
+    const b = fpItemBBox(fp, fpItemId('text', 0))!;
+    expect(b.maxY - b.minY).toBeGreaterThan(SIZE.y);
+  });
+});
+
+describe('edit-footprint.ts hitTestFootprint (what a click selects)', () => {
+  it('selects narrow text only where the glyphs actually are', () => {
+    const fp = footprint({ texts: [text({ text: 'IIII' })] });
+    expect(hitTestFootprint(fp, { x: 0, y: 0 }, 0)).toBe(fpItemId('text', 0));
+    // 2 mm out was inside the old 2.4 mm half-width and is outside the glyphs.
+    expect(hitTestFootprint(fp, { x: 2 * MM, y: 0 }, 0)).toBeNull();
+  });
+
+  it('selects rotated text along its rotated axis, not its stored one', () => {
+    const long = 'Conn_01x08_Pin_Header';
+    const reach = textItemBox(text({ text: long })).w / 2 - 1;
+    const fp = footprint({ texts: [text({ text: long, angle: 90 })] });
+    expect(hitTestFootprint(fp, { x: reach, y: 0 }, 0)).toBeNull();
+    expect(hitTestFootprint(fp, { x: 0, y: -reach }, 0)).toBe(fpItemId('text', 0));
+  });
+});
+
+describe('edit-board.ts boardItemBBox (board text selection)', () => {
+  it('boxes gr_text with GetTextBox', () => {
+    const t = text({ kind: 'user', text: 'WWWW' });
+    const b = boardItemBBox(board([t]), boardItemId('text', 0))!;
+    const want = textItemBBox(t);
+    expect(b).toEqual({ minX: want.x, minY: want.y, maxX: want.x + want.w, maxY: want.y + want.h });
+  });
+
+  it('tells a narrow string from a wide one of the same length', () => {
+    const narrow = boardItemBBox(board([text({ text: 'IIII' })]), boardItemId('text', 0))!;
+    const wide = boardItemBBox(board([text({ text: 'WWWW' })]), boardItemId('text', 0))!;
+    expect(wide.maxX - wide.minX).toBeGreaterThan(2 * (narrow.maxX - narrow.minX));
+  });
+});
+
+describe('autoplace_footprints.ts footprintExtent (how much room a part needs)', () => {
+  // FOOTPRINT::GetBoundingBox merges text only when there is nothing else at
+  // all (`noDrawItems`), so this is the text-only footprint upstream describes
+  // as "likely to be nothing *but* annotations".
+  it('measures a text-only footprint by its glyphs', () => {
+    const t = text({ text: 'IIII', at: { x: 0, y: 0 } });
+    const ext = footprintExtent(footprint({ texts: [t] }));
+    const want = textItemBBox(t);
+    // Merged with the 0.25 mm anchor seed, so the box is the wider of the two.
+    // (footprintExtent works in whole internal units, so allow a 1 nm rounding.)
+    expect(ext.w).toBeCloseTo(
+      Math.max(want.x + want.w, 0.25 * MM) - Math.min(want.x, -0.25 * MM),
+      -1,
+    );
+    // The guess claimed 4.8 mm of clearance for text that is 2.15 mm wide:
+    // enough to push a neighbouring part more than a millimetre away.
+    expect(ext.w).toBeLessThan(2 * oldHalfWidth('IIII'));
+  });
+
+  it('ignores text once the footprint has a pad', () => {
+    const t = text({ text: 'Conn_01x08_Pin_Header' });
+    const withText = footprintExtent(footprint({ texts: [t], pads: [padAt()] }));
+    const without = footprintExtent(footprint({ pads: [padAt()] }));
+    expect(withText).toEqual(without);
   });
 });
