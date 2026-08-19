@@ -105,6 +105,18 @@ export interface GridView {
   flipY?: boolean;
 }
 
+/**
+ * The same transform spelled `{ scale, offsetX, offsetY }`, which is how the
+ * eeschema and symbol-editor canvases carry theirs.
+ */
+export function viewFromOffsets(v: {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}): GridView {
+  return { scale: v.scale, tx: v.offsetX, ty: v.offsetY };
+}
+
 /** Device x for a world x under `view`. */
 export function worldToDeviceX(view: GridView, x: number): number {
   return x * (view.flipX ? -view.scale : view.scale) + view.tx;
@@ -347,7 +359,14 @@ export function drawGrid(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
   // "Draw axes if desired" runs before the grid-visibility test upstream
-  // (cairo_gal.cpp:1773-1781), so the axes survive Show Grid being off.
+  // (cairo_gal.cpp:1773-1781, opengl_gal.cpp:1919-1928), so the axes survive
+  // Show Grid being off.
+  //
+  // Known deviation: with LINES and axes both on, upstream skips the grid line
+  // that would cover an axis (`if( m_axesEnabled && y == 0.0 ) continue`). Our
+  // lattice is a retained path that knows only its own anchor, so we do not;
+  // a coarse grid line at zero overdraws the axis. `grid.axes_enabled`
+  // defaults to false in every app and no editor of ours turns it on.
   if (opts.axes) {
     const axisX = worldToDeviceX(view, 0);
     const axisY = worldToDeviceY(view, 0);
@@ -438,9 +457,13 @@ export function drawGrid(
         p.lineTo(x, h);
       }
     } else if (style === 'crosses') {
-      // SMALL_CROSS (cairo_gal.cpp:1857-1862 + drawGridCross): a cross is
-      // coarse only where *both* indices are on a tick, and its arms are
-      // `2 * m_lineWidthInPixels + 0.5` long each way.
+      // SMALL_CROSS (opengl_gal.cpp:1973-1993): a cross is coarse only where
+      // *both* indices are on a tick (`tickX && tickY`), and each arm is
+      // `lineLen = 2.0 * GetLineWidth()`.
+      //
+      // The two backends disagree by half a pixel here — CAIRO_GAL_BASE::
+      // drawGridCross uses `2.0 * m_lineWidthInPixels + 0.5` — and OpenGL is
+      // KiCad's default renderer, so that is the one we match.
       for (let k = 0; k <= cols; k++) {
         const x = k * pitch;
         const tickX = k % GRID_TICK === 0;
@@ -448,7 +471,7 @@ export function drawGrid(
           const y = l * pitch;
           const coarse = tickX && l % GRID_TICK === 0;
           const p = coarse ? majorPath : minorPath;
-          const arm = 2 * (coarse ? majorW : minorW) + 0.5;
+          const arm = 2 * (coarse ? majorW : minorW);
           p.moveTo(x - arm, y);
           p.lineTo(x + arm, y);
           p.moveTo(x, y - arm);

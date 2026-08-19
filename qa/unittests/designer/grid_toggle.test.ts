@@ -12,15 +12,17 @@
  * grid button did nothing at all on the default renderer — the one place a
  * user would ever press it.
  *
- * The gate lives in `drawGrid` now, so a future caller cannot lose it again.
+ * The gate lives in the shared `ui/grid_cursor.ts` painter now (the one
+ * `GAL::DrawGrid` every canvas calls), so no caller can lose it again.
  */
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_RENDER_OPTS,
-  drawGrid,
   renderSchematic,
+  schematicGridOptions,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { drawGrid, viewFromOffsets } from '@ziroeda/designer/src/ui/grid_cursor.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
@@ -87,13 +89,21 @@ describe('drawGrid honours Show Grid', () => {
   for (const style of ['dots', 'lines', 'crosses'] as const) {
     it(`draws something with ${style} when it is on`, () => {
       const s = spy();
-      drawGrid(s.ctx, VIEW, KICAD_DEFAULT, 800, 600, { ...GRID, style, show: true });
+      drawGrid(s.ctx, viewFromOffsets(VIEW), 800, 600, {
+        ...schematicGridOptions(KICAD_DEFAULT, GRID),
+        style,
+        show: true,
+      });
       expect(s.marks()).toBeGreaterThan(0);
     });
 
     it(`and nothing at all with ${style} when it is off`, () => {
       const s = spy();
-      drawGrid(s.ctx, VIEW, KICAD_DEFAULT, 800, 600, { ...GRID, style, show: false });
+      drawGrid(s.ctx, viewFromOffsets(VIEW), 800, 600, {
+        ...schematicGridOptions(KICAD_DEFAULT, GRID),
+        style,
+        show: false,
+      });
       expect(s.marks()).toBe(0);
     });
   }

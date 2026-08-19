@@ -131,7 +131,7 @@ import {
   fitToContent,
   fitToBBox,
   setRenderInvalidator,
-  drawGrid,
+  schematicGridOptions,
   DEFAULT_RENDER_OPTS,
   type RenderOpts,
   type Viewport,
@@ -227,10 +227,8 @@ import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import type { InputPrefs } from '../../../ui/view_controls.js';
+import { drawGrid, drawCrosshair, viewFromOffsets } from '../../../ui/grid_cursor.js';
 import { DEFAULT_INPUT_PREFS, wheelAction } from '../../../ui/view_controls.js';
-
-/** The small crosshair is 80 screen px across, at any zoom (OPENGL_GAL::DrawCursor). */
-const SMALL_CROSS_PX = 80;
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain
@@ -1782,7 +1780,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = theme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      drawGrid(
+        ctx,
+        viewFromOffsets(vp),
+        canvas.width,
+        canvas.height,
+        schematicGridOptions(theme, renderOpts.grid),
+      );
       paintHalos(ctx, doc, vp, canvas.width, canvas.height);
       gl.render(
         {
@@ -1815,7 +1819,13 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = theme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      drawGrid(ctx, vp, theme, canvas.width, canvas.height, renderOpts.grid);
+      drawGrid(
+        ctx,
+        viewFromOffsets(vp),
+        canvas.width,
+        canvas.height,
+        schematicGridOptions(theme, renderOpts.grid),
+      );
       paintHalos(ctx, doc, vp, canvas.width, canvas.height);
       gl.render(
         { doc, theme, opts: renderOpts, selection, highlight },
@@ -2141,48 +2151,25 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
     }
 
-    // Crosshair cursor (GAL options): full-window lines or a small cross at
-    // the snapped cursor position, in the LAYER_SCHEMATIC_CURSOR colour.
-    // Drawing tools always show it (ShowCursor(true)); with the selection tool
-    // it depends on "Always show crosshairs".
-    if (cur && (inputPrefs.alwaysShowCrosshair || activeTool !== 'select')) {
+    // Crosshair cursor (GAL::blitCursor), in the LAYER_SCHEMATIC_CURSOR colour.
+    // The drawing tools ask for it (ShowCursor(true)); the selection tool does
+    // not, so with `select` active it appears only because "Always show
+    // crosshairs" forced it, and upstream dims a forced cursor to half alpha.
+    if (cur) {
       const c = CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(cur) : snap(cur);
-      ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
-      ctx.strokeStyle = theme.cursor;
-      ctx.lineWidth = 1 / vp.scale;
-      ctx.setLineDash([]);
-      const left = -vp.offsetX / vp.scale;
-      const top = -vp.offsetY / vp.scale;
-      const rightW = (canvas.width - vp.offsetX) / vp.scale;
-      const bottomW = (canvas.height - vp.offsetY) / vp.scale;
-      // Clip to the visible rect so the full-window / 45° lines never overrun.
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(left, top, rightW - left, bottomW - top);
-      ctx.clip();
-      ctx.beginPath();
-      if (inputPrefs.crosshair === 'full') {
-        ctx.moveTo(left, c.y);
-        ctx.lineTo(rightW, c.y);
-        ctx.moveTo(c.x, top);
-        ctx.lineTo(c.x, bottomW);
-      } else if (inputPrefs.crosshair === '45') {
-        // 45° full-window crosshair (cursor45Crosshairs): two diagonals through
-        // the cursor spanning the whole visible rect.
-        const span = Math.max(rightW - left, bottomW - top);
-        ctx.moveTo(c.x - span, c.y - span);
-        ctx.lineTo(c.x + span, c.y + span);
-        ctx.moveTo(c.x - span, c.y + span);
-        ctx.lineTo(c.x + span, c.y - span);
-      } else {
-        const arm = SMALL_CROSS_PX / 2 / vp.scale;
-        ctx.moveTo(c.x - arm, c.y);
-        ctx.lineTo(c.x + arm, c.y);
-        ctx.moveTo(c.x, c.y - arm);
-        ctx.lineTo(c.x, c.y + arm);
-      }
-      ctx.stroke();
-      ctx.restore();
+      drawCrosshair(
+        ctx,
+        { x: c.x * vp.scale + vp.offsetX, y: c.y * vp.scale + vp.offsetY },
+        canvas.width,
+        canvas.height,
+        {
+          mode: inputPrefs.crosshair,
+          color: theme.cursor,
+          toolWantsCursor: activeTool !== 'select',
+          alwaysShow: inputPrefs.alwaysShowCrosshair,
+          devicePixelRatio: dpr(),
+        },
+      );
     }
   }, [
     activeTool,
