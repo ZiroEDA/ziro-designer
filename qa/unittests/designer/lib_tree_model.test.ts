@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { searchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
+import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
 import {
   LibTreeNode,
   LibTreeNodeType,
@@ -165,5 +166,106 @@ describe('LibTreeNode ordering', () => {
     adapter.updateSearchString('lm324');
     expect(item.children.map((u) => u.name)).toEqual(['Unit A', 'Unit B']);
     expect(item.children.every((u) => u.score > 0)).toBe(true);
+  });
+});
+
+/**
+ * LIB_TREE_NODE::AssignIntrinsicRanks sorts with `StrNumCmp( a, b, true ) > 0`
+ * (common/lib_tree_model.cpp:68) — a codepoint walk with a numeric-run rule,
+ * NOT ICU collation. The two disagree on names that differ only in case, on
+ * leading symbols and underscores, on hyphen vs underscore, on leading zeros
+ * in a digit run, and on accented letters. Every list below is one the user
+ * reads in the chooser.
+ */
+function displayedOrder(names: readonly string[]): string[] {
+  const lib = new LibTreeNode();
+  lib.type = LibTreeNodeType.LIBRARY;
+  for (const name of names) makeItemNode(lib, 'Lib', name);
+  lib.assignIntrinsicRanks();
+  lib.sortNodes(false);
+  return lib.children.map((n) => n.name);
+}
+
+describe('LibTreeNode intrinsic ranking follows StrNumCmp, not ICU collation', () => {
+  it('orders the power library by codepoint, so + sorts before -', () => {
+    // ICU gives -5V, -12V, #PWR, +3V3, +5V, +12V, …; KiCad walks codepoints,
+    // where '#'(0x23) < '+'(0x2B) < '-'(0x2D).
+    expect(displayedOrder(['+5V', '-12V', 'GND', '#PWR', '+3V3', '-5V', '+12V'])).toEqual([
+      '#PWR',
+      '+3V3',
+      '+5V',
+      '+12V',
+      '-5V',
+      '-12V',
+      'GND',
+    ]);
+  });
+
+  it('sorts a hyphen before a digit and both before an underscore', () => {
+    // ICU treats '-' as a variable-weight separator and files R-Array_Convex
+    // last; KiCad has '-'(0x2D) < '0'(0x30) < '_'(0x5F), so it comes first.
+    expect(
+      displayedOrder([
+        'R_0603_1608Metric',
+        'R-Array_Convex_2x0603',
+        'R_0402_1005Metric',
+        'R_Array_Concave_2x0603',
+        'R_01005_0402Metric',
+      ]),
+    ).toEqual([
+      'R-Array_Convex_2x0603',
+      'R_0402_1005Metric',
+      'R_0603_1608Metric',
+      'R_01005_0402Metric',
+      'R_Array_Concave_2x0603',
+    ]);
+  });
+
+  it('files a leading underscore, tilde and accent after the plain letters', () => {
+    // ICU folds 'Å' onto 'A' and gives leading punctuation a low weight, so it
+    // returns _local_cache, ~scratch, Amplifier_Audio, Ångström_Parts, …
+    expect(
+      displayedOrder([
+        '~scratch',
+        'Connector_JST',
+        '_local_cache',
+        'Ångström_Parts',
+        'Amplifier_Audio',
+        'Connector-PhoenixContact',
+      ]),
+    ).toEqual([
+      'Amplifier_Audio',
+      'Connector-PhoenixContact',
+      'Connector_JST',
+      '_local_cache',
+      '~scratch',
+      'Ångström_Parts',
+    ]);
+  });
+
+  it('compares digit runs numerically but keeps the underscore after them', () => {
+    // ICU (numeric: true) puts LED_09/LED_9 first because '_' outranks a digit.
+    expect(displayedOrder(['LED_9', 'LED10', 'LED9'])).toEqual(['LED9', 'LED10', 'LED_9']);
+  });
+
+  it('ignores case, so the lowercase stock libraries interleave', () => {
+    // `power` and `pspice` are lowercase in a stock KiCad install. Case-
+    // sensitively 'R'(0x52) < 'p'(0x70) and they would both sink to the bottom.
+    expect(displayedOrder(['Relay', 'power', 'RF', 'Regulator_Linear', 'pspice'])).toEqual([
+      'power',
+      'pspice',
+      'Regulator_Linear',
+      'Relay',
+      'RF',
+    ]);
+  });
+
+  it('ties names that differ only in case or in a leading zero', () => {
+    // StrNumCmp( …, true ) returns 0 for these; ICU broke the tie by falling
+    // back to a case-sensitive locale compare, inventing an order KiCad has no
+    // opinion about.
+    expect(strNumCmp('device', 'Device', true)).toBe(0);
+    expect(strNumCmp('R10', 'R010', true)).toBe(0);
+    expect(strNumCmp('LED_9', 'LED_09', true)).toBe(0);
   });
 });

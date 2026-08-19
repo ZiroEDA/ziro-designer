@@ -6,7 +6,7 @@
  * library nodes, holding item nodes, holding unit nodes. Mirrors
  * kicad/common/lib_tree_model.cpp (LIB_TREE_NODE and subclasses).
  */
-import type { EdaCombinedMatcher, SearchTerm } from '@ziroeda/common';
+import { type EdaCombinedMatcher, type SearchTerm, strNumCmp } from '@ziroeda/common';
 
 /** Upstream LIB_TREE_NODE::TYPE, the numeric order matters for sorting. */
 export enum LibTreeNodeType {
@@ -17,13 +17,6 @@ export enum LibTreeNodeType {
 }
 
 export type LibTreeNodeFilter = (node: LibTreeNode) => boolean;
-
-/** Natural-order compare (upstream StrNumCmp with case-insensitivity). */
-function strNumCmp(a: string, b: string): number {
-  return (
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }) || a.localeCompare(b)
-  );
-}
 
 export class LibTreeNode {
   parent: LibTreeNode | null = null;
@@ -96,7 +89,10 @@ export class LibTreeNode {
         child.intrinsicRank = max - i;
       });
     } else {
-      const sorted = [...this.children].sort((a, b) => -strNumCmp(a.name, b.name));
+      // Upstream sorts with `StrNumCmp( a, b, true ) > 0`, i.e. DESCENDING, and
+      // then hands out ranks 0..n-1 in that order; Compare() below orders by
+      // rank descending, so the row the user sees is ascending by name.
+      const sorted = [...this.children].sort((a, b) => -strNumCmp(a.name, b.name, true));
       sorted.forEach((child, i) => {
         child.intrinsicRank = i;
       });
