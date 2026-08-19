@@ -419,9 +419,6 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 
 // Snapping lives in pcb_grid.ts; see the note there on the board grid origin.
 
-// One mil in IU.
-const MIL = 0.0254 * MM;
-
 // pcbnew's grid presets: APP_SETTINGS_BASE::DefaultGridSizeList()'s non-
 // eeschema row, which the footprint editor shares. The table lives in
 // ui/grid_settings.ts because it is common/ code upstream.

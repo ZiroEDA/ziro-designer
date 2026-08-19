@@ -89,6 +89,9 @@ interface Props {
 
 type Mode = 'idle' | 'pan' | 'move' | 'box';
 
+/** GAL::GetScaleFactor. Module scope so it is stable across renders. */
+const dpr = (): number => window.devicePixelRatio || 1;
+
 const BOX_FILL_NORMAL = 'rgba(128, 77, 255, 0.5)';
 const BOX_FILL_ADDITIVE = 'rgba(128, 255, 128, 0.5)';
 const BOX_FILL_SUBTRACT = 'rgba(255, 128, 128, 0.5)';
@@ -169,8 +172,6 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
   const boxModifiersRef = useRef({ additive: false, subtractive: false });
   const cursorRef = useRef<Vec2 | null>(null);
   const drawStateRef = useRef<DrawState | null>(null);
-
-  const dpr = (): number => window.devicePixelRatio || 1;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
