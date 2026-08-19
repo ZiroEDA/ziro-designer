@@ -2525,25 +2525,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* The arrows GTK grows on a menu too tall for the monitor: a centred triangle
    on a full-width strip, which scrolls while the pointer rests on it. */
+/* The app's own chevron, not a solid triangle. `.twisty.expandable` is the same
+   arrow the tree expander and the submenu marker draw, so a scroll arrow here
+   is the same weight and size as every other arrow in the app — the file
+   already says as much where the submenu marker is drawn. It points right at
+   rest, so rotate it a quarter turn each way. */
 .ze-submenu-arrow {
   flex: 0 0 16px;
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #1d1d1d;
 }
-.ze-submenu-arrow::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
+.ze-submenu-arrow.up .twisty.expandable::before {
+  transform: translate(-50%, -30%) rotate(-45deg);
 }
-.ze-submenu-arrow.up::after {
-  border-bottom: 5px solid var(--chrome-fg);
-}
-.ze-submenu-arrow.down::after {
-  border-top: 5px solid var(--chrome-fg);
+.ze-submenu-arrow.down .twisty.expandable::before {
+  transform: translate(-50%, -70%) rotate(135deg);
 }
 .ze-submenu-arrow:hover {
   background: var(--chrome-hover);

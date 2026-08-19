@@ -46,6 +46,17 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
    */
   const [box, setBox] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
   const [over, setOver] = useState<'up' | 'down' | null>(null);
+  /** Which ends can still scroll: an arrow shows only when there is something
+   *  that way, which is how GTK draws them — no arrow on a menu that is already
+   *  at its top, none at the bottom once you have reached the end. */
+  const [ends, setEnds] = useState({ up: false, down: false });
+
+  const syncEnds = (): void => {
+    const el = subRef.current?.querySelector('.ze-submenu-scroll');
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    setEnds({ up: el.scrollTop > 0, down: el.scrollTop < max - 1 });
+  };
 
   useLayoutEffect(() => {
     if (!subOpen) {
@@ -66,6 +77,8 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
     const maxHeight = Math.min(h, vh - 8);
     const top = Math.max(4, Math.min(r.top - 4, vh - 4 - maxHeight));
     setBox({ left, top, maxHeight });
+    // The rows are laid out by now, so the ends are knowable.
+    requestAnimationFrame(syncEnds);
   }, [subOpen]);
 
   // GTK scrolls a too-tall menu while the pointer rests on its arrow, rather
@@ -76,6 +89,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
     if (!el) return;
     const id = setInterval(() => {
       el.scrollTop += over === 'up' ? -12 : 12;
+      syncEnds();
     }, 30);
     return () => clearInterval(id);
   }, [over]);
@@ -127,28 +141,33 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
             visibility: box ? 'visible' : 'hidden',
           }}
         >
-          {/* A GTK menu too tall for the monitor grows scroll arrows at its
-              ends and scrolls while the pointer rests on one — it does not
-              show a scrollbar. Rendered only when the content actually
-              overflows, as upstream's do. */}
-          {box && subRef.current && subRef.current.scrollHeight > box.maxHeight && (
+          {/* A GTK menu too tall for the monitor scrolls while the pointer
+              rests on an end arrow — it shows no scrollbar. The arrow itself is
+              the app's own chevron, the same one the tree twisty and the
+              submenu marker draw, rotated: a solid triangle would be a
+              different weight from every other arrow in the app. */}
+          {ends.up && (
             <div
               className="ze-submenu-arrow up"
               onMouseEnter={() => setOver('up')}
               onMouseLeave={() => setOver(null)}
-            />
+            >
+              <span className="twisty expandable" />
+            </div>
           )}
-          <div className="ze-submenu-scroll">
+          <div className="ze-submenu-scroll" onScroll={syncEnds}>
             {sub!.map((s, i) => (
               <MenuEntry key={s.label ?? `s${i}`} item={s} close={close} />
             ))}
           </div>
-          {box && subRef.current && subRef.current.scrollHeight > box.maxHeight && (
+          {ends.down && (
             <div
               className="ze-submenu-arrow down"
               onMouseEnter={() => setOver('down')}
               onMouseLeave={() => setOver(null)}
-            />
+            >
+              <span className="twisty expandable" />
+            </div>
           )}
         </div>
       )}
