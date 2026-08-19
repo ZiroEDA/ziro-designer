@@ -14,7 +14,7 @@
  * on nothing else, which is exactly the range an engineer types into a
  * calculator.
  */
-import { printfG } from '@ziroeda/pcb_calculator';
+import { printfF, printfG } from '@ziroeda/pcb_calculator';
 import { describe, expect, it } from 'vitest';
 
 describe('printfG is C printf %g', () => {
@@ -62,5 +62,38 @@ describe('printfG is C printf %g', () => {
     expect(printfG(Number.NaN)).toBe('nan');
     expect(printfG(Number.POSITIVE_INFINITY)).toBe('inf');
     expect(printfG(Number.NEGATIVE_INFINITY)).toBe('-inf');
+  });
+});
+
+/**
+ * `printfF` is C's `%f`: fixed notation, `precision` decimals, no trimming.
+ * The Fusing Current page is the one that uses it, which is why that page reads
+ * `0.100000` and `10.000000` where every other page reads `0.1` and `10`.
+ *
+ *   printf '%f %f %f %f\n' 0.1 10 0.01 0.089133
+ *   -> 0.100000 10.000000 0.010000 0.089133
+ */
+describe('printfF is C printf %f', () => {
+  it('always writes six decimals', () => {
+    expect(printfF(0.1)).toBe('0.100000');
+    expect(printfF(10)).toBe('10.000000');
+    expect(printfF(0.01)).toBe('0.010000');
+    expect(printfF(0.089133)).toBe('0.089133');
+    expect(printfF(0.035)).toBe('0.035000');
+  });
+
+  it('does not switch to an exponent, however small the number', () => {
+    expect(printfF(1e-8)).toBe('0.000000');
+    expect(printfF(1e8)).toBe('100000000.000000');
+  });
+
+  it('honours an explicit precision', () => {
+    expect(printfF(1.5, 2)).toBe('1.50');
+    expect(printfF(1.5, 0)).toBe('2');
+  });
+
+  it('names the non-finite values the way the C library does', () => {
+    expect(printfF(Number.NaN)).toBe('nan');
+    expect(printfF(Number.POSITIVE_INFINITY)).toBe('inf');
   });
 });
