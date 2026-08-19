@@ -279,12 +279,21 @@ export function focusBlocksHotkey(
   return (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c';
 }
 
-/** What a dispatch attempt was allowed to do, for anything that wants to know. */
+/** What a dispatch attempt is allowed to consider. */
 export interface DispatchOptions {
   /** The focused element, if any. Defaults to nothing focused. */
   target?: (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
   /** How many modal dialogs are open. Defaults to asking the modal stack. */
   modalCount?: number;
+  /**
+   * How many open dialogs this frame sits *under* before it should go quiet.
+   *
+   * Zero for a frame, which is beneath every dialog it opens. One for a frame
+   * that is itself a dialog - CVPCB is a `KIWAY_PLAYER` with its own menubar
+   * upstream and a modal here - so its own registration does not silence it,
+   * while a dialog it opens in turn still does.
+   */
+  modalFloor?: number;
 }
 
 /**
@@ -302,7 +311,7 @@ export function dispatchMenuHotkey(
 ): boolean {
   const modals = opts.modalCount ?? openModalCount();
   // A wx modal has its own event loop; the frame below it never sees the key.
-  if (modals > 0) return false;
+  if (modals > (opts.modalFloor ?? 0)) return false;
   if (focusBlocksHotkey(opts.target, e)) return false;
 
   const hit = findMenuHotkey(menus, e);

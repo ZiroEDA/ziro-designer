@@ -85,6 +85,8 @@ import {
 } from '../cvpcb_commands.js';
 import type { FieldsEdits } from './dialog_symbol_fields_table.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
+import type { FocusLike } from '../../../ui/browser_hotkeys.js';
 import { UnsavedChangesDialog } from '../../../ui/dialog_unsaved_changes.js';
 import type { UnsavedChangesResult } from '../../../ui/confirm.js';
 
@@ -701,28 +703,37 @@ export function DialogAssignFootprints({
     }
   };
 
-  // Keyboard: Enter assigns the selected footprint, Delete clears the
-  // assignment, Ctrl+Z / Ctrl+Y undo and redo (CVPCB_ACTIONS' hotkeys).
+  /**
+   * Keyboard. Ctrl+S, Ctrl+Z, Ctrl+Y and Del are the four rows above; Enter is
+   * the one CVPCB command with no menu home.
+   *
+   * The four used to be re-stated here as literal comparisons, and each had
+   * drifted from the row beside it in the way that always happens: Ctrl+Z also
+   * fired on Ctrl+Shift+Z, Del cleared an assignment the greyed-out row said
+   * could not be cleared, and Ctrl+S saved when File > Save to Schematic was
+   * disabled because nothing had changed. `dispatchMenuHotkey` reads the rows,
+   * so the row's `disabled` is the only condition there is.
+   *
+   * Still a React handler on the dialog's own subtree rather than a window
+   * listener, which is the honest reading of a wx modal: only the dialog with
+   * the event loop hears the key. `modalFloor: 1` says so - this frame *is* a
+   * modal, so its own place on the stack must not silence it, while the
+   * Manage Footprint Libraries dialog it can open still does.
+   *
+   * Escape never reaches here: it is the dialog's Cancel and the modal stack
+   * takes it in the capture phase. See useModalEscape above.
+   */
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    // Escape never reaches here: it is the dialog's Cancel and the modal stack
-    // takes it in the capture phase. See useModalEscape above.
+    if (dispatchMenuHotkey(menus, e, { target: e.target as FocusLike, modalFloor: 1 })) {
+      e.preventDefault();
+      return;
+    }
     if (e.target instanceof HTMLInputElement) return;
     if (e.key === 'Enter') {
       // Whether there is anything to assign is Associate's own rule, not a
       // condition on the key: it ignores an empty footprint and otherwise
       // always advances to the next unassigned symbol.
       associate(selectedFootprint);
-      e.preventDefault();
-    } else if (e.key === 'Delete') {
-      deleteAssoc();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-      undo();
-      e.preventDefault();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-      redo();
-      e.preventDefault();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-      runSave(saveToSchematicCommand());
       e.preventDefault();
     }
   };
