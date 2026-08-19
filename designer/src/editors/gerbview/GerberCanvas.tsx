@@ -22,8 +22,9 @@ import {
   type GerberRenderOptions,
   type ViewTransform,
 } from './gerberRender.js';
-import { GERBER_GRID_COLOR } from './gerberColors.js';
+import { GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 
 export interface GerberCanvasController {
   zoomToFit: () => void;
@@ -106,21 +107,22 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const flip = opts.flipView;
       const worldToPx = (p: Vec2): { x: number; y: number } => worldToDevice(v, flip, p.x, p.y);
 
-      // Grid dots.
+      // GAL::DrawGrid, in LAYER_GERBVIEW_GRID (gerbview_frame.cpp:934-937).
+      // GerbView's canvas is y-up, and mirrors x under "flip view", so the
+      // lattice is told about both.
       const { showGrid: sg, gridIU: g } = gridRef.current;
-      if (sg && g > 0 && g * v.scale >= 6) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = GERBER_GRID_COLOR;
-        const originPx = worldToPx({ x: 0, y: 0 });
-        const stepPx = g * v.scale;
-        const startX = originPx.x - Math.ceil(originPx.x / stepPx) * stepPx;
-        const startY = originPx.y - Math.ceil(originPx.y / stepPx) * stepPx;
-        for (let x = startX; x <= canvas.width; x += stepPx) {
-          for (let y = startY; y <= canvas.height; y += stepPx) {
-            ctx.fillRect(x - dpr * 0.5, y - dpr * 0.5, dpr, dpr);
-          }
-        }
-      }
+      drawGrid(
+        ctx,
+        { scale: v.scale, tx: v.tx, ty: v.ty, flipX: flip, flipY: true },
+        canvas.width,
+        canvas.height,
+        {
+          show: sg,
+          sizeIU: g,
+          color: GERBER_GRID_COLOR,
+          devicePixelRatio: dpr,
+        },
+      );
 
       // Measure overlay.
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -144,18 +146,15 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         }
       }
 
-      // Full-window crosshair.
-      const cp = cursorPxRef.current;
-      if (crosshairRef.current && cp) {
-        ctx.strokeStyle = 'rgba(120,180,255,0.5)';
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        ctx.moveTo(cp.x, 0);
-        ctx.lineTo(cp.x, canvas.height);
-        ctx.moveTo(0, cp.y);
-        ctx.lineTo(canvas.width, cp.y);
-        ctx.stroke();
-      }
+      // GAL::blitCursor in LAYER_CURSOR (gerbview_painter.h:95). GerbView has
+      // no drawing tools, so nothing calls ShowCursor(true): the crosshair is
+      // there because always_show_cursor is on, and a forced cursor is dimmed.
+      drawCrosshair(ctx, cursorPxRef.current, canvas.width, canvas.height, {
+        mode: crosshairRef.current ? 'full' : 'small',
+        color: GERBER_CURSOR_COLOR,
+        alwaysShow: true,
+        devicePixelRatio: dpr,
+      });
 
       onScaleChange?.(v.scale);
     }, [dpr, onScaleChange]);
@@ -355,8 +354,16 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
       const onMove = (e: PointerEvent): void => {
         const p = pxOf(e);
-        cursorPxRef.current = p;
         const world = toWorld(p.x, p.y);
+        // The crosshair marks the snapped point (GAL m_cursorPosition), not the
+        // raw pointer.
+        const { showGrid: sg, gridIU: g } = gridRef.current;
+        const snapped =
+          sg && g > 0
+            ? { x: Math.round(world.x / g) * g, y: Math.round(world.y / g) * g }
+            : world;
+        const vt = viewRef.current;
+        cursorPxRef.current = worldToDevice(vt, optionsRef.current.flipView, snapped.x, snapped.y);
         onCursorMove?.(world);
         if (panRef.current) {
           viewRef.current.tx = panRef.current.tx + (p.x - panRef.current.x);
@@ -368,7 +375,9 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           measureRef.current = { a: measureRef.current.a, b: world };
           onMeasure?.(measureRef.current);
           requestDraw();
-        } else if (crosshairRef.current) {
+        } else {
+          // The crosshair follows the pointer in both modes now, not only the
+          // full-window one.
           requestDraw();
         }
       };

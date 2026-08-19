@@ -31,7 +31,15 @@ export const GERBER_LAYER_COLORS: string[] = [
 /** Background and grid colours, GerbView's default theme uses a pure-black
  *  background with a mid-grey grid. */
 export const GERBER_BG_COLOR = '#000000';
-export const GERBER_GRID_COLOR = '#5A5A5A';
+/**
+ * LAYER_GERBVIEW_GRID (`common/settings/builtin_color_themes.h:86`), which is
+ * DARKGRAY — `common/gal/color4d.cpp:46`. It was #5A5A5A, a value with no
+ * upstream source, which made GerbView's grid darker than every other editor's.
+ */
+export const GERBER_GRID_COLOR = 'rgb(132, 132, 132)';
+/** LAYER_CURSOR (`builtin_color_themes.h:161`), read by GERBVIEW_PAINTER
+ *  (`gerbview/gerbview_painter.h:95`). */
+export const GERBER_CURSOR_COLOR = 'rgb(255, 255, 255)';
 /** DCode-number annotation colour (GerbView draws them in white). */
 export const GERBER_DCODE_COLOR = '#DDDDDD';
 /** Negative-object placeholder colour when "show negative objects" is on. */
