@@ -14,6 +14,21 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
+import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
+import { dispatchMenuHotkey } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
+
+/** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
+const BASE = {
+  key: '',
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: false,
+  metaKey: false,
+  preventDefault: () => {},
+  stopPropagation: () => {},
+  target: null,
+};
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -31,14 +46,27 @@ describe('the way in', () => {
     expect(EDITOR).toContain("id === 'importGraphics'");
   });
 
-  it('and Ctrl+Shift+F is bound, ahead of the Ctrl+F find arms', () => {
-    // The find handlers do not test shift, so the order is what keeps
-    // Ctrl+Shift+F out of their hands.
-    const importAt = EDITOR.indexOf('SCH_ACTIONS::importGraphics (Ctrl+Shift+F)');
-    const findAt = EDITOR.indexOf('ACTIONS::find (Ctrl+F)');
-    expect(importAt).toBeGreaterThan(0);
-    expect(findAt).toBeGreaterThan(0);
-    expect(importAt).toBeLessThan(findAt);
+  it('and Ctrl+Shift+F reaches it rather than Find', () => {
+    // This used to check that the editor's hand-written Ctrl+Shift+F arm came
+    // *before* its Ctrl+F arm, because neither tested shift and only the order
+    // kept them apart. All three arms are gone: the rows declare the keys and
+    // `ui/menu_hotkeys.ts` dispatches them, matching modifiers as a set rather
+    // than as a subset - so the guarantee is now a property of the matcher and
+    // survives the rows being reordered. Pressed for real, off the real tree.
+    const calls: string[] = [];
+    const menus = buildMenus({
+      tool: (id: string) => calls.push(`tool:${id}`),
+      action: (id: string) => calls.push(id),
+      toggle: (id: string) => calls.push(`toggle:${id}`),
+    });
+    const press = (combo: string): string[] => {
+      calls.length = 0;
+      expect(dispatchMenuHotkey(menus, eventFromCombo(combo, BASE)), combo).toBe(true);
+      return calls;
+    };
+    expect(press('Ctrl+Shift+F')).toEqual(['importGraphics']);
+    expect(press('Ctrl+F')).toEqual(['find']);
+    expect(press('Ctrl+Alt+F')).toEqual(['findReplace']);
   });
 
   it('and the hotkey list advertises it', () => {

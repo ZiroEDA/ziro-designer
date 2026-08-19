@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
+import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
 import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
 import {
   addClose,
@@ -36,7 +37,7 @@ import {
   UPSTREAM_QUIT_KEY,
 } from '@ziroeda/designer/src/ui/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
-import type { Menu } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -54,6 +55,7 @@ const CONVERTED = [
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
   'editors/pcb/PcbEditor.tsx',
+  'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   'editors/schematic/dialogs/dialog_assign_footprints.tsx',
   'editors/symbol/SymbolEditor.tsx',
@@ -71,7 +73,7 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING = ['editors/schematic/SchematicEditor.tsx'];
+const PENDING: readonly string[] = [];
 
 /**
  * The only modifier reads a converted frame may keep, per file, line for line.
@@ -125,6 +127,52 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // frame, so it is a context action with nowhere else to live.
     "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
   ],
+  /**
+   * The schematic keeps the most of any frame, and it is the one frame where
+   * that is *not* a smell: it owns `editors/schematic/hotkeys.ts`, a registry
+   * of `RegistryAction`s which is this app's stand-in for `ACTION_MANAGER`'s
+   * table. A combo declared there and carried by no menu row is a command with
+   * a real declaration and no row - exactly what upstream calls a context
+   * action - so it belongs in the chain, and the entry names which registry
+   * action each line is.
+   */
+  'editors/schematic/SchematicEditor.tsx': [
+    // Under the project manager eeschema's File menu starts at Save, so Open
+    // has no row here (menubar.cpp).
+    "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {",
+    // `redo`'s registry note: "Ctrl+Y also redoes".
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {",
+    // SCH_ACTIONS::duplicate - no row in eeschema's Edit menu.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
+    // `zoomFitMac`, its own registry entry: upstream's macOS binding kept on
+    // every platform. The row prints Home.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '0') {",
+    // `zoomIn` / `zoomOut`. The View rows carry no accelerator at all.
+    "} else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {",
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '-') {",
+    // ACTIONS::toggleUnits and ACTIONS::cycleArcEditMode, neither with a row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {",
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {",
+    // The three F1 arms. F1 is SCH_ACTIONS::repeatDrawItem *and* ACTIONS::
+    // zoomIn, which upstream separates by tool scope; the modifier reads are
+    // what keep the two apart and keep Ctrl+F1 out of both.
+    '!e.ctrlKey &&',
+    '!e.metaKey &&',
+    "} else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {",
+    "} else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
+    "} else if (e.key === 'F2' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
+    // SCH_ACTIONS::editWithLibEdit - no row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {",
+    // SCH_ACTIONS::nextNetItem / previousNetItem - no row.
+    "} else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {",
+    // ACTIONS::toggleGridOverrides - no row. Ctrl+G, which does have one, is
+    // gone; this arm is what still tells the two apart.
+    "} else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {",
+    // SCH_ACTIONS::selectConnection - no row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '4') {",
+    // The bare-key block's own guard, the schematic's spelling of `plain`.
+    '} else if (!e.ctrlKey && !e.metaKey && !e.altKey) {',
+  ],
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -145,6 +193,25 @@ const source = (rel: string): string => {
   const f = FILES.find((x) => x.rel === rel);
   expect(f, `${rel} must exist`).toBeDefined();
   return f!.src;
+};
+
+/**
+ * Where a frame's menu tree is actually declared.
+ *
+ * Usually the frame itself. The schematic is the one that has already been
+ * pulled apart the way the rest should be - `editors/schematic/menubar.ts` is a
+ * plain data module, which is why it is the only editor the Hotkey List can
+ * collect from (`ui/hotkeys_inventory.ts`) and the only one whose whole
+ * accelerator set can be pressed for real down this file.
+ */
+const MENU_MODULE: Readonly<Record<string, string>> = {
+  'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
+};
+
+/** The frame's source, or the module its menus live in when they were split out. */
+const menuSource = (rel: string): string => {
+  const moved = MENU_MODULE[rel];
+  return moved ? readFileSync(join(SRC, moved), 'utf8') : source(rel);
 };
 
 /** Every frame that puts a menu bar on screen. */
@@ -302,6 +369,60 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
       // The library tree's Ctrl+D (duplicate), which has no row.
       ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
+    ],
+  },
+  'editors/schematic/SchematicEditor.tsx': {
+    // Matched on each arm's own comment where it had one: the comment names the
+    // upstream action, so "the arm is gone" and "that command no longer has a
+    // second declaration here" are the same assertion.
+    moved: [
+      ['Ctrl+, preferences', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key === ','/],
+      ['Ctrl+S save', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+P print', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key\.toLowerCase\(\) === 'p'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Shift+C copy as text', /ACTIONS::copyAsText \(Ctrl\+Shift\+C\)/],
+      ['Ctrl+Shift+V paste special', /ACTIONS::pasteSpecial \(Ctrl\+Shift\+V\)/],
+      ['Ctrl+L global label', /placeGlobalLabel default hotkey \(Ctrl\+L\)/],
+      ['Ctrl+Shift+F import graphics', /importGraphics \(Ctrl\+Shift\+F\)/],
+      ['Ctrl+Alt+F find and replace', /findAndReplace \(Ctrl\+Alt\+F\)/],
+      ['Ctrl+F find', /ACTIONS::find \(Ctrl\+F\)/],
+      ['Ctrl+A select all', /selectAll \/ unselectAll/],
+      ['Ctrl+Home zoom to objects', /zoomFitObjects \(Ctrl\+Home\)/],
+      ['Ctrl+R refresh', /zoomRedraw \(Ctrl\+R\)/],
+      ['Ctrl+F5 zoom tool', /zoomTool \(Ctrl\+F5\)/],
+      ['Ctrl+H hierarchy', /showHierarchy \(Ctrl\+H\)/],
+      ['Ctrl+G search', /showSearch \(Ctrl\+G\)/],
+      ['Alt+Left navigate back', /navigateBack \(Alt\+Left\)/],
+      ['PgUp previous sheet', /navigatePrevious \(PgUp\)/],
+      ['F8 update PCB', /updatePcbFromSchematic's default hotkey/],
+      ['Del delete', /e\.key === 'Delete' \|\| e\.key === 'Backspace'/],
+      // The twelve Place-tool letters, which every one of them also a row.
+      ['A P W B Z Q J L H S T I', /TOOL_HOTKEYS\[e\.key\.toLowerCase\(\)\]/],
+    ],
+    kept: [
+      ['Backspace delete', /e\.key === 'Backspace' && selection\.size > 0/],
+      ['Alt+Backspace leave sheet', /leaveSheet \(Alt\+Backspace\)/],
+      ['Ctrl+Shift+G grid overrides', /toggleGridOverrides \(Ctrl\+Shift\+G\)/],
+      ['Alt+3 select node', /selectNode \(Alt\+3\)/],
+      ['Alt+S swap', /swap \(Alt\+S\)/],
+      ['Ctrl+4 select connection', /selectConnection \(Ctrl\+4\)/],
+      ['F1 repeat draw item', /repeatDrawItem \(F1\)/],
+      ['Ctrl+U toggle units', /toggleUnits \(Ctrl\+U\)/],
+      ['Ctrl+Space arc edit mode', /cycleArcEditMode \(Ctrl\+Space\)/],
+      ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],
+      ['Tab next net item', /nextNetItem \/ previousNetItem/],
+      ['R X Y transform', /rotateCCW\/rotateCW\/mirrorH\/mirrorV/],
+      ['M G move and drag', /SCH_ACTIONS::move \/ drag/],
+      ['` ~ highlight', /highlightNet \/ clearHighlight/],
+      ['Space reset local coords', /resetLocalCoords/],
+      ['Shift+Space line mode', /lineModeNext/],
+      ['N grid next', /gridNext\/gridPrev/],
+      ['C unfold bus', /unfoldBus/],
+      ['U V F edit field', /FIELD_KEYS/],
+      ['D show datasheet', /showDatasheet/],
+      ['O autoplace fields', /autoplaceFields/],
+      ['E properties', /openProperties\(\[\.\.\.selection\]\[0\]!\)/],
+      ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },
   'editors/pcb/PcbEditor.tsx': {
@@ -675,8 +796,166 @@ describe('the shared rows every frame ends its File and Help menus with', () => 
     // menubar_footprint_editor.cpp:92 is `AddClose`, pcbnew and eeschema call
     // `AddQuitOrClose`. What matters is that none of them writes the row.
     const missing = Object.keys(CANVAS_KEYS).filter(
-      (rel) => !/\badd(Close|Quit|QuitOrClose)\(/.test(source(rel)),
+      (rel) => !/\badd(Close|Quit|QuitOrClose)\(/.test(menuSource(rel)),
     );
     expect(missing, 'a frame hand-rolling the File menu tail').toEqual([]);
+  });
+});
+
+/**
+ * The schematic editor's whole menu, pressed for real.
+ *
+ * `editors/schematic/menubar.ts` is a plain `.ts` data module, so unlike the
+ * other four canvas frames its tree can be built here and actually pressed -
+ * which is the only proof that a row's key reaches that row's action rather
+ * than merely parsing. It is also the frame with the most to prove: forty-one
+ * accelerators, twelve of them the single letters that used to be dispatched
+ * from `TOOL_HOTKEYS` beside the menu that already declared them.
+ */
+function schematicFixture() {
+  const calls: string[] = [];
+  const menus = buildMenus({
+    tool: (id: string) => calls.push(`tool:${id}`),
+    action: (id: string) => calls.push(id),
+    toggle: (id: string) => calls.push(`toggle:${id}`),
+  });
+  return { menus, calls };
+}
+
+/** Every (combo, label) a row in the tree declares, submenus included. */
+function declaredRows(menus: readonly Menu[]): { combo: string; label: string }[] {
+  const out: { combo: string; label: string }[] = [];
+  const walk = (items: readonly MenuItem[]): void => {
+    for (const item of items) {
+      if (item.shortcut && item.action) out.push({ combo: item.shortcut, label: item.label ?? '' });
+      const kids = item.submenu ?? item.items;
+      if (kids) walk(kids);
+    }
+  };
+  for (const m of menus) walk(m.items);
+  return out;
+}
+
+describe('the schematic editor, pressed for real', () => {
+  const rows = declaredRows(schematicFixture().menus);
+
+  it('finds the rows in the first place', () => {
+    // A guard on the guard: a tree that stopped being walkable would make
+    // every case below vacuous.
+    expect(rows.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it('the set of accelerators has not drifted', () => {
+    expect([...new Set(rows.map((r) => r.combo))].sort()).toEqual(
+      [
+        // File
+        'Ctrl+Alt+W',
+        'Ctrl+P',
+        'Ctrl+S',
+        'Ctrl+Shift+F',
+        // Edit
+        'Ctrl+A',
+        'Ctrl+Alt+F',
+        'Ctrl+C',
+        'Ctrl+F',
+        'Ctrl+Shift+A',
+        'Ctrl+Shift+C',
+        'Ctrl+Shift+V',
+        'Ctrl+Shift+Z',
+        'Ctrl+V',
+        'Ctrl+X',
+        'Ctrl+Z',
+        'Del',
+        // View
+        'Alt+Left',
+        'Alt+Right',
+        'Alt+Up',
+        'Ctrl+F5',
+        'Ctrl+G',
+        'Ctrl+H',
+        'Ctrl+Home',
+        'Ctrl+R',
+        'Home',
+        'PgDn',
+        'PgUp',
+        // Place - the twelve SCH_ACTIONS tool letters, plus Ctrl+L
+        'A',
+        'B',
+        'Ctrl+L',
+        'H',
+        'I',
+        'J',
+        'L',
+        'P',
+        'Q',
+        'S',
+        'T',
+        'W',
+        'Z',
+        // Tools, Preferences, Help
+        'Ctrl+,',
+        'Ctrl+F1',
+        'F8',
+      ].sort(),
+    );
+  });
+
+  it.each(rows.map((r): [string, string] => [r.combo, r.label]))('%s runs %s', (combo, _label) => {
+    const { menus, calls } = schematicFixture();
+    expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base)), `${combo} matched nothing`).toBe(
+      true,
+    );
+    // Exactly one command, which is ACTION_MANAGER::RunHotKey's contract: it
+    // picks a single action for a keystroke and runs that one.
+    //
+    // Ctrl+F1 is the exception and not an escape hatch: ACTIONS::listHotKeys is
+    // AS_GLOBAL, so `standardHelpMenu` wires the row straight to
+    // `ui/hotkey_list_action.ts`'s emitter rather than through the frame's
+    // handlers. Nothing reaches the spy because nothing was meant to - the
+    // dispatch returning true is the whole assertion there.
+    expect(calls, `${combo} ran more or less than one command`).toHaveLength(
+      combo === 'Ctrl+F1' ? 0 : 1,
+    );
+  });
+
+  it('the twelve Place letters reach their tools', () => {
+    // These are the ones TOOL_HOTKEYS used to dispatch beside the menu that
+    // already carried them, and the pair is exactly the drift this file hunts.
+    const { menus, calls } = schematicFixture();
+    for (const [combo, tool] of [
+      ['A', 'placeSymbol'],
+      ['P', 'placePower'],
+      ['W', 'drawWire'],
+      ['B', 'drawBus'],
+      ['Z', 'busEntry'],
+      ['Q', 'noConnect'],
+      ['J', 'junction'],
+      ['L', 'placeLabel'],
+      ['H', 'placeHierLabel'],
+      ['S', 'drawSheet'],
+      ['T', 'placeText'],
+      ['I', 'lines'],
+    ] as const) {
+      calls.length = 0;
+      expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base)), combo).toBe(true);
+      expect(calls, combo).toEqual([`tool:${tool}`]);
+    }
+  });
+
+  it('and Ctrl+L is the global label, not the plain one', () => {
+    // Two rows one modifier apart. `matchesAccelerator` compares the modifier
+    // set rather than a subset, so L cannot be reached by Ctrl+L or the other
+    // way round - which is what a hand-written `e.key === 'l'` got wrong.
+    const { menus, calls } = schematicFixture();
+    expect(dispatchMenuHotkey(menus, eventFromCombo('Ctrl+L', base))).toBe(true);
+    expect(calls).toEqual(['tool:placeGlobalLabel']);
+  });
+
+  it('does nothing at all while the user is typing', () => {
+    const { menus, calls } = schematicFixture();
+    const typing = { tagName: 'INPUT', type: 'text' };
+    for (const { combo } of rows)
+      dispatchMenuHotkey(menus, eventFromCombo(combo, base), { target: typing });
+    expect(calls).toEqual([]);
   });
 });

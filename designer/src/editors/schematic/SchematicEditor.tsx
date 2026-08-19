@@ -300,10 +300,12 @@ import {
   RIGHT_TOOLBAR,
   RIGHT_TOOLBAR_COMMANDS,
 } from './toolbars_sch_editor.js';
-import { MenuBar, ContextMenu, type MenuItem } from '../../ui/MenuBar.js';
+import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import { isHoverSelection, rightClickSelection } from './hover_selection.js';
-import { buildMenus, TOOL_HOTKEYS } from './menubar.js';
+import { buildMenus } from './menubar.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
 import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
@@ -5502,7 +5504,7 @@ export function SchematicEditor({
       else if (id === 'symbolBrowser') setBrowserOpen(true);
       else if (id === 'assignFootprints') setAssignFpOpen(true);
       else if (id === 'showCalculator') onShowCalculator?.();
-      // ACTIONS::selectAll / unselectAll (also on Ctrl+A / Ctrl+Shift+A).
+      // ACTIONS::selectAll, whose row carries Ctrl+A and dispatches from there.
       else if (id === 'selectAll')
         setDoc((d) => {
           // Select All honors the Selection Filter (SCH_SELECTION_TOOL::SelectAll
@@ -6541,32 +6543,41 @@ export function SchematicEditor({
   // Menus carry their shortcut as literal text, so a rebinding has to be
   // painted back over them (see applyHotkeyOverrides).
   const hotkeyOverrides = useHotkeyOverrides();
-  const menus = useMemo(
+  /**
+   * The tree as the actions *declare* it, before any rebinding is painted on.
+   *
+   * Split out because the two consumers want opposite things. What is drawn
+   * must show the user's own key, so it gets `applyHotkeyOverrides`. What
+   * *dispatches* must match the defaults, because `remapEvent` has already
+   * turned a rebound press into the action's default combo - that is the whole
+   * mechanism, and it is why the key chain "deliberately still matches on the
+   * defaults". Dispatching against the painted tree would mean translating the
+   * event to the default and then comparing it with the override, so every
+   * rebound command would answer to nothing.
+   */
+  const menusRaw = useMemo(
     () =>
-      applyHotkeyOverrides(
-        buildMenus(
-          { tool: onToolSelect, action: onTopAction, toggle: onLeftToggle },
-          {
-            // CHECK( cond.CurrentTool( ACTIONS::zoomTool ) ): the View entry ticks
-            // while the tool is running, the same condition the button uses.
-            zoomTool: activeTool === 'zoomTool',
-            toggleHiddenPins: es.appearance.show_hidden_pins,
-            toggleHiddenFields: es.appearance.show_hidden_fields,
-            showProperties: toggles.has('showProperties'),
-            showSearch: toggles.has('showSearch'),
-            showHierarchy: toggles.has('showHierarchy'),
-            showNetNavigator: toggles.has('showNetNavigator'),
-            // Each attribute shows checked only when everything the action would
-            // touch already carries it, the same test the action itself uses.
-            ...Object.fromEntries(
-              Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [
-                id,
-                !!doc && attributeIsSet(doc, selection, a),
-              ]),
-            ),
-          },
-        ),
-        hotkeyOverrides,
+      buildMenus(
+        { tool: onToolSelect, action: onTopAction, toggle: onLeftToggle },
+        {
+          // CHECK( cond.CurrentTool( ACTIONS::zoomTool ) ): the View entry ticks
+          // while the tool is running, the same condition the button uses.
+          zoomTool: activeTool === 'zoomTool',
+          toggleHiddenPins: es.appearance.show_hidden_pins,
+          toggleHiddenFields: es.appearance.show_hidden_fields,
+          showProperties: toggles.has('showProperties'),
+          showSearch: toggles.has('showSearch'),
+          showHierarchy: toggles.has('showHierarchy'),
+          showNetNavigator: toggles.has('showNetNavigator'),
+          // Each attribute shows checked only when everything the action would
+          // touch already carries it, the same test the action itself uses.
+          ...Object.fromEntries(
+            Object.entries(ATTRIBUTE_IDS).map(([id, a]) => [
+              id,
+              !!doc && attributeIsSet(doc, selection, a),
+            ]),
+          ),
+        },
       ),
     [
       onToolSelect,
@@ -6578,15 +6589,44 @@ export function SchematicEditor({
       activeTool,
       doc,
       selection,
-      hotkeyOverrides,
     ],
   );
+  const menus = useMemo(
+    () => applyHotkeyOverrides(menusRaw, hotkeyOverrides),
+    [menusRaw, hotkeyOverrides],
+  );
 
+  /**
+   * The tree the chain dispatches off, read through a ref: it is rebuilt on
+   * every render, and depending on it would tear the listener down and put it
+   * back on each keystroke's re-render. `useMenuHotkeys` holds one for the
+   * same reason.
+   */
+  const menusRef = useRef<Menu[]>(menusRaw);
+  menusRef.current = menusRaw;
+
+  // The frame's single key chain, in ACTION_MANAGER::RunHotKey order: the
+  // context actions this canvas owns, then the menus. See ui/menu_hotkeys.ts.
+  //
+  // The dispatch is called from *inside* this listener rather than added
+  // beside it, which matters more here than anywhere else in the app: the
+  // event the menus must see is the one `remapEvent` produced, so a user's
+  // rebinding reaches a menu row exactly as it reaches a tool key.
   useEffect(() => {
     const onKey = (raw: KeyboardEvent) => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'schematic') !== 'schematic') return;
+      // `defaultPrevented` means someone already acted on this key - EXCEPT
+      // when it was our own browser suppressor, which runs in the capture phase
+      // and cancels every combo the app claims purely to stop the browser.
+      // Reading that as "handled" is what made every hotkey in the app stop
+      // working once the dispatcher landed (c4a00590).
+      if (raw.defaultPrevented && !wasBrowserSuppressed(raw)) return;
+      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
+      // read-only one keeps Ctrl+C.
+      const target = raw.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, raw)) return;
       // The user's rebindings, applied before anything below sees the event: a
       // key bound elsewhere arrives spelled as the action's *default* combo, and
       // a cleared one arrives as null and stops here. See hotkey_bindings.ts —
@@ -6599,100 +6639,25 @@ export function SchematicEditor({
       if (!e) return;
       // While a modal properties dialog is open, only Escape acts on the editor.
       if (propsTarget !== null && e.key !== 'Escape') return;
-      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-        e.preventDefault();
-        setPrefsOpen(true);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        save();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        // Under the project manager eeschema's File menu starts at Save - New
+        // and Open belong to the launcher (menubar.cpp) - so this key has no
+        // row to answer from and stays here.
         e.preventDefault();
         promptOpen();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-        // ACTIONS::print (Ctrl+P).
-        e.preventDefault();
-        setPrintOpen(true);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        // Ctrl+Y redoes as well. Upstream binds only Ctrl+Shift+Z off macOS,
+        // which is what the row prints; `hotkeys.ts` declares this second
+        // spelling as its own registry note, so it stays as a rowless alias.
         e.preventDefault();
         redo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         duplicateSelection();
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
-        // ACTIONS::copyAsText (Ctrl+Shift+C).
-        e.preventDefault();
-        onTopAction('copyAsText');
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
-        // ACTIONS::pasteSpecial (Ctrl+Shift+V).
-        e.preventDefault();
-        setPasteSpecialOpen(true);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
-        // SCH_ACTIONS::placeGlobalLabel default hotkey (Ctrl+L).
-        e.preventDefault();
-        onToolSelect('placeGlobalLabel');
-      } else if (
-        (e.ctrlKey || e.metaKey) &&
-        e.shiftKey &&
-        !e.altKey &&
-        e.key.toLowerCase() === 'f'
-      ) {
-        // SCH_ACTIONS::importGraphics (Ctrl+Shift+F). Checked before the two
-        // find arms below, which do not test shift, so it cannot be swallowed
-        // by Ctrl+F.
-        e.preventDefault();
-        setImportGfxOpen(true);
-      } else if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'f') {
-        // ACTIONS::findAndReplace (Ctrl+Alt+F).
-        e.preventDefault();
-        openFindDialog('replace');
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !e.altKey) {
-        // ACTIONS::find (Ctrl+F).
-        e.preventDefault();
-        openFindDialog('find');
       } else if (e.key === 'F3' && (findOpen || searchData.findString)) {
         // ACTIONS::findNext / findPrevious (F3 / Shift+F3).
         e.preventDefault();
         doFind(e.shiftKey ? -1 : 1);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !isTyping()) {
-        // ACTIONS::selectAll / unselectAll (Ctrl+A / Ctrl+Shift+A). Select-all
-        // is a greedy box select over the whole plane.
-        e.preventDefault();
-        if (e.shiftKey) setSelection(new Set());
-        else
-          setDoc((d) => {
-            // Honors the Selection Filter, like the menu Select All.
-            if (d)
-              setSelection(
-                applySelectionFilter(
-                  d,
-                  boxSelect(d, libById, { x: 1e15, y: 1e15 }, { x: -1e15, y: -1e15 }),
-                  selFilterRef.current,
-                ),
-              );
-            return d;
-          });
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
-        // ACTIONS::zoomFitObjects (Ctrl+Home): the drawn objects, not the page.
-        // Tested before bare Home below, which takes no modifiers.
-        e.preventDefault();
-        controller.current?.zoomToFit(true);
-      } else if (
-        e.key === 'Home' &&
-        !e.altKey &&
-        !e.shiftKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !isTyping()
-      ) {
-        // ACTIONS::zoomFitScreen. Its default hotkey is Home everywhere except
-        // macOS, where it is Cmd+0 (common/tool/actions.cpp); only the Mac
-        // binding was here, so the key most people reach for did nothing.
-        e.preventDefault();
-        controller.current?.zoomToFit();
       } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         // ACTIONS::zoomFitScreen, the macOS binding (Cmd+0), kept on every
         // platform as an alias.
@@ -6706,16 +6671,6 @@ export function SchematicEditor({
         // ACTIONS::zoomOut (Ctrl+-).
         e.preventDefault();
         controller.current?.zoomOut();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
-        // ACTIONS::zoomRedraw (Ctrl+R): repaint without changing the view.
-        e.preventDefault();
-        controller.current?.redraw();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'F5') {
-        // ACTIONS::zoomTool (Ctrl+F5): drag a rectangle to zoom to it. The
-        // hotkey posts the same activation the button does, so pressing it
-        // again while the tool runs stops it, exactly as clicking would.
-        e.preventDefault();
-        activateTool('zoomTool');
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
         // ACTIONS::toggleUnits (Ctrl+U): imperial <-> metric, remembering the
         // last imperial unit (COMMON_TOOLS m_imperialUnit, initially inches).
@@ -6730,13 +6685,10 @@ export function SchematicEditor({
         settings.updateEeschema((s) => {
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
-      } else if (e.key === 'F8' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        // ACTIONS::updatePcbFromSchematic's default hotkey, the same one the PCB
-        // frame answers.
-        e.preventDefault();
-        onUpdatePcb?.();
       } else if (e.key === 'F5' && !e.altKey && !e.shiftKey) {
-        // ACTIONS::zoomRedraw default hotkey (F5).
+        // ACTIONS::zoomRedraw's default hotkey off macOS. The row prints the
+        // macOS Ctrl+R, which is also what `hotkeys.ts` registers, and this
+        // second spelling is that entry's registry note - so it stays here.
         e.preventDefault();
         controller.current?.redraw();
       } else if (
@@ -6789,10 +6741,6 @@ export function SchematicEditor({
           const id = [...selection][0]!;
           editSymbolInEditor(/^(.*):field\d+$/.exec(id)?.[1] ?? id);
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h' && !e.shiftKey) {
-        // SCH_ACTIONS::showHierarchy (Ctrl+H): toggle the navigator panel.
-        e.preventDefault();
-        onLeftToggle('showHierarchy');
       } else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         // SCH_ACTIONS::nextNetItem / previousNetItem (Tab / Shift+Tab):
         // SCH_SELECTION_TOOL::SelectNext walks the Net Navigator's flattened
@@ -6813,11 +6761,6 @@ export function SchematicEditor({
         // ACTIONS::toggleGridOverrides (Ctrl+Shift+G).
         e.preventDefault();
         onLeftToggle('toggleGridOverrides');
-      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
-        // ACTIONS::showSearch (Ctrl+G): toggle the Search panel. Distinct from
-        // Ctrl+Shift+G above, which is grid overrides.
-        e.preventDefault();
-        onLeftToggle('showSearch');
       } else if (e.altKey && (e.key === '1' || e.key === '2' || e.key === '4')) {
         // ACTIONS::gridFast1 / gridFast2 / gridFastCycle. The two fast grids are
         // indices into the grid list, stored 1-based as KiCad stores them.
@@ -6865,30 +6808,10 @@ export function SchematicEditor({
           const cmd = swapItems(doc, selection);
           if (cmd) runCommand(cmd);
         }
-      } else if (e.altKey && e.key === 'ArrowLeft') {
-        // SCH_ACTIONS::navigateBack (Alt+Left).
-        e.preventDefault();
-        onTopAction('navBack');
-      } else if (e.altKey && e.key === 'ArrowUp') {
-        // SCH_ACTIONS::navigateUp (Alt+Up).
-        e.preventDefault();
-        onTopAction('navUp');
-      } else if (e.altKey && e.key === 'ArrowRight') {
-        // SCH_ACTIONS::navigateForward (Alt+Right).
-        e.preventDefault();
-        onTopAction('navFwd');
       } else if (e.altKey && e.key === 'Backspace') {
         // SCH_ACTIONS::leaveSheet (Alt+Backspace), same as Navigate Up.
         e.preventDefault();
         onTopAction('navUp');
-      } else if (e.key === 'PageUp' && !isTyping()) {
-        // SCH_ACTIONS::navigatePrevious (PgUp).
-        e.preventDefault();
-        onTopAction('navPrev');
-      } else if (e.key === 'PageDown' && !isTyping()) {
-        // SCH_ACTIONS::navigateNext (PgDn).
-        e.preventDefault();
-        onTopAction('navNext');
       } else if (e.key === 'Escape') {
         // Abandoning a Sync Sheet Pins placement puts the rest of the queue
         // back and reopens the dialog, rather than leaving it half-placed with
@@ -6912,7 +6835,10 @@ export function SchematicEditor({
         // "<ESC> clears net highlighting": with nothing else pending, the next
         // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
         else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selection.size > 0 && doc) {
+      } else if (e.key === 'Backspace' && selection.size > 0 && doc) {
+        // Del answers from Edit > Delete. Backspace deletes too, as upstream
+        // binds it on macOS and as `hotkeys.ts` records against this action -
+        // it has no row of its own, so it stays here.
         e.preventDefault();
         runCommand(deleteItems(doc, selection));
         setSelection(new Set());
@@ -7079,12 +7005,17 @@ export function SchematicEditor({
           openProperties([...selection][0]!);
           return;
         }
-        const toolId = TOOL_HOTKEYS[e.key.toLowerCase()];
-        if (toolId) {
-          e.preventDefault();
-          onToolSelect(toolId);
-        }
+        // A, P, W, B, Z, Q, J, L, H, S, T and I used to be dispatched here
+        // out of TOOL_HOTKEYS, and every one of them is also a Place menu row
+        // carrying the same key. The row is the declaration now; the map stays
+        // because `ui/hotkeys_inventory.ts` reads it for the Hotkey List.
+        if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
       }
+      // --- global: every other menu accelerator ---------------------------
+      // Reached only when no arm above claimed the key, which is
+      // ACTION_MANAGER::RunHotKey's order: a context action first, the
+      // AS_GLOBAL ones the menus render second.
+      else if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
