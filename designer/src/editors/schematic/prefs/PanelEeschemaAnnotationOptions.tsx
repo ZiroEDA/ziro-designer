@@ -22,6 +22,7 @@ import type { JSX } from 'react';
 import { Check, Group } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
+import { resetKeys } from '../../../dialogs/prefs/reset.js';
 
 export function PanelEeschemaAnnotationOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -113,5 +114,11 @@ export function PanelEeschemaAnnotationOptions({ ctx }: { ctx: PrefsContext }): 
 
 /** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
 export function resetEeschemaAnnotationOptions(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
+  ctx.upE((s) => {
+    // PANEL_EESCHEMA_ANNOTATION_OPTIONS::ResetPanel
+    // (eeschema/dialogs/panel_eeschema_annotation_options.cpp) builds a default
+    // SCHEMATIC_SETTINGS and calls loadEEschemaSettings on it, which sets this
+    // panel's three controls and no others.
+    resetKeys(s.annotation, EESCHEMA_DEFAULTS.annotation, ['automatic', 'method', 'sort_order']);
+  });
 }

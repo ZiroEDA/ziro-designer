@@ -6,13 +6,17 @@
  * `PANEL_TEMPLATE_FIELDNAMES` (`common/dialogs/panel_template_fieldnames_base.cpp`),
  * constructed by eeschema for `PANEL_SCH_FIELD_NAME_TEMPLATES`.
  *
- * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
- * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
+ * This page has no "Reset to Defaults":
+ * `PANEL_TEMPLATE_FIELDNAMES_BASE` derives from plain `wxPanel`
+ * (`eeschema/dialogs/panel_template_fieldnames_base.h:36`), not
+ * `RESETTABLE_PANEL`, and declares no `ResetPanel`, so
+ * `PAGED_DIALOG::UpdateResetButton` (`common/widgets/paged_dialog.cpp:329-355`)
+ * finds no `wxRESETTABLE` style bit and disables the button. It exports no
+ * `reset`, which is how our factory says the same thing.
  */
 import type { JSX } from 'react';
 import { Group } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelTemplateFieldnames({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -97,9 +101,4 @@ export function PanelTemplateFieldnames({ ctx }: { ctx: PrefsContext }): JSX.Ele
       </div>
     </Group>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
-export function resetTemplateFieldnames(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
 }

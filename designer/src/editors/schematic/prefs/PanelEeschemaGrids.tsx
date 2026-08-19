@@ -16,6 +16,7 @@ import type { JSX } from 'react';
 import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
+import { resetKeys } from '../../../dialogs/prefs/reset.js';
 
 export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -156,7 +157,31 @@ export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element 
   );
 }
 
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
+/**
+ * `PANEL_GRID_SETTINGS::ResetPanel` (`common/dialogs/panel_grid_settings.cpp:110-113`)
+ * is two lines -- `m_grids = m_cfg->DefaultGridSizeList(); RebuildGridSizes();` --
+ * and nothing else in `APP_SETTINGS_BASE` is touched.
+ *
+ * The slice is what this panel's `TransferDataFromWindow` writes back
+ * (`panel_grid_settings.cpp`): the grid list, the current-grid index, the two
+ * fast-switch indices and the per-item overrides. `RebuildGridSizes` re-points
+ * those indices by grid *name* after the list changes, falling back to the
+ * first (last, for Grid 2) entry; since the whole page goes back to defaults
+ * together here, resetting the indices to the defaults' own is the same result
+ * and cannot leave one dangling past the end of the list.
+ *
+ * NOT the grid's appearance -- `style`, `line_width`, `min_spacing`, `snap`
+ * belong to the `PANEL_GAL_OPTIONS` embedded in Display Options.
+ */
 export function resetEeschemaGrids(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
+  ctx.upE((s) => {
+    resetKeys(s.window.grid, EESCHEMA_DEFAULTS.window.grid, [
+      'sizes',
+      'last_size_idx',
+      'fast_grid_1',
+      'fast_grid_2',
+      'overrides_enabled',
+      'overrides',
+    ]);
+  });
 }

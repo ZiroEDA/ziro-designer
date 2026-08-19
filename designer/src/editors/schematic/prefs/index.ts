@@ -27,7 +27,7 @@ import {
   resetEeschemaEditingOptions,
 } from './PanelEeschemaEditingOptions.js';
 import { PanelEeschemaGrids, resetEeschemaGrids } from './PanelEeschemaGrids.js';
-import { PanelTemplateFieldnames, resetTemplateFieldnames } from './PanelTemplateFieldnames.js';
+import { PanelTemplateFieldnames } from './PanelTemplateFieldnames.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -64,13 +64,16 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelEeschemaColorSettings,
         reset: resetEeschemaColorSettings,
+        // PANEL_COLOR_SETTINGS::GetResetTooltip (include/dialogs/panel_color_settings.h:48).
+        resetTooltip: 'Reset all colors in this theme to the KiCad defaults',
       };
 
     case 'sch-fields':
-      return {
-        Panel: PanelTemplateFieldnames,
-        reset: resetTemplateFieldnames,
-      };
+      // No `reset`: PANEL_TEMPLATE_FIELDNAMES_BASE is a plain wxPanel, not a
+      // RESETTABLE_PANEL (eeschema/dialogs/panel_template_fieldnames_base.h:36),
+      // and PANEL_TEMPLATE_FIELDNAMES declares no ResetPanel, so
+      // PAGED_DIALOG::UpdateResetButton greys the button out on this page.
+      return { Panel: PanelTemplateFieldnames };
 
     default:
       return null;
