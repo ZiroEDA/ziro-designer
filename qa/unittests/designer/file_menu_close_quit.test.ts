@@ -246,15 +246,6 @@ describe('every File menu ends the way its C++ frame ends', () => {
   });
 });
 
-/** Flatten a built menu tree the way the dispatcher walks it. */
-function* rows(items: readonly MenuItem[]): Generator<MenuItem> {
-  for (const item of items) {
-    if (!item.sep) yield item;
-    const kids = item.submenu ?? item.items;
-    if (kids) yield* rows(kids);
-  }
-}
-
 const fileMenu = (menus: readonly Menu[]): MenuItem[] => {
   const m = menus.find((x) => x.label === 'File');
   expect(m, 'no File menu').toBeDefined();
