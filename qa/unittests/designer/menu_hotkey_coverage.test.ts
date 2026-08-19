@@ -55,6 +55,7 @@ const CONVERTED = [
   'editors/image/ImageConverter.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+  'editors/symbol/SymbolEditor.tsx',
   'home/HomePage.tsx',
 ];
 
@@ -69,11 +70,7 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING = [
-  'editors/pcb/PcbEditor.tsx',
-  'editors/schematic/SchematicEditor.tsx',
-  'editors/symbol/SymbolEditor.tsx',
-];
+const PENDING = ['editors/pcb/PcbEditor.tsx', 'editors/schematic/SchematicEditor.tsx'];
 
 /**
  * The only modifier reads a converted frame may keep, per file, line for line.
@@ -103,6 +100,13 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
   ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
+  'editors/symbol/SymbolEditor.tsx': [
+    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
+    // The library tree's Ctrl+D. `SCH_ACTIONS::duplicateSymbol`
+    // (sch_actions.cpp:208-212) declares no hotkey and has no row in this
+    // frame, so it is a context action with nowhere else to live.
+    "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
+  ],
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -257,6 +261,29 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
       // The library tree's own Del. Disjoint from the row's, by condition.
       ['tree Del', /onDelete\(treeSel\.lib, treeSel\.name\)/],
+    ],
+  },
+  'editors/symbol/SymbolEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Y redo', /e\.key\.toLowerCase\(\) === 'y'/],
+      ['Del delete', /e\.key === 'Delete'/],
+      ['P place pin', /k === 'p'/],
+      ['T place text', /k === 't'/],
+    ],
+    kept: [
+      // SCH_ACTIONS::rotateCCW / rotateCW and mirrorH / mirrorV - R, Shift+R,
+      // X, Y. Bare Y is mirrorV and Ctrl+Y is Redo; `plain` is what keeps them
+      // apart now that the second lives on its row.
+      ['R rotate', /k === 'r'/],
+      ['X mirror', /k === 'x'/],
+      ['Y mirror', /k === 'y'/],
+      // SCH_ACTIONS::properties (E) on one selected item.
+      ['E properties', /k === 'e' && selection\.size === 1/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+      // The library tree's Ctrl+D (duplicate), which has no row.
+      ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
     ],
   },
 };
@@ -475,6 +502,17 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // key the frame has always answered, and correcting the row is #547's job,
     // not this one's. Recorded so the divergence is not silent.
     'F',
+  ],
+  'editors/symbol/SymbolEditor.tsx': [
+    'Ctrl+Alt+N',
+    'Ctrl+S',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // Place > Pin / Text. SCH_ACTIONS::placeSymbolPin is P and placeSymbolText
+    // is T, both AS_GLOBAL with a row - so both belong on the row.
+    'P',
+    'T',
   ],
 };
 
