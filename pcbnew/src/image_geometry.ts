@@ -28,12 +28,11 @@
  * `imageBBox` directly; a predicate was written and had no caller, so it is not
  * kept. Same call as the text box work.
  */
+import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
 import { pngPPI, pngPixelSize } from '@ziroeda/common/src/png_meta.js';
+import { pixelSizeIu } from '@ziroeda/common/src/reference_image.js';
 import type { PcbImage } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-/** Nanometres in an inch: the board's IU per inch. */
-const IU_PER_INCH = 25_400_000;
 
 /**
  * The size a payload-less or unreadable image is given, so it stays selectable
@@ -41,9 +40,15 @@ const IU_PER_INCH = 25_400_000;
  */
 export const FALLBACK_PIXELS = { w: 40, h: 40 };
 
-/** `BITMAP_BASE::m_pixelSizeIu` for the board: the IU one pixel spans. */
+/**
+ * The board's binding of `REFERENCE_IMAGE`, whose constructor takes the frame's
+ * `EDA_IU_SCALE` (`PCB_REFERENCE_IMAGE::m_referenceImage`,
+ * pcbnew/pcb_reference_image.h:138, is built with `pcbIUScale`). The arithmetic
+ * is shared with the schematic, as `REFERENCE_IMAGE::updatePixelSizeInIU` is
+ * upstream; only the scale is the board's.
+ */
 export function iuPerPixel(ppi: number): number {
-  return IU_PER_INCH / (ppi > 0 ? ppi : 1);
+  return pixelSizeIu(pcbIUScale, ppi);
 }
 
 /** `BITMAP_BASE::GetSize`: the image's extent in board IU. */

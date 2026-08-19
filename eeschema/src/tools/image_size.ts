@@ -17,20 +17,25 @@
  * be handed.
  */
 
+import { schIUScale } from '@ziroeda/common/src/eda_units.js';
+import { pixelSizeIu } from '@ziroeda/common/src/reference_image.js';
 import type { SchImage } from '../types.js';
 
 /** `BITMAP_BASE`'s default resolution when the file states none. */
 export const DEFAULT_PPI = 300;
 
 /**
- * `BITMAP_BASE::m_pixelSizeIu` at the default resolution: the IU one image pixel
- * spans before scaling, 25.4 mm over 300 ppi. Images that state their own
- * resolution use `iuPerPixel` below instead.
+ * The schematic's binding of `REFERENCE_IMAGE`, whose constructor takes the
+ * frame's `EDA_IU_SCALE` (`SCH_BITMAP::m_referenceImage`, eeschema/sch_bitmap.h:137,
+ * is built with `schIUScale`). The arithmetic itself is shared, exactly as
+ * `REFERENCE_IMAGE::updatePixelSizeInIU` is shared upstream; only the scale is
+ * the schematic's. Do not inline the number: 254000 is the schematic's IU per
+ * inch and is wrong on a board by a factor of a hundred.
  */
-export const IU_PER_PIXEL = 254000 / DEFAULT_PPI;
+export const iuPerPixel = (ppi: number): number => pixelSizeIu(schIUScale, ppi);
 
-/** `m_pixelSizeIu` for a given resolution. */
-export const iuPerPixel = (ppi: number): number => 254000 / ppi;
+/** `m_pixelSizeIu` at the default resolution, the IU one pixel spans unscaled. */
+export const IU_PER_PIXEL = iuPerPixel(DEFAULT_PPI);
 
 /** The PNG magic, which the payload must open with for the offsets to hold. */
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -102,10 +107,17 @@ export function imagePPI(data: string): number {
     const data0 = off + 8;
     if (type === 'IDAT' || type === 'IEND') break; // pixel data starts; no pHYs
     if (type === 'pHYs' && data0 + 9 <= b.length) {
+      // unit 0 is "unknown", an aspect ratio only, which says nothing about size.
       const ppuX = be32(b, data0);
       const unit = b[data0 + 8];
-      // unit 0 is "unknown", an aspect ratio only, which says nothing about size.
-      if (unit === 1 && ppuX > 0) return Math.round((ppuX / 100) * 2.54);
+      // `BITMAP_BASE::updatePPI` (common/bitmap_base.cpp:113-125) adopts the
+      // file's resolution only `if( dpiX > 1 )` and keeps its 300 otherwise, so
+      // GetPPI() is never zero and nothing downstream has to guard the division.
+      // The same test is applied here, to the converted figure: without it a
+      // pHYs stating a couple of dozen pixels per metre rounds to a PPI of zero,
+      // and an image of infinite size is not a thing the canvas can draw.
+      const ppi = Math.round((ppuX / 100) * 2.54);
+      if (unit === 1 && ppi > 1) return ppi;
       return DEFAULT_PPI;
     }
     off = data0 + len + 4; // skip the payload and its CRC

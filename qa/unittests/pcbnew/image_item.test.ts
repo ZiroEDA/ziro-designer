@@ -161,6 +161,20 @@ describe('reading the PNG header', () => {
     // Unit 0 is an aspect ratio only and says nothing about physical size.
     expect(pngPPI(png(100, 50, 23622, 0))).toBe(DEFAULT_PPI);
   });
+
+  it('ignores a density too small to be a resolution', () => {
+    // `BITMAP_BASE::updatePPI` (common/bitmap_base.cpp:113-125) takes the file's
+    // resolution only `if( dpiX > 1 )` and keeps its 300 otherwise. Without that
+    // test a pHYs of a couple of dozen pixels per metre rounds to a PPI of zero,
+    // which every consumer then divides by, giving an image of infinite size.
+    for (const ppuX of [1, 19, 40, 59]) {
+      expect(pngPPI(png(100, 50, ppuX))).toBe(DEFAULT_PPI);
+      expect(Number.isFinite(imageSizeIU(read(IMAGE(png(100, 50, ppuX))).images[0]!).w)).toBe(true);
+    }
+
+    // 60 px/m rounds to 2 ppi, which passes the test and is used as stated.
+    expect(pngPPI(png(100, 50, 60))).toBe(2);
+  });
 });
 
 describe('how much board an image covers', () => {
