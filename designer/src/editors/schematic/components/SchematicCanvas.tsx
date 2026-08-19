@@ -226,49 +226,8 @@ import { editPointColors } from '../../../render/color4d.js';
 import { kiCursor, toolCursor as kiToolCursor } from '../cursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
-
-/** Mouse/input behaviour from the Preferences dialog (COMMON_SETTINGS m_Input + eeschema). */
-export interface InputPrefs {
-  zoomSpeed: number; // 1..10 (input.zoom_speed)
-  zoomSpeedAuto: boolean;
-  centerOnZoom: boolean;
-  reverseZoom: boolean;
-  scrollModZoom: 'none' | 'ctrl' | 'shift' | 'alt';
-  scrollModPanH: 'none' | 'ctrl' | 'shift' | 'alt';
-  scrollModPanV: 'none' | 'ctrl' | 'shift' | 'alt';
-  reverseScrollPanH: boolean;
-  horizontalPan: boolean;
-  mouseLeft: 'select' | 'drag_selected' | 'drag_any';
-  mouseMiddle: 'pan' | 'zoom' | 'none';
-  mouseRight: 'pan' | 'zoom' | 'none';
-  /** eeschema input.drag_is_move: the mouse-drag gesture performs a Move
-   *  (leave wires behind) instead of a Drag (rubber-band them along). */
-  dragIsMove: boolean;
-  autoStartWires: boolean;
-  crosshair: 'small' | 'full' | '45';
-  alwaysShowCrosshair: boolean;
-}
-
-export const DEFAULT_INPUT_PREFS: InputPrefs = {
-  zoomSpeed: 1,
-  zoomSpeedAuto: true,
-  centerOnZoom: true,
-  reverseZoom: false,
-  scrollModZoom: 'none',
-  scrollModPanH: 'ctrl',
-  scrollModPanV: 'shift',
-  reverseScrollPanH: false,
-  horizontalPan: false,
-  mouseLeft: 'drag_selected',
-  mouseMiddle: 'pan',
-  mouseRight: 'pan',
-  dragIsMove: false,
-  autoStartWires: true,
-  // KiCad's defaults (app_settings.cpp): SMALL_CROSS, and the crosshair shown
-  // whatever tool is active.
-  crosshair: 'small',
-  alwaysShowCrosshair: true,
-};
+import type { InputPrefs } from '../../../ui/view_controls.js';
+import { DEFAULT_INPUT_PREFS, wheelAction } from '../../../ui/view_controls.js';
 
 /** The small crosshair is 80 screen px across, at any zoom (OPENGL_GAL::DrawCursor). */
 const SMALL_CROSS_PX = 80;
@@ -2656,42 +2615,19 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       const vp = viewportRef.current;
       if (!canvas || !vp) return;
       e.preventDefault();
+      const action = wheelAction(e, inputPrefs, { width: canvas.width, height: canvas.height });
+      if (action.kind === 'none') return;
+      if (action.kind === 'pan') {
+        viewportRef.current = {
+          ...vp,
+          offsetX: vp.offsetX + action.dx,
+          offsetY: vp.offsetY + action.dy,
+        };
+        requestDraw();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
-      const mod: 'none' | 'ctrl' | 'shift' | 'alt' =
-        e.ctrlKey || e.metaKey ? 'ctrl' : e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none';
-      const delta = e.deltaY;
-
-      if (
-        mod === inputPrefs.scrollModPanV &&
-        inputPrefs.scrollModPanV !== inputPrefs.scrollModZoom
-      ) {
-        viewportRef.current = { ...vp, offsetY: vp.offsetY - delta * dpr() };
-        requestDraw();
-        return;
-      }
-      if (
-        mod === inputPrefs.scrollModPanH &&
-        inputPrefs.scrollModPanH !== inputPrefs.scrollModZoom
-      ) {
-        const d = inputPrefs.reverseScrollPanH ? -delta : delta;
-        viewportRef.current = { ...vp, offsetX: vp.offsetX - d * dpr() };
-        requestDraw();
-        return;
-      }
-      if (mod !== inputPrefs.scrollModZoom) return;
-      // Horizontal touchpad movement pans when enabled.
-      if (inputPrefs.horizontalPan && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        viewportRef.current = { ...vp, offsetX: vp.offsetX - e.deltaX * dpr() };
-        requestDraw();
-        return;
-      }
-      const speed = inputPrefs.zoomSpeedAuto ? 1 : inputPrefs.zoomSpeed / 5;
-      const dir = inputPrefs.reverseZoom ? 1 : -1;
-      zoomAbout(
-        (e.clientX - rect.left) * dpr(),
-        (e.clientY - rect.top) * dpr(),
-        Math.exp(dir * delta * 0.001 * speed),
-      );
+      zoomAbout((e.clientX - rect.left) * dpr(), (e.clientY - rect.top) * dpr(), action.factor);
     },
     [zoomAbout, requestDraw, inputPrefs],
   );

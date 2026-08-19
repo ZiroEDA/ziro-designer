@@ -12,6 +12,8 @@
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
+import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import type { FitType } from '../../ui/view_controls.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
@@ -3407,13 +3409,17 @@ export function PcbEditor({
   // Fit the view to a world-space box (shared by Zoom-to-Fit variants and the
   // interactive zoom tool).
   const fitWorldBox = useCallback(
-    (minX: number, minY: number, maxX: number, maxY: number, margin: number) => {
+    (minX: number, minY: number, maxX: number, maxY: number, fitType: FitType = 'all') => {
       const canvas = canvasRef.current;
       if (!canvas || maxX <= minX || maxY <= minY) return;
-      const s = Math.min(
-        canvas.width / (maxX - minX + margin * 2),
-        canvas.height / (maxY - minY + margin * 2),
+      // COMMON_TOOLS::doZoomFit's margin_scale_factor, not our own 5 mm pad.
+      const s = zoomFitScale(
+        { minX, minY, maxX, maxY },
+        { width: canvas.width, height: canvas.height },
+        'pcb',
+        fitType,
       );
+      if (s === null) return;
       const flipX = viewRef.current.flipX;
       viewRef.current = {
         scale: s,
@@ -3450,7 +3456,7 @@ export function PcbEditor({
         maxX = Math.max(maxX, pw * MM);
         maxY = Math.max(maxY, ph * MM);
       }
-      fitWorldBox(minX, minY, maxX, maxY, 5 * MM);
+      fitWorldBox(minX, minY, maxX, maxY, includeSheet ? 'all' : 'objects');
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [fitWorldBox, objects.drawingSheet],
@@ -3802,21 +3808,31 @@ export function PcbEditor({
     requestDraw();
   }, [requestDraw]);
 
-  // Wheel zoom about the cursor; drag to pan (left or middle button).
+  // WX_VIEW_CONTROLS::onWheel; drag to pan (left or middle button).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       const v = viewRef.current;
-      const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+      const action = wheelAction(e, commonInputPrefs(), {
+        width: canvas.width,
+        height: canvas.height,
+      });
+      if (action.kind === 'none') return;
+      if (action.kind === 'pan') {
+        v.tx += action.dx;
+        v.ty += action.dy;
+        requestDraw();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const px = (e.clientX - rect.left) * dpr;
       const py = (e.clientY - rect.top) * dpr;
       const sx = v.flipX ? -v.scale : v.scale;
       const wx = (px - v.tx) / sx;
       const wy = (py - v.ty) / v.scale;
-      v.scale *= factor;
+      v.scale *= action.factor;
       v.tx = px - wx * (v.flipX ? -v.scale : v.scale);
       v.ty = py - wy * v.scale;
       requestDraw();
@@ -5642,7 +5658,7 @@ export function PcbEditor({
             Math.min(box.a.y, box.b.y),
             Math.max(box.a.x, box.b.x),
             Math.max(box.a.y, box.b.y),
-            0,
+            'selection',
           );
         } else if (!d.moved) {
           zoomStep(1.3);

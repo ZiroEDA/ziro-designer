@@ -15,29 +15,8 @@
  * FOOTPRINT_PREVIEW_PANEL::onSize / fitToCurrentFootprint).
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { InputPrefs } from '../editors/schematic/components/SchematicCanvas.js';
-import { DEFAULT_INPUT_PREFS } from '../editors/schematic/components/SchematicCanvas.js';
-import { settings } from '../prefs/settings.js';
-
-/** The mouse settings the preview panes use when their owner passes none,
- *  COMMON_SETTINGS m_Input, the same source WX_VIEW_CONTROLS reads. */
-export function commonInputPrefs(): InputPrefs {
-  const input = settings.common.input;
-  return {
-    ...DEFAULT_INPUT_PREFS,
-    zoomSpeed: input.zoom_speed,
-    zoomSpeedAuto: input.zoom_speed_auto,
-    centerOnZoom: input.center_on_zoom,
-    reverseZoom: input.reverse_scroll_zoom,
-    scrollModZoom: input.scroll_modifier_zoom,
-    scrollModPanH: input.scroll_modifier_pan_h,
-    scrollModPanV: input.scroll_modifier_pan_v,
-    reverseScrollPanH: input.reverse_scroll_pan_h,
-    horizontalPan: input.horizontal_pan,
-    mouseMiddle: input.mouse_middle as InputPrefs['mouseMiddle'],
-    mouseRight: input.mouse_right as InputPrefs['mouseRight'],
-  };
-}
+import type { InputPrefs } from '../ui/view_controls.js';
+import { commonInputPrefs, wheelAction } from '../ui/view_controls.js';
 
 /** A canvas transform in device pixels: world -> screen. */
 export interface PreviewView {
@@ -122,35 +101,17 @@ export function usePreviewViewControls(
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       const canvas = canvasRef.current;
-      if (!canvas || !viewRef.current) return;
-      const mod: 'none' | 'ctrl' | 'shift' | 'alt' =
-        e.ctrlKey || e.metaKey ? 'ctrl' : e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none';
-      const delta = e.deltaY;
       const view = viewRef.current;
-
-      // The pan modifiers work here too (PANEL_MOUSE_SETTINGS applies to every
-      // GAL canvas, previews included).
-      if (mod === prefs.scrollModPanV && prefs.scrollModPanV !== prefs.scrollModZoom) {
-        viewRef.current = { ...view, ty: view.ty - delta * dpr() };
+      if (!canvas || !view) return;
+      const action = wheelAction(e, prefs, { width: canvas.width, height: canvas.height });
+      if (action.kind === 'none') return;
+      if (action.kind === 'pan') {
+        viewRef.current = { ...view, tx: view.tx + action.dx, ty: view.ty + action.dy };
         redraw();
         return;
       }
-      if (mod === prefs.scrollModPanH && prefs.scrollModPanH !== prefs.scrollModZoom) {
-        const d = prefs.reverseScrollPanH ? -delta : delta;
-        viewRef.current = { ...view, tx: view.tx - d * dpr() };
-        redraw();
-        return;
-      }
-      if (mod !== prefs.scrollModZoom) return;
-
       const rect = canvas.getBoundingClientRect();
-      const speed = prefs.zoomSpeedAuto ? 1 : prefs.zoomSpeed / 5;
-      const dir = prefs.reverseZoom ? 1 : -1;
-      zoomAbout(
-        (e.clientX - rect.left) * dpr(),
-        (e.clientY - rect.top) * dpr(),
-        Math.exp(dir * delta * 0.001 * speed),
-      );
+      zoomAbout((e.clientX - rect.left) * dpr(), (e.clientY - rect.top) * dpr(), action.factor);
     },
     [canvasRef, prefs, redraw, zoomAbout, viewRef],
   );

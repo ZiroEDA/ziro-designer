@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -293,17 +294,15 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       if (!canvas) return;
       // A footprint with no geometry (a brand-new one): centre on the origin.
       const bbox = scn?.bbox ?? { minX: -5 * MM, minY: -5 * MM, maxX: 5 * MM, maxY: 5 * MM };
-      const { minX, minY, maxX, maxY } = bbox;
-      const margin = 2 * MM;
-      const s = Math.min(
-        canvas.width / (maxX - minX + margin * 2),
-        canvas.height / (maxY - minY + margin * 2),
+      // FRAME_FOOTPRINT_EDITOR's margin, 1.48 (common_tools.cpp:396-400):
+      // upstream leaves the library editors more slack than the board editor,
+      // which is the one fit difference that is genuinely per-editor upstream.
+      const v = zoomFitView(
+        bbox,
+        { width: canvas.width, height: canvas.height },
+        'footprint_editor',
       );
-      viewRef.current = {
-        scale: s > 0 && Number.isFinite(s) ? s : 0.02,
-        tx: canvas.width / 2 - ((minX + maxX) / 2) * s,
-        ty: canvas.height / 2 - ((minY + maxY) / 2) * s,
-      };
+      viewRef.current = v ?? { scale: 0.02, tx: canvas.width / 2, ty: canvas.height / 2 };
       requestDraw();
     }, [requestDraw]);
 
@@ -371,20 +370,30 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       }
     }, [footprint, zoomToFit]);
 
-    // Wheel zoom about the cursor.
+    // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
         const v = viewRef.current;
-        const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+        const action = wheelAction(e, commonInputPrefs(), {
+          width: canvas.width,
+          height: canvas.height,
+        });
+        if (action.kind === 'none') return;
+        if (action.kind === 'pan') {
+          v.tx += action.dx;
+          v.ty += action.dy;
+          requestDraw();
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const px = (e.clientX - rect.left) * dpr;
         const py = (e.clientY - rect.top) * dpr;
         const wx = (px - v.tx) / v.scale;
         const wy = (py - v.ty) / v.scale;
-        v.scale *= factor;
+        v.scale *= action.factor;
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();

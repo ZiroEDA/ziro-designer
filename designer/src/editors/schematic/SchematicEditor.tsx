@@ -414,7 +414,7 @@ import {
   useSchematicTheme,
 } from '../../prefs/useSettings.js';
 import type { RenderOpts } from './render/renderer.js';
-import type { InputPrefs } from './components/SchematicCanvas.js';
+import type { InputPrefs } from '../../ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';

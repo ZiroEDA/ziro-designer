@@ -33,6 +33,7 @@ import {
   DS_HILITE_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
+import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 
 const MM = 10000;
 
@@ -312,12 +313,16 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     const zoomToFit = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const margin = 12 * MM;
-      const s = Math.min(canvas.width / (pageW + margin * 2), canvas.height / (pageH + margin * 2));
-      viewRef.current = {
-        scale: s > 0 && Number.isFinite(s) ? s : 0.02,
-        tx: canvas.width / 2 - (pageW / 2) * s,
-        ty: canvas.height / 2 - (pageH / 2) * s,
+      // COMMON_TOOLS::doZoomFit's FRAME_PL_EDITOR margin, not 12 mm of padding.
+      const v = zoomFitView(
+        { minX: 0, minY: 0, maxX: pageW, maxY: pageH },
+        { width: canvas.width, height: canvas.height },
+        'pl_editor',
+      );
+      viewRef.current = v ?? {
+        scale: 0.02,
+        tx: canvas.width / 2,
+        ty: canvas.height / 2,
       };
       requestDraw();
     }, [pageW, pageH, requestDraw]);
@@ -339,17 +344,15 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           : b;
       }
       if (!box) return;
-      const margin = 6 * MM;
-      const bw = box.maxX - box.minX + margin * 2;
-      const bh = box.maxY - box.minY + margin * 2;
-      const s = Math.min(canvas.width / Math.max(bw, 1), canvas.height / Math.max(bh, 1));
-      const cx = (box.minX + box.maxX) / 2,
-        cy = (box.minY + box.maxY) / 2;
-      viewRef.current = {
-        scale: s > 0 && Number.isFinite(s) ? s : viewRef.current.scale,
-        tx: canvas.width / 2 - cx * s,
-        ty: canvas.height / 2 - cy * s,
-      };
+      // ZOOM_FIT_SELECTION: doZoomFit's plain margin, the library-editor slack
+      // applying only to ZOOM_FIT_ALL (common_tools.cpp:387).
+      const v = zoomFitView(
+        box,
+        { width: canvas.width, height: canvas.height },
+        'pl_editor',
+        'selection',
+      );
+      if (v) viewRef.current = v;
       requestDraw();
     }, [requestDraw]);
 
@@ -403,20 +406,30 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       return () => ro.disconnect();
     }, [dpr, requestDraw, zoomToFit]);
 
-    // Wheel zoom about the cursor.
+    // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
         const v = viewRef.current;
-        const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+        const action = wheelAction(e, commonInputPrefs(), {
+          width: canvas.width,
+          height: canvas.height,
+        });
+        if (action.kind === 'none') return;
+        if (action.kind === 'pan') {
+          v.tx += action.dx;
+          v.ty += action.dy;
+          requestDraw();
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const px = (e.clientX - rect.left) * dpr,
           py = (e.clientY - rect.top) * dpr;
         const wx = (px - v.tx) / v.scale,
           wy = (py - v.ty) / v.scale;
-        v.scale *= factor;
+        v.scale *= action.factor;
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();

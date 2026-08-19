@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import { usePreviewViewControls, type PreviewView } from './preview_view_controls.js';
-import type { InputPrefs } from '../editors/schematic/components/SchematicCanvas.js';
+import type { InputPrefs } from '../ui/view_controls.js';
 import { buildScene, drawBoard, DEFAULT_DRAW_OPTIONS } from '../editors/pcb/renderBoard.js';
 import { PCB_BACKGROUND } from '../editors/pcb/pcbTheme.js';
 import { footprintToBoard, FOOTPRINT_LAYERS } from '../editors/footprint/footprintBoard.js';

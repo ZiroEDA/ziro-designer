@@ -18,6 +18,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
+import { zoomFitView } from '../../../ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
 import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
@@ -936,19 +937,14 @@ export function fitSymbol(
     const scale = canvasWidth / (60 * MM);
     return { scale, offsetX: canvasWidth / 2, offsetY: canvasHeight / 2 };
   }
-  const pad = 8 * MM;
-  const minX = b.minX - pad,
-    minY = b.minY - pad,
-    maxX = b.maxX + pad,
-    maxY = b.maxY + pad;
-  const w = maxX - minX || 1,
-    h = maxY - minY || 1;
-  const scale = Math.min(canvasWidth / w, canvasHeight / h);
-  return {
-    scale,
-    offsetX: canvasWidth / 2 - ((minX + maxX) / 2) * scale,
-    offsetY: canvasHeight / 2 - ((minY + maxY) / 2) * scale,
-  };
+  // FRAME_SCH_SYMBOL_EDITOR's margin, 1.48 (common_tools.cpp:396-400) -
+  // upstream deliberately leaves a bigger margin for the library editors.
+  const v = zoomFitView(b, { width: canvasWidth, height: canvasHeight }, 'symbol_editor');
+  if (!v) {
+    const scale = canvasWidth / (60 * MM);
+    return { scale, offsetX: canvasWidth / 2, offsetY: canvasHeight / 2 };
+  }
+  return { scale: v.scale, offsetX: v.tx, offsetY: v.ty };
 }
 
 export { iuToMM, mmToIU, DEFAULT_LINE_WIDTH, DEFAULT_TEXT, MM, MIL, drawText };

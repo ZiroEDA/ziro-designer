@@ -12,6 +12,7 @@
  */
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
+import { zoomFitView } from '../../../ui/view_controls.js';
 import {
   symbolTransform,
   localToWorld,
@@ -4254,17 +4255,16 @@ export function fitToContent(
   if (!Number.isFinite(minX))
     return { scale: 0.02, offsetX: canvasWidth / 2, offsetY: canvasHeight / 2 };
 
-  const pad = 8 * MM;
-  minX -= pad;
-  minY -= pad;
-  maxX += pad;
-  maxY += pad;
-  const w = maxX - minX || 1,
-    h = maxY - minY || 1;
-  const scale = Math.min(canvasWidth / w, canvasHeight / h);
-  const offsetX = canvasWidth / 2 - ((minX + maxX) / 2) * scale;
-  const offsetY = canvasHeight / 2 - ((minY + maxY) / 2) * scale;
-  return { scale, offsetX, offsetY };
+  // COMMON_TOOLS::doZoomFit's margin, which is a multiplier on the viewport,
+  // not the 8 mm of world-space padding this used to add.
+  const v = zoomFitView(
+    { minX, minY, maxX, maxY },
+    { width: canvasWidth, height: canvasHeight },
+    'sch',
+    includePage ? 'all' : 'objects',
+  );
+  if (!v) return { scale: 0.02, offsetX: canvasWidth / 2, offsetY: canvasHeight / 2 };
+  return { scale: v.scale, offsetX: v.tx, offsetY: v.ty };
 }
 
 /** Fit the viewport to an explicit world-space box (Zoom to Selected Objects). */
@@ -4273,19 +4273,9 @@ export function fitToBBox(
   canvasWidth: number,
   canvasHeight: number,
 ): Viewport {
-  const pad = 8 * MM;
-  const minX = box.minX - pad;
-  const minY = box.minY - pad;
-  const maxX = box.maxX + pad;
-  const maxY = box.maxY + pad;
-  const w = maxX - minX || 1;
-  const h = maxY - minY || 1;
-  const scale = Math.min(canvasWidth / w, canvasHeight / h);
-  return {
-    scale,
-    offsetX: canvasWidth / 2 - ((minX + maxX) / 2) * scale,
-    offsetY: canvasHeight / 2 - ((minY + maxY) / 2) * scale,
-  };
+  const v = zoomFitView(box, { width: canvasWidth, height: canvasHeight }, 'sch', 'selection');
+  if (!v) return { scale: 0.02, offsetX: canvasWidth / 2, offsetY: canvasHeight / 2 };
+  return { scale: v.scale, offsetX: v.tx, offsetY: v.ty };
 }
 
 export { iuToMM };
