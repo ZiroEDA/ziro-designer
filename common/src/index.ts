@@ -63,5 +63,8 @@ export {
   type WksBBox,
 } from './drawing_sheet/index.js';
 
+export * from './color4d.js';
+export * from './settings/builtin_color_themes.js';
+
 export * from './array_options.js';
 export { pngPixelSize, pngPPI, DEFAULT_PPI } from './png_meta.js';
