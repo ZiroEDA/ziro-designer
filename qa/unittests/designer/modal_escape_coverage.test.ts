@@ -58,7 +58,7 @@ const OWNS_A_CANVAS = [
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
-  'prefs/PanelHotkeysEditor.tsx',
+  'dialogs/prefs/panels/PanelHotkeysEditor.tsx',
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
