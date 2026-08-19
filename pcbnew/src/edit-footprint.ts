@@ -19,6 +19,7 @@
 
 import { atom, str, list, isList, head, type SList } from '@ziroeda/sexpr/src/index.js';
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { textItemBBox, textItemHitTest } from './text_metrics.js';
 import { rotatePcb } from './read-board.js';
 import type { PadShape, PadType, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -160,9 +161,10 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
   }
   const t = fp.texts[ref.index];
   if (!t) return null;
-  const hw = Math.max(t.text.length, 1) * t.size.x * 0.6,
-    hh = t.size.y / 2;
-  return { minX: t.at.x - hw, minY: t.at.y - hh, maxX: t.at.x + hw, maxY: t.at.y + hh };
+  // `PCB_TEXT::GetBoundingBox`: `EDA_TEXT::GetTextBox` rotated by the draw
+  // rotation, measured by the same stroke font the canvas draws with.
+  const b = textItemBBox(t);
+  return { minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h };
 }
 
 /** Bounding box of a footprint's drawable geometry (pads + graphics + text anchors). */
@@ -232,11 +234,17 @@ const shapeHit = (s: PcbShape, pos: Vec2, tol: number): boolean => {
   return false;
 };
 
-const textHit = (tx: PcbTextItem, pos: Vec2, tol: number): boolean => {
-  const hw = Math.max(tx.text.length, 1) * tx.size.x * 0.6 + tol;
-  const hh = tx.size.y / 2 + tol;
-  return Math.abs(pos.x - tx.at.x) <= hw && Math.abs(pos.y - tx.at.y) <= hh;
-};
+/**
+ * `PCB_TEXT::TextHitTest( aPoint, aAccuracy )` -> `EDA_TEXT::TextHitTest`: the
+ * `GetTextBox` rectangle inflated by the accuracy, against the point rotated
+ * back into the text's frame.
+ *
+ * `tol` stays because the accuracy is upstream's own parameter — `HitTest(
+ * aPosition, aAccuracy )` is how every board item is picked, and the caller
+ * sizes it from the view scale. It is the *extent* that was invented, not the
+ * tolerance.
+ */
+const textHit = (tx: PcbTextItem, pos: Vec2, tol: number): boolean => textItemHitTest(tx, pos, tol);
 
 /** Topmost item id at `pos` (texts, then pads, then graphics), or null. */
 export function hitTestFootprint(fp: PcbFootprint, pos: Vec2, tol: number): string | null {

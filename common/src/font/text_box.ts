@@ -196,7 +196,11 @@ export function stringBoundaryLimits(
  * box and hit test asks for; a per-line box is not modelled here because
  * nothing on the board wants one.
  */
-export function textBox(text: string, pos: { x: number; y: number }, attrs: TextBoxAttrs): TextBox2 {
+export function textBox(
+  text: string,
+  pos: { x: number; y: number },
+  attrs: TextBoxAttrs,
+): TextBox2 {
   const thickness = effectiveTextPenWidth(attrs);
   const multiline = attrs.multiline ?? true;
   const lines = multiline ? splitTextLines(text) : [text];

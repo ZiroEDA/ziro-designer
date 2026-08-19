@@ -26,7 +26,8 @@ import {
   type TextHJustify,
   type TextVJustify,
 } from '@ziroeda/common/src/font/text_box.js';
-import type { PcbTextItem, Vec2 } from './types.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { PcbTextItem } from './types.js';
 
 export type { TextBox2 } from '@ziroeda/common/src/font/text_box.js';
 

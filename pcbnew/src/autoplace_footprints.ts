@@ -32,6 +32,7 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { textItemBBox } from './text_metrics.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardItemId, moveBoardItems } from './edit-board.js';
@@ -190,11 +191,9 @@ function padExtent(pad: PcbPad): Box2 {
   return box!;
 }
 
-/** The same crude glyph-width estimate the rest of the board editor uses. */
+/** `PCB_TEXT::GetBoundingBox` — `EDA_TEXT::GetTextBox` at the draw rotation. */
 function textExtent(t: PcbTextItem): Box2 {
-  const hw = Math.max(t.text.length, 1) * t.size.x * 0.6;
-  const hh = t.size.y / 2;
-  return { x: t.at.x - hw, y: t.at.y - hh, w: 2 * hw, h: 2 * hh };
+  return textItemBBox(t);
 }
 
 /**
