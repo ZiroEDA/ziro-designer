@@ -12,7 +12,6 @@
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../widgets.js';
 import type { PrefsContext } from '../types.js';
-import { COMMON_DEFAULTS, PRIVACY_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { common, upC, privacy, setPrivacy } = ctx;
@@ -241,10 +240,4 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
       </Group>
     </>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel` for this page. */
-export function resetCommonPanel(ctx: PrefsContext): void {
-  ctx.setCommon(structuredClone(COMMON_DEFAULTS));
-  ctx.setPrivacy(structuredClone(PRIVACY_DEFAULTS));
 }

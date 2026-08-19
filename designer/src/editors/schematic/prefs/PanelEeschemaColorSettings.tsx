@@ -16,7 +16,6 @@
 import { useMemo, type JSX } from 'react';
 import { Group, Sel, joinCss, splitCss } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 import { pcm, usePcmVersion } from '../../../pcm/pcmStore.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../theme.js';
 
@@ -122,15 +121,4 @@ export function PanelEeschemaColorSettings({ ctx }: { ctx: PrefsContext }): JSX.
       </Group>
     </>
   );
-}
-
-/**
- * `RESETTABLE_PANEL::ResetPanel`: drop every per-layer override and go back to
- * the default theme. Only the colour slice, as the original arm did.
- */
-export function resetEeschemaColorSettings(ctx: PrefsContext): void {
-  ctx.setUserColors({});
-  ctx.upE((s) => {
-    s.appearance.color_theme = EESCHEMA_DEFAULTS.appearance.color_theme;
-  });
 }

@@ -15,7 +15,6 @@
 import type { JSX } from 'react';
 import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -154,9 +153,4 @@ export function PanelEeschemaGrids({ ctx }: { ctx: PrefsContext }): JSX.Element 
       </Group>
     </>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
-export function resetEeschemaGrids(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
 }

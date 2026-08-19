@@ -77,8 +77,37 @@ export interface PrefsContext {
 /** A constructed page: its body, and its "Reset to Defaults" (`RESETTABLE_PANEL::ResetPanel`). */
 export interface PrefsPanelModule {
   Panel: (props: { ctx: PrefsContext }) => JSX.Element;
-  reset: (ctx: PrefsContext) => void;
+  /**
+   * `RESETTABLE_PANEL::ResetPanel` (`include/widgets/resettable_panel.h:57`),
+   * and the whole point of it being here rather than in the shell: a page
+   * resets **its own fields and no others**. Upstream that falls out of the
+   * widget tree — `PANEL_MOUSE_SETTINGS::ResetPanel` default-constructs a
+   * `COMMON_SETTINGS` and calls `applySettingsToPanel`, which only ever touches
+   * the controls this panel owns, so `TransferDataFromWindow` writes back only
+   * those (`common/dialogs/panel_mouse_settings.cpp`,
+   * `common/dialogs/panel_grid_settings.cpp:110-113`, which assigns `m_grids`
+   * alone). We have no widget tree to bound it, so a panel names its slice
+   * explicitly, with `resetKeys` from `./reset.js`.
+   *
+   * **Optional**, because not every page is a `RESETTABLE_PANEL`:
+   * `PANEL_TEMPLATE_FIELDNAMES_BASE` derives from plain `wxPanel`
+   * (`eeschema/dialogs/panel_template_fieldnames_base.h:36`) and has no
+   * `ResetPanel`, so `PAGED_DIALOG::UpdateResetButton`
+   * (`common/widgets/paged_dialog.cpp:329-355`) greys the button out on it.
+   * Omitting `reset` is how a page says that here.
+   */
+  reset?: (ctx: PrefsContext) => void;
+  /**
+   * `RESETTABLE_PANEL::GetResetTooltip` (`include/widgets/resettable_panel.h:64`),
+   * which two panels override (`include/panel_hotkeys_editor.h:55`,
+   * `include/dialogs/panel_color_settings.h:48`). Defaults to
+   * `DEFAULT_RESET_TOOLTIP` when absent.
+   */
+  resetTooltip?: string;
 }
+
+/** `RESETTABLE_PANEL::GetResetTooltip`'s base text (`include/widgets/resettable_panel.h:66`). */
+export const DEFAULT_RESET_TOOLTIP = 'Reset all settings on this page to their default';
 
 /**
  * An editor's answer to "give me the panel for this id" — our `CreateKiWindow`.

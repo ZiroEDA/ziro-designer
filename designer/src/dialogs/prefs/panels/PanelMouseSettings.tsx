@@ -13,11 +13,7 @@
 import type { JSX } from 'react';
 import { Check, Group, Sel } from '../widgets.js';
 import type { PrefsContext } from '../types.js';
-import {
-  COMMON_DEFAULTS,
-  type MouseDragAction,
-  type ScrollModifier,
-} from '../../../prefs/settings.js';
+import type { MouseDragAction, ScrollModifier } from '../../../prefs/settings.js';
 
 const mouseActionOpts: [MouseDragAction, string][] = [
   ['select', 'Draw selection rectangle'],
@@ -277,9 +273,4 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
       </Group>
     </>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel` for this page. */
-export function resetMousePanel(ctx: PrefsContext): void {
-  ctx.setCommon(structuredClone(COMMON_DEFAULTS));
 }

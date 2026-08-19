@@ -10,24 +10,19 @@
  * exists beyond the dynamic import in `dialogs/prefs/registry.ts`, and nothing
  * here may reach into another editor.
  */
+import { PanelEeschemaAnnotationOptions } from './PanelEeschemaAnnotationOptions.js';
+import { PanelEeschemaColorSettings } from './PanelEeschemaColorSettings.js';
+import { PanelEeschemaDisplayOptions } from './PanelEeschemaDisplayOptions.js';
+import { PanelEeschemaEditingOptions } from './PanelEeschemaEditingOptions.js';
+import { PanelEeschemaGrids } from './PanelEeschemaGrids.js';
+import { PanelTemplateFieldnames } from './PanelTemplateFieldnames.js';
 import {
-  PanelEeschemaAnnotationOptions,
   resetEeschemaAnnotationOptions,
-} from './PanelEeschemaAnnotationOptions.js';
-import {
-  PanelEeschemaColorSettings,
   resetEeschemaColorSettings,
-} from './PanelEeschemaColorSettings.js';
-import {
-  PanelEeschemaDisplayOptions,
   resetEeschemaDisplayOptions,
-} from './PanelEeschemaDisplayOptions.js';
-import {
-  PanelEeschemaEditingOptions,
   resetEeschemaEditingOptions,
-} from './PanelEeschemaEditingOptions.js';
-import { PanelEeschemaGrids, resetEeschemaGrids } from './PanelEeschemaGrids.js';
-import { PanelTemplateFieldnames, resetTemplateFieldnames } from './PanelTemplateFieldnames.js';
+  resetEeschemaGrids,
+} from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,
@@ -64,13 +59,16 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
       return {
         Panel: PanelEeschemaColorSettings,
         reset: resetEeschemaColorSettings,
+        // PANEL_COLOR_SETTINGS::GetResetTooltip (include/dialogs/panel_color_settings.h:48).
+        resetTooltip: 'Reset all colors in this theme to the KiCad defaults',
       };
 
     case 'sch-fields':
-      return {
-        Panel: PanelTemplateFieldnames,
-        reset: resetTemplateFieldnames,
-      };
+      // No `reset`: PANEL_TEMPLATE_FIELDNAMES_BASE is a plain wxPanel, not a
+      // RESETTABLE_PANEL (eeschema/dialogs/panel_template_fieldnames_base.h:36),
+      // and PANEL_TEMPLATE_FIELDNAMES declares no ResetPanel, so
+      // PAGED_DIALOG::UpdateResetButton greys the button out on this page.
+      return { Panel: PanelTemplateFieldnames };
 
     default:
       return null;

@@ -13,7 +13,6 @@
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -243,9 +242,4 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
       </div>
     </div>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
-export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
 }

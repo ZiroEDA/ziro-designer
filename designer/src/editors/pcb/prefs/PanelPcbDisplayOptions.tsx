@@ -22,7 +22,6 @@
 import type { JSX } from 'react';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { PCBNEW_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelPcbDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { pcbnew, upP } = ctx;
@@ -33,9 +32,4 @@ export function PanelPcbDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Elem
       onChange={(fn) => upP((s) => fn(s.cross_probing))}
     />
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the pcbnew settings back to PCBNEW_SETTINGS' defaults. */
-export function resetPcbDisplayOptions(ctx: PrefsContext): void {
-  ctx.setPcbnew(structuredClone(PCBNEW_DEFAULTS));
 }

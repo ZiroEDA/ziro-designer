@@ -15,7 +15,6 @@ import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -294,9 +293,4 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
       </div>
     </div>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
-export function resetEeschemaDisplayOptions(ctx: PrefsContext): void {
-  ctx.setEeschema(structuredClone(EESCHEMA_DEFAULTS));
 }

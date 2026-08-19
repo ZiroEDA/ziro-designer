@@ -11,9 +11,10 @@
  * same factory shape so the shell has exactly one way to reach a page, and so
  * that adding a generic page and adding an editor page are the same edit.
  */
-import { PanelCommonSettings, resetCommonPanel } from './PanelCommonSettings.js';
-import { PanelMouseSettings, resetMousePanel } from './PanelMouseSettings.js';
+import { PanelCommonSettings } from './PanelCommonSettings.js';
+import { PanelMouseSettings } from './PanelMouseSettings.js';
 import { PanelHotkeys } from './PanelHotkeys.js';
+import { resetCommonPanel, resetMousePanel } from './resets.js';
 import type { PrefsPageId, PrefsPanelFactory, PrefsPanelModule } from '../types.js';
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
@@ -29,7 +30,11 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         Panel: PanelHotkeys,
         // PANEL_HOTKEYS_EDITOR::ResetPanel -> ResetAllHotkeys( true ): every
         // action back to its DefaultHotkey, which is an empty override map.
+        // The overrides are this page's whole slice, so there is nothing to
+        // narrow; nothing else in the settings is touched.
         reset: (ctx) => ctx.setHotkeys({}),
+        // PANEL_HOTKEYS_EDITOR::GetResetTooltip (include/panel_hotkeys_editor.h:55).
+        resetTooltip: 'Reset all hotkeys to the built-in KiCad defaults',
       };
 
     default:
