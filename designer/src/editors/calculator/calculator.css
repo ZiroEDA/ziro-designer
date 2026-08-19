@@ -800,3 +800,46 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .wl-row .calc-field-label {
   min-width: 170px;
 }
+
+/* --- RF Attenuators (panel_rf_attenuators_base.cpp) --- */
+.rf-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rf-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  margin: var(--wx-border) 0;
+}
+
+/* A plain wxStaticText above the message window, not a static box title. */
+.rf-messages-label {
+  font-style: italic;
+  margin-bottom: 2px;
+}
+
+.rf-messages {
+  min-height: 120px;
+  border: 1px solid var(--ctl-border);
+  background: var(--chrome-bg);
+  padding: var(--wx-border);
+}
+
+.rf-formula-box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rf-formula p {
+  margin: 0 0 12px;
+}
+
+.rf-formula-head {
+  margin: 0 0 10px;
+  font-size: calc(var(--ui-font-size) * 1.3);
+  font-weight: 700;
+}

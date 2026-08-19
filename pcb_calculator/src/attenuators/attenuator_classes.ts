@@ -23,39 +23,42 @@ export enum AttenuatorType {
 
 export interface AttenuatorInfo {
   type: AttenuatorType;
+  /** The wxRadioBox entry, exactly as `panel_rf_attenuators_base.cpp:24` spells it. */
   name: string;
-  /** Whether Zout is an independent input. */
+  /** `m_Zin_Enable` — false for the bridged tee and the splitter, which drive
+   *  Zin from Zout (attenuator_classes.cpp:132, 160). */
   hasZout: boolean;
-  /** Whether attenuation is an input (splitter is fixed). */
+  /** `m_Attenuation_Enable` — false only for the splitter (line 157). */
   hasAttenuation: boolean;
+  /** `m_ResultCount`: 3 everywhere but the bridged tee, which has 2 (line 133). */
   resistorLabels: string[];
 }
 
 export const ATTENUATORS: readonly AttenuatorInfo[] = [
   {
     type: AttenuatorType.PI,
-    name: 'PI',
+    name: 'Pi',
     hasZout: true,
     hasAttenuation: true,
-    resistorLabels: ['R1 (shunt, in)', 'R2 (series)', 'R3 (shunt, out)'],
+    resistorLabels: ['R1', 'R2', 'R3'],
   },
   {
     type: AttenuatorType.TEE,
     name: 'Tee',
     hasZout: true,
     hasAttenuation: true,
-    resistorLabels: ['R1 (series, in)', 'R2 (series, out)', 'R3 (shunt)'],
+    resistorLabels: ['R1', 'R2', 'R3'],
   },
   {
     type: AttenuatorType.BRIDGED_TEE,
-    name: 'Bridged Tee',
+    name: 'Bridged tee',
     hasZout: false,
     hasAttenuation: true,
-    resistorLabels: ['R1 (bridge)', 'R2 (shunt)'],
+    resistorLabels: ['R1', 'R2'],
   },
   {
     type: AttenuatorType.SPLITTER,
-    name: 'Resistive Splitter',
+    name: 'Resistive splitter',
     hasZout: false,
     hasAttenuation: false,
     resistorLabels: ['R1', 'R2', 'R3'],

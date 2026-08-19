@@ -7,8 +7,8 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { ATTENUATORS, AttenuatorType, calculateAttenuator } from '@ziroeda/pcb_calculator';
-import { Field, Group, fmt, parseNum } from '../fields.js';
+import { ATTENUATORS, AttenuatorType, calculateAttenuator, printfG } from '@ziroeda/pcb_calculator';
+import { Field, Group, parseNum } from '../fields.js';
 
 /** Simple schematic sketch per topology. */
 function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
@@ -121,6 +121,163 @@ function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
   }
 }
 
+/**
+ * The four `*_formula.md` files, rendered. `TransfAttenuatorDataToPanel` pushes
+ * `m_FormulaName` through `ConvertMarkdown2Html` into the Formula pane
+ * (panel_rf_attenuators.cpp:192-206).
+ */
+function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
+  const V = ({ children }: { children: React.ReactNode }): JSX.Element => (
+    <b>
+      <i>{children}</i>
+    </b>
+  );
+  const head = (t: string): JSX.Element => <h3 className="rf-formula-head">{t}</h3>;
+  const common = (
+    <>
+      <V>a</V> is attenuation in dB
+      <br />
+      <V>
+        Z<sub>in</sub>
+      </V>{' '}
+      is desired input impedance in Ω
+      <br />
+      <V>
+        Z<sub>out</sub>
+      </V>{' '}
+      is desired output impedance in Ω
+    </>
+  );
+  const kl = (
+    <>
+      <V>
+        K = V<sub>I</sub>/V<sub>O</sub> = 10<sup>a/20</sup>
+      </V>
+      <br />
+      <V>
+        L = K<sup>2</sup> = 10<sup>a/10</sup>
+      </V>
+      <br />
+    </>
+  );
+
+  if (type === AttenuatorType.PI)
+    return (
+      <div className="rf-formula">
+        {head('Pi Attenuator')}
+        <p>{common}</p>
+        <p>
+          {kl}
+          <V>A = (L+1) / (L−1)</V>
+        </p>
+        <p>
+          <V>
+            R2 = (L−1) / 2·√(Z<sub>in</sub> · Z<sub>out</sub> / L)
+          </V>
+          <br />
+          <V>
+            R1 = 1 / (A/Z<sub>in</sub> − 1/R2)
+          </V>
+          <br />
+          <V>
+            R3 = 1 / (A/Z<sub>out</sub> − 1/R2)
+          </V>
+        </p>
+      </div>
+    );
+
+  if (type === AttenuatorType.TEE)
+    return (
+      <div className="rf-formula">
+        {head('Tee Attenuator')}
+        <p>{common}</p>
+        <p>
+          {kl}
+          <V>A = (L+1) / (L−1)</V>
+        </p>
+        <p>
+          <V>
+            R2 = 2·√(L · Z<sub>in</sub> · Z<sub>out</sub>) / (L−1)
+          </V>
+          <br />
+          <V>
+            R1 = Z<sub>in</sub> · A − R2
+          </V>
+          <br />
+          <V>
+            R3 = Z<sub>out</sub> · A − R2
+          </V>
+        </p>
+      </div>
+    );
+
+  if (type === AttenuatorType.BRIDGED_TEE)
+    return (
+      <div className="rf-formula">
+        {head('Bridged Tee Attenuator')}
+        <p>
+          <V>a</V> is attenuation in dB
+          <br />
+          <V>
+            Z<sub>in</sub>
+          </V>{' '}
+          is desired input impedance in Ω
+          <br />
+          <V>
+            Z<sub>out</sub>
+          </V>{' '}
+          is desired output impedance in Ω
+          <br />
+          <V>
+            Z<sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
+          </V>
+        </p>
+        <p>
+          <V>
+            L = 10<sup>a/20</sup>
+          </V>
+        </p>
+        <p>
+          <V>
+            R1 = Z<sub>0</sub> · (L−1)
+          </V>
+          <br />
+          <V>
+            R2 = Z<sub>0</sub> / (L−1)
+          </V>
+        </p>
+      </div>
+    );
+
+  return (
+    <div className="rf-formula">
+      {head('Split Attenuator')}
+      <p>
+        Attenuation is 6 dB
+        <br />
+        <V>
+          Z<sub>in</sub>
+        </V>{' '}
+        is desired input impedance in Ω
+        <br />
+        <V>
+          Z<sub>out</sub>
+        </V>{' '}
+        is desired output impedance in Ω
+        <br />
+        <V>
+          Z<sub>0</sub> = Z<sub>in</sub> = Z<sub>out</sub>
+        </V>
+      </p>
+      <p>
+        <V>
+          R1 = R2 = R3 = Z<sub>0</sub>/3
+        </V>
+      </p>
+    </div>
+  );
+}
+
 export function PanelRfAttenuators(): JSX.Element {
   const [type, setType] = useState<AttenuatorType>(AttenuatorType.PI);
   const [atten, setAtten] = useState('6');
@@ -139,18 +296,29 @@ export function PanelRfAttenuators(): JSX.Element {
     [type, atten, zin, zout, info.hasZout],
   );
 
+  // KiCad's Calculate button is not decoration: the Values box holds whatever
+  // the LAST press produced, and changing a parameter does not update it
+  // (panel_rf_attenuators.cpp:211-245). Ours recomputed live.
+  const [shown, setShown] = useState<ReturnType<typeof calculateAttenuator> | null>(null);
+  const calculate = (): void => setShown(r);
+
   return (
-    <div>
+    <div className="rf-panel">
       <div className="calc-row">
-        <div className="calc-col" style={{ maxWidth: 260 }}>
-          <Group title="Attenuator type">
+        <div className="calc-col" style={{ maxWidth: 300 }}>
+          {/* A wxRadioBox — the title is the box's, not a static text
+              (panel_rf_attenuators_base.cpp:26). */}
+          <Group title="Attenuators">
             {ATTENUATORS.map((a) => (
               <label key={a.type} className="calc-radio">
                 <input
                   type="radio"
                   name="att-type"
                   checked={type === a.type}
-                  onChange={() => setType(a.type)}
+                  onChange={() => {
+                    setType(a.type);
+                    setShown(null);
+                  }}
                 />
                 {a.name}
               </label>
@@ -158,40 +326,75 @@ export function PanelRfAttenuators(): JSX.Element {
           </Group>
           <AttenuatorDrawing type={type} />
         </div>
-        <div className="calc-col">
+        <div className="calc-col" style={{ maxWidth: 300 }}>
           <Group title="Parameters">
-            {info.hasAttenuation ? (
-              <Field label="Attenuation:" value={atten} onChange={setAtten} unit="dB" />
-            ) : (
-              <Field label="Attenuation (fixed):" value="6.02" readOnly unit="dB" />
-            )}
-            <Field label="Zin:" value={zin} onChange={setZin} unit="Ω" />
-            {info.hasZout && <Field label="Zout:" value={zout} onChange={setZout} unit="Ω" />}
-            {info.hasAttenuation && (
+            <Field
+              label="Attenuation (a):"
+              value={info.hasAttenuation ? atten : '6'}
+              onChange={info.hasAttenuation ? setAtten : undefined}
+              readOnly={!info.hasAttenuation}
+              unit="dB"
+            />
+            <Field
+              label="Zin:"
+              value={info.hasZout ? zin : ''}
+              onChange={info.hasZout ? setZin : undefined}
+              readOnly={!info.hasZout}
+              unit="Ω"
+            />
+            <Field label="Zout:" value={zout} onChange={setZout} unit="Ω" />
+          </Group>
+          <div className="rf-buttons">
+            <button
+              type="button"
+              className="calc-btn"
+              style={{ minWidth: 120 }}
+              onClick={calculate}
+            >
+              Calculate
+            </button>
+            {/* m_bpButtonCalcAtt, a STD_BITMAP_BUTTON carrying BITMAPS::small_down,
+                wired to the same handler (panel_rf_attenuators.cpp:41). */}
+            <button
+              type="button"
+              className="calc-btn exactfit"
+              aria-label="Calculate"
+              onClick={calculate}
+            >
+              ↓
+            </button>
+          </div>
+          <Group title="Values">
+            {info.resistorLabels.map((label, i) => (
               <Field
-                label="Minimum attenuation:"
-                value={fmt(r.minAttenuationDb, 4)}
+                key={label}
+                label={`${label}:`}
+                value={
+                  shown ? (shown.error ? '--' : printfG(shown.resistors[i] ?? Number.NaN)) : ''
+                }
                 readOnly
-                unit="dB"
+                unit="Ω"
               />
-            )}
+            ))}
           </Group>
-          <Group title="Resistor values">
-            {r.error ? (
-              <div className="calc-error">{r.error}</div>
-            ) : (
-              info.resistorLabels.map((label, i) => (
-                <Field
-                  key={label}
-                  label={`${label}:`}
-                  value={fmt(r.resistors[i] ?? NaN, 5)}
-                  readOnly
-                  unit="Ω"
-                />
-              ))
+          {/* m_staticTextAttMsg is a plain label ABOVE the message area, not a
+              static box (panel_rf_attenuators_base.cpp:164). */}
+          <div className="rf-messages-label">Messages</div>
+          <div className="rf-messages">
+            {shown?.error && (
+              <>
+                <br />
+                <b>Error!</b>
+                <br />
+                <em>{`Attenuation more than ${shown.minAttenuationDb.toFixed(6)} dB`}</em>
+              </>
             )}
-          </Group>
+          </div>
         </div>
+        <fieldset className="calc-group rf-formula-box">
+          <legend>Formula</legend>
+          <AttenuatorFormula type={type} />
+        </fieldset>
       </div>
     </div>
   );
