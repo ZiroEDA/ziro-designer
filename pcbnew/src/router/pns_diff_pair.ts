@@ -114,7 +114,6 @@ const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
 /** `(A + B) / 2`, i.e. `VECTOR2I::operator/( double )` — KiROUND, not truncation. */
 const midpoint = (a: Vec2, b: Vec2): Vec2 => divideI(add(a, b), 2);
 
-
 // ---------------------------------------------------------------------------
 // SEG lives in kimath. Upstream has exactly one `SEG`, in `libs/kimath`, and
 // `pns_diff_pair.cpp` calls its members rather than reimplementing them; so

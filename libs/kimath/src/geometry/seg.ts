@@ -496,7 +496,9 @@ function checkCollinearOverlap(
   const other =
     seg1End !== seg1Start
       ? coord1Start +
-        Number(rescale64(big(proj - seg1Start), big(coord1End - coord1Start), big(seg1End - seg1Start)))
+        Number(
+          rescale64(big(proj - seg1Start), big(coord1End - coord1Start), big(seg1End - seg1Start)),
+        )
       : coord1Start;
 
   return aUseXAxis ? { x: proj, y: other } : { x: other, y: proj };
@@ -578,10 +580,7 @@ export function segIntersect(
       if (aSeg.a.x === aSeg.b.x && aSeg.a.y === aSeg.b.y) return { x: aSeg.a.x, y: aSeg.a.y };
 
       // `( A + aSeg.A ) / 2` — VECTOR2I::operator/( double ), i.e. KiROUND.
-      return divideI(
-        { x: aSeg.a.x + aOther.a.x, y: aSeg.a.y + aOther.a.y },
-        2,
-      );
+      return divideI({ x: aSeg.a.x + aOther.a.x, y: aSeg.a.y + aOther.a.y }, 2);
     }
 
     // Overlap is measured on whichever axis this segment spans more of.
