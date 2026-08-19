@@ -83,7 +83,18 @@ export interface DrawingSheetEditorFile {
 }
 
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'layoutNormalMode']);
+/*
+ * APP_SETTINGS_BASE (common/settings/app_settings.cpp:227-237) gives
+ * "system.units" a per-app default, and pl_editor is one of the three apps on
+ * the imperial side of that branch:
+ *
+ *   if( m_filename == "pl_editor" || m_filename == "eeschema"
+ *       || m_filename == "symbol_editor" )  -> EDA_UNITS::MILS
+ *   else                                    -> EDA_UNITS::MM
+ *
+ * So the Drawing Sheet Editor opens in mils, not mm.
+ */
+const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMils', 'layoutNormalMode']);
 
 /** The 5 status-bar coordinate origins (PL_EDITOR_FRAME::m_originChoiceList). */
 const ORIGIN_CHOICES = [
@@ -1227,8 +1238,19 @@ export function DrawingSheetEditor({
       )}`
     : 'dx, dy -';
 
-  // Grid: 1 mm in metric, 0.1 in imperial (about the pl_editor defaults).
-  const gridIU = unit === 'mm' ? mmToIU(1) : mmToIU(2.54);
+  /*
+   * The grid is a WINDOW setting, not a unit-derived one: pl_editor's default
+   * comes from grid.last_size = 4 (app_settings.cpp:466-472) indexing
+   * DefaultGridSizeList()'s pl_editor list (:605-614), whose entry 4 is
+   * "0.50 mm". It does not change when the display unit does - the readout
+   * just re-expresses the same spacing, which is why a live pl_editor in mils
+   * shows "grid 19.685039".
+   *
+   * Ours derived the spacing from the unit, so the mils default above would
+   * otherwise have moved the grid from 1 mm to 2.54 mm. Pinning it to the
+   * upstream default keeps the two independent, as they are upstream.
+   */
+  const gridIU = mmToIU(0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
