@@ -1282,7 +1282,8 @@ export function DrawingSheetEditor({
   }, [pageMM, unit, preview, pageNumber, selection.size]);
 
   return (
-    <div className="ze-app">
+    // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
+    <div className="ze-app ze-wks">
       <input
         ref={openInputRef}
         type="file"
@@ -1335,8 +1336,11 @@ export function DrawingSheetEditor({
         }
       />
 
-      {/* Top toolbar + the origin / page selector combos. */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Top toolbar + the origin / page selector combos. Upstream these two
+          are toolbar CONTROLS on the one ACTION_TOOLBAR
+          (toolbars_pl_editor.cpp), so the row is a single strip: the wrapper
+          carries the same face as the toolbar it continues. */}
+      <div className="ze-wks-topbar">
         <Toolbar
           entries={DS_TOP_TOOLBAR}
           orientation="horizontal"
