@@ -305,9 +305,23 @@ describe('a converted frame has no listener of its own', () => {
  * So each frame lists both halves. `moved` must be gone; `kept` must still be
  * there, because deleting a rowless tool key would be a silent regression that
  * no other test in the suite would notice.
+ *
+ * `guards` is the third half, and it is the precedence rule written down. A
+ * context branch that sits one modifier - or one condition - away from a row's
+ * accelerator has to decline the row's case explicitly, or it swallows it
+ * before the fall-through is ever reached, and nothing else here would see
+ * that: the key would simply stop working. Each entry is the exact condition
+ * that keeps one command out of the other's hands.
  */
 const CANVAS_KEYS: Readonly<
-  Record<string, { moved: readonly [string, RegExp][]; kept: readonly [string, RegExp][] }>
+  Record<
+    string,
+    {
+      moved: readonly [string, RegExp][];
+      kept: readonly [string, RegExp][];
+      guards?: readonly [string, RegExp][];
+    }
+  >
 > = {
   'editors/drawingsheet/DrawingSheetEditor.tsx': {
     moved: [
@@ -346,6 +360,13 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
       // The library tree's own Del. Disjoint from the row's, by condition.
       ['tree Del', /onDelete\(treeSel\.lib, treeSel\.name\)/],
+    ],
+    guards: [
+      // Edit > Delete owns Del whenever the canvas has a selection, so the
+      // tree's Del must stand down while it does. Without this the one
+      // keystroke deleted the selected item AND the footprint from the
+      // library, which is what it did before this branch.
+      ['tree Del declines to the canvas', /if \(canvasSelection\) return;/],
     ],
   },
   'editors/symbol/SymbolEditor.tsx': {
@@ -463,6 +484,15 @@ const CANVAS_KEYS: Readonly<
       ['` highlight net', /e\.key === '`'/],
       ['Esc cancel', /e\.key === 'Escape'/],
     ],
+    guards: [
+      // `e.key` is already 'M' when Shift is held, so the bare-M grab has to
+      // exclude Shift or Edit > Move Exactly's accelerator never reaches the
+      // fall-through - it is swallowed by a branch that then returns.
+      ['M grab leaves Shift+M to its row', /!mod && !e\.shiftKey && \(e\.key === 'm'/],
+      // …and the zoom-to-fit pair: Home stays here, Ctrl+0 is the row's, so
+      // the branch must not answer both the way it used to.
+      ['Home leaves Ctrl+0 to its row', /if \(!mod && e\.key === 'Home'\)/],
+    ],
   },
 };
 
@@ -485,6 +515,10 @@ describe('a converted canvas frame keeps its tool keys and gives up the rest', (
     expect(
       kept.filter(([, re]) => !re.test(src)).map(([name]) => name),
       'a canvas key with no menu row was deleted rather than left alone',
+    ).toEqual([]);
+    expect(
+      (CANVAS_KEYS[rel]!.guards ?? []).filter(([, re]) => !re.test(src)).map(([name]) => name),
+      'a context branch that would swallow a menu row it sits next to',
     ).toEqual([]);
   });
 });
