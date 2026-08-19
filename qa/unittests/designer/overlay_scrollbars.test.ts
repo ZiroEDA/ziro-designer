@@ -74,7 +74,7 @@ describe('the native scrollbars are off, which is the zero-layout-cost half', ()
     expect(bar).toMatch(/height:\s*0/);
   });
 
-  it('lets no pane opt back into the browser\'s bars', () => {
+  it("lets no pane opt back into the browser's bars", () => {
     // The gutter was a theme-level defect on every scrollable pane in the app,
     // so a per-pane `auto` or `thin` anywhere would put one back. `.ze-submenu-
     // scroll` declares `none` again on purpose - a GTK menu shows scroll arrows

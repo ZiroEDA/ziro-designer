@@ -242,9 +242,11 @@
   --osb-over-opacity: 0.8;
   /* [css] scrollbar { transition: 300ms cubic-bezier(0.25,0.46,0.45,0.94) } */
   --osb-transition: 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  /* [px] still full at 1.7 s after the pointer left, ~37 % at 2.2 s, gone at
-     2.7 s: a hold then a fade. The hold is a JS timer (a CSS transition-delay
-     cannot be asymmetric); this is the fade half. */
+  /* [px] measured from the last pointer MOTION, not from the pointer leaving:
+     held perfectly still in the middle of a live GtkScrolledWindow the
+     indicator was full through 1.8 s, ~29 % at 2.3 s and gone at 2.8 s. The
+     ~2000 ms hold is a JS timer (a CSS transition-delay cannot be asymmetric);
+     this is the fade half. The thickened state does not fade at all. */
   --osb-fade-duration: 1000ms;
 }
 

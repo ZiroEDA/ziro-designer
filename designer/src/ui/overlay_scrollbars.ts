@@ -186,9 +186,7 @@ export const fadeRuns = (state: IndicatorState, dragging: boolean): boolean =>
 const scrolls = (el: Element, style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean => {
   const overflow = axis === 'x' ? style.overflowX : style.overflowY;
   if (overflow !== 'auto' && overflow !== 'scroll') return false;
-  return axis === 'x'
-    ? el.scrollWidth > el.clientWidth + 1
-    : el.scrollHeight > el.clientHeight + 1;
+  return axis === 'x' ? el.scrollWidth > el.clientWidth + 1 : el.scrollHeight > el.clientHeight + 1;
 };
 
 /**
@@ -197,8 +195,7 @@ const scrolls = (el: Element, style: CSSStyleDeclaration, axis: 'x' | 'y'): bool
  * every one in the chain.
  */
 export const nearestScroller = (node: Node | null): HTMLElement | null => {
-  let el: Element | null =
-    node instanceof Element ? node : (node?.parentElement ?? null);
+  let el: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
   while (el && el instanceof HTMLElement) {
     if (el.dataset.zeNoOverlayScroll === undefined) {
       const style = getComputedStyle(el);
@@ -490,13 +487,7 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     ev.preventDefault();
   };
 
-  const applyDrag = (
-    pos: number,
-    rect: DOMRect,
-    axis: 'x' | 'y',
-    b: PaneBars,
-    grab: number,
-  ) => {
+  const applyDrag = (pos: number, rect: DOMRect, axis: 'x' | 'y', b: PaneBars, grab: number) => {
     const offset = pos - (axis === 'y' ? rect.top : rect.left) - grab;
     const viewport = axis === 'y' ? b.pane.clientHeight : b.pane.clientWidth;
     const content = axis === 'y' ? b.pane.scrollHeight : b.pane.scrollWidth;
