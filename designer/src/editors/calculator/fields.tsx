@@ -269,3 +269,31 @@ export function copyText(text: string): boolean {
     return false;
   }
 }
+
+/**
+ * A read-only RESULT line. `pcb_calculator` shows every computed value as a
+ * `wxStaticText` whose label it rewrites (`m_ViaResistance->SetLabel( msg )`,
+ * panel_via_size.cpp:276-300, and the same shape on Track Width, Wavelength,
+ * Fusing Current and the attenuators) — never a text control. Ours had drawn
+ * them as read-only entry boxes, which is a whole column of borders KiCad does
+ * not paint.
+ */
+export function ResultField({
+  label,
+  value,
+  unit,
+  title,
+}: {
+  label: ReactNode;
+  value: string;
+  unit?: ReactNode;
+  title?: string;
+}): JSX.Element {
+  return (
+    <div className="calc-result" title={title}>
+      <span className="calc-field-label">{label}</span>
+      <span className="calc-result-value">{value}</span>
+      {unit != null && <span className="calc-unit">{unit}</span>}
+    </div>
+  );
+}

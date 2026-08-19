@@ -17,7 +17,6 @@ export function PanelBoardClass(): JSX.Element {
 
   return (
     <div>
-      <h3>Board Classes</h3>
       <div className="calc-note">
         Indicative geometry limits per manufacturing class, a finer class means tighter features and
         a more expensive board. Always confirm against your fab's capabilities.

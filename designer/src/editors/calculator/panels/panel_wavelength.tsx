@@ -77,7 +77,6 @@ export function PanelWavelength(): JSX.Element {
 
   return (
     <div>
-      <h3>Wavelength</h3>
       <div className="calc-note">Edit any value, the others follow.</div>
       <Group title="Values">
         <Field label="Frequency:" value={text.frequency} onChange={onFrequency} unit="GHz" />

@@ -63,7 +63,6 @@ export function PanelTrackWidth(): JSX.Element {
 
   return (
     <div>
-      <h3>Track Width</h3>
       <div className="calc-row">
         <Group title="Parameters">
           <label className="calc-field">

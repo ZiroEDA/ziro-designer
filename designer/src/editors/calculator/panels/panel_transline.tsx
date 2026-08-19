@@ -476,7 +476,6 @@ export function PanelTransline(): JSX.Element {
 
   return (
     <div>
-      <h3>Transmission Lines</h3>
       <div className="calc-field">
         <span className="calc-field-label">Line type:</span>
         <Combo

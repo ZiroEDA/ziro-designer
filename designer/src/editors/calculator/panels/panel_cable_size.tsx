@@ -203,7 +203,6 @@ export function PanelCableSize(): JSX.Element {
 
   return (
     <div>
-      <h3>Cable Size</h3>
       <div className="calc-row">
         <fieldset className="calc-group" style={{ minWidth: 420 }}>
           <legend>Wire properties</legend>

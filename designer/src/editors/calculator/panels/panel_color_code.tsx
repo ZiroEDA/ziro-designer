@@ -39,7 +39,6 @@ export function PanelColorCode(): JSX.Element {
 
   return (
     <div>
-      <h3>Resistor Color Code</h3>
       <Group title="Resistor">
         <Field label="Resistance:" value={value} onChange={setValue} unit="Ω" />
         <div className="calc-field">

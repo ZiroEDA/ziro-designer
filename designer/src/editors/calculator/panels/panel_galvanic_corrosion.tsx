@@ -16,7 +16,6 @@ export function PanelGalvanicCorrosion(): JSX.Element {
 
   return (
     <div>
-      <h3>Galvanic Corrosion</h3>
       <div className="calc-note">
         Potential difference (V) between metal pairs, from their anodic index. Pairs above the
         threshold (highlighted) risk corroding the more anodic metal. 0.3 V suits controlled

@@ -7,8 +7,20 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { COPPER_PLATING_RESISTIVITY_OHM_M, viaSize } from '@ziroeda/pcb_calculator';
-import { Field, Group, LEN_UNITS, NumField, RES_UNITS, TIME_UNITS, fmt } from '../fields.js';
+import { COPPER_PLATING_RESISTIVITY_OHM_M, printfG, viaSize } from '@ziroeda/pcb_calculator';
+import {
+  Field,
+  Group,
+  LEN_UNITS,
+  NumField,
+  RES_UNITS,
+  ResultField,
+  TIME_UNITS,
+} from '../fields.js';
+
+/** Every result on this page is `wxString::Format( "%g", … )`. */
+const g = (v: number | undefined | false | null): string =>
+  typeof v === 'number' && Number.isFinite(v) ? printfG(v) : '';
 
 /** Via cross-section: gold plated barrel around the drilled hole, with D/T marks. */
 function ViaDrawing(): JSX.Element {
@@ -92,7 +104,6 @@ export function PanelViaSize(): JSX.Element {
 
   return (
     <div>
-      <h3>Via Size</h3>
       <div className="calc-row">
         <Group title="Parameters">
           <NumField
@@ -111,6 +122,7 @@ export function PanelViaSize(): JSX.Element {
           />
           <NumField
             label="Via length:"
+            title="Via length is the board thickness for through hole vias"
             units={LEN_UNITS}
             defaultUnit="mm"
             base={lengthM}
@@ -118,6 +130,7 @@ export function PanelViaSize(): JSX.Element {
           />
           <NumField
             label="Via pad diameter:"
+            title="Diameter of pad surrounding via (annular ring)"
             units={LEN_UNITS}
             defaultUnit="mm"
             base={padDiaM}
@@ -125,82 +138,104 @@ export function PanelViaSize(): JSX.Element {
           />
           <NumField
             label="Clearance hole diameter:"
+            title="Diameter of clearance hole in ground plane(s)"
             units={LEN_UNITS}
             defaultUnit="mm"
             base={clearanceDiaM}
             onBase={setClearanceDiaM}
           />
-          <NumField label="Z0:" units={RES_UNITS} base={z0Ohm} onBase={setZ0Ohm} />
+          <NumField
+            label="Z0:"
+            title="Characteristic impedance of conductor"
+            units={RES_UNITS}
+            base={z0Ohm}
+            onBase={setZ0Ohm}
+          />
           <Field label="Applied current:" value={current} onChange={setCurrent} unit="A" />
           <Field
             label="Plating resistivity:"
+            title="Specific resistance in ohms * meters"
             value={resistivity}
             onChange={setResistivity}
             unit="Ω·m"
           />
-          <Field label="Substrate relative permittivity:" value={er} onChange={setEr} unit="" />
-          <Field label="Temperature rise:" value={deltaT} onChange={setDeltaT} unit="°C" />
+          <Field
+            label="Substrate relative permittivity:"
+            title="Relative dielectric constant (epsilon r)"
+            value={er}
+            onChange={setEr}
+            unit=""
+          />
+          <Field
+            label="Temperature rise:"
+            title="Maximum acceptable rise in temperature"
+            value={deltaT}
+            onChange={setDeltaT}
+            unit="°C"
+          />
           <NumField
             label="Pulse rise time:"
             units={TIME_UNITS}
             defaultUnit="ns"
+            title="Pulse rise time to calculate reactance"
             base={riseTimeS}
             onBase={setRiseTimeS}
           />
         </Group>
         <div className="calc-col">
           <Group title="Results">
-            <Field
-              label="Resistance:"
-              value={r ? fmt(r.resistanceOhm, 6) : '--'}
-              readOnly
-              unit="Ω"
-            />
-            <Field
-              label="Voltage drop:"
-              value={r ? fmt(r.voltageDrop, 6) : '--'}
-              readOnly
-              unit="V"
-            />
-            <Field label="Power loss:" value={r ? fmt(r.powerLossW, 6) : '--'} readOnly unit="W" />
-            <Field
+            {/* Every one of these is a wxStaticText whose label is rewritten
+                with "%g" (panel_via_size.cpp:276-300) — six significant
+                figures, not four, and no entry box round it. */}
+            <ResultField label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
+            <ResultField label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
+            <ResultField label="Power loss:" value={g(r?.powerLossW)} unit="W" />
+            <ResultField
               label="Thermal resistance:"
-              value={r ? fmt(r.thermalResistance) : '--'}
-              readOnly
+              title="Using thermal conductivity value 401 Watts/(meter-Kelvin)"
+              value={g(r?.thermalResistance)}
               unit="°C/W"
             />
-            <Field
+            <ResultField
               label="Estimated ampacity:"
-              value={r ? fmt(r.ampacityA) : '--'}
-              readOnly
+              title="Based on temperature rise"
+              value={g(r?.ampacityA)}
               unit="A"
             />
-            <Field
+            <ResultField
               label="Capacitance:"
-              value={r ? fmt(r.capacitanceF * 1e12) : '--'}
-              readOnly
+              title="pico-Farad"
+              value={g(r && r.capacitanceF * 1e12)}
               unit="pF"
             />
-            <Field
+            <ResultField
               label="Rise time degradation:"
-              value={r ? fmt(r.riseTimeDegradationS * 1e12) : '--'}
-              readOnly
+              title="Rise time degradation for given Z0 and calculated capacitance"
+              value={g(r && r.riseTimeDegradationS * 1e12)}
               unit="ps"
             />
-            <Field
+            <ResultField
               label="Inductance:"
-              value={r ? fmt(r.inductanceH * 1e9) : '--'}
-              readOnly
+              title="nano-Henry"
+              value={g(r && r.inductanceH * 1e9)}
               unit="nH"
             />
-            <Field label="Reactance:" value={r ? fmt(r.reactanceOhm) : '--'} readOnly unit="Ω" />
+            <ResultField
+              label="Reactance:"
+              title="Inductive reactance for given rise time and calculated inductance"
+              value={g(r?.reactanceOhm)}
+              unit="Ω"
+            />
           </Group>
           <ViaDrawing />
         </div>
       </div>
-      {!r && (
-        <div className="calc-error">
-          Enter positive hole, plating, length, resistivity, ΔT and rise-time values.
+      {/* m_staticTextWarning (panel_via_size_base.cpp:201), shown when the pad
+          swallows the clearance hole. */}
+      {padDiaM >= clearanceDiaM && (
+        <div className="calc-error calc-prewrap">
+          {'Warning:\nVia pad diameter >= Clearance hole diameter.\n' +
+            'Some parameters cannot be calculated for a via inside a copper zone.'}
         </div>
       )}
     </div>

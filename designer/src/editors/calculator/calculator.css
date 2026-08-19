@@ -106,12 +106,6 @@
   min-height: 0;
 }
 
-.calc-panel h3 {
-  margin: 4px 0 10px;
-  font-size: inherit;
-  font-weight: 700;
-}
-
 .calc-row {
   display: flex;
   gap: 18px;
@@ -150,9 +144,14 @@
   margin: var(--wx-border) 0;
 }
 
+/* wxFormBuilder puts a label in its own flex-grid column and never sets
+   wxALIGN_RIGHT on one — [px] on Via Size every label's ink starts at x=11, on
+   the IEC page at x=16, on Regulators at x=698. Ours were right-aligned, which
+   is the single thing that made a KiCad panel and ours read differently at a
+   glance even when every string matched. */
 .calc-field-label {
   min-width: 170px;
-  text-align: right;
+  text-align: left;
 }
 
 /* wxTextCtrl. [px] 34 px outer (1 px rgb(24,24,24) + 32 px rgb(40,40,40) +
@@ -696,4 +695,30 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 .es-iec-legend {
   white-space: nowrap;
+}
+
+/* A results row: three static texts, no entry box, at the same pitch as an
+   input row so a Parameters box and a Results box beside it line up. */
+.calc-result {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  min-height: var(--ctl-height);
+  margin: var(--wx-border) 0;
+}
+
+.calc-result-value {
+  min-width: 90px;
+}
+
+/* wxBU_EXACTFIT: the "..." buttons beside Plating resistivity and Substrate
+   relative permittivity are sized to their label and nothing more. */
+.calc-btn.exactfit {
+  padding: 0 4px;
+  min-width: 0;
+}
+
+/* A multi-line wxStaticText keeps its newlines. */
+.calc-prewrap {
+  white-space: pre-line;
 }

@@ -79,7 +79,6 @@ function SeriesGrid({ title, cols }: { title: string; cols: SeriesCol[] }): JSX.
 export function PanelEseriesDisplay(): JSX.Element {
   return (
     <div>
-      <h3>E-Series (IEC 60063 preferred values)</h3>
       <div className="calc-note">
         First-decade base values (1 … 10). Series/tolerance pairing: E6 ±20 %, E12 ±10 %, E24 ±5 %,
         E48 ±2 %, E96 ±1 %.

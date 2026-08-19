@@ -141,7 +141,6 @@ export function PanelRfAttenuators(): JSX.Element {
 
   return (
     <div>
-      <h3>RF Attenuators</h3>
       <div className="calc-row">
         <div className="calc-col" style={{ maxWidth: 260 }}>
           <Group title="Attenuator type">
