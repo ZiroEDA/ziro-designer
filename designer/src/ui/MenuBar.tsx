@@ -155,7 +155,10 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
               <span className="twisty expandable" />
             </div>
           )}
-          <div className="ze-submenu-scroll" onScroll={syncEnds}>
+          {/* Opted out of the overlay indicator: GTK gives a menu scroll
+              arrows and never a scrollbar, so the one scroll container in the
+              app that must NOT grow a bar is this one. */}
+          <div className="ze-submenu-scroll" data-ze-no-overlay-scroll onScroll={syncEnds}>
             {sub!.map((s, i) => (
               <MenuEntry key={s.label ?? `s${i}`} item={s} close={close} />
             ))}

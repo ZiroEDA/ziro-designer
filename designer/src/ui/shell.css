@@ -2684,7 +2684,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   grid-template-columns: auto 1fr auto;
   overflow-y: auto;
   min-height: 0;
-  /* GTK gives a menu scroll arrows, never a scrollbar. */
+  /* GTK gives a menu scroll arrows, never a scrollbar. Redundant against the
+     universal rule above and kept deliberately: this pane must stay bar-less
+     whatever the app-wide default becomes, and it is also the one scroll
+     container opted out of the overlay indicator (see MenuBar.tsx). */
   scrollbar-width: none;
 }
 .ze-submenu-scroll::-webkit-scrollbar {

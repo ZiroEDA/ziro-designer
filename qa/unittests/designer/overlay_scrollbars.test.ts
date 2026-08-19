@@ -74,12 +74,25 @@ describe('the native scrollbars are off, which is the zero-layout-cost half', ()
     expect(bar).toMatch(/height:\s*0/);
   });
 
-  it('keeps no per-pane scrollbar sizing anywhere else in the shell', () => {
+  it('lets no pane opt back into the browser\'s bars', () => {
     // The gutter was a theme-level defect on every scrollable pane in the app,
-    // so the fix is one declaration; a second one would be a pane opting back
-    // into the browser's bars.
-    const widths = CSS_CODE.match(/scrollbar-width:/g) ?? [];
-    expect(widths).toHaveLength(1);
+    // so a per-pane `auto` or `thin` anywhere would put one back. `.ze-submenu-
+    // scroll` declares `none` again on purpose - a GTK menu shows scroll arrows
+    // and never a scrollbar - so the rule is about the VALUE, not the count.
+    const values = [...CSS_CODE.matchAll(/scrollbar-width:\s*([a-z]+)/g)].map((m) => m[1]);
+    expect(values.length).toBeGreaterThan(0);
+    expect(values.every((v) => v === 'none')).toBe(true);
+  });
+
+  it('opts the menu out of the indicator, since GTK gives a menu arrows', () => {
+    // A tall submenu is `position: fixed` with its own scroll container and
+    // GTK-style end arrows. Drawing an overlay indicator over it would be the
+    // one place in the app where the port is wrong.
+    const menubar = readFileSync(
+      fileURLToPath(new URL('../../../designer/src/ui/MenuBar.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(menubar).toMatch(/className="ze-submenu-scroll"[^>]*data-ze-no-overlay-scroll/);
   });
 });
 
