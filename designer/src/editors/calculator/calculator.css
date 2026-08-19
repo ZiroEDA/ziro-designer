@@ -867,3 +867,19 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   gap: var(--wx-border);
   margin: var(--wx-border) 0;
 }
+
+/* The E-series panel is two grids stacked, the wider one first. */
+.es-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* The gap column between two stripes: one merged cell the full height of the
+   stripe, so no horizontal rules cross it. */
+.es-grid .es-gap {
+  min-width: 16px;
+  background: none;
+  border-top: none;
+  border-bottom: none;
+}
