@@ -21,6 +21,16 @@ import {
   type JSX,
 } from 'react';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
+import { MessageDialogYesNo } from '../../ui/dialog_message.js';
+import type { YesNoResult } from '../../ui/message_dialog.js';
+import {
+  acceptDrop,
+  askBeforeReplace,
+  REPLACE_LOADED_FILE_CAPTION,
+  REPLACE_LOADED_FILE_DEFAULT,
+  REPLACE_LOADED_FILE_ICON,
+  REPLACE_LOADED_FILE_MESSAGE,
+} from './dropFile.js';
 import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { bitmapDepth, imageMeta } from './imageMeta.js';
@@ -171,6 +181,8 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   // KiCad's status bar starts empty and shows the loaded file (OnLoadFile).
   const [status, setStatus] = useState('');
   const [aboutOpen, setAboutOpen] = useState(false);
+  // The file a drop is holding while "Replace Loaded File?" is up.
+  const [dropPending, setDropPending] = useState<File | null>(null);
 
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts. Registered only while the box is up, so it does not
@@ -194,6 +206,9 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   // The 1-bit bitmap shared by the Black & White preview and every export.
   // BITMAP2CMP_PANEL::binarize takes the slider as a fraction of its maximum
   // (`value / max`) and turns it into a whole grey level itself.
+  // With no image loaded OnThresholdChange (bitmap2cmp_panel.cpp:461-465) still
+  // runs binarize(), which walks a zero-height m_Greyscale_Image and does
+  // nothing before Refresh() — the same no-op this `null` is.
   const mono = useMemo(
     () => (loaded ? grayToMono(loaded.gray, (threshold / 100) * 255, negative) : null),
     [loaded, threshold, negative],
@@ -315,14 +330,27 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     e.preventDefault();
     const f = e.dataTransfer.files?.[0];
     if (!f || !/^image\//.test(f.type || '')) return;
-    // DROP_FILE::OnDropFiles asks before replacing an already-loaded image.
-    if (loaded && !window.confirm('There is already a file loaded. Do you want to replace it?'))
+    // DROP_FILE::OnDropFiles (bitmap2cmp_panel.cpp:582-596) asks before
+    // replacing an already-loaded image, in a KICAD_MESSAGE_DIALOG. The dropped
+    // file is parked until the answer comes back, because the dialog is modal
+    // and the drag event is long gone by then.
+    if (askBeforeReplace(loaded ? loaded.w : 0)) {
+      setDropPending(f);
       return;
+    }
     void loadFile(f);
+  };
+  const answerReplace = (answer: YesNoResult): void => {
+    const f = dropPending;
+    setDropPending(null);
+    if (f && acceptDrop(answer)) void loadFile(f);
   };
 
   // ---- Output Size box (KiCad's IMAGE_SIZE behaviour) ----
-  const aspect = loaded ? loaded.w / loaded.h : 1; // KiCad m_aspectRatio = w / h
+  // KiCad m_aspectRatio = w / h, and 1.0 before any load — LoadSettings sets it
+  // (bitmap2cmp_panel.cpp:89) so the live size fields do have a ratio to work
+  // with while the panel is still empty.
+  const aspect = loaded ? loaded.w / loaded.h : 1;
 
   const setSize = (axis: 'x' | 'y', size: number, u: SizeUnit): void => {
     // IMAGE_SIZE::SetOutputSize + m_UnitSizeX->ChangeValue.
@@ -336,10 +364,14 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
   };
 
   const changeUnit = (next: SizeUnit): void => {
-    if (loaded) {
-      setSize('x', convertOutputSize(sizeX, loaded.w, unit, next), next);
-      setSize('y', convertOutputSize(sizeY, loaded.h, unit, next), next);
-    }
+    // OnSizeUnitChange (bitmap2cmp_panel.cpp:390-398) is unconditional: it
+    // SetUnit()s both IMAGE_SIZEs and rewrites both fields whether or not a
+    // bitmap is loaded. With no image m_originalSizePixels is 0, IMAGE_SIZE::
+    // SetUnit's `if( m_outputSize )` guards fall to the else branch and both
+    // sizes stay 0 — but the FIELDS still re-format, so mm's "0.0" becomes
+    // Inch's "0.00" and DPI's "0".
+    setSize('x', convertOutputSize(sizeX, loaded?.w ?? 0, unit, next), next);
+    setSize('y', convertOutputSize(sizeY, loaded?.h ?? 0, unit, next), next);
     setUnit(next);
   };
   const changeX = (text: string): void => {
@@ -501,6 +533,11 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
       <div className="imgc-body">
         {/* left: preview notebook (KiCad's wxNotebook) */}
         <div className="imgc-notebook">
+          {/* The notebook has no page-change handler at all
+              (bitmap2cmp_panel_base.cpp:215-231 connects paint, buttons, fields
+              and radios — never the notebook), so a tab click only selects a
+              page. With no image the three pages are blank and switching
+              between them is exactly as legal as it is afterwards. */}
           <div className="imgc-tabs" role="tablist">
             {TABS.map((t) => (
               <button
@@ -510,7 +547,6 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 aria-selected={tab === t.id}
                 className={`imgc-tab${tab === t.id ? ' active' : ''}`}
                 onClick={() => setTab(t.id)}
-                disabled={!loaded}
               >
                 {t.label}
               </button>
@@ -574,26 +610,31 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
           <fieldset className="imgc-group">
             <legend>Output Size</legend>
+            {/* BITMAP2CMP_PANEL's constructor disables exactly two controls,
+                m_buttonExportFile and m_buttonExportClipboard
+                (bitmap2cmp_panel.cpp:65-66). Both size fields, the unit choice
+                and the threshold slider are live from the first frame: the two
+                IMAGE_SIZEs simply hold 0 (`SetOutputSize( 0, … )`, :58-59) and
+                the fields read "0.0". Loading an image then overwrites both
+                sizes from the bitmap (:264-268), so anything typed here before
+                a load is discarded by the load, not refused by the widget. */}
             <div className="imgc-sizerow">
               <span className="lbl">Size:</span>
               <input
                 className="imgc-input ze-bare"
                 value={outX}
-                disabled={!loaded}
                 onChange={(e) => changeX(e.target.value)}
                 spellCheck={false}
               />
               <input
                 className="imgc-input ze-bare"
                 value={outY}
-                disabled={!loaded}
                 onChange={(e) => changeY(e.target.value)}
                 spellCheck={false}
               />
               <select
                 className="imgc-select"
                 value={unit}
-                disabled={!loaded}
                 onChange={(e) => changeUnit(e.target.value as SizeUnit)}
               >
                 {SIZE_UNITS.map((u) => (
@@ -628,7 +669,6 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
                 min={0}
                 max={100}
                 value={threshold}
-                disabled={!loaded}
                 title="Adjust the level to convert the greyscale picture to a black and white picture."
                 onChange={(e) => setThreshold(Number(e.target.value))}
               />
@@ -713,6 +753,16 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
       <KiStatusBar>
         <span className="cell grow">{status}</span>
       </KiStatusBar>
+
+      {dropPending && (
+        <MessageDialogYesNo
+          caption={REPLACE_LOADED_FILE_CAPTION}
+          message={REPLACE_LOADED_FILE_MESSAGE}
+          icon={REPLACE_LOADED_FILE_ICON}
+          defaultButton={REPLACE_LOADED_FILE_DEFAULT}
+          onResult={answerReplace}
+        />
+      )}
 
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
