@@ -53,6 +53,7 @@ const CONVERTED = [
   'editors/footprint/FootprintEditor.tsx',
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
+  'editors/pcb/PcbEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   'editors/schematic/dialogs/dialog_assign_footprints.tsx',
   'editors/symbol/SymbolEditor.tsx',
@@ -70,7 +71,7 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING = ['editors/pcb/PcbEditor.tsx', 'editors/schematic/SchematicEditor.tsx'];
+const PENDING = ['editors/schematic/SchematicEditor.tsx'];
 
 /**
  * The only modifier reads a converted frame may keep, per file, line for line.
@@ -100,6 +101,23 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
   ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
+  'editors/pcb/PcbEditor.tsx': [
+    // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
+    // other frames' `plain`, spelled the way this file already spelled it.
+    'const mod = e.ctrlKey || e.metaKey;',
+    // Not keys at all: the snap modifiers, which upstream arrive as their own
+    // TOOL_EVENT so that holding Ctrl changes snapping immediately. One is the
+    // pointer's, one the keyboard's.
+    'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
+    'const ctrl = e.ctrlKey || e.metaKey;',
+    // The 3D viewer overlay declining to treat a modified key as one of its
+    // view keys - upstream the viewer is a separate top-level window, so
+    // pcbnew's hotkeys cannot reach the board while it has focus.
+    'if (e.ctrlKey || e.metaKey || e.altKey) return;',
+    // Ctrl+Enter inside the place-text dialog's own textarea, which is that
+    // dialog's OK and reaches nothing outside it.
+    "} else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {",
+  ],
   'editors/symbol/SymbolEditor.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
     // The library tree's Ctrl+D. `SCH_ACTIONS::duplicateSymbol`
@@ -284,6 +302,45 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
       // The library tree's Ctrl+D (duplicate), which has no row.
       ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
+    ],
+  },
+  'editors/pcb/PcbEditor.tsx': {
+    moved: [
+      // Anchored on `if (mod` rather than `mod`, because `!mod && (e.key ===
+      // 'd'` - the drag45 grab, which stays - contains the shorter pattern.
+      ['Ctrl+, preferences', /if \(mod && e\.key === ','/],
+      ['Ctrl+Z undo', /if \(mod && \(e\.key === 'z'/],
+      ['Ctrl+Y redo', /if \(mod && \(e\.key === 'y'/],
+      ['Ctrl+F find', /if \(mod && \(e\.key === 'f'/],
+      ['Ctrl+D duplicate', /if \(mod && \(e\.key === 'd'/],
+      ['F8 update from schematic', /e\.key === 'F8'/],
+      ['Del delete', /e\.key === 'Delete'/],
+      // …and on `mod && e.shiftKey` for the same reason: the bare-M grab that
+      // stays is now spelled `!mod && !e.shiftKey && (e.key === 'm'`.
+      ['Shift+M move exactly', /mod && e\.shiftKey && \(e\.key === 'm'/],
+      ['Shift+P position relative', /mod && e\.shiftKey && \(e\.key === 'p'/],
+      ['E properties', /openTrackViaPropertiesRef/],
+      ['F flip', /flipSelectionRef/],
+      ['Ctrl+0 zoom to fit', /\(mod && e\.key === '0'\)/],
+    ],
+    kept: [
+      // ACTIONS::highContrastModeCycle, no row.
+      ['H contrast cycle', /e\.key === 'h' \|\| e\.key === 'H'/],
+      // ROUTER_TOOL's place-a-via-and-switch-layer, and the clearest context
+      // action in the app: it claims V only while a route is in progress.
+      ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && routeRef\.current/],
+      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
+      ['M grab move', /grabStartRef\.current\('move'\)/],
+      ['G grab drag', /grabStartRef\.current\('drag'\)/],
+      ['D grab drag45', /grabStartRef\.current\('drag45'\)/],
+      // PCB_ACTIONS::zoneFillAll, no row.
+      ['B fill zones', /fillAllZonesRef\.current\(\)/],
+      // ACTIONS::zoomFitScreen is Home off macOS; the row prints the macOS
+      // Ctrl+0, so Home has no row and stays.
+      ['Home zoom to fit', /!mod && e\.key === 'Home'/],
+      ['~ clear highlight', /e\.key === '~'/],
+      ['` highlight net', /e\.key === '`'/],
+      ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },
 };
@@ -502,6 +559,34 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // key the frame has always answered, and correcting the row is #547's job,
     // not this one's. Recorded so the divergence is not silent.
     'F',
+  ],
+  'editors/pcb/PcbEditor.tsx': [
+    // Two of these are rows with no `action` yet - Route > Single Track (X) and
+    // Inspect > Measure Tool (Ctrl+Shift+M) - so `invocable` skips them and
+    // they dispatch nothing. They are listed because the row prints the key,
+    // and a row that grows an action must not silently grow a binding too.
+    'X',
+    'Ctrl+Shift+M',
+    // The disambiguation ContextMenu's own rows (1-9 and A), which are not on
+    // the menu bar at all. Only the letter is a literal; the digits are built
+    // from the index, which is why just this one shows up in the scrape.
+    'A',
+    'Ctrl+S',
+    'Ctrl+Z',
+    'Ctrl+Y',
+    'Ctrl+D',
+    'Del',
+    'Shift+M',
+    'Shift+P',
+    'Ctrl+F',
+    'E',
+    'F',
+    'Ctrl++',
+    'Ctrl+-',
+    'Ctrl+0',
+    'F5',
+    'F8',
+    'Ctrl+,',
   ],
   'editors/symbol/SymbolEditor.tsx': [
     'Ctrl+Alt+N',
