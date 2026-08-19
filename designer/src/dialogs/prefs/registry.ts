@@ -44,12 +44,12 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'mouse', label: 'Mouse and Touchpad', owner: 'generic' },
   { id: 'hotkeys', label: 'Hotkeys', owner: 'generic' },
   { id: null, label: 'Schematic Editor' },
-  { id: 'sch-display', label: 'Display Options', indent: true },
-  { id: 'sch-grids', label: 'Grids', indent: true },
-  { id: 'sch-editing', label: 'Editing Options', indent: true },
-  { id: 'sch-annotation', label: 'Annotation Options', indent: true },
-  { id: 'sch-colors', label: 'Colors', indent: true },
-  { id: 'sch-fields', label: 'Field Name Templates', indent: true },
+  { id: 'sch-display', label: 'Display Options', indent: true, owner: 'schematic' },
+  { id: 'sch-grids', label: 'Grids', indent: true, owner: 'schematic' },
+  { id: 'sch-editing', label: 'Editing Options', indent: true, owner: 'schematic' },
+  { id: 'sch-annotation', label: 'Annotation Options', indent: true, owner: 'schematic' },
+  { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
+  { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
   { id: 'pcb-display', label: 'Display Options', indent: true },
 ];
@@ -63,6 +63,7 @@ export const FIRST_PAGE: PrefsPageId = 'common';
  */
 const OWNERS: Record<PrefsPageOwner, () => Promise<PrefsPanelFactory>> = {
   generic: async () => (await import('./panels/index.js')).createPrefsPanel,
+  schematic: async () => (await import('../../editors/schematic/prefs/index.js')).createPrefsPanel,
 };
 
 export function ownerOf(id: PrefsPageId): PrefsPageOwner | undefined {

@@ -49,7 +49,7 @@ export type PrefsPageId =
   | 'pcb-display';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
-export type PrefsPageOwner = 'generic';
+export type PrefsPageOwner = 'generic' | 'schematic';
 
 /**
  * The working copy the dialog edits, plus its setters. Handed to every panel;
