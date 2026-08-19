@@ -57,7 +57,7 @@
  * through `browserSafeKey`, so the divergence is legible at the point of use
  * and lives in exactly one table.
  */
-import { browserSafeKey } from './browser_hotkeys.js';
+import { browserSafeKey } from './browser_reserved.js';
 import type { MenuItem } from './menu_types.js';
 
 /** The upstream key of `AddClose`, before the browser has its say. */

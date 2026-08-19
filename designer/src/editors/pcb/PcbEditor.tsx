@@ -343,6 +343,7 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { addQuitOrClose } from '../../ui/action_menu.js';
 import { settings } from '../../prefs/settings.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -6973,7 +6974,7 @@ export function PcbEditor({
         { label: 'Export', disabled: dis },
         { label: 'Fabrication Outputs', disabled: dis },
         { sep: true },
-        { label: 'Close (back to project)', action: onExit, shortcut: 'Ctrl+W' },
+        addQuitOrClose('PCB Editor', onExit),
       ],
     },
     {

@@ -25,6 +25,8 @@
  * modifier, or a key that belongs to the browser — the entry says so.
  */
 
+import { browserSafeKey } from '../../ui/browser_reserved.js';
+
 /** A section of the Hotkey List, matching how upstream groups the editor's actions. */
 export type HotkeySection =
   | 'File'
@@ -68,7 +70,14 @@ export const HOTKEYS: readonly Hotkey[] = [
     section: 'File',
     upstream: 'SCH_ACTIONS::importGraphics',
   },
-  { id: 'close', label: 'Close', keys: 'Ctrl+W', section: 'File', upstream: 'ACTIONS::quit' },
+  {
+    id: 'close',
+    label: 'Close',
+    keys: browserSafeKey('Ctrl+W'),
+    section: 'File',
+    upstream: 'ACTIONS::quit',
+    note: 'ACTION_MENU::AddClose spells this Ctrl+W; a browser keeps that key for closing the tab, so BROWSER_REBINDS moves it.',
+  },
   {
     id: 'preferences',
     label: 'Preferences...',

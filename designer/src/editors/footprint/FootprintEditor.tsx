@@ -62,6 +62,8 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { addClose } from '../../ui/action_menu.js';
+import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -848,7 +850,7 @@ export function FootprintEditor({
             label: 'New Footprint…',
             icon: 'newFootprint',
             action: () => setNewFpName(''),
-            shortcut: 'Ctrl+N',
+            shortcut: browserSafeKey('Ctrl+N'),
             disabled: !targetLib,
           },
           { sep: true },
@@ -887,7 +889,7 @@ export function FootprintEditor({
             disabled: !workFp,
           },
           { sep: true },
-          { label: 'Close Footprint Editor', action: onExitToHome },
+          addClose('Footprint Editor', onExitToHome),
         ],
       },
       {

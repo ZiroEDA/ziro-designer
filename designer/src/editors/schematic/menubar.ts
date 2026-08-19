@@ -20,6 +20,7 @@
  */
 
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
+import { addQuitOrClose } from '../../ui/action_menu.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 
@@ -135,7 +136,7 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         act('Plot...', 'plot', 'plot'),
         SEP,
         // AddQuitOrClose: under the project manager the frame closes back to it.
-        act('Close', 'close', 'close', 'Ctrl+W'),
+        { ...addQuitOrClose('Schematic Editor', () => h.action('close')), icon: 'close' },
       ],
     },
     {

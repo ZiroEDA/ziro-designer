@@ -81,6 +81,8 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { addClose } from '../../ui/action_menu.js';
+import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -1416,7 +1418,7 @@ export function SymbolEditor({
             label: 'New Symbol…',
             icon: 'newSymbol',
             action: () => setNewSymbolOpen(true),
-            shortcut: 'Ctrl+N',
+            shortcut: browserSafeKey('Ctrl+N'),
           },
           { sep: true },
           { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
@@ -1442,7 +1444,7 @@ export function SymbolEditor({
             disabled: !workSymbol,
           },
           { sep: true },
-          { label: 'Close Library Editor', action: onExitToHome },
+          addClose('Library Editor', onExitToHome),
         ],
       },
       {

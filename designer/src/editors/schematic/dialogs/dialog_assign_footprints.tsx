@@ -87,6 +87,7 @@ import type { FieldsEdits } from './dialog_symbol_fields_table.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
 import type { FocusLike } from '../../../ui/browser_hotkeys.js';
+import { addClose } from '../../../ui/action_menu.js';
 import { UnsavedChangesDialog } from '../../../ui/dialog_unsaved_changes.js';
 import type { UnsavedChangesResult } from '../../../ui/confirm.js';
 
@@ -577,7 +578,7 @@ export function DialogAssignFootprints({
           action: () => runSave(saveToSchematicCommand()),
         },
         { sep: true },
-        { label: 'Close Assign Footprints', action: closeWindow },
+        addClose('Assign Footprints', closeWindow),
       ],
     },
     {
