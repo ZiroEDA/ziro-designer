@@ -12,6 +12,7 @@
 
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
+import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
@@ -3802,21 +3803,31 @@ export function PcbEditor({
     requestDraw();
   }, [requestDraw]);
 
-  // Wheel zoom about the cursor; drag to pan (left or middle button).
+  // WX_VIEW_CONTROLS::onWheel; drag to pan (left or middle button).
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       const v = viewRef.current;
-      const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+      const action = wheelAction(e, commonInputPrefs(), {
+        width: canvas.width,
+        height: canvas.height,
+      });
+      if (action.kind === 'none') return;
+      if (action.kind === 'pan') {
+        v.tx += action.dx;
+        v.ty += action.dy;
+        requestDraw();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const px = (e.clientX - rect.left) * dpr;
       const py = (e.clientY - rect.top) * dpr;
       const sx = v.flipX ? -v.scale : v.scale;
       const wx = (px - v.tx) / sx;
       const wy = (py - v.ty) / v.scale;
-      v.scale *= factor;
+      v.scale *= action.factor;
       v.tx = px - wx * (v.flipX ? -v.scale : v.scale);
       v.ty = py - wy * v.scale;
       requestDraw();

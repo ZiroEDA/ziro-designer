@@ -23,6 +23,7 @@ import {
   type ViewTransform,
 } from './gerberRender.js';
 import { GERBER_GRID_COLOR } from './gerberColors.js';
+import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 
 export interface GerberCanvasController {
   zoomToFit: () => void;
@@ -270,20 +271,32 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (!has) hadContentRef.current = false;
     }, [layers, zoomToFit]);
 
-    // Wheel zoom about the cursor.
+    // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
+        const action = wheelAction(e, commonInputPrefs(), {
+          width: canvas.width,
+          height: canvas.height,
+        });
+        if (action.kind === 'none') return;
+        if (action.kind === 'pan') {
+          const v = viewRef.current;
+          v.tx += action.dx;
+          v.ty += action.dy;
+          requestDraw();
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const px = (e.clientX - rect.left) * dpr;
         const py = (e.clientY - rect.top) * dpr;
-        zoomStep(e.deltaY < 0 ? 1.2 : 1 / 1.2, { x: px, y: py });
+        zoomStep(action.factor, { x: px, y: py });
       };
       canvas.addEventListener('wheel', onWheel, { passive: false });
       return () => canvas.removeEventListener('wheel', onWheel);
-    }, [dpr, zoomStep]);
+    }, [dpr, zoomStep, requestDraw]);
 
     // Pointer interactions: pan, measure, pick.
     const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);

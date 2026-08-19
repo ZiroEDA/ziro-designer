@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -371,20 +372,30 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       }
     }, [footprint, zoomToFit]);
 
-    // Wheel zoom about the cursor.
+    // WX_VIEW_CONTROLS::onWheel.
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const onWheel = (e: WheelEvent): void => {
         e.preventDefault();
         const v = viewRef.current;
-        const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+        const action = wheelAction(e, commonInputPrefs(), {
+          width: canvas.width,
+          height: canvas.height,
+        });
+        if (action.kind === 'none') return;
+        if (action.kind === 'pan') {
+          v.tx += action.dx;
+          v.ty += action.dy;
+          requestDraw();
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         const px = (e.clientX - rect.left) * dpr;
         const py = (e.clientY - rect.top) * dpr;
         const wx = (px - v.tx) / v.scale;
         const wy = (py - v.ty) / v.scale;
-        v.scale *= factor;
+        v.scale *= action.factor;
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();
