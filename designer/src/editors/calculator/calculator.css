@@ -781,3 +781,22 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   bottom: 0;
   right: 0;
 }
+
+/* Wavelength's flat 3-column grid: label | field | unit selector. No group
+   boxes — the base file adds the rows straight to the panel's sizer. */
+.wl-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-border);
+  align-items: flex-start;
+}
+
+.wl-row {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+}
+
+.wl-row .calc-field-label {
+  min-width: 170px;
+}
