@@ -41,11 +41,11 @@ import {
   filterHotkeys,
   hotkeyConflicts,
   type HotkeyOverrides,
-} from '../ui/hotkeys_inventory.js';
-import { importOntoNames, parseHotkeyFile } from '../ui/hotkeys_file.js';
-import { isBrowserReserved } from '../ui/browser_hotkeys.js';
-import { comboFromEvent, isReservedHotkey } from '../editors/schematic/hotkey_bindings.js';
-import { useModalEscape } from '../ui/useModalEscape.js';
+} from '../../../ui/hotkeys_inventory.js';
+import { importOntoNames, parseHotkeyFile } from '../../../ui/hotkeys_file.js';
+import { isBrowserReserved } from '../../../ui/browser_hotkeys.js';
+import { comboFromEvent, isReservedHotkey } from '../../../editors/schematic/hotkey_bindings.js';
+import { useModalEscape } from '../../../ui/useModalEscape.js';
 
 interface Props {
   overrides: HotkeyOverrides;

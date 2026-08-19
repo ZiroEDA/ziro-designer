@@ -1,22 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useMemo, useState } from 'react';
-import type { CrossProbingSettings } from '@ziroeda/common/src/cross_probing_settings.js';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import {
-  COMMON_DEFAULTS,
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,
-  PRIVACY_DEFAULTS,
   settings,
   type CommonSettings,
   type EeschemaSettings,
-  type MouseDragAction,
   type PcbnewSettings,
   type PrivacySettings,
-  type ScrollModifier,
 } from './settings.js';
-import { PanelHotkeysEditor } from './PanelHotkeysEditor.js';
+import { Check, ColorRow, Group, joinCss, Num, Sel, splitCss } from '../dialogs/prefs/widgets.js';
+import { CrossProbingGroup } from '../dialogs/prefs/CrossProbingGroup.js';
+import {
+  FIRST_PAGE,
+  PAGES,
+  loadPrefsPanel,
+  ownerOf,
+  peekPrefsPanel,
+} from '../dialogs/prefs/registry.js';
+import type { PrefsContext, PrefsPageId, PrefsPanelModule } from '../dialogs/prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
 import { pcm, usePcmVersion } from '../pcm/pcmStore.js';
@@ -25,209 +29,20 @@ import { sentrySink } from '../telemetry/sentrySink.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 
 /**
- * The Preferences dialog, the web mirror of KiCad's PAGED_DIALOG preferences
- * (EDA_BASE_FRAME::ShowPreferences): a page tree on the left, panels on the
- * right, transcribed from the wxFormBuilder panel sources:
- *   - Common                 <- panel_common_settings_base.cpp
- *   - Mouse and Touchpad     <- panel_mouse_settings_base.cpp
- *   - Hotkeys                <- panel_hotkeys_editor (editable)
- *   - Schematic Editor
- *     - Display Options      <- panel_eeschema_display_options_base.cpp (+ GAL options)
- *     - Grids                <- panel_grid_settings_base.cpp
- *     - Editing Options      <- panel_eeschema_editing_options_base.cpp
- *     - Annotation Options   <- panel_eeschema_annotation_options_base.cpp
- *     - Colors               <- panel_eeschema_color_settings (theme + per-layer)
- *     - Field Name Templates <- panel_template_fieldnames_base.cpp
- *   - PCB Editor
- *     - Display Options      <- panel_display_options_base.cpp (cross-probing only;
- *                               the rest of that panel is not ported yet)
+ * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG
+ * preferences (`EDA_BASE_FRAME::ShowPreferences`, common/eda_base_frame.cpp:1585):
+ * a page tree on the left, one panel on the right, OK / Cancel / Reset.
+ *
+ * The shell knows page ids and labels and nothing else. Which pages exist and
+ * which module builds each one lives in `dialogs/prefs/registry.ts`, and a page
+ * is constructed the first time it is opened — upstream's `AddLazyPage` /
+ * `AddLazySubPage`. Here that laziness is also what keeps a code-split editor's
+ * bundle out of the dialog until one of its pages is asked for.
  *
  * Edits go to a working copy and commit on OK, as KiCad's TransferDataFromWindow
- * does. "Reset to Defaults" resets the current page only (RESETTABLE_PANEL).
+ * does. "Reset to Defaults" resets the current page only (RESETTABLE_PANEL), by
+ * asking that page for its own reset.
  */
-
-type PageId =
-  | 'common'
-  | 'mouse'
-  | 'hotkeys'
-  | 'sch-display'
-  | 'sch-grids'
-  | 'sch-editing'
-  | 'sch-annotation'
-  | 'sch-colors'
-  | 'sch-fields'
-  | 'pcb-display';
-
-const PAGES: { id: PageId | null; label: string; indent?: boolean }[] = [
-  { id: 'common', label: 'Common' },
-  { id: 'mouse', label: 'Mouse and Touchpad' },
-  { id: 'hotkeys', label: 'Hotkeys' },
-  { id: null, label: 'Schematic Editor' },
-  { id: 'sch-display', label: 'Display Options', indent: true },
-  { id: 'sch-grids', label: 'Grids', indent: true },
-  { id: 'sch-editing', label: 'Editing Options', indent: true },
-  { id: 'sch-annotation', label: 'Annotation Options', indent: true },
-  { id: 'sch-colors', label: 'Colors', indent: true },
-  { id: 'sch-fields', label: 'Field Name Templates', indent: true },
-  { id: null, label: 'PCB Editor' },
-  { id: 'pcb-display', label: 'Display Options', indent: true },
-];
-
-// ----- tiny form helpers ----------------------------------------------------------
-
-function Check({
-  label,
-  checked,
-  onChange,
-  disabled,
-  title,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-  title?: string;
-}): JSX.Element {
-  return (
-    <label className="ze-pref-check" title={title}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      {label}
-    </label>
-  );
-}
-
-function Num({
-  label,
-  value,
-  onChange,
-  unit,
-  min,
-  max,
-  width,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  unit?: string;
-  min?: number;
-  max?: number;
-  width?: number;
-}): JSX.Element {
-  return (
-    <label className="ze-pref-row">
-      <span className="lbl">{label}</span>
-      <input
-        type="number"
-        className="ze-search num"
-        value={value}
-        {...(min !== undefined ? { min } : {})}
-        {...(max !== undefined ? { max } : {})}
-        style={{ width: width ?? 80 }}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(v);
-        }}
-        onKeyDown={(e) => e.stopPropagation()}
-      />
-      {unit && <span className="unit">{unit}</span>}
-    </label>
-  );
-}
-
-function Sel<T extends string | number>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: [T, string][];
-  onChange: (v: T) => void;
-}): JSX.Element {
-  return (
-    <label className="ze-pref-row">
-      <span className="lbl">{label}</span>
-      <select
-        className="ze-select"
-        value={String(value)}
-        onChange={(e) => {
-          const raw = e.target.value;
-          onChange((typeof value === 'number' ? Number(raw) : raw) as T);
-        }}
-      >
-        {options.map(([v, l]) => (
-          <option key={String(v)} value={String(v)}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function Group({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
-  return (
-    <div className="ze-pref-group">
-      <div className="ze-pref-group-title">{title}</div>
-      <div className="ze-pref-group-body">{children}</div>
-    </div>
-  );
-}
-
-/** A label + colour swatch row (KiCad's COLOR_SWATCH). Empty value means "unset". */
-function ColorRow({
-  label,
-  value,
-  fallback,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  fallback: string;
-  onChange: (css: string) => void;
-}): JSX.Element {
-  const hex = splitCss(value || fallback).hex;
-  return (
-    <label className="ze-pref-row">
-      <span className="lbl">{label}</span>
-      <input
-        type="color"
-        value={hex}
-        style={{ width: 44, height: 20, padding: 0, border: 'none', background: 'none' }}
-        onChange={(e) => onChange(joinCss(e.target.value, 1))}
-      />
-    </label>
-  );
-}
-
-// ----- colour helpers ---------------------------------------------------------------
-
-/** CSS colour -> #rrggbb + alpha (for <input type=color> round-trips). */
-function splitCss(css: string): { hex: string; alpha: number } {
-  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(css);
-  if (m) {
-    const h = (n: string): string => Number(n).toString(16).padStart(2, '0');
-    return {
-      hex: `#${h(m[1]!)}${h(m[2]!)}${h(m[3]!)}`,
-      alpha: m[4] !== undefined ? Number(m[4]) : 1,
-    };
-  }
-  if (/^#[0-9a-f]{6}$/i.test(css)) return { hex: css, alpha: 1 };
-  return { hex: '#000000', alpha: 1 };
-}
-
-function joinCss(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16),
-    g = parseInt(hex.slice(3, 5), 16),
-    b = parseInt(hex.slice(5, 7), 16);
-  return alpha >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
 
 /** The Colors page rows: KiCad layer display names (common/layer_id.cpp) -> Theme keys. */
 const COLOR_LAYERS: [keyof Theme, string][] = [
@@ -268,99 +83,12 @@ const COLOR_LAYERS: [keyof Theme, string][] = [
   ['pageLimits', 'Page limits'],
 ];
 
-// ----- the dialog ---------------------------------------------------------------------
-
-/**
- * The "Cross-probing" group, written once because KiCad writes it twice: the
- * same five checkboxes over the same `CROSS_PROBING_SETTINGS` appear in
- * PANEL_EESCHEMA_DISPLAY_OPTIONS (eeschema/dialogs/panel_eeschema_display_options_base.cpp:33-60)
- * and PANEL_DISPLAY_OPTIONS (pcbnew/dialogs/panel_display_options_base.cpp:168-193).
- *
- * Only the wording of three of them differs, because each panel names the *other*
- * editor — "corresponding to PCB selection" in eeschema, "corresponding to
- * schematic selection" in pcbnew — so that is all this takes as a parameter.
- */
-function CrossProbingGroup({
-  value,
-  onChange,
-  peer,
-  note,
-}: {
-  value: CrossProbingSettings;
-  onChange: (fn: (s: CrossProbingSettings) => void) => void;
-  /** The editor on the far end of the probe, as this panel's labels name it. */
-  peer: 'pcb' | 'schematic';
-  note?: string;
-}): JSX.Element {
-  const sch = peer === 'schematic';
-  return (
-    <Group title="Cross-probing">
-      <Check
-        label={`Select/highlight objects corresponding to ${sch ? 'schematic' : 'PCB'} selection`}
-        title={`Highlight ${sch ? 'footprints' : 'symbols'} corresponding to selected ${
-          sch ? 'symbols' : 'footprints'
-        }`}
-        checked={value.on_selection}
-        onChange={(v) =>
-          onChange((s) => {
-            s.on_selection = v;
-          })
-        }
-      />
-      <Check
-        label="Center view on cross-probed items"
-        title={`Ensures that cross-probed ${
-          sch ? 'footprints' : 'symbols'
-        } are visible in the current view`}
-        checked={value.center_on_items}
-        onChange={(v) =>
-          onChange((s) => {
-            s.center_on_items = v;
-          })
-        }
-      />
-      <Check
-        label="Zoom to fit cross-probed items"
-        checked={value.zoom_to_fit}
-        onChange={(v) =>
-          onChange((s) => {
-            s.zoom_to_fit = v;
-          })
-        }
-      />
-      <Check
-        label="Highlight cross-probed nets"
-        title={`Highlight nets when they are highlighted in the ${
-          sch ? 'schematic' : 'PCB'
-        } editor`}
-        checked={value.auto_highlight}
-        onChange={(v) =>
-          onChange((s) => {
-            s.auto_highlight = v;
-          })
-        }
-      />
-      <Check
-        label="Flash cross-probed selection"
-        title="Temporarily flash the newly cross-probed selection 3 times"
-        checked={value.flash_selection}
-        onChange={(v) =>
-          onChange((s) => {
-            s.flash_selection = v;
-          })
-        }
-      />
-      {note ? <div className="ze-muted">{note}</div> : null}
-    </Group>
-  );
-}
-
 export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const [page, setPage] = useState<PageId>('common');
+  const [page, setPage] = useState<PrefsPageId>(FIRST_PAGE);
   const [common, setCommon] = useState<CommonSettings>(() => structuredClone(settings.common));
   const [eeschema, setEeschema] = useState<EeschemaSettings>(() =>
     structuredClone(settings.eeschema),
@@ -405,20 +133,62 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     onClose();
   };
 
+  // The working copy and its setters, handed to whichever panel is up. Upstream
+  // a wx panel writes into the settings object directly; ours edit this and the
+  // shell commits it on OK.
+  const ctx: PrefsContext = {
+    common,
+    eeschema,
+    pcbnew,
+    privacy,
+    userColors,
+    hotkeys,
+    upC,
+    upE,
+    upP,
+    setCommon,
+    setEeschema,
+    setPcbnew,
+    setPrivacy,
+    setUserColors,
+    setHotkeys,
+  };
+
+  // `AddLazySubPage`: the page is constructed the first time it is opened, and
+  // kept after that, exactly as the wxTreebook keeps a realised page.
+  const [panel, setPanel] = useState<PrefsPanelModule | null>(
+    () => peekPrefsPanel(FIRST_PAGE) ?? null,
+  );
+  useEffect(() => {
+    if (!ownerOf(page)) {
+      setPanel(null);
+      return;
+    }
+    const cached = peekPrefsPanel(page);
+    if (cached) {
+      setPanel(cached);
+      return;
+    }
+    setPanel(null);
+    let live = true;
+    void loadPrefsPanel(page).then((m) => {
+      if (live) setPanel(m);
+    });
+    return () => {
+      live = false;
+    };
+  }, [page]);
+
+  // RESETTABLE_PANEL::ResetPanel on the page that is up: the panel owns its own
+  // defaults, as every `panel_*.cpp` does.
   const resetPage = (): void => {
+    const built = peekPrefsPanel(page);
+    if (built) {
+      built.reset(ctx);
+      return;
+    }
+    // Not yet registry-owned: the arm from the original switch, unchanged.
     switch (page) {
-      case 'common':
-        setCommon(structuredClone(COMMON_DEFAULTS));
-        setPrivacy(structuredClone(PRIVACY_DEFAULTS));
-        break;
-      case 'mouse':
-        setCommon(structuredClone(COMMON_DEFAULTS));
-        break;
-      // PANEL_HOTKEYS_EDITOR::ResetPanel -> ResetAllHotkeys( true ): every
-      // action back to its DefaultHotkey, which is an empty override map.
-      case 'hotkeys':
-        setHotkeys({});
-        break;
       case 'pcb-display':
         setPcbnew(structuredClone(PCBNEW_DEFAULTS));
         break;
@@ -434,23 +204,6 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     }
   };
 
-  const mouseActionOpts: [MouseDragAction, string][] = [
-    ['select', 'Draw selection rectangle'],
-    ['drag_selected', 'Drag selected objects; otherwise draw selection rectangle'],
-    ['drag_any', 'Drag any object (selected or not)'],
-  ];
-  const panZoomNone: [MouseDragAction, string][] = [
-    ['pan', 'Pan'],
-    ['zoom', 'Zoom'],
-    ['none', 'None'],
-  ];
-  const scrollCols: [ScrollModifier, string][] = [
-    ['none', '--'],
-    ['ctrl', 'Ctrl'],
-    ['shift', 'Shift'],
-    ['alt', 'Alt'],
-  ];
-
   usePcmVersion();
   // Colour themes installed via the Plugin and Content Manager, offered here
   // alongside the built-in themes.
@@ -464,479 +217,10 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     return { ...KICAD_DEFAULT, ...userColors } as Theme;
   }, [themeId, userColors]);
 
-  const body = (): JSX.Element => {
+  // Pages not yet moved out of this switch. Each one leaves as its owning
+  // editor's `prefs/` module lands; the registry is the only route once it has.
+  const body = (): JSX.Element | null => {
     switch (page) {
-      case 'common':
-        return (
-          <>
-            <Group title="Antialiasing">
-              <Sel
-                label="Accelerated graphics:"
-                value={0}
-                options={[
-                  [0, 'No Antialiasing'],
-                  [1, 'Fast Antialiasing'],
-                  [2, 'High Quality Antialiasing'],
-                ]}
-                onChange={() => {}}
-              />
-              <Sel
-                label="Fallback graphics:"
-                value={0}
-                options={[
-                  [0, 'No Antialiasing'],
-                  [1, 'Fast Antialiasing'],
-                  [2, 'High Quality Antialiasing'],
-                ]}
-                onChange={() => {}}
-              />
-              <div className="ze-muted">
-                (The browser canvas antialiases on its own; these choices have no effect here.)
-              </div>
-            </Group>
-            <Group title="User Interface">
-              <Check
-                label="Show icons in menus"
-                checked={common.appearance.use_icons_in_menus}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.appearance.use_icons_in_menus = v;
-                  })
-                }
-              />
-              <Check
-                label="Show scrollbars in editors"
-                checked={common.appearance.show_scrollbars}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.appearance.show_scrollbars = v;
-                  })
-                }
-              />
-              <Sel
-                label="Icon theme:"
-                value={common.appearance.icon_theme}
-                options={[
-                  ['light', 'Light'],
-                  ['dark', 'Dark'],
-                  ['auto', 'Automatic'],
-                ]}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.appearance.icon_theme = v;
-                  })
-                }
-              />
-              <Sel
-                label="Toolbar icon size:"
-                value={common.appearance.toolbar_icon_size}
-                options={[
-                  ['small', 'Small'],
-                  ['normal', 'Normal'],
-                  ['large', 'Large'],
-                ]}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.appearance.toolbar_icon_size = v;
-                  })
-                }
-              />
-              <Num
-                label="High-contrast mode dimming factor:"
-                value={common.appearance.hicontrast_dimming_factor}
-                unit="%"
-                min={0}
-                max={100}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.appearance.hicontrast_dimming_factor = v;
-                  })
-                }
-              />
-            </Group>
-            <Group title="Editing">
-              <Check
-                label="Warp mouse to anchor of moved object"
-                checked={common.input.warp_mouse_on_move}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.warp_mouse_on_move = v;
-                  })
-                }
-              />
-              <Check
-                label="First hotkey selects tool"
-                checked={!common.input.immediate_actions}
-                title="If not checked, hotkeys will immediately perform an action even if the relevant tool was not previously selected."
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.immediate_actions = !v;
-                  })
-                }
-              />
-              <Check
-                label="Show popup indicator when toggling settings with hotkeys"
-                checked={common.input.hotkey_feedback}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.hotkey_feedback = v;
-                  })
-                }
-              />
-            </Group>
-            <Group title="Session">
-              <Check
-                label="Remember open files for next project launch"
-                checked={common.system.session.remember_open_files}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.system.session.remember_open_files = v;
-                  })
-                }
-              />
-              <Num
-                label="Auto save:"
-                value={Math.round(common.system.autosave_interval / 60)}
-                unit="minutes"
-                min={0}
-                max={60}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.system.autosave_interval = v * 60;
-                  })
-                }
-              />
-              <Num
-                label="File history size:"
-                value={common.system.file_history_size}
-                min={0}
-                max={50}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.system.file_history_size = v;
-                  })
-                }
-              />
-            </Group>
-            <Group title="Project Backup">
-              <Check
-                label="Automatically backup projects"
-                checked={common.backup.enabled}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.enabled = v;
-                  })
-                }
-              />
-              <Check
-                label="Create backups when auto save occurs"
-                checked={common.backup.backup_on_autosave}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.backup_on_autosave = v;
-                  })
-                }
-              />
-              <Num
-                label="Maximum backups to keep:"
-                value={common.backup.limit_total_files}
-                min={0}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.limit_total_files = v;
-                  })
-                }
-              />
-              <Num
-                label="Maximum backups per day:"
-                value={common.backup.limit_daily_files}
-                min={0}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.limit_daily_files = v;
-                  })
-                }
-              />
-              <Num
-                label="Minimum time between backups:"
-                value={Math.round(common.backup.min_interval / 60)}
-                unit="minutes"
-                min={0}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.min_interval = v * 60;
-                  })
-                }
-              />
-              <Num
-                label="Maximum total backup size:"
-                value={Math.round(common.backup.limit_total_size / 1048576)}
-                unit="MB"
-                min={0}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.backup.limit_total_size = v * 1048576;
-                  })
-                }
-              />
-            </Group>
-            {/* Not a KiCad panel, KiCad is a desktop app and collects nothing.
-                Placed last on Common so the KiCad-mirrored groups read in order. */}
-            <Group title="Privacy">
-              <Check
-                label="Send anonymous crash reports"
-                title="Sends the error and stack trace when the app crashes, with file names removed and no project data. Used only to find and fix bugs."
-                checked={privacy.crash_reports}
-                onChange={(v) => setPrivacy({ ...privacy, crash_reports: v })}
-              />
-            </Group>
-          </>
-        );
-
-      case 'mouse':
-        return (
-          <>
-            <Group title="Pan and Zoom">
-              <Check
-                label="Center and warp cursor on zoom"
-                title="Center the cursor on screen when zooming."
-                checked={common.input.center_on_zoom}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.center_on_zoom = v;
-                  })
-                }
-              />
-              <Check
-                label="Automatically pan while moving object"
-                title="When drawing a track or moving an item, pan when approaching the edge of the display."
-                checked={common.input.auto_pan}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.auto_pan = v;
-                  })
-                }
-              />
-              <Check
-                label="Use zoom acceleration"
-                title="Zoom faster when scrolling quickly"
-                checked={common.input.zoom_acceleration}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.zoom_acceleration = v;
-                  })
-                }
-              />
-              <div className="ze-pref-row">
-                <span className="lbl">Zoom speed:</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  value={common.input.zoom_speed}
-                  disabled={common.input.zoom_speed_auto}
-                  onChange={(e) =>
-                    upC((s) => {
-                      s.input.zoom_speed = Number(e.target.value);
-                    })
-                  }
-                />
-                <Check
-                  label="Automatic"
-                  checked={common.input.zoom_speed_auto}
-                  onChange={(v) =>
-                    upC((s) => {
-                      s.input.zoom_speed_auto = v;
-                    })
-                  }
-                />
-              </div>
-              <div className="ze-pref-row">
-                <span className="lbl">Auto pan speed:</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={9}
-                  value={common.input.auto_pan_acceleration}
-                  onChange={(e) =>
-                    upC((s) => {
-                      s.input.auto_pan_acceleration = Number(e.target.value);
-                    })
-                  }
-                />
-              </div>
-            </Group>
-            <Group title="Drag Gestures">
-              <Sel
-                label="Left button drag:"
-                value={common.input.mouse_left}
-                options={mouseActionOpts}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.mouse_left = v;
-                  })
-                }
-              />
-              <Sel
-                label="Middle button drag:"
-                value={common.input.mouse_middle}
-                options={panZoomNone}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.mouse_middle = v;
-                  })
-                }
-              />
-              <Sel
-                label="Right button drag:"
-                value={common.input.mouse_right}
-                options={panZoomNone}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.mouse_right = v;
-                  })
-                }
-              />
-            </Group>
-            <Group title="Scroll Gestures">
-              <div className="ze-muted">
-                Vertical touchpad or scroll wheel movement, only one action can be assigned to each
-                column:
-              </div>
-              <table className="ze-pref-scrolltable">
-                <thead>
-                  <tr>
-                    <th></th>
-                    {scrollCols.map(([, l]) => (
-                      <th key={l}>{l}</th>
-                    ))}
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Zoom:</td>
-                    {scrollCols.map(([v]) => (
-                      <td key={v}>
-                        <input
-                          type="radio"
-                          name="scroll-zoom"
-                          checked={common.input.scroll_modifier_zoom === v}
-                          onChange={() =>
-                            upC((s) => {
-                              s.input.scroll_modifier_zoom = v;
-                            })
-                          }
-                        />
-                      </td>
-                    ))}
-                    <td>
-                      <Check
-                        label="Reverse"
-                        checked={common.input.reverse_scroll_zoom}
-                        onChange={(v) =>
-                          upC((s) => {
-                            s.input.reverse_scroll_zoom = v;
-                          })
-                        }
-                      />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>Pan up/down:</td>
-                    {scrollCols.map(([v]) => (
-                      <td key={v}>
-                        <input
-                          type="radio"
-                          name="scroll-panv"
-                          checked={common.input.scroll_modifier_pan_v === v}
-                          onChange={() =>
-                            upC((s) => {
-                              s.input.scroll_modifier_pan_v = v;
-                            })
-                          }
-                        />
-                      </td>
-                    ))}
-                    <td></td>
-                  </tr>
-                  <tr>
-                    <td>Pan left/right:</td>
-                    {scrollCols.map(([v]) => (
-                      <td key={v}>
-                        <input
-                          type="radio"
-                          name="scroll-panh"
-                          checked={common.input.scroll_modifier_pan_h === v}
-                          onChange={() =>
-                            upC((s) => {
-                              s.input.scroll_modifier_pan_h = v;
-                            })
-                          }
-                        />
-                      </td>
-                    ))}
-                    <td>
-                      <Check
-                        label="Reverse"
-                        checked={common.input.reverse_scroll_pan_h}
-                        onChange={(v) =>
-                          upC((s) => {
-                            s.input.reverse_scroll_pan_h = v;
-                          })
-                        }
-                      />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <Check
-                label="Pan left/right with horizontal movement"
-                title="Pan the canvas left and right when scrolling left to right on the touchpad"
-                checked={common.input.horizontal_pan}
-                onChange={(v) =>
-                  upC((s) => {
-                    s.input.horizontal_pan = v;
-                  })
-                }
-              />
-              <div className="ze-pref-row">
-                <button
-                  className="ze-btn"
-                  onClick={() =>
-                    upC((s) => {
-                      s.input.scroll_modifier_zoom = 'none';
-                      s.input.scroll_modifier_pan_h = 'ctrl';
-                      s.input.scroll_modifier_pan_v = 'shift';
-                      s.input.reverse_scroll_zoom = false;
-                      s.input.reverse_scroll_pan_h = false;
-                      s.input.horizontal_pan = false;
-                    })
-                  }
-                >
-                  Reset to Mouse Defaults
-                </button>
-                <button
-                  className="ze-btn"
-                  onClick={() =>
-                    upC((s) => {
-                      s.input.scroll_modifier_zoom = 'ctrl';
-                      s.input.scroll_modifier_pan_h = 'shift';
-                      s.input.scroll_modifier_pan_v = 'none';
-                      s.input.horizontal_pan = true;
-                    })
-                  }
-                >
-                  Reset to Trackpad Defaults
-                </button>
-              </div>
-            </Group>
-          </>
-        );
-
-      case 'hotkeys':
-        return <PanelHotkeysEditor overrides={hotkeys} onChange={setHotkeys} />;
-
       case 'sch-display':
         return (
           <div className="ze-pref-columns">
@@ -1811,6 +1095,8 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
             onChange={(fn) => upP((s) => fn(s.cross_probing))}
           />
         );
+      default:
+        return null;
     }
   };
 
@@ -1841,7 +1127,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
               ),
             )}
           </div>
-          <div className="ze-prefs-panel">{body()}</div>
+          <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : body()}</div>
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={resetPage}>
