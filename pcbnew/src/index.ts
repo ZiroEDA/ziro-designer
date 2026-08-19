@@ -95,7 +95,17 @@ export {
   type BoardItemRef,
   type BoardBBox,
 } from './edit-board.js';
-export { findItemsFromSyncSelection, crossProbeZoomScale } from './cross_probe.js';
+export {
+  findItemsFromSyncSelection,
+  crossProbeZoomScale,
+  crossProbeViewChange,
+  crossProbeSelection,
+  crossProbeHighlightNet,
+  crossProbeFlashSelection,
+  CROSS_PROBE_FLASH_INTERVAL_MS,
+  CROSS_PROBE_FLASH_LAST_PHASE,
+  type CrossProbeView,
+} from './cross_probe.js';
 export {
   plotGerberLayer,
   plotExcellonDrill,
