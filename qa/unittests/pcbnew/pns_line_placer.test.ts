@@ -376,6 +376,18 @@ describe('SHAPE_LINE_CHAIN edits the placer needs', () => {
     expect(chain([0, 0], [100, 0]).split(V(40, 2))).toBe(-1);
   });
 
+  it('split measures with SEG::Distance, which floors — not with a rounded hypot', () => {
+    // A point 2 IU to the right of a 1:2 diagonal. Its perpendicular squared
+    // distance is 3, and `seg.Distance( aP )` is `isqrt( 3 )` = 1, so
+    // `dist < min_dist` holds and the split happens. A `round( sqrt( 3 ) )`
+    // reads 2 and silently declines a split KiCad performs.
+    const c = chain([0, 0], [100, 200]);
+
+    expect(c.split(V(2, 0))).toBe(1);
+    expect(c.pointCount()).toBe(3);
+    expect(c.cPoint(1)).toEqual(V(2, 0));
+  });
+
   it('split returns an existing vertex index without inserting', () => {
     const c = chain([0, 0], [50, 0], [100, 0]);
 
