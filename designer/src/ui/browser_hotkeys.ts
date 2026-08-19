@@ -83,24 +83,39 @@ export const isBrowserReserved = (combo: string): boolean => RESERVED.has(combo.
  * `Ctrl+Alt+T`, which opens a terminal on GNOME and so would be worse than what
  * it replaced.
  *
- * Two reserved combos are deliberately *not* substituted:
+ * Note what is and is not being moved. The *platform's* close-this-window and
+ * quit stay exactly where they are: a browser closing the tab on Ctrl+W is the
+ * faithful analogue of a window manager closing a KiCad frame, and neither is a
+ * TOOL_ACTION - `Close` and `Quit` come out of g_standardPlatformCommands and
+ * ACTIONS::quit declares no hotkey at all. What needs moving is the *in-app*
+ * command that happens to share the key: our File > Close and File > Quit both
+ * return to the project manager, which is not a window close and not a process
+ * exit. Losing the tab, or the whole browser, instead is the bug.
  *
- *   Ctrl+W        The platform's own "close this window", which is `Close` in
- *                 g_standardPlatformCommands rather than a TOOL_ACTION -
- *                 ACTIONS::quit declares no hotkey at all. A browser closing
- *                 the tab on Ctrl+W is the faithful analogue, so the key is
- *                 left where it belongs. What did need moving is our *in-app*
- *                 Close, which returns to the project manager and is not a
- *                 window close at all.
+ * One reserved combo is deliberately *not* substituted:
+ *
  *   Ctrl+Shift+T  PCB_ACTIONS::placeText, which the PCB editor advertises on
  *                 its toolbar and no dispatcher reads yet. It is decided when
  *                 pcbnew gets a registry - see #525 - rather than guessed now.
  */
 export const BROWSER_REBINDS: Readonly<Record<string, string>> = {
-  /** KICAD_MANAGER_ACTIONS::newProject. Ctrl+N is the browser's new window. */
+  /** KICAD_MANAGER_ACTIONS::newProject, and ACTIONS::doNew in the editors that
+   *  have one. Ctrl+N is the browser's new window. */
   'Ctrl+N': 'Ctrl+Alt+N',
-  /** Our in-app Close. Ctrl+W is the browser's close tab. */
+  /** `ACTION_MENU::AddClose`'s in-app Close. Ctrl+W is the browser's close tab. */
   'Ctrl+W': 'Ctrl+Alt+W',
+  /**
+   * `ACTION_MENU::AddQuit`'s in-app Quit.
+   *
+   * Chrome binds Ctrl+Q to quitting the *browser* on Linux, and reserves it
+   * everywhere, so the raw key either does nothing or throws away every other
+   * tab as well. Declaring it anyway - which is what the Image Converter did
+   * when the dispatcher first landed, on the grounds that "a key we decline to
+   * declare is one that certainly does nothing" - fails its own test: the raw
+   * key certainly does nothing here either. The substitution is the spelling
+   * that keeps the promise the menu makes.
+   */
+  'Ctrl+Q': 'Ctrl+Alt+Q',
 };
 
 /** The combo this app actually binds for a command whose upstream key is taken. */
