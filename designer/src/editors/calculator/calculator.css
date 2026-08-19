@@ -843,3 +843,27 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font-size: calc(var(--ui-font-size) * 1.3);
   font-weight: 700;
 }
+
+.tl-buttons {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--wx-border);
+  margin: var(--wx-border) 0;
+}
+
+.tl-results td {
+  text-align: left;
+}
+
+/* The transmission-line type radio box: one column, as
+   `wxRA_SPECIFY_COLS` with 1 column asks for. */
+.tl-types {
+  width: fit-content;
+}
+
+.tl-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  margin: var(--wx-border) 0;
+}
