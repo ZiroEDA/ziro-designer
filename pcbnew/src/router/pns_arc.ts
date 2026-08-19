@@ -29,6 +29,7 @@ import {
   getArcToSegmentCount,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { segDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcShape } from '../drc/drc_engine.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
@@ -66,17 +67,6 @@ export const reversedArc = (a: ShapeArc): ShapeArc => ({
   p1: { ...a.p0 },
   width: a.width,
 });
-
-/** `SEG::Distance`: to the segment, clamped at the ends, rounded to an integer. */
-function segDistance(aA: Vec2, aB: Vec2, aP: Vec2): number {
-  const dx = aB.x - aA.x;
-  const dy = aB.y - aA.y;
-  const len2 = dx * dx + dy * dy;
-  const t =
-    len2 === 0 ? 0 : Math.max(0, Math.min(1, ((aP.x - aA.x) * dx + (aP.y - aA.y) * dy) / len2));
-
-  return Math.round(Math.hypot(aP.x - (aA.x + dx * t), aP.y - (aA.y + dy * t)));
-}
 
 /**
  * `SHAPE_ARC::ConvertToPolyline` — `libs/kimath/src/geometry/shape_arc.cpp:1003-1064`.
@@ -125,7 +115,7 @@ export function convertArcToPolyline(aArc: ShapeArc, aMaxError = ARC_HIGH_DEF): 
 
   if (
     externalRadius < halfMaxError ||
-    segDistance(aArc.p0, aArc.p1, aArc.arcMid) < halfMaxError // Should be a very rare case
+    segDistanceToPoint({ a: aArc.p0, b: aArc.p1 }, aArc.arcMid) < halfMaxError // Should be a very rare case
   ) {
     // In this case the arc is approximated by one segment, with an effective
     // error between -aMaxError/2 and +aMaxError/2, as expected.

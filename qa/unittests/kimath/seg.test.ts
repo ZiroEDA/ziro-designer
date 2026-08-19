@@ -356,9 +356,9 @@ describe('segIntersect — large coordinates, where 64-bit stops being optional'
 
     // Scaled up by a million so the products are past 2^53 and a double cannot
     // represent the quotient's tie exactly either.
-    expect(
-      segIntersect(S(0, 0, 1000000001, 1000000001), S(1000000001, 0, 0, 1000000001)),
-    ).toEqual(V(500000000, 500000001));
+    expect(segIntersect(S(0, 0, 1000000001, 1000000001), S(1000000001, 0, 0, 1000000001))).toEqual(
+      V(500000000, 500000001),
+    );
   });
 
   it('does not mistake two parallel shallow lines for a crossing', () => {
