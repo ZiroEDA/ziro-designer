@@ -84,7 +84,7 @@ import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import type { FocusLike } from '../../ui/browser_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
@@ -1217,7 +1217,12 @@ export function SymbolEditor({
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'symbols') !== 'symbols') return;
       // The library tree already claimed it (TreeSelActions).
-      if (e.defaultPrevented) return;
+      // `defaultPrevented` means someone already acted on this key - EXCEPT
+      // when it was our own browser suppressor, which runs in the capture phase
+      // and cancels every combo the app claims purely to stop the browser.
+      // Reading that as "handled" is what made every hotkey in the app stop
+      // working once the dispatcher landed (c4a00590).
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       if (anyDialogOpen && e.key !== 'Escape') return;
       // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
       // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
