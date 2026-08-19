@@ -21,7 +21,13 @@ import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
 import { resetKeys } from '../../../dialogs/prefs/reset.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
+/**
+ * `PANEL_EESCHEMA_DISPLAY_OPTIONS::ResetPanel`
+ * (`eeschema/dialogs/panel_eeschema_display_options.cpp`) loads a default
+ * `EESCHEMA_SETTINGS` into *this panel's* controls via `loadEEschemaSettings`,
+ * then hands the same object to the embedded `PANEL_GAL_OPTIONS`. The rest of
+ * `EESCHEMA_SETTINGS` is untouched: those widgets are on other pages.
+ */
 export function resetEeschemaDisplayOptions(ctx: PrefsContext): void {
   ctx.upE((s) => {
     // "Appearance". NOT `color_theme` (the Colors page) and NOT
@@ -97,7 +103,12 @@ export function resetEeschemaGrids(ctx: PrefsContext): void {
   });
 }
 
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
+/**
+ * `PANEL_EESCHEMA_EDITING_OPTIONS::ResetPanel`
+ * (`eeschema/dialogs/panel_eeschema_editing_options.cpp:172-178`): a default
+ * `EESCHEMA_SETTINGS` pushed through `loadEEschemaSettings`, which repopulates
+ * this panel's widgets and leaves every other panel alone.
+ */
 export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
   ctx.upE((s) => {
     // "Editing" / "Defaults for New Objects" / "Rubber banding" etc.
@@ -133,7 +144,12 @@ export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
   });
 }
 
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
+/**
+ * `PANEL_EESCHEMA_ANNOTATION_OPTIONS::ResetPanel`
+ * (`eeschema/dialogs/panel_eeschema_annotation_options.cpp`), which builds a
+ * default `SCHEMATIC_SETTINGS` and calls `loadEEschemaSettings` on it — setting
+ * this panel's three controls and no others.
+ */
 export function resetEeschemaAnnotationOptions(ctx: PrefsContext): void {
   ctx.upE((s) => {
     // PANEL_EESCHEMA_ANNOTATION_OPTIONS::ResetPanel
@@ -145,8 +161,10 @@ export function resetEeschemaAnnotationOptions(ctx: PrefsContext): void {
 }
 
 /**
- * `RESETTABLE_PANEL::ResetPanel`: drop every per-layer override and go back to
- * the default theme. Only the colour slice, as the original arm did.
+ * `PANEL_COLOR_SETTINGS::ResetPanel` (`common/dialogs/panel_color_settings.cpp`)
+ * walks its own swatches and puts each layer back to `GetDefaultColor`. Ours is
+ * the same slice: drop every per-layer override, and go back to the default
+ * theme. This one was already narrow.
  */
 export function resetEeschemaColorSettings(ctx: PrefsContext): void {
   ctx.setUserColors({});
