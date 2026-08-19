@@ -132,7 +132,10 @@ import {
   startPlaceImage,
   type ImagePlaceState,
   findItemsFromSyncSelection,
-  crossProbeZoomScale,
+  crossProbeViewChange,
+  crossProbeFlashSelection,
+  CROSS_PROBE_FLASH_INTERVAL_MS,
+  CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
@@ -336,6 +339,7 @@ import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { settings } from '../../prefs/settings.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
@@ -1023,6 +1027,10 @@ export function PcbEditor({
   // "$NET: <name>" express-mail handler does.
   useEffect(() => {
     if (crossProbeNet === undefined) return;
+    // "$NET:" is refused outright when auto_highlight is off
+    // (pcbnew/cross-probing.cpp:140), so an existing highlight is left alone
+    // rather than cleared.
+    if (!settings.pcbnew.cross_probing.auto_highlight) return;
     const brd = boardRef.current;
     let code = 0;
     if (crossProbeNet && brd) {
@@ -3460,22 +3468,54 @@ export function PcbEditor({
 
   // Select on PCB, arriving from the schematic frame: pcbnew's "$SELECT:"
   // handler, `FindItemsFromSyncSelection` then `doSyncSelection` — replace the
-  // selection with what the parts name, then zoom and centre on it. Both
-  // cross-probe settings default on upstream, so both steps run.
+  // selection with what the parts name, then move the view onto it.
+  //
+  // Every step is one of pcbnew's own `cross_probing.*` settings, and it is
+  // *pcbnew's* copy that applies: upstream the frame that RECEIVES a probe is
+  // the one whose settings decide what it does (pcbnew/cross-probing.cpp:734
+  // reads `GetPcbNewSettings()`), so the schematic's copy has no say here.
   //
   // Keyed on the nonce alone: the parts of a repeated request are equal, and
   // re-running on every render would fight the user's own clicks.
   const syncNonce = syncSelection?.nonce;
   const syncPartsRef = useRef(syncSelection?.parts);
   syncPartsRef.current = syncSelection?.parts;
+  // The flash run in progress (pcb_edit_frame.cpp:665-679): the ids to restore
+  // and the interval handle, kept out of state so a phase tick does not have to
+  // survive a re-render to be cancellable.
+  const flashRef = useRef<{ ids: readonly string[]; timer: number } | null>(null);
   useEffect(() => {
     if (syncNonce === undefined) return;
     const brd = boardRef.current;
     const canvas = canvasRef.current;
     if (!brd) return;
+    const cfg = settings.pcbnew.cross_probing;
+    // `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet is
+    // dropped whole, so the existing selection stays as the user left it.
+    if (!cfg.on_selection) return;
 
     const ids = findItemsFromSyncSelection(brd, syncPartsRef.current ?? []);
     setSelection(new Set(ids));
+
+    // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
+    if (flashRef.current) {
+      clearInterval(flashRef.current.timer);
+      flashRef.current = null;
+    }
+    if (cfg.flash_selection && ids.length > 0) {
+      let phase = 0;
+      const timer = window.setInterval(() => {
+        setSelection(new Set(crossProbeFlashSelection(phase, ids)));
+        phase++;
+        if (phase > CROSS_PROBE_FLASH_LAST_PHASE) {
+          if (flashRef.current) clearInterval(flashRef.current.timer);
+          flashRef.current = null;
+          setSelection(new Set(ids));
+        }
+      }, CROSS_PROBE_FLASH_INTERVAL_MS);
+      flashRef.current = { ids, timer };
+    }
+
     if (ids.length === 0 || !canvas) return;
 
     let box: BoardBBox | null = null;
@@ -3491,44 +3531,39 @@ export function PcbEditor({
           }
         : b;
     }
-    // `bbox.GetWidth() != 0 && GetHeight() != 0` — a zero-area selection has
-    // nothing to aim at.
-    if (!box || box.maxX <= box.minX || box.maxY <= box.minY) return;
 
     const view = viewRef.current;
     // Where the view is looking now. The zoom changes first and keeps this
     // point (`VIEW::SetScale` scales about the centre), so it is read off the
     // old scale and re-applied under the new one.
-    const viewCx = (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale);
-    const viewCy = (canvas.height / 2 - view.ty) / view.scale;
-    const scale =
-      crossProbeZoomScale(
-        box,
-        { x: canvas.width / view.scale, y: canvas.height / view.scale },
-        view.scale,
-      ) ?? view.scale;
-
-    // EDA_DRAW_FRAME::FocusOnLocation: centre only when the target is outside
-    // the viewport, which is first shrunk by a tenth of its *width* — on both
-    // axes, as `r.Inflate( -r.GetWidth() / 10 )` does — so a probe onto
-    // something already on screen leaves the view where the user put it.
-    const cx = (box.minX + box.maxX) / 2;
-    const cy = (box.minY + box.maxY) / 2;
-    const halfW = canvas.width / scale / 2;
-    const halfH = canvas.height / scale / 2;
-    const inset = halfW * 0.2;
-    const outside = Math.abs(cx - viewCx) > halfW - inset || Math.abs(cy - viewCy) > halfH - inset;
-    const centreX = outside ? cx : viewCx;
-    const centreY = outside ? cy : viewCy;
+    const next = crossProbeViewChange(
+      cfg,
+      box,
+      {
+        scale: view.scale,
+        cx: (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale),
+        cy: (canvas.height / 2 - view.ty) / view.scale,
+      },
+      { width: canvas.width, height: canvas.height },
+    );
+    if (!next) return;
 
     viewRef.current = {
-      scale,
+      scale: next.scale,
       flipX: view.flipX,
-      tx: canvas.width / 2 - centreX * (view.flipX ? -scale : scale),
-      ty: canvas.height / 2 - centreY * scale,
+      tx: canvas.width / 2 - next.cx * (view.flipX ? -next.scale : next.scale),
+      ty: canvas.height / 2 - next.cy * next.scale,
     };
     requestDraw();
   }, [syncNonce, requestDraw]);
+  // Never leave a flash interval behind when the board editor unmounts.
+  useEffect(
+    () => () => {
+      if (flashRef.current) clearInterval(flashRef.current.timer);
+      flashRef.current = null;
+    },
+    [],
+  );
 
   // DIALOG_FIND::search: collect hits in upstream order, footprint reference
   // designators, footprint values, other text items (footprint text, board

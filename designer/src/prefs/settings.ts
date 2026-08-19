@@ -14,6 +14,10 @@
  */
 
 import {
+  CROSS_PROBING_DEFAULTS,
+  type CrossProbingSettings,
+} from '@ziroeda/common/src/cross_probing_settings.js';
+import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
   type RoutingSettingsJson,
@@ -173,6 +177,12 @@ export interface EeschemaSettings {
     show_page_limits: boolean;
     footprint_preview: boolean;
   };
+  /**
+   * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
+   * PANEL_EESCHEMA_DISPLAY_OPTIONS. Upstream this copy governs probes that
+   * *arrive in* the schematic from the board.
+   */
+  cross_probing: CrossProbingSettings;
   autoplace_fields: {
     enable: boolean;
     allow_rejustify: boolean;
@@ -339,6 +349,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     show_page_limits: true,
     footprint_preview: true,
   },
+  cross_probing: { ...CROSS_PROBING_DEFAULTS },
   autoplace_fields: {
     enable: true,
     allow_rejustify: true,
@@ -492,6 +503,13 @@ export interface PcbnewSettings {
     /** The editor's active color theme (APP_SETTINGS_BASE m_ColorTheme). */
     color_theme: string;
   };
+  /**
+   * APP_SETTINGS_BASE `cross_probing.*` (app_settings.cpp:290-303), edited by
+   * PANEL_DISPLAY_OPTIONS. This is the copy our schematic -> board probes are
+   * governed by, because upstream the *receiving* frame's settings decide what
+   * a probe does (pcbnew/cross-probing.cpp:140, :221-247, :734, :776).
+   */
+  cross_probing: CrossProbingSettings;
   printing: PcbnewPrinting;
   /**
    * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
@@ -509,6 +527,7 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
   appearance: {
     color_theme: '_builtin_default',
   },
+  cross_probing: { ...CROSS_PROBING_DEFAULTS },
   tools: {
     pns: writeRoutingSettings(DEFAULT_ROUTING_SETTINGS),
   },
