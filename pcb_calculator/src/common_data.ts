@@ -68,3 +68,66 @@ export const CONDUCTOR_RESISTIVITIES: readonly MaterialPreset[] = [
   { value: 9.71e-8, name: 'iron' },
   { value: 6.0e-8, name: 'zinc' },
 ];
+
+/**
+ * The `...` pick-lists, verbatim from `pcb_calculator/common_data.cpp`. Each
+ * entry is `"<value> \t<name>"` in KiCad; `wxGetSingleChoice(...).BeforeFirst(' ')`
+ * takes the value and drops the label, so the two halves are kept apart here.
+ */
+export interface StandardValue {
+  value: string;
+  name: string;
+}
+
+/** StandardResistivityList (common_data.cpp:84-102) — Via Size's `...`. */
+export const STANDARD_RESISTIVITY_LIST: readonly StandardValue[] = [
+  { value: '2.4e-8', name: 'gold' },
+  { value: '1.72e-8', name: 'copper' },
+  { value: '1.62e-8', name: 'silver' },
+  { value: '12.4e-8', name: 'tin' },
+  { value: '10.5e-8', name: 'platinum' },
+  { value: '2.62e-8', name: 'aluminum' },
+  { value: '6.9e-8', name: 'nickel' },
+  { value: '3.9e-8', name: 'brass (66Cu 34Zn)' },
+  { value: '9.71e-8', name: 'iron' },
+  { value: '6.0e-8', name: 'zinc' },
+];
+
+/** StandardCableConductorList (common_data.cpp:104-118) — Cable Size's `...`. */
+export const STANDARD_CABLE_CONDUCTOR_LIST: readonly StandardValue[] = [
+  { value: '1.72e-8', name: 'Cu, Copper' },
+  { value: '2.62e-8', name: 'Al, Aluminum' },
+  { value: '100e-8', name: 'NiCr, Nichrome' },
+  { value: '9.71e-8', name: 'Fe, Iron' },
+  { value: '5.6e-8', name: 'W, Tungsten' },
+];
+
+/** StandardCableTempCoefList (common_data.cpp:120-134), lined up with the above. */
+export const STANDARD_CABLE_TEMP_COEF_LIST: readonly StandardValue[] = [
+  { value: '3.93e-3', name: 'Cu, Copper' },
+  { value: '4.29e-3', name: 'Al, Aluminum' },
+  { value: '0.4e-3', name: 'NiCr, Nichrome' },
+  { value: '5e-3', name: 'Fe, Iron' },
+  { value: '4.5e-3', name: 'W, Tungsten' },
+];
+
+/** StandardRelativeDielectricConstantList (common_data.cpp:28-…). */
+export const STANDARD_EPSILON_R_LIST: readonly StandardValue[] = [
+  { value: '4.5', name: 'FR4' },
+  { value: '3.67', name: 'Isola FR408' },
+  { value: '4.04', name: 'Isola 370HR' },
+  { value: '3.55', name: 'Rogers RO4003C' },
+  { value: '3.66', name: 'Rogers R4350B' },
+  { value: '9.8', name: 'alumina (Al2O3)' },
+  { value: '3.78', name: 'fused quartz' },
+  { value: '3.38', name: 'RO4003' },
+  { value: '2.2', name: 'RT/duroid 5880' },
+  { value: '10.2', name: 'RT/duroid 6010LM' },
+  { value: '2.1', name: 'teflon (PTFE)' },
+  { value: '4.0', name: 'PVC' },
+  { value: '2.3', name: 'PE' },
+  { value: '6.6', name: 'beryllia (BeO)' },
+  { value: '8.7', name: 'aluminum nitride' },
+  { value: '11.9', name: 'silicon' },
+  { value: '12.9', name: 'GaAs' },
+];

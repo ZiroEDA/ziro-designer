@@ -745,3 +745,39 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .fc-help {
   flex: 1 1 auto;
 }
+
+/* wxSlider with wxSL_LABELS|wxSL_VALUE_LABEL: the value rides above the thumb
+   and the range endpoints sit under the ends. */
+.cs-slider {
+  position: relative;
+  flex: 1;
+  padding: 16px 0 18px;
+}
+
+.cs-slider input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--chrome-active);
+}
+
+.cs-slider-value,
+.cs-slider-min,
+.cs-slider-max {
+  position: absolute;
+  font-size: var(--ui-font-size);
+}
+
+.cs-slider-value {
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.cs-slider-min {
+  bottom: 0;
+  left: 0;
+}
+
+.cs-slider-max {
+  bottom: 0;
+  right: 0;
+}
