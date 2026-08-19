@@ -15,6 +15,8 @@ import type { LibGraphic, LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
 import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
+import { drawCrosshair } from '../../ui/grid_cursor.js';
+import { settings } from '../../prefs/settings.js';
 import {
   fitSymbol,
   renderSymbolScene,
@@ -254,8 +256,32 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
       ctx.fillRect(x, y, w, h);
       ctx.strokeRect(x, y, w, h);
     }
+    // GAL::blitCursor at the snapped point, in LAYER_SCHEMATIC_CURSOR: the
+    // symbol editor is an SCH_BASE_FRAME and reads eeschema's cursor layer
+    // (sch_render_settings.h:71). It had none at all before.
+    if (cur) {
+      const at = snap(cur);
+      const cursorPrefs = settings.eeschema.window.cursor;
+      drawCrosshair(
+        ctx,
+        { x: at.x * vp.scale + vp.offsetX, y: at.y * vp.scale + vp.offsetY },
+        canvas.width,
+        canvas.height,
+        {
+          mode: cursorPrefs.crosshair,
+          color: theme.cursor,
+          // SYMBOL_EDITOR_DRAWING_TOOLS and the move tool call ShowCursor(true);
+          // the selection tool does not, so there the crosshair is the dimmed
+          // forced one.
+          toolWantsCursor: activeTool !== 'select',
+          alwaysShow: cursorPrefs.always_show_cursor,
+          devicePixelRatio: dpr(),
+        },
+      );
+    }
+
     onScaleChange?.(vp.scale);
-  }, [symbol, theme, opts, selection, pendingPin, pendingText, onScaleChange]);
+  }, [symbol, theme, opts, selection, activeTool, pendingPin, pendingText, onScaleChange]);
 
   const zoomAbout = useCallback(
     (px: number, py: number, factor: number) => {
@@ -594,6 +620,8 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         draw();
         return;
       }
+      // Nothing is in flight, but the crosshair still follows the pointer.
+      draw();
     },
     [draw, pendingPin, pendingText, onCursorMove],
   );
@@ -708,6 +736,7 @@ export const SymbolCanvas = forwardRef<SymbolCanvasController, Props>(function S
         onPointerLeave={() => {
           cursorRef.current = null;
           onCursorMove?.(null);
+          draw();
         }}
       />
     </div>

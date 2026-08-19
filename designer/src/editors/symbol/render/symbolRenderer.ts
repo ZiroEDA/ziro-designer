@@ -25,6 +25,7 @@ import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js
 import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
 import type { Theme } from '../../schematic/theme.js';
+import { drawGrid, viewFromOffsets, type GridStyle } from '../../../ui/grid_cursor.js';
 
 export interface Viewport {
   scale: number;
@@ -63,6 +64,13 @@ export interface SymbolViewOptions {
   showHiddenPins: boolean;
   /** SCH_ACTIONS::showHiddenFields. */
   showHiddenFields: boolean;
+  /** ACTIONS::toggleGrid (WINDOW_SETTINGS grid.show). Unset = shown, which is
+   *  the setting's default. */
+  showGrid?: boolean;
+  /** GAL_DISPLAY_OPTIONS m_gridStyle. */
+  gridStyle?: GridStyle;
+  /** GAL::GetScaleFactor. */
+  devicePixelRatio?: number;
 }
 
 /** Stable id of an item inside the currently edited symbol. */
@@ -778,29 +786,6 @@ function drawOrigin(ctx: CanvasRenderingContext2D, scale: number): void {
   line(ctx, { x: 0, y: -radius }, { x: 0, y: radius });
 }
 
-function drawGrid(
-  ctx: CanvasRenderingContext2D,
-  viewport: Viewport,
-  theme: Theme,
-  w: number,
-  h: number,
-): void {
-  const left = -viewport.offsetX / viewport.scale;
-  const top = -viewport.offsetY / viewport.scale;
-  const right = (w - viewport.offsetX) / viewport.scale;
-  const bottom = (h - viewport.offsetY) / viewport.scale;
-  if (GRID * viewport.scale < 6) return;
-  const dot = Math.max(0.15 * MM, 0.5 / viewport.scale);
-  ctx.fillStyle = theme.grid;
-  const x0 = Math.ceil(left / GRID) * GRID;
-  const y0 = Math.ceil(top / GRID) * GRID;
-  for (let x = x0; x <= right; x += GRID) {
-    for (let y = y0; y <= bottom; y += GRID) {
-      ctx.fillRect(x - dot / 2, y - dot / 2, dot, dot);
-    }
-  }
-}
-
 const SELECTION_THICKNESS_MILS = 3;
 
 /**
@@ -827,7 +812,19 @@ export function renderSymbolScene(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  drawGrid(ctx, viewport, theme, canvasWidth, canvasHeight);
+  // GAL::DrawGrid, in LAYER_SCHEMATIC_GRID: the symbol editor is an
+  // SCH_BASE_FRAME, so it reads the same layer eeschema does
+  // (sch_render_settings.h:70). It used to have a private dot painter here that
+  // no toggle could reach, so `toggleGrid` sat pressed and did nothing.
+  drawGrid(ctx, viewFromOffsets(viewport), canvasWidth, canvasHeight, {
+    show: opts.showGrid !== false,
+    sizeIU: GRID,
+    color: theme.grid,
+    style: opts.gridStyle,
+    devicePixelRatio: opts.devicePixelRatio,
+  });
+  // drawGrid paints in device space; put the world transform back.
+  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
   drawOrigin(ctx, scale);
   if (!sym) return;
 
