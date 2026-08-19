@@ -452,9 +452,15 @@ describe.skipIf(templates.length === 0)('every stock template in /usr/share/kica
     for (const name of templates) {
       const src = readFileSync(join(TEMPLATE_DIR, name), 'utf8');
       texts += parseDrawingSheet(src).items.filter((i) => i.type === 'text').length;
-      converted += (src.match(/\(tbtext\s+"?[^"\s()]*%/g) ?? []).length;
+      // `\(\s*tbtext`, with the space: the older templates are written
+      // `( tbtext "Date: %D" …)`. A regex without it silently misses all 13 of
+      // pagelayout_default's legacy strings and reports the file as clean.
+      for (const m of src.matchAll(/\(\s*tbtext\s+("[^"]*"|[^\s()]+)/g)) {
+        if (m[1]!.includes('%')) converted++;
+      }
     }
-    expect(converted).toBeGreaterThan(300);
-    expect(texts).toBeGreaterThan(700);
+    // 342 across the 36 templates installed here, ~22% of all their text.
+    expect(converted).toBeGreaterThanOrEqual(300);
+    expect(texts).toBeGreaterThan(1400);
   });
 });
