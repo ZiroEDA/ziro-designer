@@ -207,7 +207,9 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 const BASELINE: Record<string, number> = {
   dialogs: 5,
   'editors/calculator': 5,
-  'editors/drawingsheet': 14,
+  // 14 before the unit-binder pass: MmField's literal "mm" span carried one,
+  // and it moved to ui/'s .ze-unit-label when UnitField replaced it.
+  'editors/drawingsheet': 13,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -216,7 +218,7 @@ const BASELINE: Record<string, number> = {
   home: 5,
   mobile: 6,
   pcm: 10,
-  ui: 164,
+  ui: 165,
   widgets: 6,
 };
 

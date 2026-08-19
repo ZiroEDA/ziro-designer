@@ -14,7 +14,11 @@
  *  - "General Options": the sheet's default text size / line & text thickness
  *    (with Set to Default) and the four page margins.
  *
- * All distances are millimetres, as in the panel this mirrors.
+ * Every distance is a UNIT_BINDER (ui/UnitField.tsx): the panel holds
+ * millimetres, as the file does, but shows and reads them back in whichever
+ * unit the frame's toolbar is set to. `properties_frame.cpp:57-79` builds all
+ * twenty of its numeric fields that way, with the frame as UNITS_PROVIDER, so
+ * the panel never hardcodes a unit and never carries a literal "mm".
  */
 
 import { useState, type JSX } from 'react';
@@ -33,6 +37,8 @@ import type {
 } from '@ziroeda/common';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { UnitField } from '../../ui/UnitField.js';
+import type { EdaUnits } from '../../ui/unit_binder.js';
 
 /**
  * The font faces the Text page offers. Default Font is the stroke font, which
@@ -139,22 +145,6 @@ function NumField({
   );
 }
 
-function MmField(props: {
-  value: number;
-  onCommit: (n: number) => void;
-  step?: number;
-  title?: string;
-}): JSX.Element {
-  return (
-    <>
-      <NumField {...props} />
-      <span className="ze-muted" style={{ fontSize: 11 }}>
-        mm
-      </span>
-    </>
-  );
-}
-
 function CornerCombo({
   value,
   onChange,
@@ -175,19 +165,31 @@ function CornerCombo({
 function PositionGroup({
   title,
   point,
+  units,
   onChange,
 }: {
   title: string;
   point: WksPoint;
+  units: EdaUnits;
   onChange: (p: WksPoint) => void;
 }): JSX.Element {
   return (
     <Group title={title}>
       <Row label="X:">
-        <MmField value={point.x} onCommit={(x) => onChange({ ...point, x })} />
+        <UnitField
+          label="X:"
+          units={units}
+          value={point.x}
+          onCommit={(x) => onChange({ ...point, x })}
+        />
       </Row>
       <Row label="Y:">
-        <MmField value={point.y} onCommit={(y) => onChange({ ...point, y })} />
+        <UnitField
+          label="Y:"
+          units={units}
+          value={point.y}
+          onCommit={(y) => onChange({ ...point, y })}
+        />
       </Row>
       <Row label="From:">
         <CornerCombo value={point.corner} onChange={(corner) => onChange({ ...point, corner })} />
@@ -234,12 +236,15 @@ const hexOf = (c: WksColor | undefined): string => {
 export function PropertiesFrame({
   sheet,
   selectedIndex,
+  units,
   onItemChange,
   onSetupChange,
   onShowSyntaxHelp,
 }: {
   sheet: WksSheet;
   selectedIndex: number;
+  /** The frame's display unit — PROPERTIES_FRAME's parent is the UNITS_PROVIDER. */
+  units: EdaUnits;
   onItemChange: (patch: Partial<WksItem>) => void;
   onSetupChange: (patch: Partial<WksSheet['setup']>) => void;
   onShowSyntaxHelp: () => void;
@@ -269,6 +274,7 @@ export function PropertiesFrame({
           item ? (
             <ItemProperties
               item={item}
+              units={units}
               onChange={onItemChange}
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
@@ -278,7 +284,7 @@ export function PropertiesFrame({
             </div>
           )
         ) : (
-          <GeneralOptions setup={sheet.setup} onChange={onSetupChange} />
+          <GeneralOptions setup={sheet.setup} units={units} onChange={onSetupChange} />
         )}
       </div>
     </div>
@@ -287,10 +293,12 @@ export function PropertiesFrame({
 
 function ItemProperties({
   item,
+  units,
   onChange,
   onShowSyntaxHelp,
 }: {
   item: WksItem;
+  units: EdaUnits;
   onChange: (patch: Partial<WksItem>) => void;
   onShowSyntaxHelp: () => void;
 }): JSX.Element {
@@ -431,16 +439,36 @@ function ItemProperties({
             />
           </Row>
           <Row label="Text width:" hint="Set to 0 to use default values">
-            <MmField value={t.fontW} onCommit={(fontW) => patch({ fontW })} />
+            <UnitField
+              label="Text width:"
+              units={units}
+              value={t.fontW}
+              onCommit={(fontW) => patch({ fontW })}
+            />
           </Row>
           <Row label="Text height:" hint="Set to 0 to use default values">
-            <MmField value={t.fontH} onCommit={(fontH) => patch({ fontH })} />
+            <UnitField
+              label="Text height:"
+              units={units}
+              value={t.fontH}
+              onCommit={(fontH) => patch({ fontH })}
+            />
           </Row>
           <Row label="Maximum width:" hint="Set to 0 to disable this constraint">
-            <MmField value={t.maxlen} onCommit={(maxlen) => patch({ maxlen })} />
+            <UnitField
+              label="Maximum width:"
+              units={units}
+              value={t.maxlen}
+              onCommit={(maxlen) => patch({ maxlen })}
+            />
           </Row>
           <Row label="Maximum height:" hint="Set to 0 to disable this constraint">
-            <MmField value={t.maxheight} onCommit={(maxheight) => patch({ maxheight })} />
+            <UnitField
+              label="Maximum height:"
+              units={units}
+              value={t.maxheight}
+              onCommit={(maxheight) => patch({ maxheight })}
+            />
           </Row>
           <div className="ze-muted" style={{ fontSize: 10, margin: '0 6px 4px' }}>
             Set to 0 to disable a constraint
@@ -461,6 +489,7 @@ function ItemProperties({
       {(t || bitmap || poly) && (
         <PositionGroup
           title="Position"
+          units={units}
           point={(t ?? bitmap ?? poly)!.pos}
           onChange={(pos) => patch({ pos })}
         />
@@ -469,17 +498,20 @@ function ItemProperties({
         <>
           <PositionGroup
             title="Position"
+            units={units}
             point={shape.start}
             onChange={(start) => patch({ start })}
           />
           <PositionGroup
             title="End Position"
+            units={units}
             point={shape.end}
             onChange={(end) => patch({ end })}
           />
           <Row label="Line thickness:" hint="Set to 0 to use default values">
-            <MmField
-              step={0.05}
+            <UnitField
+              label="Line thickness:"
+              units={units}
               value={shape.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -489,8 +521,9 @@ function ItemProperties({
       {t && (
         <>
           <Row label="Text thickness:" hint="Set to 0 to use default values">
-            <MmField
-              step={0.05}
+            <UnitField
+              label="Text thickness:"
+              units={units}
               value={t.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -506,8 +539,9 @@ function ItemProperties({
       {poly && (
         <>
           <Row label="Line thickness:">
-            <MmField
-              step={0.05}
+            <UnitField
+              label="Line thickness:"
+              units={units}
               value={poly.lineWidth}
               onCommit={(lineWidth) => patch({ lineWidth })}
             />
@@ -556,10 +590,20 @@ function ItemProperties({
           </Row>
         )}
         <Row label="Step X:" hint="Distance on the X axis to step for each repeat.">
-          <MmField value={item.incrx} onCommit={(incrx) => patch({ incrx })} />
+          <UnitField
+            label="Step X:"
+            units={units}
+            value={item.incrx}
+            onCommit={(incrx) => patch({ incrx })}
+          />
         </Row>
         <Row label="Step Y:" hint="Distance to step on Y axis for each repeat.">
-          <MmField value={item.incry} onCommit={(incry) => patch({ incry })} />
+          <UnitField
+            label="Step Y:"
+            units={units}
+            value={item.incry}
+            onCommit={(incry) => patch({ incry })}
+          />
         </Row>
       </Group>
     </div>
@@ -568,30 +612,44 @@ function ItemProperties({
 
 function GeneralOptions({
   setup,
+  units,
   onChange,
 }: {
   setup: WksSheet['setup'];
+  units: EdaUnits;
   onChange: (patch: Partial<WksSheet['setup']>) => void;
 }): JSX.Element {
   return (
     <div>
       <Group title="Default Values">
         <Row label="Text width:">
-          <MmField value={setup.textW} onCommit={(textW) => onChange({ textW })} />
+          <UnitField
+            label="Text width:"
+            units={units}
+            value={setup.textW}
+            onCommit={(textW) => onChange({ textW })}
+          />
         </Row>
         <Row label="Text height:">
-          <MmField value={setup.textH} onCommit={(textH) => onChange({ textH })} />
+          <UnitField
+            label="Text height:"
+            units={units}
+            value={setup.textH}
+            onCommit={(textH) => onChange({ textH })}
+          />
         </Row>
         <Row label="Line thickness:">
-          <MmField
-            step={0.05}
+          <UnitField
+            label="Line thickness:"
+            units={units}
             value={setup.lineWidth}
             onCommit={(lineWidth) => onChange({ lineWidth })}
           />
         </Row>
         <Row label="Text thickness:">
-          <MmField
-            step={0.05}
+          <UnitField
+            label="Text thickness:"
+            units={units}
             value={setup.textLineWidth}
             onCommit={(textLineWidth) => onChange({ textLineWidth })}
           />
@@ -612,21 +670,37 @@ function GeneralOptions({
           </button>
         </div>
       </Group>
+      {/* Deliberately unvalidated on both sides: CopyPrmsFromPanelToGeneral
+          assigns the four margins with no validateMM call at all. */}
       <Group title="Page Margins">
         <Row label="Left:">
-          <MmField value={setup.leftMargin} onCommit={(leftMargin) => onChange({ leftMargin })} />
+          <UnitField
+            label="Left:"
+            units={units}
+            value={setup.leftMargin}
+            onCommit={(leftMargin) => onChange({ leftMargin })}
+          />
         </Row>
         <Row label="Right:">
-          <MmField
+          <UnitField
+            label="Right:"
+            units={units}
             value={setup.rightMargin}
             onCommit={(rightMargin) => onChange({ rightMargin })}
           />
         </Row>
         <Row label="Top:">
-          <MmField value={setup.topMargin} onCommit={(topMargin) => onChange({ topMargin })} />
+          <UnitField
+            label="Top:"
+            units={units}
+            value={setup.topMargin}
+            onCommit={(topMargin) => onChange({ topMargin })}
+          />
         </Row>
         <Row label="Bottom:">
-          <MmField
+          <UnitField
+            label="Bottom:"
+            units={units}
             value={setup.bottomMargin}
             onCommit={(bottomMargin) => onChange({ bottomMargin })}
           />
