@@ -186,3 +186,214 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     expect(EDITOR).not.toMatch(/gridIU\s*=\s*unit ===/);
   });
 });
+
+const TOOLBARS = read('../../../designer/src/editors/drawingsheet/drawingSheetToolbars.ts');
+const CANVAS_TSX = CANVAS; // alias for readability below
+
+/** One menu's item block, sliced out of the `menus` memo. */
+function menu(name: string): string {
+  // A menu may carry a comment between its label and its items (Preferences
+  // does), so anchor on the label and run to that menu's closing `],`.
+  const at = EDITOR.indexOf(`        label: '${name}',\n`);
+  expect(at, `no ${name} menu`).toBeGreaterThanOrEqual(0);
+  const items = EDITOR.indexOf('        items: [', at);
+  expect(items, `${name} has no items`).toBeGreaterThan(at);
+  const end = EDITOR.indexOf('\n        ],', items);
+  return EDITOR.slice(items, end);
+}
+
+describe('C2: Place ends with a separator and Reset Grid Origin', () => {
+  // menubar.cpp:129-130 - placeMenu->AppendSeparator(); Add( gridResetOrigin ).
+  it('has the row, after the Append entry', () => {
+    const place = menu('Place');
+    const append = place.indexOf('Append Existing Drawing Sheet…');
+    const reset = place.indexOf("label: 'Reset Grid Origin'");
+    expect(append).toBeGreaterThanOrEqual(0);
+    expect(reset).toBeGreaterThan(append);
+    expect(place.slice(append, reset)).toContain('{ sep: true }');
+  });
+
+  it('is the last row of the menu', () => {
+    const place = menu('Place');
+    expect(place.lastIndexOf("label: 'Reset Grid Origin'")).toBeGreaterThan(
+      place.lastIndexOf('Append Existing Drawing Sheet…'),
+    );
+  });
+});
+
+describe('C3: the accelerators pl_editor declares', () => {
+  // Each from its TOOL_ACTION's DefaultHotkey in common/tool/actions.cpp.
+  const cases: [string, string, string][] = [
+    ['File', 'Save As…', 'Shift+Ctrl+S'],
+    ['File', 'Print…', 'Ctrl+P'],
+    ['View', 'Zoom to Selection Area', 'Ctrl+F5'],
+    ['View', 'Refresh', 'F5'],
+    ['Preferences', 'Preferences…', 'Ctrl+,'],
+  ];
+  for (const [where, label, key] of cases) {
+    it(`${label} declares ${key}`, () => {
+      const block = menu(where);
+      const at = block.indexOf(`label: '${label}'`);
+      expect(at, `${label} missing from ${where}`).toBeGreaterThanOrEqual(0);
+      // The declaration has to be on this item, not merely somewhere nearby.
+      expect(block.slice(at, at + 260)).toContain(`shortcut: '${key}'`);
+    });
+  }
+
+  it('keeps Undo and Redo declaring theirs', () => {
+    // The audit measured the real Edit menu rendering both with no accelerator
+    // text, but ACTION_MENU::updateHotKeys (action_menu.cpp:355-388) DOES set
+    // one for every action carrying a hotkey, and in this app the menu string
+    // is the hotkey declaration - dropping it would drop Ctrl+Z itself.
+    const edit = menu('Edit');
+    expect(edit).toContain("shortcut: 'Ctrl+Z'");
+    expect(edit).toContain("shortcut: 'Ctrl+Y'");
+  });
+});
+
+describe('C4: FriendlyName text', () => {
+  it('New carries an ellipsis (ACTIONS::doNew, "New...")', () => {
+    expect(menu('File')).toContain("label: 'New…'");
+  });
+
+  it('is "Zoom to Selection Area", not "Zoom to Selection"', () => {
+    const view = menu('View');
+    expect(view).toContain("label: 'Zoom to Selection Area'");
+    expect(view).not.toContain("label: 'Zoom to Selection',");
+  });
+
+  it('is "Refresh", not "Redraw View" (ACTIONS::zoomRedraw)', () => {
+    const view = menu('View');
+    expect(view).toContain("label: 'Refresh'");
+    expect(view).not.toContain("label: 'Redraw View'");
+  });
+
+  it('spells the delete accelerator "Delete" (WXK_DELETE), not "Del"', () => {
+    const edit = menu('Edit');
+    expect(edit).toContain("shortcut: 'Delete'");
+    expect(edit).not.toContain("shortcut: 'Del'");
+  });
+});
+
+describe('C5: zoomTool is an armed rubber-band tool', () => {
+  it('the menu row arms the tool and is never disabled', () => {
+    const view = menu('View');
+    const at = view.indexOf("label: 'Zoom to Selection Area'");
+    const row = view.slice(at, at + 260);
+    expect(row).toContain("setActiveTool('zoomTool')");
+    // Upstream needs no selection, so the row has no `disabled` condition.
+    expect(row).not.toContain('disabled:');
+  });
+
+  it('the toolbar button arms it too, and is a TOGGLE', () => {
+    expect(EDITOR).toContain("case 'zoomTool':");
+    const at = EDITOR.indexOf("case 'zoomTool':");
+    expect(EDITOR.slice(at, at + 400)).toContain("setActiveTool('zoomTool')");
+    expect(EDITOR.slice(at, at + 400)).not.toContain('zoomToSelection');
+    const tb = TOOLBARS.indexOf("id: 'zoomTool'");
+    expect(TOOLBARS.slice(tb, tb + 220)).toContain('toggle: true');
+  });
+
+  it('drags a region and scales by the larger axis ratio', () => {
+    // zoom_tool.cpp:145-155.
+    expect(CANVAS_TSX).toContain("mode: 'zoom'");
+    expect(CANVAS_TSX).toContain('Math.max(Math.abs(w / sw), Math.abs(h / sh))');
+    expect(CANVAS_TSX).toContain('out ? v.scale * ratio : v.scale / ratio');
+  });
+
+  it('right-drag zooms out and a zero-size box does nothing', () => {
+    expect(CANVAS_TSX).toContain('out: e.button === 2');
+    expect(CANVAS_TSX).toContain('if (w === 0 || h === 0) return;');
+  });
+
+  it('hands back to the arrow after one region (PopTool)', () => {
+    expect(CANVAS_TSX).toContain('onToolDone?.();');
+    expect(EDITOR).toContain("onToolDone={() => setActiveTool('select')}");
+  });
+});
+
+describe('C6: the frame title', () => {
+  it('drops the extension and uses an em dash with spaces', () => {
+    // pl_editor_frame.cpp:570-586. wxFileName::GetName() has no extension, and
+    // the separator is " — ".
+    expect(EDITOR).toContain('const frameTitleName = fileName');
+    expect(EDITOR).toContain("{' \\u2014 '}");
+    expect(EDITOR).not.toContain('&nbsp;-&nbsp;Drawing Sheet Editor');
+  });
+
+  it('falls back to [no drawing sheet loaded]', () => {
+    expect(EDITOR).toContain("'[no drawing sheet loaded]'");
+  });
+});
+
+describe('C7: the left toolbar is toggleGrid plus one Units group', () => {
+  it('renders the three units as a single ACTION_GROUP', () => {
+    const at = TOOLBARS.indexOf('DS_LEFT_TOOLBAR');
+    const block = TOOLBARS.slice(at, TOOLBARS.indexOf('DS_RIGHT_TOOLBAR', at));
+    expect(block).toContain("group: 'Units'");
+    expect(block).toContain('cycleOnClick: true');
+    for (const id of ['unitsMm', 'unitsInches', 'unitsMils']) expect(block).toContain(id);
+  });
+
+  it('has no separator between the grid button and the group', () => {
+    // toolbars_pl_editor.cpp:48-59 chains AppendAction().AppendGroup() with no
+    // AppendSeparator between them.
+    const at = TOOLBARS.indexOf('DS_LEFT_TOOLBAR');
+    const block = TOOLBARS.slice(at, TOOLBARS.indexOf('DS_RIGHT_TOOLBAR', at));
+    expect(block).not.toContain('\n  sep,');
+  });
+});
+
+describe('D4: the toolbar combos are sized like wxChoice, not stretched', () => {
+  it('does not inherit .ze-select flex: 1 in the toolbar', () => {
+    expect(rule('.ze-select').flex).toBe('1');
+    expect(rule('.ze-wks-topbar .ze-select').flex).toBe('0 0 auto');
+  });
+
+  it('sizes to its widest option, as UpdateToolbarControlSizes does', () => {
+    expect(rule('.ze-wks-topbar .ze-select').width).toBe('max-content');
+  });
+
+  it('stands at the one shared GTK control height', () => {
+    expect(rule('.ze-wks-topbar .ze-select').height).toBe('var(--ctl-height)');
+    expect(TOKENS['--ctl-height']).toBe('34px');
+  });
+
+  it('drops the inline layout the JSX was carrying', () => {
+    expect(EDITOR).toContain('className="ze-wks-topbar"');
+    expect(EDITOR).not.toContain("<div style={{ display: 'flex', alignItems: 'center', flexWrap");
+  });
+});
+
+describe('D7: this editor adds no new hardcoded font size', () => {
+  /*
+   * KiCad sets a font on none of these panels - every one inherits
+   * wxSYS_DEFAULT_GUI_FONT, which is why its frames all look alike. Ours
+   * carries 14 inline sizes across three values. They are NOT changed here:
+   * the token they should become, `--ui-font-size`, is under review (the
+   * audit measured 13px for the menu bar against the token's 14.667px), and
+   * PropertiesFrame.tsx is the unit-binder PR's file. This test is a ratchet
+   * so the count cannot grow while that is settled - see the PR.
+   */
+  const FILES = [
+    'DesignInspector.tsx',
+    'PageSettingsDialog.tsx',
+    'PropertiesFrame.tsx',
+    'DrawingSheetEditor.tsx',
+  ];
+
+  it('holds at the 14 known sites', () => {
+    let n = 0;
+    for (const f of FILES) {
+      const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
+      n += [...src.matchAll(/fontSize:\s*\d/g)].length;
+    }
+    expect(n).toBe(14);
+  });
+
+  it('adds none in the chrome this PR wrote', () => {
+    const at = SHELL.indexOf('.ze-wks .ze-toolbar {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(SHELL.slice(at)).not.toMatch(/font-size:\s*\d/);
+  });
+});
