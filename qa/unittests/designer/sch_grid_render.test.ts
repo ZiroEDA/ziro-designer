@@ -211,14 +211,21 @@ describe('schematic grid painting', () => {
 
   it('gives SMALL_CROSS arms of twice the pen width', () => {
     const minor = pen(DEFAULT_RENDER_OPTS.grid.lineWidthPx, 1);
+    const major = minor * 2;
     const { paths } = paint(900, 600, gridOnly({ style: 'crosses' }));
     // A segment is [x1, y1, x2, y2], so a horizontal arm is one whose two y's
     // match, and its length is the span between the two x's.
     const horiz = paths.flatMap((p) => p.segs).filter(([, y1, , y2]) => y1 === y2);
     expect(horiz.length).toBeGreaterThan(50);
-    const lengths = new Set(horiz.map(([x1, , x2]) => Math.abs(x2! - x1!)));
-    // DrawGrid: lineLen = 2 * GetLineWidth(), drawn either side of the node.
-    expect(lengths.has(4 * minor)).toBe(true);
+    const lengths = [...new Set(horiz.map(([x1, , x2]) => Math.abs(x2! - x1!)))].sort(
+      (a, b) => a - b,
+    );
+    // DrawGrid: lineLen = 2 * GetLineWidth(), drawn either side of the node, so
+    // a cross spans 4 pens. There are exactly two, the minor one and the coarse
+    // one, and asserting the whole SET is what makes this sensitive: halving the
+    // arm turns the coarse cross into something the minor width also produces,
+    // so `contains 4 * minor` alone stays true through the bug.
+    expect(lengths).toEqual([4 * minor, 4 * major]);
   });
 
   it('leaves the grid off entirely when it is hidden', () => {
