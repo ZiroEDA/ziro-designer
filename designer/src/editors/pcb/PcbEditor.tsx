@@ -347,6 +347,8 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addQuitOrClose } from '../../ui/action_menu.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
+import type { FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -5022,9 +5024,6 @@ export function PcbEditor({
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
   }, []);
-  const openTrackViaPropertiesRef = useRef(openTrackViaProperties);
-  openTrackViaPropertiesRef.current = openTrackViaProperties;
-
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -5050,9 +5049,6 @@ export function PcbEditor({
     const next = flipBoardItems(brd, sel);
     if (next !== brd) commitBoard(next);
   }, [commitBoard]);
-  const flipSelectionRef = useRef(flipSelection);
-  flipSelectionRef.current = flipSelection;
-
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
   const applyTextEdit = useCallback(
     (values: TextValues) => {
@@ -5821,86 +5817,55 @@ export function PcbEditor({
     requestDraw();
   };
 
+  /**
+   * The menu tree, mirrored for the key chain below - `menus` is rebuilt every
+   * render, and the chain has to dispatch off the live one so a row's
+   * `disabled` (which moves with the selection) is honoured. Same reason
+   * `useMenuHotkeys` holds a ref rather than a dependency.
+   */
+  const menusRef = useRef<Menu[]>([]);
+
+  // One chain, in ACTION_MANAGER::RunHotKey order: the context actions this
+  // canvas owns, then the menus. See ui/menu_hotkeys.ts for why there is not a
+  // second listener beside this one.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'pcb') !== 'pcb') return;
-      // Don't steal keys from text fields (net filter, property editors…).
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'))
-        return;
+      // The 3D viewer overlay claims every unmodified key while it is up.
+      if (e.defaultPrevented) return;
+      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
+      // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
+      // menus; here it gates the context branches.
+      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
-      // ACTIONS::showPreferences, Ctrl+, on every frame (EDA_BASE_FRAME).
-      if (mod && e.key === ',') {
-        e.preventDefault();
-        setPrefsOpen(true);
-        return;
-      }
+
+      // --- context: what the live tool / selection owns ---------------------
       // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
       if (!mod && (e.key === 'h' || e.key === 'H')) {
         setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
         return;
       }
       // V while routing: place a via and switch copper layer (ROUTER_TOOL).
+      // The clearest context action in the frame - it claims V only while
+      // there is a route in progress, and otherwise leaves the key alone.
       if (!mod && (e.key === 'v' || e.key === 'V') && routeRef.current) {
         e.preventDefault();
         routeViaSwitchRef.current();
         return;
       }
-      if (mod && (e.key === 'z' || e.key === 'Z')) {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (mod && (e.key === 'y' || e.key === 'Y')) {
-        e.preventDefault();
-        redo();
-        return;
-      }
-      if (mod && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault();
-        setFindOpen(true);
-        return;
-      }
-      // ACTIONS::updatePcbFromSchematic's default hotkey.
-      if (!mod && e.key === 'F8') {
-        e.preventDefault();
-        void openUpdatePcb();
-        return;
-      }
-      if (mod && (e.key === 'd' || e.key === 'D')) {
-        e.preventDefault();
-        duplicateSel();
-        return;
-      }
-      if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
-        e.preventDefault();
-        deleteSel();
-        return;
-      }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
         rotateSel(!e.shiftKey);
         return;
-      } // R = CCW, Shift+R = CW
-      // Shift+M = Move Exactly (PCB_ACTIONS::moveExact). This has to come
-      // before plain M below, which would otherwise swallow it: `e.key` is
-      // already 'M' whenever shift is held.
-      if (!mod && e.shiftKey && (e.key === 'm' || e.key === 'M')) {
-        e.preventDefault();
-        if (selForDrawRef.current.size > 0) setMoveExactOpen(true);
-        return;
-      }
-      // Shift+P = Position Relative To (PCB_ACTIONS::positionRelative).
-      if (!mod && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
-        e.preventDefault();
-        if (selForDrawRef.current.size > 0) setPosRelOpen(true);
-        return;
-      }
+      } // R = CCW, Shift+R = CW (PCB_ACTIONS::rotateCcw / rotateCw, no row)
       // M = Move (routing left behind), G = Drag (attached traces follow), a
       // keyboard grab that follows the cursor and commits on click (EDIT_TOOL).
-      if (!mod && (e.key === 'm' || e.key === 'M')) {
+      // Shift is excluded because Shift+M is Move Exactly, which *has* a row:
+      // `e.key` is already 'M' whenever shift is held, so without the guard
+      // this would swallow the row's accelerator before it reached the menu.
+      if (!mod && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
         grabStartRef.current('move');
         return;
@@ -5910,31 +5875,21 @@ export function PcbEditor({
         grabStartRef.current('drag');
         return;
       }
+      // Bare D is drag45; Ctrl+D is Edit > Duplicate and belongs to its row.
       if (!mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
         grabStartRef.current('drag45');
         return;
       }
-      // E = Properties (ACTIONS::properties).
-      if (!mod && (e.key === 'e' || e.key === 'E')) {
-        e.preventDefault();
-        openTrackViaPropertiesRef.current();
-        return;
-      }
-      // B = Fill All Zones (PCB_ACTIONS::zoneFillAll).
+      // B = Fill All Zones (PCB_ACTIONS::zoneFillAll), no row.
       if (!mod && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
         fillAllZonesRef.current();
         return;
       }
-      // F = Change Side / Flip (PCB_ACTIONS::flip). Zoom to Fit is Ctrl+0 and
-      // Home upstream, not F.
-      if (!mod && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault();
-        flipSelectionRef.current();
-        return;
-      }
-      if (e.key === 'Home' || (mod && e.key === '0')) {
+      // ACTIONS::zoomFitScreen is Home off macOS and Ctrl+0 on it. The row
+      // prints Ctrl+0 and answers from there; Home has no row and stays here.
+      if (!mod && e.key === 'Home') {
         e.preventDefault();
         zoomToFit();
         return;
@@ -6004,11 +5959,15 @@ export function PcbEditor({
           setShow3D(false);
           setSelection(new Set());
         }
+        return;
       }
+
+      // --- global: the menu accelerators ------------------------------------
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, undo, redo, deleteSel, rotateSel, duplicateSel]);
+  }, [zoomToFit, rotateSel]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
@@ -7266,6 +7225,9 @@ export function PcbEditor({
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
+
+  // The chain above reads the tree through this ref; see `menusRef`.
+  menusRef.current = menus;
 
   // ----- unit display ---------------------------------------------------------
 
