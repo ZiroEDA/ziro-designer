@@ -91,6 +91,15 @@ describe('Resistor Calculator display strings', () => {
     expect(resApproximationText(-0.004)).toBe('<0.01');
   });
 
+  it('the "<0.01" window is exactly 0.01 wide, not a tenth', () => {
+    // Just inside and just outside: KiCad's threshold is `abs(error) < 0.01`
+    // (panel_r_calculator.cpp:151), so 0.05 % prints as a number.
+    expect(resApproximationText(0.009)).toBe('<0.01');
+    expect(resApproximationText(0.05)).toBe('+0.05');
+    expect(resApproximationText(-0.05)).toBe('-0.05');
+    expect(resApproximationText(0.011)).toBe('+0.01');
+  });
+
   it('always writes the sign, at two decimals', () => {
     // %+.2f — the plus is not decorative, KiCad prints it.
     expect(resApproximationText(-0.53)).toBe('-0.53');
