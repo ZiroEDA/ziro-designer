@@ -2,145 +2,179 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * pcbnew default color theme and layer stacking order.
+ * The board's view of KiCad's built-in colour themes, plus pcbnew's layer
+ * stacking order.
  *
- * Colors are the exact "KiCad Default" theme from
- * common/settings/builtin_color_themes.h (s_defaultTheme). The paint order is
- * GAL_LAYER_ORDER from pcbnew/pcb_draw_panel_gal.cpp reversed (that array is
- * top-first; canvas painting goes bottom-up): back tech layers, back copper,
- * inner coppers (In30→In1), front tech layers, front copper, then holes, then
- * footprint text, then the user/edge layers.
+ * The colours themselves are NOT defined here. They live once, for every
+ * editor, in `@ziroeda/common/src/settings/builtin_color_themes.ts` — a
+ * mechanical port of `common/settings/builtin_color_themes.h`, which is
+ * likewise the single place KiCad defines them. This module names the layers
+ * pcbnew's painter reads (`PCB_LAYER_ID` / `GAL_LAYER_ID`), applies the
+ * handful of overrides `PCB_RENDER_SETTINGS` applies on top of the theme, and
+ * renders each colour to a CSS string.
+ *
+ * Adding a colour here means naming a layer, never typing an RGB value. The
+ * two exceptions are called out individually below; both are colours KiCad has
+ * no `COLOR_SETTINGS` layer for.
+ *
+ * The paint order is GAL_LAYER_ORDER from pcbnew/pcb_draw_panel_gal.cpp
+ * reversed (that array is top-first; canvas painting goes bottom-up): back
+ * tech layers, back copper, inner coppers (In30→In1), front tech layers, front
+ * copper, then holes, then footprint text, then the user/edge layers.
  */
+import {
+  BUILTIN_CLASSIC_THEME,
+  BUILTIN_DEFAULT_THEME,
+  type Color4d,
+  LEGACY_COLORS,
+  toCssColor,
+} from '@ziroeda/common';
 
-export const PCB_BACKGROUND = 'rgb(0,16,35)';
-// LAYER_GRID / LAYER_GRID_AXES / LAYER_CURSOR, KiCad Default theme.
-export const PCB_GRID = 'rgb(132,132,132)';
-export const PCB_GRID_AXES = 'rgb(194,194,194)';
-export const PCB_CURSOR = 'rgb(255,255,255)';
+/** One theme's colours, indexed by KiCad layer-id name. */
+type ThemeColors = Partial<Record<string, Color4d>>;
+
+/**
+ * A layer's colour as a CSS string, in pcbnew's compact spelling. A layer the
+ * theme does not set falls back to "KiCad Default", the same way this module's
+ * hand-written predecessor did.
+ */
+const at = (colors: ThemeColors, layer: keyof typeof BUILTIN_DEFAULT_THEME): string =>
+  toCssColor(colors[layer] ?? BUILTIN_DEFAULT_THEME[layer]);
+
+const legacyCss = (name: keyof typeof LEGACY_COLORS): string => toCssColor(LEGACY_COLORS[name]);
+
+const BLACK = legacyCss('BLACK');
+const WHITE = legacyCss('WHITE');
+
+/**
+ * The board layers our renderer paints, as `PCB_LAYER_ID` enumerator names.
+ * The enum spells a dot as an underscore and nothing else, so the mapping to
+ * the canonical layer name the rest of the app uses is mechanical.
+ */
+const PCB_LAYER_IDS = [
+  'F_Cu',
+  ...Array.from({ length: 30 }, (_, i) => `In${i + 1}_Cu`),
+  'B_Cu',
+  'B_Adhes',
+  'F_Adhes',
+  'B_Paste',
+  'F_Paste',
+  'B_SilkS',
+  'F_SilkS',
+  'B_Mask',
+  'F_Mask',
+  'Dwgs_User',
+  'Cmts_User',
+  'Eco1_User',
+  'Eco2_User',
+  'Edge_Cuts',
+  'Margin',
+  'B_CrtYd',
+  'F_CrtYd',
+  'B_Fab',
+  'F_Fab',
+  // KiCad's themes carry User_1..User_45; we paint the nine the board editor
+  // currently exposes. Extending the list is a layer-set change, not a colour
+  // one — the shared table already has all 45.
+  ...Array.from({ length: 9 }, (_, i) => `User_${i + 1}`),
+] as (keyof typeof BUILTIN_DEFAULT_THEME)[];
+
+/** `F_Cu` → `F.Cu`, `User_1` → `User.1`. */
+const layerName = (id: string): string => id.replace('_', '.');
+
+const layerColorsFor = (colors: ThemeColors): Record<string, string> =>
+  Object.fromEntries(PCB_LAYER_IDS.map((id) => [layerName(id), at(colors, id)]));
+
+/** Copper + technical layer colours, "KiCad Default". */
+export const PCB_LAYER_COLORS: Record<string, string> = layerColorsFor(BUILTIN_DEFAULT_THEME);
+
+export const PCB_BACKGROUND = at(BUILTIN_DEFAULT_THEME, 'LAYER_PCB_BACKGROUND');
+export const PCB_GRID = at(BUILTIN_DEFAULT_THEME, 'LAYER_GRID');
+export const PCB_GRID_AXES = at(BUILTIN_DEFAULT_THEME, 'LAYER_GRID_AXES');
+export const PCB_CURSOR = at(BUILTIN_DEFAULT_THEME, 'LAYER_CURSOR');
 
 /**
  * The drill/place file origin marker (BOARD_EDITOR_CONTROL's `m_placeOrigin`,
  * `COLOR4D( 0.8, 0.0, 0.0, 1.0 )`). Not theme-able upstream: it is constructed
  * with this literal rather than read from the colour settings.
  */
-export const PCB_PLACE_ORIGIN = 'rgb(204,0,0)';
+export const PCB_PLACE_ORIGIN = toCssColor({ r: 0.8, g: 0, b: 0, a: 1 });
 
-const rgba = (r: number, g: number, b: number, a = 1): string =>
-  a >= 1 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${a})`;
+/**
+ * The colour the active DRC marker repaints in (pcb_painter.cpp GetColor: a
+ * brightened/selected PCB_MARKER). KiCad has no COLOR_SETTINGS layer for it —
+ * there is no `LAYER_DRC_HIGHLIGHTED` in `layer_ids.h` — so it is ours, and it
+ * is spelled out here rather than looked up in the shared table.
+ */
+const DRC_HIGHLIGHTED = 'rgb(255,0,255)';
 
-/** Copper + technical layer colors (s_defaultTheme). */
-export const PCB_LAYER_COLORS: Record<string, string> = {
-  'F.Cu': rgba(200, 52, 52),
-  'In1.Cu': rgba(127, 200, 127),
-  'In2.Cu': rgba(206, 125, 44),
-  'In3.Cu': rgba(79, 203, 203),
-  'In4.Cu': rgba(219, 98, 139),
-  'In5.Cu': rgba(167, 165, 198),
-  'In6.Cu': rgba(40, 204, 217),
-  'In7.Cu': rgba(232, 178, 167),
-  'In8.Cu': rgba(242, 237, 161),
-  'In9.Cu': rgba(141, 203, 129),
-  'In10.Cu': rgba(237, 124, 51),
-  'In11.Cu': rgba(91, 195, 235),
-  'In12.Cu': rgba(247, 111, 142),
-  'In13.Cu': rgba(167, 165, 198),
-  'In14.Cu': rgba(40, 204, 217),
-  'In15.Cu': rgba(232, 178, 167),
-  'In16.Cu': rgba(242, 237, 161),
-  'In17.Cu': rgba(237, 124, 51),
-  'In18.Cu': rgba(91, 195, 235),
-  'In19.Cu': rgba(247, 111, 142),
-  'In20.Cu': rgba(167, 165, 198),
-  'In21.Cu': rgba(40, 204, 217),
-  'In22.Cu': rgba(232, 178, 167),
-  'In23.Cu': rgba(242, 237, 161),
-  'In24.Cu': rgba(237, 124, 51),
-  'In25.Cu': rgba(91, 195, 235),
-  'In26.Cu': rgba(247, 111, 142),
-  'In27.Cu': rgba(167, 165, 198),
-  'In28.Cu': rgba(40, 204, 217),
-  'In29.Cu': rgba(232, 178, 167),
-  'In30.Cu': rgba(242, 237, 161),
-  'B.Cu': rgba(77, 127, 196),
-  'B.Adhes': rgba(0, 0, 132),
-  'F.Adhes': rgba(132, 0, 132),
-  'B.Paste': rgba(0, 194, 194, 0.9),
-  'F.Paste': rgba(180, 160, 154, 0.9),
-  'B.SilkS': rgba(232, 178, 167),
-  'F.SilkS': rgba(242, 237, 161),
-  'B.Mask': rgba(2, 255, 238, 0.4),
-  'F.Mask': rgba(216, 100, 255, 0.4),
-  'Dwgs.User': rgba(194, 194, 194),
-  'Cmts.User': rgba(89, 148, 220),
-  'Eco1.User': rgba(180, 219, 210),
-  'Eco2.User': rgba(216, 200, 82),
-  'Edge.Cuts': rgba(208, 210, 205),
-  Margin: rgba(255, 38, 226),
-  'B.CrtYd': rgba(38, 233, 255),
-  'F.CrtYd': rgba(255, 38, 226),
-  'B.Fab': rgba(88, 93, 132),
-  'F.Fab': rgba(175, 175, 175),
-  'User.1': rgba(194, 194, 194),
-  'User.2': rgba(89, 148, 220),
-  'User.3': rgba(180, 219, 210),
-  'User.4': rgba(216, 200, 82),
-  'User.5': rgba(194, 194, 194),
-  'User.6': rgba(89, 148, 220),
-  'User.7': rgba(180, 219, 210),
-  'User.8': rgba(216, 200, 82),
-  'User.9': rgba(232, 178, 167),
-};
+/** Special (virtual) layer colours used by the painter. */
+export interface PcbSpecialColors {
+  padPlatedHole: string;
+  nonPlatedHole: string;
+  viaHole: string;
+  viaHoleWall: string;
+  padHoleWall: string;
+  ratsnest: string;
+  anchor: string;
+  drawingSheet: string;
+  pageLimits: string;
+  netName: string;
+  padName: string;
+  viaName: string;
+  drcError: string;
+  drcWarning: string;
+  drcExclusion: string;
+  drcHighlighted: string;
+}
 
-/** Special (virtual) layer colors used by the painter. */
-export const PCB_SPECIAL = {
-  // pcb_painter.cpp:158 forces LAYER_PAD_PLATEDHOLES to the background color at
-  // render time (it isn't theme-able), so a plated drill reads as a real empty
-  // hole, not the theme's 194,194,0. Only via holes / NPTH keep their colors.
-  padPlatedHole: PCB_BACKGROUND,
-  nonPlatedHole: rgba(26, 196, 210),
-  viaHole: rgba(227, 183, 46),
-  viaHoleWall: rgba(236, 236, 236),
+const specialFor = (colors: ThemeColors): PcbSpecialColors => ({
+  // pcb_painter.cpp:158 forces LAYER_PAD_PLATEDHOLES to the background colour
+  // at render time (it isn't theme-able), so a plated drill reads as a real
+  // empty hole rather than the theme's own plated-hole colour. Only via holes
+  // and NPTH keep theirs.
+  padPlatedHole: at(colors, 'LAYER_PCB_BACKGROUND'),
+  nonPlatedHole: at(colors, 'LAYER_NON_PLATEDHOLES'),
+  viaHole: at(colors, 'LAYER_VIA_HOLES'),
+  viaHoleWall: at(colors, 'LAYER_VIA_HOLEWALLS'),
   // pcb_painter.cpp:293 draws pad hole walls in the via "golden copper" hole
-  // color (LAYER_VIA_HOLES) for contrast, an amber plating ring, not gray.
-  padHoleWall: rgba(227, 183, 46),
-  ratsnest: rgba(0, 248, 255, 0.35),
-  anchor: rgba(255, 38, 226),
-  drawingSheet: rgba(200, 114, 171),
-  // LAYER_PAGE_LIMITS (builtin_color_themes.h): the paper edge, outside the
-  // sheet's own frame and in its own grey. Not the schematic's page-limits
-  // grey, which is a different layer and a lighter 181.
-  pageLimits: rgba(132, 132, 132),
-  // Netname text colors (builtin_color_themes.h):
+  // colour (LAYER_VIA_HOLES) for contrast — an amber plating ring, not grey.
+  padHoleWall: at(colors, 'LAYER_VIA_HOLES'),
+  ratsnest: at(colors, 'LAYER_RATSNEST'),
+  anchor: at(colors, 'LAYER_ANCHOR'),
+  drawingSheet: at(colors, 'LAYER_DRAWINGSHEET'),
+  // LAYER_PAGE_LIMITS: the paper edge, outside the sheet's own frame and in
+  // its own grey. Not the schematic's page-limits grey, which is a different
+  // layer and a lighter 181.
+  pageLimits: at(colors, 'LAYER_PAGE_LIMITS'),
+  // Net-name text colours:
   //  - netName is NETNAMES_LAYER_ID_START, the track-name base ("lightLabel");
-  //    the painter inverts it per copper layer whose color is brighter than
+  //    the painter inverts it per copper layer whose colour is brighter than
   //    0.5, which is what makes names on a light green In1.Cu read dark.
-  //  - padName is LAYER_PAD_NETNAMES, the through-hole pad text.
   //  - viaName is LAYER_VIA_NETNAMES, near-black over the via copper.
-  netName: rgba(255, 255, 255, 0.7),
-  // LAYER_PAD_NETNAMES is listed as white 0.9 in builtin_color_themes.h, but
+  netName: at(colors, 'NETNAMES_LAYER_ID_START'),
+  // LAYER_PAD_NETNAMES is listed as white 0.9 in both themes, but
   // RENDER_SETTINGS::update() then overwrites it with the netnames colour
   // — `m_layerColors[LAYER_PAD_NETNAMES] = GetColor( NETNAMES_LAYER_ID_START )`
   // — so 0.7 is what actually reaches the screen. Taking the theme's 0.9 at
   // face value put our pad text at (250,235,235) over a red pad where pcbnew
   // draws (234,178,178). LAYER_VIA_NETNAMES gets no such override, so it does
   // keep its 0.9.
-  padName: rgba(255, 255, 255, 0.7),
-  viaName: rgba(50, 50, 50, 0.9),
-  // DRC marker layers (LAYER_DRC_ERROR / _WARNING / _EXCLUSION /
-  // _HIGHLIGHTED, s_defaultTheme). The active marker repaints in the
-  // highlighted color (pcb_painter.cpp GetColor: brightened/selected
-  // PCB_MARKER → LAYER_DRC_HIGHLIGHTED).
-  drcError: rgba(215, 91, 107, 0.8),
-  drcWarning: rgba(255, 208, 66, 0.8),
-  drcExclusion: rgba(255, 255, 255, 0.8),
-  drcHighlighted: rgba(255, 0, 255),
-};
+  padName: at(colors, 'NETNAMES_LAYER_ID_START'),
+  viaName: at(colors, 'LAYER_VIA_NETNAMES'),
+  drcError: at(colors, 'LAYER_DRC_ERROR'),
+  drcWarning: at(colors, 'LAYER_DRC_WARNING'),
+  drcExclusion: at(colors, 'LAYER_DRC_EXCLUSION'),
+  drcHighlighted: DRC_HIGHLIGHTED,
+});
+
+export const PCB_SPECIAL: PcbSpecialColors = specialFor(BUILTIN_DEFAULT_THEME);
 
 // ---------------------------------------------------------------------------
-// Color themes (COLOR_SETTINGS). KiCad ships two built-ins
+// Colour themes (COLOR_SETTINGS). KiCad ships two built-ins
 // (color_settings.cpp CreateBuiltinColorSettings): "KiCad Default"
-// (s_defaultTheme, the palette above) and "KiCad Classic" (s_classicTheme).
-// The print dialog picks among these like KiCad's theme chooser.
+// (s_defaultTheme) and "KiCad Classic" (s_classicTheme). The print dialog
+// picks among these like KiCad's theme chooser.
 
 /** A complete board palette (COLOR_SETTINGS, pcbnew subset). */
 export interface PcbColorTheme {
@@ -151,121 +185,8 @@ export interface PcbColorTheme {
   background: string;
   grid: string;
   layerColors: Record<string, string>;
-  special: typeof PCB_SPECIAL;
+  special: PcbSpecialColors;
 }
-
-/**
- * s_classicTheme board colors. The classic theme is written with legacy
- * EDA_COLOR_T names; the RGB values come from common/gal/color4d.cpp
- * colorRefs(), NOTE that table's fields are ordered blue,green,red, so e.g.
- * BLUE={132,0,0} means rgb(0,0,132).
- */
-const C = {
-  black: rgba(0, 0, 0),
-  darkGray: rgba(132, 132, 132),
-  lightGray: rgba(194, 194, 194),
-  white: rgba(255, 255, 255),
-  blue: rgba(0, 0, 132),
-  green: rgba(0, 132, 0),
-  cyan: rgba(0, 132, 132),
-  red: rgba(132, 0, 0),
-  magenta: rgba(132, 0, 132),
-  brown: rgba(132, 132, 0),
-  lightCyan: rgba(0, 194, 194),
-  lightRed: rgba(194, 0, 0),
-  lightMagenta: rgba(194, 0, 194),
-  yellow: rgba(194, 194, 0),
-  darkRed: rgba(72, 0, 0),
-};
-
-// In1..In30 classic copper cycle (s_classicTheme In1_Cu..In30_Cu, in order).
-const CLASSIC_INNER = [
-  C.yellow,
-  C.lightMagenta,
-  C.lightRed,
-  C.cyan,
-  C.green,
-  C.blue,
-  C.darkGray,
-  C.magenta,
-  C.lightGray,
-  C.magenta,
-  C.red,
-  C.brown,
-  C.lightGray,
-  C.blue,
-  C.green,
-  C.red,
-  C.yellow,
-  C.lightMagenta,
-  C.lightRed,
-  C.cyan,
-  C.green,
-  C.blue,
-  C.darkGray,
-  C.magenta,
-  C.lightGray,
-  C.magenta,
-  C.red,
-  C.brown,
-  C.lightGray,
-  C.blue,
-];
-
-const CLASSIC_LAYER_COLORS: Record<string, string> = {
-  'F.Cu': C.red,
-  ...Object.fromEntries(CLASSIC_INNER.map((c, i) => [`In${i + 1}.Cu`, c])),
-  'B.Cu': C.green,
-  'B.Adhes': C.blue,
-  'F.Adhes': C.magenta,
-  'B.Paste': C.lightCyan,
-  'F.Paste': C.red,
-  'B.SilkS': C.magenta,
-  'F.SilkS': C.cyan,
-  'B.Mask': C.brown,
-  'F.Mask': C.magenta,
-  'Dwgs.User': C.lightGray,
-  'Cmts.User': C.blue,
-  'Eco1.User': C.green,
-  'Eco2.User': C.yellow,
-  'Edge.Cuts': C.yellow,
-  Margin: C.lightMagenta,
-  'B.CrtYd': C.darkGray,
-  'F.CrtYd': C.lightGray,
-  'B.Fab': C.blue,
-  'F.Fab': C.darkGray,
-  'User.1': C.blue,
-  'User.2': C.blue,
-  'User.3': C.blue,
-  'User.4': C.blue,
-  'User.5': C.blue,
-  'User.6': C.blue,
-  'User.7': C.blue,
-  'User.8': C.blue,
-  'User.9': C.blue,
-};
-
-const CLASSIC_SPECIAL: typeof PCB_SPECIAL = {
-  // The painter forces plated pad holes to the background (classic: black).
-  padPlatedHole: C.black,
-  nonPlatedHole: C.yellow, // LAYER_NON_PLATEDHOLES = YELLOW
-  viaHole: 'rgba(128,102,0,0.8)', // LAYER_VIA_HOLES = COLOR4D(0.5, 0.4, 0, 0.8)
-  viaHoleWall: C.white, // LAYER_VIA_HOLEWALLS = WHITE
-  padHoleWall: 'rgba(128,102,0,0.8)', // painter uses LAYER_VIA_HOLES
-  ratsnest: C.white, // LAYER_RATSNEST = WHITE
-  anchor: C.blue, // LAYER_ANCHOR = BLUE
-  drawingSheet: C.darkRed, // LAYER_DRAWINGSHEET = DARKRED
-  pageLimits: C.darkGray, // LAYER_PAGE_LIMITS = DARKGRAY
-  netName: rgba(255, 255, 255, 0.7), // NETNAMES_LAYER_ID_START (same as default)
-  padName: rgba(255, 255, 255, 0.7), // LAYER_PAD_NETNAMES, after the override
-  viaName: rgba(50, 50, 50, 0.9), // LAYER_VIA_NETNAMES (same as default)
-  // s_classicTheme: PURERED / PUREGREEN at 0.8, WHITE, PUREMAGENTA (color4d.cpp
-  // colorRefs, the b,g,r field order again: PURERED={0,0,255} = rgb(255,0,0)).
-  drcError: rgba(255, 0, 0, 0.8),
-  drcWarning: rgba(0, 255, 0, 0.8),
-  drcExclusion: rgba(255, 255, 255),
-  drcHighlighted: rgba(255, 0, 255),
-};
 
 export const PCB_THEMES: PcbColorTheme[] = [
   {
@@ -279,10 +200,10 @@ export const PCB_THEMES: PcbColorTheme[] = [
   {
     filename: '_builtin_classic',
     name: 'KiCad Classic',
-    background: C.black, // LAYER_PCB_BACKGROUND = BLACK
-    grid: C.darkGray, // LAYER_GRID = DARKGRAY
-    layerColors: CLASSIC_LAYER_COLORS,
-    special: CLASSIC_SPECIAL,
+    background: at(BUILTIN_CLASSIC_THEME, 'LAYER_PCB_BACKGROUND'),
+    grid: at(BUILTIN_CLASSIC_THEME, 'LAYER_GRID'),
+    layerColors: layerColorsFor(BUILTIN_CLASSIC_THEME),
+    special: specialFor(BUILTIN_CLASSIC_THEME),
   },
 ];
 
@@ -298,50 +219,53 @@ export const themeByFilename = (filename: string): PcbColorTheme =>
 export const PCB_BW_PRINT_THEME: PcbColorTheme = {
   filename: '_print_bw',
   name: 'Black and white',
-  background: C.white,
-  grid: C.black,
-  layerColors: Object.fromEntries(Object.keys(PCB_LAYER_COLORS).map((k) => [k, C.black])),
+  background: WHITE,
+  grid: BLACK,
+  layerColors: Object.fromEntries(Object.keys(PCB_LAYER_COLORS).map((k) => [k, BLACK])),
   special: {
-    padPlatedHole: C.white,
-    nonPlatedHole: C.white,
-    viaHole: C.white,
-    viaHoleWall: C.black,
-    padHoleWall: C.black,
-    ratsnest: C.black,
-    anchor: C.black,
-    drawingSheet: C.black,
-    pageLimits: C.black,
-    netName: C.white,
-    padName: C.white,
-    viaName: C.black,
+    padPlatedHole: WHITE,
+    nonPlatedHole: WHITE,
+    viaHole: WHITE,
+    viaHoleWall: BLACK,
+    padHoleWall: BLACK,
+    ratsnest: BLACK,
+    anchor: BLACK,
+    drawingSheet: BLACK,
+    pageLimits: BLACK,
+    netName: WHITE,
+    padName: WHITE,
+    viaName: BLACK,
     // Markers aren't printed (BOARD_PRINTOUT draws board layers only), but
     // every palette carries the full special set.
-    drcError: C.black,
-    drcWarning: C.black,
-    drcExclusion: C.black,
-    drcHighlighted: C.black,
+    drcError: BLACK,
+    drcWarning: BLACK,
+    drcExclusion: BLACK,
+    drcHighlighted: BLACK,
   },
 };
 
 /**
- * Objects-tab swatch colors, keyed by the Objects row key, from KiCad's
- * builtin dark theme (common/settings/builtin_color_themes.h). Rows without
- * an entry have no theme color and show a blank spacer, like upstream.
+ * Objects-tab swatch colours, keyed by the Objects row key. Rows without an
+ * entry have no theme colour and show a blank spacer, like upstream.
+ *
+ * `constrainedShadow` has no KiCad counterpart: appearance_controls.cpp's
+ * s_objectSettings has no such row, and layer_ids.h has no matching layer, so
+ * that swatch is ours and is spelled out rather than looked up.
  */
 export const PCB_OBJECT_COLORS: Record<string, string> = {
-  ratsnest: rgba(0, 248, 255, 0.35),
-  drcWarnings: rgba(255, 208, 66, 0.8),
-  drcErrors: rgba(215, 91, 107, 0.8),
-  drcExclusions: rgba(255, 255, 255, 0.8),
-  anchors: rgba(255, 38, 226),
-  points: rgba(255, 38, 226),
-  lockedShadow: rgba(255, 38, 226, 0.5),
-  collidingCourtyards: rgba(255, 0, 5, 0.5),
-  constrainedShadow: rgba(80, 160, 240, 0.5),
-  boardAreaShadow: rgba(100, 100, 100, 0.35),
-  drawingSheet: rgba(200, 114, 171),
-  pageLimits: rgba(132, 132, 132),
-  grid: rgba(132, 132, 132),
+  ratsnest: PCB_SPECIAL.ratsnest,
+  drcWarnings: PCB_SPECIAL.drcWarning,
+  drcErrors: PCB_SPECIAL.drcError,
+  drcExclusions: PCB_SPECIAL.drcExclusion,
+  anchors: PCB_SPECIAL.anchor,
+  points: at(BUILTIN_DEFAULT_THEME, 'LAYER_POINTS'),
+  lockedShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_LOCKED_ITEM_SHADOW'),
+  collidingCourtyards: at(BUILTIN_DEFAULT_THEME, 'LAYER_CONFLICTS_SHADOW'),
+  constrainedShadow: 'rgba(80,160,240,0.5)',
+  boardAreaShadow: at(BUILTIN_DEFAULT_THEME, 'LAYER_BOARD_OUTLINE_AREA'),
+  drawingSheet: PCB_SPECIAL.drawingSheet,
+  pageLimits: PCB_SPECIAL.pageLimits,
+  grid: PCB_GRID,
 };
 
 const INNER = Array.from({ length: 30 }, (_, i) => `In${30 - i}.Cu`);
@@ -385,4 +309,4 @@ export const PCB_PAINT_ORDER: string[] = [
   'Dwgs.User',
 ];
 
-export const layerColor = (name: string): string => PCB_LAYER_COLORS[name] ?? 'rgb(132,132,132)';
+export const layerColor = (name: string): string => PCB_LAYER_COLORS[name] ?? PCB_GRID;
