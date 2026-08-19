@@ -29,6 +29,7 @@ import {
   thumbGeometry,
   scrollPosForThumbOffset,
   nextOverState,
+  fadeRuns,
 } from '@ziroeda/designer/src/ui/overlay_scrollbars.js';
 
 const CSS = readFileSync(
@@ -199,6 +200,32 @@ describe('slider geometry, as GtkRange computes it', () => {
   it('clamps a drag past either end', () => {
     expect(scrollPosForThumbOffset(400, 2000, -500)).toBe(0);
     expect(scrollPosForThumbOffset(400, 2000, 5000)).toBe(1600);
+  });
+});
+
+describe('the fade clock runs from the last motion, not from the pointer leaving', () => {
+  it('fades the thin indicator with the pointer still inside the pane', () => {
+    // He reported this before the measurement caught up with him, and the
+    // measurement agrees: held perfectly still in the middle of a live
+    // GtkScrolledWindow the indicator was at full strength through 1.8 s, ~29 %
+    // at 2.3 s and gone at 2.8 s, pointer never having left. A jiggle in the
+    // same spot brought it straight back.
+    expect(fadeRuns('indicator', false)).toBe(true);
+  });
+
+  it('never fades the thickened bar', () => {
+    // Parked in the proximity zone it was still fully drawn at 8.5 s: that is
+    // the state you are in when you are aiming at the bar.
+    expect(fadeRuns('over', false)).toBe(false);
+  });
+
+  it('never fades mid-drag', () => {
+    expect(fadeRuns('indicator', true)).toBe(false);
+    expect(fadeRuns('over', true)).toBe(false);
+  });
+
+  it('has nothing to fade once hidden', () => {
+    expect(fadeRuns('hidden', false)).toBe(false);
   });
 });
 

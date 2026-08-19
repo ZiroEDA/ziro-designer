@@ -11,10 +11,12 @@
  *
  *   1. they cost nothing in layout — the content is allocated the full width of
  *      the pane and the indicator floats on top of it;
- *   2. they are invisible until the pointer is inside *that* scrolled window,
- *      and fade out again once it leaves;
- *   3. they are a 3 px indicator that thickens into a grabbable bar only when
- *      the pointer comes close to the edge.
+ *   2. they are invisible until the pointer moves inside *that* scrolled window,
+ *      and fade out ~2 s after the last pointer motion — not after the pointer
+ *      leaves, so they go away with the pointer still resting on the canvas;
+ *   3. they are a 3 px indicator that thickens into a grabbable bar when the
+ *      pointer comes close to the edge, and in *that* state they do not fade at
+ *      all, because that is when you are aiming at one.
  *
  * A browser gives none of that. Its scrollbars are permanent and take layout
  * space: on the Image Converter, `offsetWidth - clientWidth` was 15 on both
@@ -77,9 +79,11 @@ export const GTK_OVERLAY = {
   /** [css] `scrollbar { transition: 300ms cubic-bezier(0.25,0.46,0.45,0.94) }`
       — the appear/thicken animation. */
   transitionMs: 300,
-  /** [px] after the pointer left the window the indicator was still at full
-      strength at 1.7 s, ~37 % at 2.2 s and gone at 2.7 s: a hold of ~2000 ms
-      followed by a ~1000 ms fade. */
+  /** [px] how long the indicator holds before it fades, measured from the last
+      pointer MOTION rather than from the pointer leaving: held perfectly still
+      in the middle of the pane it was at full strength through 1.8 s, ~29 % at
+      2.3 s and gone at 2.8 s, and a later jiggle in the same spot brought it
+      straight back. So ~2000 ms of hold and ~1000 ms of fade. */
   fadeDelayMs: 2000,
   fadeDurationMs: 1000,
   /** GTK's own proximity hysteresis, recovered from where the state flipped:
@@ -165,6 +169,18 @@ export type IndicatorState = 'hidden' | 'indicator' | 'over';
  */
 export const nextOverState = (distanceToEdge: number, wasOver: boolean): boolean =>
   wasOver ? distanceToEdge <= GTK_OVERLAY.overLeavePx : distanceToEdge <= GTK_OVERLAY.overEnterPx;
+
+/**
+ * Whether the fade-out clock runs in this state.
+ *
+ * Measured, and the half we had wrong: the *thin* indicator fades ~2 s after
+ * the last pointer motion even with the pointer still inside the pane, but the
+ * *thickened* bar does not fade at all — parked in the proximity zone it was
+ * still fully drawn at 8.5 s, because that is when you are aiming at it. A drag
+ * in progress holds it for the same reason.
+ */
+export const fadeRuns = (state: IndicatorState, dragging: boolean): boolean =>
+  state === 'indicator' && !dragging;
 
 /** True when this element scrolls on the given axis and is allowed to show a bar. */
 const scrolls = (el: Element, style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean => {
@@ -303,7 +319,8 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     });
   };
 
-  const hide = (b: PaneBars) => {
+  /** Start the fade-out clock. Anything that shows the bar restarts it. */
+  const armFade = (b: PaneBars) => {
     clearFade(b);
     b.fadeTimer = window.setTimeout(() => {
       b.fadeTimer = 0;
@@ -314,22 +331,52 @@ export const installOverlayScrollbars = (doc: Document = document): (() => void)
     }, GTK_OVERLAY.fadeDelayMs);
   };
 
+  /**
+   * Show the bar in one of GTK's two visible states.
+   *
+   * The fade clock runs from the last pointer MOTION, not from the pointer
+   * leaving the pane — measured, and reported by the user before the
+   * measurement caught up with him: hold the pointer perfectly still in the
+   * middle of a GtkScrolledWindow and the indicator is at full strength through
+   * 1.8 s, ~29 % at 2.3 s and gone at 2.8 s, with the pointer still inside. A
+   * later jiggle in the same spot brings it straight back.
+   *
+   * The one exception is the thickened state: with the pointer parked in the
+   * proximity zone the bar was still fully drawn at 8.5 s, because that is when
+   * you are aiming at it.
+   */
   const show = (b: PaneBars, over: boolean) => {
-    clearFade(b);
     b.over = over;
     b.state = over ? 'over' : 'indicator';
     applyState(b);
     schedule(b);
+    if (fadeRuns(b.state, b.dragging !== null)) armFade(b);
+    else clearFade(b);
+  };
+
+  /**
+   * The pointer has left this pane: thin the bar back down *now*, then fade.
+   *
+   * Dropping `over` here rather than at the end of the fade is not a detail.
+   * The pointer usually leaves a pane sideways, through the very edge the bar
+   * hugs, so the last thing it did before leaving was thicken — and holding
+   * that for the fade delay meant the *thick* bar was what you saw the moment
+   * you moved off onto the options column and the thin one what you saw moving
+   * back in. Exactly backwards, and reported as such. GTK drops the over state
+   * on the leave notify, before the fade starts.
+   */
+  const hide = (b: PaneBars) => {
+    if (b.dragging) return;
+    show(b, false);
   };
 
   const onScroll = (ev: Event) => {
-    // GTK flashes the indicator on a wheel scroll even with the pointer still.
+    // GTK shows the indicator on a wheel scroll even with the pointer still.
     const pane = ev.target;
     if (!(pane instanceof HTMLElement)) return;
     const b = bars.get(pane);
     if (!b) return;
-    show(b, b.over);
-    if (b !== active) hide(b);
+    show(b, b.over && b === active);
   };
 
   const attach = (pane: HTMLElement): PaneBars => {
