@@ -339,6 +339,28 @@ describe('segIntersect — large coordinates, where 64-bit stops being optional'
     expect(p?.y).toBeLessThanOrEqual(1);
   });
 
+  it('rounds the scaled direction with rescale, not by truncating the quotient', () => {
+    // The unit square's diagonals cross at (0.5, 0.5), which no integer
+    // coordinate can hold, so the answer is decided entirely by how
+    // `rescale( param1_num, dir2, determinant )` rounds.
+    //
+    // param1_num = -1, determinant = -2, dir2 = (-1, 1). Upstream's int64
+    // rescale is `( n*v ± d/2 ) / d` with the sign of the correction following
+    // `(n*v < 0) ^ (d < 0)`: x gets ( 1 + 1 ) / -2 = -1 and y gets
+    // ( -1 - 1 ) / -2 = 1, so the point is aSeg.A + (-1, 1) = (0, 1).
+    //
+    // Truncating the quotient instead — `trunc( -1 * -1 / -2 )` and
+    // `trunc( -1 * 1 / -2 )`, both 0 — answers (1, 0). Same distance from the
+    // true crossing, opposite corner.
+    expect(segIntersect(S(0, 0, 1, 1), S(1, 0, 0, 1))).toEqual(V(0, 1));
+
+    // Scaled up by a million so the products are past 2^53 and a double cannot
+    // represent the quotient's tie exactly either.
+    expect(
+      segIntersect(S(0, 0, 1000000001, 1000000001), S(1000000001, 0, 0, 1000000001)),
+    ).toEqual(V(500000000, 500000001));
+  });
+
   it('does not mistake two parallel shallow lines for a crossing', () => {
     // Both slopes are exactly 1/1000000. In doubles the determinant is a
     // rounding residue rather than zero, and the answer is a point invented by
