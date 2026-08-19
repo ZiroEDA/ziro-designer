@@ -95,7 +95,16 @@
      25 px rgb(44,44,44) menu bar. Title ink sampled rgb(247,247,247).
      [css] `gsettings get org.gnome.desktop.wm.preferences titlebar-font` =
      "Cantarell Bold 11" — 11pt at 96 dpi = 14.667 px, weight 700. */
-  --titlebar-height: 36px;
+  /* DELIBERATE DIVERGENCE, Akshay's call 2026-08-19: the real strip is 36 px,
+     but that is a window-manager decoration and the browser already spends
+     ~140 px on its own chrome before our frame starts. Ours is sized to the
+     text plus a little breathing room: 18 px of label (the natural
+     ascent+descent for this font, the same as --ui-line-height at the same
+     11pt) with 3 px above and below, so 24 px — saving 12 px per frame. Sized
+     to the text alone at 18 px it read as cramped. The font, colours and the
+     rule below are still KiCad's; only the strip's height is ours. Do not
+     "restore" 36 px as a parity fix. */
+  --titlebar-height: 24px;
   --titlebar-bg: #222222;
   --titlebar-fg: #f7f7f7;
   --titlebar-font-size: 14.667px;
@@ -362,6 +371,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 8px;
   background: var(--titlebar-bg);
   border-bottom: 1px solid var(--titlebar-rule);
+  /* Pin the line box to the strip so the glyphs sit on a known baseline rather
+     than on whatever leading the inherited line-height would add. */
+  line-height: var(--titlebar-height);
 }
 /* Centred on the frame, not on the space left over by the home link — a WM
    centres the title on the title bar itself. */
