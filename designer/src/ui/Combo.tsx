@@ -23,7 +23,7 @@
  * the currently-selected row sitting on top of it, so the value you are looking
  * at does not move when the list appears. That is what `popupTop` computes.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { popupTop } from './combo_popup.js';
 
 export interface ComboOption {
@@ -39,16 +39,21 @@ export function Combo({
   onChange,
   disabled,
   className,
+  style,
   title,
   ariaLabel,
+  autoFocus,
 }: {
   value: string;
   options: readonly ComboOption[];
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
+  /** Layout only — the look belongs to `.ze-combo`, never to a call site. */
+  style?: CSSProperties;
   title?: string;
   ariaLabel?: string;
+  autoFocus?: boolean;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -112,6 +117,9 @@ export function Combo({
         ref={btnRef}
         type="button"
         className={`ze-combo${className ? ` ${className}` : ''}`}
+        style={style}
+        // biome-ignore lint/a11y/noAutofocus: wxDialog focuses its first control.
+        autoFocus={autoFocus}
         disabled={disabled}
         title={title}
         aria-label={ariaLabel}

@@ -238,8 +238,7 @@
    at (0,5,1) and documents `ze-bare` as its opt-out. Without both, the shell
    paints these fields --chrome-bg2 with a 3 px radius and the GTK field metrics
    below never reach the screen. */
-.imgc-frame .imgc-input,
-.imgc-frame .imgc-select {
+.imgc-frame .imgc-input {
   background: var(--field-bg);
   color: var(--chrome-fg);
   border: 1px solid var(--ctl-border);
@@ -257,13 +256,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The Layer and unit combos are the shared `Combo` (ui/Combo.tsx), and NOTHING
+   about how they look is restated here. They used to share `.imgc-input`'s rule,
+   which painted them the entry interior `--field-bg`; a combo is a GTK *button*
+   and takes `--ctl-face` (Yaru: `button { background-image: image(#373737) }`
+   against an entry's #282828, and a real bitmap2component samples rgb(55,55,55)
+   inside the Layer combo). Because the local rule was (0,2,0) it silently beat
+   `.ze-combo`'s (0,1,0), so fixing the widget centrally changed nothing here —
+   which is exactly why the look now lives in one place and this file keeps only
+   the LAYOUT bitmap2cmp_panel_base gives this panel: sizer proportion and the
+   SetMinSize widths. Layout is the panel's business; looks are the widget's. */
+.imgc-frame .imgc-select {
+  flex: none;
+}
+
 .imgc-sizerow .imgc-select {
   width: 80px;
 }
 
-.imgc-frame .imgc-input:focus,
-.imgc-frame .imgc-select:focus {
-  outline: 1px solid var(--chrome-active-border);
+/* Only an entry takes a focus ring, and at 70% alpha: Yaru gives
+   `entry:focus { border-color: rgba(239, 134, 97, 0.7) }` and gives `button` no
+   :focus rule at all. A combo is a button, so it is not listed here — the
+   keyboard rectangle it does get lives on `.ze-combo:focus-visible`. */
+.imgc-frame .imgc-input:focus {
+  outline: 1px solid var(--field-focus-border);
 }
 
 /* m_layerCtrl is the one control here at sizer proportion 1. */
@@ -274,8 +290,7 @@
 
 /* GTK greys a disabled control by colour, not by fading the whole widget: the
    background and border stay put and only the text changes. */
-.imgc-frame .imgc-input:disabled,
-.imgc-frame .imgc-select:disabled {
+.imgc-frame .imgc-input:disabled {
   color: var(--ctl-fg-disabled);
   opacity: 1;
 }

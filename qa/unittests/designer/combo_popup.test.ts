@@ -32,10 +32,16 @@ const TSX = read('../../../designer/src/ui/Combo.tsx');
 
 /** The body of one CSS rule, comments stripped so they cannot read as code. */
 function rule(selector: string): string {
-  // `[^{}]*` so a selector that appears in a comma-separated group still matches.
-  const body = new RegExp(`${selector.replace(/[.\\]/g, '\\$&')}[^{}]*\\{([^}]*)\\}`).exec(
-    CSS.replace(/\/\*[\s\S]*?\*\//g, ''),
-  );
+  const code = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Prefer the rule whose selector IS this one, at the start of a line. Without
+  // that, `.ze-combo` also matches `.ze-wks-topbar .ze-combo`, and whichever
+  // comes first in the file wins — which silently reads a descendant rule's
+  // body as the widget's own.
+  const exact = new RegExp(`\\n${selector.replace(/[.\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(code);
+  // Fall back to a looser match so a selector inside a comma-separated group
+  // is still found.
+  const body =
+    exact ?? new RegExp(`${selector.replace(/[.\\]/g, '\\$&')}[^{}]*\\{([^}]*)\\}`).exec(code);
   expect(body, `shell.css has no ${selector} rule`).not.toBeNull();
   return body?.[1] ?? '';
 }
@@ -167,5 +173,73 @@ describe('Combo: interiors follow GTK, where a button and an entry differ', () =
 
   it('no longer lets a drop-down fall through to --chrome-bg2', () => {
     expect(rule('.ze-combo')).not.toContain('chrome-bg2');
+  });
+
+  it('is never sat on a surface of its own face', () => {
+    // A control the same colour as what is behind it reads as absent. The
+    // drawing sheet's top strip did exactly that: --content-bg IS --ctl-face.
+    const val = (n: string): string =>
+      (new RegExp(`${n}:\\s*([^;]+);`).exec(CSS)?.[1] ?? '').trim();
+    const face = val('--ctl-face');
+    for (const surface of ['--chrome-bg', '--panel-bg']) {
+      expect(val(surface), `${surface} must differ from --ctl-face`).not.toBe(face);
+    }
+  });
+});
+
+describe('Combo: the arrow points down, and a local rule cannot outrank it', () => {
+  const IMGC = read('../../../designer/src/editors/image/imageConverter.css');
+
+  /**
+   * A wxChoice's arrow points DOWN and stays down; it is not a disclosure
+   * triangle. Reusing `.twisty` for the glyph is right — it is the one chevron
+   * the whole app draws — but the base rule
+   *
+   *   .twisty.expandable::before { transform: ... rotate(45deg) }   (0,2,1)
+   *
+   * outranks a bare `.ze-combo-arrow::before` (0,1,1), so the combo inherited
+   * the RIGHT-pointing collapsed chevron. Matching specificity is the fix, and
+   * it is invisible in review, so it is pinned here.
+   */
+  it('overrides the tree chevron at equal specificity, not below it', () => {
+    // Comments stripped, so prose ABOUT the weaker selector cannot read as it.
+    const code = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).toContain('.twisty.ze-combo-arrow::before');
+    expect(code).not.toMatch(/(^|[^.\w])\.ze-combo-arrow::before/m);
+  });
+
+  it('rotates it to point down', () => {
+    expect(rule('.twisty.ze-combo-arrow::before')).toMatch(/rotate\(135deg\)/);
+  });
+
+  it('comes after the base rule, so equal specificity resolves its way', () => {
+    expect(CSS.indexOf('.twisty.ze-combo-arrow::before')).toBeGreaterThan(
+      CSS.indexOf('.twisty.expandable::before'),
+    );
+  });
+
+  /**
+   * Same class of bug, one file over. `.imgc-frame .imgc-select` is (0,2,0) and
+   * beat `.ze-combo`'s (0,1,0), so the Image Converter's Layer combo painted
+   * the ENTRY interior. Sampled off a real bitmap2component: rgb(55,55,55)
+   * inside the combo, rgb(44,44,44) for the panel behind it. Ours was
+   * rgb(40,40,40).
+   */
+  it('does not let the Image Converter repaint the combo at all', () => {
+    // It used to share `.imgc-input`'s rule and take the ENTRY interior
+    // (--field-bg #282828) where a GTK combo takes the BUTTON face
+    // (--ctl-face #373737, sampled rgb(55,55,55) off a real bitmap2component).
+    // The local rule is (0,2,0) against `.ze-combo`'s (0,1,0), so it silently
+    // won and fixing the widget centrally changed nothing here. The fix is not
+    // to restate the right colour locally — it is to state nothing locally.
+    const local = [...IMGC.matchAll(/\.imgc[^{}]*\.imgc-select[^{}]*\{([^}]*)\}/g)]
+      .map((m) => m[1] ?? '')
+      .join(';');
+    expect(local).not.toMatch(/background|border|border-radius|font-size|height|padding/);
+  });
+
+  it('leaves no local orange focus ring on a combo either', () => {
+    expect(IMGC).not.toMatch(/\.imgc-select:focus/);
+    expect(IMGC).not.toContain('--chrome-active-border');
   });
 });

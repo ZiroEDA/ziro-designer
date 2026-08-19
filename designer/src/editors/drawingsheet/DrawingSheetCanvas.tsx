@@ -756,16 +756,32 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     }, [activeTool, requestDraw]);
 
     const placing = TWO_CLICK.has(activeTool) || ONE_CLICK.has(activeTool);
+    /*
+     * The pointer, per KiCad's own setCursor lambdas. Note the idle case:
+     * PL_SELECTION_TOOL::Main falls through to KICURSOR::ARROW
+     * (pl_selection_tool.cpp:209), so the selection tool shows the ordinary
+     * pointer. Ours showed a `crosshair`, which doubled up with the crosshair
+     * the canvas already DRAWS at the cursor — KiCad draws that mark itself and
+     * leaves the system pointer an arrow, so we had two crosshairs at once.
+     *
+     * The placing tools are not all the same either
+     * (pl_drawing_tools.cpp:83-99): text takes KICURSOR::TEXT, placeImage takes
+     * KICURSOR::ARROW, and only the rest take KICURSOR::PENCIL.
+     */
     const cursor =
       activeTool === 'zoomTool'
         ? 'zoom-in'
         : activeTool === 'dsDelete'
           ? REMOVE_CURSOR
-          : placing
-            ? PENCIL_CURSOR
-            : moveMode
-              ? 'move'
-              : 'crosshair';
+          : activeTool === 'dsAddText'
+            ? 'text'
+            : activeTool === 'dsAddBitmap'
+              ? 'default'
+              : placing
+                ? PENCIL_CURSOR
+                : moveMode
+                  ? 'move'
+                  : 'default';
     return (
       <div
         className="ze-canvas-wrap"

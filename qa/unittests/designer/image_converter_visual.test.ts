@@ -44,6 +44,24 @@ const TOKENS: Record<string, string> = (() => {
 const CSS_CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The declarations of one rule, as a property -> value map. */
+/** The same, against the shared stylesheet — for what `ui/` owns, not this panel. */
+function shellRule(selector: string): Record<string, string> {
+  const code = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');
+  const at = code.indexOf(`\n${selector} {`);
+  expect(at, `shell.css has no rule for ${selector}`).toBeGreaterThanOrEqual(0);
+  const body = code.slice(at + selector.length + 4, code.indexOf('}', at));
+  const out: Record<string, string> = {};
+  for (const decl of body.split(';')) {
+    const i = decl.indexOf(':');
+    if (i < 0) continue;
+    out[decl.slice(0, i).trim()] = decl
+      .slice(i + 1)
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+  return out;
+}
+
 function rule(selector: string): Record<string, string> {
   const at = CSS_CODE.indexOf(`\n${selector} {`);
   expect(at, `no rule for ${selector}`).toBeGreaterThanOrEqual(0);
@@ -375,7 +393,7 @@ describe('the Image Converter reads its metrics from the tokens', () => {
   });
 
   it('gives the fields, the combos and the buttons the token height', () => {
-    const field = rule('.imgc-frame .imgc-select');
+    const field = rule('.imgc-frame .imgc-input');
     expect(field.height).toBe('var(--ctl-height)');
     expect(field.background).toBe('var(--field-bg)');
     expect(field.border).toBe('1px solid var(--ctl-border)');
@@ -390,8 +408,16 @@ describe('the Image Converter reads its metrics from the tokens', () => {
   it('greys a disabled control by colour, never by fading it', () => {
     // GTK has no opacity in any :disabled rule; it swaps the colour. Fading
     // washes out the control's own background and border with it.
-    expect(rule('.imgc-frame .imgc-select:disabled').color).toBe('var(--ctl-fg-disabled)');
-    expect(rule('.imgc-frame .imgc-select:disabled').opacity).toBe('1');
+    //
+    // The combo's disabled treatment is the SHARED widget's, not this panel's.
+    // This file restated it once, and because `.imgc-frame .imgc-select` is
+    // (0,2,0) against `.ze-combo`'s (0,1,0), every local restatement silently
+    // outranked the shared rule — which is how the Layer combo went on painting
+    // the entry interior after the widget itself had been fixed.
+    const comboOff = shellRule('.ze-combo:disabled');
+    expect(comboOff.color).toBe('var(--ctl-fg-disabled)');
+    expect(comboOff.background).toBe('var(--ctl-face-disabled)');
+    expect(CSS_CODE).not.toMatch(/\.imgc-select:disabled/);
     expect(rule('.imgc-frame .imgc-btn:disabled').background).toBe('var(--ctl-face-disabled)');
     expect(rule('.imgc-frame .imgc-btn:disabled').color).toBe('var(--ctl-fg-disabled)');
     expect(CSS_CODE).not.toMatch(/opacity:\s*0/);

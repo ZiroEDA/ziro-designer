@@ -31,7 +31,20 @@ import type {
   WksOption,
   WksColor,
 } from '@ziroeda/common';
+import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+
+/**
+ * The font faces the Text page offers. Default Font is the stroke font, which
+ * an empty face selects; a named face switches the item to that outline font,
+ * as in KiCad.
+ */
+const FACE_CHOICES: readonly ComboOption[] = [
+  { value: '', label: 'Default Font (KiCad Font)' },
+  { value: 'sans-serif', label: 'Sans-serif' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'monospace', label: 'Monospace' },
+];
 
 /** TB_DEFAULT_TEXTSIZE and the standard default pen widths (ds_data_model). */
 const DEFAULT_TEXTSIZE = 1.5;
@@ -150,18 +163,12 @@ function CornerCombo({
   onChange: (c: WksCorner) => void;
 }): JSX.Element {
   return (
-    <select
-      className="ze-select"
+    <Combo
       style={{ flex: 1, minWidth: 0 }}
       value={value}
-      onChange={(e) => onChange(e.target.value as WksCorner)}
-    >
-      {CORNER_CHOICES.map((c) => (
-        <option key={c.value} value={c.value}>
-          {c.label}
-        </option>
-      ))}
-    </select>
+      options={CORNER_CHOICES}
+      onChange={(v) => onChange(v as WksCorner)}
+    />
   );
 }
 
@@ -309,18 +316,12 @@ function ItemProperties({
         </a>
       </div>
       <Row label="Show:">
-        <select
-          className="ze-select"
+        <Combo
           style={{ flex: 1, minWidth: 0 }}
           value={item.option}
-          onChange={(e) => patch({ option: e.target.value as WksOption })}
-        >
-          {PAGE_CHOICES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+          options={PAGE_CHOICES}
+          onChange={(v) => patch({ option: v as WksOption })}
+        />
       </Row>
 
       {t && (
@@ -422,19 +423,12 @@ function ItemProperties({
             )}
           </div>
           <Row label="Font:">
-            <select
-              className="ze-select"
+            <Combo
               style={{ flex: 1, minWidth: 0 }}
               value={t.face ?? ''}
-              onChange={(e) => patch({ face: e.target.value || undefined })}
-            >
-              {/* Default Font = the stroke font (empty face); a named face
-                  switches the item to that outline font, as in KiCad. */}
-              <option value="">Default Font (KiCad Font)</option>
-              <option value="sans-serif">Sans-serif</option>
-              <option value="serif">Serif</option>
-              <option value="monospace">Monospace</option>
-            </select>
+              options={FACE_CHOICES}
+              onChange={(v) => patch({ face: v || undefined })}
+            />
           </Row>
           <Row label="Text width:" hint="Set to 0 to use default values">
             <MmField value={t.fontW} onCommit={(fontW) => patch({ fontW })} />

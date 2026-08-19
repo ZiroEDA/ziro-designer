@@ -2,6 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { NO_ARROWS, submenuEnds } from './menu_scroll.js';
 import { toolbarIconUrl } from './toolbarIcons.js';
 
 // The data types live in menu_types.ts so menu-building modules stay
@@ -44,7 +45,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
    * does. Fixed takes it out of flow, and the clamp below keeps it on screen
    * the way a WM keeps a popup on the monitor.
    */
-  const [box, setBox] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const [box, setBox] = useState<{ left: number; top: number } | null>(null);
   const [over, setOver] = useState<'up' | 'down' | null>(null);
   /** Which ends can still scroll: an arrow shows only when there is something
    *  that way, which is how GTK draws them — no arrow on a menu that is already
@@ -54,13 +55,28 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
   const syncEnds = (): void => {
     const el = subRef.current?.querySelector('.ze-submenu-scroll');
     if (!el) return;
-    const max = el.scrollHeight - el.clientHeight;
-    setEnds({ up: el.scrollTop > 0, down: el.scrollTop < max - 1 });
+    // A menu that fits gets NO arrow at either end — GTK grows them only on a
+    // menu too tall for the monitor. Two things made one appear on a three-item
+    // menu and cover its first row:
+    //
+    //  - `clientHeight` is 0 until the pane has been laid out, and
+    //    `scrollHeight - 0` then reads as a full menu's worth of "more below";
+    //  - the arrows are part of this flex column, so once they were mounted the
+    //    next open measured THEM instead of the rows and clamped the flyout to
+    //    arrow height, which is what hid the items.
+    //
+    // Requiring real overflow closes both: no overflow, no arrows, and the
+    // measurement sees rows again.
+    setEnds(submenuEnds(el.scrollTop, el.scrollHeight, el.clientHeight));
   };
 
   useLayoutEffect(() => {
     if (!subOpen) {
       setBox(null);
+      // Arrows must not survive the close: they are rows in this flex column, so
+      // leaving them mounted makes the NEXT open measure arrow height and clamp
+      // the flyout to it.
+      setEnds(NO_ARROWS);
       return;
     }
     const row = rowRef.current;
@@ -68,15 +84,23 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
     if (!row || !el) return;
     const r = row.getBoundingClientRect();
     const w = el.offsetWidth;
-    const h = el.scrollHeight;
+    // `offsetHeight`, and the cap is CSS's, not ours. This used to set maxHeight
+    // from `el.scrollHeight` — the flyout's own height — which is circular: the
+    // element being measured already carried the previous render's clamp, so
+    // every open re-clamped from the last one until the box collapsed to arrow
+    // height. Measured on a ONE-row View > Panels flyout: max-height 34px, a
+    // 26px row in an 8px pane, and a down arrow covering it.
+    //
+    // A menu is limited by the monitor and nothing else, so the cap is a
+    // constant in the stylesheet and a short menu simply stays short.
+    const h = el.offsetHeight;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     // Flip to the row's left edge when the flyout would run off the right, as
     // a WM flips a popup that will not fit on the monitor.
     const left = r.right + w <= vw - 4 ? r.right : Math.max(4, r.left - w);
-    const maxHeight = Math.min(h, vh - 8);
-    const top = Math.max(4, Math.min(r.top - 4, vh - 4 - maxHeight));
-    setBox({ left, top, maxHeight });
+    const top = Math.max(4, Math.min(r.top - 4, vh - 4 - h));
+    setBox({ left, top });
     // The rows are laid out by now, so the ends are knowable.
     requestAnimationFrame(syncEnds);
   }, [subOpen]);
@@ -138,7 +162,6 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
             position: 'fixed',
             left: box ? box.left : -9999,
             top: box ? box.top : 0,
-            maxHeight: box ? box.maxHeight : undefined,
             visibility: box ? 'visible' : 'hidden',
           }}
         >

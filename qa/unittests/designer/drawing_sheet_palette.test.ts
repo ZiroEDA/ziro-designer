@@ -140,7 +140,18 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
   it('puts the toolbars and the message panel on it, not on the chrome grey', () => {
     expect(rule('.ze-wks .ze-toolbar').background).toBe('var(--content-bg)');
     expect(rule('.ze-wks .ze-msgpanel').background).toBe('var(--content-bg)');
-    expect(rule('.ze-wks-topbar').background).toBe('var(--content-bg)');
+    // `.ze-wks-topbar` is DELIBERATELY not on this list. It is the strip holding
+    // the origin and page combos, and `--content-bg` (#373737) is also
+    // `--ctl-face`, so the two combos were painted exactly their own backdrop
+    // and read as invisible next to the identical combos in the properties
+    // panel, which sit on #272727. Akshay asked for them to match the Image
+    // Converter's, which sit on #2c2c2c.
+    //
+    // This is a KNOWN DIVERGENCE from the pl_editor measurement above: upstream
+    // that strip really is #373737, and a real wxChoice is told apart from it by
+    // its border alone. Revert this one rule to `var(--content-bg)` to go back
+    // to strict parity.
+    expect(rule('.ze-wks-topbar').background).toBe('var(--chrome-bg)');
     // A literal here would be a second name for a token that already exists.
     expect(rule('.ze-wks .ze-toolbar').background).not.toMatch(/#/);
     expect(rule('.ze-wks .ze-msgpanel').background).not.toMatch(/#/);
@@ -372,17 +383,22 @@ describe('C7: the left toolbar is toggleGrid plus one Units group', () => {
 });
 
 describe('D4: the toolbar combos are sized like wxChoice, not stretched', () => {
-  it('does not inherit .ze-select flex: 1 in the toolbar', () => {
-    expect(rule('.ze-select').flex).toBe('1');
-    expect(rule('.ze-wks-topbar .ze-select').flex).toBe('0 0 auto');
+  // These two are the shared `Combo` (ui/Combo.tsx) now, not native <select>s,
+  // so the strip sets LAYOUT only and the widget brings its own height and face.
+  it('does not stretch across the toolbar strip', () => {
+    expect(rule('.ze-wks-topbar .ze-combo').flex).toBe('0 0 auto');
   });
 
   it('sizes to its widest option, as UpdateToolbarControlSizes does', () => {
-    expect(rule('.ze-wks-topbar .ze-select').width).toBe('max-content');
+    expect(rule('.ze-wks-topbar .ze-combo').width).toBe('max-content');
   });
 
-  it('stands at the one shared GTK control height', () => {
-    expect(rule('.ze-wks-topbar .ze-select').height).toBe('var(--ctl-height)');
+  it('stands at the one shared GTK control height, from the widget', () => {
+    // Not restated on the strip: a local rule of that shape is (0,2,0) and
+    // outranks `.ze-combo`'s (0,1,0), which is how a launcher-local sheet went
+    // on overriding the shared widget after the widget itself had been fixed.
+    expect(rule('.ze-combo').height).toBe('var(--ctl-height)');
+    expect(rule('.ze-wks-topbar .ze-combo').height).toBeUndefined();
     expect(TOKENS['--ctl-height']).toBe('34px');
   });
 

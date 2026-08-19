@@ -35,7 +35,14 @@ import {
   type WksResolveContext,
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
+import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
+
+/** m_pageSelectBox (pl_editor_frame.cpp): page 1 versus every other page. */
+const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
+  { value: '1', label: 'Page 1' },
+  { value: '2', label: 'Other pages' },
+];
 import { Toolbar } from '../../ui/Toolbar.js';
 import {
   FRAME_TITLE_SEPARATOR,
@@ -1398,31 +1405,22 @@ export function DrawingSheetEditor({
           onActivate={onTopAction}
         />
         <span style={{ width: 10 }} />
-        <select
-          className="ze-select"
-          value={originChoice}
-          onChange={(e) => setOriginChoice(Number(e.target.value))}
+        <Combo
+          value={String(originChoice)}
+          options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
+          onChange={(v) => setOriginChoice(Number(v))}
           title="Origin of coordinates displayed to the status bar"
           style={{ margin: '0 6px' }}
-        >
-          {ORIGIN_CHOICES.map((c, i) => (
-            <option key={c} value={i}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          className="ze-select"
-          value={pageNumber}
-          onChange={(e) => setPageNumber(Number(e.target.value))}
+        />
+        <Combo
+          value={String(pageNumber)}
+          options={PAGE_NUMBER_CHOICES}
+          onChange={(v) => setPageNumber(Number(v))}
           title={
             'Simulate page 1 or other pages to show how items\nwhich are not on all page are displayed'
           }
           style={{ margin: '0 6px' }}
-        >
-          <option value={1}>Page 1</option>
-          <option value={2}>Other pages</option>
-        </select>
+        />
       </div>
 
       <div className="ze-body">

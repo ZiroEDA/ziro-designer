@@ -11,7 +11,14 @@
  */
 
 import { useState, type JSX } from 'react';
+import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+
+/** PAGE_SETUP's orientation choice (dialog_page_settings_base.cpp). */
+const ORIENTATION_CHOICES: readonly ComboOption[] = [
+  { value: 'landscape', label: 'Landscape' },
+  { value: 'portrait', label: 'Portrait' },
+];
 
 /** Standard paper sizes, in mm (landscape W×H), as page_info defines them. */
 export const PAPER_MM: Record<string, [number, number]> = {
@@ -133,32 +140,22 @@ export function PageSettingsDialog({
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Paper</div>
             <div style={row}>
               <span style={lab}>Size:</span>
-              <select
-                className="ze-select"
+              <Combo
                 style={{ flex: 1 }}
                 value={s.paper}
-                onChange={(e) => set({ paper: e.target.value })}
+                options={PAPER_CHOICES.map((p) => ({ value: p.id, label: p.label }))}
+                onChange={(v) => set({ paper: v })}
                 autoFocus
-              >
-                {PAPER_CHOICES.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div style={row}>
               <span style={lab}>Orientation:</span>
-              <select
-                className="ze-select"
+              <Combo
                 style={{ flex: 1 }}
                 value={s.portrait ? 'portrait' : 'landscape'}
-                disabled={s.paper === 'User'}
-                onChange={(e) => set({ portrait: e.target.value === 'portrait' })}
-              >
-                <option value="landscape">Landscape</option>
-                <option value="portrait">Portrait</option>
-              </select>
+                options={ORIENTATION_CHOICES}
+                onChange={(v) => set({ portrait: v === 'portrait' })}
+              />
             </div>
             {s.paper === 'User' && (
               <>

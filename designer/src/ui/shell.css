@@ -2754,6 +2754,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* The only thing that limits a menu's height is the monitor, so the cap lives
+     here as a constant. It used to be measured in JS from the flyout's own
+     height, which already carried the previous clamp — a feedback loop that
+     shrank a one-row menu to 34px and put a scroll arrow over its only row. */
+  max-height: calc(100vh - 8px);
 }
 .ze-submenu-scroll {
   display: grid;
@@ -6728,19 +6733,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    Height is the shared GTK control height: KiCad's combo, button and text
    field are all one height, which is why a row of mixed controls lines up.
    Measured 34 px against our 23 px, and `--ctl-height` already carries it. */
-.ze-wks-topbar .ze-select {
+/* The two combos beside the top toolbar are the shared `Combo`, which brings its
+   own height, padding and face — this only keeps them from stretching in the
+   flex strip. Their look is NOT restated here: an earlier local rule of exactly
+   this kind is what kept the Image Converter's combo painting the entry
+   interior after the shared widget had already been fixed. */
+.ze-wks-topbar .ze-combo {
   flex: 0 0 auto;
   width: max-content;
-  height: var(--ctl-height);
-  padding: 0 var(--ctl-pad-x);
 }
 
-/* The top toolbar and the two combos beside it are one strip upstream. */
+/* The top toolbar and the two combos beside it are one strip upstream, so the
+   wrapper takes the toolbar's own face — `--chrome-bg`, the token whose comment
+   already reads "menu bar, status bar, toolbars", and the same face `.ze-toolbar`
+   uses. It carried `--content-bg` (#373737), which is also `--ctl-face`: the two
+   combos were painted exactly the shade of the strip behind them and vanished
+   into it, while the identical combos in the properties panel stood out against
+   its #272727. Both combos were always the same colour; only their backdrop was
+   wrong. */
 .ze-wks-topbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  background: var(--content-bg);
+  background: var(--chrome-bg);
   border-bottom: 1px solid var(--chrome-border);
 }
 .ze-wks-topbar .ze-toolbar.horizontal {
@@ -6796,7 +6811,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ze-combo-arrow::before {
+/* A wxChoice's arrow points DOWN, always — it is not a disclosure triangle that
+   flips when the list opens. `.twisty.expandable::before` is (0,2,1) and would
+   otherwise beat a bare `.ze-combo-arrow::before` at (0,1,1) and paint its
+   right-pointing collapsed chevron here, which is exactly what it did. Matching
+   the base rule's specificity and coming later in the file wins the tie. */
+.twisty.ze-combo-arrow::before {
   transform: translate(-50%, -70%) rotate(135deg);
 }
 .ze-combo-popup {
