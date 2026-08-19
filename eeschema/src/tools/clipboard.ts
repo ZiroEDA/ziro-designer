@@ -37,12 +37,12 @@ import {
 import { refId } from './hittest.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';
 import {
-  newUuid,
   makeLabel,
   nodeWithUuid,
   symbolNodeWithFreshUuids,
   symbolNodeWithoutInstances,
 } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
@@ -434,14 +434,14 @@ export function parsePastedText(
     return forceKeepAnnotations ? withIds : clearAnnotation(withIds);
   });
   const reuuid = <T extends { source: SList; uuid?: string }>(item: T): T => {
-    const uuid = newUuid();
+    const uuid = newKiid();
     return { ...item, uuid, source: nodeWithUuid(item.source, uuid) };
   };
   // Graphics carry a uuid in their node but not as a model field (they are
   // identified by index), so their node alone is refreshed.
   const reuuidNode = <T extends { source: SList }>(item: T): T => ({
     ...item,
-    source: nodeWithUuid(item.source, newUuid()),
+    source: nodeWithUuid(item.source, newKiid()),
   });
   const lines = doc.lines.map(reuuid);
   const junctions = doc.junctions.map(reuuid);

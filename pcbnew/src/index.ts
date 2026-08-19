@@ -243,9 +243,11 @@ export {
 export {
   exchangeFootprint,
   placeFootprint,
-  newUuid as newBoardUuid,
   type PlaceFootprintOptions,
 } from './board_exchange_footprint.js';
+// A new board item's UUID is `KIID::KIID()`, which upstream has once for the
+// whole application; re-exported from common so the board barrel still offers it.
+export { newKiid as newBoardUuid } from '@ziroeda/common/src/kiid.js';
 export {
   computeFootprintShift,
   uniquePadCount,

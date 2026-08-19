@@ -40,7 +40,8 @@ import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/ed
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { arg } from '@ziroeda/sexpr/src/query.js';
-import { exchangeFootprint, newUuid, placeFootprint } from '../board_exchange_footprint.js';
+import { exchangeFootprint, placeFootprint } from '../board_exchange_footprint.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { boardItemBBox } from '../edit-board.js';
 import { appendNet, findNet, removeUnusedNets, UNCONNECTED_NET } from '../netinfo.js';
 import {
@@ -341,7 +342,7 @@ export class BOARD_NETLIST_UPDATER {
     const placed = placeFootprint(libFootprint, {
       fpid: footprintId,
       at: this.estimateFootprintInsertionPosition(),
-      uuid: newUuid(),
+      uuid: newKiid(),
       path: componentPath(component),
     });
 

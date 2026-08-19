@@ -12,7 +12,7 @@
 
 import { list, atom, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { newUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type {
   LibGraphic,
   SchBusEntry,
@@ -55,7 +55,7 @@ function fillNode(fill?: Fill): SList {
 // ----- graphic shapes (SCH_SHAPE on LAYER_NOTES) --------------------------------
 
 export function makeRectangle(start: Vec2, end: Vec2, stroke?: Stroke, fill?: Fill): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('rectangle'),
     list(atom('start'), atom(mm(start.x)), atom(mm(start.y))),
@@ -69,7 +69,7 @@ export function makeRectangle(start: Vec2, end: Vec2, stroke?: Stroke, fill?: Fi
 }
 
 export function makeCircle(center: Vec2, radius: number, stroke?: Stroke, fill?: Fill): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('circle'),
     list(atom('center'), atom(mm(center.x)), atom(mm(center.y))),
@@ -89,7 +89,7 @@ export function makeArc(
   stroke?: Stroke,
   fill?: Fill,
 ): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('arc'),
     list(atom('start'), atom(mm(start.x)), atom(mm(start.y))),
@@ -104,7 +104,7 @@ export function makeArc(
 }
 
 export function makePolyline(points: readonly Vec2[], stroke?: Stroke, fill?: Fill): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('polyline'),
     { kind: 'list', items: [atom('pts'), ...points.map(xy)] },
@@ -138,7 +138,7 @@ export function makeBezier(
   stroke?: Stroke,
   fill?: Fill,
 ): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const points = [start, c1, c2, end];
   const source = list(
     atom('bezier'),
@@ -168,7 +168,7 @@ export function makeEllipse(
   stroke?: Stroke,
   fill?: Fill,
 ): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('ellipse'),
     list(atom('center'), atom(mm(center.x)), atom(mm(center.y))),
@@ -204,7 +204,7 @@ export function makeEllipseArc(
   stroke?: Stroke,
   fill?: Fill,
 ): LibGraphic {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('ellipse_arc'),
     list(atom('center'), atom(mm(center.x)), atom(mm(center.y))),
@@ -295,7 +295,7 @@ export function makeBusEntry(
   at: Vec2,
   size: Vec2 = { x: DEFAULT_ENTRY_SIZE, y: DEFAULT_ENTRY_SIZE },
 ): SchBusEntry {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('bus_entry'),
     list(atom('at'), atom(mm(at.x)), atom(mm(at.y))),
@@ -361,7 +361,7 @@ export function makeSheet(
   name: string,
   file: string,
 ): SchSheet {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const namePos = { x: at.x, y: at.y - sheetFieldMargin(0.5) };
   const filePos = { x: at.x, y: at.y + size.h + sheetFieldMargin(0.4) };
   const nameJustify = ['left', 'bottom'];
@@ -431,7 +431,7 @@ export function addSheetPin(
   side: SheetSide,
   shape: LabelShape = 'passive',
 ): SchSheet {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const pinSource = list(
     atom('pin'),
     str(name),
@@ -550,7 +550,7 @@ export function makeTextBox(
   text: string,
   opts: { effects?: TextEffects; stroke?: Stroke; fill?: Fill } = {},
 ): SchTextBox {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const stroke: Stroke = opts.stroke ?? { width: DEFAULT_TEXTBOX_STROKE, type: 'default' };
   const fill: Fill = opts.fill ?? { type: 'none' };
   const effects: TextEffects = opts.effects ?? { hidden: false, justify: ['left', 'top'] };
@@ -603,7 +603,7 @@ function tableCellNode(
   margin: number,
   effects: TextEffects,
 ): { node: SList; cell: SchTableCell } {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const node = list(
     atom('table_cell'),
     str(text),
@@ -697,7 +697,7 @@ export function makeTable(
   /** Cell size from a drag; the defaults are used when a caller gives counts. */
   cell?: Vec2,
 ): SchTable {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const colWidths = Array.from({ length: cols }, () => cell?.x ?? DEFAULT_COL_WIDTH);
   const rowHeights = Array.from({ length: rows }, () => cell?.y ?? DEFAULT_ROW_HEIGHT);
   const margin = Math.round(mmToIU(1.27) * 0.75);
@@ -778,7 +778,7 @@ export function makeImage(at: Vec2, base64: string, scale = 1, keepUuid?: string
   // frame gave every frame a fresh uuid, so every frame was a cache miss that
   // never finished decoding before the next replaced it, and the image only
   // appeared once it was dropped.
-  const uuid = keepUuid ?? newUuid();
+  const uuid = keepUuid ?? newKiid();
   // KiCad wraps the base64 payload; split into ~76-char chunks as separate strings.
   const chunks: SNode[] = [atom('data')];
   for (let i = 0; i < base64.length; i += 76) chunks.push(str(base64.slice(i, i + 76)));

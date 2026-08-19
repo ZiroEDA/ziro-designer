@@ -17,7 +17,8 @@
  */
 
 import type { Schematic, SchLine, SchJunction, Vec2, LibSymbol } from '../types.js';
-import { makeWireWithUuid, makeBus, makeJunction, newUuid } from './build.js';
+import { makeWireWithUuid, makeBus, makeJunction } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { pruneGroupMembers } from './sch_group_tool.js';
 import type { EditCommand } from './command.js';
 import { isExplicitJunction, isExplicitJunctionNeeded } from './junction_helpers.js';
@@ -127,7 +128,7 @@ function mergeOverlap(
 function mergedLine(template: SchLine, span: { start: Vec2; end: Vec2 }): SchLine {
   return template.kind === 'bus'
     ? makeBus(span.start, span.end)
-    : makeWireWithUuid(span.start, span.end, newUuid());
+    : makeWireWithUuid(span.start, span.end, newKiid());
 }
 
 /**

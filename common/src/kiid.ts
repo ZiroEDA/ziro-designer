@@ -4,13 +4,34 @@
 /**
  * KIID helpers. Counterpart: `common/kiid.cpp`.
  *
- * Only the deterministic name-to-UUID mapping is ported: KIID::FromName hashes a
- * name into a version-5 (SHA-1) UUID under a fixed namespace, so the same name
- * always yields the same identifier. The netlist reader uses it to collapse a
- * group's instance path into the UUID of the board group that mirrors it, which
- * is what lets a re-run of "Update PCB from Schematic" find the group it made
- * last time instead of creating a second one.
+ * Upstream KIID is one class for the whole application: eeschema, pcbnew and
+ * every other frame stamp their items with the same constructors. So the
+ * constructors live here once, not once per editor.
+ *
+ * KIID::FromName hashes a name into a version-5 (SHA-1) UUID under a fixed
+ * namespace, so the same name always yields the same identifier. The netlist
+ * reader uses it to collapse a group's instance path into the UUID of the board
+ * group that mirrors it, which is what lets a re-run of "Update PCB from
+ * Schematic" find the group it made last time instead of creating a second one.
  */
+
+/**
+ * `KIID::KIID()` (common/kiid.cpp:75), the default constructor: a fresh random
+ * (version 4) identifier.
+ *
+ * Upstream has exactly one KIID class for the whole application — every item in
+ * every editor is stamped by this same constructor — so this lives here rather
+ * than once per editor. `crypto.randomUUID` is boost's `random_generator`;
+ * the hand-rolled fallback covers the insecure contexts where it is absent.
+ */
+export function newKiid(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 
 /** KIID::FromName's namespace UUID, fixed forever (kiid.cpp). */
 const NAMESPACE_UUID = '8b8b58e2-3d21-4a24-9dcf-42e0f14001a2';
@@ -152,10 +173,5 @@ export function kiidFromString(text: string): string {
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c?.randomUUID) return c.randomUUID();
-
-  const rand = (n: number): string =>
-    Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  return `${rand(8)}-${rand(4)}-4${rand(3)}-${rand(4)}-${rand(12)}`;
+  return newKiid();
 }

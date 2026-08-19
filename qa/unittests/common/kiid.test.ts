@@ -9,7 +9,7 @@
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { kiidFromName, kiidPathAsString } from '@ziroeda/common';
+import { kiidFromName, kiidPathAsString, newKiid } from '@ziroeda/common';
 
 /** KiCad's fixed namespace (common/kiid.cpp). */
 const NS = '8b8b58e2-3d21-4a24-9dcf-42e0f14001a2';
@@ -55,5 +55,44 @@ describe('kiidFromName', () => {
     expect(kiidPathAsString([])).toBe('/');
     expect(kiidPathAsString(['a'])).toBe('/a');
     expect(kiidPathAsString(['a', 'b'])).toBe('/a/b');
+  });
+});
+
+/**
+ * `KIID::KIID()` (common/kiid.cpp:75): a fresh random identifier. Upstream has one
+ * KIID class for the whole application, so eeschema and pcbnew must not be able to
+ * drift into stamping differently-shaped identifiers.
+ */
+describe('newKiid', () => {
+  /** boost::uuids::random_generator produces a version-4, RFC 4122 variant UUID. */
+  const V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it('produces a version-4 RFC 4122 identifier', () => {
+    for (let i = 0; i < 32; i++) expect(newKiid()).toMatch(V4);
+  });
+
+  it('never repeats itself', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i++) seen.add(newKiid());
+    expect(seen.size).toBe(500);
+  });
+
+  it('keeps the same shape where crypto.randomUUID is missing', () => {
+    const g = globalThis as { crypto?: { randomUUID?: () => string } };
+    const real = g.crypto;
+    // An insecure context exposes no crypto at all, which is the branch that
+    // exists so a UUID is still well-formed there.
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true });
+    try {
+      const seen = new Set<string>();
+      for (let i = 0; i < 200; i++) {
+        const id = newKiid();
+        expect(id).toMatch(V4);
+        seen.add(id);
+      }
+      expect(seen.size).toBe(200);
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', { value: real, configurable: true });
+    }
   });
 });

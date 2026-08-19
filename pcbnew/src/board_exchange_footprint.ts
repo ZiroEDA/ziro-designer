@@ -24,22 +24,13 @@
 
 import { atom, head, isList, str, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
 import { pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { computeFootprintShift } from './footprint_utils.js';
 import { fpidItemName } from './netlist_reader/pcb_netlist.js';
 import { readBoardFootprint } from './read-board.js';
 import type { PcbFootprint } from './types.js';
-
-/** A UUID for a new board item (KIID's default constructor). */
-export function newUuid(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c?.randomUUID) return c.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-    const r = (Math.random() * 16) | 0;
-    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
 
 /** Internal units -> trimmed millimetre string, KiCad's formatInternalUnits. */
 function mm(iu: number): string {
@@ -103,7 +94,7 @@ export function placeFootprint(
 
   if (opts.locked) items.push(list(atom('locked'), atom('yes')));
   items.push(list(atom('layer'), str(opts.layer ?? 'F.Cu')));
-  items.push(list(atom('uuid'), str(opts.uuid ?? newUuid())));
+  items.push(list(atom('uuid'), str(opts.uuid ?? newKiid())));
 
   const angle = opts.angle ?? 0;
   items.push(

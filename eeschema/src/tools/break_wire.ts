@@ -41,7 +41,8 @@
 
 import type { Schematic, SchLine, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
-import { nodeWithUuid, newUuid } from './build.js';
+import { nodeWithUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
 
@@ -106,7 +107,7 @@ export function breakableLines(
 
 /** The second half of a split: a duplicate of `line` running break -> old end. */
 export function brokenHalf(line: SchLine, at: Vec2): SchLine {
-  const uuid = newUuid();
+  const uuid = newKiid();
   return { ...line, start: at, end: line.end, uuid, source: nodeWithUuid(line.source, uuid) };
 }
 

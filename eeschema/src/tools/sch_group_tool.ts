@@ -21,7 +21,7 @@
 
 import type { Schematic, SchGroup } from '../types.js';
 import type { EditCommand } from './command.js';
-import { newUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { list, atom, str } from '@ziroeda/sexpr/src/types.js';
 
 /** Every item uuid a group member can reference (groups included, for nesting). */
@@ -61,7 +61,7 @@ export function collectItemUuids(doc: Schematic): Set<string> {
 
 /** Build a fresh SchGroup (SCH_GROUP constructor + AddItem). */
 function makeGroup(members: readonly string[], name = ''): SchGroup {
-  const uuid = newUuid();
+  const uuid = newKiid();
   return {
     name,
     uuid,
