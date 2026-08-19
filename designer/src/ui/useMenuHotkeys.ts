@@ -18,7 +18,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { dispatchMenuHotkey } from './menu_hotkeys.js';
-import type { FocusLike } from './browser_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from './browser_hotkeys.js';
 import type { Menu } from './menu_types.js';
 
 /**
@@ -43,7 +43,13 @@ export function useMenuHotkeys(menus: readonly Menu[], view?: string): void {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.defaultPrevented) return;
+      // `defaultPrevented` means someone already acted on this key — EXCEPT when
+      // it was our own browser suppressor, which runs in the capture phase and
+      // calls `preventDefault()` on every combo the app claims purely to stop
+      // the browser. Reading that as "handled" made this dispatcher stand down
+      // on every app hotkey, in every frame, which is precisely the set it
+      // exists to serve.
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       // No stamp at all is a standalone build, where this frame is the app.
       if (view !== undefined && (document.body.dataset.activeView ?? view) !== view) return;
       if (!dispatchMenuHotkey(menusRef.current, e, { target: e.target as FocusLike | null }))

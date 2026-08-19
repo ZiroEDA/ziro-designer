@@ -145,6 +145,25 @@ export function planClaim(combos: Iterable<string>): ClaimResult & { lookup: Rea
  * Returns the split of what it took, and a function to remove the listener.
  * Safe to call with no `window`, where it plans and installs nothing.
  */
+/**
+ * Events this module called `preventDefault()` on, purely to stop the browser.
+ *
+ * A `WeakSet` rather than a flag on the event, so nothing is mutated and the
+ * entry dies with the event.
+ */
+const SUPPRESSED = new WeakSet<object>();
+
+/**
+ * Did *we* suppress this event's default, rather than a real handler claiming it?
+ *
+ * A dispatcher should ignore `defaultPrevented` when this is true: our capture
+ * listener runs before every app handler and suppresses the browser's action for
+ * every combo the app claims, which is not the same as the key having been acted on.
+ */
+export function wasBrowserSuppressed(e: object): boolean {
+  return SUPPRESSED.has(e);
+}
+
 export function claimBrowserHotkeys(
   combos: Iterable<string>,
 ): ClaimResult & { release: () => void } {
@@ -158,6 +177,15 @@ export function claimBrowserHotkeys(
     if (isTypingTarget(e.target as FocusLike | null)) return;
     if (!plan.lookup.has(comboFromEvent(e as unknown as KeyLike).toLowerCase())) return;
     // Not stopPropagation: the app's handlers still need to see it.
+    //
+    // And record that *we* were the ones who suppressed it. This listener runs
+    // in the capture phase, so by the time a frame's dispatcher sees the event
+    // `defaultPrevented` is already true for every combo the app claims - which
+    // is every app hotkey. A dispatcher that reads `defaultPrevented` as "some
+    // other handler dealt with this" therefore stood down on all of them, and
+    // no accelerator fired anywhere in the app. The mark lets it tell our own
+    // browser-suppression apart from a real handler's.
+    SUPPRESSED.add(e);
     e.preventDefault();
   };
 
