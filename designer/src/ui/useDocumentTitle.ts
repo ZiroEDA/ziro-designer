@@ -45,3 +45,32 @@ export function useDocumentTitle(view: string, title: string): void {
     return () => observer.disconnect();
   }, [view, title]);
 }
+
+/**
+ * The FRAME title, which is not the tab title. Every KiCad editor builds it the
+ * same way — `PL_EDITOR_FRAME::UpdateTitleAndInfo`
+ * (pagelayout_editor/pl_editor_frame.cpp:570-586) is the shape:
+ *
+ *     if( IsContentModified() )  title = "*";
+ *     if( file.IsOk() )          title += file.GetName();
+ *     else                       title += _( "[no drawing sheet loaded]" );
+ *     title += " — " + _( "Drawing Sheet Editor" );
+ *
+ * Three details that are each easy to get wrong: `wxFileName::GetName()` is the
+ * base name WITHOUT its extension, the separator is an EM DASH with a space
+ * either side rather than an ASCII hyphen, and an empty file name gets the
+ * frame's own bracketed placeholder instead of being left blank.
+ *
+ * Returned as its parts so a caller can render the document name in bold, the
+ * way the real title bar weights it.
+ */
+export function frameTitleName(fileName: string | null | undefined, placeholder: string): string {
+  const name = fileName?.trim();
+  // wxFileName::GetName(): drop the last extension, and only a real one - a
+  // dot in a directory component is not an extension, and a leading dot is not
+  // one either ("*.kicad_wks" keeps its name, ".hidden" stays ".hidden").
+  return name ? name.replace(/(?!^)\.[^./\\]*$/, '') : placeholder;
+}
+
+/** The em dash, with its spaces, that separates the two halves. */
+export const FRAME_TITLE_SEPARATOR = ' — ';

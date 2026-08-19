@@ -37,7 +37,12 @@ import {
 import type { Vec2 } from '@ziroeda/kimath';
 import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import {
+  FRAME_TITLE_SEPARATOR,
+  formatTitle,
+  frameTitleName,
+  useDocumentTitle,
+} from '../../ui/useDocumentTitle.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
@@ -1217,9 +1222,7 @@ export function DrawingSheetEditor({
    * empty-name branch is reachable: File > New does
    * SetCurrentFileName( wxEmptyString ) (pagelayout_editor/files.cpp).
    */
-  const frameTitleName = fileName
-    ? fileName.replace(/\.[^./\\]*$/, '')
-    : '[no drawing sheet loaded]';
+  const titleName = frameTitleName(fileName, '[no drawing sheet loaded]');
 
   useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));
 
@@ -1363,9 +1366,9 @@ export function DrawingSheetEditor({
           <>
             <b>
               {dirty ? '*' : ''}
-              {frameTitleName}
+              {titleName}
             </b>
-            {' \u2014 '}
+            {FRAME_TITLE_SEPARATOR}
             Drawing Sheet Editor
           </>
         }

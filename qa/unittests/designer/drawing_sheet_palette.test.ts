@@ -31,6 +31,10 @@ import {
   DS_PRINT_PAPER_COLOR,
 } from '@ziroeda/designer/src/editors/drawingsheet/wksRender.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import {
+  FRAME_TITLE_SEPARATOR,
+  frameTitleName,
+} from '@ziroeda/designer/src/ui/useDocumentTitle.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -313,16 +317,39 @@ describe('C5: zoomTool is an armed rubber-band tool', () => {
 });
 
 describe('C6: the frame title', () => {
-  it('drops the extension and uses an em dash with spaces', () => {
-    // pl_editor_frame.cpp:570-586. wxFileName::GetName() has no extension, and
-    // the separator is " — ".
-    expect(EDITOR).toContain('const frameTitleName = fileName');
-    expect(EDITOR).toContain("{' \\u2014 '}");
-    expect(EDITOR).not.toContain('&nbsp;-&nbsp;Drawing Sheet Editor');
+  // pl_editor_frame.cpp:570-586. Behavioural, not textual: the extension rule
+  // is wxFileName::GetName(), which has edge cases a `toContain` cannot see.
+  const P = '[no drawing sheet loaded]';
+
+  it('drops the extension, as wxFileName::GetName() does', () => {
+    expect(frameTitleName('pagelayout_default.kicad_wks', P)).toBe('pagelayout_default');
+    expect(frameTitleName('A4_ISO5457-1999_ISO7200-2004_EN.kicad_wks', P)).toBe(
+      'A4_ISO5457-1999_ISO7200-2004_EN',
+    );
+    // Only the LAST extension goes.
+    expect(frameTitleName('sheet.v2.kicad_wks', P)).toBe('sheet.v2');
+    // A name with no extension is left alone.
+    expect(frameTitleName('sheet', P)).toBe('sheet');
+    // A leading dot is not an extension.
+    expect(frameTitleName('.hidden', P)).toBe('.hidden');
   });
 
-  it('falls back to [no drawing sheet loaded]', () => {
-    expect(EDITOR).toContain("'[no drawing sheet loaded]'");
+  it('falls back to the frame placeholder when nothing is loaded', () => {
+    // File > New does SetCurrentFileName( wxEmptyString ), so this is live.
+    expect(frameTitleName('', P)).toBe(P);
+    expect(frameTitleName(null, P)).toBe(P);
+    expect(frameTitleName('   ', P)).toBe(P);
+  });
+
+  it('separates the halves with an em dash, not an ASCII hyphen', () => {
+    expect(FRAME_TITLE_SEPARATOR).toBe(' \u2014 ');
+    expect(FRAME_TITLE_SEPARATOR).not.toContain('-');
+  });
+
+  it('is what the frame actually renders', () => {
+    expect(EDITOR).toContain("frameTitleName(fileName, '[no drawing sheet loaded]')");
+    expect(EDITOR).toContain('{FRAME_TITLE_SEPARATOR}');
+    expect(EDITOR).not.toContain('&nbsp;-&nbsp;Drawing Sheet Editor');
   });
 });
 
