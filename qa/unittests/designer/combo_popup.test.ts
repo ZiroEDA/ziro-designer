@@ -78,6 +78,18 @@ describe('Combo: the list opens over the box, as wxChoice does', () => {
     expect(popupTop(790, 0, count, VIEWPORT)).toBe(VIEWPORT - 4 - height);
   });
 
+  it('uses a wxChoice popup row height, not a menu row height', () => {
+    // Measured on a real pcb_calculator combo: the highlighted row spans
+    // y=40..69 inside a content box of y=6..73 with 4px padding, i.e. 30px.
+    // Ours was 26, taken from the drop-down MENUS next door — a wxChoice popup
+    // is not a wxMenu and does not share its metrics.
+    expect(ROW_H).toBe(30);
+    // The CSS must agree, or the selected row stops landing over the box.
+    const at = CSS.indexOf('.ze-combo-item {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(CSS.slice(at, CSS.indexOf('}', at))).toMatch(new RegExp(`height:\\s*${ROW_H}px`));
+  });
+
   it('leaves a short list where it wants to be, untouched by either clamp', () => {
     expect(popupTop(300, 1, 3, VIEWPORT)).toBe(300 - PAD_Y - ROW_H);
   });

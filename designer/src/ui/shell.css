@@ -6830,7 +6830,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow-y: auto;
 }
 .ze-combo-item {
-  height: 26px;
+  /* A wxChoice popup row is 30px, not a GtkMenu's 26 — measured on a real
+     pcb_calculator combo (highlight y=40..69 in a content box y=6..73 with 4px
+     padding). Must stay equal to ROW_H in ui/combo_popup.ts, which positions
+     the popup so the selected row lands over the closed box. */
+  height: 30px;
   display: flex;
   align-items: center;
   padding: 0 10px;

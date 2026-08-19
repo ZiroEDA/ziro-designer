@@ -8,8 +8,16 @@
  * be tested without a DOM, and the test environment cannot reach into a `.tsx`.
  */
 
-/** Row height and vertical padding, kept here so `popupTop` and the CSS agree. */
-export const ROW_H = 26;
+/**
+ * Row height and vertical padding, kept here so `popupTop` and the CSS agree.
+ *
+ * 30, not the 26 of a GtkMenu row. A `wxChoice`'s popup is not a menu and does
+ * not use menu metrics: measured on a real `pcb_calculator` combo, the
+ * highlighted row spans y=40..69 inside a content box of y=6..73 with 4px of
+ * padding, i.e. 30px per row. Ours was 26 because the value was taken from the
+ * drop-down menus next door.
+ */
+export const ROW_H = 30;
 export const PAD_Y = 4;
 
 /**
