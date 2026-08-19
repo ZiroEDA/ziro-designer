@@ -277,23 +277,35 @@ describe('PcbEditor routes its cross-probes through the settings', () => {
   });
 
   it('asks crossProbeSelection rather than selecting the parts directly', () => {
-    expect(PCB_EDITOR).toContain('crossProbeSelection(');
+    // The settings have to arrive UNCHANGED. Naming the function is not enough:
+    // `crossProbeSelection({ ...cfg, on_selection: true }, ...)` still contains
+    // the name and still ignores the preference, and a first version of this
+    // test passed against exactly that mutant.
+    expect(PCB_EDITOR).toMatch(/crossProbeSelection\(\s*cfg\s*,/);
     // The un-gated form must not survive anywhere in the editor.
     expect(PCB_EDITOR).not.toContain('findItemsFromSyncSelection(');
   });
 
   it('asks crossProbeHighlightNet rather than walking the net table itself', () => {
-    expect(PCB_EDITOR).toContain('crossProbeHighlightNet(');
+    expect(PCB_EDITOR).toMatch(/crossProbeHighlightNet\(\s*settings\.pcbnew\.cross_probing\s*,/);
   });
 
   it('asks crossProbeViewChange rather than zooming unconditionally', () => {
-    expect(PCB_EDITOR).toContain('crossProbeViewChange(');
+    expect(PCB_EDITOR).toMatch(/crossProbeViewChange\(\s*cfg\s*,/);
     expect(PCB_EDITOR).not.toContain('crossProbeZoomScale(');
   });
 
   it('honours flash_selection on the timer it starts', () => {
-    expect(PCB_EDITOR).toContain('cfg.flash_selection');
+    // Spelled out with the `if (` so an inverted gate is a different string.
+    expect(PCB_EDITOR).toContain('if (cfg.flash_selection && ids.length > 0)');
     expect(PCB_EDITOR).toContain('crossProbeFlashSelection(');
     expect(PCB_EDITOR).toContain('CROSS_PROBE_FLASH_INTERVAL_MS');
+  });
+
+  it('passes no settings object it has doctored on the way', () => {
+    // The general form of all four mutants above: a spread that overrides one
+    // key at the call site reads exactly like the fix.
+    expect(PCB_EDITOR).not.toMatch(/\{\s*\.\.\.\s*cfg[,\s]/);
+    expect(PCB_EDITOR).not.toMatch(/\{\s*\.\.\.\s*settings\.pcbnew\.cross_probing[,\s]/);
   });
 });
