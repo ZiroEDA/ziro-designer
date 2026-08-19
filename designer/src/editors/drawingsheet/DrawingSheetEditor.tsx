@@ -59,7 +59,7 @@ import {
   type PreviewSettings,
 } from './PageSettingsDialog.js';
 import { imageFileToPng, decodeImageMeta } from './wksBitmap.js';
-import { drawDrawingSheetItems, DS_PAGE_COLOR } from './wksRender.js';
+import { drawDrawingSheetItems, DS_PRINT_PAPER_COLOR } from './wksRender.js';
 import '../../ui/shell.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
@@ -399,7 +399,7 @@ export function DrawingSheetEditor({
     cv.height = Math.round(pageH * scalePx);
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = DS_PAGE_COLOR;
+    ctx.fillStyle = DS_PRINT_PAPER_COLOR;
     ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
     drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx });

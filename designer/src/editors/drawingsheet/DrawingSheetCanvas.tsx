@@ -34,14 +34,12 @@ import {
   DS_CURSOR_COLOR_ON_LIGHT,
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
-  DS_PAGE_COLOR,
+  DS_PAGE_BORDER_COLOR,
   DS_HILITE_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
-
-const MM = 10000;
 
 // A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
 // cursor for the interactive delete picker (KICURSOR::REMOVE).
@@ -186,11 +184,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // World transform (IU → device px).
       ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
 
-      // Page with a soft drop shadow.
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(3 * MM, 3 * MM, pageW, pageH);
-      ctx.fillStyle = DS_PAGE_COLOR;
-      ctx.fillRect(0, 0, pageW, pageH);
+      // No paper rectangle and no drop shadow: `DS_PAINTER::draw( const
+      // DS_DRAW_ITEM_PAGE* )` (common/drawing_sheet/ds_painter.cpp:357-382)
+      // sets `SetIsFill( false )` and only STROKES the page rectangle, in
+      // `m_pageBorderColor`. The paper is the cleared background, which is why
+      // pl_editor's canvas and page are the same colour.
 
       // GAL::DrawGrid, over the whole canvas rather than only the sheet: the
       // grid belongs to the view, not to the page, and pl_editor's grid runs
@@ -209,6 +207,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
 
       const worldPen = 1 / v.scale; // 1 device px in world units
+
+      // The page outline (ds_painter.cpp:361-368). One device pixel, drawn on
+      // top of the grid the way the LAYER_DRAWINGSHEET page item is.
+      ctx.strokeStyle = DS_PAGE_BORDER_COLOR;
+      ctx.lineWidth = worldPen;
+      ctx.strokeRect(0, 0, pageW, pageH);
 
       // Clip page content to the page rectangle.
       ctx.save();

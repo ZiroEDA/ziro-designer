@@ -29,10 +29,39 @@ import { brightness, parseColor4d } from '../../render/color4d.js';
 /** IU per inch: 25.4 mm/in · 10000 IU/mm. */
 const IU_PER_INCH = 254000;
 
-/** LAYER_DRAWINGSHEET default colour (a muted red-brown on the white page). */
-export const DS_ITEM_COLOR = '#c8322d';
-export const DS_PAGE_COLOR = '#ffffff';
-export const DS_BG_COLOR = '#4a4a52';
+/*
+ * The three colours the drawing sheet is painted from are COLOR_SETTINGS
+ * layers, not a palette this editor invents. `DS_RENDER_SETTINGS::LoadColors`
+ * (common/drawing_sheet/ds_painter.cpp:69-80) reads exactly three:
+ *
+ *   m_backgroundColor = LAYER_SCHEMATIC_BACKGROUND
+ *   m_pageBorderColor = LAYER_SCHEMATIC_GRID
+ *   m_normalColor     = LAYER_SCHEMATIC_DRAWINGSHEET
+ *
+ * and `EDA_DRAW_PANEL_GAL::onPaint` (common/draw_panel_gal.cpp:364) clears the
+ * WHOLE canvas to `settings->GetBackgroundColor()`. So in pl_editor the canvas
+ * and the paper are one colour and the page is only an outline — there is no
+ * separate paper rectangle and no backdrop behind it.
+ *
+ * The values are `s_defaultTheme`, the "KiCad Default" theme every frame gets
+ * when no other is chosen (common/settings/builtin_color_themes.h:32, :46,
+ * :78). They are transcribed here in the same `rgb(r, g, b)` form
+ * `editors/schematic/theme.ts` uses for the same three entries; see the PR for
+ * why that table has not been promoted to a shared module yet.
+ */
+
+/** LAYER_SCHEMATIC_DRAWINGSHEET, `builtin_color_themes.h:78`. */
+export const DS_ITEM_COLOR = 'rgb(132, 0, 0)';
+/** LAYER_SCHEMATIC_BACKGROUND, `builtin_color_themes.h:32` — canvas AND paper. */
+export const DS_BG_COLOR = 'rgb(245, 244, 239)';
+/** LAYER_SCHEMATIC_GRID, `builtin_color_themes.h:46` — `m_pageBorderColor`. */
+export const DS_PAGE_BORDER_COLOR = 'rgb(181, 181, 181)';
+/**
+ * Paper for PRINT output only. A print does not go through the GAL and does
+ * not carry the screen theme's background, so the sheet is drawn on white
+ * paper however the canvas is themed.
+ */
+export const DS_PRINT_PAPER_COLOR = '#ffffff';
 /** Black-background display option (pl_editor_settings `black_background`). */
 export const DS_BG_COLOR_DARK = '#000000';
 
