@@ -109,11 +109,7 @@ export interface GridView {
  * The same transform spelled `{ scale, offsetX, offsetY }`, which is how the
  * eeschema and symbol-editor canvases carry theirs.
  */
-export function viewFromOffsets(v: {
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-}): GridView {
+export function viewFromOffsets(v: { scale: number; offsetX: number; offsetY: number }): GridView {
   return { scale: v.scale, tx: v.offsetX, ty: v.offsetY };
 }
 
@@ -394,18 +390,8 @@ export function drawGrid(
     return;
   }
 
-  const xr = gridIndexRange(
-    deviceToWorldX(view, 0),
-    deviceToWorldX(view, widthPx),
-    ox,
-    step,
-  );
-  const yr = gridIndexRange(
-    deviceToWorldY(view, 0),
-    deviceToWorldY(view, heightPx),
-    oy,
-    step,
-  );
+  const xr = gridIndexRange(deviceToWorldX(view, 0), deviceToWorldX(view, widthPx), ox, step);
+  const yr = gridIndexRange(deviceToWorldY(view, 0), deviceToWorldY(view, heightPx), oy, step);
 
   const nx = xr.end - xr.start;
   const ny = yr.end - yr.start;

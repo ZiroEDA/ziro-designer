@@ -3,7 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { parse } from '@ziroeda/sexpr';
 import type { Vec2 } from '@ziroeda/kimath';
-import { iuToMM, mmToIU, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
+import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
+import { defaultGridIU, gridSizesIU } from '../../ui/grid_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
 import {
@@ -81,12 +82,18 @@ export interface FootprintEditorFile {
 const _MM = 10000;
 
 /**
- * The footprint editor's grid. FOOTPRINT_EDITOR_SETTINGS' default grid is
- * 25 mils (pcbnew/footprint_editor_settings.cpp), which is the value the grid
- * combo has always shown; it is one constant now so the combo and the status
- * pane cannot disagree, and so the pane is not a string literal.
+ * The footprint editor's grid choices and its default.
+ *
+ * `fpedit` falls on the `else` row of `APP_SETTINGS_BASE::DefaultGridSizeList()`
+ * — pcbnew's list — with `defaultGridIdx` 15, which is "0.5 mm"
+ * (`common/settings/app_settings.cpp:463-481, 641-664`). The combo used to be
+ * `disabled` with one hardcoded option reading "0.635 mm (25 mils)", a value
+ * from neither the table nor the default index, and it was built with the
+ * schematic IU scale while this canvas holds board geometry at pcbnew's, so the
+ * number it printed and the number it meant were a hundred apart.
  */
-const FP_GRID = 0.635 * _MM;
+const FP_GRIDS: number[] = gridSizesIU('pcbnew', PCB_IU_PER_MM);
+const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 
 const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
@@ -189,6 +196,8 @@ export function FootprintEditor({
   const [activeLayer, setActiveLayer] = useState('F.Cu');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState('select');
+  /** WINDOW_SETTINGS grid.last_size, as an IU size. */
+  const [gridIU, setGridIU] = useState(FP_DEFAULT_GRID);
   // First anchor of a 2-click graphic (line/rect/circle) being drawn.
   const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
@@ -1045,10 +1054,12 @@ export function FootprintEditor({
     : toggles.has('unitsMils')
       ? 'mils'
       : 'mm';
-  // FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so MessageTextFromValue
-  // takes its long form off pcbIUScale — mm %.4f, mils %.2f, inches %.4f —
-  // even though our geometry is held at the schematic IU scale.
-  const fmt = (iu: number): string => messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
+  // FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so MessageTextFromValue takes
+  // its long form off pcbIUScale — mm %.4f, mils %.2f, inches %.4f — and the
+  // value has to be converted at that scale too. It went through the SCHEMATIC
+  // iuToMM, which is a hundred times coarser, so every coordinate, delta and
+  // grid figure in the status bar read 100x too large.
+  const fmt = (iu: number): string => messageTextFromValue(pcbIuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
   const layerRows = useMemo(() => {
     const known = new Set(ALL_FP_LAYERS);
@@ -1119,10 +1130,22 @@ export function FootprintEditor({
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Toolbar entries={FP_TOP_TOOLBAR} orientation="horizontal" onActivate={onTopAction} />
         <span style={{ width: 8 }} />
-        <select className="ze-select" disabled title="Grid" style={{ margin: '0 4px' }}>
-          <option>{`Grid: ${iuToMM(FP_GRID).toFixed(3)} mm (${Math.round(
-            (iuToMM(FP_GRID) / 25.4) * 1000,
-          )} mils)`}</option>
+        <select
+          className="ze-select"
+          title="Grid"
+          style={{ margin: '0 4px' }}
+          value={gridIU}
+          onChange={(e) => setGridIU(Number(e.target.value))}
+        >
+          {FP_GRIDS.map((g) => (
+            <option key={g} value={g}>
+              {fmt(g)} {unitLabel} (
+              {toggles.has('unitsMils')
+                ? `${pcbIuToMM(g).toFixed(4)} mm`
+                : `${((pcbIuToMM(g) / 25.4) * 1000).toFixed(2)} mil`}
+              )
+            </option>
+          ))}
         </select>
         <select className="ze-select" disabled title="Zoom" style={{ margin: '0 4px' }}>
           <option>Zoom Auto</option>
@@ -1244,6 +1267,8 @@ export function FootprintEditor({
             drawOpts={drawOpts}
             selection={selection}
             activeTool={activeTool}
+            showGrid={toggles.has('toggleGrid')}
+            gridIU={gridIU}
             onCursorMove={setCursor}
             onScaleChange={setScale}
             onSelect={onSelect}
@@ -1339,7 +1364,7 @@ export function FootprintEditor({
           deltas: cursor
             ? deltasMsg(fmt(cursor.x), fmt(cursor.y), fmt(Math.hypot(cursor.x, cursor.y)))
             : deltasMsg(null),
-          grid: gridMsg(fmt(FP_GRID)),
+          grid: gridMsg(fmt(gridIU)),
           units: unitsMsg(unitLabel),
           tool: activeLayer,
         }}

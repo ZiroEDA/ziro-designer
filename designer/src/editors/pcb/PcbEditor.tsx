@@ -332,6 +332,7 @@ import {
   PCB_SPECIAL,
 } from './pcbTheme.js';
 import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
+import { gridSizesIU } from '../../ui/grid_settings.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,
@@ -421,12 +422,10 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 // One mil in IU.
 const MIL = 0.0254 * MM;
 
-// pcbnew's grid presets, exactly APP_SETTINGS_BASE::DefaultGridSizeList()
-// (app_settings.cpp): the mil rows first, then the metric rows.
-const PCB_GRIDS: number[] = [
-  ...[1000, 500, 250, 200, 100, 50, 25, 20, 10, 5, 2, 1].map((m) => m * MIL),
-  ...[5.0, 2.5, 1.0, 0.5, 0.25, 0.2, 0.1, 0.05, 0.025, 0.01].map((mm) => mm * MM),
-];
+// pcbnew's grid presets: APP_SETTINGS_BASE::DefaultGridSizeList()'s non-
+// eeschema row, which the footprint editor shares. The table lives in
+// ui/grid_settings.ts because it is common/ code upstream.
+const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
 
 // pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW).
 const PCB_ZOOMS: number[] = [
@@ -2625,11 +2624,7 @@ export function PcbEditor({
         canvas.width,
         canvas.height,
         {
-          mode: toggles.has('crosshairFull')
-            ? 'full'
-            : toggles.has('crosshair45')
-              ? '45'
-              : 'small',
+          mode: toggles.has('crosshairFull') ? 'full' : toggles.has('crosshair45') ? '45' : 'small',
           color: PCB_CURSOR,
           // pcbnew's tools call ShowCursor(true) as soon as one is active; with
           // the selection tool the crosshair is there only because "Always show

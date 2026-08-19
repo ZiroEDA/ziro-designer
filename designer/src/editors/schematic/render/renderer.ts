@@ -13,11 +13,7 @@
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
-import {
-  drawGrid,
-  viewFromOffsets,
-  type GridOptions,
-} from '../../../ui/grid_cursor.js';
+import { drawGrid, viewFromOffsets, type GridOptions } from '../../../ui/grid_cursor.js';
 import {
   symbolTransform,
   localToWorld,

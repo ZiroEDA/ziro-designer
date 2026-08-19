@@ -359,9 +359,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         // raw pointer.
         const { showGrid: sg, gridIU: g } = gridRef.current;
         const snapped =
-          sg && g > 0
-            ? { x: Math.round(world.x / g) * g, y: Math.round(world.y / g) * g }
-            : world;
+          sg && g > 0 ? { x: Math.round(world.x / g) * g, y: Math.round(world.y / g) * g } : world;
         const vt = viewRef.current;
         cursorPxRef.current = worldToDevice(vt, optionsRef.current.flipView, snapped.x, snapped.y);
         onCursorMove?.(world);
