@@ -724,9 +724,25 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+X',
     'Ctrl+Y',
     'Ctrl+Z',
-    'Del',
+    // C4: upstream renders the full word, not `Del`. Changed by the same
+    // drawing-sheet chrome pass.
+    'Delete',
     // View.
     'Home',
+    // Added by the drawing-sheet chrome pass (audit finding C3): five rows that
+    // upstream declares and we did not. They arrived after this list was first
+    // written, and the combined merge is what surfaced the staleness - each
+    // branch was green alone.
+    //   Save As      Shift+Ctrl+S   File
+    //   Print        Ctrl+P         File
+    //   Preferences  Ctrl+,         Preferences
+    //   Zoom to Sel  Ctrl+F5        View  (ACTIONS::zoomTool)
+    //   Refresh      F5             View  (ACTIONS::zoomRedraw)
+    'Ctrl+,',
+    'Ctrl+F5',
+    'Ctrl+P',
+    'F5',
+    'Shift+Ctrl+S',
   ],
   'editors/footprint/FootprintEditor.tsx': [
     'Ctrl+Alt+N',
