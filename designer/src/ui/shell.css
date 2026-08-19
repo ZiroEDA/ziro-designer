@@ -31,8 +31,52 @@
      labels and status text at. 11pt on a stock GTK desktop; CSS pt is defined
      against 96 dpi, so this is exactly the 14.67 px the real app uses.
      Applied per-widget as we port each one rather than to the whole shell,
-     which still runs at the 13 px base it was built around. */
+     which still runs at the 13 px base it was built around.
+
+     [gtk] `Gtk.Settings.get_default().get_property('gtk-font-name')` on this
+     machine = "Ubuntu Sans 11", and a GtkLabel built with it reports
+     `get_preferred_width() == 142` for "Black & White Picture" - the exact
+     width this file already recorded for the real KiCad frame. Note that
+     `gsettings get org.gnome.desktop.interface font-name` answers
+     "Cantarell 11" and is MISLEADING: Ubuntu ships
+     /usr/share/glib-2.0/schemas/10_ubuntu-settings.gschema.override:62,100,
+     which overrides the family to Ubuntu Sans in the `ubuntu` profile, and
+     Cantarell is not installed here at all (`fc-list | grep -c -i cantarell`
+     = 0), so anything that really asks for it falls back to Noto Sans, a
+     visibly wider face. Earlier comments in this file named Cantarell; the
+     SIZE they recorded (11) was right, and it is the size these tokens key
+     on. */
   --ui-font-size: 11pt;
+  /* The only two OTHER chrome text sizes KiCad has - and it derives both from
+     the one above rather than declaring either.
+     `getGUIFont( win, aRelativeSize )` (common/widgets/ui_common.cpp:109-129)
+     adds a signed point delta to the window's own font, and exactly five
+     accessors call it:
+
+       KIUI::GetControlFont    ( 0)               ui_common.cpp:168-171  11pt
+       KIUI::GetStatusFont     ( 0 off macOS)     ui_common.cpp:132-141  11pt
+       KIUI::GetDockedPaneFont ( 0 off macOS)     ui_common.cpp:144-153  11pt
+       KIUI::GetInfoFont       (-1)               ui_common.cpp:156-159  10pt
+       KIUI::GetSmallInfoFont  (-2)               ui_common.cpp:162-165   9pt
+
+     So the whole application has THREE chrome text sizes on Linux, not eight,
+     and the smaller two are a fixed relative step off the first. That is the
+     parity rule: a hint under a control is 10pt because GetInfoFont says -1,
+     never because 12.5px looked about right. A fourth value is invented.
+
+     GetInfoFont's callers are the italic help labels beside a control
+     (dialog_junction_props.cpp:43-44, panel_setup_mask_and_paste.cpp:43,
+     properties_frame.cpp:97), the Appearance controls
+     (appearance_controls.cpp:446,623) and the selection filters
+     (panel_selection_filter.cpp:36, panel_sch_selection_filter.cpp:37).
+     GetSmallInfoFont's are the second-tier hints
+     (panel_edit_options.cpp:47-48, dialog_sheet_properties.cpp:103-104,
+     dialog_symbol_properties.cpp:381).
+
+     Declared here and consumed as each launcher's parity work reaches it -
+     nothing reads them yet, so adding them moves no pixel. */
+  --ui-font-size-info: 10pt;
+  --ui-font-size-small: 9pt;
   /* KiCad's Appearance list background (m_layerPanelColour): a mid grey,
      lighter than the chrome so the layer/object rows read as a list. */
   --panel-list-bg: #3a3d42;
@@ -92,20 +136,32 @@
                  /usr/share/themes/Yaru-dark/gtk-3.0/gtk.gresource \
                  /com/ubuntu/themes/Yaru-dark/3.0/gtk-dark.css
        [px]  a pixel sampled off a live, focused bitmap2component window
-             (1920x1200, unscaled, Xft.dpi 96, gtk-font-name Cantarell 11).
+             (1920x1200, unscaled, Xft.dpi 96, gtk-font-name Ubuntu Sans 11 - see
+             --ui-font-size above for why it is not Cantarell).
 
      Where the two agree the value is certain; where they differ the sampled
      one wins, because it is what the user sees, and the comment says so.
      --------------------------------------------------------------------- */
 
   /* Chrome's system-ui on Linux resolves to GTK's gtk-font-name, which is the
-     same family wxSYS_DEFAULT_GUI_FONT hands KiCad. Measuring one string in
-     both ("Black & White Picture": 142 px in KiCad at 11pt, 124 px in ours at
-     13px, ratio 1.145 against a font-size ratio of 1.128) confirmed the
-     families already match; only the size was wrong. */
+     same family wxSYS_DEFAULT_GUI_FONT hands KiCad. That used to rest on a
+     ratio argument; it is now measured directly. Rendering "Black & White
+     Picture" at 11pt in a HEADED Chrome on this desktop:
+
+       system-ui      140.78 px      "Ubuntu Sans"  140.78 px
+       "Noto Sans"    146.64 px      Cantarell      133.64 px (not installed)
+
+     i.e. system-ui IS Ubuntu Sans, byte for byte, and Ubuntu Sans is what
+     gtk-font-name names. GTK's own Pango layout of the same string is 142 px,
+     0.9 % apart - hinting, not a different face.
+
+     Do not check this in headless Chrome: with no GTK to ask, `--headless=new`
+     resolves system-ui to Noto Sans (146.64 px) and the comparison inverts. */
   --ui-font-family: system-ui, sans-serif;
   /* The natural height of one GtkLabel at --ui-font-size, i.e. Pango's logical
-     extent for Cantarell 11 = ascent + descent. [px] the Image Information
+     extent = ascent + descent. [gtk] Pango's metrics for Ubuntu Sans 11 at
+     96 dpi are ascent 14 + descent 4 = 18, and a live GtkLabel agrees exactly:
+     `get_preferred_height()` returns (18, 18). [px] the Image Information
      grid's rows repeat every 23 px and wxFormBuilder gives each a 5 px bottom
      border (bitmap2cmp_panel_base.cpp:47-88), so the label itself is 18. */
   --ui-line-height: 18px;
@@ -119,8 +175,13 @@
      [px] measured on a real frame at 1920x1200, column x=700: title strip
      y=32..67 = 36 px of rgb(34,34,34), a 1 px rgb(0,0,0) rule at y=68, then the
      25 px rgb(44,44,44) menu bar. Title ink sampled rgb(247,247,247).
-     [css] `gsettings get org.gnome.desktop.wm.preferences titlebar-font` =
-     "Cantarell Bold 11" — 11pt at 96 dpi = 14.667 px, weight 700. */
+     [css] the effective WM title font is "Ubuntu Sans Bold 11" - 11pt at
+     96 dpi = 14.667 px, weight 700. `gsettings get
+     org.gnome.desktop.wm.preferences titlebar-font` answers "Cantarell
+     Bold 11", which is the upstream GNOME default and NOT what runs here:
+     /usr/share/glib-2.0/schemas/10_ubuntu-settings.gschema.override:135 sets
+     it to Ubuntu Sans Bold 11 in the `ubuntu` profile. Same size, same
+     weight, different family - the numbers below are unaffected. */
   /* DELIBERATE DIVERGENCE, Akshay's call 2026-08-19: the real strip is 36 px,
      but that is a window-manager decoration and the browser already spends
      ~140 px on its own chrome before our frame starts. Ours is sized to the
@@ -501,10 +562,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 26px;
   position: relative;
 }
-/* Top-level bar items only (the drop-downs below still run at the shell's 13px
-   and its --menu-row geometry). GTK draws these at the default GUI font with
-   8px of padding either side: measured against a real KiCad menu bar, that
-   puts every label within a pixel or two of where the desktop app has it. */
+/* GTK draws menu-bar labels at the default GUI font with 8px of padding either
+   side: measured against a real KiCad menu bar, that puts every label within a
+   pixel or two of where the desktop app has it. [gtk] a live GtkMenuBar and its
+   GtkMenuItem both report `get_preferred_height() == 26`, which is --menu-row.
+
+   NOTE the drop-down INHERITS this. `.ze-dropdown` is rendered inside the
+   `.ze-menu` it fell out of (MenuBar.tsx:315-330), so it, `.ze-mitem` and
+   `.ze-mitem .sc` all compute at --ui-font-size - and the last two set it
+   explicitly besides. The comment that used to sit here said the drop-downs
+   "still run at the shell's 13px"; that was stale, and it is what the Drawing
+   Sheet audit's "our menubar is 13px" (FINDINGS-A3 D7) repeated. MEASURED, in
+   the running app and again in a headless probe of this stylesheet: every one
+   of those elements computes 14.6667px. What DOES report 13px is `.ze-menubar`
+   itself - the flex container, which holds no text of its own and so inherits
+   `.ze-app`'s 13px. Measure the `.ze-menu` child, not the bar. */
 .ze-menubar .ze-menu {
   padding: 0 8px;
   font-size: var(--ui-font-size);
