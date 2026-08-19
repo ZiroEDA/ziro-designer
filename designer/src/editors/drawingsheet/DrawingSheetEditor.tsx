@@ -1033,7 +1033,7 @@ export function DrawingSheetEditor({
       {
         label: 'File',
         items: [
-          { label: 'New', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
+          { label: 'New…', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
           {
             label: 'Open…',
             icon: 'open',
@@ -1043,9 +1043,9 @@ export function DrawingSheetEditor({
           openRecentItem,
           { sep: true },
           { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
-          { label: 'Save As…', icon: 'saveAs', action: saveAs },
+          { label: 'Save As…', icon: 'saveAs', action: saveAs, shortcut: 'Shift+Ctrl+S' },
           { sep: true },
-          { label: 'Print…', icon: 'print', action: printSheet },
+          { label: 'Print…', icon: 'print', action: printSheet, shortcut: 'Ctrl+P' },
           { sep: true },
           addClose('Drawing Sheet Editor', onExitToHome),
           addQuit('Drawing Sheet Editor', onExitToHome),
@@ -1081,7 +1081,7 @@ export function DrawingSheetEditor({
             label: 'Delete',
             icon: 'dsDelete',
             action: deleteSelection,
-            shortcut: 'Del',
+            shortcut: 'Delete',
             disabled: selection.size === 0,
           },
         ],
@@ -1098,12 +1098,17 @@ export function DrawingSheetEditor({
             shortcut: 'Home',
           },
           {
-            label: 'Zoom to Selection',
+            label: 'Zoom to Selection Area',
             icon: 'zoomTool',
-            action: () => controller.current?.zoomToSelection(),
-            disabled: selection.size === 0,
+            action: () => setActiveTool('zoomTool'),
+            shortcut: 'Ctrl+F5',
           },
-          { label: 'Redraw View', icon: 'zoomRedraw', action: () => controller.current?.redraw() },
+          {
+            label: 'Refresh',
+            icon: 'zoomRedraw',
+            action: () => controller.current?.redraw(),
+            shortcut: 'F5',
+          },
           { sep: true },
           {
             label: 'Page Preview Settings…',
@@ -1137,6 +1142,15 @@ export function DrawingSheetEditor({
             icon: 'appendSheet',
             action: () => appendInputRef.current?.click(),
           },
+          { sep: true },
+          // PL_EDITOR_CONTROL::GridResetOrigin (pl_editor_control.cpp) is
+          // SetGridOrigin( 0, 0 ) followed by ForceRefresh(). Our grid is
+          // anchored at (0, 0) and there is no gridSetOrigin to move it, so
+          // only the refresh half is observable here - see the PR.
+          {
+            label: 'Reset Grid Origin',
+            action: () => controller.current?.redraw(),
+          },
         ],
       },
       {
@@ -1150,7 +1164,7 @@ export function DrawingSheetEditor({
         // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
         // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
         items: [
-          { label: 'Preferences…', action: () => setShowPrefs(true) },
+          { label: 'Preferences…', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
           setLanguageMenuItem({
             current: common.system.language,
             onSelect: (label) =>
@@ -1187,6 +1201,23 @@ export function DrawingSheetEditor({
   );
 
   // ---- title ----
+  /*
+   * PL_EDITOR_FRAME::UpdateTitleAndInfo (pl_editor_frame.cpp:570-586):
+   *
+   *   if( IsContentModified() )  title = "*";
+   *   if( file.IsOk() )          title += file.GetName();
+   *   else                       title += _( "[no drawing sheet loaded]" );
+   *   title += " \u2014 " + _( "Drawing Sheet Editor" );
+   *
+   * `wxFileName::GetName()` is the base name WITHOUT the extension, and the
+   * dash is an EM DASH with a space either side, not an ASCII hyphen. The
+   * empty-name branch is reachable: File > New does
+   * SetCurrentFileName( wxEmptyString ) (pagelayout_editor/files.cpp).
+   */
+  const frameTitleName = fileName
+    ? fileName.replace(/\.[^./\\]*$/, '')
+    : '[no drawing sheet loaded]';
+
   useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));
 
   // This editor has no autosave: a sheet reaches the project only when Save is
@@ -1329,9 +1360,10 @@ export function DrawingSheetEditor({
           <>
             <b>
               {dirty ? '*' : ''}
-              {fileName}
+              {frameTitleName}
             </b>
-            &nbsp;-&nbsp;Drawing Sheet Editor
+            {' \u2014 '}
+            Drawing Sheet Editor
           </>
         }
       />

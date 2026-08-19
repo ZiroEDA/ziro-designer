@@ -56,13 +56,34 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
   },
 ];
 
-/** LEFT options toolbar: grid, then the units radio group. */
+/**
+ * LEFT options toolbar. `toolbars_pl_editor.cpp:48-59` is two entries and no
+ * separator between them:
+ *
+ *   config.AppendAction( ACTIONS::toggleGrid )
+ *         .WithContextMenu( ... ACTIONS::gridProperties ... )
+ *         .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Units" ) )
+ *                       .AddAction( ACTIONS::millimetersUnits )
+ *                       .AddAction( ACTIONS::inchesUnits )
+ *                       .AddAction( ACTIONS::milsUnits ) );
+ *
+ * so the three units are ONE ACTION_GROUP button showing the active unit with
+ * a palette behind it - the same shape `pcbToolbars.ts` already uses for the
+ * identical group - not three buttons in a row. The grid button's context menu
+ * (right-click -> Grid Properties) has no counterpart in our shared Toolbar
+ * yet; see the PR.
+ */
 export const DS_LEFT_TOOLBAR: ToolEntry[] = [
   { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },
-  sep,
-  { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres', toggle: true },
-  { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches', toggle: true },
-  { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils', toggle: true },
+  {
+    group: 'Units',
+    cycleOnClick: true,
+    actions: [
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres', toggle: true },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches', toggle: true },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils', toggle: true },
+    ],
+  },
 ];
 
 /** RIGHT drawing/placement toolbar (radio selection). */

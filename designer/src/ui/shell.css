@@ -6628,6 +6628,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--content-bg);
   min-height: 37px;
 }
+/* D4. `.ze-select` is `flex: 1` because in a dialog a combo fills its column;
+   in a TOOLBAR it must not. wxChoice sizes itself to its content, and
+   PL_EDITOR_FRAME::UpdateToolbarControlSizes
+   (pagelayout_editor/toolbars_pl_editor.cpp) then pins the origin box to a
+   minimum of its WIDEST of the five origin strings:
+
+       for( int ii = 0; ii < 5; ii++ )
+           minwidth = std::max( minwidth, KIUI::GetTextSize( m_originChoiceList[ii], ... ).x );
+       m_originSelectBox->SetMinSize( wxSize( minwidth, -1 ) );
+
+   `width: max-content` is that rule, computed by the layout engine instead of
+   by KIUI::GetTextSize - so it stays right if the font changes, which a pasted
+   pixel width would not. Measured targets are 214 px for the origin box and
+   122 px for the page box, against the 684 px each was stretching to.
+
+   Height is the shared GTK control height: KiCad's combo, button and text
+   field are all one height, which is why a row of mixed controls lines up.
+   Measured 34 px against our 23 px, and `--ctl-height` already carries it. */
+.ze-wks-topbar .ze-select {
+  flex: 0 0 auto;
+  width: max-content;
+  height: var(--ctl-height);
+  padding: 0 var(--ctl-pad-x);
+}
+
 /* The top toolbar and the two combos beside it are one strip upstream. */
 .ze-wks-topbar {
   display: flex;
