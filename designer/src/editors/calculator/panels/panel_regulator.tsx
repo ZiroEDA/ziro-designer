@@ -17,6 +17,8 @@ import {
   type RegulatorData,
   RegulatorSolve,
   RegulatorType,
+  REGULATOR_DEFAULTS,
+  REGULATOR_TYPE_CHOICES,
   printfG,
   solveRegulator,
 } from '@ziroeda/pcb_calculator';
@@ -285,25 +287,26 @@ export function PanelRegulator(): JSX.Element {
   // the regulator list, not the selected regulator, not the data file, not the
   // power comment and not the message.
   const resetDefaults = (): void => {
-    setResTol('1');
-    setR1Min('');
-    setR1('0.240');
-    setR1Max('');
-    setR2Min('');
-    setR2('0.720');
-    setR2Max('');
-    setVrefMin('1.20');
-    setVrefTyp('1.25');
-    setVrefMax('1.30');
-    setVoutMin('');
-    setVout('5');
-    setVoutMax('');
-    setIadjTyp('50');
-    setIadjMax('100');
-    setTolMin('');
-    setTolMax('');
-    setType(RegulatorType.THREE_TERMINAL);
-    setSolve(RegulatorSolve.VOUT);
+    const d = REGULATOR_DEFAULTS;
+    setResTol(d.resTol);
+    setR1Min(d.r1Min);
+    setR1(d.r1Typ);
+    setR1Max(d.r1Max);
+    setR2Min(d.r2Min);
+    setR2(d.r2Typ);
+    setR2Max(d.r2Max);
+    setVrefMin(d.vrefMin);
+    setVrefTyp(d.vrefTyp);
+    setVrefMax(d.vrefMax);
+    setVoutMin(d.voutMin);
+    setVout(d.voutTyp);
+    setVoutMax(d.voutMax);
+    setIadjTyp(d.iadjTyp);
+    setIadjMax(d.iadjMax);
+    setTolMin(d.tolMin);
+    setTolMax(d.tolMax);
+    setType(d.type);
+    setSolve(d.solve);
   };
 
   // PANEL_REGULATOR::OnCopyCB (panel_regulator.cpp:332-341): it copies the
@@ -383,10 +386,10 @@ export function PanelRegulator(): JSX.Element {
               style={{ flex: 1 }}
               ariaLabel="Type"
               value={String(type)}
-              options={[
-                { value: String(RegulatorType.STANDARD), label: 'Standard Type' },
-                { value: String(RegulatorType.THREE_TERMINAL), label: '3 Terminal Type' },
-              ]}
+              options={REGULATOR_TYPE_CHOICES.map((c) => ({
+                value: String(c.value),
+                label: c.label,
+              }))}
               onChange={(v) => setType(Number(v) as RegulatorType)}
             />
           </div>
@@ -647,10 +650,10 @@ export function PanelRegulator(): JSX.Element {
               <Combo
                 ariaLabel="Type"
                 value={String(form.type)}
-                options={[
-                  { value: String(RegulatorType.STANDARD), label: 'Standard Type' },
-                  { value: String(RegulatorType.THREE_TERMINAL), label: '3 Terminal Type' },
-                ]}
+                options={REGULATOR_TYPE_CHOICES.map((c) => ({
+                  value: String(c.value),
+                  label: c.label,
+                }))}
                 onChange={(v) =>
                   setForm((f) => (f ? { ...f, type: Number(v) as RegulatorType } : f))
                 }

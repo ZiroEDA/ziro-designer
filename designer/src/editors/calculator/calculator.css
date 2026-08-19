@@ -479,3 +479,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   gap: var(--wx-border);
 }
+
+/* One wxTreebook page. All fourteen are built and only one is shown, so the
+   hidden ones must take no space and draw nothing — `hidden` alone loses to
+   `.calc-page`'s own display, which is why the attribute is matched here. */
+.calc-page[hidden] {
+  display: none;
+}

@@ -39,7 +39,9 @@ describe('calculator.css consumes the theme instead of restating it', () => {
   it('declares no font size of its own', () => {
     const hits = chromeOnly()
       .split('\n')
-      .filter((l) => /(?<![-\w])font-size:/.test(l) && !l.includes('var(') && !l.includes('inherit'));
+      .filter(
+        (l) => /(?<![-\w])font-size:/.test(l) && !l.includes('var(') && !l.includes('inherit'),
+      );
     expect(hits).toStrictEqual([]);
   });
 
@@ -110,7 +112,9 @@ describe('the calculator has no native <select> left', () => {
   ];
 
   it('every wxChoice is the shared Combo, whose popup the page can theme', () => {
-    const offenders = files.filter((f) => readFileSync(join(PANELS, f), 'utf8').includes('<select'));
+    const offenders = files.filter((f) =>
+      readFileSync(join(PANELS, f), 'utf8').includes('<select'),
+    );
     expect(offenders).toStrictEqual([]);
   });
 

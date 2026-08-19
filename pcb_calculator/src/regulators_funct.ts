@@ -76,6 +76,50 @@ export const BUILTIN_REGULATORS: readonly RegulatorData[] = [
   },
 ];
 
+/**
+ * The two entries of `m_choiceRegType`, in the order wxFormBuilder declares them
+ * — `{ _("Standard Type"), _("3 Terminal Type") }`, so Standard is index 0
+ * (panel_regulator_base.cpp:33 and dialog_regulator_form_base.cpp:64). The
+ * index IS the RegulatorType, and it is what gets saved to settings, so the
+ * order is not cosmetic.
+ */
+export const REGULATOR_TYPE_CHOICES: readonly { value: RegulatorType; label: string }[] = [
+  { value: RegulatorType.STANDARD, label: 'Standard Type' },
+  { value: RegulatorType.THREE_TERMINAL, label: '3 Terminal Type' },
+];
+
+/**
+ * What `Reset to Defaults` writes into each control, verbatim as strings,
+ * because KiCad writes strings (`m_r1TypVal->SetValue( wxT( "0.240" ) )`) and
+ * the field shows `0.240`, not `0.24`. The values are the DEFAULT_REGULATOR_*
+ * macros in `pcb_calculator_settings.h:32-40`; the empty cells and the radio /
+ * type selection are `PANEL_REGULATOR::OnRegulatorResetButtonClick`
+ * (panel_regulator.cpp:72-102), which touches nothing else on the page — not
+ * the regulator list, not the data file, not the power comment, not the
+ * message.
+ */
+export const REGULATOR_DEFAULTS = {
+  resTol: '1',
+  r1Min: '',
+  r1Typ: '0.240',
+  r1Max: '',
+  r2Min: '',
+  r2Typ: '0.720',
+  r2Max: '',
+  vrefMin: '1.20',
+  vrefTyp: '1.25',
+  vrefMax: '1.30',
+  voutMin: '',
+  voutTyp: '5',
+  voutMax: '',
+  iadjTyp: '50',
+  iadjMax: '100',
+  tolMin: '',
+  tolMax: '',
+  type: RegulatorType.THREE_TERMINAL,
+  solve: 2 as const, // RegulatorSolve.VOUT — declared below
+} as const;
+
 export enum RegulatorSolve {
   R1 = 0,
   R2 = 1,

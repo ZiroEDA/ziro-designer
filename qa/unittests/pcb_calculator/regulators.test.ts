@@ -3,6 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, expect, it } from 'vitest';
 import {
+  REGULATOR_DEFAULTS,
+  REGULATOR_TYPE_CHOICES,
   RegulatorSolve,
   RegulatorType,
   printfG,
@@ -151,7 +153,9 @@ describe('regulator validation messages are KiCad’s, character for character',
   });
 
   it('...and that check does NOT run when Vout is the unknown', () => {
-    expect(solveRegulator({ ...base, solve: RegulatorSolve.VOUT, voutTyp: 1 }).error).toBeUndefined();
+    expect(
+      solveRegulator({ ...base, solve: RegulatorSolve.VOUT, voutTyp: 1 }).error,
+    ).toBeUndefined();
   });
 
   it('any of the three Vref cells at zero', () => {
@@ -210,5 +214,52 @@ describe('regulator validation messages are KiCad’s, character for character',
     ]);
     expect([g(r.vout.min), g(r.vout.typ), g(r.vout.max)]).toStrictEqual(['4.73', '5', '5.313']);
     expect([g(r.tolNegPct, 0.01), g(r.tolPosPct, 0.01)]).toStrictEqual(['-5.39', '5.9']);
+  });
+});
+
+describe('the Type choice and the Reset defaults are KiCad’s, not ours', () => {
+  it('Standard Type is index 0 and 3 Terminal Type index 1', () => {
+    expect(REGULATOR_TYPE_CHOICES.map((c) => c.label)).toStrictEqual([
+      'Standard Type',
+      '3 Terminal Type',
+    ]);
+    expect(REGULATOR_TYPE_CHOICES.map((c) => c.value)).toStrictEqual([
+      RegulatorType.STANDARD,
+      RegulatorType.THREE_TERMINAL,
+    ]);
+  });
+
+  it('Reset to Defaults writes the DEFAULT_REGULATOR_* strings verbatim', () => {
+    // pcb_calculator_settings.h:32-40. They are STRINGS in KiCad and the field
+    // shows "0.240", not "0.24" — a numeric default would lose the zero.
+    expect(REGULATOR_DEFAULTS.r1Typ).toBe('0.240');
+    expect(REGULATOR_DEFAULTS.r2Typ).toBe('0.720');
+    expect(REGULATOR_DEFAULTS.vrefMin).toBe('1.20');
+    expect(REGULATOR_DEFAULTS.vrefTyp).toBe('1.25');
+    expect(REGULATOR_DEFAULTS.vrefMax).toBe('1.30');
+    expect(REGULATOR_DEFAULTS.voutTyp).toBe('5');
+    expect(REGULATOR_DEFAULTS.iadjTyp).toBe('50');
+    expect(REGULATOR_DEFAULTS.iadjMax).toBe('100');
+    expect(REGULATOR_DEFAULTS.resTol).toBe('1');
+  });
+
+  it('Reset clears the six computed cells and both tolerances', () => {
+    for (const k of [
+      'r1Min',
+      'r1Max',
+      'r2Min',
+      'r2Max',
+      'voutMin',
+      'voutMax',
+      'tolMin',
+      'tolMax',
+    ] as const)
+      expect(REGULATOR_DEFAULTS[k]).toBe('');
+  });
+
+  it('Reset selects 3 Terminal Type and the Vout radio', () => {
+    // panel_regulator.cpp:99-101: SetSelection( 1 ), and m_rbRegulVout true.
+    expect(REGULATOR_DEFAULTS.type).toBe(RegulatorType.THREE_TERMINAL);
+    expect(REGULATOR_DEFAULTS.solve).toBe(RegulatorSolve.VOUT);
   });
 });
