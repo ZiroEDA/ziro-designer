@@ -44,12 +44,14 @@ describe('the shell tells the browser it is dark', () => {
     expect(rule(':root')).toMatch(/color-scheme:\s*dark/);
   });
 
-  it('switches the native scrollbars off where the property can inherit', () => {
-    // It inherits, so declaring it on :root reaches every scroller without a
-    // universal selector (which would outrank later rules and trip the
-    // descending-specificity lint). `thin` used to be the value here and still
-    // reserved a gutter; see overlay_scrollbars.test.ts for what replaced it.
-    expect(rule(':root')).toMatch(/scrollbar-width:\s*none/);
+  it('switches the native scrollbars off for every scroller, not just :root', () => {
+    // `scrollbar-width` does NOT inherit - only `scrollbar-color` does - so the
+    // `:root { scrollbar-width: thin }` that used to sit here reached the
+    // document element and no pane at all, which is why every pane kept the
+    // browser's 15 px gutter. It has to be a universal selector, and `*` is
+    // specificity 0 so it cannot outrank anything below it. A `.ze-app *`
+    // selector could, and would also miss anything rendered outside a frame.
+    expect(rule('*')).toMatch(/scrollbar-width:\s*none/);
     expect(CSS).not.toContain('.ze-app * {');
   });
 });

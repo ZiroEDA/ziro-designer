@@ -212,16 +212,6 @@
      it the chrome was dark and every scrollbar and text box on top of it was
      white. */
   color-scheme: dark;
-  /* Native scrollbars OFF, app-wide. This is the load-bearing half of the
-     overlay scrollbar port: it is the only declaration that makes
-     `offsetWidth - clientWidth` 0, which is what "the content is full width"
-     means. `thin` still reserved a gutter (measured 15 px on both axes of the
-     Image Converter preview, so a 963x816 pane showed 948x801 of image), and
-     `overflow: overlay` is removed from the platform. The indicator itself is
-     drawn by ui/overlay_scrollbars.ts. Inherits, so one declaration here reaches
-     every scroller without a universal selector. */
-  scrollbar-width: none;
-
   /* --- GTK3/Yaru overlay scrollbar, measured (see ui/overlay_scrollbars.ts for
      the method; [css] = the extracted Yaru-dark GTK3 stylesheet, [px] = pixel
      profiles of a live Gtk.ScrolledWindow). Tokens rather than per-editor
@@ -256,6 +246,30 @@
      2.7 s: a hold then a fade. The hold is a JS timer (a CSS transition-delay
      cannot be asymmetric); this is the fade half. */
   --osb-fade-duration: 1000ms;
+}
+
+/* Native scrollbars OFF, app-wide. This is the load-bearing half of the overlay
+   scrollbar port: it is what makes `offsetWidth - clientWidth` 0, which is what
+   "the content is full width" means.
+
+   It has to be a universal selector, and that is not a style choice.
+   `scrollbar-width` is NOT an inherited property (only `scrollbar-color` is),
+   so the `:root { scrollbar-width: thin }` this replaces reached the document
+   element and nothing else - which is exactly why every pane stayed at the
+   browser default. Measured in Chrome 149 on this machine: a scroller takes a
+   15 px gutter at `auto`, 10 px at `thin` and 0 px at `none`, and the Image
+   Converter's preview measured 15, i.e. `auto`, the whole time `thin` was
+   declared.
+
+   `*` is specificity 0, the lowest there is, so it cannot outrank anything
+   below it - the hazard the old comment was guarding against by keeping the
+   declaration on :root.
+
+   `overflow: overlay`, which would have done the layout half natively, is
+   removed from the platform. The indicator is drawn by
+   ui/overlay_scrollbars.ts. */
+* {
+  scrollbar-width: none;
 }
 
 /* Schematic Editor only: real eeschema's own chrome colors on this machine

@@ -46,12 +46,22 @@ const rule = (selector: string): string => {
 
 describe('the native scrollbars are off, which is the zero-layout-cost half', () => {
   it('declares scrollbar-width: none, not thin', () => {
-    // `thin` was the old value and still reserved a gutter: measured 15 px on
-    // both axes of the Image Converter preview, so a 963x816 pane showed
-    // 948x801 of image. Only `none` takes the gutter to 0.
-    const root = rule(':root');
-    expect(root).toMatch(/scrollbar-width:\s*none/);
-    expect(root).not.toMatch(/scrollbar-width:\s*thin/);
+    // Measured in Chrome 149 on this machine: a scroller's gutter is 15 px at
+    // `auto`, 10 px at `thin` and 0 px at `none`. Only `none` reaches 0, and
+    // the Image Converter's preview measured 15 - i.e. `auto` - the whole time
+    // `thin` was declared.
+    expect(rule('*')).toMatch(/scrollbar-width:\s*none/);
+    expect(CSS_CODE).not.toMatch(/scrollbar-width:\s*thin/);
+  });
+
+  it('puts it on a universal selector, because the property does not inherit', () => {
+    // This is the actual root cause of the 15 px gutters: `scrollbar-width` is
+    // not inherited (only `scrollbar-color` is), so the old
+    // `:root { scrollbar-width: thin }` styled the document element and no pane
+    // at all. Verified in the browser: with :root computing `none`, a freshly
+    // appended scroller still computed `auto`.
+    expect(rule(':root')).not.toMatch(/scrollbar-width/);
+    expect(rule('*')).toMatch(/scrollbar-width/);
   });
 
   it('zeroes the WebKit pseudo-element too, for engines without the property', () => {
