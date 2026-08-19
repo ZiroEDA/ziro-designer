@@ -42,6 +42,7 @@ const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
+  'editors/schematic/components/SymbolLibraryBrowser.tsx',
   'editors/schematic/dialogs/dialog_assign_footprints.tsx',
   'home/HomePage.tsx',
 ];
@@ -94,7 +95,7 @@ describe('every frame with a menu bar is accounted for', () => {
   it('finds the frames in the first place', () => {
     // A guard on the guard: a renamed component would otherwise make this
     // whole file pass by checking nothing.
-    expect(menuBarFiles.length).toBeGreaterThanOrEqual(10);
+    expect(menuBarFiles.length).toBeGreaterThanOrEqual(11);
   });
 
   it('is either on the dispatcher or explicitly still pending', () => {
