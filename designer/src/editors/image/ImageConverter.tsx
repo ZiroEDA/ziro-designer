@@ -74,6 +74,7 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 
 type Tab = 'original' | 'greyscale' | 'bw';
 
@@ -308,22 +309,6 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     [loadFile],
   );
 
-  // Frame hotkeys: Ctrl+O opens an image (ACTIONS::open), Ctrl+, preferences.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-      if (e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        fileInputRef.current?.click();
-      } else if (e.key === ',') {
-        e.preventDefault();
-        setPrefsOpen(true);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   const onPick = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const f = e.target.files?.[0];
     if (f) void loadFile(f);
@@ -492,7 +477,23 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
         { label: 'Open…', shortcut: 'Ctrl+O', action: () => fileInputRef.current?.click() },
         openRecentItem,
         { sep: true },
-        { label: 'Close Image Converter', action: onExitToHome },
+        // `bitmap2cmp_frame.cpp:299` is `fileMenu->AddQuit( _( "Image
+        // Converter" ) )`, and `ACTION_MENU::AddQuit` (action_menu.cpp:254-261)
+        // spells that out as the label "Quit" with `\tCtrl+Q` appended and
+        // "Quit %s" as the help string. Not AddQuitOrClose: bitmap2component
+        // has no kiface, so it is always the Quit form, never "Close".
+        //
+        // Ctrl+Q is in BROWSER_RESERVED - a page is not promised it, and gets
+        // it for certain only under `lockReservedKeys`. It is declared here
+        // anyway because the declaration is what the menu, the Hotkey List and
+        // the dispatcher all read, and a key we decline to declare is one that
+        // certainly does nothing.
+        {
+          label: 'Quit',
+          shortcut: 'Ctrl+Q',
+          tooltip: 'Quit Image Converter',
+          action: onExitToHome,
+        },
       ],
     },
     {
@@ -511,6 +512,12 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
+
+  // The menus above are the whole of this frame's keyboard: Ctrl+O, Ctrl+`,`,
+  // Ctrl+Q and Ctrl+F1 are dispatched from the rows that declare them. What
+  // used to be here was a hand-written listener covering the first two, which
+  // is how Ctrl+Q came to be printed nowhere and do nothing.
+  useMenuHotkeys(menus, 'image');
 
   const footprint = format === 'footprint';
 

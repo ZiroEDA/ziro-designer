@@ -102,6 +102,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
       ref={rowRef}
       className={`ze-mitem${item.disabled ? ' disabled' : ''}${hasSub ? ' has-sub' : ''}`}
       style={hasSub ? { position: 'relative' } : undefined}
+      title={item.tooltip}
       onMouseEnter={() => {
         if (hasSub) setSubOpen(true);
         item.onHover?.(true);

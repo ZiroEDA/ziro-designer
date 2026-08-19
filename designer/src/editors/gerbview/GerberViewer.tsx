@@ -44,6 +44,7 @@ import { LayerManager, type LayerInfo } from './LayerManager.js';
 import { DCodeListDialog, itemInfoRows } from './dialogs.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel } from '../../ui/MsgPanel.js';
+import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import {
   coordsMsg,
   deltasMsg,
@@ -439,6 +440,13 @@ export function GerberViewer({
   }, [projectName]);
 
   // ---- keyboard ----------------------------------------------------------
+  //
+  // What is left here is the canvas, and only the canvas: the four keys below
+  // have no menu row to declare them, which is exactly upstream's split -
+  // GERBVIEW_ACTIONS::measureTool, ACTIONS::cancelInteractive, zoomIn and
+  // zoomOut are TOOL_ACTIONs the View menu never lists. Ctrl+O (File > Open
+  // Gerber File(s)…) and Home (View > Zoom to Fit) used to be re-stated here
+  // beside their own menu rows; useMenuHotkeys dispatches them from the rows.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
@@ -450,12 +458,7 @@ export function GerberViewer({
         (tgt.tagName === 'INPUT' || tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA')
       )
         return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        openInputRef.current?.click();
-      } else if (e.key === 'Home') {
-        controller.current?.zoomToFit();
-      } else if (e.key === 'm' || e.key === 'M') {
+      if (e.key === 'm' || e.key === 'M') {
         setActiveTool('measure');
       } else if (e.key === 'Escape') {
         setActiveTool('select');
@@ -611,6 +614,8 @@ export function GerberViewer({
     ],
     [toggles, onLeftToggle, exportToPcb, clearAll, onExitToHome, printLayers],
   );
+
+  useMenuHotkeys(menus, 'gerber');
 
   // ---- layer manager info ------------------------------------------------
   const layerInfos: LayerInfo[] = layers.map((l, i) => ({

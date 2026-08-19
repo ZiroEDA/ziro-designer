@@ -27,6 +27,7 @@ import { PanelBoardClass } from './panels/panel_board_class.js';
 import { PanelGalvanicCorrosion } from './panels/panel_galvanic_corrosion.js';
 import './calculator.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
+import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 
@@ -99,6 +100,8 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
+
+  useMenuHotkeys(menus, 'calculator');
 
   const item = TREE.flatMap((g) => g.items).find((i) => i.id === active) ?? TREE[0]!.items[0]!;
   const Panel = item.panel;

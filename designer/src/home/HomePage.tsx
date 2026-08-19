@@ -66,6 +66,7 @@ import { AboutDialog } from './dialogs/dialog_about.js';
 import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
+import { useMenuHotkeys } from '../ui/useMenuHotkeys.js';
 import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
@@ -1227,72 +1228,31 @@ export function HomePage({
   });
 
   /**
-   * The manager's accelerators, which are whatever its menu says they are.
+   * The manager's accelerators, which are whatever its menu says they are —
+   * now literally, rather than as an aspiration.
    *
-   * Every combo here is one `buildManagerMenus` puts beside a row, and the menu
-   * is upstream's. Three were written into the menu and never bound - Ctrl+G
-   * for the Gerber Viewer, Ctrl+Y for the Drawing Sheet Editor, and Shift+Ctrl+S
-   * for Save As, which the Shift guard below excluded outright - so the rows
-   * advertised keys that fell through to the browser. Ctrl+G in particular
-   * landed on Chrome's find-next, which is what made the conflict visible.
+   * What stood here was a 40-line `keydown` listener that re-stated every
+   * combo `buildManagerMenus` had already written beside a row - and it had
+   * already drifted once, which is on the record: Ctrl+G, Ctrl+Y and
+   * Shift+Ctrl+S sat in the menu bound to nothing until someone noticed
+   * Ctrl+G opening Chrome's find-next. The two rows the menu greys out with
+   * no project picked were re-gated here by hand with `picked`, too. The
+   * shared dispatcher reads the rows, so `disabled: !h.hasProject` is the
+   * gate in one place and there is nothing left to keep in step.
+   *
+   * It also had no typing guard at all, so Ctrl+O fired while you were naming
+   * a project. `menu_hotkeys.ts` has TOOL_DISPATCHER's rule.
    *
    * `preventDefault` here stops our own default; ui/browser_hotkeys.ts stops
    * the *browser's*, for these and for every other combo the app binds. Ctrl+N
    * is the exception that cannot be fixed from a page: it is
    * ACTIONS::newProject and it is also Chrome's new window, and the browser
    * does not yield it. See BROWSER_RESERVED.
+   *
+   * ACTIONS::listHotKeys is AS_GLOBAL and its Ctrl+F1 is answered once, by
+   * HotkeyListHost above the app, as well as by the Help row here.
    */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      const run = (fn: () => void): void => {
-        e.preventDefault();
-        fn();
-      };
-
-      // ACTIONS::zoomRedraw, "Refresh", whose DefaultHotkey is WXK_F5 off
-      // macOS - and what View > Refresh has always said. It was left to the
-      // browser's reload on the grounds that a tab needs one, which was true
-      // while nothing suppressed the browser's default and false once the
-      // hotkey guard did: the menu would have promised a key that reloaded the
-      // page, then a key that did nothing at all. Ctrl+R still reloads, and it
-      // is upstream's macOS binding for this same action rather than a
-      // consolation.
-      if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-        run(refreshSaved);
-        return;
-      }
-
-      if (!(e.ctrlKey || e.metaKey)) return;
-      // Alt is only part of the substituted combos, so every other branch below
-      // requires it to be absent.
-      const k = e.key.toLowerCase();
-      if (e.altKey && k !== 'n') return;
-
-      if (e.shiftKey) {
-        // Shift+Ctrl+S, the only shifted accelerator the menu declares.
-        if (k === 's' && picked) run(() => void saveAsProject());
-        return;
-      }
-
-      // Ctrl+Alt+N, not Ctrl+N: see BROWSER_REBINDS. Alt is required, so the
-      // plain Ctrl+N that the browser is about to act on does not also open
-      // the dialog on the browsers that do deliver it.
-      if (k === 'n' && e.altKey) run(openNewProjectDialog);
-      else if (k === 'o') run(() => setOpenPrjOpen(true));
-      else if (k === 'e') run(() => launchSchematic());
-      else if (k === 'l') run(() => onOpenSymbolEditor?.(picked ?? undefined));
-      else if (k === 'p' && picked) run(launchPcb);
-      else if (k === 'f') run(() => onOpenFootprintEditor?.(picked ?? undefined));
-      else if (k === 'b') run(() => onOpenImageConverter?.());
-      else if (k === 'g') run(() => onOpenGerberViewer?.());
-      else if (k === 'y') run(() => onOpenDrawingSheetEditor?.());
-      else if (k === ',') run(() => setPrefsOpen(true));
-      // ACTIONS::listHotKeys is AS_GLOBAL and its Ctrl+F1 is handled once, by
-      // HotkeyListHost above the app, so there is nothing to bind here.
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  useMenuHotkeys(menus, 'home');
 
   return (
     <div className="ze-app">

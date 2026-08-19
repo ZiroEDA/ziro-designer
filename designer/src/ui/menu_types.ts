@@ -40,6 +40,10 @@ export interface MenuItem {
   onHover?: (over: boolean) => void;
   /** ACTION_MENU::CHECK items, shows a checkmark when true. */
   checked?: boolean;
+  /** The help string of `ACTION_MENU::Add( label, tooltip, id, icon )` -
+   *  upstream shows it in the status bar while the row is highlighted, and it
+   *  is where "Quit Image Converter" lives while the row itself reads "Quit". */
+  tooltip?: string;
   /** Nested items rendered as a flyout submenu (KiCad ACTION_MENU submenus:
    *  Import, Export, Attributes, Open Recent…). `items` and `submenu` are
    *  accepted interchangeably so callers from either editor keep working. */
