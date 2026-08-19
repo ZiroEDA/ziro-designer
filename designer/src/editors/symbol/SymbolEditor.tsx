@@ -63,6 +63,7 @@ import {
   unitCount,
 } from './edits.js';
 import { GRID, MM, type SymbolViewOptions } from './render/symbolRenderer.js';
+import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
   LibSymbolPropertiesDialog,
@@ -325,6 +326,12 @@ export function SymbolEditor({
       showPinElectricalTypes: toggles.has('showElectricalTypes'),
       showHiddenPins: toggles.has('showHiddenPins'),
       showHiddenFields: toggles.has('showHiddenFields'),
+      // ACTIONS::toggleGrid. The toolbar button used to render pressed while
+      // the renderer painted its grid unconditionally, so pressing it did
+      // nothing at all.
+      showGrid: toggles.has('toggleGrid'),
+      gridStyle: settings.eeschema.window.grid.style,
+      devicePixelRatio: typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
     }),
     [unit, bodyStyle, toggles],
   );

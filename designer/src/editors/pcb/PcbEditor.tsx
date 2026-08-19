@@ -303,13 +303,14 @@ import {
   buildDrawSteps,
   drawAnchors,
   drawBoard,
-  drawGrid,
   drawDrawingSheet,
   drawPageLimits,
   drawNetNames,
   drawOriginMarker,
   drawDrcMarkers,
-  DEFAULT_GRID_OPTIONS,
+  PCB_DEFAULT_GRID_IU,
+  PCB_DEFAULT_GRID_ORIGIN,
+  pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   DOM_PATH_FACTORY,
   type BoardScene,
@@ -330,6 +331,8 @@ import {
   PCB_OBJECT_COLORS,
   PCB_SPECIAL,
 } from './pcbTheme.js';
+import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
+import { gridSizesIU } from '../../ui/grid_settings.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_LEFT_TOOLBAR,
@@ -417,15 +420,10 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 
 // Snapping lives in pcb_grid.ts; see the note there on the board grid origin.
 
-// One mil in IU.
-const MIL = 0.0254 * MM;
-
-// pcbnew's grid presets, exactly APP_SETTINGS_BASE::DefaultGridSizeList()
-// (app_settings.cpp): the mil rows first, then the metric rows.
-const PCB_GRIDS: number[] = [
-  ...[1000, 500, 250, 200, 100, 50, 25, 20, 10, 5, 2, 1].map((m) => m * MIL),
-  ...[5.0, 2.5, 1.0, 0.5, 0.25, 0.2, 0.1, 0.05, 0.025, 0.01].map((mm) => mm * MM),
-];
+// pcbnew's grid presets: APP_SETTINGS_BASE::DefaultGridSizeList()'s non-
+// eeschema row, which the footprint editor shares. The table lives in
+// ui/grid_settings.ts because it is common/ code upstream.
+const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
 
 // pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW).
 const PCB_ZOOMS: number[] = [
@@ -1110,16 +1108,16 @@ export function PcbEditor({
   const ctrlDownRef = useRef(false);
   const [scale, setScale] = useState(0);
   // Active grid size (the TOP_AUX grid selector; EDA_DRAW_FRAME's grid list).
-  const [gridIU, setGridIU] = useState(DEFAULT_GRID_OPTIONS.size);
+  const [gridIU, setGridIU] = useState(PCB_DEFAULT_GRID_IU);
   const gridIURef = useRef(gridIU);
   gridIURef.current = gridIU;
   // The board's own grid origin (`(setup (grid_origin))`), which pcbnew hands
   // to the GAL on open (pcb_base_edit_frame.cpp) and which both the dots and
   // the snap are measured from. A ref because `draw` and the pointer handlers
   // read it without wanting to be rebuilt when the board object is replaced.
-  const gridOriginRef = useRef<{ x: number; y: number }>(DEFAULT_GRID_OPTIONS.origin);
+  const gridOriginRef = useRef<{ x: number; y: number }>(PCB_DEFAULT_GRID_ORIGIN);
   gridOriginRef.current = useMemo(
-    () => (board ? boardGridOrigin(board) : DEFAULT_GRID_OPTIONS.origin),
+    () => (board ? boardGridOrigin(board) : PCB_DEFAULT_GRID_ORIGIN),
     [board],
   );
   // `GRID_HELPER::m_auxAxis` — the point the current gesture started from, kept
@@ -1932,13 +1930,19 @@ export function PcbEditor({
     // Grid sits behind the board (GAL GRID_DEPTH), painted crisply at the live
     // view every frame so it stays sharp during pan/zoom. The raster is drawn on
     // top with a transparent background so the grid shows through empty areas.
-    if (objects.grid && toggles.has('toggleGrid')) {
-      drawGrid(bctx, v, canvas.width, canvas.height, dpr, {
-        ...DEFAULT_GRID_OPTIONS,
-        size: gridIURef.current,
+    drawGrid(
+      bctx,
+      v,
+      canvas.width,
+      canvas.height,
+      pcbGridOptions({
+        show: objects.grid && toggles.has('toggleGrid'),
+        sizeIU: gridIURef.current,
         origin: gridOriginRef.current,
-      });
-    }
+        color: drawOpts.theme?.grid,
+        devicePixelRatio: dpr,
+      }),
+    );
     // Drawing sheet, drawn behind the board with the UN-flipped transform so the
     // page frame and title block stay in place and readable when the board is
     // flipped (KiCad's DS_PROXY_VIEW_ITEM un-mirrors itself). tx is recovered by
@@ -2607,37 +2611,27 @@ export function PcbEditor({
       ctx.stroke();
       ctx.restore();
     }
-    // Crosshair cursor (GAL blitCursor): a white cross at the grid-snapped
-    // cursor. crosshairSmall = an 80px cross (default), crosshairFull = full
-    // screen lines, crosshair45 = a big diagonal X. Drawn topmost.
+    // Crosshair cursor (GAL::blitCursor): the LAYER_CURSOR cross at the
+    // grid-snapped cursor, drawn topmost, by the shared painter.
     const cur = cursorRef.current;
     if (cur && activeToolRef.current !== 'localRatsnestTool') {
       const snapped = cursorSnapRef.current(cur);
-      const px = snapped.x * sx + v.tx;
-      const py = snapped.y * v.scale + v.ty;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.strokeStyle = PCB_CURSOR;
-      ctx.lineWidth = Math.max(1, dpr);
-      ctx.beginPath();
-      if (toggles.has('crosshairFull')) {
-        ctx.moveTo(0, py);
-        ctx.lineTo(canvas.width, py);
-        ctx.moveTo(px, 0);
-        ctx.lineTo(px, canvas.height);
-      } else if (toggles.has('crosshair45')) {
-        const d = canvas.width + canvas.height;
-        ctx.moveTo(px - d, py - d);
-        ctx.lineTo(px + d, py + d);
-        ctx.moveTo(px - d, py + d);
-        ctx.lineTo(px + d, py - d);
-      } else {
-        const s = 40 * dpr; // 80px cross, ±40
-        ctx.moveTo(px - s, py);
-        ctx.lineTo(px + s, py);
-        ctx.moveTo(px, py - s);
-        ctx.lineTo(px, py + s);
-      }
-      ctx.stroke();
+      drawCrosshair(
+        ctx,
+        { x: snapped.x * sx + v.tx, y: snapped.y * v.scale + v.ty },
+        canvas.width,
+        canvas.height,
+        {
+          mode: toggles.has('crosshairFull') ? 'full' : toggles.has('crosshair45') ? '45' : 'small',
+          color: PCB_CURSOR,
+          // pcbnew's tools call ShowCursor(true) as soon as one is active; with
+          // the selection tool the crosshair is there only because "Always show
+          // crosshairs" forced it, and a forced cursor is dimmed upstream.
+          toolWantsCursor: activeToolRef.current !== 'select',
+          alwaysShow: true,
+          devicePixelRatio: dpr,
+        },
+      );
     }
     notePcbPaint(useGl ? 'gl' : 'raster', __t0);
     setScale(v.scale);

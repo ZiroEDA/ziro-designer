@@ -21,6 +21,7 @@ import {
   useState,
 } from 'react';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
+import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -30,8 +31,10 @@ import {
   type BoardScene,
   type PcbDrawOptions,
 } from '../pcb/renderBoard.js';
-import { PCB_BACKGROUND } from '../pcb/pcbTheme.js';
+import { PCB_BACKGROUND, PCB_CURSOR } from '../pcb/pcbTheme.js';
 import { footprintToBoard } from './footprintBoard.js';
+import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
+import { snapToGridSize } from '../pcb/pcb_grid.js';
 
 const MM = 10000;
 
@@ -51,6 +54,11 @@ export interface FootprintCanvasProps {
   selection?: ReadonlySet<string>;
   /** Active right-toolbar tool ('select' enables picking/box/move). */
   activeTool?: string;
+  /** ACTIONS::toggleGrid. */
+  showGrid?: boolean;
+  /** Grid size in IU (GAL m_gridSize). A library footprint has no board, so
+   *  there is no grid origin: FOOTPRINT_EDIT_FRAME leaves it at (0, 0). */
+  gridIU?: number;
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
   /** Click/box selection results (additive when Shift is held). */
@@ -76,6 +84,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       drawOpts = DEFAULT_DRAW_OPTIONS,
       selection = EMPTY_SEL,
       activeTool = 'select',
+      showGrid = true,
+      gridIU = PCB_DEFAULT_GRID_IU,
       onCursorMove,
       onScaleChange,
       onSelect,
@@ -105,6 +115,16 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     const previewRef = useRef(preview);
     previewRef.current = preview;
     const cursorWorldRef = useRef<Vec2 | null>(null);
+    const showGridRef = useRef(showGrid);
+    showGridRef.current = showGrid;
+    const gridIURef = useRef(gridIU);
+    gridIURef.current = gridIU;
+    const activeToolRef = useRef(activeTool);
+    activeToolRef.current = activeTool;
+    /** GRID_HELPER::BestSnapAnchor, reduced to the plain grid: a footprint has
+     *  no board grid origin, so it rounds about (0, 0). */
+    const snapRef = useRef((p: Vec2): Vec2 => p);
+    snapRef.current = (p: Vec2): Vec2 => (showGrid ? snapToGridSize(p, gridIU, { x: 0, y: 0 }) : p);
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
     const scene = useMemo(() => buildScene(footprintToBoard(footprint)), [footprint]);
@@ -188,6 +208,23 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = PCB_BACKGROUND;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // GAL::DrawGrid, behind the board raster (GRID_DEPTH) and painted at the
+      // live view each frame so it stays crisp through a pan or zoom. The
+      // raster's background is transparent, so it shows through. The footprint
+      // editor reads LAYER_GRID, the same layer pcbnew does
+      // (footprint_editor_utils.cpp:269).
+      drawGrid(
+        ctx,
+        v,
+        canvas.width,
+        canvas.height,
+        pcbGridOptions({
+          show: showGridRef.current,
+          sizeIU: gridIURef.current,
+          color: drawOpts.theme?.grid,
+          devicePixelRatio: dpr,
+        }),
+      );
       const c = cacheRef.current;
       if (c) {
         const k = v.scale / c.view.scale;
@@ -268,9 +305,27 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         ctx.setLineDash([]);
       }
 
+      // GAL::blitCursor at the snapped point, in LAYER_CURSOR (pcb_painter.h:135).
+      // The canvas had none: one occurrence of the word "crosshair" in the whole
+      // file, and that was a CSS cursor.
+      const cw = cursorWorldRef.current;
+      if (cw) {
+        const at = snapRef.current(cw);
+        drawCrosshair(ctx, toPx(at), canvas.width, canvas.height, {
+          mode: 'small',
+          color: PCB_CURSOR,
+          // FOOTPRINT_EDIT_FRAME's drawing tools call ShowCursor(true) through
+          // PCB_TOOL_BASE; the selection tool does not, so there the crosshair
+          // is the dimmed forced one.
+          toolWantsCursor: activeToolRef.current !== 'select',
+          alwaysShow: true,
+          devicePixelRatio: dpr,
+        });
+      }
+
       setScale(v.scale);
       onScaleChange?.(v.scale);
-    }, [startCrispRender, viewMatchesCache, onScaleChange, dpr]);
+    }, [startCrispRender, viewMatchesCache, onScaleChange, drawOpts, dpr]);
 
     const requestDraw = useCallback(() => {
       cancelAnimationFrame(rafRef.current);
@@ -456,7 +511,8 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
         const w = worldAt(e.clientX, e.clientY);
         cursorWorldRef.current = w;
         onCursorMove?.(w);
-        if (previewRef.current) requestDraw(); // animate the rubber-band
+        // The crosshair and the rubber band both follow the pointer.
+        requestDraw();
       }
       const g = gestureRef.current;
       if (!g) return;
@@ -472,8 +528,11 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       } else if (g.mode === 'place') {
         if (Math.hypot(e.clientX - g.start.x, e.clientY - g.start.y) > 3) g.moved = true;
       } else {
-        const w = worldAt(e.clientX, e.clientY);
-        moveDeltaRef.current = { x: w.x - g.start.x, y: w.y - g.start.y };
+        // EDIT_TOOL's move follows the snapped crosshair, not the raw pointer
+        // (edit_tool_move_fct.cpp: m_cursor = grid.BestSnapAnchor( mousePos )).
+        const w = snapRef.current(worldAt(e.clientX, e.clientY));
+        const from = snapRef.current(g.start);
+        moveDeltaRef.current = { x: w.x - from.x, y: w.y - from.y };
         g.moved = true;
         requestDraw();
       }
@@ -484,7 +543,7 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
       gestureRef.current = null;
       if (!g) return;
       if (g.mode === 'place') {
-        if (!g.moved) onPlace?.(worldAt(e.clientX, e.clientY));
+        if (!g.moved) onPlace?.(snapRef.current(worldAt(e.clientX, e.clientY)));
         return;
       }
       if (g.mode === 'box') {

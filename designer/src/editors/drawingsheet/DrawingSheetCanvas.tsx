@@ -27,13 +27,19 @@ import type { Vec2 } from '@ziroeda/kimath';
 import { pickDrawItem, wksItemsInBox, wksItemBBox, type DsDrawItem } from '@ziroeda/common';
 import {
   drawDrawingSheetItems,
+  dsBackgroundIsDark,
   DS_BG_COLOR,
   DS_BG_COLOR_DARK,
+  DS_CURSOR_COLOR_ON_DARK,
+  DS_CURSOR_COLOR_ON_LIGHT,
+  DS_GRID_COLOR_ON_DARK,
+  DS_GRID_COLOR_ON_LIGHT,
   DS_PAGE_COLOR,
   DS_HILITE_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
+import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 
 const MM = 10000;
 
@@ -171,8 +177,10 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       if (!ctx) return;
       const v = viewRef.current;
 
+      const background = blackBackground ? DS_BG_COLOR_DARK : DS_BG_COLOR;
+      const darkBg = dsBackgroundIsDark(background);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = blackBackground ? DS_BG_COLOR_DARK : DS_BG_COLOR;
+      ctx.fillStyle = background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // World transform (IU → device px).
@@ -184,17 +192,23 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       ctx.fillStyle = DS_PAGE_COLOR;
       ctx.fillRect(0, 0, pageW, pageH);
 
-      const worldPen = 1 / v.scale; // 1 device px in world units
+      // GAL::DrawGrid, over the whole canvas rather than only the sheet: the
+      // grid belongs to the view, not to the page, and pl_editor's grid runs
+      // right across its canvas. It goes on after the paper because ours is an
+      // opaque rectangle drawn over the backdrop; upstream has no such
+      // rectangle, the background IS the paper. The colour is
+      // DS_RENDER_SETTINGS::GetGridColor, a luma choice on the background
+      // (ds_painter.h:71-75).
+      drawGrid(ctx, v, canvas.width, canvas.height, {
+        show: showGrid,
+        sizeIU: gridIU,
+        color: darkBg ? DS_GRID_COLOR_ON_DARK : DS_GRID_COLOR_ON_LIGHT,
+        devicePixelRatio: dpr,
+      });
+      // World transform again: drawGrid paints in device space.
+      ctx.setTransform(v.scale, 0, 0, v.scale, v.tx, v.ty);
 
-      // Grid dots (a GAL-style grained grid).
-      if (showGrid && gridIU > 0 && gridIU * v.scale >= 8) {
-        ctx.fillStyle = 'rgba(0,0,0,0.32)';
-        const r = Math.max(worldPen * 0.9, gridIU * 0.02);
-        const d = r * 2;
-        for (let x = 0; x <= pageW + 1; x += gridIU) {
-          for (let y = 0; y <= pageH + 1; y += gridIU) ctx.fillRect(x - r, y - r, d, d);
-        }
-      }
+      const worldPen = 1 / v.scale; // 1 device px in world units
 
       // Clip page content to the page rectangle.
       ctx.save();
@@ -278,22 +292,31 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         ctx.strokeRect(x, y, Math.abs(p1.x - p0.x), Math.abs(p1.y - p0.y));
       }
 
-      // Full-window crosshair at the cursor.
-      const cp = cursorPxRef.current;
-      if (fullCrosshair && cp) {
-        ctx.strokeStyle = 'rgba(90,160,255,0.55)';
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        ctx.moveTo(cp.x, 0);
-        ctx.lineTo(cp.x, canvas.height);
-        ctx.moveTo(0, cp.y);
-        ctx.lineTo(canvas.width, cp.y);
-        ctx.stroke();
-      }
+      // GAL::blitCursor, in DS_RENDER_SETTINGS::GetCursorColor
+      // (ds_painter.h:77-81). The drawing tools ask for a crosshair; with the
+      // selection tool it is there only because always_show_cursor is on, and
+      // a forced cursor is dimmed.
+      drawCrosshair(ctx, cursorPxRef.current, canvas.width, canvas.height, {
+        mode: fullCrosshair ? 'full' : 'small',
+        color: darkBg ? DS_CURSOR_COLOR_ON_DARK : DS_CURSOR_COLOR_ON_LIGHT,
+        toolWantsCursor: activeTool !== 'select',
+        alwaysShow: true,
+        devicePixelRatio: dpr,
+      });
 
       setScaleState(v.scale);
       onScaleChange?.(v.scale);
-    }, [pageW, pageH, showGrid, gridIU, dpr, fullCrosshair, blackBackground, onScaleChange]);
+    }, [
+      pageW,
+      pageH,
+      showGrid,
+      gridIU,
+      dpr,
+      activeTool,
+      fullCrosshair,
+      blackBackground,
+      onScaleChange,
+    ]);
 
     const requestDraw = useCallback(() => {
       cancelAnimationFrame(rafRef.current);
@@ -569,9 +592,14 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       cursorWorldRef.current = world;
       const snapped = snap(world);
       onCursorMove?.(snapped);
-      const rect = canvasRef.current!.getBoundingClientRect();
-      cursorPxRef.current = { x: (e.clientX - rect.left) * dpr, y: (e.clientY - rect.top) * dpr };
-      if (fullCrosshair) requestDraw();
+      // The crosshair marks where the click will land, i.e. the SNAPPED point,
+      // the way GAL draws at m_cursorPosition rather than at the raw pointer.
+      const vp = viewRef.current;
+      cursorPxRef.current = {
+        x: snapped.x * vp.scale + vp.tx,
+        y: snapped.y * vp.scale + vp.ty,
+      };
+      requestDraw();
 
       // Live end point of an in-flight drawing.
       if (drawingRef.current) onDrawMove?.(snapped);
@@ -679,7 +707,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
             onCursorMove?.(null);
             cursorWorldRef.current = null;
             cursorPxRef.current = null;
-            if (fullCrosshair) requestDraw();
+            requestDraw();
           }}
         />
       </div>

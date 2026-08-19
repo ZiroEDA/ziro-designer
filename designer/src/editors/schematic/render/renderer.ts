@@ -13,6 +13,7 @@
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '../../../ui/view_controls.js';
+import { drawGrid, viewFromOffsets, type GridOptions } from '../../../ui/grid_cursor.js';
 import {
   symbolTransform,
   localToWorld,
@@ -796,7 +797,14 @@ export function renderSchematic(
 
   // `drawGrid` honours `show` itself; the halo pass is the only thing this
   // caller has to keep it out of.
-  if (halos !== 'only') drawGrid(ctx, viewport, theme, canvasWidth, canvasHeight, opts.grid);
+  if (halos !== 'only')
+    drawGrid(
+      ctx,
+      viewFromOffsets(viewport),
+      canvasWidth,
+      canvasHeight,
+      schematicGridOptions(theme, opts.grid),
+    );
   // Page limits (LAYER_SCHEMATIC_PAGE_LIMITS): the paper-edge outline,
   // toggled by "Show page limits" in the Display Options.
   if (opts.showPageLimits && !overlayPass) {
@@ -3936,161 +3944,26 @@ function drawDrawingSheet(
 }
 
 /**
- * GAL::SetCoarseGrid( 10 ), from the GAL constructor: every tenth grid line is
- * drawn at double width, which is what gives KiCad's grid its coarse pattern.
- * It is also the factor GetVisibleGridSize() steps the spacing up by when the
- * grid gets too dense, the grid jumps 50 mil -> 500 mil, it does not double.
- */
-const GRID_TICK = 10;
-
-/** GetVisibleGridSize() floors the grid size at 100 IU before anything else. */
-const MIN_GRID_IU = 100;
-
-/**
- * Retained grid geometry. The lattice is built once into Path2D form in device
- * space and then only translated, so the grid costs one fill (dots) or two
- * strokes (lines/crosses) per frame instead of a draw call per node, the same
- * reason OPENGL_GAL submits it through the non-cached vertex manager in one go,
- * and what the board painter already does (renderBoard.ts drawGrid).
+ * `GAL::DrawGrid` for this canvas: the shared painter, given eeschema's grid
+ * colour (`LAYER_SCHEMATIC_GRID`, `sch_render_settings.h:70`) and the
+ * `GAL_DISPLAY_OPTIONS` the frame keeps in `RenderOpts.grid`.
  *
- * The path is anchored on a *tick-aligned* node, not simply the first visible
- * one, so which nodes are coarse is identical in path space for every pan and
- * only the translation changes. It is rebuilt when the zoom, canvas size or
- * grid appearance changes.
+ * "Show Grid" is checked inside the shared painter rather than at the call
+ * sites. It used to be checked only by `renderSchematic`, which was the one
+ * caller — until the GL backend became the default renderer and the canvas
+ * started calling the grid directly, so it could paint whatever the toggle
+ * said.
  */
-interface GridGeometry {
-  /** Minor nodes/lines, and the coarse (every GRID_TICK-th) ones. */
-  minor: Path2D;
-  major: Path2D;
-}
-let g_gridGeom: GridGeometry | null = null;
-let g_gridKey = '';
-
-/** Guard against a pathological view (a not-yet-sized canvas) asking for millions of nodes. */
-const MAX_GRID_NODES = 1_000_000;
-
-export function drawGrid(
-  ctx: CanvasRenderingContext2D,
-  viewport: Viewport,
-  theme: Theme,
-  canvasWidth: number,
-  canvasHeight: number,
-  grid: RenderOpts['grid'],
-): void {
-  const { scale, offsetX, offsetY } = viewport;
-  // "Show Grid" is checked here rather than at the call sites. It used to be
-  // checked only by `renderSchematic`, which was the one caller — until the GL
-  // backend became the default renderer and the canvas started calling this
-  // directly, so it could paint the grid whatever the toggle said. The toggle
-  // has been dead on the GL path ever since.
-  if (!grid.show) return;
-  if (scale <= 0 || grid.sizeIU <= 0) return;
-  // GAL works in logical pixels; ours is a device-pixel canvas, so the
-  // pixel-valued settings are scaled up by the content scale factor exactly
-  // where GAL applies GetScaleFactor().
-  const dpr = grid.devicePixelRatio && grid.devicePixelRatio > 0 ? grid.devicePixelRatio : 1;
-
-  // GAL::GetVisibleGridSize(): step the drawn grid up by a whole tick until it
-  // clears the minimum on-screen spacing. SMALL_CROSS needs twice the room.
-  let step = Math.max(MIN_GRID_IU, grid.sizeIU);
-  const thresholdIU =
-    ((Math.max(0, grid.minSpacingPx) * dpr) / scale) * (grid.style === 'crosses' ? 2 : 1);
-  while (step <= thresholdIU) step *= GRID_TICK;
-
-  const pitch = step * scale; // node spacing, device px
-  const nx = Math.ceil(canvasWidth / pitch) + 1;
-  const ny = Math.ceil(canvasHeight / pitch) + 1;
-  if (nx * ny > MAX_GRID_NODES) return;
-
-  // OPENGL_GAL::DrawGrid pen widths. The stored width is
-  // scaleFactor * <the setting> + 0.25 (GAL::updatedGalDisplayOptions), floored
-  // at one pixel, and every tick line is twice that.
-  const minorW = Math.max(1, dpr * Math.max(0, grid.lineWidthPx) + 0.25);
-  const majorW = minorW * 2;
-
-  // Node indices, counted from the grid origin exactly as DrawGrid does:
-  // KiROUND( (worldStart - origin) / gridSize ), then one node of margin on
-  // each side so the lattice always fills the screen. Eeschema has no settable
-  // grid origin, so the origin is the world origin.
-  const i0 = Math.round(-offsetX / scale / step) - 1;
-  const j0 = Math.round(-offsetY / scale / step) - 1;
-  // Anchor the retained path on the nearest tick-aligned node at or before the
-  // first one, so `k % GRID_TICK` in path space is the true coarse-ness.
-  const iA = i0 - (((i0 % GRID_TICK) + GRID_TICK) % GRID_TICK);
-  const jA = j0 - (((j0 % GRID_TICK) + GRID_TICK) % GRID_TICK);
-  const cols = nx + GRID_TICK;
-  const rows = ny + GRID_TICK;
-
-  const key = `${grid.style}|${pitch}|${cols}x${rows}|${canvasWidth}x${canvasHeight}|${minorW}`;
-  if (key !== g_gridKey || !g_gridGeom) {
-    const minor = new Path2D();
-    const major = new Path2D();
-    const w = cols * pitch;
-    const h = rows * pitch;
-    if (grid.style === 'lines') {
-      // Horizontal lines, then vertical ones; each is coarse on its own index.
-      for (let l = 0; l <= rows; l++) {
-        const y = l * pitch;
-        const p = l % GRID_TICK === 0 ? major : minor;
-        p.moveTo(0, y);
-        p.lineTo(w, y);
-      }
-      for (let k = 0; k <= cols; k++) {
-        const x = k * pitch;
-        const p = k % GRID_TICK === 0 ? major : minor;
-        p.moveTo(x, 0);
-        p.lineTo(x, h);
-      }
-    } else if (grid.style === 'crosses') {
-      // SMALL_CROSS: arms are 2 x the pen width, and a cross is coarse only
-      // where *both* indices are on a tick (DrawGrid's `tickX && tickY`).
-      for (let k = 0; k <= cols; k++) {
-        const x = k * pitch;
-        const tickX = k % GRID_TICK === 0;
-        for (let l = 0; l <= rows; l++) {
-          const y = l * pitch;
-          const coarse = tickX && l % GRID_TICK === 0;
-          const p = coarse ? major : minor;
-          const arm = 2 * (coarse ? majorW : minorW);
-          p.moveTo(x - arm, y);
-          p.lineTo(x + arm, y);
-          p.moveTo(x, y - arm);
-          p.lineTo(x, y + arm);
-        }
-      }
-    } else {
-      // DOTS: GAL stencils the horizontal lines against the vertical ones, so a
-      // node is the *intersection* of the two pens, a coarse column gives a
-      // wider mark, a coarse row a taller one, and a coarse crossing a big
-      // square. Rectangles reproduce that exactly, and all of them fill at once.
-      for (let k = 0; k <= cols; k++) {
-        const x = k * pitch;
-        const wk = k % GRID_TICK === 0 ? majorW : minorW;
-        for (let l = 0; l <= rows; l++) {
-          const hl = l % GRID_TICK === 0 ? majorW : minorW;
-          minor.rect(x - wk / 2, l * pitch - hl / 2, wk, hl);
-        }
-      }
-    }
-    g_gridGeom = { minor, major };
-    g_gridKey = key;
-  }
-
-  // Painted in device space; the caller's world transform is restored after.
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, iA * pitch + offsetX, jA * pitch + offsetY);
-  if (grid.style === 'dots') {
-    ctx.fillStyle = theme.grid;
-    ctx.fill(g_gridGeom.minor);
-  } else {
-    ctx.strokeStyle = theme.grid;
-    ctx.setLineDash([]);
-    ctx.lineWidth = minorW;
-    ctx.stroke(g_gridGeom.minor);
-    ctx.lineWidth = majorW;
-    ctx.stroke(g_gridGeom.major);
-  }
-  ctx.restore();
+export function schematicGridOptions(theme: Theme, grid: RenderOpts['grid']): GridOptions {
+  return {
+    show: grid.show,
+    sizeIU: grid.sizeIU,
+    color: theme.grid,
+    style: grid.style,
+    lineWidthPx: grid.lineWidthPx,
+    minSpacingPx: grid.minSpacingPx,
+    devicePixelRatio: grid.devicePixelRatio,
+  };
 }
 
 /** Render a single library symbol centred and scaled into a preview canvas. */
