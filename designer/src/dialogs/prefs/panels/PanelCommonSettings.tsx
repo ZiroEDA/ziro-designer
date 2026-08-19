@@ -13,6 +13,7 @@ import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../widgets.js';
 import type { PrefsContext } from '../types.js';
 import { COMMON_DEFAULTS, PRIVACY_DEFAULTS } from '../../../prefs/settings.js';
+import { resetKeys } from '../reset.js';
 
 export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { common, upC, privacy, setPrivacy } = ctx;
@@ -243,8 +244,51 @@ export function PanelCommonSettings({ ctx }: { ctx: PrefsContext }): JSX.Element
   );
 }
 
-/** `RESETTABLE_PANEL::ResetPanel` for this page. */
+/**
+ * `PANEL_COMMON_SETTINGS::ResetPanel` (`common/dialogs/panel_common_settings.cpp`):
+ * a default `COMMON_SETTINGS` pushed at *this panel's* widgets via
+ * `applySettingsToPanel`. It shares `COMMON_SETTINGS` with
+ * `PANEL_MOUSE_SETTINGS`, and resetting this page leaves that one's pan/zoom
+ * and drag settings exactly as they were, because those widgets are not here.
+ *
+ * So the slice is the fields this panel's controls bind to and no more —
+ * notably NOT `system.language` (the Set Language menu owns it) and NOT
+ * `system.session.pinned_symbol_libs` (the symbol chooser's pins), neither of
+ * which appears on this page.
+ */
 export function resetCommonPanel(ctx: PrefsContext): void {
-  ctx.setCommon(structuredClone(COMMON_DEFAULTS));
-  ctx.setPrivacy(structuredClone(PRIVACY_DEFAULTS));
+  ctx.upC((s) => {
+    // "User Interface" — every field of `appearance` is on this page.
+    resetKeys(s.appearance, COMMON_DEFAULTS.appearance, [
+      'use_icons_in_menus',
+      'show_scrollbars',
+      'icon_theme',
+      'toolbar_icon_size',
+      'hicontrast_dimming_factor',
+    ]);
+    // "Editing". The rest of `input` belongs to Mouse and Touchpad.
+    resetKeys(s.input, COMMON_DEFAULTS.input, [
+      'warp_mouse_on_move',
+      'immediate_actions',
+      'hotkey_feedback',
+    ]);
+    // "Session".
+    resetKeys(s.system, COMMON_DEFAULTS.system, ['autosave_interval', 'file_history_size']);
+    resetKeys(s.system.session, COMMON_DEFAULTS.system.session, ['remember_open_files']);
+    // "Project Backup" — every field of `backup` is on this page.
+    resetKeys(s.backup, COMMON_DEFAULTS.backup, [
+      'enabled',
+      'backup_on_autosave',
+      'limit_total_files',
+      'limit_daily_files',
+      'min_interval',
+      'limit_total_size',
+    ]);
+  });
+  // "Privacy", ours rather than KiCad's, and the only page that shows it.
+  ctx.setPrivacy((s) => {
+    const n = structuredClone(s);
+    resetKeys(n, PRIVACY_DEFAULTS, ['crash_reports']);
+    return n;
+  });
 }

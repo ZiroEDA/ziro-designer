@@ -9,9 +9,14 @@ import {
   type PcbnewSettings,
   type PrivacySettings,
 } from '../prefs/settings.js';
-import { FIRST_PAGE, PAGES, ownerOf } from './prefs/registry.js';
+import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
-import type { PrefsContext, PrefsPageId, PrefsPanelModule } from './prefs/types.js';
+import {
+  DEFAULT_RESET_TOOLTIP,
+  type PrefsContext,
+  type PrefsPageId,
+  type PrefsPanelModule,
+} from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
@@ -30,7 +35,8 @@ import { useModalEscape } from '../ui/useModalEscape.js';
  *
  * Edits go to a working copy and commit on OK, as KiCad's TransferDataFromWindow
  * does. "Reset to Defaults" resets the current page only (RESETTABLE_PANEL), by
- * asking that page for its own reset.
+ * asking that page for its own reset — the shell never learns which settings a
+ * page owns, and a page with no reset greys the button out.
  */
 export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
@@ -128,10 +134,22 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
     };
   }, [page]);
 
-  // RESETTABLE_PANEL::ResetPanel on the page that is up: the panel owns its own
-  // defaults, as every `panel_*.cpp` does.
+  // PAGED_DIALOG::UpdateResetButton (common/widgets/paged_dialog.cpp:329-355):
+  // the button is enabled, named after the page and given the page's tooltip
+  // only while a RESETTABLE_PANEL is up; otherwise it reads "Reset to Defaults"
+  // and is disabled. A page that is not resettable — upstream's
+  // PANEL_TEMPLATE_FIELDNAMES, a plain wxPanel — simply has no `reset`, and a
+  // page not yet constructed has no panel at all, which is upstream's
+  // `ResolvePage` returning null.
+  //
+  // Which FIELDS the reset touches is the panel's business, not the shell's:
+  // this only knows whether the page has one. See prefs/reset.ts.
+  const resettable = panel?.reset !== undefined;
+  const resetLabel = resettable
+    ? `Reset ${labelOf(page) ?? ''} to Defaults`
+    : 'Reset to Defaults';
   const resetPage = (): void => {
-    peekPrefsPanel(page)?.reset(ctx);
+    panel?.reset?.(ctx);
   };
 
   return (
@@ -164,8 +182,13 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
           <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : null}</div>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn" onClick={resetPage}>
-            Reset to Defaults
+          <button
+            className="ze-btn"
+            disabled={!resettable}
+            title={resettable ? (panel?.resetTooltip ?? DEFAULT_RESET_TOOLTIP) : undefined}
+            onClick={resetPage}
+          >
+            {resetLabel}
           </button>
           <span style={{ flex: 1 }} />
           <button className="ze-btn" onClick={onClose}>

@@ -29,7 +29,11 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
         Panel: PanelHotkeys,
         // PANEL_HOTKEYS_EDITOR::ResetPanel -> ResetAllHotkeys( true ): every
         // action back to its DefaultHotkey, which is an empty override map.
+        // The overrides are this page's whole slice, so there is nothing to
+        // narrow; nothing else in the settings is touched.
         reset: (ctx) => ctx.setHotkeys({}),
+        // PANEL_HOTKEYS_EDITOR::GetResetTooltip (include/panel_hotkeys_editor.h:55).
+        resetTooltip: 'Reset all hotkeys to the built-in KiCad defaults',
       };
 
     default:
