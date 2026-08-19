@@ -693,6 +693,22 @@ describe('VIA::PushoutForce', () => {
     expect(viaPushoutForce(n, v, V(-1000, 0), PnsKind.ANY_T, 40)).toBeNull();
   });
 
+  it('clamps a step whose EuclideanNorm rounds up past its own truncation', () => {
+    // `forceMag` is `force.EuclideanNorm()` (`pns_via.cpp:178`), and
+    // `VECTOR2<int>::EuclideanNorm()` is `KiROUND( hypot( x, y ) )`
+    // (`vector2d.h:283`) — it rounds. This geometry produces a per-step force
+    // of (-48, -48), whose length is 67.88, against a threshold of
+    // `Diameter / 4` = 67. Rounded that is 68, so the step is over the
+    // threshold and gets resized to 67, which is (-47, -47). Truncated it is
+    // 67, not over, and the whole (-48, -48) is applied.
+    const n = makeNode(110);
+    n.addSolid(solid(V(425, 425), 600));
+
+    const v = via(V(0, 0), NET_A, 268);
+
+    expect(viaPushoutForce(n, v, V(-1000, -1000), PnsKind.ANY_T, 40)).toEqual(V(-47, -47));
+  });
+
   it('fails on exhausting its iterations even when the last one escaped', () => {
     const n = makeNode(100);
     n.addSolid(solid(V(500, 0), 600, NET_B));
