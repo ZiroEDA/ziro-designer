@@ -74,6 +74,10 @@ export interface CommonSettings {
       remember_open_files: boolean;
       /** Libraries pinned to the top of the chooser tree (SESSION.pinned_symbol_libs). */
       pinned_symbol_libs: string[];
+      /** The same, for footprint libraries (`session.pinned_fp_libs`,
+       *  common_settings.cpp:405-406). CvPcb's "Footprint Libraries" pane
+       *  lists these first (cvpcb_mainframe.cpp:1017-1046). */
+      pinned_fp_libs: string[];
     };
   };
   backup: {
@@ -128,7 +132,7 @@ export const COMMON_DEFAULTS: CommonSettings = {
     file_history_size: 9,
     language: 'Default',
     autosave_interval: 600,
-    session: { remember_open_files: false, pinned_symbol_libs: [] },
+    session: { remember_open_files: false, pinned_symbol_libs: [], pinned_fp_libs: [] },
   },
   backup: {
     enabled: true,

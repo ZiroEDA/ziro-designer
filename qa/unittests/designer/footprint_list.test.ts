@@ -13,6 +13,7 @@ import {
   filterFootprints,
   footprintSearchTerms,
   footprintTextMatchers,
+  hasFootprintInfo,
   matchesFootprintText,
 } from '@ziroeda/designer/src/widgets/footprint_list.js';
 import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
@@ -207,5 +208,30 @@ describe('footprint search text', () => {
       expect(finds(query, t), query).toBe(true);
     }
     expect(finds('inductor', t)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FOOTPRINT_LIST::GetFootprintInfo (common/footprint_info.cpp:37-64)
+// ---------------------------------------------------------------------------
+
+describe('GetFootprintInfo', () => {
+  const known = new Set(['Capacitor_SMD:C_0805', 'Resistor_SMD:R_0805']);
+
+  it('finds a footprint the libraries hold', () => {
+    expect(hasFootprintInfo(known, 'Capacitor_SMD:C_0805')).toBe(true);
+  });
+
+  it('does not find one they do not', () => {
+    expect(hasFootprintInfo(known, 'Gone:Missing')).toBe(false);
+  });
+
+  it('does not find the EMPTY footprint, which is CvPcb finding B2', () => {
+    // `if( aFootprintName.IsEmpty() ) return nullptr;` — an unassigned symbol
+    // answers exactly as a symbol pointing at a deleted footprint does, and
+    // SYMBOLS_LISTBOX::AppendWarning is written on that answer alone, so every
+    // unassigned row carries the warning background. Ours required a non-empty
+    // FPID before it would warn, so the pane showed nothing to do.
+    expect(hasFootprintInfo(known, '')).toBe(false);
   });
 });

@@ -142,6 +142,36 @@ export function collectCvpcbComponents(
 }
 
 /**
+ * `CVPCB_MAINFRAME::ReadNetListAndFpFiles` (readwrite_dlgs.cpp:255-274) — the
+ * row the window opens on.
+ *
+ *     int firstUnassigned = wxNOT_FOUND;
+ *
+ *     for( unsigned i = 0; i < m_netlist.GetCount(); i++ )
+ *     {
+ *         …
+ *         if( firstUnassigned == wxNOT_FOUND && component->GetFPID().empty() )
+ *             firstUnassigned = i;
+ *     }
+ *
+ *     if( firstUnassigned >= 0 )
+ *         m_symbolsListBox->SetSelection( firstUnassigned, true );
+ *
+ * Two rules in that, and we had neither. The window lands on the **first
+ * symbol still needing a footprint**, which is the job you opened it to do;
+ * and when there is no such symbol - every part already assigned - the guard
+ * fails and **nothing is selected at all**, so the real window opens with no
+ * highlighted row. Ours selected row 0 unconditionally, which also dragged the
+ * footprint pane onto C1's footprint and made an already-finished board look
+ * like it had work outstanding.
+ *
+ * Returns -1 (`wxNOT_FOUND`) for "select nothing".
+ */
+export function firstUnassignedComponent(components: readonly CvpcbComponent[]): number {
+  return components.findIndex((c) => !c.footprint);
+}
+
+/**
  * CVPCB_MAINFRAME::formatSymbolDesc — the exact text of a row in the
  * "Symbol : Footprint Assignments" pane: a 3-wide index, the reference right
  * aligned in 8 columns, " - ", the value right aligned in 16, " : " and the

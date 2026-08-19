@@ -52,8 +52,18 @@ export interface CvpcbAssociations {
   assigned: ReadonlyMap<string, string>;
   undoStack: readonly CvpcbUndoEntry[];
   redoStack: readonly CvpcbUndoEntry[];
-  /** SYMBOLS_LISTBOX's selection; -1 is `SetSelectedComponent( -1 )`, no row. */
-  selected: number;
+  /**
+   * SYMBOLS_LISTBOX's selection, ascending, as
+   * `GetComponentIndices( SEL_COMPONENTS )` (cvpcb_mainframe.cpp:1090-1126)
+   * walks it: `GetFirstSelected` then `GetNextSelected` until there are no
+   * more. Empty is `SetSelectedComponent( -1 )` -> `DeselectAll()`, no row.
+   *
+   * A **list**, not an index, because `SYMBOLS_LISTBOX` is the one pane built
+   * without `wxLC_SINGLE_SEL` (symbols_listbox.cpp:37, against
+   * footprints_listbox.cpp:35 and library_listbox.cpp:37) and every command
+   * that touches an association loops over the whole of it -- see `associate`.
+   */
+  selection: readonly number[];
   /** `CVPCB_MAINFRAME::m_modified`. Set by every association, cleared only by
    *  a save. Deliberately *not* "the assignments differ from the file": an
    *  assignment undone back to where it started still leaves the frame
@@ -62,8 +72,18 @@ export interface CvpcbAssociations {
   modified: boolean;
 }
 
-export function emptyAssociations(selected = 0): CvpcbAssociations {
-  return { assigned: new Map(), undoStack: [], redoStack: [], selected, modified: false };
+export function emptyAssociations(selection: readonly number[] = []): CvpcbAssociations {
+  return { assigned: new Map(), undoStack: [], redoStack: [], selection, modified: false };
+}
+
+/**
+ * `CVPCB_MAINFRAME::GetSelectedComponent` — the symbol the status lines, the
+ * footprint filters and the footprint pane follow, which is
+ * `m_symbolsListBox->GetSelection()`, i.e. `GetFirstSelected()`: the lowest
+ * selected row, or -1 when nothing is selected.
+ */
+export function selectedComponent(state: CvpcbAssociations): number {
+  return state.selection[0] ?? -1;
 }
 
 /** The FPID a symbol currently has: the pending one, else the schematic's. */
@@ -111,17 +131,33 @@ export function associateFootprint(
     undoStack,
     // "Clear the redo list", but only when this opened a new entry.
     redoStack: newEntry ? [] : state.redoStack,
-    selected: state.selected,
+    selection: state.selection,
     modified: true,
   };
 }
 
 /**
- * `CVPCB_ASSOCIATION_TOOL::Associate` — assign the selected footprint to the
- * selected symbol, then go to the next unassigned one.
+ * `CVPCB_ASSOCIATION_TOOL::Associate` — assign the selected footprint to
+ * **every selected symbol**, then go to the next unassigned one.
+ *
+ *     bool firstAssoc = true;
+ *
+ *     for( unsigned int i : m_frame->GetComponentIndices( SEL_COMPONENTS ) )
+ *     {
+ *         m_frame->AssociateFootprint( CVPCB_ASSOCIATION( i, fpid ), firstAssoc );
+ *         firstAssoc = false;
+ *     }
+ *
+ * `firstAssoc` is `AssociateFootprint`'s `aNewEntry`, so the whole loop is one
+ * undo entry: assigning one footprint to twelve decoupling capacitors is one
+ * Ctrl+Z, not twelve. This used to read `state.selected` and assign to exactly
+ * one symbol, which is the *visible* half of the single-select defect; the
+ * invisible half is that a selection-state fix alone would have left this loop
+ * assigning to the first row only.
  *
  * The `gotoNextNA` at the end is posted unconditionally: it runs whether or not
- * the association changed anything.
+ * the association changed anything, and with nothing selected it is the only
+ * thing that runs.
  */
 export function associate(
   state: CvpcbAssociations,
@@ -130,17 +166,33 @@ export function associate(
 ): CvpcbAssociations {
   // "Ignore the action if the footprint is empty (nothing selected)."
   if (!fpid) return state;
-  if (state.selected < 0) return state;
-  return gotoNA(associateFootprint(state, components, state.selected, fpid), components, 1);
+
+  let next = state;
+  let firstAssoc = true;
+  for (const i of state.selection) {
+    next = associateFootprint(next, components, i, fpid, firstAssoc);
+    firstAssoc = false;
+  }
+
+  return gotoNA(next, components, 1);
 }
 
-/** `CVPCB_ASSOCIATION_TOOL::DeleteAssoc` — clear the selected symbol's link. */
+/**
+ * `CVPCB_ASSOCIATION_TOOL::DeleteAssoc` — "Delete all the selected components'
+ * associations", the same `firstAssoc` loop over the whole selection, so a
+ * multi-row delete is also one undo entry.
+ */
 export function deleteAssoc(
   state: CvpcbAssociations,
   components: readonly CvpcbComponent[],
 ): CvpcbAssociations {
-  if (state.selected < 0) return state;
-  return associateFootprint(state, components, state.selected, '');
+  let next = state;
+  let firstAssoc = true;
+  for (const i of state.selection) {
+    next = associateFootprint(next, components, i, '', firstAssoc);
+    firstAssoc = false;
+  }
+  return next;
 }
 
 /** `IsOK( m_frame, _( "Delete all associations?" ) )`. */
@@ -166,23 +218,34 @@ export function deleteAll(
 ): CvpcbAssociations {
   if (!isOk(DELETE_ALL_CONFIRMATION)) return state;
 
-  let next: CvpcbAssociations = { ...state, selected: -1 };
+  let next: CvpcbAssociations = { ...state, selection: [] };
   for (let i = 0; i < components.length; i++)
     next = associateFootprint(next, components, i, '', i === 0);
 
-  return { ...next, selected: components.length > 0 ? 0 : -1 };
+  return { ...next, selection: components.length > 0 ? [0] : [] };
 }
 
-/** `CVPCB_CONTROL::ToNA` — select the next/previous unassociated symbol. */
+/**
+ * `CVPCB_CONTROL::ToNA` — select the next/previous unassociated symbol.
+ *
+ * With nothing selected `tempSel` is empty, so `newSel` keeps its `UINT_MAX`
+ * initial value and the forward scan can never match, while the backward scan
+ * is inside `if( !tempSel.empty() )` — nowhere to go in either direction. That
+ * state is reachable now that the window can open with no row selected (every
+ * symbol already assigned, `readwrite_dlgs.cpp:271-274`).
+ */
 export function gotoNA(
   state: CvpcbAssociations,
   components: readonly CvpcbComponent[],
   dir: 1 | -1,
 ): CvpcbAssociations {
-  const target = nextUnassociated(components.length, state.selected, dir, (i) =>
+  const current = selectedComponent(state);
+  if (current < 0) return state;
+
+  const target = nextUnassociated(components.length, current, dir, (i) =>
     Boolean(footprintOf(state, components[i])),
   );
-  return target === null ? state : { ...state, selected: target };
+  return target === null ? state : { ...state, selection: [target] };
 }
 
 /** `CVPCB_MAINFRAME::UndoAssociation` / `RedoAssociation`. */
@@ -221,7 +284,7 @@ function stepHistory(
     assigned,
     undoStack: direction === 'undo' ? state.undoStack.slice(0, -1) : [...state.undoStack, entry],
     redoStack: direction === 'undo' ? [...state.redoStack, entry] : state.redoStack.slice(0, -1),
-    selected: state.selected,
+    selection: state.selection,
     // AssociateFootprint sets m_modified before the undo bookkeeping, so
     // stepping the history leaves the frame modified either way.
     modified: true,
@@ -288,7 +351,7 @@ export function saveToSchematicCommand(): CvpcbSaveCommand {
  *  Ours is relative to the values the window opened with, which the save has
  *  just moved; rebasing it is a separate job from these commands. */
 export function markSaved(state: CvpcbAssociations): CvpcbAssociations {
-  return { ...emptyAssociations(state.selected) };
+  return { ...emptyAssociations(state.selection) };
 }
 
 // ----- closing --------------------------------------------------------------
@@ -321,4 +384,43 @@ export function resolveUnsavedChanges(result: UnsavedChangesResult): {
     return true;
   });
   return { close, effect };
+}
+
+// ----- focus ----------------------------------------------------------------
+
+/** `CVPCB_MAINFRAME::CONTROL_TYPE` — which of the three panes has the focus. */
+export type CvpcbControl = 'library' | 'symbol' | 'footprint';
+
+/**
+ * `CVPCB_CONTROL::ChangeFocus` (tools/cvpcb_control.cpp:96-144) — Tab / → move
+ * the focus one pane to the right and wrap, Shift+Tab / ← one to the left:
+ *
+ *     CHANGE_FOCUS_RIGHT: library → symbol → footprint → library
+ *     CHANGE_FOCUS_LEFT:  library → footprint → symbol → library
+ *
+ * The keys are two halves of the same command. `CVPCB_ACTIONS::changeFocusRight`
+ * / `changeFocusLeft` (tools/cvpcb_actions.cpp:80-92) carry
+ * `.DefaultHotkey( WXK_TAB )` and `.DefaultHotkey( MD_SHIFT + WXK_TAB )`, and
+ * `CVPCB_CONTROL::Main` (`:64-92`) posts the same two actions for `WXK_RIGHT`
+ * and `WXK_LEFT`. Neither pair existed here: the three panes were not even
+ * focusable, so the whole window could only be driven with the mouse.
+ *
+ * `CONTROL_NONE` - the focus is on the toolbar's search box, or nowhere - falls
+ * through both switches and does nothing.
+ */
+export function changeFocus(
+  current: CvpcbControl | null,
+  dir: 'right' | 'left',
+): CvpcbControl | null {
+  if (current === null) return null;
+
+  if (dir === 'right') {
+    if (current === 'library') return 'symbol';
+    if (current === 'symbol') return 'footprint';
+    return 'library';
+  }
+
+  if (current === 'library') return 'footprint';
+  if (current === 'symbol') return 'library';
+  return 'symbol';
 }
