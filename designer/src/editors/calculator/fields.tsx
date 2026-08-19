@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { Combo } from '../../ui/Combo.js';
+import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
@@ -81,6 +82,7 @@ export function Field({
   readOnly,
   title,
   width,
+  bold,
 }: {
   label: ReactNode;
   value: string;
@@ -89,9 +91,12 @@ export function Field({
   readOnly?: boolean;
   title?: string;
   width?: number;
+  /** KiCad bolds the LABEL and the FIELD of a controlling value together
+   *  (panel_track_width.cpp:340-392). */
+  bold?: boolean;
 }): JSX.Element {
   return (
-    <label className="calc-field" title={title}>
+    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
       <input
         className={`calc-input${readOnly ? ' ro' : ''}`}
@@ -122,7 +127,8 @@ export function NumField({
   defaultUnit,
   readOnly,
   title,
-  digits = 5,
+  digits = 6,
+  bold,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -132,11 +138,17 @@ export function NumField({
   defaultUnit?: string;
   readOnly?: boolean;
   title?: string;
+  /** `%g` precision; C's default, and KiCad never passes another. */
   digits?: number;
+  /** As on `Field`: the controlling value's label and field are both bold. */
+  bold?: boolean;
 }): JSX.Element {
   const [idx, setIdx] = useState(() => (defaultUnit ? unitIndex(units, defaultUnit) : 0));
   const mult = units[idx]?.mult ?? 1;
-  const derived = Number.isFinite(base) ? fmt(base / mult, digits) : readOnly ? '--' : '';
+  // `%g`. Every value pcb_calculator writes into a field goes through
+  // `wxString::Format( "%g", … )`, which is six significant figures — the five
+  // this used to print showed 0.30039 where the real panel shows 0.300387.
+  const derived = Number.isFinite(base) ? printfG(base / mult, digits) : readOnly ? '' : '';
   const [text, setText] = useState(derived);
   const focused = useRef(false);
 
@@ -154,11 +166,11 @@ export function NumField({
     const nextMult = units[nextIdx]?.mult ?? 1;
     const cur = parseNum(text);
     setIdx(nextIdx);
-    if (Number.isFinite(cur)) setText(fmt((cur * mult) / nextMult, digits));
+    if (Number.isFinite(cur)) setText(printfG((cur * mult) / nextMult, digits));
   };
 
   return (
-    <label className="calc-field" title={title}>
+    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
       <input
         className={`calc-input${readOnly ? ' ro' : ''}`}

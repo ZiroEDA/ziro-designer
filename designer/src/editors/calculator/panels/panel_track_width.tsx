@@ -4,43 +4,85 @@
 /**
  * "Track Width" panel, IPC-2221 current capacity for external and internal
  * layers. Counterpart: KiCad `calculator_panels/panel_track_width.cpp`.
+ *
+ * The page has THREE entry points, not one. `TransferDataFromControls` reads
+ * whichever of current / external width / internal width the user last typed
+ * in, marks it the controlling value by bolding its label AND its field
+ * (panel_track_width.cpp:340-392), and derives the other two from it. Ours had
+ * made the two widths read-only, so half the calculator was missing.
  */
 
-import { useState, type JSX } from 'react';
-import { COPPER_RESISTIVITY_OHM_M, trackWidth } from '@ziroeda/pcb_calculator';
-import { Field, Group, LEN_UNITS, NumField, fmt } from '../fields.js';
+import { type JSX, useState } from 'react';
+import {
+  COPPER_RESISTIVITY_OHM_M,
+  ipc2221CurrentA,
+  printfG,
+  trackWidth,
+} from '@ziroeda/pcb_calculator';
+import { Field, Group, LEN_UNITS, NumField, ResultField } from '../fields.js';
+
+/** Which of the three inputs is driving the other two. */
+type Controlling = 'current' | 'ext' | 'int';
+
+const g = (v: number | undefined | null): string =>
+  typeof v === 'number' && Number.isFinite(v) ? printfG(v) : '';
 
 export function PanelTrackWidth(): JSX.Element {
-  // Controlling value: the applied current (shown in bold, like KiCad).
-  const [currentA, setCurrentA] = useState(1);
-  const [deltaTC, setDeltaTC] = useState(10);
-  const [lengthM, setLengthM] = useState(0.2);
+  // pcb_calculator_settings.cpp:184-220 — "1.0", "10.0", "20" mm, 35 µm both.
+  const [current, setCurrent] = useState('1.0');
+  const [deltaT, setDeltaT] = useState('10.0');
+  const [lengthM, setLengthM] = useState(20e-3);
   const [extThicknessM, setExtThicknessM] = useState(35e-6);
   const [intThicknessM, setIntThicknessM] = useState(35e-6);
+  const [extWidthM, setExtWidthM] = useState(0.2e-3);
+  const [intWidthM, setIntWidthM] = useState(0.2e-3);
+  const [controlling, setControlling] = useState<Controlling>('current');
 
-  const valid = currentA > 0 && deltaTC > 0 && lengthM >= 0;
-  const ext =
-    valid && extThicknessM > 0
-      ? trackWidth({ currentA, deltaTC, lengthM, thicknessM: extThicknessM }, true)
-      : null;
-  const int_ =
-    valid && intThicknessM > 0
-      ? trackWidth({ currentA, deltaTC, lengthM, thicknessM: intThicknessM }, false)
-      : null;
+  const currentA = Number(current);
+  const deltaTC = Number(deltaT);
+  const ok = currentA > 0 && deltaTC > 0 && extThicknessM > 0 && intThicknessM > 0;
+
+  // Whichever value is controlling, resolve the current first, then derive
+  // both widths from it — exactly the order KiCad's OnTWCalculate* handlers use.
+  let solvedCurrentA = currentA;
+  if (ok && controlling === 'ext') {
+    solvedCurrentA = ipc2221CurrentA(extWidthM * extThicknessM, deltaTC, true);
+  } else if (ok && controlling === 'int') {
+    solvedCurrentA = ipc2221CurrentA(intWidthM * intThicknessM, deltaTC, false);
+  }
+
+  const ext = ok
+    ? trackWidth({ currentA: solvedCurrentA, deltaTC, lengthM, thicknessM: extThicknessM }, true)
+    : null;
+  const int_ = ok
+    ? trackWidth({ currentA: solvedCurrentA, deltaTC, lengthM, thicknessM: intThicknessM }, false)
+    : null;
+
+  const shownExtWidthM = controlling === 'ext' ? extWidthM : (ext?.widthM ?? Number.NaN);
+  const shownIntWidthM = controlling === 'int' ? intWidthM : (int_?.widthM ?? Number.NaN);
+  const shownCurrent = controlling === 'current' ? current : g(solvedCurrentA);
 
   const layerBox = (
     title: string,
+    who: Controlling,
     r: ReturnType<typeof trackWidth> | null,
+    widthM: number,
+    setWidthM: (v: number) => void,
     thicknessM: number,
     setThicknessM: (v: number) => void,
+    areaM2: number,
   ): JSX.Element => (
     <Group title={title}>
       <NumField
         label="Track width (W):"
         units={LEN_UNITS}
         defaultUnit="mm"
-        base={r ? r.widthM : NaN}
-        readOnly
+        base={widthM}
+        bold={controlling === who}
+        onBase={(v) => {
+          setWidthM(v);
+          setControlling(who);
+        }}
       />
       <NumField
         label="Track thickness (H):"
@@ -49,41 +91,28 @@ export function PanelTrackWidth(): JSX.Element {
         base={thicknessM}
         onBase={setThicknessM}
       />
-      <Field
-        label="Cross-section area:"
-        value={r ? fmt(r.areaM2 * 1e6) : '--'}
-        readOnly
-        unit="mm²"
-      />
-      <Field label="Resistance:" value={r ? fmt(r.resistanceOhm) : '--'} readOnly unit="Ω" />
-      <Field label="Voltage drop:" value={r ? fmt(r.voltageDrop) : '--'} readOnly unit="V" />
-      <Field label="Power loss:" value={r ? fmt(r.powerLossW) : '--'} readOnly unit="W" />
+      <ResultField label="Cross-section area:" value={g(areaM2 * 1e6)} unit="mm²" />
+      <ResultField label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
+      <ResultField label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
+      <ResultField label="Power loss:" value={g(r?.powerLossW)} unit="W" />
     </Group>
   );
 
   return (
-    <div>
+    <div className="tw-panel">
       <div className="calc-row">
         <Group title="Parameters">
-          <label className="calc-field">
-            <span className="calc-field-label" style={{ fontWeight: 700 }}>
-              Current (I):
-            </span>
-            <input
-              className="calc-input"
-              style={{ fontWeight: 700 }}
-              value={fmt(currentA)}
-              spellCheck={false}
-              onChange={(e) => setCurrentA(Number(e.target.value) || 0)}
-            />
-            <span className="calc-unit">A</span>
-          </label>
           <Field
-            label="Temperature rise (ΔT):"
-            value={fmt(deltaTC)}
-            onChange={(v) => setDeltaTC(Number(v) || 0)}
-            unit="°C"
+            label="Current (I):"
+            value={shownCurrent}
+            bold={controlling === 'current'}
+            onChange={(v) => {
+              setCurrent(v);
+              setControlling('current');
+            }}
+            unit="A"
           />
+          <Field label="Temperature rise (ΔT):" value={deltaT} onChange={setDeltaT} unit="°C" />
           <NumField
             label="Conductor length:"
             units={LEN_UNITS}
@@ -91,28 +120,86 @@ export function PanelTrackWidth(): JSX.Element {
             base={lengthM}
             onBase={setLengthM}
           />
+          {/* [px] the real field reads `1.72e-08`, i.e. `%g` — String() writes
+              `1.72e-8`, one digit short in the exponent. */}
           <Field
             label="Copper resistivity:"
-            value={String(COPPER_RESISTIVITY_OHM_M)}
+            value={printfG(COPPER_RESISTIVITY_OHM_M)}
             readOnly
             unit="Ω·m"
           />
         </Group>
-        {layerBox('External Layer Tracks', ext, extThicknessM, setExtThicknessM)}
-        {layerBox('Internal Layer Tracks', int_, intThicknessM, setIntThicknessM)}
+        {layerBox(
+          'External Layer Tracks',
+          'ext',
+          ext,
+          shownExtWidthM,
+          setExtWidthM,
+          extThicknessM,
+          setExtThicknessM,
+          shownExtWidthM * extThicknessM,
+        )}
+        {layerBox(
+          'Internal Layer Tracks',
+          'int',
+          int_,
+          shownIntWidthM,
+          setIntWidthM,
+          intThicknessM,
+          setIntThicknessM,
+          shownIntWidthM * intThicknessM,
+        )}
       </div>
-      {!valid && <div className="calc-error">Enter positive current, ΔT and length.</div>}
 
-      <fieldset className="calc-group">
-        <legend>Help</legend>
-        <div className="calc-note" style={{ lineHeight: 1.6 }}>
-          Enter the required current and the track widths are sized to carry it. The controlling
-          value (current) is shown in bold. Valid for currents up to ~35 A external / 17.5 A
-          internal, temperature rise up to 100 °C and widths up to 400 mils (10 mm).
-        </div>
-        <div className="calc-formula" style={{ marginTop: 8 }}>
-          I = K · ΔT^0.44 · (W·H)^0.725, IPC-2221, K = 0.048 external / 0.024 internal (W, H in
-          mils)
+      {/* sbSizerTW_Help's HTML_WINDOW, showing
+          `tracks_width_versus_current_formula.md`. Carried here line for line. */}
+      <fieldset className="calc-group tw-help">
+        <div className="rc-help-body">
+          <p>
+            If you specify the maximum current, then the track widths will be calculated to suit.
+          </p>
+          <p>
+            If you specify one of the track widths, the maximum current it can handle will be
+            calculated. The width for the other track to also handle this current will then be
+            calculated.
+          </p>
+          <p>The controlling value is shown in bold.</p>
+          <p>
+            The calculations are valid for currents up to 35 A (external) or 17.5 A (internal),
+            temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).
+          </p>
+          <p>The formula, from IPC 2221, is</p>
+          <p className="calc-formula">
+            I = K · ΔT<sup>0.44</sup> · (W · H)<sup>0.725</sup>
+          </p>
+          <p>
+            where:
+            <br />
+            <b>
+              <i>I</i>
+            </b>{' '}
+            is maximum current in A
+            <br />
+            <b>
+              <i>ΔT</i>
+            </b>{' '}
+            is temperature rise above ambient in °C
+            <br />
+            <b>
+              <i>W</i>
+            </b>{' '}
+            is width in mils
+            <br />
+            <b>
+              <i>H</i>
+            </b>{' '}
+            is thickness (height) in mils
+            <br />
+            <b>
+              <i>K</i>
+            </b>{' '}
+            is 0.024 for internal tracks or 0.048 for external tracks
+          </p>
         </div>
       </fieldset>
     </div>

@@ -722,3 +722,22 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .calc-prewrap {
   white-space: pre-line;
 }
+
+/* "The controlling value is shown in bold" — and KiCad bolds the label and the
+   field together, never just one (panel_track_width.cpp:340-392). */
+.calc-field.bold,
+.calc-field.bold .calc-input {
+  font-weight: 700;
+}
+
+.tw-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* sbSizerTW_Help is a static box with NO title, added with proportion 1. */
+.tw-help {
+  flex: 1 1 auto;
+}
