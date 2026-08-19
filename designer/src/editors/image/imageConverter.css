@@ -82,11 +82,6 @@
   border-bottom-color: var(--chrome-active);
 }
 
-.imgc-tab:disabled {
-  color: var(--ctl-fg-disabled);
-  cursor: default;
-}
-
 /* The notebook's three pages. BITMAP2CMP_PANEL_BASE builds three separate
    wxScrolledWindows (bitmap2cmp_panel_base.cpp:21,24,27) and AddPage()s one
    each, so every page keeps its own scroll position and switching tabs does not
@@ -346,22 +341,6 @@
   border: 1px solid var(--slider-thumb-border);
   box-sizing: border-box;
   margin-top: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
-}
-
-/* GTK greys a disabled scale by colour: scale trough:disabled #2a2a2a, and
-   scale highlight:disabled goes transparent. The shell's blanket rule fades
-   every disabled control to 55% opacity instead, which washes the accent and
-   the track together into one muddy orange. */
-.imgc-frame .imgc-slider input[type="range"]:disabled {
-  opacity: 1;
-}
-
-.imgc-frame .imgc-slider input[type="range"]:disabled::-webkit-slider-runnable-track {
-  background: var(--ctl-face-disabled);
-}
-
-.imgc-frame .imgc-slider input[type="range"]:disabled::-webkit-slider-thumb {
-  background: var(--ctl-face-disabled);
 }
 
 /* Centred on the thumb, wherever the thumb actually is: the slider's own left
