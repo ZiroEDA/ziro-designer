@@ -33,7 +33,15 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit' },
-  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to selection' },
+  // ACTIONS::zoomTool: TOGGLE ToolbarState, AF_ACTIVATE, and the tooltip is
+  // its own (actions.cpp:817-826) - a rubber-band area drag, not the
+  // selection. Always enabled: nothing needs to be selected.
+  {
+    id: 'zoomTool',
+    icon: 'zoomTool',
+    title: 'Zoom to an area selection created by a mouse drag',
+    toggle: true,
+  },
   sep,
   { id: 'inspect', icon: 'inspect', title: 'Show design inspector' },
   {

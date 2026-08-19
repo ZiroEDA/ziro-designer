@@ -883,7 +883,10 @@ export function DrawingSheetEditor({
           controller.current?.zoomToFit();
           break;
         case 'zoomTool':
-          controller.current?.zoomToSelection();
+          // ACTIONS::zoomTool is AF_ACTIVATE with ToolbarState TOGGLE
+          // (actions.cpp:817-826): the button ARMS the rubber-band tool, it
+          // does not act on the selection.
+          setActiveTool('zoomTool');
           break;
         case 'inspect':
           setShowInspector(true);
@@ -1376,7 +1379,7 @@ export function DrawingSheetEditor({
         <Toolbar
           entries={DS_TOP_TOOLBAR}
           orientation="horizontal"
-          toggled={toggles}
+          toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
           onActivate={onTopAction}
         />
         <span style={{ width: 10 }} />
@@ -1442,6 +1445,7 @@ export function DrawingSheetEditor({
           onPointDrag={onPointDrag}
           onPointDragEnd={onPointDragEnd}
           onSetLocalOrigin={setLocalOrigin}
+          onToolDone={() => setActiveTool('select')}
           onMoveDrop={(d) => {
             moveSelection(d);
             setMoveMode(false);
