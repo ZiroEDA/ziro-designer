@@ -70,6 +70,12 @@ export const moveSheet = (s: SchSheet, d: Vec2): SchSheet => ({
 });
 // `at` is the entry's corner and `size` its signed extent, so only `at` moves.
 export const moveBusEntry = (b: SchBusEntry, d: Vec2): SchBusEntry => ({ ...b, at: add(b.at, d) });
+// `SCH_BITMAP::Move` (eeschema/sch_bitmap.cpp:117), an item translated by an
+// offset. Not the same call as pcbnew's `moveImage` in place_image.ts, which is
+// the placement tool's motion handler (`DRAWING_TOOL::PlaceReferenceImage`,
+// pcbnew/tools/drawing_tool.cpp:845, `image->SetPosition( cursorPos )`) and takes
+// an absolute cursor position, not a delta. The names collide; the operations do
+// not, and merging them would mean one of the two calls losing its meaning.
 export const moveImage = (im: SchImage, d: Vec2): SchImage => ({ ...im, at: add(im.at, d) });
 export const moveTextBox = (tb: SchTextBox, d: Vec2): SchTextBox => ({
   ...tb,

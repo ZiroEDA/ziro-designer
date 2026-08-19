@@ -51,7 +51,16 @@ export interface TableValues {
   cellText: string[][];
 }
 
-/** The single selected table's index, or null. */
+/**
+ * The single selected table's index, or null. `EDIT_TOOL::Properties`
+ * (pcbnew/tools/edit_tool.cpp:2142-2145) opens the dialog only for a selection
+ * of one board item.
+ *
+ * eeschema has a `tableAt` too and it stays separate: upstream's equivalent test
+ * lives in each editor's own edit tool, and the two read different selection-id
+ * namespaces -- board ids through `parseBoardItemId` here, `refId('table', ...)`
+ * there. There is no shared question for a shared function to answer.
+ */
 export function tableAt(board: Board, selection: Iterable<string>): number | null {
   const ids = [...selection];
   if (ids.length !== 1) return null;

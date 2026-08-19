@@ -83,7 +83,15 @@ export function fileChosen(
   return { step: 'placing', image: newReferenceImage(data, at, layer) };
 }
 
-/** The preview follows the cursor; before a file is chosen there is nothing to move. */
+/**
+ * The preview follows the cursor; before a file is chosen there is nothing to move.
+ *
+ * `DRAWING_TOOL::PlaceReferenceImage` (pcbnew/tools/drawing_tool.cpp:845), where
+ * a mouse motion does `image->SetPosition( cursorPos )` -- an absolute position
+ * on a tool's preview item, not a translation of a committed one. eeschema's
+ * same-named `moveImage` (eeschema/src/tools/move.ts) is `SCH_BITMAP::Move`,
+ * which offsets a placed item. Only the name is shared.
+ */
 export function moveImage(state: ImagePlaceState, at: Vec2): ImagePlaceState {
   if (state.step !== 'placing' || !state.image) return state;
   return { ...state, image: { ...state.image, at } };

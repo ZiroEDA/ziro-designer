@@ -103,7 +103,21 @@ export function selectionAnchors(
   return pts;
 }
 
-/** Nearest anchor to `p` within `maxDist` (IU), or null. */
+/**
+ * Nearest anchor to `p` within `maxDist` (IU), or null.
+ *
+ * `EE_GRID_HELPER::nearestAnchor` (eeschema/tools/ee_grid_helper.cpp:553). This is
+ * a **private member of the subclass**, not of `GRID_HELPER`: the base
+ * (include/tool/grid_helper.h:55) owns the anchor list and the flags, and each
+ * editor searches it its own way. So does pcbnew's same-named function in
+ * pcb_cursor_snap.ts, and the two searches are genuinely different --
+ * `EE_GRID_HELPER`'s takes a `GRID_HELPER_GRIDS` and drops anchors whose item
+ * fails `IsConnectable()` for GRID_CONNECTABLE (or passes it, for GRID_GRAPHICS),
+ * while `PCB_GRID_HELPER`'s (pcbnew/tools/pcb_grid_helper.cpp:1966) has no such
+ * filter, collects every anchor tied for nearest, and then asks the snap manager
+ * which of them the user has activated. Flattening the two would mean inventing
+ * a filter neither editor has.
+ */
 export function nearestAnchor(p: Vec2, anchors: readonly Vec2[], maxDist: number): Vec2 | null {
   let best: Vec2 | null = null;
   let bestD = maxDist * maxDist;
