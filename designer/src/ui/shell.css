@@ -212,11 +212,66 @@
      it the chrome was dark and every scrollbar and text box on top of it was
      white. */
   color-scheme: dark;
-  /* Firefox scrollbars: thin, thumb then track. Both inherit, so declaring them
-     here reaches every scroller without a universal selector (which would
-     outrank the rules below it). */
-  scrollbar-width: thin;
-  scrollbar-color: #5a5f66 var(--chrome-bg2);
+  /* --- GTK3/Yaru overlay scrollbar, measured (see ui/overlay_scrollbars.ts for
+     the method; [css] = the extracted Yaru-dark GTK3 stylesheet, [px] = pixel
+     profiles of a live Gtk.ScrolledWindow). Tokens rather than per-editor
+     values: KiCad's scrollbars come from the GTK theme, so every frame has the
+     same ones and no frame styles its own. --- */
+  /* [css] .overlay-indicator ... slider { min-width: 3px; border: 1px solid
+     black } = 5 px, of which 3 px reads as the hairline. [px] x596..598 white
+     against a content edge at x599. */
+  --osb-indicator-size: 5px;
+  --osb-indicator-fill: #f7f7f7;
+  --osb-indicator-edge: #000;
+  /* [css] .overlay-indicator:not(.dragging):not(.hovering) { opacity: 0.4 }.
+     [px] #f7f7f7 at 0.4 over #272727 = #7a7a7a, exactly the sampled value. */
+  --osb-indicator-opacity: 0.4;
+  /* [px] the thickened bar: a 12 px band (x588..599) holding a 6 px slider
+     (x591..596), with a 1 px #181818 line at x587.
+     [css] slider { min-width: 6px; margin: -1px; border: 4px transparent }. */
+  --osb-band: 12px;
+  --osb-slider-size: 6px;
+  --osb-slider-inset: 3px;
+  --osb-slider-fill: #a6a6a6; /* [css] scrollbar slider */
+  --osb-slider-hover: #cecece; /* [css] scrollbar slider:hover */
+  --osb-slider-active: #ee784e; /* [css] scrollbar slider:hover:active */
+  --osb-band-edge: #181818; /* [css] scrollbar.right { border-left } */
+  --osb-radius: 8px; /* [css] scrollbar slider { border-radius: 8px } */
+  /* [css] .overlay-indicator.dragging, .hovering { opacity: 0.8 }.
+     [px] #a6a6a6 at 0.8 over #272727 = #8d8d8d, exactly the sampled value. */
+  --osb-over-opacity: 0.8;
+  /* [css] scrollbar { transition: 300ms cubic-bezier(0.25,0.46,0.45,0.94) } */
+  --osb-transition: 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* [px] measured from the last pointer MOTION, not from the pointer leaving:
+     held perfectly still in the middle of a live GtkScrolledWindow the
+     indicator was full through 1.8 s, ~29 % at 2.3 s and gone at 2.8 s. The
+     ~2000 ms hold is a JS timer (a CSS transition-delay cannot be asymmetric);
+     this is the fade half. The thickened state does not fade at all. */
+  --osb-fade-duration: 1000ms;
+}
+
+/* Native scrollbars OFF, app-wide. This is the load-bearing half of the overlay
+   scrollbar port: it is what makes `offsetWidth - clientWidth` 0, which is what
+   "the content is full width" means.
+
+   It has to be a universal selector, and that is not a style choice.
+   `scrollbar-width` is NOT an inherited property (only `scrollbar-color` is),
+   so the `:root { scrollbar-width: thin }` this replaces reached the document
+   element and nothing else - which is exactly why every pane stayed at the
+   browser default. Measured in Chrome 149 on this machine: a scroller takes a
+   15 px gutter at `auto`, 10 px at `thin` and 0 px at `none`, and the Image
+   Converter's preview measured 15, i.e. `auto`, the whole time `thin` was
+   declared.
+
+   `*` is specificity 0, the lowest there is, so it cannot outrank anything
+   below it - the hazard the old comment was guarding against by keeping the
+   declaration on :root.
+
+   `overflow: overlay`, which would have done the layout half natively, is
+   removed from the platform. The indicator is drawn by
+   ui/overlay_scrollbars.ts. */
+* {
+  scrollbar-width: none;
 }
 
 /* Schematic Editor only: real eeschema's own chrome colors on this machine
@@ -253,29 +308,112 @@ body {
    All of it is element-level under `.ze-app`, so the specific rules further down
    still win wherever a widget wants something different.
    ------------------------------------------------------------------------- */
-/* Chromium/WebKit: KiCad's scrollbars are narrow with a flat grey thumb and no
-   arrow buttons. */
-.ze-app ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-.ze-app ::-webkit-scrollbar-track {
-  background: var(--chrome-bg2);
-}
-.ze-app ::-webkit-scrollbar-thumb {
-  background: #5a5f66;
-  border: 3px solid var(--chrome-bg2);
-  border-radius: 6px;
-}
-.ze-app ::-webkit-scrollbar-thumb:hover {
-  background: #6f757d;
-}
-.ze-app ::-webkit-scrollbar-corner {
-  background: var(--chrome-bg2);
-}
-/* The buttons at the ends: KiCad has none, and the default pair is light. */
-.ze-app ::-webkit-scrollbar-button {
+/* WebKit engines that predate `scrollbar-width` need the pseudo-element form of
+   the same instruction; both have to be present, because Chromium ignores
+   ::-webkit-scrollbar rules the moment scrollbar-width is set and Safari does
+   the opposite. Zero width is what removes the gutter; `display: none` alone
+   leaves WebKit reserving it. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
   display: none;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   The overlay indicator itself — GTK's, ported.
+
+   One fixed layer over the whole document rather than a child of each pane: a
+   child of a scroll container scrolls with the content, and wrapping ~40 panes
+   to give each a positioned parent would change their layout. Geometry is set
+   inline by ui/overlay_scrollbars.ts; everything that is a *value* is here.
+   ------------------------------------------------------------------------- */
+.ze-osb-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Above every dialog and popup, because the pane under a dialog is a pane. */
+  z-index: 2147483000;
+}
+
+.ze-osb {
+  position: fixed;
+  opacity: 0;
+  /* Rule 1, restated: the layer is fixed and the bars are in it, so nothing
+     here can take space from a pane. */
+  pointer-events: none;
+  /* Fading OUT is the slow half; the class flip to is-visible overrides it with
+     --osb-transition so appearing stays at GTK's 300 ms. */
+  transition: opacity var(--osb-fade-duration) ease-out;
+}
+.ze-osb-v {
+  width: var(--osb-band);
+}
+.ze-osb-h {
+  height: var(--osb-band);
+}
+.ze-osb.is-visible {
+  opacity: var(--osb-indicator-opacity);
+  transition: opacity var(--osb-transition);
+}
+.ze-osb.is-over {
+  opacity: var(--osb-over-opacity);
+  /* Only the thickened state draws the trough edge; the indicator is bare. */
+  box-shadow: inset 1px 0 0 var(--osb-band-edge);
+  pointer-events: auto;
+}
+.ze-osb-h.is-over {
+  box-shadow: inset 0 1px 0 var(--osb-band-edge);
+}
+
+.ze-osb-thumb {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  background: var(--osb-indicator-fill);
+  border: 1px solid var(--osb-indicator-edge);
+  transition:
+    width var(--osb-transition),
+    height var(--osb-transition),
+    inset-block-end var(--osb-transition),
+    inset-inline-end var(--osb-transition),
+    background-color var(--osb-transition),
+    border-color var(--osb-transition),
+    border-radius var(--osb-transition);
+}
+.ze-osb-v .ze-osb-thumb {
+  right: 0;
+  width: var(--osb-indicator-size);
+}
+.ze-osb-h .ze-osb-thumb {
+  bottom: 0;
+  height: var(--osb-indicator-size);
+}
+/* The "over" state: the flat 3 px hairline becomes GTK's rounded grey slider,
+   inset from the edge by the band's own padding. */
+.ze-osb.is-over .ze-osb-thumb {
+  background: var(--osb-slider-fill);
+  border-color: transparent;
+  border-radius: var(--osb-radius);
+}
+.ze-osb-v.is-over .ze-osb-thumb {
+  right: var(--osb-slider-inset);
+  width: var(--osb-slider-size);
+}
+.ze-osb-h.is-over .ze-osb-thumb {
+  bottom: var(--osb-slider-inset);
+  height: var(--osb-slider-size);
+}
+.ze-osb.is-over:hover .ze-osb-thumb {
+  background: var(--osb-slider-hover);
+}
+.ze-osb.is-over:active .ze-osb-thumb {
+  background: var(--osb-slider-active);
 }
 
 /* Text fields and comboboxes. The `:not(…)` list keeps the controls that are
@@ -2548,7 +2686,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   grid-template-columns: auto 1fr auto;
   overflow-y: auto;
   min-height: 0;
-  /* GTK gives a menu scroll arrows, never a scrollbar. */
+  /* GTK gives a menu scroll arrows, never a scrollbar. Redundant against the
+     universal rule above and kept deliberately: this pane must stay bar-less
+     whatever the app-wide default becomes, and it is also the one scroll
+     container opted out of the overlay indicator (see MenuBar.tsx). */
   scrollbar-width: none;
 }
 .ze-submenu-scroll::-webkit-scrollbar {
