@@ -772,6 +772,12 @@ describe('image resolution', () => {
   const PLAIN = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6E';
   const PPI600 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAAACXBIWXMAAFxGAABcRgEUlENB';
   const UNIT0 = 'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAACinX6EAAAACXBIWXMAAFxGAABcRgBjk3PX';
+  /** 19 pixels per metre: a stated density that rounds to no resolution at all. */
+  const LOWPPI =
+    'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAAAAAAAAAAAACXBIWXMAAAATAAAAEwEAAAAAAAAAAElFTkQAAAAA';
+  /** 60 pixels per metre, which is 2 ppi -- small, but a resolution. */
+  const PPI2 =
+    'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAYAAAAAAAAAAAAACXBIWXMAAAA8AAAAPAEAAAAAAAAAAElFTkQAAAAA';
   const img = (data: string) =>
     readSchematic(
       parse(
@@ -793,6 +799,19 @@ describe('image resolution', () => {
   it('ignores a pHYs chunk that only gives an aspect ratio', () => {
     // Unit 0 means "unknown": the numbers are a ratio, not a physical size.
     expect(imagePPI(UNIT0)).toBe(300);
+  });
+
+  it('ignores a density too small to be a resolution', () => {
+    // `BITMAP_BASE::updatePPI` (common/bitmap_base.cpp:113-125) adopts the file's
+    // resolution only `if( dpiX > 1 )` and keeps its 300 otherwise, so GetPPI() is
+    // never zero. 19 px/m rounds to nothing; without the same test the schematic
+    // divides 254000 by zero and the image gets an infinite size, which takes its
+    // bounding box, hit testing and Zoom to Fit with it.
+    expect(imagePPI(LOWPPI)).toBe(300);
+    expect(Number.isFinite(imageSizeIU(img(LOWPPI)).w)).toBe(true);
+
+    // 60 px/m rounds to 2 ppi, which passes the test and is used as stated.
+    expect(imagePPI(PPI2)).toBe(2);
   });
 
   it('draws a 600 ppi image at half the size of a 300 ppi one', () => {
