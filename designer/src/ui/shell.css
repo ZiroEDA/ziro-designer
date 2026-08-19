@@ -2499,6 +2499,55 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: grid;
   grid-template-columns: auto 1fr auto;
 }
+/* A flyout is `position: fixed` (see MenuBar.tsx) so a tall one cannot extend
+   the page's scroll height — the 45-row Set Language menu used to scroll the
+   whole frame, title bar and all. It is a column: an optional scroll arrow, the
+   rows, an optional scroll arrow.
+
+   The icon/label/accelerator grid moves down onto the scroll container with the
+   rows, because `.ze-dropdown`'s `grid-template-columns` only aligns its DIRECT
+   children and the rows are now one level deeper. */
+.ze-submenu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ze-submenu-scroll {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  overflow-y: auto;
+  min-height: 0;
+  /* GTK gives a menu scroll arrows, never a scrollbar. */
+  scrollbar-width: none;
+}
+.ze-submenu-scroll::-webkit-scrollbar {
+  display: none;
+}
+/* The arrows GTK grows on a menu too tall for the monitor: a centred triangle
+   on a full-width strip, which scrolls while the pointer rests on it. */
+.ze-submenu-arrow {
+  flex: 0 0 16px;
+  position: relative;
+  background: #1d1d1d;
+}
+.ze-submenu-arrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.ze-submenu-arrow.up::after {
+  border-bottom: 5px solid var(--chrome-fg);
+}
+.ze-submenu-arrow.down::after {
+  border-top: 5px solid var(--chrome-fg);
+}
+.ze-submenu-arrow:hover {
+  background: var(--chrome-hover);
+}
 /* What `overflow: hidden` used to do, without eating the flyouts: only the
    first and last rows can reach the rounding, so only they need it. 5px is the
    6px outer radius less the 1px border. */

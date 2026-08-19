@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
-import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { toolbarIconUrl } from './toolbarIcons.js';
 
 // The data types live in menu_types.ts so menu-building modules stay
@@ -32,11 +32,60 @@ function withMnemonic(label: string | undefined, mnemonic: string | undefined): 
 /** One dropdown row: separator, plain/CHECK item, or item with a flyout submenu. */
 function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.Element {
   const [subOpen, setSubOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const subRef = useRef<HTMLDivElement>(null);
+  /**
+   * Where the flyout goes, in viewport coordinates.
+   *
+   * It is `position: fixed`, not `absolute`. An absolutely-positioned flyout is
+   * still part of its ancestor's scrollable area, so the 45-row Set Language
+   * menu made the whole *page* scroll — title bar and menu bar slid off the top
+   * of the window. A desktop frame never scrolls; only the thing inside it
+   * does. Fixed takes it out of flow, and the clamp below keeps it on screen
+   * the way a WM keeps a popup on the monitor.
+   */
+  const [box, setBox] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const [over, setOver] = useState<'up' | 'down' | null>(null);
+
+  useLayoutEffect(() => {
+    if (!subOpen) {
+      setBox(null);
+      return;
+    }
+    const row = rowRef.current;
+    const el = subRef.current;
+    if (!row || !el) return;
+    const r = row.getBoundingClientRect();
+    const w = el.offsetWidth;
+    const h = el.scrollHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Flip to the row's left edge when the flyout would run off the right, as
+    // a WM flips a popup that will not fit on the monitor.
+    const left = r.right + w <= vw - 4 ? r.right : Math.max(4, r.left - w);
+    const maxHeight = Math.min(h, vh - 8);
+    const top = Math.max(4, Math.min(r.top - 4, vh - 4 - maxHeight));
+    setBox({ left, top, maxHeight });
+  }, [subOpen]);
+
+  // GTK scrolls a too-tall menu while the pointer rests on its arrow, rather
+  // than exposing a scrollbar. One step per frame-ish, stopped on leave.
+  useEffect(() => {
+    if (!over) return;
+    const el = subRef.current?.querySelector('.ze-submenu-scroll');
+    if (!el) return;
+    const id = setInterval(() => {
+      el.scrollTop += over === 'up' ? -12 : 12;
+    }, 30);
+    return () => clearInterval(id);
+  }, [over]);
+
   if (item.sep) return <div className="ze-msep" />;
   const sub = item.submenu ?? item.items;
   const hasSub = !!sub && sub.length > 0;
   return (
     <div
+      ref={rowRef}
       className={`ze-mitem${item.disabled ? ' disabled' : ''}${hasSub ? ' has-sub' : ''}`}
       style={hasSub ? { position: 'relative' } : undefined}
       onMouseEnter={() => {
@@ -68,12 +117,39 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
       {hasSub && <span className="twisty expandable sub-arrow" />}
       {hasSub && subOpen && !item.disabled && (
         <div
+          ref={subRef}
           className="ze-dropdown ze-submenu"
-          style={{ position: 'absolute', left: '100%', top: -4 }}
+          style={{
+            position: 'fixed',
+            left: box ? box.left : -9999,
+            top: box ? box.top : 0,
+            maxHeight: box ? box.maxHeight : undefined,
+            visibility: box ? 'visible' : 'hidden',
+          }}
         >
-          {sub!.map((s, i) => (
-            <MenuEntry key={s.label ?? `s${i}`} item={s} close={close} />
-          ))}
+          {/* A GTK menu too tall for the monitor grows scroll arrows at its
+              ends and scrolls while the pointer rests on one — it does not
+              show a scrollbar. Rendered only when the content actually
+              overflows, as upstream's do. */}
+          {box && subRef.current && subRef.current.scrollHeight > box.maxHeight && (
+            <div
+              className="ze-submenu-arrow up"
+              onMouseEnter={() => setOver('up')}
+              onMouseLeave={() => setOver(null)}
+            />
+          )}
+          <div className="ze-submenu-scroll">
+            {sub!.map((s, i) => (
+              <MenuEntry key={s.label ?? `s${i}`} item={s} close={close} />
+            ))}
+          </div>
+          {box && subRef.current && subRef.current.scrollHeight > box.maxHeight && (
+            <div
+              className="ze-submenu-arrow down"
+              onMouseEnter={() => setOver('down')}
+              onMouseLeave={() => setOver(null)}
+            />
+          )}
         </div>
       )}
     </div>
