@@ -33,6 +33,7 @@
 import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
 import { DEFAULT_LANGUAGE } from './language_menu.js';
+import { browserSafeKey } from './browser_reserved.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
 import {
@@ -487,12 +488,31 @@ const GESTURES: HotkeyEntry[] = [
  *     #endif
  *     new PSEUDO_ACTION( _( "Quit" ), MD_CTRL + 'Q' )
  *
- * Quit is left out: a browser tab has no Quit, and Ctrl+Q belongs to the
- * browser. Close stays, because closing a project back to the manager is a
- * thing here.
+ * Both stay, and both carry the key `ACTION_MENU::AddClose` / `AddQuit`
+ * actually put on their rows. Quit used to be left out on the grounds that "a
+ * browser tab has no Quit and Ctrl+Q belongs to the browser" - but a launcher's
+ * Quit here returns to the project manager exactly as its Close does, and
+ * BROWSER_REBINDS now moves both keys off the ones the browser keeps. Listing
+ * Ctrl+W here while File > Close answers to Ctrl+Alt+W was the worse of the two
+ * errors: the Hotkey List is where a user goes to find out.
  */
 const PLATFORM_COMMANDS: HotkeyEntry[] = [
-  { name: '', command: 'Close', keys: 'Ctrl+W', defaultKeys: 'Ctrl+W', alt: '', description: '' },
+  {
+    name: '',
+    command: 'Close',
+    keys: browserSafeKey('Ctrl+W'),
+    defaultKeys: browserSafeKey('Ctrl+W'),
+    alt: '',
+    description: '',
+  },
+  {
+    name: '',
+    command: 'Quit',
+    keys: browserSafeKey('Ctrl+Q'),
+    defaultKeys: browserSafeKey('Ctrl+Q'),
+    alt: '',
+    description: '',
+  },
 ];
 
 /**

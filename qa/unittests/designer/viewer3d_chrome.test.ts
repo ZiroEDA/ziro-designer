@@ -159,7 +159,14 @@ describe('the 3D viewer menu bar', () => {
   });
 
   it('puts Export Image above a separator and the close item (File)', () => {
-    expect(labels(menu('File'))).toEqual(['Export Image...', '---', 'Close 3D Viewer']);
+    // AddClose puts the app name in the help string, never in the label:
+    // `3d_menubar.cpp:54` is `fileMenu->AddClose( _( "3D Viewer" ) )`, and the
+    // row it makes reads "Close". See ui/action_menu.ts.
+    expect(labels(menu('File'))).toEqual(['Export Image...', '---', 'Close']);
+    const close = menu('File').at(-1);
+    expect(close?.tooltip).toBe('Close 3D Viewer');
+    // Ctrl+W, moved off the browser's close-tab by BROWSER_REBINDS.
+    expect(close?.shortcut).toBe('Ctrl+Alt+W');
   });
 
   it('carries the View menu in KiCad order', () => {

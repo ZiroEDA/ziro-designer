@@ -55,6 +55,7 @@ import {
 import { defaultLayerColor, GERBER_BG_COLOR } from './gerberColors.js';
 import { exportLayersToPcb } from './exportToPcbnew.js';
 import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
+import { addQuitOrClose } from '../../ui/action_menu.js';
 import './gerbview.css';
 import '../../ui/shell.css';
 
@@ -527,7 +528,7 @@ export function GerberViewer({
           { label: 'Print…', icon: 'print', action: printLayers },
           { sep: true },
           { label: 'Clear All Layers', icon: 'gerbClear', action: clearAll },
-          { label: 'Close Gerber Viewer', action: onExitToHome },
+          addQuitOrClose('Gerber Viewer', onExitToHome),
         ],
       },
       {

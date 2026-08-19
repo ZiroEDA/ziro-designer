@@ -90,17 +90,22 @@ describe('fed from the app’s own inventory', () => {
     expect(r.claimed).toContain('ctrl+alt+n');
   });
 
-  it('binds nothing on a reserved combo but the two documented cases', () => {
+  it('binds nothing on a reserved combo but the one documented case', () => {
     // The guard against this quietly coming back. A command bound to a combo
     // the browser keeps does not work in a tab, whatever the menu says, so
     // every one of these has to be a deliberate entry in BROWSER_REBINDS or a
-    // known exception:
+    // known exception. Exactly one is left:
     //
-    //   Ctrl+W        the platform's own close-this-window, which a browser
-    //                 spells close-this-tab - the faithful analogue, left alone
     //   Ctrl+Shift+T  PCB_ACTIONS::placeText, advertised on the PCB toolbar and
     //                 read by no dispatcher yet - decided in #525
-    expect(planClaim(combos).reserved.sort()).toEqual(['Ctrl+Shift+T', 'Ctrl+W']);
+    //
+    // Ctrl+W used to be here too, on the reading that a browser closing the tab
+    // is the faithful analogue of the platform's close-this-window. It is - but
+    // the row carrying it was File > Close, which returns to the project
+    // manager and is not a window close at all, so the key it advertised threw
+    // the user's tab away instead of doing what the menu said. See
+    // ui/action_menu.ts.
+    expect(planClaim(combos).reserved.sort()).toEqual(['Ctrl+Shift+T']);
   });
 
   it('has moved New Project off the browser’s new window', () => {

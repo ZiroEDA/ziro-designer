@@ -72,6 +72,8 @@ import {
 } from '../../ui/file_history.js';
 import { useFileHistory } from '../../ui/useFileHistory.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { addClose, addQuit } from '../../ui/action_menu.js';
+import { browserSafeKey } from '../../ui/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 
@@ -1020,7 +1022,7 @@ export function DrawingSheetEditor({
       {
         label: 'File',
         items: [
-          { label: 'New', icon: 'new', action: newSheet, shortcut: 'Ctrl+N' },
+          { label: 'New', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
           {
             label: 'Open…',
             icon: 'open',
@@ -1034,7 +1036,8 @@ export function DrawingSheetEditor({
           { sep: true },
           { label: 'Print…', icon: 'print', action: printSheet },
           { sep: true },
-          { label: 'Close Drawing Sheet Editor', action: onExitToHome },
+          addClose('Drawing Sheet Editor', onExitToHome),
+          addQuit('Drawing Sheet Editor', onExitToHome),
         ],
       },
       {

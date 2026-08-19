@@ -28,6 +28,7 @@ import { PanelGalvanicCorrosion } from './panels/panel_galvanic_corrosion.js';
 import './calculator.css';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
+import { addClose, addQuit } from '../../ui/action_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
 
@@ -85,7 +86,13 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const menus: Menu[] = [
-    { label: 'File', items: [{ label: 'Close', action: onExitToHome }] },
+    {
+      label: 'File',
+      items: [
+        addClose('Calculator Tools', onExitToHome),
+        addQuit('Calculator Tools', onExitToHome),
+      ],
+    },
     {
       label: 'Preferences',
       items: [

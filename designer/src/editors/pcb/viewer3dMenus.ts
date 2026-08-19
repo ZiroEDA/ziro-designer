@@ -15,6 +15,7 @@
  */
 
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
+import { addClose } from '../../ui/action_menu.js';
 import type { Grid3D } from './viewer3d_types.js';
 
 export interface Viewer3DMenuState {
@@ -51,7 +52,7 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
   const fileMenu: MenuItem[] = [
     { label: 'Export Image...', icon: 'exportImage3d', action: on.exportImage },
     { sep: true },
-    { label: 'Close 3D Viewer', shortcut: 'Esc', action: on.close },
+    addClose('3D Viewer', on.close),
   ];
 
   //-- Edit menu -----------------------------------------------------------

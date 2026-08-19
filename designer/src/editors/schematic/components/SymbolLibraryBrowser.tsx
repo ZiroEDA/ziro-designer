@@ -34,6 +34,11 @@ import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 import { MsgPanel } from '../../../ui/MsgPanel.js';
+import { MenuBar } from '../../../ui/MenuBar.js';
+import type { Menu } from '../../../ui/menu_types.js';
+import { addClose } from '../../../ui/action_menu.js';
+import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
+import type { FocusLike } from '../../../ui/browser_hotkeys.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;
@@ -414,10 +419,67 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     return off;
   }, [previewSym, symbols.length]);
 
+  // ----- menus (SYMBOL_VIEWER_FRAME::doReCreateMenuBar) --------------------
+
+  /**
+   * `eeschema/toolbars_symbol_viewer.cpp:128-165`, transcribed. The frame had
+   * no menu bar here at all, so the one row upstream's File menu carries -
+   * `fileMenu->AddClose( _( "Symbol Viewer" ) )` - was missing along with the
+   * whole View menu.
+   *
+   * Not `AddStandardHelpMenu`, which upstream appends third: its About row
+   * opens a dialog that is still hand-rolled once per frame here, and adding a
+   * ninth copy of it to reach one menu row is the duplication this repo is
+   * trying to remove. Recorded rather than quietly dropped.
+   */
+  const menus: Menu[] = useMemo(
+    () => [
+      { label: 'File', items: [addClose('Symbol Viewer', onClose)] },
+      {
+        label: 'View',
+        items: [
+          { label: 'Zoom In', icon: 'zoomIn', action: () => onAction('zoomInCenter') },
+          { label: 'Zoom Out', icon: 'zoomOut', action: () => onAction('zoomOutCenter') },
+          {
+            label: 'Zoom to Fit',
+            icon: 'zoomFit',
+            shortcut: 'Home',
+            action: () => onAction('zoomFitScreen'),
+          },
+          {
+            label: 'Refresh',
+            icon: 'zoomRedraw',
+            shortcut: 'F5',
+            action: () => onAction('zoomRedraw'),
+          },
+          { sep: true },
+          {
+            label: 'Show Pin Electrical Types',
+            checked: showElectricalTypes,
+            action: () => onAction('showElectricalTypes'),
+          },
+          {
+            label: 'Show Pin Numbers',
+            checked: showPinNumbers,
+            action: () => onAction('showPinNumbers'),
+          },
+        ],
+      },
+    ],
+    [onClose, onAction, showElectricalTypes, showPinNumbers],
+  );
+
   // ----- keyboard (SYMBOL_VIEWER_FRAME::OnCharHook) ------------------------
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // The menu rows own their own accelerators - Close, Zoom to Fit, Refresh
+      // - and `modalFloor: 1` is this frame being a modal itself, exactly as
+      // CVPCB's dialog does it. Nothing below re-states a key a row declares.
+      if (dispatchMenuHotkey(menus, e, { target: e.target as FocusLike, modalFloor: 1 })) {
+        e.preventDefault();
+        return;
+      }
       // Escape is the dialog's Cancel and belongs to the modal stack, not here
       // - see ui/modal_escape.ts, and useModalEscape above.
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -446,7 +508,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, libs, curLib, selectLibrary, stepSymbol, previewSym, addToSchematic]);
+  }, [menus, onClose, libs, curLib, selectLibrary, stepSymbol, previewSym, addToSchematic]);
 
   // ----- pane sashes (the AUI "Libraries" / "Symbols" pane widths) ----------
 
@@ -534,6 +596,8 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
             ✕
           </span>
         </div>
+
+        <MenuBar menus={menus} />
 
         <Toolbar
           entries={TOP_TOOLBAR}
