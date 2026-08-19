@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The pure half of `GAL::DrawGrid` / `GAL::blitCursor`.
+ *
+ * A canvas render is not assertable from here — vitest has no 2D context, and
+ * even with one, "the grid looks right" is a pixel judgement. What IS assertable
+ * is every decision the painter makes before it touches the context: which step
+ * the density loop settles on, which node indices fall inside the viewport, how
+ * wide the minor and coarse pens are, which segments a crosshair mode produces,
+ * and whether a crosshair is drawn at all (and at what alpha). Those are the
+ * numbers that came out different in our four copies.
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  GRID_TICK,
+  MIN_GRID_IU,
+  SMALL_CROSS_PX,
+  crosshairSegments,
+  cursorAlphaFactor,
+  deviceToWorldX,
+  deviceToWorldY,
+  dimmedCursorColor,
+  gridDotWidths,
+  gridIndexRange,
+  gridPenWidths,
+  visibleGridStep,
+  worldToDeviceX,
+  worldToDeviceY,
+} from '@ziroeda/designer/src/ui/grid_cursor.js';
+
+/** eeschema IU: 100 nm, so a 50 mil grid is 12700 IU. */
+const MIL = 254;
+
+describe('visibleGridStep — GAL::GetVisibleGridSize', () => {
+  it('keeps the requested grid when it is already far enough apart', () => {
+    // 50 mil at 0.01 device px/IU = 127 px between nodes, way over the 10 px
+    // minimum, so no stepping happens.
+    expect(visibleGridStep(50 * MIL, 0.01, 'dots', 10)).toBe(50 * MIL);
+  });
+
+  it('steps up by a whole tick, not by doubling', () => {
+    // 50 mil (12700 IU) at 0.0005 px/IU = 6.35 px apart, under the 10 px
+    // minimum -> one tick up to 500 mil, which is 63.5 px. KiCad multiplies by
+    // m_gridTick, so the grid jumps 50 -> 500 mil.
+    expect(visibleGridStep(50 * MIL, 0.0005, 'dots', 10)).toBe(50 * MIL * GRID_TICK);
+  });
+
+  it('steps repeatedly until it clears the threshold', () => {
+    expect(visibleGridStep(50 * MIL, 0.00002, 'dots', 10)).toBe(50 * MIL * GRID_TICK * GRID_TICK);
+  });
+
+  it('gives SMALL_CROSS twice the room a dot needs', () => {
+    // At this scale a dot grid clears the 10 px minimum and a cross grid does
+    // not, because the cross threshold is doubled (cairo_gal.cpp:1787-1788).
+    const scale = 0.0009; // 12700 * 0.0009 = 11.43 px
+    expect(visibleGridStep(50 * MIL, scale, 'dots', 10)).toBe(50 * MIL);
+    expect(visibleGridStep(50 * MIL, scale, 'crosses', 10)).toBe(50 * MIL * GRID_TICK);
+  });
+
+  it('scales the pixel threshold by the device pixel ratio', () => {
+    const scale = 0.0009;
+    // The minimum spacing is a *logical* pixel count; on a 2x canvas the same
+    // setting is 20 device px, which this grid no longer clears.
+    expect(visibleGridStep(50 * MIL, scale, 'dots', 10, 1)).toBe(50 * MIL);
+    expect(visibleGridStep(50 * MIL, scale, 'dots', 10, 2)).toBe(50 * MIL * GRID_TICK);
+  });
+
+  it('honours a raised minimum spacing', () => {
+    const scale = 0.0009; // 11.43 px
+    expect(visibleGridStep(50 * MIL, scale, 'dots', 10)).toBe(50 * MIL);
+    expect(visibleGridStep(50 * MIL, scale, 'dots', 20)).toBe(50 * MIL * GRID_TICK);
+  });
+
+  it('floors the grid at 100 IU before anything else', () => {
+    expect(visibleGridStep(1, 1e6, 'dots', 10)).toBe(MIN_GRID_IU);
+  });
+});
+
+describe('gridIndexRange — DrawGrid start/end indices', () => {
+  it('counts nodes from the grid origin and adds a node of margin each side', () => {
+    // world 0..1000, step 100, origin 0 -> indices 0..10, margined to -1..11.
+    expect(gridIndexRange(0, 1000, 0, 100)).toEqual({ start: -1, end: 11 });
+  });
+
+  it('counts about the grid origin, so the nodes sit on it', () => {
+    // pcbnew's board grid origin (`(setup (grid_origin ...))`) offsets every
+    // dot: DrawGrid works in indices of `(world - m_gridOrigin) / step` and
+    // adds the origin back when it places each node.
+    const origin = 30;
+    const { start, end } = gridIndexRange(0, 1000, origin, 100);
+    // Every node is congruent to the origin, and the lattice still covers the
+    // window at both ends.
+    expect((((start * 100 + origin) % 100) + 100) % 100).toBe(origin);
+    expect(start * 100 + origin).toBeLessThanOrEqual(0);
+    expect(end * 100 + origin).toBeGreaterThanOrEqual(1000);
+    // Hardcoding it to zero, as we used to, would put the nodes on multiples
+    // of 100 instead.
+    expect(start * 100 + origin).not.toBe(gridIndexRange(0, 1000, 0, 100).start * 100);
+  });
+
+  it('normalises a reversed pair (a mirrored or y-up axis)', () => {
+    expect(gridIndexRange(1000, 0, 0, 100)).toEqual({ start: -1, end: 11 });
+  });
+
+  it('covers the whole viewport: the first node is at or left of the edge', () => {
+    const step = 100;
+    const { start, end } = gridIndexRange(37, 963, 0, step);
+    expect(start * step).toBeLessThanOrEqual(37);
+    expect(end * step).toBeGreaterThanOrEqual(963);
+  });
+});
+
+describe('gridPenWidths / gridDotWidths — GAL grid pen', () => {
+  it('derives the stored width the way updatedGalDisplayOptions does', () => {
+    // m_gridLineWidth = scaleFactor * setting + 0.25, floored at 1 px, coarse
+    // lines double.
+    expect(gridPenWidths(1, 2)).toEqual({ minor: 2.25, major: 4.5 });
+  });
+
+  it('floors the minor pen at one device pixel', () => {
+    expect(gridPenWidths(0.5, 1).minor).toBe(1);
+    expect(gridPenWidths(0, 1).minor).toBe(1);
+  });
+
+  it('doubles a dot before clamping, unlike a line', () => {
+    // drawGridPoint clamps each of width and height with std::max(1.0, ...)
+    // AFTER the tick doubling, so a sub-pixel setting still gives a coarse dot
+    // that is bigger than a minor one. Clamping first would make them equal.
+    const d = gridDotWidths(0.3, 1);
+    expect(d.minor).toBe(1);
+    expect(d.major).toBeCloseTo(1.1, 10);
+    expect(d.major).toBeGreaterThan(d.minor);
+  });
+});
+
+describe('crosshairSegments — blitCursor', () => {
+  const at = { x: 300, y: 200 };
+
+  it('draws the small cross 80 logical px across, centred on the cursor', () => {
+    const segs = crosshairSegments('small', at, 800, 600, 1);
+    expect(segs).toHaveLength(2);
+    expect(segs[0]).toEqual({ x1: 260, y1: 200, x2: 340, y2: 200 });
+    expect(segs[1]).toEqual({ x1: 300, y1: 160, x2: 300, y2: 240 });
+    expect(segs[0]!.x2 - segs[0]!.x1).toBe(SMALL_CROSS_PX);
+  });
+
+  it('scales the small cross by the device pixel ratio', () => {
+    // m_screenSize is the client size in logical px (draw_panel_gal.cpp:459),
+    // so 80 of them is 160 device px on a 2x display.
+    const segs = crosshairSegments('small', at, 800, 600, 2);
+    expect(segs[0]!.x2 - segs[0]!.x1).toBe(SMALL_CROSS_PX * 2);
+  });
+
+  it('spans the whole window in FULLSCREEN_CROSS', () => {
+    const segs = crosshairSegments('full', at, 800, 600, 1);
+    expect(segs[0]).toEqual({ x1: 0, y1: 200, x2: 800, y2: 200 });
+    expect(segs[1]).toEqual({ x1: 300, y1: 0, x2: 300, y2: 600 });
+  });
+
+  it('draws two 45-degree diagonals through the cursor in FULLSCREEN_DIAGONAL', () => {
+    const segs = crosshairSegments('45', at, 800, 600, 1);
+    expect(segs).toHaveLength(2);
+    for (const s of segs) {
+      // Exactly 45 degrees, and passing through the cursor.
+      expect(Math.abs(s.x2 - s.x1)).toBe(Math.abs(s.y2 - s.y1));
+      const t = (at.x - s.x1) / (s.x2 - s.x1);
+      expect(s.y1 + t * (s.y2 - s.y1)).toBeCloseTo(at.y, 9);
+    }
+    // "Oversized but that's ok": longer than the window's diagonal, so the
+    // clip, not the length, decides where it ends.
+    expect(Math.abs(segs[0]!.x2 - segs[0]!.x1)).toBeGreaterThan(800);
+  });
+});
+
+describe('cursorAlphaFactor — IsCursorEnabled + getCursorColor', () => {
+  it('draws nothing when neither the tool nor the preference asks for it', () => {
+    expect(cursorAlphaFactor(false, false)).toBeNull();
+  });
+
+  it('draws at full alpha when the active tool asked for a cursor', () => {
+    expect(cursorAlphaFactor(true, false)).toBe(1);
+    expect(cursorAlphaFactor(true, true)).toBe(1);
+  });
+
+  it('dims a cursor that is only on because it was forced', () => {
+    // "dim the cursor if it's only on because it was forced (this helps to
+    // provide a hint for active tools)" - graphics_abstraction_layer.cpp:262.
+    expect(cursorAlphaFactor(false, true)).toBe(0.5);
+  });
+
+  it('multiplies the layer colour alpha rather than replacing it', () => {
+    expect(dimmedCursorColor('rgba(255, 255, 255, 0.8)', 0.5)).toBe('rgba(255, 255, 255, 0.4)');
+    expect(dimmedCursorColor('rgb(255, 255, 255)', 1)).toBe('rgb(255, 255, 255)');
+  });
+});
+
+describe('GridView transform', () => {
+  const v = { scale: 2, tx: 100, ty: 50 };
+
+  it('round-trips a plain scale + translate', () => {
+    expect(worldToDeviceX(v, 10)).toBe(120);
+    expect(deviceToWorldX(v, 120)).toBe(10);
+    expect(worldToDeviceY(v, 10)).toBe(70);
+    expect(deviceToWorldY(v, 70)).toBe(10);
+  });
+
+  it('mirrors X for pcbnew flip-board and Y for gerbview', () => {
+    const fx = { ...v, flipX: true };
+    expect(worldToDeviceX(fx, 10)).toBe(80);
+    expect(deviceToWorldX(fx, 80)).toBe(10);
+    const fy = { ...v, flipY: true };
+    expect(worldToDeviceY(fy, 10)).toBe(30);
+    expect(deviceToWorldY(fy, 30)).toBe(10);
+  });
+});
