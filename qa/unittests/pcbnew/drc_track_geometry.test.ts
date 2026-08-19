@@ -164,15 +164,27 @@ describe('track angle', () => {
     expect(codes(b, 'track_angle', dru(90))).toHaveLength(0);
   });
 
-  it('reads a hairpin as 0 degrees and reports it', () => {
-    // Two collinear tracks doubling back over each other. Both this and the
-    // straight-through case are collinear, so they are the pair that proves
-    // the direction flip is doing something.
+  it('reads a doubled-back pair as 90 degrees, not 0, and lets it pass', () => {
+    // Two collinear tracks doubling back over each other. The joint is
+    // `segment.Intersect( other_segment )`, and for a collinear *overlap*
+    // `SEG::Intersect` answers the midpoint of the overlap region — (7, 0)
+    // here — not the shared endpoint. That is an endpoint of neither track, so
+    // upstream sets `angle_below_90` on both arms, reads 180° and folds it back
+    // to 90 (`drc_test_provider_track_angle.cpp:120-144`). A 90° minimum is
+    // therefore met exactly and nothing is reported.
     const b = board({ tracks: [track(0, 0, 10, 0), track(10, 0, 5, 0)] });
+
+    expect(codes(b, 'track_angle', dru(90))).toHaveLength(0);
+  });
+
+  it('reports a sharp joint at a shared endpoint', () => {
+    // Not collinear, so the joint is a genuine endpoint touch and both
+    // directions are taken away from it: ~6.3° between them.
+    const b = board({ tracks: [track(0, 0, 10, 0), track(10, 0, 1, 1)] });
 
     const v = codes(b, 'track_angle', dru(90));
     expect(v).toHaveLength(1);
-    expect(v[0]!.message).toContain('0.0°');
+    expect(v[0]!.message).toContain('min angle');
   });
 
   it('reports an acute corner', () => {
