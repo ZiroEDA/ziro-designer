@@ -245,10 +245,7 @@ export const CROSS_PROBE_FLASH_LAST_PHASE = 6;
  * restoring the *selection*, not by tinting the items, which is why this is a
  * set of ids rather than a render flag.
  */
-export function crossProbeFlashSelection(
-  phase: number,
-  ids: readonly string[],
-): readonly string[] {
+export function crossProbeFlashSelection(phase: number, ids: readonly string[]): readonly string[] {
   if (phase > CROSS_PROBE_FLASH_LAST_PHASE) return ids;
   return phase % 2 === 0 ? [] : ids;
 }

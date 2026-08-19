@@ -336,6 +336,7 @@ import {
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
@@ -974,6 +975,7 @@ export function PcbEditor({
   // "Flip board view" (PCB_ACTIONS::flipBoard): mirror the view horizontally.
   const [flipView, setFlipView] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   // "Layer Display Options" collapsible pane state (collapsed by default).
   const [layerOptsOpen, setLayerOptsOpen] = useState(false);
   // Layer right-click context menu position (rightClickHandler).
@@ -5818,6 +5820,12 @@ export function PcbEditor({
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'))
         return;
       const mod = e.ctrlKey || e.metaKey;
+      // ACTIONS::showPreferences, Ctrl+, on every frame (EDA_BASE_FRAME).
+      if (mod && e.key === ',') {
+        e.preventDefault();
+        setPrefsOpen(true);
+        return;
+      }
       // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
       if (!mod && (e.key === 'h' || e.key === 'H')) {
         setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
@@ -7241,7 +7249,9 @@ export function PcbEditor({
     },
     {
       label: 'Preferences',
-      items: [{ label: 'Preferences…', disabled: dis, shortcut: 'Ctrl+,' }],
+      // EDA_BASE_FRAME::ShowPreferences — one dialog for the whole application,
+      // reachable from every frame's Preferences menu, not a per-editor one.
+      items: [{ label: 'Preferences…', action: () => setPrefsOpen(true), shortcut: 'Ctrl+,' }],
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
@@ -8753,6 +8763,7 @@ export function PcbEditor({
           A failed fetch shows the same message upstream puts in a
           DisplayErrorMessage box (a missing schematic, or one not annotated). */}
       {aboutOpen && <AboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />}
+      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {updatePcbBusy && (
         <div className="ze-modal-backdrop ze-loading-backdrop">
           <div className="ze-loading-card">
