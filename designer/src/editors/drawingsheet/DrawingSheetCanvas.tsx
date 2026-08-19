@@ -33,7 +33,7 @@ import {
   DS_HILITE_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
-import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
+import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 
 const MM = 10000;
 
@@ -313,12 +313,16 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
     const zoomToFit = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const margin = 12 * MM;
-      const s = Math.min(canvas.width / (pageW + margin * 2), canvas.height / (pageH + margin * 2));
-      viewRef.current = {
-        scale: s > 0 && Number.isFinite(s) ? s : 0.02,
-        tx: canvas.width / 2 - (pageW / 2) * s,
-        ty: canvas.height / 2 - (pageH / 2) * s,
+      // COMMON_TOOLS::doZoomFit's FRAME_PL_EDITOR margin, not 12 mm of padding.
+      const v = zoomFitView(
+        { minX: 0, minY: 0, maxX: pageW, maxY: pageH },
+        { width: canvas.width, height: canvas.height },
+        'pl_editor',
+      );
+      viewRef.current = v ?? {
+        scale: 0.02,
+        tx: canvas.width / 2,
+        ty: canvas.height / 2,
       };
       requestDraw();
     }, [pageW, pageH, requestDraw]);

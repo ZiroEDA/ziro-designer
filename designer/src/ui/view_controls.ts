@@ -318,12 +318,12 @@ export interface FitView {
  * `GetDefaultViewBBox()` there, which each canvas owns, and bails to a
  * recentre when the scale is not finite (common_tools.cpp:363-379).
  */
-export function zoomFitView(
+export function zoomFitScale(
   box: FitBox,
   viewportPx: { width: number; height: number },
   frame: FitFrame,
   fitType: FitType = 'all',
-): FitView | null {
+): number | null {
   const w = box.maxX - box.minX;
   const h = box.maxY - box.minY;
   if (!(w > 0) || !(h > 0)) return null;
@@ -332,7 +332,22 @@ export function zoomFitView(
     Math.min(viewportPx.width / w, viewportPx.height / h) /
     fitMarginScaleFactor(frame, viewportPx.height, fitType);
 
-  if (!Number.isFinite(scale) || scale <= 0) return null;
+  return Number.isFinite(scale) && scale > 0 ? scale : null;
+}
+
+/**
+ * The whole transform, for the canvases whose world->screen map is a plain
+ * scale + translate. A mirrored canvas (pcbnew's flip-board view, gerbview's
+ * y-up) takes `zoomFitScale` and builds its own translation.
+ */
+export function zoomFitView(
+  box: FitBox,
+  viewportPx: { width: number; height: number },
+  frame: FitFrame,
+  fitType: FitType = 'all',
+): FitView | null {
+  const scale = zoomFitScale(box, viewportPx, frame, fitType);
+  if (scale === null) return null;
 
   return {
     scale,

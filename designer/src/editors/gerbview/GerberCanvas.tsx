@@ -23,7 +23,7 @@ import {
   type ViewTransform,
 } from './gerberRender.js';
 import { GERBER_GRID_COLOR } from './gerberColors.js';
-import { commonInputPrefs, wheelAction } from '../../ui/view_controls.js';
+import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 
 export interface GerberCanvasController {
   zoomToFit: () => void;
@@ -179,8 +179,13 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         requestDraw();
         return;
       }
-      const margin = 1.1;
-      const s = Math.min(canvas.width / (w * margin), canvas.height / (h * margin));
+      // COMMON_TOOLS::doZoomFit's FRAME_GERBER margin, not a flat x1.1.
+      const s = zoomFitScale(bbox, { width: canvas.width, height: canvas.height }, 'gerber');
+      if (s === null) {
+        viewRef.current = { scale: 0.0005, tx: canvas.width / 2, ty: canvas.height / 2 };
+        requestDraw();
+        return;
+      }
       const cx = (bbox.minX + bbox.maxX) / 2;
       const cy = (bbox.minY + bbox.maxY) / 2;
       const flip = optionsRef.current.flipView;
