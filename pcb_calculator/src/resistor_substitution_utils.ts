@@ -319,3 +319,22 @@ export function resEquivCalc(
 
   return results;
 }
+
+/**
+ * The text `PANEL_R_CALCULATOR`'s `showResult` lambda puts in the
+ * "Approximation" cell (panel_r_calculator.cpp:136-162):
+ *
+ *   |error| < epsilon   -> _( "Exact" )
+ *   |error| < 0.01      -> "<0.01"      (Printf( "<%.2f", 0.01 ))
+ *   otherwise           -> "%+.2f"      — the sign is always written
+ *
+ * An absent solution takes "Not worth using" in the formula cell and leaves
+ * this one EMPTY, which is `RES_NOT_WORTH_USING` below.
+ */
+export const RES_NOT_WORTH_USING = 'Not worth using';
+
+export function resApproximationText(errorPct: number): string {
+  if (Math.abs(errorPct) < 1e-12) return 'Exact';
+  if (Math.abs(errorPct) < 0.01) return '<0.01';
+  return `${errorPct >= 0 ? '+' : ''}${errorPct.toFixed(2)}`;
+}

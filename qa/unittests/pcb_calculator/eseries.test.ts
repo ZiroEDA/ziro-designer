@@ -7,8 +7,10 @@ import {
   E24_VALUES,
   E96_VALUES,
   ESeriesId,
+  RES_NOT_WORTH_USING,
   eseriesInRange,
   eseriesNearest,
+  resApproximationText,
   resEquivCalc,
 } from '@ziroeda/pcb_calculator';
 
@@ -75,5 +77,56 @@ describe('resistor substitution (RES_EQUIV_CALC port)', () => {
     const excl = resEquivCalc(4700, ESeriesId.E24, [4700])!;
     expect(excl.s2r.parts).not.toContain(4700);
     expect(excl.s3r === undefined || !excl.s3r.parts.includes(4700)).toBe(true);
+  });
+});
+
+/**
+ * The Approximation cell's text, and the values driven side by side against
+ * pcb_calculator 10.0.5 on the Resistor Calculator page.
+ */
+describe('Resistor Calculator display strings', () => {
+  it('names an exact hit "Exact" and a tiny one "<0.01"', () => {
+    expect(resApproximationText(0)).toBe('Exact');
+    expect(resApproximationText(0.004)).toBe('<0.01');
+    expect(resApproximationText(-0.004)).toBe('<0.01');
+  });
+
+  it('always writes the sign, at two decimals', () => {
+    // %+.2f — the plus is not decorative, KiCad prints it.
+    expect(resApproximationText(-0.53)).toBe('-0.53');
+    expect(resApproximationText(100)).toBe('+100.00');
+    expect(resApproximationText(33.333333)).toBe('+33.33');
+    expect(resApproximationText(0.5)).toBe('+0.50');
+  });
+
+  it('an absent level is "Not worth using"', () => {
+    expect(RES_NOT_WORTH_USING).toBe('Not worth using');
+  });
+
+  it('reproduces the 3.1 kOhm E6 run from the real binary', () => {
+    // KiCad, driven: Simple "3K3 | 47K" -0.53, 3R "100R + 1K5 + 1K5" Exact,
+    // 4R absent.
+    const target = 3100;
+    const r = resEquivCalc(target, ESeriesId.E6, [target]);
+    expect(r).toBeTruthy();
+    expect(r?.s2r?.name).toBe('3K3 | 47K');
+    expect(resApproximationText((r!.s2r!.value / target - 1) * 100)).toBe('-0.53');
+    expect(r?.s3r?.name).toBe('100R + 1K5 + 1K5');
+    expect(resApproximationText((r!.s3r!.value / target - 1) * 100)).toBe('Exact');
+    expect(r?.s4r).toBeFalsy();
+  });
+
+  it('reproduces the 2.5 Ohm E6 run, where every level overshoots', () => {
+    // KiCad, driven: "10R | 10R" +100.00, "10R | 10R | 10R" +33.33,
+    // "10R | 10R | 10R | 10R" Exact. (The real field is 54 px wide and clips
+    // the first two to "+100." and "+33.3"; the VALUE is the full string.)
+    const target = 2.5;
+    const r = resEquivCalc(target, ESeriesId.E6, [target]);
+    expect(r?.s2r?.name).toBe('10R | 10R');
+    expect(resApproximationText((r!.s2r!.value / target - 1) * 100)).toBe('+100.00');
+    expect(r?.s3r?.name).toBe('10R | 10R | 10R');
+    expect(resApproximationText((r!.s3r!.value / target - 1) * 100)).toBe('+33.33');
+    expect(r?.s4r?.name).toBe('10R | 10R | 10R | 10R');
+    expect(resApproximationText((r!.s4r!.value / target - 1) * 100)).toBe('Exact');
   });
 });

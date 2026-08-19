@@ -92,6 +92,18 @@
   flex: 1;
   overflow: auto;
   padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) 40px;
+  /* A column, so a page whose bottom box is added with proportion 1 — the Help
+     box on Resistor Calculator, the notes box on Wavelength — really does grow
+     to the frame's bottom edge the way its wxSizer makes it. */
+  display: flex;
+  flex-direction: column;
+}
+
+.calc-page:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .calc-panel h3 {
@@ -482,7 +494,115 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 /* One wxTreebook page. All fourteen are built and only one is shown, so the
    hidden ones must take no space and draw nothing — `hidden` alone loses to
-   `.calc-page`'s own display, which is why the attribute is matched here. */
+   `.calc-page:not([hidden])`'s display, so the attribute is matched here at the
+   same specificity and later in the file. */
 .calc-page[hidden] {
   display: none;
+}
+
+/* wxStaticLine. [px] a 2 px rule of rgb(40,40,40) across the static box, with
+   wxTOP|wxBOTTOM 5 either side. */
+.calc-hr {
+  border: none;
+  height: 2px;
+  background: var(--field-bg);
+  margin: var(--wx-border) 0;
+}
+
+/* --- Resistor Calculator (panel_r_calculator_base.cpp) --- */
+.rc-middle {
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+/* [px] the Inputs box runs x=240..549, i.e. 310 px, and does NOT grow: it is
+   added with proportion 0 while Solutions gets 1. */
+.rc-inputs {
+  flex: 0 0 310px;
+  min-width: 310px;
+}
+
+.rc-solutions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* fgSizerAttPrms1, a 4x3 flex grid: label | field | unit, 3 px vgap. */
+.rc-input-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  align-items: center;
+}
+
+/* [px] x=392..521 = 130 px, which is GetTextExtent( "XXX.XXX" ) plus the entry's
+   own padding (panel_r_calculator.cpp:57-61). */
+.rc-value {
+  width: 130px;
+  justify-self: end;
+}
+
+/* fgSizerESeriesResults, a 6x5 flex grid; column 1 is the growable one. */
+.rc-solution-grid {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  align-items: center;
+}
+
+.rc-solution {
+  width: auto;
+  min-width: 200px;
+}
+
+.rc-approx-label {
+  margin-left: 10px; /* wxLEFT, 10 */
+}
+
+.rc-approx {
+  width: 54px;
+}
+
+/* bSizer40: E1..E12 carry proportion 1 and E24 proportion 0, so the first four
+   share the box evenly and E24 sits at the end. */
+.rc-series {
+  display: flex;
+}
+
+.rc-series .calc-radio {
+  flex: 1 1 0;
+  padding: var(--wx-border);
+}
+
+.rc-series .calc-radio:last-child {
+  flex: 0 0 auto;
+}
+
+/* The Help box fills the rest of the frame, and its HTML_WINDOW has a 100 px
+   minimum (panel_r_calculator_base.cpp:189). */
+.rc-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rc-help {
+  flex: 1 1 auto;
+}
+
+.rc-help-body {
+  min-height: 100px;
+  overflow: auto;
+}
+
+.rc-help-body ul {
+  margin: 0;
+  padding-left: 26px;
+}
+
+.rc-help-body pre {
+  font-family: var(--mono, ui-monospace, "DejaVu Sans Mono", monospace);
+  margin: 0;
+  tab-size: 8;
 }

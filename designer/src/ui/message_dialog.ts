@@ -32,6 +32,8 @@ export type YesNoResult = 'yes' | 'no';
 /** GTK's stock labels, which `wxMessageDialog` uses unless `SetYesNoLabels`. */
 export const YES_LABEL = 'Yes';
 export const NO_LABEL = 'No';
+/** GTK's stock label for `wxID_OK`, the only button a bare wxMessageBox has. */
+export const OK_LABEL = 'OK';
 
 /**
  * The `wxYES_NO` row in GTK order — negative first, affirmative last — with the

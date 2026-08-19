@@ -18,7 +18,12 @@
  */
 import type { JSX } from 'react';
 import { useEffect, useRef } from 'react';
-import { type MessageDialogIcon, type YesNoResult, yesNoButtons } from './message_dialog.js';
+import {
+  type MessageDialogIcon,
+  OK_LABEL,
+  type YesNoResult,
+  yesNoButtons,
+} from './message_dialog.js';
 import { useModalEscape } from './useModalEscape.js';
 
 /** The `wxICON_*` glyphs, drawn at the 44 px `.ze-msgdlg-icon` box. */
@@ -121,6 +126,57 @@ export function MessageDialogYesNo({
               {b.label}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `wxMessageBox( msg )` — the one-button information box, the same
+ * `KICAD_MESSAGE_DIALOG` shell with `wxOK | wxICON_INFORMATION` instead of
+ * `wxYES_NO`. `pcb_calculator` raises three of them (an out-of-range required
+ * resistance, a duplicate regulator, an unreadable data file) and every one is
+ * this dialog, not an inline label — measured on the running 10.0.5: a 461x163
+ * window, the information glyph left of a centred message, one full-width OK
+ * with the focus ring on it.
+ *
+ * With no `wxCANCEL` in the style word Esc maps to the only button there is, so
+ * Esc dismisses it.
+ */
+export function MessageDialogOk({
+  caption = 'Message',
+  message,
+  icon = 'information',
+  onClose,
+}: {
+  /** `wxMessageBoxCaptionStr`, which is what a bare wxMessageBox uses. */
+  caption?: string;
+  message: string;
+  icon?: MessageDialogIcon;
+  onClose: () => void;
+}): JSX.Element {
+  useModalEscape(onClose);
+
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    okRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-msgdlg" role="alertdialog" aria-modal="true">
+        <div className="ze-modal-header">{caption}</div>
+        <div className="ze-msgdlg-body">
+          <DialogIcon icon={icon} />
+          <div className="ze-msgdlg-text">
+            <div className="ze-msgdlg-message">{message}</div>
+          </div>
+        </div>
+        <div className="ze-msgdlg-buttons">
+          <button type="button" className="ze-btn primary" ref={okRef} onClick={onClose}>
+            {OK_LABEL}
+          </button>
         </div>
       </div>
     </div>
