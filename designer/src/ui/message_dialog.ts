@@ -26,13 +26,20 @@
 /** `wxICON_QUESTION` / `wxICON_WARNING` / `wxICON_ERROR` / `wxICON_INFORMATION`. */
 export type MessageDialogIcon = 'question' | 'warning' | 'error' | 'information';
 
+/**
+ * The caption `DisplayErrorMessage` gives its box (common/confirm.cpp) — it
+ * passes `_( "Error" )`, not the frame's name, on every call.
+ */
+export const ERROR_CAPTION = 'Error';
+
 /** The button the user pressed: `wxID_YES` / `wxID_NO`. */
 export type YesNoResult = 'yes' | 'no';
 
 /** GTK's stock labels, which `wxMessageDialog` uses unless `SetYesNoLabels`. */
 export const YES_LABEL = 'Yes';
 export const NO_LABEL = 'No';
-/** GTK's stock label for `wxID_OK`, the only button a bare wxMessageBox has. */
+/** …and the one `wxOK` gets: the only button a bare wxMessageBox has, and the
+ *  only button `DisplayErrorMessage` has. */
 export const OK_LABEL = 'OK';
 
 /**

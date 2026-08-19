@@ -19,7 +19,7 @@
  */
 
 import type { DsDrawItem, DsTextItem, DsBitmapItem } from '@ziroeda/common';
-import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
+import { KICAD_FONT_NAME, layoutText } from '@ziroeda/common/src/font/stroke_font.js';
 
 // KiCad's italic shear (common/font/font.h ITALIC_TILT = 1/8).
 const ITALIC_TILT = 1 / 8;
@@ -164,8 +164,12 @@ function drawText(
   color: string,
   minWidth: number,
 ): void {
-  // A named outline font is filled (font->Draw); the default is the stroke font.
-  if (t.face) {
+  // A named outline font is filled (font->Draw); the default is the stroke
+  // font. "KiCad Font" is a name for the stroke font itself, not an outline
+  // family: FONT::GetFont( KICAD_FONT_NAME ) hands back the stroke font
+  // singleton, whose own m_fontName is that string (stroke_font.cpp:189), and
+  // it is what pl_editor writes when the Font combo's second entry is picked.
+  if (t.face && t.face !== KICAD_FONT_NAME) {
     drawOutlineText(ctx, t, color);
     return;
   }

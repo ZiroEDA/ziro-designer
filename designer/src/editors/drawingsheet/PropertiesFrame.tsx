@@ -14,7 +14,11 @@
  *  - "General Options": the sheet's default text size / line & text thickness
  *    (with Set to Default) and the four page margins.
  *
- * All distances are millimetres, as in the panel this mirrors.
+ * Every distance is a UNIT_BINDER (ui/UnitField.tsx): the panel holds
+ * millimetres, as the file does, but shows and reads them back in whichever
+ * unit the frame's toolbar is set to. `properties_frame.cpp:57-79` builds all
+ * twenty of its numeric fields that way, with the frame as UNITS_PROVIDER, so
+ * the panel never hardcodes a unit and never carries a literal "mm".
  */
 
 import { useState, type JSX } from 'react';
@@ -31,24 +35,67 @@ import type {
   WksOption,
   WksColor,
 } from '@ziroeda/common';
+import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
+import { UnitField } from '../../ui/UnitField.js';
+import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
+import { MessageDialogError } from '../../ui/dialog_message.js';
 
 /**
- * The font faces the Text page offers. Default Font is the stroke font, which
- * an empty face selects; a named face switches the item to that outline font,
- * as in KiCad.
+ * The font faces the Text page offers — `FONT_CHOICE`
+ * (common/widgets/font_choice.cpp:240-258), which appends "Default Font" and
+ * KICAD_FONT_NAME as two SEPARATE entries before the installed faces.
+ *
+ * They are not the same value. The first leaves `m_Font` null and writes no
+ * `(face …)`; the second names the stroke font and writes
+ * `(face "KiCad Font")`, because `write_face` is
+ * `m_Font && !GetName().IsEmpty()` and the stroke font's own `m_fontName` IS
+ * that string (stroke_font.cpp:189).
+ *
+ * The installed faces are the one divergence we cannot close: a browser cannot
+ * enumerate system fonts without the Local Font Access permission and its
+ * prompt. So the list stops at the two KiCad entries — the same pair our own
+ * schematic text and label dialogs already offer.
  */
 const FACE_CHOICES: readonly ComboOption[] = [
-  { value: '', label: 'Default Font (KiCad Font)' },
-  { value: 'sans-serif', label: 'Sans-serif' },
-  { value: 'serif', label: 'Serif' },
-  { value: 'monospace', label: 'Monospace' },
+  { value: '', label: 'Default Font' },
+  { value: KICAD_FONT_NAME, label: KICAD_FONT_NAME },
 ];
 
 /** TB_DEFAULT_TEXTSIZE and the standard default pen widths (ds_data_model). */
 const DEFAULT_TEXTSIZE = 1.5;
 const DEFAULT_WIDTH = 0.15;
+
+/*
+ * The `validateMM` ranges, in millimetres — `validateMM( binder, min, max )`
+ * is `UNIT_BINDER::Validate( min, max, EDA_UNITS::MM )`, so the limits stay in
+ * mm however the field is displayed. Every call site upstream is listed; a
+ * field NOT in this list is deliberately unchecked there, and adding a range
+ * to one would be as wrong as dropping one from these.
+ */
+
+/** DLG_MIN_TEXTSIZE / DLG_MAX_TEXTSIZE (properties_frame.cpp:49-50). */
+const DLG_MIN_TEXTSIZE = 0.01;
+const DLG_MAX_TEXTSIZE = 100.0;
+
+/** An item's pen width (:529) and the sheet's default line width (:204). */
+const LINE_WIDTH_RANGE: UnitRange = { min: 0.0, max: 10.0 };
+
+/**
+ * An item's own text size (:611, :614). Zero is legal here and means "use the
+ * sheet default", which is why the minimum is 0 and not DLG_MIN_TEXTSIZE.
+ */
+const ITEM_TEXT_SIZE_RANGE: UnitRange = { min: 0.0, max: DLG_MAX_TEXTSIZE };
+
+/**
+ * The sheet's DEFAULT text size (:207, :210). This one cannot be zero — there
+ * is no further default to fall back to — so an emptied field is refused.
+ */
+const DEFAULT_TEXT_SIZE_RANGE: UnitRange = { min: DLG_MIN_TEXTSIZE, max: DLG_MAX_TEXTSIZE };
+
+/** The sheet's default text thickness (:213). */
+const DEFAULT_TEXT_THICKNESS_RANGE: UnitRange = { min: 0.0, max: 5.0 };
 
 const TYPE_LABEL: Record<WksItem['type'], string> = {
   line: 'Line',
@@ -139,22 +186,6 @@ function NumField({
   );
 }
 
-function MmField(props: {
-  value: number;
-  onCommit: (n: number) => void;
-  step?: number;
-  title?: string;
-}): JSX.Element {
-  return (
-    <>
-      <NumField {...props} />
-      <span className="ze-muted" style={{ fontSize: 11 }}>
-        mm
-      </span>
-    </>
-  );
-}
-
 function CornerCombo({
   value,
   onChange,
@@ -175,19 +206,31 @@ function CornerCombo({
 function PositionGroup({
   title,
   point,
+  units,
   onChange,
 }: {
   title: string;
   point: WksPoint;
+  units: EdaUnits;
   onChange: (p: WksPoint) => void;
 }): JSX.Element {
   return (
     <Group title={title}>
       <Row label="X:">
-        <MmField value={point.x} onCommit={(x) => onChange({ ...point, x })} />
+        <UnitField
+          label="X:"
+          units={units}
+          value={point.x}
+          onCommit={(x) => onChange({ ...point, x })}
+        />
       </Row>
       <Row label="Y:">
-        <MmField value={point.y} onCommit={(y) => onChange({ ...point, y })} />
+        <UnitField
+          label="Y:"
+          units={units}
+          value={point.y}
+          onCommit={(y) => onChange({ ...point, y })}
+        />
       </Row>
       <Row label="From:">
         <CornerCombo value={point.corner} onChange={(corner) => onChange({ ...point, corner })} />
@@ -234,17 +277,26 @@ const hexOf = (c: WksColor | undefined): string => {
 export function PropertiesFrame({
   sheet,
   selectedIndex,
+  units,
   onItemChange,
   onSetupChange,
   onShowSyntaxHelp,
 }: {
   sheet: WksSheet;
   selectedIndex: number;
+  /** The frame's display unit — PROPERTIES_FRAME's parent is the UNITS_PROVIDER. */
+  units: EdaUnits;
   onItemChange: (patch: Partial<WksItem>) => void;
   onSetupChange: (patch: Partial<WksSheet['setup']>) => void;
   onShowSyntaxHelp: () => void;
 }): JSX.Element {
   const [tab, setTab] = useState<'item' | 'general'>('item');
+  /**
+   * UNIT_BINDER::delayedFocusHandler's DisplayErrorMessage box. One per panel,
+   * not one per field: only one binder can be failing at a time, because the
+   * check runs on the focus that leaves it.
+   */
+  const [error, setError] = useState<string | null>(null);
   const item = selectedIndex >= 0 ? sheet.items[selectedIndex] : undefined;
 
   return (
@@ -269,6 +321,8 @@ export function PropertiesFrame({
           item ? (
             <ItemProperties
               item={item}
+              units={units}
+              onError={setError}
               onChange={onItemChange}
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
@@ -278,19 +332,29 @@ export function PropertiesFrame({
             </div>
           )
         ) : (
-          <GeneralOptions setup={sheet.setup} onChange={onSetupChange} />
+          <GeneralOptions
+            setup={sheet.setup}
+            units={units}
+            onError={setError}
+            onChange={onSetupChange}
+          />
         )}
       </div>
+      {error && <MessageDialogError message={error} onClose={() => setError(null)} />}
     </div>
   );
 }
 
 function ItemProperties({
   item,
+  units,
+  onError,
   onChange,
   onShowSyntaxHelp,
 }: {
   item: WksItem;
+  units: EdaUnits;
+  onError: (message: string) => void;
   onChange: (patch: Partial<WksItem>) => void;
   onShowSyntaxHelp: () => void;
 }): JSX.Element {
@@ -298,11 +362,20 @@ function ItemProperties({
   const shape = item.type === 'line' || item.type === 'rect' ? (item as WksLine | WksRect) : null;
   const bitmap = item.type === 'bitmap' ? (item as WksBitmap) : null;
   const poly = item.type === 'polygon' ? (item as WksPoly) : null;
+  /** DS_DATA_ITEM::m_LineWidth — every type but a bitmap has one. */
+  const pen: WksText | WksLine | WksRect | WksPoly | null = t ?? shape ?? poly;
   const patch = onChange as (p: Record<string, unknown>) => void;
 
   return (
     <div>
-      <div className="ze-ds-row" style={{ justifyContent: 'space-between' }}>
+      {/* bSizerButt (properties_frame_base.cpp:25-44): the item type, the
+          Syntax Help link and the page-option choice share one row, and the
+          choice carries NO label - the three entries say what it is. It wraps
+          here rather than clipping, which a wxBoxSizer does not have to do. */}
+      <div
+        className="ze-ds-row"
+        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
+      >
         <b style={{ fontSize: 12 }}>Type: {TYPE_LABEL[item.type]}</b>
         <a
           href="#syntax"
@@ -314,15 +387,14 @@ function ItemProperties({
         >
           Syntax Help
         </a>
-      </div>
-      <Row label="Show:">
         <Combo
-          style={{ flex: 1, minWidth: 0 }}
+          style={{ flex: '1 1 100%', minWidth: 0 }}
+          ariaLabel="First page option"
           value={item.option}
           options={PAGE_CHOICES}
           onChange={(v) => patch({ option: v as WksOption })}
         />
-      </Row>
+      </div>
 
       {t && (
         <>
@@ -431,16 +503,40 @@ function ItemProperties({
             />
           </Row>
           <Row label="Text width:" hint="Set to 0 to use default values">
-            <MmField value={t.fontW} onCommit={(fontW) => patch({ fontW })} />
+            <UnitField
+              label="Text width:"
+              units={units}
+              range={ITEM_TEXT_SIZE_RANGE}
+              onError={onError}
+              value={t.fontW}
+              onCommit={(fontW) => patch({ fontW })}
+            />
           </Row>
           <Row label="Text height:" hint="Set to 0 to use default values">
-            <MmField value={t.fontH} onCommit={(fontH) => patch({ fontH })} />
+            <UnitField
+              label="Text height:"
+              units={units}
+              range={ITEM_TEXT_SIZE_RANGE}
+              onError={onError}
+              value={t.fontH}
+              onCommit={(fontH) => patch({ fontH })}
+            />
           </Row>
           <Row label="Maximum width:" hint="Set to 0 to disable this constraint">
-            <MmField value={t.maxlen} onCommit={(maxlen) => patch({ maxlen })} />
+            <UnitField
+              label="Maximum width:"
+              units={units}
+              value={t.maxlen}
+              onCommit={(maxlen) => patch({ maxlen })}
+            />
           </Row>
           <Row label="Maximum height:" hint="Set to 0 to disable this constraint">
-            <MmField value={t.maxheight} onCommit={(maxheight) => patch({ maxheight })} />
+            <UnitField
+              label="Maximum height:"
+              units={units}
+              value={t.maxheight}
+              onCommit={(maxheight) => patch({ maxheight })}
+            />
           </Row>
           <div className="ze-muted" style={{ fontSize: 10, margin: '0 6px 4px' }}>
             Set to 0 to disable a constraint
@@ -461,6 +557,7 @@ function ItemProperties({
       {(t || bitmap || poly) && (
         <PositionGroup
           title="Position"
+          units={units}
           point={(t ?? bitmap ?? poly)!.pos}
           onChange={(pos) => patch({ pos })}
         />
@@ -469,70 +566,66 @@ function ItemProperties({
         <>
           <PositionGroup
             title="Position"
+            units={units}
             point={shape.start}
             onChange={(start) => patch({ start })}
           />
           <PositionGroup
             title="End Position"
+            units={units}
             point={shape.end}
             onChange={(end) => patch({ end })}
           />
-          <Row label="Line thickness:" hint="Set to 0 to use default values">
-            <MmField
-              step={0.05}
-              value={shape.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
         </>
       )}
-      {t && (
-        <>
-          <Row label="Text thickness:" hint="Set to 0 to use default values">
-            <MmField
-              step={0.05}
-              value={t.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
-          <Row label="Rotation:">
-            <NumField step={90} value={t.rotate} onCommit={(rotate) => patch({ rotate })} />
-            <span className="ze-muted" style={{ fontSize: 11 }}>
-              deg
-            </span>
-          </Row>
-        </>
+
+      {/*
+       * gbSizer1 (properties_frame_base.cpp:350-380): Line width, Rotation and
+       * Bitmap DPI, in that order and outside every type branch, because
+       * upstream builds each of them ONCE and Show()s it per type
+       * (properties_frame.cpp:359-379).
+       *
+       * m_lineWidth is a single binder over DS_DATA_ITEM::m_LineWidth, so a
+       * line, a rectangle, a text and a polygon all label it "Line width:".
+       * We used to split it into "Line thickness:" for shapes and an invented
+       * "Text thickness:" row for text - and "Text thickness:" is a real
+       * label, but it belongs to General Options > Default Values, over the
+       * sheet's m_DefaultTextThickness, which is a different value entirely.
+       */}
+      {!bitmap && pen && (
+        <Row label="Line width:" hint="Set to 0 to use default values">
+          <UnitField
+            label="Line width:"
+            units={units}
+            range={LINE_WIDTH_RANGE}
+            onError={onError}
+            value={pen.lineWidth}
+            onCommit={(lineWidth) => patch({ lineWidth })}
+          />
+        </Row>
       )}
-      {poly && (
-        <>
-          <Row label="Line thickness:">
-            <MmField
-              step={0.05}
-              value={poly.lineWidth}
-              onCommit={(lineWidth) => patch({ lineWidth })}
-            />
-          </Row>
-          <Row label="Rotation:">
-            <NumField step={90} value={poly.rotate} onCommit={(rotate) => patch({ rotate })} />
-            <span className="ze-muted" style={{ fontSize: 11 }}>
-              deg
-            </span>
-          </Row>
-        </>
+      {/* Rotation carries no unit label: m_textCtrlRotation has no
+          m_*Units static text beside it, and its value goes through
+          DoubleValueFromString with EDA_UNITS::UNSCALED. */}
+      {(t || poly) && (
+        <Row label="Rotation:">
+          <NumField
+            step={90}
+            value={(t ?? poly)!.rotate}
+            onCommit={(rotate) => patch({ rotate })}
+          />
+        </Row>
       )}
+      {/* A bitmap gets Bitmap DPI and nothing else - there is no Scale row
+          upstream, because the scale IS the DPI (DS_DATA_ITEM_BITMAP::SetPPI). */}
       {bitmap && (
-        <>
-          <Row label="Bitmap DPI:">
-            <NumField
-              step={1}
-              value={bitmap.ppi}
-              onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
-            />
-          </Row>
-          <Row label="Scale:">
-            <NumField step={0.1} value={bitmap.scale} onCommit={(scale) => patch({ scale })} />
-          </Row>
-        </>
+        <Row label="Bitmap DPI:">
+          <NumField
+            step={1}
+            value={bitmap.ppi}
+            onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
+          />
+        </Row>
       )}
 
       <Group title="Repeat Parameters">
@@ -556,10 +649,20 @@ function ItemProperties({
           </Row>
         )}
         <Row label="Step X:" hint="Distance on the X axis to step for each repeat.">
-          <MmField value={item.incrx} onCommit={(incrx) => patch({ incrx })} />
+          <UnitField
+            label="Step X:"
+            units={units}
+            value={item.incrx}
+            onCommit={(incrx) => patch({ incrx })}
+          />
         </Row>
         <Row label="Step Y:" hint="Distance to step on Y axis for each repeat.">
-          <MmField value={item.incry} onCommit={(incry) => patch({ incry })} />
+          <UnitField
+            label="Step Y:"
+            units={units}
+            value={item.incry}
+            onCommit={(incry) => patch({ incry })}
+          />
         </Row>
       </Group>
     </div>
@@ -568,30 +671,54 @@ function ItemProperties({
 
 function GeneralOptions({
   setup,
+  units,
+  onError,
   onChange,
 }: {
   setup: WksSheet['setup'];
+  units: EdaUnits;
+  onError: (message: string) => void;
   onChange: (patch: Partial<WksSheet['setup']>) => void;
 }): JSX.Element {
   return (
     <div>
       <Group title="Default Values">
         <Row label="Text width:">
-          <MmField value={setup.textW} onCommit={(textW) => onChange({ textW })} />
+          <UnitField
+            label="Text width:"
+            units={units}
+            range={DEFAULT_TEXT_SIZE_RANGE}
+            onError={onError}
+            value={setup.textW}
+            onCommit={(textW) => onChange({ textW })}
+          />
         </Row>
         <Row label="Text height:">
-          <MmField value={setup.textH} onCommit={(textH) => onChange({ textH })} />
+          <UnitField
+            label="Text height:"
+            units={units}
+            range={DEFAULT_TEXT_SIZE_RANGE}
+            onError={onError}
+            value={setup.textH}
+            onCommit={(textH) => onChange({ textH })}
+          />
         </Row>
         <Row label="Line thickness:">
-          <MmField
-            step={0.05}
+          <UnitField
+            label="Line thickness:"
+            units={units}
+            range={LINE_WIDTH_RANGE}
+            onError={onError}
             value={setup.lineWidth}
             onCommit={(lineWidth) => onChange({ lineWidth })}
           />
         </Row>
         <Row label="Text thickness:">
-          <MmField
-            step={0.05}
+          <UnitField
+            label="Text thickness:"
+            units={units}
+            range={DEFAULT_TEXT_THICKNESS_RANGE}
+            onError={onError}
             value={setup.textLineWidth}
             onCommit={(textLineWidth) => onChange({ textLineWidth })}
           />
@@ -612,21 +739,37 @@ function GeneralOptions({
           </button>
         </div>
       </Group>
+      {/* Deliberately unvalidated on both sides: CopyPrmsFromPanelToGeneral
+          assigns the four margins with no validateMM call at all. */}
       <Group title="Page Margins">
         <Row label="Left:">
-          <MmField value={setup.leftMargin} onCommit={(leftMargin) => onChange({ leftMargin })} />
+          <UnitField
+            label="Left:"
+            units={units}
+            value={setup.leftMargin}
+            onCommit={(leftMargin) => onChange({ leftMargin })}
+          />
         </Row>
         <Row label="Right:">
-          <MmField
+          <UnitField
+            label="Right:"
+            units={units}
             value={setup.rightMargin}
             onCommit={(rightMargin) => onChange({ rightMargin })}
           />
         </Row>
         <Row label="Top:">
-          <MmField value={setup.topMargin} onCommit={(topMargin) => onChange({ topMargin })} />
+          <UnitField
+            label="Top:"
+            units={units}
+            value={setup.topMargin}
+            onCommit={(topMargin) => onChange({ topMargin })}
+          />
         </Row>
         <Row label="Bottom:">
-          <MmField
+          <UnitField
+            label="Bottom:"
+            units={units}
             value={setup.bottomMargin}
             onCommit={(bottomMargin) => onChange({ bottomMargin })}
           />
