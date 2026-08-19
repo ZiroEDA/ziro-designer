@@ -71,7 +71,6 @@ export interface SchTableValues {
   readonly separatorColor?: TableColor;
 }
 
-
 /**
  * The style a stored stroke selects in the combo.
  *
