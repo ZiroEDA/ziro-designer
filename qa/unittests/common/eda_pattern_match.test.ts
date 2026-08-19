@@ -3,6 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import {
+  CombinedMatcherContext,
   EdaCombinedMatcher,
   searchTerm,
   type SearchTerm,
@@ -63,5 +64,50 @@ describe('EdaCombinedMatcher', () => {
   it('returns zero when nothing matches', () => {
     const m = new EdaCombinedMatcher('zzz');
     expect(m.scoreTerms(deviceR()).score).toBe(0);
+  });
+});
+
+/**
+ * EDA_COMBINED_MATCHER's CTX_NETCLASS arm (eda_pattern_match.cpp:413): an
+ * anchored regex matcher and an anchored wildcard matcher, and nothing else —
+ * no substring matcher, and no case folding.
+ */
+describe('EdaCombinedMatcher in CTX_NETCLASS', () => {
+  const netclass = (pattern: string) =>
+    new EdaCombinedMatcher(pattern, CombinedMatcherContext.NETCLASS);
+
+  it('has no substring matcher, unlike every other context', () => {
+    expect(netclass('GND').startsWith('GNDA')).toBe(false);
+    // CTX_LIBITEM does fall back to the substring matcher.
+    expect(new EdaCombinedMatcher('GND').find('AGND')).toBe(1);
+  });
+
+  it('builds the anchored wildcard matcher even with no * or ? in the pattern', () => {
+    // `+3V3` is not a compilable regex ("nothing to repeat"), so only the
+    // wildcard matcher survives — and it must still exist.
+    expect(netclass('+3V3').startsWith('+3V3')).toBe(true);
+    expect(netclass('+3V3').startsWith('+3V3A')).toBe(false);
+  });
+
+  it('anchors both matchers, so StartsWith means "matches the whole name"', () => {
+    expect(netclass('D*').startsWith('D1')).toBe(true);
+    expect(netclass('*D').startsWith('SD')).toBe(true);
+    expect(netclass('D').startsWith('D1')).toBe(false);
+  });
+
+  it('does not fold case', () => {
+    expect(netclass('GND').startsWith('gnd')).toBe(false);
+    expect(netclass('GND').startsWith('GND')).toBe(true);
+  });
+
+  it('anchors per alternation branch, and StartsWith wants position 0', () => {
+    // REGEX_ANCHORED wraps the whole pattern, so `a|b` compiles to `^a|b$` and
+    // the anchors bind to their own branch. StartsWith takes a match at 0, so
+    // the `^a` branch matches "ax" while the `b$` branch matching "xb" at
+    // position 1 does not. This is wxRegEx GetMatch's answer too.
+    expect(netclass('a|b').startsWith('ax')).toBe(true);
+    expect(netclass('a|b').startsWith('xb')).toBe(false);
+    expect(netclass('a|b').startsWith('a')).toBe(true);
+    expect(netclass('a|b').startsWith('b')).toBe(true);
   });
 });

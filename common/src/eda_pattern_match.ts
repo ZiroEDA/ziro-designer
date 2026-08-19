@@ -10,6 +10,12 @@
  * plain substring, "whatever syntax users prefer, it shall be matched"
  * (CTX_LIBITEM). The relational matcher (`pins>4`) is not ported: the web
  * library index carries no per-item numeric fields to relate against.
+ *
+ * The context argument selects which matchers are built, and it is not a
+ * refinement of one predicate: CTX_NETCLASS builds the two ANCHORED matchers
+ * and nothing else, so a netclass pattern is a whole-string regular expression
+ * OR a whole-string glob, never a substring, and — like wxRegEx::Compile
+ * without wxRE_ICASE — it is case-sensitive.
  */
 
 /** One weighted search term of a tree item (upstream SEARCH_TERM, lib_tree_item.h). */
@@ -72,6 +78,66 @@ function regexMatcher(pattern: string): PatternMatcher | null {
   }
 }
 
+/** The characters EDA_PATTERN_MATCH_WILDCARD escapes on its way to a regex. */
+const WILDCARD_ESCAPES = new Set([...'.*+?^${}()|[]/\\']);
+
+/** EDA_PATTERN_MATCH_WILDCARD::SetPattern's wildcard -> regex translation. */
+function wildcardToRegex(pattern: string): string {
+  let out = '';
+  for (const c of pattern) {
+    if (c === '?') out += '.';
+    else if (c === '*') out += '.*';
+    else if (WILDCARD_ESCAPES.has(c)) out += `\\${c}`;
+    else out += c;
+  }
+  return out;
+}
+
+/**
+ * EDA_PATTERN_MATCH_WILDCARD_ANCHORED: the same translation wrapped in `^`/`$`.
+ * Unlike the unanchored form this is built even for a pattern with no `*` or
+ * `?` in it, because anchoring alone changes what the pattern means.
+ */
+function wildcardAnchoredMatcher(pattern: string): PatternMatcher | null {
+  try {
+    const re = new RegExp(`^${wildcardToRegex(pattern)}$`);
+    return { find: (candidate) => candidate.search(re) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * EDA_PATTERN_MATCH_REGEX_ANCHORED: `^` and `$` are added if absent and the
+ * result is compiled as a regular expression. Case-sensitive, as
+ * wxRegEx::Compile( …, wxRE_ADVANCED ) is. A pattern that will not compile
+ * yields no matcher at all (EDA_COMBINED_MATCHER::AddMatcher drops it).
+ */
+function regexAnchoredMatcher(pattern: string): PatternMatcher | null {
+  let anchored = pattern;
+  if (!anchored.startsWith('^')) anchored = `^${anchored}`;
+  if (!anchored.endsWith('$')) anchored = `${anchored}$`;
+  try {
+    const re = new RegExp(anchored);
+    return { find: (candidate) => candidate.search(re) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * COMBINED_MATCHER_CONTEXT. CTX_NET, CTX_SIGNAL and CTX_SEARCH build regex +
+ * wildcard + substring, which is what CTX_LIBITEM does here too once the
+ * unported relational matcher is set aside; CTX_NETCLASS is the odd one out.
+ */
+export enum CombinedMatcherContext {
+  LIBITEM = 'libitem',
+  NET = 'net',
+  NETCLASS = 'netclass',
+  SIGNAL = 'signal',
+  SEARCH = 'search',
+}
+
 /**
  * EDA_COMBINED_MATCHER (context CTX_LIBITEM): one search token matched through
  * every syntax the token could plausibly be.
@@ -80,8 +146,17 @@ export class EdaCombinedMatcher {
   private readonly pattern: string;
   private readonly matchers: PatternMatcher[] = [];
 
-  constructor(pattern: string) {
+  constructor(pattern: string, context = CombinedMatcherContext.LIBITEM) {
     this.pattern = pattern;
+
+    if (context === CombinedMatcherContext.NETCLASS) {
+      const anchoredRegex = regexAnchoredMatcher(pattern);
+      if (anchoredRegex) this.matchers.push(anchoredRegex);
+      const anchoredWildcard = wildcardAnchoredMatcher(pattern);
+      if (anchoredWildcard) this.matchers.push(anchoredWildcard);
+      return;
+    }
+
     const regex = regexMatcher(pattern);
     if (regex) this.matchers.push(regex);
     const wildcard = wildcardMatcher(pattern);
@@ -103,6 +178,18 @@ export class EdaCombinedMatcher {
       if (at >= 0 && (position === NOT_FOUND || at < position)) position = at;
     }
     return position;
+  }
+
+  /**
+   * EDA_COMBINED_MATCHER::StartsWith, true when any one matcher matches from
+   * position 0. Both CTX_NETCLASS matchers are anchored, so for a netclass
+   * pattern this reads as "the whole net name is described by the pattern".
+   */
+  startsWith(term: string): boolean {
+    for (const matcher of this.matchers) {
+      if (matcher.find(term) === 0) return true;
+    }
+    return false;
   }
 
   /**

@@ -15,23 +15,37 @@
  * filter on the second.
  */
 
+import { CombinedMatcherContext, EdaCombinedMatcher } from '@ziroeda/common';
+
 /** One `net_settings.netclass_patterns` row. */
 export interface NetClassAssignmentLike {
   pattern: string;
   netClass: string;
 }
 
-/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
-export function globMatches(pattern: string, text: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
+/**
+ * Upstream keeps one EDA_COMBINED_MATCHER per assignment row for the life of
+ * the NET_SETTINGS (net_settings.cpp:614); we are handed plain strings, so
+ * cache by pattern instead of recompiling two regexes per net per repaint.
+ */
+const MATCHERS = new Map<string, EdaCombinedMatcher>();
+
+/**
+ * `EDA_COMBINED_MATCHER( pattern, CTX_NETCLASS ).StartsWith( netName )`, the
+ * predicate NET_SETTINGS::GetEffectiveNetClass applies (net_settings.cpp:807).
+ *
+ * CTX_NETCLASS is NOT a glob: it builds an anchored regular-expression matcher
+ * AND an anchored wildcard matcher, and a net is selected when either fires.
+ * So `.`, `+`, `[]`, `|` and friends keep their regex meaning on top of their
+ * literal one, and — no wxRE_ICASE — the match is case-sensitive.
+ */
+export function netclassMatches(pattern: string, netName: string): boolean {
+  let matcher = MATCHERS.get(pattern);
+  if (!matcher) {
+    matcher = new EdaCombinedMatcher(pattern, CombinedMatcherContext.NETCLASS);
+    MATCHERS.set(pattern, matcher);
   }
+  return matcher.startsWith(netName);
 }
 
 /**
@@ -40,7 +54,7 @@ export function globMatches(pattern: string, text: string): boolean {
  */
 export function netClassFor(name: string, assignments: readonly NetClassAssignmentLike[]): string {
   for (const assignment of assignments) {
-    if (globMatches(assignment.pattern, name)) return assignment.netClass;
+    if (netclassMatches(assignment.pattern, name)) return assignment.netClass;
   }
   return 'Default';
 }
@@ -63,7 +77,7 @@ export function netclassesForNet(
 
   for (const assignment of assignments) {
     if (!assignment.pattern || !assignment.netClass) continue;
-    if (!globMatches(assignment.pattern, name)) continue;
+    if (!netclassMatches(assignment.pattern, name)) continue;
     if (!out.includes(assignment.netClass)) out.push(assignment.netClass);
   }
 

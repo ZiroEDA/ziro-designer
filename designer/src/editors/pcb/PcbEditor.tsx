@@ -232,7 +232,7 @@ import {
 } from './dialogs/dialog_position_relative.js';
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
-import { netClassFor, netclassesForNet } from './netclass_resolve.js';
+import { netClassFor, netclassesForNet, netclassMatches } from './netclass_resolve.js';
 import { toggleObject, type ObjectState } from './pcb_objects.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
@@ -793,18 +793,6 @@ const LAYER_DISPLAY_NAMES: Record<string, string> = {
   'Eco2.User': 'User.Eco2',
   'F.CrtYd': 'F.Courtyard',
   'B.CrtYd': 'B.Courtyard',
-};
-
-// Wildcard match for netclass_patterns ('*' and '?', like EDA_COMBINED_MATCHER).
-const wildcardMatch = (pattern: string, s: string): boolean => {
-  const rx = new RegExp(
-    `^${pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.')}$`,
-    'i',
-  );
-  return rx.test(s);
 };
 
 // Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
@@ -6506,7 +6494,7 @@ export function PcbEditor({
     const m = new Map<number, string>();
     if (board) {
       for (const [code, name] of board.nets) {
-        const hit = netclassInfo.patterns.find((p) => wildcardMatch(p.pattern, name));
+        const hit = netclassInfo.patterns.find((p) => netclassMatches(p.pattern, name));
         m.set(code, hit?.netclass ?? 'Default');
       }
     }
