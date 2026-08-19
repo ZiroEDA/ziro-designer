@@ -99,6 +99,8 @@ export {
   findItemsFromSyncSelection,
   crossProbeZoomScale,
   crossProbeViewChange,
+  crossProbeSelection,
+  crossProbeHighlightNet,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,

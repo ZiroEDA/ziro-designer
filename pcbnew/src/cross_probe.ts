@@ -252,3 +252,43 @@ export function crossProbeFlashSelection(
   if (phase > CROSS_PROBE_FLASH_LAST_PHASE) return ids;
   return phase % 2 === 0 ? [] : ids;
 }
+
+/**
+ * The board items a `$SELECT:` packet should select, or null when the packet is
+ * refused and the selection must be left exactly as the user left it.
+ *
+ * `case MAIL_SELECTION: if( !...on_selection ) break;` (pcbnew/cross-probing.cpp:
+ * 733-736). The check sits on `MAIL_SELECTION` alone and `MAIL_SELECTION_FORCE`
+ * falls in below it, so a forced probe — the one the cross-probe menu commands
+ * issue explicitly — is not subject to the preference.
+ */
+export function crossProbeSelection(
+  cfg: CrossProbingSettings,
+  board: Board,
+  parts: readonly string[],
+  force = false,
+): string[] | null {
+  if (!cfg.on_selection && !force) return null;
+  return findItemsFromSyncSelection(board, parts);
+}
+
+/**
+ * The net code a `$NET: <name>` probe should highlight: null to refuse the probe
+ * outright, 0 for "no such net" (which clears the highlight, upstream's
+ * `SetHighlight( false )` when `netcode <= 0`).
+ *
+ * `if( !crossProbingSettings.auto_highlight ) return;` (pcbnew/cross-probing.cpp:
+ * 140) returns *before* the highlight is touched, which is the difference
+ * between the two zero-ish answers: refusing leaves whatever was highlighted
+ * alone, while an unknown net clears it.
+ */
+export function crossProbeHighlightNet(
+  cfg: CrossProbingSettings,
+  board: Board,
+  netName: string | null,
+): number | null {
+  if (!cfg.auto_highlight) return null;
+  if (!netName) return 0;
+  for (const [code, name] of board.nets) if (name === netName) return code;
+  return 0;
+}

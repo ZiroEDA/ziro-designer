@@ -131,7 +131,8 @@ import {
   moveImage,
   startPlaceImage,
   type ImagePlaceState,
-  findItemsFromSyncSelection,
+  crossProbeSelection,
+  crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -1027,20 +1028,14 @@ export function PcbEditor({
   // "$NET: <name>" express-mail handler does.
   useEffect(() => {
     if (crossProbeNet === undefined) return;
-    // "$NET:" is refused outright when auto_highlight is off
-    // (pcbnew/cross-probing.cpp:140), so an existing highlight is left alone
-    // rather than cleared.
-    if (!settings.pcbnew.cross_probing.auto_highlight) return;
     const brd = boardRef.current;
-    let code = 0;
-    if (crossProbeNet && brd) {
-      for (const [c, name] of brd.nets) {
-        if (name === crossProbeNet) {
-          code = c;
-          break;
-        }
-      }
-    }
+    if (!brd) return;
+    // null is "$NET:" refused because auto_highlight is off
+    // (pcbnew/cross-probing.cpp:140): the probe returns before touching the
+    // highlight, so whatever is lit stays lit. 0 is "no such net", which does
+    // clear it.
+    const code = crossProbeHighlightNet(settings.pcbnew.cross_probing, brd, crossProbeNet);
+    if (code === null) return;
     setHighlightNets((prev) => {
       if (code <= 0) return prev.size === 0 ? prev : new Set();
       if (prev.size === 1 && prev.has(code)) return prev;
@@ -3490,11 +3485,10 @@ export function PcbEditor({
     const canvas = canvasRef.current;
     if (!brd) return;
     const cfg = settings.pcbnew.cross_probing;
-    // `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet is
-    // dropped whole, so the existing selection stays as the user left it.
-    if (!cfg.on_selection) return;
-
-    const ids = findItemsFromSyncSelection(brd, syncPartsRef.current ?? []);
+    // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
+    // is dropped whole, so the existing selection stays as the user left it.
+    const ids = crossProbeSelection(cfg, brd, syncPartsRef.current ?? []);
+    if (ids === null) return;
     setSelection(new Set(ids));
 
     // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
