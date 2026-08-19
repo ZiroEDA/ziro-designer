@@ -135,48 +135,17 @@ import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
 
-/**
- * `RENDER_SETTINGS`, reduced to the four accessors the plotter reaches for.
- * Injected rather than imported because pcbnew/src must not reach into
- * designer/'s theme. `psRenderSettings` below builds a faithful one.
- */
-export interface PsRenderSettings {
-  GetDefaultPenWidth(): number;
-  GetDashLength(aLineWidth: number): number;
-  GetDotLength(aLineWidth: number): number;
-  GetGapLength(aLineWidth: number): number;
-}
+// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
+// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
+// object for a dash length. Re-exported under the names this module used.
+export {
+  DEFAULT_DASH_LENGTH_RATIO,
+  DEFAULT_GAP_LENGTH_RATIO,
+  type PlotterRenderSettings as PsRenderSettings,
+  plotterRenderSettings as psRenderSettings,
+} from '@ziroeda/common/src/render_settings.js';
 
-/**
- * `correction` (render_settings.cpp). The file offers 0.8 ("looks best
- * visually") behind an `#if 0` and compiles 1.0; the dead value is not an
- * option, it is dead.
- */
-const DASH_CORRECTION = 1.0;
-
-/** RENDER_SETTINGS' ISO 128-2 defaults, and m_defaultPenWidth's bare zero. */
-export const DEFAULT_DASH_LENGTH_RATIO = 12;
-export const DEFAULT_GAP_LENGTH_RATIO = 3;
-
-/**
- * `RENDER_SETTINGS::GetDashLength` / `GetDotLength` / `GetGapLength`. The dot
- * length ignores both ratios and is floored at 0.2 of the width, which is what
- * keeps a dot from collapsing to a zero-length line.
- */
-export function psRenderSettings(
-  aOptions: { defaultPenWidth?: number; dashLengthRatio?: number; gapLengthRatio?: number } = {},
-): PsRenderSettings {
-  const defaultPenWidth = aOptions.defaultPenWidth ?? 0;
-  const dashLengthRatio = aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO;
-  const gapLengthRatio = aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO;
-
-  return {
-    GetDefaultPenWidth: () => defaultPenWidth,
-    GetDashLength: (aLineWidth) => Math.max(dashLengthRatio - DASH_CORRECTION, 1.0) * aLineWidth,
-    GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
-    GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
-  };
-}
+import type { PlotterRenderSettings as PsRenderSettings } from '@ziroeda/common/src/render_settings.js';
 
 /**
  * `PAGE_INFO`, reduced to the six accessors SetViewport and StartPlot make on

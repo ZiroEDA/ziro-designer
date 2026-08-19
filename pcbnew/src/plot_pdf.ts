@@ -133,35 +133,29 @@ export interface PdfBox2 {
   size: Vec2;
 }
 
+// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
+// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
+// object for a dash length.
+export {
+  DEFAULT_DASH_LENGTH_RATIO,
+  DEFAULT_GAP_LENGTH_RATIO,
+} from '@ziroeda/common/src/render_settings.js';
+import {
+  type PlotterRenderSettings,
+  plotterRenderSettings,
+} from '@ziroeda/common/src/render_settings.js';
+
 /**
- * `RENDER_SETTINGS`, reduced to the five accessors the plotter reaches for.
- * Injected rather than imported because pcbnew/src must not reach into
- * designer/'s theme. `pdfRenderSettings` below builds a faithful one.
+ * `RENDER_SETTINGS` plus the one accessor only the PDF backend reaches for.
  */
-export interface PdfRenderSettings {
-  GetDefaultPenWidth(): number;
-  GetDashLength(aLineWidth: number): number;
-  GetDotLength(aLineWidth: number): number;
-  GetGapLength(aLineWidth: number): number;
+export interface PdfRenderSettings extends PlotterRenderSettings {
   /** Only masked image pixels consult this; PDF has no page background. */
   GetBackgroundColor(): Color4d;
 }
 
 /**
- * `correction` (render_settings.cpp). The file offers 0.8 ("looks best
- * visually") behind an `#if 0` and compiles 1.0; the dead value is not an
- * option, it is dead.
- */
-const DASH_CORRECTION = 1.0;
-
-/** RENDER_SETTINGS' ISO 128-2 defaults, and m_defaultPenWidth's bare zero. */
-export const DEFAULT_DASH_LENGTH_RATIO = 12;
-export const DEFAULT_GAP_LENGTH_RATIO = 3;
-
-/**
- * `RENDER_SETTINGS::GetDashLength` / `GetDotLength` / `GetGapLength`. The dot
- * length ignores both ratios and is floored at 0.2 of the width, which is what
- * keeps a dot from collapsing to a zero-length line.
+ * `plotterRenderSettings` plus the background colour. COLOR4D_WHITE is the
+ * default because that is what an unset PCB background reads back as.
  */
 export function pdfRenderSettings(
   aOptions: {
@@ -171,16 +165,10 @@ export function pdfRenderSettings(
     backgroundColor?: Color4d;
   } = {},
 ): PdfRenderSettings {
-  const defaultPenWidth = aOptions.defaultPenWidth ?? 0;
-  const dashLengthRatio = aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO;
-  const gapLengthRatio = aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO;
   const backgroundColor = aOptions.backgroundColor ?? COLOR4D_WHITE;
 
   return {
-    GetDefaultPenWidth: () => defaultPenWidth,
-    GetDashLength: (aLineWidth) => Math.max(dashLengthRatio - DASH_CORRECTION, 1.0) * aLineWidth,
-    GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
-    GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
+    ...plotterRenderSettings(aOptions),
     GetBackgroundColor: () => backgroundColor,
   };
 }
