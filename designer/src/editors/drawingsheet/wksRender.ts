@@ -24,6 +24,7 @@ import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
 // KiCad's italic shear (common/font/font.h ITALIC_TILT = 1/8).
 const ITALIC_TILT = 1 / 8;
 import { getBitmapImage } from './wksBitmap.js';
+import { brightness, parseColor4d } from '../../render/color4d.js';
 
 /** IU per inch: 25.4 mm/in · 10000 IU/mm. */
 const IU_PER_INCH = 254000;
@@ -34,6 +35,27 @@ export const DS_PAGE_COLOR = '#ffffff';
 export const DS_BG_COLOR = '#4a4a52';
 /** Black-background display option (pl_editor_settings `black_background`). */
 export const DS_BG_COLOR_DARK = '#000000';
+
+/**
+ * `DS_RENDER_SETTINGS::GetGridColor` / `GetCursorColor`
+ * (`include/drawing_sheet/ds_painter.h:71-81`). pl_editor is the one frame that
+ * does not read a COLOR_SETTINGS layer for these: it picks off the background's
+ * luma, DARKGRAY/WHITE on a dark canvas and LIGHTGRAY/BLACK on a light one.
+ * DARKGRAY and LIGHTGRAY are `common/gal/color4d.cpp:46-47`.
+ */
+export const DS_GRID_COLOR_ON_DARK = 'rgb(132, 132, 132)'; // DARKGRAY
+export const DS_GRID_COLOR_ON_LIGHT = 'rgb(194, 194, 194)'; // LIGHTGRAY
+export const DS_CURSOR_COLOR_ON_DARK = 'rgb(255, 255, 255)'; // WHITE
+export const DS_CURSOR_COLOR_ON_LIGHT = 'rgb(0, 0, 0)'; // BLACK
+
+/**
+ * `DS_RENDER_SETTINGS::IsBackgroundDark()` (`ds_painter.h:57-61`):
+ * `COLOR4D::GetBrightness()` — the weighted W3C formula
+ * `r*0.299 + g*0.587 + b*0.117` (`include/gal/color4d.h:334-338`) — below 0.5.
+ */
+export function dsBackgroundIsDark(background: string): boolean {
+  return brightness(parseColor4d(background)) < 0.5;
+}
 export const DS_HILITE_COLOR = '#4aa3ff';
 /** DS_RENDER_SETTINGS m_brightenedColor: hover highlight of the delete picker. */
 export const DS_BRIGHTENED_COLOR = 'rgba(0,230,0,0.9)';
