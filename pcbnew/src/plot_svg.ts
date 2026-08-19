@@ -96,9 +96,20 @@ export enum PLOT_TEXT_MODE {
   DEFAULT,
 }
 
-/** `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h). */
-export const DO_NOT_SET_LINE_WIDTH = -2;
-export const USE_DEFAULT_LINE_WIDTH = -1;
+/**
+ * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
+ * Statics on the base upstream, so one declaration here, re-exported for the
+ * callers that reach for them through this module.
+ */
+export {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
+
+import {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
 
 /** COLOR4D, components in 0..1. Equality includes alpha, as COLOR4D's does. */
 export interface Color4d {
