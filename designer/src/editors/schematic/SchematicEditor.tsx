@@ -405,7 +405,7 @@ import { DEFAULT_SETUP } from '@ziroeda/common/src/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './theme.js';
 import { LoadingOverlay, nextPaint } from '../../ui/LoadingOverlay.js';
 import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
-import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
 import {
   useCommonSettings,

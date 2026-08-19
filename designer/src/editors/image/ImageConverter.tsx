@@ -31,7 +31,7 @@ import {
   REPLACE_LOADED_FILE_ICON,
   REPLACE_LOADED_FILE_MESSAGE,
 } from './dropFile.js';
-import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { Reporter } from '@ziroeda/common/src/reporter.js';
 import { bitmapDepth, imageMeta } from './imageMeta.js';
 import {

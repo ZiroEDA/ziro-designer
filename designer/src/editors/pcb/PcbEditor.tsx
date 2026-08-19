@@ -341,7 +341,7 @@ import {
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { PreferencesDialog } from '../../prefs/PreferencesDialog.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { standardHelpMenu } from '../../ui/help_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';

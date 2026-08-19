@@ -29,7 +29,7 @@
  * schematic's action registry.
  */
 import { useEffect, useState, type JSX } from 'react';
-import { PanelHotkeysEditor } from '../prefs/PanelHotkeysEditor.js';
+import { PanelHotkeysEditor } from '../dialogs/prefs/panels/PanelHotkeysEditor.js';
 import { buildHotkeySections, type HotkeyOverrides } from './hotkeys_inventory.js';
 import { claimBrowserHotkeys, lockReservedKeysWhileFullscreen } from './browser_hotkeys.js';
 import { onShowHotkeyList } from './hotkey_list_action.js';

@@ -77,7 +77,7 @@ export const MAX_FILE_HISTORY_SIZE = 99;
  * `EDA_BASE_FRAME::CommonSettingsChanged` (:975-979) pushes a changed value
  * into the live history with `SetMaxFiles`. We already carry the setting and
  * the spinner (`prefs/settings.ts` `system.file_history_size`,
- * `prefs/PreferencesDialog.tsx:505`); all three of our stores hardcoded 5 and
+ * `dialogs/prefs/panels/PanelCommonSettings.tsx`); all three of our stores hardcoded 5 and
  * ignored it.
  */
 export const DEFAULT_FILE_HISTORY_SIZE = 9;
