@@ -26,7 +26,12 @@ import {
 describe('BuildLibrariesList', () => {
   // The order the footprint library table hands them over in, which is what
   // the pane used to show.
-  const TABLE_ORDER = ['Resistor_SMD', 'Audio_Module', 'Connector_PinHeader_2.54mm', 'Capacitor_SMD'];
+  const TABLE_ORDER = [
+    'Resistor_SMD',
+    'Audio_Module',
+    'Connector_PinHeader_2.54mm',
+    'Capacitor_SMD',
+  ];
 
   it('sorts the unpinned libraries rather than keeping table order', () => {
     expect(buildLibrariesList(TABLE_ORDER)).toEqual([
@@ -202,8 +207,13 @@ describe('listbox type-ahead', () => {
     expect(typeAheadRow(SYMBOLS, 'C')).toBe(0);
   });
 
-  it('is case-insensitive (toupper on both sides)', () => {
+  it('is case-insensitive on BOTH sides (toupper( key ) and toupper( text[jj] ))', () => {
+    // A lowercase key against an uppercase row only proves half of it: upper
+    // the key alone and this still passes. A lowercase *row* is the other half.
     expect(typeAheadRow(SYMBOLS, 'r')).toBe(2);
+    const lowercased = ['  1 lib_smd:part', '  2 Resistor_SMD:R_0805'];
+    expect(typeAheadRow(lowercased, 'L')).toBe(0);
+    expect(typeAheadRow(lowercased, 'l')).toBe(0);
   });
 
   it('skips the line number, so digits do not match it', () => {

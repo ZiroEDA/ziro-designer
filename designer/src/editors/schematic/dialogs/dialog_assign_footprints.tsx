@@ -210,7 +210,10 @@ function VirtualList({
       const next = new Set(selection);
       if (next.has(i)) next.delete(i);
       else next.add(i);
-      onSelectRows([...next].sort((a, b) => a - b), i);
+      onSelectRows(
+        [...next].sort((a, b) => a - b),
+        i,
+      );
       return;
     }
     if (multi && e.shiftKey && focused >= 0) {
@@ -226,7 +229,7 @@ function VirtualList({
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (count === 0) return;
-    const rows = Math.max(1, Math.floor(view.height / ROW_H));
+    const page = Math.max(1, Math.floor(view.height / ROW_H));
     const here = focused < 0 ? 0 : focused;
     let to: number | null = null;
 
@@ -245,10 +248,10 @@ function VirtualList({
         to = Math.min(count - 1, here + 1);
         break;
       case 'PageUp':
-        to = Math.max(0, here - rows);
+        to = Math.max(0, here - page);
         break;
       case 'PageDown':
-        to = Math.min(count - 1, here + rows);
+        to = Math.min(count - 1, here + page);
         break;
       default:
         break;
@@ -473,7 +476,11 @@ export function DialogAssignFootprints({
 
   /** `BuildLibrariesList`: pinned libraries first, both groups StrNumCmp'd. */
   const libRows = useMemo(
-    () => buildLibrariesList(index.map((l) => l.name), settings.common.system.session.pinned_fp_libs),
+    () =>
+      buildLibrariesList(
+        index.map((l) => l.name),
+        settings.common.system.session.pinned_fp_libs,
+      ),
     [index],
   );
   /** The nicknames themselves, for the "Library location:" status line. */
@@ -791,7 +798,9 @@ export function DialogAssignFootprints({
         {
           label: 'Delete Footprint Assignment',
           shortcut: 'Del',
-          disabled: !component || !footprintOf(component),
+          // DeleteAssoc walks the whole selection, so the row is live while
+          // any selected symbol still has a footprint to clear.
+          disabled: !model.selection.some((i) => footprintOf(components[i]!)),
           action: deleteAssoc,
         },
         {
@@ -1051,9 +1060,7 @@ export function DialogAssignFootprints({
                 // no FOOTPRINT_INFO for gets the warning background — which an
                 // *unassigned* symbol is too, GetFootprintInfo("") being null.
                 const warn = indexLoaded && !hasFootprintInfo(knownFootprints, fpid);
-                return (
-                  <span className={warn ? 'ze-cvpcb-warn' : undefined}>{symbolRows[i]}</span>
-                );
+                return <span className={warn ? 'ze-cvpcb-warn' : undefined}>{symbolRows[i]}</span>;
               }}
             />
             {components.length === 0 && (
@@ -1062,10 +1069,7 @@ export function DialogAssignFootprints({
           </section>
 
           {/* Filtered Footprints (FOOTPRINTS_LISTBOX) */}
-          <section
-            className="ze-cvpcb-pane last"
-            style={{ flex: '0 0 30%', position: 'relative' }}
-          >
+          <section className="ze-cvpcb-pane last" style={{ flex: '0 0 30%', position: 'relative' }}>
             <div className="ze-cvpcb-caption">Filtered Footprints</div>
             <VirtualList
               rows={footprintRows}

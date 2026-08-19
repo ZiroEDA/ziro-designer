@@ -5950,6 +5950,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-family: var(--mono, ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace);
   font-size: 12.5px;
 }
+/* The three panes are focusable now (Tab / Shift+Tab / left / right cycle
+   between them, CVPCB_CONTROL::ChangeFocus), so the focused one says so the
+   way a focused wxListView does. */
+.ze-cvpcb-list:focus-visible {
+  outline: 1px solid var(--chrome-active-border);
+  outline-offset: -1px;
+}
 .ze-cvpcb-row {
   position: absolute;
   left: 0;

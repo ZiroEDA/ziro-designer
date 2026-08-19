@@ -132,7 +132,9 @@ export function footprintSelectionAfterRebuild(
     selection = -1;
   } else {
     const old =
-      previousSelected >= 0 && previousSelected < previous.length ? previous[previousSelected]! : '';
+      previousSelected >= 0 && previousSelected < previous.length
+        ? previous[previousSelected]!
+        : '';
     const found = old ? next.indexOf(old) : -1;
     selection = found >= 0 ? found : 0;
   }

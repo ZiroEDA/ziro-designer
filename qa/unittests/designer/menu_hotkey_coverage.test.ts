@@ -66,6 +66,25 @@ const PENDING = [
   'editors/symbol/SymbolEditor.tsx',
 ];
 
+/**
+ * The only modifier reads a converted frame may keep, listed line for line.
+ *
+ * Neither of these claims a key. The first is `wxListCtrl`'s selection
+ * modifiers on a **mouse** event - Ctrl adds a row, Shift ranges - which is
+ * what makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is
+ * built without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
+ * opposite of a hotkey: the listbox type-ahead declining to treat a *modified*
+ * key as a character, exactly as `OnChar` only ever sees unmodified ones.
+ *
+ * Both live inside the pane component, not beside a menu row, and neither
+ * mentions a key. A real competing binding would need `e.key`, and would show
+ * up as a line that is not in this list.
+ */
+const MODIFIER_EXCEPTIONS = [
+  'if (multi && (e.ctrlKey || e.metaKey)) {',
+  'if (e.ctrlKey || e.altKey || e.metaKey) return;',
+];
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -123,8 +142,22 @@ describe('a converted frame has no listener of its own', () => {
     // written a second, competing declaration of a key the menu already owns.
     // Gerber Viewer keeps four *unmodified* canvas keys (m, Esc, +, -), which
     // is why the test looks for the modifier and not for `keydown`.
-    const stray = CONVERTED.filter((rel) => /\b(ctrlKey|metaKey)\b/.test(source(rel)));
+    const stray = CONVERTED.flatMap((rel) =>
+      source(rel)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => /\b(ctrlKey|metaKey)\b/.test(line))
+        .filter((line) => !MODIFIER_EXCEPTIONS.includes(line))
+        .map((line) => `${rel}: ${line}`),
+    );
     expect(stray, 'a converted frame with a hand-written modifier comparison').toEqual([]);
+  });
+
+  it('and every exception is still there to be excused', () => {
+    // A stale entry would quietly widen the rule above, so the exceptions are
+    // asserted present rather than merely tolerated.
+    const all = CONVERTED.flatMap((rel) => source(rel).split('\n')).map((line) => line.trim());
+    expect(MODIFIER_EXCEPTIONS.filter((line) => !all.includes(line))).toEqual([]);
   });
 
   it('keeps only the keys that have no menu row', () => {
