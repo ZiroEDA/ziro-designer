@@ -14,6 +14,7 @@ import { HotkeyListHost } from './ui/dialog_hotkey_list.js';
 import { initTelemetry } from './telemetry/reporter.js';
 import { sentrySink } from './telemetry/sentrySink.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
+import { installOverlayScrollbars } from './ui/overlay_scrollbars.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
 import { updateUserTemplateFiles } from './home/user_templates.js';
@@ -29,6 +30,12 @@ initTelemetry(sentrySink);
 // pointer handler, a key handler or an await — none of which reach a boundary,
 // all of which were going to a console nobody reads.
 installGlobalErrorHandlers();
+// KiCad's scrollbars are GTK3 overlay scrollbars: no layout cost, invisible
+// until the pointer is inside that scrolled window, a 3 px indicator that
+// thickens near the edge. shell.css turns the browser's permanent 15 px ones
+// off; this draws GTK's. Installed at boot rather than per editor because every
+// frame in KiCad gets them from the theme, not from its own code.
+installOverlayScrollbars();
 // The real storage test, at boot. storageAvailable() only proves the API
 // exists; this proves a write/read/delete round-trip lands. Without it the
 // first a user hears of a full or read-only origin is a save failing mid-edit,
