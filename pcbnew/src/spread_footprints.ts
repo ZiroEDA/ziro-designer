@@ -21,6 +21,7 @@
  * same compact arrangement KiCad produces.
  */
 
+import { getTrailingInt } from '@ziroeda/common/src/string_utils.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
 import { boardItemId, moveBoardItems } from './edit-board.js';
@@ -67,19 +68,6 @@ export function getRefDesPrefix(refDes: string): string {
     end--;
   }
   return refDes.slice(0, end);
-}
-
-/** GetTrailingInt, the number the reference designator ends with, 0 when none. */
-export function getTrailingInt(text: string): number {
-  let number = 0;
-  let base = 1;
-  for (let i = text.length - 1; i >= 0; i--) {
-    const ch = text[i]!;
-    if (ch < '0' || ch > '9') break;
-    number += (ch.charCodeAt(0) - 48) * base;
-    base *= 10;
-  }
-  return number;
 }
 
 /** compareFootprintsbyRef, reference prefix, then the trailing number. */

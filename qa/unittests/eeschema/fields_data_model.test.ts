@@ -16,8 +16,6 @@ import {
   INDETERMINATE_STATE,
   loadFieldNames,
   QUANTITY_VARIABLE,
-  strNumCmp,
-  valueStringCompare,
   type BomPresetSpec,
 } from '@ziroeda/eeschema/src/tools/fields_data_model.js';
 
@@ -232,14 +230,5 @@ describe('fields table data model', () => {
     const model = modelOf(doc);
     model.removeColumn(model.getFieldNameCol('MPN'));
     expect(model.applyData().fields.get('root.kicad_sch')!.get('a')).toEqual({ MPN: '' });
-  });
-
-  it('compares references and values the way KiCad does', () => {
-    expect(strNumCmp('R2', 'R10')).toBeLessThan(0);
-    expect(strNumCmp('R10', 'R2')).toBeGreaterThan(0);
-    expect(strNumCmp('r2', 'R2')).toBe(0);
-    expect(valueStringCompare('10uF', '100uF')).toBeLessThan(0);
-    expect(valueStringCompare('1mF', '100uF')).toBeGreaterThan(0);
-    expect(valueStringCompare('4k7', '4k7')).toBe(0);
   });
 });

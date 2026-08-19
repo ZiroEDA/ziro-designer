@@ -256,7 +256,6 @@ export {
   spreadFootprints,
   spreadBoardFootprints,
   getRefDesPrefix,
-  getTrailingInt,
   type SpreadFootprintsOptions,
 } from './spread_footprints.js';
 
@@ -731,7 +730,6 @@ export {
 } from './swap_layers.js';
 
 export {
-  wildCompareString,
   passesGlobalTrackViaFilters,
   applyGlobalTrackViaEdit,
   countGlobalTrackViaTargets,

@@ -21,6 +21,7 @@
  * copies the three values independently, so they resolve independently too.
  */
 
+import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { testDrcCondition, type DrcExprContext } from './drc_expr.js';
 import type {
   DrcConstraint,
@@ -198,20 +199,6 @@ export function buildDrcRuleEngine(
   return { byType, errors };
 }
 
-/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
-function wildcardMatch(pattern: string, text: string): boolean {
-  if (!pattern.includes('*') && !pattern.includes('?')) return pattern === text;
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
-  }
-}
-
 /**
  * `(layer …)`: a layer name, or one of the two groups.
  *
@@ -265,6 +252,12 @@ function contextFor(a: DrcEvalItem | undefined, b: DrcEvalItem | undefined): Drc
  * the aggregate string. A net in `Power` and `HighVoltage` must answer to a
  * rule on either, and a plain string compare against `"Power,HighVoltage"`
  * would answer to neither.
+ *
+ * `PCBEXPR_NETCLASS_VALUE::EqualTo` (pcbnew/pcbexpr_evaluator.cpp:182) splits
+ * on whether the literal contains a wildcard: `WildCompareString( …, false )`
+ * when it does, `ncName.IsSameAs( …, false )` when it does not. Both are
+ * case-INSENSITIVE, and a wildcard-free WildCompareString is exactly that
+ * case-insensitive equality, so one call covers both branches.
  */
 function conditionHolds(
   condition: string | undefined,
@@ -278,7 +271,7 @@ function conditionHolds(
   if (netClassCompare) {
     const item = netClassCompare[1]!.toUpperCase() === 'A' ? a : b;
     const classes = item?.netClasses ?? [];
-    const hit = classes.some((c) => wildcardMatch(netClassCompare[3]!, c));
+    const hit = classes.some((c) => wildCompareString(netClassCompare[3]!, c, false));
     return netClassCompare[2] === '==' ? hit : !hit;
   }
 

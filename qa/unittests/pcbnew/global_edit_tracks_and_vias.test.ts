@@ -17,7 +17,6 @@ import {
   applyGlobalTrackViaEdit,
   countGlobalTrackViaTargets,
   passesGlobalTrackViaFilters,
-  wildCompareString,
 } from '@ziroeda/pcbnew/src/global_edit_tracks_and_vias.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
 
@@ -75,20 +74,21 @@ const board = (over: Partial<Board> = {}): Board => ({
 /** Everything in scope, nothing filtered. */
 const ALL = { tracks: true, throughVias: true, microVias: true, blindVias: true };
 
-describe('the netclass filter is a pattern', () => {
-  it('matches a glob, not just an exact name', () => {
-    // ContainsNetclassWithName runs the filter as a wxString wildcard against
-    // every constituent class. Comparing for equality makes `Power*` match
-    // nothing, which reads as the filter being broken rather than strict.
-    expect(wildCompareString('Power*', 'PowerRail')).toBe(true);
-    expect(wildCompareString('Hi?Speed', 'HiSpeed')).toBe(false);
-    expect(wildCompareString('Hi?Speed', 'Hi-Speed')).toBe(true);
-  });
+describe('the netclass filter is a name, not a pattern', () => {
+  it('compares the chosen netclass name for equality', () => {
+    // dialog_global_edit_tracks_and_vias.cpp:365 —
+    // `netclass->ContainsNetclassWithName( filterNetclass )`, where
+    // filterNetclass is `m_netclassFilter->GetStringSelection()`, one entry of
+    // a wxChoice of the board's netclasses. There is no wildcard here.
+    const b = board({ tracks: [track({ net: 1 })] });
+    const ctx = { netclassOf: () => ['PowerRail'] };
+    const pass = (netclassFilter: string): boolean =>
+      passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter }, ctx);
 
-  it('treats regex metacharacters in the pattern as literals', () => {
-    // A netclass called `Net.Cu` must not match `NetXCu`.
-    expect(wildCompareString('Net.Cu', 'NetXCu')).toBe(false);
-    expect(wildCompareString('Net.Cu', 'Net.Cu')).toBe(true);
+    expect(pass('PowerRail')).toBe(true);
+    expect(pass('Power*')).toBe(false);
+    expect(pass('Power')).toBe(false);
+    expect(pass('powerrail')).toBe(false);
   });
 
   it('searches every constituent class of the net, not one aggregate name', () => {
@@ -98,21 +98,6 @@ describe('the netclass filter is a pattern', () => {
     expect(
       passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter: 'HighSpeed' }, ctx),
     ).toBe(true);
-  });
-
-  it('applies the pattern through the filter, not just in isolation', () => {
-    // The filter has to *use* the wildcard matcher. Testing the matcher alone
-    // leaves the call site free to compare with `includes()`, which passes an
-    // exact-name test and silently fails every real glob a user would type.
-    const b = board({ tracks: [track({ net: 1 })] });
-    const ctx = { netclassOf: () => ['PowerRail'] };
-
-    expect(
-      passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter: 'Power*' }, ctx),
-    ).toBe(true);
-    expect(
-      passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter: 'Signal*' }, ctx),
-    ).toBe(false);
   });
 });
 

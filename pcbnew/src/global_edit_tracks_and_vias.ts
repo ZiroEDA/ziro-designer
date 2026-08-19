@@ -55,7 +55,8 @@ export interface GlobalTrackViaEditOptions {
    * would silently stop anyone filtering for unconnected copper.
    */
   netFilter?: number | null;
-  /** `m_netclassFilter`. A **glob**, matched against every constituent class. */
+  /** `m_netclassFilter`. The chosen netclass **name**, matched for equality
+   *  against every constituent class (`ContainsNetclassWithName`). */
   netclassFilter?: string | null;
   /** `m_layerFilter`. Applies to vias too, against the via's start layer. */
   layerFilter?: string | null;
@@ -88,21 +89,6 @@ export interface GlobalTrackViaEditContext {
   isSelected?: (id: string) => boolean;
   /** The netclass microvia size, which a microvia takes instead of the chosen one. */
   netclassUViaOf?: (net: number) => { diameter?: number; drill?: number };
-}
-
-/**
- * `wxString::Matches`: `*` is any run of characters, `?` is exactly one.
- *
- * The netclass filter is a pattern, not a name. Comparing for equality — which
- * is what the teardrop port next door does — makes `Default*` match nothing and
- * looks like the filter is simply broken.
- */
-export function wildCompareString(pattern: string, value: string): boolean {
-  const rx = pattern
-    .split('')
-    .map((c) => (c === '*' ? '.*' : c === '?' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-    .join('');
-  return new RegExp(`^${rx}$`).test(value);
 }
 
 /** An item passes if it, or **any ancestor group**, is selected. */
@@ -152,8 +138,14 @@ export function passesGlobalTrackViaFilters(
   if (opts.netFilter != null && opts.netFilter >= 0 && item.net !== opts.netFilter) return false;
 
   if (opts.netclassFilter) {
+    // `netclass->ContainsNetclassWithName( filterNetclass )`
+    // (dialog_global_edit_tracks_and_vias.cpp:365) — an exact name, not a
+    // pattern. The filter is a wxChoice of the board's netclass names, so the
+    // user picks one rather than typing a wildcard, and a composite class like
+    // `Default,HighSpeed` answers to each of its constituents. The teardrop
+    // dialog next door does the same thing for the same reason.
     const classes = ctx.netclassOf?.(item.net) ?? [];
-    if (!classes.some((c) => wildCompareString(opts.netclassFilter!, c))) return false;
+    if (!classes.includes(opts.netclassFilter)) return false;
   }
 
   if (opts.layerFilter) {

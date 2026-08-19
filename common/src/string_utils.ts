@@ -343,3 +343,336 @@ export function convertToNewOverbarNotation(oldStr: string): string {
 
   return newStr;
 }
+
+// ---------------------------------------------------------------------------
+// Wildcard matching (`common/string_utils.cpp:910`).
+
+/**
+ * WildCompareString: match `stringToTst` against a `*` / `?` `pattern`, whole
+ * string. `*` stands for any run of characters including an empty one, `?` for
+ * exactly one; every other character, `.` `+` `^` `$` `(` `)` `[` `]` `|` `\`
+ * included, is literal.
+ *
+ * This is the pointer walk upstream uses rather than a translation to a regular
+ * expression, which is the point: with no regex there is no escape set to get
+ * wrong, so a net named `Net.Cu` can never be matched by the pattern `NetXCu`.
+ *
+ * `caseSensitive` defaults to true exactly as the header does
+ * (`include/string_utils.h:233`), but **every call site in KiCad passes
+ * `false`** — the filters in Edit Text and Graphics, Change Symbols, Exchange
+ * Footprints, the net navigator and the DRC expression evaluator are all
+ * case-insensitive to the user. Pass the argument explicitly, the way the C++
+ * does, rather than leaning on the default.
+ */
+export function wildCompareString(
+  pattern: string,
+  stringToTst: string,
+  caseSensitive = true,
+): boolean {
+  const wild = caseSensitive ? pattern : pattern.toUpperCase();
+  const str = caseSensitive ? stringToTst : stringToTst.toUpperCase();
+
+  // Indices, where upstream has pointers: past the end reads as undefined,
+  // which stands in for the terminating NUL and equals no character.
+  let w = 0;
+  let s = 0;
+  let mp = 0;
+  let cp = 0;
+
+  while (s < str.length && wild[w] !== '*') {
+    if (wild[w] !== str[s] && wild[w] !== '?') return false;
+    w++;
+    s++;
+  }
+
+  while (s < str.length) {
+    if (wild[w] === '*') {
+      w++;
+      // A trailing `*` swallows the rest of the string.
+      if (w >= wild.length) return true;
+      // Remember where to resume if this `*` turns out to be too greedy.
+      mp = w;
+      cp = s + 1;
+    } else if (wild[w] === str[s] || wild[w] === '?') {
+      w++;
+      s++;
+    } else {
+      w = mp;
+      s = cp++;
+    }
+  }
+
+  // Trailing `*`s may still match the empty remainder.
+  while (wild[w] === '*') w++;
+
+  return w >= wild.length;
+}
+
+// ---------------------------------------------------------------------------
+// Numeric-aware helpers (`common/string_utils.cpp`).
+
+/**
+ * GetTrailingInt (`common/string_utils.cpp:1299`): the number a string ends
+ * with, 0 when it ends in anything else. No sign and no decimal point, so
+ * `"12Foo4.2"` is 2 and `"foo"` is 0.
+ */
+export function getTrailingInt(str: string): number {
+  let number = 0;
+  let base = 1;
+
+  for (let i = str.length - 1; i >= 0; i--) {
+    const ch = str[i]!;
+    if (ch < '0' || ch > '9') break;
+    number += (ch.charCodeAt(0) - 48) * base;
+    base *= 10;
+  }
+
+  return number;
+}
+
+/**
+ * NUMERIC_EVALUATOR::IsOldSchoolDecimalSeparator
+ * (`common/libeval/numeric_evaluator.cpp:196`): the characters that may be
+ * written *in place of* a decimal point, `4k7` for 4.7 k. Both micro signs are
+ * listed because they look alike and are U+00B5 and U+03BC.
+ */
+const OLD_SCHOOL_DECIMAL_SEPARATORS = new Set([
+  'p',
+  'n',
+  'µ',
+  'μ',
+  'u',
+  'm',
+  'L',
+  'R',
+  'F',
+  'k',
+  'K',
+  'M',
+  'G',
+  'T',
+]);
+
+/**
+ * convertSeparators (`common/string_utils.cpp:1090`): rewrite a number into the
+ * C locale, working out from the value itself which of `.` and `,` is the
+ * decimal point and which groups thousands.
+ *
+ * Upstream's reasoning, which is why this is not just "strip the commas":
+ * fetching the separator from the current locale is no silver bullet, because
+ * it assumes the schematic was authored on this computer. Most values say what
+ * they are — several instances of one character must be thousands separators,
+ * one of each must be thousands then decimal, a separator followed by other
+ * than three digits must be a decimal — and only a genuinely ambiguous value
+ * falls back on the locale.
+ *
+ * Returns the converted string, or `undefined` when the value contradicts
+ * itself (a decimal before a thousands, two decimals, a thousands group that is
+ * not three digits). Upstream returns false there and leaves the string
+ * untouched, and its one caller ignores the result, so the caller here keeps
+ * the original text on `undefined` in the same way.
+ */
+export function convertSeparators(value: string): string | undefined {
+  let text = value.split(' ').join('');
+
+  let ambiguousSeparator = '?';
+  let thousandsSeparator = '?';
+  let thousandsSeparatorFound = false;
+  let decimalSeparator = '?';
+  let decimalSeparatorFound = false;
+  let digits = 0;
+
+  for (let ii = text.length - 1; ii >= 0; --ii) {
+    const c = text[ii]!;
+
+    if (c >= '0' && c <= '9') {
+      digits += 1;
+      continue;
+    }
+
+    if (c !== '.' && c !== ',') {
+      digits = 0;
+      continue;
+    }
+
+    if (decimalSeparator !== '?' || thousandsSeparator !== '?') {
+      // We've previously found a non-ambiguous separator...
+      if (c === decimalSeparator) {
+        if (thousandsSeparatorFound) return undefined; // decimal before thousands
+        if (decimalSeparatorFound) return undefined; // more than one decimal
+        decimalSeparatorFound = true;
+      } else if (c === thousandsSeparator) {
+        if (digits !== 3) return undefined; // thousands not followed by 3 digits
+        thousandsSeparatorFound = true;
+      }
+    } else if (ambiguousSeparator !== '?') {
+      // We've previously found a separator, but we don't know which...
+      if (c === ambiguousSeparator) {
+        // They both must be thousands separators.
+        thousandsSeparator = ambiguousSeparator;
+        thousandsSeparatorFound = true;
+        decimalSeparator = c === '.' ? ',' : '.';
+      } else {
+        // The first must have been a decimal, and this must be a thousands.
+        decimalSeparator = ambiguousSeparator;
+        decimalSeparatorFound = true;
+        thousandsSeparator = c;
+        thousandsSeparatorFound = true;
+      }
+    } else {
+      // This is the first separator. Preceded by a lone `0`, or followed by
+      // some number of digits other than 3, and it must be a decimal point;
+      // otherwise we do not know yet.
+      if ((ii === 1 && text[0] === '0') || digits !== 3) {
+        decimalSeparator = c;
+        decimalSeparatorFound = true;
+        thousandsSeparator = c === '.' ? ',' : '.';
+      } else {
+        ambiguousSeparator = c;
+      }
+    }
+
+    digits = 0;
+  }
+
+  // If we found nothing definitive we would have to look at the current
+  // locale. A browser has no `localeconv()` and every file we read is written
+  // in the C locale, so `.` is the decimal point.
+  if (decimalSeparator === '?' && thousandsSeparator === '?') {
+    decimalSeparator = '.';
+    thousandsSeparator = ',';
+  }
+
+  // Convert to C-locale.
+  text = text.split(thousandsSeparator).join('');
+  text = text.split(decimalSeparator).join('.');
+  return text;
+}
+
+/**
+ * SplitString (`common/string_utils.cpp:1213`): break a value into its
+ * alphabetic preamble, its digit run and its trailing text — `C10A` is
+ * `C` / `10` / `A`. An "old school" decimal separator inside the digits (the
+ * `k` of `4k7`) is moved: the digits become `4.7` and the ending gains the `k`.
+ */
+export function splitString(strToSplit: string): {
+  beginning: string;
+  digits: string;
+  end: string;
+} {
+  // Starting at the end of the string look for the first digit.
+  let ii = strToSplit.length - 1;
+  for (; ii >= 0; ii--) {
+    if (strToSplit[ii]! >= '0' && strToSplit[ii]! <= '9') break;
+  }
+
+  // If there were no digits then just set the single string.
+  if (ii < 0) return { beginning: strToSplit, digits: '', end: '' };
+
+  // Since there is at least one digit this is the trailing string.
+  const end = strToSplit.slice(ii + 1);
+  const position = ii + 1;
+  let infix = '';
+
+  for (; ii >= 0; ii--) {
+    const c = strToSplit[ii]!;
+    if (c >= '0' && c <= '9') continue;
+    // NUMERIC_EVALUATOR::IsOldSchoolDecimalSeparator: one unit letter may
+    // stand in for the decimal point, as in `4k7` or `1u5F`. It is a closed
+    // set of 14 characters, not "any letter" — `C` in `C10A` is a preamble.
+    if (infix === '' && OLD_SCHOOL_DECIMAL_SEPARATORS.has(c)) {
+      infix = c;
+      continue;
+    }
+    if (c === '.' || c === ',') continue;
+    break;
+  }
+
+  let digits: string;
+  let beginning = '';
+
+  if (ii < 0) {
+    // All that was left was digits.
+    digits = strToSplit.slice(0, position);
+  } else {
+    digits = strToSplit.slice(ii + 1, position);
+    beginning = strToSplit.slice(0, ii + 1);
+  }
+
+  if (infix !== '') return { beginning, digits: digits.split(infix).join('.'), end: infix + end };
+  return { beginning, digits, end };
+}
+
+/** The SI/IEC-60062 multipliers ApplyModifier recognises. Both micro signs
+ *  (U+00B5 and U+03BC) are listed, as upstream lists both. */
+const SI_MODIFIERS: Readonly<Record<string, number>> = {
+  a: 1e-18,
+  f: 1e-15,
+  p: 1e-12,
+  n: 1e-9,
+  u: 1e-6,
+  µ: 1e-6,
+  μ: 1e-6,
+  m: 1e-3,
+  L: 1e-3,
+  R: 1,
+  F: 1,
+  k: 1e3,
+  K: 1e3,
+  M: 1e6,
+  G: 1e9,
+  T: 1e12,
+  P: 1e15,
+  E: 1e18,
+};
+
+/**
+ * ApplyModifier (`common/string_utils.cpp:971`): scale `value` by the SI suffix
+ * the trailing text starts with. `isModifier` is false when that text is not a
+ * unit at all, which is what makes ValueStringCompare fall back to comparing
+ * the endings as plain text.
+ */
+function applyModifier(value: number, text: string): { value: number; isModifier: boolean } {
+  if (text.length === 0) return { value, isModifier: false };
+  const first = text[0]!;
+  const hasModifier = first in SI_MODIFIERS;
+  const units = (hasModifier ? text.slice(1) : text).trim();
+  const known = ['f', 'hz', 'w', 'v', 'a', 'h'];
+  if (units.length > 0 && !known.includes(units.toLowerCase())) return { value, isModifier: false };
+  return { value: hasModifier ? value * SI_MODIFIERS[first]! : value, isModifier: true };
+}
+
+/**
+ * ValueStringCompare (`common/string_utils.cpp:1158`): order two component
+ * values the way a person reads them — `10uF` before `100uF`, `100uF` before
+ * `1mF` — by splitting each into preamble / number / units and comparing the
+ * three in turn. The preamble and the ending compare case-insensitively.
+ *
+ * Both sides are unescaped first, as upstream does, so a value written to file
+ * as `1{k}5` sorts as the `1k5` the user typed.
+ */
+export function valueStringCompare(strFWord: string, strSWord: string): number {
+  // Compare unescaped text.
+  const fa = splitString(unescapeString(strFWord));
+  const fb = splitString(unescapeString(strSWord));
+
+  const beg = fa.beginning.toLowerCase().localeCompare(fb.beginning.toLowerCase());
+  if (beg !== 0) return beg < 0 ? -1 : 1;
+
+  // ToCDouble on a C-locale number: anything unparseable reads as 0, exactly as
+  // an untouched wxString does when ToCDouble fails.
+  const toDouble = (digits: string): number => Number(convertSeparators(digits) ?? digits) || 0;
+
+  const na = applyModifier(toDouble(fa.digits), fa.end);
+  const nb = applyModifier(toDouble(fb.digits), fb.end);
+  if (na.value > nb.value) return 1;
+  if (na.value < nb.value) return -1;
+
+  // If the first two sections are equal and the endings are modifiers then
+  // there is nothing left to compare.
+  if (!na.isModifier && !nb.isModifier) {
+    const end = fa.end.toLowerCase().localeCompare(fb.end.toLowerCase());
+    return end < 0 ? -1 : end > 0 ? 1 : 0;
+  }
+  return 0;
+}

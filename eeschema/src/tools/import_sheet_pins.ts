@@ -25,10 +25,11 @@
  * what ours did — is the *other* gesture, and it lets the two drift apart.
  */
 
+// `StrNumCmp( …, true )`: the natural-order comparison the label sort uses, so
+// `D9` comes before `D10`. `sch_drawing_tools.cpp:3917` passes aIgnoreCase =
+// true, which is the opposite of StrNumCmp's own default, so it is spelled out.
+import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
 import type { LabelShape, SchLabel, SchSheet, Schematic } from '../types.js';
-// `StrNumCmp( …, true )`, the natural-order comparison the label sort uses, so
-// `D9` comes before `D10`. Already ported for the fields table.
-import { strNumCmp } from './fields_data_model.js';
 
 /** A label on the child sheet that the parent has no pin for yet. */
 export interface ImportableLabel {
@@ -87,7 +88,7 @@ export function nextImportableSheetPin(
   child: Schematic | undefined,
 ): ImportableLabel | null {
   if (!child) return null;
-  const sorted = [...hierLabels(child)].sort((a, b) => strNumCmp(a.text, b.text));
+  const sorted = [...hierLabels(child)].sort((a, b) => strNumCmp(a.text, b.text, true));
   for (const l of sorted) {
     if (!l.text || sheetHasPin(sheet, l.text)) continue;
     return { text: l.text, shape: (l.shape ?? 'bidirectional') as LabelShape };

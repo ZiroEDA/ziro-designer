@@ -20,6 +20,7 @@
  */
 
 import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PcbZone } from '../types.js';
 import { pointInPoly, pointSeg, segSeg, type Shape, shapeBBox, shapeDist } from './drc_geometry.js';
@@ -30,31 +31,21 @@ export const DRC_EPSILON = pcbIUScale.mmToIU(0.0005);
 // ---------------------------------------------------------------------------
 // Selecting areas.
 
-/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
-function wildcardMatch(pattern: string, text: string): boolean {
-  if (!pattern.includes('*') && !pattern.includes('?')) return pattern === text;
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
-  }
-}
-
 /**
  * `searchAreas`: the argument is a zone uuid, or a zone *name* matched with
  * wildcards. A uuid is exact; a name may select several zones at once, and the
  * predicate holds if any of them does.
+ *
+ * `area->GetZoneName().Matches( aArg )` (pcbnew/pcbexpr_functions.cpp:655) —
+ * wxString::Matches is the case-SENSITIVE glob, so `insideArea('keepout*')`
+ * does not find a zone named `Keepout 1`.
  */
 export function areasMatching(zones: readonly PcbZone[], selector: string): PcbZone[] {
   // A KIID is tried first and, being exact, never falls through to a name.
   const byUuid = zones.filter((z) => z.uuid === selector);
   if (byUuid.length > 0) return byUuid;
 
-  return zones.filter((z) => z.name !== undefined && wildcardMatch(selector, z.name));
+  return zones.filter((z) => z.name !== undefined && wildCompareString(selector, z.name, true));
 }
 
 // ---------------------------------------------------------------------------
