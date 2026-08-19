@@ -52,3 +52,16 @@ function trimZeros(s: string): string {
   if (!s.includes('.')) return s;
   return s.replace(/0+$/, '').replace(/\.$/, '');
 }
+
+/**
+ * `printf("%f")` — fixed notation at `precision` decimals (C's default is 6),
+ * with no exponent and no zero-trimming. `PANEL_FUSING_CURRENT` writes every one
+ * of its four values with it (`panel_fusing_current.cpp:50-53, 162-199`), which
+ * is why that page reads `0.100000` and `10.000000` where every other page
+ * would read `0.1` and `10`.
+ */
+export function printfF(value: number, precision = 6): string {
+  if (Number.isNaN(value)) return 'nan';
+  if (!Number.isFinite(value)) return value > 0 ? 'inf' : '-inf';
+  return value.toFixed(precision);
+}
