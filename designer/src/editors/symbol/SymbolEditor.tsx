@@ -83,6 +83,8 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addClose } from '../../ui/action_menu.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
@@ -1190,7 +1192,16 @@ export function SymbolEditor({
     [workSymbol, curLib, commit],
   );
 
+  /**
+   * The menu tree, mirrored for the key chain below - `menus` is built further
+   * down, and the chain has to dispatch off the live one. Same reason
+   * `useMenuHotkeys` holds a ref rather than a dependency.
+   */
+  const menusRef = useRef<Menu[]>([]);
+
   // ----- keyboard (hotkeys per sch_actions defaults) --------------------------------------
+  // One chain, in ACTION_MANAGER::RunHotKey order: the context actions this
+  // canvas owns, then the menus. See ui/menu_hotkeys.ts.
   useEffect(() => {
     const anyDialogOpen =
       pinDialog ||
@@ -1205,25 +1216,29 @@ export function SymbolEditor({
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'symbols') !== 'symbols') return;
+      // The library tree already claimed it (TreeSelActions).
+      // `defaultPrevented` means someone already acted on this key - EXCEPT
+      // when it was our own browser suppressor, which runs in the capture phase
+      // and cancels every combo the app claims purely to stop the browser.
+      // Reading that as "handled" is what made every hotkey in the app stop
+      // working once the dispatcher landed (c4a00590).
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       if (anyDialogOpen && e.key !== 'Escape') return;
-      const tgt = e.target as HTMLElement | null;
-      const typing =
-        !!tgt &&
-        (tgt.tagName === 'INPUT' ||
-          tgt.tagName === 'TEXTAREA' ||
-          tgt.tagName === 'SELECT' ||
-          tgt.isContentEditable);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        save();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        redo();
-      } else if (e.key === 'Escape') {
+      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
+      // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
+      // menus; here it gates the context branches.
+      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, e)) return;
+      // A canvas tool key is MD_NONE upstream, so a modified press is a
+      // different action and must fall through to the menus. It is also what
+      // keeps bare Y (mirrorV) apart from Ctrl+Y (redo).
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // --- context: what the live tool / selection owns -----------------------
+      if (e.key === 'Escape') {
+        // ACTIONS::cancelInteractive. A modal here has no row and no key of its
+        // own, so Escape backs out of the dialog, then the pending placement,
+        // then the tool, then the selection.
         if (anyDialogOpen) {
           setPinDialog(null);
           setTextDialog(null);
@@ -1237,53 +1252,52 @@ export function SymbolEditor({
         else if (pendingText) setPendingText(null);
         else if (activeTool !== 'select') setActiveTool('select');
         else setSelection(new Set());
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selection.size > 0) {
-        e.preventDefault();
-        if (workSymbol && !isAlias) {
-          commit(deleteSymbolItems(workSymbol, selection), 'Delete');
-          setSelection(new Set());
-        }
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && !typing) {
+        return;
+      }
+      if (plain) {
         const k = e.key.toLowerCase();
+        // SCH_ACTIONS::rotateCCW / rotateCW (R / Shift+R) and mirrorH / mirrorV
+        // (X / Y). None of the four has a row in this frame's Edit menu.
         if (k === 'r') {
           e.preventDefault();
           rotateSel(!e.shiftKey);
-        } else if (k === 'x') {
+          return;
+        }
+        if (k === 'x') {
           e.preventDefault();
           mirrorSel(false);
-        } else if (k === 'y') {
+          return;
+        }
+        if (k === 'y') {
           e.preventDefault();
           mirrorSel(true);
-        } else if (k === 'p') {
-          e.preventDefault();
-          onToolSelect('placePin');
-        } else if (k === 't') {
-          e.preventDefault();
-          onToolSelect('placeText');
-        } else if (k === 'e' && selection.size === 1 && workSymbol) {
+          return;
+        }
+        // SCH_ACTIONS::properties (E) on a single selected item - no row here,
+        // and it claims the key only when there is exactly one thing to edit,
+        // which is its ACTION_CONDITIONS.
+        if (k === 'e' && selection.size === 1 && workSymbol) {
           const id = [...selection][0]!;
           const ref = parseItemId(id);
           if (ref) {
             e.preventDefault();
             onEditItem({ id, kind: ref.kind });
+            return;
           }
         }
       }
+
+      // --- global: the menu accelerators --------------------------------------
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [
-    save,
-    undo,
-    redo,
     selection,
     workSymbol,
-    isAlias,
     activeTool,
-    commit,
     rotateSel,
     mirrorSel,
-    onToolSelect,
     onEditItem,
     pinDialog,
     textDialog,
@@ -1571,6 +1585,9 @@ export function SymbolEditor({
       showDatasheet,
     ],
   );
+
+  // The chain above reads the tree through this ref; see `menusRef`.
+  menusRef.current = menus;
 
   // ----- title (UpdateTitle) -------------------------------------------------------------
   const modified = curLib && curName ? manager.current.isSymbolModified(curLib, curName) : false;

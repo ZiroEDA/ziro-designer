@@ -74,6 +74,8 @@ import { useFileHistory } from '../../ui/useFileHistory.js';
 import { setLanguageMenuItem } from '../../ui/language_menu.js';
 import { addClose, addQuit } from '../../ui/action_menu.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings } from '../../prefs/useSettings.js';
 
@@ -902,70 +904,73 @@ export function DrawingSheetEditor({
     setActiveTool(id);
   }, []);
 
-  // ---- keyboard (pl_editor hotkeys: M move; standard undo/redo/clipboard) ----
+  /**
+   * The menu tree, mirrored for the key chain below.
+   *
+   * `menus` is built further down - it needs every handler in the frame - while
+   * the chain has to dispatch off the *live* tree, since a row's `disabled`
+   * moves with the selection. A ref is how `useMenuHotkeys` does it too, and
+   * for the same reason: depending on `menus` would tear the listener down and
+   * put it back on every render.
+   */
+  const menusRef = useRef<Menu[]>([]);
+
+  // ---- keyboard ----
+  // The frame's single key chain, in `ACTION_MANAGER::RunHotKey` order: the
+  // context actions this canvas owns, then the menus. See ui/menu_hotkeys.ts.
+  //
+  // `PL_ACTIONS` declares exactly one hotkey of its own - `move` = M
+  // (pl_actions.cpp:84) - and it has no menu row anywhere in pl_editor, so it
+  // stays here. Everything else pl_editor binds is shared `ACTIONS`, every one
+  // of which has a row in the tree below, so every one of them is now
+  // dispatched from that row rather than restated here.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'drawingsheet') !== 'drawingsheet') return;
-      const tgt = e.target as HTMLElement | null;
-      const typing =
-        !!tgt &&
-        (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT');
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        save();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) {
-        e.preventDefault();
-        newSheet();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        openInputRef.current?.click();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        redo();
-      } else if (typing) {
-        /* let inputs handle their keys */
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        copySelection();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
-        e.preventDefault();
-        cutSelection();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        /* handled by the native `paste` listener (system image / .kicad_wks) */
-      } else if (e.key === 'Escape') {
+      // Another context handler already claimed this keystroke.
+      // `defaultPrevented` means someone already acted on this key - EXCEPT
+      // when it was our own browser suppressor, which runs in the capture phase
+      // and cancels every combo the app claims purely to stop the browser.
+      // Reading that as "handled" is what made every hotkey in the app stop
+      // working once the dispatcher landed (c4a00590).
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
+      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
+      // read-only one keeps Ctrl+C. This gates the context branches below;
+      // dispatchMenuHotkey applies the same rule to the menus for itself.
+      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, e)) return;
+      // A canvas tool key is `MD_NONE` upstream, so a modified press is a
+      // different action and must fall through to the menus.
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // --- context: what the live tool / selection owns -------------------
+      if (e.key === 'Escape') {
+        // PL_ACTIONS' cancel chain: back out of the move, then the drawing,
+        // then the tool, and only then drop the selection.
         if (moveMode) setMoveMode(false);
         else if (drawingIndex.current !== null) cancelDrawing();
         else if (activeTool !== 'select') setActiveTool('select');
         else setSelection(new Set());
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        deleteSelection();
-      } else if (e.key === 'm' || e.key === 'M') {
-        if (selection.size > 0) setMoveMode(true);
-      } else if (e.key === 'Home') {
-        controller.current?.zoomToFit();
+        return;
       }
+      if (plain && (e.key === 'm' || e.key === 'M')) {
+        // PL_ACTIONS::move (pl_actions.cpp:84). Only claims the key when there
+        // is something to move, exactly as its ACTION_CONDITIONS would.
+        if (selection.size > 0) {
+          e.preventDefault();
+          setMoveMode(true);
+        }
+        return;
+      }
+
+      // --- global: the menu accelerators ----------------------------------
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [
-    save,
-    newSheet,
-    undo,
-    redo,
-    deleteSelection,
-    copySelection,
-    cutSelection,
-    activeTool,
-    moveMode,
-    selection,
-    cancelDrawing,
-  ]);
+  }, [activeTool, moveMode, selection, cancelDrawing]);
 
   // ---- system-clipboard paste (Ctrl+V): image → bitmap, .kicad_wks text → items ----
   useEffect(() => {
@@ -1061,10 +1066,14 @@ export function DrawingSheetEditor({
             disabled: selection.size === 0,
           },
           {
+            // Ctrl+V is performed by the browser's own paste, which is the only
+            // reliable read of the system clipboard - see `nativeShortcut`. The
+            // action is what the *row* does when it is clicked.
             label: 'Paste',
             icon: 'paste',
             action: () => void pasteFromSystem(),
             shortcut: 'Ctrl+V',
+            nativeShortcut: true,
           },
           {
             label: 'Delete',
@@ -1174,6 +1183,9 @@ export function DrawingSheetEditor({
       common.system.language,
     ],
   );
+
+  // The chain above reads the tree through this ref; see `menusRef`.
+  menusRef.current = menus;
 
   // ---- title ----
   useDocumentTitle('drawingsheet', formatTitle('Drawing Sheet Editor', fileName, dirty));

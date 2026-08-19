@@ -26,6 +26,24 @@ export interface MenuItem {
    *  hint is also live while a ContextMenu is open, the way wx treats the
    *  `\tA` half of an ACTION_MENU label. */
   shortcut?: string;
+  /**
+   * The row prints {@link shortcut}, but the *browser's* default action is what
+   * carries the command out, so `ui/menu_hotkeys.ts` must not claim the key.
+   *
+   * There is exactly one reason to set this today, and it is Paste. Reading the
+   * system clipboard is only reliable from inside a `paste` event; the async
+   * `navigator.clipboard.read()` needs a permission the user has to grant. A
+   * dispatcher that matched Ctrl+V would `preventDefault()` the keydown, the
+   * browser would then never raise `paste`, and Paste would degrade from
+   * "works" to "asks". Upstream has no equivalent, because `TOOL_DISPATCHER`
+   * owns the key outright - `ACTIONS::paste` is dispatched like anything else -
+   * so this marks a browser seam, not a KiCad behaviour.
+   *
+   * It is *not* a licence for a frame to hand-write a key comparison. The row
+   * still declares the accelerator; what runs it is the browser, not a second
+   * `if` beside the menu.
+   */
+  nativeShortcut?: boolean;
   /** The character wx underlines — what the `&` marks in a KiCad menu string
    *  ("Select &All"). The first occurrence in the label is underlined. */
   mnemonic?: string;

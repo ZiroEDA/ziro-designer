@@ -28,6 +28,16 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
+import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
+import {
+  addClose,
+  addQuit,
+  UPSTREAM_CLOSE_KEY,
+  UPSTREAM_QUIT_KEY,
+} from '@ziroeda/designer/src/ui/action_menu.js';
+import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
+import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -40,10 +50,15 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  */
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
+  'editors/drawingsheet/DrawingSheetEditor.tsx',
+  'editors/footprint/FootprintEditor.tsx',
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
+  'editors/pcb/PcbEditor.tsx',
+  'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+  'editors/symbol/SymbolEditor.tsx',
   'home/HomePage.tsx',
 ];
 
@@ -58,32 +73,107 @@ const CONVERTED = [
  * The list is asserted whole rather than as a floor: a *new* frame cannot be
  * added to the app without landing in one list or the other.
  */
-const PENDING = [
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
-  'editors/footprint/FootprintEditor.tsx',
-  'editors/pcb/PcbEditor.tsx',
-  'editors/schematic/SchematicEditor.tsx',
-  'editors/symbol/SymbolEditor.tsx',
-];
+const PENDING: readonly string[] = [];
 
 /**
- * The only modifier reads a converted frame may keep, listed line for line.
+ * The only modifier reads a converted frame may keep, per file, line for line.
  *
- * Neither of these claims a key. The first is `wxListCtrl`'s selection
- * modifiers on a **mouse** event - Ctrl adds a row, Shift ranges - which is
- * what makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is
- * built without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
+ * None of these claims a key.
+ *
+ * `dialog_assign_footprints.tsx` - the first is `wxListCtrl`'s selection
+ * modifiers on a **mouse** event (Ctrl adds a row, Shift ranges), which is what
+ * makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is built
+ * without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
  * opposite of a hotkey: the listbox type-ahead declining to treat a *modified*
  * key as a character, exactly as `OnChar` only ever sees unmodified ones.
  *
- * Both live inside the pane component, not beside a menu row, and neither
- * mentions a key. A real competing binding would need `e.key`, and would show
- * up as a line that is not in this list.
+ * The canvas frames - each keeps one line, and it is always the same line: a
+ * canvas tool key is `MD_NONE` upstream, so the chain has to know that no
+ * modifier is held before it may treat the key as the tool. It is a guard
+ * *against* claiming a modified combo, which is the reverse of the thing this
+ * sweep hunts. A real competing binding would name a key as well, and would
+ * therefore show up as a line that is not in this list.
  */
-const MODIFIER_EXCEPTIONS = [
-  'if (multi && (e.ctrlKey || e.metaKey)) {',
-  'if (e.ctrlKey || e.altKey || e.metaKey) return;',
-];
+const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
+  'editors/schematic/dialogs/dialog_assign_footprints.tsx': [
+    'if (multi && (e.ctrlKey || e.metaKey)) {',
+    'if (e.ctrlKey || e.altKey || e.metaKey) return;',
+  ],
+  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
+  ],
+  'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
+  'editors/pcb/PcbEditor.tsx': [
+    // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
+    // other frames' `plain`, spelled the way this file already spelled it.
+    'const mod = e.ctrlKey || e.metaKey;',
+    // Not keys at all: the snap modifiers, which upstream arrive as their own
+    // TOOL_EVENT so that holding Ctrl changes snapping immediately. One is the
+    // pointer's, one the keyboard's.
+    'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
+    'const ctrl = e.ctrlKey || e.metaKey;',
+    // The 3D viewer overlay declining to treat a modified key as one of its
+    // view keys - upstream the viewer is a separate top-level window, so
+    // pcbnew's hotkeys cannot reach the board while it has focus.
+    'if (e.ctrlKey || e.metaKey || e.altKey) return;',
+    // Ctrl+Enter inside the place-text dialog's own textarea, which is that
+    // dialog's OK and reaches nothing outside it.
+    "} else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {",
+  ],
+  'editors/symbol/SymbolEditor.tsx': [
+    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
+    // The library tree's Ctrl+D. `SCH_ACTIONS::duplicateSymbol`
+    // (sch_actions.cpp:208-212) declares no hotkey and has no row in this
+    // frame, so it is a context action with nowhere else to live.
+    "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
+  ],
+  /**
+   * The schematic keeps the most of any frame, and it is the one frame where
+   * that is *not* a smell: it owns `editors/schematic/hotkeys.ts`, a registry
+   * of `RegistryAction`s which is this app's stand-in for `ACTION_MANAGER`'s
+   * table. A combo declared there and carried by no menu row is a command with
+   * a real declaration and no row - exactly what upstream calls a context
+   * action - so it belongs in the chain, and the entry names which registry
+   * action each line is.
+   */
+  'editors/schematic/SchematicEditor.tsx': [
+    // Under the project manager eeschema's File menu starts at Save, so Open
+    // has no row here (menubar.cpp).
+    "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {",
+    // `redo`'s registry note: "Ctrl+Y also redoes".
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {",
+    // SCH_ACTIONS::duplicate - no row in eeschema's Edit menu.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
+    // `zoomFitMac`, its own registry entry: upstream's macOS binding kept on
+    // every platform. The row prints Home.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '0') {",
+    // `zoomIn` / `zoomOut`. The View rows carry no accelerator at all.
+    "} else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {",
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '-') {",
+    // ACTIONS::toggleUnits and ACTIONS::cycleArcEditMode, neither with a row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {",
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {",
+    // The three F1 arms. F1 is SCH_ACTIONS::repeatDrawItem *and* ACTIONS::
+    // zoomIn, which upstream separates by tool scope; the modifier reads are
+    // what keep the two apart and keep Ctrl+F1 out of both.
+    '!e.ctrlKey &&',
+    '!e.metaKey &&',
+    "} else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {",
+    "} else if (e.key === 'F1' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
+    "} else if (e.key === 'F2' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {",
+    // SCH_ACTIONS::editWithLibEdit - no row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e' && !e.shiftKey) {",
+    // SCH_ACTIONS::nextNetItem / previousNetItem - no row.
+    "} else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {",
+    // ACTIONS::toggleGridOverrides - no row. Ctrl+G, which does have one, is
+    // gone; this arm is what still tells the two apart.
+    "} else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {",
+    // SCH_ACTIONS::selectConnection - no row.
+    "} else if ((e.ctrlKey || e.metaKey) && e.key === '4') {",
+    // The bare-key block's own guard, the schematic's spelling of `plain`.
+    '} else if (!e.ctrlKey && !e.metaKey && !e.altKey) {',
+  ],
+};
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -103,6 +193,25 @@ const source = (rel: string): string => {
   const f = FILES.find((x) => x.rel === rel);
   expect(f, `${rel} must exist`).toBeDefined();
   return f!.src;
+};
+
+/**
+ * Where a frame's menu tree is actually declared.
+ *
+ * Usually the frame itself. The schematic is the one that has already been
+ * pulled apart the way the rest should be - `editors/schematic/menubar.ts` is a
+ * plain data module, which is why it is the only editor the Hotkey List can
+ * collect from (`ui/hotkeys_inventory.ts`) and the only one whose whole
+ * accelerator set can be pressed for real down this file.
+ */
+const MENU_MODULE: Readonly<Record<string, string>> = {
+  'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
+};
+
+/** The frame's source, or the module its menus live in when they were split out. */
+const menuSource = (rel: string): string => {
+  const moved = MENU_MODULE[rel];
+  return moved ? readFileSync(join(SRC, moved), 'utf8') : source(rel);
 };
 
 /** Every frame that puts a menu bar on screen. */
@@ -142,22 +251,56 @@ describe('a converted frame has no listener of its own', () => {
     // written a second, competing declaration of a key the menu already owns.
     // Gerber Viewer keeps four *unmodified* canvas keys (m, Esc, +, -), which
     // is why the test looks for the modifier and not for `keydown`.
-    const stray = CONVERTED.flatMap((rel) =>
-      source(rel)
+    const stray = CONVERTED.flatMap((rel) => {
+      const allowed = MODIFIER_EXCEPTIONS[rel] ?? [];
+      return source(rel)
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => /\b(ctrlKey|metaKey)\b/.test(line))
-        .filter((line) => !MODIFIER_EXCEPTIONS.includes(line))
-        .map((line) => `${rel}: ${line}`),
-    );
+        .filter((line) => !allowed.includes(line))
+        .map((line) => `${rel}: ${line}`);
+    });
     expect(stray, 'a converted frame with a hand-written modifier comparison').toEqual([]);
   });
 
   it('and every exception is still there to be excused', () => {
     // A stale entry would quietly widen the rule above, so the exceptions are
-    // asserted present rather than merely tolerated.
-    const all = CONVERTED.flatMap((rel) => source(rel).split('\n')).map((line) => line.trim());
-    expect(MODIFIER_EXCEPTIONS.filter((line) => !all.includes(line))).toEqual([]);
+    // asserted present rather than merely tolerated - and against the file that
+    // claims them, so one frame's excuse cannot cover another's.
+    const missing = Object.entries(MODIFIER_EXCEPTIONS).flatMap(([rel, lines]) => {
+      const all = source(rel)
+        .split('\n')
+        .map((line) => line.trim());
+      return lines.filter((line) => !all.includes(line)).map((line) => `${rel}: ${line}`);
+    });
+    expect(missing).toEqual([]);
+    // …and every file that claims one is a frame the sweep actually walks.
+    expect(Object.keys(MODIFIER_EXCEPTIONS).filter((rel) => !CONVERTED.includes(rel))).toEqual([]);
+  });
+
+  it('never reads defaultPrevented without asking whose it was', () => {
+    // The bug that took every hotkey in the app down (c4a00590): our own
+    // browser suppressor runs in the capture phase and `preventDefault()`s
+    // every combo the app claims, purely to stop the browser. A frame that
+    // reads `defaultPrevented` as "somebody handled this" therefore stands
+    // down on exactly the set of keys it exists to serve - and it fails
+    // *silently*, which is why it needs a test rather than a review.
+    //
+    // The four canvas frames converted here all open their chain with that
+    // read, for a real reason: the library tree and the 3D viewer overlay both
+    // claim keys by cancelling them. So the invariant is per-line - a
+    // `defaultPrevented` that does not also consult `wasBrowserSuppressed` is
+    // the bug, whichever frame it is in.
+    const bare = CONVERTED.flatMap((rel) =>
+      source(rel)
+        .split('\n')
+        .map((line) => line.trim())
+        // Code, not the comment above it that explains why the code is there.
+        .filter((line) => /\bdefaultPrevented\b/.test(line) && !line.startsWith('//'))
+        .filter((line) => !/wasBrowserSuppressed/.test(line))
+        .map((line) => `${rel}: ${line}`),
+    );
+    expect(bare, 'reads our own browser suppression as another handler').toEqual([]);
   });
 
   it('keeps only the keys that have no menu row', () => {
@@ -173,6 +316,256 @@ describe('a converted frame has no listener of its own', () => {
     expect(cvpcb).not.toMatch(/e\.key === 'Delete'/);
   });
 });
+
+/**
+ * Per canvas frame: the keys that left its chain, and the keys that stayed.
+ *
+ * A canvas editor is not converted by deleting its key handler - most of what
+ * is in there is a tool, and a tool key has no menu row (`ACTION_MANAGER::
+ * RunHotKey` calls those the *context* actions). What converts is the subset
+ * that owns a row: those move to the row and must not be restated here, or the
+ * two declarations start to drift, which is the whole failure this file exists
+ * to catch.
+ *
+ * So each frame lists both halves. `moved` must be gone; `kept` must still be
+ * there, because deleting a rowless tool key would be a silent regression that
+ * no other test in the suite would notice.
+ *
+ * `guards` is the third half, and it is the precedence rule written down. A
+ * context branch that sits one modifier - or one condition - away from a row's
+ * accelerator has to decline the row's case explicitly, or it swallows it
+ * before the fall-through is ever reached, and nothing else here would see
+ * that: the key would simply stop working. Each entry is the exact condition
+ * that keeps one command out of the other's hands.
+ */
+const CANVAS_KEYS: Readonly<
+  Record<
+    string,
+    {
+      moved: readonly [string, RegExp][];
+      kept: readonly [string, RegExp][];
+      guards?: readonly [string, RegExp][];
+    }
+  >
+> = {
+  'editors/drawingsheet/DrawingSheetEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /=== 's'/],
+      ['Ctrl+N new', /=== 'n'/],
+      ['Ctrl+O open', /=== 'o'/],
+      ['Ctrl+Z undo', /=== 'z'/],
+      ['Ctrl+Y redo', /=== 'y'/],
+      ['Ctrl+C copy', /=== 'c'/],
+      ['Ctrl+X cut', /=== 'x'/],
+      ['Del delete', /=== 'Delete'/],
+      ['Home zoom to fit', /=== 'Home'/],
+    ],
+    kept: [
+      // PL_ACTIONS::move, pl_actions.cpp:84 - the one hotkey pl_editor
+      // declares for itself, and it has no row anywhere in the frame.
+      ['M move', /e\.key === 'm' \|\| e\.key === 'M'/],
+      // The cancel chain. ACTIONS::cancelInteractive is scoped to the running
+      // tool, so it is a context action too.
+      ['Esc cancel', /e\.key === 'Escape'/],
+    ],
+  },
+  'editors/footprint/FootprintEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Y redo', /e\.key\.toLowerCase\(\) === 'y'/],
+      ['F zoom to fit', /e\.key === 'f' \|\| e\.key === 'F'/],
+      // The canvas Delete. `action: deleteSel` in the row is the same command
+      // reached the other way; `deleteSel();` was the second declaration.
+      ['Del delete', /deleteSel\(\);/],
+    ],
+    kept: [
+      // PCB_ACTIONS::rotateCcw / rotateCw - R and Shift+R, neither with a row.
+      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+      // The library tree's own Del. Disjoint from the row's, by condition.
+      ['tree Del', /onDelete\(treeSel\.lib, treeSel\.name\)/],
+    ],
+    guards: [
+      // Edit > Delete owns Del whenever the canvas has a selection, so the
+      // tree's Del must stand down while it does. Without this the one
+      // keystroke deleted the selected item AND the footprint from the
+      // library, which is what it did before this branch.
+      ['tree Del declines to the canvas', /if \(canvasSelection\) return;/],
+    ],
+  },
+  'editors/symbol/SymbolEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Y redo', /e\.key\.toLowerCase\(\) === 'y'/],
+      ['Del delete', /e\.key === 'Delete'/],
+      ['P place pin', /k === 'p'/],
+      ['T place text', /k === 't'/],
+    ],
+    kept: [
+      // SCH_ACTIONS::rotateCCW / rotateCW and mirrorH / mirrorV - R, Shift+R,
+      // X, Y. Bare Y is mirrorV and Ctrl+Y is Redo; `plain` is what keeps them
+      // apart now that the second lives on its row.
+      ['R rotate', /k === 'r'/],
+      ['X mirror', /k === 'x'/],
+      ['Y mirror', /k === 'y'/],
+      // SCH_ACTIONS::properties (E) on one selected item.
+      ['E properties', /k === 'e' && selection\.size === 1/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+      // The library tree's Ctrl+D (duplicate), which has no row.
+      ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
+    ],
+  },
+  'editors/schematic/SchematicEditor.tsx': {
+    // Matched on each arm's own comment where it had one: the comment names the
+    // upstream action, so "the arm is gone" and "that command no longer has a
+    // second declaration here" are the same assertion.
+    moved: [
+      ['Ctrl+, preferences', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key === ','/],
+      ['Ctrl+S save', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+P print', /\(e\.ctrlKey \|\| e\.metaKey\) && e\.key\.toLowerCase\(\) === 'p'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Shift+C copy as text', /ACTIONS::copyAsText \(Ctrl\+Shift\+C\)/],
+      ['Ctrl+Shift+V paste special', /ACTIONS::pasteSpecial \(Ctrl\+Shift\+V\)/],
+      ['Ctrl+L global label', /placeGlobalLabel default hotkey \(Ctrl\+L\)/],
+      ['Ctrl+Shift+F import graphics', /importGraphics \(Ctrl\+Shift\+F\)/],
+      ['Ctrl+Alt+F find and replace', /findAndReplace \(Ctrl\+Alt\+F\)/],
+      ['Ctrl+F find', /ACTIONS::find \(Ctrl\+F\)/],
+      ['Ctrl+A select all', /selectAll \/ unselectAll/],
+      ['Ctrl+Home zoom to objects', /zoomFitObjects \(Ctrl\+Home\)/],
+      ['Ctrl+R refresh', /zoomRedraw \(Ctrl\+R\)/],
+      ['Ctrl+F5 zoom tool', /zoomTool \(Ctrl\+F5\)/],
+      ['Ctrl+H hierarchy', /showHierarchy \(Ctrl\+H\)/],
+      ['Ctrl+G search', /showSearch \(Ctrl\+G\)/],
+      ['Alt+Left navigate back', /navigateBack \(Alt\+Left\)/],
+      ['PgUp previous sheet', /navigatePrevious \(PgUp\)/],
+      ['F8 update PCB', /updatePcbFromSchematic's default hotkey/],
+      ['Del delete', /e\.key === 'Delete' \|\| e\.key === 'Backspace'/],
+      // The twelve Place-tool letters, which every one of them also a row.
+      ['A P W B Z Q J L H S T I', /TOOL_HOTKEYS\[e\.key\.toLowerCase\(\)\]/],
+    ],
+    kept: [
+      ['Backspace delete', /e\.key === 'Backspace' && selection\.size > 0/],
+      ['Alt+Backspace leave sheet', /leaveSheet \(Alt\+Backspace\)/],
+      ['Ctrl+Shift+G grid overrides', /toggleGridOverrides \(Ctrl\+Shift\+G\)/],
+      ['Alt+3 select node', /selectNode \(Alt\+3\)/],
+      ['Alt+S swap', /swap \(Alt\+S\)/],
+      ['Ctrl+4 select connection', /selectConnection \(Ctrl\+4\)/],
+      ['F1 repeat draw item', /repeatDrawItem \(F1\)/],
+      ['Ctrl+U toggle units', /toggleUnits \(Ctrl\+U\)/],
+      ['Ctrl+Space arc edit mode', /cycleArcEditMode \(Ctrl\+Space\)/],
+      ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],
+      ['Tab next net item', /nextNetItem \/ previousNetItem/],
+      ['R X Y transform', /rotateCCW\/rotateCW\/mirrorH\/mirrorV/],
+      ['M G move and drag', /SCH_ACTIONS::move \/ drag/],
+      ['` ~ highlight', /highlightNet \/ clearHighlight/],
+      ['Space reset local coords', /resetLocalCoords/],
+      ['Shift+Space line mode', /lineModeNext/],
+      ['N grid next', /gridNext\/gridPrev/],
+      ['C unfold bus', /unfoldBus/],
+      ['U V F edit field', /FIELD_KEYS/],
+      ['D show datasheet', /showDatasheet/],
+      ['O autoplace fields', /autoplaceFields/],
+      ['E properties', /openProperties\(\[\.\.\.selection\]\[0\]!\)/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+    ],
+  },
+  'editors/pcb/PcbEditor.tsx': {
+    moved: [
+      // Anchored on `if (mod` rather than `mod`, because `!mod && (e.key ===
+      // 'd'` - the drag45 grab, which stays - contains the shorter pattern.
+      ['Ctrl+, preferences', /if \(mod && e\.key === ','/],
+      ['Ctrl+Z undo', /if \(mod && \(e\.key === 'z'/],
+      ['Ctrl+Y redo', /if \(mod && \(e\.key === 'y'/],
+      ['Ctrl+F find', /if \(mod && \(e\.key === 'f'/],
+      ['Ctrl+D duplicate', /if \(mod && \(e\.key === 'd'/],
+      ['F8 update from schematic', /e\.key === 'F8'/],
+      ['Del delete', /e\.key === 'Delete'/],
+      // …and on `mod && e.shiftKey` for the same reason: the bare-M grab that
+      // stays is now spelled `!mod && !e.shiftKey && (e.key === 'm'`.
+      ['Shift+M move exactly', /mod && e\.shiftKey && \(e\.key === 'm'/],
+      ['Shift+P position relative', /mod && e\.shiftKey && \(e\.key === 'p'/],
+      ['E properties', /openTrackViaPropertiesRef/],
+      ['F flip', /flipSelectionRef/],
+      ['Ctrl+0 zoom to fit', /\(mod && e\.key === '0'\)/],
+    ],
+    kept: [
+      // ACTIONS::highContrastModeCycle, no row.
+      ['H contrast cycle', /e\.key === 'h' \|\| e\.key === 'H'/],
+      // ROUTER_TOOL's place-a-via-and-switch-layer, and the clearest context
+      // action in the app: it claims V only while a route is in progress.
+      ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && routeRef\.current/],
+      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
+      ['M grab move', /grabStartRef\.current\('move'\)/],
+      ['G grab drag', /grabStartRef\.current\('drag'\)/],
+      ['D grab drag45', /grabStartRef\.current\('drag45'\)/],
+      // PCB_ACTIONS::zoneFillAll, no row.
+      ['B fill zones', /fillAllZonesRef\.current\(\)/],
+      // ACTIONS::zoomFitScreen is Home off macOS; the row prints the macOS
+      // Ctrl+0, so Home has no row and stays.
+      ['Home zoom to fit', /!mod && e\.key === 'Home'/],
+      ['~ clear highlight', /e\.key === '~'/],
+      ['` highlight net', /e\.key === '`'/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+    ],
+    guards: [
+      // `e.key` is already 'M' when Shift is held, so the bare-M grab has to
+      // exclude Shift or Edit > Move Exactly's accelerator never reaches the
+      // fall-through - it is swallowed by a branch that then returns.
+      ['M grab leaves Shift+M to its row', /!mod && !e\.shiftKey && \(e\.key === 'm'/],
+      // …and the zoom-to-fit pair: Home stays here, Ctrl+0 is the row's, so
+      // the branch must not answer both the way it used to.
+      ['Home leaves Ctrl+0 to its row', /if \(!mod && e\.key === 'Home'\)/],
+    ],
+  },
+};
+
+describe('a converted canvas frame keeps its tool keys and gives up the rest', () => {
+  const frames = Object.keys(CANVAS_KEYS);
+
+  it('covers every converted canvas frame', () => {
+    // The frames that own a canvas are exactly the ones this table must list;
+    // a new one converted without an entry would otherwise be unchecked.
+    expect(frames.every((rel) => CONVERTED.includes(rel))).toBe(true);
+  });
+
+  it.each(frames)('%s', (rel) => {
+    const src = source(rel);
+    const { moved, kept } = CANVAS_KEYS[rel]!;
+    expect(
+      moved.filter(([, re]) => re.test(src)).map(([name]) => name),
+      'restated beside the menu row that already declares it',
+    ).toEqual([]);
+    expect(
+      kept.filter(([, re]) => !re.test(src)).map(([name]) => name),
+      'a canvas key with no menu row was deleted rather than left alone',
+    ).toEqual([]);
+    expect(
+      (CANVAS_KEYS[rel]!.guards ?? []).filter(([, re]) => !re.test(src)).map(([name]) => name),
+      'a context branch that would swallow a menu row it sits next to',
+    ).toEqual([]);
+  });
+});
+
+/**
+ * Every accelerator a frame's menu rows declare, read out of its source.
+ *
+ * The frames are `.tsx` and `qa`'s tsconfig compiles `.ts` only, so their menu
+ * trees cannot be built here the way `buildManagerMenus` can. What *can* be
+ * read is the declaration itself - `shortcut: 'Ctrl+S'` - and that is the thing
+ * under test: a row's accelerator is only real if `ui/menu_hotkeys.ts` can
+ * parse it and match a keystroke to it. `Ctrl++`, `Del`, `Home`, `F5` and the
+ * `browserSafeKey` substitutions are each a way for that to fail quietly, and
+ * before the dispatcher existed every one of them failed by default.
+ */
+function declaredAccelerators(rel: string): string[] {
+  const out = new Set<string>();
+  for (const m of source(rel).matchAll(/shortcut:\s*'([^']+)'/g)) out.add(m[1]!);
+  for (const m of source(rel).matchAll(/shortcut:\s*browserSafeKey\('([^']+)'\)/g))
+    out.add(browserSafeKey(m[1]!));
+  return [...out].sort();
+}
 
 /** A keyboard event with nothing held down, overridden per case. */
 const ev = (key: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
@@ -299,6 +692,329 @@ describe('the project manager, pressed for real', () => {
     const { menus, calls } = managerFixture(true);
     const typing = { tagName: 'INPUT', type: 'text' };
     for (const [, event] of BOUND) dispatchMenuHotkey(menus, event, { target: typing });
+    expect(calls).toEqual([]);
+  });
+});
+
+/**
+ * What each converted canvas frame's *own* rows declare today.
+ *
+ * Asserted whole, not as a floor. #547 gave these five frames correct rows -
+ * right label, right accelerator, right help string - while nothing listened,
+ * and the point of writing the set down is that the two halves can no longer
+ * move apart without a test noticing.
+ *
+ * The rows a frame does *not* write itself are not in here and must not be:
+ * `ACTION_MENU::AddClose` / `AddQuit` and the Help menu are declared once in
+ * `ui/action_menu.ts` and `ui/help_menu.ts`, every frame calls the function,
+ * and they are pressed once below rather than once per frame. That is the same
+ * reason KiCad has them in `common/` at all.
+ */
+const DECLARED: Readonly<Record<string, readonly string[]>> = {
+  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+    // File. Ctrl+N / Ctrl+W / Ctrl+Q are BROWSER_RESERVED and carry the
+    // substitution `browserSafeKey` gives them - which is exactly the key that
+    // was printed and dead before this branch.
+    'Ctrl+Alt+N',
+    'Ctrl+O',
+    'Ctrl+S',
+    // Edit.
+    'Ctrl+C',
+    'Ctrl+V',
+    'Ctrl+X',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // View.
+    'Home',
+  ],
+  'editors/footprint/FootprintEditor.tsx': [
+    'Ctrl+Alt+N',
+    'Ctrl+S',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // View > Zoom to Fit. `ACTIONS::zoomFitScreen` is Home off macOS and F is
+    // `PCB_ACTIONS::flip`, so this row's key is wrong upstream - but it is the
+    // key the frame has always answered, and correcting the row is #547's job,
+    // not this one's. Recorded so the divergence is not silent.
+    'F',
+  ],
+  'editors/pcb/PcbEditor.tsx': [
+    // Two of these are rows with no `action` yet - Route > Single Track (X) and
+    // Inspect > Measure Tool (Ctrl+Shift+M) - so `invocable` skips them and
+    // they dispatch nothing. They are listed because the row prints the key,
+    // and a row that grows an action must not silently grow a binding too.
+    'X',
+    'Ctrl+Shift+M',
+    // The disambiguation ContextMenu's own rows (1-9 and A), which are not on
+    // the menu bar at all. Only the letter is a literal; the digits are built
+    // from the index, which is why just this one shows up in the scrape.
+    'A',
+    'Ctrl+S',
+    'Ctrl+Z',
+    'Ctrl+Y',
+    'Ctrl+D',
+    'Del',
+    'Shift+M',
+    'Shift+P',
+    'Ctrl+F',
+    'E',
+    'F',
+    'Ctrl++',
+    'Ctrl+-',
+    'Ctrl+0',
+    'F5',
+    'F8',
+    'Ctrl+,',
+  ],
+  'editors/symbol/SymbolEditor.tsx': [
+    'Ctrl+Alt+N',
+    'Ctrl+S',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // Place > Pin / Text. SCH_ACTIONS::placeSymbolPin is P and placeSymbolText
+    // is T, both AS_GLOBAL with a row - so both belong on the row.
+    'P',
+    'T',
+  ],
+};
+
+/** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
+const base = {
+  key: '',
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: false,
+  metaKey: false,
+  preventDefault: () => {},
+  stopPropagation: () => {},
+  target: null,
+};
+
+describe('every accelerator a converted canvas frame prints is one the dispatcher can press', () => {
+  const frames = Object.keys(DECLARED);
+
+  it.each(frames)('%s declares the set it is supposed to', (rel) => {
+    expect(declaredAccelerators(rel)).toEqual([...DECLARED[rel]!].sort());
+  });
+
+  it.each(frames)('%s: each one reaches its own row', (rel) => {
+    for (const combo of DECLARED[rel]!) {
+      const calls: string[] = [];
+      // One row per accelerator, so "the right row ran" is checkable at all.
+      // A frame's real tree nests these across File/Edit/View; `invocable`
+      // walks either shape, and menu order is what breaks a tie.
+      const menus: Menu[] = [
+        {
+          label: 'Test',
+          items: DECLARED[rel]!.map((c) => ({
+            label: c,
+            shortcut: c,
+            action: () => calls.push(c),
+          })),
+        },
+      ];
+      const e = eventFromCombo(combo, base);
+      expect(dispatchMenuHotkey(menus, e), `${combo} matched nothing`).toBe(true);
+      expect(calls, `${combo} reached the wrong row`).toEqual([combo]);
+    }
+  });
+});
+
+describe('the shared rows every frame ends its File and Help menus with', () => {
+  /**
+   * `AddClose` and `AddQuit` are one declaration in `common/tool/action_menu
+   * .cpp:220-262`, and one here. Pressing them once is pressing them for every
+   * frame that calls the function - which, since #547, is all eleven.
+   *
+   * Both keys are BROWSER_RESERVED, so what the row carries is the
+   * `BROWSER_REBINDS` substitution. This is the assertion the reported bug
+   * needed: the Drawing Sheet Editor printed Ctrl+Alt+Q and nothing listened.
+   */
+  it.each([
+    ['Close', addClose, browserSafeKey(UPSTREAM_CLOSE_KEY)],
+    ['Quit', addQuit, browserSafeKey(UPSTREAM_QUIT_KEY)],
+  ])('%s answers %s', (label, make, combo) => {
+    const calls: string[] = [];
+    const menus: Menu[] = [
+      { label: 'File', items: [make('Drawing Sheet Editor', () => calls.push(label))] },
+    ];
+    expect(menus[0]!.items[0]!.shortcut).toBe(combo);
+    expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base))).toBe(true);
+    expect(calls).toEqual([label]);
+    // The raw upstream key must NOT also fire: it is the browser's, and a row
+    // that answered both would be advertising the tab-destroying one.
+    const raw = label === 'Close' ? UPSTREAM_CLOSE_KEY : UPSTREAM_QUIT_KEY;
+    expect(dispatchMenuHotkey(menus, eventFromCombo(raw, base))).toBe(false);
+  });
+
+  it('and every converted canvas frame calls them rather than writing its own', () => {
+    // Which of the three a frame calls is upstream's choice, not ours:
+    // menubar_footprint_editor.cpp:92 is `AddClose`, pcbnew and eeschema call
+    // `AddQuitOrClose`. What matters is that none of them writes the row.
+    const missing = Object.keys(CANVAS_KEYS).filter(
+      (rel) => !/\badd(Close|Quit|QuitOrClose)\(/.test(menuSource(rel)),
+    );
+    expect(missing, 'a frame hand-rolling the File menu tail').toEqual([]);
+  });
+});
+
+/**
+ * The schematic editor's whole menu, pressed for real.
+ *
+ * `editors/schematic/menubar.ts` is a plain `.ts` data module, so unlike the
+ * other four canvas frames its tree can be built here and actually pressed -
+ * which is the only proof that a row's key reaches that row's action rather
+ * than merely parsing. It is also the frame with the most to prove: forty-one
+ * accelerators, twelve of them the single letters that used to be dispatched
+ * from `TOOL_HOTKEYS` beside the menu that already declared them.
+ */
+function schematicFixture() {
+  const calls: string[] = [];
+  const menus = buildMenus({
+    tool: (id: string) => calls.push(`tool:${id}`),
+    action: (id: string) => calls.push(id),
+    toggle: (id: string) => calls.push(`toggle:${id}`),
+  });
+  return { menus, calls };
+}
+
+/** Every (combo, label) a row in the tree declares, submenus included. */
+function declaredRows(menus: readonly Menu[]): { combo: string; label: string }[] {
+  const out: { combo: string; label: string }[] = [];
+  const walk = (items: readonly MenuItem[]): void => {
+    for (const item of items) {
+      if (item.shortcut && item.action) out.push({ combo: item.shortcut, label: item.label ?? '' });
+      const kids = item.submenu ?? item.items;
+      if (kids) walk(kids);
+    }
+  };
+  for (const m of menus) walk(m.items);
+  return out;
+}
+
+describe('the schematic editor, pressed for real', () => {
+  const rows = declaredRows(schematicFixture().menus);
+
+  it('finds the rows in the first place', () => {
+    // A guard on the guard: a tree that stopped being walkable would make
+    // every case below vacuous.
+    expect(rows.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it('the set of accelerators has not drifted', () => {
+    expect([...new Set(rows.map((r) => r.combo))].sort()).toEqual(
+      [
+        // File
+        'Ctrl+Alt+W',
+        'Ctrl+P',
+        'Ctrl+S',
+        'Ctrl+Shift+F',
+        // Edit
+        'Ctrl+A',
+        'Ctrl+Alt+F',
+        'Ctrl+C',
+        'Ctrl+F',
+        'Ctrl+Shift+A',
+        'Ctrl+Shift+C',
+        'Ctrl+Shift+V',
+        'Ctrl+Shift+Z',
+        'Ctrl+V',
+        'Ctrl+X',
+        'Ctrl+Z',
+        'Del',
+        // View
+        'Alt+Left',
+        'Alt+Right',
+        'Alt+Up',
+        'Ctrl+F5',
+        'Ctrl+G',
+        'Ctrl+H',
+        'Ctrl+Home',
+        'Ctrl+R',
+        'Home',
+        'PgDn',
+        'PgUp',
+        // Place - the twelve SCH_ACTIONS tool letters, plus Ctrl+L
+        'A',
+        'B',
+        'Ctrl+L',
+        'H',
+        'I',
+        'J',
+        'L',
+        'P',
+        'Q',
+        'S',
+        'T',
+        'W',
+        'Z',
+        // Tools, Preferences, Help
+        'Ctrl+,',
+        'Ctrl+F1',
+        'F8',
+      ].sort(),
+    );
+  });
+
+  it.each(rows.map((r): [string, string] => [r.combo, r.label]))('%s runs %s', (combo, _label) => {
+    const { menus, calls } = schematicFixture();
+    expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base)), `${combo} matched nothing`).toBe(
+      true,
+    );
+    // Exactly one command, which is ACTION_MANAGER::RunHotKey's contract: it
+    // picks a single action for a keystroke and runs that one.
+    //
+    // Ctrl+F1 is the exception and not an escape hatch: ACTIONS::listHotKeys is
+    // AS_GLOBAL, so `standardHelpMenu` wires the row straight to
+    // `ui/hotkey_list_action.ts`'s emitter rather than through the frame's
+    // handlers. Nothing reaches the spy because nothing was meant to - the
+    // dispatch returning true is the whole assertion there.
+    expect(calls, `${combo} ran more or less than one command`).toHaveLength(
+      combo === 'Ctrl+F1' ? 0 : 1,
+    );
+  });
+
+  it('the twelve Place letters reach their tools', () => {
+    // These are the ones TOOL_HOTKEYS used to dispatch beside the menu that
+    // already carried them, and the pair is exactly the drift this file hunts.
+    const { menus, calls } = schematicFixture();
+    for (const [combo, tool] of [
+      ['A', 'placeSymbol'],
+      ['P', 'placePower'],
+      ['W', 'drawWire'],
+      ['B', 'drawBus'],
+      ['Z', 'busEntry'],
+      ['Q', 'noConnect'],
+      ['J', 'junction'],
+      ['L', 'placeLabel'],
+      ['H', 'placeHierLabel'],
+      ['S', 'drawSheet'],
+      ['T', 'placeText'],
+      ['I', 'lines'],
+    ] as const) {
+      calls.length = 0;
+      expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base)), combo).toBe(true);
+      expect(calls, combo).toEqual([`tool:${tool}`]);
+    }
+  });
+
+  it('and Ctrl+L is the global label, not the plain one', () => {
+    // Two rows one modifier apart. `matchesAccelerator` compares the modifier
+    // set rather than a subset, so L cannot be reached by Ctrl+L or the other
+    // way round - which is what a hand-written `e.key === 'l'` got wrong.
+    const { menus, calls } = schematicFixture();
+    expect(dispatchMenuHotkey(menus, eventFromCombo('Ctrl+L', base))).toBe(true);
+    expect(calls).toEqual(['tool:placeGlobalLabel']);
+  });
+
+  it('does nothing at all while the user is typing', () => {
+    const { menus, calls } = schematicFixture();
+    const typing = { tagName: 'INPUT', type: 'text' };
+    for (const { combo } of rows)
+      dispatchMenuHotkey(menus, eventFromCombo(combo, base), { target: typing });
     expect(calls).toEqual([]);
   });
 });

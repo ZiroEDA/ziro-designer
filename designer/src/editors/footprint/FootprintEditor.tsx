@@ -64,6 +64,8 @@ import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { addClose } from '../../ui/action_menu.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
@@ -783,7 +785,17 @@ export function FootprintEditor({
     });
   };
 
+  /**
+   * The menu tree, mirrored for the key chain below - `menus` is built further
+   * down, and the chain has to dispatch off the live one. Same reason
+   * `useMenuHotkeys` holds a ref rather than a dependency.
+   */
+  const menusRef = useRef<Menu[]>([]);
+
   // ----- keyboard ---------------------------------------------------------------
+  // One chain, in ACTION_MANAGER::RunHotKey order: the context actions this
+  // canvas owns, then the menus. See ui/menu_hotkeys.ts for why there is not a
+  // second listener beside this one.
   useEffect(() => {
     const dialogOpen =
       newLibName !== null || newFpName !== null || propsOpen || padDialogId !== null;
@@ -791,10 +803,13 @@ export function FootprintEditor({
       // Hidden frames must not act on global hotkeys (editors stay mounted
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
-      const tgt = e.target as HTMLElement | null;
-      const typing =
-        !!tgt &&
-        (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT');
+      // The library tree already claimed it (TreeSelActions).
+      // `defaultPrevented` means someone already acted on this key - EXCEPT
+      // when it was our own browser suppressor, which runs in the capture phase
+      // and cancels every combo the app claims purely to stop the browser.
+      // Reading that as "handled" is what made every hotkey in the app stop
+      // working once the dispatcher landed (c4a00590).
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
       if (dialogOpen) {
         if (e.key === 'Escape') {
           setNewLibName(null);
@@ -802,46 +817,38 @@ export function FootprintEditor({
         }
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        save();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        e.preventDefault();
-        redo();
-      } else if (e.key === 'Escape') {
+      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
+      // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
+      // menus; here it gates the context branches.
+      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, e)) return;
+      // A canvas tool key is MD_NONE upstream, so a modified press is a
+      // different action and must fall through to the menus.
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // --- context: what the live tool / selection owns -----------------------
+      if (e.key === 'Escape') {
+        // ACTIONS::cancelInteractive, scoped to whatever is running: back out
+        // of the drawing, then the tool, then the selection.
         if (drawStart) setDrawStart(null);
         else if (activeTool !== 'select') selectTool('select');
         else setSelection(new Set());
-      } else if (typing) {
-        /* let inputs handle their own keys */
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        deleteSel();
-      } else if (e.key === 'r' || e.key === 'R') {
+        return;
+      }
+      if (plain && (e.key === 'r' || e.key === 'R')) {
+        // PCB_ACTIONS::rotateCcw (R) / rotateCw (Shift+R). Neither has a row in
+        // this frame's Edit menu, so both stay here.
         e.preventDefault();
         rotateSel(!e.shiftKey);
-      } else if (e.key === 'f' || e.key === 'F') controller.current?.zoomToFit();
+        return;
+      }
+
+      // --- global: the menu accelerators --------------------------------------
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [
-    save,
-    undo,
-    redo,
-    deleteSel,
-    rotateSel,
-    selectTool,
-    activeTool,
-    drawStart,
-    newLibName,
-    newFpName,
-    propsOpen,
-    padDialogId,
-  ]);
+  }, [rotateSel, selectTool, activeTool, drawStart, newLibName, newFpName, propsOpen, padDialogId]);
 
   // ----- menus (menubar_footprint_editor.cpp, working subset) -------------------
   const menus: Menu[] = useMemo(
@@ -1036,6 +1043,9 @@ export function FootprintEditor({
       workFp,
     ],
   );
+
+  // The chain above reads the tree through this ref; see `menusRef`.
+  menusRef.current = menus;
 
   // ----- title (UpdateTitle) ----------------------------------------------------
   const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
@@ -1424,7 +1434,11 @@ export function FootprintEditor({
         />
       )}
 
-      <TreeSelActions treeSel={treeSel} onDelete={deleteFootprint} />
+      <TreeSelActions
+        treeSel={treeSel}
+        onDelete={deleteFootprint}
+        canvasSelection={selection.size > 0}
+      />
       <LoadingOverlay label={loading} />
     </div>
   );
@@ -1494,9 +1508,12 @@ function SimplePrompt({
 function TreeSelActions({
   treeSel,
   onDelete,
+  canvasSelection,
 }: {
   treeSel: { lib: string; name: string | null } | null;
   onDelete: (lib: string, name: string) => void;
+  /** Whether the canvas has a selection, which owns Del while it does. */
+  canvasSelection: boolean;
 }): JSX.Element | null {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -1504,8 +1521,15 @@ function TreeSelActions({
       // behind display:none; no stamp = standalone build, always active).
       if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
       if (!treeSel?.name) return;
-      const tgt = e.target as HTMLElement | null;
-      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
+      // A context action, and the canvas holds the same key: Edit > Delete is
+      // ACTIONS::doDelete on the selection. The two are kept disjoint rather
+      // than ordered, because two window listeners have no stable order - the
+      // menu row is `disabled` with an empty selection, and this one declines
+      // while there is one, so exactly one of them can ever act.
+      // (`PCB_ACTIONS::deleteFootprint` declares no hotkey upstream at all;
+      // pcb_actions.cpp:903-907. This key is ours.)
+      if (canvasSelection) return;
+      if (focusBlocksHotkey(e.target as FocusLike | null, e)) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         onDelete(treeSel.lib, treeSel.name);
@@ -1513,6 +1537,6 @@ function TreeSelActions({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [treeSel, onDelete]);
+  }, [treeSel, onDelete, canvasSelection]);
   return null;
 }

@@ -88,6 +88,53 @@
  * departure; it is what wx does, once you follow the dispatch to the place it
  * actually happens.
  *
+ * ## A menu accelerator against a canvas tool key
+ *
+ * The five canvas frames deferred by the first round of this work each own a
+ * key chain of their own, because a canvas hotkey means "the tool" and carries
+ * conditions no menu row has - is a tool live, is a drag in progress, is
+ * anything selected. The question that had to be answered before they could be
+ * converted is what happens when the same keystroke is both.
+ *
+ * Upstream answers it in one place, and the answer is that there is no contest
+ * because there is no second dispatcher. `WX_MENUBAR` throws the menubar's
+ * accelerator table away (`include/widgets/wx_menubar.h:30-58`), so the menu's
+ * key is *display*; `TOOL_DISPATCHER::DispatchWxEvent` builds exactly one
+ * `TOOL_EVENT` from the keystroke and hands it to `TOOL_MANAGER::ProcessEvent`
+ * (`common/tool/tool_dispatcher.cpp:678-745`), which ends in
+ * `ACTION_MANAGER::RunHotKey`. A menu command and a canvas tool key are the
+ * same kind of thing - both are `TOOL_ACTION`s in `m_actionHotKeys` - and
+ * `RunHotKey` picks *one*:
+ *
+ *   `common/tool/action_manager.cpp:183-245` - of the actions registered on
+ *   that key, one belonging to a tool that is on the active tool stack wins
+ *   ("the action that has the highest priority on the active tools stack"), and
+ *   only when there is no such context action do the `AS_GLOBAL` ones run, in
+ *   order, until one returns true. Either way `ACTION_CONDITIONS::
+ *   enableCondition` can veto, which is the same fact as `disabled` above.
+ *
+ * So, stated as this port implements it:
+ *
+ *   1. **One command per keystroke.** A converted frame keeps a single key
+ *      chain and *calls* {@link dispatchMenuHotkey} from inside it, rather than
+ *      adding a second `window` listener beside it. Two listeners would race on
+ *      registration order - and a canvas listener re-subscribes whenever its
+ *      dependencies change, so that order is not even stable within a session.
+ *   2. **Context before global.** The chain's own branches - the ones that own
+ *      the key only while a tool is live or a selection exists - are tested
+ *      first and `return` when they claim. What they decline falls through to
+ *      the menus.
+ *   3. **A canvas key with no menu row stays where it is.** `PL_ACTIONS::move`
+ *      (M) has no row anywhere in pl_editor; neither does Escape's cancel
+ *      chain. Those are context actions upstream too, and moving them onto a
+ *      menu would invent a row KiCad does not have.
+ *   4. **A separate context handler claims by `preventDefault`.** Where a
+ *      context action genuinely lives in another component - the library tree's
+ *      Del in the footprint and symbol editors - it marks the event handled and
+ *      the frame's chain begins with `if ( e.defaultPrevented ) return;`. That
+ *      is what stops Del deleting the tree's footprint *and* the canvas
+ *      selection, which is what it did before this rule existed.
+ *
  * ## When a dialog is open
  *
  * Nothing fires. A KiCad modal runs its own event loop, so the frame beneath it
@@ -258,6 +305,10 @@ export function findMenuHotkey(menus: readonly Menu[], e: HotkeyEvent): MenuItem
   for (const menu of menus) {
     for (const item of invocable(menu.items)) {
       if (item.disabled) continue;
+      // The row prints the key but the browser performs it - see
+      // `MenuItem.nativeShortcut`. Claiming it here would preventDefault the
+      // keydown and the browser would never raise the event that does the work.
+      if (item.nativeShortcut) continue;
       const acc = parseAccelerator(item.shortcut);
       if (acc && matchesAccelerator(acc, e)) return item;
     }
