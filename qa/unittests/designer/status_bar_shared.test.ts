@@ -240,9 +240,17 @@ describe('the bar height is a property of the frame', () => {
     // undocumented number invites the next person to "fix" the difference.
     // Both numbers, each with its own pixel run - one MEASURED marker is not
     // enough, since either frame's provenance could be dropped on its own.
-    expect(shell).toContain('MEASURED on the project manager');
-    expect(shell).toContain('MEASURED on');
-    expect(shell.match(/MEASURED/g)?.length ?? 0).toBe(2);
+    // Counted inside the --statusbar-height comment, not across the whole
+    // file: a MEASURED marker on some unrelated token elsewhere in shell.css
+    // is not this token's provenance and must not stand in for it (nor, as it
+    // did once, fail this test by existing).
+    const provenance = shell.slice(
+      shell.indexOf('/* Status-bar height.'),
+      shell.indexOf('--statusbar-height:'),
+    );
+    expect(provenance).toContain('MEASURED on the project manager');
+    expect(provenance).toContain('MEASURED on');
+    expect(provenance.match(/MEASURED/g)?.length ?? 0).toBe(2);
     expect(shell).toContain('y=1177..1199 -> 23px');
     expect(shell).toContain('y=1167..1199\n             -> 33px');
     expect(shell).toContain('kistatusbar.cpp');
