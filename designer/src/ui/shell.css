@@ -83,6 +83,24 @@
      grid's rows repeat every 23 px and wxFormBuilder gives each a 5 px bottom
      border (bitmap2cmp_panel_base.cpp:47-88), so the label itself is 18. */
   --ui-line-height: 18px;
+  /* The window-manager title bar. KiCad's client area draws no title at all —
+     `SetTitle()` (bitmap2cmp_frame.cpp:352-365) hands the string to the WM,
+     which paints it above the menu bar in its own font. A browser tab has no WM
+     title bar, so we carry it in-page; carrying it in the MENU BAR row was the
+     part that was wrong, because that row has no title in KiCad and the string
+     had to shrink to 8pt to fit (measured 91 px wide against KiCad's 130 px).
+
+     [px] measured on a real frame at 1920x1200, column x=700: title strip
+     y=32..67 = 36 px of rgb(34,34,34), a 1 px rgb(0,0,0) rule at y=68, then the
+     25 px rgb(44,44,44) menu bar. Title ink sampled rgb(247,247,247).
+     [css] `gsettings get org.gnome.desktop.wm.preferences titlebar-font` =
+     "Cantarell Bold 11" — 11pt at 96 dpi = 14.667 px, weight 700. */
+  --titlebar-height: 36px;
+  --titlebar-bg: #222222;
+  --titlebar-fg: #f7f7f7;
+  --titlebar-font-size: 14.667px;
+  --titlebar-font-weight: 700;
+  --titlebar-rule: #000000;
 
   /* The border colour of every framed thing: static box, button, text field,
      checkbox, radio. [css] `frame > border`, `button`, `entry`, `check`,
@@ -328,6 +346,41 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    the pointer crossed it, which reads as a web menu, not a GTK one. */
 /* KiCad window-title info in the menu bar: "<project>, <Editor>", centred like
    a window title. Absolute + pointer-events:none so it doesn't block menus. */
+/* Title bar + menu bar as one chrome block, the way a WM-decorated frame is a
+   title bar above the application's own menu bar. */
+.ze-framechrome {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+.ze-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  height: var(--titlebar-height);
+  padding: 0 8px;
+  background: var(--titlebar-bg);
+  border-bottom: 1px solid var(--titlebar-rule);
+}
+/* Centred on the frame, not on the space left over by the home link — a WM
+   centres the title on the title bar itself. */
+.ze-titlebar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--titlebar-fg);
+  font-size: var(--titlebar-font-size);
+  font-weight: var(--titlebar-font-weight);
+}
+.ze-titlebar-title b {
+  color: var(--titlebar-fg);
+  font-weight: var(--titlebar-font-weight);
+}
 .ze-menubar-title {
   position: absolute;
   top: 50%;

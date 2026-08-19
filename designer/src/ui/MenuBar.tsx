@@ -198,27 +198,41 @@ export function MenuBar({
   }, [open]);
 
   return (
-    <div className="ze-menubar" ref={ref}>
-      {leftSlot}
-      {menus.map((menu) => (
-        <div
-          key={menu.label}
-          className={`ze-menu${open === menu.label ? ' open' : ''}`}
-          onClick={() => setOpen((o) => (o === menu.label ? null : menu.label))}
-          onMouseEnter={() => open && setOpen(menu.label)}
-        >
-          {menu.label}
-          {open === menu.label && (
-            <div className="ze-dropdown" onClick={(e) => e.stopPropagation()}>
-              {menu.items.map((it, i) => (
-                <MenuEntry key={it.label ?? `s${i}`} item={it} close={() => setOpen(null)} />
-              ))}
-            </div>
-          )}
+    <div className="ze-framechrome">
+      {/* The WM title bar. Upstream this is not drawn by the application at all:
+          `SetTitle()` hands the string to the window manager, which paints it
+          above the menu bar in "Cantarell Bold 11". A browser tab has no WM
+          title bar — that carrier is browser-forced — but the row it lives in
+          is not, and putting it inside the menu bar (a row KiCad has no title
+          in) is what forced it down to 8pt. The home link rides here too: it
+          has no KiCad counterpart, and the title bar is where a window-level
+          control belongs. */}
+      {(title || leftSlot) && (
+        <div className="ze-titlebar">
+          {leftSlot}
+          {title && <div className="ze-titlebar-title">{title}</div>}
         </div>
-      ))}
-      {title && <div className="ze-menubar-title">{title}</div>}
-      {rightSlot}
+      )}
+      <div className="ze-menubar" ref={ref}>
+        {menus.map((menu) => (
+          <div
+            key={menu.label}
+            className={`ze-menu${open === menu.label ? ' open' : ''}`}
+            onClick={() => setOpen((o) => (o === menu.label ? null : menu.label))}
+            onMouseEnter={() => open && setOpen(menu.label)}
+          >
+            {menu.label}
+            {open === menu.label && (
+              <div className="ze-dropdown" onClick={(e) => e.stopPropagation()}>
+                {menu.items.map((it, i) => (
+                  <MenuEntry key={it.label ?? `s${i}`} item={it} close={() => setOpen(null)} />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {rightSlot}
+      </div>
     </div>
   );
 }
