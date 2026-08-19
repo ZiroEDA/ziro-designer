@@ -50,6 +50,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   'editors/drawingsheet/DrawingSheetEditor.tsx',
+  'editors/footprint/FootprintEditor.tsx',
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
@@ -69,7 +70,6 @@ const CONVERTED = [
  * added to the app without landing in one list or the other.
  */
 const PENDING = [
-  'editors/footprint/FootprintEditor.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
@@ -102,6 +102,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
   'editors/drawingsheet/DrawingSheetEditor.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
   ],
+  'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -238,6 +239,24 @@ const CANVAS_KEYS: Readonly<
       // The cancel chain. ACTIONS::cancelInteractive is scoped to the running
       // tool, so it is a context action too.
       ['Esc cancel', /e\.key === 'Escape'/],
+    ],
+  },
+  'editors/footprint/FootprintEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
+      ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
+      ['Ctrl+Y redo', /e\.key\.toLowerCase\(\) === 'y'/],
+      ['F zoom to fit', /e\.key === 'f' \|\| e\.key === 'F'/],
+      // The canvas Delete. `action: deleteSel` in the row is the same command
+      // reached the other way; `deleteSel();` was the second declaration.
+      ['Del delete', /deleteSel\(\);/],
+    ],
+    kept: [
+      // PCB_ACTIONS::rotateCcw / rotateCw - R and Shift+R, neither with a row.
+      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
+      ['Esc cancel', /e\.key === 'Escape'/],
+      // The library tree's own Del. Disjoint from the row's, by condition.
+      ['tree Del', /onDelete\(treeSel\.lib, treeSel\.name\)/],
     ],
   },
 };
@@ -445,6 +464,18 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // View.
     'Home',
   ],
+  'editors/footprint/FootprintEditor.tsx': [
+    'Ctrl+Alt+N',
+    'Ctrl+S',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // View > Zoom to Fit. `ACTIONS::zoomFitScreen` is Home off macOS and F is
+    // `PCB_ACTIONS::flip`, so this row's key is wrong upstream - but it is the
+    // key the frame has always answered, and correcting the row is #547's job,
+    // not this one's. Recorded so the divergence is not silent.
+    'F',
+  ],
 };
 
 /** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
@@ -517,8 +548,11 @@ describe('the shared rows every frame ends its File and Help menus with', () => 
   });
 
   it('and every converted canvas frame calls them rather than writing its own', () => {
+    // Which of the three a frame calls is upstream's choice, not ours:
+    // menubar_footprint_editor.cpp:92 is `AddClose`, pcbnew and eeschema call
+    // `AddQuitOrClose`. What matters is that none of them writes the row.
     const missing = Object.keys(CANVAS_KEYS).filter(
-      (rel) => !/\baddQuit\(/.test(source(rel)) || !/\baddClose\(/.test(source(rel)),
+      (rel) => !/\badd(Close|Quit|QuitOrClose)\(/.test(source(rel)),
     );
     expect(missing, 'a frame hand-rolling the File menu tail').toEqual([]);
   });
