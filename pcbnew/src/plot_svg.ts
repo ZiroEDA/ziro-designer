@@ -191,60 +191,12 @@ export interface SvgImage {
 // Number formatting
 // ===========================================================================
 
-const F64 = new DataView(new ArrayBuffer(8));
-
-/**
- * fmt's `{:.Nf}`, i.e. C's `%.*f`: the exact binary value of the double is
- * rounded to N decimals with ties going to even, and the sign survives even
- * when the result is zero.
- *
- * `Number.prototype.toFixed` differs on both counts — it rounds ties away from
- * zero and prints negative zero as "0" — so the digits are produced here from
- * the IEEE fields with BigInt arithmetic, which is exact by construction.
- * Ties are rare at m_precision 4 but they are not impossible, and a rounding
- * rule that is right "almost always" is not a port.
- */
-export function fixed(aValue: number, aPrecision: number): string {
-  if (Number.isNaN(aValue)) return 'nan';
-  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
-
-  const negative = aValue < 0 || Object.is(aValue, -0);
-
-  F64.setFloat64(0, Math.abs(aValue));
-  const hi = F64.getUint32(0);
-  const lo = F64.getUint32(4);
-
-  const rawExponent = (hi >>> 20) & 0x7ff;
-  let mantissa = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
-
-  // Subnormals have no implicit leading bit and an exponent of 1, not 0.
-  if (rawExponent === 0) mantissa |= 0n;
-  else mantissa |= 1n << 52n;
-
-  const exponent = (rawExponent === 0 ? 1 : rawExponent) - 1075;
-
-  // value * 10^precision, as an exact rational.
-  let numerator = mantissa * 10n ** BigInt(aPrecision);
-  let denominator = 1n;
-
-  if (exponent >= 0) numerator <<= BigInt(exponent);
-  else denominator = 1n << BigInt(-exponent);
-
-  let quotient = numerator / denominator;
-  const twiceRemainder = (numerator % denominator) * 2n;
-
-  if (twiceRemainder > denominator || (twiceRemainder === denominator && (quotient & 1n) === 1n))
-    quotient += 1n;
-
-  let digits = quotient.toString();
-
-  if (aPrecision > 0) {
-    digits = digits.padStart(aPrecision + 1, '0');
-    digits = `${digits.slice(0, digits.length - aPrecision)}.${digits.slice(digits.length - aPrecision)}`;
-  }
-
-  return negative ? `-${digits}` : digits;
-}
+// `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
+// one `fmt::print`; the precision is a call-site argument (SVG's is
+// `m_precision`, SVG_plotter.cpp:176), not a per-backend formatter.
+// Re-exported so existing importers of this module are unaffected.
+export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
+import { fixed } from '@ziroeda/common/src/plotters/fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals, whatever m_precision says. */
 export const DEFAULT_FMT_PRECISION = 6;
