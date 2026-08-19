@@ -19,6 +19,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { CvpcbComponent } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 import {
   associate,
+  changeFocus,
   closeWindow,
   deleteAll,
   deleteAssoc,
@@ -295,5 +296,99 @@ describe('DeleteAssoc and ToNA', () => {
     expect(selectedComponent(gotoNA(at(2), SHEET, 1))).toBe(2);
     expect(selectedComponent(gotoNA(at(2), SHEET, -1))).toBe(1);
     expect(selectedComponent(gotoNA(at(1), SHEET, -1))).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B3: the symbols pane is multi-select, and the commands honour it
+// ---------------------------------------------------------------------------
+
+describe('a multi-row symbol selection', () => {
+  // Twelve decoupling capacitors and a resistor, none assigned.
+  const CAPS: CvpcbComponent[] = [];
+  for (let i = 1; i <= 12; i++) CAPS.push(comp(`C${i}`));
+  CAPS.push(comp('R1'));
+
+  it('assigns the footprint to every selected symbol', () => {
+    // CVPCB_ASSOCIATION_TOOL::Associate loops over
+    // GetComponentIndices( SEL_COMPONENTS ). Testing the selection *state*
+    // instead would pass while this loop still read only the first row.
+    const after = associate(at(0, 1, 2, 3), CAPS, 'Capacitor_SMD:C_0805');
+    expect(fpids(after, CAPS).slice(0, 5)).toEqual([
+      'Capacitor_SMD:C_0805',
+      'Capacitor_SMD:C_0805',
+      'Capacitor_SMD:C_0805',
+      'Capacitor_SMD:C_0805',
+      '',
+    ]);
+  });
+
+  it('records the whole batch as ONE undo entry', () => {
+    // `bool firstAssoc = true; … firstAssoc = false;` is AssociateFootprint's
+    // aNewEntry, so twelve capacitors are one Ctrl+Z, not twelve.
+    const after = associate(at(0, 1, 2, 3, 4, 5), CAPS, 'Capacitor_SMD:C_0805');
+    expect(after.undoStack.length).toBe(1);
+    expect(after.undoStack[0]?.length).toBe(6);
+  });
+
+  it('and one undo puts all of them back', () => {
+    const after = associate(at(0, 1, 2), CAPS, 'Capacitor_SMD:C_0805');
+    expect(fpids(undoAssociation(after, CAPS), CAPS).slice(0, 3)).toEqual(['', '', '']);
+  });
+
+  it('still advances to the next unassigned symbol afterwards', () => {
+    // gotoNextNA runs after the whole loop and off GetFirstSelected, the
+    // lowest selected row — so from 0, skipping the three it just assigned.
+    const after = associate(at(0, 1, 2), CAPS, 'Capacitor_SMD:C_0805');
+    expect(selectedComponent(after)).toBe(3);
+  });
+
+  it('clears every selected link as one undo entry', () => {
+    // "Delete all the selected components' associations", the same loop.
+    const assigned = associate(at(0, 1, 2), CAPS, 'Capacitor_SMD:C_0805');
+    const cleared = deleteAssoc({ ...assigned, selection: [0, 1, 2] }, CAPS);
+    expect(fpids(cleared, CAPS).slice(0, 3)).toEqual(['', '', '']);
+    expect(cleared.undoStack.length).toBe(assigned.undoStack.length + 1);
+    expect(cleared.undoStack[cleared.undoStack.length - 1]?.length).toBe(3);
+  });
+
+  it('does nothing at all with no selection', () => {
+    // `if( idx.empty() )` — the loop body never runs, and ToNA has nowhere to
+    // go because newSel keeps its UINT_MAX initial value. Reachable now that
+    // the window can open with nothing selected.
+    const empty = emptyAssociations();
+    expect(associate(empty, CAPS, 'Capacitor_SMD:C_0805')).toBe(empty);
+    expect(deleteAssoc(empty, CAPS)).toBe(empty);
+    expect(gotoNA(empty, CAPS, 1)).toBe(empty);
+    expect(gotoNA(empty, CAPS, -1)).toBe(empty);
+  });
+
+  it('follows the lowest selected row, which is GetFirstSelected', () => {
+    expect(selectedComponent(at(5, 2, 9))).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B7: CVPCB_CONTROL::ChangeFocus
+// ---------------------------------------------------------------------------
+
+describe('ChangeFocus', () => {
+  it('cycles library to symbol to footprint and back', () => {
+    expect(changeFocus('library', 'right')).toBe('symbol');
+    expect(changeFocus('symbol', 'right')).toBe('footprint');
+    expect(changeFocus('footprint', 'right')).toBe('library');
+  });
+
+  it('cycles the other way for Shift+Tab and the left arrow', () => {
+    expect(changeFocus('library', 'left')).toBe('footprint');
+    expect(changeFocus('footprint', 'left')).toBe('symbol');
+    expect(changeFocus('symbol', 'left')).toBe('library');
+  });
+
+  it('does nothing from CONTROL_NONE', () => {
+    // The focus is in the toolbar's search box, or nowhere: both switches fall
+    // through their default label.
+    expect(changeFocus(null, 'right')).toBe(null);
+    expect(changeFocus(null, 'left')).toBe(null);
   });
 });

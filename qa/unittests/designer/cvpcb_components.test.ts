@@ -12,9 +12,11 @@ import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   collectCvpcbComponents,
+  firstUnassignedComponent,
   formatFootprintDesc,
   formatSymbolDesc,
   nextUnassociated,
+  type CvpcbComponent,
 } from '@ziroeda/designer/src/editors/schematic/cvpcb_components.js';
 
 // A dual triode (two units + a power unit), a resistor, and a power symbol.
@@ -235,5 +237,43 @@ describe('walking to the next unassociated component', () => {
     // 0 assigned, 1..3 assigned, 4 not: forward from 0 lands on 4, not 1.
     const onlyLast = (i: number): boolean => i !== 4;
     expect(nextUnassociated(5, 0, 1, onlyLast)).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B1: the row the window opens on (readwrite_dlgs.cpp:255-274)
+// ---------------------------------------------------------------------------
+
+describe('firstUnassignedComponent', () => {
+  const comp = (reference: string, footprint = ''): CvpcbComponent => ({
+    reference,
+    value: '',
+    footprint,
+    fpFilters: [],
+    pinCount: 0,
+    instances: [],
+  });
+
+  it('is the first symbol with no footprint, not row 0', () => {
+    // The whole point: the window lands on the job you opened it to do.
+    const sheet = [comp('C1', 'Capacitor_SMD:C_0805'), comp('C2'), comp('R1')];
+    expect(firstUnassignedComponent(sheet)).toBe(1);
+  });
+
+  it('is the FIRST such symbol, not the last', () => {
+    const sheet = [comp('C1'), comp('C2'), comp('R1')];
+    expect(firstUnassignedComponent(sheet)).toBe(0);
+  });
+
+  it('is -1 when every symbol already has a footprint', () => {
+    // `if( firstUnassigned >= 0 )` fails, so SetSelection never runs and the
+    // real window opens with no row highlighted at all. Ours selected row 0
+    // regardless, which also dragged the footprint pane onto C1's footprint.
+    const done = [comp('C1', 'Capacitor_SMD:C_0805'), comp('R1', 'Resistor_SMD:R_0805')];
+    expect(firstUnassignedComponent(done)).toBe(-1);
+  });
+
+  it('is -1 for an empty netlist', () => {
+    expect(firstUnassignedComponent([])).toBe(-1);
   });
 });
