@@ -9,7 +9,8 @@ import {
   type PcbnewSettings,
   type PrivacySettings,
 } from '../prefs/settings.js';
-import { FIRST_PAGE, PAGES, loadPrefsPanel, ownerOf, peekPrefsPanel } from './prefs/registry.js';
+import { FIRST_PAGE, PAGES, ownerOf } from './prefs/registry.js';
+import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import type { PrefsContext, PrefsPageId, PrefsPanelModule } from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';

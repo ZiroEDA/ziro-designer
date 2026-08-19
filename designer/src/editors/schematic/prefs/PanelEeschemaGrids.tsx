@@ -9,8 +9,8 @@
  * every editor can take is follow-up work; the schematic's copy moves here
  * unchanged so the split stays reviewable as a no-op.
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
- * no behaviour change.
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
+ * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
 import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';

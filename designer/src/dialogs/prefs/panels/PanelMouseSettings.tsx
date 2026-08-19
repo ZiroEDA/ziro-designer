@@ -6,7 +6,7 @@
  * (`common/dialogs/panel_mouse_settings_base.cpp`), added by the base frame
  * itself (`common/eda_base_frame.cpp:1585-1589`).
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
  * no behaviour change. The three option tables came with it — they were
  * declared in the dialog but read only here.
  */

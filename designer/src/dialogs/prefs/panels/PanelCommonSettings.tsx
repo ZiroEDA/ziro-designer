@@ -6,8 +6,8 @@
  * (`common/dialogs/panel_common_settings_base.cpp`), a generic page the base
  * frame adds itself (`common/eda_base_frame.cpp:1578-1583`), not an editor's.
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
- * no behaviour change.
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
+ * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '../widgets.js';

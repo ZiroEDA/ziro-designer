@@ -24,7 +24,7 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
   switch (id) {
     case 'pcb-display':
       return {
-        Panel: ({ ctx }) => <PanelPcbDisplayOptions ctx={ctx} />,
+        Panel: PanelPcbDisplayOptions,
         reset: resetPcbDisplayOptions,
       };
 

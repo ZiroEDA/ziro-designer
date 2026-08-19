@@ -38,37 +38,37 @@ export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanel
   switch (id) {
     case 'sch-display':
       return {
-        Panel: ({ ctx }) => <PanelEeschemaDisplayOptions ctx={ctx} />,
+        Panel: PanelEeschemaDisplayOptions,
         reset: resetEeschemaDisplayOptions,
       };
 
     case 'sch-grids':
       return {
-        Panel: ({ ctx }) => <PanelEeschemaGrids ctx={ctx} />,
+        Panel: PanelEeschemaGrids,
         reset: resetEeschemaGrids,
       };
 
     case 'sch-editing':
       return {
-        Panel: ({ ctx }) => <PanelEeschemaEditingOptions ctx={ctx} />,
+        Panel: PanelEeschemaEditingOptions,
         reset: resetEeschemaEditingOptions,
       };
 
     case 'sch-annotation':
       return {
-        Panel: ({ ctx }) => <PanelEeschemaAnnotationOptions ctx={ctx} />,
+        Panel: PanelEeschemaAnnotationOptions,
         reset: resetEeschemaAnnotationOptions,
       };
 
     case 'sch-colors':
       return {
-        Panel: ({ ctx }) => <PanelEeschemaColorSettings ctx={ctx} />,
+        Panel: PanelEeschemaColorSettings,
         reset: resetEeschemaColorSettings,
       };
 
     case 'sch-fields':
       return {
-        Panel: ({ ctx }) => <PanelTemplateFieldnames ctx={ctx} />,
+        Panel: PanelTemplateFieldnames,
         reset: resetTemplateFieldnames,
       };
 

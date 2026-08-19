@@ -8,7 +8,7 @@
  * eeschema constructs it for `PANEL_SCH_COLORS`. Splitting the shared base out
  * of it is follow-up work -- there is only one subclass here to share with.
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`; no
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood no
  * behaviour change. The theme derivation came with it: `usePcmVersion`, the
  * installed-theme list and `activeColors` were declared in the dialog but read
  * only by this page, so they belong to it. Nothing else re-rendered on them.

@@ -15,8 +15,8 @@
  * is a behaviour change and this branch is a no-op refactor. Moved here so the
  * duplicate is at least visible as a file rather than buried in a switch.
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
- * no behaviour change.
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
+ * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
 import { Check, Group } from '../../../dialogs/prefs/widgets.js';

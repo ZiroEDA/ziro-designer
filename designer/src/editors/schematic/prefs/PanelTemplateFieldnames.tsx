@@ -6,8 +6,8 @@
  * `PANEL_TEMPLATE_FIELDNAMES` (`common/dialogs/panel_template_fieldnames_base.cpp`),
  * constructed by eeschema for `PANEL_SCH_FIELD_NAME_TEMPLATES`.
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
- * no behaviour change.
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
+ * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
 import { Group } from '../../../dialogs/prefs/widgets.js';

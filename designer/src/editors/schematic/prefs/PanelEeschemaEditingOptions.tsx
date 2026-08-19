@@ -7,8 +7,8 @@
  * (`eeschema/dialogs/panel_eeschema_editing_options_base.cpp`), constructed by
  * eeschema for `PANEL_SCH_EDIT_OPTIONS` (`eeschema/eeschema.cpp:327`).
  *
- * Moved verbatim out of `prefs/PreferencesDialog.tsx`'s `switch (page)`;
- * no behaviour change.
+ * Moved verbatim out of the Preferences dialog's `switch (page)` (as it stood
+ * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';

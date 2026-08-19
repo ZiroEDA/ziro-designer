@@ -13,22 +13,20 @@
  */
 import { PanelCommonSettings, resetCommonPanel } from './PanelCommonSettings.js';
 import { PanelMouseSettings, resetMousePanel } from './PanelMouseSettings.js';
-import { PanelHotkeysEditor } from './PanelHotkeysEditor.js';
+import { PanelHotkeys } from './PanelHotkeys.js';
 import type { PrefsPageId, PrefsPanelFactory, PrefsPanelModule } from '../types.js';
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
   switch (id) {
     case 'common':
-      return { Panel: ({ ctx }) => <PanelCommonSettings ctx={ctx} />, reset: resetCommonPanel };
+      return { Panel: PanelCommonSettings, reset: resetCommonPanel };
 
     case 'mouse':
-      return { Panel: ({ ctx }) => <PanelMouseSettings ctx={ctx} />, reset: resetMousePanel };
+      return { Panel: PanelMouseSettings, reset: resetMousePanel };
 
     case 'hotkeys':
       return {
-        Panel: ({ ctx }) => (
-          <PanelHotkeysEditor overrides={ctx.hotkeys} onChange={ctx.setHotkeys} />
-        ),
+        Panel: PanelHotkeys,
         // PANEL_HOTKEYS_EDITOR::ResetPanel -> ResetAllHotkeys( true ): every
         // action back to its DefaultHotkey, which is an empty override map.
         reset: (ctx) => ctx.setHotkeys({}),
