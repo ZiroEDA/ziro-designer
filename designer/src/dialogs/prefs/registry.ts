@@ -51,7 +51,7 @@ export const PAGES: readonly PrefsPageEntry[] = [
   { id: 'sch-colors', label: 'Colors', indent: true, owner: 'schematic' },
   { id: 'sch-fields', label: 'Field Name Templates', indent: true, owner: 'schematic' },
   { id: null, label: 'PCB Editor' },
-  { id: 'pcb-display', label: 'Display Options', indent: true },
+  { id: 'pcb-display', label: 'Display Options', indent: true, owner: 'pcb' },
 ];
 
 /** The first selectable page — what the dialog opens on. */
@@ -64,6 +64,7 @@ export const FIRST_PAGE: PrefsPageId = 'common';
 const OWNERS: Record<PrefsPageOwner, () => Promise<PrefsPanelFactory>> = {
   generic: async () => (await import('./panels/index.js')).createPrefsPanel,
   schematic: async () => (await import('../../editors/schematic/prefs/index.js')).createPrefsPanel,
+  pcb: async () => (await import('../../editors/pcb/prefs/index.js')).createPrefsPanel,
 };
 
 export function ownerOf(id: PrefsPageId): PrefsPageOwner | undefined {

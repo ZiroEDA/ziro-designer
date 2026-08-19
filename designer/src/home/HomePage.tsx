@@ -67,7 +67,7 @@ import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
 import { useMenuHotkeys } from '../ui/useMenuHotkeys.js';
-import { PreferencesDialog } from '../prefs/PreferencesDialog.js';
+import { PreferencesDialog } from '../dialogs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';

@@ -3,22 +3,14 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useEffect, useState, type JSX } from 'react';
 import {
-  PCBNEW_DEFAULTS,
   settings,
   type CommonSettings,
   type EeschemaSettings,
   type PcbnewSettings,
   type PrivacySettings,
-} from './settings.js';
-import { CrossProbingGroup } from '../dialogs/prefs/CrossProbingGroup.js';
-import {
-  FIRST_PAGE,
-  PAGES,
-  loadPrefsPanel,
-  ownerOf,
-  peekPrefsPanel,
-} from '../dialogs/prefs/registry.js';
-import type { PrefsContext, PrefsPageId, PrefsPanelModule } from '../dialogs/prefs/types.js';
+} from '../prefs/settings.js';
+import { FIRST_PAGE, PAGES, loadPrefsPanel, ownerOf, peekPrefsPanel } from './prefs/registry.js';
+import type { PrefsContext, PrefsPageId, PrefsPanelModule } from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { setReportingEnabled } from '../telemetry/reporter.js';
 import { sentrySink } from '../telemetry/sentrySink.js';
@@ -39,7 +31,6 @@ import { useModalEscape } from '../ui/useModalEscape.js';
  * does. "Reset to Defaults" resets the current page only (RESETTABLE_PANEL), by
  * asking that page for its own reset.
  */
-
 export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
@@ -139,34 +130,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
   // RESETTABLE_PANEL::ResetPanel on the page that is up: the panel owns its own
   // defaults, as every `panel_*.cpp` does.
   const resetPage = (): void => {
-    const built = peekPrefsPanel(page);
-    if (built) {
-      built.reset(ctx);
-      return;
-    }
-    // Not yet registry-owned: the arm from the original switch, unchanged.
-    switch (page) {
-      default:
-        setPcbnew(structuredClone(PCBNEW_DEFAULTS));
-        break;
-    }
-  };
-
-  // Pages not yet moved out of this switch. Each one leaves as its owning
-  // editor's `prefs/` module lands; the registry is the only route once it has.
-  const body = (): JSX.Element | null => {
-    switch (page) {
-      case 'pcb-display':
-        return (
-          <CrossProbingGroup
-            peer="schematic"
-            value={pcbnew.cross_probing}
-            onChange={(fn) => upP((s) => fn(s.cross_probing))}
-          />
-        );
-      default:
-        return null;
-    }
+    peekPrefsPanel(page)?.reset(ctx);
   };
 
   return (
@@ -196,7 +160,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
               ),
             )}
           </div>
-          <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : body()}</div>
+          <div className="ze-prefs-panel">{panel ? <panel.Panel ctx={ctx} /> : null}</div>
         </div>
         <div className="ze-modal-footer">
           <button className="ze-btn" onClick={resetPage}>
