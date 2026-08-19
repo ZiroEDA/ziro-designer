@@ -20,7 +20,7 @@
  *     DATA (KiCad paints those hues itself, they are not theme colours);
  *   - `td.bad`, the out-of-range cell wash on the spacing tables.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -78,6 +78,37 @@ describe('calculator.css consumes the theme instead of restating it', () => {
   it('keeps the tree rows at the 22 px pitch measured off the real tree', () => {
     const block = CODE.slice(CODE.indexOf('.calc-tree-group,'));
     expect(block.slice(0, block.indexOf('}'))).toContain('height: 22px');
+  });
+
+  it('carries no hardcoded font size anywhere in the launcher, not just its CSS', () => {
+    // The ui_font_tokens ratchet counts `editors/calculator` at ZERO now, which
+    // is the state this launcher's pass was meant to reach. Losing that is a
+    // regression whichever file it happens in, so it is asserted here too.
+    const files: string[] = [];
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.(css|ts|tsx)$/.test(full)) files.push(full);
+      }
+    })(join(SRC, 'editors/calculator'));
+
+    const hits: string[] = [];
+    for (const file of files) {
+      const isCss = file.endsWith('.css');
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          const m = isCss
+            ? line.match(/(?<![-\w])font-size:\s*([^;]+);/)
+            : line.match(/fontSize:\s*(-?[\d.]+|'[^']+'|"[^"]+")\s*[,}]/);
+          if (!m) return;
+          const value = (m[1] ?? '').replace(/['"]/g, '').trim();
+          if (value.includes('var(') || value === 'inherit') return;
+          hits.push(`${file}:${i + 1} ${value}`);
+        });
+    }
+    expect(hits).toStrictEqual([]);
   });
 
   it('does not re-declare the shared .twisty chevron', () => {
