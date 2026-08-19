@@ -28,6 +28,15 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
+import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
+import {
+  addClose,
+  addQuit,
+  UPSTREAM_CLOSE_KEY,
+  UPSTREAM_QUIT_KEY,
+} from '@ziroeda/designer/src/ui/action_menu.js';
+import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
+import type { Menu } from '@ziroeda/designer/src/ui/menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -40,6 +49,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  */
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
+  'editors/drawingsheet/DrawingSheetEditor.tsx',
   'editors/gerbview/GerberViewer.tsx',
   'editors/image/ImageConverter.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
@@ -59,7 +69,6 @@ const CONVERTED = [
  * added to the app without landing in one list or the other.
  */
 const PENDING = [
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
   'editors/footprint/FootprintEditor.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
@@ -67,23 +76,33 @@ const PENDING = [
 ];
 
 /**
- * The only modifier reads a converted frame may keep, listed line for line.
+ * The only modifier reads a converted frame may keep, per file, line for line.
  *
- * Neither of these claims a key. The first is `wxListCtrl`'s selection
- * modifiers on a **mouse** event - Ctrl adds a row, Shift ranges - which is
- * what makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is
- * built without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
+ * None of these claims a key.
+ *
+ * `dialog_assign_footprints.tsx` - the first is `wxListCtrl`'s selection
+ * modifiers on a **mouse** event (Ctrl adds a row, Shift ranges), which is what
+ * makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is built
+ * without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
  * opposite of a hotkey: the listbox type-ahead declining to treat a *modified*
  * key as a character, exactly as `OnChar` only ever sees unmodified ones.
  *
- * Both live inside the pane component, not beside a menu row, and neither
- * mentions a key. A real competing binding would need `e.key`, and would show
- * up as a line that is not in this list.
+ * The canvas frames - each keeps one line, and it is always the same line: a
+ * canvas tool key is `MD_NONE` upstream, so the chain has to know that no
+ * modifier is held before it may treat the key as the tool. It is a guard
+ * *against* claiming a modified combo, which is the reverse of the thing this
+ * sweep hunts. A real competing binding would name a key as well, and would
+ * therefore show up as a line that is not in this list.
  */
-const MODIFIER_EXCEPTIONS = [
-  'if (multi && (e.ctrlKey || e.metaKey)) {',
-  'if (e.ctrlKey || e.altKey || e.metaKey) return;',
-];
+const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
+  'editors/schematic/dialogs/dialog_assign_footprints.tsx': [
+    'if (multi && (e.ctrlKey || e.metaKey)) {',
+    'if (e.ctrlKey || e.altKey || e.metaKey) return;',
+  ],
+  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
+  ],
+};
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -142,22 +161,31 @@ describe('a converted frame has no listener of its own', () => {
     // written a second, competing declaration of a key the menu already owns.
     // Gerber Viewer keeps four *unmodified* canvas keys (m, Esc, +, -), which
     // is why the test looks for the modifier and not for `keydown`.
-    const stray = CONVERTED.flatMap((rel) =>
-      source(rel)
+    const stray = CONVERTED.flatMap((rel) => {
+      const allowed = MODIFIER_EXCEPTIONS[rel] ?? [];
+      return source(rel)
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => /\b(ctrlKey|metaKey)\b/.test(line))
-        .filter((line) => !MODIFIER_EXCEPTIONS.includes(line))
-        .map((line) => `${rel}: ${line}`),
-    );
+        .filter((line) => !allowed.includes(line))
+        .map((line) => `${rel}: ${line}`);
+    });
     expect(stray, 'a converted frame with a hand-written modifier comparison').toEqual([]);
   });
 
   it('and every exception is still there to be excused', () => {
     // A stale entry would quietly widen the rule above, so the exceptions are
-    // asserted present rather than merely tolerated.
-    const all = CONVERTED.flatMap((rel) => source(rel).split('\n')).map((line) => line.trim());
-    expect(MODIFIER_EXCEPTIONS.filter((line) => !all.includes(line))).toEqual([]);
+    // asserted present rather than merely tolerated - and against the file that
+    // claims them, so one frame's excuse cannot cover another's.
+    const missing = Object.entries(MODIFIER_EXCEPTIONS).flatMap(([rel, lines]) => {
+      const all = source(rel)
+        .split('\n')
+        .map((line) => line.trim());
+      return lines.filter((line) => !all.includes(line)).map((line) => `${rel}: ${line}`);
+    });
+    expect(missing).toEqual([]);
+    // …and every file that claims one is a frame the sweep actually walks.
+    expect(Object.keys(MODIFIER_EXCEPTIONS).filter((rel) => !CONVERTED.includes(rel))).toEqual([]);
   });
 
   it('keeps only the keys that have no menu row', () => {
@@ -173,6 +201,88 @@ describe('a converted frame has no listener of its own', () => {
     expect(cvpcb).not.toMatch(/e\.key === 'Delete'/);
   });
 });
+
+/**
+ * Per canvas frame: the keys that left its chain, and the keys that stayed.
+ *
+ * A canvas editor is not converted by deleting its key handler - most of what
+ * is in there is a tool, and a tool key has no menu row (`ACTION_MANAGER::
+ * RunHotKey` calls those the *context* actions). What converts is the subset
+ * that owns a row: those move to the row and must not be restated here, or the
+ * two declarations start to drift, which is the whole failure this file exists
+ * to catch.
+ *
+ * So each frame lists both halves. `moved` must be gone; `kept` must still be
+ * there, because deleting a rowless tool key would be a silent regression that
+ * no other test in the suite would notice.
+ */
+const CANVAS_KEYS: Readonly<
+  Record<string, { moved: readonly [string, RegExp][]; kept: readonly [string, RegExp][] }>
+> = {
+  'editors/drawingsheet/DrawingSheetEditor.tsx': {
+    moved: [
+      ['Ctrl+S save', /=== 's'/],
+      ['Ctrl+N new', /=== 'n'/],
+      ['Ctrl+O open', /=== 'o'/],
+      ['Ctrl+Z undo', /=== 'z'/],
+      ['Ctrl+Y redo', /=== 'y'/],
+      ['Ctrl+C copy', /=== 'c'/],
+      ['Ctrl+X cut', /=== 'x'/],
+      ['Del delete', /=== 'Delete'/],
+      ['Home zoom to fit', /=== 'Home'/],
+    ],
+    kept: [
+      // PL_ACTIONS::move, pl_actions.cpp:84 - the one hotkey pl_editor
+      // declares for itself, and it has no row anywhere in the frame.
+      ['M move', /e\.key === 'm' \|\| e\.key === 'M'/],
+      // The cancel chain. ACTIONS::cancelInteractive is scoped to the running
+      // tool, so it is a context action too.
+      ['Esc cancel', /e\.key === 'Escape'/],
+    ],
+  },
+};
+
+describe('a converted canvas frame keeps its tool keys and gives up the rest', () => {
+  const frames = Object.keys(CANVAS_KEYS);
+
+  it('covers every converted canvas frame', () => {
+    // The frames that own a canvas are exactly the ones this table must list;
+    // a new one converted without an entry would otherwise be unchecked.
+    expect(frames.every((rel) => CONVERTED.includes(rel))).toBe(true);
+  });
+
+  it.each(frames)('%s', (rel) => {
+    const src = source(rel);
+    const { moved, kept } = CANVAS_KEYS[rel]!;
+    expect(
+      moved.filter(([, re]) => re.test(src)).map(([name]) => name),
+      'restated beside the menu row that already declares it',
+    ).toEqual([]);
+    expect(
+      kept.filter(([, re]) => !re.test(src)).map(([name]) => name),
+      'a canvas key with no menu row was deleted rather than left alone',
+    ).toEqual([]);
+  });
+});
+
+/**
+ * Every accelerator a frame's menu rows declare, read out of its source.
+ *
+ * The frames are `.tsx` and `qa`'s tsconfig compiles `.ts` only, so their menu
+ * trees cannot be built here the way `buildManagerMenus` can. What *can* be
+ * read is the declaration itself - `shortcut: 'Ctrl+S'` - and that is the thing
+ * under test: a row's accelerator is only real if `ui/menu_hotkeys.ts` can
+ * parse it and match a keystroke to it. `Ctrl++`, `Del`, `Home`, `F5` and the
+ * `browserSafeKey` substitutions are each a way for that to fail quietly, and
+ * before the dispatcher existed every one of them failed by default.
+ */
+function declaredAccelerators(rel: string): string[] {
+  const out = new Set<string>();
+  for (const m of source(rel).matchAll(/shortcut:\s*'([^']+)'/g)) out.add(m[1]!);
+  for (const m of source(rel).matchAll(/shortcut:\s*browserSafeKey\('([^']+)'\)/g))
+    out.add(browserSafeKey(m[1]!));
+  return [...out].sort();
+}
 
 /** A keyboard event with nothing held down, overridden per case. */
 const ev = (key: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
@@ -300,5 +410,116 @@ describe('the project manager, pressed for real', () => {
     const typing = { tagName: 'INPUT', type: 'text' };
     for (const [, event] of BOUND) dispatchMenuHotkey(menus, event, { target: typing });
     expect(calls).toEqual([]);
+  });
+});
+
+/**
+ * What each converted canvas frame's *own* rows declare today.
+ *
+ * Asserted whole, not as a floor. #547 gave these five frames correct rows -
+ * right label, right accelerator, right help string - while nothing listened,
+ * and the point of writing the set down is that the two halves can no longer
+ * move apart without a test noticing.
+ *
+ * The rows a frame does *not* write itself are not in here and must not be:
+ * `ACTION_MENU::AddClose` / `AddQuit` and the Help menu are declared once in
+ * `ui/action_menu.ts` and `ui/help_menu.ts`, every frame calls the function,
+ * and they are pressed once below rather than once per frame. That is the same
+ * reason KiCad has them in `common/` at all.
+ */
+const DECLARED: Readonly<Record<string, readonly string[]>> = {
+  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+    // File. Ctrl+N / Ctrl+W / Ctrl+Q are BROWSER_RESERVED and carry the
+    // substitution `browserSafeKey` gives them - which is exactly the key that
+    // was printed and dead before this branch.
+    'Ctrl+Alt+N',
+    'Ctrl+O',
+    'Ctrl+S',
+    // Edit.
+    'Ctrl+C',
+    'Ctrl+V',
+    'Ctrl+X',
+    'Ctrl+Y',
+    'Ctrl+Z',
+    'Del',
+    // View.
+    'Home',
+  ],
+};
+
+/** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
+const base = {
+  key: '',
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: false,
+  metaKey: false,
+  preventDefault: () => {},
+  stopPropagation: () => {},
+  target: null,
+};
+
+describe('every accelerator a converted canvas frame prints is one the dispatcher can press', () => {
+  const frames = Object.keys(DECLARED);
+
+  it.each(frames)('%s declares the set it is supposed to', (rel) => {
+    expect(declaredAccelerators(rel)).toEqual([...DECLARED[rel]!].sort());
+  });
+
+  it.each(frames)('%s: each one reaches its own row', (rel) => {
+    for (const combo of DECLARED[rel]!) {
+      const calls: string[] = [];
+      // One row per accelerator, so "the right row ran" is checkable at all.
+      // A frame's real tree nests these across File/Edit/View; `invocable`
+      // walks either shape, and menu order is what breaks a tie.
+      const menus: Menu[] = [
+        {
+          label: 'Test',
+          items: DECLARED[rel]!.map((c) => ({
+            label: c,
+            shortcut: c,
+            action: () => calls.push(c),
+          })),
+        },
+      ];
+      const e = eventFromCombo(combo, base);
+      expect(dispatchMenuHotkey(menus, e), `${combo} matched nothing`).toBe(true);
+      expect(calls, `${combo} reached the wrong row`).toEqual([combo]);
+    }
+  });
+});
+
+describe('the shared rows every frame ends its File and Help menus with', () => {
+  /**
+   * `AddClose` and `AddQuit` are one declaration in `common/tool/action_menu
+   * .cpp:220-262`, and one here. Pressing them once is pressing them for every
+   * frame that calls the function - which, since #547, is all eleven.
+   *
+   * Both keys are BROWSER_RESERVED, so what the row carries is the
+   * `BROWSER_REBINDS` substitution. This is the assertion the reported bug
+   * needed: the Drawing Sheet Editor printed Ctrl+Alt+Q and nothing listened.
+   */
+  it.each([
+    ['Close', addClose, browserSafeKey(UPSTREAM_CLOSE_KEY)],
+    ['Quit', addQuit, browserSafeKey(UPSTREAM_QUIT_KEY)],
+  ])('%s answers %s', (label, make, combo) => {
+    const calls: string[] = [];
+    const menus: Menu[] = [
+      { label: 'File', items: [make('Drawing Sheet Editor', () => calls.push(label))] },
+    ];
+    expect(menus[0]!.items[0]!.shortcut).toBe(combo);
+    expect(dispatchMenuHotkey(menus, eventFromCombo(combo, base))).toBe(true);
+    expect(calls).toEqual([label]);
+    // The raw upstream key must NOT also fire: it is the browser's, and a row
+    // that answered both would be advertising the tab-destroying one.
+    const raw = label === 'Close' ? UPSTREAM_CLOSE_KEY : UPSTREAM_QUIT_KEY;
+    expect(dispatchMenuHotkey(menus, eventFromCombo(raw, base))).toBe(false);
+  });
+
+  it('and every converted canvas frame calls them rather than writing its own', () => {
+    const missing = Object.keys(CANVAS_KEYS).filter(
+      (rel) => !/\baddQuit\(/.test(source(rel)) || !/\baddClose\(/.test(source(rel)),
+    );
+    expect(missing, 'a frame hand-rolling the File menu tail').toEqual([]);
   });
 });
