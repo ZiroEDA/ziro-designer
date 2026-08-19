@@ -153,3 +153,52 @@ describe('the calculator has no native <select> left', () => {
     expect(CODE).not.toContain('.calc-select');
   });
 });
+
+/**
+ * The two alignment exceptions, pinned because a future sweep that "fixes" all
+ * the labels back to one rule would silently undo them.
+ *
+ * Across all seventeen `*_base.cpp` files `wxALIGN_RIGHT` appears six times:
+ * four Reset buttons, one `SetRowLabelAlignment` on the IPC-2221 grid, and
+ * exactly ONE ordinary label — Transmission Lines' Frequency
+ * (panel_transline_base.cpp:207). Everything else is flush left, which is what
+ * `.calc-field-label` declares.
+ */
+describe('the alignment exceptions KiCad actually has', () => {
+  const PANELS = join(SRC, 'editors/calculator/panels');
+
+  it('labels are flush left by default', () => {
+    const block = CODE.slice(CODE.indexOf('.calc-field-label {'));
+    expect(block.slice(0, block.indexOf('}'))).toContain('text-align: left');
+  });
+
+  it("...except Transmission Lines' Frequency, which is right", () => {
+    const src = readFileSync(join(PANELS, 'panel_transline.tsx'), 'utf8');
+    const i = src.indexOf('label="Frequency:"');
+    expect(i).toBeGreaterThan(-1);
+    expect(src.slice(i, i + 200)).toContain('labelAlign="right"');
+  });
+
+  it('the IPC-2221 grid right-aligns its ROW labels, a different mechanism', () => {
+    // SetRowLabelAlignment( wxALIGN_RIGHT, wxALIGN_CENTER ),
+    // panel_electrical_spacing_ipc2221_base.cpp:109 — a wxGrid's row-label
+    // column, not a static text in a flex grid.
+    const block = CODE.slice(CODE.indexOf('.es-ipc-grid .es-ipc-rowhead {'));
+    expect(block.slice(0, block.indexOf('}'))).toContain('text-align: right');
+  });
+
+  it('all four Reset to Defaults buttons exist and are right-aligned', () => {
+    // panel_regulator_base.cpp:368, panel_via_size_base.cpp:366,
+    // panel_track_width_base.cpp:289, panel_transline_base.cpp:481.
+    for (const f of [
+      'panel_regulator.tsx',
+      'panel_via_size.tsx',
+      'panel_track_width.tsx',
+      'panel_transline.tsx',
+    ]) {
+      expect(readFileSync(join(PANELS, f), 'utf8')).toContain('Reset to Defaults');
+    }
+    const block = CODE.slice(CODE.indexOf('.calc-reset-row {'));
+    expect(block.slice(0, block.indexOf('}'))).toContain('justify-content: flex-end');
+  });
+});

@@ -64,6 +64,22 @@ export function PanelViaSize(): JSX.Element {
   const [deltaT, setDeltaT] = useState('10');
   const [riseTimeS, setRiseTimeS] = useState(1e-9);
 
+  // PANEL_VIA_SIZE::OnViaResetButtonClick (panel_via_size.cpp:130-149), which
+  // writes each default through `wxString::Format( "%g", … )`.
+  const resetDefaults = (): void => {
+    setHoleDiaM(0.4e-3);
+    setPlatingM(0.035e-3);
+    setLengthM(1.6e-3);
+    setPadDiaM(0.6e-3);
+    setClearanceDiaM(1.0e-3);
+    setZ0Ohm(50);
+    setCurrent(printfG(1));
+    setResistivity(printfG(1.72e-8));
+    setEr(printfG(4.5));
+    setDeltaT(printfG(10));
+    setRiseTimeS(1e-9);
+  };
+
   const r = useMemo(() => {
     const p = {
       holeDiaM,
@@ -230,6 +246,14 @@ export function PanelViaSize(): JSX.Element {
           <ViaDrawing />
         </div>
       </div>
+      {/* m_buttonViaReset, wxALIGN_RIGHT|wxALL 10
+          (panel_via_size_base.cpp:365-366). It was missing entirely. */}
+      <div className="calc-reset-row">
+        <button type="button" className="calc-btn" onClick={resetDefaults}>
+          Reset to Defaults
+        </button>
+      </div>
+
       {/* m_staticTextWarning (panel_via_size_base.cpp:201), shown when the pad
           swallows the clearance hole. */}
       {padDiaM >= clearanceDiaM && (

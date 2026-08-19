@@ -965,3 +965,12 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   min-width: 90px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Every Reset to Defaults in pcb_calculator is added with wxALIGN_RIGHT
+   (panel_regulator_base.cpp:368, panel_via_size_base.cpp:366,
+   panel_track_width_base.cpp:289, panel_transline_base.cpp:481). */
+.calc-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}

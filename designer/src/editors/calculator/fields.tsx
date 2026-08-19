@@ -129,6 +129,7 @@ export function NumField({
   title,
   digits = 6,
   bold,
+  labelAlign,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -142,6 +143,10 @@ export function NumField({
   digits?: number;
   /** As on `Field`: the controlling value's label and field are both bold. */
   bold?: boolean;
+  /** wxFormBuilder right-aligns exactly one parameter label in the whole
+   *  launcher — Transmission Lines' Frequency
+   *  (panel_transline_base.cpp:207). Everything else is flush left. */
+  labelAlign?: 'left' | 'right';
 }): JSX.Element {
   const [idx, setIdx] = useState(() => (defaultUnit ? unitIndex(units, defaultUnit) : 0));
   const mult = units[idx]?.mult ?? 1;
@@ -171,7 +176,9 @@ export function NumField({
 
   return (
     <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
-      <span className="calc-field-label">{label}</span>
+      <span className="calc-field-label" style={labelAlign ? { textAlign: labelAlign } : undefined}>
+        {label}
+      </span>
       <input
         className={`calc-input${readOnly ? ' ro' : ''}`}
         value={text}

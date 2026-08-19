@@ -38,6 +38,21 @@ export function PanelTrackWidth(): JSX.Element {
   const [intWidthM, setIntWidthM] = useState(0.2e-3);
   const [controlling, setControlling] = useState<Controlling>('current');
 
+  // PANEL_TRACK_WIDTH::OnTWResetButtonClick (panel_track_width.cpp:237-258).
+  // Note it resets the two thicknesses to 35 with unit index 1 — µm — and both
+  // widths to 0.2 mm, and finishes by setting the current, which makes Current
+  // the controlling value again.
+  const resetDefaults = (): void => {
+    setDeltaT(printfG(10));
+    setLengthM(20e-3);
+    setExtWidthM(0.2e-3);
+    setExtThicknessM(35e-6);
+    setIntWidthM(0.2e-3);
+    setIntThicknessM(35e-6);
+    setCurrent(printfG(1));
+    setControlling('current');
+  };
+
   const currentA = Number(current);
   const deltaTC = Number(deltaT);
   const ok = currentA > 0 && deltaTC > 0 && extThicknessM > 0 && intThicknessM > 0;
@@ -149,6 +164,14 @@ export function PanelTrackWidth(): JSX.Element {
           setIntThicknessM,
           shownIntWidthM * intThicknessM,
         )}
+      </div>
+
+      {/* m_buttonTrackWidthReset, wxALIGN_RIGHT|wxALL 5
+          (panel_track_width_base.cpp:288-289). */}
+      <div className="calc-reset-row">
+        <button type="button" className="calc-btn" onClick={resetDefaults}>
+          Reset to Defaults
+        </button>
       </div>
 
       {/* sbSizerTW_Help's HTML_WINDOW, showing

@@ -210,6 +210,16 @@ export function PanelTransline(): JSX.Element {
     setZOdd('50');
   };
 
+  // PANEL_TRANSLINE::OnTransLineResetButtonClick (transline_dlg_funct.cpp:356-372):
+  // every TRANSLINE_PRM goes back to its m_DefaultValue and m_DefaultUnit, then
+  // the type is re-selected, which redraws the whole page. Re-picking the
+  // current type does exactly that here.
+  const resetDefaults = (): void => {
+    pick(type);
+    setAngle('0');
+    setAngleUnit(0);
+  };
+
   const el = () => {
     const base = {
       frequencyHz: freqHz,
@@ -603,7 +613,18 @@ export function PanelTransline(): JSX.Element {
               unit=""
             />
           )}
-          <NumField label="Frequency:" units={FREQ_UNITS} base={freqHz} onBase={setFreqHz} />
+          {/* The ONE label wxFormBuilder right-aligns in this whole launcher:
+              `fgSizeCmpPrms->Add( m_Frequency_label, 0,
+              wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT, 5 )`
+              (panel_transline_base.cpp:207). Every other parameter label is
+              flush left, which is why the app-wide rule is left. */}
+          <NumField
+            label="Frequency:"
+            labelAlign="right"
+            units={FREQ_UNITS}
+            base={freqHz}
+            onBase={setFreqHz}
+          />
         </Group>
 
         <Group title="Physical Parameters">
@@ -699,6 +720,14 @@ export function PanelTransline(): JSX.Element {
       </div>
 
       {error && <div className="calc-error">{error}</div>}
+
+      {/* m_buttonTransLineReset, wxALIGN_RIGHT|wxALL 10
+          (panel_transline_base.cpp:480-481). */}
+      <div className="calc-reset-row">
+        <button type="button" className="calc-btn" onClick={resetDefaults}>
+          Reset to Defaults
+        </button>
+      </div>
 
       <Group title="Results">
         <table className="calc-table">
