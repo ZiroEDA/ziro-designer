@@ -72,6 +72,11 @@ const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
  * report a zoom factor, and re-exported here so board code keeps one import.
  */
 import { GAL_SCREEN_DPI } from '../../ui/status_format.js';
+import {
+  DEFAULT_GRID_APPEARANCE,
+  type GridOptions,
+  type GridStyle,
+} from '../../ui/grid_cursor.js';
 
 export { GAL_SCREEN_DPI };
 
@@ -461,8 +466,9 @@ export const DOM_PATH_FACTORY: ScenePathFactory = {
  * C++ original. `buildScene` is synchronous, so the save/restore in the wrapper
  * below is all the isolation this needs.
  *
- * Note `drawGrid` builds its own `Path2D` directly and deliberately: it paints
- * to a real canvas at draw time and is not part of a scene.
+ * The grid is not part of a scene at all: it is zoom-dependent and painted on
+ * the live canvas each frame by the shared `ui/grid_cursor.ts` painter, the way
+ * GAL draws it to TARGET_NONCACHED.
  */
 let pathFactory: ScenePathFactory = DOM_PATH_FACTORY;
 
@@ -1728,108 +1734,46 @@ export function drawDrawingSheet(
   ctx.restore();
 }
 
-export interface PcbGridOptions {
-  /** Grid spacing in IU (world units). pcbnew default grid = 0.5 mm. */
-  size: number;
-  /** Grid origin in IU (GAL m_gridOrigin; board grid origin). */
-  origin: Vec2;
-  /** Coarse-grid multiple: every `tick`th dot is doubled (SetCoarseGrid(10)). */
-  tick: number;
-  /** Minimum on-screen dot spacing in device px (m_gridMinSpacing = 10). */
-  minSpacing: number;
-  /** LAYER_GRID color. */
-  color: string;
-}
+/**
+ * pcbnew's default grid, and the footprint editor's: `last_size_idx` 15 of
+ * `APP_SETTINGS_BASE::DefaultGridSizeList()`'s non-eeschema list
+ * (`common/settings/app_settings.cpp:463-481, 641-660`), which is "0.50 mm".
+ */
+export const PCB_DEFAULT_GRID_IU = 0.5 * MM;
 
-export const DEFAULT_GRID_OPTIONS: PcbGridOptions = {
-  size: 0.5 * MM,
-  origin: { x: 0, y: 0 },
-  tick: 10,
-  minSpacing: 10,
-  color: PCB_GRID,
-};
+/** `GAL::m_gridOrigin` before a board with its own `(setup (grid_origin ...))`. */
+export const PCB_DEFAULT_GRID_ORIGIN: Vec2 = { x: 0, y: 0 };
 
 /**
- * Paint the dotted grid the way GAL does (CAIRO_GAL_BASE::DrawGrid, DOTS
- * branch): a dot at every grid node in device space, every `tick`th row/column
- * doubled in size, with the spacing scaled up by whole `tick`s until it clears
- * the minimum on-screen spacing so a zoomed-out board isn't a solid wall of
- * dots. Drawn on the live canvas (identity transform) so it stays crisp every
- * frame like GAL's NONCACHED grid target, behind the board raster. `dpr` is the
- * device-pixel ratio (GAL's scaleFactor).
+ * `GAL::DrawGrid` options for a board canvas — the mapping only; the painting
+ * is `ui/grid_cursor.ts`, the one GAL every frame shares.
+ *
+ * The colour is `LAYER_GRID` off the active theme (`pcb_painter.h:133`,
+ * `pcb_draw_panel_gal.cpp:494`); pcbnew and the footprint editor read the same
+ * layer (`footprint_editor_utils.cpp:269`). The appearance fields fall back to
+ * KiCad's `GAL_DISPLAY_OPTIONS` defaults.
  */
-export function drawGrid(
-  ctx: CanvasRenderingContext2D,
-  view: PcbViewTransform,
-  widthPx: number,
-  heightPx: number,
-  dpr: number,
-  opts: PcbGridOptions = DEFAULT_GRID_OPTIONS,
-): void {
-  if (opts.size <= 0 || view.scale <= 0) return;
-  const worldScale = view.scale; // device px per IU
-  // Signed X scale so grid nodes line up with the (mirrored) board and crosshair.
-  const sx = view.flipX ? -worldScale : worldScale;
-  // GAL: m_gridLineWidth = scaleFactor * 0.5 + 0.25; a normal dot is this wide,
-  // a coarse dot twice that, each clamped to a minimum of 1 device px.
-  const lineW = dpr * 0.5 + 0.25;
-
-  // Visible world rectangle (screen corners → world).
-  const wsx = (0 - view.tx) / sx;
-  const wsy = (0 - view.ty) / worldScale;
-  const wex = (widthPx - view.tx) / sx;
-  const wey = (heightPx - view.ty) / worldScale;
-
-  // Scale spacing up by whole ticks until it clears the min screen spacing.
-  const threshold = Math.round(opts.minSpacing / worldScale); // IU
-  let step = opts.size;
-  while (step <= threshold) step *= opts.tick;
-
-  const ox = opts.origin.x;
-  const oy = opts.origin.y;
-  let startX = Math.round((wsx - ox) / step);
-  let endX = Math.round((wex - ox) / step);
-  let startY = Math.round((wsy - oy) / step);
-  let endY = Math.round((wey - oy) / step);
-  if (startX > endX) [startX, endX] = [endX, startX];
-  if (startY > endY) [startY, endY] = [endY, startY];
-  startX--;
-  endX++;
-  startY--;
-  endY++;
-
-  // Guard against pathological counts (e.g. a not-yet-sized view).
-  if (endX - startX > 4000 || endY - startY > 4000) return;
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = opts.color;
-  // Group dots by device size so the whole grid paints in a few fills.
-  const paths = new Map<string, Path2D>();
-  const rectAt = (dx: number, dy: number, sw: number, sh: number): void => {
-    // Pixel-align to whole device pixels so each dot is full-coverage (the OpenGL
-    // GAL's dots are crisp); a sub-pixel rect anti-aliases to a dim grey smear.
-    const w = Math.max(1, Math.round(sw));
-    const h = Math.max(1, Math.round(sh));
-    const key = `${w}:${h}`;
-    let p = paths.get(key);
-    if (!p) {
-      p = new Path2D();
-      paths.set(key, p);
-    }
-    p.rect(Math.round(dx) - (w >> 1), Math.round(dy) - (h >> 1), w, h);
+export function pcbGridOptions(o: {
+  show?: boolean;
+  sizeIU?: number;
+  origin?: Vec2;
+  /** The active PCB_COLOR_THEME's `grid`. */
+  color?: string;
+  devicePixelRatio?: number;
+  style?: GridStyle;
+  lineWidthPx?: number;
+  minSpacingPx?: number;
+}): GridOptions {
+  return {
+    show: o.show,
+    sizeIU: o.sizeIU ?? PCB_DEFAULT_GRID_IU,
+    origin: o.origin ?? PCB_DEFAULT_GRID_ORIGIN,
+    color: o.color ?? PCB_GRID,
+    style: o.style ?? DEFAULT_GRID_APPEARANCE.style,
+    lineWidthPx: o.lineWidthPx ?? DEFAULT_GRID_APPEARANCE.lineWidthPx,
+    minSpacingPx: o.minSpacingPx ?? DEFAULT_GRID_APPEARANCE.minSpacingPx,
+    devicePixelRatio: o.devicePixelRatio,
   };
-  for (let j = startY; j <= endY; j++) {
-    const tickY = j % opts.tick === 0;
-    const dy = (j * step + oy) * worldScale + view.ty;
-    const sh = Math.max(1, tickY ? lineW * 2 : lineW);
-    for (let i = startX; i <= endX; i++) {
-      const tickX = i % opts.tick === 0;
-      const dx = (i * step + ox) * sx + view.tx;
-      const sw = Math.max(1, tickX ? lineW * 2 : lineW);
-      rectAt(dx, dy, sw, sh);
-    }
-  }
-  for (const p of paths.values()) ctx.fill(p);
 }
 
 /**
