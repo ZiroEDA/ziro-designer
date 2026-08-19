@@ -10,24 +10,19 @@
  * exists beyond the dynamic import in `dialogs/prefs/registry.ts`, and nothing
  * here may reach into another editor.
  */
-import {
-  PanelEeschemaAnnotationOptions,
-  resetEeschemaAnnotationOptions,
-} from './PanelEeschemaAnnotationOptions.js';
-import {
-  PanelEeschemaColorSettings,
-  resetEeschemaColorSettings,
-} from './PanelEeschemaColorSettings.js';
-import {
-  PanelEeschemaDisplayOptions,
-  resetEeschemaDisplayOptions,
-} from './PanelEeschemaDisplayOptions.js';
-import {
-  PanelEeschemaEditingOptions,
-  resetEeschemaEditingOptions,
-} from './PanelEeschemaEditingOptions.js';
-import { PanelEeschemaGrids, resetEeschemaGrids } from './PanelEeschemaGrids.js';
+import { PanelEeschemaAnnotationOptions } from './PanelEeschemaAnnotationOptions.js';
+import { PanelEeschemaColorSettings } from './PanelEeschemaColorSettings.js';
+import { PanelEeschemaDisplayOptions } from './PanelEeschemaDisplayOptions.js';
+import { PanelEeschemaEditingOptions } from './PanelEeschemaEditingOptions.js';
+import { PanelEeschemaGrids } from './PanelEeschemaGrids.js';
 import { PanelTemplateFieldnames } from './PanelTemplateFieldnames.js';
+import {
+  resetEeschemaAnnotationOptions,
+  resetEeschemaColorSettings,
+  resetEeschemaDisplayOptions,
+  resetEeschemaEditingOptions,
+  resetEeschemaGrids,
+} from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,

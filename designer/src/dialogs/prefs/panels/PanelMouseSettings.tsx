@@ -13,12 +13,7 @@
 import type { JSX } from 'react';
 import { Check, Group, Sel } from '../widgets.js';
 import type { PrefsContext } from '../types.js';
-import { resetKeys } from '../reset.js';
-import {
-  COMMON_DEFAULTS,
-  type MouseDragAction,
-  type ScrollModifier,
-} from '../../../prefs/settings.js';
+import type { MouseDragAction, ScrollModifier } from '../../../prefs/settings.js';
 
 const mouseActionOpts: [MouseDragAction, string][] = [
   ['select', 'Draw selection rectangle'],
@@ -278,47 +273,4 @@ export function PanelMouseSettings({ ctx }: { ctx: PrefsContext }): JSX.Element 
       </Group>
     </>
   );
-}
-
-/**
- * `PANEL_MOUSE_SETTINGS::ResetPanel` (`common/dialogs/panel_mouse_settings.cpp`):
- *
- *     COMMON_SETTINGS defaultSettings;
- *     defaultSettings.ResetToDefaults();
- *     applySettingsToPanel( defaultSettings );
- *
- * `applySettingsToPanel` reaches only this panel's controls, so this shares
- * `COMMON_SETTINGS` with `PANEL_COMMON_SETTINGS` and still cannot touch its
- * fields. Ours names the slice instead: everything under `input` except the
- * three checkboxes that live on Common ("Warp mouse to anchor of moved object",
- * "First hotkey selects tool", the hotkey popup indicator).
- *
- * Note this is a different button from the panel's own "Reset to Mouse
- * Defaults" / "Reset to Trackpad Defaults", which set the scroll block to one
- * of two presets (`panel_mouse_settings.cpp` `onMouseDefaults` /
- * `onTrackpadDefaults`) rather than to the stored defaults.
- */
-export function resetMousePanel(ctx: PrefsContext): void {
-  ctx.upC((s) => {
-    resetKeys(s.input, COMMON_DEFAULTS.input, [
-      // "Pan and Zoom"
-      'center_on_zoom',
-      'auto_pan',
-      'auto_pan_acceleration',
-      'zoom_acceleration',
-      'zoom_speed',
-      'zoom_speed_auto',
-      // "Drag Gestures"
-      'mouse_left',
-      'mouse_middle',
-      'mouse_right',
-      // "Scroll Gestures"
-      'scroll_modifier_zoom',
-      'scroll_modifier_pan_h',
-      'scroll_modifier_pan_v',
-      'reverse_scroll_zoom',
-      'reverse_scroll_pan_h',
-      'horizontal_pan',
-    ]);
-  });
 }

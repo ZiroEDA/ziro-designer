@@ -145,9 +145,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): JSX.Ele
   // Which FIELDS the reset touches is the panel's business, not the shell's:
   // this only knows whether the page has one. See prefs/reset.ts.
   const resettable = panel?.reset !== undefined;
-  const resetLabel = resettable
-    ? `Reset ${labelOf(page) ?? ''} to Defaults`
-    : 'Reset to Defaults';
+  const resetLabel = resettable ? `Reset ${labelOf(page) ?? ''} to Defaults` : 'Reset to Defaults';
   const resetPage = (): void => {
     panel?.reset?.(ctx);
   };

@@ -13,7 +13,8 @@
  * Toolbars, Plugins) and four more groups belong in Display Options. They were
  * blocked on this split; they are not part of it.
  */
-import { PanelPcbDisplayOptions, resetPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
+import { PanelPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
+import { resetPcbDisplayOptions } from './resets.js';
 import type {
   PrefsPageId,
   PrefsPanelFactory,

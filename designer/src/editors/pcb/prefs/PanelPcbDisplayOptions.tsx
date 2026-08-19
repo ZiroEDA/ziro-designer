@@ -22,8 +22,6 @@
 import type { JSX } from 'react';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { resetKeys } from '../../../dialogs/prefs/reset.js';
-import { PCBNEW_DEFAULTS } from '../../../prefs/settings.js';
 
 export function PanelPcbDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { pcbnew, upP } = ctx;
@@ -34,20 +32,4 @@ export function PanelPcbDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Elem
       onChange={(fn) => upP((s) => fn(s.cross_probing))}
     />
   );
-}
-
-/**
- * `PANEL_DISPLAY_OPTIONS::ResetPanel` (`pcbnew/dialogs/panel_display_options.cpp`)
- * default-constructs a `PCBNEW_SETTINGS` and calls `loadPCBSettings` on it,
- * which sets this panel's controls and no others.
- *
- * Only the Cross-probing group is ported here, so that is the whole slice.
- * Resetting the entire `PCBNEW_SETTINGS` -- as this used to -- also discarded
- * the active colour theme, every plot/print setting and the PNS router's
- * `tools.pns` block, none of which this page shows.
- */
-export function resetPcbDisplayOptions(ctx: PrefsContext): void {
-  ctx.upP((s) => {
-    resetKeys(s, PCBNEW_DEFAULTS, ['cross_probing']);
-  });
 }

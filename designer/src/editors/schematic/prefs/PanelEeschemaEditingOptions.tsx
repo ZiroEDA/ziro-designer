@@ -13,8 +13,6 @@
 import type { JSX } from 'react';
 import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
-import { resetKeys } from '../../../dialogs/prefs/reset.js';
 
 export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
   const { eeschema, upE } = ctx;
@@ -244,40 +242,4 @@ export function PanelEeschemaEditingOptions({ ctx }: { ctx: PrefsContext }): JSX
       </div>
     </div>
   );
-}
-
-/** `RESETTABLE_PANEL::ResetPanel`: the eeschema settings back to EESCHEMA_SETTINGS' defaults. */
-export function resetEeschemaEditingOptions(ctx: PrefsContext): void {
-  ctx.upE((s) => {
-    // "Editing" / "Defaults for New Objects" / "Rubber banding" etc.
-    resetKeys(s.input, EESCHEMA_DEFAULTS.input, [
-      'drag_is_move',
-      'esc_clears_net_highlight',
-      'allow_unconstrained_pin_swaps',
-    ]);
-    resetKeys(s.drawing, EESCHEMA_DEFAULTS.drawing, [
-      'line_mode',
-      'arc_edit_mode',
-      'auto_start_wires',
-      'repeat_label_increment',
-      'default_repeat_offset_x',
-      'default_repeat_offset_y',
-      'default_sheet_border_color',
-      'default_sheet_background_color',
-      'new_power_symbols',
-    ]);
-    // NOT the rest of `drawing`: `field_names` is the Field Name Templates
-    // page, and the default thicknesses/text size are Schematic Setup.
-    resetKeys(s.autoplace_fields, EESCHEMA_DEFAULTS.autoplace_fields, [
-      'enable',
-      'allow_rejustify',
-      'align_to_grid',
-    ]);
-    // m_checkAutoAnnotate (eeschema/dialogs/panel_eeschema_editing_options.cpp:124,
-    // :164) is on this page as well as on Annotation Options; both own it, and
-    // each resets only it.
-    resetKeys(s.annotation, EESCHEMA_DEFAULTS.annotation, ['automatic']);
-    resetKeys(s.appearance, EESCHEMA_DEFAULTS.appearance, ['footprint_preview']);
-    resetKeys(s.system, EESCHEMA_DEFAULTS.system, ['never_show_rescue_dialog']);
-  });
 }
