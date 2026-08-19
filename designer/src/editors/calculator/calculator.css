@@ -883,3 +883,49 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   border-top: none;
   border-bottom: none;
 }
+
+/* Board Classes: the unit selector on the left, the note pushed to the right. */
+.bc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wx-border);
+  margin-bottom: var(--wx-border);
+}
+
+.bc-note {
+  font-style: italic;
+  font-weight: 700;
+}
+
+/* Galvanic Corrosion: a wide read-only grid whose column labels are rotated,
+   with the threshold field and the name-style radios under it. */
+.gc-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.gc-scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.gc-table td,
+.gc-table th {
+  padding: 1px 4px;
+}
+
+/* wxALIGN_CENTER column labels drawn vertically, as the real grid draws them. */
+.gc-colhead {
+  vertical-align: bottom;
+  height: 110px;
+  padding: 2px;
+}
+
+.gc-colhead span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}

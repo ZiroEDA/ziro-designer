@@ -68,3 +68,19 @@ export function corrosionDeltaV(a: number, b: number): number {
   if (!ma || !mb) return NaN;
   return Math.abs(ma.potentialV - mb.potentialV);
 }
+
+/**
+ * The SIGNED difference `rowPotential - columnPotential`, which is what the
+ * Galvanic Corrosion table prints (`diff = entryA.m_potential -
+ * entryB.m_potential`, then `Format( "%.0f", diff * 1000 )`,
+ * panel_galvanic_corrosion.cpp:361-364). The sign is not cosmetic: it decides
+ * whether the cell takes the blue ramp or the orange one, i.e. which of the two
+ * metals is the one at risk. `corrosionDeltaV` above stays absolute, because the
+ * threshold test compares magnitudes.
+ */
+export function corrosionSignedDeltaV(a: number, b: number): number {
+  const ma = CORROSION_METALS[a];
+  const mb = CORROSION_METALS[b];
+  if (!ma || !mb) return Number.NaN;
+  return ma.potentialV - mb.potentialV;
+}

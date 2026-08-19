@@ -4,51 +4,61 @@
 /**
  * "Board Classes" memo panel, typical fabrication limits per class.
  * Counterpart: KiCad `calculator_panels/panel_board_class.cpp`.
+ *
+ * A `UNIT_SELECTOR_LEN` with no label, a bold-italic right-aligned note, and a
+ * read-only wxGrid whose row labels are the parameter names. Missing values are
+ * the two-character `--` (`NO_VALUE`, panel_board_class.cpp:130) and present
+ * ones go through `%g`.
  */
 
-import { useState, type JSX } from 'react';
-import { BOARD_CLASS_COUNT, BOARD_CLASS_ROWS } from '@ziroeda/pcb_calculator';
-import { fmt } from '../fields.js';
+import { type JSX, useState } from 'react';
+import { BOARD_CLASS_COUNT, BOARD_CLASS_ROWS, printfG } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
+
+// UNIT_SELECTOR_LEN again — the same five entries, opening on mm.
+const UNITS = [
+  { label: 'mm', scale: 1 },
+  { label: 'um', scale: 1e-3 },
+  { label: 'cm', scale: 10 },
+  { label: 'mil', scale: 25.4e-3 },
+  { label: 'inch', scale: 25.4 },
+];
 
 export function PanelBoardClass(): JSX.Element {
-  const [inches, setInches] = useState(false);
-  const conv = (mm: number): string =>
-    Number.isNaN(mm) ? '-' : inches ? fmt(mm / 25.4, 4) : fmt(mm, 4);
+  const [unitIdx, setUnitIdx] = useState(0);
+  const scale = UNITS[unitIdx]?.scale ?? 1;
+  const conv = (mm: number): string => (Number.isNaN(mm) ? '--' : printfG(mm / scale));
 
   return (
-    <div>
-      <div className="calc-note">
-        Indicative geometry limits per manufacturing class, a finer class means tighter features and
-        a more expensive board. Always confirm against your fab's capabilities.
-      </div>
-      <div className="calc-field">
-        <span className="calc-field-label">Units:</span>
-        <label className="calc-radio">
-          <input type="radio" name="bc-units" checked={!inches} onChange={() => setInches(false)} />
-          mm
-        </label>
-        <label className="calc-radio">
-          <input type="radio" name="bc-units" checked={inches} onChange={() => setInches(true)} />
-          inch
-        </label>
+    <div className="bc-panel">
+      <div className="bc-top">
+        <Combo
+          ariaLabel="Unit"
+          style={{ minWidth: 78 }}
+          value={String(unitIdx)}
+          options={UNITS.map((u, i) => ({ value: String(i), label: u.label }))}
+          onChange={(v) => setUnitIdx(Number(v))}
+        />
+        {/* m_staticTextBrdClass: bold italic, wxALIGN_RIGHT
+            (panel_board_class_base.cpp:33). */}
+        <div className="bc-note">Note: Values are minimal values</div>
       </div>
       <table className="calc-table">
         <thead>
           <tr>
-            <th className="rowhead">Parameter</th>
+            {/* A wxGrid's corner cell carries no text. */}
+            <th className="rowhead" />
             {Array.from({ length: BOARD_CLASS_COUNT }, (_, i) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <th key={i}>Class {i + 1}</th>
+              <th key={`c${i + 1}`}>Class {i + 1}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {BOARD_CLASS_ROWS.map((row) => (
             <tr key={row.label}>
-              <td className="rowhead">{row.label}</td>
+              <th className="rowhead">{row.label}</th>
               {row.mm.map((v, i) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <td key={i}>{conv(v)}</td>
+                <td key={`${row.label}-${i}`}>{conv(v)}</td>
               ))}
             </tr>
           ))}
