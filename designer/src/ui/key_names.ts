@@ -39,63 +39,35 @@
  */
 
 /**
- * Menu accelerator spelling -> Hotkey List spelling, for the keys where the two
- * paths disagree. Keyed lower-case, because a call site may have written the
- * key in either case and neither path is case-sensitive about it.
+ * The keys where the two paths disagree, and the only place either spelling is
+ * written down.
  *
- * Read as: left is `gtk_accelerator_get_label( keyval, 0 )`, right is the
- * `hotkeyNameList` entry for the `WXK_` code that keyval comes from.
+ * Read a row as: left is `gtk_accelerator_get_label( keyval, 0 )` - what the
+ * menu draws - and right is the `hotkeyNameList` entry for the `WXK_` code that
+ * keyval comes from - what the Hotkey List and the toolbar tooltips draw.
+ *
+ * A key that is not in here is spelled the same by both, which is nearly all of
+ * them: `Tab`, `Home`, `End`, `Up`, `Down`, `Left`, `Right`, `Return`, `Space`,
+ * `F1`-`F24` and every printable character.
  *
  * The numeric keypad is in here for completeness - no row in this app binds one
  * yet - because leaving it out is how the next person concludes Delete is
  * special.
  */
-const HOTKEY_LIST_NAMES: Readonly<Record<string, string>> = {
-  // hotkeys_basic.cpp:92-96
-  escape: 'Esc',
-  delete: 'Del',
-  backspace: 'Back',
-  insert: 'Ins',
-  // hotkeys_basic.cpp:100-101. GTK spells these with a space; KiCad abbreviates.
-  'page up': 'PgUp',
-  'page down': 'PgDn',
-  // hotkeys_basic.cpp:113-132. GTK's prefix is `KP `, KiCad's is `Num Pad `,
-  // and the separator differs in the key itself as well as the prefix: X11
-  // calls it KP_Separator and GTK labels it `,`, while KiCad calls it `.`.
-  'kp 0': 'Num Pad 0',
-  'kp 1': 'Num Pad 1',
-  'kp 2': 'Num Pad 2',
-  'kp 3': 'Num Pad 3',
-  'kp 4': 'Num Pad 4',
-  'kp 5': 'Num Pad 5',
-  'kp 6': 'Num Pad 6',
-  'kp 7': 'Num Pad 7',
-  'kp 8': 'Num Pad 8',
-  'kp 9': 'Num Pad 9',
-  'kp +': 'Num Pad +',
-  'kp -': 'Num Pad -',
-  'kp *': 'Num Pad *',
-  'kp /': 'Num Pad /',
-  'kp ,': 'Num Pad .',
-  'kp enter': 'Num Pad Enter',
-  'kp f1': 'Num Pad F1',
-  'kp f2': 'Num Pad F2',
-  'kp f3': 'Num Pad F3',
-  'kp f4': 'Num Pad F4',
-};
-
-/**
- * The keys where the two paths disagree, as pairs, for anything that wants to
- * assert on the split rather than perform it.
- */
 export const DIVERGENT_KEY_NAMES: readonly (readonly [accelerator: string, hotkeyList: string])[] =
   [
+    // hotkeys_basic.cpp:92-96
     ['Escape', 'Esc'],
     ['Delete', 'Del'],
     ['BackSpace', 'Back'],
     ['Insert', 'Ins'],
+    // hotkeys_basic.cpp:100-101. GTK spells these with a space; KiCad
+    // abbreviates.
     ['Page Up', 'PgUp'],
     ['Page Down', 'PgDn'],
+    // hotkeys_basic.cpp:113-132. GTK's prefix is `KP `, KiCad's is `Num Pad `,
+    // and the separator differs in the key itself as well as in the prefix: X11
+    // calls it KP_Separator and GTK labels it `,`, while KiCad calls it `.`.
     ['KP 0', 'Num Pad 0'],
     ['KP 1', 'Num Pad 1'],
     ['KP 2', 'Num Pad 2'],
@@ -117,6 +89,15 @@ export const DIVERGENT_KEY_NAMES: readonly (readonly [accelerator: string, hotke
     ['KP F3', 'Num Pad F3'],
     ['KP F4', 'Num Pad F4'],
   ];
+
+/**
+ * Menu accelerator spelling -> Hotkey List spelling, keyed lower-case because a
+ * call site may have written the key in either case and neither path is
+ * case-sensitive about it.
+ */
+const HOTKEY_LIST_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
+  DIVERGENT_KEY_NAMES.map(([accel, list]) => [accel.toLowerCase(), list]),
+);
 
 /**
  * The key half of an accelerator, as the Hotkey List spells it.
@@ -165,4 +146,44 @@ export function hotkeyListName(shortcut: string | undefined): string {
   }
 
   return text.slice(0, at) + hotkeyListKey(text.slice(at));
+}
+
+/**
+ * The same table read backwards: Hotkey List spelling -> menu accelerator
+ * spelling, keyed lower-case.
+ *
+ * Built from {@link DIVERGENT_KEY_NAMES} rather than typed out again, so the
+ * two directions cannot disagree about a key.
+ */
+const ACCELERATOR_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
+  DIVERGENT_KEY_NAMES.map(([accel, list]) => [list.toLowerCase(), accel]),
+);
+
+/** The key half of a Hotkey List entry, as the menu row would draw it. */
+export function acceleratorKey(key: string): string {
+  return ACCELERATOR_NAMES[key.trim().toLowerCase()] ?? key;
+}
+
+/**
+ * A whole Hotkey List entry, as the menu row would draw it - the inverse of
+ * {@link hotkeyListName}.
+ *
+ * Needed where a key travels the other way: `editors/schematic/hotkey_list.ts`
+ * rewrites a menu with the user's rebindings, and the registry it reads them
+ * out of stores the *list* spelling. Without this the menu would quietly go
+ * back to printing `Del` the moment a user opened the hotkey editor.
+ */
+export function acceleratorName(keys: string | undefined): string {
+  if (!keys) return '';
+  const text = keys.trim();
+  if (text === '') return '';
+
+  let at = 0;
+  for (;;) {
+    const m = /^(ctrl|control|cmd|command|meta|shift|alt|option)\+(?=.)/i.exec(text.slice(at));
+    if (!m) break;
+    at += m[0].length;
+  }
+
+  return text.slice(0, at) + acceleratorKey(text.slice(at));
 }

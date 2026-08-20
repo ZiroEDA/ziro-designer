@@ -58,6 +58,7 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   ' ': 'Space',
   Escape: 'Esc',
   Delete: 'Del',
+  Backspace: 'Back',
   ArrowUp: 'Up',
   ArrowDown: 'Down',
   ArrowLeft: 'Left',
@@ -120,7 +121,10 @@ export function eventFromCombo(combo: string, from: KeyLike): KeyLike {
     // the *menu's* (`Delete`, `Page Up`), which is a different string for the
     // same key - see `ui/key_names.ts`. A combo written either way has to build
     // the same event, so both tables are consulted.
-    key: EVENT_KEYS[key] ?? NAMED_KEYS[key.toLowerCase()] ?? (key.length === 1 ? key.toLowerCase() : key),
+    key:
+      EVENT_KEYS[key] ??
+      NAMED_KEYS[key.toLowerCase()] ??
+      (key.length === 1 ? key.toLowerCase() : key),
     ctrlKey: mods.has('Ctrl'),
     metaKey: false,
     shiftKey: mods.has('Shift'),

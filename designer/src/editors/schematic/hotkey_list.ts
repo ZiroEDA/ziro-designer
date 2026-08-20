@@ -19,6 +19,7 @@
 import type { HotkeyOverrides } from './hotkey_bindings.js';
 import type { Menu, MenuItem } from '../../ui/menu_types.js';
 import { HOTKEYS, HOTKEY_SECTIONS, actionName } from './hotkeys.js';
+import { acceleratorName, hotkeyListName } from '../../ui/key_names.js';
 
 export interface HotkeyRow {
   /** `TOOL_ACTION::GetName()` - `eeschema.save` - for a row the user can rebind. */
@@ -146,7 +147,9 @@ export function applyHotkeyOverrides(menus: readonly Menu[], overrides: HotkeyOv
       : { ...item };
 
     if (!item.shortcut) return next;
-    const want = item.shortcut.toLowerCase();
+    // The row prints its menu accelerator (`Delete`); the registry is keyed on
+    // the Hotkey List's spelling of the same key (`Del`). See `ui/key_names.ts`.
+    const want = hotkeyListName(item.shortcut).toLowerCase();
     const cands = HOTKEYS.filter((h) => h.keys.toLowerCase() === want);
     const hit =
       cands.length === 1
@@ -160,7 +163,10 @@ export function applyHotkeyOverrides(menus: readonly Menu[], overrides: HotkeyOv
     // A cleared action loses the shortcut text entirely, as an unbound
     // ACTION_MENU entry has none.
     if (keys === '') delete next.shortcut;
-    else next.shortcut = keys;
+    // Back into the menu's spelling: the registry stores `Del` and the row has
+    // to keep drawing `Delete`, or opening the hotkey editor would silently
+    // rename the key in every menu it touched.
+    else next.shortcut = acceleratorName(keys);
     return next;
   };
 
@@ -177,7 +183,8 @@ export function menuShortcutsMissingFromList(menus: readonly Menu[]): string[] {
   for (const menu of menus) {
     for (const item of flatten(menu.items)) {
       if (!item.label || !item.shortcut || item.disabled) continue;
-      if (!listed.has(item.shortcut.toLowerCase())) out.push(cleanLabel(item.label));
+      if (!listed.has(hotkeyListName(item.shortcut).toLowerCase()))
+        out.push(cleanLabel(item.label));
     }
   }
   return out;
