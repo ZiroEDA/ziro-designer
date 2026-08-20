@@ -22,18 +22,19 @@
  */
 
 import { useState, type JSX } from 'react';
-import type {
-  WksSheet,
-  WksItem,
-  WksText,
-  WksLine,
-  WksRect,
-  WksBitmap,
-  WksPoly,
-  WksPoint,
-  WksCorner,
-  WksOption,
-  WksColor,
+import {
+  WKS_ITEM_TYPE_LABEL,
+  type WksSheet,
+  type WksItem,
+  type WksText,
+  type WksLine,
+  type WksRect,
+  type WksBitmap,
+  type WksPoly,
+  type WksPoint,
+  type WksCorner,
+  type WksOption,
+  type WksColor,
 } from '@ziroeda/common';
 import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
@@ -96,14 +97,6 @@ const DEFAULT_TEXT_SIZE_RANGE: UnitRange = { min: DLG_MIN_TEXTSIZE, max: DLG_MAX
 
 /** The sheet's default text thickness (:213). */
 const DEFAULT_TEXT_THICKNESS_RANGE: UnitRange = { min: 0.0, max: 5.0 };
-
-const TYPE_LABEL: Record<WksItem['type'], string> = {
-  line: 'Line',
-  rect: 'Rectangle',
-  text: 'Text',
-  bitmap: 'Image',
-  polygon: 'Poly',
-};
 
 /** Corner combo entries, in the panel's order. */
 const CORNER_CHOICES: { value: WksCorner; label: string }[] = [
@@ -376,7 +369,15 @@ function ItemProperties({
         className="ze-ds-row"
         style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
       >
-        <b style={{ fontSize: 12 }}>Type: {TYPE_LABEL[item.type]}</b>
+        {/* `m_staticTextType->SetLabel( aItem->GetClassName() )`
+            (properties_frame.cpp:241): the type NAME alone. Ours prefixed it
+            with "Type: ", which upstream never shows — the control's designer
+            placeholder is "Item Type" and it is overwritten on every
+            selection. It is also not bold: properties_frame_base.cpp:31 sets
+            the font explicitly to wxFONTWEIGHT_NORMAL. */}
+        <span className="ze-ds-type" style={{ fontSize: 12 }}>
+          {WKS_ITEM_TYPE_LABEL[item.type]}
+        </span>
         {/* `m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )`
             (properties_frame.cpp:358). Only a text item has `${…}` syntax to
             be helped with; ours offered the link for a Line. */}
@@ -544,8 +545,11 @@ function ItemProperties({
               onCommit={(maxheight) => patch({ maxheight })}
             />
           </Row>
-          <div className="ze-muted" style={{ fontSize: 10, margin: '0 6px 4px' }}>
-            Set to 0 to disable a constraint
+          {/* `m_staticTextSizeInfo` (properties_frame_base.cpp:226). Ours said
+              the constraint-tooltip string instead, which belongs on the two
+              Maximum fields (:185, :198) and not on this line. */}
+          <div className="ze-ds-sizeinfo" style={{ fontSize: 10, margin: '0 6px 4px' }}>
+            Set to 0 to use default values
           </div>
         </>
       )}

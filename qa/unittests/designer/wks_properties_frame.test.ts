@@ -256,3 +256,36 @@ describe('DSP-19 — Syntax Help is a text-item control', () => {
     expect(PANEL.slice(guard, at)).not.toContain(')}');
   });
 });
+
+describe('DSP-20 — the label text KiCad prints', () => {
+  it('shows the item type name alone, with no "Type:" prefix', () => {
+    // m_staticTextType->SetLabel( aItem->GetClassName() ) — :241. The "Item
+    // Type" in the base file is the designer placeholder, overwritten on every
+    // selection, and it is drawn wxFONTWEIGHT_NORMAL (:31) rather than bold.
+    expect(PANEL).toContain('{WKS_ITEM_TYPE_LABEL[item.type]}');
+    expect(PANEL).not.toContain('Type: {');
+    expect(PANEL).not.toMatch(/<b[^>]*>\s*\{?Type/);
+  });
+
+  it('takes the class-name table from common rather than keeping a copy', () => {
+    // A third copy of it had drifted to `polygon: 'Poly'`, where
+    // DS_DATA_ITEM::GetClassName (ds_data_item.cpp:374) says "Imported Shape".
+    expect(PANEL).toContain('WKS_ITEM_TYPE_LABEL');
+    expect(PANEL).not.toContain('const TYPE_LABEL');
+  });
+
+  it('spells the size hint "Set to 0 to use default values"', () => {
+    // m_staticTextSizeInfo (:226). "Set to 0 to disable this constraint" is the
+    // TOOLTIP of the two Maximum fields (:185, :198) and belongs only there.
+    expect(PANEL).toContain('Set to 0 to use default values');
+    expect(PANEL).not.toContain('Set to 0 to disable a constraint');
+    expect(PANEL).toContain('hint="Set to 0 to disable this constraint"');
+  });
+
+  it('leaves the first-page choice unlabelled', () => {
+    // bSizerButt (properties_frame_base.cpp:38-42) adds m_choicePageOpt with no
+    // wxStaticText beside it; the three entries say what it is. The audit found
+    // it labelled "Show:"; PR #556 had already removed that, so this pins it.
+    expect(PANEL).not.toContain('Show:');
+  });
+});
