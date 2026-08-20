@@ -41,6 +41,7 @@ export function UnitField({
   onError,
   width,
   title,
+  disabled,
 }: {
   /**
    * The field's own label, colon included — `UNIT_BINDER`'s `aLabel`. It is
@@ -73,6 +74,16 @@ export function UnitField({
    */
   width?: number | string;
   title?: string;
+  /**
+   * `UNIT_BINDER::Enable( bool )` (unit_binder.cpp:697-706), which greys the
+   * label, the value control AND the unit static text together. The panel owns
+   * the label, so this half greys the other two.
+   *
+   * `DIALOG_PAGES_SETTINGS::OnPaperSizeChoice` (dialog_page_settings.cpp:241-257)
+   * is the caller that needs it: the custom width/height pair is disabled for
+   * every standard paper size rather than hidden.
+   */
+  disabled?: boolean;
 }): JSX.Element {
   // The panel applies on focus-lost (PROPERTIES_FRAME::onTextFocusLost sets
   // m_propertiesDirty, and OnUpdateUI then runs OnAcceptPrms). While the field
@@ -110,6 +121,7 @@ export function UnitField({
         className="ze-search"
         type="text"
         inputMode="decimal"
+        disabled={disabled}
         style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
         title={title}
         value={text ?? stringFromValue(value, units)}
@@ -121,7 +133,9 @@ export function UnitField({
         onBlur={commit}
       />
       {/* The binder's unit static text, re-labelled with the frame's unit. */}
-      <span className="ze-muted ze-unit-label">{unitLabel(units)}</span>
+      <span className={`ze-muted ze-unit-label${disabled ? ' disabled' : ''}`}>
+        {unitLabel(units)}
+      </span>
     </>
   );
 }

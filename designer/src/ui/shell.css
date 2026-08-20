@@ -7187,3 +7187,103 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: var(--wx-border);
   padding: var(--wx-border) 10px 10px; /* [px] the buttons sit 10 px off the dialog's edges */
 }
+
+/* ---- DIALOG_PAGES_SETTINGS (common/dialogs/dialog_page_settings_base.cpp) ----
+   Two columns under one `bUpperSizerH`, each a vertical stack of centred
+   section headers. Every gap here is either the wx border (5) in multiples or
+   an explicit spacer the .fbp declares; none is a number chosen for this
+   dialog. */
+.ze-pgs {
+  max-width: 94vw;
+}
+.ze-pgs-body {
+  display: flex;
+  align-items: flex-start;
+  /* bMainSizer->Add( bUpperSizerH, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 ) */
+  padding: 0 var(--wx-border);
+}
+/* m_staticTextPaper &c: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxRIGHT|wxLEFT, 5. */
+.ze-pgs-head {
+  text-align: center;
+  font-size: var(--ui-font-size);
+  padding: var(--wx-border) var(--wx-border) 0;
+}
+/* m_staticline2 &c: wxStaticLine( wxLI_HORIZONTAL ) added wxEXPAND|wxTOP, 1. */
+.ze-pgs-rule {
+  height: 1px;
+  margin-top: 1px;
+  background: var(--chrome-border);
+}
+.ze-pgs-left,
+.ze-pgs-right {
+  display: flex;
+  flex-direction: column;
+  /* bUpperSizerH->Add( …, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 ) */
+  padding: 0 var(--wx-border) var(--wx-border);
+}
+/* bleftSizer is added with proportion 0 — it takes its own width; bSizerRight
+   with proportion 1 — it grows. */
+.ze-pgs-left {
+  flex: 0 0 auto;
+}
+.ze-pgs-right {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ze-pgs-left > span,
+.ze-pgs-right > span {
+  padding: var(--wx-border) var(--wx-border) 0;
+}
+.ze-pgs-left > .ze-combo {
+  margin: 0 var(--wx-border) var(--wx-border);
+}
+/* fgSizer1: wxFlexGridSizer( 0, 3, 3, 0 ) — label | ctrl | units, 3px vgap. */
+.ze-pgs-custom {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 3px var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+/* m_PageLayoutExampleBitmap: wxBORDER_SIMPLE, on wxSYS_COLOUR_WINDOW. */
+.ze-pgs-preview {
+  align-self: center;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-face);
+  margin: var(--wx-border);
+}
+.ze-pgs-filerow {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+.ze-pgs-filerow .ze-search {
+  flex: 1;
+  min-width: 0;
+}
+/* fgSizer2: wxFlexGridSizer( 0, 3, 0, 0 ) with AddGrowableCol( 1 ). The third
+   column is the sixteen "Export to other sheets" checkboxes, every one of them
+   Show(false) in this dialog (dialog_page_settings.cpp:171-186), so the grid
+   is two columns wide here. */
+.ze-pgs-tb {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+.ze-pgs-tblabel {
+  font-size: var(--ui-font-size);
+  white-space: nowrap;
+}
+.ze-pgs-daterow {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  min-width: 0;
+}
+/* UNIT_BINDER::Enable( false ) greys the unit static text with its field. */
+.ze-unit-label.disabled {
+  opacity: 0.5;
+}

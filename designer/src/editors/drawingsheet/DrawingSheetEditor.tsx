@@ -1660,6 +1660,14 @@ export function DrawingSheetEditor({
       {showPageDialog && (
         <PageSettingsDialog
           value={preview}
+          // The dialog's custom-size fields are UNIT_BINDERs over the FRAME
+          // (dialog_page_settings.cpp:65-66), so they read in the frame's unit.
+          units={unit === 'inches' ? 'in' : unit}
+          // SetWksFileName( m_frame->GetCurrentFileName() ), then
+          // EnableWksFileNamePicker( false ) — shown, filled and disabled
+          // (pl_editor_control.cpp:97-98).
+          wksFileName={fileName}
+          sheet={sheet}
           onCancel={() => setShowPageDialog(false)}
           onOk={(next) => {
             setPreview(next);
