@@ -1591,7 +1591,6 @@ export {
   PnsOptimizerEffort,
   PnsWalkStatus,
   optimizeLine,
-  viaObstaclePushout,
   walkaroundRoute,
   type PnsFixPoint,
   type PnsFixedTailStage,

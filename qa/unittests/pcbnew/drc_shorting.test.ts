@@ -75,20 +75,32 @@ const codes = (b: Board, code: string) => runDrc(b, OPTS).filter((v) => v.code =
 
 describe('shorting items', () => {
   it('reports two nets whose copper touches', () => {
-    // Ends meeting exactly: distance 0.
-    const b = board([track(0, 0, 5, 0, 1), track(5, 0, 10, 0, 2)]);
+    // Touching, but not centreline-to-centreline: the two tracks are 0.1 mm
+    // apart on y and their 0.2 mm widths close the gap exactly.
+    const b = board([track(0, 0, 5, 0, 1), track(0, 0.2, 5, 0.2, 2)]);
 
     expect(codes(b, 'shorting_items')).toHaveLength(1);
   });
 
-  it('says shorting instead of clearance, not as well as', () => {
+  it('calls two collinear tracks meeting end to end a crossing, not a short', () => {
+    // `trackSeg.Intersect( otherSeg )` is tested first and returns immediately
+    // (`drc_test_provider_copper_clearance.cpp:263-278`), and `SEG::Intersect`
+    // resolves a collinear overlap — a zero-extent one included — to a point.
+    // So the marker upstream raises here is TRACKS_CROSSING.
     const b = board([track(0, 0, 5, 0, 1), track(5, 0, 10, 0, 2)]);
+
+    expect(codes(b, 'tracks_crossing')).toHaveLength(1);
+    expect(codes(b, 'shorting_items')).toHaveLength(0);
+  });
+
+  it('says shorting instead of clearance, not as well as', () => {
+    const b = board([track(0, 0, 5, 0, 1), track(0, 0.2, 5, 0.2, 2)]);
 
     expect(codes(b, 'clearance')).toHaveLength(0);
   });
 
   it('names both nets, as upstream does', () => {
-    const b = board([track(0, 0, 5, 0, 1), track(5, 0, 10, 0, 2)]);
+    const b = board([track(0, 0, 5, 0, 1), track(0, 0.2, 5, 0.2, 2)]);
 
     expect(codes(b, 'shorting_items')[0]!.message).toContain('N1');
     expect(codes(b, 'shorting_items')[0]!.message).toContain('N2');

@@ -619,7 +619,7 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         // clearance and reported instead of it: the centrelines actually
         // intersect, so "how close are they" is not the useful question.
         if (A.it.track && B.it.track) {
-          const at = segIntersect(A.it.track.a, A.it.track.b, B.it.track.a, B.it.track.b);
+          const at = segIntersect(A.it.track, B.it.track);
           if (at) {
             out.push({
               code: 'tracks_crossing',
@@ -909,11 +909,13 @@ export function runDrc(board: Board, opts: DrcOptions): DrcViolation[] {
         // the same joint twice.
         if (a.layer !== b.layer || a.net !== b.net) continue;
 
-        // segIntersect returns null for collinear segments — deliberately, for
-        // its teardrop caller. SEG::Intersect resolves them, so a shared
-        // endpoint is picked up here: that is what makes a straight-through
-        // joint read 180° and a hairpin 0° rather than both being skipped.
-        const at = segIntersect(a.start, a.end, b.start, b.end) ?? sharedEndpoint(a, b);
+        // `segment.Intersect( other_segment )`, and nothing else — upstream
+        // `continue`s when it has no value (`drc_test_provider_track_angle.cpp:100`).
+        // Two collinear tracks meeting end to end are not a miss: `SEG::Intersect`
+        // resolves them to the midpoint of the overlap region, which is what makes
+        // a straight-through joint read 180° and a doubled-back one 90° rather
+        // than 0°.
+        const at = segIntersect({ a: a.start, b: a.end }, { a: b.start, b: b.end });
         if (!at) continue;
 
         // A corner inside a pad is deliberate, not a mitre problem.
@@ -2889,21 +2891,6 @@ function padAtPoint(board: Board, p: Vec2, layer: string): boolean {
   }
 
   return false;
-}
-
-/**
- * The point two segments share, if any.
- *
- * Only endpoints are considered. A partial collinear *overlap* — two tracks
- * lying along each other rather than meeting — is a shorting or clearance
- * problem, and those tests own it.
- */
-function sharedEndpoint(a: { start: Vec2; end: Vec2 }, b: { start: Vec2; end: Vec2 }): Vec2 | null {
-  const same = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
-
-  for (const p of [a.start, a.end]) for (const q of [b.start, b.end]) if (same(p, q)) return p;
-
-  return null;
 }
 
 /**

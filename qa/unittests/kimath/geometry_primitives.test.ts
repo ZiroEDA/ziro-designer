@@ -74,25 +74,37 @@ describe('buildConvexHull', () => {
 describe('segIntersect', () => {
   it('finds a proper crossing', () => {
     expect(
-      segIntersect({ x: -10, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -10 }, { x: 0, y: 10 }),
+      segIntersect(
+        { a: { x: -10, y: 0 }, b: { x: 10, y: 0 } },
+        { a: { x: 0, y: -10 }, b: { x: 0, y: 10 } },
+      ),
     ).toEqual({ x: 0, y: 0 });
   });
 
   it('misses when the segments do not reach each other', () => {
     expect(
-      segIntersect({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 5, y: -5 }, { x: 5, y: 5 }),
+      segIntersect(
+        { a: { x: 0, y: 0 }, b: { x: 1, y: 0 } },
+        { a: { x: 5, y: -5 }, b: { x: 5, y: 5 } },
+      ),
     ).toBeNull();
   });
 
   it('counts a touch at an endpoint', () => {
     expect(
-      segIntersect({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }),
+      segIntersect(
+        { a: { x: 0, y: 0 }, b: { x: 10, y: 0 } },
+        { a: { x: 10, y: 0 }, b: { x: 10, y: 10 } },
+      ),
     ).toEqual({ x: 10, y: 0 });
   });
 
   it('reports no crossing for parallel segments', () => {
     expect(
-      segIntersect({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 5 }, { x: 10, y: 5 }),
+      segIntersect(
+        { a: { x: 0, y: 0 }, b: { x: 10, y: 0 } },
+        { a: { x: 0, y: 5 }, b: { x: 10, y: 5 } },
+      ),
     ).toBeNull();
   });
 });

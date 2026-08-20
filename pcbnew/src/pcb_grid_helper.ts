@@ -185,7 +185,7 @@ export function alignToSegment(aPoint: Vec2, aSeg: GridSeg, aGrid: PcbGridState)
   ];
 
   for (const seg of testSegments) {
-    const vec = segIntersectLines(aSeg.a, aSeg.b, seg.a, seg.b);
+    const vec = segIntersectLines(aSeg, seg);
 
     if (vec && segSquaredDistanceToPoint(aSeg, vec) <= GRID_SNAP_EPSILON_SQ) points.push(vec);
   }

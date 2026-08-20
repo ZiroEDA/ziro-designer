@@ -68,7 +68,8 @@ import { PnsSegment } from './pns_segment.js';
 import { PnsSizesSettings, type PnsPlainSizes } from './pns_sizes_settings.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsMouseTrailTracer } from './pns_mouse_trail_tracer.js';
-import { PnsVia } from './pns_via.js';
+import { PnsVia, viaPushoutForce } from './pns_via.js';
+import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcCenterI, arcIsCCW } from './shape_arc_ops.js';
 import { itemHull } from './pns_item_hull.js';
 import { mergeColinear, mergeFull, mergeObtuse } from './pns_optimizer.js';
@@ -412,222 +413,19 @@ export function walkaroundRoute(
 // VIA::PushoutForce
 // =============================================================================
 
-/** `VECTOR2::Resize( aNewLength )`, integer-rounded as upstream's is. */
-interface MutVec2 {
-  x: number;
-  y: number;
-}
-
-function resize(aV: Vec2, aNewLength: number): MutVec2 {
-  const len = Math.hypot(aV.x, aV.y);
-
-  if (len === 0) return { x: 0, y: 0 };
-
-  return { x: Math.round((aV.x * aNewLength) / len), y: Math.round((aV.y * aNewLength) / len) };
-}
-
-/** `SEG::NearestPoint`. */
-function segNearest(aSeg: Seg, aP: Vec2): Vec2 {
-  const d = { x: aSeg.b.x - aSeg.a.x, y: aSeg.b.y - aSeg.a.y };
-  const l2 = d.x * d.x + d.y * d.y;
-
-  if (l2 === 0) return { ...aSeg.a };
-
-  const t = Math.max(0, Math.min(1, ((aP.x - aSeg.a.x) * d.x + (aP.y - aSeg.a.y) * d.y) / l2));
-
-  return { x: Math.round(aSeg.a.x + t * d.x), y: Math.round(aSeg.a.y + t * d.y) };
-}
-
 /**
- * `pushoutForce( const SHAPE_CIRCLE&, const SEG&, int aClearance )`
- * (`shape_collisions.cpp:154-178`): how far, and which way, to move a disc so it
- * clears a segment.
+ * `VIA::PushoutForce`, both overloads, is `pns_via.ts`'s — upstream keeps them
+ * on `VIA` (`pns_via.cpp:126` and `:143`) and `LINE_PLACER` calls them there.
  *
- * The five-step `corr` loop is upstream's and is not a rounding nicety: the
- * resize is integer, so the naive `min_dist - dist` translation lands *just*
- * short often enough that without the correction the caller's outer loop
- * re-collides on the same obstacle for ever.
+ * This module used to carry a second implementation of both, and the two
+ * disagreed in ways `buildInitialLine` could act on: the inner one accumulated
+ * a circle-vs-segment pushout over the obstacle's boundary segments instead of
+ * taking upstream's per-layer `Collide` maximum, and the outer one read the
+ * clamp diameter at `Layers().Start()` rather than `EffectiveLayer( 0 )` and
+ * compared an unrounded `hypot` against it where `VECTOR2I::EuclideanNorm()`
+ * rounds.
  */
-function circleSegPushout(aCentre: Vec2, aRadius: number, aSeg: Seg, aClearance: number): MutVec2 {
-  let f: MutVec2 = { x: 0, y: 0 };
-
-  const nearest = segNearest(aSeg, aCentre);
-  const dist = Math.round(Math.hypot(nearest.x - aCentre.x, nearest.y - aCentre.y));
-  const minDist = aClearance + aRadius;
-
-  if (dist < minDist) {
-    for (let corr = 0; corr < 5; corr++) {
-      f = resize({ x: aCentre.x - nearest.x, y: aCentre.y - nearest.y }, minDist - dist + corr);
-
-      const moved = { x: aCentre.x + f.x, y: aCentre.y + f.y };
-      const d2 = Math.hypot(
-        segNearest(aSeg, moved).x - moved.x,
-        segNearest(aSeg, moved).y - moved.y,
-      );
-
-      if (d2 >= minDist) break;
-    }
-  }
-
-  return f;
-}
-
-/**
- * `VIA::PushoutForce( NODE*, const ITEM*, VECTOR2I& )`
- * (`pns_via.cpp:126-140`): the minimum translation that clears this via of one
- * obstacle.
- *
- * ### Deviation, stated plainly
- *
- * Upstream reaches this through `SHAPE::Collide( ..., VECTOR2I* aMTV )`, and
- * Ziro's collision layer has no MTV — `pcbnew/src/drc/shape_collisions.ts:57-61`
- * says so and says why. Worse, upstream's own MTV sign convention is not
- * self-consistent across the overloads (the line-chain arm at
- * `shape_collisions.cpp:299-323` pushes the *receiver*, while the rect arm at
- * `:598-606` negates to push the *argument*).
- *
- * So this is a reconstruction of the geometry rather than a line-by-line port
- * of a function whose contract upstream contradicts: for the via's disc against
- * each of the obstacle's boundary segments, take the circle-vs-segment pushout
- * above, in the sign the *caller* fixes — `mv.SetPos( mv.Pos() + force )`
- * (`pns_via.cpp:215`) unambiguously moves the via away from the obstacle. The
- * `+3` fudge and the accumulate-over-segments shape are upstream's.
- */
-export function viaObstaclePushout(
-  aNode: PnsNode,
-  aVia: PnsVia,
-  aViaPos: Vec2,
-  aOther: PnsItem,
-): MutVec2 {
-  const clearance = aNode.getClearance(aVia, aOther, false);
-  let force: MutVec2 = { x: 0, y: 0 };
-
-  const layers = aVia.layers();
-
-  for (let layer = layers.start(); layer <= layers.end(); layer++) {
-    if (!aOther.layers().overlaps(layer)) continue;
-
-    const viaShape = aVia.shape(layer);
-    const otherShape = aOther.shape(layer);
-
-    if (!viaShape || viaShape.kind !== 'circle' || !otherShape) continue;
-
-    const r = viaShape.r;
-    let element: MutVec2 = { x: 0, y: 0 };
-
-    if (otherShape.kind === 'circle') {
-      const delta = { x: aViaPos.x - otherShape.c.x, y: aViaPos.y - otherShape.c.y };
-      const minDist = clearance + r + otherShape.r;
-      const dist = Math.hypot(delta.x, delta.y);
-
-      if (dist === 0 || dist < minDist) element = resize(delta, minDist - dist + 3);
-    } else if (otherShape.kind === 'stadium') {
-      element = circleSegPushout(
-        aViaPos,
-        r,
-        { a: otherShape.a, b: otherShape.b },
-        clearance + otherShape.r,
-      );
-    } else if (otherShape.kind === 'poly') {
-      const pts = otherShape.pts;
-      const moved: MutVec2 = { x: aViaPos.x, y: aViaPos.y };
-      const total: MutVec2 = { x: 0, y: 0 };
-
-      for (let s = 0; s < pts.length; s++) {
-        const a = pts[s] as Vec2;
-        const b = pts[(s + 1) % pts.length] as Vec2;
-        const f = circleSegPushout(moved, r, { a, b }, clearance + otherShape.r);
-        moved.x += f.x;
-        moved.y += f.y;
-        total.x += f.x;
-        total.y += f.y;
-      }
-
-      element = total;
-    }
-
-    if (element.x * element.x + element.y * element.y > force.x * force.x + force.y * force.y)
-      force = element;
-  }
-
-  return force;
-}
-
-/**
- * `VIA::PushoutForce( NODE*, const VECTOR2I& aDirection, VECTOR2I& aForce, int
- * aCollisionMask, int aMaxIterations )` (`pns_via.cpp:143-232`).
- *
- * Returns the accumulated force, or `null` for "could not place the via" —
- * which is the answer `buildInitialLine` turns into `aViaOk = false`.
- *
- * Three details carry the behaviour:
- *
- *  - the per-step force is clamped to a quarter of the via diameter
- *    (`:181`, upstream calls it *"another stupid heuristic"*), which stops the
- *    via jumping across a keepout in one frame;
- *  - past **half** the iteration budget, if the force is still over that
- *    threshold, the via is moved along the caller's `aDirection` lead vector
- *    instead of along the collision normal (`:187-199`) — the barycentric force
- *    can point into a dead end, and the lead vector usually points back towards
- *    the cursor;
- *  - a collision that yields a *zero* MTV is a hard failure, not a "no
- *    collision" (`:168-175`).
- */
-export function viaPushoutForce(
-  aNode: PnsNode,
-  aVia: PnsVia,
-  aDirection: Vec2,
-  aCollisionMask: number,
-  aMaxIterations: number,
-): MutVec2 | null {
-  let iter = 0;
-  const mv = aVia.clone() as PnsVia;
-  let pos: MutVec2 = { x: aVia.pos().x, y: aVia.pos().y };
-  const totalForce: MutVec2 = { x: 0, y: 0 };
-
-  while (iter < aMaxIterations) {
-    mv.setPos(pos);
-
-    const obs = aNode.checkColliding(mv, {
-      limitCount: 1,
-      kindMask: aCollisionMask,
-      useClearanceEpsilon: false,
-    });
-
-    if (!obs || !obs.item) break;
-
-    const force = viaObstaclePushout(aNode, mv, pos, obs.item);
-    const collFound = force.x !== 0 || force.y !== 0;
-
-    if (!collFound) {
-      // It happens, rarely, that a collision is reported but the MTV is zero.
-      // Upstream assumes force propagation has failed rather than that the via
-      // is clear.
-      return null;
-    }
-
-    const threshold = Math.trunc(aVia.diameter(aVia.layers().start()) / 4);
-    const forceMag = Math.hypot(force.x, force.y);
-
-    if (iter > aMaxIterations / 2 && forceMag > threshold) {
-      const l = resize(aDirection, threshold);
-      totalForce.x += l.x;
-      totalForce.y += l.y;
-      pos = { x: pos.x + l.x, y: pos.y + l.y };
-    } else {
-      const applied = forceMag > threshold ? resize(force, threshold) : force;
-      totalForce.x += applied.x;
-      totalForce.y += applied.y;
-      pos = { x: pos.x + applied.x, y: pos.y + applied.y };
-    }
-
-    iter++;
-  }
-
-  if (iter === aMaxIterations) return null;
-
-  return totalForce;
-}
+export { viaPushoutForce } from './pns_via.js';
 
 // =============================================================================
 // LINE_PLACER
@@ -1342,7 +1140,7 @@ export class PnsLinePlacer {
       dists.push(Math.round(Math.hypot(aCursor.x - s.a.x, aCursor.y - s.a.y)));
       pts.push(s.a);
 
-      const pn = segNearest(s, aCursor);
+      const pn = segNearestPoint(s, aCursor);
 
       if (!(pn.x === s.a.x && pn.y === s.a.y) && !(pn.x === s.b.x && pn.y === s.b.y)) {
         dists.push(Math.round(Math.hypot(pn.x - aCursor.x, pn.y - aCursor.y)));
@@ -2319,7 +2117,7 @@ export class PnsLinePlacer {
       const targetSeg = (aEndItem as PnsSegment).seg();
 
       if (segsAreCollinear(lastSeg, targetSeg) && segsOverlap(targetSeg, lastSeg)) {
-        splitPoint = segNearest(targetSeg, lastSeg.a);
+        splitPoint = segNearestPoint(targetSeg, lastSeg.a);
         current.line().setPoint(current.pointCount() - 1, splitPoint);
         this.mHead.line().setPoint(this.mHead.pointCount() - 1, splitPoint);
       }

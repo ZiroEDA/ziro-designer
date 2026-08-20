@@ -33,7 +33,11 @@
 
 import { circleNearestPoint, constructFromTanTanPt } from '@ziroeda/kimath/src/geometry/circle.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
-import { segIntersectLines, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
+import {
+  segDistanceToPoint,
+  segIntersectLines,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { CalcArcMid } from '@ziroeda/kimath/src/trigo.js';
@@ -223,12 +227,7 @@ export const lineDragArc: LineDragArcFn = (aLine, aP, aIndex) => {
     if (isCollinearTo(candidate, arcLineEnd, maxDeviation)) useChainEnd = true;
   }
 
-  const arcOwnTanIntersect = segIntersectLines(
-    arcLineStart.a,
-    arcLineStart.b,
-    arcLineEnd.a,
-    arcLineEnd.b,
-  );
+  const arcOwnTanIntersect = segIntersectLines(arcLineStart, arcLineEnd);
 
   let tanStartSeg: Seg;
   let tanEndSeg: Seg;
@@ -249,7 +248,7 @@ export const lineDragArc: LineDragArcFn = (aLine, aP, aIndex) => {
     tanEndSeg = { a: arcOwnTanIntersect, b: oldArc.p1 };
   }
 
-  const tanIntersect = segIntersectLines(tanStartSeg.a, tanStartSeg.b, tanEndSeg.a, tanEndSeg.b);
+  const tanIntersect = segIntersectLines(tanStartSeg, tanEndSeg);
 
   if (!tanIntersect) return; // parallel tangents have no tangent-circle solution
 
@@ -442,20 +441,3 @@ export function chainSplit(aChain: PnsLineChain, aP: Vec2, aExact = false): numb
 }
 
 const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
-
-/**
- * `SEG::Distance( const VECTOR2I& )`: the rounded distance to the segment,
- * clamped to the endpoints.
- */
-function segDistanceToPoint(aSeg: { a: Vec2; b: Vec2 }, aP: Vec2): number {
-  const dx = aSeg.b.x - aSeg.a.x;
-  const dy = aSeg.b.y - aSeg.a.y;
-  const len2 = dx * dx + dy * dy;
-
-  if (len2 === 0) return Math.round(Math.hypot(aP.x - aSeg.a.x, aP.y - aSeg.a.y));
-
-  let t = ((aP.x - aSeg.a.x) * dx + (aP.y - aSeg.a.y) * dy) / len2;
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-
-  return Math.round(Math.hypot(aP.x - (aSeg.a.x + dx * t), aP.y - (aSeg.a.y + dy * t)));
-}

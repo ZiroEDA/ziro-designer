@@ -3,9 +3,15 @@
 import { describe, expect, it } from 'vitest';
 import { segIntersect, segIntersectLines } from '@ziroeda/kimath/src/geometry/seg.js';
 import { rescale64 } from '@ziroeda/kimath/src/math/util.js';
+import type { Seg } from '@ziroeda/kimath/src/geometry/corner_operations.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): VECTOR2I => ({ x, y });
+const S = (ax: number, ay: number, bx: number, by: number): Seg => ({
+  a: { x: ax, y: ay },
+  b: { x: bx, y: by },
+});
+const S2 = (a: VECTOR2I, b: VECTOR2I): Seg => ({ a, b });
 
 describe('rescale64', () => {
   it('rounds half away from zero, in both signs', () => {
@@ -41,10 +47,10 @@ describe('segIntersectLines', () => {
     // The defining difference from segIntersect: no bounding-box rejection,
     // because infinite lines can meet anywhere. These two segments are far
     // apart and share no box at all.
-    const p = segIntersectLines(V(0, 0), V(10, 0), V(1000, -500), V(1000, -400));
+    const p = segIntersectLines(S(0, 0, 10, 0), S(1000, -500, 1000, -400));
 
     expect(p).toEqual({ x: 1000, y: 0 });
-    expect(segIntersect(V(0, 0), V(10, 0), V(1000, -500), V(1000, -400))).toBeNull();
+    expect(segIntersect(S(0, 0, 10, 0), S(1000, -500, 1000, -400))).toBeNull();
   });
 
   it('meets outside both segments, where the segment question answers null', () => {
@@ -53,42 +59,44 @@ describe('segIntersectLines', () => {
     const b1 = V(500, -100);
     const b2 = V(500, -50);
 
-    expect(segIntersectLines(a1, a2, b1, b2)).toEqual({ x: 500, y: 0 });
-    expect(segIntersect(a1, a2, b1, b2)).toBeNull();
+    expect(segIntersectLines(S2(a1, a2), S2(b1, b2))).toEqual({ x: 500, y: 0 });
+    expect(segIntersect(S2(a1, a2), S2(b1, b2))).toBeNull();
   });
 
   it('answers null for parallel lines that are not collinear', () => {
-    expect(segIntersectLines(V(0, 0), V(100, 0), V(0, 50), V(100, 50))).toBeNull();
+    expect(segIntersectLines(S(0, 0, 100, 0), S(0, 50, 100, 50))).toBeNull();
   });
 
   it('answers the midpoint of the two starts for collinear lines', () => {
     // Upstream's comment calls this "a reasonable choice" for an intersection
     // that is genuinely the whole line. It is not derived from anything, so it
     // has to be transcribed rather than reasoned out.
-    expect(segIntersectLines(V(0, 0), V(100, 0), V(400, 0), V(500, 0))).toEqual({ x: 200, y: 0 });
+    expect(segIntersectLines(S(0, 0, 100, 0), S(400, 0, 500, 0))).toEqual({ x: 200, y: 0 });
   });
 
   it('prefers a degenerate argument’s own start over the midpoint', () => {
     // The two degenerate arms are checked before the midpoint, and aSeg's is
     // checked first — so a point-vs-point pair answers aSeg's start, not this
     // segment's.
-    expect(segIntersectLines(V(0, 0), V(100, 0), V(40, 0), V(40, 0))).toEqual({ x: 40, y: 0 });
-    expect(segIntersectLines(V(10, 0), V(10, 0), V(0, 0), V(100, 0))).toEqual({ x: 10, y: 0 });
-    expect(segIntersectLines(V(10, 0), V(10, 0), V(40, 0), V(40, 0))).toEqual({ x: 40, y: 0 });
+    expect(segIntersectLines(S(0, 0, 100, 0), S(40, 0, 40, 0))).toEqual({ x: 40, y: 0 });
+    expect(segIntersectLines(S(10, 0, 10, 0), S(0, 0, 100, 0))).toEqual({ x: 10, y: 0 });
+    expect(segIntersectLines(S(10, 0, 10, 0), S(40, 0, 40, 0))).toEqual({ x: 40, y: 0 });
   });
 
-  it('truncates the collinear midpoint per component, rather than rounding it', () => {
-    // `( A + aSeg.A ) / 2` is VECTOR2I's integer divide. 0 and 3 average to 1,
-    // not 2; and a negative pair truncates toward zero, not down.
-    expect(segIntersectLines(V(0, 0), V(100, 0), V(3, 0), V(103, 0))).toEqual({ x: 1, y: 0 });
-    expect(segIntersectLines(V(0, 0), V(0, 100), V(0, -3), V(0, 97))).toEqual({ x: 0, y: -1 });
+  it('rounds the collinear midpoint half away from zero, it does not truncate', () => {
+    // `( A + aSeg.A ) / 2` is `VECTOR2I::operator/( double )`, whose integral
+    // body is `KiROUND( x / aFactor )` (`vector2d.h:536`) — there is no
+    // truncating division operator on VECTOR2 at all. 0 and 3 average to 2,
+    // not 1, and the negative pair goes to -2, not -1.
+    expect(segIntersectLines(S(0, 0, 100, 0), S(3, 0, 103, 0))).toEqual({ x: 2, y: 0 });
+    expect(segIntersectLines(S(0, 0, 0, 100), S(0, -3, 0, 97))).toEqual({ x: 0, y: -2 });
   });
 
   it('is exact where a fractional implementation drifts', () => {
     // A shallow crossing at board scale: the determinant here is order 1e12 and
     // the product feeding rescale is order 1e18, well past 2^53. The exact
     // answer is an integer; a double-based divide need not land on it.
-    const p = segIntersectLines(V(0, 0), V(1000000, 1), V(0, 1000000), V(1000000, 1000001));
+    const p = segIntersectLines(S(0, 0, 1000000, 1), S(0, 1000000, 1000000, 1000001));
 
     // Parallel — both have slope 1/1000000 — so this must be null, not a
     // near-miss point invented by floating-point noise.
@@ -101,7 +109,7 @@ describe('segIntersectLines', () => {
     // orders of magnitude past a 32-bit coordinate. Upstream returns "no
     // intersection" rather than truncating, and the guard is the last thing
     // before the return — the arithmetic above it succeeded.
-    expect(segIntersectLines(V(0, 0), V(1000000, 1), V(0, 100000), V(2000000, 100001))).toBeNull();
+    expect(segIntersectLines(S(0, 0, 1000000, 1), S(0, 100000, 2000000, 100001))).toBeNull();
   });
 
   it('agrees with segIntersect wherever the segments genuinely cross', () => {
@@ -112,9 +120,9 @@ describe('segIntersectLines', () => {
     ];
 
     for (const [a1, a2, b1, b2] of cases) {
-      const seg = segIntersect(a1, a2, b1, b2);
+      const seg = segIntersect(S2(a1, a2), S2(b1, b2));
       expect(seg).not.toBeNull();
-      expect(segIntersectLines(a1, a2, b1, b2)).toEqual(seg);
+      expect(segIntersectLines(S2(a1, a2), S2(b1, b2))).toEqual(seg);
     }
   });
 });

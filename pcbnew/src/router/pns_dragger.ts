@@ -36,7 +36,7 @@
  * - `OPTIMIZER` (the class) is bridged to `mergeFull`/`mergeColinear`;
  *   `KEEP_TOPOLOGY`, `RESTRICT_AREA` and `SetPreserveVertex` are composed into
  *   the effort mask and have nothing behind them, the same gap shove shipped.
- * - `VIA::PushoutForce` is ported here as {@link viaPushoutForce}.
+ * - `VIA::PushoutForce` lives on the via, in `pns_via.ts`, as upstream keeps it.
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -68,160 +68,23 @@ import {
   lineChangedArea,
 } from './pns_shove.js';
 import type { PnsVia, ViaHandle } from './pns_via.js';
+import { viaPushoutForce } from './pns_via.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { routeShortest } from './pns_walkaround.js';
 import { arcShape } from '../drc/drc_engine.js';
-import { collideShapes } from '../drc/shape_collisions.js';
 
 /** `VIA_HANDLE{}`, whose only initialised member is `valid = false`. */
 function invalidViaHandle(): ViaHandle {
   return { valid: false, pos: { x: 0, y: 0 }, layers: new PnsLayerRange(-1), net: null };
 }
 
-const squaredNorm = (v: Vec2): number => v.x * v.x + v.y * v.y;
-
 /**
- * `VIA::PushoutForce( NODE*, const ITEM*, VECTOR2I& )` (`pns_via.cpp`): the
- * minimum translation that separates this via from one other item, taken as the
- * largest over the layers the two share.
- *
- * ### How the MTV is obtained here
- *
- * Upstream asks `SHAPE::Collide( other, clearance, &aMTV )`. This repo's
- * `collideShapes` deliberately drops the MTV out-parameter (see the head of
- * `drc/shape_collisions.ts`) but does return `location` — the point on the
- * *other* shape nearest the collision — and `actual`, the surface-to-surface
- * gap. For a via, whose shape is a disc, those two are enough and exact: the
- * separating direction is `centre - location`, and the distance still to travel
- * is `clearance - actual`.
- *
- * When `location` coincides with the via centre — the centre is inside the
- * other shape — the direction is undefined and the force is left at zero.
- * Upstream hits the same case and names it: *"might happen (although rarely)
- * that we see a collision, but the MTV is zero... Assume force propagation has
- * failed in such case."*
+ * `VIA::PushoutForce` in both its overloads lives on the via, in
+ * `pns_via.ts` — which is where upstream keeps it (`pns_via.cpp:126` and
+ * `:143`). `DRAGGER` and `LINE_PLACER` both call it there rather than each
+ * carrying a copy; they used to carry one each, and the two disagreed.
  */
-export function viaPushoutForceAgainstItem(
-  aNode: PnsNode,
-  aVia: PnsVia,
-  aOther: PnsItem,
-): Vec2 | null {
-  const clearance = aNode.getClearance(aVia, aOther, false);
-  let force: Vec2 = { x: 0, y: 0 };
-
-  for (const layer of aVia.relevantShapeLayers(aOther)) {
-    const otherShape = aOther.shape(layer);
-    const viaShape = aVia.shape(layer);
-
-    if (!otherShape || !viaShape) continue;
-
-    const r = collideShapes(otherShape, viaShape, clearance);
-
-    if (!r.collides || !r.location) continue;
-
-    const d = { x: aVia.pos().x - r.location.x, y: aVia.pos().y - r.location.y };
-    const len = Math.hypot(d.x, d.y);
-
-    if (len === 0) continue;
-
-    const push = clearance - r.actual;
-    const elementForce = {
-      x: Math.round((d.x * push) / len),
-      y: Math.round((d.y * push) / len),
-    };
-
-    if (squaredNorm(elementForce) > squaredNorm(force)) force = elementForce;
-  }
-
-  return force.x === 0 && force.y === 0 ? null : force;
-}
-
-/**
- * `VIA::PushoutForce( NODE*, const VECTOR2I& aDirection, VECTOR2I& aForce,
- * int aCollisionMask, int aMaxIterations )` (`pns_via.cpp`).
- *
- * Walk a *copy* of the via out of trouble one push at a time, accumulating the
- * total displacement. Three details carry the behaviour:
- *
- * - **The magnitude is clamped to a quarter of the via diameter** each step
- *   ("another stupid heuristic", upstream). Without it a large keepout throws
- *   the via across the board in one move.
- * - **Past the half-way iteration, a still-too-large force is abandoned** in
- *   favour of a step along `aDirection` — the negated mouse-trail lead, i.e.
- *   backwards towards where the user came from. That is the escape hatch for a
- *   barycentric force that points into more copper.
- * - **Exhausting the iterations is a failure**, and note the test is
- *   `iter == aMaxIterations` *after* the loop, so a via that escapes on the very
- *   last iteration still fails.
- *
- * Returns the accumulated force, or null for failure. The via is not moved.
- */
-export function viaPushoutForce(
-  aNode: PnsNode,
-  aVia: PnsVia,
-  aDirection: Vec2,
-  aCollisionMask: number,
-  aMaxIterations: number,
-): Vec2 | null {
-  let iter = 0;
-  const mv = aVia.clone();
-  let totalForce: Vec2 = { x: 0, y: 0 };
-
-  while (iter < aMaxIterations) {
-    const obs = aNode.checkColliding(mv, {
-      limitCount: 1,
-      kindMask: aCollisionMask,
-      useClearanceEpsilon: false,
-    });
-
-    if (!obs) break;
-
-    // `obs->m_item` is dereferenced unguarded upstream and is never null for a
-    // reported obstacle; a null one takes the same exit as a zero MTV.
-    const force = obs.item ? viaPushoutForceAgainstItem(aNode, mv, obs.item) : null;
-
-    // Upstream's `if( !collFound ) { if( obs ) return false; ... break; }`: the
-    // inner `if( obs )` is always true here, so the `break` below it is dead.
-    if (!force) return null;
-
-    const threshold = Math.trunc(mv.diameter(mv.effectiveLayer(0)) / 4);
-    const forceMag = Math.trunc(Math.hypot(force.x, force.y));
-
-    if (iter > Math.trunc(aMaxIterations / 2) && forceMag > threshold) {
-      const l = resizeVec(aDirection, threshold);
-
-      totalForce = { x: totalForce.x + l.x, y: totalForce.y + l.y };
-      mv.setPos({ x: mv.pos().x + l.x, y: mv.pos().y + l.y });
-    } else {
-      const step = forceMag > threshold ? resizeVec(force, threshold) : force;
-
-      totalForce = { x: totalForce.x + step.x, y: totalForce.y + step.y };
-      mv.setPos({ x: mv.pos().x + step.x, y: mv.pos().y + step.y });
-    }
-
-    iter++;
-  }
-
-  if (iter === aMaxIterations) return null;
-
-  return totalForce;
-}
-
-/**
- * `VECTOR2I::Resize`. Upstream's integer instantiation rounds each component
- * away from zero; `Math.round` matches for the positive half and differs by one
- * unit on exact `.5` negatives, which no test here can observe.
- *
- * A zero vector stays zero — that is the case a first `Drag()` produces, where
- * the mouse trail has only one point and the lead vector is `(0, 0)`.
- */
-function resizeVec(v: Vec2, aNewLength: number): Vec2 {
-  const l = Math.hypot(v.x, v.y);
-
-  if (l === 0) return { x: 0, y: 0 };
-
-  return { x: Math.round((v.x * aNewLength) / l), y: Math.round((v.y * aNewLength) / l) };
-}
+export { viaPushoutForce, viaPushoutForceAgainstItem } from './pns_via.js';
 
 /** `PNS::DRAGGER`. */
 export class PnsDragger extends PnsDragAlgo {

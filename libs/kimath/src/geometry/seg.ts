@@ -12,7 +12,8 @@
  * on a vertex is classified the same way KiCad classifies it.
  */
 
-import { KiROUND, rescale, rescale64 } from '../math/util.js';
+import { KiROUND, rescale64 } from '../math/util.js';
+import { divideI } from '../math/vector2.js';
 import type { Vec2, VECTOR2I } from '../math/vector2.js';
 import type { Seg } from './corner_operations.js';
 
@@ -22,61 +23,6 @@ export interface Intersection {
   p: VECTOR2I;
   /** Index of the chain segment that was crossed. */
   indexOur: number;
-}
-
-const cross = (a: VECTOR2I, b: VECTOR2I): number => a.x * b.y - a.y * b.x;
-
-/**
- * SEG::Intersect for two closed segments, returning null when they miss.
- *
- * `aLines`/`aIgnoreEndpoints` are not ported: the teardrop code only ever asks
- * the plain segment-vs-segment question.
- */
-export function segIntersect(
-  a1: VECTOR2I,
-  a2: VECTOR2I,
-  b1: VECTOR2I,
-  b2: VECTOR2I,
-): VECTOR2I | null {
-  // Bounding-box rejection, as upstream.
-  if (
-    Math.max(a1.x, a2.x) < Math.min(b1.x, b2.x) ||
-    Math.max(b1.x, b2.x) < Math.min(a1.x, a2.x) ||
-    Math.max(a1.y, a2.y) < Math.min(b1.y, b2.y) ||
-    Math.max(b1.y, b2.y) < Math.min(a1.y, a2.y)
-  ) {
-    return null;
-  }
-
-  const dir1 = { x: a2.x - a1.x, y: a2.y - a1.y };
-  const dir2 = { x: b2.x - b1.x, y: b2.y - b1.y };
-  const offset = { x: b1.x - a1.x, y: b1.y - a1.y };
-  const determinant = cross(dir2, dir1);
-
-  if (determinant === 0) {
-    // Parallel: upstream walks the collinear-overlap path here. The teardrop
-    // caller treats a collinear graze as "no crossing" either way, because a
-    // crossing point on an edge it runs along carries no usable direction.
-    return null;
-  }
-
-  const param2Num = cross(dir2, offset);
-  const param1Num = cross(dir1, offset);
-
-  if (determinant > 0) {
-    if (param1Num < 0 || param1Num > determinant || param2Num < 0 || param2Num > determinant) {
-      return null;
-    }
-  } else {
-    if (param1Num > 0 || param1Num < determinant || param2Num > 0 || param2Num < determinant) {
-      return null;
-    }
-  }
-
-  return {
-    x: b1.x + rescale(param1Num, dir2.x, determinant),
-    y: b1.y + rescale(param1Num, dir2.y, determinant),
-  };
 }
 
 /**
@@ -111,7 +57,7 @@ export function chainIntersect(
       continue;
     }
 
-    const p = segIntersect(ptA, ptB, segA, segB);
+    const p = segIntersect({ a: ptA, b: ptB }, { a: segA, b: segB });
 
     if (p) out.push({ p, indexOur: s });
   }
@@ -255,80 +201,7 @@ const COORD_MIN = -2147483648n;
 
 const bigCross = (ax: bigint, ay: bigint, bx: bigint, by: bigint): bigint => ax * by - ay * bx;
 
-/**
- * `SEG::IntersectLines` — `Intersect( aSeg, false, true )` (`seg.cpp`).
- *
- * The intersection of the **infinite lines** through two segments, not of the
- * segments themselves. That is a different question from {@link segIntersect}
- * in three ways, and every one of them is load bearing:
- *
- * 1. **No bounding-box rejection.** Upstream skips it explicitly for line mode,
- *    "since infinite lines can intersect anywhere". Two segments nowhere near
- *    each other still have crossing lines.
- * 2. **No parameter range check.** `segIntersect` refuses a result outside
- *    `[0, 1]` on both segments; here that is the normal case.
- * 3. **Collinear lines intersect.** Where `segIntersect` answers null, upstream
- *    answers a point — and which point is spelled out rather than derived: a
- *    degenerate `aSeg` gives its own start, a degenerate receiver gives *its*
- *    start, and otherwise the **midpoint of the two starts**, which upstream's
- *    comment calls "a reasonable choice" for an ambiguous answer. Parallel but
- *    *not* collinear is still null.
- *
- * The arithmetic is exact. `determinant`, both parameter numerators and the
- * scaled direction are computed in BigInt, because the determinant of two
- * board-scale vectors is order 1e16 — already past 2^53, where a double stops
- * representing consecutive integers and `rescale`'s half-away-from-zero
- * correction stops landing where C++ lands it. A fractional implementation
- * diverges by a unit and then feeds that unit into `LineProject`.
- *
- * The overflow guard is upstream's too: an intersection can exist
- * mathematically and still not fit a 32-bit coordinate, and upstream answers
- * "no intersection" rather than truncating. Two nearly-parallel lines are
- * exactly the case that produces it.
- */
-export function segIntersectLines(
-  a1: VECTOR2I,
-  a2: VECTOR2I,
-  b1: VECTOR2I,
-  b2: VECTOR2I,
-): VECTOR2I | null {
-  const d1x = BigInt(KiROUND(a2.x - a1.x));
-  const d1y = BigInt(KiROUND(a2.y - a1.y));
-  const d2x = BigInt(KiROUND(b2.x - b1.x));
-  const d2y = BigInt(KiROUND(b2.y - b1.y));
-  const ox = BigInt(KiROUND(b1.x - a1.x));
-  const oy = BigInt(KiROUND(b1.y - a1.y));
-
-  const determinant = bigCross(d2x, d2y, d1x, d1y);
-
-  if (determinant === 0n) {
-    // Parallel but not collinear: upstream returns nothing.
-    if (bigCross(d1x, d1y, ox, oy) !== 0n) return null;
-
-    // Collinear. The intersection of two identical infinite lines is the whole
-    // line, so upstream picks a representative rather than failing.
-    if (b1.x === b2.x && b1.y === b2.y) return { x: b1.x, y: b1.y };
-    if (a1.x === a2.x && a1.y === a2.y) return { x: a1.x, y: a1.y };
-
-    // `( A + aSeg.A ) / 2` is VECTOR2I's integer divide, truncating per
-    // component toward zero — not a rounded midpoint.
-    return {
-      x: Math.trunc((a1.x + b1.x) / 2),
-      y: Math.trunc((a1.y + b1.y) / 2),
-    };
-  }
-
-  // `param1_num = e x ac`, the parameter along *this* segment. Upstream then
-  // evaluates the point on the OTHER segment's line, `aSeg.A + (q/d) * f`.
-  const param1Num = bigCross(d1x, d1y, ox, oy);
-
-  const rx = BigInt(KiROUND(b1.x)) + rescale64(param1Num, d2x, determinant);
-  const ry = BigInt(KiROUND(b1.y)) + rescale64(param1Num, d2y, determinant);
-
-  if (rx > COORD_MAX || rx < COORD_MIN || ry > COORD_MAX || ry < COORD_MIN) return null;
-
-  return { x: Number(rx), y: Number(ry) };
-}
+const absB = (v: bigint): bigint => (v < 0n ? -v : v);
 
 // ---------------------------------------------------------------------------
 // The remaining `SEG` members `CIRCLE::ConstructFromTanTanPt` is built on.
@@ -514,18 +387,19 @@ export function segLineDistance(aSeg: Seg, aP: Vec2, aDetermineSide = false): nu
 }
 
 /**
- * `SEG::Center()` (`seg.h:375`): `A + ( B - A ) / 2`.
+ * `SEG::Center()` (`seg.h:379`): `A + ( B - A ) / 2`.
  *
- * `VECTOR2I::operator/( int )` divides each component and **truncates toward
- * zero**, which is not the same as a rounded midpoint: the centre of a segment
- * spanning an odd number of units lands on the `A` side of true centre, and
- * which side that is depends on the sign of `B - A`.
+ * `VECTOR2I` has exactly **one** division operator, `operator/( double )`
+ * (`vector2d.h:536`), and for an integral `T` its body is
+ * `VECTOR2<T>( KiROUND( x / aFactor ), KiROUND( y / aFactor ) )`. So the halving
+ * **rounds half away from zero**; it does not truncate. A segment spanning an
+ * odd number of units therefore has its centre on the *far* side of true
+ * centre, not the `A` side.
  */
 export function segCenter(aSeg: Seg): Vec2 {
-  return {
-    x: aSeg.a.x + noNegZero(Math.trunc((aSeg.b.x - aSeg.a.x) / 2)),
-    y: aSeg.a.y + noNegZero(Math.trunc((aSeg.b.y - aSeg.a.y) / 2)),
-  };
+  const half = divideI({ x: aSeg.b.x - aSeg.a.x, y: aSeg.b.y - aSeg.a.y }, 2);
+
+  return { x: aSeg.a.x + half.x, y: aSeg.a.y + half.y };
 }
 
 /**
@@ -553,3 +427,354 @@ export function segPerpendicularSeg(aSeg: Seg, aP: Vec2): Seg {
 
   return { a: { x: aP.x, y: aP.y }, b: { x: -slope.y + aP.x, y: slope.x + aP.y } };
 }
+
+// ---------------------------------------------------------------------------
+// SEG intersection, collinearity and distance — the single implementation.
+//
+// Upstream has exactly one of each of these, in `seg.cpp`, and every caller
+// (the PNS router included) goes through it. Everything below is that one
+// implementation; the router-local copies that used to live in
+// `pns_diff_pair.ts` and `pns_multi_dragger.ts` now re-export from here.
+
+/**
+ * `SEG::checkCollinearOverlap` (`seg.cpp:220`) — the branch `intersects` takes
+ * once it knows the two segments lie on the *same* line.
+ *
+ * The answer is the **midpoint of the overlap region**, projected back onto the
+ * line. Three details are upstream's and all three change the answer:
+ *
+ *  1. The projection axis is chosen by the caller (`|dir1.x| >= |dir1.y|`), so
+ *     a near-vertical pair is compared on `y`. Comparing on the degenerate axis
+ *     would make every pair "overlap".
+ *  2. `( overlap_start + overlap_end ) / 2` is **integer** division of two
+ *     `int`s. Upstream's own test data pins it: `(0,0)-(10,0)` against
+ *     `(5,0)-(15,0)` is expected at `(7, 0)`, not `(7.5, 0)`
+ *     (`qa/tests/libs/kimath/geometry/test_segment.cpp:872`).
+ *  3. The other coordinate comes from `rescale`, not a plain divide — the
+ *     result is an integer coordinate, rounded half away from zero.
+ *
+ * `aIgnoreEndpoints` drops a zero-extent overlap **only when the touch point is
+ * an endpoint of both segments**. Upstream spells that condition out
+ * (`isEndpointTouch`) rather than rejecting every zero-extent overlap, because a
+ * degenerate segment sitting in the middle of a longer one also produces one and
+ * is a genuine interior hit.
+ */
+function checkCollinearOverlap(
+  aSeg: Seg,
+  aOther: Seg,
+  aUseXAxis: boolean,
+  aIgnoreEndpoints: boolean,
+): Vec2 | null {
+  const along = (p: Vec2): number => (aUseXAxis ? p.x : p.y);
+  const across = (p: Vec2): number => (aUseXAxis ? p.y : p.x);
+
+  const seg1Start = along(aSeg.a);
+  const seg1End = along(aSeg.b);
+  const coord1Start = across(aSeg.a);
+  const coord1End = across(aSeg.b);
+
+  const seg1Min = Math.min(seg1Start, seg1End);
+  const seg1Max = Math.max(seg1Start, seg1End);
+  const seg2Min = Math.min(along(aOther.a), along(aOther.b));
+  const seg2Max = Math.max(along(aOther.a), along(aOther.b));
+
+  if (!(seg1Max >= seg2Min && seg2Max >= seg1Min)) return null;
+
+  const overlapStart = Math.max(seg1Min, seg2Min);
+  const overlapEnd = Math.min(seg1Max, seg2Max);
+
+  if (aIgnoreEndpoints && overlapStart === overlapEnd) {
+    const touchesSeg1End = overlapStart === seg1Min || overlapStart === seg1Max;
+    const touchesSeg2End = overlapStart === seg2Min || overlapStart === seg2Max;
+
+    if (touchesSeg1End && touchesSeg2End) return null;
+  }
+
+  // `( overlap_start + overlap_end ) / 2` between two `int`s: truncates.
+  const proj = Math.trunc((overlapStart + overlapEnd) / 2);
+
+  const other =
+    seg1End !== seg1Start
+      ? coord1Start +
+        Number(
+          rescale64(big(proj - seg1Start), big(coord1End - coord1Start), big(seg1End - seg1Start)),
+        )
+      : coord1Start;
+
+  return aUseXAxis ? { x: proj, y: other } : { x: other, y: proj };
+}
+
+/**
+ * `SEG::intersects( aSeg, aIgnoreEndpoints, aLines, aPt )` (`seg.cpp:312`) —
+ * the one implementation every other intersection query upstream is written on
+ * (`Intersect`, `Intersects`, `IntersectLines`).
+ *
+ * @param aIgnoreEndpoints don't treat "the end of one segment touches the
+ *   other" as an intersection. Used to stop a polyline reporting every one of
+ *   its own corners as a self-crossing.
+ * @param aLines treat both segments as **infinite lines**. Skips the
+ *   bounding-box rejection ("infinite lines can intersect anywhere") and the
+ *   `[0, 1]` parameter check, and makes two collinear lines intersect.
+ *
+ * ## The parts that are load bearing
+ *
+ * **Exact integer arithmetic.** `determinant`, both parameter numerators and the
+ * scaled direction are BigInt, because the determinant of two board-scale
+ * vectors is of order 1e16 — already past 2^53, where a double stops
+ * representing consecutive integers and the half-away-from-zero correction in
+ * `rescale` stops landing where C++ lands it. Inclusion is decided by comparing
+ * the numerators *against the determinant* rather than by dividing, so a
+ * crossing exactly on a vertex is classified the way KiCad classifies it.
+ *
+ * **The overflow guard.** An intersection can exist mathematically and still not
+ * fit a 32-bit coordinate; upstream answers "no intersection" rather than
+ * truncating. Two nearly-parallel lines are exactly the case that produces it.
+ *
+ * **Collinear lines meet.** In `aLines` mode two collinear lines intersect
+ * everywhere, and upstream picks a representative rather than failing: a
+ * degenerate `aOther` gives its own start, a degenerate receiver gives *its*
+ * start, and otherwise the midpoint of the two starts — through
+ * `VECTOR2I::operator/( double )`, which is `KiROUND`, **not** truncation
+ * (`vector2d.h:536`). Parallel but not collinear is still null.
+ *
+ * **Collinear segments meet over their overlap**, via
+ * {@link checkCollinearOverlap} — they are not "parallel, therefore no
+ * crossing".
+ */
+export function segIntersect(
+  aSeg: Seg,
+  aOther: Seg,
+  aIgnoreEndpoints = false,
+  aLines = false,
+): Vec2 | null {
+  // Quick rejection on bounding boxes; skipped for infinite lines.
+  if (!aLines) {
+    if (
+      Math.max(aSeg.a.x, aSeg.b.x) < Math.min(aOther.a.x, aOther.b.x) ||
+      Math.max(aOther.a.x, aOther.b.x) < Math.min(aSeg.a.x, aSeg.b.x) ||
+      Math.max(aSeg.a.y, aSeg.b.y) < Math.min(aOther.a.y, aOther.b.y) ||
+      Math.max(aOther.a.y, aOther.b.y) < Math.min(aSeg.a.y, aSeg.b.y)
+    ) {
+      return null;
+    }
+  }
+
+  const d1x = big(aSeg.b.x) - big(aSeg.a.x);
+  const d1y = big(aSeg.b.y) - big(aSeg.a.y);
+  const d2x = big(aOther.b.x) - big(aOther.a.x);
+  const d2y = big(aOther.b.y) - big(aOther.a.y);
+  const ox = big(aOther.a.x) - big(aSeg.a.x);
+  const oy = big(aOther.a.y) - big(aSeg.a.y);
+
+  const determinant = bigCross(d2x, d2y, d1x, d1y);
+
+  if (determinant === 0n) {
+    // Parallel but not collinear: no intersection, in either mode.
+    if (bigCross(d1x, d1y, ox, oy) !== 0n) return null;
+
+    if (aLines) {
+      if (aOther.a.x === aOther.b.x && aOther.a.y === aOther.b.y) {
+        return { x: aOther.a.x, y: aOther.a.y };
+      }
+
+      if (aSeg.a.x === aSeg.b.x && aSeg.a.y === aSeg.b.y) return { x: aSeg.a.x, y: aSeg.a.y };
+
+      // `( A + aSeg.A ) / 2` — VECTOR2I::operator/( double ), i.e. KiROUND.
+      return divideI({ x: aSeg.a.x + aOther.a.x, y: aSeg.a.y + aOther.a.y }, 2);
+    }
+
+    // Overlap is measured on whichever axis this segment spans more of.
+    const useXAxis = absB(d1x) >= absB(d1y);
+
+    return checkCollinearOverlap(aSeg, aOther, useXAxis, aIgnoreEndpoints);
+  }
+
+  // `param2_num = f x ac` (parameter along aOther), `param1_num = e x ac`
+  // (parameter along this segment).
+  const param2Num = bigCross(d2x, d2y, ox, oy);
+  const param1Num = bigCross(d1x, d1y, ox, oy);
+
+  if (!aLines) {
+    if (determinant > 0n) {
+      if (param1Num < 0n || param1Num > determinant || param2Num < 0n || param2Num > determinant) {
+        return null;
+      }
+    } else if (
+      param1Num > 0n ||
+      param1Num < determinant ||
+      param2Num > 0n ||
+      param2Num < determinant
+    ) {
+      return null;
+    }
+
+    if (
+      aIgnoreEndpoints &&
+      (param1Num === 0n || param1Num === determinant) &&
+      (param2Num === 0n || param2Num === determinant)
+    ) {
+      return null;
+    }
+  }
+
+  // `intersection = aSeg.A + (q/d) * f`.
+  const rx = big(aOther.a.x) + rescale64(param1Num, d2x, determinant);
+  const ry = big(aOther.a.y) + rescale64(param1Num, d2y, determinant);
+
+  if (rx > COORD_MAX || rx < COORD_MIN || ry > COORD_MAX || ry < COORD_MIN) return null;
+
+  return { x: num(rx), y: num(ry) };
+}
+
+/** `SEG::Intersects( aSeg )` (`seg.h:207`) — `intersects()` for its yes/no only. */
+export const segIntersects = (aSeg: Seg, aOther: Seg): boolean =>
+  segIntersect(aSeg, aOther) !== null;
+
+/**
+ * `SEG::IntersectLines( aSeg )` (`seg.h:220`) — literally
+ * `Intersect( aSeg, false, true )`, the crossing of the two **infinite lines**.
+ *
+ * Written as the delegation upstream writes, so the two cannot drift: a fix to
+ * the parallel handling or the overflow guard lands in both at once.
+ */
+export const segIntersectLines = (aSeg: Seg, aOther: Seg): Vec2 | null =>
+  segIntersect(aSeg, aOther, false, true);
+
+/** `SEG::Collinear( aSeg )` (`seg.h:286`): both of `aOther`'s ends within 1 IU
+ * of this segment's line, measured through the **unnormalised** canonical
+ * coefficients.
+ *
+ * Unnormalised is the point: the test is `|qa*x + qb*y + qc| <= 1` with `qa`,
+ * `qb` the raw coordinate differences, so the tolerance tightens as this
+ * segment gets longer. `DP_GATEWAYS::BuildGeneric` relies on that — its probe
+ * segments are 200 units long, which makes "collinear" mean "within about
+ * 1/200 of a unit of offset", i.e. exactly aligned.
+ */
+export function segCollinear(aSeg: Seg, aOther: Seg): boolean {
+  const qa = big(aSeg.a.y) - big(aSeg.b.y);
+  const qb = big(aSeg.b.x) - big(aSeg.a.x);
+  const qc = -qa * big(aSeg.a.x) - qb * big(aSeg.a.y);
+
+  const d1 = absB(big(aOther.a.x) * qa + big(aOther.a.y) * qb + qc);
+  const d2 = absB(big(aOther.b.x) * qa + big(aOther.b.y) * qb + qc);
+
+  return d1 <= 1n && d2 <= 1n;
+}
+
+/**
+ * `SEG::NearestPoint( const VECTOR2I& )` (`seg.cpp:633`): the point *on the
+ * segment* closest to `aP`, clamped to the ends.
+ */
+export function segNearestPoint(aSeg: Seg, aP: Vec2): Vec2 {
+  const dx = big(aSeg.b.x) - big(aSeg.a.x);
+  const dy = big(aSeg.b.y) - big(aSeg.a.y);
+  const lSquared = dx * dx + dy * dy;
+
+  if (lSquared === 0n) return { x: aSeg.a.x, y: aSeg.a.y };
+
+  const t = dx * (big(aP.x) - big(aSeg.a.x)) + dy * (big(aP.y) - big(aSeg.a.y));
+
+  if (t < 0n) return { x: aSeg.a.x, y: aSeg.a.y };
+  if (t > lSquared) return { x: aSeg.b.x, y: aSeg.b.y };
+
+  return {
+    x: num(big(aSeg.a.x) + rescale64(t, dx, lSquared)),
+    y: num(big(aSeg.a.y) + rescale64(t, dy, lSquared)),
+  };
+}
+
+/**
+ * `SEG::SquaredDistance( const VECTOR2I& )` (`seg.cpp:714`).
+ *
+ * The two clamped cases are exact integer arithmetic; the interior case is
+ * `|ap|² - e²/f` with the **division done in double** and the result
+ * `KiROUND`ed, which is upstream's own arithmetic and not an approximation of
+ * it. Upstream's guard against a negative `g` — impossible in exact arithmetic,
+ * reachable only through that double — is kept, along with its overflow arm.
+ */
+export function segSquaredDistanceToPoint(aSeg: Seg, aP: Vec2): number {
+  const abx = big(aSeg.b.x) - big(aSeg.a.x);
+  const aby = big(aSeg.b.y) - big(aSeg.a.y);
+  const apx = big(aP.x) - big(aSeg.a.x);
+  const apy = big(aP.y) - big(aSeg.a.y);
+
+  const e = apx * abx + apy * aby;
+
+  if (e <= 0n) return num(apx * apx + apy * apy);
+
+  const f = abx * abx + aby * aby;
+
+  if (e >= f) {
+    const bpx = big(aP.x) - big(aSeg.b.x);
+    const bpy = big(aP.y) - big(aSeg.b.y);
+
+    return num(bpx * bpx + bpy * bpy);
+  }
+
+  const eD = Number(e);
+  const g = Number(apx * apx + apy * apy) - (eD * eD) / Number(f);
+
+  // `ECOORD_MAX` is `std::numeric_limits<int64_t>::max()`. Written as `2 ** 63`
+  // because that is the double the literal 9223372036854775807 rounds to
+  // anyway — the comparison is against int64's ceiling, not against an exactly
+  // representable integer.
+  if (g < 0 || g > 2 ** 63) return 0;
+
+  return KiROUND(g);
+}
+
+/**
+ * `SEG::Distance( const VECTOR2I& )` (`seg.cpp:708`):
+ * `isqrt( SquaredDistance( aP ) )`.
+ *
+ * `isqrt` **floors** — it is the largest integer whose square does not exceed
+ * the argument. It is not `round( hypot( … ) )`, and the difference is up to a
+ * whole IU on every non-square distance: a point at true distance 1.7 is 1 here
+ * and 2 under rounding, which is exactly the boundary
+ * {@link segContains} sits on.
+ */
+export const segDistanceToPoint = (aSeg: Seg, aP: Vec2): number =>
+  num(isqrt64(BigInt(segSquaredDistanceToPoint(aSeg, aP))));
+
+/**
+ * `SEG::Contains( const VECTOR2I& )` (`seg.cpp:627`): `SquaredDistance( aP ) <= 3`.
+ *
+ * Three square IU, an absolute tolerance rather than a relative one — so a point
+ * 1 IU off the line counts as on it and a point 2 IU off does not.
+ */
+export const segContains = (aSeg: Seg, aP: Vec2): boolean =>
+  segSquaredDistanceToPoint(aSeg, aP) <= 3;
+
+/**
+ * `SEG::SquaredDistance( const SEG& )` (`seg.cpp:80`).
+ *
+ * Zero-length segments are handled *first*, before the intersection test:
+ * the cross product with a zero vector is always zero, so `Intersects` reports
+ * a false positive for a point that is nowhere near the other segment.
+ */
+export function segSquaredDistanceToSeg(aSeg: Seg, aOther: Seg): number {
+  const same = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
+
+  if (same(aSeg.a, aSeg.b)) return segSquaredDistanceToPoint(aOther, aSeg.a);
+  if (same(aOther.a, aOther.b)) return segSquaredDistanceToPoint(aSeg, aOther.a);
+
+  if (segIntersects(aSeg, aOther)) return 0;
+
+  const distSq = (p: Vec2, q: Vec2): number => {
+    const dx = big(p.x) - big(q.x);
+    const dy = big(p.y) - big(q.y);
+
+    return num(dx * dx + dy * dy);
+  };
+
+  return Math.min(
+    distSq(segNearestPoint(aOther, aSeg.a), aSeg.a),
+    distSq(segNearestPoint(aOther, aSeg.b), aSeg.b),
+    distSq(segNearestPoint(aSeg, aOther.a), aOther.a),
+    distSq(segNearestPoint(aSeg, aOther.b), aOther.b),
+  );
+}
+
+/** `SEG::Distance( const SEG& )` (`seg.cpp:702`): `isqrt( SquaredDistance( aSeg ) )`. */
+export const segDistance = (aSeg: Seg, aOther: Seg): number =>
+  num(isqrt64(BigInt(segSquaredDistanceToSeg(aSeg, aOther))));

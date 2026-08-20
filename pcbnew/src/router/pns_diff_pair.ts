@@ -49,19 +49,15 @@
  * are left alone; both are documented in their own files as the shortcut, and
  * both have callers that only compare candidates.
  *
- * `SEG::LineProject`, `SEG::Contains`, `SEG::ApproxParallel` and the int64
- * `rescale` come from `pns_seg_ops.ts` rather than being written again here.
- * Its `segLength` is the one thing deliberately *not* reused, and the note on
+ * Every `SEG` member used here — `LineProject`, `Contains`, `ApproxParallel`,
+ * `Collinear`, `Intersect`, `IntersectLines`, `Distance`, `SquaredDistance` —
+ * comes from `libs/kimath`, which is where upstream keeps them too. Only
+ * `segLength` is deliberately *not* taken from `pns_seg_ops.ts`, and the note on
  * this module's own `segLength` says why in full.
  *
- * Two reused pieces are *not* bit-exact and are reused anyway, because forking
- * them would be worse:
+ * One reused piece is *not* bit-exact and is reused anyway, because forking it
+ * would be worse:
  *
- *  - `segSquaredDistanceToSeg` (`drc/shape_collisions.ts`) computes its last
- *    term in double where upstream rounds to an integer. It is read here
- *    through `checkGap`'s `gap - 100` slack and through a ±10000 tolerance
- *    band, so a sub-unit difference in a *squared* quantity cannot change
- *    either answer.
  *  - `commonParallelProjection` (`drc/drc_diff_pair.ts`) is upstream's own
  *    duplicate of the routine in this file — `drc_test_provider_diff_pair_coupling.cpp:66`
  *    is a verbatim static copy of `pns_diff_pair.cpp:786` — so reusing it is
@@ -85,11 +81,17 @@ import {
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { commonParallelProjection } from '../drc/drc_diff_pair.js';
-import { segSquaredDistanceToSeg } from '../drc/shape_collisions.js';
+import {
+  segCollinear,
+  segDistance,
+  segIntersect,
+  segIntersectLines,
+  segSquaredDistanceToSeg,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { PnsLine, PnsLineChain } from './pns_line_item.js';
 import { appendChain, csegment, reverse, segmentCount, type Chain, type Seg } from './pns_line.js';
-import { rescale64, segApproxParallel, segContains, segLineProject } from './pns_seg_ops.js';
+import { segApproxParallel, segContains, segLineProject } from './pns_seg_ops.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import { RangedNum } from './ranged_num.js';
@@ -108,33 +110,15 @@ const neg = (a: Vec2): Vec2 => ({ x: -a.x || 0, y: -a.y || 0 });
 const scale = (a: Vec2, k: number): Vec2 => ({ x: a.x * k || 0, y: a.y * k || 0 });
 const equal = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
-const big = (v: number): bigint => BigInt(v);
-/** `a.Cross( b )` in int64. */
-const crossB = (a: Vec2, b: Vec2): bigint => big(a.x) * big(b.y) - big(a.y) * big(b.x);
-const absB = (v: bigint): bigint => (v < 0n ? -v : v);
 
 /** `(A + B) / 2`, i.e. `VECTOR2I::operator/( double )` — KiROUND, not truncation. */
 const midpoint = (a: Vec2, b: Vec2): Vec2 => divideI(add(a, b), 2);
 
-/**
- * `isqrt` (seg.cpp:57): the largest integer whose square does not exceed `x`.
- *
- * Upstream corrects the `double` square root up and down until `r*r <= x`;
- * `Math.floor` is that answer directly for every value a squared distance can
- * take here.
- */
-const isqrt = (x: number): number => Math.floor(Math.sqrt(x));
-
 // ---------------------------------------------------------------------------
-// SEG, in exact integer arithmetic.
-//
-// `pns_seg_ops.ts` already carries `SEG::LineProject`, `SEG::Contains`,
-// `SEG::ApproxParallel` and the int64 `rescale`, so those are imported. What is
-// added below is the three members it does not have — `Collinear`,
-// `IntersectLines` and `Intersect` — plus the chain queries built on them. They
-// live here rather than in `pns_line.ts` because that module's `Seg` helpers are
-// the *drag* geometry's: floating point, and documented as such. `Seg` itself is
-// the type from there, so every one of these mixes freely with both.
+// SEG lives in kimath. Upstream has exactly one `SEG`, in `libs/kimath`, and
+// `pns_diff_pair.cpp` calls its members rather than reimplementing them; so
+// does this file. `Seg` is still the `{ a, b }` type from `pns_line.ts`, which
+// is structurally kimath's, so the two mix freely.
 
 /**
  * `SEG::Length()` = `(A - B).EuclideanNorm()`.
@@ -157,167 +141,18 @@ const isqrt = (x: number): number => Math.floor(Math.sqrt(x));
 const segLength = (s: Seg): number => EuclideanNormI(sub(s.a, s.b));
 
 /**
- * `SEG::Collinear`: both of `other`'s endpoints within 1 IU of *this* segment's
- * infinite line, measured by the unnormalised canonical form.
- *
- * Unnormalised is the point: the tolerance is `|qa·x + qb·y + qc| <= 1` with
- * `qa`/`qb` the raw coordinate differences, so it tightens as the segment gets
- * longer. `BuildGeneric` relies on that — its probe segments are exactly 200
- * units long, which makes "collinear" mean "within about 1/200 of a unit of
- * offset", i.e. exactly aligned.
+ * `SEG::Collinear`, `SEG::Intersect`, `SEG::IntersectLines` and
+ * `SEG::Distance( const SEG& )` are kimath's, in
+ * `libs/kimath/src/geometry/seg.ts`, exactly as they are upstream's `seg.cpp`
+ * and not `pns_diff_pair.cpp`'s. They are re-exported here so this module's
+ * existing importers and the pcbnew barrel keep working.
  */
-export function segCollinear(s: Seg, other: Seg): boolean {
-  const qa = big(s.a.y) - big(s.b.y);
-  const qb = big(s.b.x) - big(s.a.x);
-  const qc = -qa * big(s.a.x) - qb * big(s.a.y);
-
-  const d1 = absB(big(other.a.x) * qa + big(other.a.y) * qb + qc);
-  const d2 = absB(big(other.b.x) * qa + big(other.b.y) * qb + qc);
-
-  return d1 <= 1n && d2 <= 1n;
-}
-
-/**
- * `SEG::IntersectLines`: where the two *infinite* lines meet, or null.
- *
- * Upstream's `intersects( aLines = true )` skips the parameter-range checks and
- * has one branch that reads like a placeholder and is load bearing: two
- * **collinear** lines meet everywhere, and rather than answer null it answers
- * the midpoint between the two `A` endpoints (or the degenerate segment's own
- * point when one of them is a point). `BuildGeneric` calls this on probe pairs
- * that are collinear whenever the two pad anchors line up, which is the common
- * case — and then discards the result with an explicit `Collinear` test of its
- * own. Getting this branch "right" by returning null would change nothing
- * there and would change `BuildOrthoProjections`.
- */
-export function segIntersectLines(s: Seg, other: Seg): Vec2 | null {
-  const dir1 = sub(s.b, s.a);
-  const dir2 = sub(other.b, other.a);
-  const offset = sub(other.a, s.a);
-  const determinant = crossB(dir2, dir1);
-
-  if (determinant === 0n) {
-    if (crossB(dir1, offset) !== 0n) return null; // parallel, not collinear
-
-    if (equal(other.a, other.b)) return { ...other.a };
-    if (equal(s.a, s.b)) return { ...s.a };
-
-    return midpoint(s.a, other.a);
-  }
-
-  const param1Num = crossB(dir1, offset);
-
-  return {
-    x: other.a.x + Number(rescale64(param1Num, big(dir2.x), determinant)),
-    y: other.a.y + Number(rescale64(param1Num, big(dir2.y), determinant)),
-  };
-}
-
-/**
- * `SEG::checkCollinearOverlap`, the branch `intersects` takes for two collinear
- * segments: the midpoint of the overlap, lifted back onto the line.
- *
- * `aIgnoreEndpoints` rejects an overlap that is a single shared endpoint, which
- * is how `SelfIntersecting` avoids reporting every corner of a polyline.
- */
-function checkCollinearOverlap(
-  s: Seg,
-  other: Seg,
-  useXAxis: boolean,
-  ignoreEndpoints: boolean,
-): Vec2 | null {
-  const pick = (p: Vec2): number => (useXAxis ? p.x : p.y);
-  const off = (p: Vec2): number => (useXAxis ? p.y : p.x);
-
-  const seg1Start = pick(s.a);
-  const seg1End = pick(s.b);
-  const coord1Start = off(s.a);
-  const coord1End = off(s.b);
-
-  const seg1Min = Math.min(seg1Start, seg1End);
-  const seg1Max = Math.max(seg1Start, seg1End);
-  const seg2Min = Math.min(pick(other.a), pick(other.b));
-  const seg2Max = Math.max(pick(other.a), pick(other.b));
-
-  if (!(seg1Max >= seg2Min && seg2Max >= seg1Min)) return null;
-
-  const overlapStart = Math.max(seg1Min, seg2Min);
-  const overlapEnd = Math.min(seg1Max, seg2Max);
-
-  // A single shared point is an overlap of zero extent.
-  if (ignoreEndpoints && overlapStart === overlapEnd) return null;
-
-  const proj = (overlapStart + overlapEnd) / 2;
-  const other1 =
-    seg1End !== seg1Start
-      ? coord1Start + ((proj - seg1Start) * (coord1End - coord1Start)) / (seg1End - seg1Start)
-      : coord1Start;
-
-  return useXAxis ? { x: proj, y: other1 } : { x: other1, y: proj };
-}
-
-/**
- * `SEG::Intersect`: the crossing point when it lies on **both** closed
- * segments, or null.
- *
- * `aIgnoreEndpoints` drops a crossing that is an endpoint of both — the shared
- * corner of two consecutive polyline segments.
- */
-export function segIntersect(s: Seg, other: Seg, ignoreEndpoints = false): Vec2 | null {
-  if (
-    Math.max(s.a.x, s.b.x) < Math.min(other.a.x, other.b.x) ||
-    Math.max(other.a.x, other.b.x) < Math.min(s.a.x, s.b.x) ||
-    Math.max(s.a.y, s.b.y) < Math.min(other.a.y, other.b.y) ||
-    Math.max(other.a.y, other.b.y) < Math.min(s.a.y, s.b.y)
-  ) {
-    return null;
-  }
-
-  const dir1 = sub(s.b, s.a);
-  const dir2 = sub(other.b, other.a);
-  const offset = sub(other.a, s.a);
-  const determinant = crossB(dir2, dir1);
-
-  if (determinant === 0n) {
-    if (crossB(dir1, offset) !== 0n) return null;
-
-    const useXAxis = Math.abs(dir1.x) >= Math.abs(dir1.y);
-
-    return checkCollinearOverlap(s, other, useXAxis, ignoreEndpoints);
-  }
-
-  const param2Num = crossB(dir2, offset);
-  const param1Num = crossB(dir1, offset);
-
-  if (determinant > 0n) {
-    if (param1Num < 0n || param1Num > determinant || param2Num < 0n || param2Num > determinant) {
-      return null;
-    }
-  } else if (
-    param1Num > 0n ||
-    param1Num < determinant ||
-    param2Num > 0n ||
-    param2Num < determinant
-  ) {
-    return null;
-  }
-
-  if (
-    ignoreEndpoints &&
-    (param1Num === 0n || param1Num === determinant) &&
-    (param2Num === 0n || param2Num === determinant)
-  ) {
-    return null;
-  }
-
-  return {
-    x: other.a.x + Number(rescale64(param1Num, big(dir2.x), determinant)),
-    y: other.a.y + Number(rescale64(param1Num, big(dir2.y), determinant)),
-  };
-}
-
-/** `SEG::Distance( const SEG& )` = `isqrt( SquaredDistance( aSeg ) )`. */
-export const segDistance = (s: Seg, other: Seg): number => isqrt(segSquaredDistanceToSeg(s, other));
+export {
+  segCollinear,
+  segDistance,
+  segIntersect,
+  segIntersectLines,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 
 // ---------------------------------------------------------------------------
 // SHAPE_LINE_CHAIN, over `Chain = Vec2[]`.

@@ -75,7 +75,7 @@ import { PnsConstraintType } from './pns_collision.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsLineChain } from './pns_line_item.js';
 import { MeanderType, copyMeanderSettings, defaultMeanderSettings } from './pns_meander.js';
-import { rescale64, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
+import { segDistanceToPoint, segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { MeanderPlacer, MeanderSettings, MeanderShape, MeanderedLine } from './pns_meander.js';
 import type { NetHandle, PnsConstraint } from './pns_collision.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
@@ -217,31 +217,16 @@ export interface MeanderPlacerHost {
 // ---------------------------------------------------------------------------
 // Small kimath / pns_helpers pieces the placers need and this tree lacks
 
-/** `SEG::NearestPoint( aP )` (`seg.cpp:673-702`), rescale and all. */
-export function segNearestPoint(aSeg: Seg, aP: Vec2): Vec2 {
-  const dx = BigInt(aSeg.b.x) - BigInt(aSeg.a.x);
-  const dy = BigInt(aSeg.b.y) - BigInt(aSeg.a.y);
-  const lSquared = dx * dx + dy * dy;
-
-  if (lSquared === 0n) return { ...aSeg.a };
-
-  const pax = BigInt(aP.x) - BigInt(aSeg.a.x);
-  const pay = BigInt(aP.y) - BigInt(aSeg.a.y);
-  const t = dx * pax + dy * pay;
-
-  if (t < 0n) return { ...aSeg.a };
-
-  if (t > lSquared) return { ...aSeg.b };
-
-  return {
-    x: aSeg.a.x + Number(rescale64(t, dx, lSquared)),
-    y: aSeg.a.y + Number(rescale64(t, dy, lSquared)),
-  };
-}
-
-/** `SEG::Distance( aP )` = `isqrt( SquaredDistance( aP ) )` (`seg.cpp:704`). */
-export const segDistanceToPoint = (aSeg: Seg, aP: Vec2): number =>
-  Math.floor(Math.sqrt(segSquaredDistanceToPointExact(aSeg, aP)));
+/**
+ * `SEG::NearestPoint( const VECTOR2I& )` and `SEG::Distance( const VECTOR2I& )`
+ * are kimath's — upstream has one `SEG` and every caller uses it. They are
+ * re-exported here so this module's existing importers and the pcbnew barrel
+ * keep working.
+ */
+export {
+  segDistanceToPoint,
+  segNearestPoint,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 
 /** `SEG::Side( aP )` — the sign of the cross product, `+1`/`0`/`-1`. */
 export function segSide(aSeg: Seg, aP: Vec2): number {

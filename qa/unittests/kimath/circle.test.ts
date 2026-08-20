@@ -50,12 +50,14 @@ const expectPoint = (got: Vec2, want: Vec2): void => {
 // ---------------------------------------------------------------------------
 
 describe('SEG members ConstructFromTanTanPt needs', () => {
-  it('segCenter truncates toward A, it does not round the midpoint', () => {
-    // `A + ( B - A ) / 2` with VECTOR2I's truncating divide. B - A = (3, 3),
-    // halved is (1, 1), so the centre lands one unit short of true centre on
-    // the A side — and on the *other* side when the segment runs backwards.
-    expect(segCenter(S(0, 0, 3, 3))).toEqual(V(1, 1));
-    expect(segCenter(S(3, 3, 0, 0))).toEqual(V(2, 2));
+  it('segCenter rounds the midpoint half away from zero, it does not truncate', () => {
+    // `A + ( B - A ) / 2`, and VECTOR2I's only divide is `operator/( double )`,
+    // whose integral body is `KiROUND( x / aFactor )` (`vector2d.h:536`).
+    // B - A = (3, 3), halved is (2, 2), so the centre lands one unit *past*
+    // true centre — and one unit before it when the segment runs backwards,
+    // because KiROUND takes a negative half away from zero.
+    expect(segCenter(S(0, 0, 3, 3))).toEqual(V(2, 2));
+    expect(segCenter(S(3, 3, 0, 0))).toEqual(V(1, 1));
     expect(segCenter(S(0, 0, 4, 4))).toEqual(V(2, 2));
   });
 

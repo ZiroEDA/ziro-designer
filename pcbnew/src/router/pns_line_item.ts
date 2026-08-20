@@ -57,6 +57,7 @@
  */
 import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
+import { segDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { intersectSegs } from './pns_line.js';
 import { arcLength, convertArcToPolyline, reversedArc } from './pns_arc.js';
 import { Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
@@ -1784,7 +1785,11 @@ export class PnsLineChain {
 
     for (let s = 0; s < this.segmentCount(); s++) {
       const seg = this.cSegment(s);
-      const dist = Math.round(Math.sqrt(segSquaredDistanceToPointExact(seg, aP)));
+      // `seg.Distance( aP )` (`shape_line_chain.cpp:1198`), which is
+      // `isqrt( SquaredDistance )` and therefore **floors**. Rounding instead
+      // pushes a point 1.74 IU off a segment to 2, which fails `dist < 2` and
+      // silently declines a split KiCad performs.
+      const dist = segDistanceToPoint(seg, aP);
 
       if (
         dist < minDist &&
