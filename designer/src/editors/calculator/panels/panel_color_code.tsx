@@ -77,7 +77,7 @@ export function PanelColorCode(): JSX.Element {
       {/* bSizerOpts holds the radio box with wxBOTTOM|wxRIGHT 30, and goes into
           the row with wxALL 8 (base:19-20). */}
       <div className="cc-opts">
-        <Group title="Tolerance" className="cc-tolbox">
+        <Group title="Tolerance" className="calc-radiobox cc-tolbox">
           <label className="calc-radio">
             <input type="radio" name="cc-tol" checked={!tol2} onChange={() => setTol2(false)} />
             10% / 5%

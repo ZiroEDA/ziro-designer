@@ -605,7 +605,7 @@ export function PanelTransline(): JSX.Element {
         <div className="tl-left">
           {/* A wxRadioBox, ONE column, SetSelection( 0 )
               (panel_transline_base.cpp:33-35). */}
-          <Group title="Transmission Line Type" className="tl-types">
+          <Group title="Transmission Line Type" className="calc-radiobox tl-types">
             {LINE_TYPE_ORDER.map((t) => (
               <label key={t} className="calc-radio">
                 <input type="radio" name="tl-type" checked={type === t} onChange={() => pick(t)} />

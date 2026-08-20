@@ -511,11 +511,32 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 /* wxRadioButton / wxCheckBox. [px] 16 px across; unchecked fill rgb(57,57,57)
    inside a 1 px rgb(25,25,25) ring, checked fill rgb(233,84,32) with a ~6 px
    white centre. */
+/* A GTK radio row's ONLY horizontal spacing is the indicator's own
+   `check, radio { margin: 0 4px }` — a flex `gap` on top of that doubles it.
+   [px] measured across the Color Code Tolerance box on k12: KiCad's indicator
+   inks 248..263 and its label from 271, so indicator-to-label is 7 px of which
+   ~3 is the "1" glyph's left bearing; ours ran 257..272 and 283, i.e. 10 px,
+   because the 4 px margin and a 4 px gap were both being paid.
+   The row is 22 px tall: [px] the two indicators in that box top at y=56 and
+   y=78. Ours were 18 apart, so both rows sat high and the slack pooled at the
+   bottom of the box. */
 .calc-radio {
   display: flex;
   align-items: center;
-  gap: var(--check-margin);
+  min-height: 22px; /* [px] indicator tops 22 apart, k12_color_code.png */
   cursor: default;
+}
+
+/* A wxRadioBox is a GTK frame whose children carry their own margins — it has
+   NO inner padding of its own, unlike a wxStaticBoxSizer, whose 5 px comes from
+   the sizer border wxFormBuilder gives each item. [px] KiCad's box border is at
+   x=243 and its indicator inks from 248: four pixels, the indicator's margin
+   and nothing else. Ours added `.calc-group`'s 5 px on top, which is most of
+   why our Tolerance box is 103 px wide against the binary's 89 — the label
+   itself differs by only 1 px between the two typefaces here. */
+.calc-radiobox {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* The radio and the check indicator are drawn once in shell.css, off the

@@ -225,7 +225,7 @@ export function PanelRfAttenuators(): JSX.Element {
         <div className="calc-col" style={{ maxWidth: 300 }}>
           {/* A wxRadioBox — the title is the box's, not a static text
               (panel_rf_attenuators_base.cpp:26). */}
-          <Group title="Attenuators">
+          <Group title="Attenuators" className="calc-radiobox">
             {ATTENUATORS.map((a) => (
               <label key={a.type} className="calc-radio">
                 <input
