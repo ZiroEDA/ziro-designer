@@ -101,7 +101,6 @@ type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'showLayerManager']);
-const HIGHLIGHT_COLOR = '#FFFFFF';
 
 /** A stable, readable layer name from the image metadata / file name. */
 function layerNameOf(image: GERBER_FILE_IMAGE, fileName: string): string {
@@ -333,7 +332,11 @@ export function GerberViewer({
       activeLayer,
       flipView: toggles.has('flipView'),
       background: GERBER_BG_COLOR,
-      ...(highlightTest ? { highlightTest, highlightColor: HIGHLIGHT_COLOR } : {}),
+      // No highlight COLOUR is passed: upstream has none to pass. A highlighted
+      // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
+      // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
+      // layer. We used to hand it a flat white for every layer at once.
+      ...(highlightTest ? { highlightTest } : {}),
     }),
     [toggles, activeLayer, highlightTest],
   );

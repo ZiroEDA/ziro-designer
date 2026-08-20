@@ -7133,6 +7133,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 6px;
+  /* [px] An EMPTY combo is not sized by its content, and GTK gives it no
+     generous default either: a GtkComboBox with a pixbuf+text cell pair - what
+     wxBitmapComboBox is on GTK - measures 36 x 34 with an empty model, min and
+     natural width both 36, and a bare GtkComboBoxText measures the same.
+     Measured directly with python-gi; method in ~/gtkdate/combo.py. 34 is
+     --ctl-height, which the aux row was independently measured at.
+     Caveat: that is GtkComboBox itself, not wx's wrapper; wxBitmapComboBox has
+     not been checked for a minimum of its own.
+     Without this, GerbView's layer selector - which is legitimately empty until
+     a file is loaded (Resync skips layers with no image,
+     gbr_layer_box_selector.cpp:89-90) - collapsed to a bare chevron. */
+  min-width: 36px;
   height: var(--ctl-height);
   padding: 0 var(--ctl-pad-x);
   background: var(--ctl-face);

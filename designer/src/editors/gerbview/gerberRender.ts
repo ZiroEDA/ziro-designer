@@ -22,7 +22,7 @@ import {
   GERBER_BG_COLOR,
   GERBER_DCODE_COLOR,
   GERBER_NEGATIVE_COLOR,
-  GERBER_LAYER_ALPHA,
+  highlightedLayerColor,
 } from './gerberColors.js';
 
 export interface ViewTransform {
@@ -52,7 +52,6 @@ export interface GerberRenderOptions {
   background: string;
   /** Optional highlight (by net / component / attribute / DCode). */
   highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
-  highlightColor?: string;
 }
 
 /** A shared offscreen buffer, grown to fit the target canvas. */
@@ -96,6 +95,49 @@ export function deviceToWorld(
 ): { x: number; y: number } {
   const sx = flip ? -v.scale : v.scale;
   return { x: (px - v.tx) / sx, y: (py - v.ty) / -v.scale };
+}
+
+/**
+ * `GERBVIEW_RENDER_SETTINGS::GetColor( aItem, aLayer )`
+ * (`gerbview/gerbview_painter.cpp:100-160`), for the cases this renderer
+ * reaches, **in upstream's own branch order**:
+ *
+ *     if( gbrItem && gbrItem->GetLayerPolarity() )      // :122
+ *     {
+ *         if( show_negative_objects ) return LAYER_NEGATIVE_OBJECTS;
+ *         else                        return transparent;
+ *     }
+ *     if( !m_netHighlightString.IsEmpty() && ... )      // :135
+ *         return m_layerColorsHi[aLayer];
+ *
+ * The order is load-bearing and easy to get backwards: **polarity is tested
+ * before the highlight**, so a clear object that also matches the highlight is
+ * drawn as a negative object - or not at all - rather than brightened. Written
+ * the other way round it reads just as plausibly and is wrong.
+ *
+ * `GetLayerPolarity()` is `m_LayerNegative`, true meaning NEGATIVE
+ * (`gerber_draw_item.h:77,266`), which is the complement of our reader's
+ * `layerPolarity` ("true = dark (add)") - hence `negativePolarity` here.
+ *
+ * `null` is upstream's `transparent`, `COLOR4D( 0, 0, 0, 0 )` (`:103`): a clear
+ * object with the toggle off contributes no ink of its own. The caller keeps
+ * compositing it with `destination-out`, which is what makes it erase.
+ *
+ * A highlighted item takes `m_layerColorsHi[aLayer]` - `Brightened( 0.5 )` of
+ * the LAYER's own colour (`:70`) - so it still reads as belonging to its layer.
+ * Ours painted every highlight one flat white.
+ *
+ * Pure and exported, so the choice can be pinned without a canvas.
+ */
+export function itemColor(
+  layerColor: string,
+  highlighted: boolean,
+  negativePolarity: boolean,
+  showNegativeObjects: boolean,
+): string | null {
+  if (negativePolarity) return showNegativeObjects ? GERBER_NEGATIVE_COLOR : null;
+  if (highlighted) return highlightedLayerColor(layerColor);
+  return layerColor;
 }
 
 /** Compute the effective add/erase op for a shape. */
@@ -189,12 +231,12 @@ function drawItem(
   // "Show negative objects": a clear (LPC) object is normally invisible (it
   // erases). With the toggle on it is drawn as a ghost so it can be seen.
   const showNeg = opts.showNegativeObjects && !itemAdd;
+  // m_layerColorsHi[aLayer] = baseColor.Brightened( 0.5 ) - the LAYER's colour
+  // lifted, which is what GERBVIEW_RENDER_SETTINGS::GetColor returns for a net,
+  // component or attribute match (`gerbview_painter.cpp:70,135-147`). It used to
+  // be a flat white for every layer.
   const color =
-    highlighted && opts.highlightColor
-      ? opts.highlightColor
-      : showNeg
-        ? GERBER_NEGATIVE_COLOR
-        : layerColor;
+    itemColor(layerColor, highlighted, !itemAdd, opts.showNegativeObjects) ?? layerColor;
   // Highlighted and ghosted negative objects always add (source-over).
   const op: GlobalCompositeOperation =
     highlighted || showNeg
@@ -350,7 +392,13 @@ export function renderGerberLayers(
       ctx.globalCompositeOperation = 'source-over';
       // Translucent layers (GerbView look) so overlaps blend; high-contrast
       // dims layers other than the active one (drawn last).
-      ctx.globalAlpha = opts.highContrast && i !== layers.length - 1 ? 0.3 : GERBER_LAYER_ALPHA;
+      // A layer keeps the theme's own alpha, which is 1 for all 64 rows of
+      // s_defaultTheme; only toggleForceOpacityMode lowers it, to
+      // m_OpacityModeAlphaValue (`gerbview_painter.cpp:65-66`). We used to
+      // composite everything at a permanent 0.8, a number with no upstream
+      // source, which made every layer translucent whether or not that mode
+      // was on.
+      ctx.globalAlpha = opts.highContrast && i !== layers.length - 1 ? 0.3 : 1;
     }
     ctx.drawImage(buf, 0, 0);
   }
