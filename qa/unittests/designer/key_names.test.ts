@@ -29,7 +29,9 @@ import {
   hotkeyListKey,
   hotkeyListName,
 } from '@ziroeda/designer/src/ui/key_names.js';
-import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
+import { buildHotkeySections, menuHotkeyName } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
+import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
+import { APP_ORDER, APP_REGISTRIES } from '@ziroeda/designer/src/ui/hotkey_apps.js';
 import {
   dispatchMenuHotkey,
   parseAccelerator,
@@ -278,17 +280,68 @@ describe('the Hotkey List prints the other name', () => {
 });
 
 describe('the split has a per-row escape hatch that nothing needs yet', () => {
-  const listKeysFor = (item: MenuItem): string => item.hotkeyName ?? hotkeyListName(item.shortcut);
-
   it('falls back to the accelerator, which is why no call site had to change', () => {
-    expect(listKeysFor({ label: 'Save', shortcut: 'Ctrl+S' })).toBe('Ctrl+S');
-    expect(listKeysFor({ label: 'Delete', shortcut: 'Delete' })).toBe('Del');
+    expect(menuHotkeyName({ label: 'Save', shortcut: 'Ctrl+S' })).toBe('Ctrl+S');
+    expect(menuHotkeyName({ label: 'Zoom to Fit', shortcut: 'Home' })).toBe('Home');
+  });
+
+  it.each(EXPECTED)('a row printing %s is listed as %s', (accel, list) => {
+    // The inventory's whole default, pressed directly. It has to be pressed
+    // directly: `withRegistry` overwrites a collected row's keys with the
+    // registry's, and every row in the app that carries a divergent key today
+    // is claimed by one - so no row reaching the dialog exercises this.
+    expect(menuHotkeyName({ label: 'x', shortcut: accel })).toBe(list);
+  });
+
+  it('a row with no accelerator is listed with an empty Hotkey cell', () => {
+    expect(menuHotkeyName({ label: 'Plot...' })).toBe('');
+  });
+
+  it('is what the inventory actually collects with', () => {
+    // A source assertion, and deliberately: `withRegistry` overwrites every
+    // collected row whose key diverges, so collapsing the call site back to
+    // `it.shortcut` changes not one of the 520 rows the dialog shows today.
+    // The wiring is a guarantee about the next menu-only row, and this is the
+    // only place it can be held.
+    const src = SRC('ui/hotkeys_inventory.ts');
+    expect(src).toContain("add(keyOf(it.icon, it.label ?? ''), it.label ?? '', menuHotkeyName(it)");
+    expect(src).not.toMatch(/add\(keyOf\(it\.icon[^\n]*it\.shortcut/);
   });
 
   it('an explicit hotkeyName wins over the table', () => {
-    expect(listKeysFor({ label: 'Odd', shortcut: 'Delete', hotkeyName: 'Whatever' })).toBe(
+    expect(menuHotkeyName({ label: 'Odd', shortcut: 'Delete', hotkeyName: 'Whatever' })).toBe(
       'Whatever',
     );
+  });
+
+  it('a MenuItem still carries both fields', () => {
+    // A `hotkeyName` deleted from the interface would make the escape hatch
+    // above a type error rather than a silent no-op, which is the point.
+    const row: MenuItem = { label: 'Delete', shortcut: 'Delete', hotkeyName: 'Del' };
+    expect([row.shortcut, row.hotkeyName]).toEqual(['Delete', 'Del']);
+  });
+});
+
+describe('the registries are written in the Hotkey List spelling', () => {
+  // The other source of the Hotkey column. `withRegistry` overwrites a
+  // collected row's keys with the registry's, so a registry written in the
+  // menu's spelling would put `Delete` in a column that must say `Del` - and
+  // would also stop `applyHotkeyOverrides` finding the row at all.
+  const registryRows = [
+    ...HOTKEYS.map((h) => [`eeschema.${h.id}`, h.keys] as const),
+    // Every editor that has grown a registry, so a new one is covered the day
+    // it is added rather than the day somebody remembers this test.
+    ...APP_ORDER.flatMap((app) =>
+      (APP_REGISTRIES[app] ?? []).map((a) => [`${app}.${a.id}`, a.keys] as const),
+    ),
+  ].filter(([, keys]) => keys !== '');
+
+  it('finds the registries in the first place', () => {
+    expect(registryRows.length).toBeGreaterThan(100);
+  });
+
+  it.each(registryRows)('%s: %s is already a Hotkey List name', (_id, keys) => {
+    expect(hotkeyListName(keys)).toBe(keys);
   });
 });
 
@@ -340,8 +393,17 @@ describe('a rebinding does not rename the key in the menus', () => {
   ];
 
   it('leaves an unchanged binding printing the accelerator', () => {
-    const out = applyHotkeyOverrides(editMenu(), {});
+    // The overrides map has to be non-empty or the whole rewrite is skipped;
+    // the entry is for a different action, so Delete keeps its default.
+    const out = applyHotkeyOverrides(editMenu(), { 'eeschema.save': 'Ctrl+Alt+S' });
     expect(out[0]!.items[0]!.shortcut).toBe('Delete');
+  });
+
+  it('prints a rebound key in the menu spelling too', () => {
+    // A user moving Delete onto Escape: the registry stores `Esc`, the menu
+    // has to draw `Escape`.
+    const out = applyHotkeyOverrides(editMenu(), { 'eeschema.delete': 'Esc' });
+    expect(out[0]!.items[0]!.shortcut).toBe('Escape');
   });
 
   it('still finds the registry row through the two spellings', () => {

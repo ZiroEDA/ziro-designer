@@ -162,6 +162,24 @@ function splitToolTitle(title: string): { name: string; keys: string } {
   return { name: title.slice(0, m.index).trim(), keys: m[0].trim().replace(/^\(|\)$/g, '') };
 }
 
+/**
+ * What the Hotkey List calls the key a menu row prints.
+ *
+ * The row's `shortcut` is its *menu* accelerator, which is GTK's name for the
+ * key ("Delete"); this column is KiCad's own ("Del", `hotkeyNameList` at
+ * `common/hotkeys_basic.cpp:93`). `hotkeyListName` is that translation and an
+ * identity for every key the two tables agree about, which is why no existing
+ * call site had to change. `MenuItem.hotkeyName` is the per-row escape hatch
+ * and is expected to stay unused.
+ *
+ * Exported because it is the whole of the default: a test that pins the split
+ * has to be able to press it with a row of its own, and every row this module
+ * collects today is claimed by a registry before it reaches the dialog.
+ */
+export function menuHotkeyName(item: MenuItem): string {
+  return item.hotkeyName ?? hotkeyListName(item.shortcut);
+}
+
 /** Every leaf item of a built menu, submenus included. */
 function walkMenus(menus: readonly Menu[]): MenuItem[] {
   const out: MenuItem[] = [];
@@ -361,13 +379,7 @@ function section(
   };
 
   for (const it of items) {
-    // The row prints its *menu* accelerator; this column is the Hotkey List,
-    // which upstream spells from its own table - `Del` where the menu draws
-    // `Delete`. `hotkeyListName` is that table, and an identity for every key
-    // the two agree about. `hotkeyName` is the per-row escape hatch and is
-    // expected to stay unused.
-    const keys = it.hotkeyName ?? hotkeyListName(it.shortcut);
-    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', keys, '', true);
+    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', menuHotkeyName(it), '', true);
   }
   // A ToolButton carries one string, `title`, as both its name and its tooltip.
   // Upstream's two columns come from GetFriendlyName() and GetDescription(),

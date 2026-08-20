@@ -109,7 +109,17 @@ export interface RegistryAction {
   id: string;
   /** `FriendlyName` of the upstream action. */
   label: string;
-  /** The default key combination, spelled as the menus spell it. */
+  /**
+   * The default key combination, spelled as the **Hotkey List** spells it -
+   * `Del`, `PgUp`, `Alt+Back`.
+   *
+   * Not as the menus spell it, which is a different string for the same key:
+   * a menu row's accelerator is GTK's name (`Delete`) and this column is
+   * `KeyNameFromKeyCode`'s (`common/hotkeys_basic.cpp:169`). `withRegistry`
+   * overwrites a collected menu row's keys with this one, and
+   * `applyHotkeyOverrides` matches a menu row to this registry, so both
+   * directions go through `ui/key_names.ts`.
+   */
   keys: string;
   /**
    * The upstream `TOOL_ACTION` this comes from.
