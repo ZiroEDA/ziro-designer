@@ -1,0 +1,241 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 ZiroEDA and contributors.
+   Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+
+   The file chooser — our clone of the window every wxFileDialog puts up.
+
+   Not one literal here. Every colour and every metric is a token from
+   shell.css: the ones this window needed that did not exist yet were measured
+   off a live GtkFileChooserDialog and added there (`--chooser-*`), so a second
+   caller of this widget cannot drift from the first. The measurements are in
+   docs/proposals/file-dialog.md.
+
+   The GTK sidebar (Home / Desktop / Documents / Other Locations) is
+   deliberately absent: those are places on a computer, and this tree has one
+   root. */
+
+.ze-chooser {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--ctl-radius);
+  width: min(1000px, 92vw);
+  height: min(650px, 88vh);
+  overflow: hidden;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
+}
+
+/* --- header bar: Cancel on the left, the action on the right ------------- */
+
+.ze-chooser-headerbar {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  height: var(--chooser-headerbar-height);
+  min-height: var(--chooser-headerbar-height);
+  padding: 0 var(--wx-border);
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.ze-chooser-title {
+  flex: 1;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* The Save form's Name entry sits where the title would be. */
+.ze-chooser-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wx-border);
+}
+
+.ze-chooser-name input {
+  width: min(380px, 46%);
+}
+
+/* --- path bar ------------------------------------------------------------ */
+
+.ze-chooser-pathbar {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  height: var(--chooser-pathbar-height);
+  min-height: var(--chooser-pathbar-height);
+  padding: 0 var(--wx-border);
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.ze-chooser-crumbs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ze-chooser-crumbs button,
+.ze-chooser-pathbar .ze-chooser-nav,
+.ze-chooser-pathbar .ze-chooser-newdir {
+  height: var(--chooser-pathbar-button);
+  background: var(--ctl-face);
+  color: var(--chrome-fg);
+  border: 1px solid var(--ctl-border);
+  font: inherit;
+  cursor: default;
+}
+
+/* One run of buttons welded into a strip, as GtkPathBar draws it: only the
+   ends are rounded and the seams are single, not doubled. */
+.ze-chooser-crumbs button {
+  padding: 0 var(--ctl-pad-x);
+  border-radius: 0;
+  margin-left: -1px;
+  white-space: nowrap;
+}
+
+.ze-chooser-crumbs button:first-child {
+  margin-left: 0;
+  border-top-left-radius: var(--ctl-radius);
+  border-bottom-left-radius: var(--ctl-radius);
+}
+
+.ze-chooser-crumbs button:last-child {
+  border-top-right-radius: var(--ctl-radius);
+  border-bottom-right-radius: var(--ctl-radius);
+}
+
+/* The folder being shown is the pressed one in the strip. */
+.ze-chooser-crumbs button.current {
+  background: var(--accent-fill-checked);
+  border-color: var(--chrome-active-border);
+}
+
+.ze-chooser-crumbs button:hover:not(.current) {
+  background: var(--chrome-hover);
+}
+
+.ze-chooser-nav,
+.ze-chooser-newdir {
+  width: var(--chooser-nav-button);
+  border-radius: var(--ctl-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ze-chooser-nav:disabled {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
+}
+
+/* --- the list ------------------------------------------------------------ */
+
+.ze-chooser-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel-bg);
+}
+
+.ze-chooser-head,
+.ze-chooser-row {
+  display: grid;
+  grid-template-columns:
+    1fr var(--chooser-col-size) var(--chooser-col-type)
+    var(--chooser-col-modified);
+  align-items: center;
+}
+
+.ze-chooser-head {
+  height: var(--chooser-header-row);
+  min-height: var(--chooser-header-row);
+  font-weight: bold;
+  border-bottom: 1px solid var(--chrome-border);
+  /* The header is the list's own background — measured, there is no separate
+     colour for it. */
+  background: var(--panel-bg);
+}
+
+.ze-chooser-head span,
+.ze-chooser-row span {
+  padding: 0 var(--chooser-text-pad);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ze-chooser-head span {
+  cursor: default;
+  user-select: none;
+}
+
+.ze-chooser-rows {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.ze-chooser-row {
+  height: var(--chooser-row);
+  cursor: default;
+  user-select: none;
+}
+
+.ze-chooser-row.selected {
+  background: var(--chrome-active);
+  color: var(--chrome-fg);
+}
+
+/* The name cell carries the icon; the icon's own padding is the GTK cell
+   renderer's, not this rule's invention. */
+.ze-chooser-row .ze-chooser-name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--chooser-icon-pad);
+  padding-left: var(--chooser-icon-pad);
+}
+
+.ze-chooser-row .ze-chooser-name-cell img,
+.ze-chooser-row .ze-chooser-name-cell svg {
+  width: var(--chooser-icon-size);
+  height: var(--chooser-icon-size);
+  flex: none;
+}
+
+/* Size, Type and Modified are empty for a folder — measured — so nothing is
+   drawn in them rather than a dash or a zero. */
+
+.ze-chooser-empty {
+  padding: calc(2 * var(--wx-border));
+  color: var(--ctl-fg-disabled);
+}
+
+/* --- footer: the caller's own controls, then the type filter ------------- */
+
+.ze-chooser-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wx-border);
+  padding: var(--wx-border);
+  background: var(--chrome-bg);
+  border-top: 1px solid var(--chrome-border);
+}
+
+/* Where a caller's extra controls go — upstream this is what
+   wxFileDialogCustomizeHook fills, and six call sites in KiCad use it. */
+.ze-chooser-extra {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--wx-border));
+  min-width: 0;
+}

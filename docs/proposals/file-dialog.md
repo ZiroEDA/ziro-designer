@@ -225,3 +225,106 @@ This touches 39 sites across every launcher, so it is not one change:
 The 15 prompts are the cheapest first win and are independent of the browser
 half — a name prompt is a text field and an OK button, and upstream's is a
 `wxTextEntryDialog` with a known caption.
+
+---
+
+## Appendix: the chooser, measured (2026-08-21)
+
+Nothing below was reasoned out or read off a screenshot. Wayland blocks X root
+capture on this machine, which turned out to be a good thing: instead of
+sampling pixels, a real `Gtk.FileChooserWidget` was built under python-gi and
+**asked** — its GtkTreeView model dumped row by row, its widgets queried for
+their own allocations and style contexts. That is the same widget KiCad 10.0.5
+puts up for every one of its 93 `wxFileDialog` calls.
+
+The scripts are in `~/gtkdate` and the full capture in
+`~/gtk-chooser-measurements.md`.
+
+### The Type column is a category, not the MIME description
+
+The finding that corrected code already committed. A genuine 964 kB PDF reads
+**`Document`**, not `PDF document` — even though
+`g_content_type_get_description("application/pdf")` is `PDF document`. The rule
+that fits every measured row is the type's **generic icon**, with the
+description used only when a type declares an icon of its own:
+
+| file | content type | description | column |
+|---|---|---|---|
+| real.pdf | application/pdf | PDF document | `Document` |
+| real.md | text/markdown | Markdown document | `Document` |
+| real.svg | image/svg+xml | SVG image | `Image` |
+| real.zip | application/zip | Zip archive | `Archive` |
+| real.csv | text/csv | CSV document | `Text` |
+| real.gbr | application/vnd.gerber | Gerber file | `Text` |
+| real.bin | application/octet-stream | Unknown | `Unknown` |
+| real.kicad_pcb | application/x-kicad-pcb | KiCad Printed Circuit Board | `KiCad Printed Circuit Board` |
+| a folder | inode/directory | Folder | *(nothing)* |
+
+KiCad's source settles the mechanism: the six entries in
+`resources/linux/mime/kicad-kicad.xml.in` each carry a `<generic-icon>` and
+ship an icon under `resources/linux/icons/hicolor/<size>/mimetypes/`.
+`kicad-gerbers.xml.in` declares none. **So `Gerber file` never appears in that
+column** — a `.gbr` reads `Text`, and so do `.gbrjob` and `.drl`.
+
+Stub files lie here. A 1-byte `sample.otf` sniffs as `text/plain` and answers
+`Document`; a real font answers `Font`. Every value shipped in
+`fs/file_types.ts` was taken with genuine content for that reason.
+
+### Size — `g_format_size`, SI, with a non-breaking space
+
+`0 bytes` · `1 byte` · `999 bytes` · 1000 `1.0 kB` · 1024 `1.0 kB` · 1049
+`1.0 kB` · 1050 `1.1 kB` · 16700 `16.7 kB` · 999999 **`1000.0 kB`** ·
+1000000 `1.0 MB` · 10^9 `1.0 GB`.
+
+Base 1000, never `KiB`. One decimal from kB up. The separator is U+00A0. The
+999 999 row is the interesting one: the unit is chosen *before* the rounding,
+so it stays in kB and prints `1000.0`. **A folder shows no size at all.**
+
+### Modified — five branches, cut on calendar days
+
+| age | shown |
+|---|---|
+| today | the time — `00:01`, `23:43` |
+| yesterday | `Yesterday` |
+| 2–6 days | the weekday — `Mon`, `Sun`, `Fri` |
+| this calendar year | `10 Aug`, `5 Jan` |
+| earlier | `20 Nov 2025`, `2 Mar 2019` |
+
+Seven days is the cutoff exactly (six back is `Fri`, seven is `13 Aug`), and
+the year boundary is the calendar year, not twelve months — a file from 5
+January read without a year at seven months old. The boundaries are **calendar
+days, not elapsed hours**: a file written yesterday at 00:30 reads `Yesterday`
+at noon today, though it is barely a day and a half old.
+
+Which branch fires is GTK's rule and is ours to match. How each renders —
+`5 Jan` against `Jan 5`, 24- against 12-hour — is the locale's, and GTK asks the
+desktop. A browser's equivalent question is the browser's locale, so ours asks
+`Intl` rather than spelling a format out.
+
+### Widget metrics
+
+| thing | measured |
+|---|---|
+| file list row | **24 px** |
+| list font / background / foreground | Ubuntu Sans 11 / #272727 / #ffffff |
+| selected row | **#e95420** — Yaru orange |
+| column header | **25 px**, same size text in bold, same background |
+| icon cell | xpad 6, GTK_ICON_SIZE_MENU (16 px); text cell xpad 2 |
+| columns | Name expands; Size 79, Type 130, Modified 82 |
+| path bar | 47 px row, 34 px buttons, 26 × 34 arrows |
+| header bar | 47 px, buttons 46 |
+
+The list background is #272727 — which is already our `--panel-bg` — and the
+selection is #e95420, already our `--chrome-active`. The rest became
+`--chooser-*` tokens in `ui/shell.css`, each with its `[px]` marker and its
+measurement, so `ui/file_chooser.css` contains no literal at all.
+
+### What shipped against this
+
+`fs/path.ts`, `fs/file_types.ts`, `fs/format.ts`, `fs/filesystem.ts` (the
+interface plus `dirLevel`), `fs/project_store_fs.ts` (the adapter over today's
+project store), `fs/wildcards.ts` (`common/wildcards_and_files_ext.cpp`), the
+`FileChooser` widget, and Open Project rewired to it — title **Open Existing
+Project**, the three wildcards `KICAD_MANAGER_CONTROL::openProject` joins, and
+"Open from Computer…" / "Select Files…" in the bottom-left slot where
+`wxFileDialogCustomizeHook`'s controls sit.

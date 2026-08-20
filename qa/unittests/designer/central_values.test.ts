@@ -129,7 +129,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/pcb': { colours: 76, metrics: 397 },
   'editors/schematic': { colours: 70, metrics: 230 },
   'editors/symbol': { colours: 12, metrics: 20 },
-  home: { colours: 7, metrics: 9 },
+  home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
   // paints its status pills with a private palette. It is also the argument for
@@ -138,7 +138,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   render: { colours: 4, metrics: 0 },
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
-  ui: { colours: 357, metrics: 847 },
+  //
+  // The file chooser took 8 colours and 16 metrics out (357 -> 349, 847 ->
+  // 831), and home 2 metrics (9 -> 7), by deleting the Open Project dialog:
+  // that window is the shared chooser now, whose own CSS is tokens only. Every
+  // number here is recounted from the merged tree, never subtracted from a
+  // diff.
+  ui: { colours: 349, metrics: 831 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -338,9 +344,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('795 colour literals and 1,723 chrome metrics, tree-wide', () => {
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(795);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1723);
+  it('787 colour literals and 1,705 chrome metrics, tree-wide', () => {
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(787);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1705);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

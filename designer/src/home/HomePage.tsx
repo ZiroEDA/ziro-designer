@@ -71,7 +71,9 @@ import { PreferencesDialog } from '../dialogs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
-import { OpenProjectDialog } from './dialogs/dialog_open_project.js';
+import { FileChooser } from '../fs/FileChooser.js';
+import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
+import { OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
@@ -370,9 +372,12 @@ export function HomePage({
   const [aboutOpen, setAboutOpen] = useState(false);
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
-  // Open Project: the account's project list, standing in for the native
-  // wxFileDialog upstream opens (see dialog_open_project.tsx).
+  // Open Project puts up the file chooser — the same window every other
+  // wxFileDialog call site will, over the account's tree rather than a disk.
   const [openPrjOpen, setOpenPrjOpen] = useState(false);
+  // One instance for the life of the page: the chooser reloads on every
+  // navigation, and a new object each render would restart that reload.
+  const accountFs = useMemo(() => projectStoreFileSystem(), []);
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   // NewProject is two windows upstream: the template selector, then the
@@ -1481,23 +1486,55 @@ export function HomePage({
       </KiStatusBar>
 
       {openPrjOpen && (
-        <OpenProjectDialog
-          projects={saved}
-          signedIn={!!session}
-          onOpen={(id) => {
-            setOpenPrjOpen(false);
-            void openStored(id);
+        <FileChooser
+          fs={accountFs}
+          mode="open"
+          title="Open Existing Project"
+          accept="Open"
+          filters={OPEN_PROJECT_FILTERS}
+          extra={
+            <>
+              {/* Where wxFileDialogCustomizeHook's controls sit upstream. Ours
+                  are the two ways into a project that is not in the account
+                  yet, which is the reason Open Project is a window and not a
+                  list. */}
+              <button
+                type="button"
+                className="ze-btn"
+                onClick={() => {
+                  setOpenPrjOpen(false);
+                  void openProjectPicker();
+                }}
+              >
+                Open from Computer…
+              </button>
+              <button
+                type="button"
+                className="ze-btn"
+                onClick={() => {
+                  setOpenPrjOpen(false);
+                  filesInputRef.current?.click();
+                }}
+                title="If the browser blocks the folder (Downloads, Desktop…), select all the project files instead"
+              >
+                Select Files…
+              </button>
+            </>
+          }
+          onDelete={(entry) => {
+            // Deleting is the caller's because the sentence differs: signed in
+            // it leaves the account, signed out only this browser. removeStored
+            // is what already asks that question.
+            void projectAt(entry.path).then((p) => {
+              if (p) void removeStored(p.id);
+            });
           }}
-          onOpenFromComputer={() => {
+          onAccept={(path) => {
             setOpenPrjOpen(false);
-            void openProjectPicker();
+            void projectAt(path).then((p) => {
+              if (p) void openStored(p.id);
+            });
           }}
-          onSelectFiles={() => {
-            setOpenPrjOpen(false);
-            filesInputRef.current?.click();
-          }}
-          onRename={(id, current) => void renameStored(id, current)}
-          onDelete={(id) => void removeStored(id)}
           onCancel={() => setOpenPrjOpen(false)}
         />
       )}

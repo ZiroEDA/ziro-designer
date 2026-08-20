@@ -223,7 +223,7 @@ const BASELINE: Record<string, number> = {
   home: 5,
   mobile: 6,
   pcm: 10,
-  ui: 159,
+  ui: 157,
   widgets: 6,
 };
 
@@ -342,7 +342,10 @@ describe('hardcoded font sizes do not grow', () => {
     // (165 -> 159: the four .ze-ds-* rules, .ze-unit-label, and the tab strip).
     // The central-values pass took one more out of editors/drawingsheet (7 ->
     // 6): DesignInspector.tsx's table is `.ze-grid` now and declares no size.
-    expect(sites.length).toBe(396);
+    // The file chooser took 2 out of ui (159 -> 157) by deleting the Open
+    // Project dialog's styles: the window is the shared chooser now, and its
+    // own CSS declares no size at all.
+    expect(sites.length).toBe(394);
   });
 });
 
