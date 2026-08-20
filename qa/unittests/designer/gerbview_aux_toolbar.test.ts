@@ -25,6 +25,7 @@ import {
   apertureAttributeChoices,
   componentChoices,
   dcodeChoices,
+  dcodeListLines,
   netChoices,
   NO_SELECTION_STRING,
   showApertureType,
@@ -316,5 +317,96 @@ describe('the zoom selector', () => {
     expect(choices[1]?.preset).toBe(null);
     expect(choices[2]?.preset).toBe(1);
     expect(choices[choices.length - 1]?.preset).toBe(list.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// List DCodes
+// ---------------------------------------------------------------------------
+
+describe('GERBVIEW_INSPECTION_TOOL::ShowDCodes', () => {
+  const a = parseGerber(SAMPLE, 'top.gbr');
+  const b = parseGerber(
+    ['%FSLAX36Y36*%', '%MOMM*%', '%ADD20C,0.3*%', 'D20*', 'X0Y0D03*', 'M02*'].join('\n'),
+    'bot.gbr',
+  );
+
+  /**
+   * `*** Active layer (%2.2d) ***` / `*** layer %2.2d  ***` on `layer + 1`
+   * (`gerbview/tools/gerbview_inspection_tool.cpp:109-113`). One-based,
+   * zero-padded to two, and the INACTIVE form carries two spaces before its
+   * closing stars where the active one carries one.
+   */
+  it('heads every layer, marking the active one', () => {
+    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
+    expect(lines[0]).toBe('*** Active layer (01) ***');
+    expect(lines.find((l) => l.startsWith('*** layer'))).toBe('*** layer 02  ***');
+  });
+
+  it('moves the Active marker with the active layer', () => {
+    const lines = dcodeListLines([a, b], 1, 'mm', GBR_IU_PER_MM);
+    expect(lines[0]).toBe('*** layer 01  ***');
+    expect(lines.find((l) => l.includes('Active'))).toBe('*** Active layer (02) ***');
+  });
+
+  /**
+   * Ours listed the ACTIVE image only. Upstream walks every image in the list
+   * (`:99-105`), which is the whole reason this is a report rather than a
+   * per-layer table.
+   */
+  it('lists every layer, not just the active one', () => {
+    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
+    expect(lines.filter((l) => l.startsWith('***'))).toHaveLength(2);
+    expect(lines.some((l) => l.includes('Dcode D20'))).toBe(true);
+  });
+
+  /**
+   * `"tool %d:   Dcode D%d   V %.4f %s  H %.4f %s   %s  attribute '%s'"`
+   * (`:125-131`), spacing included: three spaces after the colon and after the
+   * D-code, two between V and H, three before the type, two before "attribute".
+   *
+   * **V is m_Size.y and H is m_Size.x** — vertical first, the opposite order to
+   * the toolbar's `[%.3fx%.3f]`. D11 is 1.5 wide by 0.8 tall, so V reads 0.8000
+   * and H reads 1.5000; swapping them is the mistake this pins.
+   */
+  it('formats a row exactly, with V before H', () => {
+    const lines = dcodeListLines([a], 0, 'mm', GBR_IU_PER_MM);
+    // Both apertures in SAMPLE are flashed, so both carry " (in use)" -
+    // `if( pt_D_code->m_InUse ) Line += wxT( " (in use)" );` (`:137-138`).
+    expect(lines[1]).toBe(
+      "tool 1:   Dcode D10   V 0.6000 mm  H 0.6000 mm   Round  attribute 'none' (in use)",
+    );
+    expect(lines[2]).toBe(
+      "tool 2:   Dcode D11   V 0.8000 mm  H 1.5000 mm   Rect  attribute 'none' (in use)",
+    );
+  });
+
+  /** `ii` restarts at 1 for each layer (`:116`), so it is a per-layer index. */
+  it('numbers the tools per layer, restarting at one', () => {
+    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
+    expect(lines.filter((l) => l.startsWith('tool 1:'))).toHaveLength(2);
+  });
+
+  /** `if( pt_D_code->m_InUse ) Line += wxT( " (in use)" );` (`:137-138`). */
+  it('flags an aperture that is in use', () => {
+    for (const l of dcodeListLines([a], 0, 'mm', GBR_IU_PER_MM).filter((x) => x.startsWith('tool')))
+      expect(l.endsWith(' (in use)')).toBe(true);
+  });
+
+  /** `%.4f`, four decimals in every unit, and the same unit words the toolbar uses. */
+  it('uses four decimals, and GerbView’s own unit words', () => {
+    expect(dcodeListLines([a], 0, 'in', GBR_IU_PER_MM)[1]).toContain('V 0.0236 in');
+    expect(dcodeListLines([a], 0, 'mils', GBR_IU_PER_MM)[1]).toContain('V 23.6220 mil');
+  });
+
+  /** `if( gerber->GetDcodesCount() == 0 ) continue;` (`:106-107`). */
+  it('skips a layer with no apertures, and a null layer', () => {
+    const empty = parseGerber(['%FSLAX36Y36*%', '%MOMM*%', 'M02*'].join('\n'), 'e.gbr');
+    expect(dcodeListLines([empty], 0, 'mm', GBR_IU_PER_MM)).toEqual([]);
+    expect(dcodeListLines([null, a], 1, 'mm', GBR_IU_PER_MM)[0]).toBe('*** Active layer (02) ***');
+  });
+
+  it('is empty when nothing is loaded', () => {
+    expect(dcodeListLines([], 0, 'mm', GBR_IU_PER_MM)).toEqual([]);
   });
 });

@@ -52,6 +52,8 @@ import {
   dcodeChoices,
   netChoices,
   NO_SELECTION_STRING,
+  DCODE_DIALOG_CAPTION,
+  dcodeListLines,
   gerbviewFrameTitle,
   textInfoLine,
 } from './gerberAuxControls.js';
@@ -64,7 +66,8 @@ import {
 import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
-import { DCodeListDialog, itemInfoRows } from './dialogs.js';
+import { itemInfoRows } from './dialogs.js';
+import { SingleChoiceDialog } from '../../ui/dialog_single_choice.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel } from '../../ui/MsgPanel.js';
 import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
@@ -1031,8 +1034,24 @@ export function GerberViewer({
         }}
       />
 
+      {/* GERBVIEW_INSPECTION_TOOL::ShowDCodes: a wxSingleChoiceDialog captioned
+          "D Codes" over EVERY layer's apertures, with the Cancel bit masked off
+          (`gerbview/tools/gerbview_inspection_tool.cpp:99-148`). It replaces a
+          bespoke table of the active image that upstream does not have. The
+          result is discarded because upstream discards it - `dlg.ShowModal()`
+          and nothing reads the selection; the list is a report. */}
       {showDcodeList && (
-        <DCodeListDialog image={activeImage} unit={unit} onClose={() => setShowDcodeList(false)} />
+        <SingleChoiceDialog
+          caption={DCODE_DIALOG_CAPTION}
+          choices={dcodeListLines(
+            layers.map((l) => l.image),
+            activeLayer,
+            unit,
+            IU_PER_MM,
+          ).map((label, i) => ({ value: String(i), label }))}
+          showCancel={false}
+          onResult={() => setShowDcodeList(false)}
+        />
       )}
 
       {/* ACTIONS::about opens DIALOG_ABOUT, whose title is the frame's own

@@ -225,3 +225,84 @@ export function gerbviewFrameTitle(image: GERBER_FILE_IMAGE | null): FrameTitleP
     ...(image?.fileFunction != null ? { suffixes: ['(with X2 attributes)'] } : {}),
   });
 }
+
+/**
+ * `GERBVIEW_INSPECTION_TOOL::ShowDCodes`'s list
+ * (`gerbview/tools/gerbview_inspection_tool.cpp:69-152`).
+ *
+ * Upstream this is a plain `wxArrayString` shown in a `wxSingleChoiceDialog`
+ * captioned `_( "D Codes" )` with the Cancel bit masked off (`:145-146`). Ours
+ * was a bespoke `<table>` of the ACTIVE image only, with a "used" column, `⌀`
+ * and `×` glyphs and shape names of its own — a widget upstream does not have,
+ * over data upstream does not show.
+ *
+ * Two things it lists that ours did not:
+ *
+ *  - **every layer**, not just the active one, each introduced by its own
+ *    header line (`:99-115`);
+ *  - the aperture's **attribute**, and the `(not defined)` / `(in use)` flags.
+ *
+ * And note `V` is `m_Size.y` while `H` is `m_Size.x` (`:128-129`) — vertical
+ * before horizontal, the opposite order to the toolbar's `[%.3fx%.3f]`.
+ */
+export function dcodeListLines(
+  images: readonly (GERBER_FILE_IMAGE | null)[],
+  activeLayer: number,
+  units: StatusUnits,
+  iuPerMM: number,
+): string[] {
+  const unitWord = dcodeUnitLabel(units);
+  const scale =
+    units === 'mm' ? iuPerMM : units === 'in' ? iuPerMM * 25.4 : (iuPerMM * 25.4) / 1000;
+  const out: string[] = [];
+
+  for (let layer = 0; layer < images.length; layer++) {
+    const gerber = images[layer];
+    if (!gerber) continue;
+    // `if( gerber->GetDcodesCount() == 0 ) continue;` (`:106-107`)
+    if (gerber.apertures.size === 0) continue;
+
+    // `%2.2d` on `layer + 1`, so the number is 1-based and zero-padded to two.
+    // The inactive form carries TWO spaces before its closing stars (`:112`).
+    const n = String(layer + 1).padStart(2, '0');
+    out.push(layer === activeLayer ? `*** Active layer (${n}) ***` : `*** layer ${n}  ***`);
+
+    const used = gerber.usedDcodes();
+    // The attribute upstream reads off the D_CODE (`m_AperFunction`). Our reader
+    // records %TA on the ITEM's net metadata instead, so it is gathered back per
+    // D-code here. An aperture whose attribute we cannot see falls to upstream's
+    // own empty-case string, "none", rather than to anything invented.
+    const attrOf = new Map<number, string>();
+    for (const it of gerber.items) {
+      const a = it.netMetadata.apertureAttributes?.[0];
+      if (it.dcodeNum && a && !attrOf.has(it.dcodeNum)) attrOf.set(it.dcodeNum, a);
+    }
+
+    // `int ii = 1;` per layer, incremented only for rows actually listed (`:116-141`).
+    let ii = 1;
+    for (const [, dcode] of [...gerber.apertures.entries()].sort((a, b) => a[0] - b[0])) {
+      const inUse = used.has(dcode.num_Dcode);
+      if (!inUse && !dcode.defined) continue;
+
+      const v = ((dcode.size.y * dcode.iuScale) / scale).toFixed(4);
+      const h = ((dcode.size.x * dcode.iuScale) / scale).toFixed(4);
+      const attr = attrOf.get(dcode.num_Dcode) || 'none';
+
+      let line =
+        `tool ${ii}:   Dcode D${dcode.num_Dcode}   ` +
+        `V ${v} ${unitWord}  H ${h} ${unitWord}   ` +
+        `${showApertureType(dcode.shape)}  attribute '${attr}'`;
+
+      if (!dcode.defined) line += ' (not defined)';
+      if (inUse) line += ' (in use)';
+
+      out.push(line);
+      ii++;
+    }
+  }
+
+  return out;
+}
+
+/** `_( "D Codes" )`, the dialog's caption (`gerbview_inspection_tool.cpp:145`). */
+export const DCODE_DIALOG_CAPTION = 'D Codes';

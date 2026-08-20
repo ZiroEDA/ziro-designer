@@ -79,19 +79,3 @@
 /* The item inspector is the shared EDA_MSG_PANEL (.ze-msgpanel in
    ui/shell.css) - GerbView instantiates the same widget as every other draw
    frame, so it has no message panel of its own to style. */
-
-.ze-gbr-dcode-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.ze-gbr-dcode-table th,
-.ze-gbr-dcode-table td {
-  text-align: left;
-  padding: 3px 8px;
-  border-bottom: 1px solid #33363c;
-}
-.ze-gbr-dcode-table th {
-  color: #9fb4cc;
-  font-weight: 600;
-}
