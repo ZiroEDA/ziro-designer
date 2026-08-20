@@ -14,39 +14,23 @@
  */
 
 import { type JSX, useState } from 'react';
-import { CORROSION_METALS, corrosionSignedDeltaV } from '@ziroeda/pcb_calculator';
+import {
+  CORROSION_METALS,
+  corrosionCellColour,
+  corrosionInk,
+  corrosionSignedDeltaV,
+} from '@ziroeda/pcb_calculator';
 import { parseNum } from '../fields.js';
 
-/** `color_ok`, panel_galvanic_corrosion.cpp:320. */
-const COLOR_OK = 'rgb(122, 166, 194)';
-/** The equal-potential cell, line 370. */
-const COLOR_SAME = 'rgb(193, 231, 255)';
-
 /**
- * `getContrastingTextColour`, panel_galvanic_corrosion.cpp:29-38. The comment
- * above it names the standard: ITU-R **BT.709** luminance, and the cut is at
- * **140**, white below it.
- *
- * Ours had BT.601's coefficients (0.299 / 0.587 / 0.114) against a threshold of
- * 128, which is a different standard and a different cut. They disagree over
- * the dark end of both ramps — rgb(156,123,100), the cell for a 1.0 V pair,
- * is 130 by BT.601 and so took BLACK ink, and 128.4 by BT.709, which upstream
- * paints WHITE.
+ * The fills and the ink both live in the engine now, beside the potential
+ * table, because both are behaviour and neither was pinned by anything: the
+ * BT.601-vs-BT.709 ink bug moved ZERO existing expectations when it was fixed.
+ * See `qa/unittests/pcb_calculator/memo.test.ts`.
  */
-const ink = (r: number, g: number, b: number): string =>
-  0.2126 * r + 0.7152 * g + 0.0722 * b < 140 ? '#ffffff' : '#000000';
-
 function cellStyle(diffV: number, thresholdMv: number): { background: string; color: string } {
-  const diffTemp = Math.round(Math.abs(diffV * 99));
-  if (Math.abs(diffV) === 0) return { background: COLOR_SAME, color: ink(193, 231, 255) };
-  if (Math.round(Math.abs(diffV * 1000)) > thresholdMv) {
-    const [r, g, b] =
-      diffV > 0
-        ? [226 - diffTemp, 226 - diffTemp, 246 - diffTemp]
-        : [255 - diffTemp, 222 - diffTemp, 199 - diffTemp];
-    return { background: `rgb(${r}, ${g}, ${b})`, color: ink(r, g, b) };
-  }
-  return { background: COLOR_OK, color: ink(122, 166, 194) };
+  const [r, g, b] = corrosionCellColour(diffV, thresholdMv);
+  return { background: `rgb(${r}, ${g}, ${b})`, color: corrosionInk(r, g, b) };
 }
 
 export function PanelGalvanicCorrosion(): JSX.Element {

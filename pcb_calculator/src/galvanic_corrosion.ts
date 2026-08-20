@@ -84,3 +84,44 @@ export function corrosionSignedDeltaV(a: number, b: number): number {
   if (!ma || !mb) return Number.NaN;
   return ma.potentialV - mb.potentialV;
 }
+
+/**
+ * `getContrastingTextColour`, panel_galvanic_corrosion.cpp:29-38. The comment
+ * above it in the C++ names the standard outright — "ITU-R BT.709 luminance" —
+ * and the cut is at 140, WHITE below it.
+ *
+ * This lived in the panel as BT.601's 0.299 / 0.587 / 0.114 against a threshold
+ * of 128, which is a different standard AND a different cut, and nothing tested
+ * it. The two disagree over the dark end of both ramps: rgb(156,123,100), the
+ * cell for a 1.0 V pair, is 130.1 by BT.601 and so took black ink, and 128.4 by
+ * BT.709, which upstream paints white.
+ */
+export function corrosionInk(r: number, g: number, b: number): '#000000' | '#ffffff' {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 140 ? '#ffffff' : '#000000';
+}
+
+/** [data] `color_ok`, panel_galvanic_corrosion.cpp:320. */
+export const CORROSION_COLOR_OK: readonly [number, number, number] = [122, 166, 194];
+/** [data] the equal-potential cell, panel_galvanic_corrosion.cpp:370. */
+export const CORROSION_COLOR_SAME: readonly [number, number, number] = [193, 231, 255];
+
+/**
+ * The fill for one cell, `fillTable` (panel_galvanic_corrosion.cpp:366-388).
+ *
+ * A pair of equal potential takes a fixed light blue; a pair whose difference in
+ * mV is at or below the threshold takes the flat `color_ok`; everything else
+ * fades along a cold or a warm ramp by `226 - KiROUND( |diff| * 99 )`. The
+ * threshold comparison is on `KiROUND( |diff| * 1000 )`, i.e. on whole
+ * millivolts, and it is strictly greater-than.
+ */
+export function corrosionCellColour(
+  diffV: number,
+  thresholdMv: number,
+): readonly [number, number, number] {
+  if (Math.abs(diffV) === 0) return CORROSION_COLOR_SAME;
+  if (Math.round(Math.abs(diffV * 1000)) > thresholdMv) {
+    const t = Math.round(Math.abs(diffV * 99));
+    return diffV > 0 ? [226 - t, 226 - t, 246 - t] : [255 - t, 222 - t, 199 - t];
+  }
+  return CORROSION_COLOR_OK;
+}
