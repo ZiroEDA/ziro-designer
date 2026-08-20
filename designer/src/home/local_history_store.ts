@@ -31,12 +31,14 @@ import {
   changedAgainst,
   hashFiles,
   kindOfTitle,
+  PRE_RESTORE_TITLE,
+  restoredFromTitle,
   snapshotTitle,
   snapshotsToEvict,
   type Snapshot,
   type SnapshotKind,
 } from './local_history.js';
-import type { StoredFile } from './projectStore.js';
+import { loadProject, updateProjectFiles, type StoredFile } from './projectStore.js';
 
 const DB_NAME = 'ziroeda-history';
 const VERSION = 1;
@@ -139,12 +141,20 @@ export async function listSnapshots(projectId: string): Promise<Snapshot[]> {
  * Returns `null` when nothing changed, which is upstream's behaviour too - git
  * declines an empty commit, and a history full of identical entries would make
  * the pane useless exactly when it is needed.
+ *
+ * `title` overrides the composed one, for the two places upstream writes a
+ * commit message that is not "Autosave"/"Backup"/"Save": "Pre-restore backup"
+ * and "Restored from <hash>" (common/local_history.cpp:2288, :2371). Both fall
+ * through `kindOfTitle` to the default tint, which is what upstream's
+ * `SetItemTextColour` does with them too - it only special-cases the messages
+ * beginning "Autosave" and "Backup".
  */
 export async function commitSnapshot(
   projectId: string,
   files: readonly StoredFile[],
   kind: SnapshotKind = 'save',
   detail?: string,
+  title?: string,
 ): Promise<Snapshot | null> {
   return quietly(async () => {
     const hashed = await hashFiles(files);
@@ -177,7 +187,7 @@ export async function commitSnapshot(
       id: `${at.toString(36)}-${Math.floor(performance.now() * 1000).toString(36)}`,
       projectId,
       at,
-      title: snapshotTitle(kind, detail),
+      title: title ?? snapshotTitle(kind, detail),
       kind,
       files: hashed,
       changed,
@@ -189,6 +199,42 @@ export async function commitSnapshot(
     const { projectId: _p, ...snapshot } = record;
     return snapshot;
   }, null);
+}
+
+/**
+ * `EnforceSizeLimit( aProjectPath, aMaxBytes, ... )`'s budget, whose upstream
+ * counterpart is a user setting. Ours is a constant until there is a page to
+ * put it on, and it is deliberately generous: blobs are shared between
+ * snapshots, so this is the distinct content of a project's whole history
+ * rather than the sum of its snapshots, and a project of any size only grows it
+ * by what actually changed.
+ *
+ * It lives here, beside the two functions that use it, rather than in the one
+ * screen that happened to call them first.
+ */
+export const HISTORY_MAX_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Commit a snapshot and settle the history — the pair every caller wants.
+ *
+ * `enforceSizeLimit`'s own contract is "called after a commit, so the history
+ * settles rather than grows without bound", so the two belong together. There
+ * are two callers now (opening a project, and saving one) and a third would
+ * have copied the pairing again.
+ *
+ * `commitSnapshot` already declines when nothing changed, returning null, so
+ * this is a no-op on a save that wrote nothing new — which is what keeps a
+ * repeated Ctrl+S from filling the pane with identical rows.
+ */
+export async function recordSnapshot(
+  projectId: string,
+  files: readonly StoredFile[],
+  kind: SnapshotKind = 'save',
+  detail?: string,
+): Promise<Snapshot | null> {
+  const snap = await commitSnapshot(projectId, files, kind, detail);
+  if (snap) await enforceSizeLimit(projectId, HISTORY_MAX_BYTES);
+  return snap;
 }
 
 /** The files as they were, ready to be written back over the project. */
@@ -271,3 +317,74 @@ async function collectGarbage(db: IDBDatabase): Promise<void> {
 
 /** Re-derive a snapshot's kind from its title, as the pane does. */
 export const snapshotKind = kindOfTitle;
+
+/**
+ * `LOCAL_HISTORY::RestoreCommit` (common/local_history.cpp:2192-2382), the
+ * "Restore Commit" behind the Local History pane's one context-menu item
+ * (kicad/local_history_pane.cpp:183-189).
+ *
+ * The order of operations is upstream's, and each step earns its place:
+ *
+ *  1. A PRE-RESTORE BACKUP is committed first, of the project exactly as it
+ *     stands (:2276-2298, message "Pre-restore backup"). It is what makes the
+ *     restore undoable, and it is why the confirmation can promise that. Upstream
+ *     tolerates the `NoChanges` result and carries on, so a `null` here is not an
+ *     error: it means the working copy already matched the newest snapshot.
+ *  2. The snapshot is OVERLAID onto the project rather than replacing it
+ *     (:2334-2338). Upstream is explicit that "Restore never removes files that
+ *     are absent from the snapshot, so restoring a partial per-editor commit ...
+ *     cannot delete the schematic, project file, outputs, or libraries."
+ *     `updateProjectFiles` is already exactly that operation - it replaces the
+ *     named files and leaves every other one alone - so the overlay is the call
+ *     itself, not something layered on top of it.
+ *  3. The whole post-overlay project is COMMITTED again (:2367-2372, message
+ *     "Restored from <hash>"), so the newest snapshot matches what is on disk.
+ *     Without it the next commit would diff against the pre-restore state and
+ *     report every restored file as a fresh change.
+ *
+ * What is deliberately NOT ported, and why:
+ *
+ *  - STEP 1 upstream is a LOCKFILE sweep for files open in another editor
+ *    (:2198-2218), and `KICAD_MANAGER_FRAME::RestoreCommitFromHistory`
+ *    (kicad/kicad_manager_frame.cpp:1520-1523) first calls
+ *    `Kiway().PlayersClose( true )` and gives up if any editor refuses. Neither
+ *    has a counterpart here: there is one tab, one user, and no lock files. The
+ *    caller re-reads the project afterwards, which is this app's version of
+ *    upstream reopening its editors.
+ *  - The `_restore_temp` extraction directory and the retained
+ *    `_restore_backup_<stamp>` copy (:2306-2364) are libgit2 plumbing for
+ *    getting a tree onto a filesystem safely. Our snapshot is already a list of
+ *    files in hand, and the pre-restore commit is the same undo point the
+ *    retained directory provides.
+ *  - `tagSaveAtHead( repo, "project" )` (:2375) anchors the saved baseline so
+ *    reopening does not re-prompt. Here the post-restore commit IS that anchor:
+ *    it is the newest snapshot and it matches the bytes just written, so the
+ *    project reopens clean.
+ *
+ * Returns the project's files as they now stand, for the caller to load, or
+ * `null` if the snapshot or the project has gone.
+ */
+export async function restoreSnapshot(
+  projectId: string,
+  snapshotId: string,
+): Promise<StoredFile[] | null> {
+  const wanted = await readSnapshot(snapshotId);
+  if (!wanted || wanted.length === 0) return null;
+
+  const before = await loadProject(projectId);
+  if (!before) return null;
+
+  // 1. The undo point, committed before anything is written.
+  await commitSnapshot(projectId, before.files, 'save', undefined, PRE_RESTORE_TITLE);
+
+  // 2. The overlay. Files the snapshot does not mention are left untouched.
+  await updateProjectFiles(projectId, wanted);
+
+  // 3. Re-commit the result, so the newest snapshot is the project on disk.
+  const after = await loadProject(projectId);
+  const files = after?.files ?? wanted;
+  await commitSnapshot(projectId, files, 'save', undefined, restoredFromTitle(snapshotId));
+
+  announce(projectId);
+  return files;
+}

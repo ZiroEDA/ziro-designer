@@ -139,12 +139,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
   //
-  // The file chooser took 8 colours and 16 metrics out (357 -> 349, 847 ->
-  // 831), and home 2 metrics (9 -> 7), by deleting the Open Project dialog:
-  // that window is the shared chooser now, whose own CSS is tokens only. Every
-  // number here is recounted from the merged tree, never subtracted from a
-  // diff.
-  ui: { colours: 349, metrics: 831 },
+  // Two passes lowered this at once and neither side's figure survived the
+  // merge: the file chooser took colours and metrics out by deleting the Open
+  // Project dialog, and the drawing-sheet pass took more out of the toolbar and
+  // the modal frame. The number below is a fresh scan of the merged tree.
+  ui: { colours: 348, metrics: 827 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -344,9 +343,13 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('787 colour literals and 1,705 chrome metrics, tree-wide', () => {
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(787);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1705);
+  it('the tree-wide totals, rescanned where two passes met', () => {
+    // RECOUNTED FROM THE MERGED TREE, not summed from either branch's diff.
+    // Two branches lowered these at the same time, so both of their numbers
+    // were wrong here and neither could be adopted; the scan is the only
+    // authority. What each pass took out is recorded in its own commit.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(786);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1701);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

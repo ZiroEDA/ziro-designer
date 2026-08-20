@@ -214,7 +214,11 @@ const BASELINE: Record<string, number> = {
   // m_textCtrlRotation has no units static text upstream.
   // 7 until the central-values pass put DesignInspector.tsx's table on the
   // shared `.ze-grid` skin, which carries the size so the call site does not.
-  'editors/drawingsheet': 6,
+  // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: its five
+  // inline `fontSize: 12`/`11` literals went with the hand-rolled layout, and
+  // its labels are `.ze-pgs-label` off --ui-font-size now. The one left is the
+  // canvas, which sizes text in world units, not chrome units.
+  'editors/drawingsheet': 1,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -342,10 +346,11 @@ describe('hardcoded font sizes do not grow', () => {
     // (165 -> 159: the four .ze-ds-* rules, .ze-unit-label, and the tab strip).
     // The central-values pass took one more out of editors/drawingsheet (7 ->
     // 6): DesignInspector.tsx's table is `.ze-grid` now and declares no size.
-    // The file chooser took 2 out of ui (159 -> 157) by deleting the Open
-    // Project dialog's styles: the window is the shared chooser now, and its
-    // own CSS declares no size at all.
-    expect(sites.length).toBe(394);
+    // Two passes removed sites at once — the file chooser took the Open
+    // Project dialog's styles out, and the DIALOG_PAGES_SETTINGS rebuild took
+    // that dialog's inline typography — so neither branch's total survived the
+    // merge. Rescanned from the merged tree.
+    expect(sites.length).toBe(389);
   });
 });
 

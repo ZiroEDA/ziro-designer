@@ -140,6 +140,7 @@ export function MessageDialogYesNo({
   extendedMessage,
   icon,
   defaultButton,
+  labels,
   onResult,
 }: {
   /** The window title — `KICAD_MESSAGE_DIALOG`'s third argument. */
@@ -152,6 +153,8 @@ export function MessageDialogYesNo({
   icon: MessageDialogIcon;
   /** `wxYES_DEFAULT` / `wxNO_DEFAULT`. */
   defaultButton: YesNoResult;
+  /** `SetYesNoLabels`. Omitted, the two buttons are GTK's stock Yes and No. */
+  labels?: { yes?: string; no?: string };
   onResult: (result: YesNoResult) => void;
 }): JSX.Element {
   // No wxCANCEL in the style word, so Esc is the negative answer.
@@ -176,7 +179,7 @@ export function MessageDialogYesNo({
           </div>
         </div>
         <div className="ze-msgdlg-buttons">
-          {yesNoButtons(defaultButton).map((b) => (
+          {yesNoButtons(defaultButton, labels).map((b) => (
             <button
               key={b.id}
               type="button"

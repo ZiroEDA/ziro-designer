@@ -79,18 +79,24 @@ import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
-import { commitSnapshot, deleteProjectHistory, enforceSizeLimit } from './local_history_store.js';
+import {
+  deleteProjectHistory,
+  listSnapshots,
+  onHistoryChanged,
+  recordSnapshot,
+  restoreSnapshot,
+} from './local_history_store.js';
+import { RestoreLocalHistoryDialog } from './dialog_restore_local_history.js';
+import {
+  RESTORE_CAPTION,
+  RESTORE_EXTENDED,
+  RESTORE_NO_LABEL,
+  RESTORE_YES_LABEL,
+  restoreConfirmMessage,
+  type Snapshot,
+} from './local_history.js';
+import { MessageDialogYesNo } from '../ui/dialog_message.js';
 
-/**
- * How much of the origin's storage the history of one project may use.
- *
- * `EnforceSizeLimit( aProjectPath, aMaxBytes, ... )` upstream, whose budget is
- * a user setting. Ours is a constant until there is a page to put it on, and it
- * is deliberately generous: blobs are shared between snapshots, so this is the
- * distinct content of a project's whole history rather than the sum of its
- * snapshots, and a project of any size only grows it by what actually changed.
- */
-const HISTORY_MAX_BYTES = 64 * 1024 * 1024;
 import {
   filesFromFileList,
   walkDirectoryHandle,
@@ -367,6 +373,12 @@ export function HomePage({
   useEffect(() => {
     localStorage.setItem('ziroeda.localHistoryShown', historyShown ? '1' : '0');
   }, [historyShown]);
+  /** The snapshot "Restore Commit" was asked for, while its confirmation is up. */
+  const [restoring, setRestoring] = useState<Snapshot | null>(null);
+  /** DIALOG_RESTORE_LOCAL_HISTORY, the File-menu route to the same restore. */
+  const [restoreListOpen, setRestoreListOpen] = useState(false);
+  /** `LoadSnapshots`, kept so the File menu can honour `HistoryExists`. */
+  const [history, setHistory] = useState<Snapshot[]>([]);
 
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -732,14 +744,12 @@ export function HomePage({
             // LOCAL_HISTORY::CommitSnapshot, which upstream runs from the same
             // place a save does. Declines by itself when nothing changed, so
             // reopening a folder does not add a row saying nothing happened.
-            void commitSnapshot(
+            void recordSnapshot(
               pid,
               withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
               'save',
               name,
-            ).then(async (snap) => {
-              if (snap) await enforceSizeLimit(pid, HISTORY_MAX_BYTES);
-            });
+            );
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
               void pushProject(userId, pid).catch((e) => console.warn('Cloud push failed:', e));
@@ -1051,6 +1061,31 @@ export function HomePage({
     () => (projName ? (saved.find((p) => p.name === projName)?.id ?? null) : null),
     [saved, projName],
   );
+  // `HistoryExists( Prj().GetProjectPath() )`, which the File menu's enable
+  // condition asks for on every UI update (kicad/menubar.cpp:108-113). Read the
+  // same way the pane reads it, and re-read on the same event, so the menu item
+  // and the pane can never disagree about whether there is a history.
+  useEffect(() => {
+    if (!openProjectId) {
+      setHistory([]);
+      return;
+    }
+    let live = true;
+    const read = (): void => {
+      void listSnapshots(openProjectId).then((rows) => {
+        if (live) setHistory(rows);
+      });
+    };
+    read();
+    const off = onHistoryChanged((id) => {
+      if (id === openProjectId) read();
+    });
+    return () => {
+      live = false;
+      off();
+    };
+  }, [openProjectId]);
+
   // KiCad's getProjects(dir): the basenames of every .kicad_pro in the folder.
   // A folder may hold several projects (e.g. the ecc83 demo's ecc83-pp and
   // ecc83-pp_v2); the tree shows the root sheet of each, so this set, not just
@@ -1199,6 +1234,8 @@ export function HomePage({
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => setPicked(null),
+    restoreLocalHistory: () => setRestoreListOpen(true),
+    hasLocalHistory: history.length > 0,
     saveAs: () => void saveAsProject(),
     archiveProject: () => void archiveProject(),
     unarchiveProject: () => zipInputRef.current?.click(),
@@ -1397,6 +1434,7 @@ export function HomePage({
               />
               <LocalHistoryPane
                 projectId={openProjectId}
+                onRestore={setRestoring}
                 onClose={() => setHistoryShown(false)}
                 height={historyHeight}
               />
@@ -1650,6 +1688,57 @@ export function HomePage({
             </>
           )}
         </div>
+      )}
+
+      {/* DIALOG_RESTORE_LOCAL_HISTORY. `ShowRestoreDialog` returns without
+          showing anything when the history is empty (common/local_history.cpp:
+          2386-2392); the File item is disabled in that case, so this cannot be
+          reached with nothing to list. Choosing a row hands it to the same
+          confirmation the pane's context menu raises. */}
+      {restoreListOpen && (
+        <RestoreLocalHistoryDialog
+          snapshots={history}
+          onResult={(s) => {
+            setRestoreListOpen(false);
+            if (s) setRestoring(s);
+          }}
+        />
+      )}
+
+      {/* `RestoreCommit`'s own confirmation (common/local_history.cpp:2252-2270).
+          Cancel is the default button - `wxNO_DEFAULT` - so Enter never runs the
+          destructive answer, and nothing has been written when it is chosen. */}
+      {restoring && openProjectId && (
+        <MessageDialogYesNo
+          caption={RESTORE_CAPTION}
+          message={restoreConfirmMessage(restoring.at)}
+          extendedMessage={RESTORE_EXTENDED}
+          icon="question"
+          defaultButton="no"
+          labels={{ yes: RESTORE_YES_LABEL, no: RESTORE_NO_LABEL }}
+          onResult={(r) => {
+            const snapshot = restoring;
+            setRestoring(null);
+            if (r !== 'yes') return;
+            void (async () => {
+              setLoading('Restoring…');
+              await nextPaint();
+              try {
+                const files = await restoreSnapshot(openProjectId, snapshot.id);
+                if (!files) {
+                  window.alert('That version is no longer available.');
+                  return;
+                }
+                // Upstream reopens its editors on the restored files
+                // (kicad_manager_frame.cpp:1530-1532); re-reading the project is
+                // this app's version of that, and it also refreshes the tree.
+                await openStored(openProjectId);
+              } finally {
+                setLoading(null);
+              }
+            })();
+          }}
+        />
       )}
 
       <LoadingOverlay label={loading} />

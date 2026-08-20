@@ -600,6 +600,8 @@ function managerFixture(hasProject: boolean) {
     language: 'Default',
     setLanguage: spy('setLanguage'),
     closeProject: spy('closeProject'),
+    restoreLocalHistory: spy('restoreLocalHistory'),
+    hasLocalHistory: hasProject,
     saveAs: spy('saveAs'),
     archiveProject: spy('archiveProject'),
     unarchiveProject: spy('unarchiveProject'),

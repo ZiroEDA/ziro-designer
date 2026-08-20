@@ -124,6 +124,8 @@ const managerHandlers = {
   language: DEFAULT_LANGUAGE,
   setLanguage: noop,
   closeProject: noop,
+  restoreLocalHistory: noop,
+  hasLocalHistory: false,
   saveAs: noop,
   archiveProject: noop,
   unarchiveProject: noop,

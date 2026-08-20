@@ -3,7 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { Vec2 } from '@ziroeda/kimath';
 import {
+  ensureFileExtension,
   iuToMM,
+  KICAD_SCHEMATIC_FILE_EXTENSION,
   mmToIU,
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
@@ -304,6 +306,8 @@ import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import { isHoverSelection, rightClickSelection } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
+import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
+import { MessageDialogYesNo } from '../../ui/dialog_message.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
@@ -641,6 +645,8 @@ export function SchematicEditor({
   placeRequest,
   onProjectChange,
   onPersistFiles,
+  onSaveFiles,
+  onRevert,
   onOutputFile,
   registerAutosaveFlush,
   extraSheetFiles,
@@ -693,6 +699,20 @@ export function SchematicEditor({
   /** Persist project files immediately (no debounce), used for the drawing-sheet
    *  reference in .kicad_pro so it survives a "go back and reopen". */
   onPersistFiles?: (files: PickedFile[]) => void;
+  /**
+   * The EXPLICIT Save. Writes the files and then records a Local History point
+   * (`LOCAL_HISTORY::CommitSnapshot`, which upstream runs from the same place a
+   * save does). Distinct from `onPersistFiles` because that one is also used
+   * for incidental writes — the drawing-sheet reference, sheet bookkeeping —
+   * and none of those is a point a user chose to be able to come back to.
+   */
+  onSaveFiles?: (files: PickedFile[]) => Promise<void>;
+  /**
+   * ACTIONS::revert's restore half — put the project back to its newest save
+   * point and reload the editors. Resolves false when there is no point to go
+   * back to, so the command can say so rather than appear to do nothing.
+   */
+  onRevert?: () => Promise<boolean>;
   /** Write a generated output file (plot / export) into the project file
    *  manager instead of the browser download folder. When absent, outputs fall
    *  back to a browser download. */
@@ -1927,6 +1947,19 @@ export function SchematicEditor({
   );
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
+  /**
+   * `SetStatusText( msg, 0 )` — field 0 of the status bar. wx leaves whatever
+   * was written there until something writes over it, so this is state rather
+   * than a transient toast. The highlight message shares the field and takes
+   * precedence while a net is actually highlighted.
+   */
+  const [statusText, setStatusText] = useState<string>('');
+  /** ACTIONS::revert's IsOK(), while it is up. */
+  const [revertPrompt, setRevertPrompt] = useState<{
+    file: string;
+    onYes: () => void;
+    onNo: () => void;
+  } | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
   // Folders that already exist inside the project, relative to the project's
@@ -3656,9 +3689,12 @@ export function SchematicEditor({
       setInfoBar(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
-    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+    if (onSaveFiles && currentFile !== DEFAULT_FILE) {
       // Save writes into the project's file manager (cloud storage); a local
-      // copy can be downloaded from there (or via Save a Copy).
+      // copy can be downloaded from there (or via Save a Copy). This is the
+      // path that also commits the Local History point.
+      void onSaveFiles([{ name: currentFile, text }]);
+    } else if (onPersistFiles && currentFile !== DEFAULT_FILE) {
       onPersistFiles([{ name: currentFile, text }]);
     } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
@@ -3674,7 +3710,152 @@ export function SchematicEditor({
     // Only now: the asterisk and the leave-prompt both mean "written".
     setDirty(false);
     setUnsaved(false);
-  }, [fileName, currentFile, onPersistFiles]);
+  }, [fileName, currentFile, onPersistFiles, onSaveFiles]);
+
+  /**
+   * `SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs` (eeschema/tools/
+   * sch_editor_control.cpp:426-442):
+   *
+   *     SCH_SHEET*   curr_sheet = m_frame->GetCurrentSheet().Last();
+   *     wxFileName   curr_fn = curr_sheet->GetFileName();
+   *     wxFileDialog dlg( …, curr_fn.GetPath(), curr_fn.GetFullName(),
+   *                       FILEEXT::KiCadSchematicFileWildcard(),
+   *                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+   *     if( dlg.ShowModal() == wxID_CANCEL ) return false;
+   *     wxString newFilename =
+   *         EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+   *     m_frame->saveSchematicFile( curr_sheet, newFilename );
+   *
+   * Three things this must NOT do, all of them from
+   * `SCH_EDIT_FRAME::saveSchematicFile` (eeschema/files-io.cpp:989-1081):
+   *
+   *  - it writes the CURRENT SHEET only, never the hierarchy. The dialog is
+   *    seeded from that sheet's own name, not the project's.
+   *  - it never calls `screen->SetFileName()`, so the editor is NOT retargeted
+   *    at the copy: you go on editing the original, and the title does not
+   *    change.
+   *  - on success it does `screen->SetContentModified( false )` and
+   *    `SetStatusText( "File '%s' saved." )` built from `screen->GetFileName()`
+   *    — the ORIGINAL name, because the screen was never renamed.
+   *
+   * That last pair looks like an upstream bug: saving a COPY clears the dirty
+   * flag on a document that was not written, and then reports the original
+   * file's name as the one saved. It is mirrored here deliberately rather than
+   * corrected. The parity target is the installed build including where it is
+   * odd; the moment we start fixing KiCad's oddities the two stop matching and
+   * a user who knows KiCad is the one surprised.
+   *
+   * The browser has no `wxFileDialog`, so the name prompt is ours. Nothing else
+   * about the command changes: the seed, the extension rule, what gets written,
+   * and what is left alone are all upstream's.
+   */
+  const saveCurrSheetCopyAs = useCallback(() => {
+    const d = docRef.current;
+    if (!d) return;
+
+    // curr_fn.GetFullName() — the current sheet's own file name, which for us
+    // is the file the editor has open.
+    const seed = currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? DEFAULT_FILE);
+    const picked = window.prompt('Save Current Sheet Copy As:', seed);
+    if (picked === null) return; // wxID_CANCEL
+
+    const trimmed = picked.trim();
+    if (!trimmed) return;
+
+    const newFilename = ensureFileExtension(trimmed, KICAD_SCHEMATIC_FILE_EXTENSION);
+
+    let text: string;
+    try {
+      text = serializeSchematic(d);
+    } catch (e) {
+      // saveSchematicFile's catch( IO_ERROR ) -> DisplayError, and success
+      // stays false, so neither the dirty flag nor the status text is touched.
+      setError(
+        `Error saving schematic file '${newFilename}'.\n${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
+
+    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+      onPersistFiles([{ name: newFilename, text }]);
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = newFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // screen->SetContentModified( false ), then the status text built from
+    // screen->GetFileName() — the original, not the copy. See above.
+    setDirty(false);
+    setUnsaved(false);
+    setStatusText(savedFileMessage(seed));
+  }, [currentFile, fileName, onPersistFiles]);
+
+  /**
+   * `SCH_EDITOR_CONTROL::Revert` (eeschema/tools/sch_editor_control.cpp:445-492).
+   *
+   * The order is upstream's and each step is load-bearing:
+   *
+   *  1. remember the current sheet, and whether it is a subsheet:
+   *     `wasOnSubsheet = ( GetCurrentSheet().Last() != &root )`.
+   *  2. if it is, navigate to the ROOT FIRST — `Hierarchy().at( 0 )`, with the
+   *     comment "manually pushing root creates a path with empty KIID which
+   *     causes assertions". Upstream deliberately does NOT `wxSafeYield()` here,
+   *     "to avoid repainting the root sheet before the dialog", so the user
+   *     sees the question rather than a flash of a sheet they did not ask for.
+   *  3. ask. The string is verbatim, and `IsOK` (common/confirm.cpp:278-300) is
+   *     a "Confirmation" dialog with a question icon whose OK/Cancel pair is
+   *     relabelled Yes/No, with wxOK_DEFAULT — so YES is the default button.
+   *  4. NO returns you to the sheet you were on (this one DOES yield) and
+   *     changes nothing.
+   *  5. YES marks every screen unmodified BEFORE restoring — "do not prompt the
+   *     user for changes" — then releases and re-opens.
+   *
+   * The `%s` is `schematic.GetFileName()`, which is the first top-level sheet's
+   * file (eeschema/schematic.cpp:524-532), not whichever sheet you are looking
+   * at — the prompt names the project, and says "(and all sub-sheets)" because
+   * it discards the whole hierarchy.
+   *
+   * What differs here, and it is the persistence model rather than a shortcut:
+   * upstream re-reads the FILE, because KiCad writes to disk only on Save. We
+   * autosave, so the file already holds the edits Revert is meant to discard;
+   * our "last version saved" is the newest Local History save point instead.
+   * Upstream keeps Revert and Local History's Restore Commit separate; here
+   * they necessarily meet.
+   */
+  const revert = useCallback(() => {
+    if (!onRevert) return;
+
+    const rootSheet = flatSheets[0];
+    const wasOnSubsheet = !!rootSheet && currentPath !== rootSheet.path;
+    const originalSheet = { path: currentPath, file: currentFile };
+
+    // Step 2: to the root before asking, and without repainting first.
+    if (wasOnSubsheet && rootSheet) switchSheet(rootSheet.path, rootSheet.file, false);
+
+    setRevertPrompt({
+      // schematic.GetFileName() — the first top-level sheet's file.
+      file: rootSheet?.file ?? currentFile,
+      onNo: () => {
+        setRevertPrompt(null);
+        // Step 4: back to where they were.
+        if (wasOnSubsheet) switchSheet(originalSheet.path, originalSheet.file, false);
+      },
+      onYes: () => {
+        setRevertPrompt(null);
+        // Step 5. `SetContentModified( false )` on every screen first, so the
+        // reload does not stop to ask about the very changes being discarded.
+        setDirty(false);
+        setUnsaved(false);
+        void onRevert().then((ok) => {
+          if (!ok) setInfoBar('There is no saved version to revert to yet.');
+        });
+      },
+    });
+  }, [onRevert, flatSheets, currentPath, currentFile, switchSheet]);
 
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),
@@ -5414,6 +5595,10 @@ export function SchematicEditor({
       else if (id === 'redo') redo();
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
+      // SCH_ACTIONS::saveCurrSheetCopyAs
+      else if (id === 'saveCurrSheetCopyAs') saveCurrSheetCopyAs();
+      // ACTIONS::revert
+      else if (id === 'revert') revert();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'manageSymbolLibraries') setSymLibTableOpen(true);
       // SCH_EDITOR_CONTROL::ShowCreateNetChain opens whatever is selected; a
@@ -5670,6 +5855,8 @@ export function SchematicEditor({
       undo,
       redo,
       save,
+      saveCurrSheetCopyAs,
+      revert,
       promptOpen,
       runCommand,
       runErcNow,
@@ -8261,7 +8448,7 @@ export function SchematicEditor({
       <KiStatusBar
         testIds={{ message: 'sch-status-msg', tool: 'sch-tool-msg' }}
         fields={{
-          message: highlightName ? `Highlighted net: ${highlightName}` : '',
+          message: highlightName ? `Highlighted net: ${highlightName}` : statusText,
           zoom: <span ref={statusReadout.zoomRef} />,
           coords: <span ref={statusReadout.coordsRef} />,
           deltas: <span ref={statusReadout.deltasRef} />,
@@ -8270,6 +8457,19 @@ export function SchematicEditor({
           tool: SCH_TOOL_MSGS[activeTool] ?? '',
         }}
       />
+
+      {revertPrompt && (
+        /* IsOK (common/confirm.cpp:278-300): a KICAD_MESSAGE_DIALOG captioned
+           "Confirmation" with wxICON_QUESTION, whose OK/Cancel pair is
+           relabelled "&Yes"/"&No", and wxOK_DEFAULT makes YES the default. */
+        <MessageDialogYesNo
+          caption={CONFIRMATION_CAPTION}
+          message={revertPromptMessage(revertPrompt.file)}
+          icon="question"
+          defaultButton="yes"
+          onResult={(r) => (r === 'yes' ? revertPrompt.onYes() : revertPrompt.onNo())}
+        />
+      )}
 
       {chooserOpen && (
         <DialogSymbolChooser

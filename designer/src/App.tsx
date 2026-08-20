@@ -13,6 +13,7 @@ import {
   saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
+import { listSnapshots, readSnapshot, recordSnapshot } from './home/local_history_store.js';
 import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
@@ -451,6 +452,91 @@ export function App(): JSX.Element {
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
   // used for discrete actions, drawing-sheet reference changes and Save to
   // Project, so a "go back and reopen" reads them straight back.
+  /**
+   * An editor's explicit Save — `LOCAL_HISTORY::CommitSnapshot`, which upstream
+   * runs from the same place a save does.
+   *
+   * Until this existed, `commitSnapshot` had exactly ONE call site in the tree
+   * (HomePage's open/import path), so every row in the Local History pane was a
+   * project being opened and nothing a user did was ever recorded. An hour of
+   * editing with Ctrl+S throughout produced no history at all, while the pane
+   * looked like it was working.
+   *
+   * Two things this must get right, and both are why it is not folded into
+   * `persistFilesNow`:
+   *
+   *  - the snapshot must be the WHOLE project, and it must be the CURRENT
+   *    content. `persistFilesNow` is handed only the files that changed, and
+   *    `projectFilesRef` holds the project as it was OPENED — nothing updates
+   *    it as edits are saved. Snapshotting either would record a partial or a
+   *    stale project, and because the store is content-addressed the result
+   *    would look perfectly healthy. So the write is awaited and the record is
+   *    then read back with `loadProject`, which is the one place the complete,
+   *    current set exists.
+   *  - it is the explicit-Save path ONLY. Autosave must not land here:
+   *    `writePending` firing this would make every debounced write a 'save' row
+   *    and destroy the distinction between "the user chose this point" and "the
+   *    app wrote something". If autosave should record anything it is
+   *    `kind: 'autosave'`, and that is a separate decision.
+   */
+  const saveProjectFiles = useCallback(async (files: PickedFile[]): Promise<void> => {
+    const cur = projectFilesRef.current;
+    if (!cur || files.length === 0 || !storageAvailable()) return;
+    try {
+      const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
+      if (!rec) return;
+      await updateProjectFiles(
+        rec.id,
+        files.map((f) => ({ name: f.name, bytes: enc.encode(f.text) })),
+      );
+      // Only now is the project on disk the thing worth remembering.
+      const loaded = await loadProject(rec.id);
+      if (loaded) await recordSnapshot(rec.id, loaded.files, 'save', rec.name);
+    } catch {
+      /* storage disabled */
+    }
+  }, []);
+
+  /**
+   * The restore half of `SCH_EDITOR_CONTROL::Revert`
+   * (eeschema/tools/sch_editor_control.cpp:487-491):
+   *
+   *     SCH_SCREENS screenList( schematic.Root() );
+   *     for( … ) screen->SetContentModified( false );   // do not prompt
+   *     m_frame->ReleaseFile();
+   *     m_frame->OpenProjectFiles( { schematic.GetFileName() }, KICTL_REVERT );
+   *
+   * Upstream that is a re-read of the FILE, because KiCad touches disk only
+   * when you press Save, so the file IS the last saved version. We autosave
+   * continuously, so our equivalent of "the last version saved" is the newest
+   * `kind: 'save'` Local History point — which is a real one only because saves
+   * now record one (see saveProjectFiles). Reverting to the file here would be
+   * a no-op that merely LOOKED destructive.
+   *
+   * Returns false when there is nothing to revert to, so the caller can say so
+   * instead of silently doing nothing.
+   *
+   * Setting the project files is the `OpenProjectFiles` half: the editors
+   * reload from `initialProject` whenever it changes.
+   */
+  const revertProject = useCallback(async (): Promise<boolean> => {
+    const cur = projectFilesRef.current;
+    if (!cur || !storageAvailable()) return false;
+    try {
+      const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
+      if (!rec) return false;
+      const point = (await listSnapshots(rec.id)).find((s) => s.kind === 'save');
+      if (!point) return false;
+      const files = await readSnapshot(point.id);
+      if (!files || files.length === 0) return false;
+      await updateProjectFiles(rec.id, files);
+      setProjectFiles(files.map(pickedFromStored));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
     if (!cur || files.length === 0 || !storageAvailable()) return;
@@ -903,6 +989,10 @@ export function App(): JSX.Element {
               // rather than left to infer that its work is being saved.
               autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
               onPersistFiles={persistFilesNow}
+              // Explicit Save only — it records a Local History point, which
+              // autosave must not. See saveProjectFiles.
+              onSaveFiles={saveProjectFiles}
+              onRevert={revertProject}
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}
               extraSheetFiles={sessionSheets}

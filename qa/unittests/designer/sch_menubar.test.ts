@@ -146,8 +146,6 @@ describe('no entry is silently inert', () => {
       .filter((i) => i.disabled && i.label)
       .map((i) => i.label);
     expect(greyed).toEqual([
-      'Save Current Sheet Copy As...',
-      'Revert',
       'Non-KiCad Schematic...',
       'Footprint Assignments...',
       'Drawing to Clipboard',

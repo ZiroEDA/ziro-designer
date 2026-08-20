@@ -103,6 +103,22 @@ export interface DrawingSheetEditorFile {
   text: string;
 }
 
+/**
+ * PL_EDITOR_SETTINGS `properties_frame_width` (pl_editor_settings.cpp:46).
+ *
+ * [data] KiCad hardcodes this in its own parameter table, and it is the Props
+ * pane's *best* size, not its size: `pl_editor_frame.cpp:200-204` adds the pane
+ * with `.BestSize( m_propertiesFrameWidth, -1 )` floored by
+ * `.MinSize( m_propertiesPagelayout->GetMinSize() )`, so wxAUI shows whichever
+ * of the two is larger and the width is really the panel's own content. The
+ * `200` at pl_editor_frame.cpp:97 is only the ctor's seed — `LoadSettings`
+ * overwrites it from the setting at :538 before the pane is ever laid out.
+ *
+ * The CSS counterpart of the MinSize floor is `min-width: min-content` on
+ * `.ze-leftdock.on-right`; this is the BestSize half.
+ */
+const PROPERTIES_FRAME_WIDTH = 150;
+
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 /*
  * APP_SETTINGS_BASE (common/settings/app_settings.cpp:227-237) gives
@@ -1582,9 +1598,22 @@ export function DrawingSheetEditor({
           onContextMenuRequest={onCanvasContextMenu}
         />
 
+        {/* RightToolbar is `.Right().Layer( 2 )` and Props is
+            `.Right().Layer( 3 )` (pl_editor_frame.cpp:197-204). A higher wxAUI
+            layer docks FURTHER from the centre, and the centre is the canvas,
+            so the toolbar touches the canvas and the palette sits outside it.
+            The toolbar therefore comes FIRST in this row. */}
+        <Toolbar
+          entries={DS_RIGHT_TOOLBAR}
+          orientation="vertical"
+          side="right"
+          activeTool={moveMode ? '' : activeTool}
+          onActivate={onRightTool}
+        />
+
         {/* Docked properties panel (properties_frame.cpp). It is itself the
             `.ze-panel`, caption included — see PropertiesFrame. */}
-        <div className="ze-leftdock" style={{ width: 272, minWidth: 272 }}>
+        <div className="ze-leftdock on-right" style={{ width: PROPERTIES_FRAME_WIDTH }}>
           <PropertiesFrame
             sheet={sheet}
             selectedIndex={selectedIndex}
@@ -1594,14 +1623,6 @@ export function DrawingSheetEditor({
             onShowSyntaxHelp={() => setShowSyntaxHelp(true)}
           />
         </div>
-
-        <Toolbar
-          entries={DS_RIGHT_TOOLBAR}
-          orientation="vertical"
-          side="right"
-          activeTool={moveMode ? '' : activeTool}
-          onActivate={onRightTool}
-        />
       </div>
 
       {ctxMenu && (
@@ -1660,6 +1681,14 @@ export function DrawingSheetEditor({
       {showPageDialog && (
         <PageSettingsDialog
           value={preview}
+          // The dialog's custom-size fields are UNIT_BINDERs over the FRAME
+          // (dialog_page_settings.cpp:65-66), so they read in the frame's unit.
+          units={unit === 'inches' ? 'in' : unit}
+          // SetWksFileName( m_frame->GetCurrentFileName() ), then
+          // EnableWksFileNamePicker( false ) — shown, filled and disabled
+          // (pl_editor_control.cpp:97-98).
+          wksFileName={fileName}
+          sheet={sheet}
           onCancel={() => setShowPageDialog(false)}
           onOk={(next) => {
             setPreview(next);

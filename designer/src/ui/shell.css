@@ -231,6 +231,15 @@
   --titlebar-font-size: 14.667px;
   --titlebar-font-weight: 700;
   --titlebar-rule: #000000;
+  /* [css] `decoration { border-radius: 12px 12px 0 0 }` (Yaru-dark gtk.css:4504).
+     A GNOME window is rounded on its TOP two corners only; the bottom two are
+     square. This is the window frame, so it is NOT --ctl-radius (6px), which is
+     a button/entry value — ours used that on all four corners. */
+  --window-radius: 12px;
+  /* [css] `decoration { box-shadow: 0 3px 9px 1px rgba(0,0,0,0.5),
+     0 0 0 1px rgba(0,0,0,0.75) }` (:4507) — a tight drop shadow plus a 1px
+     hairline ring, not the deep soft shadow we had invented. */
+  --window-shadow: 0 3px 9px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.75);
 
   /* The border colour of every framed thing: static box, button, text field,
      checkbox, radio. [css] `frame > border`, `button`, `entry`, `check`,
@@ -810,24 +819,49 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: var(--titlebar-font-weight);
 }
 /* Toolbars */
+/* An ACTION_TOOLBAR is a wxAuiToolBar, and a wxAuiToolBar fills itself with
+   `wxSYS_COLOUR_BTNFACE` — which wxGTK resolves by asking a real GtkButton for
+   its background, NOT by reading GTK's own `toolbar` node. Those two disagree
+   in Yaru: `toolbar` is #2c2c2c (the same as the menu bar) while `button` is
+   `image(#373737)`, so a KiCad toolbar reads a step LIGHTER than the menu bar
+   above it. That is --ctl-face, the token the buttons and combos already take.
+
+   [px] GerbView with no file loaded, 1920x1200: the whole toolbar block —
+   both stacked rows AND the left vertical strip — samples #373737, against
+   #2c2c2c for the menu bar and the status bar. Ours had --chrome-bg here, so
+   the bar vanished into the menu bar and the canvas.
+
+   The token is --content-bg, the wxAUI FRAME background, not --ctl-face: they
+   carry the same #373737, but the strip is a docked pane and the face is a
+   button, and conflating them would make a later change to either move the
+   other. That reasoning and the pl_editor measurement behind it are D3 below,
+   which said the shared change was "waiting on measurements" from a second
+   frame. GerbView is that second frame, so the rule moves here and D3's
+   `.ze-wks .ze-toolbar` background override goes. */
 .ze-toolbar {
   display: flex;
   align-items: center;
-  background: var(--chrome-bg);
+  background: var(--content-bg);
   gap: 1px;
 }
+/* No height: a wxAuiToolBar is as tall as its tallest tool. [px] GerbView's
+   TOP_AUX row is 36 px around a 34 px combo (y 135..168 bordered, row 135..170)
+   — that is --ctl-height plus one pixel of toolbar above and below. Ours said
+   32 px, which SQUEEZED every toolbar combo to 31 px: measured 201..231 where
+   KiCad's is 34. The row is its content, the way .ze-modal is Fit(). */
 .ze-toolbar.horizontal {
   flex-direction: row;
-  height: 32px;
-  padding: 0 4px;
+  padding: 1px 4px;
   border-bottom: 1px solid var(--chrome-border);
   flex-wrap: nowrap;
   overflow-x: auto;
 }
+/* No width either: [px] GerbView's left strip is x 66..99 = 34 px around a
+   30 px button at 68..97, i.e. --toolbar-button-size in 2 px of toolbar. Ours
+   said 32, one pixel narrower than the button it holds. */
 .ze-toolbar.vertical {
   flex-direction: column;
-  width: 32px;
-  padding: 4px 0;
+  padding: 4px 2px;
 }
 .ze-toolbar.vertical.left {
   border-right: 1px solid var(--chrome-border);
@@ -2318,6 +2352,24 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 240px;
   border-right: 1px solid var(--chrome-border);
 }
+/* The same dock column on the other side, for pl_editor's Props pane —
+   `.Right().Layer( 3 )`, outside the RightToolbar's `.Layer( 2 )`
+   (pl_editor_frame.cpp:197-204). Only the edge that carries the separator
+   differs, because that edge is the one facing the canvas.
+
+   Deliberately NOT `.ze-rightdock`: that is pcbnew's Appearance + Selection
+   Filter stack, and it repaints its panes in the layer-panel grey
+   (`--panel-list-bg`) that a plain wxPanel does not have.
+
+   `min-width` is the pane's `.MinSize( m_propertiesPagelayout->GetMinSize() )`
+   (pl_editor_frame.cpp:203) — the panel's own content minimum, which wxAUI
+   takes over BestSize whenever it is larger. The width is content, the way
+   `.ze-modal` is `Fit()`. */
+.ze-leftdock.on-right {
+  border-right: none;
+  border-left: 1px solid var(--chrome-border);
+  min-width: min-content;
+}
 /* Schematic Editor's left dock only: real eeschema's own chrome colors
    (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
    not our app's blue-tinted chrome, and its orange row/checkbox highlight
@@ -2707,19 +2759,54 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* Symbol chooser search box */
+/* A wxTextCtrl is a GTK `entry`, and GTK gives it its whole appearance —
+   KiCad styles no dialog anywhere (`DIALOG_SHIM`, common/dialog_shim.cpp, sets
+   no font and no colour; its only appearance method is `finishDialogSettings`
+   at :310-317, which is `SetSizeHints`). Every control is a native GTK widget,
+   which is the entire reason KiCad's dialogs look like each other. So a dialog
+   file may carry layout and nothing else, and this rule — the one `entry` in
+   the app — carries the look, out of the tokens already derived above:
+
+     entry { min-height: 32px; border: 1px }            -> --ctl-height   34
+     entry { padding-left/right: 8px }                  -> --field-pad-x   8
+     entry { border-radius: 6px }                       -> --ctl-radius    6
+     entry { border-color: #181818 }                    -> --ctl-border
+     entry:focus  { border-color: rgba(239,134,97,.7) } -> --field-focus-border
+     entry:disabled { color:#929292; background:#2a2a2a }
+                              -> --ctl-fg-disabled / --ctl-face-disabled
+
+   Two of those were structural rather than cosmetic. The height is GTK's, and
+   it is the SAME 34 as a button and a combo — which is why a KiCad row of mixed
+   controls lines up and ours did not: we let the height fall out of
+   `padding: 5px 8px` and it landed short. And there was no `:disabled` rule at
+   all, so a greyed-out field rendered as a live one.
+
+   The five other places in this file that name `.ze-search` set only flex,
+   width or margin — layout, which is each dialog's own business. None restates
+   a colour, a radius or a height, and none may: that is the specificity trap,
+   and it is why this one rule is worth getting right. */
 .ze-search {
   width: 100%;
   box-sizing: border-box;
-  padding: 5px 8px;
-  background: var(--chrome-bg2);
+  min-height: var(--ctl-height);
+  padding: 0 var(--field-pad-x);
+  background: var(--field-bg);
   color: var(--chrome-fg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 4px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
   font: inherit;
   outline: none;
 }
 .ze-search:focus {
-  border-color: var(--chrome-active-border);
+  border-color: var(--field-focus-border);
+  box-shadow: inset 0 0 0 1px var(--field-focus-border);
+}
+/* GTK dims by COLOUR, never by opacity — an opacity fade washes out the
+   background and the border with the text. */
+.ze-search:disabled {
+  color: var(--ctl-fg-disabled);
+  background: var(--ctl-face-disabled);
+  border-color: var(--ctl-border);
 }
 
 /* Menu bar dropdowns */
@@ -3525,18 +3612,42 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* GTK draws dialog text at about 243, not pure white - the same gap that made
    the status bar look a size too big. Set here so every dialog inherits it. */
+/* A KiCad dialog is sized by its CONTENT, never by a number. Every
+   wxFormBuilder `_base.cpp` ends with `bMainSizer->Fit( this )`, and the
+   `.cpp` on top of it finishes `TransferDataToWindow` with
+   `GetSizer()->SetSizeHints( this )` — so the window is exactly the minimum
+   its sizers need, and that is why two KiCad dialogs holding the same controls
+   come out the same size. (dialog_page_settings_base.cpp:405 and
+   dialog_page_settings.cpp:192 are one instance of a pattern the whole tree
+   repeats.)
+
+   `max-content` is that rule, computed by the layout engine rather than pasted
+   as a pixel count. It replaces `width: 860px; height: 580px`, two numbers that
+   appear nowhere in KiCad — and that nothing was actually using: all 17
+   `.ze-modal.<variant>` rules below and all 28 bare `className="ze-modal"` call
+   sites already override the size, which is the real problem here. Forty-five
+   hand-picked dialog widths where upstream has one rule. They cannot all be
+   right, and two of them prove it: the same DIALOG_PAGES_SETTINGS is 760px in
+   the schematic's copy and was 560px in the drawing sheet's.
+
+   Collapsing those forty-five is a per-dialog job — each needs its own C++ read,
+   because a few dialogs really do call SetSize and those numbers are real
+   (.ze-tplsel and .ze-hotkeys carry theirs with citations). This makes the
+   DEFAULT correct so the pile stops growing, and gives them something to
+   collapse onto. A dialog that states nothing now gets Fit(). */
 .ze-modal {
   color: #f3f4f5;
-  width: 860px;
-  height: 580px;
+  width: max-content;
+  height: max-content;
   max-width: 92vw;
   max-height: 88vh;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
-  border-radius: 6px;
+  /* The window decoration, not a control: top two corners only. */
+  border-radius: var(--window-radius) var(--window-radius) 0 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--window-shadow);
 }
 /* A KiCad dialog's title is its *window* title, drawn by the desktop: a 37px
    bar of #222222 under a 1px black rule, with the text centred. Measured off a
@@ -3544,6 +3655,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-modal-header {
   position: relative;
   box-sizing: border-box;
+  /* The bar paints the two rounded corners, so it repeats the frame's radius —
+     without this its flat #222 squares them off again. */
+  border-radius: var(--window-radius) var(--window-radius) 0 0;
   height: 37px;
   padding: 0 12px;
   /* Measured against a real title bar: 175px wide and 15 tall for this string,
@@ -6727,6 +6841,55 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* ---------------------------------------------------------------------------
+   DIALOG_RESTORE_LOCAL_HISTORY's list, which is the SAME wxListCtrl widget as
+   the pane's — same rows, same header, same selection — with three differences
+   KiCad states in the constructor
+   (common/dialogs/dialog_restore_local_history.cpp:45-49, :89-91) against the
+   pane's (kicad/local_history_pane.cpp:42-44):
+
+     three columns, not two, at FromDIP 170 / 380 / 70
+     wxLC_HRULES | wxLC_VRULES, which the pane does not set
+
+   So it reuses `.ze-lhist-head` / `.ze-lhist-list` / `.ze-lhist-row` and states
+   only what actually differs. The alternative — a second list styled from
+   scratch — is how the tree ended up with per-editor copies of shared widgets
+   before.
+   --------------------------------------------------------------------------- */
+.ze-lhist-head.cols3,
+.ze-lhist-row.cols3 {
+  /* The three declared widths, as a ratio so the dialog can be resized without
+     the Time column being clipped first — the same treatment the pane's two
+     already get. */
+  grid-template-columns: minmax(0, 170fr) minmax(0, 380fr) minmax(0, 70fr);
+}
+.ze-lhist-row.cols3 .time,
+.ze-lhist-row.cols3 .action,
+.ze-lhist-row.cols3 .count,
+.ze-lhist-head.cols3 .time,
+.ze-lhist-head.cols3 .action,
+.ze-lhist-head.cols3 .count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* wxLC_HRULES: one hairline under each row.
+   [UNMEASURED] The generic wxListCtrl draws its rules with a system colour we
+   have not sampled, and no capture of this dialog exists yet. This uses the one
+   hairline in this control that HAS been measured — the header's rule, taken
+   off a running frame at rgb(44,44,44) — so the dialog is at worst internally
+   consistent rather than carrying an invented hue. Flagged for a capture. */
+.ze-lhist-list.rules .ze-lhist-row {
+  border-bottom: 1px solid var(--chrome-bg);
+}
+/* wxLC_VRULES: the same hairline between columns, carried by each column but
+   the last. The gutter is the row's own `gap`, which the rule therefore sits at
+   the LEFT edge of rather than the middle of; restating that gap here to centre
+   it would be a local copy of a value the row already states, and the rule's
+   colour is unmeasured anyway. Both go in the same capture. */
+.ze-lhist-list.rules .ze-lhist-row > span:not(:last-child) {
+  border-right: 1px solid var(--chrome-bg);
+}
 .ze-lhist-row:hover {
   background: var(--chrome-hover);
 }
@@ -6848,15 +7011,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    hovered, and conflating the strip with the face would make a later change to
    either one move the other.)
 
-   Scoped to this frame rather than changed on `.ze-toolbar` / `.ze-msgpanel`
-   themselves: the same six numbers are almost certainly wrong in the other
-   five draw frames for the same reason, but only pl_editor was measured, and
-   flipping the shared rule would move five editors on one editor's evidence.
-   See the PR - the shared change is a two-line diff waiting on measurements.
+   The BACKGROUND half is no longer scoped here. It was, because one editor's
+   evidence should not move five, and this block asked for a second frame to
+   confirm it. GerbView is that frame: [px] with no file loaded its whole
+   toolbar block, both stacked rows and the left vertical strip, samples
+   #373737 against #2c2c2c for the menu bar and the status bar - the same three
+   readings as pl_editor. So `background` now lives on `.ze-toolbar` itself and
+   the override that used to sit here is gone; the strip is right in all eight
+   launchers at once.
+
+   The SIZES stay scoped, because the two frames disagree and a disagreement is
+   not a measurement. GerbView reads a 34 px vertical strip (a 30 px button in
+   2 px of toolbar, x 66..99 with the button at 68..97) and a 36 px TOP_AUX row
+   (a 34 px combo, y 135..168, in a row spanning 135..170) against the 39/39
+   recorded above. The likeliest explanation is that 39 counted the pane's
+   border and sash and 34 counts the fill, but nobody has re-measured pl_editor
+   to say so, so both numbers stay where they were taken.
    --------------------------------------------------------------------------- */
-.ze-wks .ze-toolbar {
-  background: var(--content-bg);
-}
 .ze-wks .ze-toolbar.horizontal {
   height: 39px;
 }
@@ -7090,4 +7261,165 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   justify-content: flex-end;
   gap: var(--wx-border);
   padding: var(--wx-border) 10px 10px; /* [px] the buttons sit 10 px off the dialog's edges */
+}
+
+/* ---- DIALOG_PAGES_SETTINGS (common/dialogs/dialog_page_settings_base.cpp) ----
+   Two columns under one `bUpperSizerH`, each a vertical stack of centred
+   section headers. Every gap here is either the wx border (5) in multiples or
+   an explicit spacer the .fbp declares; none is a number chosen for this
+   dialog. */
+/* `.ze-pgs` states NOTHING about its own size: `.ze-modal` is Fit() now, which
+   is what this dialog wants, and restating it here is exactly the local-literal
+   habit that produced the other forty-four. The body scrolls only when the
+   viewport cap bites. */
+.ze-pgs-body {
+  overflow: auto;
+}
+.ze-pgs-body {
+  display: flex;
+  align-items: flex-start;
+  /* bMainSizer->Add( bUpperSizerH, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 ) */
+  padding: 0 var(--wx-border);
+}
+/* m_staticTextPaper &c: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxRIGHT|wxLEFT, 5. */
+.ze-pgs-head {
+  text-align: center;
+  font-size: var(--ui-font-size);
+  padding: var(--wx-border) var(--wx-border) 0;
+}
+/* m_staticline2 &c: wxStaticLine( wxLI_HORIZONTAL ) added wxEXPAND|wxTOP, 1. */
+.ze-pgs-rule {
+  height: 1px;
+  margin-top: 1px;
+  background: var(--chrome-border);
+}
+.ze-pgs-left,
+.ze-pgs-right {
+  display: flex;
+  flex-direction: column;
+  /* bUpperSizerH->Add( …, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 ) */
+  padding: 0 var(--wx-border) var(--wx-border);
+}
+/* bleftSizer is added with proportion 0 — it takes its own width; bSizerRight
+   with proportion 1 — it grows. */
+.ze-pgs-left {
+  flex: 0 0 auto;
+}
+.ze-pgs-right {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ze-pgs-left > span,
+.ze-pgs-right > span {
+  padding: var(--wx-border) var(--wx-border) 0;
+}
+.ze-pgs-label {
+  font-size: var(--ui-font-size);
+}
+.ze-pgs-left > .ze-combo {
+  margin: 0 var(--wx-border) var(--wx-border);
+}
+/* fgSizer1: wxFlexGridSizer( 0, 3, 3, 0 ) — label | ctrl | units, 3px vgap. */
+.ze-pgs-custom {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 3px var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+/* m_PageLayoutExampleBitmap: wxBORDER_SIMPLE, on wxSYS_COLOUR_WINDOW. */
+.ze-pgs-preview {
+  align-self: center;
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-face);
+  margin: var(--wx-border);
+}
+.ze-pgs-filerow {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+.ze-pgs-filerow .ze-search {
+  flex: 1;
+  min-width: 0;
+}
+/* fgSizer2: wxFlexGridSizer( 0, 3, 0, 0 ) with AddGrowableCol( 1 ). The third
+   column is the sixteen "Export to other sheets" checkboxes, every one of them
+   Show(false) in this dialog (dialog_page_settings.cpp:171-186), so the grid
+   is two columns wide here. */
+.ze-pgs-tb {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--wx-border);
+  padding: 0 var(--wx-border);
+}
+/* [data] The .fbp's own minimum widths, which are what set this dialog's
+   overall width: SetMinSize( wxSize( 360, -1 ) ) on Title, Company and
+   Comment1-9 (dialog_page_settings_base.cpp:257-377) and wxSize( 100, -1 ) on
+   the date and revision entries (:224, :245). They are per-dialog data, not
+   chrome, which is why they live here and not on `.ze-search`. */
+.ze-pgs-tb > .ze-search {
+  min-width: 360px;
+}
+.ze-pgs-tb > .ze-search.short,
+.ze-pgs-daterow > .ze-search:first-child {
+  min-width: 100px;
+}
+.ze-pgs-tblabel {
+  font-size: var(--ui-font-size);
+  white-space: nowrap;
+}
+.ze-pgs-daterow {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-border);
+  min-width: 0;
+}
+/* UNIT_BINDER::Enable( false ) greys the label, the value control AND the unit
+   static text together (unit_binder.cpp:697-706) — by colour, as GTK's
+   `label:disabled { color: #929292 }` does, never by opacity. */
+.ze-unit-label.disabled,
+.ze-pgs .disabled-label {
+  color: var(--ctl-fg-disabled);
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_RESTORE_LOCAL_HISTORY's own frame
+   (common/dialogs/dialog_restore_local_history.cpp:62-68).
+
+       topSizer->Add( m_list,    1, wxEXPAND | wxALL, 5 );
+       topSizer->Add( m_details, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5 );
+       topSizer->Add( buttons,   0, wxEXPAND | wxALL, 5 );
+
+   Both proportion 1, so the list and the details box split the height evenly
+   and both grow with the window. The 5 is the wx border, --wx-border.
+   --------------------------------------------------------------------------- */
+.ze-rlhist-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  /* wxALL 5 on the list, then LEFT|RIGHT|BOTTOM 5 on the details: the two
+     share one gap between them rather than stacking two. */
+  padding: var(--wx-border);
+  gap: var(--wx-border);
+}
+/* The list header and body are one control; the header must not shrink. */
+.ze-rlhist-body > .ze-lhist-head {
+  flex: 0 0 auto;
+}
+.ze-rlhist-body > .ze-lhist-list,
+.ze-rlhist-body > .ze-rlhist-details {
+  /* proportion 1 each. The header is part of the list's box, so the list keeps
+     a slightly smaller basis to leave the two panes even on screen. */
+  flex: 1 1 0;
+  min-height: 0;
+}
+.ze-rlhist-details {
+  resize: none;
+  font-family: inherit;
+  /* wxTE_MULTILINE: it wraps and scrolls rather than growing. */
+  overflow: auto;
 }
