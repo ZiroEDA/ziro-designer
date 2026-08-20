@@ -446,32 +446,38 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
    PANEL's own background, and the text is absolute black. Ours were #22242899
    and #101215, which is why our boxes read as a table with borders where
    KiCad's read as separated tiles. */
-.es-grid {
+.eser-grid {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
 
-.es-grid th,
-.es-grid td {
+.eser-grid th,
+.eser-grid td {
   /* [data] SetGridLineColour( parent->GetBackgroundColour() ) */
   border: 1px solid var(--chrome-bg);
-  padding: 2px 10px;
+  /* `AutoSizeColumn` sizes a column to its widest extent plus wxGrid's own
+     margin, NOT to a number anybody wrote down: [px] KiCad's "E24" label inks
+     24 px inside a 34 px column, and its "-" separator column comes out 14. So
+     this width has to be derived too — the `min-width: 52px` pin that was here
+     made every column half as wide again as the binary's. Ours land ~2 px over
+     34 because Noto Sans' digits are ~6% wider than Ubuntu Sans'. */
+  padding: 2px 5px;
   height: 22px; /* [px] a wxGrid row is 24 px including its 1 px rule */
   text-align: center;
   color: #000000; /* [data] SetDefaultCellTextColour( *wxBLACK ) */
-  min-width: 52px;
 }
 
-.es-grid th {
+/* A wxGrid draws its column labels in the LABEL window: ONE background for the
+   whole strip, `GetLabelBackgroundColour()`, with no per-column colour and no
+   way to ask for one. [px] KiCad's strip is rgb(55,55,55) — the same face every
+   control in this launcher has — carrying the theme's normal ink. Ours painted
+   each header in its series colour with black text, and neither is upstream's.
+   The BLACK ink is `SetDefaultCellTextColour`, a CELL default; it never reaches
+   the labels. */
+.eser-grid th {
   font-weight: 700;
-}
-
-/* UNPROVEN, left counted: 620 is a number that fits a 1080p screen, not
-   anything KiCad states. The E-series panel's own scroll comes from the
-   wxScrolledWindow the page sits in, which has no height of its own. */
-.es-scroll {
-  max-height: 620px;
-  overflow-y: auto;
+  background: var(--ctl-face);
+  color: var(--chrome-fg);
 }
 
 /* wxButton. [px] 34 px outer, face rgb(55,55,55), 1 px rgb(24,24,24) border.
@@ -1455,20 +1461,53 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   min-width: 0;
 }
 
-/* The E-series panel is two grids stacked, the wider one first. */
-.es-panel {
+/* --- E-Series (panel_eseries_display_base.cpp) ---
+   NAME COLLISION, fixed here: this panel's classes were `.es-*`, which is also
+   what Electrical Spacing uses, so `.es-panel` was declared twice in this one
+   file and the LATER rule silently gave Electrical Spacing an
+   `align-items: flex-start` nothing upstream asks for. This panel is `.eser-*`
+   now and Electrical Spacing keeps `.es-*`. */
+.eser-panel {
   display: flex;
   flex-direction: column;
+}
+
+/* bTablesSizerESeries is wxHORIZONTAL (base:19) — the wide grid on the LEFT and
+   E1,E3,E6,E12 beside it, sharing a top edge. Ours stacked them. Neither box is
+   added with wxEXPAND and the row itself goes into bSizerESeries with
+   proportion 0 and no wxEXPAND (base:64), so nothing has slack to take and both
+   boxes shrink-wrap their grid. `wxTOP, 5` is the row's only border. */
+.eser-tables {
+  display: flex;
+  flex-direction: row;
   align-items: flex-start;
+  margin-top: var(--wx-border); /* [data] bSizerESeries->Add( ..., wxTOP, 5 ) */
+}
+
+.eser-box {
+  width: fit-content;
+  margin: 0;
 }
 
 /* The gap column between two stripes: one merged cell the full height of the
-   stripe, so no horizontal rules cross it. */
-.es-grid .es-gap {
-  min-width: 16px;
-  background: none;
+   stripe, so no horizontal rules cross it, repainted `s_colourMatching` =
+   `GetLabelBackgroundColour()` "to make them less eye-catching"
+   (panel_eseries_display.cpp:397-404). [px] rgb(55,55,55), the same face as the
+   label strip above it — ours drew nothing there. Its width is its "-" label's,
+   AutoSizeColumn like every other column, so it is not pinned either. */
+.eser-grid .eser-gap {
+  background: var(--ctl-face);
   border-top: none;
   border-bottom: none;
+}
+
+/* m_panelESeriesHelp is added straight to bSizerESeries — no wxStaticBoxSizer,
+   no "Help" legend, unlike the four help panes elsewhere in this launcher —
+   with proportion 1 and wxEXPAND (base:69). `.calc-help-body` already carries
+   the HTML_WINDOW's rgb(39,39,39) fill, its 100 px minimum and its 21 px line
+   pitch, so this states only the borders that item has and nothing it does not. */
+.eser-help {
+  margin: 0 var(--wx-border) var(--wx-border);
 }
 
 /* Board Classes: the unit selector on the left, the note pushed to the right. */
