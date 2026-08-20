@@ -11,7 +11,7 @@
 
 import { iuToMM } from '../eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
-import { layoutText } from '../font/stroke_font.js';
+import { interline, layoutText } from '../font/stroke_font.js';
 import type { WksItem, WksPoint, WksCorner } from './types.js';
 import type { DsDrawItem } from './layout.js';
 
@@ -22,8 +22,6 @@ export interface WksBBox {
   maxY: number;
 }
 
-/** Line-pitch factor for multi-line text height (FONT_METRICS). */
-const INTERLINE_PITCH = 1.68;
 
 /** Bounding box (IU) of one resolved draw primitive. */
 export function drawItemBBox(d: DsDrawItem): WksBBox {
@@ -62,7 +60,9 @@ export function drawItemBBox(d: DsDrawItem): WksBBox {
       }
       const scaleX = d.h > 0 ? d.w / d.h : 1;
       const w = Math.max(widest * scaleX, d.w);
-      const h = d.h + (lines.length - 1) * d.h * INTERLINE_PITCH;
+      // `STROKE_FONT::GetInterline`, the pitch `layoutText` just stacked the
+      // lines at; the bare METRICS pitch boxed them 4.3 % too tall.
+      const h = d.h + (lines.length - 1) * interline(d.h);
       const hx = d.hjustify === 'left' ? 0 : d.hjustify === 'right' ? -w : -w / 2;
       const hy = d.vjustify === 'top' ? 0 : d.vjustify === 'bottom' ? -h : -h / 2;
       const rad = (-d.rotate * Math.PI) / 180;
