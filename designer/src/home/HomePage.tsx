@@ -77,18 +77,8 @@ import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
-import { commitSnapshot, deleteProjectHistory, enforceSizeLimit } from './local_history_store.js';
+import { deleteProjectHistory, recordSnapshot } from './local_history_store.js';
 
-/**
- * How much of the origin's storage the history of one project may use.
- *
- * `EnforceSizeLimit( aProjectPath, aMaxBytes, ... )` upstream, whose budget is
- * a user setting. Ours is a constant until there is a page to put it on, and it
- * is deliberately generous: blobs are shared between snapshots, so this is the
- * distinct content of a project's whole history rather than the sum of its
- * snapshots, and a project of any size only grows it by what actually changed.
- */
-const HISTORY_MAX_BYTES = 64 * 1024 * 1024;
 import {
   filesFromFileList,
   walkDirectoryHandle,
@@ -727,14 +717,12 @@ export function HomePage({
             // LOCAL_HISTORY::CommitSnapshot, which upstream runs from the same
             // place a save does. Declines by itself when nothing changed, so
             // reopening a folder does not add a row saying nothing happened.
-            void commitSnapshot(
+            void recordSnapshot(
               pid,
               withBytes.map((f) => ({ name: f.name, bytes: f.bytes! })),
               'save',
               name,
-            ).then(async (snap) => {
-              if (snap) await enforceSizeLimit(pid, HISTORY_MAX_BYTES);
-            });
+            );
             // Mirror to the cloud when signed in (best-effort, non-blocking).
             if (userId)
               void pushProject(userId, pid).catch((e) => console.warn('Cloud push failed:', e));

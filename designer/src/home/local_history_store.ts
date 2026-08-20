@@ -191,6 +191,42 @@ export async function commitSnapshot(
   }, null);
 }
 
+/**
+ * `EnforceSizeLimit( aProjectPath, aMaxBytes, ... )`'s budget, whose upstream
+ * counterpart is a user setting. Ours is a constant until there is a page to
+ * put it on, and it is deliberately generous: blobs are shared between
+ * snapshots, so this is the distinct content of a project's whole history
+ * rather than the sum of its snapshots, and a project of any size only grows it
+ * by what actually changed.
+ *
+ * It lives here, beside the two functions that use it, rather than in the one
+ * screen that happened to call them first.
+ */
+export const HISTORY_MAX_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Commit a snapshot and settle the history — the pair every caller wants.
+ *
+ * `enforceSizeLimit`'s own contract is "called after a commit, so the history
+ * settles rather than grows without bound", so the two belong together. There
+ * are two callers now (opening a project, and saving one) and a third would
+ * have copied the pairing again.
+ *
+ * `commitSnapshot` already declines when nothing changed, returning null, so
+ * this is a no-op on a save that wrote nothing new — which is what keeps a
+ * repeated Ctrl+S from filling the pane with identical rows.
+ */
+export async function recordSnapshot(
+  projectId: string,
+  files: readonly StoredFile[],
+  kind: SnapshotKind = 'save',
+  detail?: string,
+): Promise<Snapshot | null> {
+  const snap = await commitSnapshot(projectId, files, kind, detail);
+  if (snap) await enforceSizeLimit(projectId, HISTORY_MAX_BYTES);
+  return snap;
+}
+
 /** The files as they were, ready to be written back over the project. */
 export async function readSnapshot(id: string): Promise<StoredFile[] | null> {
   return quietly(async () => {

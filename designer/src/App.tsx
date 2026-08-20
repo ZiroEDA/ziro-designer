@@ -13,6 +13,7 @@ import {
   saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
+import { recordSnapshot } from './home/local_history_store.js';
 import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
@@ -451,6 +452,51 @@ export function App(): JSX.Element {
   // Persist project files to IndexedDB/cloud immediately (no autosave debounce),
   // used for discrete actions, drawing-sheet reference changes and Save to
   // Project, so a "go back and reopen" reads them straight back.
+  /**
+   * An editor's explicit Save — `LOCAL_HISTORY::CommitSnapshot`, which upstream
+   * runs from the same place a save does.
+   *
+   * Until this existed, `commitSnapshot` had exactly ONE call site in the tree
+   * (HomePage's open/import path), so every row in the Local History pane was a
+   * project being opened and nothing a user did was ever recorded. An hour of
+   * editing with Ctrl+S throughout produced no history at all, while the pane
+   * looked like it was working.
+   *
+   * Two things this must get right, and both are why it is not folded into
+   * `persistFilesNow`:
+   *
+   *  - the snapshot must be the WHOLE project, and it must be the CURRENT
+   *    content. `persistFilesNow` is handed only the files that changed, and
+   *    `projectFilesRef` holds the project as it was OPENED — nothing updates
+   *    it as edits are saved. Snapshotting either would record a partial or a
+   *    stale project, and because the store is content-addressed the result
+   *    would look perfectly healthy. So the write is awaited and the record is
+   *    then read back with `loadProject`, which is the one place the complete,
+   *    current set exists.
+   *  - it is the explicit-Save path ONLY. Autosave must not land here:
+   *    `writePending` firing this would make every debounced write a 'save' row
+   *    and destroy the distinction between "the user chose this point" and "the
+   *    app wrote something". If autosave should record anything it is
+   *    `kind: 'autosave'`, and that is a separate decision.
+   */
+  const saveProjectFiles = useCallback(async (files: PickedFile[]): Promise<void> => {
+    const cur = projectFilesRef.current;
+    if (!cur || files.length === 0 || !storageAvailable()) return;
+    try {
+      const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
+      if (!rec) return;
+      await updateProjectFiles(
+        rec.id,
+        files.map((f) => ({ name: f.name, bytes: enc.encode(f.text) })),
+      );
+      // Only now is the project on disk the thing worth remembering.
+      const loaded = await loadProject(rec.id);
+      if (loaded) await recordSnapshot(rec.id, loaded.files, 'save', rec.name);
+    } catch {
+      /* storage disabled */
+    }
+  }, []);
+
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
     if (!cur || files.length === 0 || !storageAvailable()) return;
@@ -903,6 +949,9 @@ export function App(): JSX.Element {
               // rather than left to infer that its work is being saved.
               autosaveActive={!!projectFiles && storageAvailable() && !demoProject}
               onPersistFiles={persistFilesNow}
+              // Explicit Save only — it records a Local History point, which
+              // autosave must not. See saveProjectFiles.
+              onSaveFiles={saveProjectFiles}
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}
               extraSheetFiles={sessionSheets}

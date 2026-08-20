@@ -644,6 +644,7 @@ export function SchematicEditor({
   placeRequest,
   onProjectChange,
   onPersistFiles,
+  onSaveFiles,
   onOutputFile,
   registerAutosaveFlush,
   extraSheetFiles,
@@ -696,6 +697,14 @@ export function SchematicEditor({
   /** Persist project files immediately (no debounce), used for the drawing-sheet
    *  reference in .kicad_pro so it survives a "go back and reopen". */
   onPersistFiles?: (files: PickedFile[]) => void;
+  /**
+   * The EXPLICIT Save. Writes the files and then records a Local History point
+   * (`LOCAL_HISTORY::CommitSnapshot`, which upstream runs from the same place a
+   * save does). Distinct from `onPersistFiles` because that one is also used
+   * for incidental writes — the drawing-sheet reference, sheet bookkeeping —
+   * and none of those is a point a user chose to be able to come back to.
+   */
+  onSaveFiles?: (files: PickedFile[]) => Promise<void>;
   /** Write a generated output file (plot / export) into the project file
    *  manager instead of the browser download folder. When absent, outputs fall
    *  back to a browser download. */
@@ -3666,9 +3675,12 @@ export function SchematicEditor({
       setInfoBar(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
-    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+    if (onSaveFiles && currentFile !== DEFAULT_FILE) {
       // Save writes into the project's file manager (cloud storage); a local
-      // copy can be downloaded from there (or via Save a Copy).
+      // copy can be downloaded from there (or via Save a Copy). This is the
+      // path that also commits the Local History point.
+      void onSaveFiles([{ name: currentFile, text }]);
+    } else if (onPersistFiles && currentFile !== DEFAULT_FILE) {
       onPersistFiles([{ name: currentFile, text }]);
     } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
@@ -3684,7 +3696,7 @@ export function SchematicEditor({
     // Only now: the asterisk and the leave-prompt both mean "written".
     setDirty(false);
     setUnsaved(false);
-  }, [fileName, currentFile, onPersistFiles]);
+  }, [fileName, currentFile, onPersistFiles, onSaveFiles]);
 
   /**
    * `SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs` (eeschema/tools/
