@@ -243,6 +243,73 @@ export function restoreConfirmMessage(at: number): string {
   return `Restore the project to the version from ${stamp}?`;
 }
 
+/**
+ * `DIALOG_RESTORE_LOCAL_HISTORY` (common/dialogs/dialog_restore_local_history.cpp),
+ * behind File > "Restore Project from Local History..."
+ * (kicad/tools/kicad_manager_actions.cpp:235-240 -> KICAD_MANAGER_FRAME::
+ * RestoreLocalHistory, kicad/files-io.cpp:101-104 -> LOCAL_HISTORY::
+ * ShowRestoreDialog, common/local_history.cpp:2384-2404).
+ *
+ * The three columns and their declared widths (:47-49, :89-91).
+ *
+ * [data] KiCad states the widths itself, as `FromDIP` pixels: 170 / 380 / 70.
+ */
+export const RESTORE_DIALOG_TITLE = 'Restore Project from Local History\u2026';
+export const RESTORE_LIST_COLUMNS = [
+  { key: 'time', label: 'Time', width: 170 },
+  { key: 'action', label: 'Action', width: 380 },
+  { key: 'count', label: 'Count', width: 70 },
+] as const;
+
+/** `SetMinSize( FromDIP( wxSize( 700, 500 ) ) )` (:68). */
+export const RESTORE_DIALOG_MIN_WIDTH = 700;
+export const RESTORE_DIALOG_MIN_HEIGHT = 500;
+
+/**
+ * `wxDateTime::FormatISOCombined()`, the Time column and the second line of the
+ * details box (:80, :111).
+ *
+ * Default separator is 'T', and like every other wxDateTime formatter it renders
+ * LOCAL time - `toISOString()` would print UTC and shift the stamp the user is
+ * choosing between.
+ */
+export function formatISOCombined(at: number): string {
+  const d = new Date(at);
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+    `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  );
+}
+
+/**
+ * The Count column (:81-82):
+ *
+ *     snapshot.filesChanged > 0 ? wxString::Format( "%d", ... ) : wxString( "-" )
+ *
+ * A plain hyphen, not an em dash and not an empty cell.
+ */
+export const restoreCountText = (filesChanged: number): string =>
+  filesChanged > 0 ? String(filesChanged) : '-';
+
+/**
+ * The read-only details box, `UpdateDetails` (:102-126), built in this order:
+ *
+ *     summary \n date(ISO combined) \n hash
+ *     [ blank line, ONLY when there are changed files ]
+ *     one changed file per line
+ *
+ * Upstream's per-file line is `<path> <adds>/<dels>/<updated>`, the line stats
+ * libgit2 hands it from the diff (common/local_history.cpp:1083-1097). We store
+ * the changed NAMES and never computed line stats, so ours is the path alone -
+ * a reduction, stated here rather than faked with zeroes.
+ */
+export function restoreDetailText(snapshot: Snapshot): string {
+  let text = `${snapshot.title}\n${formatISOCombined(snapshot.at)}\n${snapshot.id}`;
+  if (snapshot.changed.length > 0) text += `\n\n${snapshot.changed.join('\n')}`;
+  return text;
+}
+
 /** The kind a title encodes, which is how the pane tints a row it read back. */
 export function kindOfTitle(title: string): SnapshotKind {
   if (title.startsWith('Autosave')) return 'autosave';

@@ -6937,6 +6937,55 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* ---------------------------------------------------------------------------
+   DIALOG_RESTORE_LOCAL_HISTORY's list, which is the SAME wxListCtrl widget as
+   the pane's — same rows, same header, same selection — with three differences
+   KiCad states in the constructor
+   (common/dialogs/dialog_restore_local_history.cpp:45-49, :89-91) against the
+   pane's (kicad/local_history_pane.cpp:42-44):
+
+     three columns, not two, at FromDIP 170 / 380 / 70
+     wxLC_HRULES | wxLC_VRULES, which the pane does not set
+
+   So it reuses `.ze-lhist-head` / `.ze-lhist-list` / `.ze-lhist-row` and states
+   only what actually differs. The alternative — a second list styled from
+   scratch — is how the tree ended up with per-editor copies of shared widgets
+   before.
+   --------------------------------------------------------------------------- */
+.ze-lhist-head.cols3,
+.ze-lhist-row.cols3 {
+  /* The three declared widths, as a ratio so the dialog can be resized without
+     the Time column being clipped first — the same treatment the pane's two
+     already get. */
+  grid-template-columns: minmax(0, 170fr) minmax(0, 380fr) minmax(0, 70fr);
+}
+.ze-lhist-row.cols3 .time,
+.ze-lhist-row.cols3 .action,
+.ze-lhist-row.cols3 .count,
+.ze-lhist-head.cols3 .time,
+.ze-lhist-head.cols3 .action,
+.ze-lhist-head.cols3 .count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* wxLC_HRULES: one hairline under each row.
+   [UNMEASURED] The generic wxListCtrl draws its rules with a system colour we
+   have not sampled, and no capture of this dialog exists yet. This uses the one
+   hairline in this control that HAS been measured — the header's rule, taken
+   off a running frame at rgb(44,44,44) — so the dialog is at worst internally
+   consistent rather than carrying an invented hue. Flagged for a capture. */
+.ze-lhist-list.rules .ze-lhist-row {
+  border-bottom: 1px solid var(--chrome-bg);
+}
+/* wxLC_VRULES: the same hairline between columns, carried by each column but
+   the last. The gutter is the row's own `gap`, which the rule therefore sits at
+   the LEFT edge of rather than the middle of; restating that gap here to centre
+   it would be a local copy of a value the row already states, and the rule's
+   colour is unmeasured anyway. Both go in the same capture. */
+.ze-lhist-list.rules .ze-lhist-row > span:not(:last-child) {
+  border-right: 1px solid var(--chrome-bg);
+}
 .ze-lhist-row:hover {
   background: var(--chrome-hover);
 }
@@ -7430,4 +7479,43 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-unit-label.disabled,
 .ze-pgs .disabled-label {
   color: var(--ctl-fg-disabled);
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_RESTORE_LOCAL_HISTORY's own frame
+   (common/dialogs/dialog_restore_local_history.cpp:62-68).
+
+       topSizer->Add( m_list,    1, wxEXPAND | wxALL, 5 );
+       topSizer->Add( m_details, 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5 );
+       topSizer->Add( buttons,   0, wxEXPAND | wxALL, 5 );
+
+   Both proportion 1, so the list and the details box split the height evenly
+   and both grow with the window. The 5 is the wx border, --wx-border.
+   --------------------------------------------------------------------------- */
+.ze-rlhist-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  /* wxALL 5 on the list, then LEFT|RIGHT|BOTTOM 5 on the details: the two
+     share one gap between them rather than stacking two. */
+  padding: var(--wx-border);
+  gap: var(--wx-border);
+}
+/* The list header and body are one control; the header must not shrink. */
+.ze-rlhist-body > .ze-lhist-head {
+  flex: 0 0 auto;
+}
+.ze-rlhist-body > .ze-lhist-list,
+.ze-rlhist-body > .ze-rlhist-details {
+  /* proportion 1 each. The header is part of the list's box, so the list keeps
+     a slightly smaller basis to leave the two panes even on screen. */
+  flex: 1 1 0;
+  min-height: 0;
+}
+.ze-rlhist-details {
+  resize: none;
+  font-family: inherit;
+  /* wxTE_MULTILINE: it wraps and scrolls rather than growing. */
+  overflow: auto;
 }

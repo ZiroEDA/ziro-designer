@@ -77,7 +77,14 @@ import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
-import { deleteProjectHistory, recordSnapshot, restoreSnapshot } from './local_history_store.js';
+import {
+  deleteProjectHistory,
+  listSnapshots,
+  onHistoryChanged,
+  recordSnapshot,
+  restoreSnapshot,
+} from './local_history_store.js';
+import { RestoreLocalHistoryDialog } from './dialog_restore_local_history.js';
 import {
   RESTORE_CAPTION,
   RESTORE_EXTENDED,
@@ -366,6 +373,10 @@ export function HomePage({
   }, [historyShown]);
   /** The snapshot "Restore Commit" was asked for, while its confirmation is up. */
   const [restoring, setRestoring] = useState<Snapshot | null>(null);
+  /** DIALOG_RESTORE_LOCAL_HISTORY, the File-menu route to the same restore. */
+  const [restoreListOpen, setRestoreListOpen] = useState(false);
+  /** `LoadSnapshots`, kept so the File menu can honour `HistoryExists`. */
+  const [history, setHistory] = useState<Snapshot[]>([]);
 
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -1045,6 +1056,31 @@ export function HomePage({
     () => (projName ? (saved.find((p) => p.name === projName)?.id ?? null) : null),
     [saved, projName],
   );
+  // `HistoryExists( Prj().GetProjectPath() )`, which the File menu's enable
+  // condition asks for on every UI update (kicad/menubar.cpp:108-113). Read the
+  // same way the pane reads it, and re-read on the same event, so the menu item
+  // and the pane can never disagree about whether there is a history.
+  useEffect(() => {
+    if (!openProjectId) {
+      setHistory([]);
+      return;
+    }
+    let live = true;
+    const read = (): void => {
+      void listSnapshots(openProjectId).then((rows) => {
+        if (live) setHistory(rows);
+      });
+    };
+    read();
+    const off = onHistoryChanged((id) => {
+      if (id === openProjectId) read();
+    });
+    return () => {
+      live = false;
+      off();
+    };
+  }, [openProjectId]);
+
   // KiCad's getProjects(dir): the basenames of every .kicad_pro in the folder.
   // A folder may hold several projects (e.g. the ecc83 demo's ecc83-pp and
   // ecc83-pp_v2); the tree shows the root sheet of each, so this set, not just
@@ -1193,6 +1229,8 @@ export function HomePage({
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
     closeProject: () => setPicked(null),
+    restoreLocalHistory: () => setRestoreListOpen(true),
+    hasLocalHistory: history.length > 0,
     saveAs: () => void saveAsProject(),
     archiveProject: () => void archiveProject(),
     unarchiveProject: () => zipInputRef.current?.click(),
@@ -1613,6 +1651,21 @@ export function HomePage({
             </>
           )}
         </div>
+      )}
+
+      {/* DIALOG_RESTORE_LOCAL_HISTORY. `ShowRestoreDialog` returns without
+          showing anything when the history is empty (common/local_history.cpp:
+          2386-2392); the File item is disabled in that case, so this cannot be
+          reached with nothing to list. Choosing a row hands it to the same
+          confirmation the pane's context menu raises. */}
+      {restoreListOpen && (
+        <RestoreLocalHistoryDialog
+          snapshots={history}
+          onResult={(s) => {
+            setRestoreListOpen(false);
+            if (s) setRestoring(s);
+          }}
+        />
       )}
 
       {/* `RestoreCommit`'s own confirmation (common/local_history.cpp:2252-2270).

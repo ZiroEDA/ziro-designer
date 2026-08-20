@@ -35,6 +35,10 @@ export interface ManagerMenuHandlers {
    */
   fileHistorySize?: number;
   closeProject: () => void;
+  /** File > Restore Project from Local History… (KICAD_MANAGER_ACTIONS::restoreLocalHistory). */
+  restoreLocalHistory: () => void;
+  /** `HistoryExists( Prj().GetProjectPath() )` — the open project has snapshots. */
+  hasLocalHistory: boolean;
   saveAs: () => void;
   archiveProject: () => void;
   unarchiveProject: () => void;
@@ -130,9 +134,15 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         SEP,
         { label: 'Close Project', action: h.closeProject, disabled: !h.hasProject },
         SEP,
-        // Upstream disables this when no local history exists; ours is
-        // disabled until the snapshot subsystem lands (tracked issue).
-        { label: 'Restore Project from Local History…', disabled: true },
+        // `historyCond.Enable( AutosaveUsesLocalHistory() && HistoryExists(
+        //  Prj().GetProjectPath() ) )` (kicad/menubar.cpp:107-114). We have no
+        // AutosaveUsesLocalHistory setting to switch off, so the enable rule is
+        // the other half: a project is open and it has at least one snapshot.
+        {
+          label: 'Restore Project from Local History…',
+          action: h.restoreLocalHistory,
+          disabled: !h.hasLocalHistory,
+        },
         SEP,
         { label: 'Save As…', shortcut: 'Shift+Ctrl+S', action: h.saveAs, disabled: !h.hasProject },
         SEP,
