@@ -5865,20 +5865,30 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-ds-tabs button {
   flex: 1;
-  /* 30 px of tab: 14.67 px of label + 6 px above and below + the 2 px marker.
-     KiCad's wxNotebook tab strip measured ~30 px here (--tab-strip-height is
-     the 36 px of a bitmap2component notebook, a different frame). */
-  padding: 6px 4px;
+  /* The wxNotebook tab strip is --tab-strip-height. [px] re-measured on this
+     launcher's own capture (ziro-dsp/shots/k_tab.png, a 3.2x crop of a real
+     pane): the strip runs y189..300, i.e. 35 px, against the token's 36 — the
+     same widget, so the token stands. 17 px of label + 8 px above and below +
+     the 3 px marker = 36. Ours was 24 px, from a 6 px pad and an invented 2 px
+     marker. */
+  padding: 8px 4px;
   font: inherit;
   font-size: var(--ui-font-size);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: var(--tab-underline) solid transparent;
   color: inherit;
   cursor: default;
 }
 .ze-ds-tabs button.active {
-  border-bottom-color: #4aa3ff;
+  /* [px] the selected tab's marker sampled off the same capture: a solid band
+     of rgb(238, 84, 31) — the desktop accent, which is --chrome-active
+     (#e95420). Ours was #4aa3ff, a blue that appears nowhere in the GTK theme
+     and is the single loudest thing on this pane.
+     [css] notebook > header.top > tabs > tab:checked { box-shadow: inset 0 -3px }
+     in $selected_bg_color, which is where the 3 px in --tab-underline came
+     from. */
+  border-bottom-color: var(--chrome-active);
   font-weight: 600;
 }
 .ze-ds-group {

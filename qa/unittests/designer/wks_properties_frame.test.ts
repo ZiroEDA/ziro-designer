@@ -345,6 +345,21 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
     for (const line of declarations) expect(line).toMatch(/var\(--ui-font-size/);
   });
 
+  it('marks the selected tab in the desktop accent, not in a blue of our own', () => {
+    // [px] sampled off ziro-dsp/shots/k_tab.png: rgb(238, 84, 31), which is
+    // --chrome-active (#e95420). This block carries no hex colour of its own.
+    const CSS = read('../../../designer/src/ui/shell.css');
+    const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
+    const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
+    const block = CSS.slice(start, end);
+    expect(block).toContain('border-bottom-color: var(--chrome-active);');
+    expect(block).toContain('border-bottom: var(--tab-underline) solid transparent;');
+    for (const line of block
+      .split('\n')
+      .filter((l) => /^\s*(background|color|border-.*color):/.test(l)))
+      expect(line, 'a hex colour in this launcher’s CSS').not.toMatch(/#[0-9a-f]{3,8}/i);
+  });
+
   it('lets a distance field fill its column instead of pinning 62 px', () => {
     // Every wxTextCtrl in properties_frame_base.cpp is added wxEXPAND into a
     // sizer with a growable value column (AddGrowableCol( 1 )).
