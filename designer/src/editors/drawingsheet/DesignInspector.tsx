@@ -6,7 +6,7 @@
  * DIALOG_INSPECTOR (pagelayout_editor/dialogs/design_inspector.cpp): a grid of
  * every item in the sheet model with a leading root "Layout" row describing
  * the page, and per-item columns for the type, repeat count, comment and text.
- * Clicking a row selects (and zooms to) that item on the canvas.
+ * Clicking a row selects that item on the canvas and leaves the dialog open.
  */
 
 import type { JSX } from 'react';
@@ -99,10 +99,14 @@ export function DesignInspector({
                     cursor: 'default',
                     background: selection.has(i) ? 'rgba(74,163,255,0.18)' : undefined,
                   }}
-                  onClick={() => {
-                    onSelect(i);
-                    onClose();
-                  }}
+                  // DIALOG_INSPECTOR::onCellClicked
+                  // (design_inspector.cpp:338-354) selects the row, selects the
+                  // item in the editor and repopulates the properties frame.
+                  // It does NOT end the dialog: you walk the list row by row
+                  // with it open, watching the canvas behind it. Ours used to
+                  // close on the first click, so inspecting 29 items meant 29
+                  // trips through the Inspect menu.
+                  onClick={() => onSelect(i)}
                 >
                   <td style={cell}>{TYPE_GLYPH[it.type]}</td>
                   <td style={cell}>{TYPE_LABEL[it.type]}</td>
