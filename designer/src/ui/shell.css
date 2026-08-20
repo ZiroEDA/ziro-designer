@@ -2423,6 +2423,24 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   width: 240px;
   border-right: 1px solid var(--chrome-border);
 }
+/* The same dock column on the other side, for pl_editor's Props pane —
+   `.Right().Layer( 3 )`, outside the RightToolbar's `.Layer( 2 )`
+   (pl_editor_frame.cpp:197-204). Only the edge that carries the separator
+   differs, because that edge is the one facing the canvas.
+
+   Deliberately NOT `.ze-rightdock`: that is pcbnew's Appearance + Selection
+   Filter stack, and it repaints its panes in the layer-panel grey
+   (`--panel-list-bg`) that a plain wxPanel does not have.
+
+   `min-width` is the pane's `.MinSize( m_propertiesPagelayout->GetMinSize() )`
+   (pl_editor_frame.cpp:203) — the panel's own content minimum, which wxAUI
+   takes over BestSize whenever it is larger. The width is content, the way
+   `.ze-modal` is `Fit()`. */
+.ze-leftdock.on-right {
+  border-right: none;
+  border-left: 1px solid var(--chrome-border);
+  min-width: min-content;
+}
 /* Schematic Editor's left dock only: real eeschema's own chrome colors
    (sampled off a live 9.0.8 window, GTK/Yaru dark theme - neutral greys,
    not our app's blue-tinted chrome, and its orange row/checkbox highlight

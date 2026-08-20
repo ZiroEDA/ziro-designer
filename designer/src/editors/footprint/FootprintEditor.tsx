@@ -96,6 +96,18 @@ const _MM = 10000;
  * schematic IU scale while this canvas holds board geometry at pcbnew's, so the
  * number it printed and the number it meant were a hundred apart.
  */
+/**
+ * The two docked palette widths, `footprint_edit_frame.cpp:228-252`.
+ *
+ * [data] KiCad states them itself, as `FromDIP` pixels rather than a theme
+ * value: the Footprints tree is `.MinSize( FromDIP( 250 ), FromDIP( 80 ) )
+ * .BestSize( FromDIP( 250 ), -1 )` and the LayersManager and Selection Filter
+ * are `.MinSize( FromDIP( 180 ), … ).BestSize( FromDIP( 180 ), -1 )`. Ours were
+ * 260 and 200, neither of which is anywhere upstream.
+ */
+const LIBRARY_TREE_WIDTH = 250;
+const LAYERS_MANAGER_WIDTH = 180;
+
 const FP_GRIDS: number[] = gridSizesIU('pcbnew', PCB_IU_PER_MM);
 const FP_DEFAULT_GRID = defaultGridIU('pcbnew', PCB_IU_PER_MM);
 
@@ -213,7 +225,7 @@ export function FootprintEditor({
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
-  const [panelWidth, setPanelWidth] = useState(260);
+  const [panelWidth, setPanelWidth] = useState(LIBRARY_TREE_WIDTH);
   const [newLibName, setNewLibName] = useState<string | null>(null);
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
@@ -1308,8 +1320,20 @@ export function FootprintEditor({
           )}
         </div>
 
+        {/* RightToolbar is `.Right().Layer( 2 )`; LayersManager and Selection
+            Filter are `.Right().Layer( 3 )` (footprint_edit_frame.cpp:238-252).
+            A higher wxAUI layer docks further from the centre, so the toolbar
+            touches the canvas and the palettes sit outside it. */}
+        <Toolbar
+          entries={FP_RIGHT_TOOLBAR}
+          orientation="vertical"
+          side="right"
+          activeTool={activeTool}
+          onActivate={selectTool}
+        />
+
         {toggles.has('showLayersManager') && (
-          <div className="ze-leftdock" style={{ width: 200 }}>
+          <div className="ze-leftdock on-right" style={{ width: LAYERS_MANAGER_WIDTH }}>
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
               <div className="ze-panel-body" style={{ overflow: 'auto' }}>
@@ -1346,14 +1370,6 @@ export function FootprintEditor({
             </div>
           </div>
         )}
-
-        <Toolbar
-          entries={FP_RIGHT_TOOLBAR}
-          orientation="vertical"
-          side="right"
-          activeTool={activeTool}
-          onActivate={selectTool}
-        />
       </div>
 
       {/* pcbnew-style status bar. */}

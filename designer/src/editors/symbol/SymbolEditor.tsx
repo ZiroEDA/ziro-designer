@@ -114,6 +114,15 @@ interface LastPinState {
   visible: boolean;
 }
 
+/**
+ * The library tree pane's width, `symbol_edit_frame.cpp:219-222`.
+ *
+ * [data] KiCad states it itself: `.MinSize( FromDIP( 250 ), FromDIP( 80 ) )
+ * .BestSize( FromDIP( 250 ), -1 )` — the same pair the footprint editor's tree
+ * uses. Ours was 260, which is nowhere upstream.
+ */
+const LIBRARY_TREE_WIDTH = 250;
+
 const DEFAULT_LAST_PIN: LastPinState = {
   electricalType: 'input',
   shape: 'line',
@@ -246,7 +255,7 @@ export function SymbolEditor({
   /** The symbol currently on loan from the schematic, by name; null otherwise.
    *  While set, Save routes back to the placement rather than to a library. */
   const [fromSchematic, setFromSchematic] = useState<string | null>(null);
-  const [panelWidth, setPanelWidth] = useState(260);
+  const [panelWidth, setPanelWidth] = useState(LIBRARY_TREE_WIDTH);
 
   // Dialogs / pending placements.
   const [pinDialog, setPinDialog] = useState<{
