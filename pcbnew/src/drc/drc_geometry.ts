@@ -332,11 +332,14 @@ const edgeOutOfReach = (aNear: NearestSq, a: Vec2, b: Vec2): boolean =>
  * `SHAPE::Collide` would have reported it in `aActual`.
  *
  * Every pair below minimises a **squared** distance and truncates once at the
- * end, which is where upstream's `(int)` sits. Minimising the truncated
- * distances instead and subtracting afterwards would be the same answer only by
- * luck: `std::min` over `(int) sqrt( … )` loses the ordering between two
- * candidates less than an IU apart, and the radii would come off the wrong side
- * of the cast.
+ * end, which is where upstream's `(int)` sits.
+ *
+ * Truncating inside the loop and minimising the truncated distances would give
+ * the *same* answer — `Math.trunc( Math.sqrt( … ) )` is monotone, so it commutes
+ * with `min` — and is only wasteful. What must not move is the **subtraction**:
+ * taking a radius off inside the loop puts it on the wrong side of the cast, and
+ * a half-integral radius then shifts the answer by an IU. The single
+ * {@link gap} call at each `return` is what keeps that impossible.
  */
 export function shapeDist(s1: Shape, s2: Shape): number {
   // Normalize order: circle < stadium < arc < poly.
