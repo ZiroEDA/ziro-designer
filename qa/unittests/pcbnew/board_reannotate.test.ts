@@ -470,6 +470,19 @@ describe('planBoardReannotate: exclusions and scope', () => {
     expect(refs(reannotateBoard(b, { excludeList: 'R4*' }).board)).toEqual(['R41', 'R1']);
   });
 
+  it('globs case-SENSITIVELY, because upstream uses wxString::Matches', () => {
+    // dialog_board_reannotate.cpp:506 is `RefDesString.Matches( excluded )`,
+    // not the WildCompareString( …, false ) the filter dialogs use, so `R4*`
+    // does not reach `r41`.
+    const b = board([
+      { ref: 'R41', x: 0, y: 0 },
+      { ref: 'R9', x: 0, y: 5 * MM },
+    ]);
+    // `R4*` reaches R41 and holds it back; `r4*` reaches nothing.
+    expect(refs(reannotateBoard(b, { excludeList: 'R4*' }).board)).toEqual(['R41', 'R1']);
+    expect(refs(reannotateBoard(b, { excludeList: 'r4*' }).board)).toEqual(['R1', 'R2']);
+  });
+
   it('splits the exclusion box on commas and whitespace', () => {
     const b = board([
       { ref: 'R4', x: 0, y: 0 },

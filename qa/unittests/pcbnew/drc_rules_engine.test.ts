@@ -155,6 +155,26 @@ describe('conditions', () => {
     ).toBe(MM(0.2));
   });
 
+  it('compares a netclass name case-insensitively, wildcard or not', () => {
+    // PCBEXPR_NETCLASS_VALUE::EqualTo (pcbnew/pcbexpr_evaluator.cpp:182) folds
+    // case in both its branches: WildCompareString( …, false ) when the
+    // literal holds a wildcard, ncName.IsSameAs( …, false ) when it does not.
+    // Compared case-sensitively, a rule written against 'default' matches
+    // nothing at all and DRC reports a clean board.
+    const exact = engineOf(`(version 1)
+      (rule "d" (constraint clearance (min 1.5mm)) (condition "A.NetClass == 'default'"))`);
+    expect(
+      evalDrcRules(exact, 'clearance', track({ netClasses: ['Default'] }), track(), 'F.Cu').value
+        .min,
+    ).toBe(MM(1.5));
+
+    const glob = engineOf(`(version 1)
+      (rule "hs" (constraint clearance (min 1mm)) (condition "A.NetClass == 'hs_*'"))`);
+    expect(
+      evalDrcRules(glob, 'clearance', track({ netClasses: ['HS_DDR'] }), track(), 'F.Cu').value.min,
+    ).toBe(MM(1));
+  });
+
   it('inverts a netclass comparison with !=', () => {
     const e = engineOf(`(version 1)
       (rule "notHV" (constraint clearance (min 0.4mm)) (condition "A.NetClass != 'HV'"))`);

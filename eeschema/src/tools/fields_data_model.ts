@@ -21,7 +21,7 @@
  * against the symbol the way SCH_FIELD::GetShownText does.
  */
 
-import { strNumCmp as baseStrNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { strNumCmp, valueStringCompare } from '@ziroeda/common/src/string_utils.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { buildSheetTree } from '../project.js';
 import { refId } from './hittest.js';
@@ -176,98 +176,6 @@ export function buildFieldsReferences(
     for (const file of docs.keys()) collect(file, '/');
   }
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// String comparison helpers (common/string_utils.cpp).
-
-/** StrNumCmp, natural order, digit runs compared by value. The fields table
- *  compares references case-insensitively, so that is this wrapper's default. */
-export function strNumCmp(a: string, b: string, ignoreCase = true): number {
-  return baseStrNumCmp(a, b, ignoreCase);
-}
-
-/** SplitString, trailing text, the digit run before it, and the preamble. */
-function splitString(value: string): { beginning: string; digits: string; end: string } {
-  let ii = value.length - 1;
-  for (; ii >= 0; ii--) {
-    if (value[ii]! >= '0' && value[ii]! <= '9') break;
-  }
-  if (ii < 0) return { beginning: value, digits: '', end: '' };
-  const end = value.slice(ii + 1);
-  const position = ii + 1;
-  let infix = '';
-  for (; ii >= 0; ii--) {
-    const c = value[ii]!;
-    if (c >= '0' && c <= '9') continue;
-    // One "old school" decimal separator (R47 style) may sit inside the run.
-    if (infix === '' && /[a-zA-ZµμΩ]/.test(c) && ii > 0 && ii < position - 1) {
-      infix = c;
-      continue;
-    }
-    if (c === '.' || c === ',') continue;
-    break;
-  }
-  let digits: string;
-  let beginning = '';
-  if (ii < 0) {
-    digits = value.slice(0, position);
-  } else {
-    digits = value.slice(ii + 1, position);
-    beginning = value.slice(0, ii + 1);
-  }
-  if (infix !== '') return { beginning, digits: digits.split(infix).join('.'), end: infix + end };
-  return { beginning, digits, end };
-}
-
-const SI_MODIFIERS: Readonly<Record<string, number>> = {
-  a: 1e-18,
-  f: 1e-15,
-  p: 1e-12,
-  n: 1e-9,
-  u: 1e-6,
-  µ: 1e-6,
-  μ: 1e-6,
-  m: 1e-3,
-  L: 1e-3,
-  R: 1,
-  F: 1,
-  k: 1e3,
-  K: 1e3,
-  M: 1e6,
-  G: 1e9,
-  T: 1e12,
-  P: 1e15,
-  E: 1e18,
-};
-
-/** ApplyModifier, scale `value` by an SI/IEC-60062 suffix; false when the
- *  trailing text isn't a recognised unit at all. */
-function applyModifier(value: number, text: string): { value: number; isModifier: boolean } {
-  if (text.length === 0) return { value, isModifier: false };
-  const first = text[0]!;
-  const hasModifier = first in SI_MODIFIERS;
-  const units = (hasModifier ? text.slice(1) : text).trim();
-  const known = ['f', 'hz', 'w', 'v', 'a', 'h'];
-  if (units.length > 0 && !known.includes(units.toLowerCase())) return { value, isModifier: false };
-  return { value: hasModifier ? value * SI_MODIFIERS[first]! : value, isModifier: true };
-}
-
-/** ValueStringCompare, "10uF" sorts before "100uF" and "1mF". */
-export function valueStringCompare(a: string, b: string): number {
-  const fa = splitString(a);
-  const fb = splitString(b);
-  const beg = fa.beginning.toLowerCase().localeCompare(fb.beginning.toLowerCase());
-  if (beg !== 0) return beg < 0 ? -1 : 1;
-  const na = applyModifier(Number(fa.digits.replace(/,/g, '')) || 0, fa.end);
-  const nb = applyModifier(Number(fb.digits.replace(/,/g, '')) || 0, fb.end);
-  if (na.value > nb.value) return 1;
-  if (na.value < nb.value) return -1;
-  if (!na.isModifier && !nb.isModifier) {
-    const end = fa.end.toLowerCase().localeCompare(fb.end.toLowerCase());
-    return end < 0 ? -1 : end > 0 ? 1 : 0;
-  }
-  return 0;
 }
 
 // ---------------------------------------------------------------------------

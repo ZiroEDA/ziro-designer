@@ -14,8 +14,10 @@
  * alone, which is what lets one pass change text size without also flattening
  * everyone's bold flag.
  *
- * Filters are wildcard matches (`wxString::Matches`), not substring searches:
- * `R*` matches every R but `R` matches only the symbol actually called R.
+ * Filters are wildcard matches (`WildCompareString`, and upstream passes
+ * `case_sensitive = false` at every one of them), not substring searches: `R*`
+ * matches every R, `R` matches only the symbol actually called R, and `r*`
+ * matches just as much as `R*` does.
  */
 
 import type {
@@ -32,6 +34,7 @@ import type {
   Stroke,
   TextEffects,
 } from '../types.js';
+import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import type { EditCommand } from './command.js';
 import { isBusLabelText } from './junction_helpers.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
@@ -124,15 +127,6 @@ export interface GlobalEditOptions {
   action: GlobalEditAction;
   /** Net name of an item id, for the net filter (from the netlist). */
   netOfItem?: (id: string) => string | null;
-}
-
-/** `wxString::Matches`: whole-string, `*` any run, `?` any character. */
-export function wildCompare(pattern: string, text: string): boolean {
-  const re = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*/g, '.*')
-    .replace(/\?/g, '.');
-  return new RegExp(`^${re}$`, 'i').test(text);
 }
 
 const fieldValue = (fields: readonly SchField[], key: string): string | undefined =>
@@ -261,10 +255,11 @@ function symbolPasses(
 ): boolean {
   if (!f) return true;
   if (f.reference) {
-    if (!wildCompare(f.reference, fieldValue(sym.fields, 'Reference') ?? '')) return false;
+    if (!wildCompareString(f.reference, fieldValue(sym.fields, 'Reference') ?? '', false))
+      return false;
   }
   if (f.symbolLibId) {
-    if (!wildCompare(f.symbolLibId, sym.libId)) return false;
+    if (!wildCompareString(f.symbolLibId, sym.libId, false)) return false;
   }
   if (f.symbolType) {
     const isPower = lib?.isPower ?? false;
@@ -275,7 +270,7 @@ function symbolPasses(
 
 /** The field-name filter, applied to "other" fields only. */
 const fieldNamePasses = (name: string, f: GlobalEditFilters | undefined): boolean =>
-  !f?.fieldName || wildCompare(f.fieldName, name);
+  !f?.fieldName || wildCompareString(f.fieldName, name, false);
 
 /**
  * One sweep of the dialog over one sheet. Returns the same document when
@@ -301,7 +296,7 @@ export function globalEdit(
     if (!filters?.net) return true;
     const name = opts.netOfItem?.(id) ?? null;
     if (name === null) return false;
-    return wildCompare(filters.net, name);
+    return wildCompareString(filters.net, name, false);
   };
 
   const mark = <T>(before: T, after: T): T => {

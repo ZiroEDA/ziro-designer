@@ -13,7 +13,6 @@ import {
   emptyScope,
   globalEdit,
   globalEditCommand,
-  wildCompare,
   type GlobalEditScope,
 } from '@ziroeda/eeschema/src/tools/global_edit_text_and_graphics.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
@@ -204,13 +203,6 @@ describe('action', () => {
 });
 
 describe('filters', () => {
-  it('matches references as wildcards, not substrings', () => {
-    expect(wildCompare('R*', 'R1')).toBe(true);
-    expect(wildCompare('R', 'R1')).toBe(false);
-    expect(wildCompare('R?', 'R1')).toBe(true);
-    expect(wildCompare('r1', 'R1')).toBe(true); // WildCompareString( …, false )
-  });
-
   it('narrows by parent reference designator', () => {
     const d = globalEdit(doc(), new Map(), {
       scope: scope({ values: true }),

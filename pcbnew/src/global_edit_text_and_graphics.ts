@@ -76,10 +76,10 @@
  */
 
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { atom, head, isList, list, str, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { boardItemId, dropChild, mm, patchChild } from './edit-board.js';
-import { wildCompareString } from './global_edit_tracks_and_vias.js';
 import { isCopperLayerName } from './swap_layers.js';
 import type {
   Board,
@@ -1027,16 +1027,6 @@ function selectionPasses(board: Board, t: VisitTarget, ctx: GlobalTextGfxContext
 }
 
 /**
- * `WildCompareString( pattern, text, false )` — the third argument being
- * `case_sensitive` (string_utils.cpp:906), which this dialog passes explicitly.
- * Upstream folds case by calling `MakeUpper()` on both sides before running the
- * glob, so the folding is done here and the existing case-sensitive matcher is
- * reused rather than duplicated. `*` and `?` are unaffected by upper-casing.
- */
-const wildCompareStringNoCase = (pattern: string, text: string): boolean =>
-  wildCompareString(pattern.toUpperCase(), text.toUpperCase());
-
-/**
  * `visitItem`. True means "process"; any failing gate returns without touching
  * the item.
  *
@@ -1064,12 +1054,12 @@ function visitItem(
   // Both filters are hidden in the footprint editor and skipped entirely.
   if (opts.isBoardEditor) {
     if (opts.referenceFilterOpt && opts.referenceFilter !== '' && t.fp) {
-      if (!wildCompareStringNoCase(opts.referenceFilter, t.fp.reference ?? '')) return false;
+      if (!wildCompareString(opts.referenceFilter, t.fp.reference ?? '', false)) return false;
     }
 
     if (opts.footprintFilterOpt && opts.footprintFilter !== '' && t.fp) {
       // `GetFPID().Format()` is the "Lib:Name" the model stores as `lib`.
-      if (!wildCompareStringNoCase(opts.footprintFilter, t.fp.lib)) return false;
+      if (!wildCompareString(opts.footprintFilter, t.fp.lib, false)) return false;
     }
   }
 

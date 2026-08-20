@@ -24,9 +24,9 @@
  * Footprint set should not wipe the footprint you assigned.
  */
 
+import { wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import type { LibPin, LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import type { EditCommand } from './command.js';
-import { wildCompare } from './global_edit_text_and_graphics.js';
 import { refId } from './hittest.js';
 import { clearAlternates } from './pin_alternates.js';
 
@@ -137,9 +137,13 @@ export function symbolMatches(sym: SchSymbol, id: string, match: SymbolMatch): b
     case 'selected':
       return match.selected?.has(id) ?? false;
     case 'reference':
-      return wildCompare(match.text ?? '', fieldOf(sym.fields, 'Reference')?.value ?? '');
+      return wildCompareString(
+        match.text ?? '',
+        fieldOf(sym.fields, 'Reference')?.value ?? '',
+        false,
+      );
     case 'value':
-      return wildCompare(match.text ?? '', fieldOf(sym.fields, 'Value')?.value ?? '');
+      return wildCompareString(match.text ?? '', fieldOf(sym.fields, 'Value')?.value ?? '', false);
     case 'libId':
       return sameLibId(sym.libId, match.text ?? '');
     default:

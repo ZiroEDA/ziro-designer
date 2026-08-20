@@ -72,8 +72,7 @@
  * prefix is added or removed — so with a front prefix of `F_`, an excluded `R3`
  * does not reserve 3 under `F_R`.
  */
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
-import { wildCompareString } from './global_edit_tracks_and_vias.js';
+import { strNumCmp, wildCompareString } from '@ziroeda/common/src/string_utils.js';
 import { getRefDesPrefix } from './spread_footprints.js';
 import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
 import type { Board, PcbFootprint } from './types.js';
@@ -502,7 +501,11 @@ export function planBoardReannotate(
 
     for (const excluded of excludes) {
       if (excluded.endsWith('*')) {
-        if (wildCompareString(excluded, refDesString)) {
+        // `fpData.RefDesString.Matches( excluded )`
+        // (dialog_board_reannotate.cpp:506). wxString::Matches is the
+        // case-SENSITIVE glob, unlike the WildCompareString( …, false ) the
+        // filter dialogs use, so an exclusion of `R*` leaves `r5` alone.
+        if (wildCompareString(excluded, refDesString, true)) {
           action = 'exclude';
           break;
         }
