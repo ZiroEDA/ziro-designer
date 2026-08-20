@@ -662,3 +662,213 @@ describe('SHAPE_ARC::NearestPoints( SHAPE_ARC ): the circle-pair selection', () 
     expect(Math.sqrt(distSq)).toBeCloseTo(Math.sqrt(unadjusted) - 200, 6);
   });
 });
+
+// ----- the integer actual ------------------------------------------------------
+
+/**
+ * `aActual` is an `int*` in every routine that writes one, so a fractional
+ * actual is a divergence rather than extra precision. Four of the five sites
+ * spell it `std::max( 0, (int) sqrt( dist_sq ) - <radii> )` and the fifth
+ * (`shape_line_chain.cpp:420`) writes `sqrt( closest_dist_sq )` straight into
+ * the `int*`, which narrows in the same place.
+ *
+ * Every number below is worked out from the C++ rather than read off the
+ * implementation. The squared distances are chosen to be non-square — 200 and
+ * 50 — because a perfect square makes truncation invisible.
+ */
+describe('the actual is truncated the way an int* truncates it', () => {
+  it('circle against circle truncates before both radii come off', () => {
+    // `shape_collisions.cpp:55`. Centres (0,0) and (10,10): `delta` is (10,10)
+    // and `dist_sq` is exactly 200. `min_dist` is 6 + 5 + 5 = 16 and 200 < 256,
+    // so it collides. `(int) sqrt( 200 )` is (int) 14.142135623730951 = 14, and
+    // `std::max( 0, 14 - 5 - 5 )` is 4 — not the 4.142135623730951 that a
+    // double sqrt leaves behind.
+    const hit = collideShapes(circle(0, 0, 5), circle(10, 10, 5), 6);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4);
+    expect(hit.location).toEqual({ x: 5, y: 5 });
+  });
+
+  it('circle against segment truncates before the radius and the half-width', () => {
+    // `shape_circle.h:100`, reached through `Collide( SHAPE_CIRCLE,
+    // SHAPE_SEGMENT )`, which passes `aClearance + GetWidth() / 2` down and
+    // takes the same half-width off the answer.
+    //
+    // The nearest point on the segment to the origin is its end (10,10), so
+    // `dist_sq` is 200 again. `min_dist` is (10 + 3) + 5 = 18 and 200 < 324.
+    // `(int) sqrt( 200 ) - 5` is 9, and the half-width leaves 9 - 3 = 6.
+    const hit = collideShapes(circle(0, 0, 5), stadium(10, 10, 10, 50, 3), 10);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(6);
+    expect(hit.location).toEqual({ x: 10, y: 10 });
+  });
+
+  it('segment against a degenerate segment truncates on the point overload', () => {
+    // `shape_segment.h:97`. `SHAPE_SEGMENT::Collide( const SEG& )` forwards to
+    // the `VECTOR2I` overload when the segment handed to it has A == B, which is
+    // what a zero-length `stadium` is.
+    //
+    // `SEG::SquaredDistance( (10,0) )` on the diagonal (0,0)-(100,100) is
+    // `|ap|² - e²/f` = 100 - 1000000/20000 = 50. `min_dist` is 2 + (8 + 1) = 11
+    // and 50 < 121. `(int) sqrt( 50 )` is (int) 7.0710678… = 7, so the actual is
+    // 7 - 2 = 5, less the other shape's half-width of 1: 4.
+    const hit = collideShapes(stadium(0, 0, 100, 100, 2), stadium(10, 0, 10, 0, 1), 8);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4);
+    // `SEG::NearestPoint`: t/|ab|² is 1000/20000, so a twentieth along.
+    expect(hit.location).toEqual({ x: 5, y: 5 });
+  });
+
+  it('segment against segment truncates before its own half-width comes off', () => {
+    // `shape_segment.h:117`. The four `SEG::SquaredDistance( const SEG& )`
+    // candidates for the diagonal (0,0)-(100,100) against (10,0)-(20,0) are
+    // 100, 16400, 50 and 200; the segments do not cross, so the answer is 50.
+    // `min_dist` is 2 + (8 + 1) = 11 and 50 < 121. `(int) sqrt( 50 ) - 2` is 5,
+    // less the other half-width of 1: 4.
+    const hit = collideShapes(stadium(0, 0, 100, 100, 2), stadium(10, 0, 20, 0, 1), 8);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4);
+  });
+
+  it('truncates the root rather than rounding it', () => {
+    // `(int)` is a truncation toward zero, not a rounding. It is invisible on a
+    // root whose fraction is below a half — `sqrt( 200 )` is 14.142… and both
+    // spellings give 14 — so this case puts the fraction above a half instead.
+    //
+    // Centres (0,0) and (4,14): `dist_sq` is 16 + 196 = 212 and `sqrt( 212 )` is
+    // 14.560219778561036. `(int)` keeps 14, so `std::max( 0, 14 - 5 - 5 )` is 4;
+    // rounding would give 15 and an actual of 5.
+    const hit = collideShapes(circle(0, 0, 5), circle(4, 14, 5), 6);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4);
+  });
+
+  it('truncates the root and then subtracts, not the other way round', () => {
+    // The order is only observable when what comes off is fractional, and a
+    // Ziro `stadium` makes it so: `r` is `width / 2` untruncated, so a track of
+    // width 5 has a half-width of 2.5 where KiCad's `( m_width + 1 ) / 2` is 3.
+    //
+    // Same geometry as above, `dist_sq` = 50, `sqrt` = 7.0710678…:
+    //
+    //   C++ order   `(int) sqrt( 50 ) - 2.5`      = 7 - 2.5      = 4.5
+    //   wrong order `trunc( sqrt( 50 ) - 2.5 )`   = trunc(4.571) = 4
+    //
+    // `min_dist` is 2.5 + 5 = 7.5 and 50 < 56.25, so it collides either way —
+    // only the number moves, which is exactly what makes the mistake survivable
+    // without this assertion.
+    const hit = collideShapes(stadium(0, 0, 100, 100, 2.5), stadium(10, 0, 20, 0, 0), 5);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4.5);
+  });
+
+  it('subtracts after the truncation on the circle pair too', () => {
+    // `shape_collisions.cpp:55` takes *both* radii off after the cast. A Ziro
+    // `circle` has the same half-integral `r` a `stadium` does — a via or round
+    // pad of odd diameter — so the order shows here as well.
+    //
+    // Centres (0,0) and (10,10), `dist_sq` = 200, `sqrt` = 14.142135623730951:
+    //
+    //   C++ order   `(int) sqrt( 200 ) - 2.5 - 5`    = 14 - 7.5     = 6.5
+    //   wrong order `trunc( sqrt( 200 ) - 2.5 - 5 )` = trunc(6.642) = 6
+    //
+    // `min_dist` is 8 + 2.5 + 5 = 15.5 and 200 < 240.25.
+    const hit = collideShapes(circle(0, 0, 2.5), circle(10, 10, 5), 8);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(6.5);
+  });
+
+  it('subtracts after the truncation on the circle/segment pair too', () => {
+    // `shape_circle.h:100` takes the circle's radius off after the cast, and
+    // `Collide( SHAPE_CIRCLE, SHAPE_SEGMENT )` then takes the segment's
+    // half-width off that. Only the first of the two is inside the cast.
+    //
+    // Nearest point on the segment is its end (10,10), so `dist_sq` = 200:
+    //
+    //   C++ order   `(int) sqrt( 200 ) - 2.5`      = 14 - 2.5     = 11.5
+    //   wrong order `trunc( sqrt( 200 ) - 2.5 )`   = trunc(11.64) = 11
+    //
+    // The segment half-width of 0 then leaves the answer alone. `min_dist` is
+    // (10 + 0) + 2.5 = 12.5 and 200 < 156.25 is false — so the clearance is 14:
+    // 200 < 272.25.
+    const hit = collideShapes(circle(0, 0, 2.5), stadium(10, 10, 10, 50, 0), 14);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(11.5);
+  });
+
+  it('subtracts after the truncation on the degenerate-segment overload too', () => {
+    // `shape_segment.h:97`, the `VECTOR2I` overload. `SEG::SquaredDistance(
+    // (10,0) )` on the diagonal (0,0)-(100,100) is 50 and `sqrt( 50 )` is
+    // 7.0710678…:
+    //
+    //   C++ order   `(int) sqrt( 50 ) - 2.5`     = 7 - 2.5      = 4.5
+    //   wrong order `trunc( sqrt( 50 ) - 2.5 )`  = trunc(4.571) = 4
+    //
+    // `min_dist` is 2.5 + 5 = 7.5 and 50 < 56.25.
+    const hit = collideShapes(stadium(0, 0, 100, 100, 2.5), stadium(10, 0, 10, 0, 0), 5);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(4.5);
+  });
+
+  it('a chain against a segment truncates on the way into the int*', () => {
+    // `shape_line_chain.cpp:420` — `*aActual = sqrt( closest_dist_sq )` with no
+    // subtraction at all, narrowing into an `int*`.
+    //
+    // The 0..100 square against the segment (110,110)-(200,200): the winning
+    // chain segment is the right-hand edge, whose squared distance to the
+    // segment is 200 (corner (100,100) to segment end (110,110)). The clearance
+    // of 15 clears it because 200 < 225. `sqrt( 200 )` is 14.142135623730951 and
+    // the `int*` keeps 14.
+    const hit = collideShapes(square(), stadium(110, 110, 200, 200), 15);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(14);
+  });
+
+  it('clamps a swallowed chain segment at zero, which stops the walk', () => {
+    // `shape_circle.h:100`'s `std::max( 0, … )` is not cosmetic inside
+    // `Collide( SHAPE_CIRCLE, SHAPE_LINE_CHAIN_BASE )`: the walk breaks on
+    // `closest_dist == 0`, so the clamp decides *which* chain segment answers.
+    //
+    // The circle at (110,50) with radius 60 swallows the square's right-hand
+    // half. Chain segment 0 is (0,0)-(100,0); its nearest point to the centre is
+    // the corner (100,0), `dist_sq` = 100 + 2500 = 2600, `(int) sqrt( 2600 )` is
+    // 50, and 50 - 60 clamps from -10 to 0. `min_dist` is 1 + 60 = 61 and
+    // 2600 < 3721, so it collides, the actual is 0 and the walk stops there.
+    //
+    // Unclamped it would keep going: segment 1 is the edge x = 100, 10 from the
+    // centre, and 10 - 60 = -50 beats -10, moving the reported location to
+    // (100,50) — a plausible-looking answer that is not KiCad's.
+    const hit = collideShapes(circle(110, 50, 60), square(), 1);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(0);
+    expect(hit.location).toEqual({ x: 100, y: 0 });
+  });
+
+  it('keeps the first zero even when a later segment is deeper inside', () => {
+    // Same rule, with the circle pulled up to (110,20) so that the edge x = 100
+    // passes through it much closer to the centre. The bottom edge still
+    // answers first, at the corner (100,0).
+    const hit = collideShapes(circle(110, 20, 40), square(), 1);
+
+    expect(hit.collides).toBe(true);
+    expect(hit.actual).toBe(0);
+    expect(hit.location).toEqual({ x: 100, y: 0 });
+  });
+
+  it('does not report a collision the truncation cannot reach', () => {
+    // The verdict is `dist_sq < min_dist_sq`, untouched by the cast: at a
+    // clearance of 14 the squared min_dist is 196, below 200, and nothing
+    // collides even though the truncated root would have been 14.
+    expect(collideShapes(square(), stadium(110, 110, 200, 200), 14).collides).toBe(false);
+  });
+});
