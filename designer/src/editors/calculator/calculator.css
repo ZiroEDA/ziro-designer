@@ -1153,6 +1153,19 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   min-height: 0;
 }
 
+/* bSizerPanelAtt is horizontal and its children stretch, so the Messages box
+   and the Formula pane both run to the frame's bottom edge. */
+.rf-panel > .calc-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.rf-panel > .calc-row > .calc-col {
+  min-height: 0;
+}
+
 .rf-buttons {
   display: flex;
   align-items: center;
@@ -1161,14 +1174,37 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 }
 
 /* A plain wxStaticText above the message window, not a static box title. */
+/* [px] the middle column is 244 px wide and holds the units inside its boxes. */
+.rf-mid {
+  flex: 0 0 244px;
+  width: 244px;
+  min-width: 244px;
+}
+
+.rf-box .calc-input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* A STD_BITMAP_BUTTON is square and carries only its bitmap. */
+.calc-btn.calc-bmp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-height);
+  min-width: 0;
+  padding: 0;
+}
+
 .rf-messages-label {
   font-style: italic;
   margin-bottom: var(--wx-border);
 }
 
-/* UNPROVEN, left counted: panel_rf_attenuators_base.cpp gives m_Message no
-   SetMinSize at all - the box is as tall as the sizer makes it. 120 is ours. */
+/* m_Message is added with proportion 1 (base:172), so it fills what the boxes
+   above it leave - [px] KiCad's runs to y=1070, ours stopped at 580. */
 .rf-messages {
+  flex: 1 1 auto;
   min-height: 120px;
   border: 1px solid var(--ctl-border);
   background: var(--chrome-bg);
@@ -1178,6 +1214,8 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 .rf-formula-box {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .rf-formula p {

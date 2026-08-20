@@ -243,8 +243,11 @@ export function PanelRfAttenuators(): JSX.Element {
           </Group>
           <AttenuatorDrawing type={type} />
         </div>
-        <div className="calc-col" style={{ maxWidth: 300 }}>
-          <Group title="Parameters">
+        {/* [px] KiCad's middle column runs x 533..777 - 244 px - and the unit
+            labels sit INSIDE the boxes at 757..772; ours were 300 px wide with
+            the units spilling out at 866..878, into the Formula pane. */}
+        <div className="calc-col rf-mid">
+          <Group title="Parameters" className="calc-grid3 rf-box">
             <Field
               label="Attenuation (a):"
               value={info.hasAttenuation ? atten : '6'}
@@ -274,14 +277,19 @@ export function PanelRfAttenuators(): JSX.Element {
                 wired to the same handler (panel_rf_attenuators.cpp:41). */}
             <button
               type="button"
-              className="calc-btn exactfit"
+              className="calc-btn calc-bmp"
               aria-label="Calculate"
               onClick={calculate}
             >
-              ↓
+              <img
+                src={ATT_ART['../../../assets/calculator/small_down.svg']}
+                alt=""
+                width={16}
+                height={16}
+              />
             </button>
           </div>
-          <Group title="Values">
+          <Group title="Values" className="calc-grid3 rf-box">
             {info.resistorLabels.map((label, i) => (
               <Field
                 key={label}
