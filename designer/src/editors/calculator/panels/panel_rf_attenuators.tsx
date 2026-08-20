@@ -305,7 +305,12 @@ export function PanelRfAttenuators(): JSX.Element {
           {/* m_staticTextAttMsg is a plain label ABOVE the message area, not a
               static box (panel_rf_attenuators_base.cpp:164). */}
           <div className="rf-messages-label">Messages</div>
-          <div className="rf-messages">
+          {/* m_Attenuator_Messages is an HTML_WINDOW (base:171) — the same
+              widget as every help pane — so it paints wxSYS_COLOUR_WINDOW,
+              rgb(39,39,39), not the frame's rgb(44,44,44). It said
+              `background: var(--chrome-bg)`, which is the frame colour
+              restated locally; now it consumes the shared rule. */}
+          <div className="calc-help-body rf-messages">
             {shown?.error && (
               <>
                 <br />
@@ -318,7 +323,12 @@ export function PanelRfAttenuators(): JSX.Element {
         </div>
         <fieldset className="calc-group rf-formula-box">
           <legend>Formula</legend>
-          <AttenuatorFormula type={type} />
+          {/* m_panelAttFormula is an HTML_WINDOW too (base:186), added
+              wxALL|wxEXPAND 5 so the box's own border shows the frame colour
+              around a darker window. Ours painted no fill at all. */}
+          <div className="calc-help-body rf-formula-window">
+            <AttenuatorFormula type={type} />
+          </div>
         </fieldset>
       </div>
     </div>

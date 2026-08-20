@@ -1232,14 +1232,22 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   margin-bottom: var(--wx-border);
 }
 
-/* m_Message is added with proportion 1 (base:172), so it fills what the boxes
-   above it leave - [px] KiCad's runs to y=1070, ours stopped at 580. */
+/* m_Attenuator_Messages is added with proportion 1 (base:172), so it fills
+   what the boxes above it leave - [px] KiCad's runs to y=1070, ours stopped at
+   580. Everything ELSE about it - the wxSYS_COLOUR_WINDOW fill, the line pitch,
+   the inset - is `.calc-help-body`, because it is the same HTML_WINDOW the four
+   help panes are. It used to restate `background: var(--chrome-bg)` here, which
+   is the FRAME colour: [px] ours profiled rgb(44,44,44) against the binary's
+   rgb(39,39,39), sampled off Akshay's 17:49 pair. */
 .rf-messages {
-  flex: 1 1 auto;
-  min-height: 120px;
   border: 1px solid var(--ctl-border);
-  background: var(--chrome-bg);
-  padding: var(--wx-border);
+}
+
+/* m_panelAttFormula, the same HTML_WINDOW, filling its static box under the
+   box's own 5 px sizer border (base:186-189). */
+.rf-formula-window {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .rf-formula-box {
@@ -1276,11 +1284,128 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   width: fit-content;
 }
 
+/* bSizerButtons is added `wxLEFT, 5` — NO vertical border (base:327), so the
+   row is exactly one button tall. [px] KiCad's runs y 241..274, 34 px; ours ran
+   44 because it carried a 5 px margin above and below that upstream has not.
+   The bitmap buttons DO carry wxTOP|wxBOTTOM 5, which is why they are shorter
+   than the text buttons rather than the row being taller. */
 .tl-buttons {
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  margin: var(--wx-border) 0;
+  margin: 0 0 0 var(--wx-border);
+}
+
+/* `bSizerButtons->Add( 30, 0, 1, wxEXPAND, 5 )` — a 30 px spacer that also
+   takes all the slack, which is what separates Analyze from Synthesize. */
+.tl-buttons-gap {
+  flex: 1 1 auto;
+  min-width: 30px; /* [data] the spacer's own width, base:317 */
+}
+
+/* --- Transmission Lines ---------------------------------------------------
+   bSizeTransline is HORIZONTAL with three columns: left and middle are added
+   with PROPORTION 0 (base:44, 232) so they are only as wide as their contents,
+   and the right column with proportion 1 (base:485) so it takes every
+   remaining pixel — which is what puts Reset to Defaults on the frame's right
+   edge rather than under the Results box. */
+.tl-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.tl-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.tl-left,
+.tl-middle {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.tl-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* m_translineBitmap: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxBOTTOM, 10 (base:40). */
+.tl-art {
+  align-self: center;
+  margin: 10px 0; /* [data] the bitmap's own wxTOP|wxBOTTOM border, base:40 */
+}
+
+/* Each static box is sized by its own grid, not by the column.
+   [px] on Akshay's 17:54 pair the Substrate box measures x 594..905 = 312 and
+   the three right-hand boxes x 916..1202 = 287. Ours had stretched them to 432
+   and 387 because the entry column was growable against the whole row. */
+.tl-middle > .calc-group {
+  width: 312px; /* [px] Substrate / Component Parameters, x 594..905 */
+}
+
+.tl-right > .calc-group {
+  width: 287px; /* [px] Physical / Electrical / Results, x 916..1202 */
+}
+
+/* AddGrowableCol( 1 ) inside a box of that width leaves the entry exactly this
+   wide. [px] the substrate entry runs x 706..805 = 100 and the physical entry
+   x 945..1125 = 181 — different because the substrate labels are long
+   ("μr (substrate):") and the physical ones are "W:" and "L:". */
+.tl-middle .calc-input,
+.tl-middle .calc-cell {
+  width: 100px; /* [px] x 706..805 */
+}
+
+.tl-right .calc-input {
+  width: 181px; /* [px] x 945..1125 */
+}
+
+/* fgSizerTranslResults( 10, 2, 4, 0 ): TEN rows of two wxStaticTexts, vgap 4,
+   and the unused ones are blanked, NOT removed (transline_dlg_funct.cpp:139).
+   So the box keeps its height whatever the type. [px] KiCad's Results box runs
+   y 435..669 = 234 with a 22 px row pitch; ours collapsed to 109 because an
+   empty row has no line box of its own. */
+.tl-results {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-content: start;
+  row-gap: var(--calc-vgap, 4px); /* [data] fgSizerTranslResults' vgap is 4 */
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 0 var(--wx-border);
+}
+
+.tl-result-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: calc(var(--wx-border) * 2);
+  min-height: var(--ui-line-height);
+}
+
+/* fgSizerPhysPrms is FOUR columns: the three a parameter row has, plus the
+   radio button (base:246). */
+.tl-phys {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--calc-vgap, 3px); /* [data] fgSizerPhysPrms' vgap is 3 */
+  padding: 0 var(--wx-border);
+}
+
+.tl-phys-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--wx-border) * 2);
+}
+
+.tl-phys-row > .calc-field {
+  flex: 1 1 auto;
+  margin: 0;
 }
 
 /* The E-series panel is two grids stacked, the wider one first. */

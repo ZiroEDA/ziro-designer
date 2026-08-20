@@ -121,7 +121,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const BASELINE: Record<string, { colours: number; metrics: number }> = {
   auth: { colours: 4, metrics: 0 },
   dialogs: { colours: 5, metrics: 35 },
-  'editors/calculator': { colours: 27, metrics: 23 },
+  'editors/calculator': { colours: 27, metrics: 22 },
   'editors/drawingsheet': { colours: 0, metrics: 1 },
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 35, metrics: 23 },
@@ -340,7 +340,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    */
   it('844 colour literals and 1,738 chrome metrics, tree-wide', () => {
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(822);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1732);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1731);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

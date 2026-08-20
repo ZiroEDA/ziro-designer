@@ -201,10 +201,17 @@ describe('the alignment exceptions KiCad actually has', () => {
   });
 
   it("...except Transmission Lines' Frequency, which is right", () => {
+    // The Component Parameters box is now written out rather than going
+    // through NumField, because upstream builds it as its own static box with
+    // one row (panel_transline_base.cpp:196-221); the alignment it carries is
+    // still `wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT` on that one label (base:207)
+    // and still the only right-aligned parameter label in the launcher.
     const src = readFileSync(join(PANELS, 'panel_transline.tsx'), 'utf8');
-    const i = src.indexOf('label="Frequency:"');
+    const i = src.indexOf('Frequency:');
     expect(i).toBeGreaterThan(-1);
-    expect(src.slice(i, i + 200)).toContain('labelAlign="right"');
+    expect(src.slice(Math.max(0, i - 200), i)).toContain("textAlign: 'right'");
+    // And nothing else on the page asks for it.
+    expect(src.match(/textAlign: 'right'/g)).toHaveLength(1);
   });
 
   it('the IPC-2221 grid right-aligns its ROW labels, a different mechanism', () => {

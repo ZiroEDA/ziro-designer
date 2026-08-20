@@ -36,6 +36,9 @@ export {
   coplanarSoldermaskDeltaQ,
   microstripSoldermaskDeltaQ,
   wanHoorfarQ2,
+  // TRANSLINE::calcUnitPropagationDelay (transline.cpp:443) — the panel's
+  // "Unit propagation delay:" row, which was never rendered.
+  unitPropagationDelay,
 } from './transline/tc_common.js';
 export * from './transline/microstrip.js';
 export * from './transline/c_microstrip.js';

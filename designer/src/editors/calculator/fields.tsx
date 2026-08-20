@@ -77,6 +77,14 @@ export const FREQ_UNITS: UnitOpt[] = [
   { label: 'Hz', mult: 1 },
 ];
 
+/** UNIT_SELECTOR_ANGLE — rad then deg (unit_selector.cpp:129-130), and
+ *  UNIT_RADIAN / UNIT_DEGREE = M_PI/180 (units_scales.h:45-46). Held in
+ *  radians, which is index 0 and therefore what Ang_l opens in. */
+export const ANGLE_UNITS: UnitOpt[] = [
+  { label: 'rad', mult: 1 },
+  { label: 'deg', mult: Math.PI / 180 },
+];
+
 /** UNIT_SELECTOR_RESISTOR — two entries, Ω and kΩ (unit_selector.cpp:154-155).
  *  We had invented a third, MΩ. */
 export const RES_UNITS: UnitOpt[] = [
