@@ -1470,6 +1470,7 @@ export function DrawingSheetEditor({
           <PropertiesFrame
             sheet={sheet}
             selectedIndex={selectedIndex}
+            units={unit === 'inches' ? 'in' : unit}
             onItemChange={updateSelected}
             onSetupChange={updateSetup}
             onShowSyntaxHelp={() => setShowSyntaxHelp(true)}

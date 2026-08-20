@@ -13,6 +13,17 @@
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { NEWSTROKE_GLYPHS } from './newstroke_glyphs.js';
 
+/**
+ * The stroke font's own name — `KICAD_FONT_NAME` (include/font/kicad_font_name.h),
+ * which `STROKE_FONT::LoadFont` assigns to `m_fontName` (stroke_font.cpp:189).
+ *
+ * It is a keyword and is never translated. It matters outside the font code
+ * because a text item may name it explicitly — `FONT::GetFont( "KiCad Font" )`
+ * hands back the stroke font — so it is a face name that must NOT be treated
+ * as an outline family.
+ */
+export const KICAD_FONT_NAME = 'KiCad Font';
+
 const STROKE_FONT_SCALE = 1 / 21; // stroke_font.cpp
 const FONT_OFFSET = -8; // historical Y offset baked into the glyph coordinates
 

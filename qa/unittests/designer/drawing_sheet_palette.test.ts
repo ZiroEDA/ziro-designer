@@ -425,13 +425,15 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     'DrawingSheetEditor.tsx',
   ];
 
-  it('holds at the 14 known sites', () => {
+  it('holds at the 11 known sites', () => {
     let n = 0;
     for (const f of FILES) {
       const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
       n += [...src.matchAll(/fontSize:\s*\d/g)].length;
     }
-    expect(n).toBe(14);
+    // 14 until UnitField took MmField's literal "mm" span away, then 13 until
+    // the B5 label pass dropped the two invented "deg" spans by Rotation.
+    expect(n).toBe(11);
   });
 
   it('adds none in the chrome this PR wrote', () => {

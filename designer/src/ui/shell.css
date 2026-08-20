@@ -5912,6 +5912,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 0 3px;
 }
 
+/* ---- UNIT_BINDER's unit static text (common/widgets/unit_binder.cpp) ---- */
+.ze-unit-label {
+  /* The word beside a distance field, re-labelled with the frame's unit.
+     Shared by every UnitField, so it is scoped to no one editor. */
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
 /* ---- Properties panel grid (SCH_PROPERTIES_PANEL) ---- */
 .ze-propgrid {
   font-size: 12px;
