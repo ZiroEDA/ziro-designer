@@ -48,6 +48,29 @@ describe('track width (IPC-2221)', () => {
     expect(r.voltageDrop).toBeCloseTo(r.resistanceOhm, 9);
     expect(r.powerLossW).toBeCloseTo(r.voltageDrop, 9);
   });
+
+  // [px] pcb_calculator 10.0.5, Track Width, as it opens but with Conductor
+  // length set to 20 mm: I = 1.0 A, ΔT = 10 °C, H = 35 µm. The binary shows
+  //   external  W 0.300387 mm  area 0.0105135 mm²  R/V/P 0.0327197
+  //   internal  W 0.781437 mm  area 0.0273503 mm²  R/V/P 0.0125776
+  // Resistance is rho·L/area FLAT (panel_track_width.cpp:305-311) — no
+  // temperature coefficient. Warming rho by (1 + 3.93e-3·ΔT) gives 0.0340056,
+  // which is what we used to print, and not one assertion above moved.
+  it('matches the binary: no temperature coefficient on rho', () => {
+    const p = { currentA: 1, deltaTC: 10, lengthM: 20e-3, thicknessM: 35e-6 };
+
+    const ext = trackWidth(p, true);
+    expect(ext.widthM * 1e3).toBeCloseTo(0.300387, 6);
+    expect(ext.areaM2 * 1e6).toBeCloseTo(0.0105135, 7);
+    expect(ext.resistanceOhm).toBeCloseTo(0.0327197, 7);
+    expect(ext.voltageDrop).toBeCloseTo(0.0327197, 7);
+    expect(ext.powerLossW).toBeCloseTo(0.0327197, 7);
+
+    const int = trackWidth(p, false);
+    expect(int.widthM * 1e3).toBeCloseTo(0.781437, 6);
+    expect(int.areaM2 * 1e6).toBeCloseTo(0.0273503, 7);
+    expect(int.resistanceOhm).toBeCloseTo(0.0125776, 7);
+  });
 });
 
 describe('via size', () => {

@@ -39,13 +39,35 @@ export interface UnitOpt {
   title?: string;
 }
 
+/**
+ * UNIT_SELECTOR_LEN — mm, um, cm, mil, inch (unit_selector.cpp:34-38).
+ * Five entries, and the micron one is spelled with an ASCII `u`, where the
+ * THICKNESS selector below spells the same unit `µm`. The inconsistency is
+ * upstream's and it is visible: a wxChoice is as wide as its widest entry, and
+ * on Track Width the two lists sit one above the other. We had a sixth entry,
+ * `m`, that pcb_calculator has nowhere.
+ */
 export const LEN_UNITS: UnitOpt[] = [
+  { label: 'mm', mult: 1e-3 },
+  { label: 'um', mult: 1e-6 },
+  { label: 'cm', mult: 1e-2 },
+  { label: 'mil', mult: 25.4e-6 },
+  { label: 'inch', mult: 25.4e-3 },
+];
+
+/**
+ * UNIT_SELECTOR_THICKNESS — the LEN list plus oz/ft², with `µm` spelled with
+ * the micro sign (unit_selector.cpp:66-71). Copper weight converts at
+ * UNIT_OZSQFT = 34.40 µm (units_scales.h:39). Track Width's two thickness
+ * rows and Fusing Current's thickness row use this one, not LEN.
+ */
+export const THICK_UNITS: UnitOpt[] = [
   { label: 'mm', mult: 1e-3 },
   { label: 'µm', mult: 1e-6 },
   { label: 'cm', mult: 1e-2 },
   { label: 'mil', mult: 25.4e-6 },
   { label: 'inch', mult: 25.4e-3 },
-  { label: 'm', mult: 1 },
+  { label: 'oz/ft²', mult: 34.4e-6 },
 ];
 
 export const FREQ_UNITS: UnitOpt[] = [
@@ -55,10 +77,11 @@ export const FREQ_UNITS: UnitOpt[] = [
   { label: 'Hz', mult: 1 },
 ];
 
+/** UNIT_SELECTOR_RESISTOR — two entries, Ω and kΩ (unit_selector.cpp:154-155).
+ *  We had invented a third, MΩ. */
 export const RES_UNITS: UnitOpt[] = [
   { label: 'Ω', mult: 1 },
   { label: 'kΩ', mult: 1e3 },
-  { label: 'MΩ', mult: 1e6 },
 ];
 
 export const TIME_UNITS: UnitOpt[] = [
@@ -88,6 +111,7 @@ export function Field({
   bold,
   pick,
   disabled,
+  className,
 }: {
   label: ReactNode;
   value: string;
@@ -106,9 +130,15 @@ export function Field({
    *  entry: [px] face rgb(42,42,42) with dim ink, against 3DLIGHT's
    *  rgb(55,55,55) with ordinary ink. */
   disabled?: boolean;
+  /** Extra row class, for the per-item wxTOP/wxBOTTOM borders a wxFlexGridSizer
+   *  with vgap 0 relies on. */
+  className?: string;
 }): JSX.Element {
   return (
-    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
+    <label
+      className={`calc-field${bold ? ' bold' : ''}${className ? ` ${className}` : ''}`}
+      title={title}
+    >
       <span className="calc-field-label">{label}</span>
       {/* The entry and its `...` share ONE cell: wxFormBuilder puts them in a
           horizontal box sizer and adds that to the grid's second column
@@ -163,6 +193,7 @@ export function NumField({
   bold,
   labelAlign,
   initialText,
+  className,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -185,6 +216,8 @@ export function NumField({
    *  launcher — Transmission Lines' Frequency
    *  (panel_transline_base.cpp:207). Everything else is flush left. */
   labelAlign?: 'left' | 'right';
+  /** As on `Field`. */
+  className?: string;
 }): JSX.Element {
   const [idx, setIdx] = useState(() => (defaultUnit ? unitIndex(units, defaultUnit) : 0));
   const mult = units[idx]?.mult ?? 1;
@@ -221,7 +254,10 @@ export function NumField({
   };
 
   return (
-    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
+    <label
+      className={`calc-field${bold ? ' bold' : ''}${className ? ` ${className}` : ''}`}
+      title={title}
+    >
       <span className="calc-field-label" style={labelAlign ? { textAlign: labelAlign } : undefined}>
         {label}
       </span>
@@ -353,14 +389,17 @@ export function ResultField({
   value,
   unit,
   title,
+  className,
 }: {
   label: ReactNode;
   value: string;
   unit?: ReactNode;
   title?: string;
+  /** As on `Field`. */
+  className?: string;
 }): JSX.Element {
   return (
-    <div className="calc-result" title={title}>
+    <div className={`calc-result${className ? ` ${className}` : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
       <span className="calc-result-value">{value}</span>
       {unit != null && <span className="calc-unit">{unit}</span>}

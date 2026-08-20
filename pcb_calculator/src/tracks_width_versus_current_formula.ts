@@ -13,7 +13,6 @@
  */
 
 export const COPPER_RESISTIVITY_OHM_M = 1.72e-8; // at 20 °C
-export const COPPER_TEMP_COEFF_PER_K = 3.93e-3;
 
 const MIL_PER_M = 39370.0787; // 1 m = 39370.08 mil
 const K_EXTERNAL = 0.048;
@@ -39,8 +38,6 @@ export interface TrackWidthParams {
   thicknessM: number;
   /** Conductor resistivity at 20 °C, Ω·m. */
   resistivity?: number;
-  /** Ambient temperature °C (for hot resistance). */
-  ambientC?: number;
 }
 
 /** Required cross-section area (m²) for `current` at `deltaT`, per IPC-2221. */
@@ -61,10 +58,13 @@ export function trackWidth(p: TrackWidthParams, external: boolean): TrackLayerRe
   const rho = p.resistivity ?? COPPER_RESISTIVITY_OHM_M;
   const areaM2 = ipc2221AreaM2(p.currentA, p.deltaTC, external);
   const widthM = areaM2 / p.thicknessM;
-  // Resistance at the conductor's actual (ambient + rise) temperature.
-  const tempC = (p.ambientC ?? 20) + p.deltaTC;
-  const rhoHot = rho * (1 + COPPER_TEMP_COEFF_PER_K * (tempC - 20));
-  const resistanceOhm = (rhoHot * p.lengthM) / areaM2;
+  // KiCad does NOT warm the resistivity here. `panel_track_width.cpp:305-311`
+  // reads rho straight out of the (disabled) Copper resistivity field and
+  // divides: `extResistance = ( rho * trackLen ) / ( aExtWidth * aExtThickness )`.
+  // On this panel ΔT is an IPC-2221 *width* input, never a resistance one.
+  // We used to multiply by (1 + 3.93e-3·ΔT) — 1.0393 at the default 10 °C rise —
+  // which printed 0.0340056 Ω where the binary prints 0.0327197 Ω.
+  const resistanceOhm = (rho * p.lengthM) / areaM2;
   const voltageDrop = resistanceOhm * p.currentA;
   return {
     widthM,

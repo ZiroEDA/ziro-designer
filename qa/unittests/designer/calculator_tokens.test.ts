@@ -41,6 +41,28 @@ const CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
  * is an exemption that can never be re-examined.
  */
 const DATA_BLOCKS = /\.es-grid[^}]*}|\.cc-resistor[^}]*}|\.cc-band[^}]*}/g;
+
+/**
+ * The declarations of every rule whose selector list mentions `sel`.
+ *
+ * `CODE.indexOf('.calc-btn {')` was not that: it finds the first place the
+ * text appears, which is inside `.calc-btn.calc-pick` — so three of these
+ * checks were reading a neighbouring rule's body and one was reading `''`, and
+ * all four therefore passed whatever the stylesheet said. A control is also
+ * styled by more than one rule (`.calc-input` takes its height from the long
+ * `input.calc-input:not(...)` guard and only its width from the bare rule), so
+ * asking one block the question cannot answer it either.
+ */
+const rulesFor = (sel: string): string => {
+  const cls = sel.startsWith('.') ? sel.slice(1) : sel;
+  const found: string[] = [];
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  const mentions = new RegExp(`\\.${cls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`);
+  for (let m = re.exec(CODE); m; m = re.exec(CODE))
+    if (mentions.test(m[1] ?? '')) found.push(m[2] ?? '');
+  if (found.length === 0) throw new Error(`calculator.css has no rule for ${sel}`);
+  return found.join('\n');
+};
 const chromeOnly = (): string => CODE.replace(DATA_BLOCKS, '');
 
 describe('calculator.css consumes the theme instead of restating it', () => {
@@ -67,8 +89,7 @@ describe('calculator.css consumes the theme instead of restating it', () => {
 
   it('sizes controls from --ctl-height, not from padding', () => {
     for (const rule of ['.calc-btn', '.calc-input']) {
-      const block = CODE.slice(CODE.indexOf(rule));
-      expect(block.slice(0, block.indexOf('}'))).toContain('var(--ctl-height)');
+      expect(rulesFor(rule)).toContain('var(--ctl-height)');
     }
   });
 
@@ -77,7 +98,7 @@ describe('calculator.css consumes the theme instead of restating it', () => {
   });
 
   it('draws the static box with the theme border and square corners', () => {
-    const block = CODE.slice(CODE.indexOf('.calc-group {'));
+    const block = rulesFor('.calc-group');
     const body = block.slice(0, block.indexOf('}'));
     expect(body).toContain('1px solid var(--ctl-border)');
     expect(body).toContain('border-radius: 0');
@@ -176,8 +197,7 @@ describe('the alignment exceptions KiCad actually has', () => {
   const PANELS = join(SRC, 'editors/calculator/panels');
 
   it('labels are flush left by default', () => {
-    const block = CODE.slice(CODE.indexOf('.calc-field-label {'));
-    expect(block.slice(0, block.indexOf('}'))).toContain('text-align: left');
+    expect(rulesFor('.calc-field-label')).toContain('text-align: left');
   });
 
   it("...except Transmission Lines' Frequency, which is right", () => {
@@ -191,8 +211,7 @@ describe('the alignment exceptions KiCad actually has', () => {
     // SetRowLabelAlignment( wxALIGN_RIGHT, wxALIGN_CENTER ),
     // panel_electrical_spacing_ipc2221_base.cpp:109 — a wxGrid's row-label
     // column, not a static text in a flex grid.
-    const block = CODE.slice(CODE.indexOf('.es-ipc-grid .es-ipc-rowhead {'));
-    expect(block.slice(0, block.indexOf('}'))).toContain('text-align: right');
+    expect(rulesFor('.es-ipc-rowhead')).toContain('text-align: right');
   });
 
   it('all four Reset to Defaults buttons exist and are right-aligned', () => {

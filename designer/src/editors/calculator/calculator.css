@@ -1021,6 +1021,34 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   width: 330px; /* [px] KiCad's right column runs x 1516..1843 */
 }
 
+/* Both track boxes are added with PROPORTION 1
+   (`bSizeRight->Add( sbSizerTW_Result, 1, wxEXPAND|wxALL, 5 )`,
+   panel_track_width_base.cpp:188 and :286), so they split the right column's
+   height between them and the Reset button rides the bottom edge. Ours
+   shrink-wrapped both to their contents and left the column's lower half
+   empty. The grid inside each box is added with proportion 0, so its rows
+   still sit at the box's top - which is what align-content buys: the box grows,
+   its rows do not. */
+.tw-right > .calc-group {
+  flex: 1 1 0;
+  min-height: 0;
+  align-content: start;
+}
+
+/* fgSizerTW_Results is wxFlexGridSizer( 0, 3, 0, 0 ): vgap ZERO, so every gap
+   inside a track box is an item's own wxTOP/wxBOTTOM border of 5
+   (panel_track_width_base.cpp:105-182). These two say which rows carry one.
+   They must beat `.calc-grid3 > .calc-field { padding: 0 }`, hence the
+   `.calc-grid3` prefix. */
+.calc-grid3 > .tw-pad-y {
+  padding-top: var(--wx-border);
+  padding-bottom: var(--wx-border);
+}
+
+.calc-grid3 > .tw-pad-b {
+  padding-bottom: var(--wx-border);
+}
+
 /* The grid keeps its own width inside the box (proportion 0), so the entry
    column does not stretch: [px] KiCad's Current entry is x 403..494, 92 px. */
 .tw-params {
@@ -1065,11 +1093,14 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   width: 100%;
 }
 
-/* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule. */
+/* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule.
+   m_staticline3/4/5 are added `wxEXPAND|wxBOTTOM, 5` — a border BELOW only
+   (panel_track_width_base.cpp:128-134); the space above them is the thickness
+   row's own wxBOTTOM. We had a symmetric 5/5, which double-counted it. */
 .calc-hline {
   height: 2px; /* [px] a wxStaticLine measures a 2 px rule */
   background: var(--field-bg);
-  margin: var(--wx-border) 0;
+  margin: 0 0 var(--wx-border);
 }
 
 /* sbSizerTW_Help is a static box with NO title, added with proportion 1. */

@@ -7105,6 +7105,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   cursor: default;
   white-space: pre;
 }
+
+/* DELIBERATE DIVERGENCE (Akshay, 2026-08-20): KiCad's rows are one label with
+   an embedded tab, so GTK lands each name on whichever Pango tab stop the
+   value's width leaves free and the real dialog is ragged. A subgrid gives the
+   value and the name a genuinely shared column while the selection bar still
+   paints across the whole row. See ui/dialog_single_choice.tsx. */
+.ze-choicedlg-list.cols {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-content: start;
+}
+.ze-choicedlg-item.cols {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: calc(var(--wx-border) * 2);
+}
 .ze-choicedlg-item.selected {
   background: var(--chrome-active);
 }

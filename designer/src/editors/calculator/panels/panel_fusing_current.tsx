@@ -10,9 +10,7 @@
 import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
-import { Field, LEN_UNITS, type UnitOpt, parseNum } from '../fields.js';
-
-const LEN_SHORT: UnitOpt[] = LEN_UNITS.filter((u) => ['mm', 'µm', 'mil'].includes(u.label));
+import { Field, LEN_UNITS, THICK_UNITS, type UnitOpt, parseNum } from '../fields.js';
 
 /** Radio + numeric input + length-unit dropdown (value held in metres). */
 function LenRow({
@@ -24,6 +22,7 @@ function LenRow({
   onText,
   unitIdx,
   setUnitIdx,
+  units,
 }: {
   label: string;
   solveFor: FusingSolveFor;
@@ -33,6 +32,10 @@ function LenRow({
   onText: (v: string) => void;
   unitIdx: number;
   setUnitIdx: (i: number) => void;
+  /** m_widthUnit is a UNIT_SELECTOR_LEN and m_thicknessUnit a
+   *  UNIT_SELECTOR_THICKNESS (panel_fusing_current_base.cpp:38,53) — two
+   *  different lists, where we had filtered one down to mm/µm/mil. */
+  units: UnitOpt[];
 }): JSX.Element {
   return (
     <>
@@ -54,7 +57,7 @@ function LenRow({
       <Combo
         style={{ minWidth: 62 }}
         value={String(unitIdx)}
-        options={LEN_SHORT.map((u, i) => ({ value: String(i), label: u.label }))}
+        options={units.map((u, i) => ({ value: String(i), label: u.label }))}
         onChange={(v) => setUnitIdx(Number(v))}
       />
     </>
@@ -122,8 +125,8 @@ export function PanelFusingCurrent(): JSX.Element {
   const calculate = (): void => {
     setError('');
     setComment('');
-    const widthM = parseNum(width) * (LEN_SHORT[widthUnit]?.mult ?? 1e-3);
-    const thicknessM = parseNum(thickness) * (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3);
+    const widthM = parseNum(width) * (LEN_UNITS[widthUnit]?.mult ?? 1e-3);
+    const thicknessM = parseNum(thickness) * (THICK_UNITS[thicknessUnit]?.mult ?? 1e-3);
     const r = fusingCurrent({
       ambientC: parseNum(ambient),
       meltingC: parseNum(melting),
@@ -144,9 +147,9 @@ export function PanelFusingCurrent(): JSX.Element {
       return;
     }
     setComment(r.comment ?? '');
-    if (solveFor === 'width') setWidth(printfF(r.widthM / (LEN_SHORT[widthUnit]?.mult ?? 1e-3)));
+    if (solveFor === 'width') setWidth(printfF(r.widthM / (LEN_UNITS[widthUnit]?.mult ?? 1e-3)));
     else if (solveFor === 'thickness')
-      setThickness(printfF(r.thicknessM / (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3)));
+      setThickness(printfF(r.thicknessM / (THICK_UNITS[thicknessUnit]?.mult ?? 1e-3)));
     else if (solveFor === 'current') setCurrent(printfF(r.currentA));
     else setTime(printfF(r.timeS));
   };
@@ -191,6 +194,7 @@ export function PanelFusingCurrent(): JSX.Element {
           onText={setWidth}
           unitIdx={widthUnit}
           setUnitIdx={setWidthUnit}
+          units={LEN_UNITS}
         />
         <LenRow
           label="Track thickness:"
@@ -201,6 +205,7 @@ export function PanelFusingCurrent(): JSX.Element {
           onText={setThickness}
           unitIdx={thicknessUnit}
           setUnitIdx={setThicknessUnit}
+          units={THICK_UNITS}
         />
         <NumRow
           label="Current:"

@@ -119,7 +119,12 @@ describe('Combo: it behaves like a wxChoice, not a menu', () => {
     // wxChoice steps the selection in place; only Enter/Space pops it up.
     expect(TSX).toMatch(/ArrowDown[\s\S]{0,80}step\(1\)/);
     expect(TSX).toMatch(/ArrowUp[\s\S]{0,80}step\(-1\)/);
-    expect(TSX).toMatch(/'Enter' \|\| e\.key === ' '[\s\S]{0,60}setOpen\(true\)/);
+    // The window is 120, not 60: f70e8e54 put the `canOpen` guard (an empty
+    // wxChoice does not open at all) between the branch and the setOpen, which
+    // pushed them 61 characters apart and quietly turned this line red. The
+    // assertion is "Enter/Space is what opens it"; the character count is only
+    // how near the two have to be to still be the same branch.
+    expect(TSX).toMatch(/'Enter' \|\| e\.key === ' '[\s\S]{0,120}setOpen\(true\)/);
   });
 
   it('takes Escape for itself so the frame behind does not also act', () => {

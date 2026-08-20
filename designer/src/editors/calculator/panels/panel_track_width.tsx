@@ -19,7 +19,7 @@ import {
   printfG,
   trackWidth,
 } from '@ziroeda/pcb_calculator';
-import { Field, Group, LEN_UNITS, NumField, ResultField } from '../fields.js';
+import { Field, Group, LEN_UNITS, NumField, ResultField, THICK_UNITS } from '../fields.js';
 
 /** Which of the three inputs is driving the other two. */
 type Controlling = 'current' | 'ext' | 'int';
@@ -103,9 +103,15 @@ export function PanelTrackWidth(): JSX.Element {
           setControlling(who);
         }}
       />
+      {/* m_ExtTrackThicknessUnit / m_IntTrackThicknessUnit are
+          UNIT_SELECTOR_THICKNESS, not LEN (panel_track_width_base.cpp:123,221):
+          six entries ending in oz/ft², and this list spells the micron µm.
+          The entry is added wxALL 5 and the selector wxTOP|wxBOTTOM 5, so this
+          row alone carries a border above AND below (base:121,123). */}
       <NumField
+        className="tw-pad-y"
         label="Track thickness (H):"
-        units={LEN_UNITS}
+        units={THICK_UNITS}
         defaultUnit="µm"
         base={thicknessM}
         onBase={setThicknessM}
@@ -115,9 +121,26 @@ export function PanelTrackWidth(): JSX.Element {
       <span className="calc-hline" />
       <span className="calc-hline" />
       <span className="calc-hline" />
-      <ResultField label="Cross-section area:" value={g(areaM2 * 1e6)} unit="mm²" />
-      <ResultField label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
-      <ResultField label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
+      {/* fgSizerTW_Results is wxFlexGridSizer( 0, 3, 0, 0 ) — vgap ZERO — so the
+          whole vertical rhythm is each item's own wxTOP/wxBOTTOM 5, and it is
+          not uniform (panel_track_width_base.cpp:105-182):
+            Track width      no vertical border at all
+            Track thickness  wxALL 5           → 5 above, 5 below
+            the three rules  wxBOTTOM 5        → 5 below
+            Cross-section    wxALL 5           → 5 above, 5 below
+            Resistance       wxBOTTOM 5        → 5 below
+            Voltage drop     wxBOTTOM 5        → 5 below
+            Power loss       wxRIGHT 5 only    → none
+          A single row-gap cannot say that, which is why ours read too tight
+          once the boxes grew. */}
+      <ResultField
+        className="tw-pad-y"
+        label="Cross-section area:"
+        value={g(areaM2 * 1e6)}
+        unit="mm²"
+      />
+      <ResultField className="tw-pad-b" label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
+      <ResultField className="tw-pad-b" label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
       <ResultField label="Power loss:" value={g(r?.powerLossW)} unit="W" />
     </Group>
   );
