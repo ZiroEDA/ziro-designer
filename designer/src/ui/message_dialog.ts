@@ -35,7 +35,15 @@ export const ERROR_CAPTION = 'Error';
 /** The button the user pressed: `wxID_YES` / `wxID_NO`. */
 export type YesNoResult = 'yes' | 'no';
 
-/** GTK's stock labels, which `wxMessageDialog` uses unless `SetYesNoLabels`. */
+/**
+ * GTK's stock labels, which `wxMessageDialog` uses unless `SetYesNoLabels`.
+ *
+ * `SetYesNoLabels` is the `labels` argument to {@link yesNoButtons}: it renames
+ * the two buttons WITHOUT changing which is affirmative, so the answer a caller
+ * gets back is still yes/no and the GTK order — negative first — still holds.
+ * `LOCAL_HISTORY::RestoreCommit` (common/local_history.cpp:2262) is one user:
+ * `dlg.SetYesNoLabels( _( "Restore" ), _( "Cancel" ) )`.
+ */
 export const YES_LABEL = 'Yes';
 export const NO_LABEL = 'No';
 /** …and the one `wxOK` gets: the only button a bare wxMessageBox has, and the
@@ -46,13 +54,16 @@ export const OK_LABEL = 'OK';
  * The `wxYES_NO` row in GTK order — negative first, affirmative last — with the
  * `wx*_DEFAULT` flag resolved into which one holds the focus ring.
  */
-export function yesNoButtons(defaultButton: YesNoResult): {
+export function yesNoButtons(
+  defaultButton: YesNoResult,
+  labels?: { yes?: string; no?: string },
+): {
   id: YesNoResult;
   label: string;
   isDefault: boolean;
 }[] {
   return [
-    { id: 'no', label: NO_LABEL, isDefault: defaultButton === 'no' },
-    { id: 'yes', label: YES_LABEL, isDefault: defaultButton === 'yes' },
+    { id: 'no', label: labels?.no ?? NO_LABEL, isDefault: defaultButton === 'no' },
+    { id: 'yes', label: labels?.yes ?? YES_LABEL, isDefault: defaultButton === 'yes' },
   ];
 }

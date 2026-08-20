@@ -77,7 +77,16 @@ import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
-import { deleteProjectHistory, recordSnapshot } from './local_history_store.js';
+import { deleteProjectHistory, recordSnapshot, restoreSnapshot } from './local_history_store.js';
+import {
+  RESTORE_CAPTION,
+  RESTORE_EXTENDED,
+  RESTORE_NO_LABEL,
+  RESTORE_YES_LABEL,
+  restoreConfirmMessage,
+  type Snapshot,
+} from './local_history.js';
+import { MessageDialogYesNo } from '../ui/dialog_message.js';
 
 import {
   filesFromFileList,
@@ -355,6 +364,8 @@ export function HomePage({
   useEffect(() => {
     localStorage.setItem('ziroeda.localHistoryShown', historyShown ? '1' : '0');
   }, [historyShown]);
+  /** The snapshot "Restore Commit" was asked for, while its confirmation is up. */
+  const [restoring, setRestoring] = useState<Snapshot | null>(null);
 
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -1380,6 +1391,7 @@ export function HomePage({
               />
               <LocalHistoryPane
                 projectId={openProjectId}
+                onRestore={setRestoring}
                 onClose={() => setHistoryShown(false)}
                 height={historyHeight}
               />
@@ -1601,6 +1613,42 @@ export function HomePage({
             </>
           )}
         </div>
+      )}
+
+      {/* `RestoreCommit`'s own confirmation (common/local_history.cpp:2252-2270).
+          Cancel is the default button - `wxNO_DEFAULT` - so Enter never runs the
+          destructive answer, and nothing has been written when it is chosen. */}
+      {restoring && openProjectId && (
+        <MessageDialogYesNo
+          caption={RESTORE_CAPTION}
+          message={restoreConfirmMessage(restoring.at)}
+          extendedMessage={RESTORE_EXTENDED}
+          icon="question"
+          defaultButton="no"
+          labels={{ yes: RESTORE_YES_LABEL, no: RESTORE_NO_LABEL }}
+          onResult={(r) => {
+            const snapshot = restoring;
+            setRestoring(null);
+            if (r !== 'yes') return;
+            void (async () => {
+              setLoading('Restoring…');
+              await nextPaint();
+              try {
+                const files = await restoreSnapshot(openProjectId, snapshot.id);
+                if (!files) {
+                  window.alert('That version is no longer available.');
+                  return;
+                }
+                // Upstream reopens its editors on the restored files
+                // (kicad_manager_frame.cpp:1530-1532); re-reading the project is
+                // this app's version of that, and it also refreshes the tree.
+                await openStored(openProjectId);
+              } finally {
+                setLoading(null);
+              }
+            })();
+          }}
+        />
       )}
 
       <LoadingOverlay label={loading} />

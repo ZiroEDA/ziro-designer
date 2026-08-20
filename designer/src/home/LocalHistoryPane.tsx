@@ -41,8 +41,13 @@ import { listSnapshots, onHistoryChanged } from './local_history_store.js';
 interface Props {
   /** The project whose history this is; `null` closes the pane's contents. */
   projectId: string | null;
-  /** Restore Commit. Absent while the restore flow is not wired up. */
-  onRestore?: (snapshot: Snapshot) => void;
+  /**
+   * `Restore Commit` — the only entry on upstream's context menu
+   * (kicad/local_history_pane.cpp:183-189), which calls
+   * `m_frame->RestoreCommitFromHistory( m_commits[item].hash )`. Required,
+   * because upstream's menu item is never greyed: the pane exists to restore.
+   */
+  onRestore: (snapshot: Snapshot) => void;
   /** The pane's close box; upstream's `.CloseButton( true )`. */
   onClose?: () => void;
   /** Height in px once the sash has been dragged; null keeps the even split. */
@@ -152,10 +157,8 @@ export function LocalHistoryPane({ projectId, onRestore, onClose, height }: Prop
             {/* menu.Append( wxID_ANY, _( "Restore Commit" ) ) - the only entry
                 on upstream's menu. */}
             <div
-              className={`ze-mitem${onRestore ? '' : ' disabled'}`}
-              title={onRestore ? undefined : 'Restoring a snapshot is not built yet'}
+              className="ze-mitem"
               onClick={() => {
-                if (!onRestore) return;
                 setMenu(null);
                 onRestore(menu.snapshot);
               }}

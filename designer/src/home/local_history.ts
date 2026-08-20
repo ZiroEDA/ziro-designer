@@ -196,6 +196,53 @@ export function snapshotTitle(kind: SnapshotKind, detail?: string): string {
   return detail ? `${head}: ${detail}` : head;
 }
 
+/**
+ * The two commit messages `RestoreCommit` writes verbatim
+ * (common/local_history.cpp:2288 and :2371).
+ *
+ * [data] KiCad hardcodes both. Neither begins "Autosave" or "Backup", so both
+ * take the pane's default row colour upstream, and `kindOfTitle` puts them on
+ * `save` here for the same reason.
+ */
+export const PRE_RESTORE_TITLE = 'Pre-restore backup';
+
+/** `wxString::Format( wxS( "Restored from %s" ), aHash )`. */
+export const restoredFromTitle = (hash: string): string => `Restored from ${hash}`;
+
+/**
+ * `KICAD_MESSAGE_DIALOG`'s wording in `RestoreCommit`
+ * (common/local_history.cpp:2252-2270), which is shown when `aConfirm` is set —
+ * the Local History pane's menu item leaves it at its default of true, and only
+ * the recovery prompt passes false, "the recovery prompt already asked".
+ *
+ * `wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION` with
+ * `SetYesNoLabels( _( "Restore" ), _( "Cancel" ) )`, so Cancel holds the focus
+ * ring: the destructive answer is never the one Enter picks.
+ */
+export const RESTORE_CAPTION = 'Restore Version';
+export const RESTORE_YES_LABEL = 'Restore';
+export const RESTORE_NO_LABEL = 'Cancel';
+export const RESTORE_EXTENDED =
+  'Your current files are backed up first so you can undo the restore. Files ' +
+  'that are not part of this version are left untouched.';
+
+/**
+ * `_( "Restore the project to the version from %s?" )` with the commit's own
+ * time, formatted `wxS( "%Y-%m-%d %H:%M:%S" )`.
+ *
+ * `wxDateTime::Format` renders LOCAL time, so this does too — a snapshot taken
+ * at 14:05 must read 14:05 to the person who took it. `toISOString` would print
+ * UTC and silently shift the number the user is being asked about.
+ */
+export function restoreConfirmMessage(at: number): string {
+  const d = new Date(at);
+  const p = (n: number): string => String(n).padStart(2, '0');
+  const stamp =
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+    `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return `Restore the project to the version from ${stamp}?`;
+}
+
 /** The kind a title encodes, which is how the pane tints a row it read back. */
 export function kindOfTitle(title: string): SnapshotKind {
   if (title.startsWith('Autosave')) return 'autosave';
