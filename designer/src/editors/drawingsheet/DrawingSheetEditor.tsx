@@ -882,6 +882,12 @@ export function DrawingSheetEditor({
   }, []);
 
   // ---- toolbars ----
+  /**
+   * `COMMON_TOOLS::m_imperialUnit` — the imperial unit Ctrl+U comes back to,
+   * initially inches.
+   */
+  const lastImperialRef = useRef<'unitsInches' | 'unitsMils'>('unitsInches');
+
   const onLeftToggle = useCallback((id: string) => {
     setToggles((prev) => {
       const next = new Set(prev);
@@ -893,6 +899,11 @@ export function DrawingSheetEditor({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (toggles.has('unitsInches')) lastImperialRef.current = 'unitsInches';
+    else if (toggles.has('unitsMils')) lastImperialRef.current = 'unitsMils';
+  }, [toggles]);
 
   const setTitleBlockMode = useCallback((mode: 'layoutNormalMode' | 'layoutEditMode') => {
     setToggles((prev) => {
@@ -1022,6 +1033,21 @@ export function DrawingSheetEditor({
         else setSelection(new Set());
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {
+        // ACTIONS::toggleUnits (actions.cpp:1149-1156), Ctrl+U — listed in this
+        // frame's hotkey list and working in pl_editor, and simply not bound
+        // here: the audit pressed it with the frame focused and the status bar
+        // stayed on inches.
+        //
+        // COMMON_TOOLS::ToggleUnits switches imperial <-> metric and returns to
+        // the imperial unit you were last in (m_imperialUnit, initially
+        // inches), which is why this is not a three-way cycle. That is the
+        // units button's job, and it already cycles mm -> in -> mil.
+        e.preventDefault();
+        const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
+        onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+        return;
+      }
       if (plain && (e.key === 'm' || e.key === 'M')) {
         // PL_ACTIONS::move (pl_actions.cpp:84). Only claims the key when there
         // is something to move, exactly as its ACTION_CONDITIONS would.
@@ -1037,7 +1063,7 @@ export function DrawingSheetEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeTool, moveMode, selection, cancelDrawing]);
+  }, [activeTool, moveMode, selection, cancelDrawing, toggles, onLeftToggle]);
 
   // ---- system-clipboard paste (Ctrl+V): image → bitmap, .kicad_wks text → items ----
   useEffect(() => {
