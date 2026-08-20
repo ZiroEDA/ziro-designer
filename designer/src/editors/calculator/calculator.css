@@ -297,8 +297,15 @@ input.calc-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):
    read-only cell in panel_regulator_base.cpp does. [px] rgb(55,55,55) — the
    same face a button gets — with ordinary label ink. It was #2c2e33 with GREEN
    text, which KiCad has nowhere. */
+/* wxSYS_COLOUR_3DLIGHT is set on exactly TEN controls in the whole launcher:
+   the Regulators panel's six min/max cells, its two tolerance cells and its
+   Power Comment (panel_regulator_base.cpp:166-330). Every other read-only
+   wxTextCtrl - the Resistor Calculator's solutions and approximations, the
+   attenuator results, the IEC clearances - keeps the ORDINARY entry
+   background, which is darker. Ours painted all of them 3DLIGHT, which is what
+   Akshay saw as "boxes with the wrong colouring". */
 .calc-frame
-input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+input.calc-input.light:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
   [type="range"]
 ) {
   background: var(--ctl-face);
@@ -1059,6 +1066,13 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 .wl-row .calc-field-label {
   min-width: 170px;
+}
+
+/* The `...` beside `er:` occupies the UNIT SELECTOR's column and is added with
+   wxEXPAND (panel_wavelength_base.cpp:96), so it is as wide as the selectors
+   above it: [px] x 524..604, 80 px. Ours was 39. */
+.wl-row .calc-btn {
+  width: 80px;
 }
 
 /* --- RF Attenuators (panel_rf_attenuators_base.cpp) --- */

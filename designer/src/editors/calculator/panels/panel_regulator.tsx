@@ -365,9 +365,9 @@ export function PanelRegulator(): JSX.Element {
     <>
       <input type="radio" name="reg-solve" checked={solve === id} onChange={() => setSolve(id)} />
       <span className="reg-label">{label}</span>
-      <input className="calc-input ro" readOnly value={min} />
+      <input className="calc-input ro light" readOnly value={min} />
       <input className="calc-input" value={typ} onChange={(e) => setTyp(e.target.value)} />
-      <input className="calc-input ro" readOnly value={max} />
+      <input className="calc-input ro light" readOnly value={max} />
       <span className="calc-unit">{unit}</span>
     </>
   );
@@ -555,9 +555,9 @@ export function PanelRegulator(): JSX.Element {
 
             <span />
             <span className="reg-label">Overall tolerance:</span>
-            <input className="calc-input ro" readOnly value={tolMin} />
+            <input className="calc-input ro light" readOnly value={tolMin} />
             <span />
-            <input className="calc-input ro" readOnly value={tolMax} />
+            <input className="calc-input ro light" readOnly value={tolMax} />
             <span className="calc-unit">%</span>
           </div>
 
@@ -575,7 +575,7 @@ export function PanelRegulator(): JSX.Element {
           <div className="calc-field">
             <span>Power Comment:</span>
             <input
-              className="calc-input ro"
+              className="calc-input ro light"
               style={{ width: 200, textAlign: 'center' }}
               readOnly
               value={comment}
