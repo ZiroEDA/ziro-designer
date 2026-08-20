@@ -247,6 +247,16 @@ describe("segIntersect — upstream's own case table", () => {
 });
 
 describe('segIntersect — the answers that are not shapes', () => {
+  it('includes a crossing that lands exactly on the other segment\'s A', () => {
+    // `param1_num` is then exactly 0 and upstream's rejection is a strict `< 0`,
+    // so the touch counts (seg.cpp:312). Written with the vertical segment
+    // pointing *down* on purpose: pointing up makes the determinant negative and
+    // takes the other arm of the sign split, which is separately covered above.
+    // det = cross( d2, d1 ) = 0*0 - (-10)*10 = 100 > 0; param1_num =
+    // cross( d1, offset ) = 10*0 - 0*5 = 0; param2_num = 50, inside [0, 100].
+    expect(segIntersect(S(0, 0, 10, 0), S(5, 0, 5, -10))).toEqual(V(5, 0));
+  });
+
   it('takes the integer midpoint of a collinear overlap, not the fractional one', () => {
     // The overlap of [0,10] and [5,15] is [5,10]; `( 5 + 10 ) / 2` between two
     // ints is 7, and upstream's table pins exactly that. A `/ 2` in doubles
@@ -456,6 +466,20 @@ describe('segContains', () => {
     // A diagonal offset past the end squares to 2 and is still contained.
     expect(segContains(S(0, 0, 10, 0), V(11, 1))).toBe(true);
   });
+
+  it('is INCLUSIVE at exactly three, which only a sloped line can reach', () => {
+    // Two integer points can never be 3 square IU apart (1+1 = 2, 1+4 = 5), so
+    // the boundary is only reachable through the interior arm of
+    // `SquaredDistance`, whose `|ap|^2 - e^2/f` is a double that is then
+    // KiROUNDed (seg.cpp:714). On the line (0,0)-(50,100), the point (2,0) has
+    // e = 2*50 = 100, f = 50^2 + 100^2 = 12500 and |ap|^2 = 4, so
+    // g = 4 - 10000/12500 = 3.2 and KiROUND( 3.2 ) = 3 — contained, because
+    // upstream's comparison is `<= 3`.
+    expect(segSquaredDistanceToPoint(S(0, 0, 50, 100), V(2, 0))).toBe(3);
+    expect(segContains(S(0, 0, 50, 100), V(2, 0))).toBe(true);
+    // (3,0) is g = 9 - 22500/12500 = 7.2, KiROUND 7, and is not.
+    expect(segContains(S(0, 0, 50, 100), V(3, 0))).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -624,5 +648,16 @@ describe('SEG::Collide( const SEG&, int, int* )', () => {
       collides: false,
       actual: 50,
     });
+  });
+
+  it('excludes a gap equal to the clearance: the test is `dist < aClearance`', () => {
+    // seg.cpp:557 — `return dist == 0 || dist < aClearance`. A point exactly the
+    // clearance away is NOT a collision; one IU more of clearance is. The zero
+    // arm is what still catches a touch at a clearance of zero.
+    expect(segCollide(S(0, 0, 100, 0), S(50, 50, 50, 50), 50).collides).toBe(false);
+    expect(segCollide(S(0, 0, 100, 0), S(50, 50, 50, 50), 51).collides).toBe(true);
+    // Upstream spells the same comparison out twice, once per zero-length arm.
+    expect(segCollide(S(50, 50, 50, 50), S(0, 0, 100, 0), 50).collides).toBe(false);
+    expect(segCollide(S(50, 50, 50, 50), S(0, 0, 100, 0), 51).collides).toBe(true);
   });
 });
