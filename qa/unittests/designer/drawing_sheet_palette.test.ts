@@ -228,7 +228,13 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     // grid.last_size defaults to 4 for pl_editor (app_settings.cpp:466-472)
     // into DefaultGridSizeList()'s pl_editor list (:605-614), entry 4 = 0.50 mm.
     // That is the "grid 19.685039" the audit measured in mils.
-    expect(EDITOR).toContain('const gridIU = mmToIU(0.5);');
+    //
+    // The spacing was a literal mmToIU(0.5) until DSP-14 gave the canvas
+    // context menu its Grid submenu, which needs the grid to be settable. It is
+    // now an index into the same shared table, starting at the same entry —
+    // what this pins is that it is the TABLE's default and not the unit's.
+    expect(EDITOR).toContain('useState(DEFAULT_GRID_INDEX.pl_editor)');
+    expect(EDITOR).toContain('GRID_SIZE_LIST.pl_editor[gridIndex]');
     expect(EDITOR).not.toMatch(/gridIU\s*=\s*unit ===/);
   });
 });
@@ -463,8 +469,12 @@ describe('D7: this editor adds no new hardcoded font size', () => {
       n += [...src.matchAll(/fontSize:\s*\d/g)].length;
     }
     // 14 until UnitField took MmField's literal "mm" span away, then 13 until
-    // the B5 label pass dropped the two invented "deg" spans by Rotation.
-    expect(n).toBe(11);
+    // the B5 label pass dropped the two invented "deg" spans by Rotation, then
+    // 11 until DSP-21 tokenised PropertiesFrame.tsx — which took its four
+    // (the type label, the Syntax Help link, the size-info line and the Syntax
+    // Help dialog body) into --ui-font-size, leaving 7 in the two dialogs that
+    // have not had their turn.
+    expect(n).toBe(7);
   });
 
   it('adds none in the chrome this PR wrote', () => {

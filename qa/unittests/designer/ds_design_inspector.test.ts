@@ -20,17 +20,20 @@ const DIALOG = read('../../../designer/src/editors/drawingsheet/DesignInspector.
 const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 
 describe('DSP-15 — a row click does not end the dialog', () => {
-  /** The row's `onClick={…}` handler body. */
+  /** The item row's `onClick={…}` handler body. */
   const rowClick = (() => {
-    const at = DIALOG.indexOf('onClick={() =>');
+    const at = DIALOG.indexOf('onClick={() => {');
     expect(at, 'no row onClick in DesignInspector').toBeGreaterThan(-1);
-    return DIALOG.slice(at, DIALOG.indexOf('}\n', at));
+    return DIALOG.slice(at, DIALOG.indexOf('}}', at));
   })();
 
   it('selects the item', () => {
     // design_inspector.cpp:344-353 — ClearSelection, AddItemToSel, Refresh,
     // CopyPrmsFromItemToPanel.
-    expect(rowClick).toContain('onSelect(i)');
+    expect(rowClick).toContain('onSelect(row.itemIndex)');
+    // …and only for a real DS_DATA_ITEM: m_itemsList[0] is nullptr for the
+    // root "Layout" row and onCellClicked returns early on it (:344-347).
+    expect(rowClick).toContain('row.itemIndex !== null');
   });
 
   it('does not close (onCellClicked never calls EndModal)', () => {

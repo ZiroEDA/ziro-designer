@@ -189,7 +189,7 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /* ------------------------------------------------------------------------- *
  * The ratchet.
  *
- * 407 hardcoded font sizes are still in the tree across 29 distinct values.
+ * 397 hardcoded font sizes are still in the tree across 29 distinct values.
  * They come out per launcher, as each launcher's parity work reaches it and
  * can be verified against that launcher's own side-by-side captures - a
  * 414-site sweep can only be verified in aggregate, which is not verification.
@@ -212,7 +212,7 @@ const BASELINE: Record<string, number> = {
   // and moved to ui/'s .ze-unit-label when UnitField replaced it; the two
   // invented "deg" spans beside Rotation went with the B5 label pass, since
   // m_textCtrlRotation has no units static text upstream.
-  'editors/drawingsheet': 11,
+  'editors/drawingsheet': 7,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -221,7 +221,7 @@ const BASELINE: Record<string, number> = {
   home: 5,
   mobile: 6,
   pcm: 10,
-  ui: 165,
+  ui: 159,
   widgets: 6,
 };
 
@@ -330,11 +330,14 @@ describe('hardcoded font sizes do not grow', () => {
   });
 
   it('the total is what the PR reported, so the number in the PR stays true', () => {
-    // 407, RECOUNTED FROM THE TREE after merging the calculator and drawing
-    // sheet passes — not from either side's diff. Each pass alone reported a
-    // different number (409 and 412) and neither is the answer; keeping either
-    // one still compiles and silently hides the other's remaining sites, which
+    // 397, RECOUNTED FROM THE TREE after DSP-21 tokenised the drawing sheet's
+    // properties frame — not from that pass's diff. Each pass alone reports a
+    // different number and none of them is the answer; keeping a stale one
+    // still compiles and silently hides another area's remaining sites, which
     // is the specific way this file has been broken before.
-    expect(sites.length).toBe(407);
+    //
+    // DSP-21 took 4 out of editors/drawingsheet (11 -> 7) and 6 out of ui
+    // (165 -> 159: the four .ze-ds-* rules, .ze-unit-label, and the tab strip).
+    expect(sites.length).toBe(397);
   });
 });
