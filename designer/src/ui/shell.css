@@ -971,14 +971,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 
 /* A read-only wxTextCtrl in a toolbar - GerbView's `m_TextInfo`, created with
    wxTE_READONLY (`gerbview/toolbars_gerber.cpp:161-162`). An entry, so it takes
-   the entry tokens; wx greys read-only text with GRAYTEXT, which is
-   --ctl-fg-disabled. */
+   the entry tokens.
+
+   It is NOT greyed, which is what this rule said before. wxTE_READONLY maps to
+   `gtk_editable_set_editable( FALSE )`, and that leaves the widget's state flags
+   alone - only `set_sensitive( FALSE )` sets GTK_STATE_FLAG_INSENSITIVE. Asked
+   directly (~/gerbview-notes/entry_bg.py): a normal entry and a set_editable
+   (FALSE) entry both report fg #ffffff, where an insensitive one reports
+   #929292, which is --ctl-fg-disabled. So a read-only entry keeps ordinary
+   text; only an insensitive one dims.
+
+   [px] that same measurement puts the entry background at #272727 and the height
+   at 34 (= --ctl-height). --field-bg is #282828 and its own comment calls that a
+   sample of a live wxTextCtrl; the drawing-sheet session independently sampled
+   #272727 off a live GerbView. Two measurements against one, but --field-bg is
+   shared by every launcher, so it stays on the token here and the discrepancy is
+   raised rather than resolved by one control's evidence. */
 .ze-tb-textinfo {
   flex: 0 0 auto;
   height: var(--ctl-height);
   padding: 0 var(--field-pad-x);
   background: var(--field-bg);
-  color: var(--ctl-fg-disabled);
+  color: var(--chrome-fg);
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
   font: inherit;
