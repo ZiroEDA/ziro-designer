@@ -430,11 +430,11 @@
   display: block;
   /* [art] the tick's own geometry. GTK draws check-symbolic.svg here, so there
      is no metric to copy — only the ink is shared, as --check-mark. */
-  width: 4px;
-  height: 8px;
-  margin: 1px auto 0;
+  width: 4px; /* [art] */
+  height: 8px; /* [art] */
+  margin: 1px auto 0; /* [art] */
   border: solid var(--check-mark);
-  border-width: 0 2px 2px 0;
+  border-width: 0 2px 2px 0; /* [art] */
   transform: rotate(45deg);
 }
 
@@ -442,9 +442,9 @@
   content: "";
   display: block;
   /* [art] as above, for bullet-symbolic.svg. */
-  width: 6px;
-  height: 6px;
-  margin: 4px auto;
+  width: 6px; /* [art] */
+  height: 6px; /* [art] */
+  margin: 4px auto; /* [art] */
   border-radius: 50%;
   background: var(--check-mark);
 }

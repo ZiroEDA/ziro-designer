@@ -495,20 +495,20 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   align-items: center;
   /* [art] see above - upstream draws no resistor, so none of this is copied. */
-  gap: 4px;
-  background: #d2b48c;
+  gap: 4px; /* [art] */
+  background: #d2b48c; /* [art] */
   border: 1px solid var(--ctl-border);
-  border-radius: 12px;
-  padding: 10px 26px;
+  border-radius: 12px; /* [art] */
+  padding: 10px 26px; /* [art] */
   width: fit-content;
-  margin: 10px 0;
+  margin: 10px 0; /* [art] */
 }
 
 .cc-band {
   /* [art] as above. */
   width: 14px;
-  height: 44px;
-  border: 1px solid #333333;
+  height: 44px; /* [art] */
+  border: 1px solid #333333; /* [art] */
 }
 
 .calc-svg {

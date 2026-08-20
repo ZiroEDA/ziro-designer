@@ -27,8 +27,13 @@ import { fileURLToPath } from 'node:url';
 import {
   DS_ITEM_COLOR,
   DS_BG_COLOR,
+  DS_BRIGHTENED_COLOR,
+  DS_EDIT_POINT_ON_DARK,
+  DS_EDIT_POINT_ON_LIGHT,
+  DS_MARQUEE,
   DS_PAGE_BORDER_COLOR,
   DS_PRINT_PAPER_COLOR,
+  DS_SELECTED_COLOR,
 } from '@ziroeda/designer/src/editors/drawingsheet/wksRender.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
 import {
@@ -442,6 +447,80 @@ describe('D4: the toolbar combos are sized like wxChoice, not stretched', () => 
   it('drops the inline layout the JSX was carrying', () => {
     expect(EDITOR).toContain('className="ze-wks-topbar"');
     expect(EDITOR).not.toContain("<div style={{ display: 'flex', alignItems: 'center', flexWrap");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The colours pl_editor does NOT read out of a COLOR_SETTINGS layer.
+ *
+ * central_values.test.ts counts an unmarked literal; it cannot check that a
+ * MARKED one is the right value, because a citation is prose. That is what this
+ * block is for: each expectation is recomputed here from the COLOR4D arithmetic
+ * in the C++, so changing the constant without changing the derivation fails.
+ * ------------------------------------------------------------------------- */
+
+/** `COLOR4D::Brightened`, include/gal/color4d.h:269-275: c*(1-f) + f. */
+const brightened = (c: number, f: number): number =>
+  Math.round((c / 255) * (1 - f) * 255 + f * 255);
+/** `COLOR4D::Darkened`, the same file: c*(1-f). */
+const darkened = (c: number, f: number): number => Math.round((c / 255) * (1 - f) * 255);
+/** COLOR4D channels are 0..1 floats; wxColour and CSS want 0..255. */
+const ch = (f: number): number => Math.round(f * 255);
+
+describe('the selection colours, derived rather than transcribed', () => {
+  it('a selected item is RED brightened by half, because LoadColors skips it', () => {
+    // ds_painter.cpp:46-53 sets m_selectedColor = m_normalColor.Brightened(0.5)
+    // with m_normalColor = RED; LoadColors() (:58-70), the one function
+    // pl_draw_panel_gal.cpp:59 calls, overwrites the background, the page
+    // border and the normal colour and NOT the selection. RED is {132,0,0},
+    // common/gal/color4d.cpp:61.
+    const [r, g, b] = [brightened(132, 0.5), brightened(0, 0.5), brightened(0, 0.5)];
+    expect(DS_SELECTED_COLOR).toBe(`rgb(${r}, ${g}, ${b})`);
+    // ...and it is emphatically not the blue it used to be, which is in no
+    // KiCad source file at all.
+    expect(DS_SELECTED_COLOR).not.toBe('#4aa3ff');
+  });
+
+  it('a brightened item is FULL green at 0.9 alpha', () => {
+    // ds_painter.cpp:50 - COLOR4D( 0.0, 1.0, 0.0, 0.9 ). It was 0,230,0.
+    expect(DS_BRIGHTENED_COLOR).toBe(`rgba(${ch(0)}, ${ch(1)}, ${ch(0)}, 0.9)`);
+  });
+
+  it('the marquee has one fill per background and differs only in the outline', () => {
+    // selection_area.cpp:44-62, the two SELECTION_COLORS; :105-106 picks by
+    // IsBackgroundDark(); :116-121 fills with `normal` either way and strokes
+    // outline_l2r left-to-right, outline_r2l right-to-left.
+    expect(DS_MARQUEE.onDark.fill).toBe(`rgba(${ch(0.3)}, ${ch(0.3)}, ${ch(0.7)}, 0.3)`);
+    expect(DS_MARQUEE.onDark.outlineL2R).toBe(`rgb(${ch(1.0)}, ${ch(1.0)}, ${ch(0.4)})`);
+    expect(DS_MARQUEE.onDark.outlineR2L).toBe(`rgb(${ch(0.4)}, ${ch(0.4)}, ${ch(1.0)})`);
+    expect(DS_MARQUEE.onLight.fill).toBe(`rgba(${ch(0.5)}, ${ch(0.3)}, ${ch(1.0)}, 0.5)`);
+    expect(DS_MARQUEE.onLight.outlineL2R).toBe(`rgb(${ch(0.7)}, ${ch(0.7)}, ${ch(0.0)})`);
+    expect(DS_MARQUEE.onLight.outlineR2L).toBe(`rgb(${ch(0.1)}, ${ch(0.1)}, ${ch(1.0)})`);
+    // One fill, not one per direction - the bug this replaced.
+    expect(DS_MARQUEE.onDark.outlineL2R).not.toBe(DS_MARQUEE.onDark.outlineR2L);
+  });
+
+  it('an edit point is LAYER_AUX_ITEMS, inverted against a pale canvas', () => {
+    // edit_points.cpp:257-261: fill = GetLayerColor( LAYER_AUX_ITEMS ), which
+    // is white (builtin_color_themes.h:159), inverted when it is within 0.5 of
+    // the clear colour. This editor's paper is rgb(245,244,239), so it inverts;
+    // the black-background option leaves it white.
+    expect(DS_EDIT_POINT_ON_LIGHT.fill).toBe('rgb(0, 0, 0)');
+    expect(DS_EDIT_POINT_ON_DARK.fill).toBe('rgb(255, 255, 255)');
+    // :265-282, the border is derived from the FILL's own brightness: at 0 the
+    // else branch Brightens by 0.7, at 1 the first branch Darkens by 0.7, and
+    // both take alpha 0.8.
+    const up = brightened(0, 0.7);
+    const down = darkened(255, 0.7);
+    expect(DS_EDIT_POINT_ON_LIGHT.border).toBe(`rgba(${up}, ${up}, ${up}, 0.8)`);
+    expect(DS_EDIT_POINT_ON_DARK.border).toBe(`rgba(${down}, ${down}, ${down}, 0.8)`);
+  });
+
+  it('the canvas asks for the pair that matches the background it just cleared to', () => {
+    // Both are per-background, so reading the wrong one is a live bug that no
+    // colour value can show. `darkBg` is what dsBackgroundIsDark returned.
+    expect(CANVAS).toContain('darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight');
+    expect(CANVAS).toContain('darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT');
   });
 });
 
