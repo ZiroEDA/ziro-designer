@@ -13,7 +13,7 @@ import {
   saveProject,
   updateProjectFiles,
 } from './home/projectStore.js';
-import { recordSnapshot } from './home/local_history_store.js';
+import { listSnapshots, readSnapshot, recordSnapshot } from './home/local_history_store.js';
 import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
@@ -497,6 +497,46 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  /**
+   * The restore half of `SCH_EDITOR_CONTROL::Revert`
+   * (eeschema/tools/sch_editor_control.cpp:487-491):
+   *
+   *     SCH_SCREENS screenList( schematic.Root() );
+   *     for( … ) screen->SetContentModified( false );   // do not prompt
+   *     m_frame->ReleaseFile();
+   *     m_frame->OpenProjectFiles( { schematic.GetFileName() }, KICTL_REVERT );
+   *
+   * Upstream that is a re-read of the FILE, because KiCad touches disk only
+   * when you press Save, so the file IS the last saved version. We autosave
+   * continuously, so our equivalent of "the last version saved" is the newest
+   * `kind: 'save'` Local History point — which is a real one only because saves
+   * now record one (see saveProjectFiles). Reverting to the file here would be
+   * a no-op that merely LOOKED destructive.
+   *
+   * Returns false when there is nothing to revert to, so the caller can say so
+   * instead of silently doing nothing.
+   *
+   * Setting the project files is the `OpenProjectFiles` half: the editors
+   * reload from `initialProject` whenever it changes.
+   */
+  const revertProject = useCallback(async (): Promise<boolean> => {
+    const cur = projectFilesRef.current;
+    if (!cur || !storageAvailable()) return false;
+    try {
+      const rec = (await listProjects()).find((p) => p.name === projectNameOf(cur));
+      if (!rec) return false;
+      const point = (await listSnapshots(rec.id)).find((s) => s.kind === 'save');
+      if (!point) return false;
+      const files = await readSnapshot(point.id);
+      if (!files || files.length === 0) return false;
+      await updateProjectFiles(rec.id, files);
+      setProjectFiles(files.map(pickedFromStored));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const persistFilesNow = useCallback((files: PickedFile[]) => {
     const cur = projectFilesRef.current;
     if (!cur || files.length === 0 || !storageAvailable()) return;
@@ -952,6 +992,7 @@ export function App(): JSX.Element {
               // Explicit Save only — it records a Local History point, which
               // autosave must not. See saveProjectFiles.
               onSaveFiles={saveProjectFiles}
+              onRevert={revertProject}
               onOutputFile={onOutputFile}
               registerAutosaveFlush={registerSchFlush}
               extraSheetFiles={sessionSheets}

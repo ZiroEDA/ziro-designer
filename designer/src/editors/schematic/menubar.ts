@@ -113,7 +113,10 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         // FriendlyName "Save Current Sheet Copy As...", BITMAPS::save_as, and
         // no default hotkey.
         act('Save Current Sheet Copy As...', 'saveAs', 'saveCurrSheetCopyAs'),
-        stub('Revert'),
+        // ACTIONS::revert (common/tool/actions.cpp:120-126): FriendlyName
+        // "Revert", tooltip "Throw away changes", BITMAPS::restore_from_file,
+        // and no default hotkey - a destructive command upstream gives no key.
+        act('Revert', 'revert', 'revert'),
         SEP,
         {
           label: 'Import',

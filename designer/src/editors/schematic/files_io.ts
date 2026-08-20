@@ -29,3 +29,26 @@
 export function savedFileMessage(filename: string): string {
   return `File '${filename}' saved.`;
 }
+
+/**
+ * `SCH_EDITOR_CONTROL::Revert`'s question
+ * (eeschema/tools/sch_editor_control.cpp:466-467):
+ *
+ *     msg.Printf( _( "Revert '%s' (and all sub-sheets) to last version saved?" ),
+ *                 schematic.GetFileName() );
+ *
+ * The `%s` is `SCHEMATIC::GetFileName()` — the FIRST TOP-LEVEL SHEET's file
+ * (eeschema/schematic.cpp:524-532) — not whichever sheet is on screen. The
+ * parenthesis is why: it discards the whole hierarchy, so it names the project
+ * rather than the sheet you happen to be looking at.
+ */
+export function revertPromptMessage(rootFileName: string): string {
+  return `Revert '${rootFileName}' (and all sub-sheets) to last version saved?`;
+}
+
+/**
+ * `IsOK`'s caption (common/confirm.cpp:293) — `KICAD_MESSAGE_DIALOG( aParent,
+ * aMessage, _( "Confirmation" ), … )`. Not the frame's name, and not a question
+ * of its own: every IsOK in KiCad puts this one word in the title bar.
+ */
+export const CONFIRMATION_CAPTION = 'Confirmation';

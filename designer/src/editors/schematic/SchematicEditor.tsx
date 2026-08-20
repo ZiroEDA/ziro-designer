@@ -306,7 +306,8 @@ import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import { isHoverSelection, rightClickSelection } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
-import { savedFileMessage } from './files_io.js';
+import { CONFIRMATION_CAPTION, revertPromptMessage, savedFileMessage } from './files_io.js';
+import { MessageDialogYesNo } from '../../ui/dialog_message.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
@@ -645,6 +646,7 @@ export function SchematicEditor({
   onProjectChange,
   onPersistFiles,
   onSaveFiles,
+  onRevert,
   onOutputFile,
   registerAutosaveFlush,
   extraSheetFiles,
@@ -705,6 +707,12 @@ export function SchematicEditor({
    * and none of those is a point a user chose to be able to come back to.
    */
   onSaveFiles?: (files: PickedFile[]) => Promise<void>;
+  /**
+   * ACTIONS::revert's restore half — put the project back to its newest save
+   * point and reload the editors. Resolves false when there is no point to go
+   * back to, so the command can say so rather than appear to do nothing.
+   */
+  onRevert?: () => Promise<boolean>;
   /** Write a generated output file (plot / export) into the project file
    *  manager instead of the browser download folder. When absent, outputs fall
    *  back to a browser download. */
@@ -1946,6 +1954,12 @@ export function SchematicEditor({
    * precedence while a net is actually highlighted.
    */
   const [statusText, setStatusText] = useState<string>('');
+  /** ACTIONS::revert's IsOK(), while it is up. */
+  const [revertPrompt, setRevertPrompt] = useState<{
+    file: string;
+    onYes: () => void;
+    onNo: () => void;
+  } | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
   // Folders that already exist inside the project, relative to the project's
@@ -3780,6 +3794,69 @@ export function SchematicEditor({
     setStatusText(savedFileMessage(seed));
   }, [currentFile, fileName, onPersistFiles]);
 
+  /**
+   * `SCH_EDITOR_CONTROL::Revert` (eeschema/tools/sch_editor_control.cpp:445-492).
+   *
+   * The order is upstream's and each step is load-bearing:
+   *
+   *  1. remember the current sheet, and whether it is a subsheet:
+   *     `wasOnSubsheet = ( GetCurrentSheet().Last() != &root )`.
+   *  2. if it is, navigate to the ROOT FIRST — `Hierarchy().at( 0 )`, with the
+   *     comment "manually pushing root creates a path with empty KIID which
+   *     causes assertions". Upstream deliberately does NOT `wxSafeYield()` here,
+   *     "to avoid repainting the root sheet before the dialog", so the user
+   *     sees the question rather than a flash of a sheet they did not ask for.
+   *  3. ask. The string is verbatim, and `IsOK` (common/confirm.cpp:278-300) is
+   *     a "Confirmation" dialog with a question icon whose OK/Cancel pair is
+   *     relabelled Yes/No, with wxOK_DEFAULT — so YES is the default button.
+   *  4. NO returns you to the sheet you were on (this one DOES yield) and
+   *     changes nothing.
+   *  5. YES marks every screen unmodified BEFORE restoring — "do not prompt the
+   *     user for changes" — then releases and re-opens.
+   *
+   * The `%s` is `schematic.GetFileName()`, which is the first top-level sheet's
+   * file (eeschema/schematic.cpp:524-532), not whichever sheet you are looking
+   * at — the prompt names the project, and says "(and all sub-sheets)" because
+   * it discards the whole hierarchy.
+   *
+   * What differs here, and it is the persistence model rather than a shortcut:
+   * upstream re-reads the FILE, because KiCad writes to disk only on Save. We
+   * autosave, so the file already holds the edits Revert is meant to discard;
+   * our "last version saved" is the newest Local History save point instead.
+   * Upstream keeps Revert and Local History's Restore Commit separate; here
+   * they necessarily meet.
+   */
+  const revert = useCallback(() => {
+    if (!onRevert) return;
+
+    const rootSheet = flatSheets[0];
+    const wasOnSubsheet = !!rootSheet && currentPath !== rootSheet.path;
+    const originalSheet = { path: currentPath, file: currentFile };
+
+    // Step 2: to the root before asking, and without repainting first.
+    if (wasOnSubsheet && rootSheet) switchSheet(rootSheet.path, rootSheet.file, false);
+
+    setRevertPrompt({
+      // schematic.GetFileName() — the first top-level sheet's file.
+      file: rootSheet?.file ?? currentFile,
+      onNo: () => {
+        setRevertPrompt(null);
+        // Step 4: back to where they were.
+        if (wasOnSubsheet) switchSheet(originalSheet.path, originalSheet.file, false);
+      },
+      onYes: () => {
+        setRevertPrompt(null);
+        // Step 5. `SetContentModified( false )` on every screen first, so the
+        // reload does not stop to ask about the very changes being discarded.
+        setDirty(false);
+        setUnsaved(false);
+        void onRevert().then((ok) => {
+          if (!ok) setInfoBar('There is no saved version to revert to yet.');
+        });
+      },
+    });
+  }, [onRevert, flatSheets, currentPath, currentFile, switchSheet]);
+
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),
   // so text copied here pastes into desktop KiCad and vice versa. Paste parses
@@ -5520,6 +5597,8 @@ export function SchematicEditor({
       else if (id === 'save') save();
       // SCH_ACTIONS::saveCurrSheetCopyAs
       else if (id === 'saveCurrSheetCopyAs') saveCurrSheetCopyAs();
+      // ACTIONS::revert
+      else if (id === 'revert') revert();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'manageSymbolLibraries') setSymLibTableOpen(true);
       // SCH_EDITOR_CONTROL::ShowCreateNetChain opens whatever is selected; a
@@ -5777,6 +5856,7 @@ export function SchematicEditor({
       redo,
       save,
       saveCurrSheetCopyAs,
+      revert,
       promptOpen,
       runCommand,
       runErcNow,
@@ -8377,6 +8457,19 @@ export function SchematicEditor({
           tool: SCH_TOOL_MSGS[activeTool] ?? '',
         }}
       />
+
+      {revertPrompt && (
+        /* IsOK (common/confirm.cpp:278-300): a KICAD_MESSAGE_DIALOG captioned
+           "Confirmation" with wxICON_QUESTION, whose OK/Cancel pair is
+           relabelled "&Yes"/"&No", and wxOK_DEFAULT makes YES the default. */
+        <MessageDialogYesNo
+          caption={CONFIRMATION_CAPTION}
+          message={revertPromptMessage(revertPrompt.file)}
+          icon="question"
+          defaultButton="yes"
+          onResult={(r) => (r === 'yes' ? revertPrompt.onYes() : revertPrompt.onNo())}
+        />
+      )}
 
       {chooserOpen && (
         <DialogSymbolChooser
