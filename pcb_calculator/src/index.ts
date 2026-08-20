@@ -9,6 +9,7 @@
 export * from './format.js';
 export * from './eseries.js';
 export * from './resistor_substitution_utils.js';
+export * from './regulator_datafile.js';
 export * from './regulators_funct.js';
 export * from './tracks_width_versus_current_formula.js';
 export * from './via_size.js';

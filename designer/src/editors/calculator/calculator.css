@@ -524,6 +524,19 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   align-items: center;
 }
 
+/* Every label in the dialog is a wxStaticText, so "Vref (min/typ/max):" stays
+   on one line; ours wrapped it and made the dialog two rows taller. */
+.reg-form-grid > span {
+  white-space: nowrap;
+}
+
+/* bSizer3 puts `Add( 0, 0, 1 )` - a stretch spacer - BEFORE the two Iadj
+   entries (dialog_regulator_form_base.cpp:82), so that row is right-aligned
+   against the Vref row above it. */
+.reg-form-triple.iadj {
+  justify-content: flex-end;
+}
+
 .reg-form-triple {
   display: flex;
   gap: var(--wx-border);

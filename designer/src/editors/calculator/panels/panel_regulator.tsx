@@ -13,6 +13,9 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
+  formatRegulatorDataFile,
+  parseRegulatorDataFile,
+  REGULATOR_DATA_FILE_EXT,
   type RegulatorData,
   RegulatorSolve,
   RegulatorType,
@@ -106,16 +109,39 @@ interface RegForm {
   iadjMax: string;
 }
 
-const formFrom = (r: RegulatorData | null): RegForm => ({
-  original: r?.name ?? null,
-  name: r?.name ?? '',
-  type: r?.type ?? RegulatorType.THREE_TERMINAL,
-  vrefMin: String(r?.vrefMin ?? 1.2),
-  vrefTyp: String(r?.vrefTyp ?? 1.25),
-  vrefMax: String(r?.vrefMax ?? 1.3),
-  iadjTyp: String((r?.iadjTyp ?? 50e-6) * 1e6),
-  iadjMax: String((r?.iadjMax ?? 100e-6) * 1e6),
-});
+/** `%.3g`, which is what CopyRegulatorDataToDialog prints
+ *  (dialog_regulator_form.cpp:113-125). */
+const g3 = (v: number): string => printfG(Number(v.toPrecision(3)));
+
+/**
+ * DIALOG_REGULATOR_FORM opens with EVERY field empty and the type choice on
+ * index 0, Standard Type (dialog_regulator_form_base.cpp:31-67 - every
+ * wxTextCtrl is constructed with wxEmptyString - and :65 SetSelection( 0 )).
+ * Only CopyRegulatorDataToDialog fills them, when editing.
+ */
+const formFrom = (r: RegulatorData | null): RegForm =>
+  r
+    ? {
+        original: r.name,
+        name: r.name,
+        type: r.type,
+        vrefMin: g3(r.vrefMin),
+        vrefTyp: g3(r.vrefTyp),
+        vrefMax: g3(r.vrefMax),
+        // KiCad holds Iadj in microamps and prints the field verbatim.
+        iadjTyp: g3(r.iadjTyp * 1e6),
+        iadjMax: g3(r.iadjMax * 1e6),
+      }
+    : {
+        original: null,
+        name: '',
+        type: RegulatorType.STANDARD,
+        vrefMin: '',
+        vrefTyp: '',
+        vrefMax: '',
+        iadjTyp: '',
+        iadjMax: '',
+      };
 
 /** KiCad PANEL_REGULATOR::round_to + "%g" display (default step 0.001). */
 const roundTo = (v: number, precision = 0.001): string =>
@@ -297,29 +323,30 @@ export function PanelRegulator(): JSX.Element {
     copyText(comment);
   };
 
+  // PANEL_REGULATOR::WriteDataFile (datafile_read_write.cpp:91-113).
   const exportData = (): void => {
-    const blob = new Blob([JSON.stringify(store.regulators, null, 2)], {
-      type: 'application/json',
-    });
+    const blob = new Blob(
+      [formatRegulatorDataFile(store.regulators, 'pcb_calculator (ZiroEDA)')],
+      { type: 'text/plain' },
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'regulators.json';
+    a.download = `regulators.${REGULATOR_DATA_FILE_EXT}`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  // PANEL_REGULATOR::OnDataFileSelection then ReadDataFile
+  // (panel_regulator.cpp:186-235, datafile_read_write.cpp:50-88): the file is a
+  // `.pcbcalc` s-expression, the list it holds REPLACES the current one, and a
+  // file that will not parse raises "Unable to read data file '%s'.".
   const importData = (file: File): void => {
     void file.text().then((txt) => {
       try {
-        const parsed = JSON.parse(txt) as RegulatorData[];
-        if (!Array.isArray(parsed) || !parsed.length) throw new Error('empty');
-        const clean = parsed.filter(
-          (r) => typeof r.name === 'string' && Number.isFinite(r.vrefTyp),
-        );
-        if (!clean.length) throw new Error('no valid entries');
-        setStore({ regulators: clean, selected: clean[0]!.name });
-        applyRegulator(clean[0]!);
+        const parsed = parseRegulatorDataFile(txt);
+        setStore({ regulators: parsed, selected: parsed[0]?.name ?? '' });
+        if (parsed[0]) applyRegulator(parsed[0]);
         setDataFileName(file.name);
       } catch {
         setNotice(`Unable to read data file '${file.name}'.`);
@@ -427,7 +454,7 @@ export function PanelRegulator(): JSX.Element {
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/json,.json"
+                accept={`.${REGULATOR_DATA_FILE_EXT}`}
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -599,12 +626,11 @@ export function PanelRegulator(): JSX.Element {
               <button type="button" className="calc-btn" onClick={() => setForm(null)}>
                 Cancel
               </button>
-              <button
-                type="button"
-                className="calc-btn"
-                disabled={!formValid(form)}
-                onClick={saveForm}
-              >
+              {/* KiCad's OK is never disabled: TransferDataFromWindow just
+                  returns false and the dialog stays open, saying nothing
+                  (dialog_regulator_form.cpp:48-93). Ours greyed it out, which
+                  tells the user something upstream does not. */}
+              <button type="button" className="calc-btn" onClick={saveForm}>
                 OK
               </button>
             </>
@@ -650,7 +676,7 @@ export function PanelRegulator(): JSX.Element {
             {form.type === RegulatorType.THREE_TERMINAL && (
               <>
                 <span>Iadj (typ/max):</span>
-                <span className="reg-form-triple">
+                <span className="reg-form-triple iadj">
                   {formCell('iadjTyp')}
                   {formCell('iadjMax')}
                 </span>

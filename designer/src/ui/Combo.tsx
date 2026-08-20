@@ -101,6 +101,12 @@ export function Combo({
     };
   }, [open]);
 
+  // An EMPTY wxChoice does not open. GTK drops the popup only when the model
+  // has rows, so clicking a choice with nothing in it - the Regulators
+  // selector before a data file is loaded - does nothing at all. Ours opened
+  // an empty box.
+  const canOpen = options.length > 0;
+
   const step = (delta: number): void => {
     for (let i = index + delta; i >= 0 && i < options.length; i += delta) {
       const o = options[i];
@@ -125,7 +131,7 @@ export function Combo({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v) => canOpen && !v)}
         onKeyDown={(e) => {
           // wxChoice answers the arrows without opening; Enter/Space opens.
           if (e.key === 'ArrowDown') {
@@ -136,7 +142,7 @@ export function Combo({
             step(-1);
           } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setOpen(true);
+            if (canOpen) setOpen(true);
           }
         }}
       >
