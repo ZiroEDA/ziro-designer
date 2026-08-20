@@ -2,11 +2,75 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Schematic colour themes, transcribed exactly from KiCad's builtin themes
- * (common/settings/builtin_color_themes.h): `s_defaultTheme` ("KiCad Default")
- * and `s_classicTheme` ("KiCad Classic", legacy-palette colours resolved via
- * common/gal/color4d.cpp's colorRefs table).
+ * The schematic's view of KiCad's built-in colour themes.
+ *
+ * The colours themselves are NOT defined here. They live once, for every
+ * editor, in `@ziroeda/common/src/settings/builtin_color_themes.ts` — a
+ * mechanical port of `common/settings/builtin_color_themes.h`, which is
+ * likewise the single place KiCad defines them. This module only names the
+ * schematic layers eeschema's renderer cares about (`SCH_LAYER_ID`) and
+ * renders each one to a CSS string, the way `SCH_RENDER_SETTINGS::LoadColors`
+ * pulls `m_layerColors[aLayer]` out of the shared `COLOR_SETTINGS`.
+ *
+ * Adding a colour here means adding a layer to `SCH_LAYERS` below, never
+ * typing an RGB value.
  */
+import {
+  BUILTIN_CLASSIC_THEME,
+  BUILTIN_DEFAULT_THEME,
+  type Color4d,
+  toCssColor,
+} from '@ziroeda/common';
+
+/**
+ * Which `SCH_LAYER_ID` each field of `Theme` reads, so that the mapping from
+ * our renderer's vocabulary to KiCad's is stated once and can be checked
+ * against `layer_ids.h`.
+ */
+const SCH_LAYERS = {
+  background: 'LAYER_SCHEMATIC_BACKGROUND',
+  grid: 'LAYER_SCHEMATIC_GRID',
+  wire: 'LAYER_WIRE',
+  bus: 'LAYER_BUS',
+  busJunction: 'LAYER_BUS_JUNCTION',
+  junction: 'LAYER_JUNCTION',
+  symbolOutline: 'LAYER_DEVICE',
+  symbolFill: 'LAYER_DEVICE_BACKGROUND',
+  pin: 'LAYER_PIN',
+  pinName: 'LAYER_PINNAM',
+  pinNumber: 'LAYER_PINNUM',
+  reference: 'LAYER_REFERENCEPART',
+  value: 'LAYER_VALUEPART',
+  fields: 'LAYER_FIELDS',
+  label: 'LAYER_LOCLABEL',
+  globalLabel: 'LAYER_GLOBLABEL',
+  hierLabel: 'LAYER_HIERLABEL',
+  netclassFlag: 'LAYER_NETCLASS_REFS',
+  netHighlight: 'LAYER_BRIGHTENED',
+  selectionShadow: 'LAYER_SELECTION_SHADOWS',
+  brightened: 'LAYER_BRIGHTENED',
+  noteLine: 'LAYER_NOTES',
+  noText: 'LAYER_NOTES',
+  ruleArea: 'LAYER_RULE_AREAS',
+  privateNote: 'LAYER_PRIVATE_NOTES',
+  noConnect: 'LAYER_NOCONNECT',
+  ercError: 'LAYER_ERC_ERR',
+  ercWarning: 'LAYER_ERC_WARN',
+  ercExclusion: 'LAYER_ERC_EXCLUSION',
+  sheetBorder: 'LAYER_SHEET',
+  sheetBackground: 'LAYER_SHEET_BACKGROUND',
+  sheetName: 'LAYER_SHEETNAME',
+  sheetFile: 'LAYER_SHEETFILENAME',
+  sheetLabel: 'LAYER_SHEETLABEL',
+  sheetFields: 'LAYER_SHEETFIELDS',
+  pageFrame: 'LAYER_SCHEMATIC_DRAWINGSHEET',
+  pageLimits: 'LAYER_SCHEMATIC_PAGE_LIMITS',
+  anchor: 'LAYER_SCHEMATIC_ANCHOR',
+  hidden: 'LAYER_HIDDEN',
+  cursor: 'LAYER_SCHEMATIC_CURSOR',
+  auxItems: 'LAYER_SCHEMATIC_AUX_ITEMS',
+} as const satisfies Record<string, keyof typeof BUILTIN_DEFAULT_THEME>;
+
 export interface Theme {
   background: string;
   grid: string;
@@ -61,95 +125,30 @@ export interface Theme {
   auxItems: string;
 }
 
-/** "KiCad Default", s_defaultTheme (the beige theme KiCad 9 ships as default). */
-export const KICAD_DEFAULT: Theme = {
-  background: 'rgb(245, 244, 239)',
-  grid: 'rgb(181, 181, 181)',
-  wire: 'rgb(0, 150, 0)',
-  bus: 'rgb(0, 0, 132)',
-  busJunction: 'rgb(0, 0, 132)',
-  junction: 'rgb(0, 150, 0)',
-  symbolOutline: 'rgb(132, 0, 0)',
-  symbolFill: 'rgb(255, 255, 194)',
-  pin: 'rgb(132, 0, 0)',
-  pinName: 'rgb(0, 100, 100)',
-  pinNumber: 'rgb(169, 0, 0)',
-  reference: 'rgb(0, 100, 100)',
-  value: 'rgb(0, 100, 100)',
-  fields: 'rgb(132, 0, 132)',
-  label: 'rgb(15, 15, 15)',
-  globalLabel: 'rgb(132, 0, 0)',
-  hierLabel: 'rgb(114, 86, 0)',
-  netclassFlag: 'rgb(72, 72, 72)',
-  netHighlight: 'rgb(255, 0, 255)', // LAYER_BRIGHTENED
-  selectionShadow: 'rgba(102, 178, 255, 0.8)', // COLOR4D(.4,.7,1.0,0.8)
-  brightened: 'rgb(255, 0, 255)', // CSS_COLOR( 255, 0, 255, 1 )
-  noteLine: 'rgb(0, 0, 194)',
-  noText: 'rgb(0, 0, 194)',
-  ruleArea: 'rgb(255, 0, 0)', // CSS_COLOR( 255, 0, 0, 1 )
-  privateNote: 'rgb(72, 72, 255)',
-  noConnect: 'rgb(0, 0, 132)',
-  ercError: 'rgba(230, 9, 13, 0.8)',
-  ercWarning: 'rgba(209, 146, 0, 0.8)',
-  ercExclusion: 'rgba(194, 194, 194, 0.8)',
-  sheetBorder: 'rgb(132, 0, 0)',
-  sheetBackground: 'rgba(255, 255, 255, 0)',
-  sheetName: 'rgb(0, 100, 100)',
-  sheetFile: 'rgb(114, 86, 0)',
-  sheetLabel: 'rgb(0, 100, 100)',
-  sheetFields: 'rgb(132, 0, 132)',
-  pageFrame: 'rgb(132, 0, 0)',
-  pageLimits: 'rgb(181, 181, 181)',
-  anchor: 'rgb(0, 0, 255)',
-  hidden: 'rgb(194, 194, 194)',
-  cursor: 'rgb(15, 15, 15)',
-  auxItems: 'rgb(0, 0, 0)',
-};
+/**
+ * Project one built-in `COLOR_SETTINGS` onto the fields the renderer reads.
+ *
+ * A layer absent from a theme falls back to "KiCad Default". Upstream it would
+ * not: `COLOR_SETTINGS::GetColor()` returns `COLOR4D::UNSPECIFIED` — fully
+ * transparent — for a layer the theme never set, and the classic theme sets no
+ * `LAYER_SCHEMATIC_PAGE_LIMITS`, so KiCad Classic draws no page limits at all.
+ * The fallback stays because it is what this module has always rendered;
+ * matching upstream's invisible page limits is a behaviour change, not a
+ * transcription fix, so it is left for a deliberate one.
+ */
+const project = (colors: Partial<Record<string, Color4d>>): Theme =>
+  Object.fromEntries(
+    Object.entries(SCH_LAYERS).map(([field, layer]) => [
+      field,
+      toCssColor(colors[layer] ?? BUILTIN_DEFAULT_THEME[layer], ', '),
+    ]),
+  ) as unknown as Theme;
 
-/** "KiCad Classic", s_classicTheme (the white legacy theme; legacy palette values). */
-export const KICAD_CLASSIC: Theme = {
-  background: 'rgb(255, 255, 255)', // WHITE
-  grid: 'rgb(132, 132, 132)', // DARKGRAY
-  wire: 'rgb(0, 132, 0)', // GREEN
-  bus: 'rgb(0, 0, 132)', // BLUE
-  busJunction: 'rgb(0, 0, 132)',
-  junction: 'rgb(0, 132, 0)',
-  symbolOutline: 'rgb(132, 0, 0)', // RED (legacy)
-  symbolFill: 'rgb(255, 255, 194)', // LIGHTYELLOW
-  pin: 'rgb(132, 0, 0)',
-  pinName: 'rgb(0, 132, 132)', // CYAN (legacy)
-  pinNumber: 'rgb(132, 0, 0)',
-  reference: 'rgb(0, 132, 132)',
-  value: 'rgb(0, 132, 132)',
-  fields: 'rgb(132, 0, 132)', // MAGENTA (legacy)
-  label: 'rgb(0, 0, 0)', // BLACK
-  globalLabel: 'rgb(132, 0, 0)',
-  hierLabel: 'rgb(132, 132, 0)', // BROWN (legacy)
-  netclassFlag: 'rgb(0, 0, 0)', // BLACK (legacy)
-  netHighlight: 'rgb(255, 0, 255)', // PUREMAGENTA
-  selectionShadow: 'rgba(102, 178, 255, 0.8)',
-  brightened: 'rgb(255, 0, 255)', // COLOR4D( PUREMAGENTA )
-  noteLine: 'rgb(0, 0, 194)', // LIGHTBLUE (legacy)
-  noText: 'rgb(0, 0, 194)',
-  ruleArea: 'rgb(255, 0, 0)', // COLOR4D( RED )
-  privateNote: 'rgb(0, 0, 194)',
-  noConnect: 'rgb(0, 0, 132)',
-  ercError: 'rgba(255, 0, 0, 0.8)', // PURERED
-  ercWarning: 'rgba(0, 255, 0, 0.8)', // PUREGREEN
-  ercExclusion: 'rgb(211, 211, 211)', // LIGHTGRAY
-  sheetBorder: 'rgb(132, 0, 132)', // MAGENTA
-  sheetBackground: 'rgba(255, 255, 255, 0)',
-  sheetName: 'rgb(0, 132, 132)',
-  sheetFile: 'rgb(132, 132, 0)',
-  sheetLabel: 'rgb(0, 132, 132)',
-  sheetFields: 'rgb(132, 0, 132)',
-  pageFrame: 'rgb(132, 0, 0)', // RED
-  pageLimits: 'rgb(181, 181, 181)', // falls back to the default theme's value
-  anchor: 'rgb(0, 0, 255)',
-  hidden: 'rgb(194, 194, 194)', // LIGHTGRAY
-  cursor: 'rgb(0, 0, 0)', // BLACK
-  auxItems: 'rgb(0, 0, 0)', // BLACK
-};
+/** "KiCad Default", `s_defaultTheme` (the beige theme KiCad ships as default). */
+export const KICAD_DEFAULT: Theme = project(BUILTIN_DEFAULT_THEME);
+
+/** "KiCad Classic", `s_classicTheme` (the white legacy theme). */
+export const KICAD_CLASSIC: Theme = project(BUILTIN_CLASSIC_THEME);
 
 /** Builtin themes by their KiCad settings ids. */
 export const BUILTIN_THEMES: Record<string, { name: string; theme: Theme }> = {
