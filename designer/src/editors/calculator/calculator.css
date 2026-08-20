@@ -1293,14 +1293,26 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  margin: 0 0 0 var(--wx-border);
+  /* bSizerButtons carries wxLEFT 5 (base:327) and each static box wxALL 5
+     (base:301,377), both measured from bSizer11's origin, so Analyze's left
+     edge is EXACTLY the box's left rule: [px] KiCad's box rule and its Analyze
+     button both start at x=850. Ours had a 5 px left margin the boxes do not
+     carry, which put Analyze at 899 against a rule at 893 — the inset Akshay
+     spotted on the 19:15 pair. */
+  margin: 0;
+  /* bSizerButtons goes into btranslineButtonsSizer with proportion 0 and no
+     wxEXPAND (base:327), and that sizer into bSizer11 the same way (base:330),
+     so the row is handed its MINIMUM width and never stretches to the column.
+     Ours filled the whole right column, which is what threw Synthesize onto
+     the frame's right edge. */
+  width: fit-content;
 }
 
-/* `bSizerButtons->Add( 30, 0, 1, wxEXPAND, 5 )` — a 30 px spacer that also
-   takes all the slack, which is what separates Analyze from Synthesize. */
+/* `bSizerButtons->Add( 30, 0, 1, wxEXPAND, 5 )`. The proportion 1 only bites
+   when the row is given more than its minimum, and it never is (above), so the
+   spacer is exactly its own 30 px. */
 .tl-buttons-gap {
-  flex: 1 1 auto;
-  min-width: 30px; /* [data] the spacer's own width, base:317 */
+  flex: 0 0 30px; /* [data] the spacer's own width, base:317 */
 }
 
 /* --- Transmission Lines ---------------------------------------------------
@@ -1362,8 +1374,16 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   width: 100px; /* [px] x 706..805 */
 }
 
+/* NOT pinned. AddGrowableCol( 1 ) is on both fgSizerPhysPrms (base:247) and
+   fgSizerResults (base:337), so the entry takes whatever its own box's labels
+   and unit selector leave — and the two boxes do NOT agree: [px] on Akshay's
+   18:48 pair the physical entry is x 946..1125 = 179 against the electrical
+   x 968..1127 = 159, because "Ang_l:" is longer than "W:". Pinning both at 181
+   crushed the label column of the electrical box until GTK clipped "Ang_l:" to
+   "Ang" and "rad" to "r...". */
 .tl-right .calc-input {
-  width: 181px; /* [px] x 945..1125 */
+  width: 100%;
+  min-width: 0;
 }
 
 /* fgSizerTranslResults( 10, 2, 4, 0 ): TEN rows of two wxStaticTexts, vgap 4,
@@ -1388,24 +1408,51 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   min-height: var(--ui-line-height);
 }
 
-/* fgSizerPhysPrms is FOUR columns: the three a parameter row has, plus the
-   radio button (base:246). */
+/* fgSizerPhysPrms is FOUR columns — the three a parameter row has, plus the
+   radio button — with AddGrowableCol( 1 ) (base:246-247). It has to be a real
+   grid, not a stack of flex rows: as a flex stack every row kept
+   `.calc-field-label`'s 170 px floor, which pushed the entry and its unit
+   selector clean out of the 287 px static box and left GTK nothing to draw
+   "mm" in. [px] on Akshay's 18:48 pair our W entry started at x=1137 against a
+   box ending at 1230; KiCad's starts at 946. */
 .tl-phys {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
   row-gap: var(--calc-vgap, 3px); /* [data] fgSizerPhysPrms' vgap is 3 */
+  column-gap: calc(var(--wx-border) * 2);
   padding: 0 var(--wx-border);
 }
 
 .tl-phys-row {
-  display: flex;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: calc(var(--wx-border) * 2);
+  column-gap: calc(var(--wx-border) * 2);
 }
 
+/* The parameter row occupies the first three of those four columns; the radio
+   button is the fourth, and exists on rows 1 and 2 only (base:266,281). */
 .tl-phys-row > .calc-field {
-  flex: 1 1 auto;
+  display: grid;
+  grid-column: 1 / 4;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: calc(var(--wx-border) * 2);
   margin: 0;
+  padding: 0;
+}
+
+/* In a grid the column sizes itself; the 170 px floor is for the flex rows. */
+.tl-phys .calc-field-label {
+  min-width: 0;
+}
+
+.tl-phys .calc-input,
+.tl-phys .calc-cell {
+  width: 100%;
+  min-width: 0;
 }
 
 /* The E-series panel is two grids stacked, the wider one first. */

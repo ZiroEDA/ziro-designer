@@ -702,7 +702,12 @@ export function PanelTransline(): JSX.Element {
               aria-label="Analyze"
               onClick={analyze}
             >
-              ↓
+              <img
+                src={TL_ART['../../../assets/calculator/small_down.svg']}
+                alt=""
+                width={16}
+                height={16}
+              />
             </button>
             <span className="tl-buttons-gap" />
             <button type="button" className="calc-btn" onClick={synthesize}>
@@ -714,7 +719,12 @@ export function PanelTransline(): JSX.Element {
               aria-label="Synthesize"
               onClick={synthesize}
             >
-              ↑
+              <img
+                src={TL_ART['../../../assets/calculator/small_up.svg']}
+                alt=""
+                width={16}
+                height={16}
+              />
             </button>
           </div>
 
