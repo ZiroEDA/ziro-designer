@@ -22,7 +22,7 @@ import {
   type GerberRenderOptions,
   type ViewTransform,
 } from './gerberRender.js';
-import { GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
+import { GERBER_AXES_COLOR, GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
@@ -149,6 +149,13 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           sizeIU: g,
           color: GERBER_GRID_COLOR,
           devicePixelRatio: dpr,
+          // GERBVIEW_FRAME's constructor turns the GAL's axes on directly -
+          // "Enable the axes to match legacy draw style"
+          // (`gerbview/gerbview_frame.cpp:188-191`) - so they are unconditional
+          // here, and upstream draws them BEFORE the grid-visibility test
+          // (`opengl_gal.cpp:1919-1928`), which is why they survive Show Grid
+          // being off. We drew none at all.
+          axes: { color: GERBER_AXES_COLOR },
         },
       );
 

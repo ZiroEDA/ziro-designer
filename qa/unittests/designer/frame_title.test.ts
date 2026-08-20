@@ -186,46 +186,54 @@ function sources(): { rel: string; text: string }[] {
 }
 
 /**
- * Every place a title is assembled with an ASCII hyphen, ONE ROW PER
- * OCCURRENCE.
+ * Every place a title is assembled with an ASCII hyphen, counted PER FILE.
  *
  * CLAUDE.md lists "a file-level check where the rule is per-occurrence" as one
  * of the four shapes of test that cannot fail, so this does not ask whether a
- * FILE contains a hyphen title — it lists each one, with its line, and compares
- * the whole list. A second hyphen appearing in an already-listed file fails,
- * which a `toContain` on the file would not catch.
+ * file *contains* a hyphen title — it counts them, and compares the whole map.
+ * A second hyphen appearing in an already-listed file takes its count from 1 to
+ * 2 and fails, which a `toContain` would not catch.
+ *
+ * It counts rather than pinning `file:line` because line numbers move under
+ * edits that have nothing to do with titles — this list was re-baselined once
+ * already when main merged, and a check that has to be re-baselined routinely
+ * teaches people to update it without reading it, which is how a ratchet dies.
  */
 const HYPHEN_TITLE = /&nbsp;-&nbsp;/g;
 
-function hyphenTitleSites(): string[] {
-  const sites: string[] = [];
+function hyphenTitleCounts(): Record<string, number> {
+  const counts: Record<string, number> = {};
   for (const { rel, text } of sources()) {
-    const lines = text.split('\n');
-    lines.forEach((line, i) => {
-      for (const _ of line.matchAll(HYPHEN_TITLE)) sites.push(`${rel}:${i + 1}`);
-    });
+    const n = [...text.matchAll(HYPHEN_TITLE)].length;
+    if (n > 0) counts[rel] = n;
   }
-  return sites.sort();
+  return counts;
 }
 
 describe('the hyphen titles still to migrate', () => {
   /**
    * Six call sites wrote `&nbsp;-&nbsp;<Frame Name>` where upstream writes an
-   * em dash. GerbView's is gone; the rest are a separate pass, and this list is
-   * the checklist for it. It fails on a NEW one and on a STALE one, so removing
-   * a site means lowering this list in the same commit.
+   * em dash. GerbView's is gone; the other five are a separate pass that Akshay
+   * sequences, and this map is its checklist. It fails on a NEW one and on a
+   * STALE one, so removing a site means lowering this in the same commit.
    */
-  it('are exactly these, and gerbview is no longer among them', () => {
-    expect(hyphenTitleSites()).toEqual([
-      'editors/footprint/FootprintEditor.tsx:1136',
-      'editors/pcb/PcbEditor.tsx:7515',
-      'editors/pcb/PcbEditor.tsx:8302',
-      'editors/schematic/SchematicEditor.tsx:7214',
-      'editors/symbol/SymbolEditor.tsx:1696',
-    ]);
+  it('are exactly these five, in four files', () => {
+    expect(hyphenTitleCounts()).toEqual({
+      'editors/footprint/FootprintEditor.tsx': 1,
+      'editors/pcb/PcbEditor.tsx': 2,
+      'editors/schematic/SchematicEditor.tsx': 1,
+      'editors/symbol/SymbolEditor.tsx': 1,
+    });
+  });
+
+  it('total five, so a sixth anywhere fails', () => {
+    const total = Object.values(hyphenTitleCounts()).reduce((a, b) => a + b, 0);
+    expect(total).toBe(5);
   });
 
   it('does not include any gerbview file', () => {
-    expect(hyphenTitleSites().filter((s) => s.startsWith('editors/gerbview/'))).toEqual([]);
+    expect(
+      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/gerbview/')),
+    ).toEqual([]);
   });
 });

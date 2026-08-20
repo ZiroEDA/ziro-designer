@@ -259,3 +259,40 @@ describe('GERBVIEW_RENDER_SETTINGS::GetColor, as the renderer applies it', () =>
     expect(itemColor(layer, true, true, false)).toBe(null);
   });
 });
+
+describe('the axes', () => {
+  /**
+   * GerbView is the ONE editor that draws them: `grid.axes_enabled` defaults
+   * false in every app (`common/settings/app_settings.cpp:459-460`), but
+   * GERBVIEW_FRAME's constructor sets the GAL option directly - "Enable the
+   * axes to match legacy draw style" (`gerbview/gerbview_frame.cpp:188-191`).
+   * Ours drew none at all.
+   *
+   * The colour is NOT LAYER_GERBVIEW_AXES, though that entry exists with the
+   * same value. Only pcbnew and eeschema call `SetAxesColor` with a theme
+   * colour (`pcbnew/pcb_draw_panel_gal.cpp:495`); GerbView never does, so the
+   * axes keep the GAL default `SetAxesColor( COLOR4D( BLUE ) )`
+   * (`opengl_gal.cpp:433`).
+   *
+   * `BLUE` is `{ 132, 0, 0 }` in `colorRefs()` (`color4d.cpp:54`) and that
+   * table is **BGR** - `m_Blue, m_Green, m_Red` (`color4d.h:85-92`). Read in
+   * written order it would be a dark RED; read correctly it is rgb(0,0,132).
+   */
+  it('is COLOR4D(BLUE), which is BGR-encoded and reads rgb(0, 0, 132)', () => {
+    expect(GERBER_AXES_COLOR).toBe('rgb(0, 0, 132)');
+    // The trap: taking colorRefs()'s three bytes in written order.
+    expect(GERBER_AXES_COLOR).not.toBe('rgb(132, 0, 0)');
+  });
+
+  /**
+   * It coincides with LAYER_GERBVIEW_AXES (`builtin_color_themes.h:83`), which
+   * is what the Colors preference page edits
+   * (`panel_gerbview_color_settings.cpp:96`) - and editing it does not move the
+   * drawn axes, because nothing wires it to the GAL. Same value, different
+   * provenance; pinned so the coincidence is not mistaken for a wiring.
+   */
+  it('coincides with the theme entry without being it', () => {
+    expect(GERBER_AXES_COLOR).toBe('rgb(0, 0, 132)');
+    expect(GERBER_DRAWINGSHEET_COLOR).toBe('rgb(0, 0, 132)');
+  });
+});

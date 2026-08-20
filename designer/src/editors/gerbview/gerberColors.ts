@@ -85,7 +85,25 @@ export function defaultLayerColor(i: number): string {
 /** LAYER_GERBVIEW_BACKGROUND. [data] CSS_COLOR( 0, 0, 0, 1 ), `:84`. */
 export const GERBER_BG_COLOR = 'rgb(0, 0, 0)';
 
-/** LAYER_GERBVIEW_AXES. [data] CSS_COLOR( 0, 0, 132, 1 ), `:83`. */
+/**
+ * The axes GerbView draws through the world origin.
+ *
+ * Not `LAYER_GERBVIEW_AXES`, despite that entry existing and having the very
+ * same value (`builtin_color_themes.h:83`). Only pcbnew and eeschema wire a
+ * theme colour into the GAL — `SetAxesColor( GetColor( LAYER_GRID_AXES ) )`
+ * (`pcbnew/pcb_draw_panel_gal.cpp:495`) — and GerbView never calls it, so the
+ * axes keep the GAL's own default, `SetAxesColor( COLOR4D( BLUE ) )`
+ * (`opengl_gal.cpp:433`, `cairo_gal.cpp:72`).
+ *
+ * [data] `BLUE` is `{ 132, 0, 0 }` in `colorRefs()` (`color4d.cpp:54`), and
+ * that table is stored **BGR** — the struct's fields are `m_Blue, m_Green,
+ * m_Red` (`color4d.h:85-92`) — so it reads rgb(0, 0, 132). Taking those three
+ * numbers in the order they are written would give a dark RED.
+ *
+ * The two happening to coincide is why the value is easy to get right for the
+ * wrong reason; LAYER_GERBVIEW_AXES is what the Colors preference page edits
+ * (`panel_gerbview_color_settings.cpp:96`), and editing it does not move these.
+ */
 export const GERBER_AXES_COLOR = 'rgb(0, 0, 132)';
 
 /** LAYER_DCODES. [data] CSS_COLOR( 255, 255, 255, 1 ), `:85`. Ours said #DDDDDD. */

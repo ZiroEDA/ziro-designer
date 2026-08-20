@@ -124,7 +124,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 1 },
   'editors/footprint': { colours: 9, metrics: 20 },
-  'editors/gerbview': { colours: 35, metrics: 23 },
+  'editors/gerbview': { colours: 4, metrics: 5 },
   'editors/image': { colours: 0, metrics: 1 },
   'editors/pcb': { colours: 76, metrics: 397 },
   'editors/schematic': { colours: 70, metrics: 230 },
@@ -348,8 +348,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(786);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1701);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(755);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1683);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

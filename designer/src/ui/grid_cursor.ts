@@ -361,8 +361,14 @@ export function drawGrid(
   // Known deviation: with LINES and axes both on, upstream skips the grid line
   // that would cover an axis (`if( m_axesEnabled && y == 0.0 ) continue`). Our
   // lattice is a retained path that knows only its own anchor, so we do not;
-  // a coarse grid line at zero overdraws the axis. `grid.axes_enabled`
-  // defaults to false in every app and no editor of ours turns it on.
+  // a coarse grid line at zero overdraws the axis.
+  //
+  // The settings flag `grid.axes_enabled` defaults FALSE in every app
+  // (`common/settings/app_settings.cpp:459-460`), but GerbView does not go
+  // through it: GERBVIEW_FRAME's constructor sets the GAL option directly,
+  // "Enable the axes to match legacy draw style"
+  // (`gerbview/gerbview_frame.cpp:188-191`), so the Gerber Viewer is the one
+  // editor that draws them.
   if (opts.axes) {
     const axisX = worldToDeviceX(view, 0);
     const axisY = worldToDeviceY(view, 0);
