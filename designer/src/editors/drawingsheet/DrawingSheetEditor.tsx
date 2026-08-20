@@ -1557,10 +1557,13 @@ export function DrawingSheetEditor({
           selection={selection}
           paperDescription={paperDescription(preview)}
           onClose={() => setShowInspector(false)}
-          onSelect={(i) => {
-            setSelection(new Set([i]));
-            requestAnimationFrame(() => controller.current?.zoomToSelection());
-          }}
+          // onCellClicked (design_inspector.cpp:344-353) is ClearSelection,
+          // AddItemToSel, Refresh and CopyPrmsFromItemToPanel - a repaint, not
+          // a view change. Ours also zoomed to the picked item, so inspecting a
+          // row threw away the zoom and the scroll position the user had set
+          // (measured: KiCad held Z 0.53 where ours went 1.12 -> 2.02 and
+          // re-centred).
+          onSelect={(i) => setSelection(new Set([i]))}
         />
       )}
 

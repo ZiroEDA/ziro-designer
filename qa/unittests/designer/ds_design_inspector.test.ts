@@ -17,6 +17,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const DIALOG = read('../../../designer/src/editors/drawingsheet/DesignInspector.tsx');
+const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 
 describe('DSP-15 — a row click does not end the dialog', () => {
   /** The row's `onClick={…}` handler body. */
@@ -34,5 +35,26 @@ describe('DSP-15 — a row click does not end the dialog', () => {
 
   it('does not close (onCellClicked never calls EndModal)', () => {
     expect(rowClick).not.toContain('onClose');
+  });
+});
+
+describe('DSP-16 — a row click selects, it does not re-zoom the view', () => {
+  /** The `onSelect` the editor hands the inspector. */
+  const onSelect = (() => {
+    const at = EDITOR.indexOf('<DesignInspector');
+    expect(at, 'DesignInspector is not rendered').toBeGreaterThan(-1);
+    return EDITOR.slice(at, EDITOR.indexOf('/>', at));
+  })();
+
+  it('sets the selection', () => {
+    expect(onSelect).toContain('setSelection(new Set([i]))');
+  });
+
+  it('leaves the zoom and the scroll position alone', () => {
+    // onCellClicked calls GetCanvas()->Refresh() and nothing else: KiCad stayed
+    // at Z 0.53 through a row click where ours jumped 1.12 -> 2.02 and
+    // re-centred on the item.
+    expect(onSelect).not.toContain('zoomToSelection');
+    expect(onSelect).not.toContain('zoomToFit');
   });
 });
