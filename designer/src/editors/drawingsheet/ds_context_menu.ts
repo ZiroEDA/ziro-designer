@@ -31,6 +31,7 @@
  * DOM, and `PL_ACTIONS::move`'s M had no UI home anywhere in the editor.
  */
 import type { MenuItem } from '../../ui/menu_types.js';
+import { evaluateConditionalMenu, menuEntry, menuSeparator } from '../../ui/conditional_menu.js';
 import {
   isZoomPresetChecked,
   zoomPresetLabel,
@@ -125,77 +126,88 @@ export function dsGridSubmenu(
 }
 
 /**
- * The whole menu, `CONDITIONAL_MENU::Evaluate`'d for the current selection.
+ * The whole menu, as the three `Init()`s declare it and `Evaluate` resolves it.
  *
- * The separators are the evaluated ones, not the declared ones: the @200
- * separator is always dropped (nothing precedes it) and so is the @250 one when
- * the group in front of it evaluated away.
+ * The entries are written with their upstream order numbers and conditions
+ * rather than with the evaluated shape, so `evaluateConditionalMenu` decides
+ * which rows and which rules survive — the same division of labour as the C++,
+ * and the reason the @200 rule and the @250 rule behave differently from each
+ * other without either being special-cased here.
  */
 export function buildDsContextMenu(
   state: DsContextMenuState,
   actions: DsContextMenuActions,
 ): MenuItem[] {
-  const items: MenuItem[] = [];
+  const empty = !state.hasSelection;
+  const notEmpty = state.hasSelection;
 
-  if (!state.hasSelection) {
-    // @200, SELECTION_CONDITIONS::Empty.
-    items.push(
-      { label: 'Draw Lines', icon: 'dsAddLine', action: actions.drawLine },
+  return evaluateConditionalMenu([
+    // PL_SELECTION_TOOL::Init (pl_selection_tool.cpp:60-64).
+    menuSeparator(200),
+    menuEntry({ label: 'Draw Lines', icon: 'dsAddLine', action: actions.drawLine }, 200, empty),
+    menuEntry(
       { label: 'Draw Rectangles', icon: 'dsAddRect', action: actions.drawRectangle },
-      { label: 'Draw Text', icon: 'dsAddText', action: actions.placeText },
+      200,
+      empty,
+    ),
+    menuEntry({ label: 'Draw Text', icon: 'dsAddText', action: actions.placeText }, 200, empty),
+    menuEntry(
       { label: 'Place Bitmaps', icon: 'dsAddBitmap', action: actions.placeImage },
-    );
-  }
+      200,
+      empty,
+    ),
 
-  // @250. `menu_count` is not per group: it counts every row since the last
-  // separator that was actually emitted, which is why the empty menu still
-  // draws a rule between the four draw rows and Paste even though `move`,
-  // the only @250 row before that separator, evaluated away.
-  if (state.hasSelection) {
-    // BITMAPS::move has no SVG in our toolbar assets, so this row carries no
-    // icon. GTK draws none in any of these menus anyway (audit DSP-11).
-    items.push({ label: 'Move', shortcut: 'M', action: actions.move });
-  }
-  if (items.length > 0) items.push({ sep: true });
-  if (state.hasSelection) {
-    items.push(
+    // PL_EDIT_TOOL::Init, into the selection tool's menu (pl_edit_tool.cpp:88-93).
+    // BITMAPS::move has no SVG among our toolbar assets, so this row carries no
+    // icon; GTK draws none in any of these menus anyway (audit DSP-11).
+    menuEntry({ label: 'Move', shortcut: 'M', action: actions.move }, 250, notEmpty),
+    menuSeparator(250),
+    menuEntry(
       { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: actions.cut },
+      250,
+      notEmpty,
+    ),
+    menuEntry(
       { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: actions.copy },
-    );
-  }
-  items.push({
-    // Ctrl+V is carried out by the browser's own paste event, not by us — see
-    // MenuItem.nativeShortcut.
-    label: 'Paste',
-    icon: 'paste',
-    shortcut: 'Ctrl+V',
-    nativeShortcut: true,
-    action: actions.paste,
-  });
-  if (state.hasSelection) {
-    items.push({
-      label: 'Delete',
-      icon: 'dsDelete',
-      shortcut: 'Delete',
-      action: actions.doDelete,
-    });
-  }
+      250,
+      notEmpty,
+    ),
+    menuEntry(
+      {
+        // Ctrl+V is carried out by the browser's own paste event, not by us —
+        // see MenuItem.nativeShortcut.
+        label: 'Paste',
+        icon: 'paste',
+        shortcut: 'Ctrl+V',
+        nativeShortcut: true,
+        action: actions.paste,
+      },
+      250,
+    ),
+    menuEntry(
+      { label: 'Delete', icon: 'dsDelete', shortcut: 'Delete', action: actions.doDelete },
+      250,
+      notEmpty,
+    ),
 
-  // @1000, AddStandardSubMenus.
-  items.push(
-    { sep: true },
-    { label: 'Zoom', icon: 'zoomTool', submenu: dsZoomSubmenu(state.zoom, actions.setZoom) },
-    {
-      label: 'Grid',
-      icon: 'toggleGrid',
-      submenu: dsGridSubmenu(
-        state.gridIndex,
-        state.primaryUnits,
-        actions.gridOrigin,
-        actions.setGrid,
-      ),
-    },
-  );
-
-  return items;
+    // EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:714-725).
+    menuSeparator(1000),
+    menuEntry(
+      { label: 'Zoom', icon: 'zoomTool', submenu: dsZoomSubmenu(state.zoom, actions.setZoom) },
+      1000,
+    ),
+    menuEntry(
+      {
+        label: 'Grid',
+        icon: 'toggleGrid',
+        submenu: dsGridSubmenu(
+          state.gridIndex,
+          state.primaryUnits,
+          actions.gridOrigin,
+          actions.setGrid,
+        ),
+      },
+      1000,
+    ),
+  ]);
 }
