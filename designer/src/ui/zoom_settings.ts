@@ -91,7 +91,52 @@ export function zoomPresetLabel(factor: number): string {
   return `Zoom: ${factor.toFixed(2)}`;
 }
 
-/** True when `factor` is the row `ZOOM_MENU` would tick at the current zoom. */
+/** True when `factor` is the row `ZOOM_MENU` would tick at the current zoom.
+ *
+ *  NOTE the colon in {@link zoomPresetLabel}, and the 10% here. The canvas
+ *  context MENU writes `"Zoom: %.2f"` and ticks the nearest row within 10%; the
+ *  toolbar zoom SELECTOR writes `"Zoom %.2f"` without a colon and matches
+ *  EXACTLY. Two controls, two rules, so two pairs of functions - sharing one
+ *  would put a colon in the toolbar or a 10% snap in the menu. */
 export function isZoomPresetChecked(factor: number, zoom: number): boolean {
   return zoom > 0 && Math.abs(factor - zoom) / zoom < 0.1;
+}
+
+/**
+ * The toolbar zoom selector's entries, `EDA_DRAW_FRAME::UpdateZoomSelectBox`
+ * (`common/eda_draw_frame.cpp:636-660`):
+ *
+ *     m_zoomSelectBox->Append( _( "Zoom Auto" ) );
+ *     ...
+ *     m_zoomSelectBox->Append( wxString::Format( _( "Zoom %.2f" ), current ) );
+ *
+ * `EDA_DRAW_FRAME` is `common/`, so every draw frame in the suite carries this
+ * combo and labels it the same way.
+ */
+export const ZOOM_AUTO_LABEL = 'Zoom Auto';
+
+export function zoomSelectLabel(factor: number): string {
+  return `Zoom ${factor.toFixed(2)}`;
+}
+
+/**
+ * Whether the selector shows `factor` as the current entry -
+ * `EDA_DRAW_FRAME::OnUpdateSelectZoom` (`common/eda_draw_frame.cpp:497-533`).
+ *
+ * Upstream this is `zoomList[jj] == zoom`, EXACT equality, because
+ * `doZoomToPreset` sets the scale to the preset value itself and nothing else
+ * lands on it. Off-preset the combo grows a CUSTOM entry at index 1 showing the
+ * live zoom, rather than snapping to a neighbour.
+ *
+ * Ours cannot use `===`: a chosen preset is stored as a view SCALE, and reading
+ * it back runs `scaleForZoomFactor` then `zoomFactorForScale`, so 2.2 returns as
+ * 2.1999999999999997. This epsilon stands in for float equality and nothing
+ * else. At 1e-9 relative it is roughly seven orders of magnitude tighter than
+ * the closest gap between two presets (0.13 and 0.22), so it can only match the
+ * preset the user actually picked. A looser tolerance is a DIFFERENT behaviour:
+ * a hand-dragged 2.21 would read "Zoom 2.20" where KiCad shows a custom entry
+ * reading 2.21.
+ */
+export function isZoomSelectPreset(factor: number, zoom: number): boolean {
+  return zoom > 0 && Math.abs(factor - zoom) / zoom < 1e-9;
 }

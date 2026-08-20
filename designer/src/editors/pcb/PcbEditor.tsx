@@ -13,6 +13,13 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import {
+  ZOOM_AUTO_LABEL,
+  ZOOM_LIST,
+  isZoomSelectPreset,
+  zoomSelectLabel,
+} from '../../ui/zoom_settings.js';
+
 import type { FitType } from '../../ui/view_controls.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
@@ -426,12 +433,6 @@ function notePcbPaint(path: 'gl' | 'raster', t0: number): void {
 // eeschema row, which the footprint editor shares. The table lives in
 // ui/grid_settings.ts because it is common/ code upstream.
 const PCB_GRIDS: number[] = gridSizesIU('pcbnew', MM);
-
-// pcbnew's zoom presets (zoom_defines.h ZOOM_LIST_PCBNEW).
-const PCB_ZOOMS: number[] = [
-  0.13, 0.22, 0.35, 0.6, 1.0, 1.5, 2.2, 3.5, 5.0, 8.0, 13.0, 20.0, 35.0, 50.0, 80.0, 130.0, 220.0,
-  300.0,
-];
 
 /**
  * A GAL zoom factor turned into our view scale, and back.
@@ -7247,10 +7248,13 @@ export function PcbEditor({
   const auxMM = (iu: number): string => iuToMM(iu).toFixed(3);
   const auxMils = (iu: number): string => ((iuToMM(iu) / 25.4) * 1000).toFixed(2);
   const auxSepStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: '#333' };
-  // Zoom selector value (EDA_DRAW_FRAME::OnUpdateSelectZoom): snap to a preset
-  // within 1%, else surface the live zoom as a dynamic custom entry.
+  // Zoom selector value (EDA_DRAW_FRAME::OnUpdateSelectZoom): the preset the
+  // zoom IS, else the live zoom as a custom entry. Upstream compares with `==`
+  // and `isZoomSelectPreset` is that comparison, widened only by the float
+  // round-trip our scale storage forces - see its doc. It was a 1% snap, which
+  // reported a hand-dragged 2.21 as the 2.20 preset where KiCad shows 2.21.
   const zoomNow = zoomFactorForScale(scale, window.devicePixelRatio || 1);
-  const zoomPreset = PCB_ZOOMS.find((z) => Math.abs(z - zoomNow) / z < 0.01);
+  const zoomPreset = ZOOM_LIST.pcbnew.find((z) => isZoomSelectPreset(z, zoomNow));
   const zoomCustom = scale > 0 && zoomPreset === undefined ? Number(zoomNow.toFixed(2)) : null;
   const zoomSelValue: string | number = zoomPreset ?? zoomCustom ?? 'auto';
   // Field 6 (EDA_DRAW_FRAME::DisplayToolMsg, the "Current Tool" panel): the
@@ -7631,11 +7635,11 @@ export function PcbEditor({
             else setZoomPreset(Number(e.target.value));
           }}
         >
-          <option value="auto">Zoom Auto</option>
-          {zoomCustom !== null && <option value={zoomCustom}>Zoom {zoomCustom.toFixed(2)}</option>}
-          {PCB_ZOOMS.map((z) => (
+          <option value="auto">{ZOOM_AUTO_LABEL}</option>
+          {zoomCustom !== null && <option value={zoomCustom}>{zoomSelectLabel(zoomCustom)}</option>}
+          {ZOOM_LIST.pcbnew.map((z) => (
             <option key={z} value={z}>
-              Zoom {z.toFixed(2)}
+              {zoomSelectLabel(z)}
             </option>
           ))}
         </select>
