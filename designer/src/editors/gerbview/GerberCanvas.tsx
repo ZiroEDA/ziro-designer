@@ -13,7 +13,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Vec2 } from '@ziroeda/kimath';
-import type { GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
+import { IU_PER_MM, type GERBER_DRAW_ITEM } from '@ziroeda/gerbview';
 import {
   renderGerberLayers,
   worldToDevice,
@@ -25,6 +25,13 @@ import {
 import { GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { clampViewScale } from '../../ui/zoom_settings.js';
+import {
+  SELECTION_AREA_FILL,
+  SELECTION_AREA_STROKE,
+  zoomAreaTarget,
+  type ZoomArea,
+} from '../../ui/zoom_tool.js';
 
 export interface GerberCanvasController {
   zoomToFit: () => void;
@@ -49,7 +56,7 @@ export interface GerberCanvasProps {
   showGrid: boolean;
   gridIU: number;
   fullCrosshair: boolean;
-  activeTool: 'select' | 'measure';
+  activeTool: 'select' | 'measure' | 'zoom';
   /** Report the cursor world position (IU) for the status bar. */
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
@@ -57,6 +64,12 @@ export interface GerberCanvasProps {
   onMeasure?: (m: { a: Vec2; b: Vec2 } | null) => void;
   /** Report the picked item under a select-click (or null). */
   onPick?: (item: GERBER_DRAW_ITEM | null, at: Vec2) => void;
+  /**
+   * The zoom-area drag finished. ZOOM_TOOL's Main loop `break`s as soon as
+   * selectRegion returns (`common/tool/zoom_tool.cpp:85-87`) and then pops the
+   * tool, so one drag is one zoom and the frame goes back to the previous tool.
+   */
+  onZoomAreaDone?: () => void;
 }
 
 export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps>(
@@ -70,6 +83,7 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       fullCrosshair,
       activeTool,
       onCursorMove,
+      onZoomAreaDone,
       onScaleChange,
       onMeasure,
       onPick,
@@ -92,6 +106,12 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     const cursorPxRef = useRef<{ x: number; y: number } | null>(null);
     const measureRef = useRef<{ a: Vec2; b: Vec2 } | null>(null);
+    /**
+     * ZOOM_TOOL::selectRegion's rubber band (`common/tool/zoom_tool.cpp:110-165`).
+     * `out` records which button started the drag: upstream a LEFT drag zooms
+     * IN and a RIGHT drag zooms OUT, and it is the same rectangle either way.
+     */
+    const zoomAreaRef = useRef<ZoomArea | null>(null);
     const measuringRef = useRef(false);
 
     /** Device px → world IU (accounting for flip). */
@@ -131,8 +151,26 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         },
       );
 
-      // Measure overlay.
+      // ZOOM_TOOL's rubber band, KIGFX::PREVIEW::SELECTION_AREA. Its dark
+      // scheme is `COLOR4D( 0.3, 0.3, 0.7, 0.3 )` filled and
+      // `COLOR4D( 1.0, 1.0, 0.4, 1.0 )` outlined - "slight blue" and "yellow",
+      // `common/preview_items/selection_area.cpp:44-52` - taken through the
+      // INSIDE_RECTANGLE branch, which is the mode a default-constructed
+      // SELECTION_AREA carries (`:118-121`).
       ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const za = zoomAreaRef.current;
+      if (za) {
+        const q0 = worldToPx(za.a);
+        const q1 = worldToPx(za.b);
+        ctx.fillStyle = SELECTION_AREA_FILL;
+        ctx.strokeStyle = SELECTION_AREA_STROKE;
+        ctx.lineWidth = Math.max(1, dpr);
+        ctx.setLineDash([]);
+        ctx.fillRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
+        ctx.strokeRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
+      }
+
+      // Measure overlay.
       const m = measureRef.current;
       if (m) {
         const p0 = worldToPx(m.a);
@@ -214,13 +252,57 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         const flip = optionsRef.current.flipView;
         // Keep the world point under (px,py) fixed across the zoom.
         const w = deviceToWorld(v, flip, px, py);
-        v.scale *= factor;
+        // ZOOM_MAX_LIMIT_GERBVIEW / ZOOM_MIN_LIMIT_GERBVIEW, 5000 and 0.02
+        // (`include/zoom_defines.h:60-62`), installed by
+        // gerbview_draw_panel_gal.cpp:55. VIEW::SetScale clamps before it
+        // re-anchors (`common/view/view.cpp:583-595`).
+        v.scale = clampViewScale(v.scale * factor, 'gerbview', dpr, IU_PER_MM);
         const sx = flip ? -v.scale : v.scale;
         v.tx = px - sx * w.x;
         v.ty = py + v.scale * w.y; // sy = -scale
         requestDraw();
       },
-      [requestDraw],
+      [dpr, requestDraw],
+    );
+
+    /**
+     * `ZOOM_TOOL::selectRegion`'s tail (`common/tool/zoom_tool.cpp:134-160`),
+     * which is the whole of what the zoom-area tool does:
+     *
+     *     VECTOR2D sSize = view->ToWorld( canvas->GetClientSize(), false );
+     *     VECTOR2D vSize = selectionBox.GetSize();
+     *     double ratio = std::max( fabs( vSize.x / sSize.x ), fabs( vSize.y / sSize.y ) );
+     *     if( LEFT )  scale = view->GetScale() / ratio;
+     *     else        scale = view->GetScale() * ratio;
+     *     view->SetScale( scale );
+     *     view->SetCenter( selectionBox.Centre() );
+     *
+     * `ratio` is the LARGER of the two axis ratios, so the whole rectangle
+     * fits rather than only the tighter axis, and a right-drag divides instead
+     * of multiplying - it zooms *out* by the same factor. A zero-width or
+     * zero-height box does nothing at all (`:138-142`).
+     */
+    const applyZoomArea = useCallback(
+      (za: ZoomArea) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const v = viewRef.current;
+        const target = zoomAreaTarget(za, {
+          scale: v.scale,
+          width: canvas.width,
+          height: canvas.height,
+        });
+        if (!target) return;
+
+        v.scale = clampViewScale(target.scale, 'gerbview', dpr, IU_PER_MM);
+        // view->SetCenter( centre ): put that world point at the canvas middle.
+        const flip = optionsRef.current.flipView;
+        const sx = flip ? -v.scale : v.scale;
+        v.tx = canvas.width / 2 - sx * target.centre.x;
+        v.ty = canvas.height / 2 + v.scale * target.centre.y;
+        requestDraw();
+      },
+      [dpr, requestDraw],
     );
 
     useImperativeHandle(
@@ -327,6 +409,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const onDown = (e: PointerEvent): void => {
         canvas.setPointerCapture(e.pointerId);
         const p = pxOf(e);
+        // ZOOM_TOOL consumes both drags while it is armed: LEFT zooms in and
+        // RIGHT zooms out (`zoom_tool.cpp:150-153`), so neither reaches pan.
+        if (activeTool === 'zoom' && (e.button === 0 || e.button === 2)) {
+          const w = toWorld(p.x, p.y);
+          zoomAreaRef.current = { a: w, b: w, out: e.button === 2 };
+          requestDraw();
+          return;
+        }
         // Middle / right button, or space-drag → pan.
         if (e.button === 1 || e.button === 2) {
           panRef.current = { x: p.x, y: p.y, tx: viewRef.current.tx, ty: viewRef.current.ty };
@@ -380,6 +470,11 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           requestDraw();
           return;
         }
+        if (zoomAreaRef.current) {
+          zoomAreaRef.current = { ...zoomAreaRef.current, b: world };
+          requestDraw();
+          return;
+        }
         if (measuringRef.current && measureRef.current) {
           measureRef.current = { a: measureRef.current.a, b: world };
           onMeasure?.(measureRef.current);
@@ -394,6 +489,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const onUp = (e: PointerEvent): void => {
         if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
         panRef.current = null;
+
+        const za = zoomAreaRef.current;
+        if (za) {
+          zoomAreaRef.current = null;
+          applyZoomArea(za);
+          onZoomAreaDone?.();
+          requestDraw();
+        }
       };
 
       const onLeave = (): void => {
@@ -452,7 +555,14 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           ref={canvasRef}
           style={{
             display: 'block',
-            cursor: activeTool === 'measure' ? 'crosshair' : 'default',
+            // ZOOM_TOOL sets KICURSOR::ZOOM_IN while it is armed
+            // (`common/tool/zoom_tool.cpp:70`).
+            cursor:
+              activeTool === 'zoom'
+                ? 'zoom-in'
+                : activeTool === 'measure'
+                  ? 'crosshair'
+                  : 'default',
           }}
         />
       </div>

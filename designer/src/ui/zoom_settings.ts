@@ -21,6 +21,8 @@
  * place you can return to. A bare `scale *= 1.3` gives none of that.
  */
 
+import { scaleForZoomFactor, zoomFactorForScale } from './status_format.js';
+
 /** Which row of `DefaultZoomList()`'s switch a frame lands on. */
 export type ZoomApp = 'eeschema' | 'symbol_editor' | 'pl_editor' | 'gerbview' | 'pcbnew';
 
@@ -164,4 +166,87 @@ export function zoomChoices(
     choices: [auto, { label: zoomSelectorLabel(zoom), preset: null }, ...presets],
     selected: 1,
   };
+}
+
+/* ---------------------------------------------------------------------------
+   Zoom LIMITS — a different table from the presets above, and the one that
+   stops a canvas zooming for ever.
+   --------------------------------------------------------------------------- */
+
+/**
+ * `include/zoom_defines.h:43-66`. Upstream's own comment says why these are not
+ * the preset list:
+ *
+ *     // Zoom scale limits for zoom (especially mouse wheel)
+ *     // the limits can differ from zoom list because the zoom list cannot be as
+ *     // long as we want because the zoom list is displayed in menus.
+ *     // But zoom by mouse wheel is limited mainly by the usability
+ *
+ * Each draw panel installs its own row exactly once, at construction:
+ *
+ *     pagelayout_editor/pl_draw_panel_gal.cpp:63   SetScaleLimits( 20, 0.05 )
+ *     gerbview/gerbview_draw_panel_gal.cpp:55      SetScaleLimits( 5000, 0.02 )
+ *     pcbnew/pcb_draw_panel_gal.cpp:420            SetScaleLimits( 50000, 0.1 )
+ *     eeschema/sch_draw_panel.cpp:77               SetScaleLimits( 100, 0.01 )
+ *
+ * The symbol editor has no row of its own — it reuses eeschema's
+ * (`symbol_editor_edit_tool.cpp:206`).
+ *
+ * The spread is enormous and deliberate: pcbnew goes to 50000x because a board
+ * is inspected at track level, while the drawing sheet stops at 20x because
+ * there is nothing on a sheet worth looking at closer than that.
+ */
+export const ZOOM_LIMITS: Record<ZoomApp, { min: number; max: number }> = {
+  eeschema: { min: 0.01, max: 100 },
+  symbol_editor: { min: 0.01, max: 100 },
+  pl_editor: { min: 0.05, max: 20 },
+  gerbview: { min: 0.02, max: 5000 },
+  pcbnew: { min: 0.1, max: 50000 },
+};
+
+/**
+ * `KIGFX::VIEW::SetScale`'s clamp (`common/view/view.cpp:583-588`):
+ *
+ *     if( aScale < m_minScale )      m_scale = m_minScale;
+ *     else if( aScale > m_maxScale ) m_scale = m_maxScale;
+ *     else                           m_scale = aScale;
+ *
+ * It lives inside `SetScale` rather than at each call site, which is why every
+ * way of zooming in KiCad — the wheel, Zoom In/Out, a preset, the zoom-area
+ * tool, Zoom to Fit — is limited by the same two numbers without any of them
+ * knowing about it. A canvas that clamps in only one of its zoom paths has not
+ * ported this.
+ *
+ * Note what `SetScale` does *around* the clamp: it takes the anchor's screen
+ * position **before** changing the scale and re-centres on it after (`:581`,
+ * `:593-595`), so a zoom that hits the limit stops dead rather than sliding the
+ * view sideways.
+ */
+export function clampZoomFactor(zoom: number, app: ZoomApp): number {
+  const { min, max } = ZOOM_LIMITS[app];
+  if (!(zoom > 0)) return min;
+  if (zoom < min) return min;
+  if (zoom > max) return max;
+  return zoom;
+}
+
+/**
+ * The same clamp, expressed in a canvas' own scale rather than in zoom factor.
+ *
+ * KiCad's `m_scale` *is* the GAL zoom factor - `SetScale` ends with
+ * `m_gal->SetZoomFactor( m_scale )` (`view.cpp:590`) - whereas ours is device
+ * pixels per internal unit, which is the same quantity through
+ * {@link ./status_format.js}'s `zoomFactorForScale`. Converting here rather
+ * than at each canvas keeps the two numbers in `ZOOM_LIMITS` the only place
+ * the limit is written.
+ */
+export function clampViewScale(
+  scale: number,
+  app: ZoomApp,
+  dpr: number,
+  iuPerMM: number,
+): number {
+  const zoom = zoomFactorForScale(scale, dpr, iuPerMM);
+  const clamped = clampZoomFactor(zoom, app);
+  return clamped === zoom ? scale : scaleForZoomFactor(clamped, dpr, iuPerMM);
 }

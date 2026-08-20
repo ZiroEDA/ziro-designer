@@ -43,7 +43,7 @@ export interface GerberRenderOptions {
   polygonsSketch: boolean;
   showNegativeObjects: boolean;
   showDcodes: boolean;
-  diffMode: boolean;
+  xorMode: boolean;
   highContrast: boolean;
   /** Active layer index (into `layers`) for high-contrast dimming. */
   activeLayer: number;
@@ -343,7 +343,7 @@ export function renderGerberLayers(
     drawImageToBuffer(lctx, layer, v, opts, canvasW, canvasH);
 
     // Compose onto the main canvas.
-    if (opts.diffMode) {
+    if (opts.xorMode) {
       ctx.globalCompositeOperation = 'difference';
       ctx.globalAlpha = 1;
     } else {

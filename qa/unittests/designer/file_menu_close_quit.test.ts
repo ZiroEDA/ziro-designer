@@ -159,7 +159,9 @@ const FRAMES: FrameRow[] = [
     rows: ['close'],
   },
   {
-    file: 'editors/gerbview/GerberViewer.tsx',
+    // The bar moved out of the frame into its own data module, the way
+    // eeschema's did, so that qa can compile it.
+    file: 'editors/gerbview/menubar.ts',
     upstream: 'gerbview/menubar.cpp:159',
     app: 'Gerber Viewer',
     rows: ['quitOrClose'],

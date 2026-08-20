@@ -48,6 +48,7 @@ import {
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
+import { clampViewScale } from '../../ui/zoom_settings.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
@@ -466,7 +467,14 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const sh = canvas.height / v.scale;
         const ratio = Math.max(Math.abs(w / sw), Math.abs(h / sh));
         if (!Number.isFinite(ratio) || ratio === 0) return;
-        const scale = out ? v.scale * ratio : v.scale / ratio;
+        // VIEW::SetScale clamps BEFORE it re-anchors (`common/view/view.cpp:583-595`),
+        // so a zoom that hits the limit stops rather than sliding the view.
+        const scale = clampViewScale(
+          out ? v.scale * ratio : v.scale / ratio,
+          'pl_editor',
+          dpr,
+          SCH_IU_PER_MM,
+        );
         const cx = (box.a.x + box.b.x) / 2;
         const cy = (box.a.y + box.b.y) / 2;
         v.scale = scale;
@@ -492,7 +500,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           py = canvas.height / 2;
         const wx = (px - v.tx) / v.scale,
           wy = (py - v.ty) / v.scale;
-        v.scale = scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM);
+        v.scale = clampViewScale(
+          scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM),
+          'pl_editor',
+          dpr,
+          SCH_IU_PER_MM,
+        );
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();
@@ -575,7 +588,11 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           py = (e.clientY - rect.top) * dpr;
         const wx = (px - v.tx) / v.scale,
           wy = (py - v.ty) / v.scale;
-        v.scale *= action.factor;
+        // ZOOM_MAX_LIMIT_PLEDITOR / ZOOM_MIN_LIMIT_PLEDITOR, 20 and 0.05
+        // (`include/zoom_defines.h:56-58`), installed by pl_draw_panel_gal.cpp:63.
+        // The wheel is the path upstream's comment singles out as the reason
+        // the limits exist at all.
+        v.scale = clampViewScale(v.scale * action.factor, 'pl_editor', dpr, SCH_IU_PER_MM);
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();

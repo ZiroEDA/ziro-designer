@@ -44,7 +44,6 @@ import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,
   GBR_LEFT_TOOLBAR,
-  GBR_RIGHT_TOOLBAR,
 } from './gerberToolbars.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import {
@@ -79,7 +78,13 @@ import {
 import { defaultLayerColor, GERBER_BG_COLOR } from './gerberColors.js';
 import { exportLayersToPcb } from './exportToPcbnew.js';
 import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
-import { addQuitOrClose } from '../../ui/action_menu.js';
+import { gerbviewMenus } from './menubar.js';
+import { showHotkeyList } from '../../ui/hotkey_list_action.js';
+import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { settings } from '../../prefs/settings.js';
+import { useCommonSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
 
@@ -117,13 +122,16 @@ export function GerberViewer({
   const [layers, setLayers] = useState<Layer[]>([]);
   const [activeLayer, setActiveLayer] = useState(0);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
-  const [activeTool, setActiveTool] = useState<'select' | 'measure'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'measure' | 'zoom'>('select');
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('Ready, open a Gerber, drill, job or zip file');
   const [measure, setMeasure] = useState<{ a: Vec2; b: Vec2 } | null>(null);
   const [picked, setPicked] = useState<GERBER_DRAW_ITEM | null>(null);
   const [showDcodeList, setShowDcodeList] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const common = useCommonSettings();
+  const [prefsOpen, setPrefsOpen] = useState(false);
   // `window.grid.last_size_idx`, whose default for anything that is not
   // eeschema/symbol_editor/pl_editor is 15 (`common/settings/app_settings.cpp:472-481`)
   // -- "0.5 mm" in GerbView's own row of DefaultGridSizeList.
@@ -320,7 +328,7 @@ export function GerberViewer({
       polygonsSketch: toggles.has('polygonsSketch'),
       showNegativeObjects: toggles.has('showNegativeObjects'),
       showDcodes: toggles.has('showDcodes'),
-      diffMode: toggles.has('diffMode'),
+      xorMode: toggles.has('xorMode'),
       highContrast: toggles.has('highContrast'),
       activeLayer,
       flipView: toggles.has('flipView'),
@@ -441,7 +449,7 @@ export function GerberViewer({
           controller.current?.zoomToFit();
           break;
         case 'zoomTool':
-          controller.current?.zoomToFit();
+          setActiveTool('zoom');
           break;
         default:
           break;
@@ -450,10 +458,20 @@ export function GerberViewer({
     [clearAll, exportToPcb, reloadAll],
   );
 
-  const onRightTool = useCallback((id: string) => {
-    if (id === 'measure') setActiveTool('measure');
-    else setActiveTool('select');
-  }, []);
+  /**
+   * The LEFT bar carries two kinds of button. `selectionTool` and `measureTool`
+   * are AF_ACTIVATE actions - a radio pair that sets the active tool - and
+   * every other button on the bar is a TOOLBAR_STATE::TOGGLE check.
+   * `toolbars_gerber.cpp:51-52` puts the pair at the head of this bar; they
+   * used to sit on a right-hand toolbar that GerbView does not have.
+   */
+  const onLeftAction = useCallback(
+    (id: string) => {
+      if (id === 'select' || id === 'measure') setActiveTool(id);
+      else onLeftToggle(id);
+    },
+    [onLeftToggle],
+  );
 
   // ---- print -------------------------------------------------------------
   const printLayers = useCallback(() => {
@@ -523,123 +541,59 @@ export function GerberViewer({
   );
 
   // ---- menus -------------------------------------------------------------
+  // GERBVIEW_FRAME::doReCreateMenuBar. The bar itself is `menubar.ts`, which
+  // closes with our AddStandardHelpMenu and AddMenuLanguageList - the two
+  // shared helpers every KiCad frame ends with and the only editor here that
+  // had joined neither was this one.
   const menus: Menu[] = useMemo(
-    () => [
-      {
-        label: 'File',
-        items: [
-          {
-            label: 'Open Gerber File(s)…',
-            icon: 'gerbOpen',
-            action: () => openInputRef.current?.click(),
-            shortcut: 'Ctrl+O',
-          },
-          {
-            label: 'Open Excellon Drill File(s)…',
-            icon: 'gerbOpenDrill',
-            action: () => drillInputRef.current?.click(),
-          },
-          {
-            label: 'Open Gerber Job File…',
-            icon: 'gerbOpenJob',
-            action: () => jobInputRef.current?.click(),
-          },
-          {
-            label: 'Open Zip Archive…',
-            icon: 'gerbOpenZip',
-            action: () => zipInputRef.current?.click(),
-          },
-          { sep: true },
-          { label: 'Export to Pcbnew…', icon: 'gerbExportToPcb', action: exportToPcb },
-          { label: 'Print…', icon: 'print', action: printLayers },
-          { sep: true },
-          { label: 'Clear All Layers', icon: 'gerbClear', action: clearAll },
-          addQuitOrClose('Gerber Viewer', onExitToHome),
-        ],
-      },
-      {
-        label: 'View',
-        items: [
-          { label: 'Zoom In', icon: 'zoomIn', action: () => controller.current?.zoomIn() },
-          { label: 'Zoom Out', icon: 'zoomOut', action: () => controller.current?.zoomOut() },
-          {
-            label: 'Zoom to Fit',
-            icon: 'zoomFit',
-            action: () => controller.current?.zoomToFit(),
-            shortcut: 'Home',
-          },
-          { label: 'Redraw View', icon: 'zoomRedraw', action: () => controller.current?.redraw() },
-          { sep: true },
-          {
-            label: 'Show Grid',
-            checked: toggles.has('toggleGrid'),
-            action: () => onLeftToggle('toggleGrid'),
-          },
-          {
-            label: 'Flip View',
-            checked: toggles.has('flipView'),
-            action: () => onLeftToggle('flipView'),
-          },
-          {
-            label: 'Show Layers Manager',
-            checked: toggles.has('showLayerManager'),
-            action: () => onLeftToggle('showLayerManager'),
-          },
-        ],
-      },
-      {
-        label: 'Preferences',
-        items: [
-          {
-            label: 'Flashed Items Sketch Mode',
-            checked: toggles.has('flashedSketch'),
-            action: () => onLeftToggle('flashedSketch'),
-          },
-          {
-            label: 'Lines Sketch Mode',
-            checked: toggles.has('linesSketch'),
-            action: () => onLeftToggle('linesSketch'),
-          },
-          {
-            label: 'Polygons Sketch Mode',
-            checked: toggles.has('polygonsSketch'),
-            action: () => onLeftToggle('polygonsSketch'),
-          },
-          {
-            label: 'Show DCode Numbers',
-            checked: toggles.has('showDcodes'),
-            action: () => onLeftToggle('showDcodes'),
-          },
-          {
-            label: 'Show Negative Objects',
-            checked: toggles.has('showNegativeObjects'),
-            action: () => onLeftToggle('showNegativeObjects'),
-          },
-          {
-            label: 'Differential Mode',
-            checked: toggles.has('diffMode'),
-            action: () => onLeftToggle('diffMode'),
-          },
-          {
-            label: 'High Contrast Mode',
-            checked: toggles.has('highContrast'),
-            action: () => onLeftToggle('highContrast'),
-          },
-        ],
-      },
-      {
-        label: 'Tools',
-        items: [
-          { label: 'Measure', icon: 'gerbMeasure', action: () => setActiveTool('measure') },
-          { label: 'List DCodes…', icon: 'gerbDcodeList', action: () => setShowDcodeList(true) },
-          {
-            label: 'Clear Highlight',
-            action: () => setHighlight({ mode: 'none', value: '' }),
-          },
-        ],
-      },
+    () =>
+      gerbviewMenus({
+        openAutodetected: () => openInputRef.current?.click(),
+        openGerber: () => openInputRef.current?.click(),
+        openDrillFile: () => drillInputRef.current?.click(),
+        openJobFile: () => jobInputRef.current?.click(),
+        openZipFile: () => zipInputRef.current?.click(),
+        clearAllLayers: clearAll,
+        reloadAllLayers: reloadAll,
+        exportToPcbnew: exportToPcb,
+        print: printLayers,
+        quit: onExitToHome,
+
+        zoomInCenter: () => controller.current?.zoomIn(),
+        zoomOutCenter: () => controller.current?.zoomOut(),
+        zoomFitScreen: () => controller.current?.zoomToFit(),
+        zoomTool: () => setActiveTool('zoom'),
+        zoomRedraw: () => controller.current?.redraw(),
+
+        toggle: onLeftToggle,
+        checked: toggles,
+
+        showDCodes: () => setShowDcodeList(true),
+        measureTool: () => setActiveTool('measure'),
+        clearLayer: () => deleteLayer(activeLayer),
+
+        openPreferences: () => setPrefsOpen(true),
+        language: common.system.language,
+        onSelectLanguage: (label) =>
+          settings.updateCommon((c) => {
+            c.system.language = label;
+          }),
+
+        showHotkeys: showHotkeyList,
+        showAbout: () => setAboutOpen(true),
+      }),
+    [
+      toggles,
+      onLeftToggle,
+      exportToPcb,
+      clearAll,
+      reloadAll,
+      onExitToHome,
+      printLayers,
+      deleteLayer,
+      activeLayer,
+      common.system.language,
     ],
-    [toggles, onLeftToggle, exportToPcb, clearAll, onExitToHome, printLayers],
   );
 
   useMenuHotkeys(menus, 'gerber');
@@ -942,12 +896,16 @@ export function GerberViewer({
       <Toolbar entries={GBR_TOP_AUX_TOOLBAR} orientation="horizontal" controls={auxControls} />
 
       <div className="ze-body">
+        {/* The LEFT bar now heads with selectionTool and measureTool
+            (`toolbars_gerber.cpp:51-52`), so it needs the active tool as well
+            as the toggle set: those two are a radio pair, the rest are checks. */}
         <Toolbar
           entries={GBR_LEFT_TOOLBAR}
           orientation="vertical"
           side="left"
+          activeTool={activeTool}
           toggled={toggles}
-          onActivate={onLeftToggle}
+          onActivate={onLeftAction}
         />
 
         <div className="ze-gbr-canvas-host" style={{ flex: 1, display: 'flex', minWidth: 0 }}>
@@ -964,6 +922,9 @@ export function GerberViewer({
             onScaleChange={setScale}
             onMeasure={setMeasure}
             onPick={(it) => setPicked(it)}
+            // One drag is one zoom: ZOOM_TOOL breaks its Main loop as soon as
+            // selectRegion returns and pops the tool (`zoom_tool.cpp:85-87`).
+            onZoomAreaDone={() => setActiveTool('select')}
           />
         </div>
 
@@ -985,14 +946,6 @@ export function GerberViewer({
             />
           </div>
         )}
-
-        <Toolbar
-          entries={GBR_RIGHT_TOOLBAR}
-          orientation="vertical"
-          side="right"
-          activeTool={activeTool}
-          onActivate={onRightTool}
-        />
       </div>
 
       {/* EDA_MSG_PANEL: GERBER_DRAW_ITEM::GetMsgPanelInfo for the picked item,
@@ -1022,13 +975,28 @@ export function GerberViewer({
           // axes as "grid X %s  Y %s", not GRID::MessageText's collapsed form.
           grid: `grid X ${fmtCoord(gridIU)}  Y ${fmtCoord(gridIU)}`,
           units: unit === 'in' ? 'inches' : unitLabel,
-          tool: activeTool === 'measure' ? 'Measure tool' : 'Select tool',
+          // EDA_DRAW_FRAME::PushTool writes the action's FriendlyName into the
+          // tool pane, so the string is the action's, not one of ours.
+          tool:
+            activeTool === 'measure'
+              ? 'Measure Tool'
+              : activeTool === 'zoom'
+                ? 'Zoom to Selection Area'
+                : 'Select item(s)',
         }}
       />
 
       {showDcodeList && (
         <DCodeListDialog image={activeImage} unit={unit} onClose={() => setShowDcodeList(false)} />
       )}
+
+      {/* ACTIONS::about opens DIALOG_ABOUT, whose title is the frame's own
+          m_aboutTitle - "KiCad Gerber Viewer" upstream (gerbview_frame.cpp),
+          which is ABOUT_TITLES.gerbview here. It had sat defined and unused. */}
+      {aboutOpen && (
+        <AboutDialog title={ABOUT_TITLES.gerbview} onClose={() => setAboutOpen(false)} />
+      )}
+      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
     </div>
   );
 }
