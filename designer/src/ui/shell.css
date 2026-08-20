@@ -6901,6 +6901,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
 }
+/* GTK paints a choice with an empty model as INSENSITIVE - which is the other
+   half of "an empty wxChoice does not open". [px] the Regulators selector on a
+   fresh pcb_calculator is rgb(42,42,42), against rgb(55,55,55) for a populated
+   one; ours drew both the same. */
+.ze-combo[data-empty] {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
+}
+
 .ze-combo-value {
   flex: 1 1 auto;
   display: grid;

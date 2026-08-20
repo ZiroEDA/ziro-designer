@@ -131,6 +131,7 @@ export function Combo({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
+        data-empty={canOpen ? undefined : ''}
         onClick={() => setOpen((v) => canOpen && !v)}
         onKeyDown={(e) => {
           // wxChoice answers the arrows without opening; Enter/Space opens.
