@@ -308,6 +308,27 @@ describe("a poly's inflation", () => {
     expect(collideShapes(c, pad, 31).collides).toBe(true);
   });
 
+  it('reports a location on the IU grid, because `aLocation` is a VECTOR2I*', () => {
+    // `SHAPE_SEGMENT::Collide( const SEG& )` writes `m_seg.NearestPoint( aSeg )`
+    // into a `VECTOR2I*` (shape_segment.h:94), and `SEG::NearestPoint`'s interior
+    // answer is `A + rescale( t, d, l_squared )` — an integer, rounded half away
+    // from zero, never the exact foot of the perpendicular.
+    //
+    // Worked out by hand: A = (0,0)-(30,70), B = (10,20)-(10,-500). They do not
+    // cross (A is at y = 23.3 where x = 10, B tops out at y = 20), so the answer
+    // is the best of the four candidates. Candidate 3 — B's own A projected onto
+    // A — wins at squared distance 2, against 100^2, 2900 and 250100. That
+    // projection is t = 30*10 + 70*20 = 1700 over l^2 = 30^2 + 70^2 = 5800, so
+    //   x = rescale( 1700, 30, 5800 ) = round( 8.7931 ) = 9
+    //   y = rescale( 1700, 70, 5800 ) = round( 20.5172 ) = 21
+    // The doubles this file used to carry answered (8.7931…, 20.5172…), which is
+    // not a point any board item can sit on.
+    const a: Shape = { kind: 'stadium', a: { x: 0, y: 0 }, b: { x: 30, y: 70 }, r: 0 };
+    const b: Shape = { kind: 'stadium', a: { x: 10, y: 20 }, b: { x: 10, y: -500 }, r: 0 };
+
+    expect(collideShapes(a, b, 2).location).toEqual({ x: 9, y: 21 });
+  });
+
   it('leaves the location on the un-inflated outline', () => {
     // The copper boundary is at x = 120; the reported point is on the polygon
     // the inflation was applied to, at x = 100. That is upstream's behaviour for

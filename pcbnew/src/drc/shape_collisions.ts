@@ -71,7 +71,6 @@ import type { Seg } from '@ziroeda/kimath/src/geometry/corner_operations.js';
 import {
   segCollide,
   segContains,
-  segIntersect,
   segLineProject,
   segNearestPoint,
   segNearestPointToSeg,
@@ -114,7 +113,6 @@ const newOut = (): Out => ({ actual: 0, location: { x: 0, y: 0 } });
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
-const cross = (a: Vec2, b: Vec2): number => a.x * b.y - a.y * b.x;
 const norm2 = (v: Vec2): number => v.x * v.x + v.y * v.y;
 const distSq = (a: Vec2, b: Vec2): number => norm2(sub(a, b));
 const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
@@ -660,8 +658,7 @@ export function collideChainChain(
     nearest = aB.pts[0] as Vec2;
   } else {
     // `IsArcSegment` filtering does not apply: these chains carry no arcs.
-    const segSort = (a: Seg, b: Seg): number =>
-      a.a.x !== b.a.x ? a.a.x - b.a.x : a.a.y - b.a.y;
+    const segSort = (a: Seg, b: Seg): number => (a.a.x !== b.a.x ? a.a.x - b.a.x : a.a.y - b.a.y);
 
     const aSegs: Seg[] = [];
     const bSegs: Seg[] = [];
@@ -1006,12 +1003,7 @@ export function arcCollidePoint(
  * unless it is entirely inside the hole, which is what the two-endpoint test
  * above it checks.
  */
-export function arcCollideSeg(
-  aArc: CollideArc,
-  aSeg: Seg,
-  aClearance: number,
-  aOut: Out,
-): boolean {
+export function arcCollideSeg(aArc: CollideArc, aSeg: Seg, aClearance: number, aOut: Out): boolean {
   const circle: CollideCircle = { c: aArc.c, r: aArc.rad };
   const clearanceSq = sq(aClearance);
 
