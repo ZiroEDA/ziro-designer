@@ -29,7 +29,7 @@
  */
 import { AngleType, Direction45, Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { PnsLineChain } from './pns_line_item.js';
-import { segSquaredDistanceToSeg } from '../drc/shape_collisions.js';
+import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 export class PnsMouseTrailTracer {

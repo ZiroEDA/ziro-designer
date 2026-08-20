@@ -68,7 +68,8 @@
  */
 import { AngleType, CornerMode, Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
-import { collideShapes, segNearestPointToPoint } from '../drc/shape_collisions.js';
+import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
+import { collideShapes } from '../drc/shape_collisions.js';
 import { DiffPair, DpGateways, DpPrimitivePair } from './pns_diff_pair.js';
 import { ObstacleSet } from './pns_collision.js';
 import { PnsItemSet } from './pns_itemset.js';
@@ -244,7 +245,7 @@ function shapeNearestPoint(aShape: Shape, aP: Vec2): Vec2 {
       return { ...aShape.c };
 
     case 'stadium':
-      return segNearestPointToPoint({ a: aShape.a, b: aShape.b }, aP);
+      return segNearestPoint({ a: aShape.a, b: aShape.b }, aP);
 
     case 'arc':
       return { ...aShape.c };
@@ -256,7 +257,7 @@ function shapeNearestPoint(aShape: Shape, aP: Vec2): Vec2 {
       for (let i = 0; i < aShape.pts.length; i++) {
         const a = aShape.pts[i] as Vec2;
         const b = aShape.pts[(i + 1) % aShape.pts.length] as Vec2;
-        const q = segNearestPointToPoint({ a, b }, aP);
+        const q = segNearestPoint({ a, b }, aP);
         const d = squaredNorm(sub(aP, q));
 
         if (d < bestD) {

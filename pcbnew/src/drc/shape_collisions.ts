@@ -67,6 +67,17 @@
  * thing a reader would otherwise have to re-derive from the C++.
  */
 
+import type { Seg } from '@ziroeda/kimath/src/geometry/corner_operations.js';
+import {
+  segCollide,
+  segContains,
+  segIntersect,
+  segLineProject,
+  segNearestPoint,
+  segNearestPointToSeg,
+  segSquaredDistanceToPoint,
+  segSquaredDistanceToSeg,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Shape } from './drc_geometry.js';
@@ -100,12 +111,6 @@ const newOut = (): Out => ({ actual: 0, location: { x: 0, y: 0 } });
 
 // ----- vector helpers ----------------------------------------------------------
 
-/** `SEG`, upstream's segment: two endpoints and nothing else. */
-export interface CollideSeg {
-  a: Vec2;
-  b: Vec2;
-}
-
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const dot = (a: Vec2, b: Vec2): number => a.x * b.x + a.y * b.y;
@@ -131,269 +136,52 @@ const resize = (v: Vec2, aNewLength: number): Vec2 => {
 };
 
 // ----- SEG ---------------------------------------------------------------------
-
-/** `SEG::NearestPoint( const VECTOR2I& )`: the projection, clamped to the ends. */
-export function segNearestPointToPoint(aSeg: CollideSeg, aP: Vec2): Vec2 {
-  const d = sub(aSeg.b, aSeg.a);
-  const lSquared = norm2(d);
-
-  if (lSquared === 0) return aSeg.a;
-
-  const pa = sub(aP, aSeg.a);
-  const t = dot(d, pa);
-
-  if (t < 0) return aSeg.a;
-  if (t > lSquared) return aSeg.b;
-
-  return { x: aSeg.a.x + (t * d.x) / lSquared, y: aSeg.a.y + (t * d.y) / lSquared };
-}
-
-/** `SEG::SquaredDistance( const VECTOR2I& )`. */
-export function segSquaredDistanceToPoint(aSeg: CollideSeg, aP: Vec2): number {
-  const ab = sub(aSeg.b, aSeg.a);
-  const ap = sub(aP, aSeg.a);
-  const e = dot(ap, ab);
-
-  if (e <= 0) return norm2(ap);
-
-  const f = norm2(ab);
-
-  if (e >= f) return norm2(sub(aP, aSeg.b));
-
-  // Upstream computes this in double and rounds; the subtraction is the same.
-  return Math.max(0, norm2(ap) - (e * e) / f);
-}
-
-/** `SEG::LineProject`: the projection onto the *infinite* line. */
-function segLineProject(aSeg: CollideSeg, aP: Vec2): Vec2 {
-  const d = sub(aSeg.b, aSeg.a);
-  const lSquared = dot(d, d);
-
-  if (lSquared === 0) return aSeg.a;
-
-  const t = dot(d, sub(aP, aSeg.a));
-
-  return { x: aSeg.a.x + (t * d.x) / lSquared, y: aSeg.a.y + (t * d.y) / lSquared };
-}
-
-/** `SEG::Contains`: `SquaredDistance( aP ) <= 3`, an absolute IU tolerance. */
-function segContains(aSeg: CollideSeg, aP: Vec2): boolean {
-  return segSquaredDistanceToPoint(aSeg, aP) <= 3;
-}
+//
+// There is no `SEG` here. Upstream's `shape_collisions.cpp` builds its segments
+// out of the same `SEG` the PNS router uses — `SEG trackSeg( track->GetStart(),
+// track->GetEnd() )` in `pcbnew/drc/drc_test_provider_copper_clearance.cpp:269`
+// is literally the class `libs/kimath/src/geometry/seg.cpp` defines — so this
+// module uses ours, `@ziroeda/kimath/src/geometry/seg.ts`, rather than a second
+// copy in doubles.
+//
+// That single change is not cosmetic and is the whole risk of this file: kimath
+// is exact-integer, as `VECTOR2I` is, where the copies deleted from here were
+// floating point. Three consequences, all of them upstream's behaviour:
+//
+//  1. **Coordinates are quantised to 1 IU.** `VECTOR2I` cannot hold a fraction,
+//     and neither can any shape KiCad collides — `SHAPE_ARC::GetCenter()`
+//     returns a `const VECTOR2I&` (`shape_arc.h:121`), pad outlines are
+//     `SHAPE_POLY_SET`s of `VECTOR2I`. Ziro's `Shape` carries doubles because
+//     `arcShape` computes a centre and `padShapes` rotates vertices, so passing
+//     one to a `SEG` rounds it — which reproduces the rounding KiCad already did
+//     when it built the SHAPE, rather than inventing one.
+//  2. **`actual` floors instead of rounding.** `SEG::Distance` is `isqrt`, the
+//     largest integer whose square does not exceed the argument, not
+//     `round( hypot(…) )`.
+//  3. **An exact touch is now exactly zero.** `SEG::Collide` short-circuits on
+//     `SquaredDistance == 0`; in doubles, a point genuinely on the segment came
+//     back as ~1e-9 instead and took the clearance branch, reporting a non-zero
+//     `actual` for a touching pair.
+//
+// The one thing that is *not* an integer here is the clearance and the
+// half-widths the callers below add to it — `aClearance + halfWidth` is
+// upstream's own `int` arithmetic, but Ziro's `stadium.r` is `width / 2` and so
+// half-integral on an odd width. That is a `Shape`-construction divergence, not
+// a `SEG` one, and is left alone.
 
 /**
- * `SEG::checkCollinearOverlap` with `aIgnoreEndpoints` false: the midpoint of
- * the overlap region, projected back onto the segment's line.
- */
-function checkCollinearOverlap(
-  aA: CollideSeg,
-  aB: CollideSeg,
-  aUseXAxis: boolean,
-): { hit: boolean; p: Vec2 } {
-  const pick = (p: Vec2): number => (aUseXAxis ? p.x : p.y);
-  const other = (p: Vec2): number => (aUseXAxis ? p.y : p.x);
-
-  const seg1Start = pick(aA.a);
-  const seg1End = pick(aA.b);
-  const coord1Start = other(aA.a);
-  const coord1End = other(aA.b);
-
-  const seg1Min = Math.min(seg1Start, seg1End);
-  const seg1Max = Math.max(seg1Start, seg1End);
-  const seg2Min = Math.min(pick(aB.a), pick(aB.b));
-  const seg2Max = Math.max(pick(aB.a), pick(aB.b));
-
-  if (!(seg1Max >= seg2Min && seg2Max >= seg1Min)) return { hit: false, p: { x: 0, y: 0 } };
-
-  const overlapStart = Math.max(seg1Min, seg2Min);
-  const overlapEnd = Math.min(seg1Max, seg2Max);
-  const intersectionProj = (overlapStart + overlapEnd) / 2;
-
-  const intersectionOther =
-    seg1End !== seg1Start
-      ? coord1Start +
-        ((intersectionProj - seg1Start) * (coord1End - coord1Start)) / (seg1End - seg1Start)
-      : coord1Start;
-
-  return {
-    hit: true,
-    p: aUseXAxis
-      ? { x: intersectionProj, y: intersectionOther }
-      : { x: intersectionOther, y: intersectionProj },
-  };
-}
-
-/**
- * `SEG::intersects( aSeg, false, false )` and, through it, `SEG::Intersect`.
+ * `SEG::Collide( const SEG&, int, int* )`, adapted to the {@link Out} record.
  *
- * `libs/kimath/src/geometry/seg.ts` has a `segIntersect` already, but it stops
- * at the collinear case and returns null there — a deliberate narrowing for the
- * teardrop caller, documented in that file. `SEG::NearestPoint( const SEG& )`
- * and `SEG::SquaredDistance( const SEG& )` both need the collinear answer, so
- * the complete routine is transcribed here rather than the kimath one widened,
- * which would not be an additive change.
+ * kimath returns `actual` as a field because upstream writes through `aActual`
+ * on every path including the false one (`seg.cpp:620`); this wrapper copies it
+ * across unconditionally for the same reason.
  */
-function segIntersectSeg(aA: CollideSeg, aB: CollideSeg): Vec2 | null {
-  // Bounding-box rejection, as upstream.
-  if (
-    Math.max(aA.a.x, aA.b.x) < Math.min(aB.a.x, aB.b.x) ||
-    Math.max(aB.a.x, aB.b.x) < Math.min(aA.a.x, aA.b.x) ||
-    Math.max(aA.a.y, aA.b.y) < Math.min(aB.a.y, aB.b.y) ||
-    Math.max(aB.a.y, aB.b.y) < Math.min(aA.a.y, aA.b.y)
-  ) {
-    return null;
-  }
+function segCollideOut(aA: Seg, aB: Seg, aClearance: number, aOut: Out): boolean {
+  const { collides, actual } = segCollide(aA, aB, aClearance);
 
-  const dir1 = sub(aA.b, aA.a);
-  const dir2 = sub(aB.b, aB.a);
-  const offset = sub(aB.a, aA.a);
-  const determinant = cross(dir2, dir1);
+  aOut.actual = actual;
 
-  if (determinant === 0) {
-    // Parallel but not collinear.
-    if (cross(dir1, offset) !== 0) return null;
-
-    const useXAxis = Math.abs(dir1.x) >= Math.abs(dir1.y);
-    const overlap = checkCollinearOverlap(aA, aB, useXAxis);
-
-    return overlap.hit ? overlap.p : null;
-  }
-
-  const param2Num = cross(dir2, offset);
-  const param1Num = cross(dir1, offset);
-
-  if (determinant > 0) {
-    if (param1Num < 0 || param1Num > determinant || param2Num < 0 || param2Num > determinant) {
-      return null;
-    }
-  } else {
-    if (param1Num > 0 || param1Num < determinant || param2Num > 0 || param2Num < determinant) {
-      return null;
-    }
-  }
-
-  return {
-    x: aB.a.x + (param1Num * dir2.x) / determinant,
-    y: aB.a.y + (param1Num * dir2.y) / determinant,
-  };
-}
-
-/** `SEG::SquaredDistance( const SEG& )`. */
-export function segSquaredDistanceToSeg(aA: CollideSeg, aB: CollideSeg): number {
-  // Zero-length segments are handled first: the cross product with a zero
-  // vector is always zero, so the intersection test below would say yes.
-  if (same(aA.a, aA.b)) return segSquaredDistanceToPoint(aB, aA.a);
-  if (same(aB.a, aB.b)) return segSquaredDistanceToPoint(aA, aB.a);
-
-  if (segIntersectSeg(aA, aB) !== null) return 0;
-
-  return Math.min(
-    distSq(segNearestPointToPoint(aB, aA.a), aA.a),
-    distSq(segNearestPointToPoint(aB, aA.b), aA.b),
-    distSq(segNearestPointToPoint(aA, aB.a), aB.a),
-    distSq(segNearestPointToPoint(aA, aB.b), aB.b),
-  );
-}
-
-/**
- * `SEG::NearestPoint( const SEG& )` — a **location** source.
- *
- * The four candidates are the two endpoints of *this* segment and the two
- * projections of the other segment's endpoints onto *this* one, so the answer
- * always lies on `aA`. The ranking is by how far the *counterpart* point is,
- * and ties keep the earlier candidate because the comparison is a strict `<`.
- */
-export function segNearestPointToSeg(aA: CollideSeg, aB: CollideSeg): Vec2 {
-  const p = segIntersectSeg(aA, aB);
-
-  if (p !== null) return p;
-
-  const ptsOrigin = [
-    segNearestPointToPoint(aB, aA.a),
-    segNearestPointToPoint(aB, aA.b),
-    segNearestPointToPoint(aA, aB.a),
-    segNearestPointToPoint(aA, aB.b),
-  ] as const;
-
-  const ptsOut = [aA.a, aA.b, ptsOrigin[2], ptsOrigin[3]] as const;
-
-  const ptsDist = [
-    distSq(ptsOrigin[0], aA.a),
-    distSq(ptsOrigin[1], aA.b),
-    distSq(ptsOrigin[2], aB.a),
-    distSq(ptsOrigin[3], aB.b),
-  ] as const;
-
-  let minI = 0;
-
-  for (let i = 0; i < 4; i++) {
-    if ((ptsDist[i] as number) < (ptsDist[minI] as number)) minI = i;
-  }
-
-  return ptsOut[minI] as Vec2;
-}
-
-/**
- * `SEG::Collide( const SEG&, int, int* )`.
- *
- * Note the two ways this returns true without consulting the clearance at all —
- * an exact crossing, and any endpoint lying exactly on the other segment. Both
- * are upstream's, and both mean two touching segments collide even at zero
- * clearance. A *negative* clearance, however, is rejected outright before any
- * of that, which is why `collideSimple`'s `clearance - 1` arithmetic can turn a
- * touching pair into a miss.
- *
- * `aActual` is left untouched on the false return, as upstream.
- */
-export function segCollide(aA: CollideSeg, aB: CollideSeg, aClearance: number, aOut: Out): boolean {
-  if (aClearance < 0) {
-    aOut.actual = 0;
-    return false;
-  }
-
-  // Zero-length segments (points) are handled specially: the cross product with
-  // a zero vector is always zero, which would be a false positive below.
-  if (same(aA.a, aA.b)) {
-    const dist = Math.sqrt(segSquaredDistanceToPoint(aB, aA.a));
-    aOut.actual = dist;
-    return dist === 0 || dist < aClearance;
-  }
-
-  if (same(aB.a, aB.b)) {
-    const dist = Math.sqrt(segSquaredDistanceToPoint(aA, aB.a));
-    aOut.actual = dist;
-    return dist === 0 || dist < aClearance;
-  }
-
-  if (segIntersectSeg(aA, aB) !== null) {
-    aOut.actual = 0;
-    return true;
-  }
-
-  const clearanceSq = aClearance * aClearance;
-  let minDistSq = Number.POSITIVE_INFINITY;
-
-  for (const d of [
-    segSquaredDistanceToPoint(aA, aB.a),
-    segSquaredDistanceToPoint(aA, aB.b),
-    segSquaredDistanceToPoint(aB, aA.a),
-    segSquaredDistanceToPoint(aB, aA.b),
-  ]) {
-    // upstream's `checkDistance`: an exact zero short-circuits the whole thing.
-    if (d === 0) {
-      aOut.actual = 0;
-      return true;
-    }
-
-    minDistSq = Math.min(minDistSq, d);
-  }
-
-  if (minDistSq < clearanceSq) {
-    aOut.actual = Math.sqrt(minDistSq);
-    return true;
-  }
-
-  return false;
+  return collides;
 }
 
 // ----- CIRCLE ------------------------------------------------------------------
@@ -429,7 +217,7 @@ export function circleFurthestPoint(aCircle: CollideCircle, aP: Vec2): Vec2 {
 }
 
 /** `CIRCLE::IntersectLine`: 0, 1 (tangent) or 2 points on the *infinite* line. */
-function circleIntersectLine(aCircle: CollideCircle, aLine: CollideSeg): Vec2[] {
+function circleIntersectLine(aCircle: CollideCircle, aLine: Seg): Vec2[] {
   const m = segLineProject(aLine, aCircle.c);
   const omDist = Math.hypot(m.x - aCircle.c.x, m.y - aCircle.c.y);
 
@@ -444,7 +232,7 @@ function circleIntersectLine(aCircle: CollideCircle, aLine: CollideSeg): Vec2[] 
 }
 
 /** `CIRCLE::Intersect( const SEG& )`: the line intersections that are on the segment. */
-export function circleIntersectSeg(aCircle: CollideCircle, aSeg: CollideSeg): Vec2[] {
+export function circleIntersectSeg(aCircle: CollideCircle, aSeg: Seg): Vec2[] {
   return circleIntersectLine(aCircle, aSeg).filter((p) => segContains(aSeg, p));
 }
 
@@ -501,12 +289,12 @@ export function circleIntersectCircle(aA: CollideCircle, aB: CollideCircle): Vec
  */
 export function shapeCircleCollideSeg(
   aCircle: CollideCircle,
-  aSeg: CollideSeg,
+  aSeg: Seg,
   aClearance: number,
   aOut: Out,
 ): boolean {
   const minDist = aClearance + aCircle.r;
-  const pn = segNearestPointToPoint(aSeg, aCircle.c);
+  const pn = segNearestPoint(aSeg, aCircle.c);
   const dSq = distSq(pn, aCircle.c);
 
   if (dSq === 0 || dSq < sq(minDist)) {
@@ -534,7 +322,7 @@ export function shapeCircleCollideSeg(
  * port.
  */
 export interface CollideSegment {
-  seg: CollideSeg;
+  seg: Seg;
   /** `GetWidth() / 2`. */
   halfWidth: number;
 }
@@ -550,7 +338,7 @@ function shapeSegmentCollidePoint(
   const dSq = segSquaredDistanceToPoint(aA.seg, aP);
 
   if (dSq === 0 || dSq < sq(minDist)) {
-    aOut.location = segNearestPointToPoint(aA.seg, aP);
+    aOut.location = segNearestPoint(aA.seg, aP);
     aOut.actual = Math.max(0, Math.sqrt(dSq) - aA.halfWidth);
 
     return true;
@@ -568,7 +356,7 @@ function shapeSegmentCollidePoint(
  */
 export function shapeSegmentCollideSeg(
   aA: CollideSegment,
-  aSeg: CollideSeg,
+  aSeg: Seg,
   aClearance: number,
   aOut: Out,
 ): boolean {
@@ -602,7 +390,7 @@ export interface CollideChain {
 
 const chainSegmentCount = (aChain: CollideChain): number => aChain.pts.length;
 
-const chainSegment = (aChain: CollideChain, aIndex: number): CollideSeg => ({
+const chainSegment = (aChain: CollideChain, aIndex: number): Seg => ({
   a: aChain.pts[aIndex] as Vec2,
   b: aChain.pts[(aIndex + 1) % aChain.pts.length] as Vec2,
 });
@@ -652,7 +440,7 @@ export function chainPointInside(aChain: CollideChain, aPt: Vec2): boolean {
  */
 export function chainCollideSeg(
   aChain: CollideChain,
-  aSeg: CollideSeg,
+  aSeg: Seg,
   aClearance: number,
   aOut: Out,
 ): boolean {
@@ -872,11 +660,11 @@ export function collideChainChain(
     nearest = aB.pts[0] as Vec2;
   } else {
     // `IsArcSegment` filtering does not apply: these chains carry no arcs.
-    const segSort = (a: CollideSeg, b: CollideSeg): number =>
+    const segSort = (a: Seg, b: Seg): number =>
       a.a.x !== b.a.x ? a.a.x - b.a.x : a.a.y - b.a.y;
 
-    const aSegs: CollideSeg[] = [];
-    const bSegs: CollideSeg[] = [];
+    const aSegs: Seg[] = [];
+    const bSegs: Seg[] = [];
 
     for (let ii = 0; ii < chainSegmentCount(aA); ii++) aSegs.push(chainSegment(aA, ii));
     for (let ii = 0; ii < chainSegmentCount(aB); ii++) bSegs.push(chainSegment(aB, ii));
@@ -888,7 +676,7 @@ export function collideChainChain(
       for (const bSeg of bSegs) {
         const local = newOut();
 
-        if (segCollide(aSeg, bSeg, aClearance, local)) {
+        if (segCollideOut(aSeg, bSeg, aClearance, local)) {
           if (local.actual < closestDist) {
             nearest = segNearestPointToSeg(aSeg, bSeg);
             closestDist = local.actual;
@@ -1015,7 +803,7 @@ export function arcSliceContainsPoint(aArc: CollideArc, aP: Vec2): boolean {
  * The longer segment supplies the line, ties keep `a`, and a zero-length longer
  * segment is not collinear with anything.
  */
-function approxCollinear(aA: CollideSeg, aB: CollideSeg, aDistanceThreshold = 1): boolean {
+function approxCollinear(aA: Seg, aB: Seg, aDistanceThreshold = 1): boolean {
   let a1 = aA.a;
   let a2 = aA.b;
   let b1 = aB.a;
@@ -1054,8 +842,8 @@ export function arcIsEffectiveLine(aArc: CollideArc): boolean {
   const mid = arcMid(aArc);
   const end = arcP1(aArc);
 
-  const v1: CollideSeg = { a: start, b: mid };
-  const v2: CollideSeg = { a: mid, b: end };
+  const v1: Seg = { a: start, b: mid };
+  const v2: Seg = { a: mid, b: end };
 
   return approxCollinear(v1, v2) && dot(sub(v1.b, v1.a), sub(v2.b, v2.a)) > 0;
 }
@@ -1220,7 +1008,7 @@ export function arcCollidePoint(
  */
 export function arcCollideSeg(
   aArc: CollideArc,
-  aSeg: CollideSeg,
+  aSeg: Seg,
   aClearance: number,
   aOut: Out,
 ): boolean {
@@ -1249,9 +1037,9 @@ export function arcCollideSeg(
   // 4. End points of the segment
   const candidatePts: Vec2[] = [
     ...circleIntersectSeg(circle, aSeg),
-    segNearestPointToPoint(aSeg, aArc.c),
-    segNearestPointToPoint(aSeg, arcP0(aArc)),
-    segNearestPointToPoint(aSeg, arcP1(aArc)),
+    segNearestPoint(aSeg, aArc.c),
+    segNearestPoint(aSeg, arcP0(aArc)),
+    segNearestPoint(aSeg, arcP1(aArc)),
     aSeg.a,
     aSeg.b,
   ];
