@@ -237,6 +237,15 @@
   --check-size: 16px;
   --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
   --check-margin: 4px; /* [css] check, radio { margin: 0 4px } */
+  /* The tick's own ink, on the accent square. NOT --chrome-fg, which happens to
+     be the same white: this one is Yaru's $selected_fg_color and would move with
+     the accent if the desktop's did. [css] check:checked, radio:checked
+     { color: #FFFFFF }. GTK draws it as check-symbolic.svg recoloured to that;
+     we draw the equivalent glyph, so only the colour is shared. */
+  --check-mark: #ffffff;
+  /* [css] check { border-radius: 3px } — a checkbox is the ONE control that is
+     not --ctl-radius 6px. (radio { border-radius: 100% } needs no token.) */
+  --check-radius: 3px;
   /* The row a checkbox or radio occupies, indicator centred in it. [px] the
      Output Format radios repeat every 34 px and wxFormBuilder gives them
      5 top + 5 bottom + a 2 px flexgrid vgap (bitmap2cmp_panel_base.cpp:161-193),
