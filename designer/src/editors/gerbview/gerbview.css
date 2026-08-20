@@ -19,47 +19,23 @@
   overflow: hidden;
 }
 
-.ze-gbr-layers-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel-header);
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #b8c0cc;
-  border-bottom: 1px solid var(--chrome-border);
-}
-.ze-gbr-layers-actions button {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: default;
-  font-size: 12px;
-  padding: 0 3px;
-}
-
 .ze-gbr-layer-list {
   flex: 1;
   overflow-y: auto;
   min-height: 60px;
 }
-.ze-gbr-empty {
-  padding: 12px 8px;
-  color: #808894;
-  font-size: 12px;
-}
 
+/* wxFlexGridSizer( 0, LYR_COLUMN_COUNT, 3, 4 ) with AddGrowableCol( 3, 1 )
+   (`gerbview/widgets/layer_widget.cpp:522-527`): five columns, the NAME column
+   the only one that grows, 3 px between rows and 4 px between columns. Those
+   two gaps are [data] - upstream's own literals in that constructor. */
 .ze-gbr-layer-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto auto 1fr auto;
   align-items: center;
-  gap: 4px;
+  column-gap: 4px; /* [data] hgap, layer_widget.cpp:522 */
   padding: 3px 6px;
   cursor: default;
-  font-size: 12px;
-  border-bottom: 1px solid #232529;
 }
 .ze-gbr-layer-row:hover {
   background: var(--chrome-hover);
@@ -71,95 +47,35 @@
   accent-color: #4a86c5;
   margin: 0;
 }
-.ze-gbr-vis {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: default;
-  width: 18px;
-  font-size: 12px;
-  padding: 0;
-}
-.ze-gbr-swatch {
-  position: relative;
-  width: 20px;
-  height: 14px;
-  border: 1px solid #0007;
-  border-radius: 2px;
-  cursor: default;
-  padding: 0;
-  flex: 0 0 auto;
-}
+/* WX_ELLIPSIZED_STATIC_TEXT with wxST_ELLIPSIZE_MIDDLE (`layer_widget.cpp:355-360`).
+   The ellipsis itself is `.ze-ellipsis`, shared; only the nowrap is local. */
 .ze-gbr-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-}
-.ze-gbr-row-tools {
-  display: flex;
-  gap: 1px;
-  opacity: 0;
-}
-.ze-gbr-layer-row:hover .ze-gbr-row-tools {
-  opacity: 1;
-}
-.ze-gbr-row-tools button {
-  background: none;
-  border: none;
-  color: #c8d0dc;
-  cursor: default;
-  font-size: 10px;
-  padding: 0 2px;
-  line-height: 1;
-}
-.ze-gbr-row-tools button:hover {
-  color: #fff;
+  min-width: 0;
 }
 
+/* The Items page: wxFlexGridSizer( 0, RND_COLUMN_COUNT, 3, 4 ) - two columns,
+   swatch then labelled checkbox (`layer_widget.cpp:547`). It is a notebook PAGE
+   now, so it no longer needs a rule dividing it from the list above it. */
 .ze-gbr-render-list {
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-top: 1px solid var(--chrome-border);
+  overflow-y: auto;
 }
 .ze-gbr-render-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  column-gap: 4px; /* [data] hgap, layer_widget.cpp:547 */
   cursor: default;
 }
-
-.ze-gbr-combo {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #b8c0cc;
-  margin: 0 4px;
-}
-.ze-gbr-combo select {
-  max-width: 160px;
+/* `RR()`, the default-constructed spacer row (`gerbview_layer_widget.cpp:130`).
+   It keeps the grid full and shows nothing; its height is one row's. */
+.ze-gbr-render-row.spacer {
+  height: var(--check-row);
 }
 
 /* The item inspector is the shared EDA_MSG_PANEL (.ze-msgpanel in
    ui/shell.css) - GerbView instantiates the same widget as every other draw
    frame, so it has no message panel of its own to style. */
-
-.ze-gbr-dcode-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.ze-gbr-dcode-table th,
-.ze-gbr-dcode-table td {
-  text-align: left;
-  padding: 3px 8px;
-  border-bottom: 1px solid #33363c;
-}
-.ze-gbr-dcode-table th {
-  color: #9fb4cc;
-  font-weight: 600;
-}

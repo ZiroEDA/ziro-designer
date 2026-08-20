@@ -220,7 +220,7 @@ const BASELINE: Record<string, number> = {
   // canvas, which sizes text in world units, not chrome units.
   'editors/drawingsheet': 1,
   'editors/footprint': 1,
-  'editors/gerbview': 9,
+  'editors/gerbview': 0,
   'editors/pcb': 124,
   'editors/schematic': 63,
   'editors/symbol': 2,
@@ -350,7 +350,7 @@ describe('hardcoded font sizes do not grow', () => {
     // Project dialog's styles out, and the DIALOG_PAGES_SETTINGS rebuild took
     // that dialog's inline typography — so neither branch's total survived the
     // merge. Rescanned from the merged tree.
-    expect(sites.length).toBe(389);
+    expect(sites.length).toBe(380);
   });
 });
 

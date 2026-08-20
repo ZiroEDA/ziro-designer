@@ -2,120 +2,254 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Gerber Viewer toolbar layouts, following GerbView's toolbar configuration
- * (`gerbview/toolbars_gerber.cpp` GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig):
+ * Gerber Viewer toolbar layouts — `GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig`
+ * (`gerbview/toolbars_gerber.cpp:39-116`), which declares exactly three of the
+ * four possible bars:
  *
- *  - TOP:    load group (Gerber / job / drill / zip) | clear-all | export to
- *            PCB | print | zoom group | measure | (layer / DCode / highlight
- *            selectors render as combos next to the buttons);
- *  - LEFT:   grid | units radio | polar coords | full crosshair | flashed /
- *            lines / polygons sketch-mode toggles | show DCodes | show negative
- *            objects | diff mode | high-contrast | flip view | layer manager.
- *  - RIGHT:  selection tool | measure tool.
+ *  - TOP_MAIN: clear / reload / the three openers | print | five zooms |
+ *              the layer selector and the read-only text-info box;
+ *  - TOP_AUX:  Cmp / Net / Attr / DCode choices | grid selector | zoom selector;
+ *  - LEFT:     select and measure | grid, polar, the Units and Crosshair-mode
+ *              GROUPS | the five display toggles | forced-opacity, XOR,
+ *              high-contrast, flip | the layers manager;
+ *  - RIGHT:    `std::nullopt` — there is no right-hand toolbar.
+ *
+ * Each list below quotes the `AppendAction` run it mirrors, because the order
+ * is the parity target as much as the membership is.
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
 
-/** TOP main toolbar (button portion; the combos render separately). */
+/**
+ * Control names, matching the `ACTION_TOOLBAR_CONTROL` identifiers upstream so
+ * a reader can grep either tree for the same string. The first two are shared
+ * controls registered by `EDA_DRAW_FRAME::configureToolbars`
+ * (`common/eda_draw_frame.cpp:208-233`); the rest are GerbView's own
+ * (`gerbview/toolbars_gerber.cpp:265-286`).
+ */
+export const GBR_CONTROL = {
+  layerSelector: 'control.LayerSelector',
+  textInfo: 'control.TextInfo',
+  componentHighlight: 'control.ComponentHighlight',
+  netHighlight: 'control.NetHighlight',
+  appertureHighlight: 'control.AppertureHighlight',
+  dcodeSelector: 'control.GerberDcodeSelector',
+  gridSelect: 'control.GridSelector',
+  zoomSelect: 'control.ZoomSelector',
+} as const;
+
+/**
+ * TOP_MAIN, `toolbars_gerber.cpp:83-104`, verbatim:
+ *
+ *     config.AppendAction( clearAllLayers ).AppendAction( reloadAllLayers )
+ *           .AppendAction( openAutodetected ).AppendAction( openGerber )
+ *           .AppendAction( openDrillFile );
+ *     config.AppendSeparator().AppendAction( ACTIONS::print );
+ *     config.AppendSeparator().AppendAction( zoomRedraw ).AppendAction( zoomInCenter )
+ *           .AppendAction( zoomOutCenter ).AppendAction( zoomFitScreen ).AppendAction( zoomTool );
+ *     config.AppendSeparator().AppendControl( layerSelector ).AppendControl( textInfo );
+ *
+ * Three things this row is NOT. `openJobFile` and `openZipFile` are File-menu
+ * entries only (`menubar.cpp:117,135`) - the toolbar offers "Open Autodetected",
+ * which takes any of the four. `exportToPcbnew` is likewise menu-only
+ * (`menubar.cpp:151`). And the clear/reload pair comes FIRST, not after the
+ * openers. Ours had all three wrong.
+ */
 export const GBR_TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'gerbOpen', icon: 'gerbOpen', title: 'Open Gerber file(s)' },
-  { id: 'gerbOpenJob', icon: 'gerbOpenJob', title: 'Open Gerber job file' },
-  { id: 'gerbOpenDrill', icon: 'gerbOpenDrill', title: 'Open Excellon drill file(s)' },
-  { id: 'gerbOpenZip', icon: 'gerbOpenZip', title: 'Open zip archive of Gerber/drill files' },
+  { id: 'gerbClear', icon: 'gerbClear', title: 'Clear All Layers' },
+  { id: 'gerbReload', icon: 'gerbReload', title: 'Reload All Layers' },
+  {
+    id: 'gerbOpenAutodetected',
+    icon: 'gerbOpenAutodetected',
+    title: 'Open Autodetected file(s) on a new layer.',
+  },
+  { id: 'gerbOpen', icon: 'gerbOpen', title: 'Open Gerber plot file(s) on a new layer.' },
+  {
+    id: 'gerbOpenDrill',
+    icon: 'gerbOpenDrill',
+    title: 'Open Excellon drill file(s) on a new layer.',
+  },
   sep,
-  { id: 'gerbClear', icon: 'gerbClear', title: 'Clear all layers' },
-  { id: 'gerbReload', icon: 'gerbReload', title: 'Reload all layers' },
-  { id: 'gerbExportToPcb', icon: 'gerbExportToPcb', title: 'Export to Pcbnew' },
-  sep,
-  { id: 'print', icon: 'print', title: 'Print layers' },
+  { id: 'print', icon: 'print', title: 'Print...' },
   sep,
   { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
-  { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
-  { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
-  { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit' },
-  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to selection' },
+  { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom In' },
+  { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom Out' },
+  {
+    id: 'zoomFit',
+    icon: 'zoomFit',
+    title: 'Zoom to worksheet area if exists or edited object',
+  },
+  {
+    // ACTIONS::zoomTool. Not a GerbView feature: ZOOM_TOOL is 174 lines in
+    // `common/tool/zoom_tool.cpp` that ten frames register, GerbView at
+    // `gerbview_frame.cpp:1097`. It is an AF_ACTIVATE action, so the button is
+    // a radio like selectionTool and measureTool, not a check.
+    id: 'zoomTool',
+    icon: 'zoomTool',
+    title: 'Zoom to an area selection created by a mouse drag',
+  },
+  sep,
+  { control: GBR_CONTROL.layerSelector },
+  { control: GBR_CONTROL.textInfo },
 ];
 
-/** LEFT display-options toolbar. */
+/**
+ * TOP_AUX toolbar, `TOOLBAR_LOC::TOP_AUX`
+ * (`gerbview/toolbars_gerber.cpp:107-115`), verbatim:
+ *
+ *     config.AppendControl( componentHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( netHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( appertureHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( dcodeSelector )
+ *           .AppendSeparator()
+ *           .AppendControl( gridSelect )
+ *           .AppendSeparator()
+ *           .AppendControl( zoomSelect );
+ *
+ * Note the asymmetry, which is upstream's and not a slip here: the four
+ * highlight choices are parted by 5 px spacers, and only the grid and zoom
+ * selectors get separator rules.
+ */
+export const GBR_TOP_AUX_TOOLBAR: ToolEntry[] = [
+  { control: GBR_CONTROL.componentHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.netHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.appertureHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.dcodeSelector },
+  sep,
+  { control: GBR_CONTROL.gridSelect },
+  sep,
+  { control: GBR_CONTROL.zoomSelect },
+];
+
+/**
+ * LEFT toolbar, `toolbars_gerber.cpp:50-81`, verbatim.
+ *
+ * Two structural things ours had wrong. `selectionTool` and `measureTool` head
+ * this bar (`:51-52`) - we had them on a right-hand toolbar, and GerbView
+ * returns `std::nullopt` for `TOOLBAR_LOC::RIGHT` (`:47-48`), so there is no
+ * such bar. And the units and crosshair modes are `TOOLBAR_GROUP_CONFIG`s
+ * (`:57-64`) - one button showing the selected member with a triangle in the
+ * corner, not three buttons in a row.
+ */
 export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
-  { id: 'toggleGrid', icon: 'toggleGrid', title: 'Show grid', toggle: true },
-  sep,
-  { id: 'unitsMm', icon: 'unitsMm', title: 'Display units in millimetres', toggle: true },
-  { id: 'unitsInches', icon: 'unitsInches', title: 'Display units in inches', toggle: true },
-  { id: 'unitsMils', icon: 'unitsMils', title: 'Display units in mils', toggle: true },
-  sep,
-  { id: 'togglePolar', icon: 'gerbTogglePolar', title: 'Display polar coordinates', toggle: true },
+  { id: 'select', icon: 'select', title: 'Select item(s)' },
   {
-    id: 'crosshairFull',
-    icon: 'crosshairFull',
-    title: 'Show full-window crosshair',
+    id: 'measure',
+    icon: 'gerbMeasure',
+    title: 'Interactively measure distance between points',
+  },
+  sep,
+  {
+    id: 'toggleGrid',
+    icon: 'toggleGrid',
+    title: 'Display background grid in the edit window',
     toggle: true,
+  },
+  {
+    id: 'togglePolar',
+    icon: 'togglePolar',
+    title: 'Switch between polar and cartesian coordinate systems',
+    toggle: true,
+  },
+  {
+    // TOOLBAR_GROUP_CONFIG( _( "Units" ) ), in upstream's own order: mm first.
+    group: 'Units',
+    cycleOnClick: true,
+    actions: [
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters', toggle: true },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Inches', toggle: true },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Mils', toggle: true },
+    ],
+  },
+  {
+    // TOOLBAR_GROUP_CONFIG( _( "Crosshair modes" ) ).
+    group: 'Crosshair modes',
+    cycleOnClick: true,
+    actions: [
+      {
+        id: 'crosshairSmall',
+        icon: 'crosshairSmall',
+        title: 'Use small crosshairs aligned at 0 and 90 degrees',
+        toggle: true,
+      },
+      {
+        id: 'crosshairFull',
+        icon: 'crosshairFull',
+        title: 'Display full-window crosshairs aligned at 0 and 90 degrees',
+        toggle: true,
+      },
+      {
+        id: 'crosshair45',
+        icon: 'crosshair45',
+        title: 'Display full-window crosshairs aligned at 45 and 135 degrees',
+        toggle: true,
+      },
+    ],
   },
   sep,
   {
     id: 'flashedSketch',
-    icon: 'gerbFlashedSketch',
-    title: 'Show flashed items in outline (sketch) mode',
+    icon: 'flashedSketch',
+    title: 'Show flashed items in outline mode',
     toggle: true,
   },
-  {
-    id: 'linesSketch',
-    icon: 'gerbLinesSketch',
-    title: 'Show lines in outline (sketch) mode',
-    toggle: true,
-  },
+  { id: 'linesSketch', icon: 'linesSketch', title: 'Show lines in outline mode', toggle: true },
   {
     id: 'polygonsSketch',
-    icon: 'gerbPolygonsSketch',
-    title: 'Show polygons in outline (sketch) mode',
-    toggle: true,
-  },
-  sep,
-  {
-    id: 'showDcodes',
-    icon: 'gerbShowDcodes',
-    title: 'Show DCode numbers',
+    icon: 'polygonsSketch',
+    title: 'Show polygons in outline mode',
     toggle: true,
   },
   {
     id: 'showNegativeObjects',
-    icon: 'gerbNegativeObjects',
-    title: 'Show negative objects in a ghost colour',
+    icon: 'showNegativeObjects',
+    title: 'Show negative objects in ghost color',
     toggle: true,
   },
+  { id: 'showDcodes', icon: 'showDcodes', title: 'Show dcode numbers', toggle: true },
   sep,
   {
-    id: 'diffMode',
-    icon: 'gerbDiffMode',
-    title: 'Show layers in differential mode',
+    // GERBVIEW_ACTIONS::toggleForceOpacityMode. Greyed in its upstream
+    // position: the renderer composites every layer at a permanent 0.8 alpha
+    // where GerbView draws opaque and drops to m_OpacityModeAlphaValue = 0.6
+    // only while this is checked (`gbr_display_options.h:55,61`). Making it a
+    // real toggle changes the default look and belongs with the render pass.
+    id: 'forceOpacityMode',
+    icon: 'forceOpacityMode',
+    title: 'Show layers using opacity color forced mode',
+    toggle: true,
+    disabled: true,
+  },
+  {
+    id: 'xorMode',
+    icon: 'xorMode',
+    title: 'Show layers in exclusive-or compare mode',
     toggle: true,
   },
   {
     id: 'highContrast',
     icon: 'gerbHighContrast',
-    title: 'Enable high-contrast mode (dim inactive layers)',
+    title: 'Toggle inactive layers between normal and dimmed',
     toggle: true,
   },
-  {
-    id: 'flipView',
-    icon: 'gerbFlipView',
-    title: 'Flip view (mirror horizontally)',
-    toggle: true,
-  },
+  { id: 'flipView', icon: 'flipView', title: 'Show as mirror image', toggle: true },
   sep,
-  {
-    id: 'showLayerManager',
-    icon: 'gerbLayerManager',
-    title: 'Show/hide the layers manager',
-    toggle: true,
-  },
+  { id: 'showLayerManager', icon: 'showLayerManager', title: 'Show Layers Manager', toggle: true },
 ];
 
-/** RIGHT tool toolbar: selection and measure. */
-export const GBR_RIGHT_TOOLBAR: ToolEntry[] = [
-  { id: 'select', icon: 'select', title: 'Select item' },
-  sep,
-  { id: 'measure', icon: 'gerbMeasure', title: 'Measure distance between two points' },
-];
+/*
+ * There is deliberately no GBR_RIGHT_TOOLBAR. GerbView's DefaultToolbarConfig
+ * answers `TOOLBAR_LOC::RIGHT` with `return std::nullopt`
+ * (`toolbars_gerber.cpp:46-48`) - the frame has no right-hand toolbar, and the
+ * two actions ours put there, selectionTool and measureTool, are the first two
+ * buttons of the LEFT bar (`:51-52`).
+ */

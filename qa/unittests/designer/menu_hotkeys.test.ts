@@ -135,7 +135,7 @@ const imageMenus = (calls: string[], quitDisabled = false): Menu[] => [
   {
     label: 'File',
     items: [
-      { label: 'Open…', shortcut: 'Ctrl+O', action: () => calls.push('open') },
+      { label: 'Open...', shortcut: 'Ctrl+O', action: () => calls.push('open') },
       {
         label: 'Open Recent',
         submenu: [{ label: 'logo.png', shortcut: 'Ctrl+D', action: () => calls.push('recent') }],
@@ -152,7 +152,7 @@ const imageMenus = (calls: string[], quitDisabled = false): Menu[] => [
   },
   {
     label: 'Preferences',
-    items: [{ label: 'Preferences…', shortcut: 'Ctrl+,', action: () => calls.push('prefs') }],
+    items: [{ label: 'Preferences...', shortcut: 'Ctrl+,', action: () => calls.push('prefs') }],
   },
 ];
 

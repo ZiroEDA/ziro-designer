@@ -69,8 +69,8 @@ import {
 } from '../editors/footprint/footprintToolbars.js';
 import {
   GBR_TOP_TOOLBAR,
+  GBR_TOP_AUX_TOOLBAR,
   GBR_LEFT_TOOLBAR,
-  GBR_RIGHT_TOOLBAR,
 } from '../editors/gerbview/gerberToolbars.js';
 import {
   DS_TOP_TOOLBAR,
@@ -771,8 +771,8 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
       [],
       [
         ...walkToolbar(GBR_TOP_TOOLBAR),
+        ...walkToolbar(GBR_TOP_AUX_TOOLBAR),
         ...walkToolbar(GBR_LEFT_TOOLBAR),
-        ...walkToolbar(GBR_RIGHT_TOOLBAR),
       ],
     ),
   );

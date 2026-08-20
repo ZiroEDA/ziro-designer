@@ -225,7 +225,7 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     expect(line).not.toContain("'unitsInches'");
   });
 
-  it('opens in EDIT mode, so the title block shows its ${…} tokens', () => {
+  it('opens in EDIT mode, so the title block shows its ${...} tokens', () => {
     /*
      * The bug that read as "no default sheet loads". PL_EDITOR_FRAME's
      * constructor sets

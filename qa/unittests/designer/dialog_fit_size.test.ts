@@ -110,8 +110,11 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
    * file. Lower it in the same commit that removes a size; the two lists are
    * printed on failure so the diff is obvious.
    */
-  it('32 call sites still name their own size', () => {
-    expect(inlineSized()).toHaveLength(32);
+  // 32 until GerbView's bespoke DCode table went: "List DCodes" is a stock
+  // wxSingleChoiceDialog upstream (`gerbview/tools/gerbview_inspection_tool.cpp:145`),
+  // and the shared dialog that replaced it names no size of its own.
+  it('31 call sites still name their own size', () => {
+    expect(inlineSized()).toHaveLength(31);
   });
 
   it('13 shell.css variants still name their own size', () => {

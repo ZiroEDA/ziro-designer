@@ -37,6 +37,7 @@ export function SingleChoiceDialog({
   message,
   choices,
   onResult,
+  showCancel = true,
 }: {
   caption: string;
   /** wxGetSingleChoice's first argument; pcb_calculator passes empty for most. */
@@ -44,6 +45,18 @@ export function SingleChoiceDialog({
   choices: readonly SingleChoiceRow[];
   /** `null` when the dialog is cancelled, which is an empty string in wx. */
   onResult: (value: string | null) => void;
+  /**
+   * The `wxCANCEL` bit of the dialog's style.
+   *
+   * `wxCHOICEDLG_STYLE` is
+   * `wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxOK | wxCANCEL | wxCENTRE`
+   * (`wx/generic/choicdgg.h:26-27`), which is what `wxGetSingleChoice` passes
+   * and what pcb_calculator's five call sites get. GerbView's List DCodes
+   * masks the bit off — `wxCHOICEDLG_STYLE & ~wxCANCEL`
+   * (`gerbview/tools/gerbview_inspection_tool.cpp:145-146`) — because the list
+   * is a report and there is nothing to cancel.
+   */
+  showCancel?: boolean;
 }): JSX.Element {
   const [index, setIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -116,9 +129,11 @@ export function SingleChoiceDialog({
         </div>
         {/* wxStdDialogButtonSizer, not the message dialog's split bar. */}
         <div className="ze-choicedlg-buttons">
-          <button type="button" className="ze-btn" onClick={() => onResult(null)}>
-            Cancel
-          </button>
+          {showCancel && (
+            <button type="button" className="ze-btn" onClick={() => onResult(null)}>
+              Cancel
+            </button>
+          )}
           <button type="button" className="ze-btn" onClick={() => accept(index)}>
             {OK_LABEL}
           </button>

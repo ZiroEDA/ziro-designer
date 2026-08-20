@@ -247,6 +247,29 @@ describe('DSP-26 — Zoom In / Zoom Out step the table', () => {
 
   it('sets the preset absolutely, holding the canvas centre', () => {
     // doZoomToPreset is VIEW::SetScale( zoomList[idx] ), not a relative step.
-    expect(CANVAS).toContain('v.scale = scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM);');
+    // The preset now goes through clampViewScale on the way in, because
+    // VIEW::SetScale clamps every scale it is handed (`common/view/view.cpp:583-588`)
+    // - so what is asserted is that the value is the PRESET, absolutely, and
+    // not a multiple of whatever the scale happened to be.
+    expect(CANVAS).toContain('scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM)');
+    expect(CANVAS).not.toContain('v.scale *= factor');
+  });
+
+  /**
+   * `PL_DRAW_PANEL_GAL`'s constructor runs
+   * `m_view->SetScaleLimits( ZOOM_MAX_LIMIT_PLEDITOR, ZOOM_MIN_LIMIT_PLEDITOR )`
+   * (`pagelayout_editor/pl_draw_panel_gal.cpp:63`) - 20 and 0.05 out of
+   * `include/zoom_defines.h:56-58`. The clamp itself lives inside
+   * `VIEW::SetScale`, so EVERY way of zooming is limited by it, which is why
+   * all three of this canvas' zoom paths have to go through it and not just
+   * the wheel.
+   */
+  it('clamps every zoom path, not only the wheel', () => {
+    const clamps = [...CANVAS.matchAll(/clampViewScale\(/g)];
+    expect(clamps.length).toBe(3);
+    // …and every one of them names pl_editor's row, not another app's.
+    expect([...CANVAS.matchAll(/clampViewScale\([\s\S]{0,120}?'(\w+)'/g)].map((m) => m[1])).toEqual(
+      ['pl_editor', 'pl_editor', 'pl_editor'],
+    );
   });
 });

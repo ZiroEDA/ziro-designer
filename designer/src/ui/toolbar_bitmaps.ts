@@ -252,43 +252,54 @@ export const BITMAP: Record<string, string> = {
   previewSettings: 'sheetset',
   layoutNormalMode: 'pagelayout_normal_view_mode',
   layoutEditMode: 'pagelayout_special_view_mode',
-  // gerber viewer (icons per GERBVIEW_ACTIONS/ACTIONS .Icon() in gerbview toolbars_gerber.cpp).
-  // GerbView-specific bitmaps aren't vendored yet, so these reuse the closest SVGs.
-  gerbClear: 'trash',
-  gerbOpen: 'directory_open',
-  gerbOpenJob: 'import',
-  gerbOpenDrill: 'import',
-  gerbOpenZip: 'import',
-  gerbExportToPcb: 'icon_pcbnew_24',
-  gerbReload: 'refresh',
-  gerbSort: 'spreadsheet',
-  gerbDcodeList: 'spreadsheet',
+  // Gerber Viewer. Every one of these is now the bitmap the action itself
+  // names in `gerbview/tools/gerbview_actions.cpp` or `common/tool/actions.cpp`,
+  // vendored from `resources/bitmaps_png/sources/dark` like the rest of the
+  // table. They used to be "the closest SVG we had" - which put the SAME
+  // `import` glyph on the job, drill and zip buttons, `contrast_mode` on both
+  // the XOR and the high-contrast toggles, and `via_sketch` on Ghost Negative
+  // Objects.
+  gerbClear: 'delete_gerber', // clearAllLayers, gerbview_actions.cpp:112
+  gerbOpen: 'load_gerber', // openGerber, :49 - openAutodetected shares it, :42
+  gerbOpenAutodetected: 'load_gerber',
+  gerbOpenJob: 'file_gerber_job', // openJobFile, :63
+  gerbOpenDrill: 'load_drill', // openDrillFile, :56
+  gerbOpenZip: 'zip', // openZipFile, :70
+  gerbExportToPcb: 'export_to_pcbnew', // exportToPcbnew, :97
+  gerbReload: 'reload', // reloadAllLayers, :115
+  gerbClearLayer: 'delete_sheet', // clearLayer, :104
+  gerbSort: 'reload',
+  gerbDcodeList: 'show_dcodenumber', // showDCodes, :83
   gerbMeasure: 'measurement',
   gerbTogglePolar: 'polar_coord',
-  gerbFlashedSketch: 'pad_sketch',
-  gerbLinesSketch: 'showtrack',
-  gerbPolygonsSketch: 'show_zone',
-  gerbNegativeObjects: 'via_sketch',
-  gerbShowDcodes: 'text_sketch',
-  gerbDiffMode: 'contrast_mode',
-  gerbHighContrast: 'contrast_mode',
-  gerbFlipView: 'mirror_h',
-  gerbLayerManager: 'layers_manager',
+  gerbFlashedSketch: 'pad_sketch', // flashedDisplayOutlines, :195
+  gerbLinesSketch: 'showtrack', // linesDisplayOutlines, :185
+  gerbPolygonsSketch: 'opt_show_polygon', // polygonsDisplayOutlines, :205
+  gerbNegativeObjects: 'gerbview_show_negative_objects', // negativeObjectDisplay, :214
+  gerbShowDcodes: 'show_dcodenumber', // dcodeDisplay, :224
+  gerbForceOpacity: 'gbr_select_mode1', // toggleForceOpacityMode, :232
+  gerbXorMode: 'gbr_select_mode2', // toggleXORMode, :240
+  gerbHighContrast: 'contrast_mode', // ACTIONS::highContrastMode
+  gerbFlipView: 'flip_board', // flipGerberView, :248
+  gerbLayerManager: 'layers_manager', // toggleLayerManager, :77
   gerbHighlight: 'net_highlight',
   gerbClearHighlight: 'net_highlight',
   gerbNextLayer: 'right',
   gerbPrevLayer: 'left',
+  recent: 'recent',
+  tools: 'tools',
   // The toolbar resolves icons by the tool *id*, so the left/right Gerber
   // toggles (whose ids differ from their `icon` field) need id-keyed entries
   // too, otherwise they render as empty placeholder squares.
   togglePolar: 'polar_coord',
   flashedSketch: 'pad_sketch',
   linesSketch: 'showtrack',
-  polygonsSketch: 'show_zone',
-  showNegativeObjects: 'via_sketch',
-  showDcodes: 'text_sketch',
-  diffMode: 'contrast_mode',
-  flipView: 'mirror_h',
+  polygonsSketch: 'opt_show_polygon',
+  showNegativeObjects: 'gerbview_show_negative_objects',
+  showDcodes: 'show_dcodenumber',
+  forceOpacityMode: 'gbr_select_mode1',
+  xorMode: 'gbr_select_mode2',
+  flipView: 'flip_board',
   showLayerManager: 'layers_manager',
   // Assign Footprints (cvpcb, per CVPCB_ACTIONS .Icon()).
   cvpcbSaveToSchematic: 'save',

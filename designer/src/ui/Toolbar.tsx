@@ -9,8 +9,8 @@ import { toolbarIconUrl } from './toolbarIcons.js';
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
 // every existing importer keeps working.
 import { nextInGroup } from './toolbar_types.js';
-import type { ToolButton, ToolGroup, ToolControl, ToolEntry } from './toolbar_types.js';
-export type { ToolButton, ToolGroup, ToolControl, ToolEntry };
+import type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry } from './toolbar_types.js';
+export type { ToolButton, ToolGroup, ToolControl, ToolSpacer, ToolEntry };
 
 interface Props {
   entries: ToolEntry[];
@@ -181,6 +181,15 @@ export function Toolbar({
     <div className={`ze-toolbar ${orientation}${side ? ` ${side}` : ''}`} role="toolbar">
       {entries.map((e, i) => {
         if (e === 'sep') return <span key={`s${i}`} className="ze-sep" />;
+        // AddSpacer( item.m_Size ): raw pixels along the bar's own axis.
+        if ('spacer' in e)
+          return (
+            <span
+              key={`sp${i}`}
+              className="ze-tb-spacer"
+              style={orientation === 'horizontal' ? { width: e.spacer } : { height: e.spacer }}
+            />
+          );
         if ('control' in e)
           return (
             <span key={e.control} className="ze-tb-control">
