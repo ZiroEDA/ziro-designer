@@ -138,7 +138,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   render: { colours: 4, metrics: 0 },
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
-  ui: { colours: 359, metrics: 852 },
+  ui: { colours: 357, metrics: 852 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -338,8 +338,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('844 colour literals and 1,738 chrome metrics, tree-wide', () => {
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(844);
+  it('842 colour literals and 1,738 chrome metrics, tree-wide', () => {
+    // 844 until the three BITMAP_BUTTON fills became one --accent-fill-* token.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(842);
     expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1738);
   });
 

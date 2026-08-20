@@ -21,6 +21,22 @@
   --chrome-hover: #3a3a3a;
   --chrome-active: #e95420;
   --chrome-active-border: #e95420;
+  /* `BITMAP_BUTTON::OnPaint` (bitmap_button.cpp:270-310) paints every tool state
+     as `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( n )` — the accent with every
+     channel scaled to n% — outlined 1px in the highlight itself. In dark mode:
+
+         pressed            20
+         hover              40
+         hover + checked    50
+         checked            40
+
+     So hover and checked share a fill, and a checked tool goes LIGHTER under
+     the pointer rather than darker. [px] a checked tool samples rgb(93,33,12),
+     which is the 40 level. The launcher hover is the same wx rule and the same
+     token. */
+  --accent-fill-pressed: #2f1106;
+  --accent-fill-checked: #5d220d;
+  --accent-fill-hover-checked: #742a10;
   --panel-bg: #272727; /* docked pane body (project tree, properties...) */
   --panel-header: #2e2e2e; /* wxAUI pane caption bar */
   /* The frame background a docked canvas or notebook sits on. *Lighter* than
@@ -700,9 +716,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 0 0 auto;
   padding: 0;
 }
-.ze-tbtn:hover {
-  background: var(--chrome-hover);
-  border-color: var(--chrome-border);
+/* Hover is the SAME rectangle as checked — `ChangeLightness( 40 )` with a 1px
+   accent pen — not a flat grey. We painted `--chrome-hover` #3a3a3a with a grey
+   border, which is why our toolbars did not light up the way KiCad's do. */
+.ze-tbtn:not(.disabled):not(:disabled):hover {
+  background: var(--accent-fill-checked);
+  box-shadow: inset 0 0 0 1px var(--chrome-active);
+  border-color: transparent;
+}
+/* "Checked items need a lighter hover rectangle" — bitmap_button.cpp:300-302. */
+.ze-tbtn.active:not(.disabled):not(:disabled):hover {
+  background: var(--accent-fill-hover-checked);
+}
+/* wxCONTROL_PRESSED, the darkest of the three. */
+.ze-tbtn:not(.disabled):not(:disabled):active {
+  background: var(--accent-fill-pressed);
 }
 .ze-tbtn.disabled,
 .ze-tbtn:disabled {
@@ -713,9 +741,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-tbtn:disabled:hover {
   background: transparent;
 }
+/* A checked tool is NOT a solid block of the accent. `BITMAP_BUTTON::OnPaint`
+   fills the button with `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( 40 )` — each
+   channel scaled to 40%, so #e95420 becomes #5d220d — and outlines it 1px in
+   the highlight colour itself. Measured off a real Schematic Editor with the
+   selection tool checked: fill rgb(93,33,12) against our rgb(233,84,32).
+
+   The same rectangle, from the same wx code, is already derived for the
+   project manager's launcher hover (`.ze-launcher .ico:hover`) — this is that
+   value shared rather than a second one, which is why it is a token. */
 .ze-tbtn.active {
-  background: var(--chrome-active);
-  border-color: var(--chrome-active-border);
+  background: var(--accent-fill-checked);
+  box-shadow: inset 0 0 0 1px var(--chrome-active);
+  border-color: transparent;
 }
 .ze-tbtn img {
   width: 22px;
@@ -1331,7 +1369,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      painted by BITMAP_BUTTON::OnPaint for the button it belongs to; the title
      and help text beside it are separate wxStaticTexts and moving over them
      does nothing to the button. */
-  background: #5d210c;
+  background: var(--accent-fill-checked);
   box-shadow: inset 0 0 0 1px var(--chrome-active);
 }
 .ze-launcher:disabled {
@@ -2252,7 +2290,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   justify-content: center;
 }
 .ze-mgrbar button:hover {
-  background: #5d220d;
+  background: var(--accent-fill-checked);
   border-color: var(--chrome-active);
 }
 /* common_settings.cpp: appearance.toolbar_icon_size defaults to 24. */
