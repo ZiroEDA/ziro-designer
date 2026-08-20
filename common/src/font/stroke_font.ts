@@ -12,6 +12,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { NEWSTROKE_GLYPHS } from './newstroke_glyphs.js';
+import { metricsInterline, OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_metrics.js';
 
 /**
  * The stroke font's own name — `KICAD_FONT_NAME` (include/font/kicad_font_name.h),
@@ -84,7 +85,7 @@ function spaceAdvance(): number {
 const SUPER_SUB_SIZE_MULTIPLIER = 0.8;
 const SUPER_HEIGHT_OFFSET = 0.35;
 const SUB_HEIGHT_OFFSET = 0.15;
-const DEFAULT_OVERBAR_HEIGHT = 1.23;
+const DEFAULT_OVERBAR_HEIGHT = OVERBAR_HEIGHT;
 
 // m_OverbarHeight is project-adjustable (Schematic Setup > Formatting's
 // "Vertical offset ratio"); renderers set it before drawing, like KiCad seeds
@@ -225,8 +226,6 @@ export function measureText(text: string, size: number): number {
  * advance width. Mirrors GetTextAsGlyphs: index = codepoint-0x20, '?' fallback,
  * space advances by the space glyph width, each glyph advances by its width*size.
  */
-// KiCad FONT_METRICS::m_InterlinePitch (font_metrics.h): line pitch = 1.68·height.
-const INTERLINE_PITCH = 1.68;
 
 /**
  * How the lines of a multi-line run sit against each other.
@@ -286,18 +285,37 @@ export function layoutText(
   });
 
   const maxWidth = Math.max(0, ...laid.map((l) => l.width));
-  const vShift = vBlock === 'center' ? -((lines.length - 1) * INTERLINE_PITCH * size) / 2 : 0;
+  // `FONT::getLinePositions` steps each line by `GetInterline( size )`, which for
+  // the stroke font carries the legacy factor; see `interline` below.
+  const pitch = interline(size);
+  const vShift = vBlock === 'center' ? -((lines.length - 1) * pitch) / 2 : 0;
   const out: Vec2[][] = [];
   laid.forEach((ld, li) => {
     const dx =
       hAlign === 'left' ? 0 : hAlign === 'right' ? maxWidth - ld.width : (maxWidth - ld.width) / 2;
-    const dy = li * INTERLINE_PITCH * size + vShift;
+    const dy = li * pitch + vShift;
     for (const s of ld.strokes) out.push(s.map((p) => ({ x: p.x + dx, y: p.y + dy })));
   });
   return { strokes: out, width: maxWidth, lineCount: lines.length };
 }
 
-/** `FONT::GetInterline` for the stroke font: the pitch between two baselines. */
+/**
+ * `STROKE_FONT::GetInterline` (`common/font/stroke_font.cpp:194-199`): the pitch
+ * between two baselines.
+ *
+ *     static double LEGACY_FACTOR = 0.9583;   // Adjustment to match legacy spacing
+ *     return aFontMetrics.GetInterline( aGlyphHeight ) * LEGACY_FACTOR;
+ *
+ * The factor is not optional decoration — it is what makes our line spacing the
+ * same as pcbnew's and eeschema's. Without it every multi-line run is 4.3 %
+ * loose, which is exactly what this returned before, while the schematic
+ * renderer carried a private `1.68 * 0.9583` for the same quantity and so
+ * disagreed with the font it was drawing with.
+ *
+ * `OUTLINE_FONT::GetInterline` has no such factor; use
+ * `text_box.ts`'s `fontInterline( height, face )` when the face may be an
+ * outline one.
+ */
 export function interline(size: number): number {
-  return INTERLINE_PITCH * size;
+  return metricsInterline(size) * STROKE_LEGACY_FACTOR;
 }

@@ -29,7 +29,8 @@
  * the board can use it too instead of guessing.
  */
 
-import { splitTextLines } from './stroke_font.js';
+import { interline, splitTextLines } from './stroke_font.js';
+import { ITALIC_TILT, metricsInterline } from './font_metrics.js';
 import { textWidth, type TextStyle } from './font_provider.js';
 
 /** A `BOX2I`: origin plus size, in internal units. */
@@ -43,8 +44,12 @@ export interface TextBox2 {
 export type TextHJustify = 'left' | 'center' | 'right';
 export type TextVJustify = 'top' | 'center' | 'bottom';
 
-/** `include/font/font.h` `ITALIC_TILT`: glyphs shear right by y·tilt. */
-export const ITALIC_TILT = 1 / 8;
+/**
+ * `include/font/font.h` `ITALIC_TILT`, re-exported so a consumer that already
+ * talks to `GetTextBox` need not know which header it came from. The single
+ * declaration is in `font_metrics.ts`.
+ */
+export { ITALIC_TILT };
 
 /**
  * `KiROUND` (`include/math/util.h`): half away from zero, unlike `Math.round`,
@@ -123,28 +128,19 @@ export function effectiveTextPenWidth(attrs: TextBoxAttrs, defaultPenWidth = 0):
  * `STROKE_FONT::GetInterline`: the metrics pitch (1.68) times a 0.9583 factor
  * kept "to match legacy spacing".
  *
- * NOTE: `stroke_font.ts`'s own `interline()` and `layoutText()` use the bare
- * 1.68 and are therefore 4.3 % loose for multi-line runs — the schematic
- * renderer already carries a private `1.68 * 0.9583` for the same quantity
- * (`renderer.ts:1631`) while *also* importing the unfactored one. Correcting
- * that moves rendered geometry and belongs in its own change; `GetTextBox`
- * needs the real value, so it is stated here, named after its C++ source.
+ * This is now `stroke_font.ts`'s `interline()` — the same function the renderer
+ * lays lines out with. It used to be a second copy here, because that one was
+ * missing the legacy factor and `GetTextBox` needs the real value; the two are
+ * one again.
  */
-export function strokeInterline(glyphHeight: number): number {
-  return glyphHeight * INTERLINE_PITCH * LEGACY_FACTOR;
-}
-
-/** METRICS::m_InterlinePitch (`include/font/font_metrics.h`). */
-const INTERLINE_PITCH = 1.68;
-/** STROKE_FONT::GetInterline's "adjustment to match legacy spacing". */
-const LEGACY_FACTOR = 0.9583;
+export const strokeInterline = interline;
 
 /**
  * `FONT::GetInterline` for the face in use. `OUTLINE_FONT::GetInterline` returns
  * the metrics pitch unadjusted; only the stroke font carries the legacy factor.
  */
 export function fontInterline(glyphHeight: number, face?: string): number {
-  return isStrokeFont(face) ? strokeInterline(glyphHeight) : glyphHeight * INTERLINE_PITCH;
+  return isStrokeFont(face) ? interline(glyphHeight) : metricsInterline(glyphHeight);
 }
 
 /**

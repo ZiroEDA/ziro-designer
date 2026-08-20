@@ -27,7 +27,7 @@
 
 import { mmToIU } from '../eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
-import { layoutText } from '../font/stroke_font.js';
+import { interline, layoutText } from '../font/stroke_font.js';
 import type {
   WksSheet,
   WksItem,
@@ -229,9 +229,6 @@ export function expandTextEscapes(text: string): string {
   return out;
 }
 
-/** Line-pitch factor used for multi-line text height (FONT_METRICS). */
-const INTERLINE_PITCH = 1.68;
-
 /**
  * Measure a text's box in mm at a given size (approximating EDA_TEXT::
  * GetTextBox with the stroke font), for the maxlen/maxheight constraint.
@@ -244,7 +241,9 @@ function measureTextMM(text: string, wMM: number, hMM: number): { w: number; h: 
     if (width > widest) widest = width;
   }
   const scaleX = hMM > 0 ? wMM / hMM : 1;
-  const height = hMM + (lines.length - 1) * hMM * INTERLINE_PITCH;
+  // `STROKE_FONT::GetInterline`, the same pitch `layoutText` above stacks the
+  // lines at — not the bare METRICS pitch, which is 4.3 % looser.
+  const height = hMM + (lines.length - 1) * interline(hMM);
   return { w: widest * scaleX, h: height };
 }
 
