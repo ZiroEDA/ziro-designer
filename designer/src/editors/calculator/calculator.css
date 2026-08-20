@@ -493,6 +493,14 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   /* every button on these fourteen pages is a plain wxButton, i.e. a GTK
      `button.text-button` — 16 px of padding, not the base 9. */
   padding: 0 var(--ctl-pad-x-text);
+  /* wxButton also has a MINIMUM width, and wxBU_EXACTFIT is what opts out of
+     it — which is why `.calc-btn.calc-pick` sets `min-width: 0`. Wavelength's
+     "..." is the only one of the eight in this launcher declared with style 0
+     (panel_wavelength_base.cpp:96), so it is the one button that reveals the
+     floor: [px] it runs x 522..606 = 85 with three characters in it, where ours
+     shrank to 39. Every other button here carries a label long enough to clear
+     the floor on its own. */
+  min-width: 85px; /* [px] the "..." button on Wavelength, x 522..606 */
   font: inherit;
   cursor: default;
 }
@@ -674,34 +682,6 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 .reg-label {
   text-align: left;
   white-space: nowrap;
-}
-
-/* --- colour code bands ---
-   [art] KiCad draws no resistor. PANEL_COLOR_CODE is four wxStaticBitmaps of
-   colour_code_value / _multiplier / _tolerance (panel_color_code.cpp:45-50),
-   i.e. a printed chart, and the SVGs carry no resistor body at all. The tan
-   body and the band outline below are ours, a presentation upstream does not
-   have, so there is no number or hue to copy. The BAND colours are a different
-   question and live in panel_color_code.tsx - see the PR, they do not match
-   KiCad's artwork. */
-.cc-resistor {
-  display: flex;
-  align-items: center;
-  /* [art] see above - upstream draws no resistor, so none of this is copied. */
-  gap: 4px; /* [art] */
-  background: #d2b48c; /* [art] */
-  border: 1px solid var(--ctl-border);
-  border-radius: 12px; /* [art] */
-  padding: 10px 26px; /* [art] */
-  width: fit-content;
-  margin: 10px 0; /* [art] */
-}
-
-.cc-band {
-  /* [art] as above. */
-  width: 14px;
-  height: 44px; /* [art] */
-  border: 1px solid #333333; /* [art] */
 }
 
 .calc-svg {

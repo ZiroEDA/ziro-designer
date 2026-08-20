@@ -39,8 +39,15 @@ const CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
  * anywhere, so it was an invented colour sitting behind a data exemption. Keep
  * this list to blocks that are actually rendered - an exemption for dead code
  * is an exemption that can never be re-examined.
+ *
+ * `.cc-resistor` and `.cc-band` have gone the same way. They drew a tan resistor
+ * body with black-outlined bands for a Color Code encoder that upstream has no
+ * counterpart for; the markup went in fb7a51fd and the rules were left behind
+ * with an `[art]` exemption, so #d2b48c and #333333 sat here unreachable and
+ * unquestioned. `.es-grid` is now `.eser-grid`: the old name collided with
+ * Electrical Spacing's.
  */
-const DATA_BLOCKS = /\.es-grid[^}]*}|\.cc-resistor[^}]*}|\.cc-band[^}]*}/g;
+const DATA_BLOCKS = /\.eser-grid[^}]*}/g;
 
 /**
  * The declarations of every rule whose selector list mentions `sel`.

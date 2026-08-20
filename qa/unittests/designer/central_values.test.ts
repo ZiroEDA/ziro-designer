@@ -121,7 +121,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const BASELINE: Record<string, { colours: number; metrics: number }> = {
   auth: { colours: 4, metrics: 0 },
   dialogs: { colours: 5, metrics: 35 },
-  'editors/calculator': { colours: 27, metrics: 22 },
+  'editors/calculator': { colours: 6, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 1 },
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 35, metrics: 23 },
@@ -338,9 +338,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('844 colour literals and 1,738 chrome metrics, tree-wide', () => {
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(822);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1731);
+  it('801 colour literals and 1,727 chrome metrics, tree-wide', () => {
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(801);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1727);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
