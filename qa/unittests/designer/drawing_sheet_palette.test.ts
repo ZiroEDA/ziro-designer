@@ -555,7 +555,10 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     // have not had their turn — and then 6, when the central-values pass gave
     // DesignInspector.tsx the shared `.ze-grid` skin and its own table stopped
     // declaring a size at all.
-    expect(n).toBe(6);
+    // 6 until Preview Settings was rebuilt as DIALOG_PAGES_SETTINGS: the five
+    // inline sizes went with the hand-rolled layout it replaced. The one left
+    // is the canvas, which sizes text in world units, not chrome units.
+    expect(n).toBe(1);
   });
 
   it('adds none in the chrome this PR wrote', () => {

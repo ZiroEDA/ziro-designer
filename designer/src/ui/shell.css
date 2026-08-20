@@ -2803,19 +2803,54 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* Symbol chooser search box */
+/* A wxTextCtrl is a GTK `entry`, and GTK gives it its whole appearance —
+   KiCad styles no dialog anywhere (`DIALOG_SHIM`, common/dialog_shim.cpp, sets
+   no font and no colour; its only appearance method is `finishDialogSettings`
+   at :310-317, which is `SetSizeHints`). Every control is a native GTK widget,
+   which is the entire reason KiCad's dialogs look like each other. So a dialog
+   file may carry layout and nothing else, and this rule — the one `entry` in
+   the app — carries the look, out of the tokens already derived above:
+
+     entry { min-height: 32px; border: 1px }            -> --ctl-height   34
+     entry { padding-left/right: 8px }                  -> --field-pad-x   8
+     entry { border-radius: 6px }                       -> --ctl-radius    6
+     entry { border-color: #181818 }                    -> --ctl-border
+     entry:focus  { border-color: rgba(239,134,97,.7) } -> --field-focus-border
+     entry:disabled { color:#929292; background:#2a2a2a }
+                              -> --ctl-fg-disabled / --ctl-face-disabled
+
+   Two of those were structural rather than cosmetic. The height is GTK's, and
+   it is the SAME 34 as a button and a combo — which is why a KiCad row of mixed
+   controls lines up and ours did not: we let the height fall out of
+   `padding: 5px 8px` and it landed short. And there was no `:disabled` rule at
+   all, so a greyed-out field rendered as a live one.
+
+   The five other places in this file that name `.ze-search` set only flex,
+   width or margin — layout, which is each dialog's own business. None restates
+   a colour, a radius or a height, and none may: that is the specificity trap,
+   and it is why this one rule is worth getting right. */
 .ze-search {
   width: 100%;
   box-sizing: border-box;
-  padding: 5px 8px;
-  background: var(--chrome-bg2);
+  min-height: var(--ctl-height);
+  padding: 0 var(--field-pad-x);
+  background: var(--field-bg);
   color: var(--chrome-fg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 4px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
   font: inherit;
   outline: none;
 }
 .ze-search:focus {
-  border-color: var(--chrome-active-border);
+  border-color: var(--field-focus-border);
+  box-shadow: inset 0 0 0 1px var(--field-focus-border);
+}
+/* GTK dims by COLOUR, never by opacity — an opacity fade washes out the
+   background and the border with the text. */
+.ze-search:disabled {
+  color: var(--ctl-fg-disabled);
+  background: var(--ctl-face-disabled);
+  border-color: var(--ctl-border);
 }
 
 /* Menu bar dropdowns */
@@ -3621,10 +3656,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* GTK draws dialog text at about 243, not pure white - the same gap that made
    the status bar look a size too big. Set here so every dialog inherits it. */
+/* A KiCad dialog is sized by its CONTENT, never by a number. Every
+   wxFormBuilder `_base.cpp` ends with `bMainSizer->Fit( this )`, and the
+   `.cpp` on top of it finishes `TransferDataToWindow` with
+   `GetSizer()->SetSizeHints( this )` — so the window is exactly the minimum
+   its sizers need, and that is why two KiCad dialogs holding the same controls
+   come out the same size. (dialog_page_settings_base.cpp:405 and
+   dialog_page_settings.cpp:192 are one instance of a pattern the whole tree
+   repeats.)
+
+   `max-content` is that rule, computed by the layout engine rather than pasted
+   as a pixel count. It replaces `width: 860px; height: 580px`, two numbers that
+   appear nowhere in KiCad — and that nothing was actually using: all 17
+   `.ze-modal.<variant>` rules below and all 28 bare `className="ze-modal"` call
+   sites already override the size, which is the real problem here. Forty-five
+   hand-picked dialog widths where upstream has one rule. They cannot all be
+   right, and two of them prove it: the same DIALOG_PAGES_SETTINGS is 760px in
+   the schematic's copy and was 560px in the drawing sheet's.
+
+   Collapsing those forty-five is a per-dialog job — each needs its own C++ read,
+   because a few dialogs really do call SetSize and those numbers are real
+   (.ze-tplsel and .ze-hotkeys carry theirs with citations). This makes the
+   DEFAULT correct so the pile stops growing, and gives them something to
+   collapse onto. A dialog that states nothing now gets Fit(). */
 .ze-modal {
   color: #f3f4f5;
-  width: 860px;
-  height: 580px;
+  width: max-content;
+  height: max-content;
   max-width: 92vw;
   max-height: 88vh;
   background: var(--chrome-bg);
@@ -7193,8 +7251,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    section headers. Every gap here is either the wx border (5) in multiples or
    an explicit spacer the .fbp declares; none is a number chosen for this
    dialog. */
-.ze-pgs {
-  max-width: 94vw;
+/* `.ze-pgs` states NOTHING about its own size: `.ze-modal` is Fit() now, which
+   is what this dialog wants, and restating it here is exactly the local-literal
+   habit that produced the other forty-four. The body scrolls only when the
+   viewport cap bites. */
+.ze-pgs-body {
+  overflow: auto;
 }
 .ze-pgs-body {
   display: flex;
@@ -7233,6 +7295,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-pgs-left > span,
 .ze-pgs-right > span {
   padding: var(--wx-border) var(--wx-border) 0;
+}
+.ze-pgs-label {
+  font-size: var(--ui-font-size);
 }
 .ze-pgs-left > .ze-combo {
   margin: 0 var(--wx-border) var(--wx-border);
@@ -7273,6 +7338,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: var(--wx-border);
   padding: 0 var(--wx-border);
 }
+/* [data] The .fbp's own minimum widths, which are what set this dialog's
+   overall width: SetMinSize( wxSize( 360, -1 ) ) on Title, Company and
+   Comment1-9 (dialog_page_settings_base.cpp:257-377) and wxSize( 100, -1 ) on
+   the date and revision entries (:224, :245). They are per-dialog data, not
+   chrome, which is why they live here and not on `.ze-search`. */
+.ze-pgs-tb > .ze-search {
+  min-width: 360px;
+}
+.ze-pgs-tb > .ze-search.short,
+.ze-pgs-daterow > .ze-search:first-child {
+  min-width: 100px;
+}
 .ze-pgs-tblabel {
   font-size: var(--ui-font-size);
   white-space: nowrap;
@@ -7283,7 +7360,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   gap: var(--wx-border);
   min-width: 0;
 }
-/* UNIT_BINDER::Enable( false ) greys the unit static text with its field. */
-.ze-unit-label.disabled {
-  opacity: 0.5;
+/* UNIT_BINDER::Enable( false ) greys the label, the value control AND the unit
+   static text together (unit_binder.cpp:697-706) — by colour, as GTK's
+   `label:disabled { color: #929292 }` does, never by opacity. */
+.ze-unit-label.disabled,
+.ze-pgs .disabled-label {
+  color: var(--ctl-fg-disabled);
 }

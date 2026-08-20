@@ -27,15 +27,7 @@
  * same dialog.
  */
 
-import {
-  Fragment,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type JSX,
-} from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
   PAPER_CHOICES,
   PAPER_MM,
@@ -60,7 +52,7 @@ import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits } from '../../ui/unit_binder.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
-import { drawDrawingSheetItems, DS_ITEM_COLOR } from './wksRender.js';
+import { drawDrawingSheetItems, DS_BG_COLOR_LIGHT, DS_ITEM_COLOR } from './wksRender.js';
 
 /** `m_orientationComboBoxChoices` (dialog_page_settings_base.cpp:54). */
 const ORIENTATION_CHOICES: readonly ComboOption[] = [
@@ -165,9 +157,9 @@ export function PageSettingsDialog({
     const ctx = cv.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // GRFilledRect( &memDC, (0,0), m_layout_size, 0, bgColor, bgColor ) — the
-    // frame's draw background, which for a printed-style preview is the paper.
-    ctx.fillStyle = '#ffffff';
+    // GRFilledRect( &memDC, (0,0), m_layout_size, 0, bgColor, bgColor ) with
+    // bgColor = m_parent->GetDrawBgColor() (dialog_page_settings.cpp:604, 616).
+    ctx.fillStyle = DS_BG_COLOR_LIGHT;
     ctx.fillRect(0, 0, thumb.width, thumb.height);
 
     const ctxData: WksResolveContext = {
@@ -197,13 +189,23 @@ export function PageSettingsDialog({
     ctx.restore();
   }, [sheet, s, pageW, pageH, thumb]);
 
-  const labelStyle: CSSProperties = { fontSize: 'var(--ui-font-size)' };
+  /*
+   * `UNIT_BINDER::Enable( false )` / `m_staticTextOrient->Enable( false )` grey
+   * a label the way GTK does — `label:disabled { color: #929292 }` — never with
+   * an opacity fade, which would wash out a control's face and border too.
+   */
+  const dim = (on: boolean): string => (on ? 'ze-pgs-label' : 'ze-pgs-label disabled-label');
 
-  const titleRow = (label: string, key: keyof PreviewSettings): JSX.Element => (
+  /**
+   * `short` marks the two entries the .fbp gives `wxSize( 100, -1 )` rather
+   * than 360 — the date and the revision (dialog_page_settings_base.cpp:224,
+   * :245).
+   */
+  const titleRow = (label: string, key: keyof PreviewSettings, short = false): JSX.Element => (
     <>
       <span className="ze-pgs-tblabel">{label}</span>
       <input
-        className="ze-search"
+        className={short ? 'ze-search short' : 'ze-search'}
         value={String(s[key] ?? '')}
         onChange={(e) => set({ [key]: e.target.value } as Partial<PreviewSettings>)}
       />
@@ -231,7 +233,7 @@ export function PageSettingsDialog({
             <Spacer px={10} />
             {/* The label sits ABOVE its combo: both are added to a VERTICAL
                 bleftSizer (:36-58), not to a row. */}
-            <span style={labelStyle}>Size:</span>
+            <span className="ze-pgs-label">Size:</span>
             <Combo
               value={s.paper}
               options={PAPER_CHOICES.map((p) => ({ value: p.id, label: p.label }))}
@@ -239,7 +241,7 @@ export function PageSettingsDialog({
               autoFocus
             />
             <Spacer px={3} />
-            <span style={{ ...labelStyle, opacity: orientOn ? 1 : 0.5 }}>Orientation:</span>
+            <span className={dim(orientOn)}>Orientation:</span>
             <Combo
               value={portrait ? 'portrait' : 'landscape'}
               options={ORIENTATION_CHOICES}
@@ -249,10 +251,10 @@ export function PageSettingsDialog({
             {/* Always present, ENABLED or DISABLED by OnPaperSizeChoice
                 (:230-259) — never shown and hidden. Height comes before Width,
                 which is the order of fgSizer1 (:69-114). */}
-            <span style={{ ...labelStyle, opacity: customOn ? 1 : 0.5 }}>Custom paper size:</span>
+            <span className={dim(customOn)}>Custom paper size:</span>
             <Spacer px={2} />
             <div className="ze-pgs-custom">
-              <span style={{ ...labelStyle, opacity: customOn ? 1 : 0.5 }}>Height:</span>
+              <span className={dim(customOn)}>Height:</span>
               <UnitField
                 label="Height:"
                 units={units}
@@ -263,7 +265,7 @@ export function PageSettingsDialog({
                 title="Custom paper height."
                 disabled={!customOn}
               />
-              <span style={{ ...labelStyle, opacity: customOn ? 1 : 0.5 }}>Width:</span>
+              <span className={dim(customOn)}>Width:</span>
               <UnitField
                 label="Width:"
                 units={units}
@@ -297,7 +299,7 @@ export function PageSettingsDialog({
             <SectionHeader>Drawing Sheet</SectionHeader>
             <Spacer px={10} />
             <div className="ze-pgs-filerow">
-              <span style={labelStyle}>File:</span>
+              <span className="ze-pgs-label">File:</span>
               {/* EnableWksFileNamePicker( false ) (dialog_page_settings.h:56-60)
                   disables the entry AND the browse button; neither is hidden. */}
               <input className="ze-search" value={wksFileName} disabled readOnly />
@@ -325,7 +327,7 @@ export function PageSettingsDialog({
               <div className="ze-pgs-daterow">
                 <input
                   className="ze-search"
-                  style={{ flex: 3, minWidth: 100 }}
+                  style={{ flex: 3 }}
                   value={s.date}
                   onChange={(e) => set({ date: e.target.value })}
                 />
@@ -341,7 +343,7 @@ export function PageSettingsDialog({
                   onChange={(e) => setPick(e.target.value)}
                 />
               </div>
-              {titleRow('Revision:', 'rev')}
+              {titleRow('Revision:', 'rev', true)}
               {titleRow('Title:', 'title')}
               {titleRow('Company:', 'company')}
               {s.comments.map((c, i) => (

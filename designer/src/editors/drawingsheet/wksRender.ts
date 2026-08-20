@@ -76,6 +76,19 @@ export const DS_PRINT_PAPER_COLOR = '#ffffff';
  * BLACK is `{0,0,0}`, `common/gal/color4d.cpp:44`.
  */
 export const DS_BG_COLOR_DARK = '#000000';
+/**
+ * [data] The other half of that same ternary — `m_drawBgColor` when the
+ * black-background option is off (`pl_editor_frame.cpp:541`). WHITE is
+ * `{255,255,255}`, `common/gal/color4d.cpp:48`.
+ *
+ * This is NOT `DS_BG_COLOR`. That one is `LAYER_SCHEMATIC_BACKGROUND`, which is
+ * what the GAL canvas paints; `m_drawBgColor` is the device-context background,
+ * and the two callers that want it are the printer and
+ * `DIALOG_PAGES_SETTINGS::UpdateDrawingSheetExample`, which fills its memory DC
+ * with `GetDrawBgColor()` before drawing the sheet
+ * (`common/dialogs/dialog_page_settings.cpp:616`).
+ */
+export const DS_BG_COLOR_LIGHT = '#ffffff';
 
 /**
  * `DS_RENDER_SETTINGS::GetGridColor` / `GetCursorColor`
