@@ -68,11 +68,15 @@
   gap: 12px;
 }
 
-/* [px] the selection rectangle runs x=45..226 and the item label's ink starts
-   at x=48, inside a 228 px pane. */
+/* [px] a wxTreeCtrl item rectangle is the LABEL's rectangle, not the row's:
+   the selected "Regulators" bar runs x=45..122 against label ink at x=49..118,
+   i.e. the text plus 4 px each side, inside a 228 px pane. wxTR_FULL_ROW_HIGHLIGHT
+   is not set on the treebook's tree, so it must not span the pane. */
 .calc-tree-item {
-  margin: 0 2px 0 44px;
-  padding-left: 3px;
+  width: fit-content;
+  max-width: calc(100% - 47px);
+  margin: 0 2px 0 45px;
+  padding: 0 2px;
 }
 
 .calc-tree-item:hover {
@@ -91,7 +95,10 @@
 .calc-panel {
   flex: 1;
   overflow: auto;
-  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) 40px;
+  /* 5 px of sizer border twice over on three sides; NOTHING at the bottom —
+     each page's last row carries its own border there, which is how KiCad's
+     Reset to Defaults lands exactly 10 px above the frame's bottom edge. */
+  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) 0;
   /* A column, so a page whose bottom box is added with proportion 1 — the Help
      box on Resistor Calculator, the notes box on Wavelength — really does grow
      to the frame's bottom edge the way its wxSizer makes it. */
@@ -104,6 +111,14 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* A panel whose sizer ends in a stretch spacer: the body fills the page so
+   the trailing row really does land on the frame's bottom edge. */
+.calc-page-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
 }
 
 .calc-row {
@@ -341,7 +356,9 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   color: var(--chrome-fg);
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
-  padding: 0 var(--ctl-pad-x);
+  /* every button on these fourteen pages is a plain wxButton, i.e. a GTK
+     `button.text-button` — 16 px of padding, not the base 9. */
+  padding: 0 var(--ctl-pad-x-text);
   font: inherit;
   cursor: default;
 }
@@ -475,6 +492,12 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 .calc-svg {
   max-width: 100%;
+}
+
+/* A wxStaticBitmap: KiCad's own artwork, drawn 1:1 at the size the PNG has
+   (295x265 for regul_3pins), never CSS-scaled. */
+.calc-art {
+  display: block;
 }
 
 /* DIALOG_REGULATOR_FORM's 4x3 wxFlexGridSizer: label | control(s) | unit
@@ -968,9 +991,13 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 /* Every Reset to Defaults in pcb_calculator is added with wxALIGN_RIGHT
    (panel_regulator_base.cpp:368, panel_via_size_base.cpp:366,
-   panel_track_width_base.cpp:289, panel_transline_base.cpp:481). */
+   panel_track_width_base.cpp:289, panel_transline_base.cpp:481) — and in all
+   four the line before it is `Add( 0, 0, 1, wxEXPAND )`, a stretch spacer. So
+   the button hangs off the BOTTOM of the frame, not off the last control:
+   `margin-top: auto` inside a `.calc-page-body` column is that spacer. */
 .calc-reset-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  margin-top: auto;
+  padding: 10px 0;
 }

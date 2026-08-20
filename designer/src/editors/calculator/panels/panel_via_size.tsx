@@ -119,7 +119,7 @@ export function PanelViaSize(): JSX.Element {
   ]);
 
   return (
-    <div>
+    <div className="calc-page-body">
       <div className="calc-row">
         <Group title="Parameters">
           <NumField

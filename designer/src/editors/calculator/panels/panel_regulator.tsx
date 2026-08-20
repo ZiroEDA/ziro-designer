@@ -13,7 +13,6 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
-  BUILTIN_REGULATORS,
   type RegulatorData,
   RegulatorSolve,
   RegulatorType,
@@ -46,8 +45,6 @@ interface Stored {
   selected: string;
 }
 
-const DEFAULT_REG = BUILTIN_REGULATORS[0]!;
-
 function loadRegulators(): Stored {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -58,7 +55,10 @@ function loadRegulators(): Stored {
   } catch {
     /* fresh defaults */
   }
-  return { regulators: [...BUILTIN_REGULATORS], selected: DEFAULT_REG.name };
+  // KiCad ships NO regulators: `REGULATOR_LIST` is empty until the user loads
+  // a data file or presses Add Regulator, which is why the selector opens
+  // blank and Edit/Remove open disabled (panel_regulator.cpp:47, 141).
+  return { regulators: [], selected: '' };
 }
 
 function saveRegulators(s: Stored): void {
@@ -69,46 +69,28 @@ function saveRegulators(s: Stored): void {
   }
 }
 
-/** Divider schematic like the KiCad panel drawing. */
+// KiCad's own dark-theme artwork (GPL), vendored under assets/ — the panel
+// shows `BITMAPS::regul_3pins` or `BITMAPS::regul` at its natural 295x265 /
+// 295x220 size (panel_regulator.cpp:104-113, panel_regulator_base.cpp:44-49).
+const REGUL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+const artUrl = (name: string): string | undefined =>
+  REGUL_ART[`../../../assets/calculator/${name}.svg`];
+
+/** wxStaticBitmap m_bitmapRegul3pins / m_bitmapRegul4pins. */
 function RegulatorDrawing({ type }: { type: RegulatorType }): JSX.Element {
   const three = type === RegulatorType.THREE_TERMINAL;
   return (
-    <svg className="calc-svg" width="330" height="264" viewBox="0 0 300 240">
-      <g stroke="#4a86c5" fill="none" strokeWidth="1.5">
-        <rect x="70" y="30" width="120" height="80" />
-        <circle cx="20" cy="40" r="4" />
-        <line x1="24" y1="40" x2="70" y2="40" />
-        <line x1="190" y1="40" x2="250" y2="40" />
-        <circle cx="254" cy="40" r="4" />
-        <line x1="130" y1="110" x2="130" y2="130" />
-        <line x1="130" y1="130" x2="215" y2="130" />
-        <line x1="215" y1="40" x2="215" y2="55" />
-        <path d="M215 55 l6 5 l-12 8 l12 8 l-12 8 l12 8 l-6 5" />
-        <line x1="215" y1="97" x2="215" y2="155" />
-        <path d="M215 155 l6 5 l-12 8 l12 8 l-12 8 l12 8 l-6 5" />
-        <line x1="215" y1="197" x2="215" y2="210" />
-        <line x1="200" y1="210" x2="230" y2="210" />
-        <line x1="206" y1="215" x2="224" y2="215" />
-        <line x1="212" y1="220" x2="218" y2="220" />
-      </g>
-      <g fill="#e6e6e6" fontSize="13" fontFamily="system-ui">
-        <text x="80" y="52">
-          Vin
-        </text>
-        <text x="150" y="52">
-          Vout
-        </text>
-        <text x="112" y="102">
-          {three ? 'ADJ' : 'FB'}
-        </text>
-        <text x="232" y="80">
-          R1
-        </text>
-        <text x="232" y="180">
-          R2
-        </text>
-      </g>
-    </svg>
+    <img
+      className="calc-art"
+      src={artUrl(three ? 'regul_3pins' : 'regul')}
+      alt=""
+      width={295}
+      height={three ? 265 : 220}
+    />
   );
 }
 
@@ -374,7 +356,7 @@ export function PanelRegulator(): JSX.Element {
   );
 
   return (
-    <div>
+    <div className="calc-page-body">
       <div className="calc-row">
         {/* bSizeLeftpReg: fixed 400px column; the Type choice stretches
             across it (proportion 1), the drawing centres, and the Formula
@@ -393,7 +375,9 @@ export function PanelRegulator(): JSX.Element {
               onChange={(v) => setType(Number(v) as RegulatorType)}
             />
           </div>
-          <div style={{ alignSelf: 'center', margin: '10px 0' }}>
+          {/* a 10 px spacer, then the bitmap with a 10 px border all round
+              and centred horizontally (panel_regulator_base.cpp:42-49). */}
+          <div style={{ alignSelf: 'center', margin: '20px 0' }}>
             <RegulatorDrawing type={type} />
           </div>
           <Group title="Formula">
@@ -415,10 +399,10 @@ export function PanelRegulator(): JSX.Element {
                 style={{ flex: 1 }}
                 ariaLabel="Regulator"
                 value={store.selected}
-                options={[
-                  { value: '', label: '' },
-                  ...store.regulators.map((r) => ({ value: r.name, label: r.name })),
-                ]}
+                /* m_choiceRegulatorSelector holds the list and nothing else —
+                   `Append( m_RegulatorList.GetRegList() )` (panel_regulator.cpp:47),
+                   so there is no blank entry above it. */
+                options={store.regulators.map((r) => ({ value: r.name, label: r.name }))}
                 onChange={(v) => {
                   const reg = store.regulators.find((r) => r.name === v);
                   setStore((st) => ({ ...st, selected: v }));
@@ -593,9 +577,11 @@ export function PanelRegulator(): JSX.Element {
         </div>
       </div>
 
-      {/* KiCad: the right column stretches over the remaining window, and
-          Reset to Defaults floats to its far bottom-right corner. */}
-      <div style={{ marginTop: 48, display: 'flex', justifyContent: 'flex-end' }}>
+      {/* bSizerRegulRight ends with `Add( 0, 0, 1, wxEXPAND )` — a stretch
+          spacer — and only then the button, with wxALIGN_RIGHT and a 10 px
+          top/bottom/right border (panel_regulator_base.cpp:364-367). So Reset
+          sits at the BOTTOM of the frame, not under Calculate. */}
+      <div className="calc-reset-row">
         <button type="button" className="calc-btn" onClick={resetDefaults}>
           Reset to Defaults
         </button>

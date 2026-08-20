@@ -27,55 +27,6 @@ export interface RegulatorData {
   type: RegulatorType;
 }
 
-/** Ships with the tool, like KiCad's default `pcb_calculator.ini` datafile. */
-export const BUILTIN_REGULATORS: readonly RegulatorData[] = [
-  {
-    name: 'LM317',
-    vrefMin: 1.2,
-    vrefTyp: 1.25,
-    vrefMax: 1.3,
-    iadjTyp: 50e-6,
-    iadjMax: 100e-6,
-    type: RegulatorType.THREE_TERMINAL,
-  },
-  {
-    name: 'LM1117',
-    vrefMin: 1.225,
-    vrefTyp: 1.25,
-    vrefMax: 1.275,
-    iadjTyp: 60e-6,
-    iadjMax: 120e-6,
-    type: RegulatorType.THREE_TERMINAL,
-  },
-  {
-    name: 'LT1086',
-    vrefMin: 1.225,
-    vrefTyp: 1.25,
-    vrefMax: 1.27,
-    iadjTyp: 55e-6,
-    iadjMax: 120e-6,
-    type: RegulatorType.THREE_TERMINAL,
-  },
-  {
-    name: 'LM2596',
-    vrefMin: 1.193,
-    vrefTyp: 1.23,
-    vrefMax: 1.267,
-    iadjTyp: 0,
-    iadjMax: 0,
-    type: RegulatorType.STANDARD,
-  },
-  {
-    name: 'TL431',
-    vrefMin: 2.44,
-    vrefTyp: 2.495,
-    vrefMax: 2.55,
-    iadjTyp: 2e-6,
-    iadjMax: 4e-6,
-    type: RegulatorType.THREE_TERMINAL,
-  },
-];
-
 /**
  * The two entries of `m_choiceRegType`, in the order wxFormBuilder declares them
  * — `{ _("Standard Type"), _("3 Terminal Type") }`, so Standard is index 0

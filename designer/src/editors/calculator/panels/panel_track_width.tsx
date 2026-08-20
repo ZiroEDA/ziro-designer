@@ -114,7 +114,7 @@ export function PanelTrackWidth(): JSX.Element {
   );
 
   return (
-    <div className="tw-panel">
+    <div className="tw-panel calc-page-body">
       <div className="calc-row">
         <Group title="Parameters">
           <Field

@@ -475,7 +475,7 @@ export function PanelTransline(): JSX.Element {
   }
 
   return (
-    <div>
+    <div className="calc-page-body">
       {/* A wxRadioBox, one column, titled by the box itself
           (panel_transline_base.cpp:33). It was a drop-down. */}
       <Group title="Transmission Line Type" className="tl-types">

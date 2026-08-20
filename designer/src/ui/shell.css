@@ -215,6 +215,13 @@
      [px] 34 for the Load Source Image button and for the Size fields. */
   --ctl-height: 34px;
   --ctl-pad-x: 9px; /* [css] button { padding: 4px 9px } */
+  /* A GTK button carrying only a LABEL gets the `text-button` style class,
+     which overrides that padding:
+     [css] button.text-button { padding-left: 16px; padding-right: 16px }
+     [px] measured on pcb_calculator's own buttons: "Reset to Defaults" ink
+     runs 16 px from the left face edge and 15 from the right, "Browse" 18/18.
+     A button with an icon keeps --ctl-pad-x (image-button is 5px). */
+  --ctl-pad-x-text: 16px;
   --ctl-face: #373737; /* [css] button { background-image: image(#373737) } [px] agrees */
   --ctl-face-disabled: #2a2a2a; /* [css] button:disabled [px] agrees */
   /* [css] label:disabled, entry:disabled and button:disabled all take this.
