@@ -125,6 +125,75 @@
   flex: 1 1 auto;
 }
 
+/* A wxFlexGridSizer( 0, 3, vgap, 0 ) with AddGrowableCol( 1 ): three columns,
+   the entry column taking the slack, so every entry in the box starts and ends
+   at the same x however long its label is. Ours were independent flex rows,
+   which left the entry column ragged (x 434, 450 and 470 on the same Via Size
+   panel) and every entry only as wide as its own row allowed.
+   The 10 px between columns and the 5 px at each edge are the items' own
+   wxLEFT|wxRIGHT 5, exactly as in a .calc-field row. */
+.calc-grid3 {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  row-gap: var(--calc-vgap, 4px);
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 0 var(--wx-border);
+}
+
+.calc-grid3 > .calc-field,
+.calc-grid3 > .calc-result {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  column-gap: calc(var(--wx-border) * 2);
+}
+
+/* In a grid the column sizes itself; the 170 px floor is for the flex rows. */
+.calc-grid3 .calc-field-label {
+  min-width: 0;
+}
+
+/* AddGrowableCol( 1 ): the entry fills the column it is in, whatever the
+   labels leave. [px] a Via Size entry is 220 px wide; ours were 105. */
+.calc-grid3 .calc-input,
+.calc-grid3 .calc-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+/* One grid cell holding an entry and its `...`, the entry taking the slack
+   (proportion 1) and the button its own width. */
+.calc-cell {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--wx-border) * 2);
+}
+
+.calc-cell > .calc-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* [px] sbSizerVS_Inputs measures 520 px wide (x 240..760) on a 1854 px client
+   and the growable entry column takes what the labels and units leave, which
+   is what makes every entry 220 px. Ours shrink-wrapped to 416 and 105. */
+.vs-params {
+  width: 520px;
+}
+
+/* The `...` button beside a material field is wxBU_EXACTFIT, so it does NOT
+   get the 16 px text-button padding: [px] on Via Size it measures 15 px wide
+   (x 667..681). The selector has to beat .calc-btn's own, which is declared
+   later in this file. */
+.calc-btn.calc-pick {
+  padding: 0 2px;
+  min-width: 0;
+}
+
 .calc-row {
   display: flex;
   gap: 18px;
@@ -800,8 +869,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  min-height: var(--ctl-height);
-  margin: var(--wx-border) 0;
+  /* A result is a wxStaticText, never a control: [px] the Via Size and Track
+     Width result rows repeat every 23 px (18 px of text plus the sizer's 5 px
+     vgap), where ours held them at --ctl-height and repeated every 39. */
+  margin: 0;
 }
 
 .calc-result-value {

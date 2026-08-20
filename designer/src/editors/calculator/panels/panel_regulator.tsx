@@ -325,10 +325,9 @@ export function PanelRegulator(): JSX.Element {
 
   // PANEL_REGULATOR::WriteDataFile (datafile_read_write.cpp:91-113).
   const exportData = (): void => {
-    const blob = new Blob(
-      [formatRegulatorDataFile(store.regulators, 'pcb_calculator (ZiroEDA)')],
-      { type: 'text/plain' },
-    );
+    const blob = new Blob([formatRegulatorDataFile(store.regulators, 'pcb_calculator (ZiroEDA)')], {
+      type: 'text/plain',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

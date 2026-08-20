@@ -8,7 +8,7 @@
  * that convert their value in place when you switch units.
  */
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { Combo } from '../../ui/Combo.js';
 import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '../../ui/useModalEscape.js';
@@ -34,6 +34,9 @@ export function fmt(v: number, digits = 4): string {
 export interface UnitOpt {
   label: string;
   mult: number;
+  /** A lone unit is a wxStaticText, and some of them carry their own tooltip
+   *  ("nanoseconds" on Via Size's ns, panel_via_size_base.cpp:191). */
+  title?: string;
 }
 
 export const LEN_UNITS: UnitOpt[] = [
@@ -83,6 +86,7 @@ export function Field({
   title,
   width,
   bold,
+  pick,
 }: {
   label: ReactNode;
   value: string;
@@ -94,18 +98,40 @@ export function Field({
   /** KiCad bolds the LABEL and the FIELD of a controlling value together
    *  (panel_track_width.cpp:340-392). */
   bold?: boolean;
+  /** The `...` STD_BITMAP_BUTTON some rows carry, which raises
+   *  wxGetSingleChoice over a material list. */
+  pick?: () => void;
 }): JSX.Element {
   return (
     <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
-      <input
-        className={`calc-input${readOnly ? ' ro' : ''}`}
-        style={width ? { width } : undefined}
-        value={value}
-        readOnly={readOnly}
-        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-        spellCheck={false}
-      />
+      {/* The entry and its `...` share ONE cell: wxFormBuilder puts them in a
+          horizontal box sizer and adds that to the grid's second column
+          (panel_via_size_base.cpp:130-140). */}
+      {pick ? (
+        <span className="calc-cell">
+          <input
+            className={`calc-input${readOnly ? ' ro' : ''}`}
+            style={width ? { width } : undefined}
+            value={value}
+            readOnly={readOnly}
+            onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+            spellCheck={false}
+          />
+          <button type="button" className="calc-btn calc-pick" onClick={pick}>
+            ...
+          </button>
+        </span>
+      ) : (
+        <input
+          className={`calc-input${readOnly ? ' ro' : ''}`}
+          style={width ? { width } : undefined}
+          value={value}
+          readOnly={readOnly}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+          spellCheck={false}
+        />
+      )}
       {unit != null && <span className="calc-unit">{unit}</span>}
     </label>
   );
@@ -130,6 +156,7 @@ export function NumField({
   digits = 6,
   bold,
   labelAlign,
+  initialText,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -143,6 +170,11 @@ export function NumField({
   digits?: number;
   /** As on `Field`: the controlling value's label and field are both bold. */
   bold?: boolean;
+  /** The panel's state IS its field text: pcb_calculator stores these defaults
+   *  as STRINGS and calls SetValue with them, so "1.0" stays "1.0" until the
+   *  user or a calculation rewrites it. `%g` of 1.0 is "1", which is not what
+   *  the binary shows (pcb_calculator_settings.cpp:265). */
+  initialText?: string;
   /** wxFormBuilder right-aligns exactly one parameter label in the whole
    *  launcher — Transmission Lines' Frequency
    *  (panel_transline_base.cpp:207). Everything else is flush left. */
@@ -154,12 +186,20 @@ export function NumField({
   // `wxString::Format( "%g", … )`, which is six significant figures — the five
   // this used to print showed 0.30039 where the real panel shows 0.300387.
   const derived = Number.isFinite(base) ? printfG(base / mult, digits) : readOnly ? '' : '';
-  const [text, setText] = useState(derived);
+  const [text, setText] = useState(initialText ?? derived);
   const focused = useRef(false);
+  // A settings default is a STRING and the panel's state IS its field text, so
+  // "1.0" must survive until something genuinely rewrites the value - `%g` of 1
+  // is "1", which is not what the binary shows. Comparing against the last
+  // derived value rather than firing on mount also makes this idempotent under
+  // React's double-invoked effects.
+  const lastDerived = useRef(derived);
 
   // Refresh the text from the parent value when it changes externally and the
   // user isn't mid-edit (read-only outputs always track the value).
   useEffect(() => {
+    if (derived === lastDerived.current) return;
+    lastDerived.current = derived;
     if (readOnly || !focused.current) setText(derived);
   }, [derived, readOnly]);
 
@@ -200,7 +240,9 @@ export function NumField({
           onChange={(v) => switchUnit(Number(v))}
         />
       ) : (
-        <span className="calc-unit">{units[0]?.label}</span>
+        <span className="calc-unit" title={units[0]?.title}>
+          {units[0]?.label}
+        </span>
       )}
     </label>
   );
@@ -211,13 +253,15 @@ export function Group({
   title,
   children,
   className,
+  style,
 }: {
   title?: ReactNode;
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }): JSX.Element {
   return (
-    <fieldset className={`calc-group${className ? ` ${className}` : ''}`}>
+    <fieldset className={`calc-group${className ? ` ${className}` : ''}`} style={style}>
       {title != null && <legend>{title}</legend>}
       {children}
     </fieldset>

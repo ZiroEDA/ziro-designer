@@ -168,7 +168,9 @@ function parseRegulator(toks: Tok[], start: number): { data: RegulatorData | nul
         break;
       case 'reg_type':
         type =
-          val.toLowerCase() === REG_TYPE_STR[1] ? RegulatorType.THREE_TERMINAL : RegulatorType.STANDARD;
+          val.toLowerCase() === REG_TYPE_STR[1]
+            ? RegulatorType.THREE_TERMINAL
+            : RegulatorType.STANDARD;
         break;
       default:
         break;
