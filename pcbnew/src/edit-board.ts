@@ -29,6 +29,7 @@
 import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/src/index.js';
 import { childNamed, numArg } from '@ziroeda/sexpr/src/query.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { textItemBBox } from './text_metrics.js';
 import { arcCenter, rotatePcb } from './read-board.js';
 import { connectedTrackEnds } from './connectivity.js';
 import { footprintBBox, padBBox } from './edit-footprint.js';
@@ -200,10 +201,10 @@ const shapeBBox = (s: PcbShape): BoardBBox => {
   return inflate(b, s.width / 2);
 };
 
+/** `PCB_TEXT::GetBoundingBox`: `GetTextBox` rotated by the draw rotation. */
 const textBBox = (t: PcbTextItem): BoardBBox => {
-  const hw = Math.max(t.text.length, 1) * t.size.x * 0.6;
-  const hh = t.size.y / 2;
-  return { minX: t.at.x - hw, minY: t.at.y - hh, maxX: t.at.x + hw, maxY: t.at.y + hh };
+  const b = textItemBBox(t);
+  return { minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h };
 };
 
 const zoneBBox = (z: PcbZone): BoardBBox => {
