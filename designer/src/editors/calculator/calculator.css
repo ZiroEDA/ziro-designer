@@ -954,6 +954,21 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   width: 92px;
 }
 
+/* fgSizer11 on Fusing Current: four columns, the first holding either a radio
+   or an empty placeholder, vgap 0 with each item's own wxTOP 5. */
+.fc-grid {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 5px calc(var(--wx-border) * 2);
+  padding: 5px var(--wx-border) 0;
+}
+
+.fc-grid .calc-input {
+  width: 116px;
+}
+
 /* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule. */
 .calc-hline {
   height: 2px;
