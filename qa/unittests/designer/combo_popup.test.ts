@@ -176,7 +176,7 @@ describe('Combo: interiors follow GTK, where a button and an entry differ', () =
   /**
    * They are not meant to match. Yaru declares
    *   button { background-image: image(#373737) }   <- a combo is a button
-   *   entry  { … }                                  <- samples to #282828
+   *   entry  { … }                                  <- #272727, asked of wx
    * so a KiCad row shows a lighter drop-down beside a darker number field. What
    * was wrong before is that our drop-down took neither: a native <select> fell
    * through to the generic `--chrome-bg2` (#262626), so the two boxes differed
@@ -185,7 +185,12 @@ describe('Combo: interiors follow GTK, where a button and an entry differ', () =
   it('paints the combo the button face and the field the entry interior', () => {
     expect(rule('.ze-combo')).toMatch(/background:\s*var\(--ctl-face\)/);
     expect(CSS).toMatch(/--ctl-face:\s*#373737/);
-    expect(CSS).toMatch(/--field-bg:\s*#282828/);
+    // #272727, not #282828: a program compiled against the installed
+    // libwxgtk3.2 makes the control and reports #272727 three ways over —
+    // GetBackgroundColour(), the style context of the GtkEntry wx creates, and
+    // a rendered pixel. The old value rested on "wx renders one level lighter
+    // than a bare GtkEntry", which that probe measured false.
+    expect(CSS).toMatch(/--field-bg:\s*#272727/);
   });
 
   it('no longer lets a drop-down fall through to --chrome-bg2', () => {

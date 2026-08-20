@@ -332,7 +332,11 @@ describe('the shared GTK control-theme tokens hold the measured values', () => {
     expect(TOKENS['--ctl-face']).toBe('#373737');
     expect(TOKENS['--ctl-face-disabled']).toBe('#2a2a2a');
     expect(TOKENS['--ctl-fg-disabled']).toBe('#929292');
-    expect(TOKENS['--field-bg']).toBe('#282828');
+    // Asked of wx itself, not sampled: #272727 from GetBackgroundColour(),
+    // from the GtkEntry's style context, and from a rendered pixel of the
+    // drawn control. Was #282828 on the belief that wx renders a level lighter
+    // than the toolkit; measured false 2026-08-21.
+    expect(TOKENS['--field-bg']).toBe('#272727');
     expect(TOKENS['--field-pad-x']).toBe('8px');
   });
 

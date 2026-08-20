@@ -271,11 +271,17 @@
      GTK dims by colour, never by opacity: an opacity fade also washes out the
      control's background and border, which ours did. */
   --ctl-fg-disabled: #929292;
-  /* [px] the interior of a wxTextCtrl. Yaru declares #272727 for a bare
-     GtkEntry; wx renders one level lighter and the sampled value is what the
-     user sees. (--chrome-bg2 #262626 is documented as the "inset surface"
-     colour and is two levels off this one — flagged, not changed.) */
-  --field-bg: #282828;
+  /* [px] the interior of a wxTextCtrl, asked of wx itself rather than sampled:
+     a program compiled against the installed libwxgtk3.2 creates the control
+     and reports #272727 three ways over — GetBackgroundColour(), the style
+     context of the GtkEntry wx makes, and a rendered pixel of the drawn
+     widget. This said #282828 until 2026-08-21, on the stated grounds that
+     "wx renders one level lighter" than a bare GtkEntry. That is measured
+     false: wx paints exactly what the toolkit declares. The same run confirms
+     --ctl-face-disabled (#2a2a2a for a disabled entry) and --ctl-height (34).
+     (--chrome-bg2 #262626 is documented as the "inset surface" colour and is
+     one level off this one — flagged, not changed.) */
+  --field-bg: #272727;
   --field-pad-x: 8px; /* [css] entry { padding-left/right: 8px } */
   /* [css] entry:focus { border-color: rgba(239, 134, 97, 0.7) }. Note the alpha:
      the flat #e95420 we used before reads as a much louder orange than KiCad's,
