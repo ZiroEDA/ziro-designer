@@ -65,6 +65,16 @@ restate the right value locally — it is to state **nothing** locally.
   finding: the behaviour was never pinned.
 - Never re-baseline a moved expectation to whatever the new code prints.
   Re-derive it from the C++ or from a measurement, and say why it is right.
+- **Confirm every mutant actually applied.** An edit whose anchor missed leaves
+  the file untouched, and an untouched file passes its tests - indistinguishable
+  from a mutant that was killed. Assert the file changed before scoring it, and
+  commit the baseline first: a sweep that restores with `git checkout --` over
+  an uncommitted baseline reverts the feature on its first restore.
+- **A number GTK or wx decides can be measured, not guessed.** `qa/probes/`
+  builds the widget with wxWidgets and asks it - the same call KiCad makes, on
+  this machine, with this theme. That beats reading Yaru's stylesheet, sampling
+  a screenshot pixel, or deriving from Pango metrics; all three have been wrong
+  here. Two derivations agreeing corroborate only if they are independent.
 
 ## CI
 
