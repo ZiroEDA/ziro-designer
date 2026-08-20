@@ -24,7 +24,13 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Vec2 } from '@ziroeda/kimath';
-import { pickDrawItem, wksItemsInBox, wksItemBBox, type DsDrawItem } from '@ziroeda/common';
+import {
+  pickDrawItem,
+  wksItemsInBox,
+  wksItemBBox,
+  SCH_IU_PER_MM,
+  type DsDrawItem,
+} from '@ziroeda/common';
 import {
   drawDrawingSheetItems,
   dsBackgroundIsDark,
@@ -40,6 +46,7 @@ import {
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { scaleForZoomFactor } from '../../ui/status_format.js';
 
 // A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
 // cursor for the interactive delete picker (KICURSOR::REMOVE).
@@ -59,6 +66,8 @@ export interface DrawingSheetCanvasController {
   zoomToSelection: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** `COMMON_TOOLS::doZoomToPreset` — jump to one entry of the zoom table. */
+  setZoomPreset: (factor: number) => void;
   redraw: () => void;
 }
 
@@ -82,6 +91,15 @@ export interface DrawingSheetCanvasProps {
   moveMode?: boolean;
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
+  /**
+   * Right-click on the canvas, with the item under the cursor (or null).
+   *
+   * PL_SELECTION_TOOL::Main (pl_selection_tool.cpp:120-135) on BUT_RIGHT:
+   * an EMPTY selection picks up the item under the cursor as a hover
+   * selection first; a non-empty one is left exactly as it is, wherever the
+   * click landed. Then the tool menu opens over that selection.
+   */
+  onContextMenuRequest?: (x: number, y: number, hit: number | null) => void;
   onSelect?: (src: number | null, additive: boolean) => void;
   onSelectBox?: (srcs: number[], additive: boolean) => void;
   /** The active tool finished and handed back to the arrow (PopTool). */
@@ -124,6 +142,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       moveMode,
       onCursorMove,
       onScaleChange,
+      onContextMenuRequest,
       onSelect,
       onSelectBox,
       onToolDone,
@@ -441,6 +460,29 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       [requestDraw],
     );
 
+    /**
+     * `COMMON_TOOLS::doZoomToPreset` (common/tool/common_tools.cpp:468-495):
+     * `VIEW::SetScale( zoomList[idx] )`, an absolute zoom rather than a step.
+     * The canvas centre is held, which is `SetScale( scale )`'s own behaviour
+     * when no anchor is passed.
+     */
+    const setZoomPreset = useCallback(
+      (factor: number) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const v = viewRef.current;
+        const px = canvas.width / 2,
+          py = canvas.height / 2;
+        const wx = (px - v.tx) / v.scale,
+          wy = (py - v.ty) / v.scale;
+        v.scale = scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM);
+        v.tx = px - wx * v.scale;
+        v.ty = py - wy * v.scale;
+        requestDraw();
+      },
+      [dpr, requestDraw],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -448,9 +490,10 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         zoomToSelection,
         zoomIn: () => zoomStep(1.3),
         zoomOut: () => zoomStep(1 / 1.3),
+        setZoomPreset,
         redraw: () => requestDraw(),
       }),
-      [zoomToFit, zoomToSelection, zoomStep, requestDraw],
+      [zoomToFit, zoomToSelection, zoomStep, setZoomPreset, requestDraw],
     );
 
     // Size to container; fit on first layout.
@@ -795,8 +838,18 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onContextMenu={(e) => {
-            // BUT_RIGHT is the zoom-out drag while this tool is armed.
-            if (activeTool === 'zoomTool') e.preventDefault();
+            e.preventDefault();
+            // BUT_RIGHT is the zoom-out drag while ZOOM_TOOL is armed
+            // (zoom_tool.cpp:62-95), so the selection tool's menu is not what
+            // that button means and no menu opens.
+            if (activeTool === 'zoomTool') return;
+            const world = worldAt(e.clientX, e.clientY);
+            const tol = (6 * dpr) / viewRef.current.scale;
+            onContextMenuRequest?.(
+              e.clientX,
+              e.clientY,
+              pickDrawItem(drawsRef.current, world, tol),
+            );
           }}
           onPointerLeave={() => {
             onCursorMove?.(null);

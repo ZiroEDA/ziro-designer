@@ -37,7 +37,7 @@ import {
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
-import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
+import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 
 /** m_pageSelectBox (pl_editor_frame.cpp): page 1 versus every other page. */
 const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
@@ -62,6 +62,8 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
+import { buildDsContextMenu } from './ds_context_menu.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DesignInspector } from './DesignInspector.js';
@@ -222,6 +224,15 @@ export function DrawingSheetEditor({
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('Loaded default drawing sheet');
   const [moveMode, setMoveMode] = useState(false);
+  /**
+   * `grid.last_size_idx` into `DefaultGridSizeList()`'s pl_editor row
+   * (app_settings.cpp:468-481, ui/grid_settings.ts). A WINDOW setting, not a
+   * unit-derived one — see the gridLabel comment below — and now settable, from
+   * the canvas context menu's Grid submenu.
+   */
+  const [gridIndex, setGridIndex] = useState(DEFAULT_GRID_INDEX.pl_editor);
+  /** Where the canvas context menu was opened, or null when it is closed. */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [blackBackground, setBlackBackground] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
@@ -643,6 +654,20 @@ export function DrawingSheetEditor({
   }, []);
   const onSelectBox = useCallback((srcs: number[], additive: boolean) => {
     setSelection((prev) => (additive ? new Set([...prev, ...srcs]) : new Set(srcs)));
+  }, []);
+
+  /**
+   * Right-click on the canvas — PL_SELECTION_TOOL::Main's BUT_RIGHT branch
+   * (pl_selection_tool.cpp:120-135).
+   *
+   * An EMPTY selection takes the item under the cursor as a hover selection
+   * first, so the menu that opens is about something. A non-empty selection is
+   * left exactly as it is, wherever the click landed, which is what lets you
+   * right-click off to one side of a group without losing it.
+   */
+  const onCanvasContextMenu = useCallback((x: number, y: number, hit: number | null) => {
+    setSelection((prev) => (prev.size === 0 && hit !== null ? new Set([hit]) : prev));
+    setCtxMenu({ x, y });
   }, []);
 
   const moveSelection = useCallback(
@@ -1317,10 +1342,11 @@ export function DrawingSheetEditor({
    * shows "grid 19.685039".
    *
    * Ours derived the spacing from the unit, so the mils default above would
-   * otherwise have moved the grid from 1 mm to 2.54 mm. Pinning it to the
-   * upstream default keeps the two independent, as they are upstream.
+   * otherwise have moved the grid from 1 mm to 2.54 mm. Keying it to the
+   * upstream list and its index keeps the two independent, as they are
+   * upstream; `gridIndex` starts at DEFAULT_GRID_INDEX.pl_editor = 4.
    */
-  const gridIU = mmToIU(0.5);
+  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex] ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
@@ -1495,6 +1521,7 @@ export function DrawingSheetEditor({
             moveSelection(d);
             setMoveMode(false);
           }}
+          onContextMenuRequest={onCanvasContextMenu}
         />
 
         {/* Docked properties panel (properties_frame.cpp). */}
@@ -1517,6 +1544,39 @@ export function DrawingSheetEditor({
           onActivate={onRightTool}
         />
       </div>
+
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={buildDsContextMenu(
+            {
+              hasSelection: selection.size > 0,
+              zoom: zoomFactorForScale(scale, dpr, SCH_IU_PER_MM),
+              gridIndex,
+              primaryUnits: unit === 'inches' ? 'in' : unit,
+            },
+            {
+              move: () => setMoveMode(true),
+              cut: cutSelection,
+              copy: copySelection,
+              paste: () => void pasteFromSystem(),
+              doDelete: deleteSelection,
+              drawLine: () => setActiveTool('dsAddLine'),
+              drawRectangle: () => setActiveTool('dsAddRect'),
+              placeText: () => setActiveTool('dsAddText'),
+              placeImage: () => setActiveTool('dsAddBitmap'),
+              // PL_EDITOR_CONTROL::GridResetOrigin, as the Place menu's row
+              // already explains: our grid is anchored at (0, 0) and there is
+              // no gridSetOrigin to move it, so only the refresh half shows.
+              gridOrigin: () => controller.current?.redraw(),
+              setZoom: (factor) => controller.current?.setZoomPreset(factor),
+              setGrid: setGridIndex,
+            },
+          )}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
 
       <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" />
 
