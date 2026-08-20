@@ -8,7 +8,7 @@
  * that convert their value in place when you switch units.
  */
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
 import { Combo } from '../../ui/Combo.js';
 import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '../../ui/useModalEscape.js';
@@ -34,15 +34,40 @@ export function fmt(v: number, digits = 4): string {
 export interface UnitOpt {
   label: string;
   mult: number;
+  /** A lone unit is a wxStaticText, and some of them carry their own tooltip
+   *  ("nanoseconds" on Via Size's ns, panel_via_size_base.cpp:191). */
+  title?: string;
 }
 
+/**
+ * UNIT_SELECTOR_LEN — mm, um, cm, mil, inch (unit_selector.cpp:34-38).
+ * Five entries, and the micron one is spelled with an ASCII `u`, where the
+ * THICKNESS selector below spells the same unit `µm`. The inconsistency is
+ * upstream's and it is visible: a wxChoice is as wide as its widest entry, and
+ * on Track Width the two lists sit one above the other. We had a sixth entry,
+ * `m`, that pcb_calculator has nowhere.
+ */
 export const LEN_UNITS: UnitOpt[] = [
+  { label: 'mm', mult: 1e-3 },
+  { label: 'um', mult: 1e-6 },
+  { label: 'cm', mult: 1e-2 },
+  { label: 'mil', mult: 25.4e-6 },
+  { label: 'inch', mult: 25.4e-3 },
+];
+
+/**
+ * UNIT_SELECTOR_THICKNESS — the LEN list plus oz/ft², with `µm` spelled with
+ * the micro sign (unit_selector.cpp:66-71). Copper weight converts at
+ * UNIT_OZSQFT = 34.40 µm (units_scales.h:39). Track Width's two thickness
+ * rows and Fusing Current's thickness row use this one, not LEN.
+ */
+export const THICK_UNITS: UnitOpt[] = [
   { label: 'mm', mult: 1e-3 },
   { label: 'µm', mult: 1e-6 },
   { label: 'cm', mult: 1e-2 },
   { label: 'mil', mult: 25.4e-6 },
   { label: 'inch', mult: 25.4e-3 },
-  { label: 'm', mult: 1 },
+  { label: 'oz/ft²', mult: 34.4e-6 },
 ];
 
 export const FREQ_UNITS: UnitOpt[] = [
@@ -52,10 +77,19 @@ export const FREQ_UNITS: UnitOpt[] = [
   { label: 'Hz', mult: 1 },
 ];
 
+/** UNIT_SELECTOR_ANGLE — rad then deg (unit_selector.cpp:129-130), and
+ *  UNIT_RADIAN / UNIT_DEGREE = M_PI/180 (units_scales.h:45-46). Held in
+ *  radians, which is index 0 and therefore what Ang_l opens in. */
+export const ANGLE_UNITS: UnitOpt[] = [
+  { label: 'rad', mult: 1 },
+  { label: 'deg', mult: Math.PI / 180 },
+];
+
+/** UNIT_SELECTOR_RESISTOR — two entries, Ω and kΩ (unit_selector.cpp:154-155).
+ *  We had invented a third, MΩ. */
 export const RES_UNITS: UnitOpt[] = [
   { label: 'Ω', mult: 1 },
   { label: 'kΩ', mult: 1e3 },
-  { label: 'MΩ', mult: 1e6 },
 ];
 
 export const TIME_UNITS: UnitOpt[] = [
@@ -83,6 +117,9 @@ export function Field({
   title,
   width,
   bold,
+  pick,
+  disabled,
+  className,
 }: {
   label: ReactNode;
   value: string;
@@ -94,18 +131,51 @@ export function Field({
   /** KiCad bolds the LABEL and the FIELD of a controlling value together
    *  (panel_track_width.cpp:340-392). */
   bold?: boolean;
+  /** The `...` STD_BITMAP_BUTTON some rows carry, which raises
+   *  wxGetSingleChoice over a material list. */
+  pick?: () => void;
+  /** `Enable( false )`, which GTK paints quite differently from a read-only
+   *  entry: [px] face rgb(42,42,42) with dim ink, against 3DLIGHT's
+   *  rgb(55,55,55) with ordinary ink. */
+  disabled?: boolean;
+  /** Extra row class, for the per-item wxTOP/wxBOTTOM borders a wxFlexGridSizer
+   *  with vgap 0 relies on. */
+  className?: string;
 }): JSX.Element {
   return (
-    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
+    <label
+      className={`calc-field${bold ? ' bold' : ''}${className ? ` ${className}` : ''}`}
+      title={title}
+    >
       <span className="calc-field-label">{label}</span>
-      <input
-        className={`calc-input${readOnly ? ' ro' : ''}`}
-        style={width ? { width } : undefined}
-        value={value}
-        readOnly={readOnly}
-        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-        spellCheck={false}
-      />
+      {/* The entry and its `...` share ONE cell: wxFormBuilder puts them in a
+          horizontal box sizer and adds that to the grid's second column
+          (panel_via_size_base.cpp:130-140). */}
+      {pick ? (
+        <span className="calc-cell">
+          <input
+            className={`calc-input${readOnly ? ' ro' : ''}`}
+            style={width ? { width } : undefined}
+            value={value}
+            readOnly={readOnly}
+            onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+            spellCheck={false}
+          />
+          <button type="button" className="calc-btn calc-pick" onClick={pick}>
+            ...
+          </button>
+        </span>
+      ) : (
+        <input
+          className={`calc-input${readOnly ? ' ro' : ''}`}
+          style={width ? { width } : undefined}
+          value={value}
+          readOnly={readOnly}
+          disabled={disabled}
+          onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+          spellCheck={false}
+        />
+      )}
       {unit != null && <span className="calc-unit">{unit}</span>}
     </label>
   );
@@ -130,6 +200,8 @@ export function NumField({
   digits = 6,
   bold,
   labelAlign,
+  initialText,
+  className,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -143,10 +215,17 @@ export function NumField({
   digits?: number;
   /** As on `Field`: the controlling value's label and field are both bold. */
   bold?: boolean;
+  /** The panel's state IS its field text: pcb_calculator stores these defaults
+   *  as STRINGS and calls SetValue with them, so "1.0" stays "1.0" until the
+   *  user or a calculation rewrites it. `%g` of 1.0 is "1", which is not what
+   *  the binary shows (pcb_calculator_settings.cpp:265). */
+  initialText?: string;
   /** wxFormBuilder right-aligns exactly one parameter label in the whole
    *  launcher — Transmission Lines' Frequency
    *  (panel_transline_base.cpp:207). Everything else is flush left. */
   labelAlign?: 'left' | 'right';
+  /** As on `Field`. */
+  className?: string;
 }): JSX.Element {
   const [idx, setIdx] = useState(() => (defaultUnit ? unitIndex(units, defaultUnit) : 0));
   const mult = units[idx]?.mult ?? 1;
@@ -154,12 +233,20 @@ export function NumField({
   // `wxString::Format( "%g", … )`, which is six significant figures — the five
   // this used to print showed 0.30039 where the real panel shows 0.300387.
   const derived = Number.isFinite(base) ? printfG(base / mult, digits) : readOnly ? '' : '';
-  const [text, setText] = useState(derived);
+  const [text, setText] = useState(initialText ?? derived);
   const focused = useRef(false);
+  // A settings default is a STRING and the panel's state IS its field text, so
+  // "1.0" must survive until something genuinely rewrites the value - `%g` of 1
+  // is "1", which is not what the binary shows. Comparing against the last
+  // derived value rather than firing on mount also makes this idempotent under
+  // React's double-invoked effects.
+  const lastDerived = useRef(derived);
 
   // Refresh the text from the parent value when it changes externally and the
   // user isn't mid-edit (read-only outputs always track the value).
   useEffect(() => {
+    if (derived === lastDerived.current) return;
+    lastDerived.current = derived;
     if (readOnly || !focused.current) setText(derived);
   }, [derived, readOnly]);
 
@@ -175,7 +262,10 @@ export function NumField({
   };
 
   return (
-    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
+    <label
+      className={`calc-field${bold ? ' bold' : ''}${className ? ` ${className}` : ''}`}
+      title={title}
+    >
       <span className="calc-field-label" style={labelAlign ? { textAlign: labelAlign } : undefined}>
         {label}
       </span>
@@ -200,7 +290,9 @@ export function NumField({
           onChange={(v) => switchUnit(Number(v))}
         />
       ) : (
-        <span className="calc-unit">{units[0]?.label}</span>
+        <span className="calc-unit" title={units[0]?.title}>
+          {units[0]?.label}
+        </span>
       )}
     </label>
   );
@@ -211,13 +303,15 @@ export function Group({
   title,
   children,
   className,
+  style,
 }: {
   title?: ReactNode;
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }): JSX.Element {
   return (
-    <fieldset className={`calc-group${className ? ` ${className}` : ''}`}>
+    <fieldset className={`calc-group${className ? ` ${className}` : ''}`} style={style}>
       {title != null && <legend>{title}</legend>}
       {children}
     </fieldset>
@@ -230,12 +324,13 @@ export function Modal({
   onClose,
   children,
   footer,
-  width = 420,
+  width,
 }: {
   title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Omit it: a wxDialog is sized by its sizer, not by a number we picked. */
   width?: number;
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
@@ -246,7 +341,7 @@ export function Modal({
     <div className="calc-modal-backdrop" onMouseDown={onClose}>
       <div
         className="calc-modal"
-        style={{ width }}
+        style={width ? { width } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -302,14 +397,17 @@ export function ResultField({
   value,
   unit,
   title,
+  className,
 }: {
   label: ReactNode;
   value: string;
   unit?: ReactNode;
   title?: string;
+  /** As on `Field`. */
+  className?: string;
 }): JSX.Element {
   return (
-    <div className="calc-result" title={title}>
+    <div className={`calc-result${className ? ` ${className}` : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
       <span className="calc-result-value">{value}</span>
       {unit != null && <span className="calc-unit">{unit}</span>}

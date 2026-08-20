@@ -6,48 +6,38 @@
  * plated through-hole via. Counterpart: KiCad `calculator_panels/panel_via_size.cpp`.
  */
 
-import { useMemo, useState, type JSX } from 'react';
-import { COPPER_PLATING_RESISTIVITY_OHM_M, printfG, viaSize } from '@ziroeda/pcb_calculator';
+import { useMemo, useState, type CSSProperties, type JSX } from 'react';
 import {
-  Field,
-  Group,
-  LEN_UNITS,
-  NumField,
-  RES_UNITS,
-  ResultField,
-  TIME_UNITS,
-} from '../fields.js';
+  COPPER_PLATING_RESISTIVITY_OHM_M,
+  printfG,
+  STANDARD_EPSILON_R_LIST,
+  STANDARD_RESISTIVITY_LIST,
+  viaSize,
+} from '@ziroeda/pcb_calculator';
+import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
+import { Field, Group, LEN_UNITS, NumField, RES_UNITS, ResultField } from '../fields.js';
 
 /** Every result on this page is `wxString::Format( "%g", … )`. */
 const g = (v: number | undefined | false | null): string =>
   typeof v === 'number' && Number.isFinite(v) ? printfG(v) : '';
 
-/** Via cross-section: gold plated barrel around the drilled hole, with D/T marks. */
+// KiCad's own dark-theme artwork (GPL), vendored under assets/.
+const VIA_ART = import.meta.glob('../../../assets/calculator/*.svg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+/** m_viaBitmap, BITMAPS::viacalc drawn 1:1 (panel_via_size.cpp:63). */
 function ViaDrawing(): JSX.Element {
   return (
-    <svg className="calc-svg" width="260" height="240" viewBox="0 0 260 240">
-      <circle cx="130" cy="130" r="86" fill="#e8a33d" stroke="#c07f1f" strokeWidth="1.5" />
-      <circle cx="130" cy="130" r="70" fill="#3a3d43" stroke="#c07f1f" strokeWidth="1.5" />
-      {/* D, hole diameter, across the top */}
-      <g stroke="#4a86c5" strokeWidth="1.5" fill="none">
-        <line x1="60" y1="44" x2="200" y2="44" />
-        <path d="M60 44 l8 -4 M60 44 l8 4" />
-        <path d="M200 44 l-8 -4 M200 44 l-8 4" />
-        <line x1="60" y1="44" x2="60" y2="60" strokeDasharray="3 2" />
-        <line x1="200" y1="44" x2="200" y2="60" strokeDasharray="3 2" />
-      </g>
-      <text x="126" y="38" fill="#e6e6e6" fontSize="14">
-        D
-      </text>
-      {/* T, plating thickness, on the left edge */}
-      <g stroke="#4a86c5" strokeWidth="1.5" fill="none">
-        <line x1="30" y1="130" x2="44" y2="130" />
-        <line x1="60" y1="130" x2="44" y2="130" />
-      </g>
-      <text x="24" y="150" fill="#e6e6e6" fontSize="14">
-        T
-      </text>
-    </svg>
+    <img
+      className="calc-art"
+      src={VIA_ART['../../../assets/calculator/viacalc.svg']}
+      alt=""
+      width={204}
+      height={212}
+    />
   );
 }
 
@@ -58,6 +48,10 @@ export function PanelViaSize(): JSX.Element {
   const [padDiaM, setPadDiaM] = useState(0.6e-3);
   const [clearanceDiaM, setClearanceDiaM] = useState(1.0e-3);
   const [z0Ohm, setZ0Ohm] = useState(50);
+  // The two `...` buttons (panel_via_size_base.cpp:136, 158). Each raises
+  // wxGetSingleChoice and writes the chosen number into the field
+  // (panel_via_size.cpp:87-110).
+  const [picking, setPicking] = useState<'rho' | 'er' | null>(null);
   const [current, setCurrent] = useState('1');
   const [resistivity, setResistivity] = useState(String(COPPER_PLATING_RESISTIVITY_OHM_M));
   const [er, setEr] = useState('4.5');
@@ -119,9 +113,18 @@ export function PanelViaSize(): JSX.Element {
   ]);
 
   return (
-    <div>
+    <div className="calc-page-body">
       <div className="calc-row">
-        <Group title="Parameters">
+        {/* fgSizerVS_Inputs: wxFlexGridSizer( 0, 3, 4, 0 ), AddGrowableCol( 1 )
+            — label | entry | unit, the entry column taking the slack, a 4 px
+            vertical gap (panel_via_size_base.cpp:25-27). */}
+        <Group
+          title="Parameters"
+          className="calc-grid3 vs-params"
+          style={
+            { '--calc-vgap': '4px' /* [data] wxFlexGridSizer( 0, 3, 4, 0 ) */ } as CSSProperties
+          }
+        >
           <NumField
             label="Finished hole diameter (D):"
             units={LEN_UNITS}
@@ -157,6 +160,7 @@ export function PanelViaSize(): JSX.Element {
             title="Diameter of clearance hole in ground plane(s)"
             units={LEN_UNITS}
             defaultUnit="mm"
+            initialText="1.0"
             base={clearanceDiaM}
             onBase={setClearanceDiaM}
           />
@@ -173,6 +177,7 @@ export function PanelViaSize(): JSX.Element {
             title="Specific resistance in ohms * meters"
             value={resistivity}
             onChange={setResistivity}
+            pick={() => setPicking('rho')}
             unit="Ω·m"
           />
           <Field
@@ -180,6 +185,7 @@ export function PanelViaSize(): JSX.Element {
             title="Relative dielectric constant (epsilon r)"
             value={er}
             onChange={setEr}
+            pick={() => setPicking('er')}
             unit=""
           />
           <Field
@@ -189,17 +195,29 @@ export function PanelViaSize(): JSX.Element {
             onChange={setDeltaT}
             unit="°C"
           />
+          {/* m_staticTextRiseTimeUnits is a wxStaticText reading "ns", with
+              "nanoseconds" as its tooltip (panel_via_size_base.cpp:189-193).
+              Ours had invented a unit selector here; this page has selectors
+              only on the six length and impedance rows. */}
           <NumField
             label="Pulse rise time:"
-            units={TIME_UNITS}
-            defaultUnit="ns"
+            units={[{ label: 'ns', mult: 1e-9, title: 'nanoseconds' }]}
             title="Pulse rise time to calculate reactance"
             base={riseTimeS}
             onBase={setRiseTimeS}
           />
         </Group>
         <div className="calc-col">
-          <Group title="Results">
+          {/* fgSizerTW_Results11: the same shape with a 5 px vgap
+              (panel_via_size_base.cpp:220-222). Its rows are wxStaticTexts,
+              so a row is 23 px, not a 34 px control. */}
+          <Group
+            title="Results"
+            className="calc-grid3"
+            style={
+              { '--calc-vgap': '5px' /* [data] wxFlexGridSizer( 0, 3, 5, 0 ) */ } as CSSProperties
+            }
+          >
             {/* Every one of these is a wxStaticText whose label is rewritten
                 with "%g" (panel_via_size.cpp:276-300) — six significant
                 figures, not four, and no entry box round it. */}
@@ -253,6 +271,27 @@ export function PanelViaSize(): JSX.Element {
           Reset to Defaults
         </button>
       </div>
+
+      {picking && (
+        <SingleChoiceDialog
+          caption={
+            picking === 'rho' ? 'Electrical Resistivity in Ohm*m' : 'Relative Dielectric Constants'
+          }
+          choices={(picking === 'rho' ? STANDARD_RESISTIVITY_LIST : STANDARD_EPSILON_R_LIST).map(
+            (e) => ({ value: e.value, label: `${e.value} \t${e.name}` }),
+          )}
+          onResult={(v) => {
+            if (v !== null) {
+              // wxGetSingleChoice returns the row's text; the handler splits at
+              // the tab and writes the number verbatim (panel_via_size.cpp:95).
+              const num = v.split('\t')[0] ?? v;
+              if (picking === 'rho') setResistivity(num);
+              else setEr(num);
+            }
+            setPicking(null);
+          }}
+        />
+      )}
 
       {/* m_staticTextWarning (panel_via_size_base.cpp:201), shown when the pad
           swallows the clearance hole. */}

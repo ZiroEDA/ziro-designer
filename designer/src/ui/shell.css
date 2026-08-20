@@ -249,6 +249,13 @@
      [px] 34 for the Load Source Image button and for the Size fields. */
   --ctl-height: 34px;
   --ctl-pad-x: 9px; /* [css] button { padding: 4px 9px } */
+  /* A GTK button carrying only a LABEL gets the `text-button` style class,
+     which overrides that padding:
+     [css] button.text-button { padding-left: 16px; padding-right: 16px }
+     [px] measured on pcb_calculator's own buttons: "Reset to Defaults" ink
+     runs 16 px from the left face edge and 15 from the right, "Browse" 18/18.
+     A button with an icon keeps --ctl-pad-x (image-button is 5px). */
+  --ctl-pad-x-text: 16px;
   --ctl-face: #373737; /* [css] button { background-image: image(#373737) } [px] agrees */
   --ctl-face-disabled: #2a2a2a; /* [css] button:disabled [px] agrees */
   /* [css] label:disabled, entry:disabled and button:disabled all take this.
@@ -270,6 +277,13 @@
      [px] the Negative box and the Symbol dot both measure 16 across. */
   --check-size: 16px;
   --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
+  /* [px] the ring around an unchecked radio on a live pcb_calculator measures
+     rgb(25,25,25) - a shade off --ctl-border's #181818. */
+  --check-border: #191919;
+  /* [px] a CHECKED radio is a solid rgb(233,84,32) disc with a 6 px white
+     centre dot, 16 px across. Chrome's accent-color paints a ring plus a dot
+     instead, which is why ours never matched. */
+  --radio-dot: 5.5px;
   --check-margin: 4px; /* [css] check, radio { margin: 0 4px } */
   /* The tick's own ink, on the accent square. NOT --chrome-fg, which happens to
      be the same white: this one is Yaru's $selected_fg_color and would move with
@@ -576,11 +590,82 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-app textarea::placeholder {
   color: #8b9098;
 }
-/* The accent the browser paints inside a checkbox, radio or slider. */
-.ze-app input[type="checkbox"],
-.ze-app input[type="radio"],
-.ze-app input[type="range"] {
+/* The accent the browser paints inside a checkbox. */
+.ze-app input[type="checkbox"] {
   accent-color: #e07b1a;
+}
+
+/* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
+   coloured one, and its trough is a flat grey with no filled portion.
+   [px] measured on pcb_calculator's current-density slider: trough 4 px tall,
+   rgb(75,75,75); thumb 20 px across, rgb(252,252,252) with a 1 px grey edge. */
+.ze-app input[type="range"] {
+  appearance: none;
+  height: var(--slider-thumb-size);
+  background: transparent;
+}
+
+.ze-app input[type="range"]::-webkit-slider-runnable-track {
+  height: var(--slider-track-height);
+  border-radius: calc(var(--slider-track-height) / 2);
+  background: var(--slider-track-bg);
+}
+
+.ze-app input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  margin-top: calc((var(--slider-track-height) - var(--slider-thumb-size)) / 2);
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+  border: 1px solid var(--slider-thumb-border);
+}
+
+.ze-app input[type="range"]::-moz-range-track {
+  height: var(--slider-track-height);
+  border-radius: calc(var(--slider-track-height) / 2);
+  background: var(--slider-track-bg);
+}
+
+.ze-app input[type="range"]::-moz-range-thumb {
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border: 1px solid var(--slider-thumb-border);
+  border-radius: 50%;
+  background: var(--slider-thumb-bg);
+}
+
+/* A wxRadioButton is DRAWN here rather than left to the engine. GTK paints a
+   filled disc with a white centre; Chrome's accent-color paints an outline
+   ring with a coloured dot inside it, so the two read differently at a glance
+   however the accent is set. [px] measured on a live pcb_calculator:
+   16x16 overall; unchecked = rgb(57,57,57) inside a 1 px rgb(25,25,25) ring;
+   checked = solid rgb(233,84,32), no ring, with a 6 px white dot centred
+   (x 676..679 of a control at 670..685). */
+.ze-app input[type="radio"] {
+  appearance: none;
+  width: var(--check-size);
+  height: var(--check-size);
+  flex: none;
+  border: 1px solid var(--check-border);
+  border-radius: 50%;
+  background: var(--check-face);
+}
+
+.ze-app input[type="radio"]:checked {
+  border-color: var(--chrome-active);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      var(--check-mark) 0,
+      var(--check-mark) calc(var(--radio-dot) / 2),
+      transparent calc(var(--radio-dot) / 2 + 0.5px)
+    ),
+    var(--chrome-active);
+}
+
+.ze-app input[type="radio"]:disabled {
+  background: var(--ctl-face-disabled, var(--check-face));
 }
 /* The list a <select> opens is a native popup: `color-scheme` handles most
    engines, and these keep the rows on KiCad's grey where it does not. */
@@ -6968,11 +7053,36 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
 }
+/* GTK paints a choice with an empty model as INSENSITIVE - which is the other
+   half of "an empty wxChoice does not open". [px] the Regulators selector on a
+   fresh pcb_calculator is rgb(42,42,42), against rgb(55,55,55) for a populated
+   one; ours drew both the same. */
+.ze-combo[data-empty] {
+  background: var(--ctl-face-disabled);
+  color: var(--ctl-fg-disabled);
+}
+
 .ze-combo-value {
   flex: 1 1 auto;
+  display: grid;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Every entry sits in the same grid cell, so the box is as wide as the widest
+   of them; only the selected one is painted. */
+.ze-combo-shown,
+.ze-combo-ghost {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ze-combo-ghost {
+  visibility: hidden;
+  pointer-events: none;
 }
 /* A wxChoice's arrow points DOWN, always — it is not a disclosure triangle that
    flips when the list opens. `.twisty.expandable::before` is (0,2,1) and would
@@ -7014,10 +7124,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--ctl-fg-disabled);
 }
 
-/* wxGetSingleChoice's list. Same `.ze-modal` shell as the message dialogs, with
-   a scrolling listbox in place of the icon + text row. */
+/* wxGetSingleChoice raises a wxSingleChoiceDialog, which is sized by its LIST -
+   [px] 240 px wide and 325 tall for the resistivity list, its title clipped to
+   "Electrical R..." because the dialog is narrower than the caption. Ours was
+   855x580 with a 340 px floor, i.e. three times the area. */
 .ze-modal.ze-choicedlg {
-  min-width: 340px;
+  width: fit-content;
+  height: auto;
+  min-width: 0;
   max-width: 90vw;
 }
 .ze-choicedlg-body {
@@ -7033,7 +7147,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--field-bg);
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
-  max-height: 320px;
+  /* [px] the list box runs y 490..710 - about nine rows - and scrolls. */
+  max-height: 220px;
   overflow-y: auto;
   outline: none;
 }
@@ -7042,6 +7157,33 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   cursor: default;
   white-space: pre;
 }
+
+/* DELIBERATE DIVERGENCE (Akshay, 2026-08-20): KiCad's rows are one label with
+   an embedded tab, so GTK lands each name on whichever Pango tab stop the
+   value's width leaves free and the real dialog is ragged. A subgrid gives the
+   value and the name a genuinely shared column while the selection bar still
+   paints across the whole row. See ui/dialog_single_choice.tsx. */
+.ze-choicedlg-list.cols {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-content: start;
+}
+.ze-choicedlg-item.cols {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: calc(var(--wx-border) * 2);
+}
 .ze-choicedlg-item.selected {
   background: var(--chrome-active);
+}
+
+/* A wxStdDialogButtonSizer: two ordinary buttons at the bottom RIGHT, not the
+   full-width split bar a GTK message dialog uses. [px] Cancel x 916..995 and
+   OK 1004..1088 inside a dialog ending at 1113. */
+.ze-choicedlg-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wx-border);
+  padding: var(--wx-border) 10px 10px; /* [px] the buttons sit 10 px off the dialog's edges */
 }

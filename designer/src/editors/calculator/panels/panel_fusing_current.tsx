@@ -10,9 +10,7 @@
 import { useState, type JSX } from 'react';
 import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
 import { Combo } from '../../../ui/Combo.js';
-import { Field, LEN_UNITS, type UnitOpt, parseNum } from '../fields.js';
-
-const LEN_SHORT: UnitOpt[] = LEN_UNITS.filter((u) => ['mm', 'µm', 'mil'].includes(u.label));
+import { Field, LEN_UNITS, THICK_UNITS, type UnitOpt, parseNum } from '../fields.js';
 
 /** Radio + numeric input + length-unit dropdown (value held in metres). */
 function LenRow({
@@ -24,6 +22,7 @@ function LenRow({
   onText,
   unitIdx,
   setUnitIdx,
+  units,
 }: {
   label: string;
   solveFor: FusingSolveFor;
@@ -33,18 +32,20 @@ function LenRow({
   onText: (v: string) => void;
   unitIdx: number;
   setUnitIdx: (i: number) => void;
+  /** m_widthUnit is a UNIT_SELECTOR_LEN and m_thicknessUnit a
+   *  UNIT_SELECTOR_THICKNESS (panel_fusing_current_base.cpp:38,53) — two
+   *  different lists, where we had filtered one down to mm/µm/mil. */
+  units: UnitOpt[];
 }): JSX.Element {
   return (
-    <div className="calc-field">
+    <>
       <input
         type="radio"
         name="fuse-solve"
         checked={active === solveFor}
         onChange={() => onActive(solveFor)}
       />
-      <span className="calc-field-label" style={{ minWidth: 120 }}>
-        {label}
-      </span>
+      <span className="calc-field-label">{label}</span>
       {/* Not read-only: KiCad's four value fields are plain wxTextCtrls and the
           solved one is simply overwritten (panel_fusing_current.cpp:162-199). */}
       <input
@@ -56,10 +57,10 @@ function LenRow({
       <Combo
         style={{ minWidth: 62 }}
         value={String(unitIdx)}
-        options={LEN_SHORT.map((u, i) => ({ value: String(i), label: u.label }))}
+        options={units.map((u, i) => ({ value: String(i), label: u.label }))}
         onChange={(v) => setUnitIdx(Number(v))}
       />
-    </div>
+    </>
   );
 }
 
@@ -82,16 +83,14 @@ function NumRow({
   unit: string;
 }): JSX.Element {
   return (
-    <div className="calc-field">
+    <>
       <input
         type="radio"
         name="fuse-solve"
         checked={active === solveFor}
         onChange={() => onActive(solveFor)}
       />
-      <span className="calc-field-label" style={{ minWidth: 120 }}>
-        {label}
-      </span>
+      <span className="calc-field-label">{label}</span>
       <input
         className="calc-input"
         value={value}
@@ -99,7 +98,7 @@ function NumRow({
         onChange={(e) => onValue(e.target.value)}
       />
       <span className="calc-unit">{unit}</span>
-    </div>
+    </>
   );
 }
 
@@ -126,8 +125,8 @@ export function PanelFusingCurrent(): JSX.Element {
   const calculate = (): void => {
     setError('');
     setComment('');
-    const widthM = parseNum(width) * (LEN_SHORT[widthUnit]?.mult ?? 1e-3);
-    const thicknessM = parseNum(thickness) * (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3);
+    const widthM = parseNum(width) * (LEN_UNITS[widthUnit]?.mult ?? 1e-3);
+    const thicknessM = parseNum(thickness) * (THICK_UNITS[thicknessUnit]?.mult ?? 1e-3);
     const r = fusingCurrent({
       ambientC: parseNum(ambient),
       meltingC: parseNum(melting),
@@ -148,24 +147,44 @@ export function PanelFusingCurrent(): JSX.Element {
       return;
     }
     setComment(r.comment ?? '');
-    if (solveFor === 'width') setWidth(printfF(r.widthM / (LEN_SHORT[widthUnit]?.mult ?? 1e-3)));
+    if (solveFor === 'width') setWidth(printfF(r.widthM / (LEN_UNITS[widthUnit]?.mult ?? 1e-3)));
     else if (solveFor === 'thickness')
-      setThickness(printfF(r.thicknessM / (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3)));
+      setThickness(printfF(r.thicknessM / (THICK_UNITS[thicknessUnit]?.mult ?? 1e-3)));
     else if (solveFor === 'current') setCurrent(printfF(r.currentA));
     else setTime(printfF(r.timeS));
   };
 
   return (
-    <div>
-      <div style={{ maxWidth: 460 }}>
-        <Field label="Ambient temperature:" value={ambient} onChange={setAmbient} unit="°C" />
-        <Field
-          label="Melting point:"
-          value={melting}
-          onChange={setMelting}
-          unit="°C"
-          title="Copper"
+    <div className="calc-page-body">
+      {/* fgSizer11: wxFlexGridSizer( 0, 4, 0, 0 ) - radio | label | entry | unit.
+          The two rows that have no radio put an EMPTY static text (m_dummy1,
+          m_dummy2) in the first column, which is why every label on the page
+          starts at the same x whether or not its row is selectable
+          (panel_fusing_current_base.cpp:22-29, 46). Ours were independent rows,
+          so the plain labels sat at x=246 and the radio ones at 279. */}
+      <div className="fc-grid">
+        <span />
+        <span className="calc-field-label">Ambient temperature:</span>
+        <input
+          className="calc-input"
+          value={ambient}
+          spellCheck={false}
+          onChange={(e) => setAmbient(e.target.value)}
         />
+        <span className="calc-unit">°C</span>
+
+        <span />
+        <span className="calc-field-label" title="Copper">
+          Melting point:
+        </span>
+        <input
+          className="calc-input"
+          value={melting}
+          spellCheck={false}
+          onChange={(e) => setMelting(e.target.value)}
+        />
+        <span className="calc-unit">°C</span>
+
         <LenRow
           label="Track width:"
           solveFor="width"
@@ -175,6 +194,7 @@ export function PanelFusingCurrent(): JSX.Element {
           onText={setWidth}
           unitIdx={widthUnit}
           setUnitIdx={setWidthUnit}
+          units={LEN_UNITS}
         />
         <LenRow
           label="Track thickness:"
@@ -185,6 +205,7 @@ export function PanelFusingCurrent(): JSX.Element {
           onText={setThickness}
           unitIdx={thicknessUnit}
           setUnitIdx={setThicknessUnit}
+          units={THICK_UNITS}
         />
         <NumRow
           label="Current:"
@@ -204,19 +225,21 @@ export function PanelFusingCurrent(): JSX.Element {
           onValue={setTime}
           unit="s"
         />
-        <div style={{ marginTop: 8 }}>
-          <button type="button" className="calc-btn" onClick={calculate}>
-            Calculate
-          </button>
-        </div>
+      </div>
+      {/* bSizer3: the button with wxBOTTOM|wxRIGHT|wxLEFT 5 inside a sizer
+          added with wxTOP|wxBOTTOM 10 (base:126-133). */}
+      <div style={{ margin: '10px 0' /* [data] bSizer3's wxTOP|wxBOTTOM 10 */, paddingLeft: 5 }}>
+        <button type="button" className="calc-btn" onClick={calculate}>
+          Calculate
+        </button>
         {error && <div className="calc-error">{error}</div>}
         {comment && <div className="calc-note">{comment}</div>}
       </div>
 
       {/* m_helpSizer's HTML_WINDOW, showing `fusing_current_help.md`. */}
-      <fieldset className="calc-group fc-help">
+      <fieldset className="calc-group calc-help fc-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <p>
             You can use this calculator to check if a small track can handle a large current for a
             short period of time.

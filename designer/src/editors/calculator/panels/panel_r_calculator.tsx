@@ -157,9 +157,9 @@ export function PanelRCalculator(): JSX.Element {
       {/* sbLowerSizerEseriesHelp holds an HTML_WINDOW showing
           `r_calculator_help.md` through ConvertMarkdown2Html. The text below is
           that file, line for line. */}
-      <fieldset className="calc-group rc-help">
+      <fieldset className="calc-group calc-help rc-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <ul>
             <li>
               This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to

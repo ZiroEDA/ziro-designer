@@ -10,6 +10,15 @@
  *
  * KiCad's lists are `"<value> \t<name>"` strings and the caller takes
  * `.BeforeFirst( ' ' )`, so a row shows both halves and the answer is the value.
+ *
+ * DELIBERATE DIVERGENCE (Akshay, 2026-08-20). Upstream renders that string as
+ * one label, so GTK advances the embedded tab to Pango's next default tab stop
+ * and the name column lands wherever the value's own width leaves it: in
+ * `StandardResistivityList()` the six-character values (2.4e-8, 6.9e-8, 3.9e-8)
+ * stop one place short of the seven-character ones (1.72e-8, 12.4e-8), so the
+ * real dialog is ragged. We split the row at the tab and give the list a real
+ * two-column grid instead, so every name starts at the same x. This is the one
+ * place in the launcher where we knowingly look better than the binary.
  */
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -38,6 +47,9 @@ export function SingleChoiceDialog({
 }): JSX.Element {
   const [index, setIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  // Two columns only when every row actually carries the tab; "Remove
+  // Regulator" passes bare names and must stay a plain list.
+  const columns = choices.length > 0 && choices.every((c) => c.label.includes('\t'));
 
   useModalEscape(() => onResult(null));
   useEffect(() => {
@@ -55,7 +67,7 @@ export function SingleChoiceDialog({
           {/* biome-ignore lint/a11y/noNoninteractiveTabindex: the list IS the control. */}
           <div
             ref={listRef}
-            className="ze-choicedlg-list"
+            className={`ze-choicedlg-list${columns ? ' cols' : ''}`}
             role="listbox"
             tabIndex={0}
             aria-label={caption}
@@ -72,26 +84,42 @@ export function SingleChoiceDialog({
               }
             }}
           >
-            {choices.map((c, i) => (
-              // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns the keys.
-              <div
-                key={c.value + c.label}
-                role="option"
-                aria-selected={i === index}
-                className={`ze-choicedlg-item${i === index ? ' selected' : ''}`}
-                onClick={() => setIndex(i)}
-                onDoubleClick={() => accept(i)}
-              >
-                {c.label}
-              </div>
-            ))}
+            {choices.map((c, i) => {
+              // The tab is the column break KiCad wrote into the string.
+              const tab = c.label.indexOf('\t');
+              const head = tab < 0 ? c.label : c.label.slice(0, tab).trimEnd();
+              const tail = tab < 0 ? '' : c.label.slice(tab + 1);
+              return (
+                // biome-ignore lint/a11y/useKeyWithClickEvents: the listbox owns the keys.
+                <div
+                  key={c.value + c.label}
+                  role="option"
+                  aria-selected={i === index}
+                  className={`ze-choicedlg-item${i === index ? ' selected' : ''}${
+                    columns ? ' cols' : ''
+                  }`}
+                  onClick={() => setIndex(i)}
+                  onDoubleClick={() => accept(i)}
+                >
+                  {columns ? (
+                    <>
+                      <span>{head}</span>
+                      <span>{tail}</span>
+                    </>
+                  ) : (
+                    c.label
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div className="ze-msgdlg-buttons">
+        {/* wxStdDialogButtonSizer, not the message dialog's split bar. */}
+        <div className="ze-choicedlg-buttons">
           <button type="button" className="ze-btn" onClick={() => onResult(null)}>
             Cancel
           </button>
-          <button type="button" className="ze-btn primary" onClick={() => accept(index)}>
+          <button type="button" className="ze-btn" onClick={() => accept(index)}>
             {OK_LABEL}
           </button>
         </div>

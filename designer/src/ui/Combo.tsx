@@ -101,6 +101,12 @@ export function Combo({
     };
   }, [open]);
 
+  // An EMPTY wxChoice does not open. GTK drops the popup only when the model
+  // has rows, so clicking a choice with nothing in it - the Regulators
+  // selector before a data file is loaded - does nothing at all. Ours opened
+  // an empty box.
+  const canOpen = options.length > 0;
+
   const step = (delta: number): void => {
     for (let i = index + delta; i >= 0 && i < options.length; i += delta) {
       const o = options[i];
@@ -125,7 +131,8 @@ export function Combo({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        data-empty={canOpen ? undefined : ''}
+        onClick={() => setOpen((v) => canOpen && !v)}
         onKeyDown={(e) => {
           // wxChoice answers the arrows without opening; Enter/Space opens.
           if (e.key === 'ArrowDown') {
@@ -136,11 +143,22 @@ export function Combo({
             step(-1);
           } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setOpen(true);
+            if (canOpen) setOpen(true);
           }
         }}
       >
-        <span className="ze-combo-value">{selected?.label ?? ''}</span>
+        {/* A wxChoice takes its width from the WIDEST entry in its model, not
+            from the selection - which is why an empty one is still as wide as
+            its list would be and why KiCad's "mm" selector is 94 px, not 58.
+            The ghosts are laid over the shown value and only set the width. */}
+        <span className="ze-combo-value">
+          <span className="ze-combo-shown">{selected?.label ?? ''}</span>
+          {options.map((o) => (
+            <span key={o.value} className="ze-combo-ghost" aria-hidden="true">
+              {o.label}
+            </span>
+          ))}
+        </span>
         <span className="twisty expandable ze-combo-arrow" />
       </button>
       {open && box && (

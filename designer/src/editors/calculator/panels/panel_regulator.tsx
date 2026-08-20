@@ -13,7 +13,9 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
-  BUILTIN_REGULATORS,
+  formatRegulatorDataFile,
+  parseRegulatorDataFile,
+  REGULATOR_DATA_FILE_EXT,
   type RegulatorData,
   RegulatorSolve,
   RegulatorType,
@@ -46,8 +48,6 @@ interface Stored {
   selected: string;
 }
 
-const DEFAULT_REG = BUILTIN_REGULATORS[0]!;
-
 function loadRegulators(): Stored {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -58,7 +58,10 @@ function loadRegulators(): Stored {
   } catch {
     /* fresh defaults */
   }
-  return { regulators: [...BUILTIN_REGULATORS], selected: DEFAULT_REG.name };
+  // KiCad ships NO regulators: `REGULATOR_LIST` is empty until the user loads
+  // a data file or presses Add Regulator, which is why the selector opens
+  // blank and Edit/Remove open disabled (panel_regulator.cpp:47, 141).
+  return { regulators: [], selected: '' };
 }
 
 function saveRegulators(s: Stored): void {
@@ -69,46 +72,28 @@ function saveRegulators(s: Stored): void {
   }
 }
 
-/** Divider schematic like the KiCad panel drawing. */
+// KiCad's own dark-theme artwork (GPL), vendored under assets/ — the panel
+// shows `BITMAPS::regul_3pins` or `BITMAPS::regul` at its natural 295x265 /
+// 295x220 size (panel_regulator.cpp:104-113, panel_regulator_base.cpp:44-49).
+const REGUL_ART = import.meta.glob('../../../assets/calculator/*.svg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+const artUrl = (name: string): string | undefined =>
+  REGUL_ART[`../../../assets/calculator/${name}.svg`];
+
+/** wxStaticBitmap m_bitmapRegul3pins / m_bitmapRegul4pins. */
 function RegulatorDrawing({ type }: { type: RegulatorType }): JSX.Element {
   const three = type === RegulatorType.THREE_TERMINAL;
   return (
-    <svg className="calc-svg" width="330" height="264" viewBox="0 0 300 240">
-      <g stroke="#4a86c5" fill="none" strokeWidth="1.5">
-        <rect x="70" y="30" width="120" height="80" />
-        <circle cx="20" cy="40" r="4" />
-        <line x1="24" y1="40" x2="70" y2="40" />
-        <line x1="190" y1="40" x2="250" y2="40" />
-        <circle cx="254" cy="40" r="4" />
-        <line x1="130" y1="110" x2="130" y2="130" />
-        <line x1="130" y1="130" x2="215" y2="130" />
-        <line x1="215" y1="40" x2="215" y2="55" />
-        <path d="M215 55 l6 5 l-12 8 l12 8 l-12 8 l12 8 l-6 5" />
-        <line x1="215" y1="97" x2="215" y2="155" />
-        <path d="M215 155 l6 5 l-12 8 l12 8 l-12 8 l12 8 l-6 5" />
-        <line x1="215" y1="197" x2="215" y2="210" />
-        <line x1="200" y1="210" x2="230" y2="210" />
-        <line x1="206" y1="215" x2="224" y2="215" />
-        <line x1="212" y1="220" x2="218" y2="220" />
-      </g>
-      <g fill="#e6e6e6" fontSize="13" fontFamily="system-ui">
-        <text x="80" y="52">
-          Vin
-        </text>
-        <text x="150" y="52">
-          Vout
-        </text>
-        <text x="112" y="102">
-          {three ? 'ADJ' : 'FB'}
-        </text>
-        <text x="232" y="80">
-          R1
-        </text>
-        <text x="232" y="180">
-          R2
-        </text>
-      </g>
-    </svg>
+    <img
+      className="calc-art"
+      src={artUrl(three ? 'regul_3pins' : 'regul')}
+      alt=""
+      width={295}
+      height={three ? 265 : 220}
+    />
   );
 }
 
@@ -124,16 +109,39 @@ interface RegForm {
   iadjMax: string;
 }
 
-const formFrom = (r: RegulatorData | null): RegForm => ({
-  original: r?.name ?? null,
-  name: r?.name ?? '',
-  type: r?.type ?? RegulatorType.THREE_TERMINAL,
-  vrefMin: String(r?.vrefMin ?? 1.2),
-  vrefTyp: String(r?.vrefTyp ?? 1.25),
-  vrefMax: String(r?.vrefMax ?? 1.3),
-  iadjTyp: String((r?.iadjTyp ?? 50e-6) * 1e6),
-  iadjMax: String((r?.iadjMax ?? 100e-6) * 1e6),
-});
+/** `%.3g`, which is what CopyRegulatorDataToDialog prints
+ *  (dialog_regulator_form.cpp:113-125). */
+const g3 = (v: number): string => printfG(Number(v.toPrecision(3)));
+
+/**
+ * DIALOG_REGULATOR_FORM opens with EVERY field empty and the type choice on
+ * index 0, Standard Type (dialog_regulator_form_base.cpp:31-67 - every
+ * wxTextCtrl is constructed with wxEmptyString - and :65 SetSelection( 0 )).
+ * Only CopyRegulatorDataToDialog fills them, when editing.
+ */
+const formFrom = (r: RegulatorData | null): RegForm =>
+  r
+    ? {
+        original: r.name,
+        name: r.name,
+        type: r.type,
+        vrefMin: g3(r.vrefMin),
+        vrefTyp: g3(r.vrefTyp),
+        vrefMax: g3(r.vrefMax),
+        // KiCad holds Iadj in microamps and prints the field verbatim.
+        iadjTyp: g3(r.iadjTyp * 1e6),
+        iadjMax: g3(r.iadjMax * 1e6),
+      }
+    : {
+        original: null,
+        name: '',
+        type: RegulatorType.STANDARD,
+        vrefMin: '',
+        vrefTyp: '',
+        vrefMax: '',
+        iadjTyp: '',
+        iadjMax: '',
+      };
 
 /** KiCad PANEL_REGULATOR::round_to + "%g" display (default step 0.001). */
 const roundTo = (v: number, precision = 0.001): string =>
@@ -315,29 +323,29 @@ export function PanelRegulator(): JSX.Element {
     copyText(comment);
   };
 
+  // PANEL_REGULATOR::WriteDataFile (datafile_read_write.cpp:91-113).
   const exportData = (): void => {
-    const blob = new Blob([JSON.stringify(store.regulators, null, 2)], {
-      type: 'application/json',
+    const blob = new Blob([formatRegulatorDataFile(store.regulators, 'pcb_calculator (ZiroEDA)')], {
+      type: 'text/plain',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'regulators.json';
+    a.download = `regulators.${REGULATOR_DATA_FILE_EXT}`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  // PANEL_REGULATOR::OnDataFileSelection then ReadDataFile
+  // (panel_regulator.cpp:186-235, datafile_read_write.cpp:50-88): the file is a
+  // `.pcbcalc` s-expression, the list it holds REPLACES the current one, and a
+  // file that will not parse raises "Unable to read data file '%s'.".
   const importData = (file: File): void => {
     void file.text().then((txt) => {
       try {
-        const parsed = JSON.parse(txt) as RegulatorData[];
-        if (!Array.isArray(parsed) || !parsed.length) throw new Error('empty');
-        const clean = parsed.filter(
-          (r) => typeof r.name === 'string' && Number.isFinite(r.vrefTyp),
-        );
-        if (!clean.length) throw new Error('no valid entries');
-        setStore({ regulators: clean, selected: clean[0]!.name });
-        applyRegulator(clean[0]!);
+        const parsed = parseRegulatorDataFile(txt);
+        setStore({ regulators: parsed, selected: parsed[0]?.name ?? '' });
+        if (parsed[0]) applyRegulator(parsed[0]);
         setDataFileName(file.name);
       } catch {
         setNotice(`Unable to read data file '${file.name}'.`);
@@ -357,9 +365,9 @@ export function PanelRegulator(): JSX.Element {
     <>
       <input type="radio" name="reg-solve" checked={solve === id} onChange={() => setSolve(id)} />
       <span className="reg-label">{label}</span>
-      <input className="calc-input ro" readOnly value={min} />
+      <input className="calc-input ro light" readOnly value={min} />
       <input className="calc-input" value={typ} onChange={(e) => setTyp(e.target.value)} />
-      <input className="calc-input ro" readOnly value={max} />
+      <input className="calc-input ro light" readOnly value={max} />
       <span className="calc-unit">{unit}</span>
     </>
   );
@@ -367,19 +375,26 @@ export function PanelRegulator(): JSX.Element {
   const formCell = (key: keyof RegForm): JSX.Element => (
     <input
       className="calc-input"
-      style={{ width: 90 }}
+      style={{ width: 96 }}
       value={String(form?.[key] ?? '')}
       onChange={(e) => setForm((f) => (f ? { ...f, [key]: e.target.value } : f))}
     />
   );
 
   return (
-    <div>
+    <div className="calc-page-body">
       <div className="calc-row">
         {/* bSizeLeftpReg: fixed 400px column; the Type choice stretches
             across it (proportion 1), the drawing centres, and the Formula
             box expands to the column width. */}
-        <div className="calc-col" style={{ flex: '0 0 400px', width: 400, minWidth: 400 }}>
+        <div
+          className="calc-col"
+          style={{
+            flex: '0 0 390px' /* [px] bSizeLeftpReg's 400 less the row's own 5 each side */,
+            width: 390,
+            minWidth: 390,
+          }}
+        >
           <div className="calc-field">
             <span title={TIP_TYPE}>Type:</span>
             <Combo
@@ -393,7 +408,14 @@ export function PanelRegulator(): JSX.Element {
               onChange={(v) => setType(Number(v) as RegulatorType)}
             />
           </div>
-          <div style={{ alignSelf: 'center', margin: '10px 0' }}>
+          {/* a 10 px spacer, then the bitmap with a 10 px border all round
+              and centred horizontally (panel_regulator_base.cpp:42-49). */}
+          <div
+            style={{
+              alignSelf: 'center',
+              margin: '20px 0' /* [data] a 10 px spacer plus the bitmap's wxALL 10 */,
+            }}
+          >
             <RegulatorDrawing type={type} />
           </div>
           <Group title="Formula">
@@ -415,10 +437,10 @@ export function PanelRegulator(): JSX.Element {
                 style={{ flex: 1 }}
                 ariaLabel="Regulator"
                 value={store.selected}
-                options={[
-                  { value: '', label: '' },
-                  ...store.regulators.map((r) => ({ value: r.name, label: r.name })),
-                ]}
+                /* m_choiceRegulatorSelector holds the list and nothing else —
+                   `Append( m_RegulatorList.GetRegList() )` (panel_regulator.cpp:47),
+                   so there is no blank entry above it. */
+                options={store.regulators.map((r) => ({ value: r.name, label: r.name }))}
                 onChange={(v) => {
                   const reg = store.regulators.find((r) => r.name === v);
                   setStore((st) => ({ ...st, selected: v }));
@@ -443,7 +465,7 @@ export function PanelRegulator(): JSX.Element {
               <input
                 ref={fileRef}
                 type="file"
-                accept="application/json,.json"
+                accept={`.${REGULATOR_DATA_FILE_EXT}`}
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -545,9 +567,9 @@ export function PanelRegulator(): JSX.Element {
 
             <span />
             <span className="reg-label">Overall tolerance:</span>
-            <input className="calc-input ro" readOnly value={tolMin} />
+            <input className="calc-input ro light" readOnly value={tolMin} />
             <span />
-            <input className="calc-input ro" readOnly value={tolMax} />
+            <input className="calc-input ro light" readOnly value={tolMax} />
             <span className="calc-unit">%</span>
           </div>
 
@@ -565,7 +587,7 @@ export function PanelRegulator(): JSX.Element {
           <div className="calc-field">
             <span>Power Comment:</span>
             <input
-              className="calc-input ro"
+              className="calc-input ro light"
               style={{ width: 200, textAlign: 'center' }}
               readOnly
               value={comment}
@@ -593,9 +615,11 @@ export function PanelRegulator(): JSX.Element {
         </div>
       </div>
 
-      {/* KiCad: the right column stretches over the remaining window, and
-          Reset to Defaults floats to its far bottom-right corner. */}
-      <div style={{ marginTop: 48, display: 'flex', justifyContent: 'flex-end' }}>
+      {/* bSizerRegulRight ends with `Add( 0, 0, 1, wxEXPAND )` — a stretch
+          spacer — and only then the button, with wxALIGN_RIGHT and a 10 px
+          top/bottom/right border (panel_regulator_base.cpp:364-367). So Reset
+          sits at the BOTTOM of the frame, not under Calculate. */}
+      <div className="calc-reset-row">
         <button type="button" className="calc-btn" onClick={resetDefaults}>
           Reset to Defaults
         </button>
@@ -613,12 +637,11 @@ export function PanelRegulator(): JSX.Element {
               <button type="button" className="calc-btn" onClick={() => setForm(null)}>
                 Cancel
               </button>
-              <button
-                type="button"
-                className="calc-btn"
-                disabled={!formValid(form)}
-                onClick={saveForm}
-              >
+              {/* KiCad's OK is never disabled: TransferDataFromWindow just
+                  returns false and the dialog stays open, saying nothing
+                  (dialog_regulator_form.cpp:48-93). Ours greyed it out, which
+                  tells the user something upstream does not. */}
+              <button type="button" className="calc-btn" onClick={saveForm}>
                 OK
               </button>
             </>
@@ -629,7 +652,7 @@ export function PanelRegulator(): JSX.Element {
             <span>
               <input
                 className="calc-input"
-                style={{ width: 286 }}
+                style={{ width: 310 }}
                 disabled={form.original != null}
                 value={form.name}
                 onChange={(e) => setForm((f) => (f ? { ...f, name: e.target.value } : f))}
@@ -664,7 +687,7 @@ export function PanelRegulator(): JSX.Element {
             {form.type === RegulatorType.THREE_TERMINAL && (
               <>
                 <span>Iadj (typ/max):</span>
-                <span className="reg-form-triple">
+                <span className="reg-form-triple iadj">
                   {formCell('iadjTyp')}
                   {formCell('iadjMax')}
                 </span>

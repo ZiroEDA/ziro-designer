@@ -14,7 +14,11 @@ import {
   STANDARD_EPSILON_R_LIST,
   STANDARD_RESISTIVITY_LIST,
   colorCode,
+  CORROSION_COLOR_OK,
+  CORROSION_COLOR_SAME,
+  corrosionCellColour,
   corrosionDeltaV,
+  corrosionInk,
   corrosionSignedDeltaV,
 } from '@ziroeda/pcb_calculator';
 
@@ -188,5 +192,67 @@ describe('the ... pick-lists are common_data.cpp verbatim', () => {
     expect(STANDARD_RESISTIVITY_LIST).toHaveLength(10);
     expect(STANDARD_EPSILON_R_LIST).toHaveLength(17);
     expect(STANDARD_EPSILON_R_LIST[0]).toStrictEqual({ value: '4.5', name: 'FR4' });
+  });
+});
+
+/**
+ * The cell FILL and the cell INK, `fillTable` and `getContrastingTextColour`
+ * (panel_galvanic_corrosion.cpp:29-38, 366-388).
+ *
+ * These were in the React panel and nothing tested either, which is exactly how
+ * the ink came to use the wrong luminance standard: fixing it from BT.601 to
+ * BT.709 moved ZERO existing expectations. That silence was the finding, so the
+ * behaviour moved into the engine and is pinned here.
+ */
+describe('galvanic corrosion cell colours, as fillTable paints them', () => {
+  it('gives an equal pair the fixed light blue, whatever the threshold', () => {
+    expect(corrosionCellColour(0, 0)).toStrictEqual(CORROSION_COLOR_SAME);
+    expect(corrosionCellColour(0, 5000)).toStrictEqual(CORROSION_COLOR_SAME);
+  });
+
+  it('gives a pair inside the threshold the flat color_ok', () => {
+    // 300 mV against a 300 mV threshold: the comparison is strictly
+    // greater-than, so the boundary itself is still "ok".
+    expect(corrosionCellColour(0.3, 300)).toStrictEqual(CORROSION_COLOR_OK);
+    expect(corrosionCellColour(-0.3, 300)).toStrictEqual(CORROSION_COLOR_OK);
+    // one millivolt past it and the ramp takes over.
+    expect(corrosionCellColour(0.301, 300)).not.toStrictEqual(CORROSION_COLOR_OK);
+  });
+
+  it('runs a COLD ramp for a positive difference and a WARM one for a negative', () => {
+    // 226 - round(0.5 * 99) = 226 - 50, and blue is 246 - 50.
+    expect(corrosionCellColour(0.5, 0)).toStrictEqual([176, 176, 196]);
+    // the warm ramp starts from 255 / 222 / 199, so it is not the same curve
+    // mirrored - a sign error here would still produce a plausible gradient.
+    expect(corrosionCellColour(-0.5, 0)).toStrictEqual([205, 172, 149]);
+  });
+
+  it('picks ink by ITU-R BT.709, and BT.601 at the same cut would differ here', () => {
+    // The coefficients only separate on a narrow band, so a test has to land in
+    // it deliberately. Along the warm ramp the two luminances are
+    //   L601 = 229.2 - t   and   L709 = 227.4 - t
+    // so they straddle a cut of 140 for t = 88 alone. That is the cell for an
+    // 0.888 V pair, rgb(167,134,111): BT.709 reads 139.35 and paints WHITE,
+    // BT.601 reads 141.24 and would paint BLACK.
+    expect(corrosionCellColour(-0.888, 0)).toStrictEqual([167, 134, 111]);
+    expect(corrosionInk(167, 134, 111)).toBe('#ffffff');
+
+    // The cold ramp has its own such cell, rgb(138,138,158) — L709 139.45,
+    // L601 140.28 — so the check is not resting on one hand-picked triple.
+    expect(corrosionCellColour(0.888, 0)).toStrictEqual([138, 138, 158]);
+    expect(corrosionInk(138, 138, 158)).toBe('#ffffff');
+  });
+
+  it('cuts BELOW 140, and 128 would be the wrong cut', () => {
+    // a grey of 140 is 140.0 by BT.709 exactly; `< 140` is false, so black.
+    expect(corrosionInk(140, 140, 140)).toBe('#000000');
+    expect(corrosionInk(139, 139, 139)).toBe('#ffffff');
+    // rgb(156,123,100), the 1.0 V warm cell, is 128.4 — white at a cut of 140
+    // and black at a cut of 128, which is what pins the number itself.
+    expect(corrosionCellColour(-1.0, 0)).toStrictEqual([156, 123, 100]);
+    expect(corrosionInk(156, 123, 100)).toBe('#ffffff');
+    // and two cases every candidate agrees on, so this is not only edges.
+    expect(corrosionInk(...CORROSION_COLOR_SAME)).toBe('#000000');
+    expect(corrosionInk(...CORROSION_COLOR_OK)).toBe('#000000');
   });
 });

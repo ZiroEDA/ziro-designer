@@ -9,6 +9,7 @@
 export * from './format.js';
 export * from './eseries.js';
 export * from './resistor_substitution_utils.js';
+export * from './regulator_datafile.js';
 export * from './regulators_funct.js';
 export * from './tracks_width_versus_current_formula.js';
 export * from './via_size.js';
@@ -35,6 +36,9 @@ export {
   coplanarSoldermaskDeltaQ,
   microstripSoldermaskDeltaQ,
   wanHoorfarQ2,
+  // TRANSLINE::calcUnitPropagationDelay (transline.cpp:443) — the panel's
+  // "Unit propagation delay:" row, which was never rendered.
+  unitPropagationDelay,
 } from './transline/tc_common.js';
 export * from './transline/microstrip.js';
 export * from './transline/c_microstrip.js';

@@ -100,3 +100,51 @@ export const toCssColor = (c: Color4d, separator = ','): string => {
   const rgb = [r, g, b].join(separator);
   return c.a >= 1 ? `rgb(${rgb})` : `rgba(${rgb}${separator}${c.a})`;
 };
+
+/** An 8-bit RGB triple, the range `wxColour` works in. */
+export type Rgb8 = readonly [number, number, number];
+
+/**
+ * `wxColourBase::AlphaBlend`, src/common/colourcmn.cpp: the blend is done in
+ * doubles and the result is TRUNCATED by the cast to `unsigned char`, not
+ * rounded. That one detail is why `ChangeLightness( 78 )` of skyblue's green
+ * channel is 160 and not 161 — 206 * 0.78 = 160.68.
+ */
+const alphaBlend = (fg: number, bg: number, alpha: number): number =>
+  Math.trunc(Math.max(0, Math.min(255, bg + alpha * (fg - bg))));
+
+/**
+ * `wxColourBase::ChangeLightness`, src/common/colourcmn.cpp.
+ *
+ * `ialpha` runs 0..200 with 100 meaning "unchanged": below 100 the colour is
+ * blended toward black, above 100 toward white by the COMPLEMENT
+ * (`200 - ialpha`), so 125 lands a quarter of the way to white and 40 keeps
+ * two fifths of the original.
+ *
+ * KiCad leans on this in several places that must agree with each other — the
+ * four BITMAP_BUTTON states are `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness()` at
+ * 40/50/20 (bitmap_button.cpp:270-310), and the E-series display darkens its
+ * seven column colours by 78 and alternates every merged block at 125
+ * (panel_eseries_display.cpp:120-146). It lives here so there is one of it.
+ */
+export const changeLightness = (rgb: Rgb8, ialpha: number): Rgb8 => {
+  if (ialpha === 100) return rgb;
+  const toWhite = ialpha > 100;
+  const bg = toWhite ? 255 : 0;
+  const alpha = (toWhite ? 200 - ialpha : ialpha) / 100;
+  return [
+    alphaBlend(rgb[0], bg, alpha),
+    alphaBlend(rgb[1], bg, alpha),
+    alphaBlend(rgb[2], bg, alpha),
+  ];
+};
+
+/** `wxColour( 0xBBGGRR )` — the byte order the E-series table is written in. */
+export const rgbFromBgrHex = (bgr: number): Rgb8 => [
+  bgr & 0xff,
+  (bgr >> 8) & 0xff,
+  (bgr >> 16) & 0xff,
+];
+
+/** An `Rgb8` as CSS. */
+export const rgb8ToCss = (c: Rgb8): string => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;

@@ -121,7 +121,7 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const BASELINE: Record<string, { colours: number; metrics: number }> = {
   auth: { colours: 4, metrics: 0 },
   dialogs: { colours: 5, metrics: 35 },
-  'editors/calculator': { colours: 49, metrics: 28 },
+  'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 1 },
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 35, metrics: 23 },
@@ -138,7 +138,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   render: { colours: 4, metrics: 0 },
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
-  ui: { colours: 357, metrics: 848 },
+  ui: { colours: 357, metrics: 847 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -338,12 +338,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('842 colour literals and 1,738 chrome metrics, tree-wide', () => {
-    // 844 until the three BITMAP_BUTTON fills became one --accent-fill-* token.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(842);
-    // 1738 until the toolbar's six literals became --toolbar-icon-size and a
-    // derivation (icon + 2 * pad), per action_toolbar.cpp:141.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1734);
+  it('795 colour literals and 1,723 chrome metrics, tree-wide', () => {
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(795);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1723);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

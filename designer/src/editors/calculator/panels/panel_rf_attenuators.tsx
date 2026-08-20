@@ -10,122 +10,39 @@ import { useMemo, useState, type JSX } from 'react';
 import { ATTENUATORS, AttenuatorType, calculateAttenuator, printfG } from '@ziroeda/pcb_calculator';
 import { Field, Group, parseNum } from '../fields.js';
 
-/** Simple schematic sketch per topology. */
-function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
-  const res = (x: number, y: number, vertical: boolean, label: string): JSX.Element => (
-    <g key={label}>
-      {vertical ? (
-        <path
-          d={`M${x} ${y} l5 4 l-10 7 l10 7 l-10 7 l10 7 l-5 4`}
-          stroke="#4a86c5"
-          fill="none"
-          strokeWidth="1.5"
-        />
-      ) : (
-        <path
-          d={`M${x} ${y} l4 -5 l7 10 l7 -10 l7 10 l7 -10 l4 5`}
-          stroke="#4a86c5"
-          fill="none"
-          strokeWidth="1.5"
-        />
-      )}
-      <text
-        x={vertical ? x + 10 : x + 12}
-        y={vertical ? y + 22 : y - 10}
-        fill="#e6e6e6"
-        fontSize="12"
-      >
-        {label}
-      </text>
-    </g>
-  );
-  const wire = (x1: number, y1: number, x2: number, y2: number, i: number): JSX.Element => (
-    <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#4a86c5" strokeWidth="1.5" />
-  );
-  const gnd = (x: number, y: number, i: number): JSX.Element => (
-    <g key={`g${i}`} stroke="#4a86c5" strokeWidth="1.5">
-      <line x1={x - 10} y1={y} x2={x + 10} y2={y} />
-      <line x1={x - 6} y1={y + 4} x2={x + 6} y2={y + 4} />
-      <line x1={x - 2} y1={y + 8} x2={x + 2} y2={y + 8} />
-    </g>
-  );
-
-  switch (type) {
-    case AttenuatorType.PI:
-      return (
-        <svg width="320" height="150" className="calc-svg">
-          {wire(10, 40, 90, 40, 0)}
-          {res(90, 35, false, 'R2')}
-          {wire(126, 40, 310, 40, 1)}
-          {wire(60, 40, 60, 60, 2)}
-          {res(55, 60, true, 'R1')}
-          {wire(60, 96, 60, 115, 3)}
-          {gnd(60, 115, 0)}
-          {wire(250, 40, 250, 60, 4)}
-          {res(245, 60, true, 'R3')}
-          {wire(250, 96, 250, 115, 5)}
-          {gnd(250, 115, 1)}
-        </svg>
-      );
-    case AttenuatorType.TEE:
-      return (
-        <svg width="320" height="150" className="calc-svg">
-          {wire(10, 40, 60, 40, 0)}
-          {res(60, 35, false, 'R1')}
-          {wire(96, 40, 170, 40, 1)}
-          {res(170, 35, false, 'R3')}
-          {wire(206, 40, 310, 40, 2)}
-          {wire(150, 40, 150, 60, 3)}
-          {res(145, 60, true, 'R2')}
-          {wire(150, 96, 150, 115, 4)}
-          {gnd(150, 115, 0)}
-        </svg>
-      );
-    case AttenuatorType.BRIDGED_TEE:
-      return (
-        <svg width="320" height="190" className="calc-svg">
-          {wire(10, 70, 70, 70, 0)}
-          {wire(70, 70, 70, 30, 1)}
-          {wire(70, 30, 120, 30, 2)}
-          {res(120, 25, false, 'R1')}
-          {wire(156, 30, 210, 30, 3)}
-          {wire(210, 30, 210, 70, 4)}
-          {wire(70, 70, 100, 70, 5)}
-          {res(100, 65, false, 'Z0')}
-          {wire(136, 70, 150, 70, 6)}
-          {res(150, 65, false, 'Z0')}
-          {wire(186, 70, 210, 70, 7)}
-          {wire(210, 70, 310, 70, 8)}
-          {wire(143, 70, 143, 95, 9)}
-          {res(138, 95, true, 'R2')}
-          {wire(143, 131, 143, 150, 10)}
-          {gnd(143, 150, 0)}
-        </svg>
-      );
-    case AttenuatorType.SPLITTER:
-      return (
-        <svg width="320" height="150" className="calc-svg">
-          {wire(10, 70, 60, 70, 0)}
-          {res(60, 65, false, 'R1')}
-          {wire(96, 70, 130, 70, 1)}
-          {wire(130, 70, 130, 30, 2)}
-          {wire(130, 70, 130, 110, 3)}
-          {wire(130, 30, 160, 30, 4)}
-          {res(160, 25, false, 'R2')}
-          {wire(196, 30, 310, 30, 5)}
-          {wire(130, 110, 160, 110, 6)}
-          {res(160, 105, false, 'R3')}
-          {wire(196, 110, 310, 110, 7)}
-        </svg>
-      );
-  }
-}
+// KiCad's own dark-theme artwork (GPL), vendored under assets/.
+const ATT_ART = import.meta.glob('../../../assets/calculator/*.svg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 /**
- * The four `*_formula.md` files, rendered. `TransfAttenuatorDataToPanel` pushes
- * `m_FormulaName` through `ConvertMarkdown2Html` into the Formula pane
- * (panel_rf_attenuators.cpp:192-206).
+ * m_attenuatorBitmap: BITMAPS::att_pi / att_tee / att_bridge / att_splitter,
+ * whichever the selected topology carries (attenuator_classes.cpp), drawn 1:1
+ * at the size the PNG has. Ours was a redrawing missing the Zin / Zout
+ * terminals and their labels entirely.
  */
+const ATT_ART_NAME: Record<AttenuatorType, [string, number, number]> = {
+  [AttenuatorType.PI]: ['att_pi', 287, 159],
+  [AttenuatorType.TEE]: ['att_tee', 280, 147],
+  [AttenuatorType.BRIDGED_TEE]: ['att_bridge', 287, 257],
+  [AttenuatorType.SPLITTER]: ['att_splitter', 295, 121],
+};
+
+function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
+  const [name, w, h] = ATT_ART_NAME[type];
+  return (
+    <img
+      className="calc-art"
+      src={ATT_ART[`../../../assets/calculator/${name}.svg`]}
+      alt=""
+      width={w}
+      height={h}
+    />
+  );
+}
+
 function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
   const V = ({ children }: { children: React.ReactNode }): JSX.Element => (
     <b>
@@ -308,7 +225,7 @@ export function PanelRfAttenuators(): JSX.Element {
         <div className="calc-col" style={{ maxWidth: 300 }}>
           {/* A wxRadioBox — the title is the box's, not a static text
               (panel_rf_attenuators_base.cpp:26). */}
-          <Group title="Attenuators">
+          <Group title="Attenuators" className="calc-radiobox">
             {ATTENUATORS.map((a) => (
               <label key={a.type} className="calc-radio">
                 <input
@@ -326,8 +243,11 @@ export function PanelRfAttenuators(): JSX.Element {
           </Group>
           <AttenuatorDrawing type={type} />
         </div>
-        <div className="calc-col" style={{ maxWidth: 300 }}>
-          <Group title="Parameters">
+        {/* [px] KiCad's middle column runs x 533..777 - 244 px - and the unit
+            labels sit INSIDE the boxes at 757..772; ours were 300 px wide with
+            the units spilling out at 866..878, into the Formula pane. */}
+        <div className="calc-col rf-mid">
+          <Group title="Parameters" className="calc-grid3 rf-box">
             <Field
               label="Attenuation (a):"
               value={info.hasAttenuation ? atten : '6'}
@@ -357,14 +277,19 @@ export function PanelRfAttenuators(): JSX.Element {
                 wired to the same handler (panel_rf_attenuators.cpp:41). */}
             <button
               type="button"
-              className="calc-btn exactfit"
+              className="calc-btn calc-bmp"
               aria-label="Calculate"
               onClick={calculate}
             >
-              ↓
+              <img
+                src={ATT_ART['../../../assets/calculator/small_down.svg']}
+                alt=""
+                width={16}
+                height={16}
+              />
             </button>
           </div>
-          <Group title="Values">
+          <Group title="Values" className="calc-grid3 rf-box">
             {info.resistorLabels.map((label, i) => (
               <Field
                 key={label}
@@ -380,7 +305,12 @@ export function PanelRfAttenuators(): JSX.Element {
           {/* m_staticTextAttMsg is a plain label ABOVE the message area, not a
               static box (panel_rf_attenuators_base.cpp:164). */}
           <div className="rf-messages-label">Messages</div>
-          <div className="rf-messages">
+          {/* m_Attenuator_Messages is an HTML_WINDOW (base:171) — the same
+              widget as every help pane — so it paints wxSYS_COLOUR_WINDOW,
+              rgb(39,39,39), not the frame's rgb(44,44,44). It said
+              `background: var(--chrome-bg)`, which is the frame colour
+              restated locally; now it consumes the shared rule. */}
+          <div className="calc-help-body rf-messages">
             {shown?.error && (
               <>
                 <br />
@@ -393,7 +323,12 @@ export function PanelRfAttenuators(): JSX.Element {
         </div>
         <fieldset className="calc-group rf-formula-box">
           <legend>Formula</legend>
-          <AttenuatorFormula type={type} />
+          {/* m_panelAttFormula is an HTML_WINDOW too (base:186), added
+              wxALL|wxEXPAND 5 so the box's own border shows the frame colour
+              around a darker window. Ours painted no fill at all. */}
+          <div className="calc-help-body rf-formula-window">
+            <AttenuatorFormula type={type} />
+          </div>
         </fieldset>
       </div>
     </div>

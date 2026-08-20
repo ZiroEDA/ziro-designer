@@ -229,27 +229,29 @@ function Select<T>({
  * drawn solid and the creepage dashed
  * (panel_electrical_spacing_iec60664_base.cpp, BITMAPS::iec60664insulation).
  */
+// KiCad's own dark-theme artwork (GPL), vendored under assets/.
+const ES_ART = import.meta.glob('../../../assets/calculator/*.svg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+/**
+ * m_creepageclearanceBitmap plus its legend
+ * (panel_electrical_spacing_iec60664_base.cpp:310-313). It is
+ * BITMAPS::creepage_clearance, drawn 1:1 at its natural 227x166; ours was a
+ * redrawing, smaller and differently shaped.
+ */
 function CreepageDrawing(): JSX.Element {
   return (
     <div className="es-iec-figure">
-      <svg viewBox="0 0 220 130" width="220" height="130" aria-hidden="true">
-        <g fill="#d0d0d0" stroke="#3a3a3a">
-          <path d="M14 62 L60 40 L104 40 L104 100 L58 122 L14 122 Z" />
-          <path d="M116 40 L162 18 L206 18 L206 78 L160 100 L116 100 Z" />
-        </g>
-        <g fill="#f5a623" stroke="#8a5a10">
-          <path d="M24 56 L62 38 L96 38 L96 56 L58 74 L24 74 Z" />
-          <path d="M126 34 L164 16 L198 16 L198 34 L160 52 L126 52 Z" />
-        </g>
-        <path d="M96 47 L126 43" stroke="#2f7fd0" strokeWidth="3" fill="none" />
-        <path
-          d="M96 60 L104 70 L116 70 L126 56"
-          stroke="#2f7fd0"
-          strokeWidth="3"
-          strokeDasharray="4 4"
-          fill="none"
-        />
-      </svg>
+      <img
+        className="calc-art"
+        src={ES_ART['../../../assets/calculator/creepage_clearance.svg']}
+        alt=""
+        width={227}
+        height={166}
+      />
       <div className="es-iec-legend">
         solid: clearance
         <br />
@@ -332,6 +334,7 @@ function PanelIec60664(): JSX.Element {
               title={TIP_IMPULSE}
               value={impulseKv < 0 ? 'Out of range' : fmt(impulseKv, 4)}
               readOnly
+              disabled
               unit="kV"
             />
           </div>
@@ -391,12 +394,22 @@ function PanelIec60664(): JSX.Element {
             />
           </div>
           <div className="es-iec-form">
-            <Field label="Clearance:" value={dist(result.clearanceMm)} readOnly unit="mm" />
-            <Field label="Creepage:" value={dist(result.creepageMm)} readOnly unit="mm" />
+            {/* m_clearance / m_creepage / m_minGrooveWidth are all
+                Enable( false ) (base:259, 273, 289), so GTK dims them; ours
+                drew them as ordinary bright entries. */}
+            <Field
+              label="Clearance:"
+              value={dist(result.clearanceMm)}
+              readOnly
+              disabled
+              unit="mm"
+            />
+            <Field label="Creepage:" value={dist(result.creepageMm)} readOnly disabled unit="mm" />
             <Field
               label="Min groove width:"
               value={dist(result.grooveWidthMm)}
               readOnly
+              disabled
               unit="mm"
             />
             <CreepageDrawing />
@@ -406,9 +419,9 @@ function PanelIec60664(): JSX.Element {
 
       {/* sbSizerHelp's HTML_WINDOW, showing `iec60664_help.md` through
           ConvertMarkdown2Html. Carried here line for line. */}
-      <fieldset className="calc-group es-iec-help">
+      <fieldset className="calc-group calc-help es-iec-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <p>
             The goal of the IEC60664-1 is to provide guidance on designing insulation for products
             that have a connection to mains supply.

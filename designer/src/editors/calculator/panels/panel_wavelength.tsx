@@ -198,13 +198,20 @@ export function PanelWavelength(): JSX.Element {
           spellCheck={false}
           onChange={(e) => setMedium(e.target.value, mur)}
         />
+        {/* `new wxButton( ..., _("..."), ..., 0 )` — style ZERO
+            (panel_wavelength_base.cpp:96). This is the ONLY "..." button in the
+            launcher without wxBU_EXACTFIT; Cable Size's two, Via Size's two and
+            Transmission Lines' three all have it. So it is a full-size wxButton
+            and takes wxButton's minimum width, not the 15 px an EXACTFIT one
+            shrinks to: [px] KiCad's runs x 522..606 = 85 while ours was 39.
+            Its label is three full stops, not the ellipsis character we used. */}
         <button
           type="button"
           className="calc-btn"
           aria-label="Relative Dielectric Constants"
           onClick={() => setPicking(true)}
         >
-          …
+          ...
         </button>
       </div>
 

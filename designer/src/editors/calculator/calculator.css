@@ -38,7 +38,8 @@
    rgb(24,24,24) rule at x=229, so 228 px of content. Rows repeat every 22 px
    starting at y=28. */
 .calc-tree {
-  width: 228px;
+  /* [px] the pane's 228 px of background plus its 1 px right rule at x=228. */
+  width: 229px; /* [px] 228 px of pane plus its 1 px right rule */
   flex: none;
   overflow-y: auto;
   background: var(--panel-bg);
@@ -56,7 +57,7 @@
 .calc-tree-item {
   display: flex;
   align-items: center;
-  height: 22px; /* [px] tree rows repeat every 22 px, measured above */
+  height: 22px; /* [px] a wxGrid row is 24 px including its rule */ /* [px] tree rows repeat every 22 px, measured above */
   cursor: default;
   white-space: nowrap;
 }
@@ -68,11 +69,15 @@
   gap: 12px; /* [px] group label ink starts at x=33 */
 }
 
-/* [px] the selection rectangle runs x=45..226 and the item label's ink starts
-   at x=48, inside a 228 px pane. */
+/* [px] a wxTreeCtrl item rectangle is the LABEL's rectangle, not the row's:
+   the selected "Regulators" bar runs x=45..122 against label ink at x=49..118,
+   i.e. the text plus 4 px each side, inside a 228 px pane. wxTR_FULL_ROW_HIGHLIGHT
+   is not set on the treebook's tree, so it must not span the pane. */
 .calc-tree-item {
-  margin: 0 2px 0 44px; /* [px] selection rect x=45..226 in a 228 px pane */
-  padding-left: 3px; /* [px] item label ink starts at x=48 */
+  width: fit-content;
+  max-width: calc(100% - 47px); /* [px] 45 margin + 2 padding */
+  margin: 0 2px 0 45px; /* [px] the bar starts at x=45 */
+  padding: 0 2px; /* [px] label ink at 49, bar at 45 */
 }
 
 .calc-tree-item:hover {
@@ -91,7 +96,13 @@
 .calc-panel {
   flex: 1;
   overflow: auto;
-  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) calc(var(--wx-border) * 8);
+  /* [px] the page area starts one pixel after the tree's right rule and its
+     first group box's frame sits 5 px below that (the sizer's own wxTOP 5), so
+     the top inset is ONE border, not two; the left is two (the book's 5 px
+     inset plus the row's own wxALL 5). Nothing at the bottom — each page's
+     last row carries its own border there, which is how Reset to Defaults
+     lands exactly 10 px above the frame's bottom edge. */
+  padding: var(--wx-border) calc(var(--wx-border) * 2) 0;
   /* A column, so a page whose bottom box is added with proportion 1 — the Help
      box on Resistor Calculator, the notes box on Wavelength — really does grow
      to the frame's bottom edge the way its wxSizer makes it. */
@@ -104,6 +115,83 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* A panel whose sizer ends in a stretch spacer: the body fills the page so
+   the trailing row really does land on the frame's bottom edge. */
+.calc-page-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+/* A wxFlexGridSizer( 0, 3, vgap, 0 ) with AddGrowableCol( 1 ): three columns,
+   the entry column taking the slack, so every entry in the box starts and ends
+   at the same x however long its label is. Ours were independent flex rows,
+   which left the entry column ragged (x 434, 450 and 470 on the same Via Size
+   panel) and every entry only as wide as its own row allowed.
+   The 10 px between columns and the 5 px at each edge are the items' own
+   wxLEFT|wxRIGHT 5, exactly as in a .calc-field row. */
+.calc-grid3 {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  row-gap: var(--calc-vgap, 4px); /* [px] wxFlexGridSizer vgap, per panel */
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 0 var(--wx-border);
+}
+
+.calc-grid3 > .calc-field,
+.calc-grid3 > .calc-result {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  column-gap: calc(var(--wx-border) * 2);
+}
+
+/* In a grid the column sizes itself; the 170 px floor is for the flex rows. */
+.calc-grid3 .calc-field-label {
+  min-width: 0;
+}
+
+/* AddGrowableCol( 1 ): the entry fills the column it is in, whatever the
+   labels leave. [px] a Via Size entry is 220 px wide; ours were 105. */
+.calc-grid3 .calc-input,
+.calc-grid3 .calc-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+/* One grid cell holding an entry and its `...`, the entry taking the slack
+   (proportion 1) and the button its own width. */
+.calc-cell {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--wx-border) * 2);
+}
+
+.calc-cell > .calc-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* [px] sbSizerVS_Inputs measures 520 px wide (x 240..760) on a 1854 px client
+   and the growable entry column takes what the labels and units leave, which
+   is what makes every entry 220 px. Ours shrink-wrapped to 416 and 105. */
+.vs-params {
+  width: 520px; /* [px] sbSizerVS_Inputs runs x 240..760 */
+}
+
+/* The `...` button beside a material field is wxBU_EXACTFIT, so it does NOT
+   get the 16 px text-button padding: [px] on Via Size it measures 15 px wide
+   (x 667..681). The selector has to beat .calc-btn's own, which is declared
+   later in this file. */
+.calc-btn.calc-pick {
+  padding: 0 2px; /* [px] wxBU_EXACTFIT: 15 px wide, x 667..681 */
+  min-width: 0;
 }
 
 .calc-row {
@@ -140,8 +228,14 @@
 .calc-field {
   display: flex;
   align-items: center;
-  gap: var(--wx-border);
+  /* wxFormBuilder gives every child of a horizontal wxBoxSizer its own 5 px
+     wxLEFT|wxRIGHT border, so the first item sits 5 px inside the row and two
+     neighbours are 10 px apart — [px] on Regulators the "Type:" label's box is
+     at x=244 inside a row at 239, and the choice starts at 291 against a label
+     that ends at 281. */
+  gap: calc(var(--wx-border) * 2);
   margin: var(--wx-border) 0;
+  padding: 0 var(--wx-border);
 }
 
 /* wxFormBuilder puts a label in its own flex-grid column and never sets
@@ -203,8 +297,15 @@ input.calc-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):
    read-only cell in panel_regulator_base.cpp does. [px] rgb(55,55,55) — the
    same face a button gets — with ordinary label ink. It was #2c2e33 with GREEN
    text, which KiCad has nowhere. */
+/* wxSYS_COLOUR_3DLIGHT is set on exactly TEN controls in the whole launcher:
+   the Regulators panel's six min/max cells, its two tolerance cells and its
+   Power Comment (panel_regulator_base.cpp:166-330). Every other read-only
+   wxTextCtrl - the Resistor Calculator's solutions and approximations, the
+   attenuator results, the IEC clearances - keeps the ORDINARY entry
+   background, which is darker. Ours painted all of them 3DLIGHT, which is what
+   Akshay saw as "boxes with the wrong colouring". */
 .calc-frame
-input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+input.calc-input.light:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
   [type="range"]
 ) {
   background: var(--ctl-face);
@@ -218,7 +319,14 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   border-color: var(--field-focus-border);
 }
 
-.calc-frame input.calc-input:disabled {
+/* Enable( false ) beats wxTE_READONLY: Track Width's Copper resistivity is
+   both, and GTK paints it as insensitive - [px] face rgb(42,42,42), dim ink -
+   not as the 3DLIGHT rgb(55,55,55) a read-only field gets. The selector has to
+   out-specify the .ro rule above. */
+.calc-frame
+input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+  [type="range"]
+) {
   opacity: 1;
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
@@ -255,14 +363,17 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   border-radius: var(--ctl-radius);
   box-shadow: 0 8px 30px rgb(0 0 0 / 50%);
   max-width: 92vw;
-  max-height: 88vh;
   display: flex;
   flex-direction: column;
 }
 
+/* A wxDialog's title is CENTRED in its title bar, with the window buttons at
+   the right - the same shape the frame's own MenuBar already uses. Ours pushed
+   the title to the left edge. */
 .calc-modal-head {
+  position: relative;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--ctl-border);
@@ -270,6 +381,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .calc-modal-x {
+  position: absolute;
+  right: 12px; /* [px] the close button's inset in a wxDialog title bar */
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--chrome-fg);
@@ -277,9 +392,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font: inherit;
 }
 
+/* `finishDialogSettings` fits a wxDialog to its sizer, so it never scrolls:
+   Akshay saw a scrollbar in ours where the binary has none. */
 .calc-modal-body {
   padding: 12px;
-  overflow: auto;
 }
 
 .calc-modal-foot {
@@ -330,31 +446,38 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
    PANEL's own background, and the text is absolute black. Ours were #22242899
    and #101215, which is why our boxes read as a table with borders where
    KiCad's read as separated tiles. */
-.es-grid {
+.eser-grid {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
 
-.es-grid th,
-.es-grid td {
+.eser-grid th,
+.eser-grid td {
   /* [data] SetGridLineColour( parent->GetBackgroundColour() ) */
   border: 1px solid var(--chrome-bg);
-  padding: 2px 10px;
+  /* `AutoSizeColumn` sizes a column to its widest extent plus wxGrid's own
+     margin, NOT to a number anybody wrote down: [px] KiCad's "E24" label inks
+     24 px inside a 34 px column, and its "-" separator column comes out 14. So
+     this width has to be derived too — the `min-width: 52px` pin that was here
+     made every column half as wide again as the binary's. Ours land ~2 px over
+     34 because Noto Sans' digits are ~6% wider than Ubuntu Sans'. */
+  padding: 2px 5px;
+  height: 22px; /* [px] a wxGrid row is 24 px including its 1 px rule */
   text-align: center;
   color: #000000; /* [data] SetDefaultCellTextColour( *wxBLACK ) */
-  min-width: 52px;
 }
 
-.es-grid th {
+/* A wxGrid draws its column labels in the LABEL window: ONE background for the
+   whole strip, `GetLabelBackgroundColour()`, with no per-column colour and no
+   way to ask for one. [px] KiCad's strip is rgb(55,55,55) — the same face every
+   control in this launcher has — carrying the theme's normal ink. Ours painted
+   each header in its series colour with black text, and neither is upstream's.
+   The BLACK ink is `SetDefaultCellTextColour`, a CELL default; it never reaches
+   the labels. */
+.eser-grid th {
   font-weight: 700;
-}
-
-/* UNPROVEN, left counted: 620 is a number that fits a 1080p screen, not
-   anything KiCad states. The E-series panel's own scroll comes from the
-   wxScrolledWindow the page sits in, which has no height of its own. */
-.es-scroll {
-  max-height: 620px;
-  overflow-y: auto;
+  background: var(--ctl-face);
+  color: var(--chrome-fg);
 }
 
 /* wxButton. [px] 34 px outer, face rgb(55,55,55), 1 px rgb(24,24,24) border.
@@ -367,7 +490,17 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   color: var(--chrome-fg);
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
-  padding: 0 var(--ctl-pad-x);
+  /* every button on these fourteen pages is a plain wxButton, i.e. a GTK
+     `button.text-button` — 16 px of padding, not the base 9. */
+  padding: 0 var(--ctl-pad-x-text);
+  /* wxButton also has a MINIMUM width, and wxBU_EXACTFIT is what opts out of
+     it — which is why `.calc-btn.calc-pick` sets `min-width: 0`. Wavelength's
+     "..." is the only one of the eight in this launcher declared with style 0
+     (panel_wavelength_base.cpp:96), so it is the one button that reveals the
+     floor: [px] it runs x 522..606 = 85 with three characters in it, where ours
+     shrank to 39. Every other button here carries a label long enough to clear
+     the floor on its own. */
+  min-width: 85px; /* [px] the "..." button on Wavelength, x 522..606 */
   font: inherit;
   cursor: default;
 }
@@ -386,19 +519,42 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 /* wxRadioButton / wxCheckBox. [px] 16 px across; unchecked fill rgb(57,57,57)
    inside a 1 px rgb(25,25,25) ring, checked fill rgb(233,84,32) with a ~6 px
    white centre. */
+/* A GTK radio row's ONLY horizontal spacing is the indicator's own
+   `check, radio { margin: 0 4px }` — a flex `gap` on top of that doubles it.
+   [px] measured across the Color Code Tolerance box on k12: KiCad's indicator
+   inks 248..263 and its label from 271, so indicator-to-label is 7 px of which
+   ~3 is the "1" glyph's left bearing; ours ran 257..272 and 283, i.e. 10 px,
+   because the 4 px margin and a 4 px gap were both being paid.
+   The row is 22 px tall: [px] the two indicators in that box top at y=56 and
+   y=78. Ours were 18 apart, so both rows sat high and the slack pooled at the
+   bottom of the box. */
 .calc-radio {
   display: flex;
   align-items: center;
-  gap: var(--check-margin);
+  min-height: 22px; /* [px] indicator tops 22 apart, k12_color_code.png */
   cursor: default;
 }
 
+/* A wxRadioBox is a GTK frame whose children carry their own margins — it has
+   NO inner padding of its own, unlike a wxStaticBoxSizer, whose 5 px comes from
+   the sizer border wxFormBuilder gives each item. [px] KiCad's box border is at
+   x=243 and its indicator inks from 248: four pixels, the indicator's margin
+   and nothing else. Ours added `.calc-group`'s 5 px on top, which is most of
+   why our Tolerance box is 103 px wide against the binary's 89 — the label
+   itself differs by only 1 px between the two typefaces here. */
+.calc-radiobox {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* The radio and the check indicator are drawn once in shell.css, off the
+   shared --check-* tokens; this launcher only states the margin wxFormBuilder
+   gives them. */
 .calc-frame input[type="radio"],
 .calc-frame input[type="checkbox"] {
   width: var(--check-size);
   height: var(--check-size);
   margin: 0 var(--check-margin);
-  accent-color: var(--chrome-active);
 }
 
 /* m_RegulMessage and its peers are plain wxStaticText — KiCad colours no error
@@ -433,15 +589,31 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   margin: calc(var(--wx-border) * 2) 0;
 }
 
+/* A wxGrid draws TWO different rules and we drew one. Its interior cell lines
+   are the default grid-line colour, rgb(55,55,55); the grid's outer frame and
+   the boundaries drawn by its LABEL windows — corner-to-header, row-label-to-
+   cell, and between one label and the next — are rgb(24,24,24). [px] on
+   k13_board_classes.png the class-cell rules at x 650/750/850 are (55,55,55)
+   while x 350, 550 and 1150 are (24,24,24); the same split is on the IPC 2221
+   grid at k03 y=200. Ours used --ctl-border for every line, which drew the
+   whole table in the dark frame colour. */
 .calc-table th,
 .calc-table td {
-  border: 1px solid var(--ctl-border);
+  border: 1px solid var(--ctl-face);
   padding: 3px 10px;
   text-align: center;
+  /* [px] a wxGrid's DATA cells take wxSYS_COLOUR_WINDOW - rgb(39,39,39) on the
+     IPC 2221 table, measured against the running binary - not the frame's own
+     rgb(44,44,44), which is what showing no background at all gave us. */
+  background: var(--panel-bg);
 }
 
-.calc-table th {
-  background: var(--panel-header);
+/* [px] its LABEL cells - the column headers, the row labels and the corner -
+   take wxSYS_COLOUR_BTNFACE, rgb(55,55,55). Ours used the wxAUI caption grey
+   (#2e2e2e = rgb(46,46,46)) for the headers and nothing for the row labels. */
+.calc-table th,
+.calc-table td.rowhead {
+  background: var(--ctl-face);
 }
 
 /* `td.hl` and `td.bad` used to live here - an accent wash and a #6e2a2a red for
@@ -449,9 +621,38 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
    pcb_calculator has no red cell anywhere, so they were a colour waiting to be
    used by the next person who needed one. Deleted rather than documented. */
 
+/* A wxGrid row label is drawn by a single-line renderer and CLIPPED to the
+   label column; it never wraps. Ours wrapped, which made a row 43 px tall where
+   every other row is 24 — the same defect the IPC 2221 grid has. And the label's
+   inset is 4 px, not the 10 px of cell padding we gave it: [px] on
+   k13_board_classes.png the label column runs 351..549 and "Lines width" inks
+   from 354.
+   The clip is now real and visible on two labels, because
+   "Plated Pad: (diameter - drill)" is 187 px in Ubuntu Sans and 210 in Noto
+   Sans against a 200 px column — the typeface again, not the metric. */
 .calc-table td.rowhead,
 .calc-table th.rowhead {
   text-align: left;
+  padding-left: 4px; /* [px] label ink at 354 in a column starting 351 */
+  padding-right: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* The label windows' own rules, and the grid's outer frame. With
+   border-collapse the cell earlier in the row wins a shared edge, so a
+   `th`'s dark border is what shows against the `td` beside it. */
+.calc-table th {
+  border-color: var(--ctl-border);
+}
+
+.calc-table tbody tr > td:last-child {
+  border-right-color: var(--ctl-border);
+}
+
+.calc-table tbody tr:last-child > td,
+.calc-table tbody tr:last-child > th {
+  border-bottom-color: var(--ctl-border);
 }
 
 /* --- regulator panel layout ---
@@ -483,36 +684,14 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   white-space: nowrap;
 }
 
-/* --- colour code bands ---
-   [art] KiCad draws no resistor. PANEL_COLOR_CODE is four wxStaticBitmaps of
-   colour_code_value / _multiplier / _tolerance (panel_color_code.cpp:45-50),
-   i.e. a printed chart, and the SVGs carry no resistor body at all. The tan
-   body and the band outline below are ours, a presentation upstream does not
-   have, so there is no number or hue to copy. The BAND colours are a different
-   question and live in panel_color_code.tsx - see the PR, they do not match
-   KiCad's artwork. */
-.cc-resistor {
-  display: flex;
-  align-items: center;
-  /* [art] see above - upstream draws no resistor, so none of this is copied. */
-  gap: 4px; /* [art] */
-  background: #d2b48c; /* [art] */
-  border: 1px solid var(--ctl-border);
-  border-radius: 12px; /* [art] */
-  padding: 10px 26px; /* [art] */
-  width: fit-content;
-  margin: 10px 0; /* [art] */
-}
-
-.cc-band {
-  /* [art] as above. */
-  width: 14px;
-  height: 44px; /* [art] */
-  border: 1px solid #333333; /* [art] */
-}
-
 .calc-svg {
   max-width: 100%;
+}
+
+/* A wxStaticBitmap: KiCad's own artwork, drawn 1:1 at the size the PNG has
+   (295x265 for regul_3pins), never CSS-scaled. */
+.calc-art {
+  display: block;
 }
 
 /* DIALOG_REGULATOR_FORM's 4x3 wxFlexGridSizer: label | control(s) | unit
@@ -522,6 +701,19 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   grid-template-columns: auto auto auto;
   gap: var(--wx-border);
   align-items: center;
+}
+
+/* Every label in the dialog is a wxStaticText, so "Vref (min/typ/max):" stays
+   on one line; ours wrapped it and made the dialog two rows taller. */
+.reg-form-grid > span {
+  white-space: nowrap;
+}
+
+/* bSizer3 puts `Add( 0, 0, 1 )` - a stretch spacer - BEFORE the two Iadj
+   entries (dialog_regulator_form_base.cpp:82), so that row is right-aligned
+   against the Vref row above it. */
+.reg-form-triple.iadj {
+  justify-content: flex-end;
 }
 
 .reg-form-triple {
@@ -541,7 +733,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
    wxTOP|wxBOTTOM 5 either side. */
 .calc-hr {
   border: none;
-  height: 2px; /* [px] a 2 px rule of rgb(40,40,40) */
+  height: 2px; /* [px] a wxStaticLine is a 2 px rule */ /* [px] a 2 px rule of rgb(40,40,40) */
   background: var(--field-bg);
   margin: var(--wx-border) 0;
 }
@@ -565,11 +757,21 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 /* fgSizerAttPrms1, a 4x3 flex grid: label | field | unit, 3 px vgap. */
+/* fgSizerESeriesPrms. wxStaticText never wraps: KiCad sizes the column to the
+   widest label, so "Required resistance:" stays on one line and the Inputs box
+   is 310 px wide. Ours wrapped it and grew the box 34 px taller. */
+.rc-input-grid > span,
+.rc-input-grid > label {
+  white-space: nowrap;
+}
+
 .rc-input-grid {
   display: grid;
+  /* wxFlexGridSizer( 4, 3, 3, 0 ): a 3 px vertical gap and NO horizontal one -
+     the 10 px between columns is each item's own wxLEFT|wxRIGHT 5. [px] the
+     rows are 37 px apart (34 px control + 3), where ours were 47. */
   grid-template-columns: auto 1fr auto;
-  /* [data] the flex grid's own 3 px vgap, plus wxALL 5 above and below. */
-  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  gap: 3px calc(var(--wx-border) * 2); /* [data] wxFlexGridSizer( , , 3, 0 ) */
   align-items: center;
 }
 
@@ -583,9 +785,9 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 /* fgSizerESeriesResults, a 6x5 flex grid; column 1 is the growable one. */
 .rc-solution-grid {
   display: grid;
+  /* wxFlexGridSizer( 6, 5, 3, 0 ) - same 3 px vertical gap. */
   grid-template-columns: auto 1fr auto auto auto;
-  /* [data] as .rc-input-grid: a 3 px vgap inside two wxALL 5 borders. */
-  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  gap: 3px calc(var(--wx-border) * 2); /* [data] wxFlexGridSizer( 6, 5, 3, 0 ) */
   align-items: center;
 }
 
@@ -630,17 +832,47 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   flex: 1 1 auto;
 }
 
-.rc-help-body {
-  min-height: 100px; /* [data] panel_r_calculator_base.cpp:189 */
+/* The HTML_WINDOW every *_help.md is rendered into (Resistor Calculator,
+   Track Width, Fusing Current, Electrical Spacing). Its metrics are its own,
+   not the frame's: [px] a line pitch of 21 px (the frame's controls use 18),
+   a blank line - 21 px - between paragraphs, and a bullet list whose glyph
+   sits 30 px and whose text 43 px inside the paragraph margin. The window
+   itself is inset 10 px from the static box's rule, and sbLowerSizerEseriesHelp
+   and its three peers hold it with proportion 1, so it fills the static box
+   however tall that grows (panel_r_calculator_base.cpp:189). */
+.calc-help {
+  display: flex;
+  flex-direction: column;
+}
+
+.calc-help-body {
+  flex: 1 1 auto;
+  min-height: 100px; /* [data] the HTML window's SetMinSize (base:189) */
   overflow: auto;
+  line-height: 21px; /* [px] the HTML window's line pitch, not the frame's 18 */
+  /* An HTML_WINDOW is a WINDOW, not a panel: it paints wxSYS_COLOUR_WINDOW,
+     which is DARKER than the frame. [px] the Resistor Calculator's help window
+     is rgb(39,39,39) running x 246..1839, y 247..1066 inside a static box whose
+     rules are at 240/1843 and 237/1070 - i.e. the box's own 5 px sizer border
+     shows the frame's rgb(44,44,44) around it. Ours painted nothing at all. */
+  background: var(--panel-bg);
+  padding: 5px 10px; /* [px] window inset 5, text ink 11 further in */
 }
 
-.rc-help-body ul {
-  margin: 0;
-  padding-left: calc(var(--wx-border) * 5);
+.calc-help-body p {
+  margin: 0 0 21px; /* [px] a blank line between paragraphs */
 }
 
-.rc-help-body pre {
+.calc-help-body ul {
+  margin: 0 0 21px; /* [px] as a paragraph */
+  padding-left: 43px; /* [px] bullet glyph at 30, its text at 43 */
+}
+
+.calc-help-body li {
+  margin-bottom: 7px; /* [px] list items repeat every 28 = 21 + 7 */
+}
+
+.calc-help-body pre {
   font-family: var(--mono, ui-monospace, "DejaVu Sans Mono", monospace);
   margin: 0;
   tab-size: 8;
@@ -676,6 +908,15 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   min-width: 0;
 }
 
+/* The note is added with wxALIGN_CENTER_HORIZONTAL to the sizer that holds the
+   grid, and that sizer spans the whole area right of the unit column - so the
+   note centres over the PAGE, not over the grid
+   (panel_electrical_spacing_ipc2221_base.cpp:53). */
+.es-ipc-right > .es-ipc-note {
+  display: block;
+  width: 100%;
+}
+
 /* wxFont( …, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_BOLD ), wxALIGN_CENTER_HORIZONTAL. */
 .es-ipc-note {
   font-style: italic;
@@ -691,11 +932,15 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   width: 100px;
 }
 
-.es-ipc-grid .es-ipc-rowhead {
+.es-ipc-grid .es-ipc-rowhead,
+.calc-table td.rowhead {
+  /* wxGRID_AUTOSIZE: the column takes the widest label's width and no label
+     ever wraps, so every row is the same 24 px tall. Ours wrapped
+     "101 .. 150 V" and made five of the eleven rows 43 px. */
   width: auto;
+  white-space: nowrap;
   text-align: right;
   font-weight: 700;
-  background: var(--panel-header);
 }
 
 .es-ipc-help {
@@ -712,9 +957,19 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 /* Each of the two boxes is a HORIZONTAL sizer: the entry column on the left of
    the box and the read-only column on the right of the SAME box. */
+/* sbSizerTop and sbSizerMiddle are HORIZONTAL static boxes holding two halves,
+   each added with proportion 1, and the left half ends in a stretch spacer
+   (panel_electrical_spacing_iec60664_base.cpp:31-33, 70-73, 103, 109). So the
+   outputs sit in the RIGHT half of the box - [px] "Impulse voltage:" at
+   x=1121 - where ours packed them straight after the inputs at x=700. */
 .es-iec-split {
   display: flex;
   gap: calc(var(--wx-border) * 8);
+}
+
+.es-iec-split > .es-iec-form {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .es-iec-form {
@@ -743,8 +998,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  min-height: var(--ctl-height);
-  margin: var(--wx-border) 0;
+  /* A result is a wxStaticText, never a control: [px] the Via Size and Track
+     Width result rows repeat every 23 px (18 px of text plus the sizer's 5 px
+     vgap), where ours held them at --ctl-height and repeated every 39. */
+  margin: 0;
 }
 
 .calc-result-value {
@@ -770,11 +1027,124 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font-weight: 700;
 }
 
+/* TWUpdateModeDisplay bolds the LABEL and the VALUE of the controlling row
+   (panel_track_width.cpp:340-392) — the unit static text beside them keeps the
+   ordinary weight, which ours did not. */
+.calc-field.bold .calc-unit {
+  font-weight: 400;
+}
+
 .tw-panel {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* bSizerTrackWidth is HORIZONTAL: the left column takes the slack
+   (proportion 1) and the right column is only as wide as its two boxes need
+   (proportion 0). [px] KiCad's left runs x 240..1500 and its right 1516..1843. */
+.tw-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.tw-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tw-right {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 330px; /* [px] KiCad's right column runs x 1516..1843 */
+}
+
+/* Both track boxes are added with PROPORTION 1
+   (`bSizeRight->Add( sbSizerTW_Result, 1, wxEXPAND|wxALL, 5 )`,
+   panel_track_width_base.cpp:188 and :286), so they split the right column's
+   height between them and the Reset button rides the bottom edge. Ours
+   shrink-wrapped both to their contents and left the column's lower half
+   empty. The grid inside each box is added with proportion 0, so its rows
+   still sit at the box's top - which is what align-content buys: the box grows,
+   its rows do not. */
+.tw-right > .calc-group {
+  flex: 1 1 0;
+  min-height: 0;
+  align-content: start;
+}
+
+/* fgSizerTW_Results is wxFlexGridSizer( 0, 3, 0, 0 ): vgap ZERO, so every gap
+   inside a track box is an item's own wxTOP/wxBOTTOM border of 5
+   (panel_track_width_base.cpp:105-182). These two say which rows carry one.
+   They must beat `.calc-grid3 > .calc-field { padding: 0 }`, hence the
+   `.calc-grid3` prefix. */
+.calc-grid3 > .tw-pad-y {
+  padding-top: var(--wx-border);
+  padding-bottom: var(--wx-border);
+}
+
+.calc-grid3 > .tw-pad-b {
+  padding-bottom: var(--wx-border);
+}
+
+/* The grid keeps its own width inside the box (proportion 0), so the entry
+   column does not stretch: [px] KiCad's Current entry is x 403..494, 92 px. */
+.tw-params {
+  grid-template-columns: auto auto auto;
+  justify-content: start;
+}
+
+.tw-params .calc-input {
+  width: 92px; /* [px] the Current entry runs x 403..494 */
+}
+
+/* [px] KiCad's Cable Size entries are 121 px whatever the label, and the box
+   is only as wide as it needs (x 240..690) - the entry column is NOT growable
+   here, unlike Via Size's. */
+.cs-box {
+  grid-template-columns: auto auto auto;
+  justify-content: start;
+}
+
+.cs-box .calc-input,
+.cs-box .calc-cell {
+  width: 121px; /* [px] every Cable Size entry, whatever the label */
+}
+
+/* fgSizer11 on Fusing Current: four columns, the first holding either a radio
+   or an empty placeholder, vgap 0 with each item's own wxTOP 5. */
+.fc-grid {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 5px calc(var(--wx-border) * 2); /* [data] vgap 0 plus each item's wxTOP 5 */
+  padding: 5px var(--wx-border) 0; /* [data] the row items' own wxTOP|wxLEFT 5 */
+}
+
+.fc-grid .calc-input {
+  width: 116px; /* [px] the Fusing Current entries */
+}
+
+/* wxNotebook draws its rule right across the page, not just under the tabs. */
+.calc-tabs {
+  width: 100%;
+}
+
+/* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule.
+   m_staticline3/4/5 are added `wxEXPAND|wxBOTTOM, 5` — a border BELOW only
+   (panel_track_width_base.cpp:128-134); the space above them is the thickness
+   row's own wxBOTTOM. We had a symmetric 5/5, which double-counted it. */
+.calc-hline {
+  height: 2px; /* [px] a wxStaticLine measures a 2 px rule */
+  background: var(--field-bg);
+  margin: 0 0 var(--wx-border);
 }
 
 /* sbSizerTW_Help is a static box with NO title, added with proportion 1. */
@@ -843,11 +1213,31 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   min-width: 170px;
 }
 
+/* The `...` beside `er:` occupies the UNIT SELECTOR's column and is added with
+   wxEXPAND (panel_wavelength_base.cpp:96), so it is as wide as the selectors
+   above it: [px] x 524..604, 80 px. Ours was 39. */
+.wl-row .calc-btn {
+  width: 80px; /* [px] the `...` fills the unit column, x 524..604 */
+}
+
 /* --- RF Attenuators (panel_rf_attenuators_base.cpp) --- */
 .rf-panel {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* bSizerPanelAtt is horizontal and its children stretch, so the Messages box
+   and the Formula pane both run to the frame's bottom edge. */
+.rf-panel > .calc-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.rf-panel > .calc-row > .calc-col {
   min-height: 0;
 }
 
@@ -859,23 +1249,56 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 /* A plain wxStaticText above the message window, not a static box title. */
+/* [px] the middle column is 244 px wide and holds the units inside its boxes. */
+.rf-mid {
+  flex: 0 0 244px;
+  width: 244px;
+  min-width: 244px;
+}
+
+.rf-box .calc-input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* A STD_BITMAP_BUTTON is square and carries only its bitmap. */
+.calc-btn.calc-bmp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-height);
+  min-width: 0;
+  padding: 0;
+}
+
 .rf-messages-label {
   font-style: italic;
   margin-bottom: var(--wx-border);
 }
 
-/* UNPROVEN, left counted: panel_rf_attenuators_base.cpp gives m_Message no
-   SetMinSize at all - the box is as tall as the sizer makes it. 120 is ours. */
+/* m_Attenuator_Messages is added with proportion 1 (base:172), so it fills
+   what the boxes above it leave - [px] KiCad's runs to y=1070, ours stopped at
+   580. Everything ELSE about it - the wxSYS_COLOUR_WINDOW fill, the line pitch,
+   the inset - is `.calc-help-body`, because it is the same HTML_WINDOW the four
+   help panes are. It used to restate `background: var(--chrome-bg)` here, which
+   is the FRAME colour: [px] ours profiled rgb(44,44,44) against the binary's
+   rgb(39,39,39), sampled off Akshay's 17:49 pair. */
 .rf-messages {
-  min-height: 120px;
   border: 1px solid var(--ctl-border);
-  background: var(--chrome-bg);
-  padding: var(--wx-border);
+}
+
+/* m_panelAttFormula, the same HTML_WINDOW, filling its static box under the
+   box's own 5 px sizer border (base:186-189). */
+.rf-formula-window {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .rf-formula-box {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .rf-formula p {
@@ -905,59 +1328,372 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   width: fit-content;
 }
 
+/* bSizerButtons is added `wxLEFT, 5` — NO vertical border (base:327), so the
+   row is exactly one button tall. [px] KiCad's runs y 241..274, 34 px; ours ran
+   44 because it carried a 5 px margin above and below that upstream has not.
+   The bitmap buttons DO carry wxTOP|wxBOTTOM 5, which is why they are shorter
+   than the text buttons rather than the row being taller. */
 .tl-buttons {
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  margin: var(--wx-border) 0;
+  /* bSizerButtons carries wxLEFT 5 (base:327) and each static box wxALL 5
+     (base:301,377), both measured from bSizer11's origin, so Analyze's left
+     edge is EXACTLY the box's left rule: [px] KiCad's box rule and its Analyze
+     button both start at x=850. Ours had a 5 px left margin the boxes do not
+     carry, which put Analyze at 899 against a rule at 893 — the inset Akshay
+     spotted on the 19:15 pair. */
+  margin: 0;
+  /* bSizerButtons goes into btranslineButtonsSizer with proportion 0 and no
+     wxEXPAND (base:327), and that sizer into bSizer11 the same way (base:330),
+     so the row is handed its MINIMUM width and never stretches to the column.
+     Ours filled the whole right column, which is what threw Synthesize onto
+     the frame's right edge. */
+  width: fit-content;
 }
 
-/* The E-series panel is two grids stacked, the wider one first. */
-.es-panel {
+/* `bSizerButtons->Add( 30, 0, 1, wxEXPAND, 5 )`. The proportion 1 only bites
+   when the row is given more than its minimum, and it never is (above), so the
+   spacer is exactly its own 30 px. */
+.tl-buttons-gap {
+  flex: 0 0 30px; /* [data] the spacer's own width, base:317 */
+}
+
+/* --- Transmission Lines ---------------------------------------------------
+   bSizeTransline is HORIZONTAL with three columns: left and middle are added
+   with PROPORTION 0 (base:44, 232) so they are only as wide as their contents,
+   and the right column with proportion 1 (base:485) so it takes every
+   remaining pixel — which is what puts Reset to Defaults on the frame's right
+   edge rather than under the Results box. */
+.tl-panel {
   display: flex;
   flex-direction: column;
+}
+
+.tl-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.tl-left,
+.tl-middle {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.tl-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* m_translineBitmap: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxBOTTOM, 10 (base:40). */
+.tl-art {
+  align-self: center;
+  margin: 10px 0; /* [data] the bitmap's own wxTOP|wxBOTTOM border, base:40 */
+}
+
+/* Each static box is sized by its own grid, not by the column.
+   [px] on Akshay's 17:54 pair the Substrate box measures x 594..905 = 312 and
+   the three right-hand boxes x 916..1202 = 287. Ours had stretched them to 432
+   and 387 because the entry column was growable against the whole row. */
+.tl-middle > .calc-group {
+  width: 312px; /* [px] Substrate / Component Parameters, x 594..905 */
+}
+
+.tl-right > .calc-group {
+  width: 287px; /* [px] Physical / Electrical / Results, x 916..1202 */
+}
+
+/* AddGrowableCol( 1 ) inside a box of that width leaves the entry exactly this
+   wide. [px] the substrate entry runs x 706..805 = 100 and the physical entry
+   x 945..1125 = 181 — different because the substrate labels are long
+   ("μr (substrate):") and the physical ones are "W:" and "L:". */
+.tl-middle .calc-input,
+.tl-middle .calc-cell {
+  width: 100px; /* [px] x 706..805 */
+}
+
+/* NOT pinned. AddGrowableCol( 1 ) is on both fgSizerPhysPrms (base:247) and
+   fgSizerResults (base:337), so the entry takes whatever its own box's labels
+   and unit selector leave — and the two boxes do NOT agree: [px] on Akshay's
+   18:48 pair the physical entry is x 946..1125 = 179 against the electrical
+   x 968..1127 = 159, because "Ang_l:" is longer than "W:". Pinning both at 181
+   crushed the label column of the electrical box until GTK clipped "Ang_l:" to
+   "Ang" and "rad" to "r...". */
+.tl-right .calc-input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* fgSizerTranslResults( 10, 2, 4, 0 ): TEN rows of two wxStaticTexts, vgap 4,
+   and the unused ones are blanked, NOT removed (transline_dlg_funct.cpp:139).
+   So the box keeps its height whatever the type. [px] KiCad's Results box runs
+   y 435..669 = 234 with a 22 px row pitch; ours collapsed to 109 because an
+   empty row has no line box of its own. */
+.tl-results {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-content: start;
+  row-gap: var(--calc-vgap, 4px); /* [data] fgSizerTranslResults' vgap is 4 */
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 0 var(--wx-border);
+}
+
+.tl-result-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: calc(var(--wx-border) * 2);
+  min-height: var(--ui-line-height);
+}
+
+/* fgSizerPhysPrms is FOUR columns — the three a parameter row has, plus the
+   radio button — with AddGrowableCol( 1 ) (base:246-247). It has to be a real
+   grid, not a stack of flex rows: as a flex stack every row kept
+   `.calc-field-label`'s 170 px floor, which pushed the entry and its unit
+   selector clean out of the 287 px static box and left GTK nothing to draw
+   "mm" in. [px] on Akshay's 18:48 pair our W entry started at x=1137 against a
+   box ending at 1230; KiCad's starts at 946. */
+.tl-phys {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  row-gap: var(--calc-vgap, 3px); /* [data] fgSizerPhysPrms' vgap is 3 */
+  column-gap: calc(var(--wx-border) * 2);
+  padding: 0 var(--wx-border);
+}
+
+.tl-phys-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: calc(var(--wx-border) * 2);
+}
+
+/* The parameter row occupies the first three of those four columns; the radio
+   button is the fourth, and exists on rows 1 and 2 only (base:266,281). */
+.tl-phys-row > .calc-field {
+  display: grid;
+  grid-column: 1 / 4;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: calc(var(--wx-border) * 2);
+  margin: 0;
+  padding: 0;
+}
+
+/* In a grid the column sizes itself; the 170 px floor is for the flex rows. */
+.tl-phys .calc-field-label {
+  min-width: 0;
+}
+
+.tl-phys .calc-input,
+.tl-phys .calc-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+/* --- E-Series (panel_eseries_display_base.cpp) ---
+   NAME COLLISION, fixed here: this panel's classes were `.es-*`, which is also
+   what Electrical Spacing uses, so `.es-panel` was declared twice in this one
+   file and the LATER rule silently gave Electrical Spacing an
+   `align-items: flex-start` nothing upstream asks for. This panel is `.eser-*`
+   now and Electrical Spacing keeps `.es-*`. */
+.eser-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* bTablesSizerESeries is wxHORIZONTAL (base:19) — the wide grid on the LEFT and
+   E1,E3,E6,E12 beside it, sharing a top edge. Ours stacked them. Neither box is
+   added with wxEXPAND and the row itself goes into bSizerESeries with
+   proportion 0 and no wxEXPAND (base:64), so nothing has slack to take and both
+   boxes shrink-wrap their grid. `wxTOP, 5` is the row's only border. */
+.eser-tables {
+  display: flex;
+  flex-direction: row;
   align-items: flex-start;
+  margin-top: var(--wx-border); /* [data] bSizerESeries->Add( ..., wxTOP, 5 ) */
+}
+
+.eser-box {
+  width: fit-content;
+  margin: 0;
 }
 
 /* The gap column between two stripes: one merged cell the full height of the
-   stripe, so no horizontal rules cross it. */
-.es-grid .es-gap {
-  min-width: 16px;
-  background: none;
+   stripe, so no horizontal rules cross it, repainted `s_colourMatching` =
+   `GetLabelBackgroundColour()` "to make them less eye-catching"
+   (panel_eseries_display.cpp:397-404). [px] rgb(55,55,55), the same face as the
+   label strip above it — ours drew nothing there. Its width is its "-" label's,
+   AutoSizeColumn like every other column, so it is not pinned either. */
+.eser-grid .eser-gap {
+  background: var(--ctl-face);
   border-top: none;
   border-bottom: none;
 }
 
-/* Board Classes: the unit selector on the left, the note pushed to the right. */
-.bc-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--wx-border);
-  margin-bottom: var(--wx-border);
+/* m_panelESeriesHelp is added straight to bSizerESeries — no wxStaticBoxSizer,
+   no "Help" legend, unlike the four help panes elsewhere in this launcher —
+   with proportion 1 and wxEXPAND (base:69). `.calc-help-body` already carries
+   the HTML_WINDOW's rgb(39,39,39) fill, its 100 px minimum and its 21 px line
+   pitch, so this states only the borders that item has and nothing it does not. */
+.eser-help {
+  margin: 0 var(--wx-border) var(--wx-border);
 }
 
+/* --- Board Classes (panel_board_class_base.cpp) ---
+   bSizerBoardClass is wxHORIZONTAL (base:12): the unit selector is a COLUMN of
+   its own on the left and the note, grid and filler are the right column. Ours
+   was a `.bc-top` row of selector-plus-note above the grid, with the note
+   pushed to the page's right edge by `justify-content: space-between` — which
+   is neither of the two things upstream does. */
+.bc-panel {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* bSizerUnitsMargins->Add( selector, 0, wxTOP|wxBOTTOM|wxRIGHT, 32 ) inside a
+   sizer added `wxLEFT, 10` (base:19-20). [px] KiCad's selector sits at
+   x 246..311, y 59..90 — level with the grid's column-label strip. */
+.bc-units {
+  margin: 32px 32px 32px 10px; /* [data] the item's own borders, base:19-20 */
+}
+
+.bc-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* wxALL|wxALIGN_CENTER_HORIZONTAL, 5 and a bold ITALIC font (base:29-31). */
 .bc-note {
   font-style: italic;
   font-weight: 700;
+  align-self: center;
+  margin: var(--wx-border);
+}
+
+/* Every column is `SetColSize( n, 100 )` and the row-label column
+   `SetRowLabelSize( 200 )`; the label strip is `SetColLabelSize( 30 )` and every
+   row `SetRowSize( n, 24 )` (base:36-64). All six are DATA — wxFormBuilder
+   states them outright rather than deriving them — so they are stated here too.
+   [px] confirmed against the binary: grid x 350..1150 = 200 + 6 x 100, label
+   strip y 62..91, rows 24 apart. */
+.bc-grid {
+  margin: var(--wx-border);
+  table-layout: fixed;
+  width: 800px; /* [data] 200 + 6 x 100 */
+}
+
+.bc-grid th.rowhead {
+  width: 200px; /* [data] SetRowLabelSize( 200 ) */
+}
+
+.bc-grid thead th:not(.rowhead) {
+  height: 30px; /* [data] SetColLabelSize( 30 ) */
+}
+
+.bc-grid th:not(.rowhead) {
+  width: 100px; /* [data] SetColSize( n, 100 ) */
+}
+
+.bc-grid tbody th,
+.bc-grid tbody td {
+  height: 24px; /* [data] SetRowSize( n, 24 ) */
+}
+
+/* m_panelShowClassPrms, an empty wxPanel with proportion 1 (base:73): it draws
+   nothing and exists only to take the slack. */
+.bc-filler {
+  flex: 1 1 auto;
+  margin: var(--wx-border);
 }
 
 /* Galvanic Corrosion: a wide read-only grid whose column labels are rotated,
    with the threshold field and the name-style radios under it. */
+/* bSizerMain, wxVERTICAL (base:11): the scrolled grid with proportion 1, then
+   the help window, then the bottom row. `align-items: flex-start` shrink-wrapped
+   the children; every one of the three is added wxEXPAND. */
 .gc-panel {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
+/* m_scrolledWindow1, proportion 1 wxEXPAND|wxALL 5 (base:39). */
 .gc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   max-width: 100%;
   overflow: auto;
+  margin: var(--wx-border);
 }
 
+/* m_helpText, an HTML_WINDOW added proportion 0 — it does NOT grow, unlike the
+   four help panes elsewhere — with `SetMinSize( wxSize( 400, 110 ) )`
+   (base:41-43). `.calc-help-body` carries the rgb(39,39,39) fill and the 21 px
+   line pitch; only the floor and the borders are this panel's. */
+/* Proportion 0 against a `SetMinSize` of 110 means the window is EXACTLY 110 px
+   tall and its five lines do not fit — `wxHW_SCROLLBAR_AUTO` gives it a
+   scrollbar, and GTK's overlay scrollbar is invisible at rest, so what you see
+   is the last line clipped through the middle of its glyphs. [px] KiCad's pane
+   runs y 912..1021 = 110 and "Selected cells shown with..." is cut at 1021.
+   A `min-height` here would have let it grow to fit and lose the clip. */
+.gc-help {
+  flex: 0 0 110px;
+  height: 110px; /* [data] SetMinSize( 400, 110 ), base:42 */
+  min-width: 400px;
+  margin: var(--wx-border);
+}
+
+/* bSizerBottom, wxHORIZONTAL, wxEXPAND|wxTOP|wxBOTTOM 5 (base:76). */
+.gc-bottom {
+  display: flex;
+  align-items: center;
+  margin: var(--wx-border) 0;
+}
+
+/* m_corFilterCtrl: `SetMinSize( wxSize( 100, -1 ) )` (base:52). Ours was 70. */
+.gc-threshold {
+  width: 100px; /* [data] the control's own minimum, base:52 */
+}
+
+/* m_staticline, wxLI_VERTICAL, added wxEXPAND|wxRIGHT|wxLEFT 10 (base:68) — it
+   stretches to the row's height, so it is a rule, not a gap. */
+.gc-rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 0 10px; /* [data] the line's own wxRIGHT|wxLEFT 10 */
+  background: var(--ctl-border);
+}
+
+/* `SetRowLabelAlignment( wxALIGN_RIGHT, ... )` and
+   `SetColLabelAlignment( wxALIGN_LEFT, ... )` — this panel overrides the grid
+   defaults every other page keeps (panel_galvanic_corrosion.cpp:352-354). */
+.gc-table th.rowhead {
+  text-align: right;
+}
+
+/* `AutoSizeRows()` (panel_galvanic_corrosion.cpp:402) lands on the same row
+   height every other wxGrid in this launcher has: [px] 24 px including the 1 px
+   rule, rules at y 420/444/468/492 in k14. Ours were 21 apart, so by the
+   twentieth row the two tables were 60 px out of step. */
 .gc-table td,
 .gc-table th {
-  padding: 1px 4px;
+  padding: 0 4px;
+  height: 24px; /* [px] the wxGrid row pitch, rule included */
 }
 
 /* wxALIGN_CENTER column labels drawn vertically, as the real grid draws them.
@@ -976,16 +1712,35 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   white-space: nowrap;
 }
 
-/* --- Color Code chart (panel_color_code_base.cpp) --- */
-.cc-chart {
+/* --- Color Code chart (panel_color_code_base.cpp) ---
+   bSizerPanelColorCode, wxHORIZONTAL (base:12): the radio box, then the chart.
+   The chart's columns are BITMAPS, so nothing here sizes a cell — the old
+   `.cc-cells` / `.cc-cell` rules built the chart out of divs and are gone with
+   the table they served. */
+.cc-panel {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
-  gap: var(--wx-border);
-  margin-bottom: calc(var(--wx-border) * 2);
+}
+
+/* bSizerOpts goes in with wxALL 8 and the radio box carries its own
+   wxBOTTOM|wxRIGHT 30 (base:19-20). */
+.cc-opts {
+  margin: 8px; /* [data] bSizerPanelColorCode->Add( bSizerOpts, 0, wxALL, 8 ) */
 }
 
 .cc-tolbox {
-  margin-right: calc(var(--wx-border) * 2);
+  width: fit-content;
+  margin: 0 30px 30px 0; /* [data] the radio box's own borders, base:19 */
+}
+
+/* fgSizerColoCode, wxFlexGridSizer( 2, 6, 0, 0 ) with a ZERO gap in both
+   directions — every space between columns is an item's own border, not the
+   sizer's. Added `wxEXPAND|wxLEFT, 5` (base:60). */
+.cc-chart {
+  display: flex;
+  align-items: flex-start;
+  margin-left: var(--wx-border);
 }
 
 .cc-col {
@@ -994,29 +1749,32 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   align-items: center;
 }
 
+/* The header row: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxRIGHT|wxLEFT, 5 (base:28).
+   No wxBOTTOM, so the bitmap's own wxTOP 5 is the only gap under it. */
 .cc-colhead {
-  margin-bottom: var(--wx-border);
+  padding: var(--wx-border) var(--wx-border) 0;
 }
 
-.cc-cells {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ctl-border);
+/* The first three bitmaps carry wxTOP|wxBOTTOM|wxLEFT 5 and the rest wxALL 5
+   (base:45-58) — so the 4th Band, Multiplier and Tolerance columns have a 5 px
+   right border the value columns do not. */
+.cc-art {
+  margin: var(--wx-border) 0 var(--wx-border) var(--wx-border);
 }
 
-.cc-cell {
-  padding: 2px 10px;
-  white-space: pre;
-  text-align: right;
-  min-width: 90px;
-  font-variant-numeric: tabular-nums;
+.cc-col-all .cc-art {
+  margin-right: var(--wx-border);
 }
 
 /* Every Reset to Defaults in pcb_calculator is added with wxALIGN_RIGHT
    (panel_regulator_base.cpp:368, panel_via_size_base.cpp:366,
-   panel_track_width_base.cpp:289, panel_transline_base.cpp:481). */
+   panel_track_width_base.cpp:289, panel_transline_base.cpp:481) — and in all
+   four the line before it is `Add( 0, 0, 1, wxEXPAND )`, a stretch spacer. So
+   the button hangs off the BOTTOM of the frame, not off the last control:
+   `margin-top: auto` inside a `.calc-page-body` column is that spacer. */
 .calc-reset-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: calc(var(--wx-border) * 2);
+  margin-top: auto;
+  padding: 10px 0; /* [data] the Reset button's wxTOP|wxBOTTOM 10 */
 }
