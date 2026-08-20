@@ -75,12 +75,62 @@ Each converted call site needs its `wxFileDialog` citation kept in the comment,
 because the wildcard and the default name are per-site and are the thing most
 easily lost in a sweep.
 
+## Two decisions Akshay has taken (2026-08-20)
+
+### 1. Files are first-class; a project is not required
+
+Model it as a real file manager. A file can exist on its own, with no project
+association — the same way a directory can hold a loose `.kicad_sch` today.
+
+**This is the part the current store cannot do.** `projectStore.ts` is
+project-keyed all the way down: `saveProject`, `loadProject`,
+`updateProjectFiles( id, … )`, `deleteProject`, `renameProject`,
+`exportProject`, `importProject`. Every file lives *inside* a project row, so
+"a file" is not addressable at all. That is the real work in this proposal,
+and it is a storage change rather than a dialog change.
+
+Upstream has the same shape without trying: a `wxFileDialog` is over a
+filesystem, and a filesystem does not require a project to hold a file.
+
+### 2. The listing is an index; bytes travel on demand
+
+Do not push or pull everything. Sync the **index** — names, sizes, timestamps,
+content hashes — and fetch a file's bytes only when the user actually opens or
+uses it.
+
+Most of this exists already:
+
+- `cloud/blobStore.ts` is content-addressed: `sha256Hex`, `blobExists`,
+  `putBlob`, `getBlob`. Bytes are already stored once per hash.
+- `cloud/templateSync.ts` already does index-then-fetch: `readIndex`,
+  `mergeIndexes`.
+- `projectStore.ts` already tracks what has been uploaded:
+  `markSynced( id, pushedHashes )`, `knownPushedHashes( id )`.
+
+What does not: `syncAllProjects` compares metadata (`listSyncMeta` against
+`cloudListMeta`, id and `updatedAt`) and then transfers **whole projects** for
+any that differ. The index comparison is there; the laziness stops at the
+project boundary.
+
+So the change is to move that boundary down to the file: an index row per file,
+and `getBlob` on open. A board project is mostly footprints and 3D models that
+are never touched in a schematic session — the same property that makes the
+Local History store affordable.
+
+**Worth stating plainly:** lazy fetch means opening a file can fail when
+offline in a way opening a project does not today. That needs a real answer —
+what is cached, what the dialog shows for a file whose bytes are not local, and
+what happens on a failed fetch mid-edit — not an afterthought.
+
 ## Sequencing
 
 This touches 39 sites across every launcher, so it is not one change:
 
-1. **The widget**, over the existing project store, with open/save/new-folder/
-   rename/delete and filtering. Nothing else moves.
+0. **The storage shape** — files addressable without a project, and an index
+   row per file. Decisions 1 and 2 both live here, and the widget cannot be
+   honest without it.
+1. **The widget**, over that store, with open/save/new-folder/rename/delete and
+   filtering. Nothing else moves.
 2. **The manager's own paths** — open, save-as, import, export — because those
    are the ones with existing behaviour to compare against.
 3. **Per launcher, one at a time**, each verified against real KiCad's dialog for
