@@ -1538,7 +1538,8 @@ export function DrawingSheetEditor({
           onContextMenuRequest={onCanvasContextMenu}
         />
 
-        {/* Docked properties panel (properties_frame.cpp). */}
+        {/* Docked properties panel (properties_frame.cpp). It is itself the
+            `.ze-panel`, caption included — see PropertiesFrame. */}
         <div className="ze-leftdock" style={{ width: 272, minWidth: 272 }}>
           <PropertiesFrame
             sheet={sheet}

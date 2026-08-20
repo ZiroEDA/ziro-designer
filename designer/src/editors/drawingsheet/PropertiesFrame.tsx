@@ -298,6 +298,14 @@ export function PropertiesFrame({
       className="ze-panel grow"
       style={{ overflow: 'auto', display: 'flex', flexDirection: 'column' }}
     >
+      {/* The AUI pane caption. pl_editor_frame.cpp:199-203 adds this panel with
+          `.Caption( _( "Properties" ) )`, and GTK draws a caption strip above
+          the notebook for it. Ours had none, alone among our editors: the PCB,
+          schematic and symbol editors already draw theirs with the shared
+          `.ze-panel-header`, which is WX_AUI_DOCK_ART's caption
+          (common/widgets/wx_aui_art_providers.cpp:307-325) measured off a real
+          pane — 17 px of flat fill, normal weight, no gradient. */}
+      <div className="ze-panel-header">Properties</div>
       <div className="ze-ds-tabs">
         <button className={tab === 'item' ? 'active' : ''} onClick={() => setTab('item')}>
           Item Properties

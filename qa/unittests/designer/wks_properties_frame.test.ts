@@ -353,3 +353,23 @@ describe('DSP-21 — the panel takes its metrics from the theme', () => {
     expect(FIELD).toContain("flex: '1 1 auto'");
   });
 });
+
+describe('DSP-23 — the pane has its AUI caption', () => {
+  it('draws a "Properties" caption strip above the notebook', () => {
+    // pl_editor_frame.cpp:199-203 adds the pane with
+    // `.Caption( _( "Properties" ) )`, and GTK paints a caption strip for it.
+    // Ours had none, alone among our editors.
+    const at = PANEL.indexOf('<div className="ze-panel-header">Properties</div>');
+    expect(at, 'no pane caption').toBeGreaterThan(-1);
+    // Above the notebook tabs, not below them.
+    expect(at).toBeLessThan(PANEL.indexOf('className="ze-ds-tabs"'));
+  });
+
+  it('uses the shared caption, not a private one', () => {
+    // .ze-panel-header is WX_AUI_DOCK_ART's caption measured off a real pane;
+    // the PCB, schematic and symbol editors all already draw theirs with it.
+    const SHELL = read('../../../designer/src/ui/shell.css');
+    expect(SHELL).toContain('.ze-panel-header {');
+    expect(PANEL).not.toMatch(/ze-ds-(pane)?caption/);
+  });
+});
