@@ -56,7 +56,7 @@
 .calc-tree-item {
   display: flex;
   align-items: center;
-  height: 22px;
+  height: 22px; /* [px] tree rows repeat every 22 px, measured above */
   cursor: default;
   white-space: nowrap;
 }
@@ -64,15 +64,15 @@
 /* [px] the twisty's arms span x=11..19 and the group label's ink starts at
    x=33; a 12 px `.twisty` box at x=9 puts the arms at 11..19. */
 .calc-tree-group {
-  padding-left: 9px;
-  gap: 12px;
+  padding-left: 9px; /* [px] twisty arms at x=11..19 */
+  gap: 12px; /* [px] group label ink starts at x=33 */
 }
 
 /* [px] the selection rectangle runs x=45..226 and the item label's ink starts
    at x=48, inside a 228 px pane. */
 .calc-tree-item {
-  margin: 0 2px 0 44px;
-  padding-left: 3px;
+  margin: 0 2px 0 44px; /* [px] selection rect x=45..226 in a 228 px pane */
+  padding-left: 3px; /* [px] item label ink starts at x=48 */
 }
 
 .calc-tree-item:hover {
@@ -91,7 +91,7 @@
 .calc-panel {
   flex: 1;
   overflow: auto;
-  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) 40px;
+  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) calc(var(--wx-border) * 8);
   /* A column, so a page whose bottom box is added with proportion 1 — the Help
      box on Resistor Calculator, the notes box on Wavelength — really does grow
      to the frame's bottom edge the way its wxSizer makes it. */
@@ -108,7 +108,7 @@
 
 .calc-row {
   display: flex;
-  gap: 18px;
+  gap: calc(var(--wx-border) * 4);
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -134,7 +134,7 @@
 
 .calc-group legend {
   margin-inline-start: calc(var(--wx-border) * -1);
-  padding: 0 4px 0 0;
+  padding: 0 var(--wx-border) 0 0;
 }
 
 .calc-field {
@@ -230,7 +230,15 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   min-width: 34px;
 }
 
-/* --- modal dialog (sandbox-safe replacement for window.prompt/alert) --- */
+/* --- modal dialog (sandbox-safe replacement for window.prompt/alert) ---
+ *
+ * NOT DONE, AND DELIBERATELY LEFT COUNTED. This is a private copy of
+ * ui/shell.css's .ze-modal family: `padding: 8px 12px` and `gap: 8px` below are
+ * the same numbers .ze-modal-footer already declares, restated. The fix is not
+ * to re-express them here - it is to delete this block and give the markup the
+ * shared class names, the way editors/image did in the same pass, and that
+ * needs CalculatorTools.tsx, which another branch is holding. The literals stay
+ * unmarked so the ratchet keeps asking. */
 .calc-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -287,7 +295,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   height: var(--tab-strip-height);
   border-bottom: 1px solid var(--ctl-border);
-  margin-bottom: 12px;
+  margin-bottom: calc(var(--wx-border) * 2);
 }
 
 .calc-tab {
@@ -306,8 +314,22 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 /* --- E-series coloured grids ---
-   The cell fills are DATA (KiCad paints each E-series column in its own hue),
-   not chrome, so they stay here. */
+   The cell fills are DATA - KiCad paints each E-series column in its own hue
+   (panel_eseries_display.h:93-129, uint32 BGR) - and panel_eseries_display.cpp
+   :70-84 states the other two colours in as many words:
+
+     "Make the grid lines disappear into the window background making the value
+      boxes appear to be separated from each other. Also force text to always
+      be black so it is visible against the light colored cells in both light
+      and dark modes."
+
+     SetGridLineColour( parent->GetBackgroundColour() )   :76, :84
+     SetDefaultCellTextColour( *wxBLACK )                 :75, :82
+
+   So the rule is not a dark hairline and not a near-black ink: it is the
+   PANEL's own background, and the text is absolute black. Ours were #22242899
+   and #101215, which is why our boxes read as a table with borders where
+   KiCad's read as separated tiles. */
 .es-grid {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
@@ -315,10 +337,11 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 
 .es-grid th,
 .es-grid td {
-  border: 1px solid #22242899;
+  /* [data] SetGridLineColour( parent->GetBackgroundColour() ) */
+  border: 1px solid var(--chrome-bg);
   padding: 2px 10px;
   text-align: center;
-  color: #101215;
+  color: #000000; /* [data] SetDefaultCellTextColour( *wxBLACK ) */
   min-width: 52px;
 }
 
@@ -326,6 +349,9 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font-weight: 700;
 }
 
+/* UNPROVEN, left counted: 620 is a number that fits a 1080p screen, not
+   anything KiCad states. The E-series panel's own scroll comes from the
+   wxScrolledWindow the page sits in, which has no height of its own. */
 .es-scroll {
   max-height: 620px;
   overflow-y: auto;
@@ -395,10 +421,16 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font-weight: 700;
 }
 
-/* --- tables (spacing, board classes, corrosion, e-series) --- */
+/* --- tables (spacing, board classes, corrosion, e-series) ---
+ *
+ * The cell metrics below are UNPROVEN and stay counted. Every one of these is a
+ * wxGrid, and ui/shell.css already has the WX_GRID skin (`.ze-grid`, with
+ * `3px 6px` cells) that the Design Inspector was moved onto in this same pass -
+ * so this is a second grid look, not a measurement. Moving these five panels
+ * onto it means touching panels/*.tsx, which another branch holds. */
 .calc-table {
   border-collapse: collapse;
-  margin: 8px 0;
+  margin: calc(var(--wx-border) * 2) 0;
 }
 
 .calc-table th,
@@ -412,13 +444,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   background: var(--panel-header);
 }
 
-.calc-table td.hl {
-  background: var(--chrome-active);
-}
-
-.calc-table td.bad {
-  background: #6e2a2a;
-}
+/* `td.hl` and `td.bad` used to live here - an accent wash and a #6e2a2a red for
+   an "out of range" cell. Nothing in the tree ever set either class, and
+   pcb_calculator has no red cell anywhere, so they were a colour waiting to be
+   used by the next person who needed one. Deleted rather than documented. */
 
 .calc-table td.rowhead,
 .calc-table th.rowhead {
@@ -454,10 +483,18 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   white-space: nowrap;
 }
 
-/* --- colour code bands (DATA colours, per IEC 60062) --- */
+/* --- colour code bands ---
+   [art] KiCad draws no resistor. PANEL_COLOR_CODE is four wxStaticBitmaps of
+   colour_code_value / _multiplier / _tolerance (panel_color_code.cpp:45-50),
+   i.e. a printed chart, and the SVGs carry no resistor body at all. The tan
+   body and the band outline below are ours, a presentation upstream does not
+   have, so there is no number or hue to copy. The BAND colours are a different
+   question and live in panel_color_code.tsx - see the PR, they do not match
+   KiCad's artwork. */
 .cc-resistor {
   display: flex;
   align-items: center;
+  /* [art] see above - upstream draws no resistor, so none of this is copied. */
   gap: 4px;
   background: #d2b48c;
   border: 1px solid var(--ctl-border);
@@ -468,9 +505,10 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .cc-band {
+  /* [art] as above. */
   width: 14px;
   height: 44px;
-  border: 1px solid #333;
+  border: 1px solid #333333;
 }
 
 .calc-svg {
@@ -503,7 +541,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
    wxTOP|wxBOTTOM 5 either side. */
 .calc-hr {
   border: none;
-  height: 2px;
+  height: 2px; /* [px] a 2 px rule of rgb(40,40,40) */
   background: var(--field-bg);
   margin: var(--wx-border) 0;
 }
@@ -530,6 +568,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .rc-input-grid {
   display: grid;
   grid-template-columns: auto 1fr auto;
+  /* [data] the flex grid's own 3 px vgap, plus wxALL 5 above and below. */
   gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
   align-items: center;
 }
@@ -545,6 +584,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .rc-solution-grid {
   display: grid;
   grid-template-columns: auto 1fr auto auto auto;
+  /* [data] as .rc-input-grid: a 3 px vgap inside two wxALL 5 borders. */
   gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
   align-items: center;
 }
@@ -555,7 +595,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .rc-approx-label {
-  margin-left: 10px; /* wxLEFT, 10 */
+  margin-left: 10px; /* [data] wxLEFT, 10 - upstream's own number, not 2x5 */
 }
 
 .rc-approx {
@@ -591,13 +631,13 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .rc-help-body {
-  min-height: 100px;
+  min-height: 100px; /* [data] panel_r_calculator_base.cpp:189 */
   overflow: auto;
 }
 
 .rc-help-body ul {
   margin: 0;
-  padding-left: 26px;
+  padding-left: calc(var(--wx-border) * 5);
 }
 
 .rc-help-body pre {
@@ -674,7 +714,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
    the box and the read-only column on the right of the SAME box. */
 .es-iec-split {
   display: flex;
-  gap: 40px;
+  gap: calc(var(--wx-border) * 8);
 }
 
 .es-iec-form {
@@ -686,7 +726,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   align-items: center;
   gap: var(--wx-border);
-  margin-top: 10px;
+  margin-top: calc(var(--wx-border) * 2);
 }
 
 .es-iec-help {
@@ -714,7 +754,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 /* wxBU_EXACTFIT: the "..." buttons beside Plating resistivity and Substrate
    relative permittivity are sized to their label and nothing more. */
 .calc-btn.exactfit {
-  padding: 0 4px;
+  padding: 0 var(--wx-border);
   min-width: 0;
 }
 
@@ -747,11 +787,13 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 /* wxSlider with wxSL_LABELS|wxSL_VALUE_LABEL: the value rides above the thumb
-   and the range endpoints sit under the ends. */
+   and the range endpoints sit under the ends - so the box needs one label line
+   of clearance above and below, which is --ui-line-height. The Image
+   Converter's identical slider states it the same way. */
 .cs-slider {
   position: relative;
   flex: 1;
-  padding: 16px 0 18px;
+  padding: var(--ui-line-height) 0;
 }
 
 .cs-slider input[type="range"] {
@@ -819,9 +861,11 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 /* A plain wxStaticText above the message window, not a static box title. */
 .rf-messages-label {
   font-style: italic;
-  margin-bottom: 2px;
+  margin-bottom: var(--wx-border);
 }
 
+/* UNPROVEN, left counted: panel_rf_attenuators_base.cpp gives m_Message no
+   SetMinSize at all - the box is as tall as the sizer makes it. 120 is ours. */
 .rf-messages {
   min-height: 120px;
   border: 1px solid var(--ctl-border);
@@ -835,11 +879,11 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .rf-formula p {
-  margin: 0 0 12px;
+  margin: 0 0 calc(var(--wx-border) * 2);
 }
 
 .rf-formula-head {
-  margin: 0 0 10px;
+  margin: 0 0 calc(var(--wx-border) * 2);
   font-size: calc(var(--ui-font-size) * 1.3);
   font-weight: 700;
 }
@@ -916,7 +960,9 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   padding: 1px 4px;
 }
 
-/* wxALIGN_CENTER column labels drawn vertically, as the real grid draws them. */
+/* wxALIGN_CENTER column labels drawn vertically, as the real grid draws them.
+   UNPROVEN, left counted: the 110 px is however tall the longest metal name is
+   when rotated here, not a size upstream states. */
 .gc-colhead {
   vertical-align: bottom;
   height: 110px;
@@ -935,11 +981,11 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   display: flex;
   align-items: flex-start;
   gap: var(--wx-border);
-  margin-bottom: 12px;
+  margin-bottom: calc(var(--wx-border) * 2);
 }
 
 .cc-tolbox {
-  margin-right: 12px;
+  margin-right: calc(var(--wx-border) * 2);
 }
 
 .cc-col {
@@ -949,7 +995,7 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 .cc-colhead {
-  margin-bottom: 4px;
+  margin-bottom: var(--wx-border);
 }
 
 .cc-cells {
@@ -972,5 +1018,5 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 .calc-reset-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  margin-top: calc(var(--wx-border) * 2);
 }
