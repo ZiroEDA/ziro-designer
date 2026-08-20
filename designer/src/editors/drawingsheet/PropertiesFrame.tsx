@@ -377,16 +377,22 @@ function ItemProperties({
         style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
       >
         <b style={{ fontSize: 12 }}>Type: {TYPE_LABEL[item.type]}</b>
-        <a
-          href="#syntax"
-          style={{ fontSize: 11 }}
-          onClick={(e) => {
-            e.preventDefault();
-            onShowSyntaxHelp();
-          }}
-        >
-          Syntax Help
-        </a>
+        {/* `m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )`
+            (properties_frame.cpp:358). Only a text item has `${…}` syntax to
+            be helped with; ours offered the link for a Line. */}
+        {t && (
+          <a
+            href="#syntax"
+            className="ze-ds-syntaxhelp"
+            style={{ fontSize: 11 }}
+            onClick={(e) => {
+              e.preventDefault();
+              onShowSyntaxHelp();
+            }}
+          >
+            Syntax Help
+          </a>
+        )}
         <Combo
           style={{ flex: '1 1 100%', minWidth: 0 }}
           ariaLabel="First page option"

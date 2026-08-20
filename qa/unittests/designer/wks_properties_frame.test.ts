@@ -241,3 +241,18 @@ describe('"KiCad Font" is the stroke font, not an outline family', () => {
     expect(RENDER).toContain('if (t.face && t.face !== KICAD_FONT_NAME) {');
   });
 });
+
+describe('DSP-19 — Syntax Help is a text-item control', () => {
+  it('is rendered only when the selected item is a text', () => {
+    // properties_frame.cpp:358 —
+    //   m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )
+    // Ours drew the link for a Line, which has no ${…} syntax to be helped
+    // with. `t` is the panel's "this item is a WksText" binding.
+    const at = PANEL.indexOf('className="ze-ds-syntaxhelp"');
+    expect(at, 'no Syntax Help link').toBeGreaterThan(-1);
+    // The nearest opening guard above the link is the text-item one.
+    const guard = PANEL.lastIndexOf('{t && (', at);
+    expect(guard, 'the link is not inside a text-only guard').toBeGreaterThan(-1);
+    expect(PANEL.slice(guard, at)).not.toContain(')}');
+  });
+});
