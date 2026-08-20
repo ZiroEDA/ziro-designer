@@ -18,8 +18,55 @@
  *
  * All distances return the free gap between copper boundaries (0 when the
  * shapes touch or overlap).
+ *
+ * ## Coordinates are integers, because `VECTOR2I` is
+ *
+ * Every segment measurement here comes from `@ziroeda/kimath`'s `SEG`, the
+ * exact-integer port of `libs/kimath/src/geometry/seg.cpp`, and not from a copy
+ * in doubles. There is no third implementation: `SEG::SquaredDistance` and
+ * `SEG::Distance` are the same routines `SHAPE::Collide` measures with, so
+ * `shapeDist` and `pcbnew/src/drc/shape_collisions.ts` now agree by
+ * construction rather than by coincidence.
+ *
+ * Three consequences, all of them upstream's:
+ *
+ *  1. **Coordinates quantise to 1 IU.** `Shape` carries doubles because
+ *     `arcShape` computes a centre and `padShapes` rotates vertices; kimath
+ *     `KiROUND`s them on the way into a `SEG`, which reproduces the rounding
+ *     KiCad already did when it built the `SHAPE_POLY_SET` of `VECTOR2I`s.
+ *  2. **The gap is a whole number of IU.** `SHAPE::Collide` writes its `aActual`
+ *     through an `int*` after `(int) sqrt( dist_sq )` — see
+ *     {@link truncSqrt} — so a fractional gap is a divergence and not extra
+ *     precision. `mm( gap )` in a DRC message therefore prints what KiCad's
+ *     prints.
+ *  3. **An exact touch is exactly zero.** The old `Math.hypot` of a projected
+ *     point came back at ~1e-9 for a point genuinely on a segment, so
+ *     `shapeDist(…) === 0` — the *shorting* test, and the touch test in a dozen
+ *     other places — silently answered false.
+ *
+ * ## The one thing still measured in doubles
+ *
+ * {@link pointArc}, {@link segArc} and {@link arcArc} measure a **curve**, and
+ * kimath has no integer counterpart: `SHAPE_ARC::Collide` is not a distance
+ * function but a verdict over a candidate list that keeps the *last* colliding
+ * candidate rather than the nearest (`shape_arc.cpp`, transcribed in
+ * `shape_collisions.ts`'s `arcCollideSeg`), so it cannot answer "how far apart
+ * are these two". Upstream's own arc distance is a double as well — it is
+ * `KiROUND( nearestPt.Distance( aP ) )`, a `hypot` rounded on the way into an
+ * `int` — so the double is where upstream keeps one too. It is truncated at the
+ * same place every other pair is, by {@link gapFromDistance}.
+ *
+ * The other double upstream keeps is `drc_creepage_utils.h:67`'s `VECTOR2D`
+ * `CREEP_SHAPE` world, mirrored in `drc/creepage_shapes.ts`; it is not reached
+ * from here.
  */
 
+import {
+  segDistance,
+  segDistanceToPoint,
+  segSquaredDistanceToPoint,
+  segSquaredDistanceToSeg,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 export type Shape =
@@ -30,28 +77,70 @@ export type Shape =
 
 const dist = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
 
-export function pointSeg(p: Vec2, a: Vec2, b: Vec2): number {
-  const abx = b.x - a.x;
-  const aby = b.y - a.y;
-  const len2 = abx * abx + aby * aby;
-  if (len2 === 0) return dist(p, a);
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2));
-  return dist(p, { x: a.x + t * abx, y: a.y + t * aby });
-}
+/**
+ * `(int) sqrt( dist_sq )` — the cast `SHAPE::Collide` applies to the skeleton
+ * distance **before** either shape's radius comes off it
+ * (`shape_collisions.cpp:55`, `shape_circle.h:100`, `shape_segment.h:97/117`).
+ * `Math.trunc( Math.sqrt( … ) )` is bit-exact with it and is deliberately not
+ * `isqrt`; the same helper and the same reasoning live in
+ * `shape_collisions.ts`.
+ */
+const truncSqrt = (aSquaredDist: number): number => Math.trunc(Math.sqrt(aSquaredDist));
 
-export function segSeg(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): number {
-  const d1 = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x);
-  const d2 = (b2.x - b1.x) * (a2.y - b1.y) - (b2.y - b1.y) * (a2.x - b1.x);
-  const d3 = (a2.x - a1.x) * (b1.y - a1.y) - (a2.y - a1.y) * (b1.x - a1.x);
-  const d4 = (a2.x - a1.x) * (b2.y - a1.y) - (a2.y - a1.y) * (b2.x - a1.x);
-  if (d1 * d2 < 0 && d3 * d4 < 0) return 0;
-  return Math.min(
-    pointSeg(a1, b1, b2),
-    pointSeg(a2, b1, b2),
-    pointSeg(b1, a1, a2),
-    pointSeg(b2, a1, a2),
-  );
-}
+/**
+ * `std::max( 0, (int) sqrt( dist_sq ) - rA - rB )`, the whole of
+ * `SHAPE::Collide`'s `aActual` in one place.
+ *
+ * The order is upstream's and is not interchangeable: truncating the whole
+ * `sqrt - r` expression instead moves the answer by an IU whenever a radius is
+ * half-integral, which is every odd-width track — Ziro's `stadium.r` is
+ * `width / 2` untruncated.
+ */
+const gap = (aSquaredDist: number, aR1: number, aR2: number): number =>
+  Math.max(0, truncSqrt(aSquaredDist) - aR1 - aR2);
+
+/** {@link gap} for the arc pairs, whose curve distance is already a length. */
+const gapFromDistance = (aDist: number, aR1: number, aR2: number): number =>
+  Math.max(0, Math.trunc(aDist) - aR1 - aR2);
+
+/**
+ * `SEG::SquaredDistance( const VECTOR2I& )` between two bare points: a
+ * zero-length `SEG` takes the `e <= 0` arm, which is `|ap|²` in exact integer
+ * arithmetic — `VECTOR2I::SquaredEuclideanNorm( aB - aA )`, the `ecoord` the
+ * circle pair of `shape_collisions.cpp:55` measures with.
+ */
+const pointPointSq = (a: Vec2, b: Vec2): number => segSquaredDistanceToPoint({ a, b: a }, b);
+
+/** `SEG::SquaredDistance( const VECTOR2I& )` (`seg.cpp:714`). */
+const pointSegSq = (p: Vec2, a: Vec2, b: Vec2): number => segSquaredDistanceToPoint({ a, b }, p);
+
+/** `SEG::SquaredDistance( const SEG& )` (`seg.cpp:80`). */
+const segSegSq = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): number =>
+  segSquaredDistanceToSeg({ a: a1, b: a2 }, { a: b1, b: b2 });
+
+/**
+ * `SEG::Distance( const VECTOR2I& )` (`seg.cpp:708`): `isqrt` of the exact
+ * squared distance, so it **floors**.
+ *
+ * Not `truncSqrt`: this is the `SEG` member, which upstream spells `isqrt`,
+ * where `SHAPE::Collide`'s `aActual` spells `(int) sqrt`. The two disagree only
+ * on a squared distance whose true root rounds up to an integer in double,
+ * and keeping them apart is what makes each one traceable to its own line of
+ * C++.
+ */
+export const pointSeg = (p: Vec2, a: Vec2, b: Vec2): number => segDistanceToPoint({ a, b }, p);
+
+/**
+ * `SEG::Distance( const SEG& )` (`seg.cpp:702`).
+ *
+ * Crossing segments answer 0 through `SEG::Intersects`, which is upstream's own
+ * exact-integer predicate — where the four hand-rolled cross products this
+ * replaced tested only for a *proper* crossing, and so reported a positive
+ * distance for two segments that merely touched at a vertex or overlapped
+ * collinearly.
+ */
+export const segSeg = (a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): number =>
+  segDistance({ a: a1, b: a2 }, { a: b1, b: b2 });
 
 /** Even-odd point-in-polygon (any simple polygon). */
 export function pointInPoly(p: Vec2, pts: Vec2[]): boolean {
@@ -181,49 +270,133 @@ function polyEdges(pts: Vec2[]): [Vec2, Vec2][] {
   return pts.map((p, i) => [p, pts[(i + 1) % pts.length]!] as [Vec2, Vec2]);
 }
 
-/** Free gap between two shapes (0 when touching/overlapping). */
+/**
+ * A running minimum over squared distances, with a bounding-box rejection in
+ * front of it.
+ *
+ * The exact-integer `SEG` routines are `BigInt` arithmetic and cost roughly
+ * four times what the doubles they replaced did — which does not matter for one
+ * pair and matters a great deal in these loops, where a copper item is measured
+ * against every edge of a board outline or a zone fill. Two segments whose
+ * bounding boxes are separated by more than the current best distance along
+ * *either* axis cannot beat it, and that test is four comparisons of doubles.
+ *
+ * The rejection is a pure optimisation: `limit` is the square root of the best
+ * squared distance so far plus a margin of 2 IU, which is many orders of
+ * magnitude more than the rounding in either `Math.sqrt` or the `BigInt` to
+ * `Number` conversion that produced it, so nothing within reach is ever
+ * rejected. `Infinity` before the first candidate rejects nothing at all.
+ */
+class NearestSq {
+  best = Number.POSITIVE_INFINITY;
+  private limit = Number.POSITIVE_INFINITY;
+
+  /** Can no point in this box beat the running best? */
+  outOfReach(aMinX: number, aMinY: number, aMaxX: number, aMaxY: number): boolean {
+    return (
+      this.boxMinX - aMaxX > this.limit ||
+      aMinX - this.boxMaxX > this.limit ||
+      this.boxMinY - aMaxY > this.limit ||
+      aMinY - this.boxMaxY > this.limit
+    );
+  }
+
+  constructor(
+    private readonly boxMinX: number,
+    private readonly boxMinY: number,
+    private readonly boxMaxX: number,
+    private readonly boxMaxY: number,
+  ) {}
+
+  offer(aSquaredDist: number): void {
+    if (aSquaredDist < this.best) {
+      this.best = aSquaredDist;
+      this.limit = Math.sqrt(aSquaredDist) + 2;
+    }
+  }
+}
+
+/** {@link NearestSq} keyed on a single point. */
+const nearestToPoint = (p: Vec2): NearestSq => new NearestSq(p.x, p.y, p.x, p.y);
+
+/** {@link NearestSq} keyed on a segment. */
+const nearestToSeg = (a: Vec2, b: Vec2): NearestSq =>
+  new NearestSq(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+
+/** Is this edge out of the running best's reach? */
+const edgeOutOfReach = (aNear: NearestSq, a: Vec2, b: Vec2): boolean =>
+  aNear.outOfReach(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+
+/**
+ * Free gap between two shapes (0 when touching/overlapping), as
+ * `SHAPE::Collide` would have reported it in `aActual`.
+ *
+ * Every pair below minimises a **squared** distance and truncates once at the
+ * end, which is where upstream's `(int)` sits.
+ *
+ * Truncating inside the loop and minimising the truncated distances would give
+ * the *same* answer — `Math.trunc( Math.sqrt( … ) )` is monotone, so it commutes
+ * with `min` — and is only wasteful. What must not move is the **subtraction**:
+ * taking a radius off inside the loop puts it on the wrong side of the cast, and
+ * a half-integral radius then shifts the answer by an IU. The single
+ * {@link gap} call at each `return` is what keeps that impossible.
+ */
 export function shapeDist(s1: Shape, s2: Shape): number {
   // Normalize order: circle < stadium < arc < poly.
   const order = { circle: 0, stadium: 1, arc: 2, poly: 3 } as const;
   if (order[s1.kind] > order[s2.kind]) return shapeDist(s2, s1);
 
   if (s1.kind === 'circle' && s2.kind === 'circle')
-    return Math.max(0, dist(s1.c, s2.c) - s1.r - s2.r);
+    return gap(pointPointSq(s1.c, s2.c), s1.r, s2.r);
   if (s1.kind === 'circle' && s2.kind === 'stadium')
-    return Math.max(0, pointSeg(s1.c, s2.a, s2.b) - s1.r - s2.r);
+    return gap(pointSegSq(s1.c, s2.a, s2.b), s1.r, s2.r);
   if (s1.kind === 'circle' && s2.kind === 'arc')
-    return Math.max(0, pointArc(s1.c, s2) - s1.r - s2.r);
+    return gapFromDistance(pointArc(s1.c, s2), s1.r, s2.r);
   if (s1.kind === 'circle' && s2.kind === 'poly') {
     if (pointInPoly(s1.c, s2.pts)) return 0;
-    let best = Infinity;
-    for (const [a, b] of polyEdges(s2.pts)) best = Math.min(best, pointSeg(s1.c, a, b));
-    return Math.max(0, best - s1.r - s2.r);
+    const near = nearestToPoint(s1.c);
+    for (const [a, b] of polyEdges(s2.pts)) {
+      if (edgeOutOfReach(near, a, b)) continue;
+      near.offer(pointSegSq(s1.c, a, b));
+    }
+    return gap(near.best, s1.r, s2.r);
   }
   if (s1.kind === 'stadium' && s2.kind === 'stadium')
-    return Math.max(0, segSeg(s1.a, s1.b, s2.a, s2.b) - s1.r - s2.r);
+    return gap(segSegSq(s1.a, s1.b, s2.a, s2.b), s1.r, s2.r);
   if (s1.kind === 'stadium' && s2.kind === 'arc')
-    return Math.max(0, segArc(s1.a, s1.b, s2) - s1.r - s2.r);
+    return gapFromDistance(segArc(s1.a, s1.b, s2), s1.r, s2.r);
   if (s1.kind === 'stadium' && s2.kind === 'poly') {
     if (pointInPoly(s1.a, s2.pts) || pointInPoly(s1.b, s2.pts)) return 0;
-    let best = Infinity;
-    for (const [a, b] of polyEdges(s2.pts)) best = Math.min(best, segSeg(s1.a, s1.b, a, b));
-    return Math.max(0, best - s1.r - s2.r);
+    const near = nearestToSeg(s1.a, s1.b);
+    for (const [a, b] of polyEdges(s2.pts)) {
+      if (edgeOutOfReach(near, a, b)) continue;
+      near.offer(segSegSq(s1.a, s1.b, a, b));
+    }
+    return gap(near.best, s1.r, s2.r);
   }
-  if (s1.kind === 'arc' && s2.kind === 'arc') return Math.max(0, arcArc(s1, s2) - s1.r - s2.r);
+  if (s1.kind === 'arc' && s2.kind === 'arc') return gapFromDistance(arcArc(s1, s2), s1.r, s2.r);
   if (s1.kind === 'arc' && s2.kind === 'poly') {
     if (pointInPoly(arcStart(s1), s2.pts) || pointInPoly(arcEnd(s1), s2.pts)) return 0;
     let best = Infinity;
     for (const [a, b] of polyEdges(s2.pts)) best = Math.min(best, segArc(a, b, s1));
-    return Math.max(0, best - s1.r - s2.r);
+    return gapFromDistance(best, s1.r, s2.r);
   }
   // poly-poly
   if (s1.kind === 'poly' && s2.kind === 'poly') {
     if (s1.pts.some((p) => pointInPoly(p, s2.pts))) return 0;
     if (s2.pts.some((p) => pointInPoly(p, s1.pts))) return 0;
-    let best = Infinity;
-    for (const [a1, a2] of polyEdges(s1.pts))
-      for (const [b1, b2] of polyEdges(s2.pts)) best = Math.min(best, segSeg(a1, a2, b1, b2));
-    return Math.max(0, best - s1.r - s2.r);
+    const bEdges = polyEdges(s2.pts);
+    let best = Number.POSITIVE_INFINITY;
+    for (const [a1, a2] of polyEdges(s1.pts)) {
+      const near = nearestToSeg(a1, a2);
+      near.offer(best);
+      for (const [b1, b2] of bEdges) {
+        if (edgeOutOfReach(near, b1, b2)) continue;
+        near.offer(segSegSq(a1, a2, b1, b2));
+      }
+      best = Math.min(best, near.best);
+    }
+    return gap(best, s1.r, s2.r);
   }
   return 0; // unreachable
 }

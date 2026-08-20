@@ -119,6 +119,42 @@ const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 const sq = (v: number): number => v * v;
 
 /**
+ * `(int) sqrt( dist_sq )` — upstream's cast, which every one of the five
+ * `aActual` sites in this file applies to the **square root alone**, before any
+ * radius or half-width is taken off it:
+ *
+ * ```cpp
+ * *aActual = std::max( 0, (int) sqrt( dist_sq ) - aA.GetRadius() - aB.GetRadius() );
+ * ```
+ *
+ * — `shape_collisions.cpp:55`, and the same expression at `shape_circle.h:100`,
+ * `shape_segment.h:97` and `shape_segment.h:117`. `shape_line_chain.cpp:420`
+ * writes `*aActual = sqrt( closest_dist_sq )` with no subtraction, which narrows
+ * to the `int*` and so truncates in exactly the same place.
+ *
+ * **`aActual` is an `int*` in all five.** Upstream cannot report a fractional
+ * actual, so neither may we; a fractional one is a divergence, not extra
+ * precision.
+ *
+ * **The order of operations is the point.** Truncating the whole `sqrt - r`
+ * expression instead agrees only when the subtracted radii are integral *and*
+ * the root's fraction survives the subtraction — for a root of 250.6 against a
+ * clearance whose half-width is 125.5 (Ziro's odd-width `stadium`, whose `r` is
+ * `width / 2` untruncated) the C++ order gives `250 - 125.5 = 124.5` and the
+ * other order gives 125. It matters again wherever the caller compares the
+ * actual against a threshold: {@link collideArcChain} ranks candidates by
+ * `local.actual` and breaks on an exact zero.
+ *
+ * `Math.trunc( Math.sqrt( … ) )` is bit-exact with the C++: both take an IEEE
+ * double square root of the same double and truncate toward zero. It is
+ * deliberately **not** kimath's `isqrt`, the exact integer floor — for a large
+ * `k`, `(int) sqrt( k * k - 1 )` returns `k` because the true root rounds up to
+ * `k` in double, where `isqrt` returns `k - 1`. `SEG::Distance` uses `isqrt`;
+ * these five sites do not, and the two spellings are kept apart on purpose.
+ */
+const truncSqrt = (aSquaredDist: number): number => Math.trunc(Math.sqrt(aSquaredDist));
+
+/**
  * `VECTOR2::Resize`: the same direction, the given length.
  *
  * The integer instantiation computes each component as
@@ -299,7 +335,7 @@ export function shapeCircleCollideSeg(
     const pts = circleIntersectSeg(aCircle, aSeg);
 
     aOut.location = pts.length > 0 && dSq === 0 ? (pts[0] as Vec2) : pn;
-    aOut.actual = Math.max(0, Math.sqrt(dSq) - aCircle.r);
+    aOut.actual = Math.max(0, truncSqrt(dSq) - aCircle.r);
 
     return true;
   }
@@ -337,7 +373,7 @@ function shapeSegmentCollidePoint(
 
   if (dSq === 0 || dSq < sq(minDist)) {
     aOut.location = segNearestPoint(aA.seg, aP);
-    aOut.actual = Math.max(0, Math.sqrt(dSq) - aA.halfWidth);
+    aOut.actual = Math.max(0, truncSqrt(dSq) - aA.halfWidth);
 
     return true;
   }
@@ -365,7 +401,7 @@ export function shapeSegmentCollideSeg(
 
   if (dSq === 0 || dSq < sq(minDist)) {
     aOut.location = segNearestPointToSeg(aA.seg, aSeg);
-    aOut.actual = Math.max(0, Math.sqrt(dSq) - aA.halfWidth);
+    aOut.actual = Math.max(0, truncSqrt(dSq) - aA.halfWidth);
 
     return true;
   }
@@ -469,7 +505,7 @@ export function chainCollideSeg(
 
   if (closestDistSq === 0 || closestDistSq < clearanceSq) {
     aOut.location = nearest;
-    aOut.actual = Math.sqrt(closestDistSq);
+    aOut.actual = truncSqrt(closestDistSq);
 
     return true;
   }
@@ -506,7 +542,7 @@ export function collideCircleCircle(
   const dSq = distSq(aB.c, aA.c);
 
   if (dSq === 0 || dSq < minDistSq) {
-    aOut.actual = Math.max(0, Math.sqrt(dSq) - aA.r - aB.r);
+    aOut.actual = Math.max(0, truncSqrt(dSq) - aA.r - aB.r);
     aOut.location = { x: (aA.c.x + aB.c.x) / 2, y: (aA.c.y + aB.c.y) / 2 };
 
     return true;
