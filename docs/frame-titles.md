@@ -4,6 +4,16 @@ Read out of KiCad 10.0.5 (`/home/akshay/kicad-reference`) on 2026-08-20, ahead o
 deciding what a shared `frameTitle()` in `designer/src/ui/useDocumentTitle.ts`
 has to satisfy. Nothing here is implemented yet; this is the reading.
 
+> **Deferred on purpose.** Akshay parked the migration on 2026-08-20 until the
+> file manager lands, because the document half of every title is a *file name*
+> and half the branches below turn on whether that file exists, is writable, or
+> has ever been saved — questions only the file manager can answer. Doing it
+> before then would mean inventing those predicates and redoing them after.
+> This file is the reading, kept so the migration is a write-up rather than a
+> re-read. The `[Read Only]` / `[Unsaved]` predicates in note C are the ones
+> that need the file manager; the em dash, the placeholders and the
+> GetName/GetFullName split do not, and could move at any time.
+
 ## The shape they share
 
 Twelve of the thirteen end the same way:
