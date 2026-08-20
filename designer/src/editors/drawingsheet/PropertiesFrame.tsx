@@ -144,13 +144,14 @@ function NumField({
   value,
   onCommit,
   step = 0.1,
-  width = 62,
+  width,
   title,
 }: {
   value: number;
   onCommit: (n: number) => void;
   step?: number;
-  width?: number;
+  /** Unset expands to fill the value column, as `wxEXPAND` does upstream. */
+  width?: number | string;
   title?: string;
 }): JSX.Element {
   // Commit on blur / Enter like the wx panel (focus-lost applies the value).
@@ -166,7 +167,7 @@ function NumField({
       className="ze-search"
       type="number"
       step={step}
-      style={{ width }}
+      style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
       title={title}
       value={text ?? String(value)}
       onKeyDown={(e) => {
@@ -375,9 +376,7 @@ function ItemProperties({
             placeholder is "Item Type" and it is overwritten on every
             selection. It is also not bold: properties_frame_base.cpp:31 sets
             the font explicitly to wxFONTWEIGHT_NORMAL. */}
-        <span className="ze-ds-type" style={{ fontSize: 12 }}>
-          {WKS_ITEM_TYPE_LABEL[item.type]}
-        </span>
+        <span className="ze-ds-type">{WKS_ITEM_TYPE_LABEL[item.type]}</span>
         {/* `m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )`
             (properties_frame.cpp:358). Only a text item has `${…}` syntax to
             be helped with; ours offered the link for a Line. */}
@@ -385,7 +384,6 @@ function ItemProperties({
           <a
             href="#syntax"
             className="ze-ds-syntaxhelp"
-            style={{ fontSize: 11 }}
             onClick={(e) => {
               e.preventDefault();
               onShowSyntaxHelp();
@@ -545,12 +543,13 @@ function ItemProperties({
               onCommit={(maxheight) => patch({ maxheight })}
             />
           </Row>
-          {/* `m_staticTextSizeInfo` (properties_frame_base.cpp:226). Ours said
-              the constraint-tooltip string instead, which belongs on the two
-              Maximum fields (:185, :198) and not on this line. */}
-          <div className="ze-ds-sizeinfo" style={{ fontSize: 10, margin: '0 6px 4px' }}>
-            Set to 0 to use default values
-          </div>
+          {/* `m_staticTextSizeInfo` (properties_frame_base.cpp:226), drawn in
+              KIUI::GetInfoFont().Italic() (properties_frame.cpp:97) — one
+              relative point down from the control font, which is what
+              --ui-font-size-info is. Ours said "Set to 0 to disable a
+              constraint", which is the TOOLTIP of the two Maximum fields
+              (:185, :198) and not this line. */}
+          <div className="ze-ds-sizeinfo">Set to 0 to use default values</div>
         </>
       )}
 
@@ -819,7 +818,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
             ✕
           </span>
         </div>
-        <div style={{ padding: '8px 14px', fontSize: 12, lineHeight: 1.5 }}>
+        <div className="ze-ds-syntaxhelp-body">
           <p>
             Texts can include keywords. Keyword notation is <code>{'${keyword}'}</code>; each
             keyword is replaced by its value at draw time.

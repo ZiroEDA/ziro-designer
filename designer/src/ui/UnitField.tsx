@@ -39,7 +39,7 @@ export function UnitField({
   range,
   onCommit,
   onError,
-  width = 62,
+  width,
   title,
 }: {
   /**
@@ -64,7 +64,14 @@ export function UnitField({
    * entry is still refused, it is just refused silently.
    */
   onError?: (message: string) => void;
-  width?: number;
+  /**
+   * An explicit width. Left unset the field EXPANDS to fill its column, which
+   * is what every `wxTextCtrl` in `properties_frame_base.cpp` does — each one
+   * is added `wxEXPAND` into a sizer with a growable value column
+   * (`AddGrowableCol( 1 )`, :183/:379/:395). Ours was a fixed 62 px, so the
+   * value column stopped a third of the way across the pane.
+   */
+  width?: number | string;
   title?: string;
 }): JSX.Element {
   // The panel applies on focus-lost (PROPERTIES_FRAME::onTextFocusLost sets
@@ -103,7 +110,7 @@ export function UnitField({
         className="ze-search"
         type="text"
         inputMode="decimal"
-        style={{ width }}
+        style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
         title={title}
         value={text ?? stringFromValue(value, units)}
         onKeyDown={(e) => {

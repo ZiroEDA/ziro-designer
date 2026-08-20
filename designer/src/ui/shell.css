@@ -5837,7 +5837,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: none;
 }
 
-/* ---- Drawing Sheet Editor properties panel (PropertiesFrame) ---- */
+/* ---- Drawing Sheet Editor properties panel (PROPERTIES_FRAME) ----
+
+   DSP-21. Every text size in this block used to be a literal, and all of them
+   were too small: measured against real pl_editor 10.0.5 at a matched client
+   size, our labels were 11 px against KiCad's 14.67 px (-25 %), the field rows
+   repeated every 26 px against 37 px, and the notebook tabs were 11 px in
+   *Arial* while the rest of the app is system-ui, because a bare <button>
+   takes the UA font rather than inheriting.
+
+   KiCad declares none of these: wx asks GTK, GTK answers out of the theme, and
+   `--ui-font-size` is that answer (wxSYS_DEFAULT_GUI_FONT, 11pt = 14.67 px at
+   96 dpi — see the token's own comment). So the numbers are gone and the token
+   is consumed, which is also why the tabs stop being Arial: `font: inherit`
+   carries the shell's family down.
+
+   The pane WIDTH is deliberately not changed. `m_PropertiesFrameWidth` defaults
+   to 150 (pl_editor_settings.cpp:38) and the audit found that at 150 KiCad
+   CLIPS its own properties frame — the value column, the vertical-justify
+   buttons and the text-colour swatch are all off-screen and it relies on the
+   AUI sash to recover them. Ours is 272 px and shows everything. Matching 150
+   would reproduce a defect, so it is flagged for Akshay rather than copied. */
 .ze-ds-tabs {
   display: flex;
   border-bottom: 1px solid var(--chrome-border, rgba(128, 128, 128, 0.35));
@@ -5845,8 +5865,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-ds-tabs button {
   flex: 1;
-  padding: 5px 4px;
-  font-size: 11px;
+  /* 30 px of tab: 14.67 px of label + 6 px above and below + the 2 px marker.
+     KiCad's wxNotebook tab strip measured ~30 px here (--tab-strip-height is
+     the 36 px of a bitmap2component notebook, a different frame). */
+  padding: 6px 4px;
+  font: inherit;
+  font-size: var(--ui-font-size);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -5864,7 +5888,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 2px 4px 4px;
 }
 .ze-ds-group legend {
-  font-size: 10px;
+  /* A wxStaticBox label is the ordinary control font, not an info font. */
+  font-size: var(--ui-font-size);
   padding: 0 4px;
   opacity: 0.8;
 }
@@ -5872,13 +5897,47 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 3px 6px;
+  /* Row pitch 37 px, measured off KiCad at 369 -> 406 -> 443 -> 480: a 29 px
+     control with wxFormBuilder's 4 px above and below. Ours was 3 px around a
+     23 px control, i.e. 26 px. */
+  margin: 4px 6px;
 }
 .ze-ds-label {
-  width: 92px;
-  font-size: 11px;
+  /* 118 px, not 92: the same labels at 14.67 px need the room, and "Repeat
+     Position Increment"-class strings are what set it. */
+  width: 118px;
+  font-size: var(--ui-font-size);
   flex: 0 0 auto;
   opacity: 0.85;
+}
+/* `m_staticTextType` — the item's class name. Explicitly wxFONTWEIGHT_NORMAL
+   at wxNORMAL_FONT's own point size (properties_frame_base.cpp:31), so it is
+   neither bold nor smaller than the labels beside it. */
+.ze-ds-type {
+  font-size: var(--ui-font-size);
+  flex: 1 1 auto;
+}
+/* `m_syntaxHelpLink`, a wxHyperlinkCtrl in the same row. */
+.ze-ds-syntaxhelp {
+  font-size: var(--ui-font-size);
+  flex: 0 0 auto;
+}
+/* The Syntax Help dialog's body (PROPERTIES_FRAME's "Predefined Keywords"
+   message). An ordinary dialog body, so the ordinary control font. */
+.ze-ds-syntaxhelp-body {
+  padding: 8px 14px;
+  font-size: var(--ui-font-size);
+  line-height: 1.5;
+}
+/* `m_staticTextSizeInfo`, the only control in this panel that is NOT the
+   control font: properties_frame.cpp:97 gives it
+   `KIUI::GetInfoFont( this ).Italic()`, and GetInfoFont is getGUIFont( win, -1 )
+   — one point down, which is --ui-font-size-info. */
+.ze-ds-sizeinfo {
+  font-size: var(--ui-font-size-info);
+  font-style: italic;
+  margin: 0 6px 4px;
+  opacity: 0.75;
 }
 .ze-ds-textedit {
   display: block;
@@ -5886,7 +5945,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   margin: 4px 6px;
   resize: vertical;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
+}
+/* Every control in a row is the same size as its label, which is what makes a
+   GTK row of mixed controls line up. `.ze-search` is `font: inherit`, so this
+   is the one place the size has to be said. */
+.ze-ds-row .ze-search,
+.ze-ds-row .ze-combo,
+.ze-ds-row select {
+  font-size: var(--ui-font-size);
 }
 .ze-ds-fmtbar {
   display: flex;
@@ -5898,7 +5965,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-ds-fmt {
   min-width: 24px;
   padding: 2px 5px;
-  font-size: 12px;
+  font-size: var(--ui-font-size);
   line-height: 1.2;
 }
 .ze-ds-fmt.active {
@@ -5915,8 +5982,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* ---- UNIT_BINDER's unit static text (common/widgets/unit_binder.cpp) ---- */
 .ze-unit-label {
   /* The word beside a distance field, re-labelled with the frame's unit.
-     Shared by every UnitField, so it is scoped to no one editor. */
-  font-size: 11px;
+     Shared by every UnitField, so it is scoped to no one editor — and today
+     the drawing sheet's properties frame is UnitField's only caller, so
+     taking the token here moves nothing else. When another launcher adopts
+     UNIT_BINDER this rule is already right for it. */
+  font-size: var(--ui-font-size);
   flex: 0 0 auto;
 }
 

@@ -242,6 +242,12 @@ describe('"KiCad Font" is the stroke font, not an outline family', () => {
   });
 });
 
+/**
+ * DSP-19 / DSP-20 — per-type visibility and label text in the properties frame.
+ *
+ * Source assertions again: the panel is a `.tsx`, so this reads its
+ * declarations. What each one is checking against is named on the line.
+ */
 describe('DSP-19 — Syntax Help is a text-item control', () => {
   it('is rendered only when the selected item is a text', () => {
     // properties_frame.cpp:358 —
@@ -259,12 +265,9 @@ describe('DSP-19 — Syntax Help is a text-item control', () => {
 
 describe('DSP-20 — the label text KiCad prints', () => {
   it('shows the item type name alone, with no "Type:" prefix', () => {
-    // m_staticTextType->SetLabel( aItem->GetClassName() ) — :241. The "Item
-    // Type" in the base file is the designer placeholder, overwritten on every
-    // selection, and it is drawn wxFONTWEIGHT_NORMAL (:31) rather than bold.
-    expect(PANEL).toContain('{WKS_ITEM_TYPE_LABEL[item.type]}');
+    // m_staticTextType->SetLabel( aItem->GetClassName() ) — :241.
+    expect(PANEL).toContain('<span className="ze-ds-type">{WKS_ITEM_TYPE_LABEL[item.type]}</span>');
     expect(PANEL).not.toContain('Type: {');
-    expect(PANEL).not.toMatch(/<b[^>]*>\s*\{?Type/);
   });
 
   it('takes the class-name table from common rather than keeping a copy', () => {
@@ -274,18 +277,79 @@ describe('DSP-20 — the label text KiCad prints', () => {
     expect(PANEL).not.toContain('const TYPE_LABEL');
   });
 
+  it('leaves the first-page choice unlabelled', () => {
+    // bSizerButt (properties_frame_base.cpp:38-42) adds m_choicePageOpt with no
+    // wxStaticText beside it; the three entries say what it is. Ours labelled
+    // it "Show:".
+    expect(PANEL).not.toContain('Show:');
+  });
+
+  it('offers the three page options KiCad words', () => {
+    for (const s of ['Show on all pages', 'First page only', 'Subsequent pages only'])
+      expect(PANEL).toContain(s);
+  });
+
+  it('calls the item pen "Line width:" and the sheet default "Line thickness:"', () => {
+    // properties_frame_base.cpp:354 vs :497 — two different controls.
+    expect(PANEL).toContain('label="Line width:"');
+    expect(PANEL).toContain('label="Line thickness:"');
+  });
+
+  it('gives Rotation no unit suffix', () => {
+    // m_textCtrlRotation has no m_*Units static beside it (:365-369).
+    const at = PANEL.indexOf('label="Rotation:"');
+    expect(at).toBeGreaterThan(-1);
+    expect(PANEL.slice(at, at + 400)).not.toContain('deg');
+  });
+
   it('spells the size hint "Set to 0 to use default values"', () => {
     // m_staticTextSizeInfo (:226). "Set to 0 to disable this constraint" is the
     // TOOLTIP of the two Maximum fields (:185, :198) and belongs only there.
-    expect(PANEL).toContain('Set to 0 to use default values');
+    expect(PANEL).toContain('Set to 0 to use default values</div>');
     expect(PANEL).not.toContain('Set to 0 to disable a constraint');
     expect(PANEL).toContain('hint="Set to 0 to disable this constraint"');
   });
 
-  it('leaves the first-page choice unlabelled', () => {
-    // bSizerButt (properties_frame_base.cpp:38-42) adds m_choicePageOpt with no
-    // wxStaticText beside it; the three entries say what it is. The audit found
-    // it labelled "Show:"; PR #556 had already removed that, so this pins it.
-    expect(PANEL).not.toContain('Show:');
+  it('offers Default Font and KiCad Font as two separate entries', () => {
+    // m_fontCtrlChoices (:155). They are not the same value: the first writes
+    // no (face …) at all, the second writes (face "KiCad Font").
+    expect(PANEL).toContain("{ value: '', label: 'Default Font' }");
+    expect(PANEL).not.toContain('Default Font (KiCad Font)');
+  });
+});
+
+describe('DSP-21 — the panel takes its metrics from the theme', () => {
+  it('has no hardcoded font size left in its markup', () => {
+    // Every text size in this panel is --ui-font-size (or, for the one info
+    // label, --ui-font-size-info) in shell.css. `fontSize: 12` on the item
+    // table is the Design Inspector's, not this file's.
+    expect(PANEL).not.toMatch(/fontSize:\s*\d/);
+  });
+
+  it('leaves no numeric font size in this launcher’s CSS block', () => {
+    // The standing rule (per-launcher tokenisation): a measured chrome metric
+    // goes in the :root token layer, and the editor's own CSS consumes it by
+    // name. Adding a ninth hardcoded font size is the defect this pins.
+    const CSS = read('../../../designer/src/ui/shell.css');
+    const start = CSS.indexOf('---- Drawing Sheet Editor properties panel');
+    const end = CSS.indexOf("---- UNIT_BINDER's unit static text", start);
+    expect(start, 'the drawing sheet CSS block moved').toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    // Declarations only: a `font-size:` at the head of a line. The prose in
+    // this block names the token and quotes the measurements it replaced.
+    const declarations = CSS.slice(start, end)
+      .split('\n')
+      .filter((line) => /^\s*font-size:/.test(line));
+    expect(declarations.length, 'no font-size declarations found').toBeGreaterThan(0);
+    for (const line of declarations) expect(line).toMatch(/var\(--ui-font-size/);
+  });
+
+  it('lets a distance field fill its column instead of pinning 62 px', () => {
+    // Every wxTextCtrl in properties_frame_base.cpp is added wxEXPAND into a
+    // sizer with a growable value column (AddGrowableCol( 1 )).
+    const FIELD = read('../../../designer/src/ui/UnitField.tsx');
+    expect(FIELD).not.toContain('width = 62');
+    expect(FIELD).toContain("flex: '1 1 auto'");
   });
 });
