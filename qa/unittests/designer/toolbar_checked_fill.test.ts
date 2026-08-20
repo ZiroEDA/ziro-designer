@@ -141,3 +141,67 @@ describe('every tool state is the accent at its own lightness', () => {
     pressed.forEach((v, i) => expect(v).toBeLessThan(checked[i] ?? 0));
   });
 });
+
+/**
+ * Toolbar geometry is DERIVED from one setting, as KiCad's is.
+ *
+ * `appearance.toolbar_icon_size` (common_settings.cpp:115-116) defaults to 24
+ * and is the only number stored. `ACTION_TOOLBAR::AddAction`
+ * (action_toolbar.cpp:141) then computes
+ *
+ *     paddingDip = ( ToDIP( m_buttonSize.GetWidth() ) - iconSize ) / 2
+ *
+ * so the padding is not a value — it is the half-difference between the button
+ * and the icon. Change the icon size in Preferences and the whole toolbar
+ * follows, which is why KiCad's stays coherent at any size.
+ *
+ * Ours had six literals: 22px icons in 26px buttons in one rule, 28px buttons
+ * in two others. Nothing moved together, and none of the numbers were KiCad's.
+ * [px] measured on a hovered "Switch to PCB Editor": KiCad is a 30px button
+ * around a 24px icon (3px each side); ours was 24px around 22px (1px).
+ */
+describe('toolbar metrics come from the icon-size setting', () => {
+  const token = (name: string): string => {
+    const m = new RegExp(`${name}:\\s*([^;]+);`).exec(CODE);
+    expect(m, `no ${name} token`).not.toBeNull();
+    return (m?.[1] ?? '').trim();
+  };
+
+  it('stores the icon size KiCad defaults to', () => {
+    expect(token('--toolbar-icon-size')).toBe('24px');
+  });
+
+  it('pads by the half-difference KiCad measures, not an arbitrary 1px', () => {
+    // paddingDip = ( button - icon ) / 2, and [px] a real hovered toolbar
+    // button is 30 around a 24 icon, so 3. Ours was 1, which is what made our
+    // highlight hug the icon. Pinned as a VALUE as well as a relationship: with
+    // only the relationship, 1px still satisfies calc() and the box comes out
+    // 26 instead of 30.
+    expect(token('--toolbar-button-pad')).toBe('3px');
+  });
+
+  it('computes the button from the icon plus twice the padding', () => {
+    // The RELATIONSHIP is the point. A literal that happens to equal 30px would
+    // pass a value check and still break the moment the icon size changed.
+    expect(token('--toolbar-button-size')).toMatch(
+      /calc\(\s*var\(--toolbar-icon-size\)\s*\+\s*2\s*\*\s*var\(--toolbar-button-pad\)\s*\)/,
+    );
+  });
+
+  it('sizes the button and its icon from the tokens, never a literal', () => {
+    const btn = rule('.ze-tbtn');
+    expect(btn).toMatch(/width:\s*var\(--toolbar-button-size\)/);
+    expect(btn).toMatch(/height:\s*var\(--toolbar-button-size\)/);
+    const img = rule('.ze-tbtn img');
+    expect(img).toMatch(/width:\s*var\(--toolbar-icon-size\)/);
+    expect(img).toMatch(/height:\s*var\(--toolbar-icon-size\)/);
+  });
+
+  it('has no second opinion about button size anywhere', () => {
+    // The vertical toolbar and the palette each used to declare their own 28px.
+    const sized = [...CODE.matchAll(/\.ze-tbtn[^{}]*\{([^}]*)\}/g)].map((m) => m[1] ?? '');
+    for (const body of sized) {
+      expect(body, 'a toolbar rule set a literal size').not.toMatch(/(width|height):\s*\d+px/);
+    }
+  });
+});

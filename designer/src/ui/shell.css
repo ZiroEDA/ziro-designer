@@ -34,6 +34,24 @@
      the pointer rather than darker. [px] a checked tool samples rgb(93,33,12),
      which is the 40 level. The launcher hover is the same wx rule and the same
      token. */
+  /* `appearance.toolbar_icon_size`, common_settings.cpp:115-116 — default 24,
+     range 16..64. THE setting: KiCad stores this one number and derives every
+     toolbar metric from it, which is why changing it in Preferences resizes the
+     whole application coherently. We had six literals instead (22px icons in
+     26px buttons here, 28px there), so nothing moved together and none of them
+     were KiCad's numbers.
+
+     `ACTION_TOOLBAR::AddAction` (action_toolbar.cpp:141):
+
+         paddingDip = ( ToDIP( m_buttonSize.GetWidth() ) - iconSize ) / 2
+
+     so the padding is not a value at all — it is the half-difference between
+     the button and the icon. [px] measured on a hovered "Switch to PCB Editor":
+     KiCad 30px button around a 24px icon = 3px each side; ours was a 24px
+     button around a 22px icon = 1px. */
+  --toolbar-icon-size: 24px;
+  --toolbar-button-pad: 3px;
+  --toolbar-button-size: calc(var(--toolbar-icon-size) + 2 * var(--toolbar-button-pad));
   --accent-fill-pressed: #2f1106;
   --accent-fill-checked: #5d220d;
   --accent-fill-hover-checked: #742a10;
@@ -706,8 +724,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--toolbar-button-size);
+  height: var(--toolbar-button-size);
   border: 1px solid transparent;
   border-radius: 3px;
   color: var(--chrome-fg);
@@ -756,12 +774,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-color: transparent;
 }
 .ze-tbtn img {
-  width: 22px;
-  height: 22px;
-}
-.ze-toolbar.vertical .ze-tbtn {
-  width: 28px;
-  height: 28px;
+  width: var(--toolbar-icon-size);
+  height: var(--toolbar-icon-size);
 }
 
 /* ACTION_TOOLBAR group button: triangle in the bottom-right corner
@@ -828,8 +842,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
 }
 .ze-tb-palette .ze-tbtn {
-  width: 28px;
-  height: 28px;
+  width: var(--toolbar-button-size);
+  height: var(--toolbar-button-size);
 }
 
 .ze-sep {
