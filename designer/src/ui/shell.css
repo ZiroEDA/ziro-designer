@@ -231,6 +231,15 @@
   --titlebar-font-size: 14.667px;
   --titlebar-font-weight: 700;
   --titlebar-rule: #000000;
+  /* [css] `decoration { border-radius: 12px 12px 0 0 }` (Yaru-dark gtk.css:4504).
+     A GNOME window is rounded on its TOP two corners only; the bottom two are
+     square. This is the window frame, so it is NOT --ctl-radius (6px), which is
+     a button/entry value — ours used that on all four corners. */
+  --window-radius: 12px;
+  /* [css] `decoration { box-shadow: 0 3px 9px 1px rgba(0,0,0,0.5),
+     0 0 0 1px rgba(0,0,0,0.75) }` (:4507) — a tight drop shadow plus a 1px
+     hairline ring, not the deep soft shadow we had invented. */
+  --window-shadow: 0 3px 9px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.75);
 
   /* The border colour of every framed thing: static box, button, text field,
      checkbox, radio. [css] `frame > border`, `button`, `entry`, `check`,
@@ -3687,10 +3696,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   max-height: 88vh;
   background: var(--chrome-bg);
   border: 1px solid var(--chrome-border);
-  border-radius: 6px;
+  /* The window decoration, not a control: top two corners only. */
+  border-radius: var(--window-radius) var(--window-radius) 0 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--window-shadow);
 }
 /* A KiCad dialog's title is its *window* title, drawn by the desktop: a 37px
    bar of #222222 under a 1px black rule, with the text centred. Measured off a
@@ -3698,6 +3708,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-modal-header {
   position: relative;
   box-sizing: border-box;
+  /* The bar paints the two rounded corners, so it repeats the frame's radius —
+     without this its flat #222 squares them off again. */
+  border-radius: var(--window-radius) var(--window-radius) 0 0;
   height: 37px;
   padding: 0 12px;
   /* Measured against a real title bar: 175px wide and 15 tall for this string,

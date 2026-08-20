@@ -42,6 +42,7 @@ export function UnitField({
   width,
   title,
   disabled,
+  size,
 }: {
   /**
    * The field's own label, colon included — `UNIT_BINDER`'s `aLabel`. It is
@@ -84,6 +85,18 @@ export function UnitField({
    * every standard paper size rather than hidden.
    */
   disabled?: boolean;
+  /**
+   * The `size` attribute, i.e. the field's INTRINSIC width in characters.
+   *
+   * It defaults to 20 in every browser, and that is a width a `wxTextCtrl`
+   * does not have: one built with `wxDefaultSize` contributes almost nothing
+   * to its sizer, and the column it lands in is sized by an explicit
+   * `SetMinSize` or by a sibling. `width: 100%` does not suppress it — an
+   * intrinsic (`max-content`) track still measures those 20 characters — so a
+   * dialog that sizes itself by `Fit()` comes out wider than KiCad's unless the
+   * caller says otherwise.
+   */
+  size?: number;
 }): JSX.Element {
   // The panel applies on focus-lost (PROPERTIES_FRAME::onTextFocusLost sets
   // m_propertiesDirty, and OnUpdateUI then runs OnAcceptPrms). While the field
@@ -121,6 +134,7 @@ export function UnitField({
         className="ze-search"
         type="text"
         inputMode="decimal"
+        size={size}
         disabled={disabled}
         style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
         title={title}

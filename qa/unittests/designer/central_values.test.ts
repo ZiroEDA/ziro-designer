@@ -138,7 +138,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   render: { colours: 4, metrics: 0 },
   // ui/ is the shared layer itself, so its literals are the ones that ought to
   // BE tokens. shell.css is 7,000 lines and this is the size of that debt.
-  ui: { colours: 357, metrics: 844 },
+  ui: { colours: 356, metrics: 843 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -338,15 +338,19 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
    * records that keeping a stale total is the specific way that file has been
    * broken before.
    */
-  it('795 colour literals and 1,720 chrome metrics, tree-wide', () => {
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(795);
-    // 1,723 until `.ze-search` stopped restating the GTK entry's geometry.
-    // RECOUNTED FROM THE MERGED TREE rather than summed from either branch's
-    // diff: this file was lowered on two branches at once, so both of their
-    // numbers are wrong here. The three that went are all in that one rule -
-    // `padding: 5px 8px` is two lengths and `border-radius: 4px` is the third,
-    // now --field-pad-x, --ctl-height and --ctl-radius.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1720);
+  it('794 colour literals and 1,719 chrome metrics, tree-wide', () => {
+    // RECOUNTED FROM THE TREE, with every pass that reached this file applied,
+    // rather than summed from any one branch's diff. Two branches lowered these
+    // counts at the same time, so BOTH of their numbers were wrong here and
+    // neither could be adopted; the scan is the only authority. Since the seed:
+    //   -1 colour, -1 metric  `.ze-modal` stopped painting the window frame
+    //      itself - its radius and shadow are --window-radius / --window-shadow,
+    //      GNOME's `decoration` node, because a window is not a control;
+    //   -3 metrics  `.ze-search` stopped restating the GTK entry's geometry -
+    //      `padding: 5px 8px` is two lengths and `border-radius: 4px` the third,
+    //      now --field-pad-x, --ctl-height and --ctl-radius.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(794);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1719);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

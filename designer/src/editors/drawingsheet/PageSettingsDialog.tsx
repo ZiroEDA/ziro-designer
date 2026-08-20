@@ -206,6 +206,7 @@ export function PageSettingsDialog({
       <span className="ze-pgs-tblabel">{label}</span>
       <input
         className={short ? 'ze-search short' : 'ze-search'}
+        size={1}
         value={String(s[key] ?? '')}
         onChange={(e) => set({ [key]: e.target.value } as Partial<PreviewSettings>)}
       />
@@ -259,6 +260,7 @@ export function PageSettingsDialog({
                 label="Height:"
                 units={units}
                 range={CUSTOM_PAGE_RANGE_MM}
+                size={1}
                 value={s.customHeightMM}
                 onCommit={(mm) => set({ customHeightMM: mm })}
                 onError={setError}
@@ -270,6 +272,7 @@ export function PageSettingsDialog({
                 label="Width:"
                 units={units}
                 range={CUSTOM_PAGE_RANGE_MM}
+                size={1}
                 value={s.customWidthMM}
                 onCommit={(mm) => set({ customWidthMM: mm })}
                 onError={setError}
@@ -302,7 +305,7 @@ export function PageSettingsDialog({
               <span className="ze-pgs-label">File:</span>
               {/* EnableWksFileNamePicker( false ) (dialog_page_settings.h:56-60)
                   disables the entry AND the browse button; neither is hidden. */}
-              <input className="ze-search" value={wksFileName} disabled readOnly />
+              <input className="ze-search" size={1} value={wksFileName} disabled readOnly />
               <button className="ze-btn" disabled title="Browse">
                 {/* STD_BITMAP_BUTTON with BITMAPS::small_folder
                     (dialog_page_settings.cpp:69). */}
@@ -328,6 +331,7 @@ export function PageSettingsDialog({
                 <input
                   className="ze-search"
                   style={{ flex: 3 }}
+                  size={1}
                   value={s.date}
                   onChange={(e) => set({ date: e.target.value })}
                 />
@@ -351,6 +355,7 @@ export function PageSettingsDialog({
                   <span className="ze-pgs-tblabel">Comment{i + 1}:</span>
                   <input
                     className="ze-search"
+                    size={1}
                     value={c}
                     onChange={(e) => {
                       const comments = [...s.comments];
