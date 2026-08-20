@@ -193,6 +193,37 @@ describe('C9: the frame opens in mils, and the grid does not follow the unit', (
     expect(line).not.toContain("'unitsInches'");
   });
 
+  it('opens in EDIT mode, so the title block shows its ${…} tokens', () => {
+    /*
+     * The bug that read as "no default sheet loads". PL_EDITOR_FRAME's
+     * constructor sets
+     *
+     *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;  // pl_editor_frame.cpp:105
+     *
+     * making `layoutEditMode` the checked button of the pair on launch, and
+     * `ds_data_item.cpp:543-545` then does `m_FullText = m_TextBase` — no
+     * substitution — so real pl_editor opens on `Title: ${TITLE}`,
+     * `${COMPANY}`, `Id: ${#}/${##}`.
+     *
+     * Booting `layoutNormalMode` instead showed substituted PREVIEW text
+     * (`Title:`, `Size: A4`, `Id: 1/1`), i.e. a drawing-sheet EDITOR rendering
+     * the sheet rather than offering the tokens to edit.
+     */
+    const at = EDITOR.indexOf('const DEFAULT_TOGGLES');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const line = EDITOR.slice(at, EDITOR.indexOf('\n', at));
+    expect(line).toContain("'layoutEditMode'");
+    expect(line).not.toContain("'layoutNormalMode'");
+  });
+
+  it('feeds that mode straight to the renderer as rawText', () => {
+    // `rawText: editMode` is the TS side of the m_EditMode branch above; if the
+    // toggle stopped driving it, the boot mode would be right and the canvas
+    // still wrong.
+    expect(EDITOR).toContain("const editMode = toggles.has('layoutEditMode');");
+    expect(EDITOR).toContain('rawText: editMode,');
+  });
+
   it('pins the grid to pl_editor default 0.5 mm, unit-independently', () => {
     // grid.last_size defaults to 4 for pl_editor (app_settings.cpp:466-472)
     // into DefaultGridSizeList()'s pl_editor list (:605-614), entry 4 = 0.50 mm.

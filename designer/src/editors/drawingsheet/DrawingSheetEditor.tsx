@@ -108,7 +108,19 @@ const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
  *
  * So the Drawing Sheet Editor opens in mils, not mm.
  */
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMils', 'layoutNormalMode']);
+/*
+ * `layoutEditMode`, not `layoutNormalMode`. PL_EDITOR_FRAME's constructor sets
+ *
+ *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;   // pl_editor_frame.cpp:105
+ *
+ * so the SECOND of the display-mode pair is the checked button on launch, and
+ * `ds_data_item.cpp:543-545` then does `m_FullText = m_TextBase` — no
+ * substitution at all. That is why a real pl_editor opens showing `${TITLE}`,
+ * `${COMPANY}` and `Id: ${#}/${##}`: the raw tokens are what you came here to
+ * edit. Booting `layoutNormalMode` showed substituted preview text instead
+ * (`Title:`, `Size: A4`, `Id: 1/1`), which reads as though no sheet had loaded.
+ */
+const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMils', 'layoutEditMode']);
 
 /** The 5 status-bar coordinate origins (PL_EDITOR_FRAME::m_originChoiceList). */
 const ORIGIN_CHOICES = [
