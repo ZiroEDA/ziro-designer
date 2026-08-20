@@ -26,6 +26,10 @@ import type { PcbPad, PcbShape } from '@ziroeda/pcbnew/src/types.js';
 
 const EMPTY = { kind: 'list' as const, items: [] };
 import { pcbMmToIU as mmToIU, pcbIuToMM as iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+
+/** `KiROUND`: half away from zero. */
+const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));
 
 // A two-pad footprint with a silk line and a reference, in local coords.
 const SRC = `(footprint "R"
@@ -48,10 +52,38 @@ const at = (fp: ReturnType<typeof read>, kind: 'pad' | 'text', i: number) =>
   kind === 'pad' ? fp.pads[i]!.at : fp.texts[i]!.at;
 
 describe('footprint editing', () => {
-  it('bounding box spans the pads', () => {
-    const box = footprintBBox(read())!;
+  it('bounding box spans the pads once the text is hidden', () => {
+    const fp = read();
+    for (const t of fp.texts) t.hide = true;
+    const box = footprintBBox(fp)!;
     expect(iuToMM(box.minX)).toBeCloseTo(-1.25, 3); // pad1 left edge: -0.8 - 0.45
     expect(iuToMM(box.maxX)).toBeCloseTo(1.25, 3);
+  });
+
+  it('bounding box includes the text box, not just the text anchor', () => {
+    // `FOOTPRINT::GetBoundingBox( aIncludeText = true )` (pcbnew/footprint.cpp)
+    // merges `text->GetBoundingBox()` for every visible text; the reference
+    // "REF**" at 1 mm is wider than the 2.5 mm pad span, so it, not the pads,
+    // sets minX/maxX. Growing by `t.at` alone left it at the pads.
+    //
+    // Derived from the C++, not from our own box:
+    //   EDA_TEXT::GetTextBox -> FONT::StringBoundaryLimits (font.cpp:451-478)
+    //     w = advance
+    //       - KiROUND( size.x * INTER_CHAR )        stroke_font.cpp:207,283
+    //       + 2 * KiROUND( thickness * 1.5 )        font.cpp:469
+    //   with thickness = GetEffectiveTextPenWidth() = the stored 0.15 mm
+    //   (> 1, so it wins outright), and a CENTER-justified box placed at
+    //     bbox.SetX( bbox.GetX() - ( bbox.GetWidth() - italicOffset ) / 2 )
+    //   i.e. C++ integer division, hence Math.trunc.
+    const size = mmToIU(1);
+    const thickness = mmToIU(0.15);
+    const w = measureText('REF**', size) - kiRound(size * 0.2) + 2 * kiRound(thickness * 1.5);
+    const box = footprintBBox(read())!;
+    expect(box.minX).toBeCloseTo(-Math.trunc(w / 2), 6);
+    expect(box.maxX).toBeCloseTo(w - Math.trunc(w / 2), 6);
+    // …and that really is outside the pads, so this is not the old answer.
+    expect(box.minX).toBeLessThan(mmToIU(-1.25));
+    expect(box.maxX).toBeGreaterThan(mmToIU(1.25));
   });
 
   it('hit-tests a pad, a line and empty space', () => {
