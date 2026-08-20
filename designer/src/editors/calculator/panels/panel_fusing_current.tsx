@@ -223,7 +223,7 @@ export function PanelFusingCurrent(): JSX.Element {
       </div>
       {/* bSizer3: the button with wxBOTTOM|wxRIGHT|wxLEFT 5 inside a sizer
           added with wxTOP|wxBOTTOM 10 (base:126-133). */}
-      <div style={{ margin: '10px 0', paddingLeft: 5 }}>
+      <div style={{ margin: '10px 0' /* [data] bSizer3's wxTOP|wxBOTTOM 10 */, paddingLeft: 5 }}>
         <button type="button" className="calc-btn" onClick={calculate}>
           Calculate
         </button>

@@ -36,6 +36,10 @@ export {
   replaceItem as replaceWksItem,
   DEFAULT_SETUP,
   WKS_FILE_VERSION,
+  wksItemMsgPanelInfo,
+  WKS_ITEM_TYPE_LABEL,
+  WKS_PAGE1_OPTION_LABEL,
+  type WksMsgPanelItem,
   type WksColor,
   type WksSheet,
   type WksItem,
@@ -63,6 +67,7 @@ export {
   type WksBBox,
 } from './drawing_sheet/index.js';
 
+export * from './page_info.js';
 export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';
 

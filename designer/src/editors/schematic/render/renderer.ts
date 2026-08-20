@@ -1624,12 +1624,6 @@ function drawSheetGraphic(ctx: CanvasRenderingContext2D, g: LibGraphic, theme: T
   ctx.setLineDash([]);
 }
 
-/**
- * KiCad interline pitch for the stroke font: METRICS::m_InterlinePitch (1.68) x
- * STROKE_FONT::LEGACY_FACTOR (0.9583). Line N's baseline sits N*pitch below the first.
- */
-const INTERLINE = 1.68 * 0.9583;
-
 /** Word-wrap `text` into lines fitting `maxWidth` at font `height` (KiCad LinebreakText). */
 function wrapTextBox(text: string, maxWidth: number, height: number): string[] {
   const out: string[] = [];
@@ -1705,7 +1699,7 @@ function drawTextBox(
   const innerW = x1 - x0 - m.left - m.right;
   if (innerW <= 0 || tb.text === '') return;
   const lines = wrapTextBox(tb.text, innerW, h);
-  const pitch = h * INTERLINE;
+  const pitch = interline(h);
   const justify = tb.effects?.justify ?? ['left', 'top'];
   const right = justify.includes('right'),
     hcenter = justify.includes('center') && !justify.includes('left') && !justify.includes('right');
@@ -1756,7 +1750,7 @@ function drawBoxText(
   const innerW = x1 - x0 - m.left - m.right;
   if (innerW <= 0 || text === '') return;
   const lines = wrapTextBox(text, innerW, h);
-  const pitch = h * INTERLINE;
+  const pitch = interline(h);
   const justify = effects?.justify ?? ['left', 'top'];
   const right = justify.includes('right'),
     hcenter = justify.includes('center') && !justify.includes('left') && !justify.includes('right');

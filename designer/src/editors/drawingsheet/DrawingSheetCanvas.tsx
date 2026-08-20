@@ -24,7 +24,13 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { Vec2 } from '@ziroeda/kimath';
-import { pickDrawItem, wksItemsInBox, wksItemBBox, type DsDrawItem } from '@ziroeda/common';
+import {
+  pickDrawItem,
+  wksItemsInBox,
+  wksItemBBox,
+  SCH_IU_PER_MM,
+  type DsDrawItem,
+} from '@ziroeda/common';
 import {
   drawDrawingSheetItems,
   dsBackgroundIsDark,
@@ -35,30 +41,57 @@ import {
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
   DS_PAGE_BORDER_COLOR,
-  DS_HILITE_COLOR,
+  DS_EDIT_POINT_ON_DARK,
+  DS_EDIT_POINT_ON_LIGHT,
+  DS_MARQUEE,
+  DS_SELECTED_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
+import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
+import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 
-// A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
-// cursor for the interactive delete picker (KICURSOR::REMOVE).
+/*
+ * The drawing tools' pencil (KICURSOR::PENCIL) and the interactive delete
+ * picker's cross (KICURSOR::REMOVE).
+ *
+ * [art] KiCad ships both as 32x32 XPMs - `resources/bitmaps_png/cursors/
+ * cursor-pencil.xpm` and `cursor-eraser.xpm`, mapped at `common/gal/cursors.cpp`
+ * :137-141 and :185-190 - so there is no vector to copy, only a PALETTE. Both
+ * XPMs declare exactly three colours: `None`, `#FFFFFF` and `#000000`. A KiCad
+ * cursor is a white shape with a black outline and nothing else, on every
+ * frame, so it stays legible over any canvas colour.
+ *
+ * Ours were a yellow-and-red pencil (`#ffd54a` / `#c8322d` / `#1b1b1b`) and a
+ * red cross (`#e33`) - three invented hues where upstream has two absolutes.
+ * The geometry below is still ours, because an XPM bitmap gives no path; the
+ * ink is KiCad's.
+ *
+ * The hotspots are upstream's too: pencil { 4, 27 } and eraser { 4, 4 } in the
+ * 32x32 art, i.e. { 3, 20 } and { 3, 3 } scaled to our 24x24.
+ */
+const CURSOR_INK = '#ffffff'; // [art] XPM colour `.`
+const CURSOR_EDGE = '#000000'; // [art] XPM colour `+`
 const PENCIL_SVG =
   "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  "<path d='M3.5 20.5l3.2-1 11-11-2.2-2.2-11 11z' fill='#ffd54a' stroke='#1b1b1b' stroke-width='1'/>" +
-  "<path d='M14.8 5.1l2.2 2.2 1.9-1.9a1.3 1.3 0 0 0 0-1.9l-.3-.3a1.3 1.3 0 0 0-1.9 0z' fill='#c8322d' stroke='#1b1b1b' stroke-width='1'/>" +
-  "<path d='M3.5 20.5l1.1-2.9 1.8 1.1z' fill='#1b1b1b'/></svg>";
-const PENCIL_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PENCIL_SVG)}") 3 21, crosshair`;
+  `<path d='M3.5 20.5l3.2-1 11-11-2.2-2.2-11 11z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
+  `<path d='M14.8 5.1l2.2 2.2 1.9-1.9a1.3 1.3 0 0 0 0-1.9l-.3-.3a1.3 1.3 0 0 0-1.9 0z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
+  `<path d='M3.5 20.5l1.1-2.9 1.8 1.1z' fill='${CURSOR_EDGE}'/></svg>`;
+const PENCIL_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PENCIL_SVG)}") 3 20, crosshair`;
 const REMOVE_SVG =
   "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  "<path d='M5 5l14 14M19 5L5 19' stroke='#e33' stroke-width='3' stroke-linecap='round'/></svg>";
-const REMOVE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(REMOVE_SVG)}") 12 12, not-allowed`;
+  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_EDGE}' stroke-width='4' stroke-linecap='round'/>` +
+  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_INK}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const REMOVE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(REMOVE_SVG)}") 3 3, not-allowed`;
 
 export interface DrawingSheetCanvasController {
   zoomToFit: () => void;
   zoomToSelection: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** `COMMON_TOOLS::doZoomToPreset` — jump to one entry of the zoom table. */
+  setZoomPreset: (factor: number) => void;
   redraw: () => void;
 }
 
@@ -82,6 +115,15 @@ export interface DrawingSheetCanvasProps {
   moveMode?: boolean;
   onCursorMove?: (p: Vec2 | null) => void;
   onScaleChange?: (scale: number) => void;
+  /**
+   * Right-click on the canvas, with the item under the cursor (or null).
+   *
+   * PL_SELECTION_TOOL::Main (pl_selection_tool.cpp:120-135) on BUT_RIGHT:
+   * an EMPTY selection picks up the item under the cursor as a hover
+   * selection first; a non-empty one is left exactly as it is, wherever the
+   * click landed. Then the tool menu opens over that selection.
+   */
+  onContextMenuRequest?: (x: number, y: number, hit: number | null) => void;
   onSelect?: (src: number | null, additive: boolean) => void;
   onSelectBox?: (srcs: number[], additive: boolean) => void;
   /** The active tool finished and handed back to the arrow (PopTool). */
@@ -124,6 +166,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       moveMode,
       onCursorMove,
       onScaleChange,
+      onContextMenuRequest,
       onSelect,
       onSelectBox,
       onToolDone,
@@ -249,7 +292,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
       // Selection outlines (dashed), offset by an in-flight move delta.
       if (selRef.current.size > 0) {
-        ctx.strokeStyle = DS_HILITE_COLOR;
+        // [art] pl_editor draws NO outline around a selected item - it repaints
+        // the item itself in m_selectedColor, which drawDrawingSheetItems above
+        // already does. This dashed box is ours, an affordance a mouse-and-
+        // canvas UI needs and a wxWidgets one does not, so it has no upstream
+        // metric. It at least borrows the one selection colour rather than
+        // inventing a second.
+        ctx.strokeStyle = DS_SELECTED_COLOR;
         ctx.lineWidth = Math.max(1, dpr);
         ctx.setLineDash([5 * dpr, 3 * dpr]);
         const ox = md ? md.x : 0,
@@ -273,11 +322,14 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // Point-editor handles (filled squares, EDIT_POINTS style).
       const pts = editPointsRef.current;
       if (pts && pts.length > 0 && !md) {
+        // EDIT_POINT::POINT_SIZE is 8 (include/tool/edit_points.h:194) and
+        // edit_points.cpp:290 halves it, so the square is 8 across. [data]
         const r = 4 * dpr;
+        const handle = darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT;
         for (const p of pts) {
           const c = toPx(p);
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = DS_HILITE_COLOR;
+          ctx.fillStyle = handle.fill;
+          ctx.strokeStyle = handle.border;
           ctx.lineWidth = Math.max(1, dpr);
           ctx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
           ctx.strokeRect(c.x - r, c.y - r, r * 2, r * 2);
@@ -290,8 +342,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const p0 = toPx(box.a),
           p1 = toPx(box.b);
         const rightward = box.b.x >= box.a.x;
-        ctx.strokeStyle = rightward ? 'rgba(120,170,255,0.9)' : 'rgba(120,255,150,0.9)';
-        ctx.fillStyle = rightward ? 'rgba(120,170,255,0.12)' : 'rgba(120,255,150,0.12)';
+        const scheme = darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight;
+        ctx.strokeStyle = rightward ? scheme.outlineL2R : scheme.outlineR2L;
+        ctx.fillStyle = scheme.fill;
         ctx.lineWidth = dpr;
         const x = Math.min(p0.x, p1.x),
           y = Math.min(p0.y, p1.y);
@@ -424,7 +477,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       [requestDraw],
     );
 
-    const zoomStep = useCallback(
+    /**
+     * `COMMON_TOOLS::doZoomToPreset` (common/tool/common_tools.cpp:468-495):
+     * `VIEW::SetScale( zoomList[idx] )`, an absolute zoom rather than a step.
+     * The canvas centre is held, which is `SetScale( scale )`'s own behaviour
+     * when no anchor is passed.
+     */
+    const setZoomPreset = useCallback(
       (factor: number) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -433,12 +492,30 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           py = canvas.height / 2;
         const wx = (px - v.tx) / v.scale,
           wy = (py - v.ty) / v.scale;
-        v.scale *= factor;
+        v.scale = scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM);
         v.tx = px - wx * v.scale;
         v.ty = py - wy * v.scale;
         requestDraw();
       },
-      [requestDraw],
+      [dpr, requestDraw],
+    );
+
+    /**
+     * `COMMON_TOOLS::doZoomInOut` (common/tool/common_tools.cpp:252-291).
+     *
+     * Not `scale *= 1.3`. The 1.3 is the FLOOR - "Step must be AT LEAST 1.3" -
+     * and the zoom actually applied is the next entry of the frame's zoom table
+     * beyond it, pegged to the end of the list rather than running off it. So
+     * KiCad always lands on a round, repeatable zoom that the canvas context
+     * menu can also name and jump straight back to; ours multiplied by a
+     * constant and landed on 1.12, 1.46, 1.90, 2.47… none of which is anywhere.
+     */
+    const zoomPresetStep = useCallback(
+      (zoomIn: boolean) => {
+        const now = zoomFactorForScale(viewRef.current.scale, dpr, SCH_IU_PER_MM);
+        setZoomPreset(nextZoomPreset(ZOOM_LIST.pl_editor, now, zoomIn));
+      },
+      [dpr, setZoomPreset],
     );
 
     useImperativeHandle(
@@ -446,11 +523,12 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       () => ({
         zoomToFit,
         zoomToSelection,
-        zoomIn: () => zoomStep(1.3),
-        zoomOut: () => zoomStep(1 / 1.3),
+        zoomIn: () => zoomPresetStep(true),
+        zoomOut: () => zoomPresetStep(false),
+        setZoomPreset,
         redraw: () => requestDraw(),
       }),
-      [zoomToFit, zoomToSelection, zoomStep, requestDraw],
+      [zoomToFit, zoomToSelection, zoomPresetStep, setZoomPreset, requestDraw],
     );
 
     // Size to container; fit on first layout.
@@ -795,8 +873,18 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onContextMenu={(e) => {
-            // BUT_RIGHT is the zoom-out drag while this tool is armed.
-            if (activeTool === 'zoomTool') e.preventDefault();
+            e.preventDefault();
+            // BUT_RIGHT is the zoom-out drag while ZOOM_TOOL is armed
+            // (zoom_tool.cpp:62-95), so the selection tool's menu is not what
+            // that button means and no menu opens.
+            if (activeTool === 'zoomTool') return;
+            const world = worldAt(e.clientX, e.clientY);
+            const tol = (6 * dpr) / viewRef.current.scale;
+            onContextMenuRequest?.(
+              e.clientX,
+              e.clientY,
+              pickDrawItem(drawsRef.current, world, tol),
+            );
           }}
           onPointerLeave={() => {
             onCursorMove?.(null);

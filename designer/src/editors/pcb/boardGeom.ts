@@ -16,9 +16,9 @@ import earcut from 'earcut';
 import polygonClipping from 'polygon-clipping';
 import { tessellateArc, type Board } from '@ziroeda/pcbnew';
 import { layoutText } from '@ziroeda/common/src/font/stroke_font.js';
+import { ITALIC_TILT } from '@ziroeda/common/src/font/font_metrics.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
-const ITALIC_TILT = 1 / 8;
 type Pt = { x: number; y: number };
 type Vec2 = { x: number; y: number };
 type Pad = Board['footprints'][number]['pads'][number];

@@ -387,7 +387,14 @@ export function PanelRegulator(): JSX.Element {
         {/* bSizeLeftpReg: fixed 400px column; the Type choice stretches
             across it (proportion 1), the drawing centres, and the Formula
             box expands to the column width. */}
-        <div className="calc-col" style={{ flex: '0 0 390px', width: 390, minWidth: 390 }}>
+        <div
+          className="calc-col"
+          style={{
+            flex: '0 0 390px' /* [px] bSizeLeftpReg's 400 less the row's own 5 each side */,
+            width: 390,
+            minWidth: 390,
+          }}
+        >
           <div className="calc-field">
             <span title={TIP_TYPE}>Type:</span>
             <Combo
@@ -403,7 +410,12 @@ export function PanelRegulator(): JSX.Element {
           </div>
           {/* a 10 px spacer, then the bitmap with a 10 px border all round
               and centred horizontally (panel_regulator_base.cpp:42-49). */}
-          <div style={{ alignSelf: 'center', margin: '20px 0' }}>
+          <div
+            style={{
+              alignSelf: 'center',
+              margin: '20px 0' /* [data] a 10 px spacer plus the bitmap's wxALL 10 */,
+            }}
+          >
             <RegulatorDrawing type={type} />
           </div>
           <Group title="Formula">

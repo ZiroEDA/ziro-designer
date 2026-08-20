@@ -31,8 +31,16 @@ const CSS = readFileSync(join(SRC, 'editors/calculator/calculator.css'), 'utf8')
  *  purpose; only declarations are being policed. */
 const CODE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 
-/** The blocks whose colours are data, not chrome. */
-const DATA_BLOCKS = /\.es-grid[^}]*}|\.cc-resistor[^}]*}|\.cc-band[^}]*}|td\.bad[^}]*}/g;
+/**
+ * The blocks whose colours are data, not chrome.
+ *
+ * `td.bad` used to be listed here and is gone: it was a #6e2a2a "out of range"
+ * wash that NOTHING in the tree ever set, and pcb_calculator has no red cell
+ * anywhere, so it was an invented colour sitting behind a data exemption. Keep
+ * this list to blocks that are actually rendered - an exemption for dead code
+ * is an exemption that can never be re-examined.
+ */
+const DATA_BLOCKS = /\.es-grid[^}]*}|\.cc-resistor[^}]*}|\.cc-band[^}]*}/g;
 const chromeOnly = (): string => CODE.replace(DATA_BLOCKS, '');
 
 describe('calculator.css consumes the theme instead of restating it', () => {

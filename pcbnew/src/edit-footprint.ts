@@ -167,7 +167,21 @@ export function fpItemBBox(fp: PcbFootprint, id: string): FpBBox | null {
   return { minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h };
 }
 
-/** Bounding box of a footprint's drawable geometry (pads + graphics + text anchors). */
+/**
+ * Bounding box of a footprint's drawable geometry (pads + graphics + text).
+ *
+ * `FOOTPRINT::GetBoundingBox( aIncludeText = true )` (`pcbnew/footprint.cpp`)
+ * merges `text->GetBoundingBox()` for every visible text, which for a
+ * `PCB_TEXT` is `EDA_TEXT::GetTextBox` rotated by the draw rotation. This grew
+ * the box by the text's *anchor point* only, which is the fifth site of the
+ * same class the board's four measurement sites were fixed in: a reference
+ * designator hanging off the top of a footprint contributed one point rather
+ * than its glyphs.
+ *
+ * It feeds zoom-to-fit and the spread-footprints layout, so a board whose
+ * outermost ink was a silkscreen value was zoomed with that value cropped, and
+ * spread footprints were packed close enough for their text to overlap.
+ */
 export function footprintBBox(fp: PcbFootprint): FpBBox | null {
   let minX = Infinity,
     minY = Infinity,
@@ -181,7 +195,14 @@ export function footprintBBox(fp: PcbFootprint): FpBBox | null {
   };
   for (const pad of fp.pads) padPoints(pad).forEach(grow);
   for (const s of fp.shapes) shapePoints(s).forEach(grow);
-  for (const t of fp.texts) if (!t.hide) grow(t.at);
+  for (const t of fp.texts) {
+    if (t.hide) continue;
+    // The same `textItemBBox` `fpItemBBox` selects this text with, so the box
+    // that zooms to it and the box that highlights it cannot drift apart.
+    const b = textItemBBox(t);
+    grow({ x: b.x, y: b.y });
+    grow({ x: b.x + b.w, y: b.y + b.h });
+  }
   return minX <= maxX ? { minX, minY, maxX, maxY } : null;
 }
 

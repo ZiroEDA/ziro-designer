@@ -87,7 +87,11 @@ export function PanelTrackWidth(): JSX.Element {
     setThicknessM: (v: number) => void,
     areaM2: number,
   ): JSX.Element => (
-    <Group title={title} className="calc-grid3" style={{ '--calc-vgap': '0px' } as CSSProperties}>
+    <Group
+      title={title}
+      className="calc-grid3"
+      style={{ '--calc-vgap': '0px' /* [data] wxFlexGridSizer( 4, 3, 0, 0 ) */ } as CSSProperties}
+    >
       <NumField
         label="Track width (W):"
         units={LEN_UNITS}

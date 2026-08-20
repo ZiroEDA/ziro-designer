@@ -43,6 +43,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* [data] wxBOTTOM|wxLEFT, 10 — bitmap2cmp_panel_base.cpp:30 writes 10,
+     not two --wx-border 5s, so it is upstream's number and stays. */
   margin: 0 0 10px 10px;
   border: 1px solid var(--ctl-border);
 }
@@ -217,7 +219,7 @@
 .imgc-layerrow {
   display: flex;
   align-items: center;
-  padding-left: 28px;
+  padding-left: 28px; /* [data] bitmap2cmp_panel_base.cpp:177 */
   padding-right: var(--wx-border);
   gap: var(--wx-border);
 }
@@ -323,6 +325,9 @@
   display: block;
   width: calc(100% - 2 * var(--slider-track-inset));
   margin: 0 var(--slider-track-inset);
+  /* NOT PROVEN. The +7 is a fudge that makes the label lines above and below
+     the track clear the thumb; no GTK metric and no measurement says 7. It is
+     the one number in this file that is neither a token nor a citation. */
   height: calc(var(--slider-thumb-size) + 7px);
   padding: 0;
   appearance: none;
@@ -406,7 +411,7 @@
   box-sizing: border-box;
   background: var(--check-face);
   border: 1px solid var(--ctl-border);
-  border-radius: 3px;
+  border-radius: var(--check-radius);
 }
 
 .imgc-frame .imgc-radio input {
@@ -423,22 +428,25 @@
 .imgc-frame .imgc-check input:checked::after {
   content: "";
   display: block;
-  width: 4px;
-  height: 8px;
-  margin: 1px auto 0;
-  border: solid #ffffff;
-  border-width: 0 2px 2px 0;
+  /* [art] the tick's own geometry. GTK draws check-symbolic.svg here, so there
+     is no metric to copy — only the ink is shared, as --check-mark. */
+  width: 4px; /* [art] */
+  height: 8px; /* [art] */
+  margin: 1px auto 0; /* [art] */
+  border: solid var(--check-mark);
+  border-width: 0 2px 2px 0; /* [art] */
   transform: rotate(45deg);
 }
 
 .imgc-frame .imgc-radio input:checked::after {
   content: "";
   display: block;
-  width: 6px;
-  height: 6px;
-  margin: 4px auto;
+  /* [art] as above, for bullet-symbolic.svg. */
+  width: 6px; /* [art] */
+  height: 6px; /* [art] */
+  margin: 4px auto; /* [art] */
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--check-mark);
 }
 
 /* wxALL 5 on m_aspectRatioCheckbox; wxBOTTOM|wxRIGHT|wxLEFT 5 on
@@ -458,7 +466,7 @@
 .imgc-formats {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 2px; /* [data] wxFlexGridSizer( 5, 1, 2, 0 ) — the vgap is upstream's */
   padding: 0 var(--wx-border);
 }
 
@@ -534,53 +542,9 @@
   flex: none;
 }
 
-/* --- about modal (same pattern as the calculator's Modal) --- */
-.imgc-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.imgc-modal {
-  background: var(--panel-bg);
-  border: 1px solid var(--ctl-border);
-  border-radius: var(--ctl-radius);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-  width: 460px;
-  max-width: 92vw;
-  display: flex;
-  flex-direction: column;
-}
-
-.imgc-modal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--ctl-border);
-  font-weight: 600;
-}
-
-.imgc-modal-x {
-  background: none;
-  border: none;
-  color: var(--chrome-fg);
-  cursor: default;
-  font: inherit;
-}
-
-.imgc-modal-body {
-  padding: 12px;
-  overflow: auto;
-}
-
-.imgc-modal-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 12px;
-  border-top: 1px solid var(--ctl-border);
-}
+/* The About box is the SHARED dialog widget: .ze-modal / .ze-modal-header /
+   .ze-label-dialog-body / .ze-modal-footer in ui/shell.css, the same one
+   home/dialogs/dialog_about.tsx gives the PCB, symbol and footprint editors.
+   This frame used to carry a private .imgc-modal skin that restated the shared
+   padding, radius, border, shadow and backdrop wash. Nothing about the dialog
+   is stated here now - only its content is this frame's. */

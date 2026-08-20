@@ -23,7 +23,7 @@
 import type { Board } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { boardHitCandidates, parseBoardItemId } from './edit-board.js';
-import { segNearestPointToPoint } from './drc/shape_collisions.js';
+import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import {
   align,
   alignToArc,
@@ -400,7 +400,7 @@ export function bestSnapAnchor(
     for (const t of [...aBoard.tracks, ...aBoard.arcs]) {
       if (!aOpts.allLayers && aOpts.layer && !layerMatches(t.layer, aOpts.layer)) continue;
 
-      const p = segNearestPointToPoint({ a: t.start, b: t.end }, aWhere);
+      const p = segNearestPoint({ a: t.start, b: t.end }, aWhere);
       const d = sqDist(p, aWhere);
 
       if (d < bestDist) {

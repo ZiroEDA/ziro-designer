@@ -189,7 +189,7 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /* ------------------------------------------------------------------------- *
  * The ratchet.
  *
- * 407 hardcoded font sizes are still in the tree across 29 distinct values.
+ * 397 hardcoded font sizes are still in the tree across 29 distinct values.
  * They come out per launcher, as each launcher's parity work reaches it and
  * can be verified against that launcher's own side-by-side captures - a
  * 414-site sweep can only be verified in aggregate, which is not verification.
@@ -212,7 +212,9 @@ const BASELINE: Record<string, number> = {
   // and moved to ui/'s .ze-unit-label when UnitField replaced it; the two
   // invented "deg" spans beside Rotation went with the B5 label pass, since
   // m_textCtrlRotation has no units static text upstream.
-  'editors/drawingsheet': 11,
+  // 7 until the central-values pass put DesignInspector.tsx's table on the
+  // shared `.ze-grid` skin, which carries the size so the call site does not.
+  'editors/drawingsheet': 6,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -221,7 +223,7 @@ const BASELINE: Record<string, number> = {
   home: 5,
   mobile: 6,
   pcm: 10,
-  ui: 165,
+  ui: 159,
   widgets: 6,
 };
 
@@ -330,11 +332,63 @@ describe('hardcoded font sizes do not grow', () => {
   });
 
   it('the total is what the PR reported, so the number in the PR stays true', () => {
-    // 407, RECOUNTED FROM THE TREE after merging the calculator and drawing
-    // sheet passes — not from either side's diff. Each pass alone reported a
-    // different number (409 and 412) and neither is the answer; keeping either
-    // one still compiles and silently hides the other's remaining sites, which
+    // 397, RECOUNTED FROM THE TREE after DSP-21 tokenised the drawing sheet's
+    // properties frame — not from that pass's diff. Each pass alone reports a
+    // different number and none of them is the answer; keeping a stale one
+    // still compiles and silently hides another area's remaining sites, which
     // is the specific way this file has been broken before.
-    expect(sites.length).toBe(407);
+    //
+    // DSP-21 took 4 out of editors/drawingsheet (11 -> 7) and 6 out of ui
+    // (165 -> 159: the four .ze-ds-* rules, .ze-unit-label, and the tab strip).
+    // The central-values pass took one more out of editors/drawingsheet (7 ->
+    // 6): DesignInspector.tsx's table is `.ze-grid` now and declares no size.
+    expect(sites.length).toBe(396);
+  });
+});
+
+/**
+ * The shell root itself, which every launcher inherits from.
+ *
+ * `.ze-app` hardcoded `font: 13px/1.3 system-ui, "Segoe UI", sans-serif` while
+ * `--ui-font-size` (11pt = 14.667px, wxSYS_DEFAULT_GUI_FONT) and
+ * `--ui-font-family` sat unused in the same file. Nothing rendered at 13px
+ * because every launcher overrode it — the cost was silent: anything NEW that
+ * simply inherited the root got 13px and a Windows font stack instead of the
+ * face KiCad asks GTK for.
+ *
+ * Measured before changing it: `system-ui` resolves to Ubuntu Sans on this
+ * machine and advances "General system design" at 147.5px against KiCad's
+ * measured 147px ink, so the token was already the correct answer and the
+ * literal was simply wrong.
+ */
+describe('the shell root uses the font tokens, not a literal', () => {
+  const shell = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+    'utf8',
+  );
+
+  /** The rule body with comments stripped — the note inside it NAMES the stack
+   *  it forbids, and prose about a rule must not read as the rule. */
+  const rootRule = (): string => {
+    const at = shell.indexOf('\n.ze-app {');
+    expect(at, 'shell.css has no .ze-app rule').toBeGreaterThanOrEqual(0);
+    return shell.slice(at, shell.indexOf('}', at)).replace(/\/\*[\s\S]*?\*\//g, '');
+  };
+
+  it('takes its size and family from the tokens', () => {
+    const body = rootRule();
+    expect(body).toMatch(/font:\s*var\(--ui-font-size\)\s*\/\s*[\d.]+\s*var\(--ui-font-family\)/);
+  });
+
+  it('carries no hardcoded px size and no Segoe UI stack', () => {
+    const body = rootRule();
+    expect(body).not.toMatch(/font:[^;]*\d+px/);
+    expect(body).not.toContain('Segoe UI');
+  });
+
+  it('still resolves to KiCad’s 11pt', () => {
+    // wxSYS_DEFAULT_GUI_FONT is 11pt; 11pt at 96dpi is 14.667px, which is what
+    // the running app measures at the root.
+    expect(shell).toMatch(/--ui-font-size:\s*11pt/);
   });
 });

@@ -22,18 +22,19 @@
  */
 
 import { useState, type JSX } from 'react';
-import type {
-  WksSheet,
-  WksItem,
-  WksText,
-  WksLine,
-  WksRect,
-  WksBitmap,
-  WksPoly,
-  WksPoint,
-  WksCorner,
-  WksOption,
-  WksColor,
+import {
+  WKS_ITEM_TYPE_LABEL,
+  type WksSheet,
+  type WksItem,
+  type WksText,
+  type WksLine,
+  type WksRect,
+  type WksBitmap,
+  type WksPoly,
+  type WksPoint,
+  type WksCorner,
+  type WksOption,
+  type WksColor,
 } from '@ziroeda/common';
 import { KICAD_FONT_NAME } from '@ziroeda/common/src/font/stroke_font.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
@@ -41,6 +42,7 @@ import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
+import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from './wksRender.js';
 
 /**
  * The font faces the Text page offers — `FONT_CHOICE`
@@ -97,14 +99,6 @@ const DEFAULT_TEXT_SIZE_RANGE: UnitRange = { min: DLG_MIN_TEXTSIZE, max: DLG_MAX
 /** The sheet's default text thickness (:213). */
 const DEFAULT_TEXT_THICKNESS_RANGE: UnitRange = { min: 0.0, max: 5.0 };
 
-const TYPE_LABEL: Record<WksItem['type'], string> = {
-  line: 'Line',
-  rect: 'Rectangle',
-  text: 'Text',
-  bitmap: 'Image',
-  polygon: 'Poly',
-};
-
 /** Corner combo entries, in the panel's order. */
 const CORNER_CHOICES: { value: WksCorner; label: string }[] = [
   { value: 'rtcorner', label: 'Upper Right' },
@@ -151,13 +145,14 @@ function NumField({
   value,
   onCommit,
   step = 0.1,
-  width = 62,
+  width,
   title,
 }: {
   value: number;
   onCommit: (n: number) => void;
   step?: number;
-  width?: number;
+  /** Unset expands to fill the value column, as `wxEXPAND` does upstream. */
+  width?: number | string;
   title?: string;
 }): JSX.Element {
   // Commit on blur / Enter like the wx panel (focus-lost applies the value).
@@ -173,7 +168,7 @@ function NumField({
       className="ze-search"
       type="number"
       step={step}
-      style={{ width }}
+      style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
       title={title}
       value={text ?? String(value)}
       onKeyDown={(e) => {
@@ -263,11 +258,22 @@ function FormatButton({
   );
 }
 
+/*
+ * An item with no colour of its own is drawn in LAYER_SCHEMATIC_DRAWINGSHEET,
+ * so that is what the swatch has to show: the colour the user will actually
+ * see, from the one place that colour is written down. It was `#c8322d`, a red
+ * that matches neither the layer nor anything else in KiCad.
+ *
+ * (KiCad's own swatch shows a CHECKERBOARD for COLOR4D::UNSPECIFIED -
+ * `color_swatch.cpp:79-91`, set for this control at `properties_frame.cpp:124`.
+ * A native `<input type="color">` cannot render one, so it shows the resolved
+ * colour instead; that is a browser limit, not a chosen value.)
+ */
 const colorCss = (c: WksColor | undefined): string =>
-  c ? `rgba(${c.r},${c.g},${c.b},${c.a})` : '#c8322d';
+  c ? `rgba(${c.r},${c.g},${c.b},${c.a})` : DS_ITEM_COLOR;
 
 const hexOf = (c: WksColor | undefined): string => {
-  if (!c) return '#c8322d';
+  if (!c) return DS_ITEM_COLOR_HEX;
   const h = (n: number): string => Math.round(n).toString(16).padStart(2, '0');
   return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
 };
@@ -304,6 +310,14 @@ export function PropertiesFrame({
       className="ze-panel grow"
       style={{ overflow: 'auto', display: 'flex', flexDirection: 'column' }}
     >
+      {/* The AUI pane caption. pl_editor_frame.cpp:199-203 adds this panel with
+          `.Caption( _( "Properties" ) )`, and GTK draws a caption strip above
+          the notebook for it. Ours had none, alone among our editors: the PCB,
+          schematic and symbol editors already draw theirs with the shared
+          `.ze-panel-header`, which is WX_AUI_DOCK_ART's caption
+          (common/widgets/wx_aui_art_providers.cpp:307-325) measured off a real
+          pane — 17 px of flat fill, normal weight, no gradient. */}
+      <div className="ze-panel-header">Properties</div>
       <div className="ze-ds-tabs">
         <button className={tab === 'item' ? 'active' : ''} onClick={() => setTab('item')}>
           Item Properties
@@ -327,7 +341,7 @@ export function PropertiesFrame({
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
           ) : (
-            <div className="ze-muted" style={{ padding: 6 }}>
+            <div className="ze-muted" style={{ padding: 'var(--wx-border)' }}>
               Select an item to edit its properties.
             </div>
           )
@@ -374,19 +388,30 @@ function ItemProperties({
           here rather than clipping, which a wxBoxSizer does not have to do. */}
       <div
         className="ze-ds-row"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
+        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 'var(--wx-border)' }}
       >
-        <b style={{ fontSize: 12 }}>Type: {TYPE_LABEL[item.type]}</b>
-        <a
-          href="#syntax"
-          style={{ fontSize: 11 }}
-          onClick={(e) => {
-            e.preventDefault();
-            onShowSyntaxHelp();
-          }}
-        >
-          Syntax Help
-        </a>
+        {/* `m_staticTextType->SetLabel( aItem->GetClassName() )`
+            (properties_frame.cpp:241): the type NAME alone. Ours prefixed it
+            with "Type: ", which upstream never shows — the control's designer
+            placeholder is "Item Type" and it is overwritten on every
+            selection. It is also not bold: properties_frame_base.cpp:31 sets
+            the font explicitly to wxFONTWEIGHT_NORMAL. */}
+        <span className="ze-ds-type">{WKS_ITEM_TYPE_LABEL[item.type]}</span>
+        {/* `m_syntaxHelpLink->Show( aItem->GetType() == DS_DATA_ITEM::DS_TEXT )`
+            (properties_frame.cpp:358). Only a text item has `${…}` syntax to
+            be helped with; ours offered the link for a Line. */}
+        {t && (
+          <a
+            href="#syntax"
+            className="ze-ds-syntaxhelp"
+            onClick={(e) => {
+              e.preventDefault();
+              onShowSyntaxHelp();
+            }}
+          >
+            Syntax Help
+          </a>
+        )}
         <Combo
           style={{ flex: '1 1 100%', minWidth: 0 }}
           ariaLabel="First page option"
@@ -466,6 +491,12 @@ function ItemProperties({
               title="Text color"
               value={hexOf(t.color)}
               style={{
+                // NOT PROVEN. COLOR_SWATCH built with wxDefaultSize takes
+                // SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units less 2 px
+                // (color_swatch.cpp:166,203-204), which is about 46 x 20 at
+                // this font - close to, but not, the two numbers below. They
+                // were chosen to sit in the format row and have never been
+                // measured against a real one.
                 width: 26,
                 height: 22,
                 padding: 0,
@@ -538,9 +569,13 @@ function ItemProperties({
               onCommit={(maxheight) => patch({ maxheight })}
             />
           </Row>
-          <div className="ze-muted" style={{ fontSize: 10, margin: '0 6px 4px' }}>
-            Set to 0 to disable a constraint
-          </div>
+          {/* `m_staticTextSizeInfo` (properties_frame_base.cpp:226), drawn in
+              KIUI::GetInfoFont().Italic() (properties_frame.cpp:97) — one
+              relative point down from the control font, which is what
+              --ui-font-size-info is. Ours said "Set to 0 to disable a
+              constraint", which is the TOOLTIP of the two Maximum fields
+              (:185, :198) and not this line. */}
+          <div className="ze-ds-sizeinfo">Set to 0 to use default values</div>
         </>
       )}
 
@@ -809,7 +844,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
             ✕
           </span>
         </div>
-        <div style={{ padding: '8px 14px', fontSize: 12, lineHeight: 1.5 }}>
+        <div className="ze-ds-syntaxhelp-body">
           <p>
             Texts can include keywords. Keyword notation is <code>{'${keyword}'}</code>; each
             keyword is replaced by its value at draw time.
@@ -818,7 +853,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
             <tbody>
               {keywords.map(([k, d]) => (
                 <tr key={k}>
-                  <td style={{ padding: '1px 14px 1px 0' }}>
+                  <td style={{ padding: '0 calc(var(--wx-border) * 3) 0 0' }}>
                     <code>{k}</code>
                   </td>
                   <td className="ze-muted">{d}</td>

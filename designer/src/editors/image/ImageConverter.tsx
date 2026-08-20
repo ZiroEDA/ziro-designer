@@ -761,38 +761,35 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
 
       {aboutOpen && (
-        <div className="imgc-modal-backdrop" onMouseDown={() => setAboutOpen(false)}>
-          <div className="imgc-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="imgc-modal-head">
-              <span>{aboutWindowTitle(ABOUT_TITLES.imageConverter)}</span>
-              <button
-                type="button"
-                className="imgc-modal-x"
-                onClick={() => setAboutOpen(false)}
-                aria-label="Close"
-              >
+        // The dialog CHROME is the shared one - ui/shell.css's .ze-modal family,
+        // the same widget home/dialogs/dialog_about.tsx and every other launcher
+        // uses. Only the copy below is this frame's. There was a private
+        // .imgc-modal skin here that restated the shared padding, radius, border
+        // and shadow; a second copy of a widget is a second thing to keep in
+        // step, which is the whole reason KiCad has one wxDialog.
+        <div className="ze-modal-backdrop" onMouseDown={() => setAboutOpen(false)}>
+          <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="ze-modal-header">
+              {aboutWindowTitle(ABOUT_TITLES.imageConverter)}
+              <span className="x" title="Close" onClick={() => setAboutOpen(false)}>
                 ✕
-              </button>
+              </span>
             </div>
-            <div className="imgc-modal-body">
+            <div className="ze-label-dialog-body">
               <p style={{ marginTop: 0 }}>
                 Convert a bitmap image into KiCad artwork, like KiCad's Image Converter
                 (bitmap2component): the picture is reduced to greyscale, thresholded to black &
                 white, then traced with potrace into filled polygons.
               </p>
-              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
+              <ul style={{ margin: 0, paddingLeft: 'var(--ui-line-height)', lineHeight: 1.6 }}>
                 <li>Symbol, a schematic library symbol (.kicad_sym)</li>
                 <li>Footprint, a PCB footprint (.kicad_mod) on the chosen layer</li>
                 <li>Postscript, an encapsulated PostScript drawing (.ps)</li>
                 <li>Drawing Sheet, a worksheet graphic (.kicad_wks)</li>
               </ul>
             </div>
-            <div className="imgc-modal-foot">
-              <button
-                type="button"
-                className="imgc-btn primary"
-                onClick={() => setAboutOpen(false)}
-              >
+            <div className="ze-modal-footer">
+              <button type="button" className="ze-btn primary" onClick={() => setAboutOpen(false)}>
                 Close
               </button>
             </div>

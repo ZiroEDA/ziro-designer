@@ -14,7 +14,10 @@
 import { useState, useRef, useEffect, type JSX } from 'react';
 import type { PageSettings } from '@ziroeda/eeschema';
 import { defaultDrawingSheet, layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
-import { PAPER_CHOICES, PAPER_MM } from '../../drawingsheet/PageSettingsDialog.js';
+// PAGE_INFO's table, from `common/` — it used to be imported sideways out of
+// the drawing sheet editor's dialog component, which is the cross-peer import
+// the project brief names. See common/src/page_info.ts.
+import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_ITEM_COLOR } from '../../drawingsheet/wksRender.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 
@@ -371,7 +374,9 @@ export function DialogPageSettings({
                 )}
               </select>
             </div>
-            <div style={{ ...heading, marginTop: 10 }}>Title Block Parameters</div>
+            {/* dialog_page_settings.cpp:90-92 — the non-pl_editor branch's
+                m_staticTextTitleBlock label is "Title Block". */}
+            <div style={{ ...heading, marginTop: 10 }}>Title Block</div>
             <div style={{ display: 'flex', fontSize: 12, margin: '2px 0 6px' }}>
               <span>Number of sheets: {sheetCount}</span>
               <span style={{ flex: 1 }} />

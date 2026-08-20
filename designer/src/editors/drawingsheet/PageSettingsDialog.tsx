@@ -11,6 +11,13 @@
  */
 
 import { useState, type JSX } from 'react';
+import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
+import {
+  defaultPreviewSettings,
+  paperDescription,
+  previewPageMM,
+  type PreviewSettings,
+} from './preview_settings.js';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 
@@ -20,83 +27,12 @@ const ORIENTATION_CHOICES: readonly ComboOption[] = [
   { value: 'portrait', label: 'Portrait' },
 ];
 
-/** Standard paper sizes, in mm (landscape W×H), as page_info defines them. */
-export const PAPER_MM: Record<string, [number, number]> = {
-  A5: [210, 148.5],
-  A4: [297, 210],
-  A3: [420, 297],
-  A2: [594, 420],
-  A1: [841, 594],
-  A0: [1189, 841],
-  A: [279.4, 215.9],
-  B: [431.8, 279.4],
-  C: [558.8, 431.8],
-  D: [863.6, 558.8],
-  E: [1117.6, 863.6],
-  USLetter: [279.4, 215.9],
-  USLegal: [355.6, 215.9],
-  USLedger: [431.8, 279.4],
-};
-
-export const PAPER_CHOICES: { id: string; label: string }[] = [
-  { id: 'A5', label: 'A5 148x210mm' },
-  { id: 'A4', label: 'A4 210x297mm' },
-  { id: 'A3', label: 'A3 297x420mm' },
-  { id: 'A2', label: 'A2 420x594mm' },
-  { id: 'A1', label: 'A1 594x841mm' },
-  { id: 'A0', label: 'A0 841x1189mm' },
-  { id: 'A', label: 'A 8.5x11in' },
-  { id: 'B', label: 'B 11x17in' },
-  { id: 'C', label: 'C 17x22in' },
-  { id: 'D', label: 'D 22x34in' },
-  { id: 'E', label: 'E 34x44in' },
-  { id: 'USLetter', label: 'USLetter 8.5x11in' },
-  { id: 'USLegal', label: 'USLegal 8.5x14in' },
-  { id: 'USLedger', label: 'USLedger 11x17in' },
-  { id: 'User', label: 'User (Custom)' },
-];
-
-/** The preview page + title block data the resolver consumes. */
-export interface PreviewSettings {
-  paper: string;
-  portrait: boolean;
-  customWidthMM: number;
-  customHeightMM: number;
-  date: string;
-  rev: string;
-  title: string;
-  company: string;
-  comments: string[]; // 9 entries
-}
-
-export function defaultPreviewSettings(): PreviewSettings {
-  return {
-    paper: 'A4',
-    portrait: false,
-    customWidthMM: 431.8,
-    customHeightMM: 279.4,
-    date: '',
-    rev: '',
-    title: '',
-    company: '',
-    comments: ['', '', '', '', '', '', '', '', ''],
-  };
-}
-
-/** Resolved page size in mm for the current settings (orientation applied). */
-export function previewPageMM(s: PreviewSettings): [number, number] {
-  const base: [number, number] =
-    s.paper === 'User' ? [s.customWidthMM, s.customHeightMM] : (PAPER_MM[s.paper] ?? PAPER_MM.A4!);
-  // Custom sizes are stored as entered; standard sizes swap for portrait.
-  if (s.paper === 'User') return base;
-  return s.portrait ? [base[1], base[0]] : base;
-}
-
-/** Human description of the page (design-inspector root row / status bar). */
-export function paperDescription(s: PreviewSettings): string {
-  const [w, h] = previewPageMM(s);
-  return `${s.paper} ${w}x${h}mm ${s.paper === 'User' ? '' : s.portrait ? 'portrait' : 'landscape'}`.trim();
-}
+/**
+ * Re-exported so the importers that already had these keep working. The table
+ * itself is `common/src/page_info.ts` — `common/page_info.cpp` upstream.
+ */
+export { PAPER_CHOICES, PAPER_MM };
+export { defaultPreviewSettings, paperDescription, previewPageMM, type PreviewSettings };
 
 export function PageSettingsDialog({
   value,
@@ -114,11 +50,13 @@ export function PageSettingsDialog({
   const [s, setS] = useState<PreviewSettings>({ ...value, comments: [...value.comments] });
   const set = (patch: Partial<PreviewSettings>): void => setS((cur) => ({ ...cur, ...patch }));
 
+  // Spacing is --wx-border, the wxFormBuilder `wxALL, 5` every KiCad dialog is
+  // built from, in multiples - never a number chosen for this dialog alone.
   const row: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    margin: '4px 0',
+    gap: 'calc(var(--wx-border) * 2)',
+    margin: 'var(--wx-border) 0',
   };
   const lab: React.CSSProperties = { width: 92, fontSize: 12, flex: '0 0 auto' };
 
@@ -130,14 +68,27 @@ export function PageSettingsDialog({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
-          Page Settings
+          {/* DIALOG_PAGES_SETTINGS::DIALOG_PAGES_SETTINGS
+              (common/dialogs/dialog_page_settings.cpp:82-93) re-labels three
+              strings when its parent is PL_EDITOR_FRAME_NAME, because in this
+              frame the page and the title block are PREVIEW data and are not
+              saved anywhere. Ours used the other frames' wording. */}
+          Preview Settings
           <span className="x" onClick={onCancel}>
             ✕
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 18, padding: '10px 14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'calc(var(--wx-border) * 4)',
+            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
+          }}
+        >
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Paper</div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 'var(--wx-border)' }}>
+              Preview Paper
+            </div>
             <div style={row}>
               <span style={lab}>Size:</span>
               <Combo
@@ -189,8 +140,8 @@ export function PageSettingsDialog({
             )}
           </div>
           <div style={{ flex: 1.2 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
-              Title Block Parameters
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 'var(--wx-border)' }}>
+              Preview Title Block Data
             </div>
             <div style={row}>
               <span style={lab}>Issue Date:</span>

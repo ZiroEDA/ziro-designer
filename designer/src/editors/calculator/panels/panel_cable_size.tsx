@@ -215,7 +215,9 @@ export function PanelCableSize(): JSX.Element {
             its entry 25 px right of the others. */}
         <fieldset
           className="calc-group calc-grid3 cs-box"
-          style={{ '--calc-vgap': '4px' } as CSSProperties}
+          style={
+            { '--calc-vgap': '4px' /* [data] the box's own flex grid vgap */ } as CSSProperties
+          }
         >
           <legend>Wire properties</legend>
           <div className="calc-field">

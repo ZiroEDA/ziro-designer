@@ -12,8 +12,8 @@
 import { localToWorld, type Transform } from '@ziroeda/common/src/transform.js';
 import { symbolTransform } from '@ziroeda/common/src/transform.js';
 import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { textWidth, type TextStyle } from '@ziroeda/common/src/font/font_provider.js';
+import type { TextStyle } from '@ziroeda/common/src/font/font_provider.js';
+import { stringBoundaryLimits } from '@ziroeda/common/src/font/text_box.js';
 import type { LibSymbol, LibSymbolUnit, SchLabel, SchSymbol, SheetPin, Vec2 } from '../types.js';
 
 export interface BBox {
@@ -103,8 +103,23 @@ export function textPenWidth(height: number, bold = false): number {
 
 /**
  * The width of a run of schematic text, as `GetTextBox` measures it:
- * `FONT::StringBoundaryLimits`, which for a stroke font is the glyph extent
- * inflated by 1.5 × the pen on each side.
+ * `FONT::StringBoundaryLimits`, which for a stroke font is the glyph-run box
+ * inflated by `KiROUND( 1.5 × thickness )` on each side.
+ *
+ * This is `common/src/font/text_box.ts`'s `stringBoundaryLimits`, not a second
+ * copy of it. The copy that used to live here added the pen but never took off
+ * the trailing side bearing: `STROKE_FONT::GetTextAsGlyphs`
+ * (`common/font/stroke_font.cpp:283`) closes the box at
+ *
+ *     aBBox->SetEnd( cursor.x - KiROUND( glyphSize.x * INTER_CHAR ), … )
+ *
+ * with `INTER_CHAR = 0.2`, because every Newstroke advance carries a trailing
+ * bearing and the last one is not part of the ink. Leaving it on made every
+ * schematic label, hierarchical label, sheet pin and free-text box
+ * `0.2 · size` too wide — 10 mil at the default 50 mil text — which a user saw
+ * as a global label flag drawn too long for its own text and as clicks landing
+ * on a label from a tenth of a character's width past its right edge.
+ * `fieldbox.ts` next door had the term all along.
  */
 export function textBoxWidth(
   text: string,
@@ -112,9 +127,13 @@ export function textBoxWidth(
   bold = false,
   style?: TextStyle,
 ): number {
-  // Routed through the single measurement entry point (#154): with no face, or
-  // no provider installed, this is exactly the stroke measurement it always was.
-  return textWidth(text, height, { ...style, bold }) + 3 * textPenWidth(height, bold);
+  // Schematic text is square: `GetTextWidth()` and `GetTextHeight()` are both
+  // the one stored size everywhere this is called from.
+  return stringBoundaryLimits(
+    text,
+    { size: { x: height, y: height }, bold, italic: style?.italic, face: style?.face },
+    textPenWidth(height, bold),
+  ).x;
 }
 
 /** SPIN_STYLE, in KiCad's order. */

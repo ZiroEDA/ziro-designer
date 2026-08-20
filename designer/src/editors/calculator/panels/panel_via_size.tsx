@@ -121,7 +121,9 @@ export function PanelViaSize(): JSX.Element {
         <Group
           title="Parameters"
           className="calc-grid3 vs-params"
-          style={{ '--calc-vgap': '4px' } as CSSProperties}
+          style={
+            { '--calc-vgap': '4px' /* [data] wxFlexGridSizer( 0, 3, 4, 0 ) */ } as CSSProperties
+          }
         >
           <NumField
             label="Finished hole diameter (D):"
@@ -212,7 +214,9 @@ export function PanelViaSize(): JSX.Element {
           <Group
             title="Results"
             className="calc-grid3"
-            style={{ '--calc-vgap': '5px' } as CSSProperties}
+            style={
+              { '--calc-vgap': '5px' /* [data] wxFlexGridSizer( 0, 3, 5, 0 ) */ } as CSSProperties
+            }
           >
             {/* Every one of these is a wxStaticText whose label is rewritten
                 with "%g" (panel_via_size.cpp:276-300) — six significant

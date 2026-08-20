@@ -1062,6 +1062,10 @@ export {
 
 export { PnsNode, type PnsBox } from './router/pns_node.js';
 // ----- the shape collision table (shape_collisions.cpp) -------------------------
+//
+// The bare `SEG` members this file used to re-export live in
+// `@ziroeda/kimath/src/geometry/seg.ts` now, alongside the ones the router
+// already used; pcbnew does not re-export kimath.
 
 export {
   arcCollidePoint,
@@ -1087,17 +1091,11 @@ export {
   collideCircleSegment,
   collideSegmentSegment,
   collideShapes,
-  segCollide,
-  segNearestPointToPoint,
-  segNearestPointToSeg,
-  segSquaredDistanceToPoint,
-  segSquaredDistanceToSeg,
   shapeCircleCollideSeg,
   shapeSegmentCollideSeg,
   type CollideArc,
   type CollideChain,
   type CollideCircle,
-  type CollideSeg,
   type CollideSegment,
   type ShapeCollisionResult,
 } from './drc/shape_collisions.js';

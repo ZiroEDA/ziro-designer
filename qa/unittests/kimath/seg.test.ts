@@ -23,7 +23,9 @@ import {
   segIntersectLines,
   segLineDistance,
   segLineProject,
+  segCollide,
   segNearestPoint,
+  segNearestPointToSeg,
   segSquaredDistanceToPoint,
 } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -245,6 +247,16 @@ describe("segIntersect — upstream's own case table", () => {
 });
 
 describe('segIntersect — the answers that are not shapes', () => {
+  it("includes a crossing that lands exactly on the other segment's A", () => {
+    // `param1_num` is then exactly 0 and upstream's rejection is a strict `< 0`,
+    // so the touch counts (seg.cpp:312). Written with the vertical segment
+    // pointing *down* on purpose: pointing up makes the determinant negative and
+    // takes the other arm of the sign split, which is separately covered above.
+    // det = cross( d2, d1 ) = 0*0 - (-10)*10 = 100 > 0; param1_num =
+    // cross( d1, offset ) = 10*0 - 0*5 = 0; param2_num = 50, inside [0, 100].
+    expect(segIntersect(S(0, 0, 10, 0), S(5, 0, 5, -10))).toEqual(V(5, 0));
+  });
+
   it('takes the integer midpoint of a collinear overlap, not the fractional one', () => {
     // The overlap of [0,10] and [5,15] is [5,10]; `( 5 + 10 ) / 2` between two
     // ints is 7, and upstream's table pins exactly that. A `/ 2` in doubles
@@ -454,6 +466,20 @@ describe('segContains', () => {
     // A diagonal offset past the end squares to 2 and is still contained.
     expect(segContains(S(0, 0, 10, 0), V(11, 1))).toBe(true);
   });
+
+  it('is INCLUSIVE at exactly three, which only a sloped line can reach', () => {
+    // Two integer points can never be 3 square IU apart (1+1 = 2, 1+4 = 5), so
+    // the boundary is only reachable through the interior arm of
+    // `SquaredDistance`, whose `|ap|^2 - e^2/f` is a double that is then
+    // KiROUNDed (seg.cpp:714). On the line (0,0)-(50,100), the point (2,0) has
+    // e = 2*50 = 100, f = 50^2 + 100^2 = 12500 and |ap|^2 = 4, so
+    // g = 4 - 10000/12500 = 3.2 and KiROUND( 3.2 ) = 3 — contained, because
+    // upstream's comparison is `<= 3`.
+    expect(segSquaredDistanceToPoint(S(0, 0, 50, 100), V(2, 0))).toBe(3);
+    expect(segContains(S(0, 0, 50, 100), V(2, 0))).toBe(true);
+    // (3,0) is g = 9 - 22500/12500 = 7.2, KiROUND 7, and is not.
+    expect(segContains(S(0, 0, 50, 100), V(3, 0))).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -540,5 +566,98 @@ describe('segCollinear', () => {
     // A one-unit-long segment tolerates the same one unit of numerator, which
     // is a whole unit of offset.
     expect(segCollinear(S(0, 0, 1, 0), S(500, 1, 700, 1))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SEG::NearestPoint( const SEG& ) and SEG::Collide( const SEG& ).
+//
+// Moved here with their implementations from `pcbnew/src/drc/shape_collisions.ts`,
+// which carried a second copy of them in doubles. The three assertions that name
+// an integer coordinate, a floored `actual` or a written-on-false `actual` are
+// the ones that copy answered differently.
+
+describe('SEG::NearestPoint( const SEG& )', () => {
+  it('always returns a point on the receiver, never on the argument', () => {
+    const a = S(0, 0, 100, 0);
+    const b = S(50, 20, 150, 20);
+
+    expect(segNearestPointToSeg(a, b).y).toBe(0);
+    expect(segNearestPointToSeg(b, a).y).toBe(20);
+  });
+
+  it('breaks ties towards the earlier candidate', () => {
+    // Candidates 1 and 2 are both 20 away; upstream compares with a strict `<`,
+    // so candidate 1 — this segment's own `B` endpoint — wins.
+    expect(segNearestPointToSeg(S(0, 0, 100, 0), S(50, 20, 150, 20))).toEqual({ x: 100, y: 0 });
+  });
+
+  it('returns the crossing point when the segments cross', () => {
+    expect(segNearestPointToSeg(S(0, 0, 100, 100), S(0, 100, 100, 0))).toEqual({ x: 50, y: 50 });
+  });
+
+  it('returns a VECTOR2I, so an interior projection is rounded onto the IU grid', () => {
+    // `SEG::NearestPoint` returns `const VECTOR2I` (seg.cpp:633) and builds its
+    // interior answer out of `rescale( t, d, l_squared )`, which rounds half
+    // away from zero. Projecting (1,0) onto (0,0)-(3,7): t = 3, l² = 58, so the
+    // components are rescale(3,3,58) = round(9/58) = 0 and rescale(3,7,58) =
+    // round(21/58) = 0. The true foot is (0.155…, 0.362…) and a double
+    // implementation returns exactly that; upstream cannot.
+    expect(segNearestPointToSeg(S(0, 0, 3, 7), S(1, 0, 1, -50))).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('SEG::Collide( const SEG&, int, int* )', () => {
+  it('refuses a negative clearance outright, before any geometry', () => {
+    // The two segments cross, which every other path would call a collision.
+    expect(segCollide(S(0, 0, 100, 0), S(50, -10, 50, 10), -1)).toEqual({
+      collides: false,
+      actual: 0,
+    });
+  });
+
+  it('collides on an exact touch whatever the clearance, once it is not negative', () => {
+    expect(segCollide(S(0, 0, 100, 0), S(50, 0, 50, 50), 0)).toEqual({
+      collides: true,
+      actual: 0,
+    });
+  });
+
+  it('reports `actual` on the FALSE return too (seg.cpp:620), not only on true', () => {
+    // Closest approach is B = (10,0) against the other segment's A = (13,5):
+    // squared distance 3² + 5² = 34. 34 is not < 5² so there is no collision,
+    // and upstream still writes `*aActual` before returning false.
+    expect(segCollide(S(0, 0, 10, 0), S(13, 5, 23, 15), 5)).toEqual({
+      collides: false,
+      actual: 5,
+    });
+  });
+
+  it('floors `actual` through isqrt rather than rounding it', () => {
+    // Same geometry, squared distance 34. `isqrt( 34 )` is 5 — the largest
+    // integer whose square does not exceed 34 — where `KiROUND( sqrt( 34 ) )`
+    // and a plain double `sqrt` are 5.83…, which rounds to 6.
+    expect(segCollide(S(0, 0, 10, 0), S(13, 5, 23, 15), 6).actual).toBe(5);
+    expect(Math.round(Math.sqrt(34))).toBe(6);
+  });
+
+  it('handles a zero-length segment through Distance, not through intersects()', () => {
+    // The cross product with a zero vector is always zero, so the `intersects`
+    // test would call a point 50 units away a crossing.
+    expect(segCollide(S(0, 0, 100, 0), S(50, 50, 50, 50), 10)).toEqual({
+      collides: false,
+      actual: 50,
+    });
+  });
+
+  it('excludes a gap equal to the clearance: the test is `dist < aClearance`', () => {
+    // seg.cpp:557 — `return dist == 0 || dist < aClearance`. A point exactly the
+    // clearance away is NOT a collision; one IU more of clearance is. The zero
+    // arm is what still catches a touch at a clearance of zero.
+    expect(segCollide(S(0, 0, 100, 0), S(50, 50, 50, 50), 50).collides).toBe(false);
+    expect(segCollide(S(0, 0, 100, 0), S(50, 50, 50, 50), 51).collides).toBe(true);
+    // Upstream spells the same comparison out twice, once per zero-length arm.
+    expect(segCollide(S(50, 50, 50, 50), S(0, 0, 100, 0), 50).collides).toBe(false);
+    expect(segCollide(S(50, 50, 50, 50), S(0, 0, 100, 0), 51).collides).toBe(true);
   });
 });

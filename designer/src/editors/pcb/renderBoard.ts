@@ -49,6 +49,8 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
+import { textPenWidth } from '@ziroeda/pcbnew/src/text_metrics.js';
+import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/src/font/text_box.js';
 import {
   PCB_PAINT_ORDER,
   PCB_SPECIAL,
@@ -923,12 +925,14 @@ function addText(map: Map<number, Path2D>, t: PcbTextItem): void {
   const size = t.size.y;
   if (size <= 0 || t.text === '') return;
   const { strokes, width } = layoutText(t.text, size);
-  // EDA_TEXT::GetEffectiveTextPenWidth (eda_text.cpp): file thickness, else
-  // bold→size/5 / normal→size/8, then clamped to ≤ size·0.25. A too-thin pen
-  // is exactly what made board text read like a plain font instead of the
-  // stroke font, so this clamp restores the proper Newstroke weight.
-  const raw = t.thickness && t.thickness > 1 ? t.thickness : penForText(size, !!t.bold);
-  const thickness = Math.max(Math.min(raw, size * 0.25), 1);
+  // `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:1093-1108), through the
+  // shared port: file thickness if > 1, else `GetPenSizeForBold( GetTextWidth() )`
+  // or `GetPenSizeForNormal( GetTextWidth() )` — both of which take
+  // `GetTextSize().x`, not the height — then `ClampTextPenSize` against the
+  // *smaller* of the two dimensions. Deriving it from `size.y` here drew
+  // condensed board text, `(size 1.5 0.6)`, with a pen 2.5× too heavy.
+  // The floor of 1 is ours: a zero-width canvas stroke draws nothing.
+  const thickness = Math.max(textPenWidth(t), 1);
   // PCB text anchors CENTER/CENTER by default (EDA_TEXT on boards).
   const justify = t.justify ?? [];
   const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
@@ -1596,12 +1600,6 @@ export interface SheetInfo {
   fileName?: string;
 }
 
-// eda_text.cpp / gr_text.cpp EDA_TEXT pen: bold = size/5, normal = size/8,
-// clamped to ≤ size·0.25 (ClampTextPenSize). glyph.cpp ITALIC_TILT = 1/8.
-const penForText = (size: number, bold: boolean): number =>
-  Math.min(bold ? size / 5 : size / 8, size * 0.25);
-const ITALIC_TILT = 1 / 8;
-
 /** Stroke a Newstroke string at (x, y) baseline, with optional bold/italic. */
 function sheetText(
   ctx: CanvasRenderingContext2D,
@@ -1616,7 +1614,8 @@ function sheetText(
   if (!text) return;
   const { strokes, width } = layoutText(text, size);
   const offX = justify === 'center' ? -width / 2 : 0;
-  ctx.lineWidth = penForText(size, bold);
+  // Title-block text is square, so `GetTextWidth()` is this one size.
+  ctx.lineWidth = effectiveTextPenWidth({ size: { x: size, y: size }, bold });
   const tilt = italic ? ITALIC_TILT : 0;
   ctx.beginPath();
   for (const stroke of strokes) {

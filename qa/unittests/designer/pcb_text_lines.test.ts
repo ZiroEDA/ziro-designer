@@ -36,16 +36,22 @@ describe('splitTextLines (wxStringSplit)', () => {
 
   it('does not shift a trailing-newline text off its anchor', () => {
     // A block of n lines is centred on the anchor, so counting one line too
-    // many lifts the text by half an interline (1.68 · size / 2).
+    // many lifts the text by half an interline.
     const size = 1 * MM;
     const one = layoutText('JTAG_EN', size);
     const trailing = layoutText('JTAG_EN\n', size);
     const top = (r: { strokes: { y: number }[][] }): number =>
       Math.min(...r.strokes.flat().map((p) => p.y));
     expect(top(trailing)).toBeCloseTo(top(one), 6);
-    // Two real lines still centre as a block: the first rises by 0.84 · size.
+    // Two real lines still centre as a block: the first rises by half of
+    // `STROKE_FONT::GetInterline` (stroke_font.cpp:194-199), which is
+    // `METRICS::GetInterline` — m_InterlinePitch = 1.68, font_metrics.h:64 —
+    // times the 0.9583 "adjustment to match legacy spacing". Written out from
+    // those two constants, not read off our own `interline()`, so dropping the
+    // factor again fails here: (1.68 · 0.9583) / 2 = 0.804972.
+    const halfInterline = ((1.68 * 0.9583) / 2) * size;
     const two = layoutText('JTAG_EN\nX', size);
-    expect(top(one) - top(two)).toBeCloseTo(0.84 * size, 0);
+    expect(top(one) - top(two)).toBeCloseTo(halfInterline, 3);
   });
 });
 

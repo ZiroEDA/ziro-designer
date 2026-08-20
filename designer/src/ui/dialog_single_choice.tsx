@@ -87,11 +87,12 @@ export function SingleChoiceDialog({
             ))}
           </div>
         </div>
-        <div className="ze-msgdlg-buttons">
+        {/* wxStdDialogButtonSizer, not the message dialog's split bar. */}
+        <div className="ze-choicedlg-buttons">
           <button type="button" className="ze-btn" onClick={() => onResult(null)}>
             Cancel
           </button>
-          <button type="button" className="ze-btn primary" onClick={() => accept(index)}>
+          <button type="button" className="ze-btn" onClick={() => accept(index)}>
             {OK_LABEL}
           </button>
         </div>

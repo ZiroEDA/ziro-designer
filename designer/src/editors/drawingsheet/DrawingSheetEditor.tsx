@@ -23,6 +23,7 @@ import {
   serializeDrawingSheet,
   layoutDrawingSheet,
   translateItem,
+  wksItemMsgPanelInfo,
   mmToIU,
   iuToMM,
   SCH_IU_PER_MM,
@@ -36,7 +37,7 @@ import {
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
-import { MenuBar, type Menu, type MenuItem } from '../../ui/MenuBar.js';
+import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
 
 /** m_pageSelectBox (pl_editor_frame.cpp): page 1 versus every other page. */
 const PAGE_NUMBER_CHOICES: readonly ComboOption[] = [
@@ -54,15 +55,21 @@ import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
+  formatG,
   gridMsg,
   messageTextFromValue,
+  unitText,
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
 import { DS_TOP_TOOLBAR, DS_LEFT_TOOLBAR, DS_RIGHT_TOOLBAR } from './drawingSheetToolbars.js';
+import { buildDsContextMenu } from './ds_context_menu.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_settings.js';
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DesignInspector } from './DesignInspector.js';
+import { MessageDialogError } from '../../ui/dialog_message.js';
+import { dsInspectorTitle } from './design_inspector.js';
 import {
   PageSettingsDialog,
   defaultPreviewSettings,
@@ -220,6 +227,17 @@ export function DrawingSheetEditor({
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('Loaded default drawing sheet');
   const [moveMode, setMoveMode] = useState(false);
+  /**
+   * `grid.last_size_idx` into `DefaultGridSizeList()`'s pl_editor row
+   * (app_settings.cpp:468-481, ui/grid_settings.ts). A WINDOW setting, not a
+   * unit-derived one — see the gridLabel comment below — and now settable, from
+   * the canvas context menu's Grid submenu.
+   */
+  const [gridIndex, setGridIndex] = useState(DEFAULT_GRID_INDEX.pl_editor);
+  /** Where the canvas context menu was opened, or null when it is closed. */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  /** DisplayErrorMessage's text when Print cannot open its preview window. */
+  const [printError, setPrintError] = useState<string | null>(null);
   const [blackBackground, setBlackBackground] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
@@ -441,7 +459,22 @@ export function DrawingSheetEditor({
     ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
     drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx });
     const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) return;
+    if (!w) {
+      // `window.open` returns null when the popup is blocked, and this used to
+      // `return` on it: Print then did nothing and reported nothing, which is
+      // the worst of the three outcomes. The system print dialog KiCad opens
+      // (DIALOG_PRINT_GENERIC via PL_EDITOR_FRAME's ACTIONS::print) is
+      // genuinely out of reach in a browser; failing silently is not.
+      //
+      // DisplayErrorMessage (common/confirm.cpp) is what upstream raises when
+      // a command cannot proceed, and it is the shared ui/dialog_message.tsx
+      // component here.
+      setPrintError(
+        'Print could not open the preview window.\n\n' +
+          'Your browser blocked the pop-up. Allow pop-ups for this site and try again.',
+      );
+      return;
+    }
     w.document.write(
       `<title>${fileName}</title><img src="${cv.toDataURL('image/png')}" style="width:100%" onload="window.print()">`,
     );
@@ -641,6 +674,20 @@ export function DrawingSheetEditor({
   }, []);
   const onSelectBox = useCallback((srcs: number[], additive: boolean) => {
     setSelection((prev) => (additive ? new Set([...prev, ...srcs]) : new Set(srcs)));
+  }, []);
+
+  /**
+   * Right-click on the canvas — PL_SELECTION_TOOL::Main's BUT_RIGHT branch
+   * (pl_selection_tool.cpp:120-135).
+   *
+   * An EMPTY selection takes the item under the cursor as a hover selection
+   * first, so the menu that opens is about something. A non-empty selection is
+   * left exactly as it is, wherever the click landed, which is what lets you
+   * right-click off to one side of a group without losing it.
+   */
+  const onCanvasContextMenu = useCallback((x: number, y: number, hit: number | null) => {
+    setSelection((prev) => (prev.size === 0 && hit !== null ? new Set([hit]) : prev));
+    setCtxMenu({ x, y });
   }, []);
 
   const moveSelection = useCallback(
@@ -853,6 +900,12 @@ export function DrawingSheetEditor({
   }, []);
 
   // ---- toolbars ----
+  /**
+   * `COMMON_TOOLS::m_imperialUnit` — the imperial unit Ctrl+U comes back to,
+   * initially inches.
+   */
+  const lastImperialRef = useRef<'unitsInches' | 'unitsMils'>('unitsInches');
+
   const onLeftToggle = useCallback((id: string) => {
     setToggles((prev) => {
       const next = new Set(prev);
@@ -864,6 +917,11 @@ export function DrawingSheetEditor({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (toggles.has('unitsInches')) lastImperialRef.current = 'unitsInches';
+    else if (toggles.has('unitsMils')) lastImperialRef.current = 'unitsMils';
+  }, [toggles]);
 
   const setTitleBlockMode = useCallback((mode: 'layoutNormalMode' | 'layoutEditMode') => {
     setToggles((prev) => {
@@ -993,6 +1051,21 @@ export function DrawingSheetEditor({
         else setSelection(new Set());
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {
+        // ACTIONS::toggleUnits (actions.cpp:1149-1156), Ctrl+U — listed in this
+        // frame's hotkey list and working in pl_editor, and simply not bound
+        // here: the audit pressed it with the frame focused and the status bar
+        // stayed on inches.
+        //
+        // COMMON_TOOLS::ToggleUnits switches imperial <-> metric and returns to
+        // the imperial unit you were last in (m_imperialUnit, initially
+        // inches), which is why this is not a three-way cycle. That is the
+        // units button's job, and it already cycles mm -> in -> mil.
+        e.preventDefault();
+        const imperial = toggles.has('unitsInches') || toggles.has('unitsMils');
+        onLeftToggle(imperial ? 'unitsMm' : lastImperialRef.current);
+        return;
+      }
       if (plain && (e.key === 'm' || e.key === 'M')) {
         // PL_ACTIONS::move (pl_actions.cpp:84). Only claims the key when there
         // is something to move, exactly as its ACTION_CONDITIONS would.
@@ -1008,7 +1081,7 @@ export function DrawingSheetEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeTool, moveMode, selection, cancelDrawing]);
+  }, [activeTool, moveMode, selection, cancelDrawing, toggles, onLeftToggle]);
 
   // ---- system-clipboard paste (Ctrl+V): image → bitmap, .kicad_wks text → items ----
   useEffect(() => {
@@ -1272,7 +1345,15 @@ export function DrawingSheetEditor({
     },
     [unit],
   );
-  const fmt4 = (n: number): string => String(Number(n.toPrecision(4)));
+  /**
+   * `PL_EDITOR_FRAME::UpdateStatusBar` formats both coordinate pairs with
+   * `%.4g` (pl_editor_frame.cpp:770-771). That is not "4 significant digits":
+   * `%g` switches to exponent form once the exponent leaves `-4 <= e < 4`,
+   * which is why a cold-open pl_editor reads `X 1.266e+04  Y 1.217e+04`.
+   * JS's own toPrecision-and-back never does, so ours printed plain
+   * integers there.
+   */
+  const fmt4 = (n: number): string => formatG(n, 4);
 
   /** Origin corner in page IU + per-axis signs (ReturnCoordOriginCorner). */
   const originInfo = useMemo((): { origin: Vec2; xs: number; ys: number } => {
@@ -1315,10 +1396,11 @@ export function DrawingSheetEditor({
    * shows "grid 19.685039".
    *
    * Ours derived the spacing from the unit, so the mils default above would
-   * otherwise have moved the grid from 1 mm to 2.54 mm. Pinning it to the
-   * upstream default keeps the two independent, as they are upstream.
+   * otherwise have moved the grid from 1 mm to 2.54 mm. Keying it to the
+   * upstream list and its index keeps the two independent, as they are
+   * upstream; `gridIndex` starts at DEFAULT_GRID_INDEX.pl_editor = 4.
    */
-  const gridIU = mmToIU(0.5);
+  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex] ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's
@@ -1327,27 +1409,49 @@ export function DrawingSheetEditor({
     unit === 'inches'
       ? (iuToMM(gridIU) / 25.4).toFixed(3)
       : unit === 'mils'
-        ? ((iuToMM(gridIU) / 25.4) * 1000).toFixed(1)
+        ? // The MILS case is the `default:` branch of that switch, and its
+          // format is a bare "grid %f" - no precision given, so C's default of
+          // SIX decimal places. A live pl_editor in mils really does read
+          // "grid 19.685039"; ours read "grid 19.7".
+          ((iuToMM(gridIU) / 25.4) * 1000).toFixed(6)
         : iuToMM(gridIU).toFixed(4),
   );
 
   /**
-   * PL_EDITOR_FRAME::UpdateMsgPanelInfo
-   * (pagelayout_editor/pl_editor_frame.cpp:968): Page Width and Page Height.
-   * The selection count is ours - upstream shows the selected item's own
-   * GetMsgPanelInfo rows there instead.
+   * The message panel is REPLACED on every selection change, never added to.
+   *
+   * `PL_EDITOR_CONTROL::UpdateMessagePanel`
+   * (pagelayout_editor/tools/pl_editor_control.cpp:147-179) picks exactly one
+   * of two sources and hands it to `EDA_DRAW_FRAME::SetMsgPanel`, which erases
+   * the box before appending (`common/eda_draw_frame.cpp:955-964`):
+   *
+   *   - one item selected  -> that item's `GetMsgPanelInfo`, six rows
+   *   - anything else      -> `PL_EDITOR_FRAME::UpdateMsgPanelInfo`
+   *                           (`pl_editor_frame.cpp:968-977`), which is Page
+   *                           Width and Page Height and nothing else
+   *
+   * so the page rows are never on screen beside an item's rows. Ours used to
+   * keep the page rows up permanently, add two invented ones (`Paper`, `Page`)
+   * and append a `Selected` count, which is four fields of noise in front of
+   * the ones a user opened the editor to read.
+   *
+   * The values carry their unit label because `MessageTextFromValue`'s
+   * `aAddUnitsText` defaults to true (`include/units_provider.h:127`) and
+   * neither call site overrides it - see `unitText`.
    */
   const dsMsgPanelItems = useMemo((): MsgPanelItem[] => {
-    const w = messageTextFromValue(pageMM[0], unit === 'inches' ? 'in' : unit);
-    const h = messageTextFromValue(pageMM[1], unit === 'inches' ? 'in' : unit);
+    const u = unit === 'inches' ? 'in' : unit;
+    const fmt = (mm: number): string => messageTextFromValue(mm, u) + unitText(u);
+
+    if (selection.size === 1) {
+      const item = sheet.items[[...selection][0] as number];
+      if (item) return wksItemMsgPanelInfo(item, fmt);
+    }
     return [
-      { upper: 'Page Width', lower: w },
-      { upper: 'Page Height', lower: h },
-      { upper: 'Paper', lower: paperDescription(preview) },
-      { upper: 'Page', lower: pageNumber === 1 ? 'Page 1' : 'Other pages' },
-      ...(selection.size > 0 ? [{ upper: 'Selected', lower: String(selection.size) }] : []),
+      { upper: 'Page Width', lower: fmt(pageMM[0]) },
+      { upper: 'Page Height', lower: fmt(pageMM[1]) },
     ];
-  }, [pageMM, unit, preview, pageNumber, selection.size]);
+  }, [pageMM, unit, selection, sheet.items]);
 
   return (
     // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
@@ -1422,7 +1526,7 @@ export function DrawingSheetEditor({
           options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
           onChange={(v) => setOriginChoice(Number(v))}
           title="Origin of coordinates displayed to the status bar"
-          style={{ margin: '0 6px' }}
+          style={{ margin: '0 var(--wx-border)' }}
         />
         <Combo
           value={String(pageNumber)}
@@ -1431,7 +1535,7 @@ export function DrawingSheetEditor({
           title={
             'Simulate page 1 or other pages to show how items\nwhich are not on all page are displayed'
           }
-          style={{ margin: '0 6px' }}
+          style={{ margin: '0 var(--wx-border)' }}
         />
       </div>
 
@@ -1475,9 +1579,11 @@ export function DrawingSheetEditor({
             moveSelection(d);
             setMoveMode(false);
           }}
+          onContextMenuRequest={onCanvasContextMenu}
         />
 
-        {/* Docked properties panel (properties_frame.cpp). */}
+        {/* Docked properties panel (properties_frame.cpp). It is itself the
+            `.ze-panel`, caption included — see PropertiesFrame. */}
         <div className="ze-leftdock" style={{ width: 272, minWidth: 272 }}>
           <PropertiesFrame
             sheet={sheet}
@@ -1497,6 +1603,39 @@ export function DrawingSheetEditor({
           onActivate={onRightTool}
         />
       </div>
+
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          items={buildDsContextMenu(
+            {
+              hasSelection: selection.size > 0,
+              zoom: zoomFactorForScale(scale, dpr, SCH_IU_PER_MM),
+              gridIndex,
+              primaryUnits: unit === 'inches' ? 'in' : unit,
+            },
+            {
+              move: () => setMoveMode(true),
+              cut: cutSelection,
+              copy: copySelection,
+              paste: () => void pasteFromSystem(),
+              doDelete: deleteSelection,
+              drawLine: () => setActiveTool('dsAddLine'),
+              drawRectangle: () => setActiveTool('dsAddRect'),
+              placeText: () => setActiveTool('dsAddText'),
+              placeImage: () => setActiveTool('dsAddBitmap'),
+              // PL_EDITOR_CONTROL::GridResetOrigin, as the Place menu's row
+              // already explains: our grid is anchored at (0, 0) and there is
+              // no gridSetOrigin to move it, so only the refresh half shows.
+              gridOrigin: () => controller.current?.redraw(),
+              setZoom: (factor) => controller.current?.setZoomPreset(factor),
+              setGrid: setGridIndex,
+            },
+          )}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
 
       <MsgPanel items={dsMsgPanelItems} testId="ds-message-panel" />
 
@@ -1535,13 +1674,27 @@ export function DrawingSheetEditor({
         <DesignInspector
           items={sheet.items}
           selection={selection}
-          paperDescription={paperDescription(preview)}
+          // SetTitle( fn.GetName() ) or "<default drawing sheet>"
+          // (design_inspector.cpp:216-221). Ours hardcoded "Design Inspector",
+          // which is the one string upstream never puts there.
+          title={dsInspectorTitle(frameTitleName(fileName, ''))}
+          // PAGE_INFO::GetTypeAsString() — the page type NAME, not a
+          // description of it, and the page size goes in the Text column.
+          paperType={preview.paper}
+          pageMM={pageMM}
           onClose={() => setShowInspector(false)}
-          onSelect={(i) => {
-            setSelection(new Set([i]));
-            requestAnimationFrame(() => controller.current?.zoomToSelection());
-          }}
+          // onCellClicked (design_inspector.cpp:344-353) is ClearSelection,
+          // AddItemToSel, Refresh and CopyPrmsFromItemToPanel - a repaint, not
+          // a view change. Ours also zoomed to the picked item, so inspecting a
+          // row threw away the zoom and the scroll position the user had set
+          // (measured: KiCad held Z 0.53 where ours went 1.12 -> 2.02 and
+          // re-centred).
+          onSelect={(i) => setSelection(new Set([i]))}
         />
+      )}
+
+      {printError && (
+        <MessageDialogError message={printError} onClose={() => setPrintError(null)} />
       )}
 
       {showSyntaxHelp && <SyntaxHelpDialog onClose={() => setShowSyntaxHelp(false)} />}
@@ -1597,7 +1750,18 @@ function PreferencesDialog({
             ✕
           </span>
         </div>
-        <div style={{ padding: '10px 14px', fontSize: 12, display: 'grid', gap: 8 }}>
+        {/* Spacing is the wxFormBuilder unit, --wx-border, not a number picked
+            here: KiCad's dialogs are laid out with `wxALL, 5` throughout, so
+            every inset in one is a multiple of 5 and they line up because of
+            it. */}
+        <div
+          style={{
+            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
+            fontSize: 12,
+            display: 'grid',
+            gap: 'calc(var(--wx-border) * 2)',
+          }}
+        >
           <label>
             <input
               type="checkbox"

@@ -50,19 +50,31 @@ const IU_PER_INCH = 254000;
  * why that table has not been promoted to a shared module yet.
  */
 
-/** LAYER_SCHEMATIC_DRAWINGSHEET, `builtin_color_themes.h:78`. */
-export const DS_ITEM_COLOR = 'rgb(132, 0, 0)';
-/** LAYER_SCHEMATIC_BACKGROUND, `builtin_color_themes.h:32` — canvas AND paper. */
+/**
+ * [data] LAYER_SCHEMATIC_DRAWINGSHEET, `builtin_color_themes.h:78`. Held as
+ * channels so the CSS form and the `<input type="color">` hex form below are
+ * two views of ONE number rather than two numbers that have to agree.
+ */
+export const DS_ITEM_RGB = [132, 0, 0] as const;
+export const DS_ITEM_COLOR = `rgb(${DS_ITEM_RGB[0]}, ${DS_ITEM_RGB[1]}, ${DS_ITEM_RGB[2]})`;
+export const DS_ITEM_COLOR_HEX = `#${DS_ITEM_RGB.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+/** [data] LAYER_SCHEMATIC_BACKGROUND, `builtin_color_themes.h:32` — canvas AND paper. */
 export const DS_BG_COLOR = 'rgb(245, 244, 239)';
-/** LAYER_SCHEMATIC_GRID, `builtin_color_themes.h:46` — `m_pageBorderColor`. */
+/** [data] LAYER_SCHEMATIC_GRID, `builtin_color_themes.h:46` — `m_pageBorderColor`. */
 export const DS_PAGE_BORDER_COLOR = 'rgb(181, 181, 181)';
 /**
- * Paper for PRINT output only. A print does not go through the GAL and does
- * not carry the screen theme's background, so the sheet is drawn on white
- * paper however the canvas is themed.
+ * [data] Paper for PRINT output only. A print does not go through the GAL and
+ * does not carry the screen theme's background, so the sheet is drawn on white
+ * paper however the canvas is themed: `dialogs_for_printing.cpp:186-187` sets
+ * `SetDrawBgColor( WHITE )` for the duration and restores it at :211. WHITE is
+ * `{255,255,255}`, `common/gal/color4d.cpp:48`.
  */
 export const DS_PRINT_PAPER_COLOR = '#ffffff';
-/** Black-background display option (pl_editor_settings `black_background`). */
+/**
+ * [data] Black-background display option (`pl_editor_settings` `black_background`):
+ * `pl_editor_frame.cpp:541` `SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`.
+ * BLACK is `{0,0,0}`, `common/gal/color4d.cpp:44`.
+ */
 export const DS_BG_COLOR_DARK = '#000000';
 
 /**
@@ -72,10 +84,10 @@ export const DS_BG_COLOR_DARK = '#000000';
  * luma, DARKGRAY/WHITE on a dark canvas and LIGHTGRAY/BLACK on a light one.
  * DARKGRAY and LIGHTGRAY are `common/gal/color4d.cpp:46-47`.
  */
-export const DS_GRID_COLOR_ON_DARK = 'rgb(132, 132, 132)'; // DARKGRAY
-export const DS_GRID_COLOR_ON_LIGHT = 'rgb(194, 194, 194)'; // LIGHTGRAY
-export const DS_CURSOR_COLOR_ON_DARK = 'rgb(255, 255, 255)'; // WHITE
-export const DS_CURSOR_COLOR_ON_LIGHT = 'rgb(0, 0, 0)'; // BLACK
+export const DS_GRID_COLOR_ON_DARK = 'rgb(132, 132, 132)'; // [data] DARKGRAY
+export const DS_GRID_COLOR_ON_LIGHT = 'rgb(194, 194, 194)'; // [data] LIGHTGRAY
+export const DS_CURSOR_COLOR_ON_DARK = 'rgb(255, 255, 255)'; // [data] WHITE
+export const DS_CURSOR_COLOR_ON_LIGHT = 'rgb(0, 0, 0)'; // [data] BLACK
 
 /**
  * `DS_RENDER_SETTINGS::IsBackgroundDark()` (`ds_painter.h:57-61`):
@@ -85,9 +97,79 @@ export const DS_CURSOR_COLOR_ON_LIGHT = 'rgb(0, 0, 0)'; // BLACK
 export function dsBackgroundIsDark(background: string): boolean {
   return brightness(parseColor4d(background)) < 0.5;
 }
-export const DS_HILITE_COLOR = '#4aa3ff';
-/** DS_RENDER_SETTINGS m_brightenedColor: hover highlight of the delete picker. */
-export const DS_BRIGHTENED_COLOR = 'rgba(0,230,0,0.9)';
+/**
+ * [data] The colour a SELECTED drawing-sheet item is painted in.
+ *
+ * `DS_RENDER_SETTINGS::DS_RENDER_SETTINGS` (`ds_painter.cpp:46-53`) sets
+ * `m_selectedColor = m_normalColor.Brightened( 0.5 )` with `m_normalColor = RED`,
+ * and `LoadColors()` (:58-70) then overwrites `m_backgroundColor`,
+ * `m_pageBorderColor` and `m_normalColor` — but NOT `m_selectedColor`. pl_editor
+ * calls exactly that one function (`pl_draw_panel_gal.cpp:59`), so the selection
+ * colour in the drawing-sheet editor keeps the constructor's value.
+ *
+ * RED is `{132, 0, 0}` (`color4d.cpp:61`) and `Brightened( f )` is
+ * `c * (1 - f) + f` per channel (`include/gal/color4d.h:269-275`), so
+ * (0.5176, 0, 0) -> (0.7588, 0.5, 0.5) -> rgb(194, 128, 128): the sheet's own
+ * dark red washed halfway to white.
+ *
+ * It was `#4aa3ff`, a blue that appears NOWHERE in KiCad — `grep -rn
+ * "74, *163, *255\|4aa3ff"` over the whole tree returns nothing. The
+ * `#04ff43` green people expect is LAYER_SELECT_OVERLAY, which only applies when
+ * the sheet is a DECORATION inside eeschema/pcbnew and
+ * `ds_proxy_view_item.cpp:132-135` overrides the colour explicitly.
+ */
+export const DS_SELECTED_COLOR = 'rgb(194, 128, 128)';
+/**
+ * [data] DS_RENDER_SETTINGS `m_brightenedColor`: hover highlight of the delete
+ * picker. `ds_painter.cpp:50` — `COLOR4D( 0.0, 1.0, 0.0, 0.9 )`, i.e. FULL
+ * green. It was `rgba(0,230,0,0.9)`; 230 is not 1.0 * 255.
+ */
+export const DS_BRIGHTENED_COLOR = 'rgba(0, 255, 0, 0.9)';
+
+/**
+ * [data] The box-select marquee, `common/preview_items/selection_area.cpp:44-62`.
+ * One `SELECTION_COLORS` per background luma, chosen at :105-106 by
+ * `settings->IsBackgroundDark()`; the FILL is one colour for both drag
+ * directions and only the OUTLINE differs — left-to-right yellow, right-to-left
+ * blue (:116-121). Ours had two fills, blue and green, and neither outline.
+ * COLOR4D channels are 0..1, so each is `round( c * 255 )`.
+ */
+export const DS_MARQUEE = {
+  /** selectionColorScheme[0], the dark-background scheme. */
+  onDark: {
+    fill: 'rgba(77, 77, 179, 0.3)', // [data] COLOR4D( 0.3, 0.3, 0.7, 0.3 )
+    outlineL2R: 'rgb(255, 255, 102)', // [data] COLOR4D( 1.0, 1.0, 0.4, 1.0 ) yellow
+    outlineR2L: 'rgb(102, 102, 255)', // [data] COLOR4D( 0.4, 0.4, 1.0, 1.0 ) blue
+  },
+  /** selectionColorScheme[1], the light-background scheme. */
+  onLight: {
+    fill: 'rgba(128, 77, 255, 0.5)', // [data] COLOR4D( 0.5, 0.3, 1.0, 0.5 )
+    outlineL2R: 'rgb(179, 179, 0)', // [data] COLOR4D( 0.7, 0.7, 0.0, 1.0 ) yellow
+    outlineR2L: 'rgb(26, 26, 255)', // [data] COLOR4D( 0.1, 0.1, 1.0, 1.0 ) blue
+  },
+} as const;
+
+/**
+ * [data] EDIT_POINTS handles, `common/tool/edit_points.cpp:253-282`.
+ *
+ * The fill is `GetLayerColor( LAYER_AUX_ITEMS )` = white
+ * (`builtin_color_themes.h:159`), INVERTED when it is within 0.5 of the clear
+ * colour (:259-261) — which it is on this editor's near-white paper, so the
+ * handles are black there and stay white on the black-background option. The
+ * border is then derived from the fill's own brightness (:265-282): at
+ * brightness 0 the `else` branch gives `Brightened( 0.7 ).WithAlpha( 0.8 )`, and
+ * at brightness 1 the first gives `Darkened( 0.7 ).WithAlpha( 0.8 )`.
+ *
+ * Ours drew a white square with a `#4aa3ff` border, which is neither.
+ */
+export const DS_EDIT_POINT_ON_LIGHT = {
+  fill: 'rgb(0, 0, 0)', // [data] LAYER_AUX_ITEMS white, inverted against near-white paper
+  border: 'rgba(179, 179, 179, 0.8)', // [data] BLACK.Brightened( 0.7 ).WithAlpha( 0.8 )
+} as const;
+export const DS_EDIT_POINT_ON_DARK = {
+  fill: 'rgb(255, 255, 255)', // [data] LAYER_AUX_ITEMS, `builtin_color_themes.h:159`
+  border: 'rgba(77, 77, 77, 0.8)', // [data] WHITE.Darkened( 0.7 ).WithAlpha( 0.8 )
+} as const;
 
 interface RenderOpts {
   color?: string;
@@ -255,7 +337,7 @@ export function drawDrawingSheetItems(
         ? `rgba(${d.color.r},${d.color.g},${d.color.b},${d.color.a})`
         : baseColor;
     const color =
-      opts.brightened === d.src ? DS_BRIGHTENED_COLOR : sel ? DS_HILITE_COLOR : itemColor;
+      opts.brightened === d.src ? DS_BRIGHTENED_COLOR : sel ? DS_SELECTED_COLOR : itemColor;
     switch (d.kind) {
       case 'line': {
         ctx.strokeStyle = color;
