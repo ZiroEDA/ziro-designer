@@ -491,14 +491,15 @@ function ItemProperties({
               title="Text color"
               value={hexOf(t.color)}
               style={{
-                // NOT PROVEN. COLOR_SWATCH built with wxDefaultSize takes
-                // SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units less 2 px
-                // (color_swatch.cpp:166,203-204), which is about 46 x 20 at
-                // this font - close to, but not, the two numbers below. They
-                // were chosen to sit in the format row and have never been
-                // measured against a real one.
-                width: 26,
-                height: 22,
+                // COLOR_SWATCH built with wxDefaultSize takes
+                // SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units
+                // (color_swatch.cpp:193-194). Measured now rather than
+                // guessed: 48 x 23, from qa/probes asking a real wxPanel. The
+                // 26 x 22 that stood here was chosen to sit in the format row
+                // and was nearly half the true width. The -2 border adjustment
+                // at :200-205 is inside #ifdef __WXMAC__ and does not apply.
+                width: 'var(--swatch-medium-w)',
+                height: 'var(--swatch-medium-h)',
                 padding: 0,
                 border: 'none',
                 background: colorCss(t.color),

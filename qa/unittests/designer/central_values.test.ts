@@ -122,7 +122,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   auth: { colours: 4, metrics: 0 },
   dialogs: { colours: 5, metrics: 35 },
   'editors/calculator': { colours: 2, metrics: 18 },
-  'editors/drawingsheet': { colours: 0, metrics: 1 },
+  'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 35, metrics: 23 },
   'editors/image': { colours: 0, metrics: 1 },
@@ -143,7 +143,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // merge: the file chooser took colours and metrics out by deleting the Open
   // Project dialog, and the drawing-sheet pass took more out of the toolbar and
   // the modal frame. The number below is a fresh scan of the merged tree.
-  ui: { colours: 348, metrics: 827 },
+  ui: { colours: 348, metrics: 826 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -349,7 +349,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(786);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1701);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1699);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
@@ -447,11 +447,16 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     expect(css).toContain('NOT PROVEN');
   });
 
-  it("editors/drawingsheet's one metric is the colour swatch, and it is admitted to", () => {
-    const left = SITES.filter((s) => s.area === 'editors/drawingsheet' && s.kind === 'metrics');
-    expect(left.map((s) => s.what)).toStrictEqual(['height: 22px']);
+  it('editors/drawingsheet has no metric literal left either', () => {
+    // Its last one was the colour swatch, marked NOT PROVEN because nobody had
+    // measured a real COLOR_SWATCH. qa/probes measures one now — 48 x 23, not
+    // the 26 x 22 that stood here — so the size is --swatch-medium-* and the
+    // admission is no longer needed.
+    expect(
+      SITES.filter((s) => s.area === 'editors/drawingsheet' && s.kind === 'metrics'),
+    ).toStrictEqual([]);
     const src = readFileSync(join(SRC, 'editors/drawingsheet/PropertiesFrame.tsx'), 'utf8');
-    expect(src).toContain('NOT PROVEN');
+    expect(src).not.toContain('NOT PROVEN');
   });
 
   it('calculator.css keeps only the modal, which says why', () => {

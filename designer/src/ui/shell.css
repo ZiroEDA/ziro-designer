@@ -337,6 +337,21 @@
   --tab-underline: 3px;
   --tab-pad-x: 12px;
 
+  /* COLOR_SWATCH, whose size is dialog units rather than pixels:
+     SWATCH_SIZE_SMALL_DU(8,6) and SWATCH_SIZE_MEDIUM_DU(24,10)
+     (include/widgets/color_swatch.h:46-47) through ConvertDialogToPixels.
+     [px] asked of wx itself — qa/probes builds a real wxPanel and reports
+     GetCharWidth() 8, GetCharHeight() 18 at Ubuntu Sans 11, so small is
+     8*8/4 x 6*18/8 = 14 x 13 and medium is 24*8/4 x 10*18/8 = 48 x 23.
+     wx ROUNDS that division: truncating gives 22 for the height, which is the
+     number two separate derivations here got wrong before the probe existed.
+     The -2 border adjustment in color_swatch.cpp:200-205 is inside
+     #ifdef __WXMAC__ and does not apply. */
+  --swatch-small-w: 14px;
+  --swatch-small-h: 13px;
+  --swatch-medium-w: 48px;
+  --swatch-medium-h: 23px;
+
   /* --- The GTK file chooser, which is the window every wxFileDialog puts up.
      [px] throughout: a live Gtk.FileChooserDialog was built under python-gi and
      its widgets asked for their own allocations and style contexts, rather than
@@ -2487,8 +2502,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* COLOR_SWATCH (SWATCH_SMALL) */
 .ze-layer-swatch {
-  width: 14px;
-  height: 14px;
+  width: var(--swatch-small-w);
+  height: var(--swatch-small-h);
   border-radius: 2px;
   flex: 0 0 auto;
   border: 1px solid #444;
