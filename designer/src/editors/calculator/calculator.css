@@ -860,9 +860,19 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 /* Each of the two boxes is a HORIZONTAL sizer: the entry column on the left of
    the box and the read-only column on the right of the SAME box. */
+/* sbSizerTop and sbSizerMiddle are HORIZONTAL static boxes holding two halves,
+   each added with proportion 1, and the left half ends in a stretch spacer
+   (panel_electrical_spacing_iec60664_base.cpp:31-33, 70-73, 103, 109). So the
+   outputs sit in the RIGHT half of the box - [px] "Impulse voltage:" at
+   x=1121 - where ours packed them straight after the inputs at x=700. */
 .es-iec-split {
   display: flex;
   gap: 40px;
+}
+
+.es-iec-split > .es-iec-form {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .es-iec-form {
@@ -995,6 +1005,11 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 .fc-grid .calc-input {
   width: 116px;
+}
+
+/* wxNotebook draws its rule right across the page, not just under the tabs. */
+.calc-tabs {
+  width: 100%;
 }
 
 /* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule. */
