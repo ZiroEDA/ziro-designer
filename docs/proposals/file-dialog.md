@@ -92,6 +92,40 @@ and it is a storage change rather than a dialog change.
 Upstream has the same shape without trying: a `wxFileDialog` is over a
 filesystem, and a filesystem does not require a project to hold a file.
 
+### 1a. …but under a project folder, and the listing is an allowlist
+
+Refined 2026-08-20. Arbitrary file *types* — not arbitrary *locations*. A file
+lives under a project folder, exactly as a `.md` sits beside a `.kicad_pro` in a
+real KiCad project directory. And a project can be created from the file
+manager itself.
+
+**One correction from the source, and it makes this easier.** KiCad does not
+list everything and refuse to open the rest. `project_tree_pane.cpp:266` builds
+`m_filters` from `s_allowedExtensionsToList` — **38 regex patterns, with no
+catch-all**. A `.docx` in the project directory simply does not appear.
+
+The list does include the ones that matter to this design:
+
+    ^.*\.txt$        ^.*\.md$        ^.*\.pdf$
+
+alongside `.kicad_pro`, `.kicad_sch`, `.kicad_pcb`, `.kicad_sym`, `.kicad_mod`,
+`.kicad_wks`, `.kicad_dru`, `.net`, `.cir`, the Gerber families, and the legacy
+`.pro` / `.sch` / `.brd` / `.lib`.
+
+So the rule is not "list all, open some". It is **one shared allowlist**, ported
+as data — which is the same shape as everything else here: mirror KiCad's table
+rather than invent one. `^no KiCad files found` (`:268`) is a sentinel in the
+same list, and is what an empty directory shows.
+
+Two things follow:
+
+- Anything not on the list is invisible, so there is no "cannot open this"
+  state to design. That removes a whole class of UI.
+- Some entries are deliberately narrower than they look: `^[^$].*\.brd$` and
+  `^[^$].*\.kicad_pcb$` exclude names beginning `$`, and the comment on
+  `.kicad_mod` says "currently not listed" — port the patterns verbatim rather
+  than normalising them, and keep the comments.
+
 ### 2. The listing is an index; bytes travel on demand
 
 Do not push or pull everything. Sync the **index** — names, sizes, timestamps,
