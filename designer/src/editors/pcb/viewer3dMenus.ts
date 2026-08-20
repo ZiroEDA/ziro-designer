@@ -91,15 +91,25 @@ export function buildViewer3DMenus(state: Viewer3DMenuState, on: Viewer3DMenuAct
   ];
 
   const moveSubmenu: MenuItem[] = [
-    { label: 'Move Board Left', icon: 'moveLeft3d', shortcut: '←', action: () => on.move('left') },
+    {
+      label: 'Move Board Left',
+      icon: 'moveLeft3d',
+      shortcut: 'Left',
+      action: () => on.move('left'),
+    },
     {
       label: 'Move Board Right',
       icon: 'moveRight3d',
-      shortcut: '→',
+      shortcut: 'Right',
       action: () => on.move('right'),
     }, // prettier-ignore
-    { label: 'Move Board Up', icon: 'moveUp3d', shortcut: '↑', action: () => on.move('up') },
-    { label: 'Move Board Down', icon: 'moveDown3d', shortcut: '↓', action: () => on.move('down') },
+    { label: 'Move Board Up', icon: 'moveUp3d', shortcut: 'Up', action: () => on.move('up') },
+    {
+      label: 'Move Board Down',
+      icon: 'moveDown3d',
+      shortcut: 'Down',
+      action: () => on.move('down'),
+    },
   ];
 
   const viewMenu: MenuItem[] = [

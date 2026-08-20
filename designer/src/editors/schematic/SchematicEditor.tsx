@@ -6429,8 +6429,10 @@ export function SchematicEditor({
     add(150.3, {
       label: 'Leave Sheet',
       icon: 'navUp',
-      // As KiCad prints it, and as our own hotkey list already does.
-      shortcut: 'Alt+Backspace',
+      // SCH_ACTIONS::leaveSheet is MD_ALT + WXK_BACK (sch_actions.cpp:1421).
+      // GTK labels WXK_BACK `BackSpace` in the menu; the Hotkey List calls it
+      // `Back` (hotkeys_basic.cpp:95), which `hotkeyListName` supplies.
+      shortcut: 'Alt+BackSpace',
       action: () => onTopAction('navUp'),
       disabled: parentPath(currentPath) === null,
     });

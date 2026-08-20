@@ -6925,7 +6925,7 @@ export function PcbEditor({
         { label: 'Redo', action: redo, shortcut: 'Ctrl+Y' },
         { sep: true },
         { label: 'Duplicate', action: duplicateSel, shortcut: 'Ctrl+D' },
-        { label: 'Delete', action: deleteSel, shortcut: 'Del' },
+        { label: 'Delete', action: deleteSel, shortcut: 'Delete' },
         { sep: true },
         {
           label: 'Align/Distribute',

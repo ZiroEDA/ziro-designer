@@ -797,7 +797,7 @@ export function DialogAssignFootprints({
         { sep: true },
         {
           label: 'Delete Footprint Assignment',
-          shortcut: 'Del',
+          shortcut: 'Delete',
           // DeleteAssoc walks the whole selection, so the row is live while
           // any selected symbol still has a footprint to clear.
           disabled: !model.selection.some((i) => footprintOf(components[i]!)),

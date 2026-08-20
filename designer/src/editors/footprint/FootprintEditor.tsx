@@ -921,7 +921,7 @@ export function FootprintEditor({
             label: 'Delete',
             icon: 'delete',
             action: deleteSel,
-            shortcut: 'Del',
+            shortcut: 'Delete',
             disabled: selection.size === 0,
           },
           { sep: true },

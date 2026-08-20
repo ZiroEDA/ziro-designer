@@ -749,7 +749,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+S',
     'Ctrl+Y',
     'Ctrl+Z',
-    'Del',
+    // The menu accelerator, which GTK spells in full. The Hotkey List calls the
+    // same key `Del` - see `ui/key_names.ts`.
+    'Delete',
     // View > Zoom to Fit. `ACTIONS::zoomFitScreen` is Home off macOS and F is
     // `PCB_ACTIONS::flip`, so this row's key is wrong upstream - but it is the
     // key the frame has always answered, and correcting the row is #547's job,
@@ -771,7 +773,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+Z',
     'Ctrl+Y',
     'Ctrl+D',
-    'Del',
+    'Delete',
     'Shift+M',
     'Shift+P',
     'Ctrl+F',
@@ -789,7 +791,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+S',
     'Ctrl+Y',
     'Ctrl+Z',
-    'Del',
+    'Delete',
     // Place > Pin / Text. SCH_ACTIONS::placeSymbolPin is P and placeSymbolText
     // is T, both AS_GLOBAL with a row - so both belong on the row.
     'P',
@@ -940,7 +942,7 @@ describe('the schematic editor, pressed for real', () => {
         'Ctrl+V',
         'Ctrl+X',
         'Ctrl+Z',
-        'Del',
+        'Delete',
         // View
         'Alt+Left',
         'Alt+Right',
@@ -951,8 +953,10 @@ describe('the schematic editor, pressed for real', () => {
         'Ctrl+Home',
         'Ctrl+R',
         'Home',
-        'PgDn',
-        'PgUp',
+        // GTK's labels for WXK_PAGEUP / WXK_PAGEDOWN. `PgUp` / `PgDn` is what
+        // the Hotkey List calls them - `ui/key_names.ts` is the split.
+        'Page Down',
+        'Page Up',
         // Place - the twelve SCH_ACTIONS tool letters, plus Ctrl+L
         'A',
         'B',

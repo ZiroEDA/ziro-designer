@@ -34,6 +34,7 @@ import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
 import { DEFAULT_LANGUAGE } from './language_menu.js';
 import { browserSafeKey } from './browser_reserved.js';
+import { hotkeyListName } from './key_names.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
 import {
@@ -159,6 +160,24 @@ function splitToolTitle(title: string): { name: string; keys: string } {
   const m = ACCEL_SUFFIX.exec(title);
   if (!m) return { name: title, keys: '' };
   return { name: title.slice(0, m.index).trim(), keys: m[0].trim().replace(/^\(|\)$/g, '') };
+}
+
+/**
+ * What the Hotkey List calls the key a menu row prints.
+ *
+ * The row's `shortcut` is its *menu* accelerator, which is GTK's name for the
+ * key ("Delete"); this column is KiCad's own ("Del", `hotkeyNameList` at
+ * `common/hotkeys_basic.cpp:93`). `hotkeyListName` is that translation and an
+ * identity for every key the two tables agree about, which is why no existing
+ * call site had to change. `MenuItem.hotkeyName` is the per-row escape hatch
+ * and is expected to stay unused.
+ *
+ * Exported because it is the whole of the default: a test that pins the split
+ * has to be able to press it with a row of its own, and every row this module
+ * collects today is claimed by a registry before it reaches the dialog.
+ */
+export function menuHotkeyName(item: MenuItem): string {
+  return item.hotkeyName ?? hotkeyListName(item.shortcut);
 }
 
 /** Every leaf item of a built menu, submenus included. */
@@ -360,7 +379,7 @@ function section(
   };
 
   for (const it of items) {
-    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', it.shortcut ?? '', '', true);
+    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', menuHotkeyName(it), '', true);
   }
   // A ToolButton carries one string, `title`, as both its name and its tooltip.
   // Upstream's two columns come from GetFriendlyName() and GetDescription(),

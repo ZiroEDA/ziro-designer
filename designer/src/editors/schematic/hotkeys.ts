@@ -604,7 +604,10 @@ export const HOTKEYS: readonly Hotkey[] = [
   {
     id: 'leaveSheet',
     label: 'Leave Sheet',
-    keys: 'Alt+Backspace',
+    // `Back`, not `Backspace`: hotkeyNameList spells WXK_BACK that way
+    // (hotkeys_basic.cpp:95), and this column is the Hotkey List's. The menu
+    // row prints GTK's `Alt+BackSpace` - see `ui/key_names.ts`.
+    keys: 'Alt+Back',
     section: 'Navigation',
     upstream: 'SCH_ACTIONS::leaveSheet',
   },

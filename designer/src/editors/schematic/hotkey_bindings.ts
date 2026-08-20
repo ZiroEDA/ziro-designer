@@ -31,6 +31,7 @@
  */
 
 import { APP_REGISTRIES, qualify, type AppKey, type RegistryAction } from '../../ui/hotkey_apps.js';
+import { NAMED_KEYS } from '../../ui/menu_hotkeys.js';
 import { HOTKEY_APP } from './hotkeys.js';
 
 /**
@@ -57,6 +58,7 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   ' ': 'Space',
   Escape: 'Esc',
   Delete: 'Del',
+  Backspace: 'Back',
   ArrowUp: 'Up',
   ArrowDown: 'Down',
   ArrowLeft: 'Left',
@@ -115,7 +117,14 @@ export function eventFromCombo(combo: string, from: KeyLike): KeyLike {
     key = key.slice(m[0].length);
   }
   return {
-    key: EVENT_KEYS[key] ?? (key.length === 1 ? key.toLowerCase() : key),
+    // `EVENT_KEYS` is the registry's spelling (`Del`, `PgUp`); `NAMED_KEYS` is
+    // the *menu's* (`Delete`, `Page Up`), which is a different string for the
+    // same key - see `ui/key_names.ts`. A combo written either way has to build
+    // the same event, so both tables are consulted.
+    key:
+      EVENT_KEYS[key] ??
+      NAMED_KEYS[key.toLowerCase()] ??
+      (key.length === 1 ? key.toLowerCase() : key),
     ctrlKey: mods.has('Ctrl'),
     metaKey: false,
     shiftKey: mods.has('Shift'),
