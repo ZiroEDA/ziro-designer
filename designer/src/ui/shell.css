@@ -555,10 +555,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   flex-direction: column;
   height: 100%;
-  font:
-    13px / 1.3 system-ui,
-    "Segoe UI",
-    sans-serif;
+  /* The shell root every launcher inherits from, so it must be the TOKEN and
+     not a literal. It hardcoded `13px` and a "Segoe UI" stack while
+     `--ui-font-size` (11pt = 14.667px, wxSYS_DEFAULT_GUI_FONT) and
+     `--ui-font-family` sat unused two hundred lines above — the same shape as
+     the drawing sheet's hardcoded metrics, but at the top of the app.
+     Nothing renders at 13px today because every launcher overrides it; the
+     cost was that anything NEW inheriting the root got 13px and a Windows font
+     rather than what KiCad asks GTK for. Measured: `system-ui` resolves to
+     Ubuntu Sans here and "General system design" advances 147.5px against
+     KiCad's measured 147px ink, so the token is already the right answer. */
+  font: var(--ui-font-size) / 1.3 var(--ui-font-family);
   color: var(--chrome-fg);
   user-select: none;
   /* `cursor` inherits, so with no `pointer` left anywhere this one declaration

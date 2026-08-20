@@ -341,3 +341,50 @@ describe('hardcoded font sizes do not grow', () => {
     expect(sites.length).toBe(397);
   });
 });
+
+/**
+ * The shell root itself, which every launcher inherits from.
+ *
+ * `.ze-app` hardcoded `font: 13px/1.3 system-ui, "Segoe UI", sans-serif` while
+ * `--ui-font-size` (11pt = 14.667px, wxSYS_DEFAULT_GUI_FONT) and
+ * `--ui-font-family` sat unused in the same file. Nothing rendered at 13px
+ * because every launcher overrode it — the cost was silent: anything NEW that
+ * simply inherited the root got 13px and a Windows font stack instead of the
+ * face KiCad asks GTK for.
+ *
+ * Measured before changing it: `system-ui` resolves to Ubuntu Sans on this
+ * machine and advances "General system design" at 147.5px against KiCad's
+ * measured 147px ink, so the token was already the correct answer and the
+ * literal was simply wrong.
+ */
+describe('the shell root uses the font tokens, not a literal', () => {
+  const shell = readFileSync(
+    fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+    'utf8',
+  );
+
+  /** The rule body with comments stripped — the note inside it NAMES the stack
+   *  it forbids, and prose about a rule must not read as the rule. */
+  const rootRule = (): string => {
+    const at = shell.indexOf('\n.ze-app {');
+    expect(at, 'shell.css has no .ze-app rule').toBeGreaterThanOrEqual(0);
+    return shell.slice(at, shell.indexOf('}', at)).replace(/\/\*[\s\S]*?\*\//g, '');
+  };
+
+  it('takes its size and family from the tokens', () => {
+    const body = rootRule();
+    expect(body).toMatch(/font:\s*var\(--ui-font-size\)\s*\/\s*[\d.]+\s*var\(--ui-font-family\)/);
+  });
+
+  it('carries no hardcoded px size and no Segoe UI stack', () => {
+    const body = rootRule();
+    expect(body).not.toMatch(/font:[^;]*\d+px/);
+    expect(body).not.toContain('Segoe UI');
+  });
+
+  it('still resolves to KiCad’s 11pt', () => {
+    // wxSYS_DEFAULT_GUI_FONT is 11pt; 11pt at 96dpi is 14.667px, which is what
+    // the running app measures at the root.
+    expect(shell).toMatch(/--ui-font-size:\s*11pt/);
+  });
+});
