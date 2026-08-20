@@ -371,7 +371,9 @@ export function DialogPageSettings({
                 )}
               </select>
             </div>
-            <div style={{ ...heading, marginTop: 10 }}>Title Block Parameters</div>
+            {/* dialog_page_settings.cpp:90-92 — the non-pl_editor branch's
+                m_staticTextTitleBlock label is "Title Block". */}
+            <div style={{ ...heading, marginTop: 10 }}>Title Block</div>
             <div style={{ display: 'flex', fontSize: 12, margin: '2px 0 6px' }}>
               <span>Number of sheets: {sheetCount}</span>
               <span style={{ flex: 1 }} />

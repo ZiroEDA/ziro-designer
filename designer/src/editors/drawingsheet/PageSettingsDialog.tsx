@@ -20,9 +20,19 @@ const ORIENTATION_CHOICES: readonly ComboOption[] = [
   { value: 'portrait', label: 'Portrait' },
 ];
 
-/** Standard paper sizes, in mm (landscape W×H), as page_info defines them. */
+/**
+ * `PAGE_INFO::standardPageSizes` (common/page_info.cpp:46-68), in its own order.
+ *
+ * `DIALOG_PAGES_SETTINGS::TransferDataToWindow` (:112-133) appends the WHOLE
+ * list to the combo, in this order, with each row's client data set to its
+ * PAGE_SIZE_TYPE — so the combo IS this table and nothing sorts or filters it.
+ *
+ * Sizes are millimetres, landscape W×H, exactly as the C++ declares them
+ * ("All MUST be defined as landscape"); the imperial ones are its mils
+ * converted. Ours had A5 as 148.5 mm tall where upstream says 148.
+ */
 export const PAPER_MM: Record<string, [number, number]> = {
-  A5: [210, 148.5],
+  A5: [210, 148],
   A4: [297, 210],
   A3: [420, 297],
   A2: [594, 420],
@@ -33,27 +43,46 @@ export const PAPER_MM: Record<string, [number, number]> = {
   C: [558.8, 431.8],
   D: [863.6, 558.8],
   E: [1117.6, 863.6],
+  /** VECTOR2D( 32000, 32000 ) mils. */
+  GERBER: [812.8, 812.8],
+  User: [431.8, 279.4],
   USLetter: [279.4, 215.9],
   USLegal: [355.6, 215.9],
   USLedger: [431.8, 279.4],
 };
 
+/**
+ * The combo, row for row.
+ *
+ * Three things the audit found wrong and all three are in the C++ verbatim:
+ * the descriptions have SPACES around the `x` ("A5 148 x 210mm"), the US sizes
+ * are two words ("US Letter"), and `User (Custom)` is the 13th row rather than
+ * the last — because the table's order is the combo's order and the US sizes
+ * come after it.
+ *
+ * The blank row at 12 is not a mistake either: `PAGE_SIZE_TYPE::GERBER` is
+ * declared with `wxPAPER_NONE` and NO `_HKI` description (page_info.cpp:62), so
+ * `Append( wxGetTranslation( "" ) )` puts an empty row in the list. It selects
+ * a real 32000 x 32000 mil page. Reproduced rather than tidied away: the bar is
+ * that a user cannot tell which app they are in.
+ */
 export const PAPER_CHOICES: { id: string; label: string }[] = [
-  { id: 'A5', label: 'A5 148x210mm' },
-  { id: 'A4', label: 'A4 210x297mm' },
-  { id: 'A3', label: 'A3 297x420mm' },
-  { id: 'A2', label: 'A2 420x594mm' },
-  { id: 'A1', label: 'A1 594x841mm' },
-  { id: 'A0', label: 'A0 841x1189mm' },
-  { id: 'A', label: 'A 8.5x11in' },
-  { id: 'B', label: 'B 11x17in' },
-  { id: 'C', label: 'C 17x22in' },
-  { id: 'D', label: 'D 22x34in' },
-  { id: 'E', label: 'E 34x44in' },
-  { id: 'USLetter', label: 'USLetter 8.5x11in' },
-  { id: 'USLegal', label: 'USLegal 8.5x14in' },
-  { id: 'USLedger', label: 'USLedger 11x17in' },
+  { id: 'A5', label: 'A5 148 x 210mm' },
+  { id: 'A4', label: 'A4 210 x 297mm' },
+  { id: 'A3', label: 'A3 297 x 420mm' },
+  { id: 'A2', label: 'A2 420 x 594mm' },
+  { id: 'A1', label: 'A1 594 x 841mm' },
+  { id: 'A0', label: 'A0 841 x 1189mm' },
+  { id: 'A', label: 'A 8.5 x 11in' },
+  { id: 'B', label: 'B 11 x 17in' },
+  { id: 'C', label: 'C 17 x 22in' },
+  { id: 'D', label: 'D 22 x 34in' },
+  { id: 'E', label: 'E 34 x 44in' },
+  { id: 'GERBER', label: '' },
   { id: 'User', label: 'User (Custom)' },
+  { id: 'USLetter', label: 'US Letter 8.5 x 11in' },
+  { id: 'USLegal', label: 'US Legal 8.5 x 14in' },
+  { id: 'USLedger', label: 'US Ledger 11 x 17in' },
 ];
 
 /** The preview page + title block data the resolver consumes. */
@@ -130,14 +159,19 @@ export function PageSettingsDialog({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
-          Page Settings
+          {/* DIALOG_PAGES_SETTINGS::DIALOG_PAGES_SETTINGS
+              (common/dialogs/dialog_page_settings.cpp:82-93) re-labels three
+              strings when its parent is PL_EDITOR_FRAME_NAME, because in this
+              frame the page and the title block are PREVIEW data and are not
+              saved anywhere. Ours used the other frames' wording. */}
+          Preview Settings
           <span className="x" onClick={onCancel}>
             ✕
           </span>
         </div>
         <div style={{ display: 'flex', gap: 18, padding: '10px 14px' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Paper</div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Preview Paper</div>
             <div style={row}>
               <span style={lab}>Size:</span>
               <Combo
@@ -190,7 +224,7 @@ export function PageSettingsDialog({
           </div>
           <div style={{ flex: 1.2 }}>
             <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
-              Title Block Parameters
+              Preview Title Block Data
             </div>
             <div style={row}>
               <span style={lab}>Issue Date:</span>
