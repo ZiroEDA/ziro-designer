@@ -22,9 +22,19 @@ const COLOR_OK = 'rgb(122, 166, 194)';
 /** The equal-potential cell, line 370. */
 const COLOR_SAME = 'rgb(193, 231, 255)';
 
-/** `getContrastingTextColour`: KiCad picks black or white off the luminance. */
+/**
+ * `getContrastingTextColour`, panel_galvanic_corrosion.cpp:29-38. The comment
+ * above it names the standard: ITU-R **BT.709** luminance, and the cut is at
+ * **140**, white below it.
+ *
+ * Ours had BT.601's coefficients (0.299 / 0.587 / 0.114) against a threshold of
+ * 128, which is a different standard and a different cut. They disagree over
+ * the dark end of both ramps — rgb(156,123,100), the cell for a 1.0 V pair,
+ * is 130 by BT.601 and so took BLACK ink, and 128.4 by BT.709, which upstream
+ * paints WHITE.
+ */
 const ink = (r: number, g: number, b: number): string =>
-  0.299 * r + 0.587 * g + 0.114 * b > 128 ? '#000000' : '#ffffff';
+  0.2126 * r + 0.7152 * g + 0.0722 * b < 140 ? '#ffffff' : '#000000';
 
 function cellStyle(diffV: number, thresholdMv: number): { background: string; color: string } {
   const diffTemp = Math.round(Math.abs(diffV * 99));
@@ -78,38 +88,65 @@ export function PanelGalvanicCorrosion(): JSX.Element {
         </table>
       </div>
 
-      <div className="calc-field">
-        <span>Threshold voltage:</span>
-        <input
-          className="calc-input"
-          style={{ width: 70 }}
-          value={threshold}
-          spellCheck={false}
-          onChange={(e) => setThreshold(e.target.value)}
-        />
-        <span className="calc-unit">mV</span>
+      {/* m_helpText, an HTML_WINDOW with SetMinSize( 400, 110 ), added
+          proportion 0 wxALL|wxEXPAND 5 BETWEEN the grid and the bottom row
+          (base:41-43). Its five lines are galvanic_corrosion_help.md, one
+          paragraph broken by <br>. The page had none of it. */}
+      <div className="calc-help-body gc-help">
+        <p>
+          This table shows the difference in electrochemical potential between various metals and
+          alloys. Galvanic corrosion affects different metals in contact and under certain
+          conditions.
+          <br />
+          The anode of an electrochemical pair gets oxidized and eaten away, while the cathode gets
+          dissolved metals plated onto it but stays protected.
+          <br />A positive number indicates that the row is anodic (-) and the column is cathodic
+          (+), cold and warm coloring hues also indicate rows' potential.
+          <br />
+          EN 50310 suggests a voltage difference below 300mV. Known practices make use of a third
+          interface metal in between the main pair(ie the ENIG surface finish).
+          <br />
+          Selected cells shown with the default system's coloring choice after a table refill.
+        </p>
       </div>
 
-      <div className="calc-field">
-        <span>Material names:</span>
-        <label className="calc-radio">
+      {/* bSizerBottom, wxHORIZONTAL (base:44): the threshold group, a VERTICAL
+          wxStaticLine, and the material-names group, all on one row. Ours had
+          them as two stacked rows with no separator between them. */}
+      <div className="gc-bottom">
+        <div className="calc-field gc-voltage">
+          <span>Threshold voltage:</span>
           <input
-            type="radio"
-            name="gc-names"
-            checked={symbolic}
-            onChange={() => setSymbolic(true)}
+            className="calc-input gc-threshold"
+            value={threshold}
+            spellCheck={false}
+            onChange={(e) => setThreshold(e.target.value)}
           />
-          Chemical symbols
-        </label>
-        <label className="calc-radio">
-          <input
-            type="radio"
-            name="gc-names"
-            checked={!symbolic}
-            onChange={() => setSymbolic(false)}
-          />
-          Names
-        </label>
+          <span className="calc-unit">mV</span>
+        </div>
+        {/* m_staticline, wxLI_VERTICAL, wxEXPAND|wxRIGHT|wxLEFT 10 (base:68). */}
+        <div className="gc-rule" />
+        <div className="calc-field">
+          <span>Material names:</span>
+          <label className="calc-radio">
+            <input
+              type="radio"
+              name="gc-names"
+              checked={symbolic}
+              onChange={() => setSymbolic(true)}
+            />
+            Chemical symbols
+          </label>
+          <label className="calc-radio">
+            <input
+              type="radio"
+              name="gc-names"
+              checked={!symbolic}
+              onChange={() => setSymbolic(false)}
+            />
+            Names
+          </label>
+        </div>
       </div>
     </div>
   );

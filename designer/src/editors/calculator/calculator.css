@@ -1642,20 +1642,78 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 /* Galvanic Corrosion: a wide read-only grid whose column labels are rotated,
    with the threshold field and the name-style radios under it. */
+/* bSizerMain, wxVERTICAL (base:11): the scrolled grid with proportion 1, then
+   the help window, then the bottom row. `align-items: flex-start` shrink-wrapped
+   the children; every one of the three is added wxEXPAND. */
 .gc-panel {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
+/* m_scrolledWindow1, proportion 1 wxEXPAND|wxALL 5 (base:39). */
 .gc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   max-width: 100%;
   overflow: auto;
+  margin: var(--wx-border);
 }
 
+/* m_helpText, an HTML_WINDOW added proportion 0 — it does NOT grow, unlike the
+   four help panes elsewhere — with `SetMinSize( wxSize( 400, 110 ) )`
+   (base:41-43). `.calc-help-body` carries the rgb(39,39,39) fill and the 21 px
+   line pitch; only the floor and the borders are this panel's. */
+/* Proportion 0 against a `SetMinSize` of 110 means the window is EXACTLY 110 px
+   tall and its five lines do not fit — `wxHW_SCROLLBAR_AUTO` gives it a
+   scrollbar, and GTK's overlay scrollbar is invisible at rest, so what you see
+   is the last line clipped through the middle of its glyphs. [px] KiCad's pane
+   runs y 912..1021 = 110 and "Selected cells shown with..." is cut at 1021.
+   A `min-height` here would have let it grow to fit and lose the clip. */
+.gc-help {
+  flex: 0 0 110px;
+  height: 110px; /* [data] SetMinSize( 400, 110 ), base:42 */
+  min-width: 400px;
+  margin: var(--wx-border);
+}
+
+/* bSizerBottom, wxHORIZONTAL, wxEXPAND|wxTOP|wxBOTTOM 5 (base:76). */
+.gc-bottom {
+  display: flex;
+  align-items: center;
+  margin: var(--wx-border) 0;
+}
+
+/* m_corFilterCtrl: `SetMinSize( wxSize( 100, -1 ) )` (base:52). Ours was 70. */
+.gc-threshold {
+  width: 100px; /* [data] the control's own minimum, base:52 */
+}
+
+/* m_staticline, wxLI_VERTICAL, added wxEXPAND|wxRIGHT|wxLEFT 10 (base:68) — it
+   stretches to the row's height, so it is a rule, not a gap. */
+.gc-rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 0 10px; /* [data] the line's own wxRIGHT|wxLEFT 10 */
+  background: var(--ctl-border);
+}
+
+/* `SetRowLabelAlignment( wxALIGN_RIGHT, ... )` and
+   `SetColLabelAlignment( wxALIGN_LEFT, ... )` — this panel overrides the grid
+   defaults every other page keeps (panel_galvanic_corrosion.cpp:352-354). */
+.gc-table th.rowhead {
+  text-align: right;
+}
+
+/* `AutoSizeRows()` (panel_galvanic_corrosion.cpp:402) lands on the same row
+   height every other wxGrid in this launcher has: [px] 24 px including the 1 px
+   rule, rules at y 420/444/468/492 in k14. Ours were 21 apart, so by the
+   twentieth row the two tables were 60 px out of step. */
 .gc-table td,
 .gc-table th {
-  padding: 1px 4px;
+  padding: 0 4px;
+  height: 24px; /* [px] the wxGrid row pitch, rule included */
 }
 
 /* wxALIGN_CENTER column labels drawn vertically, as the real grid draws them.
