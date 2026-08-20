@@ -109,7 +109,10 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
       label: 'File',
       items: [
         act('Save', 'save', 'save', 'Ctrl+S'),
-        stub('Save Current Sheet Copy As...'),
+        // SCH_ACTIONS::saveCurrSheetCopyAs (sch_actions.cpp:1620-1625):
+        // FriendlyName "Save Current Sheet Copy As...", BITMAPS::save_as, and
+        // no default hotkey.
+        act('Save Current Sheet Copy As...', 'saveAs', 'saveCurrSheetCopyAs'),
         stub('Revert'),
         SEP,
         {

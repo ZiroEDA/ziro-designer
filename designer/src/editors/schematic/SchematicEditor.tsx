@@ -3,7 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { Vec2 } from '@ziroeda/kimath';
 import {
+  ensureFileExtension,
   iuToMM,
+  KICAD_SCHEMATIC_FILE_EXTENSION,
   mmToIU,
   RPT_SEVERITY_ACTION,
   RPT_SEVERITY_ERROR,
@@ -304,6 +306,7 @@ import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar
 import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
 import { isHoverSelection, rightClickSelection } from './hover_selection.js';
 import { buildMenus } from './menubar.js';
+import { savedFileMessage } from './files_io.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
@@ -1927,6 +1930,13 @@ export function SchematicEditor({
   );
   // WX_INFOBAR message posted by a tool (null = hidden).
   const [infoBar, setInfoBar] = useState<string | null>(null);
+  /**
+   * `SetStatusText( msg, 0 )` — field 0 of the status bar. wx leaves whatever
+   * was written there until something writes over it, so this is state rather
+   * than a transient toast. The highlight message shares the field and takes
+   * precedence while a net is actually highlighted.
+   */
+  const [statusText, setStatusText] = useState<string>('');
   const [printOpen, setPrintOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState(false);
   // Folders that already exist inside the project, relative to the project's
@@ -3676,6 +3686,88 @@ export function SchematicEditor({
     setUnsaved(false);
   }, [fileName, currentFile, onPersistFiles]);
 
+  /**
+   * `SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs` (eeschema/tools/
+   * sch_editor_control.cpp:426-442):
+   *
+   *     SCH_SHEET*   curr_sheet = m_frame->GetCurrentSheet().Last();
+   *     wxFileName   curr_fn = curr_sheet->GetFileName();
+   *     wxFileDialog dlg( …, curr_fn.GetPath(), curr_fn.GetFullName(),
+   *                       FILEEXT::KiCadSchematicFileWildcard(),
+   *                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+   *     if( dlg.ShowModal() == wxID_CANCEL ) return false;
+   *     wxString newFilename =
+   *         EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+   *     m_frame->saveSchematicFile( curr_sheet, newFilename );
+   *
+   * Three things this must NOT do, all of them from
+   * `SCH_EDIT_FRAME::saveSchematicFile` (eeschema/files-io.cpp:989-1081):
+   *
+   *  - it writes the CURRENT SHEET only, never the hierarchy. The dialog is
+   *    seeded from that sheet's own name, not the project's.
+   *  - it never calls `screen->SetFileName()`, so the editor is NOT retargeted
+   *    at the copy: you go on editing the original, and the title does not
+   *    change.
+   *  - on success it does `screen->SetContentModified( false )` and
+   *    `SetStatusText( "File '%s' saved." )` built from `screen->GetFileName()`
+   *    — the ORIGINAL name, because the screen was never renamed.
+   *
+   * That last pair looks like an upstream bug: saving a COPY clears the dirty
+   * flag on a document that was not written, and then reports the original
+   * file's name as the one saved. It is mirrored here deliberately rather than
+   * corrected. The parity target is the installed build including where it is
+   * odd; the moment we start fixing KiCad's oddities the two stop matching and
+   * a user who knows KiCad is the one surprised.
+   *
+   * The browser has no `wxFileDialog`, so the name prompt is ours. Nothing else
+   * about the command changes: the seed, the extension rule, what gets written,
+   * and what is left alone are all upstream's.
+   */
+  const saveCurrSheetCopyAs = useCallback(() => {
+    const d = docRef.current;
+    if (!d) return;
+
+    // curr_fn.GetFullName() — the current sheet's own file name, which for us
+    // is the file the editor has open.
+    const seed = currentFile !== DEFAULT_FILE ? currentFile : (fileName ?? DEFAULT_FILE);
+    const picked = window.prompt('Save Current Sheet Copy As:', seed);
+    if (picked === null) return; // wxID_CANCEL
+
+    const trimmed = picked.trim();
+    if (!trimmed) return;
+
+    const newFilename = ensureFileExtension(trimmed, KICAD_SCHEMATIC_FILE_EXTENSION);
+
+    let text: string;
+    try {
+      text = serializeSchematic(d);
+    } catch (e) {
+      // saveSchematicFile's catch( IO_ERROR ) -> DisplayError, and success
+      // stays false, so neither the dirty flag nor the status text is touched.
+      setError(
+        `Error saving schematic file '${newFilename}'.\n${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
+
+    if (onPersistFiles && currentFile !== DEFAULT_FILE) {
+      onPersistFiles([{ name: newFilename, text }]);
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = newFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // screen->SetContentModified( false ), then the status text built from
+    // screen->GetFileName() — the original, not the copy. See above.
+    setDirty(false);
+    setUnsaved(false);
+    setStatusText(savedFileMessage(seed));
+  }, [currentFile, fileName, onPersistFiles]);
+
   // ----- copy / cut / paste / duplicate (SCH_EDITOR_CONTROL port) -------------
   // Copy writes KiCad's clipboard format (lib_symbols + items as S-expressions),
   // so text copied here pastes into desktop KiCad and vice versa. Paste parses
@@ -5414,6 +5506,8 @@ export function SchematicEditor({
       else if (id === 'redo') redo();
       else if (id === 'open') promptOpen();
       else if (id === 'save') save();
+      // SCH_ACTIONS::saveCurrSheetCopyAs
+      else if (id === 'saveCurrSheetCopyAs') saveCurrSheetCopyAs();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'manageSymbolLibraries') setSymLibTableOpen(true);
       // SCH_EDITOR_CONTROL::ShowCreateNetChain opens whatever is selected; a
@@ -5670,6 +5764,7 @@ export function SchematicEditor({
       undo,
       redo,
       save,
+      saveCurrSheetCopyAs,
       promptOpen,
       runCommand,
       runErcNow,
@@ -8261,7 +8356,7 @@ export function SchematicEditor({
       <KiStatusBar
         testIds={{ message: 'sch-status-msg', tool: 'sch-tool-msg' }}
         fields={{
-          message: highlightName ? `Highlighted net: ${highlightName}` : '',
+          message: highlightName ? `Highlighted net: ${highlightName}` : statusText,
           zoom: <span ref={statusReadout.zoomRef} />,
           coords: <span ref={statusReadout.coordsRef} />,
           deltas: <span ref={statusReadout.deltasRef} />,
