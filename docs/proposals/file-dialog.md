@@ -64,6 +64,56 @@ call site was ported against:
   files in and out — that is where a native picker still belongs, and the only
   place it does.
 
+## What it looks like: the GTK file chooser, minus what we have no use for
+
+Decided 2026-08-20 from a capture of the real dialog (KiCad Save Project on
+Ubuntu). It is `GtkFileChooserDialog`, and it is the model — plain, standard,
+and already familiar to anyone who has used the desktop.
+
+Taken as-is:
+
+- **Cancel** left, **Name** field centre, **Save** right, on one header row.
+- The **breadcrumb path bar** — one button per ancestor, with `‹` / `›` for
+  overflow and a **new-folder** button at its right end.
+- Columns **Name / Size / Type / Modified**, sortable, with `Type` reading in
+  words (`KiCad Project`) and `Modified` as a short date.
+- Folders sort above files; the selected row takes the accent bar.
+- The **file-type filter** at bottom right, showing the caller's wildcard in
+  words — `KiCad project files (*.kicad_pro)`.
+
+Two deliberate departures:
+
+- **No left sidebar.** GTK's Home / Desktop / Documents / Downloads / bookmarks
+  / Other Locations are places on a disk we do not have. There is one root — the
+  user's own space — so the sidebar would have nothing to put in it. Recency is
+  already served by **File ▸ Open Recent**, which KiCad has anyway (gerbview
+  carries four of them).
+- **Our path, not the machine's.** The bar in the capture reads
+  `usr / share / kicad / demos / kit-dev-coldfire-xilinx_5213`, which is a real
+  filesystem path and meaningless here. It shows the account's own tree instead,
+  rooted at something a person recognises as theirs.
+
+### The bottom-left slot is a requirement, not decoration
+
+The capture shows a **"Create a new folder for the project"** checkbox down
+there. That is not part of the chooser — it is caller-supplied, through
+`wxFileDialogCustomizeHook`. There are **six** such hooks upstream and they use
+three widget kinds:
+
+| hook | control |
+|---|---|
+| `kicad/widgets/filedlg_new_project.h:36` | checkbox, "Create a new folder for the project" |
+| `eeschema/widgets/filedlg_hook_save_project.h:36` | checkbox, "Create a new project for this schematic" |
+| `pcbnew/widgets/filedlg_hook_save_project.h:36` | checkbox, "Create a new project for this board" |
+| `include/widgets/filedlg_hook_embed_file.h:59` | checkbox, "Embed file" |
+| `include/widgets/filedlg_import_non_kicad.h:38` + `:45` | checkbox "Show import issues", and a 3-way choice |
+| `include/widgets/filedlg_hook_new_library.h:42-43` | two radio buttons, global vs project library table |
+
+So the dialog needs a **slot for caller-supplied controls** — checkbox, choice
+and radio at minimum — and each of the six needs porting with its own strings.
+Designing without that slot means six call sites inventing their own dialog
+again, which is the thing this proposal exists to stop.
+
 ## How to verify it
 
 Not by counting call sites. The rule is per-occurrence: **no `window.prompt` and
