@@ -146,7 +146,18 @@ export function Combo({
           }
         }}
       >
-        <span className="ze-combo-value">{selected?.label ?? ''}</span>
+        {/* A wxChoice takes its width from the WIDEST entry in its model, not
+            from the selection - which is why an empty one is still as wide as
+            its list would be and why KiCad's "mm" selector is 94 px, not 58.
+            The ghosts are laid over the shown value and only set the width. */}
+        <span className="ze-combo-value">
+          <span className="ze-combo-shown">{selected?.label ?? ''}</span>
+          {options.map((o) => (
+            <span key={o.value} className="ze-combo-ghost" aria-hidden="true">
+              {o.label}
+            </span>
+          ))}
+        </span>
         <span className="twisty expandable ze-combo-arrow" />
       </button>
       {open && box && (

@@ -246,6 +246,10 @@
   /* [px] the ring around an unchecked radio on a live pcb_calculator measures
      rgb(25,25,25) - a shade off --ctl-border's #181818. */
   --check-border: #191919;
+  /* [px] a wxSlider's trough is rgb(75,75,75), 4 px tall, and its thumb a
+     20 px rgb(252,252,252) disc. */
+  --slider-trough: #4b4b4b;
+  --slider-thumb: #fcfcfc;
   /* [px] a CHECKED radio is a solid rgb(233,84,32) disc with a 6 px white
      centre dot, 16 px across. Chrome's accent-color paints a ring plus a dot
      instead, which is why ours never matched. */
@@ -547,10 +551,48 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-app textarea::placeholder {
   color: #8b9098;
 }
-/* The accent the browser paints inside a checkbox or slider. */
-.ze-app input[type="checkbox"],
-.ze-app input[type="range"] {
+/* The accent the browser paints inside a checkbox. */
+.ze-app input[type="checkbox"] {
   accent-color: #e07b1a;
+}
+
+/* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
+   coloured one, and its trough is a flat grey with no filled portion.
+   [px] measured on pcb_calculator's current-density slider: trough 4 px tall,
+   rgb(75,75,75); thumb 20 px across, rgb(252,252,252) with a 1 px grey edge. */
+.ze-app input[type="range"] {
+  appearance: none;
+  height: 20px;
+  background: transparent;
+}
+
+.ze-app input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slider-trough);
+}
+
+.ze-app input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--slider-thumb);
+}
+
+.ze-app input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slider-trough);
+}
+
+.ze-app input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--slider-thumb);
 }
 
 /* A wxRadioButton is DRAWN here rather than left to the engine. GTK paints a
@@ -6861,9 +6903,25 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-combo-value {
   flex: 1 1 auto;
+  display: grid;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Every entry sits in the same grid cell, so the box is as wide as the widest
+   of them; only the selected one is painted. */
+.ze-combo-shown,
+.ze-combo-ghost {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ze-combo-ghost {
+  visibility: hidden;
+  pointer-events: none;
 }
 /* A wxChoice's arrow points DOWN, always — it is not a disclosure triangle that
    flips when the list opens. `.twisty.expandable::before` is (0,2,1) and would

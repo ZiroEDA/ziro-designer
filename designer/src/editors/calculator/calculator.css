@@ -348,14 +348,17 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   border-radius: var(--ctl-radius);
   box-shadow: 0 8px 30px rgb(0 0 0 / 50%);
   max-width: 92vw;
-  max-height: 88vh;
   display: flex;
   flex-direction: column;
 }
 
+/* A wxDialog's title is CENTRED in its title bar, with the window buttons at
+   the right - the same shape the frame's own MenuBar already uses. Ours pushed
+   the title to the left edge. */
 .calc-modal-head {
+  position: relative;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--ctl-border);
@@ -363,6 +366,10 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 }
 
 .calc-modal-x {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--chrome-fg);
@@ -370,9 +377,10 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   font: inherit;
 }
 
+/* `finishDialogSettings` fits a wxDialog to its sizer, so it never scrolls:
+   Akshay saw a scrollbar in ours where the binary has none. */
 .calc-modal-body {
   padding: 12px;
-  overflow: auto;
 }
 
 .calc-modal-foot {
@@ -952,6 +960,19 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
 
 .tw-params .calc-input {
   width: 92px;
+}
+
+/* [px] KiCad's Cable Size entries are 121 px whatever the label, and the box
+   is only as wide as it needs (x 240..690) - the entry column is NOT growable
+   here, unlike Via Size's. */
+.cs-box {
+  grid-template-columns: auto auto auto;
+  justify-content: start;
+}
+
+.cs-box .calc-input,
+.cs-box .calc-cell {
+  width: 121px;
 }
 
 /* fgSizer11 on Fusing Current: four columns, the first holding either a radio

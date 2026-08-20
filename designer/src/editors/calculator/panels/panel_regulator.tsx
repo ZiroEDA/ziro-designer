@@ -375,7 +375,7 @@ export function PanelRegulator(): JSX.Element {
   const formCell = (key: keyof RegForm): JSX.Element => (
     <input
       className="calc-input"
-      style={{ width: 90 }}
+      style={{ width: 96 }}
       value={String(form?.[key] ?? '')}
       onChange={(e) => setForm((f) => (f ? { ...f, [key]: e.target.value } : f))}
     />
@@ -640,7 +640,7 @@ export function PanelRegulator(): JSX.Element {
             <span>
               <input
                 className="calc-input"
-                style={{ width: 286 }}
+                style={{ width: 310 }}
                 disabled={form.original != null}
                 value={form.name}
                 onChange={(e) => setForm((f) => (f ? { ...f, name: e.target.value } : f))}

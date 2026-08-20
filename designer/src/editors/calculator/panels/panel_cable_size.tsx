@@ -10,7 +10,7 @@
  * Counterpart: KiCad `calculator_panels/panel_cable_size.cpp`.
  */
 
-import { useState, type JSX } from 'react';
+import { useState, type JSX, type CSSProperties } from 'react';
 import {
   AWG_NAMES,
   STANDARD_CABLE_CONDUCTOR_LIST,
@@ -98,9 +98,7 @@ function LinkedRow(p: LinkedRowProps): JSX.Element {
         : '';
   return (
     <div className="calc-field">
-      <span className="calc-field-label" style={{ minWidth: 190 }}>
-        {p.label}
-      </span>
+      <span className="calc-field-label">{p.label}</span>
       <input
         className="calc-input"
         value={text}
@@ -210,12 +208,18 @@ export function PanelCableSize(): JSX.Element {
   return (
     <div>
       <div className="calc-row">
-        <fieldset className="calc-group" style={{ minWidth: 420 }}>
+        {/* label | entry | unit, the entry column a fixed width and the box
+            only as wide as it needs: [px] KiCad's Wire properties box is
+            x 240..690 and every entry in it is 121 px, whatever the label. Ours
+            were independent rows, so the Frequency row's longer label pushed
+            its entry 25 px right of the others. */}
+        <fieldset
+          className="calc-group calc-grid3 cs-box"
+          style={{ '--calc-vgap': '4px' } as CSSProperties}
+        >
           <legend>Wire properties</legend>
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }}>
-              Standard Size:
-            </span>
+            <span className="calc-field-label">Standard Size:</span>
             <Combo
               value={String(awgSel)}
               options={[
@@ -243,43 +247,47 @@ export function PanelCableSize(): JSX.Element {
               write the picked number into the field
               (panel_cable_size.cpp:238-274). */}
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }} title={TIP_RESISTIVITY}>
+            <span className="calc-field-label" title={TIP_RESISTIVITY}>
               Conductor resistivity:
             </span>
-            <input
-              className="calc-input"
-              value={rho20Text}
-              spellCheck={false}
-              onChange={(e) => setRho20Text(e.target.value)}
-            />
-            <button
-              type="button"
-              className="calc-btn exactfit"
-              aria-label="Electrical Resistivity in Ohm*m at 20 deg C"
-              onClick={() => setPicking('rho')}
-            >
-              …
-            </button>
+            <span className="calc-cell">
+              <input
+                className="calc-input"
+                value={rho20Text}
+                spellCheck={false}
+                onChange={(e) => setRho20Text(e.target.value)}
+              />
+              <button
+                type="button"
+                className="calc-btn exactfit"
+                aria-label="Electrical Resistivity in Ohm*m at 20 deg C"
+                onClick={() => setPicking('rho')}
+              >
+                …
+              </button>
+            </span>
             <span className="calc-unit">Ω·m</span>
           </div>
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }} title={TIP_TEMPCOEF}>
+            <span className="calc-field-label" title={TIP_TEMPCOEF}>
               Temperature Coefficient:
             </span>
-            <input
-              className="calc-input"
-              value={alphaText}
-              spellCheck={false}
-              onChange={(e) => setAlphaText(e.target.value)}
-            />
-            <button
-              type="button"
-              className="calc-btn exactfit"
-              aria-label="Temperature coefficient"
-              onClick={() => setPicking('alpha')}
-            >
-              …
-            </button>
+            <span className="calc-cell">
+              <input
+                className="calc-input"
+                value={alphaText}
+                spellCheck={false}
+                onChange={(e) => setAlphaText(e.target.value)}
+              />
+              <button
+                type="button"
+                className="calc-btn exactfit"
+                aria-label="Temperature coefficient"
+                onClick={() => setPicking('alpha')}
+              >
+                …
+              </button>
+            </span>
             {/* KiCad puts NO unit label after this field. */}
           </div>
           {linked(
@@ -310,9 +318,7 @@ export function PanelCableSize(): JSX.Element {
             (v) => commitRadius(cableRadiusFromAmpacity(v, density)),
           )}
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }}>
-              Current density:
-            </span>
+            <span className="calc-field-label">Current density:</span>
             {/* wxSL_AUTOTICKS|wxSL_LABELS|wxSL_VALUE_LABEL, 3..12
                 (panel_cable_size_base.cpp:153): the current value is drawn above
                 the thumb and the two endpoints under the ends. */}
@@ -336,10 +342,13 @@ export function PanelCableSize(): JSX.Element {
           </div>
         </fieldset>
 
-        <fieldset className="calc-group" style={{ minWidth: 380 }}>
+        <fieldset
+          className="calc-group calc-grid3 cs-box"
+          style={{ '--calc-vgap': '4px' } as CSSProperties}
+        >
           <legend>Application</legend>
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }} title={TIP_CABLE_TEMP}>
+            <span className="calc-field-label" title={TIP_CABLE_TEMP}>
               Cable temperature:
             </span>
             <input
@@ -351,9 +360,7 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-unit">°C</span>
           </div>
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }}>
-              Current:
-            </span>
+            <span className="calc-field-label">Current:</span>
             <input
               className="calc-input"
               value={current}
@@ -363,7 +370,7 @@ export function PanelCableSize(): JSX.Element {
             <span className="calc-unit">A</span>
           </div>
           <div className="calc-field">
-            <span className="calc-field-label" style={{ minWidth: 190 }} title={TIP_LENGTH}>
+            <span className="calc-field-label" title={TIP_LENGTH}>
               Length:
             </span>
             <input

@@ -280,12 +280,13 @@ export function Modal({
   onClose,
   children,
   footer,
-  width = 420,
+  width,
 }: {
   title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Omit it: a wxDialog is sized by its sizer, not by a number we picked. */
   width?: number;
 }): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
@@ -296,7 +297,7 @@ export function Modal({
     <div className="calc-modal-backdrop" onMouseDown={onClose}>
       <div
         className="calc-modal"
-        style={{ width }}
+        style={width ? { width } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
