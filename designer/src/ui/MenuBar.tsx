@@ -3,7 +3,6 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useEffect, useLayoutEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { NO_ARROWS, submenuEnds } from './menu_scroll.js';
-import { toolbarIconUrl } from './toolbarIcons.js';
 
 // The data types live in menu_types.ts so menu-building modules stay
 // reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
@@ -141,13 +140,17 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
         item.action?.();
       }}
     >
-      <span className="mico">
-        {item.checked ? (
-          <span className="mcheck">✓</span>
-        ) : item.icon && toolbarIconUrl(item.icon) ? (
-          <img src={toolbarIconUrl(item.icon)} alt="" />
-        ) : null}
-      </span>
+      {/* No bitmap. `appearance.use_icons_in_menus` defaults TRUE on Linux
+          (common_settings.cpp:94-99 — it is off only on __WXMAC__), so KiCad
+          does attach a bitmap to the item via KIUI::AddBitmapToMenuItem
+          (action_menu.cpp:159). GTK3 then draws nothing: `gtk-menu-images` was
+          deprecated and turned off upstream, so menu-item images do not render
+          at all. [px] a real Schematic Editor File menu has an empty gutter —
+          Save, Print and Plot carry icons in ours and none in KiCad's.
+
+          The check mark stays: that is a wxITEM_CHECK item, not a bitmap, and
+          GTK renders it. */}
+      <span className="mico">{item.checked ? <span className="mcheck">✓</span> : item.icon && toolbarIconUrl(item.icon) ? <img src={toolbarIconUrl(item.icon)} alt="" /> : null}</span>
       <span className="lbl">{withMnemonic(item.label, item.mnemonic)}</span>
       {item.shortcut && <span className="sc">{item.shortcut}</span>}
       {/* The same drawn chevron the project tree's twisty uses, rather than a
