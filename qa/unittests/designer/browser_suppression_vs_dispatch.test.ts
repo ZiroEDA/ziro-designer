@@ -164,19 +164,37 @@ describe('every reader of defaultPrevented knows about our own suppression', () 
   it('has no bare defaultPrevented check in a keydown path', async () => {
     const { readFileSync, readdirSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
-    const dir = fileURLToPath(new URL('../../../designer/src/ui/', import.meta.url));
+    // The WHOLE of designer/src, not just ui/. All five editors read this flag
+    // too, and scoping the rule to where the bug was found is the same mistake
+    // that let it through: the test written for the first consumer covered only
+    // that consumer, so the second broke silently.
+    const root = fileURLToPath(new URL('../../../designer/src/', import.meta.url));
+    const files: string[] = [];
+    const walk = (d: string): void => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) walk(`${d}${e.name}/`);
+        else if (e.name.endsWith('.ts') || e.name.endsWith('.tsx')) files.push(d + e.name);
+      }
+    };
+    walk(root);
     const offenders: string[] = [];
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.ts') && !f.endsWith('.tsx')) continue;
+    for (const full of files) {
+      const f = full.slice(root.length);
       // Comments stripped: `menu_hotkeys.ts` DESCRIBES the rule in prose, which
       // is documentation, not a reader of the flag.
-      const src = readFileSync(dir + f, 'utf8')
+      const src = readFileSync(full, 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
       if (!src.includes('defaultPrevented')) continue;
       // `browser_hotkeys` is the suppressor itself; it does not read the flag.
-      if (f === 'browser_hotkeys.ts') continue;
-      if (!src.includes('wasBrowserSuppressed')) offenders.push(f);
+      if (f === 'ui/browser_hotkeys.ts') continue;
+      // PER OCCURRENCE, not per file. A file-level `includes` passes as long as
+      // the import survives, so deleting one guard while keeping another use
+      // read as "aware" — a test that cannot fail is worse than no test.
+      for (const m of src.matchAll(/defaultPrevented/g)) {
+        const near = src.slice(m.index ?? 0, (m.index ?? 0) + 90);
+        if (!near.includes('wasBrowserSuppressed')) offenders.push(`${f}@${m.index}`);
+      }
     }
     expect(
       offenders,
