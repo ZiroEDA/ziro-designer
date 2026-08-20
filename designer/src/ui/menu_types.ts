@@ -24,8 +24,33 @@ export interface MenuItem {
   disabled?: boolean;
   /** Keyboard hint shown right-aligned (e.g. "Ctrl+S"). A single-character
    *  hint is also live while a ContextMenu is open, the way wx treats the
-   *  `\tA` half of an ACTION_MENU label. */
+   *  `\tA` half of an ACTION_MENU label.
+   *
+   *  This is the **menu accelerator**, spelled as the menu draws it, and it is
+   *  what `ui/menu_hotkeys.ts` dispatches on. Upstream never writes this text:
+   *  `ACTION_MENU::updateHotKeys` attaches a `wxAcceleratorEntry`
+   *  (`common/tool/action_menu.cpp:382-383`) and wxGTK lets GTK label it, so
+   *  the row reads `Delete`, `Escape`, `Page Up`. The Hotkey List spells
+   *  several of those differently - see {@link hotkeyName}. */
   shortcut?: string;
+  /**
+   * What the **Hotkey List** calls this key, where that differs from
+   * {@link shortcut}.
+   *
+   * Two pieces of upstream code name the same keystroke and they disagree. The
+   * menu's name comes from GTK (`Delete`); the list's comes from KiCad's own
+   * `hotkeyNameList`, where `{ wxT( "Del" ), WXK_DELETE }` sits at
+   * `common/hotkeys_basic.cpp:93`. `ui/hotkeys_inventory.ts` derives the whole
+   * Hotkey List dialog from these rows, so one string cannot be right in both.
+   *
+   * **Almost nothing should set this.** The default is
+   * `hotkeyListName( shortcut )` from `ui/key_names.ts`, which is an identity
+   * for every key the two tables agree about and consults a single table for
+   * the handful they do not. A per-call-site spelling is how the two drift
+   * apart again; set this only for a row whose list name is not a function of
+   * its accelerator at all.
+   */
+  hotkeyName?: string;
   /**
    * The row prints {@link shortcut}, but the *browser's* default action is what
    * carries the command out, so `ui/menu_hotkeys.ts` must not claim the key.

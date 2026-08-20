@@ -169,7 +169,7 @@ export interface Accelerator {
  * ("Move Up  ↑"), while the hotkey registry spells them `Up`/`Down`. Both are
  * accepted so a shortcut written either way dispatches.
  */
-const NAMED_KEYS: Readonly<Record<string, string>> = {
+export const NAMED_KEYS: Readonly<Record<string, string>> = {
   del: 'Delete',
   delete: 'Delete',
   esc: 'Escape',
@@ -183,8 +183,13 @@ const NAMED_KEYS: Readonly<Record<string, string>> = {
   end: 'End',
   pgup: 'PageUp',
   pageup: 'PageUp',
+  // GTK's own label for the keyval, and so what the menu row prints - see
+  // `ui/key_names.ts`. `PgUp` is the Hotkey List's spelling of the same key and
+  // is kept because a row written either way must still dispatch.
+  'page up': 'PageUp',
   pgdn: 'PageDown',
   pagedown: 'PageDown',
+  'page down': 'PageDown',
   ins: 'Insert',
   insert: 'Insert',
   up: 'ArrowUp',

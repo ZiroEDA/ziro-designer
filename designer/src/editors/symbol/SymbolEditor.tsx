@@ -1477,7 +1477,7 @@ export function SymbolEditor({
           {
             label: 'Delete',
             icon: 'delete',
-            shortcut: 'Del',
+            shortcut: 'Delete',
             action: () => {
               if (workSymbol && selection.size > 0 && !isAlias) {
                 commit(deleteSymbolItems(workSymbol, selection), 'Delete');

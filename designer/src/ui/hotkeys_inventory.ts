@@ -34,6 +34,7 @@ import type { Menu, MenuItem } from './menu_types.js';
 import type { ToolEntry } from './toolbar_types.js';
 import { DEFAULT_LANGUAGE } from './language_menu.js';
 import { browserSafeKey } from './browser_reserved.js';
+import { hotkeyListName } from './key_names.js';
 import { buildManagerMenus } from '../home/menubar.js';
 import { TOOL_HOTKEYS, buildMenus as buildSchMenus } from '../editors/schematic/menubar.js';
 import {
@@ -360,7 +361,13 @@ function section(
   };
 
   for (const it of items) {
-    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', it.shortcut ?? '', '', true);
+    // The row prints its *menu* accelerator; this column is the Hotkey List,
+    // which upstream spells from its own table - `Del` where the menu draws
+    // `Delete`. `hotkeyListName` is that table, and an identity for every key
+    // the two agree about. `hotkeyName` is the per-row escape hatch and is
+    // expected to stay unused.
+    const keys = it.hotkeyName ?? hotkeyListName(it.shortcut);
+    add(keyOf(it.icon, it.label ?? ''), it.label ?? '', keys, '', true);
   }
   // A ToolButton carries one string, `title`, as both its name and its tooltip.
   // Upstream's two columns come from GetFriendlyName() and GetDescription(),
