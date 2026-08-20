@@ -265,7 +265,7 @@ export function PanelCableSize(): JSX.Element {
                 aria-label="Electrical Resistivity in Ohm*m at 20 deg C"
                 onClick={() => setPicking('rho')}
               >
-                …
+                ...
               </button>
             </span>
             <span className="calc-unit">Ω·m</span>
@@ -287,7 +287,7 @@ export function PanelCableSize(): JSX.Element {
                 aria-label="Temperature coefficient"
                 onClick={() => setPicking('alpha')}
               >
-                …
+                ...
               </button>
             </span>
             {/* KiCad puts NO unit label after this field. */}

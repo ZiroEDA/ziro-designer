@@ -108,7 +108,7 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
     {
       label: 'Preferences',
       items: [
-        { label: 'Preferences…', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
         setLanguageMenuItem({
           current: common.system.language,

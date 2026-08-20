@@ -77,7 +77,7 @@ export function standardHelpMenu(h: HelpMenuHandlers): Menu {
         action: openExternal('https://docs.ziroeda.com/getting-started'),
       },
       // ACTIONS::listHotKeys, .DefaultHotkey( MD_CTRL + WXK_F1 ).
-      { label: 'List Hotkeys…', shortcut: 'Ctrl+F1', action: h.showHotkeys },
+      { label: 'List Hotkeys...', shortcut: 'Ctrl+F1', action: h.showHotkeys },
       // ACTIONS::getInvolved.
       { label: 'Get Involved', action: openExternal('https://github.com/ZiroEDA/ziro-designer') },
       // ACTIONS::donate sits here upstream, deliberately not carried.

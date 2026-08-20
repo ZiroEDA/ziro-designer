@@ -4096,7 +4096,7 @@ export function PcbEditor({
       items.push(
         { sep: true },
         {
-          label: 'Properties…',
+          label: 'Properties...',
           action: () => {
             if (copper) setTrackViaOpen(true);
             else if (zoneIdx !== null) setZonePropsIndex(zoneIdx);
@@ -6902,14 +6902,14 @@ export function PcbEditor({
       label: 'File',
       items: [
         { label: 'New Board', disabled: dis },
-        { label: 'Open…', disabled: dis },
+        { label: 'Open...', disabled: dis },
         { sep: true },
         {
           label: 'Save',
           action: () => onTopAction('save'),
           shortcut: 'Ctrl+S',
         },
-        { label: 'Save a Copy…', action: saveCopy },
+        { label: 'Save a Copy...', action: saveCopy },
         { sep: true },
         { label: 'Import', disabled: dis },
         { label: 'Export', disabled: dis },
@@ -6988,23 +6988,23 @@ export function PcbEditor({
           label: 'Convert',
           submenu: [
             {
-              label: 'Create Polygon from Selection…',
+              label: 'Create Polygon from Selection...',
               action: () => convertSelection('poly'),
               disabled: selection.size === 0,
             },
             {
-              label: 'Create Zone from Selection…',
+              label: 'Create Zone from Selection...',
               action: () => convertSelection('zone'),
               disabled: selection.size === 0,
             },
             {
-              label: 'Create Rule Area from Selection…',
+              label: 'Create Rule Area from Selection...',
               action: () => convertSelection('ruleArea'),
               disabled: selection.size === 0,
             },
             { sep: true },
             {
-              label: 'Create Lines from Selection…',
+              label: 'Create Lines from Selection...',
               action: () => convertSelection('lines'),
               disabled: selection.size === 0,
             },
@@ -7041,7 +7041,7 @@ export function PcbEditor({
           ],
         },
         {
-          label: 'Create Array…',
+          label: 'Create Array...',
           action: () => {
             // A circular array turns about a point, and the selection's own
             // centre is the only sensible one to open on — (0,0) would fling
@@ -7060,7 +7060,7 @@ export function PcbEditor({
           disabled: selection.size === 0,
         },
         {
-          label: 'Outset Items…',
+          label: 'Outset Items...',
           action: () => setOutsetOpen(true),
           disabled: selection.size === 0,
         },
@@ -7068,17 +7068,17 @@ export function PcbEditor({
           label: 'Modify Lines',
           submenu: [
             {
-              label: 'Fillet Lines…',
+              label: 'Fillet Lines...',
               action: () => setLineModOpen('fillet'),
               disabled: lineModDisabled,
             },
             {
-              label: 'Chamfer Lines…',
+              label: 'Chamfer Lines...',
               action: () => setLineModOpen('chamfer'),
               disabled: lineModDisabled,
             },
             {
-              label: 'Dogbone Corners…',
+              label: 'Dogbone Corners...',
               action: () => setLineModOpen('dogbone'),
               disabled: lineModDisabled,
             },
@@ -7091,31 +7091,31 @@ export function PcbEditor({
         },
         { sep: true },
         {
-          label: 'Move Exactly…',
+          label: 'Move Exactly...',
           action: () => setMoveExactOpen(true),
           shortcut: 'Shift+M',
           disabled: selection.size === 0,
         },
         {
-          label: 'Position Relative To…',
+          label: 'Position Relative To...',
           action: () => setPosRelOpen(true),
           shortcut: 'Shift+P',
           disabled: selection.size === 0,
         },
         {
-          label: 'Filter Selection…',
+          label: 'Filter Selection...',
           action: () => setFilterOpen(true),
           disabled: selection.size === 0,
         },
         { sep: true },
         { label: 'Find', action: () => setFindOpen(true), shortcut: 'Ctrl+F' },
         { sep: true },
-        { label: 'Properties…', action: () => openTrackViaProperties(), shortcut: 'E' },
+        { label: 'Properties...', action: () => openTrackViaProperties(), shortcut: 'E' },
         { label: 'Change Side / Flip', action: () => flipSelection(), shortcut: 'F' },
         { sep: true },
-        { label: 'Edit Teardrops…', action: () => setTeardropsOpen(true) },
+        { label: 'Edit Teardrops...', action: () => setTeardropsOpen(true) },
         { sep: true },
-        { label: 'Global Deletions…', disabled: dis },
+        { label: 'Global Deletions...', disabled: dis },
       ],
     },
     {
@@ -7142,7 +7142,7 @@ export function PcbEditor({
     {
       label: 'Place',
       items: [
-        { label: 'Footprint…', disabled: dis },
+        { label: 'Footprint...', disabled: dis },
         { label: 'Via', disabled: dis },
         { label: 'Zone', disabled: dis },
         { label: 'Text', disabled: dis },
@@ -7163,7 +7163,7 @@ export function PcbEditor({
         { label: 'Tune Skew of a Differential Pair', disabled: dis },
         { sep: true },
         {
-          label: 'Interactive Router Settings…',
+          label: 'Interactive Router Settings...',
           action: () => setPnsSettingsOpen(true),
         },
       ],
@@ -7177,12 +7177,12 @@ export function PcbEditor({
         // Upstream names these by what is being resolved, and which one you
         // get depends on how many items are selected.
         {
-          label: 'Clearance Resolution…',
+          label: 'Clearance Resolution...',
           disabled: dis || selection.size !== 2,
           action: () => setInspectOpen(true),
         },
         {
-          label: 'Constraints Resolution…',
+          label: 'Constraints Resolution...',
           disabled: dis || selection.size !== 1,
           action: () => setInspectOpen(true),
         },
@@ -7194,22 +7194,22 @@ export function PcbEditor({
       label: 'Tools',
       items: [
         {
-          label: 'Update PCB from Schematic…',
+          label: 'Update PCB from Schematic...',
           action: () => void openUpdatePcb(),
           disabled: !onShowSchematic,
           shortcut: 'F8',
         },
-        { label: 'Update Footprints from Library…', disabled: dis },
+        { label: 'Update Footprints from Library...', disabled: dis },
         { sep: true },
-        { label: 'Remove Unused Pads…', disabled: dis },
-        { label: 'Cleanup Tracks & Vias…', disabled: dis },
+        { label: 'Remove Unused Pads...', disabled: dis },
+        { label: 'Cleanup Tracks & Vias...', disabled: dis },
       ],
     },
     {
       label: 'Preferences',
       // EDA_BASE_FRAME::ShowPreferences — one dialog for the whole application,
       // reachable from every frame's Preferences menu, not a per-editor one.
-      items: [{ label: 'Preferences…', action: () => setPrefsOpen(true), shortcut: 'Ctrl+,' }],
+      items: [{ label: 'Preferences...', action: () => setPrefsOpen(true), shortcut: 'Ctrl+,' }],
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
   ];
@@ -7777,7 +7777,7 @@ export function PcbEditor({
           {!board && !error && (
             <div className="ze-canvas-loading">
               <span className="ze-spinner" />
-              <span>Loading board… (large boards can take a while)</span>
+              <span>Loading board... (large boards can take a while)</span>
             </div>
           )}
           {error && (
@@ -8322,7 +8322,7 @@ export function PcbEditor({
             {!viewer3dReady && (
               <div className="ze-canvas-loading">
                 <span className="ze-spinner" />
-                <span>Loading 3D viewer…</span>
+                <span>Loading 3D viewer...</span>
               </div>
             )}
           </div>
@@ -8729,7 +8729,7 @@ export function PcbEditor({
         <div className="ze-modal-backdrop ze-loading-backdrop">
           <div className="ze-loading-card">
             <span className="ze-spinner" />
-            Loading footprint libraries…
+            Loading footprint libraries...
           </div>
         </div>
       )}
@@ -10170,7 +10170,7 @@ function PcbSelectionInfo({
 }): JSX.Element {
   const ids = [...selection];
 
-  if (!board) return <div className="ze-muted">…</div>;
+  if (!board) return <div className="ze-muted">...</div>;
 
   const layerNames = board.layers.map((l) => l.name);
   const copperLayers = layerNames.filter((l) => /\.Cu$/.test(l));

@@ -122,7 +122,7 @@ export function SearchPanel({
           // biome-ignore lint/a11y/noAutofocus: matches ToggleSearch's FocusSearch
           autoFocus
           value={query}
-          placeholder="Search…"
+          placeholder="Search..."
           onChange={(e) => {
             setQuery(e.target.value);
           }}

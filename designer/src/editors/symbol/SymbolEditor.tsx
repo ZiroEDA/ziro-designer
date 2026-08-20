@@ -396,7 +396,7 @@ export function SymbolEditor({
   /** LoadSymbol: buffer the working copy, load the target, reset undo, zoom to fit. */
   const loadSymbol = useCallback(
     async (libName: string, symName: string) => {
-      setLoading('Loading symbol…');
+      setLoading('Loading symbol...');
       try {
         const lib = await manager.current.ensureLoaded(libName);
         const sym = lib?.symbols.get(symName);
@@ -1438,14 +1438,14 @@ export function SymbolEditor({
       {
         label: 'File',
         items: [
-          { label: 'New Library…', icon: 'newLibrary', action: () => setNewLibName('') },
+          { label: 'New Library...', icon: 'newLibrary', action: () => setNewLibName('') },
           {
-            label: 'Add Library…',
+            label: 'Add Library...',
             icon: 'addLibrary',
             action: () => addLibInputRef.current?.click(),
           },
           {
-            label: 'New Symbol…',
+            label: 'New Symbol...',
             icon: 'newSymbol',
             action: () => setNewSymbolOpen(true),
             shortcut: browserSafeKey('Ctrl+N'),
@@ -1456,19 +1456,19 @@ export function SymbolEditor({
           { label: 'Revert', icon: 'revert', action: revert, disabled: !curName },
           { sep: true },
           {
-            label: 'Import Symbol…',
+            label: 'Import Symbol...',
             icon: 'importSymbol',
             action: () => importSymInputRef.current?.click(),
           },
           {
-            label: 'Export Symbol…',
+            label: 'Export Symbol...',
             icon: 'exportSymbol',
             action: () => void exportSymbol(),
             disabled: !curName && !treeSel?.name,
           },
           { sep: true },
           {
-            label: 'Symbol Properties…',
+            label: 'Symbol Properties...',
             icon: 'symbolProperties',
             action: () => workSymbol && setSymbolPropsOpen(true),
             disabled: !workSymbol,
@@ -1496,7 +1496,7 @@ export function SymbolEditor({
           },
           { sep: true },
           {
-            label: 'Pin Table…',
+            label: 'Pin Table...',
             icon: 'pinTable',
             action: () => workSymbol && setPinTableOpen(true),
             disabled: !workSymbol,
@@ -1561,7 +1561,7 @@ export function SymbolEditor({
           },
           { sep: true },
           {
-            label: 'Symbol Checker…',
+            label: 'Symbol Checker...',
             icon: 'checkSymbol',
             action: () => workSymbol && setCheckOpen(true),
             disabled: !workSymbol,
@@ -1570,7 +1570,7 @@ export function SymbolEditor({
       },
       {
         label: 'Preferences',
-        items: [{ label: 'Preferences…', disabled: true }],
+        items: [{ label: 'Preferences...', disabled: true }],
       },
       standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
     ],
@@ -1759,7 +1759,7 @@ export function SymbolEditor({
                     <LibraryLoadingPanel
                       kind="symbols"
                       fallback={<div className="ze-muted">No libraries</div>}
-                      label="Loading symbol libraries…"
+                      label="Loading symbol libraries..."
                     />
                   )}
                   {treeRows.map((row) =>
@@ -1882,7 +1882,7 @@ export function SymbolEditor({
                 fontSize: 14,
               }}
             >
-              Double-click a symbol in the library tree to edit it, or File &gt; New Symbol…
+              Double-click a symbol in the library tree to edit it, or File &gt; New Symbol...
             </div>
           )}
         </div>

@@ -496,7 +496,7 @@ export function PanelPcbStackup({ value, onChange, finish }: Props): JSX.Element
             title="Select material"
             onClick={() => openMaterial(i, sub)}
           >
-            …
+            ...
           </button>
         ) : (
           blank

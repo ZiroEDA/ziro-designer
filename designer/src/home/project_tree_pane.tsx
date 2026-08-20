@@ -284,7 +284,7 @@ export function ProjectTreePane({
               <>
                 {/* "New Directory…" needs file-move to be useful in the
                     file-list project model, arrives with drag-move. */}
-                {item('New Directory…', undefined, true)}
+                {item('New Directory...', undefined, true)}
                 <div className="ze-msep" />
                 {item(
                   'Edit in a Text Viewer',
@@ -292,13 +292,13 @@ export function ProjectTreePane({
                   !singleText,
                 )}
                 {item(
-                  'Download…',
+                  'Download...',
                   single && onDownloadPath ? () => onDownloadPath(single) : undefined,
                   paths.length !== 1,
                 )}
                 <div className="ze-msep" />
                 {item(
-                  paths.length > 1 ? 'Rename Files…' : 'Rename File…',
+                  paths.length > 1 ? 'Rename Files...' : 'Rename File...',
                   single && onRenamePath ? () => onRenamePath(single) : undefined,
                   paths.length !== 1,
                 )}

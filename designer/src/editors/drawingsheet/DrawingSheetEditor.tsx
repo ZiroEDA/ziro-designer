@@ -1154,9 +1154,9 @@ export function DrawingSheetEditor({
       {
         label: 'File',
         items: [
-          { label: 'New…', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
+          { label: 'New...', icon: 'new', action: newSheet, shortcut: browserSafeKey('Ctrl+N') },
           {
-            label: 'Open…',
+            label: 'Open...',
             icon: 'open',
             action: () => openInputRef.current?.click(),
             shortcut: 'Ctrl+O',
@@ -1164,9 +1164,9 @@ export function DrawingSheetEditor({
           openRecentItem,
           { sep: true },
           { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
-          { label: 'Save As…', icon: 'saveAs', action: saveAs, shortcut: 'Shift+Ctrl+S' },
+          { label: 'Save As...', icon: 'saveAs', action: saveAs, shortcut: 'Shift+Ctrl+S' },
           { sep: true },
-          { label: 'Print…', icon: 'print', action: printSheet, shortcut: 'Ctrl+P' },
+          { label: 'Print...', icon: 'print', action: printSheet, shortcut: 'Ctrl+P' },
           { sep: true },
           addClose('Drawing Sheet Editor', onExitToHome),
           addQuit('Drawing Sheet Editor', onExitToHome),
@@ -1236,7 +1236,7 @@ export function DrawingSheetEditor({
           },
           { sep: true },
           {
-            label: 'Page Preview Settings…',
+            label: 'Page Preview Settings...',
             icon: 'previewSettings',
             action: () => setShowPageDialog(true),
           },
@@ -1263,7 +1263,7 @@ export function DrawingSheetEditor({
           },
           { sep: true },
           {
-            label: 'Append Existing Drawing Sheet…',
+            label: 'Append Existing Drawing Sheet...',
             icon: 'appendSheet',
             action: () => appendInputRef.current?.click(),
           },
@@ -1289,7 +1289,7 @@ export function DrawingSheetEditor({
         // menubar.cpp:142-149 — openPreferences then AddMenuLanguageList, and
         // unlike bitmap2cmp and cvpcb pl_editor puts no separator between them.
         items: [
-          { label: 'Preferences…', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
+          { label: 'Preferences...', action: () => setShowPrefs(true), shortcut: 'Ctrl+,' },
           setLanguageMenuItem({
             current: common.system.language,
             onSelect: (label) =>

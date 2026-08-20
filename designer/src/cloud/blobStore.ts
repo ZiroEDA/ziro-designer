@@ -142,7 +142,7 @@ export async function getBlob(
   const actual = await sha256Hex(bytes);
   if (actual !== hash) {
     throw new Error(
-      `blob ${hash.slice(0, 12)}… is corrupt: ${bytes.length} bytes hashing to ${actual.slice(0, 12)}…`,
+      `blob ${hash.slice(0, 12)}... is corrupt: ${bytes.length} bytes hashing to ${actual.slice(0, 12)}...`,
     );
   }
   return bytes;

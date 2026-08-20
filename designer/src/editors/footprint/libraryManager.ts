@@ -167,7 +167,7 @@ export class FootprintLibraryManager {
       try {
         const text = await trackLibraryLoad(
           'footprints',
-          `Loading ${lib.name}…`,
+          `Loading ${lib.name}...`,
           fetch(
             `${footprintsBase()}/${encodeURIComponent(lib.name)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
           ),

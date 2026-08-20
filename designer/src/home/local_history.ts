@@ -254,7 +254,7 @@ export function restoreConfirmMessage(at: number): string {
  *
  * [data] KiCad states the widths itself, as `FromDIP` pixels: 170 / 380 / 70.
  */
-export const RESTORE_DIALOG_TITLE = 'Restore Project from Local History\u2026';
+export const RESTORE_DIALOG_TITLE = 'Restore Project from Local History...';
 export const RESTORE_LIST_COLUMNS = [
   { key: 'time', label: 'Time', width: 170 },
   { key: 'action', label: 'Action', width: 380 },

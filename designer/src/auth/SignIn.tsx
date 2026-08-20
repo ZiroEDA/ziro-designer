@@ -167,7 +167,7 @@ export function SignInDialog({
             {emailField}
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Sending…' : 'Email me a sign-in code'}
+              {busy ? 'Sending...' : 'Email me a sign-in code'}
             </button>
             <div className="ze-auth-toggle">
               No password needed, new accounts are created automatically.{' '}
@@ -203,7 +203,7 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Verifying…' : 'Sign in'}
+              {busy ? 'Verifying...' : 'Sign in'}
             </button>
             <div className="ze-auth-toggle">
               <button
@@ -266,7 +266,7 @@ export function SignInDialog({
             </label>
             {error && <div className="ze-auth-error">{error}</div>}
             <button type="submit" className="ze-auth-submit" disabled={busy}>
-              {busy ? 'Please wait…' : pwMode === 'signin' ? 'Sign in' : 'Sign up'}
+              {busy ? 'Please wait...' : pwMode === 'signin' ? 'Sign in' : 'Sign up'}
             </button>
             <div className="ze-auth-toggle">
               {pwMode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}

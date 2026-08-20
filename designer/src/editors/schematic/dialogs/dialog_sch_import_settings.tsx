@@ -92,12 +92,12 @@ export function DialogSchImportSettings({ onImport, onCancel }: Props): JSX.Elem
               className="ze-search"
               style={{ flex: 1 }}
               readOnly
-              placeholder="Choose a .kicad_pro file…"
+              placeholder="Choose a .kicad_pro file..."
               value={fileName}
               onClick={() => fileInput.current?.click()}
             />
             <button type="button" className="ze-btn" onClick={() => fileInput.current?.click()}>
-              Browse…
+              Browse...
             </button>
             <input
               ref={fileInput}

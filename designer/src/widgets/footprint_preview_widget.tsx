@@ -138,7 +138,7 @@ export function FootprintPreviewWidget({
         />
       ) : (
         <div className="ze-muted">
-          {!footprint ? statusText : status === 'loading' ? 'Loading…' : 'Footprint not found'}
+          {!footprint ? statusText : status === 'loading' ? 'Loading...' : 'Footprint not found'}
         </div>
       )}
     </div>

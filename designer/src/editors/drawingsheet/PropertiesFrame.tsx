@@ -824,7 +824,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
     ['KICAD_VERSION', 'application version'],
     ['#', 'sheet number'],
     ['##', 'sheet count'],
-    ['COMMENT1 … COMMENT9', 'title block comments'],
+    ['COMMENT1 ... COMMENT9', 'title block comments'],
     ['COMPANY', 'company name'],
     ['FILENAME', 'file name'],
     ['ISSUE_DATE', 'issue date'],

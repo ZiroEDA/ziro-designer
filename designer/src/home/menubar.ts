@@ -69,13 +69,13 @@ export interface ManagerMenuHandlers {
 /** kicad/menubar.cpp: the Import Non-KiCad Project submenu, verbatim.
  * All disabled until the corresponding importer engines exist. */
 const IMPORT_SUBMENU: MenuItem[] = [
-  { label: 'Altium Project…', disabled: true },
-  { label: 'CADSTAR Project…', disabled: true },
-  { label: 'EAGLE Project…', disabled: true },
-  { label: 'EasyEDA (JLCEDA) Std Backup…', disabled: true },
-  { label: 'EasyEDA (JLCEDA) Pro Project…', disabled: true },
-  { label: 'PADS Project…', disabled: true },
-  { label: 'gEDA / Lepton EDA Project…', disabled: true },
+  { label: 'Altium Project...', disabled: true },
+  { label: 'CADSTAR Project...', disabled: true },
+  { label: 'EAGLE Project...', disabled: true },
+  { label: 'EasyEDA (JLCEDA) Std Backup...', disabled: true },
+  { label: 'EasyEDA (JLCEDA) Pro Project...', disabled: true },
+  { label: 'PADS Project...', disabled: true },
+  { label: 'gEDA / Lepton EDA Project...', disabled: true },
 ];
 
 /** The bundled demos as a submenu; simulation examples group under their own
@@ -115,7 +115,7 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // which a browser will not give up - Ctrl+N is its new window, handled
         // before the page sees the key. BROWSER_REBINDS in ui/browser_hotkeys.ts
         // holds the substitution and the reasoning.
-        { label: 'New Project…', shortcut: 'Ctrl+Alt+N', action: h.newProject },
+        { label: 'New Project...', shortcut: 'Ctrl+Alt+N', action: h.newProject },
         // "Clone Project from Repository…" is git-gated upstream and hidden
         // when git is off, omitted until version control lands.
         // Upstream shows this only when the stock demos path exists; ours
@@ -124,13 +124,13 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
           label: 'Open Demo Project',
           submenu: buildDemoSubmenu(h),
         },
-        { label: 'Open Project…', icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
+        { label: 'Open Project...', icon: 'open', shortcut: 'Ctrl+O', action: h.openProject },
         // Web-only: fallback when the browser blocks the folder picker.
-        { label: 'Select Project Files…', action: h.selectProjectFiles },
+        { label: 'Select Project Files...', action: h.selectProjectFiles },
         openRecentItem,
         SEP,
-        { label: 'New Jobset File…', disabled: true }, // jobs system not yet built
-        { label: 'Open Jobset File…', disabled: true },
+        { label: 'New Jobset File...', disabled: true }, // jobs system not yet built
+        { label: 'Open Jobset File...', disabled: true },
         SEP,
         { label: 'Close Project', action: h.closeProject, disabled: !h.hasProject },
         SEP,
@@ -139,17 +139,22 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
         // AutosaveUsesLocalHistory setting to switch off, so the enable rule is
         // the other half: a project is open and it has at least one snapshot.
         {
-          label: 'Restore Project from Local History…',
+          label: 'Restore Project from Local History...',
           action: h.restoreLocalHistory,
           disabled: !h.hasLocalHistory,
         },
         SEP,
-        { label: 'Save As…', shortcut: 'Shift+Ctrl+S', action: h.saveAs, disabled: !h.hasProject },
+        {
+          label: 'Save As...',
+          shortcut: 'Shift+Ctrl+S',
+          action: h.saveAs,
+          disabled: !h.hasProject,
+        },
         SEP,
-        { label: 'Import Non-KiCad Project…', submenu: IMPORT_SUBMENU },
+        { label: 'Import Non-KiCad Project...', submenu: IMPORT_SUBMENU },
         SEP,
-        { label: 'Archive Project…', action: h.archiveProject, disabled: !h.hasProject },
-        { label: 'Unarchive Project…', action: h.unarchiveProject },
+        { label: 'Archive Project...', action: h.archiveProject, disabled: !h.hasProject },
+        { label: 'Unarchive Project...', action: h.unarchiveProject },
         // "Quit" is not applicable in a browser tab.
       ],
     },
@@ -286,11 +291,11 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
     {
       label: 'Preferences',
       items: [
-        { label: 'Configure Paths…', disabled: true },
-        { label: 'Manage Symbol Libraries…', disabled: true },
-        { label: 'Manage Footprint Libraries…', disabled: true },
-        { label: 'Manage Design Block Libraries…', disabled: true },
-        { label: 'Preferences…', shortcut: 'Ctrl+,', action: h.openPreferences },
+        { label: 'Configure Paths...', disabled: true },
+        { label: 'Manage Symbol Libraries...', disabled: true },
+        { label: 'Manage Footprint Libraries...', disabled: true },
+        { label: 'Manage Design Block Libraries...', disabled: true },
+        { label: 'Preferences...', shortcut: 'Ctrl+,', action: h.openPreferences },
         SEP,
         setLanguageMenuItem({ current: h.language, onSelect: h.setLanguage }),
       ],

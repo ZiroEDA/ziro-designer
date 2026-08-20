@@ -401,14 +401,14 @@ export function PluginManagerDialog({ onClose }: { onClose: () => void }): JSX.E
           <input
             className="ze-pcm-search"
             type="search"
-            placeholder="Search packages…"
+            placeholder="Search packages..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="ze-pcm-addrepo">
             <input
               type="text"
-              placeholder="Add repository by URL…"
+              placeholder="Add repository by URL..."
               value={addingUrl}
               onChange={(e) => setAddingUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void addRepo()}

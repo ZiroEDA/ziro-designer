@@ -103,7 +103,7 @@ export function describeSaveState(s: SaveSnapshot, now: number): SaveDescription
   }
 
   if (s.localPending || (s.signedIn && s.cloudPending)) {
-    return { kind: 'saving', text: 'Saving…', offerDownload: false };
+    return { kind: 'saving', text: 'Saving...', offerDownload: false };
   }
 
   // Signed out is a legitimate, complete state, not a degraded one: the work is

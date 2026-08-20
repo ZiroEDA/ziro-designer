@@ -114,7 +114,7 @@ export function loadIndex(): Promise<LibIndexEntry[]> {
   if (!indexPromise)
     indexPromise = trackLibraryLoad(
       'symbols',
-      'Loading symbol libraries…',
+      'Loading symbol libraries...',
       fetchLibraryIndex<LibIndexEntry>('symbols'),
     );
   return indexPromise;
@@ -128,7 +128,7 @@ function loadLibrary(name: string): Promise<Map<string, LibSymbol>> {
     // stays up until the symbols are actually in the tree.
     p = trackLibraryLoad(
       'symbols',
-      `Loading ${name}…`,
+      `Loading ${name}...`,
       fetch(`${symbolsBase()}/${name}.kicad_sym`)
         .then((r) => {
           // Without this the body of a 404 or an error page reached the parser,

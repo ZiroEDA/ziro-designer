@@ -141,7 +141,7 @@ export function DialogCreateNetChain({
           <div style={{ fontSize: 12.5, marginBottom: 6 }}>{status}</div>
           <input
             style={{ width: '100%', boxSizing: 'border-box', marginBottom: 6 }}
-            placeholder="Filter by name, net or reference…"
+            placeholder="Filter by name, net or reference..."
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);

@@ -503,29 +503,29 @@ export function GerberViewer({
         label: 'File',
         items: [
           {
-            label: 'Open Gerber File(s)…',
+            label: 'Open Gerber File(s)...',
             icon: 'gerbOpen',
             action: () => openInputRef.current?.click(),
             shortcut: 'Ctrl+O',
           },
           {
-            label: 'Open Excellon Drill File(s)…',
+            label: 'Open Excellon Drill File(s)...',
             icon: 'gerbOpenDrill',
             action: () => drillInputRef.current?.click(),
           },
           {
-            label: 'Open Gerber Job File…',
+            label: 'Open Gerber Job File...',
             icon: 'gerbOpenJob',
             action: () => jobInputRef.current?.click(),
           },
           {
-            label: 'Open Zip Archive…',
+            label: 'Open Zip Archive...',
             icon: 'gerbOpenZip',
             action: () => zipInputRef.current?.click(),
           },
           { sep: true },
-          { label: 'Export to Pcbnew…', icon: 'gerbExportToPcb', action: exportToPcb },
-          { label: 'Print…', icon: 'print', action: printLayers },
+          { label: 'Export to Pcbnew...', icon: 'gerbExportToPcb', action: exportToPcb },
+          { label: 'Print...', icon: 'print', action: printLayers },
           { sep: true },
           { label: 'Clear All Layers', icon: 'gerbClear', action: clearAll },
           addQuitOrClose('Gerber Viewer', onExitToHome),
@@ -605,7 +605,7 @@ export function GerberViewer({
         label: 'Tools',
         items: [
           { label: 'Measure', icon: 'gerbMeasure', action: () => setActiveTool('measure') },
-          { label: 'List DCodes…', icon: 'gerbDcodeList', action: () => setShowDcodeList(true) },
+          { label: 'List DCodes...', icon: 'gerbDcodeList', action: () => setShowDcodeList(true) },
           {
             label: 'Clear Highlight',
             action: () => setHighlight({ mode: 'none', value: '' }),

@@ -3209,7 +3209,7 @@ export function SchematicEditor({
 
   const loadText = useCallback(
     async (text: string, name?: string) => {
-      setLoading('Loading schematic…');
+      setLoading('Loading schematic...');
       await nextPaint();
       try {
         const next = { ...readSchematic(parse(text)), fileName: name ?? 'untitled.kicad_sch' };
@@ -3240,7 +3240,7 @@ export function SchematicEditor({
   // .kicad_pro's schematic, else the sheet nothing references), and show it.
   const loadProject = useCallback(
     async (files: PickedFile[], startFile?: string) => {
-      setLoading('Loading schematic…');
+      setLoading('Loading schematic...');
       await nextPaint(); // paint the overlay before the (synchronous) sheet parse
       try {
         const docs = new Map<string, Schematic>();
@@ -7296,7 +7296,7 @@ export function SchematicEditor({
       <pre style={{ color: 'crimson', padding: 16 }}>Failed to load schematic: {error}</pre>
     ) : (
       <div className="ze-app sch-theme">
-        <LoadingOverlay label={loading ?? 'Loading schematic…'} />
+        <LoadingOverlay label={loading ?? 'Loading schematic...'} />
       </div>
     );
   }

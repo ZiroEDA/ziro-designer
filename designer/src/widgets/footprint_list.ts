@@ -148,7 +148,7 @@ export function loadFootprintIndex(): Promise<FpIndexEntry[]> {
   if (!indexPromise) {
     indexPromise = trackLibraryLoad(
       'footprints',
-      'Loading footprint libraries…',
+      'Loading footprint libraries...',
       fetchLibraryIndex<FpIndexEntry>('footprints'),
     );
   }
@@ -167,7 +167,7 @@ export function loadFootprint(libId: string): Promise<PcbFootprint | null> {
     const name = libId.slice(sep + 1);
     p = trackLibraryLoad(
       'footprints',
-      `Loading ${lib}…`,
+      `Loading ${lib}...`,
       fetch(
         `${libraryBase.footprints}/${encodeURIComponent(lib)}.pretty/${encodeURIComponent(name)}.kicad_mod`,
       )

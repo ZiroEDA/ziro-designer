@@ -146,7 +146,7 @@ export function DialogPositionRelative({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {option('item', 'Use reference item', !referenceItem)}
           <button type="button" onClick={onPick}>
-            Select Item…
+            Select Item...
           </button>
         </div>
 

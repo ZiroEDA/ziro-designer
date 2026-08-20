@@ -143,7 +143,7 @@ describe('the Zoom submenu (ZOOM_MENU)', () => {
 describe('the Grid submenu (GRID_MENU)', () => {
   it('opens with Grid Origin and a rule, then the eight pl_editor grids', () => {
     const rows = dsGridSubmenu(4, 'mils', noop, noop);
-    expect(rows[0]?.label).toBe('Grid Origin…');
+    expect(rows[0]?.label).toBe('Grid Origin...');
     expect(rows[1]?.sep).toBe(true);
     expect(rows).toHaveLength(10);
   });

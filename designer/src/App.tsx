@@ -121,7 +121,7 @@ function prefetchEditors(): () => void {
 }
 
 /** Fallback while a frame's chunk is in flight, in the app's own overlay style. */
-const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Loading ${what}…`} />;
+const frameLoading = (what: string): JSX.Element => <LoadingOverlay label={`Loading ${what}...`} />;
 
 const dec = new TextDecoder();
 const enc = new TextEncoder();
@@ -829,7 +829,7 @@ export function App(): JSX.Element {
       >
         <div className="ze-loading-card">
           <span className="ze-spinner" />
-          <span>Restoring your project…</span>
+          <span>Restoring your project...</span>
         </div>
       </div>
     );

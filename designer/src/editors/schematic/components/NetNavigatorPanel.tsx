@@ -151,7 +151,7 @@ export function NetNavigatorPanel({
       <input
         value={filter}
         disabled={!!highlightedNet}
-        placeholder="Filter nets…"
+        placeholder="Filter nets..."
         onChange={(e) => setFilter(e.target.value)}
         style={{ margin: '4px 6px', minWidth: 0 }}
       />

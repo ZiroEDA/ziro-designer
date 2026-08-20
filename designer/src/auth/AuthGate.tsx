@@ -28,7 +28,7 @@ export function AuthGate({ children }: { children: ReactNode }): JSX.Element {
   if (authEnabled && loading) {
     return (
       <div className="ze-auth">
-        <div className="ze-auth-splash">Ziro Designer…</div>
+        <div className="ze-auth-splash">Ziro Designer...</div>
       </div>
     );
   }

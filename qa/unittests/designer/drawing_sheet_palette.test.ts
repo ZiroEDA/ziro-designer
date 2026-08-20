@@ -290,7 +290,7 @@ describe('C2: Place ends with a separator and Reset Grid Origin', () => {
   // menubar.cpp:129-130 - placeMenu->AppendSeparator(); Add( gridResetOrigin ).
   it('has the row, after the Append entry', () => {
     const place = menu('Place');
-    const append = place.indexOf('Append Existing Drawing Sheet…');
+    const append = place.indexOf('Append Existing Drawing Sheet...');
     const reset = place.indexOf("label: 'Reset Grid Origin'");
     expect(append).toBeGreaterThanOrEqual(0);
     expect(reset).toBeGreaterThan(append);
@@ -300,7 +300,7 @@ describe('C2: Place ends with a separator and Reset Grid Origin', () => {
   it('is the last row of the menu', () => {
     const place = menu('Place');
     expect(place.lastIndexOf("label: 'Reset Grid Origin'")).toBeGreaterThan(
-      place.lastIndexOf('Append Existing Drawing Sheet…'),
+      place.lastIndexOf('Append Existing Drawing Sheet...'),
     );
   });
 });
@@ -308,11 +308,11 @@ describe('C2: Place ends with a separator and Reset Grid Origin', () => {
 describe('C3: the accelerators pl_editor declares', () => {
   // Each from its TOOL_ACTION's DefaultHotkey in common/tool/actions.cpp.
   const cases: [string, string, string][] = [
-    ['File', 'Save As…', 'Shift+Ctrl+S'],
-    ['File', 'Print…', 'Ctrl+P'],
+    ['File', 'Save As...', 'Shift+Ctrl+S'],
+    ['File', 'Print...', 'Ctrl+P'],
     ['View', 'Zoom to Selection Area', 'Ctrl+F5'],
     ['View', 'Refresh', 'F5'],
-    ['Preferences', 'Preferences…', 'Ctrl+,'],
+    ['Preferences', 'Preferences...', 'Ctrl+,'],
   ];
   for (const [where, label, key] of cases) {
     it(`${label} declares ${key}`, () => {
@@ -337,7 +337,7 @@ describe('C3: the accelerators pl_editor declares', () => {
 
 describe('C4: FriendlyName text', () => {
   it('New carries an ellipsis (ACTIONS::doNew, "New...")', () => {
-    expect(menu('File')).toContain("label: 'New…'");
+    expect(menu('File')).toContain("label: 'New...'");
   });
 
   it('is "Zoom to Selection Area", not "Zoom to Selection"', () => {

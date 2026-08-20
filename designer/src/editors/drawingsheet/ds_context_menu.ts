@@ -115,7 +115,7 @@ export function dsGridSubmenu(
   setGrid: (index: number) => void,
 ): MenuItem[] {
   return [
-    { label: 'Grid Origin…', icon: 'gridOrigin', action: gridOrigin },
+    { label: 'Grid Origin...', icon: 'gridOrigin', action: gridOrigin },
     { sep: true },
     ...GRID_SIZE_LIST[APP].map((size, i) => ({
       label: gridChoiceLabel(size, primaryUnits),

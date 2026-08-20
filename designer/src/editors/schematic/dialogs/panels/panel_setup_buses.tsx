@@ -103,7 +103,7 @@ export function PanelSetupBuses({ aliases, onChange }: Props): JSX.Element {
         {cur ? (
           <>
             <div style={{ fontSize: 12.5, marginBottom: 6 }}>
-              Members of &lsquo;{cur.name || '…'}&rsquo;
+              Members of &lsquo;{cur.name || '...'}&rsquo;
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               <table className="ze-grid">

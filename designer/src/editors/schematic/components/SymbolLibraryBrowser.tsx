@@ -629,7 +629,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
                       No libraries
                     </div>
                   }
-                  label="Loading symbol libraries…"
+                  label="Loading symbol libraries..."
                 />
               )}
               {libs.map((l) => (
@@ -706,7 +706,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
             {fetching && (
               <div className="ze-canvas-loading" style={{ color: '#555' }}>
                 <span className="ze-spinner" />
-                <span>Loading {curLib}…</span>
+                <span>Loading {curLib}...</span>
               </div>
             )}
           </div>

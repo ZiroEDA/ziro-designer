@@ -1037,7 +1037,7 @@ export function DialogAssignFootprints({
               render={(i) => <span>{libRows[i]}</span>}
             />
             {!indexLoaded && (
-              <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries…" />
+              <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries..." />
             )}
           </section>
 
@@ -1085,7 +1085,7 @@ export function DialogAssignFootprints({
               render={(i) => <span>{footprintRows[i]}</span>}
             />
             {!indexLoaded && (
-              <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries…" />
+              <LibraryLoadingPanel kind="footprints" label="Loading footprint libraries..." />
             )}
             {viewerOpen && (
               <div className="ze-cvpcb-viewer">

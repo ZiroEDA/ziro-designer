@@ -138,7 +138,7 @@ export function PanelEmbeddedFiles({ value, onChange, onExport }: Props): JSX.El
           disabled={!onExport || value.files.length === 0}
           onClick={() => onExport?.(value.files)}
         >
-          Export…
+          Export...
         </button>
       </div>
     </div>

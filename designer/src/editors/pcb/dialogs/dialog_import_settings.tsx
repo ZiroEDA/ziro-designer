@@ -143,7 +143,7 @@ export function DialogImportSettings({ onImport, onClose }: Props): JSX.Element 
               placeholder="Select the other project's .kicad_pcb + .kicad_pro files"
             />
             <button className="ze-btn sm" onClick={() => fileInput.current?.click()}>
-              Browse…
+              Browse...
             </button>
             <input
               ref={fileInput}

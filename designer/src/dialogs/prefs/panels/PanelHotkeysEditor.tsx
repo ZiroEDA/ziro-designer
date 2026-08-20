@@ -367,7 +367,7 @@ export function PanelHotkeysEditor({
             title="Import hotkey definitions from an external file, replacing the current values"
             onClick={() => fileRef.current?.click()}
           >
-            Import Hotkeys…
+            Import Hotkeys...
           </button>
           <input
             ref={fileRef}

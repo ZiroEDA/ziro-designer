@@ -234,7 +234,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
 
   const loadFile = useCallback(
     async (file: File) => {
-      setStatus(`Loading ${file.name}…`);
+      setStatus(`Loading ${file.name}...`);
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const bmp = await createImageBitmap(new Blob([bytes], { type: file.type || 'image/png' }));
@@ -476,7 +476,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     {
       label: 'File',
       items: [
-        { label: 'Open…', shortcut: 'Ctrl+O', action: () => fileInputRef.current?.click() },
+        { label: 'Open...', shortcut: 'Ctrl+O', action: () => fileInputRef.current?.click() },
         openRecentItem,
         { sep: true },
         // `bitmap2cmp_frame.cpp:299` is `fileMenu->AddQuit( _( "Image
@@ -490,7 +490,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
     {
       label: 'Preferences',
       items: [
-        { label: 'Preferences…', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { label: 'Preferences...', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
         { sep: true },
         setLanguageMenuItem({
           current: common.system.language,
@@ -727,7 +727,7 @@ export function ImageConverter({ onExitToHome }: { onExitToHome: () => void }): 
             onClick={exportToFile}
             disabled={!loaded}
           >
-            Export to File…
+            Export to File...
           </button>
           <button
             type="button"

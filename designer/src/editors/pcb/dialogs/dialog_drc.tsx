@@ -174,7 +174,7 @@ export function DialogDrc({
           Close
         </button>
         <button className="ze-btn primary" disabled={running} onClick={doRun}>
-          {running ? 'Running…' : 'Run DRC'}
+          {running ? 'Running...' : 'Run DRC'}
         </button>
       </div>
     </div>

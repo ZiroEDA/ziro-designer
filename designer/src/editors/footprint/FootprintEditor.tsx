@@ -282,7 +282,7 @@ export function FootprintEditor({
   // ----- load / save ------------------------------------------------------------
   const loadFootprint = useCallback(
     async (libName: string, fpName: string) => {
-      setLoading('Loading footprint…');
+      setLoading('Loading footprint...');
       try {
         const fp = await manager.current.loadFootprint(libName, fpName);
         if (!fp) {
@@ -868,14 +868,14 @@ export function FootprintEditor({
       {
         label: 'File',
         items: [
-          { label: 'New Library…', icon: 'newLibrary', action: () => setNewLibName('') },
+          { label: 'New Library...', icon: 'newLibrary', action: () => setNewLibName('') },
           {
-            label: 'Add Library…',
+            label: 'Add Library...',
             icon: 'addLibrary',
             action: () => addLibInputRef.current?.click(),
           },
           {
-            label: 'New Footprint…',
+            label: 'New Footprint...',
             icon: 'newFootprint',
             action: () => setNewFpName(''),
             shortcut: browserSafeKey('Ctrl+N'),
@@ -892,12 +892,12 @@ export function FootprintEditor({
           { label: 'Save All', action: saveAll },
           { sep: true },
           {
-            label: 'Import Footprint…',
+            label: 'Import Footprint...',
             icon: 'importSymbol',
             action: () => importInputRef.current?.click(),
           },
           {
-            label: 'Export Footprint…',
+            label: 'Export Footprint...',
             icon: 'exportSymbol',
             action: () => {
               const l = treeSel?.lib ?? curLib,
@@ -911,7 +911,7 @@ export function FootprintEditor({
           },
           { sep: true },
           {
-            label: 'Footprint Properties…',
+            label: 'Footprint Properties...',
             icon: 'footprintProperties',
             action: () => workFp && setPropsOpen(true),
             disabled: !workFp,
@@ -937,8 +937,8 @@ export function FootprintEditor({
             disabled: selection.size === 0,
           },
           { sep: true },
-          { label: 'Pad Table…', icon: 'padTable', disabled: true },
-          { label: 'Default Pad Properties…', disabled: true },
+          { label: 'Pad Table...', icon: 'padTable', disabled: true },
+          { label: 'Default Pad Properties...', disabled: true },
         ],
       },
       {
@@ -1013,7 +1013,7 @@ export function FootprintEditor({
         items: [
           { label: 'Measure Tool', icon: 'measure', disabled: true },
           { sep: true },
-          { label: 'Footprint Checker…', icon: 'checkFootprint', disabled: true },
+          { label: 'Footprint Checker...', icon: 'checkFootprint', disabled: true },
           { sep: true },
           {
             label: 'Show Datasheet',
@@ -1026,14 +1026,18 @@ export function FootprintEditor({
       {
         label: 'Tools',
         items: [
-          { label: 'Load Footprint from Current Board…', icon: 'loadFpFromBoard', disabled: true },
+          {
+            label: 'Load Footprint from Current Board...',
+            icon: 'loadFpFromBoard',
+            disabled: true,
+          },
           { label: 'Insert Footprint into Current Board', icon: 'saveFpToBoard', disabled: true },
           { sep: true },
-          { label: 'Cleanup Graphics…', disabled: true },
+          { label: 'Cleanup Graphics...', disabled: true },
           { label: 'Repair Footprint', disabled: true },
         ],
       },
-      { label: 'Preferences', items: [{ label: 'Preferences…', disabled: true }] },
+      { label: 'Preferences', items: [{ label: 'Preferences...', disabled: true }] },
       standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
     ],
     [
@@ -1220,7 +1224,7 @@ export function FootprintEditor({
                     <LibraryLoadingPanel
                       kind="footprints"
                       fallback={<div className="ze-muted">No footprint libraries loaded.</div>}
-                      label="Loading footprint libraries…"
+                      label="Loading footprint libraries..."
                     />
                   )}
                   {treeRows.map((row) =>
@@ -1315,7 +1319,7 @@ export function FootprintEditor({
                 fontSize: 14,
               }}
             >
-              Double-click a footprint in the library tree to view it, or File &gt; New Footprint…
+              Double-click a footprint in the library tree to view it, or File &gt; New Footprint...
             </div>
           )}
         </div>

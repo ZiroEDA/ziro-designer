@@ -218,23 +218,23 @@ const MGR_TOOLS: (MgrTool | 'sep')[] = [
   // - not new_project, which is the plain notepad-and-sparkle with no badge.
   {
     icon: 'new_project_from_template',
-    name: 'New Project\u2026',
+    name: 'New Project...',
     action: 'new',
     // Ctrl+N upstream; the browser keeps that one. See BROWSER_REBINDS.
     hotkey: 'Ctrl+Alt+N',
     tip: 'Create a new project based on an existing project',
   },
-  { icon: 'open_project', name: 'Open Project\u2026', action: 'open', hotkey: 'Ctrl+O' },
+  { icon: 'open_project', name: 'Open Project...', action: 'open', hotkey: 'Ctrl+O' },
   'sep',
   {
     icon: 'zip',
-    name: 'Archive Project\u2026',
+    name: 'Archive Project...',
     action: 'archive',
     tip: 'Archive all project files',
   },
   {
     icon: 'unzip',
-    name: 'Unarchive Project\u2026',
+    name: 'Unarchive Project...',
     action: 'unarchive',
     tip: 'Unarchive project files from zip archive',
   },
@@ -702,7 +702,7 @@ export function HomePage({
     persist = true,
     templateId?: string,
   ): Promise<string | null> => {
-    setLoading({ message: 'Reading files…', value: 0 });
+    setLoading({ message: 'Reading files...', value: 0 });
     await nextPaint(); // show the overlay before the main thread gets busy
     try {
       let saved: string | null = null;
@@ -716,7 +716,7 @@ export function HomePage({
         const bytes = await f.bytesOf();
         out.push({ name: f.name, text: dec.decode(bytes), bytes });
         setLoading({
-          message: 'Reading files…',
+          message: 'Reading files...',
           detail: `${base}, ${i + 1} of ${files.length}`,
           value: (i + 1) / files.length,
         });
@@ -728,7 +728,7 @@ export function HomePage({
           // Persist every file's raw bytes (empty files carry nothing to reopen).
           const withBytes = out.filter((f) => f.bytes && f.bytes.length > 0);
           if (withBytes.length > 0) {
-            setLoading('Saving project…');
+            setLoading('Saving project...');
             const name = projectNameOf(out);
             // Reuse an existing record of the same name so reopening a folder
             // updates it rather than piling up duplicates.
@@ -833,7 +833,7 @@ export function HomePage({
 
   // Reopen a project straight from IndexedDB, no folder picker needed.
   const openStored = async (id: string): Promise<void> => {
-    setLoading('Opening project…');
+    setLoading('Opening project...');
     await nextPaint();
     try {
       const loaded = await loadProject(id);
@@ -952,7 +952,7 @@ export function HomePage({
     const name = projectNameOf(picked);
     const entries = archiveEntries(picked, name);
     if (!entries) return;
-    setLoading('Archiving project\u2026');
+    setLoading('Archiving project...');
     await nextPaint(); // paint the overlay before zipSync blocks the main thread
     try {
       const blob = new Blob([zipArchive(entries)], { type: 'application/zip' });
@@ -1544,7 +1544,7 @@ export function HomePage({
                   void openProjectPicker();
                 }}
               >
-                Open from Computer…
+                Open from Computer...
               </button>
               <button
                 type="button"
@@ -1553,9 +1553,9 @@ export function HomePage({
                   setOpenPrjOpen(false);
                   filesInputRef.current?.click();
                 }}
-                title="If the browser blocks the folder (Downloads, Desktop…), select all the project files instead"
+                title="If the browser blocks the folder (Downloads, Desktop...), select all the project files instead"
               >
-                Select Files…
+                Select Files...
               </button>
             </>
           }
@@ -1684,7 +1684,7 @@ export function HomePage({
           ) : (
             <>
               <span className="ze-spinner" />
-              Syncing cloud projects… {syncState.done} of {syncState.total}
+              Syncing cloud projects... {syncState.done} of {syncState.total}
             </>
           )}
         </div>
@@ -1721,7 +1721,7 @@ export function HomePage({
             setRestoring(null);
             if (r !== 'yes') return;
             void (async () => {
-              setLoading('Restoring…');
+              setLoading('Restoring...');
               await nextPaint();
               try {
                 const files = await restoreSnapshot(openProjectId, snapshot.id);

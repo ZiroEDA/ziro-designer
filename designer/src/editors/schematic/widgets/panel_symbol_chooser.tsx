@@ -582,7 +582,7 @@ export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymb
         unit={selectedNode?.unit ?? 0}
         statusText="No symbol selected"
         loading={!!fetchingLib}
-        loadingText={fetchingLib ? `Loading ${fetchingLib}…` : ''}
+        loadingText={fetchingLib ? `Loading ${fetchingLib}...` : ''}
       />
     );
 
