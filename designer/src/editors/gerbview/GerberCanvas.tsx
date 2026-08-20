@@ -25,7 +25,8 @@ import {
 import { GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
-import { clampViewScale } from '../../ui/zoom_settings.js';
+import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
+import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import {
   SELECTION_AREA_FILL,
   SELECTION_AREA_STROKE,
@@ -305,19 +306,40 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       [dpr, requestDraw],
     );
 
+    /**
+     * `COMMON_TOOLS::doZoomInOut` (`common/tool/common_tools.cpp:252-291`).
+     *
+     * A Zoom In does NOT multiply by 1.3. The 1.3 is the floor - upstream's own
+     * comment is "Step must be AT LEAST 1.3" - and the zoom it lands on is the
+     * next entry of ZOOM_LIST_GERBVIEW beyond it, pegged to the end of the list.
+     * That is what makes KiCad's zoom a repeatable, nameable place: the value
+     * always matches a row of the Zoom selector. Ours multiplied blindly and so
+     * landed on figures that appear nowhere in the table.
+     */
+    const zoomPresetStep = useCallback(
+      (zoomIn: boolean) => {
+        const v = viewRef.current;
+        const now = zoomFactorForScale(v.scale, dpr, IU_PER_MM);
+        const next = nextZoomPreset(ZOOM_LIST.gerbview, now, zoomIn);
+        if (next === now) return;
+        zoomStep(scaleForZoomFactor(next, dpr, IU_PER_MM) / v.scale);
+      },
+      [dpr, zoomStep],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
         zoomToFit,
-        zoomIn: () => zoomStep(1.3),
-        zoomOut: () => zoomStep(1 / 1.3),
+        zoomIn: () => zoomPresetStep(true),
+        zoomOut: () => zoomPresetStep(false),
         redraw: () => requestDraw(),
         setScale: (scale: number) => {
           const current = viewRef.current.scale;
           if (current > 0 && scale > 0) zoomStep(scale / current);
         },
       }),
-      [zoomToFit, zoomStep, requestDraw],
+      [zoomToFit, zoomPresetStep, zoomStep, requestDraw],
     );
 
     // Size to container; fit on first layout.

@@ -20,10 +20,7 @@ import {
   clampZoomFactor,
   ZOOM_LIMITS,
 } from '@ziroeda/designer/src/ui/zoom_settings.js';
-import {
-  scaleForZoomFactor,
-  zoomFactorForScale,
-} from '@ziroeda/designer/src/ui/status_format.js';
+import { scaleForZoomFactor, zoomFactorForScale } from '@ziroeda/designer/src/ui/status_format.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
 
 /** A 800x600 device-pixel canvas at scale 1, so the viewport is 800x600 world. */

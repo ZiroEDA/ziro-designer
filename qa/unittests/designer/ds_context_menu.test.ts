@@ -268,10 +268,8 @@ describe('DSP-26 — Zoom In / Zoom Out step the table', () => {
     const clamps = [...CANVAS.matchAll(/clampViewScale\(/g)];
     expect(clamps.length).toBe(3);
     // …and every one of them names pl_editor's row, not another app's.
-    expect([...CANVAS.matchAll(/clampViewScale\([\s\S]{0,120}?'(\w+)'/g)].map((m) => m[1])).toEqual([
-      'pl_editor',
-      'pl_editor',
-      'pl_editor',
-    ]);
+    expect([...CANVAS.matchAll(/clampViewScale\([\s\S]{0,120}?'(\w+)'/g)].map((m) => m[1])).toEqual(
+      ['pl_editor', 'pl_editor', 'pl_editor'],
+    );
   });
 });

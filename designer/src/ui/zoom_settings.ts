@@ -240,12 +240,7 @@ export function clampZoomFactor(zoom: number, app: ZoomApp): number {
  * than at each canvas keeps the two numbers in `ZOOM_LIMITS` the only place
  * the limit is written.
  */
-export function clampViewScale(
-  scale: number,
-  app: ZoomApp,
-  dpr: number,
-  iuPerMM: number,
-): number {
+export function clampViewScale(scale: number, app: ZoomApp, dpr: number, iuPerMM: number): number {
   const zoom = zoomFactorForScale(scale, dpr, iuPerMM);
   const clamped = clampZoomFactor(zoom, app);
   return clamped === zoom ? scale : scaleForZoomFactor(clamped, dpr, iuPerMM);
