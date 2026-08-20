@@ -560,10 +560,21 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 }
 
 /* fgSizerAttPrms1, a 4x3 flex grid: label | field | unit, 3 px vgap. */
+/* fgSizerESeriesPrms. wxStaticText never wraps: KiCad sizes the column to the
+   widest label, so "Required resistance:" stays on one line and the Inputs box
+   is 310 px wide. Ours wrapped it and grew the box 34 px taller. */
+.rc-input-grid > span,
+.rc-input-grid > label {
+  white-space: nowrap;
+}
+
 .rc-input-grid {
   display: grid;
+  /* wxFlexGridSizer( 4, 3, 3, 0 ): a 3 px vertical gap and NO horizontal one -
+     the 10 px between columns is each item's own wxLEFT|wxRIGHT 5. [px] the
+     rows are 37 px apart (34 px control + 3), where ours were 47. */
   grid-template-columns: auto 1fr auto;
-  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  gap: 3px calc(var(--wx-border) * 2);
   align-items: center;
 }
 
@@ -577,8 +588,9 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
 /* fgSizerESeriesResults, a 6x5 flex grid; column 1 is the growable one. */
 .rc-solution-grid {
   display: grid;
+  /* wxFlexGridSizer( 6, 5, 3, 0 ) - same 3 px vertical gap. */
   grid-template-columns: auto 1fr auto auto auto;
-  gap: calc(3px + var(--wx-border) * 2) var(--wx-border);
+  gap: 3px calc(var(--wx-border) * 2);
   align-items: center;
 }
 
@@ -623,17 +635,33 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   flex: 1 1 auto;
 }
 
-.rc-help-body {
+/* The HTML_WINDOW every *_help.md is rendered into (Resistor Calculator,
+   Track Width, Fusing Current, Electrical Spacing). Its metrics are its own,
+   not the frame's: [px] a line pitch of 21 px (the frame's controls use 18),
+   a blank line - 21 px - between paragraphs, and a bullet list whose glyph
+   sits 30 px and whose text 43 px inside the paragraph margin. The window
+   itself is inset 10 px from the static box's rule. */
+.calc-help-body {
   min-height: 100px;
   overflow: auto;
+  line-height: 21px;
+  padding: 0 10px;
 }
 
-.rc-help-body ul {
-  margin: 0;
-  padding-left: 26px;
+.calc-help-body p {
+  margin: 0 0 21px;
 }
 
-.rc-help-body pre {
+.calc-help-body ul {
+  margin: 0 0 21px;
+  padding-left: 43px;
+}
+
+.calc-help-body li {
+  margin-bottom: 7px;
+}
+
+.calc-help-body pre {
   font-family: var(--mono, ui-monospace, "DejaVu Sans Mono", monospace);
   margin: 0;
   tab-size: 8;

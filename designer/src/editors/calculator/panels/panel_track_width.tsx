@@ -177,7 +177,7 @@ export function PanelTrackWidth(): JSX.Element {
       {/* sbSizerTW_Help's HTML_WINDOW, showing
           `tracks_width_versus_current_formula.md`. Carried here line for line. */}
       <fieldset className="calc-group tw-help">
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <p>
             If you specify the maximum current, then the track widths will be calculated to suit.
           </p>

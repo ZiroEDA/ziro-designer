@@ -159,7 +159,7 @@ export function PanelRCalculator(): JSX.Element {
           that file, line for line. */}
       <fieldset className="calc-group rc-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <ul>
             <li>
               This calculator finds combinations of standard E-series (between 10Ω and 1MΩ) to

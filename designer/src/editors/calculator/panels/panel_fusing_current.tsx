@@ -216,7 +216,7 @@ export function PanelFusingCurrent(): JSX.Element {
       {/* m_helpSizer's HTML_WINDOW, showing `fusing_current_help.md`. */}
       <fieldset className="calc-group fc-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <p>
             You can use this calculator to check if a small track can handle a large current for a
             short period of time.

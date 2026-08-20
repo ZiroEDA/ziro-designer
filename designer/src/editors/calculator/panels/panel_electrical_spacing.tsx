@@ -408,7 +408,7 @@ function PanelIec60664(): JSX.Element {
           ConvertMarkdown2Html. Carried here line for line. */}
       <fieldset className="calc-group es-iec-help">
         <legend>Help</legend>
-        <div className="rc-help-body">
+        <div className="calc-help-body">
           <p>
             The goal of the IEC60664-1 is to provide guidance on designing insulation for products
             that have a connection to mains supply.
