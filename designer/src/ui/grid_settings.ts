@@ -17,6 +17,8 @@
  * unit-free here and `gridSizeToIU` takes the canvas' IU scale.
  */
 
+import { messageTextFromValue, type StatusUnits, unitText } from './status_format.js';
+
 /** Which row of `DefaultGridSizeList()`'s switch a frame lands on. */
 export type GridApp =
   /** `eeschema` — also the schematic editor's own frame. */
@@ -147,4 +149,43 @@ export function defaultGridIU(app: GridApp, iuPerMM: number): number {
   const list = GRID_SIZE_LIST[app];
   const idx = Math.min(DEFAULT_GRID_INDEX[app], list.length - 1);
   return gridSizeToIU(list[idx]!, iuPerMM) ?? 0;
+}
+
+/**
+ * `EDA_DRAW_FRAME::GetUnitPair` (`common/eda_draw_frame.cpp:1400-1421`): the
+ * second unit a grid label shows in brackets. An imperial primary pairs with
+ * the last metric units used and a metric primary with the last imperial ones;
+ * with no `COMMON_TOOLS` to ask, upstream's own fallbacks are MM and MILS
+ * respectively, and those are what a frame opens on.
+ */
+export function secondaryUnits(primary: StatusUnits): StatusUnits {
+  return primary === 'mm' ? 'mils' : 'mm';
+}
+
+/**
+ * One row of a `gridSelect` toolbar control, per
+ * `GRID_MENU::BuildChoiceList` (`common/tool/grid_menu.cpp:83-104`):
+ *
+ *     msg.Printf( _( "%s%s (%s)" ), name, gridSize.MessageText( scale, primaryUnit, true ),
+ *                 gridSize.MessageText( scale, secondaryUnit, true ) );
+ *
+ * `name` is the user's label for a named grid followed by ": "; the built-in
+ * grids have none, so it is empty for every row of `GRID_SIZE_LIST`.
+ * `MessageText`'s `aDisplayUnits` is true here, which is the unit suffix
+ * {@link ./status_format.js}'s `unitText` supplies. `GRID::MessageText` also
+ * collapses `x` and `y` to one number when they print the same
+ * (`common/settings/grid_settings.cpp:41-44`), which every square built-in grid
+ * does.
+ */
+export function gridChoiceLabel(
+  size: string,
+  primary: StatusUnits,
+  iuPerMM: number,
+  name = '',
+): string {
+  const mm = gridSizeToMM(size);
+  if (mm === null) return size;
+  const secondary = secondaryUnits(primary);
+  const show = (u: StatusUnits): string => messageTextFromValue(mm, u, iuPerMM) + unitText(u);
+  return `${name ? `${name}: ` : ''}${show(primary)} (${show(secondary)})`;
 }

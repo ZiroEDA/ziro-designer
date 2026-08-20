@@ -32,7 +32,9 @@ import {
 import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
-  entries.flatMap((e) => (e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e ? [] : [e]));
+  entries.flatMap((e) =>
+    e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e || 'spacer' in e ? [] : [e],
+  );
 
 const ALL = [...buttons(TOP_TOOLBAR), ...buttons(LEFT_TOOLBAR), ...buttons(RIGHT_TOOLBAR)];
 

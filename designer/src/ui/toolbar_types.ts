@@ -82,4 +82,16 @@ export interface ToolControl {
   control: string;
 }
 
-export type ToolEntry = ToolButton | ToolGroup | ToolControl | 'sep';
+/**
+ * A `TOOLBAR_CONFIGURATION::AppendSpacer`: fixed blank space between two
+ * items, distinct from a separator's rule. `ACTION_TOOLBAR::ApplyConfiguration`
+ * turns it into `AddSpacer( item.m_Size )` (`common/tool/action_toolbar.cpp:324-325`),
+ * which is `wxAuiToolBar`'s own and takes raw pixels — unlike
+ * `AddScaledSeparator`, which pads by the icon scale (`:490-501`). So `size` is
+ * the pixel count KiCad itself wrote, and it is data, not chrome.
+ */
+export interface ToolSpacer {
+  spacer: number;
+}
+
+export type ToolEntry = ToolButton | ToolGroup | ToolControl | ToolSpacer | 'sep';

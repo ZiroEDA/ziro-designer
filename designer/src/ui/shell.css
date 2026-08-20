@@ -958,6 +958,37 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 0 2px;
 }
+/* A wxStaticText sitting in a toolbar: GerbView's "Cmp: ", "Net:", "Attr:"
+   and "DCode:" labels (`gerbview/toolbars_gerber.cpp:180,201,222,247`). It is a
+   plain GTK label, so it states no colour, no size and no face of its own -
+   only that it must not wrap or be squeezed by the flex strip. `font: inherit`
+   is here because a bare element otherwise takes the user-agent font. */
+.ze-tb-label {
+  flex: 0 0 auto;
+  font: inherit;
+  white-space: nowrap;
+}
+
+/* A read-only wxTextCtrl in a toolbar - GerbView's `m_TextInfo`, created with
+   wxTE_READONLY (`gerbview/toolbars_gerber.cpp:161-162`). An entry, so it takes
+   the entry tokens; wx greys read-only text with GRAYTEXT, which is
+   --ctl-fg-disabled. */
+.ze-tb-textinfo {
+  flex: 0 0 auto;
+  height: var(--ctl-height);
+  padding: 0 var(--field-pad-x);
+  background: var(--field-bg);
+  color: var(--ctl-fg-disabled);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  font: inherit;
+}
+
+/* AddSpacer: blank run along the bar's own axis, sized by the call site. */
+.ze-tb-spacer {
+  flex: 0 0 auto;
+}
+
 .ze-tb-choice {
   width: 150px;
   height: 24px;

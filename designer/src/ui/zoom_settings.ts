@@ -95,3 +95,73 @@ export function zoomPresetLabel(factor: number): string {
 export function isZoomPresetChecked(factor: number, zoom: number): boolean {
   return zoom > 0 && Math.abs(factor - zoom) / zoom < 0.1;
 }
+
+/* ---------------------------------------------------------------------------
+   The zoomSelect TOOLBAR CONTROL (`ACTION_TOOLBAR_CONTROLS::zoomSelect`).
+
+   Distinct from the context menu above, and the difference is not cosmetic: the
+   menu is `ZOOM_MENU`, whose rows read "Zoom: %.2f" and whose check is a
+   relative match; the toolbar box is `EDA_DRAW_FRAME::UpdateZoomSelectBox`,
+   whose rows read "Zoom %.2f" -- no colon -- and whose selection is exact.
+   --------------------------------------------------------------------------- */
+
+/** `_( "Zoom Auto" )`, the row `UpdateZoomSelectBox` always appends first. */
+export const ZOOM_AUTO_LABEL = 'Zoom Auto';
+
+/**
+ * `wxString::Format( _( "Zoom %.2f" ), current )`
+ * (`common/eda_draw_frame.cpp:656`, and again at `:524` for the custom entry).
+ * Note the missing colon against {@link zoomPresetLabel}'s "Zoom: %.2f".
+ */
+export function zoomSelectorLabel(zoom: number): string {
+  return `Zoom ${zoom.toFixed(2)}`;
+}
+
+/** One row of the zoom selector. */
+export interface ZoomChoice {
+  label: string;
+  /**
+   * The `ACTIONS::zoomPreset` argument this row dispatches, in upstream's own
+   * numbering -- `COMMON_TOOLS::doZoomToPreset` notes "idx == 0 is Auto; idx == 1
+   * is first entry in zoomList" (`common/tool/common_tools.cpp:467-482`), and
+   * idx 0 runs `ZoomFitScreen` rather than setting any scale (`:472-476`).
+   *
+   * `null` is the custom entry only: picking it means keep the current zoom, so
+   * `EDA_DRAW_FRAME::OnSelectZoom` returns early without dispatching
+   * (`common/eda_draw_frame.cpp:673-675`).
+   */
+  preset: number | null;
+}
+
+/**
+ * The zoom selector's rows and the row it shows, for a canvas at `zoom`.
+ *
+ * Two upstream behaviours this carries, both from
+ * `EDA_DRAW_FRAME::updateZoomSelectBox` (`common/eda_draw_frame.cpp:490-534`):
+ *
+ *  - a zoom that is **on** a preset selects that preset, index `jj + 1`,
+ *    "because index 0 is Zoom Auto";
+ *  - a zoom that is **off** every preset gets a row of its own carrying the
+ *    exact value, inserted at index 1 -- below "Zoom Auto" and above the
+ *    presets -- and selected. That is why a freshly-fitted GerbView reads
+ *    "Zoom 0.58" and not "Zoom Auto".
+ *
+ * The match at `:502` is `zoomList[jj] == zoom`, an exact double comparison and
+ * not {@link isZoomPresetChecked}'s 10 % window, so anything the user reached by
+ * dragging lands in the custom row.
+ */
+export function zoomChoices(
+  zoom: number,
+  list: readonly number[],
+): { choices: ZoomChoice[]; selected: number } {
+  const presets = list.map((z, i) => ({ label: zoomSelectorLabel(z), preset: i + 1 }));
+  const auto = { label: ZOOM_AUTO_LABEL, preset: 0 };
+  const onPreset = list.findIndex((z) => z === zoom);
+
+  if (onPreset !== -1) return { choices: [auto, ...presets], selected: onPreset + 1 };
+
+  return {
+    choices: [auto, { label: zoomSelectorLabel(zoom), preset: null }, ...presets],
+    selected: 1,
+  };
+}

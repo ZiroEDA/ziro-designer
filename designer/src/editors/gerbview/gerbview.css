@@ -132,18 +132,6 @@
   cursor: default;
 }
 
-.ze-gbr-combo {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #b8c0cc;
-  margin: 0 4px;
-}
-.ze-gbr-combo select {
-  max-width: 160px;
-}
-
 /* The item inspector is the shared EDA_MSG_PANEL (.ze-msgpanel in
    ui/shell.css) - GerbView instantiates the same widget as every other draw
    frame, so it has no message panel of its own to style. */

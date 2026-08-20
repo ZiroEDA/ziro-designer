@@ -31,6 +31,13 @@ export interface GerberCanvasController {
   zoomIn: () => void;
   zoomOut: () => void;
   redraw: () => void;
+  /**
+   * `KIGFX::VIEW::SetScale( scale )` with no anchor, which is what
+   * `COMMON_TOOLS::doZoomToPreset` runs for a picked zoom preset
+   * (`common/tool/common_tools.cpp:493`). An anchorless `SetScale` keeps the
+   * *view centre* fixed, so this is a step about the canvas centre.
+   */
+  setScale: (scale: number) => void;
 }
 
 export interface GerberCanvasProps {
@@ -223,6 +230,10 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         zoomIn: () => zoomStep(1.3),
         zoomOut: () => zoomStep(1 / 1.3),
         redraw: () => requestDraw(),
+        setScale: (scale: number) => {
+          const current = viewRef.current.scale;
+          if (current > 0 && scale > 0) zoomStep(scale / current);
+        },
       }),
       [zoomToFit, zoomStep, requestDraw],
     );

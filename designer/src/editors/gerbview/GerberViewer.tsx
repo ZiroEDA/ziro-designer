@@ -23,6 +23,7 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
   type JSX,
+  type ReactNode,
 } from 'react';
 import { unzipSync, strFromU8 } from 'fflate';
 import type { Vec2 } from '@ziroeda/kimath';
@@ -38,7 +39,29 @@ import {
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
-import { GBR_TOP_TOOLBAR, GBR_LEFT_TOOLBAR, GBR_RIGHT_TOOLBAR } from './gerberToolbars.js';
+import {
+  GBR_CONTROL,
+  GBR_TOP_TOOLBAR,
+  GBR_TOP_AUX_TOOLBAR,
+  GBR_LEFT_TOOLBAR,
+  GBR_RIGHT_TOOLBAR,
+} from './gerberToolbars.js';
+import { Combo, type ComboOption } from '../../ui/Combo.js';
+import {
+  apertureAttributeChoices,
+  componentChoices,
+  dcodeChoices,
+  netChoices,
+  NO_SELECTION_STRING,
+  textInfoLine,
+} from './gerberAuxControls.js';
+import {
+  DEFAULT_GRID_INDEX,
+  GRID_SIZE_LIST,
+  gridChoiceLabel,
+  gridSizeToIU,
+} from '../../ui/grid_settings.js';
+import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, type LayerInfo } from './LayerManager.js';
 import { DCodeListDialog, itemInfoRows } from './dialogs.js';
@@ -49,6 +72,7 @@ import {
   coordsMsg,
   deltasMsg,
   polarMsg,
+  scaleForZoomFactor,
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
@@ -100,6 +124,10 @@ export function GerberViewer({
   const [measure, setMeasure] = useState<{ a: Vec2; b: Vec2 } | null>(null);
   const [picked, setPicked] = useState<GERBER_DRAW_ITEM | null>(null);
   const [showDcodeList, setShowDcodeList] = useState(false);
+  // `window.grid.last_size_idx`, whose default for anything that is not
+  // eeschema/symbol_editor/pl_editor is 15 (`common/settings/app_settings.cpp:472-481`)
+  // -- "0.5 mm" in GerbView's own row of DefaultGridSizeList.
+  const [gridIdx, setGridIdx] = useState(DEFAULT_GRID_INDEX.gerbview);
   const [highlight, setHighlight] = useState<{ mode: HighlightMode; value: string }>({
     mode: 'none',
     value: '',
@@ -474,27 +502,25 @@ export function GerberViewer({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // ---- highlight option lists (from active image) ------------------------
-  const highlightOptions = useMemo(() => {
-    const nets = new Set<string>();
-    const comps = new Set<string>();
-    const attrs = new Set<string>();
-    const dcodes = new Set<number>();
-    if (activeImage) {
-      for (const it of activeImage.items) {
-        if (it.netMetadata.netName) nets.add(it.netMetadata.netName);
-        if (it.netMetadata.componentRef) comps.add(it.netMetadata.componentRef);
-        for (const a of it.netMetadata.apertureAttributes ?? []) attrs.add(a);
-        if (it.dcodeNum) dcodes.add(it.dcodeNum);
-      }
-    }
-    return {
-      nets: [...nets].sort(),
-      comps: [...comps].sort(),
-      attrs: [...attrs].sort(),
-      dcodes: [...dcodes].sort((a, b) => a - b),
-    };
-  }, [activeImage]);
+  // ---- TOP_AUX highlight option lists ------------------------------------
+  // The three highlight choices are built from EVERY loaded image -- "Build the
+  // full list ... from the partial lists stored in each file image"
+  // (`gerbview/toolbars_gerber.cpp:337-343, 366-372, 395-401`). Ours read the
+  // active image only, so switching layer silently changed what you could
+  // highlight. The D-code selector is the one that IS per-active-layer (`:271-273`).
+  const allImages = useMemo(() => layers.map((l) => l.image), [layers]);
+  const highlightOptions = useMemo(
+    () => ({
+      nets: netChoices(allImages),
+      comps: componentChoices(allImages),
+      attrs: apertureAttributeChoices(allImages),
+    }),
+    [allImages],
+  );
+  const dcodeOptions = useMemo(
+    () => dcodeChoices(activeImage, unit, IU_PER_MM),
+    [activeImage, unit],
+  );
 
   // ---- menus -------------------------------------------------------------
   const menus: Menu[] = useMemo(
@@ -685,13 +711,144 @@ export function GerberViewer({
 
   const unitLabel = unit === 'mm' ? 'mm' : unit === 'in' ? 'in' : 'mils';
 
-  // Grid step: 1 mm metric, 0.1" imperial.
-  const gridIU = unit === 'mm' ? IU_PER_MM : IU_PER_MM * 2.54;
+  // The grid the `gridSelect` control has selected. It used to be a literal
+  // pair -- 1 mm metric, 0.1" imperial -- which is not a grid GerbView offers
+  // at all, and which no control could change because there was no control.
+  const gridSizes = GRID_SIZE_LIST.gerbview;
+  const gridIU =
+    gridSizeToIU(gridSizes[Math.min(gridIdx, gridSizes.length - 1)] ?? '0.5 mm', IU_PER_MM) ??
+    IU_PER_MM;
 
   useDocumentTitle(
     'gerber',
     formatTitle('Gerber Viewer', layers.length ? `${layers.length} layer(s)` : null),
   );
+
+  // ---- toolbar CONTROLS --------------------------------------------------
+  // Each of these mirrors one RegisterCustomToolbarControlFactory upstream:
+  // the layer selector and the text info on TOP_MAIN
+  // (`gerbview/toolbars_gerber.cpp:128-172`), the three highlight choices and
+  // the D-code selector on TOP_AUX (`:175-262`), and the grid and zoom
+  // selectors, which are EDA_DRAW_FRAME's own and shared by every draw frame
+  // (`common/eda_draw_frame.cpp:208-233`).
+
+  /** A wxChoice whose first row is `<No selection>`, as all four highlight boxes are. */
+  const noSelectionOptions = (values: readonly string[]): ComboOption[] => [
+    { value: '', label: NO_SELECTION_STRING },
+    ...values.map((v) => ({ value: v, label: v })),
+  ];
+
+  const highlightValue = (mode: HighlightMode): string =>
+    highlight.mode === mode ? highlight.value : '';
+
+  const onPickHighlight = (mode: HighlightMode) => (value: string) =>
+    setHighlight(value ? { mode, value } : { mode: 'none', value: '' });
+
+  const zoomFactor = zoomFactorForScale(scale, dpr, IU_PER_MM);
+  const zoom = useMemo(() => zoomChoices(zoomFactor, ZOOM_LIST.gerbview), [zoomFactor]);
+
+  const topControls: Record<string, ReactNode> = {
+    // GBR_LAYER_BOX_SELECTOR, added bare: it carries no wxStaticText label,
+    // unlike the four TOP_AUX choices (`toolbars_gerber.cpp:128-152`).
+    [GBR_CONTROL.layerSelector]: (
+      <Combo
+        ariaLabel="Active layer"
+        value={String(activeLayer)}
+        options={layers.map((l, i) => ({ value: String(i), label: l.name }))}
+        onChange={(v) => setActiveLayer(Number(v))}
+      />
+    ),
+    [GBR_CONTROL.textInfo]: (
+      <input className="ze-tb-textinfo" type="text" readOnly value={textInfoLine(activeImage)} />
+    ),
+  };
+
+  const auxControls: Record<string, ReactNode> = {
+    [GBR_CONTROL.componentHighlight]: (
+      <>
+        {/* `m_cmpText->SetLabel( _( "Cmp:" ) + wxS( " " ) )` -- the trailing
+            space is upstream's, and only this one of the four has it. */}
+        <span className="ze-tb-label">Cmp: </span>
+        <Combo
+          title="Highlight items belonging to this component"
+          value={highlightValue('component')}
+          options={noSelectionOptions(highlightOptions.comps)}
+          onChange={onPickHighlight('component')}
+        />
+      </>
+    ),
+    [GBR_CONTROL.netHighlight]: (
+      <>
+        <span className="ze-tb-label">Net:</span>
+        <Combo
+          title="Highlight items belonging to this net"
+          value={highlightValue('net')}
+          options={noSelectionOptions(highlightOptions.nets)}
+          onChange={onPickHighlight('net')}
+        />
+      </>
+    ),
+    [GBR_CONTROL.appertureHighlight]: (
+      <>
+        <span className="ze-tb-label">Attr:</span>
+        <Combo
+          title="Highlight items with this aperture attribute"
+          value={highlightValue('attribute')}
+          options={noSelectionOptions(highlightOptions.attrs)}
+          onChange={onPickHighlight('attribute')}
+        />
+      </>
+    ),
+    [GBR_CONTROL.dcodeSelector]: (
+      <>
+        <span className="ze-tb-label">DCode:</span>
+        <Combo
+          // [data] `wxSize( 150, -1 )`, the DCODE_SELECTION_BOX's own size
+          // (`gerbview/toolbars_gerber.cpp:244-245`).
+          style={{ width: 150 }}
+          // OnUpdateSelectDCode: `aEvent.Enable( gerber != nullptr )` -- the
+          // selector is insensitive while the active layer holds no image
+          // (`:429-441`).
+          disabled={activeImage === null}
+          value={highlightValue('dcode')}
+          options={[
+            { value: '', label: NO_SELECTION_STRING },
+            ...dcodeOptions.map((d) => ({ value: String(d.dcode), label: d.label })),
+          ]}
+          onChange={onPickHighlight('dcode')}
+        />
+      </>
+    ),
+    [GBR_CONTROL.gridSelect]: (
+      <Combo
+        title="Grid Selection box"
+        value={String(gridIdx)}
+        options={gridSizes.map((g, i) => ({
+          value: String(i),
+          label: gridChoiceLabel(g, unit, IU_PER_MM),
+        }))}
+        onChange={(v) => setGridIdx(Number(v))}
+      />
+    ),
+    [GBR_CONTROL.zoomSelect]: (
+      <Combo
+        title="Zoom Selection box"
+        value={String(zoom.selected)}
+        options={zoom.choices.map((c, i) => ({ value: String(i), label: c.label }))}
+        onChange={(v) => {
+          const preset = zoom.choices[Number(v)]?.preset;
+          // idx 0 is Auto and runs ZoomFitScreen; the custom entry is null and
+          // "means keep the current zoom, so nothing to do"
+          // (`common/tool/common_tools.cpp:467-482`, `eda_draw_frame.cpp:673-675`).
+          if (preset === 0) controller.current?.zoomToFit();
+          else if (preset != null)
+            controller.current?.setScale(
+              scaleForZoomFactor(ZOOM_LIST.gerbview[preset - 1] ?? 1, dpr, IU_PER_MM),
+            );
+        }}
+      />
+    ),
+  };
 
   const onDrop = useCallback(
     (e: ReactDragEvent): void => {
@@ -770,91 +927,19 @@ export function GerberViewer({
         }
       />
 
-      {/* Top toolbar + layer / DCode / highlight selectors. */}
-      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Toolbar entries={GBR_TOP_TOOLBAR} orientation="horizontal" onActivate={onTopAction} />
-        <span style={{ width: 10 }} />
-        <label className="ze-gbr-combo">
-          Layer:
-          <select
-            className="ze-select"
-            value={activeLayer}
-            onChange={(e) => setActiveLayer(Number(e.target.value))}
-          >
-            {layers.length === 0 && <option value={0}>-</option>}
-            {layers.map((l, i) => (
-              <option key={l.id} value={i}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="ze-gbr-combo">
-          DCode:
-          <select
-            className="ze-select"
-            value={highlight.mode === 'dcode' ? highlight.value : ''}
-            onChange={(e) =>
-              setHighlight(
-                e.target.value
-                  ? { mode: 'dcode', value: e.target.value }
-                  : { mode: 'none', value: '' },
-              )
-            }
-          >
-            <option value="">All</option>
-            {highlightOptions.dcodes.map((d) => (
-              <option key={d} value={d}>
-                D{d}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="ze-gbr-combo">
-          Net:
-          <select
-            className="ze-select"
-            value={highlight.mode === 'net' ? highlight.value : ''}
-            onChange={(e) =>
-              setHighlight(
-                e.target.value
-                  ? { mode: 'net', value: e.target.value }
-                  : { mode: 'none', value: '' },
-              )
-            }
-            disabled={highlightOptions.nets.length === 0}
-          >
-            <option value="">-</option>
-            {highlightOptions.nets.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="ze-gbr-combo">
-          Comp:
-          <select
-            className="ze-select"
-            value={highlight.mode === 'component' ? highlight.value : ''}
-            onChange={(e) =>
-              setHighlight(
-                e.target.value
-                  ? { mode: 'component', value: e.target.value }
-                  : { mode: 'none', value: '' },
-              )
-            }
-            disabled={highlightOptions.comps.length === 0}
-          >
-            <option value="">-</option>
-            {highlightOptions.comps.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {/* TOP_MAIN, ending in the layer selector and the read-only text-info
+          box (`toolbars_gerber.cpp:99-103`). */}
+      <Toolbar
+        entries={GBR_TOP_TOOLBAR}
+        orientation="horizontal"
+        onActivate={onTopAction}
+        controls={topControls}
+      />
+
+      {/* TOP_AUX (`toolbars_gerber.cpp:107-115`): the four highlight choices
+          parted by 5 px spacers, then the grid and zoom selectors behind
+          separators. */}
+      <Toolbar entries={GBR_TOP_AUX_TOOLBAR} orientation="horizontal" controls={auxControls} />
 
       <div className="ze-body">
         <Toolbar

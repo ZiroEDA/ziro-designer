@@ -34,7 +34,9 @@ import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_typ
 import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
-  entries.flatMap((e) => (e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e ? [] : [e]));
+  entries.flatMap((e) =>
+    e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e || 'spacer' in e ? [] : [e],
+  );
 
 const VENDORED = new Set(
   readdirSync(new URL('../../../designer/src/assets/toolbar', import.meta.url))

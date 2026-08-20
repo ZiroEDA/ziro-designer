@@ -18,6 +18,24 @@ import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
 
+/**
+ * Control names, matching the `ACTION_TOOLBAR_CONTROL` identifiers upstream so
+ * a reader can grep either tree for the same string. The first two are shared
+ * controls registered by `EDA_DRAW_FRAME::configureToolbars`
+ * (`common/eda_draw_frame.cpp:208-233`); the rest are GerbView's own
+ * (`gerbview/toolbars_gerber.cpp:265-286`).
+ */
+export const GBR_CONTROL = {
+  layerSelector: 'control.LayerSelector',
+  textInfo: 'control.TextInfo',
+  componentHighlight: 'control.ComponentHighlight',
+  netHighlight: 'control.NetHighlight',
+  appertureHighlight: 'control.AppertureHighlight',
+  dcodeSelector: 'control.GerberDcodeSelector',
+  gridSelect: 'control.GridSelector',
+  zoomSelect: 'control.ZoomSelector',
+} as const;
+
 /** TOP main toolbar (button portion; the combos render separately). */
 export const GBR_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'gerbOpen', icon: 'gerbOpen', title: 'Open Gerber file(s)' },
@@ -36,6 +54,47 @@ export const GBR_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit' },
   { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to selection' },
+  // `.AppendSeparator().AppendControl( layerSelector ).AppendControl( textInfo )`
+  // (`toolbars_gerber.cpp:99-103`). The layer selector is a bare
+  // GBR_LAYER_BOX_SELECTOR with no label of its own, and the text info is a
+  // read-only wxTextCtrl carrying UpdateTitleAndInfo's format line.
+  sep,
+  { control: GBR_CONTROL.layerSelector },
+  { control: GBR_CONTROL.textInfo },
+];
+
+/**
+ * TOP_AUX toolbar, `TOOLBAR_LOC::TOP_AUX`
+ * (`gerbview/toolbars_gerber.cpp:107-115`), verbatim:
+ *
+ *     config.AppendControl( componentHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( netHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( appertureHighlight )
+ *           .AppendSpacer( 5 )
+ *           .AppendControl( dcodeSelector )
+ *           .AppendSeparator()
+ *           .AppendControl( gridSelect )
+ *           .AppendSeparator()
+ *           .AppendControl( zoomSelect );
+ *
+ * Note the asymmetry, which is upstream's and not a slip here: the four
+ * highlight choices are parted by 5 px spacers, and only the grid and zoom
+ * selectors get separator rules.
+ */
+export const GBR_TOP_AUX_TOOLBAR: ToolEntry[] = [
+  { control: GBR_CONTROL.componentHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.netHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.appertureHighlight },
+  { spacer: 5 },
+  { control: GBR_CONTROL.dcodeSelector },
+  sep,
+  { control: GBR_CONTROL.gridSelect },
+  sep,
+  { control: GBR_CONTROL.zoomSelect },
 ];
 
 /** LEFT display-options toolbar. */

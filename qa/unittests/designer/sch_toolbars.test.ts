@@ -23,7 +23,9 @@ import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/
 
 /** Every button, groups flattened; controls and separators contribute none. */
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
-  entries.flatMap((e) => (e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e ? [] : [e]));
+  entries.flatMap((e) =>
+    e === 'sep' ? [] : 'group' in e ? e.actions : 'control' in e || 'spacer' in e ? [] : [e],
+  );
 
 const ids = (entries: readonly ToolEntry[]): string[] => buttons(entries).map((b) => b.id);
 
@@ -208,7 +210,13 @@ describe('the zoom tool is the one top-toolbar button that stays lit', () => {
    */
   const idsOf = (entries: readonly ToolEntry[]): string[] =>
     entries.flatMap((e) =>
-      e === 'sep' ? [] : 'group' in e ? e.actions.map((a) => a.id) : 'control' in e ? [] : [e.id],
+      e === 'sep'
+        ? []
+        : 'group' in e
+          ? e.actions.map((a) => a.id)
+          : 'control' in e || 'spacer' in e
+            ? []
+            : [e.id],
     );
 
   it('names a tool the right toolbar also names', () => {
