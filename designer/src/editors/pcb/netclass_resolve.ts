@@ -15,23 +15,12 @@
  * filter on the second.
  */
 
+import { netclassPatternMatches } from '@ziroeda/common';
+
 /** One `net_settings.netclass_patterns` row. */
 export interface NetClassAssignmentLike {
   pattern: string;
   netClass: string;
-}
-
-/** EDA_COMBINED_MATCHER's wildcard mode: `*` and `?`, anchored. */
-export function globMatches(pattern: string, text: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -40,7 +29,7 @@ export function globMatches(pattern: string, text: string): boolean {
  */
 export function netClassFor(name: string, assignments: readonly NetClassAssignmentLike[]): string {
   for (const assignment of assignments) {
-    if (globMatches(assignment.pattern, name)) return assignment.netClass;
+    if (netclassPatternMatches(assignment.pattern, name)) return assignment.netClass;
   }
   return 'Default';
 }
@@ -63,7 +52,7 @@ export function netclassesForNet(
 
   for (const assignment of assignments) {
     if (!assignment.pattern || !assignment.netClass) continue;
-    if (!globMatches(assignment.pattern, name)) continue;
+    if (!netclassPatternMatches(assignment.pattern, name)) continue;
     if (!out.includes(assignment.netClass)) out.push(assignment.netClass);
   }
 

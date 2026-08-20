@@ -795,18 +795,6 @@ const LAYER_DISPLAY_NAMES: Record<string, string> = {
   'B.CrtYd': 'B.Courtyard',
 };
 
-// Wildcard match for netclass_patterns ('*' and '?', like EDA_COMBINED_MATCHER).
-const wildcardMatch = (pattern: string, s: string): boolean => {
-  const rx = new RegExp(
-    `^${pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.')}$`,
-    'i',
-  );
-  return rx.test(s);
-};
-
 // Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
 // last-resort fallback when even the Default class carries no value.
 interface ClassDims {
@@ -6470,9 +6458,7 @@ export function PcbEditor({
       classClearance.set(c.name, mmVal(c.clearance) ?? dfltClearance);
     }
     if (!classes.includes('Default')) classes.unshift('Default');
-    const patterns = boardSetup.netClasses.assignments
-      .filter((a) => a.pattern && a.netClass)
-      .map((a) => ({ netclass: a.netClass, pattern: a.pattern }));
+    const patterns = boardSetup.netClasses.assignments.filter((a) => a.pattern && a.netClass);
     return { classes, classColors, classDims, classClearance, patterns };
   }, [boardSetup.netClasses]);
 
@@ -6505,10 +6491,7 @@ export function PcbEditor({
   const netClassOf = useMemo(() => {
     const m = new Map<number, string>();
     if (board) {
-      for (const [code, name] of board.nets) {
-        const hit = netclassInfo.patterns.find((p) => wildcardMatch(p.pattern, name));
-        m.set(code, hit?.netclass ?? 'Default');
-      }
+      for (const [code, name] of board.nets) m.set(code, netClassFor(name, netclassInfo.patterns));
     }
     return m;
   }, [board, netclassInfo]);

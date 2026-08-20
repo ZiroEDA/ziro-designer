@@ -84,10 +84,15 @@ describe('resolveEffectiveNetClass', () => {
     expect(eff.color).toBeUndefined();
   });
 
-  it('prefix-matches plain patterns and wildcard-matches * patterns', () => {
-    expect(resolveEffectiveNetClass('VCC3V3', data()).name).toBe('Power'); // prefix
+  it('matches the whole net name, not a prefix of it', () => {
+    // EDA_COMBINED_MATCHER( …, CTX_NETCLASS ) anchors both its matchers, so
+    // StartsWith() means "matched from position 0" over an anchored pattern —
+    // a whole-name test. A plain `VCC` therefore does NOT take VCC3V3 with it;
+    // the schematic editor used to read StartsWith as a prefix test and did.
+    expect(resolveEffectiveNetClass('VCC', data()).name).toBe('Power');
+    expect(resolveEffectiveNetClass('VCC3V3', data()).name).toBe('Default');
     expect(resolveEffectiveNetClass('CLK_50M', data()).name).toBe('Clocks'); // wildcard
-    expect(resolveEffectiveNetClass('XVCC', data()).name).toBe('Default'); // StartsWith only
+    expect(resolveEffectiveNetClass('XVCC', data()).name).toBe('Default');
   });
 
   it('completes missing parameters from Default', () => {
@@ -100,6 +105,7 @@ describe('resolveEffectiveNetClass', () => {
   it('merges multiple matches by grid priority into a composite', () => {
     const d = data();
     d.assignments.push({ pattern: 'VCC*', netClass: 'Clocks' });
+    d.assignments.push({ pattern: 'VCC1', netClass: 'Power' });
     const eff = resolveEffectiveNetClass('VCC1', d);
     expect(eff.name).toBe('Effective for net: VCC1');
     // Power sits above Clocks in the grid -> higher priority wins the width,

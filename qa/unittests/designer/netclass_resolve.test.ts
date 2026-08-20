@@ -7,7 +7,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  globMatches,
   netClassFor,
   netclassesForNet,
 } from '@ziroeda/designer/src/editors/pcb/netclass_resolve.js';
@@ -17,25 +16,6 @@ const ASSIGNMENTS = [
   { pattern: 'V*', netClass: 'HighVoltage' },
   { pattern: 'D?', netClass: 'Diff' },
 ];
-
-describe('globMatches', () => {
-  it('anchors the pattern', () => {
-    expect(globMatches('VCC', 'VCC')).toBe(true);
-    expect(globMatches('VCC', 'XVCC')).toBe(false);
-    expect(globMatches('VCC', 'VCCX')).toBe(false);
-  });
-
-  it('handles * and ?', () => {
-    expect(globMatches('V*', 'VBUS')).toBe(true);
-    expect(globMatches('D?', 'D1')).toBe(true);
-    expect(globMatches('D?', 'D12')).toBe(false);
-  });
-
-  it('treats regex metacharacters literally', () => {
-    expect(globMatches('NET(1)', 'NET(1)')).toBe(true);
-    expect(globMatches('A.B', 'AxB')).toBe(false);
-  });
-});
 
 describe('netClassFor', () => {
   it('takes the first matching assignment', () => {
