@@ -788,24 +788,49 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: var(--titlebar-font-weight);
 }
 /* Toolbars */
+/* An ACTION_TOOLBAR is a wxAuiToolBar, and a wxAuiToolBar fills itself with
+   `wxSYS_COLOUR_BTNFACE` — which wxGTK resolves by asking a real GtkButton for
+   its background, NOT by reading GTK's own `toolbar` node. Those two disagree
+   in Yaru: `toolbar` is #2c2c2c (the same as the menu bar) while `button` is
+   `image(#373737)`, so a KiCad toolbar reads a step LIGHTER than the menu bar
+   above it. That is --ctl-face, the token the buttons and combos already take.
+
+   [px] GerbView with no file loaded, 1920x1200: the whole toolbar block —
+   both stacked rows AND the left vertical strip — samples #373737, against
+   #2c2c2c for the menu bar and the status bar. Ours had --chrome-bg here, so
+   the bar vanished into the menu bar and the canvas.
+
+   The token is --content-bg, the wxAUI FRAME background, not --ctl-face: they
+   carry the same #373737, but the strip is a docked pane and the face is a
+   button, and conflating them would make a later change to either move the
+   other. That reasoning and the pl_editor measurement behind it are D3 below,
+   which said the shared change was "waiting on measurements" from a second
+   frame. GerbView is that second frame, so the rule moves here and D3's
+   `.ze-wks .ze-toolbar` background override goes. */
 .ze-toolbar {
   display: flex;
   align-items: center;
-  background: var(--chrome-bg);
+  background: var(--content-bg);
   gap: 1px;
 }
+/* No height: a wxAuiToolBar is as tall as its tallest tool. [px] GerbView's
+   TOP_AUX row is 36 px around a 34 px combo (y 135..168 bordered, row 135..170)
+   — that is --ctl-height plus one pixel of toolbar above and below. Ours said
+   32 px, which SQUEEZED every toolbar combo to 31 px: measured 201..231 where
+   KiCad's is 34. The row is its content, the way .ze-modal is Fit(). */
 .ze-toolbar.horizontal {
   flex-direction: row;
-  height: 32px;
-  padding: 0 4px;
+  padding: 1px 4px;
   border-bottom: 1px solid var(--chrome-border);
   flex-wrap: nowrap;
   overflow-x: auto;
 }
+/* No width either: [px] GerbView's left strip is x 66..99 = 34 px around a
+   30 px button at 68..97, i.e. --toolbar-button-size in 2 px of toolbar. Ours
+   said 32, one pixel narrower than the button it holds. */
 .ze-toolbar.vertical {
   flex-direction: column;
-  width: 32px;
-  padding: 4px 0;
+  padding: 4px 2px;
 }
 .ze-toolbar.vertical.left {
   border-right: 1px solid var(--chrome-border);
@@ -7033,15 +7058,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    hovered, and conflating the strip with the face would make a later change to
    either one move the other.)
 
-   Scoped to this frame rather than changed on `.ze-toolbar` / `.ze-msgpanel`
-   themselves: the same six numbers are almost certainly wrong in the other
-   five draw frames for the same reason, but only pl_editor was measured, and
-   flipping the shared rule would move five editors on one editor's evidence.
-   See the PR - the shared change is a two-line diff waiting on measurements.
+   The BACKGROUND half is no longer scoped here. It was, because one editor's
+   evidence should not move five, and this block asked for a second frame to
+   confirm it. GerbView is that frame: [px] with no file loaded its whole
+   toolbar block, both stacked rows and the left vertical strip, samples
+   #373737 against #2c2c2c for the menu bar and the status bar - the same three
+   readings as pl_editor. So `background` now lives on `.ze-toolbar` itself and
+   the override that used to sit here is gone; the strip is right in all eight
+   launchers at once.
+
+   The SIZES stay scoped, because the two frames disagree and a disagreement is
+   not a measurement. GerbView reads a 34 px vertical strip (a 30 px button in
+   2 px of toolbar, x 66..99 with the button at 68..97) and a 36 px TOP_AUX row
+   (a 34 px combo, y 135..168, in a row spanning 135..170) against the 39/39
+   recorded above. The likeliest explanation is that 39 counted the pane's
+   border and sash and 34 counts the fill, but nobody has re-measured pl_editor
+   to say so, so both numbers stay where they were taken.
    --------------------------------------------------------------------------- */
-.ze-wks .ze-toolbar {
-  background: var(--content-bg);
-}
 .ze-wks .ze-toolbar.horizontal {
   height: 39px;
 }

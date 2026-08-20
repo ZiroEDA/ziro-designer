@@ -143,7 +143,11 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
   });
 
   it('puts the toolbars and the message panel on it, not on the chrome grey', () => {
-    expect(rule('.ze-wks .ze-toolbar').background).toBe('var(--content-bg)');
+    // The toolbar half is no longer scoped to this frame: GerbView was measured
+    // as the second frame this block asked for and reads the same #373737, so
+    // the declaration moved to the SHARED rule. See the "no launcher restates
+    // it" case below, which is what stops it drifting back.
+    expect(rule('.ze-toolbar').background).toBe('var(--content-bg)');
     expect(rule('.ze-wks .ze-msgpanel').background).toBe('var(--content-bg)');
     // `.ze-wks-topbar` is DELIBERATELY not on this list. It is the strip holding
     // the origin and page combos, and `--content-bg` (#373737) is also
@@ -158,14 +162,14 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
     // to strict parity.
     expect(rule('.ze-wks-topbar').background).toBe('var(--chrome-bg)');
     // A literal here would be a second name for a token that already exists.
-    expect(rule('.ze-wks .ze-toolbar').background).not.toMatch(/#/);
+    expect(rule('.ze-toolbar').background).not.toMatch(/#/);
     expect(rule('.ze-wks .ze-msgpanel').background).not.toMatch(/#/);
   });
 
   it('leaves the menu bar and the status bar on the darker chrome', () => {
     // Only these two are #2c2c2c upstream, and both already were.
     expect(TOKENS['--chrome-bg']).toBe('#2c2c2c');
-    expect(rule('.ze-wks .ze-toolbar').background).not.toBe('var(--chrome-bg)');
+    expect(rule('.ze-toolbar').background).not.toBe('var(--chrome-bg)');
   });
 
   it('measures 39px toolbars and a 37px message panel', () => {
@@ -174,12 +178,35 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
     expect(rule('.ze-wks .ze-msgpanel')['min-height']).toBe('37px');
   });
 
-  it('scopes all of it to this frame, leaving the other five editors alone', () => {
-    // The shared rules keep their own values until the other draw frames are
-    // measured; flipping them here would move five editors on one's evidence.
-    expect(rule('.ze-toolbar').background).toBe('var(--chrome-bg)');
-    expect(rule('.ze-toolbar.horizontal').height).toBe('32px');
+  it('states the toolbar strip once, and lets no launcher restate it', () => {
+    // The specificity trap, per OCCURRENCE rather than per file: a rule like
+    // `.ze-wks .ze-toolbar` at (0,2,0) beats the shared `.ze-toolbar` at
+    // (0,1,0), so the launcher-local copy silently wins and fixing the shared
+    // thing changes nothing at the call site. Exactly one rule in the whole
+    // stylesheet may give a `.ze-toolbar` a background, and it is the bare one.
+    const painters: string[] = [];
+    for (const m of CSS_CODE.matchAll(/(^|\n)([^\n{}]*\.ze-toolbar[^\n{}]*)\{([^}]*)\}/g)) {
+      if (/(^|[;\s])background\s*:/.test(m[3]!)) painters.push(m[2]!.trim());
+    }
+    expect(painters).toStrictEqual(['.ze-toolbar']);
+  });
+
+  it('lets the strip be as tall as its tallest tool, rather than pinning it', () => {
+    // [px] GerbView: the TOP_AUX row is 36 px around a 34 px combo (bordered
+    // y 135..168, row 135..170) and the left strip is 34 px around a 30 px
+    // button (x 66..99, button 68..97). Both are `--ctl-height` /
+    // `--toolbar-button-size` plus the toolbar's own padding, so the shared
+    // rule states no size at all. Ours pinned 32 px, one pixel under the button
+    // it holds and three under the combo, and squeezed every toolbar combo to
+    // 31 px.
+    expect(rule('.ze-toolbar.horizontal').height).toBeUndefined();
+    expect(rule('.ze-toolbar.vertical').width).toBeUndefined();
+    // The message panel has NOT been promoted: only pl_editor was measured for
+    // it, and one frame's evidence must not move six.
     expect(rule('.ze-msgpanel')['min-height']).toBe('32px');
+  });
+
+  it('keeps this frame scoped for the sizes it alone measured', () => {
     // And the frame has to actually carry the class the rules key on.
     expect(EDITOR).toContain('className="ze-app ze-wks"');
     expect(EDITOR).toContain('className="ze-wks-topbar"');
@@ -562,7 +589,7 @@ describe('D7: this editor adds no new hardcoded font size', () => {
   });
 
   it('adds none in the chrome this PR wrote', () => {
-    const at = SHELL.indexOf('.ze-wks .ze-toolbar {');
+    const at = SHELL.indexOf('.ze-wks .ze-toolbar.horizontal {');
     expect(at).toBeGreaterThanOrEqual(0);
     expect(SHELL.slice(at)).not.toMatch(/font-size:\s*\d/);
   });
