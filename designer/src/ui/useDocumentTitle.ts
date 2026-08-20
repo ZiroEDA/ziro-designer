@@ -74,3 +74,110 @@ export function frameTitleName(fileName: string | null | undefined, placeholder:
 
 /** The em dash, with its spaces, that separates the two halves. */
 export const FRAME_TITLE_SEPARATOR = ' — ';
+
+/**
+ * The WHOLE frame-title rule, not just the name half.
+ *
+ * `docs/frame-titles.md` records every `SetTitle` in KiCad 10.0.5 that builds a
+ * frame title — thirteen of them. Twelve share one shape:
+ *
+ *     title  = "*"                     if IsContentModified()
+ *     title += <document part>
+ *     title += " " + "[Read Only]"     if the file is not writable
+ *     title += " " + "[Unsaved]"       if it does not exist yet
+ *     title += " — " + <Frame Name>
+ *
+ * Four things this has to be parameterised for, none guessable from one frame:
+ *
+ *  - **`GetName()` vs `GetFullName()`.** Nine frames drop the extension.
+ *    Exactly two keep it — Gerber Viewer (`gerbview_frame.cpp:684`) and the
+ *    Image Converter (`bitmap2cmp_frame.cpp:359`) — so {@link frameTitleName}
+ *    alone cannot serve either.
+ *  - **The empty state has three forms.** Most frames substitute a bracketed
+ *    placeholder and still append the dash. Gerber Viewer and the Image
+ *    Converter print the frame name **alone, with no dash at all**:
+ *    `SetTitle( _( "Gerber Viewer" ) )` is one string at
+ *    `gerbview_frame.cpp:667`, and the converter builds its `" — "` *inside*
+ *    `if( !m_srcFileName.IsEmpty() )` (`:357-360`). The PCB editor and the
+ *    simulator have no empty branch at all and lean on `[Unsaved]`.
+ *  - **The suffixes are five strings**, not two, and each carries its own
+ *    leading space where `*` carries none.
+ *  - **Order.** `*` first with nothing after it, then the name, then the
+ *    suffixes in the order the frame adds them.
+ *
+ * Returned as parts so a caller can weight the document half, which the real
+ * title bar does.
+ */
+export interface FrameTitleParts {
+  /** `"*"` when modified, else `""`. Prefix of the document half, no space. */
+  modified: string;
+  /** The document half, already carrying its `[...]` suffixes. */
+  document: string;
+  /** `" — "`, or `""` when there is no document half to separate. */
+  separator: string;
+  /** The frame's own name, e.g. `"Gerber Viewer"`. */
+  frameName: string;
+  /** The three joined, for a tab title or a test. */
+  full: string;
+}
+
+export interface FrameTitleSpec {
+  /** `_( "Gerber Viewer" )` — the half after the dash. */
+  frameName: string;
+  /**
+   * The document half before any suffix: `fn.GetName()`, `fn.GetFullName()`,
+   * an FPID, a library URI. Empty or absent means there is no document.
+   */
+  document?: string | null;
+  /** `IsContentModified()`. */
+  modified?: boolean;
+  /**
+   * What to show with no document.
+   *
+   * A bracketed string — `"[no schematic loaded]"` — is substituted and the
+   * dash still appended. Leaving it undefined is the Gerber Viewer / Image
+   * Converter case: the frame name stands **alone**, with no dash and no
+   * placeholder.
+   */
+  placeholder?: string;
+  /** Suffixes in the order the frame appends them, each without its space. */
+  suffixes?: readonly string[];
+}
+
+/** `_( "[Read Only]" )`, on frames 1, 2, 4, 7 and 11 of `docs/frame-titles.md`. */
+export const READ_ONLY_SUFFIX = '[Read Only]';
+/** `_( "[Unsaved]" )`, on frames 1, 2, 4 and 7. */
+export const UNSAVED_SUFFIX = '[Unsaved]';
+
+export function frameTitle(spec: FrameTitleSpec): FrameTitleParts {
+  const doc = spec.document?.trim() ?? '';
+  const name = doc || (spec.placeholder ?? '');
+
+  // No document and no placeholder: the frame name alone, no separator. This
+  // is the branch Gerber Viewer and the Image Converter take, and it is why
+  // ours read "Gerber Viewer  -  Gerber Viewer" — the call site passed the
+  // frame name AS the placeholder and then appended it again.
+  if (!name) {
+    return {
+      modified: '',
+      document: '',
+      separator: '',
+      frameName: spec.frameName,
+      full: spec.frameName,
+    };
+  }
+
+  // `title += wxS( " " ) + _( "[Read Only]" )` — the suffix owns its space.
+  const document = name + (spec.suffixes ?? []).map((s) => ` ${s}`).join('');
+  // `if( IsContentModified() ) title = wxT( "*" );` then `title += ...` — no
+  // space between the star and the name.
+  const modified = spec.modified ? '*' : '';
+
+  return {
+    modified,
+    document,
+    separator: FRAME_TITLE_SEPARATOR,
+    frameName: spec.frameName,
+    full: `${modified}${document}${FRAME_TITLE_SEPARATOR}${spec.frameName}`,
+  };
+}

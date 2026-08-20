@@ -16,6 +16,7 @@
 import { unescapeString } from '@ziroeda/common';
 import { APERTURE_T, type D_CODE, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
 import { messageTextFromValue, type StatusUnits } from '../../ui/status_format.js';
+import { frameTitle, type FrameTitleParts } from '../../ui/useDocumentTitle.js';
 
 /**
  * `#define NO_SELECTION_STRING _( "<No selection>" )`
@@ -188,4 +189,39 @@ export function textInfoLine(image: GERBER_FILE_IMAGE | null): string {
   // `m_IsX2_file` is set only once a %TF file function has parsed, and upstream
   // notes it "to mean that we have a valid m_FileFunction" (`rs274x.cpp:395-397`).
   return image.fileFunction !== null ? `${line} X2 attr` : line;
+}
+
+/**
+ * The frame title, the other half of `GERBVIEW_FRAME::UpdateTitleAndInfo`
+ * (`gerbview/gerbview_frame.cpp:659-692`) — {@link textInfoLine} above is the
+ * toolbar half of the same function.
+ *
+ *     if( gerber == nullptr )
+ *         SetTitle( _( "Gerber Viewer" ) );        // :667, one string, no dash
+ *     else
+ *         title  = filename.GetFullName();          // :684, WITH the extension
+ *         if( gerber->m_IsX2_file )
+ *             title += wxS( " " ) + _( "(with X2 attributes)" );
+ *         title += wxT( " \u2014 " ) + _( "Gerber Viewer" );
+ *
+ * Two things a call site gets wrong on its own, and ours got both: the document
+ * half is the ACTIVE LAYER's file name — not a project name, which this title
+ * has nothing to do with — and the empty state is the frame name ALONE, so
+ * passing it as a placeholder appends it twice.
+ *
+ * A function rather than JSX inside the frame because `qa` compiles `.ts` only:
+ * mutants that stripped the extension and that dropped the X2 suffix both
+ * SURVIVED a sweep while this lived in the `.tsx`, with a test file that claimed
+ * to cover exactly those two behaviours.
+ */
+export function gerbviewFrameTitle(image: GERBER_FILE_IMAGE | null): FrameTitleParts {
+  return frameTitle({
+    frameName: 'Gerber Viewer',
+    // GetFullName(): base plus extension. GerbView and the Image Converter are
+    // the only two of the thirteen frames that keep it.
+    document: image?.fileName ?? null,
+    // m_IsX2_file is set only once a %TF file function has parsed
+    // (`rs274x.cpp:390-397`), which is our `fileFunction != null`.
+    ...(image?.fileFunction != null ? { suffixes: ['(with X2 attributes)'] } : {}),
+  });
 }

@@ -52,6 +52,7 @@ import {
   dcodeChoices,
   netChoices,
   NO_SELECTION_STRING,
+  gerbviewFrameTitle,
   textInfoLine,
 } from './gerberAuxControls.js';
 import {
@@ -876,12 +877,18 @@ export function GerberViewer({
             ⌂ ZiroEDA
           </div>
         }
-        title={
-          <>
-            <b>{projectName || 'Gerber Viewer'}</b>
-            &nbsp;-&nbsp;Gerber Viewer
-          </>
-        }
+        title={(() => {
+          // GERBVIEW_FRAME::UpdateTitleAndInfo (gerbview/gerbview_frame.cpp:659-692),
+          // built in gerberAuxControls so a test can reach it.
+          const t = gerbviewFrameTitle(activeImage);
+          return (
+            <>
+              <b>{t.document}</b>
+              {t.separator}
+              {t.frameName}
+            </>
+          );
+        })()}
       />
 
       {/* TOP_MAIN, ending in the layer selector and the read-only text-info
