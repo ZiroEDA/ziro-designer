@@ -14,12 +14,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
 import {
-  PAPER_CHOICES,
-  PAPER_MM,
   previewPageMM,
   defaultPreviewSettings,
-} from '@ziroeda/designer/src/editors/drawingsheet/PageSettingsDialog.js';
+} from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
 
 describe('the paper-size combo', () => {
   it('is PAGE_INFO::standardPageSizes, row for row', () => {

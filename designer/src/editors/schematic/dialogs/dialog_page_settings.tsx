@@ -14,7 +14,10 @@
 import { useState, useRef, useEffect, type JSX } from 'react';
 import type { PageSettings } from '@ziroeda/eeschema';
 import { defaultDrawingSheet, layoutDrawingSheet, type WksSheet } from '@ziroeda/common';
-import { PAPER_CHOICES, PAPER_MM } from '../../drawingsheet/PageSettingsDialog.js';
+// PAGE_INFO's table, from `common/` — it used to be imported sideways out of
+// the drawing sheet editor's dialog component, which is the cross-peer import
+// the project brief names. See common/src/page_info.ts.
+import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
 import { drawDrawingSheetItems, DS_ITEM_COLOR } from '../../drawingsheet/wksRender.js';
 import { useModalEscape } from '../../../ui/useModalEscape.js';
 

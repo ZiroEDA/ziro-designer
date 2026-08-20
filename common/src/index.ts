@@ -67,6 +67,7 @@ export {
   type WksBBox,
 } from './drawing_sheet/index.js';
 
+export * from './page_info.js';
 export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';
 
