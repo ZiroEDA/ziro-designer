@@ -71,7 +71,37 @@ interface StoredRecord {
    * Optional: records written before this existed have none, and the push falls
    * back to hashing those.
    */
-  files: { name: string; gz: Uint8Array; hash?: string }[];
+  /**
+   * `size` and `writtenAt` are what a file chooser needs and a compressed blob
+   * cannot answer: the file's own length, and when this file — not the project
+   * — last changed. Both are free at write time and cost a gunzip afterwards,
+   * which is why they are recorded rather than derived on demand.
+   *
+   * Optional for the same reason `hash` is: records written before this
+   * existed have neither, and a record arriving from the cloud carries only
+   * what the blob store holds. `listProjectFiles` fills them in on first read.
+   */
+  files: {
+    name: string;
+    gz: Uint8Array;
+    hash?: string;
+    size?: number;
+    writtenAt?: number;
+  }[];
+  /**
+   * Folders that exist without holding a file.
+   *
+   * A project is stored as a flat list of relative paths, so every folder in
+   * it is implied by the files inside — which means an empty one cannot be
+   * expressed. On a disk it can, and the file chooser has a New Folder button
+   * that makes one, so the folders that nothing implies are recorded here,
+   * project-relative and without a trailing slash.
+   *
+   * A folder stops being listed here as soon as a file is written into it,
+   * because from then on the file implies it. Nothing else is derived from
+   * this list: it is the exception, not the index.
+   */
+  emptyFolders?: string[];
   /**
    * The account this project belongs to, once it has been associated with one.
    *
@@ -236,7 +266,17 @@ export async function saveProject(
   const gzFiles = await Promise.all(
     files.map(async (f) => {
       const gz = await gzip(f.bytes);
-      return { name: f.name, gz, hash: await sha256Hex(gz) };
+      // `size` is the file's own length and `writtenAt` is when this file
+      // changed, both free here and a gunzip away afterwards. The chooser's
+      // Size and Modified columns are about the file, not about the blob or
+      // about the project.
+      return {
+        name: f.name,
+        gz,
+        hash: await sha256Hex(gz),
+        size: f.bytes.byteLength,
+        writtenAt: now,
+      };
     }),
   );
   // This rebuilds the record rather than patching it, so anything not carried
@@ -275,6 +315,10 @@ export async function saveProject(
     ...((templateId ?? existing?.templateId)
       ? { templateId: (templateId ?? existing?.templateId)! }
       : {}),
+    // Carried for the same reason as the rest: a save rebuilds the record, and
+    // an empty folder is not derivable from the files — dropping it here would
+    // delete the folder the user made the moment anything else was saved.
+    ...(existing?.emptyFolders ? { emptyFolders: existing.emptyFolders } : {}),
   };
   await tx('readwrite', (s) => s.put(record));
   return pid;
@@ -314,12 +358,19 @@ export async function updateProjectFiles(id: string, changed: StoredFile[]): Pro
     const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
     if (!r) return;
     const byName = new Map(r.files.map((f) => [f.name, f]));
+    const now = Date.now();
     for (const f of changed) {
       const gz = await gzip(f.bytes);
-      byName.set(f.name, { name: f.name, gz, hash: await sha256Hex(gz) });
+      byName.set(f.name, {
+        name: f.name,
+        gz,
+        hash: await sha256Hex(gz),
+        size: f.bytes.byteLength,
+        writtenAt: now,
+      });
     }
     r.files = [...byName.values()];
-    r.updatedAt = Date.now();
+    r.updatedAt = now;
     await tx('readwrite', (s) => s.put(r));
     mirrorTo = r.templateId;
     mirrorName = r.name;
@@ -366,6 +417,173 @@ export async function loadProject(
     },
     files,
   };
+}
+
+/** One file of a project as a listing needs it: no bytes, only what to show. */
+export interface ProjectFileMeta {
+  /** Relative to the project folder — `sub/dir/board.kicad_pcb`. */
+  name: string;
+  /** The file's own length, uncompressed. */
+  size: number;
+  /** When this file was last written. */
+  modified: number;
+}
+
+/**
+ * A project's files without their bytes.
+ *
+ * This is the index, and it is what the file manager lists. `loadProject`
+ * gunzips every file in the project, which is the right thing when opening one
+ * and far too much for drawing a directory: a listing is answered from the
+ * record's own metadata and touches no blob at all.
+ *
+ * Records written before `size` and `writtenAt` existed, and records pulled
+ * from the cloud, carry neither. Those are measured once — the only gunzip
+ * this function ever does — and written back, so the second listing of an old
+ * project is as cheap as the first listing of a new one. The write-back does
+ * not touch `updatedAt`: it records what was always true about bytes already
+ * stored, and bumping the project's clock for it would make sync believe the
+ * project had diverged and push the whole thing.
+ */
+export async function listProjectFiles(id: string): Promise<ProjectFileMeta[] | null> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  if (!r) return null;
+  if (r.files.every((f) => f.size !== undefined))
+    return r.files.map((f) => ({
+      name: f.name,
+      size: f.size!,
+      modified: f.writtenAt ?? r.updatedAt,
+    }));
+
+  const measured = new Map<string, number>();
+  for (const f of r.files) {
+    if (f.size === undefined) measured.set(f.name, (await gunzip(f.gz)).byteLength);
+  }
+  await withRecordLock(id, async () => {
+    const cur = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!cur) return;
+    let changed = false;
+    for (const f of cur.files) {
+      const size = measured.get(f.name);
+      // Only where it is still missing: another tab may have rewritten this
+      // file between the read above and this lock, and its size is the one
+      // that matches its bytes.
+      if (size !== undefined && f.size === undefined) {
+        f.size = size;
+        changed = true;
+      }
+    }
+    if (changed) await tx('readwrite', (s) => s.put(cur));
+  });
+
+  return r.files.map((f) => ({
+    name: f.name,
+    size: f.size ?? measured.get(f.name) ?? 0,
+    modified: f.writtenAt ?? r.updatedAt,
+  }));
+}
+
+/**
+ * One file's bytes, or null when the project or the file is gone.
+ *
+ * The chooser lists from the index and pulls a file only when it is actually
+ * opened; this is that pull's local half.
+ */
+export async function readProjectFile(id: string, name: string): Promise<Uint8Array | null> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  const f = r?.files.find((x) => x.name === name);
+  return f ? await gunzip(f.gz) : null;
+}
+
+/** The folders of a project that hold no file — see `emptyFolders`. */
+export async function listEmptyFolders(id: string): Promise<string[]> {
+  const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+  return r?.emptyFolders ?? [];
+}
+
+/**
+ * Rewrite the empty-folder list.
+ *
+ * Whole-list rather than add/remove because the caller has just worked out
+ * which folders are still empty, and two tabs disagreeing about one folder is
+ * not worth a merge. Does not touch `updatedAt`: an empty folder is not
+ * content, and a sync that pushed the whole project because somebody clicked
+ * New Folder would be a poor trade.
+ */
+export async function setEmptyFolders(id: string, folders: string[]): Promise<void> {
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    r.emptyFolders = folders;
+    await tx('readwrite', (s) => s.put(r));
+  });
+}
+
+/**
+ * Rename one file, or a whole folder, inside a project.
+ *
+ * `from` and `to` are project-relative. A folder is renamed by giving its own
+ * path: every file beneath it moves with it, which is what renaming a
+ * directory does.
+ *
+ * The bytes are not touched — a rename moves a name, and re-gzipping a
+ * project's every file to change one of them would be work no filesystem does.
+ * That is also why this is not `replaceProjectFiles`: expressing a rename as a
+ * new file list would mean handing back bytes we already hold, compressed
+ * again.
+ *
+ * Returns false when nothing matched.
+ */
+export async function renameProjectPath(id: string, from: string, to: string): Promise<boolean> {
+  let moved = false;
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    const prefix = `${from}/`;
+    for (const f of r.files) {
+      if (f.name === from) {
+        f.name = to;
+        moved = true;
+      } else if (f.name.startsWith(prefix)) {
+        f.name = to + f.name.slice(from.length);
+        moved = true;
+      }
+    }
+    if (r.emptyFolders) {
+      r.emptyFolders = r.emptyFolders.map((d) =>
+        d === from || d.startsWith(prefix) ? to + d.slice(from.length) : d,
+      );
+      moved ||= r.emptyFolders.length > 0;
+    }
+    if (!moved) return;
+    r.updatedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+  });
+  return moved;
+}
+
+/**
+ * Delete a file, or a folder and everything under it.
+ *
+ * Returns the number of files removed; an empty folder removes none and is
+ * still a deletion, which is why the empty-folder list is pruned here too.
+ */
+export async function deleteProjectPath(id: string, path: string): Promise<number> {
+  let removed = 0;
+  await withRecordLock(id, async () => {
+    const r = await tx<StoredRecord | undefined>('readonly', (s) => s.get(id));
+    if (!r) return;
+    const prefix = `${path}/`;
+    const kept = r.files.filter((f) => !(f.name === path || f.name.startsWith(prefix)));
+    removed = r.files.length - kept.length;
+    const folders = (r.emptyFolders ?? []).filter((d) => !(d === path || d.startsWith(prefix)));
+    if (removed === 0 && folders.length === (r.emptyFolders ?? []).length) return;
+    r.files = kept;
+    r.emptyFolders = folders;
+    r.updatedAt = Date.now();
+    await tx('readwrite', (s) => s.put(r));
+  });
+  return removed;
 }
 
 /**
@@ -489,6 +707,10 @@ export async function exportProject(id: string): Promise<SyncableProject | null>
       name: f.name,
       gzB64: bytesToB64(f.gz),
       ...(f.hash ? { hash: f.hash } : {}),
+      // Carried so the other side does not have to gunzip the whole project to
+      // learn how big its files are. `SyncableProject` has always had the
+      // field; nothing filled it in.
+      ...(f.size !== undefined ? { size: f.size } : {}),
     })),
   };
 }
@@ -514,6 +736,10 @@ export async function importProject(p: SyncableProject): Promise<void> {
     name: f.name,
     gz: b64ToBytes(f.gzB64 ?? ''),
     ...(f.hash ? { hash: f.hash } : {}),
+    // A copy that carries sizes saves the first listing a gunzip per file. One
+    // that does not — an older cloud row — is measured on demand by
+    // `listProjectFiles` instead, which is why this stays optional.
+    ...(f.size !== undefined ? { size: f.size } : {}),
   }));
 
   // The last line of defence, and the one that would have held when the others
@@ -529,12 +755,19 @@ export async function importProject(p: SyncableProject): Promise<void> {
     }
   }
 
+  // What this side already knows that the cloud does not carry. An empty
+  // folder is not content and `SyncableProject` has no field for one, so a
+  // pull that rebuilt the record without it would quietly delete a folder the
+  // user made every time the project came down.
+  const local = await tx<StoredRecord | undefined>('readonly', (s) => s.get(p.id));
+
   const record: StoredRecord = {
     id: p.id,
     name: p.name,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     files,
+    ...(local?.emptyFolders ? { emptyFolders: local.emptyFolders } : {}),
     // We have just taken the cloud's copy wholesale, so this is the point the
     // two sides agree.
     syncedAt: p.updatedAt,
@@ -634,6 +867,8 @@ export async function forkLocalCopy(id: string, name: string): Promise<string | 
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     files: r.files,
+    // A copy of the project is a copy of its folders too, empty ones included.
+    ...(r.emptyFolders ? { emptyFolders: r.emptyFolders } : {}),
     // The original's owner, falling back to whoever is signed in now. Not
     // omitted: see above.
     ...((r.ownerId ?? currentOwner) ? { ownerId: r.ownerId ?? currentOwner! } : {}),
