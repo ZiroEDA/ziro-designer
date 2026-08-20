@@ -33,6 +33,8 @@
  * responsibility; this only decides *when*.
  */
 
+import { wasBrowserSuppressed } from './browser_hotkeys.js';
+
 /** A dialog's cancel, while it is on screen. */
 type CancelFn = () => void;
 
@@ -45,7 +47,18 @@ const stack: { cancel: CancelFn }[] = [];
 let listening = false;
 
 function onKeyDown(e: KeyboardEvent): void {
-  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  if (e.key !== 'Escape') return;
+  // `defaultPrevented` means someone already acted on this key — EXCEPT when it
+  // was our own browser suppression. `browser_hotkeys` runs in capture phase and
+  // calls `preventDefault()` on every combo the app CLAIMS, purely to stop the
+  // browser acting on it; the event is meant to carry on to us. Esc is a claimed
+  // combo, so by the time this listener runs `defaultPrevented` is already true
+  // and every dialog in the app stopped closing on Esc.
+  //
+  // `useMenuHotkeys` had the identical bug and was fixed; this consumer of
+  // `defaultPrevented` was missed, which is why the accelerators came back and
+  // Esc did not.
+  if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
   const top = stack[stack.length - 1];
   if (!top) return;
   // Stop here rather than let it run on: an editor's key handler treats Esc as
