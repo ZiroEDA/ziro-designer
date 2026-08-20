@@ -50,11 +50,13 @@ export function PageSettingsDialog({
   const [s, setS] = useState<PreviewSettings>({ ...value, comments: [...value.comments] });
   const set = (patch: Partial<PreviewSettings>): void => setS((cur) => ({ ...cur, ...patch }));
 
+  // Spacing is --wx-border, the wxFormBuilder `wxALL, 5` every KiCad dialog is
+  // built from, in multiples - never a number chosen for this dialog alone.
   const row: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    margin: '4px 0',
+    gap: 'calc(var(--wx-border) * 2)',
+    margin: 'var(--wx-border) 0',
   };
   const lab: React.CSSProperties = { width: 92, fontSize: 12, flex: '0 0 auto' };
 
@@ -76,9 +78,17 @@ export function PageSettingsDialog({
             ✕
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 18, padding: '10px 14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'calc(var(--wx-border) * 4)',
+            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
+          }}
+        >
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Preview Paper</div>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 'var(--wx-border)' }}>
+              Preview Paper
+            </div>
             <div style={row}>
               <span style={lab}>Size:</span>
               <Combo
@@ -130,7 +140,7 @@ export function PageSettingsDialog({
             )}
           </div>
           <div style={{ flex: 1.2 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 'var(--wx-border)' }}>
               Preview Title Block Data
             </div>
             <div style={row}>

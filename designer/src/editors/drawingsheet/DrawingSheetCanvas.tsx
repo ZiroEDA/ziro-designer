@@ -41,7 +41,10 @@ import {
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
   DS_PAGE_BORDER_COLOR,
-  DS_HILITE_COLOR,
+  DS_EDIT_POINT_ON_DARK,
+  DS_EDIT_POINT_ON_LIGHT,
+  DS_MARQUEE,
+  DS_SELECTED_COLOR,
 } from './wksRender.js';
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
@@ -49,18 +52,38 @@ import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
 import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 
-// A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
-// cursor for the interactive delete picker (KICURSOR::REMOVE).
+/*
+ * The drawing tools' pencil (KICURSOR::PENCIL) and the interactive delete
+ * picker's cross (KICURSOR::REMOVE).
+ *
+ * [art] KiCad ships both as 32x32 XPMs - `resources/bitmaps_png/cursors/
+ * cursor-pencil.xpm` and `cursor-eraser.xpm`, mapped at `common/gal/cursors.cpp`
+ * :137-141 and :185-190 - so there is no vector to copy, only a PALETTE. Both
+ * XPMs declare exactly three colours: `None`, `#FFFFFF` and `#000000`. A KiCad
+ * cursor is a white shape with a black outline and nothing else, on every
+ * frame, so it stays legible over any canvas colour.
+ *
+ * Ours were a yellow-and-red pencil (`#ffd54a` / `#c8322d` / `#1b1b1b`) and a
+ * red cross (`#e33`) - three invented hues where upstream has two absolutes.
+ * The geometry below is still ours, because an XPM bitmap gives no path; the
+ * ink is KiCad's.
+ *
+ * The hotspots are upstream's too: pencil { 4, 27 } and eraser { 4, 4 } in the
+ * 32x32 art, i.e. { 3, 20 } and { 3, 3 } scaled to our 24x24.
+ */
+const CURSOR_INK = '#ffffff'; // [art] XPM colour `.`
+const CURSOR_EDGE = '#000000'; // [art] XPM colour `+`
 const PENCIL_SVG =
   "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  "<path d='M3.5 20.5l3.2-1 11-11-2.2-2.2-11 11z' fill='#ffd54a' stroke='#1b1b1b' stroke-width='1'/>" +
-  "<path d='M14.8 5.1l2.2 2.2 1.9-1.9a1.3 1.3 0 0 0 0-1.9l-.3-.3a1.3 1.3 0 0 0-1.9 0z' fill='#c8322d' stroke='#1b1b1b' stroke-width='1'/>" +
-  "<path d='M3.5 20.5l1.1-2.9 1.8 1.1z' fill='#1b1b1b'/></svg>";
-const PENCIL_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PENCIL_SVG)}") 3 21, crosshair`;
+  `<path d='M3.5 20.5l3.2-1 11-11-2.2-2.2-11 11z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
+  `<path d='M14.8 5.1l2.2 2.2 1.9-1.9a1.3 1.3 0 0 0 0-1.9l-.3-.3a1.3 1.3 0 0 0-1.9 0z' fill='${CURSOR_INK}' stroke='${CURSOR_EDGE}' stroke-width='1'/>` +
+  `<path d='M3.5 20.5l1.1-2.9 1.8 1.1z' fill='${CURSOR_EDGE}'/></svg>`;
+const PENCIL_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PENCIL_SVG)}") 3 20, crosshair`;
 const REMOVE_SVG =
   "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>" +
-  "<path d='M5 5l14 14M19 5L5 19' stroke='#e33' stroke-width='3' stroke-linecap='round'/></svg>";
-const REMOVE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(REMOVE_SVG)}") 12 12, not-allowed`;
+  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_EDGE}' stroke-width='4' stroke-linecap='round'/>` +
+  `<path d='M5 5l14 14M19 5L5 19' stroke='${CURSOR_INK}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const REMOVE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(REMOVE_SVG)}") 3 3, not-allowed`;
 
 export interface DrawingSheetCanvasController {
   zoomToFit: () => void;
@@ -269,7 +292,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
 
       // Selection outlines (dashed), offset by an in-flight move delta.
       if (selRef.current.size > 0) {
-        ctx.strokeStyle = DS_HILITE_COLOR;
+        // [art] pl_editor draws NO outline around a selected item - it repaints
+        // the item itself in m_selectedColor, which drawDrawingSheetItems above
+        // already does. This dashed box is ours, an affordance a mouse-and-
+        // canvas UI needs and a wxWidgets one does not, so it has no upstream
+        // metric. It at least borrows the one selection colour rather than
+        // inventing a second.
+        ctx.strokeStyle = DS_SELECTED_COLOR;
         ctx.lineWidth = Math.max(1, dpr);
         ctx.setLineDash([5 * dpr, 3 * dpr]);
         const ox = md ? md.x : 0,
@@ -293,11 +322,14 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // Point-editor handles (filled squares, EDIT_POINTS style).
       const pts = editPointsRef.current;
       if (pts && pts.length > 0 && !md) {
+        // EDIT_POINT::POINT_SIZE is 8 (include/tool/edit_points.h:194) and
+        // edit_points.cpp:290 halves it, so the square is 8 across. [data]
         const r = 4 * dpr;
+        const handle = darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT;
         for (const p of pts) {
           const c = toPx(p);
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = DS_HILITE_COLOR;
+          ctx.fillStyle = handle.fill;
+          ctx.strokeStyle = handle.border;
           ctx.lineWidth = Math.max(1, dpr);
           ctx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
           ctx.strokeRect(c.x - r, c.y - r, r * 2, r * 2);
@@ -310,8 +342,9 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
         const p0 = toPx(box.a),
           p1 = toPx(box.b);
         const rightward = box.b.x >= box.a.x;
-        ctx.strokeStyle = rightward ? 'rgba(120,170,255,0.9)' : 'rgba(120,255,150,0.9)';
-        ctx.fillStyle = rightward ? 'rgba(120,170,255,0.12)' : 'rgba(120,255,150,0.12)';
+        const scheme = darkBg ? DS_MARQUEE.onDark : DS_MARQUEE.onLight;
+        ctx.strokeStyle = rightward ? scheme.outlineL2R : scheme.outlineR2L;
+        ctx.fillStyle = scheme.fill;
         ctx.lineWidth = dpr;
         const x = Math.min(p0.x, p1.x),
           y = Math.min(p0.y, p1.y);

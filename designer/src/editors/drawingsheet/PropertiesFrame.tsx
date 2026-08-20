@@ -42,6 +42,7 @@ import { useModalEscape } from '../../ui/useModalEscape.js';
 import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
+import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from './wksRender.js';
 
 /**
  * The font faces the Text page offers — `FONT_CHOICE`
@@ -257,11 +258,22 @@ function FormatButton({
   );
 }
 
+/*
+ * An item with no colour of its own is drawn in LAYER_SCHEMATIC_DRAWINGSHEET,
+ * so that is what the swatch has to show: the colour the user will actually
+ * see, from the one place that colour is written down. It was `#c8322d`, a red
+ * that matches neither the layer nor anything else in KiCad.
+ *
+ * (KiCad's own swatch shows a CHECKERBOARD for COLOR4D::UNSPECIFIED -
+ * `color_swatch.cpp:79-91`, set for this control at `properties_frame.cpp:124`.
+ * A native `<input type="color">` cannot render one, so it shows the resolved
+ * colour instead; that is a browser limit, not a chosen value.)
+ */
 const colorCss = (c: WksColor | undefined): string =>
-  c ? `rgba(${c.r},${c.g},${c.b},${c.a})` : '#c8322d';
+  c ? `rgba(${c.r},${c.g},${c.b},${c.a})` : DS_ITEM_COLOR;
 
 const hexOf = (c: WksColor | undefined): string => {
-  if (!c) return '#c8322d';
+  if (!c) return DS_ITEM_COLOR_HEX;
   const h = (n: number): string => Math.round(n).toString(16).padStart(2, '0');
   return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
 };
@@ -329,7 +341,7 @@ export function PropertiesFrame({
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
           ) : (
-            <div className="ze-muted" style={{ padding: 6 }}>
+            <div className="ze-muted" style={{ padding: 'var(--wx-border)' }}>
               Select an item to edit its properties.
             </div>
           )
@@ -376,7 +388,7 @@ function ItemProperties({
           here rather than clipping, which a wxBoxSizer does not have to do. */}
       <div
         className="ze-ds-row"
-        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 3 }}
+        style={{ justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 'var(--wx-border)' }}
       >
         {/* `m_staticTextType->SetLabel( aItem->GetClassName() )`
             (properties_frame.cpp:241): the type NAME alone. Ours prefixed it
@@ -479,6 +491,12 @@ function ItemProperties({
               title="Text color"
               value={hexOf(t.color)}
               style={{
+                // NOT PROVEN. COLOR_SWATCH built with wxDefaultSize takes
+                // SWATCH_SIZE_MEDIUM_DU (24, 10) dialog units less 2 px
+                // (color_swatch.cpp:166,203-204), which is about 46 x 20 at
+                // this font - close to, but not, the two numbers below. They
+                // were chosen to sit in the format row and have never been
+                // measured against a real one.
                 width: 26,
                 height: 22,
                 padding: 0,
@@ -835,7 +853,7 @@ export function SyntaxHelpDialog({ onClose }: { onClose: () => void }): JSX.Elem
             <tbody>
               {keywords.map(([k, d]) => (
                 <tr key={k}>
-                  <td style={{ padding: '1px 14px 1px 0' }}>
+                  <td style={{ padding: '0 calc(var(--wx-border) * 3) 0 0' }}>
                     <code>{k}</code>
                   </td>
                   <td className="ze-muted">{d}</td>

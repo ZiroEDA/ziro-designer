@@ -46,13 +46,16 @@ export function DesignInspector({
 
   const rows = dsInspectorRows(items, paperType, pageMM);
 
-  const cell: React.CSSProperties = {
-    padding: '4px 8px',
-    borderBottom: '1px solid rgba(128,128,128,0.2)',
-  };
-  /** wxGrid's row-label gutter: SetRowLabelSize( 40 ), centred. */
+  /**
+   * The grid itself is the SHARED WX_GRID skin, `.ze-grid` in ui/shell.css -
+   * the same one the Schematic Setup panels use, because this dialog holds the
+   * same widget (a wxGrid) and KiCad gives every wxGrid one look. It used to
+   * carry its own: `4px 8px` cells under a `rgba(128,128,128,0.2)` rule, a
+   * header on an undeclared `--panel` token, and a blue selection wash that
+   * exists nowhere in KiCad. Nothing about how it LOOKS is stated here now.
+   */
+  /** wxGrid's row-label gutter: SetRowLabelSize( 40 ), centred. [data] */
   const gutter: React.CSSProperties = {
-    ...cell,
     width: 40,
     textAlign: 'center',
     opacity: 0.7,
@@ -73,22 +76,16 @@ export function DesignInspector({
           </span>
         </div>
         <div style={{ maxHeight: '60vh', overflow: 'auto' }} data-testid="ds-inspector">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <table className="ze-grid">
             <thead>
-              <tr
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  background: 'var(--panel, #2b2b30)',
-                  textAlign: 'left',
-                }}
-              >
+              {/* Sticky is the only thing this header adds to .ze-grid th: the
+                  dialog scrolls its own body, so the column labels have to hold
+                  station the way a wxGrid's do. */}
+              <tr style={{ position: 'sticky', top: 0 }}>
                 {/* The gutter carries no column label of its own. */}
-                <th style={{ ...gutter, borderBottomWidth: 2 }} />
+                <th style={gutter} />
                 {DS_INSPECTOR_COLUMNS.map((h) => (
-                  <th key={h} style={{ ...cell, borderBottomWidth: 2 }}>
-                    {h}
-                  </th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -96,13 +93,10 @@ export function DesignInspector({
               {rows.map((row) => (
                 <tr
                   key={row.number}
-                  style={{
-                    cursor: 'default',
-                    background:
-                      row.itemIndex !== null && selection.has(row.itemIndex)
-                        ? 'rgba(74,163,255,0.18)'
-                        : undefined,
-                  }}
+                  className={
+                    row.itemIndex !== null && selection.has(row.itemIndex) ? 'selected' : undefined
+                  }
+                  style={{ cursor: 'default' }}
                   // DIALOG_INSPECTOR::onCellClicked
                   // (design_inspector.cpp:338-354) selects the row, selects the
                   // item in the editor and repopulates the properties frame.
@@ -115,15 +109,17 @@ export function DesignInspector({
                     if (row.itemIndex !== null) onSelect(row.itemIndex);
                   }}
                 >
-                  <td style={gutter}>{row.number}</td>
+                  <td className="ze-grid-text" style={gutter}>
+                    {row.number}
+                  </td>
                   {/* COL_BITMAP: KiCad draws a per-type XPM in this column. */}
-                  <td style={cell} />
-                  <td style={cell}>{row.type}</td>
-                  <td style={cell}>{row.count}</td>
-                  <td style={cell}>{row.comment}</td>
+                  <td className="ze-grid-text" />
+                  <td className="ze-grid-text">{row.type}</td>
+                  <td className="ze-grid-text">{row.count}</td>
+                  <td className="ze-grid-text">{row.comment}</td>
                   <td
+                    className="ze-grid-text"
                     style={{
-                      ...cell,
                       whiteSpace: 'nowrap',
                       maxWidth: 280,
                       overflow: 'hidden',

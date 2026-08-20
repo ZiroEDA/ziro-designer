@@ -212,7 +212,9 @@ const BASELINE: Record<string, number> = {
   // and moved to ui/'s .ze-unit-label when UnitField replaced it; the two
   // invented "deg" spans beside Rotation went with the B5 label pass, since
   // m_textCtrlRotation has no units static text upstream.
-  'editors/drawingsheet': 7,
+  // 7 until the central-values pass put DesignInspector.tsx's table on the
+  // shared `.ze-grid` skin, which carries the size so the call site does not.
+  'editors/drawingsheet': 6,
   'editors/footprint': 1,
   'editors/gerbview': 9,
   'editors/pcb': 124,
@@ -338,7 +340,9 @@ describe('hardcoded font sizes do not grow', () => {
     //
     // DSP-21 took 4 out of editors/drawingsheet (11 -> 7) and 6 out of ui
     // (165 -> 159: the four .ze-ds-* rules, .ze-unit-label, and the tab strip).
-    expect(sites.length).toBe(397);
+    // The central-values pass took one more out of editors/drawingsheet (7 ->
+    // 6): DesignInspector.tsx's table is `.ze-grid` now and declares no size.
+    expect(sites.length).toBe(396);
   });
 });
 

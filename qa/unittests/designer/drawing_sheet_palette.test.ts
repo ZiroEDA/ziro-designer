@@ -462,7 +462,7 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     'DrawingSheetEditor.tsx',
   ];
 
-  it('holds at the 11 known sites', () => {
+  it('holds at the 6 known sites', () => {
     let n = 0;
     for (const f of FILES) {
       const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
@@ -473,8 +473,10 @@ describe('D7: this editor adds no new hardcoded font size', () => {
     // 11 until DSP-21 tokenised PropertiesFrame.tsx — which took its four
     // (the type label, the Syntax Help link, the size-info line and the Syntax
     // Help dialog body) into --ui-font-size, leaving 7 in the two dialogs that
-    // have not had their turn.
-    expect(n).toBe(7);
+    // have not had their turn — and then 6, when the central-values pass gave
+    // DesignInspector.tsx the shared `.ze-grid` skin and its own table stopped
+    // declaring a size at all.
+    expect(n).toBe(6);
   });
 
   it('adds none in the chrome this PR wrote', () => {

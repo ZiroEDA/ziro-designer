@@ -82,9 +82,16 @@ describe('DSP-24 — the dialog is "Preview Settings" in this frame', () => {
 
   it('re-labels the three strings pl_editor re-labels', () => {
     // dialog_page_settings.cpp:82-88, the PL_EDITOR_FRAME_NAME branch.
-    expect(DIALOG).toContain('Preview Settings');
-    expect(DIALOG).toContain('>Preview Paper<');
-    expect(DIALOG).toContain('Preview Title Block Data');
+    //
+    // `>Preview Paper<` used to be matched against the raw source, which pinned
+    // the LABEL and the FORMATTER together: biome puts a heading on its own
+    // line as soon as its opening tag grows, and the assertion then failed for
+    // a change that touched no string. Collapsing the tag boundaries first
+    // checks the element's text and not how it happens to be wrapped.
+    const flat = DIALOG.replace(/>\s+/g, '>').replace(/\s+</g, '<');
+    expect(flat).toContain('Preview Settings');
+    expect(flat).toContain('>Preview Paper<');
+    expect(flat).toContain('>Preview Title Block Data<');
   });
 
   it('leaves the other frames on the else branch’s wording', () => {

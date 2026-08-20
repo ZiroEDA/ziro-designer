@@ -1526,7 +1526,7 @@ export function DrawingSheetEditor({
           options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
           onChange={(v) => setOriginChoice(Number(v))}
           title="Origin of coordinates displayed to the status bar"
-          style={{ margin: '0 6px' }}
+          style={{ margin: '0 var(--wx-border)' }}
         />
         <Combo
           value={String(pageNumber)}
@@ -1535,7 +1535,7 @@ export function DrawingSheetEditor({
           title={
             'Simulate page 1 or other pages to show how items\nwhich are not on all page are displayed'
           }
-          style={{ margin: '0 6px' }}
+          style={{ margin: '0 var(--wx-border)' }}
         />
       </div>
 
@@ -1750,7 +1750,18 @@ function PreferencesDialog({
             ✕
           </span>
         </div>
-        <div style={{ padding: '10px 14px', fontSize: 12, display: 'grid', gap: 8 }}>
+        {/* Spacing is the wxFormBuilder unit, --wx-border, not a number picked
+            here: KiCad's dialogs are laid out with `wxALL, 5` throughout, so
+            every inset in one is a multiple of 5 and they line up because of
+            it. */}
+        <div
+          style={{
+            padding: 'calc(var(--wx-border) * 2) calc(var(--wx-border) * 3)',
+            fontSize: 12,
+            display: 'grid',
+            gap: 'calc(var(--wx-border) * 2)',
+          }}
+        >
           <label>
             <input
               type="checkbox"

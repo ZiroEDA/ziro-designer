@@ -4401,6 +4401,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--chrome-border);
   padding: 0;
 }
+/* A READ-ONLY WX_GRID cell holds text instead of an entry, so the padding the
+   entry would have carried sits on the cell. Same two numbers as
+   `.ze-grid td input`, stated once: a read-only grid and an editable one must
+   line up, which they cannot do if each invents its own inset. */
+.ze-grid td.ze-grid-text {
+  padding: 3px 6px;
+}
 .ze-grid tr.selected td {
   outline: 2px solid var(--chrome-active);
   outline-offset: -2px;
