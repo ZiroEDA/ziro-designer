@@ -31,6 +31,10 @@ import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import { addClose, addQuit } from '../../ui/action_menu.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES, aboutWindowTitle } from '../../ui/about_titles.js';
+import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import { settings } from '../../prefs/settings.js';
+import { useCommonSettings } from '../../prefs/useSettings.js';
 
 interface TreeItem {
   id: string;
@@ -84,6 +88,8 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
   const [active, setActive] = useState('regulators');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const common = useCommonSettings();
 
   const menus: Menu[] = [
     {
@@ -93,16 +99,24 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
         addQuit('Calculator Tools', onExitToHome),
       ],
     },
+    // PCB_CALCULATOR_FRAME::doReCreateMenuBar (pcb_calculator_frame.cpp:215-222)
+    // is two entries and nothing else: ACTIONS::openPreferences, a separator,
+    // then AddMenuLanguageList. The frame overrides no InstallPreferences, so
+    // the dialog it opens is EDA_BASE_FRAME's own - the CENTRAL one every other
+    // frame opens, with no calculator page of its own. Ours had invented a
+    // "Reset stored data (regulators)" item instead and offered neither.
     {
       label: 'Preferences',
       items: [
-        {
-          label: 'Reset stored data (regulators)',
-          action: () => {
-            localStorage.removeItem('ziro.calculator.regulators');
-            window.location.reload();
-          },
-        },
+        { label: 'Preferences…', shortcut: 'Ctrl+,', action: () => setPrefsOpen(true) },
+        { sep: true },
+        setLanguageMenuItem({
+          current: common.system.language,
+          onSelect: (label) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+        }),
       ],
     },
     standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
@@ -169,6 +183,8 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
           })}
         </main>
       </div>
+      {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
+
       {aboutOpen && (
         <Modal
           title={aboutWindowTitle(ABOUT_TITLES.calculator)}
