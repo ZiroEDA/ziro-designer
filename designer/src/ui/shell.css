@@ -6081,12 +6081,17 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    buttons and the text-colour swatch are all off-screen and it relies on the
    AUI sash to recover them. Ours is 272 px and shows everything. Matching 150
    would reproduce a defect, so it is flagged for Akshay rather than copied. */
-.ze-ds-tabs {
+/* wxNotebook's tab strip. Two launchers draw one - pl_editor's properties
+   pane and GerbView's LAYER_WIDGET (`layer_widget.cpp:505`) - so it is one rule
+   with two selectors rather than a second copy under a second name. */
+.ze-ds-tabs,
+.ze-nb-tabs {
   display: flex;
   border-bottom: 1px solid var(--chrome-border, rgba(128, 128, 128, 0.35));
   flex: 0 0 auto;
 }
-.ze-ds-tabs button {
+.ze-ds-tabs button,
+.ze-nb-tabs button {
   flex: 1;
   /* The wxNotebook tab strip is --tab-strip-height. [px] re-measured on this
      launcher's own capture (ziro-dsp/shots/k_tab.png, a 3.2x crop of a real
@@ -6103,7 +6108,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: inherit;
   cursor: default;
 }
-.ze-ds-tabs button.active {
+.ze-ds-tabs button.active,
+.ze-nb-tabs button.active {
   /* [px] the selected tab's marker sampled off the same capture: a solid band
      of rgb(238, 84, 31) — the desktop accent, which is --chrome-active
      (#e95420). Ours was #4aa3ff, a blue that appears nowhere in the GTK theme

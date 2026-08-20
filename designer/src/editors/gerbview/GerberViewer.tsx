@@ -63,7 +63,7 @@ import {
 } from '../../ui/grid_settings.js';
 import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
-import { LayerManager, type LayerInfo } from './LayerManager.js';
+import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
 import { DCodeListDialog, itemInfoRows } from './dialogs.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel } from '../../ui/MsgPanel.js';
@@ -76,7 +76,15 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import { defaultLayerColor, GERBER_BG_COLOR } from './gerberColors.js';
+import {
+  defaultLayerColor,
+  GERBER_BG_COLOR,
+  GERBER_DCODE_COLOR,
+  GERBER_DRAWINGSHEET_COLOR,
+  GERBER_GRID_COLOR,
+  GERBER_NEGATIVE_COLOR,
+  GERBER_PAGE_LIMITS_COLOR,
+} from './gerberColors.js';
 import { exportLayersToPcb } from './exportToPcbnew.js';
 import type { GerberLayerView, GerberRenderOptions } from './gerberRender.js';
 import { gerbviewMenus } from './menubar.js';
@@ -275,6 +283,11 @@ export function GerberViewer({
   const hideAll = useCallback(
     () => setLayers((prev) => prev.map((l) => ({ ...l, visible: false }))),
     [],
+  );
+  // ID_SHOW_NO_LAYERS_BUT_ACTIVE (`gerbview_layer_widget.cpp:161-163`).
+  const hideAllButActive = useCallback(
+    () => setLayers((prev) => prev.map((l, i) => ({ ...l, visible: i === activeLayer }))),
+    [activeLayer],
   );
   const deleteLayer = useCallback((index: number) => {
     setLayers((prev) => prev.filter((_, i) => i !== index));
@@ -612,10 +625,16 @@ export function GerberViewer({
     ...(l.function ? { function: l.function } : {}),
   }));
 
+  // The Items page, GERBER_LAYER_WIDGET::ReFillRender's seven rows. Drawing
+  // Sheet and Page Limits are the two we had no toggle for at all;
+  // m_DisplayPageLimits defaults FALSE (`gbr_display_options.h:52`), and the
+  // drawing sheet defaults on.
   const renderToggles = {
-    grid: toggles.has('toggleGrid'),
     dcodes: toggles.has('showDcodes'),
     negativeObjects: toggles.has('showNegativeObjects'),
+    grid: toggles.has('toggleGrid'),
+    drawingSheet: !toggles.has('hideDrawingSheet'),
+    pageLimits: toggles.has('showPageLimits'),
     background: !toggles.has('hideBackground'),
   };
   const onRenderToggle = useCallback(
@@ -623,9 +642,23 @@ export function GerberViewer({
       if (id === 'grid') onLeftToggle('toggleGrid');
       else if (id === 'dcodes') onLeftToggle('showDcodes');
       else if (id === 'negativeObjects') onLeftToggle('showNegativeObjects');
+      else if (id === 'drawingSheet') onLeftToggle('hideDrawingSheet');
+      else if (id === 'pageLimits') onLeftToggle('showPageLimits');
       else if (id === 'background') onLeftToggle('hideBackground');
     },
     [onLeftToggle],
+  );
+  const itemRows = useMemo(
+    () =>
+      renderRows({
+        dcodes: GERBER_DCODE_COLOR,
+        negativeObjects: GERBER_NEGATIVE_COLOR,
+        grid: GERBER_GRID_COLOR,
+        drawingSheet: GERBER_DRAWINGSHEET_COLOR,
+        pageLimits: GERBER_PAGE_LIMITS_COLOR,
+        background: GERBER_BG_COLOR,
+      }),
+    [],
   );
 
   // ---- status bar --------------------------------------------------------
@@ -948,6 +981,8 @@ export function GerberViewer({
               onSetColor={setColor}
               onShowAll={showAll}
               onHideAll={hideAll}
+              onHideAllButActive={hideAllButActive}
+              rows={itemRows}
               onDelete={deleteLayer}
               onMoveUp={moveUp}
               onMoveDown={moveDown}
