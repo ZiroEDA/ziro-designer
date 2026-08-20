@@ -26,6 +26,12 @@ export {
   type DsBitmapItem,
 } from './layout.js';
 export {
+  wksItemMsgPanelInfo,
+  WKS_ITEM_TYPE_LABEL,
+  WKS_PAGE1_OPTION_LABEL,
+  type WksMsgPanelItem,
+} from './msg_panel.js';
+export {
   drawItemBBox,
   itemBBox,
   pickDrawItem,

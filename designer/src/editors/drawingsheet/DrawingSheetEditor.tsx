@@ -23,6 +23,7 @@ import {
   serializeDrawingSheet,
   layoutDrawingSheet,
   translateItem,
+  wksItemMsgPanelInfo,
   mmToIU,
   iuToMM,
   SCH_IU_PER_MM,
@@ -56,6 +57,7 @@ import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
   gridMsg,
   messageTextFromValue,
+  unitText,
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
@@ -1332,22 +1334,40 @@ export function DrawingSheetEditor({
   );
 
   /**
-   * PL_EDITOR_FRAME::UpdateMsgPanelInfo
-   * (pagelayout_editor/pl_editor_frame.cpp:968): Page Width and Page Height.
-   * The selection count is ours - upstream shows the selected item's own
-   * GetMsgPanelInfo rows there instead.
+   * The message panel is REPLACED on every selection change, never added to.
+   *
+   * `PL_EDITOR_CONTROL::UpdateMessagePanel`
+   * (pagelayout_editor/tools/pl_editor_control.cpp:147-179) picks exactly one
+   * of two sources and hands it to `EDA_DRAW_FRAME::SetMsgPanel`, which erases
+   * the box before appending (`common/eda_draw_frame.cpp:955-964`):
+   *
+   *   - one item selected  -> that item's `GetMsgPanelInfo`, six rows
+   *   - anything else      -> `PL_EDITOR_FRAME::UpdateMsgPanelInfo`
+   *                           (`pl_editor_frame.cpp:968-977`), which is Page
+   *                           Width and Page Height and nothing else
+   *
+   * so the page rows are never on screen beside an item's rows. Ours used to
+   * keep the page rows up permanently, add two invented ones (`Paper`, `Page`)
+   * and append a `Selected` count, which is four fields of noise in front of
+   * the ones a user opened the editor to read.
+   *
+   * The values carry their unit label because `MessageTextFromValue`'s
+   * `aAddUnitsText` defaults to true (`include/units_provider.h:127`) and
+   * neither call site overrides it - see `unitText`.
    */
   const dsMsgPanelItems = useMemo((): MsgPanelItem[] => {
-    const w = messageTextFromValue(pageMM[0], unit === 'inches' ? 'in' : unit);
-    const h = messageTextFromValue(pageMM[1], unit === 'inches' ? 'in' : unit);
+    const u = unit === 'inches' ? 'in' : unit;
+    const fmt = (mm: number): string => messageTextFromValue(mm, u) + unitText(u);
+
+    if (selection.size === 1) {
+      const item = sheet.items[[...selection][0] as number];
+      if (item) return wksItemMsgPanelInfo(item, fmt);
+    }
     return [
-      { upper: 'Page Width', lower: w },
-      { upper: 'Page Height', lower: h },
-      { upper: 'Paper', lower: paperDescription(preview) },
-      { upper: 'Page', lower: pageNumber === 1 ? 'Page 1' : 'Other pages' },
-      ...(selection.size > 0 ? [{ upper: 'Selected', lower: String(selection.size) }] : []),
+      { upper: 'Page Width', lower: fmt(pageMM[0]) },
+      { upper: 'Page Height', lower: fmt(pageMM[1]) },
     ];
-  }, [pageMM, unit, preview, pageNumber, selection.size]);
+  }, [pageMM, unit, selection, sheet.items]);
 
   return (
     // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.

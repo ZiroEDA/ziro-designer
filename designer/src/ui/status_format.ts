@@ -108,6 +108,21 @@ export function messageTextFromValue(
   return text;
 }
 
+/**
+ * `EDA_UNIT_UTILS::GetText` (`common/eda_units.cpp:144-176`) — the unit suffix
+ * `MessageTextFromValue` appends when its `aAddUnitsText` is left at its
+ * upstream default of true (`include/eda_units.h:226-232`). It carries its own
+ * leading space, so `"16535.00" + unitText('mils')` is `"16535.00 mils"`.
+ *
+ * {@link messageTextFromValue} omits it, because every status-bar field that
+ * calls it prints the unit once in its own field rather than on each number.
+ * The message panel is the other case: `DS_DRAW_ITEM_BASE::GetMsgPanelInfo`
+ * takes the default and its rows read `(0.00 mils, 1.97 mils)`.
+ */
+export function unitText(units: StatusUnits): string {
+  return units === 'mm' ? ' mm' : units === 'mils' ? ' mils' : ' in';
+}
+
 /** Field 2: `"X %s  Y %s"` (two spaces), or the placeholder off-canvas. */
 export function coordsMsg(x: string | null, y?: string): string {
   return x === null || y === undefined ? 'X, Y -' : `X ${x}  Y ${y}`;
