@@ -68,6 +68,7 @@ import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DesignInspector } from './DesignInspector.js';
+import { MessageDialogError } from '../../ui/dialog_message.js';
 import { dsInspectorTitle } from './design_inspector.js';
 import {
   PageSettingsDialog,
@@ -235,6 +236,8 @@ export function DrawingSheetEditor({
   const [gridIndex, setGridIndex] = useState(DEFAULT_GRID_INDEX.pl_editor);
   /** Where the canvas context menu was opened, or null when it is closed. */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  /** DisplayErrorMessage's text when Print cannot open its preview window. */
+  const [printError, setPrintError] = useState<string | null>(null);
   const [blackBackground, setBlackBackground] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
   const [showPageDialog, setShowPageDialog] = useState(false);
@@ -456,7 +459,22 @@ export function DrawingSheetEditor({
     ctx.setTransform(scalePx, 0, 0, scalePx, 0, 0);
     drawDrawingSheetItems(ctx, draws, new Set(), { minWidth: 1 / scalePx });
     const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) return;
+    if (!w) {
+      // `window.open` returns null when the popup is blocked, and this used to
+      // `return` on it: Print then did nothing and reported nothing, which is
+      // the worst of the three outcomes. The system print dialog KiCad opens
+      // (DIALOG_PRINT_GENERIC via PL_EDITOR_FRAME's ACTIONS::print) is
+      // genuinely out of reach in a browser; failing silently is not.
+      //
+      // DisplayErrorMessage (common/confirm.cpp) is what upstream raises when
+      // a command cannot proceed, and it is the shared ui/dialog_message.tsx
+      // component here.
+      setPrintError(
+        'Print could not open the preview window.\n\n' +
+          'Your browser blocked the pop-up. Allow pop-ups for this site and try again.',
+      );
+      return;
+    }
     w.document.write(
       `<title>${fileName}</title><img src="${cv.toDataURL('image/png')}" style="width:100%" onload="window.print()">`,
     );
@@ -1673,6 +1691,10 @@ export function DrawingSheetEditor({
           // re-centred).
           onSelect={(i) => setSelection(new Set([i]))}
         />
+      )}
+
+      {printError && (
+        <MessageDialogError message={printError} onClose={() => setPrintError(null)} />
       )}
 
       {showSyntaxHelp && <SyntaxHelpDialog onClose={() => setShowSyntaxHelp(false)} />}
