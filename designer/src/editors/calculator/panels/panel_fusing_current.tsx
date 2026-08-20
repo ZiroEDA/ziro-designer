@@ -214,7 +214,7 @@ export function PanelFusingCurrent(): JSX.Element {
       </div>
 
       {/* m_helpSizer's HTML_WINDOW, showing `fusing_current_help.md`. */}
-      <fieldset className="calc-group fc-help">
+      <fieldset className="calc-group calc-help fc-help">
         <legend>Help</legend>
         <div className="calc-help-body">
           <p>

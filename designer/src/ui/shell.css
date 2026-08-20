@@ -243,6 +243,13 @@
      [px] the Negative box and the Symbol dot both measure 16 across. */
   --check-size: 16px;
   --check-face: #393939; /* [css] check, radio { background-image: image(#393939) } [px] agrees */
+  /* [px] the ring around an unchecked radio on a live pcb_calculator measures
+     rgb(25,25,25) - a shade off --ctl-border's #181818. */
+  --check-border: #191919;
+  /* [px] a CHECKED radio is a solid rgb(233,84,32) disc with a 6 px white
+     centre dot, 16 px across. Chrome's accent-color paints a ring plus a dot
+     instead, which is why ours never matched. */
+  --radio-dot: 5.5px;
   --check-margin: 4px; /* [css] check, radio { margin: 0 4px } */
   /* The row a checkbox or radio occupies, indicator centred in it. [px] the
      Output Format radios repeat every 34 px and wxFormBuilder gives them
@@ -540,11 +547,43 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-app textarea::placeholder {
   color: #8b9098;
 }
-/* The accent the browser paints inside a checkbox, radio or slider. */
+/* The accent the browser paints inside a checkbox or slider. */
 .ze-app input[type="checkbox"],
-.ze-app input[type="radio"],
 .ze-app input[type="range"] {
   accent-color: #e07b1a;
+}
+
+/* A wxRadioButton is DRAWN here rather than left to the engine. GTK paints a
+   filled disc with a white centre; Chrome's accent-color paints an outline
+   ring with a coloured dot inside it, so the two read differently at a glance
+   however the accent is set. [px] measured on a live pcb_calculator:
+   16x16 overall; unchecked = rgb(57,57,57) inside a 1 px rgb(25,25,25) ring;
+   checked = solid rgb(233,84,32), no ring, with a 6 px white dot centred
+   (x 676..679 of a control at 670..685). */
+.ze-app input[type="radio"] {
+  appearance: none;
+  width: var(--check-size);
+  height: var(--check-size);
+  flex: none;
+  border: 1px solid var(--check-border);
+  border-radius: 50%;
+  background: var(--check-face);
+}
+
+.ze-app input[type="radio"]:checked {
+  border-color: var(--chrome-active);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      #fff 0,
+      #fff calc(var(--radio-dot) / 2),
+      transparent calc(var(--radio-dot) / 2 + 0.5px)
+    ),
+    var(--chrome-active);
+}
+
+.ze-app input[type="radio"]:disabled {
+  background: var(--ctl-face-disabled, var(--check-face));
 }
 /* The list a <select> opens is a native popup: `color-scheme` handles most
    engines, and these keep the rows on KiCad's grey where it does not. */

@@ -406,7 +406,7 @@ function PanelIec60664(): JSX.Element {
 
       {/* sbSizerHelp's HTML_WINDOW, showing `iec60664_help.md` through
           ConvertMarkdown2Html. Carried here line for line. */}
-      <fieldset className="calc-group es-iec-help">
+      <fieldset className="calc-group calc-help es-iec-help">
         <legend>Help</legend>
         <div className="calc-help-body">
           <p>
