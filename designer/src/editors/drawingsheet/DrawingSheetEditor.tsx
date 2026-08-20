@@ -67,6 +67,7 @@ import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST, gridSizeToMM } from '../../ui/grid_
 import { DrawingSheetCanvas, type DrawingSheetCanvasController } from './DrawingSheetCanvas.js';
 import { PropertiesFrame, SyntaxHelpDialog } from './PropertiesFrame.js';
 import { DesignInspector } from './DesignInspector.js';
+import { dsInspectorTitle } from './design_inspector.js';
 import {
   PageSettingsDialog,
   defaultPreviewSettings,
@@ -1615,7 +1616,14 @@ export function DrawingSheetEditor({
         <DesignInspector
           items={sheet.items}
           selection={selection}
-          paperDescription={paperDescription(preview)}
+          // SetTitle( fn.GetName() ) or "<default drawing sheet>"
+          // (design_inspector.cpp:216-221). Ours hardcoded "Design Inspector",
+          // which is the one string upstream never puts there.
+          title={dsInspectorTitle(frameTitleName(fileName, ''))}
+          // PAGE_INFO::GetTypeAsString() — the page type NAME, not a
+          // description of it, and the page size goes in the Text column.
+          paperType={preview.paper}
+          pageMM={pageMM}
           onClose={() => setShowInspector(false)}
           // onCellClicked (design_inspector.cpp:344-353) is ClearSelection,
           // AddItemToSel, Refresh and CopyPrmsFromItemToPanel - a repaint, not

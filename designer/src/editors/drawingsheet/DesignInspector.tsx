@@ -3,44 +3,40 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Design Inspector dialog, the web counterpart of `pl_editor`'s
- * DIALOG_INSPECTOR (pagelayout_editor/dialogs/design_inspector.cpp): a grid of
- * every item in the sheet model with a leading root "Layout" row describing
- * the page, and per-item columns for the type, repeat count, comment and text.
+ * DIALOG_INSPECTOR (pagelayout_editor/dialogs/design_inspector.cpp): a wxGrid
+ * of every item in the sheet with a leading root "Layout" row describing the
+ * page.
+ *
+ * What the grid *contains* is `design_inspector.ts`; this file draws it.
  * Clicking a row selects that item on the canvas and leaves the dialog open.
  */
 
 import type { JSX } from 'react';
-import type { WksItem, WksText } from '@ziroeda/common';
+import type { WksItem } from '@ziroeda/common';
 import { useModalEscape } from '../../ui/useModalEscape.js';
-
-const TYPE_LABEL: Record<WksItem['type'], string> = {
-  line: 'Line',
-  rect: 'Rectangle',
-  text: 'Text',
-  bitmap: 'Image',
-  polygon: 'Poly',
-};
-
-/** A compact glyph standing in for the per-type icon column. */
-const TYPE_GLYPH: Record<WksItem['type'], string> = {
-  line: '╱',
-  rect: '▭',
-  text: 'T',
-  bitmap: '🖼',
-  polygon: '⬠',
-};
+import { DS_INSPECTOR_COLUMNS, dsInspectorRows } from './design_inspector.js';
 
 export function DesignInspector({
   items,
   selection,
-  paperDescription,
+  title,
+  paperType,
+  pageMM,
   onSelect,
   onClose,
 }: {
   items: WksItem[];
   selection: ReadonlySet<number>;
-  /** Page description shown on the root row (e.g. "A4 297x210mm landscape"). */
-  paperDescription: string;
+  /**
+   * `SetTitle( fn.GetName() )` (design_inspector.cpp:216-221) — already
+   * resolved by the caller through `dsInspectorTitle`, so a sheet that has
+   * never been saved reads `<default drawing sheet>`.
+   */
+  title: string;
+  /** `PAGE_INFO::GetTypeAsString()` — the page type NAME, e.g. `A3`. */
+  paperType: string;
+  /** `PL_EDITOR_FRAME::GetPageSizeIU`, in millimetres. */
+  pageMM: readonly [number, number];
   onSelect: (index: number) => void;
   onClose: () => void;
 }): JSX.Element {
@@ -48,10 +44,21 @@ export function DesignInspector({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
+  const rows = dsInspectorRows(items, paperType, pageMM);
+
   const cell: React.CSSProperties = {
     padding: '4px 8px',
     borderBottom: '1px solid rgba(128,128,128,0.2)',
   };
+  /** wxGrid's row-label gutter: SetRowLabelSize( 40 ), centred. */
+  const gutter: React.CSSProperties = {
+    ...cell,
+    width: 40,
+    textAlign: 'center',
+    opacity: 0.7,
+    userSelect: 'none',
+  };
+
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div
@@ -60,7 +67,7 @@ export function DesignInspector({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="ze-modal-header">
-          Design Inspector
+          {title}
           <span className="x" onClick={onClose}>
             ✕
           </span>
@@ -76,42 +83,44 @@ export function DesignInspector({
                   textAlign: 'left',
                 }}
               >
-                {['', 'Type', 'Count', 'Comment', 'Text'].map((h, i) => (
-                  <th key={`${h}${i}`} style={{ ...cell, borderBottomWidth: 2 }}>
+                {/* The gutter carries no column label of its own. */}
+                <th style={{ ...gutter, borderBottomWidth: 2 }} />
+                {DS_INSPECTOR_COLUMNS.map((h) => (
+                  <th key={h} style={{ ...cell, borderBottomWidth: 2 }}>
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* Root row: the layout itself. */}
-              <tr>
-                <td style={cell}>▤</td>
-                <td style={cell}>Layout</td>
-                <td style={cell}>-</td>
-                <td style={cell}>{paperDescription}</td>
-                <td style={cell} />
-              </tr>
-              {items.map((it, i) => (
+              {rows.map((row) => (
                 <tr
-                  key={i}
+                  key={row.number}
                   style={{
                     cursor: 'default',
-                    background: selection.has(i) ? 'rgba(74,163,255,0.18)' : undefined,
+                    background:
+                      row.itemIndex !== null && selection.has(row.itemIndex)
+                        ? 'rgba(74,163,255,0.18)'
+                        : undefined,
                   }}
                   // DIALOG_INSPECTOR::onCellClicked
                   // (design_inspector.cpp:338-354) selects the row, selects the
                   // item in the editor and repopulates the properties frame.
                   // It does NOT end the dialog: you walk the list row by row
-                  // with it open, watching the canvas behind it. Ours used to
-                  // close on the first click, so inspecting 29 items meant 29
-                  // trips through the Inspect menu.
-                  onClick={() => onSelect(i)}
+                  // with it open, watching the canvas behind it.
+                  //
+                  // The root row is `m_itemsList[0] == nullptr` (:238), and
+                  // onCellClicked returns early on it.
+                  onClick={() => {
+                    if (row.itemIndex !== null) onSelect(row.itemIndex);
+                  }}
                 >
-                  <td style={cell}>{TYPE_GLYPH[it.type]}</td>
-                  <td style={cell}>{TYPE_LABEL[it.type]}</td>
-                  <td style={cell}>{it.repeat}</td>
-                  <td style={cell}>{it.comment || <span className="ze-muted">-</span>}</td>
+                  <td style={gutter}>{row.number}</td>
+                  {/* COL_BITMAP: KiCad draws a per-type XPM in this column. */}
+                  <td style={cell} />
+                  <td style={cell}>{row.type}</td>
+                  <td style={cell}>{row.count}</td>
+                  <td style={cell}>{row.comment}</td>
                   <td
                     style={{
                       ...cell,
@@ -121,23 +130,18 @@ export function DesignInspector({
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    {it.type === 'text' ? (it as WksText).text : ''}
+                    {row.text}
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="ze-muted" style={{ padding: 10 }}>
-                    No items.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
         <div className="ze-modal-footer">
-          <button className="ze-btn primary" onClick={onClose}>
-            Close
+          {/* m_sdbSizer holds exactly one button, wxID_CANCEL
+              (dialog_design_inspector_base.cpp:60-63). */}
+          <button className="ze-btn" onClick={onClose}>
+            Cancel
           </button>
         </div>
       </div>
