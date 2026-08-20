@@ -150,7 +150,7 @@ function MenuEntry({ item, close }: { item: MenuItem; close: () => void }): JSX.
 
           The check mark stays: that is a wxITEM_CHECK item, not a bitmap, and
           GTK renders it. */}
-      <span className="mico">{item.checked ? <span className="mcheck">✓</span> : item.icon && toolbarIconUrl(item.icon) ? <img src={toolbarIconUrl(item.icon)} alt="" /> : null}</span>
+      <span className="mico">{item.checked ? <span className="mcheck">✓</span> : null}</span>
       <span className="lbl">{withMnemonic(item.label, item.mnemonic)}</span>
       {item.shortcut && <span className="sc">{item.shortcut}</span>}
       {/* The same drawn chevron the project tree's twisty uses, rather than a
