@@ -38,7 +38,8 @@ export type YesNoResult = 'yes' | 'no';
 /** GTK's stock labels, which `wxMessageDialog` uses unless `SetYesNoLabels`. */
 export const YES_LABEL = 'Yes';
 export const NO_LABEL = 'No';
-/** …and the one `wxOK` gets. */
+/** …and the one `wxOK` gets: the only button a bare wxMessageBox has, and the
+ *  only button `DisplayErrorMessage` has. */
 export const OK_LABEL = 'OK';
 
 /**

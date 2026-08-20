@@ -6858,3 +6858,35 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-combo-item.disabled {
   color: var(--ctl-fg-disabled);
 }
+
+/* wxGetSingleChoice's list. Same `.ze-modal` shell as the message dialogs, with
+   a scrolling listbox in place of the icon + text row. */
+.ze-modal.ze-choicedlg {
+  min-width: 340px;
+  max-width: 90vw;
+}
+.ze-choicedlg-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ze-choicedlg-message {
+  color: var(--chrome-fg);
+}
+.ze-choicedlg-list {
+  background: var(--field-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  max-height: 320px;
+  overflow-y: auto;
+  outline: none;
+}
+.ze-choicedlg-item {
+  padding: 3px 8px;
+  cursor: default;
+  white-space: pre;
+}
+.ze-choicedlg-item.selected {
+  background: var(--chrome-active);
+}

@@ -110,9 +110,6 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
 
   useMenuHotkeys(menus, 'calculator');
 
-  const item = TREE.flatMap((g) => g.items).find((i) => i.id === active) ?? TREE[0]!.items[0]!;
-  const Panel = item.panel;
-
   return (
     <div className="calc-frame ze-app">
       <MenuBar
@@ -155,8 +152,21 @@ export function CalculatorTools({ onExitToHome }: { onExitToHome: () => void }):
             </div>
           ))}
         </nav>
+        {/* A wxTreebook builds EVERY page when the frame is created and only
+            shows one at a time (wxBookCtrlBase::AddPage), so a value typed on
+            Regulators is still there after a trip through Cable Size. Rendering
+            only the selected panel unmounted the other thirteen and reset them,
+            which is the one behaviour of this frame a user notices instantly.
+            Hidden, not unmounted. */}
         <main className="calc-panel" data-testid="calc-panel">
-          <Panel />
+          {TREE.flatMap((g) => g.items).map((it) => {
+            const Panel = it.panel;
+            return (
+              <div key={it.id} hidden={it.id !== active} className="calc-page">
+                <Panel />
+              </div>
+            );
+          })}
         </main>
       </div>
       {aboutOpen && (

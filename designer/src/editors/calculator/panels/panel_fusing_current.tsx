@@ -8,8 +8,9 @@
  */
 
 import { useState, type JSX } from 'react';
-import { type FusingSolveFor, fusingCurrent } from '@ziroeda/pcb_calculator';
-import { Field, LEN_UNITS, type UnitOpt, fmt, parseNum } from '../fields.js';
+import { type FusingSolveFor, fusingCurrent, printfF } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
+import { Field, LEN_UNITS, type UnitOpt, parseNum } from '../fields.js';
 
 const LEN_SHORT: UnitOpt[] = LEN_UNITS.filter((u) => ['mm', 'µm', 'mil'].includes(u.label));
 
@@ -19,19 +20,20 @@ function LenRow({
   solveFor,
   active,
   onActive,
-  baseM,
-  onBaseM,
+  text,
+  onText,
+  unitIdx,
+  setUnitIdx,
 }: {
   label: string;
   solveFor: FusingSolveFor;
   active: FusingSolveFor;
   onActive: (s: FusingSolveFor) => void;
-  baseM: number;
-  onBaseM: (v: number) => void;
+  text: string;
+  onText: (v: string) => void;
+  unitIdx: number;
+  setUnitIdx: (i: number) => void;
 }): JSX.Element {
-  const [unitIdx, setUnitIdx] = useState(0);
-  const mult = LEN_SHORT[unitIdx]?.mult ?? 1e-3;
-  const text = Number.isFinite(baseM) ? fmt(baseM / mult, 6) : '';
   return (
     <div className="calc-field">
       <input
@@ -43,24 +45,20 @@ function LenRow({
       <span className="calc-field-label" style={{ minWidth: 120 }}>
         {label}
       </span>
+      {/* Not read-only: KiCad's four value fields are plain wxTextCtrls and the
+          solved one is simply overwritten (panel_fusing_current.cpp:162-199). */}
       <input
-        className={`calc-input${active === solveFor ? ' ro' : ''}`}
+        className="calc-input"
         value={text}
-        readOnly={active === solveFor}
         spellCheck={false}
-        onChange={(e) => onBaseM(parseNum(e.target.value) * mult)}
+        onChange={(e) => onText(e.target.value)}
       />
-      <select
-        className="calc-select calc-unit-select"
-        value={unitIdx}
-        onChange={(e) => setUnitIdx(Number(e.target.value))}
-      >
-        {LEN_SHORT.map((u, i) => (
-          <option key={u.label} value={i}>
-            {u.label}
-          </option>
-        ))}
-      </select>
+      <Combo
+        style={{ minWidth: 62 }}
+        value={String(unitIdx)}
+        options={LEN_SHORT.map((u, i) => ({ value: String(i), label: u.label }))}
+        onChange={(v) => setUnitIdx(Number(v))}
+      />
     </div>
   );
 }
@@ -95,9 +93,8 @@ function NumRow({
         {label}
       </span>
       <input
-        className={`calc-input${active === solveFor ? ' ro' : ''}`}
+        className="calc-input"
         value={value}
-        readOnly={active === solveFor}
         spellCheck={false}
         onChange={(e) => onValue(e.target.value)}
       />
@@ -109,17 +106,28 @@ function NumRow({
 export function PanelFusingCurrent(): JSX.Element {
   const [ambient, setAmbient] = useState('25');
   const [melting, setMelting] = useState('1084'); // copper
-  const [widthM, setWidthM] = useState(0.1e-3);
-  const [thicknessM, setThicknessM] = useState(0.035e-3);
-  const [current, setCurrent] = useState('10');
-  const [time, setTime] = useState('0.01');
-  const [solveFor, setSolveFor] = useState<FusingSolveFor>('current');
+  // The panel's state IS the text in the fields, as it is in wx. That matters
+  // here: KiCad re-reads the ROUNDED "%f" string on the next Calculate, so
+  // solving for width and then back for current gives 10.000029 A, not 10 A.
+  // Holding a full-precision number instead hides that feedback.
+  const [width, setWidth] = useState(printfF(0.1));
+  const [widthUnit, setWidthUnit] = useState(0);
+  const [thickness, setThickness] = useState(printfF(0.035));
+  const [thicknessUnit, setThicknessUnit] = useState(0);
+  // panel_fusing_current.cpp:47-53 — the two temperatures with "%i" and the
+  // four values with "%f"; and the first radio of the group, Track width, is
+  // the one wx selects (the base file marks none of the four).
+  const [current, setCurrent] = useState(printfF(10));
+  const [time, setTime] = useState(printfF(0.01));
+  const [solveFor, setSolveFor] = useState<FusingSolveFor>('width');
   const [error, setError] = useState('');
   const [comment, setComment] = useState('');
 
   const calculate = (): void => {
     setError('');
     setComment('');
+    const widthM = parseNum(width) * (LEN_SHORT[widthUnit]?.mult ?? 1e-3);
+    const thicknessM = parseNum(thickness) * (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3);
     const r = fusingCurrent({
       ambientC: parseNum(ambient),
       meltingC: parseNum(melting),
@@ -130,14 +138,21 @@ export function PanelFusingCurrent(): JSX.Element {
       solveFor,
     });
     if (r.error) {
-      setError(r.error);
+      // KiCad writes the literal string "Error" into the field it was solving
+      // for and shows nothing else (panel_fusing_current.cpp:166,179,191,203).
+      if (solveFor === 'current') setCurrent('Error');
+      else if (solveFor === 'time') setTime('Error');
+      else if (solveFor === 'width') setWidth('Error');
+      else setThickness('Error');
+      setError('');
       return;
     }
     setComment(r.comment ?? '');
-    if (solveFor === 'width') setWidthM(r.widthM);
-    else if (solveFor === 'thickness') setThicknessM(r.thicknessM);
-    else if (solveFor === 'current') setCurrent(fmt(r.currentA, 6));
-    else setTime(fmt(r.timeS, 6));
+    if (solveFor === 'width') setWidth(printfF(r.widthM / (LEN_SHORT[widthUnit]?.mult ?? 1e-3)));
+    else if (solveFor === 'thickness')
+      setThickness(printfF(r.thicknessM / (LEN_SHORT[thicknessUnit]?.mult ?? 1e-3)));
+    else if (solveFor === 'current') setCurrent(printfF(r.currentA));
+    else setTime(printfF(r.timeS));
   };
 
   return (
@@ -156,16 +171,20 @@ export function PanelFusingCurrent(): JSX.Element {
           solveFor="width"
           active={solveFor}
           onActive={setSolveFor}
-          baseM={widthM}
-          onBaseM={setWidthM}
+          text={width}
+          onText={setWidth}
+          unitIdx={widthUnit}
+          setUnitIdx={setWidthUnit}
         />
         <LenRow
           label="Track thickness:"
           solveFor="thickness"
           active={solveFor}
           onActive={setSolveFor}
-          baseM={thicknessM}
-          onBaseM={setThicknessM}
+          text={thickness}
+          onText={setThickness}
+          unitIdx={thicknessUnit}
+          setUnitIdx={setThicknessUnit}
         />
         <NumRow
           label="Current:"
@@ -186,7 +205,7 @@ export function PanelFusingCurrent(): JSX.Element {
           unit="s"
         />
         <div style={{ marginTop: 8 }}>
-          <button type="button" className="calc-btn primary" onClick={calculate}>
+          <button type="button" className="calc-btn" onClick={calculate}>
             Calculate
           </button>
         </div>
@@ -194,13 +213,23 @@ export function PanelFusingCurrent(): JSX.Element {
         {comment && <div className="calc-note">{comment}</div>}
       </div>
 
-      <fieldset className="calc-group" style={{ marginTop: 14 }}>
+      {/* m_helpSizer's HTML_WINDOW, showing `fusing_current_help.md`. */}
+      <fieldset className="calc-group fc-help">
         <legend>Help</legend>
-        <div className="calc-note" style={{ lineHeight: 1.6 }}>
-          Checks whether a small track can carry a large current for a short time, a track-fuse
-          design aid, to be used only as an estimate. The model compares the energy needed to heat
-          the copper to its melting point (plus the latent heat of fusion) against the energy the
-          track dissipates as I²R over the fuse time. Copper only.
+        <div className="rc-help-body">
+          <p>
+            You can use this calculator to check if a small track can handle a large current for a
+            short period of time.
+            <br />
+            This tool allows you to design a track fuse but should be used as an estimate only.
+          </p>
+          <p>
+            The calculator estimates the energy required to heat the wire up
+            <br />
+            to its melting point as well as the energy required for the change of phase.
+            <br />
+            This energy is then compared to the one dissipated by the wire resistance.
+          </p>
         </div>
       </fieldset>
     </div>

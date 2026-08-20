@@ -6,6 +6,7 @@
  * Counterpart: KiCad `pcb_calculator/`.
  */
 
+export * from './format.js';
 export * from './eseries.js';
 export * from './resistor_substitution_utils.js';
 export * from './regulators_funct.js';

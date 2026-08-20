@@ -189,7 +189,7 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /* ------------------------------------------------------------------------- *
  * The ratchet.
  *
- * 412 hardcoded font sizes are still in the tree across 29 distinct values.
+ * 407 hardcoded font sizes are still in the tree across 29 distinct values.
  * They come out per launcher, as each launcher's parity work reaches it and
  * can be verified against that launcher's own side-by-side captures - a
  * 414-site sweep can only be verified in aggregate, which is not verification.
@@ -206,7 +206,8 @@ describe('the menu bar reads the token, and its drop-down inherits it', () => {
 /** Every hardcoded font size in the tree today, by owning area. */
 const BASELINE: Record<string, number> = {
   dialogs: 5,
-  'editors/calculator': 5,
+  // `editors/calculator` is absent because it is at ZERO: the calculator's
+  // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
   // and moved to ui/'s .ze-unit-label when UnitField replaced it; the two
   // invented "deg" spans beside Rotation went with the B5 label pass, since
@@ -329,7 +330,11 @@ describe('hardcoded font sizes do not grow', () => {
   });
 
   it('the total is what the PR reported, so the number in the PR stays true', () => {
-    // 414 before the drawing sheet's unit-binder pass: -3 there, +1 in ui/.
-    expect(sites.length).toBe(412);
+    // 407, RECOUNTED FROM THE TREE after merging the calculator and drawing
+    // sheet passes — not from either side's diff. Each pass alone reported a
+    // different number (409 and 412) and neither is the answer; keeping either
+    // one still compiles and silently hides the other's remaining sites, which
+    // is the specific way this file has been broken before.
+    expect(sites.length).toBe(407);
   });
 });

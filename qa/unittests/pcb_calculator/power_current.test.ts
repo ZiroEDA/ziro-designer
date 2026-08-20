@@ -14,10 +14,12 @@ import {
   cableRadiusFromVDrop,
   cableUpdateAll,
   fusingCurrent,
+  ipc2221AreaM2,
   ipc2221CurrentA,
   ipc2221RowForVoltage,
   ipc2221Spacing,
   nearestAwgIndex,
+  printfG,
   trackWidth,
   viaSize,
 } from '@ziroeda/pcb_calculator';
@@ -197,5 +199,36 @@ describe('cable size', () => {
       0.5e-3,
       12,
     );
+  });
+});
+
+/**
+ * Track Width's reverse direction, driven side by side against the real panel:
+ * an external track 1 mm wide and 35 µm thick at a 10 °C rise reads 2.39156 A in
+ * pcb_calculator 10.0.5, and the bold moves off Current onto Track width.
+ */
+describe('Track Width solves in both directions', () => {
+  it('a 1 mm x 35 um external track carries 2.39156 A at dT = 10', () => {
+    const a = ipc2221CurrentA(1e-3 * 35e-6, 10, true);
+    expect(printfG(a)).toBe('2.39156');
+  });
+
+  it('and the same area internally carries less, per K = 0.024', () => {
+    const ext = ipc2221CurrentA(1e-3 * 35e-6, 10, true);
+    const int_ = ipc2221CurrentA(1e-3 * 35e-6, 10, false);
+    expect(int_).toBeLessThan(ext);
+    expect(ext / int_).toBeCloseTo(0.048 / 0.024, 9);
+  });
+
+  it('round-trips against ipc2221AreaM2', () => {
+    const area = ipc2221AreaM2(2.39156, 10, true);
+    expect(ipc2221CurrentA(area, 10, true)).toBeCloseTo(2.39156, 5);
+  });
+
+  it('the default external width is 0.300387 mm, as the real panel shows', () => {
+    // 1.0 A, 10.0 degC rise, 35 um copper.
+    const area = ipc2221AreaM2(1, 10, true);
+    expect(printfG(area / 35e-6 / 1e-3)).toBe('0.300387');
+    expect(printfG((area / 1e-3 / 1e-3) * 1)).toBe('0.0105135');
   });
 });

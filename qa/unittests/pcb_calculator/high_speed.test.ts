@@ -3,6 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, expect, it } from 'vitest';
 import {
+  ATTENUATORS,
   AttenuatorType,
   calculateAttenuator,
   coaxAnalyze,
@@ -310,5 +311,37 @@ describe('coupled microstrip', () => {
     const syn = coupledMicrostripSynthesize(phys, el, 100, 90)!;
     expect(syn).not.toBeNull();
     expect(coupledMicrostripAnalyze(syn, el).extra.zDiff).toBeCloseTo(100, 1);
+  });
+});
+
+/**
+ * The four wxRadioBox entries and the three result labels, exactly as
+ * `panel_rf_attenuators_base.cpp:24` and `:119-141` spell them. They are display
+ * strings, so a reworded one is a parity defect even though nothing computes
+ * differently — which is why they are pinned here rather than left to the panel.
+ */
+describe('attenuator display strings', () => {
+  it('the radio box reads Pi / Tee / Bridged tee / Resistive splitter', () => {
+    expect(ATTENUATORS.map((a) => a.name)).toStrictEqual([
+      'Pi',
+      'Tee',
+      'Bridged tee',
+      'Resistive splitter',
+    ]);
+  });
+
+  it('the Values box labels are bare R1, R2, R3 — and the bridged tee has two', () => {
+    for (const a of ATTENUATORS) {
+      expect(a.resistorLabels.every((l) => /^R[123]$/.test(l))).toBe(true);
+    }
+    expect(ATTENUATORS[AttenuatorType.BRIDGED_TEE]?.resistorLabels).toStrictEqual(['R1', 'R2']);
+    expect(ATTENUATORS[AttenuatorType.PI]?.resistorLabels).toStrictEqual(['R1', 'R2', 'R3']);
+  });
+
+  it('only the splitter fixes its attenuation, and Zin follows Zout on two', () => {
+    // m_Attenuation_Enable false only for the splitter; m_Zin_Enable false for
+    // the bridged tee and the splitter (attenuator_classes.cpp:132, 157, 160).
+    expect(ATTENUATORS.map((a) => a.hasAttenuation)).toStrictEqual([true, true, true, false]);
+    expect(ATTENUATORS.map((a) => a.hasZout)).toStrictEqual([true, true, false, false]);
   });
 });

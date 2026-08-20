@@ -2,7 +2,22 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `KICAD_MESSAGE_DIALOG` with `wxYES_NO`, drawn.
+ * `KICAD_MESSAGE_DIALOG`, drawn — the three shapes `pcb_calculator`, the drawing
+ * sheet and the editors between them raise.
+ *
+ * There are TWO one-button dialogs here and that is deliberate, because upstream
+ * has two distinct callers:
+ *
+ *   `MessageDialogError`  `DisplayErrorMessage()` (common/confirm.cpp) —
+ *                         `wxOK | wxICON_ERROR`, caption fixed to `_( "Error" )`,
+ *                         and an optional `SetExtendedMessage`.
+ *   `MessageDialogOk`     a bare `wxMessageBox( msg )` — `wxICON_INFORMATION`
+ *                         and `wxMessageBoxCaptionStr`, i.e. the caption is the
+ *                         CALLER's to choose. `pcb_calculator` raises three.
+ *
+ * They differ in icon, in where the caption comes from, and in whether the
+ * caption is a parameter at all. Do not collapse them into one component with
+ * flags without checking both call sites first.
  *
  * `include/confirm.h:45-53` aliases it to `wxMessageDialog`, which is one
  * dialog shared by every frame; ours is likewise one component in `ui/`, not a
@@ -172,6 +187,57 @@ export function MessageDialogYesNo({
               {b.label}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `wxMessageBox( msg )` — the one-button information box, the same
+ * `KICAD_MESSAGE_DIALOG` shell with `wxOK | wxICON_INFORMATION` instead of
+ * `wxYES_NO`. `pcb_calculator` raises three of them (an out-of-range required
+ * resistance, a duplicate regulator, an unreadable data file) and every one is
+ * this dialog, not an inline label — measured on the running 10.0.5: a 461x163
+ * window, the information glyph left of a centred message, one full-width OK
+ * with the focus ring on it.
+ *
+ * With no `wxCANCEL` in the style word Esc maps to the only button there is, so
+ * Esc dismisses it.
+ */
+export function MessageDialogOk({
+  caption = 'Message',
+  message,
+  icon = 'information',
+  onClose,
+}: {
+  /** `wxMessageBoxCaptionStr`, which is what a bare wxMessageBox uses. */
+  caption?: string;
+  message: string;
+  icon?: MessageDialogIcon;
+  onClose: () => void;
+}): JSX.Element {
+  useModalEscape(onClose);
+
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    okRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-msgdlg" role="alertdialog" aria-modal="true">
+        <div className="ze-modal-header">{caption}</div>
+        <div className="ze-msgdlg-body">
+          <DialogIcon icon={icon} />
+          <div className="ze-msgdlg-text">
+            <div className="ze-msgdlg-message">{message}</div>
+          </div>
+        </div>
+        <div className="ze-msgdlg-buttons">
+          <button type="button" className="ze-btn primary" ref={okRef} onClick={onClose}>
+            {OK_LABEL}
+          </button>
         </div>
       </div>
     </div>

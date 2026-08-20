@@ -94,3 +94,12 @@ export function eseriesNearest(id: ESeriesId, target: number): number {
 function roundSig(v: number): number {
   return Number(v.toPrecision(12));
 }
+
+/**
+ * KiCad stores the E-series tables as `uint16_t` scaled by 100 — `eSeries12` is
+ * `{ 100, 120, 150, … }` — and the E-Series memo page prints those integers
+ * straight out with `wxString( "" ) << seriesEntry`
+ * (panel_eseries_display.cpp:177, 261-288). Ours hold the decade-normalised
+ * value, so this is the factor that puts the same digits on screen.
+ */
+export const ESERIES_DISPLAY_SCALE = 100;

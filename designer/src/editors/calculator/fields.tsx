@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { Combo } from '../../ui/Combo.js';
+import { printfG } from '@ziroeda/pcb_calculator';
 import { useModalEscape } from '../../ui/useModalEscape.js';
 
 /** Parse a user-typed number; returns NaN for empty/invalid text. */
@@ -80,6 +82,7 @@ export function Field({
   readOnly,
   title,
   width,
+  bold,
 }: {
   label: ReactNode;
   value: string;
@@ -88,9 +91,12 @@ export function Field({
   readOnly?: boolean;
   title?: string;
   width?: number;
+  /** KiCad bolds the LABEL and the FIELD of a controlling value together
+   *  (panel_track_width.cpp:340-392). */
+  bold?: boolean;
 }): JSX.Element {
   return (
-    <label className="calc-field" title={title}>
+    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
       <span className="calc-field-label">{label}</span>
       <input
         className={`calc-input${readOnly ? ' ro' : ''}`}
@@ -121,7 +127,9 @@ export function NumField({
   defaultUnit,
   readOnly,
   title,
-  digits = 5,
+  digits = 6,
+  bold,
+  labelAlign,
 }: {
   label: ReactNode;
   units: UnitOpt[];
@@ -131,11 +139,21 @@ export function NumField({
   defaultUnit?: string;
   readOnly?: boolean;
   title?: string;
+  /** `%g` precision; C's default, and KiCad never passes another. */
   digits?: number;
+  /** As on `Field`: the controlling value's label and field are both bold. */
+  bold?: boolean;
+  /** wxFormBuilder right-aligns exactly one parameter label in the whole
+   *  launcher — Transmission Lines' Frequency
+   *  (panel_transline_base.cpp:207). Everything else is flush left. */
+  labelAlign?: 'left' | 'right';
 }): JSX.Element {
   const [idx, setIdx] = useState(() => (defaultUnit ? unitIndex(units, defaultUnit) : 0));
   const mult = units[idx]?.mult ?? 1;
-  const derived = Number.isFinite(base) ? fmt(base / mult, digits) : readOnly ? '--' : '';
+  // `%g`. Every value pcb_calculator writes into a field goes through
+  // `wxString::Format( "%g", … )`, which is six significant figures — the five
+  // this used to print showed 0.30039 where the real panel shows 0.300387.
+  const derived = Number.isFinite(base) ? printfG(base / mult, digits) : readOnly ? '' : '';
   const [text, setText] = useState(derived);
   const focused = useRef(false);
 
@@ -153,12 +171,14 @@ export function NumField({
     const nextMult = units[nextIdx]?.mult ?? 1;
     const cur = parseNum(text);
     setIdx(nextIdx);
-    if (Number.isFinite(cur)) setText(fmt((cur * mult) / nextMult, digits));
+    if (Number.isFinite(cur)) setText(printfG((cur * mult) / nextMult, digits));
   };
 
   return (
-    <label className="calc-field" title={title}>
-      <span className="calc-field-label">{label}</span>
+    <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
+      <span className="calc-field-label" style={labelAlign ? { textAlign: labelAlign } : undefined}>
+        {label}
+      </span>
       <input
         className={`calc-input${readOnly ? ' ro' : ''}`}
         value={text}
@@ -173,17 +193,12 @@ export function NumField({
         onChange={readOnly ? undefined : (e) => emit(e.target.value)}
       />
       {units.length > 1 ? (
-        <select
-          className="calc-select calc-unit-select"
-          value={idx}
-          onChange={(e) => switchUnit(Number(e.target.value))}
-        >
-          {units.map((u, i) => (
-            <option key={u.label} value={i}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <Combo
+          style={{ minWidth: 62 }}
+          value={String(idx)}
+          options={units.map((u, i) => ({ value: String(i), label: u.label }))}
+          onChange={(v) => switchUnit(Number(v))}
+        />
       ) : (
         <span className="calc-unit">{units[0]?.label}</span>
       )}
@@ -272,4 +287,32 @@ export function copyText(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * A read-only RESULT line. `pcb_calculator` shows every computed value as a
+ * `wxStaticText` whose label it rewrites (`m_ViaResistance->SetLabel( msg )`,
+ * panel_via_size.cpp:276-300, and the same shape on Track Width, Wavelength,
+ * Fusing Current and the attenuators) — never a text control. Ours had drawn
+ * them as read-only entry boxes, which is a whole column of borders KiCad does
+ * not paint.
+ */
+export function ResultField({
+  label,
+  value,
+  unit,
+  title,
+}: {
+  label: ReactNode;
+  value: string;
+  unit?: ReactNode;
+  title?: string;
+}): JSX.Element {
+  return (
+    <div className="calc-result" title={title}>
+      <span className="calc-field-label">{label}</span>
+      <span className="calc-result-value">{value}</span>
+      {unit != null && <span className="calc-unit">{unit}</span>}
+    </div>
+  );
 }

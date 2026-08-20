@@ -17,11 +17,29 @@ import {
   type RegulatorData,
   RegulatorSolve,
   RegulatorType,
+  REGULATOR_DEFAULTS,
+  REGULATOR_TYPE_CHOICES,
+  printfG,
   solveRegulator,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, Group, Modal, copyText, parseNum } from '../fields.js';
 
 const STORAGE_KEY = 'ziro.calculator.regulators';
+
+// The tooltips wxFormBuilder attaches, character for character
+// (panel_regulator_base.cpp:29, 88, 108, 113, 118, 236, 258 — note the double
+// space in the Iadj one, which is upstream's).
+const TIP_TYPE =
+  'Type of the regulator.\nThere are 2 types:\n' +
+  '- regulators which have a dedicated sense pin for the voltage regulation.\n' +
+  '- 3 terminal pins.';
+const TIP_DATA_FILE = 'The name of the data file which stores known regulators parameters.';
+const TIP_EDIT = 'Edit the current selected regulator.';
+const TIP_ADD = 'Enter a new item to the current list of available regulators';
+const TIP_REMOVE = 'Remove an item from the current list of available regulators';
+const TIP_VREF = 'The internal reference voltage of the regulator.\nShould not be 0.';
+const TIP_IADJ = 'For 3 terminal regulators only, the  Adjust pin current.';
 
 interface Stored {
   regulators: RegulatorData[];
@@ -119,7 +137,9 @@ const formFrom = (r: RegulatorData | null): RegForm => ({
 
 /** KiCad PANEL_REGULATOR::round_to + "%g" display (default step 0.001). */
 const roundTo = (v: number, precision = 0.001): string =>
-  Number.isFinite(v) ? String(Number((Math.round(v / precision) * precision).toPrecision(12))) : '';
+  Number.isFinite(v)
+    ? printfG(Number((Math.round(v / precision) * precision).toPrecision(12)))
+    : '';
 
 export function PanelRegulator(): JSX.Element {
   const [store, setStore] = useState<Stored>(loadRegulators);
@@ -135,21 +155,32 @@ export function PanelRegulator(): JSX.Element {
   const [iadjMax, setIadjMax] = useState('100');
   const [resTol, setResTol] = useState('1');
   const [comment, setComment] = useState('');
-  const [result, setResult] = useState<ReturnType<typeof solveRegulator> | null>(null);
+  // KiCad holds no result object: RegulatorsSolve() writes every cell straight
+  // back into its wxTextCtrl and the message into a wxStaticText, and nothing
+  // else ever clears them — not a radio, not an edit, not a regulator change.
+  // Mirroring that is what makes the panel behave like the real one.
+  const [r1Min, setR1Min] = useState('');
+  const [r1Max, setR1Max] = useState('');
+  const [r2Min, setR2Min] = useState('');
+  const [r2Max, setR2Max] = useState('');
+  const [voutMin, setVoutMin] = useState('');
+  const [voutMax, setVoutMax] = useState('');
+  const [tolMin, setTolMin] = useState('');
+  const [tolMax, setTolMax] = useState('');
+  const [message, setMessage] = useState('');
 
   // Dialog / feedback state (in-page, sandbox-safe).
   const [form, setForm] = useState<RegForm | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
+  // KiCad's wxMessageBox. It has exactly three on this panel and none of them
+  // is a success notice — Copy to Clipboard, Reset to Defaults, Add and Remove
+  // all complete silently, which is why the transient "toast" that used to sit
+  // beside Calculate is gone.
+  const [notice, setNotice] = useState('');
   const [dataFileName, setDataFileName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => saveRegulators(store), [store]);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(''), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const current = store.regulators.find((r) => r.name === store.selected) ?? null;
 
@@ -160,7 +191,6 @@ export function PanelRegulator(): JSX.Element {
     setVrefMax(String(reg.vrefMax));
     setIadjTyp(String(reg.iadjTyp * 1e6));
     setIadjMax(String(reg.iadjMax * 1e6));
-    setResult(null);
   };
 
   const calculate = (): void => {
@@ -177,48 +207,51 @@ export function PanelRegulator(): JSX.Element {
       iadjMax: parseNum(iadjMax) * 1e-6,
       resTolPct: parseNum(resTol),
     });
-    setResult(r);
-    if (!r.error) {
-      // KiCad writes every typ cell back (rounded) and auto-fills the power
-      // comment as "<typ>V [<min>V ... <max>V]" with 0.01 rounding.
-      setR1(roundTo(r.r1.typ / 1000));
-      setR2(roundTo(r.r2.typ / 1000));
-      setVout(roundTo(r.vout.typ));
-      setComment(
-        `${roundTo(r.vout.typ, 0.01)}V [${roundTo(r.vout.min, 0.01)}V ... ${roundTo(
-          r.vout.max,
-          0.01,
-        )}V]`,
-      );
-    }
+    // KiCad clears the message first, then either reports and returns, or
+    // writes all nine cells plus the power comment (panel_regulator.cpp:500-539).
+    setMessage(r.error ?? '');
+    if (r.error) return;
+    const kk = (v: number): string => roundTo(v / 1000);
+    setR1Min(kk(r.r1.min));
+    setR1(kk(r.r1.typ));
+    setR1Max(kk(r.r1.max));
+    setR2Min(kk(r.r2.min));
+    setR2(kk(r.r2.typ));
+    setR2Max(kk(r.r2.max));
+    setVoutMin(roundTo(r.vout.min));
+    setVout(roundTo(r.vout.typ));
+    setVoutMax(roundTo(r.vout.max));
+    setTolMin(roundTo(r.tolNegPct, 0.01));
+    setTolMax(roundTo(r.tolPosPct, 0.01));
+    setComment(
+      `${roundTo(r.vout.typ, 0.01)}V [${roundTo(r.vout.min, 0.01)}V ... ${roundTo(
+        r.vout.max,
+        0.01,
+      )}V]`,
+    );
   };
 
-  const rows = useMemo(() => {
-    const r = result && !result.error ? result : null;
-    // KiCad rounds after scaling to kΩ (round_to default 0.001, "%g" display).
-    const kk = (v: number): string => roundTo(v / 1000);
-    return {
-      r1: {
-        min: r ? kk(r.r1.min) : '',
-        typ: solve === RegulatorSolve.R1 && r ? kk(r.r1.typ) : r1,
-        max: r ? kk(r.r1.max) : '',
-      },
-      r2: {
-        min: r ? kk(r.r2.min) : '',
-        typ: solve === RegulatorSolve.R2 && r ? kk(r.r2.typ) : r2,
-        max: r ? kk(r.r2.max) : '',
-      },
-      vout: {
-        min: r ? roundTo(r.vout.min) : '',
-        typ: solve === RegulatorSolve.VOUT && r ? roundTo(r.vout.typ) : vout,
-        max: r ? roundTo(r.vout.max) : '',
-      },
-    };
-  }, [result, solve, r1, r2, vout]);
+  // DIALOG_REGULATOR_FORM::TransferDataFromWindow (dialog_regulator_form.cpp:49)
+  // simply returns false when a field is empty, |Vref| < 0.1 or (3-terminal)
+  // |Iadj| < 1 — the dialog stays open and says nothing at all.
+  const formValid = (f: RegForm | null): boolean => {
+    if (!f || !f.name.trim()) return false;
+    for (const v of [f.vrefMin, f.vrefTyp, f.vrefMax]) {
+      if (v.trim() === '' || Math.abs(parseNum(v)) < 0.1) return false;
+    }
+    if (f.type === RegulatorType.THREE_TERMINAL) {
+      for (const v of [f.iadjTyp, f.iadjMax]) {
+        if (v.trim() === '' || !Number.isInteger(parseNum(v)) || Math.abs(parseNum(v)) < 1)
+          return false;
+      }
+    }
+    return true;
+  };
 
   const saveForm = (): void => {
-    if (!form?.name.trim()) {
-      setToast('Enter a regulator name.');
+    if (!formValid(form) || !form) return;
+    if (!form.original && store.regulators.some((r) => r.name === form.name.trim())) {
+      setNotice('This regulator is already in list. Aborted');
       return;
     }
     const reg: RegulatorData = {
@@ -239,7 +272,6 @@ export function PanelRegulator(): JSX.Element {
     });
     applyRegulator(reg);
     setForm(null);
-    setToast(form.original ? `Updated '${reg.name}'.` : `Added '${reg.name}'.`);
   };
 
   const removeRegulator = (): void => {
@@ -248,29 +280,39 @@ export function PanelRegulator(): JSX.Element {
       const rest = s.regulators.filter((r) => r.name !== confirmRemove);
       return { regulators: rest, selected: rest[0]?.name ?? '' };
     });
-    setToast(`Removed '${confirmRemove}'.`);
     setConfirmRemove(null);
   };
 
+  // panel_regulator.cpp:72-102, field for field. It touches NOTHING else: not
+  // the regulator list, not the selected regulator, not the data file, not the
+  // power comment and not the message.
   const resetDefaults = (): void => {
-    setStore({ regulators: [...BUILTIN_REGULATORS], selected: DEFAULT_REG.name });
-    applyRegulator(DEFAULT_REG);
-    setR1('0.240');
-    setR2('0.720');
-    setVout('5');
-    setResTol('1');
-    setSolve(RegulatorSolve.R1);
-    setComment('');
-    setToast('Reset to defaults.');
+    const d = REGULATOR_DEFAULTS;
+    setResTol(d.resTol);
+    setR1Min(d.r1Min);
+    setR1(d.r1Typ);
+    setR1Max(d.r1Max);
+    setR2Min(d.r2Min);
+    setR2(d.r2Typ);
+    setR2Max(d.r2Max);
+    setVrefMin(d.vrefMin);
+    setVrefTyp(d.vrefTyp);
+    setVrefMax(d.vrefMax);
+    setVoutMin(d.voutMin);
+    setVout(d.voutTyp);
+    setVoutMax(d.voutMax);
+    setIadjTyp(d.iadjTyp);
+    setIadjMax(d.iadjMax);
+    setTolMin(d.tolMin);
+    setTolMax(d.tolMax);
+    setType(d.type);
+    setSolve(d.solve);
   };
 
+  // PANEL_REGULATOR::OnCopyCB (panel_regulator.cpp:332-341): it copies the
+  // field's text and reports nothing, whether or not the field is empty.
   const copyComment = (): void => {
-    // KiCad copies the power-comment field verbatim.
-    if (!comment) {
-      setToast('Nothing to copy yet, press Calculate first.');
-      return;
-    }
-    setToast(copyText(comment) ? 'Copied to clipboard.' : 'Copy failed.');
+    copyText(comment);
   };
 
   const exportData = (): void => {
@@ -283,7 +325,6 @@ export function PanelRegulator(): JSX.Element {
     a.download = 'regulators.json';
     a.click();
     URL.revokeObjectURL(url);
-    setToast('Exported regulators.json.');
   };
 
   const importData = (file: File): void => {
@@ -298,9 +339,8 @@ export function PanelRegulator(): JSX.Element {
         setStore({ regulators: clean, selected: clean[0]!.name });
         applyRegulator(clean[0]!);
         setDataFileName(file.name);
-        setToast(`Loaded ${clean.length} regulator(s).`);
       } catch {
-        setToast('Could not read that file (expected a regulators JSON array).');
+        setNotice(`Unable to read data file '${file.name}'.`);
       }
     });
   };
@@ -308,43 +348,28 @@ export function PanelRegulator(): JSX.Element {
   const radioRow = (
     id: RegulatorSolve,
     label: string,
-    row: { min: string; typ: string; max: string },
+    min: string,
+    typ: string,
+    max: string,
     setTyp: (v: string) => void,
     unit: string,
   ): JSX.Element => (
-    <div className="reg-mtm-row">
-      <input
-        type="radio"
-        name="reg-solve"
-        checked={solve === id}
-        onChange={() => {
-          setSolve(id);
-          setResult(null);
-        }}
-      />
+    <>
+      <input type="radio" name="reg-solve" checked={solve === id} onChange={() => setSolve(id)} />
       <span className="reg-label">{label}</span>
-      <input className="calc-input ro" readOnly value={row.min} />
-      <input
-        className={`calc-input${solve === id ? ' ro' : ''}`}
-        value={row.typ}
-        readOnly={solve === id && result != null}
-        onChange={(e) => {
-          setTyp(e.target.value);
-          setResult(null);
-        }}
-      />
-      <input className="calc-input ro" readOnly value={row.max} />
+      <input className="calc-input ro" readOnly value={min} />
+      <input className="calc-input" value={typ} onChange={(e) => setTyp(e.target.value)} />
+      <input className="calc-input ro" readOnly value={max} />
       <span className="calc-unit">{unit}</span>
-    </div>
+    </>
   );
 
-  const formField = (label: string, key: keyof RegForm, unit: string): JSX.Element => (
-    <Field
-      label={label}
+  const formCell = (key: keyof RegForm): JSX.Element => (
+    <input
+      className="calc-input"
+      style={{ width: 90 }}
       value={String(form?.[key] ?? '')}
-      onChange={(v) => setForm((f) => (f ? { ...f, [key]: v } : f))}
-      unit={unit}
-      width={90}
+      onChange={(e) => setForm((f) => (f ? { ...f, [key]: e.target.value } : f))}
     />
   );
 
@@ -355,21 +380,19 @@ export function PanelRegulator(): JSX.Element {
             across it (proportion 1), the drawing centres, and the Formula
             box expands to the column width. */}
         <div className="calc-col" style={{ flex: '0 0 400px', width: 400, minWidth: 400 }}>
-          <label className="calc-field">
-            <span>Type:</span>
-            <select
-              className="calc-select"
+          <div className="calc-field">
+            <span title={TIP_TYPE}>Type:</span>
+            <Combo
               style={{ flex: 1 }}
-              value={type}
-              onChange={(e) => {
-                setType(Number(e.target.value) as RegulatorType);
-                setResult(null);
-              }}
-            >
-              <option value={RegulatorType.THREE_TERMINAL}>3 Terminal Type</option>
-              <option value={RegulatorType.STANDARD}>Standard Type</option>
-            </select>
-          </label>
+              ariaLabel="Type"
+              value={String(type)}
+              options={REGULATOR_TYPE_CHOICES.map((c) => ({
+                value: String(c.value),
+                label: c.label,
+              }))}
+              onChange={(v) => setType(Number(v) as RegulatorType)}
+            />
+          </div>
           <div style={{ alignSelf: 'center', margin: '10px 0' }}>
             <RegulatorDrawing type={type} />
           </div>
@@ -388,25 +411,24 @@ export function PanelRegulator(): JSX.Element {
         <div className="calc-col" style={{ flex: '0 0 auto', width: 530 }}>
           <Group title="Regulator">
             <div className="calc-field">
-              <select
-                className="calc-select"
+              <Combo
                 style={{ flex: 1 }}
+                ariaLabel="Regulator"
                 value={store.selected}
-                onChange={(e) => {
-                  const reg = store.regulators.find((r) => r.name === e.target.value);
-                  setStore((s) => ({ ...s, selected: e.target.value }));
+                options={[
+                  { value: '', label: '' },
+                  ...store.regulators.map((r) => ({ value: r.name, label: r.name })),
+                ]}
+                onChange={(v) => {
+                  const reg = store.regulators.find((r) => r.name === v);
+                  setStore((st) => ({ ...st, selected: v }));
                   if (reg) applyRegulator(reg);
                 }}
-              >
-                <option value="" />
-                {store.regulators.map((r) => (
-                  <option key={r.name} value={r.name}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
-            <div style={{ margin: '6px 0 2px' }}>Regulators data file:</div>
+            <div style={{ margin: '6px 0 2px' }} title={TIP_DATA_FILE}>
+              Regulators data file:
+            </div>
             <div className="calc-field">
               <input
                 className="calc-input"
@@ -436,6 +458,7 @@ export function PanelRegulator(): JSX.Element {
                 className="calc-btn"
                 style={{ flex: 1 }}
                 disabled={!current}
+                title={TIP_EDIT}
                 onClick={() => setForm(formFrom(current))}
               >
                 Edit Regulator
@@ -444,6 +467,7 @@ export function PanelRegulator(): JSX.Element {
                 type="button"
                 className="calc-btn"
                 style={{ flex: 1 }}
+                title={TIP_ADD}
                 onClick={() => setForm(formFrom(null))}
               >
                 Add Regulator
@@ -453,6 +477,7 @@ export function PanelRegulator(): JSX.Element {
                 className="calc-btn"
                 style={{ flex: 1 }}
                 disabled={!current}
+                title={TIP_REMOVE}
                 onClick={() => setConfirmRemove(current?.name ?? null)}
               >
                 Remove Regulator
@@ -460,85 +485,69 @@ export function PanelRegulator(): JSX.Element {
             </div>
           </Group>
 
-          <div className="reg-mtm-header">
+          {/* fgSizerRegParams: ONE wxFlexGridSizer, 7 rows x 6 columns
+              (radio | label | min | typ | max | unit), not seven separate rows
+              — which is what keeps the columns aligned and the pitch at 48 px.
+              (panel_regulator_base.cpp:131-297.) */}
+          <div className="reg-grid">
             <span />
             <span />
-            <span>min</span>
-            <span>typ</span>
-            <span>max</span>
+            <span className="reg-colhead">min</span>
+            <span className="reg-colhead">typ</span>
+            <span className="reg-colhead">max</span>
             <span />
-          </div>
-          {radioRow(RegulatorSolve.R1, 'R1:', rows.r1, setR1, 'kΩ')}
-          {radioRow(RegulatorSolve.R2, 'R2:', rows.r2, setR2, 'kΩ')}
-          {radioRow(RegulatorSolve.VOUT, 'Vout:', rows.vout, setVout, 'V')}
 
-          <div className="reg-mtm-row">
+            {radioRow(RegulatorSolve.R1, 'R1:', r1Min, r1, r1Max, setR1, 'kΩ')}
+            {radioRow(RegulatorSolve.R2, 'R2:', r2Min, r2, r2Max, setR2, 'kΩ')}
+            {radioRow(RegulatorSolve.VOUT, 'Vout:', voutMin, vout, voutMax, setVout, 'V')}
+
             <span />
-            <span className="reg-label">Vref:</span>
+            <span className="reg-label" title={TIP_VREF}>
+              Vref:
+            </span>
             <input
               className="calc-input"
               value={vrefMin}
-              onChange={(e) => {
-                setVrefMin(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setVrefMin(e.target.value)}
             />
             <input
               className="calc-input"
               value={vrefTyp}
-              onChange={(e) => {
-                setVrefTyp(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setVrefTyp(e.target.value)}
             />
             <input
               className="calc-input"
               value={vrefMax}
-              onChange={(e) => {
-                setVrefMax(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setVrefMax(e.target.value)}
             />
             <span className="calc-unit">V</span>
-          </div>
-          {type === RegulatorType.THREE_TERMINAL && (
-            <div className="reg-mtm-row">
-              <span />
-              <span className="reg-label">Iadj:</span>
-              <span />
-              <input
-                className="calc-input"
-                value={iadjTyp}
-                onChange={(e) => {
-                  setIadjTyp(e.target.value);
-                  setResult(null);
-                }}
-              />
-              <input
-                className="calc-input"
-                value={iadjMax}
-                onChange={(e) => {
-                  setIadjMax(e.target.value);
-                  setResult(null);
-                }}
-              />
-              <span className="calc-unit">µA</span>
-            </div>
-          )}
-          <div className="reg-mtm-row">
+
+            {type === RegulatorType.THREE_TERMINAL && (
+              <>
+                <span />
+                <span className="reg-label" title={TIP_IADJ}>
+                  Iadj:
+                </span>
+                <span />
+                <input
+                  className="calc-input"
+                  value={iadjTyp}
+                  onChange={(e) => setIadjTyp(e.target.value)}
+                />
+                <input
+                  className="calc-input"
+                  value={iadjMax}
+                  onChange={(e) => setIadjMax(e.target.value)}
+                />
+                <span className="calc-unit">µA</span>
+              </>
+            )}
+
             <span />
             <span className="reg-label">Overall tolerance:</span>
-            <input
-              className="calc-input ro"
-              readOnly
-              value={result && !result.error ? roundTo(result.tolNegPct, 0.01) : ''}
-            />
+            <input className="calc-input ro" readOnly value={tolMin} />
             <span />
-            <input
-              className="calc-input ro"
-              readOnly
-              value={result && !result.error ? roundTo(result.tolPosPct, 0.01) : ''}
-            />
+            <input className="calc-input ro" readOnly value={tolMax} />
             <span className="calc-unit">%</span>
           </div>
 
@@ -549,10 +558,7 @@ export function PanelRegulator(): JSX.Element {
               className="calc-input"
               style={{ width: 45 }}
               value={resTol}
-              onChange={(e) => {
-                setResTol(e.target.value);
-                setResult(null);
-              }}
+              onChange={(e) => setResTol(e.target.value)}
             />
             <span className="calc-unit">%</span>
           </div>
@@ -570,18 +576,19 @@ export function PanelRegulator(): JSX.Element {
             </button>
           </div>
 
-          {result?.error && <div className="calc-error">{result.error}</div>}
+          {/* m_RegulMessage: a plain wxStaticText, 10 px border all round
+              (panel_regulator_base.cpp:346-348). Not coloured, not a dialog. */}
+          <div className="calc-error">{message}</div>
 
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center' }}>
             <button
               type="button"
-              className="calc-btn primary"
+              className="calc-btn"
               style={{ minWidth: 120 }}
               onClick={calculate}
             >
               Calculate
             </button>
-            {toast && <span className="calc-toast">{toast}</span>}
           </div>
         </div>
       </div>
@@ -594,49 +601,91 @@ export function PanelRegulator(): JSX.Element {
         </button>
       </div>
 
+      {/* DIALOG_REGULATOR_FORM (dialogs/dialog_regulator_form_base.cpp): one
+          title for both add and edit, a 4x3 flex grid, and Name disabled while
+          editing. OK is refused silently while the values are not valid. */}
       {form && (
         <Modal
-          title={form.original ? `Edit Regulator, ${form.original}` : 'Add Regulator'}
+          title="Regulator Parameters"
           onClose={() => setForm(null)}
           footer={
             <>
               <button type="button" className="calc-btn" onClick={() => setForm(null)}>
                 Cancel
               </button>
-              <button type="button" className="calc-btn primary" onClick={saveForm}>
-                Save
+              <button
+                type="button"
+                className="calc-btn"
+                disabled={!formValid(form)}
+                onClick={saveForm}
+              >
+                OK
               </button>
             </>
           }
         >
-          <Field
-            label="Name:"
-            value={form.name}
-            onChange={(v) => setForm((f) => (f ? { ...f, name: v } : f))}
-            width={160}
-          />
-          <label className="calc-field">
-            <span className="calc-field-label">Type:</span>
-            <select
-              className="calc-select"
-              value={form.type}
-              onChange={(e) =>
-                setForm((f) => (f ? { ...f, type: Number(e.target.value) as RegulatorType } : f))
-              }
-            >
-              <option value={RegulatorType.THREE_TERMINAL}>3 Terminal (uses Iadj)</option>
-              <option value={RegulatorType.STANDARD}>Standard</option>
-            </select>
-          </label>
-          {formField('Vref min:', 'vrefMin', 'V')}
-          {formField('Vref typ:', 'vrefTyp', 'V')}
-          {formField('Vref max:', 'vrefMax', 'V')}
-          {form.type === RegulatorType.THREE_TERMINAL && (
-            <>
-              {formField('Iadj typ:', 'iadjTyp', 'µA')}
-              {formField('Iadj max:', 'iadjMax', 'µA')}
-            </>
-          )}
+          <div className="reg-form-grid">
+            <span>Name:</span>
+            <span>
+              <input
+                className="calc-input"
+                style={{ width: 286 }}
+                disabled={form.original != null}
+                value={form.name}
+                onChange={(e) => setForm((f) => (f ? { ...f, name: e.target.value } : f))}
+              />
+            </span>
+            <span />
+
+            <span>Vref (min/typ/max):</span>
+            <span className="reg-form-triple">
+              {formCell('vrefMin')}
+              {formCell('vrefTyp')}
+              {formCell('vrefMax')}
+            </span>
+            <span>Volt</span>
+
+            <span>Type:</span>
+            <span>
+              <Combo
+                ariaLabel="Type"
+                value={String(form.type)}
+                options={REGULATOR_TYPE_CHOICES.map((c) => ({
+                  value: String(c.value),
+                  label: c.label,
+                }))}
+                onChange={(v) =>
+                  setForm((f) => (f ? { ...f, type: Number(v) as RegulatorType } : f))
+                }
+              />
+            </span>
+            <span />
+
+            {form.type === RegulatorType.THREE_TERMINAL && (
+              <>
+                <span>Iadj (typ/max):</span>
+                <span className="reg-form-triple">
+                  {formCell('iadjTyp')}
+                  {formCell('iadjMax')}
+                </span>
+                <span>µA</span>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {notice && (
+        <Modal
+          title="Calculator Tools"
+          onClose={() => setNotice('')}
+          footer={
+            <button type="button" className="calc-btn" onClick={() => setNotice('')}>
+              OK
+            </button>
+          }
+        >
+          {notice}
         </Modal>
       )}
 
@@ -649,7 +698,7 @@ export function PanelRegulator(): JSX.Element {
               <button type="button" className="calc-btn" onClick={() => setConfirmRemove(null)}>
                 Cancel
               </button>
-              <button type="button" className="calc-btn primary" onClick={removeRegulator}>
+              <button type="button" className="calc-btn" onClick={removeRegulator}>
                 Remove
               </button>
             </>

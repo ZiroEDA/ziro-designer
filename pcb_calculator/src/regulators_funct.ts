@@ -76,6 +76,50 @@ export const BUILTIN_REGULATORS: readonly RegulatorData[] = [
   },
 ];
 
+/**
+ * The two entries of `m_choiceRegType`, in the order wxFormBuilder declares them
+ * — `{ _("Standard Type"), _("3 Terminal Type") }`, so Standard is index 0
+ * (panel_regulator_base.cpp:33 and dialog_regulator_form_base.cpp:64). The
+ * index IS the RegulatorType, and it is what gets saved to settings, so the
+ * order is not cosmetic.
+ */
+export const REGULATOR_TYPE_CHOICES: readonly { value: RegulatorType; label: string }[] = [
+  { value: RegulatorType.STANDARD, label: 'Standard Type' },
+  { value: RegulatorType.THREE_TERMINAL, label: '3 Terminal Type' },
+];
+
+/**
+ * What `Reset to Defaults` writes into each control, verbatim as strings,
+ * because KiCad writes strings (`m_r1TypVal->SetValue( wxT( "0.240" ) )`) and
+ * the field shows `0.240`, not `0.24`. The values are the DEFAULT_REGULATOR_*
+ * macros in `pcb_calculator_settings.h:32-40`; the empty cells and the radio /
+ * type selection are `PANEL_REGULATOR::OnRegulatorResetButtonClick`
+ * (panel_regulator.cpp:72-102), which touches nothing else on the page — not
+ * the regulator list, not the data file, not the power comment, not the
+ * message.
+ */
+export const REGULATOR_DEFAULTS = {
+  resTol: '1',
+  r1Min: '',
+  r1Typ: '0.240',
+  r1Max: '',
+  r2Min: '',
+  r2Typ: '0.720',
+  r2Max: '',
+  vrefMin: '1.20',
+  vrefTyp: '1.25',
+  vrefMax: '1.30',
+  voutMin: '',
+  voutTyp: '5',
+  voutMax: '',
+  iadjTyp: '50',
+  iadjMax: '100',
+  tolMin: '',
+  tolMax: '',
+  type: RegulatorType.THREE_TERMINAL,
+  solve: 2 as const, // RegulatorSolve.VOUT — declared below
+} as const;
+
 export enum RegulatorSolve {
   R1 = 0,
   R2 = 1,
@@ -131,9 +175,19 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
     error: msg,
   });
 
-  if (!(vrefTyp > 0)) return fail('Vref must be greater than 0.');
-  if (!(vrefMin <= vrefTyp && vrefTyp <= vrefMax))
-    return fail('Vref must satisfy VrefMin ≤ VrefTyp ≤ VrefMax.');
+  // KiCad's five guards, in KiCad's order, with KiCad's exact wording
+  // (panel_regulator.cpp:398-437). The order is load-bearing: a page with both
+  // Vout < Vref AND Vref = 0 shows the Vout message, not the Vref one, and
+  // these strings go on screen verbatim.
+  if ((vout < vrefMin || vout < vrefTyp || vout < vrefMax) && p.solve !== RegulatorSolve.VOUT)
+    return fail('Vout must be greater than Vref');
+
+  if (vrefMin === 0 || vrefTyp === 0 || vrefMax === 0) return fail('Vref set to 0 !');
+
+  if (vrefMin > vrefTyp || vrefTyp > vrefMax) return fail('Vref must VrefMin < VrefTyp < VrefMax');
+
+  if ((r1 < 0 && p.solve !== RegulatorSolve.R1) || (r2 <= 0 && p.solve !== RegulatorSolve.R2))
+    return fail('Incorrect value for R1 R2');
 
   let voutMin: number;
   let voutMax: number;
@@ -141,19 +195,15 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
   if (p.type === RegulatorType.THREE_TERMINAL) {
     const iadjTyp = p.iadjTyp;
     const iadjMax = p.iadjMax;
-    if (!(iadjTyp <= iadjMax)) return fail('Iadj must satisfy IadjTyp ≤ IadjMax.');
+    if (iadjTyp > iadjMax) return fail('Iadj must IadjTyp < IadjMax');
 
     if (p.solve === RegulatorSolve.R1) {
-      const denom = vout - vrefTyp - r2 * iadjTyp;
-      if (!(denom > 0)) return fail('Vout must be greater than Vref.');
-      r1 = (vrefTyp * r2) / denom;
+      r1 = (vrefTyp * r2) / (vout - vrefTyp - r2 * iadjTyp);
     } else if (p.solve === RegulatorSolve.R2) {
       r2 = (vout - vrefTyp) / (iadjTyp + vrefTyp / r1);
     } else {
       vout = (vrefTyp * (r1 + r2)) / r1 + r2 * iadjTyp;
     }
-    if (!(r1 > 0) || !(r2 > 0) || !(vout > 0)) return fail('No valid solution for these values.');
-
     const r1min = r1 - r1 * restol;
     const r1max = r1 + r1 * restol;
     const r2min = r2 - r2 * restol;
@@ -165,13 +215,10 @@ export function solveRegulator(p: RegulatorParams): RegulatorResult {
     if (p.solve === RegulatorSolve.R1) {
       r1 = (vout / vrefTyp - 1) * r2;
     } else if (p.solve === RegulatorSolve.R2) {
-      const k = vout / vrefTyp - 1;
-      if (!(k > 0)) return fail('Vout must be greater than Vref.');
-      r2 = r1 / k;
+      r2 = r1 / (vout / vrefTyp - 1);
     } else {
       vout = (vrefTyp * (r1 + r2)) / r2;
     }
-    if (!(r1 > 0) || !(r2 > 0) || !(vout > 0)) return fail('No valid solution for these values.');
 
     const r1min = r1 - r1 * restol;
     const r1max = r1 + r1 * restol;

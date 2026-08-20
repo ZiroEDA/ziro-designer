@@ -33,7 +33,9 @@ import {
   twistedPairAnalyze,
   twistedPairSynthesize,
   type TranslineAnalysis,
+  printfG,
 } from '@ziroeda/pcb_calculator';
+import { Combo } from '../../../ui/Combo.js';
 import { Field, FREQ_UNITS, Group, LEN_UNITS, NumField, fmt, parseNum } from '../fields.js';
 
 type LineType =
@@ -48,13 +50,14 @@ type LineType =
   | 'twistedpair';
 
 const LINE_TYPES: { id: LineType; name: string }[] = [
-  // KiCad master's order (panel_transline.cpp tltype_list).
+  // m_TranslineSelectionChoices, spelled exactly as the radio box spells it
+  // (panel_transline_base.cpp:23-31) — "Coplanar wave guide", three words.
   { id: 'microstrip', name: 'Microstrip Line' },
-  { id: 'c_microstrip', name: 'Coupled Microstrip Lines' },
+  { id: 'c_microstrip', name: 'Coupled Microstrip Line' },
   { id: 'stripline', name: 'Stripline' },
   { id: 'c_stripline', name: 'Coupled Stripline' },
-  { id: 'cpw', name: 'Coplanar Waveguide' },
-  { id: 'gcpw', name: 'Coplanar Waveguide with Ground Plane' },
+  { id: 'cpw', name: 'Coplanar wave guide' },
+  { id: 'gcpw', name: 'Coplanar wave guide w/ ground plane' },
   { id: 'rectwaveguide', name: 'Rectangular Waveguide' },
   { id: 'coax', name: 'Coaxial Line' },
   { id: 'twistedpair', name: 'Twisted Pair' },
@@ -80,62 +83,44 @@ const L = (key: string, label: string, defMm: number, unit = 'mm'): PhysField =>
 });
 
 const PHYS_FIELDS: Record<LineType, PhysField[]> = {
-  microstrip: [
-    L('w', 'Trace width (W):', 3),
-    L('h', 'Substrate height (H):', 1.6),
-    L('t', 'Trace thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
-  ],
+  microstrip: [L('w', 'W:', 3), L('h', 'H:', 1.6), L('t', 'T:', 0.035, 'µm'), L('l', 'L:', 50)],
   cpw: [
-    L('w', 'Trace width (W):', 0.5),
-    L('s', 'Gap width (S):', 0.3),
-    L('h', 'Substrate height (H):', 1.6),
-    L('t', 'Trace thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
+    L('w', 'W:', 0.5),
+    L('s', 'S:', 0.3),
+    L('h', 'H:', 1.6),
+    L('t', 'T:', 0.035, 'µm'),
+    L('l', 'L:', 50),
   ],
   gcpw: [
-    L('w', 'Trace width (W):', 0.5),
-    L('s', 'Gap width (S):', 0.3),
-    L('h', 'Substrate height (H):', 1.6),
-    L('t', 'Trace thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
+    L('w', 'W:', 0.5),
+    L('s', 'S:', 0.3),
+    L('h', 'H:', 1.6),
+    L('t', 'T:', 0.035, 'µm'),
+    L('l', 'L:', 50),
   ],
-  rectwaveguide: [
-    L('a', 'Broad wall width (a):', 22.86),
-    L('b', 'Narrow wall height (b):', 10.16),
-    L('l', 'Guide length (L):', 100),
-  ],
-  coax: [
-    L('din', 'Inner conductor diameter (d):', 0.9),
-    L('dout', 'Shield diameter (D):', 2.95),
-    L('l', 'Line length (L):', 1000),
-  ],
+  rectwaveguide: [L('a', 'a:', 22.86), L('b', 'b:', 10.16), L('l', 'L:', 100)],
+  coax: [L('din', 'din:', 0.9), L('dout', 'dout:', 2.95), L('l', 'L:', 1000)],
   c_microstrip: [
-    L('w', 'Trace width (W):', 0.3),
-    L('s', 'Gap width (S):', 0.2),
-    L('h', 'Substrate height (H):', 0.2),
-    L('t', 'Trace thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
+    L('w', 'W:', 0.3),
+    L('s', 'S:', 0.2),
+    L('h', 'H:', 0.2),
+    L('t', 'T:', 0.035, 'µm'),
+    L('l', 'L:', 50),
   ],
-  stripline: [
-    L('w', 'Strip width (W):', 0.7),
-    L('h', 'Ground spacing (B):', 1.6),
-    L('t', 'Strip thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
-  ],
+  stripline: [L('w', 'W:', 0.7), L('h', 'H:', 1.6), L('t', 'T:', 0.035, 'µm'), L('l', 'L:', 50)],
   c_stripline: [
-    L('w', 'Line width (W):', 0.2),
-    L('s', 'Gap width (S):', 0.2),
-    L('h', 'Height of substrate (H):', 0.2),
-    L('a', 'Offset to nearest ground (a, 0 = centered):', 0),
-    L('t', 'Strip thickness (T):', 0.035, 'µm'),
-    L('l', 'Line length (L):', 50),
+    L('w', 'W:', 0.2),
+    L('s', 'S:', 0.2),
+    L('h', 'H:', 0.2),
+    L('a', 'a:', 0),
+    L('t', 'T:', 0.035, 'µm'),
+    L('l', 'L:', 50),
   ],
   twistedpair: [
-    L('din', 'Conductor diameter (d):', 0.511),
-    L('dout', 'Insulation diameter (D):', 0.93),
-    { key: 'twists', label: 'Twists per meter:', kind: 'raw', def: 100 },
-    L('l', 'Cable length (L):', 1000),
+    L('din', 'din:', 0.511),
+    L('dout', 'dout:', 0.93),
+    { key: 'twists', label: 'Twists:', kind: 'raw', def: 100 },
+    L('l', 'L:', 1000),
   ],
 };
 
@@ -171,21 +156,18 @@ function PresetField({
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
       />
-      <select
-        className="calc-select calc-unit-select"
+      <Combo
+        style={{ minWidth: 62 }}
         value=""
         title="Standard materials"
-        onChange={(e) => {
-          if (e.target.value !== '') onChange(e.target.value);
+        options={[
+          { value: '', label: '…' },
+          ...presets.map((p) => ({ value: String(p.value), label: `${p.value}, ${p.name}` })),
+        ]}
+        onChange={(v) => {
+          if (v !== '') onChange(v);
         }}
-      >
-        <option value="">…</option>
-        {presets.map((p) => (
-          <option key={`${p.name}`} value={String(p.value)}>
-            {p.value}, {p.name}
-          </option>
-        ))}
-      </select>
+      />
       <span className="calc-unit">{unit}</span>
     </div>
   );
@@ -208,7 +190,10 @@ export function PanelTransline(): JSX.Element {
   const [smEr, setSmEr] = useState('3.5');
   const [smTand, setSmTand] = useState('0.025');
   const [smFills, setSmFills] = useState(true);
-  const [angle, setAngle] = useState('90');
+  // ANG_L_PRM's default is 0 and its unit selector opens on rad
+  // (transline_ident.cpp:156).
+  const [angle, setAngle] = useState('0');
+  const [angleUnit, setAngleUnit] = useState(0);
   const [result, setResult] = useState<TranslineAnalysis | null>(null);
   const [error, setError] = useState('');
 
@@ -223,6 +208,16 @@ export function PanelTransline(): JSX.Element {
     setError('');
     setZ0(t === 'c_microstrip' ? '100' : t === 'twistedpair' ? '120' : '50');
     setZOdd('50');
+  };
+
+  // PANEL_TRANSLINE::OnTransLineResetButtonClick (transline_dlg_funct.cpp:356-372):
+  // every TRANSLINE_PRM goes back to its m_DefaultValue and m_DefaultUnit, then
+  // the type is re-selected, which redraws the whole page. Re-picking the
+  // current type does exactly that here.
+  const resetDefaults = (): void => {
+    pick(type);
+    setAngle('0');
+    setAngleUnit(0);
   };
 
   const el = () => {
@@ -336,9 +331,10 @@ export function PanelTransline(): JSX.Element {
           break;
       }
       setResult(r);
-      if (type === 'c_stripline') setZ0(fmt(r.extra?.z0Even ?? r.z0, 5));
-      else setZ0(fmt(type === 'c_microstrip' ? (r.extra?.zDiff ?? r.z0) : r.z0, 5));
-      setAngle(fmt(r.angleDeg, 5));
+      // `%g` — the real field reads 66.9548, not 66.955.
+      if (type === 'c_stripline') setZ0(printfG(r.extra?.z0Even ?? r.z0));
+      else setZ0(printfG(type === 'c_microstrip' ? (r.extra?.zDiff ?? r.z0) : r.z0));
+      setAngle(printfG(angleUnit === 0 ? (r.angleDeg * Math.PI) / 180 : r.angleDeg));
     } catch {
       setError('Analysis failed, check the input values.');
     }
@@ -348,7 +344,9 @@ export function PanelTransline(): JSX.Element {
     setError('');
     const e = el();
     const zTarget = parseNum(z0);
-    const angTarget = parseNum(angle);
+    // The field is in radians unless the selector says degrees.
+    const angRaw = parseNum(angle);
+    const angTarget = angleUnit === 0 ? (angRaw * 180) / Math.PI : angRaw;
     if (!(zTarget > 0) || !(angTarget > 0)) {
       setError('Enter a positive Z0 and electrical length.');
       return;
@@ -478,40 +476,40 @@ export function PanelTransline(): JSX.Element {
 
   return (
     <div>
-      <h3>Transmission Lines</h3>
-      <div className="calc-field">
-        <span className="calc-field-label">Line type:</span>
-        <select
-          className="calc-select"
-          value={type}
-          onChange={(e) => pick(e.target.value as LineType)}
-        >
-          {LINE_TYPES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* A wxRadioBox, one column, titled by the box itself
+          (panel_transline_base.cpp:33). It was a drop-down. */}
+      <Group title="Transmission Line Type" className="tl-types">
+        {LINE_TYPES.map((t) => (
+          <label key={t.id} className="calc-radio">
+            <input
+              type="radio"
+              name="tl-type"
+              checked={type === t.id}
+              onChange={() => pick(t.id)}
+            />
+            {t.name}
+          </label>
+        ))}
+      </Group>
 
       <div className="calc-row">
-        <Group title="Substrate parameters">
+        <Group title="Substrate Parameters">
           <PresetField
-            label="Relative permittivity (εr):"
+            label="εr:"
             value={sub.er}
             onChange={(val) => setSub({ ...sub, er: val })}
             unit=""
             presets={RELATIVE_DIELECTRIC_CONSTANTS}
           />
           <PresetField
-            label="Loss tangent (tanδ):"
+            label="tan δ:"
             value={sub.tand}
             onChange={(val) => setSub({ ...sub, tand: val })}
             unit=""
             presets={LOSS_TANGENTS}
           />
           <PresetField
-            label="Specific resistance (ρ):"
+            label="ρ:"
             value={sub.rho}
             onChange={(val) => setSub({ ...sub, rho: val })}
             unit="Ω·m"
@@ -525,14 +523,14 @@ export function PanelTransline(): JSX.Element {
             }
           >
             <span className="calc-field-label">Dielectric model:</span>
-            <select
-              className="calc-select"
+            <Combo
               value={dielModel}
-              onChange={(e) => setDielModel(e.target.value as 'constant' | 'djordjevic_sarkar')}
-            >
-              <option value="constant">Constant</option>
-              <option value="djordjevic_sarkar">Djordjevic-Sarkar</option>
-            </select>
+              options={[
+                { value: 'constant', label: 'Constant' },
+                { value: 'djordjevic_sarkar', label: 'Djordjevic-Sarkar' },
+              ]}
+              onChange={(v) => setDielModel(v as 'constant' | 'djordjevic_sarkar')}
+            />
           </div>
           {dielModel === 'djordjevic_sarkar' && (
             <NumField
@@ -615,10 +613,21 @@ export function PanelTransline(): JSX.Element {
               unit=""
             />
           )}
-          <NumField label="Frequency:" units={FREQ_UNITS} base={freqHz} onBase={setFreqHz} />
+          {/* The ONE label wxFormBuilder right-aligns in this whole launcher:
+              `fgSizeCmpPrms->Add( m_Frequency_label, 0,
+              wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT, 5 )`
+              (panel_transline_base.cpp:207). Every other parameter label is
+              flush left, which is why the app-wide rule is left. */}
+          <NumField
+            label="Frequency:"
+            labelAlign="right"
+            units={FREQ_UNITS}
+            base={freqHz}
+            onBase={setFreqHz}
+          />
         </Group>
 
-        <Group title="Physical parameters">
+        <Group title="Physical Parameters">
           {PHYS_FIELDS[type].map((f) =>
             f.kind === 'len' ? (
               <NumField
@@ -641,29 +650,70 @@ export function PanelTransline(): JSX.Element {
           )}
         </Group>
 
-        <Group title="Electrical parameters">
+        <Group title="Electrical Parameters">
           <Field
-            label={
-              type === 'c_stripline'
-                ? 'Even-mode impedance (Zeven):'
-                : isDiff
-                  ? 'Differential impedance (Zd):'
-                  : 'Characteristic impedance (Z0):'
-            }
+            label={type === 'c_stripline' ? 'Zeven:' : isDiff ? 'Zdiff:' : 'Z0:'}
             value={z0}
             onChange={setZ0}
             unit="Ω"
           />
           {type === 'c_stripline' && (
-            <Field label="Odd-mode impedance (Zodd):" value={zOdd} onChange={setZOdd} unit="Ω" />
+            <Field label="Zodd:" value={zOdd} onChange={setZOdd} unit="Ω" />
           )}
-          <Field label="Electrical length:" value={angle} onChange={setAngle} unit="°" />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button type="button" className="calc-btn primary" onClick={analyze}>
-              Analyze ▶
+          {/* ANG_L_PRM carries a rad/deg UNIT_SELECTOR_ANGLE opening on rad
+              (transline_ident.cpp:156), so the real field reads 1.79748, not
+              102.99. */}
+          <div className="calc-field">
+            <span className="calc-field-label">Ang_l:</span>
+            <input
+              className="calc-input"
+              value={angle}
+              spellCheck={false}
+              onChange={(e) => setAngle(e.target.value)}
+            />
+            <Combo
+              ariaLabel="Ang_l unit"
+              style={{ minWidth: 78 }}
+              value={String(angleUnit)}
+              options={[
+                { value: '0', label: 'rad' },
+                { value: '1', label: 'deg' },
+              ]}
+              onChange={(v) => {
+                const next = Number(v);
+                const cur = Number(angle);
+                if (Number.isFinite(cur))
+                  setAngle(printfG(next === 0 ? (cur * Math.PI) / 180 : (cur * 180) / Math.PI));
+                setAngleUnit(next);
+              }}
+            />
+          </div>
+          {/* m_AnalyseButton + m_bpButtonAnalyze (small_down), then
+              m_SynthetizeButton + m_bpButtonSynthetize (small_up); plain
+              buttons, and the arrows are separate bitmap buttons wired to the
+              same handlers (panel_transline_base.cpp:307-325). */}
+          <div className="tl-buttons">
+            <button type="button" className="calc-btn" onClick={analyze}>
+              Analyze
             </button>
-            <button type="button" className="calc-btn primary" onClick={synthesize}>
-              ◀ Synthesize
+            <button
+              type="button"
+              className="calc-btn exactfit"
+              aria-label="Analyze"
+              onClick={analyze}
+            >
+              ↓
+            </button>
+            <button type="button" className="calc-btn" onClick={synthesize}>
+              Synthesize
+            </button>
+            <button
+              type="button"
+              className="calc-btn exactfit"
+              aria-label="Synthesize"
+              onClick={synthesize}
+            >
+              ↑
             </button>
           </div>
         </Group>
@@ -671,40 +721,40 @@ export function PanelTransline(): JSX.Element {
 
       {error && <div className="calc-error">{error}</div>}
 
+      {/* m_buttonTransLineReset, wxALIGN_RIGHT|wxALL 10
+          (panel_transline_base.cpp:480-481). */}
+      <div className="calc-reset-row">
+        <button type="button" className="calc-btn" onClick={resetDefaults}>
+          Reset to Defaults
+        </button>
+      </div>
+
       <Group title="Results">
         <table className="calc-table">
           <tbody>
             <tr>
-              <td className="rowhead">Characteristic impedance (Z0)</td>
-              <td>{result ? `${fmt(result.z0, 5)} Ω` : '--'}</td>
+              <td className="rowhead">Effective εr:</td>
+              <td>{result ? printfG(result.epsEff) : ''}</td>
             </tr>
             <tr>
-              <td className="rowhead">Effective permittivity (εeff)</td>
-              <td>{result ? fmt(result.epsEff, 5) : '--'}</td>
-            </tr>
-            <tr>
-              <td className="rowhead">Electrical length</td>
-              <td>{result ? `${fmt(result.angleDeg, 5)} °` : '--'}</td>
-            </tr>
-            <tr>
-              <td className="rowhead">Conductor losses</td>
+              <td className="rowhead">Conductor losses:</td>
               <td>
                 {result && Number.isFinite(result.conductorLossDb)
-                  ? `${fmt(result.conductorLossDb, 4)} dB`
-                  : '--'}
+                  ? `${printfG(result.conductorLossDb)} dB`
+                  : ''}
               </td>
             </tr>
             <tr>
-              <td className="rowhead">Dielectric losses</td>
+              <td className="rowhead">Dielectric losses:</td>
               <td>
                 {result && Number.isFinite(result.dielectricLossDb)
-                  ? `${fmt(result.dielectricLossDb, 4)} dB`
-                  : '--'}
+                  ? `${printfG(result.dielectricLossDb)} dB`
+                  : ''}
               </td>
             </tr>
             <tr>
-              <td className="rowhead">Skin depth</td>
-              <td>{result ? `${fmt(result.skinDepthM * 1e6, 4)} µm` : '--'}</td>
+              <td className="rowhead">Skin depth:</td>
+              <td>{result ? `${printfG(result.skinDepthM * 1e6)} µm` : ''}</td>
             </tr>
             {extraRows.map(([k, val]) => (
               <tr key={k}>
