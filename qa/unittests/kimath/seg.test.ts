@@ -247,7 +247,7 @@ describe("segIntersect — upstream's own case table", () => {
 });
 
 describe('segIntersect — the answers that are not shapes', () => {
-  it('includes a crossing that lands exactly on the other segment\'s A', () => {
+  it("includes a crossing that lands exactly on the other segment's A", () => {
     // `param1_num` is then exactly 0 and upstream's rejection is a strict `< 0`,
     // so the touch counts (seg.cpp:312). Written with the vertical segment
     // pointing *down* on purpose: pointing up makes the determinant negative and
