@@ -87,6 +87,7 @@ export function Field({
   width,
   bold,
   pick,
+  disabled,
 }: {
   label: ReactNode;
   value: string;
@@ -101,6 +102,10 @@ export function Field({
   /** The `...` STD_BITMAP_BUTTON some rows carry, which raises
    *  wxGetSingleChoice over a material list. */
   pick?: () => void;
+  /** `Enable( false )`, which GTK paints quite differently from a read-only
+   *  entry: [px] face rgb(42,42,42) with dim ink, against 3DLIGHT's
+   *  rgb(55,55,55) with ordinary ink. */
+  disabled?: boolean;
 }): JSX.Element {
   return (
     <label className={`calc-field${bold ? ' bold' : ''}`} title={title}>
@@ -128,6 +133,7 @@ export function Field({
           style={width ? { width } : undefined}
           value={value}
           readOnly={readOnly}
+          disabled={disabled}
           onChange={onChange ? (e) => onChange(e.target.value) : undefined}
           spellCheck={false}
         />

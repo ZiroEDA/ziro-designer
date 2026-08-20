@@ -12,7 +12,7 @@
  * made the two widths read-only, so half the calculator was missing.
  */
 
-import { type JSX, useState } from 'react';
+import { type JSX, useState, type CSSProperties } from 'react';
 import {
   COPPER_RESISTIVITY_OHM_M,
   ipc2221CurrentA,
@@ -87,7 +87,7 @@ export function PanelTrackWidth(): JSX.Element {
     setThicknessM: (v: number) => void,
     areaM2: number,
   ): JSX.Element => (
-    <Group title={title}>
+    <Group title={title} className="calc-grid3" style={{ '--calc-vgap': '0px' } as CSSProperties}>
       <NumField
         label="Track width (W):"
         units={LEN_UNITS}
@@ -106,6 +106,11 @@ export function PanelTrackWidth(): JSX.Element {
         base={thicknessM}
         onBase={setThicknessM}
       />
+      {/* m_staticline3/4/5: one wxStaticLine per column, between the two
+          entries and the four results (panel_track_width_base.cpp:126-134). */}
+      <span className="calc-hline" />
+      <span className="calc-hline" />
+      <span className="calc-hline" />
       <ResultField label="Cross-section area:" value={g(areaM2 * 1e6)} unit="mm²" />
       <ResultField label="Resistance:" value={g(r?.resistanceOhm)} unit="Ω" />
       <ResultField label="Voltage drop:" value={g(r?.voltageDrop)} unit="V" />
@@ -115,116 +120,138 @@ export function PanelTrackWidth(): JSX.Element {
 
   return (
     <div className="tw-panel calc-page-body">
-      <div className="calc-row">
-        <Group title="Parameters">
-          <Field
-            label="Current (I):"
-            value={shownCurrent}
-            bold={controlling === 'current'}
-            onChange={(v) => {
-              setCurrent(v);
-              setControlling('current');
-            }}
-            unit="A"
-          />
-          <Field label="Temperature rise (ΔT):" value={deltaT} onChange={setDeltaT} unit="°C" />
-          <NumField
-            label="Conductor length:"
-            units={LEN_UNITS}
-            defaultUnit="mm"
-            base={lengthM}
-            onBase={setLengthM}
-          />
-          {/* [px] the real field reads `1.72e-08`, i.e. `%g` — String() writes
+      {/* bSizerTrackWidth is HORIZONTAL: a left column holding Parameters and
+          then the formula window with proportion 1, and a right column holding
+          External above Internal and the Reset button under them
+          (panel_track_width_base.cpp:16-21, 83-86, 283-292). Ours put the three
+          boxes side by side and the help pane underneath. */}
+      <div className="calc-row tw-row">
+        <div className="tw-left">
+          {/* fgSizerTWprms: wxFlexGridSizer( 4, 3, 0, 0 ). The box spans the
+            left column (wxEXPAND) but the GRID inside it is added with
+            proportion 0 to a HORIZONTAL static box sizer, so the entries keep
+            their own width and the box's right half is empty
+            (panel_track_width_base.cpp:22-26, 80). */}
+          <Group
+            title="Parameters"
+            className="calc-grid3 tw-params"
+            style={{ '--calc-vgap': '0px' } as CSSProperties}
+          >
+            <Field
+              label="Current (I):"
+              value={shownCurrent}
+              bold={controlling === 'current'}
+              onChange={(v) => {
+                setCurrent(v);
+                setControlling('current');
+              }}
+              unit="A"
+            />
+            <Field label="Temperature rise (ΔT):" value={deltaT} onChange={setDeltaT} unit="°C" />
+            <NumField
+              label="Conductor length:"
+              units={LEN_UNITS}
+              defaultUnit="mm"
+              base={lengthM}
+              onBase={setLengthM}
+            />
+            {/* [px] the real field reads `1.72e-08`, i.e. `%g` — String() writes
               `1.72e-8`, one digit short in the exponent. */}
-          <Field
-            label="Copper resistivity:"
-            value={printfG(COPPER_RESISTIVITY_OHM_M)}
-            readOnly
-            unit="Ω·m"
-          />
-        </Group>
-        {layerBox(
-          'External Layer Tracks',
-          'ext',
-          ext,
-          shownExtWidthM,
-          setExtWidthM,
-          extThicknessM,
-          setExtThicknessM,
-          shownExtWidthM * extThicknessM,
-        )}
-        {layerBox(
-          'Internal Layer Tracks',
-          'int',
-          int_,
-          shownIntWidthM,
-          setIntWidthM,
-          intThicknessM,
-          setIntThicknessM,
-          shownIntWidthM * intThicknessM,
-        )}
-      </div>
-
-      {/* m_buttonTrackWidthReset, wxALIGN_RIGHT|wxALL 5
-          (panel_track_width_base.cpp:288-289). */}
-      <div className="calc-reset-row">
-        <button type="button" className="calc-btn" onClick={resetDefaults}>
-          Reset to Defaults
-        </button>
-      </div>
-
-      {/* sbSizerTW_Help's HTML_WINDOW, showing
-          `tracks_width_versus_current_formula.md`. Carried here line for line. */}
-      <fieldset className="calc-group calc-help tw-help">
-        <div className="calc-help-body">
-          <p>
-            If you specify the maximum current, then the track widths will be calculated to suit.
-          </p>
-          <p>
-            If you specify one of the track widths, the maximum current it can handle will be
-            calculated. The width for the other track to also handle this current will then be
-            calculated.
-          </p>
-          <p>The controlling value is shown in bold.</p>
-          <p>
-            The calculations are valid for currents up to 35 A (external) or 17.5 A (internal),
-            temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).
-          </p>
-          <p>The formula, from IPC 2221, is</p>
-          <p className="calc-formula">
-            I = K · ΔT<sup>0.44</sup> · (W · H)<sup>0.725</sup>
-          </p>
-          <p>
-            where:
-            <br />
-            <b>
-              <i>I</i>
-            </b>{' '}
-            is maximum current in A
-            <br />
-            <b>
-              <i>ΔT</i>
-            </b>{' '}
-            is temperature rise above ambient in °C
-            <br />
-            <b>
-              <i>W</i>
-            </b>{' '}
-            is width in mils
-            <br />
-            <b>
-              <i>H</i>
-            </b>{' '}
-            is thickness (height) in mils
-            <br />
-            <b>
-              <i>K</i>
-            </b>{' '}
-            is 0.024 for internal tracks or 0.048 for external tracks
-          </p>
+            {/* m_TWResistivity is wxTE_READONLY *and* Enable( false )
+              (panel_track_width_base.cpp:70-71), so GTK paints it as a DISABLED
+              entry - [px] face rgb(42,42,42) with dim ink - not as the
+              3DLIGHT read-only grey the Regulators cells use. */}
+            <Field
+              label="Copper resistivity:"
+              value={printfG(COPPER_RESISTIVITY_OHM_M)}
+              readOnly
+              disabled
+              unit="Ω·m"
+            />
+          </Group>
+          {/* m_htmlWinFormulas, showing
+            `tracks_width_versus_current_formula.md`. Carried here line for line. */}
+          <fieldset className="calc-group calc-help tw-help">
+            <div className="calc-help-body">
+              <p>
+                If you specify the maximum current, then the track widths will be calculated to
+                suit.
+              </p>
+              <p>
+                If you specify one of the track widths, the maximum current it can handle will be
+                calculated. The width for the other track to also handle this current will then be
+                calculated.
+              </p>
+              <p>The controlling value is shown in bold.</p>
+              <p>
+                The calculations are valid for currents up to 35 A (external) or 17.5 A (internal),
+                temperature rises up to 100 °C, and widths of up to 400 mils (10 mm).
+              </p>
+              <p>The formula, from IPC 2221, is</p>
+              <p className="calc-formula">
+                I = K · ΔT<sup>0.44</sup> · (W · H)<sup>0.725</sup>
+              </p>
+              <p>
+                where:
+                <br />
+                <b>
+                  <i>I</i>
+                </b>{' '}
+                is maximum current in A
+                <br />
+                <b>
+                  <i>ΔT</i>
+                </b>{' '}
+                is temperature rise above ambient in °C
+                <br />
+                <b>
+                  <i>W</i>
+                </b>{' '}
+                is width in mils
+                <br />
+                <b>
+                  <i>H</i>
+                </b>{' '}
+                is thickness (height) in mils
+                <br />
+                <b>
+                  <i>K</i>
+                </b>{' '}
+                is 0.024 for internal tracks or 0.048 for external tracks
+              </p>
+            </div>
+          </fieldset>
         </div>
-      </fieldset>
+        <div className="tw-right">
+          {layerBox(
+            'External Layer Tracks',
+            'ext',
+            ext,
+            shownExtWidthM,
+            setExtWidthM,
+            extThicknessM,
+            setExtThicknessM,
+            shownExtWidthM * extThicknessM,
+          )}
+          {layerBox(
+            'Internal Layer Tracks',
+            'int',
+            int_,
+            shownIntWidthM,
+            setIntWidthM,
+            intThicknessM,
+            setIntThicknessM,
+            shownIntWidthM * intThicknessM,
+          )}
+          {/* m_buttonTrackWidthReset, wxALIGN_RIGHT|wxALL 5 — the last child of
+            the RIGHT column (panel_track_width_base.cpp:288-289). */}
+          <div className="calc-reset-row">
+            <button type="button" className="calc-btn" onClick={resetDefaults}>
+              Reset to Defaults
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

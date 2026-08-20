@@ -312,7 +312,14 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   border-color: var(--field-focus-border);
 }
 
-.calc-frame input.calc-input:disabled {
+/* Enable( false ) beats wxTE_READONLY: Track Width's Copper resistivity is
+   both, and GTK paints it as insensitive - [px] face rgb(42,42,42), dim ink -
+   not as the 3DLIGHT rgb(55,55,55) a read-only field gets. The selector has to
+   out-specify the .ro rule above. */
+.calc-frame
+input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not(
+  [type="range"]
+) {
   opacity: 1;
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
@@ -898,11 +905,60 @@ input.calc-input.ro:not([type="checkbox"]):not([type="radio"]):not([type="color"
   font-weight: 700;
 }
 
+/* TWUpdateModeDisplay bolds the LABEL and the VALUE of the controlling row
+   (panel_track_width.cpp:340-392) — the unit static text beside them keeps the
+   ordinary weight, which ours did not. */
+.calc-field.bold .calc-unit {
+  font-weight: 400;
+}
+
 .tw-panel {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* bSizerTrackWidth is HORIZONTAL: the left column takes the slack
+   (proportion 1) and the right column is only as wide as its two boxes need
+   (proportion 0). [px] KiCad's left runs x 240..1500 and its right 1516..1843. */
+.tw-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.tw-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tw-right {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 330px;
+}
+
+/* The grid keeps its own width inside the box (proportion 0), so the entry
+   column does not stretch: [px] KiCad's Current entry is x 403..494, 92 px. */
+.tw-params {
+  grid-template-columns: auto auto auto;
+  justify-content: start;
+}
+
+.tw-params .calc-input {
+  width: 92px;
+}
+
+/* wxStaticLine, one per grid column: [px] a 2 px rgb(40,40,40) rule. */
+.calc-hline {
+  height: 2px;
+  background: var(--field-bg, #282828);
+  margin: var(--wx-border) 0;
 }
 
 /* sbSizerTW_Help is a static box with NO title, added with proportion 1. */
