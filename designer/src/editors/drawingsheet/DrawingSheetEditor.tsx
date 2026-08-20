@@ -55,6 +55,7 @@ import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
 import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
 import {
+  formatG,
   gridMsg,
   messageTextFromValue,
   unitText,
@@ -1300,7 +1301,15 @@ export function DrawingSheetEditor({
     },
     [unit],
   );
-  const fmt4 = (n: number): string => String(Number(n.toPrecision(4)));
+  /**
+   * `PL_EDITOR_FRAME::UpdateStatusBar` formats both coordinate pairs with
+   * `%.4g` (pl_editor_frame.cpp:770-771). That is not "4 significant digits":
+   * `%g` switches to exponent form once the exponent leaves `-4 <= e < 4`,
+   * which is why a cold-open pl_editor reads `X 1.266e+04  Y 1.217e+04`.
+   * JS's own toPrecision-and-back never does, so ours printed plain
+   * integers there.
+   */
+  const fmt4 = (n: number): string => formatG(n, 4);
 
   /** Origin corner in page IU + per-axis signs (ReturnCoordOriginCorner). */
   const originInfo = useMemo((): { origin: Vec2; xs: number; ys: number } => {
@@ -1356,7 +1365,11 @@ export function DrawingSheetEditor({
     unit === 'inches'
       ? (iuToMM(gridIU) / 25.4).toFixed(3)
       : unit === 'mils'
-        ? ((iuToMM(gridIU) / 25.4) * 1000).toFixed(1)
+        ? // The MILS case is the `default:` branch of that switch, and its
+          // format is a bare "grid %f" - no precision given, so C's default of
+          // SIX decimal places. A live pl_editor in mils really does read
+          // "grid 19.685039"; ours read "grid 19.7".
+          ((iuToMM(gridIU) / 25.4) * 1000).toFixed(6)
         : iuToMM(gridIU).toFixed(4),
   );
 

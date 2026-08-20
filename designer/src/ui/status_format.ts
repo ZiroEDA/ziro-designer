@@ -123,6 +123,39 @@ export function unitText(units: StatusUnits): string {
   return units === 'mm' ? ' mm' : units === 'mils' ? ' mils' : ' in';
 }
 
+/**
+ * C's `%g` conversion, which `wxString::Format` hands straight to the C
+ * library — `PL_EDITOR_FRAME::UpdateStatusBar` formats its coordinates with
+ * `"X %.4g  Y %.4g"` (`pagelayout_editor/pl_editor_frame.cpp:770-771`).
+ *
+ * `%g` is not "4 significant digits": it is 4 significant digits *and* a switch
+ * to exponent form once the exponent leaves the range `-4 <= e < precision`,
+ * with trailing zeros trimmed and the exponent padded to two digits. That is
+ * why a cold-open pl_editor reads `X 1.266e+04  Y 1.217e+04` and not
+ * `X 12660  Y 12170`, which is what `Number(n.toPrecision(4))` gives.
+ *
+ * The exponent is taken AFTER rounding to `precision` digits, as C does, so
+ * 9999.6 at `%.4g` is `1e+04` rather than `9999.6`.
+ */
+export function formatG(value: number, precision = 4): string {
+  if (!Number.isFinite(value)) return String(value);
+  if (value === 0) return '0';
+
+  const p = precision <= 0 ? 1 : precision;
+  const rounded = value.toExponential(p - 1);
+  const exponent = Number(rounded.slice(rounded.indexOf('e') + 1));
+
+  const trim = (text: string): string =>
+    text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
+
+  if (exponent < -4 || exponent >= p) {
+    const mantissa = trim(rounded.slice(0, rounded.indexOf('e')));
+    const sign = exponent < 0 ? '-' : '+';
+    return `${mantissa}e${sign}${String(Math.abs(exponent)).padStart(2, '0')}`;
+  }
+  return trim(value.toFixed(Math.max(0, p - 1 - exponent)));
+}
+
 /** Field 2: `"X %s  Y %s"` (two spaces), or the placeholder off-canvas. */
 export function coordsMsg(x: string | null, y?: string): string {
   return x === null || y === undefined ? 'X, Y -' : `X ${x}  Y ${y}`;
