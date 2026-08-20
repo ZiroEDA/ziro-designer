@@ -320,7 +320,19 @@ export function computeCopperAnchors(
   return anchors;
 }
 
-/** `GRID_HELPER::nearestAnchor( aPos, aFlags )` — nearest anchor carrying every flag. */
+/**
+ * `PCB_GRID_HELPER::nearestAnchor( aPos, aFlags )` (pcbnew/tools/pcb_grid_helper.cpp:1966)
+ * — nearest anchor carrying every flag.
+ *
+ * A private member of `PCB_GRID_HELPER`, not of `GRID_HELPER`. The base
+ * (include/tool/grid_helper.h:55) holds `m_anchors` and the flag set; the search
+ * over them belongs to each editor and differs: eeschema's
+ * (`EE_GRID_HELPER::nearestAnchor`, eeschema/tools/ee_grid_helper.cpp:553) also
+ * takes a `GRID_HELPER_GRIDS` and filters on `SCH_ITEM::IsConnectable()`, which
+ * has no meaning on a board where the layer filtering has already happened as the
+ * anchors were collected. Ours mirrors that split, and eeschema's same-named
+ * function in eeschema/src/tools/snap.ts is deliberately not this one.
+ */
 export function nearestAnchor(
   aAnchors: readonly SnapAnchor[],
   aPos: Vec2,

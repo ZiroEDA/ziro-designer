@@ -21,7 +21,7 @@
 import { symbolTransform, localToWorld } from '@ziroeda/common/src/transform.js';
 import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
-import { newUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 function unitMatches(
@@ -291,8 +291,8 @@ export function planMoveFromPoints(
         splits.push({
           lineUuid: ln.uuid,
           at: labelAt,
-          newUuid: newUuid(),
-          junctionUuid: newUuid(),
+          newUuid: newKiid(),
+          junctionUuid: newKiid(),
           originalEnd: ln.end,
         });
       }
@@ -302,7 +302,7 @@ export function planMoveFromPoints(
 
   const newWires: StubWire[] = [...fixedPoints, ...stubPoints].map((k) => {
     const [x, y] = k.split(',').map(Number);
-    return { uuid: newUuid(), fixed: { x: x!, y: y! } };
+    return { uuid: newKiid(), fixed: { x: x!, y: y! } };
   });
 
   // Unselected labels carried by a moved wire. A wire moving whole takes them

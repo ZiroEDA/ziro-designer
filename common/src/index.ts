@@ -67,4 +67,6 @@ export * from './color4d.js';
 export * from './settings/builtin_color_themes.js';
 
 export * from './array_options.js';
+export * from './table.js';
+export * from './reference_image.js';
 export { pngPixelSize, pngPPI, DEFAULT_PPI } from './png_meta.js';

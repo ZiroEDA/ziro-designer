@@ -243,9 +243,11 @@ export {
 export {
   exchangeFootprint,
   placeFootprint,
-  newUuid as newBoardUuid,
   type PlaceFootprintOptions,
 } from './board_exchange_footprint.js';
+// A new board item's UUID is `KIID::KIID()`, which upstream has once for the
+// whole application; re-exported from common so the board barrel still offers it.
+export { newKiid as newBoardUuid } from '@ziroeda/common/src/kiid.js';
 export {
   computeFootprintShift,
   uniquePadCount,
@@ -593,9 +595,11 @@ export {
   tableBBox,
   tableBorderSegments,
   tableCell,
-  tableRowCount,
   type TableSegment,
 } from './table_geometry.js';
+// tableRowCount is not re-exported here: it is the same statement in
+// SCH_TABLE::GetRowCount and PCB_TABLE::GetRowCount, so it lives in
+// @ziroeda/common/src/table.js and both editors import it from there.
 
 export {
   tableAt,

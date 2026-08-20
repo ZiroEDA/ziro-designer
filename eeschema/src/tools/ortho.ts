@@ -34,7 +34,8 @@ import type {
   Vec2,
 } from '../types.js';
 import { refId } from './hittest.js';
-import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid, newUuid } from './build.js';
+import { makeBus, makeWire, makeWireWithUuid, makeJunctionWithUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import { symbolPinPositions } from './connect.js';
 import { moveSymbolOrFields, moveRigidItems } from './move.js';
 import type { MoveSpec } from './connect.js';
@@ -425,7 +426,7 @@ function computeOrtho(
     const key = `new:${created++}`;
     return {
       key,
-      uuid: newUuid(),
+      uuid: newKiid(),
       isNew: true,
       template,
       start: at,

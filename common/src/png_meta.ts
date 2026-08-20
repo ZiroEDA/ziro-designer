@@ -90,7 +90,14 @@ export function pngPPI(data: string): number {
     if (type === 'pHYs' && data0 + 9 <= b.length) {
       const ppuX = be32(b, data0);
       const unit = b[data0 + 8];
-      if (unit === 1 && ppuX > 0) return Math.round((ppuX / 100) * 2.54);
+      // `BITMAP_BASE::updatePPI` (common/bitmap_base.cpp:113-125) adopts the
+      // file's resolution only `if( dpiX > 1 )` and keeps its 300 otherwise, so
+      // GetPPI() is never zero and nothing downstream has to guard the division.
+      // The same test is applied here, to the converted figure: without it a
+      // pHYs stating a couple of dozen pixels per metre rounds to a PPI of zero,
+      // and an image of infinite size is not a thing the canvas can draw.
+      const ppi = Math.round((ppuX / 100) * 2.54);
+      if (unit === 1 && ppi > 1) return ppi;
       return DEFAULT_PPI;
     }
     off = data0 + len + 4; // skip the payload and its CRC

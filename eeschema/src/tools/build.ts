@@ -12,6 +12,7 @@
 
 import { head, isList, list, atom, str, type SList } from '@ziroeda/sexpr/src/types.js';
 import { iuToMM } from '@ziroeda/common/src/eda_units.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type {
   SchLine,
   SchJunction,
@@ -28,16 +29,6 @@ import type {
   Vec2,
 } from '../types.js';
 import type { Orientation } from '@ziroeda/common/src/transform.js';
-
-/** A UUID for a new item. Falls back to a random hex string off-platform. */
-export function newUuid(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c?.randomUUID) return c.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-    const r = (Math.random() * 16) | 0;
-    return (ch === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
 
 /**
  * Set (or insert) the `(uuid ...)` child of an item node.
@@ -73,11 +64,11 @@ export function nodeWithUuid(node: SList, uuid: string): SList {
  * (`PruneOrphanedSymbolInstances`).
  */
 export function symbolNodeWithFreshUuids(node: SList): SList {
-  const n = nodeWithUuid(node, newUuid());
+  const n = nodeWithUuid(node, newKiid());
   return {
     kind: 'list',
     items: symbolNodeWithoutInstances(n).items.map((it) =>
-      isList(it) && head(it) === 'pin' ? nodeWithUuid(it, newUuid()) : it,
+      isList(it) && head(it) === 'pin' ? nodeWithUuid(it, newKiid()) : it,
     ),
   };
 }
@@ -146,12 +137,12 @@ export function makeWireWithUuid(start: Vec2, end: Vec2, uuid: string): SchLine 
 
 /** Create a new wire model item (with its backing AST node). */
 export function makeWire(start: Vec2, end: Vec2): SchLine {
-  return makeWireWithUuid(start, end, newUuid());
+  return makeWireWithUuid(start, end, newKiid());
 }
 
 /** Create a new bus model item, KiCad's `(bus ...)`, same shape as a wire. */
 export function makeBus(start: Vec2, end: Vec2): SchLine {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const node = list(
     atom('bus'),
     list(atom('pts'), xy(start), xy(end)),
@@ -210,7 +201,7 @@ export function makeLabel(
   at: Vec2,
   opts: LabelOptions = {},
 ): SchLabel {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const angle = opts.angle ?? 0;
   const hasShape = kind === 'global_label' || kind === 'hierarchical_label';
   const shape: LabelShape = opts.shape ?? 'bidirectional';
@@ -267,7 +258,7 @@ export function makeLabel(
 
 /** Create a new junction model item (with its backing AST node). */
 export function makeJunction(at: Vec2): SchJunction {
-  return makeJunctionWithUuid(at, newUuid());
+  return makeJunctionWithUuid(at, newKiid());
 }
 
 /** The same with a caller-supplied uuid, so an undoable command can name it. */
@@ -277,7 +268,7 @@ export function makeJunctionWithUuid(at: Vec2, uuid: string): SchJunction {
 
 /** Create a new no-connect flag, KiCad's `(no_connect (at ..) (uuid ..))`. */
 export function makeNoConnect(at: Vec2): SchNoConnect {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const source = list(
     atom('no_connect'),
     list(atom('at'), atom(mm(at.x)), atom(mm(at.y))),
@@ -318,7 +309,7 @@ export function makeDirectiveLabel(
     fields?: readonly { key: string; value: string; effects?: TextEffects }[];
   } = {},
 ): SchDirectiveLabel {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const angle = opts.angle ?? 0;
   const shape: DirectiveShape = opts.shape ?? 'round';
   const pinLength = opts.pinLength ?? DEFAULT_DIRECTIVE_PIN_LENGTH;
@@ -454,7 +445,7 @@ export function makeSymbol(
   orient: Orientation = { angle: 0 },
   unit = 1,
 ): SchSymbol {
-  const uuid = newUuid();
+  const uuid = newKiid();
   const refProp = lib.properties.find((p) => p.key === 'Reference');
   const valProp = lib.properties.find((p) => p.key === 'Value');
   const prefix = refProp?.value ?? 'U';

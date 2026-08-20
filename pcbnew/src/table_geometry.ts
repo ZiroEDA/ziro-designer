@@ -21,6 +21,7 @@
  * separator on that side, because there is nothing beyond it to separate from —
  * that is what makes a merged cell look merged rather than merely wide.
  */
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import { textBoxCorners } from './textbox_geometry.js';
 import type { PcbTable, PcbTableCell, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -31,12 +32,6 @@ export interface TableSegment {
   b: Vec2;
   width: number;
   style: StrokeType;
-}
-
-/** `PCB_TABLE::GetRowCount`: the cell count divided by the column count. */
-export function tableRowCount(t: PcbTable): number {
-  if (t.columnCount <= 0) return 0;
-  return Math.floor(t.cells.length / t.columnCount);
 }
 
 /** `PCB_TABLE::GetCell`: row-major indexing into the flat cell list. */

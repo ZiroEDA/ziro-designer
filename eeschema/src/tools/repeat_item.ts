@@ -20,7 +20,7 @@
 import type { Schematic, SchLabel, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { addItems } from './mutate.js';
-import { newUuid } from './build.js';
+import { newKiid } from '@ziroeda/common/src/kiid.js';
 import type { EditCommand } from './command.js';
 
 /**
@@ -97,7 +97,7 @@ export function repeatItems(
     const src = doc.labels[idx]!;
     const stepped = incrementString(src.text, opts.labelIncrement);
     if (stepped === null) clampedAtZero = true;
-    const uuid = newUuid();
+    const uuid = newKiid();
     labels.push({
       ...src,
       uuid,

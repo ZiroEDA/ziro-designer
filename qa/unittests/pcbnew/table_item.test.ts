@@ -42,12 +42,8 @@ import {
   DEFAULT_SELECTION_FILTER,
   itemPassesFilter,
 } from '@ziroeda/pcbnew/src/filter_selection.js';
-import {
-  tableBBox,
-  tableBorderSegments,
-  tableCell,
-  tableRowCount,
-} from '@ziroeda/pcbnew/src/table_geometry.js';
+import { tableBBox, tableBorderSegments, tableCell } from '@ziroeda/pcbnew/src/table_geometry.js';
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/src/types.js';
 

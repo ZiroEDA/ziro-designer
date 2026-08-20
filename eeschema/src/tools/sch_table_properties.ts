@@ -41,6 +41,7 @@
  * the combo falls back to index 0 for anything out of range.
  */
 
+import { tableRowCount } from '@ziroeda/common/src/table.js';
 import type { Schematic, SchTable, Stroke } from '../types.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
@@ -69,10 +70,6 @@ export interface SchTableValues {
   readonly separatorStyle: TableStrokeStyle;
   readonly separatorColor?: TableColor;
 }
-
-/** How many rows the table has, given its cells and column count. */
-export const tableRowCount = (t: SchTable): number =>
-  Math.max(1, Math.ceil(t.cells.length / Math.max(1, t.columnCount)));
 
 /**
  * The style a stored stroke selects in the combo.
@@ -210,7 +207,15 @@ function restoreTable(index: number, table: SchTable): EditCommand {
  *
  * `SCH_EDIT_TOOL::Properties` opens this dialog for a single SCH_TABLE_T; a
  * selected *cell* opens the cell dialog instead, which is why only whole-table
- * ids count here.
+ * ids count here (eeschema/tools/sch_edit_tool.cpp:571-583).
+ *
+ * Kept separate from pcbnew's same-named `tableAt` on purpose. Upstream has no
+ * shared version either: each editor's own edit tool tests its own selection
+ * (`EDIT_TOOL::Properties`, pcbnew/tools/edit_tool.cpp:2142-2145). And ours could
+ * not be shared even if upstream's were, because the two editors' selection ids
+ * are different namespaces -- `refId('table', uuid, index)` here against
+ * `parseBoardItemId`'s `table:<index>` there -- so a single function would have
+ * to be handed a parser and would decide nothing of its own.
  */
 export function tableAt(doc: Schematic, selection: Iterable<string>): number | null {
   const ids = [...selection];
