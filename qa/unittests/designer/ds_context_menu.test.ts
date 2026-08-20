@@ -222,3 +222,31 @@ describe('the canvas actually raises it', () => {
     expect(EDITOR).toContain('items={buildDsContextMenu(');
   });
 });
+
+describe('DSP-26 — Zoom In / Zoom Out step the table', () => {
+  const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
+
+  it('no longer multiplies the scale by a constant', () => {
+    // Ours measured Z 1.12 -> 3.83 over four Zoom In clicks: a constant x1.30
+    // and four zooms that are nowhere in KiCad's table.
+    expect(CANVAS).not.toContain('zoomStep(1.3)');
+    expect(CANVAS).not.toContain('zoomStep(1 / 1.3)');
+  });
+
+  it('asks nextZoomPreset for pl_editor’s table', () => {
+    expect(CANVAS).toContain('nextZoomPreset(ZOOM_LIST.pl_editor, now, zoomIn)');
+    expect(CANVAS).toContain('zoomIn: () => zoomPresetStep(true)');
+    expect(CANVAS).toContain('zoomOut: () => zoomPresetStep(false)');
+  });
+
+  it('reads the current zoom as a GAL zoom factor, not as a canvas scale', () => {
+    // doZoomInOut starts from GetGAL()->GetZoomFactor(), which is what the
+    // status bar's Z field prints and what the table's entries are in.
+    expect(CANVAS).toContain('zoomFactorForScale(viewRef.current.scale, dpr, SCH_IU_PER_MM)');
+  });
+
+  it('sets the preset absolutely, holding the canvas centre', () => {
+    // doZoomToPreset is VIEW::SetScale( zoomList[idx] ), not a relative step.
+    expect(CANVAS).toContain('v.scale = scaleForZoomFactor(factor, dpr, SCH_IU_PER_MM);');
+  });
+});

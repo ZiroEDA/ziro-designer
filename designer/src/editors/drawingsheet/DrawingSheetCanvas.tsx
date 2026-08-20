@@ -46,7 +46,8 @@ import {
 import { setBitmapInvalidate } from './wksBitmap.js';
 import { commonInputPrefs, wheelAction, zoomFitView } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
-import { scaleForZoomFactor } from '../../ui/status_format.js';
+import { scaleForZoomFactor, zoomFactorForScale } from '../../ui/status_format.js';
+import { ZOOM_LIST, nextZoomPreset } from '../../ui/zoom_settings.js';
 
 // A pencil cursor for the drawing tools (KICURSOR::PENCIL) and a "remove"
 // cursor for the interactive delete picker (KICURSOR::REMOVE).
@@ -443,23 +444,6 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       [requestDraw],
     );
 
-    const zoomStep = useCallback(
-      (factor: number) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const v = viewRef.current;
-        const px = canvas.width / 2,
-          py = canvas.height / 2;
-        const wx = (px - v.tx) / v.scale,
-          wy = (py - v.ty) / v.scale;
-        v.scale *= factor;
-        v.tx = px - wx * v.scale;
-        v.ty = py - wy * v.scale;
-        requestDraw();
-      },
-      [requestDraw],
-    );
-
     /**
      * `COMMON_TOOLS::doZoomToPreset` (common/tool/common_tools.cpp:468-495):
      * `VIEW::SetScale( zoomList[idx] )`, an absolute zoom rather than a step.
@@ -483,17 +467,35 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       [dpr, requestDraw],
     );
 
+    /**
+     * `COMMON_TOOLS::doZoomInOut` (common/tool/common_tools.cpp:252-291).
+     *
+     * Not `scale *= 1.3`. The 1.3 is the FLOOR - "Step must be AT LEAST 1.3" -
+     * and the zoom actually applied is the next entry of the frame's zoom table
+     * beyond it, pegged to the end of the list rather than running off it. So
+     * KiCad always lands on a round, repeatable zoom that the canvas context
+     * menu can also name and jump straight back to; ours multiplied by a
+     * constant and landed on 1.12, 1.46, 1.90, 2.47… none of which is anywhere.
+     */
+    const zoomPresetStep = useCallback(
+      (zoomIn: boolean) => {
+        const now = zoomFactorForScale(viewRef.current.scale, dpr, SCH_IU_PER_MM);
+        setZoomPreset(nextZoomPreset(ZOOM_LIST.pl_editor, now, zoomIn));
+      },
+      [dpr, setZoomPreset],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
         zoomToFit,
         zoomToSelection,
-        zoomIn: () => zoomStep(1.3),
-        zoomOut: () => zoomStep(1 / 1.3),
+        zoomIn: () => zoomPresetStep(true),
+        zoomOut: () => zoomPresetStep(false),
         setZoomPreset,
         redraw: () => requestDraw(),
       }),
-      [zoomToFit, zoomToSelection, zoomStep, setZoomPreset, requestDraw],
+      [zoomToFit, zoomToSelection, zoomPresetStep, setZoomPreset, requestDraw],
     );
 
     // Size to container; fit on first layout.
