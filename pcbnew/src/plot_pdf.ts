@@ -104,20 +104,25 @@ export enum PLOT_TEXT_MODE {
   DEFAULT,
 }
 
-/** `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h). */
-export const DO_NOT_SET_LINE_WIDTH = -2;
-export const USE_DEFAULT_LINE_WIDTH = -1;
+/**
+ * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
+ * Statics on the base upstream, so one declaration here, re-exported for the
+ * callers that reach for them through this module.
+ */
+export {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
 
-/** COLOR4D, components in 0..1. Equality includes alpha, as COLOR4D's does. */
-export interface Color4d {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
+import {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
 
-export const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
-export const COLOR4D_WHITE: Color4d = { r: 1, g: 1, b: 1, a: 1 };
+// `COLOR4D` lives in `common` because the graphics importers, shared with
+// eeschema, need it too. Re-exported here so existing consumers are unaffected.
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
@@ -128,35 +133,29 @@ export interface PdfBox2 {
   size: Vec2;
 }
 
+// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
+// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
+// object for a dash length.
+export {
+  DEFAULT_DASH_LENGTH_RATIO,
+  DEFAULT_GAP_LENGTH_RATIO,
+} from '@ziroeda/common/src/render_settings.js';
+import {
+  type PlotterRenderSettings,
+  plotterRenderSettings,
+} from '@ziroeda/common/src/render_settings.js';
+
 /**
- * `RENDER_SETTINGS`, reduced to the five accessors the plotter reaches for.
- * Injected rather than imported because pcbnew/src must not reach into
- * designer/'s theme. `pdfRenderSettings` below builds a faithful one.
+ * `RENDER_SETTINGS` plus the one accessor only the PDF backend reaches for.
  */
-export interface PdfRenderSettings {
-  GetDefaultPenWidth(): number;
-  GetDashLength(aLineWidth: number): number;
-  GetDotLength(aLineWidth: number): number;
-  GetGapLength(aLineWidth: number): number;
+export interface PdfRenderSettings extends PlotterRenderSettings {
   /** Only masked image pixels consult this; PDF has no page background. */
   GetBackgroundColor(): Color4d;
 }
 
 /**
- * `correction` (render_settings.cpp). The file offers 0.8 ("looks best
- * visually") behind an `#if 0` and compiles 1.0; the dead value is not an
- * option, it is dead.
- */
-const DASH_CORRECTION = 1.0;
-
-/** RENDER_SETTINGS' ISO 128-2 defaults, and m_defaultPenWidth's bare zero. */
-export const DEFAULT_DASH_LENGTH_RATIO = 12;
-export const DEFAULT_GAP_LENGTH_RATIO = 3;
-
-/**
- * `RENDER_SETTINGS::GetDashLength` / `GetDotLength` / `GetGapLength`. The dot
- * length ignores both ratios and is floored at 0.2 of the width, which is what
- * keeps a dot from collapsing to a zero-length line.
+ * `plotterRenderSettings` plus the background colour. COLOR4D_WHITE is the
+ * default because that is what an unset PCB background reads back as.
  */
 export function pdfRenderSettings(
   aOptions: {
@@ -166,16 +165,10 @@ export function pdfRenderSettings(
     backgroundColor?: Color4d;
   } = {},
 ): PdfRenderSettings {
-  const defaultPenWidth = aOptions.defaultPenWidth ?? 0;
-  const dashLengthRatio = aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO;
-  const gapLengthRatio = aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO;
   const backgroundColor = aOptions.backgroundColor ?? COLOR4D_WHITE;
 
   return {
-    GetDefaultPenWidth: () => defaultPenWidth,
-    GetDashLength: (aLineWidth) => Math.max(dashLengthRatio - DASH_CORRECTION, 1.0) * aLineWidth,
-    GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
-    GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
+    ...plotterRenderSettings(aOptions),
     GetBackgroundColor: () => backgroundColor,
   };
 }
@@ -229,74 +222,11 @@ export interface PdfProject {
 // Number formatting
 // ===========================================================================
 
-const F64 = new DataView(new ArrayBuffer(8));
-
-/** The IEEE-754 fields of |aValue|, as the exact rational mantissa * 2^exponent. */
-function decompose(aValue: number): { mantissa: bigint; exponent: number } {
-  F64.setFloat64(0, Math.abs(aValue));
-
-  const hi = F64.getUint32(0);
-  const lo = F64.getUint32(4);
-  const rawExponent = (hi >>> 20) & 0x7ff;
-
-  let mantissa = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
-
-  // Subnormals have no implicit leading bit and an exponent of 1, not 0.
-  if (rawExponent !== 0) mantissa |= 1n << 52n;
-
-  return { mantissa, exponent: (rawExponent === 0 ? 1 : rawExponent) - 1075 };
-}
-
-/**
- * `mantissa * 2^exponent * 10^aScale`, rounded to an integer with ties going to
- * even. Exact by construction: the whole computation is a BigInt rational, so
- * there is no second rounding to disagree with the first.
- */
-function scaledRound(aMantissa: bigint, aExponent: number, aScale: number): bigint {
-  let numerator = aMantissa;
-  let denominator = 1n;
-
-  if (aScale >= 0) numerator *= 10n ** BigInt(aScale);
-  else denominator *= 10n ** BigInt(-aScale);
-
-  if (aExponent >= 0) numerator <<= BigInt(aExponent);
-  else denominator <<= BigInt(-aExponent);
-
-  let quotient = numerator / denominator;
-  const twiceRemainder = (numerator % denominator) * 2n;
-
-  if (twiceRemainder > denominator || (twiceRemainder === denominator && (quotient & 1n) === 1n))
-    quotient += 1n;
-
-  return quotient;
-}
-
-/**
- * fmt's `{:.Nf}`, i.e. C's `%.*f`: the exact binary value of the double is
- * rounded to N decimals with ties going to even, and the sign survives even
- * when the result is zero.
- *
- * `Number.prototype.toFixed` differs on both counts — it rounds ties away from
- * zero and prints negative zero as "0" — so it is not a drop-in. The negative
- * zero matters here specifically: `encodeDoubleForPlotter` recognises `"-0"`
- * and rewrites it, and it can only do that if the minus sign survives.
- */
-export function fixed(aValue: number, aPrecision: number): string {
-  if (Number.isNaN(aValue)) return 'nan';
-  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
-
-  const negative = aValue < 0 || Object.is(aValue, -0);
-  const { mantissa, exponent } = decompose(aValue);
-
-  let digits = scaledRound(mantissa, exponent, aPrecision).toString();
-
-  if (aPrecision > 0) {
-    digits = digits.padStart(aPrecision + 1, '0');
-    digits = `${digits.slice(0, digits.length - aPrecision)}.${digits.slice(digits.length - aPrecision)}`;
-  }
-
-  return negative ? `-${digits}` : digits;
-}
+// `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
+// one `fmt::print`; the precision is a call-site argument, not a per-backend
+// formatter. Re-exported so existing importers of this module are unaffected.
+export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
+import { decompose, fixed, scaledRound } from '@ziroeda/common/src/plotters/fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals. PlotPoly and PenTo use it. */
 export const DEFAULT_FMT_PRECISION = 6;

@@ -96,66 +96,40 @@ export enum PLOT_TEXT_MODE {
   DEFAULT,
 }
 
-/** `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h). */
-export const DO_NOT_SET_LINE_WIDTH = -2;
-export const USE_DEFAULT_LINE_WIDTH = -1;
+/**
+ * `PLOTTER::DO_NOT_SET_LINE_WIDTH` / `USE_DEFAULT_LINE_WIDTH` (plotter.h:139-140).
+ * Statics on the base upstream, so one declaration here, re-exported for the
+ * callers that reach for them through this module.
+ */
+export {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
 
-/** COLOR4D, components in 0..1. Equality includes alpha, as COLOR4D's does. */
-export interface Color4d {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-}
+import {
+  DO_NOT_SET_LINE_WIDTH,
+  USE_DEFAULT_LINE_WIDTH,
+} from '@ziroeda/common/src/plotters/plotter.js';
 
-export const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
-export const COLOR4D_WHITE: Color4d = { r: 1, g: 1, b: 1, a: 1 };
+// `COLOR4D` lives in `common` because the graphics importers, shared with
+// eeschema, need it too. Re-exported here so existing consumers are unaffected.
+export { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
+import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '@ziroeda/common/src/color4d.js';
 
 const colorEquals = (a: Color4d, b: Color4d): boolean =>
   a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
 
-/**
- * `RENDER_SETTINGS`, reduced to the four accessors the plotter reaches for.
- * Injected rather than imported because pcbnew/src must not reach into
- * designer/'s theme. `svgRenderSettings` below builds a faithful one.
- */
-export interface SvgRenderSettings {
-  GetDefaultPenWidth(): number;
-  GetDashLength(aLineWidth: number): number;
-  GetDotLength(aLineWidth: number): number;
-  GetGapLength(aLineWidth: number): number;
-}
+// `RENDER_SETTINGS` and its ISO 128-2 dash/gap ratios live in `common`: upstream
+// keeps them on RENDER_SETTINGS, not on PLOTTER, and every backend asks the one
+// object for a dash length. Re-exported under the names this module used.
+export {
+  DEFAULT_DASH_LENGTH_RATIO,
+  DEFAULT_GAP_LENGTH_RATIO,
+  type PlotterRenderSettings as SvgRenderSettings,
+  plotterRenderSettings as svgRenderSettings,
+} from '@ziroeda/common/src/render_settings.js';
 
-/**
- * `correction` (render_settings.cpp). The file offers 0.8 ("looks best
- * visually") behind an `#if 0` and compiles 1.0; the dead value is not an
- * option, it is dead.
- */
-const DASH_CORRECTION = 1.0;
-
-/** RENDER_SETTINGS' ISO 128-2 defaults, and m_defaultPenWidth's bare zero. */
-export const DEFAULT_DASH_LENGTH_RATIO = 12;
-export const DEFAULT_GAP_LENGTH_RATIO = 3;
-
-/**
- * `RENDER_SETTINGS::GetDashLength` / `GetDotLength` / `GetGapLength`. The dot
- * length ignores both ratios and is floored at 0.2 of the width, which is what
- * keeps a dot from collapsing to a zero-length line.
- */
-export function svgRenderSettings(
-  aOptions: { defaultPenWidth?: number; dashLengthRatio?: number; gapLengthRatio?: number } = {},
-): SvgRenderSettings {
-  const defaultPenWidth = aOptions.defaultPenWidth ?? 0;
-  const dashLengthRatio = aOptions.dashLengthRatio ?? DEFAULT_DASH_LENGTH_RATIO;
-  const gapLengthRatio = aOptions.gapLengthRatio ?? DEFAULT_GAP_LENGTH_RATIO;
-
-  return {
-    GetDefaultPenWidth: () => defaultPenWidth,
-    GetDashLength: (aLineWidth) => Math.max(dashLengthRatio - DASH_CORRECTION, 1.0) * aLineWidth,
-    GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
-    GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
-  };
-}
+import type { PlotterRenderSettings as SvgRenderSettings } from '@ziroeda/common/src/render_settings.js';
 
 /** The `TEXT_ATTRIBUTES` fields Text and PlotText read (text_attributes.h). */
 export interface SvgTextAttributes {
@@ -217,60 +191,12 @@ export interface SvgImage {
 // Number formatting
 // ===========================================================================
 
-const F64 = new DataView(new ArrayBuffer(8));
-
-/**
- * fmt's `{:.Nf}`, i.e. C's `%.*f`: the exact binary value of the double is
- * rounded to N decimals with ties going to even, and the sign survives even
- * when the result is zero.
- *
- * `Number.prototype.toFixed` differs on both counts — it rounds ties away from
- * zero and prints negative zero as "0" — so the digits are produced here from
- * the IEEE fields with BigInt arithmetic, which is exact by construction.
- * Ties are rare at m_precision 4 but they are not impossible, and a rounding
- * rule that is right "almost always" is not a port.
- */
-export function fixed(aValue: number, aPrecision: number): string {
-  if (Number.isNaN(aValue)) return 'nan';
-  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
-
-  const negative = aValue < 0 || Object.is(aValue, -0);
-
-  F64.setFloat64(0, Math.abs(aValue));
-  const hi = F64.getUint32(0);
-  const lo = F64.getUint32(4);
-
-  const rawExponent = (hi >>> 20) & 0x7ff;
-  let mantissa = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
-
-  // Subnormals have no implicit leading bit and an exponent of 1, not 0.
-  if (rawExponent === 0) mantissa |= 0n;
-  else mantissa |= 1n << 52n;
-
-  const exponent = (rawExponent === 0 ? 1 : rawExponent) - 1075;
-
-  // value * 10^precision, as an exact rational.
-  let numerator = mantissa * 10n ** BigInt(aPrecision);
-  let denominator = 1n;
-
-  if (exponent >= 0) numerator <<= BigInt(exponent);
-  else denominator = 1n << BigInt(-exponent);
-
-  let quotient = numerator / denominator;
-  const twiceRemainder = (numerator % denominator) * 2n;
-
-  if (twiceRemainder > denominator || (twiceRemainder === denominator && (quotient & 1n) === 1n))
-    quotient += 1n;
-
-  let digits = quotient.toString();
-
-  if (aPrecision > 0) {
-    digits = digits.padStart(aPrecision + 1, '0');
-    digits = `${digits.slice(0, digits.length - aPrecision)}.${digits.slice(digits.length - aPrecision)}`;
-  }
-
-  return negative ? `-${digits}` : digits;
-}
+// `{fmt}`'s `{:.Nf}`. One implementation for every backend, as upstream has
+// one `fmt::print`; the precision is a call-site argument (SVG's is
+// `m_precision`, SVG_plotter.cpp:176), not a per-backend formatter.
+// Re-exported so existing importers of this module are unaffected.
+export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
+import { fixed } from '@ziroeda/common/src/plotters/fmt.js';
 
 /** fmt's bare `{:f}`: a hard-coded six decimals, whatever m_precision says. */
 export const DEFAULT_FMT_PRECISION = 6;
