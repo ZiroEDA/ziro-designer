@@ -560,9 +560,17 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   margin: calc(var(--wx-border) * 2) 0;
 }
 
+/* A wxGrid draws TWO different rules and we drew one. Its interior cell lines
+   are the default grid-line colour, rgb(55,55,55); the grid's outer frame and
+   the boundaries drawn by its LABEL windows — corner-to-header, row-label-to-
+   cell, and between one label and the next — are rgb(24,24,24). [px] on
+   k13_board_classes.png the class-cell rules at x 650/750/850 are (55,55,55)
+   while x 350, 550 and 1150 are (24,24,24); the same split is on the IPC 2221
+   grid at k03 y=200. Ours used --ctl-border for every line, which drew the
+   whole table in the dark frame colour. */
 .calc-table th,
 .calc-table td {
-  border: 1px solid var(--ctl-border);
+  border: 1px solid var(--ctl-face);
   padding: 3px 10px;
   text-align: center;
   /* [px] a wxGrid's DATA cells take wxSYS_COLOUR_WINDOW - rgb(39,39,39) on the
@@ -584,9 +592,38 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
    pcb_calculator has no red cell anywhere, so they were a colour waiting to be
    used by the next person who needed one. Deleted rather than documented. */
 
+/* A wxGrid row label is drawn by a single-line renderer and CLIPPED to the
+   label column; it never wraps. Ours wrapped, which made a row 43 px tall where
+   every other row is 24 — the same defect the IPC 2221 grid has. And the label's
+   inset is 4 px, not the 10 px of cell padding we gave it: [px] on
+   k13_board_classes.png the label column runs 351..549 and "Lines width" inks
+   from 354.
+   The clip is now real and visible on two labels, because
+   "Plated Pad: (diameter - drill)" is 187 px in Ubuntu Sans and 210 in Noto
+   Sans against a 200 px column — the typeface again, not the metric. */
 .calc-table td.rowhead,
 .calc-table th.rowhead {
   text-align: left;
+  padding-left: 4px; /* [px] label ink at 354 in a column starting 351 */
+  padding-right: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* The label windows' own rules, and the grid's outer frame. With
+   border-collapse the cell earlier in the row wins a shared edge, so a
+   `th`'s dark border is what shows against the `td` beside it. */
+.calc-table th {
+  border-color: var(--ctl-border);
+}
+
+.calc-table tbody tr > td:last-child {
+  border-right-color: var(--ctl-border);
+}
+
+.calc-table tbody tr:last-child > td,
+.calc-table tbody tr:last-child > th {
+  border-bottom-color: var(--ctl-border);
 }
 
 /* --- regulator panel layout ---
@@ -1510,18 +1547,76 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   margin: 0 var(--wx-border) var(--wx-border);
 }
 
-/* Board Classes: the unit selector on the left, the note pushed to the right. */
-.bc-top {
+/* --- Board Classes (panel_board_class_base.cpp) ---
+   bSizerBoardClass is wxHORIZONTAL (base:12): the unit selector is a COLUMN of
+   its own on the left and the note, grid and filler are the right column. Ours
+   was a `.bc-top` row of selector-plus-note above the grid, with the note
+   pushed to the page's right edge by `justify-content: space-between` — which
+   is neither of the two things upstream does. */
+.bc-panel {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--wx-border);
-  margin-bottom: var(--wx-border);
+  flex-direction: row;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
+/* bSizerUnitsMargins->Add( selector, 0, wxTOP|wxBOTTOM|wxRIGHT, 32 ) inside a
+   sizer added `wxLEFT, 10` (base:19-20). [px] KiCad's selector sits at
+   x 246..311, y 59..90 — level with the grid's column-label strip. */
+.bc-units {
+  margin: 32px 32px 32px 10px; /* [data] the item's own borders, base:19-20 */
+}
+
+.bc-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* wxALL|wxALIGN_CENTER_HORIZONTAL, 5 and a bold ITALIC font (base:29-31). */
 .bc-note {
   font-style: italic;
   font-weight: 700;
+  align-self: center;
+  margin: var(--wx-border);
+}
+
+/* Every column is `SetColSize( n, 100 )` and the row-label column
+   `SetRowLabelSize( 200 )`; the label strip is `SetColLabelSize( 30 )` and every
+   row `SetRowSize( n, 24 )` (base:36-64). All six are DATA — wxFormBuilder
+   states them outright rather than deriving them — so they are stated here too.
+   [px] confirmed against the binary: grid x 350..1150 = 200 + 6 x 100, label
+   strip y 62..91, rows 24 apart. */
+.bc-grid {
+  margin: var(--wx-border);
+  table-layout: fixed;
+  width: 800px; /* [data] 200 + 6 x 100 */
+}
+
+.bc-grid th.rowhead {
+  width: 200px; /* [data] SetRowLabelSize( 200 ) */
+}
+
+.bc-grid thead th:not(.rowhead) {
+  height: 30px; /* [data] SetColLabelSize( 30 ) */
+}
+
+.bc-grid th:not(.rowhead) {
+  width: 100px; /* [data] SetColSize( n, 100 ) */
+}
+
+.bc-grid tbody th,
+.bc-grid tbody td {
+  height: 24px; /* [data] SetRowSize( n, 24 ) */
+}
+
+/* m_panelShowClassPrms, an empty wxPanel with proportion 1 (base:73): it draws
+   nothing and exists only to take the slack. */
+.bc-filler {
+  flex: 1 1 auto;
+  margin: var(--wx-border);
 }
 
 /* Galvanic Corrosion: a wide read-only grid whose column labels are rotated,
@@ -1558,16 +1653,35 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   white-space: nowrap;
 }
 
-/* --- Color Code chart (panel_color_code_base.cpp) --- */
-.cc-chart {
+/* --- Color Code chart (panel_color_code_base.cpp) ---
+   bSizerPanelColorCode, wxHORIZONTAL (base:12): the radio box, then the chart.
+   The chart's columns are BITMAPS, so nothing here sizes a cell — the old
+   `.cc-cells` / `.cc-cell` rules built the chart out of divs and are gone with
+   the table they served. */
+.cc-panel {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
-  gap: var(--wx-border);
-  margin-bottom: calc(var(--wx-border) * 2);
+}
+
+/* bSizerOpts goes in with wxALL 8 and the radio box carries its own
+   wxBOTTOM|wxRIGHT 30 (base:19-20). */
+.cc-opts {
+  margin: 8px; /* [data] bSizerPanelColorCode->Add( bSizerOpts, 0, wxALL, 8 ) */
 }
 
 .cc-tolbox {
-  margin-right: calc(var(--wx-border) * 2);
+  width: fit-content;
+  margin: 0 30px 30px 0; /* [data] the radio box's own borders, base:19 */
+}
+
+/* fgSizerColoCode, wxFlexGridSizer( 2, 6, 0, 0 ) with a ZERO gap in both
+   directions — every space between columns is an item's own border, not the
+   sizer's. Added `wxEXPAND|wxLEFT, 5` (base:60). */
+.cc-chart {
+  display: flex;
+  align-items: flex-start;
+  margin-left: var(--wx-border);
 }
 
 .cc-col {
@@ -1576,22 +1690,21 @@ input.calc-input:disabled:not([type="checkbox"]):not([type="radio"]):not([type="
   align-items: center;
 }
 
+/* The header row: wxALIGN_CENTER_HORIZONTAL|wxTOP|wxRIGHT|wxLEFT, 5 (base:28).
+   No wxBOTTOM, so the bitmap's own wxTOP 5 is the only gap under it. */
 .cc-colhead {
-  margin-bottom: var(--wx-border);
+  padding: var(--wx-border) var(--wx-border) 0;
 }
 
-.cc-cells {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ctl-border);
+/* The first three bitmaps carry wxTOP|wxBOTTOM|wxLEFT 5 and the rest wxALL 5
+   (base:45-58) — so the 4th Band, Multiplier and Tolerance columns have a 5 px
+   right border the value columns do not. */
+.cc-art {
+  margin: var(--wx-border) 0 var(--wx-border) var(--wx-border);
 }
 
-.cc-cell {
-  padding: 2px 10px;
-  white-space: pre;
-  text-align: right;
-  min-width: 90px;
-  font-variant-numeric: tabular-nums;
+.cc-col-all .cc-art {
+  margin-right: var(--wx-border);
 }
 
 /* Every Reset to Defaults in pcb_calculator is added with wxALIGN_RIGHT
