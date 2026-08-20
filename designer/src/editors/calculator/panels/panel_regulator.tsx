@@ -361,7 +361,7 @@ export function PanelRegulator(): JSX.Element {
         {/* bSizeLeftpReg: fixed 400px column; the Type choice stretches
             across it (proportion 1), the drawing centres, and the Formula
             box expands to the column width. */}
-        <div className="calc-col" style={{ flex: '0 0 400px', width: 400, minWidth: 400 }}>
+        <div className="calc-col" style={{ flex: '0 0 390px', width: 390, minWidth: 390 }}>
           <div className="calc-field">
             <span title={TIP_TYPE}>Type:</span>
             <Combo

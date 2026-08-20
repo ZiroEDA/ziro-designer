@@ -38,7 +38,8 @@
    rgb(24,24,24) rule at x=229, so 228 px of content. Rows repeat every 22 px
    starting at y=28. */
 .calc-tree {
-  width: 228px;
+  /* [px] the pane's 228 px of background plus its 1 px right rule at x=228. */
+  width: 229px;
   flex: none;
   overflow-y: auto;
   background: var(--panel-bg);
@@ -95,10 +96,13 @@
 .calc-panel {
   flex: 1;
   overflow: auto;
-  /* 5 px of sizer border twice over on three sides; NOTHING at the bottom —
-     each page's last row carries its own border there, which is how KiCad's
-     Reset to Defaults lands exactly 10 px above the frame's bottom edge. */
-  padding: calc(var(--wx-border) * 2) calc(var(--wx-border) * 2) 0;
+  /* [px] the page area starts one pixel after the tree's right rule and its
+     first group box's frame sits 5 px below that (the sizer's own wxTOP 5), so
+     the top inset is ONE border, not two; the left is two (the book's 5 px
+     inset plus the row's own wxALL 5). Nothing at the bottom — each page's
+     last row carries its own border there, which is how Reset to Defaults
+     lands exactly 10 px above the frame's bottom edge. */
+  padding: var(--wx-border) calc(var(--wx-border) * 2) 0;
   /* A column, so a page whose bottom box is added with proportion 1 — the Help
      box on Resistor Calculator, the notes box on Wavelength — really does grow
      to the frame's bottom edge the way its wxSizer makes it. */
@@ -155,8 +159,14 @@
 .calc-field {
   display: flex;
   align-items: center;
-  gap: var(--wx-border);
+  /* wxFormBuilder gives every child of a horizontal wxBoxSizer its own 5 px
+     wxLEFT|wxRIGHT border, so the first item sits 5 px inside the row and two
+     neighbours are 10 px apart — [px] on Regulators the "Type:" label's box is
+     at x=244 inside a row at 239, and the choice starts at 291 against a label
+     that ends at 281. */
+  gap: calc(var(--wx-border) * 2);
   margin: var(--wx-border) 0;
+  padding: 0 var(--wx-border);
 }
 
 /* wxFormBuilder puts a label in its own flex-grid column and never sets
