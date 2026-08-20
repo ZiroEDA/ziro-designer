@@ -778,3 +778,129 @@ export function segSquaredDistanceToSeg(aSeg: Seg, aOther: Seg): number {
 /** `SEG::Distance( const SEG& )` (`seg.cpp:702`): `isqrt( SquaredDistance( aSeg ) )`. */
 export const segDistance = (aSeg: Seg, aOther: Seg): number =>
   num(isqrt64(BigInt(segSquaredDistanceToSeg(aSeg, aOther))));
+
+/**
+ * `SEG::NearestPoint( const SEG& )` (`seg.cpp:120`) — the point *on this
+ * segment* closest to `aOther`, and upstream's source for `SHAPE::Collide`'s
+ * `aLocation` on every segment pair.
+ *
+ * The four candidates are the two endpoints of *this* segment and the two
+ * projections of `aOther`'s endpoints onto it, so the answer always lies on
+ * `aSeg` — swapping the arguments moves the answer, deliberately. The ranking
+ * is by how far the *counterpart* point is, and ties keep the earlier candidate
+ * because upstream's comparison is a strict `<`.
+ *
+ * Crossing segments answer with the crossing itself, through
+ * {@link segIntersect} — which means the overflow guard there applies: a
+ * mathematically-real crossing outside `VECTOR2I`'s range falls through to the
+ * four-candidate ranking rather than being reported at a truncated coordinate.
+ *
+ * Moved here from `pcbnew/src/drc/shape_collisions.ts`, which had it in
+ * doubles; that module now re-exports this one.
+ */
+export function segNearestPointToSeg(aSeg: Seg, aOther: Seg): Vec2 {
+  const p = segIntersect(aSeg, aOther);
+
+  if (p !== null) return p;
+
+  const ptsOrigin = [
+    segNearestPoint(aOther, aSeg.a),
+    segNearestPoint(aOther, aSeg.b),
+    segNearestPoint(aSeg, aOther.a),
+    segNearestPoint(aSeg, aOther.b),
+  ] as const;
+
+  const ptsOut = [aSeg.a, aSeg.b, ptsOrigin[2], ptsOrigin[3]] as const;
+
+  const distSq = (p1: Vec2, p2: Vec2): number => {
+    const dx = big(p1.x) - big(p2.x);
+    const dy = big(p1.y) - big(p2.y);
+
+    return num(dx * dx + dy * dy);
+  };
+
+  const ptsDist = [
+    distSq(ptsOrigin[0], aSeg.a),
+    distSq(ptsOrigin[1], aSeg.b),
+    distSq(ptsOrigin[2], aOther.a),
+    distSq(ptsOrigin[3], aOther.b),
+  ] as const;
+
+  let minI = 0;
+
+  for (let i = 0; i < 4; i++) {
+    if ((ptsDist[i] as number) < (ptsDist[minI] as number)) minI = i;
+  }
+
+  const out = ptsOut[minI] as Vec2;
+
+  return { x: out.x, y: out.y };
+}
+
+/**
+ * `SEG::Collide( const SEG&, int, int* )` (`seg.cpp:542`).
+ *
+ * Note the two ways this answers true without consulting the clearance at all —
+ * an exact crossing, and any endpoint whose distance to the other segment is
+ * exactly zero. Both are upstream's, and both mean two touching segments
+ * collide even at zero clearance. A *negative* clearance, however, is rejected
+ * outright before any of that, which is why the `clearance - 1` arithmetic in
+ * `PNS::ITEM::collideSimple` can turn a touching pair into a miss.
+ *
+ * `aActual` is written on **every** path, including the false return
+ * (`seg.cpp:620`), so it is returned as a plain field rather than modelled as
+ * an optional out-parameter: there is no path on which upstream leaves the
+ * caller's `int` alone.
+ *
+ * The distances are `SEG::Distance`/`SEG::SquaredDistance`, i.e. exact integer
+ * arithmetic with a **flooring** `isqrt` — `actual` is the largest integer
+ * whose square does not exceed the squared distance, never a rounded one.
+ *
+ * Moved here from `pcbnew/src/drc/shape_collisions.ts`, which had it in
+ * doubles; that module now re-exports this one.
+ */
+export function segCollide(
+  aSeg: Seg,
+  aOther: Seg,
+  aClearance: number,
+): { collides: boolean; actual: number } {
+  if (aClearance < 0) return { collides: false, actual: 0 };
+
+  const same = (p: Vec2, q: Vec2): boolean => p.x === q.x && p.y === q.y;
+
+  // Zero-length segments (points) are handled specially: the cross product with
+  // a zero vector is always zero, which would be a false positive below.
+  if (same(aSeg.a, aSeg.b)) {
+    const dist = segDistanceToPoint(aOther, aSeg.a);
+
+    return { collides: dist === 0 || dist < aClearance, actual: dist };
+  }
+
+  if (same(aOther.a, aOther.b)) {
+    const dist = segDistanceToPoint(aSeg, aOther.a);
+
+    return { collides: dist === 0 || dist < aClearance, actual: dist };
+  }
+
+  if (segIntersect(aSeg, aOther) !== null) return { collides: true, actual: 0 };
+
+  const clearanceSq = aClearance * aClearance;
+  let minDistSq = Number.POSITIVE_INFINITY;
+
+  for (const d of [
+    segSquaredDistanceToPoint(aSeg, aOther.a),
+    segSquaredDistanceToPoint(aSeg, aOther.b),
+    segSquaredDistanceToPoint(aOther, aSeg.a),
+    segSquaredDistanceToPoint(aOther, aSeg.b),
+  ]) {
+    // upstream's `checkDistance`: an exact zero short-circuits the whole thing.
+    if (d === 0) return { collides: true, actual: 0 };
+
+    minDistSq = Math.min(minDistSq, d);
+  }
+
+  return {
+    collides: minDistSq < clearanceSq,
+    actual: num(isqrt64(BigInt(minDistSq))),
+  };
+}

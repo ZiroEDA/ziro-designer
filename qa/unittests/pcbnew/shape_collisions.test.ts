@@ -30,8 +30,6 @@ import {
   circleIntersectCircle,
   circleIntersectSeg,
   collideShapes,
-  segCollide,
-  segNearestPointToSeg,
 } from '@ziroeda/pcbnew/src/drc/shape_collisions.js';
 import { shapeDist, type Shape } from '@ziroeda/pcbnew/src/drc/drc_geometry.js';
 
@@ -310,59 +308,33 @@ describe("a poly's inflation", () => {
     expect(collideShapes(c, pad, 31).collides).toBe(true);
   });
 
+  it('reports a location on the IU grid, because `aLocation` is a VECTOR2I*', () => {
+    // `SHAPE_SEGMENT::Collide( const SEG& )` writes `m_seg.NearestPoint( aSeg )`
+    // into a `VECTOR2I*` (shape_segment.h:94), and `SEG::NearestPoint`'s interior
+    // answer is `A + rescale( t, d, l_squared )` — an integer, rounded half away
+    // from zero, never the exact foot of the perpendicular.
+    //
+    // Worked out by hand: A = (0,0)-(30,70), B = (10,20)-(10,-500). They do not
+    // cross (A is at y = 23.3 where x = 10, B tops out at y = 20), so the answer
+    // is the best of the four candidates. Candidate 3 — B's own A projected onto
+    // A — wins at squared distance 2, against 100^2, 2900 and 250100. That
+    // projection is t = 30*10 + 70*20 = 1700 over l^2 = 30^2 + 70^2 = 5800, so
+    //   x = rescale( 1700, 30, 5800 ) = round( 8.7931 ) = 9
+    //   y = rescale( 1700, 70, 5800 ) = round( 20.5172 ) = 21
+    // The doubles this file used to carry answered (8.7931…, 20.5172…), which is
+    // not a point any board item can sit on.
+    const a: Shape = { kind: 'stadium', a: { x: 0, y: 0 }, b: { x: 30, y: 70 }, r: 0 };
+    const b: Shape = { kind: 'stadium', a: { x: 10, y: 20 }, b: { x: 10, y: -500 }, r: 0 };
+
+    expect(collideShapes(a, b, 2).location).toEqual({ x: 9, y: 21 });
+  });
+
   it('leaves the location on the un-inflated outline', () => {
     // The copper boundary is at x = 120; the reported point is on the polygon
     // the inflation was applied to, at x = 100. That is upstream's behaviour for
     // any shape whose half-width is carried in the clearance, and it is why this
     // is a documented bridge rather than a new shape class.
     expect(collideShapes(circle(160, 50, 10), square(20), 40).location).toEqual({ x: 100, y: 50 });
-  });
-});
-
-// ----- the primitives the locations come from ----------------------------------
-
-describe('SEG::NearestPoint( const SEG& )', () => {
-  it('always returns a point on the receiver, never on the argument', () => {
-    const a = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } };
-    const b = { a: { x: 50, y: 20 }, b: { x: 150, y: 20 } };
-
-    expect(segNearestPointToSeg(a, b).y).toBe(0);
-    expect(segNearestPointToSeg(b, a).y).toBe(20);
-  });
-
-  it('breaks ties towards the earlier candidate', () => {
-    // Candidates 1 and 2 are both 20 away; upstream compares with a strict `<`,
-    // so candidate 1 — this segment's own `B` endpoint — wins.
-    const a = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } };
-    const b = { a: { x: 50, y: 20 }, b: { x: 150, y: 20 } };
-
-    expect(segNearestPointToSeg(a, b)).toEqual({ x: 100, y: 0 });
-  });
-
-  it('returns the crossing point when the segments cross', () => {
-    const a = { a: { x: 0, y: 0 }, b: { x: 100, y: 100 } };
-    const b = { a: { x: 0, y: 100 }, b: { x: 100, y: 0 } };
-
-    expect(segNearestPointToSeg(a, b)).toEqual({ x: 50, y: 50 });
-  });
-});
-
-describe('SEG::Collide', () => {
-  it('refuses a negative clearance outright, before any geometry', () => {
-    const out = { actual: -1, location: { x: 0, y: 0 } };
-    const s = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } };
-
-    // The two segments cross, which every other path would call a collision.
-    expect(segCollide(s, { a: { x: 50, y: -10 }, b: { x: 50, y: 10 } }, -1, out)).toBe(false);
-    expect(out.actual).toBe(0);
-  });
-
-  it('collides on an exact touch whatever the clearance, once it is not negative', () => {
-    const out = { actual: -1, location: { x: 0, y: 0 } };
-    const s = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } };
-
-    expect(segCollide(s, { a: { x: 50, y: 0 }, b: { x: 50, y: 50 } }, 0, out)).toBe(true);
-    expect(out.actual).toBe(0);
   });
 });
 
@@ -612,9 +584,21 @@ describe('SHAPE_ARC::IsEffectiveLine', () => {
     ).toBe(false);
   });
 
-  it('diverts a flat arc down the segment path, which does not round its gap', () => {
-    // The arc path measures with a `KiROUND`ed integer distance; the segment
-    // path it is diverted to does not. A fractional gap is the tell.
+  it('diverts a flat arc down the segment path, on the IU grid `SEG` works on', () => {
+    // `SHAPE_ARC::IsEffectiveLine` sends this arc to `Collide( SEG, ... )`, and
+    // `SEG` is a pair of `VECTOR2I`s — it cannot hold the `40.5` below. Upstream
+    // never has to: a `SHAPE_SEGMENT` is built from integer board coordinates in
+    // the first place. `SEG` therefore rounds it, half away from zero, to 41.
+    //
+    // The arc is centred at (0,-1e7) with radius 1e7 over 1e-4 rad, i.e. the
+    // segment (0,0)-(-1000,0) once its own endpoints are rounded: its far end is
+    // (-999.99999, -0.05). The other segment stands vertically at x = -500,
+    // inside that span, so the gap is the pure vertical distance from y = 41 to
+    // the rounded arc-chord at y = 0 — exactly 41.
+    //
+    // Before this file used kimath's `SEG` it kept every one of those fractions
+    // and answered 40.525, which is not a number upstream's `int* aActual` can
+    // hold.
     const s: Shape = { kind: 'stadium', a: { x: -500, y: 40.5 }, b: { x: -500, y: 200 }, r: 0 };
     const flatShape: Shape = {
       kind: 'arc',
@@ -628,7 +612,7 @@ describe('SHAPE_ARC::IsEffectiveLine', () => {
     const hit = collideShapes(flatShape, s, 100);
 
     expect(hit.collides).toBe(true);
-    expect(Number.isInteger(hit.actual)).toBe(false);
+    expect(hit.actual).toBe(41);
   });
 });
 

@@ -71,7 +71,7 @@ import { segApproxParallel } from './pns_seg_ops.js';
 import { arcRadius, shapeArcCenter } from './shape_arc_ops.js';
 import { commonParallelProjection } from '../drc/drc_diff_pair.js';
 import { shapeBBox, shapeDist } from '../drc/drc_geometry.js';
-import { segSquaredDistanceToSeg } from '../drc/shape_collisions.js';
+import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { PnsArc } from './pns_arc.js';
 import type { NetHandle } from './pns_collision.js';
 import type { PnsJoint } from './pns_joint.js';
