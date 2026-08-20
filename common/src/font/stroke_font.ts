@@ -12,11 +12,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { NEWSTROKE_GLYPHS } from './newstroke_glyphs.js';
-import {
-  metricsInterline,
-  OVERBAR_HEIGHT,
-  STROKE_LEGACY_FACTOR,
-} from './font_metrics.js';
+import { metricsInterline, OVERBAR_HEIGHT, STROKE_LEGACY_FACTOR } from './font_metrics.js';
 
 /**
  * The stroke font's own name — `KICAD_FONT_NAME` (include/font/kicad_font_name.h),

@@ -229,7 +229,6 @@ export function expandTextEscapes(text: string): string {
   return out;
 }
 
-
 /**
  * Measure a text's box in mm at a given size (approximating EDA_TEXT::
  * GetTextBox with the stroke font), for the maxlen/maxheight constraint.

@@ -22,7 +22,6 @@ export interface WksBBox {
   maxY: number;
 }
 
-
 /** Bounding box (IU) of one resolved draw primitive. */
 export function drawItemBBox(d: DsDrawItem): WksBBox {
   switch (d.kind) {
