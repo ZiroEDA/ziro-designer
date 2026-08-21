@@ -243,6 +243,12 @@ import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.j
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
 import { OBJECT_ROWS, toggleObject, type ObjectState } from './pcb_objects.js';
+import {
+  BUILTIN_PRESETS,
+  matchPresetName,
+  presetComboItems,
+  PRESET_SEPARATOR,
+} from './pcb_presets.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
@@ -693,29 +699,6 @@ const DEFAULT_CLASS_DIMS: ClassDims = {
   viaDrill: 0.4 * MM,
 };
 
-// Builtin layer presets (appearance_controls.cpp preset* + common/lset.cpp masks).
-const FRONT_TECH = ['F.SilkS', 'F.Mask', 'F.Adhes', 'F.Paste', 'F.CrtYd', 'F.Fab'];
-const BACK_TECH = ['B.SilkS', 'B.Mask', 'B.Adhes', 'B.Paste', 'B.CrtYd', 'B.Fab'];
-const PRESETS: { name: string; layers: (all: string[], copper: string[]) => string[] }[] = [
-  { name: 'All Layers', layers: (all) => all },
-  { name: 'No Layers', layers: () => [] },
-  { name: 'All Copper Layers', layers: (_a, cu) => [...cu, 'Edge.Cuts'] },
-  {
-    name: 'Inner Copper Layers',
-    layers: (_a, cu) => [...cu.filter((c) => /^In/.test(c)), 'Edge.Cuts'],
-  },
-  { name: 'Front Layers', layers: () => ['F.Cu', ...FRONT_TECH, 'Edge.Cuts'] },
-  {
-    name: 'Front Assembly View',
-    layers: () => ['F.SilkS', 'F.Mask', 'F.Fab', 'F.CrtYd', 'Edge.Cuts'],
-  },
-  { name: 'Back Layers', layers: () => ['B.Cu', ...BACK_TECH, 'Edge.Cuts'] },
-  {
-    name: 'Back Assembly View',
-    layers: () => ['B.SilkS', 'B.Mask', 'B.Fab', 'B.CrtYd', 'Edge.Cuts'],
-  },
-];
-
 /**
  * The selection an EDIT_TOOL command actually operates on: groups expanded to
  * their members, and pads replaced by their parent footprints, the
@@ -834,7 +817,6 @@ export function PcbEditor({
   activeLayerRef.current = activeLayer;
   // Selected layer preset; '---' is the separator row, the default selection
   // like rebuildLayerPresetsWidget.
-  const [preset, setPreset] = useState('---');
   const [tab, setTab] = useState<'Layers' | 'Objects' | 'Nets'>('Layers');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   // Properties pane width. KiCad's PCB_PROPERTIES_PANEL docks at BestSize 300,
@@ -6155,8 +6137,29 @@ export function PcbEditor({
     return [...copperLayers, ...seq, ...rest];
   }, [board, copperLayers]);
 
+  /**
+   * Which entry the presets combo shows. Derived every render, never stored:
+   * syncLayerPresetSelection searches the presets for one matching the view
+   * and selects the separator when none does, so there is no state to keep in
+   * step and no "(unsaved)" sentinel — that entry is in the wxFormBuilder stub
+   * and Clear() removes it before the combo is ever seen.
+   */
+  const preset = useMemo(
+    () =>
+      matchPresetName({
+        visibleLayers: visible,
+        objectsAtDefault: OBJECT_ROWS.every(
+          (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
+        ),
+        flipBoard: flipView,
+        allLayers: board?.layers.map((l) => l.name) ?? [],
+        copperLayers,
+        userPresets,
+      }),
+    [visible, objects, flipView, board, copperLayers, userPresets],
+  );
+
   const toggleLayer = (name: string): void => {
-    setPreset('(unsaved)');
     setVisible((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -6168,15 +6171,16 @@ export function PcbEditor({
   const applyPreset = (name: string): void => {
     const user = userPresets.find((x) => x.name === name);
     if (user) {
-      setPreset(name);
       setVisible(new Set(user.layers));
       return;
     }
-    setPreset(name);
-    const p = PRESETS.find((x) => x.name === name);
+    const p = BUILTIN_PRESETS.find((x) => x.name === name);
     if (!p || !board) return;
     const all = board.layers.map((l) => l.name);
     setVisible(new Set(p.layers(all, copperLayers).filter((l) => all.includes(l))));
+    // doApplyLayerPreset also carries the preset's flipBoard and activeLayer.
+    setFlipView(p.flipBoard);
+    if (p.activeLayer && all.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
   };
 
   // Layer right-click context menu ops (APPEARANCE_CONTROLS::onLayerContextMenu).
@@ -6185,7 +6189,6 @@ export function PcbEditor({
     [board],
   );
   const setVisibleUnsaved = (names: Iterable<string>): void => {
-    setPreset('(unsaved)');
     setVisible(new Set(names));
   };
   const layerMenuItems = (): { label: string; run: () => void }[][] => {
@@ -6193,7 +6196,7 @@ export function PcbEditor({
     const all = board.layers.map((l) => l.name);
     const has = (n: string): boolean => all.includes(n);
     const applyNamed = (name: string, active?: string): void => {
-      const p = PRESETS.find((x) => x.name === name);
+      const p = BUILTIN_PRESETS.find((x) => x.name === name);
       if (!p) return;
       setVisibleUnsaved(p.layers(all, copperLayers).filter(has));
       if (active && has(active)) setActiveLayer(active);
@@ -6248,15 +6251,14 @@ export function PcbEditor({
     return groups;
   };
 
-  // Presets combo (rebuildLayerPresetsWidget): builtins, user presets,
-  // "(unsaved)", then --- / Save preset... / Delete preset...
+  // Presets combo (rebuildLayerPresetsWidget): the built-ins alphabetically,
+  // then the user's, then --- / Save preset... / Delete preset...
   const onPresetChoice = (value: string): void => {
-    if (value === '---') return;
+    if (value === PRESET_SEPARATOR) return;
     if (value === 'Save preset...') {
       const name = window.prompt('Layer preset name:')?.trim();
       if (!name) return;
       setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
-      setPreset(name);
       return;
     }
     if (value === 'Delete preset...') {
@@ -8039,20 +8041,15 @@ export function PcbEditor({
               <div className="ze-appearance-bottom">
                 <div className="ze-info">Presets (Ctrl+Tab):</div>
                 <select value={preset} onChange={(e) => onPresetChoice(e.target.value)}>
-                  {preset === '(unsaved)' && <option value="(unsaved)">(unsaved)</option>}
-                  {PRESETS.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
+                  {presetComboItems(userPresets.map((u) => u.name)).map((name, i) => (
+                    <option
+                      key={`${name}:${i}`}
+                      value={name}
+                      disabled={name === 'Delete preset...' && userPresets.length === 0}
+                    >
+                      {name}
                     </option>
                   ))}
-                  {userPresets.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                  <option value="---">---</option>
-                  <option>Save preset...</option>
-                  <option disabled={userPresets.length === 0}>Delete preset...</option>
                 </select>
                 <div className="ze-info" style={{ marginTop: 4 }}>
                   Viewports (Shift+Tab):
@@ -8363,7 +8360,6 @@ export function PcbEditor({
                 onClick={() => {
                   if (deleteChooser === 'presets') {
                     setUserPresets((u) => u.filter((x) => x.name !== p.name));
-                    if (preset === p.name) setPreset('(unsaved)');
                   } else {
                     setViewports((v) => v.filter((x) => x.name !== p.name));
                     if (viewportSel === p.name) setViewportSel('---');
