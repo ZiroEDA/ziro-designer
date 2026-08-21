@@ -45,19 +45,29 @@ describe('LayerName: the standard English name', () => {
 
   // The default branch of that switch formats In%d.Cu and User.%d, i.e. the
   // token itself; F.Cu/B.Cu/F.Mask/… return wxT() literals equal to the token.
-  it.each(['F.Cu', 'B.Cu', 'In1.Cu', 'In7.Cu', 'F.Mask', 'B.Mask', 'F.Paste', 'B.Paste'])(
-    'leaves %s alone',
-    (token) => {
-      expect(LayerName(token)).toBe(token);
-    },
-  );
+  it.each([
+    'F.Cu',
+    'B.Cu',
+    'In1.Cu',
+    'In7.Cu',
+    'F.Mask',
+    'B.Mask',
+    'F.Paste',
+    'B.Paste',
+  ])('leaves %s alone', (token) => {
+    expect(LayerName(token)).toBe(token);
+  });
 
-  it.each(['Edge.Cuts', 'Margin', 'F.Fab', 'B.Fab', 'User.1', 'User.45'])(
-    'leaves %s alone',
-    (token) => {
-      expect(LayerName(token)).toBe(token);
-    },
-  );
+  it.each([
+    'Edge.Cuts',
+    'Margin',
+    'F.Fab',
+    'B.Fab',
+    'User.1',
+    'User.45',
+  ])('leaves %s alone', (token) => {
+    expect(LayerName(token)).toBe(token);
+  });
 });
 
 describe("GetLayerName: the board's own name wins", () => {

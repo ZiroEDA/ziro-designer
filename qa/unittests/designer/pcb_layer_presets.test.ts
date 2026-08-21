@@ -127,9 +127,9 @@ describe('the shown entry is derived from the view', () => {
 
   it('will not claim a preset when the Objects tab has been touched', () => {
     // Every built-in carries renderLayers = GAL_SET::DefaultVisible().
-    expect(
-      matchPresetName({ ...base, visibleLayers: new Set(ALL), objectsAtDefault: false }),
-    ).toBe(PRESET_SEPARATOR);
+    expect(matchPresetName({ ...base, visibleLayers: new Set(ALL), objectsAtDefault: false })).toBe(
+      PRESET_SEPARATOR,
+    );
   });
 
   it('will not claim a flat preset while the board is flipped', () => {
@@ -160,7 +160,11 @@ describe('the shown entry is derived from the view', () => {
 
   it('resolves a preset against the layers this board actually has', () => {
     // A two-layer board has no In1.Cu, so All Copper Layers is F.Cu+B.Cu+Edge.
-    const twoLayer = { ...base, allLayers: ['F.Cu', 'B.Cu', 'Edge.Cuts'], copperLayers: ['F.Cu', 'B.Cu'] };
+    const twoLayer = {
+      ...base,
+      allLayers: ['F.Cu', 'B.Cu', 'Edge.Cuts'],
+      copperLayers: ['F.Cu', 'B.Cu'],
+    };
     expect(
       matchPresetName({ ...twoLayer, visibleLayers: new Set(['F.Cu', 'B.Cu', 'Edge.Cuts']) }),
     ).toBe('All Copper Layers');

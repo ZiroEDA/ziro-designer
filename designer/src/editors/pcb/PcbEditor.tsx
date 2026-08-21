@@ -149,6 +149,7 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
@@ -871,7 +872,6 @@ export function PcbEditor({
     key: string;
     label: string;
   } | null>(null);
-  const [netQuery, setNetQuery] = useState('');
   // Net highlight (BOARD_INSPECTION_TOOL): the set of net codes currently
   // highlighted. When non-empty the whole board dims and these nets' copper
   // pops (pcb_painter.cpp getColor: highlighted → Brightened, else Darkened).
@@ -1178,6 +1178,9 @@ export function PcbEditor({
   // + the board file's setup sections + the .kicad_dru; committed back to all
   // three on OK (see commitBoardSetup below).
   const [boardSetupOpen, setBoardSetupOpen] = useState(false);
+  // ShowBoardSetupDialog( _( "Net Classes" ) ) — the Appearance panel's wrench
+  // opens Board Setup already on that page, not on its first one.
+  const [boardSetupPage, setBoardSetupPage] = useState<'netclasses' | undefined>(undefined);
   // DRC dialog (DIALOG_DRC), the engine runs in-browser over the live board.
   // The dialog is modeless like upstream; the violations become PCB_MARKERs
   // that stay on the board until the next run / Delete All Markers, and the
@@ -6295,11 +6298,12 @@ export function PcbEditor({
 
   const nets = useMemo(() => {
     if (!board) return [];
-    const q = netQuery.toLowerCase();
+    // NET_GRID_TABLE::Rebuild skips the unconnected net (code 0) and sorts by
+    // name; m_txtNetFilter is hidden, so there is nothing to filter by.
     return [...board.nets.entries()]
-      .filter(([code, name]) => code !== 0 && name.toLowerCase().includes(q))
+      .filter(([code]) => code !== 0)
       .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [board, netQuery]);
+  }, [board]);
 
   // ----- ratsnest + net classes ----------------------------------------------
 
@@ -6672,6 +6676,7 @@ export function PcbEditor({
         setDrcOpen(true);
         break;
       case 'boardSetup':
+        setBoardSetupPage(undefined);
         setBoardSetupOpen(true);
         break;
       case 'print':
@@ -7673,22 +7678,19 @@ export function PcbEditor({
             <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              {/* tabs, like APPEARANCE_CONTROLS' notebook */}
-              <div style={{ display: 'flex', borderBottom: '1px solid #333' }}>
+              {/* APPEARANCE_CONTROLS' wxNotebook (appearance_controls_base.cpp:22).
+                  The same widget pl_editor and GerbView draw, so it takes the
+                  shared .ze-nb-tabs rule and states nothing of its own: the
+                  inline styles here painted a selected-tab background GTK does
+                  not paint and a 2px #4d7fc4 underline where the marker is the
+                  desktop accent. */}
+              <div className="ze-nb-tabs">
                 {(['Layers', 'Objects', 'Nets'] as const).map((t) => (
                   <button
                     key={t}
+                    type="button"
+                    className={tab === t ? 'active' : undefined}
                     onClick={() => setTab(t)}
-                    style={{
-                      flex: 1,
-                      padding: '4px 0',
-                      fontSize: 12,
-                      cursor: 'default',
-                      background: tab === t ? '#2a2a2e' : 'transparent',
-                      color: 'inherit',
-                      border: 'none',
-                      borderBottom: tab === t ? '2px solid #4d7fc4' : '2px solid transparent',
-                    }}
                   >
                     {t}
                   </button>
@@ -7804,14 +7806,23 @@ export function PcbEditor({
                     {/* Nets box: header + filter + the scrollable net list, its
                         own panel like KiCad's nets/netclasses splitter. */}
                     <div className="ze-nets-box">
+                      {/* m_txtNetFilter is constructed and then Hide()n
+                          (appearance_controls_base.cpp:67); what sits at the
+                          right of this header is the Net Inspector button. */}
                       <div className="ze-nets-header">
                         <span>Nets</span>
-                        <input
-                          type="search"
-                          placeholder="Filter nets"
-                          value={netQuery}
-                          onChange={(e) => setNetQuery(e.target.value)}
-                        />
+                        {/* PCB_ACTIONS::showNetInspector. The panel it opens
+                            is not ported, so the button is genuinely
+                            unavailable and says so — unlike the Objects rows,
+                            which were greyed while KiCad had them working. */}
+                        <button
+                          type="button"
+                          className="ze-bitmap-btn"
+                          title="Show the Net Inspector"
+                          disabled
+                        >
+                          <Icon name="listNets" />
+                        </button>
                       </div>
                       <div className="ze-nets-list">
                         {/* Net rows: [color swatch][visibility][name]; the swatch
@@ -7863,25 +7874,45 @@ export function PcbEditor({
                     <div className="ze-nets-box">
                       <div className="ze-nets-header">
                         <span>Net Classes</span>
+                        <button
+                          type="button"
+                          className="ze-bitmap-btn"
+                          title="Configure net classes"
+                          onClick={() => {
+                            setBoardSetupPage('netclasses');
+                            setBoardSetupOpen(true);
+                          }}
+                        >
+                          <Icon name="optionsGeneric" />
+                        </button>
                       </div>
                       {netclassInfo.classes.map((cls) => {
                         const color = classColorOf(cls);
                         const on = !hiddenClasses.has(cls);
+                        // "Default netclass can't have an override color", so
+                        // its swatch is Hide()n — but added with
+                        // wxRESERVE_SPACE_EVEN_IF_HIDDEN, so the row still
+                        // indents by a swatch (appearance_controls.cpp:2607).
+                        const isDefault = cls === 'Default';
                         return (
                           <div key={cls} className="ze-object-row">
-                            <label
-                              className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
-                              style={color ? { background: color } : undefined}
-                              title="Set netclass color"
-                            >
-                              <input
-                                type="color"
-                                value={color?.startsWith('#') ? color : '#000000'}
-                                onChange={(e) =>
-                                  setClassColors((p) => new Map(p).set(cls, e.target.value))
-                                }
-                              />
-                            </label>
+                            {isDefault ? (
+                              <span className="ze-layer-swatch" aria-hidden="true" />
+                            ) : (
+                              <label
+                                className={`ze-layer-swatch picker${color ? '' : ' unset'}`}
+                                style={color ? { background: color } : undefined}
+                                title="Set netclass color"
+                              >
+                                <input
+                                  type="color"
+                                  value={color?.startsWith('#') ? color : '#000000'}
+                                  onChange={(e) =>
+                                    setClassColors((p) => new Map(p).set(cls, e.target.value))
+                                  }
+                                />
+                              </label>
+                            )}
                             <button
                               type="button"
                               className="ze-eye-btn"
@@ -8870,6 +8901,7 @@ export function PcbEditor({
           }}
           onEditDefaults={() => {
             setTeardropsOpen(false);
+            setBoardSetupPage(undefined);
             setBoardSetupOpen(true);
           }}
           onApply={applyTeardropEdit}
@@ -8931,6 +8963,7 @@ export function PcbEditor({
       {boardSetupOpen && (
         <DialogBoardSetup
           value={boardSetup}
+          initialPage={boardSetupPage}
           onOk={(next) => {
             commitBoardSetup(next);
             setBoardSetupOpen(false);

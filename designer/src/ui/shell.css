@@ -2703,12 +2703,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* APPEARANCE_CONTROLS layer row: [indicator][swatch][eye][name] */
+/* KIUI::GetInfoFont — getGUIFont( win, -1 ), the GUI font less one point, so
+   10 pt (ui_common.cpp:155). APPEARANCE_CONTROLS sets it on the layers panel,
+   the objects panel, both Nets labels and the presets/viewports labels
+   (appearance_controls.cpp:444-453), and PANEL_SELECTION_FILTER sets it on
+   every checkbox (panel_selection_filter.cpp:36-49). One font upstream, so one
+   token here — these rules used to write 12px and 13px between them. */
 .ze-layer-row {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 1px 5px 1px 2px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   line-height: 1.35;
   cursor: default;
   white-space: nowrap;
@@ -2796,7 +2802,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 5px;
   padding: 1px 5px 1px 2px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -2878,12 +2884,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    cell is 6 wide and 7 tall rather than square. */
 .ze-layer-swatch.unset {
   background-color: #262626;
-  background-image: conic-gradient(
-    #000000 0 25%,
-    #262626 0 50%,
-    #000000 0 75%,
-    #262626 0
-  );
+  background-image: conic-gradient(#000000 0 25%, #262626 0 50%, #000000 0 75%, #262626 0);
   background-size: 12px 14px;
 }
 
@@ -2906,19 +2907,35 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow-y: auto;
 }
 
-/* Nets tab headers ("Nets" / "Net Classes") with the filter box. */
+/* Nets tab headers ("Nets" / "Net Classes"): a label that takes the row and a
+   BITMAP_BUTTON at its right. Both labels take KIUI::GetInfoFont like the rest
+   of the panel (appearance_controls.cpp:445-446), and neither is bold — they
+   are plain wxStaticText. */
 .ze-nets-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   margin: 2px 0 4px;
 }
-.ze-nets-header input {
+.ze-nets-header span {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+}
+/* BITMAP_BUTTON with SetPadding( 2 ) (appearance_controls.cpp:472, :475). */
+.ze-bitmap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+.ze-bitmap-btn:disabled {
+  opacity: 0.4;
 }
 
 /* WX_COLLAPSIBLE_PANE ("Layer Display Options" / "Net Display Options") */
@@ -2934,7 +2951,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: transparent;
   border: none;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   cursor: default;
   padding: 2px 0;
 }
@@ -2950,7 +2967,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-collapse-body {
   padding: 2px 2px 4px 14px;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
 }
 .ze-collapse-body label {
   display: inline-flex;
@@ -2959,7 +2976,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   cursor: default;
 }
 .ze-info {
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
   opacity: 0.85;
   margin-bottom: 2px;
 }
@@ -2977,7 +2994,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-appearance-bottom {
   border-top: 1px solid var(--chrome-border);
   padding: 6px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-info);
 }
 .ze-appearance-bottom select {
   width: 100%;
@@ -3038,7 +3055,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 6px;
   padding: 2px 0;
-  font-size: 13px;
+  font-size: var(--ui-font-size-info);
   cursor: default;
 }
 .ze-muted {

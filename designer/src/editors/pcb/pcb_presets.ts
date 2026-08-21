@@ -122,9 +122,9 @@ export function matchPresetName(input: PresetMatchInput): string {
     const preset = BUILTIN_PRESETS.find((p) => p.name === name);
     if (preset === undefined) continue;
     if (!objectsAtDefault || preset.flipBoard !== flipBoard) continue;
-    const want = preset.layers([...allLayers], [...copperLayers]).filter((l) =>
-      allLayers.includes(l),
-    );
+    const want = preset
+      .layers([...allLayers], [...copperLayers])
+      .filter((l) => allLayers.includes(l));
     if (sameSet(visibleLayers, want)) return name;
   }
   return PRESET_SEPARATOR;

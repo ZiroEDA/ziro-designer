@@ -77,9 +77,7 @@ describe('the Objects tab is s_objectSettings, row for row', () => {
 
 describe('opacity sliders and the visibility eye', () => {
   it('gives a slider to exactly the six rows whose RR() passes true', () => {
-    const withSlider = OBJECT_ROWS.flatMap((r) =>
-      r !== 'sep' && r.slider ? [r.label] : [],
-    );
+    const withSlider = OBJECT_ROWS.flatMap((r) => (r !== 'sep' && r.slider ? [r.label] : []));
     expect(withSlider).toEqual(['Tracks', 'Vias', 'Pads', 'Zones', 'Filled Shapes', 'Images']);
   });
 
@@ -123,15 +121,19 @@ describe('every row has a swatch, and eleven of them are the unset one', () => {
     expect(unset).toEqual(UNSET);
   });
 
-  it.each(['Ratsnest', 'DRC Errors', 'Anchors', 'Grid', 'Drawing Sheet', 'Board Area Shadow'])(
-    'gives %s a real colour',
-    (label) => {
-      const row = OBJECT_ROWS.find((r) => r !== 'sep' && r.label === label);
-      expect(row).toBeDefined();
-      if (row === undefined || row === 'sep') return;
-      expect(PCB_OBJECT_COLORS[row.key]).toMatch(/^(#|rgb)/);
-    },
-  );
+  it.each([
+    'Ratsnest',
+    'DRC Errors',
+    'Anchors',
+    'Grid',
+    'Drawing Sheet',
+    'Board Area Shadow',
+  ])('gives %s a real colour', (label) => {
+    const row = OBJECT_ROWS.find((r) => r !== 'sep' && r.label === label);
+    expect(row).toBeDefined();
+    if (row === undefined || row === 'sep') return;
+    expect(PCB_OBJECT_COLORS[row.key]).toMatch(/^(#|rgb)/);
+  });
 
   it('has no colour left over for a row that no longer exists', () => {
     // constrainedShadow's swatch outlived nothing: the row is gone, and so is

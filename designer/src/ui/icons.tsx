@@ -274,6 +274,24 @@ const ICONS: Record<string, JSX.Element> = {
   plus: P('M8 3v10 M3 8h10'),
   arrowUp: P('M8 13V3 M4 7l4-4 4 4'),
   arrowDown: P('M8 3v10 M4 9l4 4 4-4'),
+  // BITMAPS::list_nets_16 — a ruled sheet with an info badge on its corner,
+  // and BITMAPS::options_generic_16 — an open-jawed wrench lying corner to
+  // corner. Traced from resources/bitmaps_png/png/{list_nets,options_generic}
+  // _16_dark_32.png, so the shapes are KiCad's even though, like every glyph
+  // in this file, the drawing is ours until the real icon set is vendored.
+  listNets: (
+    <g>
+      <rect x="2" y="2" width="9" height="11" rx="1" />
+      <path d="M4.5 4.5h4 M4.5 6.7h4 M4.5 8.9h4 M4.5 11.1h2" />
+      <circle cx="11.5" cy="11.5" r="3.2" />
+      <path d="M11.5 10.2v.1 M11.5 11.6v1.6" />
+    </g>
+  ),
+  optionsGeneric: (
+    <g>
+      <path d="M3.1 3.1a2.6 2.6 0 0 0 3.3 3.3l6 6a1.3 1.3 0 0 1-1.9 1.9l-6-6A2.6 2.6 0 0 0 1.2 5z" />
+    </g>
+  ),
 };
 
 export function Icon({ name, size = 16 }: { name: string; size?: number }): JSX.Element {
