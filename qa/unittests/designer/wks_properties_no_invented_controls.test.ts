@@ -77,12 +77,18 @@ describe('the Item Properties page with nothing selected', () => {
   });
 
   it('renders null on that branch rather than any element', () => {
-    // The branch itself, so deleting the string but leaving a styled empty div
-    // behind would still fail.
+    // The alternative arm of the `item ? … : …` ternary, taken between the end
+    // of <ItemProperties/> and the start of the outer arm. Asserting on the
+    // VALUE rather than on its punctuation: whether the formatter wraps it in
+    // parentheses is not the parity question, and an empty styled <div> with no
+    // text would satisfy a check that only looked for the missing sentence.
     const at = CODE.indexOf('<ItemProperties');
     expect(at).toBeGreaterThan(-1);
-    const branch = CODE.slice(at, CODE.indexOf('<GeneralOptions', at));
-    expect(branch).toMatch(/\)\s*:\s*\(\s*null\s*\)/);
+    const close = CODE.indexOf('/>', at);
+    const branch = CODE.slice(close + 2, CODE.indexOf('<GeneralOptions', at));
+    expect(branch).toContain('null');
+    // No element of any kind on this arm.
+    expect(branch, 'the unselected arm renders no element').not.toMatch(/<[A-Za-z]/);
   });
 });
 

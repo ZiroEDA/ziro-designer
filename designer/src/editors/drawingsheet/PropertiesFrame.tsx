@@ -200,7 +200,6 @@ function NumField({
   );
 }
 
-
 function CornerCombo({
   value,
   onChange,
@@ -367,8 +366,7 @@ export function PropertiesFrame({
               onChange={onItemChange}
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
-          ) : (
-            /* Nothing. `CopyPrmsFromItemToPanel( nullptr )` hides the whole
+          ) : /* Nothing. `CopyPrmsFromItemToPanel( nullptr )` hides the whole
                sizer and returns (properties_frame.cpp:226-233):
 
                    if( !aItem )
@@ -380,8 +378,7 @@ export function PropertiesFrame({
 
                so an Item Properties page with no selection is BLANK in a live
                pl_editor. The sentence that stood here was ours. */
-            null
-          )
+          null
         ) : (
           <GeneralOptions
             setup={sheet.setup}
@@ -498,10 +495,7 @@ function ItemProperties({
               ➡
             </FormatButton>
             <span className="ze-ds-fmtsep" />
-            <FormatButton
-              active={t.vjustify === 'top'}
-              onClick={() => patch({ vjustify: 'top' })}
-            >
+            <FormatButton active={t.vjustify === 'top'} onClick={() => patch({ vjustify: 'top' })}>
               ⬆
             </FormatButton>
             <FormatButton
