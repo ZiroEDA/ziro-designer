@@ -20,7 +20,7 @@ import {
   listProjectSheetFiles,
   parseProjectSheet,
 } from '../drawingsheet/projectSheet.js';
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
   type ArcEditMode,
@@ -442,6 +442,9 @@ import {
   type StatusUnits,
   unitsMsg,
 } from '../../ui/status_format.js';
+import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
+import { SCH_LEFT_GROW_PANES, SCH_LEFT_PANE_ORDER, type SchLeftPane } from './panes.js';
 import { useStatusReadout } from '../../ui/useStatusReadout.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import '../../ui/shell.css';
@@ -635,6 +638,7 @@ export function SchematicEditor({
   onEditSymbolInEditor,
   editedSymbol,
   readOnlyNotice,
+  readOnly,
   readBoardFootprints,
   autosaveActive,
   onShowSymbolEditor,
@@ -678,6 +682,13 @@ export function SchematicEditor({
   readBoardFootprints?: () => Promise<PcbFootprintData[] | null>;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
+  /**
+   * `screen->IsReadOnly()` — the `[Read Only]` half of the frame title
+   * (sch_edit_frame.cpp:1849-1850). A browser has no per-file writable bit;
+   * the condition that stands in for one here is the demo project, which is
+   * exactly what {@link readOnlyNotice} already announces above the canvas.
+   */
+  readOnly?: boolean;
   /**
    * Whether edits reach storage at all. False for a bare `.kicad_sch` opened
    * without a project, or when IndexedDB is unavailable — in which case nothing
@@ -7289,6 +7300,32 @@ export function SchematicEditor({
     return Math.round(mmToIU(mm));
   };
 
+  /**
+   * The frame title, `SCH_EDIT_FRAME::updateTitle`
+   * (eeschema/sch_edit_frame.cpp:1819-1862), built by the shared rule rather
+   * than restated here — see `frame_title.ts`.
+   *
+   * The document half is the CURRENT sheet's file, so descending into a
+   * sub-sheet renames the title; the bracket is that sheet's
+   * `PathHumanReadable( false, true )`, which is seeded with the ROOT file's
+   * base name and is therefore suppressed on the root sheet.
+   */
+  const schTitle = useMemo(() => {
+    const rootBase = sheetTree ? fileBaseName(sheetTree.file) : '';
+    const here = sheetInstanceRefs.find((r) => r.path === currentPath)?.namePath ?? '/';
+    const sheetNames = here.split('/').filter(Boolean);
+    return schFrameTitle({
+      fileName: doc ? currentFile : null,
+      sheetPath: rootBase === '' ? '' : pathHumanReadable(rootBase, sheetNames),
+      modified: dirty,
+      readOnly,
+    });
+  }, [doc, currentFile, sheetTree, sheetInstanceRefs, currentPath, dirty, readOnly]);
+
+  // The browser tab. Every other editor claims it; the schematic did not, so
+  // whichever view rendered last kept the tab's name forever.
+  useDocumentTitle('schematic', formatTitle(SCH_FRAME_NAME, schTitle.document, dirty));
+
   // A load failure before any document exists is fatal; once a document is open,
   // a bad Open just shows a dismissible banner and leaves the current sheet intact.
   if (!doc) {
@@ -7395,10 +7432,11 @@ export function SchematicEditor({
         title={
           <>
             <b>
-              {dirty ? '*' : ''}
-              {projectName || 'No project'}
+              {schTitle.modified}
+              {schTitle.document}
             </b>
-            &nbsp;-&nbsp;Schematic Editor
+            {schTitle.separator}
+            {schTitle.frameName}
           </>
         }
       />
@@ -7421,15 +7459,27 @@ export function SchematicEditor({
 
       <div className="ze-body">
         {(() => {
+          // Which panes are on screen, in the dock order wxAUI sorts them
+          // into — `SCH_LEFT_PANE_ORDER`, the upstream `Position()` numbers.
+          // Ours used to hardcode the order here, and had Properties above the
+          // hierarchy where upstream has it below.
+          const paneShown: Record<SchLeftPane, boolean> = {
+            netNavigator: toggles.has('showNetNavigator') && !!doc,
+            hierarchy: toggles.has('showHierarchy'),
+            properties: toggles.has('showProperties'),
+            selectionFilter: toggles.has('showProperties'),
+          };
           // Adjacent visible grow panes get a drag sash between them, top pane
           // resizes (KiCad's wxAUI sash chain); Selection Filter (prop=0 in
           // KiCad's perspective) never grows, so it's never in this list.
-          const visibleGrowKeys = [
-            toggles.has('showSearch') && doc ? 'search' : null,
-            toggles.has('showProperties') ? 'properties' : null,
-            toggles.has('showNetNavigator') && doc ? 'netNavigator' : null,
-            toggles.has('showHierarchy') ? 'hierarchy' : null,
-          ].filter((k): k is string => k !== null);
+          const visibleGrowKeys: string[] = [
+            // Search still renders at the top of this column. Upstream docks it
+            // at the BOTTOM instead (`.Bottom()`, sch_edit_frame.cpp:290-292);
+            // moving it needs a dock class in `ui/ui/shell.css` and lands with
+            // that change, not this one.
+            ...(toggles.has('showSearch') && doc ? ['search'] : []),
+            ...SCH_LEFT_GROW_PANES.filter((k) => paneShown[k]),
+          ];
           const sashAfter = (key: string): JSX.Element | null =>
             visibleGrowKeys.indexOf(key) < visibleGrowKeys.length - 1 ? (
               <div
@@ -7480,138 +7530,145 @@ export function SchematicEditor({
                       {sashAfter('search')}
                     </>
                   )}
-                  {toggles.has('showProperties') && (
-                    <>
-                      <div className="ze-panel grow" style={heightStyle('properties')}>
-                        <div className="ze-panel-header">Properties</div>
-                        <div className="ze-panel-body">
-                          {propRows.length > 0 ? (
-                            <SchPropertiesPanel
-                              rows={propRows}
-                              fmt={(iu) => fmt(iu)}
-                              parse={parseDist}
-                              onCommand={runCommand}
-                            />
-                          ) : (
-                            <div className="ze-muted">
-                              {selection.size === 0
-                                ? 'No objects selected'
-                                : `${selection.size} item(s) selected`}
+                  {/* The four docked panes, rendered in the order wxAUI sorts
+                      them into from their `Position()` — see `panes.ts`. Only
+                      the ORDER is data; each pane's contents stay inline. */}
+                  {SCH_LEFT_PANE_ORDER.map((paneKey) => (
+                    <Fragment key={paneKey}>
+                      {paneKey === 'netNavigator' && paneShown.netNavigator && (
+                        <>
+                          <div className="ze-panel grow" style={heightStyle('netNavigator')}>
+                            <div className="ze-panel-header">Net Navigator</div>
+                            <div className="ze-panel-body">
+                              <NetNavigatorPanel
+                                doc={doc}
+                                libById={libById}
+                                fmt={fmt}
+                                selectedId={selection.size === 1 ? [...selection][0] : undefined}
+                                highlightedNet={highlightedChain}
+                                prebuilt={netNavigatorTree}
+                                onSelect={(id) => {
+                                  // onNetNavigatorSelection ends in
+                                  // `FocusOnLocation( item->GetBoundingBox().Centre() )`, so
+                                  // picking a leaf brings the item under the crosshair even
+                                  // though the pointer is still in the panel.
+                                  setSelection(new Set([id]));
+                                  const box = doc
+                                    ? selectionBBox(doc, new Set([id]), libById)
+                                    : emptyBBox();
+                                  if (!isEmpty(box))
+                                    controller.current?.centerOn({
+                                      x: (box.minX + box.maxX) / 2,
+                                      y: (box.minY + box.maxY) / 2,
+                                    });
+                                }}
+                              />
                             </div>
-                          )}
-                        </div>
-                      </div>
-                      {sashAfter('properties')}
-                    </>
-                  )}
-                  {toggles.has('showNetNavigator') && doc && (
-                    <>
-                      <div className="ze-panel grow" style={heightStyle('netNavigator')}>
-                        <div className="ze-panel-header">Net Navigator</div>
-                        <div className="ze-panel-body">
-                          <NetNavigatorPanel
-                            doc={doc}
-                            libById={libById}
-                            fmt={fmt}
-                            selectedId={selection.size === 1 ? [...selection][0] : undefined}
-                            highlightedNet={highlightedChain}
-                            prebuilt={netNavigatorTree}
-                            onSelect={(id) => {
-                              // onNetNavigatorSelection ends in
-                              // `FocusOnLocation( item->GetBoundingBox().Centre() )`, so
-                              // picking a leaf brings the item under the crosshair even
-                              // though the pointer is still in the panel.
-                              setSelection(new Set([id]));
-                              const box = doc
-                                ? selectionBBox(doc, new Set([id]), libById)
-                                : emptyBBox();
-                              if (!isEmpty(box))
-                                controller.current?.centerOn({
-                                  x: (box.minX + box.maxX) / 2,
-                                  y: (box.minY + box.maxY) / 2,
-                                });
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {sashAfter('netNavigator')}
-                    </>
-                  )}
-                  {toggles.has('showHierarchy') && (
-                    <>
-                      <div className="ze-panel grow" style={heightStyle('hierarchy')}>
-                        <div className="ze-panel-header">Schematic Hierarchy</div>
-                        <div className="ze-panel-body">
-                          {sheetTree &&
-                            renderSheetNode(
-                              sheetTree,
-                              0,
-                              currentPath,
-                              switchSheet,
-                              collapsedSheets,
-                              setCollapsedSheets,
-                            )}
-                        </div>
-                      </div>
-                      {sashAfter('hierarchy')}
-                    </>
-                  )}
-                  {toggles.has('showProperties') && (
-                    <div className="ze-panel">
-                      <div className="ze-panel-header">Selection Filter</div>
-                      <div className="ze-panel-body">
-                        {/* "All items" toggles every category (not Locked items),
+                          </div>
+                          {sashAfter('netNavigator')}
+                        </>
+                      )}
+                      {paneKey === 'hierarchy' && paneShown.hierarchy && (
+                        <>
+                          <div className="ze-panel grow" style={heightStyle('hierarchy')}>
+                            <div className="ze-panel-header">Schematic Hierarchy</div>
+                            <div className="ze-panel-body">
+                              {sheetTree &&
+                                renderSheetNode(
+                                  sheetTree,
+                                  0,
+                                  currentPath,
+                                  switchSheet,
+                                  collapsedSheets,
+                                  setCollapsedSheets,
+                                )}
+                            </div>
+                          </div>
+                          {sashAfter('hierarchy')}
+                        </>
+                      )}
+                      {paneKey === 'properties' && paneShown.properties && (
+                        <>
+                          <div className="ze-panel grow" style={heightStyle('properties')}>
+                            <div className="ze-panel-header">Properties</div>
+                            <div className="ze-panel-body">
+                              {propRows.length > 0 ? (
+                                <SchPropertiesPanel
+                                  rows={propRows}
+                                  fmt={(iu) => fmt(iu)}
+                                  parse={parseDist}
+                                  onCommand={runCommand}
+                                />
+                              ) : (
+                                <div className="ze-muted">
+                                  {selection.size === 0
+                                    ? 'No objects selected'
+                                    : `${selection.size} item(s) selected`}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {sashAfter('properties')}
+                        </>
+                      )}
+                      {paneKey === 'selectionFilter' && paneShown.selectionFilter && (
+                        <div className="ze-panel">
+                          <div className="ze-panel-header">Selection Filter</div>
+                          <div className="ze-panel-body">
+                            {/* "All items" toggles every category (not Locked items),
                       exactly like PANEL_SCH_SELECTION_FILTER::OnFilterChanged. */}
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={selectionFilterAll(selFilter)}
-                            onChange={() => {
-                              const next = !selectionFilterAll(selFilter);
-                              setSelFilter((p) => ({
-                                ...p,
-                                symbols: next,
-                                text: next,
-                                wires: next,
-                                labels: next,
-                                pins: next,
-                                graphics: next,
-                                images: next,
-                                ruleAreas: next,
-                                otherItems: next,
-                              }));
-                            }}
-                          />
-                          All items
-                        </label>
-                        {/* Locked items is special (allows selecting locked items). */}
-                        <label title="Allow selection of locked items">
-                          <input
-                            type="checkbox"
-                            checked={selFilter.lockedItems}
-                            onChange={(e) =>
-                              setSelFilter((p) => ({ ...p, lockedItems: e.target.checked }))
-                            }
-                          />
-                          Locked items
-                        </label>
-                        <div className="ze-selfilter">
-                          {FILTER_CATS.map(([key, label]) => (
-                            <label key={key}>
+                            <label>
                               <input
                                 type="checkbox"
-                                checked={selFilter[key]}
+                                checked={selectionFilterAll(selFilter)}
+                                onChange={() => {
+                                  const next = !selectionFilterAll(selFilter);
+                                  setSelFilter((p) => ({
+                                    ...p,
+                                    symbols: next,
+                                    text: next,
+                                    wires: next,
+                                    labels: next,
+                                    pins: next,
+                                    graphics: next,
+                                    images: next,
+                                    ruleAreas: next,
+                                    otherItems: next,
+                                  }));
+                                }}
+                              />
+                              All items
+                            </label>
+                            {/* Locked items is special (allows selecting locked items). */}
+                            <label title="Allow selection of locked items">
+                              <input
+                                type="checkbox"
+                                checked={selFilter.lockedItems}
                                 onChange={(e) =>
-                                  setSelFilter((p) => ({ ...p, [key]: e.target.checked }))
+                                  setSelFilter((p) => ({ ...p, lockedItems: e.target.checked }))
                                 }
                               />
-                              {label}
+                              Locked items
                             </label>
-                          ))}
+                            <div className="ze-selfilter">
+                              {FILTER_CATS.map(([key, label]) => (
+                                <label key={key}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selFilter[key]}
+                                    onChange={(e) =>
+                                      setSelFilter((p) => ({ ...p, [key]: e.target.checked }))
+                                    }
+                                  />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
+                      )}
+                    </Fragment>
+                  ))}
                 </div>
                 <div
                   className="ze-splitter"

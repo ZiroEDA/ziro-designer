@@ -213,22 +213,31 @@ function hyphenTitleCounts(): Record<string, number> {
 describe('the hyphen titles still to migrate', () => {
   /**
    * Six call sites wrote `&nbsp;-&nbsp;<Frame Name>` where upstream writes an
-   * em dash. GerbView's is gone; the other five are a separate pass that Akshay
-   * sequences, and this map is its checklist. It fails on a NEW one and on a
-   * STALE one, so removing a site means lowering this in the same commit.
+   * em dash. GerbView's went first and the Schematic Editor's followed, when
+   * `SCH_EDIT_FRAME::updateTitle` was rebuilt on the shared rule
+   * (`editors/schematic/frame_title.ts`); the remaining four are a separate
+   * pass that Akshay sequences, and this map is its checklist. It fails on a
+   * NEW one and on a STALE one, so removing a site means lowering this in the
+   * same commit.
    */
-  it('are exactly these five, in four files', () => {
+  it('are exactly these four, in three files', () => {
     expect(hyphenTitleCounts()).toEqual({
       'editors/footprint/FootprintEditor.tsx': 1,
       'editors/pcb/PcbEditor.tsx': 2,
-      'editors/schematic/SchematicEditor.tsx': 1,
       'editors/symbol/SymbolEditor.tsx': 1,
     });
   });
 
-  it('total five, so a sixth anywhere fails', () => {
+  it('total four, so a fifth anywhere fails', () => {
     const total = Object.values(hyphenTitleCounts()).reduce((a, b) => a + b, 0);
-    expect(total).toBe(5);
+    expect(total).toBe(4);
+  });
+
+  /** The Schematic Editor's is gone, the same way GerbView's is. */
+  it('does not include any schematic file', () => {
+    expect(
+      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/schematic/')),
+    ).toEqual([]);
   });
 
   it('does not include any gerbview file', () => {

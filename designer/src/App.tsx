@@ -1012,6 +1012,7 @@ export function App(): JSX.Element {
               extraSheetFiles={sessionSheets}
               projectName={projectName}
               readOnlyNotice={demoNotice}
+              readOnly={!!demoProject}
               onCrossProbeNet={setCrossProbeNet}
               onSelectOnPcb={selectOnPcb}
             />
