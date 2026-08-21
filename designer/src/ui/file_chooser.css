@@ -294,9 +294,13 @@
   background: var(--panel-bg);
 }
 
+/* 6 px, and it is two GTK values agreeing rather than one: the text renderers
+   of Size / Type / Modified pad 6, and the column header button's own CSS
+   padding is 6 either side. The NAME cell overrides this below - its text
+   renderer is the one that pads 2. */
 .ze-chooser-head span,
 .ze-chooser-row span {
-  padding: 0 var(--chooser-text-pad);
+  padding: 0 var(--chooser-cell-pad);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -329,8 +333,13 @@
 .ze-chooser-row .ze-chooser-name-cell {
   display: flex;
   align-items: center;
-  gap: var(--chooser-icon-pad);
-  padding-left: var(--chooser-icon-pad);
+  /* The gap is the icon cell's right pad and the text renderer's left pad,
+     which are two different measured numbers that happen to sum to 8 - not one
+     8 px gap. Likewise the left is the tree view's row inset plus the icon
+     cell's own pad, which is why the icon lands 8 px in while xpad is 6. */
+  gap: calc(var(--chooser-icon-pad) + var(--chooser-text-pad));
+  padding-left: calc(var(--chooser-row-inset) + var(--chooser-icon-pad));
+  padding-right: var(--chooser-text-pad);
 }
 
 .ze-chooser-row .ze-chooser-name-cell img,

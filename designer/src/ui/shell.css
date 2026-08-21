@@ -386,11 +386,37 @@
      own size in bold, and its background is the list's, so there is no separate
      header colour. */
   --chooser-header-row: 25px;
-  /* [px] the icon cell renderer pads 6 px either side and draws at
-     GTK_ICON_SIZE_MENU; the text cell pads 2. */
+  /* [px] the file list's cell renderers, read off the dialog wxFileDialog
+     itself builds with the chooser pointed at a DIRECTORY - browse mode, not
+     Recent. qa/probes/chooser_cells_probe.cpp; gtk-font-name was Ubuntu Sans 11
+     for the reading, and python-gi returns the same properties.
+
+     The Name column carries TWO renderers. A GtkCellRendererPixbuf 28 px wide
+     with xpad 6, drawing a 16 px icon at xalign 0.5 - so the icon sits 6 px
+     into a 28 px cell - and then a GtkCellRendererText at x_offset 28 with
+     xpad 2. That is the whole of --chooser-text-pad's reach: it is the NAME
+     column's text renderer and nothing else. Every other column's text
+     renderer pads 6, which is --chooser-cell-pad below.
+
+     This is what reconciles the capture with the widget: the capture puts the
+     name icon 8 px from the list's left edge while the renderer's xpad is 6,
+     and the missing 2 is --chooser-row-inset. 647 + 2 + 6 = 655, and the
+     capture's icon runs 655..670. */
   --chooser-icon-size: 16px;
   --chooser-icon-pad: 6px;
   --chooser-text-pad: 2px;
+  /* [px] every text renderer that is not the Name column's, and also the
+     padding of the column header button - two separate GTK values that agree.
+     The header's is the theme's button padding (label starts 6 px into the
+     button, every column), not a cell renderer's xpad, which is why the header
+     text lines up with Size/Type/Modified but not with a file name: the name
+     starts past the 28 px icon cell. */
+  --chooser-cell-pad: 6px;
+  /* [px] GtkTreeView insets a row's cell area from its background by the
+     horizontal-separator: measured background x=0 w=578 against cell x=2
+     w=574. Only the cells are inset - the header buttons start at the column's
+     own x. */
+  --chooser-row-inset: 2px;
   /* [px] the path bar band is 46 + its 1 px rule, and it sits inside the right
      pane - it starts at the list's left edge, not the dialog's, because the
      sidebar runs the full height between the header bar and the footer. */
