@@ -30,6 +30,11 @@
      WX_ELLIPSIZED_STATIC_TEXT (`gerbview/widgets/layer_widget.cpp:358`) — a
      widget label, which takes the widget foreground, not a listbox row. */
   --chrome-fg: #f7f7f7;
+  /* [px] wxSYS_COLOUR_HIGHLIGHTTEXT — the text ON a selection. The same
+     #ffffff as --view-fg in this theme, and a separate token anyway: wx has
+     three foregrounds that happen to coincide here, and naming which one a rule
+     means is the difference between a value and a source. */
+  --selection-fg: #ffffff;
   /* [px] wxSYS_COLOUR_WINDOWTEXT / _LISTBOXTEXT, the text INSIDE a view rather
      than on a widget: an entry, a listbox, a grid cell. GTK agrees — its
      `entry` and `treeview` report rgb(255,255,255) where every button, label,
@@ -822,9 +827,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   opacity: 0.55;
   cursor: default;
 }
+/* [px] wxSYS_COLOUR_GRAYTEXT, #929292. This was #8b9098 — blue 152 against
+   red 139, the blue tint CLAUDE.md names as "the thing that read as not KiCad
+   before a single widget had been compared". --ctl-fg-disabled already carries
+   the measured value. */
 .ze-app input::placeholder,
 .ze-app textarea::placeholder {
-  color: #8b9098;
+  color: var(--ctl-fg-disabled);
 }
 /* The accent the browser paints inside a checkbox, and the size GTK gives it.
    Both come from the theme, so neither is ours to pick: --chrome-active is the
@@ -2038,8 +2047,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-app .ze-tplsel-filter {
   box-sizing: border-box;
   height: 34px;
-  color: var(--chrome-fg);
-  border: 1px solid #181818;
+  color: var(--view-fg);
+  border: 1px solid var(--ctl-border);
   border-radius: 4px;
   font: inherit;
   margin: 5px;
@@ -3743,7 +3752,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: 18px;
   flex: 0 0 auto;
   border: 2px solid var(--chrome-border);
-  border-top-color: #e07b1a;
+  border-top-color: var(--chrome-active);
   border-radius: 50%;
   animation: ze-spin 0.7s linear infinite;
 }
@@ -3778,7 +3787,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-progress-fill {
   height: 100%;
   border-radius: 3px;
-  background: #e07b1a;
+  background: var(--chrome-active);
   transition: width 0.15s ease-out;
 }
 /* Cloud-sync status pill (bottom-right, non-blocking): shows pull/push counts
@@ -4024,8 +4033,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* The grid cursor's row highlights solid, like WX_GRID's selection. */
 .ze-sft-fields tr.selected td {
   outline: none;
-  background: #e07b1a;
-  color: #1b1d1f;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-sft-fields tr.selected td input[type="text"] {
   color: #1b1d1f;
@@ -4171,7 +4180,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* WX_GRID paints its selection in the accent colour, not a focus ring. */
 .ze-sft-table tr.selected td {
   outline: none;
-  background: rgba(224, 123, 26, 0.25);
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-sft-cell {
   display: flex;
@@ -5092,7 +5102,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-align: center;
 }
 .ze-lp-grid tr.sel td {
-  background: rgba(45, 108, 223, 0.25);
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-lp-grid input[type="text"],
 .ze-lp-grid input:not([type]),
@@ -5140,8 +5151,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-color: var(--chrome-border);
 }
 .ze-lp-iconbtn.checked {
-  background: rgba(45, 108, 223, 0.35);
-  border-color: var(--chrome-active-border, #2d6cdf);
+  background: var(--chrome-active);
+  border-color: var(--chrome-active-border);
 }
 .ze-lp-iconbtn:disabled {
   opacity: 0.4;
@@ -5396,7 +5407,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   text-align: center;
 }
 .ze-props-grid tr.sel td {
-  background: rgba(45, 108, 223, 0.18);
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 /* FDC_COLOR: the swatch plus the reset that puts the field back on the
    default text colour, which a native colour input cannot express. */
@@ -5586,8 +5598,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 .ze-erc-subrow.selected {
-  background: #e07b1a;
-  color: #fff;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-erc-subrow.excluded {
   opacity: 0.55;
@@ -5610,7 +5622,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 .ze-erc-gauge .bar {
   height: 100%;
-  background: #2f65c0;
+  background: var(--chrome-active);
   transition: width 80ms linear;
 }
 /* The marker tree's expander glyph on a heading row. */
@@ -5752,8 +5764,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 .ze-search-row.selected td {
-  background: #e07b1a;
-  color: #fff;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 
 /* The docked Search pane is 240px wide, where four tabs at the dialog's padding
@@ -5773,11 +5785,11 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: var(--chrome-fg);
   background: var(--chrome-hover);
   border-color: var(--chrome-border);
-  box-shadow: inset 0 -2px 0 #e07b1a;
+  box-shadow: inset 0 -2px 0 var(--chrome-active);
 }
 .ze-erc-row.selected {
-  background: var(--accent, #2f65c0);
-  color: #fff;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-erc-row.excluded .msg {
   opacity: 0.55;
@@ -6622,8 +6634,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: var(--chrome-hover);
 }
 .ze-cvpcb-row.selected {
-  background: #2d5a8e;
-  color: #fff;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 /* SYMBOLS_LISTBOX's warning attribute (dark theme rgb(112,96,32)). */
 .ze-cvpcb-row .ze-cvpcb-warn {
@@ -6634,7 +6646,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   background: rgb(112, 96, 32);
 }
 .ze-cvpcb-row.selected:has(.ze-cvpcb-warn) {
-  background: #2d5a8e;
+  background: var(--chrome-active);
 }
 .ze-cvpcb-empty {
   padding: 6px 8px;
@@ -7534,9 +7546,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   white-space: nowrap;
 }
 /* Grey, not the platform accent — sampled rgb(62,62,62) off the real list. */
-.ze-combo-item:hover,
+/* Hover and selection are two different things on a popup row and were one
+   flat grey here. GTK gives a hovered row the MENUHILIGHT overlay and a
+   SELECTED one the highlight itself — the same split a menu and a treeview
+   already have. */
+.ze-combo-item:hover {
+  background: var(--chrome-hover);
+}
 .ze-combo-item.selected {
-  background: #3e3e3e;
+  background: var(--chrome-active);
+  color: var(--selection-fg);
 }
 .ze-combo-item.disabled {
   color: var(--ctl-fg-disabled);

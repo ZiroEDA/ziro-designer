@@ -65,7 +65,17 @@ describe('the Search pane row highlight', () => {
   it('has the row styling to show it with', () => {
     // On the cells: a `tr` background does not survive cells that establish
     // their own formatting, which is why every other table here does it this way.
-    expect(CSS).toMatch(/\.ze-search-row\.selected td\s*\{[^}]*background:\s*#e07b1a/);
+    //
+    // The colour used to be pinned here as `#e07b1a`, which is a shade that
+    // appears in no Yaru stylesheet. A selected row is wxSYS_COLOUR_HIGHLIGHT
+    // (#e95420) on _HIGHLIGHTTEXT (#ffffff) in every KiCad list, grid and tree,
+    // because none of them picks a colour — so this asserts the tokens rather
+    // than a value, and wx_system_palette.test.ts is what binds those tokens to
+    // the system colours.
+    expect(CSS).toMatch(
+      /\.ze-search-row\.selected td\s*\{[^}]*background:\s*var\(--chrome-active\)/,
+    );
+    expect(CSS).toMatch(/\.ze-search-row\.selected td\s*\{[^}]*color:\s*var\(--selection-fg\)/);
   });
 });
 

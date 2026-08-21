@@ -154,7 +154,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // branches lowered these at once AGAIN and neither figure survived the merge:
   // 341/822 was the GerbView tree and 344/819 the New Project one, and the
   // merged tree is neither. Rescanned here, as it has to be every time.
-  ui: { colours: 337, metrics: 816 },
+  //
+  // And again by the selection pass: every selected row, a progress fill, an
+  // ERC gauge, a spinner arc, a tab marker and the placeholder colour were
+  // painting their own literal where wx reports one system colour. Twenty-three
+  // of them. Found by scanning for the specificity trap rather than by eye —
+  // /home/akshay/ziro-parity/probes/specificity_trap.py.
+  ui: { colours: 314, metrics: 816 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -359,7 +365,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(743);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(720);
     expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1669);
   });
 

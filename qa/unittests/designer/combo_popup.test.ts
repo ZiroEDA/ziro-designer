@@ -102,8 +102,14 @@ describe('Combo: KiCad’s palette, not Chrome’s', () => {
     expect(body).toMatch(/#4b4b4b/);
   });
 
-  it('highlights the hovered row grey, never Chrome’s blue', () => {
-    expect(rule('.ze-combo-item:hover')).toMatch(/background:\s*#3e3e3e/);
+  it('separates hover from selection, as GTK does', () => {
+    // This used to pin a flat `#3e3e3e` for BOTH, which is one grey standing in
+    // for two different things. GTK gives a hovered popup row the MENUHILIGHT
+    // overlay — rgb(247,247,247) at alpha 38/255, measured on a rendered prelit
+    // menu item — and a SELECTED one wxSYS_COLOUR_HIGHLIGHT itself. The tokens
+    // carry both; see wx_system_palette.test.ts.
+    expect(rule('.ze-combo-item:hover')).toMatch(/background:\s*var\(--chrome-hover\)/);
+    expect(rule('.ze-combo-item.selected')).toMatch(/background:\s*var\(--chrome-active\)/);
     // rgb(153,200,255) is the native highlight; it must not be reproduced.
     expect(CSS).not.toContain('#99c8ff');
   });

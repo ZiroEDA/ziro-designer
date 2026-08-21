@@ -80,6 +80,8 @@ describe('each chrome token is one named wx system colour', () => {
     ['panel-bg', 'WINDOW'],
     // Selection is the desktop accent.
     ['chrome-active', 'HIGHLIGHT'],
+    ['selection-fg', 'HIGHLIGHTTEXT'],
+    ['ctl-fg-disabled', 'GRAYTEXT'],
     // A control's outline.
     ['ctl-border', 'BTNSHADOW'],
   ];
@@ -133,6 +135,50 @@ describe('hover is an overlay, not a colour', () => {
       const [r, , b] = (m as RegExpMatchArray).slice(1).map((h) => Number.parseInt(h, 16));
       expect(r, `--${name} is a tint of the orange accent`).toBeGreaterThan(b as number);
     }
+  });
+});
+
+describe('a selection is the desktop accent, everywhere', () => {
+  /**
+   * `wxSYS_COLOUR_HIGHLIGHT` is #e95420 and `_HIGHLIGHTTEXT` is #ffffff, and
+   * every selected row in KiCad is those two — a wxGrid's, a wxListBox's, a
+   * wxDataViewCtrl's alike, because none of them picks a colour.
+   *
+   * Ours painted six surfaces differently: the Symbol Fields Table grid, the
+   * ERC subrow and the Search row in #e07b1a — the same shade that appears
+   * nowhere in Yaru and that the checkbox accent was also drifting to — and the
+   * layer-pair grid, the properties grid and CVPCB in BLUE, which is the tint
+   * CLAUDE.md names as "the thing that read as not KiCad before a single widget
+   * had been compared". A progress fill, an ERC gauge and a spinner arc were
+   * off the same way.
+   *
+   * Scanned rather than listed: a list of six selectors goes stale the moment a
+   * seventh panel is written, and the point is that NO rule picks its own
+   * selection colour.
+   */
+  const RULES = SHELL.replace(/\/\*[\s\S]*?\*\//g, '').split('}');
+
+  it('found rules to scan, so this cannot pass on an empty split', () => {
+    expect(RULES.length).toBeGreaterThan(400);
+  });
+
+  it('no selected-row rule paints its own background', () => {
+    const offenders = RULES.filter(
+      (r) => /\.(selected|sel)\b[^{]*\{/.test(r) && /background(-color)?:\s*(#|rgba?\()/.test(r),
+    ).map((r) => r.split('{')[0]!.trim().replace(/\s+/g, ' '));
+    expect(
+      offenders,
+      'a selection is wxSYS_COLOUR_HIGHLIGHT, not a colour a panel chooses',
+    ).toStrictEqual([]);
+  });
+
+  it('and the accent literal is gone from the stylesheet entirely', () => {
+    // #e07b1a survived three separate passes tonight by hiding in a different
+    // property each time — a checkbox accent, then six selections, then a
+    // spinner arc and a tab marker. The only occurrence left is the sentence
+    // recording that it was wrong.
+    const code = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain('#e07b1a');
   });
 });
 
