@@ -128,10 +128,15 @@ describe('drawGrid (GAL::DrawGrid, DOTS)', () => {
 
   it('puts a dot on the grid origin itself', () => {
     // 0.12 mm is not a multiple of 0.5 mm, so an origin-blind grid cannot.
+    //
+    // To the nearest pixel, because `drawGridPoint` snaps every mark:
+    // `roundp` is floor(x + 0.5) (+0.5 for an odd pen), so a dot whose device
+    // position is 1.2 px is drawn at 1. Asking for 1.2 exactly would be
+    // asking for the blurred grid this snapping exists to avoid.
     const origin = { x: 0.12 * MM, y: 0.12 * MM };
     const dots = gridDots(origin, size);
     const want = px(origin.x); // 1.2 device px
-    expect(dots.some((d) => Math.abs(d.x - want) < 1e-6 && Math.abs(d.y - want) < 1e-6)).toBe(true);
+    expect(dots.some((d) => Math.abs(d.x - want) <= 0.5 && Math.abs(d.y - want) <= 0.5)).toBe(true);
   });
 
   it('shifts the whole grid with the origin', () => {
@@ -142,8 +147,10 @@ describe('drawGrid (GAL::DrawGrid, DOTS)', () => {
       [...new Set(d.map((p) => Number(p.x.toFixed(6))))].sort((a, b) => a - b);
     const a = xs(at0);
     const b = xs(shifted);
-    // The same lattice, moved bodily by 0.12 mm = 1.2 device px.
-    expect(b).toContain(Number((a[1]! + px(0.12 * MM)).toFixed(6)));
+    // The same lattice, moved bodily by 0.12 mm = 1.2 device px — landing
+    // within half a pixel of that, since every mark is snapped.
+    const target = a[1]! + px(0.12 * MM);
+    expect(b.some((x) => Math.abs(x - target) <= 0.5)).toBe(true);
     expect(b).not.toEqual(a);
   });
 
@@ -156,7 +163,20 @@ describe('drawGrid (GAL::DrawGrid, DOTS)', () => {
       const xs = [...new Set(d.map((p) => Number(p.x.toFixed(6))))].sort((a, b) => a - b);
       return Number((xs[1]! - xs[0]!).toFixed(6));
     };
-    expect(pitch(gridDots({ x: 0, y: 0 }, size))).toBe(px(step));
-    expect(pitch(gridDots({ x: 0.12 * MM, y: 0 }, size))).toBe(px(step));
+    // Within a pixel, and for the same reason: snapping each mark makes the
+    // drawn spacing alternate around the true pitch when the pitch is not a
+    // whole number of pixels. KiCad's does too — that is the cost of a sharp
+    // dot, and it is the trade upstream makes.
+    // Within a pixel, and two separate reasons why it cannot be exact:
+    // snapping each mark makes the drawn spacing alternate around the true
+    // pitch, and this helper measures CENTRES, so a tick — twice as wide as a
+    // minor dot — has its centre half a pixel further along. KiCad's grid has
+    // both properties; they are the cost of a sharp dot.
+    for (const origin of [
+      { x: 0, y: 0 },
+      { x: 0.12 * MM, y: 0 },
+    ]) {
+      expect(Math.abs(pitch(gridDots(origin, size)) - px(step))).toBeLessThanOrEqual(1);
+    }
   });
 });

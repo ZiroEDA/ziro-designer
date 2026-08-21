@@ -1416,7 +1416,7 @@ export function DrawingSheetEditor({
    * upstream list and its index keeps the two independent, as they are
    * upstream; `gridIndex` starts at DEFAULT_GRID_INDEX.pl_editor = 4.
    */
-  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex] ?? '0.50 mm') ?? 0.5);
+  const gridIU = mmToIU(gridSizeToMM(GRID_SIZE_LIST.pl_editor[gridIndex]?.x ?? '0.50 mm') ?? 0.5);
   // PL_EDITOR_FRAME::DisplayGridMsg (pagelayout_editor/pl_editor_frame.cpp:710)
   // formats the grid itself - "grid %.4f" in mm, "grid %.3f" in inch - rather
   // than going through GRID::MessageText, which is what MessageTextFromValue's

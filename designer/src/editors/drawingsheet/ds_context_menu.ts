@@ -38,7 +38,18 @@ import {
   type ZoomApp,
   ZOOM_LIST,
 } from '../../ui/zoom_settings.js';
-import { GRID_SIZE_LIST, gridSizeToMM, type GridApp } from '../../ui/grid_settings.js';
+import { PL_IU_PER_MM } from '@ziroeda/common';
+import {
+  GRID_SIZE_LIST,
+  // One copy, in the shared module. This file had its own `secondaryUnits` and
+  // `gridChoiceLabel`, a per-editor copy of a `common/` helper — and the copy
+  // could not print a non-square grid at all, because it took a single size
+  // where `GRID` has an x and a y.
+  gridChoiceLabel,
+  gridSizeToMM,
+  secondaryUnits,
+  type GridApp,
+} from '../../ui/grid_settings.js';
 import { messageTextFromValue, unitText, type StatusUnits } from '../../ui/status_format.js';
 
 /** The frame this menu belongs to. Both tables key on the same app name. */
@@ -74,30 +85,6 @@ export interface DsContextMenuState {
   primaryUnits: StatusUnits;
 }
 
-/**
- * `EDA_DRAW_FRAME::GetUnitPair` (`common/eda_draw_frame.cpp:1400-1420`): the
- * second unit a grid row is spelled in is always the other system's, so an
- * imperial frame quotes mm and a metric one quotes mils.
- */
-export function secondaryUnits(primary: StatusUnits): StatusUnits {
-  return primary === 'mm' ? 'mils' : 'mm';
-}
-
-/**
- * `GRID_MENU::BuildChoiceList` (`common/tool/grid_menu.cpp:89-112`):
- * `_( "%s%s (%s)" )` over the grid's `MessageText` in the primary and secondary
- * units, the leading `%s` being the grid's own name and empty for every entry
- * of the default list. Both numbers carry their unit label, so a pl_editor in
- * mils reads `19.69 mils (0.5000 mm)`.
- */
-export function gridChoiceLabel(size: string, primary: StatusUnits): string {
-  const mm = gridSizeToMM(size);
-  if (mm === null) return size;
-  const secondary = secondaryUnits(primary);
-  const one = (u: StatusUnits): string => messageTextFromValue(mm, u) + unitText(u);
-  return `${one(primary)} (${one(secondary)})`;
-}
-
 /** `ZOOM_MENU` (common/tool/zoom_menu.cpp) as a submenu. */
 export function dsZoomSubmenu(zoom: number, setZoom: (factor: number) => void): MenuItem[] {
   return ZOOM_LIST[APP].map((factor) => ({
@@ -118,7 +105,11 @@ export function dsGridSubmenu(
     { label: 'Grid Origin...', icon: 'gridOrigin', action: gridOrigin },
     { sep: true },
     ...GRID_SIZE_LIST[APP].map((size, i) => ({
-      label: gridChoiceLabel(size, primaryUnits),
+      // pl_editor's own IU scale (`drawSheetIUScale`, base_units.h:113), not
+      // the schematic's. It decides the precision: `short_form` upstream is
+      // `IU_PER_MM == SCH_IU_PER_MM`, which pl_editor is not, so its rows read
+      // `196.85 mils (5.0000 mm)` rather than the shortened `197 mils`.
+      label: gridChoiceLabel(size, primaryUnits, PL_IU_PER_MM),
       checked: i === gridIndex,
       action: () => setGrid(i),
     })),

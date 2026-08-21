@@ -904,11 +904,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex-direction: column;
   padding: 4px 2px;
 }
+/* The same dock edge as the horizontal block's, and for the same reason: a
+   vertical strip meets the canvas, not another toolbar. [px] scanned across a
+   live GerbView at y=500 — face #373737 to x=99, then ONE #292929, then the
+   canvas. Ours drew --chrome-border (#1e1e1e) there, which reads as a black
+   rule breaking the strip away from the bars above and below it. */
 .ze-toolbar.vertical.left {
-  border-right: 1px solid var(--chrome-border);
+  border-right: 1px solid var(--toolbar-dock-edge);
 }
 .ze-toolbar.vertical.right {
-  border-left: 1px solid var(--chrome-border);
+  border-left: 1px solid var(--toolbar-dock-edge);
 }
 
 .ze-tbtn {

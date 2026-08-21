@@ -22,6 +22,7 @@ import {
   deviceToWorldX,
   deviceToWorldY,
   dimmedCursorColor,
+  gridDotEdge,
   gridDotWidths,
   gridIndexRange,
   gridPenWidths,
@@ -132,6 +133,29 @@ describe('gridPenWidths / gridDotWidths — GAL grid pen', () => {
     expect(d.minor).toBe(1);
     expect(d.major).toBeCloseTo(1.1, 10);
     expect(d.major).toBeGreaterThan(d.minor);
+  });
+
+  it('carries GAL’s own 0.25, so a default pen is a 1.25 px dot', () => {
+    // `m_gridLineWidth = m_scaleFactor * options.m_gridLineWidth + 0.25`
+    // (graphics_abstraction_layer.cpp:124) — the value drawGridPoint receives
+    // already has it. It is not the reason ours looked blurred; the missing
+    // snapping was.
+    expect(gridDotWidths(1, 1)).toStrictEqual({ minor: 1.25, major: 2.5 });
+  });
+
+  it('puts a mark’s edges on whole pixels, which is why KiCad’s are sharp', () => {
+    // roundp for an odd width is floor(x + 0.5) + 0.5, and drawGridPoint then
+    // offsets by -floor(sw/2) - 0.5. Net: the left edge is an integer, so a
+    // 1 px dot covers exactly one pixel however fractional the position was.
+    // A 1.25 px minor dot: floor(1.25 / 2) is 0, so the edge is the snapped
+    // position itself and the mark paints one solid pixel.
+    expect(gridDotEdge(10.3, 1.25)).toBe(10);
+    expect(gridDotEdge(10.7, 1.25)).toBe(11);
+    // A 2.5 px tick: floor(2.5 / 2) is 1, so it extends one pixel left.
+    expect(gridDotEdge(10.3, 2.5)).toBe(9);
+    // Whatever the fraction, the edge is an integer — that is the point.
+    expect(Number.isInteger(gridDotEdge(7.49, 1.25))).toBe(true);
+    expect(Number.isInteger(gridDotEdge(7.51, 2.5))).toBe(true);
   });
 });
 

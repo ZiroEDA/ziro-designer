@@ -19,10 +19,13 @@ import {
   buildDsContextMenu,
   dsGridSubmenu,
   dsZoomSubmenu,
-  gridChoiceLabel,
-  secondaryUnits,
   type DsContextMenuActions,
 } from '@ziroeda/designer/src/editors/drawingsheet/ds_context_menu.js';
+// Both of these used to be a second copy inside ds_context_menu.ts. They are
+// `common/` helpers upstream, so there is one copy now and the test reads it
+// from where it lives.
+import { gridChoiceLabel, secondaryUnits } from '@ziroeda/designer/src/ui/grid_settings.js';
+import { PCB_IU_PER_MM, PL_IU_PER_MM } from '@ziroeda/common';
 import {
   ZOOM_LIST,
   nextZoomPreset,
@@ -162,7 +165,18 @@ describe('the Grid submenu (GRID_MENU)', () => {
     expect(secondaryUnits('mm')).toBe('mils');
     expect(secondaryUnits('mils')).toBe('mm');
     expect(secondaryUnits('in')).toBe('mm');
-    expect(gridChoiceLabel('0.50 mm', 'mm')).toBe('0.5000 mm (19.69 mils)');
+    // A GRID row, not a bare string: `GRID` carries an x and a y, and the
+    // label collapses them only when the two print the same.
+    expect(gridChoiceLabel({ x: '0.50 mm', y: '0.50 mm' }, 'mm', PL_IU_PER_MM)).toBe(
+      '0.5000 mm (19.69 mils)',
+    );
+    // The four gerbview defaults that are not square print both axes —
+    // `GRID::MessageText` returns "%s x %s" when the formatted strings differ
+    // (`common/settings/grid_settings.cpp:41-44`). This entry is what makes
+    // GerbView's grid box as wide as it is.
+    expect(gridChoiceLabel({ x: '1.5 mm', y: '2.5 mm' }, 'mm', PCB_IU_PER_MM)).toBe(
+      '1.5000 mm x 2.5000 mm (59.06 mils x 98.43 mils)',
+    );
   });
 
   it('ticks grid.last_size_idx and nothing else', () => {

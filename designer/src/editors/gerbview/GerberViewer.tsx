@@ -61,6 +61,8 @@ import {
 } from './gerberAuxControls.js';
 import {
   DEFAULT_GRID_INDEX,
+  EDIT_GRIDS_LABEL,
+  GRID_LIST_SEPARATOR,
   GRID_SIZE_LIST,
   gridChoiceLabel,
   gridSizeToIU,
@@ -747,7 +749,7 @@ export function GerberViewer({
   // at all, and which no control could change because there was no control.
   const gridSizes = GRID_SIZE_LIST.gerbview;
   const gridIU =
-    gridSizeToIU(gridSizes[Math.min(gridIdx, gridSizes.length - 1)] ?? '0.5 mm', IU_PER_MM) ??
+    gridSizeToIU(gridSizes[Math.min(gridIdx, gridSizes.length - 1)]?.x ?? '0.5 mm', IU_PER_MM) ??
     IU_PER_MM;
 
   useDocumentTitle(
@@ -864,11 +866,22 @@ export function GerberViewer({
       <Combo
         title="Grid Selection box"
         value={String(gridIdx)}
-        options={gridSizes.map((g, i) => ({
-          value: String(i),
-          label: gridChoiceLabel(g, unit, IU_PER_MM),
-        }))}
-        onChange={(v) => setGridIdx(Number(v))}
+        // `UpdateGridSelectBox` appends two rows after the grids
+        // (`common/eda_draw_frame.cpp:220-221`): a "---" rule and Edit
+        // Grids.... They are rows of the control, not entries of the table, so
+        // picking either must not be read as choosing a grid.
+        options={[
+          ...gridSizes.map((g, i) => ({
+            value: String(i),
+            label: gridChoiceLabel(g, unit, IU_PER_MM),
+          })),
+          { value: GRID_LIST_SEPARATOR, label: GRID_LIST_SEPARATOR, disabled: true },
+          { value: EDIT_GRIDS_LABEL, label: EDIT_GRIDS_LABEL },
+        ]}
+        onChange={(v) => {
+          if (v === GRID_LIST_SEPARATOR || v === EDIT_GRIDS_LABEL) return;
+          setGridIdx(Number(v));
+        }}
       />
     ),
     [GBR_CONTROL.zoomSelect]: (

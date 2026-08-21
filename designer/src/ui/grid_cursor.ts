@@ -192,13 +192,44 @@ export function gridPenWidths(lineWidthPx: number, dpr = 1): { minor: number; ma
 }
 
 /**
- * The DOTS branch's mark size (`cairo_gal.cpp:1866-1870` + `drawGridPoint`):
- * unlike LINES/SMALL_CROSS a dot uses the *unclamped* stored width, doubled on
- * a tick, and `drawGridPoint` clamps the resulting rectangle to one pixel.
+ * The DOTS branch's mark size (`cairo_gal.cpp:1868-1871`):
+ *
+ *     double doubleGridLineWidth = m_gridLineWidth * 2.0f;
+ *     drawGridPoint( pos, tickX ? doubleGridLineWidth : m_gridLineWidth, ... );
+ *
+ * where `m_gridLineWidth` already carries GAL's own `+ 0.25`
+ * (`graphics_abstraction_layer.cpp:124`), and `drawGridPoint` clamps each of
+ * width and height with `std::max( 1.0, aWidth )` AFTER the doubling. So a
+ * default 1 px pen gives a 1.25 px dot and a 2.5 px tick — which is not a
+ * mistake and not what made ours look wrong. See {@link gridDotEdge}.
  */
 export function gridDotWidths(lineWidthPx: number, dpr = 1): { minor: number; major: number } {
   const stored = dpr * Math.max(0, lineWidthPx) + 0.25;
   return { minor: Math.max(1, stored), major: Math.max(1, stored * 2) };
+}
+
+/**
+ * Where a dot's rectangle starts, which is the half of `drawGridPoint` that was
+ * missing (`cairo_gal.cpp:1857-1868`):
+ *
+ *     VECTOR2D p = roundp( xform( aPoint ) );
+ *     cairo_rectangle( ctx, p.x - std::floor( sw / 2 ) - 0.5, ..., sw, sh );
+ *
+ * with `roundp` being `floor( x + 0.5 ) + 0.5` for an odd pen
+ * (`cairo_gal.cpp:186-188`). Every mark is snapped to the pixel grid and only
+ * then offset, so its left edge is a whole pixel and a 1.25 px dot paints one
+ * solid pixel.
+ *
+ * Ours placed the rectangle at `x - sw / 2` from the unsnapped position, so
+ * each dot straddled a pixel boundary by a different fraction and the canvas
+ * anti-aliased it away: a capture showed marks smeared across 2 px and ticks
+ * across 4, where KiCad's read as 1 and 2.
+ *
+ * Returned as the integer edge — `roundp(x) - floor(w / 2) - 0.5` collapses to
+ * `floor(x + 0.5) - floor(w / 2)`, which is what a canvas rect wants.
+ */
+export function gridDotEdge(device: number, width: number): number {
+  return Math.floor(device + 0.5) - Math.floor(width / 2);
 }
 
 /** A line segment in device pixels. */
@@ -481,7 +512,10 @@ export function drawGrid(
         const sw = k % GRID_TICK === 0 ? dots.major : dots.minor;
         for (let l = 0; l <= rows; l++) {
           const sh = l % GRID_TICK === 0 ? dots.major : dots.minor;
-          minorPath.rect(x - sw / 2, l * pitch - sh / 2, sw, sh);
+          // Each point is snapped, as `drawGridPoint` snaps each one — not the
+          // path as a whole. Rounding only the translate would leave every
+          // mark off by the same fraction and blur all of them together.
+          minorPath.rect(gridDotEdge(x, sw), gridDotEdge(l * pitch, sh), sw, sh);
         }
       }
     }
@@ -489,7 +523,13 @@ export function drawGrid(
     geomCache.set(ctx, geom);
   }
 
-  ctx.translate(worldToDeviceX(view, iA * step + ox), worldToDeviceY(view, jA * step + oy));
+  const tx = worldToDeviceX(view, iA * step + ox);
+  const ty = worldToDeviceY(view, jA * step + oy);
+  // The dot path is already snapped point by point, so the offset it rides on
+  // has to be whole pixels too — a fractional translate would put every
+  // snapped mark back between pixels and undo the snapping.
+  if (style === 'dots') ctx.translate(Math.round(tx), Math.round(ty));
+  else ctx.translate(tx, ty);
   if (style === 'dots') {
     ctx.fillStyle = opts.color;
     ctx.fill(geom.minor);

@@ -162,9 +162,13 @@ describe('schematic grid painting', () => {
         .sort(),
     );
 
-    // Rects are centred on their node.
+    // Each rect sits ON its node, to within the snapping. `drawGridPoint`
+    // rounds the point to the pixel grid and then offsets by
+    // `- floor( sw / 2 ) - 0.5`, so a 1.25 px dot is not centred on its node —
+    // its left EDGE is the whole pixel, which is what makes it paint sharp.
     for (const r of rects.slice(0, 50)) {
-      expect(Number.isInteger((r.x + r.w / 2) / 20)).toBe(true);
+      const node = Math.round((r.x + r.w / 2) / 20) * 20;
+      expect(Math.abs(r.x + r.w / 2 - node)).toBeLessThanOrEqual(1);
     }
   });
 
@@ -197,7 +201,11 @@ describe('schematic grid painting', () => {
       .sort((a, b) => a - b)
       .slice(0, 5);
     const pitch = xs[1]! - xs[0]!;
-    expect(pitch).toBe(40); // 500 mil x 4 px/50 mil
+    // 500 mil x 4 px/50 mil = 40, to within a pixel: these are dot CENTRES and
+    // a tick is twice as wide as a minor dot, so its centre sits half a pixel
+    // further along — and `drawGridPoint` snaps every mark to the pixel grid,
+    // which is what makes KiCad's dots sharp and its drawn spacing alternate.
+    expect(Math.abs(pitch - 40)).toBeLessThanOrEqual(1);
   });
 
   it('batches the line and cross styles into one stroke per weight', () => {

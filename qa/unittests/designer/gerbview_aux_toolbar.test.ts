@@ -31,7 +31,7 @@ import {
   showApertureType,
   textInfoLine,
 } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import { gridChoiceLabel } from '@ziroeda/designer/src/ui/grid_settings.js';
+import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/designer/src/ui/grid_settings.js';
 import { ZOOM_LIST, zoomChoices } from '@ziroeda/designer/src/ui/zoom_settings.js';
 import { APERTURE_T } from '@ziroeda/gerbview';
 
@@ -266,12 +266,36 @@ describe('the grid selector', () => {
    * frame gets; a 1e4-IU frame would print "0.500 mm (20 mils)".
    */
   it('reads 0.5000 mm (19.69 mils) at GerbView’s default grid', () => {
-    expect(gridChoiceLabel('0.5 mm', 'mm', GBR_IU_PER_MM)).toBe('0.5000 mm (19.69 mils)');
+    // Read from the table rather than retyped, so the row and the label are
+    // pinned together: index 15 IS the default, and it is square.
+    expect(gridChoiceLabel(GRID_SIZE_LIST.gerbview[15]!, 'mm', GBR_IU_PER_MM)).toBe(
+      '0.5000 mm (19.69 mils)',
+    );
   });
 
   /** `GetUnitPair`: an imperial primary pairs with mm, a metric one with mils. */
   it('swaps the bracketed unit when the frame is imperial', () => {
-    expect(gridChoiceLabel('10 mil', 'mils', GBR_IU_PER_MM)).toBe('10.00 mils (0.2540 mm)');
+    expect(gridChoiceLabel({ x: '10 mil', y: '10 mil' }, 'mils', GBR_IU_PER_MM)).toBe(
+      '10.00 mils (0.2540 mm)',
+    );
+  });
+
+  /**
+   * The row that decides how wide the whole control is, and the reason this
+   * table needed a Y column at all. Four of GerbView's defaults are not square
+   * (`app_settings.cpp:629,635-637`), and `GRID::MessageText` prints both axes
+   * when their formatted strings differ. Read off the open dropdown in
+   * Akshay's capture of 2026-08-21.
+   */
+  it('prints both axes for the four grids that are not square', () => {
+    expect(gridChoiceLabel(GRID_SIZE_LIST.gerbview[13]!, 'mm', GBR_IU_PER_MM)).toBe(
+      '1.5000 mm x 2.5000 mm (59.06 mils x 98.43 mils)',
+    );
+    expect(gridChoiceLabel(GRID_SIZE_LIST.gerbview[19]!, 'mm', GBR_IU_PER_MM)).toBe(
+      '0.0500 mm x 0.0000 mm (1.97 mils x 0.00 mils)',
+    );
+    // A zero Y is upstream's own oddity, mirrored rather than corrected.
+    expect(GRID_SIZE_LIST.gerbview[21]).toStrictEqual({ x: '0.01 mm', y: '0.0 mm' });
   });
 });
 
