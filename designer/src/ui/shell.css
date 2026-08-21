@@ -899,8 +899,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* No width either: [px] GerbView's left strip is x 66..99 = 34 px around a
    30 px button at 68..97, i.e. --toolbar-button-size in 2 px of toolbar. Ours
-   said 32, one pixel narrower than the button it holds. */
+   said 32, one pixel narrower than the button it holds.
+
+   The -1px covers the horizontal block's dock edge in this strip's own column.
+   That edge is real where a toolbar meets CONTENT — [px] a live pl_editor at
+   x=1000 (canvas) and x=1850 (properties pane) both show #373737 to y=132 then
+   one #292929 at y=133 — and absent where a vertical toolbar is docked under
+   it: the same capture at x=84 runs unbroken #373737 through the seam. Two
+   docked toolbars butt together; only content is fenced off. Ours drew the
+   edge across the full width, so a black rule cut the left strip away from the
+   bar above it. */
 .ze-toolbar.vertical {
+  margin-top: -1px;
   flex-direction: column;
   padding: 4px 2px;
 }
