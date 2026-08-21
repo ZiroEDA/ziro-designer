@@ -188,29 +188,20 @@ export const RIGHT_TOOLBAR: ToolEntry[] = [
   // opens has been implemented all along; only this button was held back.
   { id: 'syncAllSheetPins', icon: 'syncSheetPins', title: 'Sync All Sheet Pins...' },
   sep,
-  {
-    group: 'Text objects',
-    actions: [
-      { id: 'placeText', icon: 'text', title: 'Draw Text (T)' },
-      { id: 'textBox', icon: 'textBox', title: 'Draw Text Boxes' },
-    ],
-  },
+  // toolbars_sch_editor.cpp:136-145 appends every one of these with a plain
+  // `AppendAction`. There is no TOOLBAR_GROUP_CONFIG anywhere on this stretch
+  // of the bar, so no triangle and no palette: ten flat buttons.
+  //
+  // Ours had three groups here that upstream does not have — "Text objects"
+  // (Text + Text Box), "Circle" (Circle + Ellipse) and "Arc" (Arc + Elliptical
+  // Arc) — which showed three buttons where KiCad shows seven, each wearing a
+  // triangle KiCad never draws.
+  { id: 'placeText', icon: 'text', title: 'Draw Text (T)' },
+  { id: 'textBox', icon: 'textBox', title: 'Draw Text Boxes' },
   { id: 'table', icon: 'table', title: 'Draw Tables' },
   { id: 'rectangle', icon: 'rectangle', title: 'Draw Rectangles' },
-  {
-    group: 'Circle',
-    actions: [
-      { id: 'circle', icon: 'circle', title: 'Draw Circles' },
-      { id: 'ellipse', icon: 'ellipse', title: 'Draw Ellipses' },
-    ],
-  },
-  {
-    group: 'Arc',
-    actions: [
-      { id: 'arc', icon: 'arc', title: 'Draw Arcs' },
-      { id: 'ellipseArc', icon: 'ellipseArc', title: 'Draw Elliptical Arcs' },
-    ],
-  },
+  { id: 'circle', icon: 'circle', title: 'Draw Circles' },
+  { id: 'arc', icon: 'arc', title: 'Draw Arcs' },
   { id: 'bezier', icon: 'bezier', title: 'Draw Bezier Curve' },
   { id: 'lines', icon: 'lines', title: 'Draw Lines (I)' },
   { id: 'image', icon: 'image', title: 'Place Images' },

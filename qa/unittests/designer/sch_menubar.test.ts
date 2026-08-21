@@ -169,8 +169,6 @@ describe('no entry is silently inert', () => {
       'Add Design Variant...',
       'Remove Design Variant...',
       'Edit Variant Description...',
-      'Rename Design Variant...',
-      'Copy Design Variant...',
       'Configure Paths...',
       'Manage Design Block Libraries...',
       // "About ZiroEDA" used to be greyed out here. The Help menu is now the
@@ -203,42 +201,6 @@ describe('the single-key tool hotkeys', () => {
   it('assigns each tool once', () => {
     const tools = Object.values(TOOL_HOTKEYS);
     expect(new Set(tools).size).toBe(tools.length);
-  });
-});
-
-/**
- * Tools > Create Net Chain. `menubar.cpp:339` adds `SCH_ACTIONS::createNetChain`
- * unconditionally, in its own separator group between Update Schematic from PCB
- * and the Variants submenu.
- *
- * It is *not* the same entry as the context menu's, which upstream gates on a
- * symbols-only selection (`sch_selection_tool.cpp:302`). The menu one has no
- * gate: `SCH_EDITOR_CONTROL::ShowCreateNetChain` opens the dialog whatever is
- * selected, and a symbol selection only pre-fills the from/to focus hint. Ours
- * was reachable *only* from the context menu, so with nothing selected there was
- * no way to open it at all.
- */
-describe('Tools > Create Net Chain', () => {
-  const tools = (): MenuItem[] => {
-    const menu = menus().find((m) => m.label === 'Tools');
-    expect(menu, 'Tools menu').toBeDefined();
-    return menu!.items ?? [];
-  };
-
-  it('is in the Tools menu and enabled', () => {
-    const item = tools().find((i) => i.label === 'Create Net Chain...');
-    expect(item, 'Create Net Chain should be in Tools').toBeDefined();
-    expect(item!.disabled).toBeFalsy();
-  });
-
-  it('sits between Update Schematic from PCB and Variants', () => {
-    const labels = tools().map((i) => i.label ?? (i.sep ? '---' : ''));
-    const from = labels.indexOf('Update Schematic from PCB...');
-    const chain = labels.indexOf('Create Net Chain...');
-    const variants = labels.indexOf('Variants');
-    expect(from).toBeGreaterThan(-1);
-    expect(chain).toBeGreaterThan(from);
-    expect(variants).toBeGreaterThan(chain);
   });
 });
 
@@ -281,5 +243,83 @@ describe('Help > Help', () => {
     const first = (menu!.items ?? [])[0];
     expect(first!.label).toBe('Help');
     expect(first!.disabled).toBeFalsy();
+  });
+});
+
+/**
+ * Menu entries KiCad 10.0.5 does not have on this menu, named ONE AT A TIME.
+ *
+ * A single "the Place menu has no ellipse item" would pass with one of the two
+ * still present, which is CLAUDE.md's file-level-check-for-a-per-occurrence-rule
+ * shape. Each row below is its own assertion for that reason.
+ *
+ * Two different reasons are mixed here and the distinction matters:
+ *
+ *  - **No such thing anywhere.** `SHAPE_T` (include/eda_shape.h:44-53) has six
+ *    members — SEGMENT, RECTANGLE, ARC, CIRCLE, POLY, BEZIER — and no ELLIPSE;
+ *    `grep -rin ellipse eeschema/` hits only the Altium importer; the
+ *    `kicad_sexpr` schematic reader/writer has no `ellipse` token at all. And
+ *    `grep -rin netchain` over the whole 10.0.5 tree hits nothing outside
+ *    translated documentation strings — not eeschema, not pcbnew, not common.
+ *    `menubar.cpp:339`, which the deleted test cited for it, is
+ *    `prefsMenu->Add( ACTIONS::configurePaths )`.
+ *
+ *  - **Real, but on a different surface.** `syncSheetPins` exists
+ *    (sch_actions.cpp:620) as a CONTEXT-menu item gated on a sheet selection
+ *    (sch_selection_tool.cpp:382); menubar.cpp:255 puts only `syncAllSheetsPins`
+ *    on the Place menu. Rename/Copy Design Variant exist as BUTTONS in
+ *    DIALOG_SYMBOL_FIELDS_TABLE (dialog_symbol_fields_table.cpp:214-215), never
+ *    as TOOL_ACTIONs and never in the Tools > Variants submenu, which upstream
+ *    builds from exactly three (menubar.cpp:328-330).
+ */
+describe('entries upstream does not put on these menus', () => {
+  const labelsOf = (menu: string): string[] => {
+    const m = menus().find((x) => x.label === menu);
+    expect(m, menu).toBeDefined();
+    const walk = (items: MenuItem[]): string[] =>
+      items.flatMap((i) => [i.label ?? '', ...(i.items ? walk(i.items) : [])]);
+    return walk(m!.items ?? []);
+  };
+
+  for (const label of ['Draw Ellipses', 'Draw Elliptical Arcs']) {
+    it(`Place has no ${label} (SHAPE_T has no ELLIPSE)`, () => {
+      expect(labelsOf('Place')).not.toContain(label);
+    });
+  }
+
+  it('Place has no Sync Sheet Pins... (that one is context-menu only)', () => {
+    expect(labelsOf('Place')).not.toContain('Sync Sheet Pins...');
+  });
+
+  it('Place still has Sync All Sheet Pins..., which upstream does put here', () => {
+    expect(labelsOf('Place')).toContain('Sync All Sheet Pins...');
+  });
+
+  it('Tools has no Create Net Chain... (no such action in 10.0.5)', () => {
+    expect(labelsOf('Tools')).not.toContain('Create Net Chain...');
+  });
+
+  for (const label of ['Rename Design Variant...', 'Copy Design Variant...']) {
+    it(`Tools > Variants has no ${label} (a fields-table button)`, () => {
+      expect(labelsOf('Tools')).not.toContain(label);
+    });
+  }
+
+  /** menubar.cpp:328-330 — three, and exactly three. */
+  it('Tools > Variants holds exactly the three upstream actions', () => {
+    const tools = menus().find((m) => m.label === 'Tools')!;
+    const variants = (tools.items ?? []).find((i) => i.label === 'Variants');
+    expect(variants, 'Variants submenu').toBeDefined();
+    expect((variants!.items ?? []).map((i) => i.label)).toEqual([
+      'Add Design Variant...',
+      'Remove Design Variant...',
+      'Edit Variant Description...',
+    ]);
+  });
+
+  /** menubar.cpp:255-263, the order the shape actions are added in. */
+  it('Place draws Circles then Arcs, with nothing between them', () => {
+    const l = labelsOf('Place');
+    expect(l.indexOf('Draw Arcs')).toBe(l.indexOf('Draw Circles') + 1);
   });
 });
