@@ -148,6 +148,7 @@ import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
+import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
@@ -782,20 +783,11 @@ const layerTooltip = (name: string): string => {
   return '';
 };
 
-// User-facing layer names, as the Appearance panel shows them (LayerName() in
-// layer_id.cpp: F.Adhesive, User.Drawings…, not the file's canonical tokens).
-const LAYER_DISPLAY_NAMES: Record<string, string> = {
-  'F.Adhes': 'F.Adhesive',
-  'B.Adhes': 'B.Adhesive',
-  'F.SilkS': 'F.Silkscreen',
-  'B.SilkS': 'B.Silkscreen',
-  'Dwgs.User': 'User.Drawings',
-  'Cmts.User': 'User.Comments',
-  'Eco1.User': 'User.Eco1',
-  'Eco2.User': 'User.Eco2',
-  'F.CrtYd': 'F.Courtyard',
-  'B.CrtYd': 'B.Courtyard',
-};
+// The user-facing name of a layer is BOARD::GetLayerName's, which every
+// upstream caller goes through: the board's own name for it when the file
+// carries one, and LayerName()'s standard English name otherwise. Both halves
+// live in @ziroeda/pcbnew/src/layer_ids.ts — the table used to be restated
+// here, and this copy had no way to reach the board's names at all.
 
 // Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
 // last-resort fallback when even the Default class carries no value.
@@ -6246,6 +6238,17 @@ export function PcbEditor({
 
   // ----- appearance data ------------------------------------------------------
 
+  /**
+   * BOARD::GetLayerName for this board — the one place the frame turns a layer
+   * into text for the user. The Appearance list, the aux-bar layer selector
+   * and the readout all go through it, the way every upstream caller goes
+   * through BOARD::GetLayerName rather than spelling the name itself.
+   */
+  const layerName = useCallback(
+    (name: string): string => GetLayerName(board?.layers ?? [], name),
+    [board],
+  );
+
   const copperLayers = useMemo(
     () => (board ? board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name) : []),
     [board],
@@ -7561,7 +7564,7 @@ export function PcbEditor({
           >
             {(board?.layers ?? []).map((l) => (
               <option key={l.name} value={l.name}>
-                {l.name}
+                {layerName(l.name)}
               </option>
             ))}
           </select>
@@ -7833,7 +7836,7 @@ export function PcbEditor({
                         >
                           <EyeIcon on={on} />
                         </button>
-                        <span className="ze-ellipsis">{LAYER_DISPLAY_NAMES[name] ?? name}</span>
+                        <span className="ze-ellipsis">{layerName(name)}</span>
                       </div>
                     );
                   })}
@@ -8533,7 +8536,7 @@ export function PcbEditor({
               }}
             />
             <div style={{ marginTop: 4 }} className="ze-muted">
-              Layer: {LAYER_DISPLAY_NAMES[activeLayer] ?? activeLayer}
+              Layer: {layerName(activeLayer)}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
               <button

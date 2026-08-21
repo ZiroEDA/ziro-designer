@@ -10,15 +10,20 @@
  * cannot: on a four-layer board the net is the part they *share*, and the layer
  * and the priority are the only things that tell them apart.
  */
+import { GetLayerName } from './layer_ids.js';
 import type { Board, PcbZone } from './types.js';
 
 /**
  * `BOARD::GetLayerName`: the user's name for a layer if they renamed it,
- * otherwise the canonical one.
+ * otherwise the standard English one.
+ *
+ * Delegates rather than reimplementing. This used to fall back to the raw
+ * token, so a board that had not renamed `F.SilkS` described items as being on
+ * `F.SilkS` where KiCad says `F.Silkscreen` — the fallback is
+ * `GetStandardLayerName()`, i.e. `LayerName()`, not the file's spelling.
  */
 export function boardLayerName(board: Board, layer: string): string {
-  const def = board.layers.find((l) => l.name === layer);
-  return def?.userName || layer;
+  return GetLayerName(board.layers, layer);
 }
 
 /**
