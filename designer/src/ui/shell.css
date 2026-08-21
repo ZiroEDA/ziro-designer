@@ -35,12 +35,23 @@
      `entry` and `treeview` report rgb(255,255,255) where every button, label,
      menu item and toolbar reports rgb(247,247,247). */
   --view-fg: #ffffff;
-  /* Hover and selection. KiCad takes these from the GTK theme too: a plain
-     lighter grey for hover, and the desktop accent (Yaru orange) for anything
-     selected or active. .sch-theme had already sampled both off a live
-     eeschema window for the Schematic Editor alone; they are the whole app's
-     now, so that override no longer has to carry them. */
-  --chrome-hover: #3a3a3a;
+  /* Hover, and it is an OVERLAY rather than a colour.
+
+     [px] `wxSYS_COLOUR_MENUHILIGHT` is rgb(247, 247, 247) at alpha **38/255**
+     (`qa/probes/syscolour_probe.cpp`), and a Gtk.OffscreenWindow rendering a
+     real menu item prelit confirms what that composites to: rgb(74, 74, 74) on
+     the rgb(44, 44, 44) menu bar, which is 44 + (247-44) * 38/255 = 74.2.
+
+     That is why a flat value cannot be right. This token is used on 31 hover
+     surfaces whose backgrounds are #2c2c2c, #373737 and #272727, and an
+     overlay lands on each of them the way GTK's does while one grey can only
+     match one of the three. Ours was #3a3a3a = 58 everywhere: sixteen units too
+     dark on the menu bar, and further out on the lighter toolbars.
+
+     Toolbar BUTTONS are not this. `BITMAP_BUTTON::OnPaint` tints them with
+     `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( n )` — the accent, not a grey —
+     and they have their own --accent-fill-* tokens below. */
+  --chrome-hover: rgb(247 247 247 / 14.9%);
   --chrome-active: #e95420;
   --chrome-active-border: #e95420;
   /* `BITMAP_BUTTON::OnPaint` (bitmap_button.cpp:270-310) paints every tool state

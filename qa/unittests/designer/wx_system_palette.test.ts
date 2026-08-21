@@ -91,6 +91,51 @@ describe('each chrome token is one named wx system colour', () => {
   }
 });
 
+describe('hover is an overlay, not a colour', () => {
+  /**
+   * `wxSYS_COLOUR_MENUHILIGHT` is rgb(247, 247, 247) at alpha 38/255, and a
+   * Gtk.OffscreenWindow rendering a real menu item prelit composites it to
+   * rgb(74, 74, 74) on the rgb(44, 44, 44) menu bar — 44 + (247-44) * 38/255.
+   *
+   * The token is used on 31 hover surfaces whose backgrounds are #2c2c2c,
+   * #373737 and #272727. A flat grey can match one of the three; ours was
+   * #3a3a3a = 58, sixteen units too dark on the menu bar and further out on the
+   * lighter toolbars.
+   */
+  it('carries the alpha wx reports, rather than a flat grey', () => {
+    expect(token('chrome-hover')).toBe('rgb(247 247 247 / 14.9%)');
+  });
+
+  it('composites to what a live prelit menu item measures', () => {
+    // The arithmetic that makes the alpha the right one, done here so the
+    // number above is checkable rather than merely transcribed.
+    const OVER_MENUBAR = Math.round(44 + (247 - 44) * (38 / 255));
+    expect(OVER_MENUBAR).toBe(74);
+    // And it is NOT what the old flat value gave.
+    expect(OVER_MENUBAR).not.toBe(0x3a);
+  });
+
+  it('is not what a toolbar BUTTON uses, which is the accent', () => {
+    // `BITMAP_BUTTON::OnPaint` tints every tool state with
+    // `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness( n )` — the accent with each
+    // channel scaled — so those states have their own tokens and must not be
+    // folded into the grey overlay. Named individually: a single "some accent
+    // token differs" would pass with two of the three collapsed.
+    for (const name of [
+      'accent-fill-pressed',
+      'accent-fill-checked',
+      'accent-fill-hover-checked',
+    ]) {
+      expect(token(name), `--${name}`).not.toBe(token('chrome-hover'));
+      // Each is a tint of the accent, so it is warm: red channel above blue.
+      const m = token(name).match(/^#(\w{2})(\w{2})(\w{2})$/);
+      expect(m, `--${name} should be a hex tint`).not.toBeNull();
+      const [r, , b] = (m as RegExpMatchArray).slice(1).map((h) => Number.parseInt(h, 16));
+      expect(r, `--${name} is a tint of the orange accent`).toBeGreaterThan(b as number);
+    }
+  });
+});
+
 describe('the two foreground colours stay two', () => {
   /**
    * `--chrome-fg` was #ffffff, collapsing BTNTEXT and WINDOWTEXT into one, and
