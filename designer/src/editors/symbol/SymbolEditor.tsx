@@ -35,7 +35,12 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
-import { SYM_TOP_TOOLBAR, SYM_LEFT_TOOLBAR, SYM_RIGHT_TOOLBAR } from './symbolToolbars.js';
+import {
+  SYM_CONTROL,
+  SYM_TOP_TOOLBAR,
+  SYM_LEFT_TOOLBAR,
+  SYM_RIGHT_TOOLBAR,
+} from './symbolToolbars.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
 import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
 import {
@@ -141,12 +146,23 @@ const DEFAULT_TOGGLES = new Set([
   'toggleSyncedPinsMode',
   'showLibraryTree',
   'showProperties',
-  'showDeMorganStandard',
+  // `cursorSmallCrosshairs` is the group's first action, so it is the one the
+  // crosshair button shows on open.
+  'crosshairSmall',
 ]);
 
+/**
+ * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`
+ * (`toolbars_symbol_editor.cpp:72-79`). One button each, showing the selected
+ * action, so exactly one member is in `toggles` at a time.
+ *
+ * `showDeMorganStandard` / `showDeMorganAlternate` used to be a third pair here.
+ * They were ours: neither name appears anywhere in KiCad 10.0.5, and the body
+ * style is a CHOICE on the top bar upstream, not two toggle buttons.
+ */
 const RADIO_GROUPS: string[][] = [
-  ['unitsInches', 'unitsMils', 'unitsMm'],
-  ['showDeMorganStandard', 'showDeMorganAlternate'],
+  ['unitsMm', 'unitsInches', 'unitsMils'],
+  ['crosshairSmall', 'crosshairFull', 'crosshair45'],
 ];
 
 /**
@@ -325,7 +341,9 @@ export function SymbolEditor({
   }, []);
 
   // ----- helpers -----------------------------------------------------------------
-  const _showDeMorgan = workSymbol ? hasAlternateBodyStyle(workSymbol) : false;
+  // `IsMultiBodyStyle()` / `HasDeMorganBodyStyles()` — what decides whether
+  // the body-style combo lists Standard/Alternate or one empty row.
+  const showDeMorgan = workSymbol ? hasAlternateBodyStyle(workSymbol) : false;
   const units = workSymbol ? unitCount(workSymbol) : 1;
   const isAlias = workSymbol?.extends !== undefined;
   const synced = toggles.has('toggleSyncedPinsMode');
@@ -829,14 +847,6 @@ export function SymbolEditor({
           break;
         case 'checkSymbol':
           if (workSymbol) setCheckOpen(true);
-          break;
-        case 'showDeMorganStandard':
-          setBodyStyle(1);
-          setToggles((t) => radio(t, 'showDeMorganStandard'));
-          break;
-        case 'showDeMorganAlternate':
-          setBodyStyle(2);
-          setToggles((t) => radio(t, 'showDeMorganAlternate'));
           break;
         case 'toggleSyncedPinsMode':
           setToggles((t) => flip(t, 'toggleSyncedPinsMode'));
@@ -1707,36 +1717,73 @@ export function SymbolEditor({
         }
       />
 
-      {/* Top toolbar with the unit-selector combo (ID_LIBEDIT_SELECT_UNIT_NUMBER). */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Toolbar
-          entries={SYM_TOP_TOOLBAR}
-          orientation="horizontal"
-          toggled={toggles}
-          onActivate={onTopAction}
-        />
-        <select
-          className="ze-select"
-          title="Select unit to edit"
-          style={{ margin: '0 8px', minWidth: 110 }}
-          disabled={units < 2}
-          value={unit}
-          onChange={(e) => {
-            setUnit(Number(e.target.value));
-            setSelection(new Set());
-          }}
-        >
-          {units < 2 ? (
-            <option value={1}></option>
-          ) : (
-            Array.from({ length: units }, (_, k) => (
-              <option key={k + 1} value={k + 1}>
-                Unit {letterSubReference(k + 1)}
-              </option>
-            ))
-          )}
-        </select>
-      </div>
+      {/* Both combos are AppendControl slots ON the toolbar
+          (`toolbars_symbol_editor.cpp:148,151`), each between its own
+          separators — not widgets beside it. The unit selector used to sit in a
+          flex div wrapping the Toolbar, which put it outside the bar's face and
+          past its right edge instead of inside the run of tools. */}
+      <Toolbar
+        entries={SYM_TOP_TOOLBAR}
+        orientation="horizontal"
+        toggled={toggles}
+        onActivate={onTopAction}
+        controls={{
+          /**
+           * `RebuildSymbolUnitAndBodyStyleLists`
+           * (`symbol_edit_frame.cpp:760-787`): one EMPTY entry when the symbol
+           * has a single body style, otherwise "Standard" / "Alternate" —
+           * `DEMORGAN_STD` / `DEMORGAN_ALT` (`symbol_edit_frame.h:47-48`).
+           *
+           * Upstream has a third branch for a symbol with named body styles
+           * (`GetBodyStyleNames()`); our model carries De Morgan alone, so that
+           * branch has nothing to read and is not faked here.
+           */
+          [SYM_CONTROL.bodyStyleSelector]: (
+            <select
+              className="ze-select"
+              title="Select body style"
+              disabled={!showDeMorgan}
+              value={bodyStyle}
+              onChange={(e) => {
+                setBodyStyle(Number(e.target.value));
+                setSelection(new Set());
+              }}
+            >
+              {showDeMorgan ? (
+                <>
+                  <option value={1}>Standard</option>
+                  <option value={2}>Alternate</option>
+                </>
+              ) : (
+                <option value={1} />
+              )}
+            </select>
+          ),
+          /** The same function's first half (`:737-758`). */
+          [SYM_CONTROL.unitSelector]: (
+            <select
+              className="ze-select"
+              title="Select unit to edit"
+              disabled={units < 2}
+              value={unit}
+              onChange={(e) => {
+                setUnit(Number(e.target.value));
+                setSelection(new Set());
+              }}
+            >
+              {units < 2 ? (
+                <option value={1} />
+              ) : (
+                Array.from({ length: units }, (_, k) => (
+                  <option key={k + 1} value={k + 1}>
+                    Unit {letterSubReference(k + 1)}
+                  </option>
+                ))
+              )}
+            </select>
+          ),
+        }}
+      />
 
       <div className="ze-body">
         {toggles.has('showLibraryTree') && (

@@ -189,10 +189,35 @@ describe('the hotkey inventory', () => {
     expect(rows.find((e) => e.command === 'Accept Autocomplete')?.alt).toBe('Numpad Enter');
   });
 
-  it('has no duplicate command within a section', () => {
+  it('has no duplicate ACTION within a section', () => {
+    /**
+     * Keyed on the action name, not on the label, because that is what
+     * HOTKEY_STORE keys on:
+     *
+     *     std::map<std::string, HOTKEY> m_actions;
+     *     m_actions[action->GetName()].m_Actions.push_back( action );
+     *
+     * One action reached from two frames is one row however its labels are
+     * spelled — that is the rule this protects, and it is why the symbol
+     * editor's Bezier and Find-and-Replace carry the same ids the schematic's
+     * do.
+     *
+     * It used to key on the LABEL, which is too strong: upstream really does
+     * give two different actions the same FriendlyName. `SCH_ACTIONS::drawLines`
+     * and `SCH_ACTIONS::drawSymbolLines` are both "Draw Lines", and
+     * `drawTextBox` and `drawSymbolTextBox` are both "Draw Text Boxes" — one
+     * pair for the sheet and one for the symbol body, in the same eeschema
+     * section. Two rows there is what KiCad shows.
+     */
+    // The same key `buildHotkeySections` folds on: the action name, or the
+    // label where there is no name. A PSEUDO_ACTION — the mouse gestures — has
+    // no action behind it, so its label is all it has.
+    const keyOf = (e: (typeof rows)[number]): string =>
+      e.name !== '' ? e.name : `label:${e.command}`;
+
     for (const s of sections) {
-      const names = s.entries.map((e) => e.command);
-      expect(new Set(names).size, `${s.name} lists a command twice`).toBe(names.length);
+      const keys = s.entries.map(keyOf);
+      expect(new Set(keys).size, `${s.name} lists an action twice`).toBe(keys.length);
     }
   });
 

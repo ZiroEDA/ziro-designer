@@ -2,34 +2,56 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Symbol Editor toolbar layouts, transcribed from KiCad 9.0's
- * `eeschema/symbol_editor/toolbars_symbol_editor.cpp` (ReCreateHToolbar /
- * ReCreateOptToolbar / ReCreateVToolbar). Separators mark KiCad's
- * AddScaledSeparator groups. The unit selector combo box sits between its own
- * separators in the top toolbar (rendered by the frame, not this table).
+ * Symbol Editor toolbar layouts, transcribed from
+ * `eeschema/symbol_editor/toolbars_symbol_editor.cpp`'s
+ * `SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig` (KiCad 10.0.5 —
+ * the header said 9.0, which is not the build we match). Separators mark
+ * upstream's `AppendSeparator` calls; a group is one `AppendGroup`.
  *
- * Two vertical-toolbar tools are deliberately absent for now, drawSymbolTextBox
- * and drawBezier, because the document model does not yet represent text boxes
- * or bezier body items; adding a button that draws nothing would be worse than
- * mirroring the rest faithfully.
+ * A tool we have not built yet is `disabled` in its upstream POSITION rather
+ * than left out, which is what the layer widget's context menu already does:
+ * a bar that is two buttons short is a different bar, while a greyed button is
+ * the same bar with one tool not yet working. The previous note here said
+ * drawSymbolTextBox and drawBezier were absent because "the document model does
+ * not yet represent text boxes or bezier body items" — half of that is stale,
+ * `kind: 'bezier'` is in `eeschema/src/types.ts:196` — but neither has a tool,
+ * so both are greyed rather than dropped.
  */
 
 import type { ToolEntry } from '../../ui/toolbar_types.js';
 
 const sep: ToolEntry = 'sep';
 
+/**
+ * `ACTION_TOOLBAR_CONTROLS::bodyStyleSelector` and `::unitSelector`, the two
+ * `AppendControl` slots on the top bar (`toolbars_symbol_editor.cpp:148,151`).
+ * The frame supplies the widgets; this table only says where they go.
+ */
+export const SYM_CONTROL = {
+  bodyStyleSelector: 'bodyStyleSelector',
+  unitSelector: 'unitSelector',
+} as const;
+
 /** Top horizontal toolbar (ReCreateHToolbar). */
 export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'newSymbol', icon: 'newSymbol', title: 'New symbol' },
-  { id: 'saveAll', icon: 'save', title: 'Save all changes' },
+  { id: 'saveAll', icon: 'saveAll', title: 'Save All' },
+  // ACTIONS::save. Only saveAll is wired in this frame today.
+  { id: 'save', icon: 'save', title: 'Save changes', disabled: true },
   sep,
   { id: 'undo', icon: 'undo', title: 'Undo' },
   { id: 'redo', icon: 'redo', title: 'Redo' },
+  sep,
+  // Its own separator group upstream (`toolbars_symbol_editor.cpp:122-124`),
+  // between undo/redo and the zooms. Ours had neither action.
+  { id: 'find', icon: 'find', title: 'Find', disabled: true },
+  { id: 'findReplace', icon: 'findAndReplace', title: 'Find and Replace', disabled: true },
   sep,
   { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Redraw view' },
   { id: 'zoomIn', icon: 'zoomIn', title: 'Zoom in' },
   { id: 'zoomOut', icon: 'zoomOut', title: 'Zoom out' },
   { id: 'zoomFit', icon: 'zoomFit', title: 'Zoom to fit symbol' },
+  { id: 'zoomTool', icon: 'zoomTool', title: 'Zoom to Selection Area', disabled: true },
   sep,
   { id: 'rotateCCW', icon: 'rotateCCW', title: 'Rotate counterclockwise' },
   { id: 'rotateCW', icon: 'rotateCW', title: 'Rotate clockwise' },
@@ -42,19 +64,21 @@ export const SYM_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'showDatasheet', icon: 'showDatasheet', title: 'Show associated datasheet or document' },
   { id: 'checkSymbol', icon: 'checkSymbol', title: 'Check duplicate and off-grid pins' },
   sep,
-  {
-    id: 'showDeMorganStandard',
-    icon: 'morganStd',
-    title: 'Show as "De Morgan" standard symbol',
-    toggle: true,
-  },
-  {
-    id: 'showDeMorganAlternate',
-    icon: 'morganAlt',
-    title: 'Show as "De Morgan" alternate symbol',
-    toggle: true,
-  },
-  // (unit selector combo box is rendered here by the frame)
+  // `AppendControl( ACTION_TOOLBAR_CONTROLS::bodyStyleSelector )`
+  // (`toolbars_symbol_editor.cpp:148`) — a CHOICE, not two toggle buttons.
+  //
+  // `showDeMorganStandard` and `showDeMorganAlternate` were ours: neither name
+  // appears anywhere in KiCad 10.0.5. The one action that exists is
+  // `SCH_ACTIONS::cycleBodyStyle`, FriendlyName "Cycle Body Style"
+  // (`sch_actions.cpp:910-915`), and it is not on this toolbar at all — the
+  // toolbar carries the selector instead. The `morgan1` bitmap our second
+  // button used is in `bitmap_info.cpp`'s registry with no action referencing
+  // it, which is what a bitmap for an action that does not exist looks like.
+  { control: SYM_CONTROL.bodyStyleSelector },
+  sep,
+  // `AppendControl( ACTION_TOOLBAR_CONTROLS::unitSelector )` (`:151`), which
+  // had been a bare comment here.
+  { control: SYM_CONTROL.unitSelector },
   sep,
   { id: 'toggleSyncedPinsMode', icon: 'syncedPins', title: 'Synchronized pins mode', toggle: true },
   sep,
@@ -70,14 +94,31 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
     title: 'Toggle grid overrides',
     toggle: true,
   },
-  { id: 'unitsInches', icon: 'unitsInches', title: 'Inches' },
-  { id: 'unitsMils', icon: 'unitsMils', title: 'Mils' },
-  { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
+  // `AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Units" ) ) ... )` and the same for
+  // crosshair modes (`toolbars_symbol_editor.cpp:72-79`) — ONE button with a
+  // triangle each, not three flat ones, and mm comes first.
+  //
+  // The crosshair group replaces `toggleCursorStyle`, which is not an action:
+  // `grep -rn toggleCursorStyle` over the whole reference returns nothing, and
+  // the `cursor_shape` bitmap it used is in `bitmap_info.cpp`'s registry with
+  // no action referencing it. It was ours.
   {
-    id: 'toggleCursorStyle',
-    icon: 'crosshairSmall',
-    title: 'Toggle display of full-window crosshairs',
-    toggle: true,
+    group: 'Units',
+    cycleOnClick: true,
+    actions: [
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Inches' },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Mils' },
+    ],
+  },
+  {
+    group: 'Crosshair modes',
+    cycleOnClick: true,
+    actions: [
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
+      { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-Window Crosshairs' },
+      { id: 'crosshair45', icon: 'crosshair45', title: '45 Degree Crosshairs' },
+    ],
   },
   sep,
   {
@@ -98,11 +139,24 @@ export const SYM_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'select', icon: 'select', title: 'Select item(s)' },
   sep,
   { id: 'placePin', icon: 'placePin', title: 'Add a pin' },
-  { id: 'placeText', icon: 'placeText', title: 'Add a text item' },
+  { id: 'placeText', icon: 'placeText', title: 'Draw Text' },
+  // `drawSymbolTextBox` and `drawBezier` (`toolbars_symbol_editor.cpp:101-107`)
+  // were both missing, so the bar was two buttons short.
+  //
+  // The ids matter as much as the buttons. An id here IS the upstream action
+  // name, and the hotkey inventory keys on it the way HOTKEY_STORE keys on
+  // `action->GetName()` — so an action reached from two frames must carry ONE
+  // id or it is listed twice. `drawBezier` and `findAndReplace` are shared with
+  // the schematic and take the ids that frame already uses; `drawSymbolLines`
+  // and `drawSymbolTextBox` are DIFFERENT actions from the schematic's
+  // `drawLines` / `drawTextBox` and keep their own, even though upstream gives
+  // both members of each pair the same FriendlyName.
+  { id: 'drawSymbolTextBox', icon: 'drawSymbolTextBox', title: 'Draw Text Boxes', disabled: true },
   { id: 'drawRectangle', icon: 'rectangle', title: 'Add a rectangle' },
   { id: 'drawCircle', icon: 'circle', title: 'Add a circle' },
   { id: 'drawArc', icon: 'arc', title: 'Add an arc' },
-  { id: 'drawLines', icon: 'lines', title: 'Add lines and polylines' },
+  { id: 'bezier', icon: 'drawBezier', title: 'Draw Bezier Curve', disabled: true },
+  { id: 'drawSymbolLines', icon: 'lines', title: 'Draw Lines' },
   { id: 'drawPolygon', icon: 'polygon', title: 'Add a polygon' },
   { id: 'placeAnchor', icon: 'placeAnchor', title: 'Move the symbol anchor' },
   { id: 'deleteTool', icon: 'delete', title: 'Interactive delete' },

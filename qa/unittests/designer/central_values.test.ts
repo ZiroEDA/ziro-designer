@@ -128,7 +128,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/image': { colours: 0, metrics: 1 },
   'editors/pcb': { colours: 76, metrics: 397 },
   'editors/schematic': { colours: 70, metrics: 230 },
-  'editors/symbol': { colours: 12, metrics: 20 },
+  'editors/symbol': { colours: 12, metrics: 19 },
   home: { colours: 7, metrics: 7 },
   mobile: { colours: 15, metrics: 23 },
   // 193 colours is the worst in the tree and 176 of them are rgba(): pcm.css
@@ -360,7 +360,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(743);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1670);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1669);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
