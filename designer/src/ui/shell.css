@@ -7212,6 +7212,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    spanning the full width, separated by hairlines, with the affirmative answer
    last and focused. Hence the full-width row here instead of the usual
    right-aligned .ze-modal-footer. Measured off the real dialog: 614 x 199. */
+/* HTML_MESSAGE_BOX (`common/dialogs/html_message_box.cpp`), whose geometry is
+   all in the wxFormBuilder base it derives from:
+
+     this->SetSizeHints( wxSize( 500, 300 ), wxDefaultSize );
+     bMainSizer->SetMinSize( wxSize( 540, 240 ) );
+     bMainSizer->Add( m_htmlWindow, 1, wxALL|wxEXPAND, 10 );
+                            common/dialogs/dialog_display_html_text_base.cpp:14-22
+
+   The body is a wxHtmlWindow rendering the <ul> that ListSet built, so the
+   list marker, indent and inter-item spacing are the HTML renderer's own
+   defaults - not values KiCad chose. This states none of them, for the same
+   reason: whatever our renderer does with a <ul> is the closest thing to
+   whatever wxHtmlWindow does with it. */
+.ze-modal.ze-htmlmsg {
+  width: 540px; /* [data] bMainSizer->SetMinSize( wxSize( 540, 240 ) ) */
+  min-height: 240px; /* [data] the same line */
+  height: auto;
+  max-width: 92vw;
+}
+.ze-htmlmsg-body {
+  padding: 10px; /* [data] Add( m_htmlWindow, 1, wxALL|wxEXPAND, 10 ) */
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 .ze-modal.ze-msgdlg {
   width: 614px;
   height: auto;

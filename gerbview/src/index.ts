@@ -30,3 +30,10 @@ export {
   compareByZOrder,
   zOrderOf,
 } from './layer_sort.js';
+export {
+  testFileIsRS274,
+  testFileIsExcellon,
+  detectFileType,
+  GBR_FILE_TYPE,
+  type GbrFileType,
+} from './file_detect.js';

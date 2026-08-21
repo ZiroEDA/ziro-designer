@@ -32,13 +32,18 @@ import type { Vec2 } from '@ziroeda/kimath';
 import {
   readGerberOrDrill,
   parseJobFile,
-  isExcellonFile,
+  parseGerber,
+  parseExcellon,
   GERBER_DRAWLAYERS_COUNT,
   IU_PER_MM,
+  GBR_FILE_TYPE,
+  type GbrFileType,
   type GERBER_FILE_IMAGE,
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
+import { decideLoad, ERRORS_CAPTION } from './gerber_load_report.js';
+import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -293,6 +298,21 @@ export function GerberViewer({
     nextLayer.current = layers.length;
   }, [layers.length]);
 
+  /**
+   * `WX_STRING_REPORTER reporter;` (`gerbview/files.cpp:275`) — every refusal
+   * of a batch collects here and is shown ONCE at the end, not one dialog per
+   * file. A ref because it is filled inside the loop and read after it.
+   */
+  const reports = useRef<string[]>([]);
+  const [errorBox, setErrorBox] = useState<string[] | null>(null);
+
+  /** `if( !success ) { HTML_MESSAGE_BOX mbox( this, _( "Errors" ) ); ... }` (`:413-421`). */
+  const flushReports = useCallback((): void => {
+    if (reports.current.length === 0) return;
+    setErrorBox(reports.current);
+    reports.current = [];
+  }, []);
+
   /** The slot the image went into, or null when there was none left. */
   const addImage = useCallback((image: GERBER_FILE_IMAGE, fileName: string): number | null => {
     if (nextLayer.current >= GERBER_DRAWLAYERS_COUNT) return null;
@@ -312,17 +332,42 @@ export function GerberViewer({
     return at;
   }, []);
 
+  /**
+   * One file of a load batch, with upstream's gates in front of the parser.
+   *
+   * `fileType` is the per-file entry of `LoadListOfGerberAndDrillFiles`'s
+   * `aFileType` vector: 0 gerber, 1 drill, 2 autodetect. Only 2 sniffs; the
+   * other two hand the file to their parser whatever is in it.
+   *
+   * A refusal is reported and returns null — it does NOT take a layer. This is
+   * the whole of the bug: ours had no gate at all, so a job file and an
+   * unreadable file each loaded as an empty gerber layer.
+   */
   const loadTextFile = useCallback(
-    (name: string, text: string): number | null => {
+    (
+      name: string,
+      text: string,
+      fileType: GbrFileType = GBR_FILE_TYPE.AUTODETECT,
+    ): number | null => {
+      const decision = decideLoad(name, text, fileType, {
+        noMoreLayers: nextLayer.current >= GERBER_DRAWLAYERS_COUNT,
+      });
+      if (decision.kind === 'refuse') {
+        reports.current.push(decision.message);
+        return null;
+      }
       try {
-        const image = readGerberOrDrill(text, name);
+        const image =
+          decision.type === GBR_FILE_TYPE.DRILL
+            ? parseExcellon(text, name)
+            : parseGerber(text, name);
         if (image.items.length === 0) {
           setStatus(`No graphic items found in ${name}`);
         }
         const at = addImage(image, name);
         setStatus(
           `Loaded ${name}: ${image.items.length} item${image.items.length === 1 ? '' : 's'}` +
-            (isExcellonFile(text, name) ? ' (drill)' : ''),
+            (decision.type === GBR_FILE_TYPE.DRILL ? ' (drill)' : ''),
         );
         return at;
       } catch (err) {
@@ -403,7 +448,10 @@ export function GerberViewer({
   );
 
   const loadFiles = useCallback(
-    async (files: FileList | File[]): Promise<void> => {
+    async (
+      files: FileList | File[],
+      fileType: GbrFileType = GBR_FILE_TYPE.AUTODETECT,
+    ): Promise<void> => {
       const arr = Array.from(files);
       // `bool isFirstFile = GetImagesList()->GetLoadedImageCount() == 0;`
       // (`gerbview/files.cpp:178`), read BEFORE anything is loaded. It gates
@@ -428,7 +476,7 @@ export function GerberViewer({
           applyJobFile(await f.text());
           selfSorted = true;
         } else {
-          const at = loadTextFile(f.name, await f.text());
+          const at = loadTextFile(f.name, await f.text(), fileType);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
         }
       }
@@ -449,8 +497,9 @@ export function GerberViewer({
       // a side-by-side against a real GerbView with the same board loaded
       // showed: an empty info box next to KiCad's `fmt: mm X3.3 Y3.3 no TZ`.
       if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
+      flushReports();
     },
-    [loadTextFile, loadZip, applyJobFile, setActiveLayer, sortByFileExtension],
+    [loadTextFile, loadZip, applyJobFile, setActiveLayer, sortByFileExtension, flushReports],
   );
 
   /**
@@ -465,16 +514,27 @@ export function GerberViewer({
     async (
       filters: readonly ChooserFilter[],
       fallbackRef: RefObject<HTMLInputElement>,
+      fileType: GbrFileType = GBR_FILE_TYPE.AUTODETECT,
       multiple = true,
     ): Promise<void> => {
       const files = await openFileDialog(filters, {
         multiple,
         fallback: () => fallbackRef.current?.click(),
       });
-      if (files.length) await loadFiles(files);
+      if (files.length) await loadFiles(files, fileType);
     },
     [loadFiles],
   );
+
+  /** `GERBVIEW_FRAME::LoadGerberJobFile` — its own dialog and its own reader. */
+  const openJobFile = useCallback(async (): Promise<void> => {
+    const files = await openFileDialog(GERBVIEW_JOB_FILTERS, {
+      multiple: false,
+      fallback: () => jobInputRef.current?.click(),
+    });
+    const f = files[0];
+    if (f) applyJobFile(await f.text());
+  }, [applyJobFile]);
 
   // ---- layer management --------------------------------------------------
   const clearAll = useCallback(() => {
@@ -810,19 +870,28 @@ export function GerberViewer({
         // list (`gerbview/files.cpp`, `job_file_reader.cpp:190`). Autodetect
         // and Gerber used to be the same call here, on the Gerber list.
         openAutodetected: () => {
-          void openLocalFiles(GERBVIEW_AUTODETECT_FILTERS, autodetectInputRef);
+          void openLocalFiles(
+            GERBVIEW_AUTODETECT_FILTERS,
+            autodetectInputRef,
+            GBR_FILE_TYPE.AUTODETECT,
+          );
         },
         openGerber: () => {
-          void openLocalFiles(GERBVIEW_GERBER_FILTERS, openInputRef);
+          void openLocalFiles(GERBVIEW_GERBER_FILTERS, openInputRef, GBR_FILE_TYPE.GERBER);
         },
         openDrillFile: () => {
-          void openLocalFiles(GERBVIEW_DRILL_FILTERS, drillInputRef);
+          void openLocalFiles(GERBVIEW_DRILL_FILTERS, drillInputRef, GBR_FILE_TYPE.DRILL);
         },
+        // NOT through loadFiles: that is LoadListOfGerberAndDrillFiles, which
+        // refuses a .gbrjob by name. Reading one is a different function
+        // entirely (`GERBVIEW_FRAME::LoadGerberJobFile`,
+        // `gerbview/job_file_reader.cpp:176`), and this entry is its only
+        // caller — which is exactly why the plot loader can refuse it.
         openJobFile: () => {
-          void openLocalFiles(GERBVIEW_JOB_FILTERS, jobInputRef, false);
+          void openJobFile();
         },
         openZipFile: () => {
-          void openLocalFiles(GERBVIEW_ZIP_FILTERS, zipInputRef, false);
+          void openLocalFiles(GERBVIEW_ZIP_FILTERS, zipInputRef, GBR_FILE_TYPE.AUTODETECT, false);
         },
         clearAllLayers: clearAll,
         reloadAllLayers: reloadAll,
@@ -1196,13 +1265,13 @@ export function GerberViewer({
           all, which is its All files wildcard. */}
       {(
         [
-          [autodetectInputRef, GERBVIEW_AUTODETECT_FILTERS, true],
-          [openInputRef, GERBVIEW_GERBER_FILTERS, true],
-          [drillInputRef, GERBVIEW_DRILL_FILTERS, true],
-          [jobInputRef, GERBVIEW_JOB_FILTERS, false],
-          [zipInputRef, GERBVIEW_ZIP_FILTERS, false],
-        ] as [RefObject<HTMLInputElement>, readonly ChooserFilter[], boolean][]
-      ).map(([ref, filters, multiple], i) => (
+          [autodetectInputRef, GERBVIEW_AUTODETECT_FILTERS, true, GBR_FILE_TYPE.AUTODETECT],
+          [openInputRef, GERBVIEW_GERBER_FILTERS, true, GBR_FILE_TYPE.GERBER],
+          [drillInputRef, GERBVIEW_DRILL_FILTERS, true, GBR_FILE_TYPE.DRILL],
+          [jobInputRef, GERBVIEW_JOB_FILTERS, false, GBR_FILE_TYPE.AUTODETECT],
+          [zipInputRef, GERBVIEW_ZIP_FILTERS, false, GBR_FILE_TYPE.AUTODETECT],
+        ] as [RefObject<HTMLInputElement>, readonly ChooserFilter[], boolean, GbrFileType][]
+      ).map(([ref, filters, multiple, type], i) => (
         <input
           key={filters[0]?.label ?? i}
           ref={ref}
@@ -1211,11 +1280,28 @@ export function GerberViewer({
           multiple={multiple}
           style={{ display: 'none' }}
           onChange={(e) => {
-            if (e.target.files) void loadFiles(e.target.files);
+            const picked = e.target.files;
             e.target.value = '';
+            if (!picked || picked.length === 0) return;
+            // The job entry reads its file rather than loading it as a plot.
+            if (ref === jobInputRef) {
+              void picked[0]!.text().then(applyJobFile);
+              return;
+            }
+            void loadFiles(picked, type);
           }}
         />
       ))}
+
+      {/* `HTML_MESSAGE_BOX mbox( this, _( "Errors" ) ); mbox.ListSet( ... );`
+          (`gerbview/files.cpp:417-420`) — ONE box per batch, after the loop. */}
+      {errorBox && (
+        <HtmlMessageBox
+          caption={ERRORS_CAPTION}
+          messages={errorBox}
+          onClose={() => setErrorBox(null)}
+        />
+      )}
 
       <MenuBar
         menus={menus}

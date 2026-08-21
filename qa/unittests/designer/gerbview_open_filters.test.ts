@@ -163,11 +163,18 @@ describe('GerbView opens five dialogs, not two', () => {
   it('each menu entry names its own filter list', () => {
     // Autodetect and Gerber both clicked openInputRef before this, so the two
     // that differ most were the two that were identical.
+    //
+    // openJobFile is the exception and it is upstream's: reading a job file is
+    // `GERBVIEW_FRAME::LoadGerberJobFile`, a separate function with a dialog of
+    // its own (`job_file_reader.cpp:176-195`), NOT the plot loader — which is
+    // precisely what lets the plot loader refuse a .gbrjob by name. So it opens
+    // through a handler and that handler is what names the list; the test
+    // follows the one hop rather than pretending the shape is uniform, and the
+    // case below asserts the separation itself.
     for (const [entry, filters] of [
       ['openAutodetected', 'GERBVIEW_AUTODETECT_FILTERS'],
       ['openGerber', 'GERBVIEW_GERBER_FILTERS'],
       ['openDrillFile', 'GERBVIEW_DRILL_FILTERS'],
-      ['openJobFile', 'GERBVIEW_JOB_FILTERS'],
       ['openZipFile', 'GERBVIEW_ZIP_FILTERS'],
     ] as const) {
       const at = VIEWER.indexOf(`${entry}: () => {`);
@@ -175,6 +182,26 @@ describe('GerbView opens five dialogs, not two', () => {
       const body = VIEWER.slice(at, VIEWER.indexOf('},', at));
       expect(body, `${entry} must open ${filters}`).toContain(filters);
     }
+
+    const jobHandler = VIEWER.slice(
+      VIEWER.indexOf('const openJobFile = useCallback'),
+      VIEWER.indexOf('// ---- layer management'),
+    );
+    expect(jobHandler, 'openJobFile must open GERBVIEW_JOB_FILTERS').toContain(
+      'GERBVIEW_JOB_FILTERS',
+    );
+  });
+
+  it('and the job entry does not go through the plot loader', () => {
+    // The whole point of the split: LoadListOfGerberAndDrillFiles refuses a
+    // .gbrjob by name (`files.cpp:302-310`), so routing the job entry through
+    // it would make Open Gerber Job File refuse the only file it accepts.
+    const jobHandler = VIEWER.slice(
+      VIEWER.indexOf('const openJobFile = useCallback'),
+      VIEWER.indexOf('// ---- layer management'),
+    );
+    expect(jobHandler).not.toContain('loadFiles');
+    expect(jobHandler).toContain('applyJobFile');
   });
 
   it('and goes through the picker, not straight to the input', () => {

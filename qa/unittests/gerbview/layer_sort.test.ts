@@ -47,6 +47,15 @@ describe('GetGerberLayerFromFilename', () => {
     );
   });
 
+  it('needs a character for ?, even when the name is shorter than the mask', () => {
+    // `filename.Right( n )` returns the WHOLE string when it is shorter than n,
+    // so a two-character name is compared against a three-character mask and
+    // must not match. Turning `?` into a zero-or-more glob passes every
+    // ordinary case and only shows up here.
+    expect(gerberLayerFromFilename('.g').order).toBe(GERBER_ORDER.GERBER_LAYER_UNKNOWN);
+    expect(gerberLayerFromFilename('.g1').order).toBe(GERBER_ORDER.GERBER_INNER);
+  });
+
   it('treats ? as exactly one character', () => {
     // ".GM?" is four long, so it wants .GM plus one more.
     expect(gerberLayerFromFilename('board.gm2').order).toBe(GERBER_ORDER.GERBER_MECHANICAL);

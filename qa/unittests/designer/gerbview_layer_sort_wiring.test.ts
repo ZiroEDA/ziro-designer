@@ -81,11 +81,21 @@ describe('the four automatic sorts', () => {
   });
 
   it('a zip sorts every time, not only when it is the first thing loaded', () => {
-    // The asymmetry against a plain Open, and it is upstream's: the zip path
-    // has no isFirstFile guard at all.
+    // The asymmetry against a plain Open, and it is upstream's:
+    // `LoadZipArchiveFile` has no isFirstFile of any kind.
+    //
+    // Checking for the WORD isFirstFile is what this first did, and a mutant
+    // that wrote the guard out longhand as `if (nextLayer.current === 0)`
+    // walked straight through it. The rule is not "does not say isFirstFile",
+    // it is "does not consult the load counter at all", so that is what is
+    // asserted — `nextLayer` is the only thing that could tell this path
+    // whether anything was loaded before.
     const at = CODE.indexOf('const loadZip');
     const body = CODE.slice(at, CODE.indexOf('const loadFiles', at));
     expect(body).not.toMatch(/isFirstFile/);
+    expect(body, 'the zip path must not know how many layers were already loaded').not.toMatch(
+      /nextLayer/,
+    );
   });
 
   it('a plain Open sorts by file extension only when nothing was loaded before', () => {
@@ -116,15 +126,34 @@ describe('the four automatic sorts', () => {
 });
 
 describe('the sort itself', () => {
-  it('is stable, so ties keep load order', () => {
+  it('is stable at BOTH sort sites, so ties keep load order', () => {
     // Ties are the COMMON case: .GBR is the third mask in the table, so every
     // file of a modern KiCad plot ties at BOARD_OUTLINE. Upstream's std::sort
     // leaves those in an unspecified permutation; a stable sort is the one
     // deterministic answer inside that range.
-    expect(CODE).toMatch(/prev\.slice\(\)\.sort\(compare\)/);
+    //
+    // There are TWO places that sort — `sortLayers` and the zip's own — and
+    // asserting the phrase file-wide let a mutant that de-stabilised one of
+    // them survive on the strength of the other. Per site, then.
+    const sortLayersBody = CODE.slice(
+      CODE.indexOf('const sortLayers'),
+      CODE.indexOf('const byFileExtension'),
+    );
+    const zipBody = CODE.slice(CODE.indexOf('const loadZip'), CODE.indexOf('const loadFiles'));
+    for (const [where, body] of [
+      ['sortLayers', sortLayersBody],
+      ['loadZip', zipBody],
+    ] as const) {
+      expect(body, `${where} must sort a plain copy`).toMatch(/prev\.slice\(\)\.sort\(compare\)/);
+      // `.reverse()` before the sort is the shape that slipped through: still
+      // sorted, but ties come out backwards.
+      expect(body, `${where} must not disturb the order before sorting`).not.toMatch(
+        /prev\.slice\(\)\.\w+\(\)\.sort/,
+      );
+    }
   });
 
-  it('returns the previous array when nothing moved', () => {
+  it('returns the previous array when nothing moved, at both sites', () => {
     // Otherwise every sort is a new array identity and React re-renders the
     // whole pane on a no-op — and a plain Open runs one on every first load.
     expect(CODE).toMatch(/next\.every\(\(l, i\) => l === prev\[i\]\) \? prev : next/);
