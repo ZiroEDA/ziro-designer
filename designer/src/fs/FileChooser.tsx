@@ -34,10 +34,10 @@ import { treeIconFor } from '../home/project_tree.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
+import type { ChooserFilter } from './chooser_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
-import type { ChooserFilter } from './chooser_types.js';
 
 /**
  * One row of the places sidebar.

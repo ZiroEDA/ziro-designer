@@ -149,8 +149,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // stopped restating what it was already losing to, the checkbox accent went
   // to --chrome-active and three launchers stopped restating it, and the
   // COLOR_SWATCH border and the layer indicator's invented blue both went.
-  // Rescanned, not subtracted from the diff.
-  ui: { colours: 341, metrics: 822 },
+  //
+  // And again by the New Project pass, which deleted the old dialog. Two
+  // branches lowered these at once AGAIN and neither figure survived the merge:
+  // 341/822 was the GerbView tree and 344/819 the New Project one, and the
+  // merged tree is neither. Rescanned here, as it has to be every time.
+  ui: { colours: 337, metrics: 816 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -355,8 +359,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(747);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1676);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(743);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1670);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

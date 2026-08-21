@@ -454,10 +454,30 @@
   --chooser-nav-button: 26px;
   /* [px] the dialog's GtkHeaderBar band is 46 + its 1 px rule. */
   --chooser-headerbar-height: 47px;
-  /* [px] every button in the header bar and the path bar is the same 32 tall,
-     centred in its 46 px band, and the bands pad 6 px against the dialog edge. */
-  --chooser-btn-height: 32px;
+  /* Every button in the header bar and the path bar, and the filter combo in
+     the footer, is an ordinary GTK button: --ctl-height (34) tall, and
+     --ctl-pad-x-text (16) either side of a label. There is no chooser-specific
+     height, which is what a `--chooser-btn-height: 32px` here used to say - 32
+     is the *face* between the two 1 px borders, and setting it as the
+     border-box height drew every one of them 2 px short.
+
+     Asked of GTK rather than read off the capture (qa/probes; the same numbers
+     the capture shows): a GtkFileChooserDialog's header bar reports its Cancel
+     button as 78x46 with margin 6 top and bottom - so 34 drawn, centred in the
+     46 px band - and padding 4/16 over a min-height of 24, which is 34 again.
+     --chooser-band-pad is that 6.
+
+     [px] the header bar's *image* buttons - the search toggle - are 36 wide:
+     GTK reports padding 5 either side of a 24 px min-width, plus the borders.
+     They are 34 tall like the rest. */
+  --chooser-image-btn-width: 36px;
   --chooser-band-pad: 6px;
+  /* [px] GtkDialog puts its header-bar action widgets in one horizontal size
+     group, so the accept button is as wide as Cancel rather than as wide as
+     its own label: GTK gives a standalone "Open" 70 and a standalone "Save"
+     65, but inside the dialog both come back 78 - Cancel's width. CSS has no
+     "as wide as that sibling", so both carry Cancel's width as a floor. */
+  --chooser-headerbar-btn-min: 78px;
   /* The header bar is darker than the rest of the chrome: #222222 against the
      #2c2c2c the sidebar and the footer share with --chrome-bg. */
   --chooser-headerbar-bg: #222222;
@@ -2052,70 +2072,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-tplsel-searchwrap .cancel:hover {
   opacity: 1;
 }
-/* The name row, which stands in for the whole "New Project Folder" window.
-   It sits between m_mainContent and m_sizerButtons, carrying the same 5px the
-   other rows of the dialog carry. */
-.ze-tplsel-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px 5px;
-  font-size: var(--ui-font-size);
-  flex: 0 0 auto;
-  /* Opaque, and the dialog's own face rather than a colour of its own. The row
-     sat transparent over the body, so the last card in the template list read
-     straight through the "Project name" label. */
-  background: var(--chrome-bg);
-  position: relative;
-  z-index: 1;
-}
-.ze-tplsel-name label {
-  flex: 0 0 auto;
-  color: #f3f4f5;
-}
-/* The frame is on the wrapper, so there is one box around the whole field -
-   the entry and the fixed .kicad_pro that ends it - rather than a box around
-   the typed text with the extension sitting outside it. */
-.ze-tplsel-namewrap {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 34px;
-  padding: 0 8px;
-  background: var(--panel-bg);
-  border: 1px solid #181818;
-  border-radius: 4px;
-  cursor: text;
-}
-/* GTK marks an entry that failed validation with the error colour, not a shake
-   or an icon. */
-.ze-tplsel-namewrap.bad {
-  border-color: #c01c28;
-}
-/* Insensitive until a template is chosen, faded the way the shell fades every
-   other disabled control (`.ze-app input:disabled` is opacity 0.55). The
-   wrapper carries it because the frame and the extension are the wrapper's, and
-   only the entry inside it is really disabled. */
-.ze-tplsel-namewrap.disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-/* Carried on the input's own class rather than as `.ze-tplsel-name input`: a
+/* Carried on the input's own class rather than as `.ze-tplsel-searchwrap input`: a
    descendant type selector has to be qualified with .ze-app to outrank the
    shell's blanket `.ze-app input`, and that lands high enough to make every
    later plain `input` rule in this file report as descending specificity. */
-/* The entry inside the framed name box: no chrome of its own, because the
-   wrapper draws it. `.ze-bare` on the element is what keeps the shell's blanket
-   entry rule off it - see that rule for why a class alone could not. */
+/* A bare entry, drawn by whatever frames it rather than by itself; the search
+   boxes (the template selector's and PANEL_HOTKEYS_EDITOR's filter) sit inside
+   `.ze-tplsel-searchwrap` and wear this. `.ze-bare` on the element is what
+   keeps the shell's blanket entry rule off it - see that rule for why a class
+   alone could not. */
 .ze-tplsel-nameinput {
   box-sizing: border-box;
-  /* Fills the box, so the extension parks at the right edge rather than
-     following the caret. Sizing the entry to its content (field-sizing) put
-     ".kicad_pro" immediately after the text, which is what a rename field does,
-     but it moves as you type and reads worse here than a fixed suffix at the
-     end. Anchored, it is a property of the field rather than of the text. */
+  /* Fills the box it is framed by, rather than sizing to its own content. */
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
@@ -2128,21 +2096,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 0;
   outline: none;
 }
-/* Part of the same filename, so it is the same size and weight as the text; a
-   touch dimmer only to say it is not the part being edited. */
-.ze-tplsel-namewrap .ext {
-  flex: 0 0 auto;
-  color: #b9b9b9;
-  user-select: none;
-  white-space: nowrap;
-}
-.ze-tplsel-name .err,
 .ze-tplsel-nameerr {
   flex: 0 0 auto;
   color: #ff7b72;
   font-size: 10pt;
-}
-.ze-tplsel-nameerr {
   margin-top: 6px;
 }
 /* ---------------------------------------------------------------------------

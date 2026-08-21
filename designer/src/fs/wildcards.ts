@@ -65,6 +65,22 @@ export const OPEN_PROJECT_FILTERS: readonly ChooserFilter[] = [
   legacyProjectFileWildcard(),
 ];
 
+/**
+ * What the "New Project Folder" dialog offers.
+ *
+ * The window `KICAD_MANAGER_CONTROL::NewProject` puts up after the template
+ * selector passes one wildcard and no more:
+ *
+ *     wxFileDialog dlg( m_frame, title, default_dir, wxEmptyString,
+ *                       FILEEXT::ProjectFileWildcard(),
+ *                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+ *
+ * (`kicad/tools/kicad_manager_control.cpp:281-285`). A new project is a
+ * `.kicad_pro` and nothing else, so there is no "all project files" entry and
+ * no legacy `.pro` - you cannot create one of those.
+ */
+export const NEW_PROJECT_FOLDER_FILTERS: readonly ChooserFilter[] = [projectFileWildcard()];
+
 /** `FILEEXT::DrillFileWildcard` (`:406-410`). `DrillFileExtension` is "drl". */
 export const drillFileWildcard = (): ChooserFilter =>
   fileFilter('Drill files', ['drl', 'nc', 'xnc', 'txt']);

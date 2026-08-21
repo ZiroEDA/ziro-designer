@@ -6,7 +6,9 @@
  * dialog_template_selector_base.cpp), ported.
  *
  * KICAD_MANAGER_CONTROL::NewProject runs this and *then* a wxFileDialog titled
- * "New Project Folder" for the name; both are below.
+ * "New Project Folder" for the name (kicad_manager_control.cpp:281-285). That
+ * second window is the file chooser, opened by the caller once this one closes
+ * with wxID_OK -- so nothing here asks for a name, exactly as upstream.
  *
  * The layout is bmainSizer over m_sizerButtons:
  *
@@ -46,9 +48,7 @@ import kicadIcon from '../../assets/icon_kicad.png';
 import { styleTemplatePreview } from './template_preview_styles.js';
 import {
   FILTERS,
-  PROJECT_FILE_EXT,
   SEARCH_DEBOUNCE_MS,
-  projectNameFrom,
   applyFilter,
   sortTemplates,
   truncateDescription,
@@ -64,7 +64,6 @@ type DialogState = 'initial' | 'preview' | 'mruWithPreview';
 export function TemplateSelectorDialog({
   templates,
   recentTemplates,
-  takenNames,
   onCancel,
   onOk,
   onOpenTemplate,
@@ -74,12 +73,10 @@ export function TemplateSelectorDialog({
   templates: readonly TemplateMeta[];
   /** settings->m_RecentTemplates, newest first. */
   recentTemplates?: readonly string[];
-  /** Existing project names, lowercased, so a clash can be caught before Create. */
-  takenNames?: ReadonlySet<string>;
   onCancel: () => void;
   /** wxID_OK. `null` when nothing is selected, which upstream allows and the
    *  caller answers with "No project template was selected." */
-  onOk: (template: TemplateMeta | null, projectName: string) => void;
+  onOk: (template: TemplateMeta | null) => void;
   /** wxID_APPLY: onEditTemplate loaded a project instead of creating one. */
   onOpenTemplate?: (template: TemplateMeta) => void;
   /** onDuplicateTemplate, once the new name has been accepted. */
@@ -118,16 +115,14 @@ export function TemplateSelectorDialog({
     else onCancel();
   });
   /**
-   * The project name, which upstream asks for in a second window - a
-   * wxFileDialog titled "New Project Folder". That dialog is a filesystem
-   * browser: a folder tree, a shortcut to the default projects path, and a
-   * "Create a new folder for the project" checkbox. None of it means anything
-   * against an account, so replacing it with a lone text box left a second
-   * window carrying one field. The field lives in this dialog's button row
-   * instead, and OK does what OK plus that dialog used to.
+   * There is no name on this window.
+   *
+   * Upstream asks for it in the second window - a wxFileDialog titled "New
+   * Project Folder", which is a filesystem browser. We had none when this was
+   * ported, so the field was folded into this dialog's button row; the account
+   * has a real tree and a real chooser now, so the second window is back and
+   * this one is the selector KiCad draws.
    */
-  const [projectName, setProjectName] = useState('');
-  const nameRef = useRef<HTMLInputElement>(null);
   /** onDuplicateTemplate's wxTextEntryDialog, defaulted to `<name>_copy`. */
   const [dupFor, setDupFor] = useState<TemplateMeta | null>(null);
 
@@ -160,10 +155,11 @@ export function TemplateSelectorDialog({
       const saved = localStorage.getItem('ziro.templateWindowSize');
       if (saved) {
         const { w, h } = JSON.parse(saved) as { w: number; h: number };
-        // Clamped to SetSizeHints' floor so a stale or hand-edited value cannot
-        // open the dialog smaller than upstream allows - 400 plus the 39px the
-        // project-name row adds, which is why this is not upstream's number.
-        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 439) {
+        // Clamped to SetSizeHints' floor so a stale or hand-edited value
+        // cannot open the dialog smaller than upstream allows:
+        //   this->SetSizeHints( wxSize( 500,400 ), wxDefaultSize );
+        // (dialog_template_selector_base.cpp:14).
+        if (Number.isFinite(w) && Number.isFinite(h) && w >= 500 && h >= 400) {
           el.style.width = `${w}px`;
           el.style.height = `${h}px`;
         }
@@ -216,45 +212,30 @@ export function TemplateSelectorDialog({
     setSelected(mru[0]!);
   }, [mru]);
 
-  /**
-   * TEMPLATE_WIDGET::Select -> DIALOG::SetWidget -> SetState( Preview ).
-   *
-   * The name follows the template until the user types over it, the way the
-   * file dialog opened on the template's own name.
-   */
-  const nameEdited = useRef(false);
+  /** TEMPLATE_WIDGET::Select -> DIALOG::SetWidget -> SetState( Preview ). */
   const selectWidget = (t: TemplateMeta): void => {
     setSelected(t);
     setState('preview');
-    if (!nameEdited.current) setProjectName(t.id);
   };
 
   /** SelectTemplateByPath( path, true ): select, keep the MRU, no preview. */
   const selectKeepingMru = (t: TemplateMeta): void => {
     setSelected(t);
-    if (!nameEdited.current) setProjectName(t.id);
   };
 
-  const cleanName = sanitizeProjectName(projectNameFrom(projectName));
-  const nameTaken = cleanName !== '' && !!takenNames?.has(cleanName.toLowerCase());
-  const canCreate = !!selected && cleanName !== '' && !nameTaken;
-
   /**
-   * OnDoubleClick: `m_dialog->EndModal( wxID_OK )`.
+   * OnDoubleClick:
    *
-   * Upstream could close on the double click alone because the name was still
-   * to come, in the file dialog after it. The name is on this window now, so a
-   * double click on a template whose name is not usable yet selects it and
-   * leaves the name field to be dealt with, rather than closing on a name that
-   * would be refused.
+   *     m_selectedWidget = aWidget;
+   *     ...
+   *     m_dialog->EndModal( wxID_OK );
+   *
+   * Nothing to check first: the name, the folder and whether either is free
+   * are the next window's questions.
    */
   const confirmWith = (t: TemplateMeta): void => {
-    const name = sanitizeProjectName(projectNameFrom(nameEdited.current ? projectName : t.id));
-    if (name === '' || takenNames?.has(name.toLowerCase())) {
-      selectWidget(t);
-      return;
-    }
-    onOk(t, name);
+    setSelected(t);
+    onOk(t);
   };
 
   /** OnBackClicked. */
@@ -502,57 +483,6 @@ export function TemplateSelectorDialog({
           </>
         )}
 
-        {/* The name row, standing in for the whole "New Project Folder" window.
-            A wxFileDialog's job is to choose a directory and a filename; here
-            there is no directory, so all that survives is the name - and a
-            second window for one field was the wrong shape for it. */}
-        <div className="ze-tplsel-name">
-          <label htmlFor="ze-tplsel-projname">Project name</label>
-          {/* The extension is a label beside the entry, not text inside it, so
-              there is nothing to select or backspace over - the same guarantee
-              wxFileDialog gets from its wildcard, where SetExt forces
-              FILEEXT::ProjectFileExtension whatever was typed. It is here at all
-              because a bare name box does not say what is being named; with
-              ".kicad_pro" fixed to the end of it, it plainly does. */}
-          {/* The box is wider than the filename inside it, so a click on the
-              empty part - or on the extension - has to land in the entry, the
-              way clicking anywhere in a rename field does. */}
-          {/* Naming comes second. There is nothing to name until a template is
-              picked - the name defaults from the template and the files created
-              are the template's - so the field is dead until then and says why,
-              rather than accepting a name that the next click would overwrite. */}
-          <div
-            className={`ze-tplsel-namewrap${nameTaken ? ' bad' : ''}${selected ? '' : ' disabled'}`}
-            onMouseDown={(e) => {
-              if (!selected) return;
-              if (e.target === e.currentTarget || (e.target as HTMLElement).className === 'ext') {
-                e.preventDefault();
-                nameRef.current?.focus();
-              }
-            }}
-          >
-            <input
-              ref={nameRef}
-              id="ze-tplsel-projname"
-              className="ze-tplsel-nameinput ze-bare"
-              value={projectName}
-              disabled={!selected}
-              placeholder={selected ? selected.id : 'Select a template first'}
-              onChange={(e) => {
-                nameEdited.current = true;
-                setProjectName(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && canCreate) onOk(selected, cleanName);
-              }}
-            />
-            <span className="ext" aria-hidden="true">
-              {PROJECT_FILE_EXT}
-            </span>
-          </div>
-          {nameTaken && <span className="err">A project named “{cleanName}” already exists.</span>}
-        </div>
-
         <div className="ze-modal-footer" style={{ justifyContent: 'space-between' }}>
           <button className="ze-btn" disabled={state === 'initial'} onClick={goBack}>
             Go Back
@@ -566,15 +496,12 @@ export function TemplateSelectorDialog({
                 measured on a real dialog, OK and Cancel are the same grey. Ours
                 was .primary, so it wore an orange ring the whole time.
 
-                Upstream leaves OK always enabled because the checks it needs -
-                a template, a name, a name that is free - all live in the file
-                dialog and the message boxes after it. Those checks are on this
-                window now, so the button carries them. */}
-            <button
-              className="ze-btn"
-              disabled={!canCreate}
-              onClick={() => onOk(selected, cleanName)}
-            >
+                Always enabled, as upstream's is: every check it could make -
+                a template, a name, a name that is free - happens after this
+                window closes, in the file dialog and the message boxes that
+                follow it. Pressing OK with nothing selected is answered by
+                NewProject's own "No project template was selected." */}
+            <button className="ze-btn" onClick={() => onOk(selected)}>
               OK
             </button>
           </div>
