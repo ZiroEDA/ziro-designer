@@ -57,12 +57,7 @@ export function ProjectTreePane({
   onDeletePaths,
   onViewTextPath,
   onDownloadPath,
-  onOpenPcbFile,
-  onOpenSchematic,
-  onOpenSymbolFile,
-  onOpenFootprintFile,
-  onOpenDrawingSheetFile,
-  onSwitchProject,
+  onActivate,
 }: {
   picked: PickedHomeFile[] | null;
   dirRoot: DirNode | null;
@@ -85,13 +80,17 @@ export function ProjectTreePane({
   onViewTextPath?: (path: string) => void;
   /** Download a single file from the project to the browser's local storage. */
   onDownloadPath?: (path: string) => void;
-  onOpenPcbFile?: (file: PickedHomeFile) => void;
-  onOpenSchematic: (startFile?: string) => void;
-  onOpenSymbolFile?: (file: PickedHomeFile) => void;
-  onOpenFootprintFile?: (file: PickedHomeFile) => void;
-  onOpenDrawingSheetFile?: (file: PickedHomeFile) => void;
-  /** Switch to another project (double-clicking its .kicad_pro in the tree). */
-  onSwitchProject?: (proFullName: string) => void;
+  /**
+   * `item->Activate( this )`.
+   *
+   * PROJECT_TREE_PANE hands a double-clicked row to the item and is told
+   * nothing more: `OnSelect` is four lines, and not one of them knows an editor
+   * exists (`kicad/project_tree_pane.cpp`). This pane does the same, so the
+   * mapping from file type to editor lives in one place and the file manager
+   * reaches the same one. It used to live here as six regexes, which is six of
+   * the fourteen branches - the rest did nothing.
+   */
+  onActivate?: (node: { name: string; path: string; file?: PickedHomeFile }) => void;
 }): JSX.Element {
   // KiCad's addItemToProjectTree: a .kicad_sch is listed only when its basename
   // is one of the folder's project names (getProjects), i.e. the root sheet of
@@ -174,30 +173,10 @@ export function ProjectTreePane({
       );
     }
     if (isHiddenNode(node.name)) return null;
-    const isPcb = /\.kicad_pcb$/i.test(node.name);
-    const isSch = /\.kicad_sch$/i.test(node.name);
-    const isSym = /\.kicad_sym$/i.test(node.name);
-    const isMod = /\.kicad_mod$/i.test(node.name);
-    const isWks = /\.kicad_wks$/i.test(node.name);
-    const isPro = /\.kicad_pro$/i.test(node.name);
-    // PROJECT_TREE_ITEM::Activate: each document type routes to the editor it
-    // belongs to (a .kicad_mod to the Footprint Editor, a .kicad_sym to the
-    // Symbol Editor, a board to the PCB Editor, a sheet to the Schematic Editor,
-    // a drawing sheet to the Drawing Sheet Editor).
-    const openFn =
-      isPcb && onOpenPcbFile && node.file
-        ? () => onOpenPcbFile(node.file!)
-        : isSch
-          ? () => onOpenSchematic(basename(node.name))
-          : isSym && onOpenSymbolFile && node.file
-            ? () => onOpenSymbolFile(node.file!)
-            : isMod && onOpenFootprintFile && node.file
-              ? () => onOpenFootprintFile(node.file!)
-              : isWks && onOpenDrawingSheetFile && node.file
-                ? () => onOpenDrawingSheetFile(node.file!)
-                : isPro && onSwitchProject && node.file
-                  ? () => onSwitchProject(node.file!.name)
-                  : undefined;
+    // PROJECT_TREE_ITEM::Activate, which the pane does not get to second-guess.
+    const openFn = onActivate
+      ? (): void => onActivate({ name: node.name, path: node.path, file: node.file })
+      : undefined;
     // KiCad's project tree: single click selects, double click opens the file.
     // No tooltip on either kind of row - there is no SetToolTip anywhere in
     // project_tree_pane.cpp, project_tree.cpp or project_tree_item.cpp, so a
