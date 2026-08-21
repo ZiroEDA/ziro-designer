@@ -14,6 +14,7 @@
 
 import {
   GBR_BASIC_SHAPE,
+  IU_PER_MM,
   type GERBER_FILE_IMAGE,
   type GERBER_DRAW_ITEM,
   type AmResolvedShape,
@@ -24,6 +25,41 @@ import {
   GERBER_NEGATIVE_COLOR,
   highlightedLayerColor,
 } from './gerberColors.js';
+import {
+  defaultDrawingSheet,
+  layoutDrawingSheet,
+  PAPER_MM,
+  SCH_IU_PER_MM,
+  type DsDrawItem,
+} from '@ziroeda/common';
+import { drawDrawingSheetItems } from '../drawingsheet/wksRender.js';
+
+/**
+ * `PAGE_INFO pageInfo( PAGE_SIZE_TYPE::GERBER )` — the page GerbView sets at
+ * startup and again on every clear (gerbview_frame.cpp:134-136, 333-335). It is
+ * 32000 x 32000 mils (page_info.cpp:61), a square far larger than any drawing
+ * a Gerber job puts on it, and GerbView never changes it.
+ */
+const GERBER_PAPER = 'GERBER';
+
+/**
+ * The world units this canvas draws in, which are the ones the Gerber PARSER
+ * emits — `@ziroeda/gerbview`'s `IU_PER_MM`, the same constant every bounding
+ * box and every item coordinate on this canvas already uses.
+ *
+ * Deliberately not `common`'s `GERB_IU_PER_MM`. Those two do not agree: KiCad
+ * says `GERB_IU_PER_MM = 1e5`, "Gerbview IU is 10 nanometers"
+ * (include/base_units.h:69), and our `common/src/eda_units.ts:24` matches it,
+ * but our parser works in 1e6. Reconciling them is a change to every Gerber
+ * coordinate in the package and is not this feature's to make; drawing the page
+ * in the units the canvas actually uses is. Using the 1e5 constant here would
+ * have drawn the page a tenth of its size, which is the kind of mistake that
+ * looks like a layout bug rather than a units bug.
+ */
+const GERB_IU = IU_PER_MM;
+
+/** No drawing-sheet item is ever selected outside pl_editor. */
+const NO_DS_SELECTION: ReadonlySet<number> = new Set();
 
 export interface ViewTransform {
   scale: number;
@@ -50,6 +86,17 @@ export interface GerberRenderOptions {
   /** Flip the whole view horizontally (mirror). */
   flipView: boolean;
   background: string;
+  /**
+   * LAYER_GERBVIEW_DRAWINGSHEET — `show_border_and_titleblock`, which defaults
+   * FALSE (gerbview_settings.cpp:45-46). GerbView opens with no sheet.
+   */
+  drawingSheet: boolean;
+  /**
+   * LAYER_GERBVIEW_PAGE_LIMITS — `m_DisplayPageLimits`, also default FALSE
+   * (gerbview_settings.cpp:58, gbr_display_options.h:58). Independent of the
+   * sheet: two layers, two colours, two visibilities.
+   */
+  pageLimits: boolean;
   /** Optional highlight (by net / component / attribute / DCode). */
   highlightTest?: (item: GERBER_DRAW_ITEM) => boolean;
 }
@@ -431,4 +478,116 @@ export function renderGerberLayers(
       }
     }
   }
+}
+
+/**
+ * GerbView's drawing sheet — `GERBVIEW_FRAME::SetPageSettings`
+ * (gerbview/gerbview_frame.cpp:878-902):
+ *
+ * ```cpp
+ * DS_PROXY_VIEW_ITEM* drawingSheet = new DS_PROXY_VIEW_ITEM( gerbIUScale, &GetPageSettings(),
+ *                                                            &Prj(), &GetTitleBlock(), nullptr );
+ * drawingSheet->SetPageNumber( "1" );
+ * drawingSheet->SetSheetCount( 1 );
+ * drawingSheet->SetColorLayer( LAYER_GERBVIEW_DRAWINGSHEET );
+ * drawingSheet->SetPageBorderColorLayer( LAYER_GERBVIEW_PAGE_LIMITS );
+ * drawPanel->SetDrawingSheet( drawingSheet );
+ * ```
+ *
+ * GerbView is not a special case: it builds the same `DS_PROXY_VIEW_ITEM` the
+ * schematic (`eeschema/sch_view.cpp:117`) and the board
+ * (`pcbnew/pcb_draw_panel_gal.cpp:472`) build, and that item's `ViewDraw`
+ * constructs a `DS_PAINTER` over `common/drawing_sheet/`. So this goes through
+ * `layoutDrawingSheet` + `drawDrawingSheetItems` exactly as the other two
+ * launchers do; only the IU scale and the two colour layers differ.
+ *
+ * The two things GerbView leaves EMPTY are deliberate, not missing:
+ *
+ *  - the title block. `GetTitleBlock()` returns `m_gerberLayout->GetTitleBlock()`
+ *    and nothing in gerbview/ ever calls `SetTitleBlock`, so it is
+ *    default-constructed. Every `${TITLE}` / `${COMPANY}` / `${COMMENT…}` in the
+ *    sheet resolves to an empty string, and the title block draws as ruled but
+ *    blank boxes. That is what a live GerbView shows.
+ *  - the file name, sheet name and sheet path. `SetPageSettings` never calls
+ *    `SetFileName`/`SetSheetName`/`SetSheetPath` on the proxy item, so those
+ *    stay empty too.
+ *
+ * `${PAPER}` is the exception that does resolve: `DS_DRAW_ITEM_LIST` takes it
+ * from `aPageInfo.GetTypeAsString()` (ds_draw_item.cpp:552), which for
+ * `PAGE_SIZE_TYPE::GERBER` is the string "GERBER".
+ */
+export function gerberDrawingSheetItems(): DsDrawItem[] {
+  const [wMM, hMM] = PAPER_MM[GERBER_PAPER]!;
+  return layoutDrawingSheet(
+    defaultDrawingSheet(),
+    { widthMM: wMM, heightMM: hMM },
+    {
+      // SetPageNumber( "1" ) / SetSheetCount( 1 ) — gerbview_frame.cpp:893-894.
+      pageNumber: 1,
+      sheetCount: 1,
+      // An untouched TITLE_BLOCK: see the note above.
+      title: '',
+      rev: '',
+      date: '',
+      company: '',
+      comments: ['', '', '', ''],
+      paper: GERBER_PAPER,
+      fileName: '',
+      sheetPath: '',
+      appVersion: 'ZiroEDA',
+    },
+  );
+}
+
+/** Paint what {@link gerberDrawingSheetItems} lays out, in canvas world space. */
+export function drawGerberDrawingSheet(
+  ctx: CanvasRenderingContext2D,
+  v: ViewTransform,
+  flip: boolean,
+  color: string,
+): void {
+  const items = gerberDrawingSheetItems();
+  if (items.length === 0) return;
+  // The shared engine lays out in schematic internal units; this canvas is in
+  // Gerber ones. Scaling the context rather than each coordinate also scales the
+  // pen widths, which are in the same units.
+  const toGerb = GERB_IU / SCH_IU_PER_MM;
+  ctx.save();
+  applyWorld(ctx, v, flip);
+  ctx.scale(toGerb, toGerb);
+  // One device pixel in world units, the same floor the item painter uses, so a
+  // hairline stays visible when the whole 32-inch page is zoomed to fit.
+  drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, {
+    color,
+    minWidth: 1 / v.scale / toGerb,
+  });
+  ctx.restore();
+}
+
+/**
+ * The paper edge — `DS_PAINTER::DrawBorder`, called by
+ * `DS_PROXY_VIEW_ITEM::ViewDraw` after the sheet's own items and gated on
+ * `GetShowPageLimits()`, which in GerbView is
+ * `gvconfig()->m_Display.m_DisplayPageLimits` (gerbview_painter.cpp:186).
+ *
+ * It is a separate call because it is a separate layer with its own colour
+ * (`LAYER_GERBVIEW_PAGE_LIMITS`) and its own visibility, and because it is not
+ * part of the sheet description at all.
+ */
+export function drawGerberPageLimits(
+  ctx: CanvasRenderingContext2D,
+  v: ViewTransform,
+  flip: boolean,
+  color: string,
+): void {
+  const [wMM, hMM] = PAPER_MM[GERBER_PAPER]!;
+  ctx.save();
+  applyWorld(ctx, v, flip);
+  ctx.strokeStyle = color;
+  // The same 0.1 mm pen the board's page rectangle uses, floored at one device
+  // pixel so the edge does not vanish when zoomed out.
+  ctx.lineWidth = Math.max(0.1 * GERB_IU, 1 / v.scale);
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, wMM * GERB_IU, hMM * GERB_IU);
+  ctx.restore();
 }

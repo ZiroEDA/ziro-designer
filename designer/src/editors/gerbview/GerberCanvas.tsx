@@ -18,6 +18,8 @@ import {
   renderGerberLayers,
   worldToDevice,
   deviceToWorld,
+  drawGerberDrawingSheet,
+  drawGerberPageLimits,
   type GerberLayerView,
   type GerberRenderOptions,
   type ViewTransform,
@@ -26,8 +28,10 @@ import {
   GERBER_AXES_COLOR,
   GERBER_BG_COLOR,
   GERBER_CURSOR_COLOR,
+  GERBER_DRAWINGSHEET_COLOR,
   GERBER_GRID_COLOR,
   GERBER_NEGATIVE_COLOR,
+  GERBER_PAGE_LIMITS_COLOR,
   highlightedLayerColor,
 } from './gerberColors.js';
 import { GerbviewGl, type GerberGlContent } from '../../render/gl/gerbview_gl.js';
@@ -277,6 +281,24 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         octx.setTransform(1, 0, 0, 1, 0, 0);
         octx.clearRect(0, 0, canvas.width, canvas.height);
       }
+      // The drawing sheet, before every preview tool and after the items.
+      //
+      // GerbView gives the gerber layers explicit render orders 0..2N+1
+      // (gerbview_draw_panel_gal.cpp:181-183) while LAYER_DRAWINGSHEET keeps its
+      // default order, which is its own id - GAL_LAYER_ID_START + 24, far above
+      // them (layer_ids.h:278). So the sheet paints OVER the copper, and only
+      // LAYER_SELECT_OVERLAY and LAYER_GP_OVERLAY, made top layers at :191-193,
+      // paint over the sheet. That is exactly this position: on the overlay
+      // canvas, ahead of the rubber band, the measure line and the crosshair.
+      if (opts.drawingSheet) {
+        drawGerberDrawingSheet(octx, v, opts.flipView, GERBER_DRAWINGSHEET_COLOR);
+      }
+      // DS_PROXY_VIEW_ITEM::ViewDraw draws the border AFTER the sheet's items
+      // (ds_proxy_view_item.cpp:139-147), and on its own visibility flag.
+      if (opts.pageLimits) {
+        drawGerberPageLimits(octx, v, opts.flipView, GERBER_PAGE_LIMITS_COLOR);
+      }
+
       octx.setTransform(1, 0, 0, 1, 0, 0);
       const za = zoomAreaRef.current;
       if (za) {
