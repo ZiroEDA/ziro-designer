@@ -396,8 +396,13 @@ export function readNetChains(sch: Schematic): CommittedNetChain[] {
   return out;
 }
 
-/** FormatDouble2Str's normal path: `%.10g`. */
-const formatDouble2Str = (v: number): string => String(Number(v.toPrecision(10)));
+/**
+ * `FormatDouble2Str`, from the one module that ports it. This was only its
+ * `%.10g` branch, and approximated that with `toPrecision(10)` — which is JS's
+ * shortest round-tripping form, never switches to exponent notation, and so
+ * disagrees with `%g` on both large and very small values.
+ */
+import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
 
 /** Parse our rgba() color strings back into (color R G B A) components. */
 function colorParts(color: string): [number, number, number, number] | null {

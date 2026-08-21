@@ -21,6 +21,7 @@
 import { list, atom, str, type SNode, type SList } from '@ziroeda/sexpr/src/types.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { GENERATOR, GENERATOR_VERSION } from '../generator.js';
+import { formatDouble2Str } from '../plotters/fmt.js';
 import {
   WKS_FILE_VERSION,
   type WksSheet,
@@ -33,9 +34,14 @@ import {
 const A = atom;
 const S = str;
 
-function fmt(n: number): string {
-  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(6)));
-}
+/**
+ * `FormatDouble2Str`, which is what DS_DATA_MODEL_IO hands every bare double
+ * (ds_data_model_io.cpp passes `FormatDouble2Str( … ).c_str()` at every numeric
+ * site). Ours was `toFixed(6)`, so anything below 1e-7 was written as a flat
+ * `0` where KiCad writes sixteen decimal places, and a long value lost digits
+ * `%.10g` would have kept.
+ */
+const fmt = formatDouble2Str;
 
 /** `(name value)` with a numeric value, formatted without trailing noise. */
 function numNode(name: string, value: number): SList {

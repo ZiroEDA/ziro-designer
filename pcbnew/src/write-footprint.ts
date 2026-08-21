@@ -24,6 +24,7 @@ import { atom, str, isList, head, type SList, type SNode } from '@ziroeda/sexpr/
 import { arg } from '@ziroeda/sexpr/src/query.js';
 import { serialize } from '@ziroeda/sexpr/src/serializer.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
 import type {
   PcbFootprint,
@@ -55,11 +56,12 @@ const atNode = (p: Vec2, angle = 0): SList =>
 /** `(yes)`/`(no)` the way KICAD_FORMAT::FormatBool writes it. */
 const boolNode = (name: string, v: boolean): SList => list(atom(name), atom(v ? 'yes' : 'no'));
 
-/** FormatDouble2Str: up to 10 significant digits, trailing zeros trimmed. */
-function double2Str(v: number): string {
-  const s = v.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
-  return s === '' || s === '-0' ? '0' : s;
-}
+/**
+ * `FormatDouble2Str`, from the one module that ports it. This was `toFixed(10)`
+ * — `%.10f`, ten digits after the point — where upstream is `%.10g`, ten
+ * SIGNIFICANT digits, with a separate fixed-16 branch below 0.0001.
+ */
+const double2Str = formatDouble2Str;
 
 /**
  * `(teardrops …)`, PCB_IO_KICAD_SEXPR::formatTeardropParameters.
