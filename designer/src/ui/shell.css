@@ -9,10 +9,32 @@
      Every one is neutral (r == g == b). The values these replaced carried a
      blue tint (blue 4-6 above red), which is the thing that read as "not
      KiCad" before a single widget had been compared. */
-  --chrome-bg: #2c2c2c; /* menu bar, status bar, toolbars */
-  --chrome-bg2: #262626; /* inset surfaces: text fields, scrollbar tracks */
+  /* [px] All four asked of wxWidgets itself, which is the palette KiCad paints
+     with: `qa/probes/syscolour_probe.cpp` dumps every wxSYS_COLOUR_* on this
+     machine. Reading GTK's own named colours answers a DIFFERENT question — wx
+     maps the theme onto its enum with logic of its own, and the two disagree
+     (GTK's theme_bg_color is #2c2c2c while wxSYS_COLOUR_3DFACE, which is what a
+     wxAuiToolBar draws on, is #373737). KiCad asks wx, so we ask wx. */
+  --chrome-bg: #2c2c2c; /* [px] menu bar and status bar; a TOOLBAR is
+                           --content-bg, which is wxSYS_COLOUR_3DFACE #373737 */
+  --chrome-bg2: #272727; /* [px] wxSYS_COLOUR_WINDOW / _LISTBOX / _APPWORKSPACE */
   --chrome-border: #1e1e1e;
-  --chrome-fg: #ffffff;
+  /* [px] wxSYS_COLOUR_BTNTEXT / _MENUTEXT / _CAPTIONTEXT, all #f7f7f7. NOT
+     white: wx has a separate _WINDOWTEXT / _LISTBOXTEXT at #ffffff, and this
+     token had collapsed the two.
+
+     It is visible, and in the pane Akshay has been looking at all night. A
+     histogram of the GerbView layers manager, ours beside a live one at the
+     same size: KiCad's layer names peak at 247 with the usual antialiasing
+     spread beneath, ours are 1,976 pixels of flat 255. Those names are
+     WX_ELLIPSIZED_STATIC_TEXT (`gerbview/widgets/layer_widget.cpp:358`) — a
+     widget label, which takes the widget foreground, not a listbox row. */
+  --chrome-fg: #f7f7f7;
+  /* [px] wxSYS_COLOUR_WINDOWTEXT / _LISTBOXTEXT, the text INSIDE a view rather
+     than on a widget: an entry, a listbox, a grid cell. GTK agrees — its
+     `entry` and `treeview` report rgb(255,255,255) where every button, label,
+     menu item and toolbar reports rgb(247,247,247). */
+  --view-fg: #ffffff;
   /* Hover and selection. KiCad takes these from the GTK theme too: a plain
      lighter grey for hover, and the desktop accent (Yaru orange) for anything
      selected or active. .sch-theme had already sampled both off a live
@@ -758,7 +780,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      Vertical padding is left alone: an entry's height is set per control
      (--ctl-height where it is a full-size field), not by this rule. */
   background: var(--field-bg);
-  color: var(--chrome-fg);
+  color: var(--view-fg); /* an entry is a view: wxSYS_COLOUR_WINDOWTEXT */
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
   padding: 2px var(--field-pad-x);
@@ -3014,7 +3036,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: var(--ctl-height);
   padding: 0 var(--field-pad-x);
   background: var(--field-bg);
-  color: var(--chrome-fg);
+  color: var(--view-fg); /* an entry is a view: wxSYS_COLOUR_WINDOWTEXT */
   border: 1px solid var(--ctl-border);
   border-radius: var(--ctl-radius);
   font: inherit;
