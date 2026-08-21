@@ -266,7 +266,11 @@ export function buildManagerMenus(h: ManagerMenuHandlers): Menu[] {
       items: [
         { label: 'Schematic Editor', shortcut: 'Ctrl+E', action: h.editSchematic },
         { label: 'Symbol Editor', shortcut: 'Ctrl+L', action: h.editSymbols },
-        { label: 'PCB Editor', shortcut: 'Ctrl+P', action: h.editPcb, disabled: !h.hasProject },
+        // Not greyed: `setupUIConditions` conditions saveAs, closeProject,
+        // archiveProject, newJobsetFile and openJobsetFile on an active project
+        // (kicad_manager_frame.cpp:493-497) and nothing else. editPCB refuses
+        // through ShowPlayer's message box instead - see home/show_player.ts.
+        { label: 'PCB Editor', shortcut: 'Ctrl+P', action: h.editPcb },
         { label: 'Footprint Editor', shortcut: 'Ctrl+F', action: h.editFootprints },
         SEP,
         // These three were left disabled from before their editors existed, and
