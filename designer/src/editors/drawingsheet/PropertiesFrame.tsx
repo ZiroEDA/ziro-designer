@@ -23,6 +23,8 @@
 
 import { useState, type JSX } from 'react';
 import {
+  bitmapDisplayPPI,
+  bitmapScaleForPPI,
   WKS_ITEM_TYPE_LABEL,
   type WksSheet,
   type WksItem,
@@ -653,13 +655,26 @@ function ItemProperties({
         </Row>
       )}
       {/* A bitmap gets Bitmap DPI and nothing else - there is no Scale row
-          upstream, because the scale IS the DPI (DS_DATA_ITEM_BITMAP::SetPPI). */}
+          upstream, because the scale IS the DPI (DS_DATA_ITEM_BITMAP::SetPPI).
+          Which means the field must READ and WRITE the scale, not a stored DPI:
+          `GetPPI()` is `nativePPI / scale` (ds_data_item.cpp:772-778) and
+          `SetPPI(n)` is `SetScale( nativePPI / n )` (:781-785). Ours showed
+          `WksBitmap.ppi` - the PNG's own pHYs resolution - and wrote back to it,
+          which is right only while the scale is 1 and is thrown away on the next
+          load, because the file carries `(scale ...)` and no DPI at all
+          (ds_data_model_io.cpp:405-430). */}
       {bitmap && (
         <Row label="Bitmap DPI:">
           <NumField
             step={1}
-            value={bitmap.ppi}
-            onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
+            value={bitmapDisplayPPI(bitmap)}
+            onCommit={(dpi) => {
+              // `msg.ToLong( &value )` gates the call upstream
+              // (properties_frame.cpp:634-637): a field that is not a whole
+              // number leaves the item alone rather than dividing by it.
+              const n = Math.round(dpi);
+              if (n > 0) patch({ scale: bitmapScaleForPPI(bitmap, n) });
+            }}
           />
         </Row>
       )}

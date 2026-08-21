@@ -15,8 +15,11 @@ import {
   resolveDrawingSheetText,
   incrementLabel,
   translateItem,
+  bitmapDisplayPPI,
+  bitmapScaleForPPI,
   type WksSheet,
   type WksText,
+  type WksBitmap,
   type DsTextItem,
   type DsLineItem,
 } from '@ziroeda/common/src/drawing_sheet/index.js';
@@ -317,6 +320,53 @@ describe('format details (upstream parser/writer parity)', () => {
     expect(back.items).toHaveLength(1); // the payload-less bitmap is not saved
     expect((back.items[0] as { pngB64: string }).pngB64).toBe(png64);
     expect((back.items[0] as { scale: number }).scale).toBe(2);
+  });
+
+  it('carries a Bitmap DPI edit through the file, because DPI is the scale', () => {
+    // `DS_DATA_ITEM_BITMAP::SetPPI` (ds_data_item.cpp:781-785) writes the SCALE:
+    // `SetScale( m_ImageBitmap->GetPPI() / aBitmapPPI )`. The file has no DPI
+    // token at all (ds_data_model_io.cpp:405-430), so an edit stored anywhere
+    // else is discarded by the next load - which is what the panel used to do.
+    const png64 = 'iVBORw0KGgoAAAANSUhEUg==';
+    const item: WksBitmap = {
+      type: 'bitmap',
+      name: '',
+      option: 'normal',
+      repeat: 1,
+      incrx: 0,
+      incry: 0,
+      incrlabel: 1,
+      comment: '',
+      pos: { x: 10, y: 10, corner: 'ltcorner' },
+      scale: 1,
+      pngB64: png64,
+      ppi: 300,
+    };
+    // The panel opens on a 300 ppi image at scale 1 and shows 300.
+    expect(bitmapDisplayPPI(item)).toBe(300);
+
+    // The user types 150 - "print it at half the resolution, so twice the size".
+    const edited: WksBitmap = { ...item, scale: bitmapScaleForPPI(item, 150) };
+    expect(edited.scale).toBe(2);
+
+    const back = parseDrawingSheet(
+      serializeDrawingSheet({ ...defaultDrawingSheet(), items: [edited] }),
+    );
+    const reloaded = back.items[0] as WksBitmap;
+    // The reader takes `ppi` back from the image, not the file...
+    expect(reloaded.ppi).toBe(300);
+    // ...so only the scale can carry the edit, and it does.
+    expect(reloaded.scale).toBe(2);
+    expect(bitmapDisplayPPI(reloaded)).toBe(150);
+  });
+
+  it('reports a scaled image DPI as native/scale, not the raw image resolution', () => {
+    // GetPPI() is `m_ImageBitmap->GetPPI() / m_ImageBitmap->GetScale()`
+    // (ds_data_item.cpp:772-778). A `(scale 4)` 1200 ppi image prints at 300.
+    expect(bitmapDisplayPPI({ ppi: 1200, scale: 4 })).toBe(300);
+    expect(bitmapDisplayPPI({ ppi: 600, scale: 0.5 })).toBe(1200);
+    // The `return 300` fallback for an item with no image at all (:777).
+    expect(bitmapDisplayPPI({ ppi: 0, scale: 1 })).toBe(300);
   });
 
   it('converts legacy hex pngdata to base64 on read', () => {

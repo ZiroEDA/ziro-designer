@@ -18,6 +18,7 @@
  * before calling; everything here is in schematic internal units.
  */
 
+import { bitmapSizeIu, schIUScale } from '@ziroeda/common';
 import type { DsDrawItem, DsTextItem, DsBitmapItem } from '@ziroeda/common';
 import { KICAD_FONT_NAME, layoutText } from '@ziroeda/common/src/font/stroke_font.js';
 
@@ -25,9 +26,6 @@ import { KICAD_FONT_NAME, layoutText } from '@ziroeda/common/src/font/stroke_fon
 const ITALIC_TILT = 1 / 8;
 import { getBitmapImage } from './wksBitmap.js';
 import { brightness, parseColor4d } from '../../render/color4d.js';
-
-/** IU per inch: 25.4 mm/in · 10000 IU/mm. */
-const IU_PER_INCH = 254000;
 
 /*
  * The three colours the drawing sheet is painted from are COLOR_SETTINGS
@@ -315,8 +313,8 @@ function drawBitmap(
   const decoded = d.pngB64 ? getBitmapImage(d.pngB64) : null;
   const pxW = decoded?.w ?? (d.pxW && d.pxW > 0 ? d.pxW : d.ppi);
   const pxH = decoded?.h ?? (d.pxH && d.pxH > 0 ? d.pxH : d.ppi);
-  const w = (pxW / d.ppi) * IU_PER_INCH * d.scale;
-  const h = (pxH / d.ppi) * IU_PER_INCH * d.scale;
+  const w = bitmapSizeIu(schIUScale, pxW, d.ppi, d.scale);
+  const h = bitmapSizeIu(schIUScale, pxH, d.ppi, d.scale);
   const x = d.at.x - w / 2;
   const y = d.at.y - h / 2;
   if (decoded) {

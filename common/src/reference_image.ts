@@ -37,3 +37,23 @@ import type { EdaIuScale } from './eda_units.js';
 export function pixelSizeIu(aIuScale: EdaIuScale, aPPI: number): number {
   return aIuScale.milsToIU(1000) / aPPI;
 }
+
+/**
+ * `BITMAP_BASE::GetSize()` (common/bitmap_base.cpp:416-427): the internal units
+ * an image spans along one axis, `pixels * GetScalingFactor()`, where
+ * `GetScalingFactor()` is `m_pixelSizeIu * m_scale` (include/bitmap_base.h).
+ *
+ * The `* scale` is the half of it that is easy to drop, and dropping it is
+ * invisible until someone scales an image: a caller that sizes a bitmap by
+ * `pixels / ppi` alone agrees with this one only while the scale is 1. That is
+ * exactly how the drawing sheet came to draw a scaled image at one size and
+ * hit-test it at another.
+ */
+export function bitmapSizeIu(
+  aIuScale: EdaIuScale,
+  aPixels: number,
+  aPPI: number,
+  aScale: number,
+): number {
+  return aPixels * pixelSizeIu(aIuScale, aPPI) * aScale;
+}

@@ -9,10 +9,11 @@
  * KiCad's DS_DATA_ITEM stores offsets inward from each page corner.
  */
 
-import { iuToMM } from '../eda_units.js';
+import { iuToMM, schIUScale } from '../eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
+import { bitmapSizeIu } from '../reference_image.js';
 import { interline, layoutText } from '../font/stroke_font.js';
-import type { WksItem, WksPoint, WksCorner } from './types.js';
+import type { WksBitmap, WksItem, WksPoint, WksCorner } from './types.js';
 import type { DsDrawItem } from './layout.js';
 
 export interface WksBBox {
@@ -87,13 +88,12 @@ export function drawItemBBox(d: DsDrawItem): WksBBox {
       return { minX, minY, maxX, maxY };
     }
     case 'bitmap': {
-      // IU per inch = 25.4 mm/in · 10000 IU/mm. Size = pixels / ppi (inch) · scale.
-      // Fall back to a 1-inch square when the image hasn't been decoded yet, so a
+      // `BITMAP_BASE::GetSize()`, from the one module that ports it. Fall back
+      // to a 1-inch square when the image hasn't been decoded yet, so a
       // freshly-placed / not-yet-loaded bitmap is still visible and pickable.
-      const IU_PER_INCH = 254000;
       const px = (n: number | undefined): number => (n && n > 0 ? n : d.ppi);
-      const halfW = ((px(d.pxW) / d.ppi) * IU_PER_INCH * d.scale) / 2;
-      const halfH = ((px(d.pxH) / d.ppi) * IU_PER_INCH * d.scale) / 2;
+      const halfW = bitmapSizeIu(schIUScale, px(d.pxW), d.ppi, d.scale) / 2;
+      const halfH = bitmapSizeIu(schIUScale, px(d.pxH), d.ppi, d.scale) / 2;
       return {
         minX: d.at.x - halfW,
         minY: d.at.y - halfH,
@@ -198,4 +198,43 @@ export function replaceItem<T extends { items: WksItem[] }>(
   const items = sheet.items.slice();
   items[index] = next;
   return { ...sheet, items };
+}
+
+/**
+ * `DS_DATA_ITEM_BITMAP::GetPPI()` — `common/drawing_sheet/ds_data_item.cpp:772-778`:
+ *
+ * ```cpp
+ * return m_ImageBitmap->GetPPI() / m_ImageBitmap->GetScale();
+ * ```
+ *
+ * The number the Properties panel's "Bitmap DPI:" field shows is *derived*, not
+ * stored. `WksBitmap.ppi` is the image's own resolution — `BITMAP_BASE::GetPPI()`,
+ * read out of the PNG's pHYs chunk — and the file records only `(scale …)`
+ * (`ds_data_model_io.cpp:405-430`); no DPI is ever written. Show `ppi` raw and
+ * the field is right only while the scale is 1.
+ *
+ * Upstream falls back to 300 when the item has no image at all (`:777`).
+ */
+export function bitmapDisplayPPI(item: Pick<WksBitmap, 'ppi' | 'scale'>): number {
+  if (!item.ppi || !item.scale) return 300;
+  return item.ppi / item.scale;
+}
+
+/**
+ * `DS_DATA_ITEM_BITMAP::SetPPI()` — `ds_data_item.cpp:781-785`:
+ *
+ * ```cpp
+ * m_ImageBitmap->SetScale( (double) m_ImageBitmap->GetPPI() / aBitmapPPI );
+ * ```
+ *
+ * Editing the DPI moves the **scale**, which is the field that gets serialized.
+ * Returns the new scale; the caller patches `scale`, never `ppi`. Writing `ppi`
+ * instead resizes the image on screen and then loses the change on the next
+ * load, because the reader takes `ppi` back from the PNG.
+ *
+ * A DPI of zero would divide by zero upstream too; the panel refuses it before
+ * calling, the same way `msg.ToLong()` gates `SetPPI` at `properties_frame.cpp:634-637`.
+ */
+export function bitmapScaleForPPI(item: Pick<WksBitmap, 'ppi'>, aBitmapPPI: number): number {
+  return item.ppi / aBitmapPPI;
 }
