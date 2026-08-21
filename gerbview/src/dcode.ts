@@ -95,7 +95,8 @@ export class D_CODE {
    * treat it as read-only.
    */
   getFlashShapes(): AmResolvedShape[] {
-    return (this.flashShapeCache ??= this.buildFlashShapes());
+    if (this.flashShapeCache === null) this.flashShapeCache = this.buildFlashShapes();
+    return this.flashShapeCache;
   }
 
   private buildFlashShapes(): AmResolvedShape[] {

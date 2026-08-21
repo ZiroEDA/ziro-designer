@@ -70,6 +70,7 @@ import {
 import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
+import { DockSash } from '../../ui/DockSash.js';
 import { itemInfoRows } from './dialogs.js';
 import { SingleChoiceDialog } from '../../ui/dialog_single_choice.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
@@ -118,6 +119,21 @@ type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'showLayerManager']);
 
+/**
+ * The layers manager's starting width.
+ *
+ * KiCad does not write one: the pane takes
+ * `.BestSize( m_LayersManager->GetBestSize() )` (`gerbview_frame.cpp:172`) and
+ * `ReFillLayerWidget` recomputes it as the widget's own best size plus 5 px of
+ * margin (`:382-387`), so the number is whatever GERBER_LAYER_WIDGET's rows
+ * need. 240 is that measurement for our rows, and it is the value the pane has
+ * always opened at - this only names it.
+ */
+const LAYERS_PANE_BEST_WIDTH = 240;
+
+/** The centre pane's floor, i.e. how much canvas the sash must leave behind. */
+const CANVAS_MIN_WIDTH = 200;
+
 /** A stable, readable layer name from the image metadata / file name. */
 function layerNameOf(image: GERBER_FILE_IMAGE, fileName: string): string {
   if (image.layerName) return image.layerName;
@@ -157,6 +173,12 @@ export function GerberViewer({
     setActiveLayerState(next);
   }, []);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  // Layers Manager pane width, and the live upper bound for its sash. wxAUI
+  // stops a sash where the centre pane reaches its own minimum, so the cap is
+  // read off the frame each time rather than being a literal.
+  const [dockWidth, setDockWidth] = useState(LAYERS_PANE_BEST_WIDTH);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const dockMax = (bodyRef.current?.clientWidth ?? 0) - CANVAS_MIN_WIDTH;
   const [activeTool, setActiveTool] = useState<'select' | 'measure' | 'zoom'>('select');
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
@@ -1001,7 +1023,7 @@ export function GerberViewer({
           separators. */}
       <Toolbar entries={GBR_TOP_AUX_TOOLBAR} orientation="horizontal" controls={auxControls} />
 
-      <div className="ze-body">
+      <div className="ze-body" ref={bodyRef}>
         {/* The LEFT bar now heads with selectionTool and measureTool
             (`toolbars_gerber.cpp:51-52`), so it needs the active tool as well
             as the toggle set: those two are a radio pair, the rest are checks. */}
@@ -1035,7 +1057,29 @@ export function GerberViewer({
         </div>
 
         {toggles.has('showLayerManager') && (
-          <div className="ze-rightdock ze-gbr-dock">
+          <div
+            className="ze-rightdock ze-gbr-dock"
+            style={{ width: dockWidth, minWidth: dockWidth, position: 'relative' }}
+          >
+            {/* wxAUI puts a sash between every docked pane and the centre one,
+                so KiCad's layers manager has always been draggable; ours was a
+                fixed strip. MinSize is the pane's own, FromDIP( 80 )
+                (`gerbview_frame.cpp:171`); the upper bound is wxAUI's, which
+                is wherever the centre pane hits its own minimum, so it is
+                measured off the frame rather than being a number of ours. */}
+            <DockSash
+              edge="left"
+              width={dockWidth}
+              min={80}
+              max={Math.max(80, dockMax)}
+              onResize={setDockWidth}
+            />
+            {/* EDA_PANE().Palette() sets CaptionVisible( true ) and the frame
+                names it: .Caption( _( "Layers Manager" ) )
+                (`gerbview_frame.cpp:170`). The base EDA_PANE constructor turns
+                the gripper and the close button off, so the caption is a plain
+                titled strip. We drew no caption at all. */}
+            <div className="ze-panel-header">Layers Manager</div>
             <LayerManager
               layers={layerInfos}
               activeLayer={activeLayer}

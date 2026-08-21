@@ -7586,3 +7586,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* wxTE_MULTILINE: it wraps and scrolls rather than growing. */
   overflow: auto;
 }
+
+/* wxAUI's dock sash: 5px on GTK (wxAUI_DOCKART_SASH_SIZE), overlaying the
+   pane's edge so that making a dock resizable does not shift its contents.
+   See ui/DockSash.tsx. */
+.ze-dock-sash {
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}

@@ -84,7 +84,8 @@ export class GERBER_DRAW_ITEM {
    * must treat it as read-only.
    */
   resolveFlashShapes(): AmResolvedShape[] {
-    return (this.absoluteShapeCache ??= this.buildFlashShapes());
+    if (this.absoluteShapeCache === null) this.absoluteShapeCache = this.buildFlashShapes();
+    return this.absoluteShapeCache;
   }
 
   private buildFlashShapes(): AmResolvedShape[] {
