@@ -455,3 +455,73 @@ void main() {
   fragColor = vec4(v_color.rgb, alpha);
 }
 `;
+
+/**
+ * The full-screen quad the difference composite draws.
+ *
+ * KiCad's `xor_diff_vert.glsl` is fixed-function GLSL 120 — it passes
+ * `gl_MultiTexCoord0` through and writes `gl_Vertex` straight to
+ * `gl_Position`, because `OPENGL_COMPOSITOR` feeds it a quad already in clip
+ * space. WebGL2 has neither builtin, so the quad is generated from
+ * `gl_VertexID` instead of being uploaded: same two triangles, no buffer, no
+ * attribute state to disturb.
+ */
+export const XOR_DIFF_VERT = /* glsl */ `#version 300 es
+out vec2 v_uv;
+void main() {
+  // (0,0) (2,0) (0,2) in UV, which is the standard oversized triangle pair
+  // covering the clip cube exactly once.
+  v_uv = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  gl_Position = vec4(v_uv * 2.0 - 1.0, 0.0, 1.0);
+}
+`;
+
+/**
+ * GerbView's XOR mode, `common/gal/shaders/xor_diff_frag.glsl` verbatim:
+ *
+ *     vec3 diff = abs( srcColor.rgb - dstColor.rgb );
+ *     float alpha = max( srcColor.a, dstColor.a );
+ *     gl_FragColor = vec4( diff, alpha );
+ *
+ * Where only one layer has ink, the difference is that layer's colour; where
+ * both have the same ink it cancels to black; where they differ you see by how
+ * much. That is the whole point of the mode - it is a visual diff of two
+ * gerbers, so "identical cancels" is the signal, not a side effect.
+ *
+ * It is a composite *pass*, not a blend equation. `abs(a - b)` is
+ * `max(a,b) - min(a,b)` and GL can do either of those alone but not both into
+ * one buffer, which is why upstream renders the layer into a temp colour target
+ * and runs this over both textures rather than setting a blend mode.
+ */
+export const XOR_DIFF_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_src;
+uniform sampler2D u_dst;
+out vec4 fragColor;
+void main() {
+  vec4 srcColor = texture(u_src, v_uv);
+  vec4 dstColor = texture(u_dst, v_uv);
+  vec3 diff = abs(srcColor.rgb - dstColor.rgb);
+  float alpha = max(srcColor.a, dstColor.a);
+  fragColor = vec4(diff, alpha);
+}
+`;
+
+/**
+ * Straight copy of one texture onto the bound target, for putting the
+ * accumulated result back on the canvas.
+ *
+ * `OPENGL_COMPOSITOR::DrawBuffer` does this with the same quad and a plain
+ * textured draw; the alpha is carried through unchanged so an artefact-free
+ * transparent background still composites over whatever is beneath the canvas.
+ */
+export const BLIT_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_src;
+out vec4 fragColor;
+void main() {
+  fragColor = texture(u_src, v_uv);
+}
+`;

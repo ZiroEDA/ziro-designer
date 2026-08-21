@@ -306,3 +306,226 @@ export function dcodeListLines(
 
 /** `_( "D Codes" )`, the dialog's caption (`gerbview_inspection_tool.cpp:145`). */
 export const DCODE_DIALOG_CAPTION = 'D Codes';
+
+/**
+ * `m_IsX2_file`, which is set only once a `%TF` file function has parsed
+ * (`gerbview/rs274x.cpp:390-397`) - our `fileFunction != null`.
+ *
+ * Named because it is now asked in two places, the frame title and the message
+ * panel's Format row, and a predicate restated at each call site is one that
+ * can disagree with itself.
+ */
+export function isX2File(image: GERBER_FILE_IMAGE | null): boolean {
+  return image?.fileFunction != null;
+}
+
+/**
+ * Status bar field 0, `GERBVIEW_FRAME::UpdateTitleAndInfo`
+ * (`gerbview/gerbview_frame.cpp:659-700`):
+ *
+ *     if( gerber == nullptr )
+ *         SetStatusText( wxEmptyString, 0 );                          // :668
+ *     else
+ *         status.Printf( _( "Image name: '%s'  Layer name: '%s'" ),   // :696
+ *                        gerber->m_ImageName,
+ *                        gerber->GetLayerParams().m_LayerName );
+ *         SetStatusText( status, 0 );                                 // :699
+ *
+ * Two spaces between the two halves, and single quotes around each value.
+ *
+ * Ours wrote `Ready, open a Gerber, drill, job or zip file` here and then used
+ * the field as an activity log - `Loaded archive ...`, `Cleared all layers`,
+ * `Exported 3 layer(s) ...`. Upstream writes none of those anywhere: field 0
+ * carries the active layer's image identity and nothing else, so with no file
+ * open GerbView's is **blank**, which is what Akshay's side-by-side showed.
+ */
+export function gerbviewStatusField0(image: GERBER_FILE_IMAGE | null): string {
+  if (!image) return '';
+  return `Image name: '${image.imageName}'  Layer name: '${image.layerName}'`;
+}
+
+/**
+ * The message panel, `GERBER_FILE_IMAGE::DisplayImageInfo`
+ * (`gerbview/gerber_file_image.cpp:395-434`), which begins with
+ * `ClearMsgPanel()` - so with no image on the active layer the panel is empty,
+ * not showing a row of its own.
+ *
+ * Upstream's order is Format, Image name (only when non-empty, because `%IN` is
+ * deprecated and "probably never found"), Graphic layer, Img Rot., Polarity,
+ * then the three justification rows.
+ *
+ * The justification rows are **not** emitted here: they come from `%IJ`, which
+ * our parser does not model, and inventing a "Normal" for a command we never
+ * read would be a confident-looking lie. That is a known gap, not a decision.
+ *
+ * `Graphic layer` is `m_GraphicLayer + 1` (`:411`), i.e. one-based, which is
+ * the number the layers manager shows too.
+ *
+ * We had a permanent `Layers <count>` row here that upstream has no equivalent
+ * for anywhere.
+ */
+export function gerbviewImageInfoRows(
+  image: GERBER_FILE_IMAGE | null,
+  graphicLayer: number,
+): { upper: string; lower: string }[] {
+  if (!image) return [];
+  const rows = [{ upper: 'Format', lower: isX2File(image) ? 'X2' : 'X1' }];
+  if (image.imageName !== '') rows.push({ upper: 'Image name', lower: image.imageName });
+  rows.push({ upper: 'Graphic layer', lower: String(graphicLayer + 1) });
+  rows.push({ upper: 'Img Rot.', lower: String(image.imageRotation) });
+  rows.push({ upper: 'Polarity', lower: image.imageNegative ? 'Negative' : 'Normal' });
+  return rows;
+}
+
+/**
+ * `LAYER_WIDGET::GetBestSize` + `GERBVIEW_FRAME::ReFillLayerWidget`, the reason
+ * KiCad's layers pane changes width when you open a set of gerbers.
+ *
+ *     wxSize LAYER_WIDGET::GetBestSize() const
+ *     {
+ *         wxArrayInt widths = m_LayersFlexGridSizer->GetColWidths();
+ *         int totWidth = 0;
+ *         for( ... ) totWidth += widths[i];
+ *         totWidth += 15;             // "Account for the parent's frame"
+ *         ...                         // same again for the Render tab
+ *         return wxSize( max( renderz.x, layerz.x ), ... );
+ *     }                                        gerbview/widgets/layer_widget.cpp:582
+ *
+ *     wxSize bestz = m_LayersManager->GetBestSize();
+ *     bestz.x += 5;                   // "gives a little margin"
+ *     lyrs.MinSize( bestz );
+ *     lyrs.BestSize( bestz );
+ *     lyrs.FloatingSize( bestz );     gerbview/gerbview_frame.cpp:381-387
+ *
+ * So the pane is exactly as wide as its widest row plus 20 px of chrome, and
+ * **there is no cap on the pane**. The cap Akshay suspected is real but it is
+ * on the *name*, one level down in `GERBER_FILE_IMAGE_LIST::GetDisplayName`:
+ *
+ *     const int maxlen = 30;
+ *     if( !aFullName && filename.Length() > maxlen )
+ *         filename = filename.Left( 2 ) + "..." + filename.Right( maxlen - 5 );
+ *                                    gerbview/gerber_file_image_list.cpp:146-151
+ *
+ * and the floor is a string too: every row's label is a wxStaticText with
+ * `SetMinimumStringLength( m_smallestLayerString )` (`layer_widget.cpp:364`),
+ * which GerbView sets to the display name of a layer one past the last -
+ * "Graphic layer <max+1>" (`gerbview_frame.cpp:146-148`).
+ *
+ * Note `MinSize` is set to the same value, so once files are loaded the pane
+ * cannot be dragged narrower than its own content - the FromDIP( 80 ) floor
+ * applies only to the empty pane.
+ *
+ * Pure, and in `.ts`, so the arithmetic can be pinned without a DOM: the widths
+ * come from the caller, which measures them against the real row font.
+ */
+export function layersPaneWidth(
+  nameWidths: readonly number[],
+  smallestNameWidth: number,
+  chromeWidth: number,
+): number {
+  const widest = nameWidths.reduce((a, b) => Math.max(a, b), smallestNameWidth);
+  // 15 for the parent's frame, then ReFillLayerWidget's 5 of margin.
+  return Math.ceil(widest + chromeWidth + 15 + 5);
+}
+
+/**
+ * `GERBER_FILE_IMAGE_LIST::GetDisplayName`'s length cap
+ * (`gerbview/gerber_file_image_list.cpp:145-151`): a file name longer than 30
+ * characters keeps its first 2 and its last 25, joined by three dots.
+ *
+ * Three ASCII dots, not U+2026 - upstream writes `wxT( "..." )`.
+ *
+ * The result is 30 characters, so this is what bounds how wide the layers pane
+ * can grow.
+ */
+export function shortenLayerFileName(filename: string): string {
+  const maxlen = 30;
+  if (filename.length <= maxlen) return filename;
+  return `${filename.slice(0, 2)}...${filename.slice(filename.length - (maxlen - 5))}`;
+}
+
+/**
+ * `GERBER_FILE_IMAGE_LIST::GetDisplayName( aIdx, aNameOnly=false, aFullName=false )`
+ * (`gerbview/gerber_file_image_list.cpp:127-201`), the string in every layers
+ * manager row and the thing that decides how wide the pane grows.
+ *
+ *     <index+1> <filename, capped at 30> [ (<file function fields>) ]
+ *
+ * and, with no image on that layer, `Graphic layer <index+1>`.
+ *
+ * **Upstream's copper branch is dead code, and this reproduces that.** The
+ * source reads:
+ *
+ *     if( gerber->m_FileFunction->IsCopper() )
+ *         name.Printf( "%s (%s, %s, %s)", filename, GetFileType(),
+ *                      GetBrdLayerId(), GetBrdLayerSide() );      // :156-162
+ *     if( gerber->m_FileFunction->IsDrillFile() )
+ *         name.Printf( "%s (%s,%s,%s,%s)", ... );                 // :163-171
+ *     else
+ *         name.Printf( "%s (%s, %s)", filename, GetFileType(),
+ *                      GetBrdLayerId() );                         // :172-179
+ *
+ * There is no `else` after the copper block, so for a copper file the second
+ * `if` is false and its `else` runs, overwriting the three-field string with
+ * the two-field one. A copper layer therefore shows `(Copper, L1)`, never
+ * `(Copper, L1, Top)`. Tidying that into an if/else-if chain would produce a
+ * string KiCad never shows, so it stays.
+ *
+ * The field offsets: upstream's `m_Prms.Item( 1 )` is the file type because
+ * item 0 is the `.FileFunction` keyword itself (`X2_gerber_attributes.cpp:165`).
+ * Our parser drops that keyword, so our index 0 is upstream's item 1.
+ *
+ * The two flags, and which caller passes what - the layers manager and the
+ * layer dropdown do **not** agree, and the difference is the whole answer to
+ * "does the pane width have a cap":
+ *
+ *   GERBVIEW_LAYER_WIDGET::ReFillRender rows
+ *       GetDisplayName( layer, false, true )   gerbview_layer_widget.cpp:308
+ *       -> index prefix, and the **full, uncapped** file name
+ *   GERBER_LAYER_BOX_SELECTOR::getLayerName
+ *       GetDisplayName( aLayer )               gbr_layer_box_selector.cpp:56
+ *       -> index prefix, name capped at 30
+ *   GERBER_DRAW_ITEM's description / message panel
+ *       GetDisplayName( GetLayer(), true )     gerber_draw_item.cpp:687, 1027
+ *       -> no index, name capped at 30
+ *
+ * So the rows that size the pane are uncapped: a long file name really does
+ * widen the layers manager without limit, and the 30-character cap never
+ * applies to them. `aNameOnly` returns before the `"%d "` is prepended, so it
+ * suppresses the index, not the suffix - the parameter name is misleading and
+ * the call sites comment it as "include layer number".
+ */
+export function gerbviewLayerDisplayName(
+  image: GERBER_FILE_IMAGE | null,
+  fileName: string,
+  index: number,
+  opts: { nameOnly?: boolean; fullName?: boolean } = {},
+): string {
+  // The no-image branch ignores both flags and never carries an index prefix
+  // of its own - the "%d " is already in the string (`:196-198`).
+  if (!image) return `Graphic layer ${index + 1}`;
+
+  const filename = opts.fullName === true ? fileName : shortenLayerFileName(fileName);
+  let name = filename;
+
+  if (image.fileFunction != null) {
+    const p = image.fileFunction.split(',');
+    const fileType = p[0] ?? '';
+    const brdLayerId = p[1] ?? '';
+    // IsDrillFile(): "Plated" or "NonPlated", case-insensitively
+    // (`X2_gerber_attributes.cpp:229-234`).
+    const isDrill = /^(plated|nonplated)$/i.test(fileType);
+
+    if (isDrill) {
+      // GetDrillLayerPair() / GetLPType() / GetRouteType() are the remaining
+      // fields of the same attribute, which our parser keeps verbatim.
+      name = `${filename} (${fileType},${p[1] ?? ''},${p[2] ?? ''},${p[3] ?? ''})`;
+    } else {
+      name = `${filename} (${fileType}, ${brdLayerId})`;
+    }
+  }
+
+  // aNameOnly returns before the index is prepended (`:185-186`).
+  if (opts.nameOnly === true) return name;
+  return `${index + 1} ${name}`;
+}

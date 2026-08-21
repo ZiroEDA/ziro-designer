@@ -3,8 +3,9 @@
    variables so it matches the other editors' dark chrome. */
 
 .ze-gbr-dock {
-  width: 240px;
-  min-width: 240px;
+  /* Width is state, not CSS: the pane is sash-resizable and opens at
+     GERBER_LAYER_WIDGET's best size (see LAYERS_PANE_BEST_WIDTH). Leaving a
+     literal here as well would be a second source for the same number. */
   background: var(--panel-bg);
   border-left: 1px solid var(--chrome-border);
   display: flex;

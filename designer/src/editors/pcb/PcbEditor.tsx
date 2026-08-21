@@ -13,6 +13,7 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import { LINE_STYLE_CHOICES } from '@ziroeda/common/src/stroke_params.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
+import { DockSash } from '../../ui/DockSash.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
@@ -6703,38 +6704,6 @@ export function PcbEditor({
 
   // ----- toolbar handlers -----------------------------------------------------
 
-  // Drag the splitter on the Properties pane's right edge (KiCad's resizable
-  // AUI pane), clamped to KiCad's MinSize width of 240.
-  const startPropResize = (e: React.PointerEvent): void => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = propWidth;
-    const onMove = (ev: PointerEvent): void =>
-      setPropWidth(Math.max(240, Math.min(600, startW + (ev.clientX - startX))));
-    const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
-  // Drag the Appearance pane's left edge (the AUI dock splitter). KiCad's
-  // pane MinSize is the panel min width; clamp like the Properties pane.
-  const startAppResize = (e: React.PointerEvent): void => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = appWidth;
-    const onMove = (ev: PointerEvent): void =>
-      setAppWidth(Math.max(200, Math.min(500, startW - (ev.clientX - startX))));
-    const onUp = (): void => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
   const onLeftToggle = (id: string): void => {
     // The high-contrast button maps onto the Layer Display Options mode
     // (ACTIONS::highContrastMode toggles Normal <-> Dim).
@@ -7677,19 +7646,9 @@ export function PcbEditor({
                 )}
               </div>
             </div>
-            <div
-              onPointerDown={startPropResize}
-              title="Resize"
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: 5,
-                height: '100%',
-                cursor: 'col-resize',
-                zIndex: 2,
-              }}
-            />
+            {/* Clamps unchanged: KiCad's PCB_PROPERTIES_PANEL MinSize 240,
+                and 600 past which the canvas suffers. */}
+            <DockSash edge="right" width={propWidth} min={240} max={600} onResize={setPropWidth} />
           </div>
         )}
 
@@ -7812,19 +7771,10 @@ export function PcbEditor({
             window edge with the toolbar between it and the canvas. */}
         {showAppearance && (
           <div className="ze-rightdock" style={{ width: appWidth, position: 'relative' }}>
-            <div
-              onPointerDown={startAppResize}
-              title="Resize"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: 5,
-                height: '100%',
-                cursor: 'col-resize',
-                zIndex: 2,
-              }}
-            />
+            {/* The same sash GerbView's layers pane uses; wxAUI gives every
+                dock one, so it belongs in ui/ rather than here. The clamps are
+                unchanged: MinSize 200, and 500 past which the canvas suffers. */}
+            <DockSash edge="left" width={appWidth} min={200} max={500} onResize={setAppWidth} />
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
               {/* tabs, like APPEARANCE_CONTROLS' notebook */}

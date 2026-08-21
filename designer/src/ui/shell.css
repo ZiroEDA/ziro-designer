@@ -71,6 +71,23 @@
   --accent-fill-hover-checked: #742a10;
   --panel-bg: #272727; /* docked pane body (project tree, properties...) */
   --panel-header: #2e2e2e; /* wxAUI pane caption bar */
+  /* wxAUI's dock sash, the bar between a docked pane and the canvas. KiCad
+     never states either value: it adds the pane with EDA_PANE().Palette() and
+     wxAUI draws the sash from wxAuiDefaultDockArt. Measured by asking that
+     dock art on this machine (qa/probes/aui_sash_probe.cpp):
+       GetMetric( wxAUI_DOCKART_SASH_SIZE )   -> 5
+       GetColour( wxAUI_DOCKART_SASH_COLOUR ) -> rgb(55, 55, 55)
+     The colour is wxSYS_COLOUR_3DFACE, which is why it equals --content-bg;
+     they are the same system colour reached for two different reasons, not one
+     value with two names.
+     Not to be confused with --chrome-border on .ze-sash: that is a
+     wxSplitterWindow sash inside a dialog, a different widget that GTK draws
+     differently. */
+  --aui-sash: #373737;
+  --aui-sash-size: 5px;
+  /* EDA_MSG_PANEL's background, wxSYS_COLOUR_BTNFACE, measured by
+     qa/probes/aui_sash_probe.cpp. See .ze-msgpanel. */
+  --msgpanel-bg: #373737;
   /* The frame background a docked canvas or notebook sits on. *Lighter* than
      the panes - which is the relationship KiCad has, and which we had
      inverted: our tree pane was lighter than the launcher beside it. */
@@ -1484,12 +1501,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    line high. Items are packed left-to-right, no fixed columns, no separators
    - offset from the left by ~one character and spaced by ~one character plus
    the item padding (updateItemPos: m_last_x += textExtent + m_fontSize.x). */
+/* EDA_MSG_PANEL is a wxPanel, not part of the status bar, and it does not look
+   like one: it paints wxSYS_COLOUR_BTNFACE while the status bar below it is a
+   KISTATUSBAR on --chrome-bg. Akshay caught the two reading as one strip.
+
+   Both numbers are wx's own (qa/probes/aui_sash_probe.cpp):
+     SetBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE ) )
+                                          common/widgets/msgpanel.cpp:51
+       -> rgb(55, 55, 55)
+     DoGetBestSize() = wxSize( wxDefaultCoord, 2 * m_fontSize.y )   :78
+     m_fontSize = GetTextExtent( "W" )                              :72
+       -> 14 x 18, so 36
+   Corroborated by sampling a real GerbView capture down x=400: a 1px rule at
+   y=1140 then rgb(55,55,55) from 1141 to 1176 - 36 rows - and rgb(44,44,44)
+   from 1177, the status bar. Two methods that share no step.
+
+   The colour equals --content-bg and --aui-sash because GTK maps BTNFACE and
+   3DFACE to one colour; they are three roles, not one value with three names. */
 .ze-msgpanel {
   display: flex;
   align-items: stretch;
-  min-height: 32px;
+  min-height: 36px;
   overflow: hidden;
-  background: var(--chrome-bg);
+  background: var(--msgpanel-bg);
   border-top: 1px solid var(--chrome-border);
   color: #f0f2f4;
   font-size: 12px;
@@ -7611,4 +7645,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-family: inherit;
   /* wxTE_MULTILINE: it wraps and scrolls rather than growing. */
   overflow: auto;
+}
+
+/* wxAUI's dock sash: the bar between a docked pane and the centre one. It is
+   drawn, not invisible - KiCad's GerbView shows a solid strip there, which is
+   what Akshay caught this missing. Size and colour are wx's own; see the
+   --aui-sash tokens for the measurement.
+
+   It takes space in the layout rather than overlaying the pane, because that
+   is what wxAUI does: the sash sits *between* the panes and the dock is
+   narrower by its width. Overlaying it would leave the pane 5px wider than
+   KiCad's and put the sash on top of the caption. */
+.ze-dock-sash {
+  flex: 0 0 auto;
+  width: var(--aui-sash-size);
+  background: var(--aui-sash);
+  cursor: col-resize;
 }

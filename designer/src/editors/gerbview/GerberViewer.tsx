@@ -57,6 +57,10 @@ import {
   DCODE_DIALOG_CAPTION,
   dcodeListLines,
   gerbviewFrameTitle,
+  gerbviewImageInfoRows,
+  gerbviewLayerDisplayName,
+  gerbviewStatusField0,
+  layersPaneWidth,
   textInfoLine,
 } from './gerberAuxControls.js';
 import {
@@ -70,6 +74,7 @@ import {
 import { ZOOM_LIST, zoomChoices } from '../../ui/zoom_settings.js';
 import { GerberCanvas, type GerberCanvasController } from './GerberCanvas.js';
 import { LayerManager, renderRows, type LayerInfo } from './LayerManager.js';
+import { DockSash } from '../../ui/DockSash.js';
 import { itemInfoRows } from './dialogs.js';
 import { SingleChoiceDialog } from '../../ui/dialog_single_choice.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
@@ -81,6 +86,7 @@ import {
   polarMsg,
   scaleForZoomFactor,
   zoomFactorForScale,
+  unitsMsg,
   zoomMsg,
 } from '../../ui/status_format.js';
 import {
@@ -118,12 +124,20 @@ type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
 const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'showLayerManager']);
 
-/** A stable, readable layer name from the image metadata / file name. */
-function layerNameOf(image: GERBER_FILE_IMAGE, fileName: string): string {
-  if (image.layerName) return image.layerName;
-  if (image.fileFunction) return `${fileName} (${image.fileFunction.split(',')[0]})`;
-  return fileName;
-}
+/**
+ * The layers manager's starting width.
+ *
+ * KiCad does not write one: the pane takes
+ * `.BestSize( m_LayersManager->GetBestSize() )` (`gerbview_frame.cpp:172`) and
+ * `ReFillLayerWidget` recomputes it as the widget's own best size plus 5 px of
+ * margin (`:382-387`), so the number is whatever GERBER_LAYER_WIDGET's rows
+ * need. 240 is that measurement for our rows, and it is the value the pane has
+ * always opened at - this only names it.
+ */
+const LAYERS_PANE_BEST_WIDTH = 240;
+
+/** The centre pane's floor, i.e. how much canvas the sash must leave behind. */
+const CANVAS_MIN_WIDTH = 200;
 
 let layerIdSeq = 1;
 
@@ -157,7 +171,31 @@ export function GerberViewer({
     setActiveLayerState(next);
   }, []);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  // Layers Manager pane width, and the live upper bound for its sash. wxAUI
+  // stops a sash where the centre pane reaches its own minimum, so the cap is
+  // read off the frame each time rather than being a literal.
+  const [dockWidth, setDockWidth] = useState(LAYERS_PANE_BEST_WIDTH);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const dockMax = (bodyRef.current?.clientWidth ?? 0) - CANVAS_MIN_WIDTH;
   const [activeTool, setActiveTool] = useState<'select' | 'measure' | 'zoom'>('select');
+  /**
+   * Whether any tool has ever been pushed, which is what decides field 6.
+   *
+   * TOOLS_HOLDER's stack starts empty and only PushTool/PopTool write the
+   * field (`common/tool/tools_holder.cpp:68-74, 112`), so KiCad shows nothing
+   * there until the user picks a tool - and "Select item(s)" only once one has
+   * been popped back off. A freshly opened GerbView's field 6 is blank.
+   */
+  const [toolWasPushed, setToolWasPushed] = useState(false);
+
+  // PushTool happens when a tool is activated; after that the field keeps a
+  // value for the rest of the session, falling back to the selection tool's
+  // friendly name as the stack empties.
+  useEffect(() => {
+    if (activeTool !== 'select') setToolWasPushed(true);
+  }, [activeTool]);
+
+  const [dockMin, setDockMin] = useState(80);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
   const [status, setStatus] = useState('Ready, open a Gerber, drill, job or zip file');
@@ -198,7 +236,7 @@ export function GerberViewer({
         image,
         color: defaultLayerColor(prev.length),
         visible: true,
-        name: layerNameOf(image, fileName),
+        name: '',
         ...(image.fileFunction ? { function: image.fileFunction } : {}),
       };
       return [...prev, next];
@@ -437,12 +475,23 @@ export function GerberViewer({
   }, []);
 
   const exportToPcb = useCallback(() => {
-    const visible = layers.filter((l) => l.visible && l.image.items.length > 0);
+    // Keep each layer's own index: GetDisplayName is indexed, and filtering
+    // would otherwise renumber them.
+    const visible = layers
+      .map((l, i) => ({ layer: l, index: i }))
+      .filter(({ layer }) => layer.visible && layer.image.items.length > 0);
     if (visible.length === 0) {
       setStatus('Nothing to export, no visible layers with content');
       return;
     }
-    const text = exportLayersToPcb(visible.map((l) => ({ image: l.image, name: l.name })));
+    const text = exportLayersToPcb(
+      visible.map(({ layer, index }) => ({
+        image: layer.image,
+        name: gerbviewLayerDisplayName(layer.image, layer.image.fileName, index, {
+          nameOnly: true,
+        }),
+      })),
+    );
     const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
     const a = document.createElement('a');
     a.href = url;
@@ -660,12 +709,54 @@ export function GerberViewer({
   // ---- layer manager info ------------------------------------------------
   const layerInfos: LayerInfo[] = layers.map((l, i) => ({
     index: i,
-    name: l.name,
+    // GetDisplayName is indexed, so the row's label depends on where the layer
+    // sits, not only on the file. Derived here rather than frozen at load.
+    // The layers manager passes aFullName=true, so these are NOT capped
+    // (`gerbview_layer_widget.cpp:308`) - which is why a long file name widens
+    // the pane without limit.
+    name: gerbviewLayerDisplayName(l.image, l.image.fileName, i, { fullName: true }),
     color: l.color,
     visible: l.visible,
     hasContent: l.image.items.length > 0,
     ...(l.function ? { function: l.function } : {}),
   }));
+
+  /**
+   * `GERBVIEW_FRAME::ReFillLayerWidget` (`gerbview_frame.cpp:370-395`): every
+   * time the layer list is rebuilt, the pane is resized to its own content.
+   *
+   * The widths are measured against the row's real font rather than guessed,
+   * which is the browser's version of asking the flex sizer for its column
+   * widths. The chrome - checkbox, swatch, indicators, padding - is measured
+   * off a live row as (row width - name width), so it stays right if the row
+   * ever changes shape.
+   *
+   * Upstream also sets MinSize to this value, so once files are loaded the pane
+   * cannot be dragged narrower than its content; FromDIP( 80 ) is the empty
+   * pane's floor only. That is why `dockMin` moves with the layers.
+   */
+  useEffect(() => {
+    const list = document.querySelector('.ze-gbr-layer-list');
+    const nameEl = list?.querySelector('.ze-gbr-name');
+    const rowEl = nameEl?.closest('.ze-gbr-layer-row');
+    if (!list || !nameEl || !rowEl) return;
+
+    const cv = document.createElement('canvas');
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    const cs = getComputedStyle(nameEl);
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+
+    const chrome = rowEl.getBoundingClientRect().width - nameEl.getBoundingClientRect().width;
+    const widths = layerInfos.map((l) => ctx.measureText(l.name).width);
+    // m_smallestLayerString: the display name of a layer one past the last,
+    // which GerbView passes to SetSmallestLayerString (`gerbview_frame.cpp:146`).
+    const smallest = ctx.measureText(`Graphic layer ${GERBER_DRAWLAYERS_COUNT + 1}`).width;
+
+    const want = layersPaneWidth(widths, smallest, chrome);
+    setDockMin(want);
+    setDockWidth(want);
+  }, [layerInfos]);
 
   // The Items page, GERBER_LAYER_WIDGET::ReFillRender's seven rows. Drawing
   // Sheet and Page Limits are the two we had no toggle for at all;
@@ -787,7 +878,12 @@ export function GerberViewer({
       <Combo
         ariaLabel="Active layer"
         value={String(activeLayer)}
-        options={layers.map((l, i) => ({ value: String(i), label: l.name }))}
+        // GERBER_LAYER_BOX_SELECTOR takes GetDisplayName's defaults, so the
+        // dropdown DOES cap the name at 30 (`gbr_layer_box_selector.cpp:56`).
+        options={layers.map((l, i) => ({
+          value: String(i),
+          label: gerbviewLayerDisplayName(l.image, l.image.fileName, i),
+        }))}
         onChange={(v) => setActiveLayer(Number(v))}
       />
     ),
@@ -1001,7 +1097,7 @@ export function GerberViewer({
           separators. */}
       <Toolbar entries={GBR_TOP_AUX_TOOLBAR} orientation="horizontal" controls={auxControls} />
 
-      <div className="ze-body">
+      <div className="ze-body" ref={bodyRef}>
         {/* The LEFT bar now heads with selectionTool and measureTool
             (`toolbars_gerber.cpp:51-52`), so it needs the active tool as well
             as the toggle set: those two are a radio pair, the rest are checks. */}
@@ -1035,24 +1131,50 @@ export function GerberViewer({
         </div>
 
         {toggles.has('showLayerManager') && (
-          <div className="ze-rightdock ze-gbr-dock">
-            <LayerManager
-              layers={layerInfos}
-              activeLayer={activeLayer}
-              onSetActive={setActiveLayer}
-              onToggleVisible={toggleVisible}
-              onSetColor={setColor}
-              onShowAll={showAll}
-              onHideAll={hideAll}
-              onHideAllButActive={hideAllButActive}
-              rows={itemRows}
-              onDelete={deleteLayer}
-              onMoveUp={moveUp}
-              onMoveDown={moveDown}
-              renderToggles={renderToggles}
-              onRenderToggle={onRenderToggle}
+          <>
+            {/* wxAUI puts a sash between every docked pane and the centre one,
+                so KiCad's layers manager has always been draggable; ours was a
+                fixed strip with no bar at all. It is a sibling of the pane
+                because that is where wxAUI puts it - the canvas gives up the
+                5px, not the pane. MinSize is the pane's own, FromDIP( 80 )
+                (`gerbview_frame.cpp:171`); the upper bound is wxAUI's, which
+                is wherever the centre pane hits its own minimum, so it is
+                measured off the frame rather than being a number of ours. */}
+            <DockSash
+              edge="left"
+              width={dockWidth}
+              min={dockMin}
+              max={Math.max(dockMin, dockMax)}
+              onResize={setDockWidth}
             />
-          </div>
+            <div
+              className="ze-rightdock ze-gbr-dock"
+              style={{ width: dockWidth, minWidth: dockWidth }}
+            >
+              {/* EDA_PANE().Palette() sets CaptionVisible( true ) and the frame
+                names it: .Caption( _( "Layers Manager" ) )
+                (`gerbview_frame.cpp:170`). The base EDA_PANE constructor turns
+                the gripper and the close button off, so the caption is a plain
+                titled strip. We drew no caption at all. */}
+              <div className="ze-panel-header">Layers Manager</div>
+              <LayerManager
+                layers={layerInfos}
+                activeLayer={activeLayer}
+                onSetActive={setActiveLayer}
+                onToggleVisible={toggleVisible}
+                onSetColor={setColor}
+                onShowAll={showAll}
+                onHideAll={hideAll}
+                onHideAllButActive={hideAllButActive}
+                rows={itemRows}
+                onDelete={deleteLayer}
+                onMoveUp={moveUp}
+                onMoveDown={moveDown}
+                renderToggles={renderToggles}
+                onRenderToggle={onRenderToggle}
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -1062,7 +1184,11 @@ export function GerberViewer({
         testId="gbr-message-panel"
         items={[
           ...itemInfoRows(picked, unit),
-          { upper: 'Layers', lower: String(layers.length) },
+          // DisplayImageInfo's rows for the active layer, and nothing when that
+          // layer has no image - upstream opens with ClearMsgPanel(). The
+          // `Layers <count>` row that used to sit here permanently has no
+          // upstream equivalent anywhere.
+          ...(picked ? [] : gerbviewImageInfoRows(activeImage, activeLayer)),
           ...(highlight.mode !== 'none'
             ? [{ upper: 'Highlight', lower: `${highlight.mode} ${highlight.value}` }]
             : []),
@@ -1075,22 +1201,35 @@ export function GerberViewer({
       <KiStatusBar
         testIds={{ message: 'gbr-status-msg', coords: 'gbr-coords', tool: 'gbr-tool-msg' }}
         fields={{
-          message: status,
+          // UpdateTitleAndInfo: the active layer's image identity, or blank.
+          // Never an activity log - see gerbviewStatusField0.
+          message: gerbviewStatusField0(activeImage),
           zoom: zoomMsg(zoomFactorForScale(scale, dpr, IU_PER_MM)),
           coords: coordText,
           deltas: deltaText,
           // GERBVIEW_FRAME::DisplayGridMsg (gerbview_frame.cpp:948) prints both
           // axes as "grid X %s  Y %s", not GRID::MessageText's collapsed form.
           grid: `grid X ${fmtCoord(gridIU)}  Y ${fmtCoord(gridIU)}`,
-          units: unit === 'in' ? 'inches' : unitLabel,
-          // EDA_DRAW_FRAME::PushTool writes the action's FriendlyName into the
-          // tool pane, so the string is the action's, not one of ours.
+          // EDA_DRAW_FRAME::DisplayUnitsMsg is one function in common/ that
+          // writes field 5 for all thirteen frames, so the mapping is asked
+          // for, not restated. This site had its own `in -> inches` ternary
+          // falling through to the toolbar's abbreviation, which prints the
+          // wrong word for mils.
+          units: unitsMsg(unit),
+          // TOOLS_HOLDER::PushTool writes the pushed action's FriendlyName into
+          // field 6 (`common/tool/tools_holder.cpp:68-74`), and PopTool falls
+          // back to ACTIONS::selectionTool's - "Select item(s)" (`:112`,
+          // `common/tool/actions.cpp:1230`). Nothing is pushed at rest, so a
+          // freshly opened GerbView shows this field **empty**, which is what
+          // KiCad's does; ours read "Select item(s)" from startup.
           tool:
             activeTool === 'measure'
               ? 'Measure Tool'
               : activeTool === 'zoom'
                 ? 'Zoom to Selection Area'
-                : 'Select item(s)',
+                : toolWasPushed
+                  ? 'Select item(s)'
+                  : '',
         }}
       />
 

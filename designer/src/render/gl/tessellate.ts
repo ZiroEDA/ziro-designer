@@ -48,6 +48,35 @@ export interface Pt {
 // MIN_FACETS. Every circle in eeschema came out a triangle.
 export const PCB_ARC_TOLERANCE = 0.005 * PCB_IU_PER_MM;
 export const SCH_ARC_TOLERANCE = 0.005 * SCH_IU_PER_MM;
+/**
+ * GerbView's own arc tolerance, and it is upstream's number, not a third guess:
+ *
+ *     int arc_to_seg_error = gerbIUScale.mmToIU( 0.005 );    // Allow 5 microns
+ *     m_gal->DrawArcSegment( centre, radius, start, span, width, arc_to_seg_error );
+ *                                    gerbview/gerbview_painter.cpp:369-371
+ *
+ * The same 0.005 mm as the other two. What differs between them is only the
+ * scale that length is counted in, and here that needs saying out loud:
+ *
+ * KiCad's GerbView works in 10 nm, `gerbIUScale.IU_PER_MM == 1e5`, so upstream
+ * this constant is 500. **Our gerbview engine does not** - it declares
+ * `IU_PER_MM = 1e6`, "following KiCad's board IU" (`gerbview/src/types.ts:15`),
+ * so its geometry arrives in board units and 0.005 mm of sagitta is 5000, the
+ * same number the board uses. That is why this is written against
+ * PCB_IU_PER_MM and not against `GERB_IU_PER_MM`, which `common` also exports
+ * with upstream's 1e5 and which nothing in the gerbview path uses.
+ *
+ * Reaching for the wrong one does not fail, it just quietly changes the facet
+ * count: 1e5 here would ask for a tenth of the intended sagitta and
+ * over-tessellate every arc, and the reverse mistake is what turned every
+ * eeschema circle into a triangle. A tolerance and a radius must share a scale.
+ *
+ * The 1e6-vs-1e5 divergence is the engine's, not this file's, and it is worth
+ * settling separately: it makes our gerbview coordinates ten times upstream's
+ * everywhere, which is invisible until something is compared against a number
+ * KiCad printed.
+ */
+export const GBR_ARC_TOLERANCE = 0.005 * PCB_IU_PER_MM;
 
 const MIN_FACETS = 3;
 const MAX_FACETS = 256;

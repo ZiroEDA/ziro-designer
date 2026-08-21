@@ -198,9 +198,28 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
     // 31 px.
     expect(rule('.ze-toolbar.horizontal').height).toBeUndefined();
     expect(rule('.ze-toolbar.vertical').width).toBeUndefined();
-    // The message panel has NOT been promoted: only pl_editor was measured for
-    // it, and one frame's evidence must not move six.
-    expect(rule('.ze-msgpanel')['min-height']).toBe('32px');
+    // The message panel HAS now been promoted, and the 32 px this line used to
+    // guard was wrong. The guard was right to exist: it said one frame's
+    // measurement must not move six. What promotes it is evidence that is not
+    // one frame's.
+    //
+    //   EDA_DRAW_FRAME, shared by all six:
+    //     m_msgFrameHeight = m_messagePanel->GetBestSize().y;   :146
+    //     m_messagePanel->SetSize( m_frameSize.x, m_msgFrameHeight );  :153
+    //   EDA_MSG_PANEL, the only thing that answers it:
+    //     wxSize( wxDefaultCoord, 2 * m_fontSize.y + 0 )   msgpanel.cpp:78
+    //     m_fontSize = GetTextExtent( "W" ) in KIUI::GetControlFont  :71-72
+    //
+    // Nothing overrides that height per frame - the only SetMinSize calls on a
+    // message panel anywhere are in three dialogs, none of them a draw frame.
+    // So the height is a property of EDA_MSG_PANEL, not of pl_editor.
+    //
+    // Its value here: qa/probes/aui_sash_probe.cpp asks wx for the text extent
+    // under this theme and gets 14 x 18, so 36; and sampling a real GerbView
+    // capture down x=400 finds a 1px rule at y=1140, rgb(55,55,55) for rows
+    // 1141..1176 - 36 of them - then the status bar. A probe and a running
+    // KiCad, sharing no step.
+    expect(rule('.ze-msgpanel')['min-height']).toBe('36px');
   });
 
   it('keeps this frame scoped for the sizes it alone measured', () => {

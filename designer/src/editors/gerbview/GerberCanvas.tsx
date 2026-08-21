@@ -22,7 +22,15 @@ import {
   type GerberRenderOptions,
   type ViewTransform,
 } from './gerberRender.js';
-import { GERBER_AXES_COLOR, GERBER_CURSOR_COLOR, GERBER_GRID_COLOR } from './gerberColors.js';
+import {
+  GERBER_AXES_COLOR,
+  GERBER_BG_COLOR,
+  GERBER_CURSOR_COLOR,
+  GERBER_GRID_COLOR,
+  GERBER_NEGATIVE_COLOR,
+  highlightedLayerColor,
+} from './gerberColors.js';
+import { GerbviewGl, type GerberGlContent } from '../../render/gl/gerbview_gl.js';
 import { commonInputPrefs, wheelAction, zoomFitScale } from '../../ui/view_controls.js';
 import { drawCrosshair, drawGrid } from '../../ui/grid_cursor.js';
 import { clampViewScale, nextZoomPreset, ZOOM_LIST } from '../../ui/zoom_settings.js';
@@ -33,6 +41,50 @@ import {
   zoomAreaTarget,
   type ZoomArea,
 } from '../../ui/zoom_tool.js';
+
+/**
+ * On by default, with `?renderer=canvas` to opt out - the same shape
+ * `PcbEditor` uses, and for the reasons written there: the schematic's flag was
+ * left opt-in past the point of decision and rounds of "improvements" were
+ * measured against a renderer that was not running. A browser without WebGL2
+ * keeps working regardless, because `GerbviewGl.create` returns null and every
+ * frame falls through to the raster path.
+ */
+const GL_RENDERER =
+  typeof location !== 'undefined' &&
+  new URLSearchParams(location.search).get('renderer') !== 'canvas';
+
+/** `?perf=1` publishes per-frame cost and which path drew it, on window. */
+const PERF =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).get('perf') === '1';
+
+/**
+ * Build the GL content key from the same inputs the 2D painter takes.
+ *
+ * A fresh object every frame is deliberately fine: `GerbviewGl` compares the
+ * key field by field, not by reference. Comparing by reference here is the
+ * documented trap - it looks right, re-records the whole scene every frame,
+ * and shows up only as "still slow".
+ */
+function glContent(layers: readonly GerberLayerView[], opts: GerberRenderOptions): GerberGlContent {
+  return {
+    layers: layers.map((l) => ({
+      image: l.image,
+      color: l.color,
+      // GetColor's negative and highlight branches, resolved per layer because
+      // m_layerColorsHi is Brightened( 0.5 ) of the LAYER's own colour
+      // (`gerbview_painter.cpp:70`) - not one flat highlight for all of them.
+      negativeColor: GERBER_NEGATIVE_COLOR,
+      highlightColor: highlightedLayerColor(l.color),
+      visible: l.visible,
+    })),
+    flashedSketch: opts.flashedSketch,
+    linesSketch: opts.linesSketch,
+    polygonsSketch: opts.polygonsSketch,
+    showNegativeObjects: opts.showNegativeObjects,
+    highlightTest: opts.highlightTest ?? null,
+  };
+}
 
 export interface GerberCanvasController {
   zoomToFit: () => void;
@@ -91,6 +143,19 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
     } = props;
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    /**
+     * The GL canvas sits between the background/grid canvas and the overlay.
+     *
+     * KiCad's own split: LAYER_GERBVIEW_BACKGROUND, _GRID and _AXES render
+     * below the items, and LAYER_SELECT_OVERLAY / LAYER_GP_OVERLAY are
+     * TARGET_OVERLAY above them (`gerbview_draw_panel_gal.cpp:150-166`).
+     * Anything that must appear *over* an item - the measure line, the zoom
+     * rubber band, the crosshair - cannot go on the canvas beneath GL, or the
+     * item it marks hides it.
+     */
+    const glCanvasRef = useRef<HTMLCanvasElement>(null);
+    const overCanvasRef = useRef<HTMLCanvasElement>(null);
+    const glRef = useRef<GerbviewGl | null>(null);
     const wrapRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<ViewTransform>({ scale: 0.0005, tx: 0, ty: 0 });
     const rafRef = useRef(0);
@@ -130,7 +195,42 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const v = viewRef.current;
       const opts = optionsRef.current;
 
-      renderGerberLayers(ctx, canvas.width, canvas.height, v, layersRef.current, opts);
+      const t0 = PERF ? performance.now() : 0;
+      // Try GL first. `gl` is null on a browser without WebGL2 and after a
+      // context loss, and both fall through to the raster path below - which
+      // still draws everything, because it is the painter GerbView shipped
+      // with rather than a stub kept alive for the fallback.
+      const gl = glRef.current;
+      const glCanvas = glCanvasRef.current;
+      let drewWithGl = false;
+      if (GL_RENDERER && gl && glCanvas && !gl.isLost) {
+        // The background, grid and axes go on the canvas *below* GL, so this
+        // pass paints only those and the item pass is transparent over it.
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = opts.background || GERBER_BG_COLOR;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        gl.render(glContent(layersRef.current, opts), {
+          scale: v.scale,
+          tx: v.tx,
+          ty: v.ty,
+          flipX: opts.flipView,
+        });
+        drewWithGl = true;
+      } else {
+        renderGerberLayers(ctx, canvas.width, canvas.height, v, layersRef.current, opts);
+      }
+      if (PERF) {
+        (window as unknown as { __gbrPerf?: unknown }).__gbrPerf = {
+          path: drewWithGl ? 'gl' : 'canvas2d',
+          frameMs: +(performance.now() - t0).toFixed(2),
+          recordCount: gl?.recordCount ?? 0,
+          lastRecordMs: gl?.lastRecordMs ?? 0,
+          census: gl?.runCensus,
+          runHead: gl?.runHead,
+        };
+      }
 
       const flip = opts.flipView;
       const worldToPx = (p: Vec2): { x: number; y: number } => worldToDevice(v, flip, p.x, p.y);
@@ -165,17 +265,29 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       // `common/preview_items/selection_area.cpp:44-52` - taken through the
       // INSIDE_RECTANGLE branch, which is the mode a default-constructed
       // SELECTION_AREA carries (`:118-121`).
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // Everything from here up is drawn *over* the items, so on the GL path it
+      // goes to the overlay canvas. Leaving it on the canvas underneath would
+      // put the crosshair and the measure line behind the board.
+      //
+      // The overlay has no invalidation of its own: it is cleared and redrawn
+      // in this same pass, because a preference changed from the toolbar once
+      // failed to appear until the mouse moved.
+      const octx = drewWithGl ? (overCanvasRef.current?.getContext('2d') ?? ctx) : ctx;
+      if (octx !== ctx) {
+        octx.setTransform(1, 0, 0, 1, 0, 0);
+        octx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      octx.setTransform(1, 0, 0, 1, 0, 0);
       const za = zoomAreaRef.current;
       if (za) {
         const q0 = worldToPx(za.a);
         const q1 = worldToPx(za.b);
-        ctx.fillStyle = SELECTION_AREA_FILL;
-        ctx.strokeStyle = SELECTION_AREA_STROKE;
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.setLineDash([]);
-        ctx.fillRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
-        ctx.strokeRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
+        octx.fillStyle = SELECTION_AREA_FILL;
+        octx.strokeStyle = SELECTION_AREA_STROKE;
+        octx.lineWidth = Math.max(1, dpr);
+        octx.setLineDash([]);
+        octx.fillRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
+        octx.strokeRect(q0.x, q0.y, q1.x - q0.x, q1.y - q0.y);
       }
 
       // Measure overlay.
@@ -183,26 +295,26 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (m) {
         const p0 = worldToPx(m.a);
         const p1 = worldToPx(m.b);
-        ctx.strokeStyle = '#ffd54a';
-        ctx.fillStyle = '#ffd54a';
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.setLineDash([6 * dpr, 4 * dpr]);
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        octx.strokeStyle = '#ffd54a';
+        octx.fillStyle = '#ffd54a';
+        octx.lineWidth = Math.max(1, dpr);
+        octx.setLineDash([6 * dpr, 4 * dpr]);
+        octx.beginPath();
+        octx.moveTo(p0.x, p0.y);
+        octx.lineTo(p1.x, p1.y);
+        octx.stroke();
+        octx.setLineDash([]);
         for (const p of [p0, p1]) {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 3 * dpr, 0, Math.PI * 2);
-          ctx.fill();
+          octx.beginPath();
+          octx.arc(p.x, p.y, 3 * dpr, 0, Math.PI * 2);
+          octx.fill();
         }
       }
 
       // GAL::blitCursor in LAYER_CURSOR (gerbview_painter.h:95). GerbView has
       // no drawing tools, so nothing calls ShowCursor(true): the crosshair is
       // there because always_show_cursor is on, and a forced cursor is dimmed.
-      drawCrosshair(ctx, cursorPxRef.current, canvas.width, canvas.height, {
+      drawCrosshair(octx, cursorPxRef.current, canvas.width, canvas.height, {
         mode: crosshairRef.current ? 'full' : 'small',
         color: GERBER_CURSOR_COLOR,
         alwaysShow: true,
@@ -212,9 +324,63 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       onScaleChange?.(v.scale);
     }, [dpr, onScaleChange]);
 
+    /**
+     * Create the backend once, and recreate it when the context is lost.
+     *
+     * A lost context must rebuild the device and re-upload, not merely fall
+     * back for one frame: a scene uploaded to a dead context draws as nothing,
+     * with no error. Until it comes back, `isLost` sends every frame down the
+     * raster path, which is a real renderer and not a stub.
+     */
+    useEffect(() => {
+      if (!GL_RENDERER) return;
+      const el = glCanvasRef.current;
+      if (!el) return;
+      glRef.current = GerbviewGl.create(el);
+      const onLost = (e: Event): void => {
+        e.preventDefault();
+        glRef.current?.dispose();
+        glRef.current = null;
+        requestDrawRef.current();
+      };
+      const onRestored = (): void => {
+        glRef.current = GerbviewGl.create(el);
+        requestDrawRef.current();
+      };
+      el.addEventListener('webglcontextlost', onLost);
+      el.addEventListener('webglcontextrestored', onRestored);
+      return () => {
+        el.removeEventListener('webglcontextlost', onLost);
+        el.removeEventListener('webglcontextrestored', onRestored);
+        glRef.current?.dispose();
+        glRef.current = null;
+      };
+    }, []);
+
     const requestDraw = useCallback(() => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(draw);
+    }, [draw]);
+
+    const requestDrawRef = useRef(requestDraw);
+    requestDrawRef.current = requestDraw;
+
+    /**
+     * A synchronous draw, published only under `?perf=1`.
+     *
+     * Frames are scheduled through requestAnimationFrame, which Chrome does not
+     * run for a hidden document - and a hidden tab still answers
+     * getBoundingClientRect and getComputedStyle perfectly well, so a profiling
+     * harness that waits on rAF simply hangs while every DOM probe around it
+     * keeps returning plausible numbers. Timing this directly takes the
+     * scheduler out of the measurement entirely.
+     */
+    useEffect(() => {
+      if (!PERF) return;
+      (window as unknown as { __gbrDrawNow?: () => void }).__gbrDrawNow = draw;
+      return () => {
+        (window as unknown as { __gbrDrawNow?: () => void }).__gbrDrawNow = undefined;
+      };
     }, [draw]);
 
     useEffect(() => {
@@ -384,10 +550,13 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       if (!wrap || !canvas) return;
       const ro = new ResizeObserver(() => {
         const r = wrap.getBoundingClientRect();
-        canvas.width = Math.max(1, Math.round(r.width * dpr));
-        canvas.height = Math.max(1, Math.round(r.height * dpr));
-        canvas.style.width = `${r.width}px`;
-        canvas.style.height = `${r.height}px`;
+        for (const el of [canvas, glCanvasRef.current, overCanvasRef.current]) {
+          if (!el) continue;
+          el.width = Math.max(1, Math.round(r.width * dpr));
+          el.height = Math.max(1, Math.round(r.height * dpr));
+          el.style.width = `${r.width}px`;
+          el.style.height = `${r.height}px`;
+        }
         if (!fittedRef.current) {
           fittedRef.current = true;
           zoomToFit();
@@ -606,6 +775,8 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         <canvas
           ref={canvasRef}
           style={{
+            position: 'absolute',
+            inset: 0,
             display: 'block',
             // ZOOM_TOOL sets KICURSOR::ZOOM_IN while it is armed
             // (`common/tool/zoom_tool.cpp:70`).
@@ -617,6 +788,22 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
                   : 'default',
           }}
         />
+        {/* The items. Takes no pointer events, so captures still land on the
+            canvas underneath. */}
+        {GL_RENDERER && (
+          <canvas
+            ref={glCanvasRef}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          />
+        )}
+        {/* Above the items: the zoom rubber band, the measure line and the
+            crosshair - GerbView's TARGET_OVERLAY. */}
+        {GL_RENDERER && (
+          <canvas
+            ref={overCanvasRef}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+          />
+        )}
       </div>
     );
   },

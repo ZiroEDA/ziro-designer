@@ -43,9 +43,41 @@ export class D_CODE {
   /** True once the aperture has been fully defined (AD seen). */
   defined = false;
 
+  /**
+   * `D_CODE::m_Polygon`, the aperture shape built once and then reused.
+   *
+   * Upstream never rebuilds it. Every call site is guarded by
+   * `if( code->m_Polygon.OutlineCount() == 0 ) code->ConvertShapeToPolygon( aItem );`
+   * (`gerbview/gerbview_painter.cpp:505, 530, 573, 584`), so the shape is
+   * computed on the first draw that needs it and read straight out of the
+   * aperture on every later frame and every other flash of the same D-code.
+   * `GERBER_DRAW_ITEM::m_AbsolutePolygon` is the same idea one level up.
+   *
+   * We had no cache at either level, so a board with 4301 flashed items
+   * rebuilt 4301 aperture shapes on *every frame*: 18.7 ms of a 251 ms frame,
+   * measured in Chrome on `kit-dev-coldfire-xilinx_5213`.
+   */
+  private flashShapeCache: AmResolvedShape[] | null = null;
+
   constructor(num: number, iuScale: number) {
     this.num_Dcode = num;
     this.iuScale = iuScale;
+  }
+
+  /**
+   * Drop the cached shape, for a caller that changes the aperture's
+   * description after something has already drawn it.
+   *
+   * The parser is not such a caller and deliberately does not call this. The
+   * cache is only ever built lazily, on the first draw, which is after
+   * `parseGerber` has returned; by then the last `%ADD` for this D-code has
+   * won, so a re-described aperture is already correct without any
+   * invalidation. A call in the `%ADD` handler was written first and then
+   * removed: a mutant that deleted it killed no test, and could not, because
+   * nothing reads a shape while the file is still being parsed.
+   */
+  invalidateFlashShapes(): void {
+    this.flashShapeCache = null;
   }
 
   /** Convenience: is this a macro aperture? */
@@ -58,8 +90,16 @@ export class D_CODE {
    * relative to the flash point (before applying the item's own rotation /
    * mirroring). Standard apertures emit the pad body (exposure on) plus the
    * cleared hole (exposure off); macros defer to APERTURE_MACRO::resolve.
+   *
+   * Cached, see `flashShapeCache`. The returned array is shared: callers must
+   * treat it as read-only.
    */
   getFlashShapes(): AmResolvedShape[] {
+    if (this.flashShapeCache === null) this.flashShapeCache = this.buildFlashShapes();
+    return this.flashShapeCache;
+  }
+
+  private buildFlashShapes(): AmResolvedShape[] {
     const s = this.iuScale;
     const out: AmResolvedShape[] = [];
     const L = (v: number): number => v * s;
