@@ -16,9 +16,12 @@ import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
 import {
   arcToPolyline,
   facetsForRadius,
+  GBR_ARC_TOLERANCE,
   PCB_ARC_TOLERANCE,
   SCH_ARC_TOLERANCE,
 } from '@ziroeda/designer/src/render/gl/tessellate.js';
+import { GERB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { IU_PER_MM as GBR_ENGINE_IU_PER_MM } from '@ziroeda/gerbview';
 
 /** The same physical 0.005 mm sagitta, in each editor's own units. */
 describe('the two tolerances are one length', () => {
@@ -28,6 +31,29 @@ describe('the two tolerances are one length', () => {
     // And they differ by exactly the ratio of the two scales — the factor that
     // was silently dropped.
     expect(PCB_ARC_TOLERANCE / SCH_ARC_TOLERANCE).toBe(PCB_IU_PER_MM / SCH_IU_PER_MM);
+    // GerbView's is the same length again, in the units its geometry arrives
+    // in. Those are the *engine's*, and the engine does not use upstream's
+    // gerbview scale: `gerbview/src/types.ts` declares IU_PER_MM = 1e6,
+    // "following KiCad's board IU", where KiCad's gerbIUScale is 1e5.
+    expect(GBR_ARC_TOLERANCE / GBR_ENGINE_IU_PER_MM).toBeCloseTo(0.005, 9);
+  });
+
+  it('is written against the scale the geometry actually uses', () => {
+    // The trap: `common` exports GERB_IU_PER_MM with upstream's 1e5, and
+    // nothing on the gerbview path uses it. Reaching for it here would ask for
+    // a tenth of the intended sagitta and over-tessellate every arc; the
+    // reverse of that mistake is what turned every eeschema circle into a
+    // triangle.
+    expect(GBR_ENGINE_IU_PER_MM).not.toBe(GERB_IU_PER_MM);
+    expect(GBR_ARC_TOLERANCE).not.toBe(0.005 * GERB_IU_PER_MM);
+    // Because the engine works in board IU, this currently equals the board's.
+    // That is a coincidence of the two scales, not one constant with two names:
+    // if the engine ever adopts upstream's 1e5, this must move and the board's
+    // must not. It also means `rec.arcTolerance = GBR_ARC_TOLERANCE` in
+    // gerbview_gl is not observable today - the recorder's default is already
+    // the same number - which a mutation sweep found and which is recorded in
+    // that file rather than hidden.
+    expect(GBR_ARC_TOLERANCE).toBe(PCB_ARC_TOLERANCE);
   });
 });
 

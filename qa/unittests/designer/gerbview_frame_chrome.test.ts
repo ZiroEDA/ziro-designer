@@ -33,7 +33,7 @@ describe('status bar field 0', () => {
     expect(gerbviewStatusField0(null)).toBe('');
   });
 
-  it("is the image and layer names, two spaces apart, each quoted", () => {
+  it('is the image and layer names, two spaces apart, each quoted', () => {
     // status.Printf( _( "Image name: '%s'  Layer name: '%s'" ), ... )  :696
     const img = image();
     img.imageName = 'MyImage';
