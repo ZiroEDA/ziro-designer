@@ -39,7 +39,7 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { demoAt, fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -71,7 +71,8 @@ import { PreferencesDialog } from '../dialogs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
 import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
-import { FileChooser } from '../fs/FileChooser.js';
+import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
+import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
 import { OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
@@ -390,6 +391,132 @@ export function HomePage({
   // One instance for the life of the page: the chooser reloads on every
   // navigation, and a new object each render would restart that reload.
   const accountFs = useMemo(() => projectStoreFileSystem(), []);
+  /**
+   * The chooser's places sidebar.
+   *
+   * GTK's is Home / Desktop / Documents / Downloads / Other Locations, which
+   * are places on a computer. Ours are the four the account actually has, and
+   * three of them are listings rather than folders of the tree — the same split
+   * GTK has between Documents and `recent:///`, so they arrive as read-only
+   * `listFileSystem`s. Only "Projects" is the real tree, which is why it is the
+   * one place a project can be created, renamed or deleted in.
+   *
+   * The icons are KiCad's own: BITMAPS::recent is what `Open Recent` carries
+   * (kicad/menubar.cpp:73), open_project and open_project_demo are
+   * KICAD_MANAGER_ACTIONS::openProject and ::openDemoProject
+   * (kicad/tools/kicad_manager_actions.cpp:74 and :66), and
+   * new_project_from_template is the template action's.
+   */
+  // The demo and template lists load asynchronously and are state further down.
+  // A listing filesystem is built once — rebuilding it would restart the
+  // chooser's reload on every render — so it reads the current lists through a
+  // ref rather than closing over the value it was built with.
+  const demosRef = useRef<readonly DemoMeta[]>([]);
+  const templatesRef = useRef<readonly TemplateMeta[]>([]);
+  // Recent owns only the order of its top level: its rows *are* the account's
+  // projects, at the same paths, so everything below the root is the account's
+  // tree and is delegated to it. That is what makes walking into a recent
+  // project show its files instead of an empty folder.
+  const recentFs = useMemo(
+    () =>
+      listFileSystem(
+        async () => ({
+          files: (await listProjects())
+            .filter((p) => p.lastOpenedAt !== undefined)
+            .map((p) => ({
+              name: p.name,
+              // A project is a folder and a folder shows no size; `bytes` is
+              // the compressed size on disk, which is not what its row shows.
+              size: 0,
+              modified: p.lastOpenedAt ?? p.updatedAt,
+            })),
+        }),
+        { below: accountFs },
+      ),
+    [accountFs],
+  );
+  // A demo's id is a path — `simulation/amplifier_ac` — and it carries the list
+  // of files it is made of, so Demos is a real tree: the `simulation` folder
+  // the demos directory has and the Open Demo Project menu groups by
+  // (menubar.ts's buildDemoSubmenu splits on the very same prefix), the demo
+  // project inside it, and that project's own files inside that. `projects`
+  // says which of the derived folders are the demos themselves, since nothing
+  // about `simulation/amplifier_ac` distinguishes it from `simulation`.
+  const demosFs = useMemo(
+    () =>
+      listFileSystem(
+        async () => ({
+          // The manifest names the files a demo is made of, not their sizes or
+          // when they were written - those bytes are on the CDN until the demo
+          // is opened. So both columns say nothing rather than `0 bytes` and
+          // `Jan 1, 1970`, which read as data the listing does not have.
+          files: demosRef.current.flatMap((d) =>
+            d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: null, modified: null })),
+          ),
+          projects: new Set(demosRef.current.map((d) => `/${d.id}`)),
+        }),
+        { leafKind: 'file' },
+      ),
+    [],
+  );
+  // A template's manifest carries no file list, so a template is a leaf: there
+  // is nothing to show inside one, and the place says so rather than offering
+  // a folder that opens empty.
+  const templatesFs = useMemo(
+    () =>
+      listFileSystem(async () => ({
+        files: templatesRef.current.map((t) => ({ name: t.id, size: null, modified: null })),
+      })),
+    [],
+  );
+  // Accepting in a place that browses its own tree cannot go to the account's
+  // handler: `/simulation/amplifier_ac/amplifier_ac.kicad_pro` names a demo, and
+  // `projectAt` reads the first segment as a project of the store, finds no
+  // project called `simulation`, and returns null — the window closed and
+  // nothing opened. Upstream has no such split to fall down: OpenDemoProject is
+  // `openProject( PATHS::GetStockDemosPath() )`, the same dialog and the same
+  // LoadProject as Open Project (kicad_manager_control.cpp:519). So each place
+  // carries what accepting inside it means, through a ref for the same reason
+  // its filesystem does: the places are built once and must not be rebuilt.
+  const openDemoRef = useRef<(id: string) => void>(() => {});
+  const openTemplateRef = useRef<(t: TemplateMeta) => void>(() => {});
+  const chooserPlaces = useMemo<readonly ChooserPlace[]>(
+    () => [
+      // Recent first, as GtkPlacesSidebar puts it: it is the row above Home in
+      // the capture, and it is the one a person reaches for most.
+      { id: 'recent', label: 'Recent', icon: 'recent', fs: recentFs },
+      { id: 'projects', label: 'Projects', icon: 'open_project' },
+      {
+        id: 'demos',
+        label: 'Demos',
+        icon: 'open_project_demo',
+        fs: demosFs,
+        // Any path inside a demo opens that demo, the way any path inside a
+        // project of the account opens that project — a demo's id is the folder
+        // it lives in, so the demo is the one whose id the path starts with.
+        onAccept: (path) => {
+          const d = demoAt(path, demosRef.current);
+          if (d) openDemoRef.current(d.id);
+        },
+      },
+      {
+        id: 'templates',
+        label: 'Templates',
+        icon: 'new_project_from_template',
+        fs: templatesFs,
+        // A template has no listable contents, so a double-click takes it
+        // rather than walking into an empty folder.
+        activateOpens: true,
+        // And taking one means what the template selector's "open" means: a
+        // copy under the template's own name, so the original stays read-only.
+        onAccept: (path) => {
+          const t = templatesRef.current.find((x) => path === `/${x.id}`);
+          if (t) openTemplateRef.current(t);
+        },
+      },
+    ],
+    [recentFs, demosFs, templatesFs],
+  );
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   // NewProject is two windows upstream: the template selector, then the
@@ -453,6 +580,14 @@ export function HomePage({
   useEffect(() => {
     void loadDemos().then(setDemos);
   }, []);
+  // Keep the chooser's Demos and Templates places current. They are built once
+  // and read these refs, so this is what makes a late-arriving list show up.
+  useEffect(() => {
+    demosRef.current = demos;
+  }, [demos]);
+  useEffect(() => {
+    templatesRef.current = templates;
+  }, [templates]);
   /**
    * Delete the cloud rows that cannot be recovered.
    *
@@ -489,10 +624,12 @@ export function HomePage({
   const openDemoProject = async (id: string): Promise<void> => {
     const d = demos.find((x) => x.id === id);
     if (!d) return;
-    // Demos open as themselves and are not persisted over an existing store
-    // entry unless the user saves, mirror a plain folder open (persist like
-    // any opened project so it lands in Recent). The files stream from the
-    // hosted CDN, so show a per-file download gauge while they arrive.
+    // Demos open as themselves and are not persisted — see the `ingest(…, false)`
+    // below and the reason written there. So an opened demo shows up under
+    // neither Projects nor Recent, both of which list the account's store;
+    // keeping one is Save As. (This comment used to say the opposite — that a
+    // demo persists "so it lands in Recent". It never did.) The files stream
+    // from the hosted CDN, so show a per-file download gauge while they arrive.
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
     let files: PickedHomeFile[];
     try {
@@ -813,6 +950,25 @@ export function HomePage({
       editing && template.source === 'user' ? template.id : undefined,
     );
   };
+
+  // The two handlers the chooser's Demos and Templates places call. They are
+  // written here rather than into the places themselves because the places are
+  // built once, above, and these close over state that changes every render;
+  // no dependency list, so the ref always holds this render's closure. Opening
+  // a demo is `openDemoProject`, the same thing File > Open Demo Project does,
+  // because upstream that menu item and this dialog are one function.
+  // Each closes the window first, the way the account tree's onAccept does:
+  // accepting dismisses the dialog whichever place it happened in.
+  useEffect(() => {
+    openDemoRef.current = (id) => {
+      setOpenPrjOpen(false);
+      void openDemoProject(id);
+    };
+    openTemplateRef.current = (t) => {
+      setOpenPrjOpen(false);
+      void createFromTpl(t, t.base || t.id, true);
+    };
+  });
 
   // File > Save As: copy the whole project under a new name and persist it.
   const saveAsProject = async (): Promise<void> => {
@@ -1529,6 +1685,10 @@ export function HomePage({
           mode="open"
           title="Open Existing Project"
           accept="Open"
+          places={chooserPlaces}
+          // Recent is listed first but Open Project opens on the account's own
+          // tree, the way upstream opens on defaultDir with Home lit.
+          initialPlace="projects"
           filters={OPEN_PROJECT_FILTERS}
           extra={
             <>

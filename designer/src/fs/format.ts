@@ -96,7 +96,11 @@ function calendarDaysBetween(then: Date, now: Date): number {
  * browser's locale, so day-before-month, the month's abbreviation and 12- or
  * 24-hour time all follow the reader rather than this file.
  */
-export function formatModified(when: number, now: number = Date.now()): string {
+export function formatModified(when: number | null, now: number = Date.now()): string {
+  // A source that does not know when something was written shows nothing,
+  // exactly as a folder shows no size. Rendering `null` as epoch 0 printed
+  // `Jan 1, 1970`, which a person reads as a real date.
+  if (when === null) return '';
   const then = new Date(when);
   const days = calendarDaysBetween(then, new Date(now));
 

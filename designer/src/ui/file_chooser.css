@@ -6,13 +6,33 @@
 
    Not one literal here. Every colour and every metric is a token from
    shell.css: the ones this window needed that did not exist yet were measured
-   off a live GtkFileChooserDialog and added there (`--chooser-*`), so a second
+   off a capture of the real dialog and added there (`--chooser-*`), so a second
    caller of this widget cannot drift from the first. The measurements are in
-   docs/proposals/file-dialog.md.
+   ~/chooser-image-measurements.md and docs/proposals/file-dialog.md.
 
-   The GTK sidebar (Home / Desktop / Documents / Other Locations) is
-   deliberately absent: those are places on a computer, and this tree has one
-   root. */
+   Layout, which is GTK's and not ours to rearrange:
+
+       +--------------------------------------------------+  <- 12px top corners
+       | header bar   Cancel    title    search   Accept   |
+       +----------------+---------------------------------+
+       |                | path bar                        |
+       | places sidebar +---------------------------------+
+       | 254px          | Name   Size   Type   Modified   |
+       |                +---------------------------------+
+       |                | rows                            |
+       +----------------+---------------------------------+
+       | footer   caller's controls           type filter  |
+       +--------------------------------------------------+
+
+   The path bar belongs to the right pane, not to the dialog: the sidebar runs
+   the whole way from the header bar down to the footer, so the path bar starts
+   at the list's left edge. That is what the capture shows, and it is the
+   difference a person notices first.
+
+   The sidebar's *rows* are ours rather than GTK's. Home / Desktop / Documents /
+   Other Locations are places on a computer and this tree has one root, so the
+   places are the ones the account actually has. The widget draws whatever
+   places its caller hands it and knows nothing about which they are. */
 
 .ze-chooser {
   display: flex;
@@ -20,9 +40,10 @@
   background: var(--panel-bg);
   color: var(--chrome-fg);
   border: 1px solid var(--chrome-border);
-  border-radius: var(--ctl-radius);
-  width: min(1000px, 92vw);
-  height: min(650px, 88vh);
+  /* Top corners only: the bottom two are square in the capture. */
+  border-radius: var(--chooser-radius) var(--chooser-radius) 0 0;
+  width: min(1203px, 92vw);
+  height: min(762px, 88vh);
   overflow: hidden;
   font-family: var(--ui-font-family);
   font-size: var(--ui-font-size);
@@ -33,12 +54,48 @@
 .ze-chooser-headerbar {
   display: flex;
   align-items: center;
-  gap: var(--wx-border);
+  gap: var(--chooser-band-pad);
   height: var(--chooser-headerbar-height);
   min-height: var(--chooser-headerbar-height);
-  padding: 0 var(--wx-border);
-  background: var(--chrome-bg);
+  padding: 0 var(--chooser-band-pad);
+  background: var(--chooser-headerbar-bg);
   border-bottom: 1px solid var(--chrome-border);
+}
+
+/* A GtkHeaderBar's buttons are not the footer's wxButtons: they are shorter
+   than the band they sit in and rounder-cornered, so they take the chooser's
+   own metrics rather than .ze-btn's. */
+.ze-chooser-headerbar .ze-btn,
+.ze-chooser-pathbar button {
+  box-sizing: border-box;
+  height: var(--chooser-btn-height);
+  min-width: 0;
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-face);
+  border: 1px solid var(--ctl-border);
+  color: var(--chrome-fg);
+  font: inherit;
+  cursor: default;
+}
+
+.ze-chooser-headerbar .ze-btn {
+  padding: 0 var(--ctl-pad-x);
+}
+
+/* The accept button is GTK's `suggested-action`, which is green - a different
+   colour from the accent the selected row carries, in the same window. */
+.ze-chooser-headerbar .ze-btn.primary:not(:disabled) {
+  background: var(--chooser-suggested-bg);
+  border-color: var(--chooser-suggested-bg);
+}
+
+.ze-chooser-headerbar .ze-btn:hover:not(:disabled) {
+  background: var(--chrome-hover);
+}
+
+/* Hover must not undo the suggested colour, which the rule above would. */
+.ze-chooser-headerbar .ze-btn.primary:hover:not(:disabled) {
+  background: var(--chooser-suggested-bg);
 }
 
 .ze-chooser-title {
@@ -60,36 +117,107 @@
   width: min(380px, 46%);
 }
 
+/* The search toggle is an image button, so it is square rather than as wide as
+   a label. */
+.ze-chooser-headerbar .ze-btn.ze-chooser-search {
+  width: var(--chooser-btn-height);
+  padding: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- body: the places sidebar beside the pane that holds everything else -- */
+
+.ze-chooser-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.ze-chooser-sidebar {
+  width: var(--chooser-sidebar-width);
+  min-width: var(--chooser-sidebar-width);
+  padding: var(--chooser-sidebar-pad) 0;
+  background: var(--chrome-bg);
+  border-right: 1px solid var(--ctl-border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--chooser-sidebar-gap);
+}
+
+.ze-chooser-place {
+  display: flex;
+  align-items: center;
+  gap: var(--chooser-sidebar-icon-gap);
+  height: var(--chooser-sidebar-row);
+  min-height: var(--chooser-sidebar-row);
+  padding: 0 var(--chooser-sidebar-indent);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+
+.ze-chooser-place img,
+.ze-chooser-place svg {
+  width: var(--chooser-icon-size);
+  height: var(--chooser-icon-size);
+  flex: none;
+}
+
+.ze-chooser-place:hover:not(.current) {
+  background: var(--chrome-hover);
+}
+
+/* The row bleeds the accent to both edges, as GtkPlacesSidebar does. */
+.ze-chooser-place.current {
+  background: var(--chrome-active);
+  color: var(--chrome-fg);
+}
+
+.ze-chooser-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* --- path bar ------------------------------------------------------------ */
 
 .ze-chooser-pathbar {
   display: flex;
   align-items: center;
-  gap: var(--wx-border);
+  gap: var(--chooser-band-pad);
   height: var(--chooser-pathbar-height);
   min-height: var(--chooser-pathbar-height);
-  padding: 0 var(--wx-border);
-  background: var(--chrome-bg);
+  padding: 0 var(--chooser-band-pad);
+  background: var(--panel-bg);
   border-bottom: 1px solid var(--chrome-border);
 }
 
+/* The crumbs do NOT take the spare width: in the capture the back arrow, the
+   crumb strip and the forward arrow are one cluster hard against the left edge,
+   with the rest of the band empty. A flex:1 here pushed the forward arrow to
+   the far right, which is the tell that the strip had been stretched. */
 .ze-chooser-crumbs {
   display: flex;
   align-items: center;
-  flex: 1;
   min-width: 0;
   overflow: hidden;
 }
 
-.ze-chooser-crumbs button,
-.ze-chooser-pathbar .ze-chooser-nav,
-.ze-chooser-pathbar .ze-chooser-newdir {
-  height: var(--chooser-pathbar-button);
-  background: var(--ctl-face);
-  color: var(--chrome-fg);
-  border: 1px solid var(--ctl-border);
-  font: inherit;
-  cursor: default;
+/* What actually takes the spare width, so the cluster stays left. */
+.ze-chooser-pathbar .ze-chooser-gap {
+  flex: 1;
+  min-width: 0;
 }
 
 /* One run of buttons welded into a strip, as GtkPathBar draws it: only the
@@ -112,10 +240,11 @@
   border-bottom-right-radius: var(--ctl-radius);
 }
 
-/* The folder being shown is the pressed one in the strip. */
+/* The folder being shown is the pressed one in the strip, and a pressed button
+   on this theme goes dark — it is not filled with the accent. */
 .ze-chooser-crumbs button.current {
-  background: var(--accent-fill-checked);
-  border-color: var(--chrome-active-border);
+  background: var(--chooser-crumb-current);
+  border-color: var(--ctl-border);
 }
 
 .ze-chooser-crumbs button:hover:not(.current) {
@@ -125,13 +254,13 @@
 .ze-chooser-nav,
 .ze-chooser-newdir {
   width: var(--chooser-nav-button);
-  border-radius: var(--ctl-radius);
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.ze-chooser-nav:disabled {
+.ze-chooser-pathbar button:disabled {
   background: var(--ctl-face-disabled);
   color: var(--ctl-fg-disabled);
 }
@@ -219,23 +348,40 @@
   color: var(--ctl-fg-disabled);
 }
 
-/* --- footer: the caller's own controls, then the type filter ------------- */
+/* --- footer: the caller's own controls, then the type filter -------------
 
-.ze-chooser-footer {
+   Scoped under .ze-chooser deliberately: shell.css already gives
+   `.ze-chooser-footer` to the *symbol* chooser, and an unscoped rule here would
+   be two widgets sharing one name and racing on import order. */
+
+.ze-chooser > .ze-chooser-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--wx-border);
-  padding: var(--wx-border);
+  gap: var(--chooser-band-pad);
+  height: var(--chooser-headerbar-height);
+  min-height: var(--chooser-headerbar-height);
+  padding: 0 var(--chooser-band-pad);
   background: var(--chrome-bg);
   border-top: 1px solid var(--chrome-border);
 }
 
 /* Where a caller's extra controls go — upstream this is what
-   wxFileDialogCustomizeHook fills, and six call sites in KiCad use it. */
+   wxFileDialogCustomizeHook fills, and fourteen call sites in KiCad use it. */
 .ze-chooser-extra {
   display: flex;
   align-items: center;
   gap: calc(2 * var(--wx-border));
   min-width: 0;
+}
+
+.ze-chooser > .ze-chooser-footer select {
+  height: var(--chooser-btn-height);
+  padding: 0 var(--ctl-pad-x);
+  background: var(--ctl-face);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  color: var(--chrome-fg);
+  font: inherit;
+  cursor: default;
 }

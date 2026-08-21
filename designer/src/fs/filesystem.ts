@@ -45,8 +45,16 @@ export interface Entry {
   readonly kind: EntryKind;
   /** Bytes, uncompressed. `null` for a folder, which shows no size. */
   readonly size: number | null;
-  /** Epoch ms. A synthesised folder carries its newest child's. */
-  readonly modified: number;
+  /**
+   * Epoch ms, or `null` when the source does not know.
+   *
+   * A synthesised folder carries its newest child's. `null` is for a listing
+   * whose source genuinely has no timestamp - a demo manifest names the files
+   * a demo is made of but not when they were written, and those bytes are on
+   * a CDN until the demo is opened. The column stays empty for one, which is
+   * the honest answer; epoch 0 rendered as `Jan 1, 1970`, which reads as data.
+   */
+  readonly modified: number | null;
 }
 
 /**
@@ -73,6 +81,16 @@ export enum FsErrorCode {
    * exists. It is the one structural rule this tree has.
    */
   NOT_IN_PROJECT = 'NOT_IN_PROJECT',
+  /**
+   * The location cannot be written to at all — an `EROFS`.
+   *
+   * Not every place the chooser shows is a folder of this tree. GTK's sidebar
+   * has the same split: Documents is a directory you can walk into and write
+   * to, `recent:///` is a query with nothing behind it to change. A listing
+   * place refuses every mutation with this rather than accepting one and
+   * silently doing nothing.
+   */
+  READ_ONLY = 'READ_ONLY',
 }
 
 /** A refusal, carrying the path it was about so a caller can name it. */
@@ -117,8 +135,9 @@ export interface FileSystem {
 export interface FlatFile {
   /** Relative to the project folder — `sub/dir/board.kicad_pcb`. */
   readonly name: string;
-  readonly size: number;
-  readonly modified: number;
+  /** Bytes, or `null` when the source does not know - see `Entry.size`. */
+  readonly size: number | null;
+  readonly modified: number | null;
 }
 
 /**
@@ -139,10 +158,23 @@ export interface FlatFile {
  *
  * `base` is where `dir` sits in the account's tree, so the entries come back
  * with absolute paths the chooser can navigate to. The store never sees it.
+ *
+ * `leafKind` is what a path with no more slashes in it becomes. It is `file`
+ * for a project's contents, which is every caller inside the account's tree.
+ * The listing places pass `project`: a demo's id is a path too —
+ * `simulation/amplifier_ac` — so the same derivation gives Demos its folders,
+ * but its leaves are projects you open rather than files you read.
  */
-export function dirLevel(files: readonly FlatFile[], dir: string, base: string): Entry[] {
+export function dirLevel(
+  files: readonly FlatFile[],
+  dir: string,
+  base: string,
+  leafKind: EntryKind = 'file',
+): Entry[] {
   const prefix = dir === '' ? '' : `${dir}/`;
-  const folders = new Map<string, number>();
+  // A folder's timestamp is its newest child's, and stays null while every
+  // child it has seen is itself undated - a demo's folders, for instance.
+  const folders = new Map<string, number | null>();
   const out: Entry[] = [];
 
   for (const f of files) {
@@ -154,14 +186,18 @@ export function dirLevel(files: readonly FlatFile[], dir: string, base: string):
       out.push({
         name: rest,
         path: join(base, rest),
-        kind: 'file',
-        size: f.size,
+        kind: leafKind,
+        // A folder shows no size, and `project` is a folder — so only a real
+        // file carries one through.
+        size: leafKind === 'file' ? f.size : null,
         modified: f.modified,
       });
     } else {
       const folder = rest.slice(0, slash);
       const seen = folders.get(folder);
-      if (seen === undefined || f.modified > seen) folders.set(folder, f.modified);
+      if (seen === undefined) folders.set(folder, f.modified);
+      else if (f.modified !== null && (seen === null || f.modified > seen))
+        folders.set(folder, f.modified);
     }
   }
 

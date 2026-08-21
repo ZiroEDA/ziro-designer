@@ -367,13 +367,21 @@
   --swatch-medium-h: 23px;
 
   /* --- The GTK file chooser, which is the window every wxFileDialog puts up.
-     [px] throughout: a live Gtk.FileChooserDialog was built under python-gi and
-     its widgets asked for their own allocations and style contexts, rather than
-     measured off a screenshot. The method and the full capture are in
-     docs/proposals/file-dialog.md. Tokens rather than per-dialog values for the
-     usual reason — upstream has one chooser and every launcher opens it. --- */
-  /* [px] GtkTreeView row height 24, from get_background_area on the first row. */
-  --chooser-row: 24px;
+     [px] throughout, and every one is a run boundary in a capture of the real
+     dialog — KiCad 10.0.5's Open Existing Project on Yaru-dark, profiled pixel
+     by pixel. A live Gtk.FileChooserDialog under python-gi was asked the same
+     questions and agrees; the two are not independent (one machine, one theme),
+     so that corroborates the reading, not the theme. Full capture in
+     ~/chooser-image-measurements.md and docs/proposals/file-dialog.md. Tokens
+     rather than per-dialog values for the usual reason — upstream has one
+     chooser and every launcher opens it. --- */
+  /* [px] the list row. 29, NOT 24: the selection band in the capture is 29 px
+     tall and the Modified column's text pitches at 28.8 over ten rows, and a
+     browse-mode probe returns get_background_area h=29 for every row. The 24
+     this shipped as was measured with the chooser in Recent mode, whose tree
+     view is a different instance with a different column set - which is also
+     why the 130 px Type width below appears nowhere in the capture. */
+  --chooser-row: 29px;
   /* [px] the column header button allocates 25 px high; its font is the list's
      own size in bold, and its background is the list's, so there is no separate
      header colour. */
@@ -383,18 +391,48 @@
   --chooser-icon-size: 16px;
   --chooser-icon-pad: 6px;
   --chooser-text-pad: 2px;
-  /* [px] the path bar row allocates 47 px, its buttons 34, and the two
-     scroll arrows 26 x 34. */
+  /* [px] the path bar band is 46 + its 1 px rule, and it sits inside the right
+     pane - it starts at the list's left edge, not the dialog's, because the
+     sidebar runs the full height between the header bar and the footer. */
   --chooser-pathbar-height: 47px;
-  --chooser-pathbar-button: 34px;
   --chooser-nav-button: 26px;
-  /* [px] the dialog's GtkHeaderBar allocates 47 px and its buttons 46 —
-     they fill it, less the bottom border. */
+  /* [px] the dialog's GtkHeaderBar band is 46 + its 1 px rule. */
   --chooser-headerbar-height: 47px;
-  /* [px] the fixed columns allocate Size 79, Type 130, Modified 82; Name takes
-     what is left, being the only expanding one. */
-  --chooser-col-size: 79px;
-  --chooser-col-type: 130px;
+  /* [px] every button in the header bar and the path bar is the same 32 tall,
+     centred in its 46 px band, and the bands pad 6 px against the dialog edge. */
+  --chooser-btn-height: 32px;
+  --chooser-band-pad: 6px;
+  /* The header bar is darker than the rest of the chrome: #222222 against the
+     #2c2c2c the sidebar and the footer share with --chrome-bg. */
+  --chooser-headerbar-bg: #222222;
+  /* GTK's `suggested-action`, which the accept button carries. Green, not the
+     Yaru accent - the accent is the selection, and they are different colours
+     in the same window. */
+  --chooser-suggested-bg: #0d761d;
+  /* A GtkPathBar's current element is a *checked* button, which Yaru paints
+     darker than the bar rather than filling with the accent. */
+  --chooser-crumb-current: #151515;
+  /* [px] the dialog's own top corners. The bottom two are square in the
+     capture. Fitted from the header background's leftmost-x curve: at dy=0
+     x=404, dy=3 x=396, dy=8 x=392 - a circle of r=12. */
+  --chooser-radius: 12px;
+  /* [px] the places sidebar: 254 wide, 36 px rows on a 38 px pitch, the first
+     4 px down, the icon 15 px in and the label 39. */
+  --chooser-sidebar-width: 254px;
+  --chooser-sidebar-row: 36px;
+  --chooser-sidebar-gap: 2px;
+  --chooser-sidebar-pad: 4px;
+  --chooser-sidebar-indent: 15px;
+  --chooser-sidebar-icon-gap: 8px;
+  /* [px] the fixed columns, read off the capture's own header positions: Size
+     starts at x=1330, Type at 1402, Modified at 1510, and the list ends at 1589
+     - so 72 / 108 / 82, with Name taking what is left as the only expanding
+     one. GTK sizes these to their widest cell, so they are this instance's
+     rather than a constant of the widget; the 130 they shipped as was read off
+     the Recent-mode tree view, which is a different widget with a different
+     column set and never appears in the browse-mode dialog at all. */
+  --chooser-col-size: 72px;
+  --chooser-col-type: 108px;
   --chooser-col-modified: 82px;
 
   /* The border wxFormBuilder puts around a sizer item — `wxALL, 5` — which is

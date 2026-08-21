@@ -37,6 +37,33 @@ export async function loadDemos(): Promise<DemoMeta[]> {
   }
 }
 
+/**
+ * Which demo a path in the chooser's Demos tree names, if any.
+ *
+ * The sibling of `projectAt` for the account's tree, and it exists for the same
+ * reason: the file chooser hands back a path, and the caller has to get from
+ * that back to the thing it names. It cannot be `projectAt` — that reads the
+ * first segment as a project of the store, so `/simulation/amplifier_ac` looks
+ * for a project called `simulation`, finds none, and the demo silently does not
+ * open. A demo's id *is* its folder, so the demo is the one whose id the path
+ * starts with: the folder itself, or anything inside it.
+ *
+ * The longest match wins. Demo ids nest — `simulation` is a real folder in
+ * KiCad's demos directory and `simulation/sallen_key` is a demo inside it — so
+ * were a demo ever published at a folder that also prefixes another's id, the
+ * shorter one is an ancestor of the path and the longer one is the demo the
+ * path is actually in.
+ */
+export function demoAt(path: string, demos: readonly DemoMeta[]): DemoMeta | null {
+  let best: DemoMeta | null = null;
+  for (const d of demos) {
+    const at = `/${d.id}`;
+    if (path !== at && !path.startsWith(`${at}/`)) continue;
+    if (!best || d.id.length > best.id.length) best = d;
+  }
+  return best;
+}
+
 const encodeRel = (rel: string): string => rel.split('/').map(encodeURIComponent).join('/');
 
 /**

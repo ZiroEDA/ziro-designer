@@ -10,17 +10,22 @@
  * widget for the same reason, so this takes a {@link FileSystem} and a few
  * labels and is otherwise the same window wherever it is opened.
  *
- * What it drops, deliberately, is the GTK sidebar — Home, Desktop, Documents,
- * Other Locations. Those are places on a computer, and this tree has one root:
- * the account's own. The breadcrumb stays, showing our path rather than
- * `/usr/share/kicad/demos`.
+ * The places sidebar stays, but its *rows* are ours. GTK's are Home, Desktop,
+ * Documents, Downloads and Other Locations — places on a computer, and this
+ * tree has one root. So the caller passes {@link ChooserPlace}s and the widget
+ * only draws them; it never invents a place, the same way it never invents a
+ * filter. The breadcrumb likewise shows our path, not `/usr/share/kicad/demos`.
  *
- * Everything visible is measured. The row is 24 px because a real
- * GtkTreeView's row is; the selected row is #e95420 because the real one is;
- * the Size column is 79 px wide because the real one is. Where a number was
- * needed it was taken off a live GtkFileChooserDialog rather than chosen —
- * `ui/shell.css`'s `--chooser-*` tokens carry the measurements, and
+ * Everything visible is measured, off a capture of the real dialog — KiCad
+ * 10.0.5's Open Existing Project on Yaru-dark, profiled pixel by pixel, with a
+ * live `Gtk.FileChooserDialog` under python-gi asked the same questions as a
+ * check. The row is 29 px because the selection band in that capture is 29 px;
+ * the selected row is #e95420 and the accept button #0d761d because they are
+ * two different colours in the same window; the sidebar is 254 px because it
+ * is. `ui/shell.css`'s `--chooser-*` tokens carry the measurements, and
  * `ui/file_chooser.css` contains no literal at all.
+ *
+ * The full capture is in `~/chooser-image-measurements.md`.
  */
 
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +37,54 @@ import { fileExtension, fileTypeLabel } from './file_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
+
+/**
+ * One row of the places sidebar.
+ *
+ * Upstream this is a `GtkPlacesSidebar` row, and upstream's rows are Home,
+ * Desktop, Documents, Downloads and Other Locations — places on a computer.
+ * This tree has one root and no computer, so the caller says what its places
+ * are and the widget only draws them. A place may bring its own
+ * {@link FileSystem}: "Recent" and "Demos" are listings rather than folders of
+ * the account's tree, so they are not reachable by a path into it.
+ */
+export interface ChooserPlace {
+  /** Stable id, used as the selected-place key. */
+  readonly id: string;
+  /** The row's text. */
+  readonly label: string;
+  /** A `TreeIcon` name — one of KiCad's own manager bitmaps. */
+  readonly icon: string;
+  /** The tree this place browses. Defaults to the chooser's own. */
+  readonly fs?: FileSystem;
+  /** Where in that tree to land. Defaults to its root. */
+  readonly path?: string;
+  /**
+   * Activating a project here opens it instead of walking into it.
+   *
+   * A project folder is a document as well as a folder, and which of the two a
+   * double-click means depends on the place. In the account's tree it is a
+   * folder — you walk in and find the files. In Templates it is neither: a
+   * template's manifest carries no file list, so walking in could only ever
+   * show an empty folder, which is what a person reads as "it is broken".
+   */
+  readonly activateOpens?: boolean;
+  /**
+   * What accepting a path in this place means. Defaults to the chooser's own
+   * {@link FileChooserProps.onAccept}.
+   *
+   * A place that brings its own {@link FileSystem} brings paths that mean
+   * nothing to the caller's tree — `/simulation/amplifier_ac` names a demo, not
+   * a project of the account — so what to do with one has to travel with the
+   * tree it came from. Upstream needs none of this because there is only ever
+   * one tree: `KICAD_MANAGER_CONTROL::OpenDemoProject` is literally
+   * `openProject( PATHS::GetStockDemosPath() )` — the same dialog and the same
+   * `LoadProject` as Open Project, pointed at a different starting directory
+   * (kicad/tools/kicad_manager_control.cpp:519). Splitting the one tree into
+   * places is ours, so re-joining them at the accept is ours to do too.
+   */
+  readonly onAccept?: (path: string) => void;
+}
 
 /** One entry of the type combo at the bottom right. */
 export interface ChooserFilter {
@@ -58,6 +111,19 @@ export interface FileChooserProps {
   accept: string;
   /** Where to start. Defaults to the root. */
   initialPath?: string;
+  /**
+   * The places sidebar's rows, in order. Empty or omitted draws no sidebar —
+   * the widget does not invent one, the same way it does not invent a filter.
+   */
+  places?: readonly ChooserPlace[];
+  /**
+   * Which place is lit when the window opens. Defaults to the first.
+   *
+   * Separate from the order on purpose: upstream lists Recent above Home but
+   * opens on `defaultDir`, with Home lit — the sidebar's order is what a person
+   * reaches for, not where the caller pointed the dialog.
+   */
+  initialPlace?: string;
   /** `save` mode: what the Name entry starts with. */
   initialName?: string;
   filters?: readonly ChooserFilter[];
@@ -98,7 +164,9 @@ function compareEntries(a: Entry, b: Entry, key: SortKey, ascending: boolean): n
       n = typeOf(a).localeCompare(typeOf(b));
       break;
     case 'modified':
-      n = a.modified - b.modified;
+      // Undated rows sort together, below everything with a date, rather
+      // than at epoch 0 where they would look like the oldest files here.
+      n = (a.modified ?? Number.NEGATIVE_INFINITY) - (b.modified ?? Number.NEGATIVE_INFINITY);
       break;
     default:
       n = 0;
@@ -114,9 +182,18 @@ function typeOf(e: Entry): string {
   return e.kind === 'file' ? fileTypeLabel(e.name) : '';
 }
 
+/**
+ * The row's icon.
+ *
+ * A project gets the *folder* icon, not KiCad's project bitmap, because in the
+ * capture a project directory is drawn exactly like any other directory —
+ * `kit-dev-coldfire-xilinx_5213` and `Downloads` carry the same folder glyph.
+ * The KiCad project icon belongs to the `.kicad_pro` **file** you find inside
+ * it, which is what `treeIconFor` gives that row. Drawing it on the folder was
+ * the reason every project read as a document instead of a folder.
+ */
 function iconFor(e: Entry): string {
-  if (e.kind === 'project') return 'project';
-  if (e.kind === 'folder') return 'directory';
+  if (e.kind === 'project' || e.kind === 'folder') return 'directory';
   return treeIconFor(e.name);
 }
 
@@ -186,13 +263,34 @@ export function FileChooser({
   accept,
   initialPath,
   initialName,
+  places,
+  initialPlace,
   filters,
   extra,
   onAccept,
   onCancel,
   onDelete,
 }: FileChooserProps): JSX.Element {
-  const [dir, setDir] = useState(initialPath ?? ROOT);
+  /**
+   * Which sidebar row is lit. The first place is the one the window opens on,
+   * so the sidebar and the list never disagree about where the user is.
+   */
+  const [placeId, setPlaceId] = useState<string | null>(
+    (initialPlace !== undefined && places?.some((p) => p.id === initialPlace)
+      ? initialPlace
+      : places?.[0]?.id) ?? null,
+  );
+  const place = places?.find((p) => p.id === placeId);
+  /** A place may browse its own tree; otherwise everything uses the caller's. */
+  const activeFs = place?.fs ?? fs;
+  /**
+   * Accepting goes to the place the path came from — see
+   * {@link ChooserPlace.onAccept}. Every accept in this widget goes through
+   * here; calling the prop directly would send a demo's path to the handler
+   * that only knows the account's tree, and there it resolves to nothing.
+   */
+  const acceptPath = (path: string): void => (place?.onAccept ?? onAccept)(path);
+  const [dir, setDir] = useState(initialPath ?? place?.path ?? ROOT);
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState(initialName ?? '');
@@ -202,6 +300,9 @@ export function FileChooser({
   });
   const [filter, setFilter] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /** The header bar's search toggle, and what has been typed into it. */
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
   /**
    * The row being typed into: a new folder when `path` is null, otherwise the
    * entry being renamed. One state, because GTK edits in place for both — a
@@ -221,14 +322,14 @@ export function FileChooser({
     async (at: string): Promise<void> => {
       setEntries(null);
       try {
-        setEntries(await fs.list(at));
+        setEntries(await activeFs.list(at));
         setError(null);
       } catch (e) {
         setEntries([]);
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [fs],
+    [activeFs],
   );
 
   useEffect(() => {
@@ -268,17 +369,27 @@ export function FileChooser({
 
   const active = filters?.[filter];
   const shown = useMemo(() => {
+    const needle = searching ? query.trim().toLowerCase() : '';
     const list = (entries ?? []).filter((e) => {
+      // The search box narrows what is listed; the type combo is applied on top
+      // of it, so searching cannot surface a file the caller filtered out.
+      if (needle && !e.name.toLowerCase().includes(needle)) return false;
       if (e.kind !== 'file') return true;
       if (!active || active.extensions.length === 0) return true;
       return active.extensions.includes(fileExtension(e.name));
     });
     return list.sort((a, b) => compareEntries(a, b, sort.key, sort.ascending));
-  }, [entries, active, sort]);
+  }, [entries, active, sort, searching, query]);
 
   const activate = (e: Entry): void => {
     if (e.kind === 'file') {
-      onAccept(e.path);
+      acceptPath(e.path);
+      return;
+    }
+    // A place may say its projects are opened rather than entered — see
+    // ChooserPlace.activateOpens.
+    if (e.kind === 'project' && place?.activateOpens) {
+      acceptPath(e.path);
       return;
     }
     goTo(e.path);
@@ -287,7 +398,7 @@ export function FileChooser({
   const acceptNow = (): void => {
     if (mode === 'save') {
       if (!isValidName(name)) return;
-      onAccept(join(dir, name));
+      acceptPath(join(dir, name));
       return;
     }
     const e = shown.find((x) => x.path === selected);
@@ -296,7 +407,7 @@ export function FileChooser({
     // the project, it does not walk into it. Double-clicking still descends,
     // the way a bundle behaves on a desktop that has them.
     if (e.kind === 'project') {
-      onAccept(e.path);
+      acceptPath(e.path);
       return;
     }
     activate(e);
@@ -307,8 +418,8 @@ export function FileChooser({
     setEditing(null);
     if (!now || !isValidName(now.name)) return;
     try {
-      if (now.path === null) await fs.mkdir(join(dir, now.name));
-      else await fs.rename(now.path, now.name);
+      if (now.path === null) await activeFs.mkdir(join(dir, now.name));
+      else await activeFs.rename(now.path, now.name);
       await reload(dir);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -356,6 +467,30 @@ export function FileChooser({
           ) : (
             <div className="ze-chooser-title">{title}</div>
           )}
+          {/* GTK's header bar carries a search toggle between the title and the
+              accept button. Ours filters the listing rather than walking the
+              tree, which is the only search a listing this size needs. */}
+          <button
+            type="button"
+            className={`ze-btn ze-chooser-search${searching ? ' primary' : ''}`}
+            title="Search"
+            aria-pressed={searching}
+            onClick={() => {
+              setSearching((s) => !s);
+              setQuery('');
+            }}
+          >
+            {/* GTK's `edit-find-symbolic`, which is a symbolic icon: one path
+                in the foreground colour, never the colour emoji a bare
+                U+1F50D would render as. Drawn rather than vendored because
+                this button is GTK's own — KiCad has no bitmap for it. */}
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <circle cx="6.75" cy="6.75" r="4.25" />
+                <path d="M10 10l4 4" />
+              </g>
+            </svg>
+          </button>
           <button
             type="button"
             className="ze-btn primary"
@@ -366,104 +501,147 @@ export function FileChooser({
           </button>
         </div>
 
-        <div className="ze-chooser-pathbar">
-          <button
-            type="button"
-            className="ze-chooser-nav"
-            title="Back"
-            disabled={history.past.length === 0}
-            onClick={back}
-          >
-            ‹
-          </button>
-          <div className="ze-chooser-crumbs">
-            {ancestors(dir).map((p) => (
+        <div className="ze-chooser-body">
+          {places && places.length > 0 ? (
+            <div className="ze-chooser-sidebar">
+              {places.map((p) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  className={`ze-chooser-place${p.id === placeId ? ' current' : ''}`}
+                  onClick={() => {
+                    if (p.id === placeId) return;
+                    setPlaceId(p.id);
+                    setSelected(null);
+                    setHistory({ past: [], future: [] });
+                    setDir(p.path ?? ROOT);
+                  }}
+                >
+                  <TreeIcon name={p.icon} />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="ze-chooser-pane">
+            <div className="ze-chooser-pathbar">
               <button
                 type="button"
-                key={p}
-                className={p === dir ? 'current' : undefined}
-                onClick={() => goTo(p)}
+                className="ze-chooser-nav"
+                title="Back"
+                disabled={history.past.length === 0}
+                onClick={back}
               >
-                {p === ROOT ? 'Home' : basename(p)}
+                ‹
               </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="ze-chooser-nav"
-            title="Forward"
-            disabled={history.future.length === 0}
-            onClick={forward}
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            className="ze-chooser-newdir"
-            title="Create Folder"
-            // Only inside a project: the root holds projects, and a folder
-            // there would be a project that is not one.
-            disabled={dir === ROOT}
-            onClick={() => setEditing({ path: null, name: '' })}
-          >
-            +
-          </button>
-        </div>
-
-        <div className="ze-chooser-list">
-          <div className="ze-chooser-head">
-            {header('name', 'Name')}
-            {header('size', 'Size')}
-            {header('type', 'Type')}
-            {header('modified', 'Modified')}
-          </div>
-          <div className="ze-chooser-rows">
-            {editing !== null && editing.path === null ? (
-              <EditRow
-                icon="directory"
-                value={editing.name}
-                inputRef={editInput}
-                onChange={(v) => setEditing({ path: null, name: v })}
-                onCommit={() => void commitEdit()}
-                onAbandon={() => setEditing(null)}
-              />
-            ) : null}
-            {shown.map((e) =>
-              editing?.path === e.path ? (
-                <EditRow
-                  key={e.path}
-                  icon={iconFor(e)}
-                  value={editing.name}
-                  inputRef={editInput}
-                  onChange={(v) => setEditing({ path: e.path, name: v })}
-                  onCommit={() => void commitEdit()}
-                  onAbandon={() => setEditing(null)}
-                />
-              ) : (
-                <div
-                  key={e.path}
-                  className={`ze-chooser-row${selected === e.path ? ' selected' : ''}`}
-                  onClick={() => {
-                    setSelected(e.path);
-                    if (mode === 'save' && e.kind === 'file') setName(e.name);
-                  }}
-                  onDoubleClick={() => activate(e)}
-                >
-                  <span className="ze-chooser-name-cell">
-                    <TreeIcon name={iconFor(e)} />
-                    {e.name}
-                  </span>
-                  <span>{e.size === null ? '' : formatSize(e.size)}</span>
-                  <span>{typeOf(e)}</span>
-                  <span>{formatModified(e.modified)}</span>
-                </div>
-              ),
-            )}
-            {entries !== null && shown.length === 0 && editing === null ? (
-              <div className="ze-chooser-empty">
-                {error ?? (dir === ROOT ? 'No projects yet.' : 'This folder is empty.')}
+              <div className="ze-chooser-crumbs">
+                {ancestors(dir).map((p) => (
+                  <button
+                    type="button"
+                    key={p}
+                    className={p === dir ? 'current' : undefined}
+                    onClick={() => goTo(p)}
+                  >
+                    {p === ROOT ? (place?.label ?? 'Home') : basename(p)}
+                  </button>
+                ))}
               </div>
-            ) : null}
+              <button
+                type="button"
+                className="ze-chooser-nav"
+                title="Forward"
+                disabled={history.future.length === 0}
+                onClick={forward}
+              >
+                ›
+              </button>
+              {/* The cluster ends here; this takes the band's spare width so
+                  the arrows stay against the crumbs, not the far edge. */}
+              <span className="ze-chooser-gap" />
+              {/* GTK puts the new-folder button in the path bar for
+              GTK_FILE_CHOOSER_ACTION_SAVE only; the Open dialog's path bar is
+              arrows and crumbs, which is why the capture has none. */}
+              {mode === 'save' ? (
+                <button
+                  type="button"
+                  className="ze-chooser-newdir"
+                  title="Create Folder"
+                  // Only inside a project: the root holds projects, and a folder
+                  // there would be a project that is not one.
+                  disabled={dir === ROOT}
+                  onClick={() => setEditing({ path: null, name: '' })}
+                >
+                  +
+                </button>
+              ) : null}
+              {searching ? (
+                <input
+                  className="ze-chooser-query"
+                  autoFocus
+                  placeholder="Search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              ) : null}
+            </div>
+
+            <div className="ze-chooser-list">
+              <div className="ze-chooser-head">
+                {header('name', 'Name')}
+                {header('size', 'Size')}
+                {header('type', 'Type')}
+                {header('modified', 'Modified')}
+              </div>
+              <div className="ze-chooser-rows">
+                {editing !== null && editing.path === null ? (
+                  <EditRow
+                    icon="directory"
+                    value={editing.name}
+                    inputRef={editInput}
+                    onChange={(v) => setEditing({ path: null, name: v })}
+                    onCommit={() => void commitEdit()}
+                    onAbandon={() => setEditing(null)}
+                  />
+                ) : null}
+                {shown.map((e) =>
+                  editing?.path === e.path ? (
+                    <EditRow
+                      key={e.path}
+                      icon={iconFor(e)}
+                      value={editing.name}
+                      inputRef={editInput}
+                      onChange={(v) => setEditing({ path: e.path, name: v })}
+                      onCommit={() => void commitEdit()}
+                      onAbandon={() => setEditing(null)}
+                    />
+                  ) : (
+                    <div
+                      key={e.path}
+                      className={`ze-chooser-row${selected === e.path ? ' selected' : ''}`}
+                      onClick={() => {
+                        setSelected(e.path);
+                        if (mode === 'save' && e.kind === 'file') setName(e.name);
+                      }}
+                      onDoubleClick={() => activate(e)}
+                    >
+                      <span className="ze-chooser-name-cell">
+                        <TreeIcon name={iconFor(e)} />
+                        {e.name}
+                      </span>
+                      <span>{e.size === null ? '' : formatSize(e.size)}</span>
+                      <span>{typeOf(e)}</span>
+                      <span>{formatModified(e.modified)}</span>
+                    </div>
+                  ),
+                )}
+                {entries !== null && shown.length === 0 && editing === null ? (
+                  <div className="ze-chooser-empty">
+                    {error ?? (dir === ROOT ? 'No projects yet.' : 'This folder is empty.')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
