@@ -28,7 +28,18 @@ import { describe, expect, it } from 'vitest';
 import { DS_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
 import { GBR_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import type { ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import {
+  groupIsCheckItem,
+  type ToolEntry,
+  type ToolGroup,
+} from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const TOOLBAR_TSX = readFileSync(
+  fileURLToPath(new URL('../../../designer/src/ui/Toolbar.tsx', import.meta.url)),
+  'utf8',
+);
 
 const groups = (entries: readonly ToolEntry[]): ToolGroup[] =>
   entries.filter((e): e is ToolGroup => typeof e === 'object' && 'group' in e);
@@ -67,5 +78,61 @@ describe('a group that cycles cannot be checked', () => {
         typeof e === 'object' && 'id' in e && e.id === 'toggleGrid',
     );
     expect(grid?.toggle).toBe(true);
+  });
+
+  /**
+   * The half the data alone cannot pin, and the reason this fix had to be made
+   * twice.
+   *
+   * A group button lights from `toggled` membership, and `toggled` carries the
+   * CURRENT unit whatever the action's flags say. So removing `toggle: true`
+   * from the three unit actions did NOT stop the highlight — and a mutation
+   * sweep against the data-only cases above reported the renderer's guard as
+   * dead when it was the only thing doing the work. A survivor from a test
+   * that cannot observe the behaviour is not evidence the code is redundant.
+   */
+  describe('and the renderer honours it', () => {
+    const units: ToolGroup = {
+      group: 'Units',
+      cycleOnClick: true,
+      actions: [
+        { id: 'unitsMm', icon: 'unitsMm', title: 'mm' },
+        { id: 'unitsMils', icon: 'unitsMils', title: 'mils' },
+      ],
+    };
+    const toolGroup: ToolGroup = {
+      group: 'Selection modes',
+      actions: [
+        { id: 'selectSetRect', icon: 'selectSetRect', title: 'Rectangle' },
+        { id: 'selectSetLasso', icon: 'selectSetLasso', title: 'Lasso' },
+      ],
+    };
+
+    it('a cycling group of non-toggles is not a check item', () => {
+      expect(groupIsCheckItem(units)).toBe(false);
+    });
+
+    it('a tool group is, because its actions are activations upstream', () => {
+      // `selectionTool` and `routeSingleTrack` both declare
+      // TOOLBAR_STATE::TOGGLE, so their group button is wxITEM_CHECK and our
+      // `activeTool` is what lights it. Gating these off would be a
+      // regression, which is why the rule is not simply "has a toggle".
+      expect(groupIsCheckItem(toolGroup)).toBe(true);
+    });
+
+    it('a cycling group WITH a toggle still is, as upstream would have it', () => {
+      // isToggleEntry is an OR over the actions; upstream does not care that
+      // the group cycles.
+      expect(
+        groupIsCheckItem({ ...units, actions: [{ ...units.actions[0]!, toggle: true }] }),
+      ).toBe(true);
+    });
+
+    it('and Toolbar actually consults it', () => {
+      // Without this the three cases above pass while the renderer ignores
+      // them — the exact shape that let the highlight come back.
+      expect(TOOLBAR_TSX).toMatch(/groupIsCheckItem\(/);
+      expect(TOOLBAR_TSX).toMatch(/groupChecks\s*&&/);
+    });
   });
 });

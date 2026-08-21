@@ -66,6 +66,36 @@ export interface ToolGroup {
  * Falls back to the first action when the shown id is not in the group, which
  * is what upstream's loop does too (`next` is initialised to `actions[0]`).
  */
+/**
+ * Whether a group's button can ever paint checked — `isToggleEntry` in
+ * `ACTION_TOOLBAR::AddGroup` (`common/tool/action_toolbar.cpp:527-535`):
+ *
+ *     for( const auto& act : aGroup->GetActions() )
+ *         isToggleEntry |= act->CheckToolbarState( TOOLBAR_STATE::TOGGLE );
+ *     AddTool( ..., isToggleEntry ? wxITEM_CHECK : wxITEM_NORMAL, ... );
+ *
+ * A wxITEM_NORMAL cannot be checked at all, which is why a live pl_editor
+ * shows the units button flat while the grid toggle above it stays lit.
+ *
+ * `cycleOnClick` carries the second half. It is our name for upstream's test
+ * in `onToolEvent` — "none of the actions is an activation" — which is what
+ * separates a *toggle* group (units, crosshairs, line modes) from a *tool*
+ * group (selection modes, routing, tuning). A tool group's actions are
+ * activations and do declare TOGGLE upstream, so its button is a check item
+ * and our `activeTool` is what lights it.
+ *
+ * This exists as a named function, and not as a condition inside the renderer,
+ * because the renderer's own decision is not reachable from a Node test. The
+ * data alone could not pin it: a button lights from `toggled` membership, and
+ * `toggled` holds the CURRENT unit whatever the action's flags say — so
+ * dropping `toggle: true` from the three unit actions did not stop the
+ * highlight, and a mutation sweep against a data-only test reported the guard
+ * as dead when it was the only thing doing the work.
+ */
+export function groupIsCheckItem(group: ToolGroup): boolean {
+  return !group.cycleOnClick || group.actions.some((a) => a.toggle);
+}
+
 export function nextInGroup(group: ToolGroup, shownId: string): ToolButton {
   const i = group.actions.findIndex((a) => a.id === shownId);
   if (i === -1) return group.actions[0]!;
