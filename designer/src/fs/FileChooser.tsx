@@ -34,6 +34,7 @@ import { treeIconFor } from '../home/project_tree.js';
 import { useModalEscape } from '../ui/useModalEscape.js';
 import '../ui/file_chooser.css';
 import { fileExtension, fileTypeLabel } from './file_types.js';
+import type { ChooserFilter } from './chooser_filter.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
@@ -86,13 +87,9 @@ export interface ChooserPlace {
   readonly onAccept?: (path: string) => void;
 }
 
-/** One entry of the type combo at the bottom right. */
-export interface ChooserFilter {
-  /** The whole string the combo shows — `KiCad project files (*.kicad_pro)`. */
-  readonly label: string;
-  /** Lowercase extensions without the dot. Empty means everything. */
-  readonly extensions: readonly string[];
-}
+/** One entry of the type combo at the bottom right. See `chooser_filter.ts`
+ *  for why the interface itself is not declared here. */
+export type { ChooserFilter } from './chooser_filter.js';
 
 /** Which column the list is ordered by. */
 type SortKey = 'name' | 'size' | 'type' | 'modified';

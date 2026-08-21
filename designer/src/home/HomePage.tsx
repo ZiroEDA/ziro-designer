@@ -74,7 +74,9 @@ import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
 import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
-import { OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
+import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
+import { projectNameFrom } from './dialogs/template_selector.js';
+import { basename as pathBasename } from '../fs/path.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
@@ -520,8 +522,11 @@ export function HomePage({
   // New Project / New from Template (upstream v10: one template selector).
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   // NewProject is two windows upstream: the template selector, then the
-  // "New Project Folder" file dialog. `tplStep` is which one is up.
+  // "New Project Folder" file dialog. `tplStep` is which one is up, and
+  // `tplChosen` is what the first one returned - upstream keeps it in
+  // `selectedTemplatePath` across the same gap.
   const [tplStep, setTplStep] = useState<'none' | 'template' | 'name'>('none');
+  const [tplChosen, setTplChosen] = useState<TemplateMeta | null>(null);
   /** settings->m_RecentTemplates: template ids, newest first. */
   const [recentTemplates, setRecentTemplates] = useState<string[]>(() => {
     try {
@@ -540,10 +545,6 @@ export function HomePage({
       /* storage blocked; recents just won't survive the reload */
     }
   }, [recentTemplates]);
-  // The selected template and the typed name used to be held here, between the
-  // selector closing and the "New Project Folder" window opening. With both on
-  // one window there is nothing to carry across, so OK hands them straight to
-  // createFromTpl.
   /**
    * The project names already in use, lowercased.
    *
@@ -1741,9 +1742,8 @@ export function HomePage({
         <TemplateSelectorDialog
           templates={templates}
           recentTemplates={recentTemplates}
-          takenNames={takenProjectNames}
           onCancel={() => setTplStep('none')}
-          onOk={(t, name) => {
+          onOk={(t) => {
             if (!t) {
               // KICAD_MANAGER_CONTROL::NewProject's own answer when the dialog
               // returns wxID_OK with no template chosen.
@@ -1753,8 +1753,10 @@ export function HomePage({
             // settings->m_RecentTemplates: erase the duplicate, insert at the
             // front, then `if( recentTemplates.size() > 5 ) resize( 5 )`. We had
             // been keeping 8, so the recent list grew three rows past KiCad's.
-            setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 5));
-            void createFromTpl(t, name);
+            // Upstream writes the MRU only once the project has actually been
+            // created, after the file dialog; ours does the same, below.
+            setTplChosen(t);
+            setTplStep('name');
           }}
           // onEditTemplate: find the template's .kicad_pro and LoadProject it.
           // The original is read-only here, so what opens is a copy under the
@@ -1768,6 +1770,72 @@ export function HomePage({
           onDelete={async (t) => {
             await deleteUserTemplate(t.id);
             await refreshTemplates();
+          }}
+        />
+      )}
+
+      {/* NewProject's second window:
+
+            wxString     default_dir = wxFileName( Prj().GetProjectFullName() ).GetPathWithSep();
+            wxString     title = _( "New Project Folder" );
+            wxFileDialog dlg( m_frame, title, default_dir, wxEmptyString,
+                              FILEEXT::ProjectFileWildcard(),
+                              wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+
+          (kicad/tools/kicad_manager_control.cpp:281-285.) It is the same
+          wxFileDialog Open Existing Project puts up, in save mode - so it is
+          the same widget here too, and the project name is the filename typed
+          into it rather than a field bolted onto the selector.
+
+          Two things upstream has that this tree cannot carry, said rather than
+          substituted for:
+
+          * FILEDLG_NEW_PROJECT's "Create a new folder for the project"
+            checkbox (kicad/widgets/filedlg_new_project.h). It decides between
+            `<dir>/Blinky.kicad_pro` and `<dir>/Blinky/Blinky.kicad_pro`. Every
+            project of the account *is* a folder at the tree's root - the store
+            has no other shape for one - so the box could only ever be ticked.
+            Left out rather than drawn as a control that does nothing.
+          * The default directory. There is one directory a project can be
+            created in, so the dialog opens at the root and stays there; a
+            `default_dir` would have nowhere else to point. */}
+      {tplStep === 'name' && tplChosen && (
+        <FileChooser
+          fs={accountFs}
+          mode="save"
+          title="New Project Folder"
+          // wxFD_SAVE, which is what GTK labels the accept button from.
+          accept="Save"
+          // `wxEmptyString` is the defaultFile upstream passes: the name is
+          // asked for, not proposed from the template.
+          initialName=""
+          // Only the account's own tree, which is the one place a project can
+          // be created; Recent, Demos and Templates are read-only listings.
+          places={[{ id: 'projects', label: 'Projects', icon: 'open_project' }]}
+          filters={NEW_PROJECT_FOLDER_FILTERS}
+          onCancel={() => setTplStep('none')}
+          onAccept={(path) => {
+            // The name half of what NewProject does to the returned path:
+            // a typed `.kicad_pro` is replaced by SetExt and disappears, any
+            // other extension is folded back into the name.
+            const name = sanitizeProjectName(projectNameFrom(pathBasename(path)));
+            if (!name) return;
+            // wxFD_OVERWRITE_PROMPT, then KIDIALOG's "Similar files already
+            // exist in the destination folder." Both come down to the same
+            // question here, because a project of this name already existing
+            // is exactly what `ingest` would overwrite.
+            if (
+              takenProjectNames.has(name.toLowerCase()) &&
+              !window.confirm(
+                `A project named \u201c${name}\u201d already exists.  Do you want to replace it?`,
+              )
+            ) {
+              return;
+            }
+            // settings->m_RecentTemplates, written once the project is made.
+            const t = tplChosen;
+            setRecentTemplates((prev) => [t.id, ...prev.filter((id) => id !== t.id)].slice(0, 5));
+            void createFromTpl(t, name);
           }}
         />
       )}
