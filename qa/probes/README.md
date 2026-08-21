@@ -83,6 +83,23 @@ parent `wxPanel` background is `#373737` (`--content-bg`), a disabled entry is
 `#2a2a2a` (`--ctl-face-disabled`), and an entry allocates 34 px tall
 (`--ctl-height`).
 
+`chooser_cells_probe.cpp` - the file chooser's tree view: every column, every
+cell renderer's `xpad`/`ypad`/fixed size and its position inside its column, the
+column header button's padding, and the row's background versus cell area. Takes
+a directory and a wildcard as arguments.
+
+    ./chooser_cells_probe /home/akshay "All files (*)|*"
+
+**Point it at a directory.** A chooser with no folder set opens on *Recent*,
+whose tree view carries a different column set (Name / Location / Size / Type /
+Accessed). Two numbers shipped wrong because they were read there - the row
+height and the Type column width - so the probe prints the directory it was
+given, and every reading should say which mode it was taken in.
+
+It also prints how many `GtkTreeView`s the dialog contains, because the mistake
+that started this was `next(w for w in ws if isinstance(w, Gtk.TreeView))`
+picking one by position rather than by identity.
+
 ## Writing a new one
 
 Copy either file. The pattern is `wxEntryStart`, `CallOnInit`, build the widget
