@@ -53,6 +53,8 @@ export function LayerManager({
   onMoveDown,
   renderToggles,
   onRenderToggle,
+  onSortByX2,
+  onSortByFileExtension,
   rows,
 }: {
   layers: LayerInfo[];
@@ -68,6 +70,8 @@ export function LayerManager({
   onMoveDown: (index: number) => void;
   renderToggles: Record<string, boolean>;
   onRenderToggle: (id: string) => void;
+  onSortByX2: () => void;
+  onSortByFileExtension: () => void;
   rows: RenderRow[];
 }): JSX.Element {
   const [page, setPage] = useState<'layers' | 'items'>('layers');
@@ -78,6 +82,8 @@ export function LayerManager({
     showAll: onShowAll,
     hideAllButActive: onHideAllButActive,
     hideAll: onHideAll,
+    sortByX2: onSortByX2,
+    sortByFileExtension: onSortByFileExtension,
     moveUp: () => onMoveUp(activeLayer),
     moveDown: () => onMoveDown(activeLayer),
     clearLayer: () => onDelete(activeLayer),

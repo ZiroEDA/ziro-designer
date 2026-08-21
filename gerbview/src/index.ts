@@ -22,3 +22,11 @@ export {
   parseJobFile,
   type JobFileEntry,
 } from './read_gerber.js';
+export {
+  GERBER_ORDER,
+  GERBER_FILE_EXTENSION_ORDER,
+  gerberLayerFromFilename,
+  compareByFileExtension,
+  compareByZOrder,
+  zOrderOf,
+} from './layer_sort.js';

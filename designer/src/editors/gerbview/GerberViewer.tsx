@@ -38,6 +38,7 @@ import {
   type GERBER_FILE_IMAGE,
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
+import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -59,6 +60,7 @@ import {
   dcodeListLines,
   gerbviewFrameTitle,
   gerbviewImageInfoRows,
+  isX2File,
   gerbviewLayerDisplayName,
   gerbviewStatusField0,
   layersPaneWidth,
@@ -237,6 +239,45 @@ export function GerberViewer({
       ? 'mils'
       : 'mm';
 
+  /**
+   * `GERBVIEW_FRAME::SortLayersByFileExtension` / `SortLayersByX2Attributes`
+   * (`gerbview_frame.cpp:512-518`), which are
+   * `RemapLayers( GetImagesList()->SortImagesBy...() )`.
+   *
+   * `RemapLayers` renumbers every image's `m_GraphicLayer` to its new position
+   * (`GetLayerRemap`, `gerber_file_image_list.cpp:415-436`); ours is the array
+   * index, so re-indexing is what reordering the array already does.
+   *
+   * The sort is STABLE where upstream's `std::sort` is not. That is a real
+   * difference and it only shows on ties — but ties are the common case here,
+   * because `.GBR` is the third mask in the table and maps to BOARD_OUTLINE, so
+   * every file of a modern KiCad plot ties. Upstream leaves those in whatever
+   * permutation std::sort happens to produce; a stable sort leaves them in load
+   * order, which is the one deterministic answer inside the range the C++
+   * allows.
+   */
+  const sortLayers = useCallback((compare: (a: Layer, b: Layer) => number) => {
+    setLayers((prev) => {
+      const next = prev.slice().sort(compare);
+      return next.every((l, i) => l === prev[i]) ? prev : next;
+    });
+  }, []);
+
+  const byFileExtension = useCallback(
+    (a: Layer, b: Layer) => compareByFileExtension(a.image.fileName, b.image.fileName),
+    [],
+  );
+  const byZOrder = useCallback(
+    (a: Layer, b: Layer) => compareByZOrder(a.image.fileFunction, b.image.fileFunction),
+    [],
+  );
+
+  const sortByFileExtension = useCallback(
+    () => sortLayers(byFileExtension),
+    [sortLayers, byFileExtension],
+  );
+  const sortByX2 = useCallback(() => sortLayers(byZOrder), [sortLayers, byZOrder]);
+
   // ---- loading -----------------------------------------------------------
   /**
    * `getNextAvailableLayer()`, the slot the next loaded file goes into
@@ -292,24 +333,30 @@ export function GerberViewer({
     [addImage],
   );
 
-  const applyJobFile = useCallback((text: string): void => {
-    const entries = parseJobFile(text);
-    if (entries.length === 0) return;
-    setLayers((prev) =>
-      prev.map((l) => {
-        const base = l.image.fileName.split('/').pop() ?? l.image.fileName;
-        const match = entries.find((e) => (e.path.split('/').pop() ?? e.path) === base);
-        if (match)
-          return {
-            ...l,
-            function: match.fileFunction,
-            name: `${base} (${match.fileFunction.split(',')[0]})`,
-          };
-        return l;
-      }),
-    );
-    setStatus('Applied job file layer assignments');
-  }, []);
+  const applyJobFile = useCallback(
+    (text: string): void => {
+      const entries = parseJobFile(text);
+      if (entries.length === 0) return;
+      setLayers((prev) =>
+        prev.map((l) => {
+          const base = l.image.fileName.split('/').pop() ?? l.image.fileName;
+          const match = entries.find((e) => (e.path.split('/').pop() ?? e.path) === base);
+          if (match)
+            return {
+              ...l,
+              function: match.fileFunction,
+              name: `${base} (${match.fileFunction.split(',')[0]})`,
+            };
+          return l;
+        }),
+      );
+      setStatus('Applied job file layer assignments');
+      // `SortLayersByX2Attributes();` (`gerbview/job_file_reader.cpp:235`) —
+      // unconditional on this path, because a job file only exists for an X2 set.
+      sortByX2();
+    },
+    [sortByX2],
+  );
 
   /** The slot the first file in the archive went into — `firstLoadedLayer` of
    *  `GERBVIEW_FRAME::LoadZipArchiveFile` (`gerbview/files.cpp:444,594-596`).
@@ -339,31 +386,60 @@ export function GerberViewer({
       } catch (err) {
         setStatus(`Failed to open ${file.name}: ${(err as Error).message}`);
       }
+      // `if( foundX2Gerbers ) SortLayersByX2Attributes();
+      //  else SortLayersByFileExtension();`   (`gerbview/files.cpp:631-634`)
+      //
+      // Unlike the plain Open below, a zip sorts every time, not only when it
+      // is the first thing loaded. `foundX2Gerbers` is set while unzipping,
+      // from `gerber_image->m_IsX2_file` (`:622-623`).
+      setLayers((prev) => {
+        const compare = prev.some((l) => isX2File(l.image)) ? byZOrder : byFileExtension;
+        const next = prev.slice().sort(compare);
+        return next.every((l, i) => l === prev[i]) ? prev : next;
+      });
       return firstLoadedLayer;
     },
-    [loadTextFile, applyJobFile],
+    [loadTextFile, applyJobFile, byZOrder, byFileExtension],
   );
 
   const loadFiles = useCallback(
     async (files: FileList | File[]): Promise<void> => {
       const arr = Array.from(files);
+      // `bool isFirstFile = GetImagesList()->GetLoadedImageCount() == 0;`
+      // (`gerbview/files.cpp:178`), read BEFORE anything is loaded. It gates
+      // the sort and the auto-zoom, so a second Open adds layers to the end
+      // and leaves the order alone.
+      const isFirstFile = nextLayer.current === 0;
       // `firstLoadedLayer` (`gerbview/files.cpp:273`): the slot the FIRST file
       // of this batch went into, not slot 0 — a second Open adds to the layers
       // already there and makes the first of the new ones active.
       let firstLoadedLayer: number | null = null;
+      // A zip and a job file each run their OWN upstream sort, on the paths
+      // that own them; this one must not then re-sort behind them.
+      let selfSorted = false;
       // Sort so a .gbrjob is processed last (it only re-colours), gerbers first.
       for (const f of arr) {
         const lower = f.name.toLowerCase();
         if (lower.endsWith('.zip')) {
           const at = await loadZip(f);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
+          selfSorted = true;
         } else if (lower.endsWith('.gbrjob')) {
           applyJobFile(await f.text());
+          selfSorted = true;
         } else {
           const at = loadTextFile(f.name, await f.text());
           if (firstLoadedLayer === null) firstLoadedLayer = at;
         }
       }
+      // `if( isFirstFile ) { int ly = GetActiveLayer();
+      //                      SortLayersByFileExtension(); Zoom_Automatique( false );
+      //                      SetActiveLayer( ly, true ); }`   (`files.cpp:184-193`)
+      //
+      // `ly` is an INDEX and is restored as one: upstream does not follow the
+      // image that was active across the sort, it puts the active layer back at
+      // the same row number. Ours does the same by setting it below, after.
+      if (isFirstFile && !selfSorted) sortByFileExtension();
       // `if( firstLoadedLayer != NO_AVAILABLE_LAYERS )
       //      SetActiveLayer( firstLoadedLayer, true );`  (`files.cpp:425-426`)
       //
@@ -374,7 +450,7 @@ export function GerberViewer({
       // showed: an empty info box next to KiCad's `fmt: mm X3.3 Y3.3 no TZ`.
       if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
     },
-    [loadTextFile, loadZip, applyJobFile, setActiveLayer],
+    [loadTextFile, loadZip, applyJobFile, setActiveLayer, sortByFileExtension],
   );
 
   /**
@@ -1240,6 +1316,8 @@ export function GerberViewer({
                 layers={layerInfos}
                 activeLayer={activeLayer}
                 onSetActive={setActiveLayer}
+                onSortByX2={sortByX2}
+                onSortByFileExtension={sortByFileExtension}
                 onToggleVisible={toggleVisible}
                 onSetColor={setColor}
                 onShowAll={showAll}

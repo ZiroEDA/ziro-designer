@@ -116,6 +116,10 @@ export interface LayerMenuHandlers {
   showAll: () => void;
   hideAllButActive: () => void;
   hideAll: () => void;
+  /** ID_SORT_GBR_LAYERS_X2 — `GERBVIEW_FRAME::SortLayersByX2Attributes`. */
+  sortByX2: () => void;
+  /** ID_SORT_GBR_LAYERS_FILE_EXT — `SortLayersByFileExtension`. */
+  sortByFileExtension: () => void;
   moveUp: () => void;
   moveDown: () => void;
   clearLayer: () => void;
@@ -135,11 +139,12 @@ export function layerContextMenu(h: LayerMenuHandlers): MenuItem[] {
     },
     { label: 'Hide All Layers', action: h.hideAll },
     { sep: true },
-    // Both sorts reorder the IMAGE LIST, which is engine work rather than
-    // widget work: ID_SORT_GBR_LAYERS_X2 sorts on the X2 file function and
-    // ID_SORT_GBR_LAYERS_FILE_EXT on the extension.
-    { label: 'Sort Layers if X2 Mode', disabled: true },
-    { label: 'Sort Layers by File Extension', disabled: true },
+    // ID_SORT_GBR_LAYERS_X2 / ID_SORT_GBR_LAYERS_FILE_EXT
+    // (`gerbview_layer_widget.cpp:253-259`). Both reorder the image list and
+    // then renumber the graphic layers to match; the comparators are ported in
+    // `@ziroeda/gerbview`'s layer_sort.ts.
+    { label: 'Sort Layers if X2 Mode', action: h.sortByX2 },
+    { label: 'Sort Layers by File Extension', action: h.sortByFileExtension },
     { sep: true },
     // ID_SET_GBR_LAYERS_DRAW_PRMS opens DIALOG_DRAW_LAYERS_SETTINGS
     // (`gerbview/dialogs/dialog_draw_layers_settings.cpp`), which we have not

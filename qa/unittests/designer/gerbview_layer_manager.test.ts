@@ -108,6 +108,8 @@ describe('the right-click menu', () => {
     showAll: noop,
     hideAllButActive: noop,
     hideAll: noop,
+    sortByX2: noop,
+    sortByFileExtension: noop,
     moveUp: noop,
     moveDown: noop,
     clearLayer: noop,
@@ -138,16 +140,21 @@ describe('the right-click menu', () => {
   });
 
   /**
-   * The four we have not built are greyed in their upstream positions rather
-   * than dropped — the two sorts and the display-parameters dialog are engine
-   * and dialog work, and "Always Hide" is a mode
-   * (`m_alwaysShowActiveLayer`, `:52`) we do not hold.
+   * Upstream greys NONE of these; ours greys what is not built yet, in its
+   * upstream position rather than dropping it. That leaves two:
+   * "Always Hide All Layers But Active" is a mode we do not hold
+   * (`m_alwaysShowActiveLayer`, `:52`), and "Layers Display Parameters" opens
+   * DIALOG_DRAW_LAYERS_SETTINGS, which we have not built.
+   *
+   * It used to leave four. The two sorts came off this list when the
+   * comparators landed (`gerbview/src/layer_sort.ts`) — re-derived from what is
+   * built, not read back off the new output: each of the two removed is
+   * separately asserted to run in `gerbview_layer_sort_wiring.test.ts`, and
+   * each of the two that stay is unbuilt for a reason named above.
    */
-  it('greys exactly the four that are not built', () => {
+  it('greys exactly the two that are not built', () => {
     expect(menu.filter((i) => i.disabled).map((i) => i.label)).toEqual([
       'Always Hide All Layers But Active',
-      'Sort Layers if X2 Mode',
-      'Sort Layers by File Extension',
       'Layers Display Parameters: Offset and Rotation',
     ]);
   });
@@ -157,6 +164,8 @@ describe('the right-click menu', () => {
       'Show All Layers',
       'Hide All Layers But Active',
       'Hide All Layers',
+      'Sort Layers if X2 Mode',
+      'Sort Layers by File Extension',
       'Move Current Layer Up',
       'Move Current Layer Down',
       'Clear Current Layer...',
