@@ -73,6 +73,16 @@ export enum FsErrorCode {
    * exists. It is the one structural rule this tree has.
    */
   NOT_IN_PROJECT = 'NOT_IN_PROJECT',
+  /**
+   * The location cannot be written to at all — an `EROFS`.
+   *
+   * Not every place the chooser shows is a folder of this tree. GTK's sidebar
+   * has the same split: Documents is a directory you can walk into and write
+   * to, `recent:///` is a query with nothing behind it to change. A listing
+   * place refuses every mutation with this rather than accepting one and
+   * silently doing nothing.
+   */
+  READ_ONLY = 'READ_ONLY',
 }
 
 /** A refusal, carrying the path it was about so a caller can name it. */
@@ -139,8 +149,19 @@ export interface FlatFile {
  *
  * `base` is where `dir` sits in the account's tree, so the entries come back
  * with absolute paths the chooser can navigate to. The store never sees it.
+ *
+ * `leafKind` is what a path with no more slashes in it becomes. It is `file`
+ * for a project's contents, which is every caller inside the account's tree.
+ * The listing places pass `project`: a demo's id is a path too —
+ * `simulation/amplifier_ac` — so the same derivation gives Demos its folders,
+ * but its leaves are projects you open rather than files you read.
  */
-export function dirLevel(files: readonly FlatFile[], dir: string, base: string): Entry[] {
+export function dirLevel(
+  files: readonly FlatFile[],
+  dir: string,
+  base: string,
+  leafKind: EntryKind = 'file',
+): Entry[] {
   const prefix = dir === '' ? '' : `${dir}/`;
   const folders = new Map<string, number>();
   const out: Entry[] = [];
@@ -154,8 +175,10 @@ export function dirLevel(files: readonly FlatFile[], dir: string, base: string):
       out.push({
         name: rest,
         path: join(base, rest),
-        kind: 'file',
-        size: f.size,
+        kind: leafKind,
+        // A folder shows no size, and `project` is a folder — so only a real
+        // file carries one through.
+        size: leafKind === 'file' ? f.size : null,
         modified: f.modified,
       });
     } else {
