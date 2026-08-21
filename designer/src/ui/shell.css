@@ -2760,9 +2760,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: var(--swatch-small-h);
   flex: 0 0 auto;
 }
-.ze-layer-swatch.blank {
-  background: transparent;
-}
 /* BITMAP_TOGGLE visibility eye: an inline-SVG button that always renders,
    drawn in a light grey that stays visible on the grey list background. */
 .ze-eye-btn {
@@ -2788,6 +2785,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 /* Objects tab row: [swatch|spacer][eye|spacer][label][opacity slider] */
 /* Objects tab row, spaced like KiCad's appendObject:
    [swatch] 5px [eye] 5px [label] [slider], 2px between rows. */
+/* The gap `RR()` leaves between Objects groups: m_pointSize / 2, where
+   m_pointSize is wxSYS_DEFAULT_GUI_FONT's point size — 11 pt, so 5 px
+   (appearance_controls.cpp:2461). Ours was a round 8. */
+.ze-object-sep {
+  height: 5px;
+}
 .ze-object-row {
   display: flex;
   align-items: center;
@@ -2860,8 +2863,28 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A net/netclass with no custom color: a plain empty swatch (dark with a
    border), like KiCad's uncolored COLOR_SWATCH, click it to assign a color. */
+/* COLOR_SWATCH holding COLOR4D::UNSPECIFIED — an Objects row with no theme
+   colour, a net or a netclass with no override. It is not a flat grey; it is a
+   checkerboard, and on a dark parent COLOR_SWATCH::RenderToDC takes the branch
+   `black = COLOR4D::BLACK; white = black.Brightened( 0.15 )`
+   (`common/widgets/color_swatch.cpp:79-93`).
+
+   [data] KiCad's own constants, not the theme's: 0.15 * 255 = 38 = #262626,
+   and that is exactly what a live pcbnew paints — sampled off the Objects tab
+   of KiCad 10.0.5 on this machine, whose Tracks swatch reads #262626/#000000
+   in 6x7 px cells across the 16x14 swatch, top-left cell #262626 (the loop
+   opens with `colCycle = rowCycle`, which is false on a dark ground).
+   CHECKERBOARD_SIZE_DU is (3,3) and converts asymmetrically, which is why the
+   cell is 6 wide and 7 tall rather than square. */
 .ze-layer-swatch.unset {
-  background: #2b2d31;
+  background-color: #262626;
+  background-image: conic-gradient(
+    #000000 0 25%,
+    #262626 0 50%,
+    #000000 0 75%,
+    #262626 0
+  );
+  background-size: 12px 14px;
 }
 
 /* Nets tab: the Nets grid and the Net Classes list each sit in their own

@@ -242,7 +242,7 @@ import {
 import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
 import { inspectSelection, describeSelected } from './inspect_selection.js';
 import { netClassFor, netclassesForNet } from './netclass_resolve.js';
-import { toggleObject, type ObjectState } from './pcb_objects.js';
+import { OBJECT_ROWS, toggleObject, type ObjectState } from './pcb_objects.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
 import { bestSnapAnchor, snapToBoardCopper } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
@@ -607,114 +607,6 @@ const DEFAULT_TOGGLES = new Set([
   'showProperties',
 ]);
 
-// Objects tab rows, exactly appearance_controls.cpp s_objectSettings
-// (label / tooltip / opacity slider / visibility checkbox). Rows whose
-// rendering isn't ported yet are greyed in their upstream position.
-type ObjectRow =
-  | 'sep'
-  | {
-      key: keyof ObjectState;
-      label: string;
-      tooltip: string;
-      slider?: boolean;
-      noVisibility?: boolean;
-      disabled?: boolean;
-    };
-const OBJECT_ROWS: ObjectRow[] = [
-  { key: 'tracks', label: 'Tracks', tooltip: 'Show tracks', slider: true },
-  { key: 'vias', label: 'Vias', tooltip: 'Show all vias', slider: true },
-  { key: 'pads', label: 'Pads', tooltip: 'Show all pads', slider: true },
-  { key: 'zones', label: 'Zones', tooltip: 'Show copper zones', slider: true },
-  {
-    key: 'filledShapes',
-    label: 'Filled Shapes',
-    tooltip: 'Opacity of filled shapes',
-    slider: true,
-    noVisibility: true,
-  },
-  { key: 'images', label: 'Images', tooltip: 'Show user images', slider: true, disabled: true },
-  'sep',
-  {
-    key: 'footprintsFront',
-    label: 'Footprints Front',
-    tooltip: "Show footprints that are on board's front",
-  },
-  {
-    key: 'footprintsBack',
-    label: 'Footprints Back',
-    tooltip: "Show footprints that are on board's back",
-  },
-  { key: 'fpValues', label: 'Values', tooltip: 'Show footprint values' },
-  { key: 'fpReferences', label: 'References', tooltip: 'Show footprint references' },
-  { key: 'fpText', label: 'Footprint Text', tooltip: 'Show all footprint text' },
-  'sep',
-  'sep',
-  {
-    key: 'ratsnest',
-    label: 'Ratsnest',
-    tooltip: 'Show unconnected nets as a ratsnest',
-  },
-  {
-    key: 'drcWarnings',
-    label: 'DRC Warnings',
-    tooltip: 'DRC violations with a Warning severity',
-    disabled: true,
-  },
-  {
-    key: 'drcErrors',
-    label: 'DRC Errors',
-    tooltip: 'DRC violations with an Error severity',
-    disabled: true,
-  },
-  {
-    key: 'drcExclusions',
-    label: 'DRC Exclusions',
-    tooltip: 'DRC violations which have been individually excluded',
-    disabled: true,
-  },
-  {
-    key: 'anchors',
-    label: 'Anchors',
-    tooltip: 'Show footprint and text origins as a cross',
-  },
-  {
-    key: 'points',
-    label: 'Points',
-    tooltip: 'Show explicit snap points as crosses',
-    disabled: true,
-  },
-  {
-    key: 'lockedShadow',
-    label: 'Locked Item Shadow',
-    tooltip: 'Show a shadow on locked items',
-    disabled: true,
-  },
-  {
-    key: 'collidingCourtyards',
-    label: 'Colliding Courtyards',
-    tooltip: 'Show colliding footprint courtyards',
-    disabled: true,
-  },
-  {
-    key: 'constrainedShadow',
-    label: 'Constrained Item Shadow',
-    tooltip: 'Show a shadow on constrained items',
-    disabled: true,
-  },
-  {
-    key: 'boardAreaShadow',
-    label: 'Board Area Shadow',
-    tooltip: 'Show board area shadow',
-    disabled: true,
-  },
-  {
-    key: 'drawingSheet',
-    label: 'Drawing Sheet',
-    tooltip: 'Show drawing sheet borders and title block',
-  },
-  { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
-];
-
 const DEFAULT_OBJECTS: ObjectState = {
   tracks: true,
   vias: true,
@@ -735,7 +627,6 @@ const DEFAULT_OBJECTS: ObjectState = {
   points: true,
   lockedShadow: true,
   collidingCourtyards: true,
-  constrainedShadow: true,
   boardAreaShadow: true,
   drawingSheet: true,
   grid: true,
@@ -7843,20 +7734,21 @@ export function PcbEditor({
 
                 {tab === 'Objects' &&
                   OBJECT_ROWS.map((row, i) => {
-                    if (row === 'sep') return <div key={`sep${i}`} style={{ height: 8 }} />;
-                    const { key, label, tooltip, slider, noVisibility, disabled } = row;
+                    // m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ): half the
+                    // GUI font's point size, 11/2 = 5 (appearance_controls.cpp:2461).
+                    if (row === 'sep') return <div key={`sep${i}`} className="ze-object-sep" />;
+                    const { key, label, tooltip, slider, noVisibility } = row;
                     const on = objects[key];
                     const swatchColor = PCB_OBJECT_COLORS[key];
                     return (
-                      // appendObject row: [swatch|spacer][eye|spacer][label][slider]
-                      <div
-                        key={key}
-                        className="ze-object-row"
-                        title={tooltip}
-                        style={disabled ? { opacity: 0.4 } : undefined}
-                      >
+                      // appendObject row: [swatch][eye|spacer][label][slider]
+                      <div key={key} className="ze-object-row" title={tooltip}>
+                        {/* Every row carries a swatch. A row with no theme
+                            colour gets COLOR_SWATCH's checkerboard rather than
+                            a gap, because GetDefaultColor never answers
+                            UNSPECIFIED (color_settings.cpp:411). */}
                         <span
-                          className={`ze-layer-swatch${swatchColor ? '' : ' blank'}`}
+                          className={`ze-layer-swatch${swatchColor ? '' : ' unset'}`}
                           style={swatchColor ? { background: swatchColor } : undefined}
                         />
                         {noVisibility ? (
@@ -7865,9 +7757,7 @@ export function PcbEditor({
                           <button
                             type="button"
                             className="ze-eye-btn"
-                            onClick={() => {
-                              if (!disabled) setObjects((p) => toggleObject(p, key));
-                            }}
+                            onClick={() => setObjects((p) => toggleObject(p, key))}
                             title={`Show or hide ${label.toLowerCase()}`}
                           >
                             <EyeIcon on={on} />
@@ -7894,7 +7784,6 @@ export function PcbEditor({
                                   background: `linear-gradient(to right, var(--slider-fill) 0 ${pct}%, #55585d ${pct}% 100%)`,
                                 }}
                                 title={`Set opacity of ${label.toLowerCase()}`}
-                                disabled={disabled}
                                 onChange={(e) =>
                                   setOpacity((p) => ({
                                     ...p,
