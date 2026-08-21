@@ -126,7 +126,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/footprint': { colours: 9, metrics: 20 },
   'editors/gerbview': { colours: 3, metrics: 4 },
   'editors/image': { colours: 0, metrics: 1 },
-  'editors/pcb': { colours: 76, metrics: 397 },
+  // 76/397 until the Appearance panel pass. Colours: the invented Objects row
+  // took rgba(80,160,240,0.5) with it, and the notebook tab strip's inline
+  // #2a2a2e, #4d7fc4 and #333 went when it adopted the shared .ze-nb-tabs.
+  // Metrics: the same strip's four inline sizes went with them.
+  'editors/pcb': { colours: 72, metrics: 393 },
   'editors/schematic': { colours: 70, metrics: 230 },
   'editors/symbol': { colours: 12, metrics: 19 },
   home: { colours: 7, metrics: 7 },
@@ -160,7 +164,16 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // painting their own literal where wx reports one system colour. Twenty-three
   // of them. Found by scanning for the specificity trap rather than by eye —
   // /home/akshay/ziro-parity/probes/specificity_trap.py.
-  ui: { colours: 314, metrics: 816 },
+  //
+  // And once more by the Appearance panel pass, concurrently with that one, so
+  // for the third time neither branch's figure survived: 314 was the selection
+  // tree and 336 the Appearance one. The Appearance pass took the flat #2b2d31
+  // that .ze-layer-swatch.unset invented for the unset colour swatch. What
+  // replaced it is a checkerboard of #000000 and #262626, but those are
+  // COLOR_SWATCH's own computed pair and carry [data]/[px] on their own lines,
+  // so they do not count here; the three metrics it added are marked the same
+  // way, which is why metrics is untouched. Rescanned, not subtracted.
+  ui: { colours: 313, metrics: 816 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -365,8 +378,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(720);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1669);
+    // The selection pass said 720/1669 and the Appearance pass 738/1665, and
+    // the merged tree is neither — which is the third time this has happened
+    // and exactly what the note above is for. Rescanned from the merged tree.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(715);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1665);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

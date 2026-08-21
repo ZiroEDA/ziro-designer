@@ -53,10 +53,16 @@ const colorLiterals = (src: string): string[] => [
 
 describe('the per-editor colour tables are gone', () => {
   it('leaves pcbnew with only the one colour KiCad has no layer for', () => {
-    // LAYER_DRC_HIGHLIGHTED does not exist in layer_ids.h and the Objects tab
-    // has no "constrained" row in appearance_controls.cpp; both are ours, and
-    // both are commented as such where they are written.
-    expect(colorLiterals(PCB_SRC)).toEqual(['rgb(255,0,255)', 'rgba(80,160,240,0.5)']);
+    // LAYER_DRC_HIGHLIGHTED does not exist in layer_ids.h, so its colour is
+    // ours and is commented as such where it is written.
+    //
+    // There were two. The second was rgba(80,160,240,0.5), the swatch for a
+    // "Constrained Item Shadow" row that appears nowhere in 10.0.5 — not in
+    // appearance_controls.cpp and not in any of the 44 translation
+    // catalogues. It was documented as ours in pcbTheme.ts, documented again
+    // here, and listed as an allowed exception, which is how an invented
+    // control survived being noticed twice. The row is gone, so the colour is.
+    expect(colorLiterals(PCB_SRC)).toEqual(['rgb(255,0,255)']);
   });
 
   it('leaves eeschema with none at all', () => {

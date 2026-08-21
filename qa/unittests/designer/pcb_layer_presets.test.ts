@@ -46,7 +46,9 @@ describe('the combo lists the built-ins alphabetically', () => {
     // m_layerPresets is a std::map, so "All Layers" — first in the source —
     // is second on screen. This is the whole bug.
     expect(presetComboItems()[0]).toBe('All Copper Layers');
-    expect(presetComboItems()[0]).not.toBe(BUILTIN_PRESETS[0].name);
+    // …and that is NOT the first one declared, which is the whole bug.
+    expect(BUILTIN_PRESETS[0]?.name).toBe('All Layers');
+    expect(presetComboItems()[0]).not.toBe(BUILTIN_PRESETS[0]?.name);
   });
 
   it('never offers an "(unsaved)" entry', () => {

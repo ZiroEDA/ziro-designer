@@ -221,13 +221,19 @@ const BASELINE: Record<string, number> = {
   'editors/drawingsheet': 1,
   'editors/footprint': 1,
   'editors/gerbview': 0,
-  'editors/pcb': 124,
+  // 124 until the Appearance panel took the tab strip's inline `fontSize: 12`
+  // out: those tabs are the shared .ze-nb-tabs wxNotebook and state nothing.
+  'editors/pcb': 123,
   'editors/schematic': 63,
   'editors/symbol': 2,
   home: 5,
   mobile: 6,
   pcm: 10,
-  ui: 157,
+  // 157 until the Appearance panel pass. KIUI::GetInfoFont is one font for the
+  // whole pane, and eight rules there wrote 12px or 13px between them; they
+  // ask --ui-font-size-info now, and .ze-nets-header input went with the net
+  // filter box KiCad hides. Nine sites.
+  ui: 148,
   widgets: 6,
 };
 
@@ -350,7 +356,12 @@ describe('hardcoded font sizes do not grow', () => {
     // Project dialog's styles out, and the DIALOG_PAGES_SETTINGS rebuild took
     // that dialog's inline typography — so neither branch's total survived the
     // merge. Rescanned from the merged tree.
-    expect(sites.length).toBe(380);
+    // 380 until the Appearance panel pass took ten: nine in ui/ (the eight
+    // pane rules that wrote a px size where GetInfoFont gives one font, plus
+    // the deleted .ze-nets-header input) and one in editors/pcb (the notebook
+    // tab strip's inline size). Derived twice and independently: rescanning
+    // the merged tree gives 370, and 380 - 10 counted off the diff gives 370.
+    expect(sites.length).toBe(370);
   });
 });
 

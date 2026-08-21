@@ -2795,6 +2795,8 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    m_pointSize is wxSYS_DEFAULT_GUI_FONT's point size — 11 pt, so 5 px
    (appearance_controls.cpp:2461). Ours was a round 8. */
 .ze-object-sep {
+  /* [data] m_objectsOuterSizer->AddSpacer( m_pointSize / 2 ), where m_pointSize
+     is wxSYS_DEFAULT_GUI_FONT's point size — 11, so 5 (appearance_controls.cpp:2461). */
   height: 5px;
 }
 .ze-object-row {
@@ -2883,8 +2885,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    CHECKERBOARD_SIZE_DU is (3,3) and converts asymmetrically, which is why the
    cell is 6 wide and 7 tall rather than square. */
 .ze-layer-swatch.unset {
+  /* [data] COLOR4D::BLACK.Brightened( 0.15 ): 0.15 * 255 = 38 = #262626
+     (color_swatch.cpp:79-93). [px] a live pcbnew's Tracks swatch reads #262626. */
   background-color: #262626;
+  /* [data] the same pair, black first so the top-left cell is the brightened
+     one — the loop opens with `colCycle = rowCycle`, false on a dark ground. */
   background-image: conic-gradient(#000000 0 25%, #262626 0 50%, #000000 0 75%, #262626 0);
+  /* [px] twice the cell. CHECKERBOARD_SIZE_DU is (3,3) and converts
+     asymmetrically; the sampled cell is 6 px wide and 7 px tall. */
   background-size: 12px 14px;
 }
 
@@ -2927,6 +2935,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* [data] BITMAP_BUTTON::SetPadding( 2 ) (appearance_controls.cpp:472, :475). */
   padding: 2px;
   flex: 0 0 auto;
   border: none;
