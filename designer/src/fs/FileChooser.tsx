@@ -149,7 +149,9 @@ function compareEntries(a: Entry, b: Entry, key: SortKey, ascending: boolean): n
       n = typeOf(a).localeCompare(typeOf(b));
       break;
     case 'modified':
-      n = a.modified - b.modified;
+      // Undated rows sort together, below everything with a date, rather
+      // than at epoch 0 where they would look like the oldest files here.
+      n = (a.modified ?? Number.NEGATIVE_INFINITY) - (b.modified ?? Number.NEGATIVE_INFINITY);
       break;
     default:
       n = 0;

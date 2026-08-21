@@ -16,6 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { type FileSystem, FsErrorCode } from '@ziroeda/designer/src/fs/filesystem.js';
+import { formatModified } from '@ziroeda/designer/src/fs/format.js';
 import { listFileSystem } from '@ziroeda/designer/src/fs/list_fs.js';
 
 /** The two demos that made the bug visible, with a file each. */
@@ -25,12 +26,17 @@ const DEMOS = [
   { id: 'cm5_minima', files: ['cm5.kicad_pro', 'footprints.pretty/R.kicad_mod'] },
 ];
 
+/**
+ * The demos manifest as it really is: file names, and nothing about their size
+ * or when they were written. Those bytes sit on the CDN until a demo is opened,
+ * so the listing genuinely does not know either.
+ */
+const UNDATED = { size: null, modified: null } as const;
+
 const demosFs = (): FileSystem =>
   listFileSystem(
     async () => ({
-      files: DEMOS.flatMap((d) =>
-        d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: 7, modified: 5 })),
-      ),
+      files: DEMOS.flatMap((d) => d.files.map((rel) => ({ name: `${d.id}/${rel}`, ...UNDATED }))),
       projects: new Set(DEMOS.map((d) => `/${d.id}`)),
     }),
     { leafKind: 'file' },
@@ -63,17 +69,64 @@ describe('a demos listing is a tree, not a flat list', () => {
     ]);
   });
 
-  it('gives a file its size, so the Size column is not empty for one', async () => {
-    const [entry] = (await demosFs().list('/simulation/rectifier')).filter(
-      (e) => e.name === 'rect.kicad_pro',
+  it('gives a file its size when the source has one', async () => {
+    // The other direction from the undated cases below: a source that knows
+    // must get its number through, so `null` cannot be hardcoded.
+    const fs = listFileSystem(
+      async () => ({ files: [{ name: 'p/board.kicad_pcb', size: 4096, modified: 1700 }] }),
+      { leafKind: 'file' },
     );
-    expect(entry?.size).toBe(7);
+    const [entry] = (await fs.list('/p')).filter((e) => e.name === 'board.kicad_pcb');
+    expect(entry?.size).toBe(4096);
+    expect(entry?.modified).toBe(1700);
   });
 
   it('finds a derived folder with stat, not only the leaves', async () => {
     expect((await demosFs().stat('/simulation'))?.kind).toBe('folder');
     expect((await demosFs().stat('/simulation/rectifier'))?.kind).toBe('project');
     expect(await demosFs().stat('/nope')).toBeNull();
+  });
+});
+
+describe('a source that does not know says nothing, rather than epoch 0', () => {
+  it('leaves Modified empty for an undated row', async () => {
+    // The bug this pins: `modified: 0` rendered as `Jan 1, 1970`, a date a
+    // person reads as real. Blank is the honest answer, and it is what a
+    // folder's Size column already does.
+    const [pro] = (await demosFs().list('/simulation/rectifier')).filter(
+      (e) => e.name === 'rect.kicad_pro',
+    );
+    expect(pro?.modified).toBeNull();
+    // `?? null`, never `?? 0`: coercing the null away here would hand
+    // formatModified the very value this is meant to prove never reaches it.
+    expect(formatModified(pro?.modified ?? null)).toBe('');
+  });
+
+  it('leaves Size empty for a row whose bytes are not local yet', async () => {
+    const [pro] = (await demosFs().list('/simulation/rectifier')).filter(
+      (e) => e.name === 'rect.kicad_pro',
+    );
+    expect(pro?.size).toBeNull();
+  });
+
+  it('leaves a folder undated while every child under it is', async () => {
+    const [group] = (await demosFs().list('/')).filter((e) => e.name === 'simulation');
+    expect(group?.modified).toBeNull();
+  });
+
+  it('still gives a folder the newest date any child does have', async () => {
+    const fs = listFileSystem(
+      async () => ({
+        files: [
+          { name: 'grp/old.txt', size: 1, modified: 100 },
+          { name: 'grp/undated.txt', size: 1, modified: null },
+          { name: 'grp/new.txt', size: 1, modified: 900 },
+        ],
+      }),
+      { leafKind: 'file' },
+    );
+    const [group] = (await fs.list('/')).filter((e) => e.name === 'grp');
+    expect(group?.modified).toBe(900);
   });
 });
 

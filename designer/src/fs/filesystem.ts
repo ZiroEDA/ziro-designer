@@ -45,8 +45,16 @@ export interface Entry {
   readonly kind: EntryKind;
   /** Bytes, uncompressed. `null` for a folder, which shows no size. */
   readonly size: number | null;
-  /** Epoch ms. A synthesised folder carries its newest child's. */
-  readonly modified: number;
+  /**
+   * Epoch ms, or `null` when the source does not know.
+   *
+   * A synthesised folder carries its newest child's. `null` is for a listing
+   * whose source genuinely has no timestamp - a demo manifest names the files
+   * a demo is made of but not when they were written, and those bytes are on
+   * a CDN until the demo is opened. The column stays empty for one, which is
+   * the honest answer; epoch 0 rendered as `Jan 1, 1970`, which reads as data.
+   */
+  readonly modified: number | null;
 }
 
 /**
@@ -127,8 +135,9 @@ export interface FileSystem {
 export interface FlatFile {
   /** Relative to the project folder — `sub/dir/board.kicad_pcb`. */
   readonly name: string;
-  readonly size: number;
-  readonly modified: number;
+  /** Bytes, or `null` when the source does not know - see `Entry.size`. */
+  readonly size: number | null;
+  readonly modified: number | null;
 }
 
 /**
@@ -163,7 +172,9 @@ export function dirLevel(
   leafKind: EntryKind = 'file',
 ): Entry[] {
   const prefix = dir === '' ? '' : `${dir}/`;
-  const folders = new Map<string, number>();
+  // A folder's timestamp is its newest child's, and stays null while every
+  // child it has seen is itself undated - a demo's folders, for instance.
+  const folders = new Map<string, number | null>();
   const out: Entry[] = [];
 
   for (const f of files) {
@@ -184,7 +195,9 @@ export function dirLevel(
     } else {
       const folder = rest.slice(0, slash);
       const seen = folders.get(folder);
-      if (seen === undefined || f.modified > seen) folders.set(folder, f.modified);
+      if (seen === undefined) folders.set(folder, f.modified);
+      else if (f.modified !== null && (seen === null || f.modified > seen))
+        folders.set(folder, f.modified);
     }
   }
 

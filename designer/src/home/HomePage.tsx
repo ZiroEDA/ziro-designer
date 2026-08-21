@@ -446,8 +446,12 @@ export function HomePage({
     () =>
       listFileSystem(
         async () => ({
+          // The manifest names the files a demo is made of, not their sizes or
+          // when they were written - those bytes are on the CDN until the demo
+          // is opened. So both columns say nothing rather than `0 bytes` and
+          // `Jan 1, 1970`, which read as data the listing does not have.
           files: demosRef.current.flatMap((d) =>
-            d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: 0, modified: 0 })),
+            d.files.map((rel) => ({ name: `${d.id}/${rel}`, size: null, modified: null })),
           ),
           projects: new Set(demosRef.current.map((d) => `/${d.id}`)),
         }),
@@ -461,7 +465,7 @@ export function HomePage({
   const templatesFs = useMemo(
     () =>
       listFileSystem(async () => ({
-        files: templatesRef.current.map((t) => ({ name: t.id, size: 0, modified: 0 })),
+        files: templatesRef.current.map((t) => ({ name: t.id, size: null, modified: null })),
       })),
     [],
   );
