@@ -86,3 +86,116 @@ export function fixed(aValue: number, aPrecision: number): string {
 
   return negative ? `-${digits}` : digits;
 }
+
+/** printf's default `%g` precision, i.e. six *significant* digits. */
+export const FMT_G_PRECISION = 6;
+
+/**
+ * fmt's `{:g}` / `{:.Ng}`, i.e. C's `%g` at N significant digits: pick `%e`
+ * when the decimal exponent falls outside `[-4, N)` and `%f` otherwise, then
+ * strip the fractional part's trailing zeros and a bare trailing point.
+ *
+ * The exponent is decided on the *rounded* value, not the raw one, which is why
+ * it is recovered here by rounding to N significant digits and checking the
+ * digit count rather than by trusting `Math.log10`. 9.9999995 is a six-digit
+ * value whose exponent is 1, not 0.
+ */
+export function formatG(aValue: number, aPrecision: number = FMT_G_PRECISION): string {
+  if (Number.isNaN(aValue)) return 'nan';
+  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
+
+  const negative = aValue < 0 || Object.is(aValue, -0);
+  const sign = negative ? '-' : '';
+
+  if (aValue === 0) return `${sign}0`;
+
+  const precision = aPrecision;
+  const { mantissa, exponent } = decompose(aValue);
+  const low = 10n ** BigInt(precision - 1);
+  const high = low * 10n;
+
+  // log10 only seeds the exponent; the loops below make it exact, which is what
+  // lets the digits come from BigInt arithmetic rather than from log10's
+  // accuracy. The overflow loop is the one that runs — rounding to N
+  // significant digits can carry into the next decade, as 9.999999 does.
+  let decimalExponent = Math.floor(Math.log10(Math.abs(aValue)));
+  let significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
+
+  while (significand >= high) {
+    decimalExponent += 1;
+    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
+  }
+
+  while (significand < low) {
+    decimalExponent -= 1;
+    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
+  }
+
+  if (decimalExponent < -4 || decimalExponent >= precision) {
+    const digits = significand.toString();
+    const fraction = digits.slice(1).replace(/0+$/, '');
+    const expSign = decimalExponent < 0 ? '-' : '+';
+    const expDigits = String(Math.abs(decimalExponent)).padStart(2, '0');
+
+    return `${sign}${digits[0]}${fraction ? `.${fraction}` : ''}e${expSign}${expDigits}`;
+  }
+
+  let out = fixed(Math.abs(aValue), precision - 1 - decimalExponent);
+
+  if (out.includes('.')) {
+    out = out.replace(/0+$/, '');
+    if (out.endsWith('.')) out = out.slice(0, -1);
+  }
+
+  return `${sign}${out}`;
+}
+
+/**
+ * `FormatDouble2Str` — `common/string_utils.cpp:1446-1473`:
+ *
+ * ```cpp
+ * if( aValue != 0.0 && std::fabs( aValue ) <= 0.0001 )
+ * {
+ *     buf = fmt::format( "{:.16f}", aValue );
+ *     while( !buf.empty() && buf[buf.size() - 1] == '0' ) buf.pop_back();
+ *     if( buf[buf.size() - 1] == '.' ) buf.pop_back();
+ * }
+ * else
+ * {
+ *     buf = fmt::format( "{:.10g}", aValue );
+ * }
+ * ```
+ *
+ * This is how KiCad writes a bare double into an s-expression, and getting it
+ * wrong changes files other tools read. Three different approximations of it
+ * had grown here, none matching and none matching each other:
+ *
+ *  - the drawing sheet's `toFixed(6)`, which rounds anything below 1e-7 to a
+ *    flat `0` where KiCad writes sixteen decimal places;
+ *  - `net_chains`'s `String(Number(v.toPrecision(10)))`, which is JS's shortest
+ *    round-tripping form and never uses exponent notation, so a large value
+ *    comes out with more digits than `%.10g` allows;
+ *  - `write-footprint`'s `toFixed(10)`, which is `%.10f` and not `%.10g` at all
+ *    — ten digits after the point rather than ten significant ones.
+ *
+ * The small-value branch is the interesting one and the reason `%g` alone will
+ * not do: `%.10g` would render 0.00001 as `1e-05`, and KiCad deliberately
+ * avoids exponent notation there by switching to a fixed sixteen places and
+ * trimming. The boundary is `<= 0.0001` on the ABSOLUTE value, and exact zero
+ * takes the `%g` path, where it prints as `0`.
+ */
+export function formatDouble2Str(aValue: number): string {
+  if (aValue !== 0 && Math.abs(aValue) <= 0.0001) {
+    let buf = fixed(aValue, 16);
+
+    // `while( … buf.back() == '0' ) pop_back()` then one `'.'`. Note this trims
+    // the string, not the fraction: it is only ever reached for |v| <= 0.0001,
+    // whose fixed form always has a decimal point, so it cannot eat an integer's
+    // trailing zeros.
+    buf = buf.replace(/0+$/, '');
+    if (buf.endsWith('.')) buf = buf.slice(0, -1);
+    return buf;
+  }
+
+  return formatG(aValue, 10);
+}

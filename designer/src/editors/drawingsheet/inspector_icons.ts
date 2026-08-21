@@ -40,6 +40,8 @@ export const DS_INSPECTOR_ICON_OFFSET = { x: 5, y: 2 } as const;
 
 /** `root_xpm` — the pseudo-row describing the page itself. */
 export const DS_ICON_ROOT: XpmIcon = {
+  /* [data] `x c #008080` in root_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#008080',
   rows: [
     '   xxxx     ',
@@ -59,6 +61,8 @@ export const DS_ICON_ROOT: XpmIcon = {
 
 /** `line_xpm` — DS_DATA_ITEM::DS_SEGMENT. */
 export const DS_ICON_LINE: XpmIcon = {
+  /* [data] `x c #008080` in line_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#008080',
   rows: [
     'xx          ',
@@ -78,6 +82,8 @@ export const DS_ICON_LINE: XpmIcon = {
 
 /** `rect_xpm` — DS_DATA_ITEM::DS_RECT. */
 export const DS_ICON_RECT: XpmIcon = {
+  /* [data] `x c #000080` in rect_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#000080',
   rows: [
     'xxxxxxxxxxxx',
@@ -97,6 +103,8 @@ export const DS_ICON_RECT: XpmIcon = {
 
 /** `text_xpm` — DS_DATA_ITEM::DS_TEXT. */
 export const DS_ICON_TEXT: XpmIcon = {
+  /* [data] `x c #800000` in text_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#800000',
   rows: [
     ' xxxxxxxxxx ',
@@ -116,6 +124,8 @@ export const DS_ICON_TEXT: XpmIcon = {
 
 /** `poly_xpm` — DS_DATA_ITEM::DS_POLYPOLYGON. */
 export const DS_ICON_POLY: XpmIcon = {
+  /* [data] `x c #008000` in poly_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#008000',
   rows: [
     '     xx     ',
@@ -135,6 +145,8 @@ export const DS_ICON_POLY: XpmIcon = {
 
 /** `img_xpm` — DS_DATA_ITEM::DS_BITMAP. */
 export const DS_ICON_IMG: XpmIcon = {
+  /* [data] `x c #800000` in img_xpm, design_inspector.cpp. KiCad hardcodes
+     this; it is not a theme colour and not in its icon set. */
   color: '#800000',
   rows: [
     '     xx     ',

@@ -82,6 +82,13 @@ restate the right value locally — it is to state **nothing** locally.
 (unused imports are warnings here, not errors), `pnpm -r typecheck`,
 `pnpm -r test`, `pnpm -C designer build`.
 
+**The biome baseline is not the same in every tree.** In the main checkout it is
+`Found 1 error`, and that one comes from a gitignored `.claude/settings.local.json`.
+A fresh worktree does not have that file, so **its baseline is zero** and biome
+prints no `Found` line at all. Read the count against the tree you are in: in a
+worktree, `Found 1 error` means you have introduced one, not that you are green.
+Confirm it by running biome on a pristine worktree of `origin/main` if in doubt.
+
 `designer/save_cost` and `eeschema/writer_kicad_grammar` are wall-clock
 assertions and flake under load — re-run in isolation before believing either.
 

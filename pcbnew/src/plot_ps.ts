@@ -251,71 +251,16 @@ export interface PsImage {
 export { fixed } from '@ziroeda/common/src/plotters/fmt.js';
 import { decompose, fixed, scaledRound } from '@ziroeda/common/src/plotters/fmt.js';
 
-/** printf's default `%g` precision, i.e. six *significant* digits. */
-export const FMT_G_PRECISION = 6;
+/**
+ * `%g` and its default precision now live beside `fixed`, `decompose` and
+ * `scaledRound` in `common/src/plotters/fmt.ts` — the module those three were
+ * already moved to. Re-exported so this module's importers are unaffected.
+ */
+export { FMT_G_PRECISION, formatG } from '@ziroeda/common/src/plotters/fmt.js';
+import { formatG } from '@ziroeda/common/src/plotters/fmt.js';
 
 /** The `{:.3g}` `emitSetRGBColor` alone asks for, above a comment asking why. */
 export const RGB_G_PRECISION = 3;
-
-/**
- * fmt's `{:g}` / `{:.Ng}`, i.e. C's `%g` at N significant digits: pick `%e`
- * when the decimal exponent falls outside `[-4, N)` and `%f` otherwise, then
- * strip the fractional part's trailing zeros and a bare trailing point.
- *
- * The exponent is decided on the *rounded* value, not the raw one, which is why
- * it is recovered here by rounding to N significant digits and checking the
- * digit count rather than by trusting `Math.log10`. 9.9999995 is a six-digit
- * value whose exponent is 1, not 0.
- */
-export function formatG(aValue: number, aPrecision: number = FMT_G_PRECISION): string {
-  if (Number.isNaN(aValue)) return 'nan';
-  if (!Number.isFinite(aValue)) return aValue > 0 ? 'inf' : '-inf';
-
-  const negative = aValue < 0 || Object.is(aValue, -0);
-  const sign = negative ? '-' : '';
-
-  if (aValue === 0) return `${sign}0`;
-
-  const precision = aPrecision;
-  const { mantissa, exponent } = decompose(aValue);
-  const low = 10n ** BigInt(precision - 1);
-  const high = low * 10n;
-
-  // log10 only seeds the exponent; the loops below make it exact, which is what
-  // lets the digits come from BigInt arithmetic rather than from log10's
-  // accuracy. The overflow loop is the one that runs — rounding to N
-  // significant digits can carry into the next decade, as 9.999999 does.
-  let decimalExponent = Math.floor(Math.log10(Math.abs(aValue)));
-  let significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-
-  while (significand >= high) {
-    decimalExponent += 1;
-    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-  }
-
-  while (significand < low) {
-    decimalExponent -= 1;
-    significand = scaledRound(mantissa, exponent, precision - 1 - decimalExponent);
-  }
-
-  if (decimalExponent < -4 || decimalExponent >= precision) {
-    const digits = significand.toString();
-    const fraction = digits.slice(1).replace(/0+$/, '');
-    const expSign = decimalExponent < 0 ? '-' : '+';
-    const expDigits = String(Math.abs(decimalExponent)).padStart(2, '0');
-
-    return `${sign}${digits[0]}${fraction ? `.${fraction}` : ''}e${expSign}${expDigits}`;
-  }
-
-  let out = fixed(Math.abs(aValue), precision - 1 - decimalExponent);
-
-  if (out.includes('.')) {
-    out = out.replace(/0+$/, '');
-    if (out.endsWith('.')) out = out.slice(0, -1);
-  }
-
-  return `${sign}${out}`;
-}
 
 /** The `VECTOR2D` -> `VECTOR2I` conversion: truncate towards zero, per component. */
 const toVector2I = (aVec: Vec2): Vec2 => ({
