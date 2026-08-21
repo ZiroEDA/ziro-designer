@@ -179,3 +179,72 @@ describe('gerbview scene recording', () => {
     expect(b.runs).toStrictEqual(a.runs);
   });
 });
+
+/**
+ * The run list stays short, which is the property that decides the frame time.
+ *
+ * A run is a draw call. Recording in file order gave 3201 runs on a 19-layer
+ * board and a 16.7 ms frame; grouping by the primitive kind each item records
+ * as gives 31 runs and 0.3 ms. Node cannot see the milliseconds, but it can
+ * see the run count, and the run count is the cause.
+ */
+describe('run count', () => {
+  it('is a small multiple of the layer count, not of the item count', () => {
+    // Deliberately interleaved: a round flash (fills, so triangles), a trace
+    // (strokes, so segments) and an obround flash (also strokes), repeated.
+    // In file order that alternates kind on almost every item, which is the
+    // shape that produced 3201 runs on the real board.
+    const lines = ['%FSLAX46Y46*%', '%MOMM*%', '%ADD10C,0.5*%', '%ADD11O,0.8X0.4*%'];
+    for (let i = 0; i < 60; i++) {
+      const x = i * 1000000;
+      lines.push('D10*', `X${x}Y0D03*`);
+      lines.push(`X${x}Y1000000D02*`, `X${x + 500000}Y1000000D01*`);
+      lines.push('D11*', `X${x}Y2000000D03*`);
+    }
+    lines.push('M02*');
+    const busy = parseGerber(lines.join('\n'), 'busy.gbr');
+
+    const scene = createGerberScene();
+    const c = content({ layers: [layer({ image: busy }), layer({ image: busy })] });
+    recordGerberScene(scene, c, 1);
+    const items = c.layers.reduce((n, l) => n + l.image.items.length, 0);
+    expect(items).toBeGreaterThan(300);
+    // Two kinds per layer is the floor; a little slack for a layer whose
+    // apertures genuinely mix. What must never happen is a run per item.
+    expect(scene.runs.length).toBeLessThanOrEqual(c.layers.length * 4);
+  });
+
+  it('keeps a mixed-kind flash from opening a run per item', () => {
+    // A macro aperture resolves to a polygon *and* a rounded arm, so it
+    // records triangles and segments from one item. Painted in one pass that
+    // is two runs per item - which is exactly what left 3201 runs on the real
+    // board. The recorder passes over the mixed bucket twice instead.
+    const macro = parseGerber(
+      [
+        '%FSLAX46Y46*%',
+        '%MOMM*%',
+        // A body polygon plus a rounded arm: fill and stroke from one flash.
+        '%AMMIX*4,1,4,0,0,1000000,0,1000000,1000000,0,1000000,0,0,0*20,1,300000,0,0,1500000,1500000,0*%',
+        '%ADD10MIX*%',
+        'D10*',
+        'X0Y0D03*',
+        'X2000000Y0D03*',
+        'X4000000Y0D03*',
+        'X6000000Y0D03*',
+        'M02*',
+      ].join('\n'),
+      'macro.gbr',
+    );
+    const scene = createGerberScene();
+    recordGerberScene(scene, content({ layers: [layer({ image: macro })] }), 1);
+    expect(macro.items.length).toBe(4);
+    // Both halves of every flash must actually be recorded. Asserting only
+    // that the run list is short is not enough and two mutants proved it:
+    // dropping the mixed bucket entirely, and running only its fill pass, both
+    // leave a SHORTER run list. "Draws nothing" passes an upper bound.
+    expect(scene.segmentCount).toBe(4); // one vector-line primitive per flash
+    expect(scene.triangleVertexCount).toBeGreaterThan(0); // and one outline
+    // Four flashes, each emitting both kinds: one run per kind, not per item.
+    expect(scene.runs.length).toBeLessThanOrEqual(3);
+  });
+});

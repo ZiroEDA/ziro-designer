@@ -48,7 +48,7 @@
  * by a boolean in `GetApertureMacroShape`, not by compositing.
  */
 
-import type { GERBER_DRAW_ITEM, GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+import { GBR_BASIC_SHAPE, type GERBER_DRAW_ITEM, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
 import {
   paintItemGeometry,
   type GerberPaintOptions,
@@ -102,6 +102,108 @@ export const createGerberScene = (): Scene => new Scene(true);
 
 /** The run-list mark naming where layer `i` begins. */
 export const layerMark = (i: number): string => `gbr:layer:${i}`;
+
+/**
+ * Rank an item by the primitive kind its shape records as.
+ *
+ * Only the grouping matters, not the ranking's order: items that record the
+ * same kind must end up adjacent so the run list stays short.
+ */
+const KIND_TRI = 0;
+const KIND_SEG = 1;
+const KIND_MIXED = 2;
+
+/**
+ * Which primitive kind an aperture flashes as, cached per D-code.
+ *
+ * Not guessable from the aperture type, because it depends on how the painter
+ * draws it rather than on what it is: `fillCircle` and `fillPolygon` go
+ * through `fill()`, which the recorder triangulates, so a round pad records as
+ * **triangles**; `fillCapsule` goes through `stroke()`, so an obround pad
+ * records as segments. A macro can be both, and those go last.
+ */
+const flashKindCache = new WeakMap<object, number>();
+
+function flashKind(item: GERBER_DRAW_ITEM): number {
+  const code = item.dcode;
+  if (code) {
+    const hit = flashKindCache.get(code);
+    if (hit !== undefined) return hit;
+  }
+  let seg = false;
+  let other = false;
+  for (const sh of item.resolveFlashShapes()) {
+    if (!sh.exposure) continue;
+    if (sh.kind === 'segment') seg = true;
+    else other = true;
+  }
+  const kind = seg && other ? KIND_MIXED : seg ? KIND_SEG : KIND_TRI;
+  if (code) flashKindCache.set(code, kind);
+  return kind;
+}
+
+/**
+ * Rank an item by the primitive kind it records as, so items recording the
+ * same kind end up adjacent and the run list stays short.
+ */
+function kindRank(item: GERBER_DRAW_ITEM): number {
+  switch (item.shape) {
+    case GBR_BASIC_SHAPE.GBR_POLYGON:
+      return KIND_TRI;
+    case GBR_BASIC_SHAPE.GBR_SEGMENT:
+    case GBR_BASIC_SHAPE.GBR_ARC:
+    case GBR_BASIC_SHAPE.GBR_CIRCLE:
+      return KIND_SEG;
+    default:
+      return flashKind(item);
+  }
+}
+
+/**
+ * The order items are recorded in *within* one layer.
+ *
+ * Recording in file order is what made a frame 3482 draw calls: the primitive
+ * kind alternates almost every item - a pad is a disc, the track leaving it a
+ * segment, the pour under it triangles - and `Scene.note` opens a new run on
+ * every change. pcbnew avoids this without trying, because `buildDrawSteps`
+ * walks layer by layer and bucket by bucket, so all of a layer's fills are
+ * recorded before any of its strokes; its run count is 6-8 on a real board.
+ *
+ * Reordering inside a layer is safe, and that is a claim about KiCad rather
+ * than about blending: `VIEW::redrawRect` gives a layer one depth and one
+ * `SetLayerDepth`, the items on it are queried from an R-tree in no defined
+ * order, and they share a colour - so which of two same-layer items is drawn
+ * first is not observable. What *is* observable is a highlighted item, which
+ * takes `m_layerColorsHi` and must not be buried under its neighbours, so
+ * those are recorded last within their own layer.
+ *
+ * Nothing is reordered *across* layers: that order is KiCad's own
+ * `SetLayerOrder` and is the whole reason the scene is ordered at all.
+ */
+function orderWithinLayer(
+  items: readonly GERBER_DRAW_ITEM[],
+  highlightTest: ((item: GERBER_DRAW_ITEM) => boolean) | null,
+): { plain: readonly GERBER_DRAW_ITEM[]; mixed: readonly GERBER_DRAW_ITEM[] } {
+  // Decorate-sort-undecorate on indices, so the sort is stable and the
+  // predicate runs once per item rather than once per comparison.
+  const keyed = items.map((item, index) => ({
+    item,
+    index,
+    hi: highlightTest?.(item) === true ? 1 : 0,
+    kind: kindRank(item),
+    dcode: item.dcodeNum,
+  }));
+  // Kind first. Sorting by D-code within the flash group was the first attempt
+  // and it is what left ~85 runs a layer: consecutive apertures alternate
+  // between round (filled, so triangles) and obround (stroked, so segments),
+  // so every D-code opened a run. The D-code is now only a tiebreak *inside*
+  // one kind, where it costs nothing and keeps identical geometry together.
+  keyed.sort((a, b) => a.hi - b.hi || a.kind - b.kind || a.dcode - b.dcode || a.index - b.index);
+  return {
+    plain: keyed.filter((k) => k.kind !== KIND_MIXED).map((k) => k.item),
+    mixed: keyed.filter((k) => k.kind === KIND_MIXED).map((k) => k.item),
+  };
+}
 
 /**
  * Record every visible layer into one ordered scene.
@@ -169,27 +271,37 @@ export function recordGerberScene(scene: Scene, content: GerberGlContent, viewSc
     // from the layer below can be folded into this one's range.
     scene.mark(layerMark(i));
 
-    for (const item of layer.image.items) {
-      // GERBVIEW_RENDER_SETTINGS::GetColor, in upstream's own branch order:
-      // polarity is tested BEFORE the highlight (`gerbview_painter.cpp:122`
-      // vs `:135`), so a clear object that also matches the highlight is drawn
-      // as a negative object, or not at all, rather than brightened.
-      const clear = !item.layerPolarity;
-      let color: string;
-      if (clear) {
-        // COLOR4D( 0, 0, 0, 0 ) with the toggle off: nothing is recorded at
-        // all, which is what the OpenGL GAL draws.
-        if (!content.showNegativeObjects) continue;
-        color = layer.negativeColor;
-      } else if (content.highlightTest?.(item) === true) {
-        color = layer.highlightColor;
-      } else {
-        color = layer.color;
-      }
+    const ordered = orderWithinLayer(layer.image.items, content.highlightTest);
+    // The mixed-kind flashes are painted twice, fills then strokes, so the
+    // whole bucket is two runs instead of two per item. `paint` is the same
+    // call in both cases; only the filter differs.
+    const passes: (undefined | 'fill' | 'stroke')[] =
+      ordered.mixed.length > 0 ? [undefined, 'fill', 'stroke'] : [undefined];
 
-      surface.fillStyle = color;
-      surface.strokeStyle = color;
-      paintItemGeometry(surface, item, content, worldPen);
+    for (const only of passes) {
+      const list = only === undefined ? ordered.plain : ordered.mixed;
+      for (const item of list) {
+        // GERBVIEW_RENDER_SETTINGS::GetColor, in upstream's own branch order:
+        // polarity is tested BEFORE the highlight (`gerbview_painter.cpp:122`
+        // vs `:135`), so a clear object that also matches the highlight is
+        // drawn as a negative object, or not at all, rather than brightened.
+        const clear = !item.layerPolarity;
+        let color: string;
+        if (clear) {
+          // COLOR4D( 0, 0, 0, 0 ) with the toggle off: nothing is recorded at
+          // all, which is what the OpenGL GAL draws.
+          if (!content.showNegativeObjects) continue;
+          color = layer.negativeColor;
+        } else if (content.highlightTest?.(item) === true) {
+          color = layer.highlightColor;
+        } else {
+          color = layer.color;
+        }
+
+        surface.fillStyle = color;
+        surface.strokeStyle = color;
+        paintItemGeometry(surface, item, content, worldPen, only);
+      }
     }
   }
   scene.closeItem();
@@ -246,6 +358,28 @@ export class GerbviewGl {
     // Transparent: the 2D canvas underneath has already painted the background,
     // the grid and the axes.
     this.device.draw(glView, null);
+  }
+
+  /**
+   * A census of the recorded run list, for `?perf=1`.
+   *
+   * The draw-call count a frame issues is exactly the run count, so this is
+   * the number to look at when a GL frame is slow: 3482 draws on a 19-layer
+   * board is a run list that alternates primitive kind, not a lot of geometry.
+   */
+  get runCensus(): { runs: number; byKind: Record<string, number>; longest: number } {
+    const byKind: Record<string, number> = {};
+    let longest = 0;
+    for (const r of this.scene.runs) {
+      byKind[r.kind] = (byKind[r.kind] ?? 0) + 1;
+      if (r.count > longest) longest = r.count;
+    }
+    return { runs: this.scene.runs.length, byKind, longest };
+  }
+
+  /** The first few runs, for `?perf=1` - the shape of the alternation. */
+  get runHead(): { kind: string; count: number }[] {
+    return this.scene.runs.slice(0, 24).map((r) => ({ kind: r.kind, count: r.count }));
   }
 
   /** The scale the current buffers were recorded at, for tests. */

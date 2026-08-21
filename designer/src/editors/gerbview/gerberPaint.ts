@@ -138,6 +138,22 @@ export function paintItemGeometry(
   item: GERBER_DRAW_ITEM,
   opts: GerberPaintOptions,
   worldPen: number,
+  /**
+   * Restrict a flash to the primitives that record as one kind.
+   *
+   * A macro aperture resolves to a mix - a polygon body and a rounded arm, say
+   * - and the polygon goes through `fill()` while the arm goes through
+   * `stroke()`. On a retained backend that is two runs per item, and on this
+   * board it was 3200 draw calls a frame. The recorder can pass over the mixed
+   * apertures twice instead, which costs one extra loop and turns the whole
+   * bucket into two runs.
+   *
+   * Ignored by every other shape, which records one kind anyway. The 2D
+   * backend never passes it: a Canvas2D context has no runs to keep short, and
+   * splitting the passes there would change the order primitives composite in
+   * within a single flash.
+   */
+  only?: 'fill' | 'stroke',
 ): void {
   switch (item.shape) {
     case GBR_BASIC_SHAPE.GBR_SEGMENT: {
@@ -194,6 +210,16 @@ export function paintItemGeometry(
         // (APERTURE_MACRO::GetApertureMacroShape's BooleanSubtract), not by
         // compositing. The caller decides what to do with them.
         if (!sh.exposure) continue;
+        if (only !== undefined) {
+          const isStroke = sh.kind === 'segment';
+          // Which pass takes which half is arbitrary: both run, so the union
+          // is the same either way and only the order inside one layer moves.
+          // A mutant that inverts this test survives, and correctly - see the
+          // note on orderWithinLayer for why within-layer order is not
+          // observable. What is NOT arbitrary is that both passes happen;
+          // dropping either one is caught.
+          if (only === 'stroke' ? !isStroke : isStroke) continue;
+        }
         paintResolvedShape(s, sh, opts.flashedSketch);
       }
       break;

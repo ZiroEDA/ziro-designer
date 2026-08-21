@@ -227,6 +227,8 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
           frameMs: +(performance.now() - t0).toFixed(2),
           recordCount: gl?.recordCount ?? 0,
           lastRecordMs: gl?.lastRecordMs ?? 0,
+          census: gl?.runCensus,
+          runHead: gl?.runHead,
         };
       }
 
@@ -362,6 +364,24 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
 
     const requestDrawRef = useRef(requestDraw);
     requestDrawRef.current = requestDraw;
+
+    /**
+     * A synchronous draw, published only under `?perf=1`.
+     *
+     * Frames are scheduled through requestAnimationFrame, which Chrome does not
+     * run for a hidden document - and a hidden tab still answers
+     * getBoundingClientRect and getComputedStyle perfectly well, so a profiling
+     * harness that waits on rAF simply hangs while every DOM probe around it
+     * keeps returning plausible numbers. Timing this directly takes the
+     * scheduler out of the measurement entirely.
+     */
+    useEffect(() => {
+      if (!PERF) return;
+      (window as unknown as { __gbrDrawNow?: () => void }).__gbrDrawNow = draw;
+      return () => {
+        (window as unknown as { __gbrDrawNow?: () => void }).__gbrDrawNow = undefined;
+      };
+    }, [draw]);
 
     useEffect(() => {
       requestDraw();
