@@ -159,11 +159,19 @@ describe('bitmap picking honours the scale factor', () => {
     expect(hitTestDrawingSheet(onlyBitmap(2), p, 0)).toBe(true);
   });
 
+  it('hits a point that only a scaled image reaches, on the Y axis too', () => {
+    // The same probe rotated a quarter turn. Without it, a half that kept the
+    // scale on X and dropped it on Y passes everything above.
+    const p = at(110, 110 + 20);
+    expect(hitTestDrawingSheet(onlyBitmap(1), p, 0)).toBe(false);
+    expect(hitTestDrawingSheet(onlyBitmap(2), p, 0)).toBe(true);
+  });
+
   it('still misses a point beyond even the scaled image', () => {
     // 30 mm out is past the 25.4 mm half-width at scale 2 as well, so a box
     // that grew without bound would be caught here.
-    const p = at(110 + 30, 110);
-    expect(hitTestDrawingSheet(onlyBitmap(2), p, 0)).toBe(false);
+    expect(hitTestDrawingSheet(onlyBitmap(2), at(110 + 30, 110), 0)).toBe(false);
+    expect(hitTestDrawingSheet(onlyBitmap(2), at(110, 110 + 30), 0)).toBe(false);
   });
 
   it('shrinks the box at a scale below one', () => {
