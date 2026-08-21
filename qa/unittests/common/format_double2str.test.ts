@@ -63,11 +63,26 @@ describe('the |v| <= 0.0001 branch', () => {
     expect(formatDouble2Str(-0.00005)).toBe('-0.00005');
   });
 
-  it('takes the boundary inclusively, on the absolute value', () => {
-    // `std::fabs( aValue ) <= 0.0001` — 0.0001 is fixed, just past it is %g.
+  it('takes the boundary on the absolute value', () => {
     expect(formatDouble2Str(0.0001)).toBe('0.0001');
     expect(formatDouble2Str(0.00011)).toBe('0.00011');
+    expect(formatDouble2Str(-0.0001)).toBe('-0.0001');
   });
+
+  /*
+   * NO TEST DISTINGUISHES `<= 0.0001` FROM `< 0.0001`, AND NONE CAN.
+   *
+   * Mutating the comparison survives this file, which normally means the test
+   * is too weak. Here it means the mutant is equivalent, and that was checked
+   * rather than assumed: 0.0001 is the only input the two comparisons route
+   * differently, and at exactly 0.0001 both branches produce the same string —
+   * `%.16f` gives "0.0001000000000000", which the trim reduces to "0.0001",
+   * and `%.10g` gives "0.0001" directly. Running the C++ body both ways over
+   * the whole probe set produced byte-identical output.
+   *
+   * So the `<=` is kept because that is what `string_utils.cpp:1450` says, not
+   * because anything observable depends on it. Do not invent a test for it.
+   */
 
   it('collapses a value below the sixteenth place to a bare zero', () => {
     // "0.0000000000000000" loses every zero, then the point. KiCad prints "0"
