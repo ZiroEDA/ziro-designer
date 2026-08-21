@@ -114,7 +114,10 @@ describe('the type-to-icon mapping', () => {
 describe('the pixels reach the screen', () => {
   it('encodes runs that add up to the ink in the array', () => {
     for (const [name, icon] of Object.entries(UPSTREAM)) {
-      const ink = icon.rows.join('').split('').filter((c) => c === 'x').length;
+      const ink = icon.rows
+        .join('')
+        .split('')
+        .filter((c) => c === 'x').length;
       const covered = xpmRuns(icon).reduce((n, [, , w]) => n + w, 0);
       expect(covered, `${name} draws every lit pixel and no more`).toBe(ink);
     }
@@ -173,7 +176,9 @@ describe('the dialog draws them', () => {
   });
 
   it('gives the root row root_xpm and an item row its type icon', () => {
-    expect(PANEL).toContain('row.itemIndex === null ? DS_ICON_ROOT : iconFor(items[row.itemIndex])');
+    expect(PANEL).toContain(
+      'row.itemIndex === null ? DS_ICON_ROOT : iconFor(items[row.itemIndex])',
+    );
   });
 
   it('draws square pixels, because a wxBitmap blit does not antialias', () => {

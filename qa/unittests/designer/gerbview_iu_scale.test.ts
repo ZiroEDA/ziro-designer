@@ -37,8 +37,7 @@ const ROOTS = ['../../../designer/src/editors/gerbview', '../../../designer/src/
 );
 
 /** Source with comments blanked — prose about the trap is not an import of it. */
-const strip = (s: string): string =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+const strip = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
 function walk(dir: string): string[] {
   const out: string[] = [];

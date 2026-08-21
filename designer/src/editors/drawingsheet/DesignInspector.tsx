@@ -45,7 +45,11 @@ function XpmBitmap({ icon }: { icon: XpmIcon | undefined }): JSX.Element | null 
       viewBox={`0 0 ${DS_INSPECTOR_ICON_PX} ${DS_INSPECTOR_ICON_PX}`}
       shapeRendering="crispEdges"
       aria-hidden="true"
-      style={{ display: 'block', marginLeft: DS_INSPECTOR_ICON_OFFSET.x, marginTop: DS_INSPECTOR_ICON_OFFSET.y }}
+      style={{
+        display: 'block',
+        marginLeft: DS_INSPECTOR_ICON_OFFSET.x,
+        marginTop: DS_INSPECTOR_ICON_OFFSET.y,
+      }}
     >
       {xpmRuns(icon).map(([x, y, w]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={w} height={1} fill={icon.color} />
