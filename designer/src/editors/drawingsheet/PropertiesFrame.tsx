@@ -43,6 +43,7 @@ import { UnitField } from '../../ui/UnitField.js';
 import type { EdaUnits, UnitRange } from '../../ui/unit_binder.js';
 import { MessageDialogError } from '../../ui/dialog_message.js';
 import { DS_ITEM_COLOR, DS_ITEM_COLOR_HEX } from './wksRender.js';
+import { fmtInt, fmtRotation } from './properties_format.js';
 
 /**
  * The font faces the Text page offers — `FONT_CHOICE`
@@ -141,16 +142,35 @@ function Row({
   );
 }
 
+/**
+ * The panel's four non-distance numeric fields: Rotation, Count, Step text and
+ * Bitmap DPI.
+ *
+ * Every one of them is a plain `wxTextCtrl` upstream — `m_textCtrlRotation`
+ * (properties_frame_base.cpp:369), `m_textCtrlRepeatCount` (:400),
+ * `m_textCtrlTextIncrement` (:410) and `m_textCtrlBitmapDPI` (:376). None is a
+ * wxSpinCtrl, so none has a step, and there is no pair of arrows on any of
+ * them. Ours were `<input type="number">` with an invented `step` — 90 on
+ * Rotation, 1 on the other three — which is a spinner the panel does not have
+ * and a granularity nothing upstream chose.
+ *
+ * `format` is how the value reaches the field, and it is not the same for all
+ * four. `CopyPrmsFromItemToPanel` prints Rotation with `"%.3f"` (:295 for a
+ * text's `m_Orient`, :342 for a polygon's `m_Orient.AsDegrees()`) and the other
+ * three with `"%d"` (:291, :351, :384). A rotation of zero therefore reads
+ * `0.000` in a live pl_editor, not `0`.
+ */
 function NumField({
   value,
   onCommit,
-  step = 0.1,
+  format,
   width,
   title,
 }: {
   value: number;
   onCommit: (n: number) => void;
-  step?: number;
+  /** How the model value is printed into the field. */
+  format: (n: number) => string;
   /** Unset expands to fill the value column, as `wxEXPAND` does upstream. */
   width?: number | string;
   title?: string;
@@ -166,11 +186,10 @@ function NumField({
   return (
     <input
       className="ze-search"
-      type="number"
-      step={step}
+      type="text"
       style={width === undefined ? { flex: '1 1 auto', minWidth: 0 } : { width }}
       title={title}
-      value={text ?? String(value)}
+      value={text ?? format(value)}
       onKeyDown={(e) => {
         e.stopPropagation();
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -180,6 +199,7 @@ function NumField({
     />
   );
 }
+
 
 function CornerCombo({
   value,
@@ -243,7 +263,14 @@ function FormatButton({
   children,
 }: {
   active?: boolean;
-  title: string;
+  /**
+   * Optional, because only two of the eight buttons on this bar have one:
+   * `m_bold->SetToolTip( _( "Bold" ) )` and `m_italic->SetToolTip( _( "Italic" ) )`
+   * (properties_frame_base.cpp:93, 98). The six alignment buttons are built with
+   * no tooltip at all, and those seven `SetToolTip` calls in the base file are
+   * the panel's whole list.
+   */
+  title?: string;
   onClick: () => void;
   children: React.ReactNode;
 }): JSX.Element {
@@ -341,9 +368,19 @@ export function PropertiesFrame({
               onShowSyntaxHelp={onShowSyntaxHelp}
             />
           ) : (
-            <div className="ze-muted" style={{ padding: 'var(--wx-border)' }}>
-              Select an item to edit its properties.
-            </div>
+            /* Nothing. `CopyPrmsFromItemToPanel( nullptr )` hides the whole
+               sizer and returns (properties_frame.cpp:226-233):
+
+                   if( !aItem )
+                   {
+                       m_SizerItemProperties->Show( false );
+                       m_propertiesDirty = false;
+                       return;
+                   }
+
+               so an Item Properties page with no selection is BLANK in a live
+               pl_editor. The sentence that stood here was ours. */
+            null
           )
         ) : (
           <GeneralOptions
@@ -444,21 +481,18 @@ function ItemProperties({
             <span className="ze-ds-fmtsep" />
             <FormatButton
               active={t.hjustify === 'left'}
-              title="Align left"
               onClick={() => patch({ hjustify: 'left' })}
             >
               ⬅
             </FormatButton>
             <FormatButton
               active={t.hjustify === 'center'}
-              title="Align center"
               onClick={() => patch({ hjustify: 'center' })}
             >
               ↔
             </FormatButton>
             <FormatButton
               active={t.hjustify === 'right'}
-              title="Align right"
               onClick={() => patch({ hjustify: 'right' })}
             >
               ➡
@@ -466,21 +500,18 @@ function ItemProperties({
             <span className="ze-ds-fmtsep" />
             <FormatButton
               active={t.vjustify === 'top'}
-              title="Align top"
               onClick={() => patch({ vjustify: 'top' })}
             >
               ⬆
             </FormatButton>
             <FormatButton
               active={t.vjustify === 'center'}
-              title="Align middle"
               onClick={() => patch({ vjustify: 'center' })}
             >
               ↕
             </FormatButton>
             <FormatButton
               active={t.vjustify === 'bottom'}
-              title="Align bottom"
               onClick={() => patch({ vjustify: 'bottom' })}
             >
               ⬇
@@ -488,7 +519,6 @@ function ItemProperties({
             <span className="ze-ds-fmtsep" />
             <input
               type="color"
-              title="Text color"
               value={hexOf(t.color)}
               style={{
                 // COLOR_SWATCH built with wxDefaultSize takes
@@ -516,15 +546,14 @@ function ItemProperties({
                 });
               }}
             />
-            {t.color && (
-              <button
-                className="ze-btn ze-ds-fmt"
-                title="Clear color override (use the sheet color)"
-                onClick={() => patch({ color: undefined })}
-              >
-                ✕
-              </button>
-            )}
+            {/* No clear button. The format bar upstream ends at the swatch
+                (properties_frame_base.cpp:88-148: bold, italic, separator, the
+                three h-align buttons, separator, the three v-align buttons,
+                separator, m_textColorSwatch, and nothing after it). Resetting
+                a text to COLOR4D::UNSPECIFIED is offered by DIALOG_COLOR_PICKER,
+                which COLOR_SWATCH hands `m_default` when it opens the picker
+                (color_swatch.cpp:301-311); that default is set for this control
+                at properties_frame.cpp:124. The ✕ that stood here was ours. */}
           </div>
           <Row label="Font:">
             <Combo
@@ -534,7 +563,7 @@ function ItemProperties({
               onChange={(v) => patch({ face: v || undefined })}
             />
           </Row>
-          <Row label="Text width:" hint="Set to 0 to use default values">
+          <Row label="Text width:">
             <UnitField
               label="Text width:"
               units={units}
@@ -544,7 +573,7 @@ function ItemProperties({
               onCommit={(fontW) => patch({ fontW })}
             />
           </Row>
-          <Row label="Text height:" hint="Set to 0 to use default values">
+          <Row label="Text height:">
             <UnitField
               label="Text height:"
               units={units}
@@ -580,15 +609,21 @@ function ItemProperties({
         </>
       )}
 
-      <Row label="Comment:">
-        <input
-          className="ze-search"
-          style={{ flex: 1, minWidth: 0 }}
-          value={item.comment}
-          onKeyDown={(e) => e.stopPropagation()}
-          onChange={(e) => patch({ comment: e.target.value })}
-        />
-      </Row>
+      {/* Not a `Row`. m_staticTextComment and m_textCtrlComment go into
+          m_SizerItemProperties as two siblings — the label with
+          `wxRIGHT|wxLEFT`, the field beneath it with
+          `wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND` (properties_frame_base.cpp:233-238)
+          — so the label is on its own line above a full-width field. */}
+      <label className="ze-ds-stacklabel" htmlFor="ze-ds-comment">
+        Comment:
+      </label>
+      <input
+        id="ze-ds-comment"
+        className="ze-search ze-ds-stackfield"
+        value={item.comment}
+        onKeyDown={(e) => e.stopPropagation()}
+        onChange={(e) => patch({ comment: e.target.value })}
+      />
 
       {(t || bitmap || poly) && (
         <PositionGroup
@@ -629,7 +664,7 @@ function ItemProperties({
        * sheet's m_DefaultTextThickness, which is a different value entirely.
        */}
       {!bitmap && pen && (
-        <Row label="Line width:" hint="Set to 0 to use default values">
+        <Row label="Line width:">
           <UnitField
             label="Line width:"
             units={units}
@@ -646,7 +681,7 @@ function ItemProperties({
       {(t || poly) && (
         <Row label="Rotation:">
           <NumField
-            step={90}
+            format={fmtRotation}
             value={(t ?? poly)!.rotate}
             onCommit={(rotate) => patch({ rotate })}
           />
@@ -657,7 +692,7 @@ function ItemProperties({
       {bitmap && (
         <Row label="Bitmap DPI:">
           <NumField
-            step={1}
+            format={fmtInt}
             value={bitmap.ppi}
             onCommit={(ppi) => patch({ ppi: Math.max(1, Math.round(ppi)) })}
           />
@@ -667,9 +702,15 @@ function ItemProperties({
       <Group title="Repeat Parameters">
         <Row label="Count:">
           <NumField
-            step={1}
+            format={fmtInt}
             value={item.repeat}
-            onCommit={(n) => patch({ repeat: Math.min(100, Math.max(1, Math.round(n))) })}
+            // `msg.ToLong( &itmp ); if( itmp < 1l ) itmp = 1;`
+            // (properties_frame.cpp:558-570) is the WHOLE check the panel makes.
+            // The 1..100 range belongs to the reader — `parseInt( 1, 100 )` at
+            // drawing_sheet_parser.cpp:429, 507, 672 and 732 — so KiCad accepts
+            // 500 here, writes `(repeat 500)`, and clamps it on the next load.
+            // Ours refused at the field, which is a limit the panel never had.
+            onCommit={(n) => patch({ repeat: Math.max(1, Math.round(n)) })}
           />
         </Row>
         {t && (
@@ -678,7 +719,7 @@ function ItemProperties({
             hint="Number of characters or digits to step text by for each repeat."
           >
             <NumField
-              step={1}
+              format={fmtInt}
               value={item.incrlabel}
               onCommit={(n) => patch({ incrlabel: Math.round(n) })}
             />

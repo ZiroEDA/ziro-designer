@@ -6357,6 +6357,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-family: inherit;
   font-size: var(--ui-font-size);
 }
+/* `m_staticTextComment` and `m_textCtrlComment` (properties_frame_base.cpp:233-238)
+   are added to m_SizerItemProperties as two SIBLINGS, not as a labelled row:
+   the label with `wxRIGHT|wxLEFT`, the field under it with
+   `wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND`. So the label sits on its own line above a
+   full-width field. Ours put it in a `.ze-ds-row`, where the 118 px label
+   column squeezed the field to the right of it.
+
+   The 6 px margin and the 12 px width inset are the same wxFormBuilder 5 px
+   border every other control in this panel already uses; they are stated once
+   in `.ze-ds-row` / `.ze-ds-textedit` above and repeated here for the two
+   stacked pieces rather than invented. */
+.ze-ds-stacklabel {
+  display: block;
+  margin: 4px 6px 0;
+  font-size: var(--ui-font-size);
+  opacity: 0.85;
+}
+.ze-ds-stackfield {
+  display: block;
+  width: calc(100% - 12px);
+  margin: 0 6px 4px;
+  font-size: var(--ui-font-size);
+}
 /* Every control in a row is the same size as its label, which is what makes a
    GTK row of mixed controls line up. `.ze-search` is `font: inherit`, so this
    is the one place the size has to be said. */
