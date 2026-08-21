@@ -6364,21 +6364,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    full-width field. Ours put it in a `.ze-ds-row`, where the 118 px label
    column squeezed the field to the right of it.
 
-   The 6 px margin and the 12 px width inset are the same wxFormBuilder 5 px
-   border every other control in this panel already uses; they are stated once
-   in `.ze-ds-row` / `.ze-ds-textedit` above and repeated here for the two
-   stacked pieces rather than invented. */
+   This states only the geometry that differs. The font and the dimming still
+   come from `.ze-ds-label` above, which the element also carries; restating
+   either here is what the central-value rule forbids. The field needs no rule
+   at all — `.ze-ds-textedit` is already exactly this box. */
 .ze-ds-stacklabel {
   display: block;
-  margin: 4px 6px 0;
-  font-size: var(--ui-font-size);
-  opacity: 0.85;
-}
-.ze-ds-stackfield {
-  display: block;
-  width: calc(100% - 12px);
-  margin: 0 6px 4px;
-  font-size: var(--ui-font-size);
+  width: auto;
+  /* [px] the same wxFormBuilder border `.ze-ds-row` above measures as 4 px
+     vertical, and only above: m_staticTextComment is added with wxRIGHT|wxLEFT,
+     so it carries no bottom margin of its own. */
+  margin-top: 4px;
+  /* [px] the horizontal half of that same measured border, 6 px, as
+     `.ze-ds-row` and `.ze-ds-textedit` both already use. */
+  margin-inline: 6px;
+  margin-bottom: 0;
 }
 /* Every control in a row is the same size as its label, which is what makes a
    GTK row of mixed controls line up. `.ze-search` is `font: inherit`, so this

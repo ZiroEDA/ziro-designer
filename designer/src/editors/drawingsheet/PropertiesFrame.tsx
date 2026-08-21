@@ -614,12 +614,12 @@ function ItemProperties({
           `wxRIGHT|wxLEFT`, the field beneath it with
           `wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND` (properties_frame_base.cpp:233-238)
           — so the label is on its own line above a full-width field. */}
-      <label className="ze-ds-stacklabel" htmlFor="ze-ds-comment">
+      <label className="ze-ds-label ze-ds-stacklabel" htmlFor="ze-ds-comment">
         Comment:
       </label>
       <input
         id="ze-ds-comment"
-        className="ze-search ze-ds-stackfield"
+        className="ze-search ze-ds-textedit"
         value={item.comment}
         onKeyDown={(e) => e.stopPropagation()}
         onChange={(e) => patch({ comment: e.target.value })}

@@ -203,9 +203,13 @@ describe('the Comment field', () => {
     // m_staticTextComment then m_textCtrlComment, added to m_SizerItemProperties
     // as siblings, the field with wxEXPAND (properties_frame_base.cpp:233-238).
     expect(CODE).not.toContain('<Row label="Comment:"');
-    expect(CODE).toContain('ze-ds-stacklabel');
     const at = CODE.indexOf('ze-ds-stacklabel');
-    expect(CODE.slice(at, at + 400)).toContain('ze-ds-stackfield');
+    expect(at, 'the Comment label must be stacked').toBeGreaterThan(-1);
+    // The label keeps `.ze-ds-label`'s font and dimming rather than restating
+    // them, and the field is the same full-width box `.ze-ds-textedit` already
+    // defines — no second copy of either.
+    expect(CODE.slice(Math.max(0, at - 40), at)).toContain('ze-ds-label');
+    expect(CODE.slice(at, at + 400)).toContain('ze-ds-textedit');
   });
 });
 
