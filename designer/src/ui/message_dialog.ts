@@ -32,6 +32,18 @@ export type MessageDialogIcon = 'question' | 'warning' | 'error' | 'information'
  */
 export const ERROR_CAPTION = 'Error';
 
+/**
+ * …and the caption `DisplayInfoMessage` gives its box, from the same file:
+ *
+ *     dlg = new KICAD_MESSAGE_DIALOG_BASE( aParent, aMessage, _( "Information" ),
+ *                                          wxOK | wxCENTRE | wxRESIZE_BORDER |
+ *                                          icon | wxSTAY_ON_TOP );
+ *
+ * (`common/confirm.cpp:266-268`, with `icon = wxICON_INFORMATION`.) Like the
+ * error box it is the same word on every call site, never the frame's name.
+ */
+export const INFO_CAPTION = 'Information';
+
 /** The button the user pressed: `wxID_YES` / `wxID_NO`. */
 export type YesNoResult = 'yes' | 'no';
 

@@ -678,12 +678,28 @@ describe('the project manager, pressed for real', () => {
   });
 
   it('honours the rows the menu greys out when no project is picked', () => {
-    // File > Save As… and Tools > PCB Editor are `disabled: !h.hasProject`.
-    // The listener this replaced re-stated that condition by hand.
+    // File > Save As… is `disabled: !h.hasProject`, and that IS upstream's:
+    //     manager->SetConditions( ACTIONS::saveAs, activeProjectCond );
+    // (kicad_manager_frame.cpp:493). The listener this replaced re-stated the
+    // condition by hand.
     const { menus, calls } = managerFixture(false);
     expect(dispatchMenuHotkey(menus, ev('s', { ctrlKey: true, shiftKey: true }))).toBe(false);
-    expect(dispatchMenuHotkey(menus, ev('p', { ctrlKey: true }))).toBe(false);
     expect(calls).toEqual([]);
+  });
+
+  it('does NOT grey Tools > PCB Editor, which upstream never conditions', () => {
+    // This row used to be `disabled: !h.hasProject` and Ctrl+P did nothing
+    // without a project. Re-derived from the C++ rather than re-baselined:
+    // setupUIConditions conditions exactly five actions on an active project -
+    // saveAs, closeProject, archiveProject, newJobsetFile, openJobsetFile
+    // (kicad_manager_frame.cpp:493-497) - and editPCB is not among them. What
+    // refuses is KICAD_MANAGER_CONTROL::ShowPlayer, which raises
+    // "Create (or open) a project to edit a pcb." in a message box
+    // (kicad_manager_control.cpp:745-749). So the accelerator fires and the
+    // handler runs; the handler is what says no.
+    const { menus, calls } = managerFixture(false);
+    expect(dispatchMenuHotkey(menus, ev('p', { ctrlKey: true }))).toBe(true);
+    expect(calls).toEqual(['editPcb']);
   });
 
   it('leaves the permanently-greyed clipboard rows to the browser', () => {

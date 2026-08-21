@@ -86,6 +86,10 @@ import { basename as pathBasename } from '../fs/path.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
 import { FILE_MANAGER_FILTERS } from '../fs/wildcards.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
+import { managerTitle, projectStatusText } from './manager_frame.js';
+import { type LauncherId, showPlayerRefusal } from './show_player.js';
+import { MessageDialogOk } from '../ui/dialog_message.js';
+import { INFO_CAPTION } from '../ui/message_dialog.js';
 import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
@@ -395,6 +399,27 @@ export function HomePage({
 
   // Chrome dialogs: About, read-only text viewer, Preferences.
   const [aboutOpen, setAboutOpen] = useState(false);
+  /**
+   * `DisplayInfoMessage`'s box (common/confirm.cpp:249-271) — one OK, the
+   * information glyph, captioned "Information". What a launcher raises instead
+   * of being greyed when there is no project to open in it.
+   */
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  /**
+   * `KICAD_MANAGER_CONTROL::ShowPlayer`: refuse with a message box, or go.
+   *
+   * One function, because upstream has one — the launcher tile and the Tools
+   * menu row are the same `TOOL_ACTION` reaching the same `ShowPlayer`, which
+   * is why neither of them is greyed and both raise the same box.
+   */
+  const runLauncher = (id: LauncherId, launch: () => void): void => {
+    const refusal = showPlayerRefusal(id, !!picked);
+    if (refusal !== null) {
+      setInfoMessage(refusal);
+      return;
+    }
+    launch();
+  };
   const [textView, setTextView] = useState<PickedHomeFile | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   // Open Project puts up the file chooser — the same window every other
@@ -1499,9 +1524,14 @@ export function HomePage({
     toggleLocalHistory: () => setHistoryShown((v) => !v),
     localHistoryShown: historyShown,
     openTextViewer: () => setTextView(selectedTextFile),
-    editSchematic: () => launchSchematic(),
+    // Tools > Schematic Editor and Tools > PCB Editor are the same actions the
+    // tiles carry, so they take the same guard. `setupUIConditions` does not
+    // list editSchematic or editPCB (kicad_manager_frame.cpp:493-497), so
+    // neither row is ever greyed - ours had PCB Editor disabled without a
+    // project, which is a condition upstream does not have.
+    editSchematic: () => runLauncher('schematic', () => launchSchematic()),
     editSymbols: () => onOpenSymbolEditor?.(picked ?? undefined),
-    editPcb: launchPcb,
+    editPcb: () => runLauncher('pcb', launchPcb),
     editFootprints: () => onOpenFootprintEditor?.(picked ?? undefined),
     openImageConverter: () => onOpenImageConverter?.(),
     openGerberViewer: () => onOpenGerberViewer?.(),
@@ -1590,7 +1620,15 @@ export function HomePage({
 
       <MenuBar
         menus={menus}
-        title={<>{picked && projName ? projName : 'No project'}&nbsp;&mdash;&nbsp;Ziro Designer</>}
+        // KICAD_MANAGER_FRAME's own title, whose no-project half is
+        // "[no project loaded]" - see manager_frame.ts. The app name stands in
+        // for "KiCad " + GetMajorMinorVersion(); everything else is upstream's.
+        // A demo is this app's read-only project: its edits are never saved, so
+        // it is the state Prj().IsReadOnly() reports and it carries the same
+        // "[Read Only]" suffix. (Upstream's own source for that flag is a
+        // LOCKFILE on the project directory, which a browser has no equivalent
+        // of - "you cannot save to this" is the part that survives.)
+        title={managerTitle(picked ? projName : null, 'Ziro Designer', demoOpen)}
         rightSlot={
           session ? (
             <div className="ze-account">
@@ -1693,13 +1731,11 @@ export function HomePage({
         <div className="ze-launchers">
           <div className="ze-tiles">
             {TILES.map((t) => {
-              const hasSch = !!picked?.some((f) => /\.kicad_sch$/i.test(f.name));
-              const hasPcb = !!picked?.some((f) => /\.kicad_pcb$/i.test(f.name));
-              // Schematic/PCB edit a project, so they need one open (like KiCad's
-              // project manager). Symbol Editor is a library editor, standalone.
-              const needsProject = t.id === 'schematic' || t.id === 'pcb';
-              const enabled = !needsProject || (t.id === 'schematic' ? hasSch : hasPcb);
-              const tip = enabled ? tooltipFor(t.tip, t.hotkey) : 'Open or create a project first';
+              // Every tile is lit, always. `addLauncher`'s `enabled` defaults to
+              // true and only the plugin manager is ever passed otherwise
+              // (panel_kicad_launcher.cpp:104, 171-174), so what a launcher does
+              // without a project is refuse - see show_player.ts - not go grey.
+              const tip = tooltipFor(t.tip, t.hotkey);
               const launch =
                 t.id === 'pcb'
                   ? launchPcb
@@ -1720,8 +1756,9 @@ export function HomePage({
                 <button
                   key={t.id}
                   className="ze-launcher"
-                  disabled={!enabled}
-                  onClick={enabled ? launch : undefined}
+                  // The guard runs when the button is pressed, rather than
+                  // deciding whether it can be pressed.
+                  onClick={() => runLauncher(t.id as LauncherId, launch)}
                 >
                   {/* CreateLaunchers gives the tooltip to the button and to the
                       title label, and to neither the help line nor the row:
@@ -1756,7 +1793,12 @@ export function HomePage({
             project's full name and hands it to SetEllipsedTextField, which
             middle-ellipsizes it to the field. */}
         <EllipsizedField
-          text={picked ? `Project: ${proFile?.name ?? projName ?? '-'}` : 'No project loaded'}
+          // PrintPrjInfo formats Prj().GetProjectFullName() - the whole path
+          // to the .kicad_pro - and CloseProject clears the field rather than
+          // writing a "no project" line, because KiCad has no such string.
+          // The account's tree is the only filesystem here, so the full path
+          // is the path in it: the same one the file chooser shows.
+          text={projectStatusText(picked && proFile ? `/${proFile.name}` : null)}
         />
         <span className="cell">
           {storageAvailable()
@@ -1937,6 +1979,14 @@ export function HomePage({
 
       {/* KiCad's "Load Schematic" progress dialog, web-style. */}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {infoMessage !== null && (
+        <MessageDialogOk
+          caption={INFO_CAPTION}
+          message={infoMessage}
+          icon="information"
+          onClose={() => setInfoMessage(null)}
+        />
+      )}
       {textView && (
         <TextViewerDialog
           name={textView.name}
