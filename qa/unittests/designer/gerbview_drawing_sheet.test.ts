@@ -20,7 +20,7 @@
  * calling into it.
  */
 import { describe, it, expect } from 'vitest';
-import { PAPER_MM } from '@ziroeda/common';
+import { defaultDrawingSheet, layoutDrawingSheet, PAPER_MM } from '@ziroeda/common';
 import { IU_PER_MM } from '@ziroeda/gerbview';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +72,40 @@ describe('the GerbView drawing sheet', () => {
     // (drawing_sheet_default_description.cpp; ours at default-sheet.ts:158), so
     // the resolved text is one string, not a bare token.
     expect(texts).toContain('Size: GERBER');
+  });
+
+  it('passes exactly the context GERBVIEW_FRAME does', () => {
+    // The differential test, and the one that pins every field at once.
+    //
+    // `SetPageSettings` (gerbview_frame.cpp:886-899) constructs the proxy item
+    // with `&GetTitleBlock()` — which nothing in gerbview/ ever populates — and
+    // sets only the page number and the sheet count. It never calls
+    // SetFileName / SetSheetName / SetSheetPath either. So the context is this
+    // and nothing else, written out here from the C++ rather than read back out
+    // of the adapter.
+    const expected = layoutDrawingSheet(
+      defaultDrawingSheet(),
+      { widthMM: 812.8, heightMM: 812.8 },
+      {
+        pageNumber: 1,
+        sheetCount: 1,
+        title: '',
+        rev: '',
+        date: '',
+        company: '',
+        comments: ['', '', '', ''],
+        paper: 'GERBER',
+        fileName: '',
+        sheetPath: '',
+        appVersion: 'ZiroEDA',
+      },
+    );
+    const textsOf = (items: readonly unknown[]): string[] =>
+      items
+        .map((i) => (i as { text?: string }).text)
+        .filter((t): t is string => typeof t === 'string');
+
+    expect(textsOf(gerberDrawingSheetItems())).toEqual(textsOf(expected));
   });
 
   it('leaves the title block blank, because GerbView never fills one', () => {
