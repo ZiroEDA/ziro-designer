@@ -27,7 +27,6 @@ const ITALIC_TILT = 1 / 8;
 import { getBitmapImage } from './wksBitmap.js';
 import { brightness, parseColor4d } from '../../render/color4d.js';
 
-
 /*
  * The three colours the drawing sheet is painted from are COLOR_SETTINGS
  * layers, not a palette this editor invents. `DS_RENDER_SETTINGS::LoadColors`
