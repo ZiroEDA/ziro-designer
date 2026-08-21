@@ -63,11 +63,31 @@ export class GERBER_DRAW_ITEM {
   layer = 0;
 
   /**
+   * `GERBER_DRAW_ITEM::m_AbsolutePolygon`, the flash resolved into absolute
+   * coordinates and kept.
+   *
+   * Upstream builds it once per item and reads it back on every later frame:
+   * `if( aParent->m_AbsolutePolygon.OutlineCount() == 0 ) aParent->m_AbsolutePolygon = ...`
+   * (`gerbview/gerbview_painter.cpp:601-605` for macros, `:283-292` for
+   * regions). Nothing invalidates it, because an item is immutable once the
+   * parser has emitted it: `start`, `apTransform` and `dcode` are all assigned
+   * before the item is added to the image.
+   */
+  private absoluteShapeCache: AmResolvedShape[] | null = null;
+
+  /**
    * For flashed spots, resolve the aperture into absolute-IU primitives.
    * Applies the aperture transform (mirror/rotate/scale) then translates to the
    * flash point (`start`).
+   *
+   * Cached, see `absoluteShapeCache`. The returned array is shared: callers
+   * must treat it as read-only.
    */
   resolveFlashShapes(): AmResolvedShape[] {
+    return (this.absoluteShapeCache ??= this.buildFlashShapes());
+  }
+
+  private buildFlashShapes(): AmResolvedShape[] {
     if (!this.dcode) return [];
     const base = this.dcode.getFlashShapes();
     const t = this.apTransform;
