@@ -1529,31 +1529,36 @@ export function DrawingSheetEditor({
           are toolbar CONTROLS on the one ACTION_TOOLBAR
           (toolbars_pl_editor.cpp), so the row is a single strip: the wrapper
           carries the same face as the toolbar it continues. */}
-      <div className="ze-wks-topbar">
-        <Toolbar
-          entries={DS_TOP_TOOLBAR}
-          orientation="horizontal"
-          toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
-          onActivate={onTopAction}
-        />
-        <span style={{ width: 10 }} />
-        <Combo
-          value={String(originChoice)}
-          options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
-          onChange={(v) => setOriginChoice(Number(v))}
-          title="Origin of coordinates displayed to the status bar"
-          style={{ margin: '0 var(--wx-border)' }}
-        />
-        <Combo
-          value={String(pageNumber)}
-          options={PAGE_NUMBER_CHOICES}
-          onChange={(v) => setPageNumber(Number(v))}
-          title={
-            'Simulate page 1 or other pages to show how items\nwhich are not on all page are displayed'
-          }
-          style={{ margin: '0 var(--wx-border)' }}
-        />
-      </div>
+      {/* One toolbar, not a bar holding a toolbar: upstream adds both choices
+          to the toolbar itself (`toolbars_pl_editor.cpp:132,157`). The wrapper
+          this replaces painted --chrome-bg behind a --content-bg toolbar, so
+          the strip showed the menu-bar grey either side of the buttons. */}
+      <Toolbar
+        entries={DS_TOP_TOOLBAR}
+        orientation="horizontal"
+        toggled={activeTool === 'zoomTool' ? new Set([...toggles, 'zoomTool']) : toggles}
+        onActivate={onTopAction}
+        controls={{
+          originSelector: (
+            <Combo
+              value={String(originChoice)}
+              options={ORIGIN_CHOICES.map((c, i) => ({ value: String(i), label: c }))}
+              onChange={(v) => setOriginChoice(Number(v))}
+              title="Origin of coordinates displayed to the status bar"
+            />
+          ),
+          pageSelect: (
+            <Combo
+              value={String(pageNumber)}
+              options={PAGE_NUMBER_CHOICES}
+              onChange={(v) => setPageNumber(Number(v))}
+              title={
+                'Simulate page 1 or other pages to show how items\nwhich are not on all page are displayed'
+              }
+            />
+          ),
+        }}
+      />
 
       <div className="ze-body">
         <Toolbar

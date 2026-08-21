@@ -7175,28 +7175,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    flex strip. Their look is NOT restated here: an earlier local rule of exactly
    this kind is what kept the Image Converter's combo painting the entry
    interior after the shared widget had already been fixed. */
-.ze-wks-topbar .ze-combo {
+/* A combo added to a toolbar is a control, not a field: `aToolbar->Add( box )`
+   gives it its own best width and the strip does not stretch it. Scoped to the
+   toolbar rather than to one launcher, because gerbview's layer selector and
+   pl_editor's origin and page choices are the same case. Their LOOK is not
+   restated — an earlier local rule of exactly this kind kept the Image
+   Converter's combo painting the entry interior after the shared widget had
+   already been fixed. */
+.ze-toolbar .ze-combo {
   flex: 0 0 auto;
   width: max-content;
-}
-
-/* The top toolbar and the two combos beside it are one strip upstream, so the
-   wrapper takes the toolbar's own face — `--chrome-bg`, the token whose comment
-   already reads "menu bar, status bar, toolbars", and the same face `.ze-toolbar`
-   uses. It carried `--content-bg` (#373737), which is also `--ctl-face`: the two
-   combos were painted exactly the shade of the strip behind them and vanished
-   into it, while the identical combos in the properties panel stood out against
-   its #272727. Both combos were always the same colour; only their backdrop was
-   wrong. */
-.ze-wks-topbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  background: var(--chrome-bg);
-  border-bottom: 1px solid var(--chrome-border);
-}
-.ze-wks-topbar .ze-toolbar.horizontal {
-  border-bottom: none;
 }
 
 /* ---------------------------------------------------------------------------

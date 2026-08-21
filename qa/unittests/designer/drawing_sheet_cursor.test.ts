@@ -88,38 +88,53 @@ describe('a launcher does not restate what the shared combo owns', () => {
   const LOOKS = /(background|border|border-radius|color|font-size)\s*:/;
 
   it('leaves the top strip only layout, never looks', () => {
-    const at = SHELL.indexOf('.ze-wks-topbar .ze-combo {');
-    expect(at, 'no .ze-wks-topbar .ze-combo rule').toBeGreaterThanOrEqual(0);
+    // Scoped to the toolbar, not to this launcher: the origin and page choices
+    // are toolbar controls upstream, the same case as gerbview's layer
+    // selector, so one rule serves both.
+    const at = SHELL.indexOf('.ze-toolbar .ze-combo {');
+    expect(at, 'no .ze-toolbar .ze-combo rule').toBeGreaterThanOrEqual(0);
     const body = SHELL.slice(at, SHELL.indexOf('}', at));
     expect(body).not.toMatch(LOOKS);
   });
 
   it('no longer styles those combos through the dead .ze-select hook', () => {
-    // They are `<Combo>` now, so `.ze-wks-topbar .ze-select` matches nothing.
+    // They are `<Combo>` now, so a `.ze-select` rule would match nothing.
     expect(SHELL).not.toContain('.ze-wks-topbar .ze-select');
   });
 });
 
-describe('the top strip does not swallow the combos on it', () => {
+describe('a combo on the toolbar is told apart by its border, as upstream', () => {
   /**
-   * `--content-bg` is #373737 and so is `--ctl-face`, so a combo on that strip
-   * was painted exactly its own backdrop and disappeared — while the identical
-   * combos in the properties panel stood out against #272727. A control must
-   * never take the same face as the surface it sits on.
+   * `--content-bg` is #373737 and so is `--ctl-face`, so a combo on the strip
+   * is painted exactly its own backdrop. That was read here as a bug once, and
+   * the strip was given `--chrome-bg` to fix it — but it is what upstream
+   * does: `aToolbar->Add( m_originSelectBox )` puts a wxChoice straight onto
+   * the toolbar (`toolbars_pl_editor.cpp:132,157`), on the toolbar's own face,
+   * and a real one is told apart by its BORDER alone.
+   *
+   * So the parity requirement is not "different faces". It is that the border
+   * exists and is not the face, which is what these check.
    */
-  it('paints the strip the toolbar face, not the control face', () => {
-    const at = SHELL.indexOf('.ze-wks-topbar {');
+  it('keeps the toolbar on the frame face, with no second strip behind it', () => {
+    expect(SHELL).not.toContain('.ze-wks-topbar {');
+    const at = SHELL.indexOf('.ze-toolbar {');
     expect(at).toBeGreaterThanOrEqual(0);
-    const body = SHELL.slice(at, SHELL.indexOf('}', at));
-    expect(body).toMatch(/background:\s*var\(--chrome-bg\)/);
-    expect(body).not.toMatch(/background:\s*var\(--content-bg\)/);
+    expect(SHELL.slice(at, SHELL.indexOf('}', at))).toMatch(/background:\s*var\(--content-bg\)/);
   });
 
-  it('keeps the strip and the control on different tokens', () => {
+  it('gives the combo a border that is not the surface it sits on', () => {
+    // The bare rule, not `.ze-toolbar .ze-combo` — a substring search finds
+    // the scoped one first and would read the wrong body.
+    const at = SHELL.indexOf('\n.ze-combo {');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(SHELL.slice(at, SHELL.indexOf('}', at))).toMatch(
+      /border:\s*1px solid var\(--ctl-border\)/,
+    );
     const val = (name: string): string => {
       const m = new RegExp(`${name}:\\s*([^;]+);`).exec(SHELL);
       return (m?.[1] ?? '').trim();
     };
-    expect(val('--chrome-bg')).not.toBe(val('--ctl-face'));
+    // The border is what separates it, so it must differ from the strip.
+    expect(val('--ctl-border')).not.toBe(val('--content-bg'));
   });
 });

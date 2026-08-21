@@ -62,6 +62,16 @@ export const DS_TOP_TOOLBAR: ToolEntry[] = [
     title: 'Text placeholders are shown as ${keyword} tokens',
     toggle: true,
   },
+  sep,
+  // `AppendSeparator().AppendControl( originSelector ).AppendControl( pageSelect )`
+  // (`toolbars_pl_editor.cpp` TOP_MAIN, last block). Both are `aToolbar->Add(
+  // m_originSelectBox )` / `Add( m_pageSelectBox )` at :132 and :157 — controls
+  // ON the toolbar, exactly like gerbview's layer selector, with no second bar
+  // behind them. Ours had them in a `.ze-wks-topbar` wrapper that painted
+  // --chrome-bg, so the strip read as the menu-bar grey either side of a
+  // #373737 toolbar.
+  { control: 'originSelector' },
+  { control: 'pageSelect' },
 ];
 
 /**
