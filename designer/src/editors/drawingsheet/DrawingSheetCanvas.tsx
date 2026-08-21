@@ -903,12 +903,13 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
               pickDrawItem(drawsRef.current, world, tol),
             );
           }}
-          onPointerLeave={() => {
-            onCursorMove?.(null);
-            cursorWorldRef.current = null;
-            cursorPxRef.current = null;
-            requestDraw();
-          }}
+          // `WX_VIEW_CONTROLS::onLeave` is `onMotion( aEvent )` and nothing
+          // else (`common/view/wx_view_controls.cpp:625-630`): leaving the
+          // canvas is one more motion, so the cursor keeps its last position,
+          // the crosshair stays drawn at the edge and the status bar keeps
+          // showing those coordinates. KiCad's crosshair is the TOOL cursor
+          // held by VIEW_CONTROLS, not the mouse pointer, so there is nothing
+          // to clear when the pointer goes away.
         />
       </div>
     );

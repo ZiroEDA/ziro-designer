@@ -555,22 +555,18 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
         }
       };
 
-      const onLeave = (): void => {
-        cursorPxRef.current = null;
-        onCursorMove?.(null);
-        requestDraw();
-      };
-
       canvas.addEventListener('pointerdown', onDown);
       canvas.addEventListener('pointermove', onMove);
       canvas.addEventListener('pointerup', onUp);
-      canvas.addEventListener('pointerleave', onLeave);
+      // No 'pointerleave' handler on purpose. `WX_VIEW_CONTROLS::onLeave` is
+      // `onMotion( aEvent )` and nothing else (`wx_view_controls.cpp:625-630`),
+      // so the cursor keeps its last position, the crosshair stays at the edge
+      // and the status bar keeps its coordinates.
       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
       return () => {
         canvas.removeEventListener('pointerdown', onDown);
         canvas.removeEventListener('pointermove', onMove);
         canvas.removeEventListener('pointerup', onUp);
-        canvas.removeEventListener('pointerleave', onLeave);
       };
     }, [activeTool, dpr, requestDraw, toWorld, onCursorMove, onMeasure, onPick]);
 
