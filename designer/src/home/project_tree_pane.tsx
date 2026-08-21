@@ -13,16 +13,17 @@
  * rename, delete).
  */
 
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import type { PickedHomeFile } from './files.js';
 import {
   basename,
   inTreeAllowList,
   isHiddenFile,
-  isViewableTextFile,
   treeIconFor,
   type DirNode,
 } from './project_tree.js';
+import { treeFileType } from './file_activation.js';
+import { type TreeMenuSelectionItem, projectTreeMenu } from './project_tree_menu.js';
 
 // KiCad's own dark-theme manager icons (GPL), vendored under assets/.
 const MGR_ICONS = import.meta.glob('../assets/manager/*.svg', {
@@ -115,6 +116,34 @@ export function ProjectTreePane({
 
   // Right-click context menu (upstream popup, web-applicable subset).
   const [menu, setMenu] = useState<{ x: number; y: number; paths: Set<string> } | null>(null);
+
+  /**
+   * Every row of the tree by its path, so the popup can ask what a selected
+   * path *is*.
+   *
+   * `onRight` works from `GetSelectedData()` - a vector of PROJECT_TREE_ITEM,
+   * each already carrying its TREE_FILE_TYPE - so the type is free upstream.
+   * Ours holds paths, and this is the lookup that turns one back into a type.
+   */
+  const nodeByPath = useMemo(() => {
+    const out = new Map<string, DirNode>();
+    const walk = (n: DirNode): void => {
+      if (n.path) out.set(n.path, n);
+      n.children.forEach(walk);
+    };
+    if (dirRoot) walk(dirRoot);
+    return out;
+  }, [dirRoot]);
+
+  /** One selected path as the popup's conditions see it. */
+  const selectionItem = (path: string): TreeMenuSelectionItem => {
+    // The root row is the project's own .kicad_pro, and the only row for which
+    // `item->GetId() == GetRootItem()` is true.
+    if (path === ROOT_SELECTION) return { type: 'JSON_PROJECT', isTreeRoot: true };
+    const node = nodeByPath.get(path);
+    if (node?.isDir) return { type: 'DIRECTORY' };
+    return { type: treeFileType(path) };
+  };
   useEffect(() => {
     if (!menu) return;
     const close = (): void => setMenu(null);
@@ -127,7 +156,6 @@ export function ProjectTreePane({
     e.stopPropagation();
     // Right-clicking an unselected row selects it (like upstream's tree).
     const paths = selected.has(path) ? new Set(selected) : new Set([path]);
-    paths.delete(ROOT_SELECTION);
     if (!selected.has(path)) onSelect(path, false);
     if (paths.size > 0) setMenu({ x: e.clientX, y: e.clientY, paths });
   };
@@ -240,50 +268,76 @@ export function ProjectTreePane({
           {(() => {
             const paths = [...menu.paths];
             const single = paths.length === 1 ? paths[0]! : null;
-            const singleText = single !== null && isViewableTextFile(single);
-            const item = (
-              label: string,
-              onClick: (() => void) | undefined,
-              disabled = false,
-            ): JSX.Element => (
-              <div
-                key={label}
-                className={`ze-mitem${disabled || !onClick ? ' disabled' : ''}`}
-                onClick={() => {
-                  if (disabled || !onClick) return;
-                  setMenu(null);
-                  onClick();
-                }}
-              >
-                <span className="mico" />
-                <span className="lbl">{label}</span>
-              </div>
-            );
-            return (
-              <>
-                {/* "New Directory…" needs file-move to be useful in the
-                    file-list project model, arrives with drag-move. */}
-                {item('New Directory...', undefined, true)}
-                <div className="ze-msep" />
-                {item(
-                  'Edit in a Text Viewer',
-                  singleText && onViewTextPath ? () => onViewTextPath(single) : undefined,
-                  !singleText,
-                )}
-                {item(
-                  'Download...',
-                  single && onDownloadPath ? () => onDownloadPath(single) : undefined,
-                  paths.length !== 1,
-                )}
-                <div className="ze-msep" />
-                {item(
-                  paths.length > 1 ? 'Rename Files...' : 'Rename File...',
-                  single && onRenamePath ? () => onRenamePath(single) : undefined,
-                  paths.length !== 1,
-                )}
-                {item('Delete', onDeletePaths ? () => onDeletePaths(new Set(paths)) : undefined)}
-              </>
-            );
+            /**
+             * What each row does here, by the id the shared builder gave it.
+             *
+             * A row with no handler is not drawn - the same rule
+             * `runActivation` follows for a branch a call site cannot honour,
+             * and the reason `New Directory...` is absent rather than greyed:
+             * upstream's creates a folder on disk and there is nothing here to
+             * create one in yet. Every row that IS drawn works.
+             */
+            const handlers: Partial<Record<string, () => void>> = {
+              newDirectory: undefined,
+              editInTextEditor:
+                single !== null && onViewTextPath
+                  ? () => onViewTextPath(single === ROOT_SELECTION ? rootLabel : single)
+                  : undefined,
+              download:
+                single !== null && single !== ROOT_SELECTION && onDownloadPath
+                  ? () => onDownloadPath(single)
+                  : undefined,
+              renameFile:
+                single !== null && single !== ROOT_SELECTION && onRenamePath
+                  ? () => onRenamePath(single)
+                  : undefined,
+              moveToTrash: onDeletePaths ? () => onDeletePaths(new Set(paths)) : undefined,
+              // The same thing double-clicking that row does, so it goes
+              // through the same Activate switch rather than round a second
+              // path to the same LoadProject.
+              switchToProject:
+                single !== null && single !== ROOT_SELECTION && onActivate
+                  ? () => {
+                      const node = nodeByPath.get(single);
+                      if (node) onActivate({ name: node.name, path: node.path, file: node.file });
+                    }
+                  : undefined,
+            };
+
+            const entries = projectTreeMenu(paths.map(selectionItem));
+            const rows: JSX.Element[] = [];
+
+            entries.forEach((e, i) => {
+              if (e === 'separator') {
+                // A rule is only worth drawing between two rows that exist.
+                if (rows.length > 0) rows.push(<div key={`sep${i}`} className="ze-msep" />);
+                return;
+              }
+              const run = handlers[e.id];
+              if (!run) return;
+              rows.push(
+                <div
+                  key={e.id}
+                  className="ze-mitem"
+                  title={e.help}
+                  onClick={() => {
+                    setMenu(null);
+                    run();
+                  }}
+                >
+                  {/* KIUI::AddMenuItem takes a KiBitmap for every one of these
+                      rows, so the icon column is never empty upstream. */}
+                  <span className="mico">
+                    <TreeIcon name={e.icon} />
+                  </span>
+                  <span className="lbl">{e.label}</span>
+                </div>,
+              );
+            });
+
+            // Trailing rule, if the rows under it all dropped out.
+            while (rows.length > 0 && rows[rows.length - 1]?.key?.startsWith('sep')) rows.pop();
+            return rows;
           })()}
         </div>
       )}
