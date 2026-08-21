@@ -72,16 +72,42 @@ export const FP_LEFT_TOOLBAR: ToolEntry[] = [
     title: 'Display polar coordinates',
     toggle: true,
   },
-  { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
-  { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches' },
-  { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils' },
-  { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
-  { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs' },
-  { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs' },
+  // Three AppendGroups, not nine buttons (`toolbars_footprint_editor.cpp:65-76`).
+  // A group renders as ONE button showing the selected action with a triangle
+  // in the corner; the palette opens on a 500 ms press or a drag off it.
+  //
+  // All nine actions declare `.Flags( AF_NONE )` and no ToolbarState, so
+  // `AddGroup`'s `isToggleEntry` is false, the item is wxITEM_NORMAL, and the
+  // button can never paint checked — it cycles and lights only under the
+  // pointer. That is what `cycleOnClick` carries.
+  {
+    group: 'Units',
+    cycleOnClick: true,
+    actions: [
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches' },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils' },
+    ],
+  },
+  {
+    group: 'Crosshair modes',
+    cycleOnClick: true,
+    actions: [
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
+      { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs' },
+      { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs' },
+    ],
+  },
   sep,
-  { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle' },
-  { id: 'lineMode90', icon: 'lineMode90', title: 'Line mode: 90°' },
-  { id: 'lineMode45', icon: 'lineMode45', title: 'Line mode: 45°' },
+  {
+    group: 'Line modes',
+    cycleOnClick: true,
+    actions: [
+      { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle' },
+      { id: 'lineMode90', icon: 'lineMode90', title: 'Line mode: 90°' },
+      { id: 'lineMode45', icon: 'lineMode45', title: 'Line mode: 45°' },
+    ],
+  },
   sep,
   { id: 'padDisplayMode', icon: 'padDisplayMode', title: 'Sketch pads', toggle: true },
   {
@@ -110,8 +136,17 @@ export const FP_LEFT_TOOLBAR: ToolEntry[] = [
 
 /** RIGHT (tools) toolbar. */
 export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
-  { id: 'select', icon: 'select', title: 'Select items' },
-  { id: 'selectLasso', icon: 'selectLasso', title: 'Select with lasso' },
+  // `AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) ) )`
+  // (`toolbars_footprint_editor.cpp:94-96`). NOT a cycling group: both actions
+  // are activations and declare TOOLBAR_STATE::TOGGLE, so the button IS a check
+  // item and `activeTool` is what lights it.
+  {
+    group: 'Selection modes',
+    actions: [
+      { id: 'select', icon: 'select', title: 'Select items' },
+      { id: 'selectLasso', icon: 'selectLasso', title: 'Select with lasso' },
+    ],
+  },
   sep,
   { id: 'placePad', icon: 'placePad', title: 'Add pad' },
   { id: 'drawRuleArea', icon: 'drawRuleArea', title: 'Add a rule area (keepout)' },
@@ -126,11 +161,19 @@ export const FP_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'placeText', icon: 'placeText', title: 'Add text' },
   { id: 'drawTextBox', icon: 'drawTextBox', title: 'Add text boxes' },
   { id: 'drawTable', icon: 'drawTable', title: 'Add tables' },
-  { id: 'dimOrthogonal', icon: 'dimOrthogonal', title: 'Add orthogonal dimensions' },
-  { id: 'dimAligned', icon: 'dimAligned', title: 'Add aligned dimensions' },
-  { id: 'dimCenter', icon: 'dimCenter', title: 'Add center dimensions' },
-  { id: 'dimRadial', icon: 'dimRadial', title: 'Add radial dimensions' },
-  { id: 'dimLeader', icon: 'dimLeader', title: 'Add leaders' },
+  // `AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension objects" ) ) )`
+  // (`toolbars_footprint_editor.cpp:124-129`) — five tools behind one button,
+  // in upstream's order: orthogonal, aligned, center, radial, leader.
+  {
+    group: 'Dimension objects',
+    actions: [
+      { id: 'dimOrthogonal', icon: 'dimOrthogonal', title: 'Add orthogonal dimensions' },
+      { id: 'dimAligned', icon: 'dimAligned', title: 'Add aligned dimensions' },
+      { id: 'dimCenter', icon: 'dimCenter', title: 'Add center dimensions' },
+      { id: 'dimRadial', icon: 'dimRadial', title: 'Add radial dimensions' },
+      { id: 'dimLeader', icon: 'dimLeader', title: 'Add leaders' },
+    ],
+  },
   { id: 'deleteTool', icon: 'deleteTool', title: 'Interactive delete tool' },
   sep,
   { id: 'placePoint', icon: 'placePoint', title: 'Place points' },
