@@ -622,30 +622,11 @@ export class GlDevice {
           drawRuns(layer.runs.slice(stopAt), layer);
           continue;
         }
-        for (const run of layer.runs) {
-          if (run.count <= 0) continue;
-          if (run.kind === 'tri') {
-            bindProgram(this.progTri);
-            gl.bindVertexArray(layer.vaoTri);
-            // Non-instanced, so the first vertex is an argument and nothing has
-            // to be re-pointed.
-            gl.drawArrays(gl.TRIANGLES, run.start, run.count);
-          } else if (run.kind === 'glyph') {
-            drawGlyphs(layer, run.start, run.count);
-          } else if (run.kind === 'seg') {
-            bindProgram(this.progSeg);
-            this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, run.start);
-            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
-          } else {
-            bindProgram(this.progDisc);
-            this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, run.start);
-            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, run.count);
-          }
-        }
-        // Leave the pointers at zero so the next frame starts from a known
-        // state whichever path draws it. Each rewinds its *own* VAO.
-        this.pointInstances(layer.vaoSeg, layer.seg, SEGMENT_ATTRS, SEGMENT_STRIDE, 0);
-        this.pointInstances(layer.vaoDisc, layer.disc, DISC_ATTRS, DISC_STRIDE, 0);
+        // The same walk the interleaved branch above uses. It was written out a
+        // second time here; the two bodies were identical, including the two
+        // rewinds that close them, so folding them together leaves the emitted
+        // call sequence untouched - which `gl_device_trace` asserts.
+        drawRuns(layer.runs, layer);
         continue;
       }
 
