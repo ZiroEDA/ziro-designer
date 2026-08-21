@@ -244,7 +244,6 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Place Hierarchical Labels', 'labelHier', 'placeHierLabel', 'H'),
         tool('Draw Hierarchical Sheets', 'sheet', 'drawSheet', 'S'),
         tool('Place Pins from Sheet', 'sheetPin', 'sheetPin'),
-        actNoIcon('Sync Sheet Pins...', 'syncSheetPins'),
         actNoIcon('Sync All Sheet Pins...', 'syncAllSheetPins'),
         actNoIcon('Import Sheet...', 'importSheet'),
         SEP,
@@ -253,8 +252,6 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         tool('Draw Tables', 'table', 'table'),
         tool('Draw Rectangles', 'rectangle', 'rectangle'),
         tool('Draw Circles', 'circle', 'circle'),
-        tool('Draw Ellipses', 'ellipse', 'ellipse'),
-        tool('Draw Elliptical Arcs', 'ellipseArc', 'ellipseArc'),
         tool('Draw Arcs', 'arc', 'arc'),
         tool('Draw Bezier Curve', 'bezier', 'bezier'),
         tool('Draw Lines', 'lines', 'lines', 'I'),
@@ -311,21 +308,17 @@ export function buildMenus(h: MenuHandlers, checks: MenuChecks = {}): Menu[] {
         SEP,
         actNoIcon('Update Schematic from PCB...', 'updateSchFromPcb'),
         SEP,
-        // `SCH_ACTIONS::createNetChain` is unconditional here (menubar.cpp:339).
-        // `ShowCreateNetChain` opens the dialog whatever is selected — a symbol
-        // selection only pre-fills the from/to focus hint — so unlike the
-        // context-menu entry (which upstream gates on a symbols-only selection,
-        // sch_selection_tool.cpp:302) this one is never disabled.
-        actNoIcon('Create Net Chain...', 'createNetChain'),
-        SEP,
         {
           label: 'Variants',
           items: [
+            // menubar.cpp:328-330 — exactly these three actions
+            // (sch_actions.cpp:1778, 1784, 1790). Rename and Copy are real, but
+            // they are BUTTONS in DIALOG_SYMBOL_FIELDS_TABLE
+            // (dialog_symbol_fields_table.cpp:214-215, onRenameVariant :2859,
+            // onCopyVariant :2933), never TOOL_ACTIONs and never on this menu.
             stub('Add Design Variant...'),
             stub('Remove Design Variant...'),
             stub('Edit Variant Description...'),
-            stub('Rename Design Variant...'),
-            stub('Copy Design Variant...'),
           ],
         },
       ],

@@ -159,6 +159,45 @@ describe('a group button: one click picks, a long press opens the palette', () =
   const groups = (entries: readonly ToolEntry[]): ToolGroup[] =>
     entries.filter((e): e is ToolGroup => e !== 'sep' && 'group' in e);
 
+  /**
+   * WHICH groups exist at all, per toolbar. Nothing in this file could see the
+   * three groups ours had invented on the right bar — "Text objects", "Circle"
+   * and "Arc" — so removing them broke no test here, which is the finding.
+   *
+   * `TOOLBAR_GROUP_CONFIG` appears exactly five times in
+   * `SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig`: Units (:81), Crosshair
+   * modes (:85) and Line modes (:94) on the LEFT, Selection modes (:112) and
+   * Labels (:125) on the RIGHT. Everything else on both bars is a flat
+   * `AppendAction`, and the top bar has no group at all.
+   */
+  it('groups exactly where upstream declares a TOOLBAR_GROUP_CONFIG', () => {
+    expect(groups(LEFT_TOOLBAR).map((g) => g.group)).toEqual([
+      'Units',
+      'Crosshair modes',
+      'Line modes',
+    ]);
+    expect(groups(RIGHT_TOOLBAR).map((g) => g.group)).toEqual(['Selection modes', 'Labels']);
+    expect(groups(TOP_TOOLBAR)).toEqual([]);
+  });
+
+  /**
+   * The shape actions are flat buttons, named one at a time: a group holding
+   * any one of them is a triangle KiCad does not draw.
+   */
+  for (const id of ['placeText', 'textBox', 'table', 'rectangle', 'circle', 'arc', 'bezier']) {
+    it(`${id} is a flat button on the right bar, not inside a group`, () => {
+      expect(RIGHT_TOOLBAR).toContainEqual(expect.objectContaining({ id }));
+      expect(groups(RIGHT_TOOLBAR).flatMap((g) => g.actions.map((a) => a.id))).not.toContain(id);
+    });
+  }
+
+  /** `SHAPE_T` (include/eda_shape.h:44-53) has no ELLIPSE member. */
+  for (const id of ['ellipse', 'ellipseArc']) {
+    it(`${id} is not on any schematic toolbar`, () => {
+      expect(ids([...TOP_TOOLBAR, ...LEFT_TOOLBAR, ...RIGHT_TOOLBAR])).not.toContain(id);
+    });
+  }
+
   it('marks exactly the three toggle groups upstream names', () => {
     const cycling = [...groups(LEFT_TOOLBAR), ...groups(RIGHT_TOOLBAR)]
       .filter((g) => g.cycleOnClick)
