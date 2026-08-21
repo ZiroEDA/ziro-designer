@@ -25,6 +25,7 @@ import {
   type SetStateAction,
   type JSX,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { unzipSync, strFromU8 } from 'fflate';
 import type { Vec2 } from '@ziroeda/kimath';
@@ -78,6 +79,15 @@ import { DockSash } from '../../ui/DockSash.js';
 import { itemInfoRows } from './dialogs.js';
 import { SingleChoiceDialog } from '../../ui/dialog_single_choice.js';
 import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { openFileDialog, acceptAttribute } from '../../fs/open_file_dialog.js';
+import type { ChooserFilter } from '../../fs/chooser_types.js';
+import {
+  GERBVIEW_AUTODETECT_FILTERS,
+  GERBVIEW_DRILL_FILTERS,
+  GERBVIEW_GERBER_FILTERS,
+  GERBVIEW_JOB_FILTERS,
+  GERBVIEW_ZIP_FILTERS,
+} from '../../fs/wildcards.js';
 import { MsgPanel } from '../../ui/MsgPanel.js';
 import { useMenuHotkeys } from '../../ui/useMenuHotkeys.js';
 import {
@@ -215,6 +225,7 @@ export function GerberViewer({
   });
 
   const controller = useRef<GerberCanvasController>(null);
+  const autodetectInputRef = useRef<HTMLInputElement>(null);
   const openInputRef = useRef<HTMLInputElement>(null);
   const drillInputRef = useRef<HTMLInputElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
@@ -364,6 +375,29 @@ export function GerberViewer({
       if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
     },
     [loadTextFile, loadZip, applyJobFile, setActiveLayer],
+  );
+
+  /**
+   * One `wxFileDialog` — a filter list, and the files it came back with.
+   *
+   * `fallbackRef` is the hidden `<input>` for a browser with no file picker;
+   * it reports through its own change handler, so nothing is returned here in
+   * that case. See `fs/open_file_dialog.ts` for why the `<input>` alone cannot
+   * carry KiCad's named wildcards.
+   */
+  const openLocalFiles = useCallback(
+    async (
+      filters: readonly ChooserFilter[],
+      fallbackRef: RefObject<HTMLInputElement>,
+      multiple = true,
+    ): Promise<void> => {
+      const files = await openFileDialog(filters, {
+        multiple,
+        fallback: () => fallbackRef.current?.click(),
+      });
+      if (files.length) await loadFiles(files);
+    },
+    [loadFiles],
   );
 
   // ---- layer management --------------------------------------------------
@@ -696,11 +730,24 @@ export function GerberViewer({
   const menus: Menu[] = useMemo(
     () =>
       gerbviewMenus({
-        openAutodetected: () => openInputRef.current?.click(),
-        openGerber: () => openInputRef.current?.click(),
-        openDrillFile: () => drillInputRef.current?.click(),
-        openJobFile: () => jobInputRef.current?.click(),
-        openZipFile: () => zipInputRef.current?.click(),
+        // Five separate wxFileDialogs upstream, each with its own wildcard
+        // list (`gerbview/files.cpp`, `job_file_reader.cpp:190`). Autodetect
+        // and Gerber used to be the same call here, on the Gerber list.
+        openAutodetected: () => {
+          void openLocalFiles(GERBVIEW_AUTODETECT_FILTERS, autodetectInputRef);
+        },
+        openGerber: () => {
+          void openLocalFiles(GERBVIEW_GERBER_FILTERS, openInputRef);
+        },
+        openDrillFile: () => {
+          void openLocalFiles(GERBVIEW_DRILL_FILTERS, drillInputRef);
+        },
+        openJobFile: () => {
+          void openLocalFiles(GERBVIEW_JOB_FILTERS, jobInputRef, false);
+        },
+        openZipFile: () => {
+          void openLocalFiles(GERBVIEW_ZIP_FILTERS, zipInputRef, false);
+        },
         clearAllLayers: clearAll,
         reloadAllLayers: reloadAll,
         exportToPcbnew: exportToPcb,
@@ -1063,50 +1110,36 @@ export function GerberViewer({
       }}
       onDrop={onDrop}
     >
-      <input
-        ref={openInputRef}
-        type="file"
-        accept=".gbr,.ger,.gtl,.gbl,.gto,.gbo,.gts,.gbs,.gtp,.gbp,.gko,.gm1,.pho,.art,.gbx,.rs274x,.x,.g*,text/plain"
-        multiple
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          if (e.target.files) void loadFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={drillInputRef}
-        type="file"
-        accept=".drl,.nc,.xln,.txt,.tap,.drd"
-        multiple
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          if (e.target.files) void loadFiles(e.target.files);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={jobInputRef}
-        type="file"
-        accept=".gbrjob,.json"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void f.text().then(applyJobFile);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={zipInputRef}
-        type="file"
-        accept=".zip"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void loadZip(f);
-          e.target.value = '';
-        }}
-      />
+      {/* The `<input>` fallbacks, for a browser with no showOpenFilePicker.
+          Each `accept` is derived from the SAME wildcard list its menu entry
+          opens with, never written out again: the Gerber one used to list
+          `.ger`, `.art`, `.rs274x`, `.x` and a literal `.g*` — four extensions
+          GerbView's dialog does not offer and one glob an `accept` cannot
+          match — while the drill one offered `.tap` and `.drd` and left out
+          the `.xnc` upstream does list. Autodetect resolves to no `accept` at
+          all, which is its All files wildcard. */}
+      {(
+        [
+          [autodetectInputRef, GERBVIEW_AUTODETECT_FILTERS, true],
+          [openInputRef, GERBVIEW_GERBER_FILTERS, true],
+          [drillInputRef, GERBVIEW_DRILL_FILTERS, true],
+          [jobInputRef, GERBVIEW_JOB_FILTERS, false],
+          [zipInputRef, GERBVIEW_ZIP_FILTERS, false],
+        ] as [RefObject<HTMLInputElement>, readonly ChooserFilter[], boolean][]
+      ).map(([ref, filters, multiple], i) => (
+        <input
+          key={filters[0]?.label ?? i}
+          ref={ref}
+          type="file"
+          accept={acceptAttribute(filters) || undefined}
+          multiple={multiple}
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            if (e.target.files) void loadFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
+      ))}
 
       <MenuBar
         menus={menus}

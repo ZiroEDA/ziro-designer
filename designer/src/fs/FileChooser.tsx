@@ -37,6 +37,7 @@ import { fileExtension, fileTypeLabel } from './file_types.js';
 import type { Entry, FileSystem } from './filesystem.js';
 import { formatModified, formatSize } from './format.js';
 import { ROOT, ancestors, basename, isValidName, join } from './path.js';
+import type { ChooserFilter } from './chooser_types.js';
 
 /**
  * One row of the places sidebar.
@@ -86,13 +87,10 @@ export interface ChooserPlace {
   readonly onAccept?: (path: string) => void;
 }
 
-/** One entry of the type combo at the bottom right. */
-export interface ChooserFilter {
-  /** The whole string the combo shows — `KiCad project files (*.kicad_pro)`. */
-  readonly label: string;
-  /** Lowercase extensions without the dot. Empty means everything. */
-  readonly extensions: readonly string[];
-}
+// ChooserFilter lives in chooser_types.ts so the wildcard data modules stay
+// reachable from qa's tsconfig, which compiles .ts only. Re-exported here so
+// every existing importer keeps working.
+export type { ChooserFilter };
 
 /** Which column the list is ordered by. */
 type SortKey = 'name' | 'size' | 'type' | 'modified';
