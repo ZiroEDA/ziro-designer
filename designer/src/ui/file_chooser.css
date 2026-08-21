@@ -62,13 +62,14 @@
   border-bottom: 1px solid var(--chrome-border);
 }
 
-/* A GtkHeaderBar's buttons are not the footer's wxButtons: they are shorter
-   than the band they sit in and rounder-cornered, so they take the chooser's
-   own metrics rather than .ze-btn's. */
+/* A GtkHeaderBar's buttons are shorter than the band they sit in - GTK gives
+   them a 6 px margin top and bottom inside its 46 - but they are otherwise the
+   same GTK button as everything else, so the height is --ctl-height and not a
+   number of the chooser's own. */
 .ze-chooser-headerbar .ze-btn,
 .ze-chooser-pathbar button {
   box-sizing: border-box;
-  height: var(--chooser-btn-height);
+  height: var(--ctl-height);
   min-width: 0;
   border-radius: var(--ctl-radius);
   background: var(--ctl-face);
@@ -78,8 +79,12 @@
   cursor: default;
 }
 
+/* A text button, so --ctl-pad-x-text (16) rather than --ctl-pad-x (9, which is
+   what an image button gets); and as wide as Cancel, because the dialog's
+   header-bar buttons share one size group. */
 .ze-chooser-headerbar .ze-btn {
-  padding: 0 var(--ctl-pad-x);
+  padding: 0 var(--ctl-pad-x-text);
+  min-width: var(--chooser-headerbar-btn-min);
 }
 
 /* The accept button is GTK's `suggested-action`, which is green - a different
@@ -117,10 +122,11 @@
   width: min(380px, 46%);
 }
 
-/* The search toggle is an image button, so it is square rather than as wide as
-   a label. */
+/* The search toggle is an image button: it is out of the size group's reach
+   and carries the image button's own width, not a label's. */
 .ze-chooser-headerbar .ze-btn.ze-chooser-search {
-  width: var(--chooser-btn-height);
+  width: var(--chooser-image-btn-width);
+  min-width: var(--chooser-image-btn-width);
   padding: 0;
   flex: none;
   display: inline-flex;
@@ -384,8 +390,10 @@
   min-width: 0;
 }
 
+/* The filter combo, which is 34 tall in the capture like every other control
+   in this window. */
 .ze-chooser > .ze-chooser-footer select {
-  height: var(--chooser-btn-height);
+  height: var(--ctl-height);
   padding: 0 var(--ctl-pad-x);
   background: var(--ctl-face);
   border: 1px solid var(--ctl-border);
