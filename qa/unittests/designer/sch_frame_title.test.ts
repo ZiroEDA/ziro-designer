@@ -109,10 +109,22 @@ describe('schFrameTitle', () => {
     expect(t.full).not.toContain('[Read Only]');
   });
 
-  /** `title = _( "[no schematic loaded]" )` — and the dash is still appended. */
+  /**
+   * `title = _( "[no schematic loaded]" )` — and the dash is still appended.
+   *
+   * Spelled out rather than interpolated from `SCH_NO_DOCUMENT`. Writing
+   * `` `${SCH_NO_DOCUMENT} — ${SCH_FRAME_NAME}` `` here is CLAUDE.md's first
+   * shape of test that cannot fail — an expectation computed by calling the
+   * code under test — and it was not hypothetical: a mutant that changed the
+   * constant back to `'No project'` was the ONE survivor of this file's
+   * mutation sweep, because it moved both sides of the comparison at once.
+   */
   it('uses the bracketed placeholder with no document', () => {
-    expect(schFrameTitle({ fileName: null }).full).toBe(`${SCH_NO_DOCUMENT} — ${SCH_FRAME_NAME}`);
-    expect(schFrameTitle({ fileName: '   ' }).full).toBe(`${SCH_NO_DOCUMENT} — ${SCH_FRAME_NAME}`);
+    expect(schFrameTitle({ fileName: null }).full).toBe('[no schematic loaded] — Schematic Editor');
+    expect(schFrameTitle({ fileName: '   ' }).full).toBe(
+      '[no schematic loaded] — Schematic Editor',
+    );
+    expect(SCH_NO_DOCUMENT).toBe('[no schematic loaded]');
   });
 
   /** `title += wxT( " — " )` — an em dash, never a hyphen. */
