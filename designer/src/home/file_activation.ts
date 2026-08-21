@@ -472,3 +472,69 @@ export function projectFileContext(name: string, projectName: string): Activatio
     isRootSchematic: base === `${stem}.kicad_sch` || base === `${stem}.sch`,
   };
 }
+
+/**
+ * `PROJECT_TREE_ITEM::CanDelete` (`kicad/project_tree_item.cpp:79-98`),
+ * transcribed.
+ *
+ *     bool PROJECT_TREE_ITEM::CanDelete() const
+ *     {
+ *         if( m_type == TREE_FILE_TYPE::DIRECTORY
+ *             || m_type == TREE_FILE_TYPE::LEGACY_PROJECT
+ *             || m_type == TREE_FILE_TYPE::JSON_PROJECT
+ *             || m_type == TREE_FILE_TYPE::LEGACY_SCHEMATIC
+ *             || m_type == TREE_FILE_TYPE::SEXPR_SCHEMATIC
+ *             || m_type == TREE_FILE_TYPE::LEGACY_PCB
+ *             || m_type == TREE_FILE_TYPE::SEXPR_PCB
+ *             || m_type == TREE_FILE_TYPE::DRAWING_SHEET
+ *             || m_type == TREE_FILE_TYPE::FOOTPRINT_FILE
+ *             || m_type == TREE_FILE_TYPE::SCHEMATIC_LIBFILE
+ *             || m_type == TREE_FILE_TYPE::SEXPR_SYMBOL_LIB_FILE
+ *             || m_type == TREE_FILE_TYPE::DESIGN_RULES )
+ *             return false;
+ *
+ *         return true;
+ *     }
+ *
+ * This is a *deny* list of twelve types and it is the reason KiCad's tree
+ * cannot be used to throw away the thing you are working on: the popup builds
+ * `can_delete = item->CanDelete()` and then simply does not add the row
+ * (`project_tree_pane.cpp:876, 1004`). The entry is absent, not greyed.
+ *
+ * Ours offered Rename and Delete on every row, the schematic and the board
+ * included, which is the only difference found in this pane that could destroy
+ * a user's work rather than merely look wrong.
+ */
+export function canDelete(type: TreeFileType): boolean {
+  switch (type) {
+    case 'DIRECTORY':
+    case 'LEGACY_PROJECT':
+    case 'JSON_PROJECT':
+    case 'LEGACY_SCHEMATIC':
+    case 'SEXPR_SCHEMATIC':
+    case 'LEGACY_PCB':
+    case 'SEXPR_PCB':
+    case 'DRAWING_SHEET':
+    case 'FOOTPRINT_FILE':
+    case 'SCHEMATIC_LIBFILE':
+    case 'SEXPR_SYMBOL_LIB_FILE':
+    case 'DESIGN_RULES':
+      return false;
+    default:
+      return true;
+  }
+}
+
+/**
+ * `PROJECT_TREE_ITEM::CanRename` (`kicad/project_tree_item.h:92`):
+ *
+ *     bool CanRename() const { return CanDelete(); }
+ *
+ * One predicate, deliberately - renaming a board out from under the project is
+ * the same kind of loss as deleting it. Kept as its own function because the
+ * popup asks the two questions separately and reads better for it, and because
+ * a later KiCad that splits them would split here.
+ */
+export function canRename(type: TreeFileType): boolean {
+  return canDelete(type);
+}

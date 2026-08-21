@@ -8,6 +8,7 @@
  */
 
 import type { PickedHomeFile } from './files.js';
+import { type TreeFileType, treeFileType } from './file_activation.js';
 
 export const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
 
@@ -26,28 +27,77 @@ export const fmtWhen = (ms: number): string => {
   return `${Math.floor(s / 86400)}d ago`;
 };
 
-export const treeIconFor = (file: string): string =>
-  /\.kicad_pro$/i.test(file)
-    ? 'project'
-    : /\.kicad_sch$/i.test(file)
-      ? 'icon_eeschema_16'
-      : /\.kicad_pcb$/i.test(file)
-        ? 'icon_pcbnew_16'
-        : /\.kicad_wks$/i.test(file)
-          ? // KiCad's project tree shows a .kicad_wks with the page-layout
-            // editor icon (TREE_PAGE_LAYOUT_DESCR → BITMAPS::icon_pagelayout_editor).
-            'icon_pagelayout_editor_16'
-          : /\.kicad_sym$/i.test(file)
-            ? 'library'
-            : /\.kicad_mod$/i.test(file)
-              ? 'module'
-              : /\.(step|stp|wrl|wings)$/i.test(file)
-                ? 'three_d'
-                : /\.pdf$/i.test(file)
-                  ? 'file_pdf'
-                  : /\.(txt|md|rpt|net)$/i.test(file)
-                    ? 'datasheet'
-                    : 'directory_browser';
+/**
+ * `PROJECT_TREE::LoadIcons` (`kicad/project_tree.cpp:110-140`), transcribed.
+ *
+ * Thirty entries, one per `TREE_FILE_TYPE`, pushed in enum order into the
+ * control's image list; `PROJECT_TREE_ITEM::SetState` then indexes it with
+ * `static_cast<int>( m_type ) - 1` (`project_tree_item.cpp:73`), which is why
+ * the first push is LEGACY_PROJECT rather than ROOT.
+ *
+ * This is **data**: a table KiCad hardcodes, mirrored rather than invented.
+ * Ours had nine extensions and a `directory_browser` catch-all, so a real
+ * project folder - gerbers, drill files, a BOM, a position file, a netlist, a
+ * report - drew a folder-with-magnifier on most of its rows, and `.txt`,
+ * `.md`, `.rpt` and `.net` all shared one glyph where upstream uses three.
+ *
+ * The 16 vs 24 px split is upstream's and is kept: the schematic, board,
+ * gerber, cvpcb and drawing-sheet rows take the `_24` bitmaps, and the `_16`
+ * ones we had are not what this control loads.
+ *
+ * Every name here is a `BITMAPS::` enumerator and every SVG under
+ * `assets/manager/` is that bitmap's own source, copied unmodified from
+ * `resources/bitmaps_png/sources/dark/`.
+ */
+const TREE_ICON_BY_TYPE: Readonly<Record<TreeFileType, string>> = {
+  // ROOT is not in LoadIcons' list - `AddRoot( ..., TREE_FILE_TYPE::ROOT )`
+  // (project_tree_pane.cpp:747) asks for image 0, which is the first push, so
+  // the root row wears LEGACY_PROJECT's `project` bitmap.
+  ROOT: 'project',
+  LEGACY_PROJECT: 'project',
+  JSON_PROJECT: 'project_kicad',
+  LEGACY_SCHEMATIC: 'icon_eeschema_24',
+  SEXPR_SCHEMATIC: 'icon_eeschema_24',
+  LEGACY_PCB: 'icon_pcbnew_24',
+  SEXPR_PCB: 'icon_pcbnew_24',
+  GERBER: 'icon_gerbview_24',
+  GERBER_JOB_FILE: 'file_gerber_job',
+  HTML: 'file_html',
+  PDF: 'file_pdf',
+  TXT: 'editor',
+  MD: 'editor',
+  NET: 'netlist',
+  NET_SPICE: 'file_cir',
+  UNKNOWN: 'unknown',
+  DIRECTORY: 'directory',
+  CMP_LINK: 'icon_cvpcb_24',
+  REPORT: 'tools',
+  FP_PLACE: 'file_pos',
+  DRILL: 'file_drl',
+  DRILL_NC: 'file_drl',
+  DRILL_XNC: 'file_drl',
+  SVG: 'file_svg',
+  CSV: 'file_csv',
+  DRAWING_SHEET: 'icon_pagelayout_editor_24',
+  FOOTPRINT_FILE: 'module',
+  SCHEMATIC_LIBFILE: 'library',
+  SEXPR_SYMBOL_LIB_FILE: 'library',
+  DESIGN_RULES: 'editor',
+  ZIP_ARCHIVE: 'zip',
+  JOBSET_FILE: 'editor',
+};
+
+/** The bitmap a tree row of this type carries. */
+export const treeIconForType = (type: TreeFileType): string => TREE_ICON_BY_TYPE[type];
+
+/**
+ * The bitmap a tree row carries, from its file name.
+ *
+ * Classification is `treeFileType` - `addItemToProjectTree`'s own loop - so a
+ * row's icon and what double-clicking it does are decided by one function
+ * rather than by two lists that can drift apart.
+ */
+export const treeIconFor = (file: string): string => TREE_ICON_BY_TYPE[treeFileType(file)];
 
 /** A node in the project's on-disk directory tree. */
 export interface DirNode {

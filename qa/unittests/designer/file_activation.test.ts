@@ -16,6 +16,8 @@ import {
   type TreeFileType,
   activationFor,
   activationForFile,
+  canDelete,
+  canRename,
   projectFileContext,
   runActivation,
   treeFileType,
@@ -366,5 +368,118 @@ describe('runActivation', () => {
     for (const [type] of TREE_FILE_TYPE_EXT)
       expect(runActivation(activationFor(type), everything)).toBe(true);
     expect(runActivation(activationFor('UNKNOWN'), everything)).toBe(true);
+  });
+});
+
+describe('CanDelete: the twelve types KiCad refuses to delete or rename', () => {
+  /**
+   * One test per type, named for the type.
+   *
+   * A single "the protected types are protected" assertion over an array would
+   * report `expected [11 items] to equal [12 items]` when one fell off the
+   * list, which does not say WHICH. This rule is per-occurrence - each type is
+   * separately load-bearing, and `.kicad_sch` dropping out is a different bug
+   * from `.kicad_dru` dropping out - so each gets its own named test.
+   *
+   * Every one of these is a line of the `if` in
+   * `kicad/project_tree_item.cpp:81-96`.
+   */
+  it('a DIRECTORY cannot be deleted or renamed', () => {
+    expect(canDelete('DIRECTORY')).toBe(false);
+    expect(canRename('DIRECTORY')).toBe(false);
+  });
+
+  it('a LEGACY_PROJECT (.pro) cannot be deleted or renamed', () => {
+    expect(canDelete('LEGACY_PROJECT')).toBe(false);
+    expect(canRename('LEGACY_PROJECT')).toBe(false);
+  });
+
+  it('a JSON_PROJECT (.kicad_pro) cannot be deleted or renamed', () => {
+    expect(canDelete('JSON_PROJECT')).toBe(false);
+    expect(canRename('JSON_PROJECT')).toBe(false);
+  });
+
+  it('a LEGACY_SCHEMATIC (.sch) cannot be deleted or renamed', () => {
+    expect(canDelete('LEGACY_SCHEMATIC')).toBe(false);
+    expect(canRename('LEGACY_SCHEMATIC')).toBe(false);
+  });
+
+  it('a SEXPR_SCHEMATIC (.kicad_sch) cannot be deleted or renamed', () => {
+    expect(canDelete('SEXPR_SCHEMATIC')).toBe(false);
+    expect(canRename('SEXPR_SCHEMATIC')).toBe(false);
+  });
+
+  it('a LEGACY_PCB (.brd) cannot be deleted or renamed', () => {
+    expect(canDelete('LEGACY_PCB')).toBe(false);
+    expect(canRename('LEGACY_PCB')).toBe(false);
+  });
+
+  it('a SEXPR_PCB (.kicad_pcb) cannot be deleted or renamed', () => {
+    expect(canDelete('SEXPR_PCB')).toBe(false);
+    expect(canRename('SEXPR_PCB')).toBe(false);
+  });
+
+  it('a DRAWING_SHEET (.kicad_wks) cannot be deleted or renamed', () => {
+    expect(canDelete('DRAWING_SHEET')).toBe(false);
+    expect(canRename('DRAWING_SHEET')).toBe(false);
+  });
+
+  it('a FOOTPRINT_FILE (.kicad_mod) cannot be deleted or renamed', () => {
+    expect(canDelete('FOOTPRINT_FILE')).toBe(false);
+    expect(canRename('FOOTPRINT_FILE')).toBe(false);
+  });
+
+  it('a SCHEMATIC_LIBFILE (.lib) cannot be deleted or renamed', () => {
+    expect(canDelete('SCHEMATIC_LIBFILE')).toBe(false);
+    expect(canRename('SCHEMATIC_LIBFILE')).toBe(false);
+  });
+
+  it('a SEXPR_SYMBOL_LIB_FILE (.kicad_sym) cannot be deleted or renamed', () => {
+    expect(canDelete('SEXPR_SYMBOL_LIB_FILE')).toBe(false);
+    expect(canRename('SEXPR_SYMBOL_LIB_FILE')).toBe(false);
+  });
+
+  it('a DESIGN_RULES (.kicad_dru) cannot be deleted or renamed', () => {
+    expect(canDelete('DESIGN_RULES')).toBe(false);
+    expect(canRename('DESIGN_RULES')).toBe(false);
+  });
+
+  it('and nothing else is protected - the list is a deny list of exactly twelve', () => {
+    // `return true;` is the last line of CanDelete, so every type NOT in the
+    // `if` is deletable. Naming them here means a type quietly added to the
+    // deny list is caught too, not only one quietly removed.
+    for (const t of [
+      'GERBER',
+      'GERBER_JOB_FILE',
+      'HTML',
+      'PDF',
+      'TXT',
+      'MD',
+      'NET',
+      'NET_SPICE',
+      'UNKNOWN',
+      'CMP_LINK',
+      'REPORT',
+      'FP_PLACE',
+      'DRILL',
+      'DRILL_NC',
+      'DRILL_XNC',
+      'SVG',
+      'CSV',
+      'ZIP_ARCHIVE',
+      'JOBSET_FILE',
+    ] as TreeFileType[]) {
+      expect({ type: t, canDelete: canDelete(t) }).toStrictEqual({ type: t, canDelete: true });
+    }
+  });
+
+  it('reaches the right answer from a file name, which is how the pane asks', () => {
+    // The pane holds names, not types, so the two have to compose.
+    expect(canDelete(treeFileType('demo.kicad_pcb'))).toBe(false);
+    expect(canDelete(treeFileType('demo.kicad_sch'))).toBe(false);
+    expect(canDelete(treeFileType('demo.kicad_dru'))).toBe(false);
+    expect(canDelete(treeFileType('R_0805.kicad_mod'))).toBe(false);
+    expect(canDelete(treeFileType('notes.txt'))).toBe(true);
+    expect(canDelete(treeFileType('plot.gbr'))).toBe(true);
   });
 });
