@@ -25,8 +25,9 @@
  *    / page context.
  */
 
-import { mmToIU } from '../eda_units.js';
+import { mmToIU, schIUScale } from '../eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath';
+import { bitmapSizeIu } from '../reference_image.js';
 import { interline, layoutText } from '../font/stroke_font.js';
 import type {
   WksSheet,
@@ -455,8 +456,13 @@ function hitsDrawItem(item: DsDrawItem, p: Vec2, accuracy: number): boolean {
       return Math.abs(p.x - cx) <= halfW && Math.abs(p.y - cy) <= halfH;
     }
     case 'bitmap': {
-      const w = ((item.pxW ?? 0) * 254000) / (item.ppi || 300) / 2;
-      const h = ((item.pxH ?? 0) * 254000) / (item.ppi || 300) / 2;
+      // `DS_DRAW_ITEM_BITMAP::HitTest` is `GetBoundingBox().Inflate( aAccuracy )`
+      // (ds_draw_item.cpp:505-511), and that box is `BITMAP_BASE::GetSize()`,
+      // which multiplies by the scale factor as well as the resolution
+      // (bitmap_base.cpp:416-427). This dropped the `* scale`, so a scaled
+      // image was drawn at one size and picked at another.
+      const w = bitmapSizeIu(schIUScale, item.pxW ?? 0, item.ppi || 300, item.scale) / 2;
+      const h = bitmapSizeIu(schIUScale, item.pxH ?? 0, item.ppi || 300, item.scale) / 2;
       return Math.abs(p.x - item.at.x) <= w + accuracy && Math.abs(p.y - item.at.y) <= h + accuracy;
     }
   }

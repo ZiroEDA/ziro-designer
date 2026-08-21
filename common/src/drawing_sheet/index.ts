@@ -38,5 +38,7 @@ export {
   itemsInBox,
   translateItem,
   replaceItem,
+  bitmapDisplayPPI,
+  bitmapScaleForPPI,
   type WksBBox,
 } from './edit.js';

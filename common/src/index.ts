@@ -35,6 +35,8 @@ export {
   itemBBox as wksItemBBox,
   itemsInBox as wksItemsInBox,
   replaceItem as replaceWksItem,
+  bitmapDisplayPPI,
+  bitmapScaleForPPI,
   DEFAULT_SETUP,
   WKS_FILE_VERSION,
   wksItemMsgPanelInfo,
