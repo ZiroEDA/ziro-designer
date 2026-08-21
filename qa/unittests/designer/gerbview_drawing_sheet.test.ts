@@ -53,9 +53,19 @@ describe('the GerbView drawing sheet', () => {
     // 32000 mils is 812.8 mm, and the sheet's frame runs to the page edge less
     // its 10 mm margins, so the far corner must land past 800 mm.
     expect(PAPER_MM.GERBER).toEqual([812.8, 812.8]);
-    const xs = gerberDrawingSheetItems().flatMap((i) =>
-      i.kind === 'line' || i.kind === 'rect' ? [i.a.x, i.b.x] : [i.at.x],
-    );
+    // Every arm of the DsDrawItem union, so the widest point is the real one
+    // rather than whichever kinds happened to narrow.
+    const xs = gerberDrawingSheetItems().flatMap((i) => {
+      switch (i.kind) {
+        case 'line':
+        case 'rect':
+          return [i.a.x, i.b.x];
+        case 'poly':
+          return i.pts.map((p) => p.x);
+        default:
+          return [i.at.x];
+      }
+    });
     const maxX = Math.max(...xs);
     // Laid out in schematic IU (1e4/mm), which is what the shared engine emits.
     expect(maxX / 1e4).toBeGreaterThan(800);
