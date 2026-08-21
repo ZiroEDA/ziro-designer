@@ -18,10 +18,11 @@
  */
 
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { resizeDock, type DockEdge } from './dock_sash.js';
 
 export interface DockSashProps {
   /** Which edge of the pane this sits on; decides the drag sign. */
-  edge: 'left' | 'right';
+  edge: DockEdge;
   /** Current pane width in CSS px. */
   width: number;
   /** `wxAuiPaneInfo::MinSize`, in CSS px. */
@@ -32,21 +33,25 @@ export interface DockSashProps {
 }
 
 /**
- * wxAUI's sash is 5px on GTK (`wxAuiDockArt` `wxAUI_DOCKART_SASH_SIZE`), and it
- * overlays the pane edge rather than taking space in the layout, so turning it
- * on cannot move anything else by a pixel.
+ * Rendered as a **sibling** of the pane, not a child of it.
+ *
+ * wxAUI's sash sits between the pane and the centre one and takes its own
+ * space: the pane keeps the width it asked for and the canvas is narrower by
+ * the sash. Drawing it inside the pane, overlaid on its edge, is what we did
+ * first - it left the pane 5px wider than KiCad's and put the bar on top of
+ * the pane's own border.
+ *
+ * Size and colour come from the `--aui-sash` tokens, which carry the numbers
+ * `qa/probes/aui_sash_probe.cpp` read out of `wxAuiDefaultDockArt`. The bar is
+ * visible, because KiCad's is.
  */
 export function DockSash({ edge, width, min, max, onResize }: DockSashProps): JSX.Element {
   const onPointerDown = (e: ReactPointerEvent): void => {
     e.preventDefault();
     const startX = e.clientX;
     const startW = width;
-    // A pane on the right grows as the pointer moves *left*, and one on the
-    // left grows as it moves right. Getting this backwards is invisible until
-    // someone drags, which is how it stayed wrong.
-    const sign = edge === 'left' ? -1 : 1;
     const onMove = (ev: PointerEvent): void =>
-      onResize(Math.max(min, Math.min(max, startW + sign * (ev.clientX - startX))));
+      onResize(resizeDock(edge, startW, ev.clientX - startX, min, max));
     const onUp = (): void => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -55,12 +60,5 @@ export function DockSash({ edge, width, min, max, onResize }: DockSashProps): JS
     window.addEventListener('pointerup', onUp);
   };
 
-  return (
-    <div
-      className="ze-dock-sash"
-      onPointerDown={onPointerDown}
-      title="Resize"
-      style={{ [edge]: 0 }}
-    />
-  );
+  return <div className="ze-dock-sash" onPointerDown={onPointerDown} title="Resize" />;
 }
