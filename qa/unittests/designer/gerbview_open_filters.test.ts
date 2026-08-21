@@ -40,6 +40,17 @@ const VIEWER = readFileSync(
 
 const labels = (fs: readonly { label: string }[]): string[] => fs.map((f) => f.label);
 
+/** `openJobFile`'s body alone, comments blanked. */
+function jobHandlerBody(): string {
+  const at = VIEWER.indexOf('const openJobFile = useCallback');
+  expect(at, 'openJobFile is missing').toBeGreaterThanOrEqual(0);
+  const end = VIEWER.indexOf('}, [', at);
+  expect(end, "openJobFile's callback does not close").toBeGreaterThan(at);
+  return VIEWER.slice(at, end)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+}
+
 describe('Open Autodetected File(s)', () => {
   it('offers All files and nothing else', () => {
     // LoadFileOrShowDialog( aFileName, FILEEXT::AllFilesWildcard(),
@@ -183,11 +194,7 @@ describe('GerbView opens five dialogs, not two', () => {
       expect(body, `${entry} must open ${filters}`).toContain(filters);
     }
 
-    const jobHandler = VIEWER.slice(
-      VIEWER.indexOf('const openJobFile = useCallback'),
-      VIEWER.indexOf('// ---- layer management'),
-    );
-    expect(jobHandler, 'openJobFile must open GERBVIEW_JOB_FILTERS').toContain(
+    expect(jobHandlerBody(), 'openJobFile must open GERBVIEW_JOB_FILTERS').toContain(
       'GERBVIEW_JOB_FILTERS',
     );
   });
@@ -196,10 +203,12 @@ describe('GerbView opens five dialogs, not two', () => {
     // The whole point of the split: LoadListOfGerberAndDrillFiles refuses a
     // .gbrjob by name (`files.cpp:302-310`), so routing the job entry through
     // it would make Open Gerber Job File refuse the only file it accepts.
-    const jobHandler = VIEWER.slice(
-      VIEWER.indexOf('const openJobFile = useCallback'),
-      VIEWER.indexOf('// ---- layer management'),
-    );
+    // Comments stripped, and the slice ends at the handler's own close rather
+    // than at the next section header: the first version of this ran to
+    // `// ---- layer management` and reported the handler as an offender
+    // because a LATER function's comment mentions loadFiles. Prose about a
+    // rule must not read as the rule.
+    const jobHandler = jobHandlerBody();
     expect(jobHandler).not.toContain('loadFiles');
     expect(jobHandler).toContain('applyJobFile');
   });

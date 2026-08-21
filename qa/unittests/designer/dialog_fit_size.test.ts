@@ -117,13 +117,20 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     expect(inlineSized()).toHaveLength(31);
   });
 
-  it('13 shell.css variants still name their own size', () => {
+  it('14 shell.css variants still name their own size', () => {
     // 15 until `.ze-pgs` stopped restating what `.ze-modal` now gets right, and
     // 14 until Open Project became the shared file chooser: `.ze-open-project`
     // named a 920x620 and the window that replaced it is sized by the chooser,
     // not by the dialog. Lowered here rather than on either branch, because
     // neither tree had both changes in it.
-    expect(cssSized()).toHaveLength(13);
+    //
+    // Back to 14 with `.ze-htmlmsg`, HTML_MESSAGE_BOX. This one is allowed to
+    // name a size because upstream's names it too, in the wxFormBuilder base it
+    // derives from — `bMainSizer->SetMinSize( wxSize( 540, 240 ) )`
+    // (`common/dialogs/dialog_display_html_text_base.cpp:19`) — so the number
+    // is KiCad's rather than a pick of ours. That is the bar for adding to this
+    // list, and the reason the list is a ratchet and not a ban.
+    expect(cssSized()).toHaveLength(14);
   });
 
   it('and every one of them is a dialog, so the scan is really finding them', () => {

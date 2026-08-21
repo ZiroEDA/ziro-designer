@@ -199,3 +199,42 @@ export const GERBVIEW_JOB_FILTERS: readonly ChooserFilter[] = [gerberJobFileWild
  * (`gerbview/files.cpp:660-663`). One filter, again with no All files.
  */
 export const GERBVIEW_ZIP_FILTERS: readonly ChooserFilter[] = [zipFileWildcard()];
+
+/**
+ * What **our** Open Project window offers — `openProject`'s three, and then
+ * "All files".
+ *
+ * This is a deliberate departure, and it is the only one in this file, so it
+ * is worth being exact about what it is and is not.
+ *
+ * `KICAD_MANAGER_CONTROL::openProject` does not offer an all-files entry
+ * (`kicad/tools/kicad_manager_control.cpp:488-490`), and the guard right after
+ * the dialog rejects anything that is not a project file:
+ *
+ *     if( !pro.Exists() || (   pro.GetExt() != FILEEXT::ProjectFileExtension
+ *                           && pro.GetExt() != FILEEXT::LegacyProjectFileExtension ) )
+ *         return -1;
+ *
+ * So on the desktop this window opens projects and nothing else. It can afford
+ * to: a KiCad user who wants to look at the `.rpt` beside their board opens
+ * their desktop's file manager, which KiCad neither ships nor needs to.
+ *
+ * We ship no desktop, and this window is the only way into the account's
+ * files — it is the file manager as well as the project-open dialog, a job the
+ * upstream `wxFileDialog` does not have. `FILEEXT::AllFilesWildcard()` is
+ * KiCad's own string for that entry (`wildcards_and_files_ext.cpp:234`), used
+ * by GerbView's "Open Autodetected File(s)" and by the manager's own "Edit
+ * File in Text Editor" (`kicad/kicad_manager_frame.cpp:1175`) — so the row is
+ * upstream's, even though upstream never puts it in *this* combo.
+ *
+ * Choosing it does not weaken the guard, it relocates it: a file that is not a
+ * project still cannot *be* a project, so accepting one opens the project it
+ * belongs to and then activates the file inside it, which is
+ * `PROJECT_TREE_ITEM::Activate` — the same switch the project tree uses.
+ * {@link OPEN_PROJECT_FILTERS} stays exactly as upstream writes it, so the
+ * difference between the two lists is the whole of the difference.
+ */
+export const FILE_MANAGER_FILTERS: readonly ChooserFilter[] = [
+  ...OPEN_PROJECT_FILTERS,
+  allFilesWildcard(),
+];

@@ -274,6 +274,14 @@ export function App(): JSX.Element {
     text: string;
     nonce: number;
   } | null>(null);
+  // A gerber, gerber job or drill file the project manager activated into
+  // GerbView - KICAD_MANAGER_ACTIONS::viewGerbers, which upstream runs with the
+  // file as its parameter. Same shape and same reason as dsRequest above.
+  const [gbRequest, setGbRequest] = useState<{
+    name: string;
+    text: string;
+    nonce: number;
+  } | null>(null);
   // Editors stay mounted (display toggled by CSS) but their global hotkey
   // handlers must only act for the visible frame, a keystroke in eeschema
   // must not drive the hidden board editor. Handlers read this stamp.
@@ -924,9 +932,15 @@ export function App(): JSX.Element {
           setImgMounted(true);
           setView('image');
         }}
-        onOpenGerberViewer={() => {
+        onOpenGerberViewer={(file) => {
           setGbMounted(true);
           setView('gerber');
+          if (file)
+            setGbRequest((prev) => ({
+              name: file.name,
+              text: file.text,
+              nonce: (prev?.nonce ?? 0) + 1,
+            }));
         }}
       />
     );
@@ -1089,7 +1103,7 @@ export function App(): JSX.Element {
       {gbMounted && (
         <div style={{ display: view === 'gerber' ? 'contents' : 'none' }}>
           <Suspense fallback={frameLoading('the gerber viewer')}>
-            <GerberViewer onExitToHome={goHome} projectName={projectName} />
+            <GerberViewer onExitToHome={goHome} projectName={projectName} openRequest={gbRequest} />
           </Suspense>
         </div>
       )}

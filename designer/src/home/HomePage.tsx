@@ -62,6 +62,12 @@ import {
 
 export type { PickedHomeFile } from './files.js';
 import { archiveEntries, zipArchive, expandArchive } from './project_archiver.js';
+import {
+  type Activation,
+  activationForFile,
+  projectFileContext,
+  runActivation,
+} from './file_activation.js';
 import { AboutDialog } from './dialogs/dialog_about.js';
 import { showHotkeyList } from '../ui/hotkey_list_action.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
@@ -77,6 +83,8 @@ import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
 import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
 import { projectNameFrom } from './dialogs/template_selector.js';
 import { basename as pathBasename } from '../fs/path.js';
+import { normalize as normalizePath, segments } from '../fs/path.js';
+import { FILE_MANAGER_FILTERS } from '../fs/wildcards.js';
 import { EllipsizedField } from '../ui/EllipsizedField.js';
 import { KiStatusBar } from '../ui/KiStatusBar.js';
 import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
@@ -301,8 +309,10 @@ export function HomePage({
   onOpenDrawingSheetEditor?: (file?: PickedHomeFile) => void;
   /** Launch the Image Converter (bitmap2cmp); a standalone tool. */
   onOpenImageConverter?: () => void;
-  /** Launch the Gerber Viewer (gerbview); a standalone tool. */
-  onOpenGerberViewer?: () => void;
+  /** Launch the Gerber Viewer (gerbview); a standalone tool.
+   *  `file` is a gerber, gerber job or drill file to load straight away -
+   *  KICAD_MANAGER_ACTIONS::viewGerbers, which upstream runs with the file. */
+  onOpenGerberViewer?: (file?: PickedHomeFile) => void;
   /** A project already open in the app: keep it in the tree on return to home. */
   initialFiles?: PickedHomeFile[] | null;
   /** The active project's .kicad_pro (full name) when a folder holds several. */
@@ -989,17 +999,47 @@ export function HomePage({
   };
 
   // Reopen a project straight from IndexedDB, no folder picker needed.
-  const openStored = async (id: string): Promise<void> => {
+  const openStored = async (
+    id: string,
+    /**
+     * A project-relative path to activate once the project is open - the file
+     * manager's "open this file", which lands in the editor that owns it
+     * rather than in the manager. Upstream has no equivalent because it has no
+     * such window: a file inside a project is reached from the project tree,
+     * where activating it is `PROJECT_TREE_ITEM::Activate`. This runs that same
+     * switch, on the same file, the moment the project it lives in is loaded.
+     */
+    activateRel?: string,
+  ): Promise<void> => {
     setLoading('Opening project...');
     await nextPaint();
     try {
       const loaded = await loadProject(id);
-      if (loaded)
-        setPicked(
-          loaded.files.map((f) => ({ name: f.name, text: dec.decode(f.bytes), bytes: f.bytes })),
-        );
+      let opened: PickedHomeFile[] | null = null;
+      if (loaded) {
+        opened = loaded.files.map((f) => ({
+          name: f.name,
+          text: dec.decode(f.bytes),
+          bytes: f.bytes,
+        }));
+        setPicked(opened);
+      }
       await touchOpened(id); // resurface in Recent (ordered by last opened)
       refreshSaved();
+      if (activateRel && opened) {
+        // The stored names carry the project folder as their first segment,
+        // the same prefix the tree strips; the chooser's path is relative to
+        // it, so this is the file it named.
+        const wanted = activateRel.replace(/^\/+/, '');
+        const file = opened.find((f) => {
+          const rel = f.name.replace(/\\/g, '/');
+          return rel === wanted || rel.slice(rel.indexOf('/') + 1) === wanted;
+        });
+        // The project's own .kicad_pro is the project, not a file in it; it is
+        // already open, which is Activate's `id == root` case - nothing to do.
+        if (file && !/\.kicad_pro$/i.test(file.name))
+          activateFile(file, opened, wanted, `${loaded?.meta.name ?? ''}.kicad_pro`);
+      }
     } catch (e) {
       // Without this the throw escaped an async click handler: the overlay
       // cleared, nothing opened, and nothing said why — the user clicks their
@@ -1313,6 +1353,65 @@ export function HomePage({
 
   // Download a project file to the browser's local storage (the file manager's
   // "Download…" action). Binary files use their bytes; text files their text.
+  /**
+   * `PROJECT_TREE_ITEM::Activate`, for one file of one project.
+   *
+   * The whole of what a double click means lives here, once. The project tree
+   * calls it, and so does the file manager once it has the project open - which
+   * is what upstream gets for free, because both of those would be the same
+   * `Activate` on the same tree item. The branch is chosen by
+   * `activationForFile` in `file_activation.ts`; this only says what each
+   * branch *does* in this app.
+   *
+   * `files` is the project the file belongs to, because most of these editors
+   * want the project and not only the file - the symbol editor wants its
+   * libraries, the board editor wants the schematic to cross-probe to.
+   * `treePath` is the project-relative path, which is what the text viewer and
+   * the download both look a file up by.
+   */
+  const activateFile = (
+    file: PickedHomeFile,
+    files: PickedHomeFile[],
+    treePath: string,
+    projectFileName = rootLabel,
+  ): void => {
+    runActivation(activationForFile(file.name, projectFileContext(file.name, projectFileName)), {
+      loadProject: onSwitchProject ? () => onSwitchProject(file.name) : undefined,
+      // One editor for all three schematic branches; see ActivationHandlers.
+      editSchematic: () => launchSchematic(basename(file.name)),
+      editPcb: onOpenPcb ? () => onOpenPcb(file, files) : undefined,
+      editSymbol: onOpenSymbolEditor ? () => onOpenSymbolEditor(files, file.name) : undefined,
+      editFootprint: onOpenFootprintEditor
+        ? () => onOpenFootprintEditor(files, file.name)
+        : undefined,
+      editDrawingSheet: onOpenDrawingSheetEditor ? () => onOpenDrawingSheetEditor(file) : undefined,
+      viewGerbers: onOpenGerberViewer ? () => onOpenGerberViewer(file) : undefined,
+      handOff: (activation) => handOffFile(file, treePath, activation),
+    });
+  };
+
+  /**
+   * The four branches of `Activate` that end in the operating system:
+   * `openTextEditor` (which runs `Pgm().GetTextEditor()`), `OpenPDF` (gestfich,
+   * the system PDF viewer), `wxLaunchDefaultBrowser` and
+   * `wxLaunchDefaultApplication`.
+   *
+   * None of the four exists in a browser tab - there is no configured editor,
+   * no system viewer and no shell to hand a path to. What this build has is a
+   * read-only text viewer, which the tree already offers on exactly the four
+   * types the `openTextEditor` branch covers (`isViewableTextFile` is
+   * txt/md/rpt/net), and the ability to put the bytes in front of the user.
+   * So the text branch opens the viewer and the other three download, and
+   * neither is described here as being what KiCad does.
+   */
+  const handOffFile = (file: PickedHomeFile, treePath: string, activation: Activation): void => {
+    if (activation.kind === 'openTextEditor') {
+      setTextView(file);
+      return;
+    }
+    downloadFileAtPath(treePath);
+  };
+
   const downloadFileAtPath = (path: string): void => {
     const f = fileAtPath(path);
     if (!f) return;
@@ -1562,22 +1661,10 @@ export function HomePage({
             onDownloadPath={(path) => downloadFileAtPath(path)}
             rootOpen={rootOpen}
             onToggleRoot={() => setRootOpen((o) => !o)}
-            onOpenPcbFile={onOpenPcb ? (f) => onOpenPcb(f, picked ?? undefined) : undefined}
-            onOpenSchematic={launchSchematic}
-            onOpenSymbolFile={
-              onOpenSymbolEditor
-                ? (f) => onOpenSymbolEditor(picked ?? undefined, f.name)
-                : undefined
-            }
-            onOpenDrawingSheetFile={
-              onOpenDrawingSheetEditor ? (f) => onOpenDrawingSheetEditor(f) : undefined
-            }
-            onSwitchProject={onSwitchProject}
-            onOpenFootprintFile={
-              onOpenFootprintEditor
-                ? (f) => onOpenFootprintEditor(picked ?? undefined, f.name)
-                : undefined
-            }
+            onActivate={(node) => {
+              if (!node.file) return;
+              activateFile(node.file, picked ?? [], node.path);
+            }}
           />
           {/* Position( 1 ): second in the same dock row, so it sits under the
               tree. `.Hide()` at construction and shown only when the setting
@@ -1690,7 +1777,7 @@ export function HomePage({
           // Recent is listed first but Open Project opens on the account's own
           // tree, the way upstream opens on defaultDir with Home lit.
           initialPlace="projects"
-          filters={OPEN_PROJECT_FILTERS}
+          filters={FILE_MANAGER_FILTERS}
           extra={
             <>
               {/* Where wxFileDialogCustomizeHook's controls sit upstream. Ours
@@ -1731,7 +1818,15 @@ export function HomePage({
           onAccept={(path) => {
             setOpenPrjOpen(false);
             void projectAt(path).then((p) => {
-              if (p) void openStored(p.id);
+              if (!p) return;
+              // Every file in this tree belongs to a project, so accepting one
+              // opens that project - and then activates the file, which is
+              // PROJECT_TREE_ITEM::Activate and lands in whichever editor owns
+              // it. Accepting the project folder itself has no file to
+              // activate and stops at the manager, which is what
+              // KICAD_MANAGER_CONTROL::openProject does.
+              const rel = segments(normalizePath(path)).slice(1).join('/');
+              void openStored(p.id, rel || undefined);
             });
           }}
           onCancel={() => setOpenPrjOpen(false)}

@@ -161,9 +161,18 @@ let layerIdSeq = 1;
 export function GerberViewer({
   onExitToHome,
   projectName,
+  openRequest,
 }: {
   onExitToHome: () => void;
   projectName?: string;
+  /**
+   * A file the project manager activated into this viewer -
+   * `KICAD_MANAGER_ACTIONS::viewGerbers`, which upstream runs with the file as
+   * its parameter (`project_tree_item.cpp:317`). The frame is resident here
+   * rather than a fresh process, so the request carries a nonce and re-opening
+   * the same file loads it again, the way the drawing sheet editor's does.
+   */
+  openRequest?: { name: string; text: string; nonce: number } | null;
 }): JSX.Element {
   const [layers, setLayers] = useState<Layer[]>([]);
   const [activeLayer, setActiveLayerState] = useState(0);
@@ -535,6 +544,23 @@ export function GerberViewer({
     const f = files[0];
     if (f) applyJobFile(await f.text());
   }, [applyJobFile]);
+
+  /**
+   * The manager's `viewGerbers`, honoured once per nonce.
+   *
+   * `loadTextFile` is the same entry File > Open uses, so a gerber activated
+   * from the project tree is read exactly as one dropped on the window is; a
+   * `.gbrjob` re-colours the layers already loaded instead, which is what
+   * `loadFiles` does with one.
+   */
+  const lastOpened = useRef<number | null>(null);
+  useEffect(() => {
+    if (!openRequest || openRequest.nonce === lastOpened.current) return;
+    lastOpened.current = openRequest.nonce;
+    const base = openRequest.name.split('/').pop() ?? openRequest.name;
+    if (base.toLowerCase().endsWith('.gbrjob')) applyJobFile(openRequest.text);
+    else loadTextFile(base, openRequest.text);
+  }, [openRequest, loadTextFile, applyJobFile]);
 
   // ---- layer management --------------------------------------------------
   const clearAll = useCallback(() => {
