@@ -369,6 +369,47 @@ describe('format details (upstream parser/writer parity)', () => {
     expect(bitmapDisplayPPI({ ppi: 0, scale: 1 })).toBe(300);
   });
 
+  it('writes a repeat count the panel allows and the reader clamps', () => {
+    // The 1..100 range is `parseInt( 1, 100 )` in the READER
+    // (drawing_sheet_parser.cpp:429, 507, 672, 732). PROPERTIES_FRAME enforces
+    // only `if( itmp < 1l ) itmp = 1` (properties_frame.cpp:558-570), so KiCad
+    // accepts 500, writes `(repeat 500)`, and clamps on the next load. Moving
+    // that limit out of our field is only correct if the writer can carry it.
+    const sheet: WksSheet = {
+      ...defaultDrawingSheet(),
+      items: [
+        {
+          type: 'line',
+          name: '',
+          option: 'normal',
+          repeat: 500,
+          incrx: 1,
+          incry: 0,
+          incrlabel: 1,
+          comment: '',
+          start: { x: 0, y: 0, corner: 'rbcorner' },
+          end: { x: 10, y: 0, corner: 'rbcorner' },
+          lineWidth: 0,
+        },
+      ],
+    };
+    const out = serializeDrawingSheet(sheet);
+    // The file carries what was typed...
+    expect(out).toContain('(repeat 500)');
+    // ...and the reader is the thing that clamps it.
+    expect(parseDrawingSheet(out).items[0]!.repeat).toBe(100);
+  });
+
+  it('clamps a repeat count on read at both ends', () => {
+    const one = (n: string) =>
+      parseDrawingSheet(`${HDR} (line (name "") (start 0 0) (end 1 0) (repeat ${n})))`).items[0]!
+        .repeat;
+    expect(one('500')).toBe(100);
+    expect(one('100')).toBe(100);
+    expect(one('0')).toBe(1);
+    expect(one('-5')).toBe(1);
+  });
+
   it('converts legacy hex pngdata to base64 on read', () => {
     const s = parseDrawingSheet(
       `${HDR} (bitmap (name "") (pos 0 0) (scale 1) (pngdata (data "89504E47") (data "0D0A1A0A"))))`,

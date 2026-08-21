@@ -6422,6 +6422,29 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-family: inherit;
   font-size: var(--ui-font-size);
 }
+/* `m_staticTextComment` and `m_textCtrlComment` (properties_frame_base.cpp:233-238)
+   are added to m_SizerItemProperties as two SIBLINGS, not as a labelled row:
+   the label with `wxRIGHT|wxLEFT`, the field under it with
+   `wxBOTTOM|wxRIGHT|wxLEFT|wxEXPAND`. So the label sits on its own line above a
+   full-width field. Ours put it in a `.ze-ds-row`, where the 118 px label
+   column squeezed the field to the right of it.
+
+   This states only the geometry that differs. The font and the dimming still
+   come from `.ze-ds-label` above, which the element also carries; restating
+   either here is what the central-value rule forbids. The field needs no rule
+   at all — `.ze-ds-textedit` is already exactly this box. */
+.ze-ds-stacklabel {
+  display: block;
+  width: auto;
+  /* [px] the same wxFormBuilder border `.ze-ds-row` above measures as 4 px
+     vertical, and only above: m_staticTextComment is added with wxRIGHT|wxLEFT,
+     so it carries no bottom margin of its own. */
+  margin-top: 4px;
+  /* [px] the horizontal half of that same measured border, 6 px, as
+     `.ze-ds-row` and `.ze-ds-textedit` both already use. */
+  margin-inline: 6px;
+  margin-bottom: 0;
+}
 /* Every control in a row is the same size as its label, which is what makes a
    GTK row of mixed controls line up. `.ze-search` is `font: inherit`, so this
    is the one place the size has to be said. */
