@@ -31,6 +31,22 @@ export interface ComboOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /**
+   * A colour swatch drawn before the label, which is the second argument of
+   * `Append( name, wxBitmapBundle::FromBitmaps( bitmaps ), ... )` in
+   * `GBR_LAYER_BOX_SELECTOR::Resync` (`gerbview/widgets/gbr_layer_box_selector.cpp:105`).
+   * The bitmap is `LAYER_PRESENTATION::DrawColorSwatch`
+   * (`common/widgets/layer_presentation.cpp:36-62`): the canvas background
+   * filled opaque, the layer colour over it, and a 1 px black outline.
+   *
+   * It lives on the shared option rather than in GerbView because the widget
+   * is shared — `PCB_LAYER_BOX_SELECTOR` draws its entries with the same
+   * `LAYER_PRESENTATION` call.
+   *
+   * Pass an opaque colour: our layer colours have no alpha, so filling with it
+   * is what blending it over the background would produce anyway.
+   */
+  swatch?: string;
 }
 
 export function Combo({
@@ -151,6 +167,11 @@ export function Combo({
             from the selection - which is why an empty one is still as wide as
             its list would be and why KiCad's "mm" selector is 94 px, not 58.
             The ghosts are laid over the shown value and only set the width. */}
+        {/* Outside .ze-combo-value, which is a grid stacking every entry in
+            ONE cell to size the box; a swatch in there would stack with them. */}
+        {selected?.swatch !== undefined && (
+          <span className="ze-combo-swatch" style={{ background: selected.swatch }} />
+        )}
         <span className="ze-combo-value">
           <span className="ze-combo-shown">{selected?.label ?? ''}</span>
           {options.map((o) => (
@@ -184,6 +205,9 @@ export function Combo({
                 btnRef.current?.focus();
               }}
             >
+              {o.swatch !== undefined && (
+                <span className="ze-combo-swatch" style={{ background: o.swatch }} />
+              )}
               {o.label}
             </div>
           ))}

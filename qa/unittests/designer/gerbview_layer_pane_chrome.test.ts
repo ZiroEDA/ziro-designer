@@ -62,6 +62,33 @@ describe('a layer row paints no background', () => {
   });
 });
 
+describe('the INDICATOR_ICON is the arrow createArrow draws', () => {
+  it('sits in a c_IndicatorSizeDIP box', () => {
+    // 10 (`include/widgets/ui_common.h:52`). Ours was 8.
+    expect(SHELL).toMatch(/--indicator-size:\s*10px;/);
+    expect(ruleBody(SHELL, '.ze-layer-indicator')).toMatch(/width:\s*var\(--indicator-size\)/);
+  });
+
+  it('is KiCad\u2019s own rgb(64, 72, 255), not a chrome tone', () => {
+    // `createArrow( ..., wxColour( 64, 72, 255 ) )` (`indicator_icon.cpp:216`)
+    // — a colour KiCad picks itself rather than asking the theme for, so it is
+    // [data]. A live pane samples exactly that. Ours was #4d7fc4.
+    const body = ruleBody(SHELL, '.ze-layer-indicator.on');
+    expect(body).toMatch(/background:\s*rgb\(64 72 255\)/);
+  });
+
+  it('does not fill the box: 5 across and 9 down, flat edge at x=4', () => {
+    // createArrow plots x=4..4, 3..5, 2..6, 1..7, 0..8 over y=1..5 and then
+    // Rotate90 maps (x,y) to (H-1-y, x), which lands the flat edge at x=4
+    // spanning y=0..8 with the apex at (8,4). A triangle drawn corner to corner
+    // — which is what `polygon(0 0, 100% 50%, 0 100%)` gave — is twice as wide
+    // and one row short.
+    expect(ruleBody(SHELL, '.ze-layer-indicator.on')).toMatch(
+      /clip-path:\s*polygon\(4px 0, 4px 9px, 9px 4\.5px\)/,
+    );
+  });
+});
+
 describe('a COLOR_SWATCH is a bare filled rectangle', () => {
   it('has neither a border nor a radius', () => {
     // COLOR_SWATCH::RenderToDC draws with `aDC->SetPen( *wxTRANSPARENT_PEN )`
@@ -140,8 +167,9 @@ describe('the shared checkbox takes the desktop accent, not a shade of our own',
       .filter((block) => /accent-color/.test(block))
       .map((block) => block.split('{')[0]!.trim().replace(/\s+/g, ' '))
       .filter((sel) => sel !== '.ze-app input[type="checkbox"]');
-    expect(offenders, 'the accent is the theme\u2019s, so only the shared rule states it').toStrictEqual(
-      [],
-    );
+    expect(
+      offenders,
+      'the accent is the theme\u2019s, so only the shared rule states it',
+    ).toStrictEqual([]);
   });
 });

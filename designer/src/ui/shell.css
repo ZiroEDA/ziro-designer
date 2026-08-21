@@ -368,6 +368,12 @@
   --tab-underline: 3px;
   --tab-pad-x: 12px;
 
+  /* INDICATOR_ICON's box: KIUI::c_IndicatorSizeDIP
+     (`include/widgets/ui_common.h:52`), the size every LAYER_WIDGET row marker
+     and turndown is built at. [data]: KiCad's own constant, in DIP, which is
+     px at this display's scale factor of 1. */
+  --indicator-size: 10px;
+
   /* COLOR_SWATCH, whose size is dialog units rather than pixels:
      SWATCH_SIZE_SMALL_DU(8,6) and SWATCH_SIZE_MEDIUM_DU(24,10)
      (include/widgets/color_swatch.h:46-47) through ConvertDialogToPixels,
@@ -717,11 +723,25 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 ),
 .ze-app select,
 .ze-app textarea {
-  background: var(--chrome-bg2);
+  /* A GTK `entry`, and every one of these four is the entry's own value:
+     --field-bg #272727, --ctl-border #181818, --ctl-radius 6px and
+     --field-pad-x 8px, all already measured and sitting in the token block.
+     This rule wrote --chrome-bg2 / --chrome-border / 3px / 5px instead - panel
+     chrome, not entry chrome - and being (0,1,1) it quietly beat every rule
+     that DID name the right tokens. GerbView's `fmt:` box is where it showed:
+     .ze-tb-textinfo at (0,1,0) states --field-bg, --ctl-border, --ctl-radius
+     and --field-pad-x and got none of them, so the box rendered #262626 inside
+     #1e1e1e at radius 3 with 5 px of padding against a real GerbView's #272727
+     inside #181818 at radius 6 with 8. That is the specificity trap in CLAUDE.md
+     with the values the right way round: the SHARED rule was the drifted one,
+     so restating them locally would have fixed one box and left the app wrong.
+     Vertical padding is left alone: an entry's height is set per control
+     (--ctl-height where it is a full-size field), not by this rule. */
+  background: var(--field-bg);
   color: var(--chrome-fg);
-  border: 1px solid var(--chrome-border);
-  border-radius: 3px;
-  padding: 2px 5px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  padding: 2px var(--field-pad-x);
   font: inherit;
   outline: none;
 }
@@ -1152,13 +1172,19 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      widens it to the text plus 10 px when a string does not fit, and never
      shrinks it back. The caller applies that; this is where it starts. */
   width: var(--gbr-textinfo-width);
+  /* Everything else - the fill, the border, the radius, the horizontal padding
+     and the font - is what a GTK entry already is, so this rule states none of
+     it. It used to restate all five and get beaten by `.ze-app input` anyway,
+     which is why they were only ever decorative. `height` stays because it is
+     this control's, not the entry's: wx built it at wxDefaultSize and the probe
+     reports 34 (--ctl-height).
+
+     Note that the width is a BORDER-box width, which is what makes the tail of
+     a long string clip exactly as KiCad's does: EnsureTextCtrlWidth sizes the
+     control to the text plus 10 and the entry then spends 8 px of padding on
+     each side, so a real GerbView shows `fmt: mm X3.3 Y3.3 no T` with the Z
+     cut off. */
   height: var(--ctl-height);
-  padding: 0 var(--field-pad-x);
-  background: var(--field-bg);
-  color: var(--chrome-fg);
-  border: 1px solid var(--ctl-border);
-  border-radius: var(--ctl-radius);
-  font: inherit;
 }
 
 /* AddSpacer: blank run along the bar's own axis, sized by the call site. */
@@ -2698,15 +2724,31 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* INDICATOR_ICON: small right-pointing marker on the active layer row. */
+/* INDICATOR_ICON, the marker on the active layer row - the ONE thing
+   LAYER_WIDGET::SelectLayerRow changes, so it is all that says which layer is
+   active.
+
+   The box is KIUI::c_IndicatorSizeDIP, 10 (`include/widgets/ui_common.h:52`).
+   The arrow inside it is not the whole box: `createArrow( size, scale, 1, ... )`
+   (`common/widgets/indicator_icon.cpp:93-121`) plots an UP triangle one pixel
+   wider each row from `startX = ( size - 1 ) / 2`, `startY = aDirection % 2`,
+   for `size / 2` rows - x=4..4, 3..5, 2..6, 1..7, 0..8 over y=1..5 - and then
+   `image.Rotate90()` turns it right, mapping (x,y) to (H-1-y, x). That lands a
+   triangle with its flat edge at x=4 spanning y=0..8 and its apex at (8,4):
+   5 across, 9 down, inside a 10 px box. A live GerbView pane measures exactly
+   that, at exactly those offsets from the list edge.
+
+   [data] rgb(64, 72, 255) is KiCad's own literal at `indicator_icon.cpp:216` -
+   a colour it picks itself rather than asking the theme for, which is why it is
+   this saturated blue and not a chrome tone. Ours was #4d7fc4. */
 .ze-layer-indicator {
-  width: 8px;
-  height: 8px;
+  width: var(--indicator-size);
+  height: var(--indicator-size);
   flex: 0 0 auto;
 }
 .ze-layer-indicator.on {
-  background: #4d7fc4;
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  background: rgb(64 72 255); /* [data] indicator_icon.cpp:216 */
+  clip-path: polygon(4px 0, 4px 9px, 9px 4.5px);
 }
 /* COLOR_SWATCH (SWATCH_SMALL) */
 /* COLOR_SWATCH::RenderToDC fills the rect with DrawRectangle under
@@ -7419,6 +7461,26 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   box-shadow: 0 6px 18px rgb(0 0 0 / 45%);
   max-height: calc(100vh - 8px);
   overflow-y: auto;
+}
+/* The bitmap `Append( name, bitmap, ... )` puts before an entry's label -
+   `LAYER_PRESENTATION::DrawColorSwatch` (`common/widgets/layer_presentation.cpp:36-62`),
+   which fills the canvas background opaque, fills the layer colour over it and
+   then outlines it with `*wxBLACK_PEN*`.
+
+   [data] 14 is `const int size = 14` in `GBR_LAYER_BOX_SELECTOR::Resync`
+   (`gerbview/widgets/gbr_layer_box_selector.cpp:80`) - KiCad's own literal, and
+   not the COLOR_SWATCH dialog-unit size, which is a different widget.
+   [px] the 4 px gap to the label, off a live GerbView: the swatch's black edge
+   ends at x=473 inside a combo whose content starts at 451, and the first glyph
+   cell begins at 478. (Upstream's `bestSize.x + size + 10` at :121 is a width
+   floor for the whole control, not this gap.) */
+.ze-combo-swatch {
+  width: 14px; /* [data] gbr_layer_box_selector.cpp:80 */
+  height: 14px;
+  flex: 0 0 auto;
+  margin-right: 4px;
+  border: 1px solid #000; /* bmpDC.SetPen( *wxBLACK_PEN ) */
+  box-sizing: content-box;
 }
 .ze-combo-item {
   /* A wxChoice popup row is 30px, not a GtkMenu's 26 — measured on a real

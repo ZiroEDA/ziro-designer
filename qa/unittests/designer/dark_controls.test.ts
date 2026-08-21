@@ -70,8 +70,14 @@ describe('text fields and comboboxes', () => {
     }
   });
 
-  it('carry the orange accent on the controls that take one', () => {
-    expect(CSS).toMatch(/accent-color:\s*#e07b1a/);
+  it('carry the desktop accent on the controls that take one', () => {
+    // This used to pin the literal #e07b1a, a shade that appears in no Yaru
+    // stylesheet — so the test was holding the drift in place rather than
+    // catching it. GTK paints ONE accent for every app: a live GerbView's
+    // layer-visibility checkboxes fill with rgb(233,84,32), which is
+    // --chrome-active, and so do real eeschema's.
+    expect(CSS).toMatch(/accent-color:\s*var\(--chrome-active\)/);
+    expect(CSS).not.toMatch(/accent-color:\s*#/);
   });
 
   it('theme the option rows for engines that need it', () => {

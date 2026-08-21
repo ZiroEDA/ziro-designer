@@ -124,7 +124,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   'editors/calculator': { colours: 2, metrics: 18 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   'editors/footprint': { colours: 9, metrics: 20 },
-  'editors/gerbview': { colours: 4, metrics: 5 },
+  'editors/gerbview': { colours: 3, metrics: 4 },
   'editors/image': { colours: 0, metrics: 1 },
   'editors/pcb': { colours: 76, metrics: 397 },
   'editors/schematic': { colours: 70, metrics: 230 },
@@ -143,7 +143,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // merge: the file chooser took colours and metrics out by deleting the Open
   // Project dialog, and the drawing-sheet pass took more out of the toolbar and
   // the modal frame. The number below is a fresh scan of the merged tree.
-  ui: { colours: 348, metrics: 825 },
+  //
+  // Lowered again by the GerbView layers-pane pass: the shared `.ze-app input`
+  // rule stopped writing panel-chrome values over entry ones, `.ze-tb-textinfo`
+  // stopped restating what it was already losing to, the checkbox accent went
+  // to --chrome-active and three launchers stopped restating it, and the
+  // COLOR_SWATCH border and the layer indicator's invented blue both went.
+  // Rescanned, not subtracted from the diff.
+  ui: { colours: 341, metrics: 822 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -348,8 +355,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(755);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1680);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(747);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1676);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

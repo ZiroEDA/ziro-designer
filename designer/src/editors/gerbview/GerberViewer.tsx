@@ -920,9 +920,15 @@ export function GerberViewer({
         value={String(activeLayer)}
         // GERBER_LAYER_BOX_SELECTOR takes GetDisplayName's defaults, so the
         // dropdown DOES cap the name at 30 (`gbr_layer_box_selector.cpp:56`).
+        // Each entry carries the layer's colour swatch, which is the bitmap
+        // half of `Append( name, wxBitmapBundle::FromBitmaps( bitmaps ), ... )`
+        // in `GBR_LAYER_BOX_SELECTOR::Resync`
+        // (`gerbview/widgets/gbr_layer_box_selector.cpp:76-129`). Ours showed
+        // the name alone.
         options={layers.map((l, i) => ({
           value: String(i),
           label: gerbviewLayerDisplayName(l.image, l.image.fileName, i),
+          swatch: l.color,
         }))}
         onChange={(v) => setActiveLayer(Number(v))}
       />
