@@ -224,12 +224,40 @@ export function DrawingSheetEditor({
   openRequest?: { name: string; text: string; nonce: number } | null;
 }): JSX.Element {
   const [sheet, setSheet] = useState<WksSheet>(() => defaultDrawingSheet());
-  const [fileName, setFileName] = useState('drawing_sheet.kicad_wks');
+  /** Lets `save` fall through to `saveAs`, which is declared after it. */
+  const saveAsRef = useRef<(() => void) | null>(null);
+
+  /**
+   * `GetCurrentFileName()`, and it starts EMPTY.
+   *
+   * pl_editor draws its default page from the moment it opens, but that is not
+   * a loaded document: `UpdateTitleAndInfo` prints `[no drawing sheet loaded]`
+   * whenever the name is empty (`pl_editor_frame.cpp:575-585`), and a live
+   * KiCad with nothing opened shows exactly that in its title bar. Ours seeded
+   * this with `drawing_sheet.kicad_wks`, so the frame claimed a file that was
+   * never opened and the placeholder branch — which is written and correct —
+   * could never run.
+   *
+   * An empty name is a working state, not a hole: Save turns itself into Save
+   * As when there is no name (`files.cpp:105`), which is what the callback
+   * below does.
+   */
+  const [fileName, setFileName] = useState('');
   const [dirty, setDirty] = useState(false);
   const undoStack = useRef<WksSheet[]>([]);
   const redoStack = useRef<WksSheet[]>([]);
 
-  const [selection, setSelection] = useState<ReadonlySet<number>>(new Set());
+  const [selectionRaw, setSelectionRaw] = useState<ReadonlySet<number>>(new Set());
+  const selection = selectionRaw;
+  /**
+   * Every selection change goes through here, which is what marks the message
+   * panel as seeded — upstream's `UpdateMsgPanelInfo` is called from the
+   * selection handlers and from nowhere else.
+   */
+  const setSelection = useCallback((next: React.SetStateAction<ReadonlySet<number>>) => {
+    setSelectionSeen(true);
+    setSelectionRaw(next);
+  }, []);
   const [activeTool, setActiveTool] = useState('select');
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [preview, setPreview] = useState<PreviewSettings>(() => ({
@@ -241,7 +269,16 @@ export function DrawingSheetEditor({
   const [localOrigin, setLocalOrigin] = useState<Vec2>({ x: 0, y: 0 });
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [scale, setScale] = useState(0);
-  const [status, setStatus] = useState('Loaded default drawing sheet');
+  /**
+   * Status pane 0, empty at startup.
+   *
+   * A live pl_editor with nothing loaded shows an empty message pane — it is
+   * written on a file load, not on the default page appearing. Ours announced
+   * "Loaded default drawing sheet", which claims an event that never happened.
+   */
+  const [status, setStatus] = useState('');
+  /** Whether a selection change has happened — see the message panel below. */
+  const [selectionSeen, setSelectionSeen] = useState(false);
   const [moveMode, setMoveMode] = useState(false);
   /**
    * `grid.last_size_idx` into `DefaultGridSizeList()`'s pl_editor row
@@ -453,14 +490,28 @@ export function DrawingSheetEditor({
     [sheet, addRecent, onSaveToProject],
   );
 
-  const save = useCallback(() => writeSheet(fileName), [writeSheet, fileName]);
+  // `if( filename.IsEmpty() && id == wxID_SAVE ) id = wxID_SAVEAS;`
+  // (`pagelayout_editor/files.cpp:105`). Declared below `saveAs` in the source
+  // order upstream uses, but the dependency runs the other way, so it is read
+  // through a ref-free forward call.
+  const save = useCallback(() => {
+    if (!fileName) {
+      saveAsRef.current?.();
+      return;
+    }
+    writeSheet(fileName);
+  }, [writeSheet, fileName]);
 
   const saveAs = useCallback(() => {
-    const name = window.prompt('Save drawing sheet as:', fileName) || fileName;
+    // With no current name the prompt offers KiCad's own default rather than
+    // an empty box: `DS_DATA_MODEL` writes `drawing_sheet.kicad_wks`.
+    const suggested = fileName || 'drawing_sheet.kicad_wks';
+    const name = window.prompt('Save drawing sheet as:', suggested) || suggested;
     const finalName = /\.kicad_wks$/i.test(name) ? name : `${name}.kicad_wks`;
     setFileName(finalName);
     writeSheet(finalName);
   }, [fileName, writeSheet]);
+  saveAsRef.current = saveAs;
 
   /** Print the sheet: render the page alone to a bitmap and print that. */
   const printSheet = useCallback(() => {
@@ -1463,11 +1514,20 @@ export function DrawingSheetEditor({
       const item = sheet.items[[...selection][0] as number];
       if (item) return wksItemMsgPanelInfo(item, fmt);
     }
+    // Page size, but only once a selection change has happened.
+    //
+    // `UpdateMsgPanelInfo` has exactly two call sites upstream
+    // (`pl_editor_frame.cpp:834`, `pl_editor_control.cpp:171`) and BOTH are
+    // selection-change handlers, so a freshly opened pl_editor shows an empty
+    // message panel and only fills it when you click the canvas. Ours filled it
+    // from the first render, which is why it read Page Width / Page Height
+    // where a live KiCad shows nothing at all.
+    if (!selectionSeen) return [];
     return [
       { upper: 'Page Width', lower: fmt(pageMM[0]) },
       { upper: 'Page Height', lower: fmt(pageMM[1]) },
     ];
-  }, [pageMM, unit, selection, sheet.items]);
+  }, [pageMM, unit, selection, sheet.items, selectionSeen]);
 
   return (
     // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
