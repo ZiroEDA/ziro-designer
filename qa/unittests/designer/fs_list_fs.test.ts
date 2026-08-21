@@ -63,9 +63,11 @@ describe('a demos listing is a tree, not a flat list', () => {
     ]);
   });
 
-  it('marks a project folder with no size, the way every folder is drawn', async () => {
-    const [entry] = (await demosFs().list('/simulation')).filter((e) => e.name === 'rectifier');
-    expect(entry?.size).toBeNull();
+  it('gives a file its size, so the Size column is not empty for one', async () => {
+    const [entry] = (await demosFs().list('/simulation/rectifier')).filter(
+      (e) => e.name === 'rect.kicad_pro',
+    );
+    expect(entry?.size).toBe(7);
   });
 
   it('finds a derived folder with stat, not only the leaves', async () => {
@@ -76,19 +78,22 @@ describe('a demos listing is a tree, not a flat list', () => {
 });
 
 describe('a listing place refuses every change', () => {
-  it.each([
-    'write',
-    'mkdir',
-    'mkproject',
-    'rename',
-    'remove',
-  ] as const)('%s reports READ_ONLY rather than doing nothing', async (op) => {
-    const fs = demosFs();
-    // Every mutation takes the path first, so one call shape covers them all.
-    const call = (fs as unknown as Record<string, (p: string, x?: unknown) => Promise<void>>)[op];
-    await expect(call.call(fs, '/cm5_minima', new Uint8Array())).rejects.toMatchObject({
-      code: FsErrorCode.READ_ONLY,
-    });
+  // Named calls rather than a lookup by string: qa's tsc typechecks .ts only
+  // and rejects indexing FileSystem by an arbitrary key, so a table here would
+  // pass vitest and break CI. One entry per method also means adding a method
+  // to FileSystem without a refusal shows up as a missing case, not a silent
+  // hole in a loop.
+  const P = '/cm5_minima';
+  const refusals: ReadonlyArray<readonly [string, (fs: FileSystem) => Promise<unknown>]> = [
+    ['write', (fs) => fs.write(P, new Uint8Array())],
+    ['mkdir', (fs) => fs.mkdir(P)],
+    ['mkproject', (fs) => fs.mkproject(P)],
+    ['rename', (fs) => fs.rename(P, 'other')],
+    ['remove', (fs) => fs.remove(P)],
+  ];
+
+  it.each(refusals)('%s reports READ_ONLY rather than doing nothing', async (_name, call) => {
+    await expect(call(demosFs())).rejects.toMatchObject({ code: FsErrorCode.READ_ONLY });
   });
 });
 
@@ -126,6 +131,14 @@ describe('Recent owns its order and delegates what is inside', () => {
 
   it('lists the projects themselves at the top level', async () => {
     expect(await rows(recent(), '/')).toEqual(['Amp project', 'Blinky project']);
+  });
+
+  it('shows a project no size, because a project is a folder', async () => {
+    // The leaf here IS the project - `Blinky` has no slash in it - so this is
+    // the one place the leaf kind decides whether a size comes through. The
+    // source hands one over; a folder's row must not show it.
+    const [entry] = (await recent().list('/')).filter((e) => e.name === 'Blinky');
+    expect(entry?.size).toBeNull();
   });
 
   it('hands a project s contents to the account tree instead of showing nothing', async () => {
