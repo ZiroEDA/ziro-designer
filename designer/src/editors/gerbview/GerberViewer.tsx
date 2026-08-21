@@ -44,6 +44,7 @@ import {
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
 import { decideLoad, ERRORS_CAPTION } from './gerber_load_report.js';
 import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
+import { PAPER_MM } from '@ziroeda/common';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
@@ -650,6 +651,8 @@ export function GerberViewer({
     }
   }, [highlight]);
 
+  /** LAYER_GERBVIEW_DRAWINGSHEET's visibility — one read, three consumers. */
+  const showDrawingSheet = toggles.has('showDrawingSheet');
   const options = useMemo<GerberRenderOptions>(
     () => ({
       flashedSketch: toggles.has('flashedSketch'),
@@ -662,13 +665,19 @@ export function GerberViewer({
       activeLayer,
       flipView: toggles.has('flipView'),
       background: GERBER_BG_COLOR,
+      // Both default FALSE upstream, so both are opt-in toggles rather than
+      // opt-out ones: `appearance.show_border_and_titleblock` and
+      // `display.page_limits` are declared with a `false` default at
+      // gerbview_settings.cpp:45-46 and :58. A fresh GerbView shows neither.
+      drawingSheet: showDrawingSheet,
+      pageLimits: toggles.has('showPageLimits'),
       // No highlight COLOUR is passed: upstream has none to pass. A highlighted
       // item takes m_layerColorsHi[aLayer], its own layer's colour brightened
       // by 0.5 (`gerbview_painter.cpp:70`), so the renderer derives it per
       // layer. We used to hand it a flat white for every layer at once.
       ...(highlightTest ? { highlightTest } : {}),
     }),
-    [toggles, activeLayer, highlightTest],
+    [toggles, activeLayer, highlightTest, showDrawingSheet],
   );
 
   // Draw order: active layer last (drawn on top), like GerbView.
@@ -694,8 +703,25 @@ export function GerberViewer({
       maxY = Math.max(maxY, b.maxY);
       any = true;
     }
-    return any ? { minX, minY, maxX, maxY } : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-  }, [layers]);
+    if (any) return { minX, minY, maxX, maxY };
+    // `GERBVIEW_DRAW_PANEL_GAL::GetDefaultViewBBox` (gerbview_draw_panel_gal.cpp:199-205):
+    //
+    //     if( m_drawingSheet && m_view->IsLayerVisible( LAYER_DRAWINGSHEET ) )
+    //         return m_drawingSheet->ViewBBox();
+    //     return BOX2I();
+    //
+    // COMMON_TOOLS::ZoomFitScreen falls back to it only when the model's own
+    // bbox is empty (common/tool/common_tools.cpp:442-445), i.e. with nothing
+    // loaded. So Zoom to Fit on an empty GerbView frames the page when the
+    // sheet is shown, and does nothing when it is not.
+    if (showDrawingSheet) {
+      // IU_PER_MM is the parser's scale, which is what every other bbox on
+      // this canvas is in — see the note on GERB_IU in gerberRender.ts.
+      const [wMM, hMM] = PAPER_MM.GERBER!;
+      return { minX: 0, minY: 0, maxX: wMM * IU_PER_MM, maxY: hMM * IU_PER_MM };
+    }
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  }, [layers, showDrawingSheet]);
 
   // ---- toolbars ----------------------------------------------------------
   const onLeftToggle = useCallback((id: string) => {
@@ -1016,15 +1042,18 @@ export function GerberViewer({
     setDockWidth(want);
   }, [layerInfos]);
 
-  // The Items page, GERBER_LAYER_WIDGET::ReFillRender's seven rows. Drawing
-  // Sheet and Page Limits are the two we had no toggle for at all;
-  // m_DisplayPageLimits defaults FALSE (`gbr_display_options.h:52`), and the
-  // drawing sheet defaults on.
+  // The Items page, GERBER_LAYER_WIDGET::ReFillRender's seven rows.
+  //
+  // Drawing Sheet is NOT on by default: `appearance.show_border_and_titleblock`
+  // is declared with a `false` default (gerbview_settings.cpp:45-46), the same
+  // as `display.page_limits` (:58). A fresh GerbView shows neither, so both are
+  // opt-in toggles. Ours had the sheet as an opt-OUT `hideDrawingSheet`, which
+  // was the wrong default and, until now, drew nothing either way.
   const renderToggles = {
     dcodes: toggles.has('showDcodes'),
     negativeObjects: toggles.has('showNegativeObjects'),
     grid: toggles.has('toggleGrid'),
-    drawingSheet: !toggles.has('hideDrawingSheet'),
+    drawingSheet: showDrawingSheet,
     pageLimits: toggles.has('showPageLimits'),
     background: !toggles.has('hideBackground'),
   };
@@ -1033,7 +1062,7 @@ export function GerberViewer({
       if (id === 'grid') onLeftToggle('toggleGrid');
       else if (id === 'dcodes') onLeftToggle('showDcodes');
       else if (id === 'negativeObjects') onLeftToggle('showNegativeObjects');
-      else if (id === 'drawingSheet') onLeftToggle('hideDrawingSheet');
+      else if (id === 'drawingSheet') onLeftToggle('showDrawingSheet');
       else if (id === 'pageLimits') onLeftToggle('showPageLimits');
       else if (id === 'background') onLeftToggle('hideBackground');
     },
