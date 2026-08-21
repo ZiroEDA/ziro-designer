@@ -69,6 +69,21 @@ export interface ChooserPlace {
    * show an empty folder, which is what a person reads as "it is broken".
    */
   readonly activateOpens?: boolean;
+  /**
+   * What accepting a path in this place means. Defaults to the chooser's own
+   * {@link FileChooserProps.onAccept}.
+   *
+   * A place that brings its own {@link FileSystem} brings paths that mean
+   * nothing to the caller's tree — `/simulation/amplifier_ac` names a demo, not
+   * a project of the account — so what to do with one has to travel with the
+   * tree it came from. Upstream needs none of this because there is only ever
+   * one tree: `KICAD_MANAGER_CONTROL::OpenDemoProject` is literally
+   * `openProject( PATHS::GetStockDemosPath() )` — the same dialog and the same
+   * `LoadProject` as Open Project, pointed at a different starting directory
+   * (kicad/tools/kicad_manager_control.cpp:519). Splitting the one tree into
+   * places is ours, so re-joining them at the accept is ours to do too.
+   */
+  readonly onAccept?: (path: string) => void;
 }
 
 /** One entry of the type combo at the bottom right. */
@@ -268,6 +283,13 @@ export function FileChooser({
   const place = places?.find((p) => p.id === placeId);
   /** A place may browse its own tree; otherwise everything uses the caller's. */
   const activeFs = place?.fs ?? fs;
+  /**
+   * Accepting goes to the place the path came from — see
+   * {@link ChooserPlace.onAccept}. Every accept in this widget goes through
+   * here; calling the prop directly would send a demo's path to the handler
+   * that only knows the account's tree, and there it resolves to nothing.
+   */
+  const acceptPath = (path: string): void => (place?.onAccept ?? onAccept)(path);
   const [dir, setDir] = useState(initialPath ?? place?.path ?? ROOT);
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -361,13 +383,13 @@ export function FileChooser({
 
   const activate = (e: Entry): void => {
     if (e.kind === 'file') {
-      onAccept(e.path);
+      acceptPath(e.path);
       return;
     }
     // A place may say its projects are opened rather than entered — see
     // ChooserPlace.activateOpens.
     if (e.kind === 'project' && place?.activateOpens) {
-      onAccept(e.path);
+      acceptPath(e.path);
       return;
     }
     goTo(e.path);
@@ -376,7 +398,7 @@ export function FileChooser({
   const acceptNow = (): void => {
     if (mode === 'save') {
       if (!isValidName(name)) return;
-      onAccept(join(dir, name));
+      acceptPath(join(dir, name));
       return;
     }
     const e = shown.find((x) => x.path === selected);
@@ -385,7 +407,7 @@ export function FileChooser({
     // the project, it does not walk into it. Double-clicking still descends,
     // the way a bundle behaves on a desktop that has them.
     if (e.kind === 'project') {
-      onAccept(e.path);
+      acceptPath(e.path);
       return;
     }
     activate(e);

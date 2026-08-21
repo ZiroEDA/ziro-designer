@@ -39,7 +39,7 @@ import {
   listUserTemplates,
   userTemplateFiles,
 } from './user_templates.js';
-import { fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
+import { demoAt, fetchDemoExtras, loadDemos, openDemo, type DemoMeta } from './demos.js';
 import '../ui/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
@@ -469,13 +469,36 @@ export function HomePage({
       })),
     [],
   );
+  // Accepting in a place that browses its own tree cannot go to the account's
+  // handler: `/simulation/amplifier_ac/amplifier_ac.kicad_pro` names a demo, and
+  // `projectAt` reads the first segment as a project of the store, finds no
+  // project called `simulation`, and returns null — the window closed and
+  // nothing opened. Upstream has no such split to fall down: OpenDemoProject is
+  // `openProject( PATHS::GetStockDemosPath() )`, the same dialog and the same
+  // LoadProject as Open Project (kicad_manager_control.cpp:519). So each place
+  // carries what accepting inside it means, through a ref for the same reason
+  // its filesystem does: the places are built once and must not be rebuilt.
+  const openDemoRef = useRef<(id: string) => void>(() => {});
+  const openTemplateRef = useRef<(t: TemplateMeta) => void>(() => {});
   const chooserPlaces = useMemo<readonly ChooserPlace[]>(
     () => [
       // Recent first, as GtkPlacesSidebar puts it: it is the row above Home in
       // the capture, and it is the one a person reaches for most.
       { id: 'recent', label: 'Recent', icon: 'recent', fs: recentFs },
       { id: 'projects', label: 'Projects', icon: 'open_project' },
-      { id: 'demos', label: 'Demos', icon: 'open_project_demo', fs: demosFs },
+      {
+        id: 'demos',
+        label: 'Demos',
+        icon: 'open_project_demo',
+        fs: demosFs,
+        // Any path inside a demo opens that demo, the way any path inside a
+        // project of the account opens that project — a demo's id is the folder
+        // it lives in, so the demo is the one whose id the path starts with.
+        onAccept: (path) => {
+          const d = demoAt(path, demosRef.current);
+          if (d) openDemoRef.current(d.id);
+        },
+      },
       {
         id: 'templates',
         label: 'Templates',
@@ -484,6 +507,12 @@ export function HomePage({
         // A template has no listable contents, so a double-click takes it
         // rather than walking into an empty folder.
         activateOpens: true,
+        // And taking one means what the template selector's "open" means: a
+        // copy under the template's own name, so the original stays read-only.
+        onAccept: (path) => {
+          const t = templatesRef.current.find((x) => path === `/${x.id}`);
+          if (t) openTemplateRef.current(t);
+        },
       },
     ],
     [recentFs, demosFs, templatesFs],
@@ -595,10 +624,12 @@ export function HomePage({
   const openDemoProject = async (id: string): Promise<void> => {
     const d = demos.find((x) => x.id === id);
     if (!d) return;
-    // Demos open as themselves and are not persisted over an existing store
-    // entry unless the user saves, mirror a plain folder open (persist like
-    // any opened project so it lands in Recent). The files stream from the
-    // hosted CDN, so show a per-file download gauge while they arrive.
+    // Demos open as themselves and are not persisted — see the `ingest(…, false)`
+    // below and the reason written there. So an opened demo shows up under
+    // neither Projects nor Recent, both of which list the account's store;
+    // keeping one is Save As. (This comment used to say the opposite — that a
+    // demo persists "so it lands in Recent". It never did.) The files stream
+    // from the hosted CDN, so show a per-file download gauge while they arrive.
     setLoading({ message: `Downloading demo: ${d.title}`, value: 0 });
     let files: PickedHomeFile[];
     try {
@@ -919,6 +950,25 @@ export function HomePage({
       editing && template.source === 'user' ? template.id : undefined,
     );
   };
+
+  // The two handlers the chooser's Demos and Templates places call. They are
+  // written here rather than into the places themselves because the places are
+  // built once, above, and these close over state that changes every render;
+  // no dependency list, so the ref always holds this render's closure. Opening
+  // a demo is `openDemoProject`, the same thing File > Open Demo Project does,
+  // because upstream that menu item and this dialog are one function.
+  // Each closes the window first, the way the account tree's onAccept does:
+  // accepting dismisses the dialog whichever place it happened in.
+  useEffect(() => {
+    openDemoRef.current = (id) => {
+      setOpenPrjOpen(false);
+      void openDemoProject(id);
+    };
+    openTemplateRef.current = (t) => {
+      setOpenPrjOpen(false);
+      void createFromTpl(t, t.base || t.id, true);
+    };
+  });
 
   // File > Save As: copy the whole project under a new name and persist it.
   const saveAsProject = async (): Promise<void> => {
