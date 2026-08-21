@@ -75,6 +75,14 @@ describe('TestFileIsRS274', () => {
     expect(testFileIsRS274('D02*\nXA*\nYB*\n')).toBe(false);
     expect(testFileIsRS274('D02*\nX5*\n')).toBe(true);
     expect(testFileIsRS274('D02*\nXY5*\n')).toBe(true); // rescued by Y
+
+    // Two X's on one line, the first followed by a letter and the second by a
+    // digit. `strstr` stops at the first, so this is NOT a gerber. The case
+    // matters because it is the only one that separates "the character right
+    // after the first X" from either "the character after the LAST X" or "a
+    // digit anywhere in the rest of the line" — two readings that agree with
+    // the C++ on every ordinary file and both let this one through.
+    expect(testFileIsRS274('D02*\nXAX5*\nYBY6*\n')).toBe(false);
   });
 
   it('refuses a gerber job file, which is JSON', () => {
@@ -139,6 +147,25 @@ describe('TestFileIsExcellon', () => {
     expect(testFileIsExcellon(`${DRILL}\n; café`)).toBe(false);
   });
 
+  /**
+   * The StrPurge interaction spelled out, because it is the whole reason the
+   * second return is dead and nothing else in this suite can see it.
+   *
+   * With CRLF endings the raw line really does end `%\r`, so without the trim
+   * `letter[1]` WOULD be `'\r'` and foundPercent would be set — which would
+   * revive foundM30 and with it upstream's "valid header and EOF but no drill
+   * XY locations" branch, and this header-only file would be accepted. It is
+   * the trim, and only the trim, that keeps a real GerbView from loading it.
+   */
+  it('trims the line ending first, which is what kills the % check', () => {
+    const headerOnlyCRLF = ['M48', 'FMAT,2', 'T1C0.800', '%', 'T1', 'M30'].join('\r\n');
+    expect(testFileIsExcellon(headerOnlyCRLF)).toBe(false);
+    // And the same file with a hole IS accepted, so this is not "CRLF breaks
+    // everything" — only the dead branch is unreachable.
+    const withHoleCRLF = ['M48', 'FMAT,2', 'T1C0.800', '%', 'T1', 'X1Y1', 'M30'].join('\r\n');
+    expect(testFileIsExcellon(withHoleCRLF)).toBe(true);
+  });
+
   it('refuses a gerber plot', () => {
     expect(testFileIsExcellon(GERBER)).toBe(false);
   });
@@ -149,6 +176,19 @@ describe('autodetect', () => {
     // if( TestFileIsExcellon ) type = 1; else if( TestFileIsRS274 ) type = 0;
     expect(detectFileType(DRILL)).toBe(1);
     expect(detectFileType(GERBER)).toBe(0);
+  });
+
+  it('and the order decides for a file both tests accept', () => {
+    // Neither assertion above can see the order, because a real drill file
+    // fails the gerber test and a real gerber fails the drill one. This file
+    // passes BOTH — M48 with a bare tool select and a coordinate for Excellon,
+    // a star with a D-command and a coordinate for RS-274D — so it is the only
+    // thing that pins which branch runs first. Upstream asks Excellon first,
+    // so it is a drill file.
+    const both = ['M48', 'T1', 'X1Y1', 'D02*'].join('\n');
+    expect(testFileIsExcellon(both)).toBe(true);
+    expect(testFileIsRS274(both)).toBe(true);
+    expect(detectFileType(both)).toBe(1);
   });
 
   it('returns null when a file is neither, rather than guessing', () => {
