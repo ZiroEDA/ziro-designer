@@ -52,6 +52,20 @@
   --toolbar-icon-size: 24px;
   --toolbar-button-pad: 3px;
   --toolbar-button-size: calc(var(--toolbar-icon-size) + 2 * var(--toolbar-button-pad));
+  /* [px] the bottom of the whole toolbar block, where it meets the canvas —
+     ONE line, and it is not --chrome-border. Sampled down two empty columns of
+     a live GerbView capture (x=1500 and x=1650, 2026-08-21): the face is an
+     unbroken #373737 from the menu bar to y=170, then a single #292929 at
+     y=171, then the canvas. Stacked wxAuiToolBar rows draw NO divider between
+     them at all, which is why this is one edge below the block rather than a
+     border on each row. */
+  --toolbar-dock-edge: #292929;
+  /* [px] the wxAuiToolBar separator, from the same capture: #5f5f5f, and it
+     is LIGHTER than the toolbar face rather than darker. */
+  --toolbar-separator: #5f5f5f;
+  /* [px] see .ze-tb-textinfo — wx's default for an empty read-only wxTextCtrl,
+     from qa/probes/gerbview_toolbar_probe.cpp. */
+  --gbr-textinfo-width: 98px;
   --accent-fill-pressed: #2f1106;
   --accent-fill-checked: #5d220d;
   --accent-fill-hover-checked: #742a10;
@@ -873,9 +887,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-toolbar.horizontal {
   flex-direction: row;
   padding: 1px 4px;
-  border-bottom: 1px solid var(--chrome-border);
   flex-wrap: nowrap;
   overflow-x: auto;
+}
+/* The dock edge, on the LAST horizontal row rather than on each one. Every row
+   used to carry `border-bottom: 1px solid var(--chrome-border)`, which drew a
+   near-black rule between TOP_MAIN and TOP_AUX that KiCad does not have: its
+   two rows are one continuous face. See --toolbar-dock-edge for the sample. */
+.ze-toolbar.horizontal:not(:has(+ .ze-toolbar.horizontal)) {
+  border-bottom: 1px solid var(--toolbar-dock-edge);
 }
 /* No width either: [px] GerbView's left strip is x 66..99 = 34 px around a
    30 px button at 68..97, i.e. --toolbar-button-size in 2 px of toolbar. Ours
@@ -1010,6 +1030,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    raised rather than resolved by one control's evidence. */
 .ze-tb-textinfo {
   flex: 0 0 auto;
+  /* [px] built empty and wxDefaultSize (toolbars_gerber.cpp:163-165), so its
+     width is wx's own default for an empty read-only wxTextCtrl, not a number
+     anybody chose: qa/probes/gerbview_toolbar_probe.cpp reports best 98 x 34,
+     and the real GerbView's box measures about 97. It is a FLOOR rather than a
+     fixed width — KIUI::EnsureTextCtrlWidth (common/widgets/ui_common.cpp:174)
+     widens it to the text plus 10 px when a string does not fit, and never
+     shrinks it back. The caller applies that; this is where it starts. */
+  width: var(--gbr-textinfo-width);
   height: var(--ctl-height);
   padding: 0 var(--field-pad-x);
   background: var(--field-bg);
@@ -1062,18 +1090,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   height: var(--toolbar-button-size);
 }
 
+/* A wxAuiToolBar separator. Only used by Toolbar.tsx, and the same art in both
+   orientations, so the colour lives here rather than on each. */
 .ze-sep {
   flex: 0 0 auto;
-  background: var(--chrome-border);
+  background: var(--toolbar-separator);
 }
 .ze-toolbar.horizontal .ze-sep {
   width: 1px;
-  height: 20px;
+  /* [px] sampled off a live GerbView (2026-08-21): all three separators in the
+     TOP_MAIN row are one pixel of #5f5f5f running y 102..126 — 25 px, inside a
+     row whose face runs y 95..139. Ours drew 20 px of --chrome-border (#1e1e1e),
+     which is nearly black on a #373737 face where upstream's reads light. */
+  height: 25px;
   margin: 0 3px;
 }
 .ze-toolbar.vertical .ze-sep {
   height: 1px;
-  width: 20px;
+  /* The horizontal row is what was measured (25 px); this is the same
+     separator turned, so it takes the same length rather than keeping a 20 no
+     one measured either. */
+  width: 25px;
   margin: 3px 0;
 }
 
@@ -7175,17 +7212,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   gap: 6px;
   /* [px] An EMPTY combo is not sized by its content, and GTK gives it no
-     generous default either: a GtkComboBox with a pixbuf+text cell pair - what
-     wxBitmapComboBox is on GTK - measures 36 x 34 with an empty model, min and
-     natural width both 36, and a bare GtkComboBoxText measures the same.
-     Measured directly with python-gi; method in ~/gtkdate/combo.py. 34 is
-     --ctl-height, which the aux row was independently measured at.
-     Caveat: that is GtkComboBox itself, not wx's wrapper; wxBitmapComboBox has
-     not been checked for a minimum of its own.
-     Without this, GerbView's layer selector - which is legitimately empty until
-     a file is loaded (Resync skips layers with no image,
+     generous default either, and this number was 36px until the caveat that
+     came with it was tested. A bare GtkComboBox with a pixbuf+text cell pair
+     measures 36 x 34 empty under python-gi — but wxBitmapComboBox is wx's
+     wrapper, not that widget, and wx supplies a best size of its own.
+     [px] qa/probes/gerbview_toolbar_probe.cpp builds the control GerbView
+     builds — empty, wxDefaultSize, as toolbars_gerber.cpp:136-138 does — and
+     asks it: best 121 x 34. A capture of the real GerbView agrees, its empty
+     selector spanning about 118 px. 34 is --ctl-height, measured a third time.
+     Without a floor here, GerbView's layer selector - which is legitimately
+     empty until a file is loaded (Resync skips layers with no image,
      gbr_layer_box_selector.cpp:89-90) - collapsed to a bare chevron. */
-  min-width: 36px;
+  min-width: 121px;
   height: var(--ctl-height);
   padding: 0 var(--ctl-pad-x);
   background: var(--ctl-face);

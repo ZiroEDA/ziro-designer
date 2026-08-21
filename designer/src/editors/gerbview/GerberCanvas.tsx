@@ -227,14 +227,41 @@ export const GerberCanvas = forwardRef<GerberCanvasController, GerberCanvasProps
       const w = bbox.maxX - bbox.minX;
       const h = bbox.maxY - bbox.minY;
       if (w <= 0 || h <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) {
-        viewRef.current = { scale: 0.0005, tx: canvas.width / 2, ty: canvas.height / 2 };
+        // `doZoomFit` sets the scale to 1.0 up front — "the best scale will be
+        // determined later, but this initial value ensures all view parameters
+        // are up to date" (`common/tool/common_tools.cpp:331`) — and when there
+        // is nothing to fit, the computed scale is not finite, so it centres on
+        // the world origin and returns (`:350-356`). The 1.0 it set is what
+        // stays. That is why a GerbView with no file loaded reads Zoom 1.00.
+        //
+        // This branch used to write scale 0.0005, a number from nowhere, which
+        // is exactly the 139.56 the zoom box was showing: 0.0005 x (IU per mm
+        // x 25.4 / 91 screen DPI).
+        viewRef.current = {
+          scale: scaleForZoomFactor(
+            1,
+            typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+            IU_PER_MM,
+          ),
+          tx: canvas.width / 2,
+          ty: canvas.height / 2,
+        };
         requestDraw();
         return;
       }
       // COMMON_TOOLS::doZoomFit's FRAME_GERBER margin, not a flat x1.1.
       const s = zoomFitScale(bbox, { width: canvas.width, height: canvas.height }, 'gerber');
       if (s === null) {
-        viewRef.current = { scale: 0.0005, tx: canvas.width / 2, ty: canvas.height / 2 };
+        // Same branch as above: nothing fittable, so the 1.0 stands.
+        viewRef.current = {
+          scale: scaleForZoomFactor(
+            1,
+            typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+            IU_PER_MM,
+          ),
+          tx: canvas.width / 2,
+          ty: canvas.height / 2,
+        };
         requestDraw();
         return;
       }

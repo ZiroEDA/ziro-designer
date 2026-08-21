@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
+  type SetStateAction,
   type JSX,
   type ReactNode,
 } from 'react';
@@ -39,6 +40,7 @@ import {
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
 import { Toolbar } from '../../ui/Toolbar.js';
+import { ensureTextCtrlWidth, measureTextWidth } from '../../ui/text_ctrl_width.js';
 import {
   GBR_CONTROL,
   GBR_TOP_TOOLBAR,
@@ -131,7 +133,27 @@ export function GerberViewer({
   projectName?: string;
 }): JSX.Element {
   const [layers, setLayers] = useState<Layer[]>([]);
-  const [activeLayer, setActiveLayer] = useState(0);
+  const [activeLayer, setActiveLayerState] = useState(0);
+  /**
+   * Whether `UpdateTitleAndInfo` has ever run, which upstream decides for us:
+   * it has exactly ONE call site, at the end of `GERBVIEW_FRAME::SetActiveLayer`
+   * (`gerbview_frame.cpp:868`). Until something makes a layer active, the info
+   * box still holds the `wxEmptyString` it was constructed with
+   * (`toolbars_gerber.cpp:163-165`) — which is why a freshly opened GerbView
+   * shows an EMPTY box, not "Drawing layer not in use". Ours wrote the string
+   * from the first render and so never matched.
+   */
+  const [titleAndInfoRun, setTitleAndInfoRun] = useState(false);
+  /** The info box, and the width EnsureTextCtrlWidth has grown it to. */
+  const textInfoRef = useRef<HTMLInputElement>(null);
+  const [textInfoWidth, setTextInfoWidth] = useState(0);
+
+  /** Every call site goes through here, the way every one goes through
+   *  SetActiveLayer upstream — that is what makes the flag above true. */
+  const setActiveLayer = useCallback((next: SetStateAction<number>) => {
+    setTitleAndInfoRun(true);
+    setActiveLayerState(next);
+  }, []);
   const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
   const [activeTool, setActiveTool] = useState<'select' | 'measure' | 'zoom'>('select');
   const [cursor, setCursor] = useState<Vec2 | null>(null);
@@ -317,6 +339,21 @@ export function GerberViewer({
 
   // ---- render options ----------------------------------------------------
   const activeImage = layers[activeLayer]?.image ?? null;
+
+  // `if( KIUI::EnsureTextCtrlWidth( m_TextInfo, &info ) ) m_auimgr.Update();`
+  // (`gerbview_frame.cpp:672-673`). Measured against the control's own font
+  // rather than counted in characters, as GetTextSize does.
+  const textInfoValue = titleAndInfoRun ? textInfoLine(activeImage) : '';
+  useEffect(() => {
+    const el = textInfoRef.current;
+    if (!el) return;
+    setTextInfoWidth((w) =>
+      ensureTextCtrlWidth(
+        w || el.getBoundingClientRect().width,
+        measureTextWidth(textInfoValue, el),
+      ),
+    );
+  }, [textInfoValue]);
 
   const highlightTest = useMemo<((it: GERBER_DRAW_ITEM) => boolean) | undefined>(() => {
     if (highlight.mode === 'none' || !highlight.value) return undefined;
@@ -753,7 +790,17 @@ export function GerberViewer({
       />
     ),
     [GBR_CONTROL.textInfo]: (
-      <input className="ze-tb-textinfo" type="text" readOnly value={textInfoLine(activeImage)} />
+      <input
+        ref={textInfoRef}
+        className="ze-tb-textinfo"
+        type="text"
+        readOnly
+        // Empty until UpdateTitleAndInfo has run — see `titleAndInfoRun`.
+        value={textInfoValue}
+        // EnsureTextCtrlWidth only ever widens, so this is a floor that rises
+        // and never falls; the CSS min-width supplies wx's default to start.
+        style={textInfoWidth > 0 ? { width: `${textInfoWidth}px` } : undefined}
+      />
     ),
   };
 

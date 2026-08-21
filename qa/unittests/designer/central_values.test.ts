@@ -143,7 +143,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // merge: the file chooser took colours and metrics out by deleting the Open
   // Project dialog, and the drawing-sheet pass took more out of the toolbar and
   // the modal frame. The number below is a fresh scan of the merged tree.
-  ui: { colours: 348, metrics: 826 },
+  ui: { colours: 348, metrics: 825 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -349,7 +349,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
     expect(SITES.filter((s) => s.kind === 'colours').length).toBe(755);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1681);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1680);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
