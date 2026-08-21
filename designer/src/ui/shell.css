@@ -370,16 +370,23 @@
 
   /* COLOR_SWATCH, whose size is dialog units rather than pixels:
      SWATCH_SIZE_SMALL_DU(8,6) and SWATCH_SIZE_MEDIUM_DU(24,10)
-     (include/widgets/color_swatch.h:46-47) through ConvertDialogToPixels.
+     (include/widgets/color_swatch.h:46-47) through ConvertDialogToPixels,
+     which is wxMulDivInt32( n, base, 4 or 8 ) and ROUNDS:
+     (n*base + div/2) / div.
      [px] asked of wx itself — qa/probes builds a real wxPanel and reports
-     GetCharWidth() 8, GetCharHeight() 18 at Ubuntu Sans 11, so small is
-     8*8/4 x 6*18/8 = 14 x 13 and medium is 24*8/4 x 10*18/8 = 48 x 23.
-     wx ROUNDS that division: truncating gives 22 for the height, which is the
+     GetCharWidth() 8, GetCharHeight() 18 at Ubuntu Sans 11, so
+        small  = 8*8/4  x (6*18+4)/8  = 16 x 14
+        medium = 24*8/4 x (10*18+4)/8 = 48 x 23
+     Truncating instead of rounding gives 22 for the medium height, which is the
      number two separate derivations here got wrong before the probe existed.
+     Small was written as 14 x 13, which is neither: 8*8/4 is 16, not 14. A
+     capture of a live GerbView layers pane agrees with the formula and not with
+     the old token — the swatch there is exactly 16 x 14, hard-cornered and
+     unbordered (`RenderToDC` sets *wxTRANSPARENT_PEN*, color_swatch.cpp:72).
      The -2 border adjustment in color_swatch.cpp:200-205 is inside
      #ifdef __WXMAC__ and does not apply. */
-  --swatch-small-w: 14px;
-  --swatch-small-h: 13px;
+  --swatch-small-w: 16px;
+  --swatch-small-h: 14px;
   --swatch-medium-w: 48px;
   --swatch-medium-h: 23px;
 
@@ -746,9 +753,20 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-app textarea::placeholder {
   color: #8b9098;
 }
-/* The accent the browser paints inside a checkbox. */
+/* The accent the browser paints inside a checkbox, and the size GTK gives it.
+   Both come from the theme, so neither is ours to pick: --chrome-active is the
+   desktop accent and --check-size is the measured indicator.
+   The accent used to be #e07b1a, a shade that appears nowhere in Yaru, and the
+   Schematic Editor's dock then restated the right value locally as "the precise
+   shade sampled off real eeschema" — which is the specificity trap: one app
+   looked correct while every other one drifted. A live GerbView layers pane
+   confirms it from a second app: its visibility checkboxes fill with exactly
+   rgb(233, 84, 32), and they measure 16 across, not the 13 a bare
+   <input type=checkbox> takes from the user agent. */
 .ze-app input[type="checkbox"] {
-  accent-color: #e07b1a;
+  accent-color: var(--chrome-active);
+  width: var(--check-size);
+  height: var(--check-size);
 }
 
 /* A wxSlider, drawn rather than accented: GTK's thumb is a WHITE disc, not a
@@ -2597,11 +2615,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   --panel-header: #2e2e2e;
   --panel-list-bg: #373737;
 }
-/* The rest of the app's checkboxes use a slightly different orange
-   (#e07b1a); this is the precise shade sampled off real eeschema. */
-.sch-leftdock input[type="checkbox"] {
-  accent-color: #e95420;
-}
 /* wxTreeCtrl's row selection is a sharp-edged rectangle, not rounded. */
 .sch-leftdock .ze-tree-item {
   border-radius: 0;
@@ -2696,16 +2709,18 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 /* COLOR_SWATCH (SWATCH_SMALL) */
+/* COLOR_SWATCH::RenderToDC fills the rect with DrawRectangle under
+   `aDC->SetPen( *wxTRANSPARENT_PEN )` (`common/widgets/color_swatch.cpp:72`):
+   no outline and no rounding anywhere in that function. The 1 px #444 border
+   and the 2 px radius here were ours, and they ate two of the swatch's
+   fourteen rows. */
 .ze-layer-swatch {
   width: var(--swatch-small-w);
   height: var(--swatch-small-h);
-  border-radius: 2px;
   flex: 0 0 auto;
-  border: 1px solid #444;
 }
 .ze-layer-swatch.blank {
   background: transparent;
-  border-color: transparent;
 }
 /* BITMAP_TOGGLE visibility eye: an inline-SVG button that always renders,
    drawn in a light grey that stays visible on the grey list background. */
@@ -2806,7 +2821,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    border), like KiCad's uncolored COLOR_SWATCH, click it to assign a color. */
 .ze-layer-swatch.unset {
   background: #2b2d31;
-  border-color: #565961;
 }
 
 /* Nets tab: the Nets grid and the Net Classes list each sit in their own
@@ -2966,12 +2980,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-muted {
   color: #9a9ca0;
   padding: 4px 2px;
-}
-/* KiCad's Selection Filter uses orange checkboxes. */
-.ze-panel-body label input[type="checkbox"] {
-  accent-color: #e07b1a;
-  width: 14px;
-  height: 14px;
 }
 
 /* Symbol chooser search box */
@@ -3991,9 +3999,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   color: #1b1d1f;
 }
 .ze-modal.ze-fields-table input[type="checkbox"] {
-  accent-color: #e07b1a;
-  width: 14px;
-  height: 14px;
+  /* Colour and size come from the shared rule; only the margin is local. */
   margin: 0;
 }
 /* bPresets: a horizontal rule, the label, a 2 px gap, then the choice. */
@@ -6260,17 +6266,32 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   border-bottom: 1px solid var(--chrome-border, rgba(128, 128, 128, 0.35));
   flex: 0 0 auto;
+  /* [px] A GtkNotebook does not stretch its tabs; it lays them out from the
+     left at their label width, and the strip keeps a lead-in before the first
+     one and a gap between them. Measured off a Gtk.OffscreenWindow rendering a
+     real two-tab Yaru-dark notebook at Ubuntu Sans 11 (the theme and font were
+     printed to confirm env -i had not swapped in Cantarell): the selected tab's
+     3 px accent runs x=9..74, and Gtk reports the "Layers" label allocated at
+     x=21 w=42 and "Items" at x=95 w=37. That fixes the lead-in at 8 and the
+     inter-tab gap at 8, with 12 px either side of each label. A live GerbView
+     layers pane agrees: the accent there runs 8..73 px inside the notebook. */
+  padding-left: 8px;
+  gap: 8px;
 }
 .ze-ds-tabs button,
 .ze-nb-tabs button {
-  flex: 1;
+  /* Not `flex: 1`. That split the strip evenly between the tabs and centred
+     each label, which is why ours read as two half-width buttons where KiCad
+     shows two small tabs tucked against the left edge. */
+  flex: 0 0 auto;
   /* The wxNotebook tab strip is --tab-strip-height. [px] re-measured on this
      launcher's own capture (ziro-dsp/shots/k_tab.png, a 3.2x crop of a real
      pane): the strip runs y189..300, i.e. 35 px, against the token's 36 — the
      same widget, so the token stands. 17 px of label + 8 px above and below +
      the 3 px marker = 36. Ours was 24 px, from a 6 px pad and an invented 2 px
-     marker. */
-  padding: 8px 4px;
+     marker. The horizontal half is --tab-pad-x, which sat in the token block
+     unused while this rule wrote 4 px. */
+  padding: 8px var(--tab-pad-x);
   font: inherit;
   font-size: var(--ui-font-size);
   background: none;
@@ -6289,7 +6310,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      in $selected_bg_color, which is where the 3 px in --tab-underline came
      from. */
   border-bottom-color: var(--chrome-active);
-  font-weight: 600;
+  /* No weight change. Asked of Gtk directly on the notebook above: the style
+     context of the SELECTED tab's label reports weight 400, the same as the
+     unselected one. The 600 here was ours. */
 }
 .ze-ds-group {
   border: 1px solid var(--chrome-border, rgba(128, 128, 128, 0.35));
@@ -6438,9 +6461,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 2px;
   padding: 1px 4px;
   font-size: 12px;
-}
-.ze-propgrid-value input[type="checkbox"] {
-  accent-color: #e07b1a;
 }
 .ze-propgrid-value .ze-muted {
   padding: 0;

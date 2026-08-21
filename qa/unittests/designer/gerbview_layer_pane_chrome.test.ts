@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The chrome of GerbView's Layers Manager, which a side-by-side against a real
+ * GerbView showed to be wrong in four ways at once.
+ *
+ * All four are ABSENCES or shared tokens, so they are checked in the stylesheet
+ * rather than through a render: the rule being broken was that we *had* a
+ * declaration where KiCad has none, and a DOM assertion cannot see a rule that
+ * should not exist. Each is scoped to the one selector that carried it, so this
+ * names the offender rather than reporting that "the pane somewhere" regressed.
+ */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+const read = (rel: string): string =>
+  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+
+const SHELL = read('../../../designer/src/ui/shell.css');
+const GBR = read('../../../designer/src/editors/gerbview/gerbview.css');
+
+/** The body of a rule, comments stripped so prose about a value is not the value. */
+const ruleBody = (css: string, selector: string): string => {
+  const at = css.indexOf(`${selector} {`);
+  expect(at, `${selector} is missing`).toBeGreaterThanOrEqual(0);
+  const end = css.indexOf('}', at);
+  return css.slice(at, end).replace(/\/\*[\s\S]*?\*\//g, '');
+};
+
+describe('a layer row paints no background', () => {
+  it('found the row rule, so this cannot pass by scanning nothing', () => {
+    expect(ruleBody(GBR, '.ze-gbr-layer-row')).toMatch(/display:\s*grid/);
+  });
+
+  /**
+   * `LAYER_WIDGET::insertLayerRow` (`gerbview/widgets/layer_widget.cpp:320-372`)
+   * inserts five loose child windows into a wxFlexGridSizer. There is not one
+   * `SetBackgroundColour` in that file and no enter/leave binding, and
+   * selecting a row does exactly one thing:
+   *
+   *     void LAYER_WIDGET::SelectLayerRow( int aRow )            // :664
+   *     {
+   *         oldIndicator->SetIndicatorState( STATE::OFF );
+   *         newIndicator->SetIndicatorState( STATE::ON );
+   *     }
+   *
+   * Ours painted the active row in --chrome-active, a full-width orange band
+   * that is the loudest thing on the pane and is in no real GerbView.
+   */
+  for (const state of ['.active', ':hover']) {
+    it(`has no rule for a row${state}`, () => {
+      expect(GBR).not.toContain(`.ze-gbr-layer-row${state} {`);
+    });
+  }
+
+  it('still lights the indicator icon, which is what selection DOES change', () => {
+    // The opposite bug: with no row background AND no indicator, nothing would
+    // show which layer is active at all.
+    expect(SHELL).toContain('.ze-layer-indicator.on {');
+  });
+});
+
+describe('a COLOR_SWATCH is a bare filled rectangle', () => {
+  it('has neither a border nor a radius', () => {
+    // COLOR_SWATCH::RenderToDC draws with `aDC->SetPen( *wxTRANSPARENT_PEN )`
+    // and plain DrawRectangle calls (`common/widgets/color_swatch.cpp:64-110`):
+    // no outline and no rounding anywhere in the function. Ours had a 1 px #444
+    // border and a 2 px radius, which ate two of the swatch's fourteen rows.
+    const body = ruleBody(SHELL, '.ze-layer-swatch');
+    expect(body).toMatch(/var\(--swatch-small-w\)/);
+    expect(body).not.toMatch(/border/);
+    expect(body).not.toMatch(/radius/);
+  });
+
+  it('is 16 x 14, which is the dialog-unit size wx rounds to', () => {
+    // SWATCH_SIZE_SMALL_DU(8,6) (include/widgets/color_swatch.h:46) through
+    // ConvertDialogToPixels, i.e. wxMulDivInt32 with rounding, at the
+    // GetCharWidth() 8 / GetCharHeight() 18 a wx probe reports for Ubuntu
+    // Sans 11: 8*8/4 = 16 and (6*18+4)/8 = 14. The token said 14 x 13, whose
+    // width is not what that formula gives for any rounding rule; a live
+    // GerbView pane measures exactly 16 x 14.
+    expect(SHELL).toMatch(/--swatch-small-w:\s*16px;/);
+    expect(SHELL).toMatch(/--swatch-small-h:\s*14px;/);
+    // The medium swatch shares the formula and is the check that the two are
+    // not simply whatever numbers made one screenshot line up.
+    expect(SHELL).toMatch(/--swatch-medium-w:\s*48px;/);
+    expect(SHELL).toMatch(/--swatch-medium-h:\s*23px;/);
+  });
+});
+
+describe('a wxNotebook sizes its tabs to their labels', () => {
+  const body = ruleBody(SHELL, '.ze-ds-tabs button,\n.ze-nb-tabs button');
+
+  it('does not stretch them to fill the strip', () => {
+    // `flex: 1` split the strip evenly between Layers and Items and centred
+    // each label, which read as two half-width buttons. Gtk lays tabs out from
+    // the left at label width: asked directly, a real two-tab Yaru-dark
+    // notebook allocates "Layers" at x=21 w=42 and "Items" at x=95 w=37.
+    expect(body).toMatch(/flex:\s*0 0 auto/);
+    expect(body).not.toMatch(/flex:\s*1/);
+  });
+
+  it('pads them with the token that existed for it', () => {
+    // --tab-pad-x sat in the token block unused while this rule wrote 4px.
+    // 12 is confirmed twice: the accent under the selected tab runs 66 px for a
+    // 42 px label in an offscreen render of a real notebook, and 8..73 inside
+    // the notebook on a live GerbView pane.
+    expect(body).toMatch(/padding:\s*8px var\(--tab-pad-x\)/);
+  });
+
+  it('does not embolden the selected one', () => {
+    // Asked of Gtk: the style context of the SELECTED tab's label reports
+    // weight 400, the same as the unselected one. The 600 was ours.
+    expect(ruleBody(SHELL, '.ze-ds-tabs button.active,\n.ze-nb-tabs button.active')).not.toMatch(
+      /font-weight/,
+    );
+  });
+});
+
+describe('the shared checkbox takes the desktop accent, not a shade of our own', () => {
+  it('accents with --chrome-active at --check-size', () => {
+    // GTK paints one accent for every app. Ours wrote #e07b1a, a shade that is
+    // in no Yaru stylesheet, and the Schematic Editor's dock then restated the
+    // right value locally — the specificity trap: one launcher looked correct
+    // while the rest drifted. A live GerbView confirms it from a second app:
+    // its visibility checkboxes fill with rgb(233,84,32) and measure 16 across,
+    // not the 13 a bare <input type=checkbox> takes from the user agent.
+    const body = ruleBody(SHELL, '.ze-app input[type="checkbox"]');
+    expect(body).toMatch(/accent-color:\s*var\(--chrome-active\)/);
+    expect(body).toMatch(/width:\s*var\(--check-size\)/);
+  });
+
+  it('and no launcher restates it', () => {
+    // Per-occurrence: this names every selector that brings the old shade back,
+    // rather than reporting that the file contains it somewhere.
+    const offenders = SHELL.replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('}')
+      .filter((block) => /accent-color/.test(block))
+      .map((block) => block.split('{')[0]!.trim().replace(/\s+/g, ' '))
+      .filter((sel) => sel !== '.ze-app input[type="checkbox"]');
+    expect(offenders, 'the accent is the theme\u2019s, so only the shared rule states it').toStrictEqual(
+      [],
+    );
+  });
+});

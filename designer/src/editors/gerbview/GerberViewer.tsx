@@ -227,84 +227,58 @@ export function GerberViewer({
       : 'mm';
 
   // ---- loading -----------------------------------------------------------
-  const addImage = useCallback((image: GERBER_FILE_IMAGE, fileName: string): void => {
+  /**
+   * `getNextAvailableLayer()`, the slot the next loaded file goes into
+   * (`gerbview/files.cpp:336`), and `NO_AVAILABLE_LAYERS` when there is none.
+   *
+   * A ref rather than `layers.length` because one batch loads many files with
+   * no render in between, so the state would be stale from the second file on
+   * and every file after the first would report slot 1. Re-synced from state
+   * after each render, which is what makes a delete or a Clear All show up.
+   */
+  const nextLayer = useRef(0);
+  useEffect(() => {
+    nextLayer.current = layers.length;
+  }, [layers.length]);
+
+  /** The slot the image went into, or null when there was none left. */
+  const addImage = useCallback((image: GERBER_FILE_IMAGE, fileName: string): number | null => {
+    if (nextLayer.current >= GERBER_DRAWLAYERS_COUNT) return null;
+    const at = nextLayer.current++;
     setLayers((prev) => {
-      if (prev.length >= GERBER_DRAWLAYERS_COUNT) return prev;
       const id = layerIdSeq++;
       const next: Layer = {
         id,
         image,
-        color: defaultLayerColor(prev.length),
+        color: defaultLayerColor(at),
         visible: true,
         name: '',
         ...(image.fileFunction ? { function: image.fileFunction } : {}),
       };
       return [...prev, next];
     });
+    return at;
   }, []);
 
   const loadTextFile = useCallback(
-    (name: string, text: string): void => {
+    (name: string, text: string): number | null => {
       try {
         const image = readGerberOrDrill(text, name);
         if (image.items.length === 0) {
           setStatus(`No graphic items found in ${name}`);
         }
-        addImage(image, name);
+        const at = addImage(image, name);
         setStatus(
           `Loaded ${name}: ${image.items.length} item${image.items.length === 1 ? '' : 's'}` +
             (isExcellonFile(text, name) ? ' (drill)' : ''),
         );
+        return at;
       } catch (err) {
         setStatus(`Failed to load ${name}: ${(err as Error).message}`);
+        return null;
       }
     },
     [addImage],
-  );
-
-  const loadFiles = useCallback(
-    async (files: FileList | File[]): Promise<void> => {
-      const arr = Array.from(files);
-      // Sort so a .gbrjob is processed last (it only re-colours), gerbers first.
-      for (const f of arr) {
-        const lower = f.name.toLowerCase();
-        if (lower.endsWith('.zip')) {
-          await loadZip(f);
-        } else if (lower.endsWith('.gbrjob')) {
-          applyJobFile(await f.text());
-        } else {
-          loadTextFile(f.name, await f.text());
-        }
-      }
-    },
-    [loadTextFile],
-  );
-
-  const loadZip = useCallback(
-    async (file: File): Promise<void> => {
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const entries = unzipSync(bytes);
-        let jobText: string | null = null;
-        const names = Object.keys(entries).sort();
-        for (const name of names) {
-          const base = name.split('/').pop() ?? name;
-          if (base.startsWith('.') || name.endsWith('/')) continue;
-          const lower = base.toLowerCase();
-          const text = strFromU8(entries[name]!);
-          if (lower.endsWith('.gbrjob')) {
-            jobText = text;
-            continue;
-          }
-          loadTextFile(base, text);
-        }
-        if (jobText) applyJobFile(jobText);
-        setStatus(`Loaded archive ${file.name}`);
-      } catch (err) {
-        setStatus(`Failed to open ${file.name}: ${(err as Error).message}`);
-      }
-    },
-    [loadTextFile],
   );
 
   const applyJobFile = useCallback((text: string): void => {
@@ -325,6 +299,72 @@ export function GerberViewer({
     );
     setStatus('Applied job file layer assignments');
   }, []);
+
+  /** The slot the first file in the archive went into — `firstLoadedLayer` of
+   *  `GERBVIEW_FRAME::LoadZipArchiveFile` (`gerbview/files.cpp:444,594-596`).
+   *  The caller makes it active; upstream does the same at `:639-640`. */
+  const loadZip = useCallback(
+    async (file: File): Promise<number | null> => {
+      let firstLoadedLayer: number | null = null;
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const entries = unzipSync(bytes);
+        let jobText: string | null = null;
+        const names = Object.keys(entries).sort();
+        for (const name of names) {
+          const base = name.split('/').pop() ?? name;
+          if (base.startsWith('.') || name.endsWith('/')) continue;
+          const lower = base.toLowerCase();
+          const text = strFromU8(entries[name]!);
+          if (lower.endsWith('.gbrjob')) {
+            jobText = text;
+            continue;
+          }
+          const at = loadTextFile(base, text);
+          if (firstLoadedLayer === null) firstLoadedLayer = at;
+        }
+        if (jobText) applyJobFile(jobText);
+        setStatus(`Loaded archive ${file.name}`);
+      } catch (err) {
+        setStatus(`Failed to open ${file.name}: ${(err as Error).message}`);
+      }
+      return firstLoadedLayer;
+    },
+    [loadTextFile, applyJobFile],
+  );
+
+  const loadFiles = useCallback(
+    async (files: FileList | File[]): Promise<void> => {
+      const arr = Array.from(files);
+      // `firstLoadedLayer` (`gerbview/files.cpp:273`): the slot the FIRST file
+      // of this batch went into, not slot 0 — a second Open adds to the layers
+      // already there and makes the first of the new ones active.
+      let firstLoadedLayer: number | null = null;
+      // Sort so a .gbrjob is processed last (it only re-colours), gerbers first.
+      for (const f of arr) {
+        const lower = f.name.toLowerCase();
+        if (lower.endsWith('.zip')) {
+          const at = await loadZip(f);
+          if (firstLoadedLayer === null) firstLoadedLayer = at;
+        } else if (lower.endsWith('.gbrjob')) {
+          applyJobFile(await f.text());
+        } else {
+          const at = loadTextFile(f.name, await f.text());
+          if (firstLoadedLayer === null) firstLoadedLayer = at;
+        }
+      }
+      // `if( firstLoadedLayer != NO_AVAILABLE_LAYERS )
+      //      SetActiveLayer( firstLoadedLayer, true );`  (`files.cpp:425-426`)
+      //
+      // This is the one call site of UpdateTitleAndInfo, so without it the
+      // frame title, the status bar's image/layer names and the toolbar's
+      // `fmt: ...` box all stay at what an empty GerbView shows — which is what
+      // a side-by-side against a real GerbView with the same board loaded
+      // showed: an empty info box next to KiCad's `fmt: mm X3.3 Y3.3 no TZ`.
+      if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
+    },
+    [loadTextFile, loadZip, applyJobFile, setActiveLayer],
+  );
 
   // ---- layer management --------------------------------------------------
   const clearAll = useCallback(() => {
@@ -1188,7 +1228,7 @@ export function GerberViewer({
           // layer has no image - upstream opens with ClearMsgPanel(). The
           // `Layers <count>` row that used to sit here permanently has no
           // upstream equivalent anywhere.
-          ...(picked ? [] : gerbviewImageInfoRows(activeImage, activeLayer)),
+          ...(picked ? [] : gerbviewImageInfoRows(activeImage, activeLayer, unit)),
           ...(highlight.mode !== 'none'
             ? [{ upper: 'Highlight', lower: `${highlight.mode} ${highlight.value}` }]
             : []),

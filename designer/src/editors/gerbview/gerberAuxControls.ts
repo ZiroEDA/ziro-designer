@@ -15,7 +15,7 @@
 
 import { unescapeString } from '@ziroeda/common';
 import { APERTURE_T, type D_CODE, type GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
-import { messageTextFromValue, type StatusUnits } from '../../ui/status_format.js';
+import { messageTextFromValue, unitText, type StatusUnits } from '../../ui/status_format.js';
 import { frameTitle, type FrameTitleParts } from '../../ui/useDocumentTitle.js';
 
 /**
@@ -354,9 +354,17 @@ export function gerbviewStatusField0(image: GERBER_FILE_IMAGE | null): string {
  * deprecated and "probably never found"), Graphic layer, Img Rot., Polarity,
  * then the three justification rows.
  *
- * The justification rows are **not** emitted here: they come from `%IJ`, which
- * our parser does not model, and inventing a "Normal" for a command we never
- * read would be a confident-looking lie. That is a known gap, not a decision.
+ * The three justification rows are `%IJ`. They are NOT conditional: upstream
+ * appends them for every image, and `m_ImageJustifyXCenter` /
+ * `m_ImageJustifyYCenter` / `m_ImageJustifyOffset` default to false/false/(0,0)
+ * (`gerbview/rs274x.cpp:594-597`), so a file with no `%IJ` at all still reads
+ * `Normal`, `Normal`, `X=0.0000 mm Y=0.0000 mm`. They used to be left out here
+ * because our parser did not read `%IJ`; it does now, so the panel no longer
+ * stops three rows short of KiCad's.
+ *
+ * The offset goes through `MessageTextFromValue`, which takes its
+ * `aAddUnitLabel` default of true (`gerber_file_image.cpp:429-431`) — hence the
+ * unit on each of the two numbers rather than once on the row.
  *
  * `Graphic layer` is `m_GraphicLayer + 1` (`:411`), i.e. one-based, which is
  * the number the layers manager shows too.
@@ -367,6 +375,7 @@ export function gerbviewStatusField0(image: GERBER_FILE_IMAGE | null): string {
 export function gerbviewImageInfoRows(
   image: GERBER_FILE_IMAGE | null,
   graphicLayer: number,
+  units: StatusUnits,
 ): { upper: string; lower: string }[] {
   if (!image) return [];
   const rows = [{ upper: 'Format', lower: isX2File(image) ? 'X2' : 'X1' }];
@@ -374,6 +383,15 @@ export function gerbviewImageInfoRows(
   rows.push({ upper: 'Graphic layer', lower: String(graphicLayer + 1) });
   rows.push({ upper: 'Img Rot.', lower: String(image.imageRotation) });
   rows.push({ upper: 'Polarity', lower: image.imageNegative ? 'Negative' : 'Normal' });
+  rows.push({ upper: 'X Justify', lower: image.imageJustifyXCenter ? 'Center' : 'Normal' });
+  rows.push({ upper: 'Y Justify', lower: image.imageJustifyYCenter ? 'Center' : 'Normal' });
+  const at = (iu: number): string =>
+    messageTextFromValue((iu / image.iuScale) * (image.unit === 'mm' ? 1 : 25.4), units) +
+    unitText(units);
+  rows.push({
+    upper: 'Image Justify Offset',
+    lower: `X=${at(image.imageJustifyOffset.x)} Y=${at(image.imageJustifyOffset.y)}`,
+  });
   return rows;
 }
 

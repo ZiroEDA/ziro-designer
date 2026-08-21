@@ -62,6 +62,20 @@ export class GERBER_FILE_IMAGE {
   /** AS: axis select swaps X/Y when 'AYBX'. */
   swapAxis = false;
 
+  /**
+   * IJ (image justify), whose three fields are reset together by the command
+   * and default to no justification (`gerbview/rs274x.cpp:594-597`).
+   *
+   * The offset is in **IU**, not file units, because upstream reads it as
+   * `KiROUND( ReadDouble( aText ) * conv_scale )` (`:619,:639`) where
+   * conv_scale is IU-per-file-unit — the same `iuScale` above. `m_Offset` and
+   * `m_ImageOffset` are read the same way; ours are still in file units, which
+   * is a separate divergence and not touched here.
+   */
+  imageJustifyXCenter = false;
+  imageJustifyYCenter = false;
+  imageJustifyOffset: Vec2 = { x: 0, y: 0 };
+
   /** Aperture table by D-code number. */
   apertures = new Map<number, D_CODE>();
   /** Aperture macro table by name. */

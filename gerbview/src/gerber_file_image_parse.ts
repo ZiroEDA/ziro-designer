@@ -326,6 +326,9 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
       case 'SF':
         parseSF(rest);
         break;
+      case 'IJ':
+        parseIJ(rest);
+        break;
       case 'AS':
         img.swapAxis = rest.trim().toUpperCase() === 'AYBX';
         break;
@@ -391,6 +394,44 @@ export function parseGerber(text: string, fileName: string): GERBER_FILE_IMAGE {
       x: a ? parseFloat(a[1]!) : img.offset.x,
       y: b ? parseFloat(b[1]!) : img.offset.y,
     };
+  }
+
+  /**
+   * `IMAGE_JUSTIFY` — command `IJAnBn*` (`gerbview/rs274x.cpp:594-655`).
+   *
+   * The command resets all three fields first, so an `%IJ*%` with no axis
+   * letters clears a previous justification rather than leaving it. `A` is the
+   * X axis and `B` the Y; each takes `C` or `L` (both mean "centre", upstream
+   * treats them identically at `:609-616` and `:629-636`) or a coordinate,
+   * which is scaled to IU. A centred axis then has its offset forced back to
+   * zero (`:650-654`), so the two can never both be set on one axis.
+   */
+  function parseIJ(rest: string): void {
+    img.imageJustifyXCenter = false;
+    img.imageJustifyYCenter = false;
+    let x = 0;
+    let y = 0;
+
+    // Read left to right the way upstream walks the text, so `A2.5B1` and
+    // `ACB-3` both split the same way a character-at-a-time scanner would.
+    for (const m of rest.matchAll(/([AB])(C|L|[-+0-9.]+)/g)) {
+      const isX = m[1] === 'A';
+      const arg = m[2]!;
+      if (arg === 'C' || arg === 'L') {
+        if (isX) img.imageJustifyXCenter = true;
+        else img.imageJustifyYCenter = true;
+      } else {
+        const v = parseFloat(arg);
+        if (Number.isFinite(v)) {
+          if (isX) x = Math.round(v * img.iuScale);
+          else y = Math.round(v * img.iuScale);
+        }
+      }
+    }
+
+    if (img.imageJustifyXCenter) x = 0;
+    if (img.imageJustifyYCenter) y = 0;
+    img.imageJustifyOffset = { x, y };
   }
 
   function parseSF(rest: string): void {

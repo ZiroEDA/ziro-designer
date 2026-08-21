@@ -20,10 +20,21 @@
   overflow: hidden;
 }
 
+/* The wxScrolledWindow the rows are sized into, added to the page with
+   `layerPanelSizer->Add( m_LayerScrolledWindow, 1, wxBOTTOM | wxEXPAND | wxLEFT
+   | wxTOP, 2 )` (`gerbview/widgets/layer_widget.cpp:532`) - 2 px of border on
+   three sides and none on the right, which is [data]: upstream's own literal.
+   `row-gap` is the flexgrid's vgap, kept here rather than on the row so that a
+   row carries no vertical space of its own; upstream's vgap falls BETWEEN rows
+   and not above the first one. */
 .ze-gbr-layer-list {
   flex: 1;
   overflow-y: auto;
   min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 3px; /* [data] vgap, layer_widget.cpp:522 */
+  padding: 2px 0 2px 2px; /* [data] wxTOP | wxLEFT | wxBOTTOM, 2 */
 }
 
 /* wxFlexGridSizer( 0, LYR_COLUMN_COUNT, 3, 4 ) with AddGrowableCol( 3, 1 )
@@ -33,20 +44,43 @@
 .ze-gbr-layer-row {
   display: grid;
   grid-template-columns: auto auto auto 1fr auto;
-  align-items: center;
+  align-items: center; /* wxALIGN_CENTER_VERTICAL on every column */
   column-gap: 4px; /* [data] hgap, layer_widget.cpp:522 */
-  padding: 3px 6px;
+  /* [px] 20. A flexgrid row is as tall as its tallest child and every child is
+     centred in it, so the height is not ours to choose - it is read back off a
+     live pane. Two features of the same capture give it: the rows repeat every
+     23 px and the vgap between them is 3 (`layer_widget.cpp:522`), so the row
+     is 20; and the scrolled window's content starts 2 px below the list top
+     (the wxTOP border above) with the 16 px checkbox centred 2 px lower again,
+     which is (20 - 16) / 2. Ours was 3 px of padding around a 19 px line box,
+     i.e. 25. */
+  height: 20px;
   cursor: default;
 }
-.ze-gbr-layer-row:hover {
-  background: var(--chrome-hover);
-}
-.ze-gbr-layer-row.active {
-  background: var(--chrome-active);
-}
-.ze-gbr-active {
-  accent-color: #4a86c5;
-  margin: 0;
+/* No row background, selected or hovered.
+   A LAYER_WIDGET row is not a list item — it is five loose child windows
+   inserted straight into a wxFlexGridSizer on the scrolled window
+   (`insertLayerRow`, `gerbview/widgets/layer_widget.cpp:320-372`). There is no
+   wxEVT_ENTER_WINDOW / wxEVT_LEAVE_WINDOW binding anywhere in that file and
+   not one SetBackgroundColour call in it, so nothing can paint a row.
+   Selecting a layer changes exactly one thing:
+
+       void LAYER_WIDGET::SelectLayerRow( int aRow )        // :664
+       {
+           oldIndicator->SetIndicatorState( ROW_ICON_PROVIDER::STATE::OFF );
+           newIndicator->SetIndicatorState( ROW_ICON_PROVIDER::STATE::ON );
+           m_CurrentRow = aRow;
+       }
+
+   the INDICATOR_ICON in column 0. Ours painted the active row in
+   --chrome-active, a full-width orange band that is the loudest thing on the
+   pane and appears nowhere in a real GerbView. */
+/* `m_LayersFlexGridSizer->wxSizer::Insert( index+col, bmb, 0, flags | wxRIGHT, 2 )`
+   (`gerbview/widgets/layer_widget.cpp:344`) - the swatch is the one column with
+   a border of its own, so the gap between it and the checkbox is the 4 px hgap
+   plus 2. [data]: upstream's literal. */
+.ze-gbr-layer-row .ze-layer-swatch {
+  margin-right: 2px;
 }
 /* WX_ELLIPSIZED_STATIC_TEXT with wxST_ELLIPSIZE_MIDDLE (`layer_widget.cpp:355-360`).
    The ellipsis itself is `.ze-ellipsis`, shared; only the nowrap is local. */
