@@ -137,13 +137,27 @@ describe('no entry is silently inert', () => {
     expect(inert.map((i) => i.label)).toEqual([]);
   });
 
+  /**
+   * The Set Language rows are excluded. A language greyed there is not an
+   * unbuilt feature: `setLanguageMenuItem` disables the ones with no
+   * translation shipped, which is its own `available` gate and is pinned by
+   * `language_menu.test.ts`. Folding forty-odd language names into the list
+   * below would bury the four entries this check exists to watch.
+   */
   it('the greyed-out set is exactly the unbuilt features', () => {
     // Pinned deliberately. Implementing one of these and forgetting to drop its
     // `disabled` flag leaves the feature unreachable from the menu with nothing
     // to notice it — that is the stale-entry drift this file exists for. When a
     // feature lands, delete its line here in the same commit.
+    const languages = new Set(
+      (
+        menus()
+          .find((m) => m.label === 'Preferences')
+          ?.items?.find((i) => i.label === 'Set Language')?.submenu ?? []
+      ).map((i) => i.label),
+    );
     const greyed = allItems()
-      .filter((i) => i.disabled && i.label)
+      .filter((i) => i.disabled && i.label && !languages.has(i.label))
       .map((i) => i.label);
     expect(greyed).toEqual([
       'Non-KiCad Schematic...',
@@ -205,11 +219,17 @@ describe('the single-key tool hotkeys', () => {
 });
 
 /**
- * Tools > Project Manager. `menubar.cpp:310` adds `ACTIONS::showProjectManager`
- * between "Switch to PCB Editor" and "Calculator Tools" when the frame runs
- * under the project manager, which is always our case — the launcher is there.
+ * Tools > Switch to Project Manager. `menubar.cpp:310` adds
+ * `ACTIONS::showProjectManager` between "Switch to PCB Editor" and "Calculator
+ * Tools" when the frame runs under the project manager, which is always our
+ * case — the launcher is there.
+ *
+ * The label is the action's whole FriendlyName (actions.cpp:1258), "Switch to
+ * Project Manager". Ours had shortened it to "Project Manager", which reads as
+ * a different kind of entry — a place rather than a move — beside the "Switch
+ * to PCB Editor" directly above it.
  */
-describe('Tools > Project Manager', () => {
+describe('Tools > Switch to Project Manager', () => {
   const toolLabels = (): string[] => {
     const menu = menus().find((m) => m.label === 'Tools');
     return (menu?.items ?? []).map((i) => i.label ?? (i.sep ? '---' : ''));
@@ -218,16 +238,16 @@ describe('Tools > Project Manager', () => {
   it('sits between Switch to PCB Editor and Calculator Tools', () => {
     const labels = toolLabels();
     const pcb = labels.indexOf('Switch to PCB Editor');
-    const pm = labels.indexOf('Project Manager');
+    const pm = labels.indexOf('Switch to Project Manager');
     const calc = labels.indexOf('Calculator Tools');
-    expect(pm, 'Project Manager should be in Tools').toBeGreaterThan(-1);
+    expect(pm, 'Switch to Project Manager should be in Tools').toBeGreaterThan(-1);
     expect(pm).toBe(pcb + 1);
     expect(calc).toBe(pm + 1);
   });
 
   it('is enabled, not a stub', () => {
     const menu = menus().find((m) => m.label === 'Tools');
-    const item = (menu?.items ?? []).find((i) => i.label === 'Project Manager');
+    const item = (menu?.items ?? []).find((i) => i.label === 'Switch to Project Manager');
     expect(item!.disabled).toBeFalsy();
   });
 });
@@ -321,5 +341,66 @@ describe('entries upstream does not put on these menus', () => {
   it('Place draws Circles then Arcs, with nothing between them', () => {
     const l = labelsOf('Place');
     expect(l.indexOf('Draw Arcs')).toBe(l.indexOf('Draw Circles') + 1);
+  });
+});
+
+/**
+ * Preferences, against `menubar.cpp:341-348`:
+ *
+ *     prefsMenu->Add( ACTIONS::configurePaths );
+ *     prefsMenu->Add( ACTIONS::showSymbolLibTable );
+ *     prefsMenu->Add( ACTIONS::showDesignBlockLibTable );
+ *     prefsMenu->Add( ACTIONS::openPreferences );
+ *     prefsMenu->AppendSeparator();
+ *     AddMenuLanguageList( prefsMenu, selTool );
+ *
+ * Ours stopped at Preferences..., so the menu simply ended early. Five other
+ * launchers here already call the shared `setLanguageMenuItem`; eeschema was
+ * the one that did not.
+ */
+describe('Preferences ends with a separator and the language list', () => {
+  const prefs = () => menus().find((m) => m.label === 'Preferences')!.items ?? [];
+
+  it('has the four upstream rows, then a separator, then Set Language', () => {
+    expect(prefs().map((i) => i.label ?? (i.sep ? '---' : ''))).toEqual([
+      'Configure Paths...',
+      'Manage Symbol Libraries...',
+      'Manage Design Block Libraries...',
+      'Preferences...',
+      '---',
+      'Set Language',
+    ]);
+  });
+
+  /** `langsMenu->SetTitle( _( "Set Language" ) )` — not "Language". */
+  it('titles the submenu Set Language', () => {
+    expect(prefs().at(-1)?.label).toBe('Set Language');
+  });
+
+  /** eda_base_frame.cpp:2078-2082 — every row is a wxITEM_CHECK. */
+  it('ticks exactly one language, the current one', () => {
+    const rows = prefs().at(-1)?.submenu ?? [];
+    expect(rows.length).toBeGreaterThan(20);
+    expect(rows.filter((r) => r.checked).map((r) => r.label)).toEqual(['Default']);
+  });
+
+  /** The separator is real: pl_editor omits it, eeschema does not. */
+  it('separates Preferences... from the list', () => {
+    const items = prefs();
+    expect(items[items.length - 2]?.sep).toBe(true);
+  });
+
+  it('reports the picked language back to the caller', () => {
+    const picked: string[] = [];
+    const m = buildMenus({
+      tool: () => undefined,
+      action: () => undefined,
+      toggle: () => undefined,
+      language: 'Default',
+      onSelectLanguage: (l) => picked.push(l),
+    });
+    const rows = (m.find((x) => x.label === 'Preferences')!.items ?? []).at(-1)?.submenu ?? [];
+    rows.find((r) => r.label === 'Deutsch')?.action?.();
+    expect(picked).toEqual(['Deutsch']);
   });
 });

@@ -290,3 +290,31 @@ describe('the right toolbar’s one non-tool button', () => {
     for (const id of RIGHT_TOOLBAR_COMMANDS) expect(ids(RIGHT_TOOLBAR)).toContain(id);
   });
 });
+
+/**
+ * Toolbar tooltips carry the hotkey, so a tooltip printing the wrong branch of
+ * a `#if defined( __WXMAC__ )` is the same bug as a menu row printing it.
+ *
+ * Named one at a time rather than as one "no toolbar title says Ctrl+R",
+ * because the rule is per button.
+ */
+describe('the two accelerators that came from the macOS branch', () => {
+  const title = (id: string): string => buttons(TOP_TOOLBAR).find((b) => b.id === id)?.title ?? '';
+
+  /** actions.cpp:292-302 — `#else` is `MD_CTRL + 'Y'`. */
+  it('Redo advertises Ctrl+Y, not the macOS Ctrl+Shift+Z', () => {
+    expect(title('redo')).toBe('Redo (Ctrl+Y)');
+  });
+
+  /** actions.cpp:705-716 — `#else` is `WXK_F5`. */
+  it('Refresh advertises F5, not the macOS Ctrl+R', () => {
+    expect(title('zoomRedraw')).toBe('Refresh (F5)');
+  });
+
+  it('and no button anywhere still advertises a macOS-only default', () => {
+    const all = [TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR].flatMap(buttons).map((b) => b.title);
+    for (const mac of ['Ctrl+Shift+Z', '(Ctrl+R)']) {
+      expect(all.filter((t) => t.includes(mac))).toEqual([]);
+    }
+  });
+});

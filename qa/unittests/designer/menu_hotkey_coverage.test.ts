@@ -457,7 +457,9 @@ const CANVAS_KEYS: Readonly<
       ['Alt+3 select node', /selectNode \(Alt\+3\)/],
       ['Alt+S swap', /swap \(Alt\+S\)/],
       ['Ctrl+4 select connection', /selectConnection \(Ctrl\+4\)/],
-      ['F1 repeat draw item', /repeatDrawItem \(F1\)/],
+      // Ins off macOS (sch_actions.cpp:757-759); F1 stays bound as the macOS
+      // spelling. Still a canvas key either way — it has no menu row.
+      ['Ins repeat draw item', /repeatDrawItem \(Ins\)/],
       ['Ctrl+U toggle units', /toggleUnits \(Ctrl\+U\)/],
       ['Ctrl+Space arc edit mode', /cycleArcEditMode \(Ctrl\+Space\)/],
       ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],
@@ -918,6 +920,8 @@ function schematicFixture() {
     tool: (id: string) => calls.push(`tool:${id}`),
     action: (id: string) => calls.push(id),
     toggle: (id: string) => calls.push(`toggle:${id}`),
+    language: 'Default',
+    onSelectLanguage: (label: string) => calls.push(`language:${label}`),
   });
   return { menus, calls };
 }
@@ -961,9 +965,11 @@ describe('the schematic editor, pressed for real', () => {
         'Ctrl+Shift+A',
         'Ctrl+Shift+C',
         'Ctrl+Shift+V',
-        'Ctrl+Shift+Z',
         'Ctrl+V',
         'Ctrl+X',
+        // ACTIONS::redo off macOS (actions.cpp:292-302); Ctrl+Shift+Z was the
+        // `#if defined( __WXMAC__ )` branch.
+        'Ctrl+Y',
         'Ctrl+Z',
         'Delete',
         // View
@@ -974,7 +980,9 @@ describe('the schematic editor, pressed for real', () => {
         'Ctrl+G',
         'Ctrl+H',
         'Ctrl+Home',
-        'Ctrl+R',
+        // ACTIONS::zoomRedraw off macOS (actions.cpp:705-716); Ctrl+R was the
+        // `#if defined( __WXMAC__ )` branch. The key itself always worked.
+        'F5',
         'Home',
         // GTK's labels for WXK_PAGEUP / WXK_PAGEDOWN. `PgUp` / `PgDn` is what
         // the Hotkey List calls them - `ui/key_names.ts` is the split.

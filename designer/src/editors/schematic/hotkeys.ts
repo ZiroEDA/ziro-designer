@@ -91,10 +91,15 @@ export const HOTKEYS: readonly Hotkey[] = [
   {
     id: 'redo',
     label: 'Redo',
-    keys: 'Ctrl+Shift+Z',
+    keys: 'Ctrl+Y',
     section: 'Edit',
     upstream: 'ACTIONS::redo',
-    note: 'Ctrl+Y also redoes, which upstream does not bind; it is what Windows users reach for.',
+    // The note here used to read "Ctrl+Y also redoes, which upstream does not
+    // bind", which is the source read backwards: actions.cpp:292-302 binds
+    // Ctrl+Shift+Z inside `#if defined( __WXMAC__ )` and Ctrl+Y in the `#else`.
+    // Off macOS, Ctrl+Y IS the default and Ctrl+Shift+Z is the one upstream
+    // does not bind.
+    note: 'Ctrl+Shift+Z redoes too, which is upstream’s macOS default rather than this platform’s.',
   },
   { id: 'cut', label: 'Cut', keys: 'Ctrl+X', section: 'Edit', upstream: 'ACTIONS::cut' },
   { id: 'copy', label: 'Copy', keys: 'Ctrl+C', section: 'Edit', upstream: 'ACTIONS::copy' },
@@ -201,23 +206,46 @@ export const HOTKEYS: readonly Hotkey[] = [
     label: 'Zoom In at Cursor',
     keys: 'F1',
     section: 'View',
+    /*
+     * KNOWN WRONG, and deliberately left: this row cites `ACTIONS::zoomInCenter`
+     * while its label and key are `ACTIONS::zoomIn`'s.
+     *
+     *   ACTIONS::zoomIn        FriendlyName "Zoom In at Cursor"  F1 off macOS
+     *   ACTIONS::zoomInCenter  FriendlyName "Zoom In"            no hotkey
+     *
+     * So "Zoom In at Cursor" on F1 is `zoomIn`, and the row two below it —
+     * `id: 'zoomIn'`, label "Zoom In", keys Ctrl++ — has the macOS key AND the
+     * other action's name. Two actions are spread across two rows with the
+     * halves crossed over.
+     *
+     * Re-citing this one alone is not the fix: `hotkeys_inventory` merges rows
+     * by `upstream`, so it silently folds the pair into one row whose PRIMARY
+     * key becomes the macOS Ctrl++. Straightening it out means deciding which
+     * action F1 actually dispatches here — at the cursor or at the view centre,
+     * which are different behaviours — and that is a change to the key handler,
+     * not to a citation. Left whole for that change rather than half-done here.
+     */
     upstream: 'ACTIONS::zoomInCenter',
-    note: 'Shares F1 with Repeat Last Item; upstream separates them by tool scope, we by context.',
   },
   {
     id: 'zoomOutCenter',
     label: 'Zoom Out at Cursor',
     keys: 'F2',
     section: 'View',
+    // The same crossed pair as Zoom In above, and left for the same change:
+    // "Zoom Out at Cursor" on F2 is `ACTIONS::zoomOut`, while `zoomOutCenter`
+    // is FriendlyName "Zoom Out" and carries no hotkey at all.
     upstream: 'ACTIONS::zoomOutCenter',
   },
   {
     id: 'zoomRedraw',
     label: 'Refresh',
-    keys: 'Ctrl+R',
+    keys: 'F5',
     section: 'View',
     upstream: 'ACTIONS::zoomRedraw',
-    note: 'F5 refreshes too, upstream’s other default for the same action.',
+    // Not "upstream's other default": actions.cpp:705-716 has exactly one per
+    // platform, Ctrl+R on macOS and WXK_F5 everywhere else.
+    note: 'Ctrl+R refreshes too, which is upstream’s macOS default rather than this platform’s.',
   },
   {
     id: 'zoomTool',
@@ -394,10 +422,15 @@ export const HOTKEYS: readonly Hotkey[] = [
   {
     id: 'repeatDrawItem',
     label: 'Repeat Last Item',
-    keys: 'F1',
+    keys: 'Ins',
     section: 'Place',
     upstream: 'SCH_ACTIONS::repeatDrawItem',
-    note: 'Shares F1 with Zoom In at Cursor, as upstream does; resolved by what is selected.',
+    // sch_actions.cpp:757-759: F1 is the `#if defined( __WXMAC__ )` branch,
+    // WXK_INSERT the `#else`. The old note claimed this shares F1 with Zoom In
+    // "as upstream does" — upstream has no such collision on either platform.
+    // On macOS repeat is F1 and zoom in is Ctrl++; here repeat is Ins and zoom
+    // in is F1. The clash was ours, made by mixing the two branches.
+    note: 'F1 repeats too, which is upstream’s macOS default rather than this platform’s.',
   },
 
   // ----- Editing ------------------------------------------------------------

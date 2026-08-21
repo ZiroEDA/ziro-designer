@@ -6758,7 +6758,19 @@ export function SchematicEditor({
   const menusRaw = useMemo(
     () =>
       buildMenus(
-        { tool: onToolSelect, action: onTopAction, toggle: onLeftToggle },
+        {
+          tool: onToolSelect,
+          action: onTopAction,
+          toggle: onLeftToggle,
+          // Preferences > Set Language (menubar.cpp:347-348). The setting is
+          // COMMON_SETTINGS', shared by every frame, so it is read and written
+          // through the common store exactly as the other five launchers do.
+          language: settings.common.system.language,
+          onSelectLanguage: (label: string) =>
+            settings.updateCommon((c) => {
+              c.system.language = label;
+            }),
+        },
         {
           // CHECK( cond.CurrentTool( ACTIONS::zoomTool ) ): the View entry ticks
           // while the tool is running, the same condition the button uses.
@@ -6846,9 +6858,9 @@ export function SchematicEditor({
         e.preventDefault();
         promptOpen();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        // Ctrl+Y redoes as well. Upstream binds only Ctrl+Shift+Z off macOS,
-        // which is what the row prints; `hotkeys.ts` declares this second
-        // spelling as its own registry note, so it stays as a rowless alias.
+        // ACTIONS::redo. actions.cpp:292-302 binds Ctrl+Y off macOS and
+        // Ctrl+Shift+Z on it, so THIS is the platform default and the key the
+        // row now prints. The old comment had it exactly the wrong way round.
         e.preventDefault();
         redo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
@@ -6886,13 +6898,13 @@ export function SchematicEditor({
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
       } else if (e.key === 'F5' && !e.altKey && !e.shiftKey) {
-        // ACTIONS::zoomRedraw's default hotkey off macOS. The row prints the
-        // macOS Ctrl+R, which is also what `hotkeys.ts` registers, and this
-        // second spelling is that entry's registry note - so it stays here.
+        // ACTIONS::zoomRedraw's default off macOS (actions.cpp:705-716), and
+        // now also what the row prints. Ctrl+R, the macOS branch, stays bound
+        // below as the second spelling.
         e.preventDefault();
         controller.current?.redraw();
       } else if (
-        e.key === 'F1' &&
+        (e.key === 'Insert' || e.key === 'F1') &&
         !e.altKey &&
         !e.shiftKey &&
         !e.ctrlKey &&
@@ -6900,9 +6912,18 @@ export function SchematicEditor({
         repeatItemsRef.current.length > 0 &&
         doc
       ) {
-        // SCH_ACTIONS::repeatDrawItem (F1). It shares the key with
-        // ACTIONS::zoomInCenter; upstream resolves that by tool scope, and
-        // here by there being something to repeat.
+        // SCH_ACTIONS::repeatDrawItem (Ins). sch_actions.cpp:757-759 binds F1 inside
+        // `#if defined( __WXMAC__ )` and WXK_INSERT in the `#else`, so Ins is
+        // this platform's key and the one the row now prints; F1 stays bound as
+        // the macOS spelling.
+        //
+        // The comment here used to say F1 "shares the key with
+        // ACTIONS::zoomInCenter; upstream resolves that by tool scope". Neither
+        // half held: `zoomInCenter` carries no hotkey at all (F1 belongs to
+        // `ACTIONS::zoomIn`), and upstream has no collision on either platform
+        // — macOS is repeat F1 / zoom Ctrl++, Linux is repeat Ins / zoom F1.
+        // The clash was ours, made by taking one branch for one action and the
+        // other branch for the other.
         e.preventDefault();
         const r = repeatItems(doc, repeatItemsRef.current, {
           offset: {
