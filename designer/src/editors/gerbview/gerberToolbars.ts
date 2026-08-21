@@ -165,9 +165,9 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
     group: 'Units',
     cycleOnClick: true,
     actions: [
-      { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters', toggle: true },
-      { id: 'unitsInches', icon: 'unitsInches', title: 'Inches', toggle: true },
-      { id: 'unitsMils', icon: 'unitsMils', title: 'Mils', toggle: true },
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Inches' },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Mils' },
     ],
   },
   {
@@ -179,19 +179,16 @@ export const GBR_LEFT_TOOLBAR: ToolEntry[] = [
         id: 'crosshairSmall',
         icon: 'crosshairSmall',
         title: 'Use small crosshairs aligned at 0 and 90 degrees',
-        toggle: true,
       },
       {
         id: 'crosshairFull',
         icon: 'crosshairFull',
         title: 'Display full-window crosshairs aligned at 0 and 90 degrees',
-        toggle: true,
       },
       {
         id: 'crosshair45',
         icon: 'crosshair45',
         title: 'Display full-window crosshairs aligned at 45 and 135 degrees',
-        toggle: true,
       },
     ],
   },

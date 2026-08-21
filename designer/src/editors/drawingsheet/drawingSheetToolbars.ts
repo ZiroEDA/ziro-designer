@@ -96,10 +96,17 @@ export const DS_LEFT_TOOLBAR: ToolEntry[] = [
   {
     group: 'Units',
     cycleOnClick: true,
+    // NOT toggles. `ACTIONS::millimetersUnits` / `inchesUnits` / `milsUnits`
+    // declare `.Flags( AF_NONE )` and no `ToolbarState` (`actions.cpp:1113-1131`),
+    // so `AddGroup`'s `isToggleEntry` is false and the group item is
+    // wxITEM_NORMAL — it can never paint checked. A live pl_editor shows the
+    // grid toggle above it lit and this one flat, because `toggleGrid` DOES
+    // declare `TOOLBAR_STATE::TOGGLE`. The unit still decides which of the
+    // three icons the button shows; that is `doSelectAction`, not a check.
     actions: [
-      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres', toggle: true },
-      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches', toggle: true },
-      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils', toggle: true },
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches' },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils' },
     ],
   },
 ];

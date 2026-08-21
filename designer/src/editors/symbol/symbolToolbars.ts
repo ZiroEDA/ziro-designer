@@ -70,9 +70,9 @@ export const SYM_LEFT_TOOLBAR: ToolEntry[] = [
     title: 'Toggle grid overrides',
     toggle: true,
   },
-  { id: 'unitsInches', icon: 'unitsInches', title: 'Inches', toggle: true },
-  { id: 'unitsMils', icon: 'unitsMils', title: 'Mils', toggle: true },
-  { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters', toggle: true },
+  { id: 'unitsInches', icon: 'unitsInches', title: 'Inches' },
+  { id: 'unitsMils', icon: 'unitsMils', title: 'Mils' },
+  { id: 'unitsMm', icon: 'unitsMm', title: 'Millimeters' },
   {
     id: 'toggleCursorStyle',
     icon: 'crosshairSmall',

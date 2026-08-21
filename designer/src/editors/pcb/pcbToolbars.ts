@@ -85,22 +85,32 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
     title: 'Display polar coordinates',
     toggle: true,
   },
+  // None of these nine actions is a toggle upstream, so none of the three
+  // group buttons can ever paint checked — they cycle and light only on hover.
+  // `millimetersUnits` / `inchesUnits` / `milsUnits` (`actions.cpp:1113-1131`),
+  // `cursorSmallCrosshairs` / `cursorFullCrosshairs` / `cursor45Crosshairs`
+  // (`:1182-1201`) and `lineModeFree` / `lineMode90` / `lineMode45`
+  // (`pcb_actions.cpp:1501-1520`) all declare `.Flags( AF_NONE )` and no
+  // `ToolbarState`, so `AddGroup`'s `isToggleEntry` is false and the item is
+  // wxITEM_NORMAL. The tool groups further down — selection modes, routing,
+  // tuning — are the opposite case and DO stay lit, because their actions
+  // declare `TOOLBAR_STATE::TOGGLE`.
   {
     group: 'Units',
     cycleOnClick: true,
     actions: [
-      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres', toggle: true },
-      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches', toggle: true },
-      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils', toggle: true },
+      { id: 'unitsMm', icon: 'unitsMm', title: 'Units in millimetres' },
+      { id: 'unitsInches', icon: 'unitsInches', title: 'Units in inches' },
+      { id: 'unitsMils', icon: 'unitsMils', title: 'Units in mils' },
     ],
   },
   {
     group: 'Crosshair modes',
     cycleOnClick: true,
     actions: [
-      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs', toggle: true },
-      { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs', toggle: true },
-      { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs', toggle: true },
+      { id: 'crosshairSmall', icon: 'crosshairSmall', title: 'Small crosshairs' },
+      { id: 'crosshairFull', icon: 'crosshairFull', title: 'Full-window crosshairs' },
+      { id: 'crosshair45', icon: 'crosshair45', title: '45° crosshairs' },
     ],
   },
   sep,
@@ -108,9 +118,9 @@ export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
     group: 'Line modes',
     cycleOnClick: true,
     actions: [
-      { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle', toggle: true },
-      { id: 'lineMode90', icon: 'lineMode90', title: 'Line mode: 90°', toggle: true },
-      { id: 'lineMode45', icon: 'lineMode45', title: 'Line mode: 45°', toggle: true },
+      { id: 'lineModeFree', icon: 'lineModeFree', title: 'Line mode: free angle' },
+      { id: 'lineMode90', icon: 'lineMode90', title: 'Line mode: 90°' },
+      { id: 'lineMode45', icon: 'lineMode45', title: 'Line mode: 45°' },
     ],
   },
   sep,

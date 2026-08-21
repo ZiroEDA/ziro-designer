@@ -111,6 +111,27 @@ export function Toolbar({
     opts: { group?: ToolGroup; inPalette?: boolean } = {},
   ): JSX.Element => {
     const disabled = isDisabled(b);
+    /**
+     * Whether a button can paint checked is decided by the ACTION, not here —
+     * `ACTION_TOOLBAR::AddGroup` (`common/tool/action_toolbar.cpp:527-535`):
+     *
+     *     for( const auto& act : aGroup->GetActions() )
+     *         isToggleEntry |= act->CheckToolbarState( TOOLBAR_STATE::TOGGLE );
+     *     AddTool( ..., isToggleEntry ? wxITEM_CHECK : wxITEM_NORMAL, ... );
+     *
+     * So a group whose actions are not toggles is a wxITEM_NORMAL and cannot
+     * light up, and there is nothing for this function to test: the toolbar
+     * inventories carry `toggle` exactly where upstream carries
+     * `TOOLBAR_STATE::TOGGLE`, and `toolbar_group_check.test.ts` holds them to
+     * it. A gate here would be a second copy of that rule, and a wrong one —
+     * upstream would happily check a *cycling* group if one of its actions
+     * declared TOGGLE.
+     *
+     * Membership of `toggled` still picks WHICH action a group button displays,
+     * which is `doSelectAction` driven by `SelectToolbarAction`. Displaying an
+     * action and being checked are two decisions, and the units group is where
+     * ours had them as one.
+     */
     const isActive = !opts.inPalette && (activeTool === b.id || toggled?.has(b.id));
     const url = toolbarIconUrl(b.id) ?? toolbarIconUrl(b.icon);
     const g = opts.group;
