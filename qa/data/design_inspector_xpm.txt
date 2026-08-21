@@ -1,0 +1,121 @@
+# The Design Inspector's six type icons, vendored verbatim from
+# /home/akshay/kicad-reference/pagelayout_editor/dialogs/design_inspector.cpp
+# (lines 46-158 of KiCad 10.0.5), so ds_inspector_icons.test.ts can diff our
+# mirrored table against KiCad's own without needing the reference tree on the
+# machine running the tests.
+#
+# These are DATA: KiCad hardcodes them in that one file, they are not in its
+# icon set and not theme-derived. Do not tidy, reformat or "improve" them.
+static const char*  root_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #008080",
+    "   xxxx     ",
+    "     xxx    ",
+    "      xxx   ",
+    "       xxx  ",
+    "xxxxxxxxxxx ",
+    "xxxxxxxxxxxx",
+    "xxxxxxxxxxx ",
+    "       xxx  ",
+    "      xxx   ",
+    "     xxx    ",
+    "   xxxx     ",
+    "            "
+};
+
+static const char*  line_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #008080",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xx          ",
+    "xxxxxxxxxxxx",
+    "xxxxxxxxxxxx"
+};
+
+static const char*  rect_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #000080",
+    "xxxxxxxxxxxx",
+    "xxxxxxxxxxxx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xx        xx",
+    "xxxxxxxxxxxx",
+    "xxxxxxxxxxxx"
+};
+
+static const char*  text_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #800000",
+    " xxxxxxxxxx ",
+    "xxxxxxxxxxxx",
+    "xx   xx   xx",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "    xxxx    ",
+    "   xxxxxx   "
+};
+
+static const char*  poly_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #008000",
+    "     xx     ",
+    "    xxxx    ",
+    "   xxxxxx   ",
+    "  xxxxxxxx  ",
+    " xxxxxxxxxx ",
+    "xxxxxxxxxxxx",
+    "xxxxxxxxxxxx",
+    " xxxxxxxxxx ",
+    "  xxxxxxxx  ",
+    "   xxxxxx   ",
+    "    xxxx    ",
+    "     xx     "
+};
+
+static const char*  img_xpm[] =
+{
+    "12 12 2 1",
+    "  c None",
+    "x c #800000",
+    "     xx     ",
+    "   xxxxxx   ",
+    " xx      xx ",
+    "xx        xx",
+    "xx        xx",
+    " xx      xx ",
+    "   xxxxxx   ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     ",
+    "     xx     "
+};
