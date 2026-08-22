@@ -186,7 +186,11 @@ describe('the hotkey inventory', () => {
     // column filled where nothing is bound would be noise.
     const withAlt = rows.filter((e) => e.alt !== '');
     expect(withAlt.map((e) => e.command).sort()).toEqual(['Accept Autocomplete', 'Zoom to Fit']);
-    expect(rows.find((e) => e.command === 'Accept Autocomplete')?.alt).toBe('Numpad Enter');
+    // `{ wxT( "Num Pad Enter" ), WXK_NUMPAD_ENTER }` — hotkeys_basic.cpp:127.
+    // Two words. This assertion used to say 'Numpad Enter', which is not
+    // KiCad's spelling of any key and disagreed with `ui/key_names.ts:86`,
+    // which had it right — so the wrong one was the one under test.
+    expect(rows.find((e) => e.command === 'Accept Autocomplete')?.alt).toBe('Num Pad Enter');
   });
 
   it('has no duplicate ACTION within a section', () => {
