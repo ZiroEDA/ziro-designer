@@ -6913,11 +6913,6 @@ export function SchematicEditor({
         // platform as an alias.
         e.preventDefault();
         controller.current?.zoomToFit();
-      // Ctrl++ / Ctrl+- are deliberately NOT bound. They are `ACTIONS::zoomIn`
-      // and `ACTIONS::zoomOut`'s `#if defined( __WXMAC__ )` defaults
-      // (`actions.cpp:749-763`); this platform takes the `#else` branch, F1 and
-      // F2, which are bound below. Binding both spellings gave us a key real
-      // KiCad does not have here.
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
         // ACTIONS::toggleUnits (Ctrl+U): imperial <-> metric, remembering the
         // last imperial unit (COMMON_TOOLS m_imperialUnit, initially inches).
@@ -6984,6 +6979,11 @@ export function SchematicEditor({
         // ACTIONS::zoomIn, "Zoom In at Cursor" (F1 off macOS). It is not
         // zoomInCenter, which this used to be labelled: that action zooms about
         // the viewport centre and has no default hotkey at all.
+        //
+        // Ctrl++ is deliberately NOT bound as a second spelling. That is this
+        // same action's `#if defined( __WXMAC__ )` default (actions.cpp:747-752)
+        // and F1 is the `#else` branch, so binding both gave us a key real
+        // KiCad does not have on this platform. Ctrl+- likewise, below.
         e.preventDefault();
         controller.current?.zoomIn();
       } else if (e.key === 'F2' && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
