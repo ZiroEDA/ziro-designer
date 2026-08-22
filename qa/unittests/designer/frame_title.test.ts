@@ -213,24 +213,27 @@ function hyphenTitleCounts(): Record<string, number> {
 describe('the hyphen titles still to migrate', () => {
   /**
    * Six call sites wrote `&nbsp;-&nbsp;<Frame Name>` where upstream writes an
-   * em dash. GerbView's went first and the Schematic Editor's followed, when
+   * em dash. GerbView's went first, the Schematic Editor's followed when
    * `SCH_EDIT_FRAME::updateTitle` was rebuilt on the shared rule
-   * (`editors/schematic/frame_title.ts`); the remaining four are a separate
-   * pass that Akshay sequences, and this map is its checklist. It fails on a
-   * NEW one and on a STALE one, so removing a site means lowering this in the
-   * same commit.
+   * (`editors/schematic/frame_title.ts`), and the Symbol and Footprint
+   * Editors' went together with `editors/{symbol,footprint}/frame_title.ts`.
+   * This map is the checklist for what is left. It fails on a NEW one and on a
+   * STALE one, so removing a site means lowering this in the same commit.
+   *
+   * The two survivors are both in the PCB editor and are rows 1 and 12 of
+   * `docs/frame-titles.md` — `PCB_EDIT_FRAME`'s own title and the 3D viewer
+   * child frame's, the one frame of the thirteen that puts its NAME first.
+   * Re-derived by counting the tree, not by copying what the run printed.
    */
-  it('are exactly these four, in three files', () => {
+  it('are exactly these two, in one file', () => {
     expect(hyphenTitleCounts()).toEqual({
-      'editors/footprint/FootprintEditor.tsx': 1,
       'editors/pcb/PcbEditor.tsx': 2,
-      'editors/symbol/SymbolEditor.tsx': 1,
     });
   });
 
-  it('total four, so a fifth anywhere fails', () => {
+  it('total two, so a third anywhere fails', () => {
     const total = Object.values(hyphenTitleCounts()).reduce((a, b) => a + b, 0);
-    expect(total).toBe(4);
+    expect(total).toBe(2);
   });
 
   /** The Schematic Editor's is gone, the same way GerbView's is. */
@@ -243,6 +246,23 @@ describe('the hyphen titles still to migrate', () => {
   it('does not include any gerbview file', () => {
     expect(
       Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/gerbview/')),
+    ).toEqual([]);
+  });
+
+  /**
+   * Named one file at a time rather than as a single "no editor outside pcb"
+   * rule, because a removal is per-occurrence: a check that the SET shrank
+   * passes while a sibling still carries one.
+   */
+  it('does not include the symbol editor', () => {
+    expect(Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/symbol/'))).toEqual(
+      [],
+    );
+  });
+
+  it('does not include the footprint editor', () => {
+    expect(
+      Object.keys(hyphenTitleCounts()).filter((f) => f.startsWith('editors/footprint/')),
     ).toEqual([]);
   });
 });
