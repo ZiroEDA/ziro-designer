@@ -42,7 +42,7 @@ import {
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
-import { decideLoad, ERRORS_CAPTION } from './gerber_load_report.js';
+import { decideLoad, ERRORS_CAPTION, plotBatchSelfSorts } from './gerber_load_report.js';
 import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
 import { MenuBar, type Menu } from '../../ui/MenuBar.js';
@@ -472,19 +472,31 @@ export function GerberViewer({
       // of this batch went into, not slot 0 — a second Open adds to the layers
       // already there and makes the first of the new ones active.
       let firstLoadedLayer: number | null = null;
-      // A zip and a job file each run their OWN upstream sort, on the paths
-      // that own them; this one must not then re-sort behind them.
-      let selfSorted = false;
-      // Sort so a .gbrjob is processed last (it only re-colours), gerbers first.
+      // A zip runs its OWN upstream sort, on the path that owns it; this one
+      // must not then re-sort behind it. A .gbrjob does NOT belong on that
+      // list: `LoadListOfGerberAndDrillFiles` refuses one outright —
+      //
+      //     if( filename.GetExt() == FILEEXT::GerberJobFileExtension )
+      //     {   //We cannot read a gerber job file as a gerber plot file: skip it
+      //         txt.Printf( _( "<b>A gerber job file cannot be loaded as a plot
+      //                         file</b> <i>%s</i>" ), ... );
+      //         success = false;
+      //         reporter.Report( txt, RPT_SEVERITY_ERROR );
+      //         continue;   }          (`gerbview/files.cpp:301-310`)
+      //
+      // so it takes no layer, applies no colours and has NO bearing on the
+      // sort. `decideLoad` already carries that refusal, with upstream's own
+      // message, and the file only had to reach it. Applying it here instead
+      // ALSO set selfSorted, and one .gbrjob anywhere in a batch then
+      // suppressed the sort for the whole load — which is why a folder opened
+      // whole came out in file-chooser order with the drill file last.
+      // "Open Gerber Job File" is a different entry point
+      // (`job_file_reader.cpp:176`) and still reads one properly.
+      const selfSorted = plotBatchSelfSorts(arr.map((f) => f.name));
       for (const f of arr) {
-        const lower = f.name.toLowerCase();
-        if (lower.endsWith('.zip')) {
+        if (f.name.toLowerCase().endsWith('.zip')) {
           const at = await loadZip(f);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
-          selfSorted = true;
-        } else if (lower.endsWith('.gbrjob')) {
-          applyJobFile(await f.text());
-          selfSorted = true;
         } else {
           const at = loadTextFile(f.name, await f.text(), fileType);
           if (firstLoadedLayer === null) firstLoadedLayer = at;
@@ -509,7 +521,7 @@ export function GerberViewer({
       if (firstLoadedLayer !== null) setActiveLayer(firstLoadedLayer);
       flushReports();
     },
-    [loadTextFile, loadZip, applyJobFile, setActiveLayer, sortByFileExtension, flushReports],
+    [loadTextFile, loadZip, setActiveLayer, sortByFileExtension, flushReports],
   );
 
   /**

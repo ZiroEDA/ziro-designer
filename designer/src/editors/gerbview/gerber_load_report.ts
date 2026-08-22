@@ -93,3 +93,23 @@ export function decideLoad(
 
   return { kind: 'parse', type: fileType };
 }
+
+/**
+ * Does this batch run its own sort, so `LoadListOfGerberAndDrillFiles`' one
+ * must not run behind it?
+ *
+ * Only a zip does. `LoadZipArchiveFile` ends by sorting the archive's contents
+ * itself — by X2 attributes when any gerber in it was X2, otherwise by file
+ * extension (`gerbview/files.cpp:631-634`) — so the caller leaves it alone.
+ *
+ * A `.gbrjob` does NOT, and that is the point of this function. Upstream
+ * refuses one on the plot path outright (`files.cpp:301-310`, and `decideLoad`
+ * above carries the same refusal), so it takes no layer and has no bearing on
+ * the ordering. Ours used to APPLY it here and mark the batch self-sorted, and
+ * because a KiCad plot folder contains exactly one `.gbrjob`, opening a whole
+ * folder silently skipped the sort and left the layers in file-chooser order
+ * with the drill file last instead of first.
+ */
+export function plotBatchSelfSorts(fileNames: readonly string[]): boolean {
+  return fileNames.some((n) => n.toLowerCase().endsWith('.zip'));
+}
