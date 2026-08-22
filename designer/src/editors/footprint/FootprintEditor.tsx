@@ -60,14 +60,12 @@ import { layerColor, PCB_PAINT_ORDER } from '../pcb/pcbTheme.js';
 import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { standardHelpMenu } from '../../ui/help_menu.js';
+import { footprintEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
-import { addClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
-import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
  * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
@@ -863,201 +861,120 @@ export function FootprintEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, [rotateSel, selectTool, activeTool, drawStart, newLibName, newFpName, propsOpen, padDialogId]);
 
-  // ----- menus (menubar_footprint_editor.cpp, working subset) -------------------
-  const menus: Menu[] = useMemo(
-    () => [
-      {
-        label: 'File',
-        items: [
-          { label: 'New Library...', icon: 'newLibrary', action: () => setNewLibName('') },
-          {
-            label: 'Add Library...',
-            icon: 'addLibrary',
-            action: () => addLibInputRef.current?.click(),
-          },
-          {
-            label: 'New Footprint...',
-            icon: 'newFootprint',
-            action: () => setNewFpName(''),
-            shortcut: browserSafeKey('Ctrl+N'),
-            disabled: !targetLib,
-          },
-          { sep: true },
-          {
-            label: 'Save',
-            icon: 'save',
-            action: save,
-            shortcut: 'Ctrl+S',
-            disabled: !manager.current.hasModifications(),
-          },
-          { label: 'Save All', action: saveAll },
-          { sep: true },
-          {
-            label: 'Import Footprint...',
-            icon: 'importSymbol',
-            action: () => importInputRef.current?.click(),
-          },
-          {
-            label: 'Export Footprint...',
-            icon: 'exportSymbol',
-            action: () => {
-              const l = treeSel?.lib ?? curLib,
-                n = treeSel?.name ?? curName;
-              if (l && n) {
-                const t = manager.current.saveFootprintText(l, n);
-                if (t) downloadText(`${n}.kicad_mod`, t);
-              }
-            },
-            disabled: !curName && !treeSel?.name,
-          },
-          { sep: true },
-          {
-            label: 'Footprint Properties...',
-            icon: 'footprintProperties',
-            action: () => workFp && setPropsOpen(true),
-            disabled: !workFp,
-          },
-          { sep: true },
-          addClose('Footprint Editor', onExitToHome),
-        ],
-      },
-      {
-        label: 'Edit',
-        items: [
-          { label: 'Undo', icon: 'undo', action: undo, shortcut: 'Ctrl+Z' },
-          { label: 'Redo', icon: 'redo', action: redo, shortcut: 'Ctrl+Y' },
-          { sep: true },
-          { label: 'Cut', icon: 'cut', disabled: true },
-          { label: 'Copy', icon: 'copy', disabled: true },
-          { label: 'Paste', icon: 'paste', disabled: true },
-          {
-            label: 'Delete',
-            icon: 'delete',
-            action: deleteSel,
-            shortcut: 'Delete',
-            disabled: selection.size === 0,
-          },
-          { sep: true },
-          { label: 'Pad Table...', icon: 'padTable', disabled: true },
-          { label: 'Default Pad Properties...', disabled: true },
-        ],
-      },
-      {
-        label: 'View',
-        items: [
-          { label: 'Zoom In', icon: 'zoomIn', action: () => controller.current?.zoomIn() },
-          { label: 'Zoom Out', icon: 'zoomOut', action: () => controller.current?.zoomOut() },
-          {
-            label: 'Zoom to Fit',
-            icon: 'zoomFit',
-            action: () => controller.current?.zoomToFit(),
-            shortcut: 'F',
-          },
-          { sep: true },
-          {
-            label: `${toggles.has('showLibraryTree') ? '✓ ' : ''}Footprint Tree`,
-            action: () => onLeftToggle('showLibraryTree'),
-          },
-          {
-            label: `${toggles.has('showLayersManager') ? '✓ ' : ''}Appearance Manager`,
-            action: () => onLeftToggle('showLayersManager'),
-          },
-          {
-            label: `${toggles.has('showProperties') ? '✓ ' : ''}Properties Manager`,
-            action: () => onLeftToggle('showProperties'),
-          },
-          { sep: true },
-          {
-            label: `${toggles.has('padDisplayMode') ? '✓ ' : ''}Sketch Pads`,
-            action: () => onLeftToggle('padDisplayMode'),
-          },
-          { label: '3D Viewer', disabled: true },
-        ],
-      },
-      {
-        label: 'Place',
-        items: [
-          {
-            label: 'Pad',
-            icon: 'placePad',
-            action: () => selectTool('placePad'),
-            disabled: !workFp,
-          },
-          {
-            label: 'Line',
-            icon: 'drawLine',
-            action: () => selectTool('drawLine'),
-            disabled: !workFp,
-          },
-          { label: 'Arc', icon: 'drawArc', disabled: true },
-          {
-            label: 'Rectangle',
-            icon: 'drawRectangle',
-            action: () => selectTool('drawRectangle'),
-            disabled: !workFp,
-          },
-          {
-            label: 'Circle',
-            icon: 'drawCircle',
-            action: () => selectTool('drawCircle'),
-            disabled: !workFp,
-          },
-          { label: 'Polygon', icon: 'drawPolygon', disabled: true },
-          { label: 'Text', icon: 'placeText', disabled: true },
-          { sep: true },
-          { label: 'Set Anchor', icon: 'setAnchor', disabled: true },
-          { label: 'Grid Origin', disabled: true },
-        ],
-      },
-      {
-        label: 'Inspect',
-        items: [
-          { label: 'Measure Tool', icon: 'measure', disabled: true },
-          { sep: true },
-          { label: 'Footprint Checker...', icon: 'checkFootprint', disabled: true },
-          { sep: true },
-          {
-            label: 'Show Datasheet',
-            icon: 'showDatasheet',
-            action: showDatasheet,
-            disabled: !workFp,
-          },
-        ],
-      },
-      {
-        label: 'Tools',
-        items: [
-          {
-            label: 'Load Footprint from Current Board...',
-            icon: 'loadFpFromBoard',
-            disabled: true,
-          },
-          { label: 'Insert Footprint into Current Board', icon: 'saveFpToBoard', disabled: true },
-          { sep: true },
-          { label: 'Cleanup Graphics...', disabled: true },
-          { label: 'Repair Footprint', disabled: true },
-        ],
-      },
-      { label: 'Preferences', items: [{ label: 'Preferences...', disabled: true }] },
-      standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
-    ],
+  // ----- menus (menubar_footprint_editor.cpp) -----------------------------------
+  //
+  // The tree lives in `menubar.ts`. A menu built inside a `.tsx` cannot be
+  // reached by any test - `qa`'s tsconfig compiles `.ts` only - so nothing
+  // could have caught a missing row. What stays here is the frame's half: the
+  // three handlers and the ENABLE() conditions.
+  const onMenuAction = useCallback(
+    (id: string) => {
+      switch (id) {
+        case 'newLibrary':
+          setNewLibName('');
+          break;
+        case 'addLibrary':
+          addLibInputRef.current?.click();
+          break;
+        case 'newFootprint':
+          setNewFpName('');
+          break;
+        case 'save':
+          save();
+          break;
+        case 'saveAll':
+          saveAll();
+          break;
+        case 'importFootprint':
+          importInputRef.current?.click();
+          break;
+        case 'exportFootprint': {
+          const l = treeSel?.lib ?? curLib,
+            n = treeSel?.name ?? curName;
+          if (l && n) {
+            const t = manager.current.saveFootprintText(l, n);
+            if (t) downloadText(`${n}.kicad_mod`, t);
+          }
+          break;
+        }
+        case 'footprintProperties':
+          if (workFp) setPropsOpen(true);
+          break;
+        case 'close':
+          onExitToHome();
+          break;
+        case 'undo':
+          undo();
+          break;
+        case 'redo':
+          redo();
+          break;
+        case 'doDelete':
+          deleteSel();
+          break;
+        case 'zoomInCenter':
+          controller.current?.zoomIn();
+          break;
+        case 'zoomOutCenter':
+          controller.current?.zoomOut();
+          break;
+        case 'zoomFitScreen':
+          controller.current?.zoomToFit();
+          break;
+        case 'showDatasheet':
+          showDatasheet();
+          break;
+      }
+    },
     [
       save,
       saveAll,
       undo,
       redo,
       deleteSel,
-      selection,
-      selectTool,
       onExitToHome,
-      targetLib,
       treeSel,
       curLib,
       curName,
-      toggles,
-      onLeftToggle,
-      showDatasheet,
       workFp,
+      showDatasheet,
+    ],
+  );
+
+  const menus: Menu[] = useMemo(
+    () =>
+      footprintEditorMenus(
+        {
+          action: onMenuAction,
+          tool: selectTool,
+          toggle: onLeftToggle,
+          showHotkeys: showHotkeyList,
+          showAbout: () => setAboutOpen(true),
+        },
+        {
+          showLibraryTree: toggles.has('showLibraryTree'),
+          showLayersManager: toggles.has('showLayersManager'),
+          showProperties: toggles.has('showProperties'),
+          padDisplayMode: toggles.has('padDisplayMode'),
+        },
+        {
+          haveFootprint: !!workFp,
+          targetLib: !!targetLib,
+          modified: manager.current.hasModifications(),
+          targetFootprint: !!(curName || treeSel?.name),
+          haveSelection: selection.size > 0,
+        },
+      ),
+    [
+      onMenuAction,
+      selectTool,
+      onLeftToggle,
+      toggles,
+      workFp,
+      targetLib,
+      curName,
+      treeSel,
+      selection,
     ],
   );
 

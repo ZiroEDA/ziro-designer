@@ -147,13 +147,17 @@ interface FrameRow {
 
 const FRAMES: FrameRow[] = [
   {
-    file: 'editors/symbol/SymbolEditor.tsx',
+    // The bar moved out of the frame into its own data module, the way
+    // eeschema's and gerbview's did, so that qa can compile it.
+    file: 'editors/symbol/menubar.ts',
     upstream: 'eeschema/symbol_editor/menubar_symbol_editor.cpp:88',
     app: 'Library Editor',
     rows: ['close'],
   },
   {
-    file: 'editors/footprint/FootprintEditor.tsx',
+    // Likewise: `editors/footprint/menubar.ts` is the tree, and the frame keeps
+    // only the handlers.
+    file: 'editors/footprint/menubar.ts',
     upstream: 'pcbnew/menubar_footprint_editor.cpp:92',
     app: 'Footprint Editor',
     rows: ['close'],

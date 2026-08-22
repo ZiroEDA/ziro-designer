@@ -29,6 +29,8 @@ import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
+import { footprintEditorMenus } from '@ziroeda/designer/src/editors/footprint/menubar.js';
 import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
 import {
   addClose,
@@ -211,6 +213,8 @@ const source = (rel: string): string => {
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
+  'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
+  'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
 };
 
 /** The frame's source, or the module its menus live in when they were split out. */
@@ -536,6 +540,30 @@ const CANVAS_KEYS: Readonly<
   },
 };
 
+/**
+ * The frame's source with its menu-action dispatcher cut out.
+ *
+ * A row's action used to sit inline in the row - `action: deleteSel`. Now that
+ * three frames build their tree in a `.ts` module the frame reaches those
+ * actions by id instead, so the body that used to be the row's `action:` now
+ * lives in an `onMenuAction` switch. That switch IS the row's declaration
+ * reached the other way round, not a second one - counting it as a restatement
+ * would mean no frame could ever move its menus out.
+ *
+ * What a `moved` entry asks is whether the frame's own KEY CHAIN still claims a
+ * key the row already declares. The dispatcher is not the key chain, so it is
+ * removed before the question is put; everything else stays, because a `moved`
+ * regex like `openTrackViaPropertiesRef` names a ref declared well outside it.
+ */
+function frameOutsideMenuActions(rel: string): string {
+  const src = source(rel);
+  const start = src.indexOf('  const onMenuAction = useCallback(');
+  if (start < 0) return src;
+  const end = src.indexOf('\n  );\n', start);
+  expect(end, `${rel}: onMenuAction has no end`).toBeGreaterThan(start);
+  return src.slice(0, start) + src.slice(end);
+}
+
 describe('a converted canvas frame keeps its tool keys and gives up the rest', () => {
   const frames = Object.keys(CANVAS_KEYS);
 
@@ -547,9 +575,15 @@ describe('a converted canvas frame keeps its tool keys and gives up the rest', (
 
   it.each(frames)('%s', (rel) => {
     const src = source(rel);
+    const outside = frameOutsideMenuActions(rel);
+    // A cut that swallowed the key chain would make every `moved` entry below
+    // pass for the wrong reason, which is the one way this check cannot fail.
+    expect(outside, `${rel}: the key chain was cut away with the dispatcher`).toContain(
+      'dispatchMenuHotkey',
+    );
     const { moved, kept } = CANVAS_KEYS[rel]!;
     expect(
-      moved.filter(([, re]) => re.test(src)).map(([name]) => name),
+      moved.filter(([, re]) => re.test(outside)).map(([name]) => name),
       'restated beside the menu row that already declares it',
     ).toEqual([]);
     expect(
@@ -563,21 +597,69 @@ describe('a converted canvas frame keeps its tool keys and gives up the rest', (
   });
 });
 
+const noop = (): void => {};
+
 /**
- * Every accelerator a frame's menu rows declare, read out of its source.
+ * The frames whose menu tree is a data module, and so can simply be BUILT here.
  *
- * The frames are `.tsx` and `qa`'s tsconfig compiles `.ts` only, so their menu
- * trees cannot be built here the way `buildManagerMenus` can. What *can* be
- * read is the declaration itself - `shortcut: 'Ctrl+S'` - and that is the thing
- * under test: a row's accelerator is only real if `ui/menu_hotkeys.ts` can
- * parse it and match a keystroke to it. `Ctrl++`, `Del`, `Home`, `F5` and the
+ * Every handler is a no-op and every condition is true, because what is being
+ * collected is the set of accelerators the bar prints - a greyed row still
+ * prints one, and upstream still attaches the `wxAcceleratorEntry`.
+ */
+const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
+  'editors/symbol/SymbolEditor.tsx': () =>
+    symbolEditorMenus(
+      { action: noop, tool: noop, toggle: noop, showHotkeys: noop, showAbout: noop },
+      {},
+      { haveSymbol: true, revert: true, targetSymbol: true },
+    ),
+  'editors/footprint/FootprintEditor.tsx': () =>
+    footprintEditorMenus(
+      { action: noop, tool: noop, toggle: noop, showHotkeys: noop, showAbout: noop },
+      {},
+      {
+        haveFootprint: true,
+        targetLib: true,
+        modified: true,
+        targetFootprint: true,
+        haveSelection: true,
+      },
+    ),
+};
+
+/**
+ * Every accelerator a frame's menu rows declare.
+ *
+ * A row's accelerator is only real if `ui/menu_hotkeys.ts` can parse it and
+ * match a keystroke to it. `Ctrl++`, `Del`, `Home`, `F5` and the
  * `browserSafeKey` substitutions are each a way for that to fail quietly, and
  * before the dispatcher existed every one of them failed by default.
+ *
+ * Where the tree is a data module this READS THE TREE, which is the whole point
+ * of splitting one out. Where it is still inline in a `.tsx` - `qa`'s tsconfig
+ * compiles `.ts` only - the declaration has to be scraped out of the source
+ * instead, and that scrape is exactly as good as the spelling it happens to
+ * find: `shortcut: 'P'` it sees, `tool('Pin', 'placePin', 'placePin', 'P')` it
+ * does not.
  */
 function declaredAccelerators(rel: string): string[] {
   const out = new Set<string>();
-  for (const m of source(rel).matchAll(/shortcut:\s*'([^']+)'/g)) out.add(m[1]!);
-  for (const m of source(rel).matchAll(/shortcut:\s*browserSafeKey\('([^']+)'\)/g))
+  const build = MENU_BUILDER[rel];
+
+  if (build) {
+    const walk = (items: readonly MenuItem[]): void => {
+      for (const it of items) {
+        if (it.shortcut) out.add(it.shortcut);
+        walk(it.submenu ?? it.items ?? []);
+      }
+    };
+    for (const m of build()) walk(m.items);
+    return [...out].sort();
+  }
+
+  const src = menuSource(rel);
+  for (const m of src.matchAll(/shortcut:\s*'([^']+)'/g)) out.add(m[1]!);
+  for (const m of src.matchAll(/shortcut:\s*browserSafeKey\('([^']+)'\)/g))
     out.add(browserSafeKey(m[1]!));
   return [...out].sort();
 }
@@ -778,6 +860,14 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Shift+Ctrl+S',
   ],
   'editors/footprint/FootprintEditor.tsx': [
+    // The two rows the SHARED builders add, which no scrape has ever seen:
+    // `addClose` writes File > Close and `standardHelpMenu` writes Help > List
+    // Hotkeys, so neither spells a `shortcut:` anywhere in a frame's source.
+    // They show up here only because this frame's tree is now BUILT rather than
+    // read, and every other entry in this table is still missing them for
+    // exactly that reason.
+    'Ctrl+Alt+W',
+    'Ctrl+F1',
     'Ctrl+Alt+N',
     'Ctrl+S',
     'Ctrl+Y',
@@ -820,6 +910,14 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+,',
   ],
   'editors/symbol/SymbolEditor.tsx': [
+    // The two rows the SHARED builders add, which no scrape has ever seen:
+    // `addClose` writes File > Close and `standardHelpMenu` writes Help > List
+    // Hotkeys, so neither spells a `shortcut:` anywhere in a frame's source.
+    // They show up here only because this frame's tree is now BUILT rather than
+    // read, and every other entry in this table is still missing them for
+    // exactly that reason.
+    'Ctrl+Alt+W',
+    'Ctrl+F1',
     'Ctrl+Alt+N',
     'Ctrl+S',
     'Ctrl+Y',
