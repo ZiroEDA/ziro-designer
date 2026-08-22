@@ -48,6 +48,7 @@ import {
   resolvedProjectSymLibs,
 } from '../schematic/symbols/project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import { useSchematicTheme } from '../../prefs/useSettings.js';
 import { pcm } from '../../pcm/pcmStore.js';
@@ -214,7 +215,6 @@ export function SymbolEditor({
   onExitToHome,
   initialProject,
   onAddSymbolToSchematic,
-  projectName,
   openRequest,
   schematicSymbol,
   onSaveToSchematic,
@@ -223,8 +223,6 @@ export function SymbolEditor({
   initialProject?: SymbolEditorFile[] | null;
   /** eeschema wiring for "Add symbol to schematic" (SCH_ACTIONS::addSymbolToSchematic). */
   onAddSymbolToSchematic?: (sym: LibSymbol) => void;
-  /** Project name shown as "<project>, Symbol Editor" in the menu bar. */
-  projectName?: string;
   /** The `.kicad_sym` the project manager launched us on (KiCad's MAIL_LIB_EDIT).
    *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
   openRequest?: { file: string | null; nonce: number } | null;
@@ -1608,12 +1606,53 @@ export function SymbolEditor({
   // The chain above reads the tree through this ref; see `menusRef`.
   menusRef.current = menus;
 
-  // ----- title (UpdateTitle) -------------------------------------------------------------
+  // ----- title (SYMBOL_EDIT_FRAME::UpdateTitle) ------------------------------------------
+  //
+  // Built by the shared rule rather than restated here - see `frame_title.ts`
+  // for the C++ and for the three things this frame decides for itself. What
+  // used to be here printed the PROJECT name where the LIB_ID goes, which is
+  // not a formatting slip but the wrong document: editing `Device:R` read
+  // `MyProject - Symbol Editor`.
   const modified = curLib && curName ? manager.current.isSymbolModified(curLib, curName) : false;
-  useDocumentTitle(
-    'symbols',
-    formatTitle('Symbol Editor', curName ? `${curLib}:${curName}` : null, modified),
+  const symTitle = useMemo(
+    () =>
+      symFrameTitle(
+        {
+          // `GetCurSymbol()`.
+          hasSymbol: workSymbol !== null && workSymbol !== undefined,
+          // `IsSymbolFromSchematic()`.
+          fromSchematic: editingSchematicSymbol,
+          // `m_reference = symbol->GetReferenceField().GetText()`
+          // (symbol_edit_frame.cpp:2048) - the WORKING symbol's Reference
+          // field, which is the same expression upstream evaluates.
+          //
+          // Ours reads `R` where KiCad reads `R12`, and the cause is not here:
+          // `libSymbolFromPlacement` deliberately keeps the LIBRARY's field
+          // values rather than the placement's, because our `libById` is the
+          // schematic's own embedded `lib_symbols` and writing `R12` back into
+          // the cached `Device:R` would arm "Update Symbols from Library" to
+          // push it onto every other resistor. That trade is documented at
+          // `eeschema/src/tools/symbol_from_schematic.ts:30-47` and owned
+          // there; the title just reports what the working symbol says.
+          reference: workSymbol?.properties.find((f) => f.key === 'Reference')?.value ?? '',
+          // `GetCurSymbol()->GetLibId().Format()`, still escaped - the module
+          // unescapes, as `UpdateTitle` does.
+          libId: curName ? `${curLib}:${curName}` : (workSymbol?.libId ?? ''),
+          // `m_libMgr->LibraryExists( … ) && m_libMgr->IsLibraryReadOnly( … )`.
+          // Always false today: `SymbolLibraryManager` has no writability
+          // notion at all, so `[Read Only Library]` cannot yet appear. That is
+          // a missing capability rather than a title bug - the branch is
+          // ported and tested, and lights up as soon as the manager can answer.
+          readOnlyLibrary: false,
+          // `GetScreen() && GetScreen()->IsContentModified()`.
+          modified,
+        },
+        unescapeString,
+      ),
+    [workSymbol, editingSchematicSymbol, curLib, curName, modified],
   );
+
+  useDocumentTitle('symbols', formatTitle(SYM_FRAME_NAME, symTitle.document, modified));
 
   // Library edits are buffered and only written by Save, so closing the tab
   // discards them. `hasModifications()` is the manager's own answer to "is
@@ -1712,7 +1751,12 @@ export function SymbolEditor({
         }
         title={
           <>
-            <b>{projectName || 'No project'}</b>&nbsp;-&nbsp;Symbol Editor
+            <b>
+              {symTitle.modified}
+              {symTitle.document}
+            </b>
+            {symTitle.separator}
+            {symTitle.frameName}
           </>
         }
       />
