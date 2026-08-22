@@ -151,7 +151,30 @@ interface Layer {
 type HighlightMode = 'none' | 'net' | 'component' | 'attribute' | 'dcode';
 
 const UNIT_GROUP = ['unitsMm', 'unitsInches', 'unitsMils'];
-const DEFAULT_TOGGLES = new Set(['toggleGrid', 'unitsMm', 'showLayerManager']);
+/**
+ * `TOOLBAR_GROUP_CONFIG( _( "Crosshair modes" ) )`
+ * (`gerbview/toolbars_gerber.cpp:62-65`) — three separate actions, not a
+ * two-way toggle, each setting one value of
+ * `KIGFX::CROSS_HAIR_MODE { SMALL_CROSS, FULLSCREEN_CROSS, FULLSCREEN_DIAGONAL }`
+ * (`include/gal/gal_display_options.h:67-71`) through
+ * `galOpts.SetCursorMode( ... )` (`common/tool/common_tools.cpp`, the three
+ * COMMON_TOOLS::Cursor*Crosshairs handlers).
+ *
+ * Exclusive like the units, because a cycling group calls onActivate with the
+ * NEXT member's id (`ui/Toolbar.tsx`, `cycleOnClick`) and only one mode can be
+ * in force. Without this the three ids toggled independently and the canvas,
+ * which was reading a single boolean, never saw the diagonal one at all.
+ */
+const CROSSHAIR_GROUP = ['crosshairSmall', 'crosshairFull', 'crosshair45'];
+// `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )` is the GAL_DISPLAY_OPTIONS
+// constructor's default (`common/gal/gal_display_options.cpp:53`), so the small
+// cross is what a fresh frame shows.
+const DEFAULT_TOGGLES = new Set([
+  'toggleGrid',
+  'unitsMm',
+  'showLayerManager',
+  'crosshairSmall',
+]);
 
 /**
  * The layers manager's starting width.
@@ -768,6 +791,9 @@ export function GerberViewer({
       const next = new Set(prev);
       if (UNIT_GROUP.includes(id)) {
         for (const g of UNIT_GROUP) next.delete(g);
+        next.add(id);
+      } else if (CROSSHAIR_GROUP.includes(id)) {
+        for (const g of CROSSHAIR_GROUP) next.delete(g);
         next.add(id);
       } else if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -1463,7 +1489,9 @@ export function GerberViewer({
             bbox={bbox}
             showGrid={toggles.has('toggleGrid')}
             gridIU={gridIU}
-            fullCrosshair={toggles.has('crosshairFull')}
+            crosshairMode={
+              toggles.has('crosshair45') ? '45' : toggles.has('crosshairFull') ? 'full' : 'small'
+            }
             activeTool={activeTool}
             onCursorMove={setCursor}
             onScaleChange={setScale}

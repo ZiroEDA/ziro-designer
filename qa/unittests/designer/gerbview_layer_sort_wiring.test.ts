@@ -116,12 +116,33 @@ describe('the four automatic sorts', () => {
     expect(body.indexOf('const isFirstFile')).toBeLessThan(body.indexOf('for (const f of arr)'));
   });
 
-  it('does not sort twice when the batch carried a zip or a job file', () => {
-    // Those two paths run their own upstream sort; re-sorting by extension
-    // behind them would overwrite an X2 order with a weaker one.
+  it('does not sort twice when the batch carried a ZIP', () => {
+    // A zip runs its own upstream sort — by X2 attributes when any gerber in it
+    // was X2, otherwise by file extension (`gerbview/files.cpp:631-634`) — so
+    // re-sorting by extension behind it would overwrite an X2 order with a
+    // weaker one.
     const at = CODE.indexOf('const loadFiles');
     const body = CODE.slice(at, CODE.indexOf('const openLocalFiles', at));
-    expect(body).toMatch(/selfSorted = true;/);
+    expect(body).toMatch(/plotBatchSelfSorts\(arr\.map\(\(f\) => f\.name\)\)/);
+  });
+
+  it('but a .gbrjob does NOT suppress the sort — upstream refuses it', () => {
+    // This test used to assert the opposite, because the frame APPLIED a job
+    // file found in a plot batch and marked the batch self-sorted. Upstream
+    // does no such thing:
+    //
+    //   if( filename.GetExt() == FILEEXT::GerberJobFileExtension.c_str() )
+    //   {   //We cannot read a gerber job file as a gerber plot file: skip it
+    //       reporter.Report( txt, RPT_SEVERITY_ERROR );
+    //       continue;   }            (`gerbview/files.cpp:301-310`)
+    //
+    // It takes no layer and has no bearing on the ordering. Since a KiCad plot
+    // folder contains exactly one .gbrjob, the old behaviour meant opening a
+    // folder whole ALWAYS skipped the sort — which is how the layers manager
+    // came out in file-chooser order with the drill file last.
+    const at = CODE.indexOf('const loadFiles');
+    const body = CODE.slice(at, CODE.indexOf('const openLocalFiles', at));
+    expect(body).not.toMatch(/applyJobFile/);
   });
 });
 
