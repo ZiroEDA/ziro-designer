@@ -58,6 +58,11 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   ' ': 'Space',
   Escape: 'Esc',
   Delete: 'Del',
+  // `{ wxT( "Ins" ), WXK_INSERT }` — hotkeys_basic.cpp:96. Missing until Repeat
+  // Last Item was moved onto its platform default, at which point the registry
+  // held a combo the parser could not rebuild: `eventFromCombo('Ins')` came
+  // back as `Insert`, so the row could never be rebound to or cleared.
+  Insert: 'Ins',
   Backspace: 'Back',
   ArrowUp: 'Up',
   ArrowDown: 'Down',

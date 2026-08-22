@@ -459,7 +459,15 @@ const CANVAS_KEYS: Readonly<
       ['Ctrl+4 select connection', /selectConnection \(Ctrl\+4\)/],
       // Ins off macOS (sch_actions.cpp:757-759); F1 stays bound as the macOS
       // spelling. Still a canvas key either way — it has no menu row.
-      ['Ins repeat draw item', /repeatDrawItem \(Ins\)/],
+      //
+      // Matched on the CONDITION, not on the comment beside it. The comment
+      // form alone is what this row used to be, and a mutation sweep walked
+      // straight through it: deleting the `'Insert'` arm of the handler left
+      // the comment untouched, so the rule still matched and Ins silently
+      // stopped repeating. A rule that can only see a comment cannot see the
+      // binding.
+      ['Ins repeat draw item', /e\.key === 'Insert'/],
+      ['F1 still repeats as the macOS spelling', /e\.key === 'Insert' \|\| e\.key === 'F1'/],
       ['Ctrl+U toggle units', /toggleUnits \(Ctrl\+U\)/],
       ['Ctrl+Space arc edit mode', /cycleArcEditMode \(Ctrl\+Space\)/],
       ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],
