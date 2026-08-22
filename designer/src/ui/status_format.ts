@@ -17,7 +17,12 @@
  * `GAL_SCREEN_DPI` without pulling React into a canvas module.
  */
 
-import { PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
+import {
+  EdaIuScale,
+  messageTextFromValue as EdaMessageTextFromValue,
+  PCB_IU_PER_MM,
+  unitLabelText,
+} from '@ziroeda/common';
 
 /**
  * The DPI GAL assumes when it converts a view scale to a zoom factor
@@ -68,48 +73,29 @@ export function unitsMsg(units: StatusUnits): string {
 
 /**
  * `MessageTextFromValue`, the lower-precision (readable) formatter every
- * status-bar coordinate goes through.
+ * status-bar coordinate goes through — {@link EdaMessageTextFromValue} in
+ * `common/`, which is where KiCad keeps it (`common/eda_units.cpp:417`).
+ *
+ * This wrapper exists only to keep the status bar's call shape: a length in
+ * **millimetres**, and no unit label, because every status-bar field prints
+ * its unit once in its own pane rather than on each number. Everything about
+ * *how* the number is written — the per-unit precision, the scientific-notation
+ * fallback, the 2-1/2-digit mm trim — belongs to the shared function and is
+ * asked for, never restated here.
  *
  * `short_form` is `aIuScale.IU_PER_MM == SCH_IU_PER_MM` upstream, so eeschema
- * and the symbol editor print one digit fewer than pcbnew everywhere, and mm
- * gets the extra "2-1/2 digits" trim (common/eda_units.cpp:497-503).
+ * and the symbol editor print one digit fewer than pcbnew everywhere.
  */
 export function messageTextFromValue(
   mm: number,
   units: StatusUnits,
   iuPerMM: number = PCB_IU_PER_MM,
 ): string {
-  const shortForm = iuPerMM === SCH_IU_PER_MM;
-  const value = units === 'mm' ? mm : units === 'mils' ? (mm / 25.4) * 1000 : mm / 25.4;
-  const digits =
-    units === 'mm'
-      ? shortForm
-        ? 3
-        : 4
-      : units === 'mils'
-        ? shortForm
-          ? 0
-          : 2
-        : shortForm
-          ? 3
-          : 4;
-
-  let text = value.toFixed(digits);
-
-  // Non-zero values that round to all zeros fall back to scientific notation.
-  if (value !== 0 && !/[1-9]/.test(text)) text = value.toExponential(3);
-
-  // Trim to 2-1/2 digits after the decimal place for short-form mm.
-  if (shortForm && units === 'mm') {
-    const n = text.length;
-    if (n > 4 && text[n - 4] === '.' && text[n - 1] === '0') text = text.slice(0, n - 1);
-  }
-
-  return text;
+  return EdaMessageTextFromValue(new EdaIuScale(iuPerMM), units, mm * iuPerMM, false);
 }
 
 /**
- * `EDA_UNIT_UTILS::GetText` (`common/eda_units.cpp:144-176`) — the unit suffix
+ * `EDA_UNIT_UTILS::GetText` (`common/eda_units.cpp:143-176`) — the unit suffix
  * `MessageTextFromValue` appends when its `aAddUnitsText` is left at its
  * upstream default of true (`include/eda_units.h:226-232`). It carries its own
  * leading space, so `"16535.00" + unitText('mils')` is `"16535.00 mils"`.
@@ -120,41 +106,17 @@ export function messageTextFromValue(
  * takes the default and its rows read `(0.00 mils, 1.97 mils)`.
  */
 export function unitText(units: StatusUnits): string {
-  return units === 'mm' ? ' mm' : units === 'mils' ? ' mils' : ' in';
+  return unitLabelText(units);
 }
 
 /**
- * C's `%g` conversion, which `wxString::Format` hands straight to the C
- * library — `PL_EDITOR_FRAME::UpdateStatusBar` formats its coordinates with
- * `"X %.4g  Y %.4g"` (`pagelayout_editor/pl_editor_frame.cpp:770-771`).
- *
- * `%g` is not "4 significant digits": it is 4 significant digits *and* a switch
- * to exponent form once the exponent leaves the range `-4 <= e < precision`,
- * with trailing zeros trimmed and the exponent padded to two digits. That is
- * why a cold-open pl_editor reads `X 1.266e+04  Y 1.217e+04` and not
- * `X 12660  Y 12170`, which is what `Number(n.toPrecision(4))` gives.
- *
- * The exponent is taken AFTER rounding to `precision` digits, as C does, so
- * 9999.6 at `%.4g` is `1e+04` rather than `9999.6`.
+ * C's `%g` conversion — {@link formatG} in `common/`, re-exported here because
+ * `PL_EDITOR_FRAME::UpdateStatusBar` formats its coordinates with `"X %.4g  Y
+ * %.4g"` (`pagelayout_editor/pl_editor_frame.cpp:770-771`) and the board's
+ * message panel writes a footprint's rotation with the same conversion
+ * (`pcbnew/footprint.cpp:2170`). One implementation, two callers.
  */
-export function formatG(value: number, precision = 4): string {
-  if (!Number.isFinite(value)) return String(value);
-  if (value === 0) return '0';
-
-  const p = precision <= 0 ? 1 : precision;
-  const rounded = value.toExponential(p - 1);
-  const exponent = Number(rounded.slice(rounded.indexOf('e') + 1));
-
-  const trim = (text: string): string =>
-    text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
-
-  if (exponent < -4 || exponent >= p) {
-    const mantissa = trim(rounded.slice(0, rounded.indexOf('e')));
-    const sign = exponent < 0 ? '-' : '+';
-    return `${mantissa}e${sign}${String(Math.abs(exponent)).padStart(2, '0')}`;
-  }
-  return trim(value.toFixed(Math.max(0, p - 1 - exponent)));
-}
+export { formatG } from '@ziroeda/common';
 
 /** Field 2: `"X %s  Y %s"` (two spaces), or the placeholder off-canvas. */
 export function coordsMsg(x: string | null, y?: string): string {

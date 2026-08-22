@@ -96,6 +96,26 @@ export {
   type BoardBBox,
 } from './edit-board.js';
 export {
+  boardMsgPanelInfo,
+  boardItemMsgPanelInfo,
+  footprintMsgPanelInfo,
+  padCountForDisplay,
+  padMsgPanelInfo,
+  pcbMsgPanelInfo,
+  pcbShapeMsgPanelInfo,
+  pcbTextMsgPanelInfo,
+  trackMsgPanelInfo,
+  arcMsgPanelInfo,
+  viaMsgPanelInfo,
+  zoneMsgPanelInfo,
+  layerMaskDescribe,
+  BOARD_ITEM_FRIENDLY_NAME,
+  type MsgPanelItem,
+  type PcbMsgPanelContext,
+  type PcbMsgPanelFrame,
+  type PcbMsgPanelSelection,
+} from './msg_panel.js';
+export {
   findItemsFromSyncSelection,
   crossProbeZoomScale,
   crossProbeViewChange,

@@ -41,6 +41,7 @@ import {
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
+  pcbMsgPanelInfo,
   moveBoardItems,
   dragBoardItems,
   setFootprintField,
@@ -7143,6 +7144,15 @@ export function PcbEditor({
           ? 'Constrain to H, V'
           : ''
       : '';
+  /**
+   * `PCB_CONTROL::UpdateMessagePanel` (pcbnew/tools/pcb_control.cpp:2377) and
+   * the `GetMsgPanelInfo` virtuals it dispatches to — all of them in
+   * `pcbnew/src/msg_panel.ts`, because upstream they hang off the board items
+   * and not off the frame. The footprint editor reaches the same module with
+   * `frame: 'footprint_edit'`, which is how a footprint gets Library /
+   * Footprint Name / Pads there and Board Side / Rotation / Status here off
+   * one implementation.
+   */
   const messagePanelItems: MsgPanelItem[] = useMemo(() => {
     if (!board)
       return [
@@ -7153,210 +7163,17 @@ export function PcbEditor({
         { upper: 'Unrouted', lower: '0' },
       ];
 
-    const net = (code: number): string =>
-      board.nets.get(code) || (code === 0 ? '<no net>' : `net ${code}`);
-    const itemPos = (bbox: BoardBBox | null): string =>
-      bbox ? `X ${fmtCoord(bboxCenter(bbox).x)}  Y ${fmtCoord(bboxCenter(bbox).y)}` : '';
-    const selectedIds = [...selection];
-
-    if (selectedIds.length === 0) {
-      const padCount = board.footprints.reduce((sum, fp) => sum + fp.pads.length, 0);
-      return [
-        { upper: 'Pads', lower: String(padCount) },
-        { upper: 'Vias', lower: String(board.vias.length) },
-        { upper: 'Track Segments', lower: String(board.tracks.length + board.arcs.length) },
-        { upper: 'Nets', lower: String(Math.max(0, board.nets.size - 1)) },
-        { upper: 'Unrouted', lower: String(ratsnestEdges.length) },
-      ];
-    }
-
-    if (selectedIds.length === 1) {
-      const id = selectedIds[0]!;
-      const r = parseBoardItemId(id);
-      const bbox = boardItemBBox(board, id);
-      const common = [
-        { upper: 'Item', lower: describeBoardItem(board, id) },
-        { upper: 'Position', lower: itemPos(bbox) },
-      ];
-      if (!r) return common;
-
-      switch (r.kind) {
-        case 'footprint': {
-          const fp = board.footprints[r.index];
-          if (!fp) return common;
-          // FOOTPRINT::GetMsgPanelInfo (board editor): reference→value, board
-          // side, rotation, then status/attributes, matching pcbnew exactly.
-          const attrLabel: Record<string, string> = {
-            board_only: 'not in schematic',
-            exclude_from_pos_files: 'exclude from pos files',
-            exclude_from_bom: 'exclude from BOM',
-            dnp: 'DNP',
-          };
-          const attrs = (fp.attributes ?? []).map((a) => attrLabel[a] ?? a).join(', ');
-          const status = fp.locked ? 'Locked' : '';
-          return [
-            { upper: fp.reference || '', lower: fp.value || '' },
-            { upper: 'Board Side', lower: fp.layer === 'B.Cu' ? 'Back (Flipped)' : 'Front' },
-            { upper: 'Rotation', lower: String(Number(fp.angle.toPrecision(4))) },
-            { upper: `Status: ${status}`, lower: `Attributes: ${attrs}` },
-          ];
-        }
-        case 'track': {
-          const t = board.tracks[r.index];
-          return t
-            ? [
-                { upper: 'Track', lower: t.layer },
-                { upper: 'Net', lower: net(t.net) },
-                { upper: 'Width', lower: fmtCoord(t.width) },
-                ...common.slice(1),
-              ]
-            : common;
-        }
-        case 'arc': {
-          const a = board.arcs[r.index];
-          return a
-            ? [
-                { upper: 'Arc', lower: a.layer },
-                { upper: 'Net', lower: net(a.net) },
-                { upper: 'Width', lower: fmtCoord(a.width) },
-                ...common.slice(1),
-              ]
-            : common;
-        }
-        case 'via': {
-          const v = board.vias[r.index];
-          return v
-            ? [
-                { upper: 'Via', lower: v.kind },
-                { upper: 'Net', lower: net(v.net) },
-                { upper: 'Size', lower: fmtCoord(v.size) },
-                { upper: 'Drill', lower: fmtCoord(v.drill) },
-                { upper: 'Position', lower: `X ${fmtCoord(v.at.x)}  Y ${fmtCoord(v.at.y)}` },
-              ]
-            : common;
-        }
-        case 'zone': {
-          const z = board.zones[r.index];
-          return z
-            ? [
-                { upper: 'Zone', lower: z.netName ?? net(z.net) },
-                { upper: 'Layers', lower: z.layers.join(', ') },
-                ...common.slice(1),
-              ]
-            : common;
-        }
-        case 'shape': {
-          const s = board.shapes[r.index];
-          return s
-            ? [
-                { upper: 'Graphic', lower: s.kind },
-                { upper: 'Layer', lower: s.layer },
-                { upper: 'Width', lower: fmtCoord(s.width) },
-                ...common.slice(1),
-              ]
-            : common;
-        }
-        case 'text': {
-          const t = board.texts[r.index];
-          return t
-            ? [
-                { upper: 'Text', lower: t.text },
-                { upper: 'Layer', lower: t.layer },
-                { upper: 'Position', lower: `X ${fmtCoord(t.at.x)}  Y ${fmtCoord(t.at.y)}` },
-              ]
-            : common;
-        }
-        case 'fptext': {
-          const fp = board.footprints[r.index];
-          const t = fp?.texts[r.sub ?? 0];
-          return t
-            ? [
-                { upper: 'Footprint Text', lower: t.text },
-                { upper: 'Footprint', lower: fp?.reference || fp?.lib || '' },
-                { upper: 'Layer', lower: t.layer },
-                { upper: 'Position', lower: `X ${fmtCoord(t.at.x)}  Y ${fmtCoord(t.at.y)}` },
-              ]
-            : common;
-        }
-        case 'pad': {
-          const fp = board.footprints[r.index];
-          const p = fp?.pads[r.sub ?? 0];
-          if (!p) return common;
-          // PAD::GetMsgPanelInfo (board editor): Footprint, Pad, Net, Layer,
-          // shape/type, size + rotation, then hole, matching pcbnew's order.
-          const dim = (iu: number): string => `${fmtCoord(iu)} ${unitLabel}`;
-          const shapeLabel = p.shape.charAt(0).toUpperCase() + p.shape.slice(1);
-          // Pad type abbreviations (ShowPadAttr): plated/non-plated through hole,
-          // SMD, connector.
-          const padType =
-            p.type === 'thru_hole'
-              ? 'PTH'
-              : p.type === 'np_thru_hole'
-                ? 'NPTH'
-                : p.type === 'smd'
-                  ? 'SMD'
-                  : p.type === 'connect'
-                    ? 'Connector'
-                    : p.type;
-          const sizeItems =
-            p.shape === 'circle'
-              ? [{ upper: 'Diameter', lower: dim(p.size.x) }]
-              : [
-                  { upper: 'Width', lower: dim(p.size.x) },
-                  { upper: 'Height', lower: dim(p.size.y) },
-                ];
-          const holeItems = p.drill
-            ? [
-                {
-                  upper: p.drill.oblong ? 'Hole X / Y' : 'Hole',
-                  lower: p.drill.oblong
-                    ? `${fmtCoord(p.drill.w)} / ${fmtCoord(p.drill.h)} ${unitLabel}`
-                    : dim(p.drill.w),
-                },
-              ]
-            : [];
-          const pinItems = [
-            ...(p.pinFunction ? [{ upper: 'Pin Name', lower: p.pinFunction }] : []),
-            ...(p.pinType ? [{ upper: 'Pin Type', lower: p.pinType }] : []),
-          ];
-          return [
-            { upper: 'Footprint', lower: fp?.reference || fp?.lib || '' },
-            { upper: 'Pad', lower: p.number },
-            ...pinItems,
-            { upper: 'Net', lower: net(p.net ?? 0) },
-            { upper: 'Resolved Netclass', lower: netClassOf.get(p.net ?? 0) ?? 'Default' },
-            { upper: 'Layer', lower: p.layers.join(', ') },
-            { upper: shapeLabel, lower: padType },
-            ...sizeItems,
-            { upper: 'Rotation', lower: String(Number((p.angle ?? 0).toPrecision(4))) },
-            ...holeItems,
-          ];
-        }
-      }
-    }
-
-    const labels: Partial<Record<BoardItemKind, string>> = {
-      footprint: 'Footprints',
-      fptext: 'Footprint Text',
-      pad: 'Pads',
-      track: 'Tracks',
-      arc: 'Arcs',
-      via: 'Vias',
-      zone: 'Zones',
-      shape: 'Graphics',
-      text: 'Text',
-    };
-    const counts = new Map<string, number>();
-    for (const id of selectedIds) {
-      const r = parseBoardItemId(id);
-      const label = r ? (labels[r.kind] ?? r.kind) : 'Items';
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    return [
-      { upper: 'Selection', lower: `${selectedIds.length} items` },
-      ...[...counts.entries()].map(([upper, count]) => ({ upper, lower: String(count) })),
-    ];
-  }, [board, fmtCoord, ratsnestEdges.length, selection, netClassOf, unitLabel]);
+    return pcbMsgPanelInfo(
+      {
+        board,
+        units: unitLabel,
+        frame: 'pcb_edit',
+        netClassOf,
+        unconnectedCount: ratsnestEdges.length,
+      },
+      { ids: [...selection], describe: (id) => describeBoardItem(board, id) },
+    );
+  }, [board, ratsnestEdges.length, selection, netClassOf, unitLabel]);
 
   // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
   // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
