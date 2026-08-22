@@ -321,6 +321,24 @@ export const darkened = (c: Color4d, f: number): Color4d => ({
   a: c.a,
 });
 
+/**
+ * `COLOR4D::Mix( const COLOR4D& aColor, double aFactor )`
+ * (`include/gal/color4d.h:296-304`).
+ *
+ * Note the direction, which is easy to invert: `aFactor` weights **this**
+ * colour and `1 - aFactor` weights `aColor`, and the alpha of `this` is kept
+ * unchanged rather than blended.
+ */
+export const mix = (c: Color4d, other: Color4d, factor: number): Color4d => {
+  const f = clamp01(factor);
+  return {
+    r: other.r * (1 - f) + c.r * f,
+    g: other.g * (1 - f) + c.g * f,
+    b: other.b * (1 - f) + c.b * f,
+    a: c.a,
+  };
+};
+
 export const withAlpha = (c: Color4d, a: number): Color4d => ({ ...c, a: clamp01(a) });
 
 /** The same, straight from and back to CSS, for callers holding theme strings. */

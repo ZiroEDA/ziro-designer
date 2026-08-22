@@ -17,6 +17,8 @@
  * faithful one for a caller that has no theme to offer.
  */
 
+import { type Color4d, mix } from './color4d.js';
+
 export interface PlotterRenderSettings {
   GetDefaultPenWidth(): number;
   GetDashLength(aLineWidth: number): number;
@@ -54,4 +56,35 @@ export function plotterRenderSettings(
     GetDotLength: (aLineWidth) => Math.max(1.0 - DASH_CORRECTION, 0.2) * aLineWidth,
     GetGapLength: (aLineWidth) => Math.max(gapLengthRatio + DASH_CORRECTION, 1.0) * aLineWidth,
   };
+}
+
+/**
+ * `RENDER_SETTINGS::m_hiContrastFactor`, `common/render_settings.cpp:42`.
+ *
+ * [data] KiCad's own constant, not a shade we chose.
+ */
+export const HI_CONTRAST_FACTOR = 0.2;
+
+/**
+ * The colour an inactive layer is drawn in when "Inactive Layer View Mode" is
+ * on — `ACTIONS::highContrastMode`, "Toggle inactive layers between normal and
+ * dimmed".
+ *
+ *     m_hiContrastColor[i] = m_layerColors[i].Mix( m_layerColors[LAYER_PCB_BACKGROUND],
+ *                                                  m_hiContrastFactor );
+ *                                              common/render_settings.cpp:92-93
+ *
+ * It is a colour mixed toward the BACKGROUND, not a transparency: the layer
+ * keeps its opacity and loses its saturation against the board. Drawing it as
+ * alpha instead composites against whatever happens to be underneath, so two
+ * dimmed layers overlapping come out brighter than either — which is what ours
+ * did with `globalAlpha = 0.3`.
+ *
+ * `GERBVIEW_PAINTER::getLayerColor` picks this for every layer that is not in
+ * `m_highContrastLayers` (`gerbview/gerbview_painter.cpp:163-168`), and GerbView
+ * puts exactly one layer in that set — the active one
+ * (`gerbview_draw_panel_gal.cpp:74-86`).
+ */
+export function hiContrastColor(layerColor: Color4d, background: Color4d): Color4d {
+  return mix(layerColor, background, HI_CONTRAST_FACTOR);
 }
