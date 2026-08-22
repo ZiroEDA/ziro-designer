@@ -126,13 +126,88 @@ const inside = (b: WksBBox, p: Vec2, tol: number): boolean =>
   p.x >= b.minX - tol && p.x <= b.maxX + tol && p.y >= b.minY - tol && p.y <= b.maxY + tol;
 
 /**
+ * `TestSegmentHit` — distance from a point to a segment, against `dist`.
+ *
+ * `common/trigo.cpp`: the perpendicular distance where the projection falls on
+ * the segment, and the nearer endpoint's distance where it does not.
+ */
+function testSegmentHit(p: Vec2, a: Vec2, b: Vec2, dist: number): boolean {
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy;
+  let t = len2 === 0 ? 0 : ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const dx = p.x - (a.x + t * vx);
+  const dy = p.y - (a.y + t * vy);
+  return dx * dx + dy * dy <= dist * dist;
+}
+
+/** Point-in-polygon, the `SHAPE_POLY_SET::Collide` case that matters here. */
+function pointInPoly(p: Vec2, pts: readonly Vec2[]): boolean {
+  let inPoly = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i]!;
+    const b = pts[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+      inPoly = !inPoly;
+  }
+  return inPoly;
+}
+
+/**
+ * `DS_DRAW_ITEM_*::HitTest( const VECTOR2I&, int )` — one primitive, one point.
+ *
+ * **Each shape tests its own geometry, not its bounding box.** That is the
+ * whole point of these overrides, and the rect is the one that matters most:
+ * the drawing sheet's border IS a rect covering the entire page, so a bbox test
+ * selects it from anywhere on the sheet. Upstream says so itself, in
+ * `DS_DRAW_ITEM_RECT::HitTest( const BOX2I& … )`:
+ *
+ *   "For greedy we need to check each side of the rect as we're pretty much
+ *    always inside the rect which defines the drawing-sheet frame."
+ *
+ *   - rect    four edge segments, `dist = accuracy + penWidth / 2`
+ *             (`ds_draw_item.cpp:360-394`)
+ *   - line    `TestSegmentHit`, `mindist = accuracy + penWidth / 2 + 1`
+ *             — the extra 1 IU is upstream's (`:461-465`)
+ *   - text    the text box, `EDA_TEXT::TextHitTest` (`:228-231`)
+ *   - poly    inside the polygon, `m_Polygons.Collide` (`:291-294`)
+ *   - bitmap  the bounding box inflated by accuracy (`:505-511`)
+ */
+function hitDrawItem(d: DsDrawItem, p: Vec2, tol: number): boolean {
+  switch (d.kind) {
+    case 'rect': {
+      const dist = tol + d.width / 2;
+      const x0 = Math.min(d.a.x, d.b.x);
+      const y0 = Math.min(d.a.y, d.b.y);
+      const x1 = Math.max(d.a.x, d.b.x);
+      const y1 = Math.max(d.a.y, d.b.y);
+      const c = [
+        { x: x0, y: y0 },
+        { x: x1, y: y0 },
+        { x: x1, y: y1 },
+        { x: x0, y: y1 },
+      ];
+      return c.some((from, i) => testSegmentHit(p, from, c[(i + 1) % 4]!, dist));
+    }
+    case 'line':
+      return testSegmentHit(p, d.a, d.b, tol + d.width / 2 + 1);
+    case 'poly':
+      return pointInPoly(p, d.pts);
+    case 'text':
+    case 'bitmap':
+      return inside(drawItemBBox(d), p, tol);
+  }
+}
+
+/**
  * Pick the top-most model item at `world` (IU), within `tol`. Returns the
  * `src` index or `null`. Later items paint on top, so they win ties.
  */
 export function pickDrawItem(draws: DsDrawItem[], world: Vec2, tol: number): number | null {
   let best: number | null = null;
   for (const d of draws) {
-    if (inside(drawItemBBox(d), world, tol)) best = d.src;
+    if (hitDrawItem(d, world, tol)) best = d.src;
   }
   return best;
 }
@@ -150,9 +225,26 @@ export function itemsInBox(
   const minY = Math.min(ay, by),
     maxY = Math.max(ay, by);
   const hits = new Set<number>();
+  const overlaps = (b: WksBBox): boolean =>
+    b.minX <= maxX && b.maxX >= minX && b.minY <= maxY && b.maxY >= minY;
   for (const d of draws) {
-    const b = drawItemBBox(d);
-    if (b.minX <= maxX && b.maxX >= minX && b.minY <= maxY && b.maxY >= minY) hits.add(d.src);
+    // A rect is tested side by side, not as a filled box, for the same reason
+    // the point hit test is: the sheet's border rect spans the whole page, so
+    // any drag anywhere would sweep it in. Upstream builds four zero-thickness
+    // boxes from the bounding box and intersects each
+    // (`DS_DRAW_ITEM_RECT::HitTest( const BOX2I&, … )`, ds_draw_item.cpp:397-430).
+    if (d.kind === 'rect') {
+      const b = drawItemBBox(d);
+      const sides: WksBBox[] = [
+        { minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.minY },
+        { minX: b.minX, maxX: b.maxX, minY: b.maxY, maxY: b.maxY },
+        { minX: b.minX, maxX: b.minX, minY: b.minY, maxY: b.maxY },
+        { minX: b.maxX, maxX: b.maxX, minY: b.minY, maxY: b.maxY },
+      ];
+      if (sides.some(overlaps)) hits.add(d.src);
+      continue;
+    }
+    if (overlaps(drawItemBBox(d))) hits.add(d.src);
   }
   return [...hits].sort((a, z) => a - z);
 }

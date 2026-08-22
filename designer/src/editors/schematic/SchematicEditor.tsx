@@ -6684,7 +6684,7 @@ export function SchematicEditor({
       {
         label: 'Zoom',
         items: [
-          act('Zoom to Fit', 'zoomFit', 'Ctrl+0'),
+          act('Zoom to Fit', 'zoomFit', 'Home'),
           act('Zoom to Objects', 'zoomFitObjects', 'Ctrl+Home'),
           act('Zoom In', 'zoomIn', 'F1'),
           act('Zoom Out', 'zoomOut', 'F2'),
@@ -6908,11 +6908,6 @@ export function SchematicEditor({
         // ACTIONS::findNext / findPrevious (F3 / Shift+F3).
         e.preventDefault();
         doFind(e.shiftKey ? -1 : 1);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        // ACTIONS::zoomFitScreen, the macOS binding (Cmd+0), kept on every
-        // platform as an alias.
-        e.preventDefault();
-        controller.current?.zoomToFit();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {
         // ACTIONS::toggleUnits (Ctrl+U): imperial <-> metric, remembering the
         // last imperial unit (COMMON_TOOLS m_imperialUnit, initially inches).
@@ -6934,7 +6929,7 @@ export function SchematicEditor({
         e.preventDefault();
         controller.current?.redraw();
       } else if (
-        (e.key === 'Insert' || e.key === 'F1') &&
+        e.key === 'Insert' &&
         !e.altKey &&
         !e.shiftKey &&
         !e.ctrlKey &&
@@ -6942,10 +6937,11 @@ export function SchematicEditor({
         repeatItemsRef.current.length > 0 &&
         doc
       ) {
-        // SCH_ACTIONS::repeatDrawItem (Ins). sch_actions.cpp:757-759 binds F1 inside
-        // `#if defined( __WXMAC__ )` and WXK_INSERT in the `#else`, so Ins is
-        // this platform's key and the one the row now prints; F1 stays bound as
-        // the macOS spelling.
+        // SCH_ACTIONS::repeatDrawItem (Ins). sch_actions.cpp:757-759 binds F1
+        // inside `#if defined( __WXMAC__ )` and WXK_INSERT in the `#else`, so
+        // Ins is this platform's key and the only one bound. F1 used to be
+        // accepted here too, which is what made F1 ambiguous: it repeated when
+        // there was something to repeat and zoomed otherwise.
         //
         // The comment here used to say F1 "shares the key with
         // ACTIONS::zoomInCenter; upstream resolves that by tool scope". Neither
@@ -6969,6 +6965,13 @@ export function SchematicEditor({
           setSelection(new Set(r.ids));
           if (r.clampedAtZero) setError('Label value cannot go below zero');
         }
+      } else if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        // ACTIONS::zoomFitScreen. WXK_HOME is its `#else` branch
+        // (actions.cpp:719-724) and what `hotkeys.ts` has always printed for
+        // `zoomFit` -- but nothing bound it, so the row advertised a dead key
+        // while Ctrl+0, the `#if __WXMAC__` branch, did the work.
+        e.preventDefault();
+        controller.current?.zoomToFit();
       } else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
         // ACTIONS::listHotKeys is AS_GLOBAL and HotkeyListHost binds Ctrl+F1
         // once, above every frame. The arm stays so the bare-F1 zoom below - a
@@ -7091,13 +7094,6 @@ export function SchematicEditor({
         // "<ESC> clears net highlighting": with nothing else pending, the next
         // Escape clears the highlighted net (eeschema input.esc_clears_net_highlight).
         else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
-      } else if (e.key === 'Backspace' && selection.size > 0 && doc) {
-        // Del answers from Edit > Delete. Backspace deletes too, as upstream
-        // binds it on macOS and as `hotkeys.ts` records against this action -
-        // it has no row of its own, so it stays here.
-        e.preventDefault();
-        runCommand(deleteItems(doc, selection));
-        setSelection(new Set());
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         // KiCad single-key tool hotkeys (A=symbol, W=wire, …). Skip while
         // typing, but a focused checkbox/radio isn't typing.

@@ -34,6 +34,7 @@ import {
   type WksLine,
   type WksRect,
   type WksResolveContext,
+  pageSizeDisplayMM,
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
 import { Combo, type ComboOption } from '../../ui/Combo.js';
@@ -1523,11 +1524,16 @@ export function DrawingSheetEditor({
     // from the first render, which is why it read Page Width / Page Height
     // where a live KiCad shows nothing at all.
     if (!selectionSeen) return [];
+    const std = pageSizeDisplayMM(preview.paper);
+    const displayMM = std[0] > 0 ? std : pageMM;
     return [
-      { upper: 'Page Width', lower: fmt(pageMM[0]) },
-      { upper: 'Page Height', lower: fmt(pageMM[1]) },
+      // Not `pageMM`: the panel prints what `GetSizeIU` returns, and that is an
+      // int, so A3's height reads 297.0020 rather than 297.0022. A custom page
+      // has no entry in the table and falls back to the mm it was typed as.
+      { upper: 'Page Width', lower: fmt(displayMM[0]) },
+      { upper: 'Page Height', lower: fmt(displayMM[1]) },
     ];
-  }, [pageMM, unit, selection, sheet.items, selectionSeen]);
+  }, [pageMM, unit, selection, sheet.items, selectionSeen, preview.paper]);
 
   return (
     // `ze-wks` scopes the PL_EDITOR_FRAME chrome measurements in shell.css.
@@ -1638,6 +1644,7 @@ export function DrawingSheetEditor({
           activeTool={activeTool}
           showGrid={toggles.has('toggleGrid')}
           gridIU={gridIU}
+          originIU={originInfo.origin}
           fullCrosshair={toggles.has('crosshairFull')}
           blackBackground={blackBackground}
           editPoints={editPoints}

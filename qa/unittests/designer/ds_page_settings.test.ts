@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PAPER_CHOICES, PAPER_MM } from '@ziroeda/common';
+import { PAPER_CHOICES, PAPER_MILS, PAPER_MM } from '@ziroeda/common';
 import {
   previewPageMM,
   defaultPreviewSettings,
@@ -62,15 +62,27 @@ describe('the paper-size combo', () => {
     for (const p of PAPER_CHOICES) expect(PAPER_MM[p.id], p.id).toBeDefined();
   });
 
-  it('has A5 at 210 x 148, as the C++ declares it', () => {
-    // MMsize( 210, 148 ) — ours had 148.5.
-    expect(PAPER_MM.A5).toEqual([210, 148]);
+  it('has A5 at the mils MMsize( 210, 148 ) rounds to, not at 210 x 148', () => {
+    // `MMsize` is `VECTOR2D( Mm2mils( x ), Mm2mils( y ) )` and `Mm2mils`
+    // returns an int (page_info.cpp:38, eda_units.cpp:76), so the table's real
+    // contents are 8268 x 5827 MILS — 210.0072 x 148.0058 mm. This expectation
+    // used to read [210, 148] and was the reason our message panel printed
+    // "Page Width 420.0000 mm" against a live pl_editor's "419.9890 mm".
+    expect(PAPER_MILS.A5).toEqual([8268, 5827]);
+    expect(PAPER_MM.A5![0]).toBeCloseTo((8268 * 25.4) / 1000, 9);
+    expect(PAPER_MM.A5![1]).toBeCloseTo((5827 * 25.4) / 1000, 9);
+    // …and the millimetres it came from still round back to it.
+    expect(Math.round((210 * 1000) / 25.4)).toBe(8268);
+    expect(Math.round((148 * 1000) / 25.4)).toBe(5827);
   });
 
   it('swaps width and height for portrait', () => {
     const s = { ...defaultPreviewSettings(), paper: 'A3', portrait: true };
-    expect(previewPageMM(s)).toEqual([297, 420]);
-    expect(previewPageMM({ ...s, portrait: false })).toEqual([420, 297]);
+    const land = previewPageMM({ ...s, portrait: false });
+    expect(previewPageMM(s)).toEqual([land[1], land[0]]);
+    // A3 landscape is 16535 x 11693 mils, which is what the swap is swapping.
+    expect(land[0]).toBeCloseTo((16535 * 25.4) / 1000, 9);
+    expect(land[1]).toBeCloseTo((11693 * 25.4) / 1000, 9);
   });
 });
 
@@ -131,7 +143,7 @@ describe('the editor opens on pl_editor’s page, not the schematic’s', () => 
     // 420 mm / 50 mm per mark. Derived here rather than transcribed, so the
     // number and the reason cannot drift apart.
     const [w] = previewPageMM(defaultPreviewSettings());
-    expect(w).toBe(420);
+    expect(w).toBeCloseTo(419.989, 3); // 16535 mils, not a round 420
     expect(Math.floor(w / 50)).toBe(8);
     // A4 would give 5 full marks — a visibly different band.
     expect(Math.floor(297 / 50)).toBe(5);

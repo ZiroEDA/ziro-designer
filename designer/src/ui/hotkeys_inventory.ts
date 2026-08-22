@@ -610,13 +610,19 @@ function registryRows(app: AppKey): Collected[] {
 
   for (const h of registry) {
     // Two entries citing one TOOL_ACTION are one command with two bindings, not
-    // two commands. `zoomFit` on Home and `zoomFitScreenMac` on Ctrl+0 are both
-    // ACTIONS::zoomFitScreen - upstream holds that as one action with a
-    // DefaultHotkey and a DefaultHotkeyAlt, which is what the Alternate column
-    // exists to show. Listed as two rows they read as two commands sharing a
-    // name, which is the one thing a hotkey list must not be ambiguous about.
-    // They remain two ids because the key handler dispatches on them
-    // separately; only the row is one.
+    // two commands: upstream holds that as one action with a DefaultHotkey and
+    // a DefaultHotkeyAlt, which is what the Alternate column exists to show.
+    // Listed as two rows they read as two commands sharing a name, which is the
+    // one thing a hotkey list must not be ambiguous about. They remain two ids
+    // because the key handler dispatches on them separately; only the row is
+    // one.
+    //
+    // The pair that motivated this was `zoomFit` on Home and a second entry on
+    // Ctrl+0, both ACTIONS::zoomFitScreen. That second entry is gone -- Ctrl+0
+    // is the `#if __WXMAC__` branch and we ship the `#else` -- so nothing in
+    // the schematic registry folds here today. The fold stays because it is the
+    // Alternate column's whole reason to exist, and DefaultHotkeyAlt pairs do
+    // occur upstream.
     const same = h.upstream === '' ? undefined : byUpstream.get(h.upstream);
     if (same) {
       if (same.alt === '') same.alt = h.keys;
@@ -654,11 +660,12 @@ function withRegistry(app: AppKey, collected: readonly Collected[]): Collected[]
   /**
    * A collected row answers to one registry action.
    *
-   * Two actions can carry the same FriendlyName - Zoom to Fit is both `zoomFit`
-   * on Home and `zoomFitScreenMac` on Ctrl+0 - and without this the second to
+   * Two actions can carry the same FriendlyName, and without this the second to
    * be walked took the row the first had already claimed, renaming it and
    * leaving `eeschema.zoomFit` to be picked up later by whichever toolbar
-   * button happened to share the id, unbound.
+   * button happened to share the id, unbound. (The case that exposed it was
+   * two Zoom to Fit entries, Home and Ctrl+0; the Ctrl+0 one has since gone as
+   * a macOS-only binding, but the collision it caused is general.)
    */
   const claimed = new Set<Collected>();
 
@@ -850,10 +857,9 @@ export function buildHotkeySections(overrides: HotkeyOverrides = {}): HotkeySect
         continue;
       }
       // Two rows that both carry a *declared* name are two commands that happen
-      // to share a FriendlyName - Zoom to Fit is `zoomFit` on Home and
-      // `zoomFitScreenMac` on Ctrl+0 - and upstream lists both, because its
-      // store is keyed on the name and never consults the label. Only a name
-      // guessed from an icon is worth collapsing away.
+      // to share a FriendlyName, and upstream lists both, because its store is
+      // keyed on the name and never consults the label. Only a name guessed
+      // from an icon is worth collapsing away.
       if (!held.nameFromIcon && !e.nameFromIcon) {
         kept.push(e);
         continue;

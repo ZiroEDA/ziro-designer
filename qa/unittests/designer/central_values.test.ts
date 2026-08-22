@@ -183,7 +183,13 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // COLOR_SWATCH's own computed pair and carry [data]/[px] on their own lines,
   // so they do not count here; the three metrics it added are marked the same
   // way, which is why metrics is untouched. Rescanned, not subtracted.
-  ui: { colours: 292, metrics: 816 },
+  // 292/816 until the message-panel pass. EDA_MSG_PANEL is drawn with
+  // KIUI::GetControlFont and lays itself out in units of one 'W'
+  // (msgpanel.cpp:121, 143-154), so `.ze-msgpanel` had no business writing
+  // `font-size: 12px`, `color: #f0f2f4` (twice), `padding-left: 9px`,
+  // `gap: 22px` or `line-height: 15px`. Two colours and three metrics out; the
+  // 14px 'W' width became a named token rather than a literal.
+  ui: { colours: 290, metrics: 813 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -393,8 +399,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Appearance one, and the merged tree is 694/1665. Rescanned, as it has to
     // be every time — subtracting from either diff would have been wrong by
     // five here and by more on the merge before this.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(691);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1659);
+    // 691/1659 until the message-panel pass; see the ui row above. Rescanned
+    // from this tree rather than subtracted from the diff, which is the rule
+    // that has had to be re-learned on every one of these merges.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(689);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1656);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

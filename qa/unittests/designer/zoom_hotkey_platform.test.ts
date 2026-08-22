@@ -94,16 +94,44 @@ describe('no macOS-only spelling is bound as well', () => {
   });
 });
 
-describe('the platform-split actions we already had right stay right', () => {
-  // Named so a future sweep of this class does not silently re-baseline them.
-  const EXPECTED: ReadonlyArray<[string, string]> = [
-    ['redo', 'Ctrl+Y'],
-    ['zoomRedraw', 'F5'],
+describe('every platform-split action takes the #else branch', () => {
+  // The whole class, so a sweep cannot silently re-baseline one of them. Eight
+  // actions in KiCad 10.0.5 declare a hotkey per platform; these are the six in
+  // common/tool/actions.cpp plus repeatDrawItem. (pcb_actions.cpp's
+  // pointEditorAddCorner is the eighth and is not implemented here yet.)
+  const ELSE_BRANCH: ReadonlyArray<[string, string, string]> = [
+    ['redo', 'Ctrl+Y', "MD_CTRL+MD_SHIFT+'Z'"],
+    ['delete', 'Del', 'WXK_BACK'],
+    ['zoomRedraw', 'F5', "MD_CTRL+'R'"],
+    ['zoomFit', 'Home', "MD_CTRL+'0'"],
+    ['zoomIn', 'F1', "MD_CTRL+'+'"],
+    ['zoomOut', 'F2', "MD_CTRL+'-'"],
+    ['repeatDrawItem', 'Ins', 'WXK_F1'],
   ];
 
-  for (const [id, keys] of EXPECTED) {
-    it(`${id} is ${keys}`, () => {
+  for (const [id, keys, macBranch] of ELSE_BRANCH) {
+    it(`${id} is ${keys}, not the macOS ${macBranch}`, () => {
       expect(row(id).keys).toBe(keys);
     });
   }
+
+  it('and no row anywhere holds a macOS-branch spelling', () => {
+    // Per-occurrence over the registry rather than a grep of one file: a
+    // file-level scan cannot say WHICH row regressed, and the aliases that were
+    // here lived on four different rows.
+    const MAC_SPELLINGS = ['Ctrl+Shift+Z', 'Backspace', 'Ctrl+R', 'Ctrl+0', 'Ctrl++', 'Ctrl+-'];
+    const offenders = HOTKEYS.filter((h) => MAC_SPELLINGS.includes(h.keys)).map(
+      (h) => `${h.id}=${h.keys}`,
+    );
+    expect(offenders).toStrictEqual([]);
+  });
+
+  it('and no row is excused by a note that says "macOS"', () => {
+    // Four rows used to carry a note reading "… which is upstream's macOS
+    // default rather than this platform's" -- the shape the aliases hid behind.
+    // Two of those notes were not even true; nothing read Ctrl+Shift+Z or
+    // Ctrl+R. A note is where this regresses next, so it is pinned too.
+    const noted = HOTKEYS.filter((h) => /macOS/i.test(h.note ?? '')).map((h) => h.id);
+    expect(noted).toStrictEqual([]);
+  });
 });

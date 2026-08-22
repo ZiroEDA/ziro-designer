@@ -41,6 +41,7 @@ import {
   DS_GRID_COLOR_ON_DARK,
   DS_GRID_COLOR_ON_LIGHT,
   DS_PAGE_BORDER_COLOR,
+  PAGE_MARKER_SIZE_IU,
   DS_EDIT_POINT_ON_DARK,
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
@@ -106,6 +107,15 @@ export interface DrawingSheetCanvasProps {
   showGrid: boolean;
   /** Grid step in IU (also the snap step while the grid is shown). */
   gridIU: number;
+  /**
+   * The coordinate-origin corner, in page IU — `ReturnCoordOriginCorner()`.
+   *
+   * `PL_DRAW_PANEL_GAL::DisplayDrawingSheet` hands it to the DS_DRAW_ITEM_PAGE
+   * as its marker position (`pl_draw_panel_gal.cpp:126-128`), and DS_PAINTER
+   * draws a circle and an X there. Defaults to the paper's top-left, which is
+   * `m_originSelectChoice` 0.
+   */
+  originIU?: Vec2;
   /** Draw a full-window crosshair at the cursor. */
   fullCrosshair?: boolean;
   /** Dark canvas background (display option `black_background`). */
@@ -161,6 +171,7 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       activeTool,
       showGrid,
       gridIU,
+      originIU,
       fullCrosshair,
       blackBackground,
       editPoints,
@@ -259,7 +270,41 @@ export const DrawingSheetCanvas = forwardRef<DrawingSheetCanvasController, Drawi
       // top of the grid the way the LAYER_DRAWINGSHEET page item is.
       ctx.strokeStyle = DS_PAGE_BORDER_COLOR;
       ctx.lineWidth = worldPen;
-      ctx.strokeRect(0, 0, pageW, pageH);
+      // Snapped for the same reason the sheet's own hairlines are: this rect is
+      // ONE device pixel and straddles two of them wherever the page edge
+      // happens to land, which is what still read as a soft grey border after
+      // the items themselves went crisp. Drawn in device space with the world
+      // transform put back afterwards.
+      {
+        const m = ctx.getTransform();
+        const half = (v: number): number => Math.round(v - 0.5) + 0.5;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const l = half(m.e);
+        const t = half(m.f);
+        const r = half(m.a * pageW + m.e);
+        const b = half(m.d * pageH + m.f);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(l, t, r - l, b - t);
+        ctx.restore();
+      }
+
+      // The coord-origin marker: a circle of `marker_size` and an X across it,
+      // both in the page-border colour (`ds_painter.cpp:372-383`). The size is
+      // `drawSheetIUScale.mmToIU( 5 )`, fixed by PL_DRAW_PANEL_GAL rather than
+      // scaled with the view (`pl_draw_panel_gal.cpp:110-113`), so it stays 5 mm
+      // of PAGE however far you zoom out.
+      {
+        const o = originIU ?? { x: 0, y: 0 };
+        const r = PAGE_MARKER_SIZE_IU;
+        ctx.beginPath();
+        ctx.arc(o.x, o.y, r, 0, Math.PI * 2);
+        ctx.moveTo(o.x - r, o.y - r);
+        ctx.lineTo(o.x + r, o.y + r);
+        ctx.moveTo(o.x + r, o.y - r);
+        ctx.lineTo(o.x - r, o.y + r);
+        ctx.stroke();
+      }
 
       // Clip page content to the page rectangle.
       ctx.save();

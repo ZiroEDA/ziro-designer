@@ -875,19 +875,22 @@ export function GerberViewer({
         (tgt.tagName === 'INPUT' || tgt.tagName === 'SELECT' || tgt.tagName === 'TEXTAREA')
       )
         return;
+      // The chain's "no modifier held" predicate, spelled once, as
+      // DrawingSheetEditor and FootprintEditor spell theirs.
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
       if (e.key === 'm' || e.key === 'M') {
         setActiveTool('measure');
       } else if (e.key === 'Escape') {
         setActiveTool('select');
         setPicked(null);
-      } else if (e.key === 'F1' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      } else if (e.key === 'F1' && plain && !e.shiftKey) {
         // ACTIONS::zoomIn, "Zoom In at Cursor". WXK_F1 is its `#else` default
         // (`actions.cpp:749-755`); the bare `+` this used to take is not a KiCad
         // binding on any platform. The View menu's "Zoom In" stays accelerator-
         // less because that row is zoomInCenter, which has no DefaultHotkey.
         e.preventDefault();
         controller.current?.zoomIn();
-      } else if (e.key === 'F2' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      } else if (e.key === 'F2' && plain && !e.shiftKey) {
         // ACTIONS::zoomOut, "Zoom Out at Cursor" (WXK_F2 off macOS).
         e.preventDefault();
         controller.current?.zoomOut();

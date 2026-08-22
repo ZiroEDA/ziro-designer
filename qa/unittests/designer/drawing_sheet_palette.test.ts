@@ -129,11 +129,20 @@ describe('D1: the canvas is one flat colour and the page is an outline', () => {
 
   it('strokes the page rectangle in the border colour instead', () => {
     expect(CANVAS).toContain('ctx.strokeStyle = DS_PAGE_BORDER_COLOR;');
-    expect(CANVAS).toContain('ctx.strokeRect(0, 0, pageW, pageH);');
     // One device pixel: GetDefaultPenWidth() renders as a hairline at any zoom,
     // and `worldPen` is 1 device px expressed in world units.
     const stroke = CANVAS.indexOf('ctx.strokeStyle = DS_PAGE_BORDER_COLOR;');
     expect(CANVAS.slice(stroke, stroke + 200)).toContain('ctx.lineWidth = worldPen;');
+    // The rect is stroked in DEVICE space, from the page corners transformed by
+    // hand, so the hairline lands on a pixel centre instead of straddling two —
+    // it used to be `ctx.strokeRect(0, 0, pageW, pageH)` under the world
+    // transform and read as a soft grey border. Still a stroke, still no fill;
+    // only where the coordinates come from changed.
+    const after = CANVAS.slice(stroke, stroke + 900);
+    expect(after).toContain('ctx.setTransform(1, 0, 0, 1, 0, 0);');
+    expect(after).toMatch(/ctx\.strokeRect\(l, t, r - l, b - t\)/);
+    expect(after).toContain('m.a * pageW + m.e');
+    expect(after).toContain('m.d * pageH + m.f');
   });
 });
 

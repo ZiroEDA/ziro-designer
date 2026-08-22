@@ -19,6 +19,7 @@
  */
 
 import { bitmapSizeIu, schIUScale } from '@ziroeda/common';
+import { mmToIU } from '@ziroeda/common';
 import type { DsDrawItem, DsTextItem, DsBitmapItem } from '@ziroeda/common';
 import { KICAD_FONT_NAME, layoutText } from '@ziroeda/common/src/font/stroke_font.js';
 
@@ -60,6 +61,22 @@ export const DS_ITEM_COLOR_HEX = `#${DS_ITEM_RGB.map((c) => c.toString(16).padSt
 export const DS_BG_COLOR = 'rgb(245, 244, 239)';
 /** [data] LAYER_SCHEMATIC_GRID, `builtin_color_themes.h:46` — `m_pageBorderColor`. */
 export const DS_PAGE_BORDER_COLOR = 'rgb(181, 181, 181)';
+
+/**
+ * Radius of the coord-origin marker DS_PAINTER draws on the page item.
+ *
+ *     constexpr double markerSize = drawSheetIUScale.mmToIU( 5 );
+ *                                   pl_draw_panel_gal.cpp:110-113
+ *
+ * Five millimetres of PAGE, not of screen: PL_DRAW_PANEL_GAL fixes it when it
+ * builds the DS_DRAW_ITEM_PAGE, so it zooms with everything else.
+ *
+ * Expressed through `mmToIU` — the SCHEMATIC scale — because that is the scale
+ * this editor keeps its page geometry in, not `drawSheetIUScale`. Upstream can
+ * use drawSheetIUScale here because pl_editor's internal units ARE that scale;
+ * mixing the two would put the marker 10x out. See [[iu-scale-differs-per-editor]].
+ */
+export const PAGE_MARKER_SIZE_IU = mmToIU(5);
 /**
  * [data] Paper for PRINT output only. A print does not go through the GAL and
  * does not carry the screen theme's background, so the sheet is drawn on white
@@ -328,6 +345,80 @@ function drawBitmap(
   }
 }
 
+/**
+ * Stroke an axis-aligned hairline on the device pixel grid.
+ *
+ * A one-device-pixel stroke centred on an integer device coordinate straddles
+ * two pixels, and Canvas 2D — which has no way to turn stroke antialiasing off —
+ * then paints both at partial coverage. Measured against a live pl_editor at the
+ * same page: KiCad puts a border line in ONE pixel at rgb(132,0,0) with clean
+ * background either side, while ours put rgb(139,15,15) in one pixel and bled
+ * rgb(238,229,224) into its neighbour. Every thin line and every glyph stem in
+ * the sheet does that, which is the whole of the "blurry" difference; the line
+ * width was never wrong, only its position.
+ *
+ * KiCad does not hit this because `graphics.antialiasing_mode` defaults to 2,
+ * `AA_HIGHQUALITY` (`common_settings.cpp:328-329`), and its GAL renders hairlines
+ * hard-edged into a supersampled buffer. The equivalent for a 2D canvas is to
+ * put the stroke centre on a half-pixel so antialiasing has nothing to blend.
+ *
+ * Only for the axis-aligned case: with rotation or shear in the transform there
+ * is no pixel to snap to, and the caller falls back to an ordinary stroke.
+ */
+const isAxisAligned = (m: DOMMatrix): boolean => m.b === 0 && m.c === 0;
+
+/**
+ * The current transform, or null when the context cannot report one.
+ *
+ * `getTransform` is part of the 2D context every browser ships, but not of the
+ * recording doubles several suites build to assert what this renderer draws
+ * (`render_item_filter`, the plot recorders). Snapping needs to know where a
+ * point lands in device space, so with no matrix there is nothing to snap to
+ * and the ordinary world-space stroke is the right answer -- which is also
+ * exactly what those suites are asserting.
+ */
+function deviceMatrix(ctx: CanvasRenderingContext2D): DOMMatrix | null {
+  if (typeof ctx.getTransform !== 'function') return null;
+  return ctx.getTransform();
+}
+
+/**
+ * True when this stroke comes out one device pixel wide or thinner.
+ *
+ * `worldWidth * scale` is the device width; the sheet's own 0.15 mm lines are
+ * well under a pixel at any normal zoom and are already clamped up to the
+ * one-device-pixel `minWidth` by the caller, so this is the common case rather
+ * than an edge case.
+ */
+function isHairline(ctx: CanvasRenderingContext2D, worldWidth: number): boolean {
+  const m = deviceMatrix(ctx);
+  if (!m || !isAxisAligned(m)) return false;
+  return worldWidth * Math.max(Math.abs(m.a), Math.abs(m.d)) <= 1.5;
+}
+
+/** World point -> device point under `m`. */
+function toDevice(m: DOMMatrix, x: number, y: number): { x: number; y: number } {
+  return { x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f };
+}
+
+/** Put a coordinate on the centre of a device pixel. */
+const snapHalf = (v: number): number => Math.round(v - 0.5) + 0.5;
+
+/**
+ * Run `paint` in device space with the transform reset, then restore it.
+ * Returns false when the transform is not axis-aligned, so the caller can draw
+ * the ordinary way instead.
+ */
+function inDeviceSpace(ctx: CanvasRenderingContext2D, paint: (m: DOMMatrix) => void): boolean {
+  const m = deviceMatrix(ctx);
+  if (!m || !isAxisAligned(m)) return false;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  paint(m);
+  ctx.restore();
+  return true;
+}
+
 /** Draw all resolved primitives; `selected` is the set of source item indices. */
 export function drawDrawingSheetItems(
   ctx: CanvasRenderingContext2D,
@@ -351,8 +442,32 @@ export function drawDrawingSheetItems(
       opts.brightened === d.src ? DS_BRIGHTENED_COLOR : sel ? DS_SELECTED_COLOR : itemColor;
     switch (d.kind) {
       case 'line': {
+        const w = Math.max(d.width, minWidth);
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(d.width, minWidth);
+        ctx.lineWidth = w;
+        // Snap only a hairline, and only when it is axis-aligned in device
+        // space: a wider stroke covers whole pixels already, and a diagonal has
+        // no pixel row to sit in.
+        const snapped =
+          isHairline(ctx, w) &&
+          (d.a.x === d.b.x || d.a.y === d.b.y) &&
+          inDeviceSpace(ctx, (m) => {
+            const a = toDevice(m, d.a.x, d.a.y);
+            const b = toDevice(m, d.b.x, d.b.y);
+            const vertical = d.a.x === d.b.x;
+            const fixed = snapHalf(vertical ? a.x : a.y);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if (vertical) {
+              ctx.moveTo(fixed, a.y);
+              ctx.lineTo(fixed, b.y);
+            } else {
+              ctx.moveTo(a.x, fixed);
+              ctx.lineTo(b.x, fixed);
+            }
+            ctx.stroke();
+          });
+        if (snapped) break;
         ctx.beginPath();
         ctx.moveTo(d.a.x, d.a.y);
         ctx.lineTo(d.b.x, d.b.y);
@@ -360,14 +475,29 @@ export function drawDrawingSheetItems(
         break;
       }
       case 'rect': {
+        const w = Math.max(d.width, minWidth);
+        const x = Math.min(d.a.x, d.b.x);
+        const y = Math.min(d.a.y, d.b.y);
+        const rw = Math.abs(d.b.x - d.a.x);
+        const rh = Math.abs(d.b.y - d.a.y);
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(d.width, minWidth);
-        ctx.strokeRect(
-          Math.min(d.a.x, d.b.x),
-          Math.min(d.a.y, d.b.y),
-          Math.abs(d.b.x - d.a.x),
-          Math.abs(d.b.y - d.a.y),
-        );
+        ctx.lineWidth = w;
+        // All four sides are axis-aligned, so the whole rect snaps or none of it
+        // does — snapping only some sides would leave the corners ragged.
+        const snapped =
+          isHairline(ctx, w) &&
+          inDeviceSpace(ctx, (m) => {
+            const p0 = toDevice(m, x, y);
+            const p1 = toDevice(m, x + rw, y + rh);
+            const l = snapHalf(Math.min(p0.x, p1.x));
+            const t = snapHalf(Math.min(p0.y, p1.y));
+            const r = snapHalf(Math.max(p0.x, p1.x));
+            const b = snapHalf(Math.max(p0.y, p1.y));
+            ctx.lineWidth = 1;
+            ctx.strokeRect(l, t, r - l, b - t);
+          });
+        if (snapped) break;
+        ctx.strokeRect(x, y, rw, rh);
         break;
       }
       case 'poly': {

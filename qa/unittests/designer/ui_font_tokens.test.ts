@@ -235,7 +235,12 @@ const BASELINE: Record<string, number> = {
   // whole pane, and eight rules there wrote 12px or 13px between them; they
   // ask --ui-font-size-info now, and .ze-nets-header input went with the net
   // filter box KiCad hides. Nine sites.
-  ui: 148,
+  // 148 until the message-panel pass. EDA_MSG_PANEL draws its text with
+  // KIUI::GetControlFont, which off macOS is getGUIFont( win, 0 ) — the plain
+  // UI font at the SAME size as the menu bar (msgpanel.cpp:121,
+  // ui_common.cpp). `.ze-msgpanel` wrote `font-size: 12px`, which is why
+  // Akshay read our Page Width row as smaller than pl_editor's. One site.
+  ui: 147,
   widgets: 6,
 };
 
@@ -365,7 +370,10 @@ describe('hardcoded font sizes do not grow', () => {
     // the merged tree gives 370, and 380 - 10 counted off the diff gives 370.
     // 370 until the toolbars pass took one more in editors/pcb. Rescanned from
     // the tree; the diff agrees at 370 - 1.
-    expect(sites.length).toBe(369);
+    // 369 until the message-panel pass took `.ze-msgpanel { font-size: 12px }`,
+    // which should have been --ui-font-size all along. Rescanned from the tree;
+    // the diff agrees at 369 - 1.
+    expect(sites.length).toBe(368);
   });
 });
 

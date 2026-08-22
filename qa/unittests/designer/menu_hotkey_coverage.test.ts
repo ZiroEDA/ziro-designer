@@ -110,6 +110,11 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     "if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {",
   ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
+  // ACTIONS::zoomIn / zoomOut are F1 / F2 off macOS (actions.cpp:747-764) and
+  // AS_GLOBAL, so they belong to the canvas rather than to a menu row: GerbView's
+  // View > Zoom In / Zoom Out are zoomInCenter / zoomOutCenter, which declare no
+  // hotkey at all. Same `plain` predicate as the two frames above.
+  'editors/gerbview/GerberViewer.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
   'editors/pcb/PcbEditor.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
@@ -151,18 +156,19 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {",
     // SCH_ACTIONS::duplicate - no row in eeschema's Edit menu.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {",
-    // `zoomFitMac`, its own registry entry: upstream's macOS binding kept on
-    // every platform. The row prints Home.
-    "} else if ((e.ctrlKey || e.metaKey) && e.key === '0') {",
-    // `zoomIn` / `zoomOut`. The View rows carry no accelerator at all.
-    "} else if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {",
-    "} else if ((e.ctrlKey || e.metaKey) && e.key === '-') {",
+    // ACTIONS::zoomFitScreen, WXK_HOME off macOS. The Ctrl+0 that used to be
+    // excused here was the `#if defined( __WXMAC__ )` branch, bound alongside
+    // it; Home is now the only spelling, and the View rows carry no
+    // accelerator at all for zoomIn / zoomOut because those are zoomInCenter /
+    // zoomOutCenter, which declare no hotkey.
+    "} else if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {",
     // ACTIONS::toggleUnits and ACTIONS::cycleArcEditMode, neither with a row.
     "} else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u' && !e.shiftKey) {",
     "} else if ((e.ctrlKey || e.metaKey) && e.key === ' ') {",
-    // The three F1 arms. F1 is SCH_ACTIONS::repeatDrawItem *and* ACTIONS::
-    // zoomIn, which upstream separates by tool scope; the modifier reads are
-    // what keep the two apart and keep Ctrl+F1 out of both.
+    // The two F1 arms. F1 is ACTIONS::zoomIn alone now -- repeatDrawItem is Ins
+    // off macOS and used to answer to F1 as well, which is what made the key
+    // ambiguous. The modifier reads are what keep Ctrl+F1, ACTIONS::listHotKeys,
+    // out of the zoom arm.
     '!e.ctrlKey &&',
     '!e.metaKey &&',
     "} else if (e.key === 'F1' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {",
@@ -455,8 +461,15 @@ const CANVAS_KEYS: Readonly<
       ['A P W B Z Q J L H S T I', /TOOL_HOTKEYS\[e\.key\.toLowerCase\(\)\]/],
     ],
     kept: [
-      ['Backspace delete', /e\.key === 'Backspace' && selection\.size > 0/],
+      // Backspace-as-delete used to sit here. It is gone, not moved: WXK_BACK is
+      // `ACTIONS::doDelete`'s `#if defined( __WXMAC__ )` branch and WXK_DELETE
+      // the `#else` (actions.cpp:401-406), so on this platform Del is the whole
+      // answer. Del itself is in `moved`, declared by Edit > Delete.
       ['Alt+Backspace leave sheet', /leaveSheet \(Alt\+Backspace\)/],
+      // ACTIONS::zoomFitScreen is WXK_HOME off macOS (actions.cpp:719-724).
+      // `hotkeys.ts` printed Home all along while nothing bound it and Ctrl+0 -
+      // the macOS branch - did the work; now Home is bound and Ctrl+0 is not.
+      ['Home zoom to fit', /e\.key === 'Home' && !e\.ctrlKey/],
       ['Ctrl+Shift+G grid overrides', /toggleGridOverrides \(Ctrl\+Shift\+G\)/],
       ['Alt+3 select node', /selectNode \(Alt\+3\)/],
       ['Alt+S swap', /swap \(Alt\+S\)/],
@@ -470,8 +483,7 @@ const CANVAS_KEYS: Readonly<
       // the comment untouched, so the rule still matched and Ins silently
       // stopped repeating. A rule that can only see a comment cannot see the
       // binding.
-      ['Ins repeat draw item', /e\.key === 'Insert'/],
-      ['F1 still repeats as the macOS spelling', /e\.key === 'Insert' \|\| e\.key === 'F1'/],
+      ['Ins repeat draw item', /e\.key === 'Insert' &&/],
       ['Ctrl+U toggle units', /toggleUnits \(Ctrl\+U\)/],
       ['Ctrl+Space arc edit mode', /cycleArcEditMode \(Ctrl\+Space\)/],
       ['Ctrl+E edit with lib edit', /editWithLibEdit \(Ctrl\+E\)/],

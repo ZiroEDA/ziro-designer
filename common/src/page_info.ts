@@ -21,29 +21,56 @@
  * list to the combo, in this order, with each row's client data set to its
  * PAGE_SIZE_TYPE — so the combo IS this table and nothing sorts or filters it.
  *
- * Sizes are millimetres, landscape W×H, exactly as the C++ declares them
- * ("All MUST be defined as landscape"); the imperial ones are its mils
- * converted. Ours had A5 as 148.5 mm tall where upstream says 148.
+ * **PAGE_INFO's unit is MILS, and the metric sizes are rounded into it.** The
+ * table is built through
+ *
+ *     #define MMsize( x, y ) VECTOR2D( Mm2mils( x ), Mm2mils( y ) )
+ *     int Mm2mils( double aVal ) { return KiROUND( aVal * 1000. / 25.4 ); }
+ *                                            page_info.cpp:38, eda_units.cpp:76
+ *
+ * so A3 is not 420 mm — it is `KiROUND( 420 * 1000 / 25.4 )` = **16535 mils**,
+ * which is 419.989 mm. We stored the millimetres instead and were 0.011 mm
+ * wide, which is invisible on screen and completely visible the moment a number
+ * is printed: pl_editor's message panel reads "Page Width 419.9890 mm" where
+ * ours read "420.0000 mm".
+ *
+ * Storing mils and deriving the millimetres puts the rounding where upstream
+ * has it instead of throwing it away. See [[wx-panel-state-is-field-text]] —
+ * holding more precision than KiCad holds is a parity bug, not an improvement.
+ *
+ * Landscape W×H, in the C++'s own order ("All MUST be defined as landscape").
  */
-export const PAPER_MM: Record<string, [number, number]> = {
-  A5: [210, 148],
-  A4: [297, 210],
-  A3: [420, 297],
-  A2: [594, 420],
-  A1: [841, 594],
-  A0: [1189, 841],
-  A: [279.4, 215.9],
-  B: [431.8, 279.4],
-  C: [558.8, 431.8],
-  D: [863.6, 558.8],
-  E: [1117.6, 863.6],
-  /** VECTOR2D( 32000, 32000 ) mils. */
-  GERBER: [812.8, 812.8],
-  User: [431.8, 279.4],
-  USLetter: [279.4, 215.9],
-  USLegal: [355.6, 215.9],
-  USLedger: [431.8, 279.4],
+export const PAPER_MILS: Record<string, [number, number]> = {
+  A5: [8268, 5827],
+  A4: [11693, 8268],
+  A3: [16535, 11693],
+  A2: [23386, 16535],
+  A1: [33110, 23386],
+  A0: [46811, 33110],
+  A: [11000, 8500],
+  B: [17000, 11000],
+  C: [22000, 17000],
+  D: [34000, 22000],
+  E: [44000, 34000],
+  GERBER: [32000, 32000],
+  User: [17000, 11000],
+  USLetter: [11000, 8500],
+  USLegal: [14000, 8500],
+  USLedger: [17000, 11000],
 };
+
+/**
+ * The same table in millimetres, derived rather than declared.
+ *
+ * `GetWidthIU` is `int GetWidthIU( double aIUScale ) { return aIUScale *
+ * GetWidthMils(); }` (page_info.h:159) — an **int**, so the IU value truncates
+ * as well. At pl_editor's scale (`drawSheetIUScale`, 25.4 IU per mil) A3 comes
+ * out 419989 x 297002 IU, which is what makes its message panel print
+ * "419.9890" and "297.0020" rather than "419.9890" and "297.0022".
+ */
+export const PAPER_MM: Record<string, [number, number]> = Object.fromEntries(
+  Object.entries(PAPER_MILS).map(([k, [w, h]]) => [k, [(w * 25.4) / 1000, (h * 25.4) / 1000]]),
+) as Record<string, [number, number]>;
 
 /**
  * The combo, row for row.
@@ -78,3 +105,33 @@ export const PAPER_CHOICES: { id: string; label: string }[] = [
   { id: 'USLegal', label: 'US Legal 8.5 x 14in' },
   { id: 'USLedger', label: 'US Ledger 11 x 17in' },
 ];
+
+/**
+ * `PAGE_INFO::GetWidthIU` / `GetHeightIU` — page size in internal units.
+ *
+ *     int GetWidthIU( double aIUScale ) const { return aIUScale * GetWidthMils(); }
+ *                                                          page_info.h:159, 168
+ *
+ * The **int** return is not incidental. At pl_editor's scale (`drawSheetIUScale`,
+ * 25.4 IU per mil) A3's height is 11693 x 25.4 = 297002.2, which truncates to
+ * 297002 IU; converted back for display that is 297.0020 mm, and it is exactly
+ * what a live pl_editor's message panel prints. Carrying the .2 would print
+ * 297.0022 and be wrong by being more accurate.
+ */
+export function pageSizeIU(paper: string, iuPerMil: number): [number, number] {
+  const mils = PAPER_MILS[paper];
+  if (!mils) return [0, 0];
+  return [Math.trunc(iuPerMil * mils[0]), Math.trunc(iuPerMil * mils[1])];
+}
+
+/** IU per mil at pl_editor's scale: PL_IU_PER_MM (1e3) x 25.4 / 1000. */
+export const DRAW_SHEET_IU_PER_MIL = 25.4;
+
+/**
+ * The page size as the drawing sheet editor's message panel prints it —
+ * millimetres, after the mils rounding AND the integer-IU truncation above.
+ */
+export function pageSizeDisplayMM(paper: string): [number, number] {
+  const [w, h] = pageSizeIU(paper, DRAW_SHEET_IU_PER_MIL);
+  return [w / 1000, h / 1000];
+}

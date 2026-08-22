@@ -179,13 +179,16 @@ describe('the hotkey inventory', () => {
   });
 
   it('fills the alternate column only where a second key is bound', () => {
-    // Two rows carry a DefaultHotkeyAlt. The PSEUDO_ACTION
+    // One row carries a DefaultHotkeyAlt: the PSEUDO_ACTION
     //   new PSEUDO_ACTION( _( "Accept Autocomplete" ), WXK_RETURN, WXK_NUMPAD_ENTER )
-    // and Zoom to Fit, whose Ctrl+0 is upstream's macOS binding for the action
-    // Home already answers to. Everything else has a single binding, and a
+    // (hotkeys_basic.cpp). Zoom to Fit used to be the second, because we bound
+    // Ctrl+0 -- ACTIONS::zoomFitScreen's `#if defined( __WXMAC__ )` branch --
+    // alongside the Home the `#else` declares. That was never a
+    // DefaultHotkeyAlt upstream, only two platforms' defaults bound at once, so
+    // the row has a single binding now. Everything else has one binding, and a
     // column filled where nothing is bound would be noise.
     const withAlt = rows.filter((e) => e.alt !== '');
-    expect(withAlt.map((e) => e.command).sort()).toEqual(['Accept Autocomplete', 'Zoom to Fit']);
+    expect(withAlt.map((e) => e.command).sort()).toEqual(['Accept Autocomplete']);
     // `{ wxT( "Num Pad Enter" ), WXK_NUMPAD_ENTER }` — hotkeys_basic.cpp:127.
     // Two words. This assertion used to say 'Numpad Enter', which is not
     // KiCad's spelling of any key and disagreed with `ui/key_names.ts:86`,
@@ -282,15 +285,35 @@ describe('the schematic registry as a source', () => {
     expect(missing.map((h) => h.id)).toEqual([]);
   });
 
-  it('shows a second binding for one action as its alternate, not as a second row', () => {
-    // zoomFit (Home) and zoomFitScreenMac (Ctrl+0) are both
-    // ACTIONS::zoomFitScreen; upstream holds one action with a DefaultHotkey
-    // and a DefaultHotkeyAlt. Two rows would read as two commands with the
-    // same name.
+  it('gives Zoom to Fit one row on Home, with no alternate', () => {
+    // This used to assert an alternate of Ctrl+0, because the registry carried
+    // a second entry (`zoomFitScreenMac`) for the same ACTIONS::zoomFitScreen.
+    // Ctrl+0 is that action's `#if defined( __WXMAC__ )` branch and WXK_HOME
+    // the `#else` (actions.cpp:719-724) — one key per platform, never a
+    // DefaultHotkeyAlt — so on this build there is one binding and the
+    // Alternate column stays empty.
     const fit = rows.filter((e) => e.command === 'Zoom to Fit' && e.name.startsWith('eeschema.'));
     expect(fit).toHaveLength(1);
     expect(fit[0]?.keys).toBe('Home');
-    expect(fit[0]?.alt).toBe('Ctrl+0');
+    expect(fit[0]?.alt).toBe('');
+  });
+
+  it('no longer has ANY registry pair to fold, which is a coverage gap', () => {
+    // Stated rather than papered over. `registryRows` folds two entries citing
+    // one TOOL_ACTION into a single row with an alternate, and the only pair
+    // that ever exercised it was zoomFit/zoomFitScreenMac — removed, because
+    // Ctrl+0 was ACTIONS::zoomFitScreen's macOS branch rather than a
+    // DefaultHotkeyAlt. The one row that still carries an alternate is the
+    // "Accept Autocomplete" PSEUDO_ACTION, whose name is '' and which never
+    // reaches that fold.
+    //
+    // So the fold is live code with no test through this door. Covering it
+    // needs a seam `registryRows` does not expose today; asserting a pair
+    // exists would just fail, and asserting one does not would pin the gap in
+    // place. This records it instead, and fails the day a real
+    // DefaultHotkeyAlt pair is added so the fold can be tested properly then.
+    const foldable = rows.filter((e) => e.alt !== '' && e.name !== '');
+    expect(foldable.map((e) => e.name)).toStrictEqual([]);
   });
 
   it('carries the bindings that exist in no menu and on no toolbar', () => {

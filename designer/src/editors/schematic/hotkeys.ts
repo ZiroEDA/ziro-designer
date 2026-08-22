@@ -94,12 +94,10 @@ export const HOTKEYS: readonly Hotkey[] = [
     keys: 'Ctrl+Y',
     section: 'Edit',
     upstream: 'ACTIONS::redo',
-    // The note here used to read "Ctrl+Y also redoes, which upstream does not
-    // bind", which is the source read backwards: actions.cpp:292-302 binds
-    // Ctrl+Shift+Z inside `#if defined( __WXMAC__ )` and Ctrl+Y in the `#else`.
-    // Off macOS, Ctrl+Y IS the default and Ctrl+Shift+Z is the one upstream
-    // does not bind.
-    note: 'Ctrl+Shift+Z redoes too, which is upstream’s macOS default rather than this platform’s.',
+    // actions.cpp:292-302 binds Ctrl+Shift+Z inside `#if defined( __WXMAC__ )`
+    // and Ctrl+Y in the `#else`. We are the `#else`, so Ctrl+Y is the whole
+    // answer and Ctrl+Shift+Z is bound nowhere. (The note that used to sit here
+    // said Ctrl+Shift+Z "redoes too" -- it never did; no handler read it.)
   },
   { id: 'cut', label: 'Cut', keys: 'Ctrl+X', section: 'Edit', upstream: 'ACTIONS::cut' },
   { id: 'copy', label: 'Copy', keys: 'Ctrl+C', section: 'Edit', upstream: 'ACTIONS::copy' },
@@ -131,7 +129,10 @@ export const HOTKEYS: readonly Hotkey[] = [
     keys: 'Del',
     section: 'Edit',
     upstream: 'ACTIONS::doDelete',
-    note: 'Backspace deletes too, as upstream binds it (ACTIONS::deleteTool takes Del only).',
+    // actions.cpp:401-406 binds WXK_BACK inside `#if defined( __WXMAC__ )` and
+    // WXK_DELETE in the `#else`, so Del is the whole answer here. The note that
+    // used to sit here said "Backspace deletes too, as upstream binds it" --
+    // upstream binds it on macOS only, and we are not macOS.
   },
   {
     id: 'selectAll',
@@ -186,14 +187,6 @@ export const HOTKEYS: readonly Hotkey[] = [
     upstream: 'ACTIONS::zoomFitObjects',
   },
   {
-    id: 'zoomFitScreenMac',
-    label: 'Zoom to Fit',
-    keys: 'Ctrl+0',
-    section: 'View',
-    upstream: 'ACTIONS::zoomFitScreen',
-    note: "Upstream's macOS binding, kept on every platform so a Mac user's muscle memory works.",
-  },
-  {
     id: 'zoomIn',
     label: 'Zoom In at Cursor',
     keys: 'F1',
@@ -242,9 +235,8 @@ export const HOTKEYS: readonly Hotkey[] = [
     keys: 'F5',
     section: 'View',
     upstream: 'ACTIONS::zoomRedraw',
-    // Not "upstream's other default": actions.cpp:705-716 has exactly one per
-    // platform, Ctrl+R on macOS and WXK_F5 everywhere else.
-    note: 'Ctrl+R refreshes too, which is upstream’s macOS default rather than this platform’s.',
+    // actions.cpp:705-716 has exactly one key per platform: Ctrl+R on macOS,
+    // WXK_F5 everywhere else. Ctrl+R is bound nowhere here.
   },
   {
     id: 'zoomTool',
@@ -429,7 +421,6 @@ export const HOTKEYS: readonly Hotkey[] = [
     // "as upstream does" — upstream has no such collision on either platform.
     // On macOS repeat is F1 and zoom in is Ctrl++; here repeat is Ins and zoom
     // in is F1. The clash was ours, made by mixing the two branches.
-    note: 'F1 repeats too, which is upstream’s macOS default rather than this platform’s.',
   },
 
   // ----- Editing ------------------------------------------------------------

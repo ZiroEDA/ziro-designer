@@ -65,8 +65,27 @@ describe('the sections', () => {
 });
 
 describe('the rows', () => {
-  it('carry a key, always', () => {
-    for (const s of list()) for (const r of s.rows) expect(r.keys).not.toBe('');
+  it('carry a key unless upstream declares none', () => {
+    // Not every TOOL_ACTION has a DefaultHotkey. `ACTIONS::zoomInCenter` and
+    // `zoomOutCenter` (actions.cpp:769-779) declare a Name, a Scope, a
+    // FriendlyName and an Icon and no key on any platform, and PANEL_HOTKEYS_
+    // EDITOR still lists them -- with an empty key cell, which is how a user
+    // discovers there is a command there to bind.
+    const UNBOUND_UPSTREAM = new Set(['Zoom In', 'Zoom Out']);
+    for (const s of list())
+      for (const r of s.rows)
+        if (!UNBOUND_UPSTREAM.has(r.action)) expect(r.keys, r.action).not.toBe('');
+  });
+
+  it('and the two that carry none are exactly the ones upstream leaves unbound', () => {
+    // The other half: without this, emptying any row's key would pass the check
+    // above by widening the exception list rather than fixing the row.
+    const blank = list()
+      .flatMap((s) => s.rows)
+      .filter((r) => r.keys === '')
+      .map((r) => r.action)
+      .sort();
+    expect(blank).toStrictEqual(['Zoom In', 'Zoom Out']);
   });
 
   it('drop the trailing ellipsis a dialog entry carries', () => {
@@ -94,10 +113,16 @@ describe('the registry itself', () => {
   });
 
   it('explains every key it binds twice', () => {
-    // F1 is Zoom In at Cursor *and* Repeat Last Item, as upstream has it. Any
-    // other collision is an accident, and both sides must say so.
+    // There is no such key any more: F1 used to be Zoom In at Cursor AND Repeat
+    // Last Item, which was never upstream's -- on macOS repeat is F1 and zoom
+    // is Ctrl++, off macOS repeat is Ins and zoom is F1, and we had taken one
+    // branch for one action and the other branch for the other. Any collision
+    // now is an accident, and both sides must say so.
     const byKey = new Map<string, string[]>();
-    for (const h of HOTKEYS) byKey.set(h.keys, [...(byKey.get(h.keys) ?? []), h.id]);
+    // '' is not a key, so two unbound actions are not a collision. Upstream's
+    // own store never compares empty accelerators either.
+    for (const h of HOTKEYS)
+      if (h.keys !== '') byKey.set(h.keys, [...(byKey.get(h.keys) ?? []), h.id]);
     for (const [keys, ids] of byKey) {
       if (ids.length < 2) continue;
       for (const id of ids) {

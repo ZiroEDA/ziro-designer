@@ -5755,8 +5755,9 @@ export function PcbEditor({
         fillAllZonesRef.current();
         return;
       }
-      // ACTIONS::zoomFitScreen is Home off macOS and Ctrl+0 on it. The row
-      // prints Ctrl+0 and answers from there; Home has no row and stays here.
+      // ACTIONS::zoomFitScreen: WXK_HOME off macOS, Ctrl+0 on it
+      // (actions.cpp:719-724). Home is the only spelling bound, and the View
+      // menu row now prints it.
       if (!mod && e.key === 'Home') {
         e.preventDefault();
         zoomToFit();

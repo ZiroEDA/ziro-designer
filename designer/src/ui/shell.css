@@ -126,6 +126,16 @@
   /* EDA_MSG_PANEL's background, wxSYS_COLOUR_BTNFACE, measured by
      qa/probes/aui_sash_probe.cpp. See .ze-msgpanel. */
   --msgpanel-bg: #373737;
+  /* EDA_MSG_PANEL lays itself out in units of one 'W':
+       m_fontSize = GetTextExtent( "W" )                     msgpanel.cpp:72
+       if( m_last_x == 0 ) m_last_x = m_fontSize.x;          :143  (first item)
+       m_last_x += GetTextExtent( text ).x;                  :151
+       m_last_x += m_fontSize.x;                             :154  (gap)
+     so the left inset and the gap between items are the SAME number, and it is
+     a font metric rather than a spacing choice. [px] wx measures "W" in
+     Ubuntu Sans 11 as 14 x 18 (qa/probes/aui_sash_probe.cpp); the 18 is already
+     --ui-line-height. */
+  --msgpanel-gutter: 14px;
   /* The frame background a docked canvas or notebook sits on. *Lighter* than
      the panes - which is the relationship KiCad has, and which we had
      inverted: our tree pane was lighter than the launcher beside it. */
@@ -1661,10 +1671,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   background: var(--msgpanel-bg);
   border-top: 1px solid var(--chrome-border);
-  color: #f0f2f4;
-  font-size: 12px;
-  padding-left: 9px;
-  gap: 22px;
+  /* The text is drawn with KIUI::GetControlFont (msgpanel.cpp:121), which off
+     macOS is getGUIFont( win, 0 ) — the plain GTK UI font, the same size as the
+     menu bar and the trees. There is no smaller "info" size here. Ours said
+     12px and #f0f2f4, which is the same mistake the status bar had and which
+     the note below it already records. */
+  color: var(--chrome-fg);
+  font-size: var(--ui-font-size);
+  padding-left: var(--msgpanel-gutter);
+  gap: var(--msgpanel-gutter);
 }
 .ze-msgpanel-item {
   display: grid;
@@ -1676,10 +1691,13 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 15px;
+  /* The two rows sit at m_UpperY = drawSize.y/2 - m_fontSize.y = 0 and
+     m_LowerY = drawSize.y - m_fontSize.y = 18 (msgpanel.cpp:147-148), i.e. one
+     m_fontSize.y each, exactly filling the 2 * m_fontSize.y panel. */
+  line-height: var(--ui-line-height);
 }
 .ze-msgpanel-lower {
-  color: #f0f2f4;
+  color: var(--chrome-fg);
 }
 /* KIUI::GetStatusFont() is getGUIFont( win, 0 ) off macOS - the same
    wxSYS_DEFAULT_GUI_FONT at the same size as the menus and trees, drawn in the
