@@ -29,9 +29,32 @@ export interface PreviewSettings {
   comments: string[]; // 9 entries
 }
 
+/**
+ * The Drawing Sheet Editor's own page defaults — `PL_EDITOR_SETTINGS`, not the
+ * shared page dialog's:
+ *
+ *     PARAM<wxString>( "last_paper_size",   &m_LastPaperSize,   "A3" )
+ *     PARAM<int>(      "last_custom_width",  &m_LastCustomWidth,  17000 )
+ *     PARAM<int>(      "last_custom_height", &m_LastCustomHeight, 11000 )
+ *                                     pagelayout_editor/pl_editor_settings.cpp:52-56
+ *
+ * **A3, not A4.** pl_editor is the only editor whose page default is not the
+ * schematic's A4, and `LoadSettings` feeds `m_LastPaperSize` straight into
+ * `SetPageSettings` (`pl_editor_frame.cpp:543-548`), so it is what a fresh
+ * profile opens on.
+ *
+ * It is visible the moment you put the two windows side by side: A3 is 420 mm
+ * where A4 is 297, so the border's coordinate band runs 1..8 across the top on
+ * KiCad's and ran 1..6 on ours — the marks repeat every 50 mm. The margin was
+ * never the problem; measured off both windows it is 9.93 mm on KiCad's and
+ * 9.95 mm on ours, which is the 10 mm the sheet declares. The PAGE was the
+ * problem.
+ *
+ * The two custom sizes are already right: 17000 x 11000 mils is 431.8 x 279.4 mm.
+ */
 export function defaultPreviewSettings(): PreviewSettings {
   return {
-    paper: 'A4',
+    paper: 'A3',
     portrait: false,
     customWidthMM: 431.8,
     customHeightMM: 279.4,
