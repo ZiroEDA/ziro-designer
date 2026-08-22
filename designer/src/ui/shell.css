@@ -988,7 +988,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 0 8px;
   font-size: var(--ui-font-size);
   /* GTK's menu label peaks at 247, not 255 (the tree really is pure white). */
-  color: #f7f7f7;
+  color: var(--chrome-fg);
   display: flex;
   align-items: center;
   cursor: default;
@@ -1360,7 +1360,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   font-weight: 400;
   font-size: 8pt;
   background: var(--panel-header);
-  border-bottom: 1px solid #181818;
+  border-bottom: 1px solid var(--ctl-border);
 }
 .ze-panel-body {
   padding: 6px 8px;
@@ -1379,7 +1379,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 3px;
   cursor: default;
   font-size: 13px;
-  color: #ffffff;
+  color: var(--view-fg);
   white-space: nowrap;
 }
 .ze-tree-item img {
@@ -1571,7 +1571,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   flex: 1;
   min-width: 0;
   padding: 3px 6px;
-  color: #ffffff;
+  color: var(--view-fg);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -1757,7 +1757,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   padding: 13px 10px;
   font-size: var(--ui-font-size);
   line-height: 1.15;
-  color: #f7f7f7;
+  color: var(--chrome-fg);
   /* Toolbar tooltips are two lines separated by \n, with a tab before the
      hotkey (TOOL_ACTION::GetButtonTooltip). */
   white-space: pre;
@@ -2190,7 +2190,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-height: 0;
   overflow: auto;
   background: var(--panel-bg);
-  border: 1px solid #181818;
+  border: 1px solid var(--ctl-border);
   border-radius: 4px;
 }
 /* The wxTreeListCtrl's column header. */
@@ -2202,7 +2202,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   top: 0;
   z-index: 1;
   background: var(--content-bg);
-  border-bottom: 1px solid #181818;
+  border-bottom: 1px solid var(--ctl-border);
   padding: 5px 8px;
   font-size: var(--ui-font-size);
   color: #f3f4f5;
@@ -2363,7 +2363,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   align-items: flex-start;
   background: var(--content-bg);
-  border: 1px solid #181818;
+  border: 1px solid var(--ctl-border);
   /* wxBORDER_THEME draws the GTK frame, which is rounded: tracing the border on
      a real card, it arcs over about 5px at every corner. */
   border-radius: 5px;
@@ -2404,7 +2404,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   display: flex;
   overflow: auto;
   background: var(--panel-bg);
-  border: 1px solid #181818;
+  border: 1px solid var(--ctl-border);
   border-radius: 4px;
   margin: 5px;
 }
@@ -2497,7 +2497,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      straight into the corners — the tree control's own frame, edge to edge
      under the caption. The 6px radius here made the body read as a floating
      card and left the caption looking detached from it. */
-  border: 1px solid #181818;
+  border: 1px solid var(--ctl-border);
   /* Vertically the rows butt straight onto the frame - the first row starts on
      the pixel after the top rule. The 9px of lead-in puts the root row's
      twisty 15px from the frame, where the real control's root indent puts it. */
@@ -2600,7 +2600,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-mgrbar .sep {
   width: 22px;
   height: 1px;
-  background: #5f5f5f;
+  background: var(--toolbar-separator);
   margin: 3px 0;
 }
 
@@ -3929,9 +3929,9 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
      against 156/12 at the shell's 13px. It is the dialog font, bold. */
   font-size: var(--ui-font-size);
   font-weight: 700;
-  color: #f7f7f7;
-  background: #222222;
-  border-bottom: 1px solid #000000;
+  color: var(--chrome-fg);
+  background: var(--titlebar-bg);
+  border-bottom: 1px solid var(--titlebar-rule);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4905,7 +4905,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   min-width: 85px;
   padding: 0 14px;
   background: var(--content-bg);
-  border: 1px solid #181818;
+  border: 1px solid var(--ctl-border);
   border-radius: 4px;
   color: inherit;
   cursor: default;
@@ -4924,7 +4924,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-btn:disabled {
   /* A disabled wxButton faces #2a2a2a with its label dimmed, rather than the
      whole control being made translucent. */
-  background: #2a2a2a;
+  background: var(--ctl-face-disabled);
   color: #8a8a8a;
   cursor: default;
 }
@@ -7038,7 +7038,7 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 .ze-hsplitter {
   flex: 0 0 5px;
   height: 5px;
-  background: #373737;
+  background: var(--aui-sash);
   cursor: row-resize;
 }
 /* The pane caption's close box: upstream's `.CloseButton( true )`, which only
@@ -7093,12 +7093,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    rule and `.ze-panel-body` carries the frame. Square corners — see the tree. */
 .ze-lhist-head,
 .ze-lhist-list {
-  border-left: 1px solid #181818;
-  border-right: 1px solid #181818;
+  border-left: 1px solid var(--ctl-border);
+  border-right: 1px solid var(--ctl-border);
   border-radius: 0;
 }
 .ze-lhist-list {
-  border-bottom: 1px solid #181818;
+  border-bottom: 1px solid var(--ctl-border);
 }
 .ze-lhist-head,
 .ze-lhist-row {

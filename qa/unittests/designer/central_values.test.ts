@@ -160,7 +160,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // painting their own literal where wx reports one system colour. Twenty-three
   // of them. Found by scanning for the specificity trap rather than by eye —
   // /home/akshay/ziro-parity/probes/specificity_trap.py.
-  ui: { colours: 314, metrics: 816 },
+  //
+  // And twenty more from a second scan, restated_tokens.py: literals writing a
+  // value a token already holds. Note the count fell by 20, not by 28 — eight
+  // colour literals still MATCH a token's value and were deliberately left,
+  // because matching a value is not the same as restating that token. A
+  // tooltip border is #4b4b4b and so is --slider-track-bg; substituting would
+  // tie the tooltip to the slider and move it the day the slider moves.
+  ui: { colours: 294, metrics: 816 },
   widgets: { colours: 6, metrics: 46 },
 };
 
@@ -365,7 +372,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Two branches lowered these at the same time, so both of their numbers
     // were wrong here and neither could be adopted; the scan is the only
     // authority. What each pass took out is recorded in its own commit.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(720);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(700);
     expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1669);
   });
 
