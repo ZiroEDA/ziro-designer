@@ -84,14 +84,12 @@ import {
 } from './components/dialogs.js';
 import '../../ui/shell.css';
 import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { standardHelpMenu } from '../../ui/help_menu.js';
+import { symbolEditorMenus } from './menubar.js';
 import { showHotkeyList } from '../../ui/hotkey_list_action.js';
 import { ABOUT_TITLES } from '../../ui/about_titles.js';
 import { useModalEscape } from '../../ui/useModalEscape.js';
-import { addClose } from '../../ui/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
-import { browserSafeKey } from '../../ui/browser_reserved.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -1440,167 +1438,117 @@ export function SymbolEditor({
     document.body.style.cursor = 'col-resize';
   };
 
-  // ----- menus (menubar_symbol_editor.cpp, working subset) -----------------------------------
-  const menus: Menu[] = useMemo(
-    () => [
-      {
-        label: 'File',
-        items: [
-          { label: 'New Library...', icon: 'newLibrary', action: () => setNewLibName('') },
-          {
-            label: 'Add Library...',
-            icon: 'addLibrary',
-            action: () => addLibInputRef.current?.click(),
-          },
-          {
-            label: 'New Symbol...',
-            icon: 'newSymbol',
-            action: () => setNewSymbolOpen(true),
-            shortcut: browserSafeKey('Ctrl+N'),
-          },
-          { sep: true },
-          { label: 'Save', icon: 'save', action: save, shortcut: 'Ctrl+S' },
-          { label: 'Save All', action: saveAll },
-          { label: 'Revert', icon: 'revert', action: revert, disabled: !curName },
-          { sep: true },
-          {
-            label: 'Import Symbol...',
-            icon: 'importSymbol',
-            action: () => importSymInputRef.current?.click(),
-          },
-          {
-            label: 'Export Symbol...',
-            icon: 'exportSymbol',
-            action: () => void exportSymbol(),
-            disabled: !curName && !treeSel?.name,
-          },
-          { sep: true },
-          {
-            label: 'Symbol Properties...',
-            icon: 'symbolProperties',
-            action: () => workSymbol && setSymbolPropsOpen(true),
-            disabled: !workSymbol,
-          },
-          { sep: true },
-          addClose('Library Editor', onExitToHome),
-        ],
-      },
-      {
-        label: 'Edit',
-        items: [
-          { label: 'Undo', icon: 'undo', action: undo, shortcut: 'Ctrl+Z' },
-          { label: 'Redo', icon: 'redo', action: redo, shortcut: 'Ctrl+Y' },
-          { sep: true },
-          {
-            label: 'Delete',
-            icon: 'delete',
-            shortcut: 'Delete',
-            action: () => {
-              if (workSymbol && selection.size > 0 && !isAlias) {
-                commit(deleteSymbolItems(workSymbol, selection), 'Delete');
-                setSelection(new Set());
-              }
-            },
-          },
-          { sep: true },
-          {
-            label: 'Pin Table...',
-            icon: 'pinTable',
-            action: () => workSymbol && setPinTableOpen(true),
-            disabled: !workSymbol,
-          },
-        ],
-      },
-      {
-        label: 'View',
-        items: [
-          { label: 'Zoom In', icon: 'zoomIn', action: () => controller.current?.zoomIn() },
-          { label: 'Zoom Out', icon: 'zoomOut', action: () => controller.current?.zoomOut() },
-          { label: 'Zoom to Fit', icon: 'zoomFit', action: () => controller.current?.zoomToFit() },
-          { sep: true },
-          {
-            label: `${toggles.has('showHiddenPins') ? '✓ ' : ''}Show Hidden Pins`,
-            action: () => onLeftToggle('showHiddenPins'),
-          },
-          {
-            label: `${toggles.has('showHiddenFields') ? '✓ ' : ''}Show Hidden Fields`,
-            action: () => onLeftToggle('showHiddenFields'),
-          },
-          {
-            label: `${toggles.has('showElectricalTypes') ? '✓ ' : ''}Show Pin Electrical Types`,
-            action: () => onLeftToggle('showElectricalTypes'),
-          },
-          { sep: true },
-          {
-            label: `${toggles.has('showLibraryTree') ? '✓ ' : ''}Library Tree`,
-            action: () => onLeftToggle('showLibraryTree'),
-          },
-          {
-            label: `${toggles.has('showProperties') ? '✓ ' : ''}Properties Manager`,
-            action: () => onLeftToggle('showProperties'),
-          },
-        ],
-      },
-      {
-        label: 'Place',
-        items: [
-          { label: 'Pin', icon: 'placePin', action: () => onToolSelect('placePin'), shortcut: 'P' },
-          {
-            label: 'Text',
-            icon: 'placeText',
-            action: () => onToolSelect('placeText'),
-            shortcut: 'T',
-          },
-          { label: 'Rectangle', icon: 'rectangle', action: () => onToolSelect('drawRectangle') },
-          { label: 'Circle', icon: 'circle', action: () => onToolSelect('drawCircle') },
-          { label: 'Arc', icon: 'arc', action: () => onToolSelect('drawArc') },
-          { label: 'Lines', icon: 'lines', action: () => onToolSelect('drawLines') },
-          { label: 'Polygon', icon: 'polygon', action: () => onToolSelect('drawPolygon') },
-        ],
-      },
-      {
-        label: 'Inspect',
-        items: [
-          {
-            label: 'Show Datasheet',
-            icon: 'showDatasheet',
-            action: showDatasheet,
-            disabled: !workSymbol,
-          },
-          { sep: true },
-          {
-            label: 'Symbol Checker...',
-            icon: 'checkSymbol',
-            action: () => workSymbol && setCheckOpen(true),
-            disabled: !workSymbol,
-          },
-        ],
-      },
-      {
-        label: 'Preferences',
-        items: [{ label: 'Preferences...', disabled: true }],
-      },
-      standardHelpMenu({ showHotkeys: showHotkeyList, showAbout: () => setAboutOpen(true) }),
-    ],
+  // ----- menus (menubar_symbol_editor.cpp) -------------------------------------------
+  //
+  // The tree lives in `menubar.ts`. A menu built inside a `.tsx` cannot be
+  // reached by any test - `qa`'s tsconfig compiles `.ts` only - which is why
+  // every row upstream has and this bar does not went unnoticed. What stays
+  // here is the frame's half: the three handlers and the ENABLE() conditions.
+  const onMenuAction = useCallback(
+    (id: string) => {
+      switch (id) {
+        case 'newLibrary':
+          setNewLibName('');
+          break;
+        case 'addLibrary':
+          addLibInputRef.current?.click();
+          break;
+        case 'newSymbol':
+          setNewSymbolOpen(true);
+          break;
+        case 'save':
+          save();
+          break;
+        case 'saveAll':
+          saveAll();
+          break;
+        case 'revert':
+          revert();
+          break;
+        case 'importSymbol':
+          importSymInputRef.current?.click();
+          break;
+        case 'exportSymbol':
+          void exportSymbol();
+          break;
+        case 'symbolProperties':
+          if (workSymbol) setSymbolPropsOpen(true);
+          break;
+        case 'close':
+          onExitToHome();
+          break;
+        case 'undo':
+          undo();
+          break;
+        case 'redo':
+          redo();
+          break;
+        case 'doDelete':
+          if (workSymbol && selection.size > 0 && !isAlias) {
+            commit(deleteSymbolItems(workSymbol, selection), 'Delete');
+            setSelection(new Set());
+          }
+          break;
+        case 'pinTable':
+          if (workSymbol) setPinTableOpen(true);
+          break;
+        case 'zoomInCenter':
+          controller.current?.zoomIn();
+          break;
+        case 'zoomOutCenter':
+          controller.current?.zoomOut();
+          break;
+        case 'zoomFitScreen':
+          controller.current?.zoomToFit();
+          break;
+        case 'showDatasheet':
+          showDatasheet();
+          break;
+        case 'checkSymbol':
+          if (workSymbol) setCheckOpen(true);
+          break;
+      }
+    },
     [
       save,
       saveAll,
       revert,
-      undo,
-      redo,
       exportSymbol,
       onExitToHome,
+      undo,
+      redo,
       workSymbol,
-      curName,
-      treeSel,
       selection,
       isAlias,
-      toggles,
       commit,
-      onLeftToggle,
-      onToolSelect,
       showDatasheet,
     ],
+  );
+
+  const menus: Menu[] = useMemo(
+    () =>
+      symbolEditorMenus(
+        {
+          action: onMenuAction,
+          tool: onToolSelect,
+          toggle: onLeftToggle,
+          showHotkeys: showHotkeyList,
+          showAbout: () => setAboutOpen(true),
+        },
+        {
+          showHiddenPins: toggles.has('showHiddenPins'),
+          showHiddenFields: toggles.has('showHiddenFields'),
+          showElectricalTypes: toggles.has('showElectricalTypes'),
+          showLibraryTree: toggles.has('showLibraryTree'),
+          showProperties: toggles.has('showProperties'),
+        },
+        {
+          haveSymbol: !!workSymbol,
+          revert: !!curName,
+          targetSymbol: !!(curName || treeSel?.name),
+        },
+      ),
+    [onMenuAction, onToolSelect, onLeftToggle, toggles, workSymbol, curName, treeSel],
   );
 
   // The chain above reads the tree through this ref; see `menusRef`.
