@@ -42,6 +42,8 @@ import {
   type GERBER_DRAW_ITEM,
 } from '@ziroeda/gerbview';
 import { compareByFileExtension, compareByZOrder } from '@ziroeda/gerbview';
+import { parseColor4d, toCss } from '@ziroeda/common/src/color4d.js';
+import { hiContrastColor } from '@ziroeda/common/src/render_settings.js';
 import { decideLoad, ERRORS_CAPTION } from './gerber_load_report.js';
 import { HtmlMessageBox } from '../../ui/dialog_html_message_box.js';
 import { PAPER_MM } from '@ziroeda/common';
@@ -680,13 +682,34 @@ export function GerberViewer({
     [toggles, activeLayer, highlightTest, showDrawingSheet],
   );
 
+  /**
+   * `ACTIONS::highContrastMode`, "Inactive Layer View Mode" — "Toggle inactive
+   * layers between normal and dimmed" (`common/tool/actions.cpp`). In GerbView
+   * it is a plain boolean: both it and highContrastModeCycle run the same
+   * `cfg->m_Display.m_HighContrastMode = !...` (`gerbview_control.cpp:296-300`).
+   */
+  const highContrast = toggles.has('highContrast');
+
   // Draw order: active layer last (drawn on top), like GerbView.
   const renderLayers = useMemo<GerberLayerView[]>(() => {
-    const others = layers.filter((_, i) => i !== activeLayer);
-    const act = layers[activeLayer];
-    const ordered = act ? [...others, act] : others;
-    return ordered.map((l) => ({ image: l.image, color: l.color, visible: l.visible }));
-  }, [layers, activeLayer]);
+    const rows = layers.map((_, i) => i);
+    const others = rows.filter((i) => i !== activeLayer);
+    const ordered = layers[activeLayer] ? [...others, activeLayer] : others;
+    // `GERBVIEW_PAINTER::getLayerColor`: every layer NOT in
+    // m_highContrastLayers is drawn in its hi-contrast colour
+    // (`gerbview/gerbview_painter.cpp:163-168`), and GerbView puts exactly one
+    // layer in that set — the active one
+    // (`gerbview_draw_panel_gal.cpp:74-86`). So the dimming is a COLOUR, chosen
+    // per layer here, and every renderer that takes these colours gets it.
+    const bg = parseColor4d(GERBER_BG_COLOR);
+    return ordered.map((i) => {
+      const l = layers[i] as Layer;
+      const base = l.color;
+      const color =
+        highContrast && i !== activeLayer ? toCss(hiContrastColor(parseColor4d(base), bg)) : base;
+      return { image: l.image, color, visible: l.visible };
+    });
+  }, [layers, activeLayer, highContrast]);
 
   const bbox = useMemo(() => {
     let minX = Infinity,
