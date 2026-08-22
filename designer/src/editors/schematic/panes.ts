@@ -26,7 +26,7 @@
  *
  * The Search pane is NOT in this list. Upstream docks it at the BOTTOM —
  * `EDA_PANE().Name( SearchPaneName() ).Bottom()` (sch_edit_frame.cpp:290-292)
- * — under the canvas rather than in this column.
+ * — under the canvas rather than in this column. See {@link SCH_BOTTOM_DOCK}.
  */
 
 /** A docked pane of the left column, named as `wxAuiPaneInfo::Name()` names it. */
@@ -63,3 +63,76 @@ export const SCH_LEFT_PANE_ORDER: readonly SchLeftPane[] = (
 export const SCH_LEFT_GROW_PANES: readonly SchLeftPane[] = SCH_LEFT_PANE_ORDER.filter(
   (p) => p !== 'selectionFilter',
 );
+
+/**
+ * Whether the Selection Filter is on screen.
+ *
+ * It has no visibility control of its own. `SCH_EDIT_FRAME::updateSelectionFilterVisbility`
+ * (sch_edit_frame.cpp:2817-2831) decides for it, with the comment
+ *
+ *   // Don't give the selection filter its own visibility controls; instead show it if
+ *   // anything else is visible
+ *
+ * and the condition
+ *
+ *   bool showFilter = ( hierarchyPane.IsShown() && hierarchyPane.IsDocked() )
+ *                     || ( netNavigatorPane.IsShown() && netNavigatorPane.IsDocked() )
+ *                     || ( propertiesPane.IsShown() && propertiesPane.IsDocked() );
+ *
+ * Ours keyed on Properties alone, so closing Properties with the hierarchy open
+ * took the filter away with it.
+ *
+ * The `IsDocked()` half has no counterpart here: we have no floating panes, so
+ * a shown pane is always a docked one. It is written out above rather than
+ * dropped silently, because if panes ever float this predicate is where the
+ * other half belongs.
+ *
+ * The Search pane is deliberately not a term — it is `.Bottom()`, not part of
+ * this column, and upstream does not consult it.
+ */
+export function schSelectionFilterShown(
+  shown: Readonly<Record<Exclude<SchLeftPane, 'selectionFilter'>, boolean>>,
+): boolean {
+  return shown.hierarchy || shown.netNavigator || shown.properties;
+}
+
+/**
+ * The Search pane, which is docked at the BOTTOM and not in the column above.
+ *
+ * `sch_edit_frame.cpp:290-300`:
+ *
+ *   m_auimgr.AddPane( m_searchPane, EDA_PANE()
+ *                     .Name( SearchPaneName() )
+ *                     .Bottom()
+ *                     .Caption( _( "Search" ) )
+ *                     .PaneBorder( false )
+ *                     .MinSize( FromDIP( wxSize( 180, 60 ) ) )
+ *                     .BestSize( FromDIP( wxSize( 180, 100 ) ) )
+ *                     ...
+ *
+ * **It does not span the window.** There is no `.Layer()` call, so it takes the
+ * default layer 0, and wxAUI nests docks outward by layer: layer 0 is the
+ * innermost ring around the centre pane, and layers 1-3 then 4-6 wrap it. The
+ * panes it has to clear are all outside it —
+ *
+ *   | pane        | dock   | layer | where                   |
+ *   |-------------|--------|-------|-------------------------|
+ *   | Search      | Bottom |   0   | sch_edit_frame.cpp:292  |
+ *   | LeftToolbar | Left   |   2   | sch_edit_frame.cpp:281  |
+ *   | left panes  | Left   |   3   | eeschema_settings.cpp   |
+ *   | MsgPanel    | Bottom |   6   | sch_edit_frame.cpp:257  |
+ *
+ * — so the Search pane is as wide as the CANVAS COLUMN, with the left dock and
+ * both toolbars running full height past it, and the message panel below all of
+ * them at the full width of the frame.
+ *
+ * Ours rendered it as the first pane of the left column instead.
+ */
+export const SCH_BOTTOM_DOCK = {
+  /* [data] `.BestSize( FromDIP( wxSize( 180, 100 ) ) )`, sch_edit_frame.cpp:297
+     — the height the dock opens at. KiCad hardcodes the pair itself. */
+  bestHeight: 100,
+  /* [data] `.MinSize( FromDIP( wxSize( 180, 60 ) ) )`, sch_edit_frame.cpp:296
+     — how far the sash above it can be dragged down. */
+  minHeight: 60,
+} as const;
