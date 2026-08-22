@@ -35,6 +35,7 @@ import { MenuBar, type Menu } from '../../ui/MenuBar.js';
 import { Toolbar } from '../../ui/Toolbar.js';
 import { LoadingOverlay } from '../../ui/LoadingOverlay.js';
 import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
+import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
 import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { toolbarIconUrl } from '../../ui/toolbarIcons.js';
@@ -1063,12 +1064,39 @@ export function FootprintEditor({
   // The chain above reads the tree through this ref; see `menusRef`.
   menusRef.current = menus;
 
-  // ----- title (UpdateTitle) ----------------------------------------------------
+  // ----- title (FOOTPRINT_EDIT_FRAME::UpdateTitle) -------------------------------
+  //
+  // Built by the shared rule rather than restated here - see `frame_title.ts`
+  // for the C++ and for the four branches this frame decides for itself. What
+  // used to be here got the document right and everything around it wrong: no
+  // `*`, an ASCII hyphen for the em dash, and "No footprint" where KiCad says
+  // `[no footprint loaded]`.
   const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
-  useDocumentTitle(
-    'footprints',
-    formatTitle('Footprint Editor', curName ? `${curLib}:${curName}` : null, modified),
+  const fpTitle = useMemo(
+    () =>
+      fpFrameTitle({
+        // `IsCurrentFPFromBoard()`. Always false today: nothing here can load a
+        // footprint off a board yet - `loadFpFromBoard` is the disabled Tools
+        // row - so branch 1 is unreachable. Ported and tested anyway, so the
+        // title is already right on the day that action lands.
+        fromBoard: false,
+        // `GetLoadedFPID().IsValid()` - the branch GUARD, which upstream reads
+        // off the LOADED id while printing the LIVE one.
+        loadedFpidValid: Boolean(curLib && curName),
+        // `footprint->GetFPID().Format()` - the live id, so a rename shows
+        // through before it is saved.
+        fpid: workFp && curLib && curName ? `${curLib}:${curName}` : '',
+        // `IsFootprintLibWritable( … )`. Undefined means writable, matching
+        // upstream's `bool writable = true` seed; `FootprintLibraryManager` has
+        // no writability notion yet, so `[Read Only]` cannot appear.
+        writable: undefined,
+        // `IsContentModified()`.
+        modified,
+      }),
+    [workFp, curLib, curName, modified],
   );
+
+  useDocumentTitle('footprints', formatTitle(FP_FRAME_NAME, fpTitle.document, modified));
 
   // Library edits are buffered and only written by Save, so closing the tab
   // discards them. `hasModifications()` answers across every open library
@@ -1149,7 +1177,12 @@ export function FootprintEditor({
         }
         title={
           <>
-            <b>{curName ? `${curLib}:${curName}` : 'No footprint'}</b>&nbsp;-&nbsp;Footprint Editor
+            <b>
+              {fpTitle.modified}
+              {fpTitle.document}
+            </b>
+            {fpTitle.separator}
+            {fpTitle.frameName}
           </>
         }
       />

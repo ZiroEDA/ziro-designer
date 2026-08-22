@@ -1056,7 +1056,6 @@ export function App(): JSX.Element {
               onExitToHome={goHome}
               initialProject={projectFiles}
               onAddSymbolToSchematic={addSymbolToSchematic}
-              projectName={projectName}
               openRequest={symRequest}
               schematicSymbol={symFromSchematic}
               onSaveToSchematic={saveSymbolToSchematic}
