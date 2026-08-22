@@ -21,10 +21,16 @@ export const BITMAP: Record<string, string> = {
   boardSetup: 'options_board',
   threeDViewer: 'three_d',
   updatePcbFromSch: 'update_pcb_from_sch',
-  runDRC: 'drc',
+  // PCB_ACTIONS::runDRC declares .Icon( BITMAPS::erc ) (pcb_actions.cpp:465).
+  // pcbnew and eeschema share the one checker glyph; `drc` is a different
+  // bitmap that no action on this toolbar asks for.
+  runDRC: 'erc',
   showEeschema: 'icon_eeschema_24',
   lock: 'locked',
-  unlock: 'lock_unlock',
+  // PCB_ACTIONS::unlock declares .Icon( BITMAPS::unlocked ) (pcb_actions.cpp:1552).
+  // `lock_unlock` is PCB_ACTIONS::toggleLock's bitmap (:1560) — the padlock
+  // showing both states — so Unlock wore the toggle's icon.
+  unlock: 'unlocked',
   footprintBrowser: 'library_browser',
   togglePolarCoords: 'polar_coord',
   crosshair45: 'cursor_fullscreen45',
@@ -65,6 +71,9 @@ export const BITMAP: Record<string, string> = {
   dimLeader: 'add_leader',
   deleteTool: 'delete_cursor',
   drillOrigin: 'set_origin',
+  // TOP_AUX actions (toolbars_pcb_editor.cpp:366, :377).
+  autoTrackWidth: 'auto_track_width',
+  selectLayerPair: 'select_layer_pair',
   gridOrigin: 'grid_select_axis',
   placePoint: 'add_point',
   measure: 'measurement',
@@ -74,29 +83,11 @@ export const BITMAP: Record<string, string> = {
   localRatsnestTool: 'tool_ratsnest',
   routeSingleTrack: 'add_tracks',
   tuneSingleTrack: 'ps_tune_length',
-  showDiffPhaseSkew: 'tune_diff_pair_skew_legend',
-  drawEllipseArc: 'add_ellipse_arc',
-  drawEllipse: 'add_ellipse',
-  // The schematic's own ids for the same two shapes.
+  // eeschema's ellipse shapes. SCH_SHAPE really does carry an ellipse, so
+  // unlike the pcb `drawEllipse`/`drawEllipseArc` ids removed above these name
+  // something that exists; left to the schematic pass to confirm the bitmaps.
   ellipseArc: 'add_ellipse_arc',
   ellipse: 'add_ellipse',
-  addConstraintCoincident: 'constraint_coincident',
-  addConstraintPointOnLine: 'constraint_point_on_line',
-  addConstraintMidpoint: 'constraint_midpoint',
-  addConstraintSymmetric: 'constraint_symmetric',
-  addConstraintParallel: 'constraint_parallel',
-  addConstraintPerpendicular: 'constraint_perpendicular',
-  addConstraintCollinear: 'constraint_collinear',
-  addConstraintHorizontal: 'constraint_horizontal',
-  addConstraintVertical: 'constraint_vertical',
-  addConstraintTangent: 'constraint_tangent',
-  addConstraintEqualLength: 'constraint_equal_length',
-  addConstraintEqualRadius: 'constraint_equal_radius',
-  addConstraintConcentric: 'constraint_concentric',
-  addConstraintFixedLength: 'constraint_fixed_length',
-  addConstraintFixedRadius: 'constraint_fixed_radius',
-  addConstraintArcAngle: 'constraint_arc_angle',
-  addConstraintAngular: 'constraint_angular_dimension',
   placeReferenceImage: 'image',
   drawOrthogonalDimension: 'add_orthogonal_dimension',
   drawAlignedDimension: 'add_aligned_dimension',

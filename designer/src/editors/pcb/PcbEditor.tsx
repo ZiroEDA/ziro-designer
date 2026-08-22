@@ -149,6 +149,7 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
 import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { hasLockedItems, hasUnlockedItems } from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
 import { Icon } from '../../ui/icons.js';
 import { posturePath, routedPath as routeDecision } from './route_tool.js';
 import { ReferenceImageCache } from './image_cache.js';
@@ -199,6 +200,7 @@ import {
   scaleForZoomFactor,
   type StatusUnits,
   unitsMsg,
+  unitText,
   zoomFactorForScale,
   zoomMsg,
 } from '../../ui/status_format.js';
@@ -351,8 +353,10 @@ import { drawGrid, drawCrosshair } from '../../ui/grid_cursor.js';
 import { gridSizesIU } from '../../ui/grid_settings.js';
 import {
   PCB_TOP_TOOLBAR,
+  PCB_AUX_TOOLBAR,
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
+  PCB_CONTROL,
   PCB_FILTER_CATS,
 } from './pcbToolbars.js';
 import '../../ui/shell.css';
@@ -7117,7 +7121,6 @@ export function PcbEditor({
   // mils at %.2f.
   const auxMM = (iu: number): string => iuToMM(iu).toFixed(3);
   const auxMils = (iu: number): string => ((iuToMM(iu) / 25.4) * 1000).toFixed(2);
-  const auxSepStyle: CSSProperties = { width: 1, alignSelf: 'stretch', background: '#333' };
   // Zoom selector value (EDA_DRAW_FRAME::OnUpdateSelectZoom): the preset the
   // zoom IS, else the live zoom as a custom entry. Upstream compares with `==`
   // and `isZoomSelectPreset` is that comparison, widened only by the float
@@ -7359,17 +7362,31 @@ export function PcbEditor({
   // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
   // Ungroup needs a selected group. (Add / Remove to Group are right-click-only
   // in KiCad; they live in the grouping context menu, not the toolbar.)
+  /**
+   * `PCB_EDIT_FRAME::setupUIConditions` (`pcb_edit_frame.cpp:1036-1058`), the
+   * four the top toolbar reads.
+   *
+   * Save is NOT among them: pcbnew declares
+   * `ENABLE( SELECTION_CONDITIONS::ShowAlways )` for it, so it stays lit on a
+   * clean board. We greyed it whenever `!dirty`, which meant our Save was dead
+   * on open beside KiCad's live one.
+   */
   const topDisabled = useMemo(() => {
     const s = new Set<string>();
-    if (!dirty) s.add('save');
     let groupCount = 0;
     for (const id of selection) {
       if (parseBoardItemId(id)?.kind === 'group') groupCount++;
     }
+    // ACTIONS::group = MoreThan( 1 ); ACTIONS::ungroup = HasTypes( groupTypes ).
     if (selection.size < 2) s.add('group');
     if (groupCount === 0) s.add('ungroup');
+    // PCB_ACTIONS::lock = HasUnlockedItems; ::unlock = HasLockedItems. Both
+    // false on an empty selection, so both grey out with nothing selected —
+    // ours were lit unconditionally.
+    if (board === null || !hasUnlockedItems(board, selection)) s.add('lock');
+    if (board === null || !hasLockedItems(board, selection)) s.add('unlock');
     return s;
-  }, [dirty, selection]);
+  }, [selection, board]);
 
   return (
     <div className="ze-app">
@@ -7395,134 +7412,152 @@ export function PcbEditor({
         orientation="horizontal"
         disabledIds={topDisabled}
         onActivate={onTopAction}
+        controls={{
+          /**
+           * `UpdateVariantSelectionCtrl` (`toolbars_pcb_editor.cpp:503`) fills
+           * this from `BOARD::GetVariantNamesForUI()`, which is
+           * `GetDefaultVariantName()` plus the board's own variant names,
+           * sorted with the default pinned first (`board.cpp`, `string_utils.cpp:1864`).
+           * `< Default >` is that name, spelled exactly (`string_utils.cpp:57`).
+           *
+           * Our board model carries no variant names, so the list is the
+           * default alone — which is also what a stock KiCad board shows, and
+           * what a live pcbnew on the ecc83 demo shows. Design variants are
+           * not ported, so the control does not pretend to switch anything.
+           */
+          [PCB_CONTROL.currentVariant]: (
+            <select title="Select the current variant to display and edit." disabled>
+              <option>&lt; Default &gt;</option>
+            </select>
+          ),
+        }}
       />
 
-      {/* TOP_AUX bar (toolbars_pcb_editor.cpp TOOLBAR_LOC::TOP_AUX): track
-          width + auto-width | via size | layer selector + layer pair | grid |
-          zoom | override locks. Combo texts follow UpdateTrackWidthSelectBox /
-          UpdateViaSizeSelectBox / GRID_MENU::BuildChoiceList /
-          UpdateZoomSelectBox exactly. */}
-      <div
-        className="ze-auxbar"
-        style={{
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          padding: '2px 8px',
-          borderBottom: '1px solid #333',
-          fontSize: 12,
+      {/* TOP_AUX toolbar (toolbars_pcb_editor.cpp:365-386). A real
+          ACTION_TOOLBAR upstream, docked at .Top().Layer(5) — not a strip of
+          loose widgets, which is what this was: a bare flex div writing its own
+          gap, padding, face and a 1px #333 bottom rule the shared toolbar rule
+          suppresses between two stacked bars. Its three "buttons" read
+          "auto" / "pair" / "locks" in the user-agent font because a bare
+          <button> takes it. The five combos are AppendControl slots and are
+          supplied through `controls`, as KiCad supplies them through
+          RegisterCustomToolbarControlFactory. */}
+      <Toolbar
+        entries={PCB_AUX_TOOLBAR}
+        orientation="horizontal"
+        onActivate={onTopAction}
+        controls={{
+          [PCB_CONTROL.trackWidth]: (
+            <select
+              title="Select the default width for new tracks. Note that this width can be overridden by the board minimum width, or by the width of an existing track if the 'Use Existing Track Width' feature is enabled."
+              value={trackSel}
+              onChange={(e) => setTrackSel(Number(e.target.value))}
+            >
+              <option value={0}>Track: use netclass width</option>
+              {trackWidthList.map((w, i) => (
+                <option key={`${w}:${i}`} value={i + 1}>
+                  Track: {auxMM(w)} mm ({auxMils(w)} mils)
+                </option>
+              ))}
+            </select>
+          ),
+          [PCB_CONTROL.viaDiameter]: (
+            <select
+              title="Via size"
+              value={viaSel}
+              onChange={(e) => setViaSel(Number(e.target.value))}
+            >
+              <option value={0}>Via: use netclass sizes</option>
+              {viaSizeList.map((v, i) => (
+                <option key={`${v.diameter}:${v.drill}:${i}`} value={i + 1}>
+                  {v.drill > 0
+                    ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mils)`
+                    : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mils)`}
+                </option>
+              ))}
+            </select>
+          ),
+          /* PCB_LAYER_BOX_SELECTOR: a colour swatch and the layer's name. The
+             swatch is a COLOR_SWATCH like every other, so it takes the shared
+             class rather than restating a size, a 2px radius and a #444 border
+             that color_swatch.cpp's RenderToDC does not draw. */
+          [PCB_CONTROL.layerSelector]: (
+            <span className="ze-tb-layerbox">
+              <span className="ze-layer-swatch" style={{ background: layerColor(activeLayer) }} />
+              <select
+                value={activeLayer}
+                onChange={(e) => setActiveLayer(e.target.value)}
+                title="Active layer"
+              >
+                {(board?.layers ?? []).map((l) => (
+                  <option key={l.name} value={l.name}>
+                    {layerName(l.name)}
+                  </option>
+                ))}
+              </select>
+            </span>
+          ),
+          /* GRID_MENU::BuildChoiceList: `"%s%s (%s)"`, both halves formatted by
+             GRID::MessageText with aDisplayUnits true, so both carry the unit
+             suffix EDA_UNIT_UTILS::GetText gives — which is "mils", plural.
+             This wrote a singular "mil". */
+          [PCB_CONTROL.gridSelect]: (
+            <select
+              title="Grid"
+              value={gridIU}
+              onChange={(e) => {
+                setGridIU(Number(e.target.value));
+                requestDraw();
+              }}
+            >
+              {PCB_GRIDS.map((g) => (
+                <option key={g} value={g}>
+                  {fmtCoord(g)}
+                  {unitText(unitLabel)} (
+                  {toggles.has('unitsMils')
+                    ? `${auxMM(g)}${unitText('mm')}`
+                    : `${auxMils(g)}${unitText('mils')}`}
+                  )
+                </option>
+              ))}
+              {!PCB_GRIDS.includes(gridIU) && (
+                <option value={gridIU}>
+                  {fmtCoord(gridIU)}
+                  {unitText(unitLabel)}
+                </option>
+              )}
+            </select>
+          ),
+          [PCB_CONTROL.zoomSelect]: (
+            <select
+              title="Zoom"
+              value={zoomSelValue}
+              onChange={(e) => {
+                if (e.target.value === 'auto') zoomToFit();
+                else setZoomPreset(Number(e.target.value));
+              }}
+            >
+              <option value="auto">{ZOOM_AUTO_LABEL}</option>
+              {zoomCustom !== null && (
+                <option value={zoomCustom}>{zoomSelectLabel(zoomCustom)}</option>
+              )}
+              {ZOOM_LIST.pcbnew.map((z) => (
+                <option key={z} value={z}>
+                  {zoomSelectLabel(z)}
+                </option>
+              ))}
+            </select>
+          ),
+          /* A wxCheckBox labelled "Override locks" (eda_draw_frame.cpp:240),
+             not a button. Its command is not ported, so it is disabled. */
+          [PCB_CONTROL.overrideLocks]: (
+            <label>
+              <input type="checkbox" disabled />
+              Override locks
+            </label>
+          ),
         }}
-      >
-        <select
-          title="Track width"
-          value={trackSel}
-          onChange={(e) => setTrackSel(Number(e.target.value))}
-        >
-          <option value={0}>Track: use netclass width</option>
-          {trackWidthList.map((w, i) => (
-            <option key={`${w}:${i}`} value={i + 1}>
-              Track: {auxMM(w)} mm ({auxMils(w)} mil)
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled
-          title="Auto track width: when routing from an existing track use its width, otherwise, use the current width setting"
-          style={{ opacity: 0.4 }}
-        >
-          auto
-        </button>
-        <span style={auxSepStyle} />
-        <select title="Via size" value={viaSel} onChange={(e) => setViaSel(Number(e.target.value))}>
-          <option value={0}>Via: use netclass sizes</option>
-          {viaSizeList.map((v, i) => (
-            <option key={`${v.diameter}:${v.drill}:${i}`} value={i + 1}>
-              {v.drill > 0
-                ? `Via: ${auxMM(v.diameter)} / ${auxMM(v.drill)} mm (${auxMils(v.diameter)} / ${auxMils(v.drill)} mil)`
-                : `Via: ${auxMM(v.diameter)} mm (${auxMils(v.diameter)} mil)`}
-            </option>
-          ))}
-        </select>
-        <span style={auxSepStyle} />
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              background: layerColor(activeLayer),
-              borderRadius: 2,
-              border: '1px solid #444',
-            }}
-          />
-          <select
-            value={activeLayer}
-            onChange={(e) => setActiveLayer(e.target.value)}
-            title="Active layer"
-          >
-            {(board?.layers ?? []).map((l) => (
-              <option key={l.name} value={l.name}>
-                {layerName(l.name)}
-              </option>
-            ))}
-          </select>
-        </span>
-        <button
-          type="button"
-          disabled
-          title="Select the layer pair for routing vias"
-          style={{ opacity: 0.4 }}
-        >
-          pair
-        </button>
-        <span style={auxSepStyle} />
-        <select
-          title="Grid"
-          value={gridIU}
-          onChange={(e) => {
-            setGridIU(Number(e.target.value));
-            requestDraw();
-          }}
-        >
-          {PCB_GRIDS.map((g) => (
-            <option key={g} value={g}>
-              {fmtCoord(g)} {unitLabel} (
-              {toggles.has('unitsMils') ? `${auxMM(g)} mm` : `${auxMils(g)} mil`})
-            </option>
-          ))}
-          {!PCB_GRIDS.includes(gridIU) && (
-            <option value={gridIU}>
-              {fmtCoord(gridIU)} {unitLabel}
-            </option>
-          )}
-        </select>
-        <span style={auxSepStyle} />
-        <select
-          title="Zoom"
-          value={zoomSelValue}
-          onChange={(e) => {
-            if (e.target.value === 'auto') zoomToFit();
-            else setZoomPreset(Number(e.target.value));
-          }}
-        >
-          <option value="auto">{ZOOM_AUTO_LABEL}</option>
-          {zoomCustom !== null && <option value={zoomCustom}>{zoomSelectLabel(zoomCustom)}</option>}
-          {ZOOM_LIST.pcbnew.map((z) => (
-            <option key={z} value={z}>
-              {zoomSelectLabel(z)}
-            </option>
-          ))}
-        </select>
-        <span style={auxSepStyle} />
-        <button
-          type="button"
-          disabled
-          title="Override locks: allow editing locked items"
-          style={{ opacity: 0.4 }}
-        >
-          locks
-        </button>
-      </div>
+      />
 
       <div className="ze-body">
         {/* KiCad docks the Properties pane outermost-left (Layer 5), then the

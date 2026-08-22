@@ -130,7 +130,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // took rgba(80,160,240,0.5) with it, and the notebook tab strip's inline
   // #2a2a2e, #4d7fc4 and #333 went when it adopted the shared .ze-nb-tabs.
   // Metrics: the same strip's four inline sizes went with them.
-  'editors/pcb': { colours: 72, metrics: 393 },
+  // 72/393 until the toolbars pass. The hand-rolled TOP_AUX div became a real
+  // Toolbar, taking its inline #333 rule, its separator's #333 fill and the
+  // layer swatch's invented #444 border with it (3 colours), along with that
+  // div's and the swatch's inline sizes (6 metrics).
+  'editors/pcb': { colours: 69, metrics: 387 },
   'editors/schematic': { colours: 70, metrics: 230 },
   'editors/symbol': { colours: 12, metrics: 19 },
   home: { colours: 7, metrics: 7 },
@@ -389,8 +393,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Appearance one, and the merged tree is 694/1665. Rescanned, as it has to
     // be every time — subtracting from either diff would have been wrong by
     // five here and by more on the merge before this.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(694);
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1665);
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(691);
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1659);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

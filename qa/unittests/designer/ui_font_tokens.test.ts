@@ -223,7 +223,9 @@ const BASELINE: Record<string, number> = {
   'editors/gerbview': 0,
   // 124 until the Appearance panel took the tab strip's inline `fontSize: 12`
   // out: those tabs are the shared .ze-nb-tabs wxNotebook and state nothing.
-  'editors/pcb': 123,
+  // 123 until the toolbars pass: the hand-rolled TOP_AUX div's `fontSize: 12`
+  // went with the div, and a real Toolbar's controls take the shared skin.
+  'editors/pcb': 122,
   'editors/schematic': 63,
   'editors/symbol': 2,
   home: 5,
@@ -361,7 +363,9 @@ describe('hardcoded font sizes do not grow', () => {
     // the deleted .ze-nets-header input) and one in editors/pcb (the notebook
     // tab strip's inline size). Derived twice and independently: rescanning
     // the merged tree gives 370, and 380 - 10 counted off the diff gives 370.
-    expect(sites.length).toBe(370);
+    // 370 until the toolbars pass took one more in editors/pcb. Rescanned from
+    // the tree; the diff agrees at 370 - 1.
+    expect(sites.length).toBe(369);
   });
 });
 

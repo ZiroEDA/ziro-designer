@@ -1208,6 +1208,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   align-items: center;
   padding: 0 2px;
 }
+/* PCB_LAYER_BOX_SELECTOR's swatch-and-name pair (pcb_layer_box_selector.cpp:57)
+   and the wxCheckBox overrideLocks adds (eda_draw_frame.cpp:240). Both are
+   laid out by `.ze-tb-control`, which is already inline-flex and centred, so
+   neither states anything here.
+
+   The gap between a swatch and its label, and between a checkbox indicator and
+   its label, are both GTK's and neither is measured yet: a 4px and a 6px were
+   written here on the way past and removed again rather than shipped, because
+   an unmeasured chrome number is the drift this stylesheet exists to stop.
+   Sampling them wants a rendered menu edge-on, the same probe the menu and
+   tooltip border widths are waiting on. Until then the slot's own padding
+   spaces them, and the pair below only needs to sit on one line — which is
+   layout, carrying no number at all. */
+.ze-tb-layerbox {
+  display: inline-flex;
+  align-items: center;
+}
 /* A wxStaticText sitting in a toolbar: GerbView's "Cmp: ", "Net:", "Attr:"
    and "DCode:" labels (`gerbview/toolbars_gerber.cpp:180,201,222,247`). It is a
    plain GTK label, so it states no colour, no size and no face of its own -
@@ -3023,10 +3040,15 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 
 /* Native <select> comboboxes default to the OS light theme (white box on
-   Linux/GTK). Give KiCad's dark combobox look to the top aux bar (track / via
-   / layer / grid / zoom) and the Presets / Viewports selects, plus the drop-
-   down list itself. The .ze-select / .ze-cell-select classes handle dialogs. */
-.ze-auxbar select,
+   Linux/GTK). Give KiCad's dark combobox look to every AppendControl combo —
+   .ze-tb-control is the slot Toolbar renders one into, so this covers the pcb
+   aux bar's five and the top bar's variant choice without naming a launcher —
+   and to the Presets / Viewports selects, plus the drop-down list itself. The
+   .ze-select / .ze-cell-select classes handle dialogs.
+
+   It was scoped to `.ze-auxbar`, a class only the pcb editor's hand-rolled aux
+   div carried; when that div became a real toolbar the rule matched nothing. */
+.ze-tb-control select,
 .ze-appearance-bottom select {
   background: var(--chrome-bg2);
   color: var(--chrome-fg);
@@ -3039,16 +3061,16 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
 }
 /* A drop-down is a GTK button, which has no :focus border — only the dashed
    keyboard rectangle. See the note on `.ze-app …:focus` above. */
-.ze-auxbar select:focus,
+.ze-tb-control select:focus,
 .ze-appearance-bottom select:focus {
   outline: none;
 }
-.ze-auxbar select:focus-visible,
+.ze-tb-control select:focus-visible,
 .ze-appearance-bottom select:focus-visible {
   outline: 1px dashed var(--field-focus-border);
   outline-offset: -3px;
 }
-.ze-auxbar select:disabled,
+.ze-tb-control select:disabled,
 .ze-appearance-bottom select:disabled {
   opacity: 0.55;
   cursor: default;
