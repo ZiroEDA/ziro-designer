@@ -19,6 +19,22 @@ const sep: ToolEntry = 'sep';
  */
 const todo = { disabled: true } as const;
 
+/**
+ * The `AppendControl` slots. The frame supplies each widget through
+ * `Toolbar`'s `controls` prop, exactly as KiCad registers a factory per
+ * control with `RegisterCustomToolbarControlFactory`
+ * (`toolbars_pcb_editor.cpp:417,434,453` and `eda_draw_frame.cpp:233,256`).
+ */
+export const PCB_CONTROL = {
+  currentVariant: 'currentVariant',
+  trackWidth: 'trackWidth',
+  viaDiameter: 'viaDiameter',
+  layerSelector: 'layerSelector',
+  gridSelect: 'gridSelect',
+  zoomSelect: 'zoomSelect',
+  overrideLocks: 'overrideLocks',
+} as const;
+
 /** TOP_MAIN toolbar. */
 export const PCB_TOP_TOOLBAR: ToolEntry[] = [
   // doNew/open appear only when Kiface().IsSingle(), standalone pcbnew. This
@@ -62,13 +78,52 @@ export const PCB_TOP_TOOLBAR: ToolEntry[] = [
   { id: 'runDRC', icon: 'runDRC', title: 'Design Rules Checker' },
   sep,
   { id: 'showEeschema', icon: 'showEeschema', title: 'Open schematic in Schematic Editor' },
+  // `AppendControl( PCB_ACTION_TOOLBAR_CONTROLS::currentVariant )`
+  // (`toolbars_pcb_editor.cpp:360`), a wxChoice with no separator before it.
+  // A comment here used to claim the editor rendered this as the toolbar's
+  // trailing control; it passed no such prop and the dropdown was simply absent.
+  { control: PCB_CONTROL.currentVariant },
+  // `AppendControl( ACTION_TOOLBAR_CONTROLS::ipcScripting )` (`:361`) follows,
+  // and renders NOTHING here. Its factory (`:458-484`) emits a separator and
+  // PCB_ACTIONS::showPythonConsole only `if( scriptingAvailable ||
+  // haveApiPlugins )`, where scriptingAvailable is `SCRIPTING::IsWxAvailable()`.
+  // A desktop KiCad built with wxPython shows the console button; a build
+  // without it ends the bar here, and so does a browser port with neither
+  // wxPython nor an IPC plugin manager. This is the branch, not an omission.
 ];
 
-// PCB_ACTION_TOOLBAR_CONTROLS::currentVariant closes TOP_MAIN as a CHOICE
-// control (not a bitmap button) and ACTION_TOOLBAR_CONTROLS::ipcScripting is
-// a region for plugin buttons, empty (invisible) until plugins register,
-// exactly like plugin-less KiCad. The editor renders the variant dropdown as
-// the toolbar's trailing control.
+/**
+ * TOP_AUX toolbar (`toolbars_pcb_editor.cpp:365-386`): five controls, two
+ * actions and five separators. This is a real toolbar upstream — an
+ * `ACTION_TOOLBAR` docked at `.Top().Layer(5)` — not a strip of loose widgets.
+ */
+export const PCB_AUX_TOOLBAR: ToolEntry[] = [
+  { control: PCB_CONTROL.trackWidth },
+  {
+    id: 'autoTrackWidth',
+    icon: 'autoTrackWidth',
+    title:
+      'Automatically select track width\nWhen routing from an existing track use its width instead of the current width setting',
+    toggle: true,
+    ...todo,
+  },
+  sep,
+  { control: PCB_CONTROL.viaDiameter },
+  sep,
+  { control: PCB_CONTROL.layerSelector },
+  {
+    id: 'selectLayerPair',
+    icon: 'selectLayerPair',
+    title: 'Set Layer Pair...\nChange active layer pair for routing',
+    ...todo,
+  },
+  sep,
+  { control: PCB_CONTROL.gridSelect },
+  sep,
+  { control: PCB_CONTROL.zoomSelect },
+  sep,
+  { control: PCB_CONTROL.overrideLocks },
+];
 
 /** LEFT (view options) toolbar. */
 export const PCB_LEFT_TOOLBAR: ToolEntry[] = [
@@ -231,12 +286,6 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     ],
   },
   {
-    id: 'showDiffPhaseSkew',
-    icon: 'showDiffPhaseSkew',
-    title: 'Show relative skew of diff pair tracks',
-    ...todo,
-  },
-  {
     id: 'drawVia',
     icon: 'drawVia',
     title: 'Place Vias (Ctrl+Shift+X)\nPlace free-standing vias',
@@ -245,135 +294,9 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
   { id: 'drawRuleArea', icon: 'drawRuleArea', title: 'Draw Rule Areas (Ctrl+Shift+K)', ...todo },
   sep,
   { id: 'drawLine', icon: 'drawLine', title: 'Draw Lines (Ctrl+Shift+L)' },
-  {
-    group: 'Arc',
-    actions: [
-      { id: 'drawArc', icon: 'drawArc', title: 'Draw Arcs (Ctrl+Shift+A)' },
-      {
-        id: 'drawEllipseArc',
-        icon: 'drawEllipseArc',
-        title: 'Draw Elliptical Arcs\nDraw an elliptical arc',
-        ...todo,
-      },
-    ],
-  },
+  { id: 'drawArc', icon: 'drawArc', title: 'Draw Arcs (Ctrl+Shift+A)' },
   { id: 'drawRectangle', icon: 'drawRectangle', title: 'Draw Rectangles' },
-  {
-    group: 'Circle',
-    actions: [
-      { id: 'drawCircle', icon: 'drawCircle', title: 'Draw Circles (Ctrl+Shift+C)' },
-      { id: 'drawEllipse', icon: 'drawEllipse', title: 'Draw Ellipse\nDraw an ellipse', ...todo },
-    ],
-  },
-  {
-    group: 'Constraints',
-    actions: [
-      {
-        id: 'addConstraintCoincident',
-        icon: 'addConstraintCoincident',
-        title: 'Coincident...\nClick two shape endpoints to make them coincide',
-        ...todo,
-      },
-      {
-        id: 'addConstraintPointOnLine',
-        icon: 'addConstraintPointOnLine',
-        title:
-          'Point on Line...\nClick an endpoint, then a segment or circle, to put the point on it',
-        ...todo,
-      },
-      {
-        id: 'addConstraintMidpoint',
-        icon: 'addConstraintMidpoint',
-        title: 'Midpoint...\nClick an endpoint, then a segment, to put the point at its midpoint',
-        ...todo,
-      },
-      {
-        id: 'addConstraintSymmetric',
-        icon: 'addConstraintSymmetric',
-        title: 'Symmetric...\nClick two endpoints, then a segment axis, to mirror them across it',
-        ...todo,
-      },
-      {
-        id: 'addConstraintParallel',
-        icon: 'addConstraintParallel',
-        title: 'Parallel\nConstrain the two selected segments to be parallel',
-        ...todo,
-      },
-      {
-        id: 'addConstraintPerpendicular',
-        icon: 'addConstraintPerpendicular',
-        title: 'Perpendicular\nConstrain the two selected segments to be perpendicular',
-        ...todo,
-      },
-      {
-        id: 'addConstraintCollinear',
-        icon: 'addConstraintCollinear',
-        title: 'Collinear\nConstrain the two selected segments to be collinear',
-        ...todo,
-      },
-      {
-        id: 'addConstraintHorizontal',
-        icon: 'addConstraintHorizontal',
-        title: 'Horizontal\nConstrain the selected segment to be horizontal',
-        ...todo,
-      },
-      {
-        id: 'addConstraintVertical',
-        icon: 'addConstraintVertical',
-        title: 'Vertical\nConstrain the selected segment to be vertical',
-        ...todo,
-      },
-      {
-        id: 'addConstraintTangent',
-        icon: 'addConstraintTangent',
-        title:
-          'Tangent\nConstrain the selected line and curve, or two curves, to touch tangentially',
-        ...todo,
-      },
-      {
-        id: 'addConstraintEqualLength',
-        icon: 'addConstraintEqualLength',
-        title: 'Equal Length\nConstrain the two selected segments to be of equal length',
-        ...todo,
-      },
-      {
-        id: 'addConstraintEqualRadius',
-        icon: 'addConstraintEqualRadius',
-        title: 'Equal Radius\nConstrain the two selected circles or arcs to be of equal radius',
-        ...todo,
-      },
-      {
-        id: 'addConstraintConcentric',
-        icon: 'addConstraintConcentric',
-        title: 'Concentric\nConstrain the two selected circles, arcs or ellipses to share a center',
-        ...todo,
-      },
-      {
-        id: 'addConstraintFixedLength',
-        icon: 'addConstraintFixedLength',
-        title: 'Fixed Length\nLock the selected segment to its current length',
-        ...todo,
-      },
-      {
-        id: 'addConstraintFixedRadius',
-        icon: 'addConstraintFixedRadius',
-        title: 'Fixed Radius\nLock the selected circle or arc to its current radius',
-        ...todo,
-      },
-      {
-        id: 'addConstraintArcAngle',
-        icon: 'addConstraintArcAngle',
-        title: "Arc Angle\nDrive the selected arc's swept angle",
-        ...todo,
-      },
-      {
-        id: 'addConstraintAngular',
-        icon: 'addConstraintAngular',
-        title: 'Angular Dimension\nConstrain the angle between the two selected segments',
-        ...todo,
-      },
-    ],
-  },
+  { id: 'drawCircle', icon: 'drawCircle', title: 'Draw Circles (Ctrl+Shift+C)' },
   { id: 'drawPolygon', icon: 'drawPolygon', title: 'Draw Polygons (Ctrl+Shift+P)' },
   { id: 'drawBezier', icon: 'drawBezier', title: 'Draw Bezier Curve (Ctrl+Shift+B)', ...todo },
   {
@@ -382,13 +305,8 @@ export const PCB_RIGHT_TOOLBAR: ToolEntry[] = [
     title:
       'Place Reference Images\nAdd bitmap images to be used as reference (images will not be included in any output)',
   },
-  {
-    group: 'Text objects',
-    actions: [
-      { id: 'placeText', icon: 'placeText', title: 'Draw Text (Ctrl+Shift+T)' },
-      { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
-    ],
-  },
+  { id: 'placeText', icon: 'placeText', title: 'Draw Text (Ctrl+Shift+T)' },
+  { id: 'drawTextBox', icon: 'drawTextBox', title: 'Draw Text Boxes' },
   { id: 'drawTable', icon: 'drawTable', title: 'Draw Tables' },
   {
     group: 'Dimension objects',
