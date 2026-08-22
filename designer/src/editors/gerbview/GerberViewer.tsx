@@ -108,7 +108,7 @@ import {
   zoomMsg,
 } from '../../ui/status_format.js';
 import {
-  defaultLayerColor,
+  layerColorAt,
   GERBER_BG_COLOR,
   GERBER_DCODE_COLOR,
   GERBER_DRAWINGSHEET_COLOR,
@@ -128,10 +128,21 @@ import { useCommonSettings } from '../../prefs/useSettings.js';
 import './gerbview.css';
 import '../../ui/shell.css';
 
+/**
+ * One loaded image and the row it occupies.
+ *
+ * There is deliberately no `color` here. Upstream a drawing layer's colour is
+ * a property of the ROW, not of the file in it: the layers manager reads
+ * `m_frame->GetLayerColor( GERBER_DRAW_LAYER( layer ) )` where `layer` is the
+ * row index (`gerbview/widgets/gerbview_layer_widget.cpp:307`), and an override
+ * is written back the same way, `SetLayerColor( GERBER_DRAW_LAYER( aLayer ),
+ * aColor )` (`:343`). So row 0 is always the first palette entry, whatever file
+ * is sitting in it, and sorting the layers repaints them rather than carrying
+ * the colours along.
+ */
 interface Layer {
   id: number;
   image: GERBER_FILE_IMAGE;
-  color: string;
   visible: boolean;
   name: string;
   function?: string;
@@ -332,7 +343,6 @@ export function GerberViewer({
       const next: Layer = {
         id,
         image,
-        color: defaultLayerColor(at),
         visible: true,
         name: '',
         ...(image.fileFunction ? { function: image.fileFunction } : {}),
@@ -564,8 +574,20 @@ export function GerberViewer({
   }, [openRequest, loadTextFile, applyJobFile]);
 
   // ---- layer management --------------------------------------------------
+  /**
+   * `COLOR_SETTINGS`' gerbview rows, which are keyed by layer id and not by
+   * image. Empty means "no override": the row shows its palette default,
+   * `s_defaultTheme[GERBVIEW_LAYER_ID_START + row]`.
+   */
+  const [layerColors, setLayerColors] = useState<Record<number, string>>({});
+  const colorAt = useCallback(
+    (row: number): string => layerColorAt(row, layerColors),
+    [layerColors],
+  );
+
   const clearAll = useCallback(() => {
     setLayers([]);
+    setLayerColors({});
     setActiveLayer(0);
     setPicked(null);
     setHighlight({ mode: 'none', value: '' });
@@ -575,8 +597,11 @@ export function GerberViewer({
   const toggleVisible = useCallback((index: number) => {
     setLayers((prev) => prev.map((l, i) => (i === index ? { ...l, visible: !l.visible } : l)));
   }, []);
+  // `SetLayerColor( GERBER_DRAW_LAYER( aLayer ), aColor )`
+  // (`gerbview_layer_widget.cpp:343`) - by ROW, so it stays on the row when the
+  // layers are re-sorted, exactly as upstream's does.
   const setColor = useCallback((index: number, color: string) => {
-    setLayers((prev) => prev.map((l, i) => (i === index ? { ...l, color } : l)));
+    setLayerColors((prev) => ({ ...prev, [index]: color }));
   }, []);
   const showAll = useCallback(
     () => setLayers((prev) => prev.map((l) => ({ ...l, visible: true }))),
@@ -682,11 +707,14 @@ export function GerberViewer({
 
   // Draw order: active layer last (drawn on top), like GerbView.
   const renderLayers = useMemo<GerberLayerView[]>(() => {
-    const others = layers.filter((_, i) => i !== activeLayer);
-    const act = layers[activeLayer];
-    const ordered = act ? [...others, act] : others;
-    return ordered.map((l) => ({ image: l.image, color: l.color, visible: l.visible }));
-  }, [layers, activeLayer]);
+    const rows = layers.map((_, i) => i);
+    const others = rows.filter((i) => i !== activeLayer);
+    const ordered = layers[activeLayer] ? [...others, activeLayer] : others;
+    return ordered.map((i) => {
+      const l = layers[i] as Layer;
+      return { image: l.image, color: colorAt(i), visible: l.visible };
+    });
+  }, [layers, activeLayer, colorAt]);
 
   const bbox = useMemo(() => {
     let minX = Infinity,
@@ -1009,7 +1037,7 @@ export function GerberViewer({
     // (`gerbview_layer_widget.cpp:308`) - which is why a long file name widens
     // the pane without limit.
     name: gerbviewLayerDisplayName(l.image, l.image.fileName, i, { fullName: true }),
-    color: l.color,
+    color: colorAt(i),
     visible: l.visible,
     hasContent: l.image.items.length > 0,
     ...(l.function ? { function: l.function } : {}),
@@ -1185,7 +1213,7 @@ export function GerberViewer({
         options={layers.map((l, i) => ({
           value: String(i),
           label: gerbviewLayerDisplayName(l.image, l.image.fileName, i),
-          swatch: l.color,
+          swatch: colorAt(i),
         }))}
         onChange={(v) => setActiveLayer(Number(v))}
       />

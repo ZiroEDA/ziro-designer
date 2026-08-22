@@ -77,6 +77,33 @@ export function defaultLayerColor(i: number): string {
   return GERBER_LAYER_COLORS[i % GERBER_LAYER_COLORS.length] as string;
 }
 
+/**
+ * The colour of drawing-layer ROW `row`, given the user's overrides.
+ *
+ * `GERBER_LAYER_WIDGET::ReFill` asks
+ * `m_frame->GetLayerColor( GERBER_DRAW_LAYER( layer ) )`
+ * (`gerbview/widgets/gerbview_layer_widget.cpp:307`) where `layer` is the row,
+ * and `OnLayerColorChange` writes an override back the same way,
+ * `SetLayerColor( GERBER_DRAW_LAYER( aLayer ), aColor )` (`:343`) — its own
+ * comment notes the colours are "stored according to the GERBER_DRAW_LAYER()
+ * offset" (`:342`).
+ *
+ * So a colour belongs to the row and not to the file sitting in it. Sorting the
+ * layers therefore REPAINTS them — row 0 keeps the first palette entry and gets
+ * whichever image sorted to the top — it does not carry the colours along.
+ *
+ * Ours used to freeze `defaultLayerColor(loadSlot)` onto the image when it was
+ * read, so the colours travelled with the files through a sort. That was
+ * invisible for as long as the sort was being skipped, because load order and
+ * row order were then the same list.
+ */
+export function layerColorAt(
+  row: number,
+  overrides: Readonly<Record<number, string>> = {},
+): string {
+  return overrides[row] ?? defaultLayerColor(row);
+}
+
 /* ---------------------------------------------------------------------------
    The seven gerbview-specific layers, `color_settings.cpp:103-109`.
    Each value is its `s_defaultTheme` row.
