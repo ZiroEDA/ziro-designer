@@ -78,8 +78,11 @@ describe('MessageTextFromValue (common/eda_units.cpp:417)', () => {
   });
 
   it('falls back to scientific notation when a non-zero value prints as zeros', () => {
-    // eda_units.cpp:475-493.
-    expect(messageTextFromValue(1e-9, 'mm', PCB_IU_PER_MM)).toBe('1.000e-9');
+    // eda_units.cpp:475-493 - wxString::Format( "%.3e", value ), which is C's
+    // conversion: the exponent always carries a sign and at least two digits,
+    // so 1e-9 is "1.000e-09". JS's toExponential writes "1.000e-9" and that is
+    // what we printed until the formatter moved into common/.
+    expect(messageTextFromValue(1e-9, 'mm', PCB_IU_PER_MM)).toBe('1.000e-09');
     expect(messageTextFromValue(0, 'mm', PCB_IU_PER_MM)).toBe('0.0000');
   });
 });
