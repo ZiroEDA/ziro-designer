@@ -7982,17 +7982,27 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   /* proportion 2 in bSizerDate, but never below what the date itself needs:
      "08/22/2026" was being clipped to "08/22/202" because the flex basis let
      the entry shrink under the button. */
-  /* proportion 2 in bSizerDate. Basis 0 so the proportion governs: an `auto`
-     basis takes the native date input's intrinsic width, which is far wider
-     than the 130px [px] the entry-plus-button measures on a live pl_editor. */
+  /* proportion 2 in bSizerDate, and never narrower than the control needs.
+     `fit-content` is the entry's own intrinsic width plus the 24px button, so
+     the proportion decides how much EXTRA it gets and nothing can squeeze the
+     date out. A fixed floor here was a guess, and the wrong one twice. */
+  /* Basis 0, so the 3:2 that bSizerDate declares is what divides the row.
+     With an `auto` basis this control claimed its whole intrinsic width up
+     front and only then shared the remainder, which inverted the pair — the
+     picker came out wider than the entry that is meant to be half again its
+     size. `fit-content` stays as the FLOOR so nothing can clip the year. */
   flex: 2 1 0;
-  min-width: 104px;
+  min-width: fit-content;
   display: flex;
   align-items: stretch;
 }
 .ze-pgs-datepick > input {
-  flex: 1;
-  min-width: 0;
+  /* NO `min-width: 0`. A flex item's min-width defaults to `auto`, meaning
+     "do not shrink below your own content" — overriding it to 0 is exactly
+     what let Chrome clip "08/22/2026" to "08/22/202" behind the button. The
+     native date field renders its own text and cannot ellipsise or scroll it,
+     so the intrinsic minimum is the only thing keeping the year visible. */
+  flex: 1 1 auto;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   border-right: 0;
