@@ -67,7 +67,7 @@ const rule = (selector: string): Record<string, string> => {
 };
 
 describe('the two font metrics EDA_MSG_PANEL lays out in', () => {
-  it("one 'W' is 14px, GetTextExtent( \"W\" ).x in Ubuntu Sans 11", () => {
+  it('one W is 14px, the GetTextExtent( "W" ).x of Ubuntu Sans 11', () => {
     expect(token('--msgpanel-gutter')).toBe('14px');
   });
 
